@@ -46,7 +46,8 @@ export const rowIdOf = (label: string): string | null => {
 export const rowName = (id: string): string => id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' ');
 
 /** Where a Present is, as the presenter sees it. */
-export type PresentPlace = { idx: number; page: number; lens: string; hash?: string };
+/** `step`: the shown slide's step of a walk; absent at rest. */
+export type PresentPlace = { idx: number; page: number; lens: string; hash?: string; step?: number };
 /** What a screen reports, by key. */
 export type LocalValues = {
 	inspector: string;

@@ -14,12 +14,12 @@
 // So tapping "PDF", "PowerPoint" or "LibreOffice" lands here first — pick what rides along,
 // then Download.
 
-import { ArrowLeft, Download, FileArchive, Loader2, MessageSquare, MicOff, Type } from 'lucide-react';
+import { ArrowLeft, Download, FileArchive, Layers, Loader2, MessageSquare, MicOff, Type } from 'lucide-react';
 import * as React from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { type CommentScope, commentCount, type ExportOptions, loadEmbedSource, saveEmbedSource } from './export-options';
+import { type CommentScope, commentCount, deckSteps, type ExportOptions, loadEmbedSource, saveEmbedSource } from './export-options';
 import { FontsControl } from './FontsControl';
 import { OffFencesNotice } from './OffFencesNotice';
 import { PicturesControl, ResolutionControl } from './PicturesControl';
@@ -62,6 +62,9 @@ export function ExportOptionsPanel({
 	// the file has a notes pane to put them in: LibreOffice always, PowerPoint with editable text
 	// (the picture-per-slide PowerPoint writes no notes).
 	const [stripNotesOn, setStripNotes] = React.useState(false);
+	// Off by default: a file you send reads one slide a page. Offered only on a deck that steps.
+	const [stepsOn, setSteps] = React.useState(false);
+	const hasSteps = React.useMemo(() => deckSteps(source), [source]);
 	const isPdf = format === 'pdf';
 	const isOffice = format === 'pptx' || format === 'odp';
 	const label = isPdf ? 'PDF' : format === 'pptx' ? 'PowerPoint' : 'LibreOffice';
@@ -167,6 +170,26 @@ export function ExportOptionsPanel({
 					</div>
 				)}
 
+				{/* One page per step — the CLI's `--steps`. */}
+				{hasSteps && (
+					<div className="rounded-xl border border-border bg-background p-3.5">
+						<div className="flex items-start justify-between gap-3">
+							<span className="flex items-start gap-2">
+								<Layers className="mt-0.5 size-4 shrink-0 text-[var(--accent)]" />
+								<span>
+									<span className="block text-[13px] font-semibold text-[var(--text-heading)]">One page per step</span>
+									<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
+										{stepsOn
+											? 'Each build or focus slide becomes one page per step, and every page keeps its slide’s number.'
+											: 'Build and focus slides export once each, with everything shown. Turn on to give each step its own page.'}
+									</span>
+								</span>
+							</span>
+							<Switch className="mt-0.5" aria-label="One page per step" checked={stepsOn} disabled={busy} onCheckedChange={setSteps} />
+						</div>
+					</div>
+				)}
+
 				<ResolutionControl key={deckId} deckId={deckId} source={source} busy={busy} format={format} />
 				<PicturesControl key={deckId} deckId={deckId} source={source} busy={busy} applies={isPdf ? 'the PDF writes' : `${label} slides use`} />
 				<FontsControl key={`fonts-${deckId}`} deckId={deckId} source={source} busy={busy} format={isPdf ? 'pdf' : 'office'} />
@@ -199,7 +222,7 @@ export function ExportOptionsPanel({
 				onClick={() => {
 					const reopenable = format !== 'odp' && embedSource && !stripNotes;
 					if (format !== 'odp') saveEmbedSource(deckId, embedSource);
-					onExport({ commentsInPdf: isPdf && commentsInPdf && total > 0, commentScope, embedSource: reopenable, editable: isOffice && editable, stripNotes });
+					onExport({ commentsInPdf: isPdf && commentsInPdf && total > 0, commentScope, embedSource: reopenable, editable: isOffice && editable, stripNotes, steps: hasSteps && stepsOn });
 				}}
 				className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-[13.5px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90 disabled:opacity-60"
 			>

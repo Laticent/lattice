@@ -67,25 +67,25 @@ describe('build — HTML kernel', () => {
     assert.match(openTag, /data-build-resolved/);
     assert.match(openTag, /data-build-axis="item"/);
     assert.match(openTag, /data-build-steps="3"/);
-    assert.match(out, /<li data-build-step="1">a<\/li><li data-build-step="2">b<\/li><li data-build-step="3">c<\/li>/);
+    assert.match(out, /<li data-build-step="1" data-step="1">a<\/li><li data-build-step="2" data-step="2">b<\/li><li data-build-step="3" data-step="3">c<\/li>/);
   });
   test('item grouping 1, 2-3 → two steps', () => {
     const inner = '<ul><li>a</li><li>b</li><li>c</li></ul>';
     const { openTag, inner: out } = build.resolveSectionHtml('<section data-build="1, 2-3">', inner);
     assert.match(openTag, /data-build-steps="2"/);
-    assert.match(out, /<li data-build-step="1">a<\/li><li data-build-step="2">b<\/li><li data-build-step="2">c<\/li>/);
+    assert.match(out, /<li data-build-step="1" data-step="1">a<\/li><li data-build-step="2" data-step="2">b<\/li><li data-build-step="2" data-step="2">c<\/li>/);
   });
   test('row axis stamps tbody rows', () => {
     const inner = '<table><tbody><tr><td>1</td></tr><tr><td>2</td></tr></tbody></table>';
     const { openTag, inner: out } = build.resolveSectionHtml('<section data-build="rows">', inner);
     assert.match(openTag, /data-build-steps="2".*data-build-axis="row"|data-build-axis="row".*data-build-steps="2"/);
-    assert.match(out, /<tr data-build-step="1"><td>1<\/td><\/tr><tr data-build-step="2"><td>2<\/td><\/tr>/);
+    assert.match(out, /<tr data-build-step="1" data-step="1"><td>1<\/td><\/tr><tr data-build-step="2" data-step="2"><td>2<\/td><\/tr>/);
   });
   test('line axis wraps code lines', () => {
     const inner = '<pre><code>one\ntwo</code></pre>';
     const { openTag, inner: out } = build.resolveSectionHtml('<section data-build="lines">', inner);
     assert.match(openTag, /data-build-steps="2"/);
-    assert.match(out, /<span class="ln" data-build-step="1">one<\/span>\n<span class="ln" data-build-step="2">two<\/span>/);
+    assert.match(out, /<span class="ln" data-build-step="1" data-step="1">one<\/span>\n<span class="ln" data-build-step="2" data-step="2">two<\/span>/);
   });
   test('none → no tagging (resolved marker only)', () => {
     const inner = '<ul><li>a</li></ul>';
@@ -107,7 +107,7 @@ describe('build — HTML kernel', () => {
       '<section class="content" data-build=""><ul><li>y</li></ul></section>';
     const out = build.applyToHtml(html);
     assert.match(out, /<section class="content"><ul><li>x<\/li><\/ul><\/section>/);
-    assert.match(out, /data-build-step="1">y/);
+    assert.match(out, /data-build-step="1" data-step="1">y/);
   });
 });
 

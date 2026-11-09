@@ -306,13 +306,13 @@ describe('stage-window — createStageController', () => {
 
 		// The Stage announces itself → the current index goes over, and the console adopts it.
 		postFromStage({ stage: 'ready' }, win);
-		expect(win.postMessage).toHaveBeenCalledWith({ pv: 2 }, location.origin);
+		expect(win.postMessage).toHaveBeenCalledWith({ pv: 2, st: null }, location.origin);
 		expect(onChange).toHaveBeenLastCalledWith(win);
 
 		// Navigation relays one way only: console → Stage.
 		win.postMessage.mockClear();
 		ctl.show(3);
-		expect(win.postMessage).toHaveBeenCalledWith({ pv: 3 }, location.origin);
+		expect(win.postMessage).toHaveBeenCalledWith({ pv: 3, st: null }, location.origin);
 
 		// A message from a FOREIGN source is ignored (the handle check is the trust).
 		onChange.mockClear();
@@ -380,7 +380,7 @@ describe('stage-window — createStageController', () => {
 		expect(win.postMessage).not.toHaveBeenCalled();
 		postFromStage({ stage: 'ready' }, win);
 		expect(onChange).toHaveBeenLastCalledWith(win);
-		expect(win.postMessage).toHaveBeenCalledWith({ pv: 0 }, location.origin);
+		expect(win.postMessage).toHaveBeenCalledWith({ pv: 0, st: null }, location.origin);
 	});
 
 	it('a rewrite that THROWS lets go for real, so the console does not hold a presenter view up', () => {

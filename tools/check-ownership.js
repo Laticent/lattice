@@ -11984,10 +11984,12 @@ function checkSyntaxContrast(errors, themesDir = THEMES_DIR) {
  * `--code-bg` by `--code-recede` (lib/plugins/code/code.styles.css). The spotlight's opacity used to
  * do this and left a receded comment at 1.23:1, which reads as blank. This holds the mix at
  * CODE_RECEDE_FLOOR on every palette's panel, in both modes, reading the percentage from the
- * stylesheet itself so the two cannot drift. 3:1 is the floor for context, not reading text: the
- * focused lines keep the 4.5:1 checkSyntaxContrast holds.
+ * stylesheet itself so the two cannot drift. The floor is the AA text floor (CAT_TEXT_FLOOR, 4.5:1) since
+ * 2026-11-10, at the owner's request that a slide with a focused line pass AA: a receded line is still text a
+ * reader may read. It was 3:1 while color was the only focus cue; the focused line now carries an outline in
+ * this same mix, so the dimmed lines can be fully readable and the outline clears 4.5:1 too.
  */
-const CODE_RECEDE_FLOOR = 3;
+const CODE_RECEDE_FLOOR = CAT_TEXT_FLOOR;
 function checkCodeRecede(errors, themesDir = THEMES_DIR, cssFile = path.join(ROOT, 'lib', 'plugins', 'code', 'code.styles.css')) {
   const css = fs.readFileSync(cssFile, 'utf8');
   const m = /--code-recede:\s*(\d+(?:\.\d+)?)%/.exec(css);

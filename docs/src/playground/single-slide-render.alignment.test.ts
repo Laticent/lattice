@@ -52,10 +52,10 @@ describe('deck-context alignment (real engine, real splitter)', () => {
 			const sections = sectionCount(engine.render(doc, 'lattice').html);
 			if (sections !== slides.length) mismatched[f] = [slides.length, sections];
 		}
-		// `_focusSteps` clones one authored slide into a section per step; `split: headings`
-		// divides one chunk at every heading. Both are engine features, not bugs — which is
-		// why the preview must not assume 1:1.
-		expect(mismatched['focus.md']).toEqual([11, 14]);
+		// `split: headings` divides one chunk at every heading: an engine feature, not a bug, which
+		// is why the preview must not assume 1:1. (`_focusSteps` used to clone a slide per step and
+		// sat on this list; it is one slide since 2026-11-09, so focus.md is aligned now.)
+		expect(mismatched['focus.md']).toBeUndefined();
 		expect(mismatched['split-headings.md']).toEqual([1, 7]);
 	});
 
@@ -70,20 +70,19 @@ describe('deck-context alignment (real engine, real splitter)', () => {
 		expect(ordinals).toEqual(['1', '2', '3']);
 	});
 
-	it('a `_focusSteps` deck offsets EVERY index from the expansion onward', () => {
-		// The concrete harm, reduced to a fixture: authored slide 2 becomes 2 sections, so
-		// authored slide 3 ("Omega") lives at section index 3, not 2. An index-based lookup
-		// would show the wrong slide, and the LAST authored slide would be unreachable.
+	it('a `_focusSteps` deck no longer offsets any index: one slide stays one section', () => {
+		// The harm this used to pin: authored slide 2 became 2 sections, so authored slide 3
+		// ("Omega") lived at section index 3, not 2. Since the walk is a behavior on ONE slide
+		// (engineering/decisions/2026-11-09-steps-as-a-behavior.md), index k is section k again.
 		const src = '---\npaginate: true\n---\n\n## Alpha\n\nx\n\n---\n\n<!-- _focusSteps: a | b -->\n\n## Steps\n\n- a\n- b\n\n---\n\n## Omega\n\nEnd.\n';
 		const { slides, doc } = deckDoc(src);
 		const html = engine.render(doc, 'lattice').html;
 		expect(slides.length).toBe(3);
-		expect(sectionCount(html)).toBeGreaterThan(3);
-		// Authored index 2 is "Omega", but section index 2 is not.
+		expect(sectionCount(html)).toBe(3);
 		const sections = html.split('</section>');
 		const headingAt = (i: number) => sections[i]?.match(/<h2[^>]*>([^<]*)</)?.[1] ?? '';
 		expect(slides[2]).toContain('Omega');
-		expect(headingAt(2)).not.toBe('Omega');
+		expect(headingAt(2)).toBe('Omega');
 	});
 
 	it('separator forms the two splitters USED to disagree about now break 1:1', () => {

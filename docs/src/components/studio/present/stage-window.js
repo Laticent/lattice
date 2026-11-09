@@ -38,11 +38,13 @@ import {
 	keyAction,
 	PRESENT_KEYMAP,
 	padInset,
+	stepEnter,
 	swipeAction,
 } from '../../../../../lib/core/present-transport.mjs';
 import { fontGateAgent, onFontsReady } from '../../../../../lib/core/preview-font-gate.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
+import { applyStepAt, stepsOfSection } from '../../../../../lib/core/step-state.mjs';
 import { drawnLibraryPreload } from '../../../../../lib/plugins/drawn-library.mjs';
 import { markupHasDrawnFence } from '../../../../../lib/plugins/drawn-probe.mjs';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
@@ -125,6 +127,11 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		`var createWheelGate=${createWheelGate.toString()}`,
 		`var createZoomGesture=${createZoomGesture.toString()}`,
 		`var PRESENT_KEYMAP=${JSON.stringify(PRESENT_KEYMAP)}`,
+		// The step painter (lib/core/step-state.mjs), so the Stage shows the console's step of a
+		// `_build` / `_focusSteps` slide, painted exactly as the console and the exported player paint it.
+		`var applyStepAt=${applyStepAt.toString()}`,
+		`var stepsOfSection=${stepsOfSection.toString()}`,
+		`var stepEnter=${stepEnter.toString()}`,
 	].join(';\n');
 	const padF = Number(pad.factor);
 	const padFl = Number(pad.floor || 0);
@@ -179,8 +186,11 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// stage's rounded-corner cards. The engine writes no section styles, so this never fights it.
 		'for(var k=0;k<s.length;k++){s[k].style.visibility=k===i?"":"hidden"}' +
 		'film.style.transform="scale("+sc+") translateY("+(-top)+"px)";}' +
-		'function show(n){cur=n|0;fit()}' +
-		'window.addEventListener("message",function(e){if(e.data&&e.data.pv!=null)show(e.data.pv)});' +
+		// `st` is the shown slide's step (null at rest); every other slide rests.
+		// `st` is the shown slide's step (null at rest), or the direction it was entered by ('next' / 'prev'), which
+		// resolves here against the slide's own walk; every other slide rests.
+		'function show(n,st){cur=n|0;var s=secs();for(var k=0;k<s.length;k++){var at=null;if(k===cur&&st!=null){if(st==="next"||st==="prev"||st==="jump"){var w=stepsOfSection(s[k]);at=w?stepEnter(w.kind,w.count,st):null}else at=typeof st==="number"?st:null}applyStepAt(s[k],at)}fit()}' +
+		'window.addEventListener("message",function(e){if(e.data&&e.data.pv!=null)show(e.data.pv,e.data.st==null?null:e.data.st)});' +
 		'window.addEventListener("resize",fit);window.addEventListener("orientationchange",fit);' +
 		'if(window.visualViewport){try{window.visualViewport.addEventListener("resize",fit)}catch(e){}}' +
 		// Re-fit when the stage resizes, and when the film's subtree repaints (the engine may
@@ -602,7 +612,7 @@ function stageToken() {
  * gesture (popup-blocker-safe). The manager owns its own `message` listener
  * lifecycle and trusts only its held handle (`e.source`).
  */
-export function createStageController({ getDoc, getIndex, onChange, onLost, onPlaced, onNav = /** @type {((action: string) => void) | null} */ (null) }) {
+export function createStageController({ getDoc, getIndex, getStep = /** @type {(() => number|null|'next'|'prev'|'jump') | null} */ (null), onChange, onLost, onPlaced, onNav = /** @type {((action: string) => void) | null} */ (null) }) {
 	let stageWin = null;
 	/** Has THIS document announced itself? Reset on every (re)write, because a
 	 *  rewrite replaces the listener that answered last time. */
@@ -758,8 +768,11 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 			onChange?.(null);
 		}
 	}
-	/** Post the current slide index. No-op until the Stage's fit says it is listening. */
-	function show(index) {
+	/**
+	 * Post the current slide index, and its step on a stepping slide. No-op until the Stage's fit says it is listening.
+	 * @param {number} index @param {number|null|'next'|'prev'|'jump'} [step]
+	 */
+	function show(index, step = null) {
 		if (!alive() || !ready) return;
 		try {
 			// TARGETED, never `'*'`. A wildcard kept posting the presenter's live slide
@@ -767,7 +780,7 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 			// foreign origin a running read of where in the deck the talk was. Measured:
 			// a targeted post still delivers to our own written document.
 			// `?? 0` not `|| 0` — slide index 0 is a legitimate value, not "missing".
-			stageWin.postMessage({ pv: index ?? 0 }, location.origin);
+			stageWin.postMessage({ pv: index ?? 0, st: step ?? null }, location.origin);
 		} catch {
 			/* gone */
 		}
@@ -802,7 +815,7 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 		if (d.stage === 'ready') {
 			if (!ours) return; // a `ready` is only meaningful from the handle we hold
 			ready = true;
-			show(getIndex?.() ?? 0);
+			show(getIndex?.() ?? 0, getStep?.() ?? null);
 			onChange?.(stageWin);
 		} else if (d.stage === 'nav') {
 			// THE STAGE DRIVES. A gesture made on the projected window arrives here as an

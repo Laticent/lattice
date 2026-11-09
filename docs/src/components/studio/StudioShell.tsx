@@ -5266,7 +5266,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// by string value, so a stable identity also keeps the render deps honest.
 	const editorSample = React.useMemo(() => previewFm + viewSlides.join(SLIDE_SEP), [previewFm, viewSlides]);
 	// The alignment fallback (DeckPreview's `slideMarkdown`): the shown slide ALONE. Used when the
-	// engine's section count disagrees with `viewSlides.length` — a `_focusSteps` / `split: headings`
+	// engine's section count disagrees with `viewSlides.length` — a `split: headings`
 	// deck, where one authored slide becomes several sections and an index cannot name the shown
 	// slide. Then the preview renders this instead: the right slide, honestly numbered 1 of 1.
 	const editorSlideAlone = React.useMemo(() => previewFm + slide, [previewFm, slide]);

@@ -852,7 +852,7 @@ the glossary page silent because Present never shows it and checks the `closing:
 last authored slide. On
 the Q3 fixture all 16 narrated slides now say the same words on both paths (8 of 17 differed
 before, when the Studio stood its projection down for the extra section). What the two still
-cannot share: any OTHER surplus of rendered sections (an autosplit slide, `_focusSteps`) stands
+cannot share: any OTHER surplus of rendered sections (an autosplit slide) stands
 the Studio's projection down to the markdown flatten, while the CLI narrates each rendered page.
 A split `panes` slide is folded back onto its source slide by the Studio (`foldPaneSplits`) and
 narrated page by page by the CLI. `--player-mode light|dark|system` on the player export (and

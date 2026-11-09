@@ -1847,6 +1847,24 @@ describe('LiveController: present together', () => {
 		await until(() => opened.includes('close') && g.view().present === null, h, g);
 	});
 
+	it('the step of a walk rides along: a member sees the presenter\'s reveal, and a step-only move still reaches them', async () => {
+		// engineering/decisions/2026-11-09-steps-as-a-behavior.md: a `_build` / `_focusSteps` slide is one slide walked
+		// live, so the step is part of WHERE the presenter is. Without it a member saw the slide at rest while the host
+		// revealed it item by item.
+		const { h } = await hostSession();
+		const { g } = await member(h, 'Amina');
+		h.actions.presentTransport({ idx: 2, page: 0, lens: 'full', step: 0 });
+		h.actions.presentToEveryone(true);
+		await until(() => g.view().present?.idx === 2 && g.view().present?.step === 0, h, g);
+		// Same slide, same page: only the step moves, and that alone is news.
+		h.actions.presentTransport({ idx: 2, page: 0, lens: 'full', step: 1 });
+		await until(() => g.view().present?.step === 1, h, g);
+		// Back to rest (a slide with no walk): the step is gone, not stale.
+		h.actions.presentTransport({ idx: 3, page: 0, lens: 'full' });
+		await until(() => g.view().present?.idx === 3, h, g);
+		expect(g.view().present?.step).toBeUndefined();
+	});
+
 	it('a member who is typing is asked to join instead of being moved', async () => {
 		const { h } = await hostSession();
 		const { g, opened, asks } = await member(h, 'Amina');

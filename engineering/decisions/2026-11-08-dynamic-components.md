@@ -253,9 +253,9 @@ dropped, its main consumer is gone. It stays a proposal until the docs or the sk
 1. **The agreement test** (one PR): the scratch measurement turned into an integration test over the committed decks and
    the thirteen fixtures, on both render paths, with the proof color's hidden-slide rule as its sanctioned exception, a
    presence rule for every mark, and the count sites the red team added (the split rail, the `data-lattice-slide`
-   stamps). `followups.d/3096-p1-mark-agreement-test.md`.
+   stamps). Built in PR #3101 (`test/integration/invariants/mark-agreement.test.js`).
 2. **`_focusSteps` as a behavior** (a design note, then a PR): one slide, steps walked live, one frame in still formats,
-   page-per-step as an export option; before and after PDFs to the owner. `followups.d/3096-p5-focus-steps-as-a-behavior.md`.
+   page-per-step as an export option; before and after PDFs to the owner. Built in PR #3101 (`2026-11-09-steps-as-a-behavior.md`).
 3. **The glossary on the fill model** (one PR): the empty-slide fill, the last-slide lint, the two-part autofix, the six
    trims and counts retired, and narration, Present, the closing check and the term export moved off the key, each
    verified on its surface. `followups.d/3096-p2-glossary-fill-model.md`.

@@ -179,7 +179,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 
 	it('FAILS CLOSED on a slide-count mismatch — falls back to the shown slide, not a wrong one', async () => {
 		// The critical case. `slideIndex` indexes the CALLER's authored slides; narrowing indexes the
-		// ENGINE's sections. On a `_focusSteps` / `split: headings` deck those differ, and picking by
+		// ENGINE's sections. On a `split: headings` deck those differ, and picking by
 		// index would paint a slide the author did not select. The caller passes the count it believes
 		// plus the shown slide alone; on disagreement we render that slide — right content, 1 of 1.
 		const r = createSingleSlideRenderer(opts);
@@ -266,7 +266,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 	it('REFUSES to narrow without a slide count — the copy that used to allow it was the hole', async () => {
 		// The alignment invariant had two copies: this path's inline checks and `alignmentFailure`
 		// in lib/diagnostics. They diverged within four days — this one let a MISSING `slideCount`
-		// through and narrowed on the index alone, which is exactly the `_focusSteps` /
+		// through and narrowed on the index alone, which is exactly the
 		// `split: headings` case where "slide k" is not section k and the preview paints the WRONG
 		// slide. Every production caller (StudioShell, PresentOverlay, SlideOverview) passes the
 		// count, so the permissive branch protected nothing. One copy now, and it fails closed.
@@ -409,13 +409,23 @@ describe('deck-context gate (needsDeckContext)', () => {
 
 	it('a 1→N EXPANDER keeps the whole-deck render — a supplied index would name the wrong slide', async () => {
 		// The one thing supplying a position genuinely requires: that the caller's slide index
-		// identifies a section. `_focusSteps` clones one authored slide into several, so it does not.
+		// identifies a section. `split: headings` divides one authored slide at every `##`, so it does not.
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();
-		const deck = '<!-- _focusSteps: a | b | c -->\n\nbody\n\n---\n\nmore';
+		const deck = '---\nsplit: headings\n---\n\n## A\n\nbody\n\n## B\n\nmore';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(seen[0]).toBe(deck);
+	});
+
+	it('a `_focusSteps` slide is NOT an expander any more: it keeps the cheap slice path', async () => {
+		// One slide walked live since 2026-11-09 (engineering/decisions/2026-11-09-steps-as-a-behavior.md).
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const seen = recordRenders();
+		const deck = '<!-- _focusSteps: item 1 | item 2 -->\n\n- a\n- b\n\n---\n\nmore';
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen).toEqual(['THE SLICE']);
 	});
 
 	it('`paginate: false` does NOT trigger a deck render', async () => {

@@ -156,6 +156,8 @@ distinct, stable ID.
 | `focus-spec` | warning | — | A malformed `_focus` directive; it silently does nothing at render. |
 | `focus-style` | warning | — | A `_focusStyle` value that is not `spotlight`, `ring`, `list-fill`, `blur` or `highlight`. |
 | `focus-steps` | warning | — | A `_focusSteps` step that is not a valid `_focus` spec (only the first bad step is reported). |
+| `focus-with-steps` | warning | — | A slide carries both a static `_focus` and a `_focusSteps` walk; the walk wins and the `_focus` is ignored. |
+| `one-stepping-directive` | error | — | A slide carries both `_build` and `_focusSteps` (a deck-wide `build:` counts; `_build: none` opts out). A slide takes one stepping directive (engineering/decisions/2026-11-09-steps-as-a-behavior.md §1). |
 | `unknown-map-region` | warning | — | A `map` list item whose lead name the basemap can't resolve. Carries a did-you-mean against the basemap vocabulary. |
 | `map-highlight-implied` | info | — | A `map highlight` slide whose values are labels (or absent), so the data already fills it by category and the class says nothing. |
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |

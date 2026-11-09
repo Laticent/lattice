@@ -30,7 +30,7 @@ import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOve
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
-import { keyAction, PRESENT_KEYMAP } from '../../../../lib/core/present-transport.mjs';
+import { keyAction, PRESENT_KEYMAP, stepMove } from '../../../../lib/core/present-transport.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { type PresentLens, presentationPairs } from '../../lib/deck-lint';
 import { exitFullscreen, fullscreenSupported, isFullscreen, toggleFullscreen, watchFullscreen } from '../../lib/fullscreen';
@@ -141,10 +141,10 @@ function slideHash(text: string): string {
 /** Present together in a live session (engineering/decisions/2026-10-20-live-uniform-experience.md §7.2). */
 export type PresentLive = {
 	/** This browser presents to everyone: where its Present is, as it moves. */
-	onTransport?: (t: { idx: number; page: number; lens: string; hash: string; voice: boolean }) => void;
+	onTransport?: (t: { idx: number; page: number; lens: string; hash: string; voice: boolean; step?: number }) => void;
 	/** Where this Present is, as it moves; null when it closes or this person is following someone else's. Lets a
 	 *  member who follows this person open Present at the same place. */
-	onPlace?: (p: { idx: number; page: number; lens: string; hash: string } | null) => void;
+	onPlace?: (p: { idx: number; page: number; lens: string; hash: string; step?: number } | null) => void;
 	/** This browser presents to everyone with Voice on: how it answers a member's request for one sentence's clip.
 	 *  It serves only what this device already holds. Called with null when it stops. */
 	serveClips?: (serve: ((hash: string) => Promise<{ bytes: Uint8Array; mime: string; lead?: number } | null>) | null) => void;
@@ -154,7 +154,7 @@ export type PresentLive = {
 	presentingToAll?: boolean;
 	onStopPresentingToAll?: () => void;
 	/** This browser follows someone's presentation: where they are. */
-	follow?: { idx: number; page: number; lens: string; by: string; hash?: string } | null;
+	follow?: { idx: number; page: number; lens: string; by: string; hash?: string; step?: number } | null;
 	/** Opened by the room, not by this person: the keyboard does nothing until they click into Present. */
 	inertKeys?: boolean;
 };
@@ -217,6 +217,24 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// writes a page, and it goes through `setIdxRaw`. Keyed to the slide's TEXT as well as its
 	// index, so an edit or a lens that puts another slide at the same index starts it on page 0.
 	const [pageAt, setPageAt] = React.useState({ idx: -1, page: 0, slide: '' });
+	// THE STEP CURSOR (engineering/decisions/2026-11-09-steps-as-a-behavior.md §2): which step of a
+	// stepping slide (`_build`, `_focusSteps`) is shown, keyed to the slide's index AND text like
+	// `pageAt`, so any other move, an edit, or a lens lands the slide at rest. `{ enter }` is a slide
+	// entered by next/prev before its walk is known; DeckPreview resolves it with `stepEnter` and
+	// reports the walk back through `onSteps`, which is what the movers below read.
+	type StepAsk = number | null | { enter: 'next' | 'prev' | 'jump' };
+	const [stepAt, setStepAt] = React.useState<{ idx: number; slide: string; step: StepAsk }>({ idx: -1, slide: '', step: null });
+	// How the NEXT slide is entered, set by the mover and consumed once the move lands (the layout effect below): `next`
+	// from the Next press, `jump` from everything else (the rail, the overview, Home/End, a lens, opening Present). A
+	// jump lands a build at step 0 and a focus walk at rest (stepEnter's `jump`, the owner's D2).
+	// A Present that MOUNTS open (some hosts render it only while open) has no open transition to mark, so it starts
+	// with its jump pending.
+	// 'rest': narrated autoplay moves slide to slide and never walks steps, so it lands every slide at rest, fully shown,
+	// as the exported player's `go(i, true)` does. A build entered by autoplay would otherwise sit hidden while its points
+	// are read aloud.
+	const enterRef = React.useRef<null | 'next' | 'jump' | 'rest'>(open ? 'jump' : null);
+	const lastPlaceRef = React.useRef<{ clamped: number; cur: string }>({ clamped: -1, cur: '' });
+	const [walk, setWalk] = React.useState<{ idx: number; slide: string; kind: string; count: number; at: number | null } | null>(null);
 	// Live: a member following a presentation moves with the presenter until they move on their own;
 	// every mover of this person's own (a key, the rail, the sorter, a lens) detaches them (§7.2).
 	const [detached, setDetached] = React.useState(false);
@@ -229,6 +247,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		(next: React.SetStateAction<number>) => {
 			detach();
 			setPageAt((p) => (p.idx === -1 ? p : { idx: -1, page: 0, slide: '' }));
+			// A jump: the slide it lands on is entered by `jump` (a build starts hidden, D2) unless a mover already said
+			// how (goNext's `next`). The layout effect sets the entry step before paint.
+			queuedNavRef.current = [];
+			if (!enterRef.current) enterRef.current = 'jump';
 			setIdxRaw(next);
 		},
 		[detach],
@@ -252,6 +274,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			setLens(landingLens);
 			// Not `setIdx`: opening is not this person moving, so it must not detach them from a presentation.
 			setPageAt((p) => (p.idx === -1 ? p : { idx: -1, page: 0, slide: '' }));
+			// Opening Present is a jump onto its first slide, even the same slide as last time (D2).
+			enterRef.current = 'jump';
+			lastPlaceRef.current = { clamped: -1, cur: '' };
+			setStepAt((p) => (p.idx === -1 ? p : { idx: -1, slide: '', step: null }));
 			setIdxRaw(landingLens === 'full' ? presentedStart(slides, startIndex) : 0);
 		}
 	}
@@ -370,17 +396,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			alive = false;
 		};
 	}, [open, onTransport, muted]);
-	React.useEffect(() => {
-		if (open && onTransport) onTransport({ idx: clamped, page, lens, hash: slideHash(cur ?? ''), voice: !muted && voiceMakesClips });
-	}, [open, onTransport, clamped, page, lens, cur, muted, voiceMakesClips]);
 	// Live: say where this Present is, for anyone who follows this person. Not while following someone else (the
 	// place is theirs), and cleared when Present closes.
 	const onPlace = live?.onPlace;
 	const followsSomeone = !!live?.follow && !detached;
-	React.useEffect(() => {
-		if (!open || !onPlace) return;
-		onPlace(followsSomeone ? null : { idx: clamped, page, lens, hash: slideHash(cur ?? '') });
-	}, [open, onPlace, followsSomeone, clamped, page, lens, cur]);
 	React.useEffect(() => {
 		if (!open || !onPlace) return;
 		return () => onPlace(null);
@@ -401,11 +420,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// The slide's text is known unless the lens changes with this step: a page step on a split slide
 		// keeps its page instead of painting page 0 for a frame.
 		setPageAt({ idx: to, page: follow.page, slide: lensChanges ? '' : (set[to] ?? '') });
+		// The presenter's step on that slide (a walk), or rest.
+		setStepAt({ idx: to, slide: lensChanges ? '' : (set[to] ?? ''), step: follow.step ?? null });
 	}, [open, follow, detached, followable, lens, set]);
 	// The page needs the slide's text, which the lens above may only now have changed: fill it in.
 	React.useEffect(() => {
 		if (follow && !detached && pageAt.idx === clamped && pageAt.slide === '' && cur) setPageAt((p) => ({ ...p, slide: cur }));
-	}, [follow, detached, pageAt, clamped, cur]);
+		if (follow && !detached && stepAt.idx === clamped && stepAt.slide === '' && cur) setStepAt((p) => ({ ...p, slide: cur }));
+	}, [follow, detached, pageAt, stepAt, clamped, cur]);
 	// Opened by the room: until this person clicks into Present, its keys do nothing, so someone typing in
 	// the editor when it opened does not fire fullscreen (F), the Stage window (S) or a slide change. Focus
 	// leaves the editor too, so their keystrokes stop landing in the deck underneath.
@@ -437,8 +459,62 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// after a split slide that is no longer the presented index.
 	const shownSection = (paneCounts ? paneCounts.slice(0, clamped).reduce((a, b) => a + b, 0) : clamped) + page;
 	// The ends of the deck count pages: a one-slide deck whose slide splits still has a second page.
-	const atStart = clamped === 0 && page === 0;
-	const atEnd = clamped >= count - 1 && page >= pages - 1;
+	// The shown slide's step: what the cursor asked for, and the walk DeckPreview reported for it.
+	const shownStep: StepAsk = stepAt.idx === clamped && stepAt.slide === cur ? stepAt.step : null;
+	// `kind: ''` is a slide measured to have no steps; no entry at all is a slide not measured yet.
+	const curWalk = walk && walk.idx === clamped && walk.slide === cur ? walk : null;
+	// A move made while the shown slide's walk is still being measured (entered by next/prev, render in flight) is
+	// queued and replayed once it is known, or a fast second press would skip a stepping slide's steps.
+	// Only a slide that CAN step waits: one whose source names `_build` / `_focusSteps`, or a deck that builds by default.
+	// Every other slide is known to have no steps before it renders, so an ordinary deck never queues a move.
+	const mayStep = React.useMemo(() => /<!--\s*_?(?:build|focusSteps)\b/.test(cur) || /^build\s*:/m.test(frontMatter), [cur, frontMatter]);
+	const walkPending = mayStep && !curWalk && shownStep !== null && typeof shownStep === 'object';
+	// A slide that can step and has not reported its walk yet, however it was entered. Live holds its move until then.
+	const walkUnknown = mayStep && !curWalk;
+	const queuedNavRef = React.useRef<Array<'next' | 'prev'>>([]);
+	// A slide entered by next: its entry step (S2) is set when the move lands, whatever slide that turns out to be.
+	// Every render: if the shown slide changed, give it the entry step its mover asked for (before it paints); a mark
+	// left from a move that landed on the same slide is dropped, so it can never reach a later, unrelated change.
+	React.useLayoutEffect(() => {
+		const moved = lastPlaceRef.current.clamped !== clamped || lastPlaceRef.current.cur !== cur;
+		lastPlaceRef.current = { clamped, cur };
+		const dir = enterRef.current;
+		enterRef.current = null;
+		// A jump re-enters a slide when a render follows it, even one already shown (a rail pick after an edit); `next`
+		// only enters a slide it actually reached. A jump to the index already shown (Home on slide 1) renders nothing,
+		// so it leaves the step where it was: the red team checked that its stale mark never eats the next press.
+		if (dir === 'rest') {
+			if (moved) setStepAt({ idx: clamped, slide: cur, step: null });
+		} else if (dir && (moved || dir === 'jump')) setStepAt({ idx: clamped, slide: cur, step: { enter: dir } });
+	});
+	const stepNext = curWalk ? stepMove(curWalk.kind, curWalk.count, curWalk.at, 'next') : false;
+	const stepPrev = curWalk ? stepMove(curWalk.kind, curWalk.count, curWalk.at, 'prev') : false;
+	const onSteps = React.useCallback(
+		(r: { slide: number | null; kind: string; count: number; at: number | null } | null) => {
+			// A report about another slide (a render still landing) is not this slide's walk.
+			if (r && r.slide !== null && r.slide !== clamped) return;
+			setWalk(r ? { idx: clamped, slide: cur, kind: r.kind, count: r.count, at: r.at } : { idx: clamped, slide: cur, kind: '', count: 0, at: null });
+			// Pin a resolved entry step, so a re-render of the SAME slide (a theme change, a resize) keeps the step
+			// instead of re-entering it. An edit changes the slide's text, so it lands the slide at rest.
+			if (r) setStepAt((p) => (p.idx === clamped && p.slide === cur && p.step !== null && typeof p.step === 'object' ? { ...p, step: r.at } : p));
+		},
+		[clamped, cur],
+	);
+	// Live (§7.2) carries the step too, so a member following a presenter sees the same reveal or spotlight, not the
+	// slide at rest. Only a measured step is sent, and a slide still being measured is not sent at all until it is
+	// (`walkUnknown`, bounded by the 800 ms fallback below): an absent step means rest, so sending the move first showed
+	// members a build whole before it hid (the red team, 2026-11-10).
+	const liveStep = curWalk && curWalk.at !== null ? curWalk.at : undefined;
+	React.useEffect(() => {
+		if (walkUnknown) return;
+		if (open && onTransport) onTransport({ idx: clamped, page, lens, hash: slideHash(cur ?? ''), voice: !muted && voiceMakesClips, ...(liveStep !== undefined ? { step: liveStep } : {}) });
+	}, [open, onTransport, clamped, page, lens, cur, muted, voiceMakesClips, liveStep, walkUnknown]);
+	React.useEffect(() => {
+		if (!open || !onPlace) return;
+		onPlace(followsSomeone ? null : { idx: clamped, page, lens, hash: slideHash(cur ?? ''), ...(liveStep !== undefined ? { step: liveStep } : {}) });
+	}, [open, onPlace, followsSomeone, clamped, page, lens, cur, liveStep]);
+	const atStart = clamped === 0 && page === 0 && stepPrev === false;
+	const atEnd = clamped >= count - 1 && page >= pages - 1 && stepNext === false;
 
 	// Component-aware DOM narration for the presented set — the SAME shared projection
 	// the CLI export uses (`projectDeckToSpeech`), run in-browser, so live read-aloud
@@ -666,6 +742,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	clampedRef.current = clamped;
 	const shownRef = React.useRef(0);
 	shownRef.current = shownSection;
+	// The step the Stage paints on the shown slide: the walk's resolved step, else the asked one. A slide just
+	// entered by next/prev, whose walk the console has not measured yet, goes as its DIRECTION, and the Stage
+	// resolves the entry step against its own copy of the slide, so the room never sees a build slide whole first.
+	const stageStep: number | null | 'next' | 'prev' | 'jump' = curWalk ? curWalk.at : typeof shownStep === 'number' ? shownStep : shownStep ? shownStep.enter : null;
+	const stageStepRef = React.useRef<number | null | 'next' | 'prev' | 'jump'>(null);
+	stageStepRef.current = stageStep;
 	countRef.current = count;
 	curRef.current = cur;
 	const notifyRef = React.useRef(notify);
@@ -680,6 +762,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		stageRef.current = createStageController({
 			getDoc: () => stageDocRef.current,
 			getIndex: () => shownRef.current,
+			getStep: () => stageStepRef.current,
 			// A FRESH OBJECT every time, deliberately. `onChange` fires on each `ready`,
 			// and a rewrite (a lens switch, a palette change) replaces the whole document
 			// — so the host ELEMENTS the portals target are new nodes even though the
@@ -798,7 +881,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the list's value, not its identity.
 	const overviewOptions = React.useMemo(() => ({ ...options, webOrigins }), [options, webKey]);
 	// Keep the room's slide in step with the console's.
-	React.useEffect(() => { stageRef.current?.show(shownSection); }, [shownSection]);
+	React.useEffect(() => { stageRef.current?.show(shownSection, stageStep); }, [shownSection, stageStep]);
 	// A SITE PALETTE CHANGE HAS TO REACH THE ROOM, and it could not.
 	//
 	// The chrome's palette is baked into the Stage document when it is BUILT, which is the
@@ -1007,6 +1090,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		leavePendingRef.current = false;
 		if (clampedRef.current !== from) return false; // the viewer moved during the beat: they chose
 		autoAdvanceRef.current = true; // play the next slide once it mounts
+		enterRef.current = 'rest'; // narration is per slide: land it at rest, every point shown
 		setIdx((i) => Math.min(i + 1, countRef.current - 1));
 		return true;
 	}, [setIdx]);
@@ -1146,6 +1230,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		if (!autoplay || bookend || bookendGap || narration.idx !== clamped || reader.track.cues.length > 0) return;
 		if (clamped < count - 1) {
 			autoAdvanceRef.current = true;
+			enterRef.current = 'rest';
 			setIdx((i) => Math.min(i + 1, count - 1));
 		} else if (!startClosingRef.current()) {
 			setAutoplay(false);
@@ -1672,6 +1757,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// auto-skip from resurrecting playback when you navigate onto a divider after Pause.
 		} else {
 			setAutoplay(true);
+			// Narration reads the whole slide, so Play shows the whole slide: a build part-way through its walk (step 0 after
+			// a jump or a next, D2/S2) comes to rest, every point shown, as each slide autoplay reaches does (`rest`).
+			setStepAt((p) => (p.idx === clampedRef.current && p.step !== null ? { ...p, step: null } : p));
 			// THE GREETING: only on the first Play of this Present session, and only from slide 1.
 			// Starting anywhere else uses it up, so a presenter who began mid-deck is never greeted
 			// later. The salutation is the presenter's local hour, read now.
@@ -1889,24 +1977,62 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const goNext = React.useCallback(() => {
 		dismissHint();
 		detach();
-		if (page < pages - 1) setPageAt({ idx: clamped, page: page + 1, slide: cur });
-		else setIdx((i) => Math.min(i + 1, count - 1));
-	}, [count, dismissHint, detach, page, pages, clamped, cur, setIdx]);
+		if (walkPending) return void queuedNavRef.current.push('next');
+		// A stepping slide walks its steps before anything else moves.
+		if (stepNext !== false) return setStepAt({ idx: clamped, slide: cur, step: stepNext });
+		if (page < pages - 1) {
+			// Each page of a split slide carries its own walk (lib/core/step-rescope.js), entered like a slide's.
+			setWalk(null);
+			setStepAt({ idx: clamped, slide: cur, step: { enter: 'next' } });
+			return setPageAt({ idx: clamped, page: page + 1, slide: cur });
+		}
+		if (clamped >= count - 1) return;
+		// FUNCTIONAL, as before steps existed: two presses that land before a re-render must compose (i + 2), not
+		// both compute "clamped + 1" off a stale render and lose one (a Stage key burst does exactly this). The entry
+		// step is set once the new slide is known, in the layout effect below, before it paints.
+		enterRef.current = 'next';
+		setIdx((i) => Math.min(i + 1, count - 1));
+	}, [count, dismissHint, detach, page, pages, clamped, cur, setIdx, stepNext, walkPending]);
 	const goPrev = React.useCallback(() => {
 		dismissHint();
 		detach();
-		if (page > 0) return setPageAt({ idx: clamped, page: page - 1, slide: cur });
+		if (walkPending) return void queuedNavRef.current.push('prev');
+		if (stepPrev !== false) return setStepAt({ idx: clamped, slide: cur, step: stepPrev });
+		if (page > 0) {
+			setWalk(null);
+			setStepAt({ idx: clamped, slide: cur, step: { enter: 'prev' } });
+			return setPageAt({ idx: clamped, page: page - 1, slide: cur });
+		}
 		const to = Math.max(clamped - 1, 0);
 		if (to === clamped) return;
-		// Arriving from the slide after it, a split slide opens on its LAST page.
+		// Arriving from the slide after it, a split slide opens on its LAST page, and a stepping slide on its last step.
 		setIdxRaw(to);
 		setPageAt({ idx: to, page: Math.max(1, paneCounts?.[to] ?? 1) - 1, slide: set[to] ?? '' });
-	}, [dismissHint, detach, page, clamped, cur, paneCounts, set]);
+		setStepAt({ idx: to, slide: set[to] ?? '', step: { enter: 'prev' } });
+	}, [dismissHint, detach, page, clamped, cur, paneCounts, set, stepPrev, walkPending]);
 	const goFirst = React.useCallback(() => { dismissHint(); setIdx(0); }, [dismissHint, setIdx]);
 	const goLast = React.useCallback(() => { dismissHint(); setIdx(Math.max(count - 1, 0)); }, [count, dismissHint, setIdx]);
 	// The kernel's action names → this overlay's movers, so the shared keymap drives
 	// navigation instead of a hand-written key list that drifts from every other surface.
 	const NAV = React.useMemo<Record<string, () => void>>(() => ({ next: goNext, prev: goPrev, first: goFirst, last: goLast }), [goNext, goPrev, goFirst, goLast]);
+	// A frame that never reports its walk (a lost `load` on iOS, a failed render) must not leave the verbs dead: after
+	// a short wait an unmeasured slide counts as one with no steps. The queue is DROPPED, not replayed: a press made
+	// while a slow slide was still measuring was meant for its steps, and replaying it as "leave the slide" would skip
+	// a build the presenter never saw. The next press moves on.
+	React.useEffect(() => {
+		if (!walkPending && !walkUnknown) return;
+		const t = window.setTimeout(() => {
+			queuedNavRef.current = [];
+			setWalk({ idx: clamped, slide: cur, kind: '', count: 0, at: null });
+		}, 800);
+		return () => window.clearTimeout(t);
+	}, [walkPending, walkUnknown, clamped, cur]);
+	// Replay a move queued while the walk was being measured, one per measurement, so each lands on the walk it saw.
+	React.useEffect(() => {
+		if (walkPending || !queuedNavRef.current.length) return;
+		const a = queuedNavRef.current.shift();
+		if (a) NAV[a]();
+	}, [walkPending, NAV]);
 	// …and the Stage reads them through this, so a gesture on the projected window runs
 	// the CURRENT movers rather than the ones that existed when the controller was built.
 	stageNavRef.current = NAV;
@@ -2481,7 +2607,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 						// `rounded-2xl` here was 16px against a rounded slide's 1.5% of its width, and
 						// on a desktop Present the two disagreed at every corner (#1649).
 						<div ref={cardRef} data-slide-frame style={{ ...(consolePointerHidden ? { cursor: 'none' } : {}), ...slideFrameStyle('stage'), ...deckFrame }} className="pointer-events-none relative overflow-hidden">
-							<DeckPreview focused options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} paneCounts={paneCounts} pageIndex={paneCounts ? page : undefined} slideMarkdown={presentSlideAlone} drawn={presentDrawn} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce chromeless className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
+							<DeckPreview focused options={options} webOrigins={webOrigins} sample={presentSample ?? ''} slideIndex={clamped} slideCount={set.length} paneCounts={paneCounts} pageIndex={paneCounts ? page : undefined} slideMarkdown={presentSlideAlone} step={shownStep} onSteps={onSteps} drawn={presentDrawn} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce chromeless className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
 							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
 							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
 							<ChartDetailLayer ref={chartDetailRef} getFrame={() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null} getStage={() => cardRef.current} enabled={!guidePlaying} />

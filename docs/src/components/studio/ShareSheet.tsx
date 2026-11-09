@@ -210,7 +210,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 		// by then.
 		run('pdf', 'PDF', async (onStatus, onDegraded) => {
 			const embed = await embedPayload(opts);
-			const reason = await sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, annotations, embed?.bytes);
+			const reason = await sharePdf(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, annotations, embed?.bytes, opts.steps);
 			const both = [reason, embed?.note].filter(Boolean).join('; ');
 			if (both) onDegraded(both);
 		});
@@ -221,8 +221,8 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 			// Editable goes through Calco; the plain picture deck keeps its own exporter.
 			const embed = await embedPayload(opts);
 			const reason = opts.editable
-				? await shareOffice('pptx', options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, true, embed?.bytes, opts.stripNotes)
-				: await sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, embed?.bytes);
+				? await shareOffice('pptx', options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, true, embed?.bytes, opts.stripNotes, opts.steps)
+				: await sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, embed?.bytes, opts.steps);
 			const both = [reason, embed?.note].filter(Boolean).join('; ');
 			if (both) onDegraded(both);
 		});
@@ -230,7 +230,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// LibreOffice (.odp) from its options step: editable text is its one choice.
 	const exportOdp = (opts: ExportOptions) => {
 		run('odp', 'LibreOffice', async (onStatus, onDegraded) => {
-			const reason = await shareOffice('odp', options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, opts.editable, undefined, opts.stripNotes);
+			const reason = await shareOffice('odp', options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, opts.editable, undefined, opts.stripNotes, opts.steps);
 			if (reason) onDegraded(reason);
 		});
 	};

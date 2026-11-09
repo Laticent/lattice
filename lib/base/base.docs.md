@@ -1486,26 +1486,36 @@ Override per slide with `_focusStyle`:
 `highlight` is the no-dimming look for every axis. A card, table row, column, cell or code line
 takes an accent tint and an edge (the `preferred` look of `verdict-grid`, without the spark), a
 chart mark takes an edge, a chart series gets a heavier line, and every other target stays untouched. It sets no weight or
-size, so nothing rewraps between `_focusSteps`. Worked decks: `examples/focus-styles.md` (the
+size, so nothing rewraps between `_focusSteps` steps. Worked decks: `examples/focus-styles.md` (the
 five styles side by side) and `examples/focus-highlight-axes.md` (`highlight` on every axis).
 
 `blur` survives PDF and PPTX (the rest is rasterised soft, the target stays
 sharp). It only defocuses the rest: the target keeps its size and position, so
-nothing shifts between `_focusSteps` and nothing clips at the stage edge. Tune the
+nothing shifts between `_focusSteps` steps and nothing clips at the stage edge. Tune the
 radius per deck via `--focus-blur` (default `0.15cqi`).
 
-**Walk the slide — `_focusSteps`.** One authored slide expands into N
-rendered slides, each focusing the next target — the static-format
-equivalent of a live build:
+**Walk the slide — `_focusSteps`.** One slide whose focus moves, one target
+per click, while you present:
 
 ```markdown
 <!-- _class: cards-grid -->
 <!-- _focusSteps: item 1 | item 2 | item 3 | item 4 -->
 ```
 
-Each step is a `_focus` spec; the steps render as ordinary, separately
-paginated slides. Worked deck: `examples/focus.md`. Design + rationale:
-`engineering/decisions/2026-06-16-focus-highlighting.md`. (The grammar is
+Each step is a `_focus` spec, and step N lights exactly what `_focus: <step N>`
+would. **It stays one slide everywhere**: one page number, one section, one rail
+dot. Present (the Studio, the Stage window and the exported HTML player) walks it:
+next lights step 1, then step 2, and so on, before moving to the next slide;
+entering it backward lands on the last step. Every still format (PDF, PowerPoint,
+images, the narrated video, the editor preview, thumbnails) shows the slide **at
+rest**: every unit even, nothing lit, the slide as written. A jump (the rail,
+the overview, Home/End, opening Present on it) also lands it at rest. Need a
+printed walkthrough? Export with `--steps` (the Studio: "One page per step" in the
+PDF, PowerPoint or LibreOffice sheet): the slide prints once per step, each page
+lit at its step, and every page keeps the slide's page number. Worked deck: `examples/focus.md`.
+Design: `engineering/decisions/2026-11-09-steps-as-a-behavior.md` (the
+one-slide model, which replaced the slide-per-step copy of
+`2026-06-16-focus-highlighting.md` §4). (The grammar is
 linted — a typo like `_focus: rows 4` or `_focusStyle: glow` is flagged
 before render. Note: focus resolves on the engine render paths — the
 emulator PDF/PPTX/HTML and the docs playground — and in published HTML; the
@@ -1532,11 +1542,17 @@ Axes by surface mirror `_focus`: `item` (lists, card grids), `row` / `col`
 a grouped build show from step 1 (context).
 
 **The reveal is pure CSS, and it degrades losslessly.** The engine only *tags*
-each unit (`data-build-step`); a slide shows its full self unless a player is
-actively driving the build, so **every PDF and every non-driven render is
-byte-identical to the same slide with no `_build`** — the build is an enhancement
-for the live walk-through, never the artifact. Live stepping (Present mode) and a
-per-step overlay PDF export are staged follow-ons.
+each unit with its step (`data-step`, alias `data-build-step`); a slide shows its
+full self unless a player is driving the build, so **every PDF and every
+non-driven render shows the whole slide** — the build is an enhancement for the
+live walk-through, never the artifact. **Present walks it**: entered by next or
+by a jump (the rail, the overview, opening Present on it), the slide starts with
+nothing revealed and each click reveals the next step; entered backward, it lands
+fully revealed. Hidden units keep their box, so nothing moves. `--steps` (the
+Studio: "One page per step") prints one page per step, steps 1 to N, every page
+keeping the slide's page number
+(`engineering/decisions/2026-11-09-steps-as-a-behavior.md` §4). A slide takes one
+stepping directive: `_build` or `_focusSteps`, not both.
 
 This is progressive disclosure (Beamer overlays / scrollytelling), **not**
 PowerPoint animation: motion is derived, typed, meaning-bearing, and
