@@ -9,7 +9,7 @@ import { narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { readyKeys } from '@/playground/narration-store.js';
 import { loadCalibration, recordObservation, voiceKeyOf } from '@/playground/readaloud-calibration';
 import { speechOnsetMs } from '../../../../lib/core/speech-pcm.mjs';
-import { cachedSampleUrl, KOKORO_MODEL_ID, resolveVoice, speedSupported, voicesForModel } from './tts-voice-catalog';
+import { cachedSampleUrl, type GeminiVoiceRecord, KOKORO_MODEL_ID, resolveVoice, speedSupported, voicesForModel } from './tts-voice-catalog';
 
 // slideToSpeech is the shared base narration flattener — one source of truth in
 // lib/core/slide-speech.js (HARD RULE #1), bundled to the browser via
@@ -1634,15 +1634,15 @@ export async function normalizeVoiceSelection(models?: OrVoiceModel[]): Promise<
 
 /** The Gemini voice catalog on the author's own Gemini key: the live TTS models, curated as a
  *  preference (provider-registry.js), and the live prebuilt voices. Empty without a key. */
-export async function geminiVoiceCatalog(): Promise<{ models: { id: string; name: string; curated: boolean }[]; voices: string[]; reachable: boolean }> {
+export async function geminiVoiceCatalog(): Promise<{ models: { id: string; name: string; curated: boolean }[]; voices: string[]; records: GeminiVoiceRecord[]; reachable: boolean }> {
 	const key = readProviderKey('gemini');
-	if (!key) return { models: [], voices: [], reachable: false };
+	if (!key) return { models: [], voices: [], records: [], reachable: false };
 	try {
 		const [vm, reg] = await Promise.all([import('@/playground/voice-model.js'), import('@/lib/provider-registry.js')]);
 		const c = await vm.listGeminiVoiceCatalog(key);
 		return { ...c, models: reg.curate(c.models, reg.CURATED.voice.gemini, { perFamily: 1 }) };
 	} catch {
-		return { models: [], voices: [], reachable: false };
+		return { models: [], voices: [], records: [], reachable: false };
 	}
 }
 

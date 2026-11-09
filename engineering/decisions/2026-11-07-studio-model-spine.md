@@ -332,3 +332,25 @@ FAILS on webkit-phone: the store removes the key, which is the reported bug's me
 proved against the fault in real WebKit; what stays unproved is only that this fault is the one
 #3079 hit, since that failure was never captured.
 
+### 10.2 Gemini's locale voices, behind a language filter
+
+`listGeminiVoiceCatalog` (`playground/voice-model.js`) now keeps every live voice's record (id,
+display name, language, accent, persona, gender), not only the 30 named ids. The Gemini voice panel
+(`GeminiVoicePanel.tsx`) adds a **Language** menu listing the languages Gemini has locale voices in,
+with counts (39 on 2026-11-09). The filter starts on the open deck's `lang:` when Gemini has voices in
+it, else on "Multilingual voices only"; a stored locale voice's own language wins over that default,
+so a chosen voice is never hidden. The named voices always lead; the language adds its locale voices,
+grouped by locale ("Portuguese · Brazil") and labeled by display name and the persona's role
+("Authoritative Advisor 1 · Lawyer"). The pure pieces are `geminiLanguages`,
+`defaultGeminiLanguage` and `geminiVoicesFor` in `tts-voice-catalog.ts`; `groupVoices` keeps a
+caller's groups in order when the roster carries them.
+
+The owner had not picked the filter's default (deck language, browser language, or a picker). The
+session took the followup's own default, the deck's `lang:`, because it is the one signal that says
+what the deck will be read in, and the menu lets the author override it per page. This is
+reversible in one place (`defaultGeminiLanguage`).
+
+A locale voice speaks on the real API: `gemini-3.8-flash-lite-tts` with `voiceName: 'pt-br-advisor-1'`
+(the request `voice-model.js` builds) answered HTTP 200 with a 102 KB WAV on 2026-11-10, beside a named
+voice (`achernar`, 119 KB) for comparison.
+

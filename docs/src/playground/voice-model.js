@@ -577,20 +577,14 @@ function geminiTtsRung({ getKey, getModel, getVoice, fetchImpl, noteStatus, gone
 }
 
 /**
- * The Gemini voice catalog on the author's key: the TTS models from the live `/models` list
- * (curated as a preference, never as pinned ids — provider-registry.js) and the prebuilt voices
- * from the live `/voices` list. Never hand-typed. `{ models, voices, reachable }`.
+ * Gemini's prebuilt voices, read live from `/v1beta/voices` (every page: the named ids sort among
+ * the locale ones). Measured 2026-11-09 on a real key: 2,114 voices in 39 languages. 30 are the
+ * NAMED, multilingual voices (Achernar … Zephyr); the rest are locale personas (`pt-br-advisor-1`,
+ * "Authoritative Advisor 1", with a language, accent, persona and gender). Never hand-typed: a
+ * voice Google adds or drops shows up here. Each record keeps what the picker shows.
+ * @returns {Promise<{ id: string, name: string, language: string, accent: string, persona: string, gender: 'F' | 'M' | undefined, named: boolean }[]>}
  */
-/**
- * Gemini's NAMED prebuilt voices (Achernar, Kore, Puck, …), read live from `/v1beta/voices`.
- * Measured 2026-11-08 on a real key: the list holds 2,114 voices in 39 languages over three pages
- * (`next_page_token`), sorted by id. 30 are the named, multilingual voices; the rest are
- * locale-specific personas with ids like `en-us-advisor-1`. A read-aloud picker of 2,000 raw ids is
- * unusable, so the picker offers the named voices; the locale personas wait for a language filter
- * (followups.d/3079-p3-gemini-locale-voices.md). Every page is read, because the named ids sort
- * among the locale ones. Never hand-typed: a voice Google adds or drops shows up here.
- */
-async function listGeminiNamedVoices(f, headers) {
+async function listGeminiVoices(f, headers) {
   const out = [];
   let token = '';
   for (let page = 0; page < 10; page++) {
@@ -599,7 +593,18 @@ async function listGeminiNamedVoices(f, headers) {
     const d = await r.json();
     for (const v of d.voices || []) {
       const id = String(v.id || v.name || '').replace(/^voices\//, '');
-      if (id && !/^[a-z]{2,3}-/i.test(id)) out.push(id);
+      if (!id) continue;
+      const g = String(v.gender || '').toLowerCase();
+      out.push({
+        id,
+        name: String(v.display_name || v.displayName || id),
+        language: String(v.language_code || v.languageCode || ''),
+        accent: String(v.accent || ''),
+        persona: String(v.persona || ''),
+        gender: g === 'female' ? 'F' : g === 'male' ? 'M' : undefined,
+        // A named voice has a bare id; a locale persona's id starts with its language (`pt-br-…`).
+        named: !/^[a-z]{2,3}-/i.test(id),
+      });
     }
     token = d.next_page_token || d.nextPageToken || '';
     if (!token) break;
@@ -607,19 +612,25 @@ async function listGeminiNamedVoices(f, headers) {
   return out;
 }
 
+/**
+ * The Gemini voice catalog on the author's key: the TTS models from the live `/models` list
+ * (curated as a preference, never as pinned ids — provider-registry.js), the NAMED voices' ids
+ * (`voices`, the picker's default list) and every voice's record (`records`, which the picker's
+ * language filter reads; followups 3079-p3-gemini-locale-voices). `{ models, voices, records, reachable }`.
+ */
 export async function listGeminiVoiceCatalog(key, fetchImpl) {
   const f = fetchImpl || fetch;
   const headers = { 'x-goog-api-key': key };
   try {
-    const [mr, voices] = await Promise.all([f(`${GEMINI_API}/models?pageSize=1000`, { headers }), listGeminiNamedVoices(f, headers)]);
-    if (!mr.ok) return { models: [], voices: [], reachable: false };
+    const [mr, records] = await Promise.all([f(`${GEMINI_API}/models?pageSize=1000`, { headers }), listGeminiVoices(f, headers)]);
+    if (!mr.ok) return { models: [], voices: [], records: [], reachable: false };
     const md = await mr.json();
     const models = (md.models || [])
       .map((m) => ({ id: String(m.name || '').replace(/^models\//, ''), name: m.displayName || '' }))
       .filter((m) => /-tts(\b|$|-)/.test(m.id));
-    return { models, voices, reachable: true };
+    return { models, voices: records.filter((v) => v.named).map((v) => v.id), records, reachable: true };
   } catch {
-    return { models: [], voices: [], reachable: false };
+    return { models: [], voices: [], records: [], reachable: false };
   }
 }
 

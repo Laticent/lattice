@@ -1,0 +1,475 @@
+{
+	"_comment": "A trimmed page of Gemini's live GET /v1beta/voices?type=prebuilt, recorded 2026-11-09 on a real key (the full list: 2,114 voices in 39 languages). All 30 named voices plus a sample of pt-BR, pt-PT, en-GB and hi-IN locale voices; the description field is dropped.",
+	"voices": [
+		{
+			"id": "achernar",
+			"type": "prebuilt",
+			"display_name": "Achernar",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Storyteller & Narrator",
+			"gender": "female"
+		},
+		{
+			"id": "achird",
+			"type": "prebuilt",
+			"display_name": "Achird",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Companion & Peer",
+			"gender": "male"
+		},
+		{
+			"id": "algenib",
+			"type": "prebuilt",
+			"display_name": "Algenib",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Storyteller & Narrator",
+			"gender": "male"
+		},
+		{
+			"id": "algieba",
+			"type": "prebuilt",
+			"display_name": "Algieba",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "High-Trust Advisor",
+			"gender": "male"
+		},
+		{
+			"id": "alnilam",
+			"type": "prebuilt",
+			"display_name": "Alnilam",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "High-Trust Advisor",
+			"gender": "male"
+		},
+		{
+			"id": "aoede",
+			"type": "prebuilt",
+			"display_name": "Aoede",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Video Voiceover & Host",
+			"gender": "female"
+		},
+		{
+			"id": "autonoe",
+			"type": "prebuilt",
+			"display_name": "Autonoe",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Advertising Pitch & Commerce",
+			"gender": "female"
+		},
+		{
+			"id": "callirrhoe",
+			"type": "prebuilt",
+			"display_name": "Callirrhoe",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Companion & Peer",
+			"gender": "female"
+		},
+		{
+			"id": "charon",
+			"type": "prebuilt",
+			"display_name": "Charon",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "News & Podcast Host",
+			"gender": "male"
+		},
+		{
+			"id": "despina",
+			"type": "prebuilt",
+			"display_name": "Despina",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Educational Tutor",
+			"gender": "female"
+		},
+		{
+			"id": "en-gb-advisor-1",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 1",
+			"language_code": "en-GB",
+			"region_code": "GB",
+			"accent": "Winchester English",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Lawyer)",
+			"gender": "female"
+		},
+		{
+			"id": "en-gb-advisor-10",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 10",
+			"language_code": "en-GB",
+			"region_code": "GB",
+			"accent": "Bristol English",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Lawyer)",
+			"gender": "male"
+		},
+		{
+			"id": "en-gb-advisor-11",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 11",
+			"language_code": "en-GB",
+			"region_code": "GB",
+			"accent": "Glasgow English",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Lawyer)",
+			"gender": "female"
+		},
+		{
+			"id": "en-gb-advisor-12",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 12",
+			"language_code": "en-GB",
+			"region_code": "GB",
+			"accent": "Newcastle English",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Lawyer)",
+			"gender": "female"
+		},
+		{
+			"id": "enceladus",
+			"type": "prebuilt",
+			"display_name": "Enceladus",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Storyteller & Narrator",
+			"gender": "male"
+		},
+		{
+			"id": "erinome",
+			"type": "prebuilt",
+			"display_name": "Erinome",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Educational Tutor",
+			"gender": "female"
+		},
+		{
+			"id": "fenrir",
+			"type": "prebuilt",
+			"display_name": "Fenrir",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Video Voiceover & Host",
+			"gender": "male"
+		},
+		{
+			"id": "gacrux",
+			"type": "prebuilt",
+			"display_name": "Gacrux",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "High-Trust Advisor",
+			"gender": "female"
+		},
+		{
+			"id": "hi-in-advisor-1",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 1",
+			"language_code": "hi-IN",
+			"region_code": "IN",
+			"accent": "Awadhi Hindi",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Lawyer)",
+			"gender": "female"
+		},
+		{
+			"id": "hi-in-advisor-10",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 10",
+			"language_code": "hi-IN",
+			"region_code": "IN",
+			"accent": "Haryanvi Hindi",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Lawyer)",
+			"gender": "male"
+		},
+		{
+			"id": "hi-in-advisor-11",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 11",
+			"language_code": "hi-IN",
+			"region_code": "IN",
+			"accent": "Urdu",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Financial Advisor)",
+			"gender": "male"
+		},
+		{
+			"id": "iapetus",
+			"type": "prebuilt",
+			"display_name": "Iapetus",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Tech Support Agent",
+			"gender": "male"
+		},
+		{
+			"id": "kore",
+			"type": "prebuilt",
+			"display_name": "Kore",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "News & Podcast Host",
+			"gender": "female"
+		},
+		{
+			"id": "laomedeia",
+			"type": "prebuilt",
+			"display_name": "Laomedeia",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Advertising Pitch & Commerce",
+			"gender": "female"
+		},
+		{
+			"id": "leda",
+			"type": "prebuilt",
+			"display_name": "Leda",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Video Voiceover & Host",
+			"gender": "female"
+		},
+		{
+			"id": "orus",
+			"type": "prebuilt",
+			"display_name": "Orus",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "High-Trust Advisor",
+			"gender": "male"
+		},
+		{
+			"id": "pt-br-advisor-1",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 1",
+			"language_code": "pt-BR",
+			"region_code": "BR",
+			"accent": "Brazilian Portuguese",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Lawyer)",
+			"gender": "female"
+		},
+		{
+			"id": "pt-br-advisor-10",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 10",
+			"language_code": "pt-BR",
+			"region_code": "BR",
+			"accent": "Brazilian Portuguese",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Lawyer)",
+			"gender": "male"
+		},
+		{
+			"id": "pt-br-advisor-11",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 11",
+			"language_code": "pt-BR",
+			"region_code": "BR",
+			"accent": "Brazilian Portuguese",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Financial Advisor)",
+			"gender": "male"
+		},
+		{
+			"id": "pt-br-advisor-12",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 12",
+			"language_code": "pt-BR",
+			"region_code": "BR",
+			"accent": "Brazilian Portuguese",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Lawyer)",
+			"gender": "female"
+		},
+		{
+			"id": "pt-br-advisor-2",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 2",
+			"language_code": "pt-BR",
+			"region_code": "BR",
+			"accent": "Brazilian Portuguese",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Financial Advisor)",
+			"gender": "male"
+		},
+		{
+			"id": "pt-br-advisor-3",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 3",
+			"language_code": "pt-BR",
+			"region_code": "BR",
+			"accent": "Brazilian Portuguese",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Lawyer)",
+			"gender": "female"
+		},
+		{
+			"id": "pt-pt-advisor-1",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 1",
+			"language_code": "pt-PT",
+			"region_code": "PT",
+			"accent": "Peninsular Portuguese",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Lawyer)",
+			"gender": "male"
+		},
+		{
+			"id": "pt-pt-advisor-2",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 2",
+			"language_code": "pt-PT",
+			"region_code": "PT",
+			"accent": "Peninsular Portuguese",
+			"persona": "Advertising Pitch & Commerce / Commercial Voiceover (Lawyer)",
+			"gender": "female"
+		},
+		{
+			"id": "pt-pt-advisor-3",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 3",
+			"language_code": "pt-PT",
+			"region_code": "PT",
+			"accent": "Peninsular Portuguese",
+			"persona": "High-Trust Advisor / Authoritative Advisor (Lawyer)",
+			"gender": "female"
+		},
+		{
+			"id": "pt-pt-advisor-4",
+			"type": "prebuilt",
+			"display_name": "Authoritative Advisor 4",
+			"language_code": "pt-PT",
+			"region_code": "PT",
+			"accent": "Peninsular Portuguese",
+			"persona": "Advertising Pitch & Commerce / Commercial Voiceover (Lawyer)",
+			"gender": "female"
+		},
+		{
+			"id": "puck",
+			"type": "prebuilt",
+			"display_name": "Puck",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Podcaster",
+			"gender": "male"
+		},
+		{
+			"id": "pulcherrima",
+			"type": "prebuilt",
+			"display_name": "Pulcherrima",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Customer Support Agent",
+			"gender": "neutral"
+		},
+		{
+			"id": "rasalgethi",
+			"type": "prebuilt",
+			"display_name": "Rasalgethi",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Educational Tutor",
+			"gender": "male"
+		},
+		{
+			"id": "sadachbia",
+			"type": "prebuilt",
+			"display_name": "Sadachbia",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "News & Podcast Host",
+			"gender": "male"
+		},
+		{
+			"id": "sadaltager",
+			"type": "prebuilt",
+			"display_name": "Sadaltager",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Educational Tutor",
+			"gender": "male"
+		},
+		{
+			"id": "schedar",
+			"type": "prebuilt",
+			"display_name": "Schedar",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Tech Support Agent",
+			"gender": "male"
+		},
+		{
+			"id": "sulafat",
+			"type": "prebuilt",
+			"display_name": "Sulafat",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Customer Support Agent",
+			"gender": "female"
+		},
+		{
+			"id": "umbriel",
+			"type": "prebuilt",
+			"display_name": "Umbriel",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Companion & Peer",
+			"gender": "male"
+		},
+		{
+			"id": "vindemiatrix",
+			"type": "prebuilt",
+			"display_name": "Vindemiatrix",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Coach & Motivational Guide",
+			"gender": "female"
+		},
+		{
+			"id": "zephyr",
+			"type": "prebuilt",
+			"display_name": "Zephyr",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Advertising Pitch & Commerce",
+			"gender": "female"
+		},
+		{
+			"id": "zubenelgenubi",
+			"type": "prebuilt",
+			"display_name": "Zubenelgenubi",
+			"language_code": "en-US",
+			"region_code": "US",
+			"accent": "General American",
+			"persona": "Companion & Peer",
+			"gender": "male"
+		}
+	]
+}
