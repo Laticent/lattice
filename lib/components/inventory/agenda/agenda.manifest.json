@@ -175,6 +175,10 @@
       "fix": "A page reference is a trailing `` `p.N` `` inline-code chip on the item line — text baked into the title itself doesn't get the right-aligned leader-dot treatment."
     },
     {
+      "mistake": "Ending a hand-written line with inline code that belongs to the title.",
+      "fix": "A line's LAST inline code is its right column (a page reference, or a tag such as `` `once` ``); any other code stays inline in the title. So a hand-written `` Ship only after `npm test` `` puts `npm test` in the right column: end the line with a word, or add a page reference after the code. A filled agenda handles this itself, since its page number comes after the heading's code."
+    },
+    {
       "mistake": "Assuming `progress-N` alone changes which marker style (circles/checks) is used.",
       "fix": "`progress-N` only marks which stop is current — it composes with a style variant but doesn't imply one; the default numbered `ledger` look still applies unless you also add `circles` or `checks`."
     }

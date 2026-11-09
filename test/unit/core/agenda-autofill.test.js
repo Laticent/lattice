@@ -214,7 +214,8 @@ test('an item that ends in its own page reference gets no second one, even on an
   const { html } = createEngine().render(src, 'indaco');
   const agenda = html.split('<section').find((x) => /class="[^"]*\bagenda\b/.test(x));
   assert.equal((agenda.match(/<code\b/g) || []).length, 2, 'p.12 and one generated number, not three');
-  assert.match(agenda, /The quarter in four numbers <code>p\.12<\/code>/);
+  // The row pass wraps the title and marks the author's own reference as the page reference.
+  assert.match(agenda, /<span class="agenda-title">The quarter in four numbers<\/span><code class="agenda-page">p\.12<\/code>/);
 });
 
 test('the live-DOM arm (the Export-to-Marp runtime) prints the same numbers, once, on Lattice and Marpit numbering', () => {
@@ -276,4 +277,29 @@ test('a section heading that ends in inline code keeps its page, and so does eve
   for (const s of live.querySelectorAll('section')) s.setAttribute('data-lattice-slide', '');
   progress.applyToDom(live);
   assert.deepEqual(pagesOf(live), [['p.3', 'p.5']], 'the DOM arm agrees');
+});
+
+test('a heading that ends in code AND carries its own page reference keeps both, and gets no second number (the checker, 2026-11-09)', () => {
+  const divs = [slide('divider', '## Run `npm test`'), slide('list', '## Body.\n\n- One'), slide('divider', '## Ship it')];
+  const src = deck('# Title', slide('agenda agenda-pages', '## A.\n\n1. Run `npm test` `p.12`\n2. Ship it'), ...divs);
+  const { html } = createEngine().render(src, 'indaco');
+  const d = new JSDOM(`<body>${html}</body>`).window.document;
+  assert.deepEqual(pagesOf(d), [['p.12', 'p.5']], 'the author keeps p.12; the second line gets its page');
+  const title = d.querySelector('section.agenda li .agenda-title');
+  assert.equal(title.textContent, 'Run npm test', 'the heading\'s own code stays inside the title');
+});
+
+test('the agenda row: the title is one element with its own code inline, and the LAST code is the right column', () => {
+  // examples/finish-backdrops.md writes this shape: a code in the title and a tag in the right column.
+  const html = '<section class="agenda" data-lattice-slide><ol><li>Front matter declares <code>finish: atrium</code> <code>once</code></li><li>Plan <code>p.4</code></li><li>Plain words</li></ol></section>';
+  const out = progress.applyToHtml(html);
+  assert.match(out, /<li><span class="agenda-title">Front matter declares <code>finish: atrium<\/code><\/span><code class="agenda-page">once<\/code><\/li>/);
+  assert.match(out, /<li><span class="agenda-title">Plan<\/span><code class="agenda-page">p\.4<\/code><\/li>/);
+  assert.match(out, /<li><span class="agenda-title">Plain words<\/span><\/li>/);
+  assert.equal(progress.applyToHtml(out), out, 'idempotent');
+  const d = new JSDOM(`<body>${html}</body>`).window.document;
+  progress.applyToDom(d);
+  progress.applyToDom(d);
+  const rows = [...d.querySelectorAll('li')].map((li) => [li.querySelector('.agenda-title')?.innerHTML, li.querySelector('code.agenda-page')?.textContent ?? null]);
+  assert.deepEqual(rows, [['Front matter declares <code>finish: atrium</code>', 'once'], ['Plan', 'p.4'], ['Plain words', null]], 'the DOM arm builds the same rows, once');
 });
