@@ -221,10 +221,14 @@ test('keySvg: a value past 13 characters wraps inside its column', () => {
   for (const l of value.lines) assert.ok(l.length <= 13, `"${l}" fits 13 characters`);
 });
 
+// Each key swatch's x, read tag by tag: `[^>]*>` closes on the tag's end, so the match cannot backtrack.
+const swatchXs = (body) => [...body.matchAll(/<rect class="chart-key-swatch"([^>]*)>/g)]
+  .map((m) => Number((/\sx="([\d.]+)"/.exec(m[1]) || [])[1]));
+
 test('keySvg: portrait lays a key that fits into aligned columns, entries running down then across', () => {
   const rows = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'].map((label, i) => ({ swatchFill: 'red', label, value: `${i}%` }));
   const port = keySvg({ rows, diagramRight: 200, diagramHeight: 200, hasValues: true, orientation: 'portrait' });
-  const xs = [...port.body.matchAll(/<rect class="chart-key-swatch"[^>]* x="([\d.]+)"/g)].map((m) => +m[1]);
+  const xs = swatchXs(port.body);
   const cols = [...new Set(xs)];
   assert.ok(cols.length >= 2 && cols.length <= 3, `two or three columns, got ${cols.length}`);
   // Column-major: the first column holds the first entries.
@@ -237,6 +241,6 @@ test('keySvg: portrait keeps the single column when a label is too long for two'
   const rows = [{ swatchFill: 'red', label: 'A label far too long to sit two abreast under this chart', value: '1%' },
     { swatchFill: 'blue', label: 'Short', value: '2%' }];
   const port = keySvg({ rows, diagramRight: 200, diagramHeight: 200, hasValues: true, orientation: 'portrait' });
-  const xs = [...port.body.matchAll(/<rect class="chart-key-swatch"[^>]* x="([\d.]+)"/g)].map((m) => +m[1]);
+  const xs = swatchXs(port.body);
   assert.equal(new Set(xs).size, 1);
 });

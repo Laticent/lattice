@@ -1843,9 +1843,11 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
   // never a measured fit, so the 2026-09-01 structural trigger still holds.
   describe('phase bands hold one page while their lines fit the box', () => {
     const tagAt = (aspect) => rmTag.replace('>', ` data-aspect="${aspect}">`);
+    // The phases built here with `rows` workstreams each, rather than edited out of `innerFor`'s markup.
     const at = (aspect, phases, rows) => carouselize(tagAt(aspect),
-      innerFor(...phases).replace(/<ul class="horizon-rows">[\s\S]*?<\/ul>/g,
-        `<ul class="horizon-rows">${'<li><span class="row-label">WS</span><span class="row-text">x</span></li>'.repeat(rows)}</ul>`),
+      innerFor(...phases).split(`<ul class="horizon-rows">`).map((part, i) => (i === 0 ? part
+        : `${'<li><span class="row-label">WS</span><span class="row-text">x</span></li>'.repeat(rows)}${part.slice(part.indexOf('</ul>'))}`))
+        .join(`<ul class="horizon-rows">`),
       { strategy: 'roadmap-horizons' });
     test('three phases of three workstreams (12 lines) hold one page at 9:16 and 9:19.5', () => {
       assert.equal(at(0.56, ['A', 'B', 'C'], 3), null);
