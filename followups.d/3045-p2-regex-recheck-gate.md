@@ -74,6 +74,12 @@ progress  — 2026-11-08 (zero-flakes part 3): part (a) shipped. `checkRegexCens
             lint and render: about 120 patterns recheck does not call safe, about 25 of which read the hostile input
             (lint-core's caption/say/fence/list scans, markdown-it's own, the engine's tag walkers). They retire with
             the lint-core drain, not one at a time.
+            2026-11-09 (part 4, P3): the five patterns admitted with --raise in #3097 are drained: lint-core's agenda
+            fence and html-block strippers (stripAgendaFences, stripAgendaHtmlBlocks), agenda-autofill's class-directive
+            rewrite (replaceClassDirective), and progress.transform.js's class attribute (two alternatives instead of a
+            back-reference) and first-heading read (firstHeadingInner). Each is held to its old pattern by a seeded
+            fuzz (test/unit/core/agenda-progress-readers.test.js) and to linear work by scanWork
+            (test/unit/core/linear-readers-work.test.js). Backlog 675 -> 670.
 done when — the ratchet holds lib/** to its table in build:check; the table and the hang guards are gone, or each
             remaining entry carries its reason.
 evidence  — each rewritten pattern: a seeded differential fuzz against the old one, and the old pattern failing its test.

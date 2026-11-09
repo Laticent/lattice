@@ -5,7 +5,7 @@
     "lib/authoring/bare-row-pill.js": 2,
     "lib/authoring/code-format/plan.mjs": 2,
     "lib/authoring/fact-check-core.js": 9,
-    "lib/authoring/lint-core.js": 94,
+    "lib/authoring/lint-core.js": 92,
     "lib/authoring/notes-core.js": 9,
     "lib/authoring/review-core.js": 1,
     "lib/authoring/venue-prose.js": 3,
@@ -24,7 +24,7 @@
     "lib/conformance/changed-paths.js": 3,
     "lib/conformance/kinds/component.contract.js": 9,
     "lib/conformance/kinds/deck-setting.contract.js": 1,
-    "lib/core/agenda-autofill.js": 2,
+    "lib/core/agenda-autofill.js": 1,
     "lib/core/auto-split.js": 11,
     "lib/core/axis-member.js": 1,
     "lib/core/backdrop.js": 1,
@@ -119,7 +119,7 @@
     "lib/finishes/finish-generate.js": 2,
     "lib/fonts/face-css.js": 1,
     "lib/fonts/icon-fallback.js": 2,
-    "lib/forms/tile/progress/progress.transform.js": 5,
+    "lib/forms/tile/progress/progress.transform.js": 3,
     "lib/integrations/markdown-it/plugins.js": 6,
     "lib/layout/ai.js": 4,
     "lib/layout/bridge.js": 1,
@@ -283,10 +283,6 @@
     "/(<!-- _hide: (?:true|false) -->)\\n(?:[ \\t]*\\n)*(?=\\1)/g": {
       "verdict": "unknown",
       "why": "recheck cannot model it: look-ahead assertion"
-    },
-    "/(<!--\\s*_class\\s*:\\s*)([\"']?)([\\s\\S]*?)\\2(\\s*-->)/": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: back-reference"
     },
     "/(<div class=\"cell-stage\">\\s*<ul)([^>]*)>/": "safe",
     "/(<div class=\"lattice-bg[\\s\\S]*?<\\/div>)/": "polynomial",
@@ -631,6 +627,7 @@
     "/<!--\\s*_?focusSteps\\s*:/": "safe",
     "/<!--\\s*_?pane\\s*:/g": "safe",
     "/<!--\\s*_class\\s*:[^>]*\\b(?:columns|rows)\\b/": "polynomial",
+    "/<!--\\s*_class\\s*:\\s*/": "safe",
     "/<!--\\s*stress-slide\\s*-->|<aside\\b[^>]*\\blattice-notes\\b[^>]*>[\\s\\S]*?\\bstress-slide\\b[\\s\\S]*?<\\/aside>/": "polynomial",
     "/<!--\\s*tier:\\s*(short|standard|full)\\s*-->/i": "safe",
     "/<!--|--!?>/g": "safe",
@@ -741,6 +738,7 @@
     "/<\\/em>[\\s\\S]*<em>/i": "polynomial",
     "/<\\/g><\\/svg>$/": "safe",
     "/<\\/h2\\s*>/i": "safe",
+    "/<\\/h[1-6]>/g": "safe",
     "/<\\/head>/i": "safe",
     "/<\\/li>$/": "safe",
     "/<\\/li\\s*>$/i": "safe",
@@ -812,7 +810,7 @@
     "/<h3[^>]*>([\\s\\S]*?)<\\/h3>/": "polynomial",
     "/<h5[^>]*>[\\s\\S]*?<\\/h5>/": "polynomial",
     "/<h[1-6][\\s>]/": "safe",
-    "/<h[1-6]\\b[^>]*>([\\s\\S]*?)<\\/h[1-6]>/": "polynomial",
+    "/<h[1-6]\\b/": "safe",
     "/<h[12][^>]*>([\\s\\S]*?)<\\/h[12]>/": "polynomial",
     "/<header[\\s\\S]*?<\\/header>/": "polynomial",
     "/<header\\b[\\s\\S]*?<\\/header>/i": "polynomial",
@@ -1477,10 +1475,7 @@
     "/\\sclass=\"[^\"]*\\bline-hit\\b/": "safe",
     "/\\sclass=\"[^\"]*\\bslide-bar\\b/": "safe",
     "/\\sclass=\"[^\"]*cell-state/": "safe",
-    "/\\sclass=([\"'])([^\"']*)\\1/": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: back-reference"
-    },
+    "/\\sclass=(?:\"([^\"']*)\"|'([^\"']*)')/": "safe",
     "/\\sclass\\s*=\\s*\"([^\"]*)\"/i": "safe",
     "/\\sclass\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))/i": "safe",
     "/\\sclass\\s*=|\\saria-hidden\\b/i": "safe",
@@ -1593,10 +1588,6 @@
     "/^ {0,3}<!--/": "safe",
     "/^ {0,3}<(!--|!\\[CDATA\\[|[?]|(?:pre|script|style|textarea)\\b|[A-Za-z/!])/i": "safe",
     "/^ {0,3}</": "safe",
-    "/^ {0,3}<[A-Za-z][\\s\\S]*?(?=\\n[ \\t]*\\n|$(?![\\s\\S]))/gm": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-ahead assertion"
-    },
     "/^ {0,3}[-*+]\\s/": "safe",
     "/^ {0,3}[>[|]/": "safe",
     "/^ {0,3}\\d+[.)]\\s/": "safe",
@@ -2126,10 +2117,6 @@
     "/^[ \\t]*(?:```|~~~).*$/m": "safe",
     "/^[ \\t]*([-*]|\\d+\\.)\\s+/gm": "safe",
     "/^[ \\t]*(```|~~~)[\\s\\S]*?^[ \\t]*\\1/gm": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: back-reference"
-    },
-    "/^[ \\t]*(```|~~~)[\\s\\S]*?^[ \\t]*\\1[^\\n]*$/gm": {
       "verdict": "unknown",
       "why": "recheck cannot model it: back-reference"
     },

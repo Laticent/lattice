@@ -49,6 +49,17 @@ describe('the part-4 readers search each character a bounded number of times', (
     linear('closePunctGaps', relationship.closePunctGaps, (n) => `${' '.repeat(n)}x`);
   });
 
+  test('agenda and progress (#3045 part 4, P3): unclosed fences, html blocks, directives, headings', () => {
+    const lint = require('../../../lib/authoring/lint-core');
+    const { replaceClassDirective } = require('../../../lib/core/agenda-autofill');
+    const { firstHeadingInner } = require('../../../lib/forms/tile/progress/progress.transform');
+    linear('stripAgendaFences', lint.__stripAgendaFencesForTest, (n) => '```\n'.repeat(n / 4));
+    linear('stripAgendaFences \\r', lint.__stripAgendaFencesForTest, (n) => `${'```\r'.repeat(n / 4)}\n`);
+    linear('stripAgendaHtmlBlocks', lint.__stripAgendaHtmlBlocksForTest, (n) => '<a\n'.repeat(n / 3));
+    linear('replaceClassDirective', (s) => replaceClassDirective(s, (m) => m), (n) => `<!-- _class: "a${' --> '.repeat(n / 5)}`);
+    linear('firstHeadingInner', firstHeadingInner, (n) => '<h1>'.repeat(n / 4));
+  });
+
   test('failing arm: an opener loop that searches afresh each time is caught', () => {
     // The shape the checker found: one `indexOf` per opener, to a far terminator they all share.
     const uncached = (s) => { for (let i = s.indexOf('```'); i !== -1; i = s.indexOf('```', i + 1)) s.indexOf('\n', i); return s; };

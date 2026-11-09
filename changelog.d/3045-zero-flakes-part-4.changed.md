@@ -9,3 +9,7 @@
   masthead's footer-cell walk each read linearly now. A seeded differential test holds each one to the output of the
   pattern it replaced. Five tests that timed these paths with a stopwatch now check instead that every regex the
   path runs is linear.
+- **Fixed: five more slow patterns, added in the agenda and progress work, now run in one pass.** The agenda lint's
+  fence and HTML-block strippers, the agenda autofill's class-directive rewrite, and the progress transform's class
+  attribute and first-heading reads. Each answers exactly as the pattern it replaced, held by a seeded differential
+  test, and a work-count test holds every reader from this change to linear work.
