@@ -1,0 +1,1 @@
+- `spec/LPM.md` §3.3.1 documents what a zip plugin's inline kind is handed as `fields` for each field type, and a test pins it across the CLI's and the Studio's record readers. The zip half of `inline` stays provisional: the section names the changes #2686's reader is planned to make.
