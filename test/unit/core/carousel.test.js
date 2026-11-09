@@ -1881,6 +1881,13 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
       assert.ok(Array.isArray(at(0.46, ['A', 'B', 'C'], 5, 'Decision log', 'Design System')));
       assert.equal(at(0.46, ['A', 'B', 'C'], 5, 'Decision log', 'Analytics'), null, 'nine characters: one line, one page');
     });
+    test('wide text counts by its width, not its length: CJK and capitals split where lowercase holds', () => {
+      // A CJK glyph is ~1em and a capital ~31px against lowercase's ~21px, so counting characters held
+      // these one page and clipped (#3088's fourth grader). Each is 3 phases of 5 rows at 9:19.5.
+      assert.ok(Array.isArray(at(0.46, ['A', 'B', 'C'], 5, '设计令牌在所有产品中上线并完成迁移审计', '数据平台')), 'CJK commitments split');
+      assert.ok(Array.isArray(at(0.46, ['A', 'B', 'C'], 5, 'SHIP WEIGHTS TO EVERY REGION', 'Data')), 'all-caps commitments split');
+      assert.equal(at(0.46, ['A', 'B', 'C'], 5, 'ship weights to every', 'Data'), null, 'the same length in lowercase prose: one page');
+    });
     test('a square or landscape roadmap keeps the split: bands are drawn only on a tall page', () => {
       assert.ok(Array.isArray(at(1, ['A', 'B'], 1)));
     });
