@@ -5,7 +5,7 @@
     "lib/authoring/bare-row-pill.js": 2,
     "lib/authoring/code-format/plan.mjs": 2,
     "lib/authoring/fact-check-core.js": 9,
-    "lib/authoring/lint-core.js": 92,
+    "lib/authoring/lint-core.js": 94,
     "lib/authoring/notes-core.js": 9,
     "lib/authoring/review-core.js": 1,
     "lib/authoring/venue-prose.js": 3,
@@ -24,6 +24,7 @@
     "lib/conformance/changed-paths.js": 3,
     "lib/conformance/kinds/component.contract.js": 9,
     "lib/conformance/kinds/deck-setting.contract.js": 1,
+    "lib/core/agenda-autofill.js": 2,
     "lib/core/auto-split.js": 11,
     "lib/core/axis-member.js": 1,
     "lib/core/backdrop.js": 1,
@@ -284,6 +285,10 @@
     "/(<!-- _hide: (?:true|false) -->)\\n(?:[ \\t]*\\n)*(?=\\1)/g": {
       "verdict": "unknown",
       "why": "recheck cannot model it: look-ahead assertion"
+    },
+    "/(<!--\\s*_class\\s*:\\s*)([\"']?)([\\s\\S]*?)\\2(\\s*-->)/": {
+      "verdict": "unknown",
+      "why": "recheck cannot model it: back-reference"
     },
     "/(<div class=\"cell-stage\">\\s*<ul)([^>]*)>/": "safe",
     "/(<div class=\"lattice-bg[\\s\\S]*?<\\/div>)/": "polynomial",
@@ -830,6 +835,7 @@
     "/<link[^>]*katex[^>]*>\\s*/i": "polynomial",
     "/<mjx-container[^>]*\\sdisplay=\"true\"/": "polynomial",
     "/<ol\\b([^>]*)>$/": "polynomial",
+    "/<ol\\b/": "safe",
     "/<ol\\b/i": "safe",
     "/<p class=\"chart-lead\"[^>]*>([\\s\\S]*?)<\\/p>/g": "polynomial",
     "/<p(?=[\\s/>])/g": "safe",
@@ -1112,6 +1118,7 @@
     "/[\\ud800-\\udbff](?![\\udc00-\\udfff])|(?<![\\ud800-\\udbff])[\\udc00-\\udfff]/": "safe",
     "/[\\w-]/": "safe",
     "/[\\x00-\\x20]/g": "safe",
+    "/[^.]\\.$/": "safe",
     "/[^/]*$/": "polynomial",
     "/[^0-9]/g": "safe",
     "/[^<]+/y": "safe",
@@ -1289,6 +1296,7 @@
     "/\\b\\d+\\s*\\/\\s*\\d+\\b/g": "safe",
     "/\\b\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?\\b|\\b\\d+\\.\\d+\\b/": "safe",
     "/\\b\\w+['’]s\\s+\\w+['’]s\\b/": "safe",
+    "/\\bagenda\\b/": "safe",
     "/\\bcat-\\d\\b/g": "safe",
     "/\\bcell\\b/i": "safe",
     "/\\bcell\\s+(\\d+)\\s*,\\s*(\\d+)/gi": "safe",
@@ -1368,7 +1376,9 @@
     "/\\n$/": "safe",
     "/\\n+$/": "polynomial",
     "/\\n-{3}\\n/": "safe",
+    "/\\n/": "safe",
     "/\\n/g": "safe",
+    "/\\n?---[ \\t]*\\n?$/": "safe",
     "/\\n[ \\t\\r]*\\n/g": "safe",
     "/\\n[ \\t]*(?=\\n)/g": {
       "verdict": "unknown",
@@ -1475,6 +1485,7 @@
     "/\\sclass\\s*=\\s*\"([^\"]*)\"/i": "safe",
     "/\\sclass\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))/i": "safe",
     "/\\sclass\\s*=|\\saria-hidden\\b/i": "safe",
+    "/\\sdata-(?:lattice|marpit)-pagination=\"([^\"]*)\"/": "safe",
     "/\\sdata-aspect=\"([\\d.]+)\"/": "safe",
     "/\\sdata-build-resolved/": "safe",
     "/\\sdata-cards-coda=\"[^\"]*\"/": "safe",
@@ -1565,6 +1576,7 @@
     "/^ {0,3}(?:[-*+]|\\d+[.)])[^\\S\\n]/": "safe",
     "/^ {0,3}(?:[-*+]|\\d{1,9}[.)])\\s+\\S/": "safe",
     "/^ {0,3}(?:[-+*]|\\d{1,9}[.)])(?:[ \\t]|$)/": "safe",
+    "/^ {0,3}(?:\\d{1,9}[.)]|[-*+])[ \\t]+\\S/m": "safe",
     "/^ {0,3}(?:`{3,}|~{3,})/m": "safe",
     "/^ {0,3}([-*+]|\\d+[.)])\\s/": "safe",
     "/^ {0,3}([-*_])(?: *\\1){2,} *$/": {
@@ -1582,6 +1594,10 @@
     "/^ {0,3}<!--/": "safe",
     "/^ {0,3}<(!--|!\\[CDATA\\[|[?]|(?:pre|script|style|textarea)\\b|[A-Za-z/!])/i": "safe",
     "/^ {0,3}</": "safe",
+    "/^ {0,3}<[A-Za-z][\\s\\S]*?(?=\\n[ \\t]*\\n|$(?![\\s\\S]))/gm": {
+      "verdict": "unknown",
+      "why": "recheck cannot model it: look-ahead assertion"
+    },
     "/^ {0,3}[-*+]\\s/": "safe",
     "/^ {0,3}[>[|]/": "safe",
     "/^ {0,3}\\d+[.)]\\s/": "safe",
@@ -1794,6 +1810,7 @@
     "/^([-*]|\\d+\\.)\\s+(.+)$/": "polynomial",
     "/^([-*]|\\d+\\.)\\s+/": "safe",
     "/^([-*]|\\d+\\.)\\s+\\S/": "safe",
+    "/^([-+*#>])(?=\\s|$)/": "safe",
     "/^([A-Za-z0-9][\\w.&/-]*)\\s*:\\s*([\\s\\S]*)$/": "safe",
     "/^([A-Za-z0-9_]\\w*)/": "safe",
     "/^([A-Za-z][A-Za-z0-9+.-]*):/": "safe",
@@ -1833,6 +1850,7 @@
     "/^(\\d+)x(\\d+)$/": "safe",
     "/^(\\d+|full)$/": "safe",
     "/^(\\d{1,4}):(\\d{1,4})$/": "safe",
+    "/^(\\d{1,9})([.)])(?=\\s|$)/": "safe",
     "/^(\\d{4})-(\\d{2})-(\\d{2})$/": "safe",
     "/^(\\s*(?:graph|flowchart)\\s+)(LR|RL)\\b/m": "polynomial",
     "/^(\\s*)((?:[-*+]|\\d+[.)])\\s+)(.*)$/": "polynomial",
@@ -1940,6 +1958,7 @@
     "/^---[ \\t]*\\r?\\n([\\s\\S]*?)\\r?\\n---[ \\t]*(?:\\r?\\n|$)/": "safe",
     "/^---[ \\t]*\\r?\\n([\\s\\S]*?)\\r?\\n---[ \\t]*\\r?\\n?/": "safe",
     "/^---[ \\t]*\\r?\\n[\\s\\S]*?\\r?\\n---[ \\t]*(?:\\r?\\n|$)/": "safe",
+    "/^---[^\\n]*\\n/": "safe",
     "/^---\\n([\\s\\S]*?)\\n---\\n/": "safe",
     "/^---\\n/": "safe",
     "/^---\\r?\\n([\\s\\S]*?)\\r?\\n---(?:\\r?\\n|$)/": "safe",
@@ -2107,6 +2126,10 @@
     "/^[ \\t]*(?:```|~~~).*$/m": "safe",
     "/^[ \\t]*([-*]|\\d+\\.)\\s+/gm": "safe",
     "/^[ \\t]*(```|~~~)[\\s\\S]*?^[ \\t]*\\1/gm": {
+      "verdict": "unknown",
+      "why": "recheck cannot model it: back-reference"
+    },
+    "/^[ \\t]*(```|~~~)[\\s\\S]*?^[ \\t]*\\1[^\\n]*$/gm": {
       "verdict": "unknown",
       "why": "recheck cannot model it: back-reference"
     },
@@ -2613,6 +2636,7 @@
     "/^preset:.*$/m": "safe",
     "/^prettier-ignore(-(start|end))?$/": "safe",
     "/^profile\\s*:/": "safe",
+    "/^progress-\\d+$/": "safe",
     "/^radar$/i": "safe",
     "/^radar-beta\\b/": "safe",
     "/^ratio-(\\d+)-(\\d+)$/": "safe",

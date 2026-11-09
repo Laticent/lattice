@@ -51,6 +51,10 @@ progress  — 2026-11-08 (zero-flakes part 3): part (a) shipped. `checkRegexCens
             · masthead-lift (1), chart-row-record (3), relationship-scaling (2, test/benchmark): not traced yet.
             The backlog went from 699 literals in 191 files to 689 in 186; lint-core from 93 to 92 (the fence opener). The video plugin's copy of the fence opener
             (lib/plugins/video/shared/fences.js) stays: a plugin imports nothing from lib/core.
+            Admitted with --raise on the rebase onto main f13a118: three patterns #3089 (agenda autofill) added after
+            the census snapshot, all `unknown` (a back-reference or a look-ahead recheck cannot model):
+            lint-core.js:8176 and :8177, agenda-autofill.js:242. They were already on main; the next drain owes
+            each a linear rewrite or a written proof. Backlog after the rebase: 693 literals in 187 files.
             The census cannot certify a look-around (recheck cannot model one), so a pattern made linear by a
             look-behind or an atomic-group look-ahead carries its proof in writing: `// regex-ok:` on its line, and
             the same reason in the test's `allow`.
