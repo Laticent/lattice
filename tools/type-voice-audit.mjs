@@ -17,9 +17,10 @@
  *      and ink over the slide background.
  *   4. Files each run under a ROLE (chrome: header, eyebrow, heading: h2, body, chart: tick, …) and
  *      prints one row per role.
- *   5. COLLISIONS: for every pair of roles that share at least one slide, counts the axes that tell them apart: face (family or
+ *   5. COLLISIONS: on every slide, for every pair of roles on it, counts the axes that tell them apart: face (family or
  *      italic), size (≥ 1.2×), weight (≥ 200), case (capitals vs as written) and ink (the two inks
- *      ≥ 1.5:1 apart in luminance, or ≥ 0.1 apart in OKLab, so a hue change counts). Zero or one axis is a collision; the study's rule is that a content role and
+ *      ≥ 1.5:1 apart in luminance, or ≥ 0.1 apart in OKLab, so a hue change counts). A pair's verdict is its worst slide.
+ *      Zero or one axis is a collision; tracking is not counted (0.18em against 0.08em is real but small); the study's rule is that a content role and
  *      a chrome role never collide.
  *   6. ISOLATION: the vertical gaps on the content slide (header → eyebrow → heading → body →
  *      footer), and whether the meta line shares the eyebrow's row.
@@ -162,7 +163,7 @@ The quarter in one page: what moved, what it cost, and what we ask the board to 
 Source: finance ledger, unaudited.
 `;
 
-// The slide each role is read from: the plain content slide where one exists, so ink is measured on the page canvas.
+// Which kind of slide each probe slide is, by position.
 const KIND = ['title', 'content', 'divider', 'quote', 'big-number', 'cards-grid', 'bar', 'piechart', 'line'];
 
 function role(x) {
@@ -267,30 +268,44 @@ async function main() {
   await browser.close();
   fs.rmSync(dir, { recursive: true, force: true });
 
-  // One measured voice per role, read from the first slide that shows it.
-  const roles = new Map();
-  const slidesOf = new Map();
-  for (const x of runs) {
-    const r = role(x);
-    if (!slidesOf.has(r)) slidesOf.set(r, new Set());
-    slidesOf.get(r).add(x.slide);
-    if (roles.has(r)) continue;
+  // Measure each role ON EACH SLIDE: a role's ink and size change with the slide's background and kind, so a pair is
+  // only ever compared where both roles stand on the same slide. A pair's verdict is its worst slide (fewest axes).
+  const voice = (x) => {
     const bg = parse(x.bg);
     const ink = over(parse(x.ink), bg);
-    roles.set(r, { role: r, face: x.face, px: +x.px.toFixed(1), weight: +x.wt, italic: x.it, caps: x.uc, tracking: +x.ls.toFixed(2), ink, contrast: +contrast(ink, bg).toFixed(1) });
+    return { role: role(x), slide: x.slide, face: x.face, px: +x.px.toFixed(1), weight: +x.wt, italic: x.it, caps: x.uc, tracking: +x.ls.toFixed(2), ink, contrast: +contrast(ink, bg).toFixed(1) };
+  };
+  const perSlide = new Map(); // slide → role → voice (the role's first run on that slide)
+  for (const x of runs) {
+    const v = voice(x);
+    if (!perSlide.has(v.slide)) perSlide.set(v.slide, new Map());
+    const m = perSlide.get(v.slide);
+    if (!m.has(v.role)) m.set(v.role, v);
   }
+  // The table shows each role once: from the plain content slide (2) when it appears there, else its first slide.
+  const roles = new Map();
+  for (const n of [2, ...[...perSlide.keys()].filter((k) => k !== 2)]) for (const [r, v] of perSlide.get(n) || []) if (!roles.has(r)) roles.set(r, v);
   const list = [...roles.values()].sort((a, b) => b.px - a.px);
-  const pairs = [];
-  for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
-    const a = list[i], b = list[j], axes = [];
-    if (![...slidesOf.get(a.role)].some((n) => slidesOf.get(b.role).has(n))) continue; // never on one slide
+  const axesOf = (a, b) => {
+    const axes = [];
     if (a.face !== b.face || a.italic !== b.italic) axes.push('face');
     if (Math.max(a.px, b.px) / Math.min(a.px, b.px) >= 1.2) axes.push('size');
     if (Math.abs(a.weight - b.weight) >= 200) axes.push('weight');
     if (a.caps !== b.caps) axes.push('case');
     if (contrast(a.ink, b.ink) >= 1.5 || deltaE(a.ink, b.ink) >= 0.1) axes.push('ink');
-    if (axes.length <= 1) pairs.push({ a: a.role, b: b.role, axes, crossesChrome: CHROME_ROLE(a.role) !== CHROME_ROLE(b.role) });
+    return axes;
+  };
+  const worst = new Map();
+  for (const [n, m] of perSlide) {
+    const vs = [...m.values()];
+    for (let i = 0; i < vs.length; i++) for (let j = i + 1; j < vs.length; j++) {
+      const [a, b] = [vs[i], vs[j]].sort((x, y) => (x.role < y.role ? -1 : 1));
+      const key = `${a.role}|${b.role}`;
+      const axes = axesOf(a, b);
+      if (!worst.has(key) || axes.length < worst.get(key).axes.length) worst.set(key, { a: a.role, b: b.role, axes, slide: n });
+    }
   }
+  const pairs = [...worst.values()].filter((p) => p.axes.length <= 1).map((p) => ({ ...p, crossesChrome: CHROME_ROLE(p.a) !== CHROME_ROLE(p.b) }));
   const g = gaps;
   const gap = (a, b) => (g[a] && g[b] ? Math.round(g[b].top - g[a].bottom) : null);
   const space = {
@@ -306,7 +321,7 @@ async function main() {
   for (const v of list) console.log(`| ${v.role} | ${v.face}${v.italic ? ' italic' : ''} | ${v.px} | ${v.weight} | ${v.caps ? 'capitals' : 'as written'} · ${v.tracking}em | ${v.contrast}:1 |`);
   console.log('\nCollisions (0–1 axes apart). ✗ = content against chrome, the pair the study forbids:');
   for (const p of pairs.sort((x, y) => x.axes.length - y.axes.length || +y.crossesChrome - +x.crossesChrome)) {
-    console.log(`  ${p.crossesChrome ? '✗' : ' '} ${p.axes.length} · ${p.a} ~ ${p.b}${p.axes.length ? ` (only ${p.axes[0]})` : ''}`);
+    console.log(`  ${p.crossesChrome ? '✗' : ' '} ${p.axes.length} · ${p.a} ~ ${p.b}${p.axes.length ? ` (only ${p.axes[0]})` : ''} · slide ${p.slide}`);
   }
   console.log(`\nSpace on the content slide (px @1280): header→eyebrow ${space.headerToEyebrow}, eyebrow→heading ${space.eyebrowToHeading}, heading→body ${space.headingToBody}, body→footer ${space.bodyToFooter}; meta shares the eyebrow's row: ${space.metaSharesEyebrowRow}`);
 }
