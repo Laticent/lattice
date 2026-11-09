@@ -354,3 +354,26 @@ A locale voice speaks on the real API: `gemini-3.8-flash-lite-tts` with `voiceNa
 (the request `voice-model.js` builds) answered HTTP 200 with a 102 KB WAV on 2026-11-10, beside a named
 voice (`achernar`, 119 KB) for comparison.
 
+### 10.3 /cadenza and /suono on the voice spine
+
+Both library pages now pass a `selection` to `createVoiceModel`: `pageVoiceSelection`
+(`playground/page-voice-selection.js`) reads the author's STORED voice selection, the Studio's, so
+the voice chosen in Workspace › AI is the voice a reference page speaks in. It reads through
+`peekVoiceSelection` (`lib/model-selection.js`), which neither migrates nor writes: a Studio read runs a
+one-time migration that WRITES a selection (Kokoro on any desktop), and an independent checker found
+that made the page's own default unreachable on desktop and started the ~80 MB Kokoro download on
+/cadenza's page load. The page never writes the selection: its Kokoro picker is a page-scoped override that lasts for the page, and applies only while the
+voice is Kokoro. A selection that was never set gets the page's own default, decided per read and
+named in the voice label (the same "fill only what is Not set" rule as the Studio): on /cadenza the
+OpenRouter voice when a key is connected, else the browser's speechSynthesis voice, which the page
+opts into with `allowBrowserVoice` and the Studio never uses (`resolveVoice` takes `provider:
+'browser'` only then); on /suono the OpenRouter voice. A stored on-device Kokoro voice loads only on the Play gesture, never
+on page load; a cloud voice's key opens at load. /cadenza's label says why it is silent ("needs a Gemini
+key", "on-device voice loads on Play"). /suono turns its voice mode on for whatever the stored voice
+needs (a Kokoro voice, or that provider's own key: a Gemini voice no longer needs an OpenRouter key).
+Neither page reads the legacy `db` voice prefs any more.
+
+The `!selection` ladder in `voice-model.js` (`pickRung`'s auto ladder, `rungPref`, `setRungPref` and
+the `voiceKeys` prefs) has no production caller left, but about 92 test constructions across five
+test files use it as their harness; deleting it is recorded in
+`followups.d/3079-p3-delete-the-voice-ladder.md`.

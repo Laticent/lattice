@@ -1249,6 +1249,9 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     const s = selection.read();
     // Not set: nothing chosen yet; nothing speaks and nothing is guessed (captions).
     if (!s.provider) return { sel: s, rung: silentRung, state: 'unset' };
+    // The browser's own speechSynthesis voice: only a page that opts in (`allowBrowserVoice`, the
+    // /cadenza demo) may select it, as its default for a selection that was never set. The Studio never does.
+    if (s.provider === 'browser') return speechReady() ? { sel: s, rung: { name: 'speechSynthesis' }, state: 'ready' } : { sel: s, rung: silentRung, state: 'unavailable' };
     if (s.provider === 'kokoro') {
       if (!kokoroSupported()) return { sel: s, rung: kokoro, state: 'unavailable' };
       return { sel: s, rung: kokoro, state: kokoro.ready() ? 'ready' : kokoroLoading ? 'warming' : 'unavailable' };

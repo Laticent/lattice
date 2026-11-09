@@ -199,7 +199,9 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 
 		<script>
 			import { createStage, encodeWav, sequence } from '@/lib/suono';
-			import { isOpenRouterKeyEvent, loadOpenRouterKey, readOpenRouterKey } from '@/lib/openrouter-key.js';
+			import { isSet, peekVoiceSelection } from '@/lib/model-selection.js';
+			import { isOpenRouterKeyEvent, loadOpenRouterKey, loadProviderKey, readOpenRouterKey, readProviderKey } from '@/lib/openrouter-key.js';
+			import { pageVoiceSelection } from '@/playground/page-voice-selection.js';
 
 			const $ = (s) => document.querySelector(s);
 			const root = document.documentElement;
@@ -319,7 +321,9 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 					produceCount++; mProduce.textContent = String(produceCount);
 					if (mode === 'voice' && voice) {
 						try {
-							const { bytes } = await voice.synthOne({ text: item.text, voice: selVoice, signal });
+							// The Kokoro picker is this page's, and applies only while the voice is Kokoro.
+							const kokoro = voice.rung() === 'kokoro' || (voice.rung() === 'openrouter-tts' && /kokoro/i.test(voice.orModel()));
+							const { bytes } = await voice.synthOne({ text: item.text, voice: kokoro ? selVoice : undefined, signal });
 							if (bytes) return bytes;
 						} catch { /* fall through to a tone */ }
 					}
@@ -379,7 +383,11 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				seq.play();               // play() internally stop()s then re-runs; bytesCache survives
 			}
 
-			playBtn.addEventListener('click', () => { curBeat = null; setCurrentBeat(null); playFresh({ gaps: true }); });
+			playBtn.addEventListener('click', () => {
+				// The Play gesture is what may load a selected on-device voice; until it is ready, items play as tones.
+				if (mode === 'voice' && voice && voice.rung() === 'silent') voice.prepareSelectedVoice().catch(() => {});
+				curBeat = null; setCurrentBeat(null); playFresh({ gaps: true });
+			});
 			pauseBtn.addEventListener('click', () => {
 				if (!seq) return;
 				if (seq.playing()) { seq.pause(); paused = true; pauseBtn.textContent = 'Resume'; setDiag('Paused.'); }
@@ -466,20 +474,28 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			});
 
 			// ── Cloud voice — detect the shared OpenRouter key; use it or offer Connect ──────
-			const OR_VOICE_LS = 'lattice-db-voice-or';
+			const OR_VOICE_LS = 'lattice-suono-voice'; // this page's Kokoro pick, never the stored selection
 			const keyDot = $('#keyDot'), keyDotLabel = $('#keyDotLabel'), cloudHint = $('#cloudHint'), cloudControls = $('#cloudControls'), usageEl = $('#usage');
 			const readKey = readOpenRouterKey;
 			try { selVoice = localStorage.getItem(OR_VOICE_LS) || 'af_heart'; } catch {}
 
+			// Whether the stored voice can speak here: a Kokoro voice (loads on Play), a cloud voice whose own
+			// key is in this browser (an OpenRouter or a Gemini key), or, with no voice chosen, an OpenRouter key.
+			function voiceReachable() {
+				const s = peekVoiceSelection();
+				if (!isSet(s)) return !!readKey();
+				if (s.provider === 'kokoro') return true;
+				return !!(s.provider === 'openrouter' ? readKey() : readProviderKey(s.provider));
+			}
+
 			async function refreshCloud() {
-				const key = readKey();
-				const on = !!key;
+				const on = voiceReachable();
 				keyDot.dataset.on = String(on);
-				keyDotLabel.textContent = on ? 'key connected' : 'no key';
+				keyDotLabel.textContent = on ? 'voice ready' : 'no key';
 				cloudControls.innerHTML = '';
 				if (on) {
 					mode = 'voice';
-					cloudHint.innerHTML = 'Using the OpenRouter key already in this browser (the same bring-your-own-key the Playground stores in <code>localStorage</code> — it never leaves your device). Items now synthesize real speech through the shared voice ladder.';
+					cloudHint.innerHTML = 'Items now speak in the voice you chose in the Studio (Workspace › AI), on the key already in this browser (bring-your-own-key, stored only in <code>localStorage</code>; it never leaves your device). With no voice chosen, they use the OpenRouter voice.';
 					// Voice picker (Kokoro voices, shared with the Playground).
 					const sel = document.createElement('select');
 					sel.className = 'vsel'; sel.setAttribute('aria-label', 'Cloud voice');
@@ -496,7 +512,14 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 					// Lazily load the shared voice model (byte producer) — the sanctioned pattern.
 					if (!voice) {
 						import('@/playground/voice-model.js')
-							.then((m) => { voice = m.createVoiceModel({ getOpenRouterKey: readKey, allowBrowserVoice: false }); })
+							// The author's STORED voice selection (Workspace › AI), resolved without a ladder; a
+							// selection never set gets this page's default, the OpenRouter voice (page-voice-selection.js).
+							.then((m) => {
+								const pageSel = pageVoiceSelection({ whenUnset: () => ({ source: 'cloud', provider: 'openrouter' }) });
+								voice = m.createVoiceModel({ getOpenRouterKey: readKey, selection: pageSel });
+								// Open a cloud voice's key now; an on-device Kokoro voice loads only on Play.
+								if (pageSel.read().provider !== 'kokoro') voice.prepareSelectedVoice().catch(() => {});
+							})
 							.catch(() => { voice = null; setDiag('Could not load the cloud voice model; staying on tones.', true); });
 					}
 				} else {
@@ -513,8 +536,11 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			// React to a key connected in another tab (the shared BYOK key).
 			addEventListener('storage', (e) => { if (isOpenRouterKeyEvent(e)) loadOpenRouterKey().then(refreshCloud); });
 			refreshCloud();
-			// The key is sealed at rest: refresh once it is open.
-			loadOpenRouterKey().then(refreshCloud);
+			// Keys are sealed at rest: open OpenRouter's and the stored voice's own (a Gemini voice), then decide.
+			{
+				const stored = peekVoiceSelection().provider;
+				Promise.all([loadOpenRouterKey(), stored && stored !== 'openrouter' && stored !== 'kokoro' ? loadProviderKey(stored) : null]).then(refreshCloud, refreshCloud);
+			}
 
 			// ── Boot ──────────────────────────────────────────────────────────────────────
 			renderScore(true);
