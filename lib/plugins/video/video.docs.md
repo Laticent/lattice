@@ -17,7 +17,10 @@ until it writes a record.
 
 ```markdown
 `@video{ADDRESS, title="…", description="…", poster=…}`
+`>{ADDRESS, title="…"}`
 ```
+
+`>{…}` is the short form, the way `^{…}` is an icon's and `!{…}` an avatar's: the two spellings draw the same figure.
 
 | Word | Meaning |
 |---|---|
@@ -106,7 +109,7 @@ link and no notice.
 ## What stays literal
 
 A record in running text, in a code fence, in a quote's lazy continuation, or with an address the provider table does not own
-stays code. To show a record as text on purpose, put a backslash before the `@`: `` `\@video{"https://youtu.be/x"}` ``.
+stays code. To show a record as text on purpose, put a backslash before the `@` or the `>`: `` `\@video{"https://youtu.be/x"}` ``, `` `\>{"https://youtu.be/x"}` ``.
 
 ## Anti-patterns
 

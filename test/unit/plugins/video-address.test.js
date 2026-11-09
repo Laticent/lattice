@@ -54,17 +54,21 @@ describe('the DOM path never dispatches an address kind', () => {
     assert.ok(dispatcher.renderBlockHtml(SPAN), 'only the block path draws it');
   });
 
-  test('the kind is declared address, named-only, and block', () => {
+  test('the kind is declared address and block, and opens with the `>` sigil (decision 3)', () => {
     const row = require('../../../lib/plugins/inline.generated.js').INLINE.find((k) => k.name === 'video');
     assert.equal(row.address, true);
-    assert.equal(row.namedOnly, true);
+    assert.ok(!row.namedOnly, 'no longer named-only: `>{…}` is its short form');
     assert.equal(row.block, true);
-    assert.equal(row.sigil, null);
+    assert.equal(row.sigil, '>');
   });
 
-  test('the bare record is still a pill: a named-only kind is reached only through its name', () => {
+  test('both spellings draw the same figure, and the bare record is still a pill', () => {
+    const short = `>${SPAN.slice('@video'.length)}`;
+    assert.equal(dispatcher.renderBlockHtml(short).replace(/ data-src="[^"]*"/, ''), dispatcher.renderBlockHtml(SPAN).replace(/ data-src="[^"]*"/, ''), 'one figure, whichever spelling');
+    assert.equal(dispatcher.renderElement(new JSDOM('<!doctype html><body></body>').window.document, short), null, 'the DOM path never draws the short form either');
     assert.doesNotMatch(dispatcher.renderHtml('{"https://youtu.be/dQw4w9WgXcQ"}') || '', /video-embed/, 'the bare record is a pill, never a video');
-    assert.equal(dispatcher.canonicalText(SPAN), SPAN, 'a reader that knows sigils must not rewrite it to a pill');
+    assert.equal(require('../../../lib/plugins/video/video.inline.js').diagnose('{"https://youtu.be/dQw4w9WgXcQ"}', { provider: () => null }), null, 'video never diagnoses a bare record');
+    assert.equal(dispatcher.canonicalText(SPAN), short, 'a reader that knows sigils reads the short form');
   });
 });
 

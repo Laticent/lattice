@@ -250,13 +250,13 @@ describe('the cheap filters keep their meaning', () => {
       let i = 0;
       let escaped = false;
       if (text.charCodeAt(0) === 0x5c) { escaped = true; i = 1; }
-      if ('~^!'.includes(text[i] ?? '\0')) i++;
+      if (TAGS.includes(text[i] ?? '\0')) i++;
       if (text.charCodeAt(i) !== 0x7b) return null;
       const c = text.charCodeAt(i + 1);
       if (Number.isNaN(c) || c === 32 || c === 9 || c === 160 || c === 0x7d) return null;
       return escaped ? 'escaped' : 'directive';
     };
-    for (const s of strings(['\\', '~', '^', '!', '{', '}', ' ', 'a', '\t', '\u00a0', '['], 4)) expect(isDirective(s), JSON.stringify(s)).toBe(was(s));
+    for (const s of strings(['\\', '~', '^', '!', '>', '{', '}', ' ', 'a', '\t', '\u00a0', '['], 4)) expect(isDirective(s), JSON.stringify(s)).toBe(was(s));
   });
 });
 

@@ -37,7 +37,7 @@
   "contributes": {
     "inline": {
       "video": {
-        "named": true,
+        "sigil": ">",
         "address": true
       }
     },
