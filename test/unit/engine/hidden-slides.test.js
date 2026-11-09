@@ -80,7 +80,7 @@ describe('engine: a hidden slide is marked and takes no number', () => {
     const NUMBERED = (n) => `<!-- _class: divider numbered -->\n\n## Part ${n}`;
     const TOPIC = '<!-- _class: topic -->\n\n## A topic\n\nBody.';
     const s = sectionsOf(createEngine().render(deckOf([NUMBERED(1), TOPIC, hide(NUMBERED(2)), TOPIC, NUMBERED(3), TOPIC], RAIL_ON), 'lattice').html);
-    assert.deepEqual([marker(s[0]), marker(s[2]), marker(s[4])], ['1 / 2', '', '2 / 2']);
+    assert.deepEqual([marker(s[0]), marker(s[2]), marker(s[4])], ['1/2', '', '2/2']);
     assert.deepEqual([stamp(s[0]), stamp(s[4])], ['01', '02'], 'the third divider is the second shown one');
     assert.deepEqual([topicEyebrow(s[1]), topicEyebrow(s[3]), topicEyebrow(s[5])], ['01 · Part 1', '01 · Part 1', '02 · Part 3']);
     assert.equal(stamp(s[2]), '', 'a hidden numbered divider carries no number (it would read 01 again)');

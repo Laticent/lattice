@@ -111,7 +111,7 @@ section.divider.light p:has(> code:only-child):not(:where([data-prose])) { max-w
 
 /* ── THE SECTION MARKER — the divider's own legend for the deck's section rail ─────────────────
  * progress.transform.js writes `.divider-marker` as the FIRST child of a divider, when the deck draws
- * a section rail at all: the count in figures (`2 / 4`) and the same row of marks as the footer rail,
+ * a section rail at all: the count in figures (`2/4`) and the same row of marks as the footer rail,
  * drawn larger, with this section lit. It is what teaches the rail — every later footer rail is a
  * miniature of it — so it shares the rail's mark geometry and inks (progress.css, scaled by `--_mk`)
  * and its style (`progress-rail: bar`). It is frame content, not a chrome Cell: a divider is a
@@ -179,7 +179,7 @@ section.divider:has(> .divider-marker) > footer {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* `1 / 4` is a figure, not prose: isolated and left-to-right, so a right-to-left deck does not
+/* `1/4` is a figure, not prose: isolated and left-to-right, so a right-to-left deck does not
  * reorder it into `4 / 1`. */
 section.divider > .divider-marker > .divider-marker-count { direction: ltr; unicode-bidi: isolate; }
 section.divider > .divider-marker > .divider-marker-marks {
@@ -188,9 +188,5 @@ section.divider > .divider-marker > .divider-marker-marks {
   block-size: 1cap;
   gap: var(--_mk-gap);
 }
-/* The label font is monospaced, so each space in `2 / 4` is a full figure wide and the count's inner
- * gaps matched its gap to the marks: three loose glyphs. Pulled in, the count reads as one label and
- * every gap inside it is smaller than the gap to the scale (owner's review, 2026-11-08; -0.45em
- * crowded the slash). */
-section.divider > .divider-marker > .divider-marker-count { word-spacing: -0.3em; }
+
 

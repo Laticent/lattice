@@ -175,7 +175,7 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
       assert.equal(root.querySelector('section.divider .tile-progress'), null, `${arm} arm: no chrome rail on a divider`);
       const markers = [...root.querySelectorAll('section.divider')].map((s) => s.firstElementChild);
       assert.deepEqual(markers.map((m) => m.className), ['divider-marker', 'divider-marker', 'divider-marker'], `${arm} arm: the marker leads each divider`);
-      assert.deepEqual(markers.map((m) => m.querySelector('.divider-marker-count').textContent), ['1 / 3', '2 / 3', '3 / 3']);
+      assert.deepEqual(markers.map((m) => m.querySelector('.divider-marker-count').textContent), ['1/3', '2/3', '3/3']);
       assert.deepEqual(markers.map((m) => [...m.querySelectorAll('.dot')].findIndex((x) => x.classList.contains('on'))), [0, 1, 2]);
     }
   });

@@ -1440,7 +1440,7 @@ rail, `with-progress` shows it over `no-progress`, `silent` and `progress-rail: 
   `progress-rail: on` lowers the floor to two sections and any length. One section never draws.
 - **Only on content slides inside a section.** Title, closing, topic, full-bleed layouts and the
   slides before the first divider carry no rail.
-- **Each divider draws its own marker instead**: the section's place in figures (`2 / 4`) and the same
+- **Each divider draws its own marker instead**: the section's place in figures (`2/4`) and the same
   marks, a little larger, this section lit, **where the rail will be**: the bottom-right corner by
   default, the center of the footer band under `center`, upright on the right edge under `edge`. So the
   divider teaches both what the marks mean and where to look for them. A divider carries no page
@@ -1458,7 +1458,7 @@ a11y-achromatopsia (`topic.styles.css` § the lit item).
 **One section number.** Every divider counts, `light` included, and a `divider numbered` prints the
 same number the rail lights. `npm run lint:deck` warns `empty-section` when a divider follows a
 divider directly, because the first section then holds no slide, its mark never lights, and the first
-rail a reader sees says `2 / 4`.
+rail a reader sees says `2/4`.
 
 **`center` costs footer width.** The rail never yields in the footer band, and the author's
 footer words do (`engineering/decisions/2026-07-27-footer-band-allocation.md`). With the rail on

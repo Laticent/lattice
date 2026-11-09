@@ -149,7 +149,7 @@ section.divider.progress-rail-edge > .divider-marker {
   max-width: none;
 }
 section.divider.progress-rail-edge > .divider-marker > .divider-marker-marks { flex-direction: column; }
-/* No count on the edge: marks only, as the edge rail on the slides after it. Set across, `1 / 3` ran off
+/* No count on the edge: marks only, as the edge rail on the slides after it. Set across, `1/3` ran off
  * the slide; set sideways or stacked, a label standing beside an upright column read as odd (owner's
  * review, 2026-11-08). The column centers its marks on its own line, not on a baseline. */
 section.divider.progress-rail-edge > .divider-marker > .divider-marker-count { display: none; }
