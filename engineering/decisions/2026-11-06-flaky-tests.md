@@ -157,8 +157,10 @@ The answer for every distinct literal in `lib/**` (keyed on its text, `/source/f
   twenty hang guards are retired; `followups.d/3045-p2-regex-recheck-gate.md` lists the ten left and what their paths
   run. recheck cannot model a look-around, so a pattern made linear by one (a look-behind, or the atomic-group idiom
   `(?=(\s*))\1`) carries its proof in writing: `// regex-ok:` on its line and the same reason in the test's `allow`.
-- **Cost**: about 2 s per `build:check` (1.9 to 2.7 s measured, under load), the TypeScript parse of 407 files. The
-  first full census took about 45 minutes on 4 cores; a new literal takes 0.5 to 3 s.
+- **Cost**: about 1.2 s per `build:check` on an idle machine (1.23 s cold, 1.16 to 1.28 s warm; 1.9 to 2.7 s with
+  the CPU busy), the TypeScript parse of 407 files, about the same as the flaky census beside it. The whole
+  `build:check` ran in 37.6 s. The first full census took about 45 minutes on 4 cores; a new literal takes 0.5 to
+  3 s.
 
 **The gate read a `flaky-ok` mark from the wrong line after a U+2028 or U+2029.** TypeScript counts both as line
 breaks and `text.split('\n')` does not, so in `test/unit/core/lattice-doc.test.js` every mark below a string holding
