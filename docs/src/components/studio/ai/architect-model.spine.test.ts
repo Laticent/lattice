@@ -472,6 +472,8 @@ describe('model spine — a freshly minted key is activating, not rejected', () 
 		keys.noteOpenRouterStatus(401, 'sk-or-v1-fresh-oauth-key-0a0a');
 		vi.useRealTimers();
 		expect(keys.openRouterKeyActivating()).toBe(true);
+		keys.isOpenRouterKeyEvent({ key: 'lattice-db-gemini-key' } as StorageEvent);
+		expect(keys.openRouterKeyActivating()).toBe(true); // another provider's key leaves it alone
 		keys.isOpenRouterKeyEvent({ key: 'lattice-db-or-key' } as StorageEvent);
 		expect(keys.openRouterKeyActivating()).toBe(false);
 	});

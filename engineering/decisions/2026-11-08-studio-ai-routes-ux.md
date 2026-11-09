@@ -351,7 +351,9 @@ the note the moment the key is accepted. A key still refused after the window is
 pasted key's 401 is a rejection at once. The note ends with the window even if nothing asks again, belongs to one
 key (another tab's key, or a new one, does not inherit it), and survives Disconnect then Undo; the
 re-check never runs faster than once a second and stops when the window closes, so a dropped
-connection or a 5xx cannot turn it into a loop. Key info now comes from OpenRouter's documented `/api/v1/key` (it was the undocumented `/api/v1/auth/key`), and every card
+connection or a 5xx cannot turn it into a loop. The mint record (`lattice-db-or-minted`, "<ms>:<last four>") holds the
+key's last four characters in clear: the same four Connections shows on screen, not a usable secret,
+and the only piece of the key outside the sealed envelope. Key info now comes from OpenRouter's documented `/api/v1/key` (it was the undocumented `/api/v1/auth/key`), and every card
 on a route whose key was refused says so (owner report, 2026-11-08).
 
 Left for later, recorded in `followups.d/`: the nightly live check of every route's list through `familyOf`

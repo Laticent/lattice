@@ -63,8 +63,10 @@ let issuedHint = '';
  * ({ key }), per model, so two chains never poll one key and a test's model starts clean.
  */
 function watchActivation(watch, key) {
-  if (watch.key === key) return;
+  // A watch whose timer was lost (a frozen tab) is not trusted past its window.
+  if (watch.key === key && Date.now() < watch.until) return;
   watch.key = key;
+  watch.until = Date.now() + OPENROUTER_ACTIVATION_MS + 2 * ACTIVATION_POLL_MS;
   const stop = () => { if (watch.key === key) watch.key = null; };
   const ask = () => {
     const left = OPENROUTER_ACTIVATION_MS - openRouterKeyMintedAgeMs(key);
@@ -309,7 +311,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
   // longer stored is ignored (lib/openrouter-key.js). The key itself stays, so the author sees
   // "rejected · Reconnect" rather than a silent fall to "not connected".
   // Every OpenRouter answer feeds the key's mark; a 401 for a key still activating starts the watch.
-  const watch = { key: null }; // the key the activation watch is asking about
+  const watch = { key: null, until: 0 }; // the key the activation watch is asking about
   const noteStatus = (status, key) => {
     noteOpenRouterStatus(status, key);
     if (status === 401 && openRouterKeyActivating()) watchActivation(watch, key);

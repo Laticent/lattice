@@ -409,10 +409,11 @@ export function openRouterKeyAgeMs() {
  * found." for over a minute and accepted 94 s after the key was made (owner report, 2026-11-09).
  */
 export const OPENROUTER_ACTIVATION_MS = 180_000;
-// When a sign-in minted a key, and that key's last four characters ("<ms>:<tail>"). Not secret (the
-// tail is what Connections shows), and kept across a reload so a page opened mid-activation still
-// knows. Kept on Disconnect too, so Undo brings the same key back still in its window; a different
-// key never matches it. A pasted key has none: its 401 is a rejection at once.
+// When a sign-in minted a key, and that key's last four characters ("<ms>:<tail>"). The tail is the
+// one piece of the key kept in clear: the same four characters Connections shows on screen, 16 bits,
+// not usable as a secret. Kept across a reload, so a page opened mid-activation still knows, and on
+// Disconnect, so Undo brings the same key back still in its window; a different key never matches
+// it. A pasted key has none: its 401 is a rejection at once.
 const OR_MINTED = 'lattice-db-or-minted';
 const tail = (key) => String(key).slice(-4);
 let activatingKey = null; // the key OpenRouter answered 401 for inside its window, until a 2xx or a new key
@@ -498,7 +499,9 @@ export function isOpenRouterKeyEvent(event) {
 	const k = event?.key;
 	const hit = k === null || Object.values(SLOTS).some((s) => s.KEY === k);
 	if (hit) wrapKey = null; // the other tab may have made the sealing key; read it afresh
-	if (hit) activatingKey = null; // the other tab's key is not the one this tab saw activating
+	// Only a change to the OpenRouter key (or a cleared store) can make the stored key differ from
+	// the one this tab saw activating; another provider's key leaves it alone.
+	if (k === null || k === OR.KEY) activatingKey = null;
 	return hit;
 }
 
