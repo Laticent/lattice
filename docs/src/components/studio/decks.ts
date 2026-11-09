@@ -8,7 +8,6 @@
 export type StudioDeck = {
 	id: string;
 	title: string;
-	meta: string;
 	/** Per-slide source; joined with `\n\n---\n\n` for the engine. */
 	slides: string[];
 };
@@ -24,7 +23,6 @@ export const DECKS: StudioDeck[] = [
 		// declared title must BE that heading — it is only the seed/fallback for the
 		// index, and a drift test (studio-store.test.ts) fails if the two ever disagree.
 		title: 'Markdown for the boardroom',
-		meta: '7 slides',
 		slides: [
 			`<!-- _class: title -->\n\n# Markdown for the boardroom\n\n\`Lattice · A guided tour\`\n\nWrite plain text. Ship a deck with the taste built in.`,
 			`<!-- _class: big-number -->\n\n\`The whole idea\`\n\n- 0\n  - boxes to drag — you write Markdown, the engine designs the slide.`,
@@ -43,7 +41,6 @@ export const DECKS: StudioDeck[] = [
 	{
 		id: 'q3-board',
 		title: 'Q3 Board Review',
-		meta: '6 slides',
 		slides: [
 			`<!-- _class: title -->\n\n# Q3 Board Review\n\n\`Board · Q3 2026\`\n\nSteady growth, disciplined spend.`,
 			`<!-- _class: agenda -->\n\n## What this review covers.\n\n1. The quarter in four numbers\n2. What customers told us\n3. How the funnel converted\n4. Where we invest next`,
@@ -56,7 +53,6 @@ export const DECKS: StudioDeck[] = [
 	{
 		id: 'product-strategy',
 		title: 'FY26 Product Strategy',
-		meta: '5 slides',
 		slides: [
 			`<!-- _class: title -->\n\n# FY26 Product Strategy\n\n\`Product · FY26\`\n\nThree bets, one platform.`,
 			`<!-- _class: agenda -->\n\n## The plan in four moves.\n\n1. Where the leverage is\n2. The three bets\n3. What we stop doing\n4. The one metric that matters`,

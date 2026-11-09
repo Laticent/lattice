@@ -8,6 +8,8 @@ import {
 	DECKS_CLEARED_EVENT,
 	deckContentStats,
 	deckLabels,
+	deckMetaFor,
+	deckSourceFor,
 	deleteDeck,
 	exportStudioState,
 	hasStoredPosture,
@@ -50,7 +52,26 @@ describe('studio-store — deck index', () => {
 	it('seeds the list from the built-in decks on first run', () => {
 		const list = loadDeckList();
 		expect(list.map((d) => d.id)).toEqual(DECKS.map((d) => d.id));
-		expect(list[0].meta).toMatch(/\d+ slides?/);
+		// No slide-count label on the rows: counting rendered slides parses every deck, and a boot
+		// loads this list five times. The switcher asks `deckMetaFor` when it opens instead.
+		expect(list.every((d) => !('meta' in d))).toBe(true);
+		expect(deckMetaFor(list[0].id)).toBe(metaFor(deckSource(DECKS[0])));
+	});
+
+	it('deckSourceFor is the text deckSource(d) gave, without splitting a list row', () => {
+		// Every built-in deck, unedited: the canonical text, byte for byte what joining the split gave.
+		for (const d of loadDeckList()) expect(deckSourceFor(d), d.id).toBe(deckSource({ ...d, slides: [...d.slides] }));
+		// An edited deck: its stored source wins.
+		const d = createDeck('Stored');
+		saveSource(d.id, '# Edited');
+		expect(deckSourceFor(d)).toBe('# Edited');
+	});
+
+	it('deckMetaFor counts the stored source, so an edited deck reads its new count', () => {
+		const d = createDeck('Counted', '# One\n\n---\n\n# Two');
+		expect(deckMetaFor(d.id)).toBe('2 slides');
+		saveSource(d.id, '# One\n\n---\n\n# Two\n\n---\n\n# Three');
+		expect(deckMetaFor(d.id)).toBe('3 slides');
 	});
 
 	it('createDeck appends a persisted, editable deck', () => {

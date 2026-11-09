@@ -168,7 +168,7 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -494,7 +494,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [deck, setDeck] = React.useState<StudioDeck>(() => loadBootDeck());
 	const [source, setSourceRaw] = React.useState(() => {
 		const first = loadBootDeck();
-		return loadSource(first.id) ?? deckSource(first);
+		return deckSourceFor(first);
 	});
 	// THE LATEST TEXT, which `source` may trail: the editor's typing reaches `source` as a transition (see
 	// setSourceFromEditor), so a click handler, a timer or a save that read `source` could act on text the author has
@@ -2237,9 +2237,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => { crashCrumb('nav', `deck: ${deckTitleRef.current} (${deck.id})`); }, [deck.id]);
 
 	// The deck list as the switcher + ⌘K should SEE it: `decks` holds each deck's
-	// stored title/meta, which for the ACTIVE deck goes stale the moment you type —
-	// so the active row is projected from the live editor instead.
-	const deckList = React.useMemo(() => decks.map((d) => (d.id === deck.id ? { ...d, title: deckTitle, meta: slideCountLabel(deckIndex.partBase.at(-1) ?? 0) } : d)), [decks, deck.id, deckTitle, deckIndex]);
+	// stored title, which for the ACTIVE deck goes stale the moment you type —
+	// so the active row is projected from the live editor instead. The switcher's
+	// `N slides` label is not here: it is counted when the switcher opens (`deckMetaFor`).
+	// The active row forwards `slides` rather than spreading `d`: a spread reads the lazy getter
+	// (`loadDeckList`) and split the open deck on every title change.
+	const deckList = React.useMemo(() => decks.map((d) => (d.id === deck.id ? { id: d.id, title: deckTitle, get slides() { return d.slides; } } : d)), [decks, deck.id, deckTitle]);
 
 	// WEB IMAGES (trio follow-up 11). A deck's images from the web stay blocked until the reader
 	// chooses to load them, per deck and per site. `webAllowed` is that choice (stored on the
@@ -2945,7 +2948,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		sourceOwnerRef.current = d.id;
 		setDeck(d);
 		{
-			const text = loadSource(d.id) ?? deckSource(d);
+			const text = deckSourceFor(d);
 			setSource(text, LOAD);
 			goToChunk(0, { after: text });
 		}
@@ -3264,7 +3267,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const next = list[0] ?? DECKS[0];
 			sourceOwnerRef.current = next.id;
 			setDeck(next);
-			const text = loadSource(next.id) ?? deckSource(next);
+			const text = deckSourceFor(next);
 			setSource(text, LOAD);
 			goToChunk(0, { after: text });
 		}
@@ -7694,7 +7697,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						    it a long deck name squeezes the meta until `7 slides` wraps to two lines
 						    and the row grows — visible the moment a deck is named by a long heading. */}
 						<span className="ml-auto flex shrink-0 items-center gap-1.5">
-							<span className="font-mono text-[11px] text-muted-foreground group-hover:hidden">{d.meta}</span>
+							<span className="font-mono text-[11px] text-muted-foreground group-hover:hidden">{d.id === deck.id ? slideCountLabel(deckIndex.partBase.at(-1) ?? 0) : <DeckSwitcherMeta id={d.id} />}</span>
 							{decks.length > 1 && (
 								<button type="button" aria-label={`Delete ${d.title}`} className="hidden rounded p-0.5 text-muted-foreground hover:text-[var(--fail,#b3261e)] group-hover:block" onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeDeck(d.id); }}><Trash2 className="size-3.5" /></button>
 							)}
@@ -8746,6 +8749,16 @@ function ArchCard({ tag, title, children, demo }: { tag: React.ReactNode; title:
 // The slide menu's icons that the palette rows below load anyway (components/studio/strip-actions `icons`); the menu brings its own two
 // for the New slide items, which nothing eager uses.
 const STRIP_ICONS = { duplicate: Copy, 'move-before': ArrowLeftToLine, 'move-after': ArrowRightToLine, hide: EyeOff, delete: Trash2 } as const;
+/**
+ * A saved deck's `N slides` label in the deck switcher. A component, not an inline call, on
+ * purpose: StudioShell builds the switcher's rows as JSX on every render, closed or open, and
+ * an inline `deckMetaFor(d.id)` ran there each time (~10 ms over a phone's boot, measured).
+ * As a component it runs only when the open menu renders the row.
+ */
+function DeckSwitcherMeta({ id }: { id: string }) {
+	return <>{deckMetaFor(id)}</>;
+}
+
 const ShortcutsDialog = React.lazy(() => import('@/components/studio/strip-actions/shortcuts').then((m) => ({ default: m.ShortcutsDialog })));
 function InspGroup({ icon, label, desc, find, last, children }: { icon: React.ReactNode; label: string; desc?: string; find?: string; last?: boolean; children: React.ReactNode }) {
 	const hit = useSettingsHit(label, desc, find);

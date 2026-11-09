@@ -388,8 +388,47 @@ export function loadDeckList(): StudioDeck[] {
 		const derived = titleFromSource(source, e.title);
 		// The restore tag is appended for DISPLAY only — two copies of the same deck would
 		// otherwise sit in the switcher under one identical name.
-		return { id: e.id, title: e.restored ? `${derived} (restored)` : derived, meta: metaFor(source), slides: slidesFor(source) };
+		// `slides` is split on first READ, not here. Splitting is the slide-boundary parse, and at
+		// boot nothing reads a saved deck's slides (the shell parses the open deck's source itself;
+		// `deckSource(d)` reads them only on a switch to a deck with no stored source). Splitting
+		// every deck here cost a phone ~28 ms before the first slide, measured
+		// (engineering/decisions/2026-11-09-studio-react-mount-profile.md §4 lever 2).
+		return {
+			id: e.id,
+			title: e.restored ? `${derived} (restored)` : derived,
+			get slides() {
+				return slidesFor(source);
+			},
+		};
 	});
+}
+
+/**
+ * The deck switcher's `N slides` label for one saved deck, from its CURRENT source.
+ *
+ * Asked for when the switcher OPENS, not when the list loads. `loadDeckList` used to carry this
+ * label on every row, and a boot calls it five times; counting rendered slides is a full
+ * `buildDeckIndex` parse per deck, ~32 ms of a phone's boot for a label it never shows
+ * (engineering/decisions/2026-11-09-studio-react-mount-profile.md §3 row 1a, §4 lever 2).
+ * `metaFor` remembers the answer by text, so the switcher pays once per deck, not per open.
+ */
+export function deckMetaFor(id: string): string {
+	const entry = loadIndex().find((e) => e.id === id);
+	return metaFor(loadSource(id) ?? (entry ? canonicalSource(entry) : ''));
+}
+
+/**
+ * A deck's CURRENT source: the stored edit, else its canonical text. The same text as
+ * `loadSource(d.id) ?? deckSource(d)`, without the split: `deckSource` joins `d.slides`, and on a
+ * list row that read splits the deck only to join it again. On a first visit (nothing stored)
+ * that split was the boot deck's whole slide-boundary parse, ~25 ms on a phone before the
+ * first slide (engineering/decisions/2026-11-09-studio-react-mount-profile.md §4 lever 2).
+ */
+export function deckSourceFor(deck: StudioDeck): string {
+	const stored = loadSource(deck.id);
+	if (stored != null) return stored;
+	const entry = loadIndex().find((e) => e.id === deck.id);
+	return entry ? canonicalSource(entry) : deckSource(deck);
 }
 
 // One boot calls loadDeckList five times (the list, loadBootDeck twice, the checkpoints, and
@@ -486,7 +525,7 @@ export function createDeck(title = 'Untitled deck', source?: string): StudioDeck
 	index.push({ id, title, builtin: false });
 	saveIndex(index);
 	saveSource(id, body);
-	return { id, title: titleFromSource(body, title), meta: metaFor(body), slides: splitSlides(stripFrontMatter(body)) };
+	return { id, title: titleFromSource(body, title), slides: splitSlides(stripFrontMatter(body)) };
 }
 
 /**
