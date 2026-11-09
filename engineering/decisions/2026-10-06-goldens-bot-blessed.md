@@ -146,6 +146,13 @@ describes the old flow. It now works like this:
   problem, a drifted golden left unwritten and a golden the check could not judge all go to
   `failed.txt`. The PR is updated and the night still goes red.
 
+**The first night on one pass (2026-11-09, [run 42582133645](https://github.com/Laticent/lattice/actions/runs/42582133645)).**
+The bless finished green on the GitHub runner, rendered from `978728bb`. The job took 96 minutes of its 180: the
+check-and-bless step took 92 (07:56 to 09:28), and setup and the PR update took the rest. `failed.txt` was empty, so
+no golden or showcase WebP was left unwritten. The night re-blessed 583 goldens, 130 of them first renders, and
+force-pushed #2987 to that commit. The serial check alone used to take 125 minutes (run 40914407337), so the
+runner now has about 84 minutes to spare. The verdict says no on all four rules, as it must until a bless merges.
+
 ### 2.2 Pull requests: render, compare, do not commit
 
 `golden-diff` changes its candidate set from "goldens this PR changed" to "goldens this
