@@ -55,6 +55,9 @@ progress  — 2026-11-08 (zero-flakes part 3): part (a) shipped. `checkRegexCens
             the census snapshot, all `unknown` (a back-reference or a look-ahead recheck cannot model):
             lint-core.js:8176 and :8177, agenda-autofill.js:242. They were already on main; the next drain owes
             each a linear rewrite or a written proof. Backlog after the rebase: 693 literals in 187 files.
+            On the rebase onto main 4e2a419 (the queue ejected #3097 for this): two more from #3095,
+            progress.transform.js:253 (back-reference, unknown) and :391 (an h1-h6 pair with a lazy body, polynomial).
+            Backlog now: 697 literals in 187 files.
             The census cannot certify a look-around (recheck cannot model one), so a pattern made linear by a
             look-behind or an atomic-group look-ahead carries its proof in writing: `// regex-ok:` on its line, and
             the same reason in the test's `allow`.
