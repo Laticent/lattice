@@ -15,3 +15,6 @@ where     — `docs/e2e/compose-stress.spec.ts:500` ("inserting from the gallery
 done when — both pass on their touch projects three runs in a row, or each names its root cause and is fixed.
 evidence  — 2026-10-29, production build of `cd555a7` on port 4399: 3 failed (compose-stress:500 on both touch projects, preview-nav:268 on mobile-touch); the same three fail on this branch.
 verify    — `cd docs && npx playwright test e2e/compose-stress.spec.ts:500 e2e/preview-nav.spec.ts:268 --project=mobile-touch --project=tablet-touch`
+
+2026-11-09 — `compose-stress.spec.ts:500` also fails on `desktop-touch`, on main as well: 3x on each build, main's (`756c1ff`)
+failed 2 of 3 and PR #3108's build 1 of 3. `preview-nav.spec.ts:268` failed 3 of 3 on `mobile-touch` on both.
