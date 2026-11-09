@@ -74,7 +74,9 @@ export function ChatCost({ source, grounding, docs, primed, explicitCache = true
 	// mislead about one of them. Memoized because building the prompt walks the catalog.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `agentReady` is the intentional re-price trigger once the lazy agent module lands.
 	const turnEst = React.useMemo(() => (cloud && status.price ? agentTurnUsd(status.price, grounding, !!primed, source, refDocsTokens(docs), libraryCount, explicitCache) : null), [cloud, grounding, primed, explicitCache, docs, source, status.price, agentReady, libraryCount]);
-	const usd = (n: number) => `$${n.toFixed(n < 0.1 ? 3 : 2)}`;
+	// Three decimals below a dollar: a typical turn costs about $0.11, and the Library's
+	// photos move it by tenths of a cent, which two decimals would round away.
+	const usd = (n: number) => `$${n.toFixed(n < 1 ? 3 : 2)}`;
 
 	if (!cloud) return null;
 	const last = withCurrentWindow(lastUsage(messages), status.price?.contextLength);
