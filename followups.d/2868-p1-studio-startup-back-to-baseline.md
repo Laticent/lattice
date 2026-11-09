@@ -53,9 +53,10 @@ progress  — 2026-10-23, PR #2877 (engineering/decisions/2026-10-23-studio-boot
             editor mounted. Next by size: React hydration (profile what mounts before the slide), then the runtime split.
             2026-11-09 (engineering/decisions/2026-11-09-studio-react-mount-profile.md): React hydration profiled with
             a React profiling build (docs/scripts/react-mount-profile.mjs). React is ~0.9 s of the 4.0 s busy before the
-            slide; half its render phase is StudioShell's own body (~270 ms, ~400 hooks, plus a boot deck list indexing
-            every saved deck). Off-screen mounts ~70 ms, tooltips ~95 ms, a forced layout ~45 ms. Five levers ranked in
-            the note's §4, none built; each needs its own A/B.
+            slide; half its render phase is StudioShell's own body (~270 ms, with a boot deck list indexing every saved
+            deck), and ~110 ms more is most likely first-call compilation. Off-screen mounts ~70 ms, tooltip wrappers
+            ~25-40 ms, a forced layout ~45 ms (likely moved, not saved). Five levers ranked in the note's §4, none
+            built; each needs its own A/B.
 decided   — 2026-10-26 (owner, PR #2913, Q1): Lighthouse 90 is NOT the goal for the Studio or the Playground. The Studio's bar stays first slide
             at or below the 2026-09-22 build (met); the Playground's bar is Lighthouse mobile 60 or better (44-57 on the CDN today); 90 stays the aim
             for the home page only, where TBT is the remaining gap. The React-free first paint is not planned. The lint gate (2913-p1) is still next.
