@@ -538,6 +538,8 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   `.html` export skips the guards trim and the card-tag equalize pass (`TRIM_REACHES_DELIVERABLE`
   and `TAGS_REACH_DELIVERABLE` in `lattice.js`), so by construction it can report clipping the
   PDF does not have. It agreed on the corpus today only because no slide needed a trim.
+- **On the runner:** the first scheduled nightly after the fix (run 81, 2026-11-09) swept 507
+  decks in 733 s, 1.45 s a deck, against the 1350 s headroom line.
 - **Triggered by:** any change that adds a per-deck cost after `measureOverflow()`. Watch the
   `⏱ sweep cost` line.
 - **Removable when:** never. The sweep has no use for the PDF bytes.
