@@ -127,7 +127,10 @@
 	gap: 2px;
 	padding: 3px;
 	border-radius: var(--radius-sm);
-	background: color-mix(in srgb, var(--text-body) 8%, var(--bg));
+	/* The theme's own alternate surface, not a wash of --text-body: every palette contracts --text-muted
+	 * (the idle tab's ink) to clear AA on --bg-alt (#1715), and a body-ink wash moved with each theme's
+	 * body ink. Cuoio's darker body (#3098) took the wash to #ede9e3 and the idle label to 4.47:1. */
+	background: var(--bg-alt);
 	border: 1px solid var(--border);
 }
 .specimen-face-btn {
