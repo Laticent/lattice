@@ -7,7 +7,8 @@ summary: >
   inspector, never as free font knobs. Header and footer placement stays where it is. Defaults are open. Records the
   chrome mockups (A/B/C) and eyebrow mockups (E0–E3) tried on 2026-11-08, with the CSS that reproduces them. Widened
   by the owner: a hierarchy / tension / isolation study first, curated content-font pairings (Inter, Playfair,
-  Newsreader, Lora; Impact is proprietary, so an OFL stand-in), presets that carry type, and charts as a third axis.
+  Newsreader, Lora, Fraunces, Source Serif 4, Space Grotesk, and Barlow Condensed for the proprietary Impact),
+  presets that carry type, and charts as a third axis. Sketch mode is excluded: it owns its own type.
 ---
 
 # Type voices: chrome and the eyebrow, curated for the author
@@ -191,14 +192,33 @@ choice, curated like the chrome voices. Candidates to evaluate:
 | Impact | condensed display, poster | **proprietary** (Microsoft) | no |
 | Newsreader | text and display serif, editorial | OFL | no |
 | Lora | text serif, warm | OFL | no |
+| Fraunces | soft display serif with a "wonky" axis; festival and brand warmth | OFL | no |
+| Barlow Condensed | condensed display, poster: the Impact role, with full weights, lowercase and tabular figures | OFL | no |
+| Source Serif 4 | text serif with optical sizes: one file serves headings and captions | OFL | no |
+| Space Grotesk | display grotesk, tech / startup | OFL | no |
 
 **Impact cannot ship.** It is a proprietary Microsoft font. We cannot bundle it or embed it in a PDF
 or Office export, and it is missing on Linux and many phones. To get its condensed poster voice, use
-an OFL face such as Anton, Oswald or Bebas Neue. Each font added costs its weights in the docs route
-budget and in every export that embeds it.
+**Barlow Condensed**, added for that role. It beat Anton, Oswald and Bebas Neue: Bebas has capitals
+only, and Anton has a single weight.
+
+**Considered and left out:**
+- Times-style serifs (STIX Two Text, Liberation Serif / Tinos, TeX Gyre Termes, Nimbus Roman). Times
+  was drawn for newspaper columns, so it looks small and tight at slide size and reads as "default
+  Word document". Newsreader, Lora and Source Serif 4 cover the text-serif role better.
+- IBM Plex (Sans, Serif, Mono), a family whose three faces share one skeleton. Offered and not picked.
+
+Each font added costs its weights in the docs route budget and in every export that embeds it. Prefer
+variable fonts, where one file carries every weight, and keep the set to about four pairings.
 
 Fonts are offered as **pairings** (a heading face and a body face chosen together), never as two free
 font knobs. That keeps the hierarchy rules from point 1 holding whatever the author picks.
+
+**Sketch is out of scope.** `mode: sketch` (`lib/base/base.sketch.css`) is a whole look (strokes,
+wobble and type together), and it already re-points `--font-display`, `--font-body` and
+`--font-label` to its own hand-drawn fonts. Under sketch, the mode owns the type: a deck's pairing,
+chrome voice and eyebrow face do not apply, and `lint:deck` should warn that they have no effect.
+The eyebrow's ink and mark still apply, since they are not fonts.
 
 **3. The presets carry a type choice.** `preset:` (`lib/base/base.registers.docs.md`) today sets
 backdrop, alignment and accent registers: `classic`, `editorial`, `brand` and `minimal`. Each could
@@ -209,7 +229,7 @@ Illustrative only, to be decided with the owner:
 |---|---|---|---|
 | `classic` | today's (Playfair + Outfit) | `system` | today's |
 | `editorial` | Newsreader or Lora + Inter | `editorial` | `serif` |
-| `brand` | a condensed display (Impact-like, OFL) + Inter | `quiet` | `sans accent` |
+| `brand` | Barlow Condensed + Inter | `quiet` | `sans accent` |
 | `minimal` | Inter throughout | `quiet` | `sans heading` |
 
 A deck's own keys still override the preset's, axis by axis, as they do today.
