@@ -275,16 +275,17 @@ async function main() {
     const ink = over(parse(x.ink), bg);
     return { role: role(x), slide: x.slide, face: x.face, px: +x.px.toFixed(1), weight: +x.wt, italic: x.it, caps: x.uc, tracking: +x.ls.toFixed(2), ink, contrast: +contrast(ink, bg).toFixed(1) };
   };
-  const perSlide = new Map(); // slide → role → voice (the role's first run on that slide)
+  const perSlide = new Map(); // slide → role → every voice that role takes on that slide
   for (const x of runs) {
     const v = voice(x);
     if (!perSlide.has(v.slide)) perSlide.set(v.slide, new Map());
     const m = perSlide.get(v.slide);
-    if (!m.has(v.role)) m.set(v.role, v);
+    if (!m.has(v.role)) m.set(v.role, []);
+    m.get(v.role).push(v);
   }
   // The table shows each role once: from the plain content slide (2) when it appears there, else its first slide.
   const roles = new Map();
-  for (const n of [2, ...[...perSlide.keys()].filter((k) => k !== 2)]) for (const [r, v] of perSlide.get(n) || []) if (!roles.has(r)) roles.set(r, v);
+  for (const n of [2, ...[...perSlide.keys()].filter((k) => k !== 2)]) for (const [r, vs] of perSlide.get(n) || []) if (!roles.has(r)) roles.set(r, vs[0]);
   const list = [...roles.values()].sort((a, b) => b.px - a.px);
   const axesOf = (a, b) => {
     const axes = [];
@@ -297,12 +298,14 @@ async function main() {
   };
   const worst = new Map();
   for (const [n, m] of perSlide) {
-    const vs = [...m.values()];
-    for (let i = 0; i < vs.length; i++) for (let j = i + 1; j < vs.length; j++) {
-      const [a, b] = [vs[i], vs[j]].sort((x, y) => (x.role < y.role ? -1 : 1));
-      const key = `${a.role}|${b.role}`;
-      const axes = axesOf(a, b);
-      if (!worst.has(key) || axes.length < worst.get(key).axes.length) worst.set(key, { a: a.role, b: b.role, axes, slide: n });
+    const names = [...m.keys()].sort();
+    for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
+      const key = `${names[i]}|${names[j]}`;
+      // Every run of one role against every run of the other: two direct labels in two inks are two voices.
+      for (const a of m.get(names[i])) for (const b of m.get(names[j])) {
+        const axes = axesOf(a, b);
+        if (!worst.has(key) || axes.length < worst.get(key).axes.length) worst.set(key, { a: a.role, b: b.role, axes, slide: n });
+      }
     }
   }
   const pairs = [...worst.values()].filter((p) => p.axes.length <= 1).map((p) => ({ ...p, crossesChrome: CHROME_ROLE(p.a) !== CHROME_ROLE(p.b) }));

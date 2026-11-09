@@ -47,7 +47,7 @@ deck (title; a content slide with `header:`, `meta:`, `footer:` and an eyebrow; 
 piechart; line chart with a source line), renders it with the real CLI to HTML, opens it in Playwright Chromium at
 1280 × 720 and reads the computed style of every visible text run. SVG text is scaled by its screen matrix, so a
 chart label reports the size a reader sees. It files each run under a role, counts the axes between every pair of
-roles **on each slide**, and keeps each pair's worst slide. It measures each role where it stands, because a role's ink
+roles **on each slide** (every run of one role against every run of the other), and keeps each pair's worst slide. It measures each role where it stands, because a role's ink
 and size change with the slide (the footer is a light ink on a dark title and a dark ink on a white content slide).
 It does not count tracking as an axis. It also measures the gaps on the content slide. It warns when a family it measured never
 loaded, because a computed `font-family` names the face asked for, not the face drawn.
@@ -118,9 +118,10 @@ one.**
 The first three are the owner's "content and chrome look alike", now measured. The tick rows are new: the chart's
 scale is drawn in the chrome face.
 
-**The set moves with the theme.** Cuoio dark gives the same six. Indaco dark gives three: there the accent eyebrow
-clears the header by ink (one axis), and the tick still collides with the footer, the page number and the source
-line. In every theme measured, the eyebrow and the chrome sit at most one axis apart.
+**The set moves with the theme.** Cuoio dark gives the same six. Indaco light gives five (the divider pair clears).
+Indaco dark gives three: there the accent eyebrow clears the header by ink (one axis), and the tick still collides with
+the footer, the page number and the source line. In the four theme × mode pairs measured this way (cuoio and indaco,
+light and dark), the eyebrow and the chrome sit at most one axis apart.
 
 ### 3.3 Isolation by space
 
