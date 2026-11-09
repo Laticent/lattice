@@ -53,6 +53,12 @@ export const READ_ARTICLE_CSS = `
  grid-template-columns:[fig-start] minmax(0,1fr) [prose-start] min(var(--st-prose),100%) [prose-end] minmax(0,1fr) [fig-end];
  color:var(--text-body);font-size:17px;line-height:1.7}
 .st-read-article>*{grid-column:prose-start/prose-end;min-width:0}
+/* A plugin's drawing reaches the article whole, root and all (prose-projection projectGeneric). Contain its paint as
+   a slide does (lib/base/base.modifiers.css, the #lp-article rules): a position:fixed box it drew, or its scoped
+   stylesheet, would otherwise cover the Studio (the checker on PR 3110's f11014c). It scales to the column. */
+.st-read-article div[data-lattice-plugin]{contain:paint;max-width:100%}
+.st-read-article div[data-lattice-plugin] :is(svg,img){max-width:100%;height:auto}
+.st-read-article span[data-lattice-plugin][data-kind]{display:inline-block;unicode-bidi:isolate;contain:paint;max-width:100%;max-height:4em}
 /* The visual-layout placeholder note is a text card, so it stays in the prose column;
    real figures break out above it. */
 .st-read-article>.lp-figure:not(.lp-figure-note){grid-column:fig-start/fig-end;justify-self:center;width:100%;max-width:var(--st-fig-max)}

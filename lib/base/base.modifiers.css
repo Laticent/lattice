@@ -591,6 +591,26 @@ section span[data-lattice-plugin][data-kind] {
   max-width:100%;
   max-height:4em;
 }
+/* The same containment in the READING view (`#lp-article`, the webpage export's and the player's article), which holds a
+ * plugin's drawing whole, root and all (prose-projection `projectGeneric`), outside any `section`. Without it, a plugin's
+ * scoped stylesheet or a `position:fixed` box it drew covered the whole article (the checker on PR 3110's f11014c). The
+ * reading column is narrower than a slide, so a drawing scales to it instead of being clipped. The Studio's Read view
+ * (`.st-read-article`) runs in its own document and carries the same rules (docs/src/components/studio/ReadArticle.tsx). */
+#lp-article div[data-lattice-plugin] {
+  contain:paint;
+  max-width:100%;
+}
+#lp-article div[data-lattice-plugin] :is(svg, img) {
+  max-width:100%;
+  height:auto;
+}
+#lp-article span[data-lattice-plugin][data-kind] {
+  display:inline-block;
+  unicode-bidi:isolate;
+  contain:paint;
+  max-width:100%;
+  max-height:4em;
+}
 /* An INLINE kind's chip (`@kind{…}` of an unlisted plugin, 2026-10-14-plugin-inline-door.md): a `<span>` that stands
  * where a word stood, so it sits in the line, on the text's baseline, and takes no more room than the size it asked for. */
 section span[data-lattice-plugin-off][data-inline] {

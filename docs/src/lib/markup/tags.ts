@@ -763,6 +763,55 @@ function maskInert(html: unknown): string {
 }
 
 /**
+ * The attribute a plugin's root carries (lib/packages/code-door-fence.mjs `PLUGIN_ROOT_ATTR`). Matched as a WHOLE
+ * attribute name: `data-lattice-plugin-off` (the door's own placeholder) and `data-lattice-plugin-data` are not it.
+ */
+const PLUGIN_ROOT_RE = /[\s"'/]data-lattice-plugin(?=[\s=/>]|$)/i;
+
+/**
+ * Blank every PLUGIN subtree — an element carrying `data-lattice-plugin`, with everything inside it — preserving
+ * length, so offsets into the result still index the original string.
+ *
+ * THE RULE IT SERVES (spec/LPM.md §10, engineering/decisions/2026-10-16-media-plugins.md §4.5): an address the
+ * viewer loads or scans comes only from the author's own block, never from slide text and never from inside a
+ * plugin's output. A built-in pass that reads a slide's HTML for a link, a field or a picture reads it through this
+ * mask, so a plugin that writes `https://attacker.example/?d=…` onto the slide is never mistaken for the author.
+ *
+ * FAILS CLOSED: a plugin root with no matching close blanks to the end of the string, because the browser would
+ * nest everything after it inside the root. Tags are read through `scanTags`, so a `>` in a quoted value or a tag
+ * inside a comment cannot end or open one early.
+ */
+function maskPluginSubtrees(html: unknown): string {
+  const src = String(html ?? '');
+  if (!/data-lattice-plugin/i.test(src)) return src;
+  let out = '';
+  let at = 0;
+  let root: { name: string; start: number; depth: number } | null = null;
+  for (const t of scanTags(src)) {
+    if (t.kind !== 'tag') continue;
+    if (!root) {
+      if (t.isClose || !PLUGIN_ROOT_RE.test(src.slice(t.start, t.end))) continue;
+      if (t.selfClose || VOID_TAGS.has(t.name)) {
+        out += src.slice(at, t.start) + ' '.repeat(t.end - t.start);
+        at = t.end;
+        continue;
+      }
+      root = { name: t.name, start: t.start, depth: 1 };
+      continue;
+    }
+    if (t.name !== root.name || t.selfClose) continue;
+    root.depth += t.isClose ? -1 : 1;
+    if (root.depth === 0) {
+      out += src.slice(at, root.start) + ' '.repeat(t.end - root.start);
+      at = t.end;
+      root = null;
+    }
+  }
+  if (root) return out + src.slice(at, root.start) + ' '.repeat(src.length - root.start);
+  return out + src.slice(at);
+}
+
+/**
  * Strip every tag from `html`, honoring quoted attribute values. Unlike `stripTags` (./text.ts) it reads tags
  * through the tokenizer, and neither folds `&nbsp;` nor trims.
  */
@@ -859,6 +908,7 @@ export {
   findTopLevelTag,
   hasTopLevelTag,
   maskInert,
+  maskPluginSubtrees,
   readTopLevelH2Text,
   scanTags,
   stripScannedTags,

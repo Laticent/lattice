@@ -2084,3 +2084,59 @@ test('obligation-matrix: a label set renames the spoken answer as it renames the
 	const [plain] = renderSpeech(md.replace(' pills', ''));
 	assert.match(plain, /GDPR — Notice: in force; Consent: partial\./);
 });
+
+test('a plugin\'s drawing reaches the article whole, root included: its text is never the author\'s (spec/LPM.md §10)', () => {
+	// PR #3110's attack spec (Share → Webpage): lifting the plugin's <ul> alone dropped `[data-lattice-plugin]`, so the
+	// article held the plugin's bullets as if the author had written them.
+	const secs = sections(
+		`<section data-lattice-slide class="closing qr form"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Thank you</h2></div>
+			<ul><li>https://example.com/author</li></ul>
+			<div data-lattice-plugin="gp"><ul><li>https://attacker.example/leak</li></ul><p>note</p></div>
+			<p>Words with <span data-lattice-plugin="tag" data-kind="tag">x</span> inside.</p>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	const roots = articleHtml.match(/<div data-lattice-plugin="gp">[\s\S]*?<\/div>/g) || [];
+	assert.equal(roots.length, 1, 'the root once, not once per block inside it');
+	assert.match(roots[0], /<li>https:\/\/attacker\.example\/leak<\/li>[\s\S]*<p>note<\/p>/);
+	assert.doesNotMatch(articleHtml.replace(roots[0], ''), /attacker\.example/, 'and nowhere outside it');
+	assert.match(articleHtml, /<li>https:\/\/example\.com\/author<\/li>/, 'the author\'s own bullet is still there');
+	assert.match(articleHtml, /<span data-lattice-plugin="tag" data-kind="tag">x<\/span>/, 'a span keeps its root inside the author\'s paragraph');
+});
+
+test('a plugin span inside the author\'s heading rides with it: not a second block (the checker on #3110 f11014c)', () => {
+	const secs = sections('<section data-lattice-slide class="content"><h2>Title <span data-lattice-plugin="i" data-kind="ic"><svg viewBox="0 0 1 1"></svg>WORD</span></h2><p>body</p></section>');
+	const { articleHtml } = project(secs);
+	assert.equal((articleHtml.match(/WORD/g) || []).length, 1, articleHtml);
+	assert.doesNotMatch(articleHtml, /^\s*<span data-lattice-plugin/m, 'never a top-level block');
+});
+
+test('a plugin root nested in another is copied once, as part of the outer one', () => {
+	const secs = sections(`<section data-lattice-slide class="content form"><div class="cell-stage">
+		<div data-lattice-plugin="outer"><div data-lattice-plugin="inner"><p>INNER</p></div><p>OUTER</p></div></div></section>`);
+	const { articleHtml } = project(secs);
+	assert.equal((articleHtml.match(/INNER/g) || []).length, 1, articleHtml);
+	assert.equal((articleHtml.match(/data-lattice-plugin="outer"/g) || []).length, 1);
+});
+
+test('the copy drops what the walk drops elsewhere (chrome, asides), keeps an aria-hidden drawing, and keeps a plugin paragraph equal to the eyebrow', () => {
+	const secs = sections(`<section data-lattice-slide class="content form"><div class="cell-stage">
+		<p><code>Q3</code></p><div data-lattice-plugin="gp"><p>Q3</p><svg aria-hidden="true" viewBox="0 0 2 1"><rect width="2" height="1"></rect></svg><aside>ASIDE</aside><p>SHOWN</p></div></div></section>`);
+	const { articleHtml } = project(secs);
+	const root = /<div data-lattice-plugin="gp">[\s\S]*?<\/div>/.exec(articleHtml)?.[0] ?? '';
+	assert.match(root, /SHOWN/);
+	assert.doesNotMatch(root, /ASIDE/, 'an aside is chrome, in a plugin as anywhere');
+	assert.match(root, /<svg aria-hidden="true"/, 'a decorative svg the plugin hid from the accessibility tree is still its picture');
+	assert.match(root, /<p>Q3<\/p>/, 'the plugin\'s own paragraph is not the author\'s eyebrow');
+});
+
+test('on a MEDIA slide too, a plugin\'s aria-hidden drawing stays: the copy strips chrome, not the media walk\'s hidden selector', () => {
+	const secs = sections(`<section data-lattice-slide class="image form"><div class="cell-stage">
+		<p><img src="data:image/png;base64,iVBORw0KGgo=" alt="Chart"></p>
+		<div data-lattice-plugin="gp"><svg aria-hidden="true" viewBox="0 0 2 1"><rect width="2" height="1"></rect></svg><p>SHOWN</p></div></div></section>`);
+	const { articleHtml } = project(secs);
+	const root = /<div data-lattice-plugin="gp">[\s\S]*?<\/div>/.exec(articleHtml)?.[0] ?? '';
+	assert.match(root, /SHOWN/);
+	assert.match(root, /<svg aria-hidden="true"/, root);
+});

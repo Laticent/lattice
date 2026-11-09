@@ -1,15 +1,14 @@
 /**
  * The data the Studio's fence door reads instead of the registry (lib/packages/fence-door.generated.json),
  * pinned to what the CLI's door reads live, and the rules both doors share (code-door-fence.mjs
- * `planFencePlugins`, `fenceCaptureNotes`, `rebuiltFromAlternatives`). HARD RULE #1: the two doors
- * cannot drift on which slides a shipped pass rebuilds or which fence names a shipped plugin owns.
+ * `planFencePlugins`, `fenceCaptureNotes`). HARD RULE #1: the two doors cannot drift on which fence names a
+ * shipped plugin owns.
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const DATA = require('../../../lib/packages/fence-door.generated.json');
-const { rebuiltAlternatives, rebuiltBy } = require('../../../lib/transformers/rebuilt-classes.js');
 const { PLUGINS } = require('../../../lib/plugins/registry.generated.js');
 const { renderFenceDoor } = require('../../../tools/build-packages-index.js');
 
@@ -20,8 +19,8 @@ describe('the generated fence-door data', () => {
     assert.equal(fs.readFileSync(path.join(__dirname, '../../../lib/packages/fence-door.generated.json'), 'utf8'), renderFenceDoor());
   });
 
-  test('the rebuilt-slide list is the registry’s own', () => {
-    assert.deepEqual(DATA.rebuilt, rebuiltAlternatives().map((a) => ({ pass: a.pass, classes: [...a.classes] })));
+  test('carries no rebuilt-slide list: the door draws on every slide (spec/LPM.md §10)', () => {
+    assert.equal('rebuilt' in DATA, false);
   });
 
   test('the shipped fence names are the live plugin table’s, aliases included', () => {
@@ -39,16 +38,6 @@ describe('the generated fence-door data', () => {
     assert.ok(DATA.shippedKinds.includes('video'), 'a named-only kind is shipped too: a zip plugin cannot take `@video`');
     assert.equal(DATA.shippedKinds.includes('named'), false, 'the dispatcher\'s own row is not a kind');
     for (const k of ['state', 'pill', 'spark', 'icon', 'avatar']) assert.ok(DATA.shippedKinds.includes(k), k);
-  });
-
-  test('a function built from the generated list answers as the live one does, on every class set the registry names', async () => {
-    const { rebuiltFromAlternatives } = await load();
-    const studio = rebuiltFromAlternatives(DATA.rebuilt);
-    const sets = [[], ['content'], ['dark'], ['contact', 'dark'], ['closing', 'qr'], ['closing'], ...DATA.rebuilt.map((a) => a.classes), ...DATA.rebuilt.map((a) => [...a.classes, 'extra'])];
-    for (const set of sets) assert.equal(studio(set), rebuiltBy(set), `class set ${JSON.stringify(set)}`);
-    assert.equal(studio(['contact']), 'contact');
-    assert.equal(studio(['video']), null, 'a video slide reads no text into an address: nothing to deny');
-    assert.equal(studio(['split-panel']), null, 'a layout-only set denies nothing');
   });
 });
 
@@ -129,15 +118,13 @@ describe('planFencePlugins: which plugins a door runs', () => {
 });
 
 describe('fenceCaptureNotes', () => {
-  test('one line each for a long block, a rebuilt slide (once per slide and pass), a nested section and the overflow', async () => {
+  test('one line each for a long block and the overflow', async () => {
     const { fenceCaptureNotes } = await load();
     const fences = new Map([['gantt', 'gp']]);
-    const notes = fenceCaptureNotes({ tooLong: [{ pkg: 'gp', slide: 0 }], shadowed: [{ slide: 1, pass: 'video', pkg: 'gp' }, { slide: 1, pass: 'video', pkg: 'gp' }, { slide: 2, pass: 'nested-section', pkg: 'gp' }], tooMany: 3 }, fences);
-    assert.equal(notes.length, 4);
+    const notes = fenceCaptureNotes({ tooLong: [{ pkg: 'gp', slide: 0 }], tooMany: 3 }, fences);
+    assert.equal(notes.length, 2);
     assert.match(notes[0], /`gantt` block on slide 1 is too long for the plugin gp/);
-    assert.match(notes[1], /slide 2 is rebuilt by the shipped `video` pass/);
-    assert.match(notes[2], /slide 3 holds a raw <section>/);
-    assert.match(notes[3], /3 plugin blocks past the 400/);
+    assert.match(notes[1], /3 plugin blocks past the 400/);
   });
 });
 

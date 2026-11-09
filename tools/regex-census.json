@@ -186,7 +186,6 @@
     "lib/transformers/label-set-key.js": 3,
     "lib/transformers/logo-marks.js": 1,
     "lib/transformers/prose-projection.mjs": 9,
-    "lib/transformers/rebuilt-classes.js": 3,
     "lib/transformers/topic-track.js": 1
   },
   "verdicts": {
@@ -540,10 +539,6 @@
     "/, ([^,]*)$/": "safe",
     "/, then approve again$/": "safe",
     "/,$/": "safe",
-    "/,(?![^()[\\]]*[)\\]])/": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-ahead assertion"
-    },
     "/,+$/": "polynomial",
     "/,/": "safe",
     "/,/g": "safe",
@@ -594,7 +589,6 @@
     "/:\\s+/g": "safe",
     "/:lattice-container(?![\\w-])/g": "safe",
     "/:lattice-slide(?![\\w-])/g": "safe",
-    "/:not\\((?:[^()]|\\([^)]*\\))*\\)/g": "polynomial",
     "/:nth-(child|of-type)\\(\\{\\w+\\}\\)/g": "safe",
     "/:root/g": "safe",
     "/:root/gi": "safe",
@@ -871,7 +865,6 @@
     "/<section\\b((?:[^>\"']|\"[^\"]*\"|'[^']*')*)>/gi": "polynomial",
     "/<section\\b((?:[^>\"']|\"[^\"]*\"|'[^']*')*)>|<\\/section\\s*>|\\bclass\\s*=\\s*[\"'][^\"']*\\blat-(?:icon|pill)-glyph\\b/gi": "polynomial",
     "/<section\\b([^>]*)>/": "polynomial",
-    "/<section\\b/i": "safe",
     "/<section\\b[^>]*>/": "polynomial",
     "/<section\\b[^>]*>/gi": "polynomial",
     "/<section\\b[^>]*\\bdata-lattice-slide=/": "polynomial",
@@ -1178,7 +1171,6 @@
     "/\\.(?:manifest\\.json|essentials\\.json|css)$/": "safe",
     "/\\.(?:md|markdown)(?:[?#]|$)/i": "safe",
     "/\\.(?:woff2?|ttf|otf|eot)(?:[?#]|$)/i": "safe",
-    "/\\.([A-Za-z0-9_-]+)/g": "safe",
     "/\\.([\\w-]+)/g": "safe",
     "/\\.([a-z][a-z0-9-]*)/g": "safe",
     "/\\.(css|md|json|svg|js|txt)$/i": "safe",
@@ -1223,7 +1215,6 @@
     "/\\[([^\\]]+)\\]\\([^)]*\\)/g": "polynomial",
     "/\\[.*?\\]/g": "polynomial",
     "/\\[.\\]|@check\\{/": "safe",
-    "/\\[[^\\]]*\\]/g": "polynomial",
     "/\\[[^\\]]*\\]|:(?!:)[a-z-]+(?:\\([^()]*\\))?/g": {
       "verdict": "unknown",
       "why": "recheck cannot model it: look-ahead assertion"
