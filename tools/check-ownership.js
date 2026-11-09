@@ -9215,6 +9215,148 @@ function checkFlakyTests(errors, root = ROOT, baselineFile = FLAKY_TEST_BASELINE
   errors.push(...flakyTestFindings(tree, baseline));
 }
 
+// ── Regex census: every regex literal in lib/** has a complexity verdict (HARD RULE #32, owner D1 on #3092) ──
+// A regex that backtracks super-linearly hangs on a hostile input, and the only test that catches it without the checker is a
+// wall-clock bound: an F4 test by design (engineering/decisions/2026-11-06-flaky-tests.md). So the verdict comes from the
+// automaton instead: `recheck` (exact pin, tools/recheck/, its own folder so the root `npm ci` does not carry it) decides
+// each pattern's complexity, and tools/regex-census.json keeps the answer keyed on the literal's text (`/source/flags`), so
+// only a new or changed literal is ever checked again. This gate needs no recheck: it parses lib/** with TypeScript and holds
+//   1. every literal to a verdict in the table (a new literal fails until `npm run regex:census -- --write` decides it), and
+//      every verdict to a literal (a stale one fails);
+//   2. each file's count of literals whose verdict is not `safe` EXACTLY to the table's `backlog`, so the backlog only
+//      shrinks: a copied slow pattern fails even though its verdict is cached, and a drained one must lower the count.
+// A literal that is slow in principle but right as it is (its input is bounded by construction) says so on its line:
+// `// regex-ok: <why>` in a comment (not a string), the reason required. tools/regex-census.js writes the table; it
+// refuses a new literal recheck does not call linear, and a raised backlog.
+// Known limits: only literals are read (a `new RegExp(string)` is not); a verdict typed by hand is trusted here, and
+// `npm run regex:census -- --verify` re-decides every entry; a file that drops one slow literal and gains another keeps
+// its count, so the gate passes it and only the writer stops the new one; vendored code (`/vendor/`) is out of scope.
+const REGEX_CENSUS_FILE = path.join(ROOT, 'tools', 'regex-census.json');
+const REGEX_CENSUS_SOURCE = (rel) => rel.startsWith('lib/') && /\.(?:[cm]?[jt]sx?)$/.test(rel) && !/\/vendor\//.test(rel) && !/\.d\.[cm]?ts$/.test(rel);
+const REGEX_OK = /\/\/\s*regex-ok:\s*\S/;
+
+/** The regex literals of one source file: [{ key: '/source/flags', line, ok }]. `ok` is a `// regex-ok: <why>` on its line. */
+function regexLiterals(text, rel = 'lib/x.js') {
+  const ts = require('typescript');
+  const kind = /\.tsx$/.test(rel) ? ts.ScriptKind.TSX : /\.[cm]?ts$/.test(rel) ? ts.ScriptKind.TS : /\.jsx$/.test(rel) ? ts.ScriptKind.JSX : ts.ScriptKind.JS;
+  const sf = ts.createSourceFile(rel, String(text), ts.ScriptTarget.Latest, true, kind);
+  const starts = sf.getLineStarts();
+  const lineText = (i) => sf.text.slice(starts[i], i + 1 < starts.length ? starts[i + 1] : sf.text.length);
+  const found = [];
+  // Where text is data, not code: a `// regex-ok` inside a string, a template or a regex is not a comment.
+  const quoted = [];
+  const DATA = new Set([ts.SyntaxKind.StringLiteral, ts.SyntaxKind.NoSubstitutionTemplateLiteral, ts.SyntaxKind.TemplateHead, ts.SyntaxKind.TemplateMiddle, ts.SyntaxKind.TemplateTail, ts.SyntaxKind.RegularExpressionLiteral]);
+  const walk = (n) => {
+    if (DATA.has(n.kind)) quoted.push([n.getStart(sf), n.getEnd()]);
+    if (n.kind === ts.SyntaxKind.RegularExpressionLiteral) found.push({ key: n.getText(sf), line: sf.getLineAndCharacterOfPosition(n.getStart(sf)).line });
+    n.forEachChild(walk);
+  };
+  walk(sf);
+  const okLine = (line) => {
+    const m = REGEX_OK.exec(lineText(line));
+    if (!m) return false;
+    const at = starts[line] + m.index;
+    return !quoted.some(([a, b]) => at >= a && at < b);
+  };
+  return found.map((f) => ({ key: f.key, line: f.line + 1, ok: okLine(f.line) }));
+}
+
+/** Every committed lib/** source file's regex literals: { 'lib/x.js': [{ key, line, ok }] }. Throws when git cannot list the tree. */
+function regexLiteralTree(root = ROOT) {
+  const files = execFileSync('git', ['ls-files', '-z', 'lib'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] }).split('\0').filter(Boolean);
+  const tree = {};
+  for (const rel of files) {
+    if (!REGEX_CENSUS_SOURCE(rel)) continue;
+    let text;
+    try {
+      text = fs.readFileSync(path.join(root, rel), 'utf8');
+    } catch {
+      continue;
+    }
+    if (!text.includes('/')) continue;
+    const lits = regexLiterals(text, rel);
+    if (lits.length) tree[rel] = lits;
+  }
+  return tree;
+}
+
+/** A verdict entry's verdict word: the table stores 'safe' / 'polynomial' / 'exponential' as a string, an undecided one as { verdict: 'unknown', why }. */
+const regexVerdictOf = (v) => (typeof v === 'string' ? v : v?.verdict);
+
+/** Each file's count of literals that are not `safe` and carry no `regex-ok`: { 'lib/x.js': n }, files with 0 left out. */
+function regexBacklog(tree, verdicts) {
+  const backlog = {};
+  for (const [file, lits] of Object.entries(tree)) {
+    const n = lits.filter((l) => !l.ok && verdicts[l.key] !== undefined && regexVerdictOf(verdicts[l.key]) !== 'safe').length;
+    if (n) backlog[file] = n;
+  }
+  return backlog;
+}
+
+/** The census's verdict: every literal decided, every verdict live, each file's backlog held exactly. */
+function regexCensusFindings(tree, table) {
+  const errors = [];
+  const verdicts = table.verdicts || {};
+  const want = table.backlog || {};
+  const live = new Set();
+  const missing = [];
+  for (const [file, lits] of Object.entries(tree)) {
+    for (const l of lits) {
+      live.add(l.key);
+      if (verdicts[l.key] === undefined) missing.push(`${file}:${l.line} ${l.key}`);
+      else {
+        const v = verdicts[l.key];
+        const word = regexVerdictOf(v);
+        if (!['safe', 'polynomial', 'exponential', 'unknown'].includes(word)) errors.push(`tools/regex-census.json: the verdict for ${l.key} is ${JSON.stringify(v)}; it must be safe, polynomial, exponential or { "verdict": "unknown", "why": "<reason>" }.`);
+        else if (word === 'unknown' && !(v && typeof v.why === 'string' && v.why.trim())) errors.push(`tools/regex-census.json: ${l.key} is undecided and carries no \`why\`. An undecidable pattern says why in writing.`);
+      }
+    }
+  }
+  if (missing.length) {
+    errors.push(
+      `${missing.length} regex literal(s) in lib/** have no complexity verdict in tools/regex-census.json (HARD RULE #32): ${missing.slice(0, 5).join('; ')}${missing.length > 5 ? '; …' : ''}. ` +
+      'Run `npm ci --prefix tools/recheck && npm run regex:census -- --write`: recheck decides each new pattern, and the writer refuses a new one it does not call linear.',
+    );
+  }
+  const stale = Object.keys(verdicts).filter((k) => !live.has(k));
+  if (stale.length) errors.push(`stale regex verdicts: ${stale.length} entr${stale.length === 1 ? 'y names a literal' : 'ies name literals'} no longer in lib/** (${stale.slice(0, 3).join(' ')}${stale.length > 3 ? ' …' : ''}). Run \`npm run regex:census -- --write\` to drop them.`);
+  if (missing.length) return errors; // the backlog is not meaningful until every literal is decided
+  const got = regexBacklog(tree, verdicts);
+  for (const file of [...new Set([...Object.keys(got), ...Object.keys(want)])].sort()) {
+    const g = got[file] || 0;
+    const w = want[file] || 0;
+    if (g > w) {
+      const slow = tree[file].filter((l) => !l.ok && regexVerdictOf(verdicts[l.key]) !== 'safe').map((l) => `:${l.line} ${l.key}`);
+      errors.push(
+        `slow regex in ${file}: ${g} literal(s) recheck does not call safe where the backlog allows ${w} (HARD RULE #32) — ${slow.slice(0, 3).join(', ')}${slow.length > 3 ? ', …' : ''}. ` +
+        'A super-linear pattern hangs on a hostile input. Rewrite it so recheck calls it safe (anchor it, make the alternatives disjoint), or, when its input is bounded ' +
+        'by construction, say so on its line with // regex-ok: <why>. Raise the backlog in tools/regex-census.json only with the reason in the PR.',
+      );
+    } else if (g < w) {
+      errors.push(`stale regex backlog: ${file} holds ${g} slow literal(s), tools/regex-census.json says ${w}. Lower it (npm run regex:census -- --write) so the backlog stays honest.`);
+    }
+  }
+  return errors;
+}
+
+function checkRegexCensus(errors, root = ROOT, tableFile = REGEX_CENSUS_FILE) {
+  let table;
+  try {
+    table = JSON.parse(fs.readFileSync(tableFile, 'utf8'));
+  } catch (e) {
+    errors.push(`regex census ${path.relative(ROOT, tableFile)} could not be read (${e.message}) (HARD RULE #32).`);
+    return;
+  }
+  let tree;
+  try {
+    tree = regexLiteralTree(root);
+  } catch (e) {
+    errors.push(`the regex census could not list the committed lib/** files (${String(e.message).split('\n')[0]}) (HARD RULE #32). It needs git; do not edit the table to match.`);
+    return;
+  }
+  errors.push(...regexCensusFindings(tree, table));
+}
+
 // ── Media source rows: a census (media note §4.11, "A contributed source or provider row cannot widen trust") ──
 // `lib/core/media-sources.js` SOURCES is the one table that says whether naming a picture reaches a stranger's
 // server (`locality`) — `isRemoteRef`, the security predicate, is DERIVED from it. So a row that quietly says
@@ -14910,6 +15052,7 @@ function run() {
   checkMediaSourceCensus(errors);
   checkSecuritySpineCensus(errors);
   checkFlakyTests(errors);
+  checkRegexCensus(errors);
   checkPlatformSuites(errors);
   checkRunnerPins(errors);
   checkOpenRouterBudget(errors);
@@ -15163,6 +15306,13 @@ module.exports = {
   checkRuntimeMarkupSinks,
   checkSecuritySpineCensus,
   checkFlakyTests,
+  checkRegexCensus,
+  regexLiterals,
+  regexLiteralTree,
+  regexBacklog,
+  regexCensusFindings,
+  regexVerdictOf,
+  REGEX_CENSUS_FILE,
   flakyTestHits,
   flakyTestTree,
   flakyTestFindings,

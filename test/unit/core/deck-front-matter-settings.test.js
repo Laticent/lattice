@@ -10,6 +10,7 @@ const { readFrontMatterBlock } = require('../../../lib/core/deck-front-matter');
 const { keyGroups, mergeFrontMatter, settingsBlock, readSettingsBlock } = require('../../../lib/core/settings-block');
 const { foldSettingsBlock } = require('../../../lib/core/settings-block-fold');
 const { MARP_FRONT_MATTER_KEYS, splitFrontMatter, withBundleFrontMatter } = require('../../../lib/export/bundle-front-matter');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 const FM = [
   'marp: true', 'theme: indaco', '# the deck look', 'color-mode: dark', 'class: no-progress',
@@ -127,22 +128,18 @@ test('lint reads a bundle deck\'s settings block as front matter, and reports a 
 // of tabs (measured 2.2 s on 40 000). The fold, the block writer and the reader all trim with the
 // built-ins now; a hostile deck must stay linear.
 test('a long run of tabs or spaces cannot make the fold, the writer or the reader slow', () => {
-  // A hang guard, not a speed test (HARD RULE #32, F4). The trailing-whitespace regexes backtracked inside one match,
-  // where no count reaches it, so this times the four trims on 400k-character runs with a bound no runner gets near.
-  // They take 5 to 12 ms. The fold's old `/[ \t\r]+$/` took 11 s at 100k, and the writer's and reader's `/\s+$/` 15 s,
-  // both growing with the square: about 180 s and 240 s here. Inputs are built before the clock, and the reader gets
-  // a one-node stand-in for a document, so the timing holds only the trims (jsdom's own cost is not ours to bound).
-  const n = 400000;
+  // The trailing-whitespace regexes backtracked inside one match, where no count reaches it: the fold's old
+  // `/[ \t\r]+$/` took 11 s at 100k, and the writer's and reader's `/\s+$/` 15 s, both growing with the square. So
+  // every regex the four trims run must be one recheck calls linear (test/helpers/regex-trace.js over
+  // tools/regex-census.json): no clock (HARD RULE #32). The reader gets a one-node stand-in for a document.
+  const n = 2000;
   const tabs = `${'\t'.repeat(n)}x`;
   const spaces = `${' '.repeat(n)}x`;
   const fold = `---\na: 1\n---\n<script type="application/lattice-settings">\n${tabs}\n</script>\n`;
   const bundle = `---\nmeta: ${spaces}\n---\n`;
   const node = { textContent: `\n${spaces}${' '.repeat(n)}`, closest: () => null, remove() {} };
   const doc = { querySelector: () => null, querySelectorAll: () => [node] };
-  const t0 = process.hrtime.bigint();
-  const out = [foldSettingsBlock(fold), settingsBlock(spaces), withBundleFrontMatter(bundle), readSettingsBlock(doc)];
-  const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-  assert.ok(ms < 12000, `the four trims took ${ms.toFixed(0)} ms on 400k-character runs`); // flaky-ok: hang guard — linear 5-12 ms, the old shapes ~180 s (fold) and ~240 s (writer, reader) at this size (11 s and 15 s measured at 100k)
+  const { result: out } = assertLinearRegexes(() => [foldSettingsBlock(fold), settingsBlock(spaces), withBundleFrontMatter(bundle), readSettingsBlock(doc)]);
   assert.equal(out[3], spaces);
   assert.match(out[1], /x\n<\/script>/);
   // The same reads through a real parsed document, and a fold of many short lines, give the same answers.

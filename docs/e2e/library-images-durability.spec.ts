@@ -25,11 +25,19 @@ async function addPhoto(page: Page, name: string, o: { w?: number; h?: number; n
 			g.fillStyle = 'rgb(16,160,90)';
 			g.fillRect(0, 0, w, h);
 			if (noise) {
+				// Seeded noise (mulberry32, seed from the file name), so a failing run draws the same picture again (HARD RULE #32, F5).
+				let a = [...fileName].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619), 2166136261) >>> 0;
+				const rand = () => {
+					a = (a + 0x6d2b79f5) >>> 0;
+					let t = Math.imul(a ^ (a >>> 15), a | 1);
+					t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+					return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+				};
 				const img = g.getImageData(0, 0, w, h);
 				for (let i = 0; i < img.data.length; i += 4) {
-					img.data[i] = (Math.random() * 256) | 0;
-					img.data[i + 1] = (Math.random() * 256) | 0;
-					img.data[i + 2] = (Math.random() * 256) | 0;
+					img.data[i] = (rand() * 256) | 0;
+					img.data[i + 1] = (rand() * 256) | 0;
+					img.data[i + 2] = (rand() * 256) | 0;
 				}
 				g.putImageData(img, 0, 0);
 			}

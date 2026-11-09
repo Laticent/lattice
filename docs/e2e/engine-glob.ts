@@ -6,3 +6,37 @@
 import { ENGINE_FILE } from '../src/lib/engine-file.mjs';
 
 export const ENGINE_GLOB = `**/${ENGINE_FILE}`;
+
+/**
+ * Hold every engine request this page makes until the test releases it: a signal, not a duration.
+ *
+ * The specs that measure the instant shell used to hold the engine for a fixed 2.5 s and measure inside that window.
+ * On a loaded runner the measurement could land after the window closed, against a shell already dismissed (F2 in
+ * engineering/decisions/2026-11-06-flaky-tests.md); on a fast one the hold was 2.5 s of nothing. Now the shell stays
+ * up for exactly as long as the test needs it: `release()` lets the held requests, and every later one, through;
+ * `hold()` parks the next ones again (a spec that must let a first load through and hold the reload). A spec that
+ * needs the engine never to arrive simply never releases it.
+ */
+export async function holdEngine(page: import('@playwright/test').Page) {
+	let open = false;
+	let release: () => void = () => {};
+	let gate = new Promise<void>((r) => {
+		release = r;
+	});
+	await page.route(ENGINE_GLOB, async (route) => {
+		if (!open) await gate;
+		await route.continue();
+	});
+	return {
+		release() {
+			open = true;
+			release();
+		},
+		hold() {
+			open = false;
+			gate = new Promise<void>((r) => {
+				release = r;
+			});
+		},
+	};
+}

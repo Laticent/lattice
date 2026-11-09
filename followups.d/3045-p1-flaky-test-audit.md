@@ -59,6 +59,15 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             webkit-tablet runs on `main` d1a4704 (instrumented with a write log), so nothing was changed there; the
             regex work (recheck) is waiting on an owner decision, `followups.d/3045-p2-regex-recheck-gate.md`. The
             newest marp-cli in the range runs in the integration nightly (owner D2 on #3092).
+            2026-11-08 (zero-flakes part 3): `docs/e2e` from 66 counted hits to 42. The instant-shell specs
+            (`studio-instant-shell` 11, `studio-reserved-slots` 1, `studio-shell-parity` 1) held the engine for a
+            fixed 2.5 s and measured inside the window; `holdEngine(page)` (docs/e2e/engine-glob.ts) now holds it
+            until the test calls `release()`. The 9 unseeded randoms are gone (seeded noise in two photo fixtures,
+            a fixed walk for two pointer wiggles, and a document id marked flaky-ok: only its uniqueness is read);
+            print-waits-for-measuring's floor is flaky-ok (a lower bound set by the stub's own latency). Left in
+            `docs/e2e`: 42, led by read-aloud (5), present-emphasis (3 clock asserts on cue onsets: they want
+            Playwright's `page.clock`), status-pill (an upper bound on three clicks, the same), present-delivery,
+            present-guide, library-images (2-3 each).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.

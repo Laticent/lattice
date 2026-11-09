@@ -13,6 +13,7 @@ const {
 	readEnvelopePayload,
 } = require('../../../lib/core/lattice-doc.js');
 const { scanWork } = require('../../helpers/work-count');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 // The Lattice document envelope (lib/core/lattice-doc.js) — the P2 kernel from
 // 2026-07-07-html-lattice-player.md. Two contracts under test: lossless round-trip
@@ -296,13 +297,12 @@ describe('readEnvelopePayload — linear on hostile pages, same answers as the r
 		}
 	});
 	test('a page of unclosed envelope tags cannot hang the reader', () => {
-		// A hang guard, not a speed test (HARD RULE #32, F4). The single regex the scan replaced backtracks inside one
-		// match, where no count reaches it: 3 s at 20 KB, growing with the cube, about 80 s at 60 KB. The scan
-		// returns at the first tag with no `>`, in well under a millisecond.
-		const html = `${'<script id="lattice-doc" '.repeat(2400)}</script>`;
-		const t = process.hrtime.bigint();
-		assert.equal(readEnvelopePayload(html), null);
-		const ms = Number(process.hrtime.bigint() - t) / 1e6;
-		assert.ok(ms < 5000, `60 KB of unclosed envelope tags took ${ms.toFixed(0)} ms`); // flaky-ok: hang guard — linear under 1 ms, the old shape ~80 s at this size (3 s measured at 20 KB, cubic)
+		// The single regex the scan replaced backtracked inside one match, where no count reaches it (3 s at 20 KB,
+		// growing with the cube). So every regex the reader runs must be one recheck calls linear
+		// (test/helpers/regex-trace.js over tools/regex-census.json): no clock (HARD RULE #32).
+		const html = `${'<script id="lattice-doc" '.repeat(200)}</script>`;
+		// ID_ATTR is built from ENVELOPE_ID at load, so the census (literals only) cannot hold it.
+		const allow = { '/\\bid=["\']lattice-doc["\']/gi': 'built from ENVELOPE_ID; `npm run regex:census -- --check` (recheck 4.6.2): safe' };
+		assertLinearRegexes(() => assert.equal(readEnvelopePayload(html), null), { allow });
 	});
 });

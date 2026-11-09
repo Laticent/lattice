@@ -12,6 +12,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 
@@ -61,14 +62,13 @@ describe('the registry is one table, and every row is whole', () => {
 		}
 		// A long, hostile query still yields its id.
 		assert.equal(detectProvider(`https://www.youtube.com/watch?${'&'.repeat(400000)}v=aqz-KE-bpKQ`).id, 'aqz-KE-bpKQ');
-		// A hang guard, not a speed test (HARD RULE #32, F4): backtracking lives inside one regex match, where no
-		// count reaches it. A query with no id is where a wildcard extractor fails at every start: `.*[?&]v=` over
-		// the href took 8 s at 80k and grows with the square, about 200 s here. The table reads it in about 15 ms.
-		const noId = `https://www.youtube.com/watch?${'&'.repeat(400000)}x=1`;
-		const t0 = process.hrtime.bigint();
-		assert.equal(detectProvider(noId).id, '');
-		const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-		assert.ok(ms < 15000, `extraction took ${ms.toFixed(0)} ms on a 400k-char query with no id`); // flaky-ok: hang guard — linear ~15 ms, the old shape (`.*[?&]v=`) ~200 s at this size (8 s measured at 80k)
+		// Backtracking lives inside one regex match, where no count reaches it. A query with no id is where a wildcard
+		// extractor fails at every start (`.*[?&]v=` took 8 s at 80k, growing with the square). So every regex the
+		// detection runs must be one recheck calls linear (test/helpers/regex-trace.js): no clock (HARD RULE #32).
+		const noId = `https://www.youtube.com/watch?${'&'.repeat(2000)}x=1`;
+		// The id patterns come from the plugin manifest at run time, so the census (literals only) cannot hold them.
+		const allow = { '/^\\/(?:shorts|embed|live|v)\\/([\\w-]{11})$/': 'the video manifest\'s path pattern; `npm run regex:census -- --check` (recheck 4.6.2): safe' };
+		assertLinearRegexes(() => assert.equal(detectProvider(noId).id, ''), { allow });
 	});
 
 	test('each row carries the full descriptor, with the right types', () => {

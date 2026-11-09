@@ -14,6 +14,7 @@ const assert = require('node:assert/strict');
 const { parseBracketList, tidy, unquote } = require('@laticent/segno/read');
 const { parseInlineSet } = require('../../../lib/core/label-set');
 const { charReads } = require('../../helpers/work-count');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 describe('axis forms — a positional list', () => {
   test('bare members need no quotes', () => {
@@ -166,21 +167,20 @@ describe('nothing backtracks', () => {
       reads++;
       return real.call(this, i);
     };
-    const t0 = process.hrtime.bigint();
     let out;
     try {
       out = parseBracketList(evil);
     } finally {
       String.prototype.charCodeAt = real;
     }
-    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
     assert.equal(out, null);
     // Counted: the parser reads its input through `charCodeAt`, about once per character. A scan that restarts at
     // every space reads ~n per character.
     assert.ok(reads <= 3 * evil.length, `${reads} reads for ${evil.length} characters`);
-    // A hang guard, not a speed test (HARD RULE #32, F4): a read count cannot see a regex backtracking. An ambiguous
-    // `\s*(.*?)\s*,` over this run, the shape that bit label-set.js, is cubic: 2.7 s at 2k spaces, ~45 min here.
-    assert.ok(ms < 5000, `took ${ms.toFixed(0)} ms`); // flaky-ok: hang guard — linear 1-2 ms, the old shape ~45 min at this size
+    // A read count cannot see a regex backtracking. An ambiguous `\s*(.*?)\s*,` over this run, the shape that bit
+    // label-set.js, is cubic: 2.7 s at 2k spaces, ~45 min here. So every regex the parse runs must be one recheck calls
+    // linear (test/helpers/regex-trace.js): no clock (HARD RULE #32).
+    assertLinearRegexes(() => parseBracketList(evil));
   });
 
   // Two shapes: the brace run that bit `label-set.js`, and a mixed list that

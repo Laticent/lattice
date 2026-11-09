@@ -473,6 +473,10 @@
     {
       "path": "test/fixtures/marp-cli/package-lock.json",
       "class": "not-code"
+    },
+    {
+      "path": "tools/recheck/package-lock.json",
+      "class": "not-code"
     }
   ]
 }
