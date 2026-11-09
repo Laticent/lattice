@@ -6,8 +6,10 @@
  *
  *   node scripts/ios-safari/probe.selftest.mjs
  *   PROBE=undo node scripts/ios-safari/probe.selftest.mjs   # the undo probe: edit, WebKit undo command, reload
+ *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { devices, webkit } from '@playwright/test';
@@ -39,6 +41,29 @@ const report = (label, file, result) => {
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
 	if (!result.ok) failed++;
 };
+if (process.env.PROBE === 'font-cache') {
+	// The font cache probe, as run.mjs runs it: the control arm on one origin, the warm arm on the other, both served by
+	// font-cache-server.mjs (start it first). A PERSISTENT profile: in Playwright's default ephemeral context WebKit keeps
+	// no disk cache across preview documents, which would fail the warm arm for a reason Safari does not have.
+	const FONT = withEditorHelper(fs.readFileSync(path.join(here, 'font-cache-probe.js'), 'utf8'));
+	const origins = { control: process.env.CONTROL_URL || 'http://localhost:4321', warm: process.env.WARM_URL || 'http://localhost:4322' };
+	await browser.close();
+	for (const { label, options } of shapes) {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'font-cache-'));
+		const context = await webkit.launchPersistentContext(dir, options);
+		for (const arm of ['control', 'warm']) {
+			const page = await context.newPage();
+			await page.addInitScript(SEED);
+			await page.goto(`${origins[arm]}/studio/`, { waitUntil: 'domcontentloaded' });
+			await page.addScriptTag({ content: FONT });
+			report(label, `font-cache-probe.js ${arm}`, await page.evaluate((a) => globalThis.latticeFontCacheProbe(a), arm));
+			await page.close();
+		}
+		await context.close();
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
+	process.exit(failed ? 1 : 0);
+}
 if (process.env.PROBE === 'undo') {
 	// The undo probe, as run.mjs runs it: the edit half, a real reload, then the after-reload half.
 	for (const { label, options } of shapes) {

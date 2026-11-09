@@ -236,7 +236,43 @@ export type SingleSlideOptions = {
 	 * and no other host sets this: an export must never capture a drawing still in flight.
 	 */
 	liveLayout?: boolean;
+	/**
+	 * BUILD-TIME ONLY: called with the parts of every full write, just before the frame's document is
+	 * built from them. `docs/scripts/bake-studio-newcomer.mjs` sets it to capture the Studio newcomer's
+	 * first write; no page sets it. See `adoptBake` and engineering/decisions/2026-11-08-studio-newcomer-bake.md.
+	 */
+	captureWrite?: (parts: BakedWrite) => void;
 };
+
+/** The inputs of one full write: everything `srcdoc()` builds the frame's document from. No nonce, no
+ *  blob URL and no origin: the renderer that adopts it stamps its own when it builds the document. */
+export type BakedWrite = { html: string; css: string; mode: 'light' | 'dark'; drawn: boolean; geom: Geom; extraCss: string };
+
+/**
+ * A build-time first write for one deck, and the host state the renderer keeps after making it
+ * (`docs/scripts/bake-studio-newcomer.mjs`). `adoptBake` writes it before the engine has loaded; the
+ * first real render then finds the frame already holding its document and patches it in place.
+ */
+export type NewcomerBake = {
+	v: 1;
+	/** Length and hash of the whole markdown the bake rendered, and the slide it showed. */
+	src: string;
+	slideIndex: number;
+	palette: string;
+	/** The renderer flags that shape the document's root element and runtime: they must match. */
+	flags: string;
+	runtimeUrl: string;
+	write: BakedWrite;
+	host: { frameSig: string; restyleSig: string; frameCss: { extraCss: string; themeCss: string }; shownSlide: { index: number; key: string | null } };
+};
+
+/** How long a render waits for an adopted bake's document to load before it writes its own over it. */
+const BAKE_LOAD_WAIT_MS = 4000;
+
+/** The source key a bake is matched on: length and hash, the same pair the sheet cache keys on. */
+export function bakeSourceKey(markdown: string): string {
+	return `${markdown.length}:${hashString(markdown)}`;
+}
 
 /**
  * `text` with every `<!-- … -->` cut out, an unclosed one to the end. A scan, not a regex replace: a one-pass
@@ -275,7 +311,7 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRenderGen?: number; __latticeOwnerGen?: number; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void> };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRenderGen?: number; __latticeOwnerGen?: number; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void>; __latticeBakeLoad?: Promise<void>; __latticeBakeSettle?: () => void };
 // "Has the live iframe actually painted a slide yet?" — true once its document holds a
 // rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
 // unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
@@ -1107,6 +1143,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	const dagreUrl = opts.dagreUrl || '';
 	// Read here, not in renderInto: its own `opts` argument shadows this one.
 	const scaleImages = !!opts.scaleImages;
+	const captureWrite = opts.captureWrite;
+	// The flags that change the document a write builds, outside its body. A bake carries the ones it was
+	// made with, and only a renderer with the same ones may adopt it (adoptBake).
+	const flagsKey = `${specimen ? 'S' : ''}${chromeless ? 'C' : ''}${liveLayout ? 'L' : ''}${scaleImages ? 'I' : ''}`;
 	const themes = createThemeFetcher(themeBase);
 
 	// Teardown bookkeeping — everything THIS renderer instance creates that would
@@ -1320,6 +1360,160 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		s += '<scr' + 'ipt' + n + '>' + linkGuardAgent() + '</scr' + 'ipt>';
 		s += '</body></html>';
 		return s;
+	}
+
+	/**
+	 * Create the host's `iframe.live`: hidden until its first document paints, sized to the slide's
+	 * intrinsic box, and re-fit on every host resize. Shared by the full write and `adoptBake`, so a
+	 * baked first document lives in exactly the frame a render would have made.
+	 */
+	function mountLiveFrame(host: HTMLElement, geom: Geom): HTMLIFrameElement {
+		// UNDO TRIPWIRE: on iOS, mounting this frame (and every `srcdoc` write below) empties WebKit's own
+		// undo list, so Safari's undo gestures stop reaching Filo until the Studio's undo doorbell re-arms
+		// it (docs/src/components/studio/undo-doorbell.ts). A new frame anywhere in the Studio does the same.
+		const fr = document.createElement('iframe');
+		fr.className = 'live';
+		fr.setAttribute('title', 'Live-rendered Lattice slide');
+		fr.setAttribute('scrolling', 'no');
+		fr.setAttribute('tabindex', '-1');
+		// Fixed intrinsic slide box, scaled to fit via a CSS transform set in
+		// scaleFrame. transform-origin top-left so the scaled box aligns to the
+		// host's corner (without it, scaling shrinks around center → offset).
+		fr.style.position = 'absolute';
+		fr.style.top = '0';
+		fr.style.left = '0';
+		fr.style.border = '0';
+		fr.style.width = geom.width + 'px';
+		fr.style.height = geom.height + 'px';
+		fr.style.transformOrigin = 'top left';
+		// Invisible until the FIRST srcdoc actually paints (revealed by scaleFrame's
+		// content gate). A freshly-appended iframe with no srcdoc is `about:blank`,
+		// which iOS Safari paints as an OPAQUE WHITE document ON TOP OF the element's
+		// CSS `background` — so a cold load flashed a white slide card. `opacity:0`
+		// makes the whole element (white content included) transparent, so the dark
+		// pane behind covers that window — AND, unlike `visibility`, opacity animates,
+		// so the reveal is a quick fade-in (transition below) instead of a hard pop.
+		fr.style.opacity = '0';
+		fr.style.transition = 'opacity 180ms ease-out';
+		// An opacity:0 element is still HIT-TESTABLE (unlike visibility:hidden, which the
+		// reveal used to be) — so while hidden the frame would intercept scroll/clicks meant
+		// for what's behind it (e.g. the landing hero preview) during the load window. Hold
+		// pointer-events off until scaleFrame reveals it (which clears this alongside opacity).
+		fr.style.pointerEvents = 'none';
+		host.appendChild(fr);
+		// The CONTENT-DRIVEN reveal poll is armed below, at the srcdoc-write site, so it
+		// covers EVERY full write (this first mount AND every subsequent edit) — not just
+		// the create branch. See the block after `fr.srcdoc = …` (#1163).
+		if (typeof ResizeObserver !== 'undefined') {
+			// The callback honors the module-level drag gate above; the host is
+			// registered so a resume can re-fit it once, authoritatively.
+			// Sweep dead hosts on each registration so no-drag sessions
+			// (where the resume-time prune never runs) stay bounded too.
+			for (const h of scaleTargets.keys()) if (!h.isConnected) scaleTargets.delete(h);
+			scaleTargets.set(host, () => scaleFrame(host));
+			// Keep the observer instance (was anonymous) so dispose() can
+			// disconnect it — and remember the host so dispose() can also drop
+			// its scaleTargets entry (the module-level root that leaks it).
+			const ro = new ResizeObserver(() => {
+				if (!scaleSuspended) scaleFrame(host);
+			});
+			ro.observe(host);
+			ownedObservers.add(ro);
+			ownedHosts.add(host);
+		}
+		return fr;
+	}
+
+	/**
+	 * Write a BUILD-TIME first document into `host` before the engine has loaded, and keep the state a
+	 * full write of it would have left, so the first real render patches it in place
+	 * (engineering/decisions/2026-11-08-studio-newcomer-bake.md, option A).
+	 *
+	 * The bake carries the write's PARTS, never a finished document: this renderer builds the document
+	 * with its own `srcdoc()`, so the frame gets this page load's script nonce, this origin's policy and
+	 * the shared sheet's blob, exactly as a write here would. Nothing in the bake can stand in for them.
+	 *
+	 * Adopts only when the bake describes the render about to happen: the same markdown and slide, the
+	 * palette and mode the page resolves, this renderer's flags and runtime, and a host with no frame
+	 * yet. Anything else answers `false` and the first render writes as it always has. A bake whose
+	 * signature turns out not to match the live render is still safe: the restyle path swaps its sheet
+	 * in place, and past that the full write replaces it (srcdoc over srcdoc adds no history entry).
+	 */
+	function adoptBake(host: HTMLElement, bake: NewcomerBake, want: { markdown: string; slideIndex?: number; paletteOverride?: string; modeOverride?: 'light' | 'dark' }): boolean {
+		// The outcome rides on the host as `data-lattice-bake`, so a test or a person in devtools can see
+		// whether this visit adopted the bake and, when it did not, which check refused it.
+		const refuse = (why: string) => {
+			host.setAttribute('data-lattice-bake', 'refused:' + why);
+			return false;
+		};
+		try {
+			if (disposed || !host.isConnected) return false;
+			if (host.querySelector('iframe.live')) return refuse('written');
+			if (!bake || bake.v !== 1 || !bake.write || !bake.host) return refuse('shape');
+			const { palette, mode: docMode } = currentPaletteMode(want.paletteOverride);
+			const mode = want.modeOverride ?? docMode;
+			if (bake.runtimeUrl !== runtimeUrl) return refuse('runtime');
+			if (bake.flags !== flagsKey) return refuse('flags');
+			if (bake.palette !== palette || bake.write.mode !== mode) return refuse('theme');
+			if (bake.slideIndex !== (want.slideIndex ?? -1)) return refuse('slide');
+			if (bake.src !== bakeSourceKey(want.markdown)) return refuse('source');
+			const liveHost = host as LiveHost;
+			const { write } = bake;
+			const geom = write.geom;
+			liveHost.__latticeGeom = geom;
+			// The bake is made with no web images allowed or blocked; a deck that had any is not baked.
+			webAllow = [];
+			webBlocked = [];
+			const fr = mountLiveFrame(host, geom);
+			let settle: () => void = () => {};
+			liveHost.__latticeBakeLoad = new Promise<void>((resolve) => {
+				settle = resolve;
+			});
+			// Held on the host so a full write that replaces the bake (or a dispose) can release every render still
+			// waiting on it, instead of leaving each to wait out BAKE_LOAD_WAIT_MS on a document that is gone.
+			liveHost.__latticeBakeSettle = () => settle();
+			let loadRan = false;
+			const onLoad = () => {
+				if (loadRan) return;
+				loadRan = true;
+				liveHost.__latticePendingLoad = false;
+				scaleFrame(host);
+				applyDebug(fr, { force: null });
+				installVideoBridge(fr.contentWindow);
+				installCollageBridge(fr.contentWindow);
+				settle();
+			};
+			fr.onload = onLoad;
+			liveHost.__latticePendingLoad = true;
+			liveHost.__latticeShownSlide = bake.host.shownSlide;
+			fr.srcdoc = srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss);
+			scaleFrame(host);
+			// The same content-driven reveal poll a full write arms, for the same reason: iOS drops srcdoc `onload`.
+			let ticks = 0;
+			const poll = setInterval(() => {
+				ticks++;
+				if (disposed || !host.isConnected || liveHost.__latticePendingLoad === false || ticks > 300) {
+					clearInterval(poll);
+					ownedIntervals.delete(poll);
+					if (liveHost.__latticeRevealPoll === poll) liveHost.__latticeRevealPoll = undefined;
+					if (ticks > 300) settle();
+					return;
+				}
+				scaleFrame(host);
+				if (frameHasPainted(fr)) onLoad();
+			}, 100);
+			ownedIntervals.add(poll);
+			liveHost.__latticeRevealPoll = poll;
+			host.classList.add('is-live');
+			liveHost.__latticeFrameSig = bake.host.frameSig;
+			liveHost.__latticeFrameCss = bake.host.frameCss;
+			liveHost.__latticeRestyleSig = bake.host.restyleSig;
+			host.setAttribute('data-lattice-bake', 'adopted');
+			return true;
+		} catch (e) {
+			console.error('newcomer bake not adopted', e);
+			return refuse('error');
+		}
 	}
 
 	/** Scale the fixed-box iframe to fill its (16:9) host; driven by host width. */
@@ -2134,6 +2328,23 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// <style>, so they are DELIBERATELY absent here — a change in any of them keeps the
 				// same geom+mermaid, hits the restyle path, and swaps the <style> instead of rewriting.
 				const restyleSig = `${geom.width}x${geom.height}|${drawn ? 'M' : ''}|W:${webSig}`;
+				// AN ADOPTED BAKE STILL LOADING (adoptBake). Its document is this render's best outcome: wait for it
+				// to commit, bounded, so the render can patch it instead of writing over a frame that is about to
+				// show the same slide. Past the bound the write below replaces it, as any pending write is replaced.
+				const bakeLoad = (host as LiveHost).__latticeBakeLoad;
+				if (bakeLoad) {
+					let waited: ReturnType<typeof setTimeout> | undefined;
+					await Promise.race([bakeLoad, new Promise<void>((resolve) => { waited = setTimeout(resolve, BAKE_LOAD_WAIT_MS); })]);
+					clearTimeout(waited);
+					// Release every other render waiting on the same bake before letting go of it: once this render writes,
+					// nothing else would resolve that promise (its onload and poll are replaced), and a render the frame
+					// scheduler's 4 s watchdog started meanwhile would wait out its own full bound for nothing.
+					(host as LiveHost).__latticeBakeSettle?.();
+					(host as LiveHost).__latticeBakeLoad = undefined;
+					(host as LiveHost).__latticeBakeSettle = undefined;
+					// A newer render may have written while this one waited: it owns the frame now.
+					if (disposed || !host.isConnected || newerOwns()) return { ok: false, slides: 0, error: 'renderer disposed' };
+				}
 				const live = host.querySelector<HTMLIFrameElement>('iframe.live');
 				// Skip the patch while a full-write srcdoc is still loading: its
 				// contentDocument is briefly the OUTGOING one (which still has `.lattice`),
@@ -2291,61 +2502,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// site below, the iOS paint path) and the browser `onload` (assigned near that write).
 				// Declared out here so both the (later) poll and the onload assignment can see it.
 				let onFrameLoad: (() => void) | null = null;
-				if (!fr) {
-					// UNDO TRIPWIRE: on iOS, mounting this frame (and every `srcdoc` write below) empties WebKit's own
-					// undo list, so Safari's undo gestures stop reaching Filo until the Studio's undo doorbell re-arms
-					// it (docs/src/components/studio/undo-doorbell.ts). A new frame anywhere in the Studio does the same.
-					fr = document.createElement('iframe');
-					fr.className = 'live';
-					fr.setAttribute('title', 'Live-rendered Lattice slide');
-					fr.setAttribute('scrolling', 'no');
-					fr.setAttribute('tabindex', '-1');
-					// Fixed intrinsic slide box, scaled to fit via a CSS transform set in
-					// scaleFrame. transform-origin top-left so the scaled box aligns to the
-					// host's corner (without it, scaling shrinks around center → offset).
-					fr.style.position = 'absolute';
-					fr.style.top = '0';
-					fr.style.left = '0';
-					fr.style.border = '0';
-					fr.style.width = geom.width + 'px';
-					fr.style.height = geom.height + 'px';
-					fr.style.transformOrigin = 'top left';
-					// Invisible until the FIRST srcdoc actually paints (revealed by scaleFrame's
-					// content gate). A freshly-appended iframe with no srcdoc is `about:blank`,
-					// which iOS Safari paints as an OPAQUE WHITE document ON TOP OF the element's
-					// CSS `background` — so a cold load flashed a white slide card. `opacity:0`
-					// makes the whole element (white content included) transparent, so the dark
-					// pane behind covers that window — AND, unlike `visibility`, opacity animates,
-					// so the reveal is a quick fade-in (transition below) instead of a hard pop.
-					fr.style.opacity = '0';
-					fr.style.transition = 'opacity 180ms ease-out';
-					// An opacity:0 element is still HIT-TESTABLE (unlike visibility:hidden, which the
-					// reveal used to be) — so while hidden the frame would intercept scroll/clicks meant
-					// for what's behind it (e.g. the landing hero preview) during the load window. Hold
-					// pointer-events off until scaleFrame reveals it (which clears this alongside opacity).
-					fr.style.pointerEvents = 'none';
-					host.appendChild(fr);
-					// The CONTENT-DRIVEN reveal poll is armed below, at the srcdoc-write site, so it
-					// covers EVERY full write (this first mount AND every subsequent edit) — not just
-					// the create branch. See the block after `fr.srcdoc = …` (#1163).
-					if (typeof ResizeObserver !== 'undefined') {
-						// The callback honors the module-level drag gate above; the host is
-						// registered so a resume can re-fit it once, authoritatively.
-						// Sweep dead hosts on each registration so no-drag sessions
-						// (where the resume-time prune never runs) stay bounded too.
-						for (const h of scaleTargets.keys()) if (!h.isConnected) scaleTargets.delete(h);
-						scaleTargets.set(host, () => scaleFrame(host));
-						// Keep the observer instance (was anonymous) so dispose() can
-						// disconnect it — and remember the host so dispose() can also drop
-						// its scaleTargets entry (the module-level root that leaks it).
-						const ro = new ResizeObserver(() => {
-							if (!scaleSuspended) scaleFrame(host);
-						});
-						ro.observe(host);
-						ownedObservers.add(ro);
-						ownedHosts.add(host);
-					}
-				}
+				if (!fr) fr = mountLiveFrame(host, geom);
 				// After the frame loads: fit it, then draw the layout debug overlay if the
 				// deck opted in (`data-debug`, stamped from `debug:` front matter). This
 				// single-slide path strictly FOLLOWS THE DECK (force:null) — it never reads
@@ -2451,6 +2608,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// back, and the return trip was stamped `in-place` (found by the trio's checker).
 				// The identity has to track the document, not the code path that wrote it.
 				stampShownSlide();
+				// This write replaces an adopted bake still loading: release any render waiting on it.
+				(host as LiveHost).__latticeBakeSettle?.();
+				(host as LiveHost).__latticeBakeLoad = undefined;
+				(host as LiveHost).__latticeBakeSettle = undefined;
+				captureWrite?.({ html: out.html, css: out.css, mode, drawn, geom, extraCss: extraCss || '' });
 				fr.srcdoc = srcdoc(out.html, out.css, mode, drawn, geom, extraCss);
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
@@ -2635,6 +2797,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// realm per host rather than N, but this file's doctrine is to release every
 			// root it owns, and this is one.
 			(h as LiveHost).__latticeFontWake = undefined;
+			// An adopted bake this renderer wrote: release its waiters, so a later renderer on the same host (a StrictMode
+			// remount) does not wait on a load this renderer's cleared poll will never report.
+			(h as LiveHost).__latticeBakeSettle?.();
+			(h as LiveHost).__latticeBakeLoad = undefined;
+			(h as LiveHost).__latticeBakeSettle = undefined;
 		}
 		ownedHosts.clear();
 		// Unsubscribe theme watchers via their own closures so the pending debounce
@@ -2657,7 +2824,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		ownedIntervals.clear();
 	}
 
-	return { renderInto, whenReady, onThemeChange, scaleFrame, ready, prefetchTheme, dispose };
+	return { renderInto, adoptBake, whenReady, onThemeChange, scaleFrame, ready, prefetchTheme, dispose };
 }
 
 export type SingleSlideRenderer = ReturnType<typeof createSingleSlideRenderer>;

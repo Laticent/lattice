@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { ANIMA_HOST_SEL, type DeckMotion, hasAnimatableChart, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts, watchDiagramDrawn } from '@/playground/anima-host-sel';
 import {
 	createSingleSlideRenderer,
+	type NewcomerBake,
 	type SingleSlideOptions,
 	type SingleSlideRenderer,
 } from '@/playground/single-slide-render';
@@ -185,6 +186,12 @@ export type DeckPreviewProps = {
 	 */
 	loader?: boolean;
 	/**
+	 * A build-time first write to show before the engine has loaded (the Studio newcomer bake,
+	 * studio/newcomer-bake.ts). Written once, when it resolves, if the renderer has not written yet
+	 * and the bake still matches this host's render (single-slide-render.ts `adoptBake`).
+	 */
+	bake?: Promise<NewcomerBake | null> | null;
+	/**
 	 * Mount the parent-hosted chart mark-detail reveal over this preview (hover a chart mark to
 	 * reveal its authored detail). Opt-in — ONLY the Studio's primary editing preview wants it; a
 	 * thumbnail / specimen host must stay static (a grid of popovers would be noise). Off by default.
@@ -242,6 +249,7 @@ export function DeckPreview({
 	onOverflow,
 	onSparkFit,
 	loader = false,
+	bake = null,
 	chartDetail = false,
 	specimen = false,
 	chromeless = false,
@@ -432,6 +440,29 @@ export function DeckPreview({
 		mo.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
 		return () => mo.disconnect();
 	}, [loader, onFirstRender]);
+
+	// THE NEWCOMER BAKE (prop `bake`). Written the moment it resolves, which is usually before the engine
+	// has evaluated: the renderer builds the frame's document from the bake's parts and keeps the state a
+	// full write would have left, so the first real render patches it. Read through a ref so the props it
+	// is matched against are the ones current when it lands, and never a dependency that re-arms it.
+	const adoptPropsRef = React.useRef({ sample, slideIndex, paletteOverride, modeOverride });
+	adoptPropsRef.current = { sample, slideIndex, paletteOverride, modeOverride };
+	React.useEffect(() => {
+		if (!bake) return;
+		let live = true;
+		bake.then(
+			(b) => {
+				const host = stageRef.current;
+				if (!live || !b || !host) return;
+				const p = adoptPropsRef.current;
+				engineRef.current?.adoptBake(host, b, { markdown: p.sample, slideIndex: p.slideIndex, paletteOverride: p.paletteOverride, modeOverride: p.modeOverride });
+			},
+			() => {},
+		);
+		return () => {
+			live = false;
+		};
+	}, [bake]);
 
 	// Anti-stuck FLOOR — reveal-VERIFYING. The reveal-watcher above is the primary handoff; this is
 	// its safety net for ONE failure: the frame IS good but the MutationObserver missed the opacity

@@ -197,6 +197,13 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 		};
 	}, [options, source, palette, mode, extraTheme?.name, extraTheme?.css, extraCss]);
 
+	// ONE OBJECT PER ARTICLE, not one per render. React 19 re-applies `dangerouslySetInnerHTML` whenever the prop's
+	// object is a new one, whatever its `__html` holds, so an inline `{{ __html: html }}` rewrote the whole article on
+	// every re-render of this view: a resize across a breakpoint, or any shell update, threw away all 28 hydrated
+	// figures of the chart gallery and drew them again (found by studio-read-article-charts.spec.ts on webkit-phone,
+	// whose screenshot step then held a detached figure; followups.d/3087-p5).
+	const articleMarkup = React.useMemo(() => ({ __html: html }), [html]);
+
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			<style>{READ_ARTICLE_CSS}</style>
@@ -254,7 +261,7 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 					    Mermaid's node labels. Measured against `createSlideSanitizer`: the FIRST pass
 					    already removes both, and on the baked path the labels are native `<text>` by then
 					    (CLAUDE.md #22). */}
-					<article className="st-read-article px-6 py-8" dangerouslySetInnerHTML={{ __html: html }} />
+					<article className="st-read-article px-6 py-8" dangerouslySetInnerHTML={articleMarkup} />
 				</div>
 			)}
 		</div>

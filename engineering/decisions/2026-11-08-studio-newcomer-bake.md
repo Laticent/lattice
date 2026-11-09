@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: >
   Should the Studio bake a first-time visitor's first slide the way the Playground does? Yes, with a different seam.
   The Playground writes its bake into an iframe that exists in the page's HTML, before the app runs. The Studio has no
@@ -114,6 +114,122 @@ finishes, adopted without a second render. The `spike/preview-first` branch that
 earlier session's sandbox and is not on the remote, so its code could not be read. A's seeding entry point is the
 piece a returning-user path needs too. The difference is where the document comes from: a cached last render on this
 device instead of a build-time file. So A comes first, and P3 builds on its seam.
+
+## 7. PR A, as built (2026-11-09)
+
+### The nonce question (§2), answered
+
+**The bake carries no nonce, so the question does not arise.** `PREVIEW_SCRIPT_NONCE` (`page-script-nonce.js`) is
+the one value every script in a preview frame must carry. The frame's policy (`previewCspMeta({ scriptNonce })`)
+refuses any script without it, so an inline handler or a `<script>` that got past the sanitizer does not run. It
+is random per page load so that a shared deck's markup cannot know it. A baked finished document would have
+frozen it into a public file, and the guard would have stopped guarding for every visitor who got the bake.
+
+So the bake is not a document. It is the PARTS of one full write (the sanitized-before-write slide HTML, the
+engine's composed sheet, the mode, the slide box, the author CSS) plus the host state the renderer keeps after
+writing them (`NewcomerBake` in `single-slide-render.ts`). `adoptBake` builds the frame's document from those
+parts with the renderer's own `srcdoc()`, which stamps this page load's nonce, this origin's font policy and the
+shared sheet's blob URL, exactly as a live write does. A patch over it then meets the same nonce it always
+meets. The same move removes the two other values a finished file would have frozen: the Playground bake has to
+patch Firefox's `font-src` origin in by string replacement (`playground.astro`), and an inline 1.2 MB sheet would
+not have shared its parse with the Studio's other frames.
+
+### What shipped
+
+- `docs/scripts/bake-studio-newcomer.mjs` runs the Studio's renderer (`createSingleSlideRenderer`, with the
+  editing preview's `scaleImages` and `liveLayout` flags) in jsdom against the staged engine and themes, with
+  StudioShell's arguments for the welcome deck. Its `captureWrite` option, set only here, hands over the write's
+  parts. It writes `studio-newcomer/<mode>.json` beside the runtime. The harness it shares with
+  `bake-newcomer-frame.mjs` is `docs/scripts/lib/bake-harness.mjs` (the Playground's bake is byte-identical
+  through the move).
+- `studio.astro`'s head fetches it only for a first visit (no Studio state in storage, no query or hash, palette
+  cuoio, not Save-Data or 3G or worse). `newcomer-bake.ts` hands the pending fetch to the editing preview once.
+- `adoptBake` writes it the moment it resolves, when the host has no frame yet and the bake matches the source,
+  slide, palette, mode, renderer flags and runtime. The outcome rides on the host as `data-lattice-bake`
+  (`adopted` or `refused:<why>`). The first render waits up to 4 s for the adopted document to load, then takes
+  the ordinary patch path. A mismatched signature degrades to the restyle path, and past that to a full write,
+  which is srcdoc over srcdoc and adds no history entry.
+
+### Measured
+
+Phone profile (`npm run perf:startup`, 390 px, 4x CPU, 80 ms, 6 Mbit/s), HTTP/2 with the certificate trusted,
+`main` 99009e4 against this branch, one load per build alternated, 7 loads each, two rounds:
+
+| Round | Build | First slide (median) | Visible (median) | Requests by the slide | Main thread busy by the slide |
+|---|---|---|---|---|---|
+| 1 | `main` | 4244 ms | 4744 ms | 217 | 2.85 s |
+| 1 | PR A | 3097 ms | 4340 ms | 215 | 1.96 s |
+| 2 | `main` | 4470 ms | 4872 ms | 217 | 2.87 s |
+| 2 | PR A | 3008 ms | 4302 ms | 216 | 1.99 s |
+
+The first slide is in the frame about 1.3 s (30%) sooner, and visible moves about 0.5 s (10%). `main` has moved
+since §3 was measured: its visible median is now about 4.8 s, not 5.49 s. So the 1.5 s ceiling in §4, measured
+against the old baseline, was never available in full.
+
+**Why visible moves less than the first slide.** After the bake is written, three things still stand between
+the slide and the reveal, and the bake removes none of them. (1) The frame's head holds the 1.2 MB sheet ahead
+of the font-gate script, so the body parses only after that sheet is parsed on a main thread that is also
+evaluating the engine. Single loads put `.lattice` anywhere from 0.3 s to 1.0 s after the write. (2) The runtime
+(447 KB gzipped) arrives at about 3.9 s. (3) The faces the slide uses are requested only once its text is laid
+out, and they land at about 3.9 s as well. Two variants of the runtime fetch were measured and rejected:
+dropping `studio-boot.ts`'s low-priority prefetch for a bake visitor (so the frame's own request is the only
+one) made visible worse, 4315 to 4913 ms; raising it to a preload changed nothing, 4627 against 4607 ms.
+
+**Evidence the merge rests on.** `e2e/studio-newcomer-bake.spec.ts` (Chromium, WebKit phone, Gecko), with the engine
+held until the renderer has answered the bake so the order is the code's: a first visit adopts the bake before the engine loads, and the first render patches the same document in place (one
+write in total, the frame's window unchanged, the swap stamped `in-place`, no history entry); a returning
+visitor never fetches it; a bake from another build is refused and the render writes as before. 40 of 40 runs
+passed at `--repeat-each=5` with no retries. The handoff check (`playground-bench.mjs studio-handoff`) holds the
+engine until the baked slide is captured, then captures the live preview once the first render has patched it:
+0 differing pixels at 390, 820 and 1440 px in both modes, with the bake on screen before the engine in all six
+runs. iOS Safari on a device is UNVERIFIED.
+
+### What the independent check found, and what changed
+
+A maker-checker pass found that the bake closed the window a set of e2e specs measure: they hold the engine to study
+the instant shell before the first slide, and the bake now paints that slide without the engine and takes the shell
+down. `studio-instant-shell.spec.ts` "stage 1" (a per-PR `@smoke` test) failed 9 of 12. That is intended behavior for a
+visitor and wrong for those specs, so `holdEngine` (`e2e/engine-glob.ts`, which every engine hold in
+`studio-instant-shell`, `studio-shell-parity` and `studio-reserved-slots` goes through) now also aborts the bake;
+stage 1 passes 12 of 12. The same pass found three smaller gaps, all closed: a full write that replaces a still-loading bake now releases
+every render waiting on it, a render re-checks that it still owns the frame after the wait, and `dispose()` releases a
+bake it wrote. Two `:252` geometry cases in `studio-instant-shell` fail on `main`'s build too
+(`followups.d/2982-p3-instant-shell-slide-box-drift.md`).
+
+## 8. Preview-first boot for a returning visitor, on this seam: built, measured, not shipped (2026-11-09)
+
+§6 expected a returning visitor's preview-first boot to reuse PR A's seeding seam, with the document coming from this
+device instead of the build. That was built and measured in this PR's session, and it does not pay, so it was taken
+out again.
+
+**What was built.** The renderer described what a frame shows in the bake's shape (`snapshotBake`, with the deck's
+web-image policy added to the parts). The Studio stored it in Cache Storage 1.5 s after the preview settled and on
+`pagehide`, with the sheet under a content key so it was written only when it changed. The head seed read it back for a
+returning visitor, and `adoptBake` took it as it takes the newcomer bake. It worked: on a reload the visitor's own slide 3
+was adopted before the engine, as the only write, and the first render patched it `in-place`.
+
+**What it measured.** `npm run perf:startup` with `WARM=1` (a first load, then a reload in the same profile with the
+service worker allowed, which is a returning visit), `main` against the change, 5 loads each, alternated:
+
+| Profile | Build | First slide | Visible | Editable |
+|---|---|---|---|---|
+| phone | `main` | 2035 ms | 2239 ms | (no editor on a phone until its pane opens) |
+| phone | stored frame | 2094 ms | 2327 ms | |
+| desktop | `main` | 1172 ms | 1386 ms | 1388 ms |
+| desktop | stored frame | 1053 ms | 1377 ms | 1378 ms |
+
+No difference past run-to-run spread. **Why:** on a returning visit the engine is cached, and it has loaded before the
+preview mounts. One phone timeline: engine 829 ms, preview host mounted 1096 ms, frame written 1595 ms, visible 2058 ms.
+A write at mount saves only the render itself, which is short once the engine is warm. The head's read of a 1.3 MB
+stored frame then costs main-thread time of its own (the same load with the stored frame: host 1525 ms, visible 2426 ms).
+The newcomer bake pays because a cold engine takes about 1.75 s to arrive and evaluate. A warm one does not.
+
+**So the −26% the lost spike reported cannot come from this seam.** It has to come from painting before the island
+mounts, which is option B in §4: a page-owned frame that reverses `2026-07-21-studio-preview-one-skeleton.md`. That is
+the owner's call, and the owner declined it (2026-11-09, D1 B on PR #3102): work that does not add value is not
+worth doing. The follow-up was retired with this decision. The instrument stays: `startup-bench.mjs` now
+reports time to editable (the deck editor takes a keystroke), which is the second number a returning-visitor change
+has to move.
 
 ## Not in scope
 

@@ -186,6 +186,11 @@ test('@gecko on one screen the Stage never takes the display from the console', 
 test('@gecko the Stage fills the screen from the key and from the button', async ({ page, context }) => {
 	const { stage } = await openStage(page, context);
 	const isFull = () => stage.evaluate(() => !!document.fullscreenElement);
+	// THE STAGE'S OWN SCRIPT HAS RUN: its last act sets the counter from the placeholder `1 / 1` to the deck's real
+	// count (stage-window.js, `count()`), and its key handler is installed before that. The film can fill first, and an
+	// `f` pressed in that gap reached no handler: red on every Firefox run (followups.d/3087-p5), green whenever
+	// anything delayed the key. The welcome deck has seven slides.
+	await expect(stage.locator('#latt-count')).toHaveText(/^1 \/ [2-9]\d*$/);
 
 	await stage.locator('body').click({ position: { x: 5, y: 5 } });
 	await stage.keyboard.press('f');

@@ -120,6 +120,27 @@
       "docs_site": true
     },
     {
+      "name": "ios-safari-font-cache",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/font-cache-probe.js",
+        "docs/scripts/ios-safari/font-cache-server.mjs",
+        "docs/scripts/ios-safari/show-editor.js",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/scripts/lib/modeled-host.mjs",
+        "docs/src/components/studio/studio-warm.ts",
+        "docs/src/lib/theme-fetch.ts"
+      ],
+      "run": "PROBE=font-cache bash docs/scripts/ios-safari/run.sh",
+      "why": "Whether real Mobile Safari, in an iPad and an iPhone iOS Simulator, reads the Studio's warmed fonts from its HTTP cache (studio-warm.ts fetches 31 faces, about 2.7 MB, after the first slide; #3087). The server counts what reaches it: after the warm-up, an edit that adds an emoji, a code block and `finish: sketch` must send no font request; a control arm, on its own origin and identical except that the font files are sent `no-store`, must send some, so the probe can see a miss. Chromium, Firefox and Linux WebKit were checked on Linux; Safari was not, and a miss there downloads those 2.7 MB twice on every iPhone visit. The service worker is kept out, as it was for those engines: its Cache Storage path is a separate question.",
+      "on_pull_request": false,
+      "docs_site": true
+    },
+    {
       "name": "ios-safari-photo-memory",
       "os": [
         "macos-26"

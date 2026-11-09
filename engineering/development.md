@@ -594,6 +594,18 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   another process frees during the arm. The suite fails when the originals cost under 60 MB or the copies more than 60% of them;
   CI has read 86 to 117 MB against 17 to 34 MB. It was part of `ios-safari-studio` until it took that job to 27.6 of its 30
   minutes.
+  `ios-safari-font-cache` runs it with `PROBE=font-cache` (#3087, D2 A): does Safari read the Studio's warmed fonts
+  (`studio-warm.ts`, 31 faces, about 2.7 MB) from its HTTP cache? `run.sh` serves the built site with
+  `font-cache-server.mjs` instead of `preview:e2e`: GitHub Pages' `max-age=600` on every file, a 404 for `sw.js` (the
+  worker would re-fetch the frame's requests itself and answer from Cache Storage, a separate question), and a log of every
+  font request it answers. It serves two ports, one per arm, because a cache is keyed by origin and a simulator's Safari
+  cache cannot be cleared between arms, and the arms differ in one thing: the warm port sends `max-age=600` on the font
+  files, the control port `no-store`. On both, `font-cache-probe.js` waits until all 31 faces have been served, adds an
+  emoji, a code block and `finish: sketch`, and counts every font request after the edit: none on the warm arm, some on
+  the control arm, which proves the probe can see a miss. (A first cut told the frame's loads from the warm-up's fetches
+  by `Sec-Fetch-Dest`; in Mobile Safari 26.5 neither arm saw a request marked `font`, so it proved nothing.)
+  `PROBE=font-cache node docs/scripts/ios-safari/probe.selftest.mjs`, with the server running, does the same on
+  Playwright WebKit with a persistent profile: an ephemeral WebKit context keeps no disk cache across preview documents.
   `ios-safari-focus-sync` runs it with `PROBE=focus-sync` on an iPad Pro 13-inch alone (a phone is never wide enough for the
   Playground's two-pane layout, which starts above 820 px): `run.mjs` makes real WebDriver taps on editor lines (an element
   click; the harness found nothing else was needed) while `focus-sync-probe.js` keeps the page busy, and the suite fails when a tap

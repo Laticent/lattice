@@ -41,6 +41,23 @@ const base = import.meta.env.BASE_URL;
 const url = (p) => joinBase(base, p);
 const pg = assetBase();
 
+// THE NEWCOMER BAKE (scripts/bake-studio-newcomer.mjs bakes it after the build): the parts of the live
+// preview's first write for a first-time visitor, the welcome deck's first slide in cuoio, one file per
+// mode, beside the runtime. The head seed fetches it, and the preview's renderer writes it as soon as the
+// island mounts, before the engine has evaluated; the first real render patches that document in place
+// (single-slide-render.ts `adoptBake`). Decision: engineering/decisions/2026-11-08-studio-newcomer-bake.md.
+// The comments live HERE because comments in an inline script ship to every visitor.
+//
+// THE GATE is a first visit and nothing else: no Studio state in storage at all (no active deck, no deck
+// index, no edited welcome source), no query or hash (a lesson or a shared deck boots something else), the
+// default palette. A returning visitor never fetches it, even one who would see the same slide: P3's
+// preview-first boot is their path. NOT ON A CONSTRAINED LINK: the bake carries the engine's composed sheet
+// (about 145KB on the wire), which races the island's own chunks for the same pipe, and the Playground
+// measured its bake as slower on slow 4G, so Save-Data or an effective connection of 3G or worse skips it.
+// The renderer adopts it only when it still describes the render about to happen (`adoptBake` checks the
+// source, slide, palette, mode, renderer flags and runtime), so a stale or mismatched file costs one fetch.
+const STUDIO_BAKE = { base: url(pg + 'studio-newcomer/'), palette: 'cuoio', deck: 'welcome' };
+
 const options = {
 	themeBase: url(pg + 'themes/'),
 	runtimeUrl: url(pg + 'lattice-runtime.js'),
@@ -520,7 +537,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			[data-studio-split][data-studio-stop="read"] > [data-pane-role="editor"] { display: none !important; }
 		</style>
 		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_BANDS_CSS + '\n' + SHELL_NACRE_CSS}></style>
-		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DECK_CAPTIONS, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, LEGACY_ONBOARDED_POSTURE, POSTURES, POSTURE_ALIASES, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_PANEL_IDS }}>
+		<script is:inline define:vars={{ STUDIO_BAKE, KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DECK_CAPTIONS, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, LEGACY_ONBOARDED_POSTURE, POSTURES, POSTURE_ALIASES, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_PANEL_IDS }}>
 			(function () {
 				var r = document.documentElement;
 				// Show the instant shell to EVERY visitor FIRST — before any localStorage read.
@@ -569,6 +586,14 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						if (boot && typeof DECK_CAPTIONS[boot] === 'string' && !localStorage.getItem('lattice-studio-src-' + boot)) r.setAttribute('data-ssr-caption', DECK_CAPTIONS[boot]);
 						else r.setAttribute('data-ssr-caption-unknown', '');
 					} catch (e6) { r.setAttribute('data-ssr-caption-unknown', ''); }
+					// NEWCOMER BAKE: see STUDIO_BAKE in the frontmatter.
+					try {
+						var bconn = navigator.connection || {};
+						var bslow = bconn.saveData === true || /^(slow-2g|2g|3g)$/.test(bconn.effectiveType || '');
+						if (!bslow && !location.search && !location.hash && palette === STUDIO_BAKE.palette && localStorage.getItem('lattice-studio-active') === null && localStorage.getItem('lattice-studio-deck-index') === null && localStorage.getItem('lattice-studio-src-' + STUDIO_BAKE.deck) === null) {
+							window.__studioBake = fetch(STUDIO_BAKE.base + mode + '.json', { credentials: 'same-origin', priority: 'high' }).then(function (res) { return res.ok ? res.json() : null; }).catch(function () { return null; });
+						}
+					} catch (e8) {}
 					// RATIO SEED — the fallback box (a visitor with no persisted rect: a newcomer, or
 					// the one transitional reload right after this ships) must match the AUTHOR-CHOSEN
 					// size of the deck they boot into, never an assumed 16:9. Resolve it from the deck
