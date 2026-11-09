@@ -433,9 +433,6 @@
     "test/integration/parity/runtime-plugin-output-not-reread.test.js": {
       "fixed-sleep": 1
     },
-    "test/unit/authoring/class-comment-strip.test.js": {
-      "clock-assert": 4
-    },
     "test/unit/authoring/notes-core.test.js": {
       "clock-assert": 5
     },

@@ -13,3 +13,6 @@
   fence and HTML-block strippers, the agenda autofill's class-directive rewrite, and the progress transform's class
   attribute and first-heading reads. Each answers exactly as the pattern it replaced, held by a seeded differential
   test, and a work-count test holds every reader from this change to linear work.
+- **Changed: the class-comment strip's speed tests count work instead of timing it.** Four stopwatch asserts in
+  `test/unit/authoring/class-comment-strip.test.js` became a read count and a regex trace. They now fail on a
+  rescanning strip on any machine, and a loaded runner cannot fail them. The flaky-test baseline drops from 476 to 472.

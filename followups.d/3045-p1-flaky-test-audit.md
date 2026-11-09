@@ -68,6 +68,14 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             `docs/e2e`: 42, led by read-aloud (5), present-emphasis (3 clock asserts on cue onsets: they want
             Playwright's `page.clock`), status-pill (an upper bound on three clicks, the same), present-delivery,
             present-guide, library-images (2-3 each).
+            2026-11-09 (zero-flakes part 4, P4): baseline 476 -> 472. test/unit/authoring/class-comment-strip.test.js's 4
+            stopwatches are a work count (`charReads`, one read per character today, with a rescanning stand-in as its
+            failing arm) plus a regex trace. Sized next: notes-core.test.js's 5 hang guards trace to three slow
+            notes-core patterns (`/[\r\n]+$/` in three places, the heading/rule test with a back-reference at :784, and
+            the run-time COMMENT_SOURCE `<!--+([\s\S]*?)--+!?>`, which sits on the notes sanitizer and wants its own
+            maker-checker); test/unit/components/lint-core.test.js, chart-row-record and the plugin hang guards run all of
+            lint and wait on the lint-core drain (followups.d/3045-p2-regex-recheck-gate.md). Retries stay 1: the
+            "3 nightlies no redder" check needs the baseline empty first.
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.
