@@ -214,11 +214,31 @@ Illustrative only, to be decided with the owner:
 
 A deck's own keys still override the preset's, axis by axis, as they do today.
 
-**4. Charts are a third type axis.** Besides content and chrome, chart text has its own voice: axis
-labels, tick values, legends, data labels and annotations. Today `chart-family.styles.css` sets them
-in `--font-label` (the mono) or `--font-body`. The work must decide:
-- whether chart text follows the content pairing, the chrome voice, or its own curated choice;
-- that figures stay tabular (aligned digits) whatever face is picked;
+**4. Charts are a third type axis, and a chart has parts of its own.** A chart is a small slide
+inside the slide: it has its own content, its own scale, its own labels and its own chrome. Today
+`lib/plugins/chart-family/chart-family.styles.css` gives these parts three different faces with no
+stated rule:
+
+| Part | What it is | Classes | Face today |
+|---|---|---|---|
+| Chart heading | the chart's eyebrow, title, subtitle and lead: the claim | `.chart-eyebrow`, `.chart-header`, `.chart-subtitle`, `.chart-lead` | eyebrow mono; the rest follows the slide |
+| Axes and scale | axis titles, tick values, gridlines | `.cart-axis-title`, `.cart-tick`, `.cart-grid` | ticks mono, tabular |
+| Category labels | the names along an axis (months, regions) | `.cart-cat` | body sans |
+| Data labels | the numbers on the marks, a ring's center total, direct labels joined by leader lines | `.cart-value`, `.chart-signal-ring`, `.chart-leader` | **display serif**, tabular |
+| Legend (key) | the key's heading, series names and their values | `.chart-key-head`, `.chart-key-label`, `.chart-key-value` | head and values mono; names body |
+| Chart chrome | the source / caption line, the empty or stale status, the details drawer | `.chart-caption`, `.chart-status`, `.chart-detail(s)` | caption mono; status body |
+| Hidden | the screen-reader table | `.chart-sr-table`, `.chart-sr-only` | not seen; no type choice |
+
+The study (point 1) should look for parts this table misses. Annotations and reference lines (a
+target, a threshold) have no class of their own today, so they may be a missing part rather than a
+covered one.
+
+The work must decide, part by part:
+- which voice each part speaks in. A natural split: the chart heading follows the content pairing;
+  chart chrome follows the chrome voice; the axis, category labels, data labels and legend form the
+  chart's own voice. The study tests that split before it is adopted;
+- that every figure stays tabular (aligned digits) in every face, including a serif data label;
+- that the parts keep their own hierarchy: a data label outranks a tick, a tick outranks a gridline;
 - that every chart kind stays legible at its smallest size in every pairing.
 
 ## What it costs
