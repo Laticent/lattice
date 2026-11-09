@@ -376,7 +376,7 @@ describe('model spine — AI off stops a call on its own route', () => {
 // Studio calls it rejected; a key that keeps answering 401 is still marked.
 describe('model spine — a fresh key is re-asked before it is called rejected', () => {
 	type Acct = Model & { restoreOpenRouter: (k: string) => void; openRouterAccount: () => Promise<unknown> };
-	async function run(statuses: number[]) {
+	async function run(statuses: number[], advance = 10_000) {
 		const { openRouterKeyRejected } = await import('../../../lib/openrouter-key.js');
 		vi.useFakeTimers();
 		let n = 0;
@@ -389,8 +389,11 @@ describe('model spine — a fresh key is re-asked before it is called rejected',
 		m.restoreOpenRouter('sk-or-v1-fresh-oauth-key-0a0a');
 		await openRouterKeySettled();
 		const out = m.openRouterAccount();
-		await vi.advanceTimersByTimeAsync(10_000);
-		const info = await out;
+		const info = await (async () => {
+			await vi.advanceTimersByTimeAsync(10_000);
+			return out;
+		})();
+		if (advance > 10_000) await vi.advanceTimersByTimeAsync(advance - 10_000);
 		vi.useRealTimers();
 		return { info, calls: auth.mock.calls.length, rejected: openRouterKeyRejected() };
 	}
@@ -400,12 +403,20 @@ describe('model spine — a fresh key is re-asked before it is called rejected',
 		expect(r.info).not.toBeNull();
 		expect(r.rejected).toBe(false);
 	});
+	it('a fresh key refused at first and accepted at 30 s clears its mark by itself, and says when', async () => {
+		const r = await run([401, 401, 401, 200], 40_000);
+		expect(r.calls).toBe(4);
+		const { openRouterKeyRejected } = await import('../../../lib/openrouter-key.js');
+		expect(openRouterKeyRejected()).toBe(false);
+		const { lastKeyRefusal } = await import('../../../lib/model-retired.js');
+		expect(lastKeyRefusal('openrouter')?.acceptedAfterMs).toBeGreaterThanOrEqual(30_000);
+	});
 	it('a key that keeps answering 401 is still marked rejected, after two more asks', async () => {
 		const r = await run([401]);
 		expect(r.calls).toBe(3);
 		expect(r.rejected).toBe(true);
 		// What OpenRouter said is kept, so Connections can name the cause (never the key).
 		const { lastKeyRefusal } = await import('../../../lib/model-retired.js');
-		expect(lastKeyRefusal('openrouter')).toMatchObject({ status: 401, message: 'User not found.', asks: 3 });
+		expect(lastKeyRefusal('openrouter')).toMatchObject({ status: 401, message: 'User not found.', asks: 3, shape: 'sk-or-v1-… 29 chars' });
 	});
 });

@@ -166,8 +166,13 @@ function ProviderRow({
 	const how = via === 'oauth' ? 'Signed in' : `Key ${hint}`;
 	const state = rejected ? `${how} · rejected by ${info.label}, ${via === 'oauth' ? 'sign in again' : 'replace it'}` : creditAt != null && hint ? `${how} · out of credit at ${clock(creditAt)}` : hint ? `${how}${inUse ? ` · ${inUse}` : ' · not in use'}` : provider === 'openrouter' ? 'Not connected' : 'No key';
 	// What the provider said when it refused the key, so a report names the cause (owner, 2026-11-08).
-	const refusal = rejected ? lastKeyRefusal(provider) : null;
-	const said = refusal ? ` (${info.label} said ${refusal.status}${refusal.message ? `: ${refusal.message}` : ''}${refusal.ageMs != null ? `, ${Math.round(refusal.ageMs / 1000)} s after the key was made` : ''}${refusal.asks > 1 ? `, asked ${refusal.asks}×` : ''})` : '';
+	const record = lastKeyRefusal(provider);
+	const refusal = rejected ? record : null;
+	const said = refusal
+		? ` (${info.label} said ${refusal.status}${refusal.message ? `: ${refusal.message}` : ''}${refusal.ageMs != null ? `, ${Math.round(refusal.ageMs / 1000)} s after the key was made` : ''}${refusal.asks > 1 ? `, asked ${refusal.asks}×` : ''}${refusal.shape ? `; stored key ${refusal.shape}` : ''})`
+		: record?.acceptedAfterMs != null && hint
+			? ` (refused at first; ${info.label} accepted it ${Math.round(record.acceptedAfterMs / 1000)} s after it was made)`
+			: '';
 	const line = `${SERVES[provider]} — ${state}${said}`;
 	const warn = rejected || (creditAt != null && !!hint);
 

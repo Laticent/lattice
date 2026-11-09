@@ -118,12 +118,18 @@ const refusals = new Map();
 /**
  * Record a provider's refusal of a key: `{ status, message, ageMs, asks, at }`.
  * @param {string} provider
- * @param {{ status: number, message?: string, ageMs?: number | null, asks?: number }} r
+ * @param {{ status: number, message?: string, ageMs?: number | null, asks?: number, shape?: string }} r
  */
-export function noteKeyRefusal(provider, { status, message = '', ageMs = null, asks = 1 }) {
+export function noteKeyRefusal(provider, { status, message = '', ageMs = null, asks = 1, shape = '' }) {
 	// No event of its own: the caller records this BEFORE it marks the key rejected, and that mark's
 	// one change event is what the Workspace re-reads on.
-	refusals.set(provider, { status, message: String(message).replace(/\s+/g, ' ').trim().slice(0, 140), ageMs, asks, at: Date.now() });
+	refusals.set(provider, { status, message: String(message).replace(/\s+/g, ' ').trim().slice(0, 140), ageMs, asks, shape, at: Date.now(), acceptedAfterMs: null });
+}
+
+/** A refused key was later accepted: keep the record, and say after how long (ms since it was written). */
+export function noteKeyAccepted(provider, ageMs) {
+	const r = refusals.get(provider);
+	if (r) refusals.set(provider, { ...r, acceptedAfterMs: Number.isFinite(ageMs) ? ageMs : null });
 }
 
 /** The last refusal a provider gave this page, or null. */

@@ -19,7 +19,7 @@
 // touch the engine render paths.
 
 import { familyOf, healTarget } from '../../../lib/model-family.js';
-import { clearOutOfCredit, healSelections, isRetired, markRetired, noteKeyRefusal, noteOutOfCredit } from '../../../lib/model-retired.js';
+import { clearOutOfCredit, healSelections, isRetired, markRetired, noteKeyAccepted, noteKeyRefusal, noteOutOfCredit } from '../../../lib/model-retired.js';
 import { CHAT_CLOUD_PROVIDERS, chatModelFor, fillFromConnections, isSet, readChatSelection, readImageSelection, selectChat, watchSelectionStorage } from '../../../lib/model-selection.js';
 import { isOpenRouterKeyEvent, KEY_PROVIDERS, noteOpenRouterStatus, openRouterKeyAgeMs, openRouterKeyRejected, providerKeyState, readOpenRouterKey, readProviderKey, writeOpenRouterKey, writeOpenRouterVia } from '../../../lib/openrouter-key.js';
 import { classifyProviderError } from '../../../lib/provider-errors.js';
@@ -48,6 +48,23 @@ const OPENROUTER_KEYS_URL = 'https://openrouter.ai/api/v1/auth/keys';
 // the undocumented `/api/v1/auth/key` until 2026-11-08, when a fresh sign-in's key read rejected.
 const OPENROUTER_KEY_URL = 'https://openrouter.ai/api/v1/key';
 const FRESH_KEY_MS = 60_000; // a key written this recently gets two more asks before a 401 counts
+// A refused fresh key is asked again at these ages (ms since it was written), then left alone.
+const LATE_RECHECK_MS = [30_000, 90_000, 180_000];
+/** What a stored key looks like, never the key: its `sk-or-v1-` prefix (or its first 3 characters) and its length. */
+const keyShape = (key) => `${String(key).startsWith('sk-or-v1-') ? 'sk-or-v1-…' : `${String(key).slice(0, 3)}…`} ${String(key).length} chars`;
+function recheckFreshKey(key, ageAtRefusal) {
+  for (const at of LATE_RECHECK_MS) {
+    if (at <= ageAtRefusal) continue;
+    setTimeout(async () => {
+      if (key !== readOpenRouterKey() || !openRouterKeyRejected()) return; // replaced, or already accepted
+      try {
+        const res = await fetch(OPENROUTER_KEY_URL, { headers: { Authorization: 'Bearer ' + key } });
+        if (res.ok) noteKeyAccepted('openrouter', openRouterKeyAgeMs());
+        noteOpenRouterStatus(res.status, key);
+      } catch { /* offline: the next recheck, or the next request, tells */ }
+    }, at - ageAtRefusal);
+  }
+}
 const OPENROUTER_CREDITS_URL = 'https://openrouter.ai/api/v1/credits'; // GET: account wallet (total_credits/total_usage)
 const OPENROUTER_KEYS_SETTINGS_URL = 'https://openrouter.ai/settings/keys'; // where a user sets a per-key spend limit
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
@@ -313,7 +330,11 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         if (res.status === 401 && key === readOpenRouterKey()) {
           const why = await res.clone().json().then((j) => j?.error?.message ?? '').catch(() => '');
           const age = openRouterKeyAgeMs();
-          noteKeyRefusal('openrouter', { status: 401, message: why, ageMs: Number.isFinite(age) ? age : null, asks });
+          noteKeyRefusal('openrouter', { status: 401, message: why, ageMs: Number.isFinite(age) ? age : null, asks, shape: keyShape(key) });
+          // A key refused in its first minute keeps being asked about (owner report, 2026-11-09:
+          // a signed-in key still refused at 10 s). If OpenRouter starts accepting it, the mark
+          // clears by itself and the record says after how long.
+          if (Number.isFinite(age) && age < FRESH_KEY_MS) recheckFreshKey(key, age);
         }
         noteStatus(res.status, key);
         if (!res.ok) return null;
