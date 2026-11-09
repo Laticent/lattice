@@ -388,10 +388,10 @@ commit's own `npm ci` and `npm run build`, and its own regression gate's `--bles
 compares the result with main's golden (OLD) and the bless PR's (NEW). Only the 156 commits from
 `6e7c7388` (the render #2624 blessed) to `978728bb` that touch the render path are candidates.
 Two calibration readings hold the method up: at `6e7c7388` every sample renders like OLD, and at
-`978728bb` like NEW. The sandbox and the GitHub runner differ by up to 0.26% of a page, so drift
-below about 0.5% cannot be traced from here. 21 sample goldens, chosen across the kinds of text
-change the diff shows, were rendered at 10 evenly spaced commits and then bisected to one commit
-each. Every boundary is sharp: at most 0.44% of a page before the named commit, and 1.5% to 39%
+`978728bb` like NEW. The sandbox and the GitHub runner differ by up to 0.4% of a page (0.39%
+on `adaptive-sweep`), so drift below about 0.5% cannot be traced from here. 21 sample goldens,
+chosen across the kinds of text change the diff shows, were bisected to one commit each: 15 after
+a first pass at 10 evenly spaced commits, and 6 more by halving the whole window. Every boundary is sharp: at most 0.44% of a page before the named commit, and 1.5% to 39%
 after it for all but three. `cover-paginate` reaches 0.93% and `bloom-engineering-journey` 0.69%.
 The anchor gallery reaches only 0.15%, inside the noise; #3095's own golden-diff listed it.
 
