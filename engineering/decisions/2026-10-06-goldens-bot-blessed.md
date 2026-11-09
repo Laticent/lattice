@@ -419,6 +419,13 @@ in the window, mostly by #2941 and #2951 (every gallery's anti-pattern slide) an
 (the pill and switch syntax). Two sampled goldens, `inventory` and `q-and-a`, drift 0.17% at
 most, inside the machine noise above, so this method cannot name their PR.
 
+How far the 455 moved, worst page against main's golden (both CI renders, so no machine noise
+between them): 164 goldens moved 10% of a page or more, 147 moved 2 to 10%, 55 moved 0.5 to 2%,
+61 moved less than 0.5%, and 28 gained or lost a page. Ten goldens match none of the causes
+above, and all ten moved less than 0.5%: `finish-canvas-print-face`, `html-player`, `inventory`,
+`math-bare-equation`, `q-and-a`, `split-tone-edge-story`, `split-tone-rail-story`, `web-images`,
+and the two anchor survey galleries (#3095's golden-diff listed those two).
+
 *Why rule 4 calls them unseen.* Every PR above did post a golden-diff comment, except #2826. Each
 showed only what it rendered. `golden-diff` renders at most 40 goldens a PR, and every
 shared-change PR in the window left 70 to 74 galleries unrendered and said so. #2905 listed
