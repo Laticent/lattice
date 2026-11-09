@@ -161,11 +161,12 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 	const [expanded, setExpanded] = React.useState<string | null>(null); // component name whose looks are open
 	const searchRef = React.useRef<HTMLInputElement>(null);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
-	// Grid or list. Read from storage LAZILY (never during module init) so the server
-	// render and the first client render agree — `loadPickerView` touches localStorage,
-	// which does not exist during SSR.
-	const [view, setView] = React.useState<PickerView>('grid');
-	React.useEffect(() => setView(loadPickerView()), []);
+	// Grid or list, read in the state initializer (never during module init: `loadPickerView`
+	// touches localStorage, which does not exist during SSR). This used to be a mount effect so
+	// the server render and the first client render agreed, when the gallery mounted at boot. It
+	// now mounts on its first OPEN (StudioShell `useLatch`), never on the server, and an effect
+	// would draw one throwaway grid before a saved list view on that first open.
+	const [view, setView] = React.useState<PickerView>(() => (typeof localStorage === 'undefined' ? 'grid' : loadPickerView()));
 	const chooseView = React.useCallback((next: PickerView) => {
 		setView(next);
 		savePickerView(next);

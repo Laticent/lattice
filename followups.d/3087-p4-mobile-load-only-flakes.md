@@ -51,3 +51,10 @@ done when — each failure is reproduced under full-project load and fixed at it
             mobile-project runs on main pass and this file is deleted with that evidence.
 evidence  — per spec, runs and outcomes under load, before and after.
 verify    — npx playwright test --project=mobile --retries=0, repeated.
+
+2026-11-09 — one more load-only occurrence, on the docs-perf PR's build: `demo-mobile.spec.ts:437` (`@webkit-phone the
+editor follows the typing on real WebKit too`) failed once in a 14-spec, 3-project, 4-worker run (203 passed). It passed
+3 of 3 alone and 14 of 14 when its whole file ran twice on `mobile` + `webkit-phone` with 4 workers.
+The same PR's final build lost `collage-lightbox.spec.ts:483` (`@mobile`, the trackpad-pinch zoom) once in a 220-pass,
+15-file, 3-project, 4-worker run; it passed 3 of 3 alone. The lightbox lives in the slide runtime and shares no code
+with what that PR changed (Studio mount timing, `ui/sheet.tsx` focus return).

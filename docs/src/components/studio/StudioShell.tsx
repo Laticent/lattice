@@ -5627,6 +5627,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// pane's text or starts it with an example. A component whose starter Compose could not edit
 	// (a checklist's state markers, a formula: each would lock the slide read-only) is left out unless the pane holds it.
 	const [paneReq, setPaneReq] = React.useState<PaneRequest | null>(null);
+	// MOUNTED ON FIRST OPEN. Each surface below is closed at boot, and on a phone none of them is on
+	// screen at the first slide, yet mounting them cost ~70 ms of render before it (the slide picker
+	// alone builds its search index on mount). Latched, as Share and Workspace are: a never-opened
+	// surface costs nothing, and an opened one stays mounted, so its state and its close animation
+	// survive the next close. The Toaster is NOT latched: a toast can arrive before anything opens.
+	// engineering/decisions/2026-11-09-studio-react-mount-profile.md §3 row 3, §4 lever 1.
+	const insertMounted = useLatch(insertOpen);
+	const paneMounted = useLatch(!!paneReq);
+	const feedbackMounted = useLatch(feedbackOpen);
+	const historyMounted = useLatch(historyOpen);
+	const drawerMounted = useLatch(moreOpen);
+	const cmdMounted = useLatch(cmdOpen);
+	const coachMounted = useLatch(coachOpen);
+	const chatSheetMounted = useLatch(chatOpen);
+	const liveSheetMounted = useLatch(liveOpen);
+	const lensesSheetMounted = useLatch(lensesOpen);
+	const inspectorSheetMounted = useLatch(inspectorOpen);
 	const paneItems = React.useMemo(() => {
 		if (!paneReq) return [];
 		const allowed = new Set(paneReq.choices);
@@ -7790,7 +7807,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the way in. Phones keep the sheet: its bottom-docked field is a solved keyboard problem
 	// (reported from a real device), not a stylistic difference.
 	const cmdInline = !mobile ? <CommandPalette inline {...cmdProps} /> : null;
-	const cmdPalette = mobile ? <CommandPalette {...cmdProps} /> : null;
+	const cmdPalette = mobile && cmdMounted ? <CommandPalette {...cmdProps} /> : null;
 	/**
 	 * THE ROW YIELDS ITS RIGHT-HAND SIDE WHILE THE FIELD IS OPEN (owner's call, 2026-08-17:
 	 * "we should reclaim space by hiding everything to the right").
@@ -8152,7 +8169,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{mobile && (
 					<Button variant="ghost" size="icon-sm" aria-label="Menu" onClick={() => setMoreOpen(true)}><MenuIcon className="size-[18px]" /></Button>
 				)}
-				{mobile && (
+				{mobile && drawerMounted && (
 					<StudioDrawer
 						open={moreOpen}
 						hostLabel={hostLabel}
@@ -8450,6 +8467,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* ── Compact panels as sheets (tablet + mobile) ───────────── */}
 			{compact && view === 'compose' && (
 				<>
+					{coachMounted && (
 					<PanelSheet open={coachOpen} onOpenChange={setCoachOpen} side="left" width="sm">
 						<PanelHeader
 							icon={<Gauge />}
@@ -8458,7 +8476,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{coachBody}</div>
 					</PanelSheet>
+					)}
 					{/* Chat — its own compact drawer, a peer of the Coach (they are separate panels). */}
+					{chatSheetMounted && (
 					<PanelSheet open={chatOpen} onOpenChange={setChatOpen} side="left" width="sm">
 						<PanelHeader
 							icon={<ChatIcon />}
@@ -8472,6 +8492,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBodyWith(undefined, chatCostSlot)}</div>
 					</PanelSheet>
+					)}
+					{liveSheetMounted && (
 					<PanelSheet open={liveOpen} onOpenChange={(v) => setActiveAssistant((p) => (v ? 'live' : p === 'live' ? null : p))} side="left" width="sm">
 						<PanelHeader
 							icon={<UsersRound />}
@@ -8481,6 +8503,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{liveBodyWith(undefined, liveHeaderSlot)}</div>
 					</PanelSheet>
+					)}
 					{/* Reader views — its own compact sheet, a peer of the Architect.
 					    Titled "Reader views", NOT "Lenses": every entry point into this panel
 					    says "Reader views" (the drawer row, the activity-bar toggle, the
@@ -8488,6 +8511,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    set in 11px uppercase — the one treatment the drawer's own rules ban.
 					    "Lenses" survives as the internal name (`lensesBody`, `lens-picker`),
 					    which is fine; it just is not what a user is shown (#1211). */}
+					{lensesSheetMounted && (
 					<PanelSheet open={lensesOpen} onOpenChange={setLensesOpen} side="left" width="sm">
 						<PanelHeader
 							icon={<LensIcon />}
@@ -8507,10 +8531,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{renderLensesBody(true)}</div>
 					</PanelSheet>
+					)}
 					{/* Settings Sheet — MOBILE only. Same Slide-first segment + scope echo +
 					    active body as the desktop/tablet column, just wrapped in a Sheet
 					    (no room for a docked column). One source of truth: inspectorScopeContent. */}
-					{mobile && (
+					{mobile && inspectorSheetMounted && (
 						// PERSISTENT for the deck body's preview pool: kept mounted between opens, as Add
 						// slide is (ui/persistent-surface.tsx), and frozen while closed.
 						<PanelSheet open={inspectorOpen} onOpenChange={setInspectorOpen} width="md" persistent>
@@ -8535,7 +8560,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={ownFinishClass} finishExtraCss={ownFinishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={ownPreview.paletteOverride ?? palette} mode={ownPreview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={ownPreview.extraTheme} extraCss={exportExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={settingsWrite} />}
 				</PanelLoader>
 			)}
-			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />
+			{feedbackMounted && <FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />}
 			{/* The crash report — mounted only once there IS one, so a healthy session
 			    pays nothing for it. Opened from the boot toast, and from Workspace →
 			    Diagnostics via the `lattice:open-crash-report` event. */}
@@ -8549,6 +8574,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    so it lives in its own sheet off the top bar rather than in the inspector
 			    (which is now settings-only). Restore stays always-visible (not hover-only)
 			    so it works on touch. */}
+			{historyMounted && (
 			<PanelSheet open={historyOpen} onOpenChange={setHistoryOpen} side="right" width="sm">
 				<PanelHeader
 					icon={<History />}
@@ -8584,6 +8610,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</PanelBody>
 				)}
 			</PanelSheet>
+			)}
 			{/* Compact (tablet/mobile): Library is the right Sheet. Desktop-Craft renders it
 			    docked in the assistant slot instead (above), so the sheet is compact-only.
 			    Gated on the compose view like its Architect/Lenses sheet peers, so it never
@@ -8647,8 +8674,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					/>
 				</React.Suspense>
 			)}
-			<SlidePicker open={insertOpen} onOpenChange={(o) => { setInsertOpen(o); if (!o) setInsertTarget(null); }} placement={insertTarget ? `${insertTarget.side} ${insertTarget.name}` : undefined} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
-			<SlidePicker open={!!paneReq} onOpenChange={(v) => !v && setPaneReq(null)} items={paneItems} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onPanePick} pane={paneReq ? { where: paneReq.where, current: paneReq.current, fit: paneReq.fit } : undefined} />
+			{insertMounted && <SlidePicker open={insertOpen} onOpenChange={(o) => { setInsertOpen(o); if (!o) setInsertTarget(null); }} placement={insertTarget ? `${insertTarget.side} ${insertTarget.name}` : undefined} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />}
+			{paneMounted && <SlidePicker open={!!paneReq} onOpenChange={(v) => !v && setPaneReq(null)} items={paneItems} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onPanePick} pane={paneReq ? { where: paneReq.where, current: paneReq.current, fit: paneReq.fit } : undefined} />}
 			{/* Hidden file input for "Import deck…". The list names extensions AND types: iOS
 			    Files grays out anything `accept` does not name, and `.lattice` has no
 			    registered type. What each format means is deck-import.ts's job. */}

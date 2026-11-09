@@ -1807,3 +1807,12 @@ never turn "passed in headless" into "works on iOS."
   completion list is open or an IME is composing, and backs off after 3 rings that did not take. Two limits it does not fix: after a wipe, one gesture undo reaches Filo (the
   bell's step then sits on WebKit's redo list, and re-ringing would empty it; several edits with the caret moved between them still make one step on iOS,
   measured in `followups.d/3040-p5`), and a ring closes iOS's caret callout. `engineering/decisions/2026-11-04-ci-flake-audit.md` §3 has the runs.
+
+## Closing a sheet leaves focus on the page body
+
+- **Symptom** — Escape on the phone's ⋯ menu, or any sheet opened from a plain button, closes it and `document.activeElement` is `<body>`. A keyboard or screen-reader user starts over from the top of the page.
+- **Cause** — a modal Radix `Dialog` returns focus on close only to its `DialogTrigger` (`context.triggerRef`). Most of our sheets open from a button that is not a `SheetTrigger`, so the ref is empty and focus goes nowhere.
+- **Mitigation** — `SheetContent` (`docs/src/components/ui/sheet.tsx`) records the focused element in `onOpenAutoFocus` and refocuses it in `onCloseAutoFocus`, but only when focus is unclaimed (on `<body>` or inside the closing sheet), the `PersistentSurface` rule. Without that guard a click into the editor that dismissed the non-modal Playground Deck settings sheet sent the next keystrokes to the Deck settings button. A caller that calls `preventDefault()` in its own `onCloseAutoFocus` still decides. `e2e/studio-mount-on-open.spec.ts` (the drawer) and `e2e/playground-deck-settings.spec.ts` (the click into the editor) cover both halves.
+- **Triggered by** — any new sheet opened from a plain button; any change to `SheetContent`'s focus handlers.
+- **Removable when** — Radix returns focus to the previously focused element for trigger-less modal dialogs.
+- **Commits** — the docs-perf PR of 2026-11-09 (`engineering/decisions/2026-11-09-studio-react-mount-profile.md` §5).

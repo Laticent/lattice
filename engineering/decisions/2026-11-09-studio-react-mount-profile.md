@@ -8,8 +8,9 @@ summary: >
   component code on first call, not hook work (a production trace puts V8 compile at a median 145 ms of the 249 ms
   hydration task, and ~1.04 s before the slide in all). Mounted subtrees the phone does not show cost about 70 ms,
   the tooltip wrappers on the icon bar about 25-40 ms, and a forced layout in a ref callback about 45 ms (likely moved,
-  not saved). Measurement only; no shell code changed. New tool: docs/scripts/react-mount-profile.mjs. A tier-1 checker
-  reviewed the method and the numbers; its corrections are folded in.
+  not saved). The profile itself changed no shell code. New tool: docs/scripts/react-mount-profile.mjs. A tier-1 checker
+  reviewed the method and the numbers; its corrections are folded in. Lever 1 was built the same day (§5, §7): it
+  removed ~50-65 ms of render before the slide.
 ---
 
 # Mobile Studio: what React mounts before the first slide, ranked (2026-11-09)
@@ -125,12 +126,13 @@ Two things the list says:
 - **What the phone does not show costs about 70 ms (row 3), plus the ~32 ms deck-list index (1a).** Those are the
   cheapest candidates, because skipping them changes nothing on screen at the slide.
 
-## 4. Candidate levers, by expected size and risk (none built)
+## 4. Candidate levers, by expected size and risk (1 built, §5)
 
 Each needs a same-machine A/B (startup-bench and Lighthouse, alternated) before it ships. Per the brief, a tier-1
 checker reviews this list before any of them becomes code.
 
 1. **Mount the closed sheets and the slide picker on first open** (row 3, ~70 ms profiled, ~55 ms production-scale).
+   BUILT 2026-11-09: −47 to −66 ms of render before the slide, profiled (§5).
    Risk: first-open latency and focus return, and the e2e tests that expect them in the DOM.
 2. **Compute the deck switcher's slide-count label when the switcher opens** (row 1a, ~32 ms). Risk: low. `metaFor` is
    already memoized by source, so the switcher pays it once.
@@ -146,6 +148,51 @@ checker reviews this list before any of them becomes code.
    cause measured in §3.1). Splitting StudioShell's hooks while still rendering them all saves little; what helps is
    not running (or not shipping) code a phone's first render does not need, or a warm code cache on repeat visits
    (a cold first visit never benefits). It needs a design note.
+
+## 5. Lever 1, built: closed surfaces mount on first open (2026-11-09)
+
+**What changed.** `StudioShell.tsx` latches eleven closed surfaces with `useLatch` (`lazy-panel.tsx`), as Share and
+Workspace already were: the phone's ⋯ drawer and command palette, Send feedback, Version history, the compact Coach,
+Chat, Live, Reader views and Settings sheets, and both `SlidePicker` galleries. Each mounts the first time it opens and
+stays mounted after. The `Toaster` stays mounted from boot, because a toast can arrive before anything opens.
+`e2e/studio-mount-on-open.spec.ts` drives each first open on a cold load (`mobile`, `webkit-phone`).
+
+**React profile, alternated.** Profiling builds of `main` (`756c1ff`) and of this change, served side by side, measured
+in turn with the order rotated each round, `CPU=1 RUNS=1` per load, 7 loads per arm, three separate sets:
+
+| Set | Render before the slide, base → lever 1 (median ms) | The five gated components' render (SELF, summed) |
+|---|---|---|
+| 1 | 488 → 422 (−66) | 39.9 → 0 |
+| 2 | 472 → 425 (−47) | 35.1 → 0 |
+| 3 | 458 → 404 (−54) | 36.3 → 0 |
+
+So lever 1 removes about 50-65 ms of render work before the slide on the profiling build. At the §1 overhead that is
+roughly 40-50 ms in production, against the ~55 ms §4 estimated.
+
+**startup-bench, alternated** (production builds over `serve-h2.mjs`, phone profile, 15 loads per arm, order rotated):
+main-thread busy by the slide 2.91 s → 2.90 s, first slide 4,305 → 4,350 ms. Run-to-run spread is about ±0.2 s, so a
+~50 ms change is below what this instrument resolves at n=15; it shows no regression and no measurable win.
+
+**Focus on close, fixed on the way.** The first-open spec found that Escape on the phone drawer left focus on `<body>`,
+on `main` too: a modal Radix sheet returns focus only to a `SheetTrigger`, and these sheets open from plain buttons.
+`SheetContent` now returns focus to the opener when nothing else has taken it (`engineering/gotchas/studio-playground.md`,
+"Closing a sheet leaves focus on the page body").
+
+**Lighthouse**: see §7.
+
+## 7. Lighthouse, alternated (2026-11-09)
+
+Production builds over `serve-h2.mjs`, `lighthouse` with the nightly's mobile settings (`lighthouserc.mobile.cjs`:
+390x844, 4x CPU, 150 ms RTT, simulated throttling), `/studio/` only, arms alternated with the order rotated each round.
+
+| Arm | n | Score | TBT median [range] | LCP | FCP | JS bootup |
+|---|---|---|---|---|---|---|
+| main | 9 | 0.67 | 1,351 [1,226-1,585] | 3,013 | 2,029 | 2,789 |
+| lever 1 | 9 | 0.67 | 1,438 [1,214-1,733] | 3,010 | 2,031 | 2,858 |
+
+Read it as no change: the TBT medians differ by less than the run-to-run spread on this machine, and the score does
+not move. The React profile in §5 is the instrument that resolves this lever; Lighthouse and startup-bench only
+confirm nothing got worse.
 
 ## Not measured
 
