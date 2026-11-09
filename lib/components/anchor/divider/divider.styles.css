@@ -180,7 +180,7 @@ section.divider:has(> .divider-marker) > footer {
   text-overflow: ellipsis;
 }
 /* `1/4` is a figure, not prose: isolated and left-to-right, so a right-to-left deck does not
- * reorder it into `4 / 1`. */
+ * reorder it into `4/1`. */
 section.divider > .divider-marker > .divider-marker-count { direction: ltr; unicode-bidi: isolate; }
 section.divider > .divider-marker > .divider-marker-marks {
   display: flex;
