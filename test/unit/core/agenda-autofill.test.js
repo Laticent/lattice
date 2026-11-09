@@ -210,11 +210,11 @@ const progress = require('../../../lib/forms/tile/progress/progress.transform.js
 const pagesOf = (root) => [...root.querySelectorAll('section.agenda')].map((s) => [...s.querySelectorAll('code.agenda-page')].map((c) => c.textContent));
 
 test('an item that ends in its own page reference gets no second one, even on an agenda that asks for pages', () => {
-  const src = deck(slide('agenda agenda-pages', '## A.\n\n1. One `p.12`\n2. Two'), ...DIVIDERS);
+  const src = deck(slide('agenda agenda-pages', '## A.\n\n1. The quarter in four numbers `p.12`\n2. Where growth leaked'), ...DIVIDERS);
   const { html } = createEngine().render(src, 'indaco');
   const agenda = html.split('<section').find((x) => /class="[^"]*\bagenda\b/.test(x));
   assert.equal((agenda.match(/<code\b/g) || []).length, 2, 'p.12 and one generated number, not three');
-  assert.match(agenda, /One <code>p\.12<\/code>/);
+  assert.match(agenda, /The quarter in four numbers <code>p\.12<\/code>/);
 });
 
 test('the live-DOM arm (the Export-to-Marp runtime) prints the same numbers, once, on Lattice and Marpit numbering', () => {
@@ -239,10 +239,27 @@ test('a split run counts once, whether or not its pages carry a number', () => {
     sec('agenda agenda-pages form', 'data-lattice-pagination="1"', '<ol><li>A</li><li>B</li></ol>'),
     sec('list form silent', 'data-split-run="r1"'),
     sec('list form silent', 'data-split-run="r1"'),
-    sec('divider'),
+    sec('divider', '', '<h2>A</h2>'),
     sec('list form', 'data-lattice-pagination="4"'),
-    sec('divider'),
+    sec('divider', '', '<h2>B</h2>'),
   ].join('');
   const out = new JSDOM(`<body>${progress.applyToHtml(html)}</body>`).window.document;
   assert.deepEqual(pagesOf(out), [['p.3', 'p.5']]);
+});
+
+test('page numbers attach by NAME: a list reordered or renamed after the fill gets none (the red team, 2026-11-08)', () => {
+  // The Marp bundle carries the filled list AND `agenda-pages` in its source, so a recipient can reorder it.
+  const reordered = deck(slide('agenda agenda-pages', '## A.\n\n1. Where growth leaked\n2. The quarter in four numbers'), ...DIVIDERS);
+  const renamed = deck(slide('agenda agenda-pages', '## A.\n\n1. Revenue\n2. Where growth leaked'), ...DIVIDERS);
+  for (const src of [reordered, renamed]) {
+    const { html } = createEngine().render(src, 'indaco');
+    assert.doesNotMatch(html, /class="agenda-page"/);
+    const d = new JSDOM(`<body>${html}</body>`).window.document;
+    for (const sec of d.querySelectorAll('section')) sec.setAttribute('data-lattice-slide', '');
+    progress.applyToDom(d);
+    assert.equal(d.querySelectorAll('code.agenda-page').length, 0, 'the DOM arm agrees');
+  }
+  // The same names in the same order, written by hand with the marker, still get their pages.
+  const inOrder = deck(slide('agenda agenda-pages', '## A.\n\n1. The quarter in four numbers\n2. Where growth leaked'), ...DIVIDERS);
+  assert.match(createEngine().render(inOrder, 'indaco').html, /class="agenda-page">p\.2</);
 });
