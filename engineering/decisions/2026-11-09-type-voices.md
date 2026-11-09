@@ -4,7 +4,7 @@ summary: >
   Chrome and the eyebrow become curated, author-chosen type voices. Agreed with the owner: the eyebrow is content and
   must read apart from chrome; all chrome shares one style (one face, size, weight and ink, tracking set by case); the
   eyebrow gets one multi-axis front-matter key; voices are offered through autocomplete and the deck-settings
-  inspector, never as free font knobs. Header and footer placement stays where it is. Decided 2026-11-09: one `type:`
+  inspector, never as free font knobs. Header and footer placement stays where it is. Decided 2026-11-09: one `typography:`
   key of curated sets (`classic`, `ledger`, `poster`, `festival`), carried by the presets. Records the
   chrome mockups (A/B/C) and eyebrow mockups (E0–E3) tried on 2026-11-08, with the CSS that reproduces them. Widened
   by the owner: a hierarchy / tension / isolation study first, curated content-font pairings (Inter, Playfair,
@@ -100,12 +100,12 @@ eyebrow: sans heading bar    # E3
 Presets carry both (`editorial` would pick the `editorial` voice and a `serif` eyebrow), so most authors make one
 choice.
 
-## Decided (owner, 2026-11-09): one `type:` key of curated sets
+## Decided (owner, 2026-11-09): one `typography:` key of curated sets
 
 After the hierarchy study (`2026-11-09-type-hierarchy-study.md`) the owner settled the shape. It **supersedes "The
 proposed keys" above** wherever the two differ.
 
-1. **Authors choose type with one front-matter key, `type:`, whose values are curated sets.** A set bundles the
+1. **Authors choose type with one front-matter key, `typography:`, whose values are curated sets.** A set bundles the
    heading and body faces, the chrome voice, the eyebrow face and ink, and the chart text voice, audited together. There
    is no pairing key, no chrome-voice key and no eyebrow-face key: the study found 30 of 54 free combinations broke its
    rules (§5, §8), so the axes stay inside the sets. The existing `eyebrow:` MARK axis (`dot`, `bar`, `arrow`,
@@ -120,18 +120,23 @@ proposed keys" above** wherever the two differ.
    | `festival` | Fraunces + Inter | mono capitals | heading serif, italic | Inter; data labels in Inter (Fraunces has no tabular figures) | nonprofit, culture, donor decks |
 
    Every set also takes the quote credit in tracked capitals (study §8, §10). The axis numbers keep their size (§10).
-3. **Presets carry a set; an explicit `type:` wins**, as every other key beats a preset today: `classic` → `classic`,
+3. **Presets carry a set; an explicit `typography:` wins**, as every other key beats a preset today: `classic` → `classic`,
    `editorial` → `ledger`, `brand` → `poster`. `minimal` maps to a `minimal` set (Inter throughout) that is NOT in the
    first four, so until it ships `preset: minimal` keeps `classic` type. That gap is recorded here, not decided.
-4. **What this restyles.** `classic` is the default, so every deck that names no `type:` gets the classic set's eyebrow
+4. **What this restyles.** `classic` is the default, so every deck that names no `typography:` gets the classic set's eyebrow
    and chart voice (fonts unchanged). Decks that name `preset: editorial` or `preset: brand` also change faces.
-5. **Curation is a gate, not a promise:** a test runs `tools/type-voice-audit.mjs` over every palette theme × every set,
+5. **The key is `typography:`, not `type:`** (owner, same day). `type:` is free in Lattice front matter, but it is the
+   content-type key in Hugo and other site generators, so authors and agents would write `type: pitch-deck` and get an
+   unknown-value warning. `typography:` names what it controls and reads apart from the export key that decides what a
+   file embeds (renamed `fonts:` → `font-embedding:` in its own PR, before the first release that ships it). `lint:deck`
+   should answer a front-matter `type:` with "did you mean `typography:`?"; there is no alias.
+6. **Curation is a gate, not a promise:** a test runs `tools/type-voice-audit.mjs` over every palette theme × every set,
    light and dark, and fails on a zero-axis content/chrome pair, an inverted ink ladder or an AA miss; `lint:deck` warns
    when a deck's own `style:` overrides a set's faces.
-6. **Fonts ship through the one manifest** (`lib/fonts/text-faces.js`), so the browser fetches a face only when a deck
+7. **Fonts ship through the one manifest** (`lib/fonts/text-faces.js`), so the browser fetches a face only when a deck
    uses it, the PDF embeds a subset, the player prunes unused families and PPTX/ODP embed from the same list. Each new
    face still owes the export sign-off: PDF, editable PPTX and ODP renders in light and dark, sent to the owner.
-7. **Sector defaults are a hypothesis to measure, not a ruling**: render two or three exemplars per sector
+8. **Sector defaults are a hypothesis to measure, not a ruling**: render two or three exemplars per sector
    (`exemplars/`) in their proposed set and score them before any sector default is written down.
 
 ## What we tried (2026-11-08), and how to reproduce it
