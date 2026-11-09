@@ -113,7 +113,7 @@ async function probe(sha, want) {
   const wt = join(WORK, `wt-${sha}`);
   const log = join(WORK, `${sha}.log`);
   const run = (cmd, a, cwd = wt) => spawnSync(cmd, a, { cwd, stdio: ['ignore', 'ignore', 'pipe'], encoding: 'utf8', maxBuffer: 1 << 28 });
-  if (!existsSync(wt)) git('worktree', 'add', '--detach', wt, sha);
+  if (!existsSync(wt)) git('worktree', 'add', '--quiet', '--detach', wt, sha);
   if (!existsSync(join(wt, '.gbisect-built'))) {
     for (const [cmd, a] of [
       ['npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund']],
