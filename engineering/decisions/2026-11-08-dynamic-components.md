@@ -1,114 +1,128 @@
 ---
 status: proposed
 summary: >
-  "Dynamic components" (the owner's name): components whose content the engine reads from elsewhere in the deck —
-  agenda, glossary, topic, divider and split-panel proof today. Each was built on its own and re-solves the same three
-  problems (the one-slide preview, the Export-to-Marp DOM arm, narration agreement). Proposes one contract (the author
-  places the slide; what the author writes wins; settings through a front-matter register), moving the glossary to the
-  agenda's fill model, one shared deck-facts kernel adopted as each component is next touched, a manifest `dynamic` field,
-  and parking a sources slide until the deck has a citation syntax. Five decisions for the owner.
+  The owner's definition: a DYNAMIC component is anything the engine fills in from other facts in the deck. Two kinds with
+  different rules: dynamic CONTENT (agenda, glossary, topic: the slide exists to show what the engine gathers; the author
+  places it and anything the author writes wins) and dynamic MARKS (page numbers, the section rail, the divider's count
+  and numeral, the proof color, the agenda's page references: stamped, switched on or off, never authored; every mark
+  agrees with every other and shows nothing when unsure). Decided: the glossary moves to the fill model with a one-time
+  lint fix; one shared deck counter is built with that work and becomes the only source every mark reads; a citation
+  syntax is designed next.
 ---
 
-# Dynamic components: one contract for the slides the deck writes
+# Dynamic components: what the deck fills in for you
 
 **Date:** 2026-11-08 · **Asked by:** the owner, on PR #3089 ("it seems to me agenda and glossary are special kinds of
-components … I call these dynamic components") · **Status:** proposed, no code · **Follows:**
-`2026-11-08-agenda-styles-and-autofill.md` · **Resolves, once the owner picks:** `followups.d/3089-p1-dynamic-components-design-note.md`
+components … I call these dynamic components"; then: "the progress rail (count and marks) is akin to pagination though
+higher order of it. anything that gets filled in based on other facts from the deck is a dynamic component") ·
+**Status:** proposed, no code · **Follows:** `2026-11-08-agenda-styles-and-autofill.md` · **Resolves:**
+`followups.d/3089-p1-dynamic-components-design-note.md`
 
-## What a dynamic component is
+## The definition
 
-A component is **dynamic** when the engine writes some of its content from elsewhere in the deck, so the author does not
-type it twice. The test is the source of the content, not the look: an agenda with a hand-written list is an ordinary
-component; the same slide left empty is a dynamic one.
+**A dynamic component is anything the engine fills in from other facts in the deck**, so the author never types it.
 
-## The five we already have
+The oldest one is the page number. Nobody types "7" on slide seven; the engine counts. The section rail is the same idea
+one level up: it counts sections instead of slides. Everything below is an answer to a question about the rest of the
+deck: where is this slide, where does each section start, what are the other topics called, which terms has the author
+defined.
 
-Each was designed on its own. The table is the inventory, checked against the code named in it.
+## Two kinds, two sets of rules
 
-| Component | Reads | Writes | How it runs | Author's own content |
-|---|---|---|---|---|
-| **agenda** (#3089) | the shown `divider` headings, and each divider's page | the list, `progress-k`, the page numbers | source fill at the engine door (`lib/core/agenda-autofill.js`); page numbers at render, both arms (`withAgendaPagesHtml` / `agendaPagesDom`, `lib/forms/tile/progress/progress.transform.js`) | a written list wins and is never touched |
-| **glossary** (`glossary: auto`) | the `definition` fields of `acronyms:` | a whole new slide (or pages of one) at the end | source transform that APPENDS (`lib/core/glossary-auto.mjs` `appendAutoGlossary`) | an authored `_class: glossary` slide is a second, separate glossary |
-| **topic** | the headings of the sibling `topic` slides in the same section | the track, and the section eyebrow (`02 · <divider heading>`) | render transform, both arms (`lib/transformers/topic-track.js` `applyToHtml` / `applyToDom`) | an authored track overrides (`overrideOf`) |
-| **divider** | its place among the shown dividers | the marker (`2 / 4` + marks) and the `divider numbered` numeral | render, both arms (`progress.transform.js` marker; `lib/core/section-index.js` `applyToHtml` / `applyToDom`) | none; the number is never authored |
-| **split-panel proof** | its place among the deck's proof slides | its categorical color `cat-N` | render, two separate implementations (`lib/core/split-panels.js` `sequenceProofPanels` and its DOM mirror in `lib/transformers/split-panels.js`) | an authored `cat-N` wins |
+| | **Dynamic content** | **Dynamic marks** |
+|---|---|---|
+| What it is | The slide exists to show what the engine gathers | A small fact the engine stamps onto a slide |
+| Today | agenda (the sections), glossary (the terms), topic (the sibling topics in a section) | page numbers, the section rail, the divider's `2 / 4` marker and its `divider numbered` numeral, the topic eyebrow's section number, the proof panel's color, the agenda's page references |
+| Who places it | The author places the slide; the engine never inserts one | The engine stamps it where it applies |
+| Can the author write it instead? | **Yes, and the author wins.** A written agenda list, an authored `_track` on a topic slide | No. The author switches it on or off (`paginate: false`, `progress-rail: off`, `no-progress`); a proof's authored `cat-N` is the one override |
+| Settings | One front-matter register, applied to that slide only (the `agenda:` shape) | The mark's own register or switch |
+| When the deck lacks the facts | Render nothing and let lint say why (an agenda with one divider: `agenda-empty`) | Show nothing rather than a wrong value (the agenda's page references refuse when the count is in doubt) |
+| The rule that matters most | The author's words are never overwritten | **Every mark agrees with every other mark** |
 
-## What each one re-solved, separately
+## The inventory, checked against the code
 
-1. **The one-slide preview cannot see the deck.** The Studio renders the edited slide alone when it can. Four of the six
-   reasons it falls back to the whole deck are dynamic components, each written as its own entry
-   (`DECK_DERIVED_FACTS`, `docs/src/playground/single-slide-render.ts`): `auto-filled agenda`, `glossary: auto`,
-   `split-panel proof run`, `ambiguous divider count`. Topic is not on the list; its slice degrades to "no track", named
-   as a residual in the slice-equivalence sweep (`classifyDivergence`), not prevented.
-2. **Export to Marp needs a live-page arm.** marp-core renders that bundle, so every render-time step needs a DOM version
-   in the runtime, and each component wrote its own: all five have one (the glossary's draws its table,
-   `lib/core/glossary-slide.js`; its slide itself is added at the source).
-3. **Narration and Present must agree on the slide.** The glossary's appended slide is the costly case: four modules
-   trim it back out (`withoutAutoGlossary`: `narration-bake.ts`, `narration-projection.ts`, `share-export.ts`,
-   `single-slide-render.ts`), and before that trim 8 of the Q3 fixture's 17 slides were narrated with different words
-   in the Studio and in `lattice video`.
+### Dynamic content
 
-Each re-solve is also a place the two render paths can drift, which is the HARD RULE #1 risk: `split-panels` already
-carries two implementations of one rule, and `glossary-slide.js`'s own header says the glossary table is two
-implementations held together by a parity test.
+| Component | Reads | Writes | Built as |
+|---|---|---|---|
+| **agenda** (#3089) | the shown `divider` headings | the list and `progress-k` | source fill at the engine door, `lib/core/agenda-autofill.js` |
+| **glossary** (`glossary: auto`) | the `definition` fields of `acronyms:` | a whole slide appended at the end | source transform, `lib/core/glossary-auto.mjs` `appendAutoGlossary`; its table on the live page, `lib/core/glossary-slide.js` |
+| **topic** | the headings of the other `topic` slides in the section | the track along the bottom, current topic lit | render transform, both arms, `lib/transformers/topic-track.js`; an authored `_track` overrides (`overrideOf`) |
 
-## The proposal
+Agenda and topic already meet the content rules. The glossary does not: it inserts a slide the source does not contain,
+which is why four modules trim it back out (`withoutAutoGlossary` in `narration-bake.ts`, `narration-projection.ts`,
+`share-export.ts`, `single-slide-render.ts`); before that trim, 8 of the Q3 fixture's 17 slides were narrated with
+different words in the Studio and in `lattice video`.
 
-### A contract (D1)
+### Dynamic marks
 
-A dynamic component:
+| Mark | The fact it shows | Where it is counted |
+|---|---|---|
+| **page number** | this slide's place among the shown slides | `lib/engine/slides.js` (stamps `data-lattice-pagination`); a split's extra pages renumbered `4.2` by `lib/core/auto-split.js` `repaginate` |
+| **section rail** | which section this slide is in, of how many | `lib/forms/tile/progress/progress.transform.js` (counts dividers; HTML and DOM arms) |
+| **divider `2 / 4` marker** | this divider's section, of how many | the same file, the same divider count |
+| **`divider numbered` numeral** | this divider's section number | `lib/core/section-index.js`, its own divider count (HTML and DOM arms) |
+| **topic eyebrow** (`02 · <section>`) | the section this topic sits in | `lib/transformers/topic-track.js`, its own walk of the sections |
+| **agenda page references** | the page each section starts on | `progress.transform.js` `withAgendaPagesHtml` / `agendaPagesDom`, recounting shown slides and checking against the stamped numbers |
+| **proof color** | this proof slide's place among the proof slides | `lib/core/split-panels.js` `sequenceProofPanels`, and a second implementation in `lib/transformers/split-panels.js` |
+| **the one-slide preview's position** | the shown slide's page and section, handed to a slice render | `lib/diagnostics/slice-equivalence-core.mjs` `deckSectionFor`, counting dividers in the SOURCE |
 
-1. **Is placed by the author.** The engine never inserts a slide; it completes one the author put there. Positions stay
-   stable, so nothing downstream counts around it.
-2. **Yields to the author.** Anything the author writes in the part the engine would fill wins, and the engine adds
-   nothing to it. (The agenda's "a written list is never touched"; topic's override; proof's authored `cat-N`.)
-3. **Takes its settings from one front-matter register**, applied to that slide alone (the `agenda:` shape), never a
-   deck-wide class that reaches authored slides.
-4. **Fails closed.** When the deck does not hold what it reads (one divider, no definitions, a page count in doubt), it
-   renders nothing rather than something wrong, and lint says why.
-5. **Declares itself** (D4), so the preview, the docs and the Studio find it without a hand-kept list.
+So the same two questions, "where is this slide?" and "where does each section start?", are answered by at least five
+separate counts, two of them on both render paths. They agree today because each was written carefully, and one pair is
+held together by its own parity test. Nothing makes them agree.
 
-### The glossary on the agenda's model (D2)
+## Why one counter matters more than it looks
+
+A reader cross-checks marks. An agenda that says the third section starts on p.7, a divider that says `3 / 4` and a
+footer that says 8 on the slide after it make one claim about the deck. If any two counts drift, a boardroom deck
+contradicts itself, and every check passes, because each count is right by its own rule.
+
+**One deck counter, the only source every mark reads**, turns "they happen to agree" into "they cannot disagree". It
+computes once per render: the shown slides in order, each slide's page, the dividers with their headings and pages, each
+slide's section, and each class's run order (for the proof color). It has an HTML adapter and a DOM adapter, the
+pattern `section-index.js` already uses. The page-number stamp itself stays where it is (`lib/engine/slides.js`), and the
+counter reads it rather than redoing it, so pagination keeps one author.
+
+It also gives the one-slide preview one rule ("this deck has a dynamic component that reads beyond the slide") in place
+of the four separate entries it carries today in `DECK_DERIVED_FACTS`.
+
+## The glossary on the content rules
 
 An empty `_class: glossary` slide, placed anywhere, fills from the `acronyms:` definitions, paged by venue as today. That
-retires the appended slide, and with it the four `withoutAutoGlossary` trims — but only if the slide is IN THE SOURCE.
-`glossary: auto` as it stands still inserts one, so it has to change too: a lint autofix can write the empty glossary
-slide into the source at the end and drop the key, once, and the engine keeps honoring the old key until decks have
-moved. Today's `applyFix` (`lib/authoring/lint-core.js`) rewrites ONE located line, and this fix is two edits in
-different places (drop a front-matter line, append a slide), so it needs a two-part fix shape or two findings that
-apply together; that is part of D2's cost.
+meets the content rules and retires the four `withoutAutoGlossary` trims, but only once the slide is IN THE SOURCE.
+`glossary: auto` as it stands still inserts one, so: a lint autofix writes the empty glossary slide at the end of the
+source and drops the key, once, and the engine keeps honoring the old key until decks have moved. Today's `applyFix`
+(`lib/authoring/lint-core.js`) rewrites one located line; this fix is two edits in different places, so it needs a
+two-part fix shape or two findings that apply together.
 
-### One deck-facts kernel (D3)
+## A manifest field
 
-The five read the same handful of facts: the shown slides and their page numbers, the dividers and their headings, each
-slide's section, the order of a class across the deck. One pure kernel computing them once per render, with an HTML and a
-DOM adapter, would leave each dynamic component a few lines of "read facts, write content". It would also give the
-preview one rule ("the deck has a dynamic component") in place of four entries.
+`"dynamic": { "kind": "content" | "mark", "reads": "dividers" | "acronyms" | "topics" | "pages" | "order" }` in a
+component's manifest, so the preview probe, the component docs ("fills itself from …") and the authoring skills find
+dynamic components without a hand-kept list. Marks that are not components (page numbers, the rail) are registered with
+the counter instead.
 
-### A manifest field (D4)
+## Decided
 
-`"dynamic": { "reads": "dividers" | "acronyms" | "topics" | "order", "fills": "<slot>" }` in the component's manifest.
-The Studio preview probe, the component docs ("fills itself from …"), and the authoring skills read it.
+| | Decision | Owner's pick (2026-11-08) |
+|---|---|---|
+| D1 | The definition | **Anything the engine fills in from other facts in the deck**, with the two kinds and their rules above |
+| D2 | The glossary | **Fill model + a one-time lint fix** that writes the slide into the source; the old key honored meanwhile |
+| D3 | One deck counter | **Build it with the glossary work**, as the only source every mark reads; move the other marks onto it the next time each is touched |
+| D4 | The manifest `dynamic` field | with D3 (not asked separately; it is how the preview finds them) |
+| D5 | A sources slide | **Design the citation syntax next**; a sources slide is its first consumer |
 
-### A sources slide (D5)
+## The work this sets up, in order
 
-The one new dynamic component worth having is a sources/references slide collected from citations across the deck. The
-deck has no citation syntax today (no footnote rule in `lib/integrations/markdown-it/plugins.js`, no `sources:` key in
-`lib/core/deck-settings.js`), so it is new language, not a conversion. A recap slide built from section headlines was
-considered and set aside: it would write the author's argument for them.
-
-## Decisions for the owner
-
-| # | Decision | Options | Recommendation |
-|---|---|---|---|
-| D1 | Adopt the contract above as the definition of a dynamic component | adopt · adopt with changes · no | **Adopt.** It is what the agenda already does, and the agenda is the one that cost nothing downstream. |
-| D2 | The glossary | (a) fill model + lint autofix that writes the slide into the source, old key honored meanwhile · (b) fill model, `glossary: auto` kept appending forever · (c) leave it | **(a).** Only (a) retires the four trims; (b) keeps them. |
-| D3 | The shared kernel | (a) adopt as each component is next touched · (b) one refactor PR now · (c) no kernel | **(a).** Five working components and no open defect: a big-bang refactor buys risk, not behavior. Glossary (D2) would be first. |
-| D4 | The manifest `dynamic` field | yes · no | **Yes, with D3**, so the preview probe is derived, not listed. |
-| D5 | A sources slide | park until a citation syntax exists · design the syntax now · no | **Park.** It needs a language decision first. |
+1. **Glossary + counter** (one PR): the counter with its two adapters; the glossary's fill; the two-part lint fix; the
+   four trims retired; the agenda's page references and fill moved onto the counter; the `dynamic` manifest field and the
+   preview's single rule. The agenda's behavior does not change.
+2. **Citation syntax** (a design note first): how an author cites a source on a slide, and what a sources slide gathers.
+3. **The other marks onto the counter**, each the next time its file is touched: the rail and the divider marker, the
+   numeral (`section-index.js`), the topic eyebrow, the proof color (folding its two implementations into one), and the
+   preview's position (`deckSectionFor`).
 
 ## Not decided here
 
-- Any change to topic, divider or proof behavior: D3 changes how they are built, not what they draw.
-- Whether `progress-rail` (a tile, not a component) joins: it reads the same facts and would use the kernel, but it is
-  chrome, not a slide's content.
+- Whether the counter also feeds narration (which reads the rendered slides today and already agrees).
+- Any visible change to a mark. The counter changes who computes each fact, not what any slide shows.
