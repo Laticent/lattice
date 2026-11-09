@@ -1888,6 +1888,16 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
       assert.ok(Array.isArray(at(0.46, ['A', 'B', 'C'], 5, 'SHIP WEIGHTS TO EVERY REGION', 'Data')), 'all-caps commitments split');
       assert.equal(at(0.46, ['A', 'B', 'C'], 5, 'ship weights to every', 'Data'), null, 'the same length in lowercase prose: one page');
     });
+    test('one-page bands are for plain text: any other script, or an emoji, splits as main does', () => {
+      // Five graders each found text the width estimate under-counted; main splits all of it cleanly.
+      // So a short roadmap that would hold one page in ASCII splits once a single character is not.
+      assert.equal(at(0.56, ['A', 'B'], 2, 'Decision log', 'Ops'), null, 'plain ASCII: one page');
+      assert.equal(at(0.56, ['A', 'B'], 2, 'Decision \u2014 \u201clog\u201d', 'Ops'), null, 'typographic quotes and dashes stay plain');
+      for (const text of ['внедрить шифрование', 'ΑΡΧΕΙΟ', 'Ship \u26a1 fast', 'Caf\u00e9 rollout', '设计令牌']) {
+        assert.ok(Array.isArray(at(0.56, ['A', 'B'], 2, text, 'Ops')), `${text}: splits`);
+      }
+      assert.ok(Array.isArray(at(0.56, ['A', 'B'], 2, 'Decision log', 'Équipe')), 'a non-ASCII name splits too');
+    });
     test('a square or landscape roadmap keeps the split: bands are drawn only on a tall page', () => {
       assert.ok(Array.isArray(at(1, ['A', 'B'], 1)));
     });

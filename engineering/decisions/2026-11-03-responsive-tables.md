@@ -871,19 +871,28 @@ roadmap's phases to stack as bands.
   status inset takes ~31px of it, so a name gets ~220px of a monospaced label at ~20.4px a
   character: 10 characters a line, each line ~0.7 of a commitment line. The commitment column
   takes the rest of ~835px at ~26px a character. Each wrapped line counts as a whole band line,
-  so the count errs toward splitting. The count is in PIXELS, by glyph class, all measured at
-  1080 wide: in a commitment, lowercase prose ~21px a character (the count keeps 26.3, which errs
-  wide), capitals ~31, `m`/`w`/`M`/`W` ~38, and a CJK, Hangul or other East Asian wide glyph ~50;
-  in a name, every Latin glyph ~20.4px and a wide glyph ~32.4. Four graders each found a roadmap
-  that held one page and clipped where `main` split it:
+  so the count errs toward splitting. The count is in PIXELS, measured at 1080 wide: in a
+  commitment, lowercase prose ~21px a character (the count keeps 26.3, which errs wide), capitals
+  ~31 and `m`/`w`/`M`/`W` ~38, against 90% of the column; a name is monospaced, so its ~20.4px a
+  character is exact and takes the whole column.
+- **Bands are for PLAIN TEXT only** (the owner's call, 2026-11-09). A roadmap holds one band page
+  only when every name and commitment is printable ASCII, plus the typographic quotes, dashes,
+  ellipsis and non-breaking space the markdown typographer writes. Any other character (an
+  accent, Cyrillic, Greek, CJK, an emoji) makes the count return no width, and the roadmap splits
+  exactly as `main` does. Five graders each found text the estimate under-counted, and `main`
+  split every one cleanly:
   - long commitments, when the count read rows alone;
-  - 25-character names, when it read commitments alone and the name column took its full one-line
-    width;
+  - 25-character names, when it read commitments alone and the name column took its full
+    one-line width;
   - 11- to 13-character two-word names, when it counted 13 characters a line from an estimate
     (measured, 10);
-  - CJK and all-caps text, when it counted characters rather than width.
+  - CJK and all-caps text, when it counted characters rather than width;
+  - Cyrillic, Greek, BMP emoji, fullwidth punctuation, and CJK at the column's edge, when it
+    guessed a width for scripts it had never measured.
 
-  Each now splits as on `main`.
+  Guessing a sixth script would have been a sixth patch. The plain-text gate measures what it
+  keeps and gives everything else main's behavior. The cost is that a non-English roadmap at a
+  tall size splits even when it would have fit.
 - A rendered sweep holds the formula to the page: 144 roadmaps (names of 5, 9, 11, 13, 16 and
   25 characters; 3 or 5 rows; 2, 3 or 4 phases; commitments of 8, 18, 28 and 45 characters) at
   story, mobile and portrait, each checked for the CLI's OVERFLOW and CONTENT CLIPPED. None clips
