@@ -54,7 +54,8 @@ progress  — 2026-10-23, PR #2877 (engineering/decisions/2026-10-23-studio-boot
             2026-11-09 (engineering/decisions/2026-11-09-studio-react-mount-profile.md): React hydration profiled with
             a React profiling build (docs/scripts/react-mount-profile.mjs). React is ~0.9 s of the 4.0 s busy before the
             slide; half its render phase is StudioShell's own body (~270 ms, with a boot deck list indexing every saved
-            deck), and ~110 ms more is most likely first-call compilation. Off-screen mounts ~70 ms, tooltip wrappers
+            deck), and ~110 ms more is first-call compilation (a production trace: V8 compile is ~145 ms of
+            the hydration task and ~1.04 s before the slide). Off-screen mounts ~70 ms, tooltip wrappers
             ~25-40 ms, a forced layout ~45 ms (likely moved, not saved). Five levers ranked in the note's §4, none
             built; each needs its own A/B.
 decided   — 2026-10-26 (owner, PR #2913, Q1): Lighthouse 90 is NOT the goal for the Studio or the Playground. The Studio's bar stays first slide

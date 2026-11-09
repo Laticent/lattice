@@ -4,8 +4,9 @@ summary: >
   What React renders before the Studio's first slide on the phone profile, by subtree, from a React profiling build and
   a CPU profile split by React phase. React's three phases are about 0.9 s of the 4.0 s of main-thread work before the
   slide. Half of the render phase is StudioShell's own body (about 270 ms), including a boot-time deck list that
-  builds a full index of every saved deck; a further ~110 ms billed to React's renderWithHooks is most likely V8
-  compiling component code on first call, not hook work. Mounted subtrees the phone does not show cost about 70 ms,
+  builds a full index of every saved deck; a further ~110 ms billed to React's renderWithHooks is V8 compiling
+  component code on first call, not hook work (a production trace puts V8 compile at a median 145 ms of the 249 ms
+  hydration task, and ~1.04 s before the slide in all). Mounted subtrees the phone does not show cost about 70 ms,
   the tooltip wrappers on the icon bar about 25-40 ms, and a forced layout in a ref callback about 45 ms (likely moved,
   not saved). Measurement only; no shell code changed. New tool: docs/scripts/react-mount-profile.mjs. A tier-1 checker
   reviewed the method and the numbers; its corrections are folded in.
@@ -87,7 +88,7 @@ StudioShell › `PanelNav` (`docs/src/components/ui/panel.tsx`, the panel contai
 | 1 | **StudioShell's own body** (SELF) | 271 ms | yes | `StudioShell.tsx` |
 | 1a | ↳ boot deck list: `loadDeckList()` → `metaFor` → `buildDeckIndex` for every saved deck | 40-55 ms, ~32 of it `metaFor` | no: `meta` is drawn only in the deck switcher (`StudioShell.tsx:7677`) | `StudioShell.tsx:486`, `studio-store.ts:385` |
 | 1b | ↳ the body itself: ~490 hook call sites (110 `useState`, 105 `useEffect`, 98 `useCallback`, 93 `useRef`, 82 `useMemo`, 3 others) and the JSX. React's own hook bookkeeping is ~20 ms of this | ~48 ms | yes | `StudioShell.tsx` |
-| 1b′ | React's `renderWithHooks` as the leaf frame, render phase (all components, not StudioShell alone). `renderWithHooks` has ~15 lines of its own; this is most likely V8 compiling each component function on first call, which a CPU profile bills to the caller (the checker reproduced the attribution in Node; not confirmed in this page's trace) | ~105-118 ms | n/a | React DOM |
+| 1b′ | React's `renderWithHooks` as the leaf frame, render phase (all components, not StudioShell alone). `renderWithHooks` has ~15 lines of its own; this is V8 compiling each component function on first call, which a CPU profile bills to the caller. Confirmed by a trace (§3.1) | ~105-118 ms | n/a | React DOM |
 | 1c | ↳ `readTargets(source)` memo | ~12 ms | n/a | `StudioShell.tsx:1692` |
 | 1d | ↳ `unknownComponents(source, lintKnown)`, computed twice by two memos | ~6 ms | n/a | `StudioShell.tsx:2120-2121` |
 | 1e | ↳ `loadCheckpoints(loadBootDeck().id)` (`loadBootDeck` runs three times at boot) | ~4 ms | n/a | `StudioShell.tsx:493,495,1240` |
@@ -99,6 +100,21 @@ StudioShell › `PanelNav` (`docs/src/components/ui/panel.tsx`, the panel contai
 | 7 | `ErrorBoundary` › `FocusedPreview` › `DeckPreview` | 17.2 › 16.1 › 13.4 ms | yes | `components/DeckPreview.tsx` |
 
 Everything else is under 7 ms per subtree.
+
+### 3.1 The compile share, from a production trace
+
+`docs/scripts/v8-compile-trace.mjs` records a Chrome trace with V8's compile categories on the PRODUCTION build (same
+server and phone profile, 5 runs) and sums the top-level compile events inside the hydration task:
+
+| | median | range |
+|---|---|---|
+| Hydration task | 249 ms | 225-326 ms |
+| V8 compile inside it (`V8.CompileCode`: 170-510 lazily compiled functions per run) | 145 ms | 48-192 ms |
+| V8 compile on the main thread, navigation to slide | 1,037 ms | 1,019-1,059 ms |
+
+So the ~110 ms that the CPU profile bills to `renderWithHooks` is compilation, as the checker suspected, and
+compilation is also a large part of the 1,474 ms "native" bucket in §2. The spread inside the task follows how many
+functions earlier tasks in that run had already compiled.
 
 Two things the list says:
 
@@ -126,14 +142,15 @@ checker reviews this list before any of them becomes code.
    the preview box renders at `width: 100%` (`StudioShell.tsx:7196-7198`), so the late size resizes the box and the
    preview iframe and lays the slide document out again, which can cost more than it saves or move the first slide.
    The weakest lever here; measure before believing any of the ~45 ms.
-5. **Run less code at boot** (row 1b′, ~110 ms, cause PLAUSIBLE). If first-call compilation is the cost, splitting
-   StudioShell's hooks while still rendering them all saves little; what helps is not running (or not shipping) code a
-   phone's first render does not need, or a warm code cache. Confirm the cause first: a trace with V8's compile events
-   (`v8.compile`, `V8.CompileLazy`) on the hydration task. Then it needs a design note.
+5. **Run less code at boot** (row 1b′, ~145 ms of compile in the hydration task, ~1.04 s before the slide in all;
+   cause measured in §3.1). Splitting StudioShell's hooks while still rendering them all saves little; what helps is
+   not running (or not shipping) code a phone's first render does not need, or a warm code cache on repeat visits
+   (a cold first visit never benefits). It needs a design note.
 
 ## Not measured
 
 - A production build per subtree. React's per-fiber timings exist only in the profiling build, so the absolute numbers
   carry the ~1.3x overhead in §1.
-- The 1,580 ms of JavaScript outside React and the 1,474 ms of native work (§2). This note ranks React's share only.
+- The 1,580 ms of JavaScript outside React, and the 1,474 ms of native work beyond the compile share in §3.1. This
+  note ranks React's share only.
 - The CI runner, a real phone, WebKit.
