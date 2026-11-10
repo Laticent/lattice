@@ -65,6 +65,11 @@ also      — 2026-11-10, same PR: demo-mobile.spec.ts:437 (`@webkit-phone`, the
             `--repeat-each=6 --workers=3` on main 50f6f4a AND on the PR, with "the editor was never both overflowing and
             being typed into", and passes 3 of 3 at one worker. Not investigated. collage-lightbox.spec.ts:395 on gecko
             failed once in a 3-worker mixed run and passed 6 of 6 alone at 3 workers.
+            Four more from the same PR's full runs on its build (tablet + mobile at 4 workers; webkit-phone, webkit-tablet
+            and gecko at 3), recorded nowhere before: back-gesture.spec.ts:183 (webkit-phone), switch-controls.spec.ts:97
+            (webkit-tablet), table-reflow-preview.spec.ts:71 (webkit-tablet; then 8 of 8 at 4 workers) and
+            library-images-render.spec.ts:152 (mobile). Each failed once in its full run and passed 3 of 3 alone. Not
+            compared against main; not investigated.
 where     — the specs named above that the "fixed" entry does not name.
 done when — each failure is reproduced under full-project load and fixed at its cause, or 10 full
             mobile-project runs on main pass and this file is deleted with that evidence.
