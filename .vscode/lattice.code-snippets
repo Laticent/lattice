@@ -444,6 +444,7 @@
     "description": "Gantt chart — task bars across a date axis."
   },
   "lattice: gift-card": {
+    "scope": "markdown",
     "prefix": "lattice-gift-card",
     "body": [
       "<!-- _class: gift-card -->",

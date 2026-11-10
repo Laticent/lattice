@@ -31,7 +31,7 @@ Every slide shows a component **and** the Markdown that made it.
 2. One folder
    - Everything it needs sits beside it.
 3. One line
-   - Picks the layout. 79 to choose from.
+   - Picks the layout. 80 to choose from.
 
 ---
 
@@ -97,7 +97,7 @@ Then each slide opens with one comment naming its layout — `_class: kpi`,
 2. 13 MB
    - on disk, minified
    - CSS, scripts and fonts
-3. 79
+3. 80
    - layouts available
    - none to install `{Included}`
 4. 0
