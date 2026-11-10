@@ -6172,8 +6172,8 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
     count: 2,
     provenance:
       'THIRD PARTY (1 of 2) — the SVG mermaid.render() returns, written into `#container` of the CLI ' +
-      "bake's OWN headless Chromium page: mermaid-cli's render page (the plugin's copy, vendor/mermaid-cli/" +
-      "index.html: its bundle, with KaTeX and FontAwesome faces) plus the Mermaid library, " +
+      "bake's OWN headless Chromium page: mermaid-cli's render page (the plugin's copy, vendor/render-page/" +
+      "index.html, with the FontAwesome stylesheet mmdc 12 links) plus the Mermaid library, " +
       'given one diagram definition and an init config of ' +
       'palette-derived theme variables, so it can read the drawn SVG back out. It never runs in the ' +
       'preview frame or any document a reader opens; the SVG it reads out reaches the deck as the ' +

@@ -132,9 +132,12 @@ describe('narrowing fails closed on shapes the walker cannot resolve', () => {
 		const { slides, doc } = deckDoc(src);
 		const html = engine.render(doc, 'lattice').html;
 		const opens = (html.match(/<section\b/g) || []).length;
-		// 3 authored slides, but 4 `<section` opens — the author's raw one is in there.
+		// 3 authored slides and 3 `<section` opens: since 2026-11-10 the engine renames a raw
+		// section tag in author HTML to `x-section` (lib/core/reserved-attrs.mjs), so the author's
+		// one no longer reaches the page as a section at all. The walker arm below still holds.
 		expect(slides.length).toBe(3);
-		expect(opens).toBeGreaterThan(slides.length);
+		expect(opens).toBe(slides.length);
+		expect(html).toContain('<x-section class="form">');
 		const parts = sectionsOf(html);
 		expect(parts.length).toBe(3);
 		expect(parts[0]).toContain('nested');
@@ -230,7 +233,11 @@ describe('counting sections structurally, not textually (#1551)', () => {
 		const src = '---\ntheme: indaco\n---\n\n## Slide\n\n<!-- <section> not real -->\n\nBody.\n';
 		const { fm, slides } = deckDoc(src);
 		const html = engine.render(fm + slides[0], 'lattice').html;
-		expect((html.match(/<section\b/g) || []).length).toBe(2); // the naive tally
+		// The naive tally no longer over-counts this one: the engine renames the section tag inside
+		// raw HTML, comments included (lib/core/reserved-attrs.mjs). The structural count still has
+		// to agree, which is what this arm guards.
+		expect((html.match(/<section\b/g) || []).length).toBe(1); // the naive tally
+		expect(html).toContain('<!-- <x-section> not real -->');
 		expect(sectionsOf(html).length).toBe(1); // the truth
 		// AND THE COUNT THE GUARD USES. This arm used to stop at `sectionsOf`, while the
 		// refusal and `alignmentFailure` still compared it against the naive tally above,

@@ -41,6 +41,7 @@ updates:
       - dependency-name: katex
       - dependency-name: "@mermaid-js/mermaid-zenuml"
       - dependency-name: "@mermaid-js/mermaid-cli"
+      - dependency-name: "@fortawesome/fontawesome-free"
     commit-message:
       prefix: build(deps)
       prefix-development: build(deps-dev)

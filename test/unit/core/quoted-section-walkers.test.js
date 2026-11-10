@@ -75,8 +75,12 @@ test('engine: an image slide with a </section> quoted in its body keeps the comm
   const slide = html.slice(html.indexOf('<section'), html.lastIndexOf('</section>') + 10);
   const text = slide.slice(slide.indexOf('class="image-text"'));
   assert.ok(slide.includes('class="image-text"'), 'no .image-text panel');
-  assert.ok(slide.includes(QUOTE_CLOSE), 'the wrap wrote markup inside the comment');
-  const live = text.split(QUOTE_CLOSE).join('');
+  // The engine renames a section tag in raw HTML, comments included (lib/core/reserved-attrs.mjs),
+  // so the note reaches the page as `</x-section>`. The kernel-level walker tests above still feed
+  // a literal quoted `</section>`; this one pins that the engine path keeps the comment whole.
+  const renamed = QUOTE_CLOSE.replace('</section>', '</x-section>');
+  assert.ok(slide.includes(renamed), 'the wrap wrote markup inside the comment');
+  const live = text.split(renamed).join('');
   assert.match(live, /The body after the note\.<\/p><\/div>/, 'the body is not inside a closed .image-text');
 });
 

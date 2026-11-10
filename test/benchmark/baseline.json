@@ -4,8 +4,8 @@
   "tolerancePct": 12,
   "calibration": {
     "probe": "calibration (markdown-it)",
-    "ms": 2.96,
-    "rmePct": 2.61
+    "ms": 3.46,
+    "rmePct": 2.07
   },
   "blessedOn": {
     "node": "v22",
@@ -16,38 +16,45 @@
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "index": 27.9,
-      "ms": 82.52,
-      "slidesPerSec": 703,
-      "rmePct": 3.31
+      "index": 32.03,
+      "ms": 110.74,
+      "slidesPerSec": 524,
+      "rmePct": 7.92
     },
     "charts": {
       "slides": 29,
-      "index": 28.28,
-      "ms": 83.64,
-      "slidesPerSec": 347,
-      "rmePct": 3.42
+      "index": 31.38,
+      "ms": 108.49,
+      "slidesPerSec": 267,
+      "rmePct": 5.79
     },
     "math": {
       "slides": 16,
-      "index": 43.35,
-      "ms": 128.2,
-      "slidesPerSec": 125,
-      "rmePct": 3.58
+      "index": 52.3,
+      "ms": 180.79,
+      "slidesPerSec": 88,
+      "rmePct": 7.87
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "index": 86.43,
-      "ms": 255.61,
-      "slidesPerSec": 1361,
-      "rmePct": 2.77
+      "index": 103.97,
+      "ms": 359.41,
+      "slidesPerSec": 968,
+      "rmePct": 6.16
     },
     "hub-spoke (gallery + tiered x3)": {
       "slides": 17,
-      "index": 28.25,
-      "ms": 83.56,
-      "slidesPerSec": 203,
-      "rmePct": 3.82
+      "index": 30.9,
+      "ms": 106.82,
+      "slidesPerSec": 159,
+      "rmePct": 3.62
+    },
+    "unclosed html (div x8000)": {
+      "slides": 1,
+      "index": 20.08,
+      "ms": 69.4,
+      "slidesPerSec": 14,
+      "rmePct": 5.85
     }
   },
   "printDatasets": {
@@ -152,41 +159,51 @@
       "slides": 58,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 33.55,
+      "ms": 46.19,
       "scanMs": 0.01,
-      "burstMs": 416.44,
+      "burstMs": 602.08,
       "parses": 1,
-      "parseMs": 0.88
+      "parseMs": 1.04
     },
     "edit · charts": {
       "slides": 29,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 39.08,
+      "ms": 46.26,
       "scanMs": 0.01,
-      "burstMs": 407.57,
+      "burstMs": 570.73,
       "parses": 1,
-      "parseMs": 0.36
+      "parseMs": 0.52
     },
     "edit · math": {
       "slides": 16,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 14.69,
+      "ms": 20.12,
       "scanMs": 0.01,
-      "burstMs": 174.89,
+      "burstMs": 233.2,
       "parses": 3,
-      "parseMs": 0.95
+      "parseMs": 0.79
     },
     "edit · hub-spoke (gallery + tiered x3)": {
       "slides": 17,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 36.59,
+      "ms": 46.7,
       "scanMs": 0.01,
-      "burstMs": 392.4,
+      "burstMs": 551.48,
       "parses": 1,
-      "parseMs": 0.24
+      "parseMs": 0.37
+    },
+    "edit · unclosed html (div x8000)": {
+      "slides": 1,
+      "typesets": 0,
+      "burstTypesets": 0,
+      "ms": 18.52,
+      "scanMs": 0.01,
+      "burstMs": 220.02,
+      "parses": 0,
+      "parseMs": 1.73
     }
   },
   "flowchartDatasets": {
@@ -195,28 +212,28 @@
       "routed": 12,
       "bounded": 41,
       "hits": 1,
-      "ms": 138.75
+      "ms": 171.47
     },
     "flowchart · same calls, no cache": {
       "calls": 10,
       "routed": 14,
       "bounded": 44,
       "hits": 0,
-      "ms": 128.78
+      "ms": 165.98
     },
     "state chart · stress deck page (17 calls)": {
       "calls": 17,
       "routed": 23,
       "bounded": 70,
       "hits": 0,
-      "ms": 586.67
+      "ms": 763.52
     },
     "state chart · same calls, no cache": {
       "calls": 17,
       "routed": 23,
       "bounded": 70,
       "hits": 0,
-      "ms": 628.98
+      "ms": 766.38
     }
   },
   "collageDatasets": {
@@ -224,29 +241,29 @@
       "photos": 4,
       "arrangements": 52,
       "scored": 5,
-      "ms": 0.15,
-      "p95": 0.31
+      "ms": 0.19,
+      "p95": 0.34
     },
     "collage pack · 5 photos, free": {
       "photos": 5,
       "arrangements": 472,
       "scored": 13,
-      "ms": 0.48,
-      "p95": 0.58
+      "ms": 0.58,
+      "p95": 1.25
     },
     "collage pack · 6 photos, free": {
       "photos": 6,
       "arrangements": 5484,
       "scored": 1114,
-      "ms": 6.92,
-      "p95": 8.55
+      "ms": 7.94,
+      "p95": 13.34
     },
     "collage pack · 6 photos, ordered": {
       "photos": 6,
       "arrangements": 394,
       "scored": 62,
-      "ms": 0.39,
-      "p95": 1.01
+      "ms": 0.47,
+      "p95": 0.67
     }
   },
   "splitDatasets": {
@@ -254,66 +271,66 @@
       "slides": 120,
       "split": 64,
       "pages": 356,
-      "ms": 60.02,
-      "p95": 65.04
+      "ms": 74.53,
+      "p95": 101.84
     },
     "split · gallery @portrait": {
       "slides": 120,
       "split": 66,
       "pages": 362,
-      "ms": 59.54,
-      "p95": 63.64
+      "ms": 80.35,
+      "p95": 100.13
     },
     "split · gallery @mobile": {
       "slides": 120,
       "split": 66,
       "pages": 362,
-      "ms": 63.37,
-      "p95": 74.43
+      "ms": 78.85,
+      "p95": 93.16
     }
   },
   "filoDatasets": {
     "filo · type 200 characters": {
       "steps": 1,
-      "ms": 0.1,
+      "ms": 0.12,
       "p95": 0.13
     },
     "filo · AI apply (two distant slides)": {
       "storedChars": 210694,
-      "ms": 0.02,
-      "p95": 0.08
+      "ms": 0.03,
+      "p95": 0.06
     },
     "filo · undo + redo of it": {
       "steps": 1,
-      "ms": 0.25,
-      "p95": 0.34
+      "ms": 0.23,
+      "p95": 0.4
     },
     "filo · snapshot (100 steps)": {
       "steps": 90,
       "bytes": 2181166,
-      "ms": 0.47,
-      "p95": 0.55
+      "ms": 0.6,
+      "p95": 0.66
     },
     "filo · verify after reload (worker)": {
       "steps": 90,
-      "ms": 12.09,
-      "p95": 14.57
+      "ms": 14.39,
+      "p95": 15.23
     },
     "filo · restore after reload (main thread)": {
       "steps": 90,
-      "ms": 0.26,
-      "p95": 0.3
+      "ms": 0.29,
+      "p95": 0.33
     },
     "filo · restore, verifying in place (no worker)": {
       "steps": 90,
-      "ms": 12.75,
-      "p95": 14.09
+      "ms": 14.62,
+      "p95": 35.43
     },
     "filo · narrow broad steps (worker)": {
       "bytes": 2181166,
       "narrowedBytes": 279520,
-      "ms": 18.75,
-      "p95": 21.31
+      "ms": 28.09,
+      "p95": 30.04
     }
   },
   "squadraDatasets": {
@@ -322,46 +339,46 @@
       "applied": 50,
       "findings": 0,
       "ops": 0,
-      "ms": 1.616,
-      "p95": 7.277
+      "ms": 2.515,
+      "p95": 10.136
     },
     "squadra · lint · 1 MB one token": {
       "passes": 0,
       "applied": 0,
       "findings": 1001,
       "ops": 3004,
-      "ms": 41.572,
-      "p95": 45.328
+      "ms": 53.211,
+      "p95": 110.109
     },
     "squadra · select · depth 1000": {
       "passes": 0,
       "applied": 0,
       "findings": 1,
       "ops": 5503,
-      "ms": 1.389,
-      "p95": 3.748
+      "ms": 1.727,
+      "p95": 6.046
     },
     "squadra · compile · per rule": {
       "passes": 0,
       "applied": 0,
       "findings": 50,
       "ops": 0,
-      "ms": 0.04,
-      "p95": 0.085
+      "ms": 0.053,
+      "p95": 0.112
     }
   },
   "inlineDatasets": {
     "inline · ordinary code / retired kernel": {
       "spans": 4961,
-      "ratio": 4.072,
-      "shippedNs": 40.01,
-      "kernelNs": 9.85
+      "ratio": 4.086,
+      "shippedNs": 48.66,
+      "kernelNs": 11.84
     },
     "inline · directives / retired kernel": {
       "spans": 353,
-      "ratio": 42.343,
-      "shippedNs": 1955.71,
-      "kernelNs": 47.34
+      "ratio": 42.077,
+      "shippedNs": 2223.44,
+      "kernelNs": 53.03
     }
   }
 }

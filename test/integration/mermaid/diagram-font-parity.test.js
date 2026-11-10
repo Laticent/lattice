@@ -156,7 +156,7 @@ describe('the per-diagram font keys cover every one mermaid ships', () => {
     // find, so a bundle reshuffle that hides `sequence` degrades to a red test rather
     // than to a vacuous green one. (A TOTAL scraper failure is already caught by the C4
     // set-difference test; this catches losing one block.)
-    assert.deepEqual(Object.keys(schema).sort(), ['(top-level)', 'c4', 'journey', 'sequence', 'timeline'],
+    assert.deepEqual(Object.keys(schema).sort(), ['(top-level)', 'c4', 'journey', 'sequence', 'timeline', 'usecase'],
       'the config scraper no longer finds the blocks it is written against');
     const cfg = engineInitConfig({ fontFamily: 'X' });
     const missing = [];
@@ -183,6 +183,7 @@ describe('the per-diagram font keys cover every one mermaid ships', () => {
     assert.equal(pinned.journey, undefined, 'journey font keys must go with it');
     assert.equal(pinned.sequence, undefined, 'sequence font keys must go with it');
     assert.equal(pinned.timeline, undefined, 'timeline font keys must go with it');
+    assert.equal(pinned.usecase, undefined, 'usecase font keys must go with it');
     assert.equal(pinned.c4.personFontFamily, undefined, 'c4 font keys must go with it');
     assert.equal(pinned.fontFamily, undefined, 'and the top-level font key must go with it');
     // …but the NON-palette c4 layout keys stay, exactly as the rest of the config does.

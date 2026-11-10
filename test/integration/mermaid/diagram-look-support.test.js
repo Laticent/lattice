@@ -62,7 +62,7 @@ const FAMILIES = {
 
 /** Measured 2026-08-18 against Mermaid 11.14. Update WITH a re-measurement, never by hand. */
 // Mermaid 11.17 added C4 (re-measured 2026-11-06, engineering/mermaid.md §5.3e).
-const HONORS_LOOK = ['flowchart', 'state', 'class', 'er', 'mindmap', 'requirement', 'c4'];
+const HONORS_LOOK = ['flowchart', 'state', 'class', 'er', 'mindmap', 'requirement', 'c4', 'block'];
 
 /**
  * What Mermaid calls each fixture back, so the table cannot be answered by the WRONG

@@ -676,6 +676,8 @@
     },
     "/<(\\/?)(ul|li)\\b[^>]*>/g": "polynomial",
     "/<(\\/?)(ul|ol|li|blockquote)\\b[^>]*>/gi": "polynomial",
+    "/<(\\/?)section(?![\\w:.-])/gi": "safe",
+    "/<(\\/?)x-section(?![\\w:.-])/gi": "safe",
     "/<(\\/?template)/gi": "safe",
     "/<(h[12])\\b((?:\"[^\"]*\"|'[^']*'|[^>\"'])*)>/i": "polynomial",
     "/<(rect|circle|ellipse|polygon|path|line)\\b[^>]*>/g": "polynomial",

@@ -47,20 +47,26 @@ function stripComments(src) {
 
 describe('render worker: contract', () => {
   test('resolves the same page and bundles mermaid-cli itself renders in', () => {
-    // Reusing the CLI's own `dist/index.html` is what keeps this a change of FONTS and
-    // CONFIG DELIVERY rather than a change of renderer: the page carries the vite bundle
-    // that registers zenuml and elk layouts and preloads the KaTeX + FontAwesome faces a
-    // diagram can reference. Hand-rolling a page would silently drop all of that.
+    // Reusing the CLI's own `dist/index.html` and the libraries it links is what keeps
+    // this a change of FONTS and CONFIG DELIVERY rather than a change of renderer.
+    // mermaid-cli 12 ships the page empty and links the FontAwesome faces at render time,
+    // so the plugin's copy carries that stylesheet and its faces beside the page.
     const b = resolveBundles();
     for (const p of Object.values(b)) assert.ok(fs.existsSync(p), `${p} must exist`);
     // Each is the mermaid plugin's OWN copy (lib/plugins/mermaid/vendor/; payload-path.js), the
     // build every other surface ships, never the installed package's.
-    assert.match(b.indexHtml, /plugins[/\\]mermaid[/\\]vendor[/\\]mermaid-cli[/\\]index\.html$/);
+    assert.match(b.indexHtml, /plugins[/\\]mermaid[/\\]vendor[/\\]render-page[/\\]index\.html$/);
     assert.match(b.mermaidIife, /plugins[/\\]mermaid[/\\]vendor[/\\]mermaid\.min\.js$/);
     assert.match(b.zenumlIife, /plugins[/\\]mermaid[/\\]vendor[/\\]mermaid-zenuml\.min\.js$/);
-    // The page loads its vite bundle by a relative path, so the copy must carry the whole dist/.
-    const script = /src="\.\/([^"]+)"/.exec(fs.readFileSync(b.indexHtml, 'utf8'));
-    assert.ok(script && fs.existsSync(path.join(path.dirname(b.indexHtml), script[1])), 'the render page\'s bundle is missing from the copy');
+    // The worker links the FontAwesome stylesheet on the page's origin, and the stylesheet
+    // reaches its faces by `../webfonts/`: both must sit under the page's folder.
+    const pageDir = path.dirname(b.indexHtml);
+    const css = path.join(pageDir, 'fontawesome', 'css', 'all.min.css');
+    assert.ok(fs.existsSync(css), 'the FontAwesome stylesheet is missing beside the render page');
+    const faces = [...fs.readFileSync(css, 'utf8').matchAll(/url\((\.\.\/webfonts\/[^)]+)\)/g)].map((m) => m[1]);
+    assert.ok(faces.length, 'the FontAwesome stylesheet names no faces');
+    for (const face of faces) assert.ok(fs.existsSync(path.join(path.dirname(css), face)), `${face} is missing beside the stylesheet`);
+    assert.match(fs.readFileSync(WORKER, 'utf8'), /FONTAWESOME_CSS = 'fontawesome\/css\/all\.min\.css'/);
   });
 
   test('the font CSS it injects covers every family the engine ships', () => {
@@ -94,12 +100,11 @@ describe('render worker: contract', () => {
   });
 
   test('the worker makes every registration mermaid-cli\'s own prologue makes', () => {
-    // THE COUPLING THIS CHANGE ACTUALLY TOOK ON. Loading the CLI's `dist/index.html` gets
-    // its vite bundle — the KaTeX and FontAwesome faces, and `globalThis.elkLayouts` —
-    // but the REGISTRATIONS live in the CLI's own JavaScript, inside the `$eval` in
-    // `src/index.js`. A page that only loads the bundle has the code and none of the
-    // wiring, and the failure is silent in both directions: a zenuml diagram degrades to
-    // a `<pre>`, and `layout: elk` just renders as dagre and looks fine.
+    // THE COUPLING THIS CHANGE ACTUALLY TOOK ON. The REGISTRATIONS live in the CLI's own
+    // JavaScript, inside the `$eval` in `src/index.js`. A page that only loads the
+    // libraries has the code and none of the wiring, and the failure is silent: a zenuml
+    // diagram degrades to a `<pre>`. (Through mermaid-cli 11 the same held for
+    // `layout: elk`, which rendered as dagre and looked fine; Mermaid 12 carries elk.)
     //
     // Both of those shipped in an earlier draft of this branch. So this reads the CLI's
     // real source and fails when it names a `mermaid.register*` call the worker does not
@@ -121,7 +126,13 @@ describe('render worker: contract', () => {
     // identical, which is why this is an exception and not a third dropped step. It also
     // should stay one: the CLI's loader FETCHES each pack from unpkg.com at render time,
     // and the engine renders offline by design. A pack would have to be vendored first.
-    const NOT_OWED = new Set(['registerIconPacks']);
+    //
+    // `registerLayoutLoaders` is NOT owed either. mermaid-cli 12 calls it with
+    // `@mermaid-js/layout-tidy-tree` only when that OPTIONAL package is installed, and with
+    // `[]` otherwise. The export has never drawn tidy-tree (the 11.x page's bundle did not
+    // carry it), and the elk loaders it used to register are inside Mermaid 12 itself.
+    // Adopting tidy-tree is a new layout, so it would be vendored first, like a pack.
+    const NOT_OWED = new Set(['registerIconPacks', 'registerLayoutLoaders']);
     const missing = [...new Set(cliCalls)]
       .filter((c) => !NOT_OWED.has(c))
       .filter((c) => !new RegExp(`mermaid\\.${c}\\s*\\(`).test(workerSrc));

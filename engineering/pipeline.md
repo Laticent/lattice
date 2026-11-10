@@ -432,6 +432,15 @@ back to Chrome, and says so (on stderr, even with `--quiet`), when the bundle is
 writer fails. The reasons and the
 measurements are in `engineering/decisions/2026-09-27-studio-export-one-engine.md`.
 
+**The capture page reads the deck's relative addresses from the deck folder.** The CLI writes the page
+it captures into the OUTPUT folder, so a deck's own `<script src="lib/x.js">` used to resolve there; with
+`-o` in another folder it named a missing file and printed `⚠ refused …: it resolves outside the deck
+folder` (the diagram gallery's vendored Mermaid did it). The request guard in `lattice.js` (`renderBody`,
+"LOCAL FILES stay inside the deck") now maps a refused subresource from "relative to the output page" to
+"relative to the deck" and serves it when the confiner allows that path, which is the file the author
+meant. The mapped path passes the same real-path check, and the exported HTML keeps the author's
+addresses as written. `test/integration/export/confine-cli.test.js` holds both arms.
+
 **SVG text takes its fill per character.** `read-slide.mjs` reads each character's fill from
 the element that holds its text node, and splits a run where the fill changes. It does not use
 the `<text>`'s own fill: Mermaid paints a sequence participant's name on the `<tspan>`

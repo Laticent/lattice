@@ -94,6 +94,13 @@ describe('mermaid init-directive: readAuthorInit', () => {
     assert.equal({}.theme, undefined, 'Object.prototype is clean');
   });
 
+  test('a theme pinned inside a diagram section is a pin (Mermaid 12 reads it first)', () => {
+    assert.equal(authorPinsTheme('%%{init: {"flowchart": {"theme": "forest"}}}%%\nflowchart TB'), true);
+    assert.equal(authorPinsTheme('%%{init: {"flowchart": {"theme": "base"}}}%%\nflowchart TB'), false, 'base is the engine\'s own theme');
+    assert.equal(authorPinsTheme('%%{init: {"flowchart": {"theme": "Forest"}}}%%\nflowchart TB'), false, 'an unresolvable name is not a pin');
+    assert.equal(authorPinsTheme('%%{init: {"flowchart": {"curve": "linear"}}}%%\nflowchart TB'), false);
+  });
+
   test('`constructor` and `prototype` payload keys are dropped too', () => {
     assert.deepEqual(readAuthorInit('%%{init: {"constructor": {"x": 1}, "theme": "base"}}%%').config,
       { theme: 'base' });

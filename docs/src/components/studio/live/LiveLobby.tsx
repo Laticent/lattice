@@ -3,6 +3,7 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { LobbyActions, LobbyView } from './live-model';
+import { LIVE_PRIVACY_HREF } from './privacy-link';
 
 // The guest's lobby (§4.2 of engineering/decisions/2026-10-06-studio-live-collaboration.md):
 // a centered card over the dimmed Studio, so the guest sees where they are going before they
@@ -88,7 +89,7 @@ export function LiveLobby({ view, actions }: { view: LobbyView; actions: LobbyAc
 				<p className="mt-4 border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
 					Your edits and calls go directly between browsers. Lattice has no server that sees them.
 					<span className="mt-1.5 block" data-live-privacy-note>
-						Your browser connects directly to the host and everyone in the session, so they see your IP address, even while you wait to be let in. So do the public servers that help browsers find each other, run by Google, Cloudflare and independent relay operators. They see your address, not your edits.
+						Your browser connects directly to the host and everyone in the session, so they see your IP address, even while you wait to be let in. So do the public servers that help browsers find each other, run by Google, Cloudflare and independent relay operators. They see your address, not your edits.{' '}<a className="underline underline-offset-2 hover:text-foreground" href={LIVE_PRIVACY_HREF} target="_blank" rel="noopener noreferrer" data-live-privacy-link>Who sees what</a>
 					</span>
 				</p>
 			</div>
