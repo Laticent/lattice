@@ -31,7 +31,7 @@ Every slide shows a component **and** the Markdown that made it.
 2. One folder
    - Everything it needs sits beside it.
 3. One line
-   - Picks the layout. Sixty-one to choose from.
+   - Picks the layout. 79 to choose from.
 
 ---
 
@@ -94,10 +94,10 @@ Then each slide opens with one comment naming its layout — `_class: kpi`,
 1. 1
    - folder to copy
    - keep it together `{Complete}`
-2. 5 MB
+2. 9 MB
    - on disk, minified
-   - CSS + runtime + fonts
-3. 61
+   - CSS, scripts and fonts
+3. 79
    - layouts available
    - none to install `{Included}`
 4. 0
@@ -145,12 +145,11 @@ flowchart LR
 | ------------------- | :--: | :--: | :--: | :--: |
 | `marp --pdf`        | [x]  | [x]  | [x]  | [x]  |
 | `marp --html`       | [x]  | [x]  | [-]  | [-]  |
-| VS Code preview     | [x]  | [x]  | [ ]  | [ ]  |
+| VS Code preview     | [x]  | [x]  | [-]  | [-]  |
 
-A filled mark works. A half mark works once the file is opened in a browser,
-with the two `.js` files still beside it. An open mark is unconfirmed. Anything
-CSS draws holds everywhere — diagrams and charts need a browser that runs the
-runtime.
+A filled mark works. A half mark needs the runtime to run: an `.html` opened in a
+browser with the `.js` files still beside it, or the VS Code preview with its
+security level set to *Disable*. Anything CSS draws holds everywhere.
 
 ---
 

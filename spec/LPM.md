@@ -635,7 +635,11 @@ So the door draws a plugin's fences on every slide, including the ones a shipped
 wherever the layout keeps it as markup; a layout that turns a label into text (a chart's SVG label) shows the span
 as written, and the door says so in a warning. `contact` and `wifi` keep only their card, which drops any code
 block, a plugin's included. A plugin that needs an address of its own (an in-tree `image` or `video`) reads it from
-its own record at render time and is never added to the sanctioned list: if the gate flags it, the code is wrong.
+its own record at render time and is never added to the sanctioned list: if the gate flags it, the code is wrong. On a Marp
+render, which has no token path, the record still comes from the author's Markdown, by one of two channels: marp-cli's config
+engine reads it from the tokens and writes it into a data block, and the VS Code preview reads the saved deck file. The runtime
+draws a lone span only when its exact text is one of those records, outside `[data-lattice-plugin]`, at most as many times as the
+Markdown holds it, and builds the figure from the record, not from the page (`lib/plugins/video/shared/video-marp-dom.js`).
 Rationale and the attack: `engineering/decisions/2026-10-16-media-plugins.md` §4.5.
 
 ## 11. Creating one

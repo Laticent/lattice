@@ -48,6 +48,12 @@ theme: indaco
 ## In running text
 
 A sentence with \`@video{"https://www.youtube.com/watch?v=dQw4w9WgXcQ"}\` in the middle.
+
+---
+
+## Alone in a list item
+
+- \`@video{"https://vimeo.com/76979871", title="Listed"}\`
 `;
 
 // The pinned, locked marp-cli (test/helpers/marp-cli.js): no registry fetch inside a test.
@@ -90,7 +96,8 @@ describe('an @video record in an Export-to-Marp bundle — real marp-cli, real C
     await page.setRequestInterception(true);
     page.on('request', (req) => (req.url().startsWith('file:') ? req.continue() : req.abort()));
     await page.goto(require('node:url').pathToFileURL(path.join(bundle, 'out.html')).href, { waitUntil: 'networkidle0' });
-    await new Promise((res) => setTimeout(res, 1500));
+    // A signal, not a duration (HARD RULE #32): the runtime marks the root once its first pass has run.
+    await page.waitForFunction(() => document.documentElement.dataset.latticeRuntime === 'loaded', { timeout: 60000 });
   });
   after(async () => { if (browser) await browser.close(); });
 
@@ -109,8 +116,15 @@ describe('an @video record in an Export-to-Marp bundle — real marp-cli, real C
     // (unresolvable) Instagram-suffixed host, and so must the bundle.
     const hosts = await page.$$eval('a[href^="http"]', (as) => as.map((a) => new URL(a.getAttribute('href')).hostname));
     assert.deepEqual(hosts.filter((h) => h === 'evil.example' || h.endsWith('.evil.example')), []);
-    for (const h of hosts) assert.match(h, /(^|\.)(youtube\.com|tiktok\.com|instagram\.com)$/, h);
+    for (const h of hosts) assert.match(h, /(^|\.)(youtube\.com|tiktok\.com|instagram\.com|vimeo\.com)$/, h);
     assert.equal(await page.$$eval('a', (as) => as.filter((a) => a.textContent === 'Open').length), 0, 'the injected "[Open](…)" link does not exist');
+  });
+
+  test('a record the export left as code (alone in a list item) draws the poster: the config hands it to the runtime from the Markdown', async (t) => {
+    if (skip) return t.skip(skip);
+    assert.ok(md.includes('- `@video{"https://vimeo.com/76979871"'), 'the export left the list-item record as written');
+    await page.waitForFunction(() => !!document.querySelector('li > figure[data-lattice-media="video"]'), { timeout: 60000 });
+    assert.equal(await page.$eval('li > figure[data-lattice-media="video"] a.video-poster', (a) => a.getAttribute('href')), 'https://vimeo.com/76979871');
   });
 
   test('a record in running text stays code, as the engine prints it', async (t) => {

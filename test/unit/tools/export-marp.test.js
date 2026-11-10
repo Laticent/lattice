@@ -257,7 +257,7 @@ describe('export-marp bundle (end-to-end)', () => {
   test('marp.config.cjs carries the HTML allowlist and engine with Marp\'s math off; .vscode enables HTML and turns math off', () => {
     const cfg = fs.readFileSync(path.join(dest, 'marp.config.cjs'), 'utf8');
     assert.doesNotMatch(cfg, /html:\s*true/);
-    assert.match(cfg, /module\.exports = \{ themeSet, allowLocalFiles: true, html, engine, options: \{ math: false \} \};/);
+    assert.match(cfg, /module\.exports = \{ themeSet, allowLocalFiles: true, html, engine: \(opts\) => engine\(opts\)\.use\(latticeVideoRecords\), options: \{ math: false \} \};/);
     const settings = JSON.parse(fs.readFileSync(path.join(dest, '.vscode', 'settings.json'), 'utf8'));
     assert.equal(settings['markdown.marp.html'], 'all');
     assert.equal(settings['markdown.marp.enableHtml'], undefined);

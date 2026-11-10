@@ -13,13 +13,13 @@
  * installed binary.
  *
  * marp-cli is still not a dependency of this project (Marp is an export TARGET, HARD RULE #1): the
- * pin lives in its own folder and only these tests use it. The pin must sit inside
- * `MARP_CLI_RANGE`, the range the export bundle tells recipients to run; `marpCli()` checks that,
- * so a range bump that leaves the pin behind fails here instead of testing a version nobody runs.
+ * pin lives in its own folder and only these tests use it. The pin must EQUAL `MARP_CLI_VERSION`,
+ * the exact version the export bundle and the copy-and-go kit tell recipients to run; `marpCli()`
+ * checks that, so moving one without the other fails here instead of testing a version nobody runs.
  *
- * `LATTICE_MARP_CLI=range` restores the old route, the newest release in the range fetched with
- * npx, for a run that wants to see whether a new marp-cli release breaks the bundle. That run needs
- * the network and belongs off the per-PR path.
+ * `LATTICE_MARP_CLI=range` runs the newest release compatible with that version (`^MARP_CLI_VERSION`),
+ * fetched with npx: the canary for the next bump, which the integration nightly runs every night. It
+ * needs the network and belongs off the per-PR path.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -27,21 +27,7 @@ const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..', '..');
 const PIN_DIR = path.join(ROOT, 'test', 'fixtures', 'marp-cli');
-const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'export', 'marp-bundle.js'));
-
-/**
- * Whether the exact version `pin` sits inside a caret range (`^4.3.1`): same major, and at or above the floor. Only the
- * caret form is read, so a range written another way fails loudly here instead of being misread.
- */
-function insideCaret(pin, range) {
-	const v = /^(\d+)\.(\d+)\.(\d+)$/.exec(pin);
-	const r = /^\^(\d+)\.(\d+)\.(\d+)$/.exec(range);
-	if (!v || !r) return false;
-	const [a, b] = [v, r].map((m) => m.slice(1).map(Number));
-	if (a[0] !== b[0] || b[0] === 0) return false;
-	for (let i = 1; i < 3; i++) if (a[i] !== b[i]) return a[i] > b[i];
-	return true;
-}
+const { MARP_CLI_VERSION } = require(path.join(ROOT, 'lib', 'export', 'marp-bundle.js'));
 
 /** The exact version `test/fixtures/marp-cli/package.json` pins. */
 function pinnedVersion() {
@@ -55,15 +41,15 @@ function pinnedVersion() {
 function marpCli() {
 	if (process.env.LATTICE_MARP_CLI === 'range') {
 		const { npxSync } = require('./npx-lock');
-		const pkg = `@marp-team/marp-cli@${MARP_CLI_RANGE}`;
+		const pkg = `@marp-team/marp-cli@^${MARP_CLI_VERSION}`;
 		// It runs registry content, so with install scripts off, whatever env the caller passed.
 		const run = (args, opts = {}) => npxSync(['-y', pkg, ...args], { ...opts, env: { ...(opts.env ?? process.env), npm_config_ignore_scripts: 'true' } });
 		return { ok: true, label: `${pkg} (npx, network)`, run };
 	}
 	const pin = pinnedVersion();
-	if (!insideCaret(pin, MARP_CLI_RANGE)) {
-		// Not a skip on any machine: the pin and the range disagree in the tree itself.
-		throw new Error(`test/fixtures/marp-cli pins @marp-team/marp-cli ${pin}, which is not an exact version inside MARP_CLI_RANGE ${MARP_CLI_RANGE} (lib/export/marp-bundle.js). Move the pin into the range and refresh its lockfile.`);
+	if (pin !== MARP_CLI_VERSION) {
+		// Not a skip on any machine: the pin and the shipped version disagree in the tree itself.
+		throw new Error(`test/fixtures/marp-cli pins @marp-team/marp-cli ${pin}, but recipients are told to run MARP_CLI_VERSION ${MARP_CLI_VERSION} (lib/export/marp-bundle.js). Move both together and refresh the pin's lockfile.`);
 	}
 	const entry = path.join(PIN_DIR, 'node_modules', '@marp-team', 'marp-cli', 'marp-cli.js');
 	let installed = null;
@@ -79,4 +65,4 @@ function marpCli() {
 	return { ok: true, label: `@marp-team/marp-cli ${pin} (pinned)`, run: (args, opts) => spawnSync(process.execPath, [entry, ...args], opts) };
 }
 
-module.exports = { marpCli, pinnedVersion, insideCaret, PIN_DIR };
+module.exports = { marpCli, pinnedVersion, PIN_DIR };

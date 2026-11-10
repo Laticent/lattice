@@ -255,16 +255,17 @@ Export-to-Marp bundle — through real marp-cli, and four more files (`marp-admi
 `marp-video-link`, `marp-bundle-author-script`, `marp-bundle-shell-grammar`) render bundles with it.
 marp-cli is deliberately not a dependency (HARD RULE #1: Marp is an export target, not a render
 path): an exact pin with a lockfile lives in its own folder, `test/fixtures/marp-cli/`, and
-`test/helpers/marp-cli.js` runs its binary. The helper refuses a pin outside the range
-`lib/export/marp-bundle.js` exports (`MARP_CLI_RANGE`, what the bundle tells recipients to run),
-so a range bump that leaves the pin behind fails every Marp suite. CI installs the pin in its own
+`test/helpers/marp-cli.js` runs its binary. The pin must equal `MARP_CLI_VERSION`
+(`lib/export/marp-bundle.js`), the exact version the bundle and the copy-and-go kit tell recipients
+to run, so moving one without the other fails every Marp suite. CI installs the pin in its own
 step before any test (`Install the pinned marp-cli`, cached on the lockfile); locally, run
 `npm ci --prefix test/fixtures/marp-cli --ignore-scripts` once. Before #3045 the suites fetched the
 range with `npx` inside the test, and a slow registry cancelled them 22 times in 30 days.
 `LATTICE_MARP_CLI=range` brings that route back on purpose, for a run that wants the newest
-release in the range; it needs the network, so it runs off the per-PR path: the integration
-nightly's "Export-to-Marp on the newest marp-cli in the range" arm runs the five files that way
-every night and files the rolling issue when a new release breaks the bundle.
+release compatible with the pin (`^MARP_CLI_VERSION`), the canary for the next bump; it needs the
+network, so it runs off the per-PR path: the integration nightly's "Export-to-Marp on the newest
+marp-cli in the range" arm runs the Marp files that way every night and files the rolling issue
+when a new release breaks the bundle.
 
 **The regex census runs a pinned recheck, in its own folder, and the gate does not need it.**
 `checkRegexCensus` (`tools/check-ownership.js`, via `build:check`) holds every regex literal in

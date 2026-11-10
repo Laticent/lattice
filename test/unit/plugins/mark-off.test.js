@@ -97,7 +97,7 @@ describe('the Marp bundle carries the producer\'s admission', () => {
   // off in every bundle, math plugin on or off: it is the injection surface the bake closes.
   test('the marp config turns Marp\'s own math off, always', () => {
     assert.equal(marpConfigCjs(), MARP_CONFIG_CJS);
-    assert.match(MARP_CONFIG_CJS, /module\.exports = \{ themeSet, allowLocalFiles: true, html, engine, options: \{ math: false \} \};/);
+    assert.match(MARP_CONFIG_CJS, /module\.exports = \{ themeSet, allowLocalFiles: true, html, engine: \(opts\) => engine\(opts\)\.use\(latticeVideoRecords\), options: \{ math: false \} \};/);
   });
   test('with the math plugin off, the TeX is left as written and every $ is escaped', () => {
     const md = withRuntimeScripts('# Hi $x$\n', { overflowMarker: 'reader', pluginsOff: ['math'] });

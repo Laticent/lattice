@@ -280,8 +280,8 @@ describe('marp-bundle spec', () => {
     assert.match(r, /printed on the slides in VS Code \| The folder is not trusted/);
     assert.match(r, /Fractions and superscripts collapsed onto one line[^|]*\| The folder is not trusted/);
     assert.match(r, /`markdown\.marp\.browserPath`/);
-    // cmd.exe eats `^`, so the pasted npx line names the major only (`@4`, never `@^4.3.1`).
-    assert.match(r, /npx @marp-team\/marp-cli@\d+ /);
+    // One exact version, the one CI renders with: never a range (cmd.exe eats `^`) and never a bare major.
+    assert.match(r, /npx @marp-team\/marp-cli@\d+\.\d+\.\d+ /);
     // The fidelity intro names no row the table omits (it once promised a `![bg]` row).
     assert.doesNotMatch(r, /the `!\[bg\]` row/);
     for (const f of ['.vscode/settings.json', '.vscode/extensions.json', '.vscode/tasks.json']) assert.match(r, new RegExp(`\\| \`${f.replaceAll('.', '\\.')}\` \\|`));
