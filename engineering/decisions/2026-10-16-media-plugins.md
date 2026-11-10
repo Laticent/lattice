@@ -1124,3 +1124,10 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   lone Markdown pictures ship in 5 decks, 8 of them inside panes that fit photos their own way. Export-to-Marp writes it as
   `![bg]`. This is what lets the Studio's Placement control set the slide's class and keep an editable picture, and lets the
   deck sweep write `![…](…)` rather than a record. Identity: 462 decks, one differs (`styles-device-check`, its web-image slide).
+- 2026-11-10: **the Studio stops writing `![bg]`** (first half of the engine break; the owner chose to split it so the engine
+  stops reading the keywords only after the deck sweep). Compose's Placement control (docs/src/lib/compose/image-objects.ts
+  `placeImage`) writes the slide's class in one undo step: Left `image mirror`, Right `image`, Full `content bleed`, In the
+  text `content`, every other token kept; an old `![bg …]` alt loses its keywords and takes its description as its name.
+  Offered only for a lone picture on a `content`/`image`/class-less slide, and refused for a class in a compound comment.
+  The photo finders (card-ink-pick.ts `photoAt`) read all three spellings. Studio e2e: 20/20 on Chromium desktop and
+  phone, WebKit phone and tablet, Gecko, the control checked at 1440, 820 and 390 in each.

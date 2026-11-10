@@ -17,6 +17,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { deckSchema } from './deck-doc';
+import { classPayloadOf } from './deck-source';
 import { closeFiloGroup } from './filo-history';
 import { objectsKey } from './inline-objects';
 
@@ -130,6 +131,98 @@ export function editImage(view: EditorView, pos: number, edit: ImageEdit): boole
 	view.dispatch(tr);
 	const now = view.state.doc.nodeAt(pos);
 	return Boolean(now && now.attrs.src === attrs.src && (now.attrs.alt ?? '') === (attrs.alt ?? ''));
+}
+
+// ── Placement: the slide's, not the picture's ──────────────────────────────
+
+/**
+ * Where a picture sits is the SLIDE's choice (engineering/decisions/2026-10-16-media-plugins.md §8 decision 2, and the owner's
+ * shortcut decision of 2026-11-10): an `image` slide makes `![title](src)` its photo panel (`mirror` for the left side), a
+ * `bleed` slide makes it the background, any other slide shows it in the text. Compose writes the slide's class, never Marp's
+ * `![bg …]` keywords; an old `![bg …]` picture it is asked to place loses them, the same mapping `lint:deck --fix` uses.
+ */
+export type Placement = 'left' | 'right' | 'full' | 'none';
+
+const PLACING = new Set(['image', 'mirror', 'bleed']);
+
+/** The class tokens of a slide's directives (the first `_class` comment), or []. */
+function slideClassTokens(directives: readonly string[]): string[] {
+	const d = directives.find((x) => classPayloadOf(x) !== null);
+	return d ? (classPayloadOf(d) ?? '').trim().split(/\s+/).filter(Boolean) : [];
+}
+
+/** The placement a slide's classes give its picture. */
+export function placementOf(tokens: readonly string[]): Placement {
+	if (tokens.includes('image')) return tokens.includes('mirror') ? 'left' : 'right';
+	if (tokens.includes('bleed')) return 'full';
+	return 'none';
+}
+
+/** Whether Compose may place a picture on a slide of these classes: one whose layout is `content`, `image` or none. A quote or a
+ *  chart has a layout of its own, and turning it into an `image` slide is a layout change, made where layouts are chosen. */
+export function canPlaceOn(tokens: readonly string[]): boolean {
+	const lead = tokens.find((t) => !PLACING.has(t) || t === 'image');
+	return lead === undefined || lead === 'content' || lead === 'image';
+}
+
+/** The slide's class tokens with this placement: every other token kept, in order. */
+export function tokensWithPlacement(tokens: readonly string[], p: Placement): string[] {
+	const rest = tokens.filter((t) => !PLACING.has(t) && t !== 'content');
+	if (p === 'left') return ['image', ...rest, 'mirror'];
+	if (p === 'right') return ['image', ...rest];
+	if (p === 'full') return ['content', ...rest, 'bleed'];
+	return ['content', ...rest];
+}
+
+/** The slide's directives with its class set to `tokens`, or null when its class sits in a comment Compose does not rewrite. */
+function directivesWithClass(directives: readonly string[], tokens: readonly string[]): string[] | null {
+	const line = `<!-- _class: ${tokens.join(' ')} -->`;
+	const at = directives.findIndex((x) => classPayloadOf(x) !== null);
+	if (at < 0) return [line, ...directives];
+	// Only a comment that holds the class alone is rewritten: a compound one carries other keys this must not touch.
+	if (!/^\s*<!--\s*_class\s*:[^>]*-->\s*$/.test(directives[at])) return null;
+	return directives.map((x, i) => (i === at ? line : x));
+}
+
+/**
+ * Place the picture at `pos`: the slide's class takes the placement, and an old `![bg …]` alt becomes the picture's name (its
+ * description, or nothing). One undo step. False when the node is gone, the slide is locked, its layout is not one a picture
+ * places on, or its class sits in a compound comment.
+ */
+export function placeImage(view: EditorView, pos: number, p: Placement): boolean {
+	const node = view.state.doc.nodeAt(pos);
+	if (!isImage(node) || !node || inLockedSlide(view.state, pos)) return false;
+	const $at = view.state.doc.resolve(pos);
+	const slidePos = $at.before(1);
+	const slide = $at.node(1);
+	const directives = (slide.attrs.directives as string[] | null) ?? [];
+	const tokens = slideClassTokens(directives);
+	if (!canPlaceOn(tokens)) return false;
+	const next = directivesWithClass(directives, tokensWithPlacement(tokens, p));
+	if (!next) return false;
+	const alt = (node.attrs.alt as string | null) ?? '';
+	const wasBg = bgKeywords(alt) !== null;
+	view.dispatch(closeFiloGroup(view.state.tr));
+	const tr = view.state.tr.setNodeMarkup(slidePos, undefined, { ...slide.attrs, directives: next });
+	if (wasBg) {
+		const title = (node.attrs.title as string | null) ?? '';
+		tr.replaceWith(pos, pos + 1, imageType().create({ ...node.attrs, alt: title ? descriptionAsAlt(title) : '' }, null, node.marks));
+	}
+	tr.setSelection(NodeSelection.create(tr.doc, pos)).setMeta(objectsKey, { edited: true });
+	view.dispatch(tr);
+	return true;
+}
+
+/** The placement of the picture at `pos` and whether it may be changed here, for the panel. */
+export function placementAt(state: EditorState, pos: number): { placement: Placement; canPlace: boolean } {
+	const node = state.doc.nodeAt(pos);
+	if (!isImage(node) || !node) return { placement: 'none', canPlace: false };
+	const $at = state.doc.resolve(pos);
+	const tokens = slideClassTokens(($at.node(1).attrs.directives as string[] | null) ?? []);
+	const alt = (node.attrs.alt as string | null) ?? '';
+	// An old `![bg …]` picture is placed by its keywords until it is placed again.
+	const placement = bgKeywords(alt) !== null ? (bgSideOf(alt) === 'full' ? 'full' : bgSideOf(alt)) : placementOf(tokens);
+	return { placement, canPlace: canPlaceOn(tokens) && !inLockedSlide(state, pos) && $at.parent.childCount === 1 };
 }
 
 /** Take the image out. A paragraph left empty by it goes too, so no blank line is left on the slide. */

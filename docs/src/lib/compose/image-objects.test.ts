@@ -5,7 +5,7 @@ import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { deckSchema, deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
 import { recordOnFilo } from './filo-harness.test-util';
-import { assetNameOf, bgKeywords, bgSideOf, descriptionAsAlt, editImage, imageSourceKind, insertImage, insertImageBlocker, removeImage, withBgSide } from './image-objects';
+import { assetNameOf, bgKeywords, bgSideOf, canPlaceOn, descriptionAsAlt, editImage, imageSourceKind, insertImage, insertImageBlocker, placeImage, placementAt, placementOf, removeImage, tokensWithPlacement, withBgSide } from './image-objects';
 import { type InlineKernels, inlineObjectsPlugin, type OpenObject, openObject, openObjectEditor } from './inline-objects';
 
 const kernels = createRequire(import.meta.url)('../../../../lib/authoring/inline-editors.js') as InlineKernels;
@@ -375,5 +375,59 @@ describe('what the editor draws agrees with what the engine resolves', () => {
 	it('draws only the data types the engine accepts', () => {
 		for (const t of ['png', 'jpeg', 'gif', 'webp']) expect(imageSourceKind(`data:image/${t};base64,AAAA`), t).toBe('data');
 		for (const t of ['avif', 'jpg', 'svg+xml', 'bmp']) expect(imageSourceKind(`data:image/${t};base64,AAAA`), t).toBe('other');
+	});
+});
+
+describe('placing a picture writes the SLIDE\'s class, never `![bg]` (owner, 2026-11-10)', () => {
+	const one = (cls: string, pic: string) => [`<!-- _class: ${cls} -->`, '', '## T', '', 'Words.', '', pic].join('\n');
+
+	it('the class tokens for each placement keep every other word', () => {
+		expect(tokensWithPlacement(['content', 'dark'], 'left')).toEqual(['image', 'dark', 'mirror']);
+		expect(tokensWithPlacement(['image', 'mirror', 'dark'], 'right')).toEqual(['image', 'dark']);
+		expect(tokensWithPlacement(['image', 'dark'], 'full')).toEqual(['content', 'dark', 'bleed']);
+		expect(tokensWithPlacement(['content', 'bleed'], 'none')).toEqual(['content']);
+		expect(placementOf(['image', 'mirror'])).toBe('left');
+		expect(placementOf(['content', 'bleed'])).toBe('full');
+		expect(canPlaceOn(['quote'])).toBe(false);
+		expect(canPlaceOn([])).toBe(true);
+	});
+
+	it('a lone picture on a content slide: Left makes it `image mirror`, Full a `bleed`, In the text back to content; one undo step each', () => {
+		const view = mount(one('content', '![A lake](sample:photo-wide.jpg)'));
+		const filo = recordOnFilo(view);
+		const [pic] = images(view);
+		expect(placementAt(view.state, pic.pos)).toEqual({ placement: 'none', canPlace: true });
+		const steps = filo.history.state().steps;
+		expect(placeImage(view, pic.pos, 'left')).toBe(true);
+		expect(filo.history.state().steps).toBe(steps + 1);
+		expect(docToDeck(view.state.doc)).toMatch(/<!-- _class: image mirror -->[\s\S]*!\[A lake\]\(sample:photo-wide\.jpg\)/);
+		expect(placeImage(view, images(view)[0].pos, 'full')).toBe(true);
+		expect(docToDeck(view.state.doc)).toContain('<!-- _class: content bleed -->');
+		expect(placeImage(view, images(view)[0].pos, 'none')).toBe(true);
+		expect(docToDeck(view.state.doc)).toContain('<!-- _class: content -->');
+		expect(docToDeck(view.state.doc)).not.toMatch(/!\[bg/);
+	});
+
+	it('an old `![bg …]` picture loses its keywords when placed, and its description becomes its name', () => {
+		const view = mount(one('content', '![bg right:40% blur](asset:forest "A forest")'));
+		const [pic] = images(view);
+		expect(placementAt(view.state, pic.pos).placement).toBe('right');
+		expect(placeImage(view, pic.pos, 'right')).toBe(true);
+		const out = docToDeck(view.state.doc);
+		expect(out).toContain('<!-- _class: image -->');
+		expect(out).toContain('![A forest](asset:forest "A forest")');
+		expect(out).not.toMatch(/!\[bg/);
+	});
+
+	it('refuses a slide with a layout of its own, a picture in running text, and a compound class comment', () => {
+		const quote = mount(one('quote', '![A lake](sample:photo-wide.jpg)'));
+		expect(placementAt(quote.state, images(quote)[0].pos).canPlace).toBe(false);
+		expect(placeImage(quote, images(quote)[0].pos, 'left')).toBe(false);
+		const inline = mount(one('content', 'See ![A lake](sample:photo-wide.jpg) here.'));
+		expect(placementAt(inline.state, images(inline)[0].pos).canPlace).toBe(false);
+		const compound = mount(['<!-- _class: content --><!-- _paginate: false -->', '', '## T', '', '![A lake](sample:photo-wide.jpg)'].join('\n'));
+		const before = docToDeck(compound.state.doc);
+		expect(placeImage(compound, images(compound)[0].pos, 'left')).toBe(false);
+		expect(docToDeck(compound.state.doc)).toBe(before);
 	});
 });

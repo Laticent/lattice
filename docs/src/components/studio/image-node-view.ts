@@ -18,7 +18,7 @@
 
 import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeView } from 'prosemirror-view';
-import { assetNameOf, bgKeywords, bgSideOf, imageSourceKind } from '@/lib/compose/image-objects';
+import { assetNameOf, bgKeywords, imageSourceKind, placementAt } from '@/lib/compose/image-objects';
 import { openObjectEditor } from '@/lib/compose/inline-objects';
 import { ensureAssetUrls, onAssetUrlsChanged } from './media-urls';
 
@@ -51,12 +51,13 @@ function describe(src: string, alt: string): string {
 }
 
 /** The side a background takes, in words. */
-const SIDE_NAME = { left: 'Left side', right: 'Right side', full: 'Full slide' } as const;
 
 class ImageView implements NodeView {
 	dom: HTMLElement;
 	private btn: HTMLButtonElement;
 	private node: PMNode;
+	// The placement last painted: the slide's class decides it, so a change to the slide repaints the badge.
+	private placed = '';
 
 	constructor(
 		node: PMNode,
@@ -88,6 +89,11 @@ class ImageView implements NodeView {
 		const kind = imageSourceKind(src);
 		const name = assetNameOf(src);
 		const bg = bgKeywords(alt) !== null;
+		// Where the slide puts this picture: an old `![bg …]` by its keywords, anything else by the slide's class (placementAt).
+		const pos = this.getPos();
+		const placement = typeof pos === 'number' ? placementAt(this.view.state, pos).placement : 'none';
+		this.placed = placement;
+		const placedHere = placement !== 'none';
 		this.btn.replaceChildren();
 		this.dom.className = `cs-img${bg ? ' cs-img-bg' : ''}`;
 		this.btn.title = 'Edit this image';
@@ -113,10 +119,11 @@ class ImageView implements NodeView {
 			tile.append(label);
 			this.btn.append(tile);
 		}
-		if (bg) {
+		if (placedHere) {
 			const badge = document.createElement('span');
 			badge.className = 'cs-img-badge';
-			badge.textContent = `Background · ${SIDE_NAME[bgSideOf(alt)]}`;
+			// Short, so it fits a small tile on one line: a longer badge wrapped and covered the picture's own label.
+			badge.textContent = placement === 'full' ? 'Background' : `Panel · ${placement === 'left' ? 'Left' : 'Right'}`;
 			this.btn.append(badge);
 		}
 	}
@@ -125,7 +132,9 @@ class ImageView implements NodeView {
 		if (node.type !== this.node.type) return false;
 		const changed = node.attrs.src !== this.node.attrs.src || node.attrs.alt !== this.node.attrs.alt;
 		this.node = node;
-		if (changed) this.paint();
+		const pos = this.getPos();
+		const placement = typeof pos === 'number' ? placementAt(this.view.state, pos).placement : 'none';
+		if (changed || placement !== this.placed) this.paint();
 		return true;
 	}
 

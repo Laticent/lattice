@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getClassTokens } from '../../lib/slide-directives';
-import { applyBacking, applyLateRead, compositionOf, headingOf, photoRefOf, slideHasInk, slideNeedsInk } from './card-ink-pick';
+import { applyBacking, applyLateRead, compositionOf, headingOf, photoAt, photoRefOf, slideHasInk, slideNeedsInk  } from './card-ink-pick';
 import { photoMatches, sameSlide } from './card-ink-sampler';
 
 describe('thin spotlight card: when the backing slider should pick an ink', () => {
@@ -161,5 +161,24 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 		expect(first.removed).toBe(true);
 		expect(second.removed).toBe(true);
 		expect(getClassTokens(second.chunk)).not.toContain('ink-light');
+	});
+});
+
+describe('photoAt: the slide\'s photo however it is written (2026-11-10)', () => {
+	it('finds an old `![bg]`, a lone record, and the shortcut on an image or bleed slide', () => {
+		expect(photoAt('<!-- _class: image -->\n\n## T\n\n![bg right](a.jpg)\n')).toMatchObject({ ref: 'a.jpg' });
+		expect(photoAt('<!-- _class: image -->\n\n## T\n\n`@image{"b c.jpg", title="x"}`\n')).toMatchObject({ ref: 'b c.jpg' });
+		expect(photoAt('<!-- _class: content -->\n\n## T\n\n`@image{asset:harbor}`\n')).toMatchObject({ ref: 'asset:harbor' });
+		expect(photoAt('<!-- _class: image mirror -->\n\n## T\n\n![A lake](sample:photo-wide.jpg "Dawn")\n')).toMatchObject({ ref: 'sample:photo-wide.jpg' });
+		expect(photoAt('<!-- _class: content bleed -->\n\n## T\n\n![A lake](<a b.jpg>)\n')).toMatchObject({ ref: 'a b.jpg' });
+	});
+
+	it('a plain picture on a slide that does not place it is not the slide\'s photo', () => {
+		expect(photoAt('<!-- _class: content -->\n\n## T\n\n![A lake](sample:photo-wide.jpg)\n')).toBeNull();
+	});
+
+	it('its index is the start of the photo\'s line', () => {
+		const chunk = '<!-- _class: image -->\n\n## T\n\n![A lake](x.jpg)\n';
+		expect(chunk.slice(photoAt(chunk)?.index)).toMatch(/^!\[A lake\]/);
 	});
 });
