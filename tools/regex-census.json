@@ -1178,6 +1178,7 @@
     "/\\.(?:c?js|mjs)$/": "safe",
     "/\\.(?:manifest\\.json|essentials\\.json|css)$/": "safe",
     "/\\.(?:md|markdown)(?:[?#]|$)/i": "safe",
+    "/\\.(?:woff2?|ttf|otf)(?:[?#]|$)/i": "safe",
     "/\\.(?:woff2?|ttf|otf|eot)(?:[?#]|$)/i": "safe",
     "/\\.([\\w-]+)/g": "safe",
     "/\\.([a-z][a-z0-9-]*)/g": "safe",
