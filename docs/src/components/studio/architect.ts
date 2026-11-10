@@ -1999,6 +1999,9 @@ export function normalizeGeneration(generation: string): string {
  * (the `db-model-changed` event the adapter fires) and whenever `pulse` changes
  * (the Workspace bumps it on open so the authoritative account spend is fresh).
  */
+/** A status read gave up waiting on the OpenRouter catalog because its fetch failed: later reads do not ask again. */
+let catalogFillFailed = false;
+
 export function useArchitectStatus(pulse = 0): ArchitectStatus {
 	// The first frame paints the STORED selection (read synchronously), so nothing reflows when the
 	// model module arrives: only its readiness changes, in place.
@@ -2066,20 +2069,24 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 			} else if (cloudSelected && (readiness.provider ?? 'openrouter') === 'openrouter' && readiness.state === 'ready' && m.listOpenRouterModels) {
 				// A picked model is NAMED and PRICED from the catalog, which the model module prefetches at boot. When the
 				// status is read before that fetch lands, the name above is only the id ("test/model" shows as "Model"),
-				// and nothing read it again: the chip kept the id until the author opened it. Wait for the same
-				// in-flight, memoized catalog (no second fetch; OpenRouter only, the one catalog prefetched at boot) and fill
-				// both in. Found by model-spine.spec.ts:155 under
-				// load (followups.d/3087-p4-mobile-load-only-flakes.md).
+				// and nothing read it again: the chip kept the id until the author opened it. Found by
+				// model-spine.spec.ts:155 under load (followups.d/3087-p4-mobile-load-only-flakes.md).
+				// So fill both in when the catalog arrives (OpenRouter only, the one catalog prefetched at boot). NOT
+				// awaited: the spend fetch below must not queue behind a catalog download. And once a catalog fetch has
+				// failed, the status stops asking: `listModels` forgets a failed fetch, so every refresh (eight panels
+				// mount this hook) would otherwise start a new one. Opening the chip still loads it.
 				const id = m.openRouterModel?.() ?? null;
-				if (id && (m.openRouterModelName?.() ?? id) === id) {
-					try {
-						await m.listOpenRouterModels();
-					} catch {
-						/* the id stands in */
-					}
-					if (stale()) return;
-					const name = m.openRouterModelName?.() ?? null;
-					if (name && name !== id) setState((s) => (s.modelId === id ? { ...s, modelName: name, price: m.openRouterModelPrice?.() ?? s.price } : s));
+				if (id && !catalogFillFailed && (m.openRouterModelName?.() ?? id) === id) {
+					m.listOpenRouterModels().then(
+						() => {
+							if (stale()) return;
+							const name = m.openRouterModelName?.() ?? null;
+							if (name && name !== id) setState((s) => (s.modelId === id ? { ...s, modelName: name, price: m.openRouterModelPrice?.() ?? s.price } : s));
+						},
+						() => {
+							catalogFillFailed = true; // the id stands in
+						},
+					);
 				}
 			}
 			// Then fold in the authoritative spend when it arrives (best-effort): the

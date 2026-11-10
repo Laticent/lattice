@@ -15,6 +15,7 @@ const listed = new Promise<void>((resolve) => {
 	};
 });
 const listCalls = vi.fn(() => listed);
+const accountCalls = vi.fn(async () => null);
 
 vi.mock('@/components/studio/ai/architect-model.js', () => ({
 	loadOpenRouterKey: async () => {},
@@ -25,7 +26,7 @@ vi.mock('@/components/studio/ai/architect-model.js', () => ({
 		openRouterModelName: () => catalog?.find((m) => m.id === 'test/model')?.name ?? 'test/model',
 		openRouterModelPrice: () => (catalog ? { promptPerM: 3, completionPerM: 15 } : null),
 		listOpenRouterModels: listCalls,
-		openRouterAccount: async () => null,
+		openRouterAccount: accountCalls,
 		openRouterCredits: async () => null,
 		openRouterKeySettingsUrl: () => null,
 	}),
@@ -46,5 +47,15 @@ describe('useArchitectStatus and a catalog that lands after the status read', ()
 		});
 		await waitFor(() => expect(result.current.modelName).toBe('Test Model'));
 		expect(result.current.price).toEqual({ promptPerM: 3, completionPerM: 15 });
+	});
+
+	it('does not hold the spend readout behind the catalog', async () => {
+		// The catalog above has landed; a fresh read of a model it does not name would wait on it again. What matters
+		// here is the order: the account and credits reads start without waiting for any catalog promise.
+		accountCalls.mockClear();
+		listCalls.mockImplementationOnce(() => new Promise(() => {})); // a catalog that never lands
+		catalog = null;
+		renderHook(() => useArchitectStatus());
+		await waitFor(() => expect(accountCalls).toHaveBeenCalled());
 	});
 });
