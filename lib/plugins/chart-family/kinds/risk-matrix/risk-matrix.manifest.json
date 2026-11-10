@@ -17,7 +17,7 @@
   ],
   "renderNote": "The grid, the markers, the arrows and the key are one `<svg>`. A risk is placed by two whole numbers, so the grid is drawn in one coordinate system and the key reads its numbers off the same markers.",
   "kernel": {
-    "figureClass": "risk-matrix-figure",
+    "figureClass": "risk-matrix-figure", "form": true,
     "marks": [
       {
         "class": "risk-cell",
