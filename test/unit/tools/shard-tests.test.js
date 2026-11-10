@@ -134,6 +134,24 @@ describe('shard-tests CLI guards', () => {
     try { assert.deepEqual(expand(['test/unit/*/*.test.js']).sort(), all.sort()); } finally { process.chdir(cwd); }
   });
 
+  it('a glob whose folder does not exist stops the run instead of dropping its tests', () => {
+    withDir((dir) => {
+      // One good glob beside a renamed folder: the good one alone must not let the leg go green.
+      assert.throws(() => expand([path.join(dir, '*.test.js'), path.join(dir, 'gone', '*.test.js')]), { code: 'ENOENT' });
+      assert.notEqual(run(dir, ['*.test.js', 'gone/*.test.js']).status, 0);
+    });
+  });
+
+  it('an absolute glob expands like a relative one', () => {
+    withDir((dir) => {
+      fs.mkdirSync(path.join(dir, 'sub'));
+      fs.writeFileSync(path.join(dir, 'sub', 'y.test.js'), '');
+      const abs = dir.split(path.sep).join('/');
+      assert.deepEqual(expand([`${abs}/*.test.js`]), [`${abs}/x.test.js`]);
+      assert.deepEqual(expand([`${abs}/*/*.test.js`]), [`${abs}/sub/y.test.js`]);
+    });
+  });
+
   it('a red test makes the leg exit non-zero', () => {
     withDir((dir) => {
       fs.writeFileSync(path.join(dir, 'bad.test.js'), "require('node:test')('bad', () => { throw new Error('x'); });\n");

@@ -61,16 +61,25 @@ function expand(patterns) {
   const out = [];
   for (const p of patterns) {
     if (!p.includes('*')) { out.push(p); continue; }
-    let paths = [''];
-    for (const seg of p.split('/')) {
+    // An absolute pattern keeps its root; `join` never doubles the slash after it.
+    let paths = [p.startsWith('/') ? '/' : ''];
+    const join = (base, name) => (!base ? name : base.endsWith('/') ? `${base}${name}` : `${base}/${name}`);
+    for (const seg of p.split('/').filter(Boolean)) {
       const next = [];
       for (const base of paths) {
-        if (!seg.includes('*')) { next.push(base ? `${base}/${seg}` : seg); continue; }
-        const dir = base || '.';
-        let names = [];
-        try { names = fs.readdirSync(dir).sort(); } catch { continue; }
+        if (!seg.includes('*')) { next.push(join(base, seg)); continue; }
+        let names;
+        try {
+          names = fs.readdirSync(base || '.').sort();
+        } catch (err) {
+          // A wildcard earlier in the pattern can match a plain file (`test/unit/*` matches
+          // shard-weights.json): it has no children, so it drops out. A folder that does not
+          // exist is a renamed or mistyped glob and must stop the run, not silently skip its tests.
+          if (err.code === 'ENOTDIR') continue;
+          throw err;
+        }
         const re = segRe(seg);
-        for (const n of names) if (re.test(n)) next.push(base ? `${base}/${n}` : n);
+        for (const n of names) if (re.test(n)) next.push(join(base, n));
       }
       paths = next;
     }
