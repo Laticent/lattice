@@ -368,11 +368,9 @@ describe('descriptions: `{> prose}`', () => {
     expect(plainRecordTree('{x}')).not.toBeNull();
     expect(parseGenerated('{> x}').ok).toBe(true);
   });
-  it('it reads in time linear in its length', () => {
-    const t = (n: number) => { const s = `{> ${'ab, '.repeat(n)}}`; const a = performance.now(); parse(s); return performance.now() - a; };
-    t(2000);
-    const small = Math.max(t(20000), 0.05);
-    expect(t(200000) / small).toBeLessThan(40); // 10x the input; linear is ~10, quadratic ~100
+  it('it reads in work linear in its length', () => {
+    // 10x the input: linear reads about 10x the characters, quadratic about 100x.
+    expect(growth((n) => `{> ${'ab, '.repeat(n)}}`)).toBeLessThan(15);
   });
   it('the LL(1) prefix property holds for descriptions: a tail never moves an error into the valid part', () => {
     const TAIL = ['}', ']', '{', '[', ',', '"', '=', ' ', 'a', '\\', '|', '>'];
@@ -386,13 +384,41 @@ describe('descriptions: `{> prose}`', () => {
     }
   });
   it('unclosed and escape-heavy descriptions stay linear', () => {
-    const run = (mk: (n: number) => string) => {
-      const t = (n: number) => { const s = mk(n); const a = performance.now(); parse(s); return performance.now() - a; };
-      t(3000);
-      const small = Math.max(t(20000), 0.05);
-      return t(200000) / small;
-    };
-    expect(run((n) => `{> ${'a, '.repeat(n / 3)}`)).toBeLessThan(40);
-    expect(run((n) => `{> ${'a \\} '.repeat(n / 5)}}`)).toBeLessThan(40);
+    expect(growth((n) => `{> ${'a, '.repeat(n / 3)}`)).toBeLessThan(15);
+    expect(growth((n) => `{> ${'a \\} '.repeat(n / 5)}}`)).toBeLessThan(15);
+  });
+  it('the read count tells linear from quadratic (the meter can fail)', () => {
+    // A reader that rescans the rest of its input at every character, the shape of the bug the README names (a search
+    // that read past its attempt window on every attempt). The same meter must call it quadratic.
+    const quadratic = (s: string) => { for (let i = 0; i < s.length; i += 1) for (let j = i; j < Math.min(s.length, i + s.length / 50); j += 1) s.charCodeAt(j); };
+    expect(reads(() => quadratic('x'.repeat(20000))) * 50).toBeLessThan(reads(() => quadratic('x'.repeat(200000))));
   });
 });
+
+/**
+ * Characters the generated parser reads: one per `charCodeAt`, plus the stretch each global regex `test()` scans from its
+ * `lastIndex` (to the match, or to the end on a miss). Those are the only two ways `notation.generated.ts` reads its
+ * input, so the count is its work, the same on every machine, where a stopwatch ratio moved with the runner's load and
+ * failed a full-suite run (flaky shape F1, engineering/decisions/2026-11-06-flaky-tests.md). The wrapper in notation.ts
+ * also reads by index (`s[i]`) in single passes, which this does not see.
+ */
+function reads(run: () => void): number {
+  const code = String.prototype.charCodeAt;
+  const test = RegExp.prototype.test;
+  let n = 0;
+  String.prototype.charCodeAt = function (this: string, i: number) { n += 1; return code.call(this, i); };
+  RegExp.prototype.test = function (this: RegExp, str: string) {
+    const from = this.global || this.sticky ? this.lastIndex : 0;
+    const hit = test.call(this, str);
+    n += Math.max(0, (hit && (this.global || this.sticky) ? this.lastIndex : String(str).length) - from);
+    return hit;
+  };
+  try { run(); } finally { String.prototype.charCodeAt = code; RegExp.prototype.test = test; }
+  return n;
+}
+
+/** How much more the parser reads for 10x the input: about 10 when linear, about 100 when quadratic. */
+function growth(mk: (n: number) => string): number {
+  const small = reads(() => parse(mk(20000)));
+  return reads(() => parse(mk(200000))) / Math.max(1, small);
+}
