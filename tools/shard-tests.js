@@ -61,29 +61,31 @@ function expand(patterns) {
   const out = [];
   for (const p of patterns) {
     if (!p.includes('*')) { out.push(p); continue; }
-    // An absolute pattern keeps its root; `join` never doubles the slash after it.
-    let paths = [p.startsWith('/') ? '/' : ''];
+    // An absolute pattern keeps its root; `join` never doubles the slash after it. Each path
+    // carries whether a wildcard picked any part of it (`wild`). Under a wildcard, a path that is
+    // missing or a plain file is simply no match: `test/unit/*` also matches shard-weights.json,
+    // which has no children. On a fully literal path the folder was named by the author.
+    let paths = [{ p: p.startsWith('/') ? '/' : '', wild: false }];
     const join = (base, name) => (!base ? name : base.endsWith('/') ? `${base}${name}` : `${base}/${name}`);
     for (const seg of p.split('/').filter(Boolean)) {
       const next = [];
       for (const base of paths) {
-        if (!seg.includes('*')) { next.push(join(base, seg)); continue; }
+        if (!seg.includes('*')) { next.push({ p: join(base.p, seg), wild: base.wild }); continue; }
         let names;
         try {
-          names = fs.readdirSync(base || '.').sort();
+          names = fs.readdirSync(base.p || '.').sort();
         } catch (err) {
-          // A wildcard earlier in the pattern can match a plain file (`test/unit/*` matches
-          // shard-weights.json): it has no children, so it drops out. A folder that does not
-          // exist is a renamed or mistyped glob and must stop the run, not silently skip its tests.
-          if (err.code === 'ENOTDIR') continue;
+          // A literal folder that is missing, or now a file, is a renamed or mistyped glob: it
+          // stops the run rather than silently skipping its tests.
+          if (base.wild && (err.code === 'ENOTDIR' || err.code === 'ENOENT')) continue;
           throw err;
         }
         const re = segRe(seg);
-        for (const n of names) if (re.test(n)) next.push(join(base, n));
+        for (const n of names) if (re.test(n)) next.push({ p: join(base.p, n), wild: true });
       }
       paths = next;
     }
-    for (const f of paths) if (fs.existsSync(f) && fs.statSync(f).isFile()) out.push(f);
+    for (const { p: f } of paths) if (fs.existsSync(f) && fs.statSync(f).isFile()) out.push(f);
   }
   return [...new Set(out)];
 }

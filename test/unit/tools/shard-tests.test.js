@@ -142,6 +142,19 @@ describe('shard-tests CLI guards', () => {
     });
   });
 
+  it('a named folder that is now a file stops the run; under a wildcard it is no match', () => {
+    withDir((dir) => {
+      const abs = dir.split(path.sep).join('/');
+      fs.writeFileSync(path.join(dir, 'b'), ''); // a plain file where a folder `b` was named
+      assert.throws(() => expand([`${abs}/*.test.js`, `${abs}/b/*.test.js`]), { code: 'ENOTDIR' });
+      // `*/lit/*` over a plain file `b` and a folder `c` with no `lit`: neither is an error.
+      fs.mkdirSync(path.join(dir, 'c'));
+      fs.mkdirSync(path.join(dir, 'd', 'lit'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'd', 'lit', 'z.test.js'), '');
+      assert.deepEqual(expand([`${abs}/*/lit/*.test.js`]), [`${abs}/d/lit/z.test.js`]);
+    });
+  });
+
   it('an absolute glob expands like a relative one', () => {
     withDir((dir) => {
       fs.mkdirSync(path.join(dir, 'sub'));
