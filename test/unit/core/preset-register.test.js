@@ -25,6 +25,7 @@ const { EYEBROW_NAMES } = require(path.join(ROOT, 'lib/core/resolve-eyebrow.js')
 const { HEADLINE_NAMES } = require(path.join(ROOT, 'lib/core/resolve-headline.js'));
 const { LIFT_NAMES } = require(path.join(ROOT, 'lib/core/resolve-lift.js'));
 const { CORNERS_NAMES } = require(path.join(ROOT, 'lib/core/resolve-corners.js'));
+const { TYPOGRAPHY_NAMES } = require(path.join(ROOT, 'lib/core/resolve-typography.js'));
 const {
   SPECTRUM_NAMES, SPECTRUM_EDGE_NAMES, SPECTRUM_CARD_NAMES, SPECTRUM_CARD_EDGE_NAMES, SPECTRUM_TRIM_NAMES,
 } = require(path.join(ROOT, 'lib/core/resolve-spectrum.js'));
@@ -41,6 +42,7 @@ const VOCAB = {
   headline: HEADLINE_NAMES,
   lift: LIFT_NAMES,
   corners: CORNERS_NAMES,
+  typography: TYPOGRAPHY_NAMES,
 };
 
 const deck = (fm) => ['---', 'theme: indaco', ...fm, '---', '', '# Cover', '', '---', '', '## Second', '', 'Body.'].join('\n');
@@ -93,10 +95,10 @@ test('the engine stamps a preset on every slide, and an explicit key overrides i
   assert.equal(brand.length, 2);
   for (const cls of none) {
     // THE CONTROL: none of these tokens ships on a deck with no preset.
-    for (const t of ['spectrum-solid', 'with-spectrum-trim', 'rule-accent', 'eyebrow-dot', 'lifted']) assert.ok(!cls.has(t), t);
+    for (const t of ['spectrum-solid', 'with-spectrum-trim', 'rule-accent', 'eyebrow-dot', 'lifted', 'typography-poster']) assert.ok(!cls.has(t), t);
   }
   for (const cls of brand) {
-    for (const t of ['spectrum-solid', 'with-spectrum-trim', 'rule-accent', 'eyebrow-dot', 'lifted']) assert.ok(cls.has(t), t);
+    for (const t of ['spectrum-solid', 'with-spectrum-trim', 'rule-accent', 'eyebrow-dot', 'lifted', 'typography-poster']) assert.ok(cls.has(t), t);
   }
   for (const cls of override) {
     assert.ok(cls.has('no-heading-rule'));
@@ -142,4 +144,14 @@ test('a preset renders its backdrop and alignment, and an explicit finish: none 
     assert.ok(!cls.has('finish-ledger'));
     assert.ok(cls.has('head-left'), 'the rest of the preset still applies');
   }
+});
+
+test('the engine stamps the set class a preset carries, and an explicit typography: wins', () => {
+  for (const cls of sectionClasses(render(['preset: editorial']))) assert.ok(cls.has('typography-ledger'));
+  for (const cls of sectionClasses(render(['preset: editorial', 'typography: festival']))) {
+    assert.ok(cls.has('typography-festival'));
+    assert.ok(!cls.has('typography-ledger'));
+  }
+  // classic stamps nothing, so `typography: classic` undoes a preset's set.
+  for (const cls of sectionClasses(render(['preset: brand', 'typography: classic']))) assert.ok(![...cls].some((t) => t.startsWith('typography-')));
 });

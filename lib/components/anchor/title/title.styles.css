@@ -41,12 +41,14 @@ section.title p  { color:var(--on-dark-secondary); font-size:var(--fs-message); 
  * Overrides the general subtitle rule (italic, body font) for section.title only. */
 section.title h1 + p:has(> code:only-child):not(:where([data-prose])) { order:-1; margin:0; padding-top:0; padding-bottom:0.3125cqi; }
 section.title h1 + p:has(> code:only-child):not(:where([data-prose])) > code {
-  font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  font-style: normal;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  /* The eyebrow's voice (lib/base/base.typography.css), at half the heading's size: a bookend
+   * eyebrow at label size is stranded above display type (type-hierarchy-study §4 rule 7). */
+  font-family: var(--eyebrow-face);
+  font-size: max(var(--fs-meta), calc(var(--fs-h1) * var(--eyebrow-anchor-scale)));
+  font-style: var(--eyebrow-style);
+  font-weight: var(--eyebrow-weight);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: var(--eyebrow-case);
   color: var(--on-dark-secondary);
   background: none;
   border: none;

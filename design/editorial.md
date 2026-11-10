@@ -135,8 +135,8 @@ Parallel structure helps the reader scan the cards as a set.
 
 ## Eyebrows over preambles
 
-Mono-uppercase eyebrows (`` `Context · Why this matters` `` as an inline-code
-paragraph above the heading) carry positioning information without using a
+Eyebrows (`` `Context · Why this matters` `` as an inline-code paragraph above
+the heading, set in the heading face's italic) carry positioning information without using a
 sentence to do it. Use an eyebrow to say where the slide sits in the
 argument. Don't open the body with "In this section we'll discuss..." —
 the eyebrow already told the reader.

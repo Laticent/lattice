@@ -1,0 +1,89 @@
+/* base.typography.css — the type voices, and the curated `typography:` sets that move them.
+ *
+ * WHAT A SET IS. One front-matter word (`typography: ledger`) picks the heading and body faces,
+ * the eyebrow's voice and the chart's text voice, audited together. There is no free font knob:
+ * the hierarchy study measured 54 free combinations and 30 broke its rules, so the axes stay
+ * inside the sets (engineering/decisions/2026-11-09-type-voices.md § Decided;
+ * 2026-11-09-type-hierarchy-study.md §4 for the nine rules). The register resolves in
+ * lib/core/resolve-typography.js and stamps `typography-<set>` on every slide; `classic` is the
+ * default and stamps nothing.
+ *
+ * THE VOICES (every set):
+ *   · chrome — header, meta line, footer, page number: today's mono capitals, untouched.
+ *   · eyebrow — CONTENT, not chrome: the heading face's italic, in the author's case, a size
+ *     step above the chrome (never under the meta role), half the heading on a bookend
+ *     (rules 2, 6, 7). Read by base.modifiers.css and the bookends' own eyebrow rules.
+ *   · chart text — ticks, category labels and keys in the body face with aligned figures
+ *     (rules 3, 8, 9); data labels in --chart-figure-face, which is the body face unless the
+ *     heading face carries tabular figures. Read by chart-family.styles.css.
+ *
+ * WHY `:root, section` AND NOT `:root`. A custom property that names another (`var(--font-display)`)
+ * resolves where it is DECLARED and is inherited as a value. Declared on `:root` alone, the
+ * eyebrow face would be computed once from the root's Playfair Display and never follow a
+ * set that re-points --font-display on its section. Declared on each section too, it recomputes
+ * against that section's own faces.
+ *
+ * SIZE (rule 5: hold the x-height a reader sees). A set face carries its own `size-adjust` on its
+ * @font-face (lib/fonts/text-faces.js `sizeAdjust`): Inter 87%, Fraunces 92%, Barlow Condensed 110%,
+ * Newsreader 100%. The factor follows the FACE wherever it is drawn — a heading, a chart label, a
+ * blockquote set in the display face at body size — so no rule can pair a face with the wrong
+ * factor. The `--fs-*` sizes do not change, and the office exports multiply the factor in from the
+ * loaded face (docs/src/lib/calco/reader.ts). Classic's faces carry none.
+ *
+ * THE PLAYER'S ARTICLE VIEW. Read · Article re-hosts the slides' content outside any <section>, so
+ * these section rules cannot reach it (and the ownership guard keeps token declarations on `:root`
+ * and `section` classes). lib/export/player-core.mjs writes the article's own rules from the set
+ * table in lib/core/resolve-typography.js (`articleTypographyCss`).
+ *
+ * ORDER. Bundled right after base.tokens.css (tools/build-css.js), so every component reads the
+ * tokens, and long before base.sketch.css, whose `section.sketch` re-pointing of the faces and
+ * the eyebrow win by source order: sketch owns its own type, whatever set a deck names.
+ * Palette-blind: no color is set here (HARD RULE #3).
+ */
+
+:root, section {
+  --eyebrow-face:         var(--font-display);
+  --eyebrow-style:        italic;
+  --eyebrow-weight:       400;
+  --eyebrow-case:         none;
+  --eyebrow-tracking:     0;
+  /* × --chrome-fs on a content slide, never under --fs-meta; × --fs-h1 on a bookend. */
+  --eyebrow-scale:        1.45;
+  --eyebrow-anchor-scale: 0.5;
+  --chart-text-face:      var(--font-body);
+  --chart-figure-face:    var(--font-body);
+}
+
+/* ledger — Newsreader + Inter. Reports, government, academic. Newsreader sets tabular figures
+ * by default, so the chart's data labels take the heading face. */
+section.typography-ledger {
+  --font-display: 'Newsreader', Georgia, serif, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-body:    'Inter', system-ui, sans-serif, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji';
+  --chart-figure-face: var(--font-display);
+}
+
+/* poster — Barlow Condensed + Inter. Launches, sales, brand. The condensed heading is set 1.1×
+ * larger, which opens the heading-to-body step without costing width (the study's 1.2× clipped a
+ * split cover at hall on a square slide, whose h1-sized cover heading is set in the BODY face); Barlow Condensed ships a
+ * real italic for the eyebrow. Its figures are tabular only through `tnum`, which the PPTX and ODP
+ * exports do not apply, so the chart's data labels stay in Inter. */
+section.typography-poster {
+  --font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-body:    'Inter', system-ui, sans-serif, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji';
+}
+
+/* festival — Fraunces + Inter. Culture, nonprofit, donor decks. Fraunces has no tabular
+ * figures, so the chart's data labels stay in the body face. */
+section.typography-festival {
+  --font-display: 'Fraunces', Georgia, serif, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-body:    'Inter', system-ui, sans-serif, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji';
+}
+
+/* classic, per slide — `_class: typography-classic` returns one slide of a set deck to the default
+ * faces (the deck-wide default stamps nothing, so this rule only ever undoes a set). The stacks
+ * repeat base.tokens.css's on purpose: `:root`'s values are what the set re-pointed away from. */
+section.typography-classic {
+  --font-display: 'Playfair Display', Georgia, serif, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-body:    'Outfit', system-ui, sans-serif, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji';
+  --chart-figure-face: var(--font-body);
+}

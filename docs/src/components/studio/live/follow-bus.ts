@@ -28,7 +28,7 @@ export const FOCUS_ROWS = [
 	'page-numbers', 'play', 'preset', 'remove-reader-view', 'rename', 'section-rail',
 	'shape', 'size', 'slide-splitting', 'speed', 'stamp-shape',
 	'structural-trim', 'style', 'theme', 'tone-shape',
-	'type-scale', 'venue',
+	'type-scale', 'typography', 'venue',
 	// The Content tab's switches (switch-controls.ts `CONTENT_SWITCHES`), drawn from the table, not typed labels.
 	'below-note', 'heading-period', 'table-row-label', 'pane-spine', 'callouts', 'hide-the-deck-s-tints',
 ] as const;

@@ -507,8 +507,8 @@ Studio ran html-to-image, which copies computed styles onto a clone and floors e
 pixels off by more than 8 levels, worst 21%) and the Studio's PNG set was 39 MB against 26 MB.
 
 `lib/core/slide-camera.mjs` is now the only camera. It runs in a page (the Studio's tab, the CLI's headless Chrome) and
-needs one thing from its host, `toDataUri(url)`, which turns a picture address into a `data:` URI: the Studio fetches
-`blob:` and same-origin URLs, the CLI reads confined local files (`lib/export/cli-camera.js`).
+needs one thing from its host, `toDataUri(url)`, which turns a picture or font address into a `data:` URI: the Studio fetches
+`blob:` and same-origin URLs, the CLI reads confined local files (`lib/export/cli-camera.js` `createCameraReader`).
 
 In the CLI the camera runs in an **isolated world**, a second JavaScript context over the same page (the one browser extensions
 use), because the page also runs the deck's own scripts. The deck's world cannot see the camera's globals, so a script that
@@ -586,6 +586,15 @@ hack worked around html-to-image's border-image bug.
 
 - **PDF:** the shared writer embeds every web font the deck draws with, cut to the characters used (HarfBuzz; the same code in
   both hosts). Both hosts' PDFs of a 52-slide deck carry the same 14 embedded faces and no system font.
+- **A deck's own fonts (#3095).** A `@font-face` in the deck's `style:` block or a `--css` sheet that names a file, such as
+  `url('fonts/x.woff2')`, loads in every format, not only HTML. The PDF writer reads it through `lib/export/pdf-asset-reader.js`;
+  the slide camera (PNG, image set, raster PDF, picture-mode office files, the PDF's photo layer) reads it through
+  `createCameraReader` in `lib/export/cli-camera.js`. Both read only inside the same roots, by real path: the deck's folder,
+  Lattice's install, and the folder of a stylesheet or palette the command line names (`lib/core/file-confine.js`). The camera
+  also checks the bytes are a font by magic number. A face it refuses (a file outside those roots, or any `http(s)` font, which is
+  never fetched, `--allow-remote` included) prints `⚠ a font could not be read for the export …` with the address and the reason,
+  and that text draws in the fallback face. Until #3095 the camera answered fonts with the player's picture-only reader, so a PNG
+  fell back silently except for a warning that called the font "a picture".
 - **PowerPoint and LibreOffice, picture mode:** no live text, so no fonts to embed; the type is in the picture.
 - **PowerPoint and LibreOffice, editable mode:** Calco embeds the deck's faces (`ppt/fonts/*.fntdata` in a `.pptx`, `Fonts/*.ttf`
   in an `.odp`). A face is left out when the host has no file for the family (a system font such as Arial) or its OS/2 `fsType`

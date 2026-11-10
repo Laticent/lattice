@@ -122,9 +122,13 @@ describe('calco odp — editable text', () => {
     deck.slides[0].frames = [
       frame([[{ text: 'flat', style: style({ alpha: 0.76, color: '#ffffff', flatColor: '#c2cad3', letterSpacing: 2 }) }]]),
       frame([[{ text: 'loose', style: style({ alpha: 0.5, color: '#ffffff' }) }]], { y: 400 }),
+      frame([[{ text: 'near', style: style({ alpha: 0.76, color: '#ffffff', nearColor: '#c2d0da' }) }]], { y: 600 }),
     ];
     const content = await read((await open(deck)).zip, 'content.xml');
     assert.match(content, /fo:color="#c2cad3"(?! loext)/, 'the blended color, no opacity');
+    // Over a gradient: the near color, because Collabora Online fills each letter of a translucent run as a block.
+    assert.match(content, /fo:color="#c2d0da"(?! loext)/, 'the near color, no opacity');
+    assert.equal((content.match(/loext:opacity=/g) || []).length, 1, 'opacity only on the run with no solid color under it');
     assert.match(content, /fo:color="#ffffff" loext:opacity="50%"/);
   });
 

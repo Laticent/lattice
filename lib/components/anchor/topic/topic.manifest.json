@@ -36,7 +36,7 @@
     "eyebrow": {
       "selector": "p:first-of-type > code",
       "required": false,
-      "description": "The section this topic sits in, as inline code. Mono caps, top-left. Usually the divider's own label — `Section 02 · Unit economics`. Leave it out and `lib/transformers/topic-track.js` DERIVES it from the deck — `02 · Unit economics`, the number the section rail lights and the name of the divider above — whenever the deck has two or more sections and the rail is not switched off (`progress-rail: off`, `no-progress`). Yours always wins; write one to use words, a different label, or a language the figures do not need."
+      "description": "The section this topic sits in, as inline code. Set in the eyebrow voice (the heading face's italic), top-left. Usually the divider's own label — `Section 02 · Unit economics`. Leave it out and `lib/transformers/topic-track.js` DERIVES it from the deck — `02 · Unit economics`, the number the section rail lights and the name of the divider above — whenever the deck has two or more sections and the rail is not switched off (`progress-rail: off`, `no-progress`). Yours always wins; write one to use words, a different label, or a language the figures do not need."
     },
     "heading": {
       "selector": "h2",

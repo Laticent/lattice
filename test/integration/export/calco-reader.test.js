@@ -187,6 +187,8 @@ const REVIEW_FIXTURE = `<!doctype html><html><head><style>
   .grad { left: 700px; top: 560px; width: 400px; padding: 10px; background: #003366 linear-gradient(90deg, #00aa00 0 6px, transparent 6px); }
   .grad p { margin: 0; color: rgba(255, 255, 255, 0.76); letter-spacing: 3px; font-size: 14px; }
   .grad .plain { letter-spacing: normal; }
+  .bare { left: 40px; top: 400px; width: 300px; padding: 10px; background: linear-gradient(#001122, #002244); }
+  .bare p { margin: 0; color: rgba(255, 255, 255, 0.76); font-size: 14px; }
   .veil { left: 700px; top: 640px; width: 400px; padding: 10px; background: rgba(0, 51, 102, 0.8); }
   .veil p { margin: 0; color: rgba(255, 255, 255, 0.76); letter-spacing: 3px; font-size: 14px; }
   .veil .plain { letter-spacing: normal; }
@@ -225,6 +227,7 @@ third</pre>
   <pre class="wrapcode">const value = "a long string that wraps";</pre>
   <p class="chip"><code>render</code> is derived</p>
   <div class="grad"><p>THE PREMISE</p><p class="plain">Not spaced</p></div>
+  <div class="bare"><p>Bare panel</p></div>
   <div class="photo"><div class="veil2"><p>OVER A PHOTO</p></div></div>
   <div class="veil"><p>THE ATELIER</p><p class="plain">Plain veil</p></div>
   <p class="sc"><span class="k">Pain</span> scale <code>roadmap</code> now render</p>
@@ -349,6 +352,15 @@ describe('calco reader: the review cases', () => {
   test('letter-spaced translucent text over a gradient is flattened (LibreOffice clips it otherwise)', () => {
     assert.equal(find(/THE PREMISE/).lines[0][0].style.flatColor, '#c2ceda');
     assert.equal(find(/Not spaced/).lines[0][0].style.flatColor, undefined, 'unspaced text keeps its opacity over a gradient');
+  });
+
+  test('translucent text over a gradient carries a near color for the ODP writer (Collabora fills translucent letters)', () => {
+    const near = find(/Not spaced/).lines[0][0].style.nearColor;
+    assert.match(String(near), /^#[0-9a-f]{6}$/, 'the solid color under the gradient stands in');
+    assert.ok(find(/Plain veil/).lines[0][0].style.nearColor, 'over a translucent panel on a solid color too');
+    assert.equal(find(/OVER A PHOTO/).lines[0][0].style.nearColor, undefined, 'never over a photo');
+    assert.equal(find(/Bare panel/).lines[0][0].style.nearColor, undefined, 'a gradient with no color of its own under it: the slide behind says nothing about it');
+    assert.equal(find(/THE PREMISE/).lines[0][0].style.nearColor, undefined, 'a run with a flat color needs none');
   });
 
   test('letter-spaced translucent text over a translucent panel is flattened too (the dark collage eyebrow)', () => {

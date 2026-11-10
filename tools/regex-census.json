@@ -268,6 +268,7 @@
     "/'/": "safe",
     "/'/g": "safe",
     "/(!\\[[^\\]]*\\]\\()([^)\\s]+)(\\s*(?:\"[^\"]*\")?\\))/g": "polynomial",
+    "/(--(?:font-display|font-body|eyebrow-(?:face|style|weight|case|tracking|scale|anchor-scale)|chart-text-face|chart-figure-face))[ \\t]*:/g": "safe",
     "/(--[a-zA-Z0-9-]+)\\s*:/g": "polynomial",
     "/(--[a-zA-Z0-9-]+)\\s*:\\s*([^;{}]*light-dark[^;{}]*?)\\s*(?=[;}])/g": {
       "verdict": "unknown",
@@ -1177,6 +1178,7 @@
     "/\\.(?:c?js|mjs)$/": "safe",
     "/\\.(?:manifest\\.json|essentials\\.json|css)$/": "safe",
     "/\\.(?:md|markdown)(?:[?#]|$)/i": "safe",
+    "/\\.(?:woff2?|ttf|otf)(?:[?#]|$)/i": "safe",
     "/\\.(?:woff2?|ttf|otf|eot)(?:[?#]|$)/i": "safe",
     "/\\.([\\w-]+)/g": "safe",
     "/\\.([a-z][a-z0-9-]*)/g": "safe",
@@ -1340,6 +1342,7 @@
     "/\\bstatus\\b/": "safe",
     "/\\btype\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))/i": "safe",
     "/\\btype\\s*=\\s*[\"'][^\"']*json/i": "safe",
+    "/\\btypography-(ledger|poster|festival)\\b/g": "safe",
     "/\\burl\\s*\\(/i": "safe",
     "/\\bvar\\(/i": "safe",
     "/\\bviewBox=/i": "safe",
@@ -2696,6 +2699,7 @@
       "why": "recheck cannot model it: look-ahead assertion"
     },
     "/^tools\\/script-docs\\//": "safe",
+    "/^typography-[a-z]+$/": "safe",
     "/^u\\+/i": "safe",
     "/^url\\(/": "safe",
     "/^url\\([^()\"'\\\\{}<>\\r\\n\\f]*\\)$/i": "safe",

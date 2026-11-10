@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   Chrome and the eyebrow become curated, author-chosen type voices. Agreed with the owner: the eyebrow is content and
   must read apart from chrome; all chrome shares one style (one face, size, weight and ink, tracking set by case); the
@@ -15,7 +15,7 @@ summary: >
 # Type voices: chrome and the eyebrow, curated for the author
 
 **Date:** 2026-11-09 · **Discussed with:** the owner, on PR #3095, after the anchor-chrome work
-(`2026-11-08-anchor-chrome.md`) · **Status:** proposed; no code yet · **Follow-up:**
+(`2026-11-08-anchor-chrome.md`) · **Status:** shipped; the four sets shipped 2026-11-10 (§ Shipped) · **Follow-up:**
 `followups.d/3095-p1-type-voices.md`
 
 ## Why this came up
@@ -138,6 +138,40 @@ proposed keys" above** wherever the two differ.
    face still owes the export sign-off: PDF, editable PPTX and ODP renders in light and dark, sent to the owner.
 8. **Sector defaults are a hypothesis to measure, not a ruling**: render two or three exemplars per sector
    (`exemplars/`) in their proposed set and score them before any sector default is written down.
+
+## Shipped (2026-11-10): the register, the four sets and the gate
+
+What landed, against the eight items above:
+
+1. **`typography:`** resolves in `lib/core/resolve-typography.js` (a leaf, so the Studio imports it)
+   and stamps `typography-<set>` on every slide; `classic` stamps nothing. The CSS is
+   `lib/base/base.typography.css`.
+2. **The four sets** match the table, with one refinement the table did not state: a set re-points
+   faces with a size factor on the face itself (study §4 rule 5): an `@font-face` `size-adjust` —
+   Inter 87% holds Outfit's x-height; display faces are capped by width, Barlow Condensed 110%,
+   Newsreader 100%, Fraunces 92%, because at 110% ledger and festival wrapped two gallery headings.
+   The factor follows the face wherever it is drawn; Calco multiplies it into each PPTX/ODP run. (A
+   first cut keyed it to the `--fs-*` roles and mis-scaled about ten rules that set the display face at
+   body size; the red team found it.) `poster`'s chart data
+   labels moved to Inter: Barlow's figures align only through `tnum`, which PPTX and ODP drop.
+3. **Presets** carry the set (`editorial` → `ledger`, `brand` → `poster`), through the existing
+   preset table in `lib/core/front-matter-key.js`; `minimal` keeps `classic` until its own set ships.
+4. **The restyle** is as recorded: every deck now has the italic heading-face eyebrow (half the
+   heading on a title, dark divider and closing — rule 7), body-face chart text with aligned figures, and
+   the quote credit in tracked capitals. `mode: sketch` keeps its own hand eyebrow (`base.sketch.css`).
+5. **`type:`** is answered by `unknown-key` with "did you mean `typography:`?" and no autofix.
+6. **The gate** is `test/integration/type-voices/typography-sets.test.js`: 14 palette themes × 4 sets ×
+   2 modes = 112 runs of `tools/type-voice-audit.mjs` (which gained `--typography` and `--keep`), with
+   an arm that proves a mono eyebrow fails it. All 112 pass. `typography-style-override` is the lint.
+7. **Fonts**: Newsreader, Fraunces, Barlow Condensed (each 400/700 and their italics, plus Barlow 600)
+   and Inter (300–700) ship through `lib/fonts/text-faces.js`, about 0.45 MB of latin woff2 in all.
+8. **Not done:** the sector exemplars, and the owner's export sign-off on PDF, editable PPTX and ODP
+   in light and dark (sent with the PR). Both stay in `followups.d/3095-p1-type-voices.md`.
+
+Not covered by the eyebrow voice: the legal components (`citation-card`, `redline`,
+`regulatory-update`, `statute-stack`, `authority-chain`), `compare-code`, `split-panel`'s watermark
+and the pane cell's title style their own labels in the label face on purpose; they read as component
+labels, not as the masthead eyebrow, and keep that voice.
 
 ## What we tried (2026-11-08), and how to reproduce it
 

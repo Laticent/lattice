@@ -157,16 +157,19 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	const textStyles = new Map<string, string>();
 	const textStyle = (s: TextStyle): string => {
 		const face = faceFor(s, used);
-		const key = JSON.stringify([face ? used.indexOf(face) : s.family, s.weight, s.italic, s.size, s.color, s.alpha, s.flatColor, s.letterSpacing, s.transform, s.underline, s.strike, !!s.smallCaps, s.highlight]);
+		const key = JSON.stringify([face ? used.indexOf(face) : s.family, s.weight, s.italic, s.size, s.color, s.alpha, s.flatColor, s.nearColor, s.letterSpacing, s.transform, s.underline, s.strike, !!s.smallCaps, s.highlight]);
 		const hit = textStyles.get(key);
 		if (hit) return hit;
 		const name = `T${textStyles.size + 1}`;
 		textStyles.set(key, name);
 		// Prefer the blended color: a translucent run that is ALSO letter-spaced is clipped
-		// by LibreOffice at its un-spaced width (measured, LibreOffice 7). Opacity only
-		// survives when there is no solid background to blend over.
-		const color = s.alpha < 1 && s.flatColor ? s.flatColor : s.color;
-		const opacity = s.alpha < 1 && !s.flatColor ? ` loext:opacity="${Math.round(s.alpha * 100)}%"` : '';
+		// by LibreOffice at its un-spaced width (measured, LibreOffice 7), and Collabora Online
+		// fills every letter of a translucent run as a solid block (seen 2026-11-10). Over a
+		// gradient the solid color under it stands in (`nearColor`); opacity only survives
+		// over a picture, where there is nothing solid to blend over.
+		const flat = s.alpha < 1 ? s.flatColor || s.nearColor : undefined;
+		const color = flat || s.color;
+		const opacity = s.alpha < 1 && !flat ? ` loext:opacity="${Math.round(s.alpha * 100)}%"` : '';
 		const entry = face ? entryOf(face) : undefined;
 		// A renamed face IS its weight and slant; asking for them again would synthesize a
 		// second bold. Only a nearest-weight stand-in lighter than a bold run is made bold.

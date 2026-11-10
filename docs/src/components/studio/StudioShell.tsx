@@ -173,6 +173,7 @@ import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type Switc
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
+import { deckTypography, TYPOGRAPHY_OPTIONS, withTypography } from './typography';
 import type { UndoDoorbell } from './undo-doorbell';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
@@ -2884,6 +2885,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// `null` is "Default": the line is removed, and the deck renders at the designed size.
 	const deckVenue = readDeckVenue(source);
 	const setDeckVenue = (value: VenueName | null) => settingsWrite(value ? `Venue → ${venueOption(value)?.label}` : 'Venue → default', (s) => withVenue(s, value));
+	// Typography — the curated type set (`typography:`, lib/core/resolve-typography.js): faces,
+	// eyebrow and chart text chosen together. A preset carries one, so the value and the write go
+	// through the preset-aware helpers (typography.ts).
+	const deckType = deckTypography(source);
+	const setDeckType = (value: string) => settingsWrite(`Typography → ${TYPOGRAPHY_OPTIONS.find((o) => o.value === value)?.label ?? value}`, (s) => withTypography(s, value));
 	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => writeFrontMatterLine(s, 'paginate', pageNumbers ? 'false' : null));
 	// Backdrop — the deck `backdrop:` register (lib/core/resolve-backdrop.js): restraint over
 	// whatever finish is applied, written as ONE line holding up to two words (strength, mask).
@@ -6221,6 +6227,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			/>
 		</Field>
 	);
+	const typographyField = (
+		<Field label="Typography" desc="The type set: faces, eyebrow and chart text." find="type typography font fonts face typeface serif sans heading body eyebrow ledger poster festival classic" help={<>A curated set chooses the heading and body faces, the eyebrow&apos;s voice and the chart&apos;s text together, so the layers stay apart. Classic is the default; a preset picks one, and this choice wins. <code>mode: sketch</code> keeps its own hand type.</>}>
+			<CatalogSelect
+				ariaLabel="Choose deck typography"
+				className="w-full"
+				// Auto is the set the preset gives (classic with no preset); picking it drops the line.
+				{...autoField(deckType, presetBaseline(source, 'typography') || 'classic', setDeckType, [{ options: TYPOGRAPHY_OPTIONS.map((o) => ({ value: o.value, label: o.label, hint: o.faces })) }])}
+			/>
+		</Field>
+	);
 	const pageNumbersField = (
 		<Field label="Page numbers" desc="Number every slide." find="pagination paginate"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
 	);
@@ -6245,6 +6261,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{colorModeField}
 				{sizeField}
 				{venueField}
+				{typographyField}
 				<Field label="Mode" desc="Crisp, or hand-drawn." find="sketch boardroom hand drawn" help={<>The rendering hand: <strong>Boardroom</strong> is the clean default; <strong>Sketch</strong> draws headings, boxes and rules by hand. Separate from Finish — the two combine.</>}>
 					{/* The rendering MODE (boardroom / sketch) — a separate axis from Finish
 					    (the backdrop). The two compose. Front-matter key `mode:` (Marp already
@@ -6574,7 +6591,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<Field label="Heading rule" desc="The underline under a heading." help={<>A full hairline, a short rule, an accent segment, or none. <strong>Auto</strong> draws one only where the masthead already does.</>}>
 					<CatalogSelect ariaLabel="Choose heading rule" className="w-full" {...autoField(activeRule(headingRule).name, activeRule(presetBaseline(source, 'rule')).name, setHeadingRule, [{ options: catalogOptions(RULES) }])} />
 				</Field>
-				<Field label="Eyebrow" desc="The mark on the kicker line." help={<>The kicker is the small mono-caps line above a heading. This is the mark that leads it — a dot, bar, arrow, underline, or plain.</>}>
+				<Field label="Eyebrow" desc="The mark on the kicker line." help={<>The kicker is the small line above a heading, set in the type set's italic (Look → Typography). This is the mark that leads it — a dot, bar, arrow, underline, or plain.</>}>
 					<CatalogSelect ariaLabel="Choose eyebrow" className="w-full" {...autoField(activeEyebrow(eyebrow).name, activeEyebrow(presetBaseline(source, 'eyebrow')).name, setEyebrow, [{ options: catalogOptions(EYEBROWS) }])} />
 				</Field>
 				<Field label="Headline alignment" desc="Auto, or pin left / center / right." help={<>Aligns the whole framing cluster together — eyebrow, heading, rule, subtitle, note, key insight, caption. <strong>Auto</strong> keeps each component's own default.</>}>
@@ -6785,6 +6802,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{colorModeField}
 						{sizeField}
 						{venueField}
+						{typographyField}
 						{pageNumbersField}
 						{logoField}
 						<SettingsBasicFoot onShowAll={() => setSettingsTier('advanced')} />

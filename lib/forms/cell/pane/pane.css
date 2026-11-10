@@ -140,8 +140,9 @@ section .lat-pane-head > * {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-/* A PANE'S TITLE IS A LABEL, set in the slide eyebrow's voice (the `p:has(> code:only-child)`
- * eyebrow rule in base.elements.css): the slide's `##` is the one headline, and each pane names
+/* A PANE'S TITLE IS A LABEL, set in the label voice (mono tracked capitals — the voice the slide
+ * eyebrow had before the `typography:` sets moved it to the heading face's italic,
+ * lib/base/base.typography.css). It stays a label: the slide's `##` is the one headline, and each pane names
  * what it holds, the way a column or a card is labeled. It reads as the layout's own furniture
  * rather than a second, smaller slide title competing with the first (owner ruling, design note
  * §2.5). Tracked capitals are for a short label, so lint nudges a long one (`pane-title`).

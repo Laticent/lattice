@@ -1,3 +1,4 @@
+import typographyCore from '../../../../lib/core/resolve-typography.js';
 import emojiFacesCore from '../../../../lib/fonts/emoji-faces.js';
 import iconFacesCore from '../../../../lib/fonts/icon-faces.js';
 import textFacesCore from '../../../../lib/fonts/text-faces.js';
@@ -86,10 +87,13 @@ const fabricateWarm = warmable(() => Promise.all([import('./Fabricate'), import(
 let katexWarm: Warmable | null = null;
 let fontWarms: { base: string; queue: Warmable[] } | null = null;
 
-type FaceList = ReadonlyArray<{ file: string }>;
-/** Every face file the base sheet declares outside KaTeX, smallest-use-first: text, icons, then the emoji slices. */
+type FaceList = ReadonlyArray<{ file: string; family?: string }>;
+// The `typography:` sets' own faces are left out: a deck that picks a set fetches them when it renders,
+// and warming them would cost every Studio session about 0.45 MB for a set most decks never name.
+const SET_ONLY = new Set((typographyCore as { SET_ONLY_FAMILIES: readonly string[] }).SET_ONLY_FAMILIES);
+/** Every face file the base sheet declares outside KaTeX and the type sets, smallest-use-first: text, icons, then the emoji slices. */
 export const WARM_FONT_FILES: ReadonlyArray<string> = [
-	...(textFacesCore as { TEXT_FACES: FaceList }).TEXT_FACES,
+	...(textFacesCore as { TEXT_FACES: FaceList }).TEXT_FACES.filter((f) => !SET_ONLY.has(f.family ?? '')),
 	...(iconFacesCore as { ICON_FACES: FaceList }).ICON_FACES,
 	...(emojiFacesCore as { EMOJI_SLICES: FaceList }).EMOJI_SLICES,
 ].map((f) => f.file);

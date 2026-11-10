@@ -26,7 +26,12 @@
  *      footer), and whether the meta line shares the eyebrow's row.
  *
  * USAGE
- *   node tools/type-voice-audit.mjs [--theme cuoio] [--mode light|dark] [--style recipe.css] [--json]
+ *   node tools/type-voice-audit.mjs [--theme cuoio] [--mode light|dark] [--typography <set>] [--style recipe.css]
+ *                                   [--json] [--keep <dir>]
+ *
+ * `--typography` writes the deck's `typography:` key (classic, ledger, poster, festival —
+ * lib/core/resolve-typography.js), so a shipped set is audited as an author would write it.
+ * `--keep <dir>` leaves the probe deck and its HTML there instead of in a temp folder.
  *
  * Needs `npm run build` (dist/lattice.js) and Playwright's Chromium (pre-installed in the sandbox).
  * Exit 0 always: it reports, it does not judge.
@@ -45,13 +50,15 @@ const opt = (name, dflt) => { const i = args.indexOf(`--${name}`); return i >= 0
 const theme = opt('theme', 'cuoio');
 const mode = opt('mode', 'light');
 const styleFile = opt('style', null);
+const typography = opt('typography', null);
+const keepDir = opt('keep', null);
 const asJson = args.includes('--json');
 
 const PROBE = `---
 marp: true
 theme: ${theme}
 color-mode: ${mode}
-paginate: true
+${typography ? `typography: ${typography}\n` : ''}paginate: true
 header: "Northwind · Board review"
 meta: "Q3 2026 · Finance"
 footer: "Confidential · prepared for the board"
@@ -210,7 +217,8 @@ const deltaE = (a, b) => { const x = oklab(a), y = oklab(b); return Math.hypot(x
 const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 
 async function main() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'type-voice-'));
+  if (keepDir) fs.mkdirSync(path.resolve(keepDir), { recursive: true });
+  const dir = keepDir ? path.resolve(keepDir) : fs.mkdtempSync(path.join(os.tmpdir(), 'type-voice-'));
   let style = '';
   if (styleFile) {
     const css = fs.readFileSync(path.resolve(styleFile), 'utf8');
@@ -229,6 +237,19 @@ async function main() {
   await page.evaluate(() => document.fonts.ready);
   const { unloaded, runs, gaps } = await page.evaluate(() => {
     const runs = [];
+    // A face's @font-face `size-adjust` (a `typography:` set face, lib/fonts/text-faces.js) scales the glyphs
+    // without changing the computed font-size, so a run's size is font-size × the loaded face's factor: the
+    // size a reader sees, the one the office exports write (docs/src/lib/calco/reader.ts does the same).
+    const adjustOf = (family, weight, italic) => {
+      let best = null;
+      document.fonts.forEach((f) => {
+        if (f.status !== 'loaded' || f.family.replace(/["']/g, '').toLowerCase() !== family.toLowerCase()) return;
+        const raw = String(f.sizeAdjust || '100%');
+        const d = Math.abs((parseFloat(f.weight) || 400) - weight) + ((f.style === 'italic') !== italic ? 1000 : 0);
+        if (!best || d < best.d) best = { d, k: raw.endsWith('%') ? parseFloat(raw) / 100 : 1 };
+      });
+      return best ? best.k : 1;
+    };
     const secs = [...document.querySelectorAll('section')];
     secs.forEach((sec, i) => {
       const bg = getComputedStyle(sec).backgroundColor;
@@ -245,8 +266,9 @@ async function main() {
         const cs = getComputedStyle(el);
         if (cs.visibility === 'hidden' || +cs.opacity === 0) continue;
         const em = parseFloat(cs.fontSize);
-        let px = em;
-        if (el instanceof SVGElement && el.getScreenCTM) { const m = el.getScreenCTM(); px = em * Math.hypot(m.a, m.b); }
+        const face0 = cs.fontFamily.split(',')[0].replace(/["']/g, '').trim();
+        let px = em * adjustOf(face0, parseFloat(cs.fontWeight) || 400, cs.fontStyle === 'italic');
+        if (el instanceof SVGElement && el.getScreenCTM) { const m = el.getScreenCTM(); px *= Math.hypot(m.a, m.b); }
         const cls = (el.getAttribute('class') || '').split(/\s+/).filter(Boolean).slice(0, 2).join('.');
         runs.push({
           slide: i + 1, el: el.tagName.toLowerCase() + (cls ? `.${cls}` : ''), text: text.slice(0, 32),
@@ -266,7 +288,7 @@ async function main() {
     return { unloaded, runs, gaps: { header: tight('header'), eyebrow: tight('p > code'), h2: tight('h2'), first: tight('li'), last: tight('li:last-child'), footer: tight('footer'), meta: tight('.tile-meta') } };
   });
   await browser.close();
-  fs.rmSync(dir, { recursive: true, force: true });
+  if (!keepDir) fs.rmSync(dir, { recursive: true, force: true });
 
   // Measure each role ON EACH SLIDE: a role's ink and size change with the slide's background and kind, so a pair is
   // only ever compared where both roles stand on the same slide. A pair's verdict is its worst slide (fewest axes).
@@ -325,7 +347,7 @@ async function main() {
   };
 
   if (unloaded.length) console.error(`warning: no loaded face for ${unloaded.join(', ')}; those rows measure a fallback font`);
-  if (asJson) { console.log(JSON.stringify({ theme, mode, style: styleFile, roles: list, collisions: pairs, space }, null, 2)); return; }
+  if (asJson) { console.log(JSON.stringify({ theme, mode, style: styleFile, typography, unloaded, roles: list, collisions: pairs, space }, null, 2)); return; }
   console.log(`type-voice-audit · ${theme} · ${mode}${styleFile ? ` · ${path.basename(styleFile)}` : ''}\n`);
   console.log('| Role | Face | px @1280 | Weight | Case · tracking | Contrast (worst slide) |');
   console.log('|---|---|---|---|---|---|');

@@ -354,7 +354,7 @@
     "test:integration:pr": "node --test 'test/integration/parity/*.test.js' 'test/integration/export/*.test.js' 'test/integration/invariants/*.test.js'",
     "test:unit:shard": "node tools/shard-tests.js --weights test/unit/shard-weights.json --reporter dot 'test/unit/*/*.test.js'",
     "test:integration:shard": "node tools/shard-tests.js --weights test/integration/shard-weights.json 'test/integration/parity/*.test.js' 'test/integration/export/*.test.js' 'test/integration/invariants/*.test.js'",
-    "test:integration:nightly": "node --test 'test/integration/galleries/*.test.js' 'test/integration/components/*.test.js' 'test/integration/exemplars/*.test.js' 'test/integration/mermaid/*.test.js' 'test/integration/screenshot/*.test.js' 'test/integration/lint-engine/*.test.js' 'test/integration/export-nightly/*.test.js'",
+    "test:integration:nightly": "node --test 'test/integration/galleries/*.test.js' 'test/integration/components/*.test.js' 'test/integration/exemplars/*.test.js' 'test/integration/mermaid/*.test.js' 'test/integration/screenshot/*.test.js' 'test/integration/lint-engine/*.test.js' 'test/integration/export-nightly/*.test.js' 'test/integration/type-voices/*.test.js'",
     "test:integration:galleries": "node --test 'test/integration/galleries/*.test.js'",
     "test:integration:parity": "node --test 'test/integration/parity/*.test.js'",
     "test:integration:mermaid": "node --test 'test/integration/mermaid/*.test.js'",

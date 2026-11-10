@@ -91,7 +91,7 @@
   "commonMistakes": [
     {
       "mistake": "Eyebrow written as bold or plain text instead of inline code.",
-      "fix": "The eyebrow match is `h2 + p:has(> code:only-child)` — wrap it in backticks immediately after the heading; without the code span it falls through to the general italic subtitle rule instead of the uppercase mono eyebrow lifted above the heading."
+      "fix": "The eyebrow match is `h2 + p:has(> code:only-child)` — wrap it in backticks immediately after the heading; without the code span it falls through to the general italic subtitle rule instead of the eyebrow lifted above the heading."
     },
     {
       "mistake": "The subtitle paragraph is authored before the eyebrow paragraph instead of after it.",
