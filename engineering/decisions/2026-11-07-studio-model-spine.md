@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: The Studio picked its chat model and its read-aloud voice from readiness ladders on every call, so who answered depended on timing (a key still unsealing, Kokoro loaded or not, an in-memory on-device pick lost on reload). The model spine replaces both ladders with one stored chat selection and one stored voice selection, resolved without substitution, pinned per chat turn and per read, synced across tabs, and painted from storage on the first frame.
 ---
 
@@ -166,7 +166,7 @@ deprecated or without endpoints (`isModelGoneError`; a bad key is not this), the
 the model as gone for the page: the selection reads `unavailable` with reason `model-gone`, the voice
 card shows "Model retired", the author gets one notice saying where to choose another, and the rung
 is not asked again (one notice, not a 404 per sentence). Another model is unaffected; a reload asks
-the provider again. The owner's follow-up (`followups.d/3079-p1-model-guard-rails.md`) makes the
+the provider again. The owner's follow-up (`2026-11-09-model-guard-rails.md`) makes the
 model ids a hotfixable config file, checks them nightly, and gives chat the same rule.
 
 Clips key under their own rung name, so they never collide with an OpenRouter clip.
@@ -282,3 +282,98 @@ once a second by a read.
   raw voice ids; the card and chip named only the provider for a curated default; and the direct
   model list made every bare id its own heading.
 - **Not verified:** live OpenRouter chat or speech on our key (HARD RULE #24), and real Safari on iOS.
+
+## 10. After the spine (2026-11-09)
+
+### 10.1 A stored key is never removed on a read that answered nothing
+
+WebKit once read "needs a key" for a stored OpenRouter key after a source switch (2 failures in about
+270 runs on PR #3079, none in the 220 that carried a probe). The selection reads `needs-key` only when
+`lattice-db-or-key` is gone, and the key store removed it on exactly one read result it could not
+tell apart from a real loss: `unseal` asked IndexedDB for the sealing key, got nothing, and called the
+envelope unopenable (`{ gone: true }`), so `load()` deleted it. WebKit answering a `get` of a stored
+`CryptoKey` with nothing was the one mechanism the PR #3079 checker left standing.
+
+`lookupOrCreate` (`lib/openrouter-key.js`) now proves "none" before anyone acts on it: when `get`
+answers nothing, it `count`s the entry, which reads it without deserializing it. An entry that is there
+is a failed read, so it throws, and `load()` treats that as transient (the envelope stays, the slot
+retries with backoff). Only a store that has no entry is "gone". Every path that removes a stored key,
+or refuses to, logs one `[lattice-key] …` line saying why (never the key), and
+`model-spine.spec.ts` "the chip reaches every source" attaches those lines to a failing run and fails
+on any "removed" line, so a rare WebKit failure in the nightly carries its trace. The unit test fakes
+the WebKit read and fails without the guard.
+
+The guard is for reads only (`create: false`). On the write path, `add` failing on an entry another tab
+stored meanwhile already re-reads the winner; an independent checker showed that guarding there too
+dropped a freshly written key in that race, and a test now pins it. Two limits remain: if WebKit's read
+stayed broken for good, a NEW key written then would still be lost (as before this change), and the
+read path would retry with backoff while logging one probe line per attempt.
+
+The same file carried a CodeQL `js/clear-text-storage-of-sensitive-data` alert from PR #3079
+(`write()`, line 54): the sealing function was named `seal`, which the query does not read as
+encryption, and the mint record held the key's last four characters in clear. The function is now
+`encryptKey` (the envelope was always AES-GCM ciphertext), and the mint record holds a one-way hash
+(`hashKey`, FNV-1a) instead of any character of the key. Neither the WebKit
+`get`-answers-nothing hypothesis nor `count`'s behavior on WebKit is proven: the guard closes the
+mechanism without a captured failure.
+
+Evidence: "the chip reaches every source" (now also tagged `@webkit-phone`) ran 300 times on
+webkit-phone with the guard and the probe, 3 workers, 2026-11-09: 300 passed, 0 failed, no `[lattice-key]`
+"removed" line (23.5 min). That is a pass, not a reproduction: no failure was captured in this
+session, so the fix rests on the mechanism, and the nightly WebKit run keeps the trace armed.
+
+Fault injection in the real engine (`docs/e2e/key-store-fault.spec.ts`, raise round 2 on PR #3105):
+the Studio seals a key, then the page reloads with IDBObjectStore's `get` answering nothing for the
+sealing key while the entry stays (the WebKit fault), and again with `get` and `count` both empty (a
+real loss). With the guard: the stored envelope is kept, the probe names the failed read, and the key
+opens on the next clean load; a real loss still removes the envelope. Desktop Chromium, webkit-phone,
+webkit-tablet and Gecko: 8 passed. With the guard switched off (same build otherwise), the keep test
+FAILS on webkit-phone: the store removes the key, which is the reported bug's mechanism. So the fix is
+proved against the fault in real WebKit; what stays unproved is only that this fault is the one
+#3079 hit, since that failure was never captured.
+
+### 10.2 Gemini's locale voices, behind a language filter
+
+`listGeminiVoiceCatalog` (`playground/voice-model.js`) now keeps every live voice's record (id,
+display name, language, accent, persona, gender), not only the 30 named ids. The Gemini voice panel
+(`GeminiVoicePanel.tsx`) adds a **Language** menu listing the languages Gemini has locale voices in,
+with counts (39 on 2026-11-09). The filter starts on the open deck's `lang:` when Gemini has voices in
+it, else on "Multilingual voices only"; a stored locale voice's own language wins over that default,
+so a chosen voice is never hidden. The named voices always lead; the language adds its locale voices,
+grouped by locale ("Portuguese · Brazil") and labeled by display name and the persona's role
+("Authoritative Advisor 1 · Lawyer"). The pure pieces are `geminiLanguages`,
+`defaultGeminiLanguage` and `geminiVoicesFor` in `tts-voice-catalog.ts`; `groupVoices` keeps a
+caller's groups in order when the roster carries them.
+
+The owner had not picked the filter's default (deck language, browser language, or a picker). The
+session took the followup's own default, the deck's `lang:`, because it is the one signal that says
+what the deck will be read in, and the menu lets the author override it per page. This is
+reversible in one place (`defaultGeminiLanguage`).
+
+A locale voice speaks on the real API: `gemini-3.8-flash-lite-tts` with `voiceName: 'pt-br-advisor-1'`
+(the request `voice-model.js` builds) answered HTTP 200 with a 102 KB WAV on 2026-11-10, beside a named
+voice (`achernar`, 119 KB) for comparison.
+
+### 10.3 /cadenza and /suono on the voice spine
+
+Both library pages now pass a `selection` to `createVoiceModel`: `pageVoiceSelection`
+(`playground/page-voice-selection.js`) reads the author's STORED voice selection, the Studio's, so
+the voice chosen in Workspace › AI is the voice a reference page speaks in. It reads through
+`peekVoiceSelection` (`lib/model-selection.js`), which neither migrates nor writes: a Studio read runs a
+one-time migration that WRITES a selection (Kokoro on any desktop), and an independent checker found
+that made the page's own default unreachable on desktop and started the ~80 MB Kokoro download on
+/cadenza's page load. The page never writes the selection: its Kokoro picker is a page-scoped override that lasts for the page, and applies only while the
+voice is Kokoro. A selection that was never set gets the page's own default, decided per read and
+named in the voice label (the same "fill only what is Not set" rule as the Studio): on /cadenza the
+OpenRouter voice when a key is connected, else the browser's speechSynthesis voice, which the page
+opts into with `allowBrowserVoice` and the Studio never uses (`resolveVoice` takes `provider:
+'browser'` only then); on /suono the OpenRouter voice. A stored on-device Kokoro voice loads only on the Play gesture, never
+on page load; a cloud voice's key opens at load. /cadenza's label says why it is silent ("needs a Gemini
+key", "on-device voice loads on Play"). /suono turns its voice mode on for whatever the stored voice
+needs (a Kokoro voice, or that provider's own key: a Gemini voice no longer needs an OpenRouter key).
+Neither page reads the legacy `db` voice prefs any more.
+
+The `!selection` ladder in `voice-model.js` (`pickRung`'s auto ladder, `rungPref`, `setRungPref` and
+the `voiceKeys` prefs) has no production caller left, but about 92 test constructions across five
+test files use it as their harness; deleting it is recorded in
+`followups.d/3079-p3-delete-the-voice-ladder.md`.

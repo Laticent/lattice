@@ -68,6 +68,9 @@ const WF_DIR = path.join(REPO, '.github', 'workflows');
 const CLOSES = {
   'preview-e2e-nightly.yml::e2e':
     'absolute — the gallery paints on this commit or it does not; there is no baseline to bless',
+  'model-guard-nightly.yml::check':
+    'absolute — the committed models.config.json against each provider\'s live list tonight; there ' +
+    'is no baseline to bless, and moving a gone id into `retired` IS the fix',
   'modulepreload-coverage-nightly.yml::check':
     'absolute — islands under docs/src/pages/ against the ENTRIES list, both in the tree, and ' +
     'adding the missing entry IS the fix rather than a bless',
@@ -100,6 +103,7 @@ const CLOSES = {
 const MEASUREMENT_FLOOR = {
   'preview-e2e-nightly.yml::e2e': { step: 'e2e', output: 'cases' },
   'modulepreload-coverage-nightly.yml::check': { step: 'check', output: 'islands' },
+  'model-guard-nightly.yml::check': { step: 'check', output: 'checked' },
 };
 
 const COMMENTS_ONLY = {
@@ -635,17 +639,23 @@ test('nightly alarm contract', async (t) => {
         run, new RegExp(`\\^${floor.output}=`),
         `${id}: step '${floor.step}' never greps for a '${floor.output}=' line`,
       );
-      // producer: the npm script it invokes must emit that line
-      const m = run.match(/npm run ([\w:-]+)/);
-      assert.ok(m, `${id}: step '${floor.step}' runs no npm script — cannot locate the producer`);
-      const cmd = docsPkg.scripts?.[m[1]];
-      assert.ok(cmd, `${id}: docs/package.json has no script '${m[1]}'`);
-      const rel = cmd.match(/(scripts\/[\w.-]+\.mjs)/);
-      assert.ok(rel, `${id}: cannot resolve a script file from '${cmd}'`);
-      const src = fs.readFileSync(path.join(REPO, 'docs', rel[1]), 'utf8');
+      // producer: the script it runs — `node tools/<x>.mjs` directly, or a docs npm script — must emit that line
+      let file;
+      const direct = run.match(/\bnode (tools\/[\w.-]+\.mjs)/);
+      if (direct) file = direct[1];
+      else {
+        const m = run.match(/npm run ([\w:-]+)/);
+        assert.ok(m, `${id}: step '${floor.step}' runs no npm script and no node tools/*.mjs — cannot locate the producer`);
+        const cmd = docsPkg.scripts?.[m[1]];
+        assert.ok(cmd, `${id}: docs/package.json has no script '${m[1]}'`);
+        const rel = cmd.match(/(scripts\/[\w.-]+\.mjs)/);
+        assert.ok(rel, `${id}: cannot resolve a script file from '${cmd}'`);
+        file = `docs/${rel[1]}`;
+      }
+      const src = fs.readFileSync(path.join(REPO, file), 'utf8');
       assert.ok(
         src.includes(`${floor.output}=\${`),
-        `docs/${rel[1]} no longer emits a \`${floor.output}=\` line, but ${id} gates its CLOSE on ` +
+        `${file} no longer emits a \`${floor.output}=\` line, but ${id} gates its CLOSE on ` +
           'parsing one — the parse silently yields 0 and the stand-down is dead forever',
       );
       pinned++;

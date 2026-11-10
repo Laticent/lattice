@@ -264,6 +264,17 @@ export function readVoiceSelection() {
 	return normalizeVoice(migrateVoice()) ?? { ...UNSET_VOICE, last: {} };
 }
 
+/**
+ * The voice selection as STORED, for a page that only reads it (the library pages,
+ * playground/page-voice-selection.js): no migration and no write. A browser with no record reads as
+ * Not set, so the page's own default applies; it never gets a Kokoro selection written on its behalf
+ * because the desktop could run Kokoro (the migration's fallback, which is the Studio's to make).
+ */
+export function peekVoiceSelection() {
+	if (!readLS(VOICE_SELECTION_KEY)) return { ...UNSET_VOICE, last: {} };
+	return parse(VOICE_SELECTION_KEY, normalizeVoice) ?? { ...UNSET_VOICE, last: {} };
+}
+
 /** The image-reader selection: same as chat (the default) or its own. Migrates once from `settings.imageModel`; never null. */
 export function readImageSelection() {
 	if (readLS(IMAGE_SELECTION_KEY)) return parse(IMAGE_SELECTION_KEY, normalizeImage) ?? { ...DEFAULT_IMAGE, last: {} };

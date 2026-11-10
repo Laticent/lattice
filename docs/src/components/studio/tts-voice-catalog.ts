@@ -13,7 +13,10 @@ import catalog from '@/playground/tts-voice-catalog.json';
 // of voices that got a pre-generated sample. See the redesign section of
 // engineering/decisions/2026-07-09-studio-cloud-ondevice-config-split.md.
 
-export type Voice = { id: string; label: string };
+/** A voice row's input. `group` / `groupLabel` (Gemini's language filter) place it in a named group,
+ *  in the order the groups first appear; `gender` and `country` come from a live record when the id
+ *  carries neither. */
+export type Voice = { id: string; label: string; group?: string; groupLabel?: string; gender?: 'F' | 'M'; country?: string };
 type Engine = {
 	modelId: string;
 	requiresAsset: boolean;
@@ -305,7 +308,20 @@ export function groupVoices(modelId: string, voices: Voice[]): { featured: Voice
 	const rest = voices.filter((v) => !featuredSet.has(v.id));
 	const hasLang = rest.some((v) => voiceMeta(modelId, v.id).langKey);
 	const groups: VoiceGroup[] = [];
-	if (hasLang) {
+	if (rest.some((v) => v.group)) {
+		// The caller grouped the roster itself (Gemini's language filter): keep its group order, sort within.
+		const byGroup = new Map<string, VoiceGroup>();
+		for (const v of rest) {
+			const key = v.group ?? 'all';
+			if (!byGroup.has(key)) byGroup.set(key, { key, label: v.groupLabel ?? 'All voices', voices: [] });
+			const m = voiceMeta(modelId, v.id);
+			(byGroup.get(key) as VoiceGroup).voices.push({ id: v.id, label: v.label, country: v.country ?? m.country, gender: v.gender ?? m.gender });
+		}
+		for (const g of byGroup.values()) {
+			g.voices.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+			groups.push(g);
+		}
+	} else if (hasLang) {
 		const byLang = new Map<string, VoiceGroup>();
 		for (const v of rest) {
 			const m = voiceMeta(modelId, v.id);
@@ -379,3 +395,73 @@ const VOICE_LABEL_SUBTAG: Record<string, string> = {
 	Spanish: 'es', French: 'fr', German: 'de', Italian: 'it',
 	Hindi: 'hi', Japanese: 'ja', Portuguese: 'pt', Chinese: 'zh',
 };
+
+// ── Gemini's locale voices behind a language filter (followups 3079-p3-gemini-locale-voices) ──
+
+/** One of Gemini's live prebuilt voices, as `listGeminiVoiceCatalog` keeps it. */
+export type GeminiVoiceRecord = { id: string; name: string; language: string; accent: string; persona: string; gender?: 'F' | 'M'; named: boolean };
+
+/** The base language subtag of a BCP 47 tag (`pt-BR` → `pt`), or '' for none. */
+export const baseLanguage = (tag?: string | null): string => /^([A-Za-z]{2,3})(?:[-_]|$)/.exec(String(tag ?? '').trim())?.[1]?.toLowerCase() ?? '';
+
+function displayName(code: string, type: 'language' | 'region'): string {
+	try {
+		return new Intl.DisplayNames(['en'], { type }).of(type === 'region' ? code.toUpperCase() : code) || code;
+	} catch {
+		return code;
+	}
+}
+
+// The persona's trailing parenthetical (`… (Lawyer)` → `Lawyer`), read with string search rather than a
+// regex: the persona is the provider's text, and a backtracking pattern over it is a ReDoS risk.
+const role = (persona: string): string => {
+	const t = persona.trimEnd();
+	if (!t.endsWith(')')) return '';
+	const open = t.lastIndexOf('(');
+	return open === -1 ? '' : t.slice(open + 1, -1).trim();
+};
+
+/** The languages Gemini has locale voices in, by base subtag, with their counts, named A to Z. */
+export function geminiLanguages(records: GeminiVoiceRecord[]): { code: string; label: string; count: number }[] {
+	const counts = new Map<string, number>();
+	for (const r of records) {
+		const code = r.named ? '' : baseLanguage(r.language);
+		if (code) counts.set(code, (counts.get(code) ?? 0) + 1);
+	}
+	return [...counts].map(([code, count]) => ({ code, label: displayName(code, 'language'), count })).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/** The language the filter starts on: the deck's `lang:` when Gemini has voices in it, else none (the named voices only). */
+export function defaultGeminiLanguage(records: GeminiVoiceRecord[], deckLang?: string | null): string {
+	const want = baseLanguage(deckLang);
+	return want && records.some((r) => !r.named && baseLanguage(r.language) === want) ? want : '';
+}
+
+/**
+ * The roster for a language: the named, multilingual voices first (always: they speak every
+ * language, and they are the default list), then the language's locale voices grouped by locale
+ * (`Portuguese · Brazil`), each labeled by its display name. `lang` '' gives the named voices only.
+ * `namedIds` is the live named list (or, before records load, the only list there is).
+ */
+export function geminiVoicesFor(records: GeminiVoiceRecord[], namedIds: string[], lang: string): Voice[] {
+	const byId = new Map(records.map((r) => [r.id, r]));
+	const named: Voice[] = namedIds.map((id) => ({ id, label: byId.get(id)?.name || prettyVoiceLabel(id), group: 'named', groupLabel: 'Multilingual voices', gender: byId.get(id)?.gender }));
+	if (!lang) return named;
+	const locale = records
+		.filter((r) => !r.named && baseLanguage(r.language) === lang)
+		.map((r) => {
+			const region = r.language.split(/[-_]/)[1] ?? '';
+			const regionName = /^[A-Za-z]{2}$/.test(region) ? displayName(region, 'region') : r.accent || region;
+			return {
+				id: r.id,
+				// The persona's role says who the voice plays (`(Lawyer)`); the name already says the kind of voice.
+				label: role(r.persona) ? `${r.name} · ${role(r.persona)}` : r.name,
+				group: r.language.toLowerCase(),
+				groupLabel: regionName ? `${displayName(lang, 'language')} · ${regionName}` : displayName(lang, 'language'),
+				gender: r.gender,
+				country: /^[A-Za-z]{2}$/.test(region) ? region.toUpperCase() : undefined,
+			};
+		})
+		.sort((a, b) => a.group.localeCompare(b.group));
+	return [...named, ...locale];
+}

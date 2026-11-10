@@ -1,0 +1,52 @@
+{
+	"_comment": "Every model id the Studio names: defaults, preferred families and retired ids. The app bundles this file (docs/src/lib/models-config.js reads it) and the nightly check (tools/check-model-ids.mjs, .github/workflows/model-guard-nightly.yml) holds it against each provider's live list. A provider retiring a model is a one-line PR here: add the id to `retired`, or move a default. No runtime fetch. engineering/decisions/2026-11-09-model-guard-rails.md",
+	"_families": "Family patterns are regular expressions matched against a provider's LIVE list; `{gemini3up}` stands for any Gemini version from 3 up (gemini-3.1, gemini-3.8, gemini-4). OpenRouter lists are id PREFIXES (inSet in or-catalog.js), so `anthropic/claude-sonnet` follows every release of that family.",
+	"defaults": {
+		"chat": { "openrouter": "~anthropic/claude-sonnet-latest" },
+		"image": { "openrouter": "~anthropic/claude-sonnet-latest" },
+		"voice": { "openrouter": "hexgrad/kokoro-82m", "gemini": "gemini-3.8-flash-lite-tts" }
+	},
+	"pinned": {
+		"tourVoice": { "openrouter-voice": "google/gemini-3.1-flash-tts-preview" }
+	},
+	"families": {
+		"chat": {
+			"gemini": ["^{gemini3up}-flash(-\\d{3,}|-latest|-preview)?$", "^{gemini3up}-pro(-\\d{3,}|-latest|-preview)?$"],
+			"anthropic": ["^claude-sonnet-\\d", "^claude-opus-\\d", "^claude-haiku-\\d"],
+			"openai": ["^gpt-6(\\.\\d+)?(-[a-z]+)?$", "^gpt-5(\\.\\d+)?$"]
+		},
+		"voice": {
+			"gemini": ["^{gemini3up}-flash-lite-(?:preview-)?tts(-preview)?$", "^{gemini3up}-flash-tts(-preview)?$"]
+		}
+	},
+	"openrouter": {
+		"chatFeatured": ["anthropic/claude-sonnet", "anthropic/claude-opus", "openai/gpt-5", "openai/gpt-4o", "google/gemini-2.5-pro", "google/gemini-2.5-flash"],
+		"chatValue": [
+			"anthropic/claude-haiku",
+			"deepseek/deepseek-r1",
+			"deepseek/deepseek-chat",
+			"meta-llama/llama-3.3-70b-instruct",
+			"qwen/qwen-2.5-72b-instruct",
+			"google/gemini-2.5-flash",
+			"openai/gpt-5-mini",
+			"openai/gpt-4o-mini"
+		],
+		"voiceFeatured": ["hexgrad/kokoro-82m", "google/gemini-3.8-flash", "x-ai/grok-voice-tts-1.0", "google/gemini-3.1-flash-tts-preview", "canopylabs/orpheus-3b-0.1-ft", "microsoft/mai-voice-2"],
+		"voiceValue": ["hexgrad/kokoro-82m", "google/gemini-3.1-flash-tts-preview", "sesame/csm-1b", "canopylabs/orpheus-3b-0.1-ft"],
+		"voiceQualityRank": [
+			"google/gemini-3.8-flash-tts",
+			"microsoft/mai-voice-2",
+			"x-ai/grok-voice-tts-1.0",
+			"google/gemini-3.1-flash-tts-preview",
+			"fish-audio/s2.1-pro",
+			"google/gemini-3.8-flash-lite-tts",
+			"hexgrad/kokoro-82m",
+			"canopylabs/orpheus-3b-0.1-ft",
+			"sesame/csm-1b"
+		],
+		"voiceQualityFloor": "hexgrad/kokoro-82m"
+	},
+	"retired": {
+		"openrouter": ["qwen/qwq", "zyphra/zonos-v0.1-transformer", "zyphra/zonos-v0.1-hybrid"]
+	}
+}

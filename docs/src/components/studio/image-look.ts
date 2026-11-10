@@ -15,6 +15,8 @@ export const IMAGE_LOOKS: Record<ImageLook, { label: string; edge: number; effor
 };
 export const DEFAULT_IMAGE_LOOK: ImageLook = 'careful';
 /** The model that looks at photos until the author picks another: the rot-proof alias of the newest Claude Sonnet. */
+// A literal, not a read of lib/models.config.json: this file is on the Studio's boot path (studio-store.ts),
+// and the config is not (docs/route-budget.json). models-config.test.ts holds the two equal.
 export const DEFAULT_IMAGE_MODEL = '~anthropic/claude-sonnet-latest';
 
 export const asImageLook = (v: unknown): ImageLook => (v === 'quick' || v === 'careful' || v === 'thorough' ? v : DEFAULT_IMAGE_LOOK);

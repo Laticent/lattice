@@ -13,6 +13,7 @@
 // where `voices` is the model's live `supported_voices` array — the single source
 // of truth every voice dropdown derives from (see tts-voice-catalog.ts).
 
+import { MODELS } from '../../../lib/models-config.js';
 import { fmtPrice, groupByVendor, inSet, isFreeModel, shortName, vendorOf } from './or-catalog.js';
 
 export { fmtPrice, groupByVendor, isFreeModel, shortName, vendorOf };
@@ -20,27 +21,12 @@ export { fmtPrice, groupByVendor, isFreeModel, shortName, vendorOf };
 // The models we've fully vetted end-to-end: live-tested voices, cached samples
 // committed for a featured subset of each. Mostly exact ids (each a single dated release), plus
 // family prefixes where a family moves; `inSet` prefix-matches either against the LIVE catalog.
-export const TTS_FEATURED = [
-	'hexgrad/kokoro-82m',
-	// A family prefix (inSet prefix-matches): Gemini 3.8 Flash TTS and Flash-Lite TTS, whatever
-	// dated ids OpenRouter lists for them.
-	'google/gemini-3.8-flash',
-	'x-ai/grok-voice-tts-1.0',
-	'google/gemini-3.1-flash-tts-preview',
-	'canopylabs/orpheus-3b-0.1-ft',
-	'microsoft/mai-voice-2',
-];
+// Both lists live in lib/models.config.json, with every other model id the Studio names.
+export const TTS_FEATURED = MODELS.openrouter.voiceFeatured;
 
 // The cheapest-per-character tier (the "Value" lens) — everything at or under
 // $10/M characters at time of curation. Kokoro is the standout (~$0.62/M).
-export const TTS_VALUE = [
-	'hexgrad/kokoro-82m',
-	'google/gemini-3.1-flash-tts-preview',
-	'zyphra/zonos-v0.1-transformer',
-	'zyphra/zonos-v0.1-hybrid',
-	'sesame/csm-1b',
-	'canopylabs/orpheus-3b-0.1-ft',
-];
+export const TTS_VALUE = MODELS.openrouter.voiceValue;
 
 // The picker's four lenses, in display order. [key, label] — the label is the tab.
 export const TTS_VIEWS = [

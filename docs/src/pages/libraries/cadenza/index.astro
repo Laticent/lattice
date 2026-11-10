@@ -183,6 +183,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			import { buildTrack, makeReader, pauseAfter, toVtt } from '@/lib/cadenza';
 			import { loadOpenRouterKey, readOpenRouterKey, writeOpenRouterKey } from '@/lib/openrouter-key.js';
 			import { createStage } from '@/lib/suono';
+			import { pageVoiceSelection } from '@/playground/page-voice-selection.js';
 
 			const SAMPLE = "Revenue grew to $4.2M this quarter, up 18.5% from Q3. That is the fastest growth in the company's history. We beat plan by eight points — and margins held.";
 			const $ = (s) => document.querySelector(s);
@@ -210,22 +211,23 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			// same engine, not voice-model's retired internal scheduler.
 			let stage = null, seq = null;
 
-			// The voice ladder (voice-model.js): connected OpenRouter voice → on-device Kokoro
-			// → browser voice → silent floor, sharing the Playground's OpenRouter key.
-			// `allowBrowserVoice` opts THIS demo page into the speechSynthesis rung the
-			// production Playground bans — so a visitor with no key still hears the read-along
-			// (device-dependent; labeled "browser voice", never mistaken for the quality voice).
-			// Built eagerly; if it can't load we stay on the silent path.
-			const VOICE_LABEL = { 'openrouter-tts': 'cloud voice', kokoro: 'on-device', speechSynthesis: 'browser voice', silent: 'silent · captions only' };
+			// The voice is the author's STORED voice selection (Workspace › AI in the Studio), resolved by
+			// voice-model.js without a ladder: one voice rule on every page (page-voice-selection.js).
+			// A selection that was never set gets this page's own default, decided per read and named in
+			// the voice label: the OpenRouter voice when a key is connected, else the browser's voice.
+			// `allowBrowserVoice` opts THIS demo page into that speechSynthesis voice, which the Studio
+			// never uses, so a visitor with no key still hears the read-along (device-dependent; labeled
+			// "browser voice", never mistaken for the quality voice). If the model can't load we stay silent.
+			const VOICE_LABEL = { 'openrouter-tts': 'cloud voice', 'gemini-tts': 'Gemini voice', kokoro: 'on-device', speechSynthesis: 'browser voice', silent: 'silent · captions only' };
 			// Pace → a TTS `speed` multiplier so the control actually changes the SPOKEN
 			// tempo (not just the silent estimate). Kept inside the Azure-safe 0.5–2.0 band;
 			// models that don't support speed ignore it (the highlight still re-anchors to
 			// whatever the audio's real duration turns out to be).
 			const PACE_SPEED = { slow: 0.8, moderate: 1.0, fast: 1.25 };
 			// Curated Kokoro voices (the af_*/am_*/bf_*/bm_* ids the hosted + on-device Kokoro
-			// rungs share). The picker persists to the same localStorage pref the voice model
-			// reads, and is passed explicitly to speak() so it applies immediately.
-			const OR_VOICE_LS = 'lattice-db-voice-or';
+			// rungs share). The pick is THIS page's (remembered here, never written to the stored
+			// selection), passed explicitly to synthOne, and applies only while the voice is Kokoro.
+			const OR_VOICE_LS = 'lattice-cadenza-voice';
 			const VOICES = [
 				['American — female', [['af_heart','Heart'],['af_bella','Bella'],['af_nicole','Nicole'],['af_sarah','Sarah'],['af_sky','Sky'],['af_nova','Nova'],['af_aoede','Aoede'],['af_kore','Kore']]],
 				['American — male', [['am_michael','Michael'],['am_adam','Adam'],['am_echo','Echo'],['am_onyx','Onyx'],['am_puck','Puck'],['am_fenrir','Fenrir']]],
@@ -245,22 +247,39 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			}
 			import('@/playground/voice-model.js')
 				.then((m) => {
-					voice = m.createVoiceModel({
-						getOpenRouterKey: readOpenRouterKey,
-						allowBrowserVoice: true,
-					});
+					pageSel = pageVoiceSelection({ whenUnset: () => (readOpenRouterKey() ? { source: 'cloud', provider: 'openrouter' } : { source: 'device', provider: 'browser' }) });
+					voice = m.createVoiceModel({ getOpenRouterKey: readOpenRouterKey, allowBrowserVoice: true, selection: pageSel });
 					refreshVoice();
+					// Open the selected voice's key now, so the label names what will speak. A selected on-device
+					// Kokoro voice (an ~80 MB model) loads only when the visitor presses Play, never on page load.
+					if (pageSel.read().provider !== 'kokoro') voice.prepareSelectedVoice().then(() => refreshVoice(), () => refreshVoice());
 				})
 				.catch(() => { voice = null; });
 
+			let pageSel = null;
+			const PROVIDER_NAME = { openrouter: 'OpenRouter', gemini: 'Gemini', kokoro: 'Kokoro' };
+			// Why the page is silent, when it is: the selected voice needs a key, or its on-device model is not loaded yet.
+			function silentLabel() {
+				try {
+					const r = voice?.availability?.().readiness;
+					if (r?.state === 'needs-key') return 'silent · needs a ' + (PROVIDER_NAME[r.provider] || r.provider) + ' key';
+					if (r?.state === 'warming' || (r?.state === 'unavailable' && r.provider === 'kokoro')) return 'silent · on-device voice loads on Play';
+					if (r?.reason === 'model-gone') return 'silent · voice model retired';
+				} catch {}
+				return VOICE_LABEL.silent;
+			}
+			function kokoroVoiceApplies(r) {
+				if (r === 'kokoro') return true;
+				try { return r === 'openrouter-tts' && /kokoro/i.test(voice.orModel()); } catch { return false; }
+			}
 			function rungNow() { try { return voice ? voice.rung() : 'silent'; } catch { return 'silent'; } }
 			function refreshVoice(rung) {
 				const r = rung || rungNow();
-				voiceLabelEl.textContent = VOICE_LABEL[r] || r;
+				voiceLabelEl.textContent = r === 'silent' ? silentLabel() : VOICE_LABEL[r] || r;
 				voiceEl.dataset.live = String(voicing && playing && r !== 'silent');
-				// The voice picker drives Kokoro's voice (hosted or on-device); gray it out when
-				// the active rung isn't Kokoro (no key → browser voice → its voice isn't ours).
-				voiceSelEl.disabled = !(r === 'openrouter-tts' || r === 'kokoro');
+				// The voice picker drives Kokoro's voice (hosted or on-device); gray it out when the
+				// selected voice isn't Kokoro (a Gemini or other cloud voice, the browser voice, silence).
+				voiceSelEl.disabled = !kokoroVoiceApplies(r);
 			}
 
 			function render() {
@@ -342,10 +361,11 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				refreshVoice(r);
 				if (!voice || r === 'silent') return;
 				voicing = true;
-				// Only a BLOB voice (OpenRouter / Kokoro) gives a clock to ride + onsets to
+				// Only a BLOB voice (OpenRouter / Gemini / Kokoro) gives a clock to ride + onsets to
 				// re-anchor to. The browser voice (speechSynthesis) reports neither, so it speaks
 				// in parallel while the SILENT estimate carries the highlight — mode stays 'silent'.
-				const clocked = r === 'openrouter-tts' || r === 'kokoro';
+				// Every voice that returns audio bytes (OpenRouter, Gemini, Kokoro) is clocked; only the browser voice is not.
+				const clocked = r === 'openrouter-tts' || r === 'gemini-tts' || r === 'kokoro';
 				// Speak Cadenza's SPOKEN expansion, not the raw glyphs — so the voice says "four point two
 				// million dollars", not Kokoro's mis-parse of "$4.2M". One spoken sentence per cue keeps
 				// index i aligned with cue i, so the measured onset re-anchors the right word.
@@ -362,7 +382,7 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 					const keyPrefix = r + '|' + selVoice + '|' + speed;
 					seq = stage.sequence({
 						items: sentences,
-						produce: async (s, { signal }) => (await voice.synthOne({ text: s, voice: selVoice, speed, signal }))?.bytes ?? null,
+						produce: async (s, { signal }) => (await voice.synthOne({ text: s, voice: kokoroVoiceApplies(r) ? selVoice : undefined, speed, signal }))?.bytes ?? null,
 						keyOf: (s) => keyPrefix + '|' + s,
 						// The inter-clip breath: cadenza's graded pauseAfter × 0.3 (the clip-silence discount).
 						gapMs: (s) => Math.round(pauseAfter(s) * 0.3),
@@ -396,6 +416,8 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			function play() {
 				if (!reader.durationMs()) return;
 				if (!started) {
+					// The Play gesture is what may load a selected on-device voice (and open a key still sealed).
+					if (voice && rungNow() === 'silent') voice.prepareSelectedVoice().then(() => refreshVoice(), () => refreshVoice());
 					if (elapsed >= reader.durationMs()) { elapsed = 0; reader.reset(); }
 					started = true; playing = true; setIcon(true);
 					lastT = performance.now();

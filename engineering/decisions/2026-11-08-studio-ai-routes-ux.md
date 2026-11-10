@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: Workspace › AI blurred three questions (how the Studio reaches models, which model does what, and who uses it), so the owner could not tell what was what. The redesign separates them into Connections (OpenRouter with two ways in, your own provider keys, this device), three selections (chat, image, voice) that each name their route and the features they feed, and fixed rules for when the Studio may change a selection (only a never-set one, or a retired version healed within its own family). Reviewed by the adversarial trio on 2026-11-08; its findings are folded in.
 ---
 
@@ -257,8 +257,9 @@ connection names what it filled.
 6. **One route table** in `docs/src/lib/provider-registry.js` (id, label, glyph, what it serves,
    how it connects, `familyOf`, state vocabulary) feeding the cards, chooser, chip, pill and notices,
    with a test over every route × state row and every healing case. The nightly check
-   (`followups.d/3079-p1-model-guard-rails.md`) also runs `familyOf` over each provider's live list
-   and fails on an id it cannot place.
+   (`2026-11-09-model-guard-rails.md`) holds every configured id against each provider's live
+   list. *(As built: it checks ids and family patterns, not `familyOf`; healing still places an
+   id at run time and never heals one it cannot place.)*
 7. **Spend** records voice and image spend against their routes; `spend.js`'s "Cloud AI
    (OpenRouter)" label becomes per route.
 8. **Startup bytes.** The Studio is over its startup-JS soft target, so only the chip's label, the
@@ -351,10 +352,11 @@ the note the moment the key is accepted. A key still refused after the window is
 pasted key's 401 is a rejection at once. The note ends with the window even if nothing asks again, belongs to one
 key (another tab's key, or a new one, does not inherit it), and survives Disconnect then Undo; the
 re-check never runs faster than once a second and stops when the window closes, so a dropped
-connection or a 5xx cannot turn it into a loop. The mint record (`lattice-db-or-minted`, "<ms>:<last four>") holds the
-key's last four characters in clear: the same four Connections shows on screen, not a usable secret,
-and the only piece of the key outside the sealed envelope. Key info now comes from OpenRouter's documented `/api/v1/key` (it was the undocumented `/api/v1/auth/key`), and every card
+connection or a 5xx cannot turn it into a loop. The mint record (`lattice-db-or-minted`, "<ms>:<hash>") names its key by
+an 8-hex-digit one-way hash, so no character of the key sits outside the sealed envelope. *(Until
+2026-11-09 it held the key's last four characters in clear; CodeQL's clear-text-storage alert on
+`openrouter-key.js` flagged that, and the hash replaced it in PR #3105.)* Key info now comes from OpenRouter's documented `/api/v1/key` (it was the undocumented `/api/v1/auth/key`), and every card
 on a route whose key was refused says so (owner report, 2026-11-08).
 
-Left for later, recorded in `followups.d/`: the nightly live check of every route's list through `familyOf`
-(`3079-p1-model-guard-rails.md`).
+The nightly live check of every route's list, and the one model config it reads, shipped in
+`2026-11-09-model-guard-rails.md`.

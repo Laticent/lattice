@@ -24,6 +24,8 @@
 // cheap model only widens the gap, so the ranking holds; the decision note records it.
 // engineering/decisions/2026-09-27-voice-default-and-cheapest-toggle.md.
 
+import { MODELS } from '../lib/models-config.js';
+
 /** Audio output tokens per input character, measured on gemini-3.8-flash-tts
  *  (591 tokens for 289 characters, 18.4 s of 24 kHz audio). */
 export const AUDIO_TOKENS_PER_CHAR = 2.04;
@@ -36,18 +38,9 @@ export const PRICE_TIE_BAND = 0.1;
 // it needs to order the models that plausibly sit near each other on price, not the whole
 // catalog. A model not listed here ranks below every listed one. This is an editorial
 // judgment, not a measurement: newer generation above older, full above lite, and the
-// vetted Featured engines (tts-catalog.js) above the rest. Revisit when the catalog moves.
-export const TTS_QUALITY_RANK = [
-	'google/gemini-3.8-flash-tts',
-	'microsoft/mai-voice-2',
-	'x-ai/grok-voice-tts-1.0',
-	'google/gemini-3.1-flash-tts-preview',
-	'fish-audio/s2.1-pro',
-	'google/gemini-3.8-flash-lite-tts',
-	'hexgrad/kokoro-82m',
-	'canopylabs/orpheus-3b-0.1-ft',
-	'sesame/csm-1b',
-];
+// vetted Featured engines (tts-catalog.js) above the rest. Revisit when the catalog moves:
+// the ranking lives in lib/models.config.json, which the nightly checks against the live list.
+export const TTS_QUALITY_RANK = MODELS.openrouter.voiceQualityRank;
 
 /**
  * Estimated USD per million input characters for a catalog entry
@@ -65,7 +58,7 @@ export function ttsCostPerMChars(m) {
  *  cheaper — it trades up to a better voice, never down to a noisier one to save cents. The
  *  owner's call (2026-09-28), after listening: Orpheus is noisy against Kokoro, and Kokoro is
  *  the house default. Unranked models sit below the floor too (nobody has vetted them). */
-export const TTS_QUALITY_FLOOR = 'hexgrad/kokoro-82m';
+export const TTS_QUALITY_FLOOR = MODELS.openrouter.voiceQualityFloor;
 
 const rankOf = (id) => {
 	const i = TTS_QUALITY_RANK.indexOf(String(id || '').toLowerCase());

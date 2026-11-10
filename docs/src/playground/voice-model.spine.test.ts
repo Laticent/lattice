@@ -63,6 +63,14 @@ describe('model spine — voice', () => {
 		expect(v.availability().readiness).toMatchObject({ state: 'unavailable', provider: 'kokoro' });
 	});
 
+	it('a voice the model config retires reads model-gone before any request, and stays silent (3079-p1)', () => {
+		// zyphra/zonos-v0.1-transformer is in models.config.json retired.openrouter.
+		selectVoice({ provider: 'openrouter', model: 'zyphra/zonos-v0.1-transformer', voice: 'american_female' });
+		const { v } = studioVoice();
+		expect(v.rung()).toBe('silent');
+		expect(v.availability().readiness).toMatchObject({ state: 'unavailable', reason: 'model-gone', provider: 'openrouter', model: 'zyphra/zonos-v0.1-transformer' });
+	});
+
 	it('the unseal race: a cloud voice whose key is still opening reads warming, then speaks once prepared', async () => {
 		selectVoice({ provider: 'openrouter' });
 		let ctl: { setKey: (k: string, s: string) => void } | null = null;

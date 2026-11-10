@@ -430,11 +430,15 @@ function ModelChip({ status, turnEst, usd, spend, onRefresh, onManageModels }: {
 						<>
 							<div className="flex items-baseline justify-between gap-3">
 								<span className="text-muted-foreground">Ask a question</span>
-								<span className="font-semibold text-foreground">≈ {usd(turnEst.question)}</span>
+								<span className="font-semibold text-foreground" data-usd={turnEst.question}>
+									≈ {usd(turnEst.question)}
+								</span>
 							</div>
 							<div className="flex items-baseline justify-between gap-3" title="An edit reads the layout first, then edits: a second model call.">
 								<span className="text-muted-foreground">Make an edit</span>
-								<span className="font-semibold text-foreground">≈ {usd(turnEst.edit)}</span>
+								<span className="font-semibold text-foreground" data-usd={turnEst.edit}>
+									≈ {usd(turnEst.edit)}
+								</span>
 							</div>
 						</>
 					)}
