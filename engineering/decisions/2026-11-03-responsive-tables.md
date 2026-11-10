@@ -814,7 +814,7 @@ the real export in Chromium: each slide chart redraws on a phone (the pie in a b
 every label the export printed, the roadmap turns to cards, the pane keeps its grid, and the desktop gets
 every exported drawing and class list back byte for byte.
 
-## A key under a chart runs in columns; roadmap phases stack as bands (§ 29, § 30)
+## A key under a chart runs in columns (§ 29); roadmap phase bands, withdrawn (§ 30)
 
 The owner's look at the portrait, square, mobile and story renders (2026-11-09) asked why pie,
 tower and risk-matrix looked different at four sizes that are all 1080px wide. Each kind placed
@@ -859,59 +859,43 @@ roadmap's phases to stack as bands.
   against current `main` with styles and the new source attributes stripped: 2 differ, both
   `size: story`. Landscape, every export pane included, is unchanged.
 
-### § 30 — roadmap phase bands
+### § 30 — roadmap phase bands: tried, withdrawn
 
-- At a tall box the roadmap's phases render as full-width BANDS: a phase header, then one line
-  per workstream with the names in one column (a CSS subgrid of the band's two tracks), so the
-  items line up as the table's cells do.
-- A roadmap stays ONE page while its bands fit, and the decision is still made from the markup,
-  as 2026-09-01 requires: phases plus the LINES its rows wrap to, against a budget for the box's
-  shape (`carousel.js` `roadmapBandLines`). A row is as tall as the taller of its two cells, and
-  both wrap. The name column is capped at 30% of the band (`fit-content(30%)`), and the row's
-  status inset takes ~31px of it, so a name gets ~220px of a monospaced label at ~20.4px a
-  character: 10 characters a line, each line ~0.7 of a commitment line. The commitment column
-  takes the rest of ~835px at ~26px a character. Each wrapped line counts as a whole band line,
-  so the count errs toward splitting. The count is in PIXELS, measured at 1080 wide: in a
-  commitment, lowercase prose ~21px a character (the count keeps 26.3, which errs wide), capitals
-  ~31 and `m`/`w`/`M`/`W` ~38, against 90% of the column; a name is monospaced, so its ~20.4px a
-  character is exact and takes the whole column.
-- **Bands are for PLAIN TEXT only** (the owner's call, 2026-11-09). A roadmap holds one band page
-  only when every name and commitment is printable ASCII with no markup, plus curly quotes,
-  dashes, an ellipsis and a non-breaking space an author types (no typographer runs on this path,
-  so `"` and `--` stay ASCII). Markup counts as not plain: a `<br>` breaks a line, an image takes
-  width, and inline code is a padded monospaced chip, all invisible once the tags are stripped. A
-  sixth grader found each of the three holding a page and clipping. Any other character (an
-  accent, Cyrillic, Greek, CJK, an emoji) makes the count return no width, and the roadmap splits
-  exactly as `main` does. Six graders each found text the estimate under-counted, and `main`
-  split every one cleanly:
-  - long commitments, when the count read rows alone;
-  - 25-character names, when it read commitments alone and the name column took its full
-    one-line width;
-  - 11- to 13-character two-word names, when it counted 13 characters a line from an estimate
-    (measured, 10);
-  - CJK and all-caps text, when it counted characters rather than width;
-  - Cyrillic, Greek, BMP emoji, fullwidth punctuation, and CJK at the column's edge, when it
-    guessed a width for scripts it had never measured;
-  - a `<br>`, an image or inline code in a cell, when it measured the text with the tags stripped.
+**Outcome: withdrawn before merge.** A tall roadmap splits one phase per page, exactly as `main`
+does: the cover, then one two-column card page per phase. The export is pixel-identical to `main`
+(verified on a story roadmap, 4 of 4 pages). The phone viewer's calmer cards (§ "The whole-source
+kinds") stay.
 
-  Guessing a sixth script would have been a sixth patch. The plain-text gate measures what it
-  keeps and gives everything else main's behavior. The cost is that a non-English roadmap at a
-  tall size splits even when it would have fit.
-- A rendered sweep holds the formula to the page: 144 roadmaps (names of 5, 9, 11, 13, 16 and
-  25 characters; 3 or 5 rows; 2, 3 or 4 phases; commitments of 8, 18, 28 and 45 characters) at
-  story, mobile and portrait, each checked for the CLI's OVERFLOW and CONTENT CLIPPED. None clips
-  at story or mobile. At portrait, the ones that clip clip on `main` too: five rows of long
-  commitments overflow even one phase's own page.
-- A SPLIT page keeps `main`'s two-column cards, not a band. It holds one phase, and the cards use
-  the width the split bought. Bands on a split page made five rows of wrapped names run into the
-  footer, and the sweep found 16 portrait decks that clipped where `main`'s cards fit.
-- The decision applies only at a TALL box (`aspect < 0.9`), where the bands are drawn. A square
-  or landscape roadmap keeps its cards and the split it always had.
-- The page is 1080px wide, so its height is 1080 / `data-aspect`; measured, a band line is ~86px and the masthead, key and band chrome take
-  ~650px. The budget is 8 lines at 4:5, 14 at 9:16 and 19 at 9:19.5. The demo deck's roadmap (3
-  phases of 3, 12 lines) is one page at story and mobile and still splits at portrait;
-  `examples/portrait-roadmap.md`'s two (16 and 15 lines) are one page each at mobile.
-- Past the budget, the split is the one it was: a cover, then one phase per page.
+**What was tried.** On a tall page, the phases stacked as full-width BANDS, a phase header over one
+line per workstream. A roadmap stayed on ONE page while its bands fit, and the decision was made
+from the markup, as 2026-09-01 requires. `carousel.js` `roadmapBandLines` estimated how many lines
+the rows would wrap to, against a budget for the box's shape (~86px a line, ~650px of fixed chrome,
+1080 wide). That gave 8 lines at 4:5, 14 at 9:16 and 19 at 9:19.5.
+
+**Why it was withdrawn.** Seven grading rounds each found real text that the width estimate
+under-counted. Each such roadmap held one page and clipped where `main` split it cleanly:
+
+1. long commitments, when the count read rows alone;
+2. 25-character names, when it read commitments alone and the name column took its full one-line
+   width;
+3. 11- to 13-character two-word names, when it counted 13 characters a line from an estimate
+   (measured, 10);
+4. CJK and all-caps text, when it counted characters rather than width;
+5. Cyrillic, Greek, BMP emoji, fullwidth punctuation, and CJK at the column's edge, when it guessed
+   a width for scripts it had never measured (the owner then limited bands to plain ASCII);
+6. a `<br>`, an image or inline code in a cell, when it measured the text with the tags stripped;
+7. all-caps words between half a column and a column wide, when it divided total width by the
+   column and ignored word wrap.
+
+Each fix was measured and swept: 144 roadmaps at three sizes, then 489 renders and every grader's
+repro deck. The next grader still found another input. A structural count cannot know what the
+browser will wrap. The owner chose (2026-11-10) to fall back to `main`'s split rather than ship a
+seventh patch.
+
+**What this teaches.** A one-page decision that must never clip needs a MEASURED fit, not a
+predicted one. That collides with 2026-09-01's structural trigger, which exists so the export does
+not lay out twice. If phase bands come back, they need a measure-then-decide pass the owner
+approves, not a better estimate.
 
 ### § 31 — one layout spine: the canvas is the box's shape, the key is chosen in the box
 

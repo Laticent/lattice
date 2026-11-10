@@ -875,38 +875,6 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
 section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows > li {
   align-items: start;
 }
-/* PHASE BANDS (2026-11-09, responsive-tables § 30): a roadmap that holds ONE tall page
- * (`roadmap-horizons` declines to split it: carousel.js `roadmapBandLines`) stacks its phases as
- * full-width bands at their natural height, centered in the floored body, with the free space shared
- * above and below rather than poured into each band. ONE LINE PER WORKSTREAM: the name, then its
- * item, the names in one column down the band so the items line up the way the table's cells do;
- * each row is a SUBGRID of the band's two tracks. The name column is capped at 30% so a long name
- * wraps instead of pushing the items off the page (carousel.js counts its lines).
- * A SPLIT page (`[data-split-role]`) keeps the two-column cards above: it holds one phase, and the
- * cards use the width the split bought. Bands there made five long rows run into the footer
- * (#3088's sweep: 16 portrait decks clipped that main's cards fit). */
-section.roadmap.horizons:not([data-split-role]):where([data-family="tall"], [data-family="strip"]) .horizons {
-  grid-auto-rows: auto;
-  align-content: center;
-}
-section.roadmap.horizons:not([data-split-role]):where([data-family="tall"], [data-family="strip"]) .horizon-card {
-  height: auto;
-}
-section.roadmap.horizons:not([data-split-role]):where([data-family="tall"], [data-family="strip"]) .horizon-rows {
-  grid-template-columns: fit-content(30%) minmax(0, 1fr);
-  align-content: start;
-  height: auto;
-  gap: var(--sp-2xs);
-}
-section.roadmap.horizons:not([data-split-role]):where([data-family="tall"], [data-family="strip"]) .horizon-rows > li {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  /* A subgrid's own gap replaces its parent's, and the base row sets 2px: restate the
-   * band's column gap here, or the name runs into the item's status disc. */
-  column-gap: var(--sp-md);
-  align-items: baseline;
-}
 
 
 /* ── ROADMAP SWIMLANE — per-workstream track of phase pills ──────────
