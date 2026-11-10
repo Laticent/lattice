@@ -149,8 +149,6 @@ export function editImage(view: EditorView, pos: number, edit: ImageEdit): boole
  */
 export type Placement = 'left' | 'right' | 'full' | 'none';
 
-const PLACING = new Set(['image', 'mirror', 'bleed']);
-
 /** The class tokens of a slide's directives (the first `_class` comment), or []. */
 function slideClassTokens(directives: readonly string[]): string[] {
 	const d = directives.find((x) => classPayloadOf(x) !== null);
