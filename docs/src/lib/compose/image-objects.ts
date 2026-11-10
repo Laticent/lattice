@@ -167,8 +167,10 @@ export function canPlaceOn(tokens: readonly string[]): boolean {
 
 /** The slide's class tokens with this placement: every other token kept, in order. */
 export function tokensWithPlacement(tokens: readonly string[], p: Placement): string[] {
-	const rest = tokens.filter((t) => !PLACING.has(t) && t !== 'content');
-	if (p === 'left') return ['image', ...rest, 'mirror'];
+	// `mirror` is the image layout's side here; on any other layout it is that layout's own word, and stays.
+	const wasImage = tokens.includes('image');
+	const rest = tokens.filter((t) => t !== 'content' && t !== 'image' && t !== 'bleed' && (t !== 'mirror' || !wasImage));
+	if (p === 'left') return ['image', ...rest.filter((t) => t !== 'mirror'), 'mirror'];
 	if (p === 'right') return ['image', ...rest];
 	if (p === 'full') return ['content', ...rest, 'bleed'];
 	return ['content', ...rest];
@@ -197,7 +199,7 @@ export function placeImage(view: EditorView, pos: number, p: Placement): boolean
 	const slide = $at.node(1);
 	const directives = (slide.attrs.directives as string[] | null) ?? [];
 	const tokens = slideClassTokens(directives);
-	if (!canPlaceOn(tokens)) return false;
+	if (!placementAt(view.state, pos).canPlace) return false;
 	const next = directivesWithClass(directives, tokensWithPlacement(tokens, p));
 	if (!next) return false;
 	const alt = (node.attrs.alt as string | null) ?? '';
@@ -213,16 +215,50 @@ export function placeImage(view: EditorView, pos: number, p: Placement): boolean
 	return true;
 }
 
-/** The placement of the picture at `pos` and whether it may be changed here, for the panel. */
+/** The deck's own `class:` in its front matter (`class: bleed`), which the engine appends to every slide's class. */
+function deckClassTokens(frontMatter: string): string[] {
+	const line = /^class[ \t]*:(.*)$/m.exec(frontMatter || '');
+	return line ? line[1].replace(/["'[\],]/g, ' ').trim().split(/\s+/).filter(Boolean) : [];
+}
+
+/** Whether a slide before this one sets a CARRIED class (`<!-- class: … -->`, no underscore), which reaches this slide too. */
+function carriedClassBefore(state: EditorState, slideIndex: number): boolean {
+	for (let i = 0; i < slideIndex; i++) {
+		const ds = (state.doc.child(i).attrs.directives as string[] | null) ?? [];
+		if (ds.some((d) => classPayloadOf(d) !== null && !/^\s*<!--\s*_/.test(d))) return true;
+	}
+	return false;
+}
+
+/** Whether the picture at `pos` is the slide's ONLY lone picture, as a direct paragraph of the slide: the one the engine places. */
+function soleLonePicture(state: EditorState, pos: number): boolean {
+	const $at = state.doc.resolve(pos);
+	if ($at.depth !== 2 || $at.parent.childCount !== 1) return false;
+	let lone = 0;
+	$at.node(1).forEach((block) => {
+		if (block.type.name === 'paragraph' && block.childCount === 1 && isImage(block.firstChild)) lone++;
+	});
+	return lone === 1;
+}
+
+/**
+ * The placement of the picture at `pos` and whether it may be changed here, for the panel and the badge. The placement reads
+ * what the engine reads: the slide's own class plus the deck's `class:`. It may be changed only where writing this slide's
+ * `_class` decides it: no deck-wide or carried class in play, a layout that takes a picture, and the slide's only lone picture
+ * (the checker on this change: a deck-wide `bleed` came back after `placeImage` reported success).
+ */
 export function placementAt(state: EditorState, pos: number): { placement: Placement; canPlace: boolean } {
 	const node = state.doc.nodeAt(pos);
 	if (!isImage(node) || !node) return { placement: 'none', canPlace: false };
 	const $at = state.doc.resolve(pos);
-	const tokens = slideClassTokens(($at.node(1).attrs.directives as string[] | null) ?? []);
+	const own = slideClassTokens(($at.node(1).attrs.directives as string[] | null) ?? []);
+	const deck = deckClassTokens((state.doc.attrs.frontMatter as string) || '');
+	const inherited = deck.length > 0 || carriedClassBefore(state, $at.index(0));
 	const alt = (node.attrs.alt as string | null) ?? '';
-	// An old `![bg …]` picture is placed by its keywords until it is placed again.
-	const placement = bgKeywords(alt) !== null ? (bgSideOf(alt) === 'full' ? 'full' : bgSideOf(alt)) : placementOf(tokens);
-	return { placement, canPlace: canPlaceOn(tokens) && !inLockedSlide(state, pos) && $at.parent.childCount === 1 };
+	const sole = soleLonePicture(state, pos);
+	// An old `![bg …]` picture is placed by its keywords until it is placed again; a plain one only when the engine places it.
+	const placement = bgKeywords(alt) !== null ? bgSideOf(alt) : sole ? placementOf([...own, ...deck.filter((t) => t !== 'image')]) : 'none';
+	return { placement, canPlace: sole && !inherited && canPlaceOn(own) && !inLockedSlide(state, pos) };
 }
 
 /** Take the image out. A paragraph left empty by it goes too, so no blank line is left on the slide. */

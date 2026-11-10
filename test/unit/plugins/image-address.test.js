@@ -1,4 +1,4 @@
-'use strict';
+
 /**
  * The image plugin (lib/plugins/image; engineering/decisions/2026-10-16-media-plugins.md §4.2, §4.5, §8 decision 2): the address
  * comes only from the author's own record, the slide seats the picture, Marp's keywords migrate losslessly, and the Marp bundle
@@ -165,6 +165,25 @@ describe('Markdown\'s picture is the record\'s shortcut on a slide that places o
     }
   });
 
+  test('a picture in a list item or a quote stays where it is, and leaves no empty bullet or quote (the checker on this change)', () => {
+    for (const body of ['- ![x](y.jpg)\n- ![z](w.jpg)', '> ![x](y.jpg)', '1. ![x](y.jpg)']) {
+      const out = html(deck('image', body));
+      assert.equal(panel(out), null, body);
+      assert.doesNotMatch(out, /<li>\s*<\/li>|<blockquote>\s*<\/blockquote>/, body);
+      assert.match(out, /<img /, body);
+    }
+  });
+
+  test('a slide with two lone pictures places neither: both stay visible, as before', () => {
+    const out = html(deck('image', '![a](1.jpg)\n\n![b](2.jpg)'));
+    assert.equal(panel(out), null);
+    assert.equal((out.match(/<img /g) || []).length, 2);
+  });
+
+  test('a line break inside the alt is a space in the picture\'s name', () => {
+    assert.match(panel(html(deck('image', '![A lake\nat dawn](y.jpg)'))), /aria-label="A lake at dawn"/);
+  });
+
   test('in running text it stays an ordinary picture', () => {
     assert.equal(panel(html(deck('image', 'See ![A lake](sample:photo-wide.jpg) here.'))), null);
   });
@@ -208,5 +227,12 @@ describe('Export-to-Marp places the shortcut as it places the record', () => {
     assert.match(out, /^!\[bg\]\(sample:photo-wide\.jpg "Dawn"\)$/m);
     assert.match(out, /^!\[A lake\]\(a\.jpg\)$/m);
     assert.match(out, /^!\[bg left\]\(b\.jpg\)$/m);
+  });
+
+  test('two lone pictures on a slide, or a collage, stay Markdown pictures in the bundle, as the engine leaves them', () => {
+    const two = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n\n![a](1.jpg)\n\n![b](2.jpg)\n';
+    assert.equal(withImageMarkdown(two, {}, ctxFor('image')), two);
+    const col = '---\ntheme: indaco\n---\n\n<!-- _class: collage image -->\n\n![a](1.jpg)\n';
+    assert.equal(withImageMarkdown(col, {}, ctxFor('image')), col);
   });
 });

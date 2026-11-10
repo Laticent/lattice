@@ -430,4 +430,23 @@ describe('placing a picture writes the SLIDE\'s class, never `![bg]` (owner, 202
 		expect(placeImage(compound, images(compound)[0].pos, 'left')).toBe(false);
 		expect(docToDeck(compound.state.doc)).toBe(before);
 	});
+
+	it('only the slide\'s ONLY lone picture, as a direct paragraph, may be placed (the checker on this change)', () => {
+		const two = mount(one('content', '![A](a.jpg)\n\n![B](b.jpg)'));
+		expect(placementAt(two.state, images(two)[0].pos).canPlace).toBe(false);
+		const list = mount(one('content', '- ![A](a.jpg)'));
+		expect(placementAt(list.state, images(list)[0].pos).canPlace).toBe(false);
+	});
+
+	it('a deck-wide class decides the placement and is not overridden from here', () => {
+		const view = new EditorView(document.createElement('div'), { state: EditorState.create({ doc: deckToDoc('---\ntheme: indaco\nclass: bleed\n---\n\n' + one('content', '![A](a.jpg)')) }) });
+		expect(placementAt(view.state, images(view)[0].pos)).toEqual({ placement: 'full', canPlace: false });
+		expect(placeImage(view, images(view)[0].pos, 'none')).toBe(false);
+	});
+
+	it('`mirror` belongs to the image layout here, and to any other layout there', () => {
+		expect(tokensWithPlacement(['content', 'mirror'], 'full')).toEqual(['content', 'mirror', 'bleed']);
+		expect(tokensWithPlacement(['content', 'mirror'], 'left')).toEqual(['image', 'mirror']);
+		expect(tokensWithPlacement(['image', 'mirror'], 'none')).toEqual(['content']);
+	});
 });

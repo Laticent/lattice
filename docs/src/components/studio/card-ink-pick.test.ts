@@ -173,6 +173,10 @@ describe('photoAt: the slide\'s photo however it is written (2026-11-10)', () =>
 		expect(photoAt('<!-- _class: content bleed -->\n\n## T\n\n![A lake](<a b.jpg>)\n')).toMatchObject({ ref: 'a b.jpg' });
 	});
 
+	it('a picture with words after it on the same line stays in the text, as the engine leaves it', () => {
+		expect(photoAt('<!-- _class: image -->\n\n## T\n\n![A lake](x.jpg) at dawn\n')).toBeNull();
+	});
+
 	it('a plain picture on a slide that does not place it is not the slide\'s photo', () => {
 		expect(photoAt('<!-- _class: content -->\n\n## T\n\n![A lake](sample:photo-wide.jpg)\n')).toBeNull();
 	});
