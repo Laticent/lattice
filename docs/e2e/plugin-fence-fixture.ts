@@ -26,9 +26,10 @@ export { render as default };
 `;
 
 /** A zip plugin of INLINE kinds only (2026-10-14-plugin-inline-door.md): `@tag-chip{Label, hot}`, read by its declared slot. */
-export async function chipZip(code: string = CHIP_RENDERER, name = 'chip-plugin'): Promise<Buffer> {
+/** `extra`: more inline kinds beside `tag-chip`, e.g. one that declares no slot. */
+export async function chipZip(code: string = CHIP_RENDERER, name = 'chip-plugin', extra: Record<string, object> = {}): Promise<Buffer> {
 	const zip = new JSZip();
-	const inline = { 'tag-chip': { title: 'Tag chip', slot: { label: 'a tag chip', positional: [{ name: 'label', type: 'text' }], params: { tone: { type: 'oneOf', values: ['hot', 'cold'] } } }, placeholder: { size: 'sm' } } };
+	const inline = { ...extra, 'tag-chip': { title: 'Tag chip', slot: { label: 'a tag chip', positional: [{ name: 'label', type: 'text' }], params: { tone: { type: 'oneOf', values: ['hot', 'cold'] } } }, placeholder: { size: 'sm' } } };
 	zip.file(`${name}/${name}.manifest.json`, JSON.stringify({ name, type: 'plugin', format: 1, api: 1, title: 'Tag chips (zip)', description: 'Draws `@tag-chip{…}` as a small tag.', contributes: { inline } }));
 	zip.file(`${name}/${name}.docs.md`, '# Tag chips\n');
 	zip.file(`${name}/${name}.fixtures.md`, '- `@tag-chip{Launch, hot}`\n');

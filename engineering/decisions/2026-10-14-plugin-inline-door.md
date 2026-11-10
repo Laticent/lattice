@@ -360,5 +360,18 @@ The trio (red team, inversion, checker) read the commits; what each found and wh
   hand-written CSS declaration parser after #2871 and #3033 moved to one tokenizer per language. The e2e flake fixes were
   superseded on main.
 - **The rebuilt-layout shadow** (`2687-p4`) was decided by the owner (a listed plugin draws on every slide type) and
-  built in #3110 with the slide-text address check; **Compose's panel for a kind's slot** (`2687-p8`) is still open.
+  built in #3110 with the slide-text address check. **Compose's panel for a kind's slot** (`2687-p8`) had already shipped
+  on 2026-10-22 under `2846-p4` (`PluginKindPanel.tsx`, `kernels.record`, `e2e/compose-plugin-kind.spec.ts`); this line
+  said "still open" until step 4 below.
+
+**2026-11-10 — step 4, Compose, closed.** What §4.5 asked for and 2026-10-22 had not built: **a kind without a slot gets
+a text field.** `pluginKindEntries` dropped every slot-less kind, so its spans stayed plain code. Now each installed kind
+is an entry (`slot` optional); a slot-less span is an object whose panel holds its record, the text between the braces,
+as one line, and a change writes `@kind{…}` whole. Insert starts one as `@kind{}`. Compose takes the door's own test of
+a whole call: `recordIsWhole` and the span pattern moved out of `code-door-fence.mjs` into `lib/core/named-span.mjs`
+(`namedCall`), which both import, so Compose owns, and writes, only a span the door would claim (`@k{a} and {b}` and an
+unclosed quote are refused, and the deck keeps the last good record; the panel says which rule the record broke).
+Proved in the real Studio by `e2e/compose-plugin-kind.spec.ts` in Chromium at 1440 and 390, WebKit at 1180 and Gecko,
+with a screenshot at 820. The spec's install helper had been leaving every project at 1440, so its phone run never ran
+at phone width; it restores the project's own size now.
 
