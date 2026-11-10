@@ -18,6 +18,7 @@
  *   node tools/shard-tests.js --weights W.json [--shard K/N] <glob>...   run shard K of N (all if omitted)
  *   node tools/shard-tests.js --weights W.json --shard K/N --list <glob>... print the plan, run nothing
  *   node tools/shard-tests.js --weights W.json --bless TIMES.tsv       rewrite W.json from "file<TAB>seconds" lines
+ *   --reporter NAME   pass `--test-reporter=NAME` to node (the unit suite runs `dot`, as `npm test` does)
  *
  * `--shard` can also come from the SHARD env var, so a CI matrix sets one variable.
  */
@@ -51,26 +52,43 @@ function parseShard(spec) {
   return { k, n };
 }
 
-/** Expand `dir/*.test.js` style globs (a single trailing * segment) without a dependency. */
+/**
+ * Expand globs without a dependency: `*` matches within one path segment, in any segment
+ * (`test/unit/*\/*.test.js` lists every area's tests). Matches come back sorted, so the plan is
+ * the same on every machine. No `**`: a deeper tree is spelled out one level per segment.
+ */
 function expand(patterns) {
+  const segRe = (seg) => new RegExp(`^${seg.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`);
   const out = [];
   for (const p of patterns) {
     if (!p.includes('*')) { out.push(p); continue; }
-    const dir = path.dirname(p);
-    const re = new RegExp(`^${path.basename(p).replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`);
-    for (const f of fs.readdirSync(dir).sort()) if (re.test(f)) out.push(path.posix.join(dir, f));
+    let paths = [''];
+    for (const seg of p.split('/')) {
+      const next = [];
+      for (const base of paths) {
+        if (!seg.includes('*')) { next.push(base ? `${base}/${seg}` : seg); continue; }
+        const dir = base || '.';
+        let names = [];
+        try { names = fs.readdirSync(dir).sort(); } catch { continue; }
+        const re = segRe(seg);
+        for (const n of names) if (re.test(n)) next.push(base ? `${base}/${n}` : n);
+      }
+      paths = next;
+    }
+    for (const f of paths) if (fs.existsSync(f) && fs.statSync(f).isFile()) out.push(f);
   }
   return [...new Set(out)];
 }
 
 function main(argv) {
-  const opt = { weights: null, shard: process.env.SHARD || null, list: false, bless: null, globs: [] };
+  const opt = { weights: null, shard: process.env.SHARD || null, list: false, bless: null, reporter: null, globs: [] };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--weights') opt.weights = argv[++i];
     else if (a === '--shard') opt.shard = argv[++i];
     else if (a === '--list') opt.list = true;
     else if (a === '--bless') opt.bless = argv[++i];
+    else if (a === '--reporter') opt.reporter = argv[++i];
     else opt.globs.push(a);
   }
   if (!opt.weights) throw new Error('--weights <file.json> is required');
@@ -99,7 +117,7 @@ function main(argv) {
   // leg (more shards than files) must return here and never reach the spawn below.
   if (!mine.files.length) { console.log('[shard-tests] nothing to run in this shard'); return 0; }
   if (opt.list) { for (const f of mine.files) console.log(f); return 0; }
-  const r = spawnSync(process.execPath, ['--test', ...mine.files], { stdio: 'inherit' });
+  const r = spawnSync(process.execPath, ['--test', ...(opt.reporter ? [`--test-reporter=${opt.reporter}`] : []), ...mine.files], { stdio: 'inherit' });
   return r.status ?? 1;
 }
 

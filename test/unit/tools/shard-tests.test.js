@@ -5,7 +5,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { plan, parseShard } = require('../../../tools/shard-tests.js');
+const { plan, parseShard, expand } = require('../../../tools/shard-tests.js');
 
 const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
 const weights = { a: 100, b: 60, c: 50, d: 40, e: 10, f: 10, g: 5 };
@@ -103,6 +103,35 @@ describe('shard-tests CLI guards', () => {
       assert.equal(r.status, 2);
       assert.match(r.stderr, /not K\/N/);
     });
+  });
+
+  it('a wildcard in a folder segment lists every folder\'s tests, and --reporter reaches node', () => {
+    // The unit suite shards as test/unit/*/*.test.js: one area per folder, so the folder segment is a wildcard.
+    withDir((dir) => {
+      for (const area of ['a', 'b']) {
+        fs.mkdirSync(path.join(dir, area));
+        fs.writeFileSync(path.join(dir, area, `${area}.test.js`), `require('node:test')('${area}', () => {});\n`);
+      }
+      fs.writeFileSync(path.join(dir, 'a', 'not-a-test.js'), '');
+      const listed = run(dir, ['--list', '*/*.test.js']);
+      assert.equal(listed.status, 0, listed.stderr);
+      assert.deepEqual(listed.stdout.trim().split('\n').slice(1), ['a/a.test.js', 'b/b.test.js']);
+      const dot = run(dir, ['--reporter', 'dot', '*/*.test.js']);
+      assert.equal(dot.status, 0, dot.stderr);
+      assert.match(dot.stdout, /^\.\.$/m, 'the dot reporter prints one dot per test');
+    });
+  });
+
+  it('the unit shards cover every file `npm test` runs: no test sits outside test/unit/<area>/', () => {
+    // `npm test` globs test/unit/**/*.test.js; the CI shards (`npm run test:unit:shard`) glob test/unit/*/*.test.js. A
+    // test one folder deeper, or at test/unit/ itself, would run locally and be skipped by CI without a word.
+    const root = path.join(__dirname, '..', '..', '..');
+    const all = [];
+    const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else if (e.name.endsWith('.test.js')) all.push(path.relative(root, f).split(path.sep).join('/')); } };
+    walk(path.join(root, 'test', 'unit'));
+    const cwd = process.cwd();
+    process.chdir(root);
+    try { assert.deepEqual(expand(['test/unit/*/*.test.js']).sort(), all.sort()); } finally { process.chdir(cwd); }
   });
 
   it('a red test makes the leg exit non-zero', () => {

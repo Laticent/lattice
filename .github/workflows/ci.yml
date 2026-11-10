@@ -328,6 +328,12 @@ jobs:
   unit:
     runs-on: ubuntu-24.04
     timeout-minutes: 20 # raised from 15 on 2026-11-03 (owner call, D2 on #2984): node 22 runs took 14m01s-14m25s on main and one PR run was canceled at 15m03s
+    # SHARDED TWO WAYS (owner call, 2026-11-10). Over the 60 runs of 2026-11-10 the one node 22 job took 14.4 min at
+    # the median, 16.6 at p90 and 16.9 at most against this 20-minute cap; half went over 15; one was cancelled at 20
+    # with every test passing (run 42873245269): a slow runner, setup 5 min, the suite 17% past its normal maximum.
+    # Raising the cap again would only move the cliff (flaky shape F4), so node 22 now runs the full suite in two legs,
+    # dealt by recorded seconds per file (`tools/shard-tests.js`, `test/unit/shard-weights.json`): about 3.3 min of
+    # setup each plus half the tests. The node 24 merge-queue leg runs its smoke subset once, as before.
     strategy:
       fail-fast: false
       matrix:
@@ -336,7 +342,11 @@ jobs:
         # and the npm ci wedges noted at the top of this file are all on this leg. The queue still runs both, so
         # nothing reaches main untested on 24; a 24-only break now ejects one queue group instead of redding a PR.
         node-version: ${{ fromJSON(github.event_name == 'merge_group' && '[22, 24]' || '[22]') }}
-    name: unit (node ${{ matrix.node-version }})
+        shard: [1, 2]
+        exclude:
+          - node-version: 24
+            shard: 2
+    name: unit (node ${{ matrix.node-version }}${{ matrix.node-version == 22 && format(', shard {0}/2', matrix.shard) || '' }})
     env:
       PUPPETEER_SKIP_DOWNLOAD: '1'
     steps:
@@ -400,9 +410,11 @@ jobs:
       # bundle stale?" — a question with no meaning now that the bundle is built
       # rather than committed. The staleness it guarded against is gone at the
       # root: every job and the docs deploy build the bundle from current source.
-      - name: Unit tests (full suite)
+      - name: Unit tests (full suite, one shard)
         if: matrix.node-version == 22
-        run: npm test
+        env:
+          SHARD: ${{ matrix.shard }}/2
+        run: npm run test:unit:shard
       - name: Unit tests (engine + export smoke subset)
         if: matrix.node-version != 22
         # core/engine/parsing/transformers cover the render kernels;
