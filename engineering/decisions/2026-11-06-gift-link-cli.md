@@ -38,9 +38,10 @@ https://<lattice site>/gift#v1.<key bytes, base64url>.<check>
   browser, stores it where a signed-in author's key goes, through the one writer for that slot
   (`writeOpenRouterKey` in `docs/src/lib/openrouter-key.js`, which owns `lattice-db-or-key`),
   clears the fragment from the address bar, and opens the Studio.
-- **It is about 60 characters.** The key's fixed prefix is dropped and its hex digits are packed
-  as bytes, then written in base64url (§2). A QR code of 60 characters is small and sparse, so
-  it scans easily at business-card size.
+- **The token is 51 characters** (69 with a PIN). The key's fixed prefix is dropped and its hex
+  digits are packed as bytes, then written in base64url (§2). A QR code of that size is small and
+  sparse, so it scans easily at business-card size. The exact layout is the header of
+  `lib/core/gift-link.mjs`.
 - **`v1` is a format version** and `<check>` is a short checksum, so a damaged or mistyped link
   fails with a clear message instead of storing a broken key.
 - **An optional PIN** (for example 6 digits, printed apart from the QR) can lock the key in the
@@ -54,9 +55,10 @@ the code that writes a card and the code that reads it cannot disagree (HARD RUL
 
 A short code can only point to a key; it cannot contain one. The worked numbers:
 
-- An OpenRouter key is shown as a fixed prefix plus a long random part. Treating the random part
-  as 64 hex characters (32 bytes, 256 bits) — **UNVERIFIED: confirm the exact format against
-  OpenRouter's documentation in slice 1** — it can be written in no fewer than about 43
+- An OpenRouter key is a fixed prefix plus a random part. OpenRouter's OpenAPI spec for
+  `POST /api/v1/keys` gives it as `sk-or-v1-` followed by 64 lowercase hex characters (32 bytes,
+  256 bits; confirmed 2026-11-10, and the create response returns it once, as `key`, beside
+  `data.hash`, the id that later deletes it). That can be written in no fewer than 43
   characters of base64url, 52 of typo-proof base32, or 24 common words.
 - An 8-character code carries about 40 bits. Getting 256 bits back from 40 needs the missing
   bits stored somewhere: a lookup table.
@@ -164,6 +166,17 @@ gift-cards revoke [--label …]     # delete a batch's keys at OpenRouter
 | Gift links in the CSV | Off by default with `--with-links`, or always on | Off by default |
 | PIN | Off, optional, or always | Optional, off by default |
 | Where the tool lives | `tools/` in this repo, or a separately published package | `tools/` first; publish once the format is stable |
+
+**Taken 2026-11-10, by default.** The owner was away when the build started and the brief said a
+safe default beats a question, so each decision took its recommendation. All five are reversible
+in one commit:
+
+- **D1 card size:** both, as `card` (US 3.5 × 2 in) and `card-iso` (85 × 55 mm). The CLI
+  defaults to `card` (`--size iso` for the other); nothing yet says where the first cards go.
+- **D2 print route:** home sheets only. The print-shop PDF stays slice 5, behind sign-off.
+- **D3 links in the CSV:** off; `--with-links` adds them.
+- **D4 PIN:** optional, off; `--pin` locks every key in a batch with one generated PIN per card.
+- **D5 tool home:** `tools/gift-cards.mjs`.
 
 ## 8. Slices, in order
 
