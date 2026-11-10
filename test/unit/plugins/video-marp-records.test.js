@@ -33,6 +33,15 @@ describe('recordSpans — every record span a whole deck holds, read from its Ma
     assert.deepEqual(recordSpans('`@video{"https://youtu.be/dQw4w9WgXcQ",\r\ntitle="T"}`'), ['{"https://youtu.be/dQw4w9WgXcQ", title="T"}']);
   });
 
+  // The short form, `>{…}` (video.inline.js `RECORD_OPEN`, 2026-11-10), is the same record: both channels read it as the full
+  // spelling, and a bare `{…}` (a pill) is never one.
+  test('the short form `>{…}` is a record on both channels, and a bare `{…}` is not', () => {
+    const deck = md(`\`>${YT}\``, '', `\`@video${VIMEO}\``, '', `\`${YT}\``);
+    assert.deepEqual(recordSpans(deck), [YT, VIMEO]);
+    const html = new MarkdownIt().use(latticeVideoRecords).render(deck);
+    assert.deepEqual(JSON.parse(/<script type="application\/lattice-video-records">([^<]*)/.exec(html)[1]), [YT, VIMEO]);
+  });
+
   test('the two channels agree: the engine hands over the same list for the same deck', () => {
     const deck = md(`\`@video${YT}\``, '', '1. item', '    - `@video' + VIMEO + '`', '', `> \`@video${YT}\``, '', 'A `@video{"https://youtu.be/dQw4w9WgXcQ",', 'title="T"}` in text.');
     const html = new MarkdownIt().use(latticeVideoRecords).render(deck);
@@ -175,6 +184,22 @@ describe('the record block and its shape check', () => {
     assert.equal(readRecordBlock(doc(JSON.stringify(['no braces']))), null);
     assert.equal(readRecordBlock(new JSDOM('<body></body>').window.document), null);
     assert.equal(validRecords(new Array(1500).fill(YT)).length, 1000, 'bounded: the first thousand, not none');
+  });
+});
+
+// The poster address passes the media layer's scheme check (`ctx.media.addressOk`), as on every media path: an allowed address
+// is drawn, a refused one draws the placeholder (video.inline.js `figureHtml`).
+describe('drawRecords — the poster passes the scheme check', () => {
+  const page = (rec) => new JSDOM(`<!doctype html><body><section><p><code>@video${rec.replace(/"/g, '&quot;')}</code></p></section></body>`).window.document;
+  test('an allowed poster is drawn; a refused one is loaded and linked nowhere', () => {
+    const ok = page('{"https://youtu.be/dQw4w9WgXcQ", poster="clip.jpg"}');
+    drawRecords(ok, ['{"https://youtu.be/dQw4w9WgXcQ", poster="clip.jpg"}'], { ctx });
+    assert.match(ok.querySelector('.video-poster').getAttribute('style') || '', /clip\.jpg/);
+    const bad = '{"https://youtu.be/dQw4w9WgXcQ", poster="javascript:alert(1)"}';
+    const refused = page(bad);
+    drawRecords(refused, [bad], { ctx });
+    // Refused: no element loads or links it (the record may be left as its text, which is inert).
+    assert.equal(refused.querySelector('[style*="javascript"], [href^="javascript"]'), null, refused.body.innerHTML);
   });
 });
 

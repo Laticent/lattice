@@ -142,7 +142,8 @@ describe('an @video record in a hand-written Marp kit deck — real marp-cli, re
       figure: s.querySelector('.video-card figure.video-embed[data-lattice-media="video"]')?.dataset.provider,
       href: s.querySelector('figure a.video-poster')?.getAttribute('href'),
       caption: s.querySelector('figcaption')?.textContent,
-      captionKids: s.querySelector('figcaption')?.children.length,
+      // The title's markup stays text: no element the author's `<b>` would have made.
+      captionBold: s.querySelectorAll('figcaption b').length,
       code: [...s.querySelectorAll('code')].map((c) => c.textContent),
     }));
     assert.deepEqual(s1, {
@@ -150,7 +151,7 @@ describe('an @video record in a hand-written Marp kit deck — real marp-cli, re
       figure: 'youtube',
       href: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       caption: 'The <b>tour</b>',
-      captionKids: 0,
+      captionBold: 0,
       code: [],
     });
   });

@@ -1701,6 +1701,7 @@
       "verdict": "unknown",
       "why": "recheck could not decide it within a 3072 MB heap (the checker exits SIGABRT)"
     },
+    "/^(?:@video|>)\\{[^\\r\\n]*\\}$/": "safe",
     "/^(?:PRE|MARP-PRE)$/i": "safe",
     "/^(?:[ \\t]*\\r?\\n)+/": "safe",
     "/^(?:[ \\t]{0,3}>[ \\t]?)+/": "safe",
@@ -2089,7 +2090,6 @@
       "verdict": "unknown",
       "why": "recheck cannot model it: back-reference"
     },
-    "/^@video\\{[^\\r\\n]*\\}$/": "safe",
     "/^At\\b/": "safe",
     "/^BiRel/i": "safe",
     "/^C4(Context|Container|Component|Dynamic|Deployment)$/i": "safe",
@@ -2737,6 +2737,7 @@
     "/_class/": "safe",
     "/_close$/": "safe",
     "/_open$|^(?:html_block|fence|code_block|hr)$/": "safe",
+    "/`(?:@video|>)(\\{[^`]*\\})`/g": "safe",
     "/`(?:@video|>)\\{/": "safe",
     "/`(?:@video|>)\\{/g": "safe",
     "/`(@check\\{[^`]*\\})`/g": "safe",
@@ -2750,7 +2751,6 @@
     "/`+/g": "safe",
     "/`@([A-Za-z][A-Za-z0-9_-]*)`/g": "safe",
     "/`@code\\{[^`\\n]*\\bformat\\b/": "safe",
-    "/`@video(\\{[^`]*\\})`/g": "safe",
     "/`[^`\\n]*`/g": "safe",
     "/`[^`]*`/g": "safe",
     "/`[^`]*`\\s*$/": "safe",

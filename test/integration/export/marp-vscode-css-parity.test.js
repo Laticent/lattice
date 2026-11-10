@@ -96,7 +96,14 @@ describe('the VS Code-shaped stylesheet styles the preview exactly as the regist
     fs.rmSync(OUT, { recursive: true, force: true });
     fs.cpSync(KIT, OUT, { recursive: true });
     for (const h of Object.values(HANDOFFS)) if (h.from) fs.copyFileSync(path.join(ROOT, h.from), path.join(OUT, h.href));
-    browser = await require('puppeteer').launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    // Full-resolution raster only (HARD RULE #32: the same pixels on every run). Chromium first paints a scrolled or cold region
+    // with low-resolution tiles and fills it in partially; a capture can catch either, and a curve at a fractional offset then
+    // differs by a few anti-aliased pixels. Measured on the authored deck's diagram slide: 2 runs in 5 differed by 95 pixels with
+    // the defaults, 0 in 8 with these two flags.
+    browser = await require('puppeteer').launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-low-res-tiling', '--disable-partial-raster'],
+    });
   });
   after(async () => { if (browser) await browser.close(); });
 

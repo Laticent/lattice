@@ -94,7 +94,7 @@ Then each slide opens with one comment naming its layout — `_class: kpi`,
 1. 1
    - folder to copy
    - keep it together `{Complete}`
-2. 11 MB
+2. 13 MB
    - on disk, minified
    - CSS, scripts and fonts
 3. 79
