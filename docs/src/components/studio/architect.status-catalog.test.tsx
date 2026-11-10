@@ -125,4 +125,46 @@ describe('useArchitectStatus and a catalog that lands after the status read', ()
 			vi.useRealTimers();
 		}
 	});
+
+	// Also last: the timer a read sets INSIDE the backoff. The first read fails and schedules its retry; a second read
+	// within the backoff (a pulse) replaces it with a fill timed to the backoff's end, and that fill names the model.
+	it('a read inside the backoff schedules a fill for when the backoff ends', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		let now = 90_000_000;
+		const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+		try {
+			catalog = null;
+			listCalls.mockReset();
+			listCalls.mockImplementation(() => Promise.reject(new Error('offline')));
+			const { result, rerender } = renderHook(({ p }) => useArchitectStatus(p), { initialProps: { p: 0 } });
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(0);
+			});
+			expect(listCalls).toHaveBeenCalledTimes(1);
+			// 10 s later, inside the backoff, the status refreshes: no fetch now, one scheduled for 20 s from here.
+			now += 10_000;
+			rerender({ p: 1 });
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(0);
+			});
+			expect(listCalls).toHaveBeenCalledTimes(1);
+			listCalls.mockImplementation(async () => {
+				catalog = [{ id: 'test/model', name: 'Test Model' }];
+			});
+			now += 19_000;
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(19_000);
+			});
+			expect(listCalls).toHaveBeenCalledTimes(1);
+			now += 1_100;
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(1_100);
+			});
+			expect(listCalls).toHaveBeenCalledTimes(2);
+			expect(result.current.modelName).toBe('Test Model');
+		} finally {
+			clock.mockRestore();
+			vi.useRealTimers();
+		}
+	});
 });
