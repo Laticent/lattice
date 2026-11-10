@@ -2186,7 +2186,7 @@ test('a plugin placeholder: the narration says what the article says, wherever i
 });
 
 test('a placed photo reaches the article: the shortcut, the record and `![bg]` on an image slide, and a bleed background', async () => {
-	for (const pic of ['![A lake](https://example.com/a.png)', '`@image{https://example.com/a.png, title="A lake"}`', '![bg](https://example.com/a.png)']) {
+	for (const pic of ['![A lake](https://example.com/a.png)', '`@image{https://example.com/a.png, title="A lake"}`']) {
 		const { articleHtml } = project(await renderedSections(`<!-- _class: image -->\n\n## Pic\n\nThe lead.\n\n${pic}\n\nAfter.\n`));
 		assert.equal(articleHtml.split('<img').length - 1, 1, pic);
 		assert.ok(articleHtml.indexOf('The lead.') < articleHtml.indexOf('<figure') && articleHtml.indexOf('</figure>') < articleHtml.indexOf('After.'), pic);
@@ -2203,7 +2203,7 @@ test('a video slide on a bleed background keeps its own video card', async () =>
 test('a `.lattice-bg` a plugin draws never reaches the article: only the slide\'s own panel is re-hosted', () => {
 	const secs = sections(
 		'<section data-lattice-slide class="content"><div class="cell-stage"><h2>Plugin</h2><p>Words.</p>'
-			+ '<div data-lattice-plugin="evil"><div class="lattice-bg" style="background-image:url(\'https://attacker.example/x.png\')"></div></div></div></section>',
+			+ '<div data-lattice-plugin="evil"><div class="lattice-bg" data-lattice-media="image" style="background-image:url(\'https://attacker.example/x.png\')"></div></div></div></section>',
 	);
 	const { articleHtml } = project(secs);
 	assert.doesNotMatch(articleHtml, /attacker\.example/);
@@ -2213,8 +2213,26 @@ test('a `.lattice-bg` a plugin draws never reaches the article: only the slide\'
 test('a `.lattice-bg` drawn deeper than the slide\'s two seats never reaches the article', () => {
 	const secs = sections(
 		'<section data-lattice-slide class="content bleed"><div class="cell-stage"><h2>Deep</h2><p>Words.</p>'
-			+ '<blockquote><div class="lattice-bg" style="background-image:url(\'https://attacker.example/y.png\')"></div></blockquote></div></section>',
+			+ '<blockquote><div class="lattice-bg" data-lattice-media="image" style="background-image:url(\'https://attacker.example/y.png\')"></div></blockquote></div></section>',
 	);
 	const { articleHtml } = project(secs);
 	assert.doesNotMatch(articleHtml, /attacker\.example/);
+});
+
+test('only the image plugin\'s own panel is re-hosted: an author\'s raw panel, hidden, quoted or plain, and a Marp `![bg]` never are', async () => {
+	const decoys = [
+		'<div class="lattice-bg" hidden style="display:none;background-image:url(https://attacker.example/decoy.png)" aria-label="Forged"></div>\n\n![The real photo](https://example.com/real.png)',
+		'> quoted <div class="lattice-bg" data-lattice-media="image" style="background-image:url(https://attacker.example/nested.png)" aria-label="Forged"></div>\n\n![The real photo](https://example.com/real.png)',
+	];
+	for (const decoy of decoys) {
+		const { articleHtml } = project(await renderedSections(`<!-- _class: image -->\n\n## Pic\n\nLead.\n\n${decoy}\n`));
+		assert.doesNotMatch(articleHtml, /attacker\.example|Forged/, decoy);
+		assert.match(articleHtml, /<img src="https:\/\/example\.com\/real\.png" alt="The real photo">/, decoy);
+	}
+	for (const cls of ['text', 'content bleed']) {
+		const { articleHtml } = project(await renderedSections(`<!-- _class: ${cls} -->\n\n## Raw\n\nWords.\n\n<div class="lattice-bg" style="background-image:url(https://attacker.example/raw.png)" aria-label="decoy"></div>\n`));
+		assert.doesNotMatch(articleHtml, /attacker\.example/, cls);
+	}
+	const { articleHtml } = project(await renderedSections('<!-- _class: image -->\n\n## Pic\n\nLead.\n\n![bg](https://example.com/a.png)\n'));
+	assert.equal(articleHtml.split('<img').length - 1, 0, 'a Marp ![bg] panel stays out of the article, as on main');
 });

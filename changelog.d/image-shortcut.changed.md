@@ -6,6 +6,6 @@
   record. Only a slide's ONLY lone picture is placed, and only one that is the slide's own paragraph: two pictures, or a
   picture in a list or a quote, stay ordinary pictures. A deck-wide `class: bleed` makes that one picture every slide's
   background, as it already did for the record. One shipped deck moves: `styles-device-check`'s web-image slide shows its blocked picture as the panel.
-- The Reading view (the article built from a deck) shows an `image` slide's photo and a `bleed` slide's background again, as
-  a figure after the lead paragraph, whichever way the picture was written (`![…](…)`, `@image{…}` or `![bg]`). A photo drawn
-  as the slide's panel used to be left out.
+- The Reading view (the article built from a deck) shows an `image` slide's photo and a `bleed` slide's background as a
+  figure after the lead paragraph, when the picture is written as `![…](…)` or `@image{…}`. A Marp `![bg]` picture stays out
+  of the article, as before, and so does a picture with no title (it is decorative).
