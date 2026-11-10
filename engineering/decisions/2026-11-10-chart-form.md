@@ -196,3 +196,14 @@ mobile and 4:5 on the branch before the kernel too; `main` does not. It is owed 
 3. The pilot at mobile, story, 4:5 and square, light and dark.
 4. Landscape: the kernel does not run on 16:9 yet. Each pilot gallery's 16:9 chart markup is byte-identical to the
    branch before the kernel, and differs from `main` only by #3088's `data-series-name` attributes (no geometry, no text).
+
+## 10. Decided by the owner on the pilot (2026-11-10)
+
+1. **Measurer:** the per-glyph table. It is pinned to the woff2 bytes it was measured from, and re-measured on demand,
+   as `GLYPH_UPPER` is (svg-label.js); the bake-off switch is removed.
+2. **Over capacity:** keep the scaled drawing. A chart the floors cannot hold on one page is drawn whole and the page
+   scales it (`data-chart-form="over"`); nothing is dropped or printed over another. Continuation onto a second page is
+   not built.
+3. **The pilot is signed off.** The other 25 kinds move through the kernel one per commit, each swept at all five sizes
+   against `main`.
+4. **Landscape** moves after every kind is on the kernel at the phone sizes, in one pass, with a before/after sign-off.
