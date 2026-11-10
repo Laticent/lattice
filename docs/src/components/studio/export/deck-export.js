@@ -289,6 +289,9 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// rather than name a path the bundle lacks.
 	// The URL is derived like `exportBase` below, the same rule as samplesBaseFor in
 	// samples-base.ts: a `.ts` import would break the node tests that load this file.
+	// The image plugin's records first, in Marp's spelling, so their pictures are staged below and a panel record is lifted
+	// (lib/export/marp-bundle.js `withImageRecordsAsMarp`). A cached bundle from before the image plugin has none to rewrite.
+	if (typeof marp.withImageRecordsAsMarp === 'function') source = marp.withImageRecordsAsMarp(source, pluginsOff);
 	const samplePaths = new Map();
 	const samplesBase = themeBase.replace(/themes\/$/, 'samples/');
 	await Promise.all(sampleAssetNames(source).map(async (sample) => {

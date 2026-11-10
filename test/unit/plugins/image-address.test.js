@@ -53,7 +53,7 @@ describe('the slide places the picture', () => {
     assert.match(html(deck('image mirror', '`@image{photo.jpg}`')), /lattice-bg lattice-bg-left/);
     assert.match(html(deck('content dark bleed', '`@image{photo.jpg}`')), /lattice-bg lattice-bg-full/);
     const col = html(deck('collage', '- `@image{a.jpg, title="A", frame=mat}`\n- `@image{b.jpg, title="B"}`'));
-    assert.match(col, /<img src="a\.jpg" alt="A">/);
+    assert.match(col, /<li class="collage-tile" data-label="A"><img src="a\.jpg" alt="A"/);
     assert.doesNotMatch(col, /data-frame="mat"/, 'a collage tile ignores the frame');
   });
 });
@@ -91,5 +91,55 @@ describe('Export-to-Marp writes Marp\'s own spelling', () => {
     assert.equal(withImageMarkdown(fenced, {}, ctx), fenced);
     const inText = deck('content', 'Text\n`@image{p.jpg}`');
     assert.equal(withImageMarkdown(inText, {}, ctx), inText);
+  });
+});
+
+describe('the trio\'s findings on slice 3 stay fixed', () => {
+  test('an entity in the address stays text inside `url(\'…\')`: no quote, no second url, nothing remote', () => {
+    const out = html(deck('image', '`@image{"x&#39;&#41;;position:fixed;background-image:url&#40;&#39;http://attacker.example/a.png"}`'));
+    const style = /<div class="lattice-bg[^>]*style="([^"]*)"/.exec(out)[1];
+    const decoded = new JSDOM(`<div style="${style}"></div>`).window.document.querySelector('div').getAttribute('style');
+    assert.equal((decoded.match(/url\(/g) || []).length, 1, decoded);
+    assert.equal(decoded.indexOf("')"), decoded.length - 2, 'the url string closes only at its end');
+  });
+
+  test('no resolver, no picture: the raw address is never written', () => {
+    assert.equal(dispatcher.renderBlockHtml('@image{"javascript:alert(1)"}'), null);
+    assert.doesNotMatch(dispatcher.renderBlockHtml('@video{"https://youtu.be/dQw4w9WgXcQ", poster="javascript:x"}') || '', /javascript:/);
+  });
+
+  test('a collage packs a record as a tile, like a Markdown image', () => {
+    const col = html(deck('collage', '- `@image{a.jpg, title="A"}`\n- `@image{b.jpg, title="B"}`\n- ![C](c.jpg)'));
+    assert.match(col, /class="collage-list"/);
+    assert.equal((col.match(/<li class="collage-tile"/g) || []).length, 3);
+  });
+
+  test('narration speaks a panel\'s words on an image slide and a bleed slide', async () => {
+    const { projectDeckToScript } = await import('../../../lib/transformers/prose-projection.mjs');
+    for (const cls of ['image', 'content dark bleed']) {
+      const dom = new JSDOM(`<!doctype html><body>${html(deck(cls, '`@image{p.jpg, title="Lake title", description="Dawn description"}`'))}</body>`);
+      assert.match(JSON.stringify(projectDeckToScript([...dom.window.document.querySelectorAll('section')])), /Lake title\. Dawn description\./, cls);
+    }
+  });
+
+  test('the title is the name, the description the tooltip: never the title twice', () => {
+    const out = html(deck('image', '`@image{p.jpg, title="T", description="D"}`'));
+    assert.match(out, /aria-label="T" title="D"/);
+  });
+
+  test('the Marp translation follows the engine\'s class rules and its allowlist', () => {
+    const ctx = ctxFor('image');
+    const md = (fm, cls, body) => `---\n${fm}\n---\n\n<!-- _class: ${cls} -->\n\n${body}\n`;
+    assert.match(withImageMarkdown(md('class: bleed', 'content', '`@image{p.jpg}`'), {}, ctx), /^!\[bg\]\(p\.jpg\)$/m, 'a deck-wide bleed is appended');
+    assert.match(withImageMarkdown(md('class: image', 'content', '`@image{p.jpg}`'), {}, ctx), /^!\[\]\(p\.jpg\)$/m, 'a deck-wide component name is dropped');
+    const refused = md('theme: indaco', 'content', '`@image{"javascript:alert(1)"}`');
+    assert.equal(withImageMarkdown(refused, {}, ctx), refused);
+  });
+
+  test('the migration refuses to rewrite what it would change, and never edits a second directive', () => {
+    assert.ok(migrateBgLine('![bg](x&#39;a.jpg)', ['image']).unsafe);
+    assert.ok(migrateBgLine('![bg](a.jpg "a `b` c")', ['image']).unsafe);
+    assert.equal(migrateBgLine('    ![bg](a.jpg)', ['content']), null, 'an indented code block');
+    assert.equal(classLineWith('<!-- _class: content --><!-- _paginate: false -->', 'bleed'), null);
   });
 });

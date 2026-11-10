@@ -13,3 +13,7 @@
   `![title](src "description")` as its alias. The slide places it: an `image` slide makes it the photo panel (`mirror` puts it
   on the left), the new `bleed` class makes it a slide's background, and any other slide shows it as a figure with the shared
   layer's frames, finishes, tones and sizes (`image:` register). The address comes only from the author's own record.
+- Marp's `![bg …](…)` keywords are retired: `lint:deck` warns (`image-marp-keyword`) and `--fix` writes the `@image{…}` record,
+  moving the placement to the slide (`left` becomes `mirror`; a background on any other slide becomes `bleed`).
+- The vector PDF keeps a picture's tone and finish (and a `bleed` slide's scrim): the writer used to draw the photo as a vector
+  over its own blend layers, which take no hit test.

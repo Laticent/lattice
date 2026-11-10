@@ -67,6 +67,8 @@ const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/checks.md', 'the demo deck for the embedded checks plugin: the `[x]` shortcuts and the `@check{…}` full form beside them, inline and in a pill (HARD RULE #9)'],
   ['examples/plugin-sandbox-tour.md', 'the demo deck for every plugin in the Studio and Playground, inline ones included: an icon, an avatar, a spark and a pill on one slide, so typing near them can be tried (HARD RULE #9)'],
   ['examples/checkbox-semantics.md', 'the demo deck showing an inline `[ ]` mark draws the same ring as a pricing row or a state-cells cell (HARD RULE #9)'],
+  ['examples/image-plugin.md', 'the demo deck for the image plugin and the shared display layer: its last slide shows a clip as a `>{…}` record beside the pictures (HARD RULE #9)'],
+  ['examples/video-plugin.md', 'the demo deck for the video plugin: its new slide writes the clip as a `>{…}` record, the short form (HARD RULE #9)'],
 ]);
 
 /**

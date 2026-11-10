@@ -8953,7 +8953,7 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     file: 'lib/transformers/prose-projection.mjs',
     reads: ['html', 'li', 'regex', 'text'],
     sinks: { 'attribute-template': 1, 'css-url': 4 },
-    guards: 6,
+    guards: 7,
     guard: 'masks',
     why:
       'The Reading view projects a slide into prose. Its text reads build labels and captions; its one address is the video card\'s poster and link, taken only from the `video` plugin\'s own figure and never one inside `[data-lattice-plugin]` (`videoCard`); its `url(#…)` rewrites only suffix in-page ids. A plugin\'s drawing is copied whole with its `[data-lattice-plugin]` root (`projectGeneric`), so the article never holds plugin text as the author\'s. Narration speaks a media figure\'s words from its `data-lattice-*` attributes, never one inside `[data-lattice-plugin]` (`speakGeneric`).',

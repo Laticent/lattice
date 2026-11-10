@@ -23,7 +23,7 @@ const { resolveOembed, videoUrlsFromDeck } = require('../../../tools/fetch-video
 
 /** The figure the plugin draws from one record, as the markdown-it pass would emit it. */
 // The kind as the host builds it, with the video plugin's ctx (lib/core/plugin-ctx.js).
-const fig = (record) => plugin.inline(require('../../../lib/core/plugin-ctx.js').ctxFor('video')).video.blockHtml(record);
+const fig = (record) => plugin.inline(require('../../../lib/core/plugin-ctx.js').ctxFor('video')).video.blockHtml(record, null, { classes: ['video'], resolve: (ref) => ref });
 const YT = '{"https://www.youtube.com/watch?v=dQw4w9WgXcQ"}';
 const section = (body, cls = 'video') => `<section class="${cls}">${body}</section>`;
 

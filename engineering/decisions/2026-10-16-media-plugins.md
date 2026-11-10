@@ -1059,3 +1059,39 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   `spec/LPM.md` §10; §4.5 above now points there. The video row this note expected to delete never existed: `video`
   was already masked-by-design (§4.5 rule 3) when the gate landed, and it is sanctioned with guard `masks` because
   its QR and poster come from the stamped figure. Slice 3 (`image`) builds to the gate: it adds no row.
+- 2026-11-10: slice 3 (branch `claude/image-plugin-slice-3`, one PR, one commit per step). **Video catch-up:** `>{…}` is the
+  video record's short form (decision 3; Segno's `TAGS` and `INLINE_TAGS` gain `>`; all 458 shipped decks render
+  byte-identically, and a census test pins the `>`-leading code spans in shipped decks); video draws on any slide, its CSS split
+  into the plugin's own look and the `video` slide's layout, and `video-slide-class` is gone. **The shared layer (§4.7):**
+  `lib/core/media-display.js` (handed to plugins as `ctx.media`) and `lib/base/base.media.css`, built from the approved
+  prototype with the §4.9 fixes; tones and finishes are blend layers, not filters, so a background poster and an `<img>` share
+  one rule and a vector PDF keeps them. Hosts declare what they decide in a manifest field, `media`, which generates both the
+  parse-time table and each host guide's "Media inside" section (§7's recommendation). **The `image` plugin:** named-only,
+  `address` and `block`; an `image` slide seats a record as the same `.lattice-bg` panel `![bg](x)` made (`mirror` for the left),
+  the new `bleed` class makes it a slide's background, a collage packs it as a tile, anywhere else it is a flow figure. The
+  alias, `![title](src "description")`, still renders as an `<img>`: its alt is its title and its Markdown title its
+  description, so it carries no `data-lattice-*` stamp. **Census of the registry passes (§4.2):** none is deleted.
+  `image-adaptive` measures a picture the author named (no text-to-address path), `image-scrim` draws by class, `collage` lays
+  out tiles (a record's `<img>` carries its title as alt, so the collage needs no change), and `logo-marks` re-emits an
+  address already on the page with its plugin mask; the slide-text address gate passed with no new entry, and two entries
+  shrank (the video transform no longer writes a poster address). **Migration (decision 2, owner 2026-11-10):** `image-marp-keyword`
+  is a warning with an autofix that moves placement to the slide (`left` → `mirror`, a background → `bleed`) and names what was
+  never drawn; two shipped decks migrated by `--fix` render pixel-identically to main. The deck-wide sweep waits for the meta
+  record's codemod (step 5) on main, by the owner's order; the engine stops reading the keywords in its own PR right after
+  this one, with no compatibility period. Not built here: `subtitles`, the oEmbed title offer, the `file` row, presenting and
+  narration of clips (slices 4 and 5).
+- 2026-11-10: the trio on slice 3 (red team, inversion, checker). **Fixed in the PR:** the panel's style value is
+  attribute-escaped as well as percent-encoded, so an author's `&#39;` stays text inside `url('…')` (it decoded to a quote and
+  loaded another site past the allowlist); a block figure with no resolver draws nothing; the PDF writer kept a picture under
+  its tone and finish layers as a vector on top of them, because a `pointer-events: none` layer takes no hit test (`paintedAbove`,
+  lib/core/pdf-compose/read-slide.mjs), so a duotone and the `bleed` scrim vanished from the PDF and now do not; both Marp
+  producers rewrite records before they localize assets and lift `![bg]` (`withImageRecordsAsMarp`), and the translation follows
+  the engine's class rules and allowlist; narration speaks a panel's words; the tooltip carries only the description, so the
+  title is not read twice; a collage packs a record as a tile (a tiles host gets the bare `<img>`); an untitled clip draws no empty
+  caption row; the migration will not rewrite an address holding `&` or `\`, a description holding a backtick, an indented code
+  line or a class comment holding a second directive; `image-extra-panel` covers `bleed`. **Accepted, by look:** on shipped
+  `video` slides the poster and its chip move 1 to 2 px (the frame wrapper), and a `video companion` poster with no title now
+  centers on its lead instead of sitting 11 px high (main reserved a gap for an empty aside). **Still open in this PR, owed before
+  the merge ask:** the box known before the bytes (an image figure has no `aspect-ratio` yet), `lg` measured against the space
+  left on the slide rather than the slide, the `check:jank` record axis, the `check-ownership` gate on host CSS that reaches into
+  a figure, and `aria-describedby` for a flow figure's description.

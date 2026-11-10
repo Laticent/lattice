@@ -64,8 +64,7 @@ describe('the register words', () => {
 
   test('each media plugin\'s manifest declares exactly these axes', () => {
     for (const kind of ['video', 'image']) {
-      let manifest;
-      try { manifest = require(`../../../lib/plugins/${kind}/${kind}.manifest.json`); } catch { continue; }
+      const manifest = require(`../../../lib/plugins/${kind}/${kind}.manifest.json`);
       assert.deepEqual(manifest.contributes.registers[kind].axes, md.registerAxes(), kind);
     }
   });
@@ -85,8 +84,8 @@ describe('the words on the slide and on the figure', () => {
     assert.match(a, /data-lattice-description="x &amp; y"/);
   });
 
-  test('a shown title reserves its line even when empty; a hidden one is not rendered', () => {
-    assert.equal(md.captionHtml({ show: 'title' }, {}), '<figcaption class="lat-media-caption"><span class="lat-media-title"></span></figcaption>');
+  test('a title is shown only when the record has one; a hidden one is not rendered', () => {
+    assert.equal(md.captionHtml({ show: 'title' }, {}), '', 'the record is the author\'s, so an empty title is empty on every render');
     assert.equal(md.captionHtml({ show: 'none' }, { title: 'T', description: 'D' }), '');
     assert.match(md.captionHtml({ show: 'title' }, { title: 'T' }, { titleIsName: true }), /aria-hidden="true">T</);
   });
