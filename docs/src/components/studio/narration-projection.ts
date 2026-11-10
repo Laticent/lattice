@@ -147,7 +147,7 @@ async function projectMastheads(sectionHtmls: string[]): Promise<string[]> {
  * later page repeats; without it nothing is cut.
  *
  * Folds ONLY when the map accounts for the section count exactly; any other expansion
- * (`_focusSteps`, `split: headings`) leaves the scripts as they were, for the callers' own guard.
+ * (`split: headings`) leaves the scripts as they were, for the callers' own guard.
  */
 export function foldPaneSplits(scripts: SlideScript[], source: string, mastheads?: readonly string[]): SlideScript[] {
 	const { counts } = shownPaneCounts(source);

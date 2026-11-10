@@ -217,8 +217,8 @@ function measureInPage(markClasses, finishes, memberNames) {
   };
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
   const span = {};
-  const top = document.querySelector('section .heatmap-cell[data-step="5"]');
-  const low = document.querySelector('section .heatmap-cell[data-step="1"]');
+  const top = document.querySelector('section .heatmap-cell[data-ramp="5"]');
+  const low = document.querySelector('section .heatmap-cell[data-ramp="1"]');
   const empty = document.querySelector('section .heatmap-cell--empty');
   if (top && low && empty) {
     for (const f of [null, ...finishes]) {

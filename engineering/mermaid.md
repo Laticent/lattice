@@ -514,8 +514,9 @@ A fence in a PANE turns for the pane's box, not the slide's. The engine stamps e
 - the CLI bakes fences before the engine renders, so the Mermaid bake (`mermaid.bake.js`) asks the engine
   (`engine.paneOrientations`, the same carve and box `renderPane` uses). The answer carries
   each pane's SOURCE LINES, and a fence takes the orientation of the pane whose lines hold it.
-  A slide index would not do: `_focusSteps` renders one slide as several sections, and a first
-  cut that joined on slide index turned a wide pane's flowchart below one;
+  A slide index would not do: `_focusSteps` rendered one slide as several sections (until
+  2026-11-09, and `split: headings` still does), and a first cut that joined on slide index turned
+  a wide pane's flowchart below one;
 - the browser runtime (`fenceJob`) reads `data-orientation` off the fence's own `<lat-pane>`.
   The engine's stamp is the answer there too: the runtime re-stamps a SECTION from its
   measured shape (`stampOrientation`), never a pane, so a pane's fence does not follow a
@@ -1459,14 +1460,12 @@ Three structural answers, in the order they close the gap:
    sections — count and class, ~6,600 slides. None of the three defects was reachable
    by a test that only covers cases someone thought to write down; all three fail this.
 
-The one sanctioned divergence is `_focusSteps`, which EXPANDS one authored slide into
-several at render time. It is safe for the BAND because every expanded copy carries the
-class of the slide it was copied from, and it is safe for the COUNT now too: `focusSteps`
-used to group on `t.type === 'hr'` with no `level === 0` guard, unlike `splitOnHr`, so a
-focus slide containing a nested `---` (inside a blockquote or a list) rendered one section
-more than it should. Both grouping sites take the predicate from `lib/core/slide-rule.js`
-(#1387). The gate detects the divergence off the token stream, not a text scan — a decision record that merely *discusses* `_focusSteps` in
-prose must not be excused from the slide-count check.
+There is no sanctioned divergence any more. `_focusSteps` was one until 2026-11-09: it
+EXPANDED one authored slide into one section per step, and the gate excused a focus deck
+from the slide-count check. It is one slide now, walked live
+(`engineering/decisions/2026-11-09-steps-as-a-behavior.md`), so every deck is held to the
+count. (The `level === 0` slide-rule predicate it once lacked, #1387, lives on in
+`lib/core/slide-rule.js` for every remaining grouping site.)
 
 **What the gate structurally cannot see**, and is worth knowing before trusting it: it
 verifies `spans(md) ≡ render(md)`, while production needs

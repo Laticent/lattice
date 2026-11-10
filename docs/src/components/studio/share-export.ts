@@ -1194,12 +1194,18 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 	return withOffFences([marpExportNote(removed), latticePhotoNote(named, true, photos)].filter(Boolean).join('; ') || undefined, source);
 }
 
+/** "One page per step" (the CLI's `--steps`): the capture frame expands every stepping slide into a page per step
+ *  (deck-export.js `createCaptureFrame`). Off leaves the render exactly as it was. */
+function withSteps<T extends object>(render: T, steps: boolean): T {
+	return steps ? { ...render, steps: true } : render;
+}
+
 /** One-click image PDF (2× raster, one slide per page). The page-image format
  *  (PNG lossless / JPEG fast) is the Workspace › General preference. `annotations`
  *  (opt-in via the export panel) is the per-page comment sticky-note payload —
  *  index-aligned to the deck's slides; absent → a clean, comment-free PDF. */
-export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, annotations?: { title: string; contents: string }[][], embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, 'pdf'), palette, mode, extra, extraCss));
+export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, annotations?: { title: string; contents: string }[][], embedSource?: Uint8Array, steps = false): Promise<string | undefined> {
+	const render = withSteps(await withExportMarker(await buildDeckRender(options, exportSourceFor(source, 'pdf'), palette, mode, extra, extraCss)), steps);
 	// Review comments are keyed by AUTHORED slide (`---` block, ShareSheet's `splitSlides` count): drop a hidden slide's
 	// with the slide, by the blocks the source hides, not by rendered-section position (the two differ in a split deck).
 	annotations = hiddenSlides.shownOnly(annotations, hiddenAuthoredSlides(source));
@@ -1216,8 +1222,8 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
  *  a screen reader nothing. `exportPptx` reads the description from the SAME rendered
  *  section it rasterizes, so the alt stays index-locked to its slide even on
  *  front-matter or auto-split (`split: headings`) decks — no source re-split here. */
-export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, 'pptx'), palette, mode, extra, extraCss));
+export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, embedSource?: Uint8Array, steps = false): Promise<string | undefined> {
+	const render = withSteps(await withExportMarker(await buildDeckRender(options, exportSourceFor(source, 'pptx'), palette, mode, extra, extraCss)), steps);
 	const ex = await exporters();
 	return withOffFences(await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource, images: ex.deckImageSetting(source), fonts: ex.deckFontSetting(source) }), source);
 }
@@ -1225,8 +1231,8 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
 /** LibreOffice (.odp) or an EDITABLE PowerPoint, through Calco (`exportOffice`): one
  *  picture per slide, or with `editable` every paragraph as a real text box over a picture
  *  of the slide with its text removed. Notes and alt text ride as in the CLI. */
-export async function shareOffice(format: 'odp' | 'pptx', options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, editable = false, embedSource?: Uint8Array, stripNotes = false): Promise<string | undefined> {
-	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, format), palette, mode, extra, extraCss));
+export async function shareOffice(format: 'odp' | 'pptx', options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, editable = false, embedSource?: Uint8Array, stripNotes = false, steps = false): Promise<string | undefined> {
+	const render = withSteps(await withExportMarker(await buildDeckRender(options, exportSourceFor(source, format), palette, mode, extra, extraCss)), steps);
 	const ex = await exporters();
 	return withOffFences(await ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource, stripNotes, images: ex.deckImageSetting(source), fonts: ex.deckFontSetting(source) }), source);
 }
@@ -1242,6 +1248,8 @@ export type ImageSetOptions = {
 	extractSvg?: boolean;
 	mode?: 'inherit' | 'light' | 'dark' | 'print';
 	svgBackground?: 'inherit' | 'light' | 'dark' | 'print';
+	/** One image per step of a stepping slide (the CLI's `--steps`), numbered in page order as the CLI's are. */
+	steps?: boolean;
 };
 
 /** Image set (.zip): one raster per slide (PNG/JPEG/WebP) + opt-in thumbnails + the
@@ -1270,7 +1278,7 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 		const darkExists = await createThemeFetcher(options.themeBase).fetch(`${base}-dark`).then(() => true).catch(() => false);
 		if (!darkExists) renderMode = 'light';
 	}
-	const render = await withExportMarker(await buildDeckRender(options, src, palette, renderMode, extra, extraCss));
+	const render = withSteps(await withExportMarker(await buildDeckRender(options, src, palette, renderMode, extra, extraCss)), !!imageOpts.steps);
 
 	// The chart/diagram SVG "look" (transparent/light/dark/print) renders the extracted vectors
 	// independent of the slides. When it differs from the slides' own scheme, do a SECOND full
@@ -1306,6 +1314,10 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 			effectiveSvgBackground = 'inherit';
 		}
 	}
+
+	// The SVG look's render expands its step pages too: the exporter numbers each SVG by the page it was lifted from,
+	// so a frame with one page per slide would file a chart after a stepping slide under the wrong image's number.
+	if (svgRender) svgRender = withSteps(svgRender, !!imageOpts.steps);
 
 	const ex = await exporters();
 	const effectiveOpts = { ...imageOpts, mode: slideScheme, svgBackground: effectiveSvgBackground, fonts: ex.deckFontSetting(source) };

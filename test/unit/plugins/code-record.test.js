@@ -149,8 +149,8 @@ describe('a record and the slide directives share one line model', () => {
 
   test('`_build: lines` steps the record\'s line spans', () => {
     const html = pre(render(`<!-- _build: lines -->\n\n# A\n\n\`@code{numbers}\`\n${FENCE}`));
-    assert.match(html, /<span class="ln" data-n="1" data-build-step="1">/);
-    assert.match(html, /<span class="ln" data-n="4" data-build-step="4">/);
+    assert.match(html, /<span class="ln" data-n="1" data-build-step="1" data-step="1">/);
+    assert.match(html, /<span class="ln" data-n="4" data-build-step="4" data-step="4">/);
   });
 });
 

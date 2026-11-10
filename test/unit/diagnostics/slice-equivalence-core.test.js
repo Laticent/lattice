@@ -158,8 +158,8 @@ test('positionIsTrustworthy refuses when the caller counts a different number of
   assert.equal(core.positionIsTrustworthy('# One\n\n---\n\n# Two', 3), false);
 });
 
-test('positionIsTrustworthy refuses a `_focusSteps` deck — one slide becomes one per step', () => {
-  assert.equal(core.positionIsTrustworthy('<!-- _focusSteps: 3 -->\n# One', 1), false);
+test('positionIsTrustworthy trusts a `_focusSteps` deck — one slide stays one slide (2026-11-09)', () => {
+  assert.equal(core.positionIsTrustworthy('<!-- _focusSteps: item 1 | item 2 -->\n# One', 1), true);
 });
 
 test('positionIsTrustworthy refuses every hr form the `\\n---\\n` splitter cannot see', () => {

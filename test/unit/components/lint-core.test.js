@@ -668,6 +668,21 @@ describe('lint-core: focus directive grammar (rule 11)', () => {
     assert.match(ruleFor(slide('<!-- _focusSteps: item 1 | rows 2 -->'), 'focus-steps').message, /not a focus axis/);
     assert.equal(ruleFor(slide('<!-- _focusSteps: item 1 | item 2 -->'), 'focus-steps'), undefined);
   });
+  test('a static _focus on a stepping slide is flagged as ignored', () => {
+    assert.ok(ruleFor(slide('<!-- _focus: item 1 -->\n<!-- _focusSteps: item 1 | item 2 -->'), 'focus-with-steps'));
+    assert.equal(ruleFor(slide('<!-- _focus: item 1 -->'), 'focus-with-steps'), undefined);
+  });
+  test('a slide takes one stepping directive: _build with _focusSteps is an error', () => {
+    const both = ruleFor(slide('<!-- _build -->\n<!-- _focusSteps: item 1 | item 2 -->'), 'one-stepping-directive');
+    assert.ok(both);
+    assert.equal(both.severity, 'error');
+    assert.equal(ruleFor(slide('<!-- _focusSteps: item 1 | item 2 -->'), 'one-stepping-directive'), undefined);
+    assert.equal(ruleFor(slide('<!-- _build -->'), 'one-stepping-directive'), undefined);
+    assert.equal(ruleFor(slide('<!-- _build: none -->\n<!-- _focusSteps: item 1 | item 2 -->'), 'one-stepping-directive'), undefined);
+    // The bare spelling sets its own slide too (a slide-only key), and a deck-wide `build:` counts (red team #2).
+    assert.ok(ruleFor(slide('<!-- _build -->\n<!-- focusSteps: item 1 | item 2 -->'), 'one-stepping-directive'));
+    assert.ok(ruleFor(`---\ntheme: indaco\nbuild: rows\n---\n\n<!-- _class: cards-grid -->\n<!-- _focusSteps: item 1 | item 2 -->\n\n## Head\n\n- A\n  - a\n- B\n  - b\n`, 'one-stepping-directive'));
+  });
 });
 
 describe('lint-core: countPrimaryCollection', () => {

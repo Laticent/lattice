@@ -12,6 +12,7 @@
 // See engineering/decisions/2026-07-04-comments-layer.md (the PDF sticky-note
 // export was the documented follow-on this delivers).
 
+import { getFrontMatter } from '../../lib/front-matter';
 import { listComments, type SlideComment } from './slide-comments';
 
 /** Which comments ride into the export. */
@@ -35,7 +36,19 @@ export type ExportOptions = {
 	 *  ruling). The re-openable copy carries the deck's own source, notes included, so this switch
 	 *  turns re-openable off. */
 	stripNotes: boolean;
+	/** One page per step of a `_build` / `_focusSteps` slide (the CLI's `--steps`), each keeping its slide's page
+	 *  number. Off by default: a file you send reads one slide a page, at rest. Offered only when the deck steps. */
+	steps: boolean;
 };
+
+/** Does the deck hold a slide that steps? A `_build` or `_focusSteps` directive, or a `build:` key in the front matter
+ *  (only there: a `build: npm run build` line in a slide's code is not a deck-wide build). */
+export function deckSteps(source: string | undefined): boolean {
+	if (!source) return false;
+	if (/<!--\s*_?(?:build|focusSteps)\b/.test(source)) return true;
+	const deckWide = getFrontMatter(source, 'build');
+	return deckWide !== undefined && deckWide.trim() !== 'none';
+}
 
 // The re-openable switch is remembered PER DECK: a deck you share with collaborators keeps
 // it on, a board deck you send outside keeps it off, and neither decision leaks into the

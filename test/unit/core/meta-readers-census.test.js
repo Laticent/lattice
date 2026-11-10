@@ -66,7 +66,7 @@ const CENSUS = [
   ['lib/diagnostics/slice-equivalence-core.mjs', M, 'synthesizePrelude and dividerTokens read through commentBodies and readDirectiveComment'],
   ['lib/engine/directives.js', M, 'the vocabulary is the registry'],
   ['lib/exemplars/tier-filter.js', S, 'tier: is a producer-owned pragma, not a directive'],
-  ['lib/integrations/markdown-it/plugins.js', M, 'the _focusSteps read is readDirectiveComment; the rewrite is byte-identical'],
+  ['lib/integrations/markdown-it/plugins.js', S, 'reads no directive comment since the _focusSteps parse-time copy was retired (2026-11-09-steps-as-a-behavior.md)'],
   ['lib/layout/bridge.js', M, 'class reads go through commentBodies and readDirectiveComment'],
   ['lib/layout/gate.js', S, 'a gate on model-written skeletons that matches a _class prefix on purpose'],
   ['lib/packages/rename.js', S, 'rewrites class tokens in place inside the comment bytes; the shared reader unquotes'],

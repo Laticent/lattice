@@ -51,6 +51,8 @@ import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { captureSlideCanvas, pseudoContentText } from '../../../../../lib/core/slide-camera.mjs';
+import { expandStepPages } from '../../../../../lib/core/step-pages.mjs';
+import { applyStepAt } from '../../../../../lib/core/step-state.mjs';
 import { everySlideHidden } from '../../../../../lib/diagnostics/slice-equivalence-core.mjs';
 // A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
 // only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
@@ -498,9 +500,10 @@ function withTimeout(p, ms) {
 // — in the .pdf, the .pptx, the .png set and the shared player, all seven exports
 // below. Not a blank chart; a plausible wrong one, in bytes handed to someone
 // else.
-async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker, framePadding, playerBake }, { releaseDiagrams = true } = {}) {
+async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker, framePadding, playerBake, steps }, { releaseDiagrams = true } = {}) {
 	const gw = geom?.w || 1280;
 	const gh = geom?.h || 720;
+	let stepCounts = null;
 	const host = document.createElement('div');
 	host.setAttribute('aria-hidden', 'true');
 	host.dataset.latticeExport = 'capture';
@@ -593,11 +596,39 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 			try { draw(); } catch (_e) { /* the harness tiles stay up */ }
 		}
 		if (win?.__latticeFit) win.__latticeFit();
+		// "One page per step" (the CLI's `--steps`): every `_build` / `_focusSteps` slide becomes one page per step,
+		// each painted at its step and keeping its slide's page number. Expanded HERE, after the deck settled, with the
+		// same kernel the CLI runs (lib/core/step-pages.mjs, HARD RULE #1), so every lane below photographs the pages. The
+		// runtime in this frame stops re-running once the copies exist (lib/runtime/index.js `stepPagesExpanded`).
+		// The counts let a lane stretch what it keys per slide (comments, alt text, notes) across a slide's pages.
+		if (steps) stepCounts = expandStepPages(doc.querySelector('.lattice') || doc, applyStepAt);
 	} catch (e) {
 		dispose();
 		throw e;
 	}
-	return { frame, dispose };
+	return { frame, dispose, stepCounts };
+}
+
+/**
+ * Stretch a per-slide list across the step pages `createCaptureFrame` made: entry i repeats once per page of slide i,
+ * or, with `firstOnly`, rides on the slide's first page and its other pages get `blank`. A list that does not line up
+ * with the slides comes back as it was, so a lane that already guards its own length keeps that guard.
+ *
+ * @template T
+ * @param {T[] | null | undefined} list one entry per slide
+ * @param {number[] | null | undefined} counts pages per slide, from `createCaptureFrame`
+ * @param {{ firstOnly?: boolean, blank?: T | null }} [opts]
+ * @returns {(T | null)[] | null | undefined}
+ */
+export function stretchByStepPages(list, counts, { firstOnly = false, blank = null } = {}) {
+	if (!Array.isArray(list) || !Array.isArray(counts) || counts.every((n) => n === 1)) return list;
+	if (list.length !== counts.length) return list;
+	const out = [];
+	counts.forEach((n, i) => {
+		out.push(list[i]);
+		for (let k = 1; k < n; k++) out.push(firstOnly ? blank : list[i]);
+	});
+	return out;
 }
 
 // Bounded wait for runtime-drawn figures (a Mermaid diagram, a function plot) to finish in
@@ -2077,7 +2108,7 @@ function drawHandoutNotes(pdf, region, note) {
 async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
 	// Per-page comment sticky notes (opt-in via the export panel); absent → none.
-	const annotations = opts?.annotations || null;
+	let annotations = opts?.annotations || null;
 	// Print `sheet` mode → the rasterize → assemble split. A one-shot renderPdfBlob
 	// rasterizes then assembles in one go; the Print drawer instead calls the two halves
 	// directly so it can CACHE the images across a paper/orientation change.
@@ -2086,10 +2117,12 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 		const { images, geom, pageFormat: fmt } = await rasterizeDeckImages(render, onStatus, { ...opts, imageFailures: log });
 		return assembleSheetPdf(images, geom, name, meta, { sheet, pageFormat: fmt });
 	}
-	const { frame, dispose } = await createCaptureFrame(render);
+	const { frame, dispose, stepCounts } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 		await recordUnreachableAssets(sections, log);
+		// A comment sticks to its slide's first step page, once, not to every page of the walk.
+		if (annotations && stepCounts) annotations = stretchByStepPages(annotations, stepCounts, { firstOnly: true, blank: [] });
 		// THE SHARED WRITER first: the same code as the CLI's PDF (lib/core/pdf-compose) —
 		// real text, vector charts and original images over one photo per slide. The
 		// image-per-page lanes below stay as the fallback, so a deck is never lost to it.
@@ -2426,9 +2459,11 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	const log = createImageFailureLog();
 	// Lift the `describe:` channel from the ENGINE render, before the capture frame
 	// sanitizes it away — see the altText note in the slide loop below.
-	const describeRecord = await slideChannelRecord(render.html);
-	const { frame, dispose } = await createCaptureFrame(render);
+	let describeRecord = await slideChannelRecord(render.html);
+	const { frame, dispose, stepCounts } = await createCaptureFrame(render);
 	try {
+	// Every step page of a slide is that slide, so it carries the slide's description.
+	if (stepCounts) describeRecord = stretchByStepPages(describeRecord, stepCounts);
 	const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 	await recordUnreachableAssets(sections, log);
 	// The record and the rasterized sections come from two different splits of the same
@@ -2542,8 +2577,13 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 	// "Strip speaker notes" (the CLI's --strip-notes): the notes pane stays empty. The
 	// descriptions are alt text, not private, so they still ride (#1833).
 	if (opts?.stripNotes) for (const r of record) if (r) r.note = null;
-	const { frame, dispose } = await createCaptureFrame(render);
+	const { frame, dispose, stepCounts } = await createCaptureFrame(render);
 	try {
+		// Every step page carries its slide's notes and description, as the CLI's `--steps` does.
+		if (stepCounts) {
+			const stretched = stretchByStepPages(record, stepCounts);
+			record.splice(0, record.length, ...stretched);
+		}
 		// Only the editable file has text boxes for a glyph to ride in; a picture-per-slide file draws the page as it is.
 		const iconShapes = officeIconsCore.iconsAsShapes({ format, editable });
 		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts, { iconShapes });

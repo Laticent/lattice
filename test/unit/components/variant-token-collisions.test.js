@@ -151,7 +151,7 @@ const KNOWN_COLLISIONS = {
     // value was withdrawn (taking `.heatmap-value`, its `[data-ink="flip"]` pair and
     // the dead `.heatmap-row-label`), the ratchet was lowered to 6 with a reason in
     // the diff — and then the value came BACK on a quantized ramp two commits later,
-    // adding `.heatmap-value` plus ten `[data-step]` rules. Nothing re-raised the
+    // adding `.heatmap-value` plus ten `[data-ramp]` rules. Nothing re-raised the
     // number, so a floor of 6 stood against 17 real selectors: the filter could have
     // quietly stopped matching ELEVEN of them and still reported a clean sheet, which
     // is precisely the failure mode the pin exists to catch.

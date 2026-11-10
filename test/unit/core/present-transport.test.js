@@ -321,3 +321,73 @@ test('digitAction: 1 to 6 name the photo, past the count or outside the range is
 	assert.equal(digitAction(undefined, 6), null);
 	assert.equal(digitAction(3, 6), null, 'a number is not a key');
 });
+
+// ── the step cursor (engineering/decisions/2026-11-09-steps-as-a-behavior.md §2, S2) ──
+test('stepEnter: by next, a build starts with nothing revealed and a focus on step 1; by prev, both on the last', () => {
+	assert.equal(K.stepEnter('build', 3, 'next'), 0);
+	assert.equal(K.stepEnter('focus', 3, 'next'), 1);
+	assert.equal(K.stepEnter('build', 3, 'prev'), 3);
+	assert.equal(K.stepEnter('focus', 3, 'prev'), 3);
+	assert.equal(K.stepEnter(null, 3, 'next'), null, 'no kind: at rest');
+	assert.equal(K.stepEnter('focus', 0, 'next'), null, 'no steps: at rest');
+});
+
+test('stepMove: walks inside the slide, and answers false to leave it', () => {
+	assert.equal(K.stepMove('build', 2, 0, 'next'), 1);
+	assert.equal(K.stepMove('build', 2, 2, 'next'), false);
+	assert.equal(K.stepMove('build', 2, null, 'next'), false, 'a build at rest is fully shown');
+	assert.equal(K.stepMove('build', 2, null, 'prev'), 1);
+	assert.equal(K.stepMove('build', 2, 0, 'prev'), false);
+	assert.equal(K.stepMove('focus', 2, null, 'next'), 1, 'a focus at rest lights step 1 next');
+	assert.equal(K.stepMove('focus', 2, 2, 'next'), false);
+	assert.equal(K.stepMove('focus', 2, 1, 'prev'), false);
+	assert.equal(K.stepMove('focus', 2, null, 'prev'), false);
+	assert.equal(K.stepMove(undefined, 0, null, 'next'), false);
+});
+
+test('createTransport walks steps before slides, and a jump lands a build at step 0 (D2)', () => {
+	const walk = [null, { kind: 'build', count: 2 }, null];
+	const t = K.createTransport({ count: 3, stepsOf: (i) => walk[i], stepMove: K.stepMove, stepEnter: K.stepEnter });
+	t.next();
+	assert.deepEqual([t.index, t.step], [1, 0]);
+	t.next(); t.next();
+	assert.deepEqual([t.index, t.step], [1, 2]);
+	t.next();
+	assert.deepEqual([t.index, t.step], [2, null]);
+	t.prev();
+	assert.deepEqual([t.index, t.step], [1, 2], 'entering by prev lands on the last step');
+	// A jump onto a build starts it hidden, so a slide reached any way still builds (the owner's D2, 2026-11-09).
+	t.go(1);
+	assert.deepEqual([t.index, t.step], [1, 0]);
+	// …unless the caller asks for rest (narrated autoplay: narration is per slide).
+	t.go(1, true);
+	assert.deepEqual([t.index, t.step], [1, null]);
+	t.go(2);
+	assert.deepEqual([t.index, t.step], [2, null], 'a slide with no walk is at rest');
+});
+
+test('a jump lands a focus walk at rest, and the deck opens a build first slide at step 0', () => {
+	const walk = [{ kind: 'build', count: 2 }, { kind: 'focus', count: 2 }];
+	const t = K.createTransport({ count: 2, stepsOf: (i) => walk[i], stepMove: K.stepMove, stepEnter: K.stepEnter });
+	assert.deepEqual([t.index, t.step], [0, 0], 'the start is a jump');
+	t.go(1);
+	assert.deepEqual([t.index, t.step], [1, null]);
+	assert.equal(K.stepEnter('focus', 2, 'jump'), null);
+	assert.equal(K.stepEnter('build', 2, 'jump'), 0);
+});
+
+test('createTransport without stepsOf is the plain index machine', () => {
+	const t = K.createTransport({ count: 2 });
+	t.next();
+	assert.deepEqual([t.index, t.step], [1, null]);
+});
+
+test('stepEnter: an unknown direction lands at rest, never as `next` (a build would start hidden)', async () => {
+  const { stepEnter } = await import('../../../lib/core/step-state.mjs');
+  for (const dir of ['rest', undefined, 'Next', '']) {
+    assert.equal(stepEnter('build', 3, dir), null, String(dir));
+    assert.equal(stepEnter('focus', 2, dir), null, String(dir));
+  }
+  assert.equal(stepEnter('build', 3, 'next'), 0);
+  assert.equal(stepEnter('focus', 2, 'next'), 1);
+});

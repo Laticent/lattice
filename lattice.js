@@ -354,6 +354,11 @@ OPTIONS
                           checked fits. LATTICE_OVERFLOW_MARKER sets a standing
                           default ('off' is per-render only). The overflow warning
                           on stderr is printed at every level.
+      --steps             Print a stepping slide (_build, _focusSteps) once per step:
+                          a build reveals one more unit a page, a focus walk lights
+                          the next target. Every page keeps its slide's page number.
+                          PDF, PowerPoint and images; without it, the slide prints
+                          once, at rest. Present walks the steps either way.
       --chrome-pdf        Write the PDF with Chrome's own printer (page.pdf) instead
                           of Lattice's writer. By default the PDF is composed by the
                           same code as the Studio's Export to PDF: each slide's
@@ -843,6 +848,8 @@ const EMBED_SOURCE = !!flags['embed-source'];
 const REOPENABLE = !!flags.reopenable;
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
 const CHROME_PDF = !!flags['chrome-pdf'];
+// The page-per-step export (engineering/decisions/2026-11-09-steps-as-a-behavior.md §4; the owner's D1).
+const STEP_PAGES = !!flags.steps;
 // JPEG quality of the shared writer's background photo (lib/core/pdf-compose).
 // Chrome's fast PNG encoder for that photo: same pixels, ~3x the bytes on a flat slide, ~2.5x quicker.
 // On under `node --test` (it marks every process a test starts with NODE_TEST_CONTEXT) so the
@@ -4539,6 +4546,31 @@ async function renderBody(browser, g, closeBrowser) {
   // `omitBackground` below. A square deck must stay BYTE-IDENTICAL: it stamps no token
   // today, and asking for an alpha channel it has no hole to put in would rewrite every
   // existing PNG export for nothing.
+  // THE PAGE-PER-STEP EXPORT (--steps). Here, on the SETTLED page: every mark (page number, rail, divider k/N,
+  // agenda references) is already drawn, so the copies carry their slide's marks and no count sees them (S3). The
+  // painter (lib/core/step-state.mjs, every Present surface's) and the expansion (lib/core/step-pages.mjs), inlined. The
+  // HTML string is expanded by the same rule into `pagedDocHtml`, for the PDF note annotations only (see below).
+  // A .html export walks the steps live in Present, so it is left whole.
+  let STEP_COUNTS = null;
+  // The expanded document, for the readers that count PRINTED pages (the PDF's note annotations). Every other reader
+  // keeps `cleanDocHtml`, one section per slide: the --fluid sidecar, captions and narration describe the deck a person
+  // presents, where a stepping slide is one slide that Present walks (the inversion, 2026-11-10: reassigning
+  // `cleanDocHtml` shipped the copies in the sidecar and bound say: lines to step pages).
+  let pagedDocHtml = null;
+  if (STEP_PAGES && OUT_FORMAT === 'html' && !QUIET) console.log('  Steps: --steps adds nothing to a .html export; Present walks the steps live');
+  if (STEP_PAGES && OUT_FORMAT !== 'html') {
+    const { expandStepPages } = await import('./lib/core/step-pages.mjs');
+    const { applyStepAt } = await import('./lib/core/step-state.mjs');
+    STEP_COUNTS = await g(() => page.evaluate(`(${expandStepPages.toString()})(document, ${applyStepAt.toString()})`), 'expand step pages');
+    const extra = (STEP_COUNTS || []).reduce((a, n) => a + n - 1, 0);
+    if (extra) pagedDocHtml = require('./lib/core/step-rescope').expandStepPagesHtml(cleanDocHtml);
+    if (!QUIET) console.log(extra ? `  Steps: ${extra} step page${extra === 1 ? '' : 's'} added (--steps)` : '  Steps: no slide in this deck walks in steps; --steps adds nothing');
+  }
+  // A list keyed by top-level slide (descriptions) follows the expansion: each step page carries its slide's entry. Only
+  // when the list is one entry per slide; otherwise it is left as it was. Notes go per PRINTED page from the expanded
+  // document instead (`notesPerRenderedPage(pagedDocHtml)`, as the PDF does), which also holds on a split deck, where
+  // the per-slide list and the pages differ in length (the inversion, 2026-11-10).
+  const byStepPages = (list) => (STEP_COUNTS && Array.isArray(list) && list.length === STEP_COUNTS.length ? list.flatMap((v, i) => Array(STEP_COUNTS[i]).fill(v)) : list);
   const roundedSlides = await g(() => page.evaluate((squareNow) => {
     const hit = document.querySelectorAll('section.corners-rounded');
     if (squareNow) for (const s of hit) s.classList.remove('corners-rounded');
@@ -4610,7 +4642,7 @@ async function renderBody(browser, g, closeBrowser) {
     // Bind notes to the RENDERED pages, not the authored slides — a split run has more
     // of the former than the latter, and the length guard inside would otherwise drop
     // every annotation in the deck (see notesPerRenderedPage).
-    const pageNotes = notesPerRenderedPage(cleanDocHtml, materializedNotes);
+    const pageNotes = notesPerRenderedPage(pagedDocHtml || cleanDocHtml, materializedNotes);
     let finalBytes = await embedNotesInPdf(pdfBytes, pageNotes);
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
@@ -4649,7 +4681,7 @@ async function renderBody(browser, g, closeBrowser) {
     }
     await closeBrowser();
     let finalBytes = await assembleRasterPdf(jpegBuffers, paperSheet);
-    finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(cleanDocHtml, materializedNotes));
+    finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(pagedDocHtml || cleanDocHtml, materializedNotes));
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
     finalBytes = await embedLatticeInPdf(finalBytes);
@@ -5064,7 +5096,7 @@ async function renderBody(browser, g, closeBrowser) {
         height: slideH,
         // materializedNotes, NOT slideNotes — under `--strip-notes` the former is all-null, and
         // both suites show the notes to anyone who opens the file (#1837).
-      }, materializedNotes, slideDescriptions, PKG_ROOT,
+      }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, materializedNotes) : byStepPages(materializedNotes)), byStepPages(slideDescriptions), PKG_ROOT,
       // `--reopenable` rides in the editable .pptx exactly as in the picture one.
       REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate(), fonts: FONT_POLICY } : { fonts: FONT_POLICY });
       if (!QUIET) {
@@ -5106,7 +5138,7 @@ async function renderBody(browser, g, closeBrowser) {
           // the one format whose native viewer puts the author's private text in front of the
           // recipient by default. This call site was the last one still reading the unstripped
           // array (#1837).
-        }, materializedNotes, slideDescriptions, REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
+        }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, materializedNotes) : byStepPages(materializedNotes)), byStepPages(slideDescriptions), REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
         if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}${REOPENABLE ? ' (re-openable in Lattice)' : ''}${sizeNote(outFile)}`);
         warnShippedNotes('PowerPoint file');
       }

@@ -138,7 +138,7 @@ const entry = await framework.decisions.log(decision, { signals });
 <!-- _class: cards-grid -->
 <!-- _focusSteps: item 1 | item 2 | item 3 | item 4 -->
 
-## `_focusSteps` — walk the slide, one card at a time.
+## `_focusSteps` — one slide, walked a card per click.
 
 - Signal Intake
   - Weekly structured collection across customer conversations, market data, and competitive moves.

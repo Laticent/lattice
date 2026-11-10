@@ -7,8 +7,8 @@
 // only by running the split again.
 //
 // Three things make one part more than one page, and the index names each:
-//   · the engine CLONES a slide: `_focusSteps` makes one slide per step, and a pane slide at a
-//     tall size makes one slide per pane. The clones are `copy` 1, 2, … of their part. The engine
+//   · the engine CLONES a slide: a pane slide at a tall size makes one slide per pane. (A
+//     `_focusSteps` slide made one slide per step until 2026-11-09; it is one slide now.) The clones are `copy` 1, 2, … of their part. The engine
 //     numbers every clone as a slide of its own (`data-lattice-slide="10"`, `"11"`), so the number
 //     alone cannot say which part a clone belongs to.
 //   · the structural split (lib/engine/structural-split.js) cuts one slide into a run of pages at
@@ -94,7 +94,7 @@ export function slideCountOf(stamps: readonly string[]): number {
  * Join the page stamps to the deck outline.
  *
  * `perPart[flat]` is how many engine slides that part makes on its own (1 for an ordinary slide,
- * the step count for `_focusSteps`, the pane count for a split pane slide). Leave it out when the
+ * the pane count for a split pane slide). Leave it out when the
  * engine rendered exactly one slide per part. `synthetic` is how many slides the engine APPENDS
  * after the last part (the auto-glossary's pages); they are marked, and any slide past those is a
  * disagreement, so a slide the outline does not count is reported rather than absorbed.

@@ -652,7 +652,7 @@ function build() {
   const STEP_MIX = [18, 36.5, 55, 73.5, 92];
   STEP_MIX.forEach((pct, i) => {
     const at = (lo, k) => `color-mix(in oklab, ${ONE} calc(${tv(lo)} + var(--heatmap-step${i + 1}, ${pct}%) * ${tv(k)}), var(--heatmap-base))`;
-    w(supports(rule(MOVERS, `.heatmap-value[data-step="${i + 1}"]`, [
+    w(supports(rule(MOVERS, `.heatmap-value[data-ramp="${i + 1}"]`, [
       `fill: light-dark(${inkOn(at(T.rampTextLo, T.rampTextK))}, ${inkOn(at(T.rampTextDLo, T.rampTextDK))})`,
     ])));
   });

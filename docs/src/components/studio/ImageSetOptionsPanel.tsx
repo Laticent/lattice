@@ -12,6 +12,7 @@ import * as React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import { deckSteps } from './export-options';
 import { OffFencesNotice } from './OffFencesNotice';
 import type { ImageSetOptions } from './share-export';
 
@@ -94,6 +95,9 @@ export function ImageSetOptionsPanel({
 	const [extractSvg, setExtractSvg] = React.useState(true);
 	const [mode, setMode] = React.useState<Mode>('inherit');
 	const [svgBackground, setSvgBackground] = React.useState<SvgBg>('inherit');
+	// One image per step (the CLI's `--steps`): off by default, offered only on a deck that steps.
+	const [stepsOn, setSteps] = React.useState(false);
+	const hasSteps = React.useMemo(() => deckSteps(source), [source]);
 
 	const lossy = format !== 'png';
 	const fmtHint = FORMATS.find((f) => f.value === format)?.hint;
@@ -144,6 +148,22 @@ export function ImageSetOptionsPanel({
 					<Segmented options={SIZES} value={size} onChange={setSize} busy={busy} cols="grid-cols-4" />
 				</div>
 
+				{/* One image per step — the CLI's `--steps`. */}
+				{hasSteps && (
+					<div className="rounded-xl border border-border bg-background p-3.5">
+						<div className="flex items-start justify-between gap-3">
+							<span className="flex items-start gap-2">
+								<Layers className="mt-0.5 size-4 text-[var(--accent)]" />
+								<span>
+									<span className="block text-[13px] font-semibold text-[var(--text-heading)]">One image per step</span>
+									<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">Each build or focus slide becomes one image per step, numbered in page order.</span>
+								</span>
+							</span>
+							<Switch className="mt-0.5" aria-label="One image per step" checked={stepsOn} disabled={busy} onCheckedChange={setSteps} />
+						</div>
+					</div>
+				)}
+
 				{/* Thumbnails — a small companion image per slide. */}
 				<div className="rounded-xl border border-border bg-background p-3.5">
 					<div className="flex items-start justify-between gap-3">
@@ -191,7 +211,7 @@ export function ImageSetOptionsPanel({
 			<button
 				type="button"
 				disabled={busy}
-				onClick={() => onExport({ format, size, quality, thumbnails, thumbWidth, extractSvg, mode, svgBackground })}
+				onClick={() => onExport({ format, size, quality, thumbnails, thumbWidth, extractSvg, mode, svgBackground, ...(hasSteps && stepsOn ? { steps: true } : {}) })}
 				className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-[13.5px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90 disabled:opacity-60"
 			>
 				{busy ? <Loader2 className="size-4 animate-spin" /> : <FileImage className="size-4" />}

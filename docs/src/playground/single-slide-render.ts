@@ -443,9 +443,9 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolea
 // indexes the ENGINE's sections. Those counts diverge for real, committed decks, and when they
 // do an index-based lookup silently paints a slide the author did not select — strictly worse
 // than the wrong page number this whole path exists to fix. Two confirmed causes:
-//   · a 1→N EXPANSION — `_focusSteps` clones one authored slide into a step per section
-//     (`examples/focus.md`: 11 authored → 14 sections), and `split: headings` divides one
-//     chunk at every heading (`examples/split-headings.md`: 1 → 7);
+//   · a 1→N EXPANSION — `split: headings` divides one chunk at every heading
+//     (`examples/split-headings.md`: 1 → 7). `_focusSteps` was the other until 2026-11-09, when
+//     it stopped cloning one slide per step (engineering/decisions/2026-11-09-steps-as-a-behavior.md);
 //   · SPLITTER DISAGREEMENT — RETIRED as a cause (2026-08-05, #1271). It used to be the second
 //     half of this list: the engine's `splitOnHr` breaks on ANY markdown-it `hr` (`***`, `___`,
 //     `- - -`, `--- `, `----`, an indented `---`) while the Studio matched only a bare
@@ -464,7 +464,7 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolea
 // checks out inline while `alignmentFailure` (lib/diagnostics) spelled the same three out again for
 // the fidelity overlay's compare — and the copies diverged within four days of being written: this
 // one let a MISSING `slideCount` through and narrowed on the index alone, which is precisely the
-// `_focusSteps` / `split: headings` case that shows the wrong slide. Every production caller
+// `split: headings` case that shows the wrong slide. Every production caller
 // (StudioShell, PresentOverlay, SlideOverview→slide-thumb) passes the count; only tests omitted it,
 // so the permissive branch protected nothing and hid a hole. Both now call `alignmentFailure`, and
 // no count means no narrowing.
@@ -573,16 +573,15 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		// a true number.
 		//
 		// What supplying a position DOES require is that the caller's slide indices mean the same
-		// thing the engine's sections do. Two plugins break that 1→N: `_focusSteps` clones one
-		// authored slide into one rendered slide per step, and `split: headings` starts a new
-		// slide at every `##`. Under either, "slide k" of the caller's list is not section k, so a
+		// thing the engine's sections do. One plugin breaks that 1→N: `split: headings` starts a
+		// new slide at every `##`, so "slide k" of the caller's list is not section k, and a
 		// supplied position would number the WRONG slide — worse than the bug it fixes. Those
 		// decks keep the whole-deck render, where the engine counts for itself and is right by
-		// construction. One committed deck (examples/focus.md) is in this class.
+		// construction. (`_focusSteps` was the other until 2026-11-09, when it stopped copying the
+		// slide: engineering/decisions/2026-11-09-steps-as-a-behavior.md.)
 		fact: 'slide expander (1→N)',
-		why: 'a plugin turns one authored slide into several rendered ones, so the caller\'s slide index no longer identifies a section and a supplied position would number the wrong slide',
+		why: '`split: headings` turns one authored slide into several rendered ones, so the caller\'s slide index no longer identifies a section and a supplied position would number the wrong slide',
 		probes: [
-			/<!--\s*_?focusSteps\s*:/, // one slide per step
 			/^\s*split\s*:\s*headings\b/m, // a new slide at every `##`
 		],
 	},
@@ -2003,7 +2002,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					else if (opts.slideMarkdown) {
 						fellBackToSlice = true;
 						// The engine's sections do not correspond 1:1 to the caller's slides (a
-						// `_focusSteps` / `split: headings` expansion, or a separator the two splitters
+						// `split: headings` expansion, or a separator the two splitters
 						// disagree about), so an index cannot identify the shown slide. Re-render that
 						// slide ALONE: the right content, honestly numbered 1 of 1, which is exactly
 						// what this surface did before deck context existed. One extra engine call on
@@ -2043,7 +2042,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// the outline style — `# Title` then two `##`, no `---` anywhere — is ONE chunk to
 				// the caller and THREE sections to the engine. Refusing painted an error card over
 				// the most ordinary deck shape there is; `glossary: auto` (which appends a slide to
-				// every slice render) and `_focusSteps` did the same. Measured across the committed
+				// every slice render) and `_focusSteps` did the same until it stopped cloning (2026-11-09). Measured across the committed
 				// corpus that was 3 decks / 8 slides, and the corpus understates it because
 				// committed decks happen to use explicit separators.
 				//
@@ -2205,7 +2204,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 										]);
 										// THE SAME ALIGNMENT GUARD narrowToSlide enforces, and for the same reason: an
 										// index-based lookup into the deck's sections silently picks a slide the author
-										// did not select when a plugin expands 1→N (`_focusSteps`, `split: headings`).
+										// did not select when a plugin expands 1→N (`split: headings`; `_focusSteps` until 2026-11-09).
 										// Without it, on examples/focus.md — 11 authored slides, 14 engine sections —
 										// the panel quoted a `_focusSteps` clone of slide 10 and called it slide 11's
 										// full-deck render. Fail honestly instead of confidently comparing the wrong pair.

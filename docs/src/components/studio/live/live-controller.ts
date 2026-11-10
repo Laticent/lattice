@@ -167,7 +167,7 @@ type Post =
 	| { k: 'typing' }
 	| { k: 'bye' }
 	/** host → all: presenting to everyone (`on`) and where (rendered slide `i`, page `p`, lens `l`), or stopped */
-	| { k: 'present'; on: boolean; i?: number; p?: number; l?: string; h?: string }
+	| { k: 'present'; on: boolean; i?: number; p?: number; l?: string; h?: string; s?: number }
 	/** Narration clips (§7.3). Member → host: the clip of the sentence whose text hashes to `h`. Host → that
 	 *  member: the clip (`d` base64 of compressed audio, `m` its type, `l` its lead-in) or, with no `d`, "not yet". */
 	| { k: 'cw'; h: string }
@@ -367,13 +367,13 @@ const PRESENT_START_WAIT_MS = 600;
 /** A host stepping fast sends its position at most this often (the last one always goes). */
 const PRESENT_EVERY_MS = 100;
 /** A transport as a host sent it, or null. */
-const cleanTransport = (p: { i?: unknown; p?: unknown; l?: unknown; h?: unknown; v?: unknown }): LiveTransport | null => {
+const cleanTransport = (p: { i?: unknown; p?: unknown; l?: unknown; h?: unknown; v?: unknown; s?: unknown }): LiveTransport | null => {
 	const ok = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 10_000;
 	if (!ok(p.i) || !ok(p.p) || typeof p.l !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(p.l)) return null;
-	return { idx: p.i, page: p.p, lens: p.l, ...(typeof p.h === 'string' && /^[0-9a-f]{1,8}$/.test(p.h) ? { hash: p.h } : {}), ...(p.v === 1 ? { voice: true } : {}) };
+	return { idx: p.i, page: p.p, lens: p.l, ...(typeof p.h === 'string' && /^[0-9a-f]{1,8}$/.test(p.h) ? { hash: p.h } : {}), ...(p.v === 1 ? { voice: true } : {}), ...(ok(p.s) ? { step: p.s } : {}) };
 };
 /** A transport as a `present` post carries it. */
-const transportPost = (t: LiveTransport) => ({ i: t.idx, p: t.page, l: t.lens, ...(t.hash ? { h: t.hash } : {}), ...(t.voice ? { v: 1 } : {}) });
+const transportPost = (t: LiveTransport) => ({ i: t.idx, p: t.page, l: t.lens, ...(t.hash ? { h: t.hash } : {}), ...(t.voice ? { v: 1 } : {}), ...(t.step !== undefined ? { s: t.step } : {}) });
 /** Narration clips a member holds for one presentation, and the most one clip may carry. A clip is mp3 at
  *  64 kbps, about 8 KB a second of speech, so these are a few minutes of talk and several times a
  *  sentence's real size. The size a clip may be for its text is `clipLimit`. */
@@ -2952,7 +2952,7 @@ export class LiveController {
 		presentTransport: (t: LiveTransport) => {
 			const clean = cleanTransport(transportPost(t));
 			if (!clean) return;
-			const same = clean.idx === this.transport.idx && clean.page === this.transport.page && clean.lens === this.transport.lens && clean.hash === this.transport.hash && clean.voice === this.transport.voice;
+			const same = clean.idx === this.transport.idx && clean.page === this.transport.page && clean.lens === this.transport.lens && clean.hash === this.transport.hash && clean.voice === this.transport.voice && clean.step === this.transport.step;
 			this.transport = clean;
 			if (!this.presentingToAll || !this.rt?.session.getState().isHost) return;
 			if (this.presentStartDue) this.sendPresentStart();

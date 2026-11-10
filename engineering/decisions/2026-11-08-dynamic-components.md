@@ -164,6 +164,18 @@ ground truth from the source, and checks every mark against it, on both render p
 as its one sanctioned exception. It also knows when each mark must be present, so a deleted mark fails it. It lives in the integration tier (it renders decks), so it adds a test, not a CI job. Its job is
 to make "they agree" a checked fact instead of a lucky one.
 
+**Built (2026-11-09):** `test/integration/invariants/mark-agreement.test.js`, with fourteen fixtures beside it in
+`mark-agreement/fixtures/` (the thirteen above, plus a split run, so `repaginate` and the split's k-of-N rail are
+measured at last). It holds every committed deck and fixture to the source on both arms: the string arm is the engine
+render plus `structuralSplit`, as the CLI composes them; the DOM arm strips every mark the string arm drew and lets each
+mark's own `applyToDom` draw it again. Each mark has a presence rule, and fifteen mutations (a stamp deleted or shifted,
+a marker, numeral, rail, eyebrow, agenda reference, proof color, split rail or `data-lattice-slide` stamp broken) each
+must produce a finding. Two deliberate limits: slide boundaries come from `slideClassSpans` (the source-side slide
+reader held equal to the engine by `slide-class-span-parity.test.js`; it counts no page or section), and a deck with
+pane markers is not held to the authored-slide count, since whether a pane splits is a measured fit. The `#`-headed
+divider's nameless eyebrow (finding 2) is a KNOWN entry pointing at its follow-up, and the test fails when it stops
+occurring. Run against `main` before the steps redesign, it fails on the focus-step divider, as it should.
+
 **A shared counter is built only if that test ever needs one**: when a new mark joins, or when two marks are found to
 disagree and the fix is cheaper as one count than as a patch to one of them.
 
@@ -253,9 +265,9 @@ dropped, its main consumer is gone. It stays a proposal until the docs or the sk
 1. **The agreement test** (one PR): the scratch measurement turned into an integration test over the committed decks and
    the thirteen fixtures, on both render paths, with the proof color's hidden-slide rule as its sanctioned exception, a
    presence rule for every mark, and the count sites the red team added (the split rail, the `data-lattice-slide`
-   stamps). `followups.d/3096-p1-mark-agreement-test.md`.
+   stamps). Built in PR #3101 (`test/integration/invariants/mark-agreement.test.js`).
 2. **`_focusSteps` as a behavior** (a design note, then a PR): one slide, steps walked live, one frame in still formats,
-   page-per-step as an export option; before and after PDFs to the owner. `followups.d/3096-p5-focus-steps-as-a-behavior.md`.
+   page-per-step as an export option; before and after PDFs to the owner. Built in PR #3101 (`2026-11-09-steps-as-a-behavior.md`).
 3. **The glossary on the fill model** (one PR): the empty-slide fill, the last-slide lint, the two-part autofix, the six
    trims and counts retired, and narration, Present, the closing check and the term export moved off the key, each
    verified on its surface. `followups.d/3096-p2-glossary-fill-model.md`.

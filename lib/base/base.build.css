@@ -2,9 +2,9 @@
  *
  * "Assemble the slide as you go" (engineering/decisions/2026-06-16-narrative-step-model.md
  * + …-narrative-step-spec.md). The build resolver (lib/transformers/build.js) stamps
- * each steppable unit `data-build-step="N"`; the CONSUMER (the live player / the
- * overlay PDF export) sets `data-build-at` on the <section> and toggles `.lat-built`
- * on the units revealed so far. This sheet is the only thing that hides/shows.
+ * each steppable unit `data-step="N"` (alias `data-build-step`); the CONSUMER (every
+ * Present surface, through lib/core/step-state.mjs) sets `data-step-at` on the <section>
+ * and toggles `.lat-built` on the units revealed so far. This sheet is the only thing that hides/shows.
  *
  * Engine-tags / CSS-treats, exactly like focus. Palette-blind. No `:has()` (HARD
  * RULE 12) — the per-unit `data-build-step` + `.lat-built` class do the work.
@@ -18,6 +18,10 @@
  * Reveal-only (the spec): no motion yet. Increment 4 adds a typed `build`
  * transition; `prefers-reduced-motion` stays instant regardless. */
 
+/* The shared step contract (engineering/decisions/2026-11-09-steps-as-a-behavior.md S4): `data-step-at`
+ * on a `data-step-kind="build"` slide, set by lib/core/step-state.mjs `applyStepAt`, which also sets the
+ * older `data-build-at` alias. Both selectors stay until nothing writes the alias. */
+section[data-step-kind="build"][data-step-at] [data-step]:not(.lat-built),
 section[data-build-at] [data-build-step]:not(.lat-built) {
   opacity: 0;
   visibility: hidden; /* also drops it from the a11y tree + tab order while pending */
