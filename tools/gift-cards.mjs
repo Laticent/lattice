@@ -374,7 +374,7 @@ async function make(opts) {
 	fs.writeFileSync(deckPath, buildDeck(cards, { size: o.size, cap: o.cap }));
 	if (!o.render) {
 		console.log(`Wrote ${path.relative(process.cwd(), deckPath)}. Render it with: node lattice.js ${deckPath} ${path.join(o.out, 'cards.pdf')}`);
-		return error ? 1 : 0;
+		return 0;
 	}
 	const pdfPath = path.join(o.out, 'cards.pdf');
 	const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), deckPath, pdfPath], { stdio: 'inherit' });
@@ -386,7 +386,7 @@ async function make(opts) {
 	fs.writeFileSync(sheetPath, await imposeSheet(fs.readFileSync(pdfPath), { size: o.size }));
 	console.log(`Wrote ${path.relative(process.cwd(), pdfPath)} (one card per page) and ${path.relative(process.cwd(), sheetPath)} (${o.size === 'iso' ? 'A4' : 'Letter'}, ten to a sheet, print at 100%).`);
 	console.log('cards.md and both PDFs hold working keys (the deck in plain text, the PDFs in their QR codes). Treat them like cash.');
-	return error ? 1 : 0;
+	return 0;
 }
 
 async function report(opts) {
