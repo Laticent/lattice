@@ -86,7 +86,7 @@ const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker')
 const { formatRefusedHtml } = require('../lib/export/marp-bundle-html');
 const {
   STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, withImageRecordsAsMarp, packageJson,
-  safeName, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
+  safeName, vscodeSettings, vscodeThemeStubs, vscodeStubPath, vscodeExtensions, vscodeTasks, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
   mapImageRefs, mapFrontMatterLogo,
 } = require('../lib/export/marp-bundle');
 const { withSlideOnlySpotted } = require('../lib/core/marp-slide-only');
@@ -452,7 +452,8 @@ function main(argv) {
   for (const { from, to } of STATIC_ASSETS) {
     const abs = path.join(ROOT, from);
     if (!fs.existsSync(abs)) continue;
-    if (to.endsWith('.css')) copyCssInto(abs, path.join(dest, to));
+    // Only the engine goes through the Marp-scoping copy: the VS Code-shaped stylesheet is already Marp's own output.
+    if (to === 'lattice.css') copyCssInto(abs, path.join(dest, to));
     else copyInto(abs, path.join(dest, to));
   }
 
@@ -476,10 +477,16 @@ function main(argv) {
   fs.writeFileSync(path.join(dest, 'marp.config.cjs'), marpConfigCjs());
   fs.writeFileSync(path.join(dest, 'package.json'), JSON.stringify(packageJson(name), null, 2) + '\n');
   fs.mkdirSync(path.join(dest, '.vscode'), { recursive: true });
-  fs.writeFileSync(path.join(dest, '.vscode', 'settings.json'), vscodeSettings(themesList));
+  // VS Code registers directive-only stubs (.vscode/themes/), the styling comes from the linked lattice-vscode.css; marp-cli
+  // (marp.config.cjs) keeps the full files.
+  // The palettes' stubs are cut here; the engine's (VSCODE_ENGINE_STUB) was copied with the static assets.
+  const stubs = vscodeThemeStubs(themesList.map((p) => ({ path: p, css: fs.readFileSync(path.join(dest, p), 'utf8') })));
+  fs.mkdirSync(path.join(dest, '.vscode', 'themes'), { recursive: true });
+  for (const st of stubs) fs.writeFileSync(path.join(dest, st.path), st.css);
+  fs.writeFileSync(path.join(dest, '.vscode', 'settings.json'), vscodeSettings(themesList.map(vscodeStubPath)));
   fs.writeFileSync(path.join(dest, '.vscode', 'extensions.json'), vscodeExtensions());
   fs.writeFileSync(path.join(dest, '.vscode', 'tasks.json'), vscodeTasks());
-  fs.writeFileSync(path.join(dest, 'README.md'), readme({ name, palette, themes: themesList, agent: includeAgent, overflowMarker: marker }));
+  fs.writeFileSync(path.join(dest, 'README.md'), readme({ name, palette, themes: themesList, agent: includeAgent, overflowMarker: marker, vscodeStubs: true }));
 
   // 6) the agent kit (default on): a bundle-tailored AGENTS.md at the root +
   //    the component catalog under agent/, so a recipient's AI agent can extend

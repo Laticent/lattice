@@ -94,7 +94,7 @@ Then each slide opens with one comment naming its layout — `_class: kpi`,
 1. 1
    - folder to copy
    - keep it together `{Complete}`
-2. 9 MB
+2. 11 MB
    - on disk, minified
    - CSS, scripts and fonts
 3. 79
@@ -209,6 +209,7 @@ Swap `theme: cuoio` for another palette. Delete a slide. Add your own.
 Nothing here needs a build step to try.
 
 <!-- markdownlint-disable MD033 -->
+<link rel="stylesheet" href="lattice-vscode-min.css">
 <script src="mermaid-v11-min.js"></script>
 <script src="lattice-dagre-min.js"></script>
 <script src="lattice-runtime-min.js"></script>

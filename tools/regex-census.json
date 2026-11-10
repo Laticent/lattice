@@ -952,6 +952,7 @@
       "verdict": "unknown",
       "why": "recheck cannot model it: back-reference"
     },
+    "/@import\\s*[\"']([\\w-]+)[\"']\\s*;/g": "safe",
     "/@import\\s*['\"]?([A-Za-z0-9_-]+)['\"]?\\s*;?/g": "safe",
     "/@size\\s+([A-Za-z0-9:_-]+)\\s+(\\S+)\\s+(\\S+)/g": "safe",
     "/@theme\\s+([A-Za-z0-9_-]+)/": "safe",

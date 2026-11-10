@@ -268,7 +268,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// `marp` is the eager door a test stubs; the engine itself loads the bundle builder on demand.
 	const marp = PG?.marp ?? (await PG?.loadMarp?.());
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, bakeHidden, stripPaneMarkers, appendAutoGlossary, fillAutoAgenda, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
+	const { bakeSplits, bakeHidden, stripPaneMarkers, appendAutoGlossary, fillAutoAgenda, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeThemeStubs, vscodeStubPath, VSCODE_ONLY_ASSETS, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
 	// An engine bundle from before hidden slides has no `bakeHidden`: the export still runs, as it did then.
 	const bakeHiddenOrSame = typeof bakeHidden === 'function' ? bakeHidden : (src) => src;
 	// The agenda fill (lib/core/agenda-autofill.js) is newer than some cached bundles, as `bakeHidden` once was.
@@ -342,13 +342,17 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// every later slide, so it is written as `_header:` first. Imported here, on demand, and not from the engine: the
 	// engine ships on every route and the rewrite put one over its ceiling (lib/core/marp-slide-only.mjs).
 	const { withSlideOnlySpotted } = await import('../../../../../lib/core/marp-slide-only.mjs');
+	// A saved library theme is not one the VS Code-shaped stylesheet was built from, so that bundle registers the full themes
+	// with VS Code and must not link the stylesheet too (it would apply the engine's rules again, after the theme's own).
+	const chosen = (palette || 'indaco').toLowerCase();
+	const saved = extraTheme?.css && String(extraTheme.name || '').toLowerCase() === chosen ? extraTheme : null;
 	const bundled = withRuntimeScriptsReport(
 			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
 			// carve a pane and would read each marker as a speaker note.
 			withSlideOnlySpotted(liftImageBgImages(bakeHiddenOrSame(stripPaneMarkers(bakeSplits(appendAutoGlossary(fillAutoAgendaOrSame(embedComponentsInMarkdown(localized, components)))))), undefined)),
 			// `pluginsOff` — the plugins the Studio's admission left off for this deck: Marp renders the
 			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
-			{ localAssets: false, bundledAssets: [...samplePaths.values()], overflowMarker, pluginsOff },
+			{ localAssets: false, bundledAssets: [...samplePaths.values()], overflowMarker, pluginsOff, vscodeLink: !saved },
 		);
 	dir.file(`${slug}.md`, bundled.markdown);
 
@@ -359,8 +363,6 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// indaco without a word (2026-09-23-portable-packages.md §1). A theme we can't
 	// bundle now fails the export with its name.
 	const exportBase = themeBase.replace(/themes\/$/, 'export/');
-	const chosen = (palette || 'indaco').toLowerCase();
-	const saved = extraTheme?.css && String(extraTheme.name || '').toLowerCase() === chosen ? extraTheme : null;
 	const bundledThemes = [];
 	{
 		// Bundle the palette, its -dark companion, AND the transitive theme-name
@@ -411,6 +413,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// same faces without a second list to keep in sync.
 	let bundledCssText = '';
 	await Promise.all(STATIC_ASSETS.map(async ({ from, to }) => {
+		if (saved && VSCODE_ONLY_ASSETS.includes(to)) return; // this bundle registers the full themes (above)
 		const r = await fetch(exportBase + baseName(from)).catch(() => null);
 		if (!r?.ok) return;
 		if (to === 'lattice.css') {
@@ -457,10 +460,21 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// Marp's own math typesetter is always off: the deck's math is already typeset (marp-bundle-math.js).
 	dir.file('marp.config.cjs', marpConfigCjs());
 	dir.file('package.json', `${JSON.stringify(packageJson(slug), null, 2)}\n`);
-	dir.file('.vscode/settings.json', vscodeSettings(themesList));
+	// VS Code registers directive-only stubs (.vscode/themes/) and takes its styling from the linked lattice-vscode.css, which is
+	// built from the SHIPPED palettes. A saved theme is not one of them, so a bundle carrying one registers the full files, as
+	// before: correct, without the faster preview.
+	let vscodeThemes = themesList;
+	if (!saved) {
+		// A file the fetch above could not get is not in the zip, and gets no stub either.
+		const texts = await Promise.all(themesList.filter((p) => dir.file(p)).map(async (p) => ({ path: p, css: await dir.file(p).async('string') })));
+		// The palettes' stubs are cut here; the engine's (VSCODE_ENGINE_STUB) came with the static assets.
+		for (const st of vscodeThemeStubs(texts)) dir.file(st.path, st.css);
+		vscodeThemes = themesList.map(vscodeStubPath);
+	}
+	dir.file('.vscode/settings.json', vscodeSettings(vscodeThemes));
 	dir.file('.vscode/extensions.json', vscodeExtensions());
 	dir.file('.vscode/tasks.json', vscodeTasks());
-	dir.file('README.md', readme({ name: slug, palette: chosen, themes: themesList, agent: agentOk }));
+	dir.file('README.md', readme({ name: slug, palette: chosen, themes: themesList, agent: agentOk, vscodeStubs: !saved }));
 
 	const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 	download(blob, `${slug}.zip`);

@@ -1067,8 +1067,31 @@ runtime marks the burst that follows and lays the slides out FIRST in that micro
 | main-thread blocking, diagram heading | 4.3 s | 3.0 s |
 
 Pinned by test/unit/runtime/vscode-host-rewrite.test.js (the slide is laid out again in the microtask; red with the listener
-removed). **Still open:** an edit to the diagram's own SOURCE is a real re-render, and the slot stands empty while it runs (13
-frames across the burst). The Studio holds the outgoing drawing there (`adoptOutgoingDiagrams`, an `in-place` stamp); the shape
-of a VS Code re-render around a source edit is not that one, and a first attempt at an in-place hold never triggered, so it was
-removed rather than shipped. Most of the remaining keystroke latency is not the runtime: Marp re-processes the 1.1 MB theme on
-every render (engineering/gotchas/vscode.md, "Typing is slow in the VS Code preview").
+removed). Most of the remaining keystroke latency was not the runtime: Marp re-processed the 1.1 MB theme on every render, fixed
+since by engineering/decisions/2026-11-10-marp-vscode-theme-stubs.md.
+
+### §10.1 Editing the diagram's own source in VS Code (2026-11-10)
+
+An edit to a diagram's SOURCE is a real re-render, and the slot stood empty while it ran. The Studio holds the outgoing drawing
+there (`adoptOutgoingDiagrams`, an `in-place` stamp), and a first attempt to port that hold never triggered. A recorder in the
+real preview showed why, in three layers, each of which had to be answered:
+
+1. **The fence does not survive.** VS Code's diff keeps the `<section>` but removes the laid-out cell holding the `<pre>` and
+   its `.mermaid` box, and adds a NEW raw `<pre>`. So `holdEditedDiagrams` pairs within one slide: the boxes the diff removed
+   from a section, in order, against the fences it now holds, in order, only when the counts agree and the slide's diagram
+   scope is the one the drawing was made under (`data-lattice-drawn-scope`, written at both draw sites).
+2. **The drawing leaves its box first.** The diff pulls an element with an `id` out of a subtree it discards, and Mermaid's
+   `<svg>` has one, so every removed box arrived empty; the drawing is in its own record (target: the box).
+3. **VS Code's own Mermaid script strips it.** The built-in `mermaid-markdown-features` answers every update by removing EVERY
+   `.mermaid > svg` in the document (its `go()`, traced by stack in VS Code 1.145.2), held drawing included. The runtime already
+   restored a stripped FINISHED drawing from the cache (`restoreStrippedDiagrams`); a held one has no cache entry, so the same
+   node now goes back as it is. `resetFenceAfterFailure` drops the marker when it ends a hold, so a deliberate clear stays clear.
+
+| 22 keystrokes typed inside the diagram's source, real VS Code | before | after |
+|---|---|---|
+| painted frames with the diagram slot empty (three runs) | 74, 67, 76 | **0, 0, 0** |
+
+The held drawing is the previous source's, shown for the length of one render (about 300 ms), the trade the Studio made
+(§ adoption). Pairing is by order within the slide, so one keystroke that both reorders two diagrams and edits one shows the
+other diagram's drawing in that slot until its render lands; the Studio's positional pairing has the same limit. Pinned by
+test/unit/runtime/diagram-vscode-hold.test.js.

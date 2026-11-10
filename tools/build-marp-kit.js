@@ -63,7 +63,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { STATIC_ASSETS, fontAssetsFor, MARP_SUPPORT, marpSupportLine, vscodeExtensions } = require('../lib/export/marp-bundle.js');
+const { STATIC_ASSETS, fontAssetsFor, MARP_SUPPORT, marpSupportLine, vscodeExtensions, VSCODE_ONLY_ASSETS, KIT_VSCODE_STYLESHEET } = require('../lib/export/marp-bundle.js');
+const { stubOf } = require('../lib/export/marp-vscode-stub.js');
 // The video plugin's Marp engine, as source (lib/plugins/video/video.services.js `marpEngineSource`).
 const videoRecordsEngine = require('../lib/core/plugin-services.js').service('video', 'marpEngineSource')();
 
@@ -107,11 +108,30 @@ const UNMINIFIED_PAIRS = [
 const ASSETS = [
   // Our own `dist/` builds keep their `-min` basename (see above); a third-party copy (Mermaid,
   // from the plugin that owns it) keeps the name the export gives it, which the kit's deck loads.
-  ...STATIC_ASSETS.map(({ from, to }) => ({ from, to: from.startsWith('dist/') ? path.basename(from) : to })),
+  // Every shared asset but the bundle's VS Code stylesheet and engine stub: the kit ships its own (below), cut from the files the
+  // kit registers.
+  ...STATIC_ASSETS.filter(({ to }) => !VSCODE_ONLY_ASSETS.includes(to))
+    .map(({ from, to }) => ({ from, to: from.startsWith('dist/') ? path.basename(from) : to })),
   { from: `dist/themes/${THEME}-min.css`, to: `${THEME}-min.css` },
   { from: `dist/themes/${THEME}-dark-min.css`, to: `${THEME}-dark-min.css` },
   ...UNMINIFIED_PAIRS,
+  // The stylesheet as the VS Code preview shapes it (tools/build-marp-vscode-css.js): the deck links it, so the preview stops
+  // re-processing the 1.1 MB theme on every keystroke. marp-cli does not use it (its selectors match nothing there).
+  { from: 'dist/lattice-vscode-min.css', to: KIT_VSCODE_STYLESHEET },
   { from: `kit/${DECK}`, to: DECK },
+];
+
+/**
+ * THE VS CODE THEMES: stubs of the registered themes. A palette's is cut here by the same `stubOf` the build cuts with
+ * (`@theme`, `@size`, its `@import`); the engine's is the build's own file (`built`), its directives plus the few declarations
+ * that must keep the theme's place in the preview (tools/build-marp-vscode-css.js `pinnedRules`). The preview re-processes the
+ * registered themes on every keystroke; a stub costs it next to nothing, and the styling arrives from `lattice-vscode-min.css`,
+ * which the deck links. marp.config.cjs keeps the full themes: marp-cli renders once.
+ */
+const VSCODE_THEMES = [
+  { from: 'dist/lattice-vscode-stub.css', to: '.vscode/themes/lattice.css', built: true },
+  { from: `dist/themes/${THEME}-min.css`, to: `.vscode/themes/${THEME}.css` },
+  { from: `dist/themes/${THEME}-dark-min.css`, to: `.vscode/themes/${THEME}-dark.css` },
 ];
 
 /**
@@ -170,11 +190,8 @@ module.exports = {
 function vscodeSettings() {
   return `${JSON.stringify(
     {
-      'markdown.marp.themes': [
-        './lattice-min.css',
-        `./${THEME}-min.css`,
-        `./${THEME}-dark-min.css`,
-      ],
+      // The directive-only stubs (VSCODE_THEMES): the styling comes from lattice-vscode-min.css, which the deck links.
+      'markdown.marp.themes': VSCODE_THEMES.map((t) => `./${t.to}`),
       // Mirrors marp.config.cjs's html:true. Without it the deck's trailing
       // <script> tags print as literal text across the preview. `html: "all"`
       // replaced the deprecated boolean `enableHtml` in marp-vscode 3.0.0.
@@ -232,7 +249,8 @@ function notice() {
 Copyright (c) 2025-2026 Laticent. Licensed under the **GNU Affero General
 Public License, version 3** — the full text is in \`LICENSE\`, beside this file.
 
-\`lattice-min.css\`, \`${THEME}-min.css\`, \`${THEME}-dark-min.css\` and
+\`lattice-min.css\`, \`${THEME}-min.css\`, \`${THEME}-dark-min.css\`,
+\`lattice-vscode-min.css\`, the theme stubs in \`.vscode/themes/\` and
 \`lattice-runtime-min.js\` are the Lattice engine in object form — as are their
 unminified counterparts \`lattice.css\`, \`${THEME}.css\`, \`${THEME}-dark.css\`
 and \`lattice-runtime.js\`, included for reading rather than running. They are
@@ -324,9 +342,11 @@ changes to engine, tooling or test code, not on documentation-only ones.
 | File | What it does |
 |---|---|
 | \`${DECK}\` | A 13-slide deck that documents itself. Your starting point. |
-| \`lattice-min.css\` | The engine — every layout and token. **This is the one both configs register.** |
+| \`lattice-min.css\` | The engine — every layout and token. **marp-cli registers this one** (\`marp.config.cjs\`). |
 | \`${THEME}-min.css\` | The default palette. Swap it to restyle the deck. |
 | \`${THEME}-dark-min.css\` | A second palette. Select it with \`theme: ${THEME}-dark\`. |
+| \`lattice-vscode-min.css\` | The same engine and every palette, already shaped the way the VS Code preview shapes them. The deck links it (\`<link rel="stylesheet" …>\`, beside its scripts), so the preview styles the slides without re-processing 1.1 MB of theme on every keystroke. marp-cli ignores it. |
+| \`.vscode/themes/\` | What VS Code registers (\`.vscode/settings.json\`): only each theme's name and slide sizes, so the preview has almost nothing to re-process per keystroke. The styling comes from the linked file above. |
 | \`lattice-runtime-min.js\` | Builds charts and diagrams in the browser. |
 | \`mermaid-v11-min.js\` | Third party. Diagram slides need it. |
 | \`lattice-dagre-min.js\` | Third party. Lays out a state chart that BRANCHES. **Delete it and the chart still draws** — on the reading-order grid a chain uses, each branch drawn as a skip, which looks deliberate rather than broken. It is the one file here whose absence is invisible on the slide. |
@@ -341,10 +361,12 @@ changes to engine, tooling or test code, not on documentation-only ones.
 
 ## Three things that will bite you
 
-**Scripts belong at the END of the deck.** Marp emits raw HTML inline, in
-document order, so a \`<script>\` at the top lands inside slide 1 and runs before
-the rest of the deck exists. At the bottom it runs once the whole deck is parsed.
-\`${DECK}\` does this — copy the pattern.
+**The deck's last lines are load-bearing: one \`<link>\` and three \`<script>\`
+tags.** Copy them into every deck you write here. The \`<link>\` is how the VS
+Code preview gets its styling (without it, slides in VS Code are plain text;
+marp-cli does not need it). The scripts belong at the END: Marp emits raw HTML
+inline, in document order, so a \`<script>\` at the top lands inside slide 1 and
+runs before the rest of the deck exists. \`${DECK}\` does this — copy the pattern.
 
 **\`html: true\` is required, not optional.** marp-core escapes raw HTML by
 default, which turns the deck's \`<script>\` tags into visible text and leaves
@@ -421,10 +443,16 @@ order of likelihood:
 
 1. **The folder is not your workspace root.** \`.vscode/settings.json\` uses
    workspace-relative paths. Open THIS folder, not its parent.
-2. **The whole folder did not come across.** \`lattice-min.css\` must sit beside
-   \`${DECK}\`, and \`fonts/\` beside that.
-3. **VS Code has not reloaded the setting.** Run *Developer: Reload Window* after
+2. **In VS Code: the deck has no \`<link rel="stylesheet" href="lattice-vscode-min.css">\`.**
+   The preview's styling comes from that line. Copy the last lines of \`${DECK}\`.
+3. **The whole folder did not come across.** \`lattice-min.css\` and
+   \`lattice-vscode-min.css\` must sit beside \`${DECK}\`, and \`fonts/\` beside that.
+4. **VS Code has not reloaded the setting.** Run *Developer: Reload Window* after
    the folder is first opened.
+
+When the scripts run (VS Code at *Disable*, or a marp-cli render), the browser's
+console says which of these it is: the runtime warns once when the Lattice
+stylesheet did not reach the slides.
 
 If type looks right but the layout does not, it is the palette rather than the
 engine: \`${THEME}-min.css\` \`@import\`s \`lattice\` **by name**, so both files
@@ -478,6 +506,10 @@ function renderBytes(kit) {
 function buildKit() {
   const out = new Map();
   for (const a of ASSETS) out.set(a.to, fs.readFileSync(path.join(ROOT, a.from)));
+  for (const t of VSCODE_THEMES) {
+    const css = fs.readFileSync(path.join(ROOT, t.from), 'utf8');
+    out.set(t.to, t.built ? css : stubOf(css));
+  }
   // The readable runtime, without the DevTools source map that is most of its weight (see the docblock).
   out.set('lattice-runtime.js', withoutInlineSourceMap(out.get('lattice-runtime.js').toString('utf8')));
 

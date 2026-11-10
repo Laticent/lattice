@@ -13,9 +13,11 @@ const { closeQuietly } = require('../../helpers/jsdom-close');
 const RUNTIME = path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js');
 const skip = !fs.existsSync(RUNTIME) && 'dist/ not built';
 
-async function warningsFor({ css, marp = true }) {
-  const slide = '<section id="1"><h1>T</h1></section>';
-  const body = marp ? `<div class="marpit"><svg data-marpit-svg=""><foreignObject>${slide}</foreignObject></svg></div>` : `<article class="lattice">${slide}</article>`;
+async function warningsFor({ css, marp = true, vscode = false, link = '' }) {
+  const slide = `<section id="1"><h1>T</h1>${link}</section>`;
+  const svg = `<svg data-marpit-svg=""><foreignObject>${slide}</foreignObject></svg>`;
+  const body = !marp ? `<article class="lattice">${slide}</article>`
+    : vscode ? `<div id="__marp-vscode"><div>${svg}</div></div>` : `<div class="marpit">${svg}</div>`;
   const dom = new JSDOM(`<!doctype html><html><head><style>${css}</style></head><body>${body}</body></html>`, { runScripts: 'outside-only', pretendToBeVisual: true });
   const w = dom.window;
   const warns = [];
@@ -32,8 +34,16 @@ async function warningsFor({ css, marp = true }) {
 test('a Marp slide with no Lattice stylesheet gets one warning that names the fix', { skip }, async () => {
   const w = await warningsFor({ css: '' });
   assert.equal(w.length, 1);
-  assert.match(w[0], /workspace root/);
   assert.match(w[0], /--config-file marp\.config\.cjs/);
+});
+
+// In the VS Code preview the styling arrives from the deck's link to the VS Code stylesheet (lib/export/marp-vscode-stub.js), so the
+// warning tells a missing link line from a link to a file that is not there.
+test('in the VS Code preview, the warning names the missing link line, or the missing file', { skip }, async () => {
+  const [noLink] = await warningsFor({ css: '', vscode: true });
+  assert.match(noLink, /lost its <link rel="stylesheet"/);
+  const [missing] = await warningsFor({ css: '', vscode: true, link: '<link rel="stylesheet" href="lattice-vscode.css">' });
+  assert.match(missing, /links lattice-vscode\.css, but that file is not beside the deck/);
 });
 
 test('no warning when the engine stylesheet is there, or when the page is not a Marp render', { skip }, async () => {

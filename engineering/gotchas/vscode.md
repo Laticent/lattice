@@ -454,11 +454,20 @@ the extension API, every frame in the preview sampled; 2026-11-10):
 1. **The theme, on every keystroke.** Marp re-processes every registered theme on each render: our 1.1 MB `lattice-min.css`
    costs 700–1,200 ms per render in marp-core (its default theme: ~100 ms), and the 1.5 MB of scoped CSS it emits is shipped to
    the preview again. With the same deck on Marp's default theme a keystroke reaches the preview in ~550 ms; with ours,
-   ~1,330 ms (p50). The fix in progress registers directive-only themes with Marp and loads the full stylesheet once through a
-   `<link>` (prototype: 412 ms p50, and the stylesheet still applies at *Strict*).
+   ~1,330 ms (p50). Fixed: the kit and an Export-to-Marp bundle register directive-only theme stubs with VS Code and the deck
+   links a stylesheet packed at build time (p50 ~1.0 s → ~0.3 s, slides pixel-identical), see
+   engineering/decisions/2026-11-10-marp-vscode-theme-stubs.md. **If the preview is plain but a marp-cli export is styled**,
+   the deck lost its `<link rel="stylesheet" …>` line (the kit's `lattice-vscode-min.css`, a bundle's `lattice-vscode.css`):
+   put it back above the scripts. A bundle carrying a Studio library theme registers the full themes and stays slow.
 2. **The runtime redid every slide.** The preview diffs Marp's raw HTML into the page, which takes every laid-out slide back to
    raw, and the runtime waited for its 150 ms debounce while Mermaid's cache missed: fixed, see
-   engineering/decisions/2026-09-05-diagram-fence-flash.md §10.
+   engineering/decisions/2026-09-05-diagram-fence-flash.md §10. Typing INSIDE a diagram's source left its slot empty for a
+   render on every keystroke; the runtime now holds the previous drawing (§10.1).
+
+**VS Code's built-in Mermaid script removes every `.mermaid > svg` on every preview update** (`mermaid-markdown-features`,
+`go()` on `vscode.markdown.updateContent`). Lattice's drawings sit in `.mermaid` boxes, so it strips them all; the runtime puts a
+finished drawing back from its cache and a held one back as it is (`restoreStrippedDiagrams`). If a diagram vanishes in the VS
+Code preview and nothing in Lattice removed it, look there first.
 
 **Not the cause:** VS Code's built-in `mermaid-markdown-features` (disabling it changed nothing measurable), and an idle preview
 (zero mutations in 5 s at rest).

@@ -268,6 +268,13 @@ runs off the per-PR path: the integration nightly's "Export-to-Marp on the newes
 marp-cli in the range" arm runs the Marp files that way every night and files the rolling issue
 when a new release breaks the bundle.
 
+**The build runs marp-core, and nothing else does.** `@marp-team/marp-core` is a devDependency, pinned exactly (4.4.0), for
+one build step: `tools/build-marp-vscode-css.js` packs the engine and every palette the way Marp for VS Code's preview packs a
+registered theme, so the kit and an Export-to-Marp bundle can link that CSS and register directive-only stubs instead
+(`engineering/decisions/2026-11-10-marp-vscode-theme-stubs.md`). It is the preview's own code, run once at build time instead
+of on every keystroke. Nothing in `lib/` requires it, so HARD RULE #1 holds: Marp stays an export target. The parity test
+`test/integration/export/marp-vscode-css-parity.test.js` renders with it too, and skips when it is not installed.
+
 **The regex census runs a pinned recheck, in its own folder, and the gate does not need it.**
 `checkRegexCensus` (`tools/check-ownership.js`, via `build:check`) holds every regex literal in
 `lib/**` to a complexity verdict in `tools/regex-census.json`, and each file's count of patterns
