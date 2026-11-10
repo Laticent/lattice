@@ -135,6 +135,7 @@ function build() {
     .map((m) => ({
       name: m.name,
       figureClass: m.kernel.figureClass,
+      form: m.kernel.form === true,
       variants: effectiveVariants(m),
       dir: componentDir(m, COMPONENTS_DIR),
     })));
@@ -203,11 +204,15 @@ function build() {
   }
   lines.push('};');
   lines.push('');
+  lines.push('// The kinds placed by the chart form kernel (a manifest\'s `kernel.form: true`): on a phone page each draws once,');
+  lines.push('// on a canvas the shape of its box (lib/plugins/chart-family/shared/chart-form.js).');
+  lines.push(`const FORM_KINDS = new Set(${JSON.stringify(charts.filter((c) => c.form).map((c) => c.name))});`);
+  lines.push('');
   lines.push('// The plugin that offers the slot. Switched off for a render, the family passes every chart');
   lines.push('// section through as authored and marks it `data-lattice-off` with this name.');
   lines.push(`const PLUGIN = ${JSON.stringify(SLOT.plugin)};`);
   lines.push('');
-  lines.push('module.exports = { LAYOUTS, FIGURE_CLASSES, KERNELS, PLUGIN };');
+  lines.push('module.exports = { LAYOUTS, FIGURE_CLASSES, KERNELS, FORM_KINDS, PLUGIN };');
   return lines.join('\n') + '\n';
 }
 
