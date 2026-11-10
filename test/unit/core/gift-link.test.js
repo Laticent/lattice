@@ -169,7 +169,7 @@ test('a link pasted inside a sentence, with trailing punctuation, or with # sent
 	const g = await load();
 	const link = await g.encodeGiftLink(KEY, SITE);
 	const locked = await g.encodeGiftLink(KEY, SITE, { pin: '482913', salt: SALT });
-	for (const pasted of [`${link}.`, `${link})`, `${link}/`, `"${link}"`, `${link}&utm=1`, `Link: ${link} enjoy!`, `(${link}).`, link.replace('#', '%23')]) {
+	for (const pasted of [`${link}.`, `${link})`, `${link}/`, `"${link}"`, `${link}&utm=1`, `Link: ${link} enjoy!`, `(${link}).`, link.replaceAll('#', '%23')]) {
 		assert.equal((await g.decodeGift(pasted)).key, KEY, pasted);
 	}
 	assert.equal((await g.decodeGift(`Here: ${locked}. PIN on the back`, { pin: '482913' })).key, KEY);
