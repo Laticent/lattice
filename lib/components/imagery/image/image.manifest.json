@@ -254,8 +254,8 @@
   },
   "commonMistakes": [
     {
-      "mistake": "Writing plain image syntax `![alt](path)` instead of Marp background syntax `![bg](path)`.",
-      "fix": "The `image` slot renders the asset as a CSS background on `.lattice-bg` (no `<img>`) — without `bg` in the alt text the picture never becomes the section's background, and no composition can resolve around it."
+      "mistake": "Giving the photo a second lone picture, or putting Marp's side keywords in its alt (`![bg left](path)`).",
+      "fix": "The photo is the slide's ONE lone picture: `![A name](path \"A longer description\")` alone on its line, or `@image{path, title=\"…\"}`. The slide places it on its panel, and `mirror` moves it to the left. A second lone picture, or a `![bg]` or record already on the slide, keeps the other picture in the text, and an `http:` address is not placed (use `https:`). `![bg]` still renders until the deck sweep moves it to the slide's class."
     },
     {
       "mistake": "Naming a composition class (`image spotlight`, `image gallery`, …) reflexively instead of leaving it unset.",

@@ -415,7 +415,8 @@ describe('placing a picture writes the SLIDE\'s class, never `![bg]` (owner, 202
 		expect(placeImage(view, pic.pos, 'right')).toBe(true);
 		const out = docToDeck(view.state.doc);
 		expect(out).toContain('<!-- _class: image -->');
-		expect(out).toContain('![A forest](asset:forest "A forest")');
+		// The description becomes the name once, not the name and the description both (inversion, F9).
+		expect(out).toContain('![A forest](asset:forest)');
 		expect(out).not.toMatch(/!\[bg/);
 	});
 
@@ -442,6 +443,32 @@ describe('placing a picture writes the SLIDE\'s class, never `![bg]` (owner, 202
 		const view = new EditorView(document.createElement('div'), { state: EditorState.create({ doc: deckToDoc('---\ntheme: indaco\nclass: bleed\n---\n\n' + one('content', '![A](a.jpg)')) }) });
 		expect(placementAt(view.state, images(view)[0].pos)).toEqual({ placement: 'full', canPlace: false });
 		expect(placeImage(view, images(view)[0].pos, 'none')).toBe(false);
+	});
+
+	it('what the engine will not place, Compose does not offer: a `![bg]` photo or a record beside it, a keyword alt, an http address (inversion, F1, F4, F5)', () => {
+		const besideBg = mount(one('image', '![bg right](https://x.test/photo.jpg)\n\n![Logo](https://x.test/logo.png)'));
+		const logo = images(besideBg).find((p) => p.alt === 'Logo');
+		expect(placementAt(besideBg.state, logo!.pos)).toEqual({ placement: 'none', canPlace: false });
+		const besideRecord = mount(one('image', '`@image{https://x.test/photo.jpg, title="Photo"}`\n\n![Logo](https://x.test/logo.png)'));
+		expect(placementAt(besideRecord.state, images(besideRecord)[0].pos)).toEqual({ placement: 'none', canPlace: false });
+		const caps = mount(one('image', '![BG right](https://x.test/a.jpg)'));
+		expect(placementAt(caps.state, images(caps)[0].pos)).toEqual({ placement: 'none', canPlace: false });
+		const http = mount(one('image', '![Lake](http://x.test/a.jpg)'));
+		expect(placementAt(http.state, images(http)[0].pos)).toEqual({ placement: 'none', canPlace: false });
+	});
+
+	it('a carried class reaches the badge, and a bracketed deck class places nothing, as in the engine (inversion, F6)', () => {
+		const carried = mount(['<!-- class: image -->', '', '## One', '', '---', '', '## Two', '', '![A](https://x.test/a.jpg)'].join('\n'));
+		expect(placementAt(carried.state, images(carried)[0].pos)).toEqual({ placement: 'right', canPlace: false });
+		const bracket = new EditorView(document.createElement('div'), { state: EditorState.create({ doc: deckToDoc('---\ntheme: indaco\nclass: [bleed]\n---\n\n' + one('content', '![A](https://x.test/a.jpg)')) }) });
+		expect(placementAt(bracket.state, images(bracket)[0].pos).placement).toBe('none');
+	});
+
+	it('a modifier-only slide is a content slide, so Placement is offered there (inversion, F7)', () => {
+		expect(canPlaceOn(['dark'])).toBe(true);
+		expect(canPlaceOn(['dark', 'quote'])).toBe(false);
+		const dark = mount(one('dark', '![A](https://x.test/a.jpg)'));
+		expect(placementAt(dark.state, images(dark)[0].pos).canPlace).toBe(true);
 	});
 
 	it('`mirror` belongs to the image layout here, and to any other layout there', () => {

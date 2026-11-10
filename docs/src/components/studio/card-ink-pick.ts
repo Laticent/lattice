@@ -70,10 +70,12 @@ export function photoAt(chunk: string): { ref: string; index: number } | null {
 		return ref ? { ref, index: rec.index } : null;
 	}
 	const tokens = getClassTokens(chunk);
-	if (!tokens.includes('image') && !tokens.includes('bleed')) return null;
-	// The whole line is the picture, as the engine places it (a picture with words after it stays in the text).
-	const pic = /^[ \t]{0,3}!\[[^\]\n]*\]\((?=[^\n]*\)[ \t]*$)/m.exec(chunk);
-	if (!pic) return null;
+	if ((!tokens.includes('image') && !tokens.includes('bleed')) || tokens.includes('collage')) return null;
+	// The whole line is the picture, as the engine places it (a picture with words after it stays in the text), and only the
+	// slide's ONE such picture: with two, the engine places neither, and a collage packs them as tiles (inversion, F10).
+	const pics = [...chunk.matchAll(/^[ \t]{0,3}!\[[^\]\n]*\]\((?=[^\n]*\)[ \t]*$)/gm)];
+	if (pics.length !== 1) return null;
+	const pic = pics[0];
 	const ref = destinationAt(chunk, pic.index + pic[0].length);
 	return ref ? { ref, index: pic.index } : null;
 }

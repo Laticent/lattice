@@ -181,6 +181,11 @@ describe('photoAt: the slide\'s photo however it is written (2026-11-10)', () =>
 		expect(photoAt('<!-- _class: content -->\n\n## T\n\n![A lake](sample:photo-wide.jpg)\n')).toBeNull();
 	});
 
+	it('two pictures, or a collage, have no single photo, as the engine places neither (inversion, F10)', () => {
+		expect(photoAt('<!-- _class: image -->\n\n## T\n\n![A](a.jpg)\n\n![B](b.jpg)\n')).toBeNull();
+		expect(photoAt('<!-- _class: collage bleed -->\n\n## T\n\n![A](a.jpg)\n')).toBeNull();
+	});
+
 	it('its index is the start of the photo\'s line', () => {
 		const chunk = '<!-- _class: image -->\n\n## T\n\n![A lake](x.jpg)\n';
 		expect(chunk.slice(photoAt(chunk)?.index)).toMatch(/^!\[A lake\]/);

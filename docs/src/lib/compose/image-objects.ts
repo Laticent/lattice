@@ -16,6 +16,12 @@
 import type { Node as PMNode } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+// The engine's own scheme allowlist (a leaf `module.exports`, as the docs dev shim needs): the shortcut is drawn through the
+// record, so an address the record refuses (`http:`) is never placed, and Compose must not say it is (inversion, F5).
+import urlScheme from '../../../../lib/core/url-scheme.js';
+// The component names (the stage catalog's keys, as reserved-names.ts reads them): a slide's LAYOUT is its first class word
+// that names a component, so a modifier-only slide (`_class: dark`) is a content slide (inversion, F7).
+import STAGE_CATALOG from '../../../../lib/forms/cell/masthead/stage-catalog.generated.js';
 import { deckSchema } from './deck-doc';
 import { classPayloadOf } from './deck-source';
 import { closeFiloGroup } from './filo-history';
@@ -161,8 +167,8 @@ export function placementOf(tokens: readonly string[]): Placement {
 /** Whether Compose may place a picture on a slide of these classes: one whose layout is `content`, `image` or none. A quote or a
  *  chart has a layout of its own, and turning it into an `image` slide is a layout change, made where layouts are chosen. */
 export function canPlaceOn(tokens: readonly string[]): boolean {
-	const lead = tokens.find((t) => !PLACING.has(t) || t === 'image');
-	return lead === undefined || lead === 'content' || lead === 'image';
+	const layout = tokens.find((t) => Object.hasOwn(STAGE_CATALOG as Record<string, string>, t));
+	return layout === undefined || layout === 'content' || layout === 'image';
 }
 
 /** The slide's class tokens with this placement: every other token kept, in order. */
@@ -207,8 +213,9 @@ export function placeImage(view: EditorView, pos: number, p: Placement): boolean
 	view.dispatch(closeFiloGroup(view.state.tr));
 	const tr = view.state.tr.setNodeMarkup(slidePos, undefined, { ...slide.attrs, directives: next });
 	if (wasBg) {
+		// The old description becomes the name, once: kept as both it read the same words twice (inversion, F9).
 		const title = (node.attrs.title as string | null) ?? '';
-		tr.replaceWith(pos, pos + 1, imageType().create({ ...node.attrs, alt: title ? descriptionAsAlt(title) : '' }, null, node.marks));
+		tr.replaceWith(pos, pos + 1, imageType().create({ ...node.attrs, alt: title ? descriptionAsAlt(title) : '', title: null }, null, node.marks));
 	}
 	tr.setSelection(NodeSelection.create(tr.doc, pos)).setMeta(objectsKey, { edited: true });
 	view.dispatch(tr);
@@ -218,22 +225,55 @@ export function placeImage(view: EditorView, pos: number, p: Placement): boolean
 /** The deck's own `class:` in its front matter (`class: bleed`), which the engine appends to every slide's class. */
 function deckClassTokens(frontMatter: string): string[] {
 	const line = /^class[ \t]*:(.*)$/m.exec(frontMatter || '');
-	return line ? line[1].replace(/["'[\],]/g, ' ').trim().split(/\s+/).filter(Boolean) : [];
+	// Quotes go, as the engine strips them; brackets and commas stay, as the engine keeps them (`class: [bleed]` places
+	// nothing there, so it places nothing here: inversion, F6).
+	return line ? line[1].replace(/["']/g, ' ').trim().split(/\s+/).filter(Boolean) : [];
 }
 
-/** Whether a slide before this one sets a CARRIED class (`<!-- class: … -->`, no underscore), which reaches this slide too. */
-function carriedClassBefore(state: EditorState, slideIndex: number): boolean {
-	for (let i = 0; i < slideIndex; i++) {
-		const ds = (state.doc.child(i).attrs.directives as string[] | null) ?? [];
-		if (ds.some((d) => classPayloadOf(d) !== null && !/^\s*<!--\s*_/.test(d))) return true;
+/**
+ * The CARRIED class reaching this slide, or null for none: the last `<!-- class: … -->` (no underscore) on this slide or an
+ * earlier one. Only `_x` comments are a slide's directives (deck-source.ts `splitSlideDirectives`); a carried one stays in the
+ * prose as a `comment` node, which is where this reads it (inversion, F6: the directives-only read never found one).
+ */
+function carriedClassBefore(state: EditorState, slideIndex: number): string[] | null {
+	let carried: string[] | null = null;
+	for (let i = 0; i <= slideIndex && i < state.doc.childCount; i++) {
+		state.doc.child(i).descendants((n) => {
+			if (n.type.name !== 'comment') return true;
+			const text = String(n.attrs.text ?? '');
+			const payload = /^\s*<!--\s*_/.test(text) ? null : classPayloadOf(text);
+			if (payload !== null) carried = payload.trim().split(/\s+/).filter(Boolean);
+			return false;
+		});
 	}
-	return false;
+	return carried;
+}
+
+/** Whether the slide already places a photo another way: an old `![bg …]` picture other than this one, or a lone record. */
+function placesPhotoAlready(slide: PMNode, except: PMNode): boolean {
+	let found = false;
+	slide.descendants((n) => {
+		if (found) return false;
+		if (isImage(n) && n !== except && bgKeywords((n.attrs.alt as string | null) ?? '') !== null) found = true;
+		// A record is an `inline_object` atom (its text is the source, no backticks) or code-marked text.
+		if (n.type.name === 'paragraph' && /^\s*`?@image\{[^\n]*\}`?\s*$/.test(n.textContent)) found = true;
+		return !found;
+	});
+	return found;
 }
 
 /** Whether the picture at `pos` is the slide's ONLY lone picture, as a direct paragraph of the slide: the one the engine places. */
 function soleLonePicture(state: EditorState, pos: number): boolean {
 	const $at = state.doc.resolve(pos);
 	if ($at.depth !== 2 || $at.parent.childCount !== 1) return false;
+	const node = state.doc.nodeAt(pos);
+	if (!node) return false;
+	// What the engine refuses to place: a Marp keyword alt (any case), an address the record's allowlist refuses, or a slide
+	// that already places a photo (plugins.js `lonePicture`, `placesPhotoAlready`; inversion, F1, F4, F5).
+	const alt = (node.attrs.alt as string | null) ?? '';
+	if (bgKeywords(alt) === null && /^bg(?:\s|$)/i.test(alt.trim())) return false;
+	if (!urlScheme.urlVerdict(String(node.attrs.src ?? '').trim()).ok) return false;
+	if (placesPhotoAlready($at.node(1), node)) return false;
 	let lone = 0;
 	$at.node(1).forEach((block) => {
 		if (block.type.name === 'paragraph' && block.childCount === 1 && isImage(block.firstChild)) lone++;
@@ -251,13 +291,17 @@ export function placementAt(state: EditorState, pos: number): { placement: Place
 	const node = state.doc.nodeAt(pos);
 	if (!isImage(node) || !node) return { placement: 'none', canPlace: false };
 	const $at = state.doc.resolve(pos);
-	const own = slideClassTokens(($at.node(1).attrs.directives as string[] | null) ?? []);
+	const ownDirectives = ($at.node(1).attrs.directives as string[] | null) ?? [];
+	const own = slideClassTokens(ownDirectives);
 	const deck = deckClassTokens((state.doc.attrs.frontMatter as string) || '');
-	const inherited = deck.length > 0 || carriedClassBefore(state, $at.index(0));
+	// A slide with no class of its own takes the carried one, as the engine does: the badge then says what the slide draws.
+	const carried = carriedClassBefore(state, $at.index(0));
+	const inherited = deck.length > 0 || carried !== null;
+	const effective = own.length ? own : (carried ?? []);
 	const alt = (node.attrs.alt as string | null) ?? '';
 	const sole = soleLonePicture(state, pos);
 	// An old `![bg …]` picture is placed by its keywords until it is placed again; a plain one only when the engine places it.
-	const placement = bgKeywords(alt) !== null ? bgSideOf(alt) : sole ? placementOf([...own, ...deck.filter((t) => t !== 'image')]) : 'none';
+	const placement = bgKeywords(alt) !== null ? bgSideOf(alt) : sole ? placementOf([...effective, ...deck.filter((t) => t !== 'image')]) : 'none';
 	return { placement, canPlace: sole && !inherited && canPlaceOn(own) && !inLockedSlide(state, pos) };
 }
 

@@ -236,3 +236,36 @@ describe('Export-to-Marp places the shortcut as it places the record', () => {
     assert.equal(withImageMarkdown(col, {}, ctxFor('image')), col);
   });
 });
+
+describe('the engine and Export-to-Marp agree on which picture is placed (inversion on #3126)', () => {
+  // Each case: a slide, and the address of the picture whose placement is in question. The engine places it when it draws a
+  // `.lattice-bg` panel with the image plugin's marker for that address; the export places it when it writes `![bg](address…)`.
+  // A disagreement is a deck that looks one way in Lattice and another in Marp, so every case asks both.
+  const P = 'https://x.test/p.jpg';
+  const cases = [
+    ['a lone picture between blank lines', 'image', `## T\n\n![Lake](${P})\n`, true],
+    ['a picture right under the heading, no blank line', 'image', `## T\n![Lake](${P})\n`, true],
+    ['a picture right under the class comment', 'image', `![Lake](${P})\n`, true],
+    ['a picture on a bleed slide', 'content bleed', `## T\n\n![Lake](${P})\n`, true],
+    ['a `![bg]` photo beside it (F1): it stays in the text', 'image', `## T\n\n![bg right](https://x.test/photo.jpg)\n\n![Logo](${P})\n`, false],
+    ['a bleed `![bg]` beside it (F1)', 'content bleed', `## T\n\n![bg](https://x.test/photo.jpg)\n\n![Chart](${P})\n`, false],
+    ['a record beside it', 'image', `## T\n\n\`@image{https://x.test/photo.jpg, title="Photo"}\`\n\n![Logo](${P})\n`, false],
+    ['a keyword alt in capitals (F4)', 'image', `## T\n\n![BG right](${P})\n`, false],
+    ['an http address the record refuses (F5)', 'image', `## T\n\n![Lake](http://x.test/p.jpg)\n`, false],
+    ['a picture inside a paragraph of text', 'image', `## T\n\nWords before\n![Lake](${P})\n`, false],
+    ['two lone pictures', 'image', `## T\n\n![A](${P})\n\n![B](https://x.test/q.jpg)\n`, false],
+    ['a content slide', 'content', `## T\n\n![Lake](${P})\n`, false],
+  ];
+  const e = engine.createEngine();
+  for (const [name, cls, body, placed] of cases) {
+    test(name, () => {
+      const md = `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n${body}`;
+      const addr = [...body.matchAll(/!\[([^\]]*)\]\(([^)\s]+)/g)].find((m) => !/^bg(?:\s|$)/.test(m[1]))[2];
+      const html = e.render(md).html;
+      const engineSays = new RegExp(`<div class="lattice-bg[^"]*" data-lattice-media="image"[^>]*url\\('${addr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'\\)`).test(html);
+      const exportSays = withImageMarkdown(md, {}, ctxFor('image')).includes(`![bg](${addr}`);
+      assert.equal(engineSays, placed, `the engine (${name})`);
+      assert.equal(exportSays, placed, `the export (${name})`);
+    });
+  }
+});
