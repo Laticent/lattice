@@ -94,3 +94,50 @@ test('only the exact data-lattice-slide name is reserved, not a longer name that
   }
   assert.equal(neutralizeReservedAttrs('<i data-lattice-slide="2">'), '<i data-x-lattice-slide="2">');
 });
+
+// Raw `</section><section>` closed the engine's slide and opened a new top-level one, which the engine
+// wrapped in form chrome and numbered, so every later slide's number moved up by one
+// (followups.d/3051-p10). A lone `<section>` did the opposite and swallowed the next slide. The
+// section tag in raw HTML is renamed like the reserved attributes, so the deck keeps its own count.
+const { splitTopLevelSections } = require('../../../lib/engine/structural-split.js');
+const slideCount = (body) => splitTopLevelSections(render(`# One\n\n${body}\n\n---\n\n# Two\n\nEnd\n`)).length;
+
+test('a raw section tag is renamed in any case, and a longer tag name is not', () => {
+  assert.equal(neutralizeReservedAttrs('</section><SECTION class="a">x</Section >'), '</x-section><x-section class="a">x</x-section >');
+  for (const s of ['<sections>', '<section-card>', '<section.x>', '<section_a>', 'a < section']) {
+    assert.equal(neutralizeReservedAttrs(s), s, s);
+  }
+});
+
+const SLIDE_FORGES = {
+  'a raw </section><section> block': '</section><section>',
+  'the same, inline in a paragraph': 'Text </section><section class="cover"> more',
+  'a quote carried across tokens': `</section><section title="\n\n<span title='"x'>y</span>`,
+  'a lone <section> that would swallow the next slide': '<section>\n\nstill one',
+  'a lone </section> that would end the slide early': '</section>\n\nafter',
+};
+for (const [name, body] of Object.entries(SLIDE_FORGES)) {
+  test(`author HTML cannot add or remove a slide: ${name}`, () => {
+    assert.equal(slideCount(body), 2, 'the deck has two slides and renders two top-level sections');
+    const stamps = [...render(`# One\n\n${body}\n\n---\n\n# Two\n`).matchAll(/<section\b[^>]*\bdata-lattice-slide="(\d+)"/g)].map((m) => m[1]);
+    if (stamps.length) assert.deepEqual(stamps, ['1', '2'], 'the second slide keeps its number');
+  });
+}
+
+test('the control: without raw section tags the deck renders its two slides', () => {
+  assert.equal(slideCount('Plain body'), 2);
+});
+
+// The rename runs inside comments, and notes are read back from them: a note about HTML said
+// `<x-section>` where its author wrote `<section>` (the independent checker). The readers undo it;
+// the strip still matches, because it renames the source the same way.
+test('a speaker note, a description and a say line that mention <section> read as written', () => {
+  const notes = require('../../../lib/authoring/notes-core.js');
+  const src = '---\ntheme: indaco\n---\n\n# One\n\n<!-- Explain why a <section> tag is a slide, and </section> too -->\n\n<!-- describe: A <section> diagram -->\n\n<!-- say: Every <section> is a slide -->\n';
+  const html = engine.render(src, 'indaco', { preview: true }).html;
+  assert.deepEqual(notes.extractSlideNotes([html]), ['Explain why a <section> tag is a slide, and </section> too']);
+  assert.deepEqual(notes.extractSlideDescriptions([html]), ['A <section> diagram']);
+  assert.deepEqual(notes.extractSlideSayLines([html]), ['Every <section> is a slide']);
+  assert.equal(splitTopLevelSections(html).length, 1, 'and the rendered comment still adds no slide');
+  assert.doesNotMatch(notes.stripNotesFromSource(src, notes.noteBodiesFromHtml(html)), /Explain why/, 'the strip still finds the note');
+});

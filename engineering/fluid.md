@@ -37,9 +37,10 @@ Until the P7 rename lands, "auto-split" and `split-*` in the code mean **Fluid's
 - **No pagination at `wide`.** Overflow there is a layout defect; a file clips and prints a
   build-time line, a live screen rings.
 - **There is no shrink move.**
-- **Author HTML cannot forge the split's attributes.** The engine renames every `data-split-` and
-  `data-fluid-` in raw HTML to `data-x-…` (`lib/core/reserved-attrs.mjs`), wherever it appears,
-  because a per-token parser can be slipped past.
+- **Author HTML cannot forge the split's attributes, or a slide.** The engine renames every
+  `data-split-` and `data-fluid-` in raw HTML to `data-x-…`, and every `<section` / `</section` tag
+  to `x-section` (`lib/core/reserved-attrs.mjs`), wherever it appears, because a per-token parser
+  can be slipped past. A raw `</section><section>` used to add a top-level slide the split paged.
 - **One paginator.** `checkPaginationOwners` in `tools/check-ownership.js` lists every module that
   stamps a split page's role or run in `SANCTIONED_PAGINATORS`; a new one fails `build:check`, and
   each Fluid phase that deletes a path deletes its entry. Paths that paginate without stamping
