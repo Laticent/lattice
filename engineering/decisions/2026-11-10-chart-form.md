@@ -207,3 +207,26 @@ mobile and 4:5 on the branch before the kernel too; `main` does not. It is owed 
 3. **The pilot is signed off.** The other 25 kinds move through the kernel one per commit, each swept at all five sizes
    against `main`.
 4. **Landscape** moves after every kind is on the kernel at the phone sizes, in one pass, with a before/after sign-off.
+
+## 11. The rollout, kind by kind (status 2026-11-10)
+
+Each kind is checked at mobile, story, 4:5 and square against `main` on two bars: no new overprint, drop, overflow or
+clip in its gallery and the example decks that draw it; and no chart text under 11pt (measured in Chromium per page,
+`.scratch/minsize.mjs`; the CLI's TYPE FLOOR warning fires only under 5.4pt, so it cannot see this bar). Over capacity is
+the owner's scaled drawing (§ 10).
+
+| Kind | On the kernel | Notes |
+|---|---|---|
+| bar, quadrant, risk-matrix | yes (pilot) | signed off |
+| line, scatter, ep-curve | yes | clean on both bars with the generic path alone |
+| bullet | yes | the shared axis band holds its ticks at their role |
+| funnel | yes | fills its box; a narrow band takes its callout marker beside |
+| hub-spoke | yes | fills its box; names whole; an unplaceable figure draws on a larger stage, scaled |
+| piechart | in progress | disc and key arranged by the kernel; key steps 13 to 11pt; long-tail slides over capacity |
+| tower | to do | its key is sized from the drawing, not the role, and outgrows a 4:5 or square box |
+| radar, map | to do | fixed geometry with labels inside: the plot must take the canvas, the key a kernel tile |
+| stacked-bar, heatmap, histogram, waterfall, word-cloud | to do | size holds; names dropped vs `main` |
+| gantt, slope, state-chart | to do | overprints at square; state-chart under the floor at square |
+| roadmap, timeline-list | to do | overflow at square |
+| matrix-grid | to do | holds both bars; floats small at mobile |
+| kanban, journey, progress, flowchart | to do | HTML or self-sized kinds: hold both bars; kanban and journey split into near-empty pages (followups.d/3088-p2-kanban-split-pages.md) |
