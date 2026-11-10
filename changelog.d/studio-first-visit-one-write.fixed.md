@@ -1,0 +1,1 @@
+- **The Studio writes its live preview once on a first visit.** A second render that started while the first write was still loading used to write the whole document again, which parsed the 1.2 MB sheet twice at cold start (14 of 23 loaded first visits on `main`). It now waits for that write to load, up to 4 s, and patches it: 24 of 24 loaded first visits write once.

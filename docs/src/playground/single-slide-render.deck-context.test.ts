@@ -17,6 +17,7 @@
 // that guard is load-bearing on decks that ship in this repo).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadFramesOnWrite } from '@/test/frame-load';
 
 vi.mock('../lib/render-engine', () => ({ renderMarkdown: vi.fn() }));
 vi.mock('../lib/theme-fetch', () => ({
@@ -54,7 +55,10 @@ function mockRender(html: string) {
 	(renderMarkdown as unknown as ReturnType<typeof vi.fn>).mockImplementation(async () => ({ html, css: '' }));
 }
 
+// Each render waits for the previous write's frame to load; jsdom loads none (src/test/frame-load.ts).
+let restoreFrames: () => void = () => {};
 beforeEach(() => {
+	restoreFrames = loadFramesOnWrite();
 	class RO {
 		observe = vi.fn();
 		unobserve = vi.fn();
@@ -72,6 +76,7 @@ beforeEach(() => {
 	mockRender(DECK);
 });
 afterEach(() => {
+	restoreFrames();
 	(window as unknown as { LatticePlayground?: unknown }).LatticePlayground = undefined;
 	document.body.innerHTML = '';
 });

@@ -21,7 +21,7 @@ import { type BakedWrite, bakeSourceKey, clearDeckMemo, clearSliceCache, createS
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js', scaleImages: true, liveLayout: true };
 const DECK = '# One\n\n---\n\n# Two';
 
-type Host = HTMLElement & { __latticeFrameSig?: string; __latticeRestyleSig?: string; __latticePendingLoad?: boolean; __latticeBakeLoad?: Promise<void> };
+type Host = HTMLElement & { __latticeFrameSig?: string; __latticeRestyleSig?: string; __latticePendingLoad?: boolean; __latticeDocLoad?: Promise<void> };
 
 beforeEach(() => {
 	class RO {
@@ -89,7 +89,7 @@ describe('adoptBake', () => {
 			expect(host.__latticeFrameSig).toBe(bake.host.frameSig);
 			expect(host.__latticeRestyleSig).toBe(bake.host.restyleSig);
 			expect(host.__latticePendingLoad).toBe(true);
-			expect(host.__latticeBakeLoad).toBeInstanceOf(Promise);
+			expect(host.__latticeDocLoad).toBeInstanceOf(Promise);
 		} finally {
 			r.dispose();
 		}
@@ -161,12 +161,169 @@ describe('adoptBake', () => {
 			expect(fr.srcdoc).toBe(first);
 			// The adopted document loads (the browser's onload, or the reveal poll's paint detection).
 			fr.onload?.(new Event('load'));
+			const bakeLoad = host.__latticeDocLoad;
 			const out = await render;
-			expect(host.__latticeBakeLoad).toBeUndefined();
+			// The bake's wait is released. jsdom loads nothing, so the render's own full write now holds the frame's
+			// pending load, for the next render to wait on (single-slide-render.ts, the document-load wait).
+			expect(host.__latticeDocLoad).not.toBe(bakeLoad);
 			// jsdom never parses the srcdoc, so there is no `.lattice` to patch and the render writes; in a
 			// browser it patches (e2e/studio-newcomer-bake.spec.ts).
 			expect(out.ok).toBe(true);
 			expect(out.writePath).toBe('write');
+		} finally {
+			r.dispose();
+			vi.useRealTimers();
+		}
+	});
+});
+
+// The same wait, for an ordinary full write: a first Studio visit with no bake issued two renders with the same
+// signature 8 to 21 ms apart, and the second wrote the whole document again because the first was still loading
+// (engineering/decisions/2026-11-08-studio-newcomer-bake.md §7). In a browser the waiting render then patches the loaded document;
+// jsdom parses nothing, so here it writes once the wait ends. What is module logic: it waits, and it is bounded.
+describe('a full write still loading', () => {
+	const SLIDE = { slideIndex: 0, slideCount: 2, slideMarkdown: '# One', deckId: 'd' };
+
+	it('makes the next render wait for it to load before touching the frame', async () => {
+		vi.useFakeTimers();
+		const r = createSingleSlideRenderer(opts);
+		try {
+			const host = mountHost();
+			const first = await r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE);
+			expect(first.writePath).toBe('write');
+			const fr = host.querySelector('iframe.live') as HTMLIFrameElement;
+			const written = fr.srcdoc;
+			let settled = false;
+			const second = r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE).then((o) => {
+				settled = true;
+				return o;
+			});
+			await vi.advanceTimersByTimeAsync(3000);
+			// Parked on the first write's load: no second document yet.
+			expect(settled).toBe(false);
+			expect(fr.srcdoc).toBe(written);
+			fr.onload?.(new Event('load'));
+			expect((await second).ok).toBe(true);
+		} finally {
+			r.dispose();
+			vi.useRealTimers();
+		}
+	});
+
+	it('writes anyway once the bound passes, for a frame that never loads', async () => {
+		vi.useFakeTimers();
+		const r = createSingleSlideRenderer(opts);
+		try {
+			const host = mountHost();
+			await r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE);
+			const second = r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE);
+			await vi.advanceTimersByTimeAsync(4100);
+			const out = await second;
+			expect(out.ok).toBe(true);
+			expect(out.writePath).toBe('write');
+		} finally {
+			r.dispose();
+			vi.useRealTimers();
+		}
+	});
+
+	it('a render a newer write owns stands down, and leaves that write\'s waiters alone', async () => {
+		vi.useFakeTimers();
+		const r = createSingleSlideRenderer(opts);
+		try {
+			const host = mountHost();
+			await r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE);
+			const fr = host.querySelector('iframe.live') as HTMLIFrameElement;
+			let bSettled = false;
+			// B parks on the first write's load.
+			const b = r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE).then((o) => {
+				bSettled = true;
+				return o;
+			});
+			await vi.advanceTimersByTimeAsync(1000);
+			// C starts later and needs another box, so it writes at once: a newer document, still loading.
+			const rs = host.__latticeRestyleSig;
+			host.__latticeRestyleSig = 'another box';
+			await r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE);
+			const cWrite = fr.srcdoc;
+			const cLoad = host.__latticeDocLoad;
+			// Put back the box B asked for, so C's document is one B can patch.
+			host.__latticeRestyleSig = rs;
+			await vi.advanceTimersByTimeAsync(10);
+			// C owns the frame now, so B stands down without writing and without releasing C's waiters.
+			expect(bSettled).toBe(true);
+			expect((await b).ok).toBe(false);
+			expect(fr.srcdoc).toBe(cWrite);
+			expect(host.__latticeDocLoad).toBe(cLoad);
+			// D, newer than C, finds C's document loading: it waits on it rather than writing behind it.
+			let dSettled = false;
+			const d = r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE).then((o) => {
+				dSettled = true;
+				return o;
+			});
+			await vi.advanceTimersByTimeAsync(3000);
+			expect(dSettled).toBe(false);
+			expect(fr.srcdoc).toBe(cWrite);
+			fr.onload?.(new Event('load'));
+			expect((await d).ok).toBe(true);
+		} finally {
+			r.dispose();
+			vi.useRealTimers();
+		}
+	});
+
+	it('waits again when an older render gives up and writes while it waits, instead of writing behind it', async () => {
+		vi.useFakeTimers();
+		const r = createSingleSlideRenderer(opts);
+		try {
+			const host = mountHost();
+			await r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE);
+			const fr = host.querySelector('iframe.live') as HTMLIFrameElement;
+			// Count every write from here on (the mocked engine returns the same document each time, so the text
+			// alone cannot tell two writes apart).
+			let writes = 0;
+			const d = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'srcdoc');
+			if (!d?.set) throw new Error('no srcdoc accessor');
+			const { set } = d;
+			Object.defineProperty(fr, 'srcdoc', { configurable: true, get: d.get, set(v: string) { writes++; set.call(this, v); } });
+			const b = r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE);
+			await vi.advanceTimersByTimeAsync(500);
+			let cSettled = false;
+			const c = r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE).then((o) => {
+				cSettled = true;
+				return o;
+			});
+			// The first document never loads. B's bound passes first: it writes, which releases C.
+			await vi.advanceTimersByTimeAsync(3600);
+			expect((await b).writePath).toBe('write');
+			expect(writes).toBe(1);
+			// C, newer than B, waits again on B's document instead of writing a second one behind it.
+			await vi.advanceTimersByTimeAsync(3000);
+			expect(cSettled).toBe(false);
+			expect(writes).toBe(1);
+			fr.onload?.(new Event('load'));
+			expect((await c).ok).toBe(true);
+		} finally {
+			r.dispose();
+			vi.useRealTimers();
+		}
+	});
+
+	it('does not wait when the next render needs another frame box, which only a write can give', async () => {
+		vi.useFakeTimers();
+		const r = createSingleSlideRenderer(opts);
+		try {
+			const host = mountHost();
+			await r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE);
+			host.__latticeRestyleSig = 'another box';
+			let settled = false;
+			const second = r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE).then((o) => {
+				settled = true;
+				return o;
+			});
+			await vi.advanceTimersByTimeAsync(50);
+			expect(settled).toBe(true);
+			expect((await second).writePath).toBe('write');
 		} finally {
 			r.dispose();
 			vi.useRealTimers();

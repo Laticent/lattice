@@ -24,7 +24,7 @@ import { clearDeckMemo, clearSliceCache, createSingleSlideRenderer } from './sin
 
 const opts = { themeBase: 'https://x/themes/', runtimeUrl: 'https://x/rt.js' };
 
-type PollHost = HTMLElement & { __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticePendingLoad?: boolean };
+type PollHost = HTMLElement & { __latticeRestyleSig?: string; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticePendingLoad?: boolean };
 
 beforeEach(() => {
 	class RO {
@@ -63,10 +63,12 @@ describe('single-slide reveal poll (#1163)', () => {
 			const poll1 = host.__latticeRevealPoll;
 			expect(poll1).toBeDefined(); // the write path armed a poll (was create-only before #1163)
 
-			// A second full write. jsdom never paints a `.lattice` into the srcdoc, so the patch/restyle
-			// fast paths (which require a painted live doc) miss and this re-writes — arming a NEW poll.
-			// The stale poll MUST be cleared so only the latest write's poll runs (no stale tick firing
-			// onFrameLoad against superseded state).
+			// A second full write over the first while it is still loading. A render for the SAME frame box
+			// would wait for that load (the document-load wait) and then patch; one for another box cannot be
+			// patched, so it writes at once, which is the supersede case. jsdom never paints a `.lattice`, so
+			// the fast paths miss anyway. The stale poll MUST be cleared so only the latest write's poll runs
+			// (no stale tick firing onFrameLoad against superseded state).
+			host.__latticeRestyleSig = 'another box';
 			await r.renderInto(host, '# b', false);
 			const poll2 = host.__latticeRevealPoll;
 			expect(poll2).toBeDefined();

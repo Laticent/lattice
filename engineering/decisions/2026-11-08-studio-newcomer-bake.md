@@ -196,6 +196,42 @@ every render waiting on it, a render re-checks that it still owns the frame afte
 bake it wrote. Two `:252` geometry cases in `studio-instant-shell` fail on `main`'s build too
 (`followups.d/2982-p3-instant-shell-slide-box-drift.md`).
 
+### A first visit the bake misses wrote the preview twice (fixed 2026-11-10)
+
+PR A measured a second cost on the path it rewrote, not caused by it: under load, a first visit with the bake kept out
+wrote the live preview's frame twice. A scratch spec that wraps `HTMLIFrameElement` `srcdoc` (as
+`studio-newcomer-bake.spec.ts` `recordWrites` does), 24 loads at 6 workers, desktop project, found the cause. Both writes
+carried the same frame signature and the same 4.3 KB document, 8 to 21 ms apart. The second render started while the
+first write was still loading, so the patch guard (`__latticePendingLoad`) was closed, and it fell through to a second
+full write. Each full write parses the 1.2 MB sheet again and mints a new frame realm.
+
+The fix generalizes the wait `adoptBake` already had. Every full write now publishes its load on the host
+(`__latticeDocLoad`, renamed from `__latticeBakeLoad`), and a render that finds a document still loading with the same
+restyle signature (frame box, Mermaid presence, web policy) waits for it, bounded by `DOC_LOAD_WAIT_MS` (4 s), then
+patches or restyles it. A render that needs another box does not wait, since only a write can give it one. A frame that
+never paints releases its waiters when the reveal poll gives up.
+
+The wait releases no one and clears nothing; an independent check found the first cut did both, which would let a
+render that stood down wake the waiters of the newer write that replaced it, and let a third render write over that
+document. A loading document resolves its own promise, and a render that gives up and writes releases the rest at
+its write site. A render that a newer one already owns stands down before it parks. A render whose document was
+replaced by a newer write while it waited waits again on that one, up to three rounds, instead of writing a second
+document behind it.
+
+| Build | One write | Two writes |
+|---|---|---|
+| `main` 50f6f4a | 9 | 14 (one more load timed out before it could be counted) |
+| the fix | 24 | 0 |
+
+Pinned in `single-slide-render.adopt-bake.test.ts` (`a full write still loading`): the next render parks until the
+write loads, writes anyway past the bound, and does not wait for a different box; a render a newer write owns stands
+down and leaves that write's waiters alone; and a render whose older peer gave up and wrote waits again on that write
+(this one fails with the re-wait loop removed). jsdom never loads a srcdoc. A unit
+file whose renders follow each other with no load (`deck-context`, `sanitize-memo`, `cache-keys`, `pane-split`) fires
+`load` with `src/test/frame-load.ts`; one that marks the frame committed by hand (`__latticePendingLoad = false`, as
+`swap-stamp` does) needs nothing, because a committed frame has nothing to wait for. `reveal` asks for another box, the
+case where one write supersedes another. No unit test passes through the 4 s bound except the one about the bound.
+
 ## 8. Preview-first boot for a returning visitor, on this seam: built, measured, not shipped (2026-11-09)
 
 §6 expected a returning visitor's preview-first boot to reuse PR A's seeding seam, with the document coming from this
