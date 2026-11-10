@@ -157,6 +157,8 @@ function slideClassTokens(directives: readonly string[]): string[] {
 
 /** The placement a slide's classes give its picture. */
 export function placementOf(tokens: readonly string[]): Placement {
+	// A collage packs every picture as a tile, whatever else the slide says (the engine's host table; the parity table).
+	if (tokens.includes('collage')) return 'none';
 	if (tokens.includes('image')) return tokens.includes('mirror') ? 'left' : 'right';
 	if (tokens.includes('bleed')) return 'full';
 	return 'none';

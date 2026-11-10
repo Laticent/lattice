@@ -10,3 +10,6 @@
   comment, is left to the Markdown editor. The picture's badge says where it sits (Panel · Right, Background).
 - The Studio's card-ink and photo-contrast checks find a slide's photo however it is written: `![bg]`, a lone `@image{…}`
   record, or the `![…](…)` shortcut on an `image` or `bleed` slide.
+- Compose, Export-to-Marp and the engine now answer one shared table of placement cases (`test/fixtures/placed-picture-cases.json`),
+  and it found two more disagreements, both fixed: a `collage` slide's picture no longer shows a Background badge, and Export-to-Marp
+  no longer places a picture under a bracketed deck class (`class: [bleed]`), which the engine reads literally.
