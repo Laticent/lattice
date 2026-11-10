@@ -45,6 +45,10 @@ function declaredFontSize(css, selector) {
 function fontSizeValue(css, raw) {
   const px = raw.match(/^([\d.]+)px$/);
   if (px) return Number(px[1]);
+  // The phone ladder's role size, stamped on a drawing only on a 1080-wide page (chart-roles.js): everywhere else the
+  // fallback paints, and that is the size the kernel's own table mirrors.
+  const role = raw.match(/^var\(--chart-fs-[a-z]+,\s*(.+)\)$/);
+  if (role) return fontSizeValue(css, role[1].trim());
   const varRef = raw.match(/^var\((--[\w-]+)\)$/);
   if (varRef) {
     const def = css.match(new RegExp(`${varRef[1]}:\\s*([\\d.]+)px`));
@@ -67,7 +71,7 @@ describe('funnel: kernel font sizes mirror funnel.styles.css', () => {
   // wrong number against the stylesheet.
   const fsBlock = (js.match(/const FS = \{[\s\S]*?\n\};/) || [''])[0] || js;
   const kernel = (key) => {
-    const m = fsBlock.match(new RegExp(`\\b${key}:\\s*([\\d.]+)`));
+    const m = fsBlock.match(new RegExp(`\\b(?:get )?${key}(?:\\(\\) \\{ return roleU\\('[a-z]+', |:\\s*)([\\d.]+)`));
     return m ? Number(m[1]) : null;
   };
 
@@ -95,7 +99,7 @@ describe('quadrant: kernel font sizes mirror quadrant.styles.css', () => {
   // wrong number against the stylesheet.
   const fsBlock = (js.match(/const FS = \{[\s\S]*?\n\};/) || [''])[0] || js;
   const kernel = (key) => {
-    const m = fsBlock.match(new RegExp(`\\b${key}:\\s*([\\d.]+)`));
+    const m = fsBlock.match(new RegExp(`\\b(?:get )?${key}(?:\\(\\) \\{ return roleU\\('[a-z]+', |:\\s*)([\\d.]+)`));
     return m ? Number(m[1]) : null;
   };
 
@@ -132,20 +136,20 @@ describe('radar: kernel font sizes mirror radar.styles.css', () => {
   const css = read('lib/plugins/chart-family/kinds/radar/radar.styles.css');
   const js = read('lib/plugins/chart-family/kinds/radar/radar.transform.js');
   const kernel = (name) => {
-    const m = js.match(new RegExp(`const ${name} = ([\\d.]+)`));
+    const m = js.match(new RegExp(`const ${name} = (?:\\(\\) => roleU\\('[a-z]+', )?([\\d.]+)`));
     return m ? Number(m[1]) : null;
   };
 
-  test('FS_AXIS matches .radar-axis-label', () => {
+  test('fsAxis() matches .radar-axis-label', () => {
     const fromCss = declaredFontSize(css, ':is(section.radar, figure.chart-frame) .radar-axis-label');
     assert.ok(fromCss != null);
-    assert.equal(kernel('FS_AXIS'), fromCss);
+    assert.equal(kernel('fsAxis'), fromCss);
   });
 
-  test('FS_TICK matches .radar-tick', () => {
+  test('fsTick() matches .radar-tick', () => {
     const fromCss = declaredFontSize(css, ':is(section.radar, figure.chart-frame) .radar-tick');
     assert.ok(fromCss != null);
-    assert.equal(kernel('FS_TICK'), fromCss);
+    assert.equal(kernel('fsTick'), fromCss);
   });
 });
 
@@ -279,7 +283,7 @@ describe('heatmap: kernel font sizes mirror the rules that paint them', () => {
   const js = read('lib/plugins/chart-family/kinds/heatmap/heatmap.transform.js');
   const fsBlock = (js.match(/const FS = \{[\s\S]*?\n\};/) || [''])[0] || js;
   const kernel = (key) => {
-    const m = fsBlock.match(new RegExp(`\\b${key}:\\s*([\\d.]+)`));
+    const m = fsBlock.match(new RegExp(`\\b(?:get )?${key}(?:\\(\\) \\{ return roleU\\('[a-z]+', |:\\s*)([\\d.]+)`));
     return m ? Number(m[1]) : null;
   };
 

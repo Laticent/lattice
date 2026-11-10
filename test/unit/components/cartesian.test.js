@@ -379,8 +379,10 @@ describe('cartesian — the CSS mirror', () => {
     // on a rule. The ownership gates strip comments for the same reason.
     const marker = css.indexOf('CARTESIAN CHROME');
     assert.ok(marker > 0, 'the Cartesian chrome block is missing');
+    // It ends where the phone ladder's blocks begin (chart-roles.js), which are every kind's, not Cartesian chrome.
+    const end = css.indexOf('/* ── THE PHONE LADDER', marker);
     const block = css
-      .slice(css.indexOf('*/', marker) + 2)
+      .slice(css.indexOf('*/', marker) + 2, end > 0 ? end : undefined)
       .replace(/\/\*[\s\S]*?\*\//g, '');
     assert.ok(block.includes('.cart-grid'), 'the Cartesian chrome rules are missing');
     // Every chrome rule must lead with a `section`/`:is(section…)` head, or
