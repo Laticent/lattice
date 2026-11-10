@@ -363,7 +363,9 @@ async function make(opts) {
 	console.log(`Wrote ${path.relative(process.cwd(), csvPath)} (${made.cards.length} row${made.cards.length === 1 ? '' : 's'}${o.withLinks ? ', WITH working links' : ', no links'}).`);
 	if (error) {
 		console.error(`\nStopped after ${made.cards.length} of ${o.count}: ${error.message}`);
-		console.error(`The keys already made are in the CSV. Delete them with: node tools/gift-cards.mjs revoke --label ${o.label}`);
+		// Only point at revoke when there is something to revoke: a refused first call made nothing.
+		if (made.cards.length) console.error(`The keys already made are in the CSV. Delete them with: node tools/gift-cards.mjs revoke --label ${o.label}`);
+		else console.error('No key was made, so there is nothing to revoke.');
 	}
 	if (error || cards.length === 0) return 1;
 	if (o.count === 1) {
