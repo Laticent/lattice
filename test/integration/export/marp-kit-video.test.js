@@ -126,7 +126,8 @@ describe('an @video record in a hand-written Marp kit deck — real marp-cli, re
     if (skip) return t.skip(skip);
     const blocks = html.match(/<script type="application\/lattice-video-records">[^<]*<\/script>/g) || [];
     assert.equal(blocks.length, 1, 'one block');
-    const records = JSON.parse(blocks[0].replace(/^<script[^>]*>|<\/script>$/g, ''));
+    // The block's text, by position: it is the engine's own fixed block, so no tag pattern is needed to find its body.
+    const records = JSON.parse(blocks[0].slice(blocks[0].indexOf('>') + 1, blocks[0].lastIndexOf('</script>')));
     // Every record SPAN the Markdown holds, in order (the page decides which draws): the raw-HTML spans are not Markdown spans.
     assert.equal(records.length, 6, JSON.stringify(records)); // a fenced block holds no span
     assert.ok(records[0].includes('dQw4w9WgXcQ'));

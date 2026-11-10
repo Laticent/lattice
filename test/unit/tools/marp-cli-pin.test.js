@@ -31,7 +31,8 @@ test('every place a recipient reads it names the range, never an exact version',
 
 test('the support line says what CI renders and what was checked by hand, with the date', () => {
   const line = marpSupportLine();
-  assert.match(line, new RegExp(`marp-cli ${MARP_SUPPORT.cli.floor.replace(/\./g, '\\.')} with marp-core ${MARP_SUPPORT.core.floor.replace(/\./g, '\\.')}`));
+  // A plain substring: the versions are data, so no pattern is built from them.
+  assert.ok(line.includes(`marp-cli ${MARP_SUPPORT.cli.floor} with marp-core ${MARP_SUPPORT.core.floor}`), line);
   for (const [ver, on] of MARP_SUPPORT.vscode.checked) {
     assert.ok(line.includes(ver), ver);
     assert.match(on, /^\d{4}-\d{2}-\d{2}$/);
