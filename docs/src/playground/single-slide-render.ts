@@ -266,8 +266,17 @@ export type NewcomerBake = {
 	host: { frameSig: string; restyleSig: string; frameCss: { extraCss: string; themeCss: string }; shownSlide: { index: number; key: string | null } };
 };
 
-/** How long a render waits for an adopted bake's document to load before it writes its own over it. */
-const BAKE_LOAD_WAIT_MS = 4000;
+/**
+ * How long a render waits for a document still loading in the frame (an adopted bake, or an earlier render's full
+ * write) before it writes its own over it. The SAME budget as the reveal poll (300 ticks of 100 ms), which releases
+ * every waiter when it stops: the document never painted, its host left the page, or the renderer was disposed. A
+ * shorter bound cost time: measured with Chrome's CPU throttled 20x on a first visit, the 1.2 MB sheet parsed for more
+ * than 4 s, a 4 s bound gave up on it and wrote a second document, and the parse started over (the slide 8.7 to 8.8 s
+ * after the first write). Waiting: one write and 6.2 to 7.8 s; main, which writes three or four times: 7.7 to 8.3 s
+ * (engineering/decisions/2026-11-08-studio-newcomer-bake.md §7). A document still parsing is always closer to showing
+ * the slide than a fresh write of the same one.
+ */
+const DOC_LOAD_WAIT_MS = 30_000;
 
 /** The source key a bake is matched on: length and hash, the same pair the sheet cache keys on. */
 export function bakeSourceKey(markdown: string): string {
@@ -311,7 +320,7 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRenderGen?: number; __latticeOwnerGen?: number; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void>; __latticeBakeLoad?: Promise<void>; __latticeBakeSettle?: () => void };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRenderGen?: number; __latticeOwnerGen?: number; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void>; __latticeDocLoad?: Promise<void>; __latticeDocSettle?: () => void };
 // "Has the live iframe actually painted a slide yet?" — true once its document holds a
 // rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
 // unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
@@ -1466,12 +1475,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			webBlocked = [];
 			const fr = mountLiveFrame(host, geom);
 			let settle: () => void = () => {};
-			liveHost.__latticeBakeLoad = new Promise<void>((resolve) => {
+			liveHost.__latticeDocLoad = new Promise<void>((resolve) => {
 				settle = resolve;
 			});
 			// Held on the host so a full write that replaces the bake (or a dispose) can release every render still
-			// waiting on it, instead of leaving each to wait out BAKE_LOAD_WAIT_MS on a document that is gone.
-			liveHost.__latticeBakeSettle = () => settle();
+			// waiting on it, instead of leaving each to wait out DOC_LOAD_WAIT_MS on a document that is gone.
+			liveHost.__latticeDocSettle = () => settle();
 			let loadRan = false;
 			const onLoad = () => {
 				if (loadRan) return;
@@ -1496,7 +1505,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					clearInterval(poll);
 					ownedIntervals.delete(poll);
 					if (liveHost.__latticeRevealPoll === poll) liveHost.__latticeRevealPoll = undefined;
-					if (ticks > 300) settle();
+					// Release the waiters on EVERY exit, not only when the budget runs out: a host that left the page stops
+					// this poll, and a waiter left parked would sit out the whole wait (see the full write's poll).
+					settle();
 					return;
 				}
 				scaleFrame(host);
@@ -2328,22 +2339,33 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// <style>, so they are DELIBERATELY absent here — a change in any of them keeps the
 				// same geom+mermaid, hits the restyle path, and swaps the <style> instead of rewriting.
 				const restyleSig = `${geom.width}x${geom.height}|${drawn ? 'M' : ''}|W:${webSig}`;
-				// AN ADOPTED BAKE STILL LOADING (adoptBake). Its document is this render's best outcome: wait for it
-				// to commit, bounded, so the render can patch it instead of writing over a frame that is about to
-				// show the same slide. Past the bound the write below replaces it, as any pending write is replaced.
-				const bakeLoad = (host as LiveHost).__latticeBakeLoad;
-				if (bakeLoad) {
+				// A DOCUMENT STILL LOADING IN THE FRAME: an adopted bake (adoptBake), or an earlier render's full write.
+				// When it was built for this frame box, Mermaid presence and web policy (the restyle sig), the patch or
+				// restyle path below can bring it up to date once it commits. So wait for that, bounded, instead of
+				// writing a second document over one that is about to show the same slide. Past the bound the write
+				// below replaces it, as any pending write is replaced. Without this wait a first Studio visit wrote the
+				// preview twice under load: a second render with the same signature started 8 to 21 ms after the first
+				// write, while it was still loading, found the patch guard closed, and wrote the whole document again
+				// (14 of 23 loaded runs; engineering/decisions/2026-11-08-studio-newcomer-bake.md §7).
+				// The wait releases no one and clears nothing. A document that loads resolves its own promise, for every
+				// waiter at once. A render that gives up on it goes on to write, and that write releases every render
+				// still waiting (the write site below). A render that stands down touches nothing: releasing the newer
+				// write's waiters there is what would let a third render write over a document about to commit.
+				// Re-wait, a bounded number of times, when a NEWER write replaced the document while this render waited
+				// (a render that gave up on a document that never painted): that document is now
+				// this render's best outcome, for the same reason the first one was.
+				for (let round = 0; round < 3; round++) {
+					const docLoad = (host as LiveHost).__latticeDocLoad;
+					if (!docLoad || !(host as LiveHost).__latticePendingLoad || (host as LiveHost).__latticeRestyleSig !== restyleSig) break;
+					// A newer render already owns the frame: stand down now, rather than park and hold the scheduler.
+					if (newerOwns()) return { ok: false, slides: 0, error: 'renderer disposed' };
 					let waited: ReturnType<typeof setTimeout> | undefined;
-					await Promise.race([bakeLoad, new Promise<void>((resolve) => { waited = setTimeout(resolve, BAKE_LOAD_WAIT_MS); })]);
+					await Promise.race([docLoad, new Promise<void>((resolve) => { waited = setTimeout(resolve, DOC_LOAD_WAIT_MS); })]);
 					clearTimeout(waited);
-					// Release every other render waiting on the same bake before letting go of it: once this render writes,
-					// nothing else would resolve that promise (its onload and poll are replaced), and a render the frame
-					// scheduler's 4 s watchdog started meanwhile would wait out its own full bound for nothing.
-					(host as LiveHost).__latticeBakeSettle?.();
-					(host as LiveHost).__latticeBakeLoad = undefined;
-					(host as LiveHost).__latticeBakeSettle = undefined;
 					// A newer render may have written while this one waited: it owns the frame now.
 					if (disposed || !host.isConnected || newerOwns()) return { ok: false, slides: 0, error: 'renderer disposed' };
+					// The same document: it loaded (patch it below) or the bound passed (write over it below).
+					if ((host as LiveHost).__latticeDocLoad === docLoad) break;
 				}
 				const live = host.querySelector<HTMLIFrameElement>('iframe.live');
 				// Skip the patch while a full-write srcdoc is still loading: its
@@ -2518,6 +2540,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Run exactly once — via the browser's `onload` (normal) OR the reveal poll's paint
 				// detection (iOS, where onload is unreliable). The guard makes a double-trigger a no-op.
 				let loadRan = false;
+				// Resolves this write's published load (assigned at the write below); a no-op until then.
+				let settleWrite: () => void = () => {};
 				onFrameLoad = () => {
 					if (loadRan) return;
 					loadRan = true;
@@ -2525,8 +2549,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// reflow), then debug overlay + video bridge which are outside the
 					// measured fit. frameMs is the browser's own parse/layout of the
 					// srcdoc: from the end of our synchronous setup below to this load event.
-					// This srcdoc has committed — future same-sig renders may now patch it.
+					// This srcdoc has committed — future same-sig renders may now patch it, and a render waiting on it
+					// (the document-load wait above) may go ahead.
 					(host as LiveHost).__latticePendingLoad = false;
+					settleWrite();
 					const tFit = performance.now();
 					// onload, when it DOES fire, is just one more reveal trigger — scaleFrame
 					// fits and reveals via the content gate (frameHasPainted). The reveal poll
@@ -2608,10 +2634,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// back, and the return trip was stamped `in-place` (found by the trio's checker).
 				// The identity has to track the document, not the code path that wrote it.
 				stampShownSlide();
-				// This write replaces an adopted bake still loading: release any render waiting on it.
-				(host as LiveHost).__latticeBakeSettle?.();
-				(host as LiveHost).__latticeBakeLoad = undefined;
-				(host as LiveHost).__latticeBakeSettle = undefined;
+				// This write replaces any document still loading (an adopted bake, an earlier write): release every
+				// render waiting on it. Then publish THIS write's load, so a render that starts before it commits waits
+				// for it and patches, instead of writing the same document again (the wait above).
+				(host as LiveHost).__latticeDocSettle?.();
+				(host as LiveHost).__latticeDocLoad = new Promise<void>((resolve) => {
+					settleWrite = resolve;
+				});
+				(host as LiveHost).__latticeDocSettle = () => settleWrite();
 				captureWrite?.({ html: out.html, css: out.css, mode, drawn, geom, extraCss: extraCss || '' });
 				fr.srcdoc = srcdoc(out.html, out.css, mode, drawn, geom, extraCss);
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
@@ -2650,6 +2680,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// every edit falls to a full realm-churning re-write. A frame that truly never paints
 					// simply stays on the safe write path (we never patch an unpainted doc).
 					if (disposed || !host.isConnected || (host as LiveHost).__latticePendingLoad === false || revealTicks > 300) {
+						// Release the waiters on EVERY exit. A frame that never painted: they write as before. A host that left
+						// the page (or a disposed renderer): they find it gone and stand down, instead of sitting out the whole
+						// wait. That mattered once the wait grew to the poll's budget: a host detached and put back while its
+						// document loads reloads the srcdoc, and on WebKit, whose srcdoc `onload` is unreliable, nothing else
+						// would release them (the checker's review of the 30 s bound). Once the document has loaded, this is a
+						// no-op: its promise is already settled.
+						settleWrite();
 						clearInterval(revealPoll);
 						ownedIntervals.delete(revealPoll);
 						if ((host as LiveHost).__latticeRevealPoll === revealPoll) (host as LiveHost).__latticeRevealPoll = undefined;
@@ -2799,9 +2836,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			(h as LiveHost).__latticeFontWake = undefined;
 			// An adopted bake this renderer wrote: release its waiters, so a later renderer on the same host (a StrictMode
 			// remount) does not wait on a load this renderer's cleared poll will never report.
-			(h as LiveHost).__latticeBakeSettle?.();
-			(h as LiveHost).__latticeBakeLoad = undefined;
-			(h as LiveHost).__latticeBakeSettle = undefined;
+			(h as LiveHost).__latticeDocSettle?.();
+			(h as LiveHost).__latticeDocLoad = undefined;
+			(h as LiveHost).__latticeDocSettle = undefined;
 		}
 		ownedHosts.clear();
 		// Unsubscribe theme watchers via their own closures so the pending debounce

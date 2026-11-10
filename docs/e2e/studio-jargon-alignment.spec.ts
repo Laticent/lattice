@@ -334,9 +334,12 @@ test('jargon deck: clicking into a slide previews THAT slide', async ({ page }) 
 	// SKIPS ARE REPORTED AND FLOORED. "Not all of them skipped" was too weak: under CPU contention the
 	// 10s scroll loop starts shedding indices, and 6 of 7 could skip while the run still went green —
 	// measured, at 14x throttle the LAST slide (the one this file singles out as the hard case) drops
-	// out silently. On this deck exactly one index is legitimately unassertable (3, the headingless
-	// quote slide), so anything beyond that is coverage erosion and says so by name.
+	// out silently. The only index that may skip is a sampled slide with no heading, which cannot be
+	// identified in the preview by text; anything beyond that is coverage erosion and says so by name.
+	// Derived from the deck, not written down: the floor used to read `[3]`, and when #3095 put a divider
+	// before the quote slide every sampled slide gained a heading, so the test failed for covering MORE.
+	const legit = indices.filter((i) => !headingOf(authored[i]));
 	if (skipped.length) console.log(`[alignment] skipped slides: ${skipped.join(', ')}`);
-	expect(skipped, `more slides were skipped than this deck can legitimately skip — coverage eroded rather than failed`).toEqual([3]);
+	expect(skipped, `more slides were skipped than this deck can legitimately skip — coverage eroded rather than failed`).toEqual(legit);
 	expect(wrong, `the preview showed a different slide than the one being edited:\n${wrong.join('\n')}`).toEqual([]);
 });

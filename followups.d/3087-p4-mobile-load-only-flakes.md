@@ -7,7 +7,7 @@ severity: low
 swimlane: engineering/decisions/2026-11-06-flaky-tests.md
 deferred: large — about ten load-only failures, each its own investigation; the ones PR #3102 measured against main fail there at a similar rate
 source: https://github.com/Laticent/lattice/pull/3087
-updated: 2026-11-09, PR #3102 (one full run on its build, isolation and loaded repeats against main)
+updated: 2026-11-10, the Studio startup PR (demo-mobile, collage-lightbox and model-spine fixed at their causes; the rest stay)
 ---
 
 # Mobile specs that fail only under full-project load, on main and on PR 3087 alike
@@ -46,7 +46,31 @@ desktop   — PR #3102 then ran the full `--project=desktop` suite once (4 worke
             model-spine:155 once on the PR). Load-only on desktop, then: chart-detail-reveal:269,
             compose-soft-break:22, fabricate:311, filo-undo:157, gallery-preview-metamorphic:370,
             lenses-landing:33, model-spine:155, panel-shells:138, stage-window:168, status-pill:24.
-where     — the specs named above.
+fixed     — 2026-11-10, the Studio startup PR, each at its cause, 24 loaded runs per test (--project=mobile,
+            --repeat-each=24, --workers=4, --retries=0), main 50f6f4a against the fix:
+            - demo-mobile.spec.ts:535 (now :543), 8 failed on main, 0 after. The test's own sampler counted the
+              ProseMirror view's ARRIVAL (no editor, then the whole 1,252-character welcome deck) as typing, because it
+              keyed a remount on the host and the view mounts inside an existing host, later under load. It measured an
+              untouched document about 17 s before the tour typed. It now keys on the view, as the CodeMirror sampler
+              does. Compose's follow itself was right in every logged run.
+            - collage-lightbox.spec.ts:348 and :385 (now :358 and :395), 3 and 3 failed on main, 0 and 0 after. A resize
+              to a phone mounts a fresh preview frame, hidden until it reveals; the test clicked it before the reveal,
+              and `tapCollageAt` rightly ignores a hidden frame. It now waits for the reveal.
+            - model-spine.spec.ts:155, 1 failed on main (2 of 48 in a second run), 0 after. Two causes. An app defect:
+              the chat chip named a picked OpenRouter model from the catalog once, at status read, and a catalog that
+              landed later was never read again, so the chip said "Model" until opened (architect.ts
+              `useArchitectStatus` now waits for the same prefetched catalog). And a test race: picking a model closes
+              the popover, so `check()` could not read the radio back; it clicks and asserts the chip.
+also      — 2026-11-10, same PR: demo-mobile.spec.ts:437 (`@webkit-phone`, the CodeMirror follow) fails 6 of 6 at
+            `--repeat-each=6 --workers=3` on main 50f6f4a AND on the PR, with "the editor was never both overflowing and
+            being typed into", and passes 3 of 3 at one worker. Not investigated. collage-lightbox.spec.ts:395 on gecko
+            failed once in a 3-worker mixed run and passed 6 of 6 alone at 3 workers.
+            Four more from the same PR's full runs on its build (tablet + mobile at 4 workers; webkit-phone, webkit-tablet
+            and gecko at 3), recorded nowhere before: back-gesture.spec.ts:183 (webkit-phone), switch-controls.spec.ts:97
+            (webkit-tablet), table-reflow-preview.spec.ts:71 (webkit-tablet; then 8 of 8 at 4 workers) and
+            library-images-render.spec.ts:152 (mobile). Each failed once in its full run and passed 3 of 3 alone. Not
+            compared against main; not investigated.
+where     — the specs named above that the "fixed" entry does not name.
 done when — each failure is reproduced under full-project load and fixed at its cause, or 10 full
             mobile-project runs on main pass and this file is deleted with that evidence.
 evidence  — per spec, runs and outcomes under load, before and after.

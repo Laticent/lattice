@@ -1999,6 +1999,17 @@ export function normalizeGeneration(generation: string): string {
  * (the `db-model-changed` event the adapter fires) and whenever `pulse` changes
  * (the Workspace bumps it on open so the authoritative account spend is fresh).
  */
+/**
+ * When a status read's catalog fill last failed (`performance.now()`, which the wall clock cannot move; -Infinity =
+ * never). A read within CATALOG_FILL_RETRY_MS of it does not ask at once, because `listModels` forgets a failed fetch
+ * and eight mounted panels refreshing would each start one. It asks when the backoff ends instead (`useArchitectStatus`
+ * schedules that). A BACKOFF, not a permanent stop: a fill switched off for the page's life left a page that loaded
+ * offline naming the model by its id after the network came back (the checker's review of this fix), and a skipped
+ * read that nothing re-ran did the same until the next refresh (the card grader).
+ */
+let catalogFillFailedAt = Number.NEGATIVE_INFINITY;
+const CATALOG_FILL_RETRY_MS = 30_000;
+
 export function useArchitectStatus(pulse = 0): ArchitectStatus {
 	// The first frame paints the STORED selection (read synchronously), so nothing reflows when the
 	// model module arrives: only its readiness changes, in place.
@@ -2011,6 +2022,8 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pulse is the explicit refetch trigger
 	React.useEffect(() => {
 		let canceled = false;
+		// The one catalog fill this hook has scheduled for when the backoff ends (see `catalogFillFailedAt`).
+		let fillTimer: ReturnType<typeof setTimeout> | undefined;
 		const refresh = async () => {
 			const mine = ++seq.current;
 			const stale = () => canceled || mine !== seq.current;
@@ -2063,6 +2076,44 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 				if (stale()) return;
 				const id = m.openRouterModel?.() ?? null;
 				if (id) setState((s) => ({ ...s, modelId: id, modelName: m.openRouterModelName?.() ?? null }));
+			} else if (cloudSelected && (readiness.provider ?? 'openrouter') === 'openrouter' && readiness.state === 'ready' && m.listOpenRouterModels) {
+				// A picked model is NAMED and PRICED from the catalog, which the model module prefetches at boot. When the
+				// status is read before that fetch lands, the name above is only the id ("test/model" shows as "Model"),
+				// and nothing read it again: the chip kept the id until the author opened it. Found by
+				// model-spine.spec.ts:155 under load (followups.d/3087-p4-mobile-load-only-flakes.md).
+				// So fill both in when the catalog arrives (OpenRouter only, the one catalog prefetched at boot). NOT
+				// awaited: the spend fetch below must not queue behind a catalog download. After a failed fetch it waits
+				// out a backoff before asking again (`catalogFillFailedAt`).
+				const id = m.openRouterModel?.() ?? null;
+				if (id && (m.openRouterModelName?.() ?? id) === id) {
+					// `retry`: after a failure, ask once more when the backoff ends. Only once per read, so an offline page
+					// asks every 30 s at most while something keeps refreshing, and stops when nothing does.
+					const fill = (retry: boolean) => {
+						// Promise.resolve().then: a backend that throws synchronously rejects here instead of escaping refresh().
+						Promise.resolve()
+							.then(() => m.listOpenRouterModels())
+							.then(
+								() => {
+									if (stale()) return;
+									const name = m.openRouterModelName?.() ?? null;
+									if (name && name !== id) setState((s) => (s.modelId === id ? { ...s, modelName: name, price: m.openRouterModelPrice?.() ?? s.price } : s));
+								},
+								() => {
+									catalogFillFailedAt = performance.now(); // the id stands in until the backoff passes
+									if (retry && !stale()) later(CATALOG_FILL_RETRY_MS, false);
+								},
+							);
+					};
+					const later = (ms: number, retry: boolean) => {
+						clearTimeout(fillTimer);
+						fillTimer = setTimeout(() => {
+							if (!stale()) fill(retry);
+						}, ms);
+					};
+					const wait = CATALOG_FILL_RETRY_MS - (performance.now() - catalogFillFailedAt);
+					if (wait > 0) later(wait, false);
+					else fill(true);
+				}
 			}
 			// Then fold in the authoritative spend when it arrives (best-effort): the
 			// per-key figures (/api/v1/key) and the account WALLET (/credits) in parallel.
@@ -2093,6 +2144,7 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 		window.addEventListener('db-model-changed', onChange);
 		return () => {
 			canceled = true;
+			clearTimeout(fillTimer);
 			window.removeEventListener('db-model-changed', onChange);
 		};
 	}, [pulse]);

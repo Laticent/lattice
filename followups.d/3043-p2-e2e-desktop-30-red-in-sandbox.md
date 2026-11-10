@@ -86,3 +86,25 @@ also red  — 2026-11-09, found by PR #3102's full desktop run and not in this f
             :225 and :273 (the offline Coach and Chat turns, #1813), and studio-jargon-alignment.spec.ts:258 ("clicking
             into a slide previews THAT slide"). Each fails run alone, in three runs out of three, and fails the same way on a
             clean build of main 756c1ff with main's own specs. Not investigated.
+fixed     — 2026-11-10, the Studio startup PR, test-only (no app change), each failing alone 3 of 3 on main 50f6f4a:
+            - architect.spec.ts:53, :157, :225 and :273 (the first now :60) waited for the old catch-all notice "Connect a
+              model in Workspace → AI and I can answer and edit your deck." Since the model spine (#3079) the notice names
+              the selection's state, and a fresh profile is `unset`: "Choose a chat model in Workspace → AI: …". One
+              constant, `NO_MODEL_NOTICE`, now carries the wording. It also revives the absence check in the #1813 case
+              ("deck-1's notice is showing in deck-2's transcript"), which had passed against a wording that could no
+              longer appear.
+            - studio-jargon-alignment.spec.ts:258 floored its skips at `[3]`, the headingless quote slide. #3095 put a
+              divider before that slide, so every sampled index gained a heading and the test failed for skipping
+              nothing. The floor is now the sampled slides that have no heading, read from the deck.
+            Each passes alone. The same PR's full desktop run (4 workers, its own build): 1,331 passed, 22 failed, 19
+            skipped; none of the five above failed. Two load-only reads it found were fixed there too, each 24 of 24
+            after under 6 workers: scenarios/consultant-rebrand.spec.ts:39 read `--accent` once just after boot, when
+            the boot's second render now patches the slide (it polls and keeps the polled value), and
+            saved-finish-export.spec.ts (the print case) pressed Escape again on a sheet already closing.
+            restyle-overlap.spec.ts was a third: its reference step returned '' while a sheet swap was in flight,
+            which passed `not.toBe(from)`, and then read the old palette. The PR's restyle-after-wait made the window
+            wider: 24 loaded runs per case (desktop 6 workers, webkit-phone 4), main 0 and 1 of 48, the PR 4 and 3,
+            and 24 and 24 of 24 after the poll kept its own value and required a real accent.
+            Four others failed only under load on BOTH builds, 6 loaded runs each, main against the PR:
+            export-photo-size:26 5 and 5, deck-drop-import:234 1 and 0, present-beat:231 1 and 0, lenses:21 0 and 0
+            (it failed once in the full run). Not investigated.

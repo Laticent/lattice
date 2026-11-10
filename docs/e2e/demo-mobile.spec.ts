@@ -463,6 +463,7 @@ async function expectComposeTailFollows(page: import('@playwright/test').Page, s
 			let lastLen = -1;
 			let lastChange = 0;
 			let lastHost: unknown = null;
+			let lastPm: unknown = null;
 			const tick = () => {
 				try {
 					const host = document.querySelector('#studio-pane-editor .cs-host') as HTMLElement | null;
@@ -470,9 +471,16 @@ async function expectComposeTailFollows(page: import('@playwright/test').Page, s
 					const last = pm?.lastElementChild as HTMLElement | null;
 					const len = pm ? (pm.textContent ?? '').length : -1;
 					// A remount arrives holding the whole document — not a change, same as the
-					// CodeMirror sampler above.
-					if (host !== lastHost) {
+					// CodeMirror sampler above, which keys on the VIEW. So key on the view here too, not
+					// only on the host: the ProseMirror view mounts inside a host that is already there,
+					// and under load it lands after the sampler has seen the empty host. Counting that
+					// arrival (no editor, then the whole 1,252-character welcome deck) as typing measured
+					// an untouched 2,338px document at scrollTop 0, about 17 s before the tour typed
+					// anything: 8 of 24 loaded runs on main failed that way
+					// (followups.d/3087-p4-mobile-load-only-flakes.md).
+					if (host !== lastHost || pm !== lastPm) {
 						lastHost = host;
+						lastPm = pm;
 						lastLen = len;
 						lastChange = 0;
 						run = 0;

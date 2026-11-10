@@ -12,7 +12,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadFramesOnWrite } from '@/test/frame-load';
 
 vi.mock('../lib/render-engine', () => ({ renderMarkdown: vi.fn() }));
 vi.mock('../lib/theme-fetch', () => ({
@@ -44,7 +45,10 @@ const LONG_DECK = deckOf(130);
 const htmlFor = (src: string) =>
 	`<article class="lattice"><section class="form" id="1"><div class="cell-stage"><h1>${src.replace(/[<&]/g, '')}</h1></div></section></article>`;
 
+// Each render waits for the previous write's frame to load; jsdom loads none (src/test/frame-load.ts).
+let restoreFrames: () => void = () => {};
 beforeEach(() => {
+	restoreFrames = loadFramesOnWrite();
 	class RO {
 		observe = vi.fn();
 		unobserve = vi.fn();
@@ -59,6 +63,8 @@ beforeEach(() => {
 	clearSliceCache();
 	clearSanitizeMemo();
 });
+
+afterEach(() => restoreFrames());
 
 function mountHost() {
 	const host = document.createElement('figure');

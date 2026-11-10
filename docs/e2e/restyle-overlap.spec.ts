@@ -61,13 +61,21 @@ async function open(page: Page) {
 async function settle(page: Page, tabs: ReturnType<Page['getByRole']>, tab: number, from = '') {
 	await tabs.nth(tab).click();
 	await expect(tabs.nth(tab)).toHaveAttribute('aria-selected', 'true');
+	// The accent is kept FROM the poll, and only once it is a real one. The poll used to return '' while two sheets
+	// were attached (a swap in flight), which passed `not.toBe(from)`; the read after it then caught the frame
+	// mid-swap, still on the old palette, and two palettes "looked alike" (7 of 48 loaded runs once a palette change
+	// waits for a loading document and restyles it, single-slide-render.ts; 1 of 48 before).
+	let accent = '';
 	await expect
-		.poll(async () => ((await sheetLinks(page)) === 1 ? await accentInFrame(page) : ''), {
-			timeout: 30_000,
-			message: `the frame never settled on one sheet with a new accent (was ${from || 'nothing'})`,
-		})
-		.not.toBe(from);
-	return accentInFrame(page);
+		.poll(
+			async () => {
+				accent = (await sheetLinks(page)) === 1 ? await accentInFrame(page) : '';
+				return accent !== '' && accent !== from;
+			},
+			{ timeout: 30_000, message: `the frame never settled on one sheet with a new accent (was ${from || 'nothing'})` },
+		)
+		.toBe(true);
+	return accent;
 }
 
 async function run(page: Page) {

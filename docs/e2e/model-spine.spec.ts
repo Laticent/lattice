@@ -167,7 +167,9 @@ test('@crosswidth @webkit-tablet @gecko the chip names the model that answered, 
 	await chip.click();
 	await page.getByRole('tab', { name: 'All', exact: true }).click();
 	await page.getByRole('searchbox', { name: 'Search OpenRouter models' }).fill('Big');
-	await page.getByRole('radio', { name: /Big Model/ }).check();
+	// A click, not `check()`: picking closes the popover, so the radio can be gone before `check()` reads it back
+	// (it timed out that way under load). The chip below is the proof the pick took.
+	await page.getByRole('radio', { name: /Big Model/ }).click();
 	await expect(chip).toHaveText('Big Model');
 	expect(await stored(page, 'lattice-studio-chat-selection')).toMatchObject({ provider: 'openrouter', model: 'test/big' });
 	await send(page, 'again');

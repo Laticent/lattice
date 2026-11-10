@@ -138,11 +138,11 @@ test('a bake that no longer matches the render is refused, and the first render 
 	const s = await previewState(page);
 	expect(s.bake).toBe('refused:runtime');
 	// The renderer wrote its own document, and nothing was written before the engine: the refused bake wrote nothing.
-	// At least one write, not exactly one: under load a first visit with no bake writes the preview twice in most runs,
-	// on main as well (18 of 24 on main 756c1ff, 13 of 24 on this branch with the bake kept out, 6 workers), which is
-	// the renderer as before and a defect of its own (followups.d/3102-p3-first-visit-double-write.md).
 	expect(s.writes.length, 'the renderer did not write its own document').toBeGreaterThan(0);
 	expect(s.writes.every((w) => w.engine), 'a write landed before the engine: the refused bake was written').toBe(true);
-	// Polled, not read once: the second write that a loaded first visit often makes can still be loading here.
 	await expect.poll(async () => (await previewState(page)).title, { timeout: 30_000 }).toBe('Markdown for the boardroom');
+	// Exactly one write. Under load a second render with the same signature used to start while the first write was
+	// still loading and write the whole document again (14 of 23 loaded runs on main 50f6f4a); it now waits for that
+	// load and patches (single-slide-render.ts, the document-load wait; newcomer-bake decision §7).
+	expect((await previewState(page)).writes, 'a first visit wrote the preview twice').toHaveLength(1);
 });
