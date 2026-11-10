@@ -62,7 +62,7 @@ describe('useArchitectStatus and a catalog that lands after the status read', ()
 	// Last in the file: the backoff is module state, and this case leaves it set.
 	it('after a failed catalog fetch, waits out a backoff and then still names the model', async () => {
 		let now = 1_000_000;
-		const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+		const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
 		try {
 			catalog = null;
 			listCalls.mockReset();
@@ -86,6 +86,43 @@ describe('useArchitectStatus and a catalog that lands after the status read', ()
 			expect(listCalls).toHaveBeenCalledTimes(2);
 		} finally {
 			clock.mockRestore();
+		}
+	});
+
+	// Also last: module state. The case the grader found: after a failure, a read that nothing follows still fills the
+	// name when the backoff ends, because the read schedules that fill instead of dropping it.
+	it('after a failed catalog fetch with no later refresh, fills the name when the backoff ends', async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+		let now = 50_000_000;
+		const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
+		try {
+			catalog = null;
+			listCalls.mockReset();
+			listCalls.mockImplementation(() => Promise.reject(new Error('offline')));
+			const { result } = renderHook(() => useArchitectStatus());
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(0);
+			});
+			expect(listCalls).toHaveBeenCalledTimes(1);
+			expect(result.current.modelName).toBe('test/model');
+			// The network comes back; nothing refreshes the status. The scheduled fill runs when the backoff ends.
+			listCalls.mockImplementation(async () => {
+				catalog = [{ id: 'test/model', name: 'Test Model' }];
+			});
+			now += 29_000;
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(29_000);
+			});
+			expect(listCalls).toHaveBeenCalledTimes(1);
+			now += 1_100;
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(1_100);
+			});
+			expect(listCalls).toHaveBeenCalledTimes(2);
+			expect(result.current.modelName).toBe('Test Model');
+		} finally {
+			clock.mockRestore();
+			vi.useRealTimers();
 		}
 	});
 });

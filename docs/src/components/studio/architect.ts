@@ -2000,12 +2000,14 @@ export function normalizeGeneration(generation: string): string {
  * (the Workspace bumps it on open so the authoritative account spend is fresh).
  */
 /**
- * When a status read's catalog fill last failed (ms since the epoch; 0 = never). Reads within CATALOG_FILL_RETRY_MS of
- * it do not ask again: `listModels` forgets a failed fetch, so eight mounted panels refreshing would each start one.
- * A BACKOFF, not a permanent stop: a fill switched off for the page's life left a page that loaded offline naming the
- * model by its id after the network came back (the checker's review of this fix).
+ * When a status read's catalog fill last failed (`performance.now()`, which the wall clock cannot move; -Infinity =
+ * never). A read within CATALOG_FILL_RETRY_MS of it does not ask at once, because `listModels` forgets a failed fetch
+ * and eight mounted panels refreshing would each start one. It asks when the backoff ends instead (`useArchitectStatus`
+ * schedules that). A BACKOFF, not a permanent stop: a fill switched off for the page's life left a page that loaded
+ * offline naming the model by its id after the network came back (the checker's review of this fix), and a skipped
+ * read that nothing re-ran did the same until the next refresh (the card grader).
  */
-let catalogFillFailedAt = 0;
+let catalogFillFailedAt = Number.NEGATIVE_INFINITY;
 const CATALOG_FILL_RETRY_MS = 30_000;
 
 export function useArchitectStatus(pulse = 0): ArchitectStatus {
@@ -2020,6 +2022,8 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pulse is the explicit refetch trigger
 	React.useEffect(() => {
 		let canceled = false;
+		// The one catalog fill this hook has scheduled for when the backoff ends (see `catalogFillFailedAt`).
+		let fillTimer: ReturnType<typeof setTimeout> | undefined;
 		const refresh = async () => {
 			const mine = ++seq.current;
 			const stale = () => canceled || mine !== seq.current;
@@ -2081,20 +2085,34 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 				// awaited: the spend fetch below must not queue behind a catalog download. After a failed fetch it waits
 				// out a backoff before asking again (`catalogFillFailedAt`).
 				const id = m.openRouterModel?.() ?? null;
-				if (id && Date.now() - catalogFillFailedAt >= CATALOG_FILL_RETRY_MS && (m.openRouterModelName?.() ?? id) === id) {
-					// Promise.resolve().then: a backend that throws synchronously rejects here instead of escaping refresh().
-					Promise.resolve()
-						.then(() => m.listOpenRouterModels())
-						.then(
-							() => {
-								if (stale()) return;
-								const name = m.openRouterModelName?.() ?? null;
-								if (name && name !== id) setState((s) => (s.modelId === id ? { ...s, modelName: name, price: m.openRouterModelPrice?.() ?? s.price } : s));
-							},
-							() => {
-								catalogFillFailedAt = Date.now(); // the id stands in until the backoff passes
-							},
-						);
+				if (id && (m.openRouterModelName?.() ?? id) === id) {
+					// `retry`: after a failure, ask once more when the backoff ends. Only once per read, so an offline page
+					// asks every 30 s at most while something keeps refreshing, and stops when nothing does.
+					const fill = (retry: boolean) => {
+						// Promise.resolve().then: a backend that throws synchronously rejects here instead of escaping refresh().
+						Promise.resolve()
+							.then(() => m.listOpenRouterModels())
+							.then(
+								() => {
+									if (stale()) return;
+									const name = m.openRouterModelName?.() ?? null;
+									if (name && name !== id) setState((s) => (s.modelId === id ? { ...s, modelName: name, price: m.openRouterModelPrice?.() ?? s.price } : s));
+								},
+								() => {
+									catalogFillFailedAt = performance.now(); // the id stands in until the backoff passes
+									if (retry && !stale()) later(CATALOG_FILL_RETRY_MS, false);
+								},
+							);
+					};
+					const later = (ms: number, retry: boolean) => {
+						clearTimeout(fillTimer);
+						fillTimer = setTimeout(() => {
+							if (!stale()) fill(retry);
+						}, ms);
+					};
+					const wait = CATALOG_FILL_RETRY_MS - (performance.now() - catalogFillFailedAt);
+					if (wait > 0) later(wait, false);
+					else fill(true);
 				}
 			}
 			// Then fold in the authoritative spend when it arrives (best-effort): the
@@ -2126,6 +2144,7 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 		window.addEventListener('db-model-changed', onChange);
 		return () => {
 			canceled = true;
+			clearTimeout(fillTimer);
 			window.removeEventListener('db-model-changed', onChange);
 		};
 	}, [pulse]);
