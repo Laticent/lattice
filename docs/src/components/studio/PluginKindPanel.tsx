@@ -9,11 +9,14 @@
 //     (lib/core/segno-edit.js `editRecord`), which replaces only the word that changed, or writes nothing.
 //   · A parameter whose type the writer does not take (a list, a range, a nested record) is named, not hidden, and
 //     "Edit as text" is the way to it.
+//   · A kind that declares NO slot reads its own record, so the host knows no parameters. The panel then holds one text
+//     field, the record between the braces, and a change writes `@kind{…}` whole (2026-10-14-plugin-inline-door.md §4.5).
 //
 // Design: engineering/decisions/2026-10-21-compose-point-and-click.md §4, §7.
 
 import * as React from 'react';
-import type { PluginKindEdit, PluginKindFields } from '@/lib/compose/inline-objects';
+import { INLINE_OBJECT_MAX } from '@/lib/compose/inline-object';
+import { type PluginKindEdit, type PluginKindFields, RECORD_EDIT } from '@/lib/compose/inline-objects';
 import type { ObjectPanelProps } from './InlineObjectEditor';
 import { ChoiceRow, Field, PanelFooter, TextRow } from './object-controls';
 
@@ -26,6 +29,13 @@ const WRITABLE = new Set(['text', 'number', 'oneOf', 'indexed', 'flag']);
 /** The most chips a numbered vocabulary (`c1` … `c12`) draws before it is left to the text. */
 const MAX_INDEXED = 24;
 
+/** Why a record was not written, in the author's terms: the same three tests `editObject` applies (inline-object.ts, named-span.mjs). */
+export function recordRefusal(body: string, kind: string): string {
+	if (body.includes('`')) return 'That record cannot be written here: a backtick would end the code span. Use Edit as text.';
+	if (`@${kind}{${body.trim()}}`.length > INLINE_OBJECT_MAX) return `That record cannot be written here: the span would be longer than ${INLINE_OBJECT_MAX} characters.`;
+	return 'That record cannot be written here: its braces and quotes must close, so the record ends where the span does.';
+}
+
 const labelOf = (name: string) => name.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
 export function PluginKindPanel({ fields, onEdit, onEditAsText, onDone }: ObjectPanelProps & { fields: PluginKindFields }) {
@@ -33,10 +43,9 @@ export function PluginKindPanel({ fields, onEdit, onEditAsText, onDone }: Object
 	const labelId = React.useId();
 	const { entry, written } = fields;
 	const send = (edit: PluginKindEdit, what: string) => setRefused((onEdit as unknown as (e: PluginKindEdit) => boolean)(edit) ? null : what);
-	const controls: { name: string; type: ParamType }[] = [
-		...(entry.slot.positional ?? []).map((p) => ({ name: p.name, type: typeOf(p.type) })),
-		...Object.entries(entry.slot.params ?? {}).map(([name, p]) => ({ name, type: typeOf(p) })),
-	];
+	const controls: { name: string; type: ParamType }[] = entry.slot
+		? [...(entry.slot.positional ?? []).map((p) => ({ name: p.name, type: typeOf(p.type) })), ...Object.entries(entry.slot.params ?? {}).map(([name, p]) => ({ name, type: typeOf(p) }))]
+		: [];
 	const left: string[] = [];
 
 	const rows = controls.map(({ name, type }) => {
@@ -86,6 +95,12 @@ export function PluginKindPanel({ fields, onEdit, onEditAsText, onDone }: Object
 				<p className="text-[12px] text-muted-foreground">
 					<span className="font-mono">@{entry.name}</span> comes from the {entry.plugin} plugin. The preview shows it as written; the slide draws it.
 				</p>
+				{entry.slot ? null : (
+					<Field label="Record" id={`${labelId}-record`}>
+						<TextRow id={`${labelId}-record-input`} label="Record" value={fields.record ?? ''} placeholder="What goes between the braces" onCommit={(v) => send({ [RECORD_EDIT]: v }, recordRefusal(v, entry.name))} />
+						<p className="text-[11px] text-muted-foreground">This plugin declares no fields, so its record is written as it reads.</p>
+					</Field>
+				)}
 				{rows}
 				{left.length ? <p className="text-[11px] text-muted-foreground">Not editable here: {left.map(labelOf).join(', ')}. Use Edit as text.</p> : null}
 				{refused ? (
