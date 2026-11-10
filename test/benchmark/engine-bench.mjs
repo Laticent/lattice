@@ -161,6 +161,12 @@ const datasets = [
   // the tiered slide, the dearest solve (branches, then leaves around each), rides three
   // more times so it carries real weight in the row.
   { name: 'hub-spoke (gallery + tiered x3)', src: hubSpokeDeck(3), theme: 'indaco' },
+  // A pasted slide of UNCLOSED raw HTML, the shape a hostile or broken deck brings: 8,000
+  // `<div>` lines that never close make an 8,000-deep open-element stack in @laticent/markup's
+  // walk (docs/src/lib/markup/tags.ts `walkStack`). The walk scanned that stack for each tag and
+  // took 0.8 s here, 3.4 s at 16k (followups.d/3051-p9); it skips a scan whose target is not
+  // open now. The row holds that path, which no gallery reaches.
+  { name: 'unclosed html (div x8000)', src: `---\ntheme: indaco\n---\n\n# Pasted\n\n${'<div>\n'.repeat(8000)}`, theme: 'indaco' },
 ];
 // The datasets the BROWSER tiers (export, print) skip.
 //
@@ -176,7 +182,8 @@ const datasets = [
 // name from this set is the whole change.
 // `hub-spoke` for the same reason as math: its cost is the engine-side solve, which the
 // render and edit tiers measure; the rasterizer would only add minutes to a print bless.
-const EXCLUDED_FROM_BROWSER_TIERS = new Set(['stress (jargon x6)', 'math', 'hub-spoke (gallery + tiered x3)']);
+// `unclosed html` because its cost is the markup walk, an engine-side pass the render tier measures.
+const EXCLUDED_FROM_BROWSER_TIERS = new Set(['stress (jargon x6)', 'math', 'hub-spoke (gallery + tiered x3)', 'unclosed html (div x8000)']);
 
 // The edit tier's own exclusion, NAMED rather than a second `startsWith('stress')`
 // scan. Two different mechanisms answering "which datasets does this tier skip?" in
