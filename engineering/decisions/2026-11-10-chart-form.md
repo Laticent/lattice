@@ -210,6 +210,12 @@ mobile and 4:5 on the branch before the kernel too; `main` does not. It is owed 
 
 ## 11. The rollout, kind by kind (status 2026-11-10)
 
+**The box under a `meta:` line.** A deck's `meta:` Tile docks in the masthead after the chart is drawn, so the dispatch
+cannot see it in the slide. The engine passes its line count to the chart frame, which hands it to `formBoxPx` and stamps
+it on the section (`data-meta-lines`) for the runtime's redraw to read. On a tall page each line takes 48px off the box;
+at square it docks beside the title, which drops the masthead 6px and narrows the title to about 36 characters a line.
+Before this, a short-titled chart in one of the 26 decks that set `meta:` printed at 10.4 to 10.7pt.
+
 Each kind is checked at mobile, story, 4:5 and square against `main` on two bars: no new overprint, drop, overflow or
 clip in its gallery and the example decks that draw it; and no chart text under 11pt (measured in Chromium per page,
 `.scratch/minsize.mjs`; the CLI's TYPE FLOOR warning fires only under 5.4pt, so it cannot see this bar). Over capacity is
@@ -222,11 +228,12 @@ the owner's scaled drawing (§ 10).
 | bullet | yes | the shared axis band holds its ticks at their role |
 | funnel | yes | fills its box; a narrow band takes its callout marker beside |
 | hub-spoke | yes | fills its box; names whole; an unplaceable figure draws on a larger stage, scaled |
-| piechart | in progress | disc and key arranged by the kernel; key steps 13 to 11pt; long-tail slides over capacity |
-| tower | to do | its key is sized from the drawing, not the role, and outgrows a 4:5 or square box |
+| piechart | yes | disc and key arranged by the kernel; key steps 13 to 11pt; long-tail slides over capacity |
+| tower | yes | the key is a kernel tile at the key role, the tower drawn in the cell left; with notes it keeps its own layout, which overprints on story, 4:5 and square as it did before the kernel |
 | radar, map | to do | fixed geometry with labels inside: the plot must take the canvas, the key a kernel tile |
 | stacked-bar, heatmap, histogram, waterfall, word-cloud | to do | size holds; names dropped vs `main` |
 | gantt, slope, state-chart | to do | overprints at square; state-chart under the floor at square |
 | roadmap, timeline-list | to do | overflow at square |
 | matrix-grid | to do | holds both bars; floats small at mobile |
+| *open on kinds already moved* | fix owed | the example decks, swept for the 11pt bar after the galleries: a long-tail pie with values in `claim.md` (4.4pt), `ep-curve.md` p3 (7.3pt, a value label) and p4, line at square in `global-number-formats.md` (10.7pt), risk-matrix at square in `risk-matrix.md` p3 (9.8pt) |
 | kanban, journey, progress, flowchart | to do | HTML or self-sized kinds: hold both bars; kanban and journey split into near-empty pages (followups.d/3088-p2-kanban-split-pages.md) |
