@@ -117,11 +117,6 @@ start_driver() {
 trap 'kill "$driver" "$server" 2>/dev/null || true; xcrun simctl shutdown all || true' EXIT
 start_driver
 
-runtime=$(xcrun simctl list runtimes --json | jq -r '[.runtimes[] | select(.platform == "iOS" and .isAvailable)]
-  | sort_by(.version | split(".") | map(tonumber)) | last | .identifier // empty')
-if [ -z "$runtime" ]; then echo 'no iOS Simulator runtime on this runner' >&2; exit 1; fi
-echo "runtime: $runtime"
-
 status=0
 # A device that failed before any probe ran (rc 3-5) is the infrastructure; one whose probe failed (rc 1) is a finding.
 probe_failed=0
@@ -131,6 +126,36 @@ families='iPad iPhone'
 [ "$PROBE" = focus-sync ] && families='iPad'
 # The office probe stands in for the owner's iPhone (Preview, opened from Files): the iPhone alone, to fit the job.
 [ "$PROBE" = office ] && families='iPhone'
+# DEVICES picks the devices one job runs, from iPad, iPhone and Mac (the undo probe's desktop half), so a suite can run
+# each device as its own job: the three undo devices one after another took 25.4 min of a 30-min job and passed it
+# twice (flaky shape F4, engineering/decisions/2026-11-06-flaky-tests.md), each about 3 min of probe and the rest
+# simulator boots. Unset, a probe runs every device it runs today.
+run_mac=1
+if [ -n "${DEVICES:-}" ]; then
+  # A subset of the probe's own devices: focus-sync is iPad-only and office iPhone-only, and DEVICES cannot widen that.
+  allowed=" $families "
+  families=''
+  run_mac=0
+  for d in ${DEVICES//,/ }; do
+    case "$d" in
+      iPad|iPhone)
+        case "$allowed" in *" $d "*) families="$families $d" ;; *) echo "DEVICES: the $PROBE probe does not run on $d" >&2; exit 1 ;; esac ;;
+      Mac) run_mac=1 ;;
+      *) echo "DEVICES: unknown device '$d' (iPad, iPhone, Mac)" >&2; exit 1 ;;
+    esac
+  done
+  # A selection this probe runs nothing on must fail, not pass with nothing tested: only the undo probe has a Mac half.
+  if [ -z "${families// /}" ] && { [ "$PROBE" != undo ] || [ "$run_mac" = 0 ]; }; then
+    echo "DEVICES='$DEVICES' selects no device the $PROBE probe runs on" >&2
+    exit 1
+  fi
+fi
+if [ -n "${families// /}" ]; then
+  runtime=$(xcrun simctl list runtimes --json | jq -r '[.runtimes[] | select(.platform == "iOS" and .isAvailable)]
+    | sort_by(.version | split(".") | map(tonumber)) | last | .identifier // empty')
+  if [ -z "$runtime" ]; then echo 'no iOS Simulator runtime on this runner' >&2; exit 1; fi
+  echo "runtime: $runtime"
+fi
 # Devices still to run, this one included: the second-start budget below has to leave them their time.
 left=$(echo $families | wc -w)
 for family in $families; do
@@ -235,7 +260,7 @@ for family in $families; do
 done
 
 # The undo probe's desktop half: the runner's own Safari, through the same safaridriver.
-if [ "$PROBE" = undo ]; then
+if [ "$PROBE" = undo ] && [ "$run_mac" = 1 ]; then
   xcrun simctl shutdown all || true
   if ! PROBE=undo SIM_UDID=mac SIM_LABEL=macOS ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs; then
     status=1

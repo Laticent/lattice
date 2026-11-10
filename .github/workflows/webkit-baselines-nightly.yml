@@ -90,9 +90,14 @@ jobs:
         env:
           PUPPETEER_SKIP_DOWNLOAD: '1'
 
-      - name: Install Playwright Chromium and WebKit (pinned to @playwright/test)
-        run: npx playwright install --with-deps chromium webkit
+      # Chromium's system libraries ship on the runner image (ci.yml studio-smoke); WebKit's come from GitHub's cache
+      # through the shared action, which also SAVES that cache here on main every night, so a pull request's
+      # `player no-JS (WebKit)` job finds it warm and never reads Ubuntu's mirror.
+      - name: Install Playwright Chromium (pinned to @playwright/test)
+        run: npx playwright install chromium
         working-directory: docs
+      - name: Install Playwright WebKit, from the cache
+        uses: ./.github/actions/playwright-webkit
 
       # Fails HERE with a message that names the browser, rather than inside the audit
       # where a missing binary reads as "the engines produced different DOMs".
