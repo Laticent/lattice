@@ -61,6 +61,10 @@ fixed     — 2026-11-10, the Studio startup PR, each at its cause, 24 loaded ru
               landed later was never read again, so the chip said "Model" until opened (architect.ts
               `useArchitectStatus` now waits for the same prefetched catalog). And a test race: picking a model closes
               the popover, so `check()` could not read the radio back; it clicks and asserts the chip.
+also      — 2026-11-10, same PR: demo-mobile.spec.ts:437 (`@webkit-phone`, the CodeMirror follow) fails 6 of 6 at
+            `--repeat-each=6 --workers=3` on main 50f6f4a AND on the PR, with "the editor was never both overflowing and
+            being typed into", and passes 3 of 3 at one worker. Not investigated. collage-lightbox.spec.ts:395 on gecko
+            failed once in a 3-worker mixed run and passed 6 of 6 alone at 3 workers.
 where     — the specs named above that the "fixed" entry does not name.
 done when — each failure is reproduced under full-project load and fixed at its cause, or 10 full
             mobile-project runs on main pass and this file is deleted with that evidence.
