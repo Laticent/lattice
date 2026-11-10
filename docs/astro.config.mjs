@@ -363,6 +363,7 @@ export default defineConfig({
 						{ label: 'Status and labels cheat sheet', slug: 'guides/status/cheat-sheet' },
 						{ label: 'Sparks cheat sheet', slug: 'guides/inline/sparks-cheat-sheet' },
 						{ label: 'Avatars cheat sheet', slug: 'guides/inline/avatars-cheat-sheet' },
+						{ label: 'Privacy', slug: 'privacy' },
 					],
 				},
 				{
