@@ -1109,3 +1109,10 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   **The reach-in gate:** `checkMediaReachIns` (tools/check-ownership.js, in `build:check`) holds component CSS that selects a
   figure's shared-layer parts to zero, with `SANCTIONED_MEDIA_REACH_INS` (empty) failing on a stale entry. **The description for
   a screen reader:** a flow figure's `<img>` carries it as `aria-description` when the slide does not show it.
+- 2026-11-10: venue conformance on slice 3 (CI, integration shard 4). On a `tall` canvas the `video` and `video companion` samples
+  clipped their caption at `laptop` and `huddle`, two causes of this PR's own making. The aside's cap selector grew
+  (`.video-embed > .video-aside`) and outranked the tall override that lifts it, so the caption squeezed into 13rem; the
+  override now has the same shape. And the shared frame kept a full 16:9 box at the column's width where the old poster had
+  shrunk to fit, so the stack ran 36px past the stage; the layer gains `--lat-media-give` (a host lets a clip's frame and poster
+  get shorter, the still cropping to cover) and the stacked `video` slide sets it on its figure, never reaching into the parts.
+  The full `--strict` ratchet passes with no new or stale row; the wide demo decks render pixel-identically before and after.

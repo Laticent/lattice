@@ -107,6 +107,19 @@ section .lat-media[data-lattice-media="video"] > .lat-media-frame {
    * shrink-to-fit parent (a gallery's centered column) resolves against nothing and collapsed the poster. */
   inline-size: max(var(--lat-media-floor), min(calc(var(--lat-media-scale) * var(--lat-media-w)), calc(var(--lat-media-scale) * var(--lat-media-h) * 16 / 9)));
 }
+/* A clip in a column that runs out of room: a host that stacks the figure with other content may let the poster get shorter
+ * rather than push the rest off the slide, by setting `--lat-media-give: 0 1 auto` on the figure (its still crops to cover).
+ * Unset, the frame and the poster keep their 16:9 box. */
+section .lat-media[data-lattice-media="video"] > .lat-media-frame {
+  display: flex;
+  flex-direction: column;
+  flex: var(--lat-media-give, 0 0 auto);
+  min-block-size: 0;
+}
+section .lat-media[data-lattice-media="video"] > .lat-media-frame > .lat-media-pic {
+  flex: var(--lat-media-give, 0 0 auto);
+  min-block-size: 0;
+}
 /* Which part of the picture stays in view when a layout crops it: CSS's own `object-position` keywords. */
 section .lat-media[data-focus="top"] .lat-media-pic > img { object-position: top; }
 section .lat-media[data-focus="bottom"] .lat-media-pic > img { object-position: bottom; }

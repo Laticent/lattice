@@ -26,3 +26,5 @@
 - The docs site has an **Images** plugin page with a live demo (a framed figure, the photo panel, a `bleed` background, a
   tone), and the Video page now teaches `>{…}`, the frames, finishes and tones, and drawing on any slide. The Plugins hub
   counts its cards instead of saying "nine" over ten.
+- On a portrait slide a stacked clip's poster gets shorter when the lead and caption need the room, instead of pushing the
+  caption off the slide; with room to spare it fills the column at 16:9.

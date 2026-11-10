@@ -235,10 +235,22 @@ section.video:where([data-family="tall"], [data-family="strip"]) .video-embed {
 section.video:where([data-family="tall"], [data-family="strip"]) .video-embed {
   --lat-media-w: 100cqi;
 }
+/* Stacked, the poster is the one part of the column that can give: when the lead and the caption leave less room than a full
+ * 16:9 poster at the column's width, it gets shorter (its still crops to cover), as it did before the shared layer. The slide
+ * lets the figure shrink and asks the layer for the give (`--lat-media-give`), never reaching into the figure's parts (§4.11).
+ * With room to spare nothing changes. Measured at `portrait`, `huddle`: the stack ran 1208px in a 1172px stage with a fixed
+ * poster, and the caption fell out of the slide (venue conformance). */
+section.video:where([data-family="tall"], [data-family="strip"]) .video-card > .video-embed {
+  flex: 0 1 auto;
+  min-block-size: 0;
+  --lat-media-give: 0 1 auto;
+}
 /* Stacked, the aside runs under the poster at the column's width, so its `13rem`
  * side-column cap no longer applies. At `portrait` one word of a caption ("walkthrough",
  * 220px) was wider than the cap and spilled past both edges of the card. */
-section.video:where([data-family="tall"], [data-family="strip"]) .video-aside {
+/* The same shape as the cap's own selector (`.video-embed > .video-aside`), so the override is not outranked by it: a
+ * shorter selector here lost to the cap and squeezed the caption into 13rem on every tall slide (venue conformance). */
+section.video:where([data-family="tall"], [data-family="strip"]) .video-embed > .video-aside {
   max-width: none;
 }
 /* The companion variant splits claim LEFT / poster RIGHT via its own row, so it
