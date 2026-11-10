@@ -11,14 +11,14 @@
 // Keep these PURE and browser-API-free: they are rendered at build time, where there is no
 // `window`. Props only, no hooks that read the DOM.
 
-import { BookOpen, ChevronLeft, ChevronRight, FileBox, FileSliders, GalleryVerticalEnd, Gauge, Layers, PencilLine, Settings as SettingsCog, SlidersHorizontal, UsersRound } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, FileBox, FileSliders, FileText, GalleryVerticalEnd, Gauge, Layers, PencilLine, Settings as SettingsCog, SlidersHorizontal, Sparkles, UsersRound } from 'lucide-react';
 import type * as React from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Tip } from '@/components/ui/tooltip';
 import { joinBase } from '@/lib/base-url.mjs';
 import { cn } from '@/lib/utils';
 import { ChatIcon, LensIcon } from './icons';
-import type { Posture } from './studio-store';
+import type { EditMode, Posture } from './studio-store';
 
 // The site home, which the brand MARK links to at every width and stop. ONE constant for the
 // same reason `BAR_RULE` is one: the app header and the pre-paint skeleton both draw that link
@@ -419,6 +419,59 @@ const COMPOSE_SKELETON_BLOCKS = [
 	{ w: 78, h: 9 },
 	{ w: 58, h: 9 },
 ];
+// ── The editor pane's two writing modes ─────────────────────────────────────────────────────────
+// COMPOSE FIRST, everywhere a menu lists them (owner ruling, 2026-11-10-compose-first.md): the header
+// toggle, the phone's action bar, the pre-paint shell and the command palette all read this one list,
+// so the order cannot drift between them. `name` is the accessible name, which the e2e chrome contract
+// addresses; `Markdown source` keeps its old name because it already contains the visible word "Source".
+export const EDIT_MODES: ReadonlyArray<{ mode: EditMode; label: string; name: string; hint: string; Icon: React.ComponentType<{ className?: string }> }> = [
+	{ mode: 'compose', label: 'Compose', name: 'Compose — rich editor', hint: 'Compose — write with headings, lists and objects', Icon: Sparkles },
+	{ mode: 'source', label: 'Source', name: 'Markdown source', hint: 'Source — the Markdown itself, for full control', Icon: FileText },
+];
+/** What a mode is called where a sentence names it ("Edit this slide in Source"). */
+export const EDIT_MODE_LABEL: Record<EditMode, string> = { compose: 'Compose', source: 'Source' };
+/**
+ * The words beside the two icons. In the app the header row is MEASURED (`use-row-fit.ts`): it drops the
+ * issue pill's word first (`data-fit=1`) and these two only at `data-fit=2`, when nothing else is left to
+ * give, so they go only when the pane is too narrow for them. The pre-paint shell cannot measure, so it
+ * uses the widths the row it draws was measured to need: 360 px below 1100 px of viewport, where the row
+ * carries Slide settings too, and 320 px above (2026-11-10-compose-first.md §4).
+ */
+const EDIT_MODE_WORDS = { measured: 'inline group-data-[fit=2]/editbar:hidden', shell: 'hidden @[360px]:inline min-[1100px]:@[320px]:inline' } as const;
+
+/**
+ * The pane's title AND its mode switch: `Compose · Source`, where the word `EDIT` used to sit.
+ * `mode: null` is the pre-paint shell, which cannot know the stored mode at build time: it draws both
+ * segments unlit and `studio.astro` lights the one `data-ssr-edit` names, keyed by `data-edit-seg`.
+ * The app's header row is a `group/editbar` measured by `useRowFit`; the shell's is not.
+ */
+export function EditModeToggle({ mode, onPick }: { mode: EditMode | null; onPick?: (mode: EditMode) => void }) {
+	return (
+		// A real `<fieldset>`, as PostureDial is: the group role is the element's own. `m-0 min-w-0` take off a
+		// fieldset's margin and intrinsic min-width (a bare reset, HARD RULE #20); the border and padding are ours.
+		<fieldset aria-label="Writing mode" className="m-0 inline-flex min-w-0 shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
+			{EDIT_MODES.map((m) => {
+				const on = mode === m.mode;
+				return (
+					<Tip key={m.mode} label={m.hint}>
+						<button
+							type="button"
+							data-edit-seg={m.mode}
+							aria-label={m.name}
+							aria-pressed={mode === null ? undefined : on}
+							onClick={onPick ? () => onPick(m.mode) : undefined}
+							className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal transition-colors', on ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}
+						>
+							<m.Icon className="size-3" />
+							<span className={mode === null ? EDIT_MODE_WORDS.shell : EDIT_MODE_WORDS.measured}>{m.label}</span>
+						</button>
+					</Tip>
+				);
+			})}
+		</fieldset>
+	);
+}
+
 export function ComposeSkeleton() {
 	return (
 		<div className="flex flex-1 flex-col gap-[11px] overflow-hidden p-5">

@@ -209,6 +209,6 @@ test.describe('compose images', () => {
 		await page.locator('.cs-slide-content p').first().click();
 		await page.locator('.cs-slide-active').getByRole('button', { name: 'Insert', exact: true }).click();
 		await expect(page.getByRole('menuitem', { name: /^Image/ })).toHaveAttribute('data-disabled', '');
-		await expect(page.getByRole('menuitem', { name: /^Image/ })).toContainText('edited in Markdown');
+		await expect(page.getByRole('menuitem', { name: /^Image/ })).toContainText('edited in Source');
 	});
 });

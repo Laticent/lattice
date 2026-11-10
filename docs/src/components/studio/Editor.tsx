@@ -8,13 +8,14 @@ import { Annotation, ChangeSet, Compartment, EditorState, type Extension, StateE
 import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, lineNumbers, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
-import { buildVocabSets, externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
+import { externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
 import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
 import type { Focus, FocusHub } from '@/lib/fuoco/hub';
 import { partAt, unitAt } from '@/lib/fuoco/outline';
 import { notify } from '@/lib/notify';
 import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
+import { lintCoreNow, loadLintCore, studioVocabSets } from './deck-lint';
 import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { firstSlideShown } from './first-slide';
@@ -29,19 +30,9 @@ let keepInkTooltip: ((tr: Transaction, from: number, to: number) => boolean | nu
 
 
 
-// The shared authoring linter (lib/authoring/lint-core via the browser bundle),
-// lazily imported the first time the editor validates — surfaces that never lint
-// don't pull the bundle. Module-scoped cache so every editor instance shares it.
-// biome-ignore lint/suspicious/noExplicitAny: the bundled CJS lint kernel.
-let lintCoreMod: any = null;
-function loadLintCore() {
-	return import('@/playground/authoring-door.js').then((door) => door.loadAuthoring())
-		.then((m) => {
-			lintCoreMod = m.lintCore;
-			return lintCoreMod;
-		})
-		.catch(() => null);
-}
+// The shared authoring linter (lib/authoring/lint-core via the browser bundle), lazily
+// imported the first time the editor validates — surfaces that never lint don't pull the
+// bundle. The loader and its cache live in deck-lint.ts, shared with Compose's lint pass.
 
 // A small, self-contained CodeMirror 6 markdown editor for the Studio prototype.
 // WRAP, DON'T REINVENT — but this is a fresh, bus-free wrapper (the playground's
@@ -453,23 +444,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: extraNamesKey / finishKey / paletteKey are the stable content-proxies; depending on the arrays themselves would rebuild every render. pluginsVersion moves when the shared plugin vocabulary does.
 	const vocabSets = React.useMemo(() => {
 		if (!useRealLint) return null;
-		const sets = buildVocabSets(lintVocab);
-		// Union your saved local components into the known names so lint-core treats
-		// them as first-class, not unknown. (Built-in `names` stays authoritative.)
-		for (const n of extraComponentNames || []) sets.names.add(n);
-		// Fold the finish VALUE vocabulary (built-ins + saved, already prefixed) into
-		// the finish register so `finish: <value>` isn't flagged `unknown-finish`
-		// inline — matching the Architect panel. Also accept the bare slug of a
-		// prefixed saved value (`finish-shu` → `shu`) so a deck authored before the
-		// prefix convention doesn't false-warn.
-		if (completionFinishValues.length) {
-			const extra = completionFinishValues.flatMap((v) => (v.startsWith('finish-') ? [v, v.slice('finish-'.length)] : [v]));
-			sets.finishNames = [...(sets.finishNames || []), ...extra];
-		}
-		// The same for `theme:`: a palette the author saved is a theme this deck can name, so
-		// `unknown-theme` must not flag it. The lint vocab carries only the shipped ones.
-		if (completionPalettes.length) sets.themeNames = [...(sets.themeNames || []), ...completionPalettes];
-		return sets;
+		// One builder for both editors' passes (deck-lint.ts): saved components, finishes and palettes are known names.
+		return studioVocabSets(lintVocab, { names: extraComponentNames, finishValues: completionFinishValues, palettes: completionPalettes });
 	}, [lintVocab, useRealLint, extraNamesKey, finishKey, paletteKey, pluginsVersion]);
 
 	// The completion + lint extensions live in Compartments so they can be RECONFIGURED
@@ -485,7 +461,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// What may come next in a spark or pill, from the lint core once it has loaded (read at
 	// completion time, so the menu works the moment the core arrives, without a reconfigure).
 	// The `@` menu also lists the zip plugins' kinds the Studio holds (2026-10-14-plugin-inline-door.md).
-	const inlineNext = (span: string): InlineNext | null => lintCoreMod?.inlineCodeCompletions?.(span, externalInlineKinds()) ?? null;
+	const inlineNext = (span: string): InlineNext | null => lintCoreNow()?.inlineCodeCompletions?.(span, externalInlineKinds()) ?? null;
 	// The latest measured sparks, read by the lint pass; a new measurement re-runs it.
 	const measuredRef = React.useRef(measuredSparks);
 	measuredRef.current = measuredSparks;
@@ -552,8 +528,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 					}
 					// The first pass waits for the first slide: the lint core is 256 KB of code the slide does not need, and
 					// it ran before the slide on a phone (Studio performance audit, PR #2868). Later passes find it cached.
-					if (!lintCoreMod) await firstSlideShown;
-					const core = lintCoreMod || (await loadLintCore());
+					if (!lintCoreNow()) await firstSlideShown;
+					const core = lintCoreNow() || (await loadLintCore());
 					if (stale()) return NEVER_LINT;
 					if (!core) {
 						reportLint(view, null); // the kernel never arrived — no answer, which is not "clean"
@@ -706,7 +682,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// Real lint: apply every autofixable lint-core finding in one undoable pass.
 			if (useRealLint && vocabSets && known.size > 0) {
 				(async () => {
-					const core = lintCoreMod || (await loadLintCore());
+					const core = lintCoreNow() || (await loadLintCore());
 					if (!core) return;
 					// The fix driver is a chunk of its own, fetched on the first press (lint-core `loadFixDriver`).
 					await core.loadFixDriver();

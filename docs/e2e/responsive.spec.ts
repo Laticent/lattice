@@ -52,7 +52,7 @@ for (const width of [390, 375, 360]) {
 	test(`@mobile all eight bar cells stay ≥44×44 and fully on-screen at ${width}px`, async ({ page }) => {
 		await page.setViewportSize({ width, height: 844 });
 		await gotoStudio(page);
-		const names = ['Markdown source', 'Compose — rich editor', 'Preview', 'Toggle Coach', 'Toggle Chat', 'Settings', 'Present', 'Share'];
+		const names = ['Compose — rich editor', 'Markdown source', 'Preview', 'Toggle Coach', 'Toggle Chat', 'Settings', 'Present', 'Share'];
 		for (const name of names) {
 			// `.first()`: a local `astro dev` run can inject its own dev-toolbar "Settings" button
 			// into the accessibility tree, which would otherwise trip Playwright's strict-mode check

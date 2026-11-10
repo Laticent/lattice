@@ -35,7 +35,8 @@ describe('tour registry', () => {
 		// The tours speak from clips recorded ahead of time, found by exact text. A line a script says that is
 		// not in its folder's table is a line with no clip.
 		const scripts: Record<string, (mobile: boolean) => { say?: string }[]> = {
-			welcome: welcomeSteps,
+			// Both scripts: Compose (the default) and Source (a visitor who chose it) say different lines.
+			welcome: (mobile) => [...welcomeSteps(mobile, true), ...welcomeSteps(mobile, false)],
 			read: () => readSteps(),
 			craft: () => craftSteps(),
 			present: presentSteps,

@@ -257,7 +257,7 @@ describe('the Image door', () => {
 		expect(insertImage('asset:forest', 'F')(view.state, view.dispatch)).toBe(false);
 		const locked = mount(['<!-- _class: content -->', '', '## L', '', 'Has ~~strike~~ in it.'].join('\n'));
 		caretIn(locked, 'Has');
-		expect(insertImageBlocker(locked.state)).toMatch(/edited in Markdown/);
+		expect(insertImageBlocker(locked.state)).toMatch(/edited in Source/);
 		expect(insertImage('asset:forest', 'F')(locked.state, locked.dispatch)).toBe(false);
 	});
 

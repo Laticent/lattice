@@ -7,6 +7,7 @@
 // The voice leans toward whatever the cursor points at (Vetrina's `setPan`), so the editor speaks
 // from the left and the Share button from the right without any script here saying so.
 
+import { loadSettings } from '../studio-store';
 import { TOUR_LINES as L } from './lines';
 import { buttonLabeled, q, SEL, type TourBuild, type TourStep, toWalkthrough } from './tour-kit';
 
@@ -14,7 +15,14 @@ import { buttonLabeled, q, SEL, type TourBuild, type TourStep, toWalkthrough } f
 const rail = (): HTMLElement | null => document.querySelector<HTMLElement>(SEL.rail) ?? document.querySelector<HTMLElement>('[data-map-rail]');
 /** The one "New slide" door on screen (the strip's, or the editor's while the preview is collapsed). */
 const addSlide = (): HTMLElement | null => [...document.querySelectorAll<HTMLElement>('[aria-label="New slide"]')].find((el) => el.getClientRects().length > 0) ?? null;
-const composeToggle = (): HTMLElement | null => document.querySelector<HTMLElement>('[aria-label="Compose — rich editor"]');
+/** The on-screen button of a writing mode (the phone bar and the header share the accessible name). */
+const modeButton = (name: string) => (): HTMLElement | null => [...document.querySelectorAll<HTMLElement>(`[aria-label="${name}"]`)].find((el) => el.getClientRects().length > 0) ?? null;
+const composeToggle = modeButton('Compose — rich editor');
+const sourceToggle = modeButton('Markdown source');
+/** True unless the visitor chose Source. Tours leave the mode alone, so the script follows it: Compose is the default
+ *  and gets the Compose wording; a visitor who chose Source hears the Markdown wording it always had. Read from the
+ *  stored setting, not the DOM: on a phone the editor is not mounted yet when the tour is built. */
+const inCompose = (): boolean => loadSettings().editMode === 'compose';
 const fixAll = (): HTMLElement | null => document.querySelector<HTMLElement>('[aria-label="Fix all issues"]');
 /** The nth slide button in the strip (1-based), so the tour can show that a click jumps there. */
 const railSlide = (n: number) => (): HTMLElement | null => document.querySelector<HTMLElement>(`${SEL.rail} button:nth-child(${n})`);
@@ -23,13 +31,14 @@ const reshape = (): HTMLElement | null => document.querySelector<HTMLElement>('[
 const posture = (): HTMLElement | null => document.querySelector<HTMLElement>('[aria-label="Write — editor + preview"]')?.parentElement ?? null;
 
 /** The beats, exposed so a test can check every spoken line against TOUR_LINES. */
-export function welcomeSteps(mobile: boolean): TourStep[] {
+export function welcomeSteps(mobile: boolean, compose: boolean = inCompose()): TourStep[] {
 	const steps: TourStep[] = [{ say: L.hello, settle: 500 }];
+	const write = compose ? L.writeCompose : L.write;
 
 	if (mobile) {
 		// One pane at a time: say where you write, then flip to where it appears.
 		steps.push(
-			{ say: L.write, point: SEL.paneEdit, click: true, act: (a) => a.setMobilePane('edit'), settle: 400 },
+			{ say: write, point: SEL.paneEdit, click: true, act: (a) => a.setMobilePane('edit'), settle: 400 },
 			{ say: L.preview, point: SEL.panePreview, click: true, act: (a) => a.setMobilePane('preview'), circle: SEL.preview, settle: 500 },
 			{ say: L.present, point: buttonLabeled('Present'), settle: 700 },
 			{ say: L.share, point: buttonLabeled('Share'), settle: 700 },
@@ -39,7 +48,7 @@ export function welcomeSteps(mobile: boolean): TourStep[] {
 	}
 
 	steps.push(
-		{ say: L.write, point: SEL.editor, circle: SEL.editor, settle: 700 },
+		{ say: write, point: SEL.editor, circle: SEL.editor, settle: 700 },
 		{ say: L.preview, point: SEL.preview, circle: SEL.preview, settle: 700 },
 		{ say: L.rail, point: rail, at: 'strip', settle: 500 },
 		// Show the jump the line promised, then put the deck back on the slide the visitor had.
@@ -47,7 +56,8 @@ export function welcomeSteps(mobile: boolean): TourStep[] {
 		{ point: railSlide(1), click: true, act: (a) => a.gotoSlide(0), settle: 700 },
 		{ say: L.add, point: addSlide, settle: 700 },
 		{ say: L.reshape, point: reshape, settle: 700 },
-		{ say: L.compose, point: composeToggle, settle: 700 },
+		// The OTHER mode, so the beat always introduces the one the visitor is not in.
+		compose ? { say: L.source, point: sourceToggle, settle: 700 } : { say: L.compose, point: composeToggle, settle: 700 },
 		{ say: L.fixAll, point: fixAll, settle: 700 },
 		{ say: L.theme, point: q('[data-demo="theme"]'), circle: q('[data-demo="theme"]'), settle: 700 },
 		// Light → dark is the one flourish: it shows a deck re-dressing itself. Put back on the next beat.

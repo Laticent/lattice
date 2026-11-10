@@ -15,7 +15,7 @@ import { type CommentKind, commentInner, commentKind, editableNote, stripChannel
 import { deckSchema, deckToDoc, docToDeck, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
-import { closesFiloGroup, historyTransaction, isFiloHistory } from '@/lib/compose/filo-history';
+import { closeFiloGroup, closesFiloGroup, historyTransaction, isFiloHistory } from '@/lib/compose/filo-history';
 import { descriptionAsAlt, insertImage, insertImageBlocker } from '@/lib/compose/image-objects';
 import { type InlineKernels, inlineObjectsPlugin, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, type PluginKindEntry, repaintObjects, setPluginKindProvider } from '@/lib/compose/inline-objects';
 import { insertLineBreak } from '@/lib/compose/line-break-command';
@@ -608,7 +608,7 @@ function paneBar(view: EditorView, getPos: () => number | undefined, info: { dir
 	change.type = 'button';
 	change.className = 'cs-pane-change';
 	change.disabled = locked || !open;
-	change.title = locked ? 'This slide is edited in Markdown' : 'Change what this pane holds';
+	change.title = locked ? 'This slide is edited in Source' : 'Change what this pane holds';
 	change.setAttribute('aria-label', `${where} holds ${pane.cls === 'content' ? 'text' : pane.cls}. Change what this pane holds`);
 	change.setAttribute('aria-haspopup', 'dialog');
 	const name = document.createElement('span');
@@ -1345,7 +1345,7 @@ class CodeBlockView {
 		const locked = this.slideLocked();
 		this.chip.disabled = locked;
 		this.chip.classList.toggle('cs-code-chip-locked', locked);
-		this.chip.title = locked ? `Fence language: ${tag || 'none'} — this slide is edited in Markdown` : `Fence language: ${tag || 'none'} — click to change`;
+		this.chip.title = locked ? `Fence language: ${tag || 'none'} — this slide is edited in Source` : `Fence language: ${tag || 'none'} — click to change`;
 		this.chip.setAttribute('aria-label', this.chip.title);
 	}
 	/** Is this fence on a slide Compose holds read-only? Read from the document rather
@@ -1610,7 +1610,7 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	// reason on the same surface.
 	if (locked) {
 		remove.disabled = true;
-		remove.textContent = 'Edit in Markdown to remove';
+		remove.textContent = 'Edit in Source to remove';
 		remove.title = 'This slide carries a construct Compose cannot round-trip, so it is read-only here.';
 	} else {
 		remove.textContent = 'Remove';
@@ -2084,7 +2084,22 @@ function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen |
  * Compose's imperative surface — the twin of the markdown Editor's EditorHandle,
  * so the shell can drive either editor through the same two verbs.
  */
+/**
+ * The selection Refine may rewrite in Compose: non-empty, inside ONE textblock that is not code, on a slide Compose
+ * can edit. Plain text in, plain text out, so the rewrite cannot break a list, a table or an object. Null otherwise.
+ */
+function refinableRange(state: EditorState): { from: number; to: number } | null {
+	const { from, to, $from, $to, empty } = state.selection;
+	if (empty || !$from.sameParent($to) || !$from.parent.isTextblock || $from.parent.type.spec.code) return null;
+	if ($from.depth >= 1 && $from.node(1)?.attrs.locked) return null;
+	return { from, to };
+}
+
 export type ComposeHandle = {
+	/** The text Refine would rewrite: a selection inside one textblock of an editable slide, as plain text. */
+	getSelection: () => { empty: boolean; text: string };
+	/** Replace that selection with `text`, as its own undo step. False when there is no such selection now. */
+	replaceSelection: (text: string) => boolean;
 	/** Scroll slide `index` into view. `focus` also takes keyboard focus and parks the
 	 *  caret at the slide's first editable position (#1288). */
 	revealSlide: (index: number, opts?: { focus?: boolean; keepCaret?: boolean }) => void;
@@ -2119,7 +2134,7 @@ export type ComposeHandle = {
 	afterComposition: (fn: () => void) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire, describeDelete }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire, describeDelete }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -2313,6 +2328,21 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// the slide's first editable position so the next keystroke edits the slide the
 	// preview picker just chose (#1288).
 	React.useImperativeHandle(ref, () => ({
+		getSelection() {
+			const v = viewRef.current;
+			const r = v && refinableRange(v.state);
+			return v && r ? { empty: false, text: v.state.doc.textBetween(r.from, r.to) } : { empty: true, text: '' };
+		},
+		replaceSelection(text: string) {
+			const v = viewRef.current;
+			const r = v && refinableRange(v.state);
+			if (!v || !r) return false;
+			// One textblock in, one out: a rewrite that came back in several lines joins into this one.
+			const flat = text.replace(/\s*\n+\s*/g, ' ').trim();
+			if (!flat) return false;
+			v.dispatch(closeFiloGroup(v.state.tr.insertText(flat, r.from, r.to)));
+			return true;
+		},
 		applyPane(req: PaneRequest, pick: PanePick) {
 			const v = viewRef.current;
 			if (!v || req.slideIndex >= v.state.doc.childCount) return null;
@@ -2534,6 +2564,11 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	const onCursorTextRef = React.useRef(onCursorText);
 	onCursorTextRef.current = onCursorText;
 	const lastCursorTextRef = React.useRef<string | null>(null);
+	// Whether the selection is one Refine can rewrite (`refinableRange`), reported on change only, so the
+	// Studio's Refine door shows in Compose as it does in Source (2026-11-10-compose-first.md §1.1).
+	const onSelectionChangeRef = React.useRef(onSelectionChange);
+	onSelectionChangeRef.current = onSelectionChange;
+	const lastRefinableRef = React.useRef(false);
 	const lastSlideRef = React.useRef(-1);
 	// Ref-backed so the construct-once NodeView factory always calls the CURRENT handler.
 	const onOpenSlideSettingsRef = React.useRef(onOpenSlideSettings);
@@ -2835,6 +2870,11 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					const prevDoc = view.state.doc;
 					const next = view.state.apply(tr);
 					view.updateState(next);
+					const refinable = refinableRange(next) !== null;
+					if (refinable !== lastRefinableRef.current) {
+						lastRefinableRef.current = refinable;
+						onSelectionChangeRef.current?.(refinable);
+					}
 					// The open link panel follows its text through every change, and closes when the caret leaves the link
 					// while the author is not in the panel, or when the link's text is gone.
 					const le = linkEditRef.current;
@@ -3210,14 +3250,14 @@ function ComposeStyles() {
 			.cs-slide.cs-collapsed .cs-slide-content > :is(h1,h2,h3,h4)::after,
 			.cs-slide.cs-collapsed .cs-slide-content:not(:has(> :is(h1,h2,h3,h4))) > :first-child::after{content:" ⋯";color:var(--text-muted,#6b7f9a);font-weight:400}
 			/* a locked slide carries a construct Compose can't round-trip (table, block HTML,
-			   strikethrough…) — read-only here, edited in Markdown mode. Dim it and badge it. */
+			   strikethrough…) — read-only here, edited in Source. Dim it and badge it. */
 			.cs-host .cs-slide-locked{position:relative;opacity:.72}
 			/* Clear the delete cap. The badge and the danger group both sit at the top-right of the
 			   slide, and at the badge's original inset the trash button LANDED ON IT — the label
 			   read "· EDIT IN MARKDO", so the one piece of chrome that explains why the slide
 			   will not take a keystroke was cut off mid-word. The resting cap is 22px (28px at
 			   the coarse-pointer size below); 42px clears it with a gap. */
-			.cs-host .cs-slide-locked::after{content:"◔ edit in Markdown";position:absolute;top:8px;right:calc(clamp(12px,4cqw,40px) + 42px);transition:opacity .12s ease;font-family:var(--font-mono,ui-monospace,monospace);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#6b7f9a);background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);padding:2px 7px;border-radius:4px;pointer-events:none}
+			.cs-host .cs-slide-locked::after{content:"◔ edit in Source";position:absolute;top:8px;right:calc(clamp(12px,4cqw,40px) + 42px);transition:opacity .12s ease;font-family:var(--font-mono,ui-monospace,monospace);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#6b7f9a);background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);padding:2px 7px;border-radius:4px;pointer-events:none}
 			/* AND STAND DOWN WHILE THE DELETE IS ARMED. A fixed inset cannot clear the danger
 			   group in both states: at rest it is one 22px cap, and arming it expands the group
 			   to "Delete? ✓ ✗", which is 64px wider than any inset that still leaves the badge
@@ -3344,7 +3384,7 @@ function ComposeStyles() {
 			.cs-code-chip{position:absolute;top:5px;right:6px;z-index:1;display:inline-flex;align-items:center;min-height:17px;padding:1px 7px;border:1px solid var(--border,#e4eaf2);border-radius:999px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9px;letter-spacing:.08em;text-transform:uppercase;line-height:1.5;cursor:pointer;user-select:none;transition:color .12s,border-color .12s,background .12s}
 			.cs-code-chip:hover:not(:disabled){color:var(--text-heading,#0a1628);border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
 			/* On a locked slide the chip is a LABEL, not a control — it still names the
-			   language, it just cannot change it (the slide is edited in Markdown). */
+			   language, it just cannot change it (the slide is edited in Source). */
 			.cs-code-chip:disabled{cursor:default;opacity:.75}
 			/* An engine sub-language is RENDERED, not colored — the chip says which register
 			   the fence is in before the author reads a token of it. */

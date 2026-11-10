@@ -85,7 +85,7 @@ export default function LinkPanel({ view, edit, onClose }: LinkPanelProps) {
 		view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, from, to)));
 		const why = linkBlocker(view.state);
 		if (why) return setRefused(why);
-		if (!setLink(norm.href, linkOf(view, from, to))(view.state, view.dispatch)) return setRefused('This link cannot be written here. Edit this slide in Markdown.');
+		if (!setLink(norm.href, linkOf(view, from, to))(view.state, view.dispatch)) return setRefused('This link cannot be written here. Edit this slide in Source.');
 		// The caret lands after the link, so the next keystroke does not extend it.
 		const end = linkOf(view, from, to)?.to ?? view.state.selection.to;
 		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, end)));

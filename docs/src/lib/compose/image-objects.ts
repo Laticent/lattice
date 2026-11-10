@@ -326,7 +326,7 @@ export function removeImage(view: EditorView, pos: number): boolean {
 /** Why an image cannot go in at the caret, in words the author can use, or null when it can. */
 export function insertImageBlocker(state: EditorState): string | null {
 	const { $from } = state.selection;
-	if ($from.node(1)?.attrs.locked) return 'This slide is edited in Markdown, so an image cannot be added here.';
+	if ($from.node(1)?.attrs.locked) return 'This slide is edited in Source, so an image cannot be added here.';
 	if ($from.parent.type.spec.code) return 'The cursor is in a code block. Move it into the slide text to add an image.';
 	if ($from.depth < 2) return 'Put the cursor in the slide text to add an image.';
 	return null;

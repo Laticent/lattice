@@ -149,6 +149,6 @@ describe('ImagePanel — the footer', () => {
 		const { user } = setup({ src: 'asset:harbor', alt: 'x' }, vi.fn(() => false));
 		const input = screen.getByRole('textbox', { name: 'Description' });
 		await user.type(input, 'y{Enter}');
-		expect(screen.getByRole('alert').textContent).toMatch(/in Markdown/);
+		expect(screen.getByRole('alert').textContent).toMatch(/in Source/);
 	});
 });

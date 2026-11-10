@@ -30,6 +30,10 @@ export const LESSON_LINES = {
 		plain: 'A deck is plain text. You write on the left, and the slides appear on the right.',
 		dashes: 'A line of three dashes starts a new slide. A line that starts with # is the slide’s heading.',
 		turn: 'Your turn: click at the end of your text, type three dashes, then a # heading.',
+		/** The same lesson in Compose, the default since 2026-11-10: no markup to learn. */
+		plainCompose: 'You write on the left, the way you would in any document, and the slides appear on the right.',
+		headingCompose: 'Each slide sits between two lines across the page. Type a hash and a space at the start of a line to make it the slide’s heading.',
+		turnCompose: 'Your turn: click into any slide and change a word.',
 		keepTyping: 'Keep typing. The preview follows every keystroke.',
 		made: 'That is the slide those lines made. Change any word and the slide follows.',
 	},

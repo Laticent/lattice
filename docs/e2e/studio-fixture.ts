@@ -540,7 +540,10 @@ export async function gotoStudio(page: Page): Promise<void> {
 		try {
 			const k = 'lattice-studio-settings';
 			const cur = JSON.parse(localStorage.getItem(k) || '{}');
-			localStorage.setItem(k, JSON.stringify({ ...cur, posture: 'craft' }));
+			// SOURCE, not the shipped Compose default (2026-11-10-compose-first.md): the editor helpers below type into the
+			// Markdown editor, and the suite was written against it. A spec that is about Compose clicks into it as
+			// before; `compose-first.spec.ts` pins the real default. An explicit `editMode` already stored wins.
+			localStorage.setItem(k, JSON.stringify({ editMode: 'source', ...cur, posture: 'craft' }));
 			// The settings panels open on the BASIC tier for a real first visit (a short list,
 			// no section strip). Specs address controls by section, so they get ADVANCED —
 			// the full panel they were written against. Basic's own contract is pinned in

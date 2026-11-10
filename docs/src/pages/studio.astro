@@ -384,6 +384,10 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
 /* Slide settings is compact-only in the app: from 1100 up the activity bar owns it, and a
    duplicate would also break e2e's strict 'Slide settings' locator. */
 @media (min-width:1100px){#studio-ssr-shell .ssr-slide-settings{display:none;}}
+/* The editor pane's mode (2026-11-10-compose-first.md): the seed stamps data-ssr-edit, Compose when nothing is stored.
+   The lit segment copies EditModeToggle's lit classes (accent-soft / accent), and the other editor's skeleton is hidden. */
+:root:not([data-ssr-edit="source"]) #studio-ssr-shell [data-edit-seg="compose"],:root[data-ssr-edit="source"] #studio-ssr-shell [data-edit-seg="source"]{background:var(--accent-soft);color:var(--accent);}
+:root[data-ssr-edit="source"] #studio-ssr-shell .ssr-body-compose,:root:not([data-ssr-edit="source"]) #studio-ssr-shell .ssr-body-source{display:none;}
 :root[data-ssr-bp="mobile"] #studio-ssr-shell .ssr-editpane,:root[data-ssr-read] #studio-ssr-shell .ssr-editpane{display:none;}
 /* The preview pane's own sub-bar. Absent at Read, where the app renders the preview
    chromeless — so --sh-hdr is 0 and the band is dropped. */
@@ -839,7 +843,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						// 32px collapse button — 26px of line box, i.e. 6.8px of growth — so the split
 						// tier takes only what exceeds that.
 						var headerH = chromeless ? C.headerRead : (bpMobile ? C.headerWriteMobile : C.headerWriteSplit + Math.max(0, lhGrow - 6.8));
-						G = { vw: vw2, vh: vh2, posture: posture, cinema: cinema, noTours: noTours, railW: railW, bpMobile: bpMobile, chromeless: chromeless, padX: padX, padY: padY, paneTop: paneTop, headerH: headerH, footerH: footerH, paneX: paneX, paneW: paneW, paneH: vh2 - paneTop };
+						G = { vw: vw2, vh: vh2, posture: posture, cinema: cinema, noTours: noTours, railW: railW, bpMobile: bpMobile, chromeless: chromeless, padX: padX, padY: padY, paneTop: paneTop, headerH: headerH, footerH: footerH, paneX: paneX, paneW: paneW, paneH: vh2 - paneTop, editMode: settings && settings.editMode === 'source' ? 'source' : 'compose' };
 						// Publishing is a function because the REPLAY seed below can widen the pane to
 						// contain a replayed box (see there) and must re-publish the corrected values.
 						// Every attribute is set OR cleared, never only set: a re-seed after a rotation
@@ -874,6 +878,10 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							r.setAttribute('data-ssr-bp', G.bpMobile ? 'mobile' : 'wide');
 							if (G.chromeless) r.setAttribute('data-ssr-read', '1'); else r.removeAttribute('data-ssr-read');
 							r.setAttribute('data-ssr-stop', G.posture);
+							// The editor pane's mode, so the shell lights the segment and draws the editor skeleton the app is
+							// about to mount. `asEditMode` (studio-store), transliterated: only an explicit 'source' is
+							// Source; anything else, nothing stored included, is Compose (2026-11-10-compose-first.md).
+							r.setAttribute('data-ssr-edit', G.editMode);
 							if (G.noTours) r.setAttribute('data-ssr-no-tours', '1'); else r.removeAttribute('data-ssr-no-tours');
 							r.setAttribute('data-ssr-chrome', '1');
 						};

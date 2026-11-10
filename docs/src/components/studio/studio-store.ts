@@ -1121,8 +1121,16 @@ export const LEGACY_ONBOARDED_POSTURE: Posture = 'craft';
 // trajectory, and every error, INCLUDING whatever a third-party library chose to put
 // in a `console.error` argument. That is not a thing to switch on for someone.
 // See `2026-08-18-crash-toast-retirement.md` §"Opt-in".
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; pdfWriter: PdfWriter; overflowMarker: StandingOverflowMarker; lensDefaults: boolean; intentSearch: boolean; crashReports: boolean; imageModel: string; imageLook: ImageLook };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', pdfWriter: 'text', overflowMarker: 'reader', lensDefaults: true, intentSearch: true, crashReports: false, imageModel: DEFAULT_IMAGE_MODEL, imageLook: DEFAULT_IMAGE_LOOK };
+/**
+ * How the editor pane writes the deck: COMPOSE (the rich editor, the default since 2026-11-10) or SOURCE (the
+ * Markdown itself, for power users). Stored so a power user picks Source once. Anything else reads as Compose,
+ * including the `'markdown'` an earlier build held in memory under that name.
+ * engineering/decisions/2026-11-10-compose-first.md.
+ */
+export type EditMode = 'compose' | 'source';
+export const asEditMode = (v: unknown): EditMode => (v === 'source' ? 'source' : 'compose');
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; pdfWriter: PdfWriter; overflowMarker: StandingOverflowMarker; lensDefaults: boolean; intentSearch: boolean; crashReports: boolean; imageModel: string; imageLook: ImageLook; editMode: EditMode };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', pdfWriter: 'text', overflowMarker: 'reader', lensDefaults: true, intentSearch: true, crashReports: false, imageModel: DEFAULT_IMAGE_MODEL, imageLook: DEFAULT_IMAGE_LOOK, editMode: 'compose' };
 
 // Derive the boot stop for a browser with no explicitly-stored posture — the
 // hardened three-population form (R4/R6, prior-use-first so an actively-editing
@@ -1186,7 +1194,7 @@ export function loadSettings(): StudioSettings {
 	const pdfWriter: PdfWriter = saved.pdfWriter === 'photo' ? 'photo' : 'text';
 	// The photo-looking model is an OpenRouter id (`vendor/name`, or the `~vendor/name-latest` alias); anything else reads as the default.
 	const imageModel = typeof saved.imageModel === 'string' && /^~?[\w.-]+\/[\w.:-]+$/.test(saved.imageModel) ? saved.imageModel : DEFAULT_IMAGE_MODEL;
-	return { ...DEFAULT_SETTINGS, ...saved, language, posture, intentSearch, crashReports, pdfWriter, imageModel, imageLook: asImageLook(saved.imageLook) };
+	return { ...DEFAULT_SETTINGS, ...saved, language, posture, intentSearch, crashReports, pdfWriter, imageModel, imageLook: asImageLook(saved.imageLook), editMode: asEditMode(saved.editMode) };
 }
 // Notify same-tab listeners a setting changed (the native `storage` event only fires in
 // OTHER tabs). The Fabricate designer listens so a handle-style switch in the Workspace
