@@ -76,13 +76,15 @@ case "$mode" in
     if [ "${#todo[@]}" -gt 0 ] && ! sudo dpkg -i "${todo[@]}"; then
       echo "::warning::The cached WebKit packages do not fit this runner image; repairing from Ubuntu's mirror. The cache saved under this image's key will fit."
       sudo apt-get update
-      apt_into install -f -y --no-install-recommends
+      # --no-remove: a repair that would take a package off the image fails here, loudly, rather than removing it.
+      apt_into install -f -y --no-install-recommends --no-remove
       repaired=1
     fi
     pkgs=$(playwright_packages) # an assignment, so a failure stops the script rather than checking nothing
     missing=()
     for name in $pkgs; do
-      [ "$(dpkg-query -W -f='${db:Status-Abbrev}' "$name" 2>/dev/null || true)" = 'ii ' ] || missing+=("$name")
+      # The prefix: a package installed for two architectures prints its status twice ("ii ii ").
+      case "$(dpkg-query -W -f='${db:Status-Abbrev}' "$name" 2>/dev/null || true)" in ii*) ;; *) missing+=("$name") ;; esac
     done
     if [ "${#missing[@]}" -gt 0 ]; then
       echo "::warning::${#missing[@]} WebKit package(s) are not in the cache (${missing[*]}); installing from Ubuntu's mirror."

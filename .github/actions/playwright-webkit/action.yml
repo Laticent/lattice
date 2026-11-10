@@ -28,8 +28,10 @@ runs:
         restore-keys: ${{ steps.key.outputs.base }}-
     - name: Download WebKit's system packages (nothing restored only)
       shell: bash
+      # A restored folder counts even when empty: the image it was built on lacked nothing, and the install step's check
+      # repairs anything this image lacks. Only no folder at all (no entry for this OS, CPU and Playwright) downloads.
       run: |
-        if ls "$HOME"/playwright-webkit-debs/*.deb >/dev/null 2>&1; then echo 'restored from the cache'; exit 0; fi
+        if [ -d "$HOME/playwright-webkit-debs" ]; then echo 'restored from the cache'; exit 0; fi
         bash "$GITHUB_ACTION_PATH/install-deps.sh" download "$HOME/playwright-webkit-debs"
     - name: Install WebKit's system packages
       shell: bash
