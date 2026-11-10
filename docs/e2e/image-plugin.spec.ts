@@ -4,7 +4,8 @@ import { expect, gotoStudio, livePreview, setEditorContent, test } from './studi
 //
 // engineering/decisions/2026-10-16-media-plugins.md §4.7, §7 slice 3. The Studio's live preview renders a deck through the
 // same engine as the CLI, and the preview frame's runtime runs on top. HARD RULE #23: this drives the real Studio, at the
-// widths and in the browsers the tags name (@crosswidth: 1440 and 390; @webkit-tablet: 820 in WebKit; @gecko: Firefox), and
+// widths and in the browsers the tags name (@crosswidth: 1440 and 390; @webkit-phone: an iPhone in WebKit; @webkit-tablet: an
+// iPad in WebKit; @gecko: Firefox), and
 // holds, for each seat the slide decides:
 //
 //   · an `image` slide: the record becomes the layout's `.lattice-bg` photo panel, with its finish layer inside it;
@@ -61,7 +62,7 @@ const SEATS: Array<{ name: string; deck: string; selector: string; check: (html:
 ];
 
 for (const seat of SEATS) {
-	test(`image plugin: the ${seat.name} seat draws in the live preview @crosswidth @webkit-tablet @gecko`, async ({ page }, info) => {
+	test(`image plugin: the ${seat.name} seat draws in the live preview @crosswidth @webkit-phone @webkit-tablet @gecko`, async ({ page }, info) => {
 		// Written at 1440 (the editor is docked there on every project), then judged at the project's own box (desktop 1440,
 		// mobile 390, webkit-tablet 1180), as the plugin attack spec does.
 		const own = page.viewportSize() ?? { width: 1440, height: 900 };
@@ -81,12 +82,18 @@ for (const seat of SEATS) {
 				return box ? Math.min(box.width, box.height) : 0;
 			}, { timeout: 30_000 })
 			.toBeGreaterThan(40);
-		if (EVIDENCE) {
-			await page.screenshot({ path: `${EVIDENCE}/studio-${seat.name}-${info.project.name}.png` });
-			// The QUALITY BAR's tablet width too (820), in this project's browser.
-			await page.setViewportSize({ width: 820, height: 1180 });
+		// The QUALITY BAR's three widths in THIS project's browser too (so WebKit and Gecko see 1440, 820 and 390, not only their
+		// own device): the seat still draws, with a real box, at each.
+		for (const width of [1440, 820, 390]) {
+			await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
 			await expect(el).toBeVisible({ timeout: 30_000 });
-			await page.screenshot({ path: `${EVIDENCE}/studio-${seat.name}-${info.project.name}-820.png` });
+			await expect
+				.poll(async () => {
+					const box = await el.boundingBox();
+					return box ? Math.min(box.width, box.height) : 0;
+				}, { timeout: 30_000 })
+				.toBeGreaterThan(20);
+			if (EVIDENCE) await page.screenshot({ path: `${EVIDENCE}/studio-${seat.name}-${info.project.name}-${width}.png` });
 		}
 	});
 }
