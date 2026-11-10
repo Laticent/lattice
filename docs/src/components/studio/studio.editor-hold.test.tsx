@@ -54,7 +54,7 @@ const editorBuilt = () => document.querySelector('.cm-editor') !== null;
 
 beforeEach(() => {
 	localStorage.clear();
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'write' }));
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'write', editMode: 'source' }));
 });
 afterEach(() => {
 	window.matchMedia = realMatchMedia;

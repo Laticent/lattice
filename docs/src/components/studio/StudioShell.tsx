@@ -7117,7 +7117,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<span className="flex-1" />
 				{issues > 0 && (
 					<Tip label={issueHint}>
-						<button type="button" onClick={() => { revealCraftDock(); setActiveAssistant('coach'); }} aria-label={`${issues} issue${issues > 1 ? 's' : ''}: ${issueHint}`} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)] transition-colors hover:bg-[color-mix(in_srgb,var(--warn)_16%,transparent)]"><AlertTriangle className="size-3" />{issues}<span className="group-data-[fit=1]/editbar:hidden group-data-[fit=2]/editbar:hidden"> issue{issues > 1 ? 's' : ''}</span></button>
+						<button type="button" onClick={() => { revealCraftDock(); setActiveAssistant('coach'); }} aria-label={`${issues} issue${issues > 1 ? 's' : ''}: ${issueHint}`} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)] transition-colors hover:bg-[color-mix(in_srgb,var(--warn)_16%,transparent)]"><AlertTriangle className="size-3" /><span className="group-data-[fit=1]/editbar:hidden group-data-[fit=2]/editbar:hidden">{issues} issue{issues > 1 ? 's' : ''}</span><span className="hidden group-data-[fit=1]/editbar:inline group-data-[fit=2]/editbar:inline">{issues}</span></button>
 					</Tip>
 				)}
 				{hasSelection && (
