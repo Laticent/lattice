@@ -1040,3 +1040,35 @@ nodes cannot carry. Moving it would need a host "re-attach" hook with one user, 
 only with two (2026-11-01-plugin-contract-hollywood.md §4). So the host owns the scope key and the protections for
 every figure it draws (the hydrators), and Mermaid's pass keeps `replayCachedFences` and `adoptOutgoingDiagrams`, keyed
 on the host's scope through `ctx.scopeKey`. Tests: test/unit/plugins/figure-memory.test.js, each guard failing without it.
+
+## 10. Marp for VS Code: the cache missed on every keystroke (2026-11-10)
+
+**What the author saw.** Typing anywhere on a diagram or chart slide in the VS Code preview (Marp for VS Code 3.6.1, VS Code
+1.145.2, security level *Disable*) blanked the diagram, or left the chart unbuilt, for several frames on every re-render.
+Measured with a real VS Code driven under xvfb: 22 keystrokes at 120 ms each, every animation frame inside the preview sampled.
+
+**Why.** The preview re-renders by diffing Marp's raw HTML into the page (morphdom), and a slide the runtime has laid out never
+equals Marp's raw slide, so every keystroke takes every laid-out slide back to raw. The Studio stamps its swaps
+(`data-lattice-swap`) and gets its layout in the observer's microtask (§5); VS Code stamps nothing, so its re-renders waited for
+the 150 ms debounce. And Mermaid's cache keys a drawing on the slide's classes (`figureScopeKey`), which on a Marp render include
+the `form` and `marks-*` stamps the runtime itself writes: the drawing was cached under the laid-out slide's key and looked up
+under the raw slide's. **0 hits in 8 re-renders.**
+
+**The fix.** The preview names its own re-render: it dispatches `vscode.markdown.updateContent` in the same task as the diff. The
+runtime marks the burst that follows and lays the slides out FIRST in that microtask, then lets the plugins replay their caches
+(lib/runtime/index.js `vscodeHostWrite`). The Studio's order is unchanged.
+
+| 22 keystrokes, real VS Code | before | after |
+|---|---|---|
+| typing in a diagram slide's heading: frames with the diagram missing | 25 | **0** |
+| typing in a chart slide's heading: frames with the chart unbuilt | 34 | **0** |
+| typing inside the diagram's source: frames with the slot empty | 36 | 13 |
+| Mermaid cache hits per re-render | 0 / 8 | 7 / 8 |
+| main-thread blocking, diagram heading | 4.3 s | 3.0 s |
+
+Pinned by test/unit/runtime/vscode-host-rewrite.test.js (the slide is laid out again in the microtask; red with the listener
+removed). **Still open:** an edit to the diagram's own SOURCE is a real re-render, and the slot stands empty while it runs (13
+frames across the burst). The Studio holds the outgoing drawing there (`adoptOutgoingDiagrams`, an `in-place` stamp); the shape
+of a VS Code re-render around a source edit is not that one, and a first attempt at an in-place hold never triggered, so it was
+removed rather than shipped. Most of the remaining keystroke latency is not the runtime: Marp re-processes the 1.1 MB theme on
+every render (engineering/gotchas/vscode.md, "Typing is slow in the VS Code preview").

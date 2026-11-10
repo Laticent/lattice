@@ -442,3 +442,23 @@ CI-contract decision, not one to take on the way past.
   (`engineering/decisions/2026-08-17-gotchas-topic-refile.md`). This stub exists so the
   VS Code section of the symptom index still names it, which was the one thing that
   decision gave up.
+
+## Typing is slow in the VS Code preview, and diagrams blink
+
+**Symptom:** about a second between a keystroke and the preview changing, the preview stuttering while you type, a diagram or a
+chart flashing empty on every keystroke.
+
+**Two causes, measured in VS Code 1.145.2 with Marp for VS Code 3.6.1** (a real editor under xvfb, keystrokes applied through
+the extension API, every frame in the preview sampled; 2026-11-10):
+
+1. **The theme, on every keystroke.** Marp re-processes every registered theme on each render: our 1.1 MB `lattice-min.css`
+   costs 700–1,200 ms per render in marp-core (its default theme: ~100 ms), and the 1.5 MB of scoped CSS it emits is shipped to
+   the preview again. With the same deck on Marp's default theme a keystroke reaches the preview in ~550 ms; with ours,
+   ~1,330 ms (p50). The fix in progress registers directive-only themes with Marp and loads the full stylesheet once through a
+   `<link>` (prototype: 412 ms p50, and the stylesheet still applies at *Strict*).
+2. **The runtime redid every slide.** The preview diffs Marp's raw HTML into the page, which takes every laid-out slide back to
+   raw, and the runtime waited for its 150 ms debounce while Mermaid's cache missed: fixed, see
+   engineering/decisions/2026-09-05-diagram-fence-flash.md §10.
+
+**Not the cause:** VS Code's built-in `mermaid-markdown-features` (disabling it changed nothing measurable), and an idle preview
+(zero mutations in 5 s at rest).
