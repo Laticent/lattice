@@ -76,4 +76,3 @@ A business card whose QR opens a Lattice gift link: a warm line, the code, and a
 `Related components`
 
 - `contact` — the card is a person's identity, not a gift
-- `wifi` — the code joins a network

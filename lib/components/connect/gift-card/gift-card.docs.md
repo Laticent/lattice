@@ -6,7 +6,7 @@
 
 **Tags** `onboarding` · `reference` · `pitch`
 
-Printed QR gift cards. `tools/gift-cards.mjs` writes one card per slide at the `card` or `card-iso` size; the QR carries the whole gift link (a spend-capped OpenRouter key in the URL fragment), and the link is never printed as text. Author the fields as a postfix-key list, the link inside a code span.
+Printed QR gift card. `tools/gift-cards.mjs` writes one card per slide at the `card` or `card-iso` size; the QR carries the whole gift link (a spend-capped OpenRouter key in the URL fragment), and the link is never printed as text. Author the fields as a postfix-key list, the link inside a code span.
 
 ## Agent contract
 
@@ -56,7 +56,6 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 ## Related components
 
 - [`contact`](../../connect/contact/contact.docs.md) — the card is a person's identity, not a gift
-- [`wifi`](../../connect/wifi/wifi.docs.md) — the code joins a network
 
 ## Demo deck
 
