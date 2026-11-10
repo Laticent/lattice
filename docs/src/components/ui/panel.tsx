@@ -6,7 +6,6 @@ import {
 	Sheet,
 	SheetClose,
 	SheetContent,
-	SheetDescription,
 	SheetTitle,
 	sheetBox,
 } from '@/components/ui/sheet';
@@ -484,9 +483,9 @@ const PANEL_WIDTH: Record<PanelWidth, string> = {
 	lg: 'sm:max-w-[720px]',
 };
 
-// Tells `PanelHeader` whether it is inside a Sheet portal (→ route title/desc
-// through Radix `SheetTitle`/`SheetDescription` so the dialog keeps its
-// accessible name + description) or in a plain docked column (→ a bare heading).
+// Tells `PanelHeader` whether it is inside a Sheet portal (→ route the title
+// through Radix `SheetTitle` so the dialog keeps its accessible name) or in a
+// plain docked column (→ a bare heading).
 const PanelSheetCtx = React.createContext(false);
 
 // Separate from the above ON PURPOSE. A tablet panel is in a Sheet but is not on a
@@ -723,8 +722,9 @@ function PanelCloseButton({ label, onClose }: { label: string; onClose?: () => v
  * Both slots are gone, and the rule that replaces them is: THE HEADER IS IDENTITY,
  * THE BODY IS EXPLANATION. A panel that has more to say says it where there is room
  * to say it and where a zero-state can carry it — not in a header that then wraps and
- * pushes every neighbor's geometry out of agreement. `srDescription` stays, because
- * AT still needs the sentence Radix wants; it just no longer costs 19px of chrome.
+ * pushes every neighbor's geometry out of agreement. A screen reader gets the panel's
+ * NAME only: VoiceOver on an iPhone read a dialog's description again after every
+ * control inside it (#3108), so the screen-reader-only `srDescription` is gone too.
  *
  * `eyebrow` had ZERO call sites when it was removed. The one panel that wanted one
  * (Workspace) had hand-rolled an inline "YOUR SETUP" trailing the title instead, i.e.
@@ -733,7 +733,6 @@ function PanelCloseButton({ label, onClose }: { label: string; onClose?: () => v
 export function PanelHeader({
 	icon,
 	title,
-	srDescription,
 	actions,
 	fluidActions = false,
 	onClose,
@@ -745,11 +744,6 @@ export function PanelHeader({
 	/** Leading glyph — rendered in the fixed accent chip; pass a bare lucide icon. */
 	icon?: React.ReactNode;
 	title: React.ReactNode;
-	/** A description for screen readers ONLY — when the panel has more to say than
-	 *  its title. Without it the sr-only fallback just echoes the title, so AT hears
-	 *  the same word twice and learns nothing; the Library ("Saved themes, components,
-	 *  and finishes — search, filter, apply, or import a .zip") surfaced that. */
-	srDescription?: string;
 	/** Trailing controls placed before the close (import, add, …). */
 	actions?: React.ReactNode;
 	/** Let the actions give up width instead of holding it (`shrink-0`). For a header whose
@@ -792,8 +786,6 @@ export function PanelHeader({
 			    long model name (followup 2821-p1). A title wider than the row still truncates. */}
 			<div className={cn('min-w-0 flex-1', fluidActions && 'basis-auto')}>
 				<Title className="truncate text-[15px] font-semibold leading-tight text-[var(--text-heading)]">{title}</Title>
-				{/* No fallback to the title: a description that repeats the name tells a screen reader nothing. */}
-				{inSheet && srDescription ? <SheetDescription className="sr-only">{srDescription}</SheetDescription> : null}
 			</div>
 			{/* 44×44 on a phone, and this is a consequence of moving the close out of the
 			    trailing slot rather than a free-standing polish item. These actions are

@@ -83,6 +83,13 @@ function DialogContent({
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
+        // NO DESCRIPTION ON THE DIALOG. On an iPhone, VoiceOver read a dialog's description again after every
+        // control inside it (owner, PR #3108: "Run a command or jump somewhere in the Studio" after each
+        // palette row). So a dialog is named, not described: a visible description stays on screen and is
+        // reached by swiping, but is not wired as the dialog's `aria-describedby`. A caller can still pass
+        // one; an AlertDialog (ui/alert-dialog.tsx) keeps Radix's, because there the text IS the question.
+        // engineering/gotchas/studio-playground.md "A dialog's description is read after every control".
+        aria-describedby={undefined}
         data-slot="dialog-content"
         className={cn(
           // lx-ui carries the scoped reset (tailwind.css) into the Radix portal,

@@ -226,7 +226,8 @@ export function PersistentSurface({
             // alive — nothing should find it as a dialog, including a `[role=dialog]` selector.
             data-slot="persistent-surface-box"
             {...(drawn
-              ? { role: "dialog", "aria-modal": true, "aria-labelledby": titleId, "aria-describedby": descriptionId }
+              ? // Named, not described: VoiceOver repeated a dialog's description after every control (ui/sheet.tsx).
+                { role: "dialog", "aria-modal": true, "aria-labelledby": titleId }
               : {})}
             tabIndex={-1}
             data-state={state}

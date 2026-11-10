@@ -8468,7 +8468,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<PanelHeader
 							icon={<Gauge />}
 							title="Coach"
-							srDescription="Craft and style scores, deterministic quick reads, and per-finding fixes for this deck."
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{coachBody}</div>
 					</PanelSheet>
@@ -8479,7 +8478,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<PanelHeader
 							icon={<ChatIcon />}
 							title="Chat"
-							srDescription="A conversation with the AI Architect about this deck, with reviewable edits."
 							// The chat portals its cost readout in here, rather than spending a row of its
 							// own on it directly under this header — see ArchitectChat's header note.
 							// Fluid, so a long model name truncates in the chip instead of the title.
@@ -8494,7 +8492,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<PanelHeader
 							icon={<UsersRound />}
 							title="Live"
-							srDescription="Who is in this live session, the invite link, and the session chat."
 							actions={<span ref={setLiveHeaderSlot} className="flex items-center gap-2" />}
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{liveBodyWith(undefined, liveHeaderSlot)}</div>
@@ -8523,7 +8520,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							// room and where it is actually needed. As a header `description` it
 							// wrapped to two lines and made this one of four different header
 							// heights in a set of surfaces that claim to share a frame.
-							srDescription="A subset of this deck for one reader — you approve exactly what they see."
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{renderLensesBody(true)}</div>
 					</PanelSheet>
@@ -8539,7 +8535,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							<PanelHeader
 								icon={<Settings2 />}
 								title="Settings"
-								srDescription="Slide-first settings: switch between this slide's overrides and deck-wide defaults."
 							/>
 							{/* No outer overflow: the scope body owns its own scroll region (like the
 							    desktop column), so the sheet never nests two scrollbars. */}
@@ -8575,7 +8570,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<PanelHeader
 					icon={<History />}
 					title="Version history"
-					srDescription="Snapshots you can restore. One is captured automatically before each AI edit."
 				/>
 				{/* The zero state OWNS the empty panel rather than floating at the top of it,
 				    and it carries the lede the header used to. Measured before this change:

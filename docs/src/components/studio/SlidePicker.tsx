@@ -1,6 +1,6 @@
 import { ChevronDown, Columns2, Layers, LayoutGrid, Plus, Rows3 } from 'lucide-react';
 import * as React from 'react';
-import { DialogCloseButton, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { DialogCloseButton, DialogTitle } from '@/components/ui/dialog';
 import { PanelDock, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -435,7 +435,6 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 	);
 
 	const title = pane ? `${pane.where}: what it holds` : 'New slide';
-	const description = pane ? `Choose the component the ${pane.where.toLowerCase()} renders. Each one says whether it keeps the pane's text.` : `Search the slide gallery and add one as a new slide${placement ? `, ${placement}` : ''}.`;
 
 	// Grid ↔ list, in the header beside the dialog's close button — where a file browser
 	// puts it. Icon-only: the two glyphs are the convention, and the header is tight.
@@ -490,7 +489,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 			{[
 				compact ? (
 					<React.Fragment key="sheet-header">
-						<PanelHeader icon={pane ? <Columns2 /> : <Plus />} title={title} srDescription={description} />
+						<PanelHeader icon={pane ? <Columns2 /> : <Plus />} title={title} />
 						{/* The phone hides the footer that says where the pick lands, so it says it here (§5). */}
 						{placement && !pane && <p className="truncate px-4 pt-2 text-[12.5px] text-muted-foreground">Adds it {placement}</p>}
 					</React.Fragment>
@@ -501,7 +500,6 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 							<DialogTitle className="text-[15px]">{title}</DialogTitle>
 							{viewToggle}
 						</div>
-						<DialogDescription className="sr-only">{description}</DialogDescription>
 					</React.Fragment>
 				),
 				<React.Fragment key="body">{body}</React.Fragment>,

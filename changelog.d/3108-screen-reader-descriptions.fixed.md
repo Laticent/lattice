@@ -11,3 +11,8 @@
   command cannot ship without one), and the site menu's second line is read once, as the
   description, instead of running into the row's name. Both search fields have a name, and
   `CommandDialog` no longer falls back to a generic "Command Palette" title.
+- **Fixed: VoiceOver no longer repeats a panel's description after every control in it.** On an
+  iPhone, each Studio sheet's or dialog's description was read again after every row and button
+  inside. Sheets and dialogs are now named and not described (`SheetContent`, `DialogContent`,
+  `PersistentSurface`); `PanelHeader` drops its screen-reader-only `srDescription`. A visible
+  description stays on screen, and a confirmation dialog keeps its question.

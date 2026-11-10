@@ -1826,3 +1826,12 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — a new `title=` on a control, a hint that restates its button's label, an `aria-describedby` on a `Tip`'s child, or a new palette row.
 - **Removable when** — Radix describes a closed tooltip trigger.
 - **Commits** — the docs-perf PR of 2026-11-09 (#3108).
+
+## A dialog's description is read after every control inside it
+
+- **Symptom** — on an iPhone, VoiceOver reads each control in a sheet or dialog, its own description, and then the dialog's description again: "Run a command or jump somewhere in the Studio" after every command palette row (owner, PR #3108).
+- **Cause** — observed on device, not traced to a line of WebKit: the dialog's `aria-describedby` (Radix wires one to every `DialogDescription`/`SheetDescription`) is repeated for the controls inside it. A row's own `aria-describedby` reaches VoiceOver as its "description" custom content (WebKit `AccessibilityObject::extendedDescription`); where the dialog's comes from was not found in source.
+- **Mitigation** — a dialog is NAMED, not described. `SheetContent` and `DialogContent` (`docs/src/components/ui/{sheet,dialog}.tsx`) set `aria-describedby={undefined}` before the caller's props, so a visible description stays on screen and is reached by swiping but is not wired to the dialog; `PersistentSurface` sets none; `PanelHeader` has no `srDescription` and no hidden description copies remain. An `AlertDialog` keeps Radix's: its text is the question and only its buttons follow. `e2e/studio-descriptions.spec.ts` fails on a described `dialog` (on main's build it flags Chat, Coach, Menu, Send feedback, Settings, Share, Version history and Workspace).
+- **Triggered by** — passing `aria-describedby` to a sheet or dialog, or wiring a description some other way.
+- **Removable when** — VoiceOver stops repeating a container's description, verified on a device.
+- **Commits** — PR #3108.

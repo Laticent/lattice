@@ -522,7 +522,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 			    `PanelHeader`'s own (never-used) `eyebrow` slot did not support. The panel is
 			    launched from a control labeled "Workspace settings"; the title does not need
 			    to re-explain itself in a treatment no other header uses. */}
-			<PanelHeader icon={WORKSPACE_HEADER.icon} title={WORKSPACE_HEADER.title} srDescription={WORKSPACE_HEADER.srDescription} />
+			<PanelHeader icon={WORKSPACE_HEADER.icon} title={WORKSPACE_HEADER.title} />
 			<PanelBody padded={false} className="p-5">
 					<PillTabs
 						className="mb-4"

@@ -220,7 +220,7 @@ export function InlineObjectEditorHost({
 	if (phone) {
 		return (
 			<PanelSheet open onOpenChange={(o) => !o && !held.current && close()} width="md">
-				<PanelHeader icon={KIND_ICON[kindId]} title={entry.title} srDescription={entry.describe} />
+				<PanelHeader icon={KIND_ICON[kindId]} title={entry.title} />
 				<PanelBody>{panel}</PanelBody>
 			</PanelSheet>
 		);

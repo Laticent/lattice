@@ -44,6 +44,10 @@ async function audit(cdp: CDPSession, where: string): Promise<string[]> {
 		const p = problem(n);
 		if (p) bad.push(`${where}: ${n.role} "${n.name}" — description "${n.desc}" ${p}`);
 		if ((n.role === 'dialog' || n.role === 'alertdialog') && !n.name) bad.push(`${where}: a ${n.role} has no name`);
+		// A dialog is named, not described: VoiceOver on an iPhone read a dialog's description again after
+		// every control inside it (#3108; ui/sheet.tsx, ui/dialog.tsx). An alertdialog keeps its: there the
+		// text is the question, and only its buttons follow.
+		if (n.role === 'dialog' && n.desc) bad.push(`${where}: dialog "${n.name}" is described ("${n.desc}"); VoiceOver repeats it after every control inside`);
 	}
 	return bad;
 }
