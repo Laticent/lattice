@@ -8997,6 +8997,49 @@ function slideTextAddressCensus(root = ROOT) {
   return out;
 }
 
+/**
+ * ONE WAY TO HIDE A TITLE (engineering/decisions/2026-10-16-media-plugins.md §4.11, decision 19). A layout that hosts a media
+ * figure decides how it is shown through the plugin's `show=` default for itself (its manifest's `media` field) and the custom
+ * properties the shared layer exposes on the figure (`--lat-media-w`, `--lat-media-title-size`, …), never with CSS of its own
+ * reaching INTO the figure: a host that hid `.lat-media-title` with `display: none` would leave a screen reader labeling the
+ * picture by words the room cannot see, and two hosts would style one figure two ways. So component CSS that selects one of the
+ * shared layer's parts (`.lat-media-frame`, `-pic`, `-caption`, `-title`, `-desc`, `-tone`, `-finish`) is held to a budget of
+ * zero plus `SANCTIONED_MEDIA_REACH_INS`, each with its reason; a stale entry fails. Setting a property on the figure itself
+ * (`section.video .video-embed { --lat-media-w: 46cqi }`) is the sanctioned interface and is not a reach-in.
+ * @param {string[]} errors
+ * @param {Array<{file: string, why: string}>} [sanctions]
+ * @param {string} [root]
+ */
+const MEDIA_PART = /\.lat-media-(?:frame|pic|caption|title|desc|tone|finish)\b/;
+const SANCTIONED_MEDIA_REACH_INS = [];
+function checkMediaReachIns(errors, sanctions = SANCTIONED_MEDIA_REACH_INS, root = ROOT) {
+  const dir = path.join(root, 'lib', 'components');
+  const files = [];
+  const walk = (d) => {
+    if (!fs.existsSync(d)) return;
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.css')) files.push(p);
+    }
+  };
+  walk(dir);
+  const found = new Map();
+  for (const f of files) {
+    const css = fs.readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const hits = [...css.matchAll(/([^{}]+)\{/g)].map((m) => m[1].trim()).filter((sel) => MEDIA_PART.test(sel));
+    if (hits.length) found.set(path.relative(root, f).split(path.sep).join('/'), hits);
+  }
+  const sanctioned = new Set(sanctions.map((x) => x.file));
+  for (const [file, hits] of found) {
+    if (!sanctioned.has(file)) errors.push(`${file} reaches into a media figure (${hits.slice(0, 2).join(' | ')}): a host sets the plugin's \`show=\` default in its manifest's \`media\` field, or a property the shared layer exposes on the figure (lib/base/base.media.css), never a rule of its own on the figure's parts. If it is provably the only answer, add a SANCTIONED_MEDIA_REACH_INS entry with its reason.`);
+  }
+  for (const x of sanctions) {
+    if (!found.has(x.file)) errors.push(`stale SANCTIONED_MEDIA_REACH_INS entry: ${x.file} no longer reaches into a media figure; remove it.`);
+    if (!x.why || !String(x.why).trim()) errors.push(`SANCTIONED_MEDIA_REACH_INS entry ${x.file} has no reason.`);
+  }
+}
+
 function checkSlideTextAddressReaders(errors, sanctions = SANCTIONED_SLIDE_TEXT_ADDRESS_READERS, root = ROOT) {
   const found = slideTextAddressCensus(root);
   const declared = new Map();
@@ -15381,6 +15424,7 @@ function run() {
   checkPreviewHtmlSinks(errors);
   checkRuntimeMarkupSinks(errors);
   checkSlideTextAddressReaders(errors);
+  checkMediaReachIns(errors);
   checkPluginPurity(errors);
   checkPluginMigration(errors);
   checkSnapshotHtmlSinks(errors);
@@ -15640,6 +15684,7 @@ module.exports = {
   checkCssTreeRewrapSinks,
   checkRuntimeMarkupSinks,
   checkSlideTextAddressReaders,
+  checkMediaReachIns,
   slideTextAddressCensus,
   checkSecuritySpineCensus,
   checkFlakyTests,

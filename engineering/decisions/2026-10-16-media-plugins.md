@@ -1095,3 +1095,15 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   the merge ask:** the box known before the bytes (an image figure has no `aspect-ratio` yet), `lg` measured against the space
   left on the slide rather than the slide, the `check:jank` record axis, the `check-ownership` gate on host CSS that reaches into
   a figure, and `aria-describedby` for a flow figure's description.
+- 2026-11-10: the five slice-3 guards the trio found unbuilt, built in the same PR. **The box before the bytes:** the render takes
+  an optional `imageSize(url)` from its host (the CLI reads the file header, lib/core/image-dimensions.js), the image record
+  stamps `--lat-media-ar` and the `<img>`'s `width`/`height`, and the shared layer sizes the frame from the aspect; measured,
+  the figure and the paragraph under it do not move when the picture is taken away. The Studio passes no size yet, so its
+  preview still sizes a picture by itself. **`lg` against the space left:** with the aspect known, the height cap bounds the
+  width, and a heading, an `lg mat` picture and a paragraph fit. **The sweep:** `test/integration/invariants/media-record-sweep.test.js`
+  renders every size × frame × `show=` in a flow host with the real CLI and measures in Chromium: sizes in order, nothing off the
+  slide, the heading still, the text below clear, the box unmoved without the picture; it fails when `sm` is made larger than
+  `md`. It is a test of its own rather than an axis of `tools/check-jank.js`: the record's movement is measured directly.
+  **The reach-in gate:** `checkMediaReachIns` (tools/check-ownership.js, in `build:check`) holds component CSS that selects a
+  figure's shared-layer parts to zero, with `SANCTIONED_MEDIA_REACH_INS` (empty) failing on a stale entry. **The description for
+  a screen reader:** a flow figure's `<img>` carries it as `aria-description` when the slide does not show it.

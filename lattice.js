@@ -2330,6 +2330,11 @@ function engineSlides(deckSource = rawMd) {
   // `sample:<name>` images resolve into the package's one sample-art folder, wherever the
   // deck sits (lib/core/bg-image.js resolveAssetUrl; lib/samples/README.md).
   const samplesUrl = pathToFileURL(path.join(PKG_ROOT, 'lib', 'samples') + path.sep).href;
+  // A media figure's box before its picture loads: the header's size, for a local file (lib/core/image-dimensions.js).
+  const imageSize = (url) => {
+    const file = imageDimensions.urlToLocalPath(String(url));
+    return file ? imageDimensions.readDimensions(file) : null;
+  };
   // `asset:<name>` names a picture in `assets/` beside the deck (lib/export/deck-assets.js). The CLI owns every
   // `asset:` reference, so a name the folder lacks draws the missing-picture stand-in, not a dead address.
   const deckAssets = require('./lib/export/deck-assets.js').buildAssetUrls(path.dirname(path.resolve(mdFile)), DECK_CONFINE);
@@ -2343,7 +2348,7 @@ function engineSlides(deckSource = rawMd) {
   let rendered;
   if (DECK_CODE_PACKAGES.length || DECK_PLUGINS.length) {
     const { renderWithCodePackages } = require('./lib/cli/code-door.js');
-    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, assetUrls, baseUrl: deckBaseUrl }), {
+    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, assetUrls, baseUrl: deckBaseUrl, imageSize }), {
       packages: DECK_CODE_PACKAGES,
       plugins: DECK_PLUGINS,
       executablePath: CHROME_EXEC,
@@ -2359,7 +2364,7 @@ function engineSlides(deckSource = rawMd) {
     const drew = new Set((r.claimed || []).filter((n) => n.startsWith('plugin/')).map((n) => n.slice('plugin/'.length)));
     DECK_PLUGIN_CSS = DECK_PLUGINS.filter((p) => drew.has(p.name) && p.css).map((p) => scopePluginCss(p.name, p.css)).join('\n');
   } else {
-    rendered = engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl });
+    rendered = engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl, imageSize });
   }
   // logo-wall marks ride as CSS `mask` in the preview; for the PDF we swap each
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in

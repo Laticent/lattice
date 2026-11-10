@@ -89,6 +89,17 @@ section .lat-media[data-lattice-media="image"] .lat-media-pic > img {
   object-fit: var(--lat-media-fit);
   border-radius: 0;
 }
+/* THE BOX BEFORE THE BYTES (§4.11). When the host read the picture's size (the CLI reads its header), the figure carries its
+ * aspect, `--lat-media-ar`: the frame takes the scaled width, capped by the scaled height times the aspect, and the picture fills
+ * it at that aspect, so the box is the same before and after the picture loads. Without it, the picture sizes itself. */
+section .lat-media[data-lattice-media="image"][style*="--lat-media-ar"] > .lat-media-frame {
+  inline-size: min(100%, max(var(--lat-media-floor), min(calc(var(--lat-media-scale) * var(--lat-media-w)), calc(var(--lat-media-scale) * var(--lat-media-h) * var(--lat-media-ar)))));
+}
+section .lat-media[data-lattice-media="image"][style*="--lat-media-ar"] .lat-media-pic > img {
+  inline-size: 100%;
+  block-size: auto;
+  aspect-ratio: var(--lat-media-ar);
+}
 /* ── A CLIP ── a poster of a fixed shape: the frame takes the scaled width, the poster fills it. */
 section .lat-media[data-lattice-media="video"] > .lat-media-frame {
   /* The width is the scaled `--lat-media-w`, capped so a 16:9 poster is never taller than the scaled `--lat-media-h`, and
