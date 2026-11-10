@@ -34,16 +34,26 @@ const HEADER = [
 ].join('\n');
 
 /**
+ * One skeleton line as VS Code snippet text. A snippet body is a template: `$` starts a tab stop or a variable (`$1`, `${1:x}`,
+ * `$TM_FILENAME`) and `\` escapes, so a skeleton's own `$410M`, `$0` or `$y$` would insert as something else, or vanish. Both
+ * are escaped, so the skeleton inserts exactly as its manifest writes it. `}` needs no escape outside a placeholder, and the
+ * skeletons' `{…}` are Lattice's own pill syntax, so they stay text.
+ */
+const snippetText = (line) => line.replace(/\\/g, '\\\\').replace(/\$/g, '\\$');
+
+/**
  * Return the VS Code snippet object derived from the current manifests.
  * Pure: takes no I/O, just transforms loaded manifests into snippet shape.
+ * `scope: markdown` keeps them out of every other language in the folder.
  */
 function buildSnippets(manifests) {
   const list = manifests || loadAll();
   const out = {};
   for (const m of list) {
     out[`lattice: ${m.name}`] = {
+      scope: 'markdown',
       prefix: `lattice-${m.name}`,
-      body: m.skeleton.replace(/\n$/, '').split('\n'),
+      body: m.skeleton.replace(/\n$/, '').split('\n').map(snippetText),
       description: m.description,
     };
   }

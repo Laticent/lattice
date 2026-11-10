@@ -4,6 +4,7 @@
 // snippets:build -- --check`.
 {
   "lattice: actors": {
+    "scope": "markdown",
     "prefix": "lattice-actors",
     "body": [
       "<!-- _class: actors -->",
@@ -20,6 +21,7 @@
     "description": "Roster of responsibilities owned by named actors."
   },
   "lattice: agenda": {
+    "scope": "markdown",
     "prefix": "lattice-agenda",
     "body": [
       "<!-- _class: agenda -->",
@@ -34,6 +36,7 @@
     "description": "Auto-numbered table of contents for the deck."
   },
   "lattice: authority-chain": {
+    "scope": "markdown",
     "prefix": "lattice-authority-chain",
     "body": [
       "<!-- _class: authority-chain -->",
@@ -56,6 +59,7 @@
     "description": "Provenance chain — statute to regulation to guidance to case, walked in order."
   },
   "lattice: bar": {
+    "scope": "markdown",
     "prefix": "lattice-bar",
     "body": [
       "<!-- _class: bar -->",
@@ -70,6 +74,7 @@
     "description": "Bars from a zero baseline that compare magnitude across categories — as columns, rows, side-by-side groups, or signed off a centered zero."
   },
   "lattice: big-number": {
+    "scope": "markdown",
     "prefix": "lattice-big-number",
     "body": [
       "<!-- _class: big-number -->",
@@ -82,6 +87,7 @@
     "description": "Single oversized number as the focal claim."
   },
   "lattice: bullet": {
+    "scope": "markdown",
     "prefix": "lattice-bullet",
     "body": [
       "<!-- _class: bullet -->",
@@ -95,6 +101,7 @@
     "description": "Actual against target inside a qualitative band — one dense row per KPI."
   },
   "lattice: cards-grid": {
+    "scope": "markdown",
     "prefix": "lattice-cards-grid",
     "body": [
       "<!-- _class: cards-grid -->",
@@ -113,6 +120,7 @@
     "description": "2–4 parallel items, similar weight, scannable in a grid."
   },
   "lattice: cards-stack": {
+    "scope": "markdown",
     "prefix": "lattice-cards-stack",
     "body": [
       "<!-- _class: cards-stack -->",
@@ -129,6 +137,7 @@
     "description": "Parallel items stacked vertically, full-width cards."
   },
   "lattice: checklist": {
+    "scope": "markdown",
     "prefix": "lattice-checklist",
     "body": [
       "<!-- _class: checklist -->",
@@ -145,6 +154,7 @@
     "description": "Items with state markers — done, partial, failed, unknown, to do, skipped."
   },
   "lattice: citation-card": {
+    "scope": "markdown",
     "prefix": "lattice-citation-card",
     "body": [
       "<!-- _class: citation-card -->",
@@ -162,6 +172,7 @@
     "description": "Single authoritative reference — heading + citation + verbatim quote + plain-English gloss."
   },
   "lattice: closing": {
+    "scope": "markdown",
     "prefix": "lattice-closing",
     "body": [
       "<!-- _class: closing -->",
@@ -173,6 +184,7 @@
     "description": "Final slide. Dark canvas mirror of title."
   },
   "lattice: code": {
+    "scope": "markdown",
     "prefix": "lattice-code",
     "body": [
       "<!-- _class: code -->",
@@ -189,6 +201,7 @@
     "description": "Single fenced code block as the slide's centerpiece."
   },
   "lattice: collage": {
+    "scope": "markdown",
     "prefix": "lattice-collage",
     "body": [
       "<!-- _class: collage -->",
@@ -210,6 +223,7 @@
     "description": "Four to six photos of any shape packed edge to edge into a mood board, with the usual eyebrow, title, subtitle and description beside them."
   },
   "lattice: columns": {
+    "scope": "markdown",
     "prefix": "lattice-columns",
     "body": [
       "<!-- _class: columns -->",
@@ -229,6 +243,7 @@
     "description": "Two components side by side on one slide, at a ratio you choose."
   },
   "lattice: compare-code": {
+    "scope": "markdown",
     "prefix": "lattice-compare-code",
     "body": [
       "<!-- _class: compare-code -->",
@@ -254,6 +269,7 @@
     "description": "Two fenced code blocks side-by-side, each with a label."
   },
   "lattice: compare-prose": {
+    "scope": "markdown",
     "prefix": "lattice-compare-prose",
     "body": [
       "<!-- _class: compare-prose -->",
@@ -268,6 +284,7 @@
     "description": "Two prose options side-by-side with a labeled corner tag on each."
   },
   "lattice: contact": {
+    "scope": "markdown",
     "prefix": "lattice-contact",
     "body": [
       "<!-- _class: contact -->",
@@ -283,6 +300,7 @@
     "description": "An identity card that encodes a vCard: name, title and contact lines beside a QR that saves the presenter to a phone."
   },
   "lattice: content": {
+    "scope": "markdown",
     "prefix": "lattice-content",
     "body": [
       "<!-- _class: content -->",
@@ -297,6 +315,7 @@
     "description": "Generic prose slide — heading plus paragraphs or a short list."
   },
   "lattice: cycle": {
+    "scope": "markdown",
     "prefix": "lattice-cycle",
     "body": [
       "<!-- _class: cycle -->",
@@ -315,6 +334,7 @@
     "description": "A closed loop of 3-6 stages that returns to its start — for a process with no beginning or end, where the last stage feeds the first."
   },
   "lattice: decision": {
+    "scope": "markdown",
     "prefix": "lattice-decision",
     "body": [
       "<!-- _class: decision -->",
@@ -329,6 +349,7 @@
     "description": "The verdict slide — one chosen path, named explicitly."
   },
   "lattice: diagram": {
+    "scope": "markdown",
     "prefix": "lattice-diagram",
     "body": [
       "<!-- _class: diagram -->",
@@ -346,6 +367,7 @@
     "description": "Mermaid diagram as the slide's centerpiece."
   },
   "lattice: divider": {
+    "scope": "markdown",
     "prefix": "lattice-divider",
     "body": [
       "<!-- _class: divider -->",
@@ -357,20 +379,22 @@
     "description": "Section boundary slide. Dark canvas with a single heading."
   },
   "lattice: ep-curve": {
+    "scope": "markdown",
     "prefix": "lattice-ep-curve",
     "body": [
       "<!-- _class: ep-curve -->",
       "",
-      "## A 1-in-100 year costs $410M.",
+      "## A 1-in-100 year costs \\$410M.",
       "",
-      "- `{10, $120M}`",
-      "- `{50, $300M}`",
-      "- `{100, $410M}`",
-      "- `{250, $560M}`"
+      "- `{10, \\$120M}`",
+      "- `{50, \\$300M}`",
+      "- `{100, \\$410M}`",
+      "- `{250, \\$560M}`"
     ],
     "description": "An exceedance-probability curve: the loss to expect once every N years, with return periods across on a log scale and up to four curves (OEP and AEP, gross and net)."
   },
   "lattice: flowchart": {
+    "scope": "markdown",
     "prefix": "lattice-flowchart",
     "body": [
       "<!-- _class: flowchart -->",
@@ -385,6 +409,7 @@
     "description": "A free-form flowchart: shapes, groups and lines, written as a list."
   },
   "lattice: funnel": {
+    "scope": "markdown",
     "prefix": "lattice-funnel",
     "body": [
       "<!-- _class: funnel -->",
@@ -399,6 +424,7 @@
     "description": "Tapering stages that show where a flow drops off, with the conversion rate between each."
   },
   "lattice: gantt": {
+    "scope": "markdown",
     "prefix": "lattice-gantt",
     "body": [
       "<!-- _class: gantt -->",
@@ -432,6 +458,7 @@
     "description": "A business card whose QR opens a Lattice gift link: a warm line, the code, and a PIN when the link is locked."
   },
   "lattice: glossary": {
+    "scope": "markdown",
     "prefix": "lattice-glossary",
     "body": [
       "<!-- _class: glossary -->",
@@ -448,6 +475,7 @@
     "description": "Two-column term/definition table with auto-derived alphabetic range pill."
   },
   "lattice: heatmap": {
+    "scope": "markdown",
     "prefix": "lattice-heatmap",
     "body": [
       "<!-- _class: heatmap -->",
@@ -462,6 +490,7 @@
     "description": "A numeric matrix read as intensity — where the value concentrates across two dimensions."
   },
   "lattice: histogram": {
+    "scope": "markdown",
     "prefix": "lattice-histogram",
     "body": [
       "<!-- _class: histogram -->",
@@ -476,6 +505,7 @@
     "description": "One quantity cut into bands that join end to end: each bar is as wide as its band and its area is the band's share, with an optional log axis for bands that widen toward the tail."
   },
   "lattice: hub-spoke": {
+    "scope": "markdown",
     "prefix": "lattice-hub-spoke",
     "body": [
       "<!-- _class: hub-spoke -->",
@@ -493,6 +523,7 @@
     "description": "Hub and spoke — one center, its satellites, and what flows between them."
   },
   "lattice: image": {
+    "scope": "markdown",
     "prefix": "lattice-image",
     "body": [
       "<!-- _class: image -->",
@@ -506,6 +537,7 @@
     "description": "Image as the slide's anchor, with optional text alongside — composition adapts to the asset and the deck."
   },
   "lattice: inventory": {
+    "scope": "markdown",
     "prefix": "lattice-inventory",
     "body": [
       "<!-- _class: inventory -->",
@@ -524,6 +556,7 @@
     "description": "A parallel set of related items of similar weight — one content shape, four interchangeable looks."
   },
   "lattice: journey": {
+    "scope": "markdown",
     "prefix": "lattice-journey",
     "body": [
       "<!-- _class: journey -->",
@@ -543,6 +576,7 @@
     "description": "Native user-journey chart — sections of tasks, each tagged with actor(s) and a 1-5 mood. Renders as section bars, task chips, plumb lines, and mood faces."
   },
   "lattice: kanban": {
+    "scope": "markdown",
     "prefix": "lattice-kanban",
     "body": [
       "<!-- _class: kanban -->",
@@ -566,25 +600,27 @@
     "description": "Kanban board — columns of cards by stage."
   },
   "lattice: kpi": {
+    "scope": "markdown",
     "prefix": "lattice-kpi",
     "body": [
       "<!-- _class: kpi -->",
       "",
       "## Revenue ahead of plan; margin and cash both expanded.",
       "",
-      "1. $2.4B",
+      "1. \\$2.4B",
       "   - Total revenue",
-      "   - target $2.2B · +9% `{On plan}` `{Board}`",
+      "   - target \\$2.2B · +9% `{On plan}` `{Board}`",
       "2. 42%",
       "   - Gross margin",
       "   - +2pp QoQ `{On plan}` `{Audit}`",
-      "3. $1.1B",
+      "3. \\$1.1B",
       "   - Cash & equivalents",
-      "   - +$180M QoQ `{On plan}` `{Investor}`"
+      "   - +\\$180M QoQ `{On plan}` `{Investor}`"
     ],
     "description": "Executive KPI system — one base, five layout modifiers."
   },
   "lattice: line": {
+    "scope": "markdown",
     "prefix": "lattice-line",
     "body": [
       "<!-- _class: line -->",
@@ -599,6 +635,7 @@
     "description": "A measure plotted across an ordered axis, so the movement is the read — one line or several, optionally filled, stacked, or stepped."
   },
   "lattice: list": {
+    "scope": "markdown",
     "prefix": "lattice-list",
     "body": [
       "<!-- _class: list -->",
@@ -614,6 +651,7 @@
     "description": "Bulleted list under a heading — plain pills, hairline takeaways (optionally numbered criteria with a gloss line), or display-weight principles."
   },
   "lattice: list-steps": {
+    "scope": "markdown",
     "prefix": "lattice-list-steps",
     "body": [
       "<!-- _class: list-steps -->",
@@ -628,6 +666,7 @@
     "description": "Horizontal row of ordered step cards, each with a full description body (the `vertical` variant stacks them instead)."
   },
   "lattice: list-tabular": {
+    "scope": "markdown",
     "prefix": "lattice-list-tabular",
     "body": [
       "<!-- _class: list-tabular -->",
@@ -646,6 +685,7 @@
     "description": "Hairline-ruled ledger of items — name on the left, body on the right."
   },
   "lattice: logo-wall": {
+    "scope": "markdown",
     "prefix": "lattice-logo-wall",
     "body": [
       "<!-- _class: logo-wall -->",
@@ -667,6 +707,7 @@
     "description": "A grid of customer, partner, or funder logos as social proof."
   },
   "lattice: map": {
+    "scope": "markdown",
     "prefix": "lattice-map",
     "body": [
       "<!-- _class: map -->",
@@ -681,6 +722,7 @@
     "description": "A world-countries (or US-states) basemap that fills regions by value (choropleth) or category (highlight) so the audience leaves knowing where."
   },
   "lattice: math": {
+    "scope": "markdown",
     "prefix": "lattice-math",
     "body": [
       "<!-- _class: math -->",
@@ -689,15 +731,16 @@
       "",
       "## One-sentence framing of what the equation establishes.",
       "",
-      "$$ y = f(x) $$",
+      "\\$\\$ y = f(x) \\$\\$",
       "",
-      "- $y$ — what we predict",
-      "- $x$ — input variable",
-      "- $f$ — the relation under study"
+      "- \\$y\\$ — what we predict",
+      "- \\$x\\$ — input variable",
+      "- \\$f\\$ — the relation under study"
     ],
     "description": "Boardroom-quality math layouts for mathematicians, quants, ML researchers, physicists, statisticians, and economists. Rendered equations with persona-appropriate surround. Lattice typesets with KaTeX and marp-core with MathJax; the layouts style both, so you author identically either way."
   },
   "lattice: matrix-2x2": {
+    "scope": "markdown",
     "prefix": "lattice-matrix-2x2",
     "body": [
       "<!-- _class: matrix-2x2 -->",
@@ -717,6 +760,7 @@
     "description": "Static 2×2 quadrant grid with author-placed items per cell."
   },
   "lattice: matrix-grid": {
+    "scope": "markdown",
     "prefix": "lattice-matrix-grid",
     "body": [
       "<!-- _class: matrix-grid -->",
@@ -736,6 +780,7 @@
     "description": "Two ordered axes as an N×M chart-family grid — each cell marks a position (filled / reachable / not applicable), colored by its row's category from the theme's chart palette."
   },
   "lattice: obligation-matrix": {
+    "scope": "markdown",
     "prefix": "lattice-obligation-matrix",
     "body": [
       "<!-- _class: obligation-matrix -->",
@@ -752,6 +797,7 @@
     "description": "Regulation × obligation grid — state-marker cells encode applies / partial / exempt at a glance."
   },
   "lattice: piechart": {
+    "scope": "markdown",
     "prefix": "lattice-piechart",
     "body": [
       "<!-- _class: piechart donut -->",
@@ -768,6 +814,7 @@
     "description": "Pie or donut chart with legend — proportional wedges."
   },
   "lattice: policy-recommendation": {
+    "scope": "markdown",
     "prefix": "lattice-policy-recommendation",
     "body": [
       "<!-- _class: policy-recommendation adopt -->",
@@ -788,6 +835,7 @@
     "description": "A legislative recommendation — a stance verdict beside the recommendation, its evidence, and the specific ask to lawmakers."
   },
   "lattice: premise": {
+    "scope": "markdown",
     "prefix": "lattice-premise",
     "body": [
       "<!-- _class: premise -->",
@@ -809,17 +857,18 @@
     "description": "A framing claim beside a vertically centered ledger of parallel rows — a number, a term, a description, and a right-aligned note, each row colored by its own categorical hue."
   },
   "lattice: pricing": {
+    "scope": "markdown",
     "prefix": "lattice-pricing",
     "body": [
       "<!-- _class: pricing -->",
       "",
       "## Pick the plan that fits the team.",
       "",
-      "- Starter `$0`",
+      "- Starter `\\$0`",
       "  - [x] First feature",
       "  - [/] Second feature",
       "  - For evaluating, one team.",
-      "- Growth `$49 / mo` *Most popular*",
+      "- Growth `\\$49 / mo` *Most popular*",
       "  - [x] First feature",
       "  - [x] Second feature",
       "  - For scaling teams.",
@@ -831,6 +880,7 @@
     "description": "Side-by-side plan tiers with prices, feature checklists, and one recommended column."
   },
   "lattice: progress": {
+    "scope": "markdown",
     "prefix": "lattice-progress",
     "body": [
       "<!-- _class: progress -->",
@@ -846,6 +896,7 @@
     "description": "Horizontal progress bars — one row per item, percentage filled."
   },
   "lattice: q-and-a": {
+    "scope": "markdown",
     "prefix": "lattice-q-and-a",
     "body": [
       "<!-- _class: q-and-a -->",
@@ -862,6 +913,7 @@
     "description": "Anticipated questions paired with prepared answers — the end-of-pitch 'what we expect to be asked' slide."
   },
   "lattice: quadrant": {
+    "scope": "markdown",
     "prefix": "lattice-quadrant",
     "body": [
       "<!-- _class: quadrant -->",
@@ -888,6 +940,7 @@
     "description": "Native 2×2 scatter chart — items plotted on two continuous axes."
   },
   "lattice: quote": {
+    "scope": "markdown",
     "prefix": "lattice-quote",
     "body": [
       "<!-- _class: quote -->",
@@ -899,6 +952,7 @@
     "description": "A pulled quotation, centered, with attribution."
   },
   "lattice: radar": {
+    "scope": "markdown",
     "prefix": "lattice-radar",
     "body": [
       "<!-- _class: radar -->",
@@ -929,6 +983,7 @@
     "description": "Native radar / spider chart — items rated across multiple axes."
   },
   "lattice: redline": {
+    "scope": "markdown",
     "prefix": "lattice-redline",
     "body": [
       "<!-- _class: redline -->",
@@ -944,6 +999,7 @@
     "description": "Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tracking the amendment."
   },
   "lattice: regulatory-update": {
+    "scope": "markdown",
     "prefix": "lattice-regulatory-update",
     "body": [
       "<!-- _class: regulatory-update -->",
@@ -968,6 +1024,7 @@
     "description": "Change log against a baseline — numbered list of statutes/cases/rules with citation, summary, and effective date."
   },
   "lattice: risk-matrix": {
+    "scope": "markdown",
     "prefix": "lattice-risk-matrix",
     "body": [
       "<!-- _class: risk-matrix -->",
@@ -981,6 +1038,7 @@
     "description": "A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbered marker and a key that lists them worst first."
   },
   "lattice: roadmap": {
+    "scope": "markdown",
     "prefix": "lattice-roadmap",
     "body": [
       "<!-- _class: roadmap -->",
@@ -997,6 +1055,7 @@
     "description": "Phased multi-workstream grid — phases across the top, workstreams down the side."
   },
   "lattice: rows": {
+    "scope": "markdown",
     "prefix": "lattice-rows",
     "body": [
       "<!-- _class: rows -->",
@@ -1016,6 +1075,7 @@
     "description": "Two components stacked on one slide, one above the other."
   },
   "lattice: scatter": {
+    "scope": "markdown",
     "prefix": "lattice-scatter",
     "body": [
       "<!-- _class: scatter -->",
@@ -1032,6 +1092,7 @@
     "description": "An XY plot with real units on both axes — one dot per entity, showing how two measures relate."
   },
   "lattice: scene": {
+    "scope": "markdown",
     "prefix": "lattice-scene",
     "body": [
       "<!-- _class: scene gallery -->",
@@ -1062,6 +1123,7 @@
     "description": "An Anima motion scene as its poster still — an inline, palette-blind SVG that recolors with the theme and bakes crisp into the PDF; the live animation plays in the HTML/present surfaces."
   },
   "lattice: slope": {
+    "scope": "markdown",
     "prefix": "lattice-slope",
     "body": [
       "<!-- _class: slope -->",
@@ -1078,6 +1140,7 @@
     "description": "Two labeled columns joined by one line per entity, so a change in ranking reads as a crossing."
   },
   "lattice: split-compare": {
+    "scope": "markdown",
     "prefix": "lattice-split-compare",
     "body": [
       "<!-- _class: split-compare -->",
@@ -1100,6 +1163,7 @@
     "description": "Two options + verdict — dark frame on the left, 2-column option grid + a recommendation card on the right."
   },
   "lattice: split-panel": {
+    "scope": "markdown",
     "prefix": "lattice-split-panel",
     "body": [
       "<!-- _class: split-panel -->",
@@ -1120,6 +1184,7 @@
     "description": "Featured left panel + supporting right zone — one prominent claim beside the points that substantiate it."
   },
   "lattice: stacked-bar": {
+    "scope": "markdown",
     "prefix": "lattice-stacked-bar",
     "body": [
       "<!-- _class: stacked-bar -->",
@@ -1138,6 +1203,7 @@
     "description": "Bars split into parts, so one chart carries both the total for each category and the mix inside it."
   },
   "lattice: state-chart": {
+    "scope": "markdown",
     "prefix": "lattice-state-chart",
     "body": [
       "<!-- _class: state-chart -->",
@@ -1168,6 +1234,7 @@
     "description": "Native state machine diagram — states as a list, transitions as arrows to a state's name, on the flowchart's grammar."
   },
   "lattice: stats": {
+    "scope": "markdown",
     "prefix": "lattice-stats",
     "body": [
       "<!-- _class: stats -->",
@@ -1182,7 +1249,7 @@
       "   - faster close",
       "2. 4.2×",
       "   - signal recall",
-      "3. $1.2M",
+      "3. \\$1.2M",
       "   - prevented losses",
       "4. −18d",
       "   - avg cycle time"
@@ -1190,6 +1257,7 @@
     "description": "Row of 3–5 stat tiles, each with a big number and a label."
   },
   "lattice: statute-stack": {
+    "scope": "markdown",
     "prefix": "lattice-statute-stack",
     "body": [
       "<!-- _class: statute-stack -->",
@@ -1209,6 +1277,7 @@
     "description": "Citation hierarchy — federal / state / local rows with citation, headline obligation, and status."
   },
   "lattice: table": {
+    "scope": "markdown",
     "prefix": "lattice-table",
     "body": [
       "<!-- _class: table -->",
@@ -1224,6 +1293,7 @@
     "description": "The table component — a GFM pipe table with a row capacity, autosplit, and the portrait card reshape."
   },
   "lattice: team-profile": {
+    "scope": "markdown",
     "prefix": "lattice-team-profile",
     "body": [
       "<!-- _class: team-profile -->",
@@ -1247,6 +1317,7 @@
     "description": "A roster of named people, each under a portrait, with the role they own."
   },
   "lattice: timeline-list": {
+    "scope": "markdown",
     "prefix": "lattice-timeline-list",
     "body": [
       "<!-- _class: timeline-list -->",
@@ -1265,6 +1336,7 @@
     "description": "Date-stamped event list rendered as a horizontal spine — a dot per event with its date pill above and title, status pill, and body stacked below."
   },
   "lattice: title": {
+    "scope": "markdown",
     "prefix": "lattice-title",
     "body": [
       "<!-- _class: title -->",
@@ -1278,6 +1350,7 @@
     "description": "Opening slide. Dark canvas, centered, no chrome."
   },
   "lattice: topic": {
+    "scope": "markdown",
     "prefix": "lattice-topic",
     "body": [
       "<!-- _class: topic -->",
@@ -1291,23 +1364,25 @@
     "description": "Topic anchor inside a section. A horizontal cut: the topic above, the section's topics as a scale below."
   },
   "lattice: tower": {
+    "scope": "markdown",
     "prefix": "lattice-tower",
     "body": [
       "<!-- _class: tower -->",
       "",
       "## Who carries each layer of the program.",
       "",
-      "- Layer 2 `$100M xs $50M`",
+      "- Layer 2 `\\$100M xs \\$50M`",
       "  - Reinsurer A `60%`",
       "  - Reinsurer B `40%`",
-      "- Layer 1 `$40M xs $10M`",
+      "- Layer 1 `\\$40M xs \\$10M`",
       "  - Reinsurer A `50%`",
       "  - Reinsurer C `50%`",
-      "- Retention `$10M`"
+      "- Retention `\\$10M`"
     ],
     "description": "A reinsurance program as stacked layers, each written as its limit in excess of its attachment and split across the reinsurers who took a share of it."
   },
   "lattice: verdict-grid": {
+    "scope": "markdown",
     "prefix": "lattice-verdict-grid",
     "body": [
       "<!-- _class: verdict-grid -->",
@@ -1333,6 +1408,7 @@
     "description": "Options scored against criteria as a verdict matrix."
   },
   "lattice: video": {
+    "scope": "markdown",
     "prefix": "lattice-video",
     "body": [
       "<!-- _class: video companion -->",
@@ -1346,6 +1422,7 @@
     "description": "A video as a static, PDF-safe embed: a poster that links to the clip, a play badge, the provider's name, and a scannable QR to the same URL — never a live iframe."
   },
   "lattice: waterfall": {
+    "scope": "markdown",
     "prefix": "lattice-waterfall",
     "body": [
       "<!-- _class: waterfall -->",
@@ -1361,6 +1438,7 @@
     "description": "A bridge from one total to another through signed contributions, each bar starting where the last one ended."
   },
   "lattice: wifi": {
+    "scope": "markdown",
     "prefix": "lattice-wifi",
     "body": [
       "<!-- _class: wifi -->",
@@ -1377,6 +1455,7 @@
     "description": "A network join card: readable Wi-Fi credentials beside a QR a phone scans to connect in one tap."
   },
   "lattice: word-cloud": {
+    "scope": "markdown",
     "prefix": "lattice-word-cloud",
     "body": [
       "<!-- _class: word-cloud -->",

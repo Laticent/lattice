@@ -356,6 +356,7 @@ changes to engine, tooling or test code, not on documentation-only ones.
 | \`fonts/\` | The embedded typefaces. **Do not drop these** — without them type falls back to system serif, silently. |
 | \`marp.config.cjs\` | Registers the stylesheets for marp-cli. |
 | \`.vscode/settings.json\` | Registers them for the VS Code extension. |
+| \`.vscode/lattice.code-snippets\` | One completion per layout. On an empty line in the deck, type \`lattice-\` and press **Ctrl+Space** (**⌃Space** on a Mac): pick a layout and VS Code writes its skeleton. |
 | \`.vscode/extensions.json\` | Makes VS Code offer to install Marp for VS Code. |
 | \`NOTICE.md\` · \`LICENSE\` · \`THIRD-PARTY-LICENSES.txt\` | The terms these files come under, and the full third-party license texts. Worth two minutes. |
 

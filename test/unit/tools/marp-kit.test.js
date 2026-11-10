@@ -214,3 +214,9 @@ test('the committed dist/marp-kit matches what the builder produces', () => {
     assert.ok(KIT.has(rel), `dist/marp-kit/${rel} is not produced by the builder — stale artifact`);
   }
 });
+
+// The layout completions ship with the kit: the repo's own generated file, unchanged (tools/build-snippets.js).
+test('the kit ships the layout snippets VS Code completes from', () => {
+  const repo = fs.readFileSync(path.join(__dirname, '..', '..', '..', '.vscode', 'lattice.code-snippets'), 'utf8');
+  assert.equal(text('.vscode/lattice.code-snippets'), repo);
+});

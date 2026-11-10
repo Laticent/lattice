@@ -215,7 +215,7 @@ describe('export-marp bundle (end-to-end)', () => {
       assert.ok(headings.includes(FAMILY[prefix]), `no license heading names ${FAMILY[prefix]}`);
     }
     // Lattice's own files, and the license file itself; everything else in STATIC_ASSETS is third party.
-    const OWN = ['lattice.css', 'lattice-vscode.css', '.vscode/themes/lattice.css', 'lattice-runtime-min.js', 'lattice-plugin-avatars.js', 'THIRD-PARTY-LICENSES.txt'];
+    const OWN = ['lattice.css', 'lattice-vscode.css', '.vscode/themes/lattice.css', '.vscode/lattice.code-snippets', 'lattice-runtime-min.js', 'lattice-plugin-avatars.js', 'THIRD-PARTY-LICENSES.txt'];
     for (const { to } of STATIC_ASSETS) {
       if (OWN.includes(to)) continue;
       assert.ok(headings.includes(to), `${to} ships in the bundle but no license heading names it`);
