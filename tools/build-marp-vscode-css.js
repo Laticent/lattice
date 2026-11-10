@@ -31,6 +31,14 @@
  * with no selector to weaken (the `@layer` order statement, `@keyframes`, `@property`; not `@font-face`, see `pinnedRules`). The stub is written to
  * dist/lattice-vscode-stub.css (and dist/lattice-vscode-bundle-stub.css), the file the hand-off registers for `lattice`.
  *
+ * EVERY MARP FOR VS CODE IN THE RANGE. The preview runs the marp-core (and marpit) its own release bundles, not the one this
+ * build packs with, and Marp's EARLIER rules are not the same in all of them: marpit before 3.2.2 writes its `h1` reset as
+ * `section :is(h1, marp-h1)`, one type selector stronger than 3.2.2's `:where(…)`, so a lowered `section h1 { margin: 0 }` lost
+ * to it in Marp for VS Code 3.0.0–3.5.1 and a title slide's paragraphs moved 43 px (measured, 2026-11-10). So the ties are
+ * checked against the earlier rules of EVERY bundled pair (`VSCODE_CORES`, exact devDependency aliases with their marpit pinned
+ * by `overrides`, each verified to pack byte-for-byte what its release bundles). The theme's own rules pack the same in all
+ * of them; only Marp's own rules differ.
+ *
  * WHAT IT DOES NOT TOUCH. marp-cli keeps the full theme registered (marp.config.cjs): a PDF is rendered once, so nothing there
  * re-processes per keystroke, and its output does not change. In a marp-cli render this file's selectors (`div#__marp-vscode …`)
  * match nothing.
@@ -43,6 +51,19 @@ const fs = require('node:fs');
 const path = require('node:path');
 const csstree = require('css-tree');
 const { Marp } = require('@marp-team/marp-core');
+
+/**
+ * The marp-core (and marpit) each Marp for VS Code 3.x release bundles, read from each release's own node_modules. The build
+ * checks ties against Marp's earlier rules under every one of them (`pinnedRules`). The aliases are exact devDependencies,
+ * each with its marpit pinned by package.json `overrides` to the version its release bundles.
+ * Add a row when a Marp for VS Code release bundles a pair not listed here (marp-vscode's package-lock.json names both).
+ */
+const VSCODE_CORES = Object.freeze([
+  { vscode: '3.0.0-3.2.0', core: '4.0.1', marpit: '3.1.2', Marp: require('marp-core-4.0.1').Marp },
+  { vscode: '3.3.0', core: '4.1.0', marpit: '3.1.3', Marp: require('marp-core-4.1.0').Marp },
+  { vscode: '3.4.0-3.5.1', core: '4.3.0', marpit: '3.2.1', Marp: require('marp-core-4.3.0').Marp },
+  { vscode: '3.6.0-3.6.1', core: '4.4.0', marpit: '3.2.2', Marp: require('marp-core-4.4.0').Marp },
+]);
 const { minifyCss } = require('./minify-css.js');
 
 const ROOT = path.join(__dirname, '..');
@@ -68,8 +89,8 @@ const VSCODE_OPTIONS = Object.freeze({
 const { stubOf } = require('../lib/export/marp-vscode-stub.js');
 
 /** The CSS the preview would carry for `theme`, given these registered themes. */
-function pack(themes, theme) {
-  const marp = new Marp(VSCODE_OPTIONS);
+function pack(themes, theme, MarpClass = Marp) {
+  const marp = new MarpClass(VSCODE_OPTIONS);
   for (const css of themes) marp.themeSet.add(css);
   return marp.renderStyle(theme);
 }
@@ -250,12 +271,22 @@ function splitRule(rule, keep) {
  */
 function pinnedRules(engine, stub) {
   const source = nodes(engine);
-  const full = pack([engine], 'lattice');
   const base = pack([stub], 'lattice');
-  const theme = new Set(added(full, base));
-  const fullNodes = nodes(full);
-  // Marp's earlier rules, top level only: the ones inside an at-rule are print rules (`@media print`), never applied in the preview.
-  const before = styleRules(fullNodes.slice(0, fullNodes.findIndex((n) => theme.has(n))).join('\n'), { nested: false });
+  // Marp's earlier rules, top level only (the ones inside an at-rule are print rules, `@media print`, never applied in the
+  // preview), under EVERY bundled marp-core (`VSCODE_CORES`): a rule only an older one writes still decides a tie there.
+  // They do not depend on the theme's rules, so each core packs the directive-only stub plus one marker rule, and the earlier
+  // rules are the ones ahead of the marker: the same nodes a pack of the whole engine puts ahead of its first rule (checked
+  // under all four, 2026-11-10), at about 20 ms a core instead of a full engine pack each.
+  const EARLIER_MARK = '.lattice-vscode-earlier-mark{--lattice-mark:0}';
+  const seen = new Set();
+  const earlier = [];
+  for (const { Marp: M } of VSCODE_CORES) {
+    const packed = nodes(pack([`${stub}\n${EARLIER_MARK}`], 'lattice', M));
+    const at = packed.findIndex((x) => x.includes('lattice-vscode-earlier-mark'));
+    if (at < 0) throw new Error('build-marp-vscode-css: the earlier-rules marker did not survive the pack');
+    for (const n of packed.slice(0, at)) if (!seen.has(n)) { seen.add(n); earlier.push(n); }
+  }
+  const before = styleRules(earlier.join('\n'), { nested: false });
   const MARK = 'lattice-vscode-pin-';
   const marked = `${stub}\n${source.map((n, i) => `${n}\n.${MARK}${i}{--lattice-pin:0}`).join('\n')}`;
   const bySource = source.map(() => []);
@@ -415,4 +446,4 @@ function main(argv) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { build, outputs, stubOf, added, forTheme, pinnedRules, specificity, pack, VSCODE_OPTIONS, OUT, OUT_BUNDLE, OUT_STUB, OUT_BUNDLE_STUB };
+module.exports = { build, outputs, stubOf, added, forTheme, pinnedRules, specificity, pack, VSCODE_OPTIONS, VSCODE_CORES, OUT, OUT_BUNDLE, OUT_STUB, OUT_BUNDLE_STUB };

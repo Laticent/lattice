@@ -18,6 +18,12 @@
  * through `marpScopableCss` first (dist/lattice-vscode-bundle-min.css, shipped as `lattice-vscode.css`). The decks: the kit's
  * Sample-Deck (cuoio, and cuoio-dark, a palette that `@import`s another), and the layout gallery (every component, mustard, 4K:
  * also proves the stubs keep a deck's own `size:`).
+ *
+ * EVERY BUNDLED MARP. A user's preview runs the marp-core (and marpit) THEIR Marp for VS Code bundles, and Marp's own rules differ
+ * between them: marpit before 3.2.2 writes its `h1` reset one type selector stronger, which beat a lowered engine rule and moved
+ * a title slide's paragraphs 43 px in Marp for VS Code 3.0.0-3.5.1 (found by driving all ten 3.x releases, 2026-11-10; this test
+ * then ran 4.4.0 only and passed). So every Sample-Deck case runs under each pair the build models (`VSCODE_CORES`); the 120-slide
+ * gallery runs under the newest, since the theme's own rules pack the same under all of them.
  */
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -34,7 +40,7 @@ const TAGS = '<script src="mermaid-v11-min.js"></script>\n<script src="lattice-d
 
 let Marp;
 try { ({ Marp } = require('@marp-team/marp-core')); } catch { Marp = null; }
-const { VSCODE_OPTIONS, stubOf } = require('../../../tools/build-marp-vscode-css.js');
+const { VSCODE_OPTIONS, VSCODE_CORES, stubOf } = require('../../../tools/build-marp-vscode-css.js');
 const { marpScopableCss, withoutEmojiFont, VSCODE_STYLESHEET } = require('../../../lib/export/marp-bundle.js');
 
 // The two hand-offs, each with the theme text it registers and the stylesheet its deck links. The kit registers the dist files
@@ -52,8 +58,8 @@ const ENGINE = () => read('dist/lattice-min.css');
 const PALETTES = () => fs.readdirSync(path.join(ROOT, 'dist', 'themes')).filter((f) => f.endsWith('-min.css')).map((f) => read(`dist/themes/${f}`));
 
 /** One preview page as Marp for VS Code assembles it: its style, then the slides; the harness only sizes each slide. */
-function previewPage(deck, themes, href) {
-  const marp = new Marp(VSCODE_OPTIONS);
+function previewPage(deck, themes, href, MarpClass = Marp) {
+  const marp = new MarpClass(VSCODE_OPTIONS);
   for (const css of themes) marp.themeSet.add(css);
   const body = deck.replace(/^<link rel="stylesheet" href="[^"]+">$/m, '') + (href ? `\n${link(href)}\n` : '\n');
   const { html, css } = marp.render(body);
@@ -134,17 +140,20 @@ describe('the VS Code-shaped stylesheet styles the preview exactly as the regist
     return out;
   }
 
-  for (const d of DECKS) {
-    test(`${d.name}: every slide identical`, async (t) => {
+  const NEWEST = VSCODE_CORES[VSCODE_CORES.length - 1];
+  const RUNS = DECKS.flatMap((d) => (d.name.includes('gallery') ? [NEWEST] : VSCODE_CORES).map((c) => ({ ...d, core: c })));
+  for (const d of RUNS) {
+    const tag = `${d.name}-core${d.core.core}`;
+    test(`${d.name} under marp-core ${d.core.core} (Marp for VS Code ${d.core.vscode}): every slide identical`, async (t) => {
       if (skip) return t.skip(skip);
       const h = HANDOFFS[d.handoff];
       const palettes = PALETTES().map(h.prepare);
       const deck = d.deck();
       // Before: the full themes. After: the engine's built stub (its directives and pinned declarations), each palette's stub.
-      fs.writeFileSync(path.join(OUT, `${d.name}-before.html`), previewPage(deck, [h.prepare(ENGINE()), ...palettes], null));
-      fs.writeFileSync(path.join(OUT, `${d.name}-after.html`), previewPage(deck, [read(h.engineStub), ...palettes.map(stubOf)], h.href));
-      const before = await shots(`${d.name}-before.html`);
-      const after = await shots(`${d.name}-after.html`);
+      fs.writeFileSync(path.join(OUT, `${tag}-before.html`), previewPage(deck, [h.prepare(ENGINE()), ...palettes], null, d.core.Marp));
+      fs.writeFileSync(path.join(OUT, `${tag}-after.html`), previewPage(deck, [read(h.engineStub), ...palettes.map(stubOf)], h.href, d.core.Marp));
+      const before = await shots(`${tag}-before.html`);
+      const after = await shots(`${tag}-after.html`);
       assert.equal(after.length, before.length, 'the same slides');
       assert.ok(before.length > 0, 'a deck with slides (guard against a vacuous pass)');
       // ...and slides that were really drawn: a blank or unstyled capture would match its twin just as well.
@@ -153,8 +162,8 @@ describe('the VS Code-shaped stylesheet styles the preview exactly as the regist
       before.forEach((png, i) => {
         if (Buffer.compare(png, after[i]) !== 0) {
           differ.push(i + 1);
-          fs.writeFileSync(path.join(OUT, `${d.name}-slide${i + 1}-before.png`), png);
-          fs.writeFileSync(path.join(OUT, `${d.name}-slide${i + 1}-after.png`), after[i]);
+          fs.writeFileSync(path.join(OUT, `${tag}-slide${i + 1}-before.png`), png);
+          fs.writeFileSync(path.join(OUT, `${tag}-slide${i + 1}-after.png`), after[i]);
         }
       });
       assert.deepEqual(differ, [], `slides that differ (both images kept in ${path.relative(ROOT, OUT)})`);

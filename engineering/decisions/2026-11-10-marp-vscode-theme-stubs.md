@@ -6,7 +6,8 @@ summary: >
   (lib/export/marp-vscode-stub.js) and the deck links a stylesheet the build pre-packs with marp-core, using the options the
   preview renders with (tools/build-marp-vscode-css.js). Measured in a real VS Code, a keystroke reaches the preview in ~0.3 s
   p50 instead of ~1.0 s, and every slide is pixel-identical (a parity test proves it for both hand-offs). marp-cli keeps the
-  full themes. marp-core is a build-time devDependency only.
+  full themes. marp-core is a build-time devDependency only, with the marp-core and marpit pair every Marp for VS Code 3.x
+  release bundles modeled too, because Marp's own rules differ between them (driven on all ten releases, 3.0.0 to 3.6.1).
 ---
 
 # The VS Code preview registers theme stubs, and the deck links a pre-packed stylesheet
@@ -14,7 +15,7 @@ summary: >
 **Date:** 2026-11-10 · **Decided by:** the owner ("Kit + export bundle", "do it in this PR", "option 1": marp-core at build
 time) · **Code:** `tools/build-marp-vscode-css.js`, `lib/export/marp-vscode-stub.js`, `vscodeThemeStubs` and `VSCODE_STYLESHEET`
 in `lib/export/marp-bundle.js`, `tools/build-marp-kit.js` · **Held by:**
-`test/integration/export/marp-vscode-css-parity.test.js`, `test/unit/tools/export-marp.test.js`,
+`test/integration/export/marp-vscode-css-parity.test.js`, `test/unit/tools/marp-vscode-cores.test.js`, `test/unit/tools/export-marp.test.js`,
 `test/unit/tools/marp-kit.test.js`, `docs/src/components/studio/export/deck-export.marp.test.ts`.
 
 ## The problem
@@ -99,7 +100,36 @@ Three ways to get "the CSS the preview would have built" were on the table: run 
 its scoping in our own build, or skip the scoping and hand-write selectors. Only the first is the preview's own code path, so
 only the first stays right when marp-core's packing changes. It runs in the build alone: marp-core is a devDependency and
 nothing in `lib/` requires it (HARD RULE #1 still holds; Marp is an export target, not a render path). The build pins it
-exactly (4.4.0); the parity test is what notices if a different marp-core in a user's Marp for VS Code packs differently.
+exactly (4.4.0).
+
+### Every Marp for VS Code in the range, not just the newest
+
+A user's preview runs the marp-core and marpit **their** Marp for VS Code release bundles, not the build's. The ten 3.x releases
+bundle four pairs:
+
+| Marp for VS Code | marp-core | marpit |
+|---|---|---|
+| 3.0.0–3.2.0 | 4.0.1 | 3.1.2 |
+| 3.3.0 | 4.1.0 | 3.1.3 |
+| 3.4.0–3.5.1 | 4.3.0 | 3.2.1 |
+| 3.6.0–3.6.1 | 4.4.0 | 3.2.2 |
+
+The theme's own rules pack the same in all four (compared node by node). Marp's own EARLIER rules do not: marpit before 3.2.2
+writes its `h1` reset as `section :is(h1, marp-h1) { font-size: 2em; margin-block: 0.67em }`, one type selector stronger than
+3.2.2's `:where(…)`. The first build checked ties against 4.4.0 only, so the engine's plain `section h1 { margin: 0 }`, lowered
+one type selector in the link, lost to the old reset: in Marp for VS Code 3.0.0 to 3.5.1 the title slide's heading took a
+0.67em margin and its two paragraphs moved 43 px. The parity test passed, because it rendered with 4.4.0 too. Driving the real
+preview on all ten releases found it.
+
+So the build checks ties against Marp's earlier rules under all four pairs (`VSCODE_CORES` in the build): exact devDependency
+aliases (`marp-core-4.0.1` … `marp-core-4.4.0`), each with its marpit pinned by package.json `overrides` to the version its
+release bundles, and each checked to pack the three kit themes byte-for-byte like the copy inside that release. The earlier
+rules come from a pack of the directive-only stub plus a marker rule, about 20 ms a pair, so the build stays at about 18 s.
+The fix pins one more rule into the stub (`section h1`'s font and margin declarations, 120 bytes); `color` stays linked, so an
+author's heading color still wins. The parity test now runs every sample-deck case under each pair, and fails on the first
+build's stub (slide 1, under the three older pairs). `test/unit/tools/marp-vscode-cores.test.js` holds the aliases to their
+rows and the pin to the old reset. A new Marp for VS Code release that bundles a pair not listed needs a row (its
+package-lock.json names both versions).
 
 ## Evidence
 
@@ -135,6 +165,11 @@ It caught three real defects on the way, and each showed as a different picture:
 - a pinned rule Marp packs with a companion rule.
 
 In the real VS Code the kit renders styled, and an author `<style>` added to the sample deck wins there, as it does in marp-cli.
+**On every Marp for VS Code 3.x release** (3.0.0, 3.1.0, 3.1.1, 3.2.0, 3.3.0, 3.4.0, 3.5.0, 3.5.1, 3.6.0, 3.6.1, from Open
+VSX), the sample deck was opened once with the setup before this change (full themes registered, no link) and once with the
+shipped kit, and every element's box on all 13 slides, with each slide's computed background, color and font, was compared: all
+identical on all ten, the zero-size `<link>` element aside. An author rule as specific as the engine's (`section.title h1`)
+won on all ten.
 The parity harness cannot see VS Code's own loading, which is how the `@font-face` problem above was found: only the real
 preview showed it.
 
@@ -152,4 +187,6 @@ whenever the font came late.
 - The preview still packs the engine's 21 KB stub on every render: about 24 ms, against about 650 to 780 ms for the full theme
   (marp-core in Node, this machine).
 - An author `@font-face` that redefines one of Lattice's own families loses in the VS Code preview only (see above).
-- A build step (`build-marp-vscode-css.js`, about 18 s for both hand-offs) and a devDependency.
+- A build step (`build-marp-vscode-css.js`, about 18 s for both hand-offs) and five devDependencies: marp-core 4.4.0, and the four
+  bundled pairs as aliases (about 1.7 MB in node_modules; they share the rest of their dependencies with 4.4.0).
+- The parity test runs 26 cases instead of 8 (about 240 s locally; the integration tier is sharded in CI).

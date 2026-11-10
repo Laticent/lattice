@@ -347,6 +347,30 @@ CI-contract decision, not one to take on the way past.
 - **Commits:** #1256 (export-only, incomplete) → #1259 follow-up (build-time,
   every shipped stylesheet); engine-side fix predates both (the `--map-base` bug).
 
+## A slide is right in Marp for VS Code 3.6 and off in 3.0–3.5 (or the reverse)
+
+- **Symptom:** The kit's VS Code preview looks right on one Marp for VS Code
+  release and slightly off on another: a heading's margin, a font size, a box
+  a few dozen pixels out of place. marp-cli renders are fine.
+- **Cause:** Each release bundles its own marp-core and marpit, and Marp's own
+  CSS (its scaffold and resets) is not the same in all of them. marpit before
+  3.2.2 writes its `h1` reset as `section :is(h1, marp-h1)`; 3.2.2 writes
+  `:where(…)`, one type selector weaker. The linked stylesheet's rules are one
+  type selector weaker than a registered theme's (so an author's CSS keeps
+  winning), so a rule that tied the old reset lost to it: the title slide's
+  paragraphs moved 43 px on 3.0.0–3.5.1.
+- **Mitigation:** `tools/build-marp-vscode-css.js` checks ties against Marp's
+  earlier rules under every bundled pair (`VSCODE_CORES`, exact aliases with
+  their marpit pinned by `overrides`), and the parity test runs under each.
+  When a new Marp for VS Code release bundles a pair the table does not list,
+  add a row and its alias. To check a release by hand, install its `.vsix`
+  from Open VSX into its own `--extensions-dir` and compare the preview with
+  the setup before (full themes registered, no link):
+  `engineering/decisions/2026-11-10-marp-vscode-theme-stubs.md`.
+- **Harness note:** the preview's script security (Strict / Disable) is saved
+  per WORKSPACE FOLDER. A fresh folder starts Strict, the runtime never runs,
+  and every probe reports "not ready": reuse a folder whose security you set.
+
 ## Custom `logo:` front-matter directive shows nothing in marp-vscode preview
 
 - **Symptom:** A deck with `logo: ./acme-logo.svg` in front matter

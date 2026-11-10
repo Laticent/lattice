@@ -274,6 +274,10 @@ registered theme, so the kit and an Export-to-Marp bundle can link that CSS and 
 (`engineering/decisions/2026-11-10-marp-vscode-theme-stubs.md`). It is the preview's own code, run once at build time instead
 of on every keystroke. Nothing in `lib/` requires it, so HARD RULE #1 holds: Marp stays an export target. The parity test
 `test/integration/export/marp-vscode-css-parity.test.js` renders with it too, and skips when it is not installed.
+Four more devDependencies are aliases of older marp-core releases (`marp-core-4.0.1` … `marp-core-4.4.0`), each with its marpit
+pinned by `overrides`: the pairs Marp for VS Code 3.x bundles, whose own CSS differs (`VSCODE_CORES`; the decision note's
+"Every Marp for VS Code in the range"). Bump them only together with that table; `test/unit/tools/marp-vscode-cores.test.js`
+fails on a mismatch.
 
 **The regex census runs a pinned recheck, in its own folder, and the gate does not need it.**
 `checkRegexCensus` (`tools/check-ownership.js`, via `build:check`) holds every regex literal in
