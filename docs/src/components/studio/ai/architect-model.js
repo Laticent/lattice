@@ -276,11 +276,6 @@ async function pkceChallenge(verifier) {
   return base64url(new Uint8Array(digest));
 }
 
-// OpenRouter pricing strings are per-token USD; convert to per-MILLION. Variable/
-// router models (Auto Router, Body Builder, …) report a negative sentinel ("-1")
-// and unpriced rows can be missing/non-numeric — return null for "no fixed price"
-// so the UI can label it ("pricing varies") instead of printing "$-1000000". A
-// genuine free model reports "0" → 0 (kept; the UI shows "free").
 /** The fewest output tokens worth asking for when a key's limit cannot cover the full ceiling. */
 export const MIN_AFFORDABLE_REPLY = 512;
 
@@ -293,6 +288,26 @@ export function affordableTokens(detail) {
   return n == null ? null : Number(n);
 }
 
+/** The tag the transport puts in front of a refusal that is about THIS KEY's own spending limit. */
+export const KEY_LIMIT_TAG = '[key-limit]';
+
+/**
+ * True when OpenRouter refused because the KEY's own limit is used up, not the account's balance:
+ * a 403 "Key limit exceeded", or a 402 "can only afford N" that points at the key settings
+ * (measured 2026-11-10: "…To increase, visit https://openrouter.ai/settings/keys"). Read from the
+ * WHOLE body: the thrown message keeps only its first 160 characters, which cut the URL off.
+ */
+export function isKeyLimitRefusal(status, body) {
+  const b = String(body ?? '');
+  if (status === 403) return /key limit exceeded/i.test(b);
+  return status === 402 && /can only afford \d+/i.test(b) && /settings\/keys/i.test(b);
+}
+
+// OpenRouter pricing strings are per-token USD; convert to per-MILLION. Variable/
+// router models (Auto Router, Body Builder, …) report a negative sentinel ("-1")
+// and unpriced rows can be missing/non-numeric — return null for "no fixed price"
+// so the UI can label it ("pricing varies") instead of printing "$-1000000". A
+// genuine free model reports "0" → 0 (kept; the UI shows "free").
 export function orPricePerM(raw) {
   if (raw == null || (typeof raw === 'string' && raw.trim() === '')) return null;
   const n = Number(raw) * 1e6;
@@ -598,7 +613,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       if (res.status === 402) {
         const detail402 = await res.clone().text().catch(() => '');
         const afford = affordableTokens(detail402);
-        if (afford != null && afford >= MIN_AFFORDABLE_REPLY) {
+        if (afford != null && Math.floor(afford * 0.95) >= MIN_AFFORDABLE_REPLY) {
           body.max_tokens = Math.floor(afford * 0.95);
           res = await send(body.model);
         }
@@ -614,7 +629,8 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         if (res.status === 401 && key === readOpenRouterKey() && openRouterKeyActivating()) {
           throw new Error('OpenRouter is still activating this key: it can take a minute or two after signing in. Send again shortly.');
         }
-        throw new Error('OpenRouter error ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
+        const tag = isKeyLimitRefusal(res.status, detail) ? KEY_LIMIT_TAG + ' ' : '';
+        throw new Error('OpenRouter error ' + res.status + (detail || tag ? ': ' + tag + detail.slice(0, 160) : ''));
       }
       const answered = (id) => { if (onAnsweredBy && id) { try { onAnsweredBy(id); } catch {} onAnsweredBy = null; } };
       noteStatus(res.status, key); // a success clears a rejected mark this key earned earlier
@@ -1112,7 +1128,9 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
       return out;
     } catch (e) {
       const err = errStatus(e);
-      if (err && classifyProviderError(err.status, err.detail) === 'billing') noteOutOfCredit(route);
+      // A key whose own limit is used up (a gift link's key) is not an account out of credit: the
+      // Workspace's "out of credit · Add billing" would send its holder to an account they lack.
+      if (err && classifyProviderError(err.status, err.detail) === 'billing' && !String(e?.message ?? '').includes(KEY_LIMIT_TAG)) noteOutOfCredit(route);
       if (!asked || !err || classifyProviderError(err.status, err.detail) !== 'model-gone' || TOOL_REFUSAL.test(err.detail)) throw e;
       let live = null;
       try {

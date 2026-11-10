@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { __resetRetiredForTests, outOfCreditAt } from '../../../lib/model-retired.js';
 import { describeModelError } from '../model-error';
-import { affordableTokens, createArchitectModel, MIN_AFFORDABLE_REPLY } from './architect-model.js';
+import { affordableTokens, createArchitectModel, isKeyLimitRefusal, MIN_AFFORDABLE_REPLY } from './architect-model.js';
 
 // A key with its own spending limit (a gift link's key): OpenRouter refuses a request whose worst
 // case it cannot cover and says how many tokens it can. Measured live on 2026-11-10 with a $0.05
@@ -13,6 +14,7 @@ const ok = () => new Response(JSON.stringify({ choices: [{ message: { content: '
 afterEach(() => {
 	vi.unstubAllGlobals();
 	localStorage.clear();
+	__resetRetiredForTests();
 });
 
 function stub(...replies: Response[]) {
@@ -43,7 +45,7 @@ describe('a capped key that cannot cover the full reply ceiling', () => {
 	});
 
 	it('does not retry when too little is left for a useful reply, and says the key is used up', async () => {
-		const bodies = stub(refusal(MIN_AFFORDABLE_REPLY - 1));
+		const bodies = stub(refusal(Math.ceil(MIN_AFFORDABLE_REPLY / 0.95) - 1));
 		const m = createArchitectModel({ getSettings: () => ({}), defaultMaxTokens: 16384 });
 		const err = await m.complete({ messages: [{ role: 'user', content: 'hi' }], surfaceErrors: true }).catch((e: Error) => e);
 		expect(bodies).toHaveLength(1);
@@ -76,5 +78,29 @@ describe('a capped key that cannot cover the full reply ceiling', () => {
 		expect(said).toMatch(/used up its spending limit/);
 		expect(said).not.toMatch(/rejected the connection/);
 		expect(localStorage.getItem('lattice-db-or-key-invalid')).toBeNull();
+	});
+
+	it('an ACCOUNT short of credit (the same "can only afford" words, pointing at settings/credits) still reads as out of credits', async () => {
+		stub(new Response(JSON.stringify({ error: { code: 402, message: 'This request requires more credits, or fewer max_tokens. You requested up to 16384 tokens, but can only afford 300. To increase, visit https://openrouter.ai/settings/credits and upgrade to a paid account' } }), { status: 402 }));
+		const m = createArchitectModel({ getSettings: () => ({}), defaultMaxTokens: 16384 });
+		const err = await m.complete({ messages: [{ role: 'user', content: 'hi' }], surfaceErrors: true }).catch((e: Error) => e);
+		const said = describeModelError(String((err as Error).message), 'openrouter');
+		expect(said).toMatch(/out of credits/);
+		expect(said).not.toMatch(/Sign in with your own/);
+		expect(outOfCreditAt('openrouter')).not.toBeNull();
+	});
+
+	it('a used-up KEY does not raise the account "out of credit" mark the Workspace shows with "Add billing"', async () => {
+		stub(refusal(100));
+		const m = createArchitectModel({ getSettings: () => ({}), defaultMaxTokens: 16384 });
+		await m.complete({ messages: [{ role: 'user', content: 'hi' }], surfaceErrors: true }).catch(() => {});
+		expect(outOfCreditAt('openrouter')).toBeNull();
+	});
+
+	it('tells a key limit from an account balance only by what OpenRouter points at', () => {
+		expect(isKeyLimitRefusal(402, 'can only afford 3333. To increase, visit https://openrouter.ai/settings/keys')).toBe(true);
+		expect(isKeyLimitRefusal(402, 'can only afford 300. To increase, visit https://openrouter.ai/settings/credits')).toBe(false);
+		expect(isKeyLimitRefusal(403, 'Key limit exceeded (total limit).')).toBe(true);
+		expect(isKeyLimitRefusal(403, 'Your input was flagged by moderation')).toBe(false);
 	});
 });
