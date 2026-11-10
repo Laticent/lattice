@@ -178,9 +178,15 @@ lets the page scale the drawing (`data-chart-form="over"`), by 11% to 29%. The d
 second page, is not built: pages split upstream of the chart (the structural split), so it is engine work. Section 9
 puts it to the owner.
 
-**Measured, not yet fixed.** The dispatch estimates the chart box from the title's length and whether there is a
-subtitle or a caption. Against the real box it is within 4%, both ways: over (text 4% under its role) on a slide with a
-two-line subtitle, under (space left) elsewhere.
+**The box.** The dispatch estimated the chart box from shares of the box measured at mobile, which ran 4-11% over or
+under elsewhere (a two-line subtitle at 4:5, a code block before the chart, a lifted `@callout` line read as a caption).
+A kind on the kernel now takes it in page px (`formBoxPx`): the measured body per size, less an eyebrow line, each extra
+title line, a subtitle or caption by its length, and any code block. Every pilot slide that fits prints within 1% of
+its role size; the estimate errs short, never tall, since a box estimated tall prints the text small. Callout markers'
+digits and lane digits hold the glyph role (11pt) on a phone page.
+
+**Found, not this kernel's.** `examples/chart-lead-blocks.md` page 2 (a bar under a code block) reports OVERFLOW at
+mobile and 4:5 on the branch before the kernel too; `main` does not. It is owed a fix before this PR's merge ask.
 
 ## 9. Open for the owner (2026-11-10)
 
