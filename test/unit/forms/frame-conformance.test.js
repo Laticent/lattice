@@ -163,7 +163,7 @@ describe('frame-conformance · opt-in state (pins the dormant gate)', () => {
     }
   });
 
-  test('the strict set is exactly the migrated components — contact + diagram + math + video + wifi', () => {
+  test('the strict set is exactly the migrated components — contact + diagram + math + video + wifi + gift-card', () => {
     // Opt-in, one component (or one same-kernel family) per PR (§2). PR 1
     // migrated the first canvas — `contact` — with the render-side wiring proven
     // byte-identical AND probe-verdict-identical (§5). PR 2 added `wifi`, the
@@ -204,7 +204,7 @@ describe('frame-conformance · opt-in state (pins the dormant gate)', () => {
     // flag flip alone was a no-op, and a hoist alone pulled the title out of the
     // `companion` pair. Two columns were rebudgeted to fit the stage cell (measured in
     // the export), and the render gate materializes its stage cell.
-    const EXPECTED_STRICT = ['contact', 'diagram', 'math', 'video', 'wifi'];
+    const EXPECTED_STRICT = ['contact', 'diagram', 'gift-card', 'math', 'video', 'wifi'];
     assert.deepEqual(
       strict.map((m) => m.name).sort(),
       EXPECTED_STRICT,

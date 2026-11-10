@@ -110,6 +110,19 @@ gift-cards revoke [--label …]     # delete a batch's keys at OpenRouter
     adds them. The PDF holds working keys inside its QR codes, so the tool says so: treat it
     like cash.
 
+**Built (2026-11-10).** `tools/gift-cards.mjs`, run as `node tools/gift-cards.mjs make|report|revoke`
+(no npm script on purpose: nothing should run it by accident). Choices the sketch above left open:
+`--expires` defaults to 90 days; `--label` defaults to `gift-<date>-<time>` (to the minute, so
+two batches never share names), and each key is named `<label>-<n>`, so `report` and `revoke`
+match exactly `<label>-<number>`: `cafe` never reaches `cafe-2-01`. `revoke` refuses to run
+without `--label`, and asks before deleting unless given `--yes`. Everything that can fail before
+a key exists (the out folder, the arguments, `--site`, which must be https) fails first; a batch
+that fails part way keeps the keys it made, writes them to the CSV whatever went wrong, and says
+how to revoke them;
+`--pin` gives each card its own 6-digit PIN, kept in the CSV beside the card number (a PIN alone
+opens nothing). `cards-sheet.pdf` lays ten cards on Letter (US) or A4 (ISO) at their exact size
+with crop marks in the margins, using `pdf-lib`; it leaves Lattice's own export untouched.
+
 ## 4. The security model: a gift card, not a password
 
 - **Whoever holds the link can spend it.** A photo of the card is enough.
@@ -137,6 +150,17 @@ gift-cards revoke [--label …]     # delete a batch's keys at OpenRouter
   - **Home printing first:** cards laid out on letter or A4 with cut lines. No export change.
   - **Print-shop PDF:** exact physical size, bleed and crop marks. That changes exported bytes,
     so the Quality Bar requires the owner's sign-off on real PDFs.
+
+**Built (2026-11-10).** The sizes are `card` (1050 x 600 px, exactly 7:4) and `card-iso`
+(850 x 550 px, exactly 17:11) in `lib/core/sizes.js`, not offered in the slide-size pickers. The
+component is `lib/components/connect/gift-card/`, on the shared QR-card kernel beside `contact`
+and `wifi`. The link is written inside a code span (so Markdown cannot read an underscore in the
+token as emphasis) and goes into the QR only; it is never printed as text. Its small text is sized
+as a share of the card's width, not by the `--fs-*` roles, which are tuned for projection and came
+out at 2.5 to 4 pt on a printed card; the eyebrow and number print at about 6.5 pt, the caption
+7.5 pt and the PIN 9.5 pt. The CLI's deck sets `paginate: false` and `spectrum: off`: a card has
+no page number, and a bar on the edge is the first thing a home cut gets wrong. Demo deck:
+`examples/gift-card.md`.
 
 ## 6. The Studio side
 
