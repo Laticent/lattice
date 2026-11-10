@@ -23,3 +23,6 @@
 - A picture's box is known before it loads: the CLI reads the file's size, the engine knows every `sample:` picture's, and the
   Studio knows a Library photo's, so a slide lays out the same with the picture missing, and an `lg` picture under a heading no
   longer overflows.
+- The docs site has an **Images** plugin page with a live demo (a framed figure, the photo panel, a `bleed` background, a
+  tone), and the Video page now teaches `>{…}`, the frames, finishes and tones, and drawing on any slide. The Plugins hub
+  counts its cards instead of saying "nine" over ten.
