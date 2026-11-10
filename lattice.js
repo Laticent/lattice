@@ -1831,7 +1831,7 @@ function refuseUnapprovedCode(pkgs) {
 function withInstalledPlugins(source) {
   const { refusePackage } = require('./lib/cli/package-gate.js');
   const { activePluginNames } = require('./lib/packages/code-door-fence.mjs');
-  const { codeDigest, readTrust, trustOf } = require('./lib/packages/trust.js');
+  const { acceptedDigests, readTrust, trustOf } = require('./lib/packages/trust.js');
   const PLUGIN_NAMES = require('./lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
   const installed = [];
   for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'plugin' && x.ok)) {
@@ -1858,7 +1858,7 @@ function withInstalledPlugins(source) {
     if (written.length) console.error(`warning: the installed plugin ${p.name} draws ${written.map((k) => `\`@${k.name}{…}\``).join(', ')} spans, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
   }
   const { pluginReturnFields } = require('./lib/core/code-shape.mjs');
-  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], css: p.pkg.roles['styles.css'] ? String(p.pkg.files[p.pkg.roles['styles.css']]) : '', layer: trustOf(approvals, 'plugin', p.name, codeDigest(p.pkg))?.layer ?? null })), ...npm];
+  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], css: p.pkg.roles['styles.css'] ? String(p.pkg.files[p.pkg.roles['styles.css']]) : '', layer: trustOf(approvals, 'plugin', p.name, acceptedDigests(p.pkg))?.layer ?? null })), ...npm];
 }
 
 /**
