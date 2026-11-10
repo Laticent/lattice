@@ -2184,3 +2184,18 @@ test('a plugin placeholder: the narration says what the article says, wherever i
 	// A block stands in the article's note figure, as a visual layout's note does, so both hosts give it its box and spacing.
 	assert.match(articleHtml, /<figure class="lp-figure lp-figure-note"><p class="lp-visual-note">The plugin <code>gantt-plugin<\/code>/);
 });
+
+test('a placed photo reaches the article: the shortcut, the record and `![bg]` on an image slide, and a bleed background', async () => {
+	for (const pic of ['![A lake](https://example.com/a.png)', '`@image{https://example.com/a.png, title="A lake"}`', '![bg](https://example.com/a.png)']) {
+		const { articleHtml } = project(await renderedSections(`<!-- _class: image -->\n\n## Pic\n\nThe lead.\n\n${pic}\n\nAfter.\n`));
+		assert.equal(articleHtml.split('<img').length - 1, 1, pic);
+		assert.ok(articleHtml.indexOf('The lead.') < articleHtml.indexOf('<figure') && articleHtml.indexOf('</figure>') < articleHtml.indexOf('After.'), pic);
+	}
+	const { articleHtml } = project(await renderedSections('<!-- _class: content bleed -->\n\n## Over\n\nWords.\n\n![A lake](https://example.com/a.png)\n'));
+	assert.match(articleHtml, /<figure class="lp-figure"><img src="https:\/\/example\.com\/a\.png" alt="A lake">/);
+});
+
+test('a video slide on a bleed background keeps its own video card', async () => {
+	const { articleHtml } = project(await renderedSections('<!-- _class: video bleed -->\n\n## Clip\n\n`@video{"https://youtu.be/dQw4w9WgXcQ", title="Tour"}`\n\n![A lake](https://example.com/a.png)\n'));
+	assert.match(articleHtml, /<figure class="lp-video">/);
+});
