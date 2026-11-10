@@ -319,7 +319,7 @@ export function StudioActivityRailSkeleton() {
  *     idiom `Fix all issues` beside it already used), which makes the row's shape constant for
  *     the app too — the toolbar no longer reshuffles as you arrow through the deck.
  *   · `Compose`/`Source` — the pane's title since 2026-11-10. The stored mode is unknowable at build time,
- *     so both segments draw unlit and studio.astro lights the one its seed stamped as `data-ssr-edit`;
+ *     so both segments draw unlit and studio.astro lights Compose, or Source when its seed set `data-ssr-src`;
  *     both editor skeletons are drawn and the same attribute hides the other (2026-11-10-compose-first.md).
  *   · `Collapse editor` — `splitUsable` is `!mobile && view === 'compose'`, and this band does
  *     not render on mobile or at Read at all (see studio.astro's `.ssr-editpane` gates).
@@ -349,8 +349,8 @@ export function StudioEditorPaneSkeleton() {
 				<span className="ssr-slide-settings contents"><Button variant="ghost" size="icon-sm" aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></span>
 				<Button variant="ghost" size="icon-sm" aria-label="Collapse editor"><PanelLeftClose className="size-4" /></Button>
 			</div>
-			<div className="ssr-body-compose contents"><ComposeSkeleton /></div>
-			<div className="ssr-body-source contents"><EditorSkeleton /></div>
+			<ComposeSkeleton className="ssr-body-compose" quiet />
+			<EditorSkeleton className="ssr-body-source" quiet />
 		</>
 	);
 }

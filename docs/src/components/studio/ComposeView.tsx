@@ -2,7 +2,7 @@ import { Link2 } from 'lucide-react';
 import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
-import { type MarkType, type Node as PMNode, type ResolvedPos, Slice } from 'prosemirror-model';
+import { Mark, type MarkType, type Node as PMNode, type ResolvedPos, Slice } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
 import { type Command, EditorState, NodeSelection, Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
 import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
@@ -2084,6 +2084,9 @@ function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen |
  * Compose's imperative surface — the twin of the markdown Editor's EditorHandle,
  * so the shell can drive either editor through the same two verbs.
  */
+/** A transaction's name in the one undo history (Filo), when it is not "Typing" or "Change pane": Refine's `AI: …`. */
+const STEP_LABEL = 'composeStepLabel';
+
 /**
  * The selection Refine may rewrite in Compose: non-empty, inside ONE textblock that is not code, on a slide Compose
  * can edit. Plain text in, plain text out, so the rewrite cannot break a list, a table or an object. Null otherwise.
@@ -2092,14 +2095,27 @@ function refinableRange(state: EditorState): { from: number; to: number } | null
 	const { from, to, $from, $to, empty } = state.selection;
 	if (empty || !$from.sameParent($to) || !$from.parent.isTextblock || $from.parent.type.spec.code) return null;
 	if ($from.depth >= 1 && $from.node(1)?.attrs.locked) return null;
-	return { from, to };
+	// Only text, all in ONE set of marks. The rewrite comes back as plain text and replaces the range as one text node
+	// carrying the marks at its start, so anything else in the range would be lost without a word: an inline object
+	// (image, pill, math) or a line break never reaches the model at all, and a bold word inside plain text would
+	// lose its bold. A selection like that is not offered.
+	let marks: readonly Mark[] | null = null;
+	let clean = true;
+	state.doc.nodesBetween(from, to, (node) => {
+		if (!clean || node.isTextblock) return clean;
+		if (!node.isText) clean = false;
+		else if (marks === null) marks = node.marks;
+		else if (!Mark.sameSet(marks, node.marks)) clean = false;
+		return false;
+	});
+	return clean ? { from, to } : null;
 }
 
 export type ComposeHandle = {
 	/** The text Refine would rewrite: a selection inside one textblock of an editable slide, as plain text. */
 	getSelection: () => { empty: boolean; text: string };
-	/** Replace that selection with `text`, as its own undo step. False when there is no such selection now. */
-	replaceSelection: (text: string) => boolean;
+	/** Replace that selection with `text`, as its own undo step named `label`. False when there is no such selection now. */
+	replaceSelection: (text: string, label?: string) => boolean;
 	/** Scroll slide `index` into view. `focus` also takes keyboard focus and parks the
 	 *  caret at the slide's first editable position (#1288). */
 	revealSlide: (index: number, opts?: { focus?: boolean; keepCaret?: boolean }) => void;
@@ -2134,7 +2150,7 @@ export type ComposeHandle = {
 	afterComposition: (fn: () => void) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire, describeDelete }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire, describeDelete }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -2333,14 +2349,14 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const r = v && refinableRange(v.state);
 			return v && r ? { empty: false, text: v.state.doc.textBetween(r.from, r.to) } : { empty: true, text: '' };
 		},
-		replaceSelection(text: string) {
+		replaceSelection(text: string, label?: string) {
 			const v = viewRef.current;
 			const r = v && refinableRange(v.state);
 			if (!v || !r) return false;
 			// One textblock in, one out: a rewrite that came back in several lines joins into this one.
 			const flat = text.replace(/\s*\n+\s*/g, ' ').trim();
 			if (!flat) return false;
-			v.dispatch(closeFiloGroup(v.state.tr.insertText(flat, r.from, r.to)));
+			v.dispatch(closeFiloGroup(v.state.tr.insertText(flat, r.from, r.to)).setMeta(STEP_LABEL, label));
 			return true;
 		},
 		applyPane(req: PaneRequest, pick: PanePick) {
@@ -2916,7 +2932,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						baselineRef.current = base;
 						lastEmittedRef.current = src;
 						// `close`: this change is its own undo step (a pane pick), never joined to the typing before it.
-						(retiringRef.current ?? onChangeRef.current)(src, closesFiloGroup(tr) ? { close: true } : undefined);
+						(retiringRef.current ?? onChangeRef.current)(src, closesFiloGroup(tr) ? { close: true, label: tr.getMeta(STEP_LABEL) } : undefined);
 					} else if (closesFiloGroup(tr)) {
 						// An object edit just committed: the next change starts a new undo step.
 						onCloseGroupRef.current?.();

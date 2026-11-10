@@ -13,6 +13,7 @@
 
 import { BookOpen, ChevronLeft, ChevronRight, FileBox, FileSliders, FileText, GalleryVerticalEnd, Gauge, Layers, PencilLine, Settings as SettingsCog, SlidersHorizontal, Sparkles, UsersRound } from 'lucide-react';
 import type * as React from 'react';
+import { Fragment } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Tip } from '@/components/ui/tooltip';
 import { joinBase } from '@/lib/base-url.mjs';
@@ -425,8 +426,8 @@ const COMPOSE_SKELETON_BLOCKS = [
 // so the order cannot drift between them. `name` is the accessible name, which the e2e chrome contract
 // addresses; `Markdown source` keeps its old name because it already contains the visible word "Source".
 export const EDIT_MODES: ReadonlyArray<{ mode: EditMode; label: string; name: string; hint: string; Icon: React.ComponentType<{ className?: string }> }> = [
-	{ mode: 'compose', label: 'Compose', name: 'Compose — rich editor', hint: 'Compose — write with headings, lists and objects', Icon: Sparkles },
-	{ mode: 'source', label: 'Source', name: 'Markdown source', hint: 'Source — the Markdown itself, for full control', Icon: FileText },
+	{ mode: 'compose', label: 'Compose', name: 'Compose — rich editor', hint: 'Compose — rich text editor', Icon: Sparkles },
+	{ mode: 'source', label: 'Source', name: 'Markdown source', hint: 'Source — the Markdown', Icon: FileText },
 ];
 /** What a mode is called where a sentence names it ("Edit this slide in Source"). */
 export const EDIT_MODE_LABEL: Record<EditMode, string> = { compose: 'Compose', source: 'Source' };
@@ -434,27 +435,27 @@ export const EDIT_MODE_LABEL: Record<EditMode, string> = { compose: 'Compose', s
  * The words beside the two icons. In the app the header row is MEASURED (`use-row-fit.ts`): it drops the
  * issue pill's word first (`data-fit=1`) and these two only at `data-fit=2`, when nothing else is left to
  * give, so they go only when the pane is too narrow for them. The pre-paint shell cannot measure, so it
- * uses the widths the row it draws was measured to need: 360 px below 1100 px of viewport, where the row
- * carries Slide settings too, and 320 px above (2026-11-10-compose-first.md §4).
+ * uses the width the tablet row (which carries Slide settings too) was measured to need, 360 px; a desktop pane
+ * narrowed to 320-360 px shows the words a moment after paint (2026-11-10-compose-first.md §4).
  */
-const EDIT_MODE_WORDS = { measured: 'inline group-data-[fit=2]/editbar:hidden', shell: 'hidden @[360px]:inline min-[1100px]:@[320px]:inline' } as const;
+const EDIT_MODE_WORDS = { measured: 'inline group-data-[fit=2]/editbar:hidden', shell: '[&_span]:hidden @[360px]:[&_span]:inline' } as const;
 
 /**
  * The pane's title AND its mode switch: `Compose · Source`, where the word `EDIT` used to sit.
  * `mode: null` is the pre-paint shell, which cannot know the stored mode at build time: it draws both
- * segments unlit and `studio.astro` lights the one `data-ssr-edit` names, keyed by `data-edit-seg`.
+ * segments unlit and `studio.astro` lights Compose, or Source under `data-ssr-src`, keyed by `data-edit-seg`.
  * The app's header row is a `group/editbar` measured by `useRowFit`; the shell's is not.
  */
 export function EditModeToggle({ mode, onPick }: { mode: EditMode | null; onPick?: (mode: EditMode) => void }) {
 	return (
 		// A real `<fieldset>`, as PostureDial is: the group role is the element's own. `m-0 min-w-0` take off a
 		// fieldset's margin and intrinsic min-width (a bare reset, HARD RULE #20); the border and padding are ours.
-		<fieldset aria-label="Writing mode" className="m-0 inline-flex min-w-0 shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
+		<fieldset aria-label="Writing mode" className={cn('m-0 inline-flex min-w-0 shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5', mode === null && EDIT_MODE_WORDS.shell)}>
 			{EDIT_MODES.map((m) => {
 				const on = mode === m.mode;
-				return (
-					<Tip key={m.mode} label={m.hint}>
+				const button = (
 						<button
+							key={m.mode}
 							type="button"
 							data-edit-seg={m.mode}
 							aria-label={m.name}
@@ -463,38 +464,43 @@ export function EditModeToggle({ mode, onPick }: { mode: EditMode | null; onPick
 							className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal transition-colors', on ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}
 						>
 							<m.Icon className="size-3" />
-							<span className={mode === null ? EDIT_MODE_WORDS.shell : EDIT_MODE_WORDS.measured}>{m.label}</span>
+							<span className={mode === null ? undefined : EDIT_MODE_WORDS.measured}>{m.label}</span>
 						</button>
-					</Tip>
 				);
+				// The shell's copy is inert (`pointer-events:none`), so a tooltip there is bytes for nothing.
+				return mode === null ? <Fragment key={m.mode}>{button}</Fragment> : <Tip key={m.mode} label={m.hint}>{button}</Tip>;
 			})}
 		</fieldset>
 	);
 }
 
-export function ComposeSkeleton() {
+/** `className` lets the pre-paint shell tag it (`ssr-body-compose`) without a wrapper, and `quiet` drops the status line
+ *  the shell's `aria-hidden` copy would never announce: the page has a byte ceiling (docs/route-budget.json, htmlRaw). */
+export function ComposeSkeleton({ className, quiet }: { className?: string; quiet?: boolean } = {}) {
 	return (
-		<div className="flex flex-1 flex-col gap-[11px] overflow-hidden p-5">
+		<div className={cn('flex flex-1 flex-col gap-[11px] overflow-hidden p-5', className)}>
 			{/* `aria-hidden` sits on the DECORATIVE blocks only, not on the wrapper. An
 			    aria-hidden ancestor removes its whole subtree from the accessibility tree,
 			    so an `sr-only` span inside one announces nothing — EditorSkeleton below
 			    mirrors this same shape now (it shipped with the inert version, fixed
 			    alongside this PR). */}
-			<div className="contents" aria-hidden="true">
+			{/* The rows' shared look sits on the parent (`*:`), once, not on every row: this skeleton is drawn into the
+			    Studio's static HTML too, which has a byte ceiling (docs/route-budget.json, htmlRaw). */}
+			<div className="contents *:h-[9px] *:rounded-sm *:bg-muted-foreground/10" aria-hidden="true">
 				{COMPOSE_SKELETON_BLOCKS.map((b) => (
-					<div key={`${b.w}-${b.h}`} className="rounded-sm bg-muted-foreground/10" style={{ width: `${b.w}%`, height: `${b.h}px` }} />
+					<div key={`${b.w}-${b.h}`} style={b.h === 9 ? { width: `${b.w}%` } : { width: `${b.w}%`, height: `${b.h}px` }} />
 				))}
 			</div>
-			<span className="sr-only" role="status">
+			{quiet ? null : (<span className="sr-only" role="status">
 				Loading Compose…
-			</span>
+			</span>)}
 		</div>
 	);
 }
 
-export function EditorSkeleton() {
+export function EditorSkeleton({ className, quiet }: { className?: string; quiet?: boolean } = {}) {
 	return (
-		<div className="flex flex-1 gap-3 overflow-hidden p-3 font-mono text-[13px] leading-[1.5]">
+		<div className={cn('flex flex-1 gap-3 overflow-hidden p-3 font-mono text-[13px] leading-[1.5]', className)}>
 			{/* `aria-hidden` sits on the DECORATIVE blocks only, not on the wrapper — see
 			    ComposeSkeleton above. An aria-hidden ancestor removes its whole subtree from
 			    the accessibility tree, so an `sr-only` span inside one announces nothing. */}
@@ -504,13 +510,13 @@ export function EditorSkeleton() {
 						<span key={w}>{i + 1}</span>
 					))}
 				</div>
-				<div className="flex flex-1 flex-col gap-[7px] pt-[3px]">
+				<div className="flex flex-1 flex-col gap-[7px] pt-[3px] *:h-[9px] *:rounded-sm *:bg-muted-foreground/10">
 					{EDITOR_SKELETON_LINES.map((w) => (
-						<div key={w} className="h-[9px] rounded-sm bg-muted-foreground/10" style={{ width: `${w}%` }} />
+						<div key={w} style={{ width: `${w}%` }} />
 					))}
 				</div>
 			</div>
-			<span className="sr-only" role="status">Loading the editor…</span>
+			{quiet ? null : <span className="sr-only" role="status">Loading the editor…</span>}
 		</div>
 	);
 }

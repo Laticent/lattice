@@ -41,7 +41,7 @@ Making Compose the default puts every Source-only path on the default route, so 
 |---|---|---|
 | **Fix all** (header button, Coach, ⌘K) | called `editorRef.current?.fixAll()`; the ref is null in Compose, so **the button did nothing** | fixed here: the fix runs on the deck text, so it works in either mode |
 | **Issue count behind Fix all** | came from CodeMirror's lint pass only; in Compose it fell back to the unknown-component count, the mismatch the 2026-09-05 note in `StudioShell.tsx` records as a bug | fixed here: Compose lints the deck text too |
-| Refine selection (AI) | read the CodeMirror selection only; hidden in Compose | fixed here: Compose offers it for a selection inside one block of text, and rewrites it as plain text, so a rewrite cannot break a list, a table or an object |
+| Refine selection (AI) | read the CodeMirror selection only; hidden in Compose | fixed here: Compose offers it only for a selection of plain text inside one block, all in one style (no inline image, pill, math or line break, no bold word inside plain text), because the rewrite replaces it as one run of text and would otherwise drop those silently |
 | Icon grid insert | copies the span to the clipboard with a note | already handled honestly. Unchanged |
 | Format code blocks (⌘K) | CodeMirror only | power-user command. Unchanged |
 
@@ -71,7 +71,7 @@ slide so the page never moves. That is a deliberate shape, not jank, and it stay
 1. **Default and memory.** `editMode` is `'compose' | 'source'`, stored in the Studio settings as `editMode`
    and read at boot; a browser with nothing stored starts in Compose. Choosing Source is remembered, so a
    power user picks it once.
-2. **The pre-paint shell follows the stored mode.** `studio.astro`'s seed stamps `data-ssr-edit` on `<html>`
+2. **The pre-paint shell follows the stored mode.** `studio.astro`'s seed sets `data-ssr-src` on `<html>` when Source is stored,
    and the shell lights that segment and draws that editor's skeleton, so nothing swaps at hand-off.
 3. **The toggle is the pane's title.** `Compose · Source` replaces the `EDIT` eyebrow at the left of the
    header. The words stay until the pane is too narrow for them; the other header buttons drop their words first.
@@ -103,8 +103,15 @@ the editor pane's width in 20 px steps (Chromium):
 
 So the header MEASURES its own row (`use-row-fit.ts`): step 1 drops the issue pill's word, step 2 the
 mode words, and the row takes the lowest step that fits. It runs before paint, so a row is never drawn
-overflowing. The pre-paint shell cannot measure; it uses the clean-deck widths (360 px below a 1100 px
-viewport, 320 px above), which is what the app shows at hand-off, before the deck is linted.
+overflowing. The pre-paint shell cannot measure; it uses the tablet's clean-deck width, 360 px, which is what
+the app shows at hand-off before the deck is linted (a desktop pane narrowed to 320-360 px gains its words a
+moment after paint).
+
+**Page bytes.** The Studio's static HTML has a ceiling (`docs/route-budget.json`, `htmlRaw`), and drawing both
+editor skeletons first put it 1.8 KB over. The shell's copies now drop the tooltip wiring and the unseen status
+lines, the skeleton rows carry their shared classes on the parent, and the notes that explain the seed live in
+the page's frontmatter rather than in the inline script it ships. Measured against `main` built the same way,
+the page grows by 299 bytes.
 
 To give the tablet's real 377 px pane room, the toggle's padding and the row's gap tightened by 2 px
 each; that moved the tablet's clean-deck need from about 376 px to 360 px. On a tablet whose deck has

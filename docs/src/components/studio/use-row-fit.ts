@@ -14,14 +14,18 @@
 import * as React from 'react';
 
 /**
- * Re-fit `ref`'s row when its box resizes, when fonts arrive, and when `content` changes. `content` is a string the
+ * Re-fit the row when its box resizes, when fonts arrive, and when `content` changes. `content` is a string the
  * caller builds from whatever decides which controls the row holds (an issue count, a selection), since a control
  * appearing changes what the row needs without changing the row's own box.
+ *
+ * Returns a CALLBACK REF, not a ref object: the row is unmounted whenever the editor pane is (Fabricate, the article
+ * view), and a ref object would leave the effect watching the old, detached row while the new one never got
+ * `data-fit` and overflowed. Holding the element in state re-runs the effect for every new node.
  */
-export function useRowFit(ref: React.RefObject<HTMLElement | null>, levels: number, content: string): void {
+export function useRowFit(levels: number, content: string): (el: HTMLElement | null) => void {
+	const [el, setEl] = React.useState<HTMLElement | null>(null);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `content` is the trigger; the row itself is read live.
 	React.useLayoutEffect(() => {
-		const el = ref.current;
 		if (!el) return;
 		const refit = () => {
 			for (let level = 0; level < levels; level++) {
@@ -39,5 +43,6 @@ export function useRowFit(ref: React.RefObject<HTMLElement | null>, levels: numb
 			live = false;
 			ro?.disconnect();
 		};
-	}, [ref, levels, content]);
+	}, [el, levels, content]);
+	return setEl;
 }

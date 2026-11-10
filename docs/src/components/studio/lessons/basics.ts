@@ -5,6 +5,7 @@
 // and ends by naming the search words that bring it back. Kit and rules: ./lesson-kit.ts. Every line
 // a lesson says lives in ./lines.ts, because each one has a recorded clip.
 
+import { loadSettings } from '../studio-store';
 import { chooseAfter, type LessonActions, type LessonBuild, SEL, settle, tell, visible, yourTurn } from './lesson-kit';
 import { LESSON_LINES } from './lines';
 
@@ -48,9 +49,10 @@ const writeSlide: LessonBuild = () => async (ctx) => {
 		return;
 	}
 	// Compose, the default, teaches no markup; a writer who chose Source learns the Markdown, as this lesson always did
-	// (2026-11-10-compose-first.md). Read from the editor on screen, which is the one the user is about to type in.
+	// (2026-11-10-compose-first.md). Read from the stored mode, as the welcome tour does: Compose may still be loading
+	// (or held on a phone) when the lesson starts, and its absence then must not read as Source.
 	// Each beat names its line directly (a member of W) so the recorder and lesson-voice.test.ts can see it.
-	const compose = document.querySelector(`${SEL.editor} .cs-host`) != null;
+	const compose = loadSettings().editMode === 'compose';
 	const perform = (a: LessonActions) => a.appendSlide(SAMPLE_SLIDE);
 	let who: 'user' | 'lesson' | 'nobody';
 	if (compose) {

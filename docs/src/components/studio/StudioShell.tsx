@@ -920,8 +920,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// loses work and the preview tracks either. (2026-07-17 Compose.) Compose is the default
 	// and the choice is STORED, so a power user picks Source once (2026-11-10-compose-first.md).
 	const [editMode, setEditModeState] = React.useState<EditMode>(() => loadSettings().editMode);
-	const editBarRef = React.useRef<HTMLDivElement>(null);
+	const editModeRef = React.useRef(editMode);
+	editModeRef.current = editMode;
 	const setEditMode = React.useCallback((m: EditMode) => {
+		// Picking the mode already on screen changes nothing, and must not clear a live selection's Refine door.
+		if (m === editModeRef.current) return;
 		setEditModeState(m);
 		saveSettings({ editMode: m });
 		// The editor that reported a selection is about to unmount; the one arriving reports its own.
@@ -1778,9 +1781,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// within a frame of the pane showing; `editorReady` (the demo's probe) reports the gap honestly.
 	// Fire-and-forget: a warm failure is harmless, since React.lazy re-imports on real render.
 	React.useEffect(() => {
-		// Whichever mode is stored is the one about to mount; the other arrives with the idle warm-up
-		// (`studio-warm.ts` warms ComposeView; the Editor rides this same import once someone picks Source).
-		void firstSlideShown.then((): Promise<unknown> => (loadSettings().editMode === 'source' ? import('./Editor') : import('./ComposeView'))).catch(() => {});
+		// The stored mode's chunk first, since it is about to mount; then the other one, so the first switch is not a
+		// cold load (Compose's also rides the idle warm-up in `studio-warm.ts`; the Editor's has only this).
+		const source = loadSettings().editMode === 'source';
+		void firstSlideShown
+			.then((): Promise<unknown> => (source ? import('./Editor') : import('./ComposeView')))
+			.then((): Promise<unknown> => (source ? import('./ComposeView') : import('./Editor')))
+			.catch(() => {});
 	}, []);
 	// The six panels, once the first slide is on screen and the user has paused (`first-slide.ts`), then
 	// `lazy-panel.tsx` › warmPanels' idle scheduling. Scheduled from here, as #2402 shipped it, so their
@@ -2824,9 +2831,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		void (async () => {
 			const m = await import('./deck-lint');
 			const sets = m.studioVocabSets(lintVocab, lintExtras);
-			if (!sets) return;
-			const res = await m.fixAllText(() => sourceRef.current, sets);
-			if (!res) return;
+			const res = sets ? await m.fixAllText(() => sourceRef.current, sets) : null;
+			if (!res) {
+				notify('The checker could not load, so nothing was fixed. Try again in a moment.');
+				return;
+			}
 			// Written only over the text it was computed from: a keystroke that landed in between keeps the deck as typed.
 			if (res.text !== res.before && sourceRef.current === res.before) {
 				closeGroupRef.current();
@@ -3425,11 +3434,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the text here, first, and the caret report that follows resolves against it rather than the
 	// index of the text before the edit.
 	const onComposeChange = React.useCallback(
-		(src: string, meta?: { close?: boolean }) => {
+		(src: string, meta?: { close?: boolean; label?: string }) => {
 			hub.update(src, { by: 'compose' });
-			// A change that is its own step (a pane pick) closes the step before it.
+			// A change that is its own step (a pane pick, a Refine) closes the step before it.
 			if (meta?.close) closeGroupRef.current();
-			setSourceFromCompose(src, meta?.close ? 'Change pane' : 'Typing');
+			setSourceFromCompose(src, meta?.label ?? (meta?.close ? 'Change pane' : 'Typing'));
 		},
 		[hub, setSourceFromCompose],
 	);
@@ -3982,8 +3991,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					notify('No change — the selection already reads well.');
 				} else {
 					setCheckpoints(saveCheckpoint(deck.id, source, `Before ${label}`, Date.now()));
-					target.replaceSelection(out.text, `AI: ${label}`);
-					notify(`${label} applied — ⌘Z or restore from History to undo.`);
+					// False when the selection moved while the model answered: say so rather than claim it applied.
+					if (target.replaceSelection(out.text, `AI: ${label}`) === false) notify('The selection changed while the model was answering, so nothing was replaced.');
+					else notify(`${label} applied — ⌘Z or restore from History to undo.`);
 				}
 			} catch {
 				notify(`${label} failed — try again.`);
@@ -7092,7 +7102,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The header keeps `Compose · Source` worded until the pane cannot hold them: measured, not a breakpoint,
 	// because what else sits in the row moves the width they need (use-row-fit.ts). Level 1 drops the issue
 	// pill's word, level 2 the mode words.
-	useRowFit(editBarRef, 3, `${issues}|${hasSelection}|${newSlideShown}|${compact}|${split.collapsed}|${mobile}|${editMode}`);
+	const editBarRef = useRowFit(3, `${issues}|${hasSelection}|${newSlideShown}|${compact}|${split.collapsed}|${mobile}|${editMode}`);
 	const editorPane = (
 		<section
 			id="studio-pane-editor"
