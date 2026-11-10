@@ -96,4 +96,11 @@ fixed     — 2026-11-10, the Studio startup PR, test-only (no app change), each
             - studio-jargon-alignment.spec.ts:258 floored its skips at `[3]`, the headingless quote slide. #3095 put a
               divider before that slide, so every sampled index gained a heading and the test failed for skipping
               nothing. The floor is now the sampled slides that have no heading, read from the deck.
-            Each passes alone; the full desktop run's counts are in the PR body.
+            Each passes alone. The same PR's full desktop run (4 workers, its own build): 1,331 passed, 22 failed, 19
+            skipped; none of the five above failed. Two load-only reads it found were fixed there too, each 24 of 24
+            after under 6 workers: scenarios/consultant-rebrand.spec.ts:39 read `--accent` once just after boot, when
+            the boot's second render now patches the slide (it polls and keeps the polled value), and
+            saved-finish-export.spec.ts (the print case) pressed Escape again on a sheet already closing.
+            Seven others failed only under load on BOTH builds, 6 loaded runs each, main against the PR:
+            export-photo-size:26 5 and 5, restyle-overlap:113 1 of 16 and 1 of 16, deck-drop-import:234 1 and 0,
+            present-beat:231 1 and 0, lenses:21 0 and 0 (it failed once in the full run). Not investigated.
