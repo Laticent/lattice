@@ -1999,8 +1999,14 @@ export function normalizeGeneration(generation: string): string {
  * (the `db-model-changed` event the adapter fires) and whenever `pulse` changes
  * (the Workspace bumps it on open so the authoritative account spend is fresh).
  */
-/** A status read gave up waiting on the OpenRouter catalog because its fetch failed: later reads do not ask again. */
-let catalogFillFailed = false;
+/**
+ * When a status read's catalog fill last failed (ms since the epoch; 0 = never). Reads within CATALOG_FILL_RETRY_MS of
+ * it do not ask again: `listModels` forgets a failed fetch, so eight mounted panels refreshing would each start one.
+ * A BACKOFF, not a permanent stop: a fill switched off for the page's life left a page that loaded offline naming the
+ * model by its id after the network came back (the checker's review of this fix).
+ */
+let catalogFillFailedAt = 0;
+const CATALOG_FILL_RETRY_MS = 30_000;
 
 export function useArchitectStatus(pulse = 0): ArchitectStatus {
 	// The first frame paints the STORED selection (read synchronously), so nothing reflows when the
@@ -2072,21 +2078,23 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 				// and nothing read it again: the chip kept the id until the author opened it. Found by
 				// model-spine.spec.ts:155 under load (followups.d/3087-p4-mobile-load-only-flakes.md).
 				// So fill both in when the catalog arrives (OpenRouter only, the one catalog prefetched at boot). NOT
-				// awaited: the spend fetch below must not queue behind a catalog download. And once a catalog fetch has
-				// failed, the status stops asking: `listModels` forgets a failed fetch, so every refresh (eight panels
-				// mount this hook) would otherwise start a new one. Opening the chip still loads it.
+				// awaited: the spend fetch below must not queue behind a catalog download. After a failed fetch it waits
+				// out a backoff before asking again (`catalogFillFailedAt`).
 				const id = m.openRouterModel?.() ?? null;
-				if (id && !catalogFillFailed && (m.openRouterModelName?.() ?? id) === id) {
-					m.listOpenRouterModels().then(
-						() => {
-							if (stale()) return;
-							const name = m.openRouterModelName?.() ?? null;
-							if (name && name !== id) setState((s) => (s.modelId === id ? { ...s, modelName: name, price: m.openRouterModelPrice?.() ?? s.price } : s));
-						},
-						() => {
-							catalogFillFailed = true; // the id stands in
-						},
-					);
+				if (id && Date.now() - catalogFillFailedAt >= CATALOG_FILL_RETRY_MS && (m.openRouterModelName?.() ?? id) === id) {
+					// Promise.resolve().then: a backend that throws synchronously rejects here instead of escaping refresh().
+					Promise.resolve()
+						.then(() => m.listOpenRouterModels())
+						.then(
+							() => {
+								if (stale()) return;
+								const name = m.openRouterModelName?.() ?? null;
+								if (name && name !== id) setState((s) => (s.modelId === id ? { ...s, modelName: name, price: m.openRouterModelPrice?.() ?? s.price } : s));
+							},
+							() => {
+								catalogFillFailedAt = Date.now(); // the id stands in until the backoff passes
+							},
+						);
 				}
 			}
 			// Then fold in the authoritative spend when it arrives (best-effort): the

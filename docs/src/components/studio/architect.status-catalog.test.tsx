@@ -14,7 +14,7 @@ const listed = new Promise<void>((resolve) => {
 		resolve();
 	};
 });
-const listCalls = vi.fn(() => listed);
+const listCalls = vi.fn((): Promise<void> => listed);
 const accountCalls = vi.fn(async () => null);
 
 vi.mock('@/components/studio/ai/architect-model.js', () => ({
@@ -57,5 +57,35 @@ describe('useArchitectStatus and a catalog that lands after the status read', ()
 		catalog = null;
 		renderHook(() => useArchitectStatus());
 		await waitFor(() => expect(accountCalls).toHaveBeenCalled());
+	});
+
+	// Last in the file: the backoff is module state, and this case leaves it set.
+	it('after a failed catalog fetch, waits out a backoff and then still names the model', async () => {
+		let now = 1_000_000;
+		const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+		try {
+			catalog = null;
+			listCalls.mockReset();
+			listCalls.mockImplementation(() => Promise.reject(new Error('offline')));
+			accountCalls.mockClear();
+			const { result, rerender } = renderHook(({ p }) => useArchitectStatus(p), { initialProps: { p: 0 } });
+			await waitFor(() => expect(listCalls).toHaveBeenCalledTimes(1));
+			await waitFor(() => expect(accountCalls).toHaveBeenCalledTimes(1));
+			// Another refresh inside the backoff (eight panels refresh on every change): no second fetch.
+			rerender({ p: 1 });
+			await waitFor(() => expect(accountCalls).toHaveBeenCalledTimes(2));
+			expect(listCalls).toHaveBeenCalledTimes(1);
+			expect(result.current.modelName).toBe('test/model');
+			// The network is back and the backoff has passed: the next refresh asks again and names the model.
+			now += 30_001;
+			listCalls.mockImplementation(async () => {
+				catalog = [{ id: 'test/model', name: 'Test Model' }];
+			});
+			rerender({ p: 2 });
+			await waitFor(() => expect(result.current.modelName).toBe('Test Model'));
+			expect(listCalls).toHaveBeenCalledTimes(2);
+		} finally {
+			clock.mockRestore();
+		}
 	});
 });
