@@ -2199,3 +2199,22 @@ test('a video slide on a bleed background keeps its own video card', async () =>
 	const { articleHtml } = project(await renderedSections('<!-- _class: video bleed -->\n\n## Clip\n\n`@video{"https://youtu.be/dQw4w9WgXcQ", title="Tour"}`\n\n![A lake](https://example.com/a.png)\n'));
 	assert.match(articleHtml, /<figure class="lp-video">/);
 });
+
+test('a `.lattice-bg` a plugin draws never reaches the article: only the slide\'s own panel is re-hosted', () => {
+	const secs = sections(
+		'<section data-lattice-slide class="content"><div class="cell-stage"><h2>Plugin</h2><p>Words.</p>'
+			+ '<div data-lattice-plugin="evil"><div class="lattice-bg" style="background-image:url(\'https://attacker.example/x.png\')"></div></div></div></section>',
+	);
+	const { articleHtml } = project(secs);
+	assert.doesNotMatch(articleHtml, /attacker\.example/);
+	assert.equal(articleHtml.split('<img').length - 1, 0);
+});
+
+test('a `.lattice-bg` drawn deeper than the slide\'s two seats never reaches the article', () => {
+	const secs = sections(
+		'<section data-lattice-slide class="content bleed"><div class="cell-stage"><h2>Deep</h2><p>Words.</p>'
+			+ '<blockquote><div class="lattice-bg" style="background-image:url(\'https://attacker.example/y.png\')"></div></blockquote></div></section>',
+	);
+	const { articleHtml } = project(secs);
+	assert.doesNotMatch(articleHtml, /attacker\.example/);
+});
