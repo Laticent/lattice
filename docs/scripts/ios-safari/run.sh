@@ -141,6 +141,11 @@ if [ -n "${DEVICES:-}" ]; then
       *) echo "DEVICES: unknown device '$d' (iPad, iPhone, Mac)" >&2; exit 1 ;;
     esac
   done
+  # A selection this probe runs nothing on must fail, not pass with nothing tested: only the undo probe has a Mac half.
+  if [ -z "${families// /}" ] && { [ "$PROBE" != undo ] || [ "$run_mac" = 0 ]; }; then
+    echo "DEVICES='$DEVICES' selects no device the $PROBE probe runs on" >&2
+    exit 1
+  fi
 fi
 if [ -n "${families// /}" ]; then
   runtime=$(xcrun simctl list runtimes --json | jq -r '[.runtimes[] | select(.platform == "iOS" and .isAvailable)]

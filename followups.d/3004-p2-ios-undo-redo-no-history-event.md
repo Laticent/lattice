@@ -29,4 +29,4 @@ where     — docs/scripts/ios-safari/undo-probe.js `command()` and the historyU
 done when — the cause is named for both shapes from the event log the failure now prints (never enabled,
             enabled but no event, or an event the editor swallowed), and both devices pass in 5 of 5 dispatched runs.
 evidence  — the failing run's message with its events; five green ios-safari-undo dispatches.
-verify    — platform-suites.yml dispatch, suites=ios-safari-undo
+verify    — platform-suites.yml dispatch, suites=ios-safari-undo-ipad,ios-safari-undo-iphone,ios-safari-undo-mac (one device per job since #3124)
