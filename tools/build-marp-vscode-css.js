@@ -256,6 +256,19 @@ function splitRule(rule, keep) {
 }
 
 /**
+ * Marp's own EARLIER rules (the ones it writes ahead of a theme's first rule) under one marp-core, as top-level nodes: a pack
+ * of the directive-only `stub` plus one marker rule, cut at the marker. They do not depend on the theme's rules, so this is the
+ * same set a pack of the whole engine puts ahead of its first rule, at about 20 ms instead of a full pack.
+ */
+const EARLIER_MARK = '.lattice-vscode-earlier-mark{--lattice-mark:0}';
+function earlierRules(stub, MarpClass = Marp) {
+  const packed = nodes(pack([`${stub}\n${EARLIER_MARK}`], 'lattice', MarpClass));
+  const at = packed.findIndex((x) => x.includes('lattice-vscode-earlier-mark'));
+  if (at < 0) throw new Error('build-marp-vscode-css: the earlier-rules marker did not survive the pack');
+  return packed.slice(0, at);
+}
+
+/**
  * The engine DECLARATIONS that stay in the theme's slot (the stub), by source rule.
  *
  * Two kinds. A declaration in a rule whose packed form ties one of Marp's earlier rules on that property (Marp's earlier rules: the
@@ -274,18 +287,9 @@ function pinnedRules(engine, stub) {
   const base = pack([stub], 'lattice');
   // Marp's earlier rules, top level only (the ones inside an at-rule are print rules, `@media print`, never applied in the
   // preview), under EVERY bundled marp-core (`VSCODE_CORES`): a rule only an older one writes still decides a tie there.
-  // They do not depend on the theme's rules, so each core packs the directive-only stub plus one marker rule, and the earlier
-  // rules are the ones ahead of the marker: the same nodes a pack of the whole engine puts ahead of its first rule (checked
-  // under all four, 2026-11-10), at about 20 ms a core instead of a full engine pack each.
-  const EARLIER_MARK = '.lattice-vscode-earlier-mark{--lattice-mark:0}';
   const seen = new Set();
   const earlier = [];
-  for (const { Marp: M } of VSCODE_CORES) {
-    const packed = nodes(pack([`${stub}\n${EARLIER_MARK}`], 'lattice', M));
-    const at = packed.findIndex((x) => x.includes('lattice-vscode-earlier-mark'));
-    if (at < 0) throw new Error('build-marp-vscode-css: the earlier-rules marker did not survive the pack');
-    for (const n of packed.slice(0, at)) if (!seen.has(n)) { seen.add(n); earlier.push(n); }
-  }
+  for (const { Marp: M } of VSCODE_CORES) for (const n of earlierRules(stub, M)) if (!seen.has(n)) { seen.add(n); earlier.push(n); }
   const before = styleRules(earlier.join('\n'), { nested: false });
   const MARK = 'lattice-vscode-pin-';
   const marked = `${stub}\n${source.map((n, i) => `${n}\n.${MARK}${i}{--lattice-pin:0}`).join('\n')}`;
@@ -446,4 +450,4 @@ function main(argv) {
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
 
-module.exports = { build, outputs, stubOf, added, forTheme, pinnedRules, specificity, pack, VSCODE_OPTIONS, VSCODE_CORES, OUT, OUT_BUNDLE, OUT_STUB, OUT_BUNDLE_STUB };
+module.exports = { build, outputs, stubOf, added, forTheme, pinnedRules, earlierRules, specificity, pack, VSCODE_OPTIONS, VSCODE_CORES, OUT, OUT_BUNDLE, OUT_STUB, OUT_BUNDLE_STUB };

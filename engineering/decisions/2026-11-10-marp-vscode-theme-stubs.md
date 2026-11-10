@@ -127,9 +127,16 @@ release bundles, and each checked to pack the three kit themes byte-for-byte lik
 rules come from a pack of the directive-only stub plus a marker rule, about 20 ms a pair, so the build stays at about 18 s.
 The fix pins one more rule into the stub (`section h1`'s font and margin declarations, 120 bytes); `color` stays linked, so an
 author's heading color still wins. The parity test now runs every sample-deck case under each pair, and fails on the first
-build's stub (slide 1, under the three older pairs). `test/unit/tools/marp-vscode-cores.test.js` holds the aliases to their
-rows and the pin to the old reset. A new Marp for VS Code release that bundles a pair not listed needs a row (its
-package-lock.json names both versions).
+build's stub (slide 1, under the three older pairs). `test/unit/tools/marp-vscode-cores.test.js` holds three things:
+- each alias to its row: the marp-core and marpit versions, the exact devDependency and its override;
+- what each alias writes ahead of a theme, against a snapshot (`fixtures/marp-vscode-earlier-rules.frozen.json`) checked rule
+  for rule against the copies inside Marp for VS Code 3.0.0, 3.3.0, 3.5.1 and 3.6.1. Only marpit is pinned per alias, and the
+  rest of an alias's tree (postcss, postcss-selector-parser) is shared with the root, so a root bump that changed what an alias
+  writes would otherwise go unnoticed;
+- the pin itself, on a one-rule theme against the old reset.
+
+A new Marp for VS Code release that bundles a pair not listed needs a row and an alias (its package-lock.json names both
+versions), and the snapshot gains that row, checked the same way.
 
 ## Evidence
 
@@ -188,5 +195,6 @@ whenever the font came late.
   (marp-core in Node, this machine).
 - An author `@font-face` that redefines one of Lattice's own families loses in the VS Code preview only (see above).
 - A build step (`build-marp-vscode-css.js`, about 18 s for both hand-offs) and five devDependencies: marp-core 4.4.0, and the four
-  bundled pairs as aliases (about 1.7 MB in node_modules; they share the rest of their dependencies with 4.4.0).
+  bundled pairs as aliases. The aliases take 7.7 MB of node_modules: about 0.8 MB each for 4.0.1, 4.1.0 and 4.3.0, and 5.4 MB
+  for `marp-core-4.4.0`, which carries its own KaTeX 0.17 because the root pins KaTeX 0.16. Dependabot ignores all four.
 - The parity test runs 26 cases instead of 8 (about 240 s locally; the integration tier is sharded in CI).
