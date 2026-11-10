@@ -97,13 +97,12 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # THE NEWEST COMPATIBLE marp-cli. Per-PR CI renders the Marp suites with an exact pin
-      # (test/fixtures/marp-cli, test/helpers/marp-cli.js), and the bundle and the kit tell
-      # recipients to run that same exact version (MARP_CLI_VERSION), so no PR test reaches the
-      # registry and no recipient runs a version CI never rendered. This arm is the canary for the
-      # next bump: it runs the same files on the newest release compatible with the pin
-      # (LATTICE_MARP_CLI=range, `^MARP_CLI_VERSION`, npx with install scripts off). A red night
-      # means: fix the bundle before moving the pin. A green one means the pin can move.
+      # THE NEWEST marp-cli IN THE RANGE. Lattice supports a range of Marp versions, held at both
+      # ends (MARP_SUPPORT in lib/export/marp-bundle.js): per-PR CI renders the Marp suites on the
+      # FLOOR, an exact pin with a lockfile (test/fixtures/marp-cli), so no PR test reaches the
+      # registry. This arm is the other end: the same files on the newest release in the range
+      # (LATTICE_MARP_CLI=range, npx with install scripts off), which is what a fresh install gets.
+      # A red night means a new release breaks the bundle or the kit: fix it, or narrow the range.
       - name: Export-to-Marp on the newest marp-cli in the range
         id: marprange
         run: |

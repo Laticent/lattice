@@ -58,9 +58,9 @@
  * marp-cli is NOT a dependency of this project and is not becoming one — Marp is
  * an export TARGET, not a render path (HARD RULE #1). The tests run an exact pin
  * kept in its own folder, `test/fixtures/marp-cli/`, with a lockfile, and
- * `test/helpers/marp-cli.js` refuses a pin other than `MARP_CLI_VERSION` from
- * `lib/export/marp-bundle.js`, the exact version both artifacts tell recipients to
- * run, so the gate and the artifacts it gates cannot ask for different tools.
+ * `test/helpers/marp-cli.js` refuses a pin other than the floor `MARP_SUPPORT` states
+ * in `lib/export/marp-bundle.js`, the oldest marp-cli and marp-core both artifacts
+ * say they work with, so the gate and the artifacts it gates cannot disagree.
  *
  * Slow tier: spawns marp-cli and Chromium four times (~19s warm).
  */
@@ -200,8 +200,8 @@ function runMarp(args, cwd, timeout = TIMEOUT) {
  * that outlived its parent: 22 red integration runs in 30 days (#3045).
  *
  * The version is still captured and reported in every failure message, so a red
- * gate on the `LATTICE_MARP_CLI=range` route (the newest release compatible
- * with `MARP_CLI_VERSION`) can be told apart from "we broke it".
+ * gate on the `LATTICE_MARP_CLI=range` route (the newest release in
+ * `MARP_SUPPORT.cli.range`) can be told apart from "we broke it".
  */
 let preflight = null;
 function ensureMarp() {

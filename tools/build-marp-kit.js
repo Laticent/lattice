@@ -63,7 +63,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { STATIC_ASSETS, fontAssetsFor, MARP_CLI_VERSION, vscodeExtensions } = require('../lib/export/marp-bundle.js');
+const { STATIC_ASSETS, fontAssetsFor, MARP_SUPPORT, marpSupportLine, vscodeExtensions } = require('../lib/export/marp-bundle.js');
 // The video plugin's Marp engine, as source (lib/plugins/video/video.services.js `marpEngineSource`).
 const videoRecordsEngine = require('../lib/core/plugin-services.js').service('video', 'marpEngineSource')();
 
@@ -311,17 +311,13 @@ get unstyled slides **with no error**. Put your deck in here, next to
 From the command line instead:
 
 \`\`\`sh
-npx @marp-team/marp-cli@${MARP_CLI_VERSION} ${DECK} --config-file marp.config.cjs --allow-local-files -o deck.pdf
+npx @marp-team/marp-cli@${MARP_SUPPORT.cli.major} ${DECK} --config-file marp.config.cjs --allow-local-files -o deck.pdf
 \`\`\`
 
-That is one exact marp-cli version, not a range: the version Lattice's own CI
-renders this deck with, and the one Lattice's export bundle asks for too. CI checks
-the result: one page per slide, the diagram drawn, the split panel built, the
-equation typeset, the palette and the fonts live, and a video record drawn as its
-poster. To be exact about the guarantee: that runs on changes to engine, tooling
-or test code, not on documentation-only ones. A newer marp-cli is rendered every
-night before this version moves, so a release that breaks the kit is found before
-it reaches you.
+${marpSupportLine()} CI checks the result: one page per slide, the diagram drawn,
+the split panel built, the equation typeset, the palette and the fonts live, and a
+video record drawn as its poster. To be exact about the guarantee: that runs on
+changes to engine, tooling or test code, not on documentation-only ones.
 
 ## What is in here
 

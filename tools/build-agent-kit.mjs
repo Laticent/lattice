@@ -1787,7 +1787,7 @@ function renderDoc() {
     'next to `Sample-Deck.md`, then:',
     '',
     ...fenced(
-      `npx @marp-team/marp-cli@${MARP_CLI_VERSION} your-deck.md \\\n  --config-file marp.config.cjs --allow-local-files -o your-deck.pdf`,
+      `npx @marp-team/marp-cli@${MARP_SUPPORT.cli.major} your-deck.md \\\n  --config-file marp.config.cjs --allow-local-files -o your-deck.pdf`,
       'sh',
     ),
     '',
@@ -1827,7 +1827,7 @@ function renderDoc() {
         'cp -r marp/fonts path/to/',
         `cp ${RUNTIME_SCRIPT_NAMES.map((f) => `marp/${f}`).join(' \\\n   ')} \\\n   path/to/`,
         '',
-        `npx @marp-team/marp-cli@${MARP_CLI_VERSION} path/to/your-deck.md \\`,
+        `npx @marp-team/marp-cli@${MARP_SUPPORT.cli.major} path/to/your-deck.md \\`,
         '  --html --allow-local-files --pdf -o path/to/your-deck.pdf \\',
         '  --theme-set marp/lattice-min.css marp/cuoio-min.css',
       ].join('\n'),
@@ -1983,7 +1983,7 @@ function exampleDecks() {
 // split out of the runtime bundle, the marp path gained a third tag, and this copy
 // silently kept emitting two — HARD RULE #1, in the small. Reading the one source
 // means a fourth engine lands here for free, and a rename cannot desynchronise them.
-const { RUNTIME_SCRIPTS, RUNTIME_SCRIPT_SRCS, MARP_CLI_VERSION } = require('../lib/export/marp-bundle.js');
+const { RUNTIME_SCRIPTS, RUNTIME_SCRIPT_SRCS, MARP_SUPPORT } = require('../lib/export/marp-bundle.js');
 const RUNTIME_TAGS = RUNTIME_SCRIPTS.trim().split('\n');
 
 /**
