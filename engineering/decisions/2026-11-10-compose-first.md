@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: shipped
 summary: >
   The Studio becomes Compose-first. Compose is the default way to write a deck, the Markdown editor is
   renamed Source everywhere and kept for power users, Compose comes before Source in every menu, and the
