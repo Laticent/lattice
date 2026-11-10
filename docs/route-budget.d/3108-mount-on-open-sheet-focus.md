@@ -1,7 +1,7 @@
-studio: +1746
-playground: +805
-home: +805
-getting-started: +805
+studio: +1850
+playground: +850
+home: +850
+getting-started: +850
 Every route carries two accessibility fixes in shared chrome. `ui/sheet.tsx` returns focus to a sheet's opener on close
 (+108 in `overlay-back`). `ui/tooltip.tsx` now describes each tooltip's trigger to a screen reader from mount, by what
 the hint adds to the name, through one hidden container (+421 in `tooltip`): before, a VoiceOver swipe heard no
