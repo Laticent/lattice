@@ -74,7 +74,7 @@ export const COMMAND_DESCRIPTIONS: Record<StudioCommandId, string> = {
 	'import-deck': 'Opens a file picker for a Lattice, Markdown, PowerPoint or PDF file.',
 	coach: 'Opens the Coach: scores for craft and style, and a fix for each finding.',
 	'fix-all': 'Applies every automatic fix the editor has found in this deck.',
-	'format-code': 'Re-indents the code blocks in this deck.',
+	'format-code': 'Runs the code formatter over every code block in this deck.',
 	'toggle-mode': 'Swaps the Studio between its light and dark appearance.',
 	'slide-settings': "Opens this slide's settings: its look, modifiers and speaker notes.",
 	'slide-new-before': 'Opens the slide gallery to add a slide in front of this one.',
@@ -83,7 +83,7 @@ export const COMMAND_DESCRIPTIONS: Record<StudioCommandId, string> = {
 	'slide-move-after': 'Swaps this slide with the one after it.',
 	'slide-hide': 'Keeps this slide in the source but leaves it out when you present or export.',
 	'slide-show': 'Puts this hidden slide back into the presentation and exports.',
-	'slide-delete': 'Removes this slide from the deck. Undo brings it back.',
+	'slide-delete': 'Removes this slide from the deck, after a confirm while others are editing live. Undo brings it back.',
 	shortcuts: 'Lists every keyboard shortcut in the Studio.',
 };
 

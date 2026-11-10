@@ -248,7 +248,7 @@ export function CommandPalette({
 				<CommandSeparator />
 				<CommandGroup heading="Theme">
 					{palettes.map((p) => (
-						<CommandItem key={p} value={p} description="Restyles this deck with this palette." onSelect={run(() => onPalette(p))}><Palette /><span className="capitalize">{p}</span></CommandItem>
+						<CommandItem key={p} value={p} description="Tints the Studio, and every deck that sets no theme of its own, with this palette." onSelect={run(() => onPalette(p))}><Palette /><span className="capitalize">{p}</span></CommandItem>
 					))}
 				</CommandGroup>
 			</CommandList>

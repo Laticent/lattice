@@ -101,8 +101,13 @@ test.describe('descriptions a screen reader hears', () => {
 		expect(bare, `rows with no description: ${bare.join(', ')}`).toEqual([]);
 		const bad = options.map((n) => (problem(n) ? `"${n.name}": "${n.desc}" ${problem(n)}` : null)).filter(Boolean);
 		expect(bad, bad.join('\n')).toEqual([]);
-		const field = nodes.find((n) => n.role === 'combobox');
-		expect(field?.name, 'the search field has a name').toBeTruthy();
+		expect(nodes.some((n) => n.role === 'combobox' && n.name === 'Search or run a command'), 'the search field has a name').toBe(true);
+		// Lesson rows appear only on a query (LearnGroup); check them too.
+		await page.getByPlaceholder('Search or run a command…').filter({ visible: true }).first().fill('pdf');
+		await expect(page.locator('[data-lesson]').filter({ visible: true }).first()).toBeVisible();
+		const typed = (await axNodes(cdp)).filter((n) => n.role === 'option');
+		const bareTyped = typed.filter((n) => !n.desc).map((n) => n.name);
+		expect(bareTyped, `rows with no description after a query: ${bareTyped.join(', ')}`).toEqual([]);
 	});
 
 	test('@crosswidth every row of the site command menu says what it does', async ({ page }) => {
@@ -126,7 +131,14 @@ test.describe('descriptions a screen reader hears', () => {
 		expect(bare, `rows with no description: ${bare.join(', ')}`).toEqual([]);
 		const bad = options.map((n) => (problem(n) ? `"${n.name}": "${n.desc}" ${problem(n)}` : null)).filter(Boolean);
 		expect(bad, bad.join('\n')).toEqual([]);
-		expect(nodes.find((n) => n.role === 'combobox')?.name, 'the search field has a name').toBeTruthy();
+		expect(nodes.some((n) => n.role === 'combobox' && n.name === 'Command palette'), 'the search field has a name').toBe(true);
+		// Lesson rows and documentation hits (Pagefind) render only on a query; check them too.
+		await dialog.getByRole('combobox').fill('chart');
+		await expect(dialog.locator('[data-lesson]').first()).toBeVisible();
+		const typed = (await axNodes(cdp)).filter((n) => n.role === 'option');
+		const bareTyped = typed.filter((n) => !n.desc).map((n) => n.name);
+		expect(bareTyped, `rows with no description after a query: ${bareTyped.join(', ')}`).toEqual([]);
+		expect(typed.filter((n) => /&#?\w+;/.test(n.desc)).map((n) => n.desc), 'no raw HTML entity is read aloud').toEqual([]);
 	});
 
 	test('@crosswidth a bar icon is described by its hint with no tooltip open', async ({ page }) => {

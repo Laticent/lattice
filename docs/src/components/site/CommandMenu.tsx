@@ -63,6 +63,18 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
  * Open state + the ⌘K / `/` shortcut are owned by <NavActions>, which also
  * renders the trigger button — this component is purely the dialog body.
  */
+/** Decode HTML entities in plain text (a Pagefind excerpt), as a string transform: no DOM, so no markup sink. */
+const NAMED_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
+export function decodeEntities(text: string): string {
+	return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code: string) => {
+		if (code[0] === '#') {
+			const n = code[1] === 'x' || code[1] === 'X' ? Number.parseInt(code.slice(2), 16) : Number.parseInt(code.slice(1), 10);
+			return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : whole;
+		}
+		return NAMED_ENTITIES[code.toLowerCase()] ?? whole;
+	});
+}
+
 export function CommandMenu({
 	open,
 	onOpenChange,
@@ -162,7 +174,9 @@ export function CommandMenu({
 						id,
 						url: d.url,
 						title: d.meta?.title ?? d.url,
-						excerpt: (d.excerpt ?? '').replace(/<\/?mark>/g, ''),
+						// The excerpt is shown AND spoken (it is the row's description), so decode its entities:
+						// a raw `&#39;` would be read aloud.
+						excerpt: decodeEntities((d.excerpt ?? '').replace(/<\/?mark>/g, '')),
 					})),
 				);
 			} catch {
