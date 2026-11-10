@@ -10,3 +10,6 @@
   Markdown editor.
 - **The welcome tour and the "Write a slide" lesson lead with Compose.** A visitor who chose
   Source still hears the Markdown wording. Five new narration lines are recorded.
+- **Compose's slide toolbar no longer changes size as the caret moves.** It used to grow and shrink
+  with the styles the block under the caret offers (a heading offers one, an eyebrow line three),
+  so the whole pill jumped. It now reserves room for every style; on a phone it has a fixed width.

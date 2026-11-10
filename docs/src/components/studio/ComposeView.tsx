@@ -742,6 +742,8 @@ class SlideView {
 	ctrl: HTMLElement;
 	collapseBtn: HTMLButtonElement;
 	private fmtGroup: HTMLElement;
+	// The pill, kept so its width can be held while the caret moves (`holdPillWidth`).
+	private pill: HTMLElement;
 	private undoBtn: HTMLButtonElement;
 	private redoBtn: HTMLButtonElement;
 	private dangerGroup: HTMLElement;
@@ -825,6 +827,7 @@ class SlideView {
 		// context-sensitive Format group, a divider (grouping), then insert · settings. Rounded-rect
 		// shape marks it as the content register; the active slide's pill blooms a soft accent halo.
 		const pill = document.createElement('div');
+		this.pill = pill;
 		pill.className = 'cs-sb-pill';
 		pill.setAttribute('role', 'toolbar');
 		pill.setAttribute('aria-label', 'Slide formatting');
@@ -942,6 +945,7 @@ class SlideView {
 				this.fmtGroup.replaceChildren();
 				this.fmtGroup.dataset.sig = '';
 			}
+			this.pill.style.removeProperty('--cs-pill-min');
 			return;
 		}
 		if (inTable || inCode) {
@@ -958,6 +962,8 @@ class SlideView {
 			this.fmtGroup.replaceChildren(slot);
 			this.hosted = kind;
 			this.mountIsland?.(slot, this, kind, this.stateful);
+			// The island mounts on React's schedule, so hold the width once it has drawn.
+			requestAnimationFrame(() => this.holdPillWidth());
 			return;
 		}
 		const { keys, active: activeReg } = applicableRegisters(this.view.state, this.getHeadings?.(), this.getBlocks?.());
@@ -982,6 +988,45 @@ class SlideView {
 			}, { signal: this.ac.signal });
 			this.fmtGroup.append(b);
 		}
+		this.reserveFormatWidth();
+		this.holdPillWidth();
+	}
+	// THE PILL DOES NOT CHANGE SIZE AS THE CARET MOVES. Which styles apply depends on the block under the caret
+	// (a heading offers H2; an eyebrow line offers H2, the eyebrow and the insight), so the Format group used to
+	// grow and shrink on every move and the whole centered pill jumped with it (owner's screen recording,
+	// 2026-11-10, iPhone). Two holds: the group reserves the width of EVERY style chip, measured once per slide
+	// view from the real chips; and the pill keeps the widest it has been while its slide is active, which
+	// covers the table and code islands. On a narrow pane the pill is a fixed width (the CSS), so neither moves it.
+	private formatMin = 0;
+	private reserveFormatWidth() {
+		if (this.formatMin) {
+			this.fmtGroup.style.setProperty('--cs-fmt-min', `${this.formatMin}px`);
+			return;
+		}
+		const ghost = this.fmtGroup.cloneNode(false) as HTMLElement;
+		ghost.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;min-width:0';
+		ghost.removeAttribute('role');
+		ghost.removeAttribute('aria-label');
+		ghost.setAttribute('aria-hidden', 'true');
+		for (const meta of REGISTERS) {
+			const b = document.createElement('span');
+			b.className = `cs-fmt-btn${meta.mono ? ' cs-fmt-mono' : ''}`;
+			b.textContent = meta.glyph;
+			ghost.append(b);
+		}
+		this.pill.append(ghost);
+		const w = Math.ceil(ghost.getBoundingClientRect().width);
+		ghost.remove();
+		// Zero means the slide is not laid out yet (a collapsed or off-screen pass): measure again next time.
+		if (w > 0) {
+			this.formatMin = w;
+			this.fmtGroup.style.setProperty('--cs-fmt-min', `${w}px`);
+		}
+	}
+	private holdPillWidth() {
+		const w = Math.ceil(this.pill.getBoundingClientRect().width);
+		const held = Number.parseFloat(this.pill.style.getPropertyValue('--cs-pill-min')) || 0;
+		if (w > held) this.pill.style.setProperty('--cs-pill-min', `${w}px`);
 	}
 	// Unmount the React TableControls this slide was hosting (caret left the table / slide went
 	// inactive / view destroyed). Owner-keyed on the ComposeView side, so a late null from the
@@ -3227,7 +3272,7 @@ function ComposeStyles() {
 			   slide's pill is ever shown, so it never becomes a column of glows) */
 			/* The pill RESERVES its space on every slide (visibility, not display) so focusing a slide
 				   never reflows content down — it fades in place. Hidden = non-interactive + out of tab order. */
-			.cs-sb-pill{grid-area:1/1;justify-self:center;z-index:1;display:inline-flex;visibility:hidden;opacity:0;align-items:center;gap:3px;padding:3px 5px;background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);border-radius:12px;box-shadow:0 5px 15px -8px color-mix(in oklab,var(--accent,#006fa8),transparent 66%),0 1px 3px -1px color-mix(in oklab,var(--text-heading,#0a1628),transparent 84%);transition:opacity .12s ease}
+			.cs-sb-pill{grid-area:1/1;justify-self:center;z-index:1;box-sizing:border-box;min-width:min(var(--cs-pill-min,0px),100% - 68px);display:inline-flex;visibility:hidden;opacity:0;align-items:center;gap:3px;padding:3px 5px;background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);border-radius:12px;box-shadow:0 5px 15px -8px color-mix(in oklab,var(--accent,#006fa8),transparent 66%),0 1px 3px -1px color-mix(in oklab,var(--text-heading,#0a1628),transparent 84%);transition:opacity .12s ease}
 			.cs-slide-active > .cs-slide-bar > .cs-sb-pill{visibility:visible;opacity:1}
 			/* PAUSED (mobile: Compose isn't the active pane) — an ancestor 'invisible' class hides this
 			   whole surface, but visibility is only INHERITED, and the rule above explicitly reasserts
@@ -3236,7 +3281,7 @@ function ComposeStyles() {
 			   Compose to Preview pane swap (reported against the shipped mobile toolbar). Higher
 			   specificity than the rule above (5 classes vs. 3) beats it deterministically. */
 			.cs-surface.cs-paused .cs-slide-active > .cs-slide-bar > .cs-sb-pill{visibility:hidden;opacity:0}
-			.cs-sb-format{display:inline-flex;align-items:center;gap:2px}
+			.cs-sb-format{display:inline-flex;align-items:center;justify-content:center;gap:2px;min-width:var(--cs-fmt-min,0px)}
 			.cs-sb-actions{display:inline-flex;align-items:center;gap:2px}
 
 			.cs-sb-div{flex:none;width:1px;height:14px;border-radius:1px;background:var(--border,#e4eaf2)}
@@ -3484,7 +3529,8 @@ function ComposeStyles() {
 				   two. Row two is RESERVED (min-height) on every slide, so switching the active slide never moves
 				   the page. Wide panes keep the single row. */
 				@container (max-width:520px){
-					.cs-sb-pill{flex-wrap:wrap;justify-content:center;row-gap:3px;max-width:calc(100% - 68px)}
+					/* A fixed width on a narrow pane: row two changes with the caret, the pill does not. */
+					.cs-sb-pill{flex-wrap:wrap;justify-content:center;row-gap:3px;width:calc(100% - 68px);max-width:calc(100% - 68px);min-width:0}
 					.cs-sb-pill > .cs-sb-format{order:3;flex:0 0 100%;justify-content:center;min-height:28px}
 					.cs-sb-pill > .cs-sb-actions:last-child{order:2}
 					.cs-sb-pill > .cs-sb-div-hist{display:none}
