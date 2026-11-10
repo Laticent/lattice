@@ -157,7 +157,7 @@
       "on_pull_request": false
     },
     {
-      "name": "ios-safari-undo",
+      "name": "ios-safari-undo-ipad",
       "os": [
         "macos-26"
       ],
@@ -170,8 +170,44 @@
         "docs/src/components/studio/StudioChromeSkeleton.tsx",
         "docs/src/components/studio/undo-doorbell.ts"
       ],
-      "run": "PROBE=undo bash docs/scripts/ios-safari/run.sh",
-      "why": "Filo's undo in real Safari: Mobile Safari in an iPad and an iPhone iOS Simulator, then the Mac's own Safari. It runs WebKit's own undo and redo commands (what Safari's Edit menu, the iOS shake, the three-finger swipe and the iPad keyboard bar send, as a historyUndo beforeinput), taps the Studio's Undo and Redo where it draws them, then reloads and undoes the edit made before the reload; on the Mac a real ⌘Z key does it too. Playwright's WebKit on Linux is not Safari. A simulator cannot shake or take an IME composition, so the gestures themselves and Japanese input stay a person's check (PR #2959 P3).",
+      "run": "PROBE=undo DEVICES=iPad bash docs/scripts/ios-safari/run.sh",
+      "why": "Filo's undo in real Safari, on one device per job: Mobile Safari in an iPad iOS Simulator. One job ran all three devices back to back and took 25.4 of its 30 minutes, passing only on a fast runner (flaky shape F4); a device is about 3 minutes of probe plus its simulator's boot, so each now has the whole limit. It runs WebKit's own undo and redo commands (what Safari's Edit menu, the iOS shake, the three-finger swipe and the iPad keyboard bar send, as a historyUndo beforeinput), taps the Studio's Undo and Redo where it draws them, then reloads and undoes the edit made before the reload; on the Mac a real ⌘Z key does it too. Playwright's WebKit on Linux is not Safari. A simulator cannot shake or take an IME composition, so the gestures themselves and Japanese input stay a person's check (PR #2959 P3).",
+      "docs_site": true
+    },
+    {
+      "name": "ios-safari-undo-iphone",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/*",
+        "docs/src/lib/filo/*",
+        "docs/src/components/studio/studio-filo-persist.ts",
+        "docs/src/components/studio/filo-narrow.worker.ts",
+        "docs/src/components/studio/StudioShell.tsx",
+        "docs/src/components/studio/StudioChromeSkeleton.tsx",
+        "docs/src/components/studio/undo-doorbell.ts"
+      ],
+      "run": "PROBE=undo DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
+      "why": "Filo's undo in real Safari, on one device per job: Mobile Safari in an iPhone iOS Simulator. One job ran all three devices back to back and took 25.4 of its 30 minutes, passing only on a fast runner (flaky shape F4); a device is about 3 minutes of probe plus its simulator's boot, so each now has the whole limit. It runs WebKit's own undo and redo commands (what Safari's Edit menu, the iOS shake, the three-finger swipe and the iPad keyboard bar send, as a historyUndo beforeinput), taps the Studio's Undo and Redo where it draws them, then reloads and undoes the edit made before the reload; on the Mac a real ⌘Z key does it too. Playwright's WebKit on Linux is not Safari. A simulator cannot shake or take an IME composition, so the gestures themselves and Japanese input stay a person's check (PR #2959 P3).",
+      "docs_site": true
+    },
+    {
+      "name": "ios-safari-undo-mac",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/*",
+        "docs/src/lib/filo/*",
+        "docs/src/components/studio/studio-filo-persist.ts",
+        "docs/src/components/studio/filo-narrow.worker.ts",
+        "docs/src/components/studio/StudioShell.tsx",
+        "docs/src/components/studio/StudioChromeSkeleton.tsx",
+        "docs/src/components/studio/undo-doorbell.ts"
+      ],
+      "run": "PROBE=undo DEVICES=Mac bash docs/scripts/ios-safari/run.sh",
+      "why": "Filo's undo in real Safari, on one device per job: the Mac's own Safari, where a real ⌘Z key also undoes. One job ran all three devices back to back and took 25.4 of its 30 minutes, passing only on a fast runner (flaky shape F4); a device is about 3 minutes of probe plus its simulator's boot, so each now has the whole limit. It runs WebKit's own undo and redo commands (what Safari's Edit menu, the iOS shake, the three-finger swipe and the iPad keyboard bar send, as a historyUndo beforeinput), taps the Studio's Undo and Redo where it draws them, then reloads and undoes the edit made before the reload; on the Mac a real ⌘Z key does it too. Playwright's WebKit on Linux is not Safari. A simulator cannot shake or take an IME composition, so the gestures themselves and Japanese input stay a person's check (PR #2959 P3).",
       "docs_site": true
     },
     {

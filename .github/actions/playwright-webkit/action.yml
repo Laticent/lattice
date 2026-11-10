@@ -1,0 +1,34 @@
+name: Playwright WebKit, without the package mirror
+description: >
+  Installs Playwright's WebKit and its system packages from GitHub's cache, keyed on the runner image's OS and the
+  pinned Playwright version. Ubuntu's mirror is read only on a cache miss: a Playwright upgrade, or a cache evicted
+  after 7 days unused. The WebKit nightly runs this on main every night, so a pull request finds the cache warm.
+  Run it after `npm ci` in docs/ (it reads the Playwright version from docs/node_modules).
+runs:
+  using: composite
+  steps:
+    - name: Cache key
+      id: key
+      shell: bash
+      run: |
+        echo "os=$ImageOS" >> "$GITHUB_OUTPUT"
+        echo "playwright=$(node -p "require('./docs/node_modules/playwright-core/package.json').version")" >> "$GITHUB_OUTPUT"
+    - name: Restore WebKit and its packages
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/ms-playwright/webkit-*
+          ~/playwright-webkit-debs
+        key: playwright-webkit-${{ steps.key.outputs.os }}-${{ steps.key.outputs.playwright }}
+    - name: Download WebKit's system packages (cache miss only)
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/install-deps.sh" download "$HOME/playwright-webkit-debs"
+    - name: Install WebKit's system packages
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/install-deps.sh" install "$HOME/playwright-webkit-debs"
+    - name: Install Playwright WebKit (pinned to @playwright/test; a no-op on a cache hit)
+      shell: bash
+      working-directory: docs
+      run: npx playwright install webkit

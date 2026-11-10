@@ -1030,9 +1030,8 @@ jobs:
     # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
     # Playwright pin supports the new image.
     runs-on: ubuntu-24.04
-    # 25, not 12: `--with-deps` pulls about 70 apt packages, and on 2026-10-26 a slow Ubuntu
-    # mirror took that step from 34 s to over 10 min on two of three runs (PR #2910), so a
-    # cancel in the merge queue failed `ci` with every test passing. A normal run is ~3.5 min.
+    # 25 since PR #2910, when `--with-deps` met a slow Ubuntu mirror. The packages now come from GitHub's cache
+    # (the Install step below), so a normal run is ~3.5 min; the cap stays until runs on the cache show its spread.
     timeout-minutes: 25
     name: player no-JS (WebKit)
     steps:
@@ -1059,9 +1058,12 @@ jobs:
         working-directory: docs
         env:
           PUPPETEER_SKIP_DOWNLOAD: '1'
-      - name: Install Playwright WebKit (pinned to @playwright/test)
-        run: npx playwright install --with-deps webkit
-        working-directory: docs
+      # NO MIRROR IN THE TEST PATH (owner call on PR #3117's follow-up, 2026-11-10). `--with-deps` ran apt-get against
+      # Ubuntu's mirror on every run: over 17 runs the step took 36 s at the median, but 5 took over 2 min, 2 over 10,
+      # and one never finished inside the 25 minutes (flaky shape F6). The action installs WebKit and its packages from
+      # GitHub's cache, which the WebKit nightly warms on main.
+      - name: Install Playwright WebKit, from the cache
+        uses: ./.github/actions/playwright-webkit
       - name: No-JS player tests in WebKit
         env:
           LATTICE_PLAYWRIGHT: ${{ github.workspace }}/docs/node_modules/playwright
