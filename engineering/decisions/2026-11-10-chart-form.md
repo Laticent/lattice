@@ -143,3 +143,50 @@ content exceeds it, the kernel gives way in one fixed order, the same for all 28
 3. **What gives:** the order in § 3, as written, for all 28 kinds.
 4. **Landscape:** the kernel runs everywhere; any change to a landscape (16:9) chart ships only with a before/after
    sign-off from the owner.
+
+## 8. The pilot and the measuring bake-off (2026-11-10)
+
+**What is built.** `lib/plugins/chart-family/shared/chart-form.js` is the kernel: `arrange` (the search of § 2.3 over
+each tile's sides and forms, keeping every tile whole, then the largest plot, then the fullest box), `keyTile` (a key
+in one to three columns or as a running line, names wrapped at spaces, never mid-word; under the plot or, narrowest
+first, beside it), and the swatch key every keyed kind shares. A kind opts in with `kernel.form: true` in its manifest;
+the dispatch then draws it ONCE, on a canvas 320 units wide and the shape of its box, so one unit prints at a known
+3.0375 page px and every role's size is known before anything is drawn (`chart-form-state.js`). Bar, quadrant and
+risk-matrix are on it.
+
+**Measuring text: the bake-off.** Three candidates, judged on the three pilot galleries at the four phone sizes, with
+every line break the kernel made judged against the width Chromium paints:
+
+| Measurer | Needless wraps | Overprints / drops | Where it runs | Cost |
+|---|---|---|---|---|
+| flat 0.52 em a character (the ladder's) | 120 | 4 / 1 | everywhere | none |
+| per-glyph table, built offline from the shipped Outfit and Shantell woff2s, tabular figures | 6 | 2 / 1 | everywhere, the same result | ~10 KB raw in the lazy chart kernels |
+| browser measurement (each string measured in Chromium) | 0 | 2 / 1 | the CLI only, with 2-3 extra passes; not unit tests, not the docs site without a measuring pre-pass | ~3x render time |
+
+Over the 2,638 label runs of all 28 galleries the flat estimate misses the painted width by -49% to +55% (54% of runs
+under by more than 2%); the table by 0% at the median and +2% at p95, and under by more than 2% on 0.8% of runs
+(kerning). The table matches the browser on every rendered warning. Recommendation: the table.
+
+**The pilot against `main`**, the 44 decks that draw a pilot kind at five sizes: the type below the legibility floor
+that `main` prints on phone pages is gone, and the role ladder's overprints and drops on these kinds are gone except
+where a page is over capacity (below).
+
+**Over capacity.** Some slides cannot hold their chart at the floors on one page: a quadrant of eight long names under a
+two-line subtitle at 4:5 or square, a ten-risk register at square, a risk matrix with three authored notes at square.
+`main` prints them below the floor; the ladder printed them at size with overprints. The kernel draws them whole and
+lets the page scale the drawing (`data-chart-form="over"`), by 11% to 29%. The design's next give, continuing onto a
+second page, is not built: pages split upstream of the chart (the structural split), so it is engine work. Section 9
+puts it to the owner.
+
+**Measured, not yet fixed.** The dispatch estimates the chart box from the title's length and whether there is a
+subtitle or a caption. Against the real box it is within 4%, both ways: over (text 4% under its role) on a slide with a
+two-line subtitle, under (space left) elsewhere.
+
+## 9. Open for the owner (2026-11-10)
+
+1. The measurer: the table (recommended), on the § 8 evidence.
+2. Over capacity: build "continue onto the next page" for charts (recommended, before the remaining 25 kinds move), or
+   keep the scaled drawing, or let names drop.
+3. The pilot at mobile, story, 4:5 and square, light and dark.
+4. Landscape: the kernel does not run on 16:9 yet. Each pilot gallery's 16:9 chart markup is byte-identical to the
+   branch before the kernel, and differs from `main` only by #3088's `data-series-name` attributes (no geometry, no text).
