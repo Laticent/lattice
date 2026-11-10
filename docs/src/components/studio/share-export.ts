@@ -483,7 +483,7 @@ export async function shareHtmlPlayer(
 	if (!PG.splitForPreview) console.warn('lattice: this engine bundle has no structural split; a portrait, square or mobile deck exports unsplit.');
 	const splitLikeCli = <R extends { html: string; width?: number; height?: number }>(r: R, src: string): R =>
 		PG.splitForPreview ? { ...r, html: PG.splitForPreview(r.html, src, r.width || 1280, r.height || 720, { settle: false }).html } : r;
-	// The deck's `fonts:` line with the export panel's choice on top, the plan the command line runs.
+	// The deck's `font-embedding:` line with the export panel's choice on top, the plan the command line runs.
 	const fontSetting = (await import('./export/deck-export.js')).deckFontSetting(source);
 	// Under the Emoji font setting `system` the player carries no icon font, so every slide draws its icons' <svg>, as the
 	// command line's player does (lib/fonts/icon-fallback.js).

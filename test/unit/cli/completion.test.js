@@ -29,7 +29,7 @@ const O = require('../../../lib/cli/options.js');
 
 const FLAG = /'(--?[A-Za-z][\w-]*)'/g;
 /** Flags parseArgs may still name itself: the retired ones it refuses with a pointer. */
-const PARSEARGS_OWN = new Set(['--strip-captions']);
+const PARSEARGS_OWN = new Set(['--strip-captions', '--fonts']);
 
 function between(src, start, end) {
   const from = src.indexOf(start);
@@ -52,6 +52,13 @@ const RENDER = new Set([...O.VALUE_OPTIONS, ...O.SWITCHES, ...O.EARLY_FLAGS].fla
 const PACKAGES = literals(between(read('lib/cli/packages.js'), 'function parse(argv)', 'return { flags, pos };'));
 const VIDEO = new Set([...read('lib/export/video-cli.mjs').matchAll(/a === '(--?[A-Za-z][\w-]*)'/g)].map((m) => m[1]));
 const PACKAGES_PREVS = [['packages'], ...C.PACKAGES_COMMANDS.map(([c]) => ['packages', c])];
+
+describe('drift: PARSEARGS_OWN holds no stale entry', () => {
+  test('names only flags parseArgs still refuses itself, so deleting a guard fails here too', () => {
+    const named = literals(PARSE_ARGS);
+    assert.deepEqual([...PARSEARGS_OWN].filter((f) => !named.has(f)), []);
+  });
+});
 
 describe('drift: Tab offers every option the CLI accepts', () => {
   test('the render command: every row of the options table', () => {

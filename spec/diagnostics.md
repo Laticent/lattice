@@ -231,7 +231,8 @@ distinct, stable ID.
 | `unknown-spectrum-trim` | warning | ✓ | A `spectrum-trim:` value the engine does not know; the accents stay plain. |
 | `unknown-rule` | warning | ✓ | A `rule:` value the engine does not know; headings keep the default underline. |
 | `unknown-inline-code` | warning | ✓ | An `inline-code:` value the engine does not know; pills and marks keep rendering. |
-| `unknown-fonts` | warning | — | A word in the deck's `fonts:` line that is not `exact`, `used`, `full` or `system` (alone or with an `-emoji` suffix); the exports ignore it. |
+| `unknown-font-embedding` | warning | — | A word in the deck's `font-embedding:` line that is not `exact`, `used`, `full` or `system` (alone or with an `-emoji` suffix); the exports ignore it. |
+| `fonts-renamed` | warning | ✓ | `fonts:`, the old spelling of `font-embedding:`. The exports no longer read it. The fix renames the key and keeps the words. When the deck also sets `font-embedding:` to a tier, it deletes the old line; when that line names no tier (empty, a comment, unknown words), there is no fix, because either edit would lose the words. |
 | `unknown-images` | warning | — | A word in the deck's `images:` line that is not `optimized`, `original` or a JPEG quality from 1 to 100; the exports ignore it. |
 | `unknown-eyebrow` | warning | ✓ | An `eyebrow:` value the engine does not know; eyebrows render as the bare label. |
 | `unknown-headline` | warning | ✓ | A `headline:` value the engine does not know; each layout keeps its own alignment. |
