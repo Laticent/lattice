@@ -119,8 +119,8 @@
       "from": "npm:mermaid/dist/mermaid.min.js",
       "vendored": {
         "file": "vendor/mermaid.min.js",
-        "version": "11.17.2",
-        "sha256": "581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8"
+        "version": "12.3.0",
+        "sha256": "336df803d87a38b70a01e736e666c8f7601d2ce42f5e47c8fafe5d721074b9a3"
       },
       "global": "mermaid",
       "when": "used"
@@ -141,44 +141,62 @@
     "esm": {
       "from": "npm:mermaid/dist/mermaid.esm.min.mjs",
       "file": "vendor/esm/mermaid.esm.min.mjs",
-      "version": "11.17.2",
-      "sha256": "462d6f73fc9833044bca6dc08e62e0ee83f5a2b09583f588f95d5fd91b1960ed"
+      "version": "12.3.0",
+      "sha256": "7825d4f50b7725798246bddd67ea229d12e0bd1a0e9edc67ba0c9ca9ff2e4e2b"
     },
     "esm-chunks": {
       "from": "npm:mermaid/dist/chunks/mermaid.esm.min/*.mjs",
       "file": "vendor/esm/chunks/mermaid.esm.min/",
-      "version": "11.17.2",
-      "sha256": "3b2301209a511054932d6a5c8dd413252736aa5161694af7aaade360537c4402"
+      "version": "12.3.0",
+      "sha256": "c581976c4aa8c8c5ee6a94a9415e3041e04afa28949a6590e9b1dca4f7591f95"
     },
     "license": {
       "from": "npm:mermaid/LICENSE",
       "file": "vendor/mermaid.LICENSE",
-      "version": "11.17.2",
+      "version": "12.3.0",
       "sha256": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80"
     },
     "zenuml-license": {
       "from": "npm:@mermaid-js/mermaid-zenuml/LICENSE",
       "file": "vendor/mermaid-zenuml.LICENSE",
-      "version": "0.2.3",
+      "version": "1.0.1",
       "sha256": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80"
     },
     "render-page-license": {
       "from": "npm:@mermaid-js/mermaid-cli/LICENSE",
       "file": "vendor/mermaid-cli.LICENSE",
-      "version": "11.12.0",
-      "sha256": "adc6d4dd1e02dbcd5606931c9bb46e2d3b0491d1b2d2e812b35b1b06c8561aab"
+      "version": "12.2.0",
+      "sha256": "97f7515292671682e698b9e35b8431b096ee4357c3ccdbf8694d979b73ba94e6"
     },
     "zenuml": {
       "from": "npm:@mermaid-js/mermaid-zenuml/dist/mermaid-zenuml.min.js",
       "file": "vendor/mermaid-zenuml.min.js",
-      "version": "0.2.3",
-      "sha256": "28eeec88021d9e9728df4d005ff723a3d71da29a21dbcfa2a628232c35ef2ab6"
+      "version": "1.0.1",
+      "sha256": "f75662869d22aac58870e52370fe4c46b89b9710bf4b03df93b3227b5e18e730"
     },
     "render-page": {
-      "from": "npm:@mermaid-js/mermaid-cli/dist/",
-      "file": "vendor/mermaid-cli/",
-      "version": "11.12.0",
-      "sha256": "55df40085a4590f3de7acd28621ab40635ff7dec202a6351add329842da64f09"
+      "from": "npm:@mermaid-js/mermaid-cli/dist/index.html",
+      "file": "vendor/render-page/index.html",
+      "version": "12.2.0",
+      "sha256": "f610ab425d58bd8d6c9baf1db0b98a78af36dd596cae15465e31fd088cdbc3cf"
+    },
+    "fontawesome-css": {
+      "from": "npm:@fortawesome/fontawesome-free/css/all.min.css",
+      "file": "vendor/render-page/fontawesome/css/all.min.css",
+      "version": "7.3.1",
+      "sha256": "e0b69df26e19596d4b81bf7eb0c54b6047e7221ec18d5d4d40c11eefd3ef8a4b"
+    },
+    "fontawesome-webfonts": {
+      "from": "npm:@fortawesome/fontawesome-free/webfonts/",
+      "file": "vendor/render-page/fontawesome/webfonts/",
+      "version": "7.3.1",
+      "sha256": "99e59287ac759416a33b2602e8091ab050e8f909eb8ddf1d22769c660b341e9f"
+    },
+    "fontawesome-license": {
+      "from": "npm:@fortawesome/fontawesome-free/LICENSE.txt",
+      "file": "vendor/fontawesome.LICENSE",
+      "version": "7.3.1",
+      "sha256": "20c6f40715a567c97b80f6944beb8bb325835cab47ea7dcab89ee3b8e077eced"
     }
   },
   "render": {

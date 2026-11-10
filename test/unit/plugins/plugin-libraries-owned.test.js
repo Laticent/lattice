@@ -40,12 +40,12 @@ test('the plugins own exactly the libraries we ship', () => {
   assert.deepEqual(COPIES.map((c) => `${c.plugin}:${c.key}`).sort(), [
     'function-plot:function-plot', 'function-plot:license',
     'math:katex', 'math:katex-css', 'math:katex-fonts', 'math:license',
-    'mermaid:esm', 'mermaid:esm-chunks', 'mermaid:license', 'mermaid:mermaid', 'mermaid:render-page', 'mermaid:render-page-license', 'mermaid:zenuml', 'mermaid:zenuml-license',
+    'mermaid:esm', 'mermaid:esm-chunks', 'mermaid:fontawesome-css', 'mermaid:fontawesome-license', 'mermaid:fontawesome-webfonts', 'mermaid:license', 'mermaid:mermaid', 'mermaid:render-page', 'mermaid:render-page-license', 'mermaid:zenuml', 'mermaid:zenuml-license',
   ]);
   // Each is MIT, whose notice must travel with every copy: every package a plugin copies from has
   // its LICENSE copied beside the library, recorded and hashed like the library itself.
-  const libraries = new Set(COPIES.filter((c) => !c.entry.from.endsWith('/LICENSE')).map((c) => `${c.plugin}:${pkgOf(c.entry.from)}`));
-  const licensed = new Set(COPIES.filter((c) => c.entry.from.endsWith('/LICENSE')).map((c) => `${c.plugin}:${pkgOf(c.entry.from)}`));
+  const libraries = new Set(COPIES.filter((c) => !/\/LICENSE(\.txt)?$/.test(c.entry.from)).map((c) => `${c.plugin}:${pkgOf(c.entry.from)}`));
+  const licensed = new Set(COPIES.filter((c) => /\/LICENSE(\.txt)?$/.test(c.entry.from)).map((c) => `${c.plugin}:${pkgOf(c.entry.from)}`));
   assert.deepEqual([...libraries].filter((l) => !licensed.has(l)), [], 'a vendored library travels without its LICENSE');
   // And no plugin's browser library is read from node_modules any more.
   const unvendored = fs.readdirSync(path.join(ROOT, 'lib', 'plugins')).filter((n) => {
@@ -81,13 +81,13 @@ test('every surface reads the plugin\'s copy', () => {
   // The Marp kit and the Export-to-Marp bundle (lib/export/marp-bundle.js STATIC_ASSETS; the kit derives from it).
   const { STATIC_ASSETS } = require('../../../lib/export/marp-bundle.js');
   assert.equal(STATIC_ASSETS.find((a) => a.to === 'mermaid-v11-min.js')?.from, 'lib/plugins/mermaid/vendor/mermaid.min.js');
-  // The CLI bake: Mermaid, ZenUML and mermaid-cli's render page.
+  // The CLI bake: Mermaid, ZenUML and mermaid-cli's render page (a file since mermaid-cli 12, which ships it alone).
   // Mermaid names its page's files by key; the host's page resolves them (lib/plugins/host-page-worker.js).
   const { resolveAssets } = require('../../../lib/plugins/host-page-worker.js');
   const b = resolveAssets('mermaid', require('../../../lib/plugins/mermaid/mermaid.page.js').assets());
   assert.equal(b.scripts['mermaid.min.js'], payloadPath('mermaid'));
   assert.equal(b.scripts['mermaid-zenuml.min.js'], vendorPath('mermaid', 'zenuml'));
-  assert.equal(b.indexHtml, path.join(vendorPath('mermaid', 'render-page'), 'index.html'));
+  assert.equal(b.indexHtml, vendorPath('mermaid', 'render-page'));
   // The CLI export page's hydrators (function-plot) resolve through payload-path.js.
   assert.match(read('lib/plugins/hydrate-script.js'), /const abs = libraryPath\(h\.name\);/);
   assert.equal(require('../../../lib/plugins/hydrate-script.js').payloadPath({ name: 'function-plot', payload: {} }), payloadPath('function-plot'));
