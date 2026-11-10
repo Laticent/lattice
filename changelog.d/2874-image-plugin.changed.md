@@ -9,3 +9,7 @@
   (`lib/base/base.media.css`) serves pictures, so a clip and the photo beside it match.
 - Narration speaks a media figure's title, then its description, from the record, whatever the slide shows; author HTML can
   no longer forge a figure's `data-lattice-title`, `data-lattice-description` or `data-lattice-media` (renamed `data-author-…`).
+- **The `image` plugin**: `@image{photo.jpg, title="…", description="…"}` on a line of its own, with Markdown's
+  `![title](src "description")` as its alias. The slide places it: an `image` slide makes it the photo panel (`mirror` puts it
+  on the left), the new `bleed` class makes it a slide's background, and any other slide shows it as a figure with the shared
+  layer's frames, finishes, tones and sizes (`image:` register). The address comes only from the author's own record.

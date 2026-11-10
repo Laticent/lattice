@@ -102,6 +102,14 @@ section .lat-media[data-focus="bottom"] .lat-media-pic > img { object-position: 
 section .lat-media[data-focus="left"] .lat-media-pic > img { object-position: left; }
 section .lat-media[data-focus="right"] .lat-media-pic > img { object-position: right; }
 section .lat-media[data-focus="center"] .lat-media-pic > img { object-position: center; }
+/* A picture a layout places as a panel (`.lattice-bg`, an `image` slide's photo, a `bleed` background) crops by its background. */
+section > .lattice-bg[data-focus="top"] { background-position: top; }
+section > .lattice-bg[data-focus="bottom"] { background-position: bottom; }
+section > .lattice-bg[data-focus="left"] { background-position: left; }
+section > .lattice-bg[data-focus="right"] { background-position: right; }
+section > .lattice-bg[data-focus="center"] { background-position: center; }
+/* The panel holds the tone and finish layers; it is the group they blend into. */
+section > .lattice-bg[data-lattice-media]:is([data-tone], [data-finish]) { isolation: isolate; }
 
 /* ── THE RECORD'S WORDS ── shown as `show=` decides (lib/core/media-display.js `captionHtml`). A shown title keeps its line
  * even when it is empty, so a cold and a warm render lay out the same (§4.11). */
@@ -235,7 +243,7 @@ section .lat-media[data-frame="corners"] .lat-media-pic { border-radius: 0; }
 
 /* ── THE OVERLAYS ── a tone and a finish are each a layer over the picture, at the strength the record asked for
  * (`nimbus=40`: the `backdrop:` scale, 20 … 80 and full). */
-section .lat-media :is(.lat-media-tone, .lat-media-finish) {
+section [data-lattice-media] :is(.lat-media-tone, .lat-media-finish) {
   /* NO z-index and NO opacity here: either makes this span a stacking context of its own, and a blend layer inside one blends
    * with nothing (the first render painted a flat accent where the duotone should be). The picture (`isolation: isolate`) is
    * the group the layers blend into; the strength is each layer's own opacity. Painted before the badge (z-index 2). */
@@ -244,37 +252,37 @@ section .lat-media :is(.lat-media-tone, .lat-media-finish) {
   pointer-events: none;
   border-radius: inherit;
 }
-section .lat-media :is(.lat-media-tone, .lat-media-finish)::before,
-section .lat-media :is(.lat-media-tone, .lat-media-finish)::after {
+section [data-lattice-media] :is(.lat-media-tone, .lat-media-finish)::before,
+section [data-lattice-media] :is(.lat-media-tone, .lat-media-finish)::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
 }
-section .lat-media { --lat-media-tone-a: 1; --lat-media-finish-a: 1; }
-section .lat-media[data-tone-strength="20"] { --lat-media-tone-a: 0.2; }
-section .lat-media[data-tone-strength="40"] { --lat-media-tone-a: 0.4; }
-section .lat-media[data-tone-strength="60"] { --lat-media-tone-a: 0.6; }
-section .lat-media[data-tone-strength="80"] { --lat-media-tone-a: 0.8; }
-section .lat-media[data-finish-strength="20"] { --lat-media-finish-a: 0.2; }
-section .lat-media[data-finish-strength="40"] { --lat-media-finish-a: 0.4; }
-section .lat-media[data-finish-strength="60"] { --lat-media-finish-a: 0.6; }
-section .lat-media[data-finish-strength="80"] { --lat-media-finish-a: 0.8; }
-section .lat-media .lat-media-tone::before,
-section .lat-media .lat-media-tone::after { opacity: var(--lat-media-tone-a); }
-section .lat-media .lat-media-finish::before,
-section .lat-media .lat-media-finish::after { opacity: var(--lat-media-finish-a); }
+section [data-lattice-media] { --lat-media-tone-a: 1; --lat-media-finish-a: 1; }
+section [data-lattice-media][data-tone-strength="20"] { --lat-media-tone-a: 0.2; }
+section [data-lattice-media][data-tone-strength="40"] { --lat-media-tone-a: 0.4; }
+section [data-lattice-media][data-tone-strength="60"] { --lat-media-tone-a: 0.6; }
+section [data-lattice-media][data-tone-strength="80"] { --lat-media-tone-a: 0.8; }
+section [data-lattice-media][data-finish-strength="20"] { --lat-media-finish-a: 0.2; }
+section [data-lattice-media][data-finish-strength="40"] { --lat-media-finish-a: 0.4; }
+section [data-lattice-media][data-finish-strength="60"] { --lat-media-finish-a: 0.6; }
+section [data-lattice-media][data-finish-strength="80"] { --lat-media-finish-a: 0.8; }
+section [data-lattice-media] .lat-media-tone::before,
+section [data-lattice-media] .lat-media-tone::after { opacity: var(--lat-media-tone-a); }
+section [data-lattice-media] .lat-media-finish::before,
+section [data-lattice-media] .lat-media-finish::after { opacity: var(--lat-media-finish-a); }
 
 /* ── TONES (§4.7 control 3) ──
  * grayscale: a neutral layer in the `saturation` blend takes the picture's color away and keeps its light (CSS's own word).
  * duotone: the same, then the accent laid over in the `color` blend, so the shadows fall to a deep accent and the lights rise
  * to a pale one. It reads the same on a light and a dark theme, because it never mixes with the slide's own surface (§4.9:
  * the first duotone washed out to a flat teal on a dark theme). */
-section .lat-media[data-tone] .lat-media-tone::before {
+section [data-lattice-media][data-tone] .lat-media-tone::before {
   background-color: rgb(128 128 128);
   mix-blend-mode: saturation;
 }
-section .lat-media[data-tone="duotone"] .lat-media-tone::after {
+section [data-lattice-media][data-tone="duotone"] .lat-media-tone::after {
   background-color: color-mix(in srgb, var(--accent) 88%, var(--text-heading));
   mix-blend-mode: color;
 }
@@ -285,13 +293,13 @@ section .lat-media[data-tone="duotone"] .lat-media-tone::after {
 /* nimbus: two accent blooms from opposite corners. A screen blend alone vanished on a bright photograph (§4.9), so the
  * bloom is laid twice: once lightening (the glow on a dark picture) and once as a soft color wash (which still reads on a
  * bright sky), without hiding the subject in the middle. */
-section .lat-media[data-finish="nimbus"] .lat-media-finish::before {
+section [data-lattice-media][data-finish="nimbus"] .lat-media-finish::before {
   background-image:
     radial-gradient(60% 75% at 4% 6%, color-mix(in srgb, var(--accent) 85%, white 15%), transparent 68%),
     radial-gradient(55% 70% at 98% 96%, color-mix(in srgb, var(--accent) 70%, white 10%), transparent 66%);
   mix-blend-mode: screen;
 }
-section .lat-media[data-finish="nimbus"] .lat-media-finish::after {
+section [data-lattice-media][data-finish="nimbus"] .lat-media-finish::after {
   background-image:
     radial-gradient(52% 64% at 4% 6%, color-mix(in srgb, var(--accent) 60%, transparent), transparent 70%),
     radial-gradient(48% 60% at 98% 96%, color-mix(in srgb, var(--accent) 50%, transparent), transparent 68%);
@@ -299,16 +307,16 @@ section .lat-media[data-finish="nimbus"] .lat-media-finish::after {
 }
 
 /* halo: a vignette that lifts the center. */
-section .lat-media[data-finish="halo"] .lat-media-finish::before {
+section [data-lattice-media][data-finish="halo"] .lat-media-finish::before {
   background-image: radial-gradient(75% 80% at 50% 45%, transparent 42%, rgb(8 10 14 / 0.68) 100%);
 }
-section .lat-media[data-finish="halo"] .lat-media-finish::after {
+section [data-lattice-media][data-finish="halo"] .lat-media-finish::after {
   background-image: radial-gradient(60% 60% at 50% 45%, rgb(255 255 255 / 0.12), transparent 70%);
   mix-blend-mode: soft-light;
 }
 
 /* meridian: a diagonal accent wash, light at one corner and deep at the other. */
-section .lat-media[data-finish="meridian"] .lat-media-finish::before {
+section [data-lattice-media][data-finish="meridian"] .lat-media-finish::before {
   background-image: linear-gradient(130deg,
     color-mix(in srgb, var(--accent) 85%, white) 0%,
     rgb(128 128 128 / 0) 45%,

@@ -1,0 +1,17 @@
+/* image.styles.css — THE IMAGE PLUGIN's own seat that no layout owns: `bleed`. On a slide that is not an `image` slide, the
+ * `bleed` class makes the slide's lone `@image{…}` record its background, behind its words
+ * (engineering/decisions/2026-10-16-media-plugins.md §4.7: the layout places; `bleed` is the placing word). The picture is the
+ * same `.lattice-bg` panel the `image` layout places, painted on the slide's canvas plane, cropped to fill it. Pair it with
+ * `dark` (or a light photo with light ink) so the words read. Everything else a picture looks like (frames, finishes, tones,
+ * sizes, the words) is the shared display layer's: lib/base/base.media.css. */
+
+section.bleed:not(.image):not(.collage) .lattice-bg[data-lattice-media="image"]:not([data-lattice-plugin] *) {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-canvas);
+  isolation: isolate;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  pointer-events: none;
+}
