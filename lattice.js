@@ -3488,6 +3488,13 @@ async function renderExport({ hardened }) {
   }
 }
 
+/** Content types for a deck file the capture page reads from the deck folder (see `deckRelativeFile` in `renderBody`). */
+const CAPTURE_TYPES = {
+  '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+  '.webp': 'image/webp', '.avif': 'image/avif', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf',
+};
+
 async function renderBody(browser, g, closeBrowser) {
   // THE CLI'S DRAW HOST: one locked page per host-drawn plugin, opened WHILE the capture page loads, so a figure's draw
   // pays almost nothing for its setup (lib/export/locked-figures.js `openExportDrawHost`). A page that cannot open is
@@ -3514,6 +3521,21 @@ async function renderBody(browser, g, closeBrowser) {
     const isOutputPage = (url) => { try { const local = localPathOfFileUrl(url); return local !== null && fs.realpathSync(local) === outHtmlReal; } catch { return false; } };
     const standIn = decodeURIComponent(WEB_IMAGE_PLACEHOLDER.slice(WEB_IMAGE_PLACEHOLDER.indexOf(',') + 1));
     const refused = new Set();
+    // `url`, read as the deck folder would read it: the path from the output page's folder, taken from the deck's
+    // folder instead. A file the confiner allows and that exists, or null.
+    const outDir = path.dirname(path.resolve(outHtml));
+    // A deck read from stdin (`-`) has the current folder as its folder, as DECK_CONFINE has it.
+    const deckDir = mdFile && mdFile !== '-' ? path.dirname(path.resolve(mdFile)) : process.cwd();
+    // The REAL path is resolved once, checked, and is what gets read, so a symlink swapped in after
+    // the check cannot change which file is served (the checker's race on the first cut).
+    const deckRelativeFile = (url) => {
+      try {
+        const local = localPathOfFileUrl(url);
+        if (local === null || deckDir === outDir) return null;
+        const real = fs.realpathSync(path.resolve(deckDir, path.relative(outDir, local)));
+        return confine.allows(real) && fs.statSync(real).isFile() ? real : null;
+      } catch { return null; }
+    };
     await g(() => page.setRequestInterception(true), 'confine local files');
     page.on('request', (req) => {
       if (req.isInterceptResolutionHandled()) return;
@@ -3524,6 +3546,18 @@ async function renderBody(browser, g, closeBrowser) {
         return;
       }
       if (!/^file:/i.test(url) || confine.allows(url) || (req.isNavigationRequest() && isOutputPage(url))) { req.continue(); return; }
+      // THE DECK'S OWN RELATIVE ADDRESSES, read where the deck reads them. The capture page is the output HTML, written
+      // into the OUTPUT folder, so a deck's `<script src="../vendor/x.js">` resolved against that folder: with `-o`
+      // elsewhere it named a file that does not exist and was refused here, with a warning that named it
+      // (followups.d/3051-p8). The same address read from the deck folder is the file the author meant, so a refused
+      // subresource is mapped from "relative to the output page" to "relative to the deck" and served when the confiner
+      // allows THAT path. Nothing new is reachable: the mapped path passes the same check. The deliverable is untouched
+      // (its addresses stay as the author wrote them); only the capture page reads the deck's file.
+      const fromDeck = req.isNavigationRequest() ? null : deckRelativeFile(url);
+      if (fromDeck) {
+        req.respond({ status: 200, contentType: CAPTURE_TYPES[path.extname(fromDeck).toLowerCase()] || 'application/octet-stream', body: fs.readFileSync(fromDeck) });
+        return;
+      }
       if (!refused.has(url)) {
         refused.add(url);
         console.error(`  ⚠ refused ${url.slice(0, 200)}: it resolves outside the deck folder`);
