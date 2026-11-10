@@ -201,9 +201,12 @@ distinct, stable ID.
 | `unknown-inline-kind` | warning | ✓ | A named span `@name{…}` whose name no kind has: neither the host's, a shipped plugin's, nor a listed plugin's. It renders as code; the autofix takes the nearest kind name when one is close. |
 | `video-no-record` | error | — | A `video` slide with no `@video{…}` record, so it draws no clip. The address comes only from the author's own record, never from slide text. |
 | `video-not-alone` | warning | — | An `@video{…}` record inside running text. A video is a figure, so only a record on a line of its own is drawn; the span stays code. |
-| `video-slide-class` | warning | — | A lone `@video{…}` record on a slide that is not a `video` slide. The layout and the poster picture are both scoped to the `video` class, so the clip draws only as a plain text link; the finding names the class to write. |
 | `video-extra-record` | warning | — | A second lone `@video{…}` record on one `video` slide. The layouts seat one clip, so the extra record is drawn below the first and runs off the slide; move it to a slide of its own. |
 | `video-web-poster` | warning | — | A `poster=` on a drawn `@video{…}` record that loads from another site: the figure paints it as a background, which the preview replaces with a placeholder. |
+| `image-marp-keyword` | warning | ✓ | A Marp alt-text keyword line (`![bg left](x)`, `![bg](x)`): retired (media note §8 decision 2). The fix writes the `@image{…}` record and moves the placement to the slide: `left` becomes `mirror` on an `image` slide, and on any other slide the slide gains `bleed`. Keywords that were never drawn (a share, the filters) are named and dropped. |
+| `image-not-alone` | warning | — | An `@image{…}` record in running text: a picture is a figure, so only a record on a line of its own is drawn, and this one stays code. For a picture inside a sentence, write `![title](src)`. |
+| `image-extra-panel` | warning | — | A second drawn `@image{…}` record on one `image` slide: the layout seats one photo, and the second becomes a panel over the first. |
+| `image-web-source` | warning | — | A drawn `@image{…}` record whose address loads from another site: the preview shows a placeholder until the reader allows web pictures, and loading it tells that site who opened the deck. |
 | `spark-too-big` | warning | ✓ | A spark too tall or too wide for its line; the autofix resizes it. Reported by the Studio from a measured render (`sparkFitFindings`), not by `lintTextWith` or the CLI. |
 | `pill-shape-crowded` | warning | — | A shaped pill (`{X, circle}`) holding more than the shape can, so it stretches out of shape. |
 | `bracket-list-closed-early` | warning | — | An extra `]` that closes a bracketed list early, so it shows as plain text. |

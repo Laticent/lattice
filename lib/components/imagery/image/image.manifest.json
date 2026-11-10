@@ -499,5 +499,22 @@
       ]
     }
   ],
-  "venueProbe": "<!-- _class: image -->\n\n## The image layout reads the asset’s shape.\n\nTwo-thirds of trials that reach the first generated report convert to paid; the ones that stall at setup almost never do.\n\n![bg](sample:photo-wide.svg)\n"
+  "venueProbe": "<!-- _class: image -->\n\n## The image layout reads the asset’s shape.\n\nTwo-thirds of trials that reach the first generated report convert to paid; the ones that stall at setup almost never do.\n\n![bg](sample:photo-wide.svg)\n",
+  "media": {
+    "places": "panel",
+    "kinds": [
+      "image"
+    ],
+    "show": "none",
+    "ignores": [
+      "size",
+      "frame"
+    ],
+    "describe": "The `image` slide makes its one picture the photo panel and picks the composition from the photo's shape (`mirror` puts it on the left). A finish, a tone and `focus=` apply to the panel; it has no frame and no size of its own, because the panel runs to the composition's edges."
+  },
+  "plugins": {
+    "requires": [
+      "image"
+    ]
+  }
 }

@@ -6,7 +6,7 @@
     "component": 79,
     "finish": 9,
     "motion": 4,
-    "plugin": 15
+    "plugin": 16
   },
   "packages": [
     {
@@ -1488,6 +1488,22 @@
     },
     {
       "type": "plugin",
+      "name": "image",
+      "path": "lib/plugins/image",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "inline.js",
+        "lint.js",
+        "manifest.json",
+        "services.js",
+        "styles.css",
+        "syntax.mjs"
+      ],
+      "code": true
+    },
+    {
+      "type": "plugin",
       "name": "legend",
       "path": "lib/plugins/legend",
       "roles": [
@@ -1579,6 +1595,7 @@
         "inline.js",
         "lint.js",
         "manifest.json",
+        "styles.css",
         "syntax.mjs"
       ],
       "code": true

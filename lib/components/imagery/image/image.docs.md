@@ -432,6 +432,20 @@ In a deck that sets `image-card: bottom band`, this slide keeps the floating car
 ![bg](sample:photo-wide.svg)
 ```
 
+## Media inside
+
+The `image` slide makes its one picture the photo panel and picks the composition from the photo's shape (`mirror` puts it on the left). A finish, a tone and `focus=` apply to the panel; it has no frame and no size of its own, because the panel runs to the composition's edges. A `@image{…}` record becomes the layout's picture panel.
+
+| Setting | Here |
+|---|---|
+| size (`sm` `md` `lg`) | decided by the layout; the record's word is ignored |
+| frame | decided by the layout; the record's word is ignored |
+| finish | the record's word |
+| tone | the record's word |
+| `show=` (the words on the slide) | `show=none`, whatever the record says |
+
+The words themselves (the address, `title`, `description`) are always the author's: a layout may hide or restyle them, never change them. Hidden words still reach a screen reader, the tooltip, the print notes and narration. Design: `engineering/decisions/2026-10-16-media-plugins.md` §4.7.
+
 ## Universal modifiers
 
 This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.

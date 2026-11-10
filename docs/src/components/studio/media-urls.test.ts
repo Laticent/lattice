@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteAsset, listAssets } from './library/asset-store.js';
 import { renameMedia, updateMediaMeta } from './media-edit';
 import { LIBRARY_SCOPE, type NewMedia, saveMedia, setMediaScope } from './media-store';
-import { altsFor, assetNamesIn, assetStamp, dataUrlsFor, ensureAssetAlts, ensureAssetUrls, missingAssetNames, onAssetUrlsChanged, refreshAssetUrls, resetAssetUrlsForTests, setActiveAssetDeck, sourceUsesAssets } from './media-urls';
+import { altsFor, assetNamesIn, assetStamp, dataUrlsFor, ensureAssetAlts, ensureAssetImageSize, ensureAssetUrls, missingAssetNames, onAssetUrlsChanged, refreshAssetUrls, resetAssetUrlsForTests, setActiveAssetDeck, sourceUsesAssets } from './media-urls';
 
 const make = (over: Partial<NewMedia> = {}): NewMedia => ({
 	kind: 'image', name: 'hero', scope: LIBRARY_SCOPE, blob: new Blob(['x'], { type: 'image/png' }),
@@ -47,6 +47,18 @@ describe('the map', () => {
 		expect(Object.keys(await ensureAssetUrls())).toEqual(['a-only']);
 		await setActiveAssetDeck('deck-b');
 		expect(Object.keys(await ensureAssetUrls())).toEqual([]);
+	});
+});
+
+describe('ensureAssetImageSize: the box before the bytes (media note §4.11)', () => {
+	it('answers a photo’s size by the NAME the author wrote, whatever URL it resolved to', async () => {
+		await saveMedia(make({ name: 'lake', width: 1600, height: 900 }), 1);
+		const size = await ensureAssetImageSize();
+		expect(size('blob:any', 'asset:lake')).toEqual({ w: 1600, h: 900 });
+		expect(size('data:image/png;base64,x', ' asset:lake ')).toEqual({ w: 1600, h: 900 });
+		expect(size('blob:any', 'asset:gone')).toBeNull();
+		expect(size('blob:any', 'sample:photo-wide.jpg')).toBeNull();
+		expect(size('blob:any', 'asset:__proto__')).toBeNull();
 	});
 });
 

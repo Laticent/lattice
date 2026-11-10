@@ -200,5 +200,24 @@
   "projection": {
     "figure": "bare"
   },
-  "venueProbe": "<!-- _class: collage -->\n\n`The atelier`\n\n## Hand-lasted, one pair at a time.\n\n`Five photographs from the autumn bench`\n\nEach pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.\n\n- ![Tall portrait](sample:photo-tall.svg) `hero`\n- ![Wide landscape](sample:photo-wide.svg)\n- ![Square](sample:photo-square.svg)\n- ![Panorama](sample:photo-pano.svg)\n- ![Narrow column](sample:photo-column.svg)\n"
+  "venueProbe": "<!-- _class: collage -->\n\n`The atelier`\n\n## Hand-lasted, one pair at a time.\n\n`Five photographs from the autumn bench`\n\nEach pair starts as a last carved to one foot. Leather is cut by hand and finished over fourteen weeks.\n\n- ![Tall portrait](sample:photo-tall.svg) `hero`\n- ![Wide landscape](sample:photo-wide.svg)\n- ![Square](sample:photo-square.svg)\n- ![Panorama](sample:photo-pano.svg)\n- ![Narrow column](sample:photo-column.svg)\n",
+  "media": {
+    "places": "tiles",
+    "kinds": [
+      "image"
+    ],
+    "show": "none",
+    "ignores": [
+      "size",
+      "frame",
+      "finish",
+      "tone"
+    ],
+    "describe": "A collage packs each picture in its list as a flush tile of its own shape, with no frame and no visible words; narration names each tile by its title."
+  },
+  "plugins": {
+    "requires": [
+      "image"
+    ]
+  }
 }

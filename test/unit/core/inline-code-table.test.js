@@ -318,7 +318,7 @@ describe('the inline-code table — plugin rows', () => {
   test('every plugin row names its plugin, a tag sigil (or none, untagged or a shortcut) and the four functions', () => {
     for (const k of table.KINDS.filter((r) => r.plugin)) {
       if (k.untagged || k.shortcut) assert.equal(k.sigil, null, `${k.name} is ${k.untagged ? 'untagged' : 'a shortcut'}`);
-      else assert.match(k.sigil, /^[~^!]$/, k.name);
+      else assert.match(k.sigil, /^[~^!>]$/, k.name);
       for (const fn of ['resolve', 'html', 'element', 'diagnose']) assert.equal(typeof k[fn], 'function', `${k.name}.${fn}`);
     }
   });

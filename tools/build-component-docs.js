@@ -436,6 +436,37 @@ function emitDocsVariants(m, lines) {
       lines.push('');
     }
   }
+  if (m.media) {
+    // The `media` field is ALSO what the parse-time pass reads (lib/core/media-hosts.generated.js), so this section and the
+    // code cannot drift (engineering/decisions/2026-10-16-media-plugins.md §4.7, decision 19).
+    const md = m.media;
+    const kinds = (md.kinds || ['image', 'video']).map((k) => `\`@${k}{…}\``).join(' and ');
+    const PLACES = {
+      flow: 'sits in the layout\'s flow and sizes itself',
+      panel: 'becomes the layout\'s picture panel',
+      tiles: 'becomes one of the tiles the layout packs',
+      background: 'becomes the slide\'s background',
+    };
+    lines.push('## Media inside');
+    lines.push('');
+    lines.push(`${md.describe} A ${kinds} record ${PLACES[md.places]}.`);
+    lines.push('');
+    lines.push('| Setting | Here |');
+    lines.push('|---|---|');
+    const ign = new Set(md.ignores || []);
+    const kept = (word, said) => (ign.has(word) ? 'decided by the layout; the record\'s word is ignored' : said);
+    lines.push(`| size (\`sm\` \`md\` \`lg\`) | ${kept('size', 'the record\'s word, inside the box the layout gives it')} |`);
+    lines.push(`| frame | ${kept('frame', 'the record\'s word')} |`);
+    lines.push(`| finish | ${kept('finish', 'the record\'s word')} |`);
+    lines.push(`| tone | ${kept('tone', 'the record\'s word')} |`);
+    const showSaid = md.show
+      ? (md.places === 'flow' ? `\`show=${md.show}\` unless the record says otherwise` : `\`show=${md.show}\`, whatever the record says`)
+      : 'the record\'s word, else the plugin\'s default';
+    lines.push(`| \`show=\` (the words on the slide) | ${ign.has('show') ? 'decided by the layout' : showSaid} |`);
+    lines.push('');
+    lines.push('The words themselves (the address, `title`, `description`) are always the author\'s: a layout may hide or restyle them, never change them. Hidden words still reach a screen reader, the tooltip, the print notes and narration. Design: `engineering/decisions/2026-10-16-media-plugins.md` §4.7.');
+    lines.push('');
+  }
   lines.push('## Universal modifiers');
   lines.push('');
   lines.push(`This component accepts all universal variants (\`dark\`, \`compact\`, \`accent\`, state markers, treatments). See [design/design-system.md §6.5](${linkFrom(m, path.join(ROOT, 'design', 'design-system.md'))}#65-universal-variants--three-tiers) for the catalog.`);

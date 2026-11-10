@@ -172,6 +172,20 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 - ![Narrow column](sample:photo-column.svg)
 ```
 
+## Media inside
+
+A collage packs each picture in its list as a flush tile of its own shape, with no frame and no visible words; narration names each tile by its title. A `@image{…}` record becomes one of the tiles the layout packs.
+
+| Setting | Here |
+|---|---|
+| size (`sm` `md` `lg`) | decided by the layout; the record's word is ignored |
+| frame | decided by the layout; the record's word is ignored |
+| finish | decided by the layout; the record's word is ignored |
+| tone | decided by the layout; the record's word is ignored |
+| `show=` (the words on the slide) | `show=none`, whatever the record says |
+
+The words themselves (the address, `title`, `description`) are always the author's: a layout may hide or restyle them, never change them. Hidden words still reach a screen reader, the tooltip, the print notes and narration. Design: `engineering/decisions/2026-10-16-media-plugins.md` §4.7.
+
 ## Universal modifiers
 
 This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.

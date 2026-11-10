@@ -15,9 +15,9 @@ export const studioRenderOptsHook: RenderOptsHook = async (source, opts) => {
 	// A caller that passes its own map (a test, another host) keeps it.
 	if (opts?.assetUrls || !NAMES_AN_ASSET.test(source)) return opts;
 	try {
-		const { ensureAssetAlts, ensureAssetUrls } = await import('./media-urls');
+		const { ensureAssetAlts, ensureAssetImageSize, ensureAssetUrls } = await import('./media-urls');
 		const assetUrls = await ensureAssetUrls();
-		return { ...opts, assetUrls, assetAlts: await ensureAssetAlts() };
+		return { ...opts, assetUrls, assetAlts: await ensureAssetAlts(), imageSize: opts?.imageSize ?? (await ensureAssetImageSize()) };
 	} catch {
 		// The registry or IndexedDB is unavailable: render without a map, and the reference passes
 		// through untouched exactly as it does in the CLI.

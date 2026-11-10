@@ -1,0 +1,352 @@
+/* base.media.css — THE SHARED DISPLAY LAYER of the media plugins (`image`, `video`): the frames, the finishes on the
+ * picture, the tones, the three sizes and how the record's title and description show. One stylesheet for every kind,
+ * so a clip and the photo beside it can never drift. Kernel: lib/core/media-display.js, which stamps the attributes read
+ * here. Design: engineering/decisions/2026-10-16-media-plugins.md §4.7 (the controls), §4.9 (the approved looks, with the
+ * fixes the prototype owed), §4.11 (the guards). The approved prototype is
+ * engineering/decisions/2026-10-16-media-plugins/looks.css; its values start here.
+ *
+ * THE FIGURE's anatomy, the same for every kind:
+ *
+ *   <figure class="lat-media" data-lattice-media="image" data-size data-show [data-frame data-finish data-tone …]>
+ *     <span class="lat-media-frame">          ← the frame: a mat, a keyline, a bezel, the brackets
+ *       <span|a class="lat-media-pic">          ← the picture: an <img>, or a video's poster
+ *         …the picture…
+ *         <span class="lat-media-tone">         ← the tone, over the picture (blend layers, no filters)
+ *         <span class="lat-media-finish">       ← the finish, over the picture
+ *     <figcaption class="lat-media-caption">   ← the record's words, as `show=` decides
+ *
+ * The tone and the finish are BLEND LAYERS over the picture, never a CSS `filter`, so one rule serves an `<img>` and a video
+ * poster painted as a background, and a vector PDF keeps them as PDF blend modes rather than a raster.
+ *
+ * A HOST never reaches inside this figure (§4.11). It sets the figure's exposed custom properties from outside
+ * (`--lat-media-w`, the picture's width at `md`; `--lat-media-h`, its height cap; `--lat-media-fit`), or the plugin's
+ * `show=` default for itself (lib/core/media-hosts.generated.js), and nothing else.
+ *
+ * Palette-blind: every color is a token, a frame's shadow is always dark (§4.9: a heading-colored shadow glowed on a dark
+ * theme), and the fixed device bezel reads its colors from tokens with fallbacks (#3). Spacing is padding and gap
+ * (HARD RULE #20). No typed glyph: the frames are drawn with borders, gradients and shadows (HARD RULE #29). */
+
+/* ── THE FIGURE ── */
+section .lat-media {
+  /* A <figure> brings the UA's `1em 40px` margin; `margin: 0` is the reset HARD RULE #20 allows. */
+  margin: 0;
+  /* The three sizes are a nudge, not three layouts: sm ≈ 80 %, md the layout's own size, lg ≈ 120 % (§4.7), and never past
+   * the box the layout gave it, so `sm ≤ md ≤ lg ≤ box` always holds (§4.11). */
+  --lat-media-scale: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-xs);
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+/* The properties a host may set on the figure from outside, with their defaults at ZERO specificity, so any host rule wins. */
+:where(section .lat-media[data-lattice-media="image"]) {
+  --lat-media-w: 72cqi;
+  --lat-media-h: 52cqh;
+  --lat-media-floor: 25cqi;
+  --lat-media-fit: cover;
+}
+:where(section .lat-media[data-lattice-media="video"]) {
+  --lat-media-w: 56cqi;
+  --lat-media-h: 46cqh;
+  --lat-media-floor: 24cqi;
+}
+section .lat-media[data-size="sm"] { --lat-media-scale: 0.8; }
+section .lat-media[data-size="lg"] { --lat-media-scale: 1.2; }
+
+section .lat-media-frame {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  max-inline-size: 100%;
+  line-height: 0;
+}
+
+section .lat-media-pic {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  isolation: isolate;
+  line-height: 0;
+  border-radius: var(--radius-md);
+}
+
+/* ── AN IMAGE ── sized by its own aspect inside a box the size word scales. The FRAME carries the width cap (border-box, so
+ * a frame's thickness counts against the box, §4.11), and the picture shrinks inside it to keep its shape under the height
+ * cap, a share of the slide's height. The floor keeps a small photo at a quarter of the slide's width, so `sm` never shrinks
+ * it out of reach (§4.7). */
+section .lat-media[data-lattice-media="image"] > .lat-media-frame {
+  inline-size: fit-content;
+  max-inline-size: min(100%, max(var(--lat-media-floor), calc(var(--lat-media-scale) * var(--lat-media-w))));
+}
+section .lat-media[data-lattice-media="image"] .lat-media-pic > img {
+  display: block;
+  inline-size: auto;
+  block-size: auto;
+  max-inline-size: 100%;
+  max-block-size: min(80cqh, calc(var(--lat-media-scale) * var(--lat-media-h)));
+  object-fit: var(--lat-media-fit);
+  border-radius: 0;
+}
+/* THE BOX BEFORE THE BYTES (§4.11). When the host read the picture's size (the CLI reads its header), the figure carries its
+ * aspect, `--lat-media-ar`: the frame takes the scaled width, capped by the scaled height times the aspect, and the picture fills
+ * it at that aspect, so the box is the same before and after the picture loads. Without it, the picture sizes itself. */
+section .lat-media[data-lattice-media="image"][style*="--lat-media-ar"] > .lat-media-frame {
+  inline-size: min(100%, max(var(--lat-media-floor), min(calc(var(--lat-media-scale) * var(--lat-media-w)), calc(var(--lat-media-scale) * var(--lat-media-h) * var(--lat-media-ar)))));
+}
+section .lat-media[data-lattice-media="image"][style*="--lat-media-ar"] .lat-media-pic > img {
+  inline-size: 100%;
+  block-size: auto;
+  aspect-ratio: var(--lat-media-ar);
+}
+/* ── A CLIP ── a poster of a fixed shape: the frame takes the scaled width, the poster fills it. */
+section .lat-media[data-lattice-media="video"] > .lat-media-frame {
+  /* The width is the scaled `--lat-media-w`, capped so a 16:9 poster is never taller than the scaled `--lat-media-h`, and
+   * never under the floor. The box cap is `max-inline-size`, not a `min(100%, …)` inside the width: a percentage width under a
+   * shrink-to-fit parent (a gallery's centered column) resolves against nothing and collapsed the poster. */
+  inline-size: max(var(--lat-media-floor), min(calc(var(--lat-media-scale) * var(--lat-media-w)), calc(var(--lat-media-scale) * var(--lat-media-h) * 16 / 9)));
+}
+/* A clip in a column that runs out of room: a host that stacks the figure with other content may let the poster get shorter
+ * rather than push the rest off the slide, by setting `--lat-media-give: 0 1 auto` on the figure (its still crops to cover).
+ * Unset, the frame and the poster keep their 16:9 box. */
+section .lat-media[data-lattice-media="video"] > .lat-media-frame {
+  display: flex;
+  flex-direction: column;
+  flex: var(--lat-media-give, 0 0 auto);
+  min-block-size: 0;
+}
+section .lat-media[data-lattice-media="video"] > .lat-media-frame > .lat-media-pic {
+  flex: var(--lat-media-give, 0 0 auto);
+  min-block-size: 0;
+}
+/* Which part of the picture stays in view when a layout crops it: CSS's own `object-position` keywords. */
+section .lat-media[data-focus="top"] .lat-media-pic > img { object-position: top; }
+section .lat-media[data-focus="bottom"] .lat-media-pic > img { object-position: bottom; }
+section .lat-media[data-focus="left"] .lat-media-pic > img { object-position: left; }
+section .lat-media[data-focus="right"] .lat-media-pic > img { object-position: right; }
+section .lat-media[data-focus="center"] .lat-media-pic > img { object-position: center; }
+/* A picture a layout places as a panel (`.lattice-bg`, an `image` slide's photo, a `bleed` background) crops by its background. */
+section > .lattice-bg[data-focus="top"] { background-position: top; }
+section > .lattice-bg[data-focus="bottom"] { background-position: bottom; }
+section > .lattice-bg[data-focus="left"] { background-position: left; }
+section > .lattice-bg[data-focus="right"] { background-position: right; }
+section > .lattice-bg[data-focus="center"] { background-position: center; }
+/* The panel holds the tone and finish layers; it is the group they blend into. */
+section > .lattice-bg[data-lattice-media]:is([data-tone], [data-finish]) { isolation: isolate; }
+
+/* ── THE RECORD'S WORDS ── shown as `show=` decides (lib/core/media-display.js `captionHtml`). A shown title keeps its line
+ * even when it is empty, so a cold and a warm render lay out the same (§4.11). */
+section .lat-media-caption {
+  position: relative;
+  /* A host may set a short accent rule over the words (a gallery's placard): `--lat-media-caption-rule` is its width and
+   * `--lat-media-caption-pad` the room above the words for it. Both are 0 unless a host sets them. */
+  padding-top: var(--lat-media-caption-pad, 0px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-xs);
+  max-inline-size: 100%;
+  text-align: center;
+  line-height: 1.3;
+}
+section .lat-media-caption::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--lat-media-caption-rule, 0px);
+  height: 0.3cqi;
+  border-radius: 999px;
+  background-color: var(--accent);
+}
+/* The title's size and color are exposed too, so a host restyles them from outside (§4.11, decision 19). */
+section .lat-media-title {
+  display: block;
+  min-block-size: 1.3em;
+  font-size: var(--lat-media-title-size, var(--fs-body));
+  color: var(--lat-media-title-ink, var(--text-heading));
+}
+section .lat-media-desc {
+  display: block;
+  font-size: var(--fs-meta);
+  color: var(--text-muted);
+}
+
+/* ── FRAMES (§4.7 control 1; kept by the owner: mat, keyline, float, device, corners) ──
+ * A frame's thickness is a share of the SLIDE (cqi), not of the column, so it looks the same around a small poster and a
+ * full-width photo and does not change as a column narrows (§4.9, §4.11). */
+
+/* mat: a gallery passe-partout. The picture is cut square (it overrides the base radius, §4.9), a bevel line runs round it,
+ * and the mat sits on the slide on a quiet shadow that is DARK on every theme (§4.9: a heading-colored shadow glowed). */
+section .lat-media[data-frame="mat"] > .lat-media-frame {
+  padding: max(0.6em, 1.9cqi);
+  background-color: color-mix(in srgb, var(--text-heading) 2.5%, var(--bg));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--text-heading) 9%, transparent),
+    0 0.1em 0.2em rgb(0 0 0 / 0.06),
+    0 1.1em 2em -1.3em rgb(0 0 0 / 0.4);
+}
+section .lat-media[data-frame="mat"] .lat-media-pic {
+  border-radius: 0;
+  overflow: visible;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--text-heading) 20%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--bg) 88%, white),
+    0 0 0 4px color-mix(in srgb, var(--text-heading) 8%, transparent);
+}
+section .lat-media[data-frame="mat"] .lat-media-pic > :is(img, .lat-media-tone, .lat-media-finish) { border-radius: 0; }
+
+/* keyline: one accent hairline, offset from a softly rounded picture. */
+section .lat-media[data-frame="keyline"] > .lat-media-frame {
+  padding: max(0.35em, 0.9cqi);
+  border-radius: calc(var(--radius-md) * 1.55);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+section .lat-media[data-frame="keyline"] .lat-media-pic { border-radius: var(--radius-md); }
+
+/* float: no border; the picture rests on a two-layer shadow. The accent tint stays small and the shadow dark, so on a dark
+ * theme it reads as depth, not a glow (§4.9). */
+section .lat-media[data-frame="float"] .lat-media-pic {
+  border-radius: calc(var(--radius-md) * 1.3);
+  box-shadow:
+    0 0.08em 0.16em rgb(0 0 0 / 0.1),
+    0 0.9em 1.8em -0.7em rgb(0 0 0 / 0.42),
+    0 1.8em 3em -2.2em color-mix(in srgb, var(--accent) 22%, rgb(0 0 0 / 0.3));
+}
+
+/* device: a screen bezel with a rim light and a camera dot, for product demos and clips. The bezel is a FIXED dark surface
+ * on every theme, as a real device is: its grays are not palette colors, so no theme moves them. */
+section .lat-media[data-frame="device"] > .lat-media-frame {
+  padding: max(0.75em, 1.6cqi);
+  border-radius: calc(var(--radius-md) * 2.4);
+  background-image: linear-gradient(165deg, rgb(48 52 60) 0%, rgb(23 25 30) 55%, rgb(15 17 20) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.1),
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 0 0 1px color-mix(in srgb, var(--text-heading) 14%, transparent),
+    0 1em 1.6em -1.1em rgb(0 0 0 / 0.5);
+}
+section .lat-media[data-frame="device"] > .lat-media-frame::after {
+  content: "";
+  position: absolute;
+  top: max(0.3em, 0.6cqi);
+  left: 50%;
+  width: 0.32em;
+  height: 0.32em;
+  border-radius: 50%;
+  background-color: rgb(58 63 72);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  transform: translateX(-50%);
+}
+section .lat-media[data-frame="device"] .lat-media-pic {
+  border-radius: calc(var(--radius-md) * 0.85);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.6);
+}
+
+/* corners: registration brackets in the accent; the picture is cut square (§4.9). */
+section .lat-media[data-frame="corners"] > .lat-media-frame {
+  --lat-media-l: 13%;
+  --lat-media-t: 2px;
+  padding: max(0.45em, 1.1cqi);
+  background-image:
+    linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent)),
+    linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--accent), var(--accent));
+  background-position: top left, top left, top right, top right, bottom left, bottom left, bottom right, bottom right;
+  background-size:
+    var(--lat-media-l) var(--lat-media-t), var(--lat-media-t) var(--lat-media-l),
+    var(--lat-media-l) var(--lat-media-t), var(--lat-media-t) var(--lat-media-l),
+    var(--lat-media-l) var(--lat-media-t), var(--lat-media-t) var(--lat-media-l),
+    var(--lat-media-l) var(--lat-media-t), var(--lat-media-t) var(--lat-media-l);
+  background-repeat: no-repeat;
+}
+section .lat-media[data-frame="corners"] .lat-media-pic { border-radius: 0; }
+
+/* ── THE OVERLAYS ── a tone and a finish are each a layer over the picture, at the strength the record asked for
+ * (`nimbus=40`: the `backdrop:` scale, 20 … 80 and full). */
+section [data-lattice-media] :is(.lat-media-tone, .lat-media-finish) {
+  /* NO z-index and NO opacity here: either makes this span a stacking context of its own, and a blend layer inside one blends
+   * with nothing (the first render painted a flat accent where the duotone should be). The picture (`isolation: isolate`) is
+   * the group the layers blend into; the strength is each layer's own opacity. Painted before the badge (z-index 2). */
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+section [data-lattice-media] :is(.lat-media-tone, .lat-media-finish)::before,
+section [data-lattice-media] :is(.lat-media-tone, .lat-media-finish)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+section [data-lattice-media] { --lat-media-tone-a: 1; --lat-media-finish-a: 1; }
+section [data-lattice-media][data-tone-strength="20"] { --lat-media-tone-a: 0.2; }
+section [data-lattice-media][data-tone-strength="40"] { --lat-media-tone-a: 0.4; }
+section [data-lattice-media][data-tone-strength="60"] { --lat-media-tone-a: 0.6; }
+section [data-lattice-media][data-tone-strength="80"] { --lat-media-tone-a: 0.8; }
+section [data-lattice-media][data-finish-strength="20"] { --lat-media-finish-a: 0.2; }
+section [data-lattice-media][data-finish-strength="40"] { --lat-media-finish-a: 0.4; }
+section [data-lattice-media][data-finish-strength="60"] { --lat-media-finish-a: 0.6; }
+section [data-lattice-media][data-finish-strength="80"] { --lat-media-finish-a: 0.8; }
+section [data-lattice-media] .lat-media-tone::before,
+section [data-lattice-media] .lat-media-tone::after { opacity: var(--lat-media-tone-a); }
+section [data-lattice-media] .lat-media-finish::before,
+section [data-lattice-media] .lat-media-finish::after { opacity: var(--lat-media-finish-a); }
+
+/* ── TONES (§4.7 control 3) ──
+ * grayscale: a neutral layer in the `saturation` blend takes the picture's color away and keeps its light (CSS's own word).
+ * duotone: the same, then the accent laid over in the `color` blend, so the shadows fall to a deep accent and the lights rise
+ * to a pale one. It reads the same on a light and a dark theme, because it never mixes with the slide's own surface (§4.9:
+ * the first duotone washed out to a flat teal on a dark theme). */
+section [data-lattice-media][data-tone] .lat-media-tone::before {
+  background-color: rgb(128 128 128);
+  mix-blend-mode: saturation;
+}
+section [data-lattice-media][data-tone="duotone"] .lat-media-tone::after {
+  background-color: color-mix(in srgb, var(--accent) 88%, var(--text-heading));
+  mix-blend-mode: color;
+}
+
+/* ── FINISHES ON THE PICTURE (§4.7 control 2; kept: nimbus, halo, meridian) ──
+ * The deck's own finishes, as a light layer over the photograph. */
+
+/* nimbus: two accent blooms from opposite corners. A screen blend alone vanished on a bright photograph (§4.9), so the
+ * bloom is laid twice: once lightening (the glow on a dark picture) and once as a soft color wash (which still reads on a
+ * bright sky), without hiding the subject in the middle. */
+section [data-lattice-media][data-finish="nimbus"] .lat-media-finish::before {
+  background-image:
+    radial-gradient(60% 75% at 4% 6%, color-mix(in srgb, var(--accent) 85%, white 15%), transparent 68%),
+    radial-gradient(55% 70% at 98% 96%, color-mix(in srgb, var(--accent) 70%, white 10%), transparent 66%);
+  mix-blend-mode: screen;
+}
+section [data-lattice-media][data-finish="nimbus"] .lat-media-finish::after {
+  background-image:
+    radial-gradient(52% 64% at 4% 6%, color-mix(in srgb, var(--accent) 60%, transparent), transparent 70%),
+    radial-gradient(48% 60% at 98% 96%, color-mix(in srgb, var(--accent) 50%, transparent), transparent 68%);
+  mix-blend-mode: soft-light;
+}
+
+/* halo: a vignette that lifts the center. */
+section [data-lattice-media][data-finish="halo"] .lat-media-finish::before {
+  background-image: radial-gradient(75% 80% at 50% 45%, transparent 42%, rgb(8 10 14 / 0.68) 100%);
+}
+section [data-lattice-media][data-finish="halo"] .lat-media-finish::after {
+  background-image: radial-gradient(60% 60% at 50% 45%, rgb(255 255 255 / 0.12), transparent 70%);
+  mix-blend-mode: soft-light;
+}
+
+/* meridian: a diagonal accent wash, light at one corner and deep at the other. */
+section [data-lattice-media][data-finish="meridian"] .lat-media-finish::before {
+  background-image: linear-gradient(130deg,
+    color-mix(in srgb, var(--accent) 85%, white) 0%,
+    rgb(128 128 128 / 0) 45%,
+    rgb(128 128 128 / 0) 55%,
+    color-mix(in srgb, var(--accent) 80%, black) 100%);
+  mix-blend-mode: overlay;
+}
+
+/* ── PRINT ── the layers are blend modes, which a vector PDF keeps; nothing here changes for print. */

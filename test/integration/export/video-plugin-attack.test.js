@@ -36,6 +36,8 @@ const RENDER = `function render(f){
     + "<p><code>@video{\\"https://youtu.be/AAAAAAAAAAA\\", poster=\\"https://${ATTACKER}/p.png\\"}</code></p>"
     + "<ul><li>https://youtu.be/BBBBBBBBBBB</li><li>https://${ATTACKER}/q.png <code>poster</code></li></ul>"
     + "<figure class=\\"video-embed\\" data-lattice-media=\\"video\\" data-lattice-media-url=\\"https://${ATTACKER}/f\\"><a class=\\"video-poster\\" href=\\"https://youtu.be/CCCCCCCCCCC\\" style=\\"background-image:url('https://${ATTACKER}/g.png')\\"></a></figure>"
+    + "<p><code>@image{https://${ATTACKER}/i.png, title=\\"x\\", frame=mat}</code></p>"
+    + "<p><code>&gt;{\\"https://youtu.be/DDDDDDDDDDD\\", poster=\\"https://${ATTACKER}/s.png\\"}</code></p>"
     + "<p><code>^{database}</code></p>";
 }
 export { render as default };`;
@@ -116,6 +118,11 @@ describe('a video slide and a zip plugin that writes addresses', () => {
   test('the plugin\'s `@video{…}` span stayed code, and nothing outside the plugin gained a second figure', async () => {
     const code = await page.$$eval('[data-lattice-plugin] code', (els) => els.map((e) => e.textContent));
     assert.ok(code.some((t) => t.startsWith('@video{')), 'the span is still literal code');
+    // Slice 3's two new address forms, written by the plugin, stay text: a picture record and the `>` clip.
+    assert.ok(code.some((t) => t.startsWith('@image{')), 'the picture record is still literal code');
+    assert.ok(code.some((t) => t.startsWith('>{')), 'the `>` clip is still literal code');
+    const pictures = await page.$$eval('[data-lattice-plugin] img, [data-lattice-plugin] .lattice-bg, figure[data-lattice-media="image"]', (els) => els.length);
+    assert.equal(pictures, 0, 'no picture was built from the plugin\'s text');
     const figures = await page.$$eval('figure[data-lattice-media="video"]', (els) => els.filter((e) => !e.closest('[data-lattice-plugin]')).length);
     assert.equal(figures, 1, 'one figure outside the plugin: the author\'s');
   });

@@ -85,7 +85,7 @@ const { fillAutoAgenda } = require('../lib/core/agenda-autofill');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
 const { formatRefusedHtml } = require('../lib/export/marp-bundle-html');
 const {
-  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson,
+  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, withImageRecordsAsMarp, packageJson,
   safeName, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
   mapImageRefs, mapFrontMatterLogo,
 } = require('../lib/export/marp-bundle');
@@ -368,7 +368,9 @@ function main(argv) {
   //    Glossary slide while the slide before it still announced it (#1256).
   //    An empty agenda's fill (lib/core/agenda-autofill.js) is baked too: Marp would draw the
   //    heading and no list. It edits a slide in place, so it can run before or after the glossary.
-  const glossed = appendAutoGlossary(fillAutoAgenda(src));
+  // The image plugin's records first, in Marp's spelling, so localization copies their pictures and the lift below makes a
+  // panel record the layout's panel (lib/export/marp-bundle.js `withImageRecordsAsMarp`).
+  const glossed = appendAutoGlossary(fillAutoAgenda(withImageRecordsAsMarp(src, admission.off)));
   const glossedFm = glossed.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const deckDir = path.dirname(path.resolve(deckPath));
   const copied = new Map(); // one dedupe map across body + front-matter refs

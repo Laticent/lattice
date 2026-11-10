@@ -39,6 +39,6 @@
     { "clause": "component.logical-properties", "instance": "team-profile", "reason": "4 physical left/right declaration(s) in team-profile.styles.css when the clause landed; convert to logical properties the next time this file is edited, and lower the ceiling with it", "seeded": "2026-10-16", "ceiling": 4 },
     { "clause": "component.logical-properties", "instance": "timeline-list", "reason": "7 physical left/right declaration(s) in timeline-list.styles.css when the clause landed; convert to logical properties the next time this file is edited, and lower the ceiling with it", "seeded": "2026-10-16", "ceiling": 7 },
     { "clause": "component.logical-properties", "instance": "topic", "reason": "6 physical left/right declaration(s) in topic.styles.css when the clause landed; convert to logical properties the next time this file is edited, and lower the ceiling with it", "seeded": "2026-10-16", "ceiling": 6 },
-    { "clause": "component.logical-properties", "instance": "video", "reason": "9 physical left/right declaration(s) in video.styles.css when the clause landed; convert to logical properties the next time this file is edited, and lower the ceiling with it", "seeded": "2026-10-16", "ceiling": 9 }
+    { "clause": "component.logical-properties", "instance": "video", "reason": "1 left: the gallery play badge's triangle (`border-width: 1.7cqi 0 1.7cqi 2.8cqi`), which points right in every writing direction, as a play mark does; the other 8 went logical or moved to the plugin on 2026-11-10", "seeded": "2026-10-16", "ceiling": 1 }
   ]
 }

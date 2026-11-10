@@ -125,6 +125,7 @@ export function pluginsNav(url) {
 		plugin(url, 'Function plots', 'function-plot', 'Graphs of y = f(x)'),
 		plugin(url, 'Code', 'code', 'Highlighted code in any language'),
 		plugin(url, 'Video', 'video', 'A clip drawn as a poster that links to it'),
+		plugin(url, 'Images', 'image', 'A picture the slide places and the deck frames'),
 	];
 }
 

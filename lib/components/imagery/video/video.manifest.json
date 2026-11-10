@@ -124,8 +124,8 @@
       "fix": "The layout seats one clip; the first record on the slide is the one it lays out, and the second is drawn below it and runs off the slide. `lint:deck` says so (`video-extra-record`); give each clip its own slide."
     },
     {
-      "mistake": "Writing `@video{…}` on a slide that is not a `video` slide.",
-      "fix": "The layout and the poster picture belong to this class, so any other slide draws the clip only as a plain text link. `lint:deck` says so (`video-slide-class`); add `<!-- _class: video -->`."
+      "mistake": "Reaching for the `video` slide just to show a clip inside other content.",
+      "fix": "A `@video{…}` record draws its poster on any slide, with the same frames, finishes and sizes as a picture. Use the `video` slide when the clip IS the slide: it seats the clip beside its heading and adds the `qr` code."
     },
     {
       "mistake": "The address holds `=` or `,` unquoted (`@video{https://youtu.be/x?t=90}`).",
@@ -169,5 +169,13 @@
     "requires": [
       "video"
     ]
+  },
+  "media": {
+    "places": "flow",
+    "kinds": [
+      "video"
+    ],
+    "show": "title",
+    "describe": "The `video` slide seats one clip beside its heading (`companion`), under it (the default) or on a matte (`gallery`), and on a `qr` slide adds a code of the watch address beside it. The clip keeps its own size, frame, finish and tone."
   }
 }
