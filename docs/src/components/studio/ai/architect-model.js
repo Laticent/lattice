@@ -292,13 +292,23 @@ export function affordableTokens(detail) {
 export const KEY_LIMIT_TAG = '[key-limit]';
 
 /**
- * True when OpenRouter refused because the KEY's own limit is used up, not the account's balance:
- * a 403 "Key limit exceeded", or a 402 "can only afford N" that points at the key settings
- * (measured 2026-11-10: "…To increase, visit https://openrouter.ai/settings/keys"). Read from the
- * WHOLE body: the thrown message keeps only its first 160 characters, which cut the URL off.
+ * True when OpenRouter refused because the KEY's own limit is used up, not the account's balance.
+ * Read from the WHOLE body: the thrown message keeps only its first 160 characters.
  */
 export function isKeyLimitRefusal(status, body) {
   const b = String(body ?? '');
+  // OpenRouter documents the answer as a field, and says to branch on it, never on the wording:
+  // `error.metadata.limit_source` is `openrouter_key_limit` for the key's own limit,
+  // `openrouter_credits` for the account balance, `openrouter_in_flight_budget` for a short hold
+  // (docs/api_reference/limits.md §Handling 402 errors, read 2026-11-10). The text checks below are
+  // the fallback for a body without it, which is what the measured 402 and 403 looked like.
+  let source;
+  try {
+    source = JSON.parse(b)?.error?.metadata?.limit_source;
+  } catch {
+    source = undefined;
+  }
+  if (typeof source === 'string') return source === 'openrouter_key_limit';
   if (status === 403) return /key limit exceeded/i.test(b);
   return status === 402 && /can only afford \d+/i.test(b) && /settings\/keys/i.test(b);
 }

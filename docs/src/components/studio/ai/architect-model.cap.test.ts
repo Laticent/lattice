@@ -97,7 +97,25 @@ describe('a capped key that cannot cover the full reply ceiling', () => {
 		expect(outOfCreditAt('openrouter')).toBeNull();
 	});
 
-	it('tells a key limit from an account balance only by what OpenRouter points at', () => {
+	it('reads the documented error.metadata.limit_source first (OpenRouter limits.md: branch on it, not on the text)', () => {
+		const body = (source: string, message = 'Insufficient credits') => JSON.stringify({ error: { code: 402, message, metadata: { limit_source: source, remedy_hint: 'x' } } });
+		expect(isKeyLimitRefusal(402, body('openrouter_key_limit'))).toBe(true);
+		expect(isKeyLimitRefusal(402, body('openrouter_credits', 'can only afford 300. To increase, visit https://openrouter.ai/settings/keys'))).toBe(false);
+		expect(isKeyLimitRefusal(402, body('openrouter_in_flight_budget'))).toBe(false);
+	});
+
+	it('a documented account-balance 402 (limit_source openrouter_credits) reads as out of credits, and a key-limit one as used up', async () => {
+		const doc = (source: string) => new Response(JSON.stringify({ error: { code: 402, message: 'Insufficient credits', metadata: { limit_source: source, remedy_hint: 'Add credits' } } }), { status: 402 });
+		stub(doc('openrouter_credits'));
+		const m = createArchitectModel({ getSettings: () => ({}), defaultMaxTokens: 16384 });
+		const account = await m.complete({ messages: [{ role: 'user', content: 'hi' }], surfaceErrors: true }).catch((e: Error) => e);
+		expect(describeModelError(String((account as Error).message), 'openrouter')).toMatch(/out of credits/);
+		stub(doc('openrouter_key_limit'));
+		const key = await m.complete({ messages: [{ role: 'user', content: 'hi' }], surfaceErrors: true }).catch((e: Error) => e);
+		expect(describeModelError(String((key as Error).message), 'openrouter')).toMatch(/used up its spending limit/);
+	});
+
+	it('without the field, tells a key limit from an account balance by what OpenRouter points at', () => {
 		expect(isKeyLimitRefusal(402, 'can only afford 3333. To increase, visit https://openrouter.ai/settings/keys')).toBe(true);
 		expect(isKeyLimitRefusal(402, 'can only afford 300. To increase, visit https://openrouter.ai/settings/credits')).toBe(false);
 		expect(isKeyLimitRefusal(403, 'Key limit exceeded (total limit).')).toBe(true);

@@ -199,9 +199,12 @@ cover: the chat asks for up to 16,384 tokens, which reserves about $0.25, so the
 ("can only afford 3333") and the last quarter of every $1 card could never be spent. `complete()` in
 `architect-model.js` now asks again, once, with `max_tokens` cut to what the key can afford (at
 least 512 tokens), and the real key got its reply. Second, once nothing is left OpenRouter answers
-403 "Key limit exceeded". Both now read "This key has used up its spending limit… Sign in with your
-own OpenRouter account" (`model-error.ts`) instead of "your account is out of credits" or "rejected
-the connection". One chat turn with a cold cache cost $0.06 on that key, most of it the ~17K-token
+403 "Key limit exceeded". Both used to read "your account is out of credits" or "rejected the
+connection"; they now read "This key has used up its spending limit… Sign in with your own
+OpenRouter account" (`model-error.ts`). Which case it is comes from OpenRouter's documented
+`error.metadata.limit_source` (`openrouter_key_limit` for the key's own limit, `openrouter_credits`
+for the account; `docs/api_reference/limits.md`), with the refusal's own words as the fallback, so
+an account short of credit still reads "out of credits". One chat turn with a cold cache cost $0.06 on that key, most of it the ~17K-token
 system prompt, so a $1 card buys roughly 15 to 30 turns on Sonnet.
 
 ## 7. Open decisions
