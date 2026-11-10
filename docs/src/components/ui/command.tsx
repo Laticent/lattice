@@ -4,7 +4,6 @@ import * as React from "react"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -28,7 +27,6 @@ function Command({
 
 function CommandDialog({
   title,
-  description,
   children,
   className,
   style,
@@ -42,8 +40,9 @@ function CommandDialog({
   /** Required, no default: a generic "Command Palette" is what a screen reader announced. Also names the
    *  search field (cmdk's `label`) unless the caller passes its own. */
   title: string
-  /** What the dialog is for, read after its name. Required for the same reason. */
-  description: string
+  /** No description on purpose: the palette's NAME says what it is, and VoiceOver on an iPhone read a
+   *  palette's description again after every row's own (owner, #3108), so a dialog sentence here is noise.
+   *  `aria-describedby` is set to nothing, which also tells Radix the omission is deliberate. */
   className?: string
   /** DEVIATION from the shadcn base: forwarded to `DialogContent`. The Studio's
    *  palette needs a keyboard offset that cannot silently fail to generate as a
@@ -61,11 +60,11 @@ function CommandDialog({
         className={cn("overflow-hidden p-0", className)}
         style={style}
         showCloseButton={showCloseButton}
+        aria-describedby={undefined}
       >
         {/* Inside DialogContent so Radix resolves aria-labelledby/-describedby. */}
         <DialogHeader className="sr-only">
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <Command
           label={title}

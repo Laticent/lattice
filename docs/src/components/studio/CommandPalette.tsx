@@ -487,7 +487,9 @@ export function CommandPalette({
 	if (mobile) {
 		return (
 			<PanelSheet open={open} onOpenChange={onOpenChange}>
-				<PanelHeader icon={<Search />} title="Search / commands" srDescription="Run a command or jump somewhere in the Studio." />
+				{/* No srDescription: VoiceOver on an iPhone read this sheet's description again after every row's own
+				    (owner, #3108). The name says what the sheet is; each row says what it does. */}
+				<PanelHeader icon={<Search />} title="Search / commands" />
 				{/* The field is DOCKED AT THE BOTTOM, directly above the keyboard, with the
 				    list above it. It used to sit under the header — the far end of the screen
 				    from the thumb that is typing, with the results running away from the
@@ -544,7 +546,6 @@ export function CommandPalette({
 			open={open}
 			onOpenChange={onOpenChange}
 			title="Studio commands"
-			description="Run a command or jump somewhere"
 			// `DialogContent`'s close is absolutely positioned in the top-right corner,
 			// which on this dialog lands ON the search input — the first row. Reserving
 			// the corner keeps a click on the end of the field from dismissing the palette.

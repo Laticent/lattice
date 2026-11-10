@@ -262,7 +262,6 @@ export function CommandMenu({
 			open={open}
 			onOpenChange={onOpenChange}
 			title="Command palette"
-			description="Search the docs, jump to any page, or switch the theme."
 			// Pagefind results are already query-ranked; we filter the static rows
 			// ourselves so they coexist with doc hits under one input.
 			shouldFilter={false}
