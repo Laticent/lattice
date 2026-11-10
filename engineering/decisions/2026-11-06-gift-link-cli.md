@@ -139,11 +139,18 @@ gift-cards revoke [--label …]     # delete a batch's keys at OpenRouter
 ## 6. The Studio side
 
 - A `/gift` route that reads the fragment with the shared module, stores the key with
-  `writeOpenRouterKey` (never a raw storage write), clears the
+  `writeOpenRouterKey(key, { minted: true })` (never a raw storage write), clears the
   fragment, and opens the Studio with the chat ready and a short welcome, with no signup.
 - On a phone, the page says Lattice is at its best on a laptop and offers **Send to my laptop**
   through the phone's own share sheet (AirDrop, Messages, email to yourself). The person's own
   channels carry the link; Lattice stores nothing.
+- **A fresh key may not work at once.** OpenRouter can refuse a newly created key for a minute
+  or two while it activates (`OPENROUTER_ACTIVATION_MS` in `docs/src/lib/openrouter-key.js`; a real
+  sign-in was accepted 94 s after the key was made, 2026-11-09). Cards made days ahead never meet
+  this; a link sent to a friend straight after `make` can. Storing the key with `minted: true` makes
+  the Studio read an early refusal as "not active yet" rather than "rejected".
+- **Gift links are OpenRouter only.** The Studio also takes keys from other providers now (#3058,
+  #3079), but the spending cap and management keys this design rests on are OpenRouter's.
 - A **"Have a gift link?"** box in the Studio's model setup accepts a whole link or a bare key.
 - When the cap is reached, the chat says so kindly and offers the existing OpenRouter sign-in,
   so the person keeps their decks and continues on their own account.
