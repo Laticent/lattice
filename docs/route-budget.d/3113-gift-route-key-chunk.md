@@ -1,0 +1,2 @@
+studio: +266
+The new `/gift` page stores a gift link's key through the one key writer, `docs/src/lib/openrouter-key.js`, so that module now has two entry points and the bundler moves it out of the `model-selection` chunk into its own: `openrouter-key` grew by 2,654 gzip bytes and `model-selection` shrank by 2,426. The net 266 bytes are the cost of the extra chunk boundary. The code itself is unchanged, and `/gift` must not carry its own copy of the key writer (HARD RULE #1; `check-key-chunk` requires every key name to sit in one chunk).
