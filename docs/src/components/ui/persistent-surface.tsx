@@ -40,7 +40,7 @@ import { cn } from "@/lib/utils"
  * It still sits inside a Radix `Dialog.Root`, which renders no DOM, so the shared `DialogTitle`,
  * `SheetTitle` and `*Close` pieces keep working inside it; the titles take their ids from here.
  */
-const IdsCtx = React.createContext<{ titleId: string; descriptionId: string } | null>(null)
+const IdsCtx = React.createContext<{ titleId: string } | null>(null)
 
 /** The ids a Title / Description inside a persistent surface must carry. Null elsewhere. */
 export function usePersistentIds() {
@@ -99,8 +99,7 @@ export function PersistentSurface({
 }) {
   const ever = useEverTrue(open)
   const titleId = React.useId()
-  const descriptionId = React.useId()
-  const ids = React.useMemo(() => ({ titleId, descriptionId }), [titleId, descriptionId])
+  const ids = React.useMemo(() => ({ titleId }), [titleId])
   const rootRef = React.useRef<HTMLDivElement>(null)
   const boxRef = React.useRef<HTMLDivElement>(null)
   const returnTo = React.useRef<HTMLElement | null>(null)

@@ -76,12 +76,16 @@ test.describe('descriptions a screen reader hears', () => {
 		await gotoStudio(page);
 		const cdp = await page.context().newCDPSession(page);
 		const bad = await audit(cdp, 'at rest');
-		// The surfaces that open from the chrome: whichever of these this width shows.
+		// The surfaces that open from the chrome: whichever of these this width shows. At least three must
+		// open, or the loop proves nothing (every launcher renamed would pass on the at-rest check alone).
+		let opened = 0;
 		for (const name of ['Menu', 'Toggle Coach', 'Toggle Chat', 'Settings', 'Reshape slide', 'Version history', 'Send feedback', 'Share', 'Workspace settings']) {
 			if (!(await open(page, name))) continue;
+			opened += 1;
 			bad.push(...(await audit(cdp, `with "${name}" open`)));
 			await closeAll(page);
 		}
+		expect(opened, 'surfaces the audit opened').toBeGreaterThanOrEqual(3);
 		expect(bad, bad.join('\n')).toEqual([]);
 	});
 
@@ -143,6 +147,20 @@ test.describe('descriptions a screen reader hears', () => {
 		const bareTyped = typed.filter((n) => !n.desc).map((n) => n.name);
 		expect(bareTyped, `rows with no description after a query: ${bareTyped.join(', ')}`).toEqual([]);
 		expect(typed.filter((n) => /&#?\w+;/.test(n.desc)).map((n) => n.desc), 'no raw HTML entity is read aloud').toEqual([]);
+	});
+
+	test('@crosswidth a destructive confirm is an alertdialog that reads its warning', async ({ page }) => {
+		// The exemption from "named, not described": a confirmation's text IS the question, and only its
+		// buttons follow (ui/dialog.tsx `alert`). Workspace › Data › Delete everything is the costliest one.
+		await gotoStudio(page);
+		await page.getByRole('button', { name: 'Workspace settings', exact: true }).filter({ visible: true }).first().click();
+		await page.getByRole('tab', { name: 'Data', exact: true }).click();
+		await page.getByRole('button', { name: /^Delete everything/ }).click();
+		await expect(page.getByRole('alertdialog')).toBeVisible();
+		const cdp = await page.context().newCDPSession(page);
+		const confirm = (await axNodes(cdp)).find((n) => n.role === 'alertdialog');
+		expect(confirm?.name).toBe('Delete everything?');
+		expect(confirm?.desc).toMatch(/cannot be undone/);
 	});
 
 	test('@crosswidth a bar icon is described by its hint with no tooltip open', async ({ page }) => {

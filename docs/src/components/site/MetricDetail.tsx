@@ -13,7 +13,7 @@
 
 import * as React from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useOverlayBack } from '@/lib/overlay-back';
 import type { RenderStats } from '@/lib/render-metrics';
 import { cn } from '@/lib/utils';
@@ -285,7 +285,6 @@ export function MetricDetail({ meta, datum }: { meta: MetricMeta; datum: MetricD
 				<SheetContent side="bottom" overlay={false} className="z-[2147483647] max-h-[70vh] overflow-y-auto rounded-t-2xl p-5">
 					<SheetHeader className="sr-only">
 						<SheetTitle>{meta.title}</SheetTitle>
-						<SheetDescription>{meta.what}</SheetDescription>
 					</SheetHeader>
 					<DetailBody meta={meta} datum={datum} reserveClose />
 				</SheetContent>

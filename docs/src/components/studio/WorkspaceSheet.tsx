@@ -1358,7 +1358,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 							</div>
 
 							<Dialog open={deleteAllOpen} onOpenChange={(o) => { if (!deletingAll) setDeleteAllOpen(o); }}>
-								<DialogContent>
+								<DialogContent alert>
 									<DialogHeader>
 										<DialogTitle className="flex items-center gap-2 text-[var(--fail,#c0392b)]"><Trash2 className="size-4" />Delete everything?</DialogTitle>
 										<DialogDescription>

@@ -189,11 +189,8 @@ function SheetDescription({
   className,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Description>) {
-  const persistentIds = usePersistentIds()
   return (
     <SheetPrimitive.Description
-      // Inside a PersistentSurface the dialog element is ours, so its label ids are too.
-      {...(persistentIds ? { id: persistentIds.descriptionId } : {})}
       data-slot="sheet-description"
       className={cn("text-sm text-muted-foreground", className)}
       {...props}

@@ -46,7 +46,6 @@ export interface ObjectPanelProps {
 
 interface PanelEntry {
 	title: string;
-	describe: string;
 	Panel: (props: ObjectPanelProps) => React.JSX.Element;
 }
 
@@ -54,32 +53,26 @@ interface PanelEntry {
 const PANELS: Record<string, PanelEntry> = {
 	pill: {
 		title: 'Edit pill',
-		describe: "Change this pill's label, shape, color and size.",
 		Panel: (p) => <PillPanel {...(p as unknown as React.ComponentProps<typeof PillPanel>)} />,
 	},
 	spark: {
 		title: 'Edit spark',
-		describe: "Change this spark's numbers, chart type, color, size and marks.",
 		Panel: (p) => <SparkPanel {...(p as unknown as React.ComponentProps<typeof SparkPanel>)} />,
 	},
 	avatar: {
 		title: 'Edit avatar',
-		describe: "Change this avatar's name, tile, size, shape and face.",
 		Panel: (p) => <AvatarPanel {...(p as unknown as React.ComponentProps<typeof AvatarPanel>)} />,
 	},
 	icon: {
 		title: 'Edit icon',
-		describe: "Change this icon's shape, color, size, frame and look.",
 		Panel: (p) => <IconPanel {...(p as unknown as React.ComponentProps<typeof IconPanel>)} />,
 	},
 	check: {
 		title: 'Edit check',
-		describe: "Change this check's answer and its label.",
 		Panel: (p) => <PluginKindPanel {...(p as unknown as React.ComponentProps<typeof PluginKindPanel>)} />,
 	},
 	plugin: {
 		title: 'Edit plugin object',
-		describe: "Change this plugin object's fields.",
 		Panel: (p) => <PluginKindPanel {...(p as unknown as React.ComponentProps<typeof PluginKindPanel>)} />,
 	},
 };
@@ -87,7 +80,6 @@ const PANELS: Record<string, PanelEntry> = {
 /** The image's entry: its panel is not an inline object's, so the host renders it itself (the `image` branch below). */
 const IMAGE_ENTRY: PanelEntry = {
 	title: 'Edit image',
-	describe: "Change this image's photo, description and placement.",
 	Panel: () => <></>,
 };
 
@@ -96,9 +88,9 @@ const KIND_ICON: Record<string, React.ReactNode> = { pill: <Tag />, spark: <Char
 
 /** The entry for a math span, a math block and a block of HTML: their panel is `RawPanel`, which the host renders itself. */
 const RAW_ENTRY: Record<RawObjectKind, PanelEntry> = {
-	'inline-math': { title: 'Edit math', describe: "Change this math's TeX and see it drawn.", Panel: () => <></> },
-	math: { title: 'Edit math block', describe: "Change this math block's TeX and see it drawn.", Panel: () => <></> },
-	html: { title: 'Edit HTML block', describe: "Change this block's HTML.", Panel: () => <></> },
+	'inline-math': { title: 'Edit math', Panel: () => <></> },
+	math: { title: 'Edit math block', Panel: () => <></> },
+	html: { title: 'Edit HTML block', Panel: () => <></> },
 };
 
 /** A virtual anchor that finds the object's place in the page again on every measurement. */

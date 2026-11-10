@@ -565,7 +565,7 @@ function SessionMenu({ view, actions, now }: { view: LiveView; actions: LiveActi
 				</DropdownMenuContent>
 			</DropdownMenu>
 			<Dialog open={confirming} onOpenChange={setConfirming}>
-				<DialogContent data-live-confirm>
+				<DialogContent alert data-live-confirm>
 					<DialogHeader>
 						<DialogTitle>{ending ? 'End the session for everyone?' : 'Leave the session?'}</DialogTitle>
 						<DialogDescription>
