@@ -213,9 +213,6 @@
     "docs/src/lib/segno/grammar.test.ts": {
       "clock-assert": 4
     },
-    "docs/src/lib/segno/notation.test.ts": {
-      "clock-assert": 3
-    },
     "docs/src/lib/segno/publish-review.test.ts": {
       "clock-assert": 1
     },
