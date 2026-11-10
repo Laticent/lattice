@@ -55,9 +55,10 @@ prune() {
 
 case "$mode" in
   download)
+    pkgs=$(playwright_packages) # an assignment, so a failure stops the script (set -e); `$(...)` inside a command would not
     sudo apt-get update
-    # shellcheck disable=SC2046 # the list is words
-    apt_into install -y --no-install-recommends --download-only $(playwright_packages)
+    # shellcheck disable=SC2086 # the list is words
+    apt_into install -y --no-install-recommends --download-only $pkgs
     echo "install-deps.sh: $(ls "$dir"/*.deb 2>/dev/null | wc -l) packages in $dir"
     ;;
   install)
@@ -78,8 +79,9 @@ case "$mode" in
       apt_into install -f -y --no-install-recommends
       repaired=1
     fi
+    pkgs=$(playwright_packages) # an assignment, so a failure stops the script rather than checking nothing
     missing=()
-    for name in $(playwright_packages); do
+    for name in $pkgs; do
       [ "$(dpkg-query -W -f='${db:Status-Abbrev}' "$name" 2>/dev/null || true)" = 'ii ' ] || missing+=("$name")
     done
     if [ "${#missing[@]}" -gt 0 ]; then

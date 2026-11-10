@@ -132,11 +132,14 @@ families='iPad iPhone'
 # simulator boots. Unset, a probe runs every device it runs today.
 run_mac=1
 if [ -n "${DEVICES:-}" ]; then
+  # A subset of the probe's own devices: focus-sync is iPad-only and office iPhone-only, and DEVICES cannot widen that.
+  allowed=" $families "
   families=''
   run_mac=0
   for d in ${DEVICES//,/ }; do
     case "$d" in
-      iPad|iPhone) families="$families $d" ;;
+      iPad|iPhone)
+        case "$allowed" in *" $d "*) families="$families $d" ;; *) echo "DEVICES: the $PROBE probe does not run on $d" >&2; exit 1 ;; esac ;;
       Mac) run_mac=1 ;;
       *) echo "DEVICES: unknown device '$d' (iPad, iPhone, Mac)" >&2; exit 1 ;;
     esac
