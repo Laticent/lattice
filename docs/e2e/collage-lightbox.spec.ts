@@ -84,6 +84,16 @@ async function openStudioDeck(page: Page, source: string = deck) {
 	await expect(slideTitle(page)).toHaveText('First slide', { timeout: 15_000 });
 	await page.setViewportSize(target);
 	await expect(livePreview(page).locator('.collage-tile')).toHaveCount(4, { timeout: 30_000 });
+	// Click only a frame a reader can see. A resize to a phone mounts a fresh preview frame, which holds itself hidden
+	// (opacity 0, no pointer events) until its fonts land and it reveals; under load that is seconds after its tiles are
+	// in the DOM, and `tapCollageAt` rightly ignores a tap on a hidden frame. Clicking before the reveal failed 3 of 24
+	// loaded runs per test on main (followups.d/3087-p4-mobile-load-only-flakes.md).
+	await expect
+		.poll(() => page.evaluate(() => {
+			const fr = document.querySelector('iframe.live') as HTMLIFrameElement | null;
+			return !!fr && fr.style.opacity === '1' && fr.style.pointerEvents !== 'none';
+		}), { timeout: 30_000, message: 'the live preview never revealed' })
+		.toBe(true);
 	// The resize re-fits the scaled frame; click only once its box has stopped moving.
 	let last = '';
 	await expect

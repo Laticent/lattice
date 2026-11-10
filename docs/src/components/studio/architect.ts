@@ -2063,6 +2063,24 @@ export function useArchitectStatus(pulse = 0): ArchitectStatus {
 				if (stale()) return;
 				const id = m.openRouterModel?.() ?? null;
 				if (id) setState((s) => ({ ...s, modelId: id, modelName: m.openRouterModelName?.() ?? null }));
+			} else if (cloudSelected && (readiness.provider ?? 'openrouter') === 'openrouter' && readiness.state === 'ready' && m.listOpenRouterModels) {
+				// A picked model is NAMED and PRICED from the catalog, which the model module prefetches at boot. When the
+				// status is read before that fetch lands, the name above is only the id ("test/model" shows as "Model"),
+				// and nothing read it again: the chip kept the id until the author opened it. Wait for the same
+				// in-flight, memoized catalog (no second fetch; OpenRouter only, the one catalog prefetched at boot) and fill
+				// both in. Found by model-spine.spec.ts:155 under
+				// load (followups.d/3087-p4-mobile-load-only-flakes.md).
+				const id = m.openRouterModel?.() ?? null;
+				if (id && (m.openRouterModelName?.() ?? id) === id) {
+					try {
+						await m.listOpenRouterModels();
+					} catch {
+						/* the id stands in */
+					}
+					if (stale()) return;
+					const name = m.openRouterModelName?.() ?? null;
+					if (name && name !== id) setState((s) => (s.modelId === id ? { ...s, modelName: name, price: m.openRouterModelPrice?.() ?? s.price } : s));
+				}
 			}
 			// Then fold in the authoritative spend when it arrives (best-effort): the
 			// per-key figures (/api/v1/key) and the account WALLET (/credits) in parallel.
