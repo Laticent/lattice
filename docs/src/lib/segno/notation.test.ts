@@ -391,7 +391,7 @@ describe('descriptions: `{> prose}`', () => {
     // A reader that rescans the rest of its input at every character, the shape of the bug the README names (a search
     // that read past its attempt window on every attempt). The same meter must call it quadratic.
     const quadratic = (s: string) => { for (let i = 0; i < s.length; i += 1) for (let j = i; j < Math.min(s.length, i + s.length / 50); j += 1) s.charCodeAt(j); };
-    expect(reads(() => quadratic('x'.repeat(20000))) * 50).toBeLessThan(reads(() => quadratic('x'.repeat(200000))));
+    expect(reads(() => quadratic('x'.repeat(2000))) * 50).toBeLessThan(reads(() => quadratic('x'.repeat(20000))));
   });
 });
 
