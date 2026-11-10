@@ -11,6 +11,8 @@
   { "name": "spectrum-trim: an unknown value", "source": "---\nspectrum-trim: heavy\n---\n\n## A\n\nText.\n", "L2": { "findings": [{ "rule": "unknown-spectrum-trim", "severity": "warning", "slide": 0 }] } },
   { "name": "avatar: one word per axis", "source": "---\navatar: rounded bare\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },
   { "name": "avatar: an unknown word", "source": "---\navatar: hexagon\n---\n\n## A\n\nText.\n", "L2": { "findings": [{ "rule": "unknown-avatar", "severity": "warning", "slide": 0 }] } },
+  { "name": "video: one word per axis, a strength written the record's way", "source": "---\nvideo: mat nimbus=40 lg\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } },
+  { "name": "video: an unknown word", "source": "---\nvideo: hexagon\n---\n\n## A\n\nText.\n", "L2": { "findings": [{ "rule": "unknown-video", "severity": "warning", "slide": 0 }] } },
   { "name": "a misspelled key is reported", "source": "---\nfinsh: halo\n---\n\n## A\n\nText.\n", "L1": { "deck": { "finish": "none" } }, "L2": { "findings": [{ "rule": "unknown-key", "severity": "warning", "slide": 0 }] } },
   { "name": "a Marp key is not", "source": "---\nmarp: true\n---\n\n## A\n\nText.\n", "L2": { "findings": [] } }
  ]

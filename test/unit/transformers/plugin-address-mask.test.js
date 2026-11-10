@@ -77,7 +77,7 @@ describe('the QR passes read no field out of plugin output', () => {
 describe('the passes that move an address skip plugin output', () => {
   test('video: a figure inside plugin output is never the slide\'s figure', () => {
     const { takeFigure } = require('../../../lib/components/imagery/video/video.transform.js');
-    const fig = '<figure class="video-embed" data-lattice-media="video" data-lattice-media-url="https://youtu.be/AAAAAAAAAAA"></figure>';
+    const fig = '<figure class="video-embed lat-media" data-lattice-media="video" data-lattice-media-url="https://youtu.be/AAAAAAAAAAA"></figure>';
     assert.equal(takeFigure(`<div data-lattice-plugin="gp">${fig}</div>`), null);
     const own = takeFigure(`<div data-lattice-plugin="gp">${fig}</div>${fig.replace('AAAAAAAAAAA', 'BBBBBBBBBBB')}`);
     assert.match(own.html, /BBBBBBBBBBB/);

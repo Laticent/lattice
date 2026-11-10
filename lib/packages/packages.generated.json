@@ -1579,6 +1579,7 @@
         "inline.js",
         "lint.js",
         "manifest.json",
+        "styles.css",
         "syntax.mjs"
       ],
       "code": true

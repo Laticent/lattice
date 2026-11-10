@@ -8816,12 +8816,12 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
   },
   {
     file: 'lib/components/imagery/video/video.transform.js',
-    reads: ['li', 'regex'],
-    sinks: { 'css-url': 1, 'qr': 1 },
+    reads: ['li'],
+    sinks: { 'qr': 1 },
     guards: 1,
     guard: 'masks',
     why:
-      'The poster and the QR come only from the figure the `video` plugin stamped from the author\'s `@video{…}` record (`data-lattice-media-url`, re-validated through `detectProvider`). `takeFigure` finds that figure through `maskPluginSubtrees`, so a figure inside plugin output is never the slide\'s, whatever pass order delivers it. The `<li` read only drops an emptied bullet.',
+      'The QR comes only from the figure the `video` plugin stamped from the author\'s `@video{…}` record (`data-lattice-media-url`, re-validated through `detectProvider`). `takeFigure` finds that figure through `maskPluginSubtrees`, so a figure inside plugin output is never the slide\'s, whatever pass order delivers it. The `<li` read only drops an emptied bullet. (The poster is the plugin\'s, resolved at parse time from the record, since 2026-11-10.)',
   },
   {
     file: 'lib/components/inventory/team-profile/team-profile.transform.js',
@@ -8953,10 +8953,10 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     file: 'lib/transformers/prose-projection.mjs',
     reads: ['html', 'li', 'regex', 'text'],
     sinks: { 'attribute-template': 1, 'css-url': 4 },
-    guards: 5,
+    guards: 6,
     guard: 'masks',
     why:
-      'The Reading view projects a slide into prose. Its text reads build labels and captions; its one address is the video card\'s poster and link, taken only from the `video` plugin\'s own figure and never one inside `[data-lattice-plugin]` (`videoCard`); its `url(#…)` rewrites only suffix in-page ids. A plugin\'s drawing is copied whole with its `[data-lattice-plugin]` root (`projectGeneric`), so the article never holds plugin text as the author\'s.',
+      'The Reading view projects a slide into prose. Its text reads build labels and captions; its one address is the video card\'s poster and link, taken only from the `video` plugin\'s own figure and never one inside `[data-lattice-plugin]` (`videoCard`); its `url(#…)` rewrites only suffix in-page ids. A plugin\'s drawing is copied whole with its `[data-lattice-plugin]` root (`projectGeneric`), so the article never holds plugin text as the author\'s. Narration speaks a media figure\'s words from its `data-lattice-*` attributes, never one inside `[data-lattice-plugin]` (`speakGeneric`).',
   },
 ];
 
@@ -9194,7 +9194,6 @@ const SPINE_SHAPES = {
 // fetch; OWN ASSETS means it reads Lattice's own font, data: or runtime references.
 const SANCTIONED_SPINE_READERS = Object.freeze([
   // ── Readers of text the engine wrote ──
-  { file: 'lib/components/imagery/video/video.transform.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: rewrites the `background-image:url(\'…\')` the video kernel itself wrote on the poster figure.' },
   { file: 'lib/core/accessibility-textures.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: finds the `url(#latt-…)` fragment references the texture pass writes; a fragment never fetches.' },
   { file: 'lib/core/bg-image.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: resolves a `sample:` named-scheme url() in the engine\'s own background style to the sample folder; it never reads a web address.' },
   { file: 'lib/core/bg-image.js', shape: 'attr-reader', count: 1, why: 'ENGINE-WRITTEN: `IMG_SRC_RE` rebases a RELATIVE `<img src>` markdown-it wrote (double-quoted) onto the preview\'s base URL; a web, absolute or data: address is left as it is, for the scanner to judge.' },

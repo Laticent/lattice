@@ -5,7 +5,7 @@
   "name": "video",
   "api": 1,
   "title": "Video",
-  "description": "A video as a static, PDF-safe poster that links to the clip, written in inline code on a line of its own: `@video{\"https://youtu.be/dQw4w9WgXcQ\", title=\"The 90-second tour\", poster=sample:photo-pano.jpg}`. The address comes from the author's own record and nowhere else: nothing here reads a slide's text or its rendered page, so a plugin's drawing can never become a video address. The `video` slide class lays the figure out.",
+  "description": "A video as a static, PDF-safe poster that links to the clip, on any slide, written in inline code on a line of its own: `>{\"https://youtu.be/dQw4w9WgXcQ\", title=\"The 90-second tour\", poster=sample:photo-pano.jpg}` (in full, `@video{…}`). It takes the shared display layer's frames, finishes, tones and sizes. The address comes from the author's own record and nothing else: nothing here reads a slide's text or its rendered page, so a plugin's drawing can never become a video address. The `video` slide class seats the figure beside its words.",
   "icon": {
     "viewBox": "0 0 128 128",
     "paths": [
@@ -39,6 +39,61 @@
       "video": {
         "sigil": ">",
         "address": true
+      }
+    },
+    "registers": {
+      "video": {
+        "axes": {
+          "size": [
+            "md",
+            "sm",
+            "lg"
+          ],
+          "frame": [
+            "unframed",
+            "mat",
+            "keyline",
+            "float",
+            "device",
+            "corners"
+          ],
+          "finish": [
+            "unfinished",
+            "nimbus",
+            "nimbus-20",
+            "nimbus-40",
+            "nimbus-60",
+            "nimbus-80",
+            "nimbus-full",
+            "halo",
+            "halo-20",
+            "halo-40",
+            "halo-60",
+            "halo-80",
+            "halo-full",
+            "meridian",
+            "meridian-20",
+            "meridian-40",
+            "meridian-60",
+            "meridian-80",
+            "meridian-full"
+          ],
+          "tone": [
+            "natural",
+            "duotone",
+            "duotone-20",
+            "duotone-40",
+            "duotone-60",
+            "duotone-80",
+            "duotone-full",
+            "grayscale",
+            "grayscale-20",
+            "grayscale-40",
+            "grayscale-60",
+            "grayscale-80",
+            "grayscale-full"
+          ]
+        }
       }
     },
     "providers": [
@@ -122,11 +177,20 @@
     "lint": [
       "video-not-alone",
       "video-no-record",
-      "video-slide-class",
       "video-extra-record",
       "video-web-poster"
-    ]
+    ],
+    "styles": true
   },
+  "tokens": [
+    "--accent",
+    "--bg-alt",
+    "--fs-meta",
+    "--qr-ink",
+    "--qr-paper",
+    "--radius-lg",
+    "--sp-sm"
+  ],
   "render": {
     "parity": "equivalent",
     "degradesTo": "source"

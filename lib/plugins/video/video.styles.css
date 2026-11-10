@@ -1,0 +1,95 @@
+/* video.styles.css — THE VIDEO PLUGIN's own look: the poster, its play badge and its provider label, on ANY slide.
+ * (Until 2026-11-10 all of this was scoped to `section.video`, so `@video{…}` on any other slide drew a bare text link:
+ * engineering/decisions/2026-10-16-media-plugins.md §9.) The frame, the finish, the tone, the size and the words under the
+ * poster are the shared display layer's (lib/base/base.media.css); the `video` slide's compositions are the component's
+ * (lib/components/imagery/video/video.styles.css), which sets this figure's exposed properties from outside and never
+ * reaches into it for its text (§4.11).
+ *
+ * The figure, as lib/plugins/video/video.inline.js draws it:
+ *   <figure class="video-embed lat-media" data-lattice-media="video" …>
+ *     <span class="lat-media-frame"><a class="video-poster lat-media-pic">…badge, label…</a></span>
+ *     <div class="video-aside"><figcaption class="lat-media-caption">…</figcaption></div>
+ *   </figure>
+ *
+ * The two FIXED-contrast surfaces, the play badge and the label chip, read the QR's paper and ink tokens with fallbacks, so the
+ * badge reads on any poster (#3-exempt). No typed glyph: the play triangle is drawn with borders (HARD RULE #29). */
+
+section :where(.video-embed[data-lattice-media="video"]) {
+  gap: var(--sp-sm);
+}
+
+/* The poster: a 16:9 tile carrying the author's still as a cover background (resolved at parse time from the record). It is
+ * an <a>, so it is a live link in HTML and a link annotation in the PDF. Its width is the frame's (the shared layer). */
+section :where(.video-embed[data-lattice-media="video"]) .video-poster {
+  position: relative;
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  /* The surface under a poster still decoding is the slide's own raised surface (followup 2358-p3). */
+  background: var(--bg-alt) center / cover no-repeat;
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+}
+/* Unframed, the poster lifts on its own shadow, as it always has; a frame brings its own. */
+section :where(.video-embed[data-lattice-media="video"]):not([data-frame]) .video-poster {
+  box-shadow: 0 12px 40px rgb(10 22 40 / 0.28);
+}
+/* No still → a dark, video-like stand-in on any theme (a fixed ink blend), never a blank box. */
+section :where(.video-embed[data-lattice-media="video"]) .video-poster.is-placeholder {
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--qr-ink, #14140f) 78%, var(--accent)),
+      color-mix(in srgb, var(--qr-ink, #14140f) 94%, var(--accent)));
+}
+
+/* The play badge: a fixed-contrast disc and a drawn triangle, centered on the poster, above the tone and finish layers. */
+section :where(.video-embed[data-lattice-media="video"]) .video-play {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  background: var(--qr-paper, #ffffff);
+  box-shadow: 0 6px 20px rgb(10 22 40 / 0.35);
+}
+section :where(.video-embed[data-lattice-media="video"]) .video-play::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  /* a right-pointing triangle, optically nudged off-center */
+  border-style: solid;
+  border-width: 0.85rem 0 0.85rem 1.4rem;
+  border-color: transparent transparent transparent var(--qr-ink, #14140f);
+  transform: translate(-42%, -50%);
+}
+
+/* The provider label: a chip on the poster's lower left. */
+section :where(.video-embed[data-lattice-media="video"]) .video-provider {
+  position: absolute;
+  z-index: 2;
+  inset-inline-start: var(--sp-sm);
+  inset-block-end: var(--sp-sm);
+  padding: 0.25em 0.7em;
+  border-radius: 999px;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--qr-ink, #14140f);
+  background: color-mix(in srgb, var(--qr-paper, #ffffff) 90%, transparent);
+}
+
+/* The aside: the words under the poster (and, on a `video qr` slide, the code). */
+section :where(.video-embed[data-lattice-media="video"]) .video-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-sm);
+  max-inline-size: 100%;
+}
+section :where(.video-embed[data-lattice-media="video"]) .video-aside:empty { display: none; }

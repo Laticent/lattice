@@ -17,7 +17,7 @@ const deck = (body, cls = 'video') => `---\ntheme: indaco\n---\n\n<!-- _class: $
 describe('where the address is read', () => {
   test('the markdown-it pass draws a lone span as the figure, from the span\'s own text', () => {
     const html = render(deck(`\`${SPAN}\``));
-    assert.match(html, /<figure class="video-embed" data-lattice-media="video" data-provider="youtube"/);
+    assert.match(html, /<figure class="video-embed lat-media" data-lattice-media="video"[^>]* data-provider="youtube"/);
     assert.match(html, /href="https:\/\/www\.youtube\.com\/watch\?v=dQw4w9WgXcQ"/);
     assert.doesNotMatch(html, /<p>\s*<figure/, 'the figure left its paragraph');
   });
@@ -195,30 +195,17 @@ describe('what the second checker found', () => {
 
 });
 
-describe('video-slide-class', () => {
+describe('a record off a `video` slide (the any-slide figure, 2026-11-10)', () => {
   const lint = (md) => lintText(md, buildVocab()).findings || lintText(md, buildVocab());
-  const rules = (md) => lint(md).map((f) => f.rule);
   const REC = '`@video{"https://youtu.be/dQw4w9WgXcQ", title="Tour"}`';
 
-  test('a lone record on a slide that is not a video slide is a warning that names the class to write', () => {
-    const f = lint(`---\ntheme: indaco\n---\n\n<!-- _class: content -->\n\n## Tour\n\n${REC}\n`).find((x) => x.rule === 'video-slide-class');
-    assert.ok(f, 'the finding is there');
-    assert.equal(f.severity, 'warning');
-    assert.match(f.fix, /_class: video/);
-  });
-
-  test('a slide with no class directive at all gets the same warning', () => {
-    assert.ok(rules(`---\ntheme: indaco\n---\n\n## Tour\n\n${REC}\n`).includes('video-slide-class'));
-  });
-
-  test('a video slide and a record inside a code fence are quiet', () => {
-    assert.ok(!rules(`---\ntheme: indaco\n---\n\n<!-- _class: video companion -->\n\n## Tour\n\n${REC}\n`).includes('video-slide-class'));
-    assert.ok(!rules('---\ntheme: indaco\n---\n\n## Docs\n\n```markdown\n' + REC + '\n```\n').includes('video-slide-class'));
-  });
-
-  test('a record the engine would not draw as a video is the literal warning\'s business, not this one\'s', () => {
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: content -->\n\n## Tour\n\n`@video{"https://evil.example/x"}`\n';
-    assert.ok(!rules(md).includes('video-slide-class'));
+  test('draws the full poster figure on the shared layer, and lint says nothing about the slide class', () => {
+    const md = `---\ntheme: indaco\n---\n\n<!-- _class: content -->\n\n## Tour\n\n${REC}\n`;
+    const html = require('../../../lib/engine').render(md).html;
+    assert.match(html, /<figure class="video-embed lat-media" data-lattice-media="video" data-size="md" data-show="title"/);
+    assert.match(html, /<span class="lat-media-frame"><a class="video-poster lat-media-pic/);
+    assert.match(html, /<figcaption class="lat-media-caption"><span class="lat-media-title">Tour<\/span><\/figcaption>/);
+    assert.ok(!lint(md).some((f) => /video-slide/.test(f.rule)), 'no rule asks for the video class any more');
   });
 });
 
@@ -243,8 +230,9 @@ describe('video-extra-record', () => {
 
 describe('the video placement rules say what the engine does', () => {
   const REC = '`@video{"https://youtu.be/dQw4w9WgXcQ", title="Clip"}`';
+  const REC_WEB = '`@video{"https://youtu.be/dQw4w9WgXcQ", title="Clip", poster="https://img.example/p.jpg"}`';
   const lint = (md) => lintText(md, buildVocab()).findings || lintText(md, buildVocab());
-  const figures = (md) => (render(md).match(/<figure class="video-embed"/g) || []).length;
+  const figures = (md) => (render(md).match(/<figure class="video-embed lat-media"/g) || []).length;
   const wrap = (cls, body) => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n${body}\n`;
 
   // Each case: where the record sits, and whether the engine draws a figure from it. The wrong-slide rule must fire exactly when it does.
@@ -262,10 +250,10 @@ describe('the video placement rules say what the engine does', () => {
     ['a `<!--` inside an inline code span is text, not a comment', '`<!--` is how a comment opens\n\n' + REC, 1],
   ];
   for (const [name, body, drawn] of CASES) {
-    test(`video-slide-class on ${name}: fires only when the engine draws a figure`, () => {
-      const md = wrap('content', body);
+    test(`video-web-poster on ${name}: fires only when the engine draws a figure`, () => {
+      const md = wrap('content', body.split(REC).join(REC_WEB));
       assert.equal(figures(md), drawn, 'the engine side of the case');
-      assert.equal(lint(md).some((f) => f.rule === 'video-slide-class'), drawn === 1);
+      assert.equal(lint(md).some((f) => f.rule === 'video-web-poster'), drawn === 1);
     });
   }
 

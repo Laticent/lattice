@@ -210,7 +210,6 @@ distinct, stable ID.
 | `unknown-inline-kind` | warning | ✓ | A named span `@name{…}` whose name no kind has: neither the host's, a shipped plugin's, nor a listed plugin's. It renders as code; the autofix takes the nearest kind name when one is close. |
 | `video-no-record` | error | — | A `video` slide with no `@video{…}` record, so it draws no clip. The address comes only from the author's own record, never from slide text. |
 | `video-not-alone` | warning | — | An `@video{…}` record inside running text. A video is a figure, so only a record on a line of its own is drawn; the span stays code. |
-| `video-slide-class` | warning | — | A lone `@video{…}` record on a slide that is not a `video` slide. The layout and the poster picture are both scoped to the `video` class, so the clip draws only as a plain text link; the finding names the class to write. |
 | `video-extra-record` | warning | — | A second lone `@video{…}` record on one `video` slide. The layouts seat one clip, so the extra record is drawn below the first and runs off the slide; move it to a slide of its own. |
 | `video-web-poster` | warning | — | A `poster=` on a drawn `@video{…}` record that loads from another site: the figure paints it as a background, which the preview replaces with a placeholder. |
 | `spark-too-big` | warning | ✓ | A spark too tall or too wide for its line; the autofix resizes it. Reported by the Studio from a measured render (`sparkFitFindings`), not by `lintTextWith` or the CLI. |

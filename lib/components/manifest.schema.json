@@ -261,6 +261,19 @@
         }
       }
     },
+    "media": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["places", "describe"],
+      "description": "This layout HOSTS the media plugins' figures (`@image{…}`, `@video{…}`; engineering/decisions/2026-10-16-media-plugins.md §4.7, decision 19). The author owns the words (title, description); the host owns how the figure is shown. `places`: `flow` lets the figure size itself (its size, frame and `show=` apply); every other value lays the figure out itself, so `ignores` names what has nothing to act on. `show` is the host's default for which of the record's words the slide shows, below the record's own word in a flow host and above it in a placing host. Generated into lib/core/media-hosts.generated.js (read at parse time) and into the component's guide as its \"Media inside\" section, so the two cannot drift.",
+      "properties": {
+        "places": {"enum": ["flow", "panel", "tiles", "background"], "description": "`flow`: the figure sits in the layout's flow and sizes itself. `panel`: a lone record becomes the layout's picture panel. `tiles`: each picture is a tile the layout packs. `background`: a lone record becomes the slide's background."},
+        "kinds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["image", "video"]}, "description": "The kinds this layout seats; another kind on its slide is an ordinary flow figure."},
+        "show": {"enum": ["title", "all", "none"]},
+        "ignores": {"type": "array", "uniqueItems": true, "items": {"enum": ["size", "frame", "finish", "tone", "show"]}},
+        "describe": {"type": "string", "minLength": 1, "description": "One or two sentences for the guide: what the layout decides for the media written in it."}
+      }
+    },
     "inlineRun": {
       "type": "object",
       "additionalProperties": false,

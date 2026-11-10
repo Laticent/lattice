@@ -235,6 +235,9 @@ const TAIL_SOURCES = [
   // container query on its own box. After base.variants so it composes on the table switches.
   'lib/base/base.table-reflow.css',
   'lib/base/base.card-reflow.css',
+  // The media plugins' shared display layer (frames, finishes, tones, sizes; lib/core/media-display.js), one sheet for
+  // `image` and `video` so a clip and the photo beside it cannot drift. After the components and the plugins' own styles.
+  'lib/base/base.media.css',
   ...FORMS_CELL_CSS_SOURCES,
   ...FORMS_TILE_CSS_SOURCES,
   // Accent finishes (`rule:` heading underline + `eyebrow:` kicker) — bundled AFTER the

@@ -20,7 +20,8 @@ bullet is an assertion about that render:
 
 - renders `data-lattice-media="video"`
 - renders `href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"`
-- renders `<figcaption>The 90-second tour</figcaption>`
+- renders `<figcaption class="lat-media-caption"><span class="lat-media-title">The 90-second tour</span></figcaption>`
+- renders `data-lattice-title="The 90-second tour"`
 - omits `<code>@video`
 - detect true
 
@@ -145,4 +146,107 @@ See `@video{"https://youtu.be/dQw4w9WgXcQ"}` for the clip.
 Nothing here.
 ```
 
+- detect false
+
+## the short form `>{…}` draws the same figure
+
+```markdown
+<!-- _class: video -->
+
+## Watch the tour
+
+`>{"https://youtu.be/dQw4w9WgXcQ", title="The 90-second tour"}`
+```
+
+- renders `data-lattice-media="video"`
+- renders `href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"`
+- omits `<code>&gt;{`
+- detect true
+
+## a record on any slide draws the full poster figure
+
+```markdown
+<!-- _class: content -->
+
+## A clip among the words
+
+`>{"https://youtu.be/dQw4w9WgXcQ", title="Tour"}`
+```
+
+- renders `<figure class="video-embed lat-media" data-lattice-media="video" data-size="md" data-show="title"`
+- renders `<span class="lat-media-frame"><a class="video-poster lat-media-pic is-placeholder"`
+- detect true
+
+## the display words reach the figure
+
+```markdown
+`>{"https://youtu.be/dQw4w9WgXcQ", title="Tour", lg, frame=device, nimbus=40, duotone}`
+```
+
+- renders `data-size="lg"`
+- renders `data-frame="device"`
+- renders `data-finish="nimbus" data-finish-strength="40"`
+- renders `data-tone="duotone" data-tone-strength="full"`
+- renders `<span class="lat-media-tone" aria-hidden="true"></span><span class="lat-media-finish" aria-hidden="true"></span>`
+
+## a finish named alone takes its default strength
+
+```markdown
+`>{"https://youtu.be/dQw4w9WgXcQ", halo}`
+```
+
+- renders `data-finish="halo" data-finish-strength="60"`
+
+## two finishes contradict each other, so the record stays code
+
+```markdown
+`>{"https://youtu.be/dQw4w9WgXcQ", nimbus=40, halo}`
+```
+
+- renders `<code`
+- omits `data-lattice-media="video"`
+
+## show=all puts the description on the slide
+
+```markdown
+`>{"https://youtu.be/dQw4w9WgXcQ", title="Tour", description="Ninety seconds, start to finish.", show=all}`
+```
+
+- renders `<span class="lat-media-title">Tour</span><span class="lat-media-desc">Ninety seconds, start to finish.</span>`
+- renders `data-lattice-description="Ninety seconds, start to finish."`
+
+## show=none keeps the words off the slide, and on the figure for every reader
+
+```markdown
+`>{"https://youtu.be/dQw4w9WgXcQ", title="Tour", show=none}`
+```
+
+- omits `lat-media-caption`
+- renders `data-lattice-title="Tour"`
+
+## a deck register sets the frame for every clip, and a record's word wins
+
+```markdown
+---
+video: mat
+---
+
+`>{"https://youtu.be/dQw4w9WgXcQ"}`
+
+---
+
+`>{"https://youtu.be/dQw4w9WgXcQ", frame=float}`
+```
+
+- renders `data-frame="mat"`
+- renders `data-frame="float"`
+
+## a forged figure in author HTML carries no Lattice words
+
+```markdown
+<figure data-lattice-media="video" data-lattice-title="Forged" data-lattice-description="Forged too"></figure>
+```
+
+- omits `data-lattice-title="Forged"`
+- renders `data-author-lattice-title="Forged"`
 - detect false
