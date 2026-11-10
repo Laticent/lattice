@@ -1431,15 +1431,29 @@ const KATEX_FAMILIES = katexFamilies(katexCssAbsPath);
 // 60-70 ms per render walking 845 KB of base64 to recover five names — against the ~21 ms per
 // navigation this whole change saves. Measured, and it made a 1-navigation export a net LOSS.
 // (Second HARD RULE #25 checker; see the PR's ## Performance section.)
-const embeddedFaceCss = fontFaceCss(PKG_ROOT);
-const EMBEDDED_FAMILIES = emittedFamilies(PKG_ROOT);
+// ONLY THE FACES THIS DECK CAN DRAW. The `typography:` sets' faces (Newsreader, Fraunces, Barlow
+// Condensed, Inter; lib/core/resolve-typography.js) are about 0.55 MB of base64 that a deck naming no
+// set never uses, so they join the block only when the deck's set (a preset's included) or a
+// slide's own `typography-*` class asks for them. Every other face is inlined as before.
+const DECK_FONT_FAMILIES = (() => {
+  const typo = require('./lib/core/resolve-typography.js');
+  const fm = (md.match(/^---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
+  const used = typo.setFamiliesFor(require('./lib/core/front-matter-key.js').frontMatterName(fm, 'typography') || '', md);
+  const all = [...new Set(require('./lib/fonts/text-faces.js').TEXT_FACES.map((f) => f.family))];
+  return all.filter((f) => !typo.SET_ONLY_FAMILIES.includes(f) || used.includes(f));
+})();
+const embeddedFaceCss = fontFaceCss(PKG_ROOT, { families: DECK_FONT_FAMILIES });
+const EMBEDDED_FAMILIES = emittedFamilies(PKG_ROOT, { families: DECK_FONT_FAMILIES });
 // A family is COVERED when this document supplies it another way: the engine's own
 // faces via the base64 block, KaTeX's via its inlined sheet on a math deck. On a deck
 // without math nothing supplies KaTeX's faces — and nothing asks for one, since no
 // element carries a KaTeX family without KaTeX markup.
 // Lattice Icons too: the page carries its faces as data whenever a slide draws a glyph (`iconFaceCss` below), and under
 // `font-embedding: system-emoji` it shows the <svg>, so the sheet's relative-url copy is never the one that should load.
-const COVERED_FAMILIES = [...EMBEDDED_FAMILIES, ...KATEX_FAMILIES, require('./lib/fonts/icon-faces.js').ICON_FAMILY];
+// The type sets' faces count as covered whether or not this deck uses them: the ones it uses are in
+// the base64 block, and the rest must not stay in the inlined sheet, whose relative `fonts/…` urls
+// the export would try (and refuse) to read from the deck's folder on every render.
+const COVERED_FAMILIES = [...EMBEDDED_FAMILIES, ...require('./lib/core/resolve-typography.js').SET_ONLY_FAMILIES, ...KATEX_FAMILIES, require('./lib/fonts/icon-faces.js').ICON_FAMILY];
 const inlinedFaces = dropCoveredSheetFaces(layoutCSSLinked, {
   covered: COVERED_FAMILIES,
   // SECOND-OPINION EVERY SPAN WITH css-tree — but only for a sheet we have not already

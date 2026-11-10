@@ -1738,7 +1738,11 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// Script only again. Then the owner's D2: a jump onto a build starts it at step 0 (`jumpStep`, the 'jump' arm of
 	// `stepEnter`), and narration moves with `go(i, true)`. Script only. Then the adversarial pass on D1/D2: Play rests
 	// the shown slide first, and `stepEnter` refuses an unknown direction. Script only.
-	assert.equal(sha, '040cc024d0528afd377948c9f7de761322bdd075ff0e1f5ff64d228153eca383', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed 2026-11-10 (#3095, `typography:`): the Read view's four hard-coded font stacks read
+	// var(--font-display) / var(--font-body) with the old stacks as fallbacks, and the player CSS gains
+	// one rule per type set (`articleTypographyCss`), so the article follows the deck's set. CSS only. Rebased on
+	// the step cursor above, so the sha covers both.
+	assert.equal(sha, 'd19a4f38e62d9ebaba4784bccbf92d435e3f7e8356a3d110d2595d039ef1fa62', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

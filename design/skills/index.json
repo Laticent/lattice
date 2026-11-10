@@ -62,7 +62,7 @@
       "description": "Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist.",
       "kind": "make",
       "studio": true,
-      "tokens": 3244
+      "tokens": 3256
     },
     {
       "name": "diagram",

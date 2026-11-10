@@ -130,7 +130,7 @@
     },
     {
       "mistake": "Placing the eyebrow paragraph after the headline instead of before it.",
-      "fix": "The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, the masthead lift re-seats it as the italic, secondary-color subtitle instead of the intended mono kicker."
+      "fix": "The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, the masthead lift re-seats it as the italic, secondary-color subtitle instead of the intended eyebrow kicker."
     },
     {
       "mistake": "An SVG mark whose viewBox carries empty margin around the logo.",

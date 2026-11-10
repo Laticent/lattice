@@ -33,11 +33,29 @@ import faceRuleCore from '../../../lib/fonts/face-rule.js';
 import iconFacesCore from '../../../lib/fonts/icon-faces.js';
 import iconFallbackCore from '../../../lib/fonts/icon-fallback.js';
 import textFacesCore from '../../../lib/fonts/text-faces.js';
+import barlowcondensed400 from './fonts/barlow-condensed-400.woff2';
+import barlowcondensed400i from './fonts/barlow-condensed-400-italic.woff2';
+import barlowcondensed600 from './fonts/barlow-condensed-600.woff2';
+import barlowcondensed700 from './fonts/barlow-condensed-700.woff2';
+import barlowcondensed700i from './fonts/barlow-condensed-700-italic.woff2';
 import caveat400 from './fonts/caveat-400.woff2';
 import caveat700 from './fonts/caveat-700.woff2';
+import fraunces400 from './fonts/fraunces-400.woff2';
+import fraunces400i from './fonts/fraunces-400-italic.woff2';
+import fraunces700 from './fonts/fraunces-700.woff2';
+import fraunces700i from './fonts/fraunces-700-italic.woff2';
+import inter300 from './fonts/inter-300.woff2';
+import inter400 from './fonts/inter-400.woff2';
+import inter500 from './fonts/inter-500.woff2';
+import inter600 from './fonts/inter-600.woff2';
+import inter700 from './fonts/inter-700.woff2';
 import jetbrains400 from './fonts/jetbrains-mono-400.woff2';
 import jetbrains500 from './fonts/jetbrains-mono-500.woff2';
 import jetbrains600 from './fonts/jetbrains-mono-600.woff2';
+import newsreader400 from './fonts/newsreader-400.woff2';
+import newsreader400i from './fonts/newsreader-400-italic.woff2';
+import newsreader700 from './fonts/newsreader-700.woff2';
+import newsreader700i from './fonts/newsreader-700-italic.woff2';
 import outfit300 from './fonts/outfit-300.woff2';
 import outfit400 from './fonts/outfit-400.woff2';
 import outfit500 from './fonts/outfit-500.woff2';
@@ -63,6 +81,24 @@ export const FACES = [
 	{ family: 'Outfit', weight: 500, style: 'normal', url: outfit500 },
 	{ family: 'Outfit', weight: 600, style: 'normal', url: outfit600 },
 	{ family: 'Outfit', weight: 700, style: 'normal', url: outfit700 },
+	{ family: 'Newsreader', weight: 400, style: 'normal', url: newsreader400 },
+	{ family: 'Newsreader', weight: 700, style: 'normal', url: newsreader700 },
+	{ family: 'Newsreader', weight: 400, style: 'italic', url: newsreader400i },
+	{ family: 'Newsreader', weight: 700, style: 'italic', url: newsreader700i },
+	{ family: 'Fraunces', weight: 400, style: 'normal', url: fraunces400 },
+	{ family: 'Fraunces', weight: 700, style: 'normal', url: fraunces700 },
+	{ family: 'Fraunces', weight: 400, style: 'italic', url: fraunces400i },
+	{ family: 'Fraunces', weight: 700, style: 'italic', url: fraunces700i },
+	{ family: 'Barlow Condensed', weight: 400, style: 'normal', url: barlowcondensed400 },
+	{ family: 'Barlow Condensed', weight: 600, style: 'normal', url: barlowcondensed600 },
+	{ family: 'Barlow Condensed', weight: 700, style: 'normal', url: barlowcondensed700 },
+	{ family: 'Barlow Condensed', weight: 400, style: 'italic', url: barlowcondensed400i },
+	{ family: 'Barlow Condensed', weight: 700, style: 'italic', url: barlowcondensed700i },
+	{ family: 'Inter', weight: 300, style: 'normal', url: inter300 },
+	{ family: 'Inter', weight: 400, style: 'normal', url: inter400 },
+	{ family: 'Inter', weight: 500, style: 'normal', url: inter500 },
+	{ family: 'Inter', weight: 600, style: 'normal', url: inter600 },
+	{ family: 'Inter', weight: 700, style: 'normal', url: inter700 },
 	{ family: 'JetBrains Mono', weight: 400, style: 'normal', url: jetbrains400 },
 	{ family: 'JetBrains Mono', weight: 500, style: 'normal', url: jetbrains500 },
 	{ family: 'JetBrains Mono', weight: 600, style: 'normal', url: jetbrains600 },
@@ -84,6 +120,8 @@ function bytesToBase64(bytes) {
 	return btoa(bin);
 }
 
+// The manifest row behind a vendored face, for its `size-adjust` (a `typography:` set face).
+const MANIFEST_FACE = new Map(textFacesCore.TEXT_FACES.map((f) => [`${f.family} ${f.weight} ${f.style}`, f]));
 function faceRule(face, src) {
 	return (
 		'@font-face{' +
@@ -91,6 +129,7 @@ function faceRule(face, src) {
 		`font-style:${face.style};` +
 		`font-weight:${face.weight};` +
 		'font-display:swap;' +
+		textFacesCore.faceMetricsDecl(MANIFEST_FACE.get(`${face.family} ${face.weight} ${face.style}`)) +
 		`src:url(${src}) format('woff2')` +
 		'}'
 	);

@@ -122,6 +122,17 @@ section.sketch {
    * allowlist, so a new label cannot silently re-open the hole.
    * See engineering/decisions/2026-08-12-sketch-label-voice.md. */
   --font-label: var(--sketch-font-body);
+  /* Sketch owns its own type, the eyebrow included: the hand sans in tracked capitals at label
+   * size, as before the `typography:` sets moved every other deck's eyebrow to the heading
+   * face's italic (lib/base/base.typography.css). A felt-tip italic kicker would read as a
+   * second headline. The chart's text voice needs nothing: it follows --font-body. */
+  --eyebrow-face: var(--sketch-font-body);
+  --eyebrow-style: normal;
+  --eyebrow-weight: 600;
+  --eyebrow-case: uppercase;
+  --eyebrow-tracking: 0.18em;
+  --eyebrow-scale: 0;
+  --eyebrow-anchor-scale: 0;
   /* Component label pills / badges (state-marker chips, pricing tags,
    * etc.) ride the hand body face too, so every glyph of prose on the
    * slide is hand-drawn. Real inline `code` stays monospace (below). */

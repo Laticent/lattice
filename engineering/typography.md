@@ -161,9 +161,10 @@ who write `## Slide Title` get `--fs-h2` for free.
 | `section h5` | `--fs-h5` | Display font, weight 700 (= `--fs-body`). |
 | `section h6` | `--fs-h6` | Display font, weight 700 (= `--fs-meta`). |
 
-The eyebrow visual (mono uppercase 13-ish px) is unchanged — it's
-delivered by the `\`label\`` inline-code paragraph modifier in
-`base.modifiers.css`, not by an h-tag.
+The eyebrow is delivered by the `\`label\`` inline-code paragraph modifier in
+`base.modifiers.css`, not by an h-tag. Its voice — the heading face's italic, as written, at
+`--chrome-fs` × 1.45 and never under `--fs-meta`, half of `--fs-h1` on a bookend — comes from
+the `typography:` set (§ Type sets below).
 
 ## 4 — Anti-patterns
 
@@ -249,6 +250,7 @@ are documented in their component CSS.
   audit, migration plan, risk register.
 - `lib/base/base.tokens.css` — the canonical declarations.
 - `lib/base/base.elements.css` — h1–h6 wiring.
+- `lib/base/base.typography.css` — the `typography:` sets and the voice tokens (§ Type sets).
 - `lib/base/base.modifiers.css` — eyebrow / subtitle / key-insight
   visual treatments that use `--fs-meta` and `--fs-body`; also the
   `scale-l` / `scale-xl` / `scale-2xl` modifiers (§7).
@@ -568,6 +570,68 @@ heading. And if a slide clips at the scale you asked for, it has too
 much content for that magnitude: trim it to its budget at that scale or
 split it, the same as any overflow (§4). Choosing a smaller venue for the
 whole deck is also fine — but it is your choice; the engine never makes it.
+
+## Type sets — the faces and voices (`typography:`)
+
+The `--fs-*` tokens set **how big** each role is. The `typography:` register sets **which face
+speaks each role**: one curated set — `classic` (the default), `ledger`, `poster`, `festival` —
+bundles the heading and body faces, the eyebrow's voice and the chart's text voice. Author
+reference: `lib/base/base.registers.docs.md` § `typography:`. Record:
+`engineering/decisions/2026-11-09-type-voices.md` § Decided, and the nine rules each set keeps in
+`2026-11-09-type-hierarchy-study.md` §4.
+
+**Three voices.** Chrome (header, meta line, footer, page number) stays in mono capitals at
+`--chrome-fs`. The eyebrow is content: the heading face's italic, as written,
+`max(--fs-meta, --chrome-fs × 1.45)` on a content slide and `max(--fs-meta, --fs-h1 × 0.5)` on a
+title, dark divider or closing. The chart's ticks, category labels and keys take the body face with
+`tabular-nums lining-nums`; its data labels take `--chart-figure-face`, the heading face only
+when that face has tabular figures. The tokens (`--eyebrow-*`, `--chart-text-face`,
+`--chart-figure-face`) live in `lib/base/base.typography.css`, declared on `:root, section` so a
+set's re-pointed faces reach them.
+
+**Size factors follow the face (rule 5: hold the x-height).** A face with a different x-height from
+Outfit (0.48) or Playfair Display (0.52) would change what the reader sees at the same px, so each set
+face carries an `@font-face` `size-adjust` in the font manifest (`lib/fonts/text-faces.js`
+`sizeAdjust`): Inter 87%, Newsreader 100%, Fraunces 92%, Barlow Condensed 110%. The factor goes
+wherever the face goes — a heading, the body, a chart label, a blockquote set in the display face at
+body size — so no rule can pair a face with the other face's factor, and every `--fs-*` size is the
+same in every set. The display factors are capped by width as well as x-height, because a heading that
+wraps to a second line moves every box under it: Newsreader and Fraunces at 1.1× wrapped two headings of
+the canonical gallery (journey, logo-wall), and Barlow Condensed at 1.2× clipped a split cover at hall.
+The vector PDF, PPTX and ODP have no `size-adjust`, and the computed `font-size` does not carry it, so
+each reader multiplies the loaded face's factor into the run's size: `faceSizeAdjust` in
+`lib/core/pdf-compose/read-slide.mjs` (the PDF writer both hosts run) and in
+`docs/src/lib/calco/reader.ts` (PPTX, ODP), and `tools/type-voice-audit.mjs` measures sizes the same
+way. Without it the PDF drew Inter 15% too large at the positions the browser measured, and the words
+collided. Canvas `measureText` applies `size-adjust` itself, so Calco measures spacing at the computed
+size. Family names match case-insensitively, as the browser matches them. An author's own `@font-face`
+with a `size-adjust` is honored by all three. The standalone chart-SVG export
+(`tools/lib/chart-font-embed.js`) inlines the set faces with their factor.
+
+**Baselines follow the face too.** Newsreader's own line metrics (ascent 0.735, descent 0.265 em) put
+its baseline 0.13 em higher in a line than Outfit's or the mono's, so a row that aligns the faces on one
+baseline grew: list-tabular's six rows ran past the frame under `ledger`. The manifest gives it
+`ascent-override: 98%` and `descent-override: 26%` (`faceMetricsDecl`), Outfit's proportions. Engine and
+theme CSS set every line-height, so a line in one face keeps its height and only its baseline moves; a
+line that sets two faces on one baseline is where the height changes, which is the point. The PDF writer
+and Calco place a baseline from the browser's line metrics (the override), not the font file's, or
+Newsreader would land 0.12 em high in a PDF chart label.
+`test/unit/parsing/resolve-typography.test.js` holds every set face's baseline inside the default faces'
+range.
+
+**The factor rides on the family name.** The set faces are declared under their real names, so an
+author's `style:` that sets `font-family: Inter` gets the bundled Inter at 87%, the size that matches
+Outfit's x-height, not a system Inter at 100%.
+
+(An earlier cut put the factor on the `--fs-*` roles; about ten rules that set the display face at body
+size were then scaled by the body face's factor, and Inter at an unfactored role read 15% larger. The
+face-keyed factor removed both.)
+
+**Checking a set.** `node tools/type-voice-audit.mjs --theme <t> --mode <m> --typography <set>`
+prints every role's measured face, size and contrast and every content/chrome collision;
+`test/integration/type-voices/typography-sets.test.js` runs it over every palette theme × every
+set in both modes and fails on a zero-axis content/chrome pair, an inverted ink ladder or an AA
+miss.
 
 ## 8 — Measure (line length)
 

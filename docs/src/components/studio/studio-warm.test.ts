@@ -79,6 +79,8 @@ describe('startStudioWarmUp — fonts', () => {
 		expect(WARM_FONT_FILES).toContain('lattice-icons-400');
 		expect(WARM_FONT_FILES).toContain('noto-color-emoji-0');
 		expect(WARM_FONT_FILES.some((f) => f.startsWith('KaTeX'))).toBe(false);
+		// The type sets' faces load when a deck names a set, never on warm-up.
+		expect(WARM_FONT_FILES.some((f) => /^(inter|newsreader|fraunces|barlow)/.test(f))).toBe(false);
 		expect(new Set(WARM_FONT_FILES).size).toBe(WARM_FONT_FILES.length);
 	});
 

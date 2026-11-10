@@ -86,7 +86,7 @@
   "commonMistakes": [
     {
       "mistake": "Eyebrow written as bold or plain text instead of inline code, e.g. `**Category · Date**`.",
-      "fix": "Wrap the eyebrow paragraph in backticks. The eyebrow CSS matches `h1 + p:has(> code:only-child)`; without the code span the paragraph falls through to the general subtitle rule instead — it still renders styled, just as a second subtitle line, not the uppercase mono eyebrow lifted above the h1."
+      "fix": "Wrap the eyebrow paragraph in backticks. The eyebrow CSS matches `h1 + p:has(> code:only-child)`; without the code span the paragraph falls through to the general subtitle rule instead — it still renders styled, just as a second subtitle line, not the eyebrow lifted above the h1."
     },
     {
       "mistake": "The subtitle paragraph is authored before the eyebrow paragraph instead of after it.",

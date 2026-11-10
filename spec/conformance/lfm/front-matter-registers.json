@@ -1503,6 +1503,47 @@
      }
     ]
    }
+  },
+  {
+   "name": "typography: classic",
+   "source": "---\ntypography: classic\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "typography: ledger",
+   "source": "---\ntypography: ledger\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "typography: poster",
+   "source": "---\ntypography: poster\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "typography: festival",
+   "source": "---\ntypography: festival\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "typography: (unknown)",
+   "source": "---\ntypography: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-typography",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
   }
  ]
 }

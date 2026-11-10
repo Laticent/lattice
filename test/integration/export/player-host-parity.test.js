@@ -58,8 +58,12 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // `stepEnter` gains its 'jump' arm) and narration moves with `go(i, true)`. Script only; both hosts agree.
 // Then +262 (107,176) for the adversarial pass on D1/D2 (2026-11-10): Play rests the shown slide first, so a build at
 // step 0 is never read aloud hidden, and `stepEnter` refuses an unknown direction. Script only; both hosts agree.
-const GOLDEN_SHA = '6c42ff6af6b9efe04aefec57f3f3e14d77dc84076b6d1647f71cde4c6abf648b';
-const GOLDEN_BYTES = 107176;
+// Re-blessed 2026-11-10 for the `typography:` sets (#3095): the player CSS gains one Read-view rule per type
+// set (`articleTypographyCss`) and the Read view's four font stacks read var(--font-display / --font-body)
+// with the old stacks as fallbacks — CSS only, +863 bytes (102,311 -> 103,174). Both hosts give the new SHA.
+// Rebased on the step cursor above: the same +863 bytes of CSS on its 107,176, so 108,039. Both hosts agree.
+const GOLDEN_SHA = '2992ae3abdb0f5260af12753149b1594390232bd738a431645c9a17e2c6f508e';
+const GOLDEN_BYTES = 108039;
 
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 

@@ -714,10 +714,13 @@ section.chart-frame .chart-eyebrow > code {
   border: none;
   padding: 0;
   color: var(--text-label);
-  font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  /* The eyebrow's voice, as on every other slide (lib/base/base.typography.css). */
+  font-family: var(--eyebrow-face);
+  font-size: max(var(--fs-meta), calc(var(--chrome-fs) * var(--eyebrow-scale)));
+  font-style: var(--eyebrow-style);
+  font-weight: var(--eyebrow-weight);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: var(--eyebrow-case);
 }
 
 section.chart-frame .chart-subtitle {
@@ -1336,7 +1339,8 @@ section.chart-frame .chart-caption::before {
  * there (black `--text-body` fallback would vanish on a dark canvas). */
 :is(section.chart-frame, figure.chart-frame) .chart-key-label,
 :is(section.chart-frame, figure.chart-frame) .chart-key-head {
-  font-family: var(--font-label);
+  /* The chart's voice: in the mono face the key read as chrome (type-hierarchy-study §3.5). */
+  font-family: var(--chart-text-face);
   fill: var(--text-body);
 }
 :is(section.chart-frame, figure.chart-frame) .chart-key-head {
@@ -1344,10 +1348,10 @@ section.chart-frame .chart-caption::before {
   font-weight: 600;
 }
 :is(section.chart-frame, figure.chart-frame) .chart-key-value {
-  font-family: var(--font-label);
+  font-family: var(--chart-text-face);
   fill: var(--text-heading);
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 /* SVG-NATIVE FIGURE SIZING — radar / map / cohort-quadrant. Each figure now holds
@@ -1677,9 +1681,11 @@ section.chart-frame:is(.radar, .map, .quadrant, .word-cloud, .piechart, .hub-spo
  * fill happens to sit behind it. */
 :is(section.chart-frame, figure.chart-frame) .cart-tick {
   fill: var(--text-muted);
-  font-family: var(--font-label);
+  /* The chart's voice, not the chrome's: in the mono face a tick read as the page number and
+   * the source line beside it (type-hierarchy-study §3.2, rules 3 and 9). */
+  font-family: var(--chart-text-face);
   font-size: 7px;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
   dominant-baseline: central;
 }
 
@@ -1699,18 +1705,21 @@ section.chart-frame:is(.radar, .map, .quadrant, .word-cloud, .piechart, .hub-spo
  * ink rather than the tick's muted gray. */
 :is(section.chart-frame, figure.chart-frame) .cart-cat {
   fill: var(--text-body);
-  font-family: var(--font-body);
+  font-family: var(--chart-text-face);
+  font-variant-numeric: tabular-nums lining-nums;
   font-size: 7.5px;
 }
 
-/* A value printed next to a mark: the figure that matters, so it takes the
- * display face and heading ink, exactly as the funnel's stage value does. */
+/* A value printed next to a mark: the figure that matters, so it takes heading ink and the
+ * set's figure face — the heading face when it carries tabular figures (Newsreader, Barlow
+ * Condensed), else the body face. Playfair Display has none, and its digits run 370–600 units
+ * wide, so a column of values did not align (type-hierarchy-study §3.5, rule 8). */
 :is(section.chart-frame, figure.chart-frame) .cart-value {
   fill: var(--text-heading);
-  font-family: var(--font-display);
+  font-family: var(--chart-figure-face);
   font-size: 8px;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 /* An inline series name (direct labeling — a line's own name at its end, a
@@ -1733,7 +1742,7 @@ section.chart-frame:is(.radar, .map, .quadrant, .word-cloud, .piechart, .hub-spo
  * --mark-ink HERE is what makes the collapse safe for all four. */
 :is(section.chart-frame, figure.chart-frame) .cart-series {
   fill: var(--mark-ink, var(--text-body));
-  font-family: var(--font-body);
+  font-family: var(--chart-text-face);
   font-size: 7.5px;
   font-weight: 600;
 }
@@ -1742,7 +1751,7 @@ section.chart-frame:is(.radar, .map, .quadrant, .word-cloud, .piechart, .hub-spo
  * so the plot's captions belong to the same typographic system as the frame's. */
 :is(section.chart-frame, figure.chart-frame) .cart-axis-title {
   fill: var(--text-muted);
-  font-family: var(--font-label);
+  font-family: var(--chart-text-face);
   font-size: 6.5px;
   font-weight: 600;
   letter-spacing: 0.12em;

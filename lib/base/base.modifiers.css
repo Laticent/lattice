@@ -170,16 +170,19 @@ section p:has(> code:only-child):not(:where([data-prose])):has(+ h5) > code,
 section p:has(> code:only-child):not(:where([data-prose])):has(+ ul) > code,
 section p:has(> code:only-child):not(:where([data-prose])):has(+ ol) > code,
 section p:has(> code:only-child):not(:where([data-prose])):has(+ pre) > code {
-  font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  font-weight: 600;
-  /* Pin upright: the before-heading eyebrow is the mono-caps kicker, never the
-   * italic after-heading subtitle. Without this it inherits the host paragraph's
-   * font-style, so a component that italicises its `> p` (e.g. stats' framing
-   * line) leaked italic onto the eyebrow. */
-  font-style: normal;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  /* THE EYEBROW IS CONTENT, so it speaks in the content's type, not the chrome's: the heading
+   * face's italic, in the author's case, a size step above the mono-caps header and meta line
+   * it shares a corner with (type-hierarchy-study §4 rules 2–4). Every value is a voice token
+   * (lib/base/base.typography.css), so a `typography:` set or `mode: sketch` re-points it in one
+   * place. The size follows the chrome by `--eyebrow-scale` and never drops under the meta role,
+   * which keeps the venue's label lift at hall. The style is set, never inherited, so a
+   * component that italicizes its `> p` (stats' framing line) cannot change it. */
+  font-family: var(--eyebrow-face);
+  font-size: max(var(--fs-meta), calc(var(--chrome-fs) * var(--eyebrow-scale)));
+  font-weight: var(--eyebrow-weight);
+  font-style: var(--eyebrow-style);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: var(--eyebrow-case);
   color: var(--text-secondary);
   background: none;
   border: none;
@@ -191,6 +194,15 @@ section.title   p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > c
 section.title   p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code,
 section.divider p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
 section.divider p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { color: var(--on-dark-secondary); }
+/* A bookend's eyebrow scales with its heading (rule 7: half the heading), so it is not stranded
+ * at label size above display type. title and closing say the same in their own after-heading
+ * eyebrow rules; divider.light is a content-size heading and keeps the content size. */
+section.title p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section.title p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code,
+section.closing p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section.closing p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code,
+section.divider:not(.light) p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section.divider:not(.light) p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { font-size: max(var(--fs-meta), calc(var(--fs-h1) * var(--eyebrow-anchor-scale))); }
 /* divider.light bright-canvas variant — reset eyebrow ink off the dark-canvas color. */
 section.divider.light p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
 section.divider.light p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { color: var(--text-secondary); }

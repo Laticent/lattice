@@ -198,7 +198,7 @@ describe('export-marp bundle (end-to-end)', () => {
     const { STATIC_ASSETS } = require(path.join(REPO, 'lib', 'export', 'marp-bundle.js'));
     const headings = LICENSE_SOURCES.flatMap((l) => l.heading).join('\n');
     // Font file prefix -> the family name its heading must name. `lattice-*` is our own icon face.
-    const FAMILY = { KaTeX: 'KaTeX', outfit: 'Outfit', playfair: 'Playfair Display', jetbrains: 'JetBrains Mono', caveat: 'Caveat', shantell: 'Shantell Sans' };
+    const FAMILY = { KaTeX: 'KaTeX', outfit: 'Outfit', playfair: 'Playfair Display', jetbrains: 'JetBrains Mono', caveat: 'Caveat', shantell: 'Shantell Sans', newsreader: 'Newsreader', fraunces: 'Fraunces', barlow: 'Barlow Condensed', inter: 'Inter' };
     const OWN_FONTS = ['lattice'];
     for (const f of fs.readdirSync(path.join(dest, 'fonts'))) {
       const prefix = f.split(/[-_]/)[0];

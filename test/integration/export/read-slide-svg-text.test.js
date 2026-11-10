@@ -91,3 +91,22 @@ test('CAPITALIZE: a colored span in the middle of a word changes nothing about t
   assert.equal(r.words.map((w) => w.t).join(''), 'Abcd ef');
   assert.equal(r.words.length, 3, 'a run per stretch of one color: red, blue, red again');
 });
+
+test("LINE METRICS: an SVG run in a face with ascent/descent overrides carries them, so the writer's baseline is the browser's", async () => {
+  // Newsreader in `typography: ledger` has `ascent-override: 98%; descent-override: 26%` while its file says 0.735 / 0.265.
+  // The writer placed an SVG run's baseline from the file's ratio inside the browser's glyph box, 0.12 em high.
+  const font = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'assets', 'fonts', 'newsreader-400.woff2')).toString('base64');
+  const face = (name, extra) => `@font-face{font-family:'${name}';src:url(data:font/woff2;base64,${font}) format('woff2');${extra}}`;
+  const file = path.join(tmp, 'metrics.html');
+  fs.writeFileSync(file, `<!doctype html><meta charset="utf-8"><style>body{margin:0}section{width:1280px;height:720px;position:relative;background:#fff}${face('Over', 'ascent-override:98%;descent-override:26%;')}${face('Plain', '')}</style>
+    <section><svg width="600" height="200" viewBox="0 0 600 200"><text x="10" y="40" font-size="16" font-family="Over">over</text><text x="10" y="90" font-size="16" font-family="Plain">plain</text><text x="10" y="140" font-size="16" font-family="'Missing', Over">fallback</text></svg></section>`);
+  await page.goto(`file://${file}`);
+  await page.evaluate(() => document.fonts.ready);
+  await page.addScriptTag({ type: 'module', content: `import { readSlide } from '${READER}'; const r = readSlide(document.querySelector('section')); window.__lm = r.words.filter((w) => w.svg).map((w) => [w.t, w.lineMetrics || null]);` });
+  await page.waitForFunction('window.__lm', { timeout: 20000 });
+  const lm = Object.fromEntries(await page.evaluate(() => window.__lm));
+  assert.deepEqual(lm.over, [0.98, 0.26]);
+  assert.equal(lm.plain, null, 'a face without overrides keeps the file metrics');
+  // The face the browser drew with, not the first name in the stack (Calco's \`usedFamily\` picks it the same way).
+  assert.deepEqual(lm.fallback, [0.98, 0.26], 'a stack whose first family is not loaded uses the face actually drawn');
+});

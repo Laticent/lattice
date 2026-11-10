@@ -74,18 +74,18 @@ Not a per-slide register — it has no `_class:` form. Contract:
 
 ## The `preset:` front-matter register (a named look)
 
-`preset:` is **one word that sets up to eleven registers**: the backdrop (`finish:`), headline
+`preset:` is **one word that sets up to twelve registers**: the backdrop (`finish:`), headline
 alignment, the brand bar and its placement, the card rail and its placement, structural trim,
-the heading rule, the eyebrow, card lift and corners. Each of those still works on its own —
+the heading rule, the eyebrow, card lift, corners and the type set (`typography:`). Each of those still works on its own —
 **an explicit key always wins over the preset** — so a preset is a starting point and the keys
 are its overrides.
 
 | `preset:` value | Sets | Look |
 |---|---|---|
 | `classic` | *(nothing — every register at its default)* | The house default, named. **The default** (omit the key). |
-| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `spectrum-trim: restrained` · `lift: on` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards. |
-| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `spectrum-card: auto` · `spectrum-trim: on` · `rule: accent` · `eyebrow: dot` · `lift: on` | Centered, the accent everywhere, corner marks — set the theme accent to a client's color to white-label. |
-| `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` | Left-aligned, no bar, no rule, rounded corners. |
+| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `spectrum-trim: restrained` · `lift: on` · `typography: ledger` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards, Newsreader over Inter. |
+| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `spectrum-card: auto` · `spectrum-trim: on` · `rule: accent` · `eyebrow: dot` · `lift: on` · `typography: poster` | Centered, the accent everywhere, corner marks, Barlow Condensed over Inter — set the theme accent to a client's color to white-label. |
+| `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` | Left-aligned, no bar, no rule, rounded corners. Classic type until its own Inter-only set ships. |
 
 Each preset differs on **every** slide, the title slide included. That is why alignment and
 the backdrop are in the family: a title slide shows no bar and no heading rule, so a preset
@@ -103,7 +103,7 @@ A preset has **no class token and no CSS of its own**. It resolves in the front-
 every render path shares (`frontMatterValue` in `lib/core/front-matter-key.js`): when a key in
 the family is absent — or written empty — the reader answers with the preset's value, and
 `preset:` itself is read top-level only. So `preset: editorial` renders exactly as if the deck
-had written its six keys, per-slide `_class:` overrides work unchanged (`no-finish` keeps a
+had written its seven keys, per-slide `_class:` overrides work unchanged (`no-finish` keeps a
 slide clean), and the CLI, the export and the Studio agree by construction. A preset
 deliberately leaves alone `theme:` (the palette), `mode:`, `claim:`, `cards:`, `stamp:` /
 `tone:` and every content key. An unknown name is flagged by the linter (`unknown-preset`) and
@@ -678,7 +678,8 @@ same class from inside a header as from inside the body.
 
 ## The `eyebrow:` front-matter register (kicker decoration)
 
-`eyebrow:` decorates the mono-caps **eyebrow** kicker (the code-only line above a heading —
+`eyebrow:` decorates the **eyebrow** kicker (the code-only line above a heading, set in the
+type set's eyebrow voice — see [`typography:`](#the-typography-front-matter-register-the-type-set) —
 see *Eyebrow labels* in [`base.docs.md`](base.docs.md)). Sibling register (`lib/core/resolve-eyebrow.js`), propagated to
 every section, overridable per slide; a typo is caught as `unknown-eyebrow`. Palette-blind;
 defaults to the bare label. Leading marks space with `gap` (never `margin`), so they measure
@@ -686,7 +687,7 @@ cleanly.
 
 | `eyebrow:` value | Token | Effect |
 |---|---|---|
-| `plain` | *(none)*; per slide `eyebrow-plain` | The bare mono-caps label. **The default** (omit the key). |
+| `plain` | *(none)*; per slide `eyebrow-plain` | The bare label. **The default** (omit the key). |
 | `dot` | `eyebrow-dot` | A small filled `--accent` disc before the label. |
 | `bar` | `eyebrow-bar` | A short vertical `--accent` tick before the label. |
 | `arrow` | `eyebrow-arrow` | A leading chevron (`›`) in the accent color. |
@@ -702,8 +703,10 @@ kicker. Measured harmless across shipped decks (over a thousand spans across bot
 
 Pick **one** eyebrow treatment deck-wide so every kicker reads as one family — mixing marks
 per slide reads as a ransom note. Together `spectrum:` / `rule:` / `eyebrow:` are the Finish
-axis's **accent** sub-family (marks on chrome), distinct from `finish:` (backdrops behind
-content).
+axis's **accent** sub-family (accent marks on the heading block), distinct from `finish:`
+(backdrops behind content). The eyebrow itself is content, not chrome
+(`engineering/decisions/2026-11-09-type-voices.md`): `eyebrow:` picks its mark, and the
+`typography:` set picks its face.
 
 ## The `headline:` front-matter register (framing-text alignment)
 
@@ -817,6 +820,59 @@ padding. Ruled tables (`glossary`, `list-tabular`) and full-height rails (`split
 left panel) never lift, even when `lift` is on. Toggle it from the **Deck Setting** drawer
 (a **Card lift** switch alongside Auto-glossary / Page numbers) or by hand in the front
 matter. See `engineering/decisions/2026-07-12-struck-elevation.md`.
+
+## The `typography:` front-matter register (the type set)
+
+`typography:` picks **one curated type set**: the heading and body faces, the eyebrow's voice and
+the chart's text voice, chosen together. There is no free font knob on purpose: a type study
+measured 54 free combinations of face, chrome voice and eyebrow, and 30 of them merged content
+into chrome or broke the hierarchy, so the choices stay inside audited sets
+(`engineering/decisions/2026-11-09-type-hierarchy-study.md`).
+
+| `typography:` value | Token | Heading + body | Chart data labels | Suits |
+|---|---|---|---|---|
+| `classic` | *(none)* | Playfair Display + Outfit | Outfit (Playfair has no tabular figures) | **The default** (omit the key); corporate, team |
+| `ledger` | `typography-ledger` | Newsreader + Inter | Newsreader | reports, government, academic |
+| `poster` | `typography-poster` | Barlow Condensed + Inter | Inter (Barlow's figures align only through `tnum`, which PPTX and ODP drop) | launches, sales, brand |
+| `festival` | `typography-festival` | Fraunces + Inter | Inter (Fraunces has no tabular figures) | culture, nonprofit, donor decks |
+
+What every set shares:
+
+- **Chrome stays mono capitals.** The header, meta line, footer and page number keep their
+  voice, so they read as the frame.
+- **The eyebrow is content.** It speaks in the heading face's italic, as written, a step larger
+  than the chrome (and never smaller than the label role), so it belongs to the heading and
+  reads apart from the header beside it. On a title, dark divider or closing it is half the
+  heading's size. `eyebrow:` still picks its mark.
+- **The chart speaks the body face** for ticks, category labels and keys, with aligned figures;
+  the source line stays in the chrome's voice.
+- **The quote credit is set in tracked capitals.**
+- **Size holds when the face changes.** Each set face carries its own size factor
+  (`size-adjust`): Inter 87%, so it reads at Outfit's x-height; Barlow Condensed 110%, Newsreader
+  100%, Fraunces 92% (capped by width, so a heading that fits today does not wrap). The factor follows
+  the face wherever it is drawn, and the PPTX and ODP exports carry it in each text run's size.
+
+```yaml
+---
+theme: indaco
+typography: ledger
+---
+```
+
+A preset carries a set — `editorial` → `ledger`, `brand` → `poster` — and an explicit
+`typography:` wins. `mode: sketch` owns its own hand type and wins over any set. The faces ship
+in `dist/fonts/` like every engine face: a browser fetches a set's faces only when a slide draws them, and an
+export inlines only the faces of the sets the deck names (`lattice.js` filters by the deck),
+and the PDF embeds only the glyphs it uses. In the Studio: **Look → Typography**.
+
+`unknown-typography` catches a typo; a `type:` key is answered with "did you mean
+`typography:`?" (there is no alias — `type:` is a content-type key in Hugo and other site
+generators); `typography-style-override` warns when a deck's own `style:` re-points a face or
+voice token the set owns (`--font-display`, `--font-body`, `--eyebrow-*`, `--chart-*-face`),
+because the set's audit no longer covers it. A per-slide `_class: typography-<set>` overrides
+the deck's set (`typography-classic` returns one slide to the default faces), but a deck should speak in one. The CSS is `lib/base/base.typography.css`; the
+resolver is `lib/core/resolve-typography.js`; `test/integration/type-voices/` holds every
+palette theme × every set, light and dark, to the study's rules.
 
 ## The `venue:` front-matter register (where the deck is seen)
 
@@ -1382,7 +1438,7 @@ Record, with the per-format measurements on both exporters:
 | `--sketch-ink` | The ink the boxes are drawn in (defaults to `--text-heading`); a theme override seam. |
 | `--sketch-font-display` / `--sketch-font-body` | The hand fonts; swap either to re-flavor the whole finish in one line. |
 | `--pill-font` | Re-pointed at the hand body face under `sketch` so label chips/badges read hand-drawn; override per theme to restore a clean label font. |
-| `--font-label` | The label voice (eyebrows, table headers, stat sub-labels, header/footer, pagination); defaults to `--font-mono`, re-pointed at the hand sans under `sketch`. |
+| `--font-label` | The label voice (table headers, stat sub-labels, header/footer, pagination — not the eyebrow, which takes `--eyebrow-face`); defaults to `--font-mono`, re-pointed at the hand sans under `sketch`. |
 | `--rough-ink-stroke` | **Enrollment.** A structure with a non-empty value gets its lines drawn in rough.js, in this color. Set it (and `--rough-ink-width`) to opt a new structure in. |
 | `--rough-ink-width` | Stroke weight for that structure's ink, in px. The frame is drawn a little heavier than the rules it encloses. |
 | `--rough-ink-cols` | Set to `1` to also ink a table's COLUMN boundaries. Off by default, and nothing ships it on — no table component rules columns, and inking them unasked turns a comparison table into a spreadsheet. |

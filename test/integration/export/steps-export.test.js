@@ -47,8 +47,9 @@ describe('--steps (the page-per-step export)', { timeout: TIMEOUT * 3 }, () => {
     assert.match(pageText(stepped, 2), /Alpha.*1\s*\/\s*2/);
     assert.match(pageText(stepped, 3), /Alpha.*1\s*\/\s*2/);
     assert.match(pageText(stepped, 5), /Beta.*2\s*\/\s*2/);
-    // The topic after Beta still names section 02: a copy counted as a section would make it 03.
-    assert.match(pageText(stepped, 6), /02 · BETA/);
+    // The topic after Beta still names section 02: a copy counted as a section would make it 03. Any case: the eyebrow
+    // is set as written since the `typography:` sets (#3117), no longer in capitals.
+    assert.match(pageText(stepped, 6), /02 · Beta/i);
   });
 
   test('the --fluid sidecar and the captions keep one section per slide', () => {

@@ -137,6 +137,7 @@ specify them, and `split:` and `preset:` have none.
 | `color-mode:` | `light` · `dark` · `system` · `inherited` · `print` | Which palette the deck renders in. | `unknown-color-mode` |
 | `fit:` | `heal` · `report` · `trim` | What the renderer may do to make a slide fit: repair, only report, or cut. A renderer SHOULD accept the older key `guards:`, whose values map `loose` to `heal` and `strict` to `trim`; `fit:` wins when both are set. | `unknown-fit` |
 | `venue:` | `laptop` · `huddle` · `conference` · `hall` | Where the deck is seen, which sets its type scale. | `unknown-venue` |
+| `typography:` | `classic` · `ledger` · `poster` · `festival` | The curated type set: heading and body faces, the eyebrow and the chart text. A preset may carry one; this key wins. | `unknown-typography` |
 
 **Settings** carry a value that is not one word from a list.
 

@@ -175,7 +175,7 @@ shape):
 
 | Pattern | Write | Renders as |
 |---|---|---|
-| Eyebrow | a code-only paragraph **above** the `## ` | mono uppercase label |
+| Eyebrow | a code-only paragraph **above** the `## ` | the heading face's italic, as written (`typography:` sets the face) |
 | Subtitle | a code-only paragraph **below** the `## ` | italic framing line |
 | Metadata pill | trailing `` `code` `` on a list row | rounded status chip |
 | Key-insight | a trailing `> blockquote` on a card layout | accent takeaway bar |
