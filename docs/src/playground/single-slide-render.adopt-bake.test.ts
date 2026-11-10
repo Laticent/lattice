@@ -155,7 +155,7 @@ describe('adoptBake', () => {
 				settled = true;
 				return o;
 			});
-			// Fake time, 3 s of it, under the 4 s bound: the render reaches its wait and stays parked there.
+			// Fake time, 3 s of it, well under the bound: the render reaches its wait and stays parked there.
 			await vi.advanceTimersByTimeAsync(3000);
 			expect(settled).toBe(false);
 			expect(fr.srcdoc).toBe(first);
@@ -217,7 +217,7 @@ describe('a full write still loading', () => {
 			const host = mountHost();
 			await r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE);
 			const second = r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE);
-			await vi.advanceTimersByTimeAsync(4100);
+			await vi.advanceTimersByTimeAsync(30_100);
 			const out = await second;
 			expect(out.ok).toBe(true);
 			expect(out.writePath).toBe('write');
@@ -294,7 +294,7 @@ describe('a full write still loading', () => {
 				return o;
 			});
 			// The first document never loads. B's bound passes first: it writes, which releases C.
-			await vi.advanceTimersByTimeAsync(3600);
+			await vi.advanceTimersByTimeAsync(29_600);
 			expect((await b).writePath).toBe('write');
 			expect(writes).toBe(1);
 			// C, newer than B, waits again on B's document instead of writing a second one behind it.

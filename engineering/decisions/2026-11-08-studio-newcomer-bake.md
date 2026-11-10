@@ -146,7 +146,7 @@ not have shared its parse with the Studio's other frames.
   cuoio, not Save-Data or 3G or worse). `newcomer-bake.ts` hands the pending fetch to the editing preview once.
 - `adoptBake` writes it the moment it resolves, when the host has no frame yet and the bake matches the source,
   slide, palette, mode, renderer flags and runtime. The outcome rides on the host as `data-lattice-bake`
-  (`adopted` or `refused:<why>`). The first render waits up to 4 s for the adopted document to load, then takes
+  (`adopted` or `refused:<why>`). The first render waits for the adopted document to load (up to 4 s as built; 30 s since the fix below), then takes
   the ordinary patch path. A mismatched signature degrades to the restyle path, and past that to a full write,
   which is srcdoc over srcdoc and adds no history entry.
 
@@ -207,7 +207,7 @@ full write. Each full write parses the 1.2 MB sheet again and mints a new frame 
 
 The fix generalizes the wait `adoptBake` already had. Every full write now publishes its load on the host
 (`__latticeDocLoad`, renamed from `__latticeBakeLoad`), and a render that finds a document still loading with the same
-restyle signature (frame box, Mermaid presence, web policy) waits for it, bounded by `DOC_LOAD_WAIT_MS` (4 s), then
+restyle signature (frame box, Mermaid presence, web policy) waits for it, bounded by `DOC_LOAD_WAIT_MS`, then
 patches or restyles it. A render that needs another box does not wait, since only a write can give it one. A frame that
 never paints releases its waiters when the reveal poll gives up.
 
@@ -230,7 +230,23 @@ down and leaves that write's waiters alone; and a render whose older peer gave u
 file whose renders follow each other with no load (`deck-context`, `sanitize-memo`, `cache-keys`, `pane-split`) fires
 `load` with `src/test/frame-load.ts`; one that marks the frame committed by hand (`__latticePendingLoad = false`, as
 `swap-stamp` does) needs nothing, because a committed frame has nothing to wait for. `reveal` asks for another box, the
-case where one write supersedes another. No unit test passes through the 4 s bound except the one about the bound.
+case where one write supersedes another. No unit test passes through the bound except the one about the bound.
+
+**The bound is the reveal poll's 30 s, not 4 s (raise round, 2026-11-10).** The over-4 s path was then driven in a
+browser: a first visit with Chrome's CPU throttled 20x (CDP `Emulation.setCPUThrottlingRate`), the bake kept out, and
+two same-signature renders forced right after the first write, while the 1.2 MB sheet was still parsing. A scratch spec
+counted the frame's writes and sampled every animation frame for a revealed frame with no slide in it.
+
+| Build | Writes | Slide shown after the first write | Blank after reveal |
+|---|---|---|---|
+| `main` 50f6f4a, 4 runs | 3 to 4 | 7.4 to 7.7 s | never |
+| a 4 s bound, 3 runs | 1 to 2 | 6.1 s with one write; 8.7 to 8.8 s with two | never |
+| a 30 s bound, 4 runs | 1 | 5.2 to 6.7 s | never |
+
+A 4 s bound gave up on a document still parsing and wrote the same one again, so the parse started over and the slide
+came later than on `main`. A document still parsing is always closer to showing the slide than a fresh write, so the
+wait now lasts as long as the reveal poll's budget (300 ticks of 100 ms), which releases every waiter when a document
+never paints. The re-wait loop stays for that case.
 
 ## 8. Preview-first boot for a returning visitor, on this seam: built, measured, not shipped (2026-11-09)
 

@@ -268,9 +268,14 @@ export type NewcomerBake = {
 
 /**
  * How long a render waits for a document still loading in the frame (an adopted bake, or an earlier render's full
- * write) before it writes its own over it. Past the bound the render writes, as before.
+ * write) before it writes its own over it. The SAME budget as the reveal poll (300 ticks of 100 ms), which releases
+ * every waiter when a document never paints. A shorter bound cost time: measured with Chrome's CPU throttled 20x on a
+ * first visit, the 1.2 MB sheet parsed for more than 4 s, a 4 s bound gave up on it and wrote a second document, and
+ * the parse started over. The slide appeared 8.7 to 8.8 s after the first write, against 6.1 s when the render waited
+ * (and 7.4 to 7.7 s on main, which wrote three or four times). A document still parsing is always closer to showing
+ * the slide than a fresh write of the same one.
  */
-const DOC_LOAD_WAIT_MS = 4000;
+const DOC_LOAD_WAIT_MS = 30_000;
 
 /** The source key a bake is matched on: length and hash, the same pair the sheet cache keys on. */
 export function bakeSourceKey(markdown: string): string {
@@ -2344,7 +2349,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// still waiting (the write site below). A render that stands down touches nothing: releasing the newer
 				// write's waiters there is what would let a third render write over a document about to commit.
 				// Re-wait, a bounded number of times, when a NEWER write replaced the document while this render waited
-				// (a render the frame scheduler's 4 s watchdog started, giving up on a slow load): that document is now
+				// (a render that gave up on a document that never painted): that document is now
 				// this render's best outcome, for the same reason the first one was.
 				for (let round = 0; round < 3; round++) {
 					const docLoad = (host as LiveHost).__latticeDocLoad;
