@@ -456,6 +456,15 @@ function after() {
 
 ---
 
+<!-- _class: gift-card -->
+
+## gift-card
+
+- `https://example.test/gift#v1.ASNFZ4mrze8BI0VniavN7wEjRWeJq83vASNFZ4mrze8.mm_u` `link`
+- Scan to start `caption`
+
+---
+
 <!-- _class: quote -->
 
 ## quote
