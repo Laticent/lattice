@@ -1030,7 +1030,8 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 				{shownNotice && (
 					<div className={cn('flex items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-relaxed', shownNotice.kind === 'blocked' ? 'border-[var(--warn,#9a6a00)]/40 text-[var(--warn,#9a6a00)]' : 'border-border text-muted-foreground')}>
 						<TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
-						<span>{shownNotice.text}</span>
+						{/* min-w-0 + break-words: a provider's message can carry a long URL, which ran past the box. */}
+						<span className="min-w-0 break-words [overflow-wrap:anywhere]">{shownNotice.text}</span>
 					</div>
 				)}
 				</PreviewPool>

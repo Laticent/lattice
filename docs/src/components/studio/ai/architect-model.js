@@ -281,6 +281,18 @@ async function pkceChallenge(verifier) {
 // and unpriced rows can be missing/non-numeric — return null for "no fixed price"
 // so the UI can label it ("pricing varies") instead of printing "$-1000000". A
 // genuine free model reports "0" → 0 (kept; the UI shows "free").
+/** The fewest output tokens worth asking for when a key's limit cannot cover the full ceiling. */
+export const MIN_AFFORDABLE_REPLY = 512;
+
+/**
+ * How many tokens OpenRouter says a key can afford, from its 402 body ("…You requested up to
+ * 16384 tokens, but can only afford 3333…"), or null when the refusal says something else.
+ */
+export function affordableTokens(detail) {
+  const n = /can only afford (\d+)/i.exec(String(detail ?? ''))?.[1];
+  return n == null ? null : Number(n);
+}
+
 export function orPricePerM(raw) {
   if (raw == null || (typeof raw === 'string' && raw.trim() === '')) return null;
   const n = Number(raw) * 1e6;
@@ -576,7 +588,21 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // (architect-model `complete`, 2026-11-08-studio-ai-routes-ux.md rule 1): this transport
       // never swaps the model on its own. It reports the id that ANSWERED, so a provider that
       // reroutes a retired id silently is caught.
-      const res = await send(body.model);
+      let res = await send(body.model);
+      // A key with its own spending limit (a gift link's key, or any key capped at OpenRouter):
+      // OpenRouter refuses a request whose WORST case it cannot cover, and says how much it can.
+      // Sonnet's 16,384-token ceiling reserves about $0.25, so the last quarter of a $1 gift card
+      // was refused outright. Ask again, once, for what the key can afford: the reply may be
+      // shorter, but it is a reply. Too little left for a useful reply, and the 402 stands, which
+      // describeModelError words as "this key's limit is used up" (gift-link-cli.md §6).
+      if (res.status === 402) {
+        const detail402 = await res.clone().text().catch(() => '');
+        const afford = affordableTokens(detail402);
+        if (afford != null && afford >= MIN_AFFORDABLE_REPLY) {
+          body.max_tokens = Math.floor(afford * 0.95);
+          res = await send(body.model);
+        }
+      }
       if (!res.ok) {
         const detail = await res.text().catch(() => '');
         // Recorded before the mark goes up, so the one change event the mark sends carries it.

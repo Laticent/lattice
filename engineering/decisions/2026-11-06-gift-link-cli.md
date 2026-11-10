@@ -191,8 +191,18 @@ nothing more: on a browser with no AI record yet, `migrateChat` in
 second link opened in the same tab changes only the hash, so the page listens for `hashchange`.
 The "Have a gift link?" box is the existing OpenRouter key field in Workspace › AI, which now
 takes a whole link too (`saveProviderKey` in `docs/src/components/studio/api-key.ts`); a
-PIN-locked link sends the author to the link itself, where the page asks for the PIN. The
-"cap reached" message is not built yet: it is an existing OpenRouter 402 path, left as it is.
+PIN-locked link sends the author to the link itself, where the page asks for the PIN. 
+
+**A capped key, measured (2026-11-10).** A real $0.05 gift key on Claude Sonnet showed two OpenRouter
+behaviors the Studio did not handle. First, OpenRouter refuses a request whose worst case it cannot
+cover: the chat asks for up to 16,384 tokens, which reserves about $0.25, so the answer was a 402
+("can only afford 3333") and the last quarter of every $1 card could never be spent. `complete()` in
+`architect-model.js` now asks again, once, with `max_tokens` cut to what the key can afford (at
+least 512 tokens), and the real key got its reply. Second, once nothing is left OpenRouter answers
+403 "Key limit exceeded". Both now read "This key has used up its spending limit… Sign in with your
+own OpenRouter account" (`model-error.ts`) instead of "your account is out of credits" or "rejected
+the connection". One chat turn with a cold cache cost $0.06 on that key, most of it the ~17K-token
+system prompt, so a $1 card buys roughly 15 to 30 turns on Sonnet.
 
 ## 7. Open decisions
 
