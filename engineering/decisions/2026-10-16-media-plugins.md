@@ -1098,8 +1098,10 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
 - 2026-11-10: the five slice-3 guards the trio found unbuilt, built in the same PR. **The box before the bytes:** the render takes
   an optional `imageSize(url)` from its host (the CLI reads the file header, lib/core/image-dimensions.js), the image record
   stamps `--lat-media-ar` and the `<img>`'s `width`/`height`, and the shared layer sizes the frame from the aspect; measured,
-  the figure and the paragraph under it do not move when the picture is taken away. The Studio passes no size yet, so its
-  preview still sizes a picture by itself. **`lg` against the space left:** with the aspect known, the height cap bounds the
+  the figure and the paragraph under it do not move when the picture is taken away. Every other host knows it too: the engine
+  carries the size of every `sample:` picture (lib/integrations/markdown-it/sample-sizes.js, held to the files by a test), and the Studio's render
+  hook answers an `asset:` photo's size from its Library record, keyed by the name the author wrote, so the preview's `blob:` URL
+  and an export's `data:` URI agree. A web picture's size is unknown before it loads, so it sizes itself, as before. **`lg` against the space left:** with the aspect known, the height cap bounds the
   width, and a heading, an `lg mat` picture and a paragraph fit. **The sweep:** `test/integration/invariants/media-record-sweep.test.js`
   renders every size × frame × `show=` in a flow host with the real CLI and measures in Chromium: sizes in order, nothing off the
   slide, the heading still, the text below clear, the box unmoved without the picture; it fails when `sm` is made larger than

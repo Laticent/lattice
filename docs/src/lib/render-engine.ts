@@ -49,6 +49,9 @@ export type RenderMarkdownOpts = {
 	/** `asset:<name>` → the photo's description. The engine fills an EMPTY alt from it; an alt the author wrote
 	 *  stays. Filled by the same hook as `assetUrls`, and by an export beside its data-URI map. */
 	assetAlts?: Record<string, string>;
+	/** A picture's pixel size before it loads, `{ w, h }` or null: `url` is what the reference resolved to, `ref` what the author
+	 *  wrote (`asset:<name>`). The Studio's hook fills it from the Library; the engine knows `sample:` sizes itself. */
+	imageSize?: (url: string, ref?: string) => { w: number; h: number } | null;
 	stats?: boolean;
 	/** `false` for a render nobody will see, such as a scan of the HTML: it does not warm the previews' draw
 	 *  host, so a scan cannot reopen a draw frame the preview closed (a frame whose modules failed to load). */

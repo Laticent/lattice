@@ -39,6 +39,8 @@ const SEATS: Array<{ name: string; deck: string; selector: string; check: (html:
 			expect(html).toContain('data-tone="duotone"');
 			expect(html).toContain('data-lattice-description="On the table"');
 			expect(html).toContain('<span class="lat-media-title" aria-hidden="true">The mug</span>');
+			// The box before the bytes, in the Studio too: the engine knows a `sample:` picture's size (lib/integrations/markdown-it/sample-sizes.js).
+			expect(html).toContain('--lat-media-ar:1"');
 		},
 	},
 	{

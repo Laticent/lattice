@@ -1,3 +1,6 @@
+- **Breaking:** a Segno top-level value can no longer start with `>` (`>` is now the video record's tag); no shipped deck wrote
+  one. Author HTML's `data-lattice-title`, `data-lattice-description` and `data-lattice-media` attributes are renamed to
+  `data-author-…`, since only Lattice may stamp a media figure's words. The `video-slide-class` lint rule is removed.
 - **`>{…}` is the video record's short form** (`` `>{"https://youtu.be/x", title="Tour"}` ``), as `^{…}` is an icon's and
   `!{…}` an avatar's; `@video{…}` still works. Segno's tag set (`TAGS`) gains `>`, so a top-level value can no longer start
   with `>`: no shipped deck wrote one (all 458 render byte-identically).
@@ -17,5 +20,6 @@
   moving the placement to the slide (`left` becomes `mirror`; a background on any other slide becomes `bleed`).
 - The vector PDF keeps a picture's tone and finish (and a `bleed` slide's scrim): the writer used to draw the photo as a vector
   over its own blend layers, which take no hit test.
-- A picture's box is known before it loads, in a CLI export: the CLI reads the file's size, so a slide lays out the same with
-  the picture missing, and an `lg` picture under a heading no longer overflows.
+- A picture's box is known before it loads: the CLI reads the file's size, the engine knows every `sample:` picture's, and the
+  Studio knows a Library photo's, so a slide lays out the same with the picture missing, and an `lg` picture under a heading no
+  longer overflows.

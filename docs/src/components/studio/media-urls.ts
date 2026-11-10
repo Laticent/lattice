@@ -22,6 +22,8 @@ const failedIds = new Set<string>();
 let current: Record<string, string> = {};
 // name → description, for the photos that have one. The engine fills an EMPTY alt from it (`opts.assetAlts`).
 let currentAlts: Record<string, string> = {};
+// name → the photo's pixel size, read when it was added, so a figure's box is known before its bytes (media note §4.11).
+let currentSizes: Record<string, { w: number; h: number }> = {};
 // What the editor offers when you type an image reference: the visible photos, newest first.
 let choices: AssetChoice[] = [];
 let activeDeckId: string | null = null;
@@ -55,6 +57,7 @@ export async function refreshAssetUrls(): Promise<void> {
 	}
 	const next: Record<string, string> = {};
 	const nextAlts: Record<string, string> = {};
+	const nextSizes: Record<string, { w: number; h: number }> = {};
 	blobByName.clear();
 	// Photos only: a deck cannot show a video through `![](asset:x)` yet, so a video name resolves to the
 	// missing-image stand-in rather than a broken <img> (and is not offered by editor completion).
@@ -66,12 +69,14 @@ export async function refreshAssetUrls(): Promise<void> {
 			next[n] = urlFor(m);
 			blobByName.set(n, { id: m.id, blob: m.blob, mime: m.mime, alt: m.caption || undefined });
 			if (m.caption) nextAlts[n] = m.caption;
+			if (m.width && m.height) nextSizes[n] = { w: m.width, h: m.height };
 		}
 	}
 	// A description edit changes what a slide says, so it re-renders the slides like a changed photo does.
 	if (signature(next) !== signature(current) || signature(nextAlts) !== signature(currentAlts)) {
 		current = next;
 		currentAlts = nextAlts;
+		currentSizes = nextSizes;
 		rev++;
 		for (const cb of listeners) cb();
 	}
@@ -98,6 +103,20 @@ export async function ensureAssetAlts(): Promise<Record<string, string>> {
 	if (!loaded) loaded = refreshAssetUrls().catch(() => {});
 	await loaded;
 	return currentAlts;
+}
+
+/** The engine's `imageSize(url, ref)` for `asset:<name>` photos: keyed by the NAME the author wrote, so the preview's `blob:`
+ *  URL and an export's `data:` URI get the same answer. Null for any other reference. */
+export async function ensureAssetImageSize(): Promise<(url: string, ref?: string) => { w: number; h: number } | null> {
+	if (!loaded) loaded = refreshAssetUrls().catch(() => {});
+	await loaded;
+	const sizes = currentSizes;
+	return (_url, ref) => {
+		const raw = String(ref ?? '').trim();
+		if (!raw.startsWith('asset:')) return null;
+		const name = raw.slice(6);
+		return Object.hasOwn(sizes, name) ? sizes[name] : null;
+	};
 }
 
 /** A CSS-comment stamp that changes when the map does. It rides in the preview's extra CSS,
@@ -215,6 +234,7 @@ export function resetAssetUrlsForTests(): void {
 	failedIds.clear();
 	current = {};
 	currentAlts = {};
+	currentSizes = {};
 	choices = [];
 	activeDeckId = null;
 	rev = 0;
