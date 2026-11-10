@@ -232,7 +232,7 @@ function ProviderRow({
 			{editing ? (
 				<div className="mt-2.5">
 					<label htmlFor={inputId} className="text-[12px] font-semibold text-[var(--text-heading)]">
-						{provider === 'openrouter' ? 'OpenRouter API key or gift link' : `${info.label} API key`}
+						{info.label} API key
 					</label>
 					<div className="mt-1.5 flex gap-2">
 						<input
