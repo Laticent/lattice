@@ -440,9 +440,16 @@ integration tests, not unit tests.
   config too (the US-English audit walks every `.md`). Node 22 on a pull request;
   Node 22 and 24 in the merge queue (`fail-fast: false`; the node 24 leg left the PR on
   2026-10-29, `decisions/2026-10-29-ci-job-tiers.md`), browser-free. `npm run build`, then
-  `npm run build:check:all`, then `npm test` on 22 (an engine subset on 24). The committed-artifact
-  freshness gate (`build:check`) lives in `lint`. Costs ~7.5 runner-minutes
-  a PR run (node 22, 457s, measured on PR #2554); the queue adds node 24 (260s).
+  `npm run build:check:all`, then the full suite on 22 (an engine subset on 24). The committed-artifact
+  freshness gate (`build:check`) lives in `lint`. **Node 22 runs as two legs** since 2026-11-10,
+  `unit (node 22, shard K/2)`: as one job it took 14.4 min at the median and 16.9 at most against its
+  20-minute cap, and a slow runner was cancelled at 20 with every test passing. Each leg runs
+  `npm run test:unit:shard` with `SHARD=K/2`, which `tools/shard-tests.js` deals from
+  `test/unit/shard-weights.json` exactly as the integration legs below; unset, it runs every file,
+  the same set as `npm test` (a test in `test/unit/tools/shard-tests.test.js` holds the two globs to one
+  file list, so no test can sit where CI skips it). Re-bless the weights the same way. Each leg pays
+  the ~3.3 min of install, build and `build:check:all` again: about 3.3 more runner-minutes a run, for
+  legs that finish in about 9 min.
 - **`integration`** — code changes only, `needs: changes` (it runs beside
   `unit`, not after it), single Node (22), **sharded across four runners**:
   check runs `integration (node 22, shard K/4)`, `fail-fast: false`.

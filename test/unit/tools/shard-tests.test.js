@@ -5,7 +5,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { plan, parseShard } = require('../../../tools/shard-tests.js');
+const { plan, parseShard, expand } = require('../../../tools/shard-tests.js');
 
 const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
 const weights = { a: 100, b: 60, c: 50, d: 40, e: 10, f: 10, g: 5 };
@@ -102,6 +102,66 @@ describe('shard-tests CLI guards', () => {
       const r = run(dir, ['x.test.js'], { SHARD: 'abc' });
       assert.equal(r.status, 2);
       assert.match(r.stderr, /not K\/N/);
+    });
+  });
+
+  it('a wildcard in a folder segment lists every folder\'s tests, and --reporter reaches node', () => {
+    // The unit suite shards as test/unit/*/*.test.js: one area per folder, so the folder segment is a wildcard.
+    withDir((dir) => {
+      for (const area of ['a', 'b']) {
+        fs.mkdirSync(path.join(dir, area));
+        fs.writeFileSync(path.join(dir, area, `${area}.test.js`), `require('node:test')('${area}', () => {});\n`);
+      }
+      fs.writeFileSync(path.join(dir, 'a', 'not-a-test.js'), '');
+      const listed = run(dir, ['--list', '*/*.test.js']);
+      assert.equal(listed.status, 0, listed.stderr);
+      assert.deepEqual(listed.stdout.trim().split('\n').slice(1), ['a/a.test.js', 'b/b.test.js']);
+      const dot = run(dir, ['--reporter', 'dot', '*/*.test.js']);
+      assert.equal(dot.status, 0, dot.stderr);
+      assert.match(dot.stdout, /^\.\.$/m, 'the dot reporter prints one dot per test');
+    });
+  });
+
+  it('the unit shards cover every file `npm test` runs: no test sits outside test/unit/<area>/', () => {
+    // `npm test` globs test/unit/**/*.test.js; the CI shards (`npm run test:unit:shard`) glob test/unit/*/*.test.js. A
+    // test one folder deeper, or at test/unit/ itself, would run locally and be skipped by CI without a word.
+    const root = path.join(__dirname, '..', '..', '..');
+    const all = [];
+    const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else if (e.name.endsWith('.test.js')) all.push(path.relative(root, f).split(path.sep).join('/')); } };
+    walk(path.join(root, 'test', 'unit'));
+    const cwd = process.cwd();
+    process.chdir(root);
+    try { assert.deepEqual(expand(['test/unit/*/*.test.js']).sort(), all.sort()); } finally { process.chdir(cwd); }
+  });
+
+  it('a glob whose folder does not exist stops the run instead of dropping its tests', () => {
+    withDir((dir) => {
+      // One good glob beside a renamed folder: the good one alone must not let the leg go green.
+      assert.throws(() => expand([path.join(dir, '*.test.js'), path.join(dir, 'gone', '*.test.js')]), { code: 'ENOENT' });
+      assert.notEqual(run(dir, ['*.test.js', 'gone/*.test.js']).status, 0);
+    });
+  });
+
+  it('a named folder that is now a file stops the run; under a wildcard it is no match', () => {
+    withDir((dir) => {
+      const abs = dir.split(path.sep).join('/');
+      fs.writeFileSync(path.join(dir, 'b'), ''); // a plain file where a folder `b` was named
+      assert.throws(() => expand([`${abs}/*.test.js`, `${abs}/b/*.test.js`]), { code: 'ENOTDIR' });
+      // `*/lit/*` over a plain file `b` and a folder `c` with no `lit`: neither is an error.
+      fs.mkdirSync(path.join(dir, 'c'));
+      fs.mkdirSync(path.join(dir, 'd', 'lit'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'd', 'lit', 'z.test.js'), '');
+      assert.deepEqual(expand([`${abs}/*/lit/*.test.js`]), [`${abs}/d/lit/z.test.js`]);
+    });
+  });
+
+  it('an absolute glob expands like a relative one', () => {
+    withDir((dir) => {
+      fs.mkdirSync(path.join(dir, 'sub'));
+      fs.writeFileSync(path.join(dir, 'sub', 'y.test.js'), '');
+      const abs = dir.split(path.sep).join('/');
+      assert.deepEqual(expand([`${abs}/*.test.js`]), [`${abs}/x.test.js`]);
+      assert.deepEqual(expand([`${abs}/*/*.test.js`]), [`${abs}/sub/y.test.js`]);
     });
   });
 
