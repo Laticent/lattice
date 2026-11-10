@@ -11341,6 +11341,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
   collage: 'figural — photos, not prose (the description paragraph is covered by the universal body budget)',
   // connect — QR cards; fields are credentials/identity values (ssid, email), not prose.
   wifi: 'connect — Wi-Fi credentials, not prose',
+  'gift-card': 'connect — a printed gift card: a link encoded as a QR, a PIN and one line, not prose',
   contact: 'connect — vCard identity fields, not prose',
   // data grids — [x]/checkmark cells / feature matrices; word-counting mis-fires.
   'obligation-matrix': 'data grid — [x] cells, not prose',

@@ -276,6 +276,43 @@ async function pkceChallenge(verifier) {
   return base64url(new Uint8Array(digest));
 }
 
+/** The fewest output tokens worth asking for when a key's limit cannot cover the full ceiling. */
+export const MIN_AFFORDABLE_REPLY = 512;
+
+/**
+ * How many tokens OpenRouter says a key can afford, from its 402 body ("…You requested up to
+ * 16384 tokens, but can only afford 3333…"), or null when the refusal says something else.
+ */
+export function affordableTokens(detail) {
+  const n = /can only afford (\d+)/i.exec(String(detail ?? ''))?.[1];
+  return n == null ? null : Number(n);
+}
+
+/** The tag the transport puts in front of a refusal that is about THIS KEY's own spending limit. */
+export const KEY_LIMIT_TAG = '[key-limit]';
+
+/**
+ * True when OpenRouter refused because the KEY's own limit is used up, not the account's balance.
+ * Read from the WHOLE body: the thrown message keeps only its first 160 characters.
+ */
+export function isKeyLimitRefusal(status, body) {
+  const b = String(body ?? '');
+  // OpenRouter documents the answer as a field, and says to branch on it, never on the wording:
+  // `error.metadata.limit_source` is `openrouter_key_limit` for the key's own limit,
+  // `openrouter_credits` for the account balance, `openrouter_in_flight_budget` for a short hold
+  // (docs/api_reference/limits.md §Handling 402 errors, read 2026-11-10). The text checks below are
+  // the fallback for a body without it, which is what the measured 402 and 403 looked like.
+  let source;
+  try {
+    source = JSON.parse(b)?.error?.metadata?.limit_source;
+  } catch {
+    source = undefined;
+  }
+  if (typeof source === 'string') return source === 'openrouter_key_limit';
+  if (status === 403) return /key limit exceeded/i.test(b);
+  return status === 402 && /can only afford \d+/i.test(b) && /settings\/keys/i.test(b);
+}
+
 // OpenRouter pricing strings are per-token USD; convert to per-MILLION. Variable/
 // router models (Auto Router, Body Builder, …) report a negative sentinel ("-1")
 // and unpriced rows can be missing/non-numeric — return null for "no fixed price"
@@ -576,7 +613,21 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       // (architect-model `complete`, 2026-11-08-studio-ai-routes-ux.md rule 1): this transport
       // never swaps the model on its own. It reports the id that ANSWERED, so a provider that
       // reroutes a retired id silently is caught.
-      const res = await send(body.model);
+      let res = await send(body.model);
+      // A key with its own spending limit (a gift link's key, or any key capped at OpenRouter):
+      // OpenRouter refuses a request whose WORST case it cannot cover, and says how much it can.
+      // Sonnet's 16,384-token ceiling reserves about $0.25, so the last quarter of a $1 gift card
+      // was refused outright. Ask again, once, for what the key can afford: the reply may be
+      // shorter, but it is a reply. Too little left for a useful reply, and the 402 stands, which
+      // describeModelError words as "this key's limit is used up" (gift-link-cli.md §6).
+      if (res.status === 402) {
+        const detail402 = await res.clone().text().catch(() => '');
+        const afford = affordableTokens(detail402);
+        if (afford != null && Math.floor(afford * 0.95) >= MIN_AFFORDABLE_REPLY) {
+          body.max_tokens = Math.floor(afford * 0.95);
+          res = await send(body.model);
+        }
+      }
       if (!res.ok) {
         const detail = await res.text().catch(() => '');
         // Recorded before the mark goes up, so the one change event the mark sends carries it.
@@ -588,7 +639,8 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         if (res.status === 401 && key === readOpenRouterKey() && openRouterKeyActivating()) {
           throw new Error('OpenRouter is still activating this key: it can take a minute or two after signing in. Send again shortly.');
         }
-        throw new Error('OpenRouter error ' + res.status + (detail ? ': ' + detail.slice(0, 160) : ''));
+        const tag = isKeyLimitRefusal(res.status, detail) ? KEY_LIMIT_TAG + ' ' : '';
+        throw new Error('OpenRouter error ' + res.status + (detail || tag ? ': ' + tag + detail.slice(0, 160) : ''));
       }
       const answered = (id) => { if (onAnsweredBy && id) { try { onAnsweredBy(id); } catch {} onAnsweredBy = null; } };
       noteStatus(res.status, key); // a success clears a rejected mark this key earned earlier
@@ -1086,7 +1138,9 @@ export function createArchitectModel({ getSettings, defaultModel = DEFAULT_OR_MO
       return out;
     } catch (e) {
       const err = errStatus(e);
-      if (err && classifyProviderError(err.status, err.detail) === 'billing') noteOutOfCredit(route);
+      // A key whose own limit is used up (a gift link's key) is not an account out of credit: the
+      // Workspace's "out of credit · Add billing" would send its holder to an account they lack.
+      if (err && classifyProviderError(err.status, err.detail) === 'billing' && !String(e?.message ?? '').includes(KEY_LIMIT_TAG)) noteOutOfCredit(route);
       if (!asked || !err || classifyProviderError(err.status, err.detail) !== 'model-gone' || TOOL_REFUSAL.test(err.detail)) throw e;
       let live = null;
       try {

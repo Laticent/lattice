@@ -71,6 +71,6 @@ describe('familyOf', () => {
 			.filter((m) => familyOf(m.name, bucketOf(m)) === 'other')
 			.map((m) => m.name)
 			.sort();
-		expect(other).toEqual(['contact', 'cycle', 'inventory', 'premise', 'team-profile', 'wifi']);
+		expect(other).toEqual(['contact', 'cycle', 'gift-card', 'inventory', 'premise', 'team-profile', 'wifi']);
 	});
 });

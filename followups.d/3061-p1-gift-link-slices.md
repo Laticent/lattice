@@ -5,19 +5,22 @@ recorded: 2026-11-06
 area: website
 severity: low
 swimlane: engineering/decisions/2026-11-06-gift-link-cli.md §8
-deferred: blocked — awaiting the owner's answers to the §7 decisions (card size, print route, CSV links, PIN, tool home)
+deferred: blocked — slice 5 changes exported bytes, so it needs the owner's sign-off on real print-shop PDFs in light and dark (Quality Bar)
 source: https://github.com/Laticent/lattice/pull/3061
 ---
 
-# Build gift links: the shared link module, the Studio /gift route, the admin CLI and the card deck
+# Gift links: the print-shop PDF (slice 5)
 
-why now   — the owner wants coffee-shop trial cards and friend-to-friend key sharing with Lattice storing nothing; the
-            design is settled except the five §7 decisions put to the owner in #3061's decision card.
-where     — engineering/decisions/2026-11-06-gift-link-cli.md §8 (five slices); docs/src/lib/openrouter-key.js
-            (writeOpenRouterKey); lib/core/sizes.js (the card size); lib/components/connect/_qr-card/ (the QR encoder).
-done when — slices 1–4 shipped: the link module with tests on fake keys and the key format confirmed from OpenRouter's
-            docs; /gift and the gift-link box with screenshots at 1440/820/390 and a WebKit phone run; the CLI make/report/
-            revoke with the CSV; the card size, gift-card component and its demo deck for home printing.
-evidence  — a real gift link made by the CLI with the owner's management key on the owner's machine, opened on a phone
-            and a laptop; printed cards looked at.
-verify    — tier 2, maker-checker (it hands out spendable keys).
+Slices 1–4 shipped in PR #3113 and were verified against the real OpenRouter API on 2026-11-10:
+`make`, `report` and `revoke` with the owner's throwaway management key; printed QR codes decoded
+to the keys OpenRouter made; a minted link redeemed on the deployed preview; and a minted $0.05
+key's chat replied in the Studio, which found and fixed the capped-key refusal (one test key,
+`raise-chat-1`, spent $0.06 and was left for the owner to delete).
+
+why now   — the home print sheet (ten cards on Letter or A4 with crop marks) is enough to hand cards
+            out; a print shop wants each card at physical size with bleed.
+where     — tools/gift-cards.mjs (`imposeSheet` is the home sheet; a print-shop PDF is one card per page
+            at 3.5 x 2 in or 85 x 55 mm plus 1/8 in bleed, with crop marks outside the trim).
+done when — a print-shop PDF the owner signs off in light and dark, and one batch printed by a shop.
+evidence  — the signed-off PDFs; a photo of the printed cards.
+verify    — tier 2, maker-checker; the owner's eyes on printed cards.

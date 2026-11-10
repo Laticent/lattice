@@ -275,6 +275,7 @@ function ProviderRow({
 						</a>
 						. It is checked with {info.label}, then kept in this browser only. Using AI sends your deck text to {info.label} on this key.
 						{provider !== 'openrouter' ? ` ${info.label} cannot report a balance to the browser, so spend shows an estimate from token counts.` : ''}
+						{provider === 'openrouter' ? ' Have a gift link? Paste the whole link here.' : ''}
 					</p>
 					{hint ? (
 						<button type="button" onClick={close} className="mt-1 text-[11px] font-semibold text-[var(--accent)]">

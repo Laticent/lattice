@@ -27,7 +27,10 @@ export function describeModelError(message: string, provider?: string): string {
 	const who = /\b(OpenRouter|OpenAI|Anthropic|Gemini) error \d{3}/.exec(message)?.[1] ?? LABEL[provider ?? ''] ?? 'OpenRouter';
 	const direct = who !== 'OpenRouter';
 	const status = Number(MODEL_ERROR.exec(message)?.[2] ?? 0);
-	const raw = /\b(?:OpenRouter|OpenAI|Anthropic|Gemini) error \d{3}: ([\s\S]*)/.exec(message)?.[1] ?? '';
+	// The transport tags a refusal about the KEY's own spending limit (architect-model `isKeyLimitRefusal`), read from the
+	// whole body, because the message keeps only 160 characters and the URL that tells key from account falls past them.
+	const keyLimit = message.includes('[key-limit]');
+	const raw = (/\b(?:OpenRouter|OpenAI|Anthropic|Gemini) error \d{3}: ([\s\S]*)/.exec(message)?.[1] ?? '').replace('[key-limit] ', '');
 	// The body is usually JSON, `{"error":{"message":"…"}}`, sometimes cut short by the
 	// transport; take the message when it parses, else the first quoted message, else the text.
 	let detail = '';
@@ -40,6 +43,16 @@ export function describeModelError(message: string, provider?: string): string {
 	const tail = detail ? ` (${who} said: ${detail})` : '';
 	// OpenRouter also uses 403 for input a moderated model flagged — reconnecting does not help.
 	if (status === 403 && /moderation|flagged/i.test(detail)) return `The selected model's moderation flagged this request — rephrase it, or pick another model in Workspace → AI.${tail}`;
+	// A key with its own spending limit (a gift link's key, or a key capped at OpenRouter) that
+	// cannot afford even a short reply: the transport already retried with what it could afford
+	// (architect-model `complete`), so this key's limit is used up. It is not the author's account,
+	// which a gift's recipient does not have (gift-link-cli.md §6).
+	// OpenRouter says it two ways, both measured live on 2026-11-10 with a $0.05 key: a 402 "can only
+	// afford N … settings/keys" when the reply ceiling does not fit what is left, and a 403 "Key limit
+	// exceeded" once nothing is left. Neither is the author's account, and a 403 here is not a
+	// rejected connection. An ACCOUNT short of credit carries no tag and still reads as billing.
+	if (!direct && keyLimit && (status === 402 || status === 403))
+		return `This key has used up its spending limit (a gift link's key stops here). Sign in with your own OpenRouter account in Workspace → AI to keep going; your decks stay where they are.${tail}`;
 	// Billing first: providers report it as 402, 429 (OpenAI, Gemini quota), 403 (Gemini billing
 	// off) or 400 (Anthropic "credit balance is too low"). The key works; the account needs money.
 	if (classifyProviderError(status, detail || raw) === 'billing')

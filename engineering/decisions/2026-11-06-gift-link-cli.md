@@ -38,9 +38,10 @@ https://<lattice site>/gift#v1.<key bytes, base64url>.<check>
   browser, stores it where a signed-in author's key goes, through the one writer for that slot
   (`writeOpenRouterKey` in `docs/src/lib/openrouter-key.js`, which owns `lattice-db-or-key`),
   clears the fragment from the address bar, and opens the Studio.
-- **It is about 60 characters.** The key's fixed prefix is dropped and its hex digits are packed
-  as bytes, then written in base64url (§2). A QR code of 60 characters is small and sparse, so
-  it scans easily at business-card size.
+- **The token is 51 characters** (69 with a PIN). The key's fixed prefix is dropped and its hex
+  digits are packed as bytes, then written in base64url (§2). A QR code of that size is small and
+  sparse, so it scans easily at business-card size. The exact layout is the header of
+  `lib/core/gift-link.mjs`.
 - **`v1` is a format version** and `<check>` is a short checksum, so a damaged or mistyped link
   fails with a clear message instead of storing a broken key.
 - **An optional PIN** (for example 6 digits, printed apart from the QR) can lock the key in the
@@ -54,9 +55,10 @@ the code that writes a card and the code that reads it cannot disagree (HARD RUL
 
 A short code can only point to a key; it cannot contain one. The worked numbers:
 
-- An OpenRouter key is shown as a fixed prefix plus a long random part. Treating the random part
-  as 64 hex characters (32 bytes, 256 bits) — **UNVERIFIED: confirm the exact format against
-  OpenRouter's documentation in slice 1** — it can be written in no fewer than about 43
+- An OpenRouter key is a fixed prefix plus a random part. OpenRouter's OpenAPI spec for
+  `POST /api/v1/keys` gives it as `sk-or-v1-` followed by 64 lowercase hex characters (32 bytes,
+  256 bits; confirmed 2026-11-10, and the create response returns it once, as `key`, beside
+  `data.hash`, the id that later deletes it). That can be written in no fewer than 43
   characters of base64url, 52 of typo-proof base32, or 24 common words.
 - An 8-character code carries about 40 bits. Getting 256 bits back from 40 needs the missing
   bits stored somewhere: a lookup table.
@@ -108,6 +110,19 @@ gift-cards revoke [--label …]     # delete a batch's keys at OpenRouter
     adds them. The PDF holds working keys inside its QR codes, so the tool says so: treat it
     like cash.
 
+**Built (2026-11-10).** `tools/gift-cards.mjs`, run as `node tools/gift-cards.mjs make|report|revoke`
+(no npm script on purpose: nothing should run it by accident). Choices the sketch above left open:
+`--expires` defaults to 90 days; `--label` defaults to `gift-<date>-<time>` (to the minute, so
+two batches never share names), and each key is named `<label>-<n>`, so `report` and `revoke`
+match exactly `<label>-<number>`: `cafe` never reaches `cafe-2-01`. `revoke` refuses to run
+without `--label`, and asks before deleting unless given `--yes`. Everything that can fail before
+a key exists (the out folder, the arguments, `--site`, which must be https) fails first; a batch
+that fails part way keeps the keys it made, writes them to the CSV whatever went wrong, and says
+how to revoke them;
+`--pin` gives each card its own 6-digit PIN, kept in the CSV beside the card number (a PIN alone
+opens nothing). `cards-sheet.pdf` lays ten cards on Letter (US) or A4 (ISO) at their exact size
+with crop marks in the margins, using `pdf-lib`; it leaves Lattice's own export untouched.
+
 ## 4. The security model: a gift card, not a password
 
 - **Whoever holds the link can spend it.** A photo of the card is enough.
@@ -136,6 +151,17 @@ gift-cards revoke [--label …]     # delete a batch's keys at OpenRouter
   - **Print-shop PDF:** exact physical size, bleed and crop marks. That changes exported bytes,
     so the Quality Bar requires the owner's sign-off on real PDFs.
 
+**Built (2026-11-10).** The sizes are `card` (1050 x 600 px, exactly 7:4) and `card-iso`
+(850 x 550 px, exactly 17:11) in `lib/core/sizes.js`, not offered in the slide-size pickers. The
+component is `lib/components/connect/gift-card/`, on the shared QR-card kernel beside `contact`
+and `wifi`. The link is written inside a code span (so Markdown cannot read an underscore in the
+token as emphasis) and goes into the QR only; it is never printed as text. Its small text is sized
+as a share of the card's width, not by the `--fs-*` roles, which are tuned for projection and came
+out at 2.5 to 4 pt on a printed card; the eyebrow and number print at about 6.5 pt, the caption
+7.5 pt and the PIN 9.5 pt. The CLI's deck sets `paginate: false` and `spectrum: off`: a card has
+no page number, and a bar on the edge is the first thing a home cut gets wrong. Demo deck:
+`examples/gift-card.md`.
+
 ## 6. The Studio side
 
 - A `/gift` route that reads the fragment with the shared module, stores the key with
@@ -155,6 +181,32 @@ gift-cards revoke [--label …]     # delete a batch's keys at OpenRouter
 - When the cap is reached, the chat says so kindly and offers the existing OpenRouter sign-in,
   so the person keeps their decks and continues on their own account.
 
+**Built (2026-11-10).** `docs/src/pages/gift.astro` is the route: static HTML and one small
+script, no React and no engine, because it is the first page a visitor sees, often on a phone.
+It clears the fragment before doing anything else, asks for the PIN when the link is locked,
+asks before replacing an OpenRouter key the browser already holds, and stores without checking
+the key with OpenRouter (a fresh key may still be activating). Opening the Studio then needs
+nothing more: on a browser with no AI record yet, `migrateChat` in
+`docs/src/lib/model-selection.js` sets chat to OpenRouter when an OpenRouter key is stored. A
+second link opened in the same tab changes only the hash, so the page listens for `hashchange`.
+The "Have a gift link?" box is the existing OpenRouter key field in Workspace › AI, which now
+takes a whole link too (`saveProviderKey` in `docs/src/components/studio/api-key.ts`); a
+PIN-locked link sends the author to the link itself, where the page asks for the PIN. 
+
+**A capped key, measured (2026-11-10).** A real $0.05 gift key on Claude Sonnet showed two OpenRouter
+behaviors the Studio did not handle. First, OpenRouter refuses a request whose worst case it cannot
+cover: the chat asks for up to 16,384 tokens, which reserves about $0.25, so the answer was a 402
+("can only afford 3333") and the last quarter of every $1 card could never be spent. `complete()` in
+`architect-model.js` now asks again, once, with `max_tokens` cut to what the key can afford (at
+least 512 tokens), and the real key got its reply. Second, once nothing is left OpenRouter answers
+403 "Key limit exceeded". Both used to read "your account is out of credits" or "rejected the
+connection"; they now read "This key has used up its spending limit… Sign in with your own
+OpenRouter account" (`model-error.ts`). Which case it is comes from OpenRouter's documented
+`error.metadata.limit_source` (`openrouter_key_limit` for the key's own limit, `openrouter_credits`
+for the account; `docs/api_reference/limits.md`), with the refusal's own words as the fallback, so
+an account short of credit still reads "out of credits". One chat turn with a cold cache cost $0.06 on that key, most of it the ~17K-token
+system prompt, so a $1 card buys roughly 15 to 30 turns on Sonnet.
+
 ## 7. Open decisions
 
 | Decision | Options | Recommendation |
@@ -164,6 +216,17 @@ gift-cards revoke [--label …]     # delete a batch's keys at OpenRouter
 | Gift links in the CSV | Off by default with `--with-links`, or always on | Off by default |
 | PIN | Off, optional, or always | Optional, off by default |
 | Where the tool lives | `tools/` in this repo, or a separately published package | `tools/` first; publish once the format is stable |
+
+**Taken 2026-11-10, by default.** The owner was away when the build started and the brief said a
+safe default beats a question, so each decision took its recommendation. All five are reversible
+in one commit:
+
+- **D1 card size:** both, as `card` (US 3.5 × 2 in) and `card-iso` (85 × 55 mm). The CLI
+  defaults to `card` (`--size iso` for the other); nothing yet says where the first cards go.
+- **D2 print route:** home sheets only. The print-shop PDF stays slice 5, behind sign-off.
+- **D3 links in the CSV:** off; `--with-links` adds them.
+- **D4 PIN:** optional, off; `--pin` locks every key in a batch with one generated PIN per card.
+- **D5 tool home:** `tools/gift-cards.mjs`.
 
 ## 8. Slices, in order
 

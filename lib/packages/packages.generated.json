@@ -3,7 +3,7 @@
   "format": 1,
   "counts": {
     "theme": 33,
-    "component": 79,
+    "component": 80,
     "finish": 9,
     "motion": 4,
     "plugin": 16
@@ -603,6 +603,19 @@
       "type": "component",
       "name": "gantt",
       "path": "lib/plugins/chart-family/kinds/gantt",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "gift-card",
+      "path": "lib/components/connect/gift-card",
       "roles": [
         "docs.md",
         "gallery.md",

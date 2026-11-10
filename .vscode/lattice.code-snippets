@@ -417,6 +417,20 @@
     ],
     "description": "Gantt chart — task bars across a date axis."
   },
+  "lattice: gift-card": {
+    "prefix": "lattice-gift-card",
+    "body": [
+      "<!-- _class: gift-card -->",
+      "",
+      "`A deck on us`",
+      "",
+      "## Make your next deck with Lattice.",
+      "",
+      "- `https://lattice.style/gift#v1.…` `link`",
+      "- Scan to start. `caption`"
+    ],
+    "description": "A business card whose QR opens a Lattice gift link: a warm line, the code, and a PIN when the link is locked."
+  },
   "lattice: glossary": {
     "prefix": "lattice-glossary",
     "body": [

@@ -1046,4 +1046,31 @@ describe('saveOpenRouterKey — a pasted key is checked before it is stored', ()
 		expect(check, 'the key was checked with /api/v1/key').toBeTruthy();
 		expect(new Headers(check?.[1]?.headers).get('Authorization')).toBe('Bearer sk-or-v1-good');
 	});
+	// "Have a gift link?" (2026-11-06-gift-link-cli.md §6). A fake key, never issued by OpenRouter.
+	const GIFT_KEY = `sk-or-v1-${'0123456789abcdef'.repeat(4)}`;
+	it('a whole gift link is read by the shared codec, checked, and stored as its key', async () => {
+		const { encodeGiftLink } = await import('../../../../lib/core/gift-link.mjs');
+		const link = await encodeGiftLink(GIFT_KEY, 'https://example.test/lattice');
+		const fetchSpy = answering(200);
+		vi.stubGlobal('fetch', fetchSpy);
+		const out = await saveOpenRouterKey(`${link.slice(0, 40)}\n${link.slice(40)}`);
+		expect(out.ok).toBe(true);
+		expect(readOpenRouterKey()).toBe(GIFT_KEY);
+		const check = fetchSpy.mock.calls.find(([url]) => /\/api\/v1\/key$/.test(String(url)));
+		expect(new Headers(check?.[1]?.headers).get('Authorization')).toBe(`Bearer ${GIFT_KEY}`);
+	});
+	it('a damaged gift link is refused in words, without a request; a locked one points at the /gift page', async () => {
+		const { encodeGiftToken } = await import('../../../../lib/core/gift-link.mjs');
+		const fetchSpy = vi.fn();
+		vi.stubGlobal('fetch', fetchSpy);
+		const token = await encodeGiftToken(GIFT_KEY);
+		const damaged = await saveOpenRouterKey(`https://example.test/gift#${token.slice(0, 10)}Z${token.slice(11)}`);
+		expect(damaged.ok).toBe(false);
+		if (!damaged.ok) expect(damaged.note).toMatch(/damaged/);
+		const locked = await saveOpenRouterKey(`#${await encodeGiftToken(GIFT_KEY, { pin: '2468', salt: [9, 9, 9, 9, 9, 9, 9, 9] })}`);
+		expect(locked.ok).toBe(false);
+		if (!locked.ok) expect(locked.note).toMatch(/locked with a PIN/);
+		expect(fetchSpy).not.toHaveBeenCalled();
+		expect(localStorage.getItem(KEY)).toBeNull();
+	});
 });

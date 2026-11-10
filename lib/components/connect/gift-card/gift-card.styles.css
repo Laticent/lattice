@@ -1,0 +1,138 @@
+/* gift-card — a business card whose QR opens a Lattice gift link.
+ * Emitted structure (see gift-card.transform.js):
+ *   .qr-card.gift-card-card > .qr-side (.qr-tile)
+ *                           > .qr-head (eyebrow + h2)
+ *                           > .gift-foot (.gift-pin + .qr-cta + .gift-number)
+ * The tile, its quiet zone and the slide-share geometry tokens are shared with contact and wifi
+ * (_qr-card/qr-general.css). Made for the `card` and `card-iso` canvases
+ * (lib/core/sizes.js), where the code leads: it takes about a third of the width, the
+ * largest share a QR-card gives it, because a card is scanned from arm's length on a phone
+ * and the code is the whole point (design §5: "the QR code; nothing to type").
+ * Design: engineering/decisions/2026-11-06-gift-link-cli.md §5. */
+
+/* PRINT SIZES. The `--fs-*` roles are tuned for a projected slide; printed at 3.5 in wide they
+ * come out at 2.5-4 pt, which no one can read. So the small text here is a share of the CARD's
+ * width, sized for print: on the `card` canvas 1cqi is 2.52 pt of paper, so 2.6cqi is about 6.5 pt
+ * (the eyebrow and number), 3cqi about 7.5 pt (the caption) and 3.8cqi about 9.5 pt (the PIN). */
+section.gift-card {
+  --qr-base: 0.3;
+  --gc-small: calc(var(--_sec-1cqi, 1cqi) * 2.6);
+  --gc-body: calc(var(--_sec-1cqi, 1cqi) * 3);
+  --gc-pin: calc(var(--_sec-1cqi, 1cqi) * 3.8);
+}
+section.gift-card[data-family="square"] { --qr-base: 0.36; }
+
+/* `safe center`, as in wifi (#1299): centered while it fits, start-aligned the moment it does not. */
+section.gift-card .qr-card {
+  --qc-col-gap: calc(var(--qc-pad) * 1.4);
+  --qc-head-w: calc(100cqi - var(--qc-qr) - var(--qc-col-gap));
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  grid-template-areas: "side head" "side foot";
+  align-content: var(--cards-align);
+  align-items: center;
+  column-gap: var(--qc-col-gap);
+  row-gap: calc(var(--qc-gap) * 1.4);
+  height: 100%;
+}
+section.gift-card[data-cards="center"] .qr-card { align-content: safe center; }
+
+/* Tall and strip: the code on top, the words under it. */
+section.gift-card:where([data-family="tall"], [data-family="strip"]) .qr-card {
+  --qc-head-w: 100cqi;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "side" "head" "foot";
+  justify-items: center;
+  text-align: center;
+}
+
+/* A `conformance:"strict"` canvas, like wifi: the card self-sizes inside the clip cell so an
+ * overstuffed card reaches the overflow probe instead of shrinking out of sight. */
+section.gift-card > .cell-stage > .qr-card { flex: 0 0 auto; }
+
+section.gift-card .qr-side {
+  grid-area: side;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+section.gift-card .qr-head {
+  grid-area: head;
+  align-self: end;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--qc-gap) * 0.6);
+}
+section.gift-card .qr-eyebrow {
+  font-size: var(--gc-small);
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-weight: 600;
+  line-height: 1.25;
+  padding: 0;
+}
+section.gift-card .qr-head h2 {
+  /* The title role, unless the heading would need more than three lines of its column. 0.55em per
+   * character is a display face in mixed case. */
+  font-size: max(
+    calc(var(--_sec-1cqi, 1cqi) * 3.2),
+    min(var(--fs-h1), calc(var(--qc-head-w) * 3 / (var(--head-chars, 30) * 0.55)), calc(var(--_sec-1cqh, 1cqh) * 11))
+  );
+  color: var(--text-heading);
+  font-weight: 600;
+  line-height: 1.05;
+  /* Balanced lines: a three-word last line reads as a phrase, a one-word one as a mistake. */
+  text-wrap: balance;
+  padding: 0;
+}
+
+section.gift-card .gift-foot {
+  grid-area: foot;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--qc-gap) * 0.7);
+  min-width: 0;
+}
+section.gift-card:where([data-family="tall"], [data-family="strip"]) .gift-foot { align-items: center; }
+section.gift-card .gift-foot p { padding: 0; }
+
+section.gift-card .gift-pin {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+  font-size: var(--gc-pin);
+  line-height: 1.1;
+  color: var(--text-heading);
+}
+section.gift-card .gift-pin-label {
+  font-size: var(--gc-small);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+}
+section.gift-card .gift-pin-value {
+  font-family: var(--font-label);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* The caption reads as body copy under the heading here, not as a label under the code. */
+section.gift-card .qr-cta {
+  max-width: none;
+  text-align: inherit;
+  font-size: var(--gc-body);
+  line-height: 1.3;
+  color: var(--text-body);
+}
+
+section.gift-card .gift-number {
+  font-size: var(--gc-small);
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+}

@@ -62,6 +62,7 @@ const VOICE_EXEMPT = {
   // Connect cards: the slot list IS the layout — a fixed identity/credentials card, not a scalable collection.
   contact: { rules: ['stressDoc', 'density'], reason: 'fixed vCard card; slots, not a collection' },
   wifi: { rules: ['stressDoc', 'density'], reason: 'fixed credentials card; slots, not a collection' },
+  'gift-card': { rules: ['stressDoc', 'density'], reason: 'fixed printed gift card; a link, a PIN and one line, not a collection' },
   // Logo wall: marks carry no prose to budget; the dense variant is the documented upper limit.
   'logo-wall': { rules: ['stressDoc', 'density'], reason: 'no prose axis; dense variant is the ceiling' },
   collage: { rules: ['density'], reason: 'photos, not prose; the one description paragraph is covered by the universal body budget' },

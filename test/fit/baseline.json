@@ -159,6 +159,38 @@
       "lost": 0
     }
   },
+  "lib/components/connect/gift-card/gift-card.gallery.md": {
+    "portrait@hall": {
+      "clip": 0,
+      "unreadable": 0,
+      "lost": 0
+    },
+    "portrait@laptop": {
+      "clip": 0,
+      "unreadable": 0,
+      "lost": 0
+    },
+    "square@hall": {
+      "clip": 0,
+      "unreadable": 0,
+      "lost": 0
+    },
+    "square@laptop": {
+      "clip": 0,
+      "unreadable": 0,
+      "lost": 0
+    },
+    "story@hall": {
+      "clip": 0,
+      "unreadable": 0,
+      "lost": 0
+    },
+    "story@laptop": {
+      "clip": 0,
+      "unreadable": 0,
+      "lost": 0
+    }
+  },
   "lib/plugins/chart-family/kinds/bar/bar.gallery.md": {
     "portrait@hall": {
       "clip": 2,
