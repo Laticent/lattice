@@ -239,14 +239,21 @@ counted the frame's writes and sampled every animation frame for a revealed fram
 
 | Build | Writes | Slide shown after the first write | Blank after reveal |
 |---|---|---|---|
-| `main` 50f6f4a, 4 runs | 3 to 4 | 7.4 to 7.7 s | never |
+| `main` 50f6f4a, 8 runs | 3 to 4 | 7.4 to 8.3 s | never |
 | a 4 s bound, 3 runs | 1 to 2 | 6.1 s with one write; 8.7 to 8.8 s with two | never |
-| a 30 s bound, 4 runs | 1 | 5.2 to 6.7 s | never |
+| a 30 s bound, 8 runs | 1 | 5.2 to 7.8 s | never |
+
+The last four runs of each of `main` and the 30 s bound were logged after the checker asked for an artifact (7.7 to
+8.3 s against 6.2 to 7.8 s); the first rounds were read off the terminal.
 
 A 4 s bound gave up on a document still parsing and wrote the same one again, so the parse started over and the slide
 came later than on `main`. A document still parsing is always closer to showing the slide than a fresh write, so the
-wait now lasts as long as the reveal poll's budget (300 ticks of 100 ms), which releases every waiter when a document
-never paints. The re-wait loop stays for that case.
+wait now lasts as long as the reveal poll's budget (300 ticks of 100 ms). The poll releases every waiter whenever it
+stops: the document never painted, its host left the page, or the renderer was disposed. The checker's review of the
+longer bound found the poll used to stop on a detached host without releasing anyone; a host put back mid-load reloads
+its srcdoc, and on WebKit (unreliable srcdoc `onload`) every edit would then have waited out the full bound. Two unit
+tests pin it: a detached host releases its waiter within one poll tick, and with the poll stopped, the bound's own
+timer still does. The re-wait loop stays for a document that never paints.
 
 ## 8. Preview-first boot for a returning visitor, on this seam: built, measured, not shipped (2026-11-09)
 

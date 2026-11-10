@@ -269,10 +269,11 @@ export type NewcomerBake = {
 /**
  * How long a render waits for a document still loading in the frame (an adopted bake, or an earlier render's full
  * write) before it writes its own over it. The SAME budget as the reveal poll (300 ticks of 100 ms), which releases
- * every waiter when a document never paints. A shorter bound cost time: measured with Chrome's CPU throttled 20x on a
- * first visit, the 1.2 MB sheet parsed for more than 4 s, a 4 s bound gave up on it and wrote a second document, and
- * the parse started over. The slide appeared 8.7 to 8.8 s after the first write, against 6.1 s when the render waited
- * (and 7.4 to 7.7 s on main, which wrote three or four times). A document still parsing is always closer to showing
+ * every waiter when it stops: the document never painted, its host left the page, or the renderer was disposed. A
+ * shorter bound cost time: measured with Chrome's CPU throttled 20x on a first visit, the 1.2 MB sheet parsed for more
+ * than 4 s, a 4 s bound gave up on it and wrote a second document, and the parse started over (the slide 8.7 to 8.8 s
+ * after the first write). Waiting: one write and 6.2 to 7.8 s; main, which writes three or four times: 7.7 to 8.3 s
+ * (engineering/decisions/2026-11-08-studio-newcomer-bake.md §7). A document still parsing is always closer to showing
  * the slide than a fresh write of the same one.
  */
 const DOC_LOAD_WAIT_MS = 30_000;
@@ -1504,7 +1505,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					clearInterval(poll);
 					ownedIntervals.delete(poll);
 					if (liveHost.__latticeRevealPoll === poll) liveHost.__latticeRevealPoll = undefined;
-					if (ticks > 300) settle();
+					// Release the waiters on EVERY exit, not only when the budget runs out: a host that left the page stops
+					// this poll, and a waiter left parked would sit out the whole wait (see the full write's poll).
+					settle();
 					return;
 				}
 				scaleFrame(host);
@@ -2677,8 +2680,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// every edit falls to a full realm-churning re-write. A frame that truly never paints
 					// simply stays on the safe write path (we never patch an unpainted doc).
 					if (disposed || !host.isConnected || (host as LiveHost).__latticePendingLoad === false || revealTicks > 300) {
-						// A frame that never painted releases its waiters, which then write as before.
-						if (revealTicks > 300) settleWrite();
+						// Release the waiters on EVERY exit. A frame that never painted: they write as before. A host that left
+						// the page (or a disposed renderer): they find it gone and stand down, instead of sitting out the whole
+						// wait. That mattered once the wait grew to the poll's budget: a host detached and put back while its
+						// document loads reloads the srcdoc, and on WebKit, whose srcdoc `onload` is unreliable, nothing else
+						// would release them (the checker's review of the 30 s bound). Once the document has loaded, this is a
+						// no-op: its promise is already settled.
+						settleWrite();
 						clearInterval(revealPoll);
 						ownedIntervals.delete(revealPoll);
 						if ((host as LiveHost).__latticeRevealPoll === revealPoll) (host as LiveHost).__latticeRevealPoll = undefined;

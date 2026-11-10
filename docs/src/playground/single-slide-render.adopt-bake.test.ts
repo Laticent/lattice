@@ -309,6 +309,54 @@ describe('a full write still loading', () => {
 		}
 	});
 
+	it('releases a waiting render when the host leaves the page, instead of holding it for the whole bound', async () => {
+		vi.useFakeTimers();
+		const r = createSingleSlideRenderer(opts);
+		try {
+			const host = mountHost();
+			await r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE);
+			let settled = false;
+			const second = r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE).then((o) => {
+				settled = true;
+				return o;
+			});
+			await vi.advanceTimersByTimeAsync(50);
+			expect(settled).toBe(false);
+			host.remove();
+			// The reveal poll's next tick (100 ms) sees the host gone, stops, and releases the waiter, which stands down.
+			await vi.advanceTimersByTimeAsync(200);
+			expect(settled).toBe(true);
+			expect((await second).ok).toBe(false);
+		} finally {
+			r.dispose();
+			vi.useRealTimers();
+		}
+	});
+
+	it('the bound itself releases a waiter when nothing else will (the poll already stopped)', async () => {
+		vi.useFakeTimers();
+		const r = createSingleSlideRenderer(opts);
+		try {
+			const host = mountHost() as Host & { __latticeRevealPoll?: ReturnType<typeof setInterval> };
+			await r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE);
+			// Stop the poll without letting it release anyone, so only the render's own timer can.
+			clearInterval(host.__latticeRevealPoll);
+			let settled = false;
+			const second = r.renderInto(host, DECK, false, undefined, undefined, undefined, undefined, SLIDE).then((o) => {
+				settled = true;
+				return o;
+			});
+			await vi.advanceTimersByTimeAsync(29_000);
+			expect(settled).toBe(false);
+			await vi.advanceTimersByTimeAsync(1_100);
+			expect(settled).toBe(true);
+			expect((await second).writePath).toBe('write');
+		} finally {
+			r.dispose();
+			vi.useRealTimers();
+		}
+	});
+
 	it('does not wait when the next render needs another frame box, which only a write can give', async () => {
 		vi.useFakeTimers();
 		const r = createSingleSlideRenderer(opts);
