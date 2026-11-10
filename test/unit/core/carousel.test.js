@@ -1898,6 +1898,13 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
       }
       assert.ok(Array.isArray(at(0.56, ['A', 'B'], 2, 'Decision log', 'Équipe')), 'a non-ASCII name splits too');
     });
+    test('markup in a cell is not plain text: a line break, an image or inline code splits as main does', () => {
+      // Stripped tags were invisible to the estimate, so all three held one page and clipped (#3088's sixth grader).
+      for (const text of ['Ship it<br>Do it', 'Ship <img src="a.png" alt="">', 'Ship <code>getUserAccount</code>']) {
+        assert.ok(Array.isArray(at(0.56, ['A', 'B'], 2, text, 'Ops')), `${text}: splits`);
+      }
+      assert.ok(Array.isArray(at(0.56, ['A', 'B'], 2, 'Decision log', '<strong>Ops</strong>')), 'markup in a name splits too');
+    });
     test('a square or landscape roadmap keeps the split: bands are drawn only on a tall page', () => {
       assert.ok(Array.isArray(at(1, ['A', 'B'], 1)));
     });

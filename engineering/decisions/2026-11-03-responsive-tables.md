@@ -876,10 +876,13 @@ roadmap's phases to stack as bands.
   ~31 and `m`/`w`/`M`/`W` ~38, against 90% of the column; a name is monospaced, so its ~20.4px a
   character is exact and takes the whole column.
 - **Bands are for PLAIN TEXT only** (the owner's call, 2026-11-09). A roadmap holds one band page
-  only when every name and commitment is printable ASCII, plus the typographic quotes, dashes,
-  ellipsis and non-breaking space the markdown typographer writes. Any other character (an
+  only when every name and commitment is printable ASCII with no markup, plus curly quotes,
+  dashes, an ellipsis and a non-breaking space an author types (no typographer runs on this path,
+  so `"` and `--` stay ASCII). Markup counts as not plain: a `<br>` breaks a line, an image takes
+  width, and inline code is a padded monospaced chip, all invisible once the tags are stripped. A
+  sixth grader found each of the three holding a page and clipping. Any other character (an
   accent, Cyrillic, Greek, CJK, an emoji) makes the count return no width, and the roadmap splits
-  exactly as `main` does. Five graders each found text the estimate under-counted, and `main`
+  exactly as `main` does. Six graders each found text the estimate under-counted, and `main`
   split every one cleanly:
   - long commitments, when the count read rows alone;
   - 25-character names, when it read commitments alone and the name column took its full
@@ -888,7 +891,8 @@ roadmap's phases to stack as bands.
     (measured, 10);
   - CJK and all-caps text, when it counted characters rather than width;
   - Cyrillic, Greek, BMP emoji, fullwidth punctuation, and CJK at the column's edge, when it
-    guessed a width for scripts it had never measured.
+    guessed a width for scripts it had never measured;
+  - a `<br>`, an image or inline code in a cell, when it measured the text with the tags stripped.
 
   Guessing a sixth script would have been a sixth patch. The plain-text gate measures what it
   keeps and gives everything else main's behavior. The cost is that a non-English roadmap at a
