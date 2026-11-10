@@ -2,7 +2,7 @@
 origin: 3128
 priority: P2
 recorded: 2026-11-10
-area: studio
+area: website
 severity: low
 swimlane: engineering/decisions/2026-11-10-compose-first.md §5
 deferred: off-path — fails identically on main; PR #3128 does not touch the preview's geometry
