@@ -89,7 +89,7 @@ export function IconGrid({ open, onOpenChange, onPick }: { open: boolean; onOpen
 
 	return (
 		<PanelSheet open={open} onOpenChange={onOpenChange} width="md">
-			<PanelHeader icon={<Shapes />} title="Insert an icon" srDescription="Every icon a deck can write, searchable by name, alias or category. Pick one to insert it at the cursor." />
+			<PanelHeader icon={<Shapes />} title="Insert an icon" />
 			{phone ? null : <div className="border-b border-border px-4 py-2">{search}</div>}
 			<PanelBody padded={false} className="px-3 pb-4">
 				{failed ? (

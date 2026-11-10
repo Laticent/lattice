@@ -26,6 +26,10 @@
 //
 // Env: URL (default http://localhost:4321/studio/), RUNS (5), FRAME (the preview iframe selector), DEPTH (tree depth, 6),
 // MIN_MS (hide subtrees under this median, 5), JSON=1 (one JSON line with every run).
+// SEED=<file.json>: a { key: string } map written to localStorage before the page's own scripts run, on every load. A
+// cold context has no saved decks, so without it the profile is a first visit; `SEED` profiles a returning author
+// (e.g. one with sixteen saved decks; `docs/scripts/seed-saved-decks.mjs` writes such a map).
+import fs from 'node:fs';
 import { chromium } from '@playwright/test';
 
 const URL = process.env.URL || 'http://localhost:4321/studio/';
@@ -34,6 +38,7 @@ const FRAME = process.env.FRAME || '[aria-label="Live deck preview"] iframe.live
 const DEPTH = Number(process.env.DEPTH || 6);
 const MIN_MS = Number(process.env.MIN_MS || 5);
 const GIVE_UP = Number(process.env.GIVE_UP || 60_000);
+const SEED = process.env.SEED ? JSON.parse(fs.readFileSync(process.env.SEED, 'utf8')) : null;
 // CPU=1 also records a CDP CPU profile up to the slide and splits it by React phase (see cpuSplit below).
 const CPU = process.env.CPU === '1' || !!process.env.DRILL;
 // DRILL=<text> (implies CPU=1): what the frame whose label contains <text> spends its time calling.
@@ -245,6 +250,11 @@ async function run(browser) {
 	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
 	await cdp.send('Performance.enable');
 	await page.addInitScript(installHook, FRAME);
+	if (SEED) {
+		await page.addInitScript((entries) => {
+			for (const [k, v] of Object.entries(entries)) localStorage.setItem(k, v);
+		}, SEED);
+	}
 	if (CPU) {
 		await cdp.send('Profiler.enable');
 		await cdp.send('Profiler.setSamplingInterval', { interval: 200 });

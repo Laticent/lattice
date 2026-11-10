@@ -144,16 +144,15 @@ export function SlideNavigator({ counter, onPrev, onNext, mapOn, onToggleMap }: 
 				<button type="button" onClick={onNext} className={cn(NAV_ARROW, 'rounded-r-full')} aria-label="Next slide"><ChevronRight className="size-3.5" aria-hidden /></button>
 			</div>
 			{onToggleMap && (
-				<button
+				<Tip label="Slide map — every slide as a thumbnail, in place of the slide pills"><button
 					type="button"
 					aria-label="Slide map"
 					aria-pressed={!!mapOn}
-					title="Slide map — every slide as a thumbnail, in place of the slide pills"
 					onClick={onToggleMap}
 					className={cn('grid aspect-square shrink-0 place-items-center rounded-lg border bg-card font-sans text-[12px] transition-colors', PILL_H, TOUCH_HIT, 'pointer-coarse:after:-inset-x-[9.4px] min-[700px]:pointer-coarse:after:-inset-x-1.5', mapOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-[var(--text-heading)]')}
 				>
 					<GalleryVerticalEnd className="size-4" aria-hidden />
-				</button>
+				</button></Tip>
 			)}
 		</>
 	);
@@ -268,11 +267,12 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 export function BarIcon({ label, hint, caption, active, onClick, children, variant = 'rail', demo, badge, describedBy, tone = 'ghost' }: { label: string; hint: string; caption: string; active?: boolean; onClick: () => void; children: React.ReactNode; variant?: 'rail' | 'bar'; demo?: string; badge?: number; describedBy?: string; tone?: 'ghost' | 'outline' | 'solid' }) {
 	const bar = variant === 'bar';
 	return (
-		<Tip label={hint}><button
+		// `describedBy` rides the Tip, not the button: an `aria-describedby` on the button, even an
+		// undefined one, overrides the Tip's and silenced every bar icon's hint for a screen reader.
+		<Tip label={hint} alsoDescribedBy={describedBy}><button
 			type="button"
 			aria-label={label}
 			aria-pressed={active}
-			aria-describedby={describedBy}
 			data-demo={demo}
 			onClick={onClick}
 			className={cn(

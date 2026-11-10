@@ -2,7 +2,7 @@ import { Settings } from 'lucide-react';
 import * as React from 'react';
 import { lazyPanel, PanelLoader } from '@/components/studio/lazy-panel';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useOverlayBack } from '@/lib/overlay-back';
 import { useIsPhone } from '@/lib/use-breakpoint';
 import { deckDebugOn } from '@/playground/debug-overlay.js';
@@ -88,9 +88,6 @@ export function DeckSetupSheet({
 			>
 				<SheetHeader className="border-b border-border">
 					<SheetTitle className="flex items-center gap-2 text-[15px]"><Settings className="size-[18px] text-[var(--accent)]" />Deck settings</SheetTitle>
-					<SheetDescription className="sr-only">
-						Front matter for this deck — applied to the whole deck and exported with the .md.
-					</SheetDescription>
 				</SheetHeader>
 				<div className="deck-config px-4 pb-4">
 					{/* What an un-pinned deck renders with, so the Theme row's Auto head can name it:

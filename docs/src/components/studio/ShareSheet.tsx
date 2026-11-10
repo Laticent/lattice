@@ -331,7 +331,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	};
 	return (
 		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md" persistent>
-			<PanelHeader icon={SHARE_HEADER.icon} title={SHARE_HEADER.title(deckTitle)} srDescription={SHARE_HEADER.srDescription} />
+			<PanelHeader icon={SHARE_HEADER.icon} title={SHARE_HEADER.title(deckTitle)} />
 			<PanelBody ref={bodyRef} padded={false} className="space-y-6 p-5">
 					<ScrollTopOnMount key={shows} target={bodyRef} />
 					{/* FIRST, so a hidden drawer never sits between `space-y` siblings. */}

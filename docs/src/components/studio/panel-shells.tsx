@@ -49,7 +49,7 @@ function Inert({ children, className = 'contents' }: { children: React.ReactNode
 export function ShareShell({ open, onOpenChange, deckTitle, children }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; children?: React.ReactNode }) {
 	return (
 		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md">
-			<PanelHeader icon={SHARE_HEADER.icon} title={SHARE_HEADER.title(deckTitle)} srDescription={SHARE_HEADER.srDescription} />
+			<PanelHeader icon={SHARE_HEADER.icon} title={SHARE_HEADER.title(deckTitle)} />
 			<PanelBody padded={false} className="space-y-6 p-5">
 				{children ?? (
 					<>
@@ -80,8 +80,6 @@ export const WORKSPACE_DEFAULT_TAB: WorkspaceTab = 'AI';
 export const WORKSPACE_HEADER = {
 	icon: <Cloud />,
 	title: 'Workspace',
-	srDescription:
-		'Your workspace setup — preferences and app install under General; the AI model, spend, and standing instructions under AI; where decks live, backup, storage, and deletion under Data.',
 } as const;
 
 /** A Workspace group heading, shared with `WorkspaceSheet.tsx`. */
@@ -131,7 +129,7 @@ export function WorkspaceAiSection({ children }: { children: React.ReactNode }) 
 export function WorkspaceShell({ open, onOpenChange, children }: { open: boolean; onOpenChange: (v: boolean) => void; children?: React.ReactNode }) {
 	return (
 		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md">
-			<PanelHeader icon={WORKSPACE_HEADER.icon} title={WORKSPACE_HEADER.title} srDescription={WORKSPACE_HEADER.srDescription} />
+			<PanelHeader icon={WORKSPACE_HEADER.icon} title={WORKSPACE_HEADER.title} />
 			<PanelBody padded={false} className="p-5">
 				<Inert>
 					<PillTabs className="mb-4" ariaLabel="Workspace settings" value={WORKSPACE_DEFAULT_TAB} onValueChange={() => {}} tabs={WORKSPACE_TABS.map((t) => ({ value: t, label: t }))} />
@@ -208,7 +206,6 @@ export const sectionFilter = (s: LibrarySection): LibraryFilter => (s === 'files
 export const LIBRARY_HEADER = {
 	icon: <FileBox />,
 	title: 'Library',
-	srDescription: 'Saved themes, components, finishes, images, videos, files and plugins — search, filter, apply, or drop a file in.',
 	searchPlaceholder: 'Search themes, components, finishes, images, videos, files & plugins…',
 } as const;
 
@@ -225,7 +222,6 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 			<PanelHeader
 				icon={LIBRARY_HEADER.icon}
 				title={LIBRARY_HEADER.title}
-				srDescription={LIBRARY_HEADER.srDescription}
 				actions={
 					<Inert>
 						{phone ? null : search}

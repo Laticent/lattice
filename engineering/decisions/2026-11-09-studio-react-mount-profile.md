@@ -8,8 +8,11 @@ summary: >
   component code on first call, not hook work (a production trace puts V8 compile at a median 145 ms of the 249 ms
   hydration task, and ~1.04 s before the slide in all). Mounted subtrees the phone does not show cost about 70 ms,
   the tooltip wrappers on the icon bar about 25-40 ms, and a forced layout in a ref callback about 45 ms (likely moved,
-  not saved). Measurement only; no shell code changed. New tool: docs/scripts/react-mount-profile.mjs. A tier-1 checker
-  reviewed the method and the numbers; its corrections are folded in.
+  not saved). The profile itself changed no shell code. New tool: docs/scripts/react-mount-profile.mjs. A tier-1 checker
+  reviewed the method and the numbers; its corrections are folded in. Levers 1 and 2 were built the same day (§5-§7):
+  lever 1 removed ~50-65 ms of render before the slide; lever 2 removed ~140 ms of CPU for an author with sixteen
+  saved decks and nothing measurable on a first visit, since most of row 1a's cost was a first parse that the open
+  deck pays anyway.
 ---
 
 # Mobile Studio: what React mounts before the first slide, ranked (2026-11-09)
@@ -125,14 +128,16 @@ Two things the list says:
 - **What the phone does not show costs about 70 ms (row 3), plus the ~32 ms deck-list index (1a).** Those are the
   cheapest candidates, because skipping them changes nothing on screen at the slide.
 
-## 4. Candidate levers, by expected size and risk (none built)
+## 4. Candidate levers, by expected size and risk (1 and 2 built, §5 and §6)
 
 Each needs a same-machine A/B (startup-bench and Lighthouse, alternated) before it ships. Per the brief, a tier-1
 checker reviews this list before any of them becomes code.
 
 1. **Mount the closed sheets and the slide picker on first open** (row 3, ~70 ms profiled, ~55 ms production-scale).
+   BUILT 2026-11-09: −47 to −66 ms of render before the slide, profiled (§5).
    Risk: first-open latency and focus return, and the e2e tests that expect them in the DOM.
-2. **Compute the deck switcher's slide-count label when the switcher opens** (row 1a, ~32 ms). Risk: low. `metaFor` is
+2. **Compute the deck switcher's slide-count label when the switcher opens** (row 1a, ~32 ms). BUILT 2026-11-09:
+   about −140 ms of CPU before the slide with sixteen saved decks, nothing measurable on a first visit (§6). Risk: low. `metaFor` is
    already memoized by source, so the switcher pays it once.
 3. **Lighter tooltips on the phone's icon bar** (row 2, ~25-40 ms; the buttons themselves stay). Options: one shared `TooltipProvider` instead of one per
    tip, or mount the Radix tooltip on first hover or focus. Touch has no hover, so the tip itself rarely shows on a phone.
@@ -146,6 +151,104 @@ checker reviews this list before any of them becomes code.
    cause measured in §3.1). Splitting StudioShell's hooks while still rendering them all saves little; what helps is
    not running (or not shipping) code a phone's first render does not need, or a warm code cache on repeat visits
    (a cold first visit never benefits). It needs a design note.
+
+## 5. Lever 1, built: closed surfaces mount on first open (2026-11-09)
+
+**What changed.** `StudioShell.tsx` latches eleven closed surfaces with `useLatch` (`lazy-panel.tsx`), as Share and
+Workspace already were: the phone's ⋯ drawer and command palette, Send feedback, Version history, the compact Coach,
+Chat, Live, Reader views and Settings sheets, and both `SlidePicker` galleries. Each mounts the first time it opens and
+stays mounted after. The `Toaster` stays mounted from boot, because a toast can arrive before anything opens.
+`e2e/studio-mount-on-open.spec.ts` drives each first open on a cold load (`mobile`, `webkit-phone`).
+
+**React profile, alternated.** Profiling builds of `main` (`756c1ff`) and of this change, served side by side, measured
+in turn with the order rotated each round, `CPU=1 RUNS=1` per load, 7 loads per arm, three separate sets:
+
+| Set | Render before the slide, base → lever 1 (median ms) | The five gated components' render (SELF, summed) |
+|---|---|---|
+| 1 | 488 → 422 (−66) | 39.9 → 0 |
+| 2 | 472 → 425 (−47) | 35.1 → 0 |
+| 3 | 458 → 404 (−54) | 36.3 → 0 |
+
+So lever 1 removes about 50-65 ms of render work before the slide on the profiling build. At the §1 overhead that is
+roughly 40-50 ms in production, against the ~55 ms §4 estimated.
+
+**startup-bench, alternated** (production builds over `serve-h2.mjs`, phone profile, 15 loads per arm, order rotated):
+main-thread busy by the slide 2.91 s → 2.90 s, first slide 4,305 → 4,350 ms. Run-to-run spread is about ±0.2 s, so a
+~50 ms change is below what this instrument resolves at n=15; it shows no regression and no measurable win.
+
+**Focus on close, fixed on the way.** The first-open spec found that Escape on the phone drawer left focus on `<body>`,
+on `main` too: a modal Radix sheet returns focus only to a `SheetTrigger`, and these sheets open from plain buttons.
+`SheetContent` now returns focus to the opener when nothing else has taken it (`engineering/gotchas/studio-playground.md`,
+"Closing a sheet leaves focus on the page body"). `docs/scripts/ios-safari/sheet-focus-probe.js` checks it in real
+Mobile Safari: focus a plain opener, press it, Escape, and focus must be back on the opener, for a first open (mount)
+and a second (latched). Its WebKit self-test passes at iPad, iPad-Safari and iPhone widths on this change and fails at
+all three on `main` ("focus on body"). The `ios-safari-studio` suite ran it in the iOS Simulator (platform-suites run
+42697185485): PASS on an iPad Pro 13-inch (Version history) and an iPhone 17 Pro (Menu), Safari 26.5. It measures DOM
+focus, which a keyboard and a screen reader's programmatic focus follow; VoiceOver itself is UNVERIFIED.
+
+**Lighthouse**: see §7.
+
+## 6. Lever 2, built: the deck switcher's label is counted when it opens (2026-11-09)
+
+**What changed.** `loadDeckList` (`studio-store.ts`) no longer carries a `meta` label, and its `slides` are split on
+first read rather than when the list loads. The switcher asks `deckMetaFor(id)` per row when it opens, through a small
+`DeckSwitcherMeta` component, and `deckSourceFor(deck)` gives a row's source without splitting it to join it again.
+`StudioDeck` loses its `meta` field.
+
+**What the profile found, which corrects §3 row 1a.** The ~32 ms that row billed to `metaFor` is mostly the
+slide-boundary parse (`slideBoundaryModel`) running for the first time. That kernel keeps a memo by source, and
+`slidesFor` and the shell's own index of the open deck call the same kernel. Whoever calls it first pays the parse and
+V8's first compile of it. Each step of this change moved that cost before it removed any: dropping `meta` moved it to
+`slidesFor`; making `slides` lazy moved it to the boot `useState` that read `deckSource(first)`; `deckSourceFor` moved
+it to the shell's own index of the open deck, which needs it. A review then caught one more read: the active row's
+`{ ...d }` spread ran the lazy getter on every title change, and that row now forwards `slides` instead.
+
+**A first visit (no saved decks, three built-ins).** CPU drills, profiling build, 5-7 alternated loads per arm:
+
+| Before the slide (median ms) | Lever 1 only | Lever 1 + 2 |
+|---|---|---|
+| `metaFor` | 29.6 | 0 |
+| `loadDeckList` | 39.1 | 4.6 |
+| `slideBoundaryModel` | 26.1-26.5 | 0 |
+| StudioShell's body, top 20 callees summed, two sets | 153.2 / 140.6 | 142.7 / 150.3 |
+
+The frames leave the boot path, but the body total does not move: the two sets disagree on its sign, and its runs
+spread 127-190 ms. On a first visit lever 2 has no measurable effect, because the work it skips is the open deck's
+parse, which still has to happen.
+
+**A returning author with sixteen saved decks.** `react-mount-profile.mjs` gained `SEED=<file.json>`, which writes a
+localStorage map before the page loads, and `docs/scripts/seed-saved-decks.mjs` writes one: the sixteen largest
+example decks (~300 KB), stored as the Studio stores edited decks. Profiling build, alternated, order rotated:
+
+| Measure (median ms) | main | Lever 1 | Lever 1 + 2 |
+|---|---|---|---|
+| Render before the slide (6 loads per arm) | 854 [822-1,032] | 844 [827-872] | 783 [688-825] |
+| StudioShell SELF (6 loads per arm) | 549 | 558 | 482 [409-515] |
+| `loadDeckList`, CPU drill (5 loads per arm) | n/a | 181.8 | 38.6 |
+
+So lever 2 is worth about 140 ms of CPU and 60-75 ms of render before the slide for an author with sixteen saved
+decks, and nothing measurable for a first visitor. The 38.6 ms left in `loadDeckList` is mostly `titleFromSource`,
+since the switcher still shows every deck's title. With this seed, lever 1's ~50 ms does not show above the noise
+either (854 → 844).
+
+## 7. Lighthouse, alternated (2026-11-09)
+
+Production builds over `serve-h2.mjs`, `lighthouse` with the nightly's mobile settings (`lighthouserc.mobile.cjs`:
+390x844, 4x CPU, 150 ms RTT, simulated throttling), `/studio/` only, arms alternated with the order flipped each round.
+
+| Set | Arm | n | Score | TBT median [range] | LCP | FCP | JS bootup |
+|---|---|---|---|---|---|---|---|
+| A (3 arms) | main | 9 | 0.67 | 1,351 [1,226-1,585] | 3,013 | 2,029 | 2,789 |
+| A | lever 1 | 9 | 0.67 | 1,438 [1,214-1,733] | 3,010 | 2,031 | 2,858 |
+| A | levers 1+2 | 9 | 0.67 | 1,438 [1,365-1,696] | 3,010 | 1,963 | 2,758 |
+| B (2 arms) | main | 12 | 0.67 | 1,517 [1,401-1,976] | 3,008 | 1,997 | 2,938 |
+| B | levers 1+2 | 12 | 0.67 | 1,459 [1,285-1,572] | 3,010 | 1,965 | 2,807 |
+| A+B pooled | main | 21 | 0.67 | 1,482 | 3,009 | 2,029 | 2,885 |
+| A+B pooled | levers 1+2 | 21 | 0.67 | 1,438 | 3,010 | 1,964 | 2,763 |
+
+Read it as: no regression, and a ~50-120 ms improvement that sits inside Lighthouse's run-to-run spread on this
+machine (set A's medians alone point the other way for TBT). The score does not move. The React profile in §5 and §6
+is the instrument that resolves these levers; Lighthouse and startup-bench only confirm nothing got worse.
 
 ## Not measured
 

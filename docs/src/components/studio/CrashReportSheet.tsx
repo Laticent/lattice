@@ -107,7 +107,6 @@ export function CrashReportSheet({
 			<PanelHeader
 				icon={<ShieldAlert />}
 				title="Crash report"
-				srDescription="What the Studio recorded about a session that ended without closing cleanly."
 			/>
 			<PanelBody className="space-y-5">
 				{!report ? (

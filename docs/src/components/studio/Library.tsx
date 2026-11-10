@@ -1054,7 +1054,6 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		<PanelHeader
 			icon={LIBRARY_HEADER.icon}
 			title={LIBRARY_HEADER.title}
-			srDescription={LIBRARY_HEADER.srDescription}
 			actions={headerControls}
 			fluidActions
 			onClose={docked ? () => onOpenChange(false) : undefined}

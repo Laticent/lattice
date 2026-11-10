@@ -34,7 +34,7 @@
 import { Check, ChevronRight, FileBox, History as HistoryIcon, ListChecks, Menu as MenuIcon, MonitorPlay, Palette, Search, UsersRound } from 'lucide-react';
 import * as React from 'react';
 import { MOBILE_HEIGHT, MOBILE_OFFSET, PanelBack, useKeyboardInset, useSheetTapHold } from '@/components/ui/panel';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useOverlayBack } from '@/lib/overlay-back';
 import { cn } from '@/lib/utils';
 import { FeedbackIcon, LensIcon } from './icons';
@@ -353,7 +353,6 @@ export function StudioDrawer({
 					<SheetTitle className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight text-[var(--text-heading)]">
 						{title}
 					</SheetTitle>
-					<SheetDescription className="sr-only">Editor actions, guided tours, reader views, and themes.</SheetDescription>
 				</SheetHeader>
 
 				{/* ONE vertical scroller, at every level. wrapperClassName carries the flex

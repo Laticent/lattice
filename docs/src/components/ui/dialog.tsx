@@ -75,14 +75,26 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  alert = false,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  /** A confirmation whose text IS the question ("Delete everything? … It cannot be undone."):
+   *  `role="alertdialog"`, and its DialogDescription stays wired, so it is read when the dialog
+   *  opens. Only a button or two follow, so nothing is repeated at length. */
+  alert?: boolean
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
+        // NO DESCRIPTION ON THE DIALOG. On an iPhone, VoiceOver read a dialog's description again after every
+        // control inside it (owner, PR #3108: "Run a command or jump somewhere in the Studio" after each
+        // palette row). So a dialog is named, not described: a visible description stays on screen and is
+        // reached by swiping, but is not wired as the dialog's `aria-describedby`. A caller can still pass
+        // one; a confirmation (`alert`) keeps Radix's, because there the text IS the question.
+        // engineering/gotchas/studio-playground.md "A dialog's description is read after every control".
+        {...(alert ? { role: "alertdialog" } : { "aria-describedby": undefined })}
         data-slot="dialog-content"
         className={cn(
           // lx-ui carries the scoped reset (tailwind.css) into the Radix portal,
@@ -157,11 +169,8 @@ function DialogDescription({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
-  const persistentIds = usePersistentIds()
   return (
     <DialogPrimitive.Description
-      // Inside a PersistentSurface the dialog element is ours, so its label ids are too.
-      {...(persistentIds ? { id: persistentIds.descriptionId } : {})}
       data-slot="dialog-description"
       className={cn("text-sm text-muted-foreground", className)}
       {...props}

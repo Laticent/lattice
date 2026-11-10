@@ -31,3 +31,8 @@ filing would now show up as a NEW `[perf-nightly] docs perf regression detected`
 such issue for a drop inside the noise band" across the 11-09 to 11-15 scheduled runs; list them with
 `gh api 'repos/laticent/lattice/actions/workflows/perf-nightly.yml/runs?per_page=10'` and read each run's perf-report
 artifact. Nothing is left to close; delete this file (and its pair) after the 11-15 run if none of the seven filed one.
+
+2026-11-09, 15:10 UTC — night 1 of 7 read. Scheduled run 42633038656 (head `99009e45`, 14:16 UTC, alternated head/base)
+reported "no regression": every row inside tolerance, mobile `/playground/` 0.48 → 0.49 and `/studio/` 0.37 → 0.45
+under the 0.5 floor, neither tripped. No `[perf-nightly]` issue was opened on 11-08 or 11-09. Nights 2-7 (11-10 to
+11-15) are still to read; the file stays until the 11-15 run.

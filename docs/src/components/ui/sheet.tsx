@@ -1,6 +1,6 @@
 import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
-import type * as React from "react"
+import * as React from "react"
 import { usePersistentIds } from "@/components/ui/persistent-surface"
 import { cn } from "@/lib/utils"
 
@@ -75,10 +75,30 @@ function SheetContent({
   /** Extra classes for the backdrop — e.g. switching its fade-in off. */
   overlayClassName?: string
 }) {
+  // FOCUS GOES BACK TO WHAT OPENED THE SHEET. A modal Radix dialog returns focus only to its
+  // <SheetTrigger>, and most sheets here open from a plain button (the phone's ⋯ Menu, the bar
+  // icons), so closing one dropped focus to <body>: a keyboard or screen-reader user lost their
+  // place. Measured on the phone drawer, Escape left `document.activeElement` on <body>
+  // (e2e/studio-mount-on-open.spec.ts). So remember what held focus when the sheet opened and
+  // return there, when it is still in the page AND nothing else has taken focus since: a click
+  // into the editor that dismissed a non-modal sheet keeps the editor focused (Radix's own
+  // non-modal rule), and a child sheet opened from a drawer row keeps its focus. That is the
+  // `PersistentSurface` rule (persistent-surface.tsx, "only if nothing else took it meanwhile").
+  // A caller that handles the close itself (calls preventDefault) keeps the last word; an opener
+  // that is gone (a drawer row that launched this sheet) falls back to Radix's own behavior.
+  const { onOpenAutoFocus, onCloseAutoFocus } = props
+  const returnTo = React.useRef<HTMLElement | null>(null)
   return (
     <SheetPortal>
       {overlay && <SheetOverlay className={overlayClassName} />}
       <SheetPrimitive.Content
+        // NO DESCRIPTION ON THE DIALOG. On an iPhone, VoiceOver read a dialog's description again after every
+        // control inside it (owner, PR #3108: "Run a command or jump somewhere in the Studio" after each
+        // palette row). So a dialog is named, not described: a visible description stays on screen and is
+        // reached by swiping, but is not wired as the dialog's `aria-describedby`. A caller can still pass
+        // one; an AlertDialog (ui/alert-dialog.tsx) keeps Radix's, because there the text IS the question.
+        // engineering/gotchas/studio-playground.md "A dialog's description is read after every control".
+        aria-describedby={undefined}
         data-slot="sheet-content"
         className={cn(
           // lx-ui carries the scoped reset (tailwind.css) into the Radix portal,
@@ -88,6 +108,23 @@ function SheetContent({
           className
         )}
         {...props}
+        onOpenAutoFocus={(e) => {
+          const active = document.activeElement
+          returnTo.current = active instanceof HTMLElement && active !== document.body ? active : null
+          onOpenAutoFocus?.(e)
+        }}
+        onCloseAutoFocus={(e) => {
+          onCloseAutoFocus?.(e)
+          const el = returnTo.current
+          returnTo.current = null
+          if (e.defaultPrevented || !el?.isConnected) return
+          const active = document.activeElement
+          const box = e.currentTarget
+          const unclaimed = !active || active === document.body || (box instanceof Node && box.contains(active))
+          if (!unclaimed) return
+          e.preventDefault()
+          el.focus({ preventScroll: true })
+        }}
       >
         {children}
         {/* DEVIATION from the vendored base, matching `dialog.tsx`: on a coarse
@@ -152,11 +189,8 @@ function SheetDescription({
   className,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Description>) {
-  const persistentIds = usePersistentIds()
   return (
     <SheetPrimitive.Description
-      // Inside a PersistentSurface the dialog element is ours, so its label ids are too.
-      {...(persistentIds ? { id: persistentIds.descriptionId } : {})}
       data-slot="sheet-description"
       className={cn("text-sm text-muted-foreground", className)}
       {...props}

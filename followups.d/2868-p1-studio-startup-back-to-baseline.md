@@ -58,6 +58,10 @@ progress  — 2026-10-23, PR #2877 (engineering/decisions/2026-10-23-studio-boot
             the hydration task and ~1.04 s before the slide). Off-screen mounts ~70 ms, tooltip wrappers
             ~25-40 ms, a forced layout ~45 ms (likely moved, not saved). Five levers ranked in the note's §4, none
             built; each needs its own A/B.
+            2026-11-09, later: levers 1 and 2 built and measured (the same note §5-§7). Closed surfaces now mount on
+            first open: −47 to −66 ms of render before the slide, profiled. The deck list no longer parses every saved
+            deck at boot: −140 ms of CPU before the slide for an author with sixteen saved decks, nothing measurable on
+            a first visit (most of the profiled 32 ms was the open deck's own first parse). Levers 3-5 remain.
 decided   — 2026-10-26 (owner, PR #2913, Q1): Lighthouse 90 is NOT the goal for the Studio or the Playground. The Studio's bar stays first slide
             at or below the 2026-09-22 build (met); the Playground's bar is Lighthouse mobile 60 or better (44-57 on the CDN today); 90 stays the aim
             for the home page only, where TBT is the remaining gap. The React-free first paint is not planned. The lint gate (2913-p1) is still next.

@@ -2,7 +2,7 @@ import { LayoutGrid } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useOverlayBack } from '@/lib/overlay-back';
 import { useIsPhone } from '@/lib/use-breakpoint';
 
@@ -70,9 +70,6 @@ export function GalleriesSheet({
 			<SheetContent overlay={false} className="w-[360px] max-w-[88vw] gap-0 overflow-y-auto overscroll-contain [touch-action:pan-y]">
 				<SheetHeader className="border-b border-border">
 					<SheetTitle className="flex items-center gap-2 text-[15px]"><LayoutGrid className="size-[18px] text-[var(--accent)]" />Load a deck</SheetTitle>
-					<SheetDescription className="sr-only">
-						Scaffold the selected component, or open a showcase, family survey or example deck.
-					</SheetDescription>
 				</SheetHeader>
 				<div className="flex flex-col gap-5 px-4 pb-5">
 					<section>

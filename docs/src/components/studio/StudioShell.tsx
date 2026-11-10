@@ -27,7 +27,7 @@ import { Separator } from '@/components/ui/separator';
 import { filteringProps, SettingsBasicFoot, SettingsBlock, SettingsFind, SettingsNoMatch, SettingsScope, SettingsSection, SettingsSectionTabs, SettingsTierSwitch, SettingsToolbar, useSettingsHit, useSettingsQuery } from '@/components/ui/settings-view';
 import { Toaster } from '@/components/ui/sonner';
 import { Switch } from '@/components/ui/switch';
-import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tip } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { Announce } from '@/lib/announce';
 import { messageForFailure } from '@/lib/chunk-load';
@@ -168,7 +168,7 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -494,7 +494,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [deck, setDeck] = React.useState<StudioDeck>(() => loadBootDeck());
 	const [source, setSourceRaw] = React.useState(() => {
 		const first = loadBootDeck();
-		return loadSource(first.id) ?? deckSource(first);
+		return deckSourceFor(first);
 	});
 	// THE LATEST TEXT, which `source` may trail: the editor's typing reaches `source` as a transition (see
 	// setSourceFromEditor), so a click handler, a timer or a save that read `source` could act on text the author has
@@ -2237,9 +2237,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => { crashCrumb('nav', `deck: ${deckTitleRef.current} (${deck.id})`); }, [deck.id]);
 
 	// The deck list as the switcher + ⌘K should SEE it: `decks` holds each deck's
-	// stored title/meta, which for the ACTIVE deck goes stale the moment you type —
-	// so the active row is projected from the live editor instead.
-	const deckList = React.useMemo(() => decks.map((d) => (d.id === deck.id ? { ...d, title: deckTitle, meta: slideCountLabel(deckIndex.partBase.at(-1) ?? 0) } : d)), [decks, deck.id, deckTitle, deckIndex]);
+	// stored title, which for the ACTIVE deck goes stale the moment you type —
+	// so the active row is projected from the live editor instead. The switcher's
+	// `N slides` label is not here: it is counted when the switcher opens (`deckMetaFor`).
+	// The active row forwards `slides` rather than spreading `d`: a spread reads the lazy getter
+	// (`loadDeckList`) and split the open deck on every title change.
+	const deckList = React.useMemo(() => decks.map((d) => (d.id === deck.id ? { id: d.id, title: deckTitle, get slides() { return d.slides; } } : d)), [decks, deck.id, deckTitle]);
 
 	// WEB IMAGES (trio follow-up 11). A deck's images from the web stay blocked until the reader
 	// chooses to load them, per deck and per site. `webAllowed` is that choice (stored on the
@@ -2945,7 +2948,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		sourceOwnerRef.current = d.id;
 		setDeck(d);
 		{
-			const text = loadSource(d.id) ?? deckSource(d);
+			const text = deckSourceFor(d);
 			setSource(text, LOAD);
 			goToChunk(0, { after: text });
 		}
@@ -3264,7 +3267,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const next = list[0] ?? DECKS[0];
 			sourceOwnerRef.current = next.id;
 			setDeck(next);
-			const text = loadSource(next.id) ?? deckSource(next);
+			const text = deckSourceFor(next);
 			setSource(text, LOAD);
 			goToChunk(0, { after: text });
 		}
@@ -5627,6 +5630,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// pane's text or starts it with an example. A component whose starter Compose could not edit
 	// (a checklist's state markers, a formula: each would lock the slide read-only) is left out unless the pane holds it.
 	const [paneReq, setPaneReq] = React.useState<PaneRequest | null>(null);
+	// MOUNTED ON FIRST OPEN. Each surface below is closed at boot, and on a phone none of them is on
+	// screen at the first slide, yet mounting them cost ~70 ms of render before it (the slide picker
+	// alone builds its search index on mount). Latched, as Share and Workspace are: a never-opened
+	// surface costs nothing, and an opened one stays mounted, so its state and its close animation
+	// survive the next close. The Toaster is NOT latched: a toast can arrive before anything opens.
+	// engineering/decisions/2026-11-09-studio-react-mount-profile.md §3 row 3, §4 lever 1.
+	const insertMounted = useLatch(insertOpen);
+	const paneMounted = useLatch(!!paneReq);
+	const feedbackMounted = useLatch(feedbackOpen);
+	const historyMounted = useLatch(historyOpen);
+	const drawerMounted = useLatch(moreOpen);
+	const cmdMounted = useLatch(cmdOpen);
+	const coachMounted = useLatch(coachOpen);
+	const chatSheetMounted = useLatch(chatOpen);
+	const liveSheetMounted = useLatch(liveOpen);
+	const lensesSheetMounted = useLatch(lensesOpen);
+	const inspectorSheetMounted = useLatch(inspectorOpen);
 	const paneItems = React.useMemo(() => {
 		if (!paneReq) return [];
 		const allowed = new Set(paneReq.choices);
@@ -6968,14 +6988,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				)}
 				{hasSelection && (
 					<DropdownMenu>
-						<Tooltip>
-							<TooltipTrigger asChild>
+						<Tip label="Refine selection">
 								<DropdownMenuTrigger asChild>
 									<button type="button" disabled={refineBusy} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:opacity-40" aria-label="Refine selection"><Wand2 className="size-3" /><span className="hidden @[36rem]:inline">Refine</span></button>
 								</DropdownMenuTrigger>
-							</TooltipTrigger>
-							<TooltipContent>Refine selection</TooltipContent>
-						</Tooltip>
+						</Tip>
 						<DropdownMenuContent align="end" className="w-60">
 							{ai.ready ? (
 								<>
@@ -7310,16 +7327,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* The map toggle moved to the preview bar; only the Read stop, which has no bar, keeps
 				    it at the strip's end. */}
 				{previewChromeless && (
-					<button
+					<Tip label="Slide map — every slide as a thumbnail, in place of the slide pills"><button
 						type="button"
 						aria-label="Slide map"
 						aria-pressed={mapOn}
-						title="Slide map — every slide as a thumbnail, in place of the slide pills"
 						onClick={toggleMap}
 						className={cn('ml-auto grid size-8 shrink-0 place-items-center rounded-lg border bg-card transition-colors [@media(pointer:coarse)]:size-11', mapOn ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-[var(--text-heading)]')}
 					>
 						<GalleryVerticalEnd className="size-4" aria-hidden />
-					</button>
+					</button></Tip>
 				)}
 			</div>
 			{!previewChromeless && (
@@ -7677,7 +7693,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						    it a long deck name squeezes the meta until `7 slides` wraps to two lines
 						    and the row grows — visible the moment a deck is named by a long heading. */}
 						<span className="ml-auto flex shrink-0 items-center gap-1.5">
-							<span className="font-mono text-[11px] text-muted-foreground group-hover:hidden">{d.meta}</span>
+							<span className="font-mono text-[11px] text-muted-foreground group-hover:hidden">{d.id === deck.id ? slideCountLabel(deckIndex.partBase.at(-1) ?? 0) : <DeckSwitcherMeta id={d.id} />}</span>
 							{decks.length > 1 && (
 								<button type="button" aria-label={`Delete ${d.title}`} className="hidden rounded p-0.5 text-muted-foreground hover:text-[var(--fail,#b3261e)] group-hover:block" onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeDeck(d.id); }}><Trash2 className="size-3.5" /></button>
 							)}
@@ -7790,7 +7806,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the way in. Phones keep the sheet: its bottom-docked field is a solved keyboard problem
 	// (reported from a real device), not a stylistic difference.
 	const cmdInline = !mobile ? <CommandPalette inline {...cmdProps} /> : null;
-	const cmdPalette = mobile ? <CommandPalette {...cmdProps} /> : null;
+	const cmdPalette = mobile && cmdMounted ? <CommandPalette {...cmdProps} /> : null;
 	/**
 	 * THE ROW YIELDS ITS RIGHT-HAND SIDE WHILE THE FIELD IS OPEN (owner's call, 2026-08-17:
 	 * "we should reclaim space by hiding everything to the right").
@@ -8068,8 +8084,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    controls (Present/Share/Coach/Chat/Settings/pane toggle) moved. */}
 				{!compact && toursOn && (
 					<DropdownMenu>
-						<Tooltip>
-							<TooltipTrigger asChild>
+						<Tip label="Show me — a guided tour that drives itself">
 								<DropdownMenuTrigger asChild>
 									{/* NOT accent-colored any more. Measured, this glyph was the loudest thing in
 								    the row relative to its importance: the only saturated icon in the run (a
@@ -8081,9 +8096,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								    competing with the CTA two slots away. */}
 								<Button variant="ghost" size="icon-sm" data-demo="show-me" aria-label="Show me — guided tours" className={cn('hidden text-[var(--text-body)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] xl:inline-flex', demoActive && 'pointer-events-none invisible')}><MonitorPlay className="size-[18px]" /></Button>
 								</DropdownMenuTrigger>
-							</TooltipTrigger>
-							<TooltipContent>Show me — a guided tour that drives itself</TooltipContent>
-						</Tooltip>
+						</Tip>
 						<DropdownMenuContent align="end" className="w-64">
 							<DropdownMenuLabel>Show me…</DropdownMenuLabel>
 							{TOURS.map((t) => (
@@ -8152,7 +8165,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{mobile && (
 					<Button variant="ghost" size="icon-sm" aria-label="Menu" onClick={() => setMoreOpen(true)}><MenuIcon className="size-[18px]" /></Button>
 				)}
-				{mobile && (
+				{mobile && drawerMounted && (
 					<StudioDrawer
 						open={moreOpen}
 						hostLabel={hostLabel}
@@ -8450,20 +8463,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* ── Compact panels as sheets (tablet + mobile) ───────────── */}
 			{compact && view === 'compose' && (
 				<>
+					{coachMounted && (
 					<PanelSheet open={coachOpen} onOpenChange={setCoachOpen} side="left" width="sm">
 						<PanelHeader
 							icon={<Gauge />}
 							title="Coach"
-							srDescription="Craft and style scores, deterministic quick reads, and per-finding fixes for this deck."
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{coachBody}</div>
 					</PanelSheet>
+					)}
 					{/* Chat — its own compact drawer, a peer of the Coach (they are separate panels). */}
+					{chatSheetMounted && (
 					<PanelSheet open={chatOpen} onOpenChange={setChatOpen} side="left" width="sm">
 						<PanelHeader
 							icon={<ChatIcon />}
 							title="Chat"
-							srDescription="A conversation with the AI Architect about this deck, with reviewable edits."
 							// The chat portals its cost readout in here, rather than spending a row of its
 							// own on it directly under this header — see ArchitectChat's header note.
 							// Fluid, so a long model name truncates in the chip instead of the title.
@@ -8472,15 +8486,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBodyWith(undefined, chatCostSlot)}</div>
 					</PanelSheet>
+					)}
+					{liveSheetMounted && (
 					<PanelSheet open={liveOpen} onOpenChange={(v) => setActiveAssistant((p) => (v ? 'live' : p === 'live' ? null : p))} side="left" width="sm">
 						<PanelHeader
 							icon={<UsersRound />}
 							title="Live"
-							srDescription="Who is in this live session, the invite link, and the session chat."
 							actions={<span ref={setLiveHeaderSlot} className="flex items-center gap-2" />}
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{liveBodyWith(undefined, liveHeaderSlot)}</div>
 					</PanelSheet>
+					)}
 					{/* Reader views — its own compact sheet, a peer of the Architect.
 					    Titled "Reader views", NOT "Lenses": every entry point into this panel
 					    says "Reader views" (the drawer row, the activity-bar toggle, the
@@ -8488,6 +8504,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    set in 11px uppercase — the one treatment the drawer's own rules ban.
 					    "Lenses" survives as the internal name (`lensesBody`, `lens-picker`),
 					    which is fine; it just is not what a user is shown (#1211). */}
+					{lensesSheetMounted && (
 					<PanelSheet open={lensesOpen} onOpenChange={setLensesOpen} side="left" width="sm">
 						<PanelHeader
 							icon={<LensIcon />}
@@ -8503,14 +8520,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							// room and where it is actually needed. As a header `description` it
 							// wrapped to two lines and made this one of four different header
 							// heights in a set of surfaces that claim to share a frame.
-							srDescription="A subset of this deck for one reader — you approve exactly what they see."
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{renderLensesBody(true)}</div>
 					</PanelSheet>
+					)}
 					{/* Settings Sheet — MOBILE only. Same Slide-first segment + scope echo +
 					    active body as the desktop/tablet column, just wrapped in a Sheet
 					    (no room for a docked column). One source of truth: inspectorScopeContent. */}
-					{mobile && (
+					{mobile && inspectorSheetMounted && (
 						// PERSISTENT for the deck body's preview pool: kept mounted between opens, as Add
 						// slide is (ui/persistent-surface.tsx), and frozen while closed.
 						<PanelSheet open={inspectorOpen} onOpenChange={setInspectorOpen} width="md" persistent>
@@ -8518,7 +8535,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							<PanelHeader
 								icon={<Settings2 />}
 								title="Settings"
-								srDescription="Slide-first settings: switch between this slide's overrides and deck-wide defaults."
 							/>
 							{/* No outer overflow: the scope body owns its own scroll region (like the
 							    desktop column), so the sheet never nests two scrollbars. */}
@@ -8535,7 +8551,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={ownFinishClass} finishExtraCss={ownFinishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={ownPreview.paletteOverride ?? palette} mode={ownPreview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={ownPreview.extraTheme} extraCss={exportExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={settingsWrite} />}
 				</PanelLoader>
 			)}
-			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />
+			{feedbackMounted && <FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />}
 			{/* The crash report — mounted only once there IS one, so a healthy session
 			    pays nothing for it. Opened from the boot toast, and from Workspace →
 			    Diagnostics via the `lattice:open-crash-report` event. */}
@@ -8549,11 +8565,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    so it lives in its own sheet off the top bar rather than in the inspector
 			    (which is now settings-only). Restore stays always-visible (not hover-only)
 			    so it works on touch. */}
+			{historyMounted && (
 			<PanelSheet open={historyOpen} onOpenChange={setHistoryOpen} side="right" width="sm">
 				<PanelHeader
 					icon={<History />}
 					title="Version history"
-					srDescription="Snapshots you can restore. One is captured automatically before each AI edit."
 				/>
 				{/* The zero state OWNS the empty panel rather than floating at the top of it,
 				    and it carries the lede the header used to. Measured before this change:
@@ -8584,6 +8600,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</PanelBody>
 				)}
 			</PanelSheet>
+			)}
 			{/* Compact (tablet/mobile): Library is the right Sheet. Desktop-Craft renders it
 			    docked in the assistant slot instead (above), so the sheet is compact-only.
 			    Gated on the compose view like its Architect/Lenses sheet peers, so it never
@@ -8647,8 +8664,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					/>
 				</React.Suspense>
 			)}
-			<SlidePicker open={insertOpen} onOpenChange={(o) => { setInsertOpen(o); if (!o) setInsertTarget(null); }} placement={insertTarget ? `${insertTarget.side} ${insertTarget.name}` : undefined} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
-			<SlidePicker open={!!paneReq} onOpenChange={(v) => !v && setPaneReq(null)} items={paneItems} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onPanePick} pane={paneReq ? { where: paneReq.where, current: paneReq.current, fit: paneReq.fit } : undefined} />
+			{insertMounted && <SlidePicker open={insertOpen} onOpenChange={(o) => { setInsertOpen(o); if (!o) setInsertTarget(null); }} placement={insertTarget ? `${insertTarget.side} ${insertTarget.name}` : undefined} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />}
+			{paneMounted && <SlidePicker open={!!paneReq} onOpenChange={(v) => !v && setPaneReq(null)} items={paneItems} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onPanePick} pane={paneReq ? { where: paneReq.where, current: paneReq.current, fit: paneReq.fit } : undefined} />}
 			{/* Hidden file input for "Import deck…". The list names extensions AND types: iOS
 			    Files grays out anything `accept` does not name, and `.lattice` has no
 			    registered type. What each format means is deck-import.ts's job. */}
@@ -8719,6 +8736,16 @@ function ArchCard({ tag, title, children, demo }: { tag: React.ReactNode; title:
 // The slide menu's icons that the palette rows below load anyway (components/studio/strip-actions `icons`); the menu brings its own two
 // for the New slide items, which nothing eager uses.
 const STRIP_ICONS = { duplicate: Copy, 'move-before': ArrowLeftToLine, 'move-after': ArrowRightToLine, hide: EyeOff, delete: Trash2 } as const;
+/**
+ * A saved deck's `N slides` label in the deck switcher. A component, not an inline call, on
+ * purpose: StudioShell builds the switcher's rows as JSX on every render, closed or open, and
+ * an inline `deckMetaFor(d.id)` ran there each time (~10 ms over a phone's boot, measured).
+ * As a component it runs only when the open menu renders the row.
+ */
+function DeckSwitcherMeta({ id }: { id: string }) {
+	return <>{deckMetaFor(id)}</>;
+}
+
 const ShortcutsDialog = React.lazy(() => import('@/components/studio/strip-actions/shortcuts').then((m) => ({ default: m.ShortcutsDialog })));
 function InspGroup({ icon, label, desc, find, last, children }: { icon: React.ReactNode; label: string; desc?: string; find?: string; last?: boolean; children: React.ReactNode }) {
 	const hit = useSettingsHit(label, desc, find);
