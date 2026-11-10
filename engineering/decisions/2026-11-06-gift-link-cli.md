@@ -157,6 +157,19 @@ gift-cards revoke [--label …]     # delete a batch's keys at OpenRouter
 - When the cap is reached, the chat says so kindly and offers the existing OpenRouter sign-in,
   so the person keeps their decks and continues on their own account.
 
+**Built (2026-11-10).** `docs/src/pages/gift.astro` is the route: static HTML and one small
+script, no React and no engine, because it is the first page a visitor sees, often on a phone.
+It clears the fragment before doing anything else, asks for the PIN when the link is locked,
+asks before replacing an OpenRouter key the browser already holds, and stores without checking
+the key with OpenRouter (a fresh key may still be activating). Opening the Studio then needs
+nothing more: on a browser with no AI record yet, `migrateChat` in
+`docs/src/lib/model-selection.js` sets chat to OpenRouter when an OpenRouter key is stored. A
+second link opened in the same tab changes only the hash, so the page listens for `hashchange`.
+The "Have a gift link?" box is the existing OpenRouter key field in Workspace › AI, which now
+takes a whole link too (`saveProviderKey` in `docs/src/components/studio/api-key.ts`); a
+PIN-locked link sends the author to the link itself, where the page asks for the PIN. The
+"cap reached" message is not built yet: it is an existing OpenRouter 402 path, left as it is.
+
 ## 7. Open decisions
 
 | Decision | Options | Recommendation |

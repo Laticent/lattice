@@ -4,6 +4,7 @@
 // Its own module, imported only by ApiKeyPanel (inside the lazily loaded Workspace sheet), so the
 // Studio's first load does not carry it (docs/route-budget.json).
 
+import { decodeGift, extractGiftToken, GiftLinkError } from '../../../../lib/core/gift-link.mjs';
 import { architectModel, type CloudProvider } from './architect';
 import { guessProvider, KEY_PROVIDER_INFO } from './key-providers';
 
@@ -21,8 +22,19 @@ export async function saveProviderKey(provider: CloudProvider, raw: string): Pro
 	// A key copied from a chat or a PDF can carry a line break or a zero-width character, which
 	// `fetch` refuses in a header before any request leaves, and that used to read as "could not
 	// reach OpenRouter". Strip every whitespace and invisible character, then check the shape.
-	const key = raw.replace(/[\s​-‍⁠﻿]/g, '');
+	let key = raw.replace(/[\s​-‍⁠﻿]/g, '');
 	if (!key) return { ok: false, note: 'Paste a key first.' };
+	// "Have a gift link?" (2026-11-06-gift-link-cli.md §6): the OpenRouter field takes a whole gift
+	// link too, read by the same codec the CLI wrote it with. A PIN-locked link needs its PIN, which
+	// the /gift page asks for, so this field sends the author there instead of growing a PIN box.
+	if (provider === 'openrouter' && extractGiftToken(key)) {
+		try {
+			key = (await decodeGift(key)).key;
+		} catch (e) {
+			if (e instanceof GiftLinkError && e.code === 'pin-required') return { ok: false, note: 'This gift link is locked with a PIN. Open the link in this browser, and the page will ask for the PIN.' };
+			return { ok: false, note: e instanceof GiftLinkError ? e.message : 'That gift link could not be read.' };
+		}
+	}
 	const looks = guessProvider(key);
 	if (looks && looks !== provider) return { ok: false, note: `That looks like ${/^[AEIOU]/.test(KEY_PROVIDER_INFO[looks].label) ? 'an' : 'a'} ${KEY_PROVIDER_INFO[looks].label} key — add it on the ${KEY_PROVIDER_INFO[looks].label} row.` };
 	if (!info.shape.test(key)) return { ok: false, note: info.shapeNote };

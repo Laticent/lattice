@@ -67,6 +67,7 @@ const ROUTES = [
 	'/',
 	'/features/',
 	'/comparison/',
+	'/gift/',
 	'/components/',
 	'/components/anchor/title/',
 	'/getting-started/',

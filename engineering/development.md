@@ -1029,6 +1029,7 @@ cache). Flags: `--width`/`--height`, `--full` (full-page), `--wait <css>`
 | --- | --- |
 | Landing | `http://127.0.0.1:4321/` |
 | Studio | `…/studio/` |
+| Gift link landing (key in the fragment; build one with `lib/core/gift-link.mjs`) | `…/gift/#v1.…` |
 | Playground | `…/playground/` |
 | Components index | `…/components/` |
 | Libraries hub / a demo / its Learn page | `…/libraries/` · `…/libraries/suono/` · `…/libraries/suono/learn/` |
