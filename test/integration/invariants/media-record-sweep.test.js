@@ -32,11 +32,13 @@ test('every size, frame and show= stays in order, on the slide, under a still he
   const r = spawnSync(process.execPath, [path.join(ROOT, 'dist/lattice.js'), deck, html, '-q'], { cwd: ROOT, encoding: 'utf8', timeout: 240000, env: { ...process.env, CHROME_PATH: resolveChrome() } });
   assert.equal(r.status, 0, r.stderr);
 
-  const { chromium } = require('playwright');
-  const browser = await chromium.launch({ executablePath: resolveChrome() });
+  // Puppeteer, as the other integration tests drive Chromium (Playwright is not a root dependency in CI).
+  const puppeteer = require('puppeteer');
+  const browser = await puppeteer.launch({ headless: 'new', executablePath: resolveChrome(), args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   try {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-    await page.goto(`file://${html}`);
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.goto(`file://${html}`, { waitUntil: 'load' });
     await page.waitForFunction(() => [...document.images].every((i) => i.complete));
     const measure = () => page.evaluate(() => [...document.querySelectorAll('section[data-lattice-slide], section[id]')].filter((s) => s.querySelector('figure.lat-media')).map((s) => {
       const sec = s.getBoundingClientRect();
