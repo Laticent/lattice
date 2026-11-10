@@ -101,6 +101,10 @@ fixed     — 2026-11-10, the Studio startup PR, test-only (no app change), each
             after under 6 workers: scenarios/consultant-rebrand.spec.ts:39 read `--accent` once just after boot, when
             the boot's second render now patches the slide (it polls and keeps the polled value), and
             saved-finish-export.spec.ts (the print case) pressed Escape again on a sheet already closing.
-            Seven others failed only under load on BOTH builds, 6 loaded runs each, main against the PR:
-            export-photo-size:26 5 and 5, restyle-overlap:113 1 of 16 and 1 of 16, deck-drop-import:234 1 and 0,
-            present-beat:231 1 and 0, lenses:21 0 and 0 (it failed once in the full run). Not investigated.
+            restyle-overlap.spec.ts was a third: its reference step returned '' while a sheet swap was in flight,
+            which passed `not.toBe(from)`, and then read the old palette. The PR's restyle-after-wait made the window
+            wider: 24 loaded runs per case (desktop 6 workers, webkit-phone 4), main 0 and 1 of 48, the PR 4 and 3,
+            and 24 and 24 of 24 after the poll kept its own value and required a real accent.
+            Four others failed only under load on BOTH builds, 6 loaded runs each, main against the PR:
+            export-photo-size:26 5 and 5, deck-drop-import:234 1 and 0, present-beat:231 1 and 0, lenses:21 0 and 0
+            (it failed once in the full run). Not investigated.
