@@ -131,7 +131,7 @@ test.describe('compose images', () => {
 		await expect(panel(page).getByRole('textbox', { name: 'Description' })).toHaveCount(0);
 		await expect(panel(page).getByRole('radio', { name: 'Placement: Right side' })).toHaveAttribute('aria-checked', 'true');
 		await panel(page).getByRole('radio', { name: 'Placement: Left side' }).click();
-		await expect.poll(() => savedDeck(page)).toBe(ONE.replace('<!-- _class: content -->', '<!-- _class: image mirror -->').replace('![bg right:40% blur](asset:forest "Pines at dusk")', '![Pines at dusk](asset:forest "Pines at dusk")'));
+		await expect.poll(() => savedDeck(page)).toBe(ONE.replace('<!-- _class: content -->', '<!-- _class: image mirror -->').replace('![bg right:40% blur](asset:forest "Pines at dusk")', '![Pines at dusk](asset:forest)'));
 		await expect(page.locator('.cs-img-badge')).toHaveText(/^Panel · Left$/);
 		// The preview draws it as the slide's photo panel, on the left.
 		await expect(livePreview(page).locator('section.image .lattice-bg-left[data-lattice-media="image"]').first()).toBeAttached({ timeout: 30_000 });

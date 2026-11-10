@@ -558,7 +558,6 @@
     },
     "/--+>/g": "polynomial",
     "/--+>?/g": "safe",
-    "/-->\\s*$/": "safe",
     "/--?[A-Za-z][\\w-]*/": "safe",
     "/--[\\w-]*weight[\\w-]*\\s*:\\s*(\\d{1,4})\\b/gi": "polynomial",
     "/--[a-z0-9-]+/gi": "safe",

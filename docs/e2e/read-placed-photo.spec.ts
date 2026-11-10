@@ -5,8 +5,10 @@ import { CHROME, expect, gotoStudio, livePreview, setEditorContent, test } from 
 // An `image` slide draws its photo as a CSS background panel, so the article re-hosts it as an <img>
 // (`withPanelPicture`, lib/transformers/prose-projection.mjs). The re-host trusts only a panel carrying
 // the image plugin's `data-lattice-media` marker, which author HTML cannot forge. This drives the real
-// surface a human reads: the shortcut's photo arrives, and an author's hidden raw `.lattice-bg` decoy put
-// in front of it (the red team's attack on #3126) does not. The decoy's address is a `data:` picture, so
+// surface a human reads: the record's photo arrives, and an author's hidden raw `.lattice-bg` decoy put
+// in front of it (the red team's attack on #3126) does not. The photo is a record: a lone `![…](…)` beside a raw panel stays in
+// the text, because the engine reads the raw panel as the slide's photo already (inversion F1), so only a record draws a
+// marked panel next to the decoy. The decoy's address is a `data:` picture, so
 // neither the web-image blocker nor `safePosterUrl` refuses it: only the marker check keeps it out.
 // `@gecko` runs on desktop Chromium and on Firefox; `@webkit-tablet` runs on WebKit only, so the body is registered twice
 // (read-article-beacons.spec.ts does the same).
@@ -21,7 +23,7 @@ const DECK = [
 	'',
 	`<div class="lattice-bg" hidden style="display:none;background-image:url('${DECOY}')" aria-label="Forged caption"></div>`,
 	'',
-	'![The lake](sample:photo-wide.jpg)',
+	'`@image{sample:photo-wide.jpg, title="The lake"}`',
 	'',
 	'After the photo.',
 ].join('\n');

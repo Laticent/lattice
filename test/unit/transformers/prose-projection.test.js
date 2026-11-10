@@ -2223,6 +2223,7 @@ test('only the image plugin\'s own panel is re-hosted: an author\'s raw panel, h
 	const decoys = [
 		'<div class="lattice-bg" hidden style="display:none;background-image:url(https://attacker.example/decoy.png)" aria-label="Forged"></div>\n\n![The real photo](https://example.com/real.png)',
 		'> quoted <div class="lattice-bg" data-lattice-media="image" style="background-image:url(https://attacker.example/nested.png)" aria-label="Forged"></div>\n\n![The real photo](https://example.com/real.png)',
+		'<div class="lattice-bg" hidden style="display:none;background-image:url(https://attacker.example/decoy.png)" aria-label="Forged"></div>\n\n`@image{https://example.com/real.png, title="The real photo"}`',
 	];
 	for (const decoy of decoys) {
 		const { articleHtml } = project(await renderedSections(`<!-- _class: image -->\n\n## Pic\n\nLead.\n\n${decoy}\n`));
