@@ -1,12 +1,13 @@
 // Measure Studio reload time against accumulated client-side storage.
 // Reproduces engineering/decisions/2026-11-11-studio-storage-pointer-records.md §2. Needs `npm run build:e2e`
 // then `npm run preview:e2e` running in docs/. Writes bench-x<throttle>.json to the current directory.
-// usage: node storage-bench.cjs [reloads] [cpuThrottle]
+// usage: node storage-bench.cjs [reloads] [cpuThrottle] [scenario,scenario...]
 const { chromium } = require('playwright');
 const fs = require('fs');
 const BASE = 'http://localhost:4321';
 const RELOADS = +(process.argv[2] || 7);
 const THROTTLE = +(process.argv[3] || 1);
+const ONLY = process.argv[4] ? process.argv[4].split(',') : null;
 const DECK = fs.readFileSync('/home/user/lattice/test/integration/baseline-decks/gallery.md', 'utf8'); // ~60 KB
 
 const SCENARIOS = {
@@ -27,7 +28,8 @@ async function seed(page, s) {
 				for (let i = 0; i < s.decks; i++) {
 					const id = `bench-${i}`;
 					extra.push({ id, title: `Bench ${i}` });
-					localStorage.setItem(`lattice-studio-src-${id}`, `${DECK}\n<!-- ${i} -->\n`);
+					// stored the way studio-store write() stores it: JSON-encoded
+					localStorage.setItem(`lattice-studio-src-${id}`, JSON.stringify(`${DECK}\n<!-- ${i} -->\n`));
 					if (s.chats) {
 						const msgs = Array.from({ length: s.chats }, (_, k) => ({ role: k % 2 ? 'assistant' : 'user', content: 'x'.repeat(600) + k }));
 						localStorage.setItem(`lattice-studio-chat-${id}`, JSON.stringify(msgs));
@@ -65,7 +67,7 @@ async function seed(page, s) {
 				const g = c.getContext('2d');
 				const tx0 = [];
 				for (let i = 0; i < s.photos; i++) {
-					// noisy image so JPEG stays ~300-800 KB
+					// noisy image: about 1 MB of JPEG each
 					const img = g.createImageData(1600, 1200);
 					for (let p = 0; p < img.data.length; p += 4) {
 						img.data[p] = (Math.random() * 255) | 0;
@@ -122,6 +124,7 @@ const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
 	const browser = await chromium.launch();
 	const results = {};
 	for (const [name, s] of Object.entries(SCENARIOS)) {
+		if (ONLY && !ONLY.includes(name)) continue;
 		const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 		await ctx.addInitScript(() => {
 			window.__lt = [];

@@ -1,162 +1,139 @@
 ---
 status: proposed
 summary: >
-  Why a Studio reload slows down as a profile fills up, measured, and the storage design that fixes it. The cause is
-  version history: opening any deck reads every saved version of every deck from IndexedDB (`hydrateCheckpoints`
-  `getAll()`), and each version is a full copy of the deck, so a phone-speed boot with 40 decks went from 2.5 s to
-  3.5 s to the first slide and +80 MB of memory. Photos (Blobs) and deck text in localStorage cost nothing measurable.
-  The design: every stored deck and version becomes a small METADATA record that holds a POINTER to its text; texts
-  live in a separate store, keyed by their SHA-256, so identical texts are stored once; decks, versions and texts share
-  one IndexedDB database so one transaction can keep a record and its text in step. Boot reads metadata plus one text.
-  localStorage keeps only what must be synchronous: the open deck's latest text (the `pagehide` save) and the small
-  mirror the pre-paint shell reads. Bulk scans run in a worker; the boot read and the `pagehide` save stay on the main
-  thread. No IndexedDB library (`idb` is 1.4 KB gzip and changes no speed); no diff format for versions (Filo slice 6
-  turns versions into marks). Ships in two PRs: versions first, then decks. Also records a live defect: `saveSource`
-  swallows a full-quota error, so deck edits can be lost without a word.
+  Why a Studio reload slows down as a profile fills up, measured and profiled, and what to change. Two costs grow with
+  use. (1) Version history: opening any deck reads every saved version of every deck from IndexedDB
+  (`hydrateCheckpoints` `getAll()`), each a full copy of its deck; with 40 decks x 25 versions a phone-speed boot goes
+  from 2.7 s to 3.8 s to the first slide. (2) The deck list: every boot reads and JSON-parses every deck's whole text
+  from localStorage and scans it for a title, although the deck list already stores each title; 40 decks add about
+  250 ms. Photos (Blobs in IndexedDB) cost nothing. A first draft proposed content-addressed metadata-plus-pointer
+  records for decks and versions; the adversarial trio showed the measured costs are fixed by reading less, that content
+  addressing saves almost nothing here (`saveCheckpoint` already skips an unchanged version) while adding the only
+  path that can silently delete text, and that versions move again in Filo slice 6. Recommended now: report a failed
+  deck save (a live silent-loss defect), read only the open deck's versions, and take deck titles from the deck list.
+  Moving deck text out of localStorage waits for evidence that users reach its quota; the pointer design and the
+  trio's constraints on it are kept for that day. No IndexedDB library; no diff format for versions.
 ---
 
-# Studio storage: metadata records with a pointer to their text
+# Studio storage: what slows a full profile down, and the smallest fix
 
-**Date:** 2026-11-11 · **Status:** PROPOSED (design; nothing built)
+**Date:** 2026-11-11 · **Status:** PROPOSED (design; nothing built) · **Scope decision:** open, see §9
 **Trigger:** the owner: "when there is lots of stuff in IndexedDB and the cache, load time slows down; with private
-browsing it's snappy. Audit and measure. Are we storing things efficiently?" Then, over the same conversation: should
-we use `idb`; should versions be diffs; should decks move out of localStorage as metadata plus content; and what should
-leave the main thread. The owner proposed the pattern this note adopts: "metadata plus a pointer to a location in the
-same record."
+browsing it's snappy. Audit and measure. Are we storing things efficiently?" Then, in the same conversation: should we
+use `idb`; should versions be diffs; should decks move out of localStorage as metadata plus content (the owner proposed
+"metadata plus a pointer to a location in the same record"); what should leave the main thread.
 
-Builds on `2026-07-21-storage-accumulation-diagnostic.md` (the localStorage half of the same symptom, fixed in #1930)
-and `2026-10-27-filo-undo-history.md` (slice 0 moved versions into IndexedDB; slice 6 turns them into marks).
+Builds on `2026-07-21-storage-accumulation-diagnostic.md` (the first round of the same symptom, fixed in #1930) and
+`2026-10-27-filo-undo-history.md` (slice 0 moved versions into IndexedDB; slice 6 turns them into marks).
 
 ## 1. The answer
 
-Accumulated storage does slow a reload, and one store is responsible: **version history**. Opening any deck calls
-`readCheckpoints`, which starts `hydrateCheckpoints()` (`docs/src/components/studio/checkpoint-store.ts:476`). That
-runs `getAll()` on the whole versions database, so every saved version of every deck is deserialized into memory before
-the first slide. Each version is a full copy of its deck, up to 25 per deck (`SNAP_CAP`). The cost grows with
-decks x versions, which is the "slower over time" the owner saw. A private window starts with an empty database and
-never pays it.
+Accumulated storage does slow a reload, through two pieces of code, not through IndexedDB or the cache as such:
+
+1. **Version history reads everything.** Opening any deck calls `readCheckpoints`, which starts
+   `hydrateCheckpoints()` (`docs/src/components/studio/checkpoint-store.ts:476`). It runs `getAll()` with no range
+   (`:489`), so every saved version of every deck is copied into memory before the first slide. Each version is a full
+   copy of its deck, up to 25 per deck (`SNAP_CAP`).
+2. **The deck list reads every deck's text.** `loadDeckList()` (`studio-store.ts:385`) calls `loadSource` for every
+   deck, which reads and `JSON.parse`s the whole text from localStorage, then `titleFromSource` scans it for a heading.
+   The deck list row already carries the resolved title (`IndexEntry.derived`, `:295`), and the boot calls
+   `loadDeckList` more than once (`StudioShell.tsx:488` and others).
+
+Both grow with decks x size, which is the "slower over time" the owner saw. A private window starts empty and pays
+neither.
 
 ## 2. Measurements
 
-Chromium (Playwright's bundled build) against the built Studio (`npm run build:e2e`, served by `npm run preview:e2e`),
-1440x900. Each scenario gets a fresh browser context: visit once so the app creates its databases, seed, reload once
-to warm the service worker and HTTP cache, then time N reloads from navigation to the first slide root painted with
-content inside the live preview. "Blocked" is the sum of main-thread long tasks (over 50 ms) up to that paint. Decks
-are `test/integration/baseline-decks/gallery.md` (60 KB). Photos are 1600x1200 noisy JPEGs (about 1 MB each), stored
-the way `media-store.ts` stores them. The script is `2026-11-11-studio-storage-pointer-records/storage-bench.cjs`.
+**Method.** Chromium (Playwright's bundled build) against the built Studio (`npm run build:e2e`, then
+`npm run preview:e2e` in `docs/`), 1440x900, 4x CPU throttle through the DevTools protocol (phone-like). Each scenario
+gets a fresh browser context: visit once so the app creates its databases, seed, reload once to warm the service worker
+and HTTP cache, then time each reload from navigation to the first slide root painted with content in the live
+preview. "Blocked" is the sum of main-thread long tasks (over 50 ms) up to that paint. "Heap" is
+`performance.memory.usedJSHeapSize` 3 s after paint, a single noisy sample per reload. Decks are
+`test/integration/baseline-decks/gallery.md` (60 KB), stored JSON-encoded the way `write()` stores them. Photos are
+1600x1200 noisy JPEGs, about 1 MB each, stored as `media-store.ts` stores them. Script:
+`2026-11-11-studio-storage-pointer-records/storage-bench.cjs` (`node storage-bench.cjs <reloads> <throttle>
+[scenarios]`).
 
-**4x CPU throttle (phone-like), 5 reloads, medians:**
+**Results, 5 reloads, medians:**
 
-| Stored | Origin usage | First slide | Blocked | JS heap |
+| Stored | Origin usage | First slide | Blocked | Heap |
 |---|---|---|---|---|
-| Nothing (as private browsing) | ~4 MB | 2,538 ms | 960 ms | 97 MB |
-| 40 decks in localStorage | 4.8 MB in localStorage | 2,267 ms | 883 ms | 97 MB |
-| **40 decks + 25 versions each** | 41 MB | **3,548 ms** | **1,225 ms** | **177 MB** |
-| 60 photos | 67 MB | 2,470 ms | 896 ms | 64 MB |
-| All of the above + 60 chat messages per deck | 109 MB | 2,892 ms | 1,378 ms | 212 MB |
+| Nothing (as private browsing) | 3.8 MB | 2,487 ms | 812 ms | 68 MB |
+| 40 decks | 5 MB in localStorage | 2,702 ms | 1,106 ms | 116 MB |
+| **40 decks + 25 versions each** | 41 MB | **3,759 ms** | **1,628 ms** | **199 MB** |
+| 60 photos | 68 MB | 2,405 ms | 801 ms | 64 MB |
+| All of the above + 60 chat messages per deck | 106 MB | 3,120 ms | 1,463 ms | 212 MB |
 
-**No throttle, 7 reloads, medians:** first slide 1,020 / 989 / 1,045 / 975 / 1,078 ms in the same order; blocked
-65 / 73 / 255 / 74 / 212 ms. On a fast desktop the paint barely moves but the page stays busy longer.
+Two further runs of the first two rows, 9 reloads each: 2,373 vs 2,589 ms and 2,327 vs 2,619 ms first slide; 815 vs
+1,156 ms and 817 vs 1,136 ms blocked.
 
-Reading the table:
+Reading it:
 
-- **Versions are the cost.** Rows 2 and 3 differ only in the versions. The +80 MB of heap matches the 60 MB of version
-  text seeded (40 x 25 x 60 KB), held in memory as the cache.
-- **Photos are free at boot.** A Blob read from IndexedDB is a handle; its bytes are read only when something uses
-  them. 58 MB of photos changed nothing.
-- **Deck text in localStorage is free at this size,** up to 7.8 MB with chats. Its problem is space (§3), not speed.
-- **Run-to-run spread is wide under throttle** (row 3: 2,820 to 5,018 ms). The medians are the claim; the direction
-  held in both the throttled and the unthrottled run.
+- **Versions cost about 1 s at phone speed** (rows 2 to 3), +500 ms blocked and +80 MB heap: the version cache holds
+  1,000 full deck texts.
+- **40 decks cost about 250 ms** (rows 1 to 2, three runs agree), +330 ms blocked. A CPU profile of one reload
+  (unthrottled) puts the new self time in `studio-store`'s `read` (`getItem` + `JSON.parse`, 30 ms) and `headingText`
+  (16 ms), plus 40 ms more garbage collection: the §1 #2 path.
+- **Photos are free at boot.** A Blob read from IndexedDB is a handle; its bytes are read only when used.
+- **Spread is wide under throttle** (row 3: 2,812 to 5,365 ms). Medians are the claim; rows 1 and 2 were repeated
+  because their gap is near the noise.
 
-**Not measured:** Filo's undo history (seeding a realistic history synthetically is awkward; it reads only the open
-deck, by design); the service worker cache (held warm and equal across scenarios, not varied; #1930 already made its
-`put()` cheaper); WebKit and Firefox; a real phone. The PRs below re-run this script before and after (HARD RULE #19)
-and add WebKit.
+**Correction.** The first run of this benchmark stored deck text as raw markdown. `read()` failed to `JSON.parse` it and
+returned null, so the app never read those decks, and the draft concluded "deck text in localStorage costs nothing".
+The checker caught it; the table above is the corrected run.
+
+**Not measured:** Filo's undo history (reads only the open deck by design); the service worker cache (warm and equal
+across scenarios, not varied); WebKit and Firefox (the script's throttle, `performance.memory` and long-task observer
+are Chromium-only); a real phone.
 
 ## 3. What is stored where today
 
 | Data | Where | Shape | Read at boot |
 |---|---|---|---|
-| Deck list | localStorage `lattice-studio-deck-index` | `[{id, title, derived?, builtin?}]` | Yes, and by the pre-paint shell |
-| Deck text | localStorage `lattice-studio-src-<id>` | Whole text, JSON string | Open deck, and by the pre-paint shell |
-| Versions | IndexedDB `lattice-studio-versions` / `checkpoints` | `{deckId, id, ts, label, source}`, full text each | **Every deck's, every version** |
-| Undo history | IndexedDB `lattice-filo` | Snapshot of patches per deck, 50 MB budget | Open deck only |
-| Photos, videos, themes, reference PDFs | IndexedDB `lattice-workbench` / `assets` | Record with a Blob | Only by kind, when needed |
-| Chats, drafts, comments, settings | localStorage | JSON per deck / per setting | Settings yes |
-| Narration audio | IndexedDB (`narration-store.js`) | Blob + metadata store | No |
+| Deck list | localStorage `lattice-studio-deck-index` | `[{id, title, builtin, derived?, restored?}]` | Yes, and by the pre-paint shell |
+| Deck text | localStorage `lattice-studio-src-<id>`, JSON string; absent means "unedited" | Whole text | **Every deck's** (§1 #2); the open deck's also by the pre-paint shell |
+| Versions | IndexedDB `lattice-studio-versions` / `checkpoints` | `{deckId, id, ts, label, source}`, full text each | **Every deck's, every version** (§1 #1) |
+| Undo history | IndexedDB `lattice-filo` | Patches per deck, 50 MB budget | Open deck only |
+| Photos, videos, themes, reference PDFs | IndexedDB `lattice-workbench` / `assets` | Record with a Blob | By kind, when needed |
+| Chats, drafts, comments, settings | localStorage | JSON per deck or setting | Settings |
+| Narration audio | IndexedDB (`narration-store.js`) | Blob + metadata | No |
 
-**localStorage is full sooner than it looks.** Chromium and Firefox allow about 5.2 M characters per origin; WebKit
-holds half that once a string has any non-Latin-1 character (`2026-10-27-filo-undo-history.md` §1 #6, measured).
-Every deck, chat and setting shares it. In Safari and in the Tauri app's WebKit webview, a few dozen gallery-size decks
-fill it.
+**localStorage space.** Chromium and Firefox allow about 5.2 M characters per origin; WebKit holds half that once a
+string has any non-Latin-1 character (`2026-10-27-filo-undo-history.md` §1 #6, measured). Every deck, chat and setting
+shares it. This is a calculation for heavy users, not an observed report.
 
-**A live defect follows from that.** `saveSource` (`studio-store.ts:350`) calls `write()`, which catches the
-`QuotaExceededError` and returns `false`; `saveSource` ignores the result. When localStorage is full, a deck edit is
-not saved and nothing tells the author. Versions had the same silent-loss bug until slice 0 moved them to IndexedDB
-and reported the failure (`StudioShell.tsx:5584`). §8 handles it.
+**A live defect.** `saveSource` (`studio-store.ts:350`) calls `write()`, which catches `QuotaExceededError` and returns
+`false` (`:41-48`); `saveSource` ignores it. When localStorage is full, a deck edit is not saved and nothing tells the
+author. Version saves report the same failure (`StudioShell.tsx:5584`).
 
-## 4. The design: a metadata record that points at its text
+## 4. Recommended changes
 
-```
-database lattice-studio (one IndexedDB database, one upgrade handler)
+Ordered by what each protects or unblocks.
 
-  decks     { id, title, derived, size, slides, bytes, updatedAt,
-              body: { where: 'idb', key: 'sha256:9f2c...' } }
-  versions  { deckId, id, ts, label, slides, bytes,
-              body: { where: 'idb', key: 'sha256:41ab...' } }        keyPath [deckId, id]
-  bodies    { key: 'sha256:9f2c...', text: '---\ntheme: ...' }        keyPath key
-```
+1. **Report a failed deck save.** `saveSource` returns the failure and the Studio shows the same sticky notice
+   versions use. Small, and it closes a silent-loss path that exists today.
+2. **Read only the open deck's versions (PR A).** `hydrateCheckpoints` reads `getAll(deckRange(deckId))` for the open
+   deck (the range query already exists, `checkpoint-store.ts:201`, used at `:211` and `:285`); other decks load when
+   opened. `checkpointBytes`, backup and Clear all read everything on demand, off the boot path; the legacy
+   localStorage migration runs at idle, in batches. Store `slides` on each version so the version list stops parsing
+   every version's text (`metaFor(cp.source)`, `StudioShell.tsx:8613`). No new database, no schema change beyond an
+   optional field. Done when, with this script, rows 2 and 3 of §2 agree within the spread of repeated row-1/row-2 runs
+   on first slide, blocked time and heap.
+3. **Take deck titles from the deck list.** `loadDeckList` uses `IndexEntry.derived`, already kept current by
+   `syncDerivedTitle` (`:540`), and reads a deck's text only when something asks for it; a row without `derived` reads
+   its text once and backfills it. Done when row 2 of §2 matches row 1 within the same spread.
+4. **Warn before the quota, then decide on moving decks.** The Privacy & Data tab already measures local storage; it
+   warns past 80% of the origin's localStorage allowance. Moving deck text to IndexedDB (§6) waits for evidence that
+   users get near it. Moving chats first is the cheaper relief: nothing reads them before paint or on `pagehide`.
 
-What each part buys:
+Filo slice 6 then turns versions into marks, which retires the version store. Item 2 deliberately keeps the existing
+store so that user data migrates once, in slice 6, not twice.
 
-- **Listing reads metadata only.** The deck switcher and the version list read small records. A text is read when a
-  deck opens or a version is restored or previewed. The version list today shows each version's slide count by
-  parsing its full text (`metaFor(cp.source)`, `StudioShell.tsx:8613`); `slides` is computed once at save and stored.
-- **`where` makes the location swappable.** `'idb'` now. The Tauri app can implement the same interface with real
-  `.md` files on disk (`where: 'file'`), and OPFS stays available if a case for it appears. The Studio follows the
-  pointer and does not care where it leads.
-- **A content hash as the key stores identical texts once.** An unchanged version, a restored version, a duplicated
-  deck and a deck at the same text as its latest version all point at one body. Restoring a version moves a pointer.
-  SHA-256 through `crypto.subtle`, not Filo's existing 32-bit sum (`saveSourceSum`), because two texts sharing a key
-  would silently swap one deck's content for another's.
-- **One database, so one transaction.** A record and its body are written in the same `readwrite` transaction over
-  `decks`/`versions` + `bodies`; neither can exist without the other. The body `put` is unconditional (same key, same
-  text: idempotent), so a writer never skips it on the belief that it is already there.
-- **Text stays a string, not a Blob.** A Blob pays off when a listing should not read the bytes, as with photos. Here
-  the listing already avoids the bodies store, and a deck is always read whole when opened.
+## 5. Questions the owner asked, answered
 
-**Why not OPFS for the text.** OPFS (the Origin Private File System) suits large binary data and SQLite. Its files
-cannot share a transaction with an IndexedDB record, so a crash between the two writes leaves them out of step, and
-its synchronous API exists only in workers. For 60 KB texts, IndexedDB gives the same capacity with transactions.
-
-### 4.1 Cleanup of unreferenced bodies
-
-With shared bodies, deleting a deck or a version cannot delete its body; another record may point at it. An idle-time
-sweep removes bodies no record references. It runs as **one `readwrite` transaction over `decks`, `versions` and
-`bodies`**, so it cannot interleave with a save in another tab: IndexedDB runs read-write transactions with
-overlapping scope one at a time, in creation order. A save that commits first is seen by the sweep; a save that starts
-after re-writes its body (the unconditional `put`). The sweep never runs at boot.
-
-### 4.2 What stays in localStorage, and why
-
-Two readers need deck data **synchronously**, and only localStorage is synchronous on the main thread:
-
-1. **The `pagehide` save.** The Studio writes the open deck in one synchronous call when the tab hides, so the last
-   keystrokes survive an iOS tab kill (`StudioShell.tsx` flush, and Filo's sidecar in
-   `2026-10-27-filo-undo-history.md` §5). An IndexedDB write started on `pagehide` may never finish.
-2. **The pre-paint shell.** An inline script in `docs/src/pages/studio.astro:603-630` reads the active deck id, its
-   title from the deck list, and its text (for `size:`) before the app loads, to paint the frame at the right size
-   with the right name.
-
-So localStorage keeps a **boot record**: `{ deckId, title, size, text }` for the open deck only, written by the
-`pagehide` save and on the debounced save as now. IndexedDB is the source of truth; on open, the Studio compares the
-boot record's text against the deck's body and adopts the boot record when they differ and it is newer (the same
-three-way reasoning Filo's sidecar already does). localStorage then holds one deck's text instead of every deck's.
-
-### 4.3 Library: none
-
-Six modules hand-roll IndexedDB today (Filo, versions, the asset library, narration, `secret-box`,
-`openrouter-key`). Measured bundle cost of the candidates (esbuild, minified, gzip -9, main entry):
+**A library?** No. Six modules use IndexedDB directly (Filo, versions, the asset library, narration, `secret-box`,
+`openrouter-key`). Measured bundle cost (esbuild, minified, gzip -9, main entry):
 
 | Library | What it is | gzip |
 |---|---|---|
@@ -165,84 +142,108 @@ Six modules hand-roll IndexedDB today (Filo, versions, the asset library, narrat
 | `localforage` | localStorage-style API with old-browser fallbacks; last release 2022 | 9.9 KB |
 | `Dexie` | Query layer, bulk operations, live queries | 32.7 KB |
 
-No library changes IndexedDB's speed: the cost is deserialization and transaction count. `idb` would remove a few lines
-of promise plumbing per module, but the stores it would replace carry tested, subtle logic (Filo's generation check
-after Clear all, cross-tab ordering, the version migration). The new database uses the same small hand-written helpers
-as `checkpoint-store.ts`. `localforage` is in `docs/package-lock.json` only as a dependency of `@sentry/integrations`.
+None changes IndexedDB's speed: the cost is how much is deserialized and how many transactions run. `idb` would remove
+a few lines of promise plumbing per module and nothing else, while the stores it would replace carry tested logic
+(Filo's generation check, cross-tab ordering, the version migration). `localforage` appears in
+`docs/package-lock.json` only as a dev dependency of `@sentry/integrations`.
 
-### 4.4 Versions are not diffs here
+**Versions as diffs?** Not here. 25 versions of a 60 KB deck: 1.50 MB as copies, 0.52 MB gzipped one by one, a few KB
+as diffs (estimated). Diffs do not fix load time, which comes from reading every version, and they cost a replay on
+restore and a broken chain if one link is damaged. Filo is already the diff-based history, and slice 6 brings versions
+into it.
 
-Diffs would shrink storage (25 versions of a 60 KB deck: 1.50 MB as copies, 0.52 MB gzipped one by one, a few KB as
-diffs, estimated). They do not fix the load time, which comes from reading every version, and they cost a replay on
-restore, a broken chain if one link is damaged, and harder cross-tab writes. Filo is already the diff-based history,
-and its slice 6 turns versions into marks. Content addressing (§4) gets the cheapest part of the saving now, by sharing
-identical texts. Compression with the built-in `CompressionStream` stays an option for bodies later; it is not part of
-these PRs.
+**What leaves the main thread?** IndexedDB reads from disk off the main thread already; what lands on the calling thread
+is deserializing the result. A worker that posts its result back copies it again, so it helps only when it returns much
+less than it reads. After items 2 and 3 the boot reads one deck's versions and one deck's text, which stays on the main
+thread, as does the synchronous `pagehide` save (workers have no localStorage). Whole-workspace scans (Privacy & Data
+stats, backup) are worker candidates on the pattern of `studio-filo-persist.ts:295` (`filo-narrow.worker.ts`).
 
-## 5. Which thread does the work
+## 6. Deferred: metadata records that point at their text
 
-IndexedDB reads from disk off the main thread already. What lands on the calling thread is deserializing the result.
-A worker can take that over, but posting its result back copies it again on the main thread, so **a worker helps only
-when it sends back much less than it reads.**
+The owner proposed, and the first draft adopted, one IndexedDB database in which every deck and version is a small
+metadata record holding a pointer to its text, with texts keyed by SHA-256 so identical texts are stored once:
 
-| Work | Thread | Why |
-|---|---|---|
-| `pagehide` save of the boot record | Main | Synchronous localStorage; workers have none |
-| Boot: open deck's metadata + body | Main | One small read; a worker would add its start-up before the first slide |
-| Deck list, version list | Main | Small records |
-| SHA-256 of a body | Main, async (`crypto.subtle`) | Measured in the PR, not assumed |
-| Body sweep (§4.1) | Worker | Scans everything, returns what was deleted |
-| Privacy & Data stats | Worker | Scans everything, returns a few numbers |
-| Migration from localStorage | Main reads, idle-time batches | Only the main thread can read localStorage |
+```
+decks     { id, title, derived, size, slides, bytes, updatedAt, body: { where: 'idb', key } | null }
+versions  { deckId, id, ts, label, slides, bytes, body: { where: 'idb', key } }
+bodies    { key, text }
+```
 
-The worker follows the existing pattern in `studio-filo-persist.ts:295` (`filo-narrow.worker.ts`). There is no
-single "storage worker" for all access: each small read would pay a message round trip, and the cross-tab handling
-would have to move into it.
+The trio's case for not building it now:
 
-## 6. API shape
+- **The measured costs do not need it.** Both are fixed by reading less (§4 items 2 and 3).
+- **Content addressing saves little.** `saveCheckpoint` already skips a version identical to the latest one
+  (`studio-store.ts:704`, `:717`), so shared texts arise only from restore-then-save, a duplicated deck, or a deck equal
+  to its own latest version. Per-version gzip saves 65% and was not proposed.
+- **It adds the only path that silently deletes text.** Shared bodies need a sweep that deletes "unreferenced" text by
+  inference; any future store that points at a body and is not taught to the sweep loses data at idle, with no error.
+- **Versions migrate again in slice 6.** Building a new version database now means two migrations of the same data.
 
-Today's reads are synchronous (`loadSource` has 17 callers, `loadDeckList` 14, `loadCheckpoints` 10). The versions
-store already solved this with an in-memory cache filled at hydration. The new store keeps that model for
-**metadata** (all decks' and the open deck's versions' records, small) and makes **bodies** async:
+If deck text does leave localStorage (§4 item 4), use **one body per record, keyed by the owner's id** (a sibling
+`bodies` store keyed `[deckId, id]` or by deck id), not by hash: ownership stays one-to-one and there is nothing to
+sweep. The Tauri app addresses files by path, which fits this and not a hash. The trio's constraints for that design:
 
-- `listDecks()` / `listVersions(deckId)`: synchronous, from the metadata cache.
-- `readBody(pointer): Promise<string>`: async. The open deck's body is available synchronously at boot from the boot
-  record.
-- **Switching decks becomes async.** Today the switch reads localStorage synchronously; afterwards it awaits one body
-  read. The switcher needs a pending state for the rare slow case. This is the largest behavioral change in PR B.
+- **One pending key per deck, not one shared boot record.** localStorage is shared by every tab; a single record lets
+  tab B's save overwrite tab A's unsaved text, and a deck switch leaves the old deck's last edit without a synchronous
+  copy. Keep `lattice-studio-src-<id>` as a per-deck pending write and delete it only after IndexedDB commits that
+  exact text (red team #1, checker #2).
+- **Ordered writes with a stored generation.** Queue each deck's writes with a sequence number and check a generation
+  stored in the database inside every write transaction, as Filo does (`lib/filo/store.ts:385-390`); a per-tab counter
+  misses a frozen tab's late write after Clear all (red team #2).
+- **Reconciliation needs a field to compare.** "Newer wins" needs a sequence number and the base text's hash on the
+  pending record (red team #6, checker #3).
+- **"Unedited" must stay representable.** A missing source row drives built-in updates, the backup nudge, restore in
+  place and the pre-paint caption (`StudioShell.tsx:2316-2321`, `studio-store.ts:1301-1310`, `studio.astro:586`);
+  `body: null` for an unedited deck, and migrate only rows that exist (red team #4).
+- **The pre-paint shell keeps its localStorage inputs:** `lattice-studio-active`, a deck-list mirror with `derived`
+  and an edited flag, and the open deck's text for `size:` (`studio.astro:579-645`) (red team #5).
+- **Async reads need request tokens and an awaited restore.** A slow read for deck B must not land in deck C after a
+  second switch; `Library.tsx:709-712` reads a save back immediately; `importStudioState`, `exportStudioState`,
+  `resolvedSources` and the backup walk every deck synchronously (red team #7, checker #6).
+- **Migration drains on every open,** because a tab on the old build keeps writing the old keys, and it keeps the old
+  keys until the new data is verified, so a revert still finds them (red team #8).
+- **A fallback when IndexedDB will not open,** as `checkpoint-store.ts:490-503` has (red team #9).
+- **If a hash is ever used,** normalize the text with `toWellFormed()` first: two different strings with lone
+  surrogates hash the same through `TextEncoder` (red team #10, demonstrated), and hash before opening the transaction,
+  since awaiting `crypto.subtle` inside it lets it commit early (checker #8).
 
-## 7. Delivery
+## 7. Follow-ups outside this work
 
-**PR A: versions.** New database `lattice-studio` with `versions` and `bodies`. Migrate `lattice-studio-versions`
-and any remaining legacy `lattice-studio-snap-*` keys into it, deleting the old data only after the new transaction
-commits (the slice 0 rule). Read the open deck's version metadata at boot, not every deck's; bodies on restore and
-preview. Store `slides` per version. Backup and the Privacy & Data tab read everything, off the boot path. Done when
-the §2 benchmark's row 3 is back to row 2's numbers within run-to-run spread, in Chromium and WebKit, with
-`checkpoint-storage.spec.ts` green in all three engines.
+- **Workspace backup zips on the main thread** (`workspace-backup.ts:70`, JSZip across every deck and photo). JSZip can
+  run in a worker; today a large workspace freezes the page while it zips.
+- **Filo's eviction compaction** (`compactSnapshot`) runs inside its write path on the main thread when the 50 MB budget
+  is exceeded.
 
-**PR B: decks.** Add `decks` to the same database, the boot record (§4.2), the async switch (§6), the localStorage
-migration, and updates to backup/restore (`exportStudioState`, `importStudioState`), Clear all (`clearAllDecks`),
-`deckContentStats` and the storage overlay's categories. An e2e test kills the page between the boot-record write and
-the IndexedDB write and checks that nothing is lost. Behind a design re-check before it starts: this PR changes the
-pre-paint shell's contract and every `loadSource` caller.
+## 8. Adversarial trio (HARD RULE #25), on the first draft
 
-## 8. Risks and open questions
+Three independent agents read the first draft (metadata-plus-pointer records, content-addressed bodies, a sweep, a
+single boot record, two PRs) and the code.
 
-- **The silent deck-save loss (§3) exists now.** PR B removes most of the pressure (one deck's text in localStorage),
-  but a small change can report the failure today the way versions do. Recommended as its own small fix ahead of PR B.
-- **`crypto.subtle` needs a secure context.** Fine on https and localhost; the Tauri webview's origin must be checked
-  before PR B.
-- **Two tabs, one deck.** Versions already broadcast changes on a `BroadcastChannel`; decks have no cross-tab sync today
-  (only `FinishStudio.tsx` listens for `storage`). PR B must not make this worse: last writer wins, as now.
-- **Filo's stored history duplicates the text** (its `text` and `floor`). Out of scope; slice 6 is where the two meet.
+**Red team.** Eleven attacks; three could lose text, all fixable inside the design: the single shared boot record
+loses another tab's or the previous deck's unsaved edit; SHA-256 calls resolve out of order, so two saves of one deck
+can commit in the wrong order, and a per-tab Clear-all counter misses a frozen tab; restoring a version by moving a
+pointer can commit a deck whose body another tab's sweep removed. Also: "unedited" disappears; the shell needs more
+than the boot record; reconciliation is undefined; async reads break synchronous callers; migration must drain old
+builds; lone surrogates collide under `TextEncoder`. Held: the sweep's transaction ordering; SHA-256 between
+well-formed texts; Blobs need no change. **Disposition:** each attack is recorded as a constraint in §6; the design that
+needed them is deferred.
 
-## 9. Follow-ups outside these PRs
+**Inversion.** Verdict: keep the diagnosis, cut content addressing and the sweep, hold the deck move. The dedup saving
+is near zero because of the existing unchanged-version skip; the sweep is a permanent silent-deletion hazard; the
+version store migrates again in slice 6; the deck move rests on a quota calculation, not an observation. Proposed the
+order in §4. **Disposition:** adopted as the recommendation, pending the owner (§9), because it reverses a pattern the
+owner endorsed.
 
-- **Workspace backup zips on the main thread** (JSZip across every deck and photo). JSZip runs in a worker; a large
-  workspace freezes the page while it zips.
-- **Filo's eviction compaction** (`compactSnapshot`) runs inside its write path on the main thread when the 50 MB
-  budget is exceeded.
+**Checker.** Found that the benchmark stored deck text unencoded, so the app never read it: the "decks cost nothing"
+row was false. Also: the single boot record fails with two tabs on two decks; "newer" had no field; the done criterion
+could not be measured in WebKit with this script and left out heap; the heap explanation miscounted (the deck has
+characters above U+00FF, which V8 stores at two bytes each); caller counts were off (`loadSource` 14, `loadDeckList`
+13, `loadCheckpoints` 10 non-test calls). Confirmed: the `getAll()` diagnosis, the `saveSource` defect, every other
+citation, and the transaction-ordering argument. **Disposition:** benchmark fixed and re-run (§2); the deck-list cost it
+uncovered is §4 item 3; counts and heap wording corrected; done criteria now name heap and stay in Chromium, with
+WebKit listed as unmeasured.
 
-## 10. Adversarial trio (HARD RULE #25)
+## 9. Open decision
 
-Pending: red team, Munger inversion and an independent checker on this design, before any code.
+The owner endorsed metadata-plus-pointer records before the trio ran. The recommendation (§4) does not build them now.
+The choice is the owner's; until then this note is PROPOSED.
