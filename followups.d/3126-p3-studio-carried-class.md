@@ -5,7 +5,7 @@ recorded: 2026-11-11
 area: website
 severity: low
 swimlane: engineering/decisions/2026-10-16-media-plugins.md §9
-deferred: off-path — the Studio reads one slide's text everywhere (the class drawer, the photo checks); resolving a class carried from an earlier slide is a Studio-wide change, not the placed-picture rule this PR moved into one kernel
+deferred: large — the Studio hands every reader one slide's text (the class drawer, the photo checks, Compose); resolving a slide's classes and carried background from the whole deck for all of them is a Studio-wide change. #3132 narrows the gap (photoAt now reads the deck's class:) and does not widen it
 source: https://github.com/Laticent/lattice/pull/3126
 ---
 
