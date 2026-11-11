@@ -1,0 +1,1 @@
+- The package description, the agent kit's picker and catalog lines, and the design and engineering docs now give the catalog's real size: 80 components (52 layouts plus 28 chart kinds), not 61. The agent kit reads the count from the catalog at build time, so it cannot go stale again.

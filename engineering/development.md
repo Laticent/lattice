@@ -1351,7 +1351,7 @@ number:
 **The shot's subject is a fixture, not the seeded deck** (2026-09-02). It used
 to be `DECKS[0]`, whose editor pane fills a third of the frame — so the welcome
 deck's copy was baked into all three PNGs, and one line of that copy is the live
-catalog count (`61 components / 14 themes`), held current by
+catalog count (then `61 components / 14 themes`), held current by
 `test/unit/playground/welcome-deck-counts.test.js`. Adding a component therefore
 turned three baselines red in a PR that never touched the Studio, and the only
 available answer was a re-bless — the one thing this section tells you not to do

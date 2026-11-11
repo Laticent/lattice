@@ -21,7 +21,7 @@ map on one page — see `design/concepts.md`.
 ## 1. The problem this solves
 
 Lattice grew organically from a small palette and a handful of card
-layouts into 61 components, ~18 modifiers, five native chart engines, one
+layouts into 80 components, ~18 modifiers, five native chart engines, one
 external diagram pipeline (Mermaid), three rendering paths, and 14
 palettes. Each addition was internally consistent; collectively they
 had no shared vocabulary.
@@ -198,8 +198,8 @@ buckets plus six substance- or domain-defined buckets (`chart`,
 sharing a renderer kernel or domain vocabulary, and `layout`, the host
 components' bucket and function. The `function` field on
 every manifest is unchanged; the disk grouping is reflected in an optional
-`bucket` field. For 35 of the 61 components `bucket === function`; for
-the other 26 the bucket diverges to keep maintenance localized. See §9.
+`bucket` field. For 39 of the 80 components `bucket === function` (measured 2026-11-11
+from `dist/docs/components.json`); for the other 41 the bucket diverges to keep maintenance localized. See §9.
 
 ---
 
