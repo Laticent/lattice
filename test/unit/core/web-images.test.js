@@ -235,10 +235,10 @@ test('the policy and the markup pass agree on the site\'s own pictures: allowed 
   const own = 'https://lattice.example';
   const html = `<img src="${own}/samples/photo.svg"><img src="https://tracker.test/p.png">`;
   const { html: out, blocked } = blockWebImages(html, withOwnOrigin([], own), { DOMParser: null });
-  assert.ok(out.includes(`${own}/samples/photo.svg`), 'the site\'s own picture is kept');
+  assert.ok(out.split('"').includes(`${own}/samples/photo.svg`), 'the site\'s own picture is kept, as its own attribute value');
   assert.deepEqual(blocked.map((b) => b.origin), ['https://tracker.test'], 'only the third party is refused');
   const policy = subresourceCspPolicy({ fontOrigins: [own], blocked });
-  const imgSrc = policy.split(';').find((d) => d.trim().startsWith('img-src'));
-  assert.ok(imgSrc.includes(own), 'the policy loads what the markup pass kept');
-  assert.ok(!imgSrc.includes('tracker.test'), 'and refuses what it refused');
+  const sources = policy.split(';').map((d) => d.trim().split(/\s+/)).find((d) => d[0] === 'img-src').slice(1);
+  assert.ok(sources.includes(own), 'the policy loads what the markup pass kept');
+  assert.ok(!sources.some((src) => new URL(src.startsWith('http') ? src : 'x:').hostname.endsWith('tracker.test')), 'and refuses what it refused');
 });
