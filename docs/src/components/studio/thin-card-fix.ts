@@ -6,6 +6,7 @@ import { unitAt } from '@/lib/fuoco/outline';
 import { slideRanges, splitSlides } from '../../lib/deck-lint';
 import { stripFrontMatter } from '../../lib/front-matter';
 import { canEditClass } from '../../lib/slide-directives';
+import { photoAt } from './card-ink-pick';
 import { replaceSlide } from './deck-ops';
 import { cachedFix, cardOf } from './photo-ink-read';
 import { applyFix, cardPolicy, type Fix, fixLabel, type PhotoVerdict, readVerdict } from './photo-verdict';
@@ -219,9 +220,10 @@ export function photoDiagnostic(doc: Text, m: NonNullable<MeasuredPhoto>, measur
 		.slice(at, at + (r.to - r.from))
 		.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' '))
 		.replace(/^([ \t]*)(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1\2[ \t]*$/gm, (m) => m.replace(/[^\n]/g, ' '));
-	const bg = /!\[bg[^\]]*\]\(/.exec(slideText);
-	if (!bg) return null;
-	const line = doc.lineAt(at + bg.index);
+	// The photo's line: an old `![bg]`, a record, or the record's shortcut on a placing slide (card-ink-pick.ts `photoAt`).
+	const photo = photoAt(slideText);
+	if (!photo) return null;
+	const line = doc.lineAt(at + photo.index);
 	const message = m.verdict.message;
 	const slide = m.slideIndex;
 	return {

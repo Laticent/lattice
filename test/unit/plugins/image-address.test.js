@@ -1,4 +1,4 @@
-'use strict';
+
 /**
  * The image plugin (lib/plugins/image; engineering/decisions/2026-10-16-media-plugins.md §4.2, §4.5, §8 decision 2): the address
  * comes only from the author's own record, the slide seats the picture, Marp's keywords migrate losslessly, and the Marp bundle
@@ -142,4 +142,115 @@ describe('the trio\'s findings on slice 3 stay fixed', () => {
     assert.equal(migrateBgLine('    ![bg](a.jpg)', ['content']), null, 'an indented code block');
     assert.equal(classLineWith('<!-- _class: content --><!-- _paginate: false -->', 'bleed'), null);
   });
+});
+
+describe('Markdown\'s picture is the record\'s shortcut on a slide that places one (owner, 2026-11-10)', () => {
+  const panel = (out) => /<div class="lattice-bg[^"]*"[^>]*>/.exec(out)?.[0] ?? null;
+
+  test('an image slide, a mirrored one and a bleed slide place `![title](src "description")` as the record would', () => {
+    const md = '![A lake](sample:photo-wide.jpg "At dawn")';
+    const rec = '`@image{sample:photo-wide.jpg, title="A lake", description="At dawn"}`';
+    for (const cls of ['image', 'image mirror', 'content bleed']) {
+      assert.equal(panel(html(deck(cls, md))), panel(html(deck(cls, rec))), cls);
+      assert.ok(panel(html(deck(cls, md))), `${cls}: a panel`);
+    }
+    assert.match(panel(html(deck('image mirror', md))), /lattice-bg-left/);
+  });
+
+  test('anywhere else, and in a collage, it stays an ordinary picture', () => {
+    for (const cls of ['content', 'collage', 'columns']) {
+      const out = html(deck(cls, '![A lake](sample:photo-wide.jpg)'));
+      assert.equal(panel(out), null, cls);
+      assert.match(out, /<img [^>]*alt="A lake"/, cls);
+    }
+  });
+
+  test('a picture in a list item or a quote stays where it is, and leaves no empty bullet or quote (the checker on this change)', () => {
+    for (const body of ['- ![x](y.jpg)\n- ![z](w.jpg)', '> ![x](y.jpg)', '1. ![x](y.jpg)']) {
+      const out = html(deck('image', body));
+      assert.equal(panel(out), null, body);
+      assert.doesNotMatch(out, /<li>\s*<\/li>|<blockquote>\s*<\/blockquote>/, body);
+      assert.match(out, /<img /, body);
+    }
+  });
+
+  test('a slide with two lone pictures places neither: both stay visible, as before', () => {
+    const out = html(deck('image', '![a](1.jpg)\n\n![b](2.jpg)'));
+    assert.equal(panel(out), null);
+    assert.equal((out.match(/<img /g) || []).length, 2);
+  });
+
+  test('a line break inside the alt is a space in the picture\'s name', () => {
+    assert.match(panel(html(deck('image', '![A lake\nat dawn](y.jpg)'))), /aria-label="A lake at dawn"/);
+  });
+
+  test('in running text it stays an ordinary picture', () => {
+    assert.equal(panel(html(deck('image', 'See ![A lake](sample:photo-wide.jpg) here.'))), null);
+  });
+
+  test('a quote, a backslash or a brace in the words stays text, and nothing reaches the style but the address', () => {
+    const out = html(deck('image', '![Say "hi" \\\\ } there](sample:photo-wide.jpg "a \\"b\\" }")'));
+    const p = panel(out);
+    assert.match(p, /aria-label="Say &quot;hi&quot; \\ } there"/);
+    assert.equal((p.match(/url\(/g) || []).length, 1);
+  });
+
+  test('an entity in the address stays text inside `url(\'…\')`', () => {
+    const out = html(deck('image', '![x](x&#39;&#41;;background-image:url&#40;&#39;http://attacker.example/a.png)'));
+    const style = /<div class="lattice-bg[^>]*style="([^"]*)"/.exec(out)?.[1];
+    if (style) {
+      const decoded = new JSDOM(`<div style="${style}"></div>`).window.document.querySelector('div').getAttribute('style');
+      assert.equal((decoded.match(/url\(/g) || []).length, 1, decoded);
+      assert.equal(decoded.indexOf("')"), decoded.length - 2, decoded);
+    }
+  });
+
+  test('`sample:` and `asset:` names resolve through the shortcut as through the record', () => {
+    const opts = { samplesUrl: 'https://site.test/samples/', assetUrls: { harbor: 'blob:https://site.test/h' } };
+    const s = engine.render(deck('image', '![A lake](sample:photo-wide.jpg)'), 'indaco', opts).html;
+    assert.match(panel(s), /url\('https:\/\/site\.test\/samples\/photo-wide\.jpg'\)/);
+    const a = engine.render(deck('content bleed', '![A harbor](asset:harbor)'), 'indaco', opts).html;
+    assert.match(panel(a), /url\('blob:https:\/\/site\.test\/h'\)/);
+  });
+
+  test('a deck with the image plugin switched off keeps the ordinary picture', () => {
+    const off = engine.createEngine({ plugins: { disabled: ['image'] } });
+    const out = off.render(deck('image', '![A lake](sample:photo-wide.jpg)')).html;
+    assert.equal(/data-lattice-media="image"/.test(out), false);
+  });
+});
+
+describe('Export-to-Marp places the shortcut as it places the record', () => {
+  test('a lone `![…](…)` on an image or bleed slide becomes `![bg]` with its destination as written; elsewhere it is untouched', () => {
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n\n## T\n\n![A lake](sample:photo-wide.jpg "Dawn")\n\n---\n\n<!-- _class: content -->\n\n![A lake](a.jpg)\n\n---\n\n<!-- _class: content bleed -->\n\n![bg left](b.jpg)\n';
+    const out = withImageMarkdown(md, {}, ctxFor('image'));
+    assert.match(out, /^!\[bg\]\(sample:photo-wide\.jpg "Dawn"\)$/m);
+    assert.match(out, /^!\[A lake\]\(a\.jpg\)$/m);
+    assert.match(out, /^!\[bg left\]\(b\.jpg\)$/m);
+  });
+
+  test('two lone pictures on a slide, or a collage, stay Markdown pictures in the bundle, as the engine leaves them', () => {
+    const two = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n\n![a](1.jpg)\n\n![b](2.jpg)\n';
+    assert.equal(withImageMarkdown(two, {}, ctxFor('image')), two);
+    const col = '---\ntheme: indaco\n---\n\n<!-- _class: collage image -->\n\n![a](1.jpg)\n';
+    assert.equal(withImageMarkdown(col, {}, ctxFor('image')), col);
+  });
+});
+
+describe('the engine and Export-to-Marp agree on which picture is placed (inversion on #3126)', () => {
+  // The shared table (test/fixtures/placed-picture-cases.json): the engine places the picture when it draws a `.lattice-bg`
+  // panel with the image plugin's marker for that address; the export when it writes `![bg](address…)`. Compose answers the
+  // same table in docs/src/lib/compose/placed-picture-parity.test.ts, so the three readers agree through it.
+  const { cases } = require('../../fixtures/placed-picture-cases.json');
+  const e = engine.createEngine();
+  const esc = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  for (const { name, md, addr, placed } of cases) {
+    test(name, () => {
+      const html = e.render(md).html;
+      const engineSays = new RegExp(`<div class="lattice-bg[^"]*" data-lattice-media="image"[^>]*url\\('${esc(addr)}'\\)`).test(html);
+      const exportSays = withImageMarkdown(md, {}, ctxFor('image')).includes(`![bg](${addr}`);
+      assert.equal(engineSays, placed, `the engine (${name})`);
+      assert.equal(exportSays, placed, `the export (${name})`);
+    });
+  }
 });

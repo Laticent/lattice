@@ -43,6 +43,15 @@ This is a **plugin** (`engineering/decisions/2026-09-27-plugin-system.md`), on b
 One finish and one tone at a time; two finishes leave the record as code, and `lint:deck` says why. The record goes on a
 line of its own, with a blank line above and below. For a picture inside a sentence, write Markdown's `![title](src)`.
 
+**Markdown's picture is the shortcut.** On a slide that places a picture (an `image` slide, `image mirror`, a `bleed` slide),
+`![title](src "description")` alone on its line is placed exactly as the record is: the same panel or background, the same
+words for a screen reader. Anywhere else it stays an ordinary picture; write the record when you want a frame, a finish, a
+tone, a size or `show=`. Both forms take a `sample:` or `asset:` name, a path beside the deck, or an `https:` address.
+
+It is placed only when it is the slide's one lone picture and the slide places no photo another way. A second lone picture,
+a `![bg]` or a record on the same slide keeps it in the text, as does a picture inside a list or a quote, an `http:`
+address (the record refuses it), or an alt that starts with Marp's `bg` keyword.
+
 ## Setting it for the whole deck
 
 The `image:` register sets any of these once, the way `icon:` and `avatar:` do:

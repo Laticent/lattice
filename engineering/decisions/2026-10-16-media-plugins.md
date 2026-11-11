@@ -1116,3 +1116,18 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   shrunk to fit, so the stack ran 36px past the stage; the layer gains `--lat-media-give` (a host lets a clip's frame and poster
   get shorter, the still cropping to cover) and the stacked `video` slide sets it on its figure, never reaching into the parts.
   The full `--strict` ratchet passes with no new or stale row; the wide demo decks render pixel-identically before and after.
+- 2026-11-10: **Markdown's picture is the record's shortcut** (owner, option A, after slice 3). A lone `![title](src "description")`
+  on a slide that places a picture (`image`, `image mirror`, `bleed`; not `collage`, which already tiles Markdown pictures) is
+  rewritten at parse time into `@image{"src", title="…", description="…"}` and drawn by the record's own path
+  (lib/integrations/markdown-it/plugins.js), so the two cannot drift; the address is the one the author wrote (the `asset:`
+  rule keeps it on the token as `meta.authoredSrc`), quoted. Anywhere else it stays an ordinary picture, by measurement: 11
+  lone Markdown pictures ship in 5 decks, 8 of them inside panes that fit photos their own way. Export-to-Marp writes it as
+  `![bg]`. This is what lets the Studio's Placement control set the slide's class and keep an editable picture, and lets the
+  deck sweep write `![…](…)` rather than a record. Identity: 462 decks, one differs (`styles-device-check`, its web-image slide).
+- 2026-11-10: **the Studio stops writing `![bg]`** (first half of the engine break; the owner chose to split it so the engine
+  stops reading the keywords only after the deck sweep). Compose's Placement control (docs/src/lib/compose/image-objects.ts
+  `placeImage`) writes the slide's class in one undo step: Left `image mirror`, Right `image`, Full `content bleed`, In the
+  text `content`, every other token kept; an old `![bg …]` alt loses its keywords and takes its description as its name.
+  Offered only for a lone picture on a `content`/`image`/class-less slide, and refused for a class in a compound comment.
+  The photo finders (card-ink-pick.ts `photoAt`) read all three spellings. Studio e2e: 20/20 on Chromium desktop and
+  phone, WebKit phone and tablet, Gecko, the control checked at 1440, 820 and 390 in each.

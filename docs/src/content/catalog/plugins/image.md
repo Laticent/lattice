@@ -106,7 +106,7 @@ Put the record on a line of its own, with a blank line above and below it:
 | `duotone` `grayscale` | A tone in the deck's colors. |
 | `show=…` | `none` (the default for a picture), `title` or `all`. |
 
-Markdown's `![title](src "description")` still works and draws the same picture.
+**Markdown's picture is the shortcut.** On an `image` or `bleed` slide, `![title](src "description")` alone on its line is placed exactly like the record, when it is the slide's only lone picture and the slide has no `![bg]` or record already. Anywhere else it is an ordinary picture: write the record when you want a frame, a finish, a tone, a size or `show=`. Both forms take a `sample:` or `asset:` name.
 
 ## Where else it fits
 

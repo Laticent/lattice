@@ -1,0 +1,125 @@
+{
+ "$comment": "The cases every reader of 'is this picture the slide's placed photo?' must answer alike: the engine, Export-to-Marp (test/unit/plugins/image-address.test.js) and Compose (docs/src/lib/compose/placed-picture-parity.test.ts). `addr` is the picture in question; `placed` is the engine's answer, which the others must match (PR #3126, followups.d/3126-p2-one-placed-picture-rule.md).",
+ "cases": [
+  {
+   "name": "a lone picture between blank lines",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a picture right under the heading, no blank line",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a picture right under the class comment",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a picture on a bleed slide",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: content bleed -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "the left side (image mirror)",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image mirror -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a `![bg]` photo beside it: it stays in the text",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![bg right](https://x.test/photo.jpg)\n\n![Logo](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a bleed `![bg]` beside it",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: content bleed -->\n## T\n\n![bg](https://x.test/photo.jpg)\n\n![Chart](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a record beside it",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n`@image{https://x.test/photo.jpg, title=\"Photo\"}`\n\n![Logo](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a keyword alt in capitals",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![BG right](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "an http address the record refuses",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](http://x.test/p.jpg)\n",
+   "addr": "http://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a picture inside a paragraph of text",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\nWords before\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "two lone pictures",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![A](https://x.test/p.jpg)\n\n![B](https://x.test/q.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a content slide",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: content -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a modifier-only slide",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: dark -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a collage",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: collage bleed -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a picture in a list item",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n- ![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a picture in a quote",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n> ![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a carried class from the slide before",
+   "md": "---\ntheme: indaco\n---\n\n<!-- class: image -->\n\n## One\n\n---\n\n## Two\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a deck-wide `class: bleed`",
+   "md": "---\ntheme: indaco\nclass: bleed\n---\n\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a bracketed deck-wide `class: [bleed]`, which the engine keeps literal",
+   "md": "---\ntheme: indaco\nclass: [bleed]\n---\n\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  }
+ ]
+}

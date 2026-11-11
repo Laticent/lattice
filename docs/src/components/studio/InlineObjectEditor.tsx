@@ -17,7 +17,7 @@ import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
-import { editImage, isImage, removeImage } from '@/lib/compose/image-objects';
+import { editImage, isImage, placeImage, placementAt, removeImage } from '@/lib/compose/image-objects';
 import { closeObjectEditor, editObject, editObjectAsText, type InlineKernels, kindOf, leaveObject, type OpenObject } from '@/lib/compose/inline-objects';
 import { editInlineMath, editRawBlock, type RawObjectKind, rawObjectKind, removeRaw } from '@/lib/compose/raw-objects';
 import { hasFinePointer, useIsPhone } from '@/lib/use-breakpoint';
@@ -203,6 +203,11 @@ export function InlineObjectEditorHost({
 				onDone={close}
 				holdOpen={holdOpen}
 				onOpenLibrary={onOpenLibrary}
+				placement={(() => {
+					const at = placementAt(view.state, openRef.current.pos);
+					return { value: at.placement, canPlace: at.canPlace };
+				})()}
+				onPlace={(p) => placeImage(view, openRef.current.pos, p)}
 			/>
 		) : owner ? (
 			<entry.Panel fields={owner.fields} src={open.src} kernels={kernels} slotColors={slotColors} onEdit={onEdit as ObjectPanelProps['onEdit']} onEditAsText={onEditAsText} onDone={close} holdOpen={holdOpen} />

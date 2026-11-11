@@ -8952,11 +8952,11 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
   {
     file: 'lib/transformers/prose-projection.mjs',
     reads: ['html', 'li', 'regex', 'text'],
-    sinks: { 'attribute-template': 1, 'css-url': 4 },
+    sinks: { 'attribute-template': 1, 'css-url': 4, 'set-attribute': 1 },
     guards: 7,
     guard: 'masks',
     why:
-      'The Reading view projects a slide into prose. Its text reads build labels and captions; its one address is the video card\'s poster and link, taken only from the `video` plugin\'s own figure and never one inside `[data-lattice-plugin]` (`videoCard`); its `url(#…)` rewrites only suffix in-page ids. A plugin\'s drawing is copied whole with its `[data-lattice-plugin]` root (`projectGeneric`), so the article never holds plugin text as the author\'s. Narration speaks a media figure\'s words from its `data-lattice-*` attributes, never one inside `[data-lattice-plugin]` (`speakGeneric`).',
+      'The Reading view projects a slide into prose. Its text reads build labels and captions; its addresses are the video card\'s poster and link, taken only from the `video` plugin\'s own figure and never one inside `[data-lattice-plugin]` (`videoCard`), and a placed photo\'s `<img src>` (`withPanelPicture`, added 2026-11-10): the address the IMAGE PLUGIN wrote, from the author\'s own record or its `![…](…)` shortcut, into an `image` or `bleed` slide\'s `.lattice-bg` panel style. Only a panel carrying the plugin\'s `data-lattice-media="image"` marker is read; author HTML cannot forge it (`author-markup.js` renames it `data-author-…`) and a plugin\'s fence is handed no classes. Only the panel\'s two seats (a direct child of the section, or of its `.cell-stage`) are read, and a hidden panel is skipped, so an author\'s raw `.lattice-bg`, a Marp `![bg]` panel and anything inside `[data-lattice-plugin]` are never re-hosted (red team, 2026-11-10; pinned by three prose-projection tests). The address is read with the sanctioned CSS reader (`posterInStyle`) and written back only through `safePosterUrl` or as a page-made `blob:http(s)://` URL. Its `url(#…)` rewrites only suffix in-page ids. A plugin\'s drawing is copied whole with its `[data-lattice-plugin]` root (`projectGeneric`), so the article never holds plugin text as the author\'s. Narration speaks a media figure\'s words from its `data-lattice-*` attributes, never one inside `[data-lattice-plugin]` (`speakGeneric`).',
   },
 ];
 

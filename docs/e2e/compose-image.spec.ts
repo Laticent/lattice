@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { addLibraryPhoto, insertVia, openDeckInCompose, savedDeck } from './compose-insert';
-import { CHROME, expect, gotoStudio, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, livePreview, test } from './studio-fixture';
 
 /**
  * COMPOSE — images: drawn, chosen from the Library by looking, and edited in a panel.
@@ -53,8 +53,8 @@ test.describe('compose images', () => {
 		await expect(harbor).toBeVisible();
 		await expect.poll(() => harbor.evaluate((el: HTMLImageElement) => (el.complete ? el.naturalWidth : -1))).toBe(800);
 		expect(await harbor.getAttribute('src')).toMatch(/^blob:/);
-		// A background says so, and is drawn too.
-		await expect(page.locator('.cs-img-badge')).toHaveText(/Background · Right side/);
+		// A placed picture says where the slide puts it (an old `![bg right]` is the photo panel on the right), and is drawn too.
+		await expect(page.locator('.cs-img-badge')).toHaveText(/^Panel · Right$/);
 		// A web image is a stand-in that says what it is. Compose never reaches the network for it.
 		await expect(page.locator('.cs-img-stand')).toContainText('Elsewhere');
 		expect(requested.filter((u) => new URL(u).hostname === 'example.com')).toEqual([]);
@@ -124,15 +124,36 @@ test.describe('compose images', () => {
 		await expect(page.locator('[data-media-card="dock-crane"]')).toBeVisible();
 	});
 
-	test('a background shows its placement, and a pick writes only the side word', async ({ page }) => {
-		await openWithPhotos(page);
+	test('Placement sets the SLIDE\'s class and never writes `![bg]`; an old `![bg]` picture loses its keywords @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
+		const ONE = ['<!-- _class: content -->', '', '## A forest', '', 'Words beside it.', '', '![bg right:40% blur](asset:forest "Pines at dusk")'].join('\n');
+		await openWithPhotos(page, ONE);
 		await page.getByRole('button', { name: 'Edit background image' }).click();
 		await expect(panel(page).getByRole('textbox', { name: 'Description' })).toHaveCount(0);
 		await expect(panel(page).getByRole('radio', { name: 'Placement: Right side' })).toHaveAttribute('aria-checked', 'true');
 		await panel(page).getByRole('radio', { name: 'Placement: Left side' }).click();
-		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('![bg right:40% blur]', '![bg left:40% blur]'));
+		await expect.poll(() => savedDeck(page)).toBe(ONE.replace('<!-- _class: content -->', '<!-- _class: image mirror -->').replace('![bg right:40% blur](asset:forest "Pines at dusk")', '![Pines at dusk](asset:forest)'));
+		await expect(page.locator('.cs-img-badge')).toHaveText(/^Panel · Left$/);
+		// The preview draws it as the slide's photo panel, on the left.
+		await expect(livePreview(page).locator('section.image .lattice-bg-left[data-lattice-media="image"]').first()).toBeAttached({ timeout: 30_000 });
 		await panel(page).getByRole('radio', { name: 'Placement: Full slide' }).click();
-		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('![bg right:40% blur]', '![bg blur]'));
+		await expect.poll(() => savedDeck(page)).toMatch(/^<!-- _class: content bleed -->/);
+		await panel(page).getByRole('radio', { name: 'Placement: In the text' }).click();
+		await expect.poll(() => savedDeck(page)).toMatch(/^<!-- _class: content -->/);
+		expect(await savedDeck(page)).not.toMatch(/!\[bg/);
+	});
+
+	test('the Placement control at 1440, 820 and 390: a phone opens Compose its own way, and the control is there and pressed @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
+		const ONE = ['<!-- _class: image -->', '', '## A lake', '', 'Words beside it.', '', '![A lake](sample:photo-wide.jpg)'].join('\n');
+		for (const width of [1440, 820, 390]) {
+			await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+			await openDeckInCompose(page, ONE);
+			await page.getByRole('button', { name: 'Edit image: A lake' }).click();
+			// A popover on a wide screen, a full sheet on a phone: the control is found on the page, not in one container.
+			await expect(page.getByRole('radio', { name: 'Placement: Right side' })).toHaveAttribute('aria-checked', 'true');
+			await expect(page.getByRole('radio', { name: 'Placement: In the text' })).toBeVisible();
+			if (process.env.LATTICE_EVIDENCE_DIR) await page.screenshot({ path: `${process.env.LATTICE_EVIDENCE_DIR}/compose-placement-${test.info().project.name}-${width}.png` });
+			await page.keyboard.press('Escape');
+		}
 	});
 
 	test('Remove takes the image and its paragraph, and Undo brings it back', async ({ page }) => {
