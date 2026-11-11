@@ -73,6 +73,7 @@ const inflight = new Map<string, number>(); // deckId → transactions not yet s
 const deckLoaded = new Set<string>();
 const deckLoading = new Map<string, Promise<void>>();
 let legacySweepScheduled = false;
+let cancelLegacySweep: (() => void) | null = null;
 const deckGeneration = new Map<string, number>(); // bumped when a deck is dropped: a change issued before it must not refill the cache
 let pending = new Set<Promise<unknown>>();
 let channel: BroadcastChannel | null = null;
@@ -337,8 +338,15 @@ function change(deckId: string, optimistic: Checkpoint[], edit: (list: Checkpoin
 			.then(
 				(final) => {
 					if (gen === generation && dgen === (deckGeneration.get(deckId) ?? 0)) {
-						if (final.length) cache.set(deckId, final);
+						// A deck whose legacy list has not migrated yet (a change made before its own read
+						// landed) keeps showing that list; its migration commits it after this change.
+						const legacy = lsRead(deckId);
+						const shown = legacy ? newestFirst([...final, ...legacy.filter((c) => !final.some((f) => f.id === c.id))]).slice(0, SNAP_CAP) : final;
+						if (shown.length) cache.set(deckId, shown);
 						else cache.delete(deckId);
+						// The view showed the optimistic list; the committed one can hold more (versions the
+						// deck's read skipped while this change was in flight, or another tab's).
+						notifyChanged();
 					}
 					broadcast({ deckId });
 					return true;
@@ -507,6 +515,7 @@ export function hydrateCheckpoints(): Promise<void> {
 			fallBackToLocal();
 			return;
 		}
+		if (fellBack()) return; // another read fell back meanwhile: localStorage is the store now
 		if (gen === generation) adopt(stored, lsLegacyDeckIds(), (id) => (deckGeneration.get(id) ?? 0) !== (dgens.get(id) ?? 0));
 		// else: cleared while the read was in flight, and what it read is gone
 		hydrated = true;
@@ -530,13 +539,20 @@ export function hydrateDeckCheckpoints(deckId: string): Promise<void> {
 	const p = (async () => {
 		let stored: Rec[];
 		try {
-			stored = await readStored(deckId);
+			// One retry: a dropped connection (the WebKit failure `openDB` handles) fails the first
+			// transaction and reopens for the next.
+			stored = await readStored(deckId).catch(() => readStored(deckId));
 		} catch {
-			fallBackToLocal();
+			// Only a database that never opened moves the session to localStorage. Any other failed
+			// read leaves this deck unloaded (its legacy list still shows) and the next read tries again:
+			// one deck's hiccup must not hide every other deck's history and copy every cached list into
+			// the quota the deck sources share.
+			if (dbOpenFailed) fallBackToLocal();
 			return;
 		} finally {
 			deckLoading.delete(deckId);
 		}
+		if (fellBack()) return; // another read fell back meanwhile: localStorage is the store now
 		if (gen === generation) adopt(stored, hasLegacy(deckId) ? [deckId] : [], () => (deckGeneration.get(deckId) ?? 0) !== dgen);
 		deckLoaded.add(deckId);
 		notifyChanged();
@@ -544,6 +560,12 @@ export function hydrateDeckCheckpoints(deckId: string): Promise<void> {
 	})();
 	deckLoading.set(deckId, p);
 	return p;
+}
+
+/** Whether the session moved to localStorage. A function, not an inline test: after an `await`
+ *  the answer can differ from the one TypeScript narrowed before it. */
+function fellBack(): boolean {
+	return backend === 'local';
 }
 
 /** One deck's records, or every record (`null`). */
@@ -612,8 +634,14 @@ function scheduleLegacySweep(): void {
 	const run = async () => {
 		for (const id of lsLegacyDeckIds()) await hydrateDeckCheckpoints(id);
 	};
-	if (idle) idle(() => void run(), { timeout: 5000 });
-	else setTimeout(() => void run(), 2000);
+	const g = globalThis as { requestIdleCallback?: unknown; cancelIdleCallback?: (h: number) => void };
+	if (idle) {
+		const h = idle(() => void run(), { timeout: 5000 });
+		cancelLegacySweep = () => g.cancelIdleCallback?.(h);
+	} else {
+		const h = setTimeout(() => void run(), 2000);
+		cancelLegacySweep = () => clearTimeout(h);
+	}
 }
 
 /** Called after hydration and whenever another tab changes a list, so a view can re-read. */
@@ -643,6 +671,8 @@ export function __resetCheckpointStoreForTests(opts: { backend?: Backend } = {})
 	deckLoaded.clear();
 	deckLoading.clear();
 	legacySweepScheduled = false;
+	cancelLegacySweep?.();
+	cancelLegacySweep = null;
 	deckGeneration.clear();
 	pending = new Set();
 	lastClear = Promise.resolve(true);

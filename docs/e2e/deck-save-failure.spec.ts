@@ -16,6 +16,6 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`deck save failure
 		});
 		await gotoStudio(page);
 		await appendToEditor(page, '\n\nAn edit that will not fit');
-		await expect(toastText(page)).toContainText("Couldn't save your deck: this browser's storage is full.");
+		await expect(toastText(page)).toContainText("Couldn't save a deck: this browser's storage is full.");
 	});
 });

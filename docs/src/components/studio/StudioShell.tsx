@@ -5598,8 +5598,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			if (Date.now() - shownAt < 60_000) return;
 			shownAt = Date.now();
 			const full = error instanceof DOMException && error.name === 'QuotaExceededError';
-			notifySticky(full ? "Couldn't save your deck: this browser's storage is full." : "Couldn't save your deck to this browser.", {
-				description: 'Your latest edits are on screen but will be lost if you close or reload this tab. Free space in Workspace → Privacy & Data; the Studio saves again on your next edit.',
+			// Worded for every caller of saveSource (the editor's save, an import, a restore, a new deck),
+			// not only the editor's.
+			notifySticky(full ? "Couldn't save a deck: this browser's storage is full." : "Couldn't save a deck to this browser.", {
+				description: 'Changes that were not saved are lost if you close or reload this tab. Free space in Workspace → Privacy & Data; your next edit saves again.',
 				label: 'OK',
 				onClick: () => {},
 			});

@@ -273,6 +273,21 @@ times. Reading it:
   inside the run-to-run spread of these rows. Not claimed as zero.
 - **Not measured:** WebKit and Firefox (the script's throttle and heap readings are Chromium-only); a real phone.
 
+**Code checker (maker-checker, on the diff).** No outright data loss. Three windows the per-deck reads opened, all
+fixed in this change with a test each that fails without its fix: one deck's failed read moved the whole session to
+localStorage and copied every cached version list into the deck sources' quota (now only a database that never opened
+does; a failed read retries once, then on the next read); a read finishing after that fallback could still migrate a
+deck's legacy list into IndexedDB and hide it (both reads now stop when the session fell back); a version saved
+before its deck's read landed left the view showing only the new version, and could hide the deck's legacy list (a
+commit now folds in the legacy list and tells the view). Also fixed: the idle migration timer is cancelled between
+tests (HARD RULE #32), and the failed-save notice is worded for every caller of `saveSource`, not only the editor.
+Accepted: the title mirror trusts a length match, so a deck rewritten to the same length by an older build in another
+tab, during a rollout, lists under its old title until its next save (display only); two tabs saving at once can
+overwrite each other's mirror entry, which only shows when the lost entry's length still matches.
+Logged (off-path): `importStudioState` counts a deck whose save was refused as added.
+
 **Verified on the real Studio** (Playwright, built site): `checkpoint-storage.spec.ts`, `decks.spec.ts` and
 `filo-undo.spec.ts` in Chromium, Firefox and WebKit (33 passed; 2 skipped by design: the real-quota case is
-Chromium-only); the new `deck-save-failure.spec.ts` in all three, where a refused deck write shows the notice.
+Chromium-only); the new `deck-save-failure.spec.ts` in all three, where a refused deck write shows the notice. Re-run after the
+checker's fixes: 36 passed, the same 2 skipped; the full profile painted at 2,427 ms against the empty profile's
+2,607 ms, heap 92 / 92 MB.

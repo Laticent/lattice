@@ -220,6 +220,46 @@ describe('one deck at a time', () => {
 		expect(store.readCheckpoints('d1')).toEqual([]);
 	});
 
+	it('one deck whose read fails leaves the session on IndexedDB, and its next read tries again', async () => {
+		await store.appendCheckpoint('d1', cp('a', 1));
+		await store.appendCheckpoint('d2', cp('b', 2));
+		reload();
+		const getAll = IDBObjectStore.prototype.getAll;
+		IDBObjectStore.prototype.getAll = () => {
+			throw new DOMException('dropped', 'InvalidStateError');
+		};
+		try {
+			await store.hydrateDeckCheckpoints('d1');
+		} finally {
+			IDBObjectStore.prototype.getAll = getAll;
+		}
+		expect(localStorage.getItem(`${SNAP_PREFIX}d1`), 'nothing copied into localStorage').toBeNull();
+		await store.hydrateDeckCheckpoints('d2');
+		expect(ids(store.readCheckpoints('d2')), 'other decks still read from IndexedDB').toEqual(['b']);
+		await store.hydrateDeckCheckpoints('d1');
+		expect(ids(store.readCheckpoints('d1')), 'the failed deck reads on its next try').toEqual(['a']);
+	});
+
+	it('a version saved before its deck has loaded shows the whole history, and the view hears it', async () => {
+		await store.appendCheckpoint('d1', cp('a', 1));
+		reload();
+		const seen: string[][] = [];
+		store.onCheckpointsChanged(() => seen.push(ids(store.readCheckpoints('d1'))));
+		await store.appendCheckpoint('d1', cp('b', 2));
+		await store.checkpointsSettled();
+		expect(seen.at(-1)).toEqual(['b', 'a']);
+	});
+
+	it('a version saved before its deck has loaded keeps the deck\'s legacy list in view', async () => {
+		localStorage.setItem(`${SNAP_PREFIX}old`, JSON.stringify([cp('x', 1)]));
+		await store.appendCheckpoint('old', cp('y', 2));
+		await store.checkpointsSettled();
+		expect(ids(store.readCheckpoints('old'))).toEqual(['y', 'x']);
+		reload();
+		await store.hydrateDeckCheckpoints('old');
+		expect(ids(store.readCheckpoints('old')), 'and both are stored').toEqual(['y', 'x']);
+	});
+
 	it('the legacy list of a deck this page never opens still migrates, once the page is idle', async () => {
 		const idle = (globalThis as { requestIdleCallback?: unknown }).requestIdleCallback;
 		(globalThis as { requestIdleCallback?: unknown }).requestIdleCallback = (fn: () => void) => setTimeout(fn, 0);
