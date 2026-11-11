@@ -18,6 +18,8 @@ jobs:
 
       # 1. A new runner image: the exact key misses, the restore key falls back to the entry the PR's CI saved under
       #    image 20261101.360.1, the install fits, and the post step saves under the new key.
+      #    Run 1 (43065825138) could not see the PR's entries, which GitHub scopes to refs/pull/3139/merge: it missed and
+      #    downloaded, saving apt-…-probe-43065825138 on this branch. Run 2 must restore that entry by its prefix.
       - name: Image bump (restore-key fallback)
         uses: ./.github/actions/apt-cached
         env:
@@ -25,7 +27,9 @@ jobs:
         with:
           packages: poppler-utils imagemagick fonts-noto-color-emoji
       - name: Check the fallback installed the packages
-        run: pdfinfo -v && convert -version | head -1
+        run: |
+          pdfinfo -v && convert -version | head -1
+          ls ~/apt-cached-debs/*/
 
       # 2. A cached set that does not fit: one .deb whose dependency the image lacks (xfonts-cyrillic needs
       #    xfonts-utils). dpkg -i must fail and apt-cached.sh must repair from the mirror and end with it installed.
