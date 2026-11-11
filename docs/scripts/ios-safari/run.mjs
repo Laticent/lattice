@@ -122,10 +122,15 @@ try {
 process.exit(ok ? 0 : 1);
 
 
-/** Load a fresh Studio (settings seeded on its own origin first) and run one page-side probe in it. */
-async function studioPage(id, file, fn) {
+/**
+ * Load a fresh Studio (settings seeded on its own origin first) and run one page-side probe in it. `seed: false` clears the
+ * stored settings instead, so the Studio opens as it does for a new visitor (compose-probe.js): the session keeps
+ * localStorage from the probes before it, and those stored Source.
+ */
+async function studioPage(id, file, fn, { seed = true } = {}) {
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
-	await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+	const settings = seed ? fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8') : "try { localStorage.removeItem('lattice-studio-settings'); } catch {}";
+	await wd('POST', `/session/${id}/execute/sync`, { script: settings, args: [] });
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
 	const probe = withEditorHelper(fs.readFileSync(path.join(here, file), 'utf8'));
 	return wd('POST', `/session/${id}/execute/async`, {
@@ -135,8 +140,8 @@ async function studioPage(id, file, fn) {
 }
 
 /**
- * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), the pane-swap probe (panes-probe.js, #2916)
- * and the sheet focus probe (sheet-focus-probe.js, #3108), each on a fresh page. One result: every step, each named for its probe, and a pass only when both pass. The photo suite
+ * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), the pane-swap probe (panes-probe.js, #2916),
+ * the sheet focus probe (sheet-focus-probe.js, #3108) and the first-visit Compose probe (compose-probe.js), each on a fresh page. One result: every step, each named for its probe, and a pass only when both pass. The photo suite
  * (PROBE=photo): the photo verdict probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change
  * does not pay for the photo check and a Coach change does run it; together they used to make one job that ran out of its 30 minutes
  * on a slow runner. The photo memory arms (PROBE=photo-memory, #2998) are a suite of their own for the same reason: inside this
@@ -147,13 +152,15 @@ async function runStudioProbe(id) {
 	const panes = await studioPage(id, 'panes-probe.js', 'latticePanesProbe');
 	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
 	const focus = await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe');
+	// A first visit, with nothing stored: Compose is the default and its slide toolbar holds still (compose-probe.js).
+	const compose = await studioPage(id, 'compose-probe.js', 'latticeComposeProbe', { seed: false });
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!focus.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose)],
 	};
 }
 

@@ -146,6 +146,14 @@ test('@crosswidth @webkit-tablet the selected Compose segment keeps its gold wor
 	expect(worst.ratio, `lowest: ${worst.where}`).toBeGreaterThanOrEqual(4.5);
 });
 
+test('@crosswidth @webkit-tablet the unselected Compose segment keeps its gold word at AA in every palette', async ({ page }) => {
+	test.skip(isPhone(page), 'the phone bar has its own case below');
+	await openFresh(page, { 'lattice-studio-settings': JSON.stringify({ editMode: 'source' }) });
+	await expect(page.getByRole('button', { name: SOURCE, exact: true })).toHaveAttribute('aria-pressed', 'true');
+	const worst = await worstContrast(page, page.locator('[data-edit-seg=compose]').first());
+	expect(worst.ratio, `lowest: ${worst.where}`).toBeGreaterThanOrEqual(4.5);
+});
+
 test('@mobile @webkit-phone the phone bar Compose cell keeps its gold word at AA, selected or not, in every palette', async ({ page }) => {
 	test.skip(!isPhone(page), 'phone only');
 	await openFresh(page);

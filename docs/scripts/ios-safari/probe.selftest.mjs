@@ -25,6 +25,8 @@ const PROBES = [
 	{ file: 'photo-probe.js', fn: 'latticePhotoProbe' },
 	{ file: 'panes-probe.js', fn: 'latticePanesProbe' },
 	{ file: 'sheet-focus-probe.js', fn: 'latticeSheetFocusProbe' },
+	// A first visit: nothing stored, so the Studio opens in Compose (run.mjs passes `seed: false` for it too).
+	{ file: 'compose-probe.js', fn: 'latticeComposeProbe', fresh: true },
 ].map((p) => ({ ...p, source: withEditorHelper(fs.readFileSync(path.join(here, p.file), 'utf8')) }));
 const BASE = process.env.STUDIO_URL || 'http://localhost:4321';
 const SEED = fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8');
@@ -111,7 +113,7 @@ for (const { label, options } of shapes) {
 	for (const probe of PROBES) {
 		const context = await browser.newContext(options);
 		const page = await context.newPage();
-		await page.addInitScript(SEED);
+		if (!probe.fresh) await page.addInitScript(SEED);
 		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
 		await page.addScriptTag({ content: probe.source });
 		const result = await page.evaluate((fn) => globalThis[fn](), probe.fn);
