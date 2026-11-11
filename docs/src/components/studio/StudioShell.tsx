@@ -1801,12 +1801,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// within a frame of the pane showing; `editorReady` (the demo's probe) reports the gap honestly.
 	// Fire-and-forget: a warm failure is harmless, since React.lazy re-imports on real render.
 	React.useEffect(() => {
-		// The stored mode's chunk first, since it is about to mount; then the other one, so the first switch is not a
-		// cold load (Compose's also rides the idle warm-up in `studio-warm.ts`; the Editor's has only this).
+		// The stored mode's chunk first, since it is about to mount. The Editor's chunk always follows (it has only this
+		// warm, and every visitor fetched it at startup before Compose became the default). Compose's, when Source is the
+		// stored mode, is left to the idle warm-up in `studio-warm.ts`, which skips it under Save-Data: warming it here too
+		// fetched new bytes a Save-Data visitor never downloaded before (studio-warm-offline.spec.ts caught it).
 		const source = loadSettings().editMode === 'source';
 		void firstSlideShown
 			.then((): Promise<unknown> => (source ? import('./Editor') : import('./ComposeView')))
-			.then((): Promise<unknown> => (source ? import('./ComposeView') : import('./Editor')))
+			.then((): Promise<unknown> | undefined => (source ? undefined : import('./Editor')))
 			.catch(() => {});
 	}, []);
 	// The six panels, once the first slide is on screen and the user has paused (`first-slide.ts`), then
