@@ -5,7 +5,7 @@ recorded: 2026-11-08
 area: chart
 severity: low
 swimlane: engineering/decisions/2026-11-03-responsive-tables.md
-deferred: off-path — two export defects found while writing the chart readers; fixing either changes exported bytes, so each needs the owner's export sign-off
+deferred: off-path — both defects are on main unchanged (the pie and map key, the cartesian screen-reader table); #3088 does not touch those keys. Its map `data-unmatched-names` records each name exactly as the export's own key draws it, because the fluid redraw must reproduce the export byte for byte to be trusted. Fixing the escape changes the exported key, `data-label`, description and table of every chart with `&`, `<`, `>` or a quote in a label, across pie, map and the shared cartesian code, which needs its own export sign-off
 source: https://github.com/Laticent/lattice/pull/3021
 ---
 
