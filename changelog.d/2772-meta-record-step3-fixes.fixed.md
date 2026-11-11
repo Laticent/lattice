@@ -14,3 +14,7 @@
   slide, and checks a record that also holds a marker.
 - **The D11 gate catches the write shapes it missed:** `attrPush`, `dataset`, `setAttributeNS`.
 - A slide with thousands of nested records no longer takes seconds a keystroke in the slide panel.
+- **Present's section rail reads a slide's class the way the engine does.** A `divider` set in a comment that holds
+  several keys (`<!-- _class: divider` on one line, `paginate: false` on the next) now opens a section, and a
+  `_class: divider` comment inside fenced or indented code no longer makes a phantom one.
+  (`docs/src/components/studio/present-sections.ts`)

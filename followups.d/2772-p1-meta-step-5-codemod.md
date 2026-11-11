@@ -6,7 +6,7 @@ area: engine
 severity: high
 swimlane: engineering/decisions/2026-10-17-meta-record.md §9
 source: https://github.com/Laticent/lattice/pull/3115
-deferred: blocked — the sweep lands with the cut, which waits on the owner's D3 (hard or soft); the six raw readers and the three generators must move first
+deferred: blocked — the sweep lands with the cut, which waits on the owner's hard-or-soft cut (D1 on #3136's decision card, D3 in the design doc); the six raw readers and the three generators must move first
 ---
 
 # Step 5: the sweep — every deck on records, with the cut
@@ -34,9 +34,6 @@ On #3133's inversion note ("merging a slide's records must take the UNION of the
 merge two class-setting records at all. Separate records are last-wins, so merging them into a union would change what
 renders, and the codemod's promise is the same render. Such a slide keeps both records, and `meta-class-overridden`
 names the collision for the author to settle.
-
-From the inversion on step 3: merging a slide's records must take the UNION of their class words, never let the last
-win (the class is one value; `meta-class-overridden` reports the collision today).
 
 ```text
   P1 · [no ticket] Step 5: the sweep, with the cut

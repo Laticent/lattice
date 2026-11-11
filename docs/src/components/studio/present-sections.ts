@@ -5,7 +5,7 @@
 // boundary. A deck with no boundary slides is ONE flat section, so the rail degrades
 // gracefully to an ungrouped bar. Pure + fs-free — safe in SSR and tests.
 
-import { isRecordOpener, readRecord } from '../../../../lib/core/meta-door.mjs';
+import { getClassTokens } from '../../lib/slide-directives';
 
 /** One contiguous run of slides. `start` is the 0-based index of its first slide in the
  *  presented set; `count` is how many slides it spans; `name` is its heading ('' = flat). */
@@ -20,25 +20,11 @@ export type DeckSection = { name: string; start: number; count: number };
  * open a top-level rail group. (There is no `section` class — an earlier draft assumed one.)
  */
 export function isSectionBoundary(md: string): boolean {
-	const tokens = classTokensOf(String(md || ''));
+	// The class as the engine reads it: a `_class` comment, a comment holding several keys, or a slide
+	// record (`<!-- {layout=divider} -->`), and never one inside fenced or indented code. The shared reader,
+	// not a regex of its own: a regex here missed a several-key comment and saw a fenced one.
+	const tokens = getClassTokens(String(md || ''));
 	return tokens[0] === 'divider' && !tokens.includes('light');
-}
-
-const CLASS_LINE = /<!--\s*_class:\s*([^\n>]*?)\s*-->/;
-const RECORD_LINE = /^[ ]{0,3}<!--((?:(?!-->)[^\n])*)-->[ \t]*$/gm;
-
-/** The slide's class words, from a `_class` comment or the first slide record that sets a class
- *  (`<!-- {layout=divider} -->`, read by the door's own reader). Light on purpose: the Present overlay's
- *  chunk does not pull the deck model in for this one question (route budget). */
-function classTokensOf(md: string): string[] {
-	const m = CLASS_LINE.exec(md);
-	if (m) return m[1].trim().split(/[ \t]+/);
-	for (const r of md.matchAll(RECORD_LINE)) {
-		if (!isRecordOpener(r[1])) continue;
-		const cls = readRecord(r[1])?.d.class;
-		if (cls) return cls.trim().split(/\s+/);
-	}
-	return [];
 }
 
 /** First Markdown heading's text on a slide (stripped of markers/emphasis), or ''. */

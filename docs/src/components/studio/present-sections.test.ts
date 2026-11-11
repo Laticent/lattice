@@ -103,3 +103,16 @@ describe('a slide record is a section break as its `_class` comment is (meta rec
 		expect(isSectionBoundary('<!-- {layout=divider, class=light} -->\n\n## Part two')).toBe(false);
 	});
 });
+
+describe('present-sections: the boundary reads the class the way the engine does', () => {
+	it('a comment holding several keys still opens a section', () => {
+		expect(isSectionBoundary('<!--\n_class: divider\npaginate: false\n-->\n# Part two')).toBe(true);
+		expect(isSectionBoundary('<!-- paginate: false\n_class: divider -->\n# Part two')).toBe(true);
+	});
+	it('a `_class` comment inside fenced code is an example, not the slide', () => {
+		expect(isSectionBoundary('# How to\n\n```md\n<!-- _class: divider -->\n```\n')).toBe(false);
+	});
+	it('a `_class` comment in an indented code block is an example, not the slide', () => {
+		expect(isSectionBoundary('# How to\n\n    <!-- _class: divider -->\n')).toBe(false);
+	});
+});
