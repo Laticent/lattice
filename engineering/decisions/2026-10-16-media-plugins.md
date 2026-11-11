@@ -1214,3 +1214,7 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   missing: the preview's CSP named the site's own origin for fonts only, and Firefox does not read a `srcdoc` frame's `'self'` as
   the site, so every `sample:` picture drew nothing there. lib/core/subresource-csp.mjs now names it in `img-src` and `media-src`
   too (the host's own origin only; a KaTeX mirror stays a font host).
+  The runtime pass put the docs route budget's engineJsGz 2.3KB past its ceiling. tools/build-runtime.js gives the bytes back
+  without a ceiling raise: the placed-picture rule (read only by the Marp writer and the lint) resolves to a stub in every
+  runtime build, and an `import` of a `@laticent/*` package resolves to the CommonJS copy the runtime already carries
+  (meta-door.mjs had brought in a second, ESM copy of segno's reader). The preview runtime ends 11.8KB gzipped under `main`'s.
