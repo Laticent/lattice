@@ -1,0 +1,5 @@
+studio: +691
+playground: +10
+home: +10
+getting-started: +10
+The Studio's storage fix (#3129): checkpoint-store loads one deck's versions instead of the whole store, studio-store keeps a list-title mirror so the deck list stops parsing every deck, and saveSource reports a refused write, which StudioShell turns into a notice. Those are the studio-store and StudioIsland bytes, and they buy back about 0.9 s of a phone-speed boot on a full profile (engineering/decisions/2026-11-11-studio-storage-pointer-records.md §10). The other routes' +10 is StorageOverlay counting the new title key under deck sources.
