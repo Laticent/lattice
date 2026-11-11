@@ -267,6 +267,14 @@ describe('Export-to-Marp writes a placed picture its own line pattern cannot rea
     const out = withImageMarkdown(md, {}, ctxFor('image'));
     assert.match(out, /^!\[bg\]\(https:\/\/x\.test\/p\.jpg\)$/m);
   });
+  test('an address in angle brackets is written from the parse, never with its brackets', () => {
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Harbor](<https://x.test/a b.jpg>)\n';
+    assert.match(withImageMarkdown(md, {}, ctxFor('image')), /^!\[bg\]\(https:\/\/x\.test\/a%20b\.jpg\)$/m);
+  });
+  test('an indented closing fence above it does not hide a picture the parse places', () => {
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n- ```\n  x\n  ```\n\n![H](https://x.test/c.jpg)\n';
+    assert.match(withImageMarkdown(md, {}, ctxFor('image')), /^!\[bg\]\(https:\/\/x\.test\/c\.jpg\)$/m);
+  });
   test('a line of text right under it is kept out of the panel\'s HTML block by a blank line', () => {
     // The bundle lifts `![bg]` into a raw `<div>` line, and an HTML block runs to the next blank line: without one, a list
     // right under the picture printed as the text `- a point` in a marp-cli render.
