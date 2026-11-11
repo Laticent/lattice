@@ -307,6 +307,25 @@ test('a crowded scatter on a phone page prints every name inside its drawing, ti
   assert.equal((html.match(/class="cart-series scatter-label"/g) || []).length, 12, 'all twelve names');
 });
 
+test('a gantt on a phone page sets every name whole at its role size, and keys every status', () => {
+  const T = String.fromCharCode(96);
+  const deck = `---\ntheme: indaco\nsize: square\n---\n\n<!-- _class: gantt -->\n\n${T}[{Timeline, 2026 Jan .. 2026 Dec}]${T}\n\n## Every lane overlaps, at the row budget.\n\n` +
+    `- Signal Intake\n  - Connector v1 ${T}Jan..Apr${T} ${T}done${T}\n  - Multi-source dedupe and replay ${T}Mar..Aug${T} ${T}live${T}\n` +
+    `- Scoring\n  - Equal-weights model ${T}Jan..May${T} ${T}done${T}\n  - Weight rollback tooling ${T}Jun..Dec${T} ${T}blocked${T}\n` +
+    `- Adoption\n  - Pilot onboarding ${T}Jan..Jun${T} ${T}done${T}\n  - Org-wide enablement ${T}Apr..Nov${T} ${T}at-risk${T}\n  - GA ${T}Dec${T} ${T}milestone${T}\n`;
+  const html = createEngine().render(deck).html;
+  // Before: the 12pt captions printed "Pilot…" and "Per-team…" inside 12-unit bars, and the key cut "no status".
+  assert.match(html, /<svg[^>]*data-chart-form="(fit|over)" class="gantt-svg"/, 'the kernel placed the gantt');
+  const texts = [...html.matchAll(/class="gantt-(?:bar-label|mlabel|legend-label|lane-label)"[^>]*>([\s\S]*?)<\/text>/g)]
+    .map(([, body]) => body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+  for (const t of texts) assert.doesNotMatch(t, /…/, `"${t}" is set whole`);
+  for (const name of ['Multi-source dedupe and replay', 'Weight rollback tooling', 'Org-wide enablement', 'Equal-weights model', 'Connector v1']) {
+    assert.ok(texts.includes(name), `${name} prints whole`);
+  }
+  for (const k of ['done', 'live', 'at-risk', 'blocked']) assert.ok(texts.includes(k), `the key names ${k}`);
+  assert.match(html, /data-pos="above"/, 'a name too long for its bar and its row sits on its own line above the bar');
+});
+
 test('a keyed column stack on a phone page keeps a plot wide enough for its totals', () => {
   const deck = '---\ntheme: indaco\nsize: square\n---\n\n<!-- _class: stacked-bar -->\n\n`Ceded premium by layer`\n\n## Every layer costs less in 2027; the bottom layer saves most.\n\n' +
     '- 2026\n  - Layer 1 `USD 18.4mn`\n  - Layer 2 `USD 14.6mn`\n  - Layer 3 `USD 13.0mn`\n- 2027\n  - Layer 1 `USD 15.9mn`\n  - Layer 2 `USD 13.8mn`\n  - Layer 3 `USD 12.6mn`\n';

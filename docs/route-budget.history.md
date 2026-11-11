@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-11 — the owner raised one ceiling by 1KB, for gantt
+
+PR #3131: moving gantt onto the chart form kernel (lane names above their bars, captions placed whole, a key that wraps) costs about 1.8KB of the union of every chart kernel's closure, measured 255.6KB against the 254.7KB ceiling set above. The owner raised chartKernelsGz's ceiling by 1KB (1,024 bytes) on 2026-11-11 and asked to be asked again for each later kind that needs more; the soft target is unchanged. Set by hand, for the same reason as the entry below.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelsGz | 231477 | 231477 | +0 | 261793 |
+
 ### 2026-11-11 — the owner raised one ceiling by 6KB
 
 PR #3131: the chart form kernel's layout code (chart-form.js, chart-phone.js, the glyph-width table and the per-kind forms) is about 20KB of the union of every chart kernel's closure, measured 253.7KB against a 248.7KB ceiling after the phone sizing code moved out of the startup engine (getting-started's engineJsGz was past its own ceiling). The owner raised chartKernelsGz's ceiling by 6KB (6,144 bytes) on 2026-11-11, after seeing that the same PR gave back 218KB on every engine route; the soft target is unchanged. Set by hand because `route-budget:rebaseline --raise --ceiling` would put the ceiling 10% over a new soft target (about 30KB), more than was agreed.
