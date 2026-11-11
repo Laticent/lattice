@@ -15,9 +15,8 @@ Step 2 built the door and moved every pane marker reader onto `parsePaneMarker` 
 Of the three gaps step 1 left, step 2 closed the one an author could hit: `meta-not-own-line` now reports a record
 indented under a list item (the scan reads its nesting from the deck model). Two stay:
 
-- `HOST_REGISTERS` lost the meta field names, so `checkMetaClaims` is the only guard against a plugin register named like
-  a metadata field, and it guards only when `meta` is among the plugins resolved (always, for a real render; not for a
-  harness that resolves a subset).
+- ~~`checkMetaClaims` guards only when `meta` is among the plugins resolved~~: closed by step 3, which reads the generated
+  `meta` vocabulary too.
 - `tools/lint-deck.js` has no `--meta-cut` flag for `legacy-directive-comment`: step 6, which turns the rule on.
 
 ```text

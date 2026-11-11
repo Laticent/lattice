@@ -53,13 +53,15 @@ describe('classifyComment and directiveKey', () => {
 
 describe('readMetaField and writeMeta', () => {
   test('set, replace, remove, and a compound comment keeps its other lines', () => {
-    assert.equal(m.writeMeta('# A', { footer: 'Q3' }), '<!-- _footer: Q3 -->\n\n# A');
+    // A key the slide does not set is written as a record, the form the cut (step 6) leaves standing.
+    assert.equal(m.writeMeta('# A', { footer: 'Q3' }), '<!-- {footer=Q3} -->\n\n# A');
     assert.equal(m.writeMeta('<!-- _footer: Q3 -->\n\n# A', { footer: 'Q4' }), '<!-- _footer: Q4 -->\n\n# A');
     assert.equal(m.writeMeta('<!-- _footer: Q3 -->\n\n# A', { footer: null }), '# A');
     assert.equal(m.writeMeta('<!-- _class: a\n_footer: Q3 -->\n\n# A', { footer: '' }), '<!-- _class: a -->\n\n# A');
   });
   test('a value can never close the comment', () => {
-    assert.equal(m.writeMeta('# A', { footer: 'a --> b' }), '<!-- _footer: a -> b -->\n\n# A');
+    assert.equal(m.writeMeta('# A', { footer: 'a --> b' }), '<!-- {footer="a -> b"} -->\n\n# A');
+    assert.equal(m.writeMeta('<!-- _footer: x -->\n\n# A', { footer: 'a ---> b --!> c' }), '<!-- _footer: a -> b -!> c -->\n\n# A');
   });
   test('a duplicate or a YAML array is left alone', () => {
     const dup = '<!-- _class: a -->\n<!-- _class: b -->';
@@ -174,5 +176,36 @@ describe('commentBlocks remembers each text', () => {
     assert.ok(m.commentBlocks(slide).every((r) => Object.isFrozen(r)), 'every cached record is frozen');
     assert.equal(m.commentBlocks(slide).length, 1);
     assert.equal(m.commentBlocks(slide)[0].body, ' _class: lead ');
+  });
+});
+
+// The inversion on step 3: what the structured edit must never do to a record slide.
+describe('writeMeta on records: the inversion’s cases', () => {
+  const edit = require('../../../lib/core/meta-edit.mjs');
+  test('a one-slide key never joins a carry record or a pane marker', () => {
+    assert.equal(edit.writeMeta('<!-- {class=cards, carry} -->\n\n# A', { backgroundColor: 'red' }), '<!-- {background-color=red} -->\n\n<!-- {class=cards, carry} -->\n\n# A');
+    assert.equal(edit.writeMeta('<!-- {pane=bar} -->\n\n- a', { footer: 'x' }), '<!-- {footer=x} -->\n\n<!-- {pane=bar} -->\n\n- a');
+  });
+  test('red team: a note line reading `class:` is never a directive; a cleared field keeps the paragraphs apart; a line break folds', () => {
+    const noted = '<!-- {footer=Q3}\nnote: |\n  Open with the chart.\n  class: the cohort we sold to\n-->\n\n# One';
+    assert.equal(edit.readMetaField(noted, 'class').present, false);
+    assert.match(edit.writeMeta(noted, { class: 'cards' }), /class: the cohort we sold to/);
+    assert.equal(edit.writeMeta('# T\n\nPara one\n<!-- {footer=Q} -->\n\nPara two', { footer: '' }), '# T\n\nPara one\n\nPara two');
+    assert.equal(edit.writeMeta('<!-- {layout=cards, footer=Q3} -->\n\n# Hi', { footer: 'a\r\nb' }), '<!-- {layout=cards, footer=a b} -->\n\n# Hi');
+    // `with-icon` is not a word of the icon register (it has no on/off axis), so it stays in `class`.
+    assert.equal(edit.writeMeta('<!-- {layout=cards} -->\n# Hi', { class: 'cards with-icon' }), '<!-- {layout=cards, class=with-icon} -->\n# Hi');
+    // A note channel in two records: both read, one value written.
+    const two = '<!-- {note=one} -->\n<!-- {note=two} -->\n# A';
+    assert.equal(edit.readRecordChannel(two, 'note'), 'one\n\ntwo');
+    assert.equal(edit.writeRecordChannel(two, 'note', 'X'), '<!-- {note=X} -->\n# A');
+  });
+  test('a finish word or a variant swap stays typed', () => {
+    assert.equal(edit.writeMeta('<!-- {layout=cards, finish=ledger} -->\n# A', { class: 'cards finish-halo' }), '<!-- {layout=cards, finish=halo} -->\n# A');
+    assert.equal(edit.writeMeta('<!-- {layout=cards, variant=compact} -->\n# A', { class: 'cards wide' }), '<!-- {layout=cards, variant=wide} -->\n# A');
+  });
+  test('the layout word stays first: register words come after `class`', () => {
+    const { readRecord } = require('../../../lib/core/meta-door.mjs');
+    assert.equal(readRecord(' {headline=left, class=stats} ').d.class, 'stats head-left');
+    assert.equal(readRecord(' {finish=ledger, layout=cards, class=compact} ').d.class, 'cards compact finish finish-ledger');
   });
 });

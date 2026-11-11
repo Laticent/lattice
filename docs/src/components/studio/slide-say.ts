@@ -15,12 +15,15 @@
 // slide's narration, so a second one supersedes — read/write the LAST `say:`
 // comment. See engineering/decisions/2026-07-11-manifest-speech-contract.md §16.
 
-import { comments, isSayBody, tidyOutsideFences } from '../../lib/slide-directives';
+import { comments, isSayBody, recordChannel, setRecordChannel, tidyOutsideFences } from '../../lib/slide-directives';
 
 /** The slide's say line (the LAST `say:` comment, prefix stripped), or ''.
  *  Last-wins: a say line is an override of the whole slide's narration, so a later one
  *  supersedes an earlier one (matching notes-core.sayLineFromHtml). */
 export function getSayLine(chunk: string): string {
+	// A record's `say` field (`<!-- {say="…"} -->`) is the slide's say line where the record carries one.
+	const rec = recordChannel(chunk, 'say');
+	if (rec !== null) return rec.trim();
 	let say = '';
 	for (const c of comments(chunk)) {
 		if (!isSayBody(c.body)) continue;
@@ -48,5 +51,8 @@ export function setSayLine(chunk: string, say: string): string {
 	// Never let the body close the comment early — neutralize BOTH the normal `-->` and the
 	// spec-valid abrupt close `--!>` (a real HTML parser treats `--!>` as a comment end).
 	const t = say.trim().replace(/--+!?>/g, '->');
+	// A record that carries the say line keeps it there: one value, where the author put it.
+	const inRecord = setRecordChannel(out, 'say', t);
+	if (inRecord !== null) return inRecord;
 	return t ? `${out}\n\n<!-- say: ${t} -->` : out;
 }

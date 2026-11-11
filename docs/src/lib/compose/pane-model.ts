@@ -2,6 +2,7 @@ import { DOMSerializer, Fragment, type Node as PMNode } from 'prosemirror-model'
 import { type EditorState, NodeSelection, Plugin, TextSelection, type Transaction } from 'prosemirror-state';
 // DEFAULT imports: both are CommonJS leaves (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import paneCatalog from '../../../../lib/authoring/pane-lint.generated.js';
+import { setCommentField } from '../../../../lib/core/meta-edit.mjs';
 import paneSpec from '../../../../lib/core/pane-spec.js';
 import { normalizeSourceText } from '../normalize-source-text';
 import { parseSlideProse } from './deck-markdown';
@@ -130,9 +131,9 @@ export function paneChoices(direction: PaneDirection, share: number): string[] {
 /** The `_pane` marker an author writes for `cls`, keeping the pane's own `no-title`. A component's
  *  modifiers belong to that component, so they are dropped when the component changes. */
 export function paneMarkerText(cls: string, mods: string[] = []): string {
-	// Writes `_pane:` until the cut switches Compose to the record form (record note §5.4.1); every read takes both.
+	// The record form, the one the cut leaves standing (record note §5.4.1); every read takes each spelling.
 	const words = [cls, ...mods.filter((w) => w === 'no-title')];
-	return `<!-- _pane: ${words.join(' ')} -->`;
+	return setCommentField('', 'pane', words.join(' '));
 }
 
 /** What a pane's place in the layout is called, for the Studio user who never sees the syntax. */
@@ -316,8 +317,9 @@ export function applyPaneChoice(state: EditorState, slidePos: number, index: num
 	}
 	if (!sameMarker) {
 		const words = [choice.cls, ...modifiers, ...pane.mods.filter((w) => w === 'no-title')];
-		// Writes `_pane:` until the cut switches Compose to the record form (record note §5.4.1), as `paneMarkerText` does.
-		const marker = state.schema.nodes.comment.create({ text: `<!-- _pane: ${words.join(' ')} -->` });
+		// The record form (record note §5.4.1). A marker that is already a record keeps its other fields (a `note`, say).
+		const old = pane.marker !== null ? String(at.slide.child(pane.marker).attrs.text ?? '') : '';
+		const marker = state.schema.nodes.comment.create({ text: setCommentField(old, 'pane', words.join(' ')) });
 		if (pane.marker !== null) {
 			const pos = childPos(at.slide, at.start, pane.marker);
 			tr.replaceWith(pos, pos + at.slide.child(pane.marker).nodeSize, marker);

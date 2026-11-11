@@ -1,7 +1,7 @@
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { altFromAssetName } from '@/lib/photo-alt';
 import { PACE_NAMES } from '@/lib/resolve-pace';
-import { classDirectiveCompletion, classTokenResult, deckSplit, slideBodyAfter } from '@/playground/slide-context.js';
+import { classDirectiveCompletion, classTokenResult, deckSplit, recordCompletion, recordOptions, slideBodyAfter } from '@/playground/slide-context.js';
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from '../../lib/front-matter-keys';
 import { MARKS_AXES } from '../../lib/marks-words';
 import { AGENDA_AXIS_ORDER, agendaWords } from './agenda';
@@ -308,6 +308,20 @@ export function makeStudioCompletion(
 			const { options, validFor } = classTokenResult(spot, components, classVocab, { ...classExtra, slideText });
 			if (!options.length) return null;
 			return { from: line.from + spot.from, options: options as Completion[], validFor };
+		}
+
+		// 1a. Inside a slide RECORD (`<!-- {layout=cards, footer=Q3} -->`, record note step 3): a field name after `{` or
+		// `, `, a value after `field=` (a component for `layout`, its variants for `variant`, the class grammar for
+		// `class`, a register's own words for the rest). The same kernel as the Playground's (slide-context.js).
+		const rec = recordCompletion(before);
+		if (rec) {
+			if (!rec.typed && !context.explicit && rec.kind === 'value') return null;
+			const doc = context.state.doc;
+			const split = deckSplit(doc.sliceString(0, Math.min(doc.length, 4000)));
+			const slideText = slideBodyAfter((n: number) => doc.line(n).text, doc.lines, line.number, { split });
+			const options = recordOptions(rec, components, classVocab, { ...classExtra, slideText });
+			if (!options.length) return null;
+			return { from: line.from + rec.from, options: options as Completion[], validFor: /^[\w-]*$/ };
 		}
 
 		// 1b. The deck-wide `class:` front-matter VALUE — the same modifier vocabulary

@@ -9,7 +9,7 @@
 // fenced code block. See engineering/decisions/2026-07-03-slide-context-editor.md §5.
 
 import { parsePaneMarker } from '../../../lib/core/meta-door.mjs';
-import { readMetaField, writeMeta } from '../../../lib/core/meta-edit.mjs';
+import { readMetaField, readRecordChannel, writeMeta, writeRecordChannel } from '../../../lib/core/meta-edit.mjs';
 import { KNOWN_KEYS } from '../../../lib/core/meta-keys.mjs';
 import { isRecordBody, commentBlocks as sharedCommentBlocks, comments as sharedComments, directiveKey as sharedDirectiveKey, fenceRanges as sharedFenceRanges } from '../../../lib/core/meta-record.mjs';
 
@@ -71,6 +71,9 @@ export function isPaneMarkerBody(body: string): boolean {
 // block's `---` front matter split the slide and a `code` slide showing a `_class`
 // comment got its example edited. We mask fenced regions before any scan.
 
+/** Is this comment body record-shaped (`{…}` / `@meta{…}` on the opener line)? A record is never a speaker note. */
+export { isRecordBody };
+
 /** Char ranges `[start, end)` covered by fenced code blocks (``` / ~~~); see lib/core/meta-record.mjs. */
 // The cast: TS infers the untyped `.mjs` kernel's ranges as `number[][]`; each is a `[start, end)` pair.
 export const fenceRanges = sharedFenceRanges as (text: string) => Array<[number, number]>;
@@ -115,6 +118,8 @@ export type ClassDirective = {
 	editable: boolean;
 	/** Why editable is false, for the UI hint. */
 	reason?: 'array-form' | 'duplicate' | 'record';
+	/** The class comes from a record (`<!-- {layout=cards} -->`), edited in it (lib/core/meta-edit.mjs). */
+	record?: boolean;
 	/** Absolute [start, end) of the token VALUE to splice (present + editable only). */
 	valueSpan?: [number, number];
 	/** Absolute [start, end) of the whole comment, for removal. */
@@ -127,10 +132,12 @@ export type ClassDirective = {
 export function readClassDirective(chunk: string): ClassDirective {
 	const f = readMetaField(chunk, 'class');
 	if (!f.present || !f.editable) {
-		// A record's class is shown (it is what the slide renders with) but not rewritten: see readMetaField.
+		// A record that does not read shows its class (what the slide renders with) but is not rewritten: the linter
+		// names it (`meta-record`). A record that reads is edited in place, below.
 		const tokens = f.reason === 'record' ? f.value.split(/\s+/).filter(Boolean) : [];
 		return f.present ? { tokens, present: true, editable: false, reason: f.reason } : { tokens: [], present: false, editable: true };
 	}
+	if (f.record) return { tokens: f.value.split(/\s+/).filter(Boolean), present: true, editable: true, record: true, commentSpan: f.commentSpan };
 	return {
 		tokens: f.value.split(/\s+/).filter(Boolean),
 		present: true,
@@ -140,6 +147,13 @@ export function readClassDirective(chunk: string): ClassDirective {
 		soleDirective: f.soleDirective,
 	};
 }
+
+/** A note channel the slide's record carries (`{say="…"}`), or null: the note editors read the record first. */
+export const recordChannel = (chunk: string, name: 'note' | 'reader' | 'say' | 'describe'): string | null => readRecordChannel(chunk, name);
+
+/** Set a note channel in the record that carries it, or null when none does (the caller writes its comment). */
+export const setRecordChannel = (chunk: string, name: 'note' | 'reader' | 'say' | 'describe', value: string): string | null =>
+	writeRecordChannel(chunk, name, value);
 
 /** The slide's `_class` tokens (first directive), or []. */
 export function getClassTokens(chunk: string): string[] {
@@ -156,7 +170,8 @@ export function canEditClass(chunk: string): boolean {
  *   • present + editable → splice the value range, touching nothing else;
  *   • empty tokens + sole-directive comment → remove the whole comment (+ a blank line);
  *   • empty tokens + compound comment → drop just the `_class:` line;
- *   • absent + non-empty → prepend `<!-- _class: … -->` as the chunk's first line;
+ *   • from a record → edited in the record, its typed fields kept where they can be (lib/core/meta-edit.mjs);
+ *   • absent + non-empty → joins the slide's record, or prepends `<!-- {class=…} -->` as the chunk's first line;
  *   • not editable → returned unchanged (caller gates on canEditClass()).
  * Tokens are written verbatim in the given order — the caller preserves unknown /
  * hand-authored tokens by reading getClassTokens() first and mutating that array.

@@ -610,6 +610,55 @@ step 2 door and are decided in §5.4.1, and the rest are strips, over-matching p
   (`lib/core/meta-migrate.mjs`, step 5's kernel), 4,296 comments in 354 decks: 354 render the same HTML and CSS byte for
   byte.
 
+**Status, 2026-11-11: step 3 is built.** What it delivers, and what differs from the table:
+
+- **The host's registers are record fields** (§4.2's `finish`, `headline`, `rule`, `eyebrow`, `spectrum`, `spectrum-trim`,
+  `spectrum-card`, `lift`, `stamp`, `tone`, `corners`, plus `spectrum-edge` and `spectrum-card-edge`, which the table
+  missed). `tools/lib/record-registers.js` derives each value's class words from the register's own resolver, and
+  `tools/build-plugin-registry.js` freezes them into `meta.generated.mjs` (`META_HOST_REGISTERS`), so the door reads
+  data. The one thing a resolver cannot say is the word for the DEFAULT on one slide (front matter writes none); those
+  eleven restore words are the register's own tokens for its default (eight are documented per slide in
+  `lib/base/base.registers.docs.md`, `no-spectrum-card` and `corners-square` in `lib/base/base.docs.md`, `flat` only in
+  `lib/core/resolve-lift.js`), held to each register's token set by a test. `{finish=ledger}` and `_class: finish finish-ledger` render the same `<section>`
+  for every value of every register.
+- **Lint:** `meta-record` reports what the door drops from a record it reads, with the door's own code. The five
+  position rules were already in place.
+- **The structured edit writes records** (`lib/core/meta-edit.mjs`). A value from a record is edited in the record; a
+  `class` edit keeps typed fields where it can (a removed word leaves the field that wrote it, an added register word
+  becomes its field, the edit's first new word fills a `layout` or `variant` the same edit emptied, the rest goes to
+  `class`; the register words now follow the `class` words, so the layout stays the first word every reader takes); a key the slide
+  does not set joins the slide's record, or becomes a new record. So writes already speak the form the cut leaves.
+  The drawer, the speaker-note, say and description editors, and Compose's pane writers (`setCommentField`, §5.4.1)
+  all go through it. Found on the way: the Studio's note editor read a record as the speaker note and deleted it on
+  save; fixed.
+- **Completion** after `<!-- {` (fields) and `field=` (values): one kernel in `docs/src/playground/slide-context.js`
+  (`recordCompletion`, `recordOptions`), wired into both completers, the Playground's (`complete.js`) and the Studio's
+  (`docs/src/components/studio/editor-complete.ts`). The card grader's raise round found the Studio's had been missed:
+  the two editors keep separate completers.
+- **The D11 gate** (`checkProviderAttributeWriters`) holds two shapes at zero: a `data-*` attribute whose NAME is
+  computed, anywhere under `lib/`, outside the allowlisted apply step; and a plugin writing a slide-metadata attribute
+  by name. "The only writer of provider attributes" is not decidable from text in general (a plugin may write
+  `data-focus-style` into its own `<pre>` markup, which is not the slide's attribute); these two shapes are the ones a
+  provider would most likely use. It is not exhaustive (`attrPush`, `token.attrs.push`, `dataset[k]`, an HTML string
+  and a name built into a variable first all pass it); the risk is bounded because only in-tree plugins contribute
+  fields (§5.7, Deferred). A test fails each on a deliberate violation.
+- **The keystroke bench** (`npm run bench`, edit tier, `examples/gallery-jargon.md`, 58 slides, same machine, blessed
+  into `test/benchmark/baseline.json` as `metaMs` and `drawerMs`): the linter's `scanMetaSource` per keystroke is
+  0.67 ms on the comment deck and 0.66 ms on the record deck; the drawer's `readMetaField` over every slide is 0.17 ms and
+  0.25 ms. Two memos earned their place: `readMetaField` by slide text (without it the drawer read was 6.93 ms on the
+  record deck, one deck parse per record slide) and `readRecord` by body (without it the record scan was 1.51 ms, twice
+  the comment deck's). Deck parses per keystroke are unchanged on every row (1 on both decks).
+- **The trio** (red team, inversion, checker, 2026-11-11) found, and this step fixed: a one-slide key joined a `carry`
+  record and spread to every later slide; a note line reading `class:` inside a record was edited as a directive;
+  register words came before `class` words, so readers that take the first word as the layout misread it; both memos
+  kept whole old decks alive (keys are now flat copies, bounded by characters, least recently used out); clearing a
+  field joined two paragraphs; a raw line break broke the record; `with-icon` was mapped to a register with no on/off
+  axis; a second record's note was missed. New lint `meta-class-overridden` names the collision the inversion
+  reproduced (`<!-- _class: stats -->` then `<!-- {headline=left} -->` renders the default layout). The writers of the
+  old form outside the decks, and decks outside the repo, are on the step 6 follow-up.
+- **Folded in** from the step 1 follow-up: a plugin register named like a record field fails resolution even when
+  `meta` is not among the plugins resolved (the generated vocabulary is read too).
+
 Steps 1 to 5 ship with authored comments still read, so every commit is green. **Step 1 delivers the reader, registry,
 completion and structured edit with no syntax change**, and steps 2 to 7 are a syntax layer over a single door.
 

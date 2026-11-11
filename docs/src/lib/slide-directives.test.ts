@@ -80,7 +80,8 @@ describe('setClassTokens — span-surgical', () => {
 		expect(toggleToken(chunk, 'dark')).toBe('<!-- _class: kpi tint-corner at-tl my-local-thing dark -->\n\n# Hi');
 	});
 	it('inserts a directive when absent', () => {
-		expect(setClassTokens('# Bare slide\n\nbody', ['content', 'dark'])).toBe('<!-- _class: content dark -->\n\n# Bare slide\n\nbody');
+		// A new key is written in the record form, the one the cut (record note step 6) leaves standing.
+		expect(setClassTokens('# Bare slide\n\nbody', ['content', 'dark'])).toBe('<!-- {class=content dark} -->\n\n# Bare slide\n\nbody');
 	});
 	it('removes a sole-directive comment when cleared to empty', () => {
 		expect(setClassTokens('<!-- _class: kpi -->\n\n# Hi', [])).toBe('# Hi');
@@ -182,5 +183,28 @@ describe('isPaneMarkerBody', () => {
 		expect(isPaneMarkerBody(' _pane: a\nb ')).toBe(false);
 		expect(isPaneMarkerBody(' {layout=cards, footer="Q3"} ')).toBe(false);
 		expect(isPaneMarkerBody(' remember the pane="x" joke ')).toBe(false);
+	});
+});
+
+// A record slide edits as a directive slide does (record note step 3): the drawer writes INTO the record, keeping its
+// typed fields and every other item as the author wrote it.
+describe('the class drawer on a record slide', () => {
+	const slide = '<!-- {layout=cards, footer="Q3, final", finish=ledger} -->\n\n# Hi';
+	it('reads the record’s class and is editable', () => {
+		expect(getClassTokens(slide)).toEqual(['cards', 'finish', 'finish-ledger']);
+		expect(canEditClass(slide)).toBe(true);
+	});
+	it('a toggled modifier joins the record; a register word is written as its field', () => {
+		expect(toggleToken(slide, 'compact')).toBe('<!-- {layout=cards, footer="Q3, final", finish=ledger, class=compact} -->\n\n# Hi');
+		expect(toggleToken(slide, 'head-left')).toBe('<!-- {layout=cards, footer="Q3, final", finish=ledger, headline=left} -->\n\n# Hi');
+	});
+	it('removing a register word drops its field; swapping the layout keeps it typed', () => {
+		expect(setClassTokens(slide, ['cards'])).toBe('<!-- {layout=cards, footer="Q3, final"} -->\n\n# Hi');
+		expect(setGroupToken(slide, ['cards', 'kpi'], 'kpi')).toBe('<!-- {layout=kpi, footer="Q3, final", finish=ledger} -->\n\n# Hi');
+	});
+	it('a record that does not read is left as written; the class lands in a record of its own', () => {
+		// It applies nothing, so the slide has no class to show; the linter names it (`meta-record`).
+		expect(canEditClass('<!-- {layout=cards, footer="open} -->\n\n# Hi')).toBe(true);
+		expect(setClassTokens('<!-- {layout=cards, footer="open} -->\n\n# Hi', ['kpi'])).toContain('{class=kpi}');
 	});
 });

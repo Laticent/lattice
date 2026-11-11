@@ -12,11 +12,14 @@
 // same fence-aware `comments()` scan, same surgical rewrite, one classifier
 // (`isDescriptionBody`). See engineering/decisions/2026-07-04-accessible-descriptions.md.
 
-import { comments, isDescriptionBody, tidyOutsideFences } from '../../lib/slide-directives';
+import { comments, isDescriptionBody, recordChannel, setRecordChannel, tidyOutsideFences } from '../../lib/slide-directives';
 
 /** The slide's accessibility description (the first `describe:` comment, prefix
  *  stripped), or ''. */
 export function getDescription(chunk: string): string {
+	// A record's `describe` field is the slide's description where the record carries one.
+	const rec = recordChannel(chunk, 'describe');
+	if (rec !== null) return rec.trim();
 	for (const c of comments(chunk)) {
 		if (!isDescriptionBody(c.body)) continue;
 		return c.body.trim().replace(/^describe\s*:\s*/i, '').trim();
@@ -39,6 +42,8 @@ export function setDescription(chunk: string, description: string): string {
 	let out = text;
 	for (let i = ranges.length - 1; i >= 0; i--) out = out.slice(0, ranges[i][0]) + out.slice(ranges[i][1]);
 	out = tidyOutsideFences(out).trim();
-	const t = description.trim().replace(/--+>/g, '->'); // never let the body close the comment early
+	const t = description.trim().replace(/--+!?>/g, '->'); // never let the body close the comment early
+	const inRecord = setRecordChannel(out, 'describe', t);
+	if (inRecord !== null) return inRecord;
 	return t ? `${out}\n\n<!-- describe: ${t} -->` : out;
 }

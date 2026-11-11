@@ -451,14 +451,16 @@ async function studioBoundaryReaders() {
     // The class editor's per-slide read (`readClassDirective` → `readMetaField` → `commentBlocks`), which the Studio
     // runs for every slide on every keystroke (absent in a tree that predates it).
     const mr = await import('../../lib/core/meta-record.mjs');
-    return { sb, scanMetaSource: ms.scanMetaSource, commentBlocks: mr.commentBlocks ?? null, stats: segno.deckModelStats };
+    // The drawer's read since record note step 3: `readMetaField`, which on a record slide reads the record it edits.
+    const me = await import('../../lib/core/meta-edit.mjs').catch(() => null);
+    return { sb, scanMetaSource: ms.scanMetaSource, commentBlocks: mr.commentBlocks ?? null, readMetaField: me?.readMetaField ?? null, stats: segno.deckModelStats };
   } catch {
     return null;
   }
 }
 function boundaryKeystrokes(readers, src) {
-  if (!readers) return { parses: null, ms: null };
-  const { sb, scanMetaSource, commentBlocks, stats } = readers;
+  if (!readers) return { parses: null, ms: null, metaMs: null, drawerMs: null };
+  const { sb, scanMetaSource, commentBlocks, readMetaField, stats } = readers;
   const classReads = (t) => {
     if (!commentBlocks) return;
     for (const c of sb.splitSlideChunks(t.slice(sb.frontMatterBlockOf(t).length)).chunks) commentBlocks(c);
@@ -487,7 +489,27 @@ function boundaryKeystrokes(readers, src) {
     times.push(Number(process.hrtime.bigint() - t) / 1e6);
   }
   times.sort((a, b) => a - b);
-  return { parses: round2((stats.full - before) / N), ms: times[Math.floor(N / 2)] };
+  const parses = round2((stats.full - before) / N);
+  // THE RECORD NOTE'S KEYSTROKE BENCH (step 3): the two slide-metadata reads on their own, after the work-counted loop
+  // above so they move no `parses`. `metaMs`: `scanMetaSource` over the whole deck, the linter's per-keystroke scan.
+  // `drawerMs`: the drawer's `readMetaField(chunk, 'class')` on every slide, which on a record slide reads and parses
+  // the record it would edit. Commentary, like every `ms` here: `checkBaseline` never compares them.
+  const meta = [];
+  const drawer = [];
+  for (let i = 0; i < N; i++) {
+    const at = text.indexOf('\n', Math.floor(text.length / 2));
+    text = at < 0 ? `${text}y` : `${text.slice(0, at)}y${text.slice(at)}`;
+    const t0 = process.hrtime.bigint();
+    scanMetaSource(text);
+    meta.push(Number(process.hrtime.bigint() - t0) / 1e6);
+    if (!readMetaField) continue;
+    const chunks = sb.splitSlideChunks(text.slice(sb.frontMatterBlockOf(text).length)).chunks;
+    const t1 = process.hrtime.bigint();
+    for (const c of chunks) readMetaField(c, 'class');
+    drawer.push(Number(process.hrtime.bigint() - t1) / 1e6);
+  }
+  const median = (a) => (a.length ? a.sort((x, y) => x - y)[Math.floor(a.length / 2)] : null);
+  return { parses, ms: times[Math.floor(N / 2)], metaMs: median(meta), drawerMs: median(drawer) };
 }
 
 async function editTier() {
@@ -549,18 +571,22 @@ async function editTier() {
       burstTypesets,
       parses: studio.parses,
       parseMs: studio.ms,
+      metaMs: studio.metaMs,
+      drawerMs: studio.drawerMs,
     });
   }
 
   console.log('\n=== EDIT \u00b7 warm re-render per keystroke ===');
-  console.log(`${'dataset'.padEnd(28)}${'ms/key'.padStart(9)}${'scan ms/key'.padStart(13)}${'typesets/key'.padStart(14)}${`burst ${EDIT_BURST} ms`.padStart(13)}${'burst typesets'.padStart(16)}${'parses/key'.padStart(12)}${'bounds ms/key'.padStart(15)}`);
+  console.log(`${'dataset'.padEnd(28)}${'ms/key'.padStart(9)}${'scan ms/key'.padStart(13)}${'typesets/key'.padStart(14)}${`burst ${EDIT_BURST} ms`.padStart(13)}${'burst typesets'.padStart(16)}${'parses/key'.padStart(12)}${'bounds ms/key'.padStart(15)}${'meta ms/key'.padStart(13)}${'drawer ms/key'.padStart(15)}`);
   for (const r of summary) {
     const tps = r.typesets === null ? 'n/a' : r.typesets.toFixed(1);
     const burst = r.burstTypesets === null ? 'n/a' : String(r.burstTypesets);
     const parses = r.parses === null ? 'n/a' : r.parses.toFixed(1);
     const pms = r.parseMs === null ? 'n/a' : r.parseMs.toFixed(2);
+    const mms = r.metaMs == null ? 'n/a' : r.metaMs.toFixed(2);
+    const dms = r.drawerMs == null ? 'n/a' : r.drawerMs.toFixed(2);
     console.log(
-      `${r.dataset.padEnd(28)}${r.ms.toFixed(2).padStart(9)}${r.scanMs.toFixed(2).padStart(13)}${tps.padStart(14)}${r.burstMs.toFixed(1).padStart(13)}${burst.padStart(16)}${parses.padStart(12)}${pms.padStart(15)}`,
+      `${r.dataset.padEnd(28)}${r.ms.toFixed(2).padStart(9)}${r.scanMs.toFixed(2).padStart(13)}${tps.padStart(14)}${r.burstMs.toFixed(1).padStart(13)}${burst.padStart(16)}${parses.padStart(12)}${pms.padStart(15)}${mms.padStart(13)}${dms.padStart(15)}`,
     );
   }
   return { summary };
@@ -1812,6 +1838,8 @@ function blessBaseline(summary, render, opts = {}) {
     scanMs: round2(s.scanMs),
     burstMs: round2(s.burstMs),
     ...(s.parses === null ? {} : { parses: s.parses, parseMs: round2(s.parseMs) }),
+    ...(s.metaMs == null ? {} : { metaMs: round2(s.metaMs) }),
+    ...(s.drawerMs == null ? {} : { drawerMs: round2(s.drawerMs) }),
   }));
   // THE FLOWCHART TIER BLESSES ITS WORK COUNTS; `ms` is commentary, as in the edit tier.
   const flowchartOut = tierRows(flowchartSummary?.length ? flowchartSummary : null, 'flowchartDatasets', (s) => ({

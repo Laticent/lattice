@@ -58,7 +58,7 @@ describe('the generated registries on a multi-plugin tree', () => {
     // …and both read a slide-metadata record (`<!-- {layout=cards} -->`) and a pane marker in every spelling through the
     // shared record reader (lib/core/meta-door.mjs), which needs the vocabulary, the internal form, the fence scan and
     // Segno (resolved through the repo's node_modules).
-    for (const f of ['meta-door.mjs', 'meta-internal.mjs', 'meta-keys.mjs', 'fence-ranges.mjs', 'fence-opener.js']) {
+    for (const f of ['meta-door.mjs', 'meta-internal.mjs', 'meta-memo.mjs', 'meta-keys.mjs', 'fence-ranges.mjs', 'fence-opener.js']) {
       fs.copyFileSync(path.join(ROOT, 'lib/core', f), path.join(root, 'lib/core', f));
     }
     fs.copyFileSync(path.join(ROOT, 'lib/plugins/meta.generated.mjs'), path.join(root, 'lib/plugins/meta.generated.mjs'));

@@ -24,6 +24,7 @@ import {
 	backdropAxisPosition,
 	blankBodyPartial,
 	classDirectiveCompletion,
+	classOptions,
 	classTokenResult,
 	deckSplit,
 	directiveNameAt,
@@ -34,6 +35,8 @@ import {
 	identifierBefore,
 	inFencedLang,
 	inFrontMatter,
+	recordCompletion,
+	recordOptions,
 	sizeValuePosition,
 	skeletonBody,
 	slideBodyAfter,
@@ -179,6 +182,26 @@ function classDirectiveSource(catalog, vocab) {
 	};
 }
 
+// Record completion (`recordOptions`) lives in slide-context.js, shared with the Studio's completer
+// (docs/src/components/studio/editor-complete.ts).
+export { recordOptions };
+
+function recordSource(catalog, vocab) {
+	return (context) => {
+		const line = context.state.doc.lineAt(context.pos);
+		const before = context.state.sliceDoc(line.from, context.pos);
+		const spot = recordCompletion(before);
+		if (!spot) return null;
+		if (!spot.typed && !context.explicit && spot.kind === 'value') return null;
+		const doc = context.state.doc;
+		const split = deckSplit(doc.sliceString(0, Math.min(doc.length, 4000)));
+		const slideText = slideBodyAfter((n) => doc.line(n).text, doc.lines, line.number, { split });
+		const options = recordOptions(spot, catalog, vocab || [], { slideText });
+		if (!options.length) return null;
+		return { from: line.from + spot.from, options, validFor: TOKEN };
+	};
+}
+
 // Offers a one-shot slot skeleton on the empty body of a classed slide — the
 // correct nesting/slot shape, plain text (no snippet fields: skeletons contain
 // literal `$`/`{` that snippet templates would mis-parse). Inert once the slide
@@ -260,6 +283,7 @@ export function latticeAutocomplete({ vocab, catalog, themes, finishes } = {}) {
 			lineLocalSource(fenceLangAt, FENCE_OPTIONS),
 			mermaidSource,
 			classDirectiveSource(catalog, vocab),
+			recordSource(catalog, vocab),
 			skeletonSource(catalog),
 			...dataSources,
 		],

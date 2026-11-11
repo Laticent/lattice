@@ -16,7 +16,7 @@
 // The lint core's notes boundary, read synchronously: this module's loaders (studio-panels.ts's
 // slide settings panel, StudioShell's Present overlay) await loadAuthoring() before it runs.
 import { authoring } from '@/playground/authoring-door.js';
-import { comments, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBody, tidyOutsideFences } from '../../lib/slide-directives';
+import { comments, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isRecordBody, isSayBody, recordChannel, setRecordChannel, tidyOutsideFences } from '../../lib/slide-directives';
 
 // A tooling comment (`markdownlint-capture`, `prettier-ignore`, …) is never a note: the engine's
 // note reader skips it (lib/authoring/notes-core.js `isToolingComment`), and so does this one, from
@@ -24,13 +24,17 @@ import { comments, isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBo
 // (lib/core/bake-splits.js `stripPaneMarkers`), so a bundle opened in the Studio again would
 // otherwise show it as the slide's speaker note.
 const isTooling = (body: string) => (authoring().notesCore as { isToolingComment: (b: string) => boolean }).isToolingComment(body);
-const notANote = (body: string) => isDirectiveBody(body) || isDescriptionBody(body) || isSayBody(body) || isPaneMarkerBody(body) || isTooling(body);
+// A record (`<!-- {layout=cards} -->`) is metadata, never the note: its own `note` field is read through `recordChannel`.
+const notANote = (body: string) => isRecordBody(body) || isDirectiveBody(body) || isDescriptionBody(body) || isSayBody(body) || isPaneMarkerBody(body) || isTooling(body);
 
 /** The slide's speaker note (the first non-directive, non-description, non-say comment),
  *  or ''. A `describe:` comment is the accessibility description and a `say:` comment is
  *  the read-as narration text (both separate channels) — never the speaker note, and neither is a
  *  panes marker (`isPaneMarkerBody`). */
 export function getNote(chunk: string): string {
+	// A record's `note` field (`<!-- {note="Open cold."} -->`) is the speaker note where the record carries one.
+	const rec = recordChannel(chunk, 'note');
+	if (rec !== null) return rec.trim();
 	for (const c of comments(chunk)) {
 		if (notANote(c.body)) continue;
 		return c.body.trim().replace(/^note:\s*/i, '').trim();
@@ -58,6 +62,8 @@ export function setNote(chunk: string, note: string): string {
 	// Tidy only the gaps left behind — collapse a run of blank lines a removed note
 	// opened up, and trim the tail — without reflowing a fenced code block's interior.
 	out = tidyOutsideFences(out).trim();
-	const t = note.trim().replace(/--+>/g, '->'); // never let the body close the comment early
+	const t = note.trim().replace(/--+!?>/g, '->'); // never let the body close the comment early
+	const inRecord = setRecordChannel(out, 'note', t);
+	if (inRecord !== null) return inRecord;
 	return t ? `${out}\n\n<!-- note: ${t} -->` : out;
 }

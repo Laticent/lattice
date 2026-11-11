@@ -152,3 +152,20 @@ test('meta-in-html-block: CommonMark block types 1, 3, 5 fold the record; a lone
 test('meta-opener-bare: a wrapped record under a bare opener is still caught', () => {
   assert.deepEqual(rules(deck('<!--\n{\nlayout=content\n} -->\n# A')), ['1:meta-opener-bare']);
 });
+
+// Step 3: what the door drops from a record it reads, and two class setters on one slide (the inversion's repro).
+test('meta-record names what the door drops; meta-class-overridden names the class a later comment replaces', () => {
+  const found = findMetaCommentIssues(deck('<!-- {layout=kpi, bogus=1} -->\n\n# A', '<!-- {layout=kpi\n-->\n\n# B'));
+  assert.deepEqual(found.map((f) => [f.slide, f.rule, f.classToken]), [[1, 'meta-record', 'meta-unknown-key'], [2, 'meta-record', 'unterminated-record']]);
+  const over = findMetaCommentIssues(deck('<!-- _class: kpi -->\n<!-- {headline=left} -->\n\n# A'));
+  assert.deepEqual(over.map((f) => [f.slide, f.rule]), [[1, 'meta-class-overridden']]);
+  assert.match(over[0].message, /`kpi` is dropped/);
+  // A record sharing its line with text or another comment is not read; the door's diagnostics are not reported for it.
+  assert.deepEqual(findMetaCommentIssues(deck('<!-- {layout=kpi, footer=x} --> trailing\n\n# A')).filter((f) => f.rule === 'meta-record'), []);
+  // A repeated register field is reported (it would write both words).
+  assert.deepEqual(findMetaCommentIssues(deck('<!-- {headline=left, headline=center} -->\n\n# A')).map((f) => f.classToken), ['meta-repeated-key']);
+  // One comment carrying every word is the fix, and is clean.
+  assert.deepEqual(findMetaCommentIssues(deck('<!-- {layout=kpi, headline=left} -->\n\n# A')), []);
+  // A running global `class:` and a spot `_class:` are two scopes, not a collision.
+  assert.deepEqual(findMetaCommentIssues(deck('<!-- class: kpi -->\n<!-- _class: kpi dark -->\n\n# A')), []);
+});
