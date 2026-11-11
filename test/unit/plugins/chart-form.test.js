@@ -256,3 +256,33 @@ test('a cohort quadrant beside its key names every cohort on the plane, or none'
   assert.ok(onPlane === 0 || onPlane === 4, `${onPlane} of 4 cohorts named on the plane`);
   assert.equal((html.match(/class="chart-key-label"/g) || []).length, 4, 'the key names all four');
 });
+
+test('a numbered bubble quadrant keeps every bubble on its plane and colors each key marker by its group', () => {
+  const T = String.fromCharCode(96);
+  const pt = (x, y, s) => `${T}{${x}, ${y}, size=${s}}${T}`;
+  const deck = `---\ntheme: indaco\nsize: square\n---\n\n<!-- _class: quadrant bubble -->\n\n${T}[{Effort, 0..10}, {Reach, 0..100}]${T}\n\n## bubble sizes each point by a third value.\n\n` +
+    `- Strategic Bets\n  - Scoring model v2 ${pt(3, 70, 2.4)}\n  - Per-team calibration ${pt(5, 85, 4.1)}\n- Quick Wins\n  - Weekly signal brief ${pt(8, 80, 0.9)}\n  - Snapshot exports ${pt(9, 55, 0.6)}\n` +
+    `- Defer\n  - Vendor scoping ${pt(2, 30, 0.4)}\n- Time Sinks\n  - Custom audit log UI ${pt(7, 18, 1.3)}\n`;
+  const html = createEngine().render(deck).html;
+  assert.doesNotMatch(html, /data-label-drops=/, 'every name prints');
+  assert.match(html, /quadrant-dot-num/, 'the dots are numbered (the names cannot sit on them at square)');
+  const [, x0, y0, w, h] = html.match(/<rect class="quadrant-bounds" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/).map(Number);
+  assert.ok(h >= w * 0.45 - 0.5, `the plane is ${h.toFixed(0)} tall and ${w.toFixed(0)} wide`);
+  // A big bubble near an edge may reach past the plane (its center is the data); the quadrant names above and below
+  // stand clear of the furthest one.
+  const nameYs = [...html.matchAll(/<text class="quadrant-label"[^>]*>(.*?)<\/text>/g)]
+    .flatMap(([, body]) => [...body.matchAll(/\sy="([\d.]+)"/g)].map(([, y]) => +y));
+  const above = Math.max(...nameYs.filter((y) => y < y0));
+  const below = Math.min(...nameYs.filter((y) => y > y0 + h));
+  assert.ok(Number.isFinite(above) && Number.isFinite(below), 'quadrant names sit above and below the plane');
+  for (const [, cx, cy, r] of html.matchAll(/class="quadrant-bubble"[^>]*cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)) {
+    assert.ok(+cy - +r > above && +cy + +r < below, `a bubble at y ${cy} (r ${r}) clears the names at ${above} and ${below}`);
+    assert.ok(+cx - +r >= x0 - 0.5 && +cx + +r <= x0 + w + 0.5, `a bubble at x ${cx} (r ${r}) stays inside the plane`);
+  }
+  // Each key marker takes its item's group color: the bubbles carry the truth, by mark.
+  const bubbleCell = new Map([...html.matchAll(/class="quadrant-bubble" data-cell="(\d)"[^>]*data-mark="(\d+)"/g)].map(([, c, m]) => [m, c]));
+  const keyed = [...html.matchAll(/class="quadrant-dot" data-cell="(\d)"[^>]*data-mark-for="(\d+)"/g)];
+  assert.equal(keyed.length, 6, 'the key lists all six');
+  for (const [, c, m] of keyed) assert.equal(c, bubbleCell.get(m), `key marker ${m} takes its group's color`);
+  assert.ok(new Set(keyed.map(([, c]) => c)).size === 4, 'four groups, four colors');
+});
