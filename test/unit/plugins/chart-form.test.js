@@ -96,3 +96,21 @@ test('a hero pie on a phone page draws on a canvas as narrow as its body, at the
   const ends = [...html.matchAll(/class="chart-key-value"[^>]*x="([\d.]+)"/g)].map((m) => Number(key[1]) + Number(m[1]));
   assert.ok(ends.length === 4 && ends.every((x) => x <= w + 0.5), JSON.stringify({ w, ends }));
 });
+
+test('a radar on a phone page draws its labels at their role and thins its ring figures to what fits', () => {
+  const radar = (size) => `---\ntheme: indaco\nsize: ${size}\n---\n\n<!-- _class: radar -->\n\n## Meridian leads.\n\n` +
+    '- Meridian\n  - Performance `9`\n  - Pricing `6`\n  - Support `8`\n  - Ecosystem `5`\n  - Security `9`\n' +
+    '- Vantage\n  - Performance `7`\n  - Pricing `8`\n  - Support `5`\n  - Ecosystem `8`\n  - Security `6`\n';
+  for (const size of ['mobile', 'square']) {
+    const html = createEngine().render(radar(size)).html;
+    assert.match(html, /data-chart-form="fit" class="radar-svg/, `${size}: the kernel placed it`);
+    // The diagram group is scaled by k and sets its role sizes at 1/k, so they print at the role.
+    const g = /<g transform="translate\([\d.]+ [\d.]+\) scale\(([\d.]+)\)" style="--chart-fs-category:([\d.]+)px;--chart-fs-tick:([\d.]+)px/.exec(html);
+    assert.ok(g, `${size}: the scaled diagram group`);
+    const svgFs = Number(/--chart-fs-category:([\d.]+)px/.exec(/<svg data-chart-roles[^>]*class="radar-svg[^>]*>|<svg [^>]*data-chart-roles[^>]*>/.exec(html)[0])[1]);
+    assert.ok(Math.abs(Number(g[1]) * Number(g[2]) - svgFs) < 0.05, `${size}: ${g[1]} x ${g[2]} prints at ${svgFs}`);
+    // Every ring figure printed sits at least 1.6 figure-heights from the next (they thin to every other ring, or one).
+    const ticks = (html.match(/class="radar-tick"/g) || []).length;
+    assert.ok(ticks >= 1 && ticks <= 4, `${size}: ${ticks} ring figures`);
+  }
+});

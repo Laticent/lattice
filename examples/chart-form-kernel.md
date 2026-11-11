@@ -9,7 +9,7 @@ header: "Lattice · the chart form kernel"
 
 # A chart is a Lattice
 
-`Chart form kernel · bar, quadrant, risk-matrix`
+`Chart form kernel · bar, quadrant, risk-matrix, radar`
 
 On a page read on a phone, the kernel draws each chart once, on a canvas the shape of its box: the plot, its axes, its key and its notes each take the room their text needs at its role size.
 
@@ -143,3 +143,30 @@ On a page read on a phone, the kernel draws each chart once, on a canvas the sha
 - Pandemic `{1, 5}`
 
 `@callout{[{Plan cuts likelihood to unlikely, for=Cyber outage}, {Reinsurance caps the loss, for=Hurricane season}, {Unhedged since March, for=FX swing}]}`
+
+---
+
+<!-- _class: radar -->
+
+`Vendor scorecard · 2026`
+
+## Meridian leads on performance and security.
+
+- Meridian
+  - Performance `9`
+  - Pricing `6`
+  - Support `8`
+  - Ecosystem `5`
+  - Security `9`
+- Vantage
+  - Performance `7`
+  - Pricing `8`
+  - Support `5`
+  - Ecosystem `8`
+  - Security `6`
+- Helios
+  - Performance `6`
+  - Pricing `9`
+  - Support `7`
+  - Ecosystem `6`
+  - Security `5`

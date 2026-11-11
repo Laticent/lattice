@@ -409,6 +409,22 @@ section.radar:is(.claim-hero, .claim-bleed) .radar-svg {
   max-width: 100%;
 }
 
+/* A PHONE PAGE (`data-orientation` stamped): the chart form kernel draws the radar and its key on a canvas the shape of
+   the hero body, so the drawing fills that body. The `36cqi` height above is a landscape measure: on a 1080px-wide
+   phone page it held the radar to 389px and printed its rim labels at 4.7pt. */
+section.form.radar:is(.claim-hero, .claim-bleed)[data-orientation] .chart-body {
+  container-type: size;
+}
+section.form.radar:is(.claim-hero, .claim-bleed)[data-orientation] .radar-figure {
+  display: contents;
+}
+section.form.radar:is(.claim-hero, .claim-bleed)[data-orientation] .radar-svg {
+  /* Container units, not %: the hero chart body is a grid whose auto row gives a % height nothing to resolve. */
+  width: 100cqw;
+  height: 100cqh;
+  max-height: none;
+}
+
 /* Scale ticks read too faint at full-bleed size — lift them off --text-muted
  * to a stronger heading mix and add weight so the 0–10 scale stays legible. */
 section.radar:is(.claim-hero, .claim-bleed) .radar-tick {
