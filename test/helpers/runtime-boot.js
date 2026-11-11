@@ -52,12 +52,18 @@ function virtualClock(win) {
   if (win.performance && win.performance !== globalThis.performance) win.performance.now = () => now;
   if (win.Date && win.Date !== Date) win.Date.now = () => epoch + now;
 
-  /** Run the runtime until it has nothing queued. Resolves with the number of callbacks fired. */
-  async function settle({ maxSteps = 500 } = {}) {
+  /**
+   * Run the runtime until it has nothing queued. Resolves with the number of callbacks fired.
+   * `onStep()`, when given, runs at every resting point: once the job queue has drained after each callback (and before
+   * the first). A test that must see an invariant hold THROUGHOUT a run, not only at its end, checks it there; that is
+   * every state a frame could paint, where a sampling loop on a real clock saw whichever ones its ticks happened to hit.
+   */
+  async function settle({ maxSteps = 500, onStep } = {}) {
     let steps = 0;
     for (;;) {
       await turn();
       await turn();
+      if (onStep) onStep();
       if (queue.size === 0) return steps;
       if (steps >= maxSteps) {
         throw new Error(`the runtime still had ${queue.size} callback(s) queued after ${maxSteps}: it never settles`);
