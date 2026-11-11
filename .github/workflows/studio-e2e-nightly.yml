@@ -110,8 +110,9 @@ jobs:
       # device. Both are grep-scoped to their own tag, so this buys a second engine for a
       # handful of oracles, not a second full suite.
       - name: Install Playwright browsers (pinned to @playwright/test)
-        run: npx playwright install --with-deps chromium webkit firefox
-        working-directory: docs
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium webkit firefox
 
       # poppler-utils, for ONE spec: guards-trim-export.spec.ts reads the exported PDF's
       # text layer with `pdftotext` to hold the over-cut floor on the delivered artifact
@@ -121,7 +122,9 @@ jobs:
       # made this oracle cheap; the alternative was a pixel-signature harness. The root
       # integration tier already depends on poppler the same way (ci.yml, integration-nightly.yml).
       - name: Install poppler-utils (pdftotext, for the export text-layer oracle)
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: poppler-utils
 
       # playwright.config.ts's webServer builds (without the slow showcase:check)
       # then previews the production site, and the suite drives it across the
@@ -446,12 +449,15 @@ jobs:
         working-directory: docs
 
       - name: Install Playwright browsers (pinned to @playwright/test)
-        run: npx playwright install --with-deps chromium webkit firefox
-        working-directory: docs
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium webkit firefox
 
       # web-images.spec.ts reads the exported PDF's text layer.
       - name: Install poppler-utils (pdftotext)
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: poppler-utils
 
       # Same shape as the `e2e` job's run step: keep the STEP green on a spec failure so the alarm
       # always runs, carry the verdict in an output, and time the step out below the job.
@@ -592,12 +598,42 @@ jobs:
         shell: bash
     steps:
       # The image has Node and the browsers, not git: install it first so checkout makes a real
-      # clone (the docs build reads git history) rather than falling back to a tarball.
+      # clone (the docs build reads git history) rather than falling back to a tarball. Its .deb comes
+      # from GitHub's cache, keyed on the image tag; only a miss reads the mirror, three tries with
+      # apt's own three retries (owner call, 2026-11-11). Inline because the repo's apt-cached action
+      # is not on disk before checkout.
+      - name: Restore git's packages
+        uses: actions/cache@v4
+        with:
+          path: /root/apt-git-debs
+          key: apt-container-git-playwright-v1.56.1-noble-v1
       - name: Install git
-        run: apt-get update && apt-get install -y --no-install-recommends git
+        run: |
+          set -euo pipefail
+          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' > /etc/apt/apt.conf.d/80-lattice-retries
+          dir=/root/apt-git-debs
+          if ! ls "$dir"/*.deb >/dev/null 2>&1; then
+            mkdir -p "$dir/partial"
+            for n in 1 2 3; do
+              apt-get update && apt-get install -y --no-install-recommends --download-only -o Dir::Cache::archives="$dir" git && break
+              [ "$n" = 3 ] && exit 1
+              sleep $((n * 10))
+            done
+            rm -rf "$dir/partial" "$dir/lock"
+          fi
+          dpkg -i "$dir"/*.deb
       - uses: actions/checkout@v4
       - name: Trust the workspace for git (the container runs as root on a runner-owned checkout)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      # The gh CLI, for the issue steps below (main only), from the same cache as every other package.
+      # Allowed to fail: the issue steps check for it, and the passing-run report already tolerated a
+      # missing gh.
+      - name: Install the gh CLI
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: gh
 
       - name: Install root deps (engine deps the docs build imports)
         run: npm ci
@@ -641,8 +677,8 @@ jobs:
           retention-days: 14
 
       # Its own rolling issue, in the `security` job's shape: the same exact-title lookup, and a
-      # comment (never a close) on a measured green night. The image has no gh CLI, so each step
-      # installs it from the Ubuntu archive.
+      # comment (never a close) on a measured green night. The image has no gh CLI; the "Install the
+      # gh CLI" step above installs it from the cache.
       - name: Open / append regression issue
         if: always() && (steps.webrtc.outputs.failed == 'true' || steps.webrtc.outcome != 'success') && github.ref == 'refs/heads/main'
         env:
@@ -650,7 +686,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          apt-get install -y --no-install-recommends gh >/dev/null
+          command -v gh >/dev/null || { echo '::error::the gh CLI did not install (step "Install the gh CLI"); no issue was filed'; exit 1; }
           TITLE='[studio-firefox-webrtc] Firefox live-session spec failing on main'
           REPORT="$GITHUB_WORKSPACE/firefox-webrtc-report.txt"
           BODY="$GITHUB_WORKSPACE/firefox-webrtc-body.md"
@@ -702,7 +738,7 @@ jobs:
             echo "No passing tests in the report — nothing was proved; leaving any open thread alone."
             exit 0
           fi
-          apt-get install -y --no-install-recommends gh >/dev/null || exit 0
+          command -v gh >/dev/null || exit 0 # installed by "Install the gh CLI"; a miss leaves the thread alone, as before
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
             --jq "[.[] | select(.title == \"$TITLE\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
@@ -759,8 +795,9 @@ jobs:
         working-directory: docs
 
       - name: Install Playwright browsers (pinned to @playwright/test)
-        run: npx playwright install --with-deps chromium
-        working-directory: docs
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium
 
       # Same shape as the `security` job's run step: keep the STEP green on a spec failure so the
       # alarm always runs, carry the verdict in an output, and time the step out below the job.
@@ -917,8 +954,9 @@ jobs:
         working-directory: docs
 
       - name: Install Playwright browser (pinned to @playwright/test)
-        run: npx playwright install --with-deps chromium
-        working-directory: docs
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium
 
       # Same shape as the `e2e` job's run step: `tee` the output to a report file, keep the
       # STEP green on a spec failure so the alarm below always gets to run, and carry the

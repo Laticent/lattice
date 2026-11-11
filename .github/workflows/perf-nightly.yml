@@ -49,6 +49,13 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             docs/package-lock.json
+      # setup-chrome has no cache of its own and pulls a full Chrome each run; cache its install folder, as ci.yml does
+      # (owner call, 2026-11-11: cache everything CI downloads).
+      - name: Cache setup-chrome download
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/setup-chrome
+          key: setup-chrome-${{ runner.os }}-stable-v1
       - uses: browser-actions/setup-chrome@v1
         id: chrome
         with:
@@ -406,7 +413,11 @@ jobs:
           set -euo pipefail
           cd docs
           npm ci --silent
-          npx playwright install --with-deps chromium
+      - name: Install the Playwright browser, from the cache
+        if: always()
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium
 
       # A ceiling breach and a broken harness both exit non-zero, so the log is the discriminator —
       # but it must be a MACHINE token, not English. Grepping for "ceiling" also matched the
@@ -582,6 +593,13 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             docs/package-lock.json
+      # setup-chrome has no cache of its own and pulls a full Chrome each run; cache its install folder, as ci.yml does
+      # (owner call, 2026-11-11: cache everything CI downloads).
+      - name: Cache setup-chrome download
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/setup-chrome
+          key: setup-chrome-${{ runner.os }}-stable-v1
       - uses: browser-actions/setup-chrome@v1
         id: chrome
         with:

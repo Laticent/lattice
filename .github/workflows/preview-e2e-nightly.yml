@@ -44,6 +44,13 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             docs/package-lock.json
+      # setup-chrome has no cache of its own and pulls a full Chrome each run; cache its install folder, as ci.yml does
+      # (owner call, 2026-11-11: cache everything CI downloads).
+      - name: Cache setup-chrome download
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/setup-chrome
+          key: setup-chrome-${{ runner.os }}-stable-v1
       - uses: browser-actions/setup-chrome@v1
         id: chrome
         with:
