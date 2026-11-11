@@ -89,7 +89,7 @@ test('@mobile @webkit-phone the phone bar lists Compose before Source, and Compo
 
 // COMPOSE STAYS GOLD AND READABLE (owner, 2026-11-11, on an iPhone). Its word is the accent mixed with a fifth of the
 // heading ink (`--lx-compose`), selected or not; selected, it sits on the light chip, never the ink cell. Measured
-// here in every palette and mode against the colour actually behind the word: the plain accent fell to 4.08:1 on
+// here in every palette and mode against the color actually behind the word: the plain accent fell to 4.08:1 on
 // the chip (carbone light), and on the phone's ink cell to 1:1 in a monochrome palette.
 const PALETTES = fs.readdirSync(new URL('../../themes/', import.meta.url), { withFileTypes: true })
 	.filter((d) => d.isDirectory() && !d.name.endsWith('-dark'))
@@ -111,6 +111,10 @@ async function worstContrast(page: Page, cell: Locator): Promise<{ ratio: number
 			return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 		};
 		const root = document.documentElement;
+		// The cells fade their color (`transition-colors`): without this the read is the PREVIOUS palette's color.
+		const still = document.createElement('style');
+		still.textContent = '*,*::before,*::after{transition:none!important}';
+		document.head.append(still);
 		let worst = { ratio: Number.POSITIVE_INFINITY, where: '' };
 		for (const palette of palettes) {
 			for (const mode of ['light', 'dark']) {
@@ -128,6 +132,7 @@ async function worstContrast(page: Page, cell: Locator): Promise<{ ratio: number
 				if (ratio < worst.ratio) worst = { ratio: Math.round(ratio * 100) / 100, where: `${palette} ${mode}` };
 			}
 		}
+		still.remove();
 		return worst;
 	}, PALETTES);
 }
