@@ -7,7 +7,8 @@
 // The contract both callers rely on:
 // - A job holds a worker for its whole length, so `size` bounds memory as well as threads.
 // - A job is built only once it holds a worker (`build` runs after acquire), so a caller that has to read something large
-//   (a slide's pixels, a clip's bytes) reads it only when a worker is ready to take it.
+//   can read it only when a worker is ready to take it. The picture pool does (a 4K slide's pixels are 33 MB); the
+//   narration packer reads its clip earlier, because it keeps a fallback copy, and a clip is a few hundred KB.
 // - The first failure of any kind (an error event, an unreadable message, a worker-reported error, no answer by the deadline)
 //   BREAKS the pool: every waiter and every later job gets `{ fallback: true }` and the caller runs its main-thread path. The
 //   work is slower there, never lost, and produces the same bytes. A phone kills workers under memory pressure without an

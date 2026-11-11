@@ -33,7 +33,11 @@ export function createNarrationPacker({ size = packPoolSize(), deadlineMs = PACK
 			// Cheap next to the encode, and it only exists while the job is in flight.
 			const spare = clip.bytes.slice(0);
 			const out = await pool.run(() => ({ message: clip, transfer: [clip.bytes] }));
-			return 'value' in out ? out.value : packClip({ ...clip, bytes: spare });
+			// A worker that says "no encoder" is asked again on the main thread before the bake believes it: the encoder
+			// chunk can fail to load inside a worker while the page has it, and refusing an export the page could finish
+			// is the worse mistake. A real absence answers the same on both.
+			if ('value' in out && !out.value.encoderMissing) return out.value;
+			return packClip({ ...clip, bytes: spare });
 		},
 		dispose: () => pool.dispose(),
 	};

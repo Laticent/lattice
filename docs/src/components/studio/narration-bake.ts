@@ -42,7 +42,7 @@ import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { splitSlides } from '../../lib/deck-lint';
 import { stripFrontMatter } from '../../lib/front-matter';
-import { sharedNarrationPacker } from './narration-pack-pool.js';
+import { packPoolSize, sharedNarrationPacker } from './narration-pack-pool.js';
 import { applyChartNarration, type NarrationDeck, narrationDeck, resolveNarration } from './narration-resolve';
 import { type BakeVoice, bakeClipKeys, narrationClipFor, slideToSpeech, synthBakeClip } from './read-aloud';
 import { getSayLine } from './slide-say';
@@ -484,8 +484,9 @@ const SECONDS_PER_SENTENCE = 1.6;
  * figure above the middle of that. Over-quoting time is the safe direction, and unlike the size
  * line nothing gates on it — it only sets expectations for a run the author can cancel.
  *
- * NOT divided by the bake's concurrency: the encode is synchronous on one thread, so the workers do
- * not overlap it however many of them there are.
+ * DIVIDED BY THE PACK POOL, not by the bake's synthesis concurrency: the encode runs in the narration pack workers
+ * (narration-pack-pool.js, one per spare core up to 4), off the main thread and in parallel with each other. Where
+ * workers cannot run, the pool falls back to the main thread and the quote reads low; that is the rare path.
  */
 const ENCODE_SECONDS_PER_CLIP = 0.1;
 
@@ -559,7 +560,7 @@ export async function measureNarration(source: string, projected: readonly strin
 	const estCostUsd = typeof priceMPerChar === 'number' && Number.isFinite(priceMPerChar) ? (missingChars / 1e6) * priceMPerChar : null;
 	// Synthesis is concurrent; the encode is not, and it falls on EVERY clip of a transcoded
 	// engine — cached ones included, which is the whole point (see ENCODE_SECONDS_PER_CLIP).
-	const estSeconds = Math.ceil((missing * SECONDS_PER_SENTENCE) / bakeConcurrency(voice) + (transcoded ? total * ENCODE_SECONDS_PER_CLIP : 0));
+	const estSeconds = Math.ceil((missing * SECONDS_PER_SENTENCE) / bakeConcurrency(voice) + (transcoded ? (total * ENCODE_SECONDS_PER_CLIP) / packPoolSize() : 0));
 	const missingBytes = estimateSynthBytes(missingChars, voice.model, { transcoded, kbps: bitrate });
 	return { ...base, cached, cachedBytes, missing, missingChars, missingBytes, estCostUsd, estSeconds, transcoded };
 }

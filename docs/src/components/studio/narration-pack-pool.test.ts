@@ -82,4 +82,18 @@ describe('createNarrationPacker', () => {
 		const out = await packClip({ bytes: mp3.buffer.slice(0), type: 'audio/mpeg', kbps: 64 });
 		expect(out).toMatchObject({ mime: 'audio/mpeg', compressed: false, size: 8, leadMs: 0 });
 	});
+
+	it('asks the main thread again when a worker says the encoder is missing, rather than refuse the export', async () => {
+		class NoEncoderWorker extends InProcessWorker {
+			async postMessage(data: Record<string, unknown>) {
+				this.onmessage?.({ data: { id: data.id, encoderMissing: true } });
+			}
+		}
+		vi.stubGlobal('Worker', NoEncoderWorker);
+		const { createNarrationPacker } = await import('./narration-pack-pool.js');
+		const packer = createNarrationPacker({ size: 1 });
+		const out = await packer.pack({ bytes: await wavBytes(), type: 'audio/wav', kbps: 64 });
+		expect(out).toMatchObject({ mime: 'audio/mpeg', compressed: true });
+		packer.dispose();
+	});
 });
