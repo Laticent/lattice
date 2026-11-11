@@ -114,3 +114,15 @@ test('a radar on a phone page draws its labels at their role and thins its ring 
     assert.ok(ticks >= 1 && ticks <= 4, `${size}: ${ticks} ring figures`);
   }
 });
+
+test('a map on a phone page scales its basemap into the cell and prints its key at the key role', () => {
+  const deck = `---\ntheme: indaco\nsize: square\n---\n\n<!-- _class: map world -->\n\n## Where the program runs.\n\n` +
+    '- India `48.2`\n- Nigeria `36.4`\n- Kenya `31.0`\n- Brazil `27.5`\n- Indonesia `19.3`\n';
+  const html = createEngine().render(deck).html;
+  assert.match(html, /data-chart-form="fit" class="map-svg"/);
+  // The regions draw in a scaled group; the key draws at the size the kernel laid it out at.
+  assert.match(html, /<g transform="translate\(-?[\d.]+ -?[\d.]+\) scale\([\d.]+\)">/);
+  const key = Number(/--chart-fs-key:([\d.]+)px/.exec(html)[1]);
+  const keyG = Number(/<g style="--chart-fs-key:([\d.]+)px">/.exec(html)[1]);
+  assert.ok(keyG >= key * (11 / 13) - 0.01 && keyG <= key + 0.01, `key at ${keyG}, role ${key}`);
+});

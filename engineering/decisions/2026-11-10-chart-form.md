@@ -238,7 +238,7 @@ the owner's scaled drawing (§ 10).
 | piechart | yes | disc and key arranged by the kernel; key steps 13 to 11pt; long-tail slides over capacity |
 | tower | yes | the key is a kernel tile at the key role, the tower drawn in the cell left; with notes it keeps its own layout, which overprints on story, 4:5 and square as it did before the kernel |
 | radar | yes | the 300-unit diagram is drawn at type scale 1/k and scaled by k, so its rim labels print at their role and the side pads, measured from the labels, come out in fixed canvas units; ring figures thin to every other ring when they crowd; small multiples draw in one grid; with notes it keeps its own layout |
-| map | to do | fixed geometry with labels inside: the plot must take the canvas, the key a kernel tile |
+| map | yes | the basemap is the plot at its own aspect, scaled into the cell (its regions carry no text); the key a kernel tile, in columns when grouped (a heading starts a group); with notes it keeps its own layout |
 | stacked-bar, heatmap, histogram, waterfall, word-cloud | to do | size holds; names dropped vs `main` |
 | gantt, slope, state-chart | to do | overprints at square; state-chart under the floor at square |
 | roadmap, timeline-list | to do | overflow at square |
