@@ -13,20 +13,15 @@
 # Syntax: https://github.com/NVIDIA/SkillSpector/blob/main/docs/SUPPRESSION.md
 version: 2
 rules:
-  # MCP rug pull (RP1): `npx lattice …` with no @version, 69 lines in design/skills/*.md.
-  # PENDING AN OWNER DECISION (PR #3142). This rule was first accepted as "our own CLI", which
-  # is FALSE: the unscoped `lattice` package on npm belongs to an unrelated publisher, and
-  # `@laticent/lattice` is not published. Inside a project with Lattice installed, `npx
-  # lattice` runs our bin; in an empty folder it downloads and runs that third party's
-  # package. The tested fix is `npx --no-install lattice` (runs the local bin, never
-  # downloads, and the scanner does not flag it), which would delete both rules below.
-  # The quoted names keep these rules from excusing a lookalike (`npx lattice-x`).
-  - id: "RP1"
-    message: "*'npx lattice'*"
-    reason: "INTERIM, owner decision pending: unscoped npx resolves to a third party's package outside a Lattice project"
+  # MCP rug pull (RP1): `npx @laticent/lattice …` with no @version. It is OUR package (owner,
+  # 2026-11-11: published to npm by 2026-11-15; until then it 404s, which fails safe). Pinning a
+  # version in teaching prose would go stale every release. The BARE name is deliberately NOT
+  # excused: on npm, unscoped `lattice` belongs to an unrelated publisher, so outside a Lattice
+  # project `npx lattice` runs their code. PR #3142 rewrote all 69 bare lines; one creeping back
+  # in fires the nightly. The quotes keep this rule from excusing a lookalike scope.
   - id: "RP1"
     message: "*'npx @laticent/lattice'*"
-    reason: "INTERIM, owner decision pending: @laticent/lattice is not yet published on npm"
+    reason: "Our own package on npm (owner decision 2026-11-11); the unscoped name is NOT excused"
 
   # YARA tool-poisoning (YR4) on a slide's alt-text comment, `<!-- describe: … -->`, which
   # is Lattice's accessibility syntax (lib/base/base.docs.md). Scoped to that file and

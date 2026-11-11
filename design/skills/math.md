@@ -94,7 +94,7 @@ can use is KaTeX's (<https://katex.org/docs/supported.html>).
   `examples/math-bare-equation.md`, `examples/math-split-structure.md`,
   `examples/math-form-frame.md`.
 - **Commands:** `npm run new:slide -- math`; `npm run lint:deck -- deck.md`;
-  `npx lattice deck.md deck.pdf`.
+  `npx @laticent/lattice deck.md deck.pdf`.
 
 ---
 

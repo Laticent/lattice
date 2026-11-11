@@ -5,9 +5,10 @@ summary: Agent skills are instructions an agent obeys, so a tampered skill is a 
 
 # SkillSpector nightly: scan every agent skill we ship
 
-Owner decision, 2026-11-11: a static-only nightly with a reviewed baseline (no LLM pass, no key,
-$0). The unpinned `npx lattice` finding was first accepted on a premise that turned out false
-(§3), so it is back with the owner; the baseline carries an INTERIM rule until they decide.
+Owner decisions, 2026-11-11: a static-only nightly with a reviewed baseline (no LLM pass, no key,
+$0). The unpinned `npx lattice` finding was first accepted on a false premise ("our own CLI"); with
+the facts corrected, the owner set the direction: `@laticent/lattice` is published to npm by
+2026-11-15, so the skills say `npx @laticent/lattice` (§3).
 
 ## 1. What SkillSpector is
 
@@ -35,7 +36,7 @@ All 19 `.claude/skills/` scored 0. The agent kit's per-task files first scored 7
 
 | Rule | Count | What it matched | Disposition |
 |---|---|---|---|
-| RP1 MCP rug pull | 70 | `npx lattice …` with no `@version` | **A real risk, owner decision pending.** The unscoped `lattice` on npm is an unrelated publisher's package and `@laticent/lattice` is unpublished, so outside a Lattice project the line downloads a stranger's code. Tested fix: `npx --no-install lattice`. Interim baseline rule until decided |
+| RP1 MCP rug pull | 70 | `npx lattice …` with no `@version` | **A real risk, fixed at source.** On npm, unscoped `lattice` belongs to an unrelated publisher, so outside a Lattice project the line ran their code. All 69 lines now say `npx @laticent/lattice` (ours; it 404s until published on 2026-11-15, which fails safe). Only the scoped name is excused, so a bare `npx lattice` creeping back fires |
 | AR2 anti-refusal | 2 | "prints no warning", "no errors, no warnings" | **Reworded at source.** A rule on the bare phrase also excused a real "give the user no warning" (reproduced by the review) |
 | YR4 YARA tool poisoning | 1 | a `<!-- describe: … -->` alt-text comment | Baseline: Lattice's accessibility syntax |
 | AE4 Unicode / mixed script | 1 | the Greek Δ in "ΔE" in `theme.md` | **Fixed at source** (`design/skills/theme.md` now says "deltaE"), so the check stays live everywhere |
@@ -70,6 +71,9 @@ pipx install on Python 3.12.3, 22 targets, `findings=1` (the Δ, still on `dist-
 step surviving to record it, the SARIF upload "complete", and the job green.
 
 ## 5. Limits
+
+- **The rest of the repo still says `npx lattice`:** ~149 lines in the README, the docs site, the
+  CLI help and notes, which human readers copy (`followups.d/3142-p2-scoped-npx-outside-skills.md`).
 
 - **Not yet scanned:** the kit's `components/`, `reference/`, `upload/` and `review/` folders. Their
   first scan raised ~230 findings to read first

@@ -26,7 +26,7 @@
       "description": "Use when the author has numbers (pasted rows, a CSV, a table) and needs the right chart on a slide: pick the kind from the question, author the data, write the claim.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3264
+      "tokens": 3267
     },
     {
       "name": "cli",
@@ -35,7 +35,7 @@
       "description": "Use when rendering, exporting, sharing or checking a finished deck from a terminal: PDF, PowerPoint, images, player, handouts.",
       "kind": "operate",
       "studio": false,
-      "tokens": 3155
+      "tokens": 3316
     },
     {
       "name": "component-showcase",
@@ -62,7 +62,7 @@
       "description": "Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist.",
       "kind": "make",
       "studio": true,
-      "tokens": 3256
+      "tokens": 3261
     },
     {
       "name": "diagram",
@@ -71,7 +71,7 @@
       "description": "Use when a slide needs a diagram: a Mermaid flowchart, sequence or state diagram, or a native flowchart; when it helps, size limits, theming and what breaks.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3027
+      "tokens": 3032
     },
     {
       "name": "edit-deck",
@@ -80,7 +80,7 @@
       "description": "Use when editing or restructuring a deck that already exists: find its argument, reorder, split or merge slides, keep the author's voice and change only what was asked.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3317
+      "tokens": 3322
     },
     {
       "name": "finish",
@@ -107,7 +107,7 @@
       "description": "Use when bringing outside content into Lattice: pasted Markdown, a Marp deck, a PowerPoint or PDF, then cleaning the result into the house deck shape.",
       "kind": "operate",
       "studio": false,
-      "tokens": 3115
+      "tokens": 3120
     },
     {
       "name": "lens",
@@ -125,7 +125,7 @@
       "description": "Use when a slide carries math: inline $x$ or a display equation, the math layout and its variants, legends for symbols, and when prose beats an equation.",
       "kind": "operate",
       "studio": true,
-      "tokens": 2754
+      "tokens": 2757
     },
     {
       "name": "restyle-deck",
@@ -134,7 +134,7 @@
       "description": "Use when changing how a deck looks without changing what it says: theme, color mode, preset, finish, mode, registers, per-slide modifiers, or a better-fitting layout.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3192
+      "tokens": 3194
     },
     {
       "name": "speaker-notes",
@@ -143,7 +143,7 @@
       "description": "Use when writing speaker notes, say: lines, review comments or captions, or when reviewing a deck against the notes rubric.",
       "kind": "make",
       "studio": true,
-      "tokens": 5394
+      "tokens": 5397
     },
     {
       "name": "studio",
@@ -161,7 +161,7 @@
       "description": "Use when creating a new palette (`themes/<name>/<name>.css`): the token contract, AA contrast, categorical colors and both modes.",
       "kind": "make",
       "studio": true,
-      "tokens": 5835
+      "tokens": 5840
     }
   ]
 }

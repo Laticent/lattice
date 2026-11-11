@@ -87,7 +87,7 @@ and its background-image size syntax. `lint:deck` names each one.
 - **Studio**: "Import deck…" (⌘K / Ctrl+K, or the deck switcher); drag a file
   onto the Studio. Pasting into the editor also works: the editor normalizes
   line endings on paste.
-- **CLI**: `npx lattice deck.md deck.pdf` reads a Markdown file and strips a
+- **CLI**: `npx @laticent/lattice deck.md deck.pdf` reads a Markdown file and strips a
   BOM and CRLF/CR line endings on the way in (`readFileOrDie` in `lattice.js`).
 - **Lint**: `npm run lint:deck -- <file>`; `--fix` applies the machine fixes.
 - **Line endings**: `.gitattributes` keeps the repo LF;
@@ -148,7 +148,7 @@ and its background-image size syntax. `lint:deck` names each one.
    silent` slide — if the source had none.
 
 7. **Lint to clean, render, look.** `npm run lint:deck -- deck.md`, then
-   `npx lattice deck.md deck.pdf`.
+   `npx @laticent/lattice deck.md deck.pdf`.
 
 ---
 
