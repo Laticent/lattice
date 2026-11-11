@@ -176,15 +176,21 @@ describe('hostile and very large decks', () => {
 		expect(w, `${w} for ${deck.length} characters`).toBeLessThan(PER_CHAR * deck.length);
 	});
 
-	it('failing arm: a rewrite that looks each line\'s paragraph up in a list, rather than by its first line, is caught', () => {
-		// The shape `byFirstLine` replaced: a search of every group for each line, n² on a table of n rows.
-		const deck = table(15_000);
-		const groups = deck.split('\n').map((_, first) => ({ first }));
-		const w = work(() => {
-			R(deck);
-			for (let l = 0; l < groups.length; l++) groups.find((g) => g.first === l);
-		});
-		expect(w).toBeGreaterThan(PER_CHAR * deck.length);
+	it('a real table of many rows, one group per row, in linear work', () => {
+		// The case above is ONE paragraph (no `|---|` row, so markdown-it makes no table). Here the delimiter row makes
+		// every row its own group, which is where a per-line search of the groups (the shape `byFirstLine` replaced)
+		// would go n². N rows and 4N rows: linear work grows about 4x, that search about 16x. A ratio of two COUNTS.
+		const rows = (n: number) => `| a | b |\n|---|---|\n${'| ![](asset:hero) | x |\n'.repeat(n)}`;
+		const cost = (n: number) => {
+			const deck = rows(n);
+			let out = '';
+			const w = work(() => {
+				out = R(deck);
+			});
+			expect(out.split('asset:cover').length - 1).toBe(n);
+			return w;
+		};
+		expect(cost(8_000) / cost(2_000)).toBeLessThan(6);
 	});
 
 	it('handles pathological backtick and fence patterns in work proportional to their size', () => {

@@ -249,7 +249,9 @@ describe('checker pass: failures name their cause', () => {
 			// The reconcile runs after the Stop returns: wait for its result, not for a tick that happens to cover it.
 			await vi.waitFor(() => {
 				expect(looked).toEqual(['gen-2']);
-				expect(spend.readSpend().session).toBeGreaterThan(before);
+				// Round 1's own reported cost (0.001) plus round 2 at its EXACT cost (0.002), not its estimate: the reconcile
+				// replaced the estimate. Only "it went up" passed with the correction dropped or its sign flipped.
+				expect(spend.readSpend().session - before).toBeCloseTo(0.003, 9);
 			});
 		} finally {
 			m.openRouterGenerationCost = orig.cost;
