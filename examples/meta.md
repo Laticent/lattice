@@ -55,10 +55,10 @@ A slide's layout, footer and notes live in one comment.
 
 <!-- {layout=list-steps, focus-steps="item 1 | item 2 | item 3", footer="Focus steps walk one item at a time"} -->
 
-## Focus steps still expand.
+## Focus steps still walk the slide.
 
-1. Each step becomes its own page.
-2. The class on the record stays on every page.
+1. Each step lights the next item, live.
+2. The record's class stays on the slide.
 3. The footer rides along unchanged.
 
 ---

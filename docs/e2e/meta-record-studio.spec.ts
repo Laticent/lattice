@@ -1,7 +1,7 @@
 /**
  * Slide-metadata records on the real Studio preview (engineering/decisions/2026-10-17-meta-record.md §9 step 2,
  * HARD RULE #23): a deck written only in records (`<!-- {layout=cards, footer="…"} -->`) renders its layouts, its panes
- * and its focus pages, and no record or note text reaches a slide. The engine path is the same one the CLI runs; this
+ * and its stepping slide, and no record or note text reaches a slide. The engine path is the same one the CLI runs; this
  * pins that the Studio's own readers (the pane probe and page map, admission) and the browser bundle carry the door too.
  */
 import { expect, gotoStudio, LIVE_PREVIEW, railButtons, setEditorContent, test } from './studio-fixture';
@@ -44,7 +44,7 @@ reader: |
 
 <!-- {layout=list-steps, focus-steps="item 1 | item 2"} -->
 
-## Focus steps expand.
+## Focus steps walk.
 
 1. First.
 2. Second.
@@ -84,9 +84,10 @@ async function recordDeckRenders({ page }: { page: import('@playwright/test').Pa
 	await expect(frame.locator('lat-pane.list')).toHaveCount(2);
 	await keep();
 
-	// Slide 3: focus steps from a record keep the layout on the page they show.
+	// Slide 3: focus steps from a record make one stepping slide, walked live (2026-11-09-steps-as-a-behavior.md), and keep
+	// its layout.
 	await rail.nth(2).click();
-	const focus = frame.locator('section[data-focus]', { has: frame.locator('h2', { hasText: 'Focus steps expand.' }) }).first();
+	const focus = frame.locator('section[data-steps="2"][data-step-kind="focus"]', { has: frame.locator('h2', { hasText: 'Focus steps walk.' }) }).first();
 	await expect(focus).toBeVisible({ timeout: 20_000 });
 	await expect(focus).toHaveClass(/(^|\s)list-steps(\s|$)/);
 	await keep();
@@ -97,5 +98,5 @@ async function recordDeckRenders({ page }: { page: import('@playwright/test').Pa
 
 // The same check twice: untagged for the desktop project, tagged for the phone and the two other engines (each project
 // selects by tag, playwright.config.ts).
-test('a deck written in records renders its layouts, panes and focus pages, with no record text on a slide', recordDeckRenders);
+test('a deck written in records renders its layouts, panes and stepping slide, with no record text on a slide', recordDeckRenders);
 test('@mobile @webkit-phone @webkit-tablet @gecko a deck written in records renders the same on a phone, WebKit and Gecko', recordDeckRenders);
