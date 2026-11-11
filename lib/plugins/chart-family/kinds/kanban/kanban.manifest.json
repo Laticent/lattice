@@ -64,7 +64,7 @@
   },
   "split": {
     "strategy": "kanban-lanes",
-    "note": "In a portrait box the side-by-side lanes can't fit, so each LANE gets its own slide — the chart-header repeats and the board re-emits holding one .kanban-column, giving that lane the whole slide for its cards. Needs >=2 lanes; a single lane taller than the slide rings (card-level pagination is a future pass). lib/core/carousel.js kanban-lanes; 2026-06-25-retire-landscape-locks-portrait-everything.md."
+    "note": "On a phone-shaped page (portrait, square, story, mobile) the lanes stack, full width, and a board that fits one page stays one page. One that does not is cut between whole lanes into as few pages as it needs, balanced; a lane taller than a page carries its cards on under its name marked (cont.). kanban.transform.js decides the cut from the markup and the stored glyph widths and marks it (data-kanban-fits, .kanban-page); lib/core/carousel.js kanban-lanes follows the marks. The owner's call, 2026-11-11, amending 2026-09-01-autosplit-splits-on-structure.md for kanban and roadmap."
   },
   "tags": [
     "swimlane",
@@ -123,6 +123,9 @@
       "sample": "<!-- _class: kanban tinted -->\n\n`kanban tinted`\n\n## tinted colors each lane's wash.\n\n- Backlog\n  - Lane wash `S`\n- In progress\n  - Color coded `M`\n- Done\n  - Reads faster `L`\n"
     }
   },
+  "dataShapeGuidance": [
+    "On a phone-shaped page (portrait, square, story, mobile) the lanes stack, each lane's name over its cards, and every card runs the full width with its label and status beside its title. A board that fits the page stays one page; one that does not continues on the next page, cut between whole lanes and balanced across as few pages as it needs, and a lane taller than a page carries its cards on under its name marked (cont.). Nothing on a card is cut short, so a board of short card titles fits more per page."
+  ],
   "whenToUse": [
     {
       "title": "Status snapshot by stage",

@@ -2290,6 +2290,8 @@ section.state-chart:where([data-family="tall"], [data-family="square"], [data-fa
 }
 /* status */
 section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .hub-spoke-status,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .chart-status,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .kanban-lane,
 section.matrix-grid:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .cell,
 section.progress:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .chart-status,
 section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .lat-pill,
@@ -2302,6 +2304,8 @@ section.timeline-list:where([data-family="tall"], [data-family="square"], [data-
 section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body svg[data-chart-roles] .hub-spoke-status {
   font-size: var(--chart-fs-status);
 }
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .chart-status,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .kanban-lane,
 section.matrix-grid:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .cell,
 section.progress:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .chart-status,
 section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .lat-pill,
@@ -2314,6 +2318,7 @@ section.state-chart:where([data-family="tall"], [data-family="square"], [data-fa
 }
 /* glyph */
 section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .journey-actor-dot,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .kanban-size,
 section.risk-matrix:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .risk-key-number,
 section.risk-matrix:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .risk-number,
 section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .state-chip-to,
@@ -2323,7 +2328,8 @@ section.state-chart:where([data-family="tall"], [data-family="square"], [data-fa
   text-transform: none;
   letter-spacing: 0;
 }
-section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .journey-actor-dot {
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .journey-actor-dot,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .kanban-size {
   font-size: var(--chart-role-glyph);
 }
 section.risk-matrix:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body svg[data-chart-roles] .risk-key-number,
@@ -2353,5 +2359,8 @@ section.kanban:where([data-family="tall"], [data-family="square"], [data-family=
 section.progress:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .progress-label,
 section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .row-text,
 section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .timeline-body {
-  font-size: var(--fs-body);
+  /* The deck's body size, floored at the ladder's smallest size (11pt, the category role's): a square page's body runs
+   * smaller (30.2px, 9pt, on a kanban card title) than a tall one's (47px). `--chart-text-min` is the family's lower
+   * on-screen floor (18px at square), not the phone page's 11pt. */
+  font-size: max(var(--chart-role-category), var(--fs-body));
 }

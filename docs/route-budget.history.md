@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-11 — the owner raised one ceiling by 3KB, for kanban and roadmap
+
+PR #3131: on a phone-shaped page kanban and roadmap now stack their lanes and phase cards full width, and cut a board between whole lanes only when it does not fit, from an estimate of each lane's height (the owner's call, amending 2026-09-01-autosplit-splits-on-structure.md for these two kinds). Kanban's layout code measured 257.1KB of the union of every chart kernel's closure against the 255.7KB ceiling set above. The owner raised chartKernelsGz's ceiling by 3KB (3,072 bytes) on 2026-11-11 to cover kanban and roadmap together; roadmap's measured cost is recorded when it lands. The soft target is unchanged. Set by hand, for the same reason as the entries below.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelsGz | 231477 | 231477 | +0 | 264865 |
+
 ### 2026-11-11 — the owner raised one ceiling by 1KB, for gantt
 
 PR #3131: moving gantt onto the chart form kernel (lane names above their bars, captions placed whole, a key that wraps) costs about 1.8KB of the union of every chart kernel's closure, measured 255.6KB against the 254.7KB ceiling set above. The owner raised chartKernelsGz's ceiling by 1KB (1,024 bytes) on 2026-11-11 and asked to be asked again for each later kind that needs more; the soft target is unchanged. Set by hand, for the same reason as the entry below.

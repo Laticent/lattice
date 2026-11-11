@@ -7,6 +7,16 @@ supersedes: the trigger clause of 2026-07-29-autosplit-is-not-a-toggle.md; the p
 
 # Auto-split splits on structure
 
+> **AMENDED FOR KANBAN AND ROADMAP ON A PHONE PAGE (2026-11-11, owner's call).** On a portrait, square, story or mobile
+> page a kanban's lanes stack, and a page holds as many whole lanes as fit, not one: a board that fits stays one page, and
+> one that does not is cut between whole lanes into as few pages as it needs, balanced, with a lane taller than a page
+> continued under its name marked "(cont.)". Roadmap's phase cards follow the same rule. This is the packing the rule
+> below forbids, and it is allowed for these two kinds only, because one lane per page left most of every page empty (a
+> four-lane board split into five pages at mobile, two or three cards each). It keeps what the rule was for: the cut is
+> decided from the markup and the stored glyph widths (`kanban.transform.js` § ON A PAGE READ ON A PHONE), never a render,
+> so the same deck always splits the same way and `lint:deck`, the Studio and the agent kit can say what it becomes.
+> Every other component still gets one element per page.
+
 > **PART SUPERSEDED (2026-09-13).** The native-slice cover this note leaves as an open
 > question ("**Owner's call**") is decided — every run opens on a cover. The chrome ruling is
 > extended to a slide's own `_footer:`, which is now said once, on the page that opens the run.
