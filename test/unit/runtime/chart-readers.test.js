@@ -194,3 +194,24 @@ describe('chart redraw: the check before trust refuses a list that is not the au
   });
 });
 
+
+describe('chart redraw: the check before trust accepts a portrait export drawn on the fixed canvas', () => {
+  // A story slide whose header is taller than the one the tall canvas is measured under (here a source line) is
+  // exported on the fixed canvas (chart-frame.js `fitsMeasuredBox`). The runtime redraws from the bare list, which has
+  // no header, so its check must try the fixed canvas too (chart-redraw.js `verified`, `opts.fixedCanvas`), or every
+  // such chart would keep its export on a phone.
+  test('a 4:5 tower with a source line passes its own check', () => {
+    // A 4:5 tower: on the bare list it takes the tall canvas and fits its key into the box's shape (cartesian.js
+    // `fitViewToBox`), and with no aspect at all its key picks columns at the wrong shape, so neither of the check's
+    // other tries reproduces the export's fixed-canvas drawing. Only the fixed-canvas try does (measured: n, Y, n).
+    const md = '---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: tower -->\n\n## The programme\n\n'
+      + '- Layer 3 `$200M xs $160M`\n  - Acme Re `30%`\n  - Globex Re `25%`\n  - Helios Re `20%`\n'
+      + '- Layer 2 `$70M xs $90M`\n  - Acme Re `40%`\n  - Vantage Re `35%`\n  - Umbra Re `25%`\n'
+      + '- Layer 1 `$40M xs $50M`\n  - Globex Re `60%`\n  - Meridian Re `40%`\n\nSource: broker placement slip.\n';
+    const section = new JSDOM(engine.render(md, {}).html).window.document.querySelector('section.chart-frame');
+    const body = section.querySelector('.chart-body');
+    const rec = { orientation: section.getAttribute('data-orientation'), aspect: Number(section.getAttribute('data-aspect')), checked: new Map() };
+    const list = READERS.tower(body.cloneNode(true));
+    withDocument(() => assert.equal(verified(rec, list, 'tower', body.cloneNode(true), false), true));
+  });
+});

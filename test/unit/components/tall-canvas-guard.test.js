@@ -16,6 +16,7 @@ const MarkdownIt = require('markdown-it');
 const { JSDOM } = require('jsdom');
 const { transformChartSection } = require('../../../lib/transformers/chart-frame');
 const { resetRenderIds } = require('../../../lib/core/render-ids');
+const { chartBoxAspect, BOX_FILL } = require('../../../lib/plugins/chart-family/shared/chart-box');
 
 const md = new MarkdownIt({ html: true });
 const doc = (html) => new JSDOM(`<!doctype html><body>${html}</body>`).window.document;
@@ -61,17 +62,35 @@ describe('the tall canvas is only for the header it was measured under', () => {
       `a noted line keeps the box's shape (${w} x ${h}) or draws as on the fixed canvas (${fixed[2]} x ${fixed[3]})`);
   });
 
-  test('a keyed or noted chart that outgrows the tall shape draws exactly as on the fixed canvas', () => {
-    const SERIES = '- Q1\n  - North `60`\n  - South `40`\n- Q2\n  - North `75`\n  - South `52`\n- Q3\n  - North `90`\n  - South `70`';
-    for (const [src, cls] of [[`## Revenue grew\n\n${SERIES}`, 'bar'], [`## Revenue grew\n\n${LINE}\n\n\`@callout{[{Peak quarter, for=Q4}, {Launch, for=Q2}]}\``, 'bar']]) {
-      const tall = viewBox(draw(src, cls, STORY));
-      const ratio = tall[3] / tall[2];
-      if (ratio > tallShape() * 1.01) {
-        const fixed = viewBox(draw(src, cls, STORY, { fixedCanvas: true }));
-        assert.deepEqual(tall, fixed, `${cls}: it fell back to the fixed canvas`);
-      }
-    }
+  test('stacked lead paragraphs keep main\'s fixed canvas', () => {
+    const lead = 'Revenue grew in every quarter, and fastest in the fourth, as the launch landed with the enterprise accounts.';
+    const src = `## Revenue grew.\n\n${lead}\n\n${lead}\n\n${lead}\n\n${LINE}`;
+    assert.deepEqual(viewBox(draw(src, 'line', STORY)), viewBox(draw(src, 'line', STORY, { fixedCanvas: true })));
   });
+
+  // The invariant itself, not a proxy for it: whatever canvas the frame picks, its drawing fits the chart box at a scale
+  // at least the fixed canvas's, so its labels print at least as large. Round 3's review beat a shape-only check with a
+  // key that grew wider, not taller (a long series name at mobile, 21.7 to 11.9px).
+  const MOBILE = 9 / 19.5;
+  const SERIES = '- Q1\n  - North `60`\n  - South `40`\n- Q2\n  - North `75`\n  - South `52`\n- Q3\n  - North `90`\n  - South `70`';
+  const LONG = ['2024', '2025', '2026'].map((y, i) => `- ${y}\n  - Europe mid-market and SMB \`${10 + i}\`\n  - Asia Pacific partners \`${13 + i}\`\n  - Latin America direct \`${16 + i}\`\n  - North America \`${19 + i}\``).join('\n');
+  for (const [name, src, cls] of [
+    ['a keyed bar', `## Revenue grew\n\n${SERIES}`, 'bar'],
+    ['a noted bar', `## Revenue grew\n\n${LINE}\n\n\`@callout{[{Peak quarter, for=Q4}, {Launch, for=Q2}]}\``, 'bar'],
+    ['a stacked bar with long series names', `## Revenue by region.\n\n${LONG}`, 'stacked-bar'],
+    ['a keyed line with long series names', `## Revenue by region.\n\n${LONG}`, 'line'],
+    ['a plain line', `## Revenue grew\n\n${LINE}`, 'line'],
+  ]) {
+    for (const [size, aspect] of [['story', STORY], ['mobile', MOBILE]]) {
+      test(`${name} at ${size} prints at least as large as on the fixed canvas`, () => {
+        const box = chartBoxAspect(aspect) / BOX_FILL;
+        const scale = ([, , w, h]) => Math.min(box / w, 1 / h);
+        const chosen = viewBox(draw(src, cls, aspect));
+        const fixed = viewBox(draw(src, cls, aspect, { fixedCanvas: true }));
+        assert.ok(scale(chosen) >= scale(fixed) * 0.999, `${chosen.join(' ')} fits the box at ${scale(chosen).toFixed(5)}, the fixed ${fixed.join(' ')} at ${scale(fixed).toFixed(5)}`);
+      });
+    }
+  }
 
   test('the fluid runtime\'s check can ask for the fixed canvas', () => {
     assert.equal(viewBox(draw(`## Revenue grew\n\n${LINE}`, 'line', STORY, { fixedCanvas: true }))[3], 300);

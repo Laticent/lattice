@@ -958,8 +958,15 @@ against main's) still found 19 smaller slides, from two more causes, now guarded
 - *Furniture under the plot on the tall canvas.* A bar or line with a key, or notes, under its plot came out
   taller than the box's shape, and `meet` shrank it (23.2 → 19.7px on the bar gallery at mobile). Only tower
   fits its key into the shape (`fitViewToBox`). The chart frame now draws a trial on the tall canvas (under
-  `trialIds`: no ids spent, no drops reported) and keeps the tall canvas only if the drawing kept its shape
-  (`keepsTallShape`); otherwise the chart draws on the fixed canvas, as on main.
+  `trialIds`: no ids spent, no drops reported) and keeps the tall canvas only if the drawing kept its shape;
+  otherwise the chart draws on the fixed canvas, as on main. Round 3's independent review beat that shape test with
+  a key that grew WIDER, not taller: `keySvg` sizes its type by the diagram's height, so on a 1.84 times taller
+  plot a 21-character series name ran the key past the plot, the drawing widened and every axis label printed
+  21.7 → 11.9px at mobile. The test is now the invariant itself (`printsAsLarge`): the frame draws the chart on
+  both canvases (two trials) and keeps the tall one only if it fits the box at a scale at least the fixed one's,
+  scored in the box less the subtitle's margin (the dispatch's `boxAspect`). The same review found three stacked
+  lead paragraphs got the tall canvas (20.0 → 14.2px at story); `fitsMeasuredBox` now allows one block before the
+  data (`slideChrome` `leads`).
 - *A grid key that beat main's key on paper.* `pickKeyLayout` takes the shortest layout within 5% of the largest,
   so a grid that widened the drawing could win and print the whole chart up to 7% smaller (24.5 → 22.8px). The
   grid is now kept only if it prints at least as large as the key main draws (`buildPortrait` `plainKey`), and a
