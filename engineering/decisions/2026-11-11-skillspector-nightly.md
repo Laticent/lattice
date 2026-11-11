@@ -42,12 +42,20 @@ All 19 `.claude/skills/` scored 0. The agent kit's per-task files first scored 7
 | AE4 Unicode / mixed script | 1 | the Greek Δ in "ΔE" in `theme.md` | **Fixed at source** (`design/skills/theme.md` now says "deltaE"), so the check stays live everywhere |
 | AE1 incomplete analysis | 2 | the scanner could not fully parse `writing-a-deck.md` and `pick-a-layout.md` | Baseline: coverage notes, not hits. `pick-a-layout.md` was bisected: only the full generated catalog table trips it, and it holds no hidden characters or encoded text |
 
+The second pass covered the rest of the kit. Five catalog sentences tripped AR2/EA2 ("no
+warning", "without checking", "without asking") and were reworded at their sources (the
+component and chart `.docs.md`, their manifests, and the chart-family README). The bundled
+`review/check.mjs` raised 221 hits on ordinary JavaScript: 212 MP2 on `Uint8Array` lookup tables,
+7 RA2 on `topLists`/`plist`, and 2 P6 on `return rules`. Each was read and excused by a rule
+scoped to that file.
+
 ## 4. How it is built
 
 - `tools/scan-skills.sh` (`npm run scan:skills`) scans one target per skill, because SkillSpector
-  refuses `--baseline` on a `--recursive` scan: 32 targets, the 19 own skills, the kit's skills,
-  the files an agent loads on its own (`repo/CLAUDE.md`, `AGENTS.md`, `lattice.mdc`, the plugin
-  manifests) and the paste-in folders. A coverage floor exits 2 when a group is empty or a
+  refuses `--baseline` on a `--recursive` scan: the 19 own skills and **every file in the agent
+  kit an agent reads or runs**: its skills, the files an agent loads on its own (`repo/CLAUDE.md`,
+  `AGENTS.md`, `lattice.mdc`, the plugin manifests), the paste-in folders, the component catalog
+  (`components/`, `reference/`, `upload/`) and the bundled deck checker (`review/check.mjs`). A coverage floor exits 2 when a group is empty or a
   named target is missing, so a scan that covered nothing never reads as clean. It uses `--fail-on-findings`, so a finding outside
   the baseline counts at any severity, not only above the score threshold of 50.
 - `.github/skillspector-baseline.yaml` uses **rules, not fingerprints**. A fingerprint hashes the
@@ -76,9 +84,6 @@ step surviving to record it, the SARIF upload "complete", and the job green.
   installed copy, and every page that uses it says so and names `npx @laticent/lattice` for
   outside one. Only the agent skills, which an agent may run anywhere, use the scoped form always.
 
-- **Not yet scanned:** the kit's `components/`, `reference/`, `upload/` and `review/` folders. Their
-  first scan raised ~230 findings to read first
-  (`followups.d/3142-p1-skillspector-kit-coverage.md`).
 
 - Static only. A skill that behaves differently at runtime, or text crafted to slip past the
   patterns, is out of reach. The LLM pass would read intent but would spend API budget nightly

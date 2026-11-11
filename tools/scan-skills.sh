@@ -14,8 +14,9 @@
 #   <kit>/repo/{CLAUDE.md,AGENTS.md,lattice.mdc}, <kit>/plugin/.claude-plugin/*.json
 #                                    files an agent loads on its own, one target each
 #   <kit>/{start,paste,render,authoring,examples}/   instructions people paste into an agent
-# NOT YET: <kit>/{components,reference,upload,review}/. Their first scan raised ~230 findings
-# that need reading first (followups.d/3142-p1-skillspector-kit-coverage.md).
+#   <kit>/{components,reference,upload}/   the catalog an agent reads to pick a layout
+#   <kit>/review/                    the bundled deck checker an agent runs
+# With <kit>/README.md, that is every file in the agent kit an agent reads or runs.
 # <kit> is the agent-kit root: `dist/agent-kit` locally (run `npm run build` first), or the
 # `agent/` folder of a `dist-kits` checkout, which is the copy users actually download.
 #
@@ -75,7 +76,8 @@ for group in "claude:$ROOT/.claude/skills" "kit-plugin:$KIT/plugin/skills" "kit-
 done
 TARGETS+=("kit-skills|$KIT/skills")
 for f in repo/CLAUDE.md repo/AGENTS.md repo/lattice.mdc plugin/.claude-plugin/plugin.json \
-         plugin/.claude-plugin/marketplace.json start paste render authoring examples; do
+         plugin/.claude-plugin/marketplace.json start paste render authoring examples \
+         components reference upload review README.md; do
   TARGETS+=("kit/$f|$KIT/$f")
 done
 

@@ -46,3 +46,28 @@ rules:
     path: "*SKILL.md"
     message: "*references/pick-a-layout.md*"
     reason: "Scanner gives up on the generated 80-row catalog table; checked by hand, nothing hidden"
+
+  # review/check.mjs is the agent kit's bundled deck checker: CODE an agent runs, not prose it
+  # reads. Three rules fire on ordinary bundled JavaScript (read 2026-11-11):
+  #   MP2 (context-window stuffing), 212 hits: every one is a digits-and-commas run inside a
+  #     `new Uint8Array([...])` lookup table from a bundled library. Stuffing is an attack on
+  #     text an agent reads; nobody reads this file into context to follow it.
+  #   RA2 (session persistence), 7 hits: the variable `topLists` (contains "pList") and a
+  #     highlighter language map entry `plist: "xml"`.
+  #   P6 (prompt extraction), 2 hits: `return rules` in the lint code.
+  # MP2 is scoped by file because its matched text varies; RA2 and P6 match their exact text.
+  - id: "MP2"
+    path: "*check.mjs"
+    reason: "Uint8Array lookup tables in the bundled deck checker (code an agent runs, not reads)"
+  - id: "RA2"
+    path: "*check.mjs"
+    message: "pList"
+    reason: "the variable name topLists in the bundled deck checker"
+  - id: "RA2"
+    path: "*check.mjs"
+    message: "plist"
+    reason: "the highlighter language map entry plist: \"xml\" in the bundled deck checker"
+  - id: "P6"
+    path: "*check.mjs"
+    message: "return rules"
+    reason: "a lint function returning its rule list in the bundled deck checker"

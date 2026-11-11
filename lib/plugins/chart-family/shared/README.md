@@ -682,7 +682,7 @@ gap-cull below, `pitch`), and both report through one channel,
   channel could not see — `noteHiddenLabels` needs a `hidden` entry to find, and
   a suppressed name never becomes one. Measured at the boundary on one deck
   shape: 16 items paints 13 and names the 3 it lost; 17 painted 0 and said
-  nothing. The author losing every name was the only one getting no warning.
+  nothing. The author losing every name was the only one left uninformed.
 - `truncate` is the fifth reason, and the one where nothing is dropped: a name
   that PAINTS but paints less than itself. `measureLabel` flags a label it
   ellipsized past its line budget (`truncated`) or whose word it had to split
