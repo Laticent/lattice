@@ -147,6 +147,8 @@ darker in light mode and lighter in dark, so it still reads as the gold. No fixe
 in a monochrome palette, where the accent is the ink. So a selected Compose on the phone bar takes the header toggle's
 light chip instead of the ink cell, with its underline in the gold. `compose-first.spec.ts` checks all three in every
 palette. An unlit Source reads in `--text-body`, the AA channel.
+A thin accent ring around a selected Compose cell on the phone bar was mocked and offered; the owner skipped it
+(2026-11-11: little value unless shown otherwise), so a selected Compose there is the light chip and the gold underline.
 
 **Staying on your slide (owner, iPhone, 2026-11-11).** With Compose as the default, the Studio lost the author's
 place: Compose on slide 5, then Preview (fine), then Source (fine), then back to Compose and Preview showed slide 1;
