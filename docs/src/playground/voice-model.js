@@ -36,9 +36,11 @@ import { noteOpenRouterStatus } from '../lib/openrouter-key.js';
 import { classifyProviderError } from '../lib/provider-errors.js';
 import { CURATED, curatedDefault } from '../lib/provider-registry.js';
 import { recordLatency } from './narration-latency.js';
-import { cheapestVoiceEnabled, narrationCacheEnabled, onNarrationPrefsChange } from './narration-prefs.js';
+import { cheapestVoiceEnabled, narrationCacheEnabled, onNarrationPrefsChange, parallelPref } from './narration-prefs.js';
 import { getClip, putClip } from './narration-store.js';
 import { isGeminiTtsModel, pickCheapestTtsModel } from './tts-cost.js';
+import { autoParallelFor, parallelCapFor } from './voice-engine-profile.js';
+import { createVoiceScheduler } from './voice-scheduler.js';
 
 const KOKORO_URL = 'https://esm.run/kokoro-js';
 const KOKORO_MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX';
@@ -317,9 +319,6 @@ const SYNTH_WAIT_MS = 20000;
 // genuinely hung request is abandoned so it can't live forever; short of it, a request the
 // player gave up on KEEPS RUNNING and still populates the cache (see startRequest).
 const REQUEST_CEILING_MS = 45000;
-// Backoff before the single retry (below). Small — this covers a transient 429/5xx,
-// not a queue.
-const SYNTH_RETRY_DELAY_MS = 300;
 
 // How long a request that has already blown its caller's deadline is allowed to keep
 // running so its bytes can still be banked. See synthFor's timeout branch: the audio is
@@ -413,6 +412,19 @@ function pcmBlobFromResponse(pcmBytes, contentType) {
 
 // OpenRouter TTS — a fetch on the architect's existing OAuth key. Deck text leaves
 // the device (gated by the same consent the architect connect flow already takes).
+/**
+ * A provider's refusal as an Error the voice scheduler can act on (docs/src/playground/voice-scheduler.js): the HTTP `status`, the
+ * `Retry-After` header when the provider sent one, and `kind` from the shared provider-error classifier, so a 429 that
+ * says "quota exceeded" reads as billing (final) rather than as a rate limit (wait and retry).
+ */
+function voiceHttpError(message, res, detail, status = res.status) {
+  return Object.assign(new Error(message), {
+    status,
+    retryAfter: res.headers?.get?.('retry-after') ?? null,
+    kind: classifyProviderError(status, detail),
+  });
+}
+
 function openRouterRung({ getKey, getModel, getVoice, fetchImpl, gone }) {
   const referer = () => (typeof location !== 'undefined' ? location.origin : 'https://lattice.dev');
   return {
@@ -426,7 +438,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl, gone }) {
     // one active model — so `getModel()` remains its only source, unaffected.
     async synth({ text, voice, signal, speed, model: modelOverride }) {
       const key = getKey();
-      if (!key) throw new Error('OpenRouter not connected');
+      if (!key) throw Object.assign(new Error('OpenRouter not connected'), { kind: 'key' });
       const model = modelOverride || getModel();
       if (gone?.has('openrouter', model)) throw modelGoneError('openrouter', model);
       const wantsPcm = isPcmOnlyModel(model);
@@ -465,7 +477,7 @@ function openRouterRung({ getKey, getModel, getVoice, fetchImpl, gone }) {
           throw modelGoneError('openrouter', model, detail);
         }
         if (classifyProviderError(res.status, detail) === 'billing') gone?.billing('openrouter');
-        throw new Error('OpenRouter TTS error ' + res.status + (detail ? ': ' + detail : ''));
+        throw voiceHttpError('OpenRouter TTS error ' + res.status + (detail ? ': ' + detail : ''), res, detail);
       }
       if (wantsPcm) {
         const contentType = res.headers.get('content-type') || '';
@@ -532,6 +544,7 @@ export function isModelGoneError(status, detail = '') {
 function modelGoneError(provider, model, detail) {
   const e = new Error(`${provider} no longer serves ${model}` + (detail ? ': ' + detail.slice(0, 160) : ''));
   e.modelGone = { provider, model };
+  e.kind = 'model-gone'; // final: the voice scheduler fails it and everything queued behind it rather than retry
   return e;
 }
 
@@ -541,7 +554,7 @@ function geminiTtsRung({ getKey, getModel, getVoice, fetchImpl, noteStatus, gone
     ready() { return !!getKey(); },
     async synth({ text, voice, signal, model: modelOverride }) {
       const key = getKey();
-      if (!key) throw new Error('Gemini not connected');
+      if (!key) throw Object.assign(new Error('Gemini not connected'), { kind: 'key' });
       const model = modelOverride || getModel();
       // A model already found gone is not asked again: one notice, not a 404 per sentence.
       if (gone?.has('gemini', model)) throw modelGoneError('gemini', model);
@@ -562,7 +575,7 @@ function geminiTtsRung({ getKey, getModel, getVoice, fetchImpl, noteStatus, gone
       }
       // Out of quota or billing: the key and the model are fine. Say so once; this read goes silent.
       if (!res.ok && classifyProviderError(status, detail) === 'billing') gone?.billing('gemini');
-      if (!res.ok) throw new Error('Gemini TTS error ' + status + (detail ? ': ' + detail.slice(0, 200) : ''));
+      if (!res.ok) throw voiceHttpError('Gemini TTS error ' + status + (detail ? ': ' + detail.slice(0, 200) : ''), res, detail, status);
       const json = await res.json();
       const part = (json?.candidates?.[0]?.content?.parts || []).find((p) => p?.inlineData?.data);
       if (!part) throw new Error('Gemini returned no audio');
@@ -1067,6 +1080,31 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // Live synth REQUESTS by cache key, whose lifetime is independent of any caller's patience
   // (see startRequest). A caller that times out leaves its request here to finish and cache.
   const liveRequests = new Map(); // cacheKeyFor(...) → Promise<Blob|null>
+  // ONE SCHEDULER PER CLOUD VOICE MODEL, shared by live playback, Present's prefetch and the export bake
+  // (docs/src/playground/voice-scheduler.js; 2026-11-11-voice-synthesis-spine.md §3.3). Every cloud request passes through it, so
+  // the three callers share one limit, one in-flight map, and one answer to a rate limit, instead of three pools of 3
+  // that knew nothing of each other. Lanes put the sentence playing ahead of prefetch, and prefetch ahead of the export.
+  //
+  // PER MODEL, not per provider: the 2026-11-11 bench measured each OpenRouter model's own ceiling, and one (CSM) gains
+  // nothing past a single request while the rest scale to six. ON-DEVICE KOKORO STAYS OFF IT: its serial queue already
+  // owns ordering (#1390 promotion, newest first) and dropping (#1391), and one model instance runs one sentence at a time,
+  // so a scheduler there could only fight that queue (the S3 maker-checker review found it did).
+  const schedulers = new Map(); // `${rung}|${model}` → scheduler
+  function schedulerFor(name, model) {
+    const id = `${name}|${model || ''}`;
+    let s = schedulers.get(id);
+    if (!s) {
+      const cap = parallelCapFor(name, parallelPref(), model);
+      s = createVoiceScheduler({ cap, start: Math.min(cap, autoParallelFor(name, model)) });
+      s.rung = name;
+      s.model = model;
+      schedulers.set(id, s);
+    }
+    return s;
+  }
+  onNarrationPrefsChange(() => {
+    for (const s of schedulers.values()) s.setCap(parallelCapFor(s.rung, parallelPref(), s.model));
+  });
   // ONE priority object per SENTENCE, not per caller (#1390).
   //
   // Promotion works by mutation: a job sitting in the rung's serial queue is reordered by
@@ -1385,7 +1423,17 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     const entry = { startedAt: Date.now(), promise: null, priority: priority || priorityFor(key, false) };
     let ceiling;
     const p = Promise.race([
-      rung.synth({ text, voice, speed, signal: ctl.signal, priority: entry.priority }),
+      // A cloud request goes through its model's scheduler (see `schedulers`), which retries a rate limit or a 5xx itself.
+      // `ctl.signal` is this request's own: the ceiling below aborting it cancels the request only if no other caller
+      // (an export joining the same sentence) is still waiting on it. On-device Kokoro keeps its serial queue.
+      rung.name === 'kokoro'
+        ? rung.synth({ text, voice, speed, signal: ctl.signal, priority: entry.priority })
+        : schedulerFor(rung.name, modelIdFor(rung.name)).run(
+            key,
+            entry.priority.warm ? 'next' : 'now',
+            (attempt) => rung.synth({ text, voice, speed, signal: attempt, priority: entry.priority }),
+            { signal: ctl.signal },
+          ),
       new Promise((res) => {
         ceiling = setTimeout(() => {
           ctl.abort(); // genuinely hung — stop paying for an answer that is never coming
@@ -1434,7 +1482,9 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     }
     if (signal?.aborted) return null;
     const voiceKey = latencyKeyFor(rung.name, voice);
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // ONE WAIT. Retrying is the voice scheduler's job now (startRequest runs through it): it reads the status, honors
+    // Retry-After and backs off, where this loop used to retry any failure once after a fixed 300 ms, a 400 included.
+    for (let attempt = 0; attempt < 1; attempt++) {
       if (signal?.aborted) return null;
       // Race OUR PATIENCE against the shared request — not against the request's life. A
       // request we stop waiting for keeps running and still caches (startRequest), which is
@@ -1484,10 +1534,6 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       if (outcome.timedOut) {
         recordLatency(voiceKey, Math.max(synthWaitMs, Date.now() - request.startedAt));
         return null;
-      }
-      // A genuine fast failure (429/5xx) earns exactly one retry.
-      if (attempt === 0 && !signal?.aborted) {
-        await new Promise((res) => setTimeout(res, SYNTH_RETRY_DELAY_MS));
       }
     }
     return null;
@@ -1772,7 +1818,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
    * bake should back off and try again rather than fail the whole export on one 429. So this
    * reports the outcome and the caller decides — see `bakeNarration`'s backoff.
    */
-  async function synthFor({ rung, voice: v, speed, model, text, signal, timeoutMs } = {}) {
+  async function synthFor({ rung, voice: v, speed, model, text, signal, timeoutMs, lane } = {}) {
     // Defaulted in the BODY, not in the destructuring pattern: a default there makes
     // TypeScript infer this whole parameter from the `= {}` initializer widened by that one
     // key, so every OTHER property vanishes from the inferred type and each call site fails
@@ -1812,6 +1858,9 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
     // BILLED, while the bake had already given up and fired a second, independent billed
     // request for the same sentence. Three attempts could mean three charges for one clip.
     const ctl = new AbortController();
+    // On-device Kokoro keeps its serial queue; a cloud model goes through its scheduler (see `schedulers`).
+    const sched = r.name === 'kokoro' ? null : schedulerFor(r.name, effModel);
+    const laneName = lane === 'now' ? 'now' : 'bulk';
     const relay = () => ctl.abort();
     if (signal) {
       if (signal.aborted) ctl.abort();
@@ -1847,8 +1896,22 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       // The CALLER's signal still aborts for real. A canceled export must stop spending, and it
       // does — `relay` fires `ctl.abort()` and the request dies with it. What is dropped here is
       // only OUR patience, never the caller's cancellation.
-      const inflight = r
-        .synth({ text, voice: effVoice, speed: effSpeed, model: rung !== 'kokoro' ? effModel : undefined, signal: sig })
+      // A CLOUD MODEL GOES THROUGH ITS SCHEDULER, on the export's lane (an audition someone is listening for runs on
+      // `now`). It joins a request live playback or prefetch already has in flight for this sentence instead of paying for
+      // a second, retries a 429 or a 5xx itself (answers no provider bills), and yields every free slot to the sentence a
+      // room is listening to. `sig` is THIS call's: when it aborts (the export was canceled, or patience and grace ran
+      // out) this call leaves, and the request is canceled only if no other caller is still waiting on it.
+      //
+      // Patience starts when an attempt does, so time queued behind playback is not mistaken for a slow voice. A call that
+      // JOINS a request already in flight starts it at once: the other caller's attempt is already under way.
+      let startPatience;
+      const patienceStarts = new Promise((res) => { startPatience = res; });
+      const synth = (attemptSignal) => {
+        startPatience();
+        return r.synth({ text, voice: effVoice, speed: effSpeed, model: rung !== 'kokoro' ? effModel : undefined, signal: attemptSignal });
+      };
+      if (sched?.has(key)) startPatience();
+      const inflight = (sched ? sched.run(key, laneName, synth, { signal: sig }) : synth(sig))
         .then((b) => { if (b) { cacheSet(key, b); tellSynthesized(r.name, effModel, text); } return b; })
         .finally(done);
       // Swallow a late rejection so an abandoned request cannot surface as an unhandled
@@ -1857,7 +1920,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
       const blob = await Promise.race([
         inflight,
         new Promise((res) => {
-          timer = setTimeout(() => {
+          patienceStarts.then(() => { timer = setTimeout(() => {
             timedOut = true;
             res(null);
             // ON-DEVICE, ABORT AT ONCE — there is no bill to salvage, and the thing being spent
@@ -1873,7 +1936,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
             // socket and the abort listener on a host that never answers. So the request outlives
             // our patience by a bounded margin and no longer.
             else graceTimer = setTimeout(() => ctl.abort(), SYNTH_GRACE_MS);
-          }, wait);
+          }, wait); });
         }),
       ]);
       // The timeout's CAUSE differs by rung, so its advice does too. The on-device voice makes no
@@ -1891,7 +1954,7 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // function. They used to differ only in the text, and a divergence there is invisible
   // until a preview and the sentence it previews stop sharing a cache entry.
   function synthSample({ rung, voice: v, speed, model, signal } = {}) {
-    return synthFor({ rung, voice: v, speed, model, signal, text: PREVIEW_TEXT });
+    return synthFor({ rung, voice: v, speed, model, signal, text: PREVIEW_TEXT, lane: 'now' });
   }
 
   return {

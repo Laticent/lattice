@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: in-progress
 summary: Narrated export is slow, and live narration and the export each run their own synthesis loops. This audits every TTS path (Present, prefetch, export, CLI, player) and proposes one synthesis spine for all of them. It is host-agnostic and runs off the main thread, with one scheduler per provider that adapts its concurrency, honors Retry-After and heals itself, plus a concurrency cap the user can set. Packing several sentences into one request is an experiment gated on measurements, and the sentence stays the unit of cache and timing.
 ---
 
 # One synthesis spine for every voice
 
-**Status:** PROPOSED. The owner settled §8's four decisions on 2026-11-11. S0–S3 are being built
-on this note's PR.
+**Status:** IN PROGRESS. The owner settled §8's four decisions on 2026-11-11. S0–S3 are built on this
+note's PR (#3140), with the changes §9 lists. S4 (packing) failed its gate and is not built.
 
 **The answer, first.** The export is slow for five reasons, and none of them is on-device Kokoro
 specifically. Every sentence is its own request. Three separate concurrency budgets of 3 compete
@@ -111,6 +111,8 @@ device, but nothing aggregates it. **This note therefore proposes no performance
 result.** §6's step S0 measures first.
 
 ## 3. The spine
+
+*This section is the PROPOSAL. §9 says what was built, where it differs, and why.*
 
 One library with no Studio dependencies, so the Studio, a worker and the CLI can all import it. Proposed
 home: `lib/core/voice/`, with the Studio's key and storage plumbing injected rather than imported
@@ -278,3 +280,102 @@ natural place to try it.
    today."
 4. **The PR: this note plus S0–S3 in one PR**, one commit per slice. S4 follows only if its
    gate passes.
+
+## 9. As built (2026-11-11)
+
+### 9.1 What the bench measured (S0)
+
+`tools/tts-bench.mjs`, through OpenRouter, eight narration sentences (441 characters) per phase. Spend: about $0.25 on
+our key, under the owner's approval.
+
+| engine | median per sentence | ms per char | chars/s at 1 · 3 · 6 parallel | 429s | packed: cuts matched | packed vs 6 parallel |
+|---|---|---|---|---|---|---|
+| grok | 0.66 s | 15 | 77 · 193 · 312 | 0 | 6/7 | slower (2.5 s vs 1.5 s) |
+| gemini | 2.1 s | 48 | 25 · 62 · 98 | 0 | 6/7 | slower (12.0 s vs 4.8 s) |
+| orpheus | 2.9 s | 57 | 15 · 38 · 59 | 0 | 4/7 | slower (9.6 s vs 7.9 s) |
+| mai-voice-2 | 1.1 s | 21 | 52 · 132 · 161 | 0 | 2/7 | faster (1.9 s vs 2.9 s) |
+| voxtral | 1.2 s | 20 | 48 · 128 · 218 | 0 | 6/7 | slower (3.0 s vs 2.1 s) |
+| kokoro (hosted) | 0.4 s | 10 | 77 · 293 · 234 | 0 | 6/7 | slower (1.8 s vs 1.6 s at 3) |
+| csm | 5.1 s | 96 | 5.9 · 5.4 · 5.7 | 0 | refused (400) | — |
+| kokoro (on-device, Node CPU) | 2.0 s | 41 | serial | — | 5/7 | 1.3x faster than sequential |
+
+What it settles:
+
+- **Parallel requests are the win.** Throughput grew 3–4.5x from one request to six for five of seven
+  models, and no model returned a single 429, even at six. The per-model defaults in
+  `voice-engine-profile.js` (`MODEL_PARALLEL`) come straight from this table.
+- **CSM serializes on the provider's side.** Its latency grew with every extra request, one in eight
+  timed out at three and at six, and it never said so with a 429. That is why the defaults, and the
+  schedulers, are per model rather than per provider.
+- **Packing fails its gate (§5) on every engine.** No engine cut cleanly at the 99% bar; the best was 6
+  of 7 boundaries. Six unpacked requests in parallel beat one packed request on five of six engines. S4
+  is not built.
+- **On-device Kokoro cannot be cut exactly.** The kokoro-js ONNX model's only output is `waveform`, so
+  the per-phoneme durations §5 hoped for are not reachable.
+- **Hosted Kokoro hung once.** The first run had one request in eight hang for the full 120 s. The rerun
+  had none. One hang is not enough evidence to build an attempt deadline on (§9.3).
+- **Both Zonos engines are gone** from OpenRouter's live speech list. The catalog still lists them; the
+  bench skipped them.
+
+### 9.2 What was built
+
+- **S0:** `tools/tts-bench.mjs`. It is sanctioned as an OpenRouter spender (HARD RULE #24), opt-in, and
+  refuses a plan over `--max-usd`.
+- **S1:** `docs/src/playground/voice-engine-profile.js`. It holds the per-model parallel defaults and the
+  bytes-per-character table, moved from `narration-bake.ts`, which re-exports it. Voices, wire format
+  and speed stay in the catalog; prices stay live. Each kind of fact keeps one home and says where it
+  came from, instead of all moving into one file.
+- **S2:** `narration-pack.js` and its worker and pool, on a worker-pool kernel
+  (`docs/src/lib/worker-pool.js`) extracted from the export's picture pool, which now uses it too. Real
+  Chromium export of 75 four-second clips, the same build both ways:
+
+  | | long tasks | long-task time | wall time |
+  |---|---|---|---|
+  | workers | 8–10 | 2.4–2.5 s | 8.3–8.8 s |
+  | main thread (worker forced to fail) | 42–50 | 4.7–5.1 s | 8.5–8.6 s |
+
+  About a second of long task remains in both arms. It is not the packing, and it is not traced here.
+- **S3:** `docs/src/playground/voice-scheduler.js`, one per cloud voice model. It has lanes, one in-flight map
+  with join and promotion, per-waiter cancellation, AIMD under the author's cap, a `Retry-After` pause,
+  backoff, and a breaker with one probe. `voice-model.js` routes `startRequest` (live, prefetch) and
+  `synthFor` (export, audition) through it. The bake sizes its workers from the model's cap. Workspace
+  › Narration › Parallel requests sets the cap.
+
+### 9.3 Where the build differs from §3, and why
+
+- **Per model, not per provider.** See CSM in §9.1.
+- **On-device Kokoro stays off the scheduler.** Its serial queue already owns ordering (#1390
+  promotion) and dropping (#1391). The maker-checker review reproduced both breaking when Kokoro ran
+  through the scheduler (§9.4).
+- **No attempt deadline.** The first build aborted an attempt at six times the median latency. The
+  review showed that cuts off a slow but healthy long sentence and bills it again, which breaks the "a
+  paid request keeps running and banks its clip" rule the live reader and the bake were built on. The
+  callers' own ceilings (45 s live, patience plus 60 s grace in the bake) already bound a hung request.
+  The scheduler retries only answers no provider bills: 429, 5xx, no answer.
+- **No voice worker for the network fetch.** S2 moved the export's packing, the measured cost, off the
+  main thread. Moving the rungs' fetch and Gemini's decode needs the sealed-key reader and the
+  model-gone and billing latches off the main thread. Recorded in `followups.d/3140-p3-voice-fetch-worker.md`.
+- **The voice ladder is not deleted.** It is unrelated to speed and reworks about 92 test setups. It
+  stays deferred where it already was (`followups.d/3079-p3-delete-the-voice-ladder.md`).
+- **Not built from §3:** the breaker's "waiting for the voice service" message, and the export panel's
+  "warm in the background now" remedy. Both are UI the performance goal does not need. They are open
+  for the owner on the PR's decision card.
+
+### 9.4 What the maker-checker review changed
+
+One `checker` reviewed S3 before it was committed and found ten issues. Three were confirmed by
+reproduction, and all ten were fixed before the commit:
+
+1. A dropped Kokoro prefetch was retried, tripped the breaker, and stalled the sentence the room was
+   waiting for. Kokoro now stays off the scheduler.
+2. #1390's promotion was dead on Kokoro, and its test passed only by accident. Same fix.
+3. The learned deadline re-billed slow healthy requests. It was removed.
+4. The bake's retries stacked on the scheduler's: up to 14 billed requests per sentence. Export lane
+   retries are now 2, and only unbilled answers are retried.
+5. A `synthFor` that joined another caller's request never started its patience. It now starts at once.
+6. Cancelling an export could take a sentence from live playback. Cancellation is now per waiter.
+7. A model-gone error cleared other models' queued work. Schedulers are now per model.
+8. Promoting a running job cut its retry budget. A job now keeps the largest budget of anyone waiting.
+9. A probe that failed for good left the breaker half-open. It reopens now. The new test also caught a
+   real bug: failures that used up their retries never counted toward the breaker.
+10. No changelog or doc. Both were added.

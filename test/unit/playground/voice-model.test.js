@@ -374,14 +374,16 @@ function ScriptedRung(script, { name = 'openrouter-tts' } = {}) {
       const step = script[Math.min(i++, script.length - 1)];
       calls.push(text);
       aborts.push(signal);
-      if (step === 'error') throw new Error('429 rate limited');
+      // What a real 429 carries (voiceHttpError): a status the voice scheduler reads, and a Retry-After of 0 so the
+      // retry needs no clock.
+      if (step === 'error') throw Object.assign(new Error('429 rate limited'), { status: 429, retryAfter: '0' });
       if (step === 'hang') return new Promise(() => {}); // never settles — the timeout must win
       return { size: 128, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(128) };
     },
   };
 }
 
-test('fetchClip: retries ONCE after a fast failure, and the retry\'s bytes are returned', async () => {
+test('fetchClip: a rate-limited sentence is retried ONCE (the scheduler\'s `now` lane), and the retry\'s bytes are returned', async () => {
   const { createVoiceModel } = await load();
   const rung = ScriptedRung(['error', 'ok']);
   const v = createVoiceModel({});

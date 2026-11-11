@@ -727,6 +727,16 @@ describe('WorkspaceSheet — narration in Present', () => {
 		expect(localStorage.getItem('lattice-present-narration-bitrate')).toBeNull();
 	});
 
+	it('parallel requests round-trips, and Automatic is stored as absence', async () => {
+		// The cap the voice scheduler works under (2026-11-11-voice-synthesis-spine.md §3.4). Automatic is "no entry", so
+		// the measured default can be re-tuned without pinning every workspace that never touched it.
+		const { user, sheet } = await openGeneral();
+		await pick(user, sheet.getByRole('combobox', { name: 'Parallel requests' }), /Up to 5 at once/);
+		expect(localStorage.getItem('lattice-voice-parallel')).toBe('5');
+		await pick(user, sheet.getByRole('combobox', { name: 'Parallel requests' }), /Automatic/);
+		expect(localStorage.getItem('lattice-voice-parallel')).toBeNull();
+	});
+
 	it('keeping narration on the device is on by default and switches off', async () => {
 		const { user, sheet } = await openGeneral();
 		const sw = sheet.getByRole('switch', { name: 'Keep narration on this device' });
