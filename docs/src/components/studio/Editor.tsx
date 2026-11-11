@@ -8,7 +8,7 @@ import { Annotation, ChangeSet, Compartment, EditorState, type Extension, StateE
 import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, layer, lineNumbers, RectangleMarker, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
-import { lineOffsetIn, rawColumnFor } from '@/lib/deck-outline/caret-line';
+import { type CarriedColumn, lineOffsetIn, plainColumnOfCarried, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
 import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
 import type { Focus, FocusHub } from '@/lib/fuoco/hub';
@@ -348,7 +348,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  (a real keyboard, or a phone switching straight from Compose). Otherwise it shows a drawn caret, not the keyboard. */
 	focusOnMount?: () => boolean;
 	/** The caret's column (in the line's plain form, caret-line.ts) carried from the editor the author left, or null. */
-	caretColumn?: () => number | null;
+	caretColumn?: () => CarriedColumn;
 	/** Fired when the selection emptiness changes — gates the Refine control. */
 	onSelectionChange?: (hasSelection: boolean) => void;
 	/** True for a `value` this editor emitted and has since typed past. The Studio commits typing as a React
@@ -683,7 +683,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// A focus with a line and no source offset: Compose's report, or a restore after a reload.
 			let onLine = f.head === null && f.line && unit ? lineOffsetIn(ix.source, unit.from, unit.end, f.line) : -1;
 			// And the column on it, when one was carried: the same plain character, past the line's Markdown markers.
-			const col = onLine >= 0 ? (caretColumnRef.current?.() ?? null) : null;
+			const col = onLine >= 0 ? plainColumnOfCarried(caretColumnRef.current?.()) : null;
 			if (onLine >= 0 && col !== null && col > 0) {
 				const end = ix.source.indexOf('\n', onLine);
 				onLine += rawColumnFor(ix.source.slice(onLine, end < 0 ? undefined : end), col);

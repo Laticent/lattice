@@ -48,6 +48,18 @@ export function plainLine(line: string): string {
 	return plainMap(line).plain;
 }
 
+/**
+ * A caret column as the editor being left saw it: Compose's is already plain; Source's is a raw column in its Markdown
+ * line, which the arriving editor converts (so the shell, on the startup path, needs none of this module).
+ */
+export type CarriedColumn = { col: number; raw?: string } | null;
+
+/** A carried column in the plain form, or null. */
+export function plainColumnOfCarried(c: CarriedColumn | undefined): number | null {
+	if (!c) return null;
+	return c.raw === undefined ? c.col : plainColumnOf(c.raw, c.col);
+}
+
 /** The caret's column in the plain form, for a caret at raw column `col` of `line` (Source to Compose). */
 export function plainColumnOf(line: string, col: number): number {
 	const { raw } = plainMap(line);

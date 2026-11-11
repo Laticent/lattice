@@ -26,7 +26,7 @@ import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/p
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
-import { plainColumnOf, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
+import { type CarriedColumn, plainColumnOf, plainColumnOfCarried, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { ensurePluginData } from '@/lib/ensure-plugin-data';
 import { notify } from '@/lib/notify';
 import { altFromAssetName } from '@/lib/photo-alt';
@@ -2302,7 +2302,7 @@ export type ComposeHandle = {
 	replaceSelection: (text: string, label?: string) => boolean;
 	/** Scroll slide `index` into view. `focus` also takes keyboard focus and parks the
 	 *  caret at the slide's first editable position (#1288). */
-	revealSlide: (index: number, opts?: { focus?: boolean; keepCaret?: boolean; line?: string; col?: number | null }) => void;
+	revealSlide: (index: number, opts?: { focus?: boolean; keepCaret?: boolean; line?: string; col?: CarriedColumn }) => void;
 	/** Scroll the document's END into view — the twin of `EditorHandle.revealTail`, and owed
 	 *  for the same reason. A tour types through the CONTROLLED `source` path (`editorRef` is
 	 *  null in Compose mode, so `buildTypeOps` never picks the native channel), which replaces
@@ -2334,7 +2334,7 @@ export type ComposeHandle = {
 	afterComposition: (fn: () => void) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: () => { slide: number; line?: string | null; col?: number | null; focus?: boolean } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire, describeDelete }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: () => { slide: number; line?: string | null; col?: CarriedColumn; focus?: boolean } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire, describeDelete }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -2665,7 +2665,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			if (!dom) return fn();
 			dom.addEventListener('compositionend', () => setTimeout(fn, 0), { once: true });
 		},
-		revealSlide(index: number, opts?: { focus?: boolean; keepCaret?: boolean; line?: string; col?: number | null }) {
+		revealSlide(index: number, opts?: { focus?: boolean; keepCaret?: boolean; line?: string; col?: CarriedColumn }) {
 			const v = viewRef.current;
 			if (!v) return;
 			const doc = v.state.doc;
@@ -2690,7 +2690,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			// `pos` is BEFORE the slide node; +1 enters it, and Selection.near finds the
 			// nearest real text position from there — the slide's first editable spot,
 			// whatever block happens to open it.
-			const sel = opts?.line ? selectionAtFocus(doc, index, opts.line, opts.col) : noteSafe(doc, Selection.near(doc.resolve(Math.min(pos + 1, doc.content.size))));
+			const sel = opts?.line ? selectionAtFocus(doc, index, opts.line, plainColumnOfCarried(opts.col)) : noteSafe(doc, Selection.near(doc.resolve(Math.min(pos + 1, doc.content.size))));
 			lastSlideRef.current = index; // pre-seed: this reveal must not echo back out
 			v.dispatch(v.state.tr.setSelection(sel));
 			// Scroll the HOST explicitly rather than riding ProseMirror's
@@ -3019,7 +3019,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		const slide = Math.min(hubAt && hubAt.slide >= 0 ? hubAt.slide : oldSlide, doc.childCount - 1);
 		const sameSlide = !(hubAt && hubAt.slide !== oldSlide);
 		const caretLine = sameSlide ? $from.parent.textContent : hubAt?.line;
-		const caretCol = sameSlide && $from.parent.isTextblock ? plainColumnOf($from.parent.textContent, $from.parent.textBetween(0, $from.parentOffset, undefined, ' ').length) : hubAt?.col;
+		const caretCol = sameSlide && $from.parent.isTextblock ? plainColumnOf($from.parent.textContent, $from.parent.textBetween(0, $from.parentOffset, undefined, ' ').length) : plainColumnOfCarried(hubAt?.col);
 		const foldedAt = new Set(restoredSlideOffsets(doc, folded));
 		let slideOffset = 0;
 		for (let i = 0; i < slide; i++) slideOffset += doc.child(i).nodeSize;
@@ -3092,7 +3092,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			view = new EditorView(hostRef.current, {
 				state: EditorState.create({
 					doc,
-					selection: onFocus ? selectionAtFocus(doc, at.slide, at.line, at.col) : startSelection(doc),
+					selection: onFocus ? selectionAtFocus(doc, at.slide, at.line, plainColumnOfCarried(at.col)) : startSelection(doc),
 					plugins: buildPlugins(() => defaultTagAtCaret(), () => (onOpenPanePickerRef.current ? openPane : undefined), {
 						getKernels: () => kernelsRef.current,
 						getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,

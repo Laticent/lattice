@@ -35,7 +35,7 @@ import { codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packa
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { isTypingTarget, shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
-import { plainColumnOf } from '@/lib/deck-outline/caret-line';
+import type { CarriedColumn } from '@/lib/deck-outline/caret-line';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { DEFAULT_DELIVERY, DELIVERY_NAMES, frontMatterDelivery } from '@/lib/delivery-names';
 import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
@@ -945,15 +945,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// THE CARET'S COLUMN, carried across a switch and a reload (owner, iPhone, 2026-11-11): the line alone put the caret
 	// at the line's start. Read from the editor the author is leaving, in the plain form both editors share
 	// (caret-line.ts): Compose answers for itself; Source's exact offset is in the hub.
-	const carriedColRef = React.useRef<number | null>(null);
-	const caretColumnNow = React.useCallback((): number | null => {
-		if (editModeRef.current === 'compose') return composeRef.current?.caretColumn() ?? null;
+	// Source's column goes as a raw offset with its Markdown line; the arriving editor converts it (caret-line.ts), so none
+	// of that mapping rides the startup bundle (the route budget caught it).
+	const carriedColRef = React.useRef<CarriedColumn>(null);
+	const caretColumnNow = React.useCallback((): CarriedColumn => {
+		if (editModeRef.current === 'compose') {
+			const col = composeRef.current?.caretColumn() ?? null;
+			return col === null ? null : { col };
+		}
 		const f = hub.get();
 		if (f.head === null) return null;
 		const src = hub.outline()?.source ?? '';
 		const start = src.lastIndexOf('\n', f.head - 1) + 1;
 		const end = src.indexOf('\n', f.head);
-		return plainColumnOf(src.slice(start, end < 0 ? undefined : end), f.head - start);
+		return { col: f.head - start, raw: src.slice(start, end < 0 ? undefined : end) };
 	}, [hub]);
 	const caretColumnNowRef = React.useRef(caretColumnNow);
 	caretColumnNowRef.current = caretColumnNow;
@@ -2496,7 +2501,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// The caret's line comes back with the slide (saved on leaving, `flushActiveDeck`); with a real keyboard the editor takes
 		// focus on it, as it had before the reload. A phone cannot raise the keyboard without a tap: it shows the drawn caret.
 		const line = loadBootLine();
-		carriedColRef.current = line ? loadBootCol() : null;
+		const bootCol = line ? loadBootCol() : null;
+		carriedColRef.current = bootCol === null ? null : bootCol.raw ? { col: bootCol.col, raw: line } : { col: bootCol.col };
 		const view = viewChunksRef.current;
 		if (view.length) goToChunk(view[Math.max(0, Math.min(bootSlideRef.current ?? 0, view.length - 1))], { line, grab: !!line && hasRealKeyboard() });
 	}, []);
