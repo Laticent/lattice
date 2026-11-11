@@ -139,3 +139,31 @@ test('arrangeKeyed steps the key toward the floor, then lays an over-capacity ch
   assert.equal(tight.over, true);
   assert.ok(tight.layout.h > 100);
 });
+
+test('a key heading takes a line of its own across the key, and the entries lay out under it', () => {
+  const headed = [{ head: true, label: 'Managed operations' }, ...rows];
+  const tile = chartForm.swatchKeyTile(headed, 11, { flow: true, headFs: 13 });
+  for (const t of [tile.under(300), tile.beside(400, 160)]) {
+    assert.ok(t, 'the headed key has a form');
+    const [head, ...entries] = t.placed;
+    assert.equal(head.head, true);
+    assert.equal(head.y, 0);
+    assert.ok(entries.every((r) => r.y >= head.h), 'every entry starts under the heading');
+    assert.equal(entries.length, rows.length);
+  }
+});
+
+test('a stacked bar on a phone page keeps its names whole and its drawing the canvas width', () => {
+  const deck = (cls, body) => `---\ntheme: indaco\nsize: mobile\n---\n\n<!-- _class: ${cls} -->\n\n## Mix.\n\n${body}`;
+  const rowsBody = '- Professional services\n  - Delivery `4.2`\n  - Training `1.6`\n- Platform subscriptions\n  - Delivery `11.8`\n  - Training `2.1`\n';
+  const row = createEngine().render(deck('stacked-bar row', rowsBody)).html;
+  assert.match(row, /data-chart-form="fit" class="cart-svg stacked-bar-svg"/);
+  // The name column wraps at spaces: no category name is split mid-word.
+  assert.doesNotMatch(row, />Professio</);
+  assert.match(row, /class="chart-key-head"/, 'the key names the bar its values read');
+  // Totals too wide for their bars beside a direct-name column: the names reflow to a key, and every total prints whole.
+  const wide = createEngine().render(deck('stacked-bar', '- 2024\n  - Property `USD 250mn`\n  - Casualty `USD 180mn`\n- 2025\n  - Property `USD 310mn`\n  - Casualty `USD 190mn`\n')).html;
+  const vbW = Number(/class="cart-svg stacked-bar-svg" viewBox="0 0 ([\d.]+)/.exec(wide)[1]);
+  assert.ok(vbW <= 320.5, `viewBox ${vbW} wide`);
+  assert.doesNotMatch(wide, /sbar-total[^>]*>(?:<[^>]+>)*[^<]*…/);
+});
