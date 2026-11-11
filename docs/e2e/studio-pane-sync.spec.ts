@@ -29,11 +29,34 @@ async function openFresh(page: Page): Promise<void> {
 	await expect(page.locator('#studio-pane-editor .cs-host .ProseMirror')).toBeVisible();
 }
 
+/** Which editor holds keyboard focus: 'compose', 'source', or ''. */
+const focused = (page: Page) =>
+	page.evaluate(() => {
+		const a = document.activeElement;
+		return a?.closest('#studio-pane-editor .ProseMirror') ? 'compose' : a?.closest('.cm-editor') ? 'source' : '';
+	});
+/** The text of the block (Compose) or line (Source) under the drawn caret, '' when none is drawn. The caret is an overlay
+ *  (it never sits inside the editable text), so this reads what is on screen beneath it. */
+const drawnCaretIn = (page: Page) =>
+	page.evaluate(() => {
+		const g = [...document.querySelectorAll<HTMLElement>('#studio-pane-editor .lx-ghost-caret, #studio-pane-editor .lx-ghost-caret-cm')].find((e) => getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().height > 0);
+		if (!g) return '';
+		const r = g.getBoundingClientRect();
+		const under = document.elementFromPoint(r.left + 4, r.top + r.height / 2);
+		return (under?.closest('.cm-line, p, li, h1, h2, h3') as HTMLElement | null)?.textContent?.trim() ?? '';
+	});
+/** The text of the block holding the live caret in a focused editor. */
+const liveCaretIn = (page: Page) =>
+	page.evaluate(() => (getSelection()?.anchorNode?.parentElement?.closest('.cm-line, p, li, h1, h2, h3') as HTMLElement | null)?.textContent?.trim() ?? '');
+
+// SMART FOCUS (owner's pick, 2026-11-11): on a phone a switch straight between Compose and Source takes the keyboard with the
+// caret where it was; arriving from the preview draws the caret instead of raising the keyboard.
 test('@mobile @webkit-phone a phone keeps the slide and the caret line from Compose through Source and back', async ({ page }) => {
 	test.skip(!isPhone(page), 'the phone swaps one pane at a time; a wider box shows editor and preview together');
 	await openFresh(page);
 	const line = page.locator('#studio-pane-editor .ProseMirror > .cs-slide').nth(4).locator('p').last();
 	const text = ((await line.textContent()) ?? '').trim();
+	const head = text.slice(0, 24);
 	await line.scrollIntoViewIfNeeded();
 	await line.click();
 	await expect.poll(() => counter(page)).toBe('5 / 7');
@@ -41,9 +64,9 @@ test('@mobile @webkit-phone a phone keeps the slide and the caret line from Comp
 	await page.getByRole('button', { name: 'Preview', exact: true }).first().click();
 	await expect.poll(() => counter(page)).toBe('5 / 7');
 
+	// From the preview: no keyboard, a drawn caret on the paragraph's line.
 	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
 	await expect(page.getByLabel('Deck source')).toBeVisible();
-	// The Markdown editor's own state: the line its caret is on carries the paragraph Compose's caret was in.
 	await expect
 		.poll(() =>
 			page.evaluate(() => {
@@ -52,19 +75,36 @@ test('@mobile @webkit-phone a phone keeps the slide and the caret line from Comp
 				return v ? v.state.doc.lineAt(v.state.selection.main.head).text : '';
 			}),
 		)
-		.toContain(text.slice(0, 24));
+		.toContain(head);
+	expect(await focused(page)).toBe('');
+	await expect.poll(() => drawnCaretIn(page)).toContain(head);
 	expect(await counter(page)).toBe('5 / 7');
 
+	// Straight from Source to Compose: the keyboard comes up with the caret in the paragraph.
 	await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
 	await expect(page.locator('#studio-pane-editor .cs-host .ProseMirror')).toBeVisible();
+	await expect.poll(() => focused(page)).toBe('compose');
+	await expect.poll(() => liveCaretIn(page)).toBe(text);
 	await expect.poll(() => composeSlide(page)).toBe(5);
+
+	// And back to Source the same way.
+	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+	await expect.poll(() => focused(page)).toBe('source');
+	await expect.poll(() => liveCaretIn(page)).toContain(head);
+
+	// Via the preview: Compose shows the drawn caret, no keyboard.
 	await page.getByRole('button', { name: 'Preview', exact: true }).first().click();
 	await expect.poll(() => counter(page)).toBe('5 / 7');
+	await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
+	await expect.poll(() => composeSlide(page)).toBe(5);
+	await expect.poll(() => drawnCaretIn(page)).toBe(text);
+	expect(await focused(page)).toBe('');
 });
 
-test('@crosswidth @gecko @webkit-tablet @webkit-phone a reload comes back on the slide you left, and stays there', async ({ page }) => {
+test('@crosswidth @gecko @webkit-tablet @webkit-phone a reload comes back on the slide and the caret line you left', async ({ page }) => {
 	await openFresh(page);
 	const heading = page.locator('#studio-pane-editor .ProseMirror > .cs-slide').nth(2).locator('h1, h2').first();
+	const text = ((await heading.textContent()) ?? '').trim();
 	await heading.scrollIntoViewIfNeeded();
 	await heading.click();
 	await expect.poll(() => counter(page)).toBe('3 / 7');
@@ -74,12 +114,24 @@ test('@crosswidth @gecko @webkit-tablet @webkit-phone a reload comes back on the
 	// The reset came with Compose's first transaction after it mounted, once the object kernels landed: wait for the page to
 	// finish loading what it fetches, then for Compose to be on the restored slide, and only then read the counter.
 	await page.waitForLoadState('networkidle');
-	if (!isPhone(page)) await expect.poll(() => composeSlide(page)).toBe(3);
-	expect(await counter(page)).toBe('3 / 7');
 	if (isPhone(page)) {
+		expect(await counter(page)).toBe('3 / 7');
+		// A phone cannot raise the keyboard without a tap: Compose shows the drawn caret on the line.
 		await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
 		await expect.poll(() => composeSlide(page)).toBe(3);
+		await expect.poll(() => drawnCaretIn(page)).toBe(text);
 		await page.getByRole('button', { name: 'Preview', exact: true }).first().click();
 		await expect.poll(() => counter(page)).toBe('3 / 7');
+		return;
+	}
+	await expect.poll(() => composeSlide(page)).toBe(3);
+	expect(await counter(page)).toBe('3 / 7');
+	// A pointer that hovers is a real keyboard to hand: Compose has focus again, caret on the line.
+	const fine = await page.evaluate(() => matchMedia('(hover: hover) and (pointer: fine)').matches);
+	if (fine) {
+		await expect.poll(() => focused(page)).toBe('compose');
+		await expect.poll(() => liveCaretIn(page)).toBe(text);
+	} else {
+		await expect.poll(() => drawnCaretIn(page)).toBe(text);
 	}
 });

@@ -951,6 +951,11 @@ describe('studio-store — last-active deck (boot where you left off)', () => {
 		expect(loadActiveDeck()).toBeNull();
 		saveActiveDeck('q3-board', 3);
 		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 3 });
+		// The caret's line rides along, so a reload lands the caret on it; a save without one drops it.
+		saveActiveDeck('q3-board', 3, '## Revenue grew');
+		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 3, line: '## Revenue grew' });
+		saveActiveDeck('q3-board', 4);
+		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 4 });
 		saveActiveDeck('q3-board', -5);
 		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 0 });
 	});

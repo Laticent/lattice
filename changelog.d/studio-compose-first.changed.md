@@ -23,3 +23,7 @@
   or Preview used to land on slide 1, and a reload jumped there a second after showing the right slide. The slide
   now holds through every switch and a reload, and when you move between Compose and Source the caret lands on the
   same line where it can match it (else at the slide's first line, as before).
+- **You can see where you are after a switch or a reload.** With a keyboard, the editor you switch to takes focus with
+  the caret where you left it; on a phone, switching straight between Compose and Source brings the keyboard up the same
+  way, and arriving from the preview shows a drawn caret instead of the keyboard. A reload brings back the caret's line
+  as well as the slide.

@@ -175,6 +175,25 @@ the pane gets a height. Two edges stay, neither a regression from `main` and bot
 caret's slide is FOLDED moves the preview to the first open slide, where the caret goes (it cannot go to hidden text);
 and opening Source can turn the preview's page on a split slide when the carried line is on another page of it.
 
+**The caret shows, and survives a reload (owner, iPhone, 2026-11-11; the owner picked smart focus and slide + line).**
+The slide fix above put each editor's caret on the right line, but a phone draws a caret only in a focused editor, and
+focusing one raises the keyboard; and a reload saved only the slide. Fuoco holds the focus in memory on the main thread
+and persists nothing itself, so the Studio does both:
+
+| When | What happens |
+|---|---|
+| A switch with a real keyboard (a fine pointer that hovers: a desktop, a tablet with a trackpad) | the editor that comes up takes focus, caret where the author was |
+| A phone switching straight between Compose and Source | the same: the author was writing, so the keyboard comes up |
+| A phone arriving from the preview | no keyboard; a drawn caret marks the place, and a tap puts the real caret |
+| A reload | the slide AND the caret's line come back (`lattice-studio-active` gains `line`, written on leaving); with a real keyboard the editor takes focus on it, on a phone the drawn caret shows it |
+
+The drawn caret sits OUTSIDE the editable text: an overlay in Compose (`position: fixed` from the caret's coordinates) and
+a CodeMirror layer in Source. A first cut put a widget inside the text and took it out on focus, and changing the
+editable DOM under a click made Firefox drop where the first click landed (caught by the gecko run). Fuoco's `go` gained
+an optional `line`, so the boot restore carries the saved line like any navigation. The Markdown editor puts back an exact
+source offset when the hub still holds its own caret (a Compose that took the keyboard and has not moved reports nothing).
+`studio-pane-sync.spec.ts` checks the focus, the live and the drawn caret at each step, on five projects.
+
 **Narration.** Five new lines were recorded with `tools/record-lesson-voice.mjs` (two in `tour`, three
 in `write-slide`). The Source-mode lines and their clips are unchanged, so a visitor who chose Source
 hears the tour they always did.

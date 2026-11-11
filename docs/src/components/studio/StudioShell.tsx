@@ -168,7 +168,7 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, onSourceWriteError, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasStoredPosture, loadActiveDeck, loadBootDeck, loadBootLine, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, onSourceWriteError, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -431,6 +431,15 @@ function changedSlides(before: string, after: string): number[] | null {
 	// No slide differs: the change is in the deck's settings, unless the front matter is the same too.
 	if (!out.length && frontMatterBlock(before) === frontMatterBlock(after)) return null;
 	return out;
+}
+
+/** A real keyboard to hand: a fine pointer that hovers (a desktop, a tablet with a trackpad). Focus raises no on-screen keyboard there. */
+function hasRealKeyboard(): boolean {
+	try {
+		return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+	} catch {
+		return false;
+	}
 }
 
 export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks, slideFences }: Props) {
@@ -922,9 +931,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [editMode, setEditModeState] = React.useState<EditMode>(() => loadSettings().editMode);
 	const editModeRef = React.useRef(editMode);
 	editModeRef.current = editMode;
-	const setEditMode = React.useCallback((m: EditMode) => {
+	// SMART FOCUS (owner's pick, 2026-11-11). The editor a switch brings up takes the keyboard when the author is writing:
+	// always with a real keyboard (a fine pointer that hovers), and on a phone only when they switch straight from the other
+	// editor. Arriving from the preview on a phone, it shows a drawn caret instead of throwing the keyboard up. Read once by
+	// the arriving editor (`takeArriveFocus`).
+	const arriveFocusRef = React.useRef(false);
+	const takeArriveFocus = React.useCallback(() => {
+		const f = arriveFocusRef.current;
+		arriveFocusRef.current = false;
+		return f;
+	}, []);
+	const setEditMode = React.useCallback((m: EditMode, o: { focus?: boolean } = {}) => {
 		// Picking the mode already on screen changes nothing, and must not clear a live selection's Refine door.
 		if (m === editModeRef.current) return;
+		arriveFocusRef.current = o.focus ?? hasRealKeyboard();
 		setEditModeState(m);
 		saveSettings({ editMode: m });
 		// The editor that reported a selection is about to unmount; the one arriving reports its own.
@@ -2090,8 +2110,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	/** Move the focus to FULL-deck chunk `chunkIndex` — once the hub holds `after`, when given: the
 	 *  text a deck switch or a slide operation is about to put in place. No frame to wait for. */
 	const goToChunk = React.useCallback(
-		(chunkIndex: number, o: { after?: string; section?: number; grab?: boolean; origin?: string } = {}) => {
-			hub.go(o.origin ?? 'shell', { unitIndex: chunkIndex, part: o.section, grab: o.grab }, o.after !== undefined ? { after: o.after } : undefined);
+		(chunkIndex: number, o: { after?: string; section?: number; grab?: boolean; origin?: string; line?: string } = {}) => {
+			hub.go(o.origin ?? 'shell', { unitIndex: chunkIndex, part: o.section, grab: o.grab, line: o.line }, o.after !== undefined ? { after: o.after } : undefined);
 		},
 		[hub],
 	);
@@ -2383,6 +2403,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// callback) commits a task later, and a flush in that gap would write the new deck's text under the old
 		// id. Every switch path flushed the old deck before it wrote the new text, so there is nothing to save.
 		if (sourceOwnerRef.current !== deck.id) return;
+		// The caret's line, as it is now: a reload puts the caret back on it (the slide effect saves only on a slide change).
+		{
+			const active = loadActiveDeck();
+			const line = hub.get().line;
+			if (active && active.deckId === deck.id && line) saveActiveDeck(active.deckId, active.slideIndex, line);
+		}
 		// The LATEST text: the last keystrokes may not have reached `source` (or the autosave effect) yet.
 		const latest = sourceRef.current;
 		if (dirty.current || (loadedFor.current?.id === deck.id && latest !== loadedFor.current.src)) {
@@ -2392,7 +2418,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			if (autosaveTimer.current !== null) { clearTimeout(autosaveTimer.current); autosaveTimer.current = null; }
 			saveSourceGuarded(deck.id, latest);
 		}
-	}, [deck.id, saveSourceGuarded]);
+	}, [deck.id, saveSourceGuarded, hub]);
 	// The backup path (workspace-backup.packWorkspace → requestSourceFlush) asks
 	// for an immediate write-through, so a download can't race the 400ms timer
 	// above — without this, a JUST-edited built-in deck could drop out of the
@@ -2431,8 +2457,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// and saving then would overwrite the slide it is about to restore with 0 (the checker's catch).
 	React.useEffect(() => {
 		if (decksClearedRef.current || focusChunk < 0) return;
-		saveActiveDeck(deck.id, activeSlide);
-	}, [deck.id, activeSlide, focusChunk]);
+		saveActiveDeck(deck.id, activeSlide, hub.get().line);
+	}, [deck.id, activeSlide, focusChunk, hub]);
 	// BOOT AT THE SLIDE YOU LEFT ON — a navigation like any other, so the editor reveals it too.
 	// Read on the FIRST render, before any effect could write the key; applied once at mount,
 	// when the index exists (the render above fed the hub).
@@ -2440,7 +2466,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	bootSlideRef.current ??= loadBootSlide();
 	// biome-ignore lint/correctness/useExhaustiveDependencies: once per mount, by design.
 	React.useEffect(() => {
-		setActiveSlide(bootSlideRef.current ?? 0);
+		// The caret's line comes back with the slide (saved on leaving, `flushActiveDeck`); with a real keyboard the editor takes
+		// focus on it, as it had before the reload. A phone cannot raise the keyboard without a tap: it shows the drawn caret.
+		const line = loadBootLine();
+		const view = viewChunksRef.current;
+		if (view.length) goToChunk(view[Math.max(0, Math.min(bootSlideRef.current ?? 0, view.length - 1))], { line, grab: !!line && hasRealKeyboard() });
 	}, []);
 
 	// Persist the editor preference as it changes.
@@ -3453,9 +3483,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Source, or the phone bringing the Compose pane back, lands where the author was (ComposeView `focusAtMount`).
 	const composeFocusAtMount = React.useCallback(() => {
 		const f = hub.get();
+		// A switch that asked for the keyboard, or a navigation that did (the boot restore with a real keyboard) and landed
+		// before this view existed to take it.
+		const focus = takeArriveFocus() || (f.cause === 'nav' && f.grab);
 		if (f.unitIndex >= 0) composeChunkRef.current = f.unitIndex;
-		return f.unitIndex >= 0 ? { slide: f.unitIndex, line: f.line } : null;
-	}, [hub]);
+		return f.unitIndex >= 0 ? { slide: f.unitIndex, line: f.line, focus } : null;
+	}, [hub, takeArriveFocus]);
 	const onComposeCursorText = React.useCallback(
 		(text: string) => {
 			composeLineRef.current = text;
@@ -3473,7 +3506,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				(f) => {
 					composeChunkRef.current = Math.max(0, f.unitIndex);
 					// An undo's reveal keeps the caret Compose already put where the change was (Filo note §3.4).
-					if (f.cause === 'nav' || f.cause === 'pick') composeRef.current?.revealSlide(f.unitIndex, { focus: f.grab, keepCaret: f.origin === 'history' });
+					if (f.cause === 'nav' || f.cause === 'pick') composeRef.current?.revealSlide(f.unitIndex, { focus: f.grab, keepCaret: f.origin === 'history', line: f.line || undefined });
 				},
 				{ ignoreOrigin: 'compose', equals: (a, b) => a.seq === b.seq },
 			);
@@ -7200,7 +7233,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{/* On a phone the editor pane is hidden until the user opens it, so CodeMirror builds its view after the
 					    first slide, not beside it: a few hundred ms of main thread in the seconds the slide waits for. Where the
 					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
-					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
+					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} focusOnMount={takeArriveFocus} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
 			)}
 			{/* A phone's edit pane has no toolbar and no strip, so the floating add door sits here too
@@ -8468,7 +8501,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{/* Compose first (2026-11-10-compose-first.md); both cells come from EDIT_MODES, the list the header
 						    toggle and the pre-paint shell read. The issue badge rides the mode in use: that is where they get fixed. */}
 						{EDIT_MODES.map((m) => (
-							<BarIcon key={m.mode} variant="bar" brand={m.brand} label={m.name} hint={m.hint} caption={m.label} active={effPane === 'edit' && editMode === m.mode} demo={editMode === m.mode ? 'pane-edit' : undefined} badge={editMode === m.mode ? issues : undefined} describedBy={editMode === m.mode && issues > 0 ? 'mobile-issue-count' : undefined} onClick={() => { setMobilePane('edit'); setEditMode(m.mode); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><m.Icon className="size-[17px]" /></BarIcon>
+							<BarIcon key={m.mode} variant="bar" brand={m.brand} label={m.name} hint={m.hint} caption={m.label} active={effPane === 'edit' && editMode === m.mode} demo={editMode === m.mode ? 'pane-edit' : undefined} badge={editMode === m.mode ? issues : undefined} describedBy={editMode === m.mode && issues > 0 ? 'mobile-issue-count' : undefined} onClick={() => { const fromEditor = effPane === 'edit'; setMobilePane('edit'); setEditMode(m.mode, { focus: fromEditor }); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><m.Icon className="size-[17px]" /></BarIcon>
 						))}
 						{issues > 0 && <span id="mobile-issue-count" className="sr-only">{issues} unresolved {issues === 1 ? 'issue' : 'issues'}</span>}
 						<BarIcon variant="bar" label="Preview" hint="Preview" caption="Preview" active={effPane === 'preview'} demo="pane-preview" onClick={() => setMobilePane('preview')}><PreviewIcon className="size-[17px]" /></BarIcon>

@@ -1632,6 +1632,62 @@ function startSelection(doc: PMNode, folded?: ReadonlySet<number>): Selection {
 	return safe === start && start instanceof NodeSelection ? (Selection.findFrom(doc.resolve(0), 1, true) ?? start) : safe;
 }
 
+/** A drawn caret at the caret while Compose does not have focus: on a phone the real caret only shows with the keyboard
+ *  up, so after a switch from the preview the author could not see where they were (owner, 2026-11-11). It is an OVERLAY,
+ *  a sibling of the editable element, never a node inside it: a widget there was taken out on focus, and changing the
+ *  editable DOM under a click made Firefox drop where the first click landed. `position: fixed` from the caret's
+ *  coordinates, so no ancestor has to be positioned; it lives in the host, so a hidden pane hides it.
+ *  Styled by `.lx-ghost-caret` (styles/tailwind.css). */
+function ghostCaretPlugin(): Plugin {
+	return new Plugin({
+		view(view) {
+			const host = view.dom.parentElement;
+			const el = document.createElement('div');
+			el.className = 'lx-ghost-caret';
+			el.setAttribute('aria-hidden', 'true');
+			el.style.display = 'none';
+			host?.appendChild(el);
+			const place = () => {
+				const sel = view.state.selection;
+				if (!host || view.hasFocus() || !(sel instanceof TextSelection) || !sel.empty) {
+					el.style.display = 'none';
+					return;
+				}
+				try {
+					const c = view.coordsAtPos(sel.head);
+					const box = host.getBoundingClientRect();
+					if (!box.height || c.bottom <= box.top || c.top >= box.bottom) {
+						el.style.display = 'none';
+						return;
+					}
+					el.style.left = `${c.left - 1}px`;
+					el.style.top = `${c.top}px`;
+					el.style.height = `${Math.max(8, c.bottom - c.top)}px`;
+					el.style.display = 'block';
+				} catch {
+					el.style.display = 'none';
+				}
+			};
+			const later = () => requestAnimationFrame(place);
+			view.dom.addEventListener('focus', place);
+			view.dom.addEventListener('blur', later);
+			host?.addEventListener('scroll', place, { passive: true });
+			window.addEventListener('resize', later);
+			later();
+			return {
+				update: place,
+				destroy() {
+					view.dom.removeEventListener('focus', place);
+					view.dom.removeEventListener('blur', later);
+					host?.removeEventListener('scroll', place);
+					window.removeEventListener('resize', later);
+					el.remove();
+				},
+			};
+		},
+	});
+}
+
 /** Where a view built while the author is ON a slide starts: in that slide, on the block whose text is the caret line the
  *  focus carries (`plainLine` reads a Markdown line and a Compose block alike), else at the slide's first text. One block
  *  with that text, or none: two would make the caret a guess. */
@@ -2223,7 +2279,7 @@ export type ComposeHandle = {
 	replaceSelection: (text: string, label?: string) => boolean;
 	/** Scroll slide `index` into view. `focus` also takes keyboard focus and parks the
 	 *  caret at the slide's first editable position (#1288). */
-	revealSlide: (index: number, opts?: { focus?: boolean; keepCaret?: boolean }) => void;
+	revealSlide: (index: number, opts?: { focus?: boolean; keepCaret?: boolean; line?: string }) => void;
 	/** Scroll the document's END into view — the twin of `EditorHandle.revealTail`, and owed
 	 *  for the same reason. A tour types through the CONTROLLED `source` path (`editorRef` is
 	 *  null in Compose mode, so `buildTypeOps` never picks the native channel), which replaces
@@ -2255,7 +2311,7 @@ export type ComposeHandle = {
 	afterComposition: (fn: () => void) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: () => { slide: number; line?: string | null } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire, describeDelete }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: () => { slide: number; line?: string | null; focus?: boolean } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire, describeDelete }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -2579,7 +2635,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			if (!dom) return fn();
 			dom.addEventListener('compositionend', () => setTimeout(fn, 0), { once: true });
 		},
-		revealSlide(index: number, opts?: { focus?: boolean; keepCaret?: boolean }) {
+		revealSlide(index: number, opts?: { focus?: boolean; keepCaret?: boolean; line?: string }) {
 			const v = viewRef.current;
 			if (!v) return;
 			const doc = v.state.doc;
@@ -2604,7 +2660,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			// `pos` is BEFORE the slide node; +1 enters it, and Selection.near finds the
 			// nearest real text position from there — the slide's first editable spot,
 			// whatever block happens to open it.
-			const sel = noteSafe(doc, Selection.near(doc.resolve(Math.min(pos + 1, doc.content.size))));
+			const sel = opts?.line ? selectionAtFocus(doc, index, opts.line) : noteSafe(doc, Selection.near(doc.resolve(Math.min(pos + 1, doc.content.size))));
 			lastSlideRef.current = index; // pre-seed: this reveal must not echo back out
 			v.dispatch(v.state.tr.setSelection(sel));
 			// Scroll the HOST explicitly rather than riding ProseMirror's
@@ -2979,6 +3035,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				}
 			}
 		};
+		// Read ONCE per view: the shell hands out its "take the keyboard" decision a single time.
+		const mountAt = focusAtMountRef.current?.() ?? null;
 		try {
 			const doc = deckToDoc(source);
 			baselineRef.current = initBaseline(doc);
@@ -2986,7 +3044,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			// after a round trip through Source, or on a phone when the Compose pane comes back, started at the top of the deck, and
 			// its first transaction reported slide 1 as the author's move: the preview and the rail jumped there (owner, iPhone).
 			// It starts on the focused slide instead, with the slide memory seeded, so nothing is reported until the author moves.
-			const at = focusAtMountRef.current?.() ?? null;
+			const at = mountAt;
 			const onFocus = !!at && at.slide >= 0 && at.slide < doc.childCount;
 			if (onFocus) lastSlideRef.current = at.slide;
 			view = new EditorView(hostRef.current, {
@@ -2997,7 +3055,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						getKernels: () => kernelsRef.current,
 						getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,
 						onOpenChange: (open) => setObjEdit(open),
-					}, () => setFlashChip(null), { onMarker: openMarker, onLink: openLink }),
+					}, () => setFlashChip(null), { onMarker: openMarker, onLink: openLink }).concat(ghostCaretPlugin()),
 				}),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
@@ -3146,7 +3204,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// a height, or it would show the right slide's caret scrolled to the top of the deck.
 		let frameObserver: ResizeObserver | null = null;
 		{
-			const at = focusAtMountRef.current?.() ?? null;
+			const at = mountAt;
 			const host = hostRef.current;
 			if (at && at.slide > 0 && at.slide < view.state.doc.childCount && host) {
 				const frame = () => {
@@ -3166,6 +3224,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				}
 			}
 		}
+		// The author switched INTO Compose from Source with a keyboard to hand (focusAtMount says so): take it, caret where they were.
+		if (mountAt?.focus) view.focus();
 		// Kernels that landed before the editor mounted: turn the pills into objects now.
 		const loaded = kernelsRef.current;
 		if (loaded) normalizeDeck(view, loaded, loaded.isLiteralFromSource(sourceRef.current));

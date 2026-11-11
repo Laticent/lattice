@@ -5,7 +5,7 @@ import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
 import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
 import { Annotation, ChangeSet, Compartment, EditorState, type Extension, StateEffect, Transaction } from '@codemirror/state';
-import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, lineNumbers, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
+import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, layer, lineNumbers, RectangleMarker, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
 import { lineOffsetIn } from '@/lib/deck-outline/caret-line';
@@ -292,6 +292,21 @@ export type EditorHandle = {
 	placeCaret: (text: string, offset: number) => void;
 };
 
+/** A drawn caret where the caret is, while the editor does not have focus: on a phone the real caret only shows with the
+ *  keyboard up, so after a switch from the preview the author could not see where they were (owner, 2026-11-11). A LAYER,
+ *  CodeMirror's own place for a drawn cursor, outside the content DOM, so focusing never changes the text under a click.
+ *  The class is `lx-ghost-caret-cm` (styles/tailwind.css); a tap puts the real caret wherever the author taps. */
+const ghostCaret = layer({
+	above: true,
+	class: 'lx-ghost-caret-layer',
+	markers(view) {
+		const sel = view.state.selection.main;
+		if (view.hasFocus || !sel.empty) return [];
+		return RectangleMarker.forRange(view, 'lx-ghost-caret-cm', sel);
+	},
+	update: (u) => u.focusChanged || u.selectionSet || u.docChanged || u.geometryChanged || u.viewportChanged,
+});
+
 export const Editor = React.forwardRef<EditorHandle, {
 	value: string;
 	/** Every change to the document, with what changed when the editor knows it (an author's edit
@@ -329,6 +344,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  reveals the slide whenever another pane navigates. It is the editor's only sync channel:
 	 *  no slide index or caret text leaves it any other way. */
 	focusHub?: FocusHub | null;
+	/** Read once when a view is built: true when the author switched INTO this editor and it should take the keyboard
+	 *  (a real keyboard, or a phone switching straight from Compose). Otherwise it shows a drawn caret, not the keyboard. */
+	focusOnMount?: () => boolean;
 	/** Fired when the selection emptiness changes — gates the Refine control. */
 	onSelectionChange?: (hasSelection: boolean) => void;
 	/** True for a `value` this editor emitted and has since typed past. The Studio commits typing as a React
@@ -369,7 +387,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  browser's own Studio write (a strip op) reaching the editor through the session. Either only maps the caret. */
 	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string; isPeer?: (tr: Transaction) => boolean } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const pendingCaretRef = React.useRef<{ text: string; offset: number } | null>(null);
@@ -388,6 +406,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// A sync that produced DIFFERENT text (a leading BOM the filter stripped) still goes out.
 	const syncedValueRef = React.useRef<string | null>(null);
 	const hubRef = React.useRef(focusHub);
+	const focusOnMountRef = React.useRef(focusOnMount);
+	focusOnMountRef.current = focusOnMount;
 	hubRef.current = focusHub;
 	const isStaleEchoRef = React.useRef(isStaleEcho);
 	isStaleEchoRef.current = isStaleEcho;
@@ -656,8 +676,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// A focus Compose reported carries its caret block's text: land on that line of the slide rather than its first,
 			// so a switch from Compose keeps the caret's line (caret-line.ts; the first line when it cannot tell).
 			const unit = ix.units[f.unitIndex];
-			const onLine = f.origin === 'compose' && f.line && unit ? lineOffsetIn(ix.source, unit.from, unit.end, f.line) : -1;
-			const caret = Math.min(onLine >= 0 ? onLine : deckEditableOffset(ix, f.unitIndex, f.part), v.state.doc.length);
+			// A focus with a line and no source offset: Compose's report, or a restore after a reload.
+			const onLine = f.head === null && f.line && unit ? lineOffsetIn(ix.source, unit.from, unit.end, f.line) : -1;
+			// The hub still holding THIS editor's own caret (an exact source offset, carried through edits since): put it back
+			// exactly. A Compose that took the keyboard and has not moved yet reports nothing, so this is the common case.
+			const caret = Math.min(f.head !== null ? f.head : onLine >= 0 ? onLine : deckEditableOffset(ix, f.unitIndex, f.part), v.state.doc.length);
 			v.dispatch({ selection: { anchor: caret }, effects: EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 }) });
 		}
 		if (f.grab) v.focus();
@@ -894,6 +917,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 								return false;
 							},
 						}),
+						ghostCaret,
 						EditorView.updateListener.of((u) => {
 							const hub = hubRef.current;
 							// The value-sync pushing the SHELL's text in is not an author move: the hub
@@ -993,6 +1017,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			revRef.current = hub ? hub.update(stripBom(view.state.doc.toString()), { by: 'sync' }) : undefined;
 			const f = hub?.get();
 			if (f && f.unitIndex >= 0) revealFocus(view, f, true);
+			if (focusOnMountRef.current?.()) view.focus();
 		} catch {
 			setFailed(true);
 		}

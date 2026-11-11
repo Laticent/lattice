@@ -560,17 +560,18 @@ export function deckLabels(): { id: string; label: string }[] {
 // deck+slide last viewed and boot from it, and studio.astro derives its bootId from
 // the SAME key so the shell and the hydrated app agree on which deck (and slide) leads.
 
-export type ActiveDeck = { deckId: string; slideIndex: number };
+/** `line`: the caret line's text when it was saved, so a reload lands the caret on it (compose-first decision note). */
+export type ActiveDeck = { deckId: string; slideIndex: number; line?: string };
 
 /** The deck + slide last viewed, or null if never recorded. */
 export function loadActiveDeck(): ActiveDeck | null {
 	const v = read<Partial<ActiveDeck>>(ACTIVE_LS);
 	if (!v || typeof v.deckId !== 'string' || !v.deckId) return null;
-	return { deckId: v.deckId, slideIndex: typeof v.slideIndex === 'number' && v.slideIndex >= 0 ? v.slideIndex : 0 };
+	return { deckId: v.deckId, slideIndex: typeof v.slideIndex === 'number' && v.slideIndex >= 0 ? v.slideIndex : 0, ...(typeof v.line === 'string' && v.line ? { line: v.line.slice(0, 500) } : {}) };
 }
 /** Record the deck + slide currently in view (called on every deck/slide change). */
-export function saveActiveDeck(deckId: string, slideIndex: number): void {
-	write(ACTIVE_LS, { deckId, slideIndex: Math.max(0, slideIndex | 0) });
+export function saveActiveDeck(deckId: string, slideIndex: number, line?: string): void {
+	write(ACTIVE_LS, { deckId, slideIndex: Math.max(0, slideIndex | 0), ...(line ? { line: line.slice(0, 500) } : {}) });
 }
 /** Forget the last-active pointer if it names `deckId` (a deck being deleted) — so it
  *  can never dangle at a deck that no longer exists, which would make the app boot the
@@ -600,6 +601,11 @@ export function loadBootDeck(): StudioDeck {
 export function loadBootSlide(): number {
 	const active = loadActiveDeck();
 	return active && active.deckId === loadBootDeck().id ? active.slideIndex : 0;
+}
+/** The caret line saved with the boot slide, or '' (another deck, or none saved). */
+export function loadBootLine(): string {
+	const active = loadActiveDeck();
+	return active && active.deckId === loadBootDeck().id ? (active.line ?? '') : '';
 }
 
 /**

@@ -317,3 +317,24 @@
 [data-settings-filtering]:has([data-setting-hit]) [data-settings-empty] {
 	display: none;
 }
+
+/* THE DRAWN CARET (ComposeView `ghostCaretPlugin`, Editor.tsx `ghostCaret`): where the caret is while an editor does not
+ * have focus, so a phone that came back from the preview shows the author's place without throwing the keyboard up. Both
+ * sit OUTSIDE the editable text (an overlay and a CodeMirror layer), so focusing never changes the DOM under a click. The
+ * body ink at half strength, still, so it never reads as a live caret. */
+.lx-ghost-caret {
+	position: fixed;
+	width: 2px;
+	border-radius: 1px;
+	background: var(--text-body);
+	opacity: 0.5;
+	pointer-events: none;
+}
+.lx-ghost-caret-layer {
+	pointer-events: none;
+}
+.lx-ghost-caret-cm {
+	border-left: 2px solid var(--text-body);
+	opacity: 0.5;
+	translate: -1px 0;
+}
