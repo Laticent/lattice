@@ -401,15 +401,39 @@ describe('synthFor / clipKeyFor — an identity the CALLER names (what the webpa
     expect(res.error).toContain('not connected');
   });
 
-  it('makes ONE attempt — the retry policy belongs to the caller', async () => {
-    // A bake backs off and retries; an audition should fail at once. Two opposite policies, so
-    // this layer reports the outcome and neither one is baked in here.
+  it('rides out a rate limit: the provider scheduler retries a 429 after its Retry-After and the clip lands', async () => {
+    // Retrying moved from each caller into the provider's scheduler (2026-11-11-voice-synthesis-spine.md §3.3): it
+    // reads the status and the Retry-After header, where the bake used to retry blind and the live reader retried any
+    // failure once after a fixed 300 ms.
+    vi.useFakeTimers();
+    try {
+      let fetchCalls = 0;
+      const model = createVoiceModel({
+        getOpenRouterKey: () => 'sk-test',
+        fetchImpl: async () => {
+          fetchCalls++;
+          if (fetchCalls === 1) return { ok: false, status: 429, headers: new Headers({ 'retry-after': '2' }), text: async () => 'rate limited' };
+          return { ok: true, status: 200, blob: async () => ({ size: 8, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(8) }) };
+        },
+      });
+      const p = model.synthFor({ rung: 'openrouter', text: 'Anything.' });
+      await vi.advanceTimersByTimeAsync(1999);
+      expect(fetchCalls, 'nothing is re-sent inside the Retry-After window').toBe(1);
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(p).resolves.toMatchObject({ ok: true });
+      expect(fetchCalls).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not retry a request the provider refused outright (a 400)', async () => {
     let fetchCalls = 0;
     const model = createVoiceModel({
       getOpenRouterKey: () => 'sk-test',
       fetchImpl: async () => {
         fetchCalls++;
-        return { ok: false, status: 429, text: async () => 'rate limited' };
+        return { ok: false, status: 400, headers: new Headers(), text: async () => 'unknown voice' };
       },
     });
     expect((await model.synthFor({ rung: 'openrouter', text: 'Anything.' })).ok).toBe(false);
@@ -504,18 +528,24 @@ describe('synthFor / clipKeyFor — an identity the CALLER names (what the webpa
     vi.useFakeTimers();
     try {
       let aborted = false;
+      let started = 0;
       const model = createVoiceModel({
         getOpenRouterKey: () => 'sk-test',
         fetchImpl: (_u: string, opts: { signal?: AbortSignal }) =>
           new Promise((_res, rej) => {
+            started++;
             opts.signal?.addEventListener('abort', () => { aborted = true; rej(new Error('aborted')); }, { once: true });
           }),
       });
       const ctl = new AbortController();
       const p = model.synthFor({ rung: 'openrouter', text: 'Anything.', signal: ctl.signal });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(started, 'the request was issued').toBe(1);
       ctl.abort();
       await p;
       expect(aborted, 'a canceled export must stop spending immediately').toBe(true);
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(started, 'and the scheduler does not retry a canceled request').toBe(1);
     } finally {
       vi.useRealTimers();
     }

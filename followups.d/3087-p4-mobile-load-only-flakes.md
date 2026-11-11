@@ -82,3 +82,7 @@ editor follows the typing on real WebKit too`) failed once in a 14-spec, 3-proje
 The same PR's final build lost `collage-lightbox.spec.ts:483` (`@mobile`, the trackpad-pinch zoom) once in a 220-pass,
 15-file, 3-project, 4-worker run; it passed 3 of 3 alone. The lightbox lives in the slide runtime and shares no code
 with what that PR changed (Studio mount timing, `ui/sheet.tsx` focus return).
+PR #3140 (2026-11-11) saw `model-spine.spec.ts:155` (`@crosswidth … picking in the chip is the global selection`) fail on
+`mobile` again, after the 2026-11-10 fix: a 15 s click timeout in an 8-file, 3-project (desktop, tablet, mobile) run while
+a commit hook ran the full unit suite beside it (44 passed, 1 failed). It passed 2 of 2 alone on the same build, and 1 of 1
+on main. That PR changes narration export and the voice request path, not the chip.

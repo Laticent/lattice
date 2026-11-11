@@ -65,6 +65,8 @@ test('with only the on-device voice, loaded while the panel is open, the export 
 	);
 	const workers: string[] = [];
 	page.on('worker', (w) => workers.push(w.url()));
+	const packFailures: string[] = [];
+	page.on('console', (m) => /narration worker failed/.test(m.text()) && packFailures.push(m.text()));
 	await gotoStudio(page);
 	// UNDO THE FIXTURE'S WORKER BLOCK, so the worker path this spec claims to cover is the one
 	// that runs. `gotoStudio` makes constructing the Kokoro worker throw (so no spec pulls the real
@@ -114,6 +116,11 @@ test('with only the on-device voice, loaded while the panel is open, the export 
 	expect(html, 'the file carries audio blocks').toContain('application/lattice+audio');
 	// One clip per sentence the deck speaks (3 sentences across the two slides).
 	expect((html.match(/data:audio\/mpeg;base64,/g) ?? []).length).toBeGreaterThanOrEqual(3);
+	// The on-device voice hands the bake WAV, so every clip needed compressing, and that ran in the narration pack workers,
+	// not on the main thread (2026-11-11-voice-synthesis-spine.md S2). A worker that failed to bundle or load would fall back
+	// silently to the main thread and still produce the file, so only this line tells the two paths apart.
+	expect(workers.some((u) => /narration-pack-worker/.test(u)), 'the clips packed in the narration pack worker').toBe(true);
+	expect(packFailures, 'no pack worker failed over to the main thread').toEqual([]);
 });
 
 // The other direction: availability DROPPING under a switch that is on. With a (mock) cloud key the

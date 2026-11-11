@@ -208,3 +208,28 @@ export function setNarrationBitrate(kbps) {
 }
 
 export { BITRATE_CHOICES, DEFAULT_BITRATE_KBPS };
+
+// ── Parallel voice requests ────────────────────────────────────────────────────────────────
+// How many sentences may be synthesized at once against one voice provider: the CEILING the voice scheduler's adaptive
+// loop works under (docs/src/playground/voice-scheduler.js), never a rate it is held to. `auto` takes the provider's measured
+// default from its engine profile and lets the scheduler lower itself on 429s; a number is the author's own cap, for an
+// account with a higher (or lower) rate limit than the default assumes. On-device Kokoro ignores it: one model instance
+// runs one sentence at a time. engineering/decisions/2026-11-11-voice-synthesis-spine.md §3.4.
+
+const PARALLEL_KEY = 'lattice-voice-parallel';
+/** The highest cap an author can set. Above this a single deck is a burst most accounts' limits will refuse. */
+export const MAX_PARALLEL = 8;
+
+/** `'auto'` or a cap 1 to MAX_PARALLEL. An unreadable stored value reads as `'auto'`. */
+export function parallelPref() {
+	const raw = readLS(PARALLEL_KEY);
+	if (raw == null || raw === AUTO) return AUTO;
+	const n = Number(raw);
+	return Number.isInteger(n) && n >= 1 ? Math.min(MAX_PARALLEL, n) : AUTO;
+}
+
+export function setParallelPref(value) {
+	const n = Number(value);
+	writeLS(PARALLEL_KEY, value === AUTO || !Number.isInteger(n) || n < 1 ? null : String(Math.min(MAX_PARALLEL, n)));
+	emit();
+}

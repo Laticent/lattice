@@ -13,7 +13,7 @@ import { clearCrashReports, collectCrashReports, crashReportStats, OPEN_CRASH_RE
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { FIDELITY_OVERLAY_AVAILABLE, fidelityOverlayEnabled, onFidelityOverlayEnabledChange, setFidelityOverlayEnabled } from '@/playground/fidelity-overlay-prefs';
-import { cheapestVoiceEnabled, DEFAULT_BITRATE_KBPS, lookaheadPref, narrationBitrate, narrationCacheEnabled, pacePref, setCheapestVoiceEnabled, setLookaheadPref, setNarrationBitrate, setNarrationCacheEnabled, setPacePref } from '@/playground/narration-prefs.js';
+import { cheapestVoiceEnabled, DEFAULT_BITRATE_KBPS, lookaheadPref, MAX_PARALLEL, narrationBitrate, narrationCacheEnabled, pacePref, parallelPref, setCheapestVoiceEnabled, setLookaheadPref, setNarrationBitrate, setNarrationCacheEnabled, setPacePref, setParallelPref } from '@/playground/narration-prefs.js';
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
 import { onReadAloudOverlayEnabledChange, READALOUD_OVERLAY_AVAILABLE, readAloudOverlayEnabled, setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 import { onStorageOverlayEnabledChange, STORAGE_OVERLAY_AVAILABLE, setStorageOverlayEnabled, storageOverlayEnabled } from '@/playground/storage-overlay-prefs';
@@ -268,6 +268,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	const [cheapestVoice, setCheapestVoiceState] = React.useState(false);
 	const [narrationBitrateState, setNarrationBitrateState] = React.useState(DEFAULT_BITRATE_KBPS);
 	const [pace, setPaceState] = React.useState('natural');
+	const [parallel, setParallelState] = React.useState<string>('auto');
 	React.useEffect(() => {
 		if (!open) return;
 		setLookaheadState(String(lookaheadPref()));
@@ -275,6 +276,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		setCheapestVoiceState(cheapestVoiceEnabled());
 		setNarrationBitrateState(narrationBitrate());
 		setPaceState(pacePref());
+		setParallelState(String(parallelPref()));
 	}, [open]);
 	React.useEffect(() => {
 		setStorageOverlay(storageOverlayEnabled());
@@ -982,6 +984,19 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 											<SelectItem value="3">3 slides ahead</SelectItem>
 											<SelectItem value="4">4 slides ahead</SelectItem>
 											<SelectItem value="all">The whole deck</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="mt-2 rounded-xl border border-border bg-background px-3 py-2.5">
+									<label htmlFor="ws-voice-parallel" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Parallel requests</label>
+									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How many sentences a cloud voice may speak at once while you present or export. <strong>Automatic</strong> starts from what this voice handled well when we measured it, slows itself down the moment the provider says it is busy, and speeds back up when it clears, so you shouldn't normally need to change it. Choose a number only if your account's rate limit is higher or lower than most. The on-device voice always speaks one sentence at a time.</p>
+									<Select value={parallel} onValueChange={(v) => { setParallelState(v); setParallelPref(v === 'auto' ? 'auto' : Number(v)); notify(v === 'auto' ? 'Parallel requests: automatic.' : `Parallel requests: at most ${v} at once.`); }}>
+										<SelectTrigger id="ws-voice-parallel" className="w-full"><SelectValue /></SelectTrigger>
+										<SelectContent>
+											<SelectItem value="auto">Automatic (recommended)</SelectItem>
+											{Array.from({ length: MAX_PARALLEL }, (_, i) => String(i + 1)).map((n) => (
+												<SelectItem key={n} value={n}>{n === '1' ? '1 at a time' : `Up to ${n} at once`}</SelectItem>
+											))}
 										</SelectContent>
 									</Select>
 								</div>
