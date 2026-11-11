@@ -2,9 +2,15 @@
 // Reproduces engineering/decisions/2026-11-11-studio-storage-pointer-records.md §2. Needs `npm run build:e2e`
 // then `npm run preview:e2e` running in docs/. Writes bench-x<throttle>.json to the current directory.
 // usage: node storage-bench.cjs [reloads] [cpuThrottle] [scenario,scenario...]
-const { chromium } = require('playwright');
+// ENGINE=chromium|webkit|firefox (default chromium); BASE=<origin> (default http://localhost:4321).
+// CPU throttling, the heap reading and long tasks are Chromium-only: on WebKit and Firefox the run is
+// unthrottled and reports first-slide time alone, so compare builds on one engine, never across engines.
+// PLAYWRIGHT=<module path>: use the docs suite's Playwright (docs/node_modules/playwright), whose WebKit and
+// Firefox builds the e2e suite installs, when the default `playwright` wants browser builds that are not there.
+const playwright = require(process.env.PLAYWRIGHT || 'playwright');
+const ENGINE = process.env.ENGINE || 'chromium';
 const fs = require('fs');
-const BASE = 'http://localhost:4321';
+const BASE = process.env.BASE || 'http://localhost:4321';
 const RELOADS = +(process.argv[2] || 7);
 const THROTTLE = +(process.argv[3] || 1);
 const ONLY = process.argv[4] ? process.argv[4].split(',') : null;
@@ -92,7 +98,7 @@ async function seed(page, s) {
 				ls += (k.length + localStorage.getItem(k).length) * 2;
 			}
 			out.localStorageMB = +(ls / 1e6).toFixed(1);
-			out.usageMB = +(((await navigator.storage.estimate()).usage || 0) / 1e6).toFixed(1);
+			out.usageMB = +(((await navigator.storage?.estimate?.())?.usage || 0) / 1e6).toFixed(1);
 			return out;
 		},
 		{ s, DECK },
@@ -121,7 +127,7 @@ async function paintMs(page) {
 const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
 
 (async () => {
-	const browser = await chromium.launch();
+	const browser = await playwright[ENGINE].launch();
 	const results = {};
 	for (const [name, s] of Object.entries(SCENARIOS)) {
 		if (ONLY && !ONLY.includes(name)) continue;
@@ -142,13 +148,13 @@ const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
 			if (NW) window.Worker = class extends NW { constructor(u, o) { if (/kokoro-worker/.test(String(u))) throw new Error('off'); super(u, o); } };
 		});
 		const page = await ctx.newPage();
-		const cdp = await ctx.newCDPSession(page);
+		const cdp = ENGINE === 'chromium' ? await ctx.newCDPSession(page) : null;
 		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
 		await page.frameLocator('[aria-label="Live deck preview"] iframe.live').locator('.lattice').first().waitFor({ timeout: 60000 });
 		await page.waitForTimeout(1500); // let the app create its databases
 		const info = await seed(page, s);
 		await paintMs(page); // warm-up reload (SW + HTTP cache warm, as in a regular profile)
-		if (THROTTLE > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
+		if (THROTTLE > 1 && cdp) await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
 		const runs = [];
 		for (let i = 0; i < RELOADS; i++) runs.push(await paintMs(page));
 		results[name] = { ...info, paintMedian: median(runs.map((r) => r.wall)), longTaskMedian: median(runs.map((r) => r.longTasks)), longTaskBy3sMedian: median(runs.map((r) => r.longTasksAfter3s)), heapMB: median(runs.map((r) => r.heap)), runs: runs.map((r) => r.wall).join(',') };
@@ -156,7 +162,7 @@ const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
 		await ctx.close();
 	}
 	await browser.close();
-	fs.writeFileSync(`bench-x${THROTTLE}.json`, JSON.stringify(results, null, 2));
+	fs.writeFileSync(`bench-${ENGINE}-x${THROTTLE}.json`, JSON.stringify(results, null, 2));
 })().catch((e) => {
 	console.error(e);
 	process.exit(1);

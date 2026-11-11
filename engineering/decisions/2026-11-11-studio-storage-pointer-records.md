@@ -310,6 +310,27 @@ only the backup refuses to run without the history. And a test added earlier in 
 because `otherTab()` module instances kept their BroadcastChannel open into later tests; each is now reset after its
 test (HARD RULE #32).
 
+**WebKit and Firefox (added at the last grade's request).** `storage-bench.cjs` now takes `ENGINE=webkit|firefox`
+(and `PLAYWRIGHT=` for the docs suite's Playwright, whose browsers the e2e suite installs). Those engines have no CPU
+throttle or heap reading here, so this is unthrottled first-slide time on a fast machine, 7 reloads, medians. "Before"
+is a build with this PR's source files at the merge base (192618d); "after" is 9a7d4b4.
+
+| Engine | Before: nothing · 40 decks · 40 decks + versions | After: nothing · 40 decks · 40 decks + versions |
+|---|---|---|
+| WebKit | 1,688 · 1,697 · **2,094 ms** | 1,726 · 1,669 · **1,662 ms** |
+| Firefox | 1,712 · 1,800 · **2,387 ms** | 1,731 · 1,762 · **1,801 ms** |
+
+The same shape as Chromium: the version read cost 400–675 ms of first-slide time on a full profile even unthrottled,
+and after the change the full profile paints with the empty one. The deck-list cost does not show unthrottled in
+either engine (within spread before and after).
+
+**Fifth checker (the last grade's raise).** Reviewed only the rewritten durability check and the new `deckReadWanted`
+flag. Nothing material: no case returns "saved" while the change is missing from localStorage, unless IndexedDB's own
+path gives the same outcome. One optional tightening, not taken: the match is not strictly one-to-one and ignores
+`ts`, which no current writer can exploit (all dedupe by id; no edit changes only `ts`). A filtered Studio E2E nightly
+on 9a7d4b4 (the storage specs, every project): 68 passed, 2 skipped, 1 failed, and the failure
+(`workspace-backup-size.spec.ts:85`) also fails on `main` and is tracked in `followups.d/3043-…`.
+
 **Fourth checker (on that round, at the owner's OK past the session's agent budget).** Found nothing that tells a caller
 a version is saved when it is not. Four smaller findings, handled here: the durability check after a failed reopen had
 no test for that dangerous direction (added: a version that reaches neither store says not saved and is reported); a
