@@ -16,13 +16,13 @@
 import type { Node as PMNode } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { writeMeta } from '../../../../lib/core/meta-edit.mjs';
 // The engine's own scheme allowlist (a leaf `module.exports`, as the docs dev shim needs): the shortcut is drawn through the
 // record, so an address the record refuses (`http:`) is never placed, and Compose must not say it is (inversion, F5).
 import urlScheme from '../../../../lib/core/url-scheme.js';
 // The component names (the stage catalog's keys, as reserved-names.ts reads them): a slide's LAYOUT is its first class word
 // that names a component, so a modifier-only slide (`_class: dark`) is a content slide (inversion, F7).
 import STAGE_CATALOG from '../../../../lib/forms/cell/masthead/stage-catalog.generated.js';
+import { setClassTokens } from '../slide-directives';
 import { deckSchema } from './deck-doc';
 import { classPayloadOf } from './deck-source';
 import { closeFiloGroup } from './filo-history';
@@ -186,11 +186,11 @@ export function tokensWithPlacement(tokens: readonly string[], p: Placement): st
 /** The slide's directives with its class set to `tokens`, or null when its class sits in a comment Compose does not rewrite. */
 function directivesWithClass(directives: readonly string[], tokens: readonly string[]): string[] | null {
 	const at = directives.findIndex((x) => classPayloadOf(x) !== null);
-	// A new class is written as the drawer writes one (lib/core/meta-edit.mjs `writeMeta`: a `_class` comment on a slide
+	// A new class is written as the drawer writes one (`setClassTokens`, lib/core/meta-edit.mjs `writeMeta`: a `_class` comment on a slide
 	// with no record); a record's class is rewritten in the record, every other field kept.
-	if (at < 0) return [writeMeta('', { class: tokens.join(' ') }), ...directives];
+	if (at < 0) return [setClassTokens('', tokens.slice()), ...directives];
 	if (/^\s*<!--\s*(?:\{|@meta\{)/.test(directives[at])) {
-		const next = writeMeta(directives[at], { class: tokens.join(' ') });
+		const next = setClassTokens(directives[at], tokens.slice());
 		return next === directives[at] && classPayloadOf(next) !== tokens.join(' ') ? null : directives.map((x, i) => (i === at ? next : x)).filter(Boolean);
 	}
 	const line = `<!-- _class: ${tokens.join(' ')} -->`;
