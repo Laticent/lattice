@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-11 — the owner raised one ceiling by 6KB
+
+PR #3131: the chart form kernel's layout code (chart-form.js, chart-phone.js, the glyph-width table and the per-kind forms) is about 20KB of the union of every chart kernel's closure, measured 253.7KB against a 248.7KB ceiling after the phone sizing code moved out of the startup engine (getting-started's engineJsGz was past its own ceiling). The owner raised chartKernelsGz's ceiling by 6KB (6,144 bytes) on 2026-11-11, after seeing that the same PR gave back 218KB on every engine route; the soft target is unchanged. Set by hand because `route-budget:rebaseline --raise --ceiling` would put the ceiling 10% over a new soft target (about 30KB), more than was agreed.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelsGz | 231477 | 231477 | +0 | 260769 |
+
 ### 2026-11-11 — measured on the built tree at 2aeda14
 
 PR #3131: the docs preview runtime leaves the chart kernels out (a preview receives charts the engine already drew); engineJsGz falls about 218KB
