@@ -1805,11 +1805,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// warm, and every visitor fetched it at startup before Compose became the default). Compose's, when Source is the
 		// stored mode, is left to the idle warm-up in `studio-warm.ts`, which skips it under Save-Data: warming it here too
 		// fetched new bytes a Save-Data visitor never downloaded before (studio-warm-offline.spec.ts caught it).
+		// Two statements, never one conditional expression: Vite wrapped `cond ? import(a) : import(b)` in ONE dependency
+		// preload holding both branches' chunks, so warming the Editor fetched Compose's chunk too (measured on the build).
 		const source = loadSettings().editMode === 'source';
-		void firstSlideShown
-			.then((): Promise<unknown> => (source ? import('./Editor') : import('./ComposeView')))
-			.then((): Promise<unknown> | undefined => (source ? undefined : import('./Editor')))
-			.catch(() => {});
+		const warmEditors = async () => {
+			if (source) {
+				await import('./Editor');
+				return;
+			}
+			await import('./ComposeView');
+			await import('./Editor');
+		};
+		void firstSlideShown.then(warmEditors).catch(() => {});
 	}, []);
 	// The six panels, once the first slide is on screen and the user has paused (`first-slide.ts`), then
 	// `lazy-panel.tsx` › warmPanels' idle scheduling. Scheduled from here, as #2402 shipped it, so their
