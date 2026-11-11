@@ -75,7 +75,13 @@ describe('the editor waits for the first slide only where it is hidden', () => {
 		const { StudioShell, slide } = await fresh();
 		render(<StudioShell options={options} />);
 		await screen.findByTestId('deck-preview');
-		await new Promise((r) => setTimeout(r, 300));
+		// The window a wrongly-built editor would need: its lazy chunk loaded, and every render that follows from it
+		// done. Loading the chunk inside act() means React's retry of a suspended <Editor> lands in act's queue and is
+		// flushed, effects included, before act returns, so CodeMirror would be in the DOM by the check below. (This
+		// was a 300 ms sleep, which a loaded machine could spend before the chunk had even arrived.)
+		await act(async () => {
+			await import('./Editor');
+		});
 		expect(editorBuilt(), 'built before the first slide').toBe(false);
 		await act(async () => slide.markFirstSlideShown());
 		await waitFor(() => expect(editorBuilt()).toBe(true), { timeout: 10_000 });

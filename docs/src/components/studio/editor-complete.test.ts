@@ -643,11 +643,42 @@ describe('makeAssetCompletion — Library photos', () => {
 		expect(await run('<!-- _class: collage -->\n\n---\n\n## Other slide\n\n- te')).toBeNull();
 	});
 
+	/** The longest input each regex (`/source/flags`) was run on while `fn` ran synchronously: the trace is lifted before `fn`'s promise settles, so a regex run after an await is not seen.
+	 *  `makeAssetCompletion` runs all of its regexes synchronously, and the IMAGE_REF witness below shows the trace is live. */
+	const regexInputs = async (fn: () => unknown): Promise<Map<string, number>> => {
+		const exec = RegExp.prototype.exec;
+		const longest = new Map<string, number>();
+		RegExp.prototype.exec = function (this: RegExp, s: string) {
+			const k = `/${this.source}/${this.flags}`;
+			longest.set(k, Math.max(longest.get(k) ?? 0, String(s).length));
+			return exec.call(this, s);
+		};
+		let out: unknown;
+		try {
+			out = fn();
+		} finally {
+			RegExp.prototype.exec = exec;
+		}
+		await out;
+		return longest;
+	};
+	const key = (re: RegExp) => `/${re.source}/${re.flags}`;
+
 	it('a huge line costs a bounded amount per keystroke', async () => {
+		// COUNTED, not timed (HARD RULE #32). The image-reference pattern backtracks: recheck 4.6.2 calls it polynomial
+		// (attack `'(![' × n`), and on a 250 KB line it cost seconds per keystroke. So the completion runs it on the end of
+		// the line only. Held here: the slow pattern never sees more than that window, and every pattern that reads the
+		// whole line is one recheck calls linear (`npm run regex:census -- --check`).
+		const WINDOW = 300;
+		const IMAGE_REF = key(/!\[[^\]\n]*\]\(([^)\s]*)$/);
+		const LINEAR = new Set([key(/^[ \t]*[-*][ \t]+([\w-]*)$/), key(/^asset:/i)]);
 		const doc = `${'![a]('.repeat(40_000)} `;
-		const t = performance.now();
-		await run(doc);
-		expect(performance.now() - t).toBeLessThan(250);
+		// The editor state is built outside the trace: it is CodeMirror's line split, not the keystroke.
+		const context = new CompletionContext(EditorState.create({ doc }), doc.length, true);
+		const longest = await regexInputs(() => photos(context));
+		expect(longest.has(IMAGE_REF), 'the path under test ran the image-reference pattern').toBe(true);
+		expect(longest.get(IMAGE_REF)).toBeLessThanOrEqual(WINDOW);
+		for (const [k, n] of longest) if (n > WINDOW) expect(LINEAR.has(k), `${k} ran on ${n} characters`).toBe(true);
 	});
 
 	it('an empty bullet opens no menu until Ctrl-Space, so Enter stays a newline', async () => {

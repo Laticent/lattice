@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ART_MAX_BYTES, artNamespace, cutOfTree, ensureViewBox, estimateBox, expandUses, harvestHints, intake, MAX_ROWS, namePart, namespaceIds, placeWord, setPartTitle, splitBand } from './svg-intake';
 
 const parse = (m: string) => new DOMParser().parseFromString(m, 'text/html').querySelector('svg') as SVGSVGElement;
@@ -477,11 +477,19 @@ describe('the red-team findings, each pinned so it cannot come back', () => {
 	it('refuses an oversized paste on the RAW bytes, before spending a parse on it', () => {
 		// A 2 MB paste took 78 seconds in real Chromium to reach the sanitized-bytes ceiling and be
 		// refused for its size anyway — freezing the tab, and the user's unsaved deck, throughout.
+		// Held by the work it skips, not the clock (HARD RULE #32): the refusal must never reach the parser.
 		const huge = svgOf(paths(20000, 'padpadpadpadpadpad'));
-		const started = Date.now();
-		const r = intake(huge);
-		expect(!r.ok && r.failure).toBe('too-big');
-		expect(Date.now() - started, 'a refusal this size must not cost a parse').toBeLessThan(2000);
+		const parse = vi.spyOn(DOMParser.prototype, 'parseFromString');
+		try {
+			const r = intake(huge);
+			expect(!r.ok && r.failure).toBe('too-big');
+			expect(parse, 'a refusal this size must not cost a parse').not.toHaveBeenCalled();
+			// The spy sees the parse when there is one: the same intake on a drawing that fits does call it.
+			intake(svgOf(paths(2)));
+			expect(parse).toHaveBeenCalled();
+		} finally {
+			parse.mockRestore();
+		}
 	});
 
 	it('a band reports the shapes the AUTHOR drew, not the titles we added', () => {

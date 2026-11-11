@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createFiloStore, History, memoryBackend, type Snapshot, toSnapshot } from '@/lib/filo';
 import { adoptStored, createFiloPersistence, EARLY_LABEL, reloadCase, sourceSum, UNSAVED_LABEL } from './studio-filo-persist';
 
@@ -87,18 +87,22 @@ describe('adoptStored', () => {
 });
 
 describe('createFiloPersistence', () => {
-	const tick = () => new Promise((r) => setTimeout(r, 0));
+	// A macrotask turn: every microtask queued before it runs first. Used only where the code under test
+	// continues on a promise it exposes nowhere (a write's tail after `store.write` answers), so there is
+	// no signal to await; once `flush()` has run, that chain holds no timer, so this is an ordering point.
+	const tick = () => new Promise((r) => setTimeout(r, 0)); // flaky-ok: a 0 ms macrotask turn that drains a timer-free promise chain, not a guessed duration
 
 	it('stores on change, and a reload in a new page restores the stack', async () => {
 		const backend = memoryBackend();
 		const sums = new Map<string, number>();
-		const page1 = createFiloPersistence({ store: createFiloStore(backend), sidecar: (d) => sums.get(d) ?? null, delayMs: 0 });
+		const store1 = createFiloStore(backend);
+		const page1 = createFiloPersistence({ store: store1, sidecar: (d) => sums.get(d) ?? null, delayMs: 0 });
 		const h1 = new History('deck', A);
 		await page1.open(h1, A);
 		h1.commit({ base: h1.head, next: B, label: 'Typing', origin: 'markdown' });
 		sums.set('deck', sourceSum(B));
 		page1.flush();
-		await tick();
+		await store1.settled();
 		const opened: string[] = [];
 		const page2 = createFiloPersistence({ store: createFiloStore(backend), sidecar: (d) => sums.get(d) ?? null, onOpen: (_d, c) => opened.push(c) });
 		const h2 = new History('deck', B);
@@ -109,12 +113,13 @@ describe('createFiloPersistence', () => {
 
 	it('a deck changed before storage answered keeps its undo in memory and leaves the stored past alone', async () => {
 		const backend = memoryBackend();
-		const page1 = createFiloPersistence({ store: createFiloStore(backend), sidecar: () => null, delayMs: 0 });
+		const store1 = createFiloStore(backend);
+		const page1 = createFiloPersistence({ store: store1, sidecar: () => null, delayMs: 0 });
 		const h1 = new History('deck', A);
 		await page1.open(h1, A);
 		h1.commit({ base: h1.head, next: B, label: 'Typing', origin: 'markdown' });
 		page1.flush();
-		await tick();
+		await store1.settled();
 		const opened: string[] = [];
 		const store2 = createFiloStore(backend);
 		const page2 = createFiloPersistence({ store: store2, sidecar: () => sourceSum(B), delayMs: 0, onOpen: (_d, c) => opened.push(c) });
@@ -129,8 +134,8 @@ describe('createFiloPersistence', () => {
 		expect(h2.undo()?.text, 'the session undoes its own ops, one by one').toBe(C);
 		expect(h2.undo()?.text).toBe(B);
 		expect(h2.state().canUndo, 'nothing merged under them').toBe(false);
-		page2.flush();
-		await tick();
+		page2.flush(); // a write it made would be queued on the store synchronously, inside flush()
+		await store2.settled();
 		expect((await store2.read('deck'))?.text, 'the stored past waits for the next load').toBe(B);
 	});
 
@@ -190,8 +195,8 @@ describe('createFiloPersistence', () => {
 		const h = new History('deck', big);
 		await p.open(h, big);
 		h.commit({ base: h.head, next: big.toUpperCase(), label: 'AI', origin: 'ai' });
-		await new Promise((r) => setTimeout(r, 50)); // the idle write starts and waits on the worker
-		expect(release, 'witness: the broad step went to the worker').not.toBeNull();
+		// The idle write starts and waits on the worker: wait for the worker to be asked.
+		await vi.waitFor(() => expect(release, 'witness: the broad step went to the worker').not.toBeNull());
 		h.commit({ base: h.head, next: `${big.toUpperCase()}tail\n`, label: 'Typing', origin: 'markdown' });
 		p.flush(); // the page hides: the newer history is written now
 		await store.settled();
@@ -223,28 +228,43 @@ describe('createFiloPersistence', () => {
 	});
 
 	it('a broad step crosses to the worker once, narrowed or not', async () => {
-		const store = createFiloStore(memoryBackend());
-		let crossings = 0;
-		const p = createFiloPersistence({
-			store,
-			sidecar: () => null,
-			delayMs: 0,
-			narrow: async (snap) => {
-				crossings++;
-				return structuredClone(snap); // nothing to narrow: two unrelated texts
-			},
-		});
-		const big = 'line\n'.repeat(400);
-		const h = new History('deck', big);
-		await p.open(h, big);
-		h.commit({ base: h.head, next: 'other\n'.repeat(400), label: 'Import', origin: 'import' });
-		for (let i = 0; i < 4; i++) {
-			await new Promise((r) => setTimeout(r, 20));
-			h.commit({ base: h.head, edits: [{ from: 0, to: 0, insert: 'x' }], label: 'Typing', origin: 'markdown' });
+		// Fake timers: each idle write (the 0 ms schedule, then the idle callback) runs when the test
+		// steps the clock, so every write below happens between two commits, on any machine.
+		vi.useFakeTimers();
+		try {
+			const store = createFiloStore(memoryBackend());
+			let crossings = 0;
+			const p = createFiloPersistence({
+				store,
+				sidecar: () => null,
+				delayMs: 0,
+				narrow: async (snap) => {
+					crossings++;
+					return structuredClone(snap); // nothing to narrow: two unrelated texts
+				},
+			});
+			const big = 'line\n'.repeat(400);
+			const h = new History('deck', big);
+			await p.open(h, big);
+			h.commit({ base: h.head, next: 'other\n'.repeat(400), label: 'Import', origin: 'import' });
+			const writes: string[] = [];
+			const realWrite = store.write.bind(store);
+			store.write = (snap) => {
+				writes.push(snap.text);
+				return realWrite(snap);
+			};
+			for (let i = 0; i < 4; i++) {
+				await vi.advanceTimersByTimeAsync(20);
+				h.commit({ base: h.head, edits: [{ from: 0, to: 0, insert: 'x' }], label: 'Typing', origin: 'markdown' });
+			}
+			await vi.advanceTimersByTimeAsync(20);
+			await store.settled();
+			// Witness: every step was written on its own, so the worker had four more chances to be asked.
+			expect(writes.length).toBe(5);
+			expect(crossings).toBe(1);
+		} finally {
+			vi.useRealTimers();
 		}
-		await new Promise((r) => setTimeout(r, 50));
-		await store.settled();
-		expect(crossings).toBe(1);
 	});
 
 	it('a deck dropped while storage answers gives its lock back', async () => {

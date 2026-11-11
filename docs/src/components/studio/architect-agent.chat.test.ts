@@ -1,6 +1,6 @@
 // chatComplete on the cloud tier, end to end through the real wiring (prompt, loop, tools,
 // fold, finalize) with a scripted backend standing in for OpenRouter. No network.
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { selectChat } from '../../lib/model-selection.js';
 import { architectModel, chatComplete, requestFindingFix } from './architect';
 
@@ -246,9 +246,54 @@ describe('checker pass: failures name their cause', () => {
 		m.openRouterModelPrice = () => ({ promptPerM: 3, completionPerM: 15 });
 		try {
 			await chatComplete([{ role: 'user', content: 'Tighten slide 2' }], DECK, undefined, { signal: ctl.signal });
-			await new Promise((r) => setTimeout(r, 0));
-			expect(looked).toEqual(['gen-2']);
-			expect(spend.readSpend().session).toBeGreaterThan(before);
+			// The reconcile runs after the Stop returns: wait for its result, not for a tick that happens to cover it.
+			await vi.waitFor(() => {
+				expect(looked).toEqual(['gen-2']);
+				// Round 1's own reported cost (0.001) plus round 2 at its EXACT cost (0.002), not its estimate: the reconcile
+				// replaced the estimate. Only "it went up" passed with the correction dropped or its sign flipped.
+				expect(spend.readSpend().session - before).toBeCloseTo(0.003, 9);
+			});
+		} finally {
+			m.openRouterGenerationCost = orig.cost;
+			m.openRouterModelPrice = orig.price;
+		}
+	});
+
+	it('a Stop on the one-shot path is priced at the exact generation cost, not its estimate', async () => {
+		// A model that refuses tools falls to the one-shot path (architect.ts). Stopped mid-stream there, the turn is
+		// booked at an estimate, then the generation id's exact cost replaces it: the twin of the agent path above.
+		const spend = await import('./ai/spend.js');
+		const before = spend.readSpend().session;
+		const m = (await architectModel()) as unknown as Hooks & { openRouterGenerationCost?: (id: string) => Promise<number>; openRouterModelPrice?: () => unknown };
+		const looked: string[] = [];
+		const ctl = new AbortController();
+		m.__setBackend({
+			name: 'openrouter',
+			async embed() {
+				return null;
+			},
+			async complete(o: Opts & { onGenerationId?: (id: string) => void }) {
+				if (o.tools?.length) throw new Error('OpenRouter error 404: No endpoints found that support tool use');
+				o.onGenerationId?.('gen-1');
+				o.onToken?.('Slide two could lead with the hire');
+				ctl.abort();
+				const e = new Error('aborted');
+				e.name = 'AbortError';
+				throw e;
+			},
+		});
+		const orig = { cost: m.openRouterGenerationCost, price: m.openRouterModelPrice };
+		m.openRouterGenerationCost = async (id: string) => {
+			looked.push(id);
+			return 0.002;
+		};
+		m.openRouterModelPrice = () => ({ promptPerM: 3, completionPerM: 15 });
+		try {
+			await chatComplete([{ role: 'user', content: 'Tighten slide 2' }], DECK, undefined, { signal: ctl.signal });
+			await vi.waitFor(() => {
+				expect(looked).toEqual(['gen-1']);
+				expect(spend.readSpend().session - before).toBeCloseTo(0.002, 9);
+			});
 		} finally {
 			m.openRouterGenerationCost = orig.cost;
 			m.openRouterModelPrice = orig.price;
