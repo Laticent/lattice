@@ -28,12 +28,14 @@ runs:
         echo "base=apt-$os-$RUNNER_ARCH-$(printf '%s' "$list" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
         echo "image=${ImageVersion:-$(sha256sum /var/lib/dpkg/status | cut -c1-12)}" >> "$GITHUB_OUTPUT"
     - name: Restore the packages
+      id: cache
       uses: actions/cache@v4
       with:
         path: ~/apt-cached-debs/${{ steps.key.outputs.base }}
         key: ${{ steps.key.outputs.base }}-${{ steps.key.outputs.image }}
         restore-keys: ${{ steps.key.outputs.base }}-
     - name: Download the packages (nothing restored only)
+      id: download
       shell: bash
       env:
         BASE: ${{ steps.key.outputs.base }}
@@ -42,7 +44,7 @@ runs:
       # repairs anything this image lacks. Only no folder at all (no entry for this OS, CPU and list) downloads.
       run: |
         dir="$HOME/apt-cached-debs/$BASE"
-        if [ -d "$dir" ]; then echo 'restored from the cache'; exit 0; fi
+        if [ -d "$dir" ]; then echo 'restored from the cache'; echo restored=true >> "$GITHUB_OUTPUT"; exit 0; fi
         # shellcheck disable=SC2086 # the list is words
         bash "$GITHUB_ACTION_PATH/apt-cached.sh" download "$dir" $LIST
     - name: Install the packages
@@ -50,6 +52,10 @@ runs:
       env:
         BASE: ${{ steps.key.outputs.base }}
         LIST: ${{ steps.key.outputs.list }}
+        # How the cache answered, for apt-cached.sh's summary line: this image's entry (an exact key match), the last
+        # image's (a restore-key match, seen by the download step finding the folder), or nothing. actions/cache@v4 has
+        # no matched-key output (only actions/cache/restore does), so the download step reports the folder.
+        APT_CACHE: ${{ steps.cache.outputs.cache-hit == 'true' && 'hit' || (steps.download.outputs.restored == 'true' && 'fallback' || 'miss') }}
       run: |
         # shellcheck disable=SC2086 # the list is words
         bash "$GITHUB_ACTION_PATH/apt-cached.sh" install "$HOME/apt-cached-debs/$BASE" $LIST

@@ -7,6 +7,11 @@
 #   apt-cached.sh install <dir> <pkg>...    install every .deb in <dir> that this machine lacks or has at a lower version,
 #                                           then make sure every <pkg> is installed
 #
+# The install step writes one line per call to the job's summary (engineering/gotchas/ci.md, the 2026-11-11 mirror outage): how the cache answered, and
+# whether the mirror was read. The calling action passes how the cache answered in APT_CACHE (hit = this image's entry,
+# fallback = the last image's entry, miss = nothing restored); the line is skipped outside GitHub Actions. A repair that
+# shows up night after night is a cache entry that no longer fits, which a log warning alone never surfaced.
+#
 # Generalized from .github/actions/playwright-webkit/install-deps.sh (#3117's follow-up), which measured why: over 17 CI
 # runs an apt step took 36 s at the median, but 5 took over 2 min, 2 over 10, and one never finished inside its job's 25
 # minutes (flaky shape F6, engineering/decisions/2026-11-06-flaky-tests.md); on 2026-11-11 a DNS failure on the Azure
@@ -82,6 +87,25 @@ prune() {
   done
 }
 
+# One summary line: the folder, how the cache answered, and what the mirror had to supply.
+report() {
+  [ -n "${GITHUB_STEP_SUMMARY:-}" ] || return 0
+  local cache=${APT_CACHE:-unknown} mirror=none
+  [ "$cache" != miss ] || mirror='download (cache miss)'
+  if [ "$repaired" = 1 ]; then
+    local why=()
+    [ -z "$dpkg_refused" ] || why+=('the cached set did not fit this image')
+    [ "${#missing[@]}" = 0 ] || why+=("${#missing[@]} package(s) not in the cache")
+    local joined
+    joined=$(IFS=';'; echo "${why[*]}")
+    mirror="repair: ${joined//;/; }"
+  fi
+  # A diagnostics line must never fail an install that worked: under set -e that would also delete the cache folder.
+  # shellcheck disable=SC2016 # the backticks are Markdown, not a command
+  printf -- '- apt-cached `%s`: cache **%s**, mirror read: **%s**\n' "$(basename "$dir")" "$cache" "$mirror" >> "$GITHUB_STEP_SUMMARY" ||
+    echo "::warning::apt-cached.sh could not write the job summary"
+}
+
 case "$mode" in
   download)
     with_mirror apt_into install -y --no-install-recommends --download-only -o Dir::State::status="$pristine" "${pkgs[@]}"
@@ -101,11 +125,13 @@ case "$mode" in
     done
     echo "apt-cached.sh: installing ${#todo[@]} packages from $dir"
     repaired=0
+    dpkg_refused=
     if [ "${#todo[@]}" -gt 0 ] && ! $SUDO dpkg -i "${todo[@]}"; then
       echo "::warning::The cached packages in $dir do not fit this runner image; repairing from Ubuntu's mirror. The cache saved under this image's key will fit."
       # --no-remove: a repair that would take a package off the image fails here, loudly, rather than removing it.
       with_mirror apt_into install -f -y --no-install-recommends --no-remove
       repaired=1
+      dpkg_refused=1
     fi
     missing=()
     for name in "${pkgs[@]}"; do
@@ -119,6 +145,7 @@ case "$mode" in
     fi
     settle
     [ "$repaired" = 0 ] || prune
+    report
     ;;
   *) echo "apt-cached.sh: unknown mode $mode" >&2; exit 1 ;;
 esac
