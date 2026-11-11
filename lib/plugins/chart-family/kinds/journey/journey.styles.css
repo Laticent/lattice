@@ -1157,3 +1157,27 @@ section.journey .journey-board:has(.journey-callouts) .journey-legend {
 section.journey .journey-board:has(.journey-callouts) .journey-mood-legend {
   padding-top: var(--sp-xs);
 }
+
+/* ── A PHONE: the whole vertical board on one screen (the --fluid viewer, a screen at most 40em wide) ──
+ * A portrait deck SPLITS a journey a stage per page (`lat-split-native` above); the fluid viewer shows
+ * one slide per screen and redraws the board vertical for a phone (lib/runtime/chart-redraw.js), so every
+ * stage shares one 844px screen. There each stage shared the height in proportion to its tasks while each
+ * row held a 7cqi minimum, so a twelve-task board overflowed its stages and the rows rode up over the
+ * stage bands (the owner: "the journey is simply broken"). Here the board is content-sized like a split
+ * page, with compact rows: no minimum, tighter gaps. Only the fluid viewer on a phone reaches it. */
+@media (max-width: 40em) {
+  section.journey:where(:root[data-lattice-view="fluid"] *) .journey-board[data-orient="vertical"] {
+    justify-content: center;
+  }
+  section.journey:where(:root[data-lattice-view="fluid"] *) :is(.journey-vstack, .journey-vstage, .journey-vrows) {
+    flex: 0 0 auto;
+  }
+  section.journey:where(:root[data-lattice-view="fluid"] *) .journey-vstack { gap: var(--sp-sm); }
+  section.journey:where(:root[data-lattice-view="fluid"] *) .journey-vstage { gap: var(--sp-2xs); }
+  section.journey:where(:root[data-lattice-view="fluid"] *) .journey-vrows { gap: var(--sp-2xs); }
+  section.journey:where(:root[data-lattice-view="fluid"] *) .journey-vstage-name { padding: var(--sp-2xs) var(--sp-sm); }
+  section.journey:where(:root[data-lattice-view="fluid"] *) .journey-vtask {
+    min-height: 0;
+    padding: var(--sp-2xs) var(--sp-sm);
+  }
+}

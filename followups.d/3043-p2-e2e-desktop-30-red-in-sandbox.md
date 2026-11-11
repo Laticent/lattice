@@ -86,6 +86,15 @@ also red  — 2026-11-09, found by PR #3102's full desktop run and not in this f
             :225 and :273 (the offline Coach and Chat turns, #1813), and studio-jargon-alignment.spec.ts:258 ("clicking
             into a slide previews THAT slide"). Each fails run alone, in three runs out of three, and fails the same way on a
             clean build of main 756c1ff with main's own specs. Not investigated.
+also red  — 2026-11-11, found by PR #3088's WebKit and Gecko run of six specs, and not in this file before:
+            demo-mobile.spec.ts:437 (webkit-phone, "the editor follows the typing on real WebKit too") and
+            plugin-admission.spec.ts:168 (gecko, "the rail splits a `$$` block as the engine does"). Both fail the same
+            way on a clean build of main 192618d with main's own specs. plugin-inline-ui.spec.ts:173 (webkit-tablet and
+            gecko) failed on main and passed on the branch in the same run. Not investigated.
+also red  — 2026-11-11, PR #3088's full WebKit and Gecko run (802 tests, 14 red, main 192618d compared): under
+            full-suite load only, passing 3 of 3 run alone on both trees: logo-wall-equal-weight.spec.ts:27
+            (webkit-phone) and plugin-placeholder-cells.spec.ts:75 (gecko). Intermittent on both trees:
+            plugin-inline-ui.spec.ts:139 (webkit-tablet, 1 of 3 red alone on the branch and on main). Not investigated.
 fixed     — 2026-11-10, the Studio startup PR, test-only (no app change), each failing alone 3 of 3 on main 50f6f4a:
             - architect.spec.ts:53, :157, :225 and :273 (the first now :60) waited for the old catch-all notice "Connect a
               model in Workspace → AI and I can answer and edit your deck." Since the model spine (#3079) the notice names

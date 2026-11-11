@@ -155,8 +155,9 @@ test('keySvg: orientation undefined/landscape/square are byte-identical (only th
 test('keySvg: portrait stacks the key BELOW the diagram and centers it', () => {
   const land = keySvg(PIE);
   const port = keySvg({ ...PIE, orientation: 'portrait' });
-  // The portrait unit is taller than wide (fills a tall box); landscape is wider.
-  assert.ok(port.viewH > port.viewW, `portrait is tall (got ${port.viewW}×${port.viewH})`);
+  // Portrait spends the diagram's width on the key, not its own: the unit is no wider
+  // than the landscape one, whose key is a rail beside the diagram.
+  assert.ok(port.viewW <= land.viewW, `portrait is no wider than landscape (got ${port.viewW} vs ${land.viewW})`);
   assert.ok(land.viewW > land.viewH, `landscape is wide (got ${land.viewW}×${land.viewH})`);
   // The diagram is centered horizontally by a non-zero dx (landscape leaves it 0).
   assert.ok(port.diagramDx > 0, `portrait centers the diagram (dx=${port.diagramDx})`);
@@ -218,4 +219,47 @@ test('keySvg: a value past 13 characters wraps inside its column', () => {
   const [value] = valuesOf(keyOf(['Caribbean / Central America']));
   assert.ok(value.lines.length >= 2, `wrapped to ${value.lines.length} lines`);
   for (const l of value.lines) assert.ok(l.length <= 13, `"${l}" fits 13 characters`);
+});
+
+// Each key swatch's x, read with plain string search (no regex to backtrack on a long tag).
+const swatchXs = (body) => body.split('<rect class="chart-key-swatch"').slice(1).map((part) => {
+  const tag = part.slice(0, part.indexOf('>'));
+  const at = tag.indexOf(' x="') + 4;
+  return Number(tag.slice(at, tag.indexOf('"', at)));
+});
+
+test('keySvg: portrait lays a key that fits into aligned columns, entries running down then across', () => {
+  const rows = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'].map((label, i) => ({ swatchFill: 'red', label, value: `${i}%` }));
+  const port = keySvg({ rows, diagramRight: 200, diagramHeight: 200, hasValues: true, orientation: 'portrait', aspects: [1.09, 0.67] });
+  const xs = swatchXs(port.body);
+  const cols = [...new Set(xs)];
+  assert.ok(cols.length >= 2 && cols.length <= 3, `two or three columns, got ${cols.length}`);
+  // Column-major: the first column holds the first entries.
+  assert.equal(xs[0], xs[1], 'the second entry sits under the first');
+  // One line per label in the grid.
+  assert.equal((port.body.match(/<tspan/g) || []).length, rows.length);
+});
+
+// An EXPORT pane keeps the single column it has always drawn (its drawing is signed off);
+// the fluid viewer's redraw marks its pane `fluid` and gets the grid. #3088's grader caught a
+// landscape deck's half-slide pie (examples/panes.md) changing in the export.
+test('keyAspects: an export pane keeps the single column; a fluid pane and a full slide get the grid', () => {
+  const { keyAspects } = require('../../../lib/plugins/chart-family/shared/callout-layer');
+  const rows = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'].map((label, i) => ({ swatchFill: 'red', label, value: `${i}%` }));
+  const colsFor = (ctx) => new Set(swatchXs(keySvg({ rows, diagramRight: 200, diagramHeight: 200, hasValues: true,
+    orientation: 'portrait', aspects: keyAspects(ctx) }).body)).size;
+  assert.equal(keyAspects({ paneView: { w: 223, h: 300 }, orientation: 'landscape' }), false);
+  assert.equal(colsFor({ paneView: { w: 223, h: 300 }, orientation: 'landscape' }), 1, 'export pane: one column');
+  const omitted = keySvg({ rows, diagramRight: 200, diagramHeight: 200, hasValues: true, orientation: 'portrait' });
+  assert.equal(new Set(swatchXs(omitted.body)).size, 1, 'no aspects passed: one column, so a new caller cannot change an export by forgetting');
+  assert.ok(colsFor({ paneView: { w: 223, h: 300, fluid: true }, orientation: 'landscape' }) >= 2, 'fluid pane: the grid');
+  assert.ok(colsFor({ orientation: 'portrait', aspect: 4 / 5 }) >= 2, 'a full portrait slide: the grid');
+});
+
+test('keySvg: portrait keeps the single column when a label is too long for two', () => {
+  const rows = [{ swatchFill: 'red', label: 'A label far too long to sit two abreast under this chart', value: '1%' },
+    { swatchFill: 'blue', label: 'Short', value: '2%' }];
+  const port = keySvg({ rows, diagramRight: 200, diagramHeight: 200, hasValues: true, orientation: 'portrait' });
+  const xs = swatchXs(port.body);
+  assert.equal(new Set(xs).size, 1);
 });

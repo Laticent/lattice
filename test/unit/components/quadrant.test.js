@@ -582,8 +582,10 @@ describe('quadrant', () => {
     const { html } = transformChartSection(inner, 'quadrant threshold');
     assert.match(html, /data-tx="6"/);
     assert.match(html, /data-ty="75"/);
-    // The list is painted on the axes, so it must not ALSO print as an eyebrow.
-    assert.doesNotMatch(html, /\[\{Effort/);
+    // The list is painted on the axes, so it must not ALSO print as an eyebrow. The figure keeps the list
+    // as written in `data-axis` (the fluid viewer's reader redraws from it), which prints nothing.
+    assert.match(html, /data-axis="\[\{Effort, 0\.\.10, 6\}, \{Reach, 0\.\.100, 75\}\]"/);
+    assert.doesNotMatch(html.replace(/ data-axis="[^"]*"/, ''), /\[\{Effort/);
     assert.doesNotMatch(html, /class="chart-eyebrow"/);
   });
 
@@ -593,7 +595,7 @@ describe('quadrant', () => {
     const { html } = transformChartSection(inner, 'quadrant');
     assert.match(html, /class="chart-eyebrow"/);
     assert.match(html, /Portfolio review/);
-    assert.doesNotMatch(html, /\[Effort, Reach\]/);
+    assert.doesNotMatch(html.replace(/ data-axis="[^"]*"/, ''), /\[Effort, Reach\]/);
   });
 
   test('chart-family: a bracketed paragraph BELOW the chart is the coda, not eaten', () => {

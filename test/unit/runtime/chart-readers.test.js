@@ -1,0 +1,217 @@
+/**
+ * Unit: every chart READER (lib/runtime/chart-readers/) reads its kind's source back from the exported
+ * marks WHOLE, on every chart in the kind's gallery.
+ *
+ * The oracle needs no hand-written expectation: export the gallery with the engine, read each chart back,
+ * redraw the list with the engine's own kernel at the box the export drew for, and the redrawn chart body
+ * must be the exported one, byte for byte (render-scoped ids renumbered, and the engine post-pass's
+ * accessible-name ids dropped, since the runtime names a redrawn SVG itself). A reader that loses a
+ * category, a value, a series name, a note or a modifier's effect fails here on a real deck. Then each
+ * chart is redrawn for a phone (portrait, a 200-unit canvas): it must draw, and show the same marks.
+ *
+ * A chart a reader refuses keeps its exported drawing; `REFUSED` pins how many per gallery, so a new
+ * refusal is a visible change, never a silent one.
+ * engineering/decisions/2026-11-03-responsive-tables.md §"Charts redraw on demand".
+ */
+const { describe, test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { JSDOM } = require('jsdom');
+const engine = require('../../../lib/engine');
+const { transformChartSection } = require('../../../lib/transformers/chart-frame');
+const READERS = require('../../../lib/runtime/chart-readers');
+const { verified } = require('../../../lib/runtime/chart-redraw');
+
+const KINDS = path.join(__dirname, '..', '..', '..', 'lib', 'plugins', 'chart-family', 'kinds');
+
+/** Charts in each kind's gallery a reader refuses (they keep the exported drawing), and why. */
+const REFUSED = {
+  'quadrant': [],
+  'risk-matrix': [],
+  'scatter': [],
+  'histogram': [],
+  'radar': ['slide 7: small-multiples draws the same grid of minis in every box, so there is nothing to redraw'],
+  'gantt': [],
+  'word-cloud': [],
+  'line': [],
+  'slope': [],
+  'ep-curve': [],
+  'tower': [],
+  'stacked-bar': [],
+  'waterfall': [],
+  'bullet': [],
+  'heatmap': [],
+  'funnel': [],
+  'piechart': [],
+  'map': [],
+  'hub-spoke': [],
+  'journey': [],
+  'roadmap': ['slide 3: the horizons card form drops the workstream column header, and draws the same cards in every box'],
+};
+
+/** chart-redraw.js runs in a page: lend it a document while it parses the kernel's output. */
+function withDocument(fn) {
+  const had = Object.hasOwn(global, 'document');
+  const prev = global.document;
+  global.document = new JSDOM('').window.document;
+  try { return fn(); } finally { if (had) global.document = prev; else delete global.document; }
+}
+
+/** Render-scoped ids differ between two renders: renumber them by first appearance, longest first. */
+function normalize(html) {
+  let h = html.replace(/ aria-(labelledby|describedby)="[^"]*"/g, '').replace(/<(title|desc) id="[^"]*">/g, '<$1>');
+  const ids = [...new Set([...h.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]))];
+  const byLength = [...ids].sort((a, b) => b.length - a.length);
+  for (const id of byLength) h = h.split(id).join(`ID${ids.indexOf(id)}_`);
+  return h;
+}
+
+/** Parse a kernel's output and swap each note placeholder for the exported note node, as the runtime does. */
+function freshBody(html, exported) {
+  const fresh = new JSDOM(`<div>${html}</div>`).window.document.querySelector('.chart-body');
+  if (!fresh) return null;
+  for (const t of fresh.querySelectorAll('template.chart-detail[data-mark]')) {
+    const was = exported.querySelector(`template.chart-detail[data-mark="${t.getAttribute('data-mark')}"]`);
+    if (was) t.outerHTML = was.outerHTML;
+  }
+  return fresh;
+}
+
+/** A drawing's marks as a sorted multiset of label=value. */
+const marks = (body) => [...body.querySelectorAll('[data-mark], [data-value]')]
+  .filter((m) => m.dataset.value !== undefined)
+  .map((m) => `${m.dataset.label ?? ''}=${m.dataset.value}`).sort();
+
+for (const kind of Object.keys(READERS)) {
+  describe(`chart reader: ${kind}`, () => {
+    const md = fs.readFileSync(path.join(KINDS, kind, `${kind}.gallery.md`), 'utf8');
+    const doc = new JSDOM(engine.render(md, {}).html).window.document;
+    const charts = [...doc.querySelectorAll('section.chart-frame')].filter((s) => s.classList.contains(kind))
+      .map((s) => ({ s, body: s.querySelector(':scope > .cell-stage > .chart-body, :scope > .chart-body') }))
+      .filter((c) => c.body);
+    const read = (c) => READERS[kind](c.body.cloneNode(true));
+    const clsOf = (s) => [...s.classList].filter((c) => c !== 'chart-frame').join(' ');
+
+    test('the gallery has charts to read', () => assert.ok(charts.length > 0));
+
+    test(`refuses exactly the pinned gallery charts (${REFUSED[kind]?.length ?? 0})`, () => {
+      const want = (REFUSED[kind] || []).map((r) => /^slide (\d+):/.exec(r)?.[1]);
+      assert.deepEqual(charts.filter((c) => !read(c)).map((c) => c.s.id), want);
+    });
+
+    for (const c of charts) {
+      const name = `slide ${c.s.id} (${clsOf(c.s)})`;
+      test(`${name}: read back and redrawn at the export's box, byte for byte`, (t) => {
+        const list = read(c);
+        if (!list) { t.skip('refused: keeps the exported drawing'); return; }
+        const out = transformChartSection(`<h2>.</h2>${list}`, clsOf(c.s), c.s.getAttribute('data-orientation') || undefined, undefined, null, undefined);
+        assert.ok(out.transformed, 'the kernel drew the list');
+        const fresh = freshBody(out.html, c.body);
+        assert.equal(normalize(fresh.innerHTML), normalize(c.body.innerHTML));
+      });
+
+      test(`${name}: passes the runtime's check before trust`, (t) => {
+        const list = read(c);
+        if (!list) { t.skip('refused'); return; }
+        const rec = { orientation: c.s.getAttribute('data-orientation') || undefined, aspect: undefined, checked: new Map() };
+        withDocument(() => assert.equal(verified(rec, list, clsOf(c.s), c.body.cloneNode(true), false), true));
+      });
+
+      // Only the marks that carry a value are compared: roadmap, journey and some hub-spoke charts have
+      // none, so for those this proves the phone drawing draws; the byte-for-byte test above proves the read.
+      test(`${name}: redrawn for a phone, the same valued marks`, (t) => {
+        const list = read(c);
+        if (!list) { t.skip('refused'); return; }
+        const out = transformChartSection(`<h2>.</h2>${list}`, clsOf(c.s), 'portrait', { w: 200, h: 188 }, null, undefined);
+        assert.ok(out.transformed, 'the kernel drew the list for a phone');
+        assert.deepEqual(marks(freshBody(out.html, c.body)), marks(c.body));
+      });
+    }
+  });
+}
+
+describe('chart redraw: the check before trust refuses a list that is not the author\'s', () => {
+  const exported = (md, cls) => {
+    const doc = new JSDOM(engine.render(`---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n${md}`, {}).html).window.document;
+    return doc.querySelector('section.chart-frame .chart-body');
+  };
+  const rec = () => ({ orientation: undefined, aspect: undefined, checked: new Map() });
+
+  test('a list missing a category fails', () => {
+    const body = exported('- North `4`\n- South `3`\n- East `2`\n', 'bar');
+    const whole = READERS.bar(body.cloneNode(true));
+    withDocument(() => {
+      assert.equal(verified(rec(), whole, 'bar', body.cloneNode(true), false), true, 'the reader\'s own list passes');
+      const lossy = whole.replace(/<li>East[\s\S]*?<\/li>/, '');
+      assert.notEqual(lossy, whole);
+      assert.equal(verified(rec(), lossy, 'bar', body.cloneNode(true), false), false);
+    });
+  });
+
+  // The inversion lens's case: the line reader refuses a chart past the six-series limit by matching the
+  // kernel's wording. Were the wording to change, the reader would read six series; the check catches it.
+  test('a seven-series line read as six fails, whatever the wording', () => {
+    const cats = ['Q1', 'Q2'];
+    const md = cats.map((q, i) => `- ${q}\n${'ABCDEFG'.split('').map((n, k) => `  - ${n} \`${i + k + 1}\``).join('\n')}`).join('\n');
+    const body = exported(`${md}\n`, 'line');
+    assert.match(body.querySelector('desc').textContent, /six-series/, 'the fixture really passes the limit');
+    const six = `<ul>${cats.map((q, i) => `<li>${q}<ul>${'ABCDEF'.split('').map((n, k) => `<li>${n} <code>${i + k + 1}</code></li>`).join('')}</ul></li>`).join('')}</ul>`;
+    withDocument(() => assert.equal(verified(rec(), six, 'line', body.cloneNode(true), false), false));
+  });
+
+  // The red team's repros (2026-11-08). Each reader once read a list that was not the author's and the check
+  // refused it; read from the source attributes on the marks, each now reads the author's own list.
+  for (const [what, cls, md] of [
+    ['a tornado (grouped diverging bars: hue is the sign, not the series)', 'bar diverging row', '- Price\n  - Downside `-12`\n  - Upside `9`\n- Volume\n  - Downside `-7`\n  - Upside `8`\n'],
+    ['a slope whose trailing entities have one reading each', 'slope', '- North\n  - 2023 `31%`\n  - 2026 `24%`\n- Kestrel\n  - 2023 `22%`\n- South\n  - 2026 `3%`\n'],
+    ['a grouped bar with a missing value (categories would reorder)', 'bar row', '- Q1\n  - Plan `4`\n  - Actual `3`\n- Q2\n  - Actual `5`\n- Q3\n  - Plan `2`\n'],
+  ]) {
+    test(`${what} is read back whole and passes the check`, () => {
+      const body = exported(md, cls);
+      const kind = cls.split(' ')[0];
+      const list = READERS[kind](body.cloneNode(true));
+      assert.ok(list, 'read back');
+      withDocument(() => assert.equal(verified(rec(), list, cls, body.cloneNode(true), false), true));
+    });
+  }
+
+  test('a pane whose drawing says nothing a check can hold keeps its export (a roadmap)', () => {
+    const md = fs.readFileSync(path.join(KINDS, 'roadmap', 'roadmap.gallery.md'), 'utf8');
+    const body = new JSDOM(engine.render(md, {}).html).window.document.querySelector('section.roadmap.chart-frame .chart-body');
+    const list = READERS.roadmap(body.cloneNode(true));
+    assert.ok(list, 'the reader reads it');
+    withDocument(() => assert.equal(verified(rec(), list, 'roadmap', body.cloneNode(true), true), false));
+  });
+
+  test('a pane is checked on what its drawing says', () => {
+    const body = exported('- North `4`\n- South `3`\n', 'bar');
+    const whole = READERS.bar(body.cloneNode(true));
+    withDocument(() => {
+      assert.equal(verified(rec(), whole, 'bar', body.cloneNode(true), true), true);
+      assert.equal(verified(rec(), whole.replace('<code>3</code>', '<code>5</code>'), 'bar', body.cloneNode(true), true), false);
+    });
+  });
+});
+
+
+describe('chart redraw: the check before trust accepts a portrait export drawn on the fixed canvas', () => {
+  // A story slide whose header is taller than the one the tall canvas is measured under (here a source line) is
+  // exported on the fixed canvas (chart-frame.js `fitsMeasuredBox`). The runtime redraws from the bare list, which has
+  // no header, so its check must try the fixed canvas too (chart-redraw.js `verified`, `opts.fixedCanvas`), or every
+  // such chart would keep its export on a phone.
+  test('a 4:5 tower with a source line passes its own check', () => {
+    // A 4:5 tower: on the bare list it takes the tall canvas and fits its key into the box's shape (cartesian.js
+    // `fitViewToBox`), and with no aspect at all its key picks columns at the wrong shape, so neither of the check's
+    // other tries reproduces the export's fixed-canvas drawing. Only the fixed-canvas try does (measured: n, Y, n).
+    const md = '---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: tower -->\n\n## The programme\n\n'
+      + '- Layer 3 `$200M xs $160M`\n  - Acme Re `30%`\n  - Globex Re `25%`\n  - Helios Re `20%`\n'
+      + '- Layer 2 `$70M xs $90M`\n  - Acme Re `40%`\n  - Vantage Re `35%`\n  - Umbra Re `25%`\n'
+      + '- Layer 1 `$40M xs $50M`\n  - Globex Re `60%`\n  - Meridian Re `40%`\n\nSource: broker placement slip.\n';
+    const section = new JSDOM(engine.render(md, {}).html).window.document.querySelector('section.chart-frame');
+    const body = section.querySelector('.chart-body');
+    const rec = { orientation: section.getAttribute('data-orientation'), aspect: Number(section.getAttribute('data-aspect')), checked: new Map() };
+    const list = READERS.tower(body.cloneNode(true));
+    withDocument(() => assert.equal(verified(rec, list, 'tower', body.cloneNode(true), false), true));
+  });
+});

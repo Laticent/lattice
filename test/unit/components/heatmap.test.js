@@ -794,12 +794,10 @@ describe('findings from the checker pass — each one a regression arm', () => {
   });
 });
 
-describe('the portrait key is a centered wrapping band', () => {
-  // `roadmap` puts its status key under the grid with
-  // `flex-wrap:wrap; justify-content:center`, and its docblock calls bottom-center
-  // "the best-practice spot for a wide, full-width chart". A portrait heatmap is
-  // that situation, but SVG has no flex-wrap, so the key came out as a narrow
-  // five-row column with the width beside it unused.
+describe('the portrait key is a centered grid of aligned columns', () => {
+  // A key under a full-width chart runs in one to three aligned columns
+  // (legend-svg-key.js `gridLayout`). Before the grid, a portrait heatmap's key
+  // came out as a narrow five-row column with the width beside it unused.
   const band = () => {
     const model = parseHeatmapTable(grid(
       '| Jan | 100 | 62 | 48 |', '| Feb | 100 | 58 | 44 |', '| Mar | 100 | 71 | 59 |'));
@@ -821,35 +819,27 @@ describe('the portrait key is a centered wrapping band', () => {
     assert.ok(rows.some((r) => r.length > 1), 'at least one row must carry several entries');
   });
 
-  test('every row is centered in the box', () => {
+  test('the key block is centered in the box, its columns aligned', () => {
     const d = band();
     const viewW = Number(d.querySelector('svg').getAttribute('viewBox').split(' ')[2]);
     const fs = Number(d.querySelector('text.chart-key-label').getAttribute('font-size'));
-    // Pair each label with the swatch row it belongs to, by baseline. Reading the
-    // labels as one flat list crosses rows and measures a box that never existed.
-    const swatches = [...d.querySelectorAll('.chart-key-swatch')]
-      .map((r) => ({ x: Number(r.getAttribute('x')), y: Number(r.getAttribute('y')) }));
+    const sw = [...d.querySelectorAll('.chart-key-swatch')].map((r) => ({
+      x: Number(r.getAttribute('x')), y: Number(r.getAttribute('y')) }));
     const labels = [...d.querySelectorAll('text.chart-key-label tspan')]
-      .map((t) => ({ x: Number(t.getAttribute('x')), y: Number(t.getAttribute('y')), n: t.textContent.length }));
-    const bands = [...new Set(swatches.map((s) => s.y.toFixed(0)))];
-    for (const by of bands) {
-      const rowSw = swatches.filter((s) => s.y.toFixed(0) === by);
-      // A label's baseline sits BELOW its swatch top by about one font size.
-      // The window has to be directional: rows are only ~1.7x fs apart, so an
-      // absolute window also catches the previous row's labels and measures a
-      // box that spans two rows.
-      const rowLb = labels.filter((l) => l.y > Number(by) && l.y - Number(by) < fs * 1.6);
-      const left = Math.min(...rowSw.map((s) => s.x));
-      const last = rowLb.reduce((a, b) => (b.x > a.x ? b : a));
-      const right = last.x + last.n * fs * 0.6;
-      assert.ok(Math.abs(left - (viewW - right)) < viewW * 0.06,
-        `row at y=${by} off-center: ${left.toFixed(1)} left vs ${(viewW - right).toFixed(1)} right`);
-    }
+      .map((t) => Number(t.getAttribute('x')) + t.textContent.length * fs * 0.6);
+    const xs = [...new Set(sw.map((s) => s.x.toFixed(1)))];
+    const ys = new Set(sw.map((s) => s.y.toFixed(1)));
+    // One row when every entry fits in it; otherwise at most three aligned columns.
+    assert.ok(ys.size === 1 || xs.length <= 3, `${ys.size} rows over ${xs.length} column starts`);
+    const left = Math.min(...sw.map((s) => s.x));
+    const right = Math.max(...labels);
+    assert.ok(Math.abs(left - (viewW - right)) < viewW * 0.12,
+      `block off-center: ${left.toFixed(1)} left vs ${(viewW - right).toFixed(1)} right`);
   });
 
-  test('the band costs less height than the column it replaces', () => {
+  test('the grid costs less height than the column it replaces', () => {
     const vh = Number(band().querySelector('svg').getAttribute('viewBox').split(' ')[3]);
-    assert.ok(vh < 460, `portrait viewH ${vh} — the band should give the grid its height back`);
+    assert.ok(vh < 460, `portrait viewH ${vh} — the key grid should give the heatmap its height back`);
   });
 });
 
