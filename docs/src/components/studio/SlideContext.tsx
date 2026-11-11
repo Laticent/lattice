@@ -970,7 +970,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							{!editable && (
 								<SettingsBlock terms="hand authored class read only yaml" className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-[var(--accent-soft)] px-3 py-2 text-[12px] text-muted-foreground">
 									<Info className="mt-0.5 size-3.5 shrink-0 text-[var(--accent)]" />
-									This slide's <code className="font-mono">_class</code> is hand-authored in a form the editor won't rewrite ({readClassDirective(chunk).reason === 'array-form' ? 'a YAML array' : 'more than one _class comment'}), so the look/status controls are hidden. Edit it directly in the markdown.
+									This slide's <code className="font-mono">_class</code> is hand-authored in a form the editor won't rewrite ({{ 'array-form': 'a YAML array', record: 'a slide record', duplicate: 'more than one _class comment' }[readClassDirective(chunk).reason ?? 'duplicate']}), so the look/status controls are hidden. Edit it directly in the markdown.
 								</SettingsBlock>
 							)}
 						</div>

@@ -565,6 +565,51 @@ step 2 door and are decided in §5.4.1, and the rest are strips, over-matching p
 `lib/core/url-scheme.js`, because it guards the existing comment path too. The cold-start writer result is in
 `2026-10-17-meta-syntax-bakeoff/results.md`.
 
+**Status, 2026-11-10: step 2 is built.** What differs from §5.1 as written, and why:
+
+- **The door is a line scan in the plugin, through `ctx`.** `compileSource(source, ctx)` lives in
+  `lib/plugins/meta/meta.source.mjs` (a plugin imports nothing outside its folder, `tools/structure.js`); the engine hands it
+  the shared record reader (`lib/core/meta-door.mjs`) and the fence scan (`lib/core/fence-ranges.mjs`) through
+  `lib/engine/source-hooks.js`. A first build found record blocks with a block parse; it cost 1.2 ms of the door's 2.2 ms on
+  a 116-record deck and changed nothing that renders, so the door is §5.3's line scan (0.62 ms; 0.008 ms on a deck with no
+  record). It cannot use the deck model: that reads the linter's private copy of the boundary parser
+  (`assertLintParserIsolated`).
+- **The internal comment is expanded once, as tokens.** `lattice_meta_expand` (`lib/engine/slides.js`) runs right after the
+  block parse and turns each TOP-LEVEL `lat-meta` block into one directive block per key (`_class`, `_footer`, `_pane`, the
+  note channels), each carrying the record's `map`. So the heading split, focus steps, the pane carve and
+  `lattice_directives` read a record exactly as they read the comments it replaces, and the carve (§9's largest risk) is not
+  rewritten. A `lat-meta` that stays whole (a record in a list item or a larger HTML block, which D1 does not read) applies
+  nothing: the directives loop and focus steps skip it, and the notes extractor reads it as tooling. The source readers
+  that run before the parse (admission, the background lift, the agenda fill) read `lat-meta` through the shared grammar
+  (`readDirectiveComment`, `readDirectiveEntries`).
+- **The forgery guard stays two guards.** The door blanks authored `lat-meta`, `lat-pane` and `lat-panes` in any case; the
+  carve's own guard (`panes.js`) stays, because the door writes `_pane:` blocks, not `lat-pane`, so nothing of the door's is
+  blanked by it.
+- **`parsePaneMarker` lives in `lib/core/meta-door.mjs`**, not `meta-record.mjs`, which reaches the deck model. The six §5.4.1
+  readers and the regex readers of §5.4.2 read through it; the census prints `0 wait for the door`.
+- **Plugin consent is unchanged (no version 2).** A zip plugin may carry only the data contributions
+  (`PLUGIN_DATA_CONTRIBUTIONS`), so it cannot declare `source`, and the door changes nothing a consent digest pins.
+- **Measured (#19), `examples/gallery-jargon.md`, 118 directives, same machine, two runs:** main with comments 52.2 / 59.7 ms
+  p50; this change with comments 49.8 / 51.8 ms; with every directive a record 52.5 / 53.0 ms. Records render within the
+  variance band of comments. The bench gains a records row.
+- **A record's note is `<!-- lat-note: … -->`**, the speaker note in the engine's own form, not a plain comment: a note
+  reading `_pane: bar` was a pane marker to the carve, and one reading `reader:` or `say:` moved into a public channel (red
+  team). Every expanded block also carries `token.meta.latticeRecord`, its provenance.
+- **Export to Marp compiles records now** (`recordsToComments`, both producers, first in the pass list): records back to
+  the directive comments Marp reads, YAML-significant values quoted, the note plain and the reader note labeled. It is the
+  interim of §7; step 4 still owes the full bridge (the escaping table, a Lattice-only key such as `_focusSteps`, which Marp
+  shows as a note in either spelling, and the marp-cli and VS Code proof).
+- **Compose's pane writers still write `_pane:`** (§5.4.1 wanted `writeMeta`): they move to the record form with step 3's
+  structured edit, and the drawer reads a record's class but refuses to write over it until then.
+- **For the cut (step 6), measured here:** the expansion speaks the legacy directive form INSIDE the engine, so the cut
+  cannot be a change to the shared grammar. It works at the door (blank or report authored directive comments, any
+  position) or at the token layer (`latticeRecord`). A nested legacy comment (`- item` / `  <!-- _class: x -->`) applies
+  today and a record there does not. The inversion asked that D3 (hard or soft cut) go back to the owner with this cost
+  before step 6; it is on the continuation brief.
+- **Proof of byte identity:** every directive comment in `examples/` and the baseline decks rewritten as a record
+  (`lib/core/meta-migrate.mjs`, step 5's kernel), 4,296 comments in 354 decks: 354 render the same HTML and CSS byte for
+  byte.
+
 Steps 1 to 5 ship with authored comments still read, so every commit is green. **Step 1 delivers the reader, registry,
 completion and structured edit with no syntax change**, and steps 2 to 7 are a syntax layer over a single door.
 
@@ -580,24 +625,24 @@ Marp output; I will render the demo deck in dark and light mode and send both fo
 
 ## 10. Open items
 
-- **The comment-unsafe escape.** A comment cannot contain `-->`, and browsers also end one at `--!>`. The proposed escape is
+- **The comment-unsafe escape.** *(Built in step 2: `decodeCommentText` / `encodeCommentText`, `lib/core/meta-internal.mjs`, applied at the carrier before the Segno parse, and to the text of every note channel; a seeded round-trip test.)* A comment cannot contain `-->`, and browsers also end one at `--!>`. The proposed escape is
   `--\>` (and `--!\>`) in a value or note, unescaped on read. **Open hazard:** Segno decodes `\\` and keeps `\>` verbatim, so
   the escape must be applied at the carrier level, before the Segno parse, with `--\\>` as the way to write a literal
   `--\>`. Untested; without an escape this candidate fails the lossless-notes gate (G1).
-- **Wrapped-record joining** (§4.1): bounded by the comment's first `-->`, single-line quoted values, `unterminated-record`
+- **Wrapped-record joining** *(built in step 2, `readRecord`, fuzzed with seeds 3121 and 3122)* (§4.1): bounded by the comment's first `-->`, single-line quoted values, `unterminated-record`
   on imbalance. Build it in step 2 and fuzz it with odd quotes, a `}` in a value and a `-->` inside quotes.
-- **U+2028 and U+2029.** The line scan splits on `\n` only, never `/m`, so a separator inside a value cannot break "same line
+- **U+2028 and U+2029.** *(Holds: the door and the join split on `\n` only.)* The line scan splits on `\n` only, never `/m`, so a separator inside a value cannot break "same line
   numbers".
-- **Reader-note labeling.** The PPTX and PDF label is `Reader:` after the speaker note. This puts audience text in the
+- **Reader-note labeling.** *(Decided 2026-11-10, keep D8: rendered `examples/meta.md` dark and light, then read the real files. The PPTX notes part (`ppt/notesSlides/notesSlide7.xml`) and the PDF's `/Text` annotation on page 7 each hold the speaker note, a blank line, then `Reader: …`. The label makes the two readable apart in one field, and a slide with only a reader note shows `Reader: …` alone. The HTML player keeps it a separate hidden channel, `aside.lattice-reader`; a visible read view is a follow-up. Not opened in PowerPoint, Keynote or Acrobat: none runs in this sandbox, so how each app's notes pane wraps the paragraph is UNVERIFIED.)* The PPTX and PDF label is `Reader:` after the speaker note. This puts audience text in the
   presenter-notes channel, which the 2026-07-03 deferral called wrong; only the HTML player keeps them separate. Render a PPTX
   and a PDF with both notes and open them (PowerPoint, Keynote, Acrobat) before step 2 merges; if it reads as noise, `reader`
   needs its own channel (an appendix page or a PDF annotation).
-- **`--strip-notes` and `reader`.** `--strip-notes` scrubs speaker notes before sharing a source. A reader note is meant to
+- **`--strip-notes` and `reader`.** *(Decided in step 2: `reader` survives `--strip-notes`, a record's `note` field is removed from the exported source, `stripRecordFields`; tested.)* `--strip-notes` scrubs speaker notes before sharing a source. A reader note is meant to
   ship, so it should survive `--strip-notes`; decide that explicitly and test it. `stripNotesFromSource`
   (`notes-core.js:816`) must also strip `note` fields from source records, or private notes ship verbatim in exported source.
-- **`note` is not an applied directive** (`directives.js:96`). It must not become a `data-note` attribute; the door
+- **`note` is not an applied directive** *(built: `note` and `reader` reach only the notes channel; a record note is never read as a directive, whatever its words)* (`directives.js:96`). It must not become a `data-note` attribute; the door
   routes `note` and `reader` to the note channel only.
-- **The `contributes.meta` schema and the source hook.** Define the data-provider contribution in `plugin.schema.json` as an
+- **The `contributes.meta` schema and the source hook.** *(Built: `contributes.source`, spec/LPM.md 0.13-draft.)* Define the data-provider contribution in `plugin.schema.json` as an
   additive contribution (no api bump, §5.0) and the in-tree-only source hook with its ordering guarantee (before admission).
 - **Opt-in versus automatic registers.** `contributes.registers` makes every plugin register a record field. No register key
   collides with a core field today (measured, §5.7) and a collision becomes a build error. Decide whether every register is

@@ -10,6 +10,7 @@ import {
 	fenceRanges,
 	getClassTokens,
 	isDirectiveBody,
+	isPaneMarkerBody,
 	readClassDirective,
 	setClassTokens,
 	setGroupToken,
@@ -153,5 +154,33 @@ describe('fence awareness', () => {
 		const out = tidyOutsideFences(withHardBreak);
 		expect(out).toContain('code   \n'); // trailing spaces + blank run inside fence kept
 		expect(out).toContain('# Hi\n\n```'); // blank run outside fence collapsed
+	});
+});
+
+// Every marker spelling is read by the one shared reader (lib/core/meta-door.mjs `parsePaneMarker`, record note
+// §5.4.1), so a record-form marker is structure, never the slide's speaker note.
+describe('isPaneMarkerBody', () => {
+	it('keeps the old spellings: `_pane:`, the one-component `pane:` alias and the `panes:` layout', () => {
+		expect(isPaneMarkerBody(' _pane: bar no-title ')).toBe(true);
+		expect(isPaneMarkerBody(' _pane: ')).toBe(true);
+		expect(isPaneMarkerBody(' pane: list ')).toBe(true);
+		expect(isPaneMarkerBody(' pane: list no-title ')).toBe(true);
+		expect(isPaneMarkerBody(' panes: 35/65 ')).toBe(true);
+	});
+	it('reads a record that names a pane or a layout: bare, `@meta`, mixed, wrapped', () => {
+		expect(isPaneMarkerBody(' {pane="bar no-title"} ')).toBe(true);
+		expect(isPaneMarkerBody(' @meta{panes="60/40 stack"} ')).toBe(true);
+		expect(isPaneMarkerBody(' {footer=x, pane="bar"} ')).toBe(true);
+		expect(isPaneMarkerBody(' {pane="bar",\n  footer=x} ')).toBe(true);
+	});
+	it('reads the engine-internal comment the door writes', () => {
+		expect(isPaneMarkerBody(' lat-meta: {"carry":false,"d":{"pane":"bar"}} ')).toBe(true);
+	});
+	it('leaves a note a note', () => {
+		expect(isPaneMarkerBody(' pane: check the numbers ')).toBe(false);
+		expect(isPaneMarkerBody(' _panes: 60/40 ')).toBe(false);
+		expect(isPaneMarkerBody(' _pane: a\nb ')).toBe(false);
+		expect(isPaneMarkerBody(' {layout=cards, footer="Q3"} ')).toBe(false);
+		expect(isPaneMarkerBody(' remember the pane="x" joke ')).toBe(false);
 	});
 });

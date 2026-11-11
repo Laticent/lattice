@@ -1,6 +1,7 @@
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 
 import { readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
+import { parsePaneMarker } from '../../../../lib/core/meta-door.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { math as MATH } from '../../../../lib/plugins/detect.generated.mjs';
 import { splitSlides } from '../deck-lint';
@@ -24,7 +25,6 @@ export type SlideChunk = { directives: string[]; prose: string };
 export type ParsedSlide = SlideChunk & { raw: string };
 
 const DIRECTIVE_LINE_RE = /^[ \t]*<!--\s*_[A-Za-z][\w-]*:[\s\S]*?-->[ \t]*$/gm;
-const PANE_MARKER_RE = /^[ \t]*<!--\s*_pane\s*:/;
 
 /** The `class` slice of the directive vocabulary (lib/core/comment-directive.mjs binds one key). */
 
@@ -68,7 +68,9 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 			// the `##` and the slide lost its panes. Left in the prose it parses as a comment node,
 			// which round-trips its bytes in place (comment-block.ts), and Compose draws it as the
 			// pane's component picker (pane-model.ts).
-			if (inFence(offset) || PANE_MARKER_RE.test(line)) return line;
+			// The marker is read by the one shared reader (lib/core/meta-door.mjs `parsePaneMarker`). A record
+			// (`<!-- {pane="bar"} -->`) never reaches this line: it opens with `{`, not `_`, so it is never hoisted.
+			if (inFence(offset) || parsePaneMarker(line.trim())?.pane) return line;
 			directives.push(line.trim());
 			return '';
 		})

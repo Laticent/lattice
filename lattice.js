@@ -2677,17 +2677,27 @@ const slideDescriptions = notesCore.extractSlideDescriptions(slides);
 // slide falls back to the generated projection. The explicit `inlineForMerge` / `fmForMerge`
 // clearing further down stays as belt and braces, the same way `materializedNotes` does.
 const slideSayLines = notesCore.extractSlideSayLines(slides);
+// Per-slide READER notes (a record's `reader` field, engineering/decisions/2026-10-17-meta-record.md §4.4): text for
+// whoever opens the exported file, not for the presenter. D8: PPTX and PDF carry it in the notes channel as a labeled
+// `Reader:` paragraph after the speaker note (`exportedNotes`); the player keeps it a separate channel. A reader note is
+// meant to ship, so `--strip-notes` (the PRESENTER's channel) keeps it: that flag removes what is private.
+const slideReaderNotes = notesCore.extractSlideReaderNotes(slides);
+const exportedNotes = notesCore.withReaderNotes(materializedNotes, slideReaderNotes);
 const slidesWithNotes = slides.map((sec, i) => {
   const stripped = notesCore.stripCommentNodes(sec);
   const note = materializedNotes[i];
   const description = slideDescriptions[i];
-  if (!note && !description) return stripped;
+  const reader = slideReaderNotes[i];
+  if (!note && !description && !reader) return stripped;
   let inject = '';
   let sectionAttr = '';
   // Speaker note: a `hidden` aside — out of layout/print AND out of the a11y tree
   // (it is spoken by the presenter, not read by a screen reader). `--strip-notes`
   // omits it so the shared player's DOM carries no speaker text.
   if (note) inject += `<aside class="lattice-notes" hidden data-slide="${i + 1}">${escapeHtml(note)}</aside>`;
+  // Reader note: its own `hidden` aside, never folded into the speaker note, so the player can show it to a reader
+  // and keep it off the presenter's view (D8).
+  if (reader) inject += `<aside class="lattice-reader" hidden data-slide="${i + 1}">${escapeHtml(reader)}</aside>`;
   // Accessible description: a visually-hidden but AT-EXPOSED element (sr-only, NOT
   // `hidden`), referenced by `aria-describedby` on the section. It is the slide's
   // text alternative for a screen-reader user; sr-only keeps it off the rasterized
@@ -4656,7 +4666,7 @@ async function renderBody(browser, g, closeBrowser) {
     // Bind notes to the RENDERED pages, not the authored slides — a split run has more
     // of the former than the latter, and the length guard inside would otherwise drop
     // every annotation in the deck (see notesPerRenderedPage).
-    const pageNotes = notesPerRenderedPage(pagedDocHtml || cleanDocHtml, materializedNotes);
+    const pageNotes = notesPerRenderedPage(pagedDocHtml || cleanDocHtml, exportedNotes, { reader: true });
     let finalBytes = await embedNotesInPdf(pdfBytes, pageNotes);
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
@@ -4672,7 +4682,7 @@ async function renderBody(browser, g, closeBrowser) {
       console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}${sizeNote(outFile)}`);
     }
     warnShippedNotes('PDF');
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, exportedNotes);
   } else if (OUT_FORMAT === 'pdf') {
     // Image-per-page PDF. Two triggers land here:
     //   · --raster: one FULL-BLEED slide image per slide-sized page (max-compat sharing).
@@ -4695,7 +4705,7 @@ async function renderBody(browser, g, closeBrowser) {
     }
     await closeBrowser();
     let finalBytes = await assembleRasterPdf(jpegBuffers, paperSheet);
-    finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(pagedDocHtml || cleanDocHtml, materializedNotes));
+    finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(pagedDocHtml || cleanDocHtml, exportedNotes, { reader: true }));
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
     finalBytes = await embedLatticeInPdf(finalBytes);
@@ -4722,7 +4732,7 @@ async function renderBody(browser, g, closeBrowser) {
     // materializedNotes, NOT slideNotes — the same rule the vector-PDF path above and the
     // HTML path below already follow. `--raster` / `--paper` land here instead, so handing
     // this sidecar the unstripped array shipped the notes the flag exists to remove.
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, exportedNotes);
   } else if (OUT_FORMAT === 'imageset') {
     // IMAGE SET (.zip): one raster per slide in the chosen format, opt-in thumbnails,
     // and opt-in standalone chart/diagram SVGs — packed via the SHARED image-set kernel
@@ -5084,7 +5094,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (noteCount) tags.push(`${noteCount} slide${noteCount === 1 ? '' : 's'} with speaker notes`);
       console.log(`HTML: ${outFile} (${tags.join(', ')})`);
     }
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, exportedNotes);
   } else {
     // PNG / PPTX / ODP: rasterize one image per slide from the SAME rendered page.
     // Each `section[data-lattice-slide]` is exactly slideW×slideH (fixed-page),
@@ -5110,7 +5120,7 @@ async function renderBody(browser, g, closeBrowser) {
         height: slideH,
         // materializedNotes, NOT slideNotes — under `--strip-notes` the former is all-null, and
         // both suites show the notes to anyone who opens the file (#1837).
-      }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, materializedNotes) : byStepPages(materializedNotes)), byStepPages(slideDescriptions), PKG_ROOT,
+      }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, exportedNotes, { reader: true }) : byStepPages(exportedNotes)), byStepPages(slideDescriptions), PKG_ROOT,
       // `--reopenable` rides in the editable .pptx exactly as in the picture one.
       REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate(), fonts: FONT_POLICY } : { fonts: FONT_POLICY });
       if (!QUIET) {
@@ -5152,7 +5162,7 @@ async function renderBody(browser, g, closeBrowser) {
           // the one format whose native viewer puts the author's private text in front of the
           // recipient by default. This call site was the last one still reading the unstripped
           // array (#1837).
-        }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, materializedNotes) : byStepPages(materializedNotes)), byStepPages(slideDescriptions), REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
+        }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, exportedNotes, { reader: true }) : byStepPages(exportedNotes)), byStepPages(slideDescriptions), REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
         if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}${REOPENABLE ? ' (re-openable in Lattice)' : ''}${sizeNote(outFile)}`);
         warnShippedNotes('PowerPoint file');
       }
@@ -5168,7 +5178,7 @@ async function renderBody(browser, g, closeBrowser) {
   let playerNarration;
   if (PLAYER && NARRATE) {
     try {
-      const pages = notesPerRenderedPage(cleanDocHtml, materializedNotes).length;
+      const pages = notesPerRenderedPage(cleanDocHtml, exportedNotes, { reader: true }).length;
       const { readAlong, slideTexts, emphasis, refs, inputs } = await resolveReadAlong(pages, slideSayLines, captionScript);
       if (!readAlong.slides.length) throw new Error('the deck has nothing to narrate (no say lines and no slide prose to project)');
       const { KOKORO, loadKokoro, voiceDeck } = await import('./lib/export/narrate-kokoro.mjs');
@@ -5959,13 +5969,14 @@ async function applyFontPolicyToHtml(file) {
  * array when the document has no recognizable sections, so a deck that never split is
  * byte-identical either way.
  */
-function notesPerRenderedPage(docHtml, authored) {
+function notesPerRenderedPage(docHtml, authored, opts = {}) {
   const at = String(docHtml || '').search(/<section\b[^>]*\bdata-lattice-slide=/);
   if (at < 0) return authored;
   try {
     const parts = splitSections(docHtml.slice(at))
       .filter((p) => p.type === 'section');
-    return parts.length ? notesCore.notesPerRenderedPage(parts) : authored;
+    // `opts.reader`: each page's reader note joins its speaker note, labeled (`exportedNotes` is the same join, per slide).
+    return parts.length ? notesCore.notesPerRenderedPage(parts, opts) : authored;
   } catch { return authored; }
 }
 

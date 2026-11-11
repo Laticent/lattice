@@ -2,7 +2,7 @@
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
-import { hasLossyConstruct } from './deck-source';
+import { hasLossyConstruct, splitSlideDirectives } from './deck-source';
 
 // `hasLossyConstruct` decides which slides Compose locks read-only (edited in Markdown
 // mode). It must fire on constructs the CommonMark round-trip would flatten/escape, and
@@ -85,5 +85,22 @@ describe('hasLossyConstruct — detects what Compose cannot round-trip', () => {
 		expect(hasLossyConstruct('Run this:\n\n```bash\necho "$A$B"\n```')).toBe(false); // shell var, not math
 		expect(hasLossyConstruct('The `$x$` token is a placeholder.')).toBe(false); // inline code, not math
 		expect(hasLossyConstruct('A grid sample:\n\n```\n| A | B |\n```')).toBe(false); // pipes in a fence, not a table
+	});
+});
+
+// A pane marker marks WHERE a pane starts, so Compose keeps it in place in every spelling the shared reader
+// (lib/core/meta-door.mjs `parsePaneMarker`) takes, and hoists only real directives.
+describe('splitSlideDirectives — pane markers stay where they are', () => {
+	it('keeps a `_pane:` marker in the prose and hoists the `_class`', () => {
+		const { directives, prose } = splitSlideDirectives('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: bar no-title -->\n\n- a\n\n<!-- _pane: list -->\n\n- b');
+		expect(directives).toEqual(['<!-- _class: columns -->']);
+		expect(prose).toContain('<!-- _pane: bar no-title -->\n\n- a\n\n<!-- _pane: list -->');
+	});
+	it('keeps a record marker, bare, `@meta` or mixed, in place', () => {
+		for (const m of ['<!-- {pane="bar"} -->', '<!-- @meta{pane="bar"} -->', '<!-- {footer=x, pane="bar"} -->']) {
+			const { directives, prose } = splitSlideDirectives(`## T\n\n${m}\n\n- a`);
+			expect(directives, m).toEqual([]);
+			expect(prose, m).toBe(`## T\n\n${m}\n\n- a`);
+		}
 	});
 });

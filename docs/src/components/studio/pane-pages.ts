@@ -23,6 +23,7 @@ import { caretProbe } from '@/lib/caret-probe';
 // Read synchronously: every loader of this module awaits loadAuthoring() first (StudioShell,
 // PresentOverlay, narration-projection's projectDeckScript).
 import { authoring } from '@/playground/authoring-door.js';
+import { parsePaneMarker } from '../../../../lib/core/meta-door.mjs';
 import { PANE_PROBE } from './pane-probe';
 
 type PaneCore = {
@@ -32,10 +33,18 @@ type PaneCore = {
 const core = (): PaneCore => authoring().lintCore as unknown as PaneCore;
 
 
-/** A pane marker alone on its line, either spelling (lib/core/pane-spec.js `parseMarker`): `[1]`
- *  is a `_pane:` marker's first word (the component, unless it is a modifier), `[2]` the alias's
- *  component. */
-const PANE_MARKER = /^<!--\s*(?:_pane:\s*([a-z][\w-]*)?[^<>]*|pane:\s*([a-z][\w-]*)(?:\s+no-title)*\s*)-->$/;
+/** The component a pane marker alone on its line names, or null. Every spelling (`_pane:`, the `pane:` alias, a
+ *  record `{pane="…"}`) is read by the one shared reader, lib/core/meta-door.mjs `parsePaneMarker`. The component is
+ *  the value's first word unless it is `no-title`; the alias is one component and at most `no-title` (lib/core/pane-spec.js
+ *  `parseMarker`), so `<!-- pane: check the numbers -->` is a speaker note and names nothing. */
+function markerComponent(line: string): string | null {
+	const pane = parsePaneMarker(line)?.pane;
+	if (!pane) return null;
+	const words = pane.value.split(/\s+/).filter(Boolean);
+	if (pane.legacy && (!/^[a-z][\w-]*$/.test(words[0] ?? '') || words.slice(1).some((w) => w !== 'no-title'))) return null;
+	const cls = /^[a-z][\w-]*/.exec(words[0] ?? '')?.[0];
+	return cls && cls !== 'no-title' ? cls : null;
+}
 
 /** The 0-based line of `chunk` that starts its second rendered slide, or -1 when it renders as
  *  one. `deck` is the whole document the engine renders (front matter included), for its size. */
@@ -98,15 +107,14 @@ export function panePageOfCaret(chunk: string, deck: string, caretText: string):
 	return pages.size === 1 ? [...pages][0] : undefined;
 }
 
-/** The components a deck puts in a pane (`<!-- pane: X -->`), unique, in order. A saved component
+/** The components a deck puts in a pane (`<!-- _pane: X -->`, `<!-- {pane="X"} -->`), unique, in order. A saved component
  *  used ONLY in a pane is still used: its CSS has to reach the preview and the export, or the
  *  pane renders unstyled (lib/layout/bridge.js `referencedComponents` reads the same markers). */
 export function paneMarkerComponents(src: string): string[] {
 	const out = new Set<string>();
 	for (const line of String(src ?? '').split('\n')) {
-		const m = PANE_MARKER.exec(line.trim());
-		const cls = m?.[1] ?? m?.[2];
-		if (cls && cls !== 'no-title') out.add(cls);
+		const cls = markerComponent(line);
+		if (cls) out.add(cls);
 	}
 	return [...out];
 }

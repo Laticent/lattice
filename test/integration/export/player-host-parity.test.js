@@ -62,8 +62,10 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // set (`articleTypographyCss`) and the Read view's four font stacks read var(--font-display / --font-body)
 // with the old stacks as fallbacks — CSS only, +863 bytes (102,311 -> 103,174). Both hosts give the new SHA.
 // Rebased on the step cursor above: the same +863 bytes of CSS on its 107,176, so 108,039. Both hosts agree.
-const GOLDEN_SHA = '2992ae3abdb0f5260af12753149b1594390232bd738a431645c9a17e2c6f508e';
-const GOLDEN_BYTES = 108039;
+// Re-blessed 2026-11-11 (the slide-metadata record, step 2, rebased on both above): the notes-hide rule also hides the
+// reader-note channel, `aside.lattice-notes,aside.lattice-reader{display:none!important}` (108,039 -> +21 bytes = 108,060). Both hosts agree.
+const GOLDEN_SHA = '3df7eed089be16e23540800a1a0b4d8c2e913b84ec96e8823b2d6e10f05c22d8';
+const GOLDEN_BYTES = 108060;
 
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 

@@ -8,9 +8,10 @@
 // never splits-mutates-rejoins the deck, never normalizes, and never edits inside a
 // fenced code block. See engineering/decisions/2026-07-03-slide-context-editor.md §5.
 
+import { parsePaneMarker } from '../../../lib/core/meta-door.mjs';
 import { readMetaField, writeMeta } from '../../../lib/core/meta-edit.mjs';
 import { KNOWN_KEYS } from '../../../lib/core/meta-keys.mjs';
-import { commentBlocks as sharedCommentBlocks, comments as sharedComments, directiveKey as sharedDirectiveKey, fenceRanges as sharedFenceRanges } from '../../../lib/core/meta-record.mjs';
+import { isRecordBody, commentBlocks as sharedCommentBlocks, comments as sharedComments, directiveKey as sharedDirectiveKey, fenceRanges as sharedFenceRanges } from '../../../lib/core/meta-record.mjs';
 
 // The directive KEYS the engine recognizes as scoped/global directives (a comment whose first
 // `key:` is one of these is a DIRECTIVE, not a speaker note). They come from the shared vocabulary
@@ -47,17 +48,21 @@ export function isSayBody(body: string): boolean {
 	return /^say\s*:/.test(String(body).trim()); // lowercase only — see notes-core SAY_MATCHER
 }
 
-/** True when the comment body is a PANES marker — `_pane: list` (or its `pane:` alias) or the
- *  `panes: 35/65` layout line
- *  (lib/core/pane-spec.js `parseMarker` / `PANES_RE`). Structure, not a speaker note: read as one, the
- *  presenter's notes showed "panes: 35/65", and setting a note on the slide stripped every marker
- *  and turned the panes slide back into one component. Not in DIRECTIVE_KEYS, which is the
- *  engine's directive list; the carve reads these before directives are applied. */
+/** True when the comment body is a PANES marker or layout, in any spelling: `_pane: list`, its `pane:` alias,
+ *  the `panes: 35/65` layout line, or a record that names either (`{pane="bar"}`, `@meta{panes="60/40"}`, mixed
+ *  with other fields or not). Read by the one shared reader, lib/core/meta-door.mjs `parsePaneMarker`. Structure, not
+ *  a speaker note: read as one, the presenter's notes showed "panes: 35/65", and setting a note on the slide stripped
+ *  every marker and turned the panes slide back into one component. Not in DIRECTIVE_KEYS, which is the engine's
+ *  directive list; the carve reads these before directives are applied. */
 export function isPaneMarkerBody(body: string): boolean {
 	const t = String(body).trim();
+	if (/[\n<>]/.test(t) && !isRecordBody(t)) return false; // a one-line marker, as before; a record may wrap
+	const p = parsePaneMarker(`<!-- ${t} -->`);
+	if (!p) return false;
+	if (p.panes !== null) return true;
 	// The alias is one component (plus `no-title`), as lib/core/pane-spec.js `parseMarker` reads it:
 	// `pane: check the numbers` is a speaker note.
-	return /^_pane:[^<>\n]*$/.test(t) || /^pane:\s*[a-z][\w-]*(?:\s+no-title)*$/.test(t) || /^panes:[^<>\n]*$/.test(t);
+	return !p.pane?.legacy || /^[a-z][\w-]*(?:\s+no-title)*$/.test(p.pane.value);
 }
 
 // ── Fence awareness ──────────────────────────────────────────────────────────
@@ -109,7 +114,7 @@ export type ClassDirective = {
 	 *  duplicate `_class` comment) — the drawer goes read-only ("edit in markdown"). */
 	editable: boolean;
 	/** Why editable is false, for the UI hint. */
-	reason?: 'array-form' | 'duplicate';
+	reason?: 'array-form' | 'duplicate' | 'record';
 	/** Absolute [start, end) of the token VALUE to splice (present + editable only). */
 	valueSpan?: [number, number];
 	/** Absolute [start, end) of the whole comment, for removal. */
@@ -122,9 +127,9 @@ export type ClassDirective = {
 export function readClassDirective(chunk: string): ClassDirective {
 	const f = readMetaField(chunk, 'class');
 	if (!f.present || !f.editable) {
-		return f.present
-			? { tokens: [], present: true, editable: false, reason: f.reason }
-			: { tokens: [], present: false, editable: true };
+		// A record's class is shown (it is what the slide renders with) but not rewritten: see readMetaField.
+		const tokens = f.reason === 'record' ? f.value.split(/\s+/).filter(Boolean) : [];
+		return f.present ? { tokens, present: true, editable: false, reason: f.reason } : { tokens: [], present: false, editable: true };
 	}
 	return {
 		tokens: f.value.split(/\s+/).filter(Boolean),

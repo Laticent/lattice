@@ -23,8 +23,11 @@
   },
   "embedded": true,
   "contributes": {
+    "source": true,
     "diagnostics": {
-      "meta/url-scheme": "A URL-typed field (a background image, the deck logo) named a scheme outside the allowlist and was dropped."
+      "meta/url-scheme": "A URL-typed field (a background image, the deck logo) named a scheme outside the allowlist and was dropped.",
+      "meta/record": "A slide-metadata record (`<!-- {…} -->`) did not read, or set a field it may not (a deck-only key, an unknown field, a value of the wrong kind); the field, or the whole record, was dropped and nothing else changed.",
+      "meta/forged": "A comment written in the engine's internal form (`lat-meta`, `lat-pane`, `lat-panes`) was ignored: only the engine writes those."
     },
     "meta": {
       "fields": {
@@ -58,6 +61,7 @@
         "pane": { "kind": "structure", "describe": "Where a pane begins, naming its component (`<!-- _pane: list no-title -->`, or the `pane:` alias). Read by the pane carve (lib/core/panes.js) before directives are applied." },
         "panes": { "kind": "structure", "describe": "A slide's pane layout (`<!-- panes: 60/40 stack -->`). Read by the pane carve." },
         "say": { "kind": "channel", "describe": "The slide's read-as text, the highest-precedence narration source. A separate channel from the speaker note; lowercase only." },
+        "reader": { "kind": "channel", "describe": "The slide's reader note: text for whoever opens the exported file, not for the presenter. PPTX and PDF carry it as a labeled `Reader:` paragraph after the speaker note; the HTML player's read view shows it under the slide. Written as a record's `reader` field (`<!-- {reader=\"…\"} -->`, or a `reader: |` block); lowercase only. Design: engineering/decisions/2026-10-17-meta-record.md §4.4." },
         "describe": { "kind": "channel", "describe": "The slide's accessible description (WCAG 1.1.1), an objective equivalent of what the slide shows. A separate channel from the speaker note." }
       }
     }

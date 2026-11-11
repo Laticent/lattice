@@ -796,3 +796,37 @@ test('supplyablePosition refuses a panes deck without a map, and offsets through
   // One marker is not a panes slide: nothing to refuse.
   assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- pane: list -->\n\n- a', 2), true);
 });
+
+// The pane markers are read in every spelling by the one shared reader (lib/core/meta-door.mjs `parsePaneMarker`,
+// record note §5.4.1): a record-form panes deck refuses without a map exactly as a `_pane:` deck does.
+test('positionIsTrustworthy refuses a panes deck in every marker spelling, and a record that names a pane layout', () => {
+  const two = (a, b) => `A\n\n---\n\n## T\n\n${a}\n\n- a\n\n${b}\n\n- b`;
+  const spellings = {
+    _pane: ['<!-- _pane: list -->', '<!-- _pane: table no-title -->'],
+    alias: ['<!-- pane: list -->', '<!-- pane: table -->'],
+    record: ['<!-- {pane="list"} -->', '<!-- {pane="table no-title"} -->'],
+    meta: ['<!-- @meta{pane="list"} -->', '<!-- @meta{pane="table"} -->'],
+    mixed: ['<!-- {footer=x, pane="list"} -->', '<!-- {pane="table", footer=y} -->'],
+    internal: ['<!-- lat-meta: {"carry":false,"d":{"pane":"list"}} -->', '<!-- lat-meta: {"carry":false,"d":{"pane":"table"}} -->'],
+    'old and new together': ['<!-- _pane: list -->', '<!-- {pane="table"} -->'],
+  };
+  for (const [name, [a, b]] of Object.entries(spellings)) {
+    assert.equal(core.positionIsTrustworthy(two(a, b), 2), false, `${name}: two markers refuse`);
+    assert.equal(core.positionIsTrustworthy(two(a, b), 2, [1, 2]), true, `${name}: the map lets it through`);
+    assert.equal(core.positionIsTrustworthy(`A\n\n---\n\n${a}\n\n- a`, 2), true, `${name}: one marker is not a panes slide`);
+  }
+  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- {layout="columns ratio-60-40"} -->\n\n### L\n\n### R', 2), false);
+  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- _class: rows -->\n\n### L\n\n### R', 2), false);
+  // A record that names no pane and no pane layout is an ordinary slide.
+  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- {layout=cards, footer="Q3"} -->\n\n- a', 2), true);
+});
+
+test('needsPaneMap: a deck whose panes are written as records needs the map, as one written in comments does', () => {
+  // The sweep (tools/slice-equivalence.mjs) asked its own `_pane:` regex, so a records deck went unmapped and every
+  // slide was refused a position it could have had.
+  const two = (m) => `---\ntheme: indaco\n---\n\n<!-- _class: columns -->\n\n${m('list')}\n### A\n\n- a\n\n${m('list')}\n### B\n\n- b\n`;
+  assert.equal(core.needsPaneMap(two((p) => `<!-- _pane: ${p} -->`)), true);
+  assert.equal(core.needsPaneMap(two((p) => `<!-- {pane=${p}} -->`)), true);
+  assert.equal(core.needsPaneMap('<!-- {layout=columns} -->\n\n## A\n'), true);
+  assert.equal(core.needsPaneMap('---\ntheme: indaco\n---\n\n<!-- {layout=cards} -->\n\n## A\n'), false);
+});

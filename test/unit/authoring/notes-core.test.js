@@ -512,11 +512,11 @@ describe('notes-core: say channel (say:)', () => {
 
     test('reads note, description and say line per slide', () => {
       const rec = core.slideNoteRecord([
-        '<section><h1>A</h1><!-- A note. --><!-- describe: A chart. --><!-- say: Read aloud. --></section>',
+        '<section><h1>A</h1><!-- A note. --><!-- describe: A chart. --><!-- say: Read aloud. --><!-- reader: For you. --></section>',
         '<section><h1>B</h1></section>',
       ]);
-      assert.deepEqual(rec[0], { note: 'A note.', noteBodies: ['A note.'], description: 'A chart.', say: 'Read aloud.' });
-      assert.deepEqual(rec[1], { note: null, noteBodies: [], description: null, say: null });
+      assert.deepEqual(rec[0], { note: 'A note.', noteBodies: ['A note.'], description: 'A chart.', say: 'Read aloud.', reader: 'For you.' });
+      assert.deepEqual(rec[1], { note: null, noteBodies: [], description: null, say: null, reader: null });
     });
 
     // The privacy contract behind `noteBodies`. `note` JOINS a slide's notes with a blank

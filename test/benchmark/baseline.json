@@ -55,6 +55,13 @@
       "ms": 69.4,
       "slidesPerSec": 14,
       "rmePct": 5.85
+    },
+    "records (jargon, every directive a record)": {
+      "slides": 58,
+      "index": 29.01,
+      "ms": 105.42,
+      "slidesPerSec": 550,
+      "rmePct": 4.28
     }
   },
   "printDatasets": {
@@ -204,6 +211,16 @@
       "burstMs": 220.02,
       "parses": 0,
       "parseMs": 1.73
+    },
+    "edit · records (jargon, every directive a record)": {
+      "slides": 58,
+      "typesets": 0,
+      "burstTypesets": 0,
+      "ms": 45.39,
+      "scanMs": 0.01,
+      "burstMs": 529.55,
+      "parses": 1,
+      "parseMs": 1.25
     }
   },
   "flowchartDatasets": {

@@ -1213,7 +1213,7 @@ test('the player ships the Marp-equivalent chrome CSS (pagination + notes hide +
 	// for every host, CLI included, instead of leaving the CLI's copy as the only one.
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /section\[data-lattice-pagination\]::after\{content:attr\(data-lattice-pagination\)\}/, 'page numbers render even when the host docHtml carries no pagination CSS of its own');
-	assert.match(html, /aside\.lattice-notes\{display:none!important\}/, 'speaker-note asides stay hidden regardless of host docHtml');
+	assert.match(html, /aside\.lattice-notes,aside\.lattice-reader\{display:none!important\}/, 'speaker-note and reader-note asides stay hidden regardless of host docHtml');
 	assert.match(html, /\.lattice-description\{position:absolute!important/, 'the accessible description is sr-only, never a visible extra paragraph on the slide');
 });
 
@@ -1742,7 +1742,9 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// var(--font-display) / var(--font-body) with the old stacks as fallbacks, and the player CSS gains
 	// one rule per type set (`articleTypographyCss`), so the article follows the deck's set. CSS only. Rebased on
 	// the step cursor above, so the sha covers both.
-	assert.equal(sha, 'd19a4f38e62d9ebaba4784bccbf92d435e3f7e8356a3d110d2595d039ef1fa62', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed 2026-11-11 (the meta record, step 2, rebased on both above): the notes-hide rule also hides the new
+	// reader-note channel, `aside.lattice-notes,aside.lattice-reader{display:none!important}`. One CSS rule moved.
+	assert.equal(sha, '418b5f43dab3b3b1b68ed76c18ee305d8acc228880d913280228e9ce2af58422', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

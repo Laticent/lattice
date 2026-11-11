@@ -79,6 +79,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { bakeSplits, bakeHidden, stripPaneMarkers } = require('../lib/core/bake-splits');
 const { liftImageBgImages } = require('../lib/core/bg-image-lift');
+const { recordsToComments } = require('../lib/core/meta-door.mjs');
 const { sampleName } = require('../lib/core/remote-ref');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const { fillAutoAgenda } = require('../lib/core/agenda-autofill');
@@ -368,9 +369,11 @@ function main(argv) {
   //    Glossary slide while the slide before it still announced it (#1256).
   //    An empty agenda's fill (lib/core/agenda-autofill.js) is baked too: Marp would draw the
   //    heading and no list. It edits a slide in place, so it can run before or after the glossary.
-  // The image plugin's records first, in Marp's spelling, so localization copies their pictures and the lift below makes a
+  //    Slide-metadata records go back to directive comments first, before anything reads a class or a pane marker:
+  //    Marp reads only comments, and an uncompiled record would be one of its speaker notes (record note §7).
+  // The image plugin's records next, in Marp's spelling, so localization copies their pictures and the lift below makes a
   // panel record the layout's panel (lib/export/marp-bundle.js `withImageRecordsAsMarp`).
-  const glossed = appendAutoGlossary(fillAutoAgenda(withImageRecordsAsMarp(src, admission.off)));
+  const glossed = appendAutoGlossary(fillAutoAgenda(withImageRecordsAsMarp(recordsToComments(src), admission.off)));
   const glossedFm = glossed.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const deckDir = path.dirname(path.resolve(deckPath));
   const copied = new Map(); // one dedupe map across body + front-matter refs

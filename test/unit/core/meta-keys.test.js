@@ -50,7 +50,7 @@ describe('the vocabulary is derived from the meta manifest', () => {
     // (engineering/decisions/2026-11-09-steps-as-a-behavior.md).
     assert.deepEqual([...keys.NO_CUSTOM_PROP_KEYS].sort(), ['build', 'debug', 'focusSteps', 'track']);
     assert.deepEqual([...keys.STRUCTURE_KEYS].sort(), ['pane', 'panes']);
-    assert.deepEqual([...keys.CHANNEL_KEYS].sort(), ['describe', 'say']);
+    assert.deepEqual([...keys.CHANNEL_KEYS].sort(), ['describe', 'reader', 'say']);
     assert.deepEqual([...keys.MARKER_NAMES], ['stress-slide']);
   });
 

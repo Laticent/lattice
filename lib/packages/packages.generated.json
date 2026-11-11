@@ -1566,8 +1566,10 @@
       "roles": [
         "docs.md",
         "fixtures.md",
-        "manifest.json"
-      ]
+        "manifest.json",
+        "source.mjs"
+      ],
+      "code": true
     },
     {
       "type": "plugin",

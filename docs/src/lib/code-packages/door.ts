@@ -25,6 +25,7 @@
 import { CONSENT_ACCEPTED, CONSENT_VERSION, pluginConsentText, pluginReturnFields, returnsRefusal } from '../../../../lib/core/code-shape.mjs';
 import { commentBodies, readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
 import { deckPluginList } from '../../../../lib/core/deck-plugins.mjs';
+import { parsePaneMarker } from '../../../../lib/core/meta-door.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { ASPECT_RE, planFencePlugins, scopePluginCss } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
@@ -284,12 +285,16 @@ export function unapprovedIn(source: string): (StudioCodePackage | StudioPlugin)
 	if (fm) for (const deckClass of fm[1].matchAll(/^class[ \t]*:[ \t]*(.+?)[ \t]*$/gim)) add(deckClass[1]);
 	// `pane:` too: a package in a pane runs through the same slot (the inversion lens found a pane
 	// slide whose note pointed at a notice that never came).
-	// `_class:` / `class:` go through the shared directive grammar; a `pane:` marker is pane grammar
-	// (design note 2026-10-17-meta-record.md §5.4) and stays a local read of the text after its colon.
+	// `_class:` / `class:` go through the shared directive grammar; a pane marker, in any spelling (`_pane:`, the
+	// `pane:` alias, a record `{pane="…"}`), through the shared pane reader (lib/core/meta-door.mjs `parsePaneMarker`,
+	// record note §5.4.1). Every word of the pane's value counts: a superset, as the class read is.
 	for (const inner of commentBodies(text)) {
 		const dir = readDirectiveComment(`<!--${inner}-->`, CLASS_VOCAB);
 		if (dir) add(dir.value);
-		else if (/^pane\s*:/.test(inner)) add(inner.slice(inner.indexOf(':') + 1));
+		else {
+			const pane = parsePaneMarker(`<!--${inner}-->`)?.pane;
+			if (pane) add(pane.value);
+		}
 	}
 	return [...[...packages.values()].filter((p) => tokens.has(p.name) && !isApproved(p)), ...pluginsWanted];
 }

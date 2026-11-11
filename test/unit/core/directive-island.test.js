@@ -67,7 +67,7 @@ describe('the grammar reads the engine\'s text, the finding quotes the author\'s
   const src = '> <!--\n> _class: kpi\n> -->\n';
   const [island] = directiveIslands(bodyModel(src));
   test('a quoted multi-line comment is a directive, as markdown-it\'s token content makes it', () => {
-    assert.deepEqual(readIsland(island).dir, { spot: true, key: 'class', value: 'kpi' });
+    assert.deepEqual(readIsland(island).dirs, [{ spot: true, key: 'class', value: 'kpi' }]);
     assert.deepEqual(scanned(src), engine(src));
   });
   test('the failing arm: the raw text, prefixes and all, is not one (the walk this replaced read it)', () => {
@@ -173,4 +173,28 @@ test('a lint rule about a directive\'s effect skips a folded one: the engine nev
   assert.ok(!rules('# A\n\n<div>\n<!-- class: columns -->\n</div>\n\n---\n\n# B\n').includes('pane-layout'));
   assert.ok(rules('<!-- _debug: bogus -->\n\n# A\n').includes('unknown-debug-facet'));
   assert.ok(!rules('<div>\n<!-- _debug: bogus -->\n</div>\n\n# A\n').includes('unknown-debug-facet'));
+});
+
+describe('a record sets every field it names', () => {
+  // The Studio rail labeled `{layout=list-steps, footer="…"}` "text": the scan kept one field per comment, the last
+  // one it knew, so the footer resolved and the class did not.
+  test('class and footer from one record, each resolved on its slide', () => {
+    const src = '<!-- {layout=list-steps, footer="Q3"}\nnote: |\n  A note.\n-->\n\n## A\n\n---\n\n<!-- {pane=list, footer="P"} -->\n\n## B\n';
+    const [one, two] = scanMetaSource(src).slides;
+    assert.equal(one.resolved.get('class')?.value, 'list-steps');
+    assert.equal(one.resolved.get('footer')?.value, 'Q3');
+    assert.deepEqual(one.comments.filter((c) => c.kind === 'directive').map((c) => c.key), ['class', 'footer']);
+    assert.equal(two.resolved.get('footer')?.value, 'P');
+  });
+  test('an authored internal comment resolves nothing: the door blanks it as a forgery', () => {
+    const [island] = directiveIslands(bodyModel('<!-- lat-meta: {"carry":false,"d":{"class":"cards","footer":"F"}} -->\n'));
+    assert.deepEqual(readIsland(island).dirs, []);
+  });
+  test('a record\'s fields are marked, so a rule for the one-line form leaves them alone', () => {
+    const [one] = scanMetaSource('<!-- {layout=kpi, paginate=true} -->\n\n## A\n').slides;
+    assert.ok(one.comments.every((c) => c.record === true));
+    assert.equal(one.resolved.get('class').record, true);
+    const [two] = scanMetaSource('<!-- _class: kpi -->\n\n## A\n').slides;
+    assert.equal(two.resolved.get('class').record, undefined);
+  });
 });

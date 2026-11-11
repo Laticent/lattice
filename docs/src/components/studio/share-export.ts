@@ -281,6 +281,8 @@ type SlideNoteRecord = {
 	noteBodies: string[];
 	description: string | null;
 	say: string | null;
+	/** The reader note (a record's `reader` field): its own channel, never folded into the speaker note (D8). */
+	reader?: string | null;
 };
 
 /** The depth-aware `<section>` walker (docs/src/lib/markup/sections.ts), via the authoring bundle. */
@@ -313,21 +315,28 @@ type SplitSectionsCore = (html: string) => { type: 'gap' | 'section'; openTag?: 
 function materializeNotes(sections: string[], notesCore: NotesCore, record: SlideNoteRecord[], stripNotes = false): string {
 	const notes = record.map((r) => (stripNotes ? null : r.note));
 	const descriptions = record.map((r) => r.description);
+	// The reader note is meant for whoever opens the file, so the strip that removes the presenter's notes keeps it.
+	const readers = record.map((r) => r.reader ?? null);
 	return sections
 		.map((sec, i) => {
 			const stripped = notesCore.stripCommentNodes(sec);
 			const note = notes[i];
 			const description = descriptions[i];
-			if (!note && !description) return stripped;
+			const reader = readers[i];
+			if (!note && !description && !reader) return stripped;
 			let inject = '';
 			let sectionAttr = '';
 			if (note) inject += `<aside class="lattice-notes" hidden data-slide="${i + 1}">${escHtml(note)}</aside>`;
+			if (reader) inject += `<aside class="lattice-reader" hidden data-slide="${i + 1}">${escHtml(reader)}</aside>`;
 			if (description) {
 				const id = `lat-desc-${i + 1}`;
 				inject += `<p class="lattice-description" id="${id}">${escHtml(description)}</p>`;
 				sectionAttr = ` aria-describedby="${id}"`;
 			}
-			return stripped.replace(/^(\s*<section\b)([^>]*>)/i, `$1${sectionAttr}$2${inject}`);
+			// A REPLACER, not a replacement string: `inject` carries author prose, and in a replacement string `$1`, `$&`
+			// and the rest are backreferences, so a note reading "$100" became "<section00" (the CLI fixed the same bug,
+			// lattice.js `slidesWithNotes`).
+			return stripped.replace(/^(\s*<section\b)([^>]*>)/i, (_m, open: string, rest: string) => `${open}${sectionAttr}${rest}${inject}`);
 		})
 		.join('\n');
 }

@@ -6,7 +6,7 @@ reference: lib/plugins/
 tests: test/unit/plugins/conformance.test.js
 -->
 
-**Version:** 0.12-draft · **Status:** Draft · **Date:** 2026-11-09 · **Host API:** `api: 1`
+**Version:** 0.13-draft · **Status:** Draft · **Date:** 2026-11-10 · **Host API:** `api: 1`
 
 A **plugin** teaches Lattice something that works on any slide — a syntax (`$…$`), a fenced block
 (` ```functionplot `), the browser code that draws it and the CSS that paints it — as one folder
@@ -51,6 +51,8 @@ lib/plugins/<name>/
   <name>.hydrate.js       optional  the browser half: hydrate(el, ctx), or createPass(ctx) (§4.3)
   <name>.bake.js          optional  the CLI half: bake(source, ctx), Node-side (§4.5)
   <name>.highlight.js     optional  a highlight.js grammar for its code fences (§4.6)
+  <name>.source.mjs       optional  IN-TREE, EMBEDDED ONLY: the source hook, compileSource(source, ctx), a
+                                    pure transform of the deck the engine runs at entry, before admission (§3.3)
   <name>.dispatch.js      optional  IN-TREE ONLY: the module that calls an extension point's
                                     fillers, present exactly when the plugin offers one (§3.3).
                                     The build wires it into lib/plugins/dispatch.generated.js, the
@@ -216,6 +218,7 @@ lib/plugins/mark-off.mjs), so a `language-<fence>-source` block is marked too.
 | `meta` | a DATA PROVIDER for the slide-metadata vocabulary (design note 2026-10-17-meta-record.md §5.0): `{ fields: { <key>: { type, values?, scope?, bare?, local?, applied?, customProp?, complete?, describe? } }, markers?: [<name>…], comments?: { <key>: { kind: "structure" \| "channel" } } }`. It renders nothing; the build freezes it into `lib/plugins/meta.generated.mjs`, and every reader of a slide comment derives its key lists from there. A plugin that contributes it must be **embedded** (§3.1a: the host drops it from any `disabled` list and admits it whatever the default set says), at most one plugin may, and no `registers` key may repeat a field. **In-tree only** (§10). Additive: it changes no api 1 plugin | — (no role module) |
 | `returns` | `{ fields: { <field>: { type, values?, min?, max? } } }` — values a renderer may hand back besides its drawing. `type` is `word` (one of `values`), `number` (inside `min`/`max`), `flag`, `text` (control and bidi characters removed, no markup, 256 characters at most) or `markdown` (emphasis, lists, tables, code and quotes; no HTML, link, image or fence; 2,000 at most). At most 16 fields, named `[a-z][a-z0-9-]{0,31}` with no `--` and no trailing hyphen. The HOST writes each value as `data-returned-<plugin>--<field>` on the slide's own `<section>`, and fills `${field}` in the drawing's visible text (never inside a tag, comment, `<style>` or `<script>`; a markdown value as the host's own bare-tag HTML); a value its field does not admit disables the plugin for the render, with an alert (§4.2). Pinned into consent. No URL and no CSS-valued type | — (the renderer returns it) |
 | `diagnostics` | `{ "<name>/<id>": "message" }` — every ID reported on the plugin's behalf. A renderer reports through `ctx.report(id, detail)` (§5.1), which records a declared ID and throws on an undeclared one; the host itself reports `<name>/deprecated-alias` (a deprecated fence alias was used) | — |
+| `source` | `true` — a SOURCE HOOK: a pure transform of the deck's Markdown the engine runs at each public door (render, geometry, the pane probe), before plugin admission, the background-image lift, the pane gate and the parse, returning `{ source, diagnostics }` with every line where it was (same line count). The hook takes what it needs through `ctx` (the shared slide-metadata reader, the fence scan) and imports nothing outside its folder; its diagnostics join the render's as `<plugin>/…`. A plugin that declares it must be **embedded** (it runs on every deck, before the host knows which plugins the deck loads). **In-tree only** (§10: a zip plugin may not carry it). The `meta` plugin's door is the one hook (design note 2026-10-17-meta-record.md §5.1). Additive: it changes no api 1 plugin | `source.mjs` exporting `compileSource(source, ctx)` |
 | `codeRenderer` | `true` — the plugin renders every fenced block no plugin claims. At most one plugin | `render.js` exporting `codeRenderer`: `{ highlighter, render(token, ctx, base, info) }`, where `base(highlight)` runs markdown-it's own fence rule with that callback (null for plain text) and `info` is `{ name, drawn, record }` |
 | `services` | IN-TREE ONLY. Names of functions other code calls through the host (`ctx.service(plugin, name)`, `lib/core/plugin-services.js`), never by importing the plugin; with the plugin off the caller gets null | `services.js` exporting `services`, a factory `(ctx) => ({ <name>: fn })` with exactly these keys |
 | `lint` | IN-TREE ONLY. The lint rule ids the plugin reports (HARD RULE #7); a finding whose rule is not listed is refused | `lint.js` exporting `lint`, a factory `(ctx) => (deck) => findings`: pure and synchronous, run by `lib/authoring/lint-core.js` through `lib/plugins/lint.generated.js` |
@@ -549,6 +552,7 @@ plugin, when:
   plugin that is not embedded;
 - a `registers` key or class prefix collides with one the host or another plugin owns;
 - `meta` comes from a plugin that is not embedded, or from more than one plugin;
+- `source` is declared by a plugin that is not embedded, or `source.mjs` and the declaration disagree;
 - `dispatch.js` exists without an extension point, or an extension point has no `dispatch.js`;
 - a declared contribution has no module export, or a module exports one the manifest does not
   declare (syntax renderers, fence renderers, `hydrate` or `createPass`, `highlight`, `styles.css`,
@@ -651,6 +655,12 @@ manifest (`lib/export/marp-fidelity.js`). The name must be free: not a plugin, a
 highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
+
+- **0.13-draft, the source hook (2026-11-10).** §3.3 gains `source`: an embedded, in-tree plugin's pure transform of the
+  deck at engine entry, before admission, keeping every line where it was, with its tools handed in through `ctx`. It is
+  what lets the `meta` plugin compile slide-metadata records (`<!-- {layout=cards} -->`) to the engine's internal
+  comment before anything else reads the deck (design note 2026-10-17-meta-record.md §5.0, §5.1). Additive under
+  `api: 1`; a zip plugin's contribution allowlist does not include it, so plugin consent is unchanged.
 
 - **0.12-draft, a versioned consent text (2026-11-09).** §10's consent digest is over a text with a
   version (`lib/core/code-shape.mjs` `CONSENT_VERSION`, `CONSENT_ACCEPTED`). Version 1 is the text
