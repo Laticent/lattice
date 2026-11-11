@@ -145,12 +145,14 @@ section.state-chart:where([data-family="tall"], [data-family="square"], [data-fa
   /* The name's own size (the phone ladder sets it on the label, not the tile, so an em here would be the tile's). */
   --sc-name: max(var(--chart-text-min), var(--chart-role-direct));
   max-width: calc(11 * var(--sc-name));
-  padding: calc(0.35 * var(--sc-name)) calc(2.05 * var(--sc-name)) calc(0.35 * var(--sc-name)) calc(0.7 * var(--sc-name));
+  padding-block: calc(0.35 * var(--sc-name));
+  padding-inline: calc(0.7 * var(--sc-name)) calc(2.05 * var(--sc-name));
 }
 /* An edge's label pads in its own size for the same reason: its box is what the router keeps other lines and labels
  * out of, and a 0.3cqi pad left `retry` on its own loop and `reject` on `review` once the fit raised the text. */
 section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .sc-elabel {
-  padding: 0.12em 0.4em;
+  padding-block: 0.12em;
+  padding-inline: 0.4em;
 }
 section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .state-node:is([data-s="on-track"], [data-s="done"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="deferred"]) {
   padding-inline-start: calc(2.05 * var(--sc-name));
