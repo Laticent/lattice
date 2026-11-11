@@ -28,5 +28,11 @@ schema    — (2026-10-07) the file is now schema-valid: PptxGenJS's repeated `<
             notes-master order and the phantom slide-master overrides are mended by `tidyPptx`
             (decision note §6). A repair prompt that remains is something the schema does
             not catch, most likely the EOT font parts.
+type sets — (2026-11-11, #3130 P3) the same check now also covers #3117's type sets: open the editable
+            .pptx of `examples/typography-sets.md`, light and dark (`node lattice.js <deck> out.pptx --editable`;
+            dark needs `color-mode: dark` in the front matter), and confirm Newsreader, Inter, Barlow Condensed
+            and Fraunces draw from the 15 embedded faces on slides 3, 7 and 8, not a fallback. Both files were
+            sent to the owner on 2026-11-11; the owner's screenshot closes this half. Google Slides already
+            draws them (#3117).
 evidence  — screenshots from PowerPoint side by side with the PDF of the same deck.
 verify    — needs a machine with PowerPoint; the decision note §6 says UNVERIFIED until then.
