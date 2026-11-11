@@ -196,16 +196,6 @@
     "test/unit/mermaid/label-length.test.js": {
       "clock-assert": 2
     },
-    "test/unit/playground/rehearsal.test.js": {
-      "fixed-sleep": 2
-    },
-    "test/unit/playground/tts-cost.test.js": {
-      "fixed-sleep": 4
-    },
-    "test/unit/playground/voice-model.test.js": {
-      "fixed-sleep": 14,
-      "clock-assert": 1
-    },
     "test/unit/plugins/admit.test.js": {
       "clock-assert": 4
     },
