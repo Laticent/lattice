@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, isPhone, test, waitForStudioPaint } from './studio-fixture';
+import { expect, isPhone, setEditorContent, test, waitForStudioPaint } from './studio-fixture';
 
 // COMPOSE'S SLIDE TOOLBAR HOLDS STILL (engineering/decisions/2026-11-10-compose-first.md §4).
 //
@@ -75,10 +75,8 @@ async function composeDeck(page: Page, deck: string, last: string): Promise<void
 	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
 	await waitForStudioPaint(page);
 	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
-	await page.getByLabel('Deck source').click();
-	await page.keyboard.press('ControlOrMeta+a');
-	await page.keyboard.press('Backspace');
-	await page.keyboard.insertText(deck);
+	// The fixture's helper, because WebKit's select-all is Meta+a: a plain ControlOrMeta+a appended the deck there.
+	await setEditorContent(page, deck);
 	await expect(page.getByLabel('Deck source')).toContainText(last);
 	await page.getByRole('button', { name: 'Compose — rich editor', exact: true }).first().click();
 	await expect(page.locator('#studio-pane-editor .cs-host .ProseMirror')).toContainText(last);
