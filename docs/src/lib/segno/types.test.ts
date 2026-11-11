@@ -7,6 +7,19 @@ import { describe, expect, it } from 'vitest';
 import { malformedNumber, readNumber, readNumberFast, readNumberFull, readTime } from './types';
 
 const require = createRequire(import.meta.url);
+
+// A hang guard without a clock (HARD RULE #32, F4/F1): test/helpers/regex-trace.js records every regex a call runs and
+// fails on one recheck does not call linear. These live in docs/src, outside tools/regex-census.json's lib/**, so each
+// is named with recheck's own verdict (`npm run regex:census -- --check`). A pattern not named here fails the trace.
+const { assertLinearRegexes } = require('../../../../test/helpers/regex-trace.js') as {
+  assertLinearRegexes: <T>(fn: () => T, opts?: { allow?: Record<string, string> }) => { result: T; keys: Set<string> };
+};
+const SAFE = 'recheck 4.6.2 (automaton): safe; docs/src, outside the lib/** census';
+const NUMBER_PATTERNS: Record<string, string> = {
+  "/^([(+\\-\\u2212]?\\s*(?:[^\\w\\s]{1,3}\\s*)?[-\\u2212]?)(\\d{1,3}(?:[ \\u00A0\\u202F\\u2009]\\d{3})+)(?:([.,])(\\d+))?(\\s*(?:(?:%|\\u2030|[A-Za-z]{1,6})\\s*)?\\)?)$/": SAFE,
+  "/^(?:\\(\\s*(?:[^\\w\\s+\\-\\u2212\\u2010-\\u2015\\ufe58\\ufe62\\ufe63\\uff0b\\uff0d\\u2796\\u30fc\\u02d7\\u207b\\u208b().,]{1,3}\\s*)?(?:\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d{1,3}(?:\\.\\d{3})+(?:,\\d+)?|\\d+(?:[.,]\\d+)?|\\.\\d+)\\s*(?:(?:%|\\u2030|[A-Za-z]{1,6})\\s*)?\\)|[+\\-\\u2212]?\\s*(?:[^\\w\\s+\\-\\u2212\\u2010-\\u2015\\ufe58\\ufe62\\ufe63\\uff0b\\uff0d\\u2796\\u30fc\\u02d7\\u207b\\u208b().,]{1,3}\\s*)?(?:\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d{1,3}(?:\\.\\d{3})+(?:,\\d+)?|\\d+(?:[.,]\\d+)?|\\.\\d+)\\s*(?:(?:%|\\u2030|[A-Za-z]{1,6})\\s*)?|[^\\w\\s+\\-\\u2212\\u2010-\\u2015\\ufe58\\ufe62\\ufe63\\uff0b\\uff0d\\u2796\\u30fc\\u02d7\\u207b\\u208b().,]{1,3}\\s*[+\\-\\u2212](?:\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d{1,3}(?:\\.\\d{3})+(?:,\\d+)?|\\d+(?:[.,]\\d+)?|\\.\\d+)\\s*(?:(?:%|\\u2030|[A-Za-z]{1,6})\\s*)?)$/": SAFE,
+  "/^[(+\\-\\u2212]?\\s*(?:[^\\w\\s]{1,3}\\s*)?[-\\u2212]?\\d[\\d,.]*\\s*(?:(?:%|\\u2030|[A-Za-z]{1,6})\\s*)?\\)?$/": SAFE,
+};
 const chartValues = require('../../../../lib/core/chart-values.js');
 const ganttTime = require('../../../../lib/core/gantt-time.js');
 
@@ -85,10 +98,10 @@ describe('a malformed number is not a number (followups.d/2609-p2)', () => {
   });
   it('rejects a malformed number on a long tab run in linear time', () => {
     const s = `--1${'\t'.repeat(50_000)}x!`;
-    const t = performance.now();
-    expect(readNumber(s)).toBeUndefined();
-    malformedNumber(s);
-    expect(performance.now() - t).toBeLessThan(50);
+    assertLinearRegexes(() => {
+      expect(readNumber(s)).toBeUndefined();
+      malformedNumber(s);
+    }, { allow: NUMBER_PATTERNS });
   });
 });
 
@@ -104,9 +117,9 @@ describe('readTime agrees with gantt-time.js', () => {
 describe('readNumber on hostile input', () => {
   it('a long run of tabs is rejected in linear time (CodeQL: polynomial regex)', () => {
     const s = `1${'\t'.repeat(50_000)}x!`;
-    const t = performance.now();
-    expect(readNumber(s)).toBeUndefined();
-    expect(performance.now() - t).toBeLessThan(50); // the old pattern took ~2.8 s here
+    // The old pattern took about 2.8 s here; recheck calls each pattern the reader runs now linear.
+    const { keys } = assertLinearRegexes(() => expect(readNumber(s)).toBeUndefined(), { allow: NUMBER_PATTERNS });
+    expect(keys.size).toBeGreaterThan(0); // the path under guard ran a regex
   });
 });
 

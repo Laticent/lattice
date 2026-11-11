@@ -2,6 +2,7 @@
 // pipeline are stubbed: what is pinned here is the CONTRACT around them — a frame never receives
 // an original address for a photo a copy is being made of, a host waiting on a copy is told when
 // it lands, and a photo the worker cannot read falls back to its original address exactly once.
+import { createRequire } from 'node:module';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import remoteRefModule from '../../../lib/core/remote-ref.js';
 import * as scale from './preview-image-scale';
@@ -10,6 +11,24 @@ const remoteRef = remoteRefModule as unknown as scale.RemoteRefLike;
 /** What single-slide-render hands the rewrite: remote-ref itself, and the reader's allowed web
  *  origins (the site's own origin and the page's `blob:` Library photos are allowed besides). */
 const ALLOWED = ['https://lattice.example', 'https://images.example'];
+// Work counts and a regex trace in place of stopwatches (HARD RULE #32, F1). The root's helpers are CommonJS.
+const req = createRequire(import.meta.url);
+const { charReads } = req('../../../test/helpers/work-count.js') as {
+	charReads: <T>(fn: () => T) => { result: T; scanned: number; reads: number };
+};
+const { assertLinearRegexes } = req('../../../test/helpers/regex-trace.js') as {
+	assertLinearRegexes: <T>(fn: () => T, opts?: { allow?: Record<string, string> }) => { result: T; keys: Set<string> };
+};
+// The patterns the rewrite runs that live in docs/src, outside tools/regex-census.json's lib/**, each named with
+// recheck's own verdict (`npm run regex:census -- --check`). The rest come from lib/core and the census holds them.
+const SAFE = 'recheck 4.6.2 (automaton): safe; docs/src, outside the lib/** census';
+const DOCS_PATTERNS: Record<string, string> = {
+	'/url|\\\\|&|<img/i': SAFE,
+	'/url|\\\\|&/i': SAFE,
+	'/\\.(svgz?|gif)$/i': SAFE,
+	// jsdom's own Blob type check (jsdom/living/file-api/Blob-impl.js), run when the rewrite posts its first job.
+	'/[^\\u0020-\\u007E]/': 'recheck 4.6.2 (automaton): safe; a dependency (jsdom), outside the census',
+};
 const deps = (allowed = ALLOWED): [scale.RemoteRefLike, string[]] => [remoteRef, allowed];
 
 const BASE = 'https://lattice.example/studio/';
@@ -226,9 +245,11 @@ describe('what the rewrite must never touch', () => {
 
 	it('reads a crafted tag in linear time (the regex took ~3 s on 3.4 KB)', () => {
 		const crafted = `<section><div class="lattice-bg" style="background-image:url(${PHOTO})"></div>${`<a"`.repeat(4000)}'</section>`;
-		const t = performance.now();
-		scale.rewrite(crafted, 640, new EventTarget(), BASE, ...deps());
-		expect(performance.now() - t).toBeLessThan(250);
+		// Counted, not timed: every character searched, sliced or read by code (3.3x the input measured), and every
+		// regex the rewrite ran, each linear by recheck. A backtracking tag regex has no count, so the trace holds it.
+		// (The stopwatch this replaced read the suite's fake clock, `vi.useFakeTimers()` above, so it always saw 0 ms.)
+		const w = assertLinearRegexes(() => charReads(() => scale.rewrite(crafted, 640, new EventTarget(), BASE, ...deps())), { allow: DOCS_PATTERNS }).result;
+		expect(w.reads + w.scanned, `${w.reads + w.scanned} for ${crafted.length} characters`).toBeLessThan(16 * crafted.length);
 	});
 });
 
@@ -320,9 +341,11 @@ describe('round 2 of the review', () => {
 
 	it('reads a style attribute in one linear pass (the per-url rescan took ~43 s on 384 KB)', () => {
 		const html = `<div style="mask:${Array(32000).fill('url(/a.jpg)').join(',')}"></div>`;
-		const t = performance.now();
-		scale.rewrite(html, 640, new EventTarget(), BASE, ...deps());
-		expect(performance.now() - t).toBeLessThan(1500);
+		// Counted, not timed (HARD RULE #32, F1): every character searched, sliced or read by code, 5.9x the input
+		// measured. A search from each url back to its declaration would read about n / 2 per url. (The stopwatch
+		// this replaced read the suite's fake clock too, so it measured 0 ms whatever the rewrite cost.)
+		const w = assertLinearRegexes(() => charReads(() => scale.rewrite(html, 640, new EventTarget(), BASE, ...deps())), { allow: DOCS_PATTERNS }).result;
+		expect(w.reads + w.scanned, `${w.reads + w.scanned} for ${html.length} characters`).toBeLessThan(24 * html.length);
 	});
 
 	it('attributes each url to its own declaration, through strings and parentheses that hold ; and :', () => {

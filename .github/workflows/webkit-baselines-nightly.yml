@@ -94,10 +94,13 @@ jobs:
       # through the shared action, which also SAVES that cache here on main every night, so a pull request's
       # `player no-JS (WebKit)` job finds it warm and never reads Ubuntu's mirror.
       - name: Install Playwright Chromium (pinned to @playwright/test)
-        run: npx playwright install chromium
-        working-directory: docs
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium
       - name: Install Playwright WebKit, from the cache
-        uses: ./.github/actions/playwright-webkit
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: webkit
 
       # Fails HERE with a message that names the browser, rather than inside the audit
       # where a missing binary reads as "the engines produced different DOMs".

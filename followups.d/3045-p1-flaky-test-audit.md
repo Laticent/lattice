@@ -87,6 +87,21 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             pending `takeRecords`; needs Amina's post alone plus a signal for when `refuseImportedTheme` finishes), and
             the pointer-throttle `<=3` check cannot tell the sender throttle from the host's 30 ms flood gate. Next by
             weight: `docs/src/lib` (96), then `test/integration/export` (55).
+            2026-11-11 (CI + flaky tests, P1): `docs/src/lib` done, 96 hits in 39 files; the baseline is now 281 hits
+            in 116 files. Six lines keep a `flaky-ok` (0 ms drain turns, simulated durations on the fake clock) and
+            three regex hang guards stay F4 with both measurements (front-matter, cadenza/normalize), because recheck
+            calls their patterns polynomial. New helper: `test/helpers/property-reads.js` (visit counts for grammar
+            walks). Found and fixed: every docs test that imported one of the 17 `docs/src/lib` packages by
+            directory ran its built, gitignored `dist/` (a directory import reads `main`, not `exports`), so a
+            stale `dist/` decided the result; `docs/vitest.config.ts` now resolves each to its `@laticent/source`
+            file. Next by weight: `test/integration/export` (55).
+            2026-11-11 (same PR, P2): `test/integration/export` done, 55 hits in 24 files, no `flaky-ok` needed; the
+            baseline is now 226 hits in 92 files. Absence checks in a live browser use an unwalled WITNESS run after
+            the walled one: the arm waits until the witness heard every vector, so its zero proves something. Found:
+            Chrome for Testing 153's Local Network Access blocked `code-sandbox-network`'s CONTROL arm from loopback,
+            so its walled arms had passed on an absence that proved nothing; the no-walls launch now disables that
+            check. New helpers: `test/helpers/request-log.js` (listener drain, witness listener) and a real-browser
+            settle (`page-settle.js`).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.

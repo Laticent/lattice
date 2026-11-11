@@ -35,6 +35,9 @@ describe('run() single-flight (I6d)', () => {
 	});
 });
 
+/** The older turn's own `timeout`, which the test steps past on the fake clock. */
+const OLDER_TIMEOUT_MS = 30;
+
 describe('awaitUser — an older turn timing out never clears a newer one', () => {
 	it('a press matching the newer turn still resolves it after the older turn times out', async () => {
 		const root = document.createElement('div');
@@ -42,8 +45,11 @@ describe('awaitUser — an older turn timing out never clears a newer one', () =
 		root.appendChild(button);
 		document.body.appendChild(root);
 		let outcome = '';
-		let armedAt = 0;
+		let armed = false;
 		const stopped: string[] = [];
+		// On vi's fake clock, so the older turn's timeout fires when the test steps past it, not
+		// whenever a loaded machine gets round to it.
+		vi.useFakeTimers();
 		const h = run({
 			root,
 			actions: {},
@@ -52,24 +58,23 @@ describe('awaitUser — an older turn timing out never clears a newer one', () =
 			play: async (ctx) => {
 				// A host that races its own window against Vetrina's timeout arms a second turn before
 				// the first has timed out (Studio lessons do this, lesson-kit.ts `yourTurn`).
-				armedAt = performance.now();
-				void ctx.awaitUser({ match: () => false, timeout: 30, onTimeout: 'resume' }).catch(() => {});
+				armed = true;
+				void ctx.awaitUser({ match: () => false, timeout: OLDER_TIMEOUT_MS, onTimeout: 'resume' }).catch(() => {});
 				const e = await ctx.awaitUser({ match: (ev) => ev.target === button });
 				outcome = e.type;
 			},
 		});
 		try {
-			// Wait for the run to reach its turns, then past the older turn's timeout.
-			for (let i = 0; i < 100 && armedAt === 0; i++) await new Promise((r) => setTimeout(r, 20));
-			expect(armedAt).toBeGreaterThan(0);
-			await new Promise((r) => setTimeout(r, 80));
+			// Wait for the run to reach its turns, then step exactly past the older turn's timeout.
+			await vi.waitFor(() => expect(armed).toBe(true));
+			await vi.advanceTimersByTimeAsync(OLDER_TIMEOUT_MS);
 			button.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-			await new Promise((r) => setTimeout(r, 10));
+			await vi.waitFor(() => expect(outcome).toBe('pointerdown'));
 			expect(stopped).not.toContain('takeover');
-			expect(outcome).toBe('pointerdown');
 		} finally {
 			h.stop();
 			root.remove();
+			vi.useRealTimers();
 		}
 	});
 });

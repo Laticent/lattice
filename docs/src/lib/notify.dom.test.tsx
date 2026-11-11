@@ -7,7 +7,7 @@ import { __resetNotify, actionRaise, dismissActionNotice, dismissNotice, notify,
 // The sibling `notify.test.ts` stubs `toast` and asserts the options object —
 // which is the right seam for the merge-by-id contract, and blind to the bug this
 // file exists for. Sonner's exit-window race lives in its OWN store and timers, so
-// catching it needs the real package, a real `<Toaster>`, and real time.
+// catching it needs the real package, a real `<Toaster>`, and its real timers (run on a fake clock).
 //
 // This tier is jsdom, so it is the FAST arm, not the deciding one: no animation
 // frames, no layout, and timers that are not the browser's. The exit-window and
@@ -19,15 +19,28 @@ import { __resetNotify, actionRaise, dismissActionNotice, dismissNotice, notify,
 function pills(): string[] {
 	return Array.from(document.querySelectorAll('[data-sonner-toast]')).map((p) => p.textContent ?? '');
 }
+/** Step the fake clock `ms` inside act(), so Sonner's timers and React's renders land together. */
 async function tick(ms = 0): Promise<void> {
 	await act(async () => {
-		await new Promise((r) => setTimeout(r, ms));
+		await vi.advanceTimersByTimeAsync(ms);
 	});
 }
 
+// Every test here runs on vi's fake clock: Sonner's dwell, its exit window, its frame-late
+// dismiss and React's commits all land at the virtual millisecond the test names, so a window
+// edge is hit exactly rather than hoped for on a loaded machine. A test that needs a narrower
+// fake (no animation frames) installs its own.
+const FAKE: Parameters<typeof vi.useFakeTimers>[0] = { toFake: ['setTimeout', 'clearTimeout', 'Date', 'requestAnimationFrame', 'cancelAnimationFrame'] };
+
 describe('the message kernel, against real Sonner', () => {
-	beforeEach(() => __resetNotify());
-	afterEach(() => cleanup());
+	beforeEach(() => {
+		__resetNotify();
+		vi.useFakeTimers(FAKE);
+	});
+	afterEach(() => {
+		cleanup();
+		vi.useRealTimers();
+	});
 
 	it('several messages in one tick leave a single pill, carrying the newest', async () => {
 		render(<Toaster />);
@@ -91,15 +104,11 @@ describe('the message kernel, against real Sonner', () => {
 
 		// The window is 200ms wide and opens at the dwell's end. Overshoot it and the
 		// pending removal has already fired, so the second message survives even with
-		// the bug — a green test over a live defect. The gap is therefore MEASURED and
-		// asserted, not assumed: a box too loaded to land inside it fails here and says
-		// why. (Swept against a pinned fixed id: swallowed at +2622 and +2799, clean at
-		// +2854.)
-		const before = Date.now();
+		// the bug — a green test over a live defect. On the fake clock the re-raise lands
+		// at exactly +2650 (plus the 50 above), inside the window by construction, where
+		// real time had to measure the gap and fail on a box too loaded to land in it.
+		// (Swept against a pinned fixed id: swallowed at +2622 and +2799, clean at +2854.)
 		await tick(2650); // past the 2600ms dwell — the pill is mid-exit
-		const gap = Date.now() - before;
-		expect(gap, 'the re-raise must land inside the 200ms exit window').toBeGreaterThanOrEqual(2600);
-		expect(gap, 'the re-raise must land inside the 200ms exit window').toBeLessThan(2800);
 
 		act(() => {
 			notify('Second message.');
@@ -240,8 +249,8 @@ describe('the message kernel, against real Sonner', () => {
 
 	});
 
-	// Real time, not fake: the loss needs Sonner's dismiss to arrive by animation frame, after
-	// the raise's publish has merged into the pill it then deletes.
+	// The loss needs Sonner's dismiss to arrive by animation frame, after the raise's publish has
+	// merged into the pill it then deletes; the fake clock fakes the frame too, so that order holds.
 	it('a dismiss and a raise of the same kind in one tick keep the raise', async () => {
 		render(<Toaster />);
 		let h: string | number = '';

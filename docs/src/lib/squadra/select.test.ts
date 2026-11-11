@@ -86,16 +86,23 @@ describe('selectors', () => {
 		expect(() => parseSelector('item > [x]')).toThrow(expect.objectContaining({ position: 7 }));
 	});
 
-	it('stays fast on a deep tree under a descendant chain (memoized)', () => {
+	it('stays linear on a deep tree under a descendant chain (memoized)', () => {
 		let node: Node = { kind: 'a', from: 0, to: 0, kids: [] };
 		for (let i = 0; i < 1000; i++) node = { kind: i % 2 ? 'a' : 'b', from: 0, to: 0, kids: [node] };
 		const root: Node = { kind: 'root', from: 0, to: 0, kids: [node] };
-		let ticks = 0;
-		const t0 = Date.now();
-		select(root, parseSelector('a b a b a c'), parents(root), () => ticks++);
-		expect(Date.now() - t0).toBeLessThan(2000);
-		// Memoized across candidates: each (node, step) pair is decided once, so the work is linear
-		// in nodes × steps. Before the shared memo this selector cost 42 million ops at this depth.
-		expect(ticks).toBeLessThan(1002 * (6 + 1) * 2);
+		// The work is counted, not timed (HARD RULE #32, F1): every decision the matcher makes ticks. Memoized across
+		// candidates, each (node, step) pair is decided once, so the work is linear in nodes x steps. Before the
+		// shared memo `a b a b a c` cost 42 million ops at this depth. `c a b a b a` makes about 500 nodes subjects
+		// whose chain climbs to the root and fails: 6,992 ticks measured, and without the memo past the bound at once.
+		const bound = 1002 * (6 + 1) * 2;
+		for (const selector of ['a b a b a c', 'c a b a b a']) {
+			let ticks = 0;
+			// Past the bound the tick throws, so a matcher gone combinatorial fails here instead of hanging.
+			const tick = () => {
+				if (++ticks >= bound) throw new Error(`${selector}: more than ${bound} decisions`);
+			};
+			select(root, parseSelector(selector), parents(root), tick);
+			expect(ticks, selector).toBeLessThan(bound);
+		}
 	});
 });

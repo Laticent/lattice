@@ -18,6 +18,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
 const { marpCli } = require('../../helpers/marp-cli');
+const { trackPageWork } = require('../../helpers/page-settle');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EXPORT_CLI = path.join(ROOT, 'tools', 'export-marp.js');
@@ -116,10 +117,12 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
       const m = marp(['admission.md', '--config-file', 'marp.config.cjs', '--allow-local-files', '-o', 'out.html'], bundle);
       assert.equal(m.status, 0, `marp failed:\n${m.stdout}\n${m.stderr}`);
       const page = await browser.newPage();
+      const settled = await trackPageWork(page);
       await page.goto(require('node:url').pathToFileURL(path.join(bundle, 'out.html')).href, { waitUntil: 'networkidle0' });
       await page.waitForFunction(() => document.documentElement.getAttribute('data-lattice-runtime') === 'loaded', { timeout: 30000 });
-      // Two frames after boot, and past the runtime's mutation debounce, for any pass to act.
-      await new Promise((r) => setTimeout(r, 1500));
+      // Until the runtime has nothing queued (its mutation debounce, a plugin's library, a font) and nothing is loading:
+      // every pass has had its turn, so an arm that asserts a figure is ABSENT is not reading the page too early.
+      await settled();
       pages[arm] = { page, md: fs.readFileSync(path.join(bundle, 'admission.md'), 'utf8') };
     }
   });

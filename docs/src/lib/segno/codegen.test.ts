@@ -14,6 +14,14 @@ import { any, attempt, greedy, node } from './index';
 import { parse as generatedFlat } from './notation.generated';
 import { notationSpec, plainRecordSpec } from './notation-grammar';
 
+// Work counts in place of stopwatches (HARD RULE #32, F1). The root's helpers are CommonJS.
+const { countReads } = createRequire(import.meta.url)('../../../../test/helpers/property-reads.js') as {
+  countReads: <T>(root: T, key: string, options?: { limit?: number | ((nodes: number) => number) }) => { value: T; reads: () => number; nodes: number };
+};
+const { scanWork } = createRequire(import.meta.url)('../../../../test/helpers/work-count.js') as {
+  scanWork: <T>(fn: () => T) => { result: T; scanned: number };
+};
+
 // The generated parser writes a flat tree; rebuild the object tree to compare with the reference.
 const generated = (s: string) => {
   const r = generatedFlat(s);
@@ -250,14 +258,16 @@ describe('a run over the complement of 1-3 characters is finished natively (G6)'
     for (const s of [`<${'a'.repeat(30)}> x`, `<${'a'.repeat(60)}> x`, `<${'a'.repeat(39)}>`, `<${'a'.repeat(100)}`, '< >', ...edge]) expect(g(s), JSON.stringify(s)).toEqual(c.parse(s));
   });
   it('reads 400k characters of many short runs and a few long ones in linear time', () => {
-    const spec: GrammarSpec = { start: 'r', rules: { r: many(seq(many(stopsOf('\n')), '\n')) } };
-    const g = load(spec);
+    // The characters every native search covered (scanWork, test/helpers/work-count.js), not a stopwatch (HARD
+    // RULE #32, F1). A second stop that never occurs is the case the cache is for: asked afresh at every run,
+    // indexOf would read to the end of the input once per run.
     const input = `${'abc\n'.repeat(50000)}${`${'q'.repeat(100000)}\n`}${'x\n'.repeat(20000)}`;
-    g(input);
-    let best = Infinity;
-    for (let k = 0; k < 3; k++) { const t0 = performance.now(); g(input); best = Math.min(best, performance.now() - t0); }
-    expect(g(input).ok).toBe(true);
-    expect(best).toBeLessThan(500);
+    for (const stops of ['\n', '\n|']) {
+      const g = load({ start: 'r', rules: { r: many(seq(many(stopsOf(stops)), oneOf(stops))) } });
+      const w = scanWork(() => g(input));
+      expect(w.result.ok).toBe(true);
+      expect(w.scanned, `${JSON.stringify(stops)}: ${w.scanned} for ${input.length} characters`).toBeLessThan(4 * input.length); // 1.0x and 2.0x measured
+    }
   });
 });
 
@@ -277,10 +287,12 @@ describe('generate(), from the adversarial review', () => {
   it('nested many1 grows the generated code linearly, not exponentially', () => {
     let e = oneOf('a');
     for (let k = 0; k < 20; k++) e = seq(String.fromCharCode(66 + k), many1(e), String.fromCharCode(98 + k));
-    const t = performance.now();
-    const src = generate({ start: 's', rules: { s: e } });
+    // Each expression's visits, counted (test/helpers/property-reads.js): past 100 per piece the count throws, so
+    // a generator that re-walks a nested loop's body per copy fails here instead of hanging the runner.
+    const counted = countReads({ start: 's', rules: { s: e } }, 't', { limit: (pieces) => 100 * pieces });
+    const src = generate(counted.value);
+    expect(counted.reads()).toBeLessThan(100 * counted.nodes); // 1,620 for 81 pieces
     expect(src.length).toBeLessThan(200_000); // 531 MB before
-    expect(performance.now() - t).toBeLessThan(500); // 33.7 s before
     const spec: GrammarSpec = { start: 's', rules: { s: seq('X', many1(seq('Y', many1(oneOf('a')), 'y')), 'x') } };
     for (const s of ['XYayx', 'XYaayYayx', 'Xx', 'XYyx', 'XYax']) expect(load(spec)(s), s).toEqual(compile(spec).parse(s));
   });

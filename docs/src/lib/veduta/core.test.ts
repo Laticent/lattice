@@ -361,21 +361,49 @@ property(
 // 13. Cost per call does not grow with the deck (O(window), not O(N)).
 describe('cost is O(window)', () => {
 	it('does the same amount of work at N = 120 and N = 1,000,000', () => {
-		const time = (count: number) => {
+		// Work is counted, not timed (HARD RULE #32, F1): every element the calls put into an array or a set, every
+		// element an array method walks or copies (`map`, `filter`, `fill`, `slice`, a spread, `Array.from`), which is
+		// what each window range costs. O(window) is the same count at any deck size; a range, or a scratch array, that
+		// grew with the deck would count it. A bare `for` loop over the deck calls nothing and stays invisible here;
+		// review holds that one.
+		const work = (count: number) => {
 			const args: WindowArgs = { policy: 'pip', stage: 'scrolled', count, focus: Math.floor(count / 2), viewports: { stage: { y: Math.floor(count / 2) * 400, h: 800, top: 0, pitch: 400 }, map: { y: Math.floor(count / 2) * 100, h: 800, top: 0, pitch: 100, cols: 3 } }, overscan: OS, budget: { live: 4 } };
-			const t = performance.now();
-			let prev: Previous | null = null;
-			for (let k = 0; k < 2000; k++) {
-				const out = windowFor({ ...args, previous: prev });
-				prev = settle(out, { stage: out.stageUnits });
+			const A = Array.prototype as unknown as Record<string | symbol, (...a: unknown[]) => unknown>;
+			const push = Array.prototype.push;
+			const add = Set.prototype.add;
+			const from = Array.from;
+			const walkers = ['map', 'filter', 'forEach', 'fill', 'slice', 'some', 'every', 'find', 'findIndex', 'includes', 'indexOf', 'reduce', 'concat', 'sort'] as const;
+			const saved = new Map<string | symbol, (...a: unknown[]) => unknown>();
+			let n = 0;
+			Array.prototype.push = function (this: unknown[], ...xs: unknown[]) { n += xs.length; return push.apply(this, xs); };
+			Set.prototype.add = function (this: Set<unknown>, x: unknown) { n++; return add.call(this, x); };
+			Array.from = function (this: unknown, src: unknown, ...rest: unknown[]) {
+				const len = (src as { length?: unknown })?.length;
+				if (typeof len === 'number') n += len;
+				return (from as (...a: unknown[]) => unknown[]).call(this, src, ...rest);
+			} as typeof Array.from;
+			for (const k of [...walkers, Symbol.iterator] as (string | symbol)[]) {
+				const fn = A[k];
+				saved.set(k, fn);
+				A[k] = function (this: unknown[], ...xs: unknown[]) { n += this.length; return fn.apply(this, xs); };
 			}
-			return performance.now() - t;
+			try {
+				let prev: Previous | null = null;
+				for (let k = 0; k < 20; k++) {
+					const out = windowFor({ ...args, previous: prev });
+					prev = settle(out, { stage: out.stageUnits });
+				}
+			} finally {
+				Array.prototype.push = push;
+				Set.prototype.add = add;
+				Array.from = from;
+				for (const [k, fn] of saved) A[k] = fn;
+			}
+			return n;
 		};
-		time(120);
-		const small = time(120);
-		const big = time(1_000_000);
-		// Allow generous noise; a loop over N would be four orders of magnitude slower.
-		expect(big).toBeLessThan(small * 10 + 50);
+		const small = work(120);
+		const big = work(1_000_000);
+		expect(big, `${big} at N = 1,000,000, ${small} at N = 120`).toBeLessThan(2 * small); // 1,830 and 2,270 measured; a scratch array over the deck counts 40,001,850
 	});
 });
 

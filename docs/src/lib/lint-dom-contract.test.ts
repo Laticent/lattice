@@ -24,10 +24,10 @@
 // This test drives the REAL package — not a fixture of what we think it emits —
 // and fails loudly on the bump rather than in a user's editor.
 
-import { forceLinting, linter, openLintPanel } from '@codemirror/lint';
+import { diagnosticCount, forceLinting, linter, openLintPanel } from '@codemirror/lint';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const DIAGNOSTIC = {
 	from: 0,
@@ -53,15 +53,21 @@ async function renderDiagnostic() {
 		parent: document.body,
 	});
 	forceLinting(view);
-	await new Promise((r) => setTimeout(r, 50));
+	// Wait for the lint pass to land its diagnostic in the editor state, not for a fixed time.
+	const editor = view;
+	await vi.waitFor(() => expect(diagnosticCount(editor.state)).toBe(1), { timeout: 10_000, interval: 1 });
 	// The lint PANEL renders diagnostics through the same `renderDiagnostic` the
 	// hover tooltip uses, and unlike the tooltip it needs no pointer — so it is the
 	// way to exercise this DOM without a real browser.
 	openLintPanel(view);
-	await new Promise((r) => setTimeout(r, 50));
-	const li = document.querySelector('li.cm-diagnostic');
-	if (!li) throw new Error('no .cm-diagnostic rendered — the package DOM has changed shape');
-	return li;
+	return vi.waitFor(
+		() => {
+			const li = document.querySelector('li.cm-diagnostic');
+			if (!li) throw new Error('no .cm-diagnostic rendered — the package DOM has changed shape');
+			return li;
+		},
+		{ timeout: 10_000, interval: 1 },
+	);
 }
 
 describe('@codemirror/lint DOM contract', () => {

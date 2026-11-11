@@ -133,7 +133,9 @@ jobs:
         # color. No poppler or ImageMagick here: this gate reads the emulator's own
         # overflow report, never the PDF bytes and never a pixel — which is most of
         # why it costs 5 minutes and the regression gate costs 72.
-        run: sudo apt-get update && sudo apt-get install -y fonts-noto-color-emoji
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: fonts-noto-color-emoji
       - run: npm ci
       # `executablePath()` COMPUTES a path; it does not check the file is there. Measured: point
       # PUPPETEER_CACHE_DIR at an empty directory and it still returns a path and exits 0. That

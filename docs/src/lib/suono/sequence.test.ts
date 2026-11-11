@@ -1,11 +1,11 @@
 // @vitest-environment node
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeSequence, type SequenceStage } from './sequence';
 import type { Bytes, Clip, PlayOptions, StageState } from './types';
 
-const flush = () => new Promise((r) => setTimeout(r, 0));
+const flush = () => new Promise((r) => setTimeout(r, 0)); // flaky-ok: a zero-delay macrotask turn that drains queued promise callbacks; it waits for no duration
 const bytes = (): Bytes => ({ size: 8, type: 'audio/wav', arrayBuffer: async () => new ArrayBuffer(8) });
 
 /** A fake stage that records play order and lets a test observe onStart. Decode/play are instant.
@@ -517,16 +517,27 @@ describe('makeSequence — hardening (adversarial trio)', () => {
 // These pin the contract that lets it hold instead: reported only for a REAL stall,
 // cleared from the clip's real onset, and always balanced.
 describe('onStarve', () => {
+	// The starve watch, the inter-item gap and the produce stubs all run on setTimeout, so a
+	// virtual clock steps them exactly: each check advances past `starveGraceMs` (or the gap)
+	// instead of sleeping and hoping the real timer fired.
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+	const settle = () => vi.advanceTimersByTimeAsync(0);
+
 	it('reports a stall, then clears it from the clip\'s real onset', async () => {
 		const stage = fakeStage();
 		const { produce, resolve } = deferredProduce(1);
 		const seen: boolean[] = [];
 		const seq = makeSequence(stage, { items: [0], produce, onStarve: (s) => seen.push(s), starveGraceMs: 10 });
 		seq.play();
-		await new Promise((r) => setTimeout(r, 40)); // past the grace with nothing produced
+		await vi.advanceTimersByTimeAsync(40); // past the grace with nothing produced
 		expect(seen).toEqual([true]);
 		resolve(0);
-		await flush();
+		await settle();
 		expect(seen).toEqual([true, false]);
 	});
 
@@ -540,7 +551,7 @@ describe('onStarve', () => {
 			starveGraceMs: 250,
 		});
 		seq.play();
-		await new Promise((r) => setTimeout(r, 50));
+		await vi.advanceTimersByTimeAsync(50);
 		expect(seen).toEqual([]);
 	});
 
@@ -552,10 +563,10 @@ describe('onStarve', () => {
 		const seen: boolean[] = [];
 		const seq = makeSequence(stage, { items: [0], produce, onStarve: (s) => seen.push(s), starveGraceMs: 10 });
 		seq.play();
-		await new Promise((r) => setTimeout(r, 40));
+		await vi.advanceTimersByTimeAsync(40);
 		expect(seen).toEqual([true]);
 		seq.stop();
-		await flush();
+		await settle();
 		expect(seen).toEqual([true, false]);
 	});
 
@@ -565,10 +576,10 @@ describe('onStarve', () => {
 		const seen: boolean[] = [];
 		const seq = makeSequence(stage, { items: [0], produce, onStarve: (s) => seen.push(s), starveGraceMs: 10 });
 		seq.play();
-		await new Promise((r) => setTimeout(r, 80)); // several grace windows' worth
+		await vi.advanceTimersByTimeAsync(80); // several grace windows' worth
 		expect(seen).toEqual([true]);
 		resolve(0);
-		await flush();
+		await settle();
 		expect(seen.filter(Boolean).length).toBe(1);
 	});
 
@@ -583,9 +594,9 @@ describe('onStarve', () => {
 			starveGraceMs: 10,
 		});
 		seq.play();
-		await new Promise((r) => setTimeout(r, 40));
+		await vi.advanceTimersByTimeAsync(40);
 		expect(seen[0]).toBe(true);
-		await new Promise((r) => setTimeout(r, 80));
+		await vi.advanceTimersByTimeAsync(80);
 		expect(seen[seen.length - 1]).toBe(false); // resolved once the second item sounded
 	});
 
@@ -610,6 +621,7 @@ describe('onStarve', () => {
 			},
 		});
 		seq.play();
+		await vi.runAllTimersAsync(); // both 60 ms gaps, stepped on the virtual clock
 		await finished;
 		// Every clip that existed was ready instantly; the only silence was the gaps we chose.
 		expect(seen.filter(Boolean).length).toBe(0);
@@ -630,9 +642,9 @@ describe('onStarve', () => {
 			starveGraceMs: 10,
 		});
 		seq.play();
-		await new Promise((r) => setTimeout(r, 5));
+		await vi.advanceTimersByTimeAsync(5);
 		seq.pause();
-		await new Promise((r) => setTimeout(r, 80)); // several grace windows, paused throughout
+		await vi.advanceTimersByTimeAsync(80); // several grace windows, paused throughout
 		expect(seen.filter(Boolean).length).toBe(0);
 		seq.resume();
 	});
@@ -648,7 +660,7 @@ describe('onStarve', () => {
 			starveGraceMs: 1,
 		});
 		seq.play();
-		await new Promise((r) => setTimeout(r, 30));
+		await vi.advanceTimersByTimeAsync(30);
 		expect(stage.played.length).toBe(1); // the run played through regardless
 	});
 
@@ -656,7 +668,7 @@ describe('onStarve', () => {
 		const stage = fakeStage();
 		const seq = makeSequence(stage, { items: ['a'], produce: async () => bytes(), starveGraceMs: 1 });
 		seq.play();
-		await new Promise((r) => setTimeout(r, 30));
+		await vi.advanceTimersByTimeAsync(30);
 		expect(stage.played.length).toBe(1);
 	});
 });

@@ -31,6 +31,7 @@ const { launchSandboxBrowser, openPackageSandbox, workerScript, runPackage } = r
 const { WORKER_NETWORK } = require('../../../lib/core/code-shape.mjs');
 const { splitSections } = require('@laticent/markup');
 const { enterSlideIds, renderIdPrefix } = require('../../../lib/core/render-ids.js');
+const { scanWork } = require('../../helpers/work-count.js');
 const { LAYOUTS } = require('../../../lib/plugins/chart-family/shared/chart-registry.generated.js');
 const engine = require('../../../lib/engine');
 const { slideFacts } = require('../../../lib/core/slide-facts.mjs');
@@ -266,9 +267,11 @@ describe('code packages: every shipped transform runs in the locked page and mat
   });
 
   test('a bundle that loops at load, or a tail padded to stall the parser, is bounded', async () => {
-    const t0 = Date.now();
-    assert.throws(() => workerScript(`function t(){}export{t as default}${' '.repeat(1_000_000)}x`), /must end in/);
-    assert.ok(Date.now() - t0 < 1000, `the tail check took ${Date.now() - t0} ms`);
+    // Counted, not timed: the tail check reads only the last 256 characters, so a megabyte of padding costs it about 256
+    // characters of search. Searching the whole text costs a million, so the bound sits a few times above today's count.
+    const padded = `function t(){}export{t as default}${' '.repeat(1_000_000)}x`;
+    const { scanned } = scanWork(() => assert.throws(() => workerScript(padded), /must end in/));
+    assert.ok(scanned <= 4 * 256, `the tail check searched ${scanned} characters of a ${padded.length}-character package`);
     await assert.rejects(openPackageSandbox(browser, 'for(;;);function t(){}export{t as default};', { loadTimeoutMs: 500 }), /did not finish loading within 500 ms/);
   });
 
@@ -277,8 +280,14 @@ describe('code packages: every shipped transform runs in the locked page and mat
     const said = [];
     // The package reports what its own fetch got, so the test sees the request was made and refused.
     const beacon = 'try{fetch("https://example.com/at-load").then(()=>console.log("FETCH-OK"),(e)=>console.log("FETCH-REFUSED "+e.message))}catch(e){console.log("FETCH-REFUSED "+e.message)}function t(s){return s.html}export{t as default};';
-    const sandbox = await openPackageSandbox(browser, beacon, { onRequest: (url) => asked.push(url), onConsole: (text) => said.push(text) });
-    await new Promise((r) => setTimeout(r, 300));
+    // The package's own report is the signal: once it says, its fetch has settled, refused or not.
+    let reported;
+    const settled = new Promise((r) => { reported = r; });
+    const sandbox = await openPackageSandbox(browser, beacon, {
+      onRequest: (url) => asked.push(url),
+      onConsole: (text) => { said.push(text); if (/^FETCH-/.test(text)) reported(); },
+    });
+    await settled;
     assert.equal(await runPackage(sandbox, { html: '<section>x</section>', index: 0 }), '<section>x</section>');
     await sandbox.close();
     assert.deepEqual(asked, [], 'the policy refuses it before interception would see it');
@@ -287,12 +296,17 @@ describe('code packages: every shipped transform runs in the locked page and mat
   });
 
   test('an error the package throws later, from a timer, does not end it', async () => {
-    const late = 'function t(s){setTimeout(()=>{throw new Error("late")},0);return s.html}export{t as default};';
-    const sandbox = await openPackageSandbox(browser, late);
+    // The timer logs just before it throws, so the next run starts only once the late error has really been thrown.
+    const late = 'function t(s){setTimeout(()=>{console.log("LATE "+s.html);throw new Error("late")},0);return s.html}export{t as default};';
+    const thrown = new Map();
+    const lateFor = (html) => new Promise((r) => thrown.set(`LATE ${html}`, r));
+    const sandbox = await openPackageSandbox(browser, late, { onConsole: (text) => thrown.get(text)?.() });
     try {
       for (const i of [0, 1, 2]) {
-        assert.equal(await runPackage(sandbox, { html: `<section>${i}</section>`, index: i }), `<section>${i}</section>`);
-        await new Promise((r) => setTimeout(r, 50));
+        const html = `<section>${i}</section>`;
+        const threw = lateFor(html);
+        assert.equal(await runPackage(sandbox, { html, index: i }), html);
+        await threw;
       }
     } finally {
       await sandbox.close();

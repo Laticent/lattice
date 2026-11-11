@@ -32,11 +32,11 @@ const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
 const { execFile } = require('node:child_process');
+const { trackConnections } = require('../../helpers/request-log.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
 const TIMEOUT = 300000;
-const SETTLE_MS = 1500;
 
 const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `lattice-door-${p}-`));
 
@@ -137,7 +137,10 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
     const status = await main(argv, { log: (s) => out.push(s), err: (s) => out.push(s), ask: async () => false, probe: async () => 'probe skipped in this test' });
     return { status, text: out.join('\n') };
   };
-  const settle = () => new Promise((r) => setTimeout(r, SETTLE_MS));
+  // Every render here is a child process that has exited before `settle` runs, so the log is complete once every
+  // connection it made has been read: a signal (test/helpers/request-log.js), not a sleep.
+  let log;
+  const settle = () => log.drained();
   const deck = '---\ntheme: indaco\n---\n\n<!-- _class: tally -->\n\n## Three wins\n\n- 3\n\n<!-- the speaker note -->\n';
 
   test.before(async () => {
@@ -150,6 +153,7 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
       hits.push(req.url);
       sock.destroy();
     });
+    log = trackConnections(server);
     await new Promise((r) => server.listen(0, '127.0.0.1', r));
     P = server.address().port;
     H = `http://127.0.0.1:${P}`;

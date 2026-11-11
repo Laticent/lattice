@@ -247,11 +247,14 @@ test('FAILFAST: a frame whose library cannot be fetched says so at once, so the 
   try {
     // Nothing answers at this directory's entry: the page is offline, or a deploy removed the folder.
     const html = await esmFrameHtml(`${server.origin}/gone/mermaid/`, { preload: [] });
-    const started = Date.now();
-    const { ready, failed } = await drawAll(browser, `${server.origin}/parent.html`, html, ['flowchart LR\n A-->B'], CONFIG, { readyMs: 20000 });
+    // `failed` is the frame's own answer: had it stayed silent, the wait would have run out and answered null. The
+    // wait is a HANG BOUND, not a stopwatch (F4 in engineering/decisions/2026-11-06-flaky-tests.md): a failed import
+    // from a local listener takes well under a second, so 5 s leaves a loaded CI runner room, yet a frame that posts
+    // `failed` only after a long internal delay of its own still overruns it and fails. Nothing here measures how long
+    // the frame took; the bound only decides when to stop waiting for a frame that has not answered (HARD RULE #32).
+    const { ready, failed } = await drawAll(browser, `${server.origin}/parent.html`, html, ['flowchart LR\n A-->B'], CONFIG, { readyMs: 5000 });
     assert.equal(ready, false);
-    assert.equal(failed, true, 'the frame reported the failure');
-    assert.ok(Date.now() - started < 10000, 'and did so well inside the 30 s the host would otherwise wait');
+    assert.equal(failed, true, 'the frame reported the failure itself, rather than leaving the host to time out');
   } finally {
     await browser.close();
     server.close();

@@ -1,12 +1,20 @@
 // The /segno grammar box is READ, not run: every preset must build exactly the grammar that
 // evaluating it as JavaScript built, and nothing outside the little language may execute.
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { alt, any, charRange, chars, compile, GrammarError, generate, lit, many, many1, node, noneOf, opt, ref, seq } from './segno';
 import { clipProblems, clipText, GrammarSourceError, MAX_EXPANDED, MAX_PROBLEMS, MAX_REPLY_TEXT, readGrammarSource, treeTooBig } from './segno-playground-grammar';
 
 const DSL = { alt, any, charRange, chars, lit, many, many1, node, noneOf, opt, ref, seq };
+// Work counts in place of stopwatches (HARD RULE #32, F1). The root's helpers are CommonJS.
+const { charReads } = createRequire(import.meta.url)('../../../test/helpers/work-count.js') as {
+  charReads: <T>(fn: () => T) => { result: T; scanned: number; reads: number };
+};
+const { countReads } = createRequire(import.meta.url)('../../../test/helpers/property-reads.js') as {
+  countReads: <T>(root: T, key: string, options?: { limit?: number | ((nodes: number) => number) }) => { value: T; reads: () => number; nodes: number };
+};
 const page = readFileSync(resolve(__dirname, '../pages/libraries/segno/index.astro'), 'utf8');
 // The presets are template literals in the page's script; `\${` never appears in them.
 const presets = [...page.matchAll(/^\t+code: `([\s\S]*?)`,$/gm)].map((m) => m[1]);
@@ -63,21 +71,26 @@ describe('readGrammarSource', () => {
     for (let n = 1; n <= 28; n++) lines.push(`const c${n} = seq(c${n - 1}, c${n - 1});`);
     const src = `${lines.join('\n')}\nreturn { start: 's', rules: { s: c28 } };`;
     expect(src.length).toBeLessThan(1024);
-    const t0 = performance.now();
-    expect(() => readGrammarSource(src, DSL)).toThrow(/expands to more than 10,000 pieces/);
-    expect(performance.now() - t0).toBeLessThan(50);
+    // The reader refuses from its count alone: each line's helper runs once, and nothing is ever expanded.
+    let calls = 0;
+    const counting = Object.fromEntries(Object.entries(DSL).map(([k, f]) => [k, (...a: unknown[]) => { calls++; return (f as (...x: unknown[]) => unknown)(...a); }]));
+    expect(() => readGrammarSource(src, counting)).toThrow(/expands to more than 10,000 pieces/);
+    expect(calls).toBeLessThanOrEqual(29); // 11 measured: one per line it read
   });
 
-  it('anything under the size cap compiles and generates quickly', () => {
+  it('anything under the size cap compiles and generates in a bounded number of visits', () => {
     // A doubling chain that fits: c10 is 2,047 pieces, and with the definitions counted too the
     // whole grammar is about 6k of the 10k cap.
     const lines = ["const c0 = 'a';"];
     for (let n = 1; n <= 10; n++) lines.push(`const c${n} = seq(c${n - 1}, c${n - 1});`);
     const spec = readGrammarSource(`${lines.join('\n')}\nreturn { start: 's', rules: { s: c10 } };`, DSL);
-    const t0 = performance.now();
-    compile(spec as Parameters<typeof compile>[0]);
-    generate(spec as Parameters<typeof generate>[0]);
-    expect(performance.now() - t0).toBeLessThan(500);
+    // Each expression's visits, counted (test/helpers/property-reads.js), in place of a stopwatch (HARD RULE #32, F1):
+    // 1,184 for the 12 distinct pieces. Building every use afresh reads 3,219, and copying every reused piece into
+    // the generated code 20,817. Past the bound the count throws, so a walk gone exponential cannot hang the runner.
+    const counted = countReads(spec as Parameters<typeof compile>[0], 't', { limit: (pieces) => 200 * pieces });
+    compile(counted.value);
+    generate(counted.value);
+    expect(counted.reads()).toBeLessThan(200 * counted.nodes);
     expect(MAX_EXPANDED).toBe(10_000);
   });
 
@@ -156,8 +169,8 @@ describe('readGrammarSource', () => {
 
   it('reads a long hostile paste in linear time', () => {
     const src = `const a = 'x';\n${'// note\n'.repeat(50_000)}return { start: 's', rules: { s: seq(${"'a', ".repeat(5_000)}'b') } };`;
-    const t0 = performance.now();
-    readGrammarSource(src, DSL);
-    expect(performance.now() - t0).toBeLessThan(1000);
+    // charReads totals every character the reader searched, sliced or read by code (test/helpers/work-count.js).
+    const w = charReads(() => readGrammarSource(src, DSL));
+    expect(w.reads + w.scanned, `${w.reads + w.scanned} for ${src.length} characters`).toBeLessThan(4 * src.length); // 0.05x measured
   });
 });

@@ -64,7 +64,9 @@ jobs:
         # ImageMagick (`identify` / `compare` / `convert`) is what tools/pixel-check.js
         # shells out to, so the `regress` step below dies on its first page comparison
         # without it — same install ci.yml's golden-diff job does.
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick fonts-noto-color-emoji
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: poppler-utils imagemagick fonts-noto-color-emoji
       - run: npm ci
 
       # WebKit and Firefox for the npm-plugin export check (test/integration/export-nightly/). The
@@ -78,8 +80,9 @@ jobs:
         env:
           PUPPETEER_SKIP_DOWNLOAD: '1'
       - name: Install Playwright WebKit and Firefox (pinned to @playwright/test)
-        run: npx playwright install --with-deps webkit firefox
-        working-directory: docs
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: webkit firefox
 
       # The suite exits non-zero on a render regression. Capture the verdict into
       # an output and keep the job green so the report + issue steps always run and

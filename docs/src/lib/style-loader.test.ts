@@ -157,7 +157,7 @@ describe('createStyleLoader', () => {
 		const s = createStyleLoader('/styles/', { wholeAbove: 1 });
 		await s.ready();
 		s.warm('<!-- _class: card -->\n# hi');
-		await new Promise((r) => setTimeout(r, 20));
+		await vi.waitFor(() => expect(fetched).toContain('1-card.css'), { timeout: 10_000, interval: 1 });
 		expect(fetched).toContain('1-card.css');
 		expect(s.css()).not.toContain('.card');
 	});
@@ -166,7 +166,9 @@ describe('createStyleLoader', () => {
 		const s = createStyleLoader('/styles/', { wholeAbove: 1 });
 		await s.ready();
 		s.warm('<!-- _class: --!> card -->\n# hi');
-		await new Promise((r) => setTimeout(r, 20));
+		// A control warm-up after it, on the same loaded index: once its module is fetched, the one before it has been read.
+		s.warm('<!-- _class: chart -->\n# hi');
+		await vi.waitFor(() => expect(fetched).toContain('2-chart.css'), { timeout: 10_000, interval: 1 });
 		expect(fetched, 'a word after --!> is not a class').not.toContain('1-card.css');
 	});
 

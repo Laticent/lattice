@@ -7,6 +7,9 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const { scanWork, charReads } = require('../../helpers/work-count');
 const { virtualClock } = require('../../helpers/runtime-boot');
+const { trackConnections } = require('../../helpers/request-log');
+const net = require('node:net');
+const { EventEmitter, once } = require('node:events');
 
 describe('scanWork', () => {
   const text = 'ab'.repeat(5000);
@@ -100,5 +103,36 @@ describe('virtualClock', () => {
     const { settle } = virtualClock(win);
     win.setInterval(() => {}, 16);
     await assert.rejects(settle({ maxSteps: 20 }), /never settles/);
+  });
+});
+
+describe('trackConnections', () => {
+  // The listener is a stand-in that is told of a connection only when the test says so, so the order of events is the
+  // test's, not the kernel's. Its address is a real listener's, so the probe's own connection still opens.
+  test('a closed socket from an earlier client that carries our port does not end the wait; only ours does', async (t) => {
+    const real = net.createServer((s) => s.on('error', () => {}));
+    await new Promise((resolve) => real.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise((resolve) => real.close(resolve)));
+    const server = Object.assign(new EventEmitter(), { address: () => real.address() });
+    const { drained } = trackConnections(server);
+    let mine;
+    const connect = net.connect;
+    t.mock.method(net, 'connect', (...args) => (mine = connect.apply(net, args)));
+    const fakeSocket = (port) => Object.defineProperties(new EventEmitter(), { remotePort: { get: port }, remoteAddress: { get: () => mine?.localAddress } });
+    // An earlier client, long closed, whose ephemeral port the OS hands to the probe.
+    const stale = fakeSocket(() => mine?.localPort);
+    server.emit('connection', stale);
+    stale.emit('close');
+    let done = false;
+    const waiting = drained().then(() => {
+      done = true;
+    });
+    await once(mine, 'connect');
+    await new Promise((resolve) => setImmediate(resolve)); // every promise job queued so far has run
+    assert.equal(done, false, 'the wait ended on a stale socket that only shares our port');
+    const port = mine.localPort;
+    server.emit('connection', fakeSocket(() => port));
+    await waiting;
+    assert.equal(done, true);
   });
 });
