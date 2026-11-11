@@ -7,8 +7,8 @@ summary: Agent skills are instructions an agent obeys, so a tampered skill is a 
 
 Owner decisions, 2026-11-11: a static-only nightly with a reviewed baseline (no LLM pass, no key,
 $0). The unpinned `npx lattice` finding was first accepted on a false premise ("our own CLI"); with
-the facts corrected, the owner set the direction: `@laticent/lattice` is published to npm by
-2026-11-15, so the skills say `npx @laticent/lattice` (§3).
+the facts corrected, the owner set the direction: `@laticent/lattice` is the package on npm, so
+the skills say `npx @laticent/lattice` (§3), and the package also ships a short `lat` command.
 
 ## 1. What SkillSpector is
 
@@ -36,7 +36,7 @@ All 19 `.claude/skills/` scored 0. The agent kit's per-task files first scored 7
 
 | Rule | Count | What it matched | Disposition |
 |---|---|---|---|
-| RP1 MCP rug pull | 70 | `npx lattice …` with no `@version` | **A real risk, fixed at source.** On npm, unscoped `lattice` belongs to an unrelated publisher, so outside a Lattice project the line ran their code. All 69 lines now say `npx @laticent/lattice` (ours; it 404s until published on 2026-11-15, which fails safe). Only the scoped name is excused, so a bare `npx lattice` creeping back fires |
+| RP1 MCP rug pull | 70 | `npx lattice …` with no `@version` | **A real risk, fixed at source.** On npm, unscoped `lattice` belongs to an unrelated publisher, so outside a Lattice project the line ran their code. All 69 lines now say `npx @laticent/lattice` (ours). Only the scoped name is excused, so a bare `npx lattice` creeping back fires |
 | AR2 anti-refusal | 2 | "prints no warning", "no errors, no warnings" | **Reworded at source.** A rule on the bare phrase also excused a real "give the user no warning" (reproduced by the review) |
 | YR4 YARA tool poisoning | 1 | a `<!-- describe: … -->` alt-text comment | Baseline: Lattice's accessibility syntax |
 | AE4 Unicode / mixed script | 1 | the Greek Δ in "ΔE" in `theme.md` | **Fixed at source** (`design/skills/theme.md` now says "deltaE"), so the check stays live everywhere |
@@ -72,8 +72,9 @@ step surviving to record it, the SARIF upload "complete", and the job green.
 
 ## 5. Limits
 
-- **The rest of the repo still says `npx lattice`:** ~149 lines in the README, the docs site, the
-  CLI help and notes, which human readers copy (`followups.d/3142-p2-scoped-npx-outside-skills.md`).
+- **The docs keep `npx lattice` where it is correct:** inside a project or a clone, npx runs the
+  installed copy, and every page that uses it says so and names `npx @laticent/lattice` for
+  outside one. Only the agent skills, which an agent may run anywhere, use the scoped form always.
 
 - **Not yet scanned:** the kit's `components/`, `reference/`, `upload/` and `review/` folders. Their
   first scan raised ~230 findings to read first

@@ -52,7 +52,7 @@ skill. The others are authorable end-to-end from the file.
 |---|---|---|
 | [`accessibility-review`](./accessibility-review.md) | Use when reviewing a deck for accessibility: contrast, alt text and describe: comments, reading order, color as the only signal, type size, captions and motion. | 3.4k |
 | [`chart-from-data`](./chart-from-data.md) | Use when the author has numbers (pasted rows, a CSV, a table) and needs the right chart on a slide: pick the kind from the question, author the data, write the claim. | 3.3k |
-| [`cli`](./cli.md) | Use when rendering, exporting, sharing or checking a finished deck from a terminal: PDF, PowerPoint, images, player, handouts. | 3.3k |
+| [`cli`](./cli.md) | Use when rendering, exporting, sharing or checking a finished deck from a terminal: PDF, PowerPoint, images, player, handouts. | 3.4k |
 | [`diagram`](./diagram.md) | Use when a slide needs a diagram: a Mermaid flowchart, sequence or state diagram, or a native flowchart; when it helps, size limits, theming and what breaks. | 3.0k |
 | [`edit-deck`](./edit-deck.md) | Use when editing or restructuring a deck that already exists: find its argument, reorder, split or merge slides, keep the author's voice and change only what was asked. | 3.3k |
 | [`fix-findings`](./fix-findings.md) | Use when turning lint, Coach or overflow findings into fixes: reading lint:deck output, the common rule ids and their fixes, and fitting a slide without shrinking type. | 3.5k |

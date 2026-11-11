@@ -35,7 +35,7 @@
       "description": "Use when rendering, exporting, sharing or checking a finished deck from a terminal: PDF, PowerPoint, images, player, handouts.",
       "kind": "operate",
       "studio": false,
-      "tokens": 3316
+      "tokens": 3360
     },
     {
       "name": "component-showcase",

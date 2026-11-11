@@ -13,12 +13,12 @@
 # Syntax: https://github.com/NVIDIA/SkillSpector/blob/main/docs/SUPPRESSION.md
 version: 2
 rules:
-  # MCP rug pull (RP1): `npx @laticent/lattice …` with no @version. It is OUR package (owner,
-  # 2026-11-11: published to npm by 2026-11-15; until then it 404s, which fails safe). Pinning a
-  # version in teaching prose would go stale every release. The BARE name is deliberately NOT
-  # excused: on npm, unscoped `lattice` belongs to an unrelated publisher, so outside a Lattice
-  # project `npx lattice` runs their code. PR #3142 rewrote all 69 bare lines; one creeping back
-  # in fires the nightly. The quotes keep this rule from excusing a lookalike scope.
+  # MCP rug pull (RP1): `npx @laticent/lattice …` with no @version. It is OUR package on npm.
+  # Pinning a version in teaching prose would go stale every release. The BARE names are
+  # deliberately NOT excused: on npm, unscoped `lattice` and `lat` belong to other publishers,
+  # so outside a Lattice project `npx lattice` or `npx lat` runs their code. PR #3142 rewrote
+  # all 69 bare lines in the skills; one creeping back in fires the nightly. The quotes keep
+  # this rule from excusing a lookalike scope.
   - id: "RP1"
     message: "*'npx @laticent/lattice'*"
     reason: "Our own package on npm (owner decision 2026-11-11); the unscoped name is NOT excused"

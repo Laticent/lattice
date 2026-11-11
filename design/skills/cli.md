@@ -61,6 +61,7 @@ is not done.
 | What | Where |
 |---|---|
 | The command | `npx @laticent/lattice` — the `bin` of `@laticent/lattice` (`npm install @laticent/lattice`) |
+| Its short alias | `lat`, once installed (`lat deck.md deck.pdf`). npm's unscoped `lat` package is someone else's, so in a folder without Lattice never run it through npx. |
 | Its full option list | `npx @laticent/lattice --help all` (`--help` alone is one screen) |
 | Package store | `$LATTICE_HOME/packages`, else `~/.lattice/packages` |
 | The linter (clone only) | `npm run lint:deck -- <deck.md>` |

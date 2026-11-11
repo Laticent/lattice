@@ -25,7 +25,8 @@
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "main": "lib/engine/index.js",
   "bin": {
-    "lattice": "dist/lattice.js"
+    "lattice": "dist/lattice.js",
+    "lat": "dist/lattice.js"
   },
   "exports": {
     ".": "./lib/engine/index.js",

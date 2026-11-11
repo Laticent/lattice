@@ -117,7 +117,7 @@ a different coverage tier, not a faster version of this one.
 notes, WebVTT captions, the fluid-box mobile viewer, the offline player, and
 more — it's grown considerably past a bare PDF exporter).
 
-Installed via npm, the same binary is `npx lattice`.
+Installed via npm, the same binary is `lattice`, or `lat` for short; with no install, `npx @laticent/lattice`.
 
 **Palette resolution** (highest wins): CLI positional/`--palette` flag →
 `LATTICE_PALETTE` env → the deck's own front-matter `theme:` → default
