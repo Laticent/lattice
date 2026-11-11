@@ -6087,6 +6087,43 @@ const RUNTIME_MARKUP_EXTRA_FILES = [
 ];
 const SANCTIONED_RUNTIME_MARKUP_SINKS = [
   {
+    file: 'lib/plugins/video/shared/video-marp-dom.js',
+    sink: 'tpl.innerHTML',
+    count: 1,
+    provenance:
+      'OURS — the video plugin\'s own figure (`figureHtml`, lib/plugins/video/video.inline.js, the markup the engine draws), parsed into ' +
+      'a DETACHED <template> and put in the place of a lone `@video{…}` span on a Marp render. Its input is a record that came from the ' +
+      'deck\'s MARKDOWN (marp-cli\'s config engine, lib/plugins/video/shared/video-marp-engine.js, or the saved deck file in the VS Code ' +
+      'preview), never from the page: a span is drawn only when its text is a record the Markdown holds, outside `[data-lattice-plugin]` ' +
+      '(spec/LPM.md §10). `read` parses it with Segno and matches the PARSED host against the provider table; `figureHtml` escapes every ' +
+      'author string (`esc`/`escAttr`) and writes the address only as the provider row\'s own watch URL. Pinned by ' +
+      'test/unit/plugins/video-marp-records.test.js and test/integration/export/marp-kit-video.test.js.',
+  },
+  {
+    file: 'lib/runtime/video-card.js',
+    sink: 'section.innerHTML',
+    count: 1,
+    provenance:
+      'OURS — `composeVideoCard`: the `video` layout\'s own composer (`renderSection`, video.transform.js, the engine\'s HTML-pass call) ' +
+      're-run over a Marp slide that just gained a figure, so the card is built the way the engine builds it. The figure is NOT in the ' +
+      'string: it is swapped for a placeholder that carries no author text (only the provider watch URL, percent-encoded by the URL ' +
+      'parser), and the drawn figure node is moved back in after, so a browser that leaves `<` raw in a serialized attribute cannot turn ' +
+      'a record\'s title into markup (red team, 2026-11-10; pinned by test/unit/plugins/video-marp-records.test.js "a title that would ' +
+      'end the figure early stays text", which yields two live <img> with the old re-serializing compose). The rest of the string is ' +
+      'the slide\'s own markup as the host wrote it, which the composer only regroups; it finds the figure through `maskPluginSubtrees`.',
+  },
+  {
+    file: 'lib/runtime/index.js',
+    sink: 'tpl.innerHTML',
+    count: 1,
+    provenance:
+      'THE HOST\'S OWN MARKUP, put back: `restoreRawRecordSlides` re-inserts a VS Code preview slide exactly as the preview wrote it ' +
+      '(its `outerHTML`, taken before any runtime write, `rememberRawRecordSlides`) when the saved deck\'s `@video` records arrive after ' +
+      'the slide was laid out, so the card is composed over the host\'s markup as on every other path. Only a slide holding a `@video{` ' +
+      'span, only in that preview (its <meta> in <head>), only when the runtime has since stamped it. Nothing is added to the markup; ' +
+      'it is the same string the host already put in this document.',
+  },
+  {
     file: 'lib/runtime/chart-redraw.js',
     sink: 'tpl.innerHTML',
     count: 1,
@@ -8889,11 +8926,11 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
   {
     file: 'lib/export/marp-bundle.js',
     reads: ['regex'],
-    sinks: { 'attribute-template': 1 },
+    sinks: { 'attribute-template': 2 },
     guards: 0,
     guard: 'none',
     why:
-      'Export-to-Marp writes the bundle\'s own fixed runtime `<script src>` list (`RUNTIME_SCRIPT_SRCS`, constants in this file); its regexes read the deck\'s markdown SOURCE, not a rendered slide. No plugin runs in that path.',
+      'Export-to-Marp writes the bundle\'s own fixed runtime `<script src>` list (`RUNTIME_SCRIPT_SRCS`, constants in this file) and, since 2026-11-10, one fixed `<link rel="stylesheet" href>` to its own VS Code-shaped stylesheet (`VSCODE_LINK` from the constant `VSCODE_STYLESHEET`, engineering/decisions/2026-11-10-marp-vscode-theme-stubs.md); its regexes read the deck\'s markdown SOURCE, not a rendered slide. No plugin runs in that path, and neither address comes from page text.',
   },
   {
     file: 'lib/export/player-assets.mjs',
@@ -8933,12 +8970,12 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
   },
   {
     file: 'lib/runtime/index.js',
-    reads: ['li', 'text'],
+    reads: ['html', 'li', 'text'],
     sinks: { 'property': 3 },
-    guards: 2,
+    guards: 3,
     guard: 'masks',
     why:
-      'The runtime\'s one address write loads OUR plugin-data script beside the runtime (a fixed first-party file, `new URL(p.file, src)`); slide text only decides WHETHER it loads, and the probe skips any `<code>` inside `[data-lattice-plugin]`, so a plugin\'s text decides nothing. The inline-pill mirror (`transformInlinePills`) skips plugin output and never dispatches an address-bearing kind.',
+      'The runtime\'s one address write loads OUR plugin-data script beside the runtime (a fixed first-party file, `new URL(p.file, src)`); slide text only decides WHETHER it loads, and the probe skips any `<code>` inside `[data-lattice-plugin]`, so a plugin\'s text decides nothing. The inline-pill mirror (`transformInlinePills`) skips plugin output and never dispatches an address-bearing kind. The `html` read is `rememberRawRecordSlides` keeping a VS Code record slide\'s markup as the host wrote it, to put back when the saved deck\'s records arrive late; it skips plugin subtrees (the third guard), reads no address, and writes none: every address a Marp video draws comes from a record the deck\'s MARKDOWN holds (lib/plugins/video/shared/video-marp-dom.js, spec/LPM.md §10).',
   },
   {
     file: 'lib/transformers/logo-marks.js',
@@ -9272,8 +9309,8 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'lib/core/css-url.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: the runtime\'s first-url() reader for the engine\'s own picture styles (data: and relative), a linear scan written for WebKit (2026-11-03-pictures-at-drawn-size.md); it decides a size, not a fetch.' },
   { file: 'lib/export/katex-inline.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: inlines KaTeX\'s own `fonts/*.woff2` in its own stylesheet.' },
   { file: 'lib/export/marp-bundle.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: rewrites Lattice\'s own `fonts/…` paths in the bundled stylesheet.' },
-  { file: 'lib/export/marp-bundle.js', shape: 'attr-reader', count: 1, why: 'OWN ASSETS: strips Lattice\'s own runtime `<script src>` tags from the Marp bundle.' },
-  { file: 'lib/export/marp-bundle-html.js', shape: 'attr-reader', count: 1, why: 'OWN ASSETS: matches Lattice\'s own runtime `<script src>` lines, to strip them.' },
+  { file: 'lib/export/marp-bundle.js', shape: 'attr-reader', count: 2, why: 'OWN ASSETS: strips Lattice\'s own runtime `<script src>` tags from the Marp bundle, and (2026-11-10) the one `<link rel="stylesheet" href>` to its own VS Code stylesheet, matched against the exact list of its own file names (`lattice-vscode.css`, the kit\'s `lattice-vscode-min.css`).' },
+  { file: 'lib/export/marp-bundle-html.js', shape: 'attr-reader', count: 2, why: 'OWN ASSETS: matches Lattice\'s own runtime `<script src>` lines, and the one `<link rel="stylesheet">` to the bundle\'s own VS Code-shaped stylesheet (2026-11-10), each against an exact list of the bundle\'s own file names, to let them through.' },
   { file: 'lib/export/player-assets.mjs', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `data:` urls in the player\'s own CSS, to deduplicate them.' },
   { file: 'lib/export/player-fonts.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: reads the player\'s own `data:font/woff2` faces.' },
   { file: 'lib/export/player-images.mjs', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `data:image` urls in the player\'s own CSS, to deduplicate them.' },

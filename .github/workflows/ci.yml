@@ -511,7 +511,7 @@ jobs:
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Cache the pinned marp-cli
         # Five integration files render with the real marp-cli. They used to fetch it inside the test with
-        # `npx -y @marp-team/marp-cli@<MARP_CLI_RANGE>`, and npx asked the registry on every call, cache or not: a
+        # `npx -y @marp-team/marp-cli@<a range>`, and npx asked the registry on every call, cache or not: a
         # slow registry turned 22 integration runs red in 30 days ("did not finish before its parent and was
         # cancelled"), a test failure that was never about the code (#3045). The tests now run an exact pin with a
         # lockfile, `test/fixtures/marp-cli/`, through test/helpers/marp-cli.js, and nothing in a test reaches the

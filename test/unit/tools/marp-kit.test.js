@@ -118,12 +118,13 @@ test('both configs register the ENGINE css, not just the palette', () => {
   // Every palette does `@import 'lattice'` BY NAME, and only Marp's theme set
   // resolves a by-name import. Registering cuoio alone silently yields a deck
   // with no layout rules at all.
+  // VS Code registers the engine's directive-only STUB (its rules arrive through the deck's link to lattice-vscode-min.css,
+  // so the preview stops re-processing 1.1 MB per keystroke), but it must still register it, by name.
   assert.match(text('marp.config.cjs'), /lattice-min\.css/);
   const themes = JSON.parse(text('.vscode/settings.json'))['markdown.marp.themes'];
-  assert.ok(
-    themes.some((t) => t.includes('lattice-min.css')),
-    'VS Code settings must register lattice-min.css, not only the palette',
-  );
+  assert.ok(themes.includes('./.vscode/themes/lattice.css'), 'VS Code settings must register the engine stub, not only the palette');
+  assert.match(text('.vscode/themes/lattice.css'), /@theme lattice\b/, 'the engine stub names the theme the palettes import');
+  assert.ok(text(DECK).includes('<link rel="stylesheet" href="lattice-vscode-min.css">'), 'the sample deck links the engine rules');
 });
 
 test('the sample deck loads its scripts LAST, after every slide', () => {
@@ -212,4 +213,10 @@ test('the committed dist/marp-kit matches what the builder produces', () => {
   for (const rel of onDisk) {
     assert.ok(KIT.has(rel), `dist/marp-kit/${rel} is not produced by the builder — stale artifact`);
   }
+});
+
+// The layout completions ship with the kit: the repo's own generated file, unchanged (tools/build-snippets.js).
+test('the kit ships the layout snippets VS Code completes from', () => {
+  const repo = fs.readFileSync(path.join(__dirname, '..', '..', '..', '.vscode', 'lattice.code-snippets'), 'utf8');
+  assert.equal(text('.vscode/lattice.code-snippets'), repo);
 });

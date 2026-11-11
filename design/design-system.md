@@ -641,10 +641,14 @@ prints `name — description` per row.
 
 ### For the editor
 
-Generated `.vscode/lattice.code-snippets`. Typing `lattice-cards-grid`
-in any `.md` file → autocomplete suggests the snippet → tab inserts
-the full skeleton with placeholder slots. The snippet file is
-generated from the same manifests; never hand-edited.
+Generated `.vscode/lattice.code-snippets` (`tools/build-snippets.js`), one completion per layout,
+scoped to Markdown. In a `.md` file, type `lattice-` and press Ctrl+Space (VS Code does not pop
+suggestions up on its own in Markdown, so prose is never interrupted): every layout is listed with
+its one-line description, and picking one inserts its skeleton exactly as the manifest writes it.
+The skeleton's `{…}` are Lattice's pill syntax, not tab stops, and its `$` and `\` are escaped so
+VS Code inserts them as written. The same file ships in the copy-and-go Marp kit and in every
+Export-to-Marp bundle (`.vscode/lattice.code-snippets`). Generated from the manifests; never
+hand-edited.
 
 ### For the browser (future)
 

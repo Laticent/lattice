@@ -1131,3 +1131,15 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   Offered only for a lone picture on a `content`/`image`/class-less slide, and refused for a class in a compound comment.
   The photo finders (card-ink-pick.ts `photoAt`) read all three spellings. Studio e2e: 20/20 on Chromium desktop and
   phone, WebKit phone and tablet, Gecko, the control checked at 1440, 820 and 390 in each.
+- 2026-11-10: a record in a deck written in Marp draws (the copy-and-go kit, and a record a bundle recipient adds). Marp has
+  no token path, and the runtime may not read an address off the page, so the record now reaches the runtime from the
+  author's Markdown: marp-cli's config engine reads it from the tokens into one data block (`video-marp-engine.js`, written
+  into the kit's and the bundle's `marp.config.cjs`), and the VS Code preview reads the saved deck file (`drawnRecords`).
+  The runtime draws a lone span only when its exact text is one of those records, outside `[data-lattice-plugin]`, no more
+  often than the Markdown holds it, and builds the figure from the record (`video-marp-dom.js`, reached through the plugin's
+  `services`); the `video` layout's composer builds the card. Paired by identity rather than line, because VS Code's
+  `data-line` follows the unsaved buffer: an edit above a video would otherwise have turned it back into code until a
+  save. Measured in VS Code 1.145.2 / Marp for VS Code 3.6.1 at *Disable*: 0 of 1,094 frames showed the raw record while
+  slide 1 was edited, against 10 with the same-microtask redraw removed. `spec/LPM.md` §10 names the channel; the
+  rule is unchanged. Pinned by test/unit/plugins/video-marp-records.test.js and test/integration/export/marp-kit-video.test.js
+  (a plugin-subtree span with an owed record goes red with the guard removed).

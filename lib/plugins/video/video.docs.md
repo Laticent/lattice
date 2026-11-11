@@ -102,7 +102,15 @@ link and no notice.
 - **PDF and print.** The poster is a clickable link, and the scannable code carries the address for paper.
 - **HTML.** The same figure, with the same link.
 - **Export to Marp.** A lone record becomes an ordinary Markdown link on its own line, recorded in the fidelity ledger. A record
-  Lattice cannot be sure of (inside a quote, a list or a fence) is left as code, so nothing is rewritten wrongly.
+  Lattice cannot be sure of (inside a quote, a list or a fence) is left as code, so nothing is rewritten wrongly. Where the
+  bundle's runtime runs, a record left as code, or one typed after export, draws the poster the way the kit does (below).
+- **A deck written in Marp (the copy-and-go kit, `dist/marp-kit`).** The record draws the same poster and, on a `video` slide,
+  the same card as in Lattice. Marp runs none of Lattice's rules, so the record reaches the runtime from your Markdown: marp-cli
+  runs the kit's `marp.config.cjs` engine, which reads the records as Marp parses them, and the VS Code preview reads the saved
+  file. Two consequences. In VS Code a record you have just typed draws when you save, not before. And a `@video{…}` that is on
+  the page but not in your Markdown as a record (raw HTML, or a plugin's output) stays code: the address always comes from
+  what you wrote (spec/LPM.md §10). The poster needs the runtime, so it draws in `marp --pdf`, in a `marp --html` file opened
+  beside the kit's scripts, and in the VS Code preview at the *Disable* security level; elsewhere the record shows as code.
 
 ## What the linter says
 

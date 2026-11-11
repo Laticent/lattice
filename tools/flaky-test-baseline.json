@@ -276,9 +276,6 @@
     "test/integration/export/marp-bundle-author-script.test.js": {
       "fixed-sleep": 3
     },
-    "test/integration/export/marp-video-link.test.js": {
-      "fixed-sleep": 1
-    },
     "test/integration/export/mermaid-worker-confine.test.js": {
       "fixed-sleep": 1
     },

@@ -255,16 +255,29 @@ Export-to-Marp bundle — through real marp-cli, and four more files (`marp-admi
 `marp-video-link`, `marp-bundle-author-script`, `marp-bundle-shell-grammar`) render bundles with it.
 marp-cli is deliberately not a dependency (HARD RULE #1: Marp is an export target, not a render
 path): an exact pin with a lockfile lives in its own folder, `test/fixtures/marp-cli/`, and
-`test/helpers/marp-cli.js` runs its binary. The helper refuses a pin outside the range
-`lib/export/marp-bundle.js` exports (`MARP_CLI_RANGE`, what the bundle tells recipients to run),
-so a range bump that leaves the pin behind fails every Marp suite. CI installs the pin in its own
+`test/helpers/marp-cli.js` runs its binary. The pin is the FLOOR of the Marp range Lattice
+supports (`MARP_SUPPORT`, `lib/export/marp-bundle.js`): marp-cli and, through an npm override,
+marp-core at the oldest versions the bundle and the kit say they work with, so a floor that moves
+without the pin fails every Marp suite. CI installs the pin in its own
 step before any test (`Install the pinned marp-cli`, cached on the lockfile); locally, run
 `npm ci --prefix test/fixtures/marp-cli --ignore-scripts` once. Before #3045 the suites fetched the
 range with `npx` inside the test, and a slow registry cancelled them 22 times in 30 days.
 `LATTICE_MARP_CLI=range` brings that route back on purpose, for a run that wants the newest
-release in the range; it needs the network, so it runs off the per-PR path: the integration
-nightly's "Export-to-Marp on the newest marp-cli in the range" arm runs the five files that way
-every night and files the rolling issue when a new release breaks the bundle.
+release in the range (`MARP_SUPPORT.cli.range`), the range's other end; it needs the network, so it
+runs off the per-PR path: the integration nightly's "Export-to-Marp on the newest
+marp-cli in the range" arm runs the Marp files that way every night and files the rolling issue
+when a new release breaks the bundle.
+
+**The build runs marp-core, and nothing else does.** `@marp-team/marp-core` is a devDependency, pinned exactly (4.4.0), for
+one build step: `tools/build-marp-vscode-css.js` packs the engine and every palette the way Marp for VS Code's preview packs a
+registered theme, so the kit and an Export-to-Marp bundle can link that CSS and register directive-only stubs instead
+(`engineering/decisions/2026-11-10-marp-vscode-theme-stubs.md`). It is the preview's own code, run once at build time instead
+of on every keystroke. Nothing in `lib/` requires it, so HARD RULE #1 holds: Marp stays an export target. The parity test
+`test/integration/export/marp-vscode-css-parity.test.js` renders with it too, and skips when it is not installed.
+Four more devDependencies are aliases of older marp-core releases (`marp-core-4.0.1` … `marp-core-4.4.0`), each with its marpit
+pinned by `overrides`: the pairs Marp for VS Code 3.x bundles, whose own CSS differs (`VSCODE_CORES`; the decision note's
+"Every Marp for VS Code in the range"). Bump them only together with that table; `test/unit/tools/marp-vscode-cores.test.js`
+fails on a mismatch.
 
 **The regex census runs a pinned recheck, in its own folder, and the gate does not need it.**
 `checkRegexCensus` (`tools/check-ownership.js`, via `build:check`) holds every regex literal in

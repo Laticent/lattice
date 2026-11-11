@@ -107,13 +107,35 @@ describe('marp-bundle spec', () => {
     }
   });
 
+  // The VS Code preview registers directive-only stubs and takes its styling from this link (lib/export/marp-vscode-stub.js). A
+  // bundle that registers the full themes instead (a Studio library theme) must not link it too: the engine's rules would land a
+  // second time, after the theme's own, and win where the theme overrides them.
+  test('the VS Code stylesheet link can be left out, and a re-export strips either form', () => {
+    const plain = withRuntimeScripts('# A\n', { vscodeLink: false });
+    assert.ok(!plain.includes('lattice-vscode.css'), 'no link when the bundle registers the full themes');
+    assert.match(plain, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11-min\.js">/);
+    // The kit's sample deck ends with the same block under the kit's file name; exported as a bundle, it keeps no link to a file
+    // the bundle does not ship.
+    const kitTail = '# A\n\n<!-- markdownlint-disable MD033 -->\n<link rel="stylesheet" href="lattice-vscode-min.css">\n'
+      + '<script src="mermaid-v11-min.js"></script>\n<script src="lattice-dagre-min.js"></script>\n<script src="lattice-runtime-min.js"></script>\n';
+    assert.ok(!withRuntimeScripts(kitTail).includes('lattice-vscode-min.css'), 'the kit\'s link comes off');
+    const edited = withRuntimeScripts('# A\n').replace('href="lattice-vscode.css"', 'href="./lattice-vscode.css"');
+    for (const first of [plain, withRuntimeScripts('# A\n'), kitTail, edited]) {
+      for (const vscodeLink of [true, false]) {
+        const again = withRuntimeScripts(first, { vscodeLink });
+        assert.equal(again.match(/markdownlint-disable MD033/g).length, 1, 'one trailer after a re-export');
+        assert.equal(again.includes('lattice-vscode.css'), vscodeLink);
+      }
+    }
+  });
+
   test('withRuntimeScripts appends the lint-ignored mermaid + runtime tags', () => {
     const out = withRuntimeScripts('# A\n\n## B\n');
     // The tags open the trailer; the data blocks follow them. (This used to be
     // `$`-anchored — true only while a marker-less export emitted no settings block,
     // which is the block-less state the runtime reads as "authoring surface" and the
     // choke point now refuses to produce.)
-    assert.match(out, /<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11-min\.js"><\/script>\n<script src="lattice-dagre-min\.js"><\/script>\n<script src="lattice-runtime-min\.js"><\/script>\n/);
+    assert.match(out, /<!-- markdownlint-disable MD033 -->\n<link rel="stylesheet" href="lattice-vscode\.css">\n<script src="mermaid-v11-min\.js"><\/script>\n<script src="lattice-dagre-min\.js"><\/script>\n<script src="lattice-runtime-min\.js"><\/script>\n/);
     assert.ok(RUNTIME_SCRIPTS.includes('lattice-runtime-min.js'));
     // ORDER, not just presence: dagre installs `globalThis.__latticeDagre`, and the
     // runtime's state-chart pass reads it synchronously on its first draw. Classic
@@ -134,6 +156,7 @@ describe('marp-bundle spec', () => {
       trailer,
       '<!-- Lattice: ends any HTML block left open above: </pre></script></style></textarea> ?> ]]> -->\n'
       + '<!-- markdownlint-disable MD033 -->\n'
+      + '<link rel="stylesheet" href="lattice-vscode.css">\n'
       + '<script src="mermaid-v11-min.js"></script>\n'
       + '<script src="lattice-dagre-min.js"></script>\n'
       + '<script src="lattice-runtime-min.js"></script>\n'
@@ -280,7 +303,7 @@ describe('marp-bundle spec', () => {
     assert.match(r, /printed on the slides in VS Code \| The folder is not trusted/);
     assert.match(r, /Fractions and superscripts collapsed onto one line[^|]*\| The folder is not trusted/);
     assert.match(r, /`markdown\.marp\.browserPath`/);
-    // cmd.exe eats `^`, so the pasted npx line names the major only (`@4`, never `@^4.3.1`).
+    // cmd.exe eats `^`, so the pasted npx line names the major only (`@4`, never `@^4.0.0`).
     assert.match(r, /npx @marp-team\/marp-cli@\d+ /);
     // The fidelity intro names no row the table omits (it once promised a `![bg]` row).
     assert.doesNotMatch(r, /the `!\[bg\]` row/);

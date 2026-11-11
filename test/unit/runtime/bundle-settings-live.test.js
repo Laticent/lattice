@@ -197,12 +197,14 @@ test('in the VS Code preview the deck\'s paginate: comes from the SAVED file, so
   // whose switch was removed after export kept the export's baked "off" (found by re-driving real VS Code).
   const saved = '---\nmarp: true\npaginate: true\n---\n<script type="application/lattice-settings">\nclass: lead\n</script>\n\n# T\n';
   const svg = (inner) => `<svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720">${inner}</foreignObject></svg>`;
-  const body = `<div id="vscode-markdown-preview-data"></div><div class="marpit">${[
+  // The preview's marker as VS Code writes it: a <meta> in <head> (measured, VS Code 1.145.2), the only form the runtime reads.
+  const head = '<meta id="vscode-markdown-preview-data" data-settings="{}">';
+  const body = `<div class="marpit">${[
     svg(`<section class="title">${block('class: lead')}<h1>T</h1></section>`),
     svg('<section class="content"><h1>Was off</h1></section>'),
   ].join('')}</div>`;
   const fetchImpl = () => Promise.resolve({ ok: true, text: () => Promise.resolve(saved) });
-  const w = await boot(body, { fetchImpl, url: 'file:///work/deck.md' });
+  const w = await boot(body, { head, fetchImpl, url: 'file:///work/deck.md' });
   await new Promise((r) => setTimeout(r, 200));
   const num = (i) => w.document.querySelectorAll('svg[data-marpit-svg]')[i].querySelector('section').getAttribute('data-marpit-pagination');
   assert.equal(num(1), '2', 'the content slide is numbered from the saved file\'s paginate: true');

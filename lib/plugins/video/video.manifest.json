@@ -41,6 +41,12 @@
         "address": true
       }
     },
+    "services": [
+      "marpEngineSource",
+      "readMarpRecordBlock",
+      "marpRecords",
+      "drawMarpRecords"
+    ],
     "registers": {
       "video": {
         "axes": {

@@ -1610,6 +1610,7 @@
         "inline.js",
         "lint.js",
         "manifest.json",
+        "services.js",
         "styles.css",
         "syntax.mjs"
       ],

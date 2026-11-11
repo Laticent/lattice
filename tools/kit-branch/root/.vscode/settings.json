@@ -1,8 +1,8 @@
 {
   "markdown.marp.themes": [
-    "./marp/lattice-min.css",
-    "./marp/cuoio-min.css",
-    "./marp/cuoio-dark-min.css"
+    "./marp/.vscode/themes/lattice.css",
+    "./marp/.vscode/themes/cuoio.css",
+    "./marp/.vscode/themes/cuoio-dark.css"
   ],
   "markdown.marp.html": "all"
 }

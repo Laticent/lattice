@@ -42,6 +42,12 @@ updates:
       - dependency-name: "@mermaid-js/mermaid-zenuml"
       - dependency-name: "@mermaid-js/mermaid-cli"
       - dependency-name: "@fortawesome/fontawesome-free"
+      # Each is a Marp release a Marp for VS Code version bundles, held to its exact version on purpose
+      # (tools/build-marp-vscode-css.js VSCODE_CORES; test/unit/tools/marp-vscode-cores.test.js goes red on a bump).
+      - dependency-name: "marp-core-4.0.1"
+      - dependency-name: "marp-core-4.1.0"
+      - dependency-name: "marp-core-4.3.0"
+      - dependency-name: "marp-core-4.4.0"
     commit-message:
       prefix: build(deps)
       prefix-development: build(deps-dev)
