@@ -286,3 +286,23 @@ test('a numbered bubble quadrant keeps every bubble on its plane and colors each
   for (const [, c, m] of keyed) assert.equal(c, bubbleCell.get(m), `key marker ${m} takes its group's color`);
   assert.ok(new Set(keyed.map(([, c]) => c)).size === 4, 'four groups, four colors');
 });
+
+test('a crowded scatter on a phone page prints every name inside its drawing, tied to its dot', () => {
+  const T = String.fromCharCode(96);
+  const pts = [['Atlas', '$420k', '18%'], ['Borealis', '$310k', '24%'], ['Cardinal', '$180k', '52%'], ['Dovetail', '$95k', '61%'],
+    ['Everline', '$240k', '31%'], ['Fathom', '$60k', '74%'], ['Granite', '$182k', '53%'], ['Halyard', '$178k', '50%'],
+    ['Ironwood', '$185k', '54%'], ['Juniper', '$400k', '20%'], ['Keystone', '$88k', '66%'], ['Lantern', '$300k', '28%']];
+  const lead = "Four sit within four points of each other and their dots overlap. The stacked names read in the dots' order; Ironwood, which could not join that column honestly, moved beside it.";
+  const deck = `---\ntheme: indaco\nsize: square\n---\n\n<!-- _class: scatter -->\n\n${T}[Annual cost, Teams adopting]${T}\n\n## Twelve tools, and a cluster the eye cannot separate.\n\n${lead}\n\n` +
+    pts.map(([n, x, y]) => `- ${n} ${T}{${x}, ${y}}${T}`).join('\n') + '\n';
+  const html = createEngine().render(deck).html;
+  // Before: "Keystone" was dropped at its box; with a leader blocked it printed two rows from its dot, and with the
+  // pass's least-bad spot it hung past the drawing's top edge.
+  assert.doesNotMatch(html, /data-label-drops=/, 'every name prints');
+  const [, , vh] = html.match(/class="cart-svg scatter-svg" viewBox="0 0 ([\d.]+) ([\d.]+)"/).map(Number);
+  // A first-line baseline closer than 8 units to the top cuts the name's capitals (one hung at 3.97).
+  for (const [, y] of html.matchAll(/class="cart-series scatter-label"[^>]*><tspan[^>]*y="([\d.]+)"/g)) {
+    assert.ok(+y >= 8 && +y <= vh, `a name's baseline at ${y} sits inside the drawing (8..${vh})`);
+  }
+  assert.equal((html.match(/class="cart-series scatter-label"/g) || []).length, 12, 'all twelve names');
+});
