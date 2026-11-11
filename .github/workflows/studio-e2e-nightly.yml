@@ -597,11 +597,12 @@ jobs:
       run:
         shell: bash
     steps:
-      # The image has Node and the browsers, not git: install it first so checkout makes a real
-      # clone (the docs build reads git history) rather than falling back to a tarball. Its .deb comes
-      # from GitHub's cache, keyed on the image tag; only a miss reads the mirror, three tries with
-      # apt's own three retries (owner call, 2026-11-11). Inline because the repo's apt-cached action
-      # is not on disk before checkout.
+      # checkout needs git to make a real clone (the docs build reads git history) rather than fall
+      # back to a tarball. The v1.56.1 image already ships git, so this step normally does nothing. If a
+      # later image drops it, its .deb comes from GitHub's cache, keyed on the image tag; only a miss
+      # reads a mirror, through the same mirror list as apt-setup.sh, three tries with apt's own three
+      # retries (owner call, 2026-11-11). Inline because the repo's apt-cached action is not on disk
+      # before checkout.
       - name: Restore git's packages
         uses: actions/cache@v4
         with:
@@ -610,7 +611,13 @@ jobs:
       - name: Install git
         run: |
           set -euo pipefail
+          if command -v git >/dev/null 2>&1; then echo "git is in the image: $(git --version)"; exit 0; fi
           printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' > /etc/apt/apt.conf.d/80-lattice-retries
+          # The mirror list from .github/actions/apt-cached/apt-setup.sh; keep the two in step.
+          printf '%s\tpriority:%s\n' http://mirrors.edge.kernel.org/ubuntu/ 1 http://archive.ubuntu.com/ubuntu/ 2 \
+            http://mirror.math.princeton.edu/pub/ubuntu/ 3 http://azure.archive.ubuntu.com/ubuntu/ 4 \
+            http://us.archive.ubuntu.com/ubuntu/ 5 http://security.ubuntu.com/ubuntu/ 6 > /etc/apt/apt-mirrors.txt
+          sed -i 's#^URIs: http://archive.ubuntu.com/ubuntu/\?$#URIs: mirror+file:/etc/apt/apt-mirrors.txt#' /etc/apt/sources.list.d/ubuntu.sources
           dir=/root/apt-git-debs
           if ! ls "$dir"/*.deb >/dev/null 2>&1; then
             mkdir -p "$dir/partial"
@@ -621,7 +628,8 @@ jobs:
             done
             rm -rf "$dir/partial" "$dir/lock"
           fi
-          dpkg -i "$dir"/*.deb
+          # A cache built on another image may not fit this one: install from the mirror instead.
+          dpkg -i "$dir"/*.deb || { rm -rf "$dir"; apt-get install -y -f --no-install-recommends && apt-get install -y --no-install-recommends git; }
       - uses: actions/checkout@v4
       - name: Trust the workspace for git (the container runs as root on a runner-owned checkout)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"

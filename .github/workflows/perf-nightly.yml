@@ -407,7 +407,7 @@ jobs:
       # `playwright install` was reported as "a per-keystroke render went past its budget" — an
       # infrastructure failure filed as a high-priority performance regression. Install failures
       # now fail the job loudly and file nothing.
-      - name: Install docs deps + browser
+      - name: Install docs deps
         if: always()
         run: |
           set -euo pipefail

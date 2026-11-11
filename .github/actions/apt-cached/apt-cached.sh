@@ -27,6 +27,22 @@ SUDO=; [ "$(id -u)" = 0 ] || SUDO=sudo
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 bash "$here/apt-setup.sh"
 
+# What the IMAGE lacks, not what this job lacks by now. The first call in a job copies dpkg's package list before any
+# install, and every download is computed against that copy. Without it, a cache entry depended on what ran earlier in
+# the job: a WebKit download after a Chromium install skipped the fonts both browsers need, and every later job that
+# restored that entry had to fetch them from the mirror (found by review on #3139).
+pristine=${RUNNER_TEMP:-/tmp}/lattice-dpkg-status.pristine
+[ -f "$pristine" ] || cp /var/lib/dpkg/status "$pristine"
+
+# A run that fails leaves no folder behind, so a job that tolerates the failure (continue-on-error) cannot save a half
+# download as its cache entry.
+drop_on_failure() {
+  local rc=$?
+  [ "$rc" = 0 ] || $SUDO rm -rf "$dir"
+  exit "$rc"
+}
+trap drop_on_failure EXIT
+
 # Three tries, 10 s then 20 s apart, around every call that reads a mirror. apt's own retries cover one download; this
 # covers a whole `update` whose index files all failed (apt-get update exits 0 on that, so the install after it is what
 # fails, and both are retried together).
@@ -68,9 +84,9 @@ prune() {
 
 case "$mode" in
   download)
-    with_mirror apt_into install -y --no-install-recommends --download-only "${pkgs[@]}"
+    with_mirror apt_into install -y --no-install-recommends --download-only -o Dir::State::status="$pristine" "${pkgs[@]}"
     settle
-    echo "apt-cached.sh: $(ls "$dir"/*.deb 2>/dev/null | wc -l) packages in $dir"
+    echo "apt-cached.sh: $(find "$dir" -maxdepth 1 -name '*.deb' | wc -l) packages in $dir"
     ;;
   install)
     mkdir -p "$dir"

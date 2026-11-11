@@ -22,8 +22,11 @@ runs:
       run: |
         list=$(printf '%s\n' $PACKAGES | sort -u | tr '\n' ' ')
         echo "list=$list" >> "$GITHUB_OUTPUT"
-        echo "base=apt-${ImageOS:-unknown}-$RUNNER_ARCH-$(printf '%s' "$list" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
-        echo "image=${ImageVersion:-0}" >> "$GITHUB_OUTPUT"
+        # A container job has no ImageOS or ImageVersion (they are the runner machine's): name the OS from os-release,
+        # and stand in for the version with a hash of the container's package list, so a new image gets its own entry.
+        os=${ImageOS:-$(. /etc/os-release && echo "$ID$VERSION_ID")}
+        echo "base=apt-$os-$RUNNER_ARCH-$(printf '%s' "$list" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+        echo "image=${ImageVersion:-$(sha256sum /var/lib/dpkg/status | cut -c1-12)}" >> "$GITHUB_OUTPUT"
     - name: Restore the packages
       uses: actions/cache@v4
       with:
