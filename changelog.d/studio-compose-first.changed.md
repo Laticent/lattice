@@ -16,3 +16,5 @@
 - **Compose looks like the signature mode.** Its word stays in the accent color even when it is off,
   and when it is on it takes the same solid fill as Present, in the editor header and the phone bar.
   Source, when on, takes a quiet neutral chip that shows in every palette.
+- **The selected stop in Read · Write · Craft is an ink chip.** It used to be a faint gray tint with a
+  gold hairline; it is now the inverted chip the phone bar already uses for its selected cell.

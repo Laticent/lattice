@@ -235,8 +235,15 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 						      nobody looked at. The hairline is solid where the transient arm's is dashed,
 						      which is what keeps "your saved home" and "showing now" apart.
 						    This also buys back an accent draw: the bar spends accent on ONE filled object
-						    (Present), and here only on a hairline — a state marker, not a filled control. */}
-						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 text-[12px] font-semibold transition-colors', BAR_SEGMENT, lit ? (transient ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] shadow-sm ring-1 ring-inset ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]') : 'text-[var(--text-body)] hover:text-[var(--text-heading)]')}>
+						    (Present), and here only on a hairline — a state marker, not a filled control.
+						    · 2026-11-11, the owner's pick (B of four mocked live): the SAVED stop is now the INK
+						      chip, `--text-heading` filled with `--bg` text, the inversion the phone bar's selected
+						      cell already uses, so "selected" looks the same everywhere and reads at a glance.
+						      Its contrast is the theme's own primary text pair, so it holds in every palette, the
+						      monochrome ones included. Gold stays for the two hero verbs, Present and Compose
+						      (EditModeToggle). The TRANSIENT stop keeps the quieter 12% mix with the dashed
+						      outline, which is what tells "showing now" apart from "your saved home". */}
+						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 text-[12px] font-semibold transition-colors', BAR_SEGMENT, lit ? (transient ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-[var(--text-heading)] text-[var(--bg)] shadow-sm') : 'text-[var(--text-body)] hover:text-[var(--text-heading)]')}>
 							{/* The words are not optional. They shipped as desktop-only for one release
 							    (#1381) and the reclaim was real — 219px labeled vs 116px — but it landed on
 							    the one control in this row that cannot survive it: a touch user between 700
