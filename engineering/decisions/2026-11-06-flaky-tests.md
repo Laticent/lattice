@@ -99,6 +99,10 @@ required; a bare `flaky-ok` still counts.
   clock and returns when its timer queue is empty, a signal where the tests slept 300 to 1,000 ms. `virtualClock(win)`
   is the same clock for any jsdom window. Nine of `test/unit/core`'s sleeps were this boot. Five of their seven files
   passed with no wait at all, so those sleeps waited for nothing; the other two fail without `settle()`.
+  `settle({ onStep })` (added 2026-11-11, `test/integration/parity`) calls `onStep()` at every resting point between
+  the runtime's callbacks, so a test that must see an invariant hold THROUGHOUT a run checks every state a frame could
+  paint; `runtime-mode-geometry`'s backdrop window used a 10 ms poll on the real clock that saw only the states its ticks
+  hit. A settle that never ends is a finding, not a cap to raise: see "The virtual clock found a live loop" below.
 - node:test's `mock.timers` (`setTimeout`, `setInterval`, `Date`) where the code under test reads Node's own timers: a
   timeout bound is checked at 1 ms before and at the bound, which the old `elapsed >= 140 && < 500` window could not do.
 - `test/helpers/work-count.js`: `scanWork(fn)` totals the characters every string search and regex `exec` covered, so a
@@ -122,6 +126,15 @@ required; a bare `flaky-ok` still counts.
   client gone first. A live browser has nothing to drain, so an absence check runs a WITNESS: the same attempts with no
   walls against a second listener, started after the walled attempts. The witness proves how long one attempt takes
   to land, not that a subject holding a request back on purpose has sent it.
+
+**The virtual clock found a live loop** (2026-11-11). When `runtime-cards-align.test.js` moved from a 250 ms sleep to
+`bootRuntime`, its boot over every governed component never went idle: `settle()` gave up after 2,000 callbacks. The
+`wifi`, `contact` and `gift-card` adapters assigned `innerHTML` on every pass even when `renderCard` handed back the
+same string (a slide with no card fields yet), and that write scheduled the next pass. In Chromium one such slide ran
+21 passes in 3 s, against 2 for a `content` slide; it now runs 2. The sleep had read mid-loop and passed. The three
+adapters now share `rebuildCardsInDom` in `lib/transformers/qr-card-dom.js`, which writes only on a change,
+and `test/unit/transformers/qr-card-dom-quiet.test.js` counts the mutation records. So a settle that never ends is a
+defect to chase, never a step cap to raise.
 
 **Backtracking inside one regex has no count to read.** The audit tried V8's
 `--regexp-backtracks-before-fallback` with `--trace-experimental-regexp-engine`: the count rises about once per start

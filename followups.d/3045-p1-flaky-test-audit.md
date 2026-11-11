@@ -102,6 +102,19 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             so its walled arms had passed on an absence that proved nothing; the no-walls launch now disables that
             check. New helpers: `test/helpers/request-log.js` (listener drain, witness listener) and a real-browser
             settle (`page-settle.js`).
+            2026-11-11 (CI + flaky tests, second PR, P1): `test/integration/parity` done, 34 hits in 10 files, no
+            `flaky-ok` needed; the baseline is now 192 hits in 82 files. The jsdom boots use `bootRuntime`/
+            `virtualClock`, which gained `settle({ onStep })` for invariants that must hold throughout a run; the
+            real-Chromium ones use `trackPageWork` (a `setContent` page installs the ledger by hand). Found and fixed:
+            QR-card slides with no fields re-ran the runtime forever (the decision note's "The virtual clock found a
+            live loop").
+            2026-11-11 (same PR, P2): `test/unit/playground` done, 21 hits in 3 files, no `flaky-ok` needed; the
+            baseline is now 171 hits in 79 files. The voice tests wait for the request to reach the rung
+            (`synthCalls`), read absences after one macrotask turn of all-mock code (`drained`), own `Date` with
+            `mock.timers` for the latency reservoir, and cancel the on-device load from inside the adapter probe
+            instead of racing a 10 ms timer against a 50 ms one. The abort test's `elapsed < 1000` is now "settled
+            within one turn of the abort". Next by weight: `test/unit/components` (19), `test/unit/trama` (17),
+            `test/unit/plugins` (15).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.
