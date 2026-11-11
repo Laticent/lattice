@@ -57,6 +57,37 @@ describe('wrapImageText lifts only the slide\'s own panels', () => {
     assert.equal(section.querySelectorAll('.image-text .lattice-bg').length, 0, 'and nothing is left in the text panel');
   });
 
+  // Every place markdown lets a `![bg]` or a record sit is the slide's photo all the same: the engine hoists a `![bg]` panel to
+  // slide level, and the image plugin's own panel carries a marker an author cannot write. Each of these lost its photo when
+  // the lift first became "top level or a paragraph" (the checker on followups.d/3126-p1).
+  for (const [name, body] of [
+    ['a `![bg]` in a quote', `> ${PHOTO}`],
+    ['a `![bg]` in a list item', `- ${PHOTO}`],
+    ['a `![bg]` in a table cell', `| ${PHOTO} | x |\n|---|---|`],
+    ['a `![bg]` in emphasis', `*hi ${PHOTO}*`],
+    ['a `![bg]` typed on the line after a list (lazy continuation)', `- a\n- b\n${PHOTO}`],
+    ['a `![bg]` typed on the line after a quote (lazy continuation)', `> A quote\n${PHOTO}`],
+    ['a record alone in a quote', '> `@image{https://x.test/photo.jpg, title="Photo"}`'],
+    ['a record alone in a list item', '- `@image{https://x.test/photo.jpg, title="Photo"}`'],
+  ]) {
+    test(`${name} is still the slide's photo`, () => {
+      const section = children(render(body));
+      const panels = [...section.querySelectorAll('.lattice-bg')];
+      assert.equal(panels.length, 1, 'one panel');
+      assert.equal(panels[0].parentElement, section, 'and it sits at section level, where the layout places it');
+    });
+  }
+
+  // A heading opens its own slide when headings split the deck, so these two are their slide's first heading.
+  for (const [name, slide] of [['a `![bg]` in a heading', `## Title ${PHOTO}\n\nWords.`], ['a `![bg]` under a setext heading', `Title ${PHOTO}\n===\n\nWords.`]]) {
+    test(`${name} is still the slide's photo`, () => {
+      const section = children(firstSection(e.render(`---\ntheme: indaco\n---\n\n<!-- _class: image -->\n${slide}\n`).html));
+      const panels = [...section.querySelectorAll('.lattice-bg')];
+      assert.equal(panels.length, 1, 'one panel');
+      assert.equal(panels[0].parentElement, section, 'at section level');
+    });
+  }
+
   test('a quoted copy of the slide\'s own panel stays put: panels come out by position, not by text', () => {
     const own = `<div class="lattice-bg lattice-bg-right" style="background-image:url('https://x.test/photo.jpg')"></div>`;
     const html = `<section class="image"><h2>T</h2><blockquote>${own}</blockquote>${own}<p>Words.</p></section>`;

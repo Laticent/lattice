@@ -1167,13 +1167,18 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
 - 2026-11-11: **the `image` slide lifts only its own panels** (followups.d/3126-p1, now deleted). `wrapImageText`
   (lib/core/bg-image.js) collected every `<div class="lattice-bg…` with a regex and moved it to section level, so an author's raw
   panel in a quote drew as the slide's photo and hid the real one (measured on a CLI PNG render: before, the quoted square photo
-  filled the panel slot and the slide's `![bg right]` never showed). `slidePanelSpans` now reads the section with the shared tag
-  scanner (`@laticent/markup` `scanTags`) and lifts a panel only at section level or inside nothing but a paragraph, where the
-  engine writes a `![bg]` that sits in prose (lib/engine/background-image.js); panels come out by position, so a quoted copy of
-  the slide's own panel stays put. The DOM mirror already moved only direct children. The `image` layout's thirteen
-  `.lattice-bg` rules now use the child combinator (`section.image > .lattice-bg`, no change in specificity), so a panel left
-  in a quote is not positioned as the slide's photo either. test/unit/core/image-text-nested-panels.test.js renders each shape
-  through the real engine and the DOM mirror (5 of 6 arms fail on `main`); `npm run identity:check`: 466 decks, 0 differ.
+  filled the panel slot and the slide's `![bg right]` never showed). **The panel is the slide's by provenance, not by position.**
+  The engine hoists a `![bg]` that sits anywhere but its own top-level paragraph (a heading, a list item, a quote, a table cell,
+  prose, a lazy continuation after a list) to its own block before the slide-level block that held it
+  (lib/engine/background-image.js `liftToPanels`). `slidePanelSpans` reads the section with the shared tag scanner
+  (`@laticent/markup` `scanTags`) and lifts a panel at section level, or the image plugin's panel (`data-lattice-media="image"`,
+  a host marker author-markup.js renames) from any depth outside a plugin's drawing, so a record alone in a quote stays the photo;
+  panels come out by position. The DOM mirror already moved only direct children, and image-adaptive now measures only the
+  section's own panel. A first cut lifted "section level or a paragraph" and lost the photo in every other shape; the checker
+  caught it with the CLI (a photo typed on the line after a list drew no photo), and each shape is now a test row. The `image`
+  layout's thirteen `.lattice-bg` rules now use the child combinator (`section.image > .lattice-bg`, no change in specificity), so
+  a panel left in a quote is not positioned as the slide's photo either. test/unit/core/image-text-nested-panels.test.js renders each shape
+  through the real engine and the DOM mirror, one test per shape; `npm run identity:check`: 466 decks, 0 differ.
   **The Reading view, decided:** a quoted raw panel now reaches the article as the author's quoted HTML, as any quoted raw HTML
   does on a `content` slide (on `main` too); the `image` slide used to drop it only because the lift pulled it out of the quote.
   The guarantee that matters holds: it is never re-hosted as the article's photo, and the forged `data-lattice-media` marker

@@ -1518,10 +1518,12 @@
       "verdict": "unknown",
       "why": "recheck cannot model it: back-reference"
     },
+    "/\\sdata-lattice-media=\"image\"/": "safe",
     "/\\sdata-lattice-off=\"avatars\"/": "safe",
     "/\\sdata-lattice-off=/": "safe",
     "/\\sdata-lattice-off\\b/i": "safe",
     "/\\sdata-lattice-pagination=\"([^\"]*)\"/": "safe",
+    "/\\sdata-lattice-plugin[\\s=>]/": "safe",
     "/\\sdata-lattice-slide=\"([^\"]*)\"/": "safe",
     "/\\sdata-lattice-slide=/i": "safe",
     "/\\sdata-lattice-web-src=\"([^\"]*)\"/i": "safe",
