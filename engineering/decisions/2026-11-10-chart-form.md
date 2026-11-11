@@ -223,6 +223,16 @@ every line above and below the chart v times its px, at 1/v the characters a lin
 the base already holds grow with it. Before this, every kernel chart on `examples/chart-text-venue.md` printed at 9.1 to
 10.4pt on a phone page, and one at 1.3pt.
 
+**The title's lines.** A tall page's base holds two title lines, and the estimate counted one more per 48 characters,
+so a 68-character title came out on three lines where it set on four, and its chart drew 90px taller than its body. It now
+breaks the title at spaces by rough glyph widths (a space, a stop or a thin letter is half a character; t, f and r three
+quarters; a wide letter or a dash 1.4): 22.5 widths a line on a tall page and 25.5 beside a meta line at square, the
+widths at which every measured title (eleven tall, five square) sets on its real line count. The glyph table stays out of
+the startup engine, so this is an estimate. A sketch deck's display face is narrower and is not modeled: its long titles
+count a line more than they set, which leaves its chart a little short (`hub-spoke-sketch.md` p5 at 4:5, 10pt, over
+capacity). Across every deck that draws a kind on the kernel at the four phone sizes, the pages under 11pt fell from 194
+to 140.
+
 **No box shorter than a chart.** The estimate never goes under a third of the body's width (340px). A page whose blocks
 leave less (that deck's p8 at 4:5, a long source line at hall: 72px of body) draws the chart whole at that height and the
 page scales it into what is left, as over capacity; squeezed into the sliver, its names printed over each other. One other

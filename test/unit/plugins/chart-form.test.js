@@ -209,3 +209,13 @@ test('a histogram on a phone page prints every value, over capacity when its ban
   const four = createEngine().render(`---\ntheme: indaco\nsize: mobile\n---\n\n<!-- _class: histogram -->\n\n## Most years stay small.\n\n- ${tick}1..10${tick} ${tick}55%${tick}\n- ${tick}10..50${tick} ${tick}30%${tick}\n- ${tick}50..100${tick} ${tick}12%${tick}\n`).html;
   assert.match(four, /data-chart-form="fit" class="histogram-svg"/);
 });
+
+test('a long title on a tall phone page comes off the chart box line by line', () => {
+  const deck = (title) => `---\ntheme: indaco\nsize: mobile\n---\n\n<!-- _class: bar -->\n\n## ${title}\n\n- North `+'`4`'+`\n- South `+'`3`'+`\n`;
+  const h = (title) => Number(/class="cart-svg bar-svg" viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(createEngine().render(deck(title)).html)[1]);
+  // A title on the two lines the base holds, then one on four (68 characters, measured): two 92px lines shorter, about
+  // 30 units each at 972/320 px a unit.
+  const two = h('Cloud overtook licenses in Q3.');
+  const four = h('Two hurricanes added $210M of claims; reinsurance took back $140M.');
+  assert.ok(Math.abs(two - four - (2 * 92) / (972 / 320)) < 1, `${two} vs ${four}`);
+});
