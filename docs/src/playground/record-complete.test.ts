@@ -39,7 +39,7 @@ describe('recordOptions: what it offers', () => {
 	it('values: components for layout, that layout’s variants, a register’s own words', () => {
 		expect(labels(recordOptions(recordCompletion('<!-- {layout='), CATALOG, []))).toEqual(expect.arrayContaining(['cards', 'kpi']));
 		expect(labels(recordOptions(recordCompletion('<!-- {layout=cards, variant='), CATALOG, []))).toEqual(['compact', 'wide']);
-		expect(labels(recordOptions(recordCompletion('<!-- {headline='), CATALOG, []))).toEqual(RECORD_VALUES.headline);
+		expect(labels(recordOptions(recordCompletion('<!-- {headline='), CATALOG, []))).toEqual((RECORD_VALUES as Record<string, string[]>).headline);
 		expect(labels(recordOptions(recordCompletion('<!-- {focus-style=ri'), CATALOG, []))).toContain('ring');
 		expect(recordOptions(recordCompletion('<!-- {footer=Q'), CATALOG, [])).toEqual([]);
 	});
