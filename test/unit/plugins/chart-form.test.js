@@ -167,3 +167,16 @@ test('a stacked bar on a phone page keeps its names whole and its drawing the ca
   assert.ok(vbW <= 320.5, `viewBox ${vbW} wide`);
   assert.doesNotMatch(wide, /sbar-total[^>]*>(?:<[^>]+>)*[^<]*…/);
 });
+
+test('at a venue the box comes off every block the venue enlarges, so the chart keeps its role sizes', () => {
+  const deck = (venue) => `---\ntheme: indaco\nsize: mobile\n${venue ? `venue: ${venue}\n` : ''}---\n\n<!-- _class: bar -->\n\n` +
+    '`Hall · labels at the back row`\n\n## Growth is concentrated in two regions.\n\n- North America `$4.2M`\n- EMEA `$3.1M`\n- APAC `$1.8M`\n';
+  const h = (venue) => {
+    const html = createEngine().render(deck(venue)).html;
+    return Number(/class="cart-svg bar-svg" viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(html)[1]);
+  };
+  // `hall` sets the title, eyebrow and page number 1.5 times larger: the canvas is shorter by more than two of the
+  // title's extra lines (92px each, about 30 units at 972/320 px a unit), and a laptop deck's canvas is unchanged.
+  assert.ok(h('hall') < h(null) - 60, `hall ${h('hall')} vs laptop ${h(null)}`);
+  assert.equal(h('laptop'), h(null));
+});

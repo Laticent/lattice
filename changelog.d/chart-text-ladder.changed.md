@@ -8,4 +8,5 @@
 - On those pages a chart under several paragraphs, a quote or a table keeps its text size: the chart's box now allows for every block above it, not only the first paragraph.
 - On those pages a radar's rim labels print at 11pt and its plot takes the width they leave; ring figures too close for 11pt print on every other ring. Small multiples draw as one grid in the column count that prints them largest, and a hero or bleed radar fills its stage.
 - On those pages a map's key prints at 13pt under or beside the basemap, which takes the room the key leaves; on a 4:5 or square page it printed at 5.5 to 8.5pt.
+- On those pages a deck with `venue:` keeps its chart text at its role sizes: the chart's box now allows for the larger title, eyebrow and captions the venue sets. At `venue: hall` a phone page's chart printed at 9 to 10pt, and one at 1.3pt.
 - A chart these sizes cannot hold on one page at 11pt is drawn whole and scaled to its box, so no name is lost or printed over another.

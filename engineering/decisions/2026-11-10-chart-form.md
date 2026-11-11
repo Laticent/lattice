@@ -216,6 +216,19 @@ it on the section (`data-meta-lines`) for the runtime's redraw to read. On a tal
 at square it docks beside the title, which drops the masthead 6px and narrows the title to about 36 characters a line.
 Before this, a short-titled chart in one of the 26 decks that set `meta:` printed at 10.4 to 10.7pt.
 
+**The box at a venue.** `venue:` sets the deck's type `--fs-scale` (1.15 at huddle, 1.3 at conference, 1.5 at hall;
+`base.modifiers.css`), and on a phone page that reaches the title too: at hall a 30-character title runs three 137px lines
+where it ran two 92px lines. `formBoxPx` takes the scale (`VENUE_SCALE`, read from the section's venue class) and costs
+every line above and below the chart v times its px, at 1/v the characters a line; the two title lines and the page number
+the base already holds grow with it. Before this, every kernel chart on `examples/chart-text-venue.md` printed at 9.1 to
+10.4pt on a phone page, and one at 1.3pt.
+
+**No box shorter than a chart.** The estimate never goes under a third of the body's width (340px). A page whose blocks
+leave less (that deck's p8 at 4:5, a long source line at hall: 72px of body) draws the chart whole at that height and the
+page scales it into what is left, as over capacity; squeezed into the sliver, its names printed over each other. One other
+page in the example decks reaches the floor: `chart-lead-blocks.md` p2 at 4:5 and square, where the estimate overcounts
+the code block and the chart now takes the room it had.
+
 **The box at `claim-hero` and `claim-bleed`.** Pie and radar take a full-bleed body at hero and bleed
 (`chart-family.styles.css`): narrower than 972px (833 to 902px, the caption band's rail beside it) and taller, with the
 eyebrow taking no height. A kind on the kernel says so in its manifest (`kernel.formHero: true`; the pie today, radar when it moves), and the dispatch reads that box from its own table (`HERO_PX`) and draws on a canvas as narrow as
@@ -239,7 +252,8 @@ the owner's scaled drawing (§ 10).
 | tower | yes | the key is a kernel tile at the key role, the tower drawn in the cell left; with notes it keeps its own layout, which overprints on story, 4:5 and square as it did before the kernel |
 | radar | yes | the 300-unit diagram is drawn at type scale 1/k and scaled by k, so its rim labels print at their role and the side pads, measured from the labels, come out in fixed canvas units; ring figures thin to every other ring when they crowd; small multiples draw in one grid; with notes it keeps its own layout |
 | map | yes | the basemap is the plot at its own aspect, scaled into the cell (its regions carry no text); the key a kernel tile, in columns when grouped (a heading starts a group); with notes it keeps its own layout |
-| stacked-bar, heatmap, histogram, waterfall, word-cloud | to do | size holds; names dropped vs `main` |
+| stacked-bar | yes | the row form's name column wraps names at spaces (bar's rule); a keyed stack's key is a kernel tile under a heading that names the bar its values read; the direct-name column comes off the canvas, and names reflow to a key when the totals no longer fit their bars |
+| heatmap, histogram, waterfall, word-cloud | to do | size holds; names dropped vs `main` |
 | gantt, slope, state-chart | to do | overprints at square; state-chart under the floor at square |
 | roadmap, timeline-list | to do | overflow at square |
 | matrix-grid | to do | holds both bars; floats small at mobile |
