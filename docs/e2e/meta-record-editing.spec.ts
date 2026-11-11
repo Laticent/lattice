@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { acceptCompletion, appendToEditor, CHROME, expect, gotoStudio, openSection, persistedSource, setEditorContent, test, typeDeck, watchMenuOpen } from './studio-fixture';
+import { acceptCompletion, appendToEditor, CHROME, expect, gotoStudio, isPhone, openSection, persistedSource, setEditorContent, test, typeDeck, watchMenuOpen } from './studio-fixture';
 
 // Editing a slide-metadata RECORD (`<!-- {layout=kpi, note="…"} -->`) in the real Studio (record note step 3,
 // engineering/decisions/2026-10-17-meta-record.md §9). The drawer and Compose are driven by
@@ -19,12 +19,15 @@ async function openSlideSection(page: Page, name: string): Promise<void> {
 	await openSection(page, name);
 }
 
-// Completion is driven at desktop, iPad (WebKit) and Firefox widths: at phone width the editor sits behind the Edit pane,
-// which the shared editor helpers do not open (studio-fixture.ts `focusEditor`).
 const editorText = (page: Page) => page.getByLabel('Deck source');
 
-async function completesARecord(page: Page): Promise<void> {
+test('completion inside a record offers its fields, then a register’s values @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
+	// Below 700px the Studio shows one pane at a time: the `Markdown source` cell swaps the editor in.
+	if (isPhone(page)) {
+		await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+		await expect(editorText(page)).toBeVisible();
+	}
 	await setEditorContent(page, '---\ntitle: Record\n---\n\n');
 	await watchMenuOpen(page);
 	await appendToEditor(page, '<!-- {headl');
@@ -37,11 +40,7 @@ async function completesARecord(page: Page): Promise<void> {
 	await expect(menu.getByRole('option', { name: /^left/ })).toBeVisible();
 	await acceptCompletion(page);
 	await expect(editorText(page)).toContainText('<!-- {headline=left');
-}
-
-// Desktop runs untagged tests; the WebKit-tablet and Firefox projects run the tagged one (playwright.config.ts).
-test('completion inside a record offers its fields, then a register’s values', async ({ page }) => completesARecord(page));
-test('completion inside a record, on iPad and Firefox @webkit-tablet @gecko', async ({ page }) => completesARecord(page));
+});
 
 test('the speaker-note editor reads a record’s note and writes it back into the record @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
@@ -69,4 +68,17 @@ test('the description editor reads a record’s describe field and writes it bac
 	await box.blur();
 	await expect.poll(() => persistedSource(page)).toContain('<!-- {layout=kpi, describe=Revenue grew in Q3} -->');
 	expect(await persistedSource(page)).not.toContain('<!-- describe:');
+});
+
+test('the say-line editor reads a record’s say field and writes it back into the record @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
+	await gotoStudio(page);
+	await typeDeck(page, '---\ntitle: Record\n---\n\n<!-- {layout=kpi, say="Revenue is up."} -->\n\n## Revenue\n');
+	await expect.poll(() => persistedSource(page)).toContain('Revenue is up.');
+	await openSlideSection(page, CHROME.slideTab.notes);
+	const box = page.getByRole('textbox', { name: 'What this slide says aloud' }).filter({ visible: true }).first();
+	await expect(box).toHaveValue('Revenue is up.');
+	await box.fill('Revenue grew a third.');
+	await box.blur();
+	await expect.poll(() => persistedSource(page)).toContain('<!-- {layout=kpi, say=Revenue grew a third.} -->');
+	expect(await persistedSource(page)).not.toContain('<!-- say:');
 });
