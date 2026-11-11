@@ -262,6 +262,41 @@ function printOverflowPolicy(marker, source, deckPath) {
     + `\`npx lattice "${deckPath}" /tmp/check.pdf\` — it prints the clipped pages.`);
 }
 
+/**
+ * The bundle's Markdown with each `bleed` slide's ink baked in (lib/export/marp-bleed-ink.js decides what qualifies and writes
+ * it; lib/core/bleed-ink.mjs picks the ink). The photos are the bundle's own files, confined to `dest`; their heading bands are
+ * read in a headless Chromium by tools/bleed-ink-sampler.cjs, run only when a slide qualifies. Anything that fails leaves the
+ * Markdown as it was: the slide keeps the ink its author gave it.
+ */
+function withBundledBleedInk(markdown, dest, fm) {
+  const { bleedInkSlides, withBleedInk } = require('../lib/export/marp-bleed-ink.js');
+  const { bleedSampleRect, bleedInkOfPixels } = require('../lib/core/bleed-ink.js');
+  const slides = bleedInkSlides(markdown);
+  if (!slides.length) return markdown;
+  const { readDimensions } = require('../lib/core/image-dimensions.js');
+  const { sizeFor } = require('../lib/core/sizes');
+  const size = /^size[ \t]*:[ \t]*["']?([\w:/.-]+)/m.exec(fm || '')?.[1];
+  const geom = sizeFor(size);
+  const types = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml' };
+  const root = fs.realpathSync(dest);
+  const jobs = [];
+  for (const url of new Set(slides.map((s) => s.url))) {
+    let real;
+    try { real = fs.realpathSync(path.resolve(dest, decodeURI(url))); } catch { continue; }
+    if (!real.startsWith(root + path.sep)) continue;
+    const mime = types[path.extname(real).toLowerCase()];
+    const dims = mime ? readDimensions(real) : null;
+    const rect = dims ? bleedSampleRect(dims.w, dims.h, parseFloat(geom.width), parseFloat(geom.height)) : null;
+    if (rect) jobs.push({ url, file: real, mime, rect, w: 32, h: Math.max(1, Math.round((32 * rect.h) / rect.w)) });
+  }
+  if (!jobs.length) return markdown;
+  const run = require('node:child_process').spawnSync(process.execPath, [path.join(__dirname, 'bleed-ink-sampler.cjs')], { input: JSON.stringify(jobs), encoding: 'utf8', timeout: 120000 });
+  let pixels = {};
+  try { pixels = JSON.parse(run.stdout || '{}'); } catch { pixels = {}; }
+  const inkByUrl = new Map(jobs.map((j) => [j.url, pixels[j.url] ? bleedInkOfPixels(pixels[j.url]) : null]));
+  return withBleedInk(markdown, inkByUrl);
+}
+
 function main(argv) {
   // The agent kit (AGENTS.md + the component catalog) ships by DEFAULT so a
   // recipient's AI agent can extend the deck; `--no-agent` produces a lean,
@@ -414,7 +449,9 @@ function main(argv) {
     overflowMarker: marker,
     pluginsOff: admission.off,
   });
-  fs.writeFileSync(path.join(dest, `${file}.md`), bundled.markdown);
+  // A `bleed` slide's ink, decided from the photo this bundle carries and written into its `_class`: the bundle's runtime
+  // cannot read a local picture's pixels over `file://` (lib/export/marp-bleed-ink.js).
+  fs.writeFileSync(path.join(dest, `${file}.md`), withBundledBleedInk(bundled.markdown, dest, fm));
   // The bundle drops the deck's own executable HTML (lib/core/live-author-html.js), so say what
   // went: an author whose widget script vanished deserves to hear why.
   const { removed } = bundled;

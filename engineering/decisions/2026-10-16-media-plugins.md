@@ -1189,3 +1189,18 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   `background` one as a `.form` section and wrapped Marp's `section > div > figure` container in a stage cell, leaving the figure
   0px tall. The lift now skips Marp's `background` and `pseudo` layers. A marp-cli render of the bundle draws the photo, and the
   slide matches the engine's render of the same deck; a masthead-lift test holds the layers out (fails on the old code).
+- 2026-11-11: **a `bleed` slide picks its ink from its photo** (the owner, on the #3132 sign-off PDFs: dark words over a dark
+  photo; first logged for a separate PR, then brought into #3132 at the owner's word). One decision, lib/core/bleed-ink.mjs: the
+  slide's heading band (its top 45%, mapped onto the photo as `background-size: cover` crops it, card-ink's `coverSourceRect`) is
+  averaged in linear light and the ink that reads better on it by WCAG contrast wins (card-ink's own inks, `pickCardInk` at no
+  backing). Light ink is the theme's `dark` mode on that slide and dark ink its `light` mode, so every token follows the theme;
+  a slide whose own `_class` (`data-class`) names a mode keeps it. Three hosts read the pixels, because no single place can: the
+  runtime (lib/transformers/bleed-ink.js) in the Studio, the Playground and the fluid viewer; the CLI (lib/export/bleed-ink-stamp.js
+  from lattice.js, before the page loads, since its export page carries no runtime: the file is read through the deck's confiner
+  and drawn as a `data:` image so its pixels are readable); and Export-to-Marp (lib/export/marp-bleed-ink.js, called by both
+  producers: tools/export-marp.js samples in a child Chromium, tools/bleed-ink-sampler.cjs, and the Studio in a canvas), because
+  a bundle opened over `file://` may not read its local pictures' pixels (measured: the runtime pass works in a bundle only with
+  `--allow-file-access-from-files`, which marp-cli does not pass). image.styles.css gains the `light` bleed veil beside the `dark`
+  scrim: dark words over a mid-tone photo with a dark shape under the heading did not read without it. In a Marp bundle the
+  photo is Marp's own figure, so the scrim and veil (which sit on the engine's panel) do not apply there; the ink does. No shipped
+  deck changes (identity:check 466/0); examples/bleed-auto-ink.md is the demo, rendered light and dark for the owner.

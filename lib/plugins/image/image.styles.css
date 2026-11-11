@@ -17,12 +17,21 @@ section.bleed:not(.image):not(.collage) .lattice-bg[data-lattice-media="image"]:
 }
 
 /* Words over a photograph need a ground. On a `dark` bleed slide (light ink), a scrim darkens the top of the picture, where
- * the heading sits, and fades out by the middle, as the `image statement` composition's scrim does for its title. A slide
- * that is not `dark` keeps the picture as it is: the author chose dark ink, so a light photo is the ground. */
+ * the heading sits, and fades out by the middle, as the `image statement` composition's scrim does for its title. A `light`
+ * bleed slide (dark ink) gets the same ground the other way: a veil lightens the top, so dark words hold over a dark shape in
+ * a mid-tone photo. A slide picks one of the two from its photo when its author named neither (lib/core/bleed-ink.mjs). */
 section.bleed.dark:not(.image):not(.collage) .lattice-bg[data-lattice-media="image"]:not([data-lattice-plugin] *)::after {
   content: "";
   position: absolute;
   inset: 0;
   background-image: linear-gradient(180deg, rgb(4 8 16 / 0.72) 0%, rgb(4 8 16 / 0.45) 32%, rgb(4 8 16 / 0) 62%);
+  pointer-events: none;
+}
+
+section.bleed.light:not(.image):not(.collage) .lattice-bg[data-lattice-media="image"]:not([data-lattice-plugin] *)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(180deg, rgb(250 249 246 / 0.8) 0%, rgb(250 249 246 / 0.55) 32%, rgb(250 249 246 / 0) 62%);
   pointer-events: none;
 }
