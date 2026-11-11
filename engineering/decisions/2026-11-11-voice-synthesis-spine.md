@@ -379,3 +379,28 @@ reproduction, and all ten were fixed before the commit:
 9. A probe that failed for good left the breaker half-open. It reopens now. The new test also caught a
    real bug: failures that used up their retries never counted toward the breaker.
 10. No changelog or doc. Both were added.
+
+### 9.5 The raise loop, round 1 (2026-11-11)
+
+The card grader set MEDIUM: the scheduler's rate-limit claim rested on a fake clock, and S2 had no independent review.
+Round 1 did both, and both found something.
+
+- **A real-surface rate-limit test** (`docs/e2e/share-narration-rate-limit.spec.ts`). It runs a 360-sentence cloud-voiced
+  Studio export with Parallel requests at 6 against a mocked OpenRouter that refuses six requests mid-deck with a 429.
+  Its first run caught a real defect. The next request went out 505 ms after the 429, not after the 2 s `Retry-After`,
+  because **the browser cannot read `Retry-After` from OpenRouter**: its `Access-Control-Expose-Headers` lists
+  `request-id`, `cf-ray` and others, but not `Retry-After` (checked against the live API's CORS headers, no key spent).
+  So in production the scheduler would never see the header and would retry a rate limit after its 500 ms 5xx backoff.
+  - **Fix:** a rate limit with no readable `Retry-After` pauses 2 s, doubling for each new rate limit after a pause
+    ends. A burst of 429s that land together counts once, so a burst does not jump straight to the 30 s ceiling.
+  - **The spec now runs both cases.** With the header hidden (OpenRouter's case), nothing new starts within 2 s. With
+    it exposed at 4 s (a provider that exposes it), nothing new starts within 4 s; that arm passes only if the header
+    was read.
+  - **Both arms also prove the throughput claims:** more than 3 requests in flight, never more than the cap of 6,
+    every sentence shipped, and exactly one request per sentence plus one per refusal.
+- **An independent check of S2** (the worker-pool kernel and the picture pool rewritten onto it). It found no blocking
+  defect: the picture pool keeps every invariant of the original, traced line by line. It found three small issues,
+  all fixed here:
+  - The time quote still charged the encode as if it were serial; it is now divided by the pack pool size.
+  - The kernel's comment overstated a memory guarantee the narration caller does not get; it is corrected.
+  - A worker's "no encoder" answer is now confirmed on the main thread before the export refuses.

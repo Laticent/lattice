@@ -292,3 +292,24 @@ test('a caller who arrives while the last request is being canceled gets a fresh
 	// The old job settling late must not erase the new one from the map.
 	assert.equal(s.has('k'), false);
 });
+
+test('a 429 the browser cannot read Retry-After from pauses 2 s, and a burst of them counts once', async () => {
+	const clock = fakeClock();
+	const s = sched(clock, { cap: 4 });
+	const { started, make } = controllable();
+	const all = ['a', 'b', 'c', 'd'].map((k) => s.run(k, 'bulk', make(k)));
+	await clock.flush();
+	// Four refusals from one moment, none carrying a readable Retry-After (OpenRouter's case in a browser).
+	for (const x of started.slice(0, 4)) x.reject(err(429));
+	await clock.flush();
+	assert.equal(s.state().limit, 2, 'halved once for the burst, not four times');
+	await clock.advance(1_999);
+	assert.equal(started.length, 4, 'nothing re-sent inside the 2 s pause');
+	await clock.advance(1);
+	assert.equal(started.length, 6, 'then up to the halved limit');
+	for (const x of started.slice(4)) x.resolve(x.key);
+	await clock.advance(10);
+	for (const x of started.slice(6)) x.resolve(x.key);
+	await clock.flush();
+	assert.equal((await Promise.all(all)).length, 4);
+});

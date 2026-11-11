@@ -9,8 +9,9 @@
   three requests each against the same voice, with no shared view of what was already in
   flight. They now share one queue per voice model. The sentence being played goes first,
   then the look-ahead, then the export, and a sentence two callers both need is fetched once.
-  When a provider answers "too many requests", the queue waits as long as the provider asks,
-  halves how many it sends, then climbs back. A provider that keeps failing pauses for 15 s
+  When a provider answers "too many requests", the queue halves how many it sends, pauses (2 s,
+  doubling if the limit repeats, or as long as the provider asks where the browser can read
+  it), then climbs back. A provider that keeps failing pauses for 15 s
   before one test request. Each model starts at the parallel count we measured for it (six
   for most; one for CSM, whose provider serves one request at a time).
 - **Added: Workspace › Narration › Parallel requests.** Choose how many sentences a cloud

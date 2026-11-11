@@ -13,7 +13,8 @@
 // - ADAPTIVE CONCURRENCY (AIMD: additive increase, multiplicative decrease). The limit starts at `start`, gains one slot
 //   after a full window of clean answers, up to `cap`, and halves on a rate limit (429) or an overloaded provider (503).
 //   `cap` is the author's ceiling; the loop works under it, never past it.
-// - RETRY-AFTER. A rate limit pauses the whole model for the time it asked, or a jittered exponential backoff.
+// - RETRY-AFTER. A rate limit pauses the whole model for the time it asked when the browser can read the header, else
+//   for 2 s doubling per new rate limit (jittered). A burst of 429s that land together counts once.
 // - A CIRCUIT BREAKER. After `breakerAfter` consecutive retryable failures the model pauses for `breakerCooldownMs`, then
 //   lets ONE probe through, and closes only if the probe succeeds.
 //
@@ -69,7 +70,7 @@ export function retryAfterMs(header, now = Date.now()) {
  * @param {{
  *   cap?: number, start?: number, min?: number,
  *   retries?: Partial<Record<'now'|'next'|'bulk', number>>,
- *   baseBackoffMs?: number, maxBackoffMs?: number,
+ *   baseBackoffMs?: number, rateBackoffMs?: number, maxBackoffMs?: number,
  *   breakerAfter?: number, breakerCooldownMs?: number,
  *   classify?: (err: any) => 'rate'|'retry'|'stop'|'fail',
  *   now?: () => number,
@@ -83,6 +84,7 @@ export function createVoiceScheduler(opts = {}) {
 	const {
 		min = 1,
 		baseBackoffMs = 500,
+		rateBackoffMs = 2_000,
 		maxBackoffMs = 30_000,
 		breakerAfter = 4,
 		breakerCooldownMs = 15_000,
@@ -104,6 +106,8 @@ export function createVoiceScheduler(opts = {}) {
 	let breaker = 'closed';
 	let probing = false;
 	let rateLimited = 0;
+	/** Rate limits in a row, each counted once per pause: a burst of 429s that land together is one, not six. */
+	let rateStreak = 0;
 	/** @type {Record<string, any[]>} */
 	const queues = { now: [], next: [], bulk: [] };
 	/** key → job, for joins. A job leaves when it settles. */
@@ -219,6 +223,7 @@ export function createVoiceScheduler(opts = {}) {
 				(value) => {
 					active--;
 					failStreak = 0;
+					rateStreak = 0;
 					if (breaker === 'probe') {
 						breaker = 'closed';
 						probing = false;
@@ -260,8 +265,16 @@ export function createVoiceScheduler(opts = {}) {
 					}
 					if (verdict === 'rate') {
 						rateLimited++;
-						limit = Math.max(min, Math.floor(limit / 2));
-						const wait = retryAfterMs(error?.retryAfter, now()) ?? backoff(job.attempt);
+						const fresh = now() >= pausedUntil;
+						if (fresh) {
+							rateStreak++;
+							limit = Math.max(min, Math.floor(limit / 2));
+						}
+						// The provider's own Retry-After when the browser can read it. OpenRouter does NOT expose that header
+						// to a cross-origin page (its Access-Control-Expose-Headers omits it, checked 2026-11-11), so the usual
+						// case is the fallback: 2 s, doubling for each new rate limit after a pause ends, jittered.
+						const fallback = Math.round(Math.min(maxBackoffMs, rateBackoffMs * 2 ** Math.max(0, rateStreak - 1)) * (0.5 + jitter()));
+						const wait = retryAfterMs(error?.retryAfter, now()) ?? fallback;
 						pausedUntil = Math.max(pausedUntil, now() + wait);
 					} else {
 						if (wasProbe || failStreak >= breakerAfter) reopen();
