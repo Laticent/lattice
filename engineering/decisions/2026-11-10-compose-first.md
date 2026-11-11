@@ -127,13 +127,14 @@ and code controls), and gives the pill a fixed width on a narrow pane. Measured 
 and 1440 px and in WebKit at iPhone 15 Pro: the same box with the caret in a heading, an eyebrow and a
 list item (1, 3 and 0 chips).
 
-**How Compose is told apart (owner's pick, 2026-11-11).** Four treatments were mocked on the live Studio in
-light and dark. The owner picked D: Compose's word and sparkle stay in `--accent` when off, and when on it takes
-Present's solid `--accent` fill, in the header toggle and the phone bar, so the two filled accent objects are the
-two hero verbs. Source, when on, takes the posture dial's neutral chip (`--text-heading` mixed 12% into `--bg`),
-which differs from its container in every palette; the old lit fill, `--accent-soft`, equals `--bg` in eight
-dark palettes. An unlit Source reads in `--text-body`, the AA channel. Checked in cuoio light and dark, ardesia
-dark and onyx light; in a monochrome palette Compose is the ink chip.
+**How Compose is told apart (owner's direction, 2026-11-11).** Four treatments were mocked on the live Studio and
+the owner first picked D: Compose in the accent, with Present's solid accent fill when selected. On a real iPhone the
+solid fill read as an action beside Present and Share, so the owner refined it: a FILL means selected and is the same
+for both modes (the posture dial's neutral chip, `--text-heading` mixed 12% into `--bg`, which shows in every palette,
+where the old `--accent-soft` fill equals `--bg` in eight dark palettes), and the ACCENT means Compose (its icon and
+word, selected or not). A solid accent stays reserved for Present. On the phone bar the selected cell is the ink chip,
+and the accent on ink fails contrast (about 2.6:1 light, 2:1 dark), so a selected Compose there is the plain ink cell
+and its accent shows when it is not the pane on screen. An unlit Source reads in `--text-body`, the AA channel.
 
 **Narration.** Five new lines were recorded with `tools/record-lesson-voice.mjs` (two in `tour`, three
 in `write-slide`). The Source-mode lines and their clips are unchanged, so a visitor who chose Source

@@ -286,10 +286,11 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 			className={cn(
 				'group/bar relative flex min-h-11 flex-col items-center justify-center gap-0.5 font-semibold leading-none transition-colors',
 				bar ? 'min-w-0 flex-1 gap-[3px] rounded-none px-1 py-1.5 text-[9px]' : 'w-11 gap-0.5 rounded-xl py-2 text-[8.5px]',
-				// `brand` is Compose's cell (EditModeToggle's `segmentTone` says why): the accent when off, Present's
-				// solid fill when it is the pane on screen.
-				tone === 'solid' || (brand && active) ? 'bg-[var(--accent)] text-[var(--on-accent)]'
-					: brand ? 'text-[var(--accent)] hover:bg-[var(--accent-soft)]'
+				// `brand` is Compose's cell (EditModeToggle's `segmentTone` says why): the accent marks it while it is not the
+				// pane on screen. When it is, it takes the bar's own selected cell like any other, because the accent on the
+				// ink chip fails contrast (about 2.6:1 in cuoio light, 2:1 dark) and a solid accent would read as Present.
+				tone === 'solid' ? 'bg-[var(--accent)] text-[var(--on-accent)]'
+					: brand && !active ? 'text-[var(--accent)] hover:bg-[var(--accent-soft)]'
 					: tone === 'outline' ? 'border border-border text-[var(--text-heading)]'
 					: active
 						// The mobile BAR's selected state swaps --text-heading/--bg rather than tinting with
@@ -443,19 +444,21 @@ export const EDIT_MODES: ReadonlyArray<{ mode: EditMode; label: string; name: st
 /** What a mode is called where a sentence names it ("Edit this slide in Source"). */
 export const EDIT_MODE_LABEL: Record<EditMode, string> = { compose: 'Compose', source: 'Source' };
 /**
- * COMPOSE IS THE SIGNATURE MODE, and it looks it (owner's pick, 2026-11-11, option D of four mocked on the live
- * Studio): its word and sparkle stay in the accent even when off, and when on it takes Present's solid accent
- * fill, so the screen's two filled accent objects are its two hero verbs, write and present. Source, the power
- * tool, is deliberately quieter: when on it takes the posture dial's neutral chip, a fill mixed from
- * `--text-heading` into `--bg`, which differs from its container in every palette by construction (the dial's
- * own note records why `--accent-soft`, the old lit fill here, vanishes in 8 dark palettes). An unlit Source reads
- * in `--text-body`, the AA-rated channel, not the muted one, which fails AA at 12px in most palettes.
- * In a monochrome palette `--accent` IS `--text-heading`, so Compose there is simply the ink chip.
+ * COMPOSE IS THE SIGNATURE MODE, and it looks it, without looking like an action. A FILL says "selected": Compose and
+ * Source take the same one when on, the posture dial's neutral chip, a fill mixed from `--text-heading` into `--bg`
+ * that differs from its container in every palette by construction (the dial's note records why `--accent-soft`,
+ * the old lit fill here, vanishes in 8 dark palettes). The ACCENT says "Compose": its icon and word stay in the
+ * accent on or off. A solid accent fill stays reserved for Present, the action; Compose wore it for one round
+ * (option D) and read as a button that does something, beside Present and Share on the phone (owner, 2026-11-11).
+ * An unlit Source reads in `--text-body`, the AA channel, not the muted one, which fails AA at 12px.
+ * In a monochrome palette `--accent` IS `--text-heading`, so there the two modes differ by position and icon only.
  * `interactive` is false for the pre-paint shell's copy, which never hovers.
  */
 function segmentTone(brand: boolean | undefined, on: boolean, interactive = true): string {
-	if (brand) return on ? 'bg-[var(--accent)] text-[var(--on-accent)] shadow-sm' : cn('text-[var(--accent)]', interactive && 'hover:bg-[var(--accent-soft)]');
-	return on ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] shadow-sm' : cn('text-[var(--text-body)]', interactive && 'hover:text-[var(--text-heading)]');
+	// One SELECTED fill for both modes, the posture dial's neutral chip; the accent marks Compose by its icon and word.
+	const lit = 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] shadow-sm';
+	if (brand) return on ? `${lit} text-[var(--accent)]` : cn('text-[var(--accent)]', interactive && 'hover:bg-[var(--accent-soft)]');
+	return on ? `${lit} text-[var(--text-heading)]` : cn('text-[var(--text-body)]', interactive && 'hover:text-[var(--text-heading)]');
 }
 
 /**
