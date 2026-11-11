@@ -420,3 +420,31 @@ describe('the red team on step 2 (2026-11-10)', () => {
     }
   });
 });
+
+describe('meta-edit: what the engine reads decides a carrier (the checker on #3136)', () => {
+  const { readMetaField, writeMeta, commentReadings } = require('../../../lib/core/meta-edit.mjs');
+
+  test('a speaker note with a line that starts `focus:` does not lock the record field', () => {
+    const slide = '<!-- {focus=2} -->\n\n# T\n\n<!-- remember the\nfocus: margin story -->';
+    const r = readMetaField(slide, 'focus');
+    assert.equal(r.editable, true);
+    assert.equal(r.value, '2');
+    assert.match(writeMeta(slide, { focus: '3' }), /^<!-- \{focus=3\} -->/);
+    assert.match(writeMeta(slide, { focus: '3' }), /focus: margin story -->$/);
+  });
+
+  test('two directive comments still lock the field, and report the one the engine applies', () => {
+    const r = readMetaField('<!-- _class: divider -->\n<!-- _class: content -->\n\n# A', 'class');
+    assert.equal(r.editable, false);
+    assert.equal(r.reason, 'duplicate');
+    assert.equal(r.value, 'content');
+  });
+
+  test('commentReadings: indented and folded comments are not applied; a note is a note', () => {
+    assert.equal(commentReadings('# T\n\n    <!-- {layout=kpi} -->\n').size, 0);
+    assert.equal(commentReadings('<div>\n<!-- {layout=kpi} -->\n</div>').get(2), undefined);
+    assert.equal(commentReadings('<!-- {layout=kpi} -->\n# T').get(1)?.kind, 'record');
+    assert.equal(commentReadings('<!-- _class: kpi -->\n# T').get(1)?.kind, 'directive');
+    assert.equal(commentReadings('# T\n\n<!-- say this -->').get(3)?.kind, 'note');
+  });
+});

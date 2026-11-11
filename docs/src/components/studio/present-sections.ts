@@ -5,7 +5,7 @@
 // boundary. A deck with no boundary slides is ONE flat section, so the rail degrades
 // gracefully to an ungrouped bar. Pure + fs-free — safe in SSR and tests.
 
-import { getClassTokens } from '../../lib/slide-directives';
+import { readMetaField } from '../../../../lib/core/meta-edit.mjs';
 
 /** One contiguous run of slides. `start` is the 0-based index of its first slide in the
  *  presented set; `count` is how many slides it spans; `name` is its heading ('' = flat). */
@@ -20,10 +20,10 @@ export type DeckSection = { name: string; start: number; count: number };
  * open a top-level rail group. (There is no `section` class — an earlier draft assumed one.)
  */
 export function isSectionBoundary(md: string): boolean {
-	// The class as the engine reads it: a `_class` comment, a comment holding several keys, or a slide
-	// record (`<!-- {layout=divider} -->`), and never one inside fenced or indented code. The shared reader,
-	// not a regex of its own: a regex here missed a several-key comment and saw a fenced one.
-	const tokens = getClassTokens(String(md || ''));
+	// The class as the engine applies it: a `_class` comment, a comment holding several keys, a slide record
+	// (`<!-- {layout=divider} -->`), or the last of two that set it; never one inside fenced or indented code. The
+	// shared reader, not a regex of its own: a regex here missed a several-key comment and saw a fenced one.
+	const tokens = readMetaField(String(md || ''), 'class').value.trim().split(/\s+/);
 	return tokens[0] === 'divider' && !tokens.includes('light');
 }
 

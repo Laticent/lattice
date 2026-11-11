@@ -131,7 +131,8 @@ export function paneChoices(direction: PaneDirection, share: number): string[] {
 /** The `_pane` marker an author writes for `cls`, keeping the pane's own `no-title`. A component's
  *  modifiers belong to that component, so they are dropped when the component changes. */
 export function paneMarkerText(cls: string, mods: string[] = []): string {
-	// The record form, the one the cut leaves standing (record note §5.4.1); every read takes each spelling.
+	// The comment form `<!-- _pane: … -->` (the form follows the slide until the cut, record note §5.4.1); every read
+	// takes each spelling.
 	const words = [cls, ...mods.filter((w) => w === 'no-title')];
 	return setCommentField('', 'pane', words.join(' '));
 }
@@ -317,7 +318,8 @@ export function applyPaneChoice(state: EditorState, slidePos: number, index: num
 	}
 	if (!sameMarker) {
 		const words = [choice.cls, ...modifiers, ...pane.mods.filter((w) => w === 'no-title')];
-		// The record form (record note §5.4.1). A marker that is already a record keeps its other fields (a `note`, say).
+		// A new marker is `<!-- _pane: … -->`; one that is already a record is edited in its record and keeps its other
+		// fields (a `note`, say). Record note §5.4.1.
 		const old = pane.marker !== null ? String(at.slide.child(pane.marker).attrs.text ?? '') : '';
 		const marker = state.schema.nodes.comment.create({ text: setCommentField(old, 'pane', words.join(' ')) });
 		if (pane.marker !== null) {

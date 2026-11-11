@@ -116,3 +116,36 @@ describe('splitSlideDirectives — pane markers stay where they are', () => {
 		}
 	});
 });
+
+describe('splitSlideDirectives hoists only what the engine applies (the checker on #3136)', () => {
+	it('leaves a record in indented code in the prose', () => {
+		const { directives, prose } = splitSlideDirectives('# T\n\nExample:\n\n    <!-- {layout=kpi} -->\n\ntext');
+		expect(directives).toEqual([]);
+		expect(prose).toContain('    <!-- {layout=kpi} -->');
+	});
+	it('leaves a record folded into an HTML block in place', () => {
+		const { directives } = splitSlideDirectives('<div>\n<!-- {layout=kpi} -->\n</div>');
+		expect(directives).toEqual([]);
+	});
+	it('leaves a `_class` example in indented code in the prose', () => {
+		expect(splitSlideDirectives('# T\n\n    <!-- _class: kpi -->\n').directives).toEqual([]);
+	});
+	it('still hoists a top-level record and directive', () => {
+		expect(splitSlideDirectives('<!-- {layout=kpi} -->\n<!-- _footer: Q3 -->\n\n# T').directives).toEqual([
+			'<!-- {layout=kpi} -->',
+			'<!-- _footer: Q3 -->',
+		]);
+	});
+	it('never lifts a record past a bare directive the engine applies, so the last one still wins', () => {
+		const slide = '<!-- class: dark -->\n\n# T\n\n<!-- {class=light} -->';
+		const { directives, prose } = splitSlideDirectives(slide);
+		expect(directives).toEqual([]);
+		expect(prose.indexOf('class: dark')).toBeLessThan(prose.indexOf('{class=light}'));
+	});
+});
+
+describe('splitSlideDirectives: a bare directive blocks only the field it sets', () => {
+	it('still hoists a `_class` below a bare `paginate:` comment', () => {
+		expect(splitSlideDirectives('<!-- paginate: false -->\n<!-- _class: title -->\n\n# T').directives).toEqual(['<!-- _class: title -->']);
+	});
+});

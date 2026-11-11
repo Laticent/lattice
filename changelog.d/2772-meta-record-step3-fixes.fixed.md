@@ -18,3 +18,9 @@
   several keys (`<!-- _class: divider` on one line, `paginate: false` on the next) now opens a section, and a
   `_class: divider` comment inside fenced or indented code no longer makes a phantom one.
   (`docs/src/components/studio/present-sections.ts`)
+- **Compose lifts only the settings the engine applies.** A record or `_class` comment shown as an example in an
+  indented code block or inside an HTML block stays where it is, so editing the slide no longer turns the example on.
+  A record below a bare comment that sets the same field (`<!-- class: dark -->`) stays below it, so the same setting
+  still wins.
+- **A speaker note no longer locks a field.** A note with a line that starts `focus:` or `class:` is not a second
+  place the field is set, so the slide panel still edits the record. A field set twice shows the value that wins.

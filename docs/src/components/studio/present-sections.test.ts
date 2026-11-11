@@ -116,3 +116,14 @@ describe('present-sections: the boundary reads the class the way the engine does
 		expect(isSectionBoundary('# How to\n\n    <!-- _class: divider -->\n')).toBe(false);
 	});
 });
+
+describe('present-sections: a class set twice', () => {
+	it('opens a section when the class that wins is a divider', () => {
+		expect(isSectionBoundary('<!-- _class: divider -->\n<!-- _class: divider -->\n\n# A')).toBe(true);
+		expect(isSectionBoundary('<!-- {layout=divider} -->\n<!-- {layout=divider} -->\n\n# A')).toBe(true);
+	});
+	it('follows the last one, as the engine does', () => {
+		expect(isSectionBoundary('<!-- _class: divider -->\n<!-- _class: content -->\n\n# A')).toBe(false);
+		expect(isSectionBoundary('<!-- _class: content -->\n<!-- _class: divider -->\n\n# A')).toBe(true);
+	});
+});

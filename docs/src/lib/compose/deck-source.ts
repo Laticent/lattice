@@ -2,6 +2,7 @@
 
 import { readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
 import { isRecordOpener, parsePaneMarker, readRecord } from '../../../../lib/core/meta-door.mjs';
+import { commentReadings } from '../../../../lib/core/meta-edit.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { math as MATH } from '../../../../lib/plugins/detect.generated.mjs';
 import { splitSlides } from '../deck-lint';
@@ -71,6 +72,30 @@ export function normalizeSource(source: string): string {
 export function splitSlideDirectives(chunk: string): SlideChunk {
 	const fences = fenceRanges(chunk);
 	const inFence = (i: number) => fences.some(([s, e]) => i >= s && i < e);
+	// Hoist only what the engine applies: a comment in indented code or folded into an HTML block is an example, and
+	// lifting it to the head would turn it on (the checker on #3136). And never lift one past a directive the engine
+	// applies that stays in place and sets the same field (a bare `<!-- class: dark -->` above a `{class=light}`): last
+	// wins, so the move would change the winner.
+	const readings = commentReadings(chunk);
+	const lineStarts = [0];
+	for (let i = chunk.indexOf('\n'); i !== -1; i = chunk.indexOf('\n', i + 1)) lineStarts.push(i + 1);
+	const lineOf = (offset: number) => {
+		let lo = 0;
+		let hi = lineStarts.length - 1;
+		while (lo < hi) {
+			const mid = (lo + hi + 1) >> 1;
+			if (lineStarts[mid] <= offset) lo = mid;
+			else hi = mid - 1;
+		}
+		return lo + 1;
+	};
+	const hoistable = new Set<number>();
+	for (const m of chunk.matchAll(DIRECTIVE_LINE_RE)) hoistable.add(lineOf((m.index ?? 0) + m[0].search(/\S/)));
+	const staying = [...readings].filter(([line, r]) => r.kind !== 'note' && !hoistable.has(line));
+	const blocked = (line: number) => {
+		const keys = readings.get(line)?.keys ?? new Set<string>();
+		return staying.some(([at, r]) => at < line && [...r.keys].some((k) => keys.has(k)));
+	};
 	const directives: string[] = [];
 	const prose = chunk
 		.replace(DIRECTIVE_LINE_RE, (line, offset: number) => {
@@ -82,6 +107,10 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 			// The marker is read by the one shared reader (lib/core/meta-door.mjs `parsePaneMarker`), in every spelling: a
 			// record that names a pane (`<!-- {pane=bar} -->`) stays in place too, whatever else it sets.
 			if (inFence(offset) || parsePaneMarker(line.trim())?.pane) return line;
+			const at = lineOf(offset + line.search(/\S/));
+			const reading = readings.get(at);
+			if (reading?.kind !== 'directive' && reading?.kind !== 'record') return line;
+			if (blocked(at)) return line;
 			directives.push(line.trim());
 			return '';
 		})
