@@ -342,6 +342,14 @@ describe('Studio — every top-bar control responds', () => {
 		await waitFor(() => expect(document.querySelector('.cm-lintRange')).toBeTruthy(), { timeout: 6000 });
 	});
 
+	/** The 0-based slide the editor's caret is in: the `---` lines before it, less the front matter's two. */
+	// biome-ignore lint/suspicious/noExplicitAny: the CodeMirror view, reached through its DOM handle.
+	const caretSlide = (v: any): number => {
+		const doc: string = v.state.doc.toString();
+		const rules = (doc.slice(0, v.state.selection.main.head).match(/^---[ \t]*$/gm) ?? []).length;
+		return doc.startsWith('---') ? Math.max(0, rules - 2) : rules;
+	};
+
 	// The strip's slide menu (components/studio/strip-actions), from the ⋯ beside the current slide: the icon row it replaced is gone
 	// (2026-10-27-slide-structure-strip.md §12 item 11).
 	const stripAction = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
@@ -409,6 +417,11 @@ describe('Studio — every top-bar control responds', () => {
 		const original: string = view().state.doc.toString();
 		const rail = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]') ?? [];
 		await user.click(rail()[1] as HTMLElement);
+		// The pick moves the focus hub at once, but the editor moves its caret only on the hub's next frame (its `frame`
+		// lane). Typing before that lands in slide 1, which pulls the focus back there and unmounts the ⋯ beside slide 2
+		// mid-click: the menu never opens. Under load the frame runs late, and this test failed so (followups.d 3124).
+		// So wait for the caret to reach slide 2 (HARD RULE #32: a signal, not a duration).
+		await waitFor(() => expect(caretSlide(view())).toBe(1), { timeout: 5000 });
 		// Type inside slide 2, then delete slide 2.
 		const v = view();
 		const at = v.state.doc.toString().indexOf('\n---', v.state.selection.main.head);
