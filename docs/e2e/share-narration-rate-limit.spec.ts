@@ -37,7 +37,7 @@ for (const { label, retryAfterS, exposed, minPauseMs } of [
 	{ label: 'Retry-After hidden from the page, as OpenRouter sends it', retryAfterS: 4, exposed: false, minPauseMs: 2_000 },
 	{ label: 'Retry-After exposed to the page', retryAfterS: 4, exposed: true, minPauseMs: 4_000 },
 ]) {
-test(`a cloud-voiced export rides out a rate limit (${label}): parallel under the cap, waits, ships every sentence once`, async ({ page, context }, testInfo) => {
+test(`@crosswidth @webkit-phone @gecko a cloud-voiced export rides out a rate limit (${label}): parallel under the cap, waits, ships every sentence once`, async ({ page, context }, testInfo) => {
 	let arrived = 0;
 	let inFlight = 0;
 	let peak = 0;
@@ -72,6 +72,9 @@ test(`a cloud-voiced export rides out a rate limit (${label}): parallel under th
 	}, CAP);
 
 	await gotoStudio(page);
+	// What is under test is the engine's network and timing behavior, not a layout: every project runs it at a desktop
+	// box, where the editor is in view (a phone box hides it behind the Read pane). WebKit and Gecko stay real engines.
+	await page.setViewportSize({ width: 1440, height: 900 });
 	await setEditorContent(page, DECK);
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	await page.getByRole('button', { name: /Webpage/ }).click();
