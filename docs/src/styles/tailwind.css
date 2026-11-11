@@ -37,6 +37,10 @@
 	 * distinct from the card even in dark palettes, where --accent-soft
 	 * collapses onto the surface. */
 	--lx-ui-accent: color-mix(in oklab, var(--bg-alt), var(--accent) 14%);
+	/* Compose's gold: the accent with a fifth of the heading ink, so its word clears AA on the bar AND on the
+	 * selected chip in every palette and mode (measured: 5.23:1 at worst, laguna light; plain --accent fell to
+	 * 4.08:1 on the chip). In a monochrome palette --accent IS the ink, so this stays the ink. */
+	--lx-compose: color-mix(in oklab, var(--accent) 80%, var(--text-heading));
 	/* Structural, palette-blind (same discipline as shadows). */
 	--radius: 0.5rem;
 	/* On-screen keyboard height, published by useKeyboardInset (ui/panel.tsx) while a

@@ -14,8 +14,8 @@
   with the styles the block under the caret offers (a heading offers one, an eyebrow line three),
   so the whole pill jumped. It now reserves room for the styles the current slide can offer, and
   on a narrow pane (phone, tablet) its two rows are as wide as their contents.
-- **Compose looks like the signature mode without looking like an action.** Its icon and word are in the
-  accent color whether it is selected or not; when selected it takes the same neutral chip as Source (on the
-  phone bar, the same ink cell as any selected pane). A solid accent fill stays reserved for Present.
+- **Compose looks like the signature mode without looking like an action.** Its icon and word stay gold
+  whether it is selected or not, in a shade that passes WCAG AA in every palette. Selected, it takes the same
+  light chip as Source, on the phone bar too. A solid accent fill stays reserved for Present.
 - **The selected stop in Read · Write · Craft is an ink chip.** It used to be a faint gray tint with a
   gold hairline; it is now the inverted chip the phone bar already uses for its selected cell.

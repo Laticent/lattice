@@ -286,11 +286,12 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 			className={cn(
 				'group/bar relative flex min-h-11 flex-col items-center justify-center gap-0.5 font-semibold leading-none transition-colors',
 				bar ? 'min-w-0 flex-1 gap-[3px] rounded-none px-1 py-1.5 text-[9px]' : 'w-11 gap-0.5 rounded-xl py-2 text-[8.5px]',
-				// `brand` is Compose's cell (EditModeToggle's `segmentTone` says why): the accent marks it while it is not the
-				// pane on screen. When it is, it takes the bar's own selected cell like any other, because the accent on the
-				// ink chip fails contrast (about 2.6:1 in cuoio light, 2:1 dark) and a solid accent would read as Present.
+				// `brand` is Compose's cell (EditModeToggle's `segmentTone` says why): its word and icon stay gold
+				// (`--lx-compose`) whether or not it is the pane on screen. Selected, it takes the header toggle's light chip,
+				// not the bar's ink cell: gold on ink fails contrast (about 2.6:1 in cuoio light, 2:1 dark, 1:1 in a
+				// monochrome palette), and a solid accent would read as Present (owner, 2026-11-11).
 				tone === 'solid' ? 'bg-[var(--accent)] text-[var(--on-accent)]'
-					: brand && !active ? 'text-[var(--accent)] hover:bg-[var(--accent-soft)]'
+					: brand ? cn('text-[var(--lx-compose)]', active ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))]' : 'hover:bg-[var(--accent-soft)]')
 					: tone === 'outline' ? 'border border-border text-[var(--text-heading)]'
 					: active
 						// The mobile BAR's selected state swaps --text-heading/--bg rather than tinting with
@@ -323,7 +324,7 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 			    ever rewrite it to name a verb, you re-create the coupling this note exists
 			    to prevent. */}
 			{active && tone === 'ghost' && (
-				<span aria-hidden="true" className={bar ? 'absolute inset-x-2 -bottom-[1px] h-[2px] rounded-full bg-[var(--bg)]' : 'absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]'} />
+				<span aria-hidden="true" className={bar ? cn('absolute inset-x-2 -bottom-[1px] h-[2px] rounded-full', brand ? 'bg-[var(--lx-compose)]' : 'bg-[var(--bg)]') : 'absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]'} />
 			)}
 			{children}
 			<span className="tracking-tight">{caption}</span>
@@ -457,7 +458,7 @@ export const EDIT_MODE_LABEL: Record<EditMode, string> = { compose: 'Compose', s
 function segmentTone(brand: boolean | undefined, on: boolean, interactive = true): string {
 	// One SELECTED fill for both modes, the posture dial's neutral chip; the accent marks Compose by its icon and word.
 	const lit = 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] shadow-sm';
-	if (brand) return on ? `${lit} text-[var(--accent)]` : cn('text-[var(--accent)]', interactive && 'hover:bg-[var(--accent-soft)]');
+	if (brand) return on ? `${lit} text-[var(--lx-compose)]` : cn('text-[var(--lx-compose)]', interactive && 'hover:bg-[var(--accent-soft)]');
 	return on ? `${lit} text-[var(--text-heading)]` : cn('text-[var(--text-body)]', interactive && 'hover:text-[var(--text-heading)]');
 }
 

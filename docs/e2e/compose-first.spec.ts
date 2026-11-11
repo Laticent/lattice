@@ -1,4 +1,5 @@
-import { expect, type Page, test } from '@playwright/test';
+import fs from 'node:fs';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 import { isPhone, waitForStudioPaint } from './studio-fixture';
 
 // COMPOSE FIRST (engineering/decisions/2026-11-10-compose-first.md). The rest of the suite stores Source
@@ -84,4 +85,71 @@ test('@mobile @webkit-phone the phone bar lists Compose before Source, and Compo
 	expect(await modeOrder(page)).toEqual([COMPOSE, SOURCE]);
 	await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
 	await expect(page.locator('#studio-pane-editor .cs-host .ProseMirror')).toBeVisible();
+});
+
+// COMPOSE STAYS GOLD AND READABLE (owner, 2026-11-11, on an iPhone). Its word is the accent mixed with a fifth of the
+// heading ink (`--lx-compose`), selected or not; selected, it sits on the light chip, never the ink cell. Measured
+// here in every palette and mode against the colour actually behind the word: the plain accent fell to 4.08:1 on
+// the chip (carbone light), and on the phone's ink cell to 1:1 in a monochrome palette.
+const PALETTES = fs.readdirSync(new URL('../../themes/', import.meta.url), { withFileTypes: true })
+	.filter((d) => d.isDirectory() && !d.name.endsWith('-dark'))
+	.map((d) => d.name);
+
+/** WCAG contrast of `cell`'s text against the first opaque background at or above it, in each palette and mode. */
+async function worstContrast(page: Page, cell: Locator): Promise<{ ratio: number; where: string }> {
+	return cell.evaluate((el, palettes) => {
+		const canvas = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+		const rgba = (css: string): number[] => {
+			if (!canvas) return [0, 0, 0, 0];
+			canvas.clearRect(0, 0, 1, 1);
+			canvas.fillStyle = css;
+			canvas.fillRect(0, 0, 1, 1);
+			return [...canvas.getImageData(0, 0, 1, 1).data];
+		};
+		const lum = ([r, g, b]: number[]) => {
+			const f = (v: number) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+			return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+		};
+		const root = document.documentElement;
+		let worst = { ratio: Number.POSITIVE_INFINITY, where: '' };
+		for (const palette of palettes) {
+			for (const mode of ['light', 'dark']) {
+				root.setAttribute('data-palette', palette);
+				root.setAttribute('data-mode', mode);
+				const fg = rgba(getComputedStyle(el).color);
+				let node: Element | null = el;
+				let bg = [0, 0, 0, 0];
+				while (node && bg[3] < 255) {
+					bg = rgba(getComputedStyle(node).backgroundColor);
+					node = node.parentElement;
+				}
+				const [a, b] = [lum(fg), lum(bg)];
+				const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+				if (ratio < worst.ratio) worst = { ratio: Math.round(ratio * 100) / 100, where: `${palette} ${mode}` };
+			}
+		}
+		return worst;
+	}, PALETTES);
+}
+
+test('@crosswidth @webkit-tablet the selected Compose segment keeps its gold word at AA in every palette', async ({ page }) => {
+	test.skip(isPhone(page), 'the phone bar has its own case below');
+	await openFresh(page);
+	const compose = page.locator('[data-edit-seg=compose]').first();
+	await expect(page.getByRole('button', { name: COMPOSE, exact: true })).toHaveAttribute('aria-pressed', 'true');
+	const worst = await worstContrast(page, compose);
+	expect(worst.ratio, `lowest: ${worst.where}`).toBeGreaterThanOrEqual(4.5);
+});
+
+test('@mobile @webkit-phone the phone bar Compose cell keeps its gold word at AA, selected or not, in every palette', async ({ page }) => {
+	test.skip(!isPhone(page), 'phone only');
+	await openFresh(page);
+	const cell = page.getByRole('button', { name: COMPOSE, exact: true }).first();
+	await expect(cell).toHaveAttribute('aria-pressed', 'false');
+	const idle = await worstContrast(page, cell);
+	expect(idle.ratio, `not selected, lowest: ${idle.where}`).toBeGreaterThanOrEqual(4.5);
+	await cell.click();
+	await expect(cell).toHaveAttribute('aria-pressed', 'true');
+	const lit = await worstContrast(page, cell);
+	expect(lit.ratio, `selected, lowest: ${lit.where}`).toBeGreaterThanOrEqual(4.5);
 });

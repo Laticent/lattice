@@ -132,10 +132,21 @@ list item (1, 3 and 0 chips).
 the owner first picked D: Compose in the accent, with Present's solid accent fill when selected. On a real iPhone the
 solid fill read as an action beside Present and Share, so the owner refined it: a FILL means selected and is the same
 for both modes (the posture dial's neutral chip, `--text-heading` mixed 12% into `--bg`, which shows in every palette,
-where the old `--accent-soft` fill equals `--bg` in eight dark palettes), and the ACCENT means Compose (its icon and
-word, selected or not). A solid accent stays reserved for Present. On the phone bar the selected cell is the ink chip,
-and the accent on ink fails contrast (about 2.6:1 light, 2:1 dark), so a selected Compose there is the plain ink cell
-and its accent shows when it is not the pane on screen. An unlit Source reads in `--text-body`, the AA channel.
+where the old `--accent-soft` fill equals `--bg` in eight dark palettes), and the GOLD means Compose (its icon and
+word, selected or not). A solid accent stays reserved for Present. The owner then asked, on an iPhone, for the gold to
+stay when Compose is selected there too, at AA. Measured in every palette and mode on the live Studio:
+
+| Compose's word on… | plain `--accent`, worst case | `--lx-compose`, worst case |
+|---|---|---|
+| the bar (not selected) | 5.22:1 | 6.52:1 |
+| the selected chip (12% heading ink in `--bg`) | 4.08:1, carbone light (fails in seven palettes) | 5.23:1, laguna light |
+| the phone bar's ink cell | 1:1 in a monochrome palette, 2:1 in cuoio dark | not used |
+
+So Compose's gold is `--lx-compose` (`docs/src/styles/tailwind.css`): the accent with a fifth of the heading ink,
+darker in light mode and lighter in dark, so it still reads as the gold. No fixed mix lifts the accent on the INK cell
+in a monochrome palette, where the accent is the ink. So a selected Compose on the phone bar takes the header toggle's
+light chip instead of the ink cell, with its underline in the gold. `compose-first.spec.ts` checks all three in every
+palette. An unlit Source reads in `--text-body`, the AA channel.
 
 **Narration.** Five new lines were recorded with `tools/record-lesson-voice.mjs` (two in `tour`, three
 in `write-slide`). The Source-mode lines and their clips are unchanged, so a visitor who chose Source
