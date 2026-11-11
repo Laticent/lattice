@@ -173,6 +173,69 @@ describe('IndexedDB backend', () => {
 	});
 });
 
+// The boot reads only the deck it shows (engineering/decisions/2026-11-11-studio-storage-pointer-records.md).
+describe('one deck at a time', () => {
+	/** Every `getAll` query: `'all'` for an unranged read of the whole store, else the deck it asked for. */
+	const watchReads = () => {
+		const getAll = IDBObjectStore.prototype.getAll;
+		const seen: string[] = [];
+		IDBObjectStore.prototype.getAll = function (this: IDBObjectStore, query?: IDBValidKey | IDBKeyRange | null, count?: number) {
+			seen.push(query instanceof IDBKeyRange ? String((query.lower as string[])[0]) : 'all');
+			return getAll.call(this, query, count);
+		};
+		return { seen, restore: () => (IDBObjectStore.prototype.getAll = getAll) };
+	};
+
+	it('showing a deck reads that deck, never the whole store', async () => {
+		await store.appendCheckpoint('d1', cp('a', 1));
+		await store.appendCheckpoint('d2', cp('b', 2));
+		reload();
+		const reads = watchReads();
+		try {
+			store.readCheckpoints('d1');
+			await store.hydrateDeckCheckpoints('d1');
+		} finally {
+			reads.restore();
+		}
+		expect(reads.seen).toEqual(['d1']);
+		expect(ids(store.readCheckpoints('d1'))).toEqual(['a']);
+		expect(store.checkpointBytes(), 'd2 was never read into memory').toBe('d1'.length + JSON.stringify([cp('a', 1)]).length);
+	});
+
+	it('a deck opened later reads its own records then', async () => {
+		await store.appendCheckpoint('d2', cp('b', 2));
+		reload();
+		await store.hydrateDeckCheckpoints('d1');
+		expect(store.readCheckpoints('d2'), 'not loaded yet, and it has no legacy list').toEqual([]);
+		await store.hydrateDeckCheckpoints('d2');
+		expect(ids(store.readCheckpoints('d2'))).toEqual(['b']);
+	});
+
+	it('a deck deleted while its read is in flight stays deleted', async () => {
+		await store.appendCheckpoint('d1', cp('a', 1));
+		reload();
+		const h = store.hydrateDeckCheckpoints('d1');
+		await store.dropCheckpoints('d1');
+		await h;
+		expect(store.readCheckpoints('d1')).toEqual([]);
+	});
+
+	it('the legacy list of a deck this page never opens still migrates, once the page is idle', async () => {
+		const idle = (globalThis as { requestIdleCallback?: unknown }).requestIdleCallback;
+		(globalThis as { requestIdleCallback?: unknown }).requestIdleCallback = (fn: () => void) => setTimeout(fn, 0);
+		try {
+			localStorage.setItem(`${SNAP_PREFIX}never-opened`, JSON.stringify([cp('x', 5)]));
+			await store.hydrateDeckCheckpoints('d1');
+			await vi.waitFor(() => expect(localStorage.getItem(`${SNAP_PREFIX}never-opened`)).toBeNull());
+		} finally {
+			(globalThis as { requestIdleCallback?: unknown }).requestIdleCallback = idle;
+		}
+		reload();
+		await store.hydrateDeckCheckpoints('never-opened');
+		expect(ids(store.readCheckpoints('never-opened'))).toEqual(['x']);
+	});
+});
+
 describe('two tabs on one deck', () => {
 	it('neither tab erases the version the other saved', async () => {
 		await store.appendCheckpoint('d1', cp('s', 1));

@@ -21,10 +21,17 @@
 //   · A failed write is REPORTED through `onCheckpointWriteError`, never swallowed. A
 //     failed save stays in the cache, so it is restorable for the rest of the session.
 //
-// MIGRATION. Hydration moves every legacy `SNAP_PREFIX` localStorage list into
-// IndexedDB, merged by id with anything already there, and deletes each localStorage key
-// only after its transaction committed. Until hydration finishes, a deck with no cached
-// list falls back to its legacy list, so a returning author never sees an empty history.
+// READS ONE DECK AT A TIME. Showing a deck loads only that deck's records
+// (`hydrateDeckCheckpoints`). The whole store is read only by what needs all of it — the
+// workspace backup and the Privacy & Data stats call `hydrateCheckpoints`. Reading every deck
+// at boot cost a phone-speed boot about a second with 40 decks of 25 versions
+// (engineering/decisions/2026-11-11-studio-storage-pointer-records.md §2).
+//
+// MIGRATION. Loading a deck moves its legacy `SNAP_PREFIX` localStorage list into
+// IndexedDB, merged by id with anything already there, and deletes the localStorage key
+// only after its transaction committed; the lists of decks this page never opens move once
+// the page is idle. Until a deck's read finishes, a deck with no cached list falls back to
+// its legacy list, so a returning author never sees an empty history.
 //
 // NO INDEXEDDB (private modes, a database that will not open, tests without
 // fake-indexeddb): the module reads and writes localStorage as the Studio always did,
@@ -60,7 +67,12 @@ let dbOpenFailed = false; // the database never opened: hydration falls back to 
 // store in the order they were created, so a write issued before the clear lands before it.)
 let generation = 0;
 const inflight = new Map<string, number>(); // deckId → transactions not yet settled
-const droppedDuringHydration = new Set<string>();
+// Decks whose stored list is in the cache. A page reads only the decks it shows: the boot used to
+// read every version of every deck, and that read cost a phone-speed boot about a second with 40
+// decks (engineering/decisions/2026-11-11-studio-storage-pointer-records.md §2).
+const deckLoaded = new Set<string>();
+const deckLoading = new Map<string, Promise<void>>();
+let legacySweepScheduled = false;
 const deckGeneration = new Map<string, number>(); // bumped when a deck is dropped: a change issued before it must not refill the cache
 let pending = new Set<Promise<unknown>>();
 let channel: BroadcastChannel | null = null;
@@ -314,7 +326,7 @@ function change(deckId: string, optimistic: Checkpoint[], edit: (list: Checkpoin
 		broadcast({ deckId });
 		return Promise.resolve(true);
 	}
-	void hydrateCheckpoints();
+	void hydrateDeckCheckpoints(deckId);
 	if (optimistic.length) cache.set(deckId, optimistic.slice(0, SNAP_CAP));
 	else cache.delete(deckId);
 	inflight.set(deckId, (inflight.get(deckId) ?? 0) + 1);
@@ -352,10 +364,11 @@ function change(deckId: string, optimistic: Checkpoint[], edit: (list: Checkpoin
 export function readCheckpoints(deckId: string): Checkpoint[] {
 	listen();
 	if (backend === 'local') return lsRead(deckId) ?? [];
-	void hydrateCheckpoints();
 	const hit = cache.get(deckId);
-	if (hit) return hit;
-	return hydrated ? [] : (lsRead(deckId) ?? []);
+	if (hydrated || deckLoaded.has(deckId)) return hit ?? [];
+	void hydrateDeckCheckpoints(deckId);
+	// Until the deck's own read lands, show its legacy list rather than an empty history.
+	return hit ?? lsRead(deckId) ?? [];
 }
 
 /** Add one checkpoint as the newest. Settles true once it is durable. */
@@ -391,7 +404,6 @@ export function dropCheckpoints(deckId: string): Promise<boolean> {
 		broadcast({ deckId });
 		return Promise.resolve(true);
 	}
-	if (!hydrated) droppedDuringHydration.add(deckId);
 	return track(
 		tx('readwrite', (s, { watch }) => {
 			watch(s.delete(deckRange(deckId)));
@@ -472,7 +484,11 @@ export async function checkpointsSettled(): Promise<void> {
 	while (pending.size) await Promise.allSettled([...pending]);
 }
 
-/** Load stored lists into the cache and migrate legacy localStorage lists. Idempotent. */
+/**
+ * Load EVERY deck's stored list into the cache and migrate every legacy localStorage list.
+ * Idempotent. For what needs the whole store (the workspace backup, the Privacy & Data stats);
+ * showing a deck needs only `hydrateDeckCheckpoints`, which `readCheckpoints` starts itself.
+ */
 export function hydrateCheckpoints(): Promise<void> {
 	if (hydration) return hydration;
 	listen();
@@ -482,65 +498,127 @@ export function hydrateCheckpoints(): Promise<void> {
 		return hydration;
 	}
 	const gen = generation;
+	const dgens = new Map(deckGeneration);
 	hydration = (async () => {
 		let stored: Rec[];
 		try {
-			stored = await tx('readonly', (s, { watch }) => {
-				const r = s.getAll();
-				watch(r);
-				return () => r.result as Rec[];
-			});
+			stored = await readStored(null);
 		} catch {
-			// IndexedDB is unusable here: keep the legacy store, and carry over what this page
-			// put in the cache meanwhile.
-			backend = 'local';
-			for (const [id, list] of cache) {
-				const legacy = lsRead(id) ?? [];
-				const err = lsWrite(id, newestFirst([...list, ...legacy.filter((c) => !list.some((l) => l.id === c.id))]).slice(0, SNAP_CAP));
-				if (err) report({ deckId: id, error: err, kind: 'save' });
-			}
-			cache.clear();
-			finishHydration();
+			fallBackToLocal();
 			return;
 		}
-		if (gen !== generation) {
-			finishHydration(); // cleared while the read was in flight: what it read is gone
-			return;
-		}
-		const byDeck = new Map<string, Checkpoint[]>();
-		for (const r of stored) byDeck.set(r.deckId, [...(byDeck.get(r.deckId) ?? []), strip(r)]);
-		for (const [id, list] of byDeck) {
-			// A deck with a change in flight takes the list that change commits, which is newer.
-			if (inflight.has(id) || droppedDuringHydration.has(id)) continue;
-			cache.set(id, newestFirst(list).slice(0, SNAP_CAP));
-		}
-		for (const id of lsLegacyDeckIds()) {
-			if (droppedDuringHydration.has(id)) continue;
-			const legacy = lsRead(id) ?? [];
-			const merge = (list: Checkpoint[]) => [...list, ...legacy.filter((c) => !list.some((l) => l.id === c.id))];
-			cache.set(id, newestFirst(merge(cache.get(id) ?? [])).slice(0, SNAP_CAP));
-			// Delete the legacy key only once its versions are committed to IndexedDB.
-			track(
-				tx('readwrite', (s, h) => editDeck(s, h, id, merge)).then(
-					() => lsRemove(id),
-					(error) => report({ deckId: id, error, kind: 'migrate' }),
-				),
-			);
-		}
-		finishHydration();
+		if (gen === generation) adopt(stored, lsLegacyDeckIds(), (id) => (deckGeneration.get(id) ?? 0) !== (dgens.get(id) ?? 0));
+		// else: cleared while the read was in flight, and what it read is gone
+		hydrated = true;
+		notifyChanged();
 	})();
 	return hydration;
 }
 
-function finishHydration(): void {
+/**
+ * Load ONE deck's stored list into the cache and migrate its legacy list. Idempotent; settles at
+ * once when the deck (or the whole store) is already loaded.
+ */
+export function hydrateDeckCheckpoints(deckId: string): Promise<void> {
+	if (backend === 'local' || hydrated || deckLoaded.has(deckId)) return Promise.resolve();
+	if (hydration) return hydration; // a whole-store read already in flight covers this deck
+	const running = deckLoading.get(deckId);
+	if (running) return running;
+	listen();
+	const gen = generation;
+	const dgen = deckGeneration.get(deckId) ?? 0;
+	const p = (async () => {
+		let stored: Rec[];
+		try {
+			stored = await readStored(deckId);
+		} catch {
+			fallBackToLocal();
+			return;
+		} finally {
+			deckLoading.delete(deckId);
+		}
+		if (gen === generation) adopt(stored, hasLegacy(deckId) ? [deckId] : [], () => (deckGeneration.get(deckId) ?? 0) !== dgen);
+		deckLoaded.add(deckId);
+		notifyChanged();
+		scheduleLegacySweep();
+	})();
+	deckLoading.set(deckId, p);
+	return p;
+}
+
+/** One deck's records, or every record (`null`). */
+function readStored(deckId: string | null): Promise<Rec[]> {
+	return tx('readonly', (s, { watch }) => {
+		const r = deckId === null ? s.getAll() : s.getAll(deckRange(deckId));
+		watch(r);
+		return () => r.result as Rec[];
+	});
+}
+
+/**
+ * Put what a read found into the cache, and migrate the legacy lists of `legacyIds`. `dropped`
+ * says a deck was deleted after the read began: what the read found for it is gone.
+ */
+function adopt(stored: Rec[], legacyIds: string[], dropped: (id: string) => boolean): void {
+	const byDeck = new Map<string, Checkpoint[]>();
+	for (const r of stored) {
+		const list = byDeck.get(r.deckId);
+		if (list) list.push(strip(r));
+		else byDeck.set(r.deckId, [strip(r)]);
+	}
+	for (const [id, list] of byDeck) {
+		// A deck with a change in flight takes the list that change commits, which is newer.
+		if (inflight.has(id) || dropped(id)) continue;
+		cache.set(id, newestFirst(list).slice(0, SNAP_CAP));
+	}
+	for (const id of legacyIds) {
+		if (dropped(id)) continue;
+		const legacy = lsRead(id) ?? [];
+		const merge = (list: Checkpoint[]) => [...list, ...legacy.filter((c) => !list.some((l) => l.id === c.id))];
+		cache.set(id, newestFirst(merge(cache.get(id) ?? [])).slice(0, SNAP_CAP));
+		// Delete the legacy key only once its versions are committed to IndexedDB.
+		track(
+			tx('readwrite', (s, h) => editDeck(s, h, id, merge)).then(
+				() => lsRemove(id),
+				(error) => report({ deckId: id, error, kind: 'migrate' }),
+			),
+		);
+	}
+}
+
+/** IndexedDB is unusable here: keep the legacy store, and carry over what this page put in the
+ *  cache meanwhile. */
+function fallBackToLocal(): void {
+	if (backend === 'local') return;
+	backend = 'local';
+	for (const [id, list] of cache) {
+		const legacy = lsRead(id) ?? [];
+		const err = lsWrite(id, newestFirst([...list, ...legacy.filter((c) => !list.some((l) => l.id === c.id))]).slice(0, SNAP_CAP));
+		if (err) report({ deckId: id, error: err, kind: 'save' });
+	}
+	cache.clear();
 	hydrated = true;
-	droppedDuringHydration.clear();
 	notifyChanged();
+}
+
+/**
+ * Legacy lists of decks this page never opens still move to IndexedDB, as the whole-store read
+ * used to move them at boot: once, when the page is idle, one deck at a time.
+ */
+function scheduleLegacySweep(): void {
+	if (legacySweepScheduled) return;
+	legacySweepScheduled = true;
+	const idle = (globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+	const run = async () => {
+		for (const id of lsLegacyDeckIds()) await hydrateDeckCheckpoints(id);
+	};
+	if (idle) idle(() => void run(), { timeout: 5000 });
+	else setTimeout(() => void run(), 2000);
 }
 
 /** Called after hydration and whenever another tab changes a list, so a view can re-read. */
 export function onCheckpointsChanged(fn: () => void): () => void {
-	if (hydrated) queueMicrotask(fn);
+	if (hydrated || deckLoaded.size) queueMicrotask(fn);
 	changeListeners.add(fn);
 	return () => changeListeners.delete(fn);
 }
@@ -562,7 +640,9 @@ export function __resetCheckpointStoreForTests(opts: { backend?: Backend } = {})
 	dbOpenFailed = false;
 	generation = 0;
 	inflight.clear();
-	droppedDuringHydration.clear();
+	deckLoaded.clear();
+	deckLoading.clear();
+	legacySweepScheduled = false;
 	deckGeneration.clear();
 	pending = new Set();
 	lastClear = Promise.resolve(true);
