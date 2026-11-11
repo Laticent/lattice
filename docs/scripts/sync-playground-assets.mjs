@@ -1,6 +1,6 @@
 // Stage the runtime assets the playground fetches/loads at runtime into a
 // CONTENT-HASHED directory, so a redeploy can never serve them stale:
-//   - dist/lattice-runtime-min.js → public/playground/v/<hash>/lattice-runtime.js
+//   - dist/lattice-runtime-preview-min.js → public/playground/v/<hash>/lattice-runtime.js
 //       (the DOM-transform + Mermaid bundle, loaded inside the preview iframe;
 //        renders charts/split-panels and orchestrates Mermaid — the same
 //        bundle marp-vscode preview uses. We stage the MINIFIED build: the
@@ -63,7 +63,9 @@ const distThemesDir = join(repoRoot, 'dist', 'themes');
 // Preview-fetched engine CSS + runtime: stage the MINIFIED builds (the readable
 // dist/lattice.css + dist/lattice-runtime.js remain the debug artifacts).
 const latticeCss = join(repoRoot, 'dist', 'lattice-min.css');
-const runtimeJs = join(repoRoot, 'dist', 'lattice-runtime-min.js');
+// The PREVIEW build of the runtime: the minified runtime without the fluid viewer's chart readers, which only a
+// `lattice --fluid` export runs (tools/build-runtime.js PREVIEW_FILE). About 8.6KB gzipped off every engine route.
+const runtimeJs = join(repoRoot, 'dist', 'lattice-runtime-preview-min.js');
 // The dagre layout engine, split OUT of the runtime bundle. It is fetched only by
 // a preview document that carries a drawn state chart, via a `<script src>` the
 // host emits before the runtime tag — the same conditional shape mermaid uses.

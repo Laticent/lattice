@@ -981,6 +981,14 @@ against main's) still found 19 smaller slides, from two more causes, now guarded
   three-row grid printed 14.6 → 13.6px where main's two flowing rows did not. The § 29 commit had deleted that
   flowing band (`packBand` / `buildBand`); it is back, verbatim, as the layout the grid has to beat.
 
+**The docs preview runtime carries no chart readers (2026-11-11).** The merge queue put the route budget's
+`engineJsGz` 3.6KB past its ceiling (836.5 against 832.9KB): this PR adds 15.0KB gzipped to the engine routes,
+most of it the chart readers in the runtime. Only a `lattice --fluid` export boots the fluid view (lattice.js sets
+`data-lattice-fluid-capable`, nothing on the docs site does), so a preview never redraws a chart. `tools/build-runtime.js`
+now also writes `dist/lattice-runtime-preview-min.js`, the minified runtime with `./chart-readers` resolved to an empty
+table, and `docs/scripts/sync-playground-assets.mjs` serves it: 8.6KB gzipped off every engine route. Exports inline
+the full runtime as before.
+
 After the fixes the sweep reads, compared exactly: 1,779 chart slides at 4:5, story and mobile; 1,647 print their
 smallest text at main's size, 132 larger (85 at 4:5, 29 story, 18 mobile, up to 18.2 → 30.1px on a risk register
 at mobile), and none smaller by any amount. The fluid viewer at 390 × 844, every gallery slide in Chromium, WebKit
