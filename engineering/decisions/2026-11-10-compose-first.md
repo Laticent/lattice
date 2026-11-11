@@ -188,12 +188,17 @@ and persists nothing itself, so the Studio does both:
 | A phone switching straight between Compose and Source | the same: the author was writing, so the keyboard comes up |
 | A phone arriving from the preview | no keyboard; a drawn caret marks the place, and a tap puts the real caret |
 | A reload | the slide AND the caret's line come back (`lattice-studio-active` gains `line`, written on leaving); with a real keyboard the editor takes focus on it, on a phone the drawn caret shows it |
+| Any of these in a Live session (joined, or a `#live=` link) | no editor takes the keyboard on its own: the drawn caret shows the place and the author clicks in |
+
+Why the Live exception: Compose holds back an outside change while it has focus, and the author's next keystroke
+supersedes it. A Compose that took focus on a mode switch, with no click, therefore dropped a co-editor's edit
+(`filo-live.spec.ts`, caught by the full local e2e run). The rule itself predates this PR and is recorded in
+`followups.d/3128-p2-compose-live-parked-change.md`.
 
 The caret keeps its COLUMN too, not only its line (owner, iPhone, 2026-11-11): `caret-line.ts` maps a column between a
 Markdown line and the text Compose shows for it, skipping block markers and emphasis, both ways. Plain text, bold,
 italic and code map exactly; a link (`[text](url)` in Source, `text` in Compose) or an inline object falls back to the
-line's start. The shell reads the column from the editor being left (Compose's handle, or Source's exact offset in the
-hub), hands it to the one arriving, and saves it with the line (`lattice-studio-active` gains `col`). Arriving, Compose
+line's start. The shell reads the column from the editor being left (each editor's `caretColumn()` handle), hands it to the one arriving, and saves it with the line (`lattice-studio-active` gains `col`). Arriving, Compose
 frames the caret, not only the slide, when the caret sits lower than one screen shows.
 
 The drawn caret sits OUTSIDE the editable text: an overlay in Compose (`position: fixed` from the caret's coordinates) and

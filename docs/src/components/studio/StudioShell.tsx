@@ -443,6 +443,15 @@ function hasRealKeyboard(): boolean {
 	}
 }
 
+/**
+ * A Live session, joined or being joined (`#live=`): no editor takes the keyboard on its own then. Compose holds back
+ * an outside change while it has focus, and its author's next keystroke supersedes it, so a Compose that took focus on
+ * a mode switch, with no click, dropped a co-editor's edit (filo-live.spec.ts). In a session the author clicks in.
+ */
+function inLiveSession(collab: boolean): boolean {
+	return collab || /[#&]live=/.test(window.location.hash);
+}
+
 export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks, slideFences }: Props) {
 	// The component catalog is FETCHED, not inlined (2026-08-17 loading audit §5, §9.3).
 	// Serialized into the island's props it was ~180KB raw — 72% of a 433KB HTML document,
@@ -956,7 +965,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Picking the mode already on screen changes nothing, and must not clear a live selection's Refine door.
 		if (m === editModeRef.current) return;
 		carriedColRef.current = caretColumnNowRef.current();
-		arriveFocusRef.current = o.focus ?? hasRealKeyboard();
+		arriveFocusRef.current = !inLiveSession(!!liveCollabRef.current) && (o.focus ?? hasRealKeyboard());
 		setEditModeState(m);
 		saveSettings({ editMode: m });
 		// The editor that reported a selection is about to unmount; the one arriving reports its own.
@@ -2492,7 +2501,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const { line, col } = loadBootCaret();
 		carriedColRef.current = col;
 		const view = viewChunksRef.current;
-		if (view.length) goToChunk(view[Math.max(0, Math.min(bootSlideRef.current ?? 0, view.length - 1))], { line, grab: !!line && hasRealKeyboard() });
+		if (view.length) goToChunk(view[Math.max(0, Math.min(bootSlideRef.current ?? 0, view.length - 1))], { line, grab: !!line && hasRealKeyboard() && !inLiveSession(!!liveCollabRef.current) });
 	}, []);
 
 	// Persist the editor preference as it changes.
