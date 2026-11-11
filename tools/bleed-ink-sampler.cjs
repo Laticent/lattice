@@ -4,8 +4,8 @@
  * Export-to-Marp tool (tools/export-marp.js, which runs this with `spawnSync` only when a deck has a `bleed` slide that picks its
  * ink: lib/export/marp-bleed-ink.js).
  *
- * stdin: a JSON array of `{ url, file, mime, rect: { x, y, w, h }, w, h }` (the file already confined by the caller).
- * stdout: a JSON object, url → an array of RGBA pixels, or null for a photo that could not be drawn.
+ * stdin: a JSON array of `{ key, file, mime, rect: { x, y, w, h }, w, h }` (the file already confined by the caller).
+ * stdout: a JSON object, key → an array of RGBA pixels, or null for a photo that could not be drawn.
  * Each photo is drawn as a `data:` image, so the page may read its pixels. CHROME_PATH names the browser when set.
  */
 const fs = require('node:fs');
@@ -21,7 +21,7 @@ async function main() {
     for (const job of jobs) {
       try {
         const src = `data:${job.mime};base64,${fs.readFileSync(job.file).toString('base64')}`;
-        out[job.url] = await page.evaluate(async (s, r, cw, ch) => {
+        out[job.key] = await page.evaluate(async (s, r, cw, ch) => {
           const img = new Image();
           img.src = s;
           try { await img.decode(); } catch { return null; }
@@ -33,7 +33,7 @@ async function main() {
           return Array.from(ctx.getImageData(0, 0, cw, ch).data);
         }, src, job.rect, job.w, job.h);
       } catch {
-        out[job.url] = null;
+        out[job.key] = null;
       }
     }
   } finally {

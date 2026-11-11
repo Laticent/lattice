@@ -269,8 +269,8 @@ function printOverflowPolicy(marker, source, deckPath) {
  * Markdown as it was: the slide keeps the ink its author gave it.
  */
 function withBundledBleedInk(markdown, dest, fm) {
-  const { bleedInkSlides, withBleedInk } = require('../lib/export/marp-bleed-ink.js');
-  const { bleedSampleRect, bleedInkOfPixels } = require('../lib/core/bleed-ink.js');
+  const { bleedInkSlides, withBleedInk, keyOf } = require('../lib/export/marp-bleed-ink.js');
+  const { bleedSampleRect, bleedBandFor, bleedInkOfPixels } = require('../lib/core/bleed-ink.js');
   const slides = bleedInkSlides(markdown);
   if (!slides.length) return markdown;
   const { readDimensions } = require('../lib/core/image-dimensions.js');
@@ -280,21 +280,27 @@ function withBundledBleedInk(markdown, dest, fm) {
   const types = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml' };
   const root = fs.realpathSync(dest);
   const jobs = [];
-  for (const url of new Set(slides.map((s) => s.url))) {
+  const seen = new Set();
+  // One job per band and photo: a centered layout reads the middle of the photo, the rest its top.
+  for (const s of slides) {
+    const key = keyOf(s.classes, s.url);
+    if (seen.has(key)) continue;
+    seen.add(key);
     let real;
-    try { real = fs.realpathSync(path.resolve(dest, decodeURI(url))); } catch { continue; }
+    try { real = fs.realpathSync(path.resolve(dest, decodeURI(s.url))); } catch { continue; }
     if (!real.startsWith(root + path.sep)) continue;
     const mime = types[path.extname(real).toLowerCase()];
     const dims = mime ? readDimensions(real) : null;
-    const rect = dims ? bleedSampleRect(dims.w, dims.h, parseFloat(geom.width), parseFloat(geom.height)) : null;
-    if (rect) jobs.push({ url, file: real, mime, rect, w: 32, h: Math.max(1, Math.round((32 * rect.h) / rect.w)) });
+    const rect = dims ? bleedSampleRect(dims.w, dims.h, parseFloat(geom.width), parseFloat(geom.height), bleedBandFor(s.classes)) : null;
+    if (rect) jobs.push({ key, file: real, mime, rect, w: 32, h: Math.max(1, Math.round((32 * rect.h) / rect.w)) });
   }
   if (!jobs.length) return markdown;
-  const run = require('node:child_process').spawnSync(process.execPath, [path.join(__dirname, 'bleed-ink-sampler.cjs')], { input: JSON.stringify(jobs), encoding: 'utf8', timeout: 120000 });
+  // Bounded: a browser that will not start costs the export at most this, and the slides keep their author's ink.
+  const run = require('node:child_process').spawnSync(process.execPath, [path.join(__dirname, 'bleed-ink-sampler.cjs')], { input: JSON.stringify(jobs), encoding: 'utf8', timeout: 45000 });
   let pixels = {};
   try { pixels = JSON.parse(run.stdout || '{}'); } catch { pixels = {}; }
-  const inkByUrl = new Map(jobs.map((j) => [j.url, pixels[j.url] ? bleedInkOfPixels(pixels[j.url]) : null]));
-  return withBleedInk(markdown, inkByUrl);
+  const inkByKey = new Map(jobs.map((j) => [j.key, pixels[j.key] ? bleedInkOfPixels(pixels[j.key]) : null]));
+  return withBleedInk(markdown, inkByKey);
 }
 
 function main(argv) {

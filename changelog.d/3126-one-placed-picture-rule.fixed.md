@@ -4,3 +4,4 @@
 - The Studio's photo-contrast underline now finds a lone `![title](src)` on an `image` slide (it read the slide's class after blanking its comments).
 - `image-extra-panel` also warns when two or more pictures stand alone on an `image` or `bleed` slide with no other photo, because none of them becomes the photo.
 - An Export-to-Marp bundle draws a full-bleed `![bg]` background again (a `bleed` slide's photo, or a `![bg]` on any slide that is not an `image` slide). The bundle's runtime lifted Marp's own background layer into a stage cell, which left the picture 0px tall, so every such background drew nothing.
+- Firefox: the Studio's preview draws the site's own pictures again (the `sample:` photos drew nothing there, because the preview's content policy named the site's origin for fonts only).

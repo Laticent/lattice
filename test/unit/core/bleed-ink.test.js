@@ -7,7 +7,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const ink = require('../../../lib/core/bleed-ink.js');
 const { stampBleedInk } = require('../../../lib/export/bleed-ink-stamp.js');
-const { bleedInkSlides, withBleedInk, bakeBleedInk } = require('../../../lib/export/marp-bleed-ink.js');
+const { bleedInkSlides, withBleedInk, bakeBleedInk, keyOf } = require('../../../lib/export/marp-bleed-ink.js');
 
 /** RGBA pixels of one solid color. */
 const solid = (rgb, n = 16) => Array.from({ length: n }, () => [...rgb, 255]).flat();
@@ -30,11 +30,25 @@ describe('the decision (lib/core/bleed-ink.mjs)', () => {
     assert.equal(ink.picksBleedInk('collage bleed', 'collage bleed'), false);
     assert.equal(ink.picksBleedInk('image bleed', ''), false);
     assert.equal(ink.picksBleedInk('content', ''), false);
+    assert.equal(ink.picksBleedInk('content bleed', 'content bleed color-light'), false, 'any mode token of the author\'s wins');
+    assert.equal(ink.picksBleedInk('content bleed print', 'content bleed'), false, 'a print deck keeps print\'s ink');
   });
 
-  test('light ink is the theme\'s dark mode, dark ink its light mode, and any other mode class goes', () => {
+  test('light ink is the theme\'s dark mode, dark ink its color-light mode, and any other mode class goes', () => {
     assert.deepEqual(ink.classesWithInk('content bleed form', 'light'), ['content', 'bleed', 'form', 'dark']);
-    assert.deepEqual(ink.classesWithInk('content dark bleed', 'dark'), ['content', 'bleed', 'light']);
+    assert.deepEqual(ink.classesWithInk('content dark bleed', 'dark'), ['content', 'bleed', 'color-light']);
+    assert.deepEqual(ink.classesWithInk('content bleed color-light', 'light'), ['content', 'bleed', 'dark'], 'a deck\'s color-light goes, or it would win on source order');
+    assert.deepEqual(ink.classesWithInk('content bleed color-system', 'dark'), ['content', 'bleed', 'color-light']);
+    assert.deepEqual(ink.classesWithInk('divider light bleed', 'light'), ['divider', 'light', 'bleed', 'dark'], 'a bare light may be the layout\'s variant: it stays');
+  });
+
+  test('a layout that centers its words reads the middle of the photo', () => {
+    assert.deepEqual(ink.bleedBandFor('content bleed'), { top: 0, height: ink.BLEED_BAND });
+    const mid = ink.bleedBandFor('divider bleed');
+    assert.equal(mid.height, ink.BLEED_BAND);
+    assert.ok(Math.abs(mid.top + mid.height / 2 - 0.5) < 1e-9, 'centered on the slide');
+    const r = ink.bleedSampleRect(1600, 900, 16, 9, mid);
+    assert.equal(Math.round(r.y), Math.round(900 * mid.top));
   });
 
   test('the sample is the heading band, as cover cropping puts the photo on the slide', () => {
@@ -64,7 +78,7 @@ describe('the CLI writes the ink before its page renders (lib/export/bleed-ink-s
 
   test('over a light photo the slide takes the light mode, replacing a deck-wide dark', async () => {
     const html = `<section data-class="content bleed" class="content bleed dark">${panel('file:///d/p.jpg')}</section>`;
-    assert.match(await stampBleedInk(html, host(DAY)), /class="content bleed light"/);
+    assert.match(await stampBleedInk(html, host(DAY)), /class="content bleed color-light"/);
   });
 
   test('the author\'s own mode, a web photo and a slide that is not bleed are left alone', async () => {
@@ -84,19 +98,39 @@ describe('Export-to-Marp writes the ink into the slide\'s own class (lib/export/
     '<!-- _class: content dark bleed -->', '## B', '', '![bg](assets/q.jpg)', '', '---', '',
     '<!-- class: content bleed -->', '## C', '', '![bg](assets/r.jpg)', '',
   ].join('\n');
+  const inks = (pairs) => new Map(pairs.map(([cls, url, v]) => [keyOf(cls.split(' '), url), v]));
 
   test('the slides that pick their ink, and only those', () => {
     assert.deepEqual(bleedInkSlides(md).map((s) => s.url), ['assets/p.jpg', 'assets/r.jpg']);
   });
 
   test('the mode joins the slide\'s own `_class`, or a spot `_class` holds the carried class plus the mode', () => {
-    const out = withBleedInk(md, new Map([['assets/p.jpg', 'light'], ['assets/r.jpg', 'dark']]));
+    const out = withBleedInk(md, inks([['content bleed', 'assets/p.jpg', 'light'], ['content bleed', 'assets/r.jpg', 'dark']]));
     assert.match(out, /<!-- _class: content bleed dark -->\n## A/);
     assert.match(out, /<!-- _class: content dark bleed -->\n## B/, 'the author\'s own dark is untouched');
-    assert.match(out, /<!-- _class: content bleed light -->\n\n\n<!-- class: content bleed -->\n## C/);
+    assert.match(out, /<!-- _class: content bleed color-light -->\n\n<!-- class: content bleed -->\n## C/);
   });
 
-  test('bakeBleedInk samples each photo once and writes its ink; a photo it cannot read changes nothing', async () => {
+  test('a carried mode is the author\'s; a deck-wide class builds the spot class so bleed is not lost', () => {
+    const carried = ['<!-- class: content bleed dark -->', '## A', '', '![bg](assets/p.jpg)', ''].join('\n');
+    assert.deepEqual(bleedInkSlides(carried), [], 'a carried dark is as much the author\'s choice as a spot one');
+    const deck = ['---', 'class: content bleed', '---', '', '## A', '', '![bg](assets/p.jpg)', ''].join('\n');
+    const out = withBleedInk(deck, inks([['content bleed', 'assets/p.jpg', 'light']]));
+    // The deck register admits `bleed`, never a component (lib/core/deck-class-register.js): the spot class carries what the engine reads.
+    assert.match(out, /<!-- _class: bleed dark -->\n\n## A/, 'a spot _class replaces the deck class in Marp, so it carries it');
+  });
+
+  test('only the `_class` comment changes when another directive shares its line, and CRLF stays CRLF', () => {
+    const shared = ['<!-- _paginate: false --> <!-- _class: content bleed -->', '## A', '', '![bg](assets/p.jpg)', ''].join('\r\n');
+    const out = withBleedInk(shared, inks([['content bleed', 'assets/p.jpg', 'light']]));
+    assert.equal(out, shared.replace('<!-- _class: content bleed -->', '<!-- _class: content bleed dark -->'));
+    const bare = ['<!-- class: content bleed -->', '## A', '', '![bg](assets/p.jpg)', ''].join('\r\n');
+    const out2 = withBleedInk(bare, inks([['content bleed', 'assets/p.jpg', 'dark']]));
+    assert.ok(out2.startsWith('<!-- _class: content bleed color-light -->\r\n\r\n'), JSON.stringify(out2.slice(0, 60)));
+    assert.doesNotMatch(out2.replace(/\r\n/g, ''), /\n/, 'no bare LF slipped in');
+  });
+
+  test('bakeBleedInk samples each photo once per band and writes its ink; a photo it cannot read changes nothing', async () => {
     let reads = 0;
     const out = await bakeBleedInk(md, {
       readPhoto: (url) => { reads++; return url === 'assets/p.jpg' ? { bytes: Buffer.from('x'), mime: 'image/jpeg', width: 1600, height: 900 } : null; },
@@ -104,6 +138,6 @@ describe('Export-to-Marp writes the ink into the slide\'s own class (lib/export/
     });
     assert.equal(reads, 2);
     assert.match(out, /<!-- _class: content bleed dark -->\n## A/);
-    assert.doesNotMatch(out, /_class: content bleed (?:light|dark) -->\n\n\n<!-- class/);
+    assert.doesNotMatch(out, /_class: content bleed (?:color-light|dark) -->\n\n<!-- class/);
   });
 });

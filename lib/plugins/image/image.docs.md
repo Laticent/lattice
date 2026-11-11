@@ -15,7 +15,7 @@ The record describes the picture. The slide places it:
 | The slide | The picture becomes |
 |---|---|
 | an `image` slide | the layout's photo panel; the layout picks the composition from the photo's shape. `mirror` puts it on the left |
-| a slide with `bleed` | the slide's background, cropped to fill it. The words pick their ink from the photo: white over a dark photo, dark over a light one, with a scrim or a veil under the heading. A slide whose own class names `dark` or `light` keeps it |
+| a slide with `bleed` | the slide's background, cropped to fill it. The words pick their ink from the photo: white over a dark photo, dark over a light one, with a scrim or a veil under the heading. A slide whose own class names a color mode keeps it |
 | a `collage` | one of the tiles it packs (a list of records or Markdown images) |
 | any other slide | a figure in the slide's flow, sized by the record |
 
@@ -102,9 +102,11 @@ finished page, and every picture, a plugin's own included, still waits for the r
 ## Words over a full-bleed photo
 
 A `bleed` slide reads the band of its photo under the heading, cropped as the slide crops it, and gives its words the ink
-that reads better there: the theme's `dark` mode (white words, a scrim darkening the top) over a dark photo, its `light` mode
-(dark words, a veil lightening the top) over a light one. Name `dark` or `light` in the slide's own class to choose for
-yourself; a deck-wide color mode does not count as a choice about one photo. Every export makes the same choice: the CLI reads
+that reads better there: the theme's `dark` mode (white words, a scrim darkening the top) over a dark photo, its light mode,
+written `color-light` (dark words, a veil lightening the top), over a light one. A layout that centers its words (`divider`,
+`title`, `statement`, `closing`, `quote`, `big-number`) reads the middle of the photo instead. Name `dark`, `light` or
+`color-light` in the slide's own class (or a carried `class:`) to choose for yourself; a deck-wide color mode does not count as
+a choice about one photo, and a `print` deck keeps print's ink. Every export makes the same choice: the CLI reads
 the file before its page renders, the Studio and the Playground read it in the preview, and an Export-to-Marp bundle carries
 it in the slide's class. A web picture the export cannot read keeps the theme's ink. `examples/bleed-auto-ink.md` shows each
 case.

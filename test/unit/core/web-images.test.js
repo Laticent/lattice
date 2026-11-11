@@ -214,3 +214,14 @@ test('the host may name its own origin for fonts, and only an exact origin gets 
     /font-src 'self' data: https:\/\/lattice\.example https:\/\/cdn\.example;/,
   );
 });
+
+test('the host\'s own origin serves its pictures too; a font mirror does not', async () => {
+  // Firefox read the `srcdoc` frame's `'self'` as no origin for pictures as well, so every `sample:` photo the site serves drew
+  // nothing in the Studio's preview, and a `bleed` slide had no photo to read its ink from (#3132).
+  const { subresourceCspPolicy } = await import('../../../lib/core/subresource-csp.mjs');
+  const p = subresourceCspPolicy({ fontOrigins: ['https://lattice.example', 'https://a.com; x'], katexUrl: 'https://cdn.example/katex.css' });
+  assert.match(p, /img-src 'self' data: blob: https:\/\/lattice\.example;/);
+  assert.match(p, /media-src 'self' data: blob: https:\/\/lattice\.example;/);
+  assert.doesNotMatch(p.split(';').filter((d) => /img-src|media-src/.test(d)).join(';'), /cdn\.example|a\.com/);
+  assert.match(subresourceCspPolicy({}), /img-src 'self' data: blob:;/, 'without it, nothing changes');
+});

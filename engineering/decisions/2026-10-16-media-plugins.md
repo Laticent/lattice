@@ -1204,3 +1204,13 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   scrim: dark words over a mid-tone photo with a dark shape under the heading did not read without it. In a Marp bundle the
   photo is Marp's own figure, so the scrim and veil (which sit on the engine's panel) do not apply there; the ink does. No shipped
   deck changes (identity:check 466/0); examples/bleed-auto-ink.md is the demo, rendered light and dark for the owner.
+  The checker on the first cut found two collisions and a wrong band, fixed before merge: dark ink is written `color-light`, not
+  the bare `light` (that word is also the `divider light` subtopic variant, the collision lib/core/resolve-color-mode.js already
+  avoids), and applying an ink evicts every other color-mode token (a deck's `color-light` won on source order and put dark words
+  over the dark scrim); a `print` deck and a slide whose carried `class:` names a mode are left alone; a layout that centers its
+  words (divider, title, statement, closing, quote, big-number) reads the middle band of the photo, not its top. The Marp rewrite
+  reads `_class` per comment (a shared line with `_paginate` kept its other directive), keeps CRLF, and builds a new spot `_class`
+  from the carried class or the deck register so `bleed` is not dropped. The Gecko Studio e2e then showed the photo itself
+  missing: the preview's CSP named the site's own origin for fonts only, and Firefox does not read a `srcdoc` frame's `'self'` as
+  the site, so every `sample:` picture drew nothing there. lib/core/subresource-csp.mjs now names it in `img-src` and `media-src`
+  too (the host's own origin only; a KaTeX mirror stays a font host).
