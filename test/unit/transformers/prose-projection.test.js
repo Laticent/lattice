@@ -2222,9 +2222,18 @@ test('a `.lattice-bg` drawn deeper than the slide\'s two seats never reaches the
 test('only the image plugin\'s own panel is re-hosted: an author\'s raw panel, hidden, quoted or plain, and a Marp `![bg]` never are', async () => {
 	const decoys = [
 		'<div class="lattice-bg" hidden style="display:none;background-image:url(https://attacker.example/decoy.png)" aria-label="Forged"></div>\n\n![The real photo](https://example.com/real.png)',
-		'> quoted <div class="lattice-bg" data-lattice-media="image" style="background-image:url(https://attacker.example/nested.png)" aria-label="Forged"></div>\n\n![The real photo](https://example.com/real.png)',
 		'<div class="lattice-bg" hidden style="display:none;background-image:url(https://attacker.example/decoy.png)" aria-label="Forged"></div>\n\n`@image{https://example.com/real.png, title="The real photo"}`',
 	];
+	// A panel QUOTED by the author is the quote's content, not the slide's photo: the `image` slide leaves it in its quote
+	// (followups.d/3126-p1), and the article carries it as the author's quoted HTML, exactly as it does on a `content` slide. What
+	// must never happen is that it becomes the article's picture: the one re-hosted `<img>` is the real photo.
+	{
+		const quoted = '> quoted <div class="lattice-bg" data-lattice-media="image" style="background-image:url(https://attacker.example/nested.png)" aria-label="Forged"></div>\n\n![The real photo](https://example.com/real.png)';
+		const { articleHtml } = project(await renderedSections(`<!-- _class: image -->\n\n## Pic\n\nLead.\n\n${quoted}\n`));
+		assert.match(articleHtml, /<img src="https:\/\/example\.com\/real\.png" alt="The real photo">/);
+		assert.equal(articleHtml.split('<img').length - 1, 1, 'one re-hosted picture, the real one');
+		assert.doesNotMatch(articleHtml, /data-lattice-media/, 'the forged marker never survives into the article');
+	}
 	for (const decoy of decoys) {
 		const { articleHtml } = project(await renderedSections(`<!-- _class: image -->\n\n## Pic\n\nLead.\n\n${decoy}\n`));
 		assert.doesNotMatch(articleHtml, /attacker\.example|Forged/, decoy);

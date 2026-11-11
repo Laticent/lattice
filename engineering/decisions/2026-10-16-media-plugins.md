@@ -1164,3 +1164,17 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   class before it blanks comments. The table is 35 cases. The Studio readers cannot see a class or a background carried from an
   earlier slide, nor a `split: headings` boundary (they read one `---` slide): five cases skipped by name, recorded in
   followups.d/3126-p3-studio-carried-class.md.
+- 2026-11-11: **the `image` slide lifts only its own panels** (followups.d/3126-p1, now deleted). `wrapImageText`
+  (lib/core/bg-image.js) collected every `<div class="lattice-bg…` with a regex and moved it to section level, so an author's raw
+  panel in a quote drew as the slide's photo and hid the real one (measured on a CLI PNG render: before, the quoted square photo
+  filled the panel slot and the slide's `![bg right]` never showed). `slidePanelSpans` now reads the section with the shared tag
+  scanner (`@laticent/markup` `scanTags`) and lifts a panel only at section level or inside nothing but a paragraph, where the
+  engine writes a `![bg]` that sits in prose (lib/engine/background-image.js); panels come out by position, so a quoted copy of
+  the slide's own panel stays put. The DOM mirror already moved only direct children. The `image` layout's thirteen
+  `.lattice-bg` rules now use the child combinator (`section.image > .lattice-bg`, no change in specificity), so a panel left
+  in a quote is not positioned as the slide's photo either. test/unit/core/image-text-nested-panels.test.js renders each shape
+  through the real engine and the DOM mirror (5 of 6 arms fail on `main`); `npm run identity:check`: 466 decks, 0 differ.
+  **The Reading view, decided:** a quoted raw panel now reaches the article as the author's quoted HTML, as any quoted raw HTML
+  does on a `content` slide (on `main` too); the `image` slide used to drop it only because the lift pulled it out of the quote.
+  The guarantee that matters holds: it is never re-hosted as the article's photo, and the forged `data-lattice-media` marker
+  never survives (author-markup.js renames it). test/unit/transformers/prose-projection.test.js asserts exactly that now.

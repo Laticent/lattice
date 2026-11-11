@@ -110,7 +110,7 @@ section.image.image[data-img-composition="statement"]:not(.with-pagination) > .l
 
 /* The photo. Base = full-bleed cover layer behind everything; each composition
  * repositions/resizes it. No <img>, so no Marpit `section img` override needed. */
-section.image .lattice-bg {
+section.image > .lattice-bg {
   position: absolute;
   inset: 0;
   /* The photo IS the sheet on this layout — the CANVAS plane. */
@@ -126,7 +126,7 @@ section.image .lattice-bg {
  * slide on an iPhone (#2412), so it draws the same stand-in a blocked web image gets
  * (base.modifiers.css): a hatched field in the deck's tokens behind a hairline edge.
  * `!important` because the failed address sits in the panel's inline style. */
-section.image[data-img-unloaded] .lattice-bg {
+section.image[data-img-unloaded] > .lattice-bg {
   background-color: var(--bg-alt, var(--bg));
   background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--text-muted) 22%, transparent) 0 1px, transparent 1px 10px) !important;
   box-shadow: inset 0 0 0 1px var(--border);
@@ -150,7 +150,7 @@ section.image[data-img-live]:not([data-img-bucket]) {
   --img-aspect: 16 / 10;
   --img-aspect-n: 1.6;
 }
-section.image[data-img-live][data-img-composition="clean"]:not([data-img-bucket]):not([data-orientation="portrait"]):not([data-orientation="square"]) .lattice-bg {
+section.image[data-img-live][data-img-composition="clean"]:not([data-img-bucket]):not([data-orientation="portrait"]):not([data-orientation="square"]) > .lattice-bg {
   height: auto;
   width: 88%;
   max-height: 76cqh;
@@ -247,7 +247,7 @@ section.image[data-img-composition="clean"] .image-text {
  * needs ONE definite axis to size against — height-bound by default (tall/square/
  * column read as upright cards), width-bound for the wide buckets (a tall wide
  * card would be absurd). The max-* on the derived axis is the overflow backstop. */
-section.image[data-img-composition="clean"] .lattice-bg {
+section.image[data-img-composition="clean"] > .lattice-bg {
   grid-area: card;
   position: relative;
   inset: auto;
@@ -258,12 +258,12 @@ section.image[data-img-composition="clean"] .lattice-bg {
   border-radius: 1cqi;
   box-shadow: var(--img-lift), var(--img-hairline);
 }
-section.image[data-img-composition="clean"][data-img-bucket="wide"] .lattice-bg {
+section.image[data-img-composition="clean"][data-img-bucket="wide"] > .lattice-bg {
   height: auto;
   width: 88%;
   max-height: 76cqh;
 }
-section.image[data-img-composition="clean"][data-img-bucket="pano"] .lattice-bg {
+section.image[data-img-composition="clean"][data-img-bucket="pano"] > .lattice-bg {
   height: auto;
   width: 92%;
   max-height: 68cqh;
@@ -285,8 +285,8 @@ section.image[data-img-composition="clean"][data-orientation="square"] {
   gap: calc(var(--_sec-1cqh, 1cqh) * 5);
   padding: calc(var(--_sec-1cqh, 1cqh) * 7) 0;
 }
-section.image[data-img-composition="clean"][data-orientation="portrait"] .lattice-bg,
-section.image[data-img-composition="clean"][data-orientation="square"] .lattice-bg {
+section.image[data-img-composition="clean"][data-orientation="portrait"] > .lattice-bg,
+section.image[data-img-composition="clean"][data-orientation="square"] > .lattice-bg {
   height: auto; width: 84%;
   max-width: 84%; max-height: 50cqh;
 }
@@ -309,7 +309,7 @@ section.image[data-img-composition="split"] {
   grid-template-columns: 1fr 41%;
   grid-template-areas: "text photo";
 }
-section.image[data-img-composition="split"] .lattice-bg {
+section.image[data-img-composition="split"] > .lattice-bg {
   grid-area: photo;
   position: relative;
   inset: auto;
@@ -341,7 +341,7 @@ section.image[data-img-composition="split"][data-img-bucket="column"].mirror,
 section.image[data-img-composition="split"][data-img-bucket="column"]:has(> .lattice-bg-left) {
   grid-template-columns: 32% 1fr;
 }
-section.image[data-img-composition="split"][data-img-bucket="column"] .lattice-bg {
+section.image[data-img-composition="split"][data-img-bucket="column"] > .lattice-bg {
   background-size: contain;
   background-color: var(--img-matte);
   box-shadow: inset 1px 0 0 var(--border);
@@ -381,7 +381,7 @@ section.image[data-img-composition="split"][data-orientation="square"] .image-te
  * card so it stays legible over any photo. Landscape: card bottom-left.
  * ═══════════════════════════════════════════════════════════════════ */
 
-section.image[data-img-composition="spotlight"] .lattice-bg { inset: 0; }
+section.image[data-img-composition="spotlight"] > .lattice-bg { inset: 0; }
 section.image[data-img-composition="spotlight"] .image-text {
   position: absolute;
   left: var(--_card-ix); bottom: var(--_card-iy);
@@ -448,7 +448,7 @@ section.image[data-img-composition="gallery"] {
  * edge (no side-bars, ever) and the mat stays even on all four sides.
  * box-shadow stack: inner bevel at the photo edge · frame line outside the mat ·
  * hard PDF-safe lift. */
-section.image[data-img-composition="gallery"] .lattice-bg {
+section.image[data-img-composition="gallery"] > .lattice-bg {
   position: relative;
   inset: auto;
   box-sizing: content-box;
@@ -486,7 +486,7 @@ section.image[data-img-composition="gallery"] .image-text p {
  * choice the author makes when the photo is known to carry it.
  * ═══════════════════════════════════════════════════════════════════ */
 
-section.image[data-img-composition="statement"] .lattice-bg { inset: 0; }
+section.image[data-img-composition="statement"] > .lattice-bg { inset: 0; }
 /* The scrim node (injected by image-scrim across all render paths) darkens the
  * lower-left where the text sits and fades out toward the bright upper-right.
  * rgba (not a token) on purpose: this is an overlay on an unknown photo, not a
