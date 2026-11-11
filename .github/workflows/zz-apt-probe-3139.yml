@@ -1,0 +1,59 @@
+name: apt probe (PR #3139, temporary)
+
+# A ONE-OFF probe for PR #3139's pre-merge card, deleted before merge: it drives, on a real runner, the three apt-cached
+# paths no CI run had exercised. Runs only on pushes to the PR's own branch.
+on:
+  push:
+    branches: [claude/ci-apt-cache-mirrors]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. A new runner image: the exact key misses, the restore key falls back to the entry the PR's CI saved under
+      #    image 20261101.360.1, the install fits, and the post step saves under the new key.
+      - name: Image bump (restore-key fallback)
+        uses: ./.github/actions/apt-cached
+        env:
+          ImageVersion: probe-${{ github.run_id }}
+        with:
+          packages: poppler-utils imagemagick fonts-noto-color-emoji
+      - name: Check the fallback installed the packages
+        run: pdfinfo -v && convert -version | head -1
+
+      # 2. A cached set that does not fit: one .deb whose dependency the image lacks (xfonts-cyrillic needs
+      #    xfonts-utils). dpkg -i must fail and apt-cached.sh must repair from the mirror and end with it installed.
+      - name: Repair path
+        run: |
+          set -euo pipefail
+          d="$RUNNER_TEMP/misfit"; mkdir -p "$d"
+          if dpkg-query -W -f='${db:Status-Abbrev}' xfonts-utils 2>/dev/null | grep -q '^ii'; then
+            echo "::error::xfonts-utils is already on the image; pick another misfit package"; exit 1
+          fi
+          sudo apt-get update -qq
+          (cd "$d" && apt-get download xfonts-cyrillic)
+          ls "$d"
+          bash .github/actions/apt-cached/apt-cached.sh install "$d" xfonts-cyrillic 2>&1 | tee "$RUNNER_TEMP/repair.log"
+          grep -q 'do not fit this runner image; repairing' "$RUNNER_TEMP/repair.log"
+          dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' xfonts-cyrillic xfonts-utils
+
+      # 3. Mirror #1 does not resolve: a `.invalid` host (RFC 2606, never resolves) is put first. apt must move on and
+      #    fetch from the next mirror.
+      - name: Dead first mirror
+        run: |
+          set -euo pipefail
+          bash .github/actions/apt-cached/apt-setup.sh
+          { printf 'http://mirror.apt-probe.invalid/ubuntu/\tpriority:0\n'; cat /etc/apt/apt-mirrors.txt; } | sudo tee /etc/apt/apt-mirrors.txt.new >/dev/null
+          sudo mv /etc/apt/apt-mirrors.txt.new /etc/apt/apt-mirrors.txt
+          cat /etc/apt/apt-mirrors.txt
+          d="$RUNNER_TEMP/dead"; mkdir -p "$d/partial"
+          sudo apt-get update 2>&1 | tee "$RUNNER_TEMP/update.log"
+          sudo apt-get install -y --no-install-recommends --download-only --reinstall -o Dir::Cache::archives="$d" sl 2>&1 | tee "$RUNNER_TEMP/dl.log"
+          ls "$d"/sl_*.deb
+          grep -E 'Get:.*sl ' "$RUNNER_TEMP/dl.log"
