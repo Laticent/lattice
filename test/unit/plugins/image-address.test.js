@@ -258,6 +258,23 @@ describe('the engine and Export-to-Marp agree on which picture is placed (invers
   }
 });
 
+describe('Export-to-Marp writes a placed picture its own line pattern cannot read', () => {
+  // A title holding a parenthesis: the line is written from the parse, address only, because the bundle's lift reads
+  // `![bg](…)` up to the first `)` (lib/core/bg-directive.js); with the title kept, the panel's address came out
+  // `photo.jpg %22Dawn (east` (found by the export comparison on #3132).
+  test('a title with parentheses becomes a clean `![bg](address)`', () => {
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Harbor](https://x.test/p.jpg "Dawn (east)")\n';
+    const out = withImageMarkdown(md, {}, ctxFor('image'));
+    assert.match(out, /^!\[bg\]\(https:\/\/x\.test\/p\.jpg\)$/m);
+  });
+  test('a line of text right under it is kept out of the panel\'s HTML block by a blank line', () => {
+    // The bundle lifts `![bg]` into a raw `<div>` line, and an HTML block runs to the next blank line: without one, a list
+    // right under the picture printed as the text `- a point` in a marp-cli render.
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Harbor](https://x.test/p.jpg)\n- a point\n';
+    assert.match(withImageMarkdown(md, {}, ctxFor('image')), /^!\[bg\]\(https:\/\/x\.test\/p\.jpg\)\n\n- a point$/m);
+  });
+});
+
 describe('the image lint agrees with the placed-picture rule (test/fixtures/placed-picture-cases.json)', () => {
   // `image-extra-panel` flags a picture exactly where the table says the slide is crowded (several lone pictures, no other
   // photo, so none is placed), and never a picture the engine places.
