@@ -88,6 +88,15 @@ describe('wrapImageText lifts only the slide\'s own panels', () => {
     });
   }
 
+  // A slide the pane carve splits keeps its pictures where they stood, as on main: a hoisted panel landed in the pane host
+  // beside the panes as an unstyled box that took height (the card grader on #3132 measured the list pane 16px off).
+  test('a pane slide hoists no panel into its host', () => {
+    const html = e.render('---\ntheme: indaco\n---\n\n<!-- _class: image -->\n\n## Image slide\n\n<!-- _pane: content -->\n> ![bg](https://x.test/a.jpg)\n\n<!-- _pane: list -->\n- a point\n![bg](https://x.test/b.jpg)\n').html;
+    const section = children(firstSection(html));
+    assert.ok(section.classList.contains('lat-pane-host'), 'the slide is a pane host');
+    assert.equal(section.querySelectorAll(':scope > .cell-stage > .lattice-bg, :scope > .lattice-bg').length, 0, 'no panel beside the panes');
+  });
+
   test('a quoted copy of the slide\'s own panel stays put: panels come out by position, not by text', () => {
     const own = `<div class="lattice-bg lattice-bg-right" style="background-image:url('https://x.test/photo.jpg')"></div>`;
     const html = `<section class="image"><h2>T</h2><blockquote>${own}</blockquote>${own}<p>Words.</p></section>`;
