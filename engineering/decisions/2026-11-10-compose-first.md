@@ -260,15 +260,22 @@ default, that is the editor a power user lands in, so the owner chose to fix all
 |---|---|---|
 | Deck | the bytes before the first slide and after the last (`head`, `tail` on the doc), and the separator before each slide (`sep` on the slide). A new or pasted slide takes the canonical separator | `deck-doc.ts` `deckFrame`, `joinSlides`; `scoped-resync.ts` keeps them through an undo |
 | Block | in an edited slide, every block whose Markdown reads the same as one of the slide's original blocks keeps that block's bytes, and the space between two original neighbors stays as written. Blocks are matched by their canonical form (a longest common subsequence), so a block that moved or a neighbor that was deleted still matches | `deck-doc.ts` `faithfulSlide`, `alignBlocks`, `topLevelSpans` (`deck-markdown.ts`) |
-| Line and marker | in the edited block, every line the edit did not touch keeps its spelling (the other list items, the other table rows, the alignment row); the parser keeps the list marker (`bullet`, `delim`) and the emphasis run (`markup`) so the edited line writes them as the author did; a lone `~` is not escaped and a two-space hard break stays two spaces. `_` emphasis is written `*` only where `_` could not open or close (next to a letter) | `deck-markdown.ts` schema attrs, `emphasisRun`; `deck-doc.ts` `keepLines`, `respell` |
+| Line and marker | in the edited block, every line the edit did not touch keeps its spelling (the other list items, the other table rows, the alignment row); the parser keeps the list marker (`bullet`, `delim`, node attrs) so the edited line writes it as the author did; on the edited line, emphasis the original wrote with `_` gets `_` back, a lone `~` is not escaped, and a two-space hard break stays two spaces. The emphasis spelling is NOT a mark attr: an attr is part of a mark's identity, so a run toggled next to an existing one stayed a separate mark and the two were written `*foo**bar*` (the checker's catch) | `deck-markdown.ts` list attrs; `deck-doc.ts` `keepLines`, `respell`, `spliceProse` |
 
-**It never costs correctness.** The faithful text must read back to exactly what the canonical serializer would have
-written, else the canonical text is used. A block Compose changes on reading (a chart's row list made tight) is never
+**It does not change what the slide says.** The faithful text must read back, through Compose's own parser, to exactly what
+the canonical serializer would have written, else the canonical text is used; and the slide spliced back around its
+directive lines (a `_class` under an eyebrow stays there) must split back into the same directives and prose. Two original
+blocks that read the same but are written differently (`A \<b>x\</b>` and `A <b>x</b>` parse alike there, `html:false`)
+are never kept as written, since which bytes belong to which cannot be told. A block Compose changes on reading (a chart's row list made tight) is never
 kept as written. `docToDeck` stays the plain canonical form (tests and the resync equality check use it); only the
 editor's write-back (`emitDeck`) is faithful.
 
 **Measured.** `src/lib/compose/deck-fidelity.test.ts` runs every shipped example deck (360): opened and left alone, each
-comes back byte for byte; a one-character edit on each editable slide changes exactly one line of the deck. Before: 718
+comes back byte for byte; a one-character edit on each editable slide changes exactly one line of the deck, counted both
+ways (a removed or an added line), and the result reads the same as the edited document. `scoped-resync.test.ts` now
+builds its edits the way the editor writes them and fails on any fallback: 4,306 cases, none falling back, the patch path
+0.30 ms median on a one-slide change of the 134 KB deck. The block alignment matches the common head and tail one to one
+and aligns only the middle (capped), so an edit inside a 3,000-item list stays linear. Before: 718
 of the 720 checks failed (every deck lost its trailing newline; 97 decks rewrote more than the edited line). After: all
 pass, plus eight spelling cases. A keystroke on the largest slide of the 134 KB deck costs 0.32 ms median (0.64 ms p95)
 against 0.10 ms canonical.
@@ -276,7 +283,8 @@ against 0.10 ms canonical.
 **The default path is tested by default.** Every Playwright project's fixture stores Source, because its helpers type
 Markdown. A `compose-default` project (nightly only; per-PR CI runs `--project=desktop`) runs the core Studio specs
 (smoke, Filo undo and Live, lessons, the pane sync, Compose-first) with no stored mode, so they boot in Compose; the
-helpers open Source only where they type Markdown (`toSourceIfCompose`). 48 tests.
+helpers open Source only where they type Markdown (`toSourceIfCompose`). 48 tests, about 6 minutes added to the existing
+Studio E2E nightly step (it runs every project), no new job or step.
 
 With Compose faithful, a returning visitor lands in Compose like a new one (owner, 2026-11-11): Source is one click
 away and remembered, and an edit in Compose no longer rewrites how they wrote their deck.

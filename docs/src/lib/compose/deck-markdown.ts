@@ -7,7 +7,7 @@ import {
 	MarkdownSerializerState,
 	schema as mdSchema,
 } from 'prosemirror-markdown';
-import { type Mark, type MarkSpec, type NodeSpec, type Node as PMNode, Schema } from 'prosemirror-model';
+import { type NodeSpec, type Node as PMNode, Schema } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
 import { unescapeLeadingMarker as unescapeMarker } from '../../../../lib/core/cell-marker-edit.mjs';
 import { commentNodeSpec } from './comment-block';
@@ -128,9 +128,6 @@ function withAttr(spec: NodeSpec, name: string, fallback: string): NodeSpec {
 	return { ...spec, attrs: { ...spec.attrs, [name]: { default: fallback } } };
 }
 
-function withMarkup(spec: MarkSpec): MarkSpec {
-	return { ...spec, attrs: { ...spec.attrs, markup: { default: '' } } };
-}
 
 // IMAGES ARE A PASTE AND SERIALIZER SURFACE (HARD RULE #22's threat model, found by the red team on the Compose images slice).
 // prosemirror-markdown's `image` takes `src`, `alt` and `title` raw from pasted HTML, and its serializer escapes only parentheses
@@ -209,8 +206,10 @@ export const proseSchema = new Schema({
 		.addToEnd('inline_object', inlineObjectSpec)
 		.addToEnd('raw_block', rawBlockSpec)
 		.addToEnd('inline_math', mathInlineSpec),
-	// `markup`: the emphasis run as written (`_` or `*`, `__` or `**`), so an edited line keeps the author's spelling.
-	marks: mdSchema.spec.marks.update('em', withMarkup(mdSchema.spec.marks.get('em') as MarkSpec)).update('strong', withMarkup(mdSchema.spec.marks.get('strong') as MarkSpec)),
+	// The emphasis spelling (`_em_` or `*em*`) is NOT a mark attr: an attr is part of a mark's identity, so a run toggled
+	// next to an existing one stayed a separate mark and the two were written `*foo**bar*` (the checker's catch). The edited
+	// line gets the author's `_` back from its original line instead (deck-doc.ts `respell`).
+	marks: mdSchema.spec.marks,
 });
 
 // ── Parser ─────────────────────────────────────────────────────────────────────
@@ -235,8 +234,6 @@ export const latticeMarkdownParser = new MarkdownParser(proseSchema, tableTokeni
 	bullet_list: { block: 'bullet_list', getAttrs: (tok: any, tokens: any, i: number) => ({ ...(defaultMarkdownParser.tokens.bullet_list as any).getAttrs(tok, tokens, i), bullet: tok.markup || '' }) },
 	// biome-ignore lint/suspicious/noExplicitAny: as above.
 	ordered_list: { block: 'ordered_list', getAttrs: (tok: any, tokens: any, i: number) => ({ ...(defaultMarkdownParser.tokens.ordered_list as any).getAttrs(tok, tokens, i), delim: tok.markup || '' }) },
-	em: { mark: 'em', getAttrs: (tok) => ({ markup: tok.markup || '' }) },
-	strong: { mark: 'strong', getAttrs: (tok) => ({ markup: tok.markup || '' }) },
 	// `markup` is the opening run exactly as written — `~~~`, ```` ``` ````, ```` ```` ````.
 	fence: { block: 'code_block', getAttrs: (tok) => ({ params: tok.info || '', marker: tok.markup || '' }), noCloseToken: true },
 	table: { block: 'table' },
@@ -615,37 +612,8 @@ const unescapeAll = new MarkdownIt().utils.unescapeAll;
 export const entitySafeHref = (href: string): string => href.replace(/&(?:#\d+|#x[0-9a-f]+|[a-z][a-z0-9]*);/gi, (m) => (unescapeAll(m) !== m ? `&amp;${m.slice(1)}` : m));
 
 const defaultLink = defaultMarkdownSerializer.marks.link;
-/** A letter or digit: `_` emphasis cannot open after one or close before one, so `*` is written there instead. */
-const WORDISH = /[\p{L}\p{N}]/u;
-const edgeChar = (node: PMNode | null | undefined, last: boolean): string => (node?.isText ? (last ? (node.text ?? '').slice(-1) : (node.text ?? '')[0]) : '');
-
-/** The emphasis run for `mark`: the one it was written with, when it is `_`-style and safe where it stands, else `*`-style. */
-function emphasisRun(star: string, mark: Mark, parent: PMNode, index: number, open: boolean): string {
-	const written = mark.attrs.markup as string;
-	if (written !== star.replace(/\*/g, '_')) return star;
-	// The whole run the mark covers, so the opening and the closing run always agree: `open` is called at its first node,
-	// `close` at the node after its last.
-	let first = open ? index : index - 1;
-	while (first > 0 && mark.isInSet(parent.child(first - 1).marks)) first--;
-	let end = open ? index : index - 1;
-	while (end < parent.childCount && mark.isInSet(parent.child(end).marks)) end++;
-	const before = edgeChar(first > 0 ? parent.child(first - 1) : null, true);
-	const after = edgeChar(parent.maybeChild(end), false);
-	return WORDISH.test(before) || WORDISH.test(after) ? star : written;
-}
-
 const latticeMarks = {
 	...defaultMarkdownSerializer.marks,
-	em: {
-		...defaultMarkdownSerializer.marks.em,
-		open: (_s: SerializerState, mark: Mark, parent: PMNode, index: number) => emphasisRun('*', mark, parent, index, true),
-		close: (_s: SerializerState, mark: Mark, parent: PMNode, index: number) => emphasisRun('*', mark, parent, index, false),
-	},
-	strong: {
-		...defaultMarkdownSerializer.marks.strong,
-		open: (_s: SerializerState, mark: Mark, parent: PMNode, index: number) => emphasisRun('**', mark, parent, index, true),
-		close: (_s: SerializerState, mark: Mark, parent: PMNode, index: number) => emphasisRun('**', mark, parent, index, false),
-	},
 	link: {
 		...defaultLink,
 		// biome-ignore lint/suspicious/noExplicitAny: prosemirror-markdown types a mark spec's close as a string or a function.

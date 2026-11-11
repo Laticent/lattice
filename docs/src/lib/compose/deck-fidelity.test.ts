@@ -1,8 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { EditorState } from 'prosemirror-state';
+import { toggleMark } from 'prosemirror-commands';
+import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
-import { deckToDoc, emitDeck, initBaseline } from './deck-doc';
+import { deckSchema, deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
 import { normalizeSource } from './deck-source';
 
 // COMPOSE WRITES BACK WHAT YOU WROTE (engineering/decisions/2026-11-10-compose-first.md §6). Compose is the default editor,
@@ -27,8 +28,12 @@ function linesGone(a: string, b: string): number {
 	return gone;
 }
 
-/** Each unlocked slide with a textblock, its deck after an `X` typed at the end of that slide's first textblock. */
-function* oneEdits(src: string): Generator<{ slide: number; out: string }> {
+/** Lines changed between `a` and `b`: removed or added, whichever is more (a duplicated line counts too). */
+const linesChanged = (a: string, b: string) => Math.max(linesGone(a, b), linesGone(b, a));
+
+/** Each unlocked slide with a textblock, its deck after an `X` typed at the end of that slide's first textblock, and what the
+ *  edited document says (its canonical form): the faithful text must read back to the same. */
+function* oneEdits(src: string): Generator<{ slide: number; out: string; means: string }> {
 	const doc = deckToDoc(src);
 	let pos = 0;
 	for (let s = 0; s < doc.childCount; s++) {
@@ -39,7 +44,10 @@ function* oneEdits(src: string): Generator<{ slide: number; out: string }> {
 				if (at < 0 && n.isTextblock && n.textContent.length) at = pos + 1 + p + 1 + n.content.size;
 				return at < 0;
 			});
-		if (at >= 0) yield { slide: s, out: emitDeck(EditorState.create({ doc }).tr.insertText('X', at).doc, initBaseline(doc)) };
+		if (at >= 0) {
+			const edited = EditorState.create({ doc }).tr.insertText('X', at).doc;
+			yield { slide: s, out: emitDeck(edited, initBaseline(doc)), means: docToDeck(edited) };
+		}
 		pos += slide.nodeSize;
 	}
 }
@@ -51,12 +59,13 @@ describe('Compose writes back what the author wrote', () => {
 		expect(emitDeck(doc, initBaseline(doc))).toBe(src);
 	});
 
-	it.each(DECKS)('%s: a one-character edit on a slide changes only its line', (f) => {
+	it.each(DECKS)('%s: a one-character edit on a slide changes only its line, and says what the edit says', (f) => {
 		const src = normalizeSource(readFileSync(path.join(DIR, f), 'utf8'));
 		const bad: string[] = [];
-		for (const { slide, out } of oneEdits(src)) {
-			const gone = linesGone(src, out);
-			if (gone !== 1) bad.push(`slide ${slide + 1}: ${gone} lines`);
+		for (const { slide, out, means } of oneEdits(src)) {
+			const changed = linesChanged(src, out);
+			if (changed !== 1) bad.push(`slide ${slide + 1}: ${changed} lines`);
+			if (docToDeck(deckToDoc(out)) !== means) bad.push(`slide ${slide + 1}: reads differently`);
 		}
 		expect(bad).toEqual([]);
 	});
@@ -98,5 +107,59 @@ describe('the edited block keeps the author’s spelling', () => {
 		const state = EditorState.create({ doc });
 		const out = emitDeck(state.tr.insert(at, state.schema.text('X')).doc, initBaseline(doc));
 		expect(out).toBe('# T\n\nAn *em*X word.\n');
+	});
+});
+
+describe('the checker’s cases (2026-11-11)', () => {
+	it('emphasis toggled next to emphasis is one run, not `*foo**bar*`', () => {
+		const doc = deckToDoc('# T\n\nA *foo*bar here.\n');
+		let from = -1;
+		doc.descendants((n, p) => {
+			if (from < 0 && n.isText && n.text?.startsWith('bar')) from = p;
+			return from < 0;
+		});
+		let state = EditorState.create({ doc });
+		state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, from, from + 3)));
+		toggleMark(deckSchema.marks.em)(state, (tr) => {
+			state = state.apply(tr);
+		});
+		expect(emitDeck(state.doc, initBaseline(doc))).toBe('# T\n\nA *foobar* here.\n');
+	});
+
+	it('a slide inserted at the front leaves the old first slide behind the canonical separator, never a stale one', () => {
+		const src = '# A\n\nbody a\n\n---\n\n# B\n\nbody b\n';
+		const doc = deckToDoc(src);
+		const added = deckSchema.nodes.slide.create(null, deckSchema.nodes.paragraph.create(null, deckSchema.text('N')));
+		const out = emitDeck(EditorState.create({ doc }).tr.insert(0, added).doc, initBaseline(doc));
+		expect(out).toBe('N\n\n---\n\n# A\n\nbody a\n\n---\n\n# B\n\nbody b\n');
+	});
+
+	it('two blocks that read alike but are written differently keep their own bytes when one moves', () => {
+		const src = '# T\n\nA \\<b>x\\</b>\n\nmid\n\nA <b>x</b>\n';
+		const doc = deckToDoc(src);
+		const slide = doc.child(0);
+		// Move the last block to the top of the slide.
+		const blocks: import('prosemirror-model').Node[] = [];
+		slide.forEach((b) => {
+			blocks.push(b);
+		});
+		const moved = slide.copy(slide.content.replaceChild(1, blocks[3]).replaceChild(3, blocks[1]));
+		const out = emitDeck(EditorState.create({ doc }).tr.replaceWith(0, slide.nodeSize, moved).doc, initBaseline(doc));
+		// Which bytes belonged to which block cannot be told, so neither keeps an escape it may not have had.
+		expect(out.split('\n').filter((l) => l.startsWith('A '))).not.toEqual(['A \\<b>x\\</b>', 'A <b>x</b>']);
+	});
+
+	it('an edit inside a 3000-item list stays fast', () => {
+		const items = Array.from({ length: 3000 }, (_x, i) => `- item ${i}`).join('\n');
+		const doc = deckToDoc(`# T\n\n${items}\n`);
+		let at = -1;
+		doc.descendants((n, p) => {
+			if (at < 0 && n.isText && n.text === 'item 1500') at = p + n.nodeSize;
+			return at < 0;
+		});
+		const base = initBaseline(doc);
+		const edited = EditorState.create({ doc }).tr.insertText('X', at).doc;
+		// Work done, not time (HARD RULE #32): the edit changes one line of three thousand.
+		expect(linesChanged(`# T\n\n${items}\n`, emitDeck(edited, base))).toBe(1);
 	});
 });

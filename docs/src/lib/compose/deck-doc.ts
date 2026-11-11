@@ -264,6 +264,14 @@ function originalOf(raw: string): Original | null {
 				const same = read.childCount === content.childCount && JSON.stringify(read.child(i).toJSON()) === JSON.stringify(b.toJSON());
 				keys.push(same ? blockKey(b) : `\u0000changed-on-read ${i}`);
 			});
+			// Two original blocks that read the same but are written differently (`A \\<b>x\\</b>` and `A <b>x</b>` parse alike
+			// here, html:false, and render differently in the engine): which bytes belong to which cannot be told, so neither
+			// is kept as written (the checker's catch: a reorder swapped them).
+			const bytes = spans.map((r) => prose.slice(r.from, r.to));
+			for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) if (keys[i] === keys[j] && bytes[i] !== bytes[j]) {
+				keys[i] = `\u0000ambiguous ${i}`;
+				keys[j] = `\u0000ambiguous ${j}`;
+			}
 			out = { directives, prose, spans, keys };
 		}
 	} catch {
@@ -278,14 +286,28 @@ function originalOf(raw: string): Original | null {
 function alignBlocks(now: string[], was: string[]): number[] {
 	const n = now.length;
 	const m = was.length;
-	const L: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
-	for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = now[i] === was[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
 	const at = new Array<number>(n).fill(-1);
-	for (let i = 0, j = 0; i < n && j < m; ) {
-		if (now[i] === was[j]) {
-			at[i++] = j++;
-		} else if (L[i + 1][j] >= L[i][j + 1]) i++;
-		else j++;
+	// An edit leaves most of a slide where it was: the common head and tail match one to one, and only the middle needs the
+	// quadratic table (a 3000-item list cost 0.46 s a keystroke without this; the checker's measure).
+	let p = 0;
+	while (p < n && p < m && now[p] === was[p]) at[p] = p++;
+	let q = 0;
+	while (q < n - p && q < m - p && now[n - 1 - q] === was[m - 1 - q]) {
+		at[n - 1 - q] = m - 1 - q;
+		q++;
+	}
+	const mn = n - p - q;
+	const mm = m - p - q;
+	// A middle too large to align cheaply is left unmatched: those blocks are written canonically, which is always correct.
+	if (mn > 0 && mm > 0 && mn * mm <= 40_000) {
+		const L: number[][] = Array.from({ length: mn + 1 }, () => new Array<number>(mm + 1).fill(0));
+		for (let i = mn - 1; i >= 0; i--) for (let j = mm - 1; j >= 0; j--) L[i][j] = now[p + i] === was[p + j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+		for (let i = 0, j = 0; i < mn && j < mm; ) {
+			if (now[p + i] === was[p + j]) {
+				at[p + i++] = p + j++;
+			} else if (L[i + 1][j] >= L[i][j + 1]) i++;
+			else j++;
+		}
 	}
 	// An edited block stands where the original it replaced stood: one unmatched block between the same two matched
 	// neighbors (or ends) as one unmatched original takes that original's place, and so the spacing around it.
@@ -316,14 +338,18 @@ function keepLines(raw: string, wasCanonical: string, canonical: string): string
 
 /**
  * An edited line in the author's spelling where the serializer's differs only in form: a hard break the original line
- * wrote as two trailing spaces (the serializer writes a backslash), and a lone `~` (the serializer escapes every one, for a
- * strikethrough `~~` the engine reads only doubled). `faithfulSlide`'s read-back check rejects either if it changes the meaning.
+ * wrote as two trailing spaces (the serializer writes a backslash), a lone `~` (the serializer escapes every one, for a
+ * strikethrough `~~` the engine reads only doubled), and emphasis the original wrote with `_`. `faithfulSlide`'s read-back check rejects either if it changes the meaning.
  */
 function respell(line: string, original: string | undefined): string {
 	let out = line;
 	const spaces = original?.match(/ {2,}$/)?.[0];
 	if (spaces && out.endsWith('\\') && !out.endsWith('\\\\')) out = out.slice(0, -1) + spaces;
-	return out.replace(/\\~/g, (m, i: number, str: string) => (str[i - 1] === '~' || str[i + 2] === '~' || str.slice(i + 2, i + 4) === '\\~' ? m : '~'));
+	out = out.replace(/\\~/g, (m, i: number, str: string) => (str[i - 1] === '~' || str[i + 2] === '~' || str.slice(i + 2, i + 4) === '\\~' ? m : '~'));
+	// Emphasis the original line wrote with `_`: the serializer writes `*`, and the spelling is not kept on the mark (an
+	// attr would split one emphasis run into two). A run whose words the original wrapped in `_` gets `_` back.
+	if (original?.includes('_')) out = out.replace(/(\*\*|\*)(?=\S)([^*\n]*?\S)\1/g, (m, run: string, inner: string) => (original.includes(`${run.replace(/\*/g, '_')}${inner}${run.replace(/\*/g, '_')}`) ? `${run.replace(/\*/g, '_')}${inner}${run.replace(/\*/g, '_')}` : m));
+	return out;
 }
 
 /** The slide written back faithfully, or null to use the canonical form. `canonicalProse` is what the serializer wrote. */
@@ -349,7 +375,9 @@ function faithfulSlide(slide: PMNode, directives: string[], canonicalProse: stri
 		if (i > 0) {
 			const a = orig(place[i - 1]);
 			const b = orig(place[i]);
-			prose += place[i - 1] >= 0 && place[i] >= 0 && b === a + 1 ? o.prose.slice(o.spans[a].to, o.spans[b].from) : canon.slice(spans[i - 1].to, spans[i].from);
+			// Two original neighbors, kept or edited in place, keep the space between them; a new block takes the spacing the
+			// serializer gives it in context.
+			prose += a >= 0 && b === a + 1 ? o.prose.slice(o.spans[a].to, o.spans[b].from) : canon.slice(spans[i - 1].to, spans[i].from);
 		}
 		const text = canon.slice(spans[i].from, spans[i].to);
 		const p = orig(place[i]);
@@ -363,9 +391,50 @@ function faithfulSlide(slide: PMNode, directives: string[], canonicalProse: stri
 		return null;
 	}
 	const same = directives.length === o.directives.length && directives.every((d, i) => d === o.directives[i]);
-	const at = raw.indexOf(o.prose);
-	if (same && at >= 0 && raw.indexOf(o.prose, at + 1) < 0) return raw.slice(0, at) + prose + raw.slice(at + o.prose.length);
-	return composeSlideChunk(directives, prose);
+	return (same && spliceProse(raw, o.directives, o.prose, prose)) || composeSlideChunk(directives, prose);
+}
+
+/**
+ * `raw` with its prose changed from `was` to `now`, every directive line left where the author put it (a `_class` under an
+ * eyebrow line stays there; re-composing put it back on top). The prose is `raw` without its directive lines and its outer
+ * whitespace (deck-source.ts `splitSlideDirectives`), so each prose character is found in `raw` outside those lines, and
+ * only the changed run is replaced. Null when the run would cross a directive line, or the prose does not line up.
+ */
+function spliceProse(raw: string, directives: string[], was: string, now: string): string | null {
+	// The directive lines, in order, as ranges of `raw` the prose skips.
+	const skip: Array<[number, number]> = [];
+	let from = 0;
+	for (const d of directives) {
+		const at = raw.indexOf(d, from);
+		if (at < 0) return null;
+		skip.push([at, at + d.length]);
+		from = at + d.length;
+	}
+	// Where each prose character sits in `raw`.
+	const map: number[] = [];
+	let r = 0;
+	let k = 0;
+	for (let i = 0; i < was.length; i++) {
+		for (;;) {
+			while (k < skip.length && r >= skip[k][1]) k++;
+			if (k < skip.length && r >= skip[k][0]) r = skip[k][1];
+			if (r >= raw.length) return null;
+			if (raw[r] === was[i]) break;
+			r++;
+		}
+		map.push(r++);
+	}
+	let pre = 0;
+	while (pre < was.length && pre < now.length && was[pre] === now[pre]) pre++;
+	let suf = 0;
+	while (suf < was.length - pre && suf < now.length - pre && was[was.length - 1 - suf] === now[now.length - 1 - suf]) suf++;
+	const rawFrom = pre < was.length ? map[pre] : was.length ? map[was.length - 1] + 1 : 0;
+	const rawTo = was.length - suf > pre ? map[was.length - suf - 1] + 1 : rawFrom;
+	if (skip.some(([a, b]) => a < rawTo && b > rawFrom)) return null;
+	const out = raw.slice(0, rawFrom) + now.slice(pre, now.length - suf) + raw.slice(rawTo);
+	// The spliced slide must split back into the same directives and the new prose, or it is not used.
+	const back = splitSlideDirectives(out);
+	return back.prose === now && back.directives.length === directives.length && back.directives.every((d, i) => d === directives[i]) ? out : null;
 }
 
 /** One ProseMirror document → deck source. Every slide is (re)serialized — the simple,

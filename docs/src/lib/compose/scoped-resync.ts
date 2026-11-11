@@ -78,7 +78,9 @@ function resyncToRaws(state: EditorState, baseline: EmitBaseline, fm: string, ne
 		for (let k = 0; k < tail; k++) {
 			const o = oldRaws.length - 1 - k;
 			const n = nextRaws.length - 1 - k;
-			if (o > 0 && n > 0 && o >= head + removed && n >= head + added && (frame.seps[n] || SEP) !== slideSep(doc, o)) return null;
+			// Compare with the slide's OWN `sep`: a slide that moved off the front (o = 0) keeps the '' it had there, which
+			// writes the canonical separator wherever it lands (the checker's catch).
+			if (n > 0 && o >= head + removed && n >= head + added && (frame.seps[n] || SEP) !== ((doc.child(o).attrs.sep as string) || SEP)) return null;
 		}
 	}
 	if (removed === 0 && added === 0 && fm === oldFm && head0 === oldHead && tail0 === oldTail) return null;

@@ -191,7 +191,8 @@ describe('the pane picker and the title field write what an author would', () =>
 		const state = stateOf(MARKED);
 		const tr = applyPaneChoice(state, 0, 1, { cls: 'big-number', starter: null });
 		const out = emitDeck(tr?.doc ?? state.doc, initBaseline(state.doc));
-		expect(out).toContain('<!-- {pane=big-number no-title} -->\n\n### What changed');
+		// The marker sat right above its heading, and the rewrite keeps that spacing (Compose writes back what the author wrote).
+		expect(out).toContain('<!-- {pane=big-number no-title} -->\n### What changed');
 		expect(out).not.toContain('_pane: list');
 		expect(applyPaneChoice(state, 0, 0, { cls: 'bar', starter: null })).toBeNull(); // already bar
 	});
