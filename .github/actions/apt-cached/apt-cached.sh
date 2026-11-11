@@ -88,9 +88,9 @@ prune() {
 }
 
 # One summary line: the folder, how the cache answered, and what the mirror had to supply.
+# The line also goes to the job log, so a run shows what the summary got (the summary page is not in the API).
 report() {
-  [ -n "${GITHUB_STEP_SUMMARY:-}" ] || return 0
-  local cache=${APT_CACHE:-unknown} mirror=none
+  local cache=${APT_CACHE:-unknown} mirror=none line
   [ "$cache" != miss ] || mirror='download (cache miss)'
   if [ "$repaired" = 1 ]; then
     local why=()
@@ -100,9 +100,12 @@ report() {
     joined=$(IFS=';'; echo "${why[*]}")
     mirror="repair: ${joined//;/; }"
   fi
-  # A diagnostics line must never fail an install that worked: under set -e that would also delete the cache folder.
   # shellcheck disable=SC2016 # the backticks are Markdown, not a command
-  printf -- '- apt-cached `%s`: cache **%s**, mirror read: **%s**\n' "$(basename "$dir")" "$cache" "$mirror" >> "$GITHUB_STEP_SUMMARY" ||
+  line=$(printf -- '- apt-cached `%s`: cache **%s**, mirror read: **%s**' "$(basename "$dir")" "$cache" "$mirror")
+  echo "apt-cached.sh: summary: $line"
+  if [ -z "${GITHUB_STEP_SUMMARY:-}" ]; then echo "apt-cached.sh: no job summary outside GitHub Actions"; return 0; fi
+  # A diagnostics line must never fail an install that worked: under set -e that would also delete the cache folder.
+  printf '%s\n' "$line" >> "$GITHUB_STEP_SUMMARY" && echo "apt-cached.sh: wrote the job summary" ||
     echo "::warning::apt-cached.sh could not write the job summary"
 }
 
