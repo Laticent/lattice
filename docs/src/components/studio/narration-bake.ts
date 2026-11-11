@@ -32,7 +32,7 @@ import { buildTrack, type CaptionTrack, interCueGapMs } from '@/lib/cadenza';
 import { deckPluginsOff } from '@/lib/plugin-admission';
 import { GREETING_VARIANTS, greetingText, resolveBookends, withoutRedundantBookends } from '@/lib/resolve-bookends';
 import { acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap } from '@/lib/resolve-narration';
-import { compressClip, DEFAULT_BITRATE_KBPS, encoderAvailable, isCompressedAudio } from '@/playground/narration-encode.js';
+import { compressClip, DEFAULT_BITRATE_KBPS, isCompressedAudio } from '@/playground/narration-encode.js';
 import { narrationBitrate, narrationCacheEnabled } from '@/playground/narration-prefs.js';
 import { clipSizes, getClip, putClip, touchClips } from '@/playground/narration-store.js';
 import { narrateChart, narrateChartScript } from '@/playground/read-along-core.generated.js';
@@ -41,6 +41,7 @@ import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { splitSlides } from '../../lib/deck-lint';
 import { stripFrontMatter } from '../../lib/front-matter';
+import { sharedNarrationPacker } from './narration-pack-pool.js';
 import { applyChartNarration, type NarrationDeck, narrationDeck, resolveNarration } from './narration-resolve';
 import { type BakeVoice, bakeClipKeys, narrationClipFor, slideToSpeech, synthBakeClip } from './read-aloud';
 import { getSayLine } from './slide-say';
@@ -369,16 +370,6 @@ function asClipBytes(b: unknown): ClipBytes | null {
 	if (b instanceof ArrayBuffer) return b.byteLength ? { size: b.byteLength, arrayBuffer: async () => b.slice(0) } : null;
 	const o = b as ClipBytes;
 	return typeof o.size === 'number' && o.size > 0 && typeof o.arrayBuffer === 'function' ? o : null;
-}
-
-/** Bytes → base64, chunked so a multi-hundred-KB clip can't blow the argument limit on
- *  `String.fromCharCode`. */
-function toBase64(bytes: Uint8Array): string {
-	let bin = '';
-	for (let i = 0; i < bytes.length; i += 0x8000) {
-		bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 0x8000)));
-	}
-	return btoa(bin);
 }
 
 /**
@@ -774,6 +765,9 @@ export async function bakeNarration(
 	let synthesized = 0;
 	let bytes = 0;
 	const report = (phase: BakeProgress['phase']) => onProgress?.({ done, total, synthesized, phase });
+	// Start the pack workers now, so they load while the first sentences are read or synthesized.
+	const packer = sharedNarrationPacker();
+	packer.warm();
 	report('reading');
 
 	/** Attach a clip's bytes to its cue — and to every repeat of the same sentence — as a
@@ -785,34 +779,27 @@ export async function bakeNarration(
 		// shipped file HERE also closes the gap `DEFAULT_BYTES_PER_CHAR` names, where an unknown
 		// uncompressed engine would otherwise be under-quoted ~7x: whatever the rung hands back,
 		// the artifact is bounded by the codec.
-		const compressed = await compressClip(blob, narrationBitrate());
-		// A clip that SHOULD have compressed and did not is either one awkward clip or a dead
-		// encoder, and the two could not be told apart — `compressClip` returns null for both.
-		// The difference matters enormously: one clip at an exotic sample rate shipping large is a
-		// rounding error, while a dead encoder means EVERY clip ships uncompressed, ~6x the size
-		// the author was quoted, with neither payload threshold firing because both gate on the
-		// ESTIMATE. That is precisely the promise this module exists to keep, so it refuses
-		// instead — and asks the encoder directly rather than inferring it from one failure.
-		if (!compressed && !isCompressedAudio(blob.type) && !(await encoderAvailable())) {
+		//
+		// The compress, the base64 and the hash run in the narration pack workers (`packClip`,
+		// narration-pack.js), off the main thread, so the progress bar paints and Cancel answers
+		// while a deck packs (#1511; 2026-11-11-voice-synthesis-spine.md S2). The worker gets a
+		// COPY of the bytes: THE COMPRESSED BYTES ARE NOT BANKED, deliberately. The store is what
+		// PLAYBACK reads, so writing the mp3 back would feed a codec-delayed clip to the live
+		// reader, which is the whole thing §9 moved compression out of the rung to avoid. Cost: a
+		// deck recorded on an uncompressed voice re-encodes each export, now in the background.
+		const packed = await packer.pack({ bytes: await blob.arrayBuffer(), type: blob.type ?? '', kbps: narrationBitrate() });
+		// A dead encoder means EVERY clip ships ~6x the size the author was quoted, with neither
+		// payload threshold firing because both gate on the ESTIMATE. That is precisely the promise
+		// this module exists to keep, so it refuses instead (`packClip` asks the encoder directly
+		// rather than inferring it from one failed clip).
+		if ('encoderMissing' in packed) {
 			encoderDown = true;
 			stop();
 			return;
 		}
-		const shipped = compressed ?? blob;
-		// THE COMPRESSED BYTES ARE NOT BANKED, and that is deliberate rather than an omission.
-		// Writing them back would make the next export cheap — but the store is what PLAYBACK
-		// reads, so it would also feed a codec-delayed clip to the live reader, which is the
-		// whole thing this design moved compression out of the rung to avoid. The cache holds
-		// what the voice produced; the file holds what the author chose to ship. Cost: a deck
-		// recorded on an uncompressed voice re-encodes each export (~107 ms per sentence).
-		const raw = new Uint8Array(await shipped.arrayBuffer());
-		const uri = `data:${safeMime(shipped.type)};base64,${toBase64(raw)}`;
-		// The clip's identity in the LTT: a hash of the bytes that ship, so a re-voiced clip reads as
-		// a different clip even when its text did not change (2026-09-24-lattice-timing-track.md §4.5).
-		const clip = `sha256:${Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', raw)), (b) => b.toString(16).padStart(2, '0')).join('')}`;
-		// The clip's leading silence (encoder delay plus the voice's own) travels with the clip,
-		// so the player can seek past it.
-		const leadMs = compressed ? ((compressed as { leadMs?: number }).leadMs ?? 0) : 0;
+		const uri = `data:${safeMime(packed.mime)};base64,${packed.base64}`;
+		const clip = `sha256:${packed.sha256}`;
+		const leadMs = packed.leadMs;
 		for (const at of [{ i: job.i, j: job.j }, ...job.twins]) {
 			slides[at.i][at.j].audio = uri;
 			slides[at.i][at.j].clip = clip;
