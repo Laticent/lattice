@@ -26,5 +26,11 @@
 - **You can see where you are after a switch or a reload.** With a keyboard, the editor you switch to takes focus with
   the caret where you left it; on a phone, switching straight between Compose and Source brings the keyboard up the same
   way, and arriving from the preview shows a drawn caret instead of the keyboard. A reload brings back the caret's line
-  and its place on the line, as well as the slide; the place on the line also carries between Compose and Source,
-  except inside a link or next to an inline object, where the caret starts the line.
+  and its place on the line, as well as the slide; the place on the line also carries between Compose and Source.
+  A line with a link, a repeated line, or a speaker note Compose does not show lands on the slide's first line. In a
+  Live session no editor takes the keyboard on its own, and after a reload the editor waits until nothing else (search,
+  chat, the command palette) has it.
+- **In a Live session, Compose shows a co-editor's change at once, even while you type.** It used to hold the change until
+  you left the editor, and your next keystroke replaced it, so both people lost the other's words. The one case left,
+  a change that arrives while an input method (IME) composition is open, is tracked as a followup.
+- **The chart, table and image lessons describe Compose when you write in Compose.**

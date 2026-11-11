@@ -6,7 +6,7 @@
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 84672,
+	"bytes": 105408,
 	"lines": [
 		{
 			"key": "29ed8594db37",
@@ -412,6 +412,97 @@
 					}
 				],
 				"durationMs": 3261
+			}
+		},
+		{
+			"key": "3119c3bece02",
+			"text": "Click the picture, then Replace photo to use your own.",
+			"file": "3119c3bece02.mp3",
+			"bytes": 20736,
+			"speechMs": 3403,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Click the picture, then Replace photo to use your own.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 0,
+								"endMs": 211,
+								"charOffset": 0
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 211,
+								"endMs": 422,
+								"charOffset": 6
+							},
+							{
+								"display": "picture,",
+								"spoken": "picture,",
+								"startMs": 422,
+								"endMs": 874,
+								"charOffset": 10
+							},
+							{
+								"display": "then",
+								"spoken": "then",
+								"startMs": 1080,
+								"endMs": 1290,
+								"charOffset": 19
+							},
+							{
+								"display": "Replace",
+								"spoken": "Replace",
+								"startMs": 1290,
+								"endMs": 1712,
+								"charOffset": 24
+							},
+							{
+								"display": "photo",
+								"spoken": "photo",
+								"startMs": 1712,
+								"endMs": 2133,
+								"charOffset": 32
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 2133,
+								"endMs": 2344,
+								"charOffset": 38
+							},
+							{
+								"display": "use",
+								"spoken": "use",
+								"startMs": 2344,
+								"endMs": 2555,
+								"charOffset": 41
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 2555,
+								"endMs": 2766,
+								"charOffset": 45
+							},
+							{
+								"display": "own.",
+								"spoken": "own.",
+								"startMs": 2766,
+								"endMs": 3007,
+								"charOffset": 50
+							}
+						],
+						"startMs": 0,
+						"endMs": 3403,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 3403
 			}
 		}
 	]

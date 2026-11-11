@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import { expect, type Locator, type Page, test } from '@playwright/test';
-import { isPhone, waitForStudioPaint } from './studio-fixture';
+import { CHROME, isPhone, openInspector, openSection, waitForStudioPaint } from './studio-fixture';
 
 // COMPOSE FIRST (engineering/decisions/2026-11-10-compose-first.md). The rest of the suite stores Source
 // before it opens the Studio (`gotoStudio` in studio-fixture.ts), because its editor helpers type Markdown.
@@ -80,6 +80,32 @@ test('@crosswidth @gecko @webkit-tablet Fix all works in Compose', async ({ page
 	await expect(page.getByLabel('Deck source')).not.toContainText('**Speed.**');
 });
 
+// The Compose pass skips text it has already linted. Whatever set the count meanwhile (the Markdown editor's pass and its
+// unmount's null, validation off's zeros) replaced that answer, so the pass must run again (the trio's checker and red team).
+test('@crosswidth @gecko Fix all comes back after a Source round trip and after validation is turned off and on', async ({ page }) => {
+	test.skip(isPhone(page), 'the phone has no editor toolbar; Fix all lives in it');
+	// The Craft stop (the Inspector's launcher) and the advanced settings tier (its sections), with NO stored mode: Compose.
+	await openFresh(page, {
+		'lattice-studio-src-welcome': JSON.stringify(FIXABLE),
+		'lattice-studio-settings': JSON.stringify({ posture: 'craft' }),
+		'lattice-studio-settings-tier': JSON.stringify('advanced'),
+	});
+	const fix = page.getByRole('button', { name: 'Fix all issues', exact: true });
+	await expect(fix).toBeEnabled({ timeout: 20_000 });
+	await page.getByRole('button', { name: SOURCE, exact: true }).click();
+	await expect(page.getByLabel('Deck source')).toBeVisible();
+	await page.getByRole('button', { name: COMPOSE, exact: true }).click();
+	await expect(page.locator('#studio-pane-editor .cs-host .ProseMirror')).toBeVisible();
+	await expect(fix).toBeEnabled({ timeout: 20_000 });
+	await openInspector(page);
+	await openSection(page, CHROME.deckTab.general);
+	const validation = page.getByRole('switch', { name: 'Inline validation' });
+	await validation.click();
+	await expect(fix).toBeDisabled();
+	await validation.click();
+	await expect(fix).toBeEnabled({ timeout: 20_000 });
+});
+
 test('@mobile @webkit-phone the phone bar lists Compose before Source, and Compose opens by default', async ({ page }) => {
 	await openFresh(page);
 	expect(await modeOrder(page)).toEqual([COMPOSE, SOURCE]);
@@ -140,7 +166,9 @@ async function worstContrast(page: Page, cell: Locator): Promise<{ ratio: number
 test('@crosswidth @webkit-tablet the selected Compose segment keeps its gold word at AA in every palette', async ({ page }) => {
 	test.skip(isPhone(page), 'the phone bar has its own case below');
 	await openFresh(page);
-	const compose = page.locator('[data-edit-seg=compose]').first();
+	// `[aria-pressed]`: the live segment. The pre-paint skeleton draws a look-alike with no pressed state, and under load
+	// `.first()` read it (a 1:1 ratio on the first palette).
+	const compose = page.locator('[data-edit-seg=compose][aria-pressed]').first();
 	await expect(page.getByRole('button', { name: COMPOSE, exact: true })).toHaveAttribute('aria-pressed', 'true');
 	const worst = await worstContrast(page, compose);
 	expect(worst.ratio, `lowest: ${worst.where}`).toBeGreaterThanOrEqual(4.5);
@@ -150,7 +178,7 @@ test('@crosswidth @webkit-tablet the unselected Compose segment keeps its gold w
 	test.skip(isPhone(page), 'the phone bar has its own case below');
 	await openFresh(page, { 'lattice-studio-settings': JSON.stringify({ editMode: 'source' }) });
 	await expect(page.getByRole('button', { name: SOURCE, exact: true })).toHaveAttribute('aria-pressed', 'true');
-	const worst = await worstContrast(page, page.locator('[data-edit-seg=compose]').first());
+	const worst = await worstContrast(page, page.locator('[data-edit-seg=compose][aria-pressed]').first());
 	expect(worst.ratio, `lowest: ${worst.where}`).toBeGreaterThanOrEqual(4.5);
 });
 

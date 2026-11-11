@@ -190,15 +190,24 @@ and persists nothing itself, so the Studio does both:
 | A reload | the slide AND the caret's line come back (`lattice-studio-active` gains `line`, written on leaving); with a real keyboard the editor takes focus on it, on a phone the drawn caret shows it |
 | Any of these in a Live session (joined, or a `#live=` link) | no editor takes the keyboard on its own: the drawn caret shows the place and the author clicks in |
 
-Why the Live exception: Compose holds back an outside change while it has focus, and the author's next keystroke
-supersedes it. A Compose that took focus on a mode switch, with no click, therefore dropped a co-editor's edit
-(`filo-live.spec.ts`, caught by the full local e2e run). The rule itself predates this PR and is recorded in
-`followups.d/3128-p2-compose-live-parked-change.md`.
+Why the Live exception, and what replaced the hold-back in a session: Compose holds back an outside change while it has
+focus, and the author's next keystroke supersedes it. A Compose that took focus on a mode switch, with no click, dropped
+a co-editor's edit (`filo-live.spec.ts`, caught by the full local e2e run); the adversarial trio then showed any earlier
+rail pick or arrow step re-armed that focus, and that a guest who simply clicked into Compose lost the host's edit too.
+So in a session Compose applies an outside change AT ONCE (`resyncFrom` keeps the caret's slide, line and column), and
+holds it only while an IME composition is open, until it ends. A new `filo-live` case has the guest typing in Compose
+while the host edits, and checks both edits survive. Outside a session the hold-back stays as it was. The one edge left, a change that arrives during an IME composition, is
+`followups.d/3128-p2-compose-live-parked-change.md`. A restore's
+focus also waits for nothing else to have the keyboard: the editor chunk lands about a second after load, and the
+author may already be typing in search, chat or the command palette.
 
 The caret keeps its COLUMN too, not only its line (owner, iPhone, 2026-11-11): `caret-line.ts` maps a column between a
 Markdown line and the text Compose shows for it, skipping block markers and emphasis, both ways. Plain text, bold,
-italic and code map exactly; a link (`[text](url)` in Source, `text` in Compose) or an inline object falls back to the
-line's start. The shell reads the column from the editor being left (each editor's `caretColumn()` handle), hands it to the one arriving, and saves it with the line (`lattice-studio-active` gains `col`). Arriving, Compose
+italic, code and inline math map exactly; a line with a link (`[text](url)` in Source, `text` in Compose) does not match
+at all, so the caret falls back to the slide's first line. A Source caret that comes back to Source (a reload) is put
+back at its exact raw column, not through the plain form, so a caret after `**bold**` stays outside the closing `**`. A
+line from Source that the Markdown holds more than once, or that Compose does not show (a speaker note), is not matched
+in Compose: the caret falls back to the slide's start rather than onto a visible block with the same words. The shell reads the column from the editor being left (each editor's `caretColumn()` handle), hands it to the one arriving, and saves it with the line (`lattice-studio-active` gains `col`). Arriving, Compose
 frames the caret, not only the slide, when the caret sits lower than one screen shows.
 
 The drawn caret sits OUTSIDE the editable text: an overlay in Compose (`position: fixed` from the caret's coordinates) and

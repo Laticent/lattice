@@ -8,7 +8,7 @@ import { Annotation, ChangeSet, Compartment, EditorState, type Extension, StateE
 import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, layer, lineNumbers, RectangleMarker, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
-import { type CarriedColumn, lineOffsetIn, plainColumnOfCarried, rawColumnFor } from '@/lib/deck-outline/caret-line';
+import { type CarriedColumn, lineOffsetIn, plainColumnOfCarried, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
 import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
 import type { Focus, FocusHub } from '@/lib/fuoco/hub';
@@ -682,20 +682,30 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// A focus Compose reported carries its caret block's text: land on that line of the slide rather than its first,
 			// so a switch from Compose keeps the caret's line (caret-line.ts; the first line when it cannot tell).
 			const unit = ix.units[f.unitIndex];
-			// A focus with a line and no source offset: Compose's report, or a restore after a reload.
-			let onLine = f.head === null && f.line && unit ? lineOffsetIn(ix.source, unit.from, unit.end, f.line) : -1;
+			// The hub's source offset is this editor's own caret only while the line there is still the focus's line: a
+			// navigation keeps `head` while Compose then reports another line of the same slide (the trio's checker), and
+			// putting the old offset back lost the line and the column Compose carried.
+			const headOk = f.head !== null && (!f.line || plainLine(v.state.doc.lineAt(Math.min(f.head, v.state.doc.length)).text) === plainLine(f.line));
+			// A focus with a line and no usable offset: Compose's report, or a restore after a reload.
+			let onLine = !headOk && f.line && unit ? lineOffsetIn(ix.source, unit.from, unit.end, f.line) : -1;
 			// And the column on it, when one was carried: the same plain character, past the line's Markdown markers.
-			const col = onLine >= 0 ? plainColumnOfCarried(caretColumnRef.current?.()) : null;
-			if (onLine >= 0 && col !== null && col > 0) {
+			// A column Source carried itself, on this very line, goes back exactly: through the plain form a caret after
+			// `**bold**` came back inside the closing `**` (the trio's red team).
+			const carried = onLine >= 0 ? caretColumnRef.current?.() : null;
+			if (onLine >= 0 && carried) {
 				const end = ix.source.indexOf('\n', onLine);
-				onLine += rawColumnFor(ix.source.slice(onLine, end < 0 ? undefined : end), col);
+				const text = ix.source.slice(onLine, end < 0 ? undefined : end);
+				const col = carried.raw === text ? Math.min(carried.col, text.length) : plainColumnOfCarried(carried);
+				if (col !== null && col > 0) onLine += carried.raw === text ? col : rawColumnFor(text, col);
 			}
 			// The hub still holding THIS editor's own caret (an exact source offset, carried through edits since): put it back
 			// exactly. A Compose that took the keyboard and has not moved yet reports nothing, so this is the common case.
-			const caret = Math.min(f.head !== null ? f.head : onLine >= 0 ? onLine : deckEditableOffset(ix, f.unitIndex, f.part), v.state.doc.length);
+			const caret = Math.min(headOk && f.head !== null ? f.head : onLine >= 0 ? onLine : deckEditableOffset(ix, f.unitIndex, f.part), v.state.doc.length);
 			v.dispatch({ selection: { anchor: caret }, effects: EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 }) });
 		}
-		if (f.grab) v.focus();
+		// The boot restore's focus lands once this lazy editor arrives, about a second after load: only while nothing else has
+		// the keyboard (the author may already be typing in search or chat; the trio's inversion).
+		if (f.grab && (f.origin !== 'restore' || !document.activeElement || document.activeElement === document.body)) v.focus();
 	}, []);
 	// Navigation from every other pane. `frame` lane: a held key that crosses three slides in one
 	// frame reveals once, the last.
@@ -1035,8 +1045,12 @@ export const Editor = React.forwardRef<EditorHandle, {
 			const hub = hubRef.current;
 			revRef.current = hub ? hub.update(stripBom(view.state.doc.toString()), { by: 'sync' }) : undefined;
 			const f = hub?.get();
-			if (f && f.unitIndex >= 0) revealFocus(view, f, true);
-			if (focusOnMountRef.current?.()) view.focus();
+			// Taking the keyboard, or carrying a line or an offset: put the caret where it belongs even on the slide the view
+			// opened on (slide 1), whose offset 0 is inside the front-matter fence (the trio's checker). Otherwise a view on the
+			// focused slide stays put, as before.
+			const take = !!focusOnMountRef.current?.();
+			if (f && f.unitIndex >= 0) revealFocus(view, f, !take && !f.line && f.head === null);
+			if (take) view.focus();
 		} catch {
 			setFailed(true);
 		}

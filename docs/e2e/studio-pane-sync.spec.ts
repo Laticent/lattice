@@ -174,3 +174,72 @@ test('@crosswidth @gecko @webkit-tablet @webkit-phone a reload comes back on the
 		await expect.poll(() => drawnCaretIn(page)).toBe(text);
 	}
 });
+
+// THE TRIO'S CASES (2026-11-11): slide 1 behind front matter, a move inside a slide after a navigation, and a Source caret
+// on a line Compose does not show. Desktop: a fine pointer takes the keyboard on a switch.
+const SYNC_DECK =
+	'---\ntheme: indaco\n---\n\n# First\n\nOpening words here.\n\n---\n\n# Second\n\n- Revenue grew twelve percent\n- Costs fell\n\nA closing line.\n\n<!--\nRevenue grew twelve percent\n-->\n';
+
+async function openSeeded(page: Page): Promise<void> {
+	await page.addInitScript((deck) => localStorage.setItem('lattice-studio-src-welcome', JSON.stringify(deck)), SYNC_DECK);
+	await openFresh(page);
+}
+const fine = (page: Page) => page.evaluate(() => matchMedia('(hover: hover) and (pointer: fine)').matches);
+/** The Markdown line holding Source's caret. */
+const sourceLine = (page: Page) =>
+	page.evaluate(() => {
+		// biome-ignore lint/suspicious/noExplicitAny: CodeMirror keeps its view on the content element (filo-undo.spec.ts).
+		const v = (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
+		return v ? v.state.doc.lineAt(v.state.selection.main.head).text : '';
+	});
+
+test('@crosswidth @gecko @webkit-tablet on slide 1, behind front matter, Source takes the caret on its line, not in the fence', async ({ page }) => {
+	test.skip(isPhone(page), 'the phone switch has its own test above');
+	await openSeeded(page);
+	test.skip(!(await fine(page)), 'a switch takes the keyboard only with a fine pointer');
+	const para = page.locator('#studio-pane-editor .ProseMirror > .cs-slide').nth(0).locator('p').last();
+	await para.click();
+	await caretBeforeEnd(page, para, 5);
+	await expect.poll(() => afterCaret(page)).toBe('here.');
+	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+	await expect.poll(() => focused(page)).toBe('source');
+	await expect.poll(() => sourceLine(page)).toBe('Opening words here.');
+	await expect.poll(() => afterCaret(page)).toBe('here.');
+});
+
+test('@crosswidth @gecko @webkit-tablet a move inside the slide after a rail pick is the line Source lands on', async ({ page }) => {
+	test.skip(isPhone(page), 'the phone switch has its own test above');
+	await openSeeded(page);
+	test.skip(!(await fine(page)), 'a switch takes the keyboard only with a fine pointer');
+	await page.locator('nav[aria-label="Slide navigator"] button[data-unit]').nth(1).click();
+	await expect.poll(() => composeSlide(page)).toBe(2);
+	const closing = page.locator('#studio-pane-editor .ProseMirror > .cs-slide').nth(1).locator('p', { hasText: 'A closing line.' });
+	await closing.click();
+	await caretBeforeEnd(page, closing, 5);
+	await expect.poll(() => afterCaret(page)).toBe('line.');
+	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+	await expect.poll(() => sourceLine(page)).toBe('A closing line.');
+	await expect.poll(() => afterCaret(page)).toBe('line.');
+});
+
+test('@crosswidth @gecko @webkit-tablet a Source caret on a speaker note does not land on the bullet with the same words', async ({ page }) => {
+	test.skip(isPhone(page), 'the phone switch has its own test above');
+	await openSeeded(page);
+	test.skip(!(await fine(page)), 'a switch takes the keyboard only with a fine pointer');
+	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+	await expect(page.getByLabel('Deck source')).toBeVisible();
+	await page.evaluate(() => {
+		// biome-ignore lint/suspicious/noExplicitAny: CodeMirror keeps its view on the content element (filo-undo.spec.ts).
+		const v = (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
+		const text = v.state.doc.toString();
+		const at = text.lastIndexOf('Revenue grew twelve percent') + 8;
+		v.focus();
+		v.dispatch({ selection: { anchor: at } });
+	});
+	await expect.poll(() => sourceLine(page)).toBe('Revenue grew twelve percent');
+	await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
+	await expect(page.locator('#studio-pane-editor .cs-host .ProseMirror')).toBeVisible();
+	await expect.poll(() => composeSlide(page)).toBe(2);
+	// The note is not a block Compose shows: the caret falls back to the slide's start, never into the bullet.
+	expect(await liveCaretIn(page)).not.toBe('Revenue grew twelve percent');
+});

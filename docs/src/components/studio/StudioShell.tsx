@@ -452,6 +452,16 @@ function inLiveSession(collab: boolean): boolean {
 	return collab || /[#&]live=/.test(window.location.hash);
 }
 
+/** The boot restore's navigation origin: an editor that mounts later takes the keyboard for it only if `nothingFocused`. */
+const RESTORE_ORIGIN = 'restore';
+
+/** Nothing has the keyboard yet: the restore's focus lands about a second after load, by which time the author may be
+ *  typing in search, chat or the command palette (the trio's inversion). */
+function nothingFocused(): boolean {
+	const a = document.activeElement;
+	return !a || a === document.body;
+}
+
 export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks, slideFences }: Props) {
 	// The component catalog is FETCHED, not inlined (2026-08-17 loading audit §5, §9.3).
 	// Serialized into the island's props it was ~180KB raw — 72% of a 433KB HTML document,
@@ -960,7 +970,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const caretColumnNow = React.useCallback((): CarriedColumn => (editModeRef.current === 'compose' ? composeRef.current : editorRef.current)?.caretColumn() ?? null, []);
 	const caretColumnNowRef = React.useRef(caretColumnNow);
 	caretColumnNowRef.current = caretColumnNow;
-	const carriedColumn = React.useCallback(() => carriedColRef.current, []);
+	// The carried column is spent by the first editor placement that reads it: a later navigation that lands on a line
+	// (a preview pick cleared, an undo's reveal) must not reuse a column measured on another line (the trio's checker).
+	const carriedColumn = React.useCallback(() => {
+		const c = carriedColRef.current;
+		carriedColRef.current = null;
+		return c;
+	}, []);
 	const setEditMode = React.useCallback((m: EditMode, o: { focus?: boolean } = {}) => {
 		// Picking the mode already on screen changes nothing, and must not clear a live selection's Refine door.
 		if (m === editModeRef.current) return;
@@ -2501,7 +2517,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const { line, col } = loadBootCaret();
 		carriedColRef.current = col;
 		const view = viewChunksRef.current;
-		if (view.length) goToChunk(view[Math.max(0, Math.min(bootSlideRef.current ?? 0, view.length - 1))], { line, grab: !!line && hasRealKeyboard() && !inLiveSession(!!liveCollabRef.current) });
+		if (view.length) goToChunk(view[Math.max(0, Math.min(bootSlideRef.current ?? 0, view.length - 1))], { line, grab: !!line && hasRealKeyboard() && !inLiveSession(!!liveCollabRef.current), origin: RESTORE_ORIGIN });
 	}, []);
 
 	// Persist the editor preference as it changes.
@@ -2863,9 +2879,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const lintedRef = React.useRef<import('./deck-lint').Linted>({ text: '', vocab: null, extras: null });
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `source` is the trigger; the pass reads `sourceRef`, the text after the pause.
 	React.useEffect(() => {
-		if (editMode !== 'compose') return;
+		// Whatever set the count meanwhile (the Markdown editor's pass, then its unmount's null; validation off's zeros)
+		// replaced this pass's answer, so the next Compose pass lints again even on the same text (the trio's checker: a
+		// round trip through Source left the count null and Fix all on its wrong fallback).
+		if (editMode !== 'compose') {
+			lintedRef.current = { text: '', vocab: null, extras: null };
+			return;
+		}
 		// Validation off: the Editor is handed no known names and reports a clean deck; Compose says the same.
 		if (!validation) {
+			lintedRef.current = { text: '', vocab: null, extras: null };
 			setLintCounts({ total: 0, fixable: 0 });
 			return;
 		}
@@ -2917,7 +2940,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					notify,
 				),
 			)
-			.catch(() => {});
+			.catch(() => notify('The checker could not load, so nothing was fixed. Try again in a moment.'));
 	}, [lintVocab, lintExtras, setSource]);
 	// Lint accepts BOTH the prefixed token and the bare slug of a saved finish (a deck
 	// authored before the prefix convention shouldn't false-warn).
@@ -3526,14 +3549,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	// Where a Compose view that is being built starts: the slide (and caret line) the hub holds, so a round trip through
 	// Source, or the phone bringing the Compose pane back, lands where the author was (ComposeView `focusAtMount`).
-	const composeFocusAtMount = React.useCallback(() => {
+	// `peek`: a resync asks where the caret belongs and takes nothing (no keyboard, no carried column).
+	const composeFocusAtMount = React.useCallback((peek = false) => {
 		const f = hub.get();
-		// A switch that asked for the keyboard, or a navigation that did (the boot restore with a real keyboard) and landed
-		// before this view existed to take it.
-		const focus = takeArriveFocus() || (f.cause === 'nav' && f.grab);
+		// A switch that asked for the keyboard, or a navigation that did (a rail pick, the boot restore with a real keyboard)
+		// and landed before this view existed to take it. Never in a Live session (`inLiveSession`); a restore only while
+		// nothing else has the keyboard (the author may already be typing in search or chat).
+		const focus = !peek && (takeArriveFocus() || (f.cause === 'nav' && f.grab && !inLiveSession(!!liveCollabRef.current) && (f.origin !== RESTORE_ORIGIN || nothingFocused())));
 		if (f.unitIndex >= 0) composeChunkRef.current = f.unitIndex;
-		return f.unitIndex >= 0 ? { slide: f.unitIndex, line: f.line, col: carriedColRef.current, focus } : null;
-	}, [hub, takeArriveFocus]);
+		return f.unitIndex >= 0 ? { slide: f.unitIndex, line: f.line, col: peek ? carriedColRef.current : carriedColumn(), focus } : null;
+	}, [hub, takeArriveFocus, carriedColumn]);
 	const onComposeCursorText = React.useCallback(
 		(text: string) => {
 			composeLineRef.current = text;
@@ -3551,11 +3576,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				(f) => {
 					composeChunkRef.current = Math.max(0, f.unitIndex);
 					// An undo's reveal keeps the caret Compose already put where the change was (Filo note §3.4).
-					if (f.cause === 'nav' || f.cause === 'pick') composeRef.current?.revealSlide(f.unitIndex, { focus: f.grab, keepCaret: f.origin === 'history', line: f.line || undefined, col: f.line ? carriedColRef.current : undefined });
+					if (f.cause === 'nav' || f.cause === 'pick') composeRef.current?.revealSlide(f.unitIndex, { focus: f.grab, keepCaret: f.origin === 'history', line: f.line || undefined, col: f.line ? carriedColumn() : undefined });
 				},
 				{ ignoreOrigin: 'compose', equals: (a, b) => a.seq === b.seq },
 			);
-	}, [hub]);
+	}, [hub, carriedColumn]);
 	// A rail pill: a viewed slide, and the heading section of it the pill stands for. Stable, so
 	// the memoized rail re-renders only when the deck or the focused slide changes.
 	const goToSlideLatest = React.useRef(goToSlide);
@@ -7271,7 +7296,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<React.Suspense fallback={<ComposeSkeleton />}>
 				{/* Held on a phone until the first slide, exactly as the Editor below: ProseMirror is the largest
 				    piece of startup the first slide does not need, and Compose is now the default (2026-11-10). */}
-				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
+				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>

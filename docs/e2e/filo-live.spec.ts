@@ -270,6 +270,22 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		await bothHold(pair, (s) => s === DECK, "the guest's undo did not restore the deck");
 	});
 
+		// A co-editor's change reaches a Compose that has the caret at once: it used to be held until blur, and the author's
+		// next keystroke superseded it, so both sides lost the other person's words (the trio's red team and inversion).
+		test("a guest typing in Compose keeps the host's edit that arrived meanwhile", async ({ browser }, info) => {
+		const pair = await liveSession(await sessionBrowser(browser), info);
+		const { host, guest } = pair;
+		await openCompose(host);
+		await openCompose(guest);
+		await caretInCompose(guest, 0);
+		await caretInCompose(host, 2);
+		await host.keyboard.insertText(' HOSTFIRST');
+		await bothHold(pair, (s) => s.includes('Body three. HOSTFIRST'), 'the host edit crossed');
+		await guest.keyboard.insertText(' GUESTNEXT');
+		await bothHold(pair, (s) => s.includes('HOSTFIRST') && s.includes('GUESTNEXT'), "the guest's typing dropped the host's edit");
+		await expect(guest.locator('.cs-host .cs-slide').nth(2), "the guest's Compose shows the host's edit").toContainText('HOSTFIRST');
+	});
+
 		test("Compose's pill undoes each person's own edit, and only theirs", async ({ browser }, info) => {
 		const pair = await liveSession(await sessionBrowser(browser), info);
 		const { host, guest } = pair;
