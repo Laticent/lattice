@@ -95,6 +95,13 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             directory ran its built, gitignored `dist/` (a directory import reads `main`, not `exports`), so a
             stale `dist/` decided the result; `docs/vitest.config.ts` now resolves each to its `@laticent/source`
             file. Next by weight: `test/integration/export` (55).
+            2026-11-11 (same PR, P2): `test/integration/export` done, 55 hits in 24 files, no `flaky-ok` needed; the
+            baseline is now 226 hits in 92 files. Absence checks in a live browser use an unwalled WITNESS run after
+            the walled one: the arm waits until the witness heard every vector, so its zero proves something. Found:
+            Chrome for Testing 153's Local Network Access blocked `code-sandbox-network`'s CONTROL arm from loopback,
+            so its walled arms had passed on an absence that proved nothing; the no-walls launch now disables that
+            check. New helpers: `test/helpers/request-log.js` (listener drain, witness listener) and a real-browser
+            settle (`page-settle.js`).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.

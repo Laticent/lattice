@@ -29,13 +29,13 @@ const os = require('node:os');
 const path = require('node:path');
 
 const TIMEOUT = 300000;
-const SETTLE_MS = 1500;
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-fence-home-'));
 process.env.LATTICE_HOME = home;
 const engine = require('../../../lib/engine');
 const { renderWithCodePackages } = require('../../../lib/cli/code-door.js');
 const { pluginDigest, codeDigest, grantTrust } = require('../../../lib/packages/trust.js');
+const { trackConnections } = require('../../helpers/request-log.js');
 
 /** The stranger's renderer: tries the network, then returns markup carrying every thing a fence output must lose. */
 const hostile = (H, P) => `
@@ -61,6 +61,7 @@ let server;
 let hits = [];
 let H;
 let P;
+let log;
 before(async () => {
   server = http.createServer((req, res) => {
     hits.push(req.url);
@@ -70,6 +71,7 @@ before(async () => {
     hits.push(req.url);
     socket.destroy();
   });
+  log = trackConnections(server);
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   P = server.address().port;
   H = `http://127.0.0.1:${P}`;
@@ -95,7 +97,9 @@ const run = (p, md = DECK, extra = {}) => {
   });
   return { ...r, lines };
 };
-const settle = () => new Promise((r) => setTimeout(r, SETTLE_MS));
+// The door runs its sandbox in a child process that has exited by the time `run` returns, so the log is complete once
+// every connection that child made has been read: a signal (test/helpers/request-log.js), not a sleep.
+const settle = () => log.drained();
 
 describe('the fence door through the real sandbox', () => {
   test('REFUSED: an unapproved plugin stops the render, names its digest and the trust command, and runs nothing', { timeout: TIMEOUT }, async () => {

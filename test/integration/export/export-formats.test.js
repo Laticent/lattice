@@ -432,8 +432,9 @@ describe('export-formats', () => {
   }
 
   // Page 1 rendered to grayscale at 20 dpi: the mean of a corner region, 0 (black) to 255.
+  let cornerRuns = 0;
   function cornerMean(pdf, dir, { right = true, top = true } = {}) {
-    const base = path.join(dir, `corner-${Math.random().toString(36).slice(2)}`);
+    const base = path.join(dir, `corner-${++cornerRuns}x`); // a counter (and an end mark), so each raster has its own name
     execFileSync('pdftoppm', ['-gray', '-r', '20', '-f', '1', '-l', '1', pdf, base]);
     const file = fs.readdirSync(dir).map((f) => path.join(dir, f)).find((f) => f.startsWith(base) && f.endsWith('.pgm'));
     const buf = fs.readFileSync(file);

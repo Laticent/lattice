@@ -51,7 +51,6 @@ async function inPage(browser, html, job, opts = {}) {
         const frame = document.createElement('iframe');
         frame.setAttribute('sandbox', 'allow-scripts');
         frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1200px;height:900px;border:0;visibility:hidden';
-        const wait = (ms) => new Promise((r) => setTimeout(r, ms));
         const next = (pred, ms) =>
           new Promise((resolve) => {
             const t = setTimeout(() => resolve(null), ms);
@@ -84,10 +83,6 @@ async function inPage(browser, html, job, opts = {}) {
             out.replies.push(await got);
           }
         }
-        out.ran = await (async () => {
-          await wait(10);
-          return null;
-        })();
         frame.remove();
         return out;
       },

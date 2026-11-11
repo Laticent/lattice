@@ -46,6 +46,21 @@ const DECK = [
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-reopenable-'));
 
+/** A preload that moves the child's `Date` 400 days ahead, so a run reads a clock no earlier run could. */
+function shiftedClock() {
+  const file = path.join(tmp(), 'shifted-clock.cjs');
+  fs.writeFileSync(file, [
+    'const Real = Date;',
+    'const SHIFT = 400 * 86400000;',
+    'class Shifted extends Real {',
+    '  constructor(...a) { if (a.length === 0) super(Real.now() + SHIFT); else super(...a); }',
+    '  static now() { return Real.now() + SHIFT; }',
+    '}',
+    'globalThis.Date = Shifted;',
+  ].join('\n'));
+  return JSON.stringify(file);
+}
+
 function exportDeck(out, extra = [], env = {}, deck = DECK) {
   const dir = path.dirname(out);
   const src = path.join(dir, 'deck.md');
@@ -136,8 +151,9 @@ describe('--reopenable (CLI)', () => {
 
   test('the payload clock is pinned: two runs match, and SOURCE_DATE_EPOCH sets it', { timeout: TIMEOUT }, async () => {
     const a = exportDeck(path.join(tmp(), 'deck.pdf'), ['-q']);
-    await new Promise((r) => setTimeout(r, 2100)); // a wall-clock zip date (2 s DOS resolution) would now differ
-    const b = exportDeck(path.join(tmp(), 'deck.pdf'), ['-q']);
+    // The second run reads a clock 400 days ahead, so any wall-clock date (a zip entry's 2 s DOS time, a
+    // manifest stamp) would differ; no sleep is needed to push the clock past a tick (HARD RULE #32).
+    const b = exportDeck(path.join(tmp(), 'deck.pdf'), ['-q'], { NODE_OPTIONS: `--require ${shiftedClock()}` });
     assert.ok(a.bytes.equals(b.bytes), 'two renders of one deck must write the same bytes');
     const at = 1767225600; // 2026-01-01T00:00:00Z
     const c = exportDeck(path.join(tmp(), 'deck.pdf'), ['-q'], { SOURCE_DATE_EPOCH: String(at) });

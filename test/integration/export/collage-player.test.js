@@ -30,7 +30,36 @@ const AXE_OPTIONS = {
   runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] },
   rules: { 'color-contrast': { enabled: false }, 'page-has-heading-one': { enabled: false } },
 };
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Installed before the player's own script, so every wait below reads a signal instead of sleeping (HARD RULE #32):
+ *   - `__seen` counts the input events the document saw, in the capture phase, so it counts each one before the lightbox's
+ *     own handler runs in the same dispatch. Once a count has moved, that event has been handled, and an assertion that
+ *     NOTHING changed ("a vertical move does not step") reads a moment that has provably passed;
+ *   - `__glides` counts finished glides: the frame of the lightbox takes a `translate(...)` transform when one starts and
+ *     drops it when one ends;
+ *   - `__clockSkew` moves the page's `performance.now()`, which the lightbox reads for its 400 ms ghost-click guard, so a
+ *     test advances the clock past that guard rather than waiting it out; `__clockFrozen`, while a number, holds it there,
+ *     so two wheel events are one burst inside the wheel gate's 480 ms cooldown however slowly the machine sends them.
+ */
+function installProbe() {
+  const real = performance.now.bind(performance);
+  window.__clockSkew = 0;
+  window.__clockFrozen = null;
+  performance.now = () => (typeof window.__clockFrozen === 'number' ? window.__clockFrozen : real() + window.__clockSkew);
+  window.__seen = { touchend: 0, wheel: 0, keydown: 0 };
+  for (const type of Object.keys(window.__seen)) document.addEventListener(type, () => { window.__seen[type]++; }, { capture: true, passive: true });
+  window.__glides = 0;
+  const moving = new WeakSet();
+  new MutationObserver((records) => {
+    for (const r of records) {
+      const el = r.target;
+      if (el.tagName === 'IMG' || !el.parentElement || !el.parentElement.classList.contains('collage-lightbox')) continue;
+      if (el.style.transform.startsWith('translate')) moving.add(el);
+      else if (moving.has(el)) { moving.delete(el); window.__glides++; }
+    }
+  }).observe(document, { subtree: true, attributes: true, attributeFilter: ['style'] });
+}
 
 describe('collage lightbox in the exported player, real Chromium', () => {
   let browser;
@@ -54,14 +83,31 @@ describe('collage lightbox in the exported player, real Chromium', () => {
   async function openPlayer(hasTouch = false) {
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720, hasTouch });
+    await page.evaluateOnNewDocument(installProbe);
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
-    await sleep(1200);
+    await page.waitForFunction(() => document.fonts.status === 'loaded' && !!document.querySelector('.lp-frame.lp-active'));
     await page.keyboard.press('ArrowRight'); // slide 2 is the first collage
-    await sleep(800);
+    // On stage once it is the active frame, its photos are stamped as buttons and every photo has decoded.
+    await page.waitForFunction(() => {
+      const frames = [...document.querySelectorAll('.lp-frame')];
+      const imgs = [...document.querySelectorAll('.lp-active .collage-tile > img')];
+      return frames.findIndex((f) => f.classList.contains('lp-active')) === 1 && imgs.length > 0
+        && imgs.every((i) => i.getAttribute('role') === 'button' && i.complete && i.naturalWidth > 0);
+    });
     await page.evaluate(AXE_SRC);
     return page;
   }
   const index = (page) => page.evaluate(() => [...document.querySelectorAll('.lp-frame')].findIndex((f) => f.classList.contains('lp-active')));
+  /** Click a photo and wait for its lightbox to open and finish the glide in from the tile. */
+  async function clickOpen(page, pt) {
+    const glides = await page.evaluate(() => window.__glides);
+    await page.mouse.click(pt.x, pt.y);
+    await page.waitForFunction((g) => !!document.querySelector('dialog.collage-lightbox[open]') && window.__glides > g, {}, glides);
+  }
+  const closed = (page) => page.waitForFunction(() => !document.querySelector('.collage-lightbox'));
+  /** Wait until the document has seen `n` more events of `type` than `from`, which is when the lightbox has handled them. */
+  const seen = (page, type, from, n = 1) => page.waitForFunction((t, f, k) => window.__seen[t] >= f + k, {}, type, from, n);
+  const seenNow = (page, type) => page.evaluate((t) => window.__seen[t], type);
   const axe = (page) =>
     page.evaluate(async (opts) => {
       const res = await window.axe.run(document, { ...opts, resultTypes: ['violations', 'incomplete'] });
@@ -87,8 +133,7 @@ describe('collage lightbox in the exported player, real Chromium', () => {
       const r = document.querySelectorAll('.lp-active .collage-tile > img')[1].getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     });
-    await page.mouse.click(pt.x, pt.y);
-    await sleep(700);
+    await clickOpen(page, pt);
     assert.ok(await page.evaluate(() => !!document.querySelector('dialog.collage-lightbox[open]')), 'precondition: the lightbox is open');
     const { violations } = await axe(page);
     assert.deepEqual(violations, []);
@@ -103,20 +148,22 @@ describe('collage lightbox in the exported player, real Chromium', () => {
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     });
     const isOpen = () => page.evaluate(() => !!document.querySelector('.collage-lightbox'));
-    await page.mouse.click(pt.x, pt.y);
-    await sleep(700);
+    await clickOpen(page, pt);
     assert.equal(await isOpen(), true, 'a click opens the photo');
     await page.keyboard.press('Escape');
-    await sleep(600);
+    await closed(page);
     assert.equal(await isOpen(), false, 'Escape closes it');
-    await page.mouse.click(pt.x, pt.y);
-    await sleep(700);
+    await clickOpen(page, pt);
     assert.equal(await isOpen(), true, 'a second click opens it again');
+    // The lightbox ignores a backdrop click in its first 400 ms (the ghost click a tap leaves): move the page clock past it.
+    await page.evaluate(() => { window.__clockSkew += 1000; });
     await page.mouse.click(5, 5); // the backdrop, away from the photo and the close button
-    await sleep(700);
+    await closed(page);
     assert.equal(await isOpen(), false, 'a click on the backdrop closes it');
     await page.keyboard.press('Space');
-    await sleep(500);
+    // The positive signal: the deck moved, or a photo opened; either way the Space has been handled.
+    await page.waitForFunction((b) => !!document.querySelector('.collage-lightbox')
+      || [...document.querySelectorAll('.lp-frame')].findIndex((f) => f.classList.contains('lp-active')) !== b, {}, before);
     assert.equal(await isOpen(), false, 'Space does not reopen the photo');
     assert.equal(await index(page), before + 1, 'Space advances the deck');
     await page.close();
@@ -131,10 +178,10 @@ describe('collage lightbox in the exported player, real Chromium', () => {
       const r = document.querySelectorAll('.lp-active .collage-tile > img')[0].getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     });
-    await page.mouse.click(pt.x, pt.y);
-    await sleep(700);
+    await clickOpen(page, pt);
     assert.ok(await page.evaluate(() => !!document.querySelector('dialog.collage-lightbox[open]')), 'precondition: the lightbox is open');
   }
+  const countIs = (page, want) => page.waitForFunction((w) => document.querySelectorAll('.collage-lightbox p')[1]?.textContent === w, {}, want);
 
   test('the open photo steps with the arrow keys and the buttons, and the deck behind does not move', async () => {
     const page = await openPlayer();
@@ -145,11 +192,11 @@ describe('collage lightbox in the exported player, real Chromium', () => {
     assert.equal(await countOf(page), `1 / ${n}`);
     const first = await capOf(page);
     await page.keyboard.press('ArrowRight');
-    await sleep(200);
+    await countIs(page, `2 / ${n}`);
     assert.equal(await countOf(page), `2 / ${n}`);
     assert.notEqual(await capOf(page), first, 'the caption follows the photo');
     await page.click('[aria-label="Next photo"]');
-    await sleep(200);
+    await countIs(page, `3 / ${n}`);
     assert.equal(await countOf(page), `3 / ${n}`);
     await page.keyboard.press('End');
     assert.equal(await countOf(page), `${n} / ${n}`);
@@ -170,10 +217,11 @@ describe('collage lightbox in the exported player, real Chromium', () => {
     const pt = (x, y) => ({ x, y, radiusX: 4, radiusY: 4, force: 1 });
     const touch = async (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
     const drag = async (x0, y0, x1, y1) => {
+      const ends = await seenNow(page, 'touchend');
       await touch('touchStart', [pt(x0, y0)]);
       for (let i = 1; i <= 6; i++) await touch('touchMove', [pt(x0 + ((x1 - x0) * i) / 6, y0 + ((y1 - y0) * i) / 6)]);
       await touch('touchEnd', []);
-      await sleep(150);
+      await seen(page, 'touchend', ends);
     };
     await drag(800, 360, 400, 366); // left: next
     assert.equal(await countOf(page), `2 / ${n}`);
@@ -182,10 +230,11 @@ describe('collage lightbox in the exported player, real Chromium', () => {
     await drag(640, 500, 644, 200); // vertical: nothing
     assert.equal(await countOf(page), `1 / ${n}`);
     // a pinch out: two fingers apart by 300 px is a pinch, never a swipe
+    const ends = await seenNow(page, 'touchend');
     await touch('touchStart', [pt(540, 360), pt(740, 360)]);
     for (let i = 1; i <= 6; i++) await touch('touchMove', [pt(540 - 25 * i, 360), pt(740 + 25 * i, 360)]);
     await touch('touchEnd', []);
-    await sleep(150);
+    await seen(page, 'touchend', ends);
     assert.equal(await countOf(page), `1 / ${n}`, 'a pinch does not step');
     await cdp.detach();
     await page.close();
@@ -200,9 +249,12 @@ describe('collage lightbox in the exported player, real Chromium', () => {
     const before = await slide();
     assert.match(await count(), /^1 \/ /);
     await page.mouse.move(400, 300);
+    const wheels = await seenNow(page, 'wheel');
+    await page.evaluate(() => { window.__clockFrozen = performance.now(); }); // one burst, on any machine
     await page.mouse.wheel({ deltaY: 120 });
     await page.mouse.wheel({ deltaY: 120 });
-    await sleep(150);
+    await seen(page, 'wheel', wheels, 2); // both reached the lightbox, so the second one's drop is final
+    await page.evaluate(() => { window.__clockFrozen = null; });
     assert.match(await count(), /^2 \/ /, 'a burst is one step');
     assert.equal(await slide(), before, 'the deck behind did not turn');
     await page.keyboard.press('3');
@@ -234,7 +286,7 @@ describe('collage lightbox in the exported player, real Chromium', () => {
     await page.keyboard.down('Control');
     await page.mouse.wheel({ deltaY: -400 });
     await page.keyboard.up('Control');
-    await sleep(150);
+    await page.waitForFunction(() => new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.collage-lightbox img')).transform).a > 1.5);
     assert.ok((await scaleOf(page)) > 1.5, 'ctrl + wheel zooms');
     await page.click('[aria-label^="Reset zoom to fit"]');
     assert.equal(await scaleOf(page), 1, 'the pill resets');
@@ -242,17 +294,19 @@ describe('collage lightbox in the exported player, real Chromium', () => {
     const cdp = await page.createCDPSession();
     const pt = (x, y) => ({ x, y, radiusX: 8, radiusY: 8, force: 1 });
     const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
+    let ends = await seenNow(page, 'touchend');
     await touch('touchStart', [pt(box.x - 30, box.y), pt(box.x + 30, box.y)]);
     for (let i = 1; i <= 8; i++) await touch('touchMove', [pt(box.x - 30 - 25 * i, box.y), pt(box.x + 30 + 25 * i, box.y)]);
     await touch('touchEnd', []);
-    await sleep(200);
+    await seen(page, 'touchend', ends);
     assert.ok((await scaleOf(page)) > 1.5, 'a pinch zooms');
     assert.equal(await countOf(page), `1 / ${n}`, 'a pinch does not step');
     // one finger while zoomed pans and does not swipe
+    ends = await seenNow(page, 'touchend');
     await touch('touchStart', [pt(box.x, box.y)]);
     for (let i = 1; i <= 6; i++) await touch('touchMove', [pt(box.x - 40 * i, box.y)]);
     await touch('touchEnd', []);
-    await sleep(150);
+    await seen(page, 'touchend', ends);
     assert.equal(await countOf(page), `1 / ${n}`, 'a pan is not a swipe');
     await page.keyboard.press('ArrowRight');
     assert.equal(await scaleOf(page), 1, 'a new photo opens at fit');

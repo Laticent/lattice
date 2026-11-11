@@ -126,13 +126,28 @@ describe('calco red-team fixtures', () => {
     assert.equal(after, before);
   });
 
-  test('many: thousands of picture items export in bounded time', async () => {
+  test('many: thousands of picture items export in bounded work', async () => {
     const items = Array.from({ length: 3000 }, (_, i) => `<svg viewBox="0 0 2 2" style="position:absolute;left:${(i % 60) * 20}px;top:${Math.floor(i / 60) * 14}px;width:6px;height:6px"><rect width="2" height="2" fill="#a0a"/></svg>`).join('');
     await load(page('', items));
-    const t0 = Date.now();
-    const { slides } = await captureSlides(await tab.$$('section[data-lattice-slide]'), { type: 'png' }, true);
-    assert.ok(Date.now() - t0 < 60000, `took ${Date.now() - t0} ms`);
-    assert.ok(slides[0].shapes.some((s) => s.kind === 'picture') || slides[0].image);
+    // Count the work instead of timing it (HARD RULE #32): every browser round trip the capture makes, and every
+    // picture it emits. Today the 3000 touching items are one cluster: 11 reads, 2 screenshots, 1 picture. A capture
+    // that shot or emitted per item would cost thousands of each.
+    const handles = await tab.$$('section[data-lattice-slide]');
+    const calls = { evaluate: 0, screenshot: 0 };
+    for (const h of handles) {
+      for (const verb of Object.keys(calls)) {
+        const real = h[verb].bind(h);
+        h[verb] = (...args) => {
+          calls[verb]++;
+          return real(...args);
+        };
+      }
+    }
+    const { slides } = await captureSlides(handles, { type: 'png' }, true);
+    const pictures = slides[0].shapes.filter((s) => s.kind === 'picture').length;
+    assert.ok(calls.evaluate + calls.screenshot <= 40, `browser round trips: ${JSON.stringify(calls)}`);
+    assert.ok(pictures <= 30, `${pictures} pictures for 3000 touching items`);
+    assert.ok(pictures > 0 || slides[0].image);
   });
 
   test('decorative: generated text on the slide\'s decorative layer is background, not live text', async () => {

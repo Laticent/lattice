@@ -110,6 +110,18 @@ required; a bare `flaky-ok` still counts.
   a structure into Proxies that count reads of one property, so a walk over a grammar tree, which touches no string,
   costs a visit count. A shared node stays one copy, and past `limit` it throws, so a walk gone exponential fails at
   once instead of hanging the runner. The segno grammar, codegen and publish-review tests bound visits per node with it.
+- `test/helpers/page-settle.js` (`test/integration/export`): `trackPageWork(page)`, called before the page navigates,
+  keeps a ledger of the timers, frames and requests a real page has queued, and its `settled()` resolves once none is
+  left. `settled({ frames: 3 })` also waits for three quiet frames in a row, so a resize's `ResizeObserver` work has
+  run; `{ images: true }` also waits for every `<img>` to complete. A string timer stays off the ledger, because
+  wrapping it would change what the page runs, and a page that never settles fails at the deadline, naming what was
+  still queued. It replaced 1.5 to 2.5 s sleeps and absorbed `page-quiet.js`.
+- `test/helpers/request-log.js` (`test/integration/export`): `drained()` resolves once every connection a client
+  already made to a test listener has been read to its end. It connects once itself and waits for the listener to
+  accept that connection, which the kernel does in arrival order, so every earlier connection is in. It needs the
+  client gone first. A live browser has nothing to drain, so an absence check runs a WITNESS: the same attempts with no
+  walls against a second listener, started after the walled attempts. The witness proves how long one attempt takes
+  to land, not that a subject holding a request back on purpose has sent it.
 
 **Backtracking inside one regex has no count to read.** The audit tried V8's
 `--regexp-backtracks-before-fallback` with `--trace-experimental-regexp-engine`: the count rises about once per start

@@ -22,6 +22,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
+const { trackPageWork } = require('../../helpers/page-settle');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-video-attack-'));
@@ -91,6 +92,7 @@ describe('a video slide and a zip plugin that writes addresses', () => {
     const puppeteer = require('puppeteer');
     browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
     page = await browser.newPage();
+    const settled = await trackPageWork(page);
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       requests.push(req.url());
@@ -98,7 +100,9 @@ describe('a video slide and a zip plugin that writes addresses', () => {
       else req.abort();
     });
     await page.goto(pathToFileURL(path.join(work, 'open.html')).href, { waitUntil: 'load' });
-    await new Promise((res) => setTimeout(res, 2500));
+    // Until the page has nothing queued and nothing loading: any script of ours that would build an address from the
+    // plugin's text has run, and any request it made has been logged.
+    await settled();
   });
   after(async () => { if (browser) await browser.close(); });
 
@@ -138,8 +142,9 @@ describe('a video slide and a zip plugin that writes addresses', () => {
 
   test('CONTROL: the probe does see a request when the page makes one', async () => {
     const before = requests.length;
+    const seen = page.waitForRequest((r) => r.url().includes(`${ATTACKER}/control.png`), { timeout: 30000 }).catch(() => null);
     await page.evaluate((a) => { const i = new Image(); i.src = `https://${a}/control.png`; document.body.appendChild(i); }, ATTACKER);
-    await new Promise((res) => setTimeout(res, 500));
+    await seen;
     assert.ok(requests.slice(before).some((u) => u.includes(`${ATTACKER}/control.png`)), 'the log sees an image the page loads');
   });
 });
