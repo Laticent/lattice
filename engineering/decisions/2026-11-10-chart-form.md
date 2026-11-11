@@ -265,7 +265,8 @@ the owner's scaled drawing (§ 10).
 | stacked-bar | yes | the row form's name column wraps names at spaces (bar's rule); a keyed stack's key is a kernel tile under a heading that names the bar its values read; the direct-name column comes off the canvas, and names reflow to a key when the totals no longer fit their bars |
 | heatmap | yes | the row-name column sets every name whole on the lines its row holds (bar's rule, not traded against a cell's number); a band key is a kernel tile; a grid whose names or numbers do not all print whole at 11pt (twelve columns) is laid out on the least larger box, 10% at a time, and scaled (over capacity); with notes it keeps its own layout |
 | histogram | yes | a value is measured off its face; a chart whose values cannot all print at 12pt (twelve narrow bands) is laid out on the least larger box and scaled (over capacity), the placement run dry first; with notes it keeps its own layout |
-| waterfall, word-cloud | to do | size holds; names dropped vs `main` |
+| waterfall | yes | step names take the first form that sets every one whole (one row on two lines; two staggered rows on one line; two staggered rows on two lines), never cut to a stub; when none does, the walk is laid out on the least larger box and scaled (over capacity); with notes it keeps its own layout |
+| word-cloud | to do | size holds; names dropped vs `main` |
 | gantt, slope, state-chart | to do | overprints at square; state-chart under the floor at square |
 | roadmap, timeline-list | to do | overflow at square |
 | matrix-grid | to do | holds both bars; floats small at mobile |

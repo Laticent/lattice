@@ -210,6 +210,18 @@ test('a histogram on a phone page prints every value, over capacity when its ban
   assert.match(four, /data-chart-form="fit" class="histogram-svg"/);
 });
 
+test('a waterfall on a phone page prints every step name whole, never cut to a stub', () => {
+  const tick = '`';
+  const steps = [['Opening cash', '120'], ['Operating inflow', '+48'], ['Working capital', '-17'], ['Capital spend', '-22'], ['Dividends', '-9'], ['Closing cash', '120']];
+  const list = steps.map(([n, v]) => `- ${n} ${tick}${v}${tick}`).join('\n');
+  for (const size of ['mobile', 'square']) {
+    const html = createEngine().render(`---\ntheme: indaco\nsize: ${size}\n---\n\n<!-- _class: waterfall -->\n\n## Cash held.\n\n${list}\n`).html;
+    assert.match(html, /data-chart-form="(fit|over)" class="cart-svg waterfall-svg/, size);
+    assert.doesNotMatch(html, /…<\/tspan>/, `${size}: no name is cut`);
+    for (const [n] of steps) for (const w of n.split(' ')) assert.ok(html.includes(w), `${size}: ${w}`);
+  }
+});
+
 test('a long title on a tall phone page comes off the chart box line by line', () => {
   const deck = (title) => `---\ntheme: indaco\nsize: mobile\n---\n\n<!-- _class: bar -->\n\n## ${title}\n\n- North `+'`4`'+`\n- South `+'`3`'+`\n`;
   const h = (title) => Number(/class="cart-svg bar-svg" viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(createEngine().render(deck(title)).html)[1]);
