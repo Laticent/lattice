@@ -67,15 +67,22 @@ jobs:
           pipx install "git+https://github.com/NVIDIA/skillspector.git@${SKILLSPECTOR_REF}"
           skillspector --version
 
+      # `!cancelled()`, not the implicit success(): if the install failed, this step must still
+      # run, find no scanner, exit 2 and file "the scan did not complete". Skipped, it would leave
+      # `found` empty and the night would pass in silence.
       - name: Scan every skill
         id: scan
+        if: ${{ !cancelled() }}
         run: |
           set -uo pipefail
           OUT="$GITHUB_WORKSPACE/skillspector.out"
+          # GitHub runs `run:` under `bash -e`, so a bare failing pipeline ends the step before
+          # `found` is written, and the filing step then reads an empty output and files nothing.
+          # Measured on the PR runner (exit 1 → step killed). The `||` keeps -e from firing.
+          RC=0
           tools/scan-skills.sh "$GITHUB_WORKSPACE/kits/agent" \
             --md "$GITHUB_WORKSPACE/skillspector.md" \
-            --sarif-dir "$GITHUB_WORKSPACE/sarif" | tee "$OUT"
-          RC=${PIPESTATUS[0]}
+            --sarif-dir "$GITHUB_WORKSPACE/sarif" | tee "$OUT" || RC=${PIPESTATUS[0]}
           # 0 clean · 1 an unexcused finding · 2 the scan could not run. Both 1 and 2 file the
           # issue: a night that scanned nothing is not a clean night.
           if [ "$RC" -eq 0 ]; then echo "found=false" >> "$GITHUB_OUTPUT"; else echo "found=true" >> "$GITHUB_OUTPUT"; fi
@@ -94,7 +101,7 @@ jobs:
       - name: Upload SARIF to code scanning
         if: always() && hashFiles('sarif/*.sarif') != ''
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: sarif
           category: skillspector
