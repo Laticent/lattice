@@ -315,6 +315,68 @@ describe('one deck at a time', () => {
 		expect(errors, 'nothing was lost, so nothing to report').toEqual([]);
 	});
 
+	const upgradeElsewhere = () =>
+		new Promise<void>((resolve, reject) => {
+			const req = indexedDB.open('lattice-studio-versions', 2);
+			req.onsuccess = () => {
+				req.result.close();
+				resolve();
+			};
+			req.onerror = () => reject(req.error);
+		});
+
+	it('a version that reaches neither store after a failed reopen says not saved, and is reported', async () => {
+		await store.appendCheckpoint('d1', cp('a', 1));
+		await store.hydrateDeckCheckpoints('d1');
+		await upgradeElsewhere();
+		const errors: CheckpointWriteError[] = [];
+		store.onCheckpointWriteError((e) => errors.push(e));
+		const setItem = Storage.prototype.setItem;
+		Storage.prototype.setItem = () => {
+			throw new DOMException('full', 'QuotaExceededError');
+		};
+		let ok: boolean;
+		try {
+			ok = await store.appendCheckpoint('d1', cp('b', 2));
+		} finally {
+			Storage.prototype.setItem = setItem;
+		}
+		expect(ok, 'never tell a caller it is saved when it is not').toBe(false);
+		expect(errors.map((e) => [e.deckId, e.kind])).toEqual([['d1', 'save']]);
+	});
+
+	it('after a failed reopen, a save and a concurrent source rewrite of the same deck both report saved', async () => {
+		await store.appendCheckpoint('d1', cp('a', 1, 'asset:old'));
+		await store.hydrateDeckCheckpoints('d1');
+		await upgradeElsewhere();
+		const [added, mapped] = await Promise.all([store.appendCheckpoint('d1', cp('b', 2)), store.mapCheckpoints('d1', (src) => src.replace('old', 'new'))]);
+		const stored = JSON.parse(localStorage.getItem(`${SNAP_PREFIX}d1`) ?? '[]') as Checkpoint[];
+		expect(stored.map((c) => [c.id, c.source])).toEqual([
+			['b', '# b'],
+			['a', 'asset:new'],
+		]);
+		expect([added, mapped]).toEqual([true, true]);
+	});
+
+	it('the author joining the idle sweep\'s quiet read of a deck still hears that it failed', async () => {
+		await store.appendCheckpoint('x', cp('a', 1));
+		reload();
+		const errors: CheckpointWriteError[] = [];
+		store.onCheckpointWriteError((e) => errors.push(e));
+		const getAll = IDBObjectStore.prototype.getAll;
+		IDBObjectStore.prototype.getAll = () => {
+			throw new DOMException('dropped', 'InvalidStateError');
+		};
+		try {
+			const quiet = store.hydrateDeckCheckpoints('x', { quiet: true });
+			const author = store.hydrateDeckCheckpoints('x');
+			await Promise.all([quiet, author]);
+		} finally {
+			IDBObjectStore.prototype.getAll = getAll;
+		}
+		expect(errors.map((e) => [e.deckId, e.kind])).toEqual([['x', 'read']]);
+	});
+
 	it('a whole-store read that fails rejects, so a backup says so, and the next call tries again', async () => {
 		await store.appendCheckpoint('d2', cp('b', 2));
 		reload();

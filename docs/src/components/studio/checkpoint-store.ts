@@ -75,6 +75,7 @@ const inflight = new Map<string, number>(); // deckId → transactions not yet s
 const deckLoaded = new Set<string>();
 const deckLoading = new Map<string, Promise<void>>();
 const deckReadReported = new Set<string>(); // decks whose failed read was reported once this session
+const deckReadWanted = new Set<string>(); // a caller that wants a failure reported joined a quiet read of this deck
 let legacySweepScheduled = false;
 let sweepEpoch = 0; // bumped by a test reset: a sweep scheduled before it does nothing
 const deckGeneration = new Map<string, number>(); // bumped when a deck is dropped: a change issued before it must not refill the cache
@@ -364,9 +365,15 @@ function change(deckId: string, optimistic: Checkpoint[], edit: (list: Checkpoin
 						// already when another change fell back first). Durable once that copy holds it: say
 						// so, or a caller that waits on it (a rename's undo, an AI apply) refuses work that
 						// was in fact saved.
+						// Durable when re-applying this change to what localStorage holds changes nothing: the
+						// change is in it. Not "localStorage equals this change's optimistic snapshot", which a
+						// concurrent change to the same deck (a photo rename's source rewrite) makes false for
+						// work that was saved.
 						const failed = fallBackToLocal();
+						if (failed.has(deckId)) return false;
 						const stored = lsRead(deckId) ?? [];
-						return !failed.has(deckId) && optimistic.slice(0, SNAP_CAP).every((o) => stored.some((c) => c.id === o.id && c.source === o.source));
+						const again = newestFirst(edit(stored)).slice(0, SNAP_CAP);
+						return again.length === stored.length && again.every((c) => stored.some((s) => s.id === c.id && s.source === c.source && s.label === c.label));
 					}
 					report({ deckId, error, kind: 'save' });
 					return false;
@@ -540,7 +547,6 @@ export function hydrateCheckpoints(): Promise<void> {
 		if (fellBack()) return; // another read fell back meanwhile: localStorage is the store now
 		if (gen === generation) adopt(stored, lsLegacyDeckIds(), (id) => (deckGeneration.get(id) ?? 0) !== (dgens.get(id) ?? 0));
 		// else: cleared while the read was in flight, and what it read is gone
-		deckReadReported.clear(); // every deck's read has now succeeded
 		hydrated = true;
 		notifyChanged();
 	})();
@@ -557,7 +563,11 @@ export function hydrateDeckCheckpoints(deckId: string, opts: { quiet?: boolean }
 	// made this deck's load fail with it (and reject into callers that never expected it). The two
 	// reads see the same records; `adopt` sets a deck's list from either.
 	const running = deckLoading.get(deckId);
-	if (running) return running;
+	if (running) {
+		// Joining the idle sweep's quiet read: the author asked for this deck, so a failure is theirs to hear.
+		if (!opts.quiet) deckReadWanted.add(deckId);
+		return running;
+	}
 	listen();
 	const gen = generation;
 	const dgen = deckGeneration.get(deckId) ?? 0;
@@ -573,13 +583,14 @@ export function hydrateDeckCheckpoints(deckId: string, opts: { quiet?: boolean }
 			// one deck's hiccup must not hide every other deck's history and copy every cached list into
 			// the quota the deck sources share. It is said once, so the author knows the list is short.
 			if (dbOpenFailed) fallBackToLocal();
-			else if (!opts.quiet && !deckReadReported.has(deckId)) {
+			else if ((!opts.quiet || deckReadWanted.has(deckId)) && !deckReadReported.has(deckId)) {
 				deckReadReported.add(deckId);
 				report({ deckId, error, kind: 'read' });
 			}
 			return;
 		} finally {
 			deckLoading.delete(deckId);
+			deckReadWanted.delete(deckId);
 		}
 		if (fellBack()) return; // another read fell back meanwhile: localStorage is the store now
 		if (gen === generation) adopt(stored, hasLegacy(deckId) ? [deckId] : [], () => (deckGeneration.get(deckId) ?? 0) !== dgen);
@@ -707,6 +718,7 @@ export function __resetCheckpointStoreForTests(opts: { backend?: Backend } = {})
 	legacySweepScheduled = false;
 	sweepEpoch++;
 	deckReadReported.clear();
+	deckReadWanted.clear();
 	deckGeneration.clear();
 	pending = new Set();
 	lastClear = Promise.resolve(true);

@@ -310,6 +310,15 @@ only the backup refuses to run without the history. And a test added earlier in 
 because `otherTab()` module instances kept their BroadcastChannel open into later tests; each is now reset after its
 test (HARD RULE #32).
 
+**Fourth checker (on that round, at the owner's OK past the session's agent budget).** Found nothing that tells a caller
+a version is saved when it is not. Four smaller findings, handled here: the durability check after a failed reopen had
+no test for that dangerous direction (added: a version that reaches neither store says not saved and is reported); a
+save and a concurrent source rewrite of the same deck reported the save as failed although it landed, because the
+check compared localStorage with the save's own snapshot (it now asks whether re-applying the change to what
+localStorage holds changes nothing); the author joining the idle migration's quiet read of a deck never heard that the
+read failed (a joining caller now asks for the report); and the "a whole-store success clears read reports" line had no
+test because it can never matter (after that read no per-deck read runs again), so it was removed rather than tested.
+
 **Verified on the real Studio** (Playwright, built site): `checkpoint-storage.spec.ts`, `decks.spec.ts` and
 `filo-undo.spec.ts` in Chromium, Firefox and WebKit (33 passed; 2 skipped by design: the real-quota case is
 Chromium-only); the new `deck-save-failure.spec.ts` in all three, where a refused deck write shows the notice. Re-run after the
