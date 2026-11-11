@@ -1208,7 +1208,7 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   the bare `light` (that word is also the `divider light` subtopic variant, the collision lib/core/resolve-color-mode.js already
   avoids), and applying an ink evicts every other color-mode token (a deck's `color-light` won on source order and put dark words
   over the dark scrim); a `print` deck and a slide whose carried `class:` names a mode are left alone; a layout that centers its
-  words (divider, title, statement, closing, quote, big-number) reads the middle band of the photo, not its top. The Marp rewrite
+  words (divider, title, closing, quote, big-number) reads the middle band of the photo, not its top. The Marp rewrite
   reads `_class` per comment (a shared line with `_paginate` kept its other directive), keeps CRLF, and builds a new spot `_class`
   from the carried class or the deck register so `bleed` is not dropped. The Gecko Studio e2e then showed the photo itself
   missing: the preview's CSP named the site's own origin for fonts only, and Firefox does not read a `srcdoc` frame's `'self'` as
@@ -1218,3 +1218,11 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   without a ceiling raise: the placed-picture rule (read only by the Marp writer and the lint) resolves to a stub in every
   runtime build, and an `import` of a `@laticent/*` package resolves to the CommonJS copy the runtime already carries
   (meta-door.mjs had brought in a second, ESM copy of segno's reader). The preview runtime ends 11.8KB gzipped under `main`'s.
+  A second checker, on the fixed Marp rewrite, found it still wrong on real bundles, fixed before merge. It wrote a new spot
+  `_class` above slide 1's settings block, so the block no longer folded and a re-imported bundle lost every deck setting. It
+  read deck classes from Marp's front matter only, where a bundle keeps none (its `class:` and `color-mode:` move into the
+  settings block), so a `print` bundle still took an ink. It read a `_class` or a `![bg]` inside a code fence. It turned a
+  multi-key comment's `_class` line into a value that swallowed `_paginate`, and it skipped a comment written right after
+  another. Now the rewrite reads the deck as Lattice reads a bundle (the block folded), skips code (markdown-it's fences), edits
+  only the `_class` line of a multi-key comment, inserts below the block, and applies `classesWithInk` everywhere, so the eviction
+  holds there too. `statement` left the centered list: it is a bucket, not a layout.

@@ -111,13 +111,56 @@ describe('Export-to-Marp writes the ink into the slide\'s own class (lib/export/
     assert.match(out, /<!-- _class: content bleed color-light -->\n\n<!-- class: content bleed -->\n## C/);
   });
 
-  test('a carried mode is the author\'s; a deck-wide class builds the spot class so bleed is not lost', () => {
+  test('a carried mode is the author\'s', () => {
     const carried = ['<!-- class: content bleed dark -->', '## A', '', '![bg](assets/p.jpg)', ''].join('\n');
     assert.deepEqual(bleedInkSlides(carried), [], 'a carried dark is as much the author\'s choice as a spot one');
-    const deck = ['---', 'class: content bleed', '---', '', '## A', '', '![bg](assets/p.jpg)', ''].join('\n');
-    const out = withBleedInk(deck, inks([['content bleed', 'assets/p.jpg', 'light']]));
-    // The deck register admits `bleed`, never a component (lib/core/deck-class-register.js): the spot class carries what the engine reads.
-    assert.match(out, /<!-- _class: bleed dark -->\n\n## A/, 'a spot _class replaces the deck class in Marp, so it carries it');
+  });
+
+  // A bundle's Lattice keys live in its settings block, directly under the front matter (lib/export/marp-bundle.js).
+  const bundle = (settings, body) => ['---', 'marp: true', '---', '<script type="application/lattice-settings">', ...settings, '</script>', '', ...body].join('\n');
+
+  test('a deck-wide bleed in the settings block is seen, and a new spot class goes BELOW the block so it still folds', () => {
+    const { foldSettingsBlock } = require('../../../lib/core/settings-block-fold.js');
+    const md = bundle(['class: bleed', 'color-mode: dark'], ['## A', '', '![bg](assets/p.jpg)', '']);
+    const out = withBleedInk(md, inks([['bleed', 'assets/p.jpg', 'dark']]));
+    assert.match(out, /<\/script>\n\n<!-- _class: color-light -->\n\n## A/, 'the slide\'s own mode, under the block; the runtime adds the deck\'s bleed');
+    assert.notEqual(foldSettingsBlock(out), out, 'the block still folds: the deck keeps its settings on re-import');
+    const carried = bundle(['color-mode: dark'], ['<!-- class: bleed -->', '## A', '', '![bg](assets/p.jpg)', '']);
+    const out2 = withBleedInk(carried, inks([['bleed', 'assets/p.jpg', 'dark']]));
+    assert.notEqual(foldSettingsBlock(out2), out2, 'a carried class on slide 1 does not push the spot class above the block');
+  });
+
+  test('a print deck, wherever it says so, is left alone', () => {
+    const md = bundle(['color-mode: print'], ['<!-- _class: content bleed -->', '## A', '', '![bg](assets/p.jpg)', '']);
+    assert.deepEqual(bleedInkSlides(md), []);
+  });
+
+  test('a deck-wide color-light is evicted by the ink, not left beside it', () => {
+    const md = bundle(['class: color-light'], ['<!-- _class: content bleed color-system -->', '## A', '', '![bg](assets/p.jpg)', '']);
+    assert.deepEqual(bleedInkSlides(md), [], 'the author named a mode on the slide');
+    const md2 = ['<!-- _class: content bleed -->', '## A', '', '![bg](assets/p.jpg)', ''].join('\n');
+    assert.match(withBleedInk(md2, inks([['content bleed', 'assets/p.jpg', 'light']])), /_class: content bleed dark -->/);
+  });
+
+  test('a directive or a photo inside a code fence is the reader\'s example, never the slide\'s', () => {
+    const fenced = ['<!-- _class: content bleed -->', '## A', '', '![bg](assets/p.jpg)', '', '```html', '<!-- _class: content bleed -->', '![bg](assets/q.jpg)', '```', ''].join('\n');
+    const out = withBleedInk(fenced, inks([['content bleed', 'assets/p.jpg', 'light']]));
+    assert.ok(out.startsWith('<!-- _class: content bleed dark -->'), 'the real directive takes the ink');
+    assert.ok(out.includes('```html\n<!-- _class: content bleed -->\n![bg](assets/q.jpg)\n```'), 'the example is untouched');
+    const onlyFenced = ['<!-- _class: content bleed -->', '## A', '', '```md', '![bg](assets/q.jpg)', '```', ''].join('\n');
+    assert.deepEqual(bleedInkSlides(onlyFenced), [], 'a photo in an example is no photo');
+  });
+
+  test('a `_class` in a comment holding several directives: only its line changes', () => {
+    const md = ['<!--', '_class: content bleed', '_paginate: false', '-->', '## A', '', '![bg](assets/p.jpg)', ''].join('\n');
+    const out = withBleedInk(md, inks([['content bleed', 'assets/p.jpg', 'light']]));
+    assert.equal(out, md.replace('_class: content bleed', '_class: content bleed dark'));
+  });
+
+  test('two comments back to back are both read', () => {
+    const md = ['<!-- _paginate: false --><!-- _class: content bleed -->', '## A', '', '![bg](assets/p.jpg)', ''].join('\n');
+    const out = withBleedInk(md, inks([['content bleed', 'assets/p.jpg', 'light']]));
+    assert.equal(out, md.replace('<!-- _class: content bleed -->', '<!-- _class: content bleed dark -->'));
   });
 
   test('only the `_class` comment changes when another directive shares its line, and CRLF stays CRLF', () => {

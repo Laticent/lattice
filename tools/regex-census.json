@@ -1795,6 +1795,7 @@
     "/^(BiRel|Rel(?:_Back)?(?:_(?:[UDLR]|Up|Down|Left|Right|Neighbor))?)\\s*\\((.*)\\)\\s*$/i": "safe",
     "/^(Person|System(?:Db|Queue)?|Container(?:Db|Queue)?|Component(?:Db|Queue)?|Node(?:_[LR])?|Deployment_Node)(_Ext)?\\s*\\((.*)\\)\\s*$/i": "safe",
     "/^(UpdateRelStyle|UpdateElementStyle|UpdateLayoutConfig)\\b/i": "safe",
+    "/^([ \\t]*(?:<!--[ \\t]*)?)_class[ \\t]*:(.*)$/": "safe",
     "/^([ \\t]*)([-*+]|\\d+[.)])[ \\t]+(.*)$/": "polynomial",
     "/^([ \\t]*)[A-Za-z][\\w-]*:[ \\t]+[|>](?:[1-9][+-]?|[+-][1-9]?)?(?:[ \\t]+#.*|[ \\t]*)\\r?$/": "safe",
     "/^([ \\t]*)`([^`\\n]+)`([ \\t]*)$/": "safe",

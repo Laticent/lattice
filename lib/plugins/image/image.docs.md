@@ -104,7 +104,7 @@ finished page, and every picture, a plugin's own included, still waits for the r
 A `bleed` slide reads the band of its photo under the heading, cropped as the slide crops it, and gives its words the ink
 that reads better there: the theme's `dark` mode (white words, a scrim darkening the top) over a dark photo, its light mode,
 written `color-light` (dark words, a veil lightening the top), over a light one. A layout that centers its words (`divider`,
-`title`, `statement`, `closing`, `quote`, `big-number`) reads the middle of the photo instead. Name `dark`, `light` or
+`title`, `closing`, `quote`, `big-number`) reads the middle of the photo instead. Name `dark`, `light` or
 `color-light` in the slide's own class (or a carried `class:`) to choose for yourself; a deck-wide color mode does not count as
 a choice about one photo, and a `print` deck keeps print's ink. Every export makes the same choice: the CLI reads
 the file before its page renders, the Studio and the Playground read it in the preview, and an Export-to-Marp bundle carries
