@@ -13,7 +13,7 @@ async function wavBytes(): Promise<ArrayBuffer> {
 	const n = 24000;
 	const samples = new Float32Array(n);
 	for (let i = 0; i < n; i++) samples[i] = 0.3 * Math.sin((2 * Math.PI * 440 * i) / 24000);
-	return wavBlob(samples, 24000).arrayBuffer();
+	return (wavBlob(samples, 24000) as Blob).arrayBuffer();
 }
 
 /** A worker that runs the real worker module's handler in-process: same code, no thread. Records what it was sent. */
