@@ -1,0 +1,4 @@
+studio: +300
+home: +150
+playground: +50
+Two fixes to step 3 grow the eager code a little. The lint's comment reader takes a marker from a slide record (`{stress-slide}`), so `directive-island` in `comment-directive`'s chunk reads a record (+80 gzip bytes, CI-measured against main); Compose's paste guard refuses a pasted record or bare directive and its hoist reads a record's class, which land in the chunk Vite names `tts-voice-catalog` (+94) with small moves in `class-directive-scan` (+26) and `theme-library` (+21). Given back first: the Studio page's extra preload link (the Marp bridge no longer shares `meta-scan`), and the bridge's two extra `meta-keys` exports (+26 on three routes), so the playground line is build noise. Home mounts the Studio island and pays `comment-directive`. Each line rounded up for build noise.
