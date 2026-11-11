@@ -261,15 +261,26 @@ export function newDeckSource(title = 'Untitled deck'): string {
 // Deck lists and the history panel ask for the same few decks' labels on every render; an index
 // build is a parse, so remember the last answers by text.
 const META_MAX = 64;
-const metaMemo = new Map<string, string>();
-export function metaFor(source: string): string {
-	let m = metaMemo.get(source);
-	if (m === undefined) {
-		m = slideCountLabel(buildDeckIndex(source).partBase.at(-1) ?? 0);
-		if (metaMemo.size >= META_MAX) metaMemo.delete(metaMemo.keys().next().value as string);
-		metaMemo.set(source, m);
+const countMemo = new Map<string, number>();
+/** The deck's RENDERED slide count (the PDF's), remembered by text. */
+export function slideCount(source: string): number {
+	let n = countMemo.get(source);
+	if (n === undefined) {
+		n = buildDeckIndex(source).partBase.at(-1) ?? 0;
+		if (countMemo.size >= META_MAX) countMemo.delete(countMemo.keys().next().value as string);
+		countMemo.set(source, n);
 	}
-	return m;
+	return n;
+}
+export function metaFor(source: string): string {
+	return slideCountLabel(slideCount(source));
+}
+
+/** A Version history row's "N slides": the count stored with the version, else counted from its text
+ *  (a version saved before counts were stored). The list used to parse every version, up to 25 deck
+ *  copies, each time it opened (2026-11-11-studio-storage-pointer-records.md §4 item 2). */
+export function checkpointMeta(cp: Checkpoint): string {
+	return Number.isInteger(cp.slides) && (cp.slides as number) > 0 ? slideCountLabel(cp.slides as number) : metaFor(cp.source);
 }
 
 /** "N slides", counting RENDERED slides — the PDF's count, heading splits included, so the deck
@@ -787,7 +798,7 @@ export function loadCheckpoints(deckId: string): Checkpoint[] {
 export function saveCheckpoint(deckId: string, source: string, label: string, ts: number): Checkpoint[] {
 	const list = loadCheckpoints(deckId);
 	if (list[0]?.source === source) return list; // nothing changed since the last one
-	const cp: Checkpoint = { id: `cp-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ts, label, source };
+	const cp: Checkpoint = { id: `cp-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ts, label, source, slides: slideCount(source) };
 	void appendCheckpoint(deckId, cp);
 	return [cp, ...list].slice(0, SNAP_CAP);
 }
@@ -800,7 +811,7 @@ export function saveCheckpoint(deckId: string, source: string, label: string, ts
 export function saveCheckpointDurably(deckId: string, source: string, label: string, ts: number): Promise<boolean> {
 	const list = loadCheckpoints(deckId);
 	if (list[0]?.source === source) return Promise.resolve(true);
-	const cp: Checkpoint = { id: `cp-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ts, label, source };
+	const cp: Checkpoint = { id: `cp-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ts, label, source, slides: slideCount(source) };
 	return appendCheckpoint(deckId, cp);
 }
 
@@ -1348,6 +1359,10 @@ export type ImportSummary = {
  * Settings + instructions are restored from the backup (they're the user's own
  * values either way). `ts` is passed in so the store stays free of Date.now.
  */
+/** A backup's versions, capped, without their stored slide counts: a backup is outside input, and a
+ *  count it carries is not checked against the text, so the row counts from the text instead. */
+const fromBackup = (list: Checkpoint[]): Checkpoint[] => list.slice(0, SNAP_CAP).map(({ slides: _untrusted, ...c }) => c);
+
 export function importStudioState(data: StudioExport, ts: number): ImportSummary {
 	const summary: ImportSummary = { added: 0, restoredCopies: 0, skipped: 0, written: [], copies: {}, refused: [], refusedIds: [] };
 	// A deck whose source this browser will not store is not restored: no index row (it would list
@@ -1376,7 +1391,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 				continue;
 			}
 			index.push(incoming);
-			if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(entry.id, fromBackup(data.checkpoints[entry.id]));
 			if (data.chats[entry.id]?.length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
 			summary.written.push(entry.id);
@@ -1393,7 +1408,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		// still whatever each side already had, so nothing is rewritten under the user.
 		if (incomingSrc == null || incomingSrc === normalizeSourceText(currentSrc)) {
 			// Same deck — take the backup's history wherever ours is missing.
-			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, fromBackup(data.checkpoints[entry.id]));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.skipped++;
 			continue;
@@ -1407,7 +1422,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 				refuse(entry);
 				continue;
 			}
-			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, fromBackup(data.checkpoints[entry.id]));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
 			summary.written.push(entry.id);
@@ -1428,7 +1443,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			continue;
 		}
 		index.push({ id: newId, title: `${entry.title} (restored)`, builtin: false, restored: true });
-		if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+		if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(newId, fromBackup(data.checkpoints[entry.id]));
 		if (data.chats[entry.id]?.length) saveChat(newId, data.chats[entry.id]);
 		summary.restoredCopies++;
 		summary.written.push(newId);

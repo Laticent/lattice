@@ -17,7 +17,7 @@ summary: >
 
 # Studio storage: what slows a full profile down, and the smallest fix
 
-**Date:** 2026-11-11 · **Status:** IN PROGRESS: §4 items 1–3 shipped with this note; item 4 (the warning, chats to IndexedDB) shipped in the follow-up PR (§11); the version slide counts are a follow-up; moving deck text waits for evidence · **Scope:** decided by the owner, §9
+**Date:** 2026-11-11 · **Status:** IN PROGRESS: §4 items 1–3 shipped with this note; item 4 (the warning, chats to IndexedDB) and the version slide counts shipped in the follow-up PR (§11, §12); moving deck text waits for evidence · **Scope:** decided by the owner, §9
 **Trigger:** the owner: "when there is lots of stuff in IndexedDB and the cache, load time slows down; with private
 browsing it's snappy. Audit and measure. Are we storing things efficiently?" Then, in the same conversation: should we
 use `idb`; should versions be diffs; should decks move out of localStorage as metadata plus content (the owner proposed
@@ -460,3 +460,12 @@ that authors reach the allowance. The warning is that evidence's first source; t
 **Verified on the real Studio** (Playwright, built site): `studio-chat-storage.spec.ts` (a chat round-trips through
 IndexedDB and survives a reload; an older build's threads move out at idle and still show; the warning at 85%) with
 `checkpoint-storage`, `deck-save-failure` and `decks`, in Chromium, Firefox and WebKit: 29 passed.
+
+## 12. Results: version slide counts (§4 item 2's follow-up)
+
+Each version now stores `slides`, its rendered count at save (`saveCheckpoint`, one parse shared with the deck chip's
+memo). The Version history row reads it (`checkpointMeta`) and parses only a version saved before the field existed.
+A restored backup's counts are dropped, since a backup is outside input; those rows count from the text, as before.
+`studio-store.version-slides.test.ts` spies on the parser: a row with a stored count parses nothing, and the test
+fails when the row ignores the count. No schema change: the field rides in the existing record.
+
