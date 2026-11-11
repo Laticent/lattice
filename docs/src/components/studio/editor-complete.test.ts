@@ -643,7 +643,8 @@ describe('makeAssetCompletion — Library photos', () => {
 		expect(await run('<!-- _class: collage -->\n\n---\n\n## Other slide\n\n- te')).toBeNull();
 	});
 
-	/** The longest input each regex (`/source/flags`) was run on while `fn` ran, its promise included. */
+	/** The longest input each regex (`/source/flags`) was run on while `fn` ran synchronously: the trace is lifted before `fn`'s promise settles, so a regex run after an await is not seen.
+	 *  `makeAssetCompletion` runs all of its regexes synchronously, and the IMAGE_REF witness below shows the trace is live. */
 	const regexInputs = async (fn: () => unknown): Promise<Map<string, number>> => {
 		const exec = RegExp.prototype.exec;
 		const longest = new Map<string, number>();

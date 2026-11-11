@@ -76,7 +76,7 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             maker-checker); test/unit/components/lint-core.test.js, chart-row-record and the plugin hang guards run all of
             lint and wait on the lint-core drain (followups.d/3045-p2-regex-recheck-gate.md). Retries stay 1: the
             "3 nightlies no redder" check needs the baseline empty first.
-            2026-11-11 (continuation, P2): `docs/src/components` done, 92 hits in 24 files; the baseline is now 377 hits
+            2026-11-11 (continuation, P2): `docs/src/components` done, 92 hits in 21 files; the baseline is now 377 hits
             in 155 files. Every rewrite was shown failing on a broken product line. Found on the way: a quadratic span
             lookup in `renameAssetRefsOutsideCode` (`asset-refs.ts`, `spans.some` per reference), fixed in the same PR
             with a 4x-input work-growth test. Tools added inside the tests, worth copying: fake timers past the product's
