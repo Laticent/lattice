@@ -231,6 +231,7 @@ describe('a deck this browser refused to store', () => {
 		}
 		expect(s.copies['deck-aaa']).toBeUndefined();
 		expect(s.refused.some((r) => r.name === 'deck Plan')).toBe(true);
+		expect(s.refused.some((r) => r.name === 'photo priv' && /its deck could not be restored/.test(r.why)), 'the photo says why, truthfully').toBe(true);
 		expect(await listMedia()).toHaveLength(0);
 	});
 });

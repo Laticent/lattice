@@ -13,11 +13,15 @@ const cp = (id: string, ts: number, source = `# ${id}`): Checkpoint => ({ id, ts
 const ids = (list: Checkpoint[]) => list.map((c) => c.id);
 const reload = () => store.__resetCheckpointStoreForTests({ backend: 'idb' });
 
-/** A second tab: a fresh module instance over the same IndexedDB and localStorage. */
+/** A second tab: a fresh module instance over the same IndexedDB and localStorage. Each is reset
+ *  after its test (which closes its BroadcastChannel), or it keeps hearing later tests' broadcasts and
+ *  reading through their patched prototypes (HARD RULE #32: each test its own state). */
+const tabs: (typeof store)[] = [];
 async function otherTab(): Promise<typeof store> {
 	vi.resetModules();
 	const tab = await import('./checkpoint-store');
 	tab.__resetCheckpointStoreForTests({ backend: 'idb' });
+	tabs.push(tab);
 	return tab;
 }
 
@@ -36,7 +40,10 @@ beforeEach(() => {
 	localStorage.clear();
 	reload();
 });
-afterEach(() => store.__resetCheckpointStoreForTests());
+afterEach(() => {
+	store.__resetCheckpointStoreForTests();
+	for (const tab of tabs.splice(0)) tab.__resetCheckpointStoreForTests();
+});
 
 describe('IndexedDB backend', () => {
 	it('an appended checkpoint reads back at once and survives a reload', async () => {
@@ -303,7 +310,7 @@ describe('one deck at a time', () => {
 		});
 		const errors: CheckpointWriteError[] = [];
 		store.onCheckpointWriteError((e) => errors.push(e));
-		await store.appendCheckpoint('d1', cp('b', 2));
+		expect(await store.appendCheckpoint('d1', cp('b', 2)), 'durable in localStorage, so the caller may proceed').toBe(true);
 		expect(ids(JSON.parse(localStorage.getItem(`${SNAP_PREFIX}d1`) ?? '[]')), 'the cache, this version included').toEqual(['b', 'a']);
 		expect(errors, 'nothing was lost, so nothing to report').toEqual([]);
 	});
@@ -323,6 +330,53 @@ describe('one deck at a time', () => {
 		expect(localStorage.getItem(`${SNAP_PREFIX}d2`), 'no fallback copy').toBeNull();
 		await store.hydrateCheckpoints();
 		expect(ids(store.readCheckpoints('d2'))).toEqual(['b']);
+	});
+
+	it('a deck read during a failing whole-store read does its own read, and nothing rejects unhandled', async () => {
+		await store.appendCheckpoint('d1', cp('a', 1));
+		reload();
+		const getAll = IDBObjectStore.prototype.getAll;
+		IDBObjectStore.prototype.getAll = function (this: IDBObjectStore, query?: IDBValidKey | IDBKeyRange | null, count?: number) {
+			if (query === undefined) throw new DOMException('dropped', 'InvalidStateError'); // the whole-store read only
+			return getAll.call(this, query, count);
+		};
+		try {
+			const whole = store.hydrateCheckpoints().then(
+				() => 'loaded',
+				() => 'rejected',
+			);
+			await store.hydrateDeckCheckpoints('d1');
+			expect(await whole).toBe('rejected');
+		} finally {
+			IDBObjectStore.prototype.getAll = getAll;
+		}
+		expect(ids(store.readCheckpoints('d1'))).toEqual(['a']);
+	});
+
+	it('the idle migration reads quietly: a deck the author never opened raises no notice', async () => {
+		const idle = (globalThis as { requestIdleCallback?: unknown }).requestIdleCallback;
+		(globalThis as { requestIdleCallback?: unknown }).requestIdleCallback = (fn: () => void) => setTimeout(fn, 0);
+		localStorage.setItem(`${SNAP_PREFIX}never-opened`, JSON.stringify([cp('x', 5)]));
+		const errors: CheckpointWriteError[] = [];
+		store.onCheckpointWriteError((e) => errors.push(e));
+		const getAll = IDBObjectStore.prototype.getAll;
+		let swept = false;
+		IDBObjectStore.prototype.getAll = function (this: IDBObjectStore, query?: IDBValidKey | IDBKeyRange | null, count?: number) {
+			if (query instanceof IDBKeyRange && (query.lower as string[])[0] === 'never-opened') {
+				swept = true;
+				throw new DOMException('dropped', 'InvalidStateError');
+			}
+			return getAll.call(this, query, count);
+		};
+		try {
+			await store.hydrateDeckCheckpoints('d1');
+			await vi.waitFor(() => expect(swept).toBe(true));
+			await store.checkpointsSettled();
+		} finally {
+			IDBObjectStore.prototype.getAll = getAll;
+			(globalThis as { requestIdleCallback?: unknown }).requestIdleCallback = idle;
+		}
+		expect(errors).toEqual([]);
 	});
 
 	it('a version saved before its deck has loaded shows the whole history, and the view hears it', async () => {

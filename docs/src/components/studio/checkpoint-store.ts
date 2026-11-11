@@ -359,8 +359,16 @@ function change(deckId: string, optimistic: Checkpoint[], edit: (list: Checkpoin
 					// hydration (a loaded deck runs none), so the cache — this version included — moves
 					// to localStorage, and only a failure THERE is reported. `dbOpenFailed` is also set
 					// by a REOPEN that fails (after another tab's upgrade closed the connection).
-					if (dbOpenFailed) fallBackToLocal();
-					else report({ deckId, error, kind: 'save' });
+					if (dbOpenFailed) {
+						// The cache, this change's optimistic list included, moves to localStorage (now, or
+						// already when another change fell back first). Durable once that copy holds it: say
+						// so, or a caller that waits on it (a rename's undo, an AI apply) refuses work that
+						// was in fact saved.
+						const failed = fallBackToLocal();
+						const stored = lsRead(deckId) ?? [];
+						return !failed.has(deckId) && optimistic.slice(0, SNAP_CAP).every((o) => stored.some((c) => c.id === o.id && c.source === o.source));
+					}
+					report({ deckId, error, kind: 'save' });
 					return false;
 				},
 			)
@@ -532,6 +540,7 @@ export function hydrateCheckpoints(): Promise<void> {
 		if (fellBack()) return; // another read fell back meanwhile: localStorage is the store now
 		if (gen === generation) adopt(stored, lsLegacyDeckIds(), (id) => (deckGeneration.get(id) ?? 0) !== (dgens.get(id) ?? 0));
 		// else: cleared while the read was in flight, and what it read is gone
+		deckReadReported.clear(); // every deck's read has now succeeded
 		hydrated = true;
 		notifyChanged();
 	})();
@@ -542,9 +551,11 @@ export function hydrateCheckpoints(): Promise<void> {
  * Load ONE deck's stored list into the cache and migrate its legacy list. Idempotent; settles at
  * once when the deck (or the whole store) is already loaded.
  */
-export function hydrateDeckCheckpoints(deckId: string): Promise<void> {
+export function hydrateDeckCheckpoints(deckId: string, opts: { quiet?: boolean } = {}): Promise<void> {
 	if (backend === 'local' || hydrated || deckLoaded.has(deckId)) return Promise.resolve();
-	if (hydration) return hydration; // a whole-store read already in flight covers this deck
+	// Always its own ranged read, even while a whole-store read is in flight: borrowing that promise
+	// made this deck's load fail with it (and reject into callers that never expected it). The two
+	// reads see the same records; `adopt` sets a deck's list from either.
 	const running = deckLoading.get(deckId);
 	if (running) return running;
 	listen();
@@ -562,7 +573,7 @@ export function hydrateDeckCheckpoints(deckId: string): Promise<void> {
 			// one deck's hiccup must not hide every other deck's history and copy every cached list into
 			// the quota the deck sources share. It is said once, so the author knows the list is short.
 			if (dbOpenFailed) fallBackToLocal();
-			else if (!deckReadReported.has(deckId)) {
+			else if (!opts.quiet && !deckReadReported.has(deckId)) {
 				deckReadReported.add(deckId);
 				report({ deckId, error, kind: 'read' });
 			}
@@ -629,17 +640,22 @@ function adopt(stored: Rec[], legacyIds: string[], dropped: (id: string) => bool
 
 /** IndexedDB is unusable here: keep the legacy store, and carry over what this page put in the
  *  cache meanwhile. */
-function fallBackToLocal(): void {
-	if (backend === 'local') return;
+function fallBackToLocal(): Set<string> {
+	const failed = new Set<string>();
+	if (backend === 'local') return failed;
 	backend = 'local';
 	for (const [id, list] of cache) {
 		const legacy = lsRead(id) ?? [];
 		const err = lsWrite(id, newestFirst([...list, ...legacy.filter((c) => !list.some((l) => l.id === c.id))]).slice(0, SNAP_CAP));
-		if (err) report({ deckId: id, error: err, kind: 'save' });
+		if (err) {
+			failed.add(id);
+			report({ deckId: id, error: err, kind: 'save' });
+		}
 	}
 	cache.clear();
 	hydrated = true;
 	notifyChanged();
+	return failed;
 }
 
 /**
@@ -654,7 +670,8 @@ function scheduleLegacySweep(): void {
 	const run = async () => {
 		for (const id of lsLegacyDeckIds()) {
 			if (epoch !== sweepEpoch) return;
-			await hydrateDeckCheckpoints(id);
+			// Quiet: a deck the author never opened must not raise a notice over the one they are on.
+			await hydrateDeckCheckpoints(id, { quiet: true }).catch(() => undefined);
 		}
 	};
 	if (idle) idle(() => void run(), { timeout: 5000 });

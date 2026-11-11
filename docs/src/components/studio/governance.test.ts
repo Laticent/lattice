@@ -12,6 +12,13 @@ vi.mock('@/components/studio/library/asset-store.js', () => ({
 	deleteAsset: vi.fn(async () => {}),
 }));
 
+// Lets a test make the whole-store version read fail, as a dropped IndexedDB connection does.
+const versions = vi.hoisted(() => ({ fail: false }));
+vi.mock('./checkpoint-store', async (importOriginal) => {
+	const real = await importOriginal<typeof import('./checkpoint-store')>();
+	return { ...real, hydrateCheckpoints: () => (versions.fail ? Promise.reject(new DOMException('dropped', 'InvalidStateError')) : real.hydrateCheckpoints()) };
+});
+
 import { deleteAsset, listAssets } from '@/components/studio/library/asset-store.js';
 import { DECKS } from './decks';
 import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearSiteCache, fmtBytes, loadGovernanceStats, SITE_CACHE_PREFIX } from './governance';
@@ -62,6 +69,15 @@ afterEach(() => {
 });
 
 describe('governance — stats', () => {
+	it('still loads when the version read fails, counting the versions this page holds', async () => {
+		versions.fail = true;
+		try {
+			await expect(loadGovernanceStats()).resolves.toBeTruthy();
+		} finally {
+			versions.fail = false;
+		}
+	});
+
 	it('splits Cache Storage names into "downloaded models" (ours excluded) vs "cache" (ours only)', async () => {
 		stubCaches({ 'lattice-v1-pages': [], 'lattice-v1-assets': [], 'webllm/model-cache': [], 'transformers-cache': [] });
 		const stats = await loadGovernanceStats();

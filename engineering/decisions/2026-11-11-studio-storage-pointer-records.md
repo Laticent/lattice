@@ -298,6 +298,18 @@ of a deck the restore refused still came back, onto a local deck of the same id,
 decks; a deck whose history keeps failing to read is now reported once (a `read` notice); a read that fails once is
 retried within the call; and the idle migration checks a reset counter instead of a cancel function jsdom lacks.
 
+**Third checker (on that round, after the card grader asked again).** Seven findings, fixed here with a test each
+(each shown to fail with its fix removed): one deck's read borrowed the whole-store read's promise, so when that read
+now failed, the deck never loaded and the idle migration raised an unhandled rejection; each deck now always does its
+own ranged read, and the migration catches. A version saved after a failed reopen was stored in localStorage but
+reported as not saved, so a rename or an AI apply refused work that had landed; it now reports what localStorage holds.
+The idle migration reads quietly (a deck the author never opened raised the read notice), and a whole-store success
+clears earlier read reports. A refused deck's photos now say why ("its deck could not be restored"), not that the deck
+was missing from the backup. Privacy & Data shows approximate stats again when the version read fails, as before;
+only the backup refuses to run without the history. And a test added earlier in this PR failed under shuffled order,
+because `otherTab()` module instances kept their BroadcastChannel open into later tests; each is now reset after its
+test (HARD RULE #32).
+
 **Verified on the real Studio** (Playwright, built site): `checkpoint-storage.spec.ts`, `decks.spec.ts` and
 `filo-undo.spec.ts` in Chromium, Firefox and WebKit (33 passed; 2 skipped by design: the real-quota case is
 Chromium-only); the new `deck-save-failure.spec.ts` in all three, where a refused deck write shows the notice. Re-run after the

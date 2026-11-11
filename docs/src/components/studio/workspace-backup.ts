@@ -528,7 +528,7 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	// turn a restore that worked into one that reports failure.
 	const photos = await restoreMedia(zip, now, { // A deck this browser refused to store is not here: its photos would land on a deck of the same
 		// id that is not it, or on none, in a restore that already ran out of room.
-		backupDeckIds: new Set((state.index ?? []).map((e) => e.id).filter((id) => !summary.refusedIds.includes(id))), copies: summary.copies }).catch((e: unknown) => ({
+		backupDeckIds: new Set((state.index ?? []).map((e) => e.id).filter((id) => !summary.refusedIds.includes(id))), copies: summary.copies, refusedDeckIds: new Set(summary.refusedIds) }).catch((e: unknown) => ({
 		restored: 0,
 		shared: 0,
 		refused: [{ name: 'photos', why: `could not be restored (${String((e as Error)?.message || 'unknown error').slice(0, 80)})` }],
