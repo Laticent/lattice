@@ -293,10 +293,12 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// samples-base.ts: a `.ts` import would break the node tests that load this file.
 	// Slide-metadata records go back to directive comments FIRST, before anything reads a class or a pane marker: Marp reads
 	// only comments, an uncompiled record is one of its speaker notes (record note §7), and the image plugin's rewrite below
-	// places a picture by the slide's `_class:`. On demand: the engine ships on every route. Step 4 replaces this with the
-	// full bridge.
+	// places a picture by the slide's `_class:`. On demand: the engine ships on every route. The passes run in the order
+	// both producers share (lib/export/marp-directives.mjs `MARP_PASSES`). A record field that cannot reach Marp whole (a
+	// value holding `-->`) is left out, never truncated, and said in the export's report (`recordWarnings`).
 	const { recordsToComments } = await import('../../../../../lib/core/meta-door.mjs');
-	source = recordsToComments(source);
+	const recordReport = [];
+	source = recordsToComments(source, recordReport);
 	// The image plugin's records next, in Marp's spelling, so their pictures are staged below and a panel record is lifted
 	// (lib/export/marp-bundle.js `withImageRecordsAsMarp`). A cached bundle from before the image plugin has none to rewrite.
 	if (typeof marp.withImageRecordsAsMarp === 'function') source = marp.withImageRecordsAsMarp(source, pluginsOff);
@@ -352,10 +354,24 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// with VS Code and must not link the stylesheet too (it would apply the engine's rules again, after the theme's own).
 	const chosen = (palette || 'indaco').toLowerCase();
 	const saved = extraTheme?.css && String(extraTheme.name || '').toLowerCase() === chosen ? extraTheme : null;
+	const { withMarpDirectivesOnly } = await import('../../../../../lib/export/marp-directives.mjs');
+	// One pass per line, in the shared order. The lift runs on the UNSPLIT body, before the split bake, as the CLI's does:
+	// run last (as it was), an image slide with two headings had its `_class` and its `![bg]` in different parts, and Marp's
+	// own background took the photo (record note §7).
+	const embedded = embedComponentsInMarkdown(localized, components);
+	const agendaFilled = fillAutoAgendaOrSame(embedded);
+	const glossed = appendAutoGlossary(agendaFilled);
+	const lifted = liftImageBgImages(glossed, undefined);
+	const split = bakeSplits(lifted);
+	// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
+	// carve a pane and would read each marker as a speaker note.
+	const unpaned = stripPaneMarkers(split);
+	const shown = bakeHiddenOrSame(unpaned);
+	// Marp shows a comment of Lattice-only directives (`_focusSteps`, `_build`, `_track`) as a speaker note, so those go.
+	const marpOnlyReport = withMarpDirectivesOnly(shown);
+	const marpOnly = marpOnlyReport.markdown;
 	const bundled = withRuntimeScriptsReport(
-			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
-			// carve a pane and would read each marker as a speaker note.
-			withSlideOnlySpotted(liftImageBgImages(bakeHiddenOrSame(stripPaneMarkers(bakeSplits(appendAutoGlossary(fillAutoAgendaOrSame(embedComponentsInMarkdown(localized, components)))))), undefined)),
+			withSlideOnlySpotted(marpOnly),
 			// `pluginsOff` — the plugins the Studio's admission left off for this deck: Marp renders the
 			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
 			{ localAssets: false, bundledAssets: [...samplePaths.values()], overflowMarker, pluginsOff, vscodeLink: !saved },
@@ -484,7 +500,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 
 	const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 	download(blob, `${slug}.zip`);
-	return { ...bundled.removed, escaped: bundled.escaped, refused: bundled.refused, math: bundled.math };
+	return { ...bundled.removed, escaped: bundled.escaped, refused: bundled.refused, math: bundled.math, recordWarnings: recordReport.map((d) => `line ${d.line}: ${d.message}`), droppedKeys: [...new Set(marpOnlyReport.dropped)] };
 }
 
 // ── Dedicated capture host ─────────────────────────────────────────────────────

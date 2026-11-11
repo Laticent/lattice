@@ -80,6 +80,7 @@ const { execFileSync } = require('child_process');
 const { bakeSplits, bakeHidden, stripPaneMarkers } = require('../lib/core/bake-splits');
 const { liftImageBgImages } = require('../lib/core/bg-image-lift');
 const { recordsToComments } = require('../lib/core/meta-door.mjs');
+const { withMarpDirectivesOnly } = require('../lib/export/marp-directives.js');
 const { sampleName } = require('../lib/core/remote-ref');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const { fillAutoAgenda } = require('../lib/core/agenda-autofill');
@@ -373,7 +374,16 @@ function main(argv) {
   //    Marp reads only comments, and an uncompiled record would be one of its speaker notes (record note §7).
   // The image plugin's records next, in Marp's spelling, so localization copies their pictures and the lift below makes a
   // panel record the layout's panel (lib/export/marp-bundle.js `withImageRecordsAsMarp`).
-  const glossed = appendAutoGlossary(fillAutoAgenda(withImageRecordsAsMarp(recordsToComments(src), admission.off)));
+  // The passes run in the shared order (lib/export/marp-directives.mjs `MARP_PASSES`), each on the one before.
+  // A record field that cannot reach Marp whole (a value holding `-->`) stops the export: never a silent truncation (§7).
+  const recordReport = [];
+  const compiled = recordsToComments(src, recordReport);
+  const unsafe = recordReport.filter((d) => d.code === 'meta-comment-unsafe');
+  if (unsafe.length) die(unsafe.map((d) => `${deckPath}:${d.line}: ${d.message}`).join('\n'));
+  for (const d of recordReport) console.warn(`  ⚠ ${deckPath}:${d.line}: ${d.message}`);
+  const imaged = withImageRecordsAsMarp(compiled, admission.off);
+  const agendaFilled = fillAutoAgenda(imaged);
+  const glossed = appendAutoGlossary(agendaFilled);
   const glossedFm = glossed.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const deckDir = path.dirname(path.resolve(deckPath));
   const copied = new Map(); // one dedupe map across body + front-matter refs
@@ -399,7 +409,9 @@ function main(argv) {
   //    emitted `.md` renders identically on any Marp tool and stays editable.
   //    Then the pane markers go (`stripPaneMarkers`): Marp cannot carve a pane, and it would
   //    read every marker as a speaker note, so a panes slide exports as its panes, stacked.
-  const baked = bakeHidden(stripPaneMarkers(bakeSplits((glossedFm ? glossedFm[0] : '') + withImagePanels)));
+  const split = bakeSplits((glossedFm ? glossedFm[0] : '') + withImagePanels);
+  const unpaned = stripPaneMarkers(split);
+  const baked = bakeHidden(unpaned);
   const fmMatch = baked.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const localizedFm = fmMatch ? localizeFrontMatter(fmMatch[0], deckDir, dest, copied) : '';
   const bakedBody = fmMatch ? baked.slice(fmMatch[0].length) : baked;
@@ -410,7 +422,13 @@ function main(argv) {
   // client-side when the deck is opened as HTML in a browser.
   // Lattice scopes a plain `<!-- header: H -->` (and `footer:`) to its own slide; Marp carries it onto
   // every later slide. Writing it as `_header:` makes Marp read the deck Lattice renders (lib/core/marp-slide-only.mjs).
-  const bundled = withRuntimeScriptsReport(withSlideOnlySpotted(fm + bakedBody), {
+  // Marp shows a comment of Lattice-only directives (`_focusSteps`, `_build`, `_track`) as a speaker note, so those go.
+  const marpOnly = withMarpDirectivesOnly(fm + bakedBody);
+  if (marpOnly.dropped.length) {
+    const keys = [...new Set(marpOnly.dropped)];
+    console.warn(`  left out ${marpOnly.dropped.length} comment(s) of settings Marp cannot use (${keys.join(', ')}): Marp would show them as speaker notes. Your source .md keeps them.`);
+  }
+  const bundled = withRuntimeScriptsReport(withSlideOnlySpotted(marpOnly.markdown), {
     overflowMarker: marker,
     pluginsOff: admission.off,
   });

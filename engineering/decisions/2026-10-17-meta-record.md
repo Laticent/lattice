@@ -680,6 +680,29 @@ step 3, found these in the code #3133 merged:
   without the last two. Lint names a field set by two records of a slide, and reads a record that holds a marker.
 - **The D11 gate** catches `attrPush`, `dataset` and `setAttributeNS` writes too.
 
+**Status, 2026-11-11: step 4 is built.** The bridge is the first pass plus one shared pass list:
+
+- **One pass list, pinned** (`MARP_PASSES`, `lib/export/marp-directives.mjs`): `recordsToComments`, the image records,
+  the agenda fill, the glossary, the lift, the split bake, the pane strip, the hide bake, the Lattice-only strip, the
+  slide-only respot, the runtime scripts. Both producers write one pass per statement in that order, and
+  `test/unit/export/marp-directives.test.js` fails on a reorder (shown: the Studio's old order, lift after the split bake,
+  fails it). The Studio producer ran the lift LAST, after the split and hide bakes, the bug the CLI's comment describes;
+  it now lifts on the unsplit body, as §7 asked.
+- **Lattice-only keys leave the bundle** (`withMarpDirectivesOnly`). Measured with `@marp-team/marp-core` 4 and
+  marp-cli: Marp reads a comment as directives only when every key in it is one it knows, so `<!-- _focusSteps: 3 -->`,
+  `<!-- _build -->` and `<!-- _hide: false -->` came back as speaker notes, in either spelling, from records and from
+  authored comments alike, while `<!-- _track: x` / `_class: lead -->` applied `lead` and showed nothing. A comment that
+  holds only keys Marp does not know is removed after the hide bake (which reads `_hide`); one that holds any key Marp
+  knows stays whole.
+- **A field that cannot reach Marp whole is never truncated.** `readRecord` already drops a field value holding `-->`
+  (`meta-comment-unsafe`); `recordsToComments` now reports it with its line, the CLI export stops on it, and the Studio
+  says it in the export toast. A note's `-->` is written `-- >` (§7's output form).
+- **Proof, from the real tools:** `examples/meta.md` exported with `tools/export-marp.js`, then rendered by marp-cli
+  (`--pdf --pdf-notes` and `--pptx`, the bundle's own `marp.config.cjs`): six pages, every layout drawn (the panes slide
+  stacked, as the fidelity ledger says), and the PPTX notes hold the speaker notes and the labeled reader notes only: no
+  record, no `_focusSteps`. **The VS Code preview was not opened** (no VS Code in this sandbox); it runs the same
+  marp-core render measured above, so the notes result carries, and the preview itself is UNVERIFIED.
+
 Steps 1 to 5 ship with authored comments still read, so every commit is green. **Step 1 delivers the reader, registry,
 completion and structured edit with no syntax change**, and steps 2 to 7 are a syntax layer over a single door.
 
