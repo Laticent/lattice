@@ -423,6 +423,7 @@ literal text and is never reported.
 | `meta-not-own-line` | error | — | A record inside a list item or blockquote. |
 | `meta-in-html-block` | error | — | A record directly under an HTML line with no blank line between, so both become one HTML block. |
 | `meta-block-in-container` | error | — | A multi-line record holding a blank line inside a list or blockquote, where the comment ends early. |
+| `meta-record` | error | — | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field. The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `unterminated-record`, …). |
 | `legacy-directive-comment` | warning | — | An old-form directive comment (`<!-- _class: x -->`). Off unless the host opts in (`metaCut`) until the engine stops reading the form. |
 
 > **Autofix is per-finding, not per-rule.** The ✓ marks rules that *can* offer a
@@ -513,7 +514,8 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
   (`engineering/decisions/2026-11-08-agenda-styles-and-autofill.md`).
   §3.11 adds five rules for slide-metadata comments: `meta-opener-bare`,
   `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container` and
-  `legacy-directive-comment` (off by default).
+  `legacy-directive-comment` (off by default). It then adds `meta-record`, the door's own
+  findings on a record it reads.
 - **1.1 (2026-10-08).** The registry catches up with the reference
   implementation: 13 rows became 181: all 178 literal rule IDs plus three families, grouped by
   what they check (§3), and a test now pins the registry to the code. Two

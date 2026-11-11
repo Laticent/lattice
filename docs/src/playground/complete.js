@@ -19,11 +19,12 @@
 
 import { autocompletion } from '@codemirror/autocomplete';
 import { dataSources } from './data-sources.js';
-import { DIRECTIVE_NAMES, FENCE_LANGS, FOCUS_AXIS_VALUES, FOCUS_STYLE_VALUES, MERMAID_KEYWORDS, SIZE_VALUES, SPLIT_VALUES } from './grammar-vocab.js';
+import { DIRECTIVE_NAMES, FENCE_LANGS, FOCUS_AXIS_VALUES, FOCUS_STYLE_VALUES, MERMAID_KEYWORDS, RECORD_FIELDS, RECORD_VALUES, SIZE_VALUES, SPLIT_VALUES } from './grammar-vocab.js';
 import {
 	backdropAxisPosition,
 	blankBodyPartial,
 	classDirectiveCompletion,
+	classOptions,
 	classTokenResult,
 	deckSplit,
 	directiveNameAt,
@@ -34,6 +35,7 @@ import {
 	identifierBefore,
 	inFencedLang,
 	inFrontMatter,
+	recordCompletion,
 	sizeValuePosition,
 	skeletonBody,
 	slideBodyAfter,
@@ -179,6 +181,48 @@ function classDirectiveSource(catalog, vocab) {
 	};
 }
 
+// Completes inside a slide RECORD (`<!-- {layout=cards, footer=Q3} -->`): a field name after `{` or `, `, and a value
+// after `name=`: a component for `layout`, that component's variants for `variant`, the class grammar for `class`,
+// and a register's or enum field's own words for the rest. The record-side twin of the `_class:` source above, so a
+// record slide completes as a directive slide does (record note step 3).
+export function recordOptions(spot, catalog, vocab, extra = {}) {
+	if (!spot) return [];
+	if (spot.kind === 'field') {
+		const set = new Set(spot.fields);
+		return RECORD_FIELDS.filter((f) => !set.has(f.name) || f.name === 'note').map((f) => ({ label: f.name, type: 'property', detail: f.detail, apply: f.name === 'carry' || f.name === 'hide' ? f.name : `${f.name}=` }));
+	}
+	const layout = spot.record.layout || '';
+	if (spot.name === 'layout') return spot.prior.length ? [] : classOptions(catalog);
+	if (spot.name === 'variant') {
+		const comp = (catalog || []).find((c) => c.name === layout);
+		return (comp?.variants || []).flatMap((v) => String(v).split(/\s+/)).filter((v) => v && !spot.prior.includes(v)).map((v) => ({ label: v, type: 'modifier', detail: `${layout} variant` }));
+	}
+	if (spot.name === 'class' || spot.name === 'modifiers') {
+		const words = spot.prior;
+		const name = layout || words[0] || '';
+		if (spot.name === 'class' && !layout && !words.length) return classTokenResult({ kind: 'class', from: 0, typed: spot.typed }, catalog, vocab, extra).options;
+		return classTokenResult({ kind: 'modifier', from: 0, typed: spot.typed, name: name || 'content', present: layout ? words : words.slice(1) }, catalog, vocab, extra).options;
+	}
+	const values = RECORD_VALUES[spot.name];
+	return values ? values.filter((v) => !spot.prior.includes(v)).map((v) => ({ label: v, type: 'constant', detail: spot.name })) : [];
+}
+
+function recordSource(catalog, vocab) {
+	return (context) => {
+		const line = context.state.doc.lineAt(context.pos);
+		const before = context.state.sliceDoc(line.from, context.pos);
+		const spot = recordCompletion(before);
+		if (!spot) return null;
+		if (!spot.typed && !context.explicit && spot.kind === 'value') return null;
+		const doc = context.state.doc;
+		const split = deckSplit(doc.sliceString(0, Math.min(doc.length, 4000)));
+		const slideText = slideBodyAfter((n) => doc.line(n).text, doc.lines, line.number, { split });
+		const options = recordOptions(spot, catalog, vocab || [], { slideText });
+		if (!options.length) return null;
+		return { from: line.from + spot.from, options, validFor: TOKEN };
+	};
+}
+
 // Offers a one-shot slot skeleton on the empty body of a classed slide — the
 // correct nesting/slot shape, plain text (no snippet fields: skeletons contain
 // literal `$`/`{` that snippet templates would mis-parse). Inert once the slide
@@ -260,6 +304,7 @@ export function latticeAutocomplete({ vocab, catalog, themes, finishes } = {}) {
 			lineLocalSource(fenceLangAt, FENCE_OPTIONS),
 			mermaidSource,
 			classDirectiveSource(catalog, vocab),
+			recordSource(catalog, vocab),
 			skeletonSource(catalog),
 			...dataSources,
 		],

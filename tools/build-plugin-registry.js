@@ -1073,6 +1073,9 @@ module.exports = { PLUGINS, COMPONENT_PLUGINS };
  * notes extractor and the editor read the same list instead of each keeping a copy.
  */
 function renderMeta(ordered) {
+  // The host's own registers (`finish`, `headline`, …) as record fields, each value with its class words
+  // (tools/lib/record-registers.js derives them from the resolvers, so the door reads data, not resolvers).
+  const { recordRegisters } = require('./lib/record-registers');
   const providers = ordered.filter((p) => p.manifest.contributes.meta);
   const fields = {};
   const markers = [];
@@ -1103,6 +1106,8 @@ export const META_MARKERS = ${freeze(markers)};
 export const META_COMMENTS = ${freeze(commentKeys)};
 
 export const META_REGISTERS = ${freeze(registers)};
+
+export const META_HOST_REGISTERS = ${freeze(recordRegisters().map(({ key, values }) => ({ key, values })))};
 `;
 }
 

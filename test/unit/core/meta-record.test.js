@@ -53,13 +53,15 @@ describe('classifyComment and directiveKey', () => {
 
 describe('readMetaField and writeMeta', () => {
   test('set, replace, remove, and a compound comment keeps its other lines', () => {
-    assert.equal(m.writeMeta('# A', { footer: 'Q3' }), '<!-- _footer: Q3 -->\n\n# A');
+    // A key the slide does not set is written as a record, the form the cut (step 6) leaves standing.
+    assert.equal(m.writeMeta('# A', { footer: 'Q3' }), '<!-- {footer=Q3} -->\n\n# A');
     assert.equal(m.writeMeta('<!-- _footer: Q3 -->\n\n# A', { footer: 'Q4' }), '<!-- _footer: Q4 -->\n\n# A');
     assert.equal(m.writeMeta('<!-- _footer: Q3 -->\n\n# A', { footer: null }), '# A');
     assert.equal(m.writeMeta('<!-- _class: a\n_footer: Q3 -->\n\n# A', { footer: '' }), '<!-- _class: a -->\n\n# A');
   });
   test('a value can never close the comment', () => {
-    assert.equal(m.writeMeta('# A', { footer: 'a --> b' }), '<!-- _footer: a -> b -->\n\n# A');
+    assert.equal(m.writeMeta('# A', { footer: 'a --> b' }), '<!-- {footer="a -> b"} -->\n\n# A');
+    assert.equal(m.writeMeta('<!-- _footer: x -->\n\n# A', { footer: 'a ---> b --!> c' }), '<!-- _footer: a -> b -!> c -->\n\n# A');
   });
   test('a duplicate or a YAML array is left alone', () => {
     const dup = '<!-- _class: a -->\n<!-- _class: b -->';

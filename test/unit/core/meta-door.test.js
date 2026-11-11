@@ -318,10 +318,17 @@ describe('the first adversarial pass on step 2 (inversion, 2026-11-10)', () => {
     assert.ok(tokens.some((t) => t.map?.[0] === 4 && !t.meta?.latticeRecord), 'the authored directive on line 4 carries no mark');
   });
 
-  test('the drawer reads a record’s class but will not write over it (step 3 edits records)', async () => {
-    const { readMetaField } = await import('../../../lib/core/meta-edit.mjs');
-    const f = readMetaField('<!-- {layout=cards, footer=x} -->\n\n## A\n', 'class');
-    assert.deepEqual({ value: f.value, present: f.present, editable: f.editable, reason: f.reason }, { value: 'cards', present: true, editable: false, reason: 'record' });
+  test('the drawer reads a record’s class and edits it in the record (step 3)', async () => {
+    const { readMetaField, writeMeta } = await import('../../../lib/core/meta-edit.mjs');
+    const src = '<!-- {layout=cards, footer=x} -->\n\n## A\n';
+    const f = readMetaField(src, 'class');
+    assert.deepEqual({ value: f.value, present: f.present, editable: f.editable, record: f.record }, { value: 'cards', present: true, editable: true, record: true });
+    const out = writeMeta(src, { class: 'kpi', footer: 'y' });
+    assert.equal(out, '<!-- {layout=kpi, footer=y} -->\n\n## A\n');
+    // What the drawer wrote is what the engine renders.
+    assert.match(createEngine().render(out).html, /<section[^>]*class="[^"]*\bkpi\b/);
+    // A record that does not read stays read-only.
+    assert.equal(readMetaField('<!-- {layout=cards, footer="x} -->\n\n## A\n', 'class').present, false);
   });
 
   test('the drawer’s answer is the engine’s: a later directive beats a record, and a record in a list sets nothing', async () => {

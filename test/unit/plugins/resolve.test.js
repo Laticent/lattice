@@ -343,6 +343,11 @@ describe('resolvePlugins — the meta data provider', () => {
   test('a plugin register named like a metadata field fails by name', () => {
     expectError([provider({ footer: { type: 'text' } }), withRegister('footer')], /plugin "badge" declares register "footer", which is a slide-metadata field/);
   });
+  test('without `meta` among the resolved plugins, a register named like a record field still fails (the in-tree manifest)', () => {
+    for (const key of ['footer', 'note', 'layout', 'pane', 'focus-style']) {
+      expectError([withRegister(key)], new RegExp(`declares register "${key}", which is a slide-metadata field`));
+    }
+  });
   test('a register with a free name resolves beside the provider', () => {
     const { errors } = resolvePlugins([provider({ footer: { type: 'text' } }), withRegister('badge')]);
     assert.deepEqual(errors, []);

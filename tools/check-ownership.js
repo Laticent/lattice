@@ -6209,6 +6209,60 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
   },
 ];
 
+// ─── D11: the host writes every provider attribute (record note §5.7, step 3) ───────────────
+// A data provider (a plugin, the `meta` record) DECLARES typed fields; the HOST validates each value and writes the
+// `data-*` attribute itself, so no provider can emit an attribute the host did not check
+// (engineering/decisions/2026-10-17-meta-record.md §5.7, D11). Two shapes break that, and this gate finds both:
+//
+//   1. A COMPUTED attribute name: `attrSet(`data-${key}`, …)` / `setAttribute('data-' + key, …)` anywhere under lib/.
+//      A name built from data is a door for any key a record or a plugin can name. The one sanctioned writer is the
+//      host's apply step; each entry carries its justification, and an entry with no writer left fails as stale.
+//   2. A PLUGIN writing a slide-metadata attribute by name (`setAttribute('data-footer', …)`, `attrSet('data-focus',
+//      …)`): the field belongs to `meta`, and only the host's apply step writes it. Budget 0, no allowlist. (A plugin
+//      writing such a name into its OWN markup string, as the code block's `data-focus-style` on its `<pre>`, is not an
+//      attribute write on the slide and is not matched.)
+const SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS = [
+  {
+    file: 'lib/engine/slides.js',
+    why: 'THE host apply step (`lattice_directives_apply`): writes `data-<key>` for each APPLIED_DIRECTIVES key only, ' +
+      'after the internal reader validated every value by type (lib/core/meta-internal.mjs `readInternal`).',
+  },
+];
+const COMPUTED_DATA_ATTR = /\b(?:attrSet|setAttribute|attrJoin|toggleAttribute)\(\s*(?:`data-\$\{|['"]data-['"]\s*\+)/g;
+
+/** Problems for one source file's text: computed writers outside the allowlist, and a plugin's literal meta writes. */
+function providerAttributeProblems(rel, code, metaAttrs, sanctioned) {
+  const out = [];
+  const lineOf = (i) => code.slice(0, i).split('\n').length;
+  for (const m of code.matchAll(COMPUTED_DATA_ATTR)) {
+    if (!sanctioned.has(rel)) out.push(`D11 (record note §5.7): ${rel}:${lineOf(m.index)} writes a data-* attribute whose NAME is computed; only the host's apply step may (SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS, with its justification)`);
+  }
+  if (rel.startsWith('lib/plugins/')) {
+    const literal = new RegExp(`\\b(?:attrSet|setAttribute|attrJoin|toggleAttribute)\\(\\s*['"\`]data-(${metaAttrs.join('|')})['"\`]`, 'g');
+    for (const m of code.matchAll(literal)) out.push(`D11 (record note §5.7): plugin file ${rel}:${lineOf(m.index)} writes \`data-${m[1]}\`, a slide-metadata attribute; declare the field and let the host's apply step write it`);
+  }
+  return out;
+}
+
+/** @param {string[]} errors  @param {{root?: string, sanctioned?: Array<{file: string}>}} [opts] (tests) */
+function checkProviderAttributeWriters(errors, opts = {}) {
+  const root = opts.root || ROOT;
+  const entries = opts.sanctioned || SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS;
+  const sanctioned = new Set(entries.map((e) => e.file));
+  const { APPLIED_KEYS, kebab } = require('../lib/core/meta-keys.mjs');
+  const metaAttrs = [...APPLIED_KEYS].map(kebab);
+  const used = new Set();
+  for (const file of listSourceFiles(path.join(root, 'lib'))) {
+    const rel = relPosix(root, file);
+    if (!/\.[cm]?js$/.test(rel) || /\.generated\.[cm]?js$/.test(rel) || /\.test\.[cm]?js$/.test(rel)) continue;
+    const code = stripCodeComments(fs.readFileSync(file, 'utf8'));
+    if (sanctioned.has(rel) && COMPUTED_DATA_ATTR.test(code)) used.add(rel);
+    COMPUTED_DATA_ATTR.lastIndex = 0;
+    for (const p of providerAttributeProblems(rel, code, metaAttrs, sanctioned)) errors.push(p);
+  }
+  for (const e of entries) if (!used.has(e.file)) errors.push(`D11: SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS names ${e.file}, which no longer writes a computed data-* attribute; remove the stale entry`);
+}
+
 function listSourceFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -15470,6 +15524,7 @@ function run() {
   checkCatContrast(errors);
   checkSkillFreshness(errors);
   checkAgentModelPinning(errors);
+  checkProviderAttributeWriters(errors);
   checkSplitOracle(manifests, errors);
   checkCommittedPdfs(errors);
   checkNulBytes(errors);
@@ -15788,6 +15843,9 @@ module.exports = {
   checkSkillFreshness,
   skillFreshnessAssertions,
   checkAgentModelPinning,
+  checkProviderAttributeWriters,
+  providerAttributeProblems,
+  SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS,
   declaredModel,
   agentCallPins,
   listWorkflowFiles,

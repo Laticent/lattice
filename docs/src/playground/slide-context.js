@@ -66,6 +66,61 @@ export function classDirectiveCompletion(before) {
 	return { kind: 'modifier', from, typed: partial, name: prior[0], present: prior.slice(1) };
 }
 
+// What to complete inside a slide RECORD (`<!-- {layout=cards, footer=Q3} -->`, record note step 3), given the line's
+// text before the cursor. Returns one of:
+//   { kind: 'field', from, typed, fields }                — a field name, after `{` or `, ` (`fields`: those already set)
+//   { kind: 'value', from, typed, name, prior, record }   — a value word after `name=` (`prior`: the value's earlier
+//                                                           words; `record`: the fields set so far, name → value)
+//   null                                                  — not inside a record's braces
+// A comma or brace inside a quoted value is the value's own; the braces must still be open at the cursor.
+export function recordCompletion(before) {
+	const m = before.match(/<!--\s*(?:@meta)?\{([^>]*)$/);
+	if (!m) return null;
+	const inner = m[1];
+	const segs = [''];
+	let quoted = false;
+	let depth = 0;
+	for (let i = 0; i < inner.length; i++) {
+		const c = inner[i];
+		if (quoted) {
+			if (c === '\\') segs[segs.length - 1] += c + (inner[++i] ?? '');
+			else {
+				if (c === '"') quoted = false;
+				segs[segs.length - 1] += c;
+			}
+			continue;
+		}
+		if (c === '"') quoted = true;
+		else if (c === '{' || c === '[') depth++;
+		else if (c === '}' || c === ']') {
+			if (depth === 0) return null; // the record is closed before the cursor
+			depth--;
+		} else if (c === ',' && depth === 0) {
+			segs.push('');
+			continue;
+		}
+		segs[segs.length - 1] += c;
+	}
+	const record = {};
+	for (const seg of segs.slice(0, -1)) {
+		const eq = seg.indexOf('=');
+		const name = (eq < 0 ? seg : seg.slice(0, eq)).trim();
+		if (name) record[name] = eq < 0 ? '' : seg.slice(eq + 1).trim().replace(/^"|"$/g, '');
+	}
+	const last = segs[segs.length - 1];
+	const eq = last.indexOf('=');
+	if (eq < 0) {
+		const typed = last.trimStart();
+		if (!/^[a-z-]*$/.test(typed)) return null;
+		return { kind: 'field', from: before.length - typed.length, typed, fields: Object.keys(record) };
+	}
+	const name = last.slice(0, eq).trim();
+	const value = last.slice(eq + 1).replace(/^\s*"?/, '');
+	const typed = (value.match(/([\w-]*)$/) || ['', ''])[1];
+	const prior = value.slice(0, value.length - typed.length).split(/[\s,]+/).filter(Boolean);
+	return { kind: 'value', from: before.length - typed.length, typed, name, prior, record };
+}
+
 // Component-name completion options from the compact catalog (name + bucket).
 // `type` drives CodeMirror's icon class; `detail` is the bucket chip.
 export function classOptions(catalog) {
