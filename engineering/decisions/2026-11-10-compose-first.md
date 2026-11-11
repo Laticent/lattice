@@ -194,6 +194,25 @@ an optional `line`, so the boot restore carries the saved line like any navigati
 source offset when the hub still holds its own caret (a Compose that took the keyboard and has not moved reports nothing).
 `studio-pane-sync.spec.ts` checks the focus, the live and the drawn caret at each step, on five projects.
 
+**What it costs (measured 2026-11-11, same machine, this branch against its base on `main`, back to back).**
+
+| | Base | This branch |
+|---|---|---|
+| First visit, phone profile (4x CPU, 6 Mbit/s), slide visible, median of 7 (`startup-bench.mjs`) | 6.55 s | 6.20 s (runs vary 4.4 to 7.1 s) |
+| First visit, desktop, slide visible, median of 5 | 1.63 s | 1.53 s |
+| First visit, desktop, requests before the slide | 219 | 355 (Compose's chunks, not the Editor's; the slide is no later) |
+| Startup JavaScript, gzip (CI route budget) | | +1,648 B (declared +1,700) |
+| Caret walk, keystroke latency median / p90, 123 slides (`studio-sync-bench.mjs`) | 24 / 32 ms | 24 / 32 ms |
+| Slide change to preview, Compose / Markdown | 78 / 50 ms | 74 / 40 ms |
+| Typing in Compose, keystroke latency median / p90 | 64 / 80 to 88 ms | 64 / 88 ms |
+| Typing in Compose, long tasks during the burst (CPU profile, 3 runs) | 4, 8, 5 | 4, 4, 6 |
+
+The Compose lint pass (Fix all and its count, §1.1) first ran 400 ms after the last key and cost about 80 ms of main
+thread (the lint core and the markdown parser it runs) plus a Studio re-render for an unchanged count: 6, 9 and 11 long
+tasks per typing burst. It now waits for a 1 s pause and an idle callback, skips text it has linted, and sets the count
+only when it changes. It is still one long task of about 100 ms after the author stops typing; moving it into a Web
+Worker would take it off the main thread entirely (the lint core is pure, HARD RULE #7) and is offered separately.
+
 **Narration.** Five new lines were recorded with `tools/record-lesson-voice.mjs` (two in `tour`, three
 in `write-slide`). The Source-mode lines and their clips are unchanged, so a visitor who chose Source
 hears the tour they always did.

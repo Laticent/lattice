@@ -2837,6 +2837,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// kernel and vocabulary (deck-lint.ts), after a typing pause, and Fix all rewrites the text as one undo step.
 	// engineering/decisions/2026-11-10-compose-first.md §1.1.
 	const lintExtras = React.useMemo(() => ({ names: localNames, finishValues: editorFinishValues, palettes: editorPalettes }), [localNames, editorFinishValues, editorPalettes]);
+	// The text (and vocabulary) the Compose pass last linted, so a render that changes neither does not lint again.
+	const lintedRef = React.useRef<{ text: string; vocab: unknown; extras: unknown }>({ text: '', vocab: null, extras: null });
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `source` is the trigger; the pass reads `sourceRef`, the text after the pause.
 	React.useEffect(() => {
 		if (editMode !== 'compose') return;
@@ -2845,20 +2847,36 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			setLintCounts({ total: 0, fixable: 0 });
 			return;
 		}
+		// OFF THE TYPING PATH. The pass is one long task (about 80 ms on a 123-slide deck: the lint core plus the
+		// markdown parser it runs), so it waits for a real pause and then for the browser to be idle, and it runs only
+		// on text it has not linted yet. Measured against main with tools/studio-sync-bench.mjs: a 400 ms debounce added
+		// long tasks inside a typing burst (decision note §4, "What it costs").
 		let stale = false;
-		const t = window.setTimeout(() => {
+		let idle = 0;
+		const run = () => {
 			void firstSlideShown
 				.then(() => import('./deck-lint'))
 				.then(async (m) => {
 					const sets = m.studioVocabSets(lintVocab, lintExtras);
-					const counts = sets ? await m.lintCounts(sourceRef.current, sets) : null;
-					if (!stale) setLintCounts(counts);
+					const text = sourceRef.current;
+					const last = lintedRef.current;
+					if (stale || (sets && last.text === text && last.vocab === lintVocab && last.extras === lintExtras)) return;
+					const counts = sets ? await m.lintCounts(text, sets) : null;
+					if (stale) return;
+					lintedRef.current = { text, vocab: lintVocab, extras: lintExtras };
+					// The same counts are the same state: an unchanged answer must not re-render the Studio.
+					setLintCounts((prev) => (prev && counts && prev.total === counts.total && prev.fixable === counts.fixable ? prev : counts));
 				})
 				.catch(() => {});
-		}, 400);
+		};
+		const t = window.setTimeout(() => {
+			if (typeof window.requestIdleCallback === 'function') idle = window.requestIdleCallback(run, { timeout: 2000 });
+			else run();
+		}, 1000);
 		return () => {
 			stale = true;
 			window.clearTimeout(t);
+			if (idle && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idle);
 		};
 	}, [editMode, source, validation, lintVocab, lintExtras]);
 	const fixAllIssues = React.useCallback(() => {
