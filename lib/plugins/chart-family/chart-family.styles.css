@@ -2081,6 +2081,7 @@ section.state-chart:where([data-family="tall"], [data-family="square"], [data-fa
 /* value */
 section.bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .cart-value,
 section.bullet:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .cart-value,
+section.ep-curve:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .cart-value,
 section.funnel:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .funnel-value,
 section.heatmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .heatmap-value,
 section.histogram:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .cart-value,
@@ -2101,6 +2102,7 @@ section.waterfall:where([data-family="tall"], [data-family="square"], [data-fami
 }
 section.bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body svg[data-chart-roles] .cart-value,
 section.bullet:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body svg[data-chart-roles] .cart-value,
+section.ep-curve:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body svg[data-chart-roles] .cart-value,
 section.funnel:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body svg[data-chart-roles] .funnel-value,
 section.heatmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body svg[data-chart-roles] .heatmap-value,
 section.histogram:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body svg[data-chart-roles] .cart-value,

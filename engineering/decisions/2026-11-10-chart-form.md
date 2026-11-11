@@ -242,5 +242,5 @@ the owner's scaled drawing (§ 10).
 | gantt, slope, state-chart | to do | overprints at square; state-chart under the floor at square |
 | roadmap, timeline-list | to do | overflow at square |
 | matrix-grid | to do | holds both bars; floats small at mobile |
-| *open on kinds already moved* | fix owed | the example decks, swept for the 11pt bar after the galleries: `ep-curve.md` p3 (7.3pt, a value label) and p4, line at square in `global-number-formats.md` (10.7pt), risk-matrix at square in `risk-matrix.md` p3 (9.8pt) |
+| *kinds already moved, in the example decks* | fixed | swept for the 11pt bar after the galleries: ep-curve's point values had no role on the phone ladder (7.3pt); a caption costs more than a subtitle (110px plus 48px a line, 80 plus 35 at square); a meta line at square narrows the eyebrow to 35 characters. `risk-matrix.md` p3 at square stays over capacity (9.8pt, the owner's scaled drawing) |
 | kanban, journey, progress, flowchart | to do | HTML or self-sized kinds: hold both bars; kanban and journey split into near-empty pages (followups.d/3088-p2-kanban-split-pages.md) |
