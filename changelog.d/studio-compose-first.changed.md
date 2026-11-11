@@ -19,3 +19,7 @@
   light chip as Source, on the phone bar too. A solid accent fill stays reserved for Present.
 - **The selected stop in Read · Write · Craft is an ink chip.** It used to be a faint gray tint with a
   gold hairline; it is now the inverted chip the phone bar already uses for its selected cell.
+- **The Studio keeps your place when you switch panes or reload.** Compose on a slide, then Source, then Compose
+  or Preview used to land on slide 1, and a reload jumped there a second after showing the right slide. The slide
+  now holds through every switch and a reload, and the caret stays on the same line when it moves between Compose
+  and Source.

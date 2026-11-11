@@ -148,6 +148,23 @@ in a monochrome palette, where the accent is the ink. So a selected Compose on t
 light chip instead of the ink cell, with its underline in the gold. `compose-first.spec.ts` checks all three in every
 palette. An unlit Source reads in `--text-body`, the AA channel.
 
+**Staying on your slide (owner, iPhone, 2026-11-11).** With Compose as the default, the Studio lost the author's
+place: Compose on slide 5, then Preview (fine), then Source (fine), then back to Compose and Preview showed slide 1;
+and a reload came back on slide 1 a second after showing the right one. Three causes, each where Compose meets the
+Fuoco hub (`2026-10-15-fuoco-focus-sync.md`, whose phase 3 left Compose's reporting as it was):
+
+| Cause | Fix |
+|---|---|
+| A Compose view built after a round trip through Source (or the phone bringing the Compose pane back) started at the top of the deck, and its first transaction reported slide 1 as the author's move | `ComposeView` takes `focusAtMount`, read once when the view is built: it starts on the hub's slide with its slide memory seeded, the Markdown editor's rule ("a new view follows the focus; it does not announce its own caret") |
+| A resync (any outside change to the text: a rail op, an AI edit, a Source round trip) rebuilt the state with the caret at the top, with the same report | `resyncFrom` keeps the caret on its slide and line, except on a folded slide (never a caret in hidden text) |
+| The shell's Compose caret-TEXT report carried `composeChunkRef`, which started at 0 and only followed navigations made after its subscription; the boot navigation (the slide you left on) runs before it | the ref starts from `hub.get()` when it subscribes and when Compose mounts |
+
+The caret's LINE crosses too, where it can be matched (`lib/deck-outline/caret-line.ts`): the hub carries the caret
+line as the reporting editor saw it, the Markdown line or the Compose block's text. The editor that mounts compares both
+with their markers stripped and lands on the one matching line of the slide, else the slide's first line, as before.
+`docs/e2e/studio-pane-sync.spec.ts` drives the owner's sequence and a reload on six projects; all five of its runs on
+desktop, mobile and webkit-phone failed on the code before the fix (slide 1 for 3; `` `Why Lattice` `` for the paragraph).
+
 **Narration.** Five new lines were recorded with `tools/record-lesson-voice.mjs` (two in `tour`, three
 in `write-slide`). The Source-mode lines and their clips are unchanged, so a visitor who chose Source
 hears the tour they always did.

@@ -3449,6 +3449,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		},
 		[hub],
 	);
+	// Where a Compose view that is being built starts: the slide (and caret line) the hub holds, so a round trip through
+	// Source, or the phone bringing the Compose pane back, lands where the author was (ComposeView `focusAtMount`).
+	const composeFocusAtMount = React.useCallback(() => {
+		const f = hub.get();
+		if (f.unitIndex >= 0) composeChunkRef.current = f.unitIndex;
+		return f.unitIndex >= 0 ? { slide: f.unitIndex, line: f.line } : null;
+	}, [hub]);
 	const onComposeCursorText = React.useCallback(
 		(text: string) => {
 			composeLineRef.current = text;
@@ -3456,9 +3463,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		},
 		[hub],
 	);
-	React.useEffect(
-		() =>
-			hub.subscribe(
+	React.useEffect(() => {
+		// Start from where the hub is NOW: the boot navigation (the slide you left on) runs in an effect before this one, so a
+		// subscription alone missed it, and Compose's first caret-text report then said slide 1 (the preview jumped there a
+		// second after a reload).
+		composeChunkRef.current = Math.max(0, hub.get().unitIndex);
+		return hub.subscribe(
 				(f) => f,
 				(f) => {
 					composeChunkRef.current = Math.max(0, f.unitIndex);
@@ -3466,9 +3476,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					if (f.cause === 'nav' || f.cause === 'pick') composeRef.current?.revealSlide(f.unitIndex, { focus: f.grab, keepCaret: f.origin === 'history' });
 				},
 				{ ignoreOrigin: 'compose', equals: (a, b) => a.seq === b.seq },
-			),
-		[hub],
-	);
+			);
+	}, [hub]);
 	// A rail pill: a viewed slide, and the heading section of it the pill stands for. Stable, so
 	// the memoized rail re-renders only when the deck or the focused slide changes.
 	const goToSlideLatest = React.useRef(goToSlide);
@@ -7184,7 +7193,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<React.Suspense fallback={<ComposeSkeleton />}>
 				{/* Held on a phone until the first slide, exactly as the Editor below: ProseMirror is the largest
 				    piece of startup the first slide does not need, and Compose is now the default (2026-11-10). */}
-				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
+				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>

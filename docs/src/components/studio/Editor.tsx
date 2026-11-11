@@ -8,6 +8,7 @@ import { Annotation, ChangeSet, Compartment, EditorState, type Extension, StateE
 import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, lineNumbers, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
+import { lineOffsetIn } from '@/lib/deck-outline/caret-line';
 import { externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
 import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
 import type { Focus, FocusHub } from '@/lib/fuoco/hub';
@@ -652,7 +653,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// A preview pick selects the element's source span.
 			v.dispatch({ selection: { anchor: f.anchor, head: f.head }, effects: EditorView.scrollIntoView(f.anchor, { y: 'center' }) });
 		} else {
-			const caret = Math.min(deckEditableOffset(ix, f.unitIndex, f.part), v.state.doc.length);
+			// A focus Compose reported carries its caret block's text: land on that line of the slide rather than its first,
+			// so a switch from Compose keeps the caret's line (caret-line.ts; the first line when it cannot tell).
+			const unit = ix.units[f.unitIndex];
+			const onLine = f.origin === 'compose' && f.line && unit ? lineOffsetIn(ix.source, unit.from, unit.end, f.line) : -1;
+			const caret = Math.min(onLine >= 0 ? onLine : deckEditableOffset(ix, f.unitIndex, f.part), v.state.doc.length);
 			v.dispatch({ selection: { anchor: caret }, effects: EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 }) });
 		}
 		if (f.grab) v.focus();
