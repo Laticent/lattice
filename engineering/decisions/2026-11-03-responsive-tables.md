@@ -933,6 +933,49 @@ The spine is four pieces, each in one place:
 - **The key's layout** — `svg-legend.js` `pickKeyLayout`, the one rule (§ 29) both the color key
   and the risk register's key now call.
 
+**The tall canvas is only for the header it was measured under (2026-11-11).** An independent checker
+on the rebased branch measured two ways the spine made exported type SMALLER than main, both on tall
+portrait slides:
+
+- *A keyed quadrant.* `keySvg` sizes its text by the diagram's height, so the cohort key under the tall
+  plane printed 1.6 times larger, widened the drawing from 420 to 722 units, and `meet` shrank every
+  plane label: 27.8 → 16.2px on `examples/legend-below-portrait.md` page 9 at mobile. On the tall plane
+  the key now keeps the wide plane's type (`renderCohort` `tallKeyScale`), as the narrow plane's
+  already did.
+- *A taller header.* The box table is measured under a one-line title, and the 12% margin covers a
+  subtitle, not an eyebrow, a source line or a venue's larger header: a source line alone took a story
+  slide's text from 22.8 to 21.1px, and `venue: hall` from 15.5 to 11.0px. The chart frame now reads the
+  header (`chart-frame.js` `fitsMeasuredBox`: laptop venue, no eyebrow, no source line, a one-line title,
+  at most a two-line subtitle, read with `@callout{…}` paragraphs lifted off since the chart draws those
+  itself) and hands the kernels `ctx.canvasAspect` only when it fits. Every other portrait slide keeps
+  main's fixed canvas, so its type cannot be smaller than main's. `ctx.aspect` still carries the slide's
+  shape for the key's column pick. The fluid runtime's check redraws from the bare list, which has no
+  header, so it also tries the fixed canvas (`transformChartSection` `opts.fixedCanvas`).
+
+A sweep after those fixes (all 145 chart decks at 4:5, story and mobile, the smallest chart text on every slide
+against main's) still found 19 smaller slides, from two more causes, now guarded too:
+
+- *Furniture under the plot on the tall canvas.* A bar or line with a key, or notes, under its plot came out
+  taller than the box's shape, and `meet` shrank it (23.2 → 19.7px on the bar gallery at mobile). Only tower
+  fits its key into the shape (`fitViewToBox`). The chart frame now draws a trial on the tall canvas (under
+  `trialIds`: no ids spent, no drops reported) and keeps the tall canvas only if the drawing kept its shape
+  (`keepsTallShape`); otherwise the chart draws on the fixed canvas, as on main.
+- *A grid key wider than the column.* `pickKeyLayout` takes the shortest layout within 5% of the largest, so a
+  grid that widened the drawing could win and print the whole chart up to 7% smaller (24.5 → 22.8px). A grid
+  is now a candidate only within the single column's width (`gridLayout`), where it can only print larger.
+  And the grid is kept only if it prints at least as large as the key main draws (`buildPortrait` `plainKey`):
+  main flows short labels into rows, a layout the grid never weighed, and a heatmap's five bands stacked in a
+  three-row grid printed 14.6 → 13.6px where main's two flowing rows did not. The § 29 commit had deleted that
+  flowing band (`packBand` / `buildBand`); it is back, verbatim, as the layout the grid has to beat.
+
+After the four fixes the sweep reads: 1,779 chart slides at 4:5, story and mobile; 1,668 print their smallest
+text at main's size, 111 larger (65 at 4:5, 29 story, 17 mobile, up to 18.2 → 30.1px on a risk register at
+mobile), and none smaller. Script: `.scratch/minfs-sweep.js` over HTML renders of every chart deck on both trees.
+
+The same review moved two smaller pieces: the column key prices its labels glyph by glyph
+(`legend-svg-key.js` `gridInk`) after a name of wide glyphs ran its value into the next column, and
+radar's key picks its columns at the slide's real shape (`KEY_ASPECT`) rather than both portrait shapes.
+
 What is not yet on the spine: pie, map, radar, word-cloud and hub-spoke draw fixed diagrams whose
 unit `meet` fits into the box; their keys are on the spine, their diagrams are not. Label SIZES are
 still per kind (each kind's stylesheet sets its labels in its canvas's units); the spine holds them
