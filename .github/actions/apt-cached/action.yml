@@ -1,0 +1,55 @@
+name: System packages, from GitHub's cache
+description: >
+  Installs Ubuntu packages from a cached folder of .deb files, keyed on the runner image's OS, its CPU and the package
+  list. Ubuntu's mirror is read only when the cache is empty (a new package list, or a cache evicted after 7 days unused)
+  or no longer fits a newer runner image, which apt-cached.sh repairs with a warning; then apt-setup.sh's mirror list and
+  three tries apply. Owner call, 2026-11-11: cache everything CI downloads, a robust mirror list, three retries.
+inputs:
+  packages:
+    description: The packages, space-separated (`poppler-utils imagemagick`).
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Cache key
+      id: key
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      # The image's OS, its CPU and the sorted package list pick the set; the image VERSION (GitHub updates it about
+      # weekly) is in the key too, so a new image saves an entry of its own. It falls back to the last image's entry,
+      # and apt-cached.sh repairs that from the mirror only if it does not fit.
+      run: |
+        list=$(printf '%s\n' $PACKAGES | sort -u | tr '\n' ' ')
+        echo "list=$list" >> "$GITHUB_OUTPUT"
+        # A container job has no ImageOS or ImageVersion (they are the runner machine's): name the OS from os-release,
+        # and stand in for the version with a hash of the container's package list, so a new image gets its own entry.
+        os=${ImageOS:-$(. /etc/os-release && echo "$ID$VERSION_ID")}
+        echo "base=apt-$os-$RUNNER_ARCH-$(printf '%s' "$list" | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+        echo "image=${ImageVersion:-$(sha256sum /var/lib/dpkg/status | cut -c1-12)}" >> "$GITHUB_OUTPUT"
+    - name: Restore the packages
+      uses: actions/cache@v4
+      with:
+        path: ~/apt-cached-debs/${{ steps.key.outputs.base }}
+        key: ${{ steps.key.outputs.base }}-${{ steps.key.outputs.image }}
+        restore-keys: ${{ steps.key.outputs.base }}-
+    - name: Download the packages (nothing restored only)
+      shell: bash
+      env:
+        BASE: ${{ steps.key.outputs.base }}
+        LIST: ${{ steps.key.outputs.list }}
+      # A restored folder counts even when empty: the image it was built on lacked nothing, and the install step's check
+      # repairs anything this image lacks. Only no folder at all (no entry for this OS, CPU and list) downloads.
+      run: |
+        dir="$HOME/apt-cached-debs/$BASE"
+        if [ -d "$dir" ]; then echo 'restored from the cache'; exit 0; fi
+        # shellcheck disable=SC2086 # the list is words
+        bash "$GITHUB_ACTION_PATH/apt-cached.sh" download "$dir" $LIST
+    - name: Install the packages
+      shell: bash
+      env:
+        BASE: ${{ steps.key.outputs.base }}
+        LIST: ${{ steps.key.outputs.list }}
+      run: |
+        # shellcheck disable=SC2086 # the list is words
+        bash "$GITHUB_ACTION_PATH/apt-cached.sh" install "$HOME/apt-cached-debs/$BASE" $LIST

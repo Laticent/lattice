@@ -1,0 +1,83 @@
+name: Playwright browsers, without the package mirror
+description: >
+  Installs Playwright browsers and their system packages from GitHub's cache, keyed on the runner image's OS, its CPU,
+  the browsers and the pinned Playwright version. Ubuntu's mirror is read only when the cache is empty (a Playwright
+  upgrade, or a cache evicted after 7 days unused) or no longer fits a newer runner image, which
+  ../apt-cached/apt-cached.sh repairs with a warning, through apt-setup.sh's mirror list and three tries. Replaces
+  `npx playwright install --with-deps`, which read the mirror on every run (the WebKit case: #3117's follow-up; every
+  browser: owner call, 2026-11-11). Run it after `npm ci` in the folder whose node_modules holds Playwright.
+inputs:
+  browsers:
+    description: The browsers, space-separated (`chromium webkit firefox`).
+    required: true
+  working-directory:
+    description: The folder whose node_modules holds the pinned Playwright.
+    default: docs
+runs:
+  using: composite
+  steps:
+    - name: Cache key and package list
+      id: key
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        BROWSERS: ${{ inputs.browsers }}
+      # Playwright's own package list for these browsers, the one `--with-deps` installs, so the two never drift (local,
+      # no network). The image VERSION is in the key too, so a new image saves an entry of its own; it falls back to the
+      # last image's entry, which apt-cached.sh repairs only if it does not fit.
+      run: |
+        browsers=$(printf '%s\n' $BROWSERS | sort -u | tr '\n' ' ')
+        list=$(npx playwright install-deps --dry-run $browsers)
+        pkgs=$(printf '%s\n' "$list" | sed -n 's/.*apt-get install -y --no-install-recommends \([^"&;]*\).*/\1/p' | head -1)
+        [ -n "$pkgs" ] || { echo "no package list in: $list" >&2; exit 1; }
+        version=$(node -p "require('playwright-core/package.json').version")
+        # Each browser's own folders, so two calls in one job (chromium, then webkit) cache only what each installs.
+        {
+          echo 'paths<<PATHS'
+          for b in $browsers; do
+            case "$b" in
+              chromium) printf '%s\n' "~/.cache/ms-playwright/chromium-*" "~/.cache/ms-playwright/chromium_headless_shell-*" "~/.cache/ms-playwright/ffmpeg-*" ;;
+              *) printf '%s\n' "~/.cache/ms-playwright/$b-*" ;;
+            esac
+          done
+          echo PATHS
+        } >> "$GITHUB_OUTPUT"
+        echo "browsers=$browsers" >> "$GITHUB_OUTPUT"
+        echo "packages=$pkgs" >> "$GITHUB_OUTPUT"
+        echo "base=playwright-${ImageOS:-unknown}-$RUNNER_ARCH-$version-$(printf '%s' "$browsers" | tr ' ' '-')" >> "$GITHUB_OUTPUT"
+        echo "image=${ImageVersion:-0}" >> "$GITHUB_OUTPUT"
+    - name: Restore the browsers and their packages
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ steps.key.outputs.paths }}
+          ~/playwright-debs/${{ steps.key.outputs.base }}
+        key: ${{ steps.key.outputs.base }}-${{ steps.key.outputs.image }}
+        restore-keys: ${{ steps.key.outputs.base }}-
+    - name: Download the system packages (nothing restored only)
+      shell: bash
+      env:
+        PACKAGES: ${{ steps.key.outputs.packages }}
+        BASE: ${{ steps.key.outputs.base }}
+      # A restored folder counts even when empty: the image it was built on lacked nothing, and the install step's check
+      # repairs anything this image lacks. Only no folder at all downloads.
+      run: |
+        if [ -d "$HOME/playwright-debs/$BASE" ]; then echo 'restored from the cache'; exit 0; fi
+        # shellcheck disable=SC2086 # the list is words
+        bash "$GITHUB_ACTION_PATH/../apt-cached/apt-cached.sh" download "$HOME/playwright-debs/$BASE" $PACKAGES
+    - name: Install the system packages
+      shell: bash
+      env:
+        PACKAGES: ${{ steps.key.outputs.packages }}
+        BASE: ${{ steps.key.outputs.base }}
+      run: |
+        # shellcheck disable=SC2086 # the list is words
+        bash "$GITHUB_ACTION_PATH/../apt-cached/apt-cached.sh" install "$HOME/playwright-debs/$BASE" $PACKAGES
+    - name: Install the browsers (pinned to the folder's Playwright; a no-op on a cache hit)
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        BROWSERS: ${{ steps.key.outputs.browsers }}
+      # shellcheck disable=SC2086 # the list is words
+      run: npx playwright install $BROWSERS

@@ -65,7 +65,9 @@ jobs:
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install poppler-utils + ImageMagick + color emoji font
         # The same set as ci.yml's golden-diff job, so the bot blesses what PRs render.
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick fonts-noto-color-emoji
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: poppler-utils imagemagick fonts-noto-color-emoji
       - name: Allow ImageMagick PDF coder (for the drift montages)
         run: sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
       - run: npm ci
