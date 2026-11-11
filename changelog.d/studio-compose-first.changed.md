@@ -34,3 +34,7 @@
   you left the editor, and your next keystroke replaced it, so both people lost the other's words. The one case left,
   a change that arrives while an input method (IME) composition is open, is tracked as a followup.
 - **The chart, table and image lessons describe Compose when you write in Compose.**
+- **Compose writes back what you wrote.** An edit in Compose used to rewrite the whole slide in one spelling of Markdown
+  (`_em_` became `*em*`, `*` bullets became `-`, a table lost its padding) and dropped the deck's trailing newline. Now
+  only the line you changed changes: the rest of the slide, every other slide, the separators and the trailing newline
+  stay as you wrote them, and the edited line keeps your list markers and emphasis style.

@@ -246,3 +246,37 @@ hears the tour they always did.
   Compose, so there is nothing to put first. Renaming its `Edit` to `Source` is a question for the owner,
   on the PR's decision card.
 - **Accessible names** stay as they are (§3.5).
+
+## 6. Compose writes back what the author wrote (owner, 2026-11-11)
+
+The adversarial trio measured what an edit in Compose did to the Markdown. Compose already kept a slide nobody touched
+byte for byte (`emitDeck`'s baseline), but the slide the author edited went through the serializer whole. One serializer
+writes one spelling: `_em_` came back `*em*`, `*` bullets `-`, `1)` `1.`, a lone `~` `\~`, a padded table and its
+`:--:` row canonical. On 40 example decks, a one-character edit rewrote other lines of the same slide in 11; the deck's
+trailing newline was dropped on every first save, and its separators were rewritten to `\n\n---\n\n`. With Compose the
+default, that is the editor a power user lands in, so the owner chose to fix all of it in this PR. Three layers:
+
+| Layer | What is kept | Where |
+|---|---|---|
+| Deck | the bytes before the first slide and after the last (`head`, `tail` on the doc), and the separator before each slide (`sep` on the slide). A new or pasted slide takes the canonical separator | `deck-doc.ts` `deckFrame`, `joinSlides`; `scoped-resync.ts` keeps them through an undo |
+| Block | in an edited slide, every block whose Markdown reads the same as one of the slide's original blocks keeps that block's bytes, and the space between two original neighbors stays as written. Blocks are matched by their canonical form (a longest common subsequence), so a block that moved or a neighbor that was deleted still matches | `deck-doc.ts` `faithfulSlide`, `alignBlocks`, `topLevelSpans` (`deck-markdown.ts`) |
+| Line and marker | in the edited block, every line the edit did not touch keeps its spelling (the other list items, the other table rows, the alignment row); the parser keeps the list marker (`bullet`, `delim`) and the emphasis run (`markup`) so the edited line writes them as the author did; a lone `~` is not escaped and a two-space hard break stays two spaces. `_` emphasis is written `*` only where `_` could not open or close (next to a letter) | `deck-markdown.ts` schema attrs, `emphasisRun`; `deck-doc.ts` `keepLines`, `respell` |
+
+**It never costs correctness.** The faithful text must read back to exactly what the canonical serializer would have
+written, else the canonical text is used. A block Compose changes on reading (a chart's row list made tight) is never
+kept as written. `docToDeck` stays the plain canonical form (tests and the resync equality check use it); only the
+editor's write-back (`emitDeck`) is faithful.
+
+**Measured.** `src/lib/compose/deck-fidelity.test.ts` runs every shipped example deck (360): opened and left alone, each
+comes back byte for byte; a one-character edit on each editable slide changes exactly one line of the deck. Before: 718
+of the 720 checks failed (every deck lost its trailing newline; 97 decks rewrote more than the edited line). After: all
+pass, plus eight spelling cases. A keystroke on the largest slide of the 134 KB deck costs 0.32 ms median (0.64 ms p95)
+against 0.10 ms canonical.
+
+**The default path is tested by default.** Every Playwright project's fixture stores Source, because its helpers type
+Markdown. A `compose-default` project (nightly only; per-PR CI runs `--project=desktop`) runs the core Studio specs
+(smoke, Filo undo and Live, lessons, the pane sync, Compose-first) with no stored mode, so they boot in Compose; the
+helpers open Source only where they type Markdown (`toSourceIfCompose`). 48 tests.
+
+With Compose faithful, a returning visitor lands in Compose like a new one (owner, 2026-11-11): Source is one click
+away and remembered, and an edit in Compose no longer rewrites how they wrote their deck.

@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, isPhone, test, waitForStudioPaint } from './studio-fixture';
 
-// THE SLIDE (AND THE CARET'S LINE) SURVIVE A PANE SWITCH AND A RELOAD (engineering/decisions/2026-11-10-compose-first.md §6).
+// THE SLIDE (AND THE CARET'S LINE) SURVIVE A PANE SWITCH AND A RELOAD (engineering/decisions/2026-11-10-compose-first.md §4).
 //
 // The owner, on an iPhone, with Compose as the default: Compose on a slide, then Preview (fine), then Source (fine), then
 // Compose and Preview were back on slide 1; and a reload lost the slide too. Three causes, all in how Compose meets the

@@ -65,7 +65,7 @@ describe('a `_pane` marker stays where the author wrote it', () => {
 	});
 	it('an untouched pane slide still round-trips byte for byte', () => {
 		const src = deck('## Intro', MARKED);
-		expect(typeInSlide(src, 0, '!').endsWith(MARKED.trimEnd())).toBe(true);
+		expect(typeInSlide(src, 0, '!').trimEnd().endsWith(MARKED.trimEnd())).toBe(true);
 	});
 	it('keeps a `_pane` line inside a code fence as code', () => {
 		const fenced = '## T\n\n```md\n<!-- _pane: bar -->\n```';

@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
 import { savedDeck } from './compose-insert';
 import { localRelay } from './live-relay';
-import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, setEditorContent, test, toSourceIfCompose } from './studio-fixture';
 
 const DECK = ['<!-- _class: content -->\n\n# Live deck\n\nBody one.', '<!-- _class: content -->\n\n# Two\n\nBody two.', '<!-- _class: content -->\n\n# Three\n\nBody three.'].join('\n\n---\n\n');
 
@@ -251,6 +251,8 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		// Then the guest edits, so the guest's change is the NEWEST in the deck: an undo that took
 		// anyone's newest change would take this one. One insert, one transaction, so the undo
 		// manager's 500 ms capture window cannot split it on a slow runner.
+		// The Markdown editor's undo is what this case is about: in the `compose-default` project, open Source first.
+		await toSourceIfCompose(guest);
 		await guest.locator('.cm-content').first().click();
 		await guest.keyboard.press('ControlOrMeta+End');
 		await guest.keyboard.insertText('\nGuest line.');

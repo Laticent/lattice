@@ -1,8 +1,10 @@
 import { Fragment, type Node as PMNode, Schema } from 'prosemirror-model';
 import segnoSlots from '../../../../lib/core/segno-slots.generated.js';
+import { slideRanges } from '../deck-lint';
+import { stripFrontMatter } from '../front-matter';
 import { CLIP_ORIGIN } from './clip-origin';
-import { latticeMarkdownSerializer, parseSlideProse, proseSchema } from './deck-markdown';
-import { classNameOf, composeSlideChunk, hasLossyConstruct, parseDeck } from './deck-source';
+import { latticeMarkdownSerializer, parseSlideProse, proseSchema, topLevelSpans } from './deck-markdown';
+import { classNameOf, composeSlideChunk, hasLossyConstruct, normalizeSource, parseDeck, splitSlideDirectives } from './deck-source';
 
 // The ONE-DOCUMENT model (Option B). The whole deck is a single ProseMirror
 // document: `doc → slide+`, each `slide` a block container carrying its own
@@ -13,7 +15,10 @@ import { classNameOf, composeSlideChunk, hasLossyConstruct, parseDeck } from './
 // corrupted (the containment win, kept, without the fragmentation).
 
 const nodes = proseSchema.spec.nodes
-	.update('doc', { content: 'slide+', attrs: { frontMatter: { default: '' } } })
+	// `head` and `tail`: the bytes before the first slide and after the last, as written (a deck's trailing newline, a blank
+	// line after the front matter). With each slide's `sep` they make an untouched deck emit its own bytes, not a
+	// canonical spelling of them (2026-11-10-compose-first.md §6).
+	.update('doc', { content: 'slide+', attrs: { frontMatter: { default: '' }, head: { default: '' }, tail: { default: '' } } })
 	.addToEnd('slide', {
 		content: 'block+',
 		// `raw` = the slide's ORIGINAL source chunk, carried so an untouched slide can
@@ -22,7 +27,9 @@ const nodes = proseSchema.spec.nodes
 		// `locked` = the prose carries a construct the Compose round-trip would corrupt
 		// (table, block HTML, strikethrough, tasklist, footnote); the editor blocks edits
 		// to a locked slide so its identity never changes → it always emits `raw`.
-		attrs: { directives: { default: [] as string[] }, raw: { default: '' }, locked: { default: false } },
+		// `sep` = the separator written before this slide (`\n\n---\n\n`, `\n---\n`, …), so the deck keeps the author's
+		// spelling. A new or pasted slide has none and takes the canonical one; the FIRST slide's is never used (`head` is).
+		attrs: { directives: { default: [] as string[] }, raw: { default: '' }, locked: { default: false }, sep: { default: '' } },
 		defining: true,
 		// THE DIRECTIVES RIDE THE DOM, or copy/paste silently strips every slide's `_class`.
 		// `toDOM`/`parseDOM` are the CLIPBOARD contract (ProseMirror serializes a copied slice
@@ -113,27 +120,53 @@ export const deckSchema = new Schema({ nodes, marks });
 
 const EMPTY_PARAGRAPH = () => Fragment.from(deckSchema.nodes.paragraph.create());
 
+/**
+ * What sits around and between a deck's slides, as written: the bytes before the first (`head`) and after the last
+ * (`tail`), and the separator before each slide (`seps[0]` is ''). All '' when the chunks do not line up with `raws`
+ * (then the canonical spelling is used). The same chunking `parseDeck` uses, so range i is slide i's `raw`.
+ */
+export function deckFrame(source: string, raws: readonly string[]): { head: string; tail: string; seps: string[] } {
+	const body = stripFrontMatter(normalizeSource(source));
+	const ranges = raws.length ? slideRanges(body) : [];
+	if (!ranges.length || ranges.length !== raws.length || !ranges.every((r, i) => body.slice(r.from, r.to) === raws[i])) return { head: '', tail: '', seps: raws.map(() => '') };
+	return {
+		head: body.slice(0, ranges[0].from),
+		tail: body.slice(ranges[ranges.length - 1].to),
+		seps: ranges.map((r, i) => (i > 0 ? body.slice(ranges[i - 1].to, r.from) : '')),
+	};
+}
+
+/** The separator written before slide `i` of `doc` ('' for the first). */
+export function slideSep(doc: PMNode, i: number): string {
+	return i > 0 ? (doc.child(i).attrs.sep as string) || SEP : '';
+}
+
+/** A slide's prose → its block content in the deck schema. Bridged by JSON (the block node and mark names are the
+ *  prose schema's, so it re-validates cleanly), with a chart slide's row lists tightened. */
+function slideContent(prose: string, directives: string[]): Fragment {
+	const json = tightenChartLists(parseSlideProse(prose).content.toJSON(), directives);
+	const content = json ? Fragment.fromJSON(deckSchema, json) : EMPTY_PARAGRAPH();
+	return content.childCount === 0 ? EMPTY_PARAGRAPH() : content;
+}
+
 /** Deck source → one ProseMirror document. Each slide's prose is parsed (lossless,
  *  markdown-it based) and bridged into a `slide` node carrying its directives; the
  *  front-matter rides on the doc. */
 export function deckToDoc(source: string): PMNode {
 	const { fm, slides } = parseDeck(source);
 	const list = slides.length ? slides : [{ directives: [] as string[], prose: '', raw: '' }];
-	const slideNodes = list.map((s) => {
-		const proseDoc = parseSlideProse(s.prose || '');
-		// Bridge the parsed block content into the deck schema by JSON — the block
-		// node + mark names are identical, so it re-validates cleanly.
-		const json = tightenChartLists(proseDoc.content.toJSON(), s.directives);
-		let content = json ? Fragment.fromJSON(deckSchema, json) : EMPTY_PARAGRAPH();
-		if (content.childCount === 0) content = EMPTY_PARAGRAPH();
+	const { head, tail, seps } = deckFrame(source, slides.map((x) => x.raw));
+	const sepOf = (i: number) => seps[i] ?? '';
+	const slideNodes = list.map((s, i) => {
+		const content = slideContent(s.prose || '', s.directives);
 		// `raw` carries the slide's original source chunk so an UNTOUCHED slide is
 		// re-emitted byte-for-byte (never round-tripped through the serializer, so a
 		// lossy construct — a table, math, raw HTML — on a slide the author never
 		// touches can never degrade). `emitDeck` reads it via node identity. `locked`
 		// marks a slide whose prose Compose can't round-trip losslessly (edit in Markdown).
-		return deckSchema.nodes.slide.create({ directives: s.directives, raw: s.raw, locked: hasLossyConstruct(s.prose || '') }, content);
+		return deckSchema.nodes.slide.create({ directives: s.directives, raw: s.raw, locked: hasLossyConstruct(s.prose || ''), sep: sepOf(i) }, content);
 	});
-	return deckSchema.nodes.doc.create({ frontMatter: fm }, slideNodes);
+	return deckSchema.nodes.doc.create({ frontMatter: fm, head, tail }, slideNodes);
 }
 
 /**
@@ -170,13 +203,168 @@ function tightenChartLists(json: unknown, directives: string[]): unknown {
 	return json;
 }
 
-const SEP = '\n\n---\n\n';
+export const SEP = '\n\n---\n\n';
+
+/** The deck body from its slides' text: each slide after the first behind the separator it was written with (else the
+ *  canonical one), the bytes before the first slide and after the last as they were. */
+function joinSlides(doc: PMNode, parts: string[]): string {
+	let body = (doc.attrs.head as string) || '';
+	for (let i = 0; i < parts.length; i++) body += slideSep(doc, i) + parts[i];
+	return body + ((doc.attrs.tail as string) || '');
+}
 
 /** Serialize ONE slide node → its source chunk (directives head + serialized prose).
  *  serialize(node) renders the node's CHILDREN — i.e. this slide's block prose. */
 export function serializeSlideNode(slide: PMNode): string {
 	const prose = latticeMarkdownSerializer.serialize(slide);
 	const directives = (slide.attrs.directives as string[]) || [];
+	return composeSlideChunk(directives, prose);
+}
+
+/** `serializeSlideNode`, written back faithfully where the slide was read from the deck (see `faithfulSlide`). The
+ *  editor's write-back (`emitDeck`) uses it; `docToDeck` stays the plain canonical form. */
+export function serializeSlideFaithfully(slide: PMNode): string {
+	const prose = latticeMarkdownSerializer.serialize(slide);
+	const directives = (slide.attrs.directives as string[]) || [];
+	return faithfulSlide(slide, directives, prose) ?? composeSlideChunk(directives, prose);
+}
+
+// ── Faithful write-back (2026-11-10-compose-first.md §6) ──────────────────────
+// Compose is the default editor, so an edit must change only what the author changed. The serializer writes ONE spelling
+// of Markdown (`*em*`, `-` bullets, padded tables), and an edited slide used to go through it whole: one typed character
+// rewrote every other line of the slide that the author had spelled another way. A slide that was read from the deck
+// (`raw`) is now written back block by block: a block whose Markdown reads the same as one of the slide's original blocks
+// keeps that block's original bytes, and the space between two original neighbors stays as written. Only the blocks the
+// author changed go through the serializer. The result is checked: it must read back to what the canonical serializer
+// would have written, else the canonical form is used, so fidelity never costs correctness.
+
+type Original = { directives: string[]; prose: string; spans: Array<{ from: number; to: number }>; keys: string[] };
+const ORIGINALS = new Map<string, Original | null>();
+
+/** One block, written alone by the canonical serializer: the key two blocks are matched by. */
+function blockKey(block: PMNode): string {
+	return latticeMarkdownSerializer.serialize(deckSchema.nodes.slide.create(null, block)).replace(/\n+$/, '');
+}
+
+/** The slide `raw` was read from: its directives, its prose, each top-level block's span and key; null when the spans
+ *  cannot be lined up with the parsed blocks. Cached by `raw` (an edited slide is re-read on every keystroke). */
+function originalOf(raw: string): Original | null {
+	if (ORIGINALS.has(raw)) return ORIGINALS.get(raw) ?? null;
+	let out: Original | null = null;
+	try {
+		const { directives, prose } = splitSlideDirectives(raw);
+		const content = slideContent(prose, directives);
+		const spans = topLevelSpans(prose);
+		if (prose && spans && spans.length === content.childCount) {
+			// A block Compose changed on reading (a chart's row list made tight) is not what its bytes say: it is never kept
+			// as written, so the save writes the change, as it always did. Its key cannot match any block.
+			const read = parseSlideProse(prose).content;
+			const keys: string[] = [];
+			content.forEach((b, _o, i) => {
+				const same = read.childCount === content.childCount && JSON.stringify(read.child(i).toJSON()) === JSON.stringify(b.toJSON());
+				keys.push(same ? blockKey(b) : `\u0000changed-on-read ${i}`);
+			});
+			out = { directives, prose, spans, keys };
+		}
+	} catch {
+		out = null;
+	}
+	if (ORIGINALS.size > 256) ORIGINALS.clear();
+	ORIGINALS.set(raw, out);
+	return out;
+}
+
+/** For each of `now`, the index of the original block it keeps (a longest common subsequence of keys), else -1. */
+function alignBlocks(now: string[], was: string[]): number[] {
+	const n = now.length;
+	const m = was.length;
+	const L: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+	for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = now[i] === was[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+	const at = new Array<number>(n).fill(-1);
+	for (let i = 0, j = 0; i < n && j < m; ) {
+		if (now[i] === was[j]) {
+			at[i++] = j++;
+		} else if (L[i + 1][j] >= L[i][j + 1]) i++;
+		else j++;
+	}
+	// An edited block stands where the original it replaced stood: one unmatched block between the same two matched
+	// neighbors (or ends) as one unmatched original takes that original's place, and so the spacing around it.
+	const place = at.slice();
+	for (let i = 0; i < n; i++) {
+		if (place[i] !== -1) continue;
+		const prev = i > 0 ? at[i - 1] : -1;
+		const nextNow = i + 1 < n ? at[i + 1] : m;
+		if (nextNow !== -1 && (i === 0 || prev !== -1) && nextNow - prev === 2) place[i] = prev + 1;
+	}
+	return place.map((p, i) => (at[i] === -1 && p !== -1 ? -(p + 2) : p));
+}
+
+/**
+ * `canonical` with `raw`'s own lines put back wherever they say the same thing: lines of an edited block that the edit did
+ * not touch (the other items of a list, the other rows of a table, its alignment row) keep their spelling. Only when the
+ * original's canonical form has one line per written line, so the two line up.
+ */
+function keepLines(raw: string, wasCanonical: string, canonical: string): string {
+	const rawLines = raw.split('\n');
+	const was = wasCanonical.split('\n');
+	if (rawLines.length !== was.length) return canonical;
+	const now = canonical.split('\n');
+	const at = alignBlocks(now, was);
+	const sameShape = now.length === was.length;
+	return now.map((line, i) => (at[i] >= 0 ? rawLines[at[i]] : respell(line, sameShape ? rawLines[i] : undefined))).join('\n');
+}
+
+/**
+ * An edited line in the author's spelling where the serializer's differs only in form: a hard break the original line
+ * wrote as two trailing spaces (the serializer writes a backslash), and a lone `~` (the serializer escapes every one, for a
+ * strikethrough `~~` the engine reads only doubled). `faithfulSlide`'s read-back check rejects either if it changes the meaning.
+ */
+function respell(line: string, original: string | undefined): string {
+	let out = line;
+	const spaces = original?.match(/ {2,}$/)?.[0];
+	if (spaces && out.endsWith('\\') && !out.endsWith('\\\\')) out = out.slice(0, -1) + spaces;
+	return out.replace(/\\~/g, (m, i: number, str: string) => (str[i - 1] === '~' || str[i + 2] === '~' || str.slice(i + 2, i + 4) === '\\~' ? m : '~'));
+}
+
+/** The slide written back faithfully, or null to use the canonical form. `canonicalProse` is what the serializer wrote. */
+function faithfulSlide(slide: PMNode, directives: string[], canonicalProse: string): string | null {
+	const raw = slide.attrs.raw as string;
+	if (!raw || slide.attrs.locked) return null;
+	const o = originalOf(raw);
+	if (!o) return null;
+	const blocks: PMNode[] = [];
+	slide.forEach((b) => {
+		blocks.push(b);
+	});
+	// The canonical text, block by block IN CONTEXT: its spacing is right where a block changed (a record that hugs its
+	// fence, a list right under its paragraph); the original's is right where two original neighbors still stand.
+	const canon = canonicalProse.replace(/\n+$/, '');
+	const spans = topLevelSpans(canon);
+	if (!spans || spans.length !== blocks.length) return null;
+	const place = alignBlocks(blocks.map(blockKey), o.keys);
+	// place[i] >= 0: an original kept as written; <= -2: an edited block standing in original -(p + 2)'s place; -1: new.
+	const orig = (p: number) => (p >= 0 ? p : p <= -2 ? -(p + 2) : -1);
+	let prose = '';
+	for (let i = 0; i < blocks.length; i++) {
+		if (i > 0) {
+			const a = orig(place[i - 1]);
+			const b = orig(place[i]);
+			prose += place[i - 1] >= 0 && place[i] >= 0 && b === a + 1 ? o.prose.slice(o.spans[a].to, o.spans[b].from) : canon.slice(spans[i - 1].to, spans[i].from);
+		}
+		const text = canon.slice(spans[i].from, spans[i].to);
+		const p = orig(place[i]);
+		prose += place[i] >= 0 ? o.prose.slice(o.spans[p].from, o.spans[p].to) : p >= 0 ? keepLines(o.prose.slice(o.spans[p].from, o.spans[p].to), o.keys[p], text) : text;
+	}
+	// It must say what the canonical form says; a spelling that would read differently in this context (a list item
+	// that now continues the list above, a line that now opens a block) falls back.
+	try {
+		if (latticeMarkdownSerializer.serialize(deckSchema.nodes.slide.create(null, slideContent(prose, directives))) !== canonicalProse) return null;
+	} catch {
+		return null;
+	}
+	const same = directives.length === o.directives.length && directives.every((d, i) => d === o.directives[i]);
+	const at = raw.indexOf(o.prose);
+	if (same && at >= 0 && raw.indexOf(o.prose, at + 1) < 0) return raw.slice(0, at) + prose + raw.slice(at + o.prose.length);
 	return composeSlideChunk(directives, prose);
 }
 
@@ -248,12 +436,12 @@ export function emitDeck(doc: PMNode, baseline: EmitBaseline): string {
 	for (let i = 0; i < count; i++) {
 		const slide = doc.child(i);
 		const cached = prev.get(slide);
-		parts[i] = cached !== undefined ? cached : serializeSlideNode(slide);
+		parts[i] = cached !== undefined ? cached : serializeSlideFaithfully(slide);
 		nextNodes[i] = slide;
 	}
 	baseline.nodes = nextNodes;
 	baseline.raws = parts.slice();
-	const body = parts.join(SEP);
+	const body = joinSlides(doc, parts);
 	const fm = (doc.attrs.frontMatter as string) || '';
 	return fm ? fm + body : body;
 }

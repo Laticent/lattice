@@ -141,6 +141,17 @@ export default defineConfig({
 			use: { viewport: { width: 1440, height: 900 } },
 			grepInvert: /@mobile|@player-parity|^(?!.*@crosswidth).*@webkit/,
 		},
+		// THE SHIPPED DEFAULT, COMPOSE (engineering/decisions/2026-11-10-compose-first.md §6). Every other project's fixture
+		// stores Source, because the helpers type Markdown, so the mode a new visitor lands in was covered only by the
+		// Compose specs. This one stores no mode: the core Studio specs (smoke, undo and Live, lessons, the pane sync) boot in
+		// Compose, and the helpers open Source only where they type Markdown (studio-fixture.ts `toSourceIfCompose`). Desktop
+		// size, nightly only: per-PR CI runs `--project=desktop`.
+		{
+			name: 'compose-default',
+			use: { viewport: { width: 1440, height: 900 } },
+			testMatch: /(smoke|filo-[a-z-]+|lessons|studio-pane-sync|compose-first)\.spec\.ts$/,
+			grepInvert: /@mobile|@player-parity|@perf|^(?!.*@crosswidth).*@webkit/,
+		},
 		// THE HOST-PARITY SPEC (e2e/player-host-parity.spec.ts). Both hosts must measure text the same
 		// way, and a hosted runner's two Chromium modes do not: the CLI's page (`headless: 'new'`) takes
 		// whole-pixel or fractional glyph advances from the machine's font settings, while Playwright's
