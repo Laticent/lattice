@@ -5,7 +5,7 @@ recorded: 2026-11-11
 area: engine
 severity: medium
 swimlane: engineering/decisions/2026-10-16-media-plugins.md §9
-deferred: blocked — the owner holds the deck-wide sweep until meta step 5 (branch claude/meta-door-steps-2-6, not on main as of 2026-11-11) is on main
+deferred: blocked — the owner holds the deck-wide sweep until meta step 5 (the meta record's codemod) is on main; step 2 merged as #3115, and steps 3 to 6 started 2026-11-11 in session_01DPMMjGaYQeh1MzxtkbQP8Y
 source: https://github.com/Laticent/lattice/pull/3126
 ---
 
