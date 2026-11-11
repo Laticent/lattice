@@ -452,7 +452,8 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 
 	// Restore merges checkpoints only where this browser has none, so it must see the stored ones first.
 	await hydrateCheckpoints();
-	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, media: 0, mediaRenamed: 0, refused };
+	const decks = importStudioState(state, now);
+	const summary: RestoreSummary = { ...decks, themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, media: 0, mediaRenamed: 0, refused: [...decks.refused, ...refused] };
 
 	if (parsed) {
 		for (const t of themes) {

@@ -284,7 +284,9 @@ tests (HARD RULE #32), and the failed-save notice is worded for every caller of 
 Accepted: the title mirror trusts a length match, so a deck rewritten to the same length by an older build in another
 tab, during a rollout, lists under its old title until its next save (display only); two tabs saving at once can
 overwrite each other's mirror entry, which only shows when the lost entry's length still matches.
-Logged (off-path): `importStudioState` counts a deck whose save was refused as added.
+`importStudioState` counted a deck whose save was refused as added; first logged as off-path, then fixed here when
+the card grader pointed out the restore summary would contradict the notice this change added: a refused deck gets no
+index row and is named in the restore report's "not restored" list.
 
 **Verified on the real Studio** (Playwright, built site): `checkpoint-storage.spec.ts`, `decks.spec.ts` and
 `filo-undo.spec.ts` in Chromium, Firefox and WebKit (33 passed; 2 skipped by design: the real-quota case is

@@ -1324,6 +1324,9 @@ export type ImportSummary = {
 	written: string[];
 	/** Backup deck id → the new id its copy was stored under, for a deck that diverged. */
 	copies: Record<string, string>;
+	/** Decks this browser refused to store (a full quota, most often): not restored, not counted
+	 *  above, each named with the reason, the shape the restore report lists. */
+	refused: { name: string; why: string }[];
 };
 
 /**
@@ -1337,7 +1340,10 @@ export type ImportSummary = {
  * values either way). `ts` is passed in so the store stays free of Date.now.
  */
 export function importStudioState(data: StudioExport, ts: number): ImportSummary {
-	const summary: ImportSummary = { added: 0, restoredCopies: 0, skipped: 0, written: [], copies: {} };
+	const summary: ImportSummary = { added: 0, restoredCopies: 0, skipped: 0, written: [], copies: {}, refused: [] };
+	// A deck whose source this browser will not store is not restored: no index row (it would list
+	// an empty deck), no history, and it is named rather than counted as added.
+	const refuse = (entry: IndexEntry) => summary.refused.push({ name: `deck ${entry.title.slice(0, 60)}`, why: "this browser's storage would not take it" });
 	const index = loadIndex();
 	const have = new Map(index.map((e) => [e.id, e]));
 	let n = 0;
@@ -1353,8 +1359,11 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			// be someone else's file, and "load this deck's web images" is a choice the reader
 			// makes on this device. The deck arrives with its images blocked.
 			const { webOrigins: _untrusted, ...incoming } = entry;
+			if (incomingSrc != null && !saveSource(entry.id, incomingSrc)) {
+				refuse(entry);
+				continue;
+			}
 			index.push(incoming);
-			if (incomingSrc != null) saveSource(entry.id, incomingSrc);
 			if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
@@ -1382,7 +1391,10 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			// local edits — there is nothing to protect, so the backup's source
 			// restores IN PLACE. This is the whole-point case: a fresh browser after
 			// storage loss, where every built-in id is present but untouched.
-			saveSource(entry.id, incomingSrc);
+			if (!saveSource(entry.id, incomingSrc)) {
+				refuse(entry);
+				continue;
+			}
 			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
@@ -1399,8 +1411,11 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		// a surrogate pair, and on a deck whose cover is heading-less by design
 		// (big-number) it rewrote a body slide's H2 instead of the cover.
 		const newId = `deck-${ts.toString(36)}-r${(n++).toString(36)}`;
+		if (!saveSource(newId, incomingSrc)) {
+			refuse(entry);
+			continue;
+		}
 		index.push({ id: newId, title: `${entry.title} (restored)`, builtin: false, restored: true });
-		saveSource(newId, incomingSrc);
 		if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 		if (data.chats[entry.id]?.length) saveChat(newId, data.chats[entry.id]);
 		summary.restoredCopies++;

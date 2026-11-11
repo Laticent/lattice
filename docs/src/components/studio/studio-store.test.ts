@@ -151,6 +151,27 @@ describe('studio-store — per-deck source', () => {
 		expect(loadDeckList().find((d) => d.id === id)?.title, 'the list still names the stored text').toBe('Kept');
 	});
 
+	it('a backup deck this browser will not store is named as not restored, not counted as added', () => {
+		const mine = createDeck('Mine').id;
+		saveSource(mine, '# Mine');
+		const snap = exportStudioState();
+		localStorage.clear();
+		const setItem = Storage.prototype.setItem;
+		Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+			if (key.startsWith('lattice-studio-src-')) throw new DOMException('full', 'QuotaExceededError');
+			return setItem.call(this, key, value);
+		};
+		let summary: ReturnType<typeof importStudioState>;
+		try {
+			summary = importStudioState(snap, 1000);
+		} finally {
+			Storage.prototype.setItem = setItem;
+		}
+		expect(summary.written).not.toContain(mine);
+		expect(summary.refused.map((r) => r.name)).toContain('deck Mine');
+		expect(loadDeckList().some((d) => d.id === mine), 'no empty deck listed in its place').toBe(false);
+	});
+
 	it('round-trips edited source and overrides the canonical', () => {
 		const id = DECKS[0].id;
 		expect(loadSource(id)).toBeNull();
