@@ -26,7 +26,7 @@ import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/p
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
-import { plainLine } from '@/lib/deck-outline/caret-line';
+import { plainColumnOf, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { ensurePluginData } from '@/lib/ensure-plugin-data';
 import { notify } from '@/lib/notify';
 import { altFromAssetName } from '@/lib/photo-alt';
@@ -1691,24 +1691,45 @@ function ghostCaretPlugin(): Plugin {
 /** Where a view built while the author is ON a slide starts: in that slide, on the block whose text is the caret line the
  *  focus carries (`plainLine` reads a Markdown line and a Compose block alike), else at the slide's first text. One block
  *  with that text, or none: two would make the caret a guess. */
-function selectionAtFocus(doc: PMNode, slide: number, line: string | null | undefined): Selection {
+function selectionAtFocus(doc: PMNode, slide: number, line: string | null | undefined, col?: number | null): Selection {
 	let pos = 0;
 	for (let i = 0; i < slide; i++) pos += doc.child(i).nodeSize;
 	const want = line ? plainLine(line) : '';
 	let hit = -1;
+	let block: PMNode | null = null;
 	let hits = 0;
 	if (want) {
 		doc.child(slide).descendants((n, p) => {
 			if (!n.isTextblock) return true;
 			if (plainLine(n.textContent) === want) {
 				hits++;
-				if (hit < 0) hit = pos + 1 + p + 1;
+				if (hit < 0) {
+					hit = pos + 1 + p + 1;
+					block = n;
+				}
 			}
 			return false;
 		});
 	}
+	// The COLUMN, where one was carried: the same plain character of the block (caret-line.ts maps it), else its start.
+	const found = block as PMNode | null;
+	if (hits === 1 && found && typeof col === 'number' && col > 0) hit += textOffsetToPos(found, rawColumnFor(found.textContent, col));
 	const at = hits === 1 ? hit : pos + 1;
 	return noteSafe(doc, Selection.near(doc.resolve(Math.min(at, doc.content.size))));
+}
+
+/** The position inside a textblock (relative to its content start) of text offset `offset` in its `textContent`. */
+function textOffsetToPos(block: PMNode, offset: number): number {
+	let text = 0;
+	let pos = 0;
+	for (let i = 0; i < block.childCount; i++) {
+		const child = block.child(i);
+		const len = child.isText ? (child.text?.length ?? 0) : child.textContent.length;
+		if (offset <= text + len) return child.isText ? pos + (offset - text) : pos + child.nodeSize;
+		text += len;
+		pos += child.nodeSize;
+	}
+	return pos;
 }
 
 /** Build the shared panel for an open comment: its words, read-only, plus the one control that
@@ -2273,13 +2294,15 @@ export function refinableRange(state: EditorState): { from: number; to: number }
 }
 
 export type ComposeHandle = {
+	/** The caret's column in its block, in the plain form both editors share (caret-line.ts), or null with no text caret. */
+	caretColumn: () => number | null;
 	/** The text Refine would rewrite: a selection inside one textblock of an editable slide, as plain text. */
 	getSelection: () => { empty: boolean; text: string };
 	/** Replace that selection with `text`, as its own undo step named `label`. False when there is no such selection now. */
 	replaceSelection: (text: string, label?: string) => boolean;
 	/** Scroll slide `index` into view. `focus` also takes keyboard focus and parks the
 	 *  caret at the slide's first editable position (#1288). */
-	revealSlide: (index: number, opts?: { focus?: boolean; keepCaret?: boolean; line?: string }) => void;
+	revealSlide: (index: number, opts?: { focus?: boolean; keepCaret?: boolean; line?: string; col?: number | null }) => void;
 	/** Scroll the document's END into view — the twin of `EditorHandle.revealTail`, and owed
 	 *  for the same reason. A tour types through the CONTROLLED `source` path (`editorRef` is
 	 *  null in Compose mode, so `buildTypeOps` never picks the native channel), which replaces
@@ -2311,7 +2334,7 @@ export type ComposeHandle = {
 	afterComposition: (fn: () => void) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: () => { slide: number; line?: string | null; focus?: boolean } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire, describeDelete }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean; label?: string }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; onSelectionChange?: (refinable: boolean) => void; focusAtMount?: () => { slide: number; line?: string | null; col?: number | null; focus?: boolean } | null; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void; describeDelete?: (index: number) => string }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, onSelectionChange, focusAtMount, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire, describeDelete }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -2505,6 +2528,13 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// the slide's first editable position so the next keystroke edits the slide the
 	// preview picker just chose (#1288).
 	React.useImperativeHandle(ref, () => ({
+		caretColumn() {
+			const v = viewRef.current;
+			const sel = v?.state.selection;
+			if (!v || !(sel instanceof TextSelection) || !sel.$head.parent.isTextblock) return null;
+			const $h = sel.$head;
+			return plainColumnOf($h.parent.textContent, $h.parent.textBetween(0, $h.parentOffset, undefined, ' ').length);
+		},
 		getSelection() {
 			const v = viewRef.current;
 			const r = v && refinableRange(v.state);
@@ -2635,7 +2665,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			if (!dom) return fn();
 			dom.addEventListener('compositionend', () => setTimeout(fn, 0), { once: true });
 		},
-		revealSlide(index: number, opts?: { focus?: boolean; keepCaret?: boolean; line?: string }) {
+		revealSlide(index: number, opts?: { focus?: boolean; keepCaret?: boolean; line?: string; col?: number | null }) {
 			const v = viewRef.current;
 			if (!v) return;
 			const doc = v.state.doc;
@@ -2660,7 +2690,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			// `pos` is BEFORE the slide node; +1 enters it, and Selection.near finds the
 			// nearest real text position from there — the slide's first editable spot,
 			// whatever block happens to open it.
-			const sel = opts?.line ? selectionAtFocus(doc, index, opts.line) : noteSafe(doc, Selection.near(doc.resolve(Math.min(pos + 1, doc.content.size))));
+			const sel = opts?.line ? selectionAtFocus(doc, index, opts.line, opts.col) : noteSafe(doc, Selection.near(doc.resolve(Math.min(pos + 1, doc.content.size))));
 			lastSlideRef.current = index; // pre-seed: this reveal must not echo back out
 			v.dispatch(v.state.tr.setSelection(sel));
 			// Scroll the HOST explicitly rather than riding ProseMirror's
@@ -2675,6 +2705,16 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			if (node?.getBoundingClientRect && host) {
 				const top = node.getBoundingClientRect().top - host.getBoundingClientRect().top;
 				host.scrollTop += top - 8; // the same 8px breathing room the markdown editor leaves
+				// A carried caret line (a reload's restore) lower than one screen shows: bring the caret into view too.
+				if (opts?.line) {
+					try {
+						const c = v.coordsAtPos(v.state.selection.head);
+						const b = host.getBoundingClientRect();
+						if (b.height && (c.bottom > b.bottom - 24 || c.top < b.top)) host.scrollTop += c.top - b.top - b.height / 3;
+					} catch {
+						// No layout yet (a hidden pane): the slide's top stands.
+					}
+				}
 			}
 			if (opts?.focus) v.focus();
 		},
@@ -2977,13 +3017,15 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		const oldSlide = $from.depth >= 1 ? $from.index(0) : -1;
 		const hubAt = focusAtMountRef.current?.() ?? null;
 		const slide = Math.min(hubAt && hubAt.slide >= 0 ? hubAt.slide : oldSlide, doc.childCount - 1);
-		const caretLine = hubAt && hubAt.slide !== oldSlide ? hubAt.line : $from.parent.textContent;
+		const sameSlide = !(hubAt && hubAt.slide !== oldSlide);
+		const caretLine = sameSlide ? $from.parent.textContent : hubAt?.line;
+		const caretCol = sameSlide && $from.parent.isTextblock ? plainColumnOf($from.parent.textContent, $from.parent.textBetween(0, $from.parentOffset, undefined, ' ').length) : hubAt?.col;
 		const foldedAt = new Set(restoredSlideOffsets(doc, folded));
 		let slideOffset = 0;
 		for (let i = 0; i < slide; i++) slideOffset += doc.child(i).nodeSize;
 		const keep = slide >= 0 && !foldedAt.has(slideOffset);
 		if (keep) lastSlideRef.current = slide;
-		view.updateState(EditorState.create({ doc, selection: keep ? selectionAtFocus(doc, slide, caretLine) : startSelection(doc, foldedAt), plugins: view.state.plugins }));
+		view.updateState(EditorState.create({ doc, selection: keep ? selectionAtFocus(doc, slide, caretLine, caretCol) : startSelection(doc, foldedAt), plugins: view.state.plugins }));
 		// BASELINE FIRST, DISPATCH SECOND. Both callers wrap this in a try/catch that only
 		// logs, so a throw from the restore below would leave `updateState` already landed on
 		// the NEW doc while `baselineRef` still held the OLD doc's node identities — every
@@ -3050,7 +3092,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			view = new EditorView(hostRef.current, {
 				state: EditorState.create({
 					doc,
-					selection: onFocus ? selectionAtFocus(doc, at.slide, at.line) : startSelection(doc),
+					selection: onFocus ? selectionAtFocus(doc, at.slide, at.line, at.col) : startSelection(doc),
 					plugins: buildPlugins(() => defaultTagAtCaret(), () => (onOpenPanePickerRef.current ? openPane : undefined), {
 						getKernels: () => kernelsRef.current,
 						getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,
@@ -3206,7 +3248,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		{
 			const at = mountAt;
 			const host = hostRef.current;
-			if (at && at.slide > 0 && at.slide < view.state.doc.childCount && host) {
+			if (at && at.slide >= 0 && (at.slide > 0 || !!at.line) && at.slide < view.state.doc.childCount && host) {
 				const frame = () => {
 					let pos = 0;
 					for (let i = 0; i < at.slide && i < view.state.doc.childCount; i++) pos += view.state.doc.child(i).nodeSize;
@@ -3214,6 +3256,15 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					const box = host.getBoundingClientRect();
 					if (!node?.getBoundingClientRect || !box.height) return false;
 					host.scrollTop += node.getBoundingClientRect().top - box.top - 8;
+					// The CARET, when the author left it lower in the slide than one screen shows (a long slide, a phone): bring it
+					// a third of the way down, so the place they come back to is on screen, not just the slide's top.
+					try {
+						const c = view.coordsAtPos(view.state.selection.head);
+						const b = host.getBoundingClientRect();
+						if (c.bottom > b.bottom - 24 || c.top < b.top) host.scrollTop += c.top - b.top - b.height / 3;
+					} catch {
+						// No layout for the caret yet: the slide's top stands.
+					}
 					return true;
 				};
 				if (!frame() && typeof ResizeObserver !== 'undefined') {

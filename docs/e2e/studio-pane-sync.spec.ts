@@ -45,6 +45,35 @@ const drawnCaretIn = (page: Page) =>
 		const under = document.elementFromPoint(r.left + 4, r.top + r.height / 2);
 		return (under?.closest('.cm-line, p, li, h1, h2, h3') as HTMLElement | null)?.textContent?.trim() ?? '';
 	});
+/** The text AFTER the caret: in Source the rest of its line (CodeMirror's own state), in Compose the rest of its node. */
+const afterCaret = (page: Page) =>
+	page.evaluate(() => {
+		// biome-ignore lint/suspicious/noExplicitAny: CodeMirror keeps its view on the content element (filo-undo.spec.ts).
+		const v = (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
+		if (v && document.activeElement?.closest('.cm-editor')) {
+			const head = v.state.selection.main.head;
+			const line = v.state.doc.lineAt(head);
+			return line.text.slice(head - line.from);
+		}
+		const sel = getSelection();
+		return sel?.anchorNode ? (sel.anchorNode.textContent ?? '').slice(sel.anchorOffset) : '';
+	});
+/** Put Compose's caret `fromEnd` characters before the end of `el`'s last text: a DOM selection, which ProseMirror
+ *  reads, because on a phone `End` goes to the end of the WRAPPED visual line, not of the paragraph. */
+async function caretBeforeEnd(page: Page, el: import('@playwright/test').Locator, fromEnd: number): Promise<void> {
+	await el.evaluate((node, n) => {
+		const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+		let last: Text | null = null;
+		for (let t = walker.nextNode(); t; t = walker.nextNode()) if ((t as Text).data.trim()) last = t as Text;
+		if (!last) return;
+		const r = document.createRange();
+		r.setStart(last, Math.max(0, last.data.length - n));
+		r.collapse(true);
+		const sel = getSelection();
+		sel?.removeAllRanges();
+		sel?.addRange(r);
+	}, fromEnd);
+}
 /** The text of the block holding the live caret in a focused editor. */
 const liveCaretIn = (page: Page) =>
 	page.evaluate(() => (getSelection()?.anchorNode?.parentElement?.closest('.cm-line, p, li, h1, h2, h3') as HTMLElement | null)?.textContent?.trim() ?? '');
@@ -59,6 +88,10 @@ test('@mobile @webkit-phone a phone keeps the slide and the caret line from Comp
 	const head = text.slice(0, 24);
 	await line.scrollIntoViewIfNeeded();
 	await line.click();
+	// The caret mid-line, six characters from the end: the column must cross, not only the line (owner, iPhone).
+	await caretBeforeEnd(page, line, 6);
+	const tail = text.slice(-6);
+	await expect.poll(() => afterCaret(page)).toBe(tail);
 	await expect.poll(() => counter(page)).toBe('5 / 7');
 
 	await page.getByRole('button', { name: 'Preview', exact: true }).first().click();
@@ -85,12 +118,14 @@ test('@mobile @webkit-phone a phone keeps the slide and the caret line from Comp
 	await expect(page.locator('#studio-pane-editor .cs-host .ProseMirror')).toBeVisible();
 	await expect.poll(() => focused(page)).toBe('compose');
 	await expect.poll(() => liveCaretIn(page)).toBe(text);
+	await expect.poll(() => afterCaret(page)).toBe(tail);
 	await expect.poll(() => composeSlide(page)).toBe(5);
 
 	// And back to Source the same way.
 	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
 	await expect.poll(() => focused(page)).toBe('source');
 	await expect.poll(() => liveCaretIn(page)).toContain(head);
+	await expect.poll(() => afterCaret(page)).toBe(tail);
 
 	// Via the preview: Compose shows the drawn caret, no keyboard.
 	await page.getByRole('button', { name: 'Preview', exact: true }).first().click();
@@ -107,6 +142,9 @@ test('@crosswidth @gecko @webkit-tablet @webkit-phone a reload comes back on the
 	const text = ((await heading.textContent()) ?? '').trim();
 	await heading.scrollIntoViewIfNeeded();
 	await heading.click();
+	await caretBeforeEnd(page, heading, 4);
+	const tail = text.slice(-4);
+	await expect.poll(() => afterCaret(page)).toBe(tail);
 	await expect.poll(() => counter(page)).toBe('3 / 7');
 
 	await page.reload({ waitUntil: 'domcontentloaded' });
@@ -131,6 +169,7 @@ test('@crosswidth @gecko @webkit-tablet @webkit-phone a reload comes back on the
 	if (fine) {
 		await expect.poll(() => focused(page)).toBe('compose');
 		await expect.poll(() => liveCaretIn(page)).toBe(text);
+		await expect.poll(() => afterCaret(page)).toBe(tail);
 	} else {
 		await expect.poll(() => drawnCaretIn(page)).toBe(text);
 	}

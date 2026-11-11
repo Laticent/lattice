@@ -7,14 +7,63 @@
  * the slide's start, which is what both editors did before.
  */
 
+/**
+ * A line's plain form and, for each of its characters, the column it came from in the raw line. The plain form is the
+ * line with its block markers (quote, heading, list, task, number) and inline emphasis (`**` `__` `*` `_` `` ` `` `~~`)
+ * removed and whitespace collapsed: what Compose shows for that Markdown line. The map is what lets the caret keep its
+ * COLUMN across the two editors, not only its line (owner, iPhone, 2026-11-11).
+ */
+export function plainMap(line: string): { plain: string; raw: number[] } {
+	let i = /^\s*(?:>\s*)*/.exec(line)?.[0].length ?? 0;
+	i += /^(?:#{1,6}\s+|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+)/.exec(line.slice(i))?.[0].length ?? 0;
+	const chars: string[] = [];
+	const raw: number[] = [];
+	while (i < line.length) {
+		const marker = /^(?:\*\*|__|~~|\*|_|`)/.exec(line.slice(i, i + 2));
+		if (marker) {
+			i += marker[0].length;
+			continue;
+		}
+		const c = line[i];
+		if (/\s/.test(c)) {
+			if (chars.length && chars[chars.length - 1] !== ' ') {
+				chars.push(' ');
+				raw.push(i);
+			}
+		} else {
+			chars.push(c);
+			raw.push(i);
+		}
+		i++;
+	}
+	while (chars.length && chars[chars.length - 1] === ' ') {
+		chars.pop();
+		raw.pop();
+	}
+	return { plain: chars.join(''), raw };
+}
+
 /** A line with its Markdown block markers and inline emphasis removed, whitespace collapsed. */
 export function plainLine(line: string): string {
-	return line
-		.replace(/^\s*(?:>\s*)*/, '')
-		.replace(/^(?:#{1,6}\s+|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+)/, '')
-		.replace(/(\*\*|__|\*|_|`|~~)/g, '')
-		.replace(/\s+/g, ' ')
-		.trim();
+	return plainMap(line).plain;
+}
+
+/** The caret's column in the plain form, for a caret at raw column `col` of `line` (Source to Compose). */
+export function plainColumnOf(line: string, col: number): number {
+	const { raw } = plainMap(line);
+	let n = 0;
+	while (n < raw.length && raw[n] < col) n++;
+	return n;
+}
+
+/** The raw column of `line` for a caret at plain column `col` (Compose to Source): before that plain character, or
+ *  just after the last one when the caret is at the end of the text. */
+export function rawColumnFor(line: string, col: number): number {
+	const { raw } = plainMap(line);
+	if (!raw.length) return line.length;
+	if (col <= 0) return raw[0];
+	if (col >= raw.length) return raw[raw.length - 1] + 1;
+	return raw[col];
 }
 
 /**

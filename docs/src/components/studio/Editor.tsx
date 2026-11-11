@@ -8,7 +8,7 @@ import { Annotation, ChangeSet, Compartment, EditorState, type Extension, StateE
 import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, layer, lineNumbers, RectangleMarker, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
-import { lineOffsetIn } from '@/lib/deck-outline/caret-line';
+import { lineOffsetIn, rawColumnFor } from '@/lib/deck-outline/caret-line';
 import { externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
 import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
 import type { Focus, FocusHub } from '@/lib/fuoco/hub';
@@ -347,6 +347,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	/** Read once when a view is built: true when the author switched INTO this editor and it should take the keyboard
 	 *  (a real keyboard, or a phone switching straight from Compose). Otherwise it shows a drawn caret, not the keyboard. */
 	focusOnMount?: () => boolean;
+	/** The caret's column (in the line's plain form, caret-line.ts) carried from the editor the author left, or null. */
+	caretColumn?: () => number | null;
 	/** Fired when the selection emptiness changes — gates the Refine control. */
 	onSelectionChange?: (hasSelection: boolean) => void;
 	/** True for a `value` this editor emitted and has since typed past. The Studio commits typing as a React
@@ -387,7 +389,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  browser's own Studio write (a strip op) reaching the editor through the session. Either only maps the caret. */
 	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string; isPeer?: (tr: Transaction) => boolean } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, caretColumn, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const pendingCaretRef = React.useRef<{ text: string; offset: number } | null>(null);
@@ -408,6 +410,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const hubRef = React.useRef(focusHub);
 	const focusOnMountRef = React.useRef(focusOnMount);
 	focusOnMountRef.current = focusOnMount;
+	const caretColumnRef = React.useRef(caretColumn);
+	caretColumnRef.current = caretColumn;
 	hubRef.current = focusHub;
 	const isStaleEchoRef = React.useRef(isStaleEcho);
 	isStaleEchoRef.current = isStaleEcho;
@@ -677,7 +681,13 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// so a switch from Compose keeps the caret's line (caret-line.ts; the first line when it cannot tell).
 			const unit = ix.units[f.unitIndex];
 			// A focus with a line and no source offset: Compose's report, or a restore after a reload.
-			const onLine = f.head === null && f.line && unit ? lineOffsetIn(ix.source, unit.from, unit.end, f.line) : -1;
+			let onLine = f.head === null && f.line && unit ? lineOffsetIn(ix.source, unit.from, unit.end, f.line) : -1;
+			// And the column on it, when one was carried: the same plain character, past the line's Markdown markers.
+			const col = onLine >= 0 ? (caretColumnRef.current?.() ?? null) : null;
+			if (onLine >= 0 && col !== null && col > 0) {
+				const end = ix.source.indexOf('\n', onLine);
+				onLine += rawColumnFor(ix.source.slice(onLine, end < 0 ? undefined : end), col);
+			}
 			// The hub still holding THIS editor's own caret (an exact source offset, carried through edits since): put it back
 			// exactly. A Compose that took the keyboard and has not moved yet reports nothing, so this is the common case.
 			const caret = Math.min(f.head !== null ? f.head : onLine >= 0 ? onLine : deckEditableOffset(ix, f.unitIndex, f.part), v.state.doc.length);

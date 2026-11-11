@@ -561,17 +561,17 @@ export function deckLabels(): { id: string; label: string }[] {
 // the SAME key so the shell and the hydrated app agree on which deck (and slide) leads.
 
 /** `line`: the caret line's text when it was saved, so a reload lands the caret on it (compose-first decision note). */
-export type ActiveDeck = { deckId: string; slideIndex: number; line?: string };
+export type ActiveDeck = { deckId: string; slideIndex: number; line?: string; col?: number };
 
 /** The deck + slide last viewed, or null if never recorded. */
 export function loadActiveDeck(): ActiveDeck | null {
 	const v = read<Partial<ActiveDeck>>(ACTIVE_LS);
 	if (!v || typeof v.deckId !== 'string' || !v.deckId) return null;
-	return { deckId: v.deckId, slideIndex: typeof v.slideIndex === 'number' && v.slideIndex >= 0 ? v.slideIndex : 0, ...(typeof v.line === 'string' && v.line ? { line: v.line.slice(0, 500) } : {}) };
+	return { deckId: v.deckId, slideIndex: typeof v.slideIndex === 'number' && v.slideIndex >= 0 ? v.slideIndex : 0, ...(typeof v.line === 'string' && v.line ? { line: v.line.slice(0, 500) } : {}), ...(typeof v.col === 'number' && v.col > 0 ? { col: Math.floor(v.col) } : {}) };
 }
 /** Record the deck + slide currently in view (called on every deck/slide change). */
-export function saveActiveDeck(deckId: string, slideIndex: number, line?: string): void {
-	write(ACTIVE_LS, { deckId, slideIndex: Math.max(0, slideIndex | 0), ...(line ? { line: line.slice(0, 500) } : {}) });
+export function saveActiveDeck(deckId: string, slideIndex: number, line?: string, col?: number | null): void {
+	write(ACTIVE_LS, { deckId, slideIndex: Math.max(0, slideIndex | 0), ...(line ? { line: line.slice(0, 500) } : {}), ...(line && typeof col === 'number' && col > 0 ? { col: Math.floor(col) } : {}) });
 }
 /** Forget the last-active pointer if it names `deckId` (a deck being deleted) — so it
  *  can never dangle at a deck that no longer exists, which would make the app boot the
@@ -601,6 +601,11 @@ export function loadBootDeck(): StudioDeck {
 export function loadBootSlide(): number {
 	const active = loadActiveDeck();
 	return active && active.deckId === loadBootDeck().id ? active.slideIndex : 0;
+}
+/** The caret's column (in the line's plain form) saved with the boot slide, or null. */
+export function loadBootCol(): number | null {
+	const active = loadActiveDeck();
+	return active && active.deckId === loadBootDeck().id ? (active.col ?? null) : null;
 }
 /** The caret line saved with the boot slide, or '' (another deck, or none saved). */
 export function loadBootLine(): string {
