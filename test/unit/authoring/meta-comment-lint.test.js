@@ -110,8 +110,8 @@ test('legacy-directive-comment is silent by default and fires with metaCut: true
   assert.equal(f.severity, 'warning');
   assert.match(f.message, /`_class:`/);
   assert.match(f.message, /planned cut/);
-  assert.match(f.fix, /becomes a record/);
-  assert.equal(f.autofixable, undefined, 'no machine fix before the codemod (step 5)');
+  assert.match(f.fix, /lattice migrate meta/);
+  assert.equal(f.autofixable, undefined, 'the whole-deck codemod is the fix until the cut adds a per-finding one (step 6)');
 });
 
 test('legacy-directive-comment near misses with metaCut: a speaker note, a marker, a fenced example', () => {

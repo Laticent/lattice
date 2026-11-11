@@ -7626,6 +7626,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'rewrite a file\'s line endings, only its code blocks.',
   },
   {
+    file: 'lib/cli/migrate-meta.mjs',
+    why: 'migrateDeckText — `lattice migrate meta` reads an author\'s deck, folds CRLF to LF and strips the BOM so '
+       + 'the migration kernel reads it as the engine does (it refuses anything else), then puts both back on write: '
+       + 'a codemod must not rewrite a file\'s line endings, only its directive comments.',
+  },
+  {
     file: 'tools/export-marp.js',
     why: 'the deck read in exportMarp(). #1388: this ingest was never normalized, so a BOM\'d or '
        + 'CRLF deck exported to a Marp bundle in the wrong palette — #1349 recurring one file '

@@ -703,6 +703,29 @@ step 3, found these in the code #3133 merged:
   record, no `_focusSteps`. **The VS Code preview was not opened** (no VS Code in this sandbox); it runs the same
   marp-core render measured above, so the notes result carries, and the preview itself is UNVERIFIED.
 
+**Status, 2026-11-11: step 5's tool is built; the sweep is held for the cut.** `lattice migrate meta <deck.md>`
+(`lib/cli/migrate-meta.mjs`) runs two passes of the tested kernel (`lib/cli/meta-migrate.mjs`): `migrateMetaSource` writes
+each top-level directive comment as a record on its own lines, a class that opens with a catalog component as the typed
+`layout=` field (only the first word, so the engine composes the same class string in the same order);
+`mergeAdjacentRecords` folds a slide's records on consecutive lines, at zero indent, into one per scope, leaving blank
+lines so nothing below moves. A run breaks at a `carry` boundary, a pane marker, a record with `key: |` lines and a
+repeated field, where every class-shaped field (`layout`, `variant`, `class`, a register) counts as the one engine key
+`class`: merged, two of them would union their words where separate records are last-wins (the checker's case,
+`_class: dark` then `_class: cards-grid`). Line endings are kept line by line; a deck with nothing to migrate comes back
+byte for byte.
+
+- **Measured, not committed:** the tool over `examples/`, `exemplars/`, the baseline decks and the four hand-curated
+  galleries rewrote 404 files (4,569 comments; 1,147 merged before the class-key fix), and every one rendered the same
+  HTML and CSS byte for byte against `HEAD`, with the same lint findings (suggestions included).
+- **Why the sweep is not in this change** (the inversion, 2026-11-11): six readers outside the engine still read
+  `_class:` with their own regex, so a swept corpus would blind `npm run preview`'s scope, the editor's completion ranking
+  and the rest; 379 of the decks declare `marp: true`, and `design/skill.md` promises the same source works in Marp and
+  VS Code; and nothing yet keeps the corpus in records (`legacy-directive-comment` is off until the cut). The sweep lands
+  with the cut, after D3, as its own change with a `.git-blame-ignore-revs` entry.
+- **The identity test runs both directions** (`test/integration/invariants/meta-record-identity.test.js`, now with
+  `exemplars/`): a comment deck migrated the way the tool migrates it, and a record deck written back as comments
+  (`recordsToComments(…, { legacy: true })`), so it keeps proving something once the corpus is records.
+
 Steps 1 to 5 ship with authored comments still read, so every commit is green. **Step 1 delivers the reader, registry,
 completion and structured edit with no syntax change**, and steps 2 to 7 are a syntax layer over a single door.
 
