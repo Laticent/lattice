@@ -604,15 +604,12 @@ export function loadBootSlide(): number {
 	const active = loadActiveDeck();
 	return active && active.deckId === loadBootDeck().id ? active.slideIndex : 0;
 }
-/** The caret's column (in the line's plain form) saved with the boot slide, or null. */
-export function loadBootCol(): { col: number; raw: boolean } | null {
-	const active = loadActiveDeck();
-	return active && active.deckId === loadBootDeck().id && active.col ? { col: active.col, raw: active.colRaw === true } : null;
-}
-/** The caret line saved with the boot slide, or '' (another deck, or none saved). */
-export function loadBootLine(): string {
-	const active = loadActiveDeck();
-	return active && active.deckId === loadBootDeck().id ? (active.line ?? '') : '';
+/** The caret saved with the boot slide: its line's text ('' for another deck, or none saved) and its column, in the
+ *  shape the editors carry (`raw` is the Markdown line when the column was a Source caret's). */
+export function loadBootCaret(): { line: string; col: { col: number; raw?: string } | null } {
+	const a = loadActiveDeck();
+	if (!a?.line || a.deckId !== loadBootDeck().id) return { line: '', col: null };
+	return { line: a.line, col: a.col ? (a.colRaw ? { col: a.col, raw: a.line } : { col: a.col }) : null };
 }
 
 /**

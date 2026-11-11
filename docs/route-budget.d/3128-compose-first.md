@@ -1,4 +1,4 @@
-studio: +1700
+studio: +2200
 playground: +100
 
 Compose becomes the Studio's default way to write (PR #3128,
@@ -14,6 +14,12 @@ pieces that must be ready before the editor pane paints:
 At `ff7b9f4` CI measured +1221 gzip bytes on studio (StudioIsland +911, tours +270,
 studio-store +40). It also measured +85 on playground, because the Playground shares the tour
 lines table. After the checker's fixes, CI measured +1523 at `7b5db56` (StudioIsland +1213). Compose's AA-safe accent
-(`--lx-compose`) and the toolbar fixes brought it to +1610 at `a6cd1d7` (StudioIsland +1301); +1700 leaves room,
-under the per-PR 2048. The heavy parts stay
-lazy: the lint pass behind Compose's Fix all is `deck-lint.ts`, loaded with `import()`.
+(`--lx-compose`) and the toolbar fixes brought it to +1610 at `a6cd1d7` (StudioIsland +1301).
+
+The slide and caret surviving a pane switch and a reload (decision note §4) added the rest: the boot read of the
+saved caret, the arrive-focus rule, and carrying the caret's column. CI measured +2384 at `c14b12f` (StudioIsland
++1904, tours +270, studio-store +210). Before declaring it, this PR gave back what it could move off the startup
+path: Compose's lint pass and Fix all now live in the lazy `deck-lint.ts`, each editor reports its own caret
+column, and the two boot loaders became one. That cut 254 bytes locally (studio eagerJsGz 613289 to 613035).
++2200 covers the rest. The heavy parts stay lazy: the column mapping (`caret-line.ts`) and the lint core load
+with the editors.

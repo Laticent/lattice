@@ -2295,7 +2295,7 @@ export function refinableRange(state: EditorState): { from: number; to: number }
 
 export type ComposeHandle = {
 	/** The caret's column in its block, in the plain form both editors share (caret-line.ts), or null with no text caret. */
-	caretColumn: () => number | null;
+	caretColumn: () => CarriedColumn;
 	/** The text Refine would rewrite: a selection inside one textblock of an editable slide, as plain text. */
 	getSelection: () => { empty: boolean; text: string };
 	/** Replace that selection with `text`, as its own undo step named `label`. False when there is no such selection now. */
@@ -2533,7 +2533,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const sel = v?.state.selection;
 			if (!v || !(sel instanceof TextSelection) || !sel.$head.parent.isTextblock) return null;
 			const $h = sel.$head;
-			return plainColumnOf($h.parent.textContent, $h.parent.textBetween(0, $h.parentOffset, undefined, ' ').length);
+			return { col: plainColumnOf($h.parent.textContent, $h.parent.textBetween(0, $h.parentOffset, undefined, ' ').length) };
 		},
 		getSelection() {
 			const v = viewRef.current;

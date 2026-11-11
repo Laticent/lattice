@@ -210,7 +210,7 @@ source offset when the hub still holds its own caret (a Compose that took the ke
 | First visit, phone profile (4x CPU, 6 Mbit/s), slide visible, median of 7 (`startup-bench.mjs`) | 6.55 s | 6.20 s (runs vary 4.4 to 7.1 s) |
 | First visit, desktop, slide visible, median of 5 | 1.63 s | 1.53 s |
 | First visit, desktop, requests before the slide | 219 | 355 (Compose's chunks, not the Editor's; the slide is no later) |
-| Startup JavaScript, gzip (CI route budget) | | +1,648 B (declared +1,700) |
+| Startup JavaScript, gzip (CI route budget) | | +2,384 B at `c14b12f`, about +2,130 B after moving Compose lint, Fix all and the column read into lazy modules (declared +2,200) |
 | Caret walk, keystroke latency median / p90, 123 slides (`studio-sync-bench.mjs`) | 24 / 32 ms | 24 / 32 ms |
 | Slide change to preview, Compose / Markdown | 78 / 50 ms | 74 / 40 ms |
 | Typing in Compose, keystroke latency median / p90 | 64 / 80 to 88 ms | 64 / 88 ms |

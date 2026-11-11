@@ -241,6 +241,8 @@ function isAuthorEdit(u: { transactions: readonly { isUserEvent(e: string): bool
 
 export type EditorSelection = { empty: boolean; text: string; from: number; to: number };
 export type EditorHandle = {
+	/** The caret's column as Source sees it: a raw column in its Markdown line, which the other editor converts. */
+	caretColumn: () => CarriedColumn;
 	fixAll: () => void;
 	/** Pretty-print every code block a formatter reads, except `format=off`, as one undoable edit
 	 *  (lib/authoring/code-format/). Resolves with what changed and what was left alone, or null
@@ -710,6 +712,13 @@ export const Editor = React.forwardRef<EditorHandle, {
 	}, [focusHub, revealFocus]);
 
 	React.useImperativeHandle(ref, () => ({
+		caretColumn() {
+			const v = viewRef.current;
+			if (!v) return null;
+			const head = v.state.selection.main.head;
+			const line = v.state.doc.lineAt(head);
+			return { col: head - line.from, raw: line.text };
+		},
 		formatCode() {
 			const v = viewRef.current;
 			return v ? formatInto(v, true) : Promise.resolve(null);

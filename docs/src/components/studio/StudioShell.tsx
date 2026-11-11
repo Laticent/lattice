@@ -169,7 +169,7 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasStoredPosture, loadActiveDeck, loadBootCol, loadBootDeck, loadBootLine, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, onSourceWriteError, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasStoredPosture, loadActiveDeck, loadBootCaret, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, onSourceWriteError, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -944,22 +944,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, []);
 	// THE CARET'S COLUMN, carried across a switch and a reload (owner, iPhone, 2026-11-11): the line alone put the caret
 	// at the line's start. Read from the editor the author is leaving, in the plain form both editors share
-	// (caret-line.ts): Compose answers for itself; Source's exact offset is in the hub.
-	// Source's column goes as a raw offset with its Markdown line; the arriving editor converts it (caret-line.ts), so none
-	// of that mapping rides the startup bundle (the route budget caught it).
+	// (caret-line.ts). Each editor answers for itself: Compose in the plain form, Source as a raw offset with its Markdown
+	// line, which the arriving editor converts. Both editors load lazily, so none of this rides the startup bundle (the
+	// route budget caught it).
 	const carriedColRef = React.useRef<CarriedColumn>(null);
-	const caretColumnNow = React.useCallback((): CarriedColumn => {
-		if (editModeRef.current === 'compose') {
-			const col = composeRef.current?.caretColumn() ?? null;
-			return col === null ? null : { col };
-		}
-		const f = hub.get();
-		if (f.head === null) return null;
-		const src = hub.outline()?.source ?? '';
-		const start = src.lastIndexOf('\n', f.head - 1) + 1;
-		const end = src.indexOf('\n', f.head);
-		return { col: f.head - start, raw: src.slice(start, end < 0 ? undefined : end) };
-	}, [hub]);
+	const caretColumnNow = React.useCallback((): CarriedColumn => (editModeRef.current === 'compose' ? composeRef.current : editorRef.current)?.caretColumn() ?? null, []);
 	const caretColumnNowRef = React.useRef(caretColumnNow);
 	caretColumnNowRef.current = caretColumnNow;
 	const carriedColumn = React.useCallback(() => carriedColRef.current, []);
@@ -2500,9 +2489,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		// The caret's line comes back with the slide (saved on leaving, `flushActiveDeck`); with a real keyboard the editor takes
 		// focus on it, as it had before the reload. A phone cannot raise the keyboard without a tap: it shows the drawn caret.
-		const line = loadBootLine();
-		const bootCol = line ? loadBootCol() : null;
-		carriedColRef.current = bootCol === null ? null : bootCol.raw ? { col: bootCol.col, raw: line } : { col: bootCol.col };
+		const { line, col } = loadBootCaret();
+		carriedColRef.current = col;
 		const view = viewChunksRef.current;
 		if (view.length) goToChunk(view[Math.max(0, Math.min(bootSlideRef.current ?? 0, view.length - 1))], { line, grab: !!line && hasRealKeyboard() });
 	}, []);
@@ -2863,7 +2851,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// engineering/decisions/2026-11-10-compose-first.md §1.1.
 	const lintExtras = React.useMemo(() => ({ names: localNames, finishValues: editorFinishValues, palettes: editorPalettes }), [localNames, editorFinishValues, editorPalettes]);
 	// The text (and vocabulary) the Compose pass last linted, so a render that changes neither does not lint again.
-	const lintedRef = React.useRef<{ text: string; vocab: unknown; extras: unknown }>({ text: '', vocab: null, extras: null });
+	const lintedRef = React.useRef<import('./deck-lint').Linted>({ text: '', vocab: null, extras: null });
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `source` is the trigger; the pass reads `sourceRef`, the text after the pause.
 	React.useEffect(() => {
 		if (editMode !== 'compose') return;
@@ -2881,14 +2869,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const run = () => {
 			void firstSlideShown
 				.then(() => import('./deck-lint'))
-				.then(async (m) => {
-					const sets = m.studioVocabSets(lintVocab, lintExtras);
-					const text = sourceRef.current;
-					const last = lintedRef.current;
-					if (stale || (sets && last.text === text && last.vocab === lintVocab && last.extras === lintExtras)) return;
-					const counts = sets ? await m.lintCounts(text, sets) : null;
-					if (stale) return;
-					lintedRef.current = { text, vocab: lintVocab, extras: lintExtras };
+				.then((m) => (stale ? undefined : m.composeLintPass(() => sourceRef.current, lintedRef.current, lintVocab, lintExtras)))
+				.then((r) => {
+					if (stale || !r) return;
+					lintedRef.current = r.linted;
+					const counts = r.counts;
 					// The same counts are the same state: an unchanged answer must not re-render the Studio.
 					setLintCounts((prev) => (prev && counts && prev.total === counts.total && prev.fixable === counts.fixable ? prev : counts));
 				})
@@ -2910,21 +2895,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			ed.fixAll();
 			return;
 		}
-		void (async () => {
-			const m = await import('./deck-lint');
-			const sets = m.studioVocabSets(lintVocab, lintExtras);
-			const res = sets ? await m.fixAllText(() => sourceRef.current, sets) : null;
-			if (!res) {
-				notify('The checker could not load, so nothing was fixed. Try again in a moment.');
-				return;
-			}
-			// Written only over the text it was computed from: a keystroke that landed in between keeps the deck as typed.
-			if (res.text !== res.before && sourceRef.current === res.before) {
-				closeGroupRef.current();
-				setSource(res.text, { label: 'Fix all', origin: 'lint' });
-			}
-			(await import('@/lib/fix-all-notice')).announceFixAll({ applied: res.applied, skipped: res.skipped }, notify);
-		})();
+		void import('./deck-lint')
+			.then((m) =>
+				m.fixAllCompose(
+					() => sourceRef.current,
+					lintVocab,
+					lintExtras,
+					(text) => {
+						closeGroupRef.current();
+						setSource(text, { label: 'Fix all', origin: 'lint' });
+					},
+					notify,
+				),
+			)
+			.catch(() => {});
 	}, [lintVocab, lintExtras, setSource]);
 	// Lint accepts BOTH the prefixed token and the bare slug of a saved finish (a deck
 	// authored before the prefix convention shouldn't false-warn).
