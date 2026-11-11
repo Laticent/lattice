@@ -17,11 +17,11 @@
     "escalateTo": [
       "split across slides"
     ],
-    "note": "columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; at portrait the horizons cards paginate instead (one card per page since #2016 — the four-page budget it used to name is gone)"
+    "note": "columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; on a phone page the horizons cards stack and paginate between whole cards instead"
   },
   "split": {
     "strategy": "roadmap-horizons",
-    "note": "Portrait only, and CARD FORM only. The roadmap TABLE stays atomic per §0c — paginating a workstream x phase grid destroys the cross-reading. But at portrait the roadmap kernel (roadmap.transform.js) auto-selects `horizons`, which transposes the grid into N INDEPENDENT .horizon-card phase units (each a phase header plus that phase's workstream rows), so the seam is real there the way kanban's lanes are. The splitter returns null when there is no .horizons grid, so the table form is untouched. One card per page. #2016 made the split structural and set the pace to a constant 1, deleting MAX_HORIZON_PAGES and evenGroups from roadmapHorizonSplit — so 3 phases -> 3 pages and 6 phases -> 6, not the 2+2+1+1 the old ceil(N/4) budget produced. lib/core/carousel.js roadmap-horizons."
+    "note": "Phone pages only, and CARD FORM only (portrait, story and mobile select it; square keeps the table unless the author writes `horizons`). The roadmap TABLE stays atomic per §0c: paginating a workstream x phase grid destroys the cross-reading. On a portrait page the roadmap kernel (roadmap.transform.js) selects `horizons`, which transposes the grid into N INDEPENDENT .horizon-card phase units, so the seam is real there the way kanban's lanes are. The splitter returns null when there is no .horizons grid. Since 2026-11-11 (owner's call) a page holds as many whole cards as fit: the transform marks a roadmap that fits one page (`data-roadmap-fits`, not split) or groups each page's cards in a `.horizons-page`, balanced, decided from the markup and the stored glyph widths, never a render. lib/core/carousel.js roadmap-horizons."
   },
   "families": [
     "state-markers"
@@ -115,6 +115,9 @@
     "summary": "Four phases — the ceiling, and what portrait paginates.",
     "sample": "<!-- _class: roadmap -->\n\n`roadmap · stress`\n\n## Three workstreams by four phases.\n\n| Workstream | Phase one | Phase two | Phase three | Phase four |\n| --- | --- | --- | --- | --- |\n| First | [x] Done cell | [-] Active cell | [ ] Planned | [ ] The last one |\n| Second | [x] Every cell filled | [-] No blanks | [ ] The honest grid | [ ] Four words max |\n| Third | [x] Short labels | [-] Four words max | [ ] Or it wraps | [ ] The ceiling |\n"
   },
+  "dataShapeGuidance": [
+    "On a portrait, story or mobile page the roadmap is set as phase cards, one per phase, stacked full width, each workstream on its own full-width row under the phase name. A roadmap that fits the page stays one page; one that does not continues on the next page, cut between whole phases and balanced across as few pages as it needs, with the status key on every page. Short workstream values keep each row to one line, so more phases fit a page."
+  ],
   "whenToUse": [
     {
       "title": "Phased delivery across workstreams",

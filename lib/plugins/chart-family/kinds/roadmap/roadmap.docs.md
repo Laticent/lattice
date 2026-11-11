@@ -12,7 +12,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 
 ## Agent contract
 
-**Capacity** ~4 columns (over 5 overflows) — past that, split across slides. Columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; at portrait the horizons cards paginate instead (one card per page since #2016 — the four-page budget it used to name is gone).
+**Capacity** ~4 columns (over 5 overflows) — past that, split across slides. Columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; on a phone page the horizons cards stack and paginate between whole cards instead.
 
 **By venue** (`venue:`, ~12 words each) it holds laptop ~5 · huddle ~5 · conference ~5 · hall ~5 columns. No venue goes past the Capacity max of 5, which holds in every room. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
@@ -37,6 +37,10 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 - **Writing the deliverable text before the state marker in a cell.** Each cell must LEAD with the state marker (`[x] Shipped item`), not follow it — a marker placed after the text isn't recognized as the cell's state.
 - **Keying a label set on the state NAME rather than the marker.** `[{shipped, Enacted}]` binds to nothing and the row is dropped. A key is the marker exactly as a cell spells it — `[x]`, `[-]`, `[!]`, `[?]`, `[ ]`, `[/]` — brackets included. The brackets are load-bearing: a bare space key collapses to empty under the parser's whitespace tidy and would take the `[ ]` row with it.
 - **Naming a state the grid does not carry.** A key row for a marker no cell uses would point at nothing, so it is dropped. `lint:deck` names the key when that happens — the rendered key is not the place to discover it.
+
+### Data shape
+
+- On a portrait, story or mobile page the roadmap is set as phase cards, one per phase, stacked full width, each workstream on its own full-width row under the phase name. A roadmap that fits the page stays one page; one that does not continues on the next page, cut between whole phases and balanced across as few pages as it needs, with the status key on every page. Short workstream values keep each row to one line, so more phases fit a page.
 
 ## When to use
 

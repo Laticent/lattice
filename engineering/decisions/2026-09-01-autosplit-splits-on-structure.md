@@ -10,7 +10,8 @@ supersedes: the trigger clause of 2026-07-29-autosplit-is-not-a-toggle.md; the p
 > **AMENDED FOR KANBAN AND ROADMAP ON A PHONE PAGE (2026-11-11, owner's call).** On a portrait, square, story or mobile
 > page a kanban's lanes stack, and a page holds as many whole lanes as fit, not one: a board that fits stays one page, and
 > one that does not is cut between whole lanes into as few pages as it needs, balanced, with a lane taller than a page
-> continued under its name marked "(cont.)". Roadmap's phase cards follow the same rule. This is the packing the rule
+> continued under its name marked "(cont.)". Roadmap's phase cards follow the same rule, and a card is never cut (eight
+> workstreams fit a square page). This is the packing the rule
 > below forbids, and it is allowed for these two kinds only, because one lane per page left most of every page empty (a
 > four-lane board split into five pages at mobile, two or three cards each). It keeps what the rule was for: the cut is
 > decided from the markup and the stored glyph widths (`kanban.transform.js` § ON A PAGE READ ON A PHONE), never a render,
