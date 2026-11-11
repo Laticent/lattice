@@ -187,6 +187,7 @@ const BUILD_OPTIONS = {
 // every kernel there.
 const CHART_REGISTRY = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'shared', 'chart-registry.generated.js');
 const chartRegistry = require(CHART_REGISTRY);
+const CHART_PHONE = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'shared', 'chart-phone.js');
 const CHART_KERNEL_FILES = Object.fromEntries(
   [...fs.readFileSync(CHART_REGISTRY, 'utf8').matchAll(/^const (\w+) = require\('([^']+)'\);$/gm)].map(([, id, rel]) => [id, path.join(path.dirname(CHART_REGISTRY), `${rel}.js`)]),
 );
@@ -211,8 +212,11 @@ const lazyChartRegistryPlugin = {
       // repo was checked out (followups.d/2708-p1). onLoad never reads it.
       return resolved === CHART_REGISTRY ? { path: repoPath(CHART_REGISTRY), namespace: 'lazy-chart-registry' } : undefined;
     });
+    // The phone sets travel with the tables; the phone code itself (`PHONE`) is null until a chart entry brings it.
     build.onLoad({ filter: /.*/, namespace: 'lazy-chart-registry' }, () => ({
-      contents: `module.exports = ${JSON.stringify({ LAYOUTS: chartRegistry.LAYOUTS, FIGURE_CLASSES: chartRegistry.FIGURE_CLASSES, KERNELS: {}, PLUGIN: chartRegistry.PLUGIN })};`,
+      contents: `module.exports = ${JSON.stringify({ LAYOUTS: chartRegistry.LAYOUTS, FIGURE_CLASSES: chartRegistry.FIGURE_CLASSES, KERNELS: {}, PLUGIN: chartRegistry.PLUGIN, PHONE: null })};\n` +
+        `module.exports.FORM_KINDS = new Set(${JSON.stringify([...chartRegistry.FORM_KINDS])});\n` +
+        `module.exports.FORM_HERO_KINDS = new Set(${JSON.stringify([...chartRegistry.FORM_HERO_KINDS])});\n`,
       loader: 'js',
     }));
     // Each chart entry: register its kernel in the one shared table.
@@ -221,7 +225,10 @@ const lazyChartRegistryPlugin = {
       contents:
         `import registry from ${JSON.stringify(CHART_REGISTRY)};\n` +
         `import kernel from ${JSON.stringify(CHART_KERNELS[args.path])};\n` +
-        `registry.KERNELS[${JSON.stringify(args.path)}] = { transformSection: kernel.transformSection };\n`,
+        `import phone from ${JSON.stringify(CHART_PHONE)};\n` +
+        `registry.KERNELS[${JSON.stringify(args.path)}] = { transformSection: kernel.transformSection };\n` +
+        // How a chart draws on a phone page comes with the first kernel (lib/plugins/chart-family/shared/chart-phone.js).
+        'if (!registry.PHONE) registry.PHONE = phone;\n',
       resolveDir: ROOT,
       loader: 'js',
     }));

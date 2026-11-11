@@ -215,7 +215,11 @@ function build() {
   lines.push('');
   lines.push('// The kinds that take the full-bleed hero body at claim-hero / claim-bleed (a manifest\'s `kernel.formHero: true`).');
   lines.push(`const FORM_HERO_KINDS = new Set(${JSON.stringify(charts.filter((c) => c.formHero).map((c) => c.name))});`);
-  lines.push('module.exports = { LAYOUTS, FIGURE_CLASSES, KERNELS, FORM_KINDS, FORM_HERO_KINDS, PLUGIN };');
+  lines.push('');
+  lines.push('// How a chart draws on a phone page (./chart-phone.js): with the kernels, never at startup. The docs site\'s ESM');
+  lines.push('// engine gets it from the first chart entry it loads (tools/build-playground.js `lazyChartRegistryPlugin`).');
+  lines.push("const PHONE = require('./chart-phone');");
+  lines.push('module.exports = { LAYOUTS, FIGURE_CLASSES, KERNELS, FORM_KINDS, FORM_HERO_KINDS, PLUGIN, PHONE };');
   return lines.join('\n') + '\n';
 }
 
