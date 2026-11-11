@@ -960,17 +960,25 @@ against main's) still found 19 smaller slides, from two more causes, now guarded
   fits its key into the shape (`fitViewToBox`). The chart frame now draws a trial on the tall canvas (under
   `trialIds`: no ids spent, no drops reported) and keeps the tall canvas only if the drawing kept its shape
   (`keepsTallShape`); otherwise the chart draws on the fixed canvas, as on main.
-- *A grid key wider than the column.* `pickKeyLayout` takes the shortest layout within 5% of the largest, so a
-  grid that widened the drawing could win and print the whole chart up to 7% smaller (24.5 → 22.8px). A grid
-  is now a candidate only within the single column's width (`gridLayout`), where it can only print larger.
-  And the grid is kept only if it prints at least as large as the key main draws (`buildPortrait` `plainKey`):
+- *A grid key that beat main's key on paper.* `pickKeyLayout` takes the shortest layout within 5% of the largest,
+  so a grid that widened the drawing could win and print the whole chart up to 7% smaller (24.5 → 22.8px). The
+  grid is now kept only if it prints at least as large as the key main draws (`buildPortrait` `plainKey`), and a
+  grid WIDER than the single column only if it prints 5% larger (`GRID_WIDE_WIN`): an export scores against an
+  estimated box shape, and a paper win of a few percent cost a 4:5 slide 0.5px. A first cut that barred every
+  wider grid cost the fluid viewer's phone map its better key (15 → 11px; round 2's grader), because the phone
+  redraw scores against its real box, where a wider grid wins by 20%. The same grader caught the glyph pricing
+  (`gridInk`) charging every capital at the tracked-caps table; it now prices each glyph, narrow ones low, and
+  takes the larger of that and the flat average, so ordinary names price as on main and only wide-glyph names
+  price wider.
   main flows short labels into rows, a layout the grid never weighed, and a heatmap's five bands stacked in a
   three-row grid printed 14.6 → 13.6px where main's two flowing rows did not. The § 29 commit had deleted that
   flowing band (`packBand` / `buildBand`); it is back, verbatim, as the layout the grid has to beat.
 
-After the four fixes the sweep reads: 1,779 chart slides at 4:5, story and mobile; 1,668 print their smallest
-text at main's size, 111 larger (65 at 4:5, 29 story, 17 mobile, up to 18.2 → 30.1px on a risk register at
-mobile), and none smaller. Script: `.scratch/minfs-sweep.js` over HTML renders of every chart deck on both trees.
+After the fixes the sweep reads, compared exactly: 1,779 chart slides at 4:5, story and mobile; 1,647 print their
+smallest text at main's size, 132 larger (85 at 4:5, 29 story, 18 mobile, up to 18.2 → 30.1px on a risk register
+at mobile), and none smaller by any amount. The fluid viewer at 390 × 844, every gallery slide in Chromium, WebKit
+and Firefox, against the redraw round 1 verified (482ab3f3): 432 slide-engine pairs, 417 the same, 15 larger, none
+smaller. Script: `.scratch/minfs-sweep.js` over HTML renders of every chart deck on both trees.
 
 The same review moved two smaller pieces: the column key prices its labels glyph by glyph
 (`legend-svg-key.js` `gridInk`) after a name of wide glyphs ran its value into the next column, and
