@@ -6,6 +6,17 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-11 — measured on the built tree at 2aeda14
+
+PR #3131: the docs preview runtime leaves the chart kernels out (a preview receives charts the engine already drew); engineJsGz falls about 218KB
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | engineJsGz | 775332 | 648151 | -127181 | 712966 |
+| playground | engineJsGz | 775332 | 648151 | -127181 | 712966 |
+| home | engineJsGz | 775332 | 648151 | -127181 | 712966 |
+| components | engineJsGz | 775332 | 648151 | -127181 | 712966 |
+
 ### 2026-11-07 — measured on the built tree at 433499cf
 
 Owner-approved reset (PR #3056): main's engine bundle sat 3,684 B gz under its ceiling and #3056's section rail (both render arms, the topic section eyebrow and the progress-rail register) adds 3,634 B, so a few dozen bytes past it once #3050 landed. The owner chose a tool reset of engineJsGz over a hand raise or trimming the feature. Soft targets reset to today's main; ceilings back to 10% above.

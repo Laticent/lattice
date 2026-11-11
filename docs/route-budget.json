@@ -13,8 +13,8 @@
         "hard": 249291
       },
       "engineJsGz": {
-        "soft": 775332,
-        "hard": 852865
+        "soft": 648151,
+        "hard": 712966
       },
       "chartKernelGz": {
         "soft": 82236,
@@ -40,8 +40,8 @@
         "hard": 519034
       },
       "engineJsGz": {
-        "soft": 775332,
-        "hard": 852865
+        "soft": 648151,
+        "hard": 712966
       }
     },
     "home": {
@@ -55,8 +55,8 @@
         "hard": 121924
       },
       "engineJsGz": {
-        "soft": 775332,
-        "hard": 852865
+        "soft": 648151,
+        "hard": 712966
       }
     },
     "components": {
@@ -70,8 +70,8 @@
         "hard": 659374
       },
       "engineJsGz": {
-        "soft": 775332,
-        "hard": 852865
+        "soft": 648151,
+        "hard": 712966
       }
     },
     "getting-started": {
