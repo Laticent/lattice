@@ -13,3 +13,5 @@
 - A chart these sizes cannot hold on one page at 11pt is drawn whole and scaled to its box, so no name is lost or printed over another.
 - Every docs page that loads the engine downloads about 220KB less script (gzipped): the preview runtime no longer carries the chart kernels, which a preview never ran, because the engine has already drawn its charts. A map's own code is 7KB smaller.
 - On those pages a gantt sets every task name whole at 12pt: inside its bar, after it, or on its own line above the bar. Its lane names sit above their bars and its status key wraps onto a second row when it needs one. At 12pt inside the old bars, names were cut to `Pilot…` and printed across bar edges.
+- On those pages a state chart's tiles grow with their names, so a step number no longer prints on a name, and an edge label keeps its clearance from the lines around it.
+- A state or flowchart name that breaks after a hyphen (`Counter-signature`) is now painted on the same lines the layout measured. It used to be painted on one line, wider than its tile.

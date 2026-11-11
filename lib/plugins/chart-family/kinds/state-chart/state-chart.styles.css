@@ -135,6 +135,26 @@ section.state-chart .state-node:is([data-s="on-track"], [data-s="done"], [data-s
 section.state-chart .state-node .state-label {
   min-width: 0;
 }
+/* ON A PAGE READ ON A PHONE (portrait, square, story, mobile) the names take the 11pt floor, and a machine that does
+ * not fit its box is scaled by k with the floor raised by 1/k (state-chart.layout.js). The tile's padding and wrap
+ * width above are in cqi, which do not grow with it: at k = 0.35 on a square page a tile was 272 units wide around a
+ * 268-unit `Counter-signature`, and the step number sat on the name. Here the tile is sized in multiples of its own name's size, so
+ * it keeps the landscape tile's proportions at any k: the left padding, the gap above and below, the badge's room
+ * (two digits) and a wrap width of about two short words a line. */
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .state-node {
+  /* The name's own size (the phone ladder sets it on the label, not the tile, so an em here would be the tile's). */
+  --sc-name: max(var(--chart-text-min), var(--chart-role-direct));
+  max-width: calc(11 * var(--sc-name));
+  padding: calc(0.35 * var(--sc-name)) calc(2.05 * var(--sc-name)) calc(0.35 * var(--sc-name)) calc(0.7 * var(--sc-name));
+}
+/* An edge's label pads in its own size for the same reason: its box is what the router keeps other lines and labels
+ * out of, and a 0.3cqi pad left `retry` on its own loop and `reject` on `review` once the fit raised the text. */
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .sc-elabel {
+  padding: 0.12em 0.4em;
+}
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .state-node:is([data-s="on-track"], [data-s="done"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="deferred"]) {
+  padding-inline-start: calc(2.05 * var(--sc-name));
+}
 /* A state with an ICON (`icon=`, lib/plugins/chart-family/shared/graph-icons.js): the
  * drawing sits before the name, or above it when the chart is pinned `tb` (the icons note
  * § 11 q1), and the measured tile holds both. `icon-only` keeps the name in the harness for its
