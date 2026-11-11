@@ -180,3 +180,20 @@ test('at a venue the box comes off every block the venue enlarges, so the chart 
   assert.ok(h('hall') < h(null) - 60, `hall ${h('hall')} vs laptop ${h(null)}`);
   assert.equal(h('laptop'), h(null));
 });
+
+test('a heatmap on a phone page sets its band key as a tile and draws a grid too dense for 11pt whole, over capacity', () => {
+  const months = Array.from({ length: 12 }, (_, i) => `M${i}`);
+  const row = (name, n) => `| ${name} | ${months.map((_, i) => (i < n ? String(100 - i * 4) : '')).join(' | ')} |`;
+  const table = [`| Cohort | ${months.join(' | ')} |`, `|---|${months.map(() => '---').join('|')}|`,
+    row('January 2026 acquisition cohort', 12), row('February 2026', 11), row('March 2026', 10)].join('\n');
+  const deck = (cls) => `---\ntheme: indaco\nsize: square\n---\n\n<!-- _class: ${cls} -->\n\n## Retention.\n\n${table}\n`;
+  const dense = createEngine().render(deck('heatmap')).html;
+  assert.match(dense, /data-chart-form="over" class="cart-svg heatmap-svg"/);
+  // Every row name, column name and cell value prints whole.
+  assert.doesNotMatch(dense, /…<\/tspan>/);
+  assert.match(dense, />M11</);
+  const small = '| Cohort | M0 | M1 | M2 |\n|---|---|---|---|\n| Jan | 100 | 62 | 48 |\n| Feb | 100 | 58 | 44 |\n';
+  const keyed = createEngine().render(`---\ntheme: indaco\nsize: mobile\n---\n\n<!-- _class: heatmap scale -->\n\n## Retention.\n\n${small}`).html;
+  assert.match(keyed, /data-chart-form="fit" class="cart-svg heatmap-svg"/);
+  assert.match(keyed, /--chart-fs-key:/, 'the band key is a kernel tile at the key role');
+});

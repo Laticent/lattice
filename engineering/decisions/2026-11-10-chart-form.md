@@ -253,7 +253,8 @@ the owner's scaled drawing (§ 10).
 | radar | yes | the 300-unit diagram is drawn at type scale 1/k and scaled by k, so its rim labels print at their role and the side pads, measured from the labels, come out in fixed canvas units; ring figures thin to every other ring when they crowd; small multiples draw in one grid; with notes it keeps its own layout |
 | map | yes | the basemap is the plot at its own aspect, scaled into the cell (its regions carry no text); the key a kernel tile, in columns when grouped (a heading starts a group); with notes it keeps its own layout |
 | stacked-bar | yes | the row form's name column wraps names at spaces (bar's rule); a keyed stack's key is a kernel tile under a heading that names the bar its values read; the direct-name column comes off the canvas, and names reflow to a key when the totals no longer fit their bars |
-| heatmap, histogram, waterfall, word-cloud | to do | size holds; names dropped vs `main` |
+| heatmap | yes | the row-name column sets every name whole on the lines its row holds (bar's rule, not traded against a cell's number); a band key is a kernel tile; a grid whose names or numbers do not all print whole at 11pt (twelve columns) is laid out on the least larger box, 10% at a time, and scaled (over capacity); with notes it keeps its own layout |
+| histogram, waterfall, word-cloud | to do | size holds; names dropped vs `main` |
 | gantt, slope, state-chart | to do | overprints at square; state-chart under the floor at square |
 | roadmap, timeline-list | to do | overflow at square |
 | matrix-grid | to do | holds both bars; floats small at mobile |
