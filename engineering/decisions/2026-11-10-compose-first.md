@@ -189,6 +189,13 @@ and persists nothing itself, so the Studio does both:
 | A phone arriving from the preview | no keyboard; a drawn caret marks the place, and a tap puts the real caret |
 | A reload | the slide AND the caret's line come back (`lattice-studio-active` gains `line`, written on leaving); with a real keyboard the editor takes focus on it, on a phone the drawn caret shows it |
 
+The caret keeps its COLUMN too, not only its line (owner, iPhone, 2026-11-11): `caret-line.ts` maps a column between a
+Markdown line and the text Compose shows for it, skipping block markers and emphasis, both ways. Plain text, bold,
+italic and code map exactly; a link (`[text](url)` in Source, `text` in Compose) or an inline object falls back to the
+line's start. The shell reads the column from the editor being left (Compose's handle, or Source's exact offset in the
+hub), hands it to the one arriving, and saves it with the line (`lattice-studio-active` gains `col`). Arriving, Compose
+frames the caret, not only the slide, when the caret sits lower than one screen shows.
+
 The drawn caret sits OUTSIDE the editable text: an overlay in Compose (`position: fixed` from the caret's coordinates) and
 a CodeMirror layer in Source. A first cut put a widget inside the text and took it out on focus, and changing the
 editable DOM under a click made Firefox drop where the first click landed (caught by the gecko run). Fuoco's `go` gained

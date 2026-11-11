@@ -26,4 +26,5 @@
 - **You can see where you are after a switch or a reload.** With a keyboard, the editor you switch to takes focus with
   the caret where you left it; on a phone, switching straight between Compose and Source brings the keyboard up the same
   way, and arriving from the preview shows a drawn caret instead of the keyboard. A reload brings back the caret's line
-  as well as the slide.
+  and its place on the line, as well as the slide; the place on the line also carries between Compose and Source,
+  except inside a link or next to an inline object, where the caret starts the line.
