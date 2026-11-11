@@ -650,6 +650,11 @@ VS Code inserts them as written. The same file ships in the copy-and-go Marp kit
 Export-to-Marp bundle (`.vscode/lattice.code-snippets`). Generated from the manifests; never
 hand-edited.
 
+Layout NAMES complete as you type inside `<!-- _class: ` through a small VS Code extension,
+`lattice-layouts.vsix`, which the Marp kit ships and the bundle's README links to. Its completion
+provider answers only inside a class directive, so prose never opens a menu
+(`kit/vscode/`, `engineering/decisions/2026-11-11-vscode-layout-completions.md`).
+
 ### For the browser (future)
 
 A `docs/catalog.html` generated from manifests would deliver the
