@@ -1,4 +1,4 @@
-import { expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
+import { caretSettled, expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
 
 // A newline inside a paragraph is a line break on the slide, so editing the paragraph keeps it.
 // followups.d/2846-p6; engineering/decisions/2026-10-21-compose-point-and-click.md §7b.
@@ -24,6 +24,9 @@ test('@crosswidth @gecko @webkit-tablet editing a paragraph keeps its line break
 	await expect(page.locator('.cs-host .cs-slide-locked, .cs-host [data-locked="true"]')).toHaveCount(0);
 	const para = page.locator('.cs-host p', { hasText: 'Line one' });
 	await para.click();
+	// The click's caret reaches ProseMirror through a queued `selectionchange`; wait for it, or it can land AFTER the
+	// caret set below and drag the typing back to where the click fell (HARD RULE #32: a signal, not a sleep).
+	await caretSettled(page);
 	// Place the caret through the DOM selection, which ProseMirror reads: Home/End and Control+Home move differently in
 	// WebKit, and the test is about the source, not about a browser's caret keys.
 	const select = (text: string, whole: boolean) =>
@@ -34,7 +37,7 @@ test('@crosswidth @gecko @webkit-tablet editing a paragraph keeps its line break
 				document.getSelection()?.setBaseAndExtent(node, whole ? 0 : text.length, node, text.length);
 			},
 			[text, whole] as const,
-		);
+		).then(() => caretSettled(page));
 	await select('Line one', false);
 	await page.keyboard.type('!');
 	await expect.poll(() => stored(page)).toContain('Line one!\nLine two\nLine three');
@@ -51,12 +54,14 @@ test('@crosswidth @gecko @webkit-tablet Shift+Enter writes one new line, and Ent
 	await openDeck(page);
 	const para = page.locator('.cs-host p', { hasText: 'Line three' });
 	await para.click();
+	await caretSettled(page); // see the test above
 	// Put the caret at the end of the last line through the DOM selection (see the test above).
 	await para.evaluate((p) => {
 		const node = [...p.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE).pop();
 		if (!node) throw new Error('no text node');
 		document.getSelection()?.setBaseAndExtent(node, node.textContent?.length ?? 0, node, node.textContent?.length ?? 0);
 	});
+	await caretSettled(page);
 	await page.keyboard.press('Shift+Enter');
 	await page.keyboard.type('Line four');
 	await expect.poll(() => stored(page)).toContain('Line three\nLine four');
