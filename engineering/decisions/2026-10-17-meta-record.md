@@ -631,7 +631,10 @@ step 2 door and are decided in §5.4.1, and the rest are strips, over-matching p
   The drawer, the speaker-note, say and description editors, and Compose's pane writers (`setCommentField`, §5.4.1)
   all go through it. Found on the way: the Studio's note editor read a record as the speaker note and deleted it on
   save; fixed.
-- **Completion** after `<!-- {` (fields) and `field=` (values) in `docs/src/playground/complete.js`.
+- **Completion** after `<!-- {` (fields) and `field=` (values): one kernel in `docs/src/playground/slide-context.js`
+  (`recordCompletion`, `recordOptions`), wired into both completers, the Playground's (`complete.js`) and the Studio's
+  (`docs/src/components/studio/editor-complete.ts`). The card grader's raise round found the Studio's had been missed:
+  the two editors keep separate completers.
 - **The D11 gate** (`checkProviderAttributeWriters`) holds two shapes at zero: a `data-*` attribute whose NAME is
   computed, anywhere under `lib/`, outside the allowlisted apply step; and a plugin writing a slide-metadata attribute
   by name. "The only writer of provider attributes" is not decidable from text in general (a plugin may write
