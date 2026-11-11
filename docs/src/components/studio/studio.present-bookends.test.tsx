@@ -95,9 +95,11 @@ describe('Present — greeting and closing', () => {
 		await waitFor(() => expect(said()).toContain('Welcome to the review.'), { timeout: 5_000 });
 		expect(said()).not.toContain('Good afternoon');
 		await waitFor(() => expect(screen.getByText('2 / 2')).toBeInTheDocument(), { timeout: 10_000 });
+		// The delivery's end is the signal that the closing was decided against. The last slide's finish either starts
+		// the closing, which keeps autoplay on until the closing has been said, or ends autoplay and brings Play back.
+		// So Play coming back means no closing was started, and one that had been would have been sampled saying its
+		// line before Play could return. (This was a further 1500 ms sleep, which proved nothing the wait above did not.)
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Play the presentation' })).toBeInTheDocument(), { timeout: 10_000 });
-		// Let a closing that would follow the gap have its chance to appear.
-		await new Promise((r) => setTimeout(r, 1500));
 		clearInterval(sample);
 		expect(seen.some((t) => t.includes('Thank you, and goodbye.'))).toBe(false);
 		expect(seen.some((t) => t.includes('Good afternoon'))).toBe(false);

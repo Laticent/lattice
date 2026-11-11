@@ -6,7 +6,9 @@ import { SEL } from './lessons/lesson-kit';
 import StudioShell from './StudioShell';
 
 // The Studio's panels load on first open; load them up front so no test races a shell.
-beforeAll(loadStudioPanels);
+// An explicit budget over vitest's 10 s hook default: this is the file's first cold import of all six panel chunks, and
+// under load (three copies of this file at once on 4 cores) it ran past 10 s once in 21 runs. A hang still fails, at 30 s.
+beforeAll(loadStudioPanels, 30_000);
 
 // Stub the live preview (its engine poller leaks a post-teardown timer in jsdom).
 // The stub also SURFACES `deckId`, because that string is what the preview's diagram-hold
@@ -342,7 +344,8 @@ describe('Studio — every top-bar control responds', () => {
 		await waitFor(() => expect(document.querySelector('.cm-lintRange')).toBeTruthy(), { timeout: 6000 });
 	});
 
-	/** The 0-based slide the editor's caret is in: the `---` lines before it, less the front matter's two. */
+	/** The 0-based slide the editor's caret is in: the `---` lines before it, less the front matter's two. Built for this
+	 *  file's sample deck, which has no code fence or setext heading; a `---` inside either would count as a slide break. */
 	// biome-ignore lint/suspicious/noExplicitAny: the CodeMirror view, reached through its DOM handle.
 	const caretSlide = (v: any): number => {
 		const doc: string = v.state.doc.toString();
@@ -492,30 +495,28 @@ describe('Studio — every top-bar control responds', () => {
 		expect(railCount()).toBe(start + 2);
 		// The current slide's pill, looked up each time: an undo re-renders the strip.
 		const rail = () => document.querySelector('nav[aria-label="Slide navigator"] button[data-unit][aria-current="true"]') as HTMLElement;
-		const ask = (inputType = 'historyUndo') => {
+		// Each event carries the creation time the test gives it: the Shell judges a pair by `timeStamp` alone, so the
+		// times are written down rather than produced by busy-waiting and sleeping on the machine's clock. They start
+		// past any real event this test already sent.
+		const t0 = new Event('probe').timeStamp + 10_000;
+		const ask = (at: number, inputType = 'historyUndo') => {
 			const e = new InputEvent('beforeinput', { inputType, cancelable: true, bubbles: true });
+			Object.defineProperty(e, 'timeStamp', { value: t0 + at });
 			rail().dispatchEvent(e);
 			return e.defaultPrevented;
 		};
-		// The pair, with a render's worth of work between them in one task (a real menu click lets React render
-		// between the two events): still one request. A 16 ms window takes two steps here.
-		const t0 = Date.now();
-		const first = ask();
-		while (Date.now() - t0 < 25) {
-			// busy: the second event is created 25 ms after the first
-		}
-		const second = ask();
+		// The pair, with a render's worth of work between them (a real menu click lets React render between the two
+		// events): created 25 ms apart, still one request. A 16 ms window takes two steps here.
+		expect([ask(0), ask(25)]).toEqual([true, true]);
+		await waitFor(() => expect(railCount(), 'the pair took back one step').toBe(start + 1));
 		// Redo 60 ms after the Undo, faster than most people: a request of its own, so it runs. A 100 ms window
 		// drops it.
-		await new Promise((r) => setTimeout(r, Math.max(0, 60 - (Date.now() - t0))));
-		expect([first, second, ask('historyRedo')]).toEqual([true, true, true]);
+		expect(ask(60, 'historyRedo')).toBe(true);
 		await waitFor(() => expect(railCount()).toBe(start + 2));
-		// And two more Undos, each its own request.
-		await new Promise((r) => setTimeout(r, 60));
-		expect(ask()).toBe(true);
+		// And two more Undos, 60 ms apart, each its own request.
+		expect(ask(120)).toBe(true);
 		await waitFor(() => expect(railCount()).toBe(start + 1));
-		await new Promise((r) => setTimeout(r, 60));
-		expect(ask()).toBe(true);
+		expect(ask(180)).toBe(true);
 		await waitFor(() => expect(railCount()).toBe(start));
 	});
 
@@ -621,7 +622,8 @@ describe('Studio — every top-bar control responds', () => {
 		expect(await screen.findByPlaceholderText(/Search or run a command/i)).toBeInTheDocument();
 		expect(screen.queryByRole('dialog', { name: /Studio commands/i })).toBeNull();
 		await user.click(within(await screen.findByRole('listbox')).getByText(/Fabricate/));
-		expect(await screen.findByPlaceholderText(/Describe a look/i)).toBeInTheDocument();
+		// The same cold Fabricate import `openFabricate` waits out, so its budget: the 1000 ms default ran out once under load.
+		expect(await screen.findByPlaceholderText(/Describe a look/i, undefined, { timeout: 15000 })).toBeInTheDocument();
 		// Re-open and pick a theme command.
 		await user.keyboard('{Meta>}k{/Meta}');
 		await user.click(within(await screen.findByRole('listbox')).getByText('cuoio'));

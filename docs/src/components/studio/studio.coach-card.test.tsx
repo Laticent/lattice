@@ -13,19 +13,49 @@ beforeAll(loadStudioPanels);
 // makes the window a controllable state instead of a race; none of these defects is reachable
 // from a normal click. Complements studio.coach-card-race.test.tsx (#1831), which hand-releases
 // the ASSESSMENT round; this file hand-releases the CHIP.
-const { askGate } = vi.hoisted(() => ({ askGate: { promise: Promise.resolve() as Promise<void>, release: () => {} } }));
+// `answered` counts the gated chips that have returned their card. The shell sets (or, guarded,
+// declines to set) the card in the same continuation that receives it, so once the count moves the
+// decision under test has been made: wait on that, never on a stretch of wall-clock time.
+// `assessed` is the same for the deck assessment, keeping the source each finished round read.
+const { askGate, assessed } = vi.hoisted(() => ({
+	askGate: { promise: Promise.resolve() as Promise<void>, release: () => {}, answered: 0 },
+	assessed: { rounds: [] as string[] },
+}));
 function armAskGate() {
+	askGate.answered = 0;
 	askGate.promise = new Promise<void>((res) => {
 		askGate.release = () => res();
 	});
+}
+/** Release the gated chip and wait until it has answered — the moment its card is decided. */
+async function releaseAndSettle() {
+	const before = askGate.answered;
+	askGate.release();
+	await waitFor(() => expect(askGate.answered).toBeGreaterThan(before), { timeout: 15000 });
 }
 vi.mock('./coach/coach-core', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('./coach/coach-core')>();
 	return {
 		...actual,
-		theAsk: async (src: string) => { await askGate.promise; return actual.theAsk(src); },
+		theAsk: async (src: string) => {
+			await askGate.promise;
+			const card = await actual.theAsk(src);
+			askGate.answered++;
+			return card;
+		},
 		// Only the minutes-bearing call awaits the chunk; gate that one.
-		pacing: async (src: string, min?: number) => { if (min) await askGate.promise; return actual.pacing(src, min); },
+		pacing: async (src: string, min?: number) => {
+			if (!min) return actual.pacing(src, min);
+			await askGate.promise;
+			const card = await actual.pacing(src, min);
+			askGate.answered++;
+			return card;
+		},
+		assessDeck: async (...args: Parameters<typeof actual.assessDeck>) => {
+			const result = await actual.assessDeck(...args);
+			assessed.rounds.push(args[0]);
+			return result;
+		},
 	};
 });
 vi.mock('@/components/DeckPreview', () => ({
@@ -42,6 +72,7 @@ beforeEach(() => {
 	// leaves every later one with no in-flight window, so the race they exist to pin never happens
 	// and they pass vacuously. Caught by mutation, not by reading.
 	armAskGate();
+	assessed.rounds = [];
 });
 
 /** The open card's Close control — its only unambiguous handle, since a findings-derived card's
@@ -84,11 +115,11 @@ async function setup(assessable = true) {
 		// An unassessable deck has no post-round signal in the DOM: the Deck read placeholder
 		// renders off `deckHasContent`, which is false from the first render, so waiting for it
 		// proves only that the component mounted. The round still has to finish before the chips
-		// can honestly say the deck was not assessed, so wait out the 400ms assessment debounce
-		// and its async pass. A bounded wait rather than a signal, because there is no signal —
-		// the assertions that follow are about the card's WORDS, and each is mutation-checked, so
-		// this cannot quietly turn into a test that passes on broken code.
-		await new Promise((r) => setTimeout(r, 1200));
+		// can honestly say the deck was not assessed, so wait for the assessment itself to return
+		// on this deck's source: the shell clears `assessing` in the continuation that receives it.
+		// (This was a 1200 ms sleep, and a loaded machine ran past it before the 400 ms debounce
+		// and the lint load had finished.)
+		await waitFor(() => expect(assessed.rounds.some((src) => src.includes('# Quarterly update'))).toBe(true), { timeout: 15000 });
 	}
 	return user;
 }
@@ -101,8 +132,7 @@ describe('Coach quick-read card — what happens during an in-flight chip', () =
 		await waitFor(() => expect(openCardTitle()).toBe('Top fixes'), { timeout: 15000 });
 		await user.click(openCard() as HTMLElement);
 		expect(openCardTitle()).toBeNull();
-		askGate.release();
-		await new Promise((r) => setTimeout(r, 600));
+		await releaseAndSettle();
 		expect(openCardTitle()).toBeNull();
 	}, 40000);
 
@@ -111,8 +141,7 @@ describe('Coach quick-read card — what happens during an in-flight chip', () =
 		await user.click(await screen.findByRole('button', { name: 'The ask' }));
 		await user.click(screen.getByRole('button', { name: 'Weakest slide' }));
 		await waitFor(() => expect(openCardTitle()).toBe('Weakest slide'), { timeout: 15000 });
-		askGate.release();
-		await new Promise((r) => setTimeout(r, 600));
+		await releaseAndSettle();
 		expect(openCardTitle()).toBe('Weakest slide');
 	}, 40000);
 
@@ -125,8 +154,7 @@ describe('Coach quick-read card — what happens during an in-flight chip', () =
 		await user.click(screen.getByRole('button', { name: 'The ask' }));
 		await user.click(openCard() as HTMLElement);
 		expect(openCardTitle()).toBeNull();
-		askGate.release();
-		await new Promise((r) => setTimeout(r, 600));
+		await releaseAndSettle();
 		expect(openCardTitle()).toBeNull();
 	}, 40000);
 
@@ -145,8 +173,7 @@ describe('Coach quick-read card — what happens during an in-flight chip', () =
 		await submitMinutes(user);
 		await user.click(openCard() as HTMLElement);
 		expect(openCardTitle()).toBeNull();
-		askGate.release();
-		await new Promise((r) => setTimeout(r, 600));
+		await releaseAndSettle();
 		expect(openCardTitle()).toBeNull();
 	}, 40000);
 
@@ -155,8 +182,7 @@ describe('Coach quick-read card — what happens during an in-flight chip', () =
 		await submitMinutes(user);
 		await user.click(screen.getByRole('button', { name: 'Top fixes' }));
 		await waitFor(() => expect(openCardTitle()).toBe('Top fixes'), { timeout: 15000 });
-		askGate.release();
-		await new Promise((r) => setTimeout(r, 600));
+		await releaseAndSettle();
 		expect(openCardTitle()).toBe('Top fixes');
 	}, 40000);
 });

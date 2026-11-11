@@ -1,6 +1,6 @@
 // chatComplete on the cloud tier, end to end through the real wiring (prompt, loop, tools,
 // fold, finalize) with a scripted backend standing in for OpenRouter. No network.
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { selectChat } from '../../lib/model-selection.js';
 import { architectModel, chatComplete, requestFindingFix } from './architect';
 
@@ -246,9 +246,11 @@ describe('checker pass: failures name their cause', () => {
 		m.openRouterModelPrice = () => ({ promptPerM: 3, completionPerM: 15 });
 		try {
 			await chatComplete([{ role: 'user', content: 'Tighten slide 2' }], DECK, undefined, { signal: ctl.signal });
-			await new Promise((r) => setTimeout(r, 0));
-			expect(looked).toEqual(['gen-2']);
-			expect(spend.readSpend().session).toBeGreaterThan(before);
+			// The reconcile runs after the Stop returns: wait for its result, not for a tick that happens to cover it.
+			await vi.waitFor(() => {
+				expect(looked).toEqual(['gen-2']);
+				expect(spend.readSpend().session).toBeGreaterThan(before);
+			});
 		} finally {
 			m.openRouterGenerationCost = orig.cost;
 			m.openRouterModelPrice = orig.price;

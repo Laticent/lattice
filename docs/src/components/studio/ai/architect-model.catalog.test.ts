@@ -10,7 +10,7 @@ function stubFetch() {
 	const calls: string[] = [];
 	const fetchStub = vi.fn(async (url: unknown) => {
 		calls.push(String(url));
-		await new Promise((r) => setTimeout(r, 5));
+		// An async stub: its answer lands on a later turn, so the fetch is still in flight for every caller in this one.
 		return new Response(JSON.stringify(CATALOG), { status: 200, headers: { 'content-type': 'application/json' } });
 	});
 	vi.stubGlobal('fetch', fetchStub);
@@ -44,9 +44,16 @@ describe('the OpenRouter model catalog', () => {
 	});
 
 	it('is not fetched for a user who has not connected (no key, nothing to spend)', async () => {
+		// Absence needs a signal, not a pause: fake timers, then run every timer the creation scheduled (and the promise
+		// turns between them) until none is left. A prefetch deferred to any timer or turn has fired by then.
 		const calls = stubFetch();
-		createArchitectModel({ getSettings: () => ({}) });
-		await new Promise((r) => setTimeout(r, 20));
+		vi.useFakeTimers();
+		try {
+			createArchitectModel({ getSettings: () => ({}) });
+			await vi.runAllTimersAsync();
+		} finally {
+			vi.useRealTimers();
+		}
 		expect(calls).toHaveLength(0);
 	});
 
@@ -119,6 +126,9 @@ describe('the OpenRouter model catalog', () => {
 		selectChat({ provider: 'openrouter', model: 'fresh/model' });
 		const m = createArchitectModel({ getSettings: () => ({}) }) as unknown as { openRouterModelPrice: () => { promptPerM: number } | null; listOpenRouterModels: () => Promise<unknown[]>; __invalidateCatalog: () => void };
 		expect(gate).toHaveLength(1);
+		// Fetch A's own promise: a caller now joins the prefetch in flight rather than starting another.
+		const a = m.listOpenRouterModels();
+		expect(gate).toHaveLength(1);
 		m.__invalidateCatalog();
 		const b = m.listOpenRouterModels();
 		await vi.waitFor(() => expect(gate).toHaveLength(2));
@@ -128,7 +138,8 @@ describe('the OpenRouter model catalog', () => {
 		expect(m.openRouterModelPrice()?.promptPerM).toBe(1);
 		// A lands late: it must not replace the cache, and a caller now must not start a third fetch.
 		gate[0](body('stale/model', '0.000009'));
-		await new Promise((r) => setTimeout(r, 10));
+		// Wait for A itself to finish (its answer handed back, its slot cleanup run), not for a guess at how long that takes.
+		expect(await a).toEqual([expect.objectContaining({ id: 'stale/model' })]);
 		expect(m.openRouterModelPrice()?.promptPerM).toBe(1);
 		await m.listOpenRouterModels();
 		expect(gate).toHaveLength(2);

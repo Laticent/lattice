@@ -76,6 +76,17 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             maker-checker); test/unit/components/lint-core.test.js, chart-row-record and the plugin hang guards run all of
             lint and wait on the lint-core drain (followups.d/3045-p2-regex-recheck-gate.md). Retries stay 1: the
             "3 nightlies no redder" check needs the baseline empty first.
+            2026-11-11 (continuation, P2): `docs/src/components` done, 92 hits in 24 files; the baseline is now 377 hits
+            in 155 files. Every rewrite was shown failing on a broken product line. Found on the way: a quadratic span
+            lookup in `renameAssetRefsOutsideCode` (`asset-refs.ts`, `spans.some` per reference), fixed in the same PR
+            with a 4x-input work-growth test. Tools added inside the tests, worth copying: fake timers past the product's
+            own timer constants for "nothing happens" checks (DeckPreview, present-pace, NewSlideButton, tap-away), and
+            in live-controller a `drain()` that waits until the network queue is empty and no awareness-gate timer is
+            held. Two test gaps that were there before and were left as they were: live-controller's
+            records test cannot see a non-host `records` post being accepted (the host's later post replaces Amina's
+            pending `takeRecords`; needs Amina's post alone plus a signal for when `refuseImportedTheme` finishes), and
+            the pointer-throttle `<=3` check cannot tell the sender throttle from the host's 30 ms flood gate. Next by
+            weight: `docs/src/lib` (96), then `test/integration/export` (55).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.
