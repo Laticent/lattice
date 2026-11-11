@@ -1,8 +1,18 @@
 // @vitest-environment node
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { applyTag, parseSlideTags, taggedLensIds } from './tags';
+
+// Work counts in place of a stopwatch (HARD RULE #32, F1). The root's helpers are CommonJS.
+const req = createRequire(import.meta.url);
+const { charReads } = req('../../../../test/helpers/work-count.js') as {
+	charReads: <T>(fn: () => T) => { result: T; scanned: number; reads: number };
+};
+const { traceRegexes } = req('../../../../test/helpers/regex-trace.js') as {
+	traceRegexes: <T>(fn: () => T) => { result: T; keys: Set<string> };
+};
 
 describe('taggedLensIds', () => {
 	it('collects include AND exclude ids across all slides (union)', () => {
@@ -37,9 +47,12 @@ describe('parseSlideTags', () => {
 	});
 	it('parses a pathological all-whitespace tag in linear time (ReDoS guard)', () => {
 		const evil = `<!-- _lens:${' '.repeat(200000)}`; // 200k spaces, never closed
-		const start = performance.now();
-		expect(parseSlideTags(evil).include.size).toBe(0);
-		expect(performance.now() - start).toBeLessThan(500); // linear scan, not polynomial backtracking
+		// Counted, not timed: every character searched, sliced or read by code (1.0x the input measured), and no regex
+		// on the path at all, so none can backtrack (a regex's backtracking is invisible to the count).
+		const w = charReads(() => parseSlideTags(evil));
+		expect(w.result.include.size).toBe(0);
+		expect(w.reads + w.scanned, `${w.reads + w.scanned} for ${evil.length} characters`).toBeLessThan(4 * evil.length);
+		expect([...traceRegexes(() => parseSlideTags(evil)).keys]).toEqual([]);
 	});
 	it('ignores a _lens example DOCUMENTED inside a code fence, but reads a real one after it', () => {
 		const doc = '<!-- _lens: brief -->\n# How lenses work\n\n```markdown\n<!-- _lens: ask story -->\n```';

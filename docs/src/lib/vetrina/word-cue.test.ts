@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CaptionTrack } from '@/lib/ltt';
 import type { NarratedWord, NarrationHandle, Narrator } from './narrate';
 import { resolvePacing } from './pacing';
@@ -11,6 +11,30 @@ import type { Stage } from './stage';
 // ("Now click Publish" says it at ~410 ms) and a cursor crossing an app needs ~900 ms to
 // arrive, so a rule that only ever delays the ACTION resolves to a zero wait every time.
 // Whichever side is behind has to wait, and these tests fail if that regresses to one side.
+
+// Every test runs on vi's fake clock: the storyboard's waits, the narrator's line and the trace's
+// `Date.now()` all read it, so each position below is exact virtual milliseconds, not a window.
+beforeEach(() => {
+	vi.useFakeTimers();
+});
+afterEach(() => {
+	vi.useRealTimers();
+});
+
+/** Run a beat to completion by stepping the fake clock through every timer it schedules. */
+async function drive<T>(p: Promise<T>): Promise<T> {
+	await vi.runAllTimersAsync();
+	return p;
+}
+
+/** Start a beat and watch it, so a test can step the fake clock and ask whether it is over yet. */
+function finished(p: Promise<unknown>): { done: boolean } {
+	const state = { done: false };
+	p.then(() => {
+		state.done = true;
+	});
+	return state;
+}
 
 /** A flat word list as the one-cue CaptionTrack a narrator's `plan()` returns. */
 function asTrack(words: NarratedWord[]): CaptionTrack {
@@ -30,10 +54,13 @@ function fakeNarrator(plan: NarratedWord[] | null, opts: { voiced?: boolean; dur
 		plan: () => (plan ? asTrack(plan) : null),
 		speak(): NarrationHandle {
 			started.push(Date.now());
-			return { done: new Promise<void>((r) => setTimeout(r, opts.durationMs ?? 0)), cancel() {} };
+			return { done: lineOf(opts.durationMs ?? 0), cancel() {} };
 		},
 	};
 }
+
+/** A line that lasts `ms` of virtual time; drive() steps the fake clock through it. */
+const lineOf = (ms: number) => new Promise<void>((r) => setTimeout(r, ms)); // flaky-ok: a simulated line length on vi's fake clock (beforeEach), stepped by drive(), never a real wait
 
 interface Trace {
 	at: number;
@@ -82,52 +109,51 @@ describe('Step.at — the cursor lands on the word', () => {
 		// lead 700 ms, word at 410 ms → the line has to start 290 ms in.
 		const narrator = fakeNarrator(PLAN);
 		const { ctx, trace, startedAt } = harness(narrator, 700);
-		await scene().say(LINE).at('Publish').point('#publish').click().hold(0).build()(ctx);
+		await drive(scene().say(LINE).at('Publish').point('#publish').click().hold(0).build()(ctx));
 
 		// The action did NOT wait — it left immediately, which is the point.
 		const point = trace.find((t) => t.what === 'point');
-		expect(point?.at ?? 999).toBeLessThan(80);
-		// The line did.
-		const [lineStart] = startedAt();
-		expect(lineStart).toBeGreaterThanOrEqual(240);
-		expect(lineStart).toBeLessThan(460);
+		expect(point?.at).toBe(0);
+		// The line did: exactly the 290 ms the hand needs beyond the word's 410.
+		expect(startedAt()).toEqual([290]);
 	});
 
 	it('when the WORD is further off, the ACTION waits instead', async () => {
 		// lead 100 ms, word at 410 ms → the action holds ~310 ms so it arrives on the word.
 		const narrator = fakeNarrator(PLAN);
 		const { ctx, trace, startedAt } = harness(narrator, 100);
-		await scene().say(LINE).at('Publish').point('#publish').click().hold(0).build()(ctx);
+		await drive(scene().say(LINE).at('Publish').point('#publish').click().hold(0).build()(ctx));
 
-		const [lineStart] = startedAt();
-		expect(lineStart).toBeLessThan(80); // the line started at once
+		expect(startedAt()).toEqual([0]); // the line started at once
 		const point = trace.find((t) => t.what === 'point');
-		expect(point?.at ?? 0).toBeGreaterThanOrEqual(260);
+		expect(point?.at).toBe(310); // 410 - 100: the hand arrives as the word is said
 	});
 
 	it('exactly one side waits — never both, which would just add the two delays together', async () => {
 		for (const lead of [0, 100, 410, 700, 2000]) {
 			const narrator = fakeNarrator(PLAN);
 			const { ctx, trace, startedAt } = harness(narrator, lead);
-			await scene().say(LINE).at('Publish').point('#publish').click().hold(0).build()(ctx);
+			await drive(scene().say(LINE).at('Publish').point('#publish').click().hold(0).build()(ctx));
 			const lineStart = startedAt()[0] ?? 0;
 			const pointAt = trace.find((t) => t.what === 'point')?.at ?? 0;
-			expect(Math.min(lineStart, pointAt)).toBeLessThan(80);
+			expect(Math.min(lineStart, pointAt), `lead ${lead}`).toBe(0);
+			// And the side that waits, waits exactly the difference, so the hand lands on the word.
+			expect(Math.max(lineStart, pointAt), `lead ${lead}`).toBe(Math.abs(410 - lead));
 		}
 	});
 
 	it('a word the line does not contain leaves the beat in its normal order', async () => {
 		const narrator = fakeNarrator(PLAN);
 		const { ctx, trace, startedAt } = harness(narrator, 700);
-		await scene().say(LINE).at('Archive').point('#publish').click().hold(0).build()(ctx);
-		expect(startedAt()[0]).toBeLessThan(80);
-		expect(trace.find((t) => t.what === 'point')?.at ?? 999).toBeLessThan(80);
+		await drive(scene().say(LINE).at('Archive').point('#publish').click().hold(0).build()(ctx));
+		expect(startedAt()).toEqual([0]);
+		expect(trace.find((t) => t.what === 'point')?.at).toBe(0);
 	});
 
 	it('a narrator that cannot plan its own timeline degrades silently, it does not throw', async () => {
 		const narrator = fakeNarrator(null);
 		const { ctx, trace } = harness(narrator, 700);
-		await expect(scene().say(LINE).at('Publish').point('#publish').click().hold(0).build()(ctx)).resolves.toBeUndefined();
+		await expect(drive(scene().say(LINE).at('Publish').point('#publish').click().hold(0).build()(ctx))).resolves.toBeUndefined();
 		expect(trace.some((t) => t.what === 'point')).toBe(true);
 	});
 
@@ -135,7 +161,7 @@ describe('Step.at — the cursor lands on the word', () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const narrator = fakeNarrator(PLAN);
 		const { ctx, trace } = harness(narrator, 100);
-		await scene().say(LINE).at('Publish').read().point('#publish').click().hold(0).build()(ctx);
+		await drive(scene().say(LINE).at('Publish').read().point('#publish').click().hold(0).build()(ctx));
 		// `read` would have dwelled for the caption before acting AND emphasized the dock.
 		expect(trace.some((t) => t.what === 'emphasize')).toBe(false);
 		expect(warn).toHaveBeenCalledWith(expect.stringContaining('at'));
@@ -154,9 +180,12 @@ describe('narration and the beat clock', () => {
 	it('a beat waits for its line before settling — the next caption never cuts a voice off', async () => {
 		const narrator = fakeNarrator(null, { durationMs: 400 });
 		const { ctx } = harness(narrator, 0);
-		const t0 = Date.now();
-		await scene().say('One.').hold(0).build()(ctx);
-		expect(Date.now() - t0).toBeGreaterThanOrEqual(340);
+		const run = scene().say('One.').hold(0).build()(ctx);
+		const beat = finished(run);
+		await vi.advanceTimersByTimeAsync(399);
+		expect(beat.done).toBe(false); // a millisecond before the line ends, the beat still holds
+		await drive(run);
+		expect(beat.done).toBe(true);
 	});
 
 	it('a read beat takes the LONGER of the narration and the reading budget', async () => {
@@ -164,13 +193,15 @@ describe('narration and the beat clock', () => {
 		// is the whole reason a deaf viewer has it on screen.
 		const narrator = fakeNarrator(null, { durationMs: 300 });
 		const { ctx } = harness(narrator, 0);
-		const t0 = Date.now();
-		await scene().say('Short.').read().hold(0).build()(ctx);
-		expect(Date.now() - t0).toBeGreaterThanOrEqual(900);
+		const run = scene().say('Short.').read().hold(0).build()(ctx);
+		const beat = finished(run);
+		await vi.advanceTimersByTimeAsync(999);
+		expect(beat.done).toBe(false); // the line ended at 300; the 1000 ms reading budget still holds it
+		await drive(run);
+		expect(beat.done).toBe(true);
 	});
 
 	it('with no narrator at all the interpreter behaves exactly as it did before narration existed', async () => {
-		const t0 = Date.now();
 		const trace: string[] = [];
 		const stage = {
 			say: (t: string) => void trace.push(`say:${t}`),
@@ -184,8 +215,10 @@ describe('narration and the beat clock', () => {
 		// No `narrator`, no `pacing` — a RunContext assembled by hand, as every host that drives a
 		// Walkthrough without run() does.
 		const ctx = { stage, actions: {}, signal: new AbortController().signal, type: async () => {}, awaitUser: async () => new Event('x') } as unknown as RunContext<Record<string, never>>;
-		await scene().say('Hello.').point('#a').click().hold(0).build()(ctx);
+		const beat = finished(scene().say('Hello.').point('#a').click().hold(0).build()(ctx));
+		// No time passes at all: the beat is over once its promise callbacks drain.
+		await vi.advanceTimersByTimeAsync(0);
+		expect(beat.done).toBe(true);
 		expect(trace).toEqual(['say:Hello.', 'point', 'press']);
-		expect(Date.now() - t0).toBeLessThan(300);
 	});
 });

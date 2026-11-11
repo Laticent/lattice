@@ -23,8 +23,12 @@ function Harness({ outer, inner, onOuter, onInner }: { outer: boolean; inner: bo
 let push: ReturnType<typeof vi.spyOn>;
 let back: ReturnType<typeof vi.spyOn>;
 
-/** Let the controller's reconcile microtask run. */
-const settle = () => new Promise<void>((r) => setTimeout(r, 0));
+/**
+ * Let the controller's reconcile microtask run. The controller queues it (`queueMicrotask`) during the
+ * commit or the popstate that scheduled it, before this is called, so a microtask queued here runs after
+ * it: the queue is first in, first out. No clock is involved.
+ */
+const settle = () => new Promise<void>((r) => queueMicrotask(r));
 
 /**
  * A history traversal, driven by hand — jsdom's `history.back()` does not reliably emit

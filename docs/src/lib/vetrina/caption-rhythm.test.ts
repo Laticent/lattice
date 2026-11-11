@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { CaptionTrack } from '@/lib/ltt';
 import { resolvePacing } from './pacing';
 import type { RunContext } from './runner';
@@ -291,10 +291,25 @@ describe('an edge dock keeps the rhythm it always had', () => {
 	});
 
 	it('a plain beat does not dwell — the dock holds the words, so there is nothing to race', async () => {
-		const { ctx } = harness(false);
-		const t0 = Date.now();
-		await scene().say('A fairly long caption that would take a moment to read properly.').point('#a').hold(0).build()(ctx);
-		expect(Date.now() - t0).toBeLessThan(300);
+		// On vi's fake clock, and no time is allowed to pass: a dwell of any length would leave the
+		// beat pending, where the old wall-clock window let anything under 300 ms through.
+		vi.useFakeTimers();
+		try {
+			const { ctx } = harness(false);
+			let done = false;
+			void scene()
+				.say('A fairly long caption that would take a moment to read properly.')
+				.point('#a')
+				.hold(0)
+				.build()(ctx)
+				.then(() => {
+					done = true;
+				});
+			await vi.advanceTimersByTimeAsync(0);
+			expect(done).toBe(true);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
 

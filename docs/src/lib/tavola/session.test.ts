@@ -61,7 +61,7 @@ async function settle(net: MemoryNetwork) {
 		await net.settle();
 		await Promise.all(made.map((s) => s.idle()));
 		if (net.pending() === 0) {
-			await new Promise((r) => setTimeout(r, 0));
+			await new Promise((r) => setTimeout(r, 0)); // flaky-ok: a 0 ms turn inside a loop bounded by signals (net.settle, every session's idle()); both are re-checked after it, so its length decides nothing
 			await Promise.all(made.map((s) => s.idle()));
 			if (net.pending() === 0) return;
 		}

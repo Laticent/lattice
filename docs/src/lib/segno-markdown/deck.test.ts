@@ -1,7 +1,12 @@
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { BlockParser, type BlockState, type DeckModel, deckModel, deckModelStats, ingest, releaseScratch, STRIDE, T_AUX, updateDeckModel } from './index.js';
 
 const parser = new BlockParser();
+// The root's work counter (test/helpers/work-count.js), CommonJS.
+const { charReads } = createRequire(import.meta.url)('../../../../test/helpers/work-count.js') as {
+	charReads: <T>(fn: () => T) => { result: T; scanned: number; reads: number };
+};
 
 describe('S0 ingest', () => {
 	it('strips a BOM and folds CRLF and lone CR, and nothing else', () => {
@@ -13,10 +18,11 @@ describe('hostile input', () => {
 	it('a run of unclosed comments, each ended by its list item, costs one scan for `-->`, not one each', () => {
 		// Each item's comment block ends with the item; searching for its `-->` from every opener read to the end
 		// of the source each time: 20,000 of them took 5.3 s against markdown-it's 43 ms.
+		// Counted, not timed (HARD RULE #32, F1): every character searched, sliced or read by charCodeAt.
 		const src = '- <!-- open\n'.repeat(20000);
-		const t0 = performance.now();
-		const m = deckModel(src, { parser });
-		expect(performance.now() - t0).toBeLessThan(1000);
+		const w = charReads(() => deckModel(src, { parser }));
+		const m = w.result;
+		expect(w.reads + w.scanned, `${w.reads + w.scanned} for ${src.length} characters`).toBeLessThan(30 * src.length); // 7.3x measured; 10,007x searching afresh per opener
 		expect(m.directives.length).toBe(20000);
 		expect(m.directives.every((d) => d.toLine === d.fromLine + 1)).toBe(true);
 	});

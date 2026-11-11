@@ -1,10 +1,20 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { createRequire } from 'node:module';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import type { CaptionTrack } from '@/lib/ltt';
 import { normalizeMatch } from '@/lib/ltt';
 import { findCueWord, normalizeCueWord } from './narrate';
 import { run } from './runner';
 import { createStage, placeBubble, type RectLike, type Stage } from './stage';
 import { resolveTheme } from './theme';
+
+// A hang guard without a clock (HARD RULE #32, F1/F4): test/helpers/regex-trace.js records every regex a call runs and
+// fails on one recheck does not call linear. normalizeCueWord lives in docs/src, outside tools/regex-census.json's
+// lib/**, so its one pattern is named with recheck's own verdict; any other pattern, the old trailing regex included,
+// fails the trace.
+const { assertLinearRegexes } = createRequire(import.meta.url)('../../../../test/helpers/regex-trace.js') as {
+	assertLinearRegexes: <T>(fn: () => T, opts?: { allow?: Record<string, string> }) => { result: T; keys: Set<string> };
+};
+const LETTER_OR_DIGIT = { '/[\\p{L}\\p{N}]/u': 'recheck 4.6.2 (automaton): safe; docs/src, outside the lib/** census' };
 
 // The `caption: 'cursor'` style — the speech balloon. Two families of assertion, and the
 // second is the one that matters: the geometry is nice, but the INVARIANTS are what stop a
@@ -368,16 +378,18 @@ describe('findCueWord — naming a moment in a line', () => {
 });
 
 describe('normalizeCueWord — the same word, in linear time', () => {
-	it('trims a 40k-character punctuation run in milliseconds, not seconds', () => {
+	it('trims a 40k-character punctuation run with no regex that backtracks', () => {
 		// The shape the old trailing regex was quadratic on: a long run INSIDE the word, which does
-		// not reach the end, so the engine retried it from every position. Measured on Node 22: the
-		// old regex took 2,006 ms for this 40k-character run; the scan takes about 2 ms.
+		// not reach the end, so the engine retried it from every position (2,006 ms for this run on
+		// Node 22). The scan runs one single-character class per character; the trace fails on any
+		// other pattern, so putting the old regex back fails here, on the code, not on the clock.
 		const long = `x${'-'.repeat(40000)}X`;
-		const t0 = performance.now();
-		expect(normalizeCueWord(`"${long}."`)).toBe(long.toLowerCase());
 		const one = { display: long, spoken: long, startMs: 0, endMs: 1, charOffset: 0 };
-		expect(findCueWord({ durationMs: 1, cues: [{ display: long, startMs: 0, endMs: 1, charOffset: 0, words: [one] }] }, long)?.word).toBe(0);
-		expect(performance.now() - t0).toBeLessThan(200);
+		const { keys } = assertLinearRegexes(() => {
+			expect(normalizeCueWord(`"${long}."`)).toBe(long.toLowerCase());
+			expect(findCueWord({ durationMs: 1, cues: [{ display: long, startMs: 0, endMs: 1, charOffset: 0, words: [one] }] }, long)?.word).toBe(0);
+		}, { allow: LETTER_OR_DIGIT });
+		expect([...keys]).toEqual(Object.keys(LETTER_OR_DIGIT));
 	});
 
 	it("agrees with @laticent/ltt's normalizeMatch, which an action's `match` is written with", () => {
@@ -549,6 +561,9 @@ describe('avoidance is a preference, and proximity outranks it', () => {
 	});
 });
 
+/** The delay between say() and the word swap, the `setTimeout(…, 140)` in stage.ts's say(). */
+const SWAP_MS = 140;
+
 describe('the caption never comes back carrying the PREVIOUS line', () => {
 	// `say()` hides the bubble and swaps the words 140ms later, but `captionWanted` is true for the
 	// whole of that window. Any `syncCaption` arriving inside it — an `endPerform` from the typing
@@ -561,6 +576,12 @@ describe('the caption never comes back carrying the PREVIOUS line', () => {
 		// through) while the 140ms caption cross-fade STAYS, so the performance genuinely begins and
 		// ends inside the swap window. Under the default tier the glide outlasts the window and the
 		// race closes on its own — which is why it is intermittent on a real page rather than absent.
+		// On vi's fake clock, so the 140 ms swap timer is stepped to the millisecond instead of slept
+		// past: the test can stand one millisecond inside the window and one millisecond after it.
+		vi.useFakeTimers();
+		onTestFinished(() => {
+			vi.useRealTimers();
+		});
 		const { root, stage, layer } = mount({ motion: 'legible' });
 		const target = document.createElement('button');
 		root.appendChild(target);
@@ -569,21 +590,24 @@ describe('the caption never comes back carrying the PREVIOUS line', () => {
 		Object.defineProperty(bubble, 'offsetHeight', { value: 60, configurable: true });
 
 		stage.say('The first line.');
-		// Let the cross-fade land, so the bubble is genuinely up with line one.
-		await new Promise<void>((r) => setTimeout(r, 200));
+		// Let the cross-fade land (stage.ts swaps the words 140 ms after say()), so the bubble is
+		// genuinely up with line one.
+		await vi.advanceTimersByTimeAsync(SWAP_MS);
 		expect(hidden(layer)).toBe(false);
 		expect(bubble.textContent).toContain('The first line.');
 
 		// A new line, then a performance that begins AND ends inside the 140ms swap window.
 		stage.say('The second line.');
-		await stage.point(target);
+		const pointing = stage.point(target);
+		await vi.advanceTimersByTimeAsync(SWAP_MS - 1);
+		await pointing; // 'legible' travel is instant, so it began and ended inside the window
 
 		// The reveal must not have happened yet — and if it did, it must not be showing line one.
 		if (!hidden(layer)) expect(bubble.textContent).not.toContain('The first line.');
 		expect(hidden(layer)).toBe(true);
 
-		// And it still comes back, with the right words, once the swap lands.
-		await new Promise<void>((r) => setTimeout(r, 200));
+		// And it still comes back, with the right words, the moment the swap lands.
+		await vi.advanceTimersByTimeAsync(1);
 		expect(hidden(layer)).toBe(false);
 		expect(bubble.textContent).toContain('The second line.');
 	});

@@ -207,8 +207,8 @@ describe('rules the inversion lens found untested', () => {
 		await approve();
 		await draw(DECK);
 		expect(opened.length).toBe(1);
-		await new Promise((r) => setTimeout(r, 0));
-		expect(opened.every((o) => o.closed)).toBe(true);
+		// The render closes its frames as each frame's promise settles: wait for that, not for a turn.
+		await vi.waitFor(() => expect(opened.every((o) => o.closed)).toBe(true), { timeout: 10_000, interval: 1 });
 	});
 
 	it('a name= attribute is dropped (it would shadow a window global), and serialization growth counts against the cap', async () => {
