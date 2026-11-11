@@ -49,8 +49,9 @@ words for a screen reader. Anywhere else it stays an ordinary picture; write the
 tone, a size or `show=`. Both forms take a `sample:` or `asset:` name, a path beside the deck, or an `https:` address.
 
 It is placed only when it is the slide's one lone picture and the slide places no photo another way. A second lone picture,
-a `![bg]` or a record on the same slide keeps it in the text, as does a picture inside a list or a quote, an `http:`
-address (the record refuses it), or an alt that starts with Marp's `bg` keyword.
+a `![bg]`, a record or a `backgroundImage` directive on the same slide keeps it in the text (a `backgroundColor` does not),
+as does a picture inside a list or a quote, an `http:` address (the record refuses it), or an alt that starts with Marp's
+`bg` keyword. The engine, Export-to-Marp, the Studio and the linter all ask one rule for this, `lib/core/placed-picture.mjs`.
 
 ## Setting it for the whole deck
 
@@ -94,7 +95,7 @@ finished page, and every picture, a plugin's own included, still waits for the r
 |---|---|
 | `image-marp-keyword` | A Marp `![bg …](…)` line. Retired: `--fix` rewrites it into the record and moves its placement to the slide (`left` becomes `mirror`; on a slide that is not an `image` slide, the slide gains `bleed`). |
 | `image-not-alone` | A record in running text, which stays code. |
-| `image-extra-panel` | A second record on one `image` slide, which the layout seats over the first. |
+| `image-extra-panel` | A second photo on a slide that seats one: a second record, which lands over the first, or two `![title](src)` pictures on lines of their own, so neither becomes the photo. |
 | `image-web-source` | A picture from another site. Save it beside the deck instead. |
 | `unknown-image` | A word the `image:` register does not know. |
 

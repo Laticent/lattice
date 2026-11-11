@@ -1143,3 +1143,24 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   slide 1 was edited, against 10 with the same-microtask redraw removed. `spec/LPM.md` §10 names the channel; the
   rule is unchanged. Pinned by test/unit/plugins/video-marp-records.test.js and test/integration/export/marp-kit-video.test.js
   (a plugin-subtree span with an owed record goes red with the guard removed).
+- 2026-11-11: **one placed-picture rule** (branch `claude/media-engine-break-cont-3ukhz8`; followups.d/3126-p2, now deleted).
+  `lib/core/placed-picture.mjs` decides whether a lone `![title](src)` is the slide's placed photo, from a markdown-it parse, and
+  every reader asks it: the engine (`placedPictureIndex` on its own tokens), Export-to-Marp (lib/export/picture-placement.js
+  reads the deck with the engine's slide boundaries and class rules, then hands the plugin the placed lines), Compose's badge and
+  Placement control (the kernel names the placed picture by its ordinal in the serialized slide), the photo finder `photoAt` and
+  `image-extra-panel`, which now also warns on two lone pictures and no other photo (none is placed). **The parse is the
+  caller's:** the playground keeps the lint's boundary parser apart from the engine's (`assertLintParserIsolated`), so the
+  kernel imports neither, and the export's slide reading sits on the Node side because the plugin's files are reached from the
+  lint core. **Fixed drifts, each now a row of test/fixtures/placed-picture-cases.json:** the export placed an indented picture
+  in a list item; `photoAt` placed a `BG` alt, an `http:` address and a picture in a sentence; Compose missed a deck-wide `bleed`
+  under a slide class, a deck-wide `collage` (a component name the engine drops) and a `backgroundImage` directive. **Engine
+  change:** a `backgroundColor` wrote `background-image: none`, which the engine read as a photo in place; it no longer blocks
+  the shortcut (0 of 466 decks differ). The table (26 cases) runs through the engine, the export and the lint in node, and
+  through Compose and `photoAt` in vitest; each new arm fails on `main`'s readers (5 node, 9 vitest). **After the checker:** the
+  kernel judges a `backgroundImage` exactly as the engine's style sink writes it (`realDeclValueIsSafe` moved to
+  lib/core/decl-value-safe.js, shared; `none` in any case is no photo); the export writes every picture the kernel places, from
+  the parse when its old line pattern cannot read it (a title with parentheses, a setext heading above, CRLF), and carries a
+  front-matter or running `backgroundImage` into the kernel as the engine does; the Studio's photo underline reads the slide's
+  class before it blanks comments. The table is 35 cases. The Studio readers cannot see a class or a background carried from an
+  earlier slide, nor a `split: headings` boundary (they read one `---` slide): five cases skipped by name, recorded in
+  followups.d/3126-p3-studio-carried-class.md.

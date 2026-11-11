@@ -10,7 +10,10 @@ const { JSDOM } = require('jsdom');
 const engine = require('../../../lib/engine');
 const dispatcher = require('../../../lib/core/inline-code-directives.js');
 const { migrateBgLine, classLineWith } = require('../../../lib/plugins/image/shared/image-migrate.js');
-const { withImageMarkdown } = require('../../../lib/plugins/image/shared/image-marp-export.js');
+const { withImageMarkdown: translate } = require('../../../lib/plugins/image/shared/image-marp-export.js');
+const { picturePlacement } = require('../../../lib/export/picture-placement.js');
+// The translation as the bundle calls it (lib/export/marp-bundle.js): with the export host's reading of where pictures are placed.
+const withImageMarkdown = (md, opts, ctx) => translate(md, { ...opts, placement: picturePlacement(md) }, ctx);
 const { ctxFor } = require('../../../lib/core/plugin-ctx.js');
 const { lintText, buildVocab } = require('../../../lib/authoring/lint.js');
 
@@ -251,6 +254,21 @@ describe('the engine and Export-to-Marp agree on which picture is placed (invers
       const exportSays = withImageMarkdown(md, {}, ctxFor('image')).includes(`![bg](${addr}`);
       assert.equal(engineSays, placed, `the engine (${name})`);
       assert.equal(exportSays, placed, `the export (${name})`);
+    });
+  }
+});
+
+describe('the image lint agrees with the placed-picture rule (test/fixtures/placed-picture-cases.json)', () => {
+  // `image-extra-panel` flags a picture exactly where the table says the slide is crowded (several lone pictures, no other
+  // photo, so none is placed), and never a picture the engine places.
+  const { lintTextWith } = require('../../../lib/authoring/lint-core.js');
+  const lintText = (md) => lintTextWith(md, { names: new Set(), modifiers: new Set() });
+  const { cases } = require('../../fixtures/placed-picture-cases.json');
+  for (const { name, md, addr, placed, crowded } of cases) {
+    test(name, () => {
+      const flagged = lintText(md).some((f) => f.rule === 'image-extra-panel' && String(f.line).includes(`(${addr}`));
+      assert.equal(flagged, !!crowded, `image-extra-panel (${name})`);
+      if (placed) assert.equal(flagged, false, `a placed picture is never flagged (${name})`);
     });
   }
 });
