@@ -2914,14 +2914,20 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// THE CARET STAYS ON ITS SLIDE AND LINE. The rebuilt state used to start at the top of the deck, and the next
 		// transaction reported slide 1 as the author's move: after a reload the preview showed the restored slide for a
 		// second and then jumped to slide 1 (owner, iPhone). A slide op that moves the author navigates after this, as before.
+		// WHICH slide comes from the hub, which follows slides by identity: an outside change that inserts a slide above the
+		// caret moves the caret's slide down one, and keeping the old INDEX put the caret on the slide before it with nothing
+		// reported (the checker's catch). The old index is the fallback when there is no hub focus.
 		const { $from } = view.state.selection;
-		const slide = $from.depth >= 1 ? Math.min($from.index(0), doc.childCount - 1) : -1;
+		const oldSlide = $from.depth >= 1 ? $from.index(0) : -1;
+		const hubAt = focusAtMountRef.current?.() ?? null;
+		const slide = Math.min(hubAt && hubAt.slide >= 0 ? hubAt.slide : oldSlide, doc.childCount - 1);
+		const caretLine = hubAt && hubAt.slide !== oldSlide ? hubAt.line : $from.parent.textContent;
 		const foldedAt = new Set(restoredSlideOffsets(doc, folded));
 		let slideOffset = 0;
 		for (let i = 0; i < slide; i++) slideOffset += doc.child(i).nodeSize;
 		const keep = slide >= 0 && !foldedAt.has(slideOffset);
 		if (keep) lastSlideRef.current = slide;
-		view.updateState(EditorState.create({ doc, selection: keep ? selectionAtFocus(doc, slide, $from.parent.textContent) : startSelection(doc, foldedAt), plugins: view.state.plugins }));
+		view.updateState(EditorState.create({ doc, selection: keep ? selectionAtFocus(doc, slide, caretLine) : startSelection(doc, foldedAt), plugins: view.state.plugins }));
 		// BASELINE FIRST, DISPATCH SECOND. Both callers wrap this in a try/catch that only
 		// logs, so a throw from the restore below would leave `updateState` already landed on
 		// the NEW doc while `baselineRef` still held the OLD doc's node identities — every
@@ -3135,15 +3141,29 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			return;
 		}
 		viewRef.current = view;
-		// Frame the focused slide the way `revealSlide` does: its node at the top of the scroller, 8px of room.
+		// Frame the focused slide the way `revealSlide` does: its node at the top of the scroller, 8px of room. A pane with no
+		// size yet (a desktop split collapsed to the preview hides it with `display: none`) is framed the first time it gets
+		// a height, or it would show the right slide's caret scrolled to the top of the deck.
+		let frameObserver: ResizeObserver | null = null;
 		{
 			const at = focusAtMountRef.current?.() ?? null;
-			if (at && at.slide > 0 && at.slide < view.state.doc.childCount && hostRef.current) {
-				let pos = 0;
-				for (let i = 0; i < at.slide; i++) pos += view.state.doc.child(i).nodeSize;
-				const node = view.nodeDOM(pos) as HTMLElement | null;
-				const box = hostRef.current.getBoundingClientRect();
-				if (node?.getBoundingClientRect && box.height) hostRef.current.scrollTop += node.getBoundingClientRect().top - box.top - 8;
+			const host = hostRef.current;
+			if (at && at.slide > 0 && at.slide < view.state.doc.childCount && host) {
+				const frame = () => {
+					let pos = 0;
+					for (let i = 0; i < at.slide && i < view.state.doc.childCount; i++) pos += view.state.doc.child(i).nodeSize;
+					const node = view.nodeDOM(pos) as HTMLElement | null;
+					const box = host.getBoundingClientRect();
+					if (!node?.getBoundingClientRect || !box.height) return false;
+					host.scrollTop += node.getBoundingClientRect().top - box.top - 8;
+					return true;
+				};
+				if (!frame() && typeof ResizeObserver !== 'undefined') {
+					frameObserver = new ResizeObserver(() => {
+						if (frame()) frameObserver?.disconnect();
+					});
+					frameObserver.observe(host);
+				}
 			}
 		}
 		// Kernels that landed before the editor mounted: turn the pills into objects now.
@@ -3159,6 +3179,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		};
 		host?.addEventListener('scroll', onScroll, { passive: true });
 		return () => {
+			frameObserver?.disconnect();
 			host?.removeEventListener('scroll', onScroll);
 			// A note still being written has not blurred (a deck switch removes the field without one), so its words are written now, to THIS deck:
 			// `resetKey` is the deck this effect built the view for. The emit baseline is restored after, because the next deck's view does not share it.

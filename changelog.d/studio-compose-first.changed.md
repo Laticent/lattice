@@ -21,5 +21,5 @@
   gold hairline; it is now the inverted chip the phone bar already uses for its selected cell.
 - **The Studio keeps your place when you switch panes or reload.** Compose on a slide, then Source, then Compose
   or Preview used to land on slide 1, and a reload jumped there a second after showing the right slide. The slide
-  now holds through every switch and a reload, and the caret stays on the same line when it moves between Compose
-  and Source.
+  now holds through every switch and a reload, and when you move between Compose and Source the caret lands on the
+  same line where it can match it (else at the slide's first line, as before).

@@ -156,14 +156,24 @@ Fuoco hub (`2026-10-15-fuoco-focus-sync.md`, whose phase 3 left Compose's report
 | Cause | Fix |
 |---|---|
 | A Compose view built after a round trip through Source (or the phone bringing the Compose pane back) started at the top of the deck, and its first transaction reported slide 1 as the author's move | `ComposeView` takes `focusAtMount`, read once when the view is built: it starts on the hub's slide with its slide memory seeded, the Markdown editor's rule ("a new view follows the focus; it does not announce its own caret") |
-| A resync (any outside change to the text: a rail op, an AI edit, a Source round trip) rebuilt the state with the caret at the top, with the same report | `resyncFrom` keeps the caret on its slide and line, except on a folded slide (never a caret in hidden text) |
+| A resync (any outside change to the text: a rail op, an AI edit, a Source round trip) rebuilt the state with the caret at the top, with the same report | `resyncFrom` puts the caret on the slide the hub holds (the hub follows slides by identity, so a slide inserted above does not shift it onto the wrong one), on its line, except on a folded slide (never a caret in hidden text) |
 | The shell's Compose caret-TEXT report carried `composeChunkRef`, which started at 0 and only followed navigations made after its subscription; the boot navigation (the slide you left on) runs before it | the ref starts from `hub.get()` when it subscribes and when Compose mounts |
 
 The caret's LINE crosses too, where it can be matched (`lib/deck-outline/caret-line.ts`): the hub carries the caret
 line as the reporting editor saw it, the Markdown line or the Compose block's text. The editor that mounts compares both
-with their markers stripped and lands on the one matching line of the slide, else the slide's first line, as before.
-`docs/e2e/studio-pane-sync.spec.ts` drives the owner's sequence and a reload on six projects; all five of its runs on
-desktop, mobile and webkit-phone failed on the code before the fix (slide 1 for 3; `` `Why Lattice` `` for the paragraph).
+with their markers stripped and lands on the one matching line of the slide, else the slide's first line, as before. It
+matches one source line to one block, so a paragraph wrapped over several source lines, a line with a link or an escape,
+and a repeated line fall back to the slide's first line.
+`docs/e2e/studio-pane-sync.spec.ts` drives the owner's sequence and a reload on five projects (desktop, mobile,
+webkit-phone, webkit-tablet, gecko); all five of its runs on desktop, mobile and webkit-phone failed on the code before
+the fix (slide 1 for 3; `` `Why Lattice` `` for the paragraph). `ComposeView.sync.test.tsx` pins the mount and the resync
+at unit level, including a slide inserted above the caret's (it fails with the old index).
+
+An independent checker found the index bug above, and that a Compose built while its pane is `display: none` (a desktop
+split collapsed to the preview) was on the right slide but scrolled to the top: it now frames the slide the first time
+the pane gets a height. Two edges stay, neither a regression from `main` and both arguably right: a resync while the
+caret's slide is FOLDED moves the preview to the first open slide, where the caret goes (it cannot go to hidden text);
+and opening Source can turn the preview's page on a split slide when the carried line is on another page of it.
 
 **Narration.** Five new lines were recorded with `tools/record-lesson-voice.mjs` (two in `tour`, three
 in `write-slide`). The Source-mode lines and their clips are unchanged, so a visitor who chose Source
