@@ -24,6 +24,7 @@ const fs = require('fs');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const { pathToFileURL } = require('node:url');
+const { trackPageWork } = require('../../helpers/page-settle');
 
 describe('export: the --fluid viewer holds and releases narrow layouts as the box changes', () => {
 	const ROOT = path.join(__dirname, '..', '..', '..');
@@ -59,13 +60,17 @@ describe('export: the --fluid viewer holds and releases narrow layouts as the bo
 		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
 		return pathToFileURL(out).href;
 	};
-	const settle = (page) => new Promise((r) => setTimeout(r, 900)).then(() => page.evaluate(() => document.fonts.ready));
+	// The hold pass waits out a 150 ms burst of size reports and then a frame; the page's own timer and frame queue
+	// running dry, for three frames in a row so a resize's ResizeObserver work has run, is the signal it has judged the
+	// settled box (HARD RULE #32).
+	const settle = (settled) => settled({ frames: 3, images: true });
 	const held = (page) => page.evaluate(() => document.querySelectorAll('.lat-reflow-held').length);
 	const fresh = async (url, vp) => {
 		const page = await browser.newPage();
+		const settled = await trackPageWork(page);
 		await page.setViewport(vp);
 		await page.goto(url, { waitUntil: 'load' });
-		await settle(page);
+		await settle(settled);
 		const n = await held(page);
 		await page.close();
 		return n;
@@ -81,9 +86,10 @@ describe('export: the --fluid viewer holds and releases narrow layouts as the bo
 	test('a phone holds the overflowing pane table, and every resize lands where a fresh load does', { timeout: TIMEOUT }, async () => {
 		const url = render('hold', DECK);
 		const page = await browser.newPage();
+		const settled = await trackPageWork(page);
 		await page.setViewport(PHONE);
 		await page.goto(url, { waitUntil: 'load' });
-		await settle(page);
+		await settle(settled);
 		const atLoad = await page.evaluate(() => [...document.querySelectorAll('section[data-lattice-slide]')]
 			.map((s) => s.querySelectorAll('.lat-reflow-held').length));
 		// The long table overflows its stacked pane as cards on a phone, so it is held; the short one fits.
@@ -92,7 +98,7 @@ describe('export: the --fluid viewer holds and releases narrow layouts as the bo
 		const seen = {};
 		for (const [name, vp] of [['landscape', LANDSCAPE], ['back', PHONE], ['desktop', DESKTOP]]) {
 			await page.setViewport(vp);
-			await settle(page);
+			await settle(settled);
 			seen[name] = await held(page);
 		}
 		await page.close();
@@ -144,9 +150,10 @@ describe('export: the --fluid viewer holds and releases narrow layouts as the bo
 	test('a section nested in a slide does not set the deck\'s portrait scale', { timeout: TIMEOUT }, async () => {
 		const url = render('nested', NESTED);
 		const page = await browser.newPage();
+		const settled = await trackPageWork(page);
 		await page.setViewport(PHONE);
 		await page.goto(url, { waitUntil: 'load' });
-		await settle(page);
+		await settle(settled);
 		const got = await page.evaluate(() => ({
 			style: !!document.getElementById('lattice-orientation'),
 			scale: getComputedStyle(document.querySelector('section[data-lattice-slide]')).getPropertyValue('--canvas-scale').trim(),

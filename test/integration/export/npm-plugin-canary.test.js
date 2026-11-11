@@ -31,13 +31,10 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const http = require('node:http');
-const dgram = require('node:dgram');
 const os = require('node:os');
 const path = require('node:path');
 
 const TIMEOUT = 300000;
-const SETTLE_MS = 1500;
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-canary-home-'));
 process.env.LATTICE_HOME = home;
@@ -49,74 +46,125 @@ const { pluginReturnFields, MAX_RETURN_TEXT } = require('../../../lib/core/code-
 const { launchSandboxBrowser, openPackageSandbox, runPackage } = require('../../../lib/core/code-sandbox.js');
 const { spawnSync } = require('node:child_process');
 const { PLANTED, attempts, markupVectors, stylesheetVectors, canarySource } = require('../../fixtures/npm-plugin-canary.js');
+const { openListener } = require('../../helpers/request-log.js');
 
 const DECK = '---\ntheme: indaco\n---\n\n## Canary\n\n```canary\nrender me\n```\n';
 const CHROME = process.env.CHROME_PATH || undefined;
 
-let server;
-let udp;
-let hits;
-let H;
-let P;
+// Two listeners. The walled runs log to `main`. A WITNESS runs the same attempts with no walls, after the walled run,
+// against `witness`: once it has heard them, the walled run has had the time an attempt needs to land, and the test
+// closes its browsers and drains `main` (test/helpers/request-log.js). A signal, not a quiet period (HARD RULE #32).
+let main;
+let witness;
 let list;
 let source;
 let controlSource;
+let witnessControlSource;
 
-/** The vector a request belongs to: its first path segment. `favicon.ico` is the browser's own follow-up. */
-const vectorsHit = () => [...new Set(hits.map((h) => h.replace(/^\//, '').split(/[/?]/)[0]))].filter((v) => v && v !== 'favicon.ico' && v !== 'control' && v !== 'blank').sort();
+/** The vectors a listener heard: each request's first path segment. `favicon.ico` is the browser's own follow-up. */
+const vectorsHit = (L = main) => [...new Set(L.hits.map((h) => h.replace(/^\//, '').split(/[/?]/)[0]))].filter((v) => v && v !== 'favicon.ico' && v !== 'control' && v !== 'blank').sort();
+const hears = (L, names) => () => names.every((v) => vectorsHit(L).includes(v));
+const optionsFor = (L) => ({ H: L.H, P: L.P, udp: { stun: L.udpPort('stun'), quic: L.udpPort('quic') } });
+/** An ordinary online browser. Chrome 153's Local Network Access checks stop a data: or about:blank page reaching loopback, which is a wall of its own; the CONTROL and WITNESS arms mean "no walls", so it is off. */
+const plainLaunch = () => puppeteer.launch({ headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-features=LocalNetworkAccessChecks'] });
 
 before(async () => {
-  hits = [];
-  server = http.createServer((req, res) => {
-    if (req.url === '/control') {
-      // The control page: storage planted where the canary can see it, then the canary itself on the page.
-      const body = controlSource.replace(/export \{ render as default \};\s*$/, '').replace(/<\/script/gi, '<\\/script');
-      res.writeHead(200, { 'content-type': 'text/html' });
-      return res.end(
-        `<!doctype html><html><body><script>document.cookie='planted=${PLANTED}; Path=/';localStorage.setItem('planted','${PLANTED}');sessionStorage.setItem('planted','${PLANTED}');</script>` +
-          `<script>${body};window.__report = render({ body: 'x', id: 'control' });</script></body></html>`,
-      );
-    }
-    if (req.url === '/blank') return res.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><html><body></body></html>');
-    hits.push(req.url);
-    res.writeHead(200, { 'content-type': 'text/plain', 'access-control-allow-origin': '*' }).end('x');
-  });
-  server.on('upgrade', (req, socket) => {
-    hits.push(req.url);
-    socket.destroy();
-  });
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  P = server.address().port;
-  H = `http://127.0.0.1:${P}`;
-  udp = {};
-  for (const name of ['stun', 'quic']) {
-    const s = dgram.createSocket('udp4');
-    s.on('message', () => hits.push(`/${name === 'stun' ? 'webrtc' : 'webtransport'}-udp`));
-    await new Promise((r) => s.bind(0, '127.0.0.1', r));
-    udp[name] = s.address().port;
-    udp[`${name}Socket`] = s;
-  }
-  const o = { H, P, udp: { stun: udp.stun, quic: udp.quic } };
+  const listen = async (control) =>
+    openListener({
+      udp: { stun: '/webrtc-udp', quic: '/webtransport-udp' },
+      handle: (req, res, record) => {
+        if (req.url === '/control') {
+          // The control page: storage planted where the canary can see it, then the canary itself on the page.
+          const body = control().replace(/export \{ render as default \};\s*$/, '').replace(/<\/script/gi, '<\\/script');
+          res.writeHead(200, { 'content-type': 'text/html' });
+          return res.end(
+            `<!doctype html><html><body><script>document.cookie='planted=${PLANTED}; Path=/';localStorage.setItem('planted','${PLANTED}');sessionStorage.setItem('planted','${PLANTED}');</script>` +
+              `<script>${body};window.__report = render({ body: 'x', id: 'control' });</script></body></html>`,
+          );
+        }
+        if (req.url === '/blank') return res.writeHead(200, { 'content-type': 'text/html' }).end('<!doctype html><html><body></body></html>');
+        record(req.url);
+        res.writeHead(200, { 'content-type': 'text/plain', 'access-control-allow-origin': '*' }).end('x');
+      },
+    });
+  main = await listen(() => controlSource);
+  witness = await listen(() => witnessControlSource);
+  const o = optionsFor(main);
   list = attempts(o);
   source = canarySource(o);
   // The control page inlines the renderer into a <script>, which the markup half's `</style>` and
   // `<script>` strings would end early; the control reads the report half only.
   controlSource = canarySource({ ...o, withMarkup: false });
+  witnessControlSource = canarySource({ ...optionsFor(witness), withMarkup: false });
 });
 after(async () => {
-  await new Promise((r) => server.close(r));
-  udp.stunSocket.close();
-  udp.quicSocket.close();
+  await main.close();
+  await witness.close();
   fs.rmSync(home, { recursive: true, force: true });
 });
 
-const settle = async () => {
-  await new Promise((r) => setTimeout(r, SETTLE_MS));
-  const deadline = Date.now() + 8 * SETTLE_MS;
-  for (let seen = -1; seen !== hits.length && Date.now() < deadline; ) {
-    seen = hits.length;
-    await new Promise((r) => setTimeout(r, SETTLE_MS));
+/** What an ordinary page fires, and what a worker fires: the lists the control and the weakened arm require. */
+const PAGE_FIRES = ['fetch', 'xhr', 'websocket', 'eventsource', 'beacon', 'worker-url', 'fontface', 'webrtc-udp'];
+const WORKER_FIRES = ['fetch', 'xhr', 'websocket', 'websocketstream', 'eventsource', 'importscripts', 'proto-fetch', 'worker-url', 'worker-blob', 'fontface', 'webtransport-udp'];
+
+/** The canary's report half in an unwalled Worker on a blank page of `L`: the door's own context with no wall at all. */
+const runInPlainWorker = async (browser, L, code) => {
+  const page = await browser.newPage();
+  await page.goto(`${L.H}/blank`, { waitUntil: 'load' });
+  const body = code.replace(/export \{ render as default \};\s*$/, '');
+  return page.evaluate(
+    (src) =>
+      new Promise((resolve) => {
+        const url = URL.createObjectURL(new Blob([`${src};\npostMessage(render({ body: 'x', id: 'w' }));`], { type: 'text/javascript' }));
+        const w = new Worker(url);
+        w.onmessage = (e) => typeof e.data === 'string' && resolve(e.data); // the canary's own postMessage attempt comes first
+        w.onerror = (e) => resolve(`error: ${e.message}`);
+      }),
+    body,
+  );
+};
+
+/** Open `doc` in an online page on `L`'s origin and give it the clicks a reader would. */
+const openDoc = async (browser, L, doc) => {
+  const page = await browser.newPage();
+  await page.goto(`${L.H}/blank`, { waitUntil: 'load' });
+  await page.setContent(doc, { waitUntil: 'load' }).catch(() => {}); // a markup page may navigate away: the request is what we count
+  // A form and a link need a click to fire; a user would give one, a beacon does not wait for it.
+  await page
+    .evaluate(() => {
+      document.getElementById('m-form-submit')?.click();
+      document.getElementById('m-ping')?.click();
+      document.getElementById('m-js')?.click();
+    })
+    .catch(() => {}); // the page navigated away: the request is what we count
+  return page;
+};
+
+/**
+ * An absence check in a live browser. `walled(browser)` runs the attempts behind the walls under test, logging to
+ * `main`, to completion; only then does `unwalled(browser)` run the same attempts with no walls against `witness`, in a
+ * browser of its own, while the walled browser stays open. Waits until the witness has heard `expect`, closes both
+ * browsers, drains `main`, and returns what `main` heard. The order matters: run side by side, the witness could hear
+ * everything before the walled side had even started, and closing the browsers then would kill a late leak before it
+ * reached `main`, a false zero. A witness that never hears its attempts fails the arm: the zero would prove nothing.
+ */
+const absent = async ({ launch, walled, unwalled, expect }) => {
+  main.reset();
+  witness.reset();
+  const browser = await launch();
+  const wBrowser = await plainLaunch();
+  let heard;
+  try {
+    await walled(browser);
+    await unwalled(wBrowser);
+    heard = await witness.until(hears(witness, expect));
+  } finally {
+    await browser.close();
+    await wBrowser.close();
   }
+  await main.drained();
+  assert.ok(heard, `the unwalled witness never heard ${expect.filter((v) => !vectorsHit(witness).includes(v)).join(' ')} (it heard ${vectorsHit(witness).join(' ')}), so the zero proves nothing`);
+  return vectorsHit(main);
 };
 
 /** `<li>name=outcome</li>` pairs out of a rendered report. */
@@ -148,24 +196,24 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
     for (const n of ['fetch', 'xhr', 'websocket', 'beacon', 'webrtc', 'localstorage', 'sessionstorage', 'cookie', 'indexeddb', 'serviceworker', 'eval', 'function', 'postmessage']) {
       assert.ok(names.includes(n), `the canary no longer tries ${n}`);
     }
-    for (const n of ['img', 'css-background', 'iframe', 'form', 'link', 'script', 'meta']) assert.ok(n in markupVectors(H), `the canary markup no longer carries ${n}`);
+    for (const n of ['img', 'css-background', 'iframe', 'form', 'link', 'script', 'meta']) assert.ok(n in markupVectors(main.H), `the canary markup no longer carries ${n}`);
   });
 
   test('CONTROL: with no walls the same attempts reach the listener and read the planted storage', { timeout: TIMEOUT }, async () => {
-    hits = [];
-    const browser = await puppeteer.launch({ headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    main.reset();
+    const browser = await plainLaunch();
     try {
       const page = await browser.newPage();
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
-      await page.goto(`${H}/control`, { waitUntil: 'load' });
+      await page.goto(`${main.H}/control`, { waitUntil: 'load' });
       const html = await page.evaluate(() => window.__report);
       assert.equal(typeof html, 'string', `the control page did not run the canary: ${errors.join('; ')}`);
       const report = reportOf(html);
-      await settle();
+      // What an ordinary page can fire, awaited as it lands. A vector the control cannot fire proves nothing in the door arm.
+      await main.until(hears(main, PAGE_FIRES));
       const got = vectorsHit();
-      // What an ordinary page can fire. A vector the control cannot fire proves nothing in the door arm.
-      for (const v of ['fetch', 'xhr', 'websocket', 'eventsource', 'beacon', 'worker-url', 'fontface']) {
+      for (const v of PAGE_FIRES.filter((x) => x !== 'webrtc-udp')) {
         assert.ok(got.includes(v), `the control did not reach the listener with ${v}: ${got.join(' ')}`);
       }
       assert.ok(got.includes('webrtc-udp'), `the control sent no WebRTC packet: ${got.join(' ')}`);
@@ -178,13 +226,14 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
   });
 
   test('DOOR: approved and run through the real door, every attempt is reported, none reaches the listener, no storage read returns data', { timeout: TIMEOUT }, async () => {
-    hits = [];
+    main.reset();
     approve(source);
     const r = runDoor(source);
     assert.equal(r.refusal, undefined, JSON.stringify(r.refusal));
     const html = r.rendered.html;
     const report = reportOf(html);
-    await settle();
+    // The door ran the canary in a child process that has exited, so the log is complete once it drains.
+    await main.drained();
     // One list of everything that went wrong, so a hole shows every way it leaks in one run.
     const problems = [];
     const missing = list.map(([n]) => n).filter((n) => !(n in report));
@@ -206,69 +255,55 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
 
   test('MARKUP: the canary’s output half fires in an online page raw, and not once the host has sanitized it', { timeout: TIMEOUT }, async () => {
     // The two vectors that navigate the page (a meta refresh, a submitted form) each get a page of their own.
-    const { meta, form, ...rest } = markupVectors(H);
-    const raw = Object.values(rest).join('');
+    const split = (L) => {
+      const { meta, form, ...rest } = markupVectors(L.H);
+      return [Object.values(rest).join(''), meta, form];
+    };
     const sanitized = (() => {
       approve(source);
       const html = runDoor(source).rendered.html;
       return /<div data-lattice-plugin="canary-plugin">[\s\S]*?<\/div>\s*<\/div>/.exec(html)?.[0] ?? '';
     })();
     assert.ok(sanitized.length > 0, 'no plugin output to open');
-    const browser = await puppeteer.launch({ headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    // Every address the markup names, not a sample: a tag that stops firing must be removed from
+    // the list on purpose. `m-base` only rewrites later relative URLs and fetches nothing itself.
+    const named = [...new Set(split(main).join('').match(/\/(m-[a-z0-9-]+)/g).map((m) => m.slice(1)))].filter((v) => v !== 'm-base');
+    const raw = async (browser, L) => {
+      for (const markup of split(L)) await openDoc(browser, L, `<!doctype html><html><head></head><body>${markup}</body></html>`);
+    };
+    // CONTROL: the raw markup fires every address, awaited as each lands.
+    main.reset();
+    const browser = await plainLaunch();
     try {
-      const open = async (markup) => {
-        hits = [];
-        const page = await browser.newPage();
-        await page.goto(`${H}/blank`, { waitUntil: 'load' });
-        await page.setContent(`<!doctype html><html><head></head><body>${markup}</body></html>`, { waitUntil: 'load' });
-        // A form and a link need a click to fire; a user would give one, a beacon does not wait for it.
-        await page
-          .evaluate(() => {
-            document.getElementById('m-form-submit')?.click();
-            document.getElementById('m-ping')?.click();
-            document.getElementById('m-js')?.click();
-          })
-          .catch(() => {}); // the page navigated away: the request is what we count
-        await settle();
-        const got = vectorsHit();
-        await page.close();
-        return got;
-      };
-      const rawGot = [...(await open(raw)), ...(await open(meta)), ...(await open(form).catch(() => ['m-form']))];
-      // Every address the markup names, not a sample: a tag that stops firing must be removed from
-      // the list on purpose. `m-base` only rewrites later relative URLs and fetches nothing itself.
-      const named = [...new Set([...raw, meta, form].join('').match(/\/(m-[a-z0-9-]+)/g).map((m) => m.slice(1)))].filter((v) => v !== 'm-base');
-      const missed = named.filter((v) => !rawGot.includes(v));
-      assert.deepEqual(missed, [], `the control markup did not fire: ${missed.join(' ')} (it fired ${rawGot.join(' ')})`);
-      assert.deepEqual(await open(sanitized), [], 'sanitized output still reached the listener');
+      await raw(browser, main);
+      await main.until(hears(main, named));
     } finally {
       await browser.close();
     }
+    const rawGot = vectorsHit();
+    const missed = named.filter((v) => !rawGot.includes(v));
+    assert.deepEqual(missed, [], `the control markup did not fire: ${missed.join(' ')} (it fired ${rawGot.join(' ')})`);
+    // The sanitized output, with the raw markup as the witness.
+    const leaked = await absent({
+      launch: plainLaunch,
+      walled: (b) => openDoc(b, main, `<!doctype html><html><head></head><body>${sanitized}</body></html>`),
+      unwalled: (b) => raw(b, witness),
+      expect: named,
+    });
+    assert.deepEqual(leaked, [], 'sanitized output still reached the listener');
   });
 
   test('WEAKENED: the same renderer in a worker with NO wall at all reaches the listener (the arm that proves the door arm can fail)', { timeout: TIMEOUT }, async () => {
-    hits = [];
-    const browser = await puppeteer.launch({ headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    main.reset();
+    const browser = await plainLaunch();
     try {
-      const page = await browser.newPage();
-      await page.goto(`${H}/blank`, { waitUntil: 'load' });
       // The door's own context: a Worker. No policy, no names taken off it, an online browser.
-      const body = controlSource.replace(/export \{ render as default \};\s*$/, '');
-      const report = await page.evaluate(
-        (code) =>
-          new Promise((resolve) => {
-            const url = URL.createObjectURL(new Blob([`${code};\npostMessage(render({ body: 'x', id: 'w' }));`], { type: 'text/javascript' }));
-            const w = new Worker(url);
-            w.onmessage = (e) => typeof e.data === 'string' && resolve(e.data); // the canary's own postMessage attempt comes first
-            w.onerror = (e) => resolve(`error: ${e.message}`);
-          }),
-        body,
-      );
+      const report = await runInPlainWorker(browser, main, controlSource);
       assert.match(report, /^<ul/, `the unwalled worker did not run the canary: ${report}`);
-      await settle();
+      await main.until(hears(main, WORKER_FIRES));
       const got = vectorsHit();
       // What a worker can fire. A canary attempt not listed here (sharedworker: a blob worker may not start one; the storage and runner attempts: nothing to fire) has no weakened-arm proof, so the door arm's zero for it rests on the API throwing.
-      for (const v of ['fetch', 'xhr', 'websocket', 'websocketstream', 'eventsource', 'importscripts', 'proto-fetch', 'worker-url', 'worker-blob', 'fontface', 'webtransport-udp']) {
+      for (const v of WORKER_FIRES) {
         assert.ok(got.includes(v), `the unwalled worker did not reach the listener with ${v}: ${got.join(' ')}`);
       }
     } finally {
@@ -277,77 +312,77 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
   });
 
   test('PAGE WALLS ALONE: the worker in an ONLINE browser, with only the locked page and the worker wall, reaches nothing', { timeout: TIMEOUT }, async () => {
-    hits = [];
-    const browser = await puppeteer.launch({ headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-    try {
-      const sandbox = await openPackageSandbox(browser, source, { fence: true, loadTimeoutMs: 30000 });
-      try {
-        const out = await runPackage(sandbox, { body: 'x', id: 'c' }, { fence: true, timeoutMs: 20000 });
-        const report = reportOf(out);
-        assert.equal(Object.keys(report).length, list.length);
-        assert.deepEqual(Object.entries(report).filter(([, v]) => v.startsWith('read:')), []);
-      } finally {
-        await sandbox.close();
-      }
-      await settle();
-      assert.deepEqual(vectorsHit(), [], hits.join(' '));
-    } finally {
-      await browser.close();
-    }
+    let report;
+    const leaked = await absent({
+      launch: plainLaunch,
+      walled: async (browser) => {
+        const sandbox = await openPackageSandbox(browser, source, { fence: true, loadTimeoutMs: 30000 });
+        try {
+          report = reportOf(await runPackage(sandbox, { body: 'x', id: 'c' }, { fence: true, timeoutMs: 20000 }));
+        } finally {
+          await sandbox.close();
+        }
+      },
+      // The witness is the weakened arm: the same renderer in a worker with no wall.
+      unwalled: (browser) => runInPlainWorker(browser, witness, witnessControlSource),
+      expect: WORKER_FIRES,
+    });
+    assert.equal(Object.keys(report).length, list.length);
+    assert.deepEqual(Object.entries(report).filter(([, v]) => v.startsWith('read:')), []);
+    assert.deepEqual(leaked, [], main.hits.join(' '));
   });
 
   test('BROWSER WALL ALONE: the sandbox browser with the walls of the page removed still reaches nothing from an ordinary page', { timeout: TIMEOUT }, async () => {
-    hits = [];
-    const browser = await launchSandboxBrowser(puppeteer, { headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-    try {
-      const page = await browser.newPage();
-      await page.goto(`${H}/control`, { waitUntil: 'load' }).catch(() => {});
-      await settle();
-      assert.deepEqual(vectorsHit(), [], `an ordinary page in the sandbox browser reached the listener: ${hits.join(' ')}`);
-    } finally {
-      await browser.close();
-    }
+    const leaked = await absent({
+      launch: () => launchSandboxBrowser(puppeteer, { headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage'] }),
+      walled: async (browser) => {
+        const page = await browser.newPage();
+        await page.goto(`${main.H}/control`, { waitUntil: 'load' }).catch(() => {});
+      },
+      // The witness is the control: the same page in an ordinary browser.
+      unwalled: async (browser) => {
+        const page = await browser.newPage();
+        await page.goto(`${witness.H}/control`, { waitUntil: 'load' });
+      },
+      expect: PAGE_FIRES,
+    });
+    assert.deepEqual(leaked, [], `an ordinary page in the sandbox browser reached the listener: ${main.hits.join(' ')}`);
   });
 
   test('STYLESHEET: each hostile package sheet fires in an online page ungated, and the real CLI refuses it as an installed component', { timeout: TIMEOUT }, async () => {
-    const sheets = stylesheetVectors(H);
     const name = 'canary-css';
-    const browser = await puppeteer.launch({ headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-    const open = async (doc) => {
-      hits = [];
-      const page = await browser.newPage();
-      await page.goto(`${H}/blank`, { waitUntil: 'load' });
-      await page.setContent(doc, { waitUntil: 'load' });
-      await settle();
-      await page.close();
-      return vectorsHit();
-    };
+    const control = (L, v) => `<!doctype html><html><head><style>${stylesheetVectors(L.H)[v](name)}</style></head><body><section class="${name}" style="width:99px;height:99px"><h2>x</h2></section></body></html>`;
     const problems = [];
-    try {
-      for (const [v, sheet] of Object.entries(sheets)) {
-        // CONTROL: the sheet itself, on a slide that carries the class, with no gate in the way.
-        const fired = await open(`<!doctype html><html><head><style>${sheet(name)}</style></head><body><section class="${name}" style="width:99px;height:99px"><h2>x</h2></section></body></html>`);
-        if (!fired.includes(v)) problems.push(`the control sheet ${v} did not fire (it fired ${fired.join(' ') || 'nothing'})`);
-        // DOOR: the same sheet placed in the package store by hand (no \`add\`), rendered by the real CLI.
-        const store = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-canary-css-'));
-        const dir = path.join(store, 'packages', 'component', name);
-        fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(path.join(dir, `${name}.manifest.json`), JSON.stringify({ name, type: 'component', format: 1 }));
-        fs.writeFileSync(path.join(dir, `${name}.styles.css`), sheet(name));
-        fs.writeFileSync(path.join(dir, `${name}.gallery.md`), `<!-- _class: ${name} -->\n\n## ${name}\n`);
-        fs.writeFileSync(path.join(store, 'deck.md'), `---\ntheme: indaco\n---\n\n<!-- _class: ${name} -->\n\n## Sheet\n`);
-        const out = path.join(store, 'deck.html');
-        const r = spawnSync(process.execPath, [path.join(__dirname, '../../../lattice.js'), path.join(store, 'deck.md'), out], { encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, LATTICE_HOME: store } });
-        const html = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
-        fs.rmSync(store, { recursive: true, force: true });
-        if (r.status !== 0) problems.push(`${v}: the render failed: ${r.stderr}`);
-        if (!/the installed component canary-css is refused/.test(r.stderr)) problems.push(`${v}: the CLI did not refuse the sheet`);
-        if (html.includes(`/${v}`)) problems.push(`${v}: the address reached the export`);
-        const leaked = await open(html);
-        if (leaked.length) problems.push(`${v}: the export reached the listener with ${leaked.join(' ')}`);
+    for (const v of Object.keys(stylesheetVectors(main.H))) {
+      // CONTROL: the sheet itself, on a slide that carries the class, with no gate in the way, awaited as it lands.
+      main.reset();
+      const browser = await plainLaunch();
+      try {
+        await openDoc(browser, main, control(main, v));
+        await main.until(hears(main, [v]));
+      } finally {
+        await browser.close();
       }
-    } finally {
-      await browser.close();
+      const fired = vectorsHit();
+      if (!fired.includes(v)) problems.push(`the control sheet ${v} did not fire (it fired ${fired.join(' ') || 'nothing'})`);
+      // DOOR: the same sheet placed in the package store by hand (no \`add\`), rendered by the real CLI.
+      const store = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-canary-css-'));
+      const dir = path.join(store, 'packages', 'component', name);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, `${name}.manifest.json`), JSON.stringify({ name, type: 'component', format: 1 }));
+      fs.writeFileSync(path.join(dir, `${name}.styles.css`), stylesheetVectors(main.H)[v](name));
+      fs.writeFileSync(path.join(dir, `${name}.gallery.md`), `<!-- _class: ${name} -->\n\n## ${name}\n`);
+      fs.writeFileSync(path.join(store, 'deck.md'), `---\ntheme: indaco\n---\n\n<!-- _class: ${name} -->\n\n## Sheet\n`);
+      const out = path.join(store, 'deck.html');
+      const r = spawnSync(process.execPath, [path.join(__dirname, '../../../lattice.js'), path.join(store, 'deck.md'), out], { encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, LATTICE_HOME: store } });
+      const html = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
+      fs.rmSync(store, { recursive: true, force: true });
+      if (r.status !== 0) problems.push(`${v}: the render failed: ${r.stderr}`);
+      if (!/the installed component canary-css is refused/.test(r.stderr)) problems.push(`${v}: the CLI did not refuse the sheet`);
+      if (html.includes(`/${v}`)) problems.push(`${v}: the address reached the export`);
+      // The export in an online page, with the ungated sheet as the witness.
+      const leaked = await absent({ launch: plainLaunch, walled: (b) => openDoc(b, main, html), unwalled: (b) => openDoc(b, witness, control(witness, v)), expect: [v] });
+      if (leaked.length) problems.push(`${v}: the export reached the listener with ${leaked.join(' ')}`);
     }
     assert.deepEqual(problems, []);
   });

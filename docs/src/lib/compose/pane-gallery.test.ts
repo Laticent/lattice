@@ -218,7 +218,8 @@ describe('a refused edit says why', () => {
 		return { state, reasons };
 	};
 	const MARKED = SLIDE.replace('### First pane', '<!-- _pane: list -->\n### First pane').replace('### Second pane', '<!-- _pane: list -->\n### Second pane');
-	const flush = () => new Promise((r) => setTimeout(r, 0));
+	// The guard reports a refusal in a microtask it queues while the transaction is applied; one queued after it runs after it (first in, first out).
+	const flush = () => new Promise<void>((r) => queueMicrotask(r));
 	it('deleting a hidden marker is refused, once, with the marker reason', async () => {
 		const { state, reasons } = guarded(MARKED);
 		let at = -1;

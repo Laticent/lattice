@@ -512,9 +512,11 @@ describe('block scalars — `style: |` lines are body, never directives (followu
 		expect(getFrontMatter(DECK.replace('style: |', 'style: |   '), 'lift')).toBeUndefined();
 		// The old tail `(?:[ \t]+#.*)?[ \t]*\r?$` backtracked quadratically here (460 ms at 20K).
 		const hostile = `---\nstyle: | #${' '.repeat(40000)}\u2028x\nfooter: Q4\n---\n`;
+		// A hang guard sized by F4 (HARD RULE #32), not a count: the line reader's `/^([A-Za-z][\w-]*)\s*:\s*(.*)$/` is
+		// polynomial by recheck, so the regex trace cannot pass it, and backtracking inside one exec has no count.
 		const t = performance.now();
 		expect(getFrontMatter(hostile, 'footer')).toBe('Q4');
-		expect(performance.now() - t).toBeLessThan(250);
+		expect(performance.now() - t).toBeLessThan(50); // flaky-ok: F4 hang guard: 0.3 ms today, the old tail `(?:[ \t]+#.*)?[ \t]*\r?$` 1,059 ms on this input; the bound is 160x today and 21x under the old
 	});
 
 	it('a nested-block writer re-emits the scalar verbatim instead of flattening its body', () => {

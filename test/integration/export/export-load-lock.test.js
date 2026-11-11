@@ -21,6 +21,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const puppeteer = require('puppeteer');
+const { trackPageWork } = require('../../helpers/page-settle');
+const { trackConnections } = require('../../helpers/request-log');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
@@ -30,6 +32,7 @@ let dir;
 let server;
 let hits;
 let H;
+let drained;
 
 before(async () => {
   hits = [];
@@ -37,6 +40,7 @@ before(async () => {
     hits.push(req.url);
     res.writeHead(200, { 'content-type': req.url.endsWith('.js') ? 'text/javascript' : req.url.endsWith('.css') ? 'text/css' : 'text/html' }).end(req.url.endsWith('.js') ? 'window.__remoteScriptRan = true;' : '');
   });
+  ({ drained } = trackConnections(server));
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   H = `http://127.0.0.1:${server.address().port}`;
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-load-lock-'));
@@ -70,17 +74,25 @@ function exportDeck(name, extra = []) {
 
 async function open(file) {
   hits.length = 0;
+  let state;
+  let frames;
   const browser = await puppeteer.launch({ headless: 'new', executablePath: process.env.CHROME_PATH || undefined, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   try {
     const page = await browser.newPage();
+    const settled = await trackPageWork(page);
+    // `load` waits for every script, stylesheet and frame the document holds. `settled()` then waits out what runs
+    // after it: a timer, a frame or a request the runtime or an author script starts once the page has loaded (a
+    // script it inserts, say), which `load` alone would let slip past the absence check below.
     await page.goto(`file://${file}`, { waitUntil: 'load' });
-    await new Promise((r) => setTimeout(r, 2500));
-    const state = await page.evaluate(() => ({ inline: !!window.__inlineRan, local: !!window.__localScriptRan, remote: !!window.__remoteScriptRan, localCss: getComputedStyle(document.body).getPropertyValue('--local-css').trim() }));
-    const frames = page.frames().map((f) => f.url());
-    return { state, remoteHits: [...new Set(hits.filter((h) => h.startsWith('/remote')))].sort(), frames };
+    await settled();
+    state = await page.evaluate(() => ({ inline: !!window.__inlineRan, local: !!window.__localScriptRan, remote: !!window.__remoteScriptRan, localCss: getComputedStyle(document.body).getPropertyValue('--local-css').trim() }));
+    frames = page.frames().map((f) => f.url());
   } finally {
     await browser.close();
   }
+  // The browser is gone: read every connection it made to its end, so a request still in a socket buffer is counted.
+  await drained();
+  return { state, remoteHits: [...new Set(hits.filter((h) => h.startsWith('/remote')))].sort(), frames };
 }
 
 describe('the plain export load lock, on the CLI and a real browser', () => {

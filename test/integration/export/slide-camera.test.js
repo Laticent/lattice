@@ -20,6 +20,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
+const { trackPageWork } = require('../../helpers/page-settle');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const BUNDLE = path.join(ROOT, 'dist', 'lattice-pdf-compose-min.js');
@@ -79,8 +80,9 @@ for (const deck of DECKS) {
     try {
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
+      const settled = await trackPageWork(page);
       await page.goto(pathToFileURL(html).href);
-      await new Promise((r) => setTimeout(r, 1200));
+      await settled({ frames: 3, images: true }); // the runtime's passes, its fonts and its pictures are done
       await page.addScriptTag({ content: fs.readFileSync(BUNDLE, 'utf8') });
       await page.addScriptTag({ content: TAKE });
       const handles = (await page.$$('section[data-lattice-slide]')).slice(0, MAX_SLIDES);
@@ -143,16 +145,19 @@ test('the slide camera draws what an author can put on a slide: control characte
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
+    const settled = await trackPageWork(page);
     await page.goto(pathToFileURL(file).href);
-    await new Promise((r) => setTimeout(r, 500));
+    await settled({ frames: 3, images: true }); // the pictures have loaded
     await page.addScriptTag({ content: fs.readFileSync(BUNDLE, 'utf8') });
     await page.addScriptTag({ content: TAKE });
     // Record the SVG the camera builds, to read the markup it hands the browser.
     await page.evaluate(() => {
       window.__svg = [];
+      window.__svgReading = 0;
       const read = FileReader.prototype.readAsDataURL;
       FileReader.prototype.readAsDataURL = function (blob) {
-        blob.text().then((t) => window.__svg.push(t));
+        window.__svgReading++;
+        blob.text().then((t) => { window.__svg.push(t); window.__svgReading--; });
         return read.call(this, blob);
       };
     });
@@ -160,7 +165,7 @@ test('the slide camera draws what an author can put on a slide: control characte
     const camera = PNG.sync.read(Buffer.from(await h.evaluate((el) => takeSlide(el, 1)), 'base64'));
     // A picture's address written as TEXT on the slide (a photo credit) stays text: only CSS and attributes are swapped for data.
     const credit = await page.evaluate(() => document.getElementById('credit').textContent);
-    await new Promise((r) => setTimeout(r, 300));
+    await page.waitForFunction(() => window.__svgReading === 0); // every blob the hook saw has been read
     const svgText = await page.evaluate(() => window.__svg.join('\n'));
     assert.ok(svgText.length > 1000, 'the hook saw the camera SVG');
     assert.ok(svgText.includes(credit), `the credit line keeps its text, not a data: URI (${credit})`);

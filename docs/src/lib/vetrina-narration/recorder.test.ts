@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
 import { type Ltt, timeline, validateLtt } from '@/lib/ltt';
 import { createTourRecorder, findCueWord, type Narrator, type RunContext, recordedLine, replayNarrator, type Stage, type Step, staleStretches, storyboard } from '@/lib/vetrina';
@@ -7,6 +7,22 @@ import { createTourRecorder, findCueWord, type Narrator, type RunContext, record
 // LTT step 4: a storyboard run, recorded as a seekable LTT, then checked against its source.
 // The plans are Cadenza's real tracks; the stage is a fake that records what the beat did, and
 // the narrator speaks instantly, so the run's rhythm is the storyboard's own waits and settles.
+//
+// Every test runs on vi's fake clock: the recorder's default `performance.now()`, the storyboard's
+// `Date.now()`, the hold-until poll and the simulated durations below all read it, so a run's
+// recorded timings are exact virtual milliseconds and each assertion on them can be exact too.
+beforeEach(() => {
+	vi.useFakeTimers();
+});
+afterEach(() => {
+	vi.useRealTimers();
+});
+
+/** Run `p` to completion by stepping the fake clock through every timer it schedules. */
+async function drive<T>(p: Promise<T>): Promise<T> {
+	await vi.runAllTimersAsync();
+	return p;
+}
 
 const digest = async (text: string) => `sha256:${createHash('sha256').update(text, 'utf8').digest('hex')}`;
 const INPUTS = { engine: `sha256:${'e'.repeat(64)}`, pace: 'moderate' as const };
@@ -27,7 +43,7 @@ function narrator(): Narrator & { spoke: string[] } {
 		plan: (text: string) => fast(text),
 		speak(text: string) {
 			spoke.push(text);
-			return { done: sleep(fast(text).durationMs), cancel() {} };
+			return { done: takes(fast(text).durationMs), cancel() {} };
 		},
 	};
 }
@@ -63,14 +79,15 @@ function context(n: Narrator, record: ReturnType<typeof createTourRecorder>, lea
 	return { ctx, trace };
 }
 
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+/** Something that takes `ms` of virtual time. The fake clock runs it; no test ever waits on it. */
+const takes = (ms: number) => new Promise<void>((r) => setTimeout(r, ms)); // flaky-ok: a simulated duration on vi's fake clock (beforeEach), stepped by drive(), never a real wait
 
 function tour(said = 'Then it shows the result.'): Step<Record<string, never>>[] {
 	let ready = false;
 	return [
 		{ say: 'This is the report.', settle: 0 },
 		{ say: 'Now click Publish to send it.', at: 'Publish', point: '#publish', click: true, settle: 0 },
-		{ act: () => sleep(60), settle: 0 },
+		{ act: () => takes(60), settle: 0 },
 		{ say: said, settle: 0 },
 		{
 			act: () => {
@@ -88,7 +105,7 @@ function tour(said = 'Then it shows the result.'): Step<Record<string, never>>[]
 async function record(steps = tour()): Promise<Ltt> {
 	const n = narrator();
 	const rec = createTourRecorder({ id: 'publish-demo', inputs: INPUTS, digest, viewport: { w: 1440, h: 900 } });
-	await storyboard('', steps)(context(n, rec).ctx);
+	await drive(storyboard('', steps)(context(n, rec).ctx));
 	return rec.ltt(steps);
 }
 
@@ -110,9 +127,10 @@ describe('the tour recorder — one run, written down as a seekable LTT', () => 
 			{ beats: [5, 5], after: 'until', cues: 1 },
 		]);
 		const [, act, until] = ltt.segments as Extract<Ltt['segments'][number], { kind: 'stretch' }>[];
-		// The act slept 60 ms and the until held ~40 ms; timers only ever run late.
-		expect(act.waitedMs).toBeGreaterThanOrEqual(55);
-		expect(until.waitedMs).toBeGreaterThanOrEqual(35);
+		// On the fake clock the waits are exact: the act takes 60 ms, and the until's app turns ready at
+		// 40 ms, which holdUntil's 80 ms poll sees on its first tick.
+		expect(act.waitedMs).toBe(60);
+		expect(until.waitedMs).toBe(80);
 		expect(timeline(ltt).durationMs).toBeGreaterThan(0);
 	});
 
@@ -133,7 +151,7 @@ describe('the tour recorder — one run, written down as a seekable LTT', () => 
 	it('changes nothing when no recorder is wired', async () => {
 		const n = narrator();
 		const { ctx } = context(n, undefined as unknown as ReturnType<typeof createTourRecorder>);
-		await expect(storyboard('', tour())(ctx)).resolves.toBeUndefined();
+		await expect(drive(storyboard('', tour())(ctx))).resolves.toBeUndefined();
 		expect(n.spoke).toHaveLength(4);
 	});
 });
@@ -151,7 +169,7 @@ describe('staleStretches — the recorder is isStale’s first caller (G3)', () 
 		expect(stale).toEqual([{ id: 's1', reason: 'changed', keep: true }]);
 		// Flagged, never rebuilt: the measured wait and the recorded rhythm are all still there.
 		expect(JSON.stringify(ltt)).toBe(before);
-		expect((ltt.segments[1] as { waitedMs?: number }).waitedMs).toBeGreaterThanOrEqual(55);
+		expect((ltt.segments[1] as { waitedMs?: number }).waitedMs).toBe(60);
 	});
 
 	it('emphasis is part of the hash: re-weighting a line flags its stretch', async () => {
@@ -189,7 +207,7 @@ describe('an aborted run records nothing', () => {
 		const { ctx } = context(n, rec);
 		const run = storyboard('', tour())({ ...ctx, signal: controller.signal });
 		setTimeout(() => controller.abort(), 5);
-		await run.catch(() => {});
+		await drive(run.catch(() => {}));
 		await expect(rec.ltt(tour())).rejects.toThrow(/did not finish/);
 	});
 });
@@ -198,17 +216,18 @@ describe('replay — the recording, played back as the plan', () => {
 	it('a line said twice replays each time with its own recorded timing', async () => {
 		const steps: Step<Record<string, never>>[] = [
 			{ say: 'Click Save.', settle: 0 },
-			{ act: () => sleep(20), settle: 0 },
+			{ act: () => takes(20), settle: 0 },
 			{ say: 'Click Save.', settle: 0 },
 		];
 		const n = narrator();
-		const slow = { ...n, speak: (text: string, o: Parameters<Narrator['speak']>[1]) => (text === 'Click Save.' && n.spoke.length === 0 ? (n.spoke.push(text), { done: sleep(80), cancel() {} }) : n.speak(text, o)) };
+		const slow = { ...n, speak: (text: string, o: Parameters<Narrator['speak']>[1]) => (text === 'Click Save.' && n.spoke.length === 0 ? (n.spoke.push(text), { done: takes(80), cancel() {} }) : n.speak(text, o)) };
 		const rec = createTourRecorder({ id: 'x', inputs: INPUTS, digest, viewport: { w: 1440, h: 900 } });
-		await storyboard('', steps)(context(slow as Narrator, rec).ctx);
+		await drive(storyboard('', steps)(context(slow as Narrator, rec).ctx));
 		const ltt = await rec.ltt(steps);
 		const first = recordedLine(ltt, 'Click Save.', 0)?.durationMs ?? 0;
 		const second = recordedLine(ltt, 'Click Save.', 1)?.durationMs ?? 0;
-		expect(first).toBeGreaterThan(second + 30);
+		expect(first).toBe(80); // the slow first saying
+		expect(second).toBe(fast('Click Save.').durationMs); // the instant narrator's plan
 		// And the replay narrator walks them in order.
 		const replay = replayNarrator(ltt, narrator());
 		expect(replay.plan?.('Click Save.')?.durationMs).toBe(first);
@@ -222,7 +241,7 @@ describe('replay — the recording, played back as the plan', () => {
 		const plan = fast('Now click Publish to send it.');
 		// The words keep their places; the whole line is re-timed to how long it really took.
 		expect(line?.cues[0].words.map((w) => w.display)).toEqual(plan.cues[0].words.map((w) => w.display));
-		expect(Math.abs((line?.durationMs ?? 0) - plan.durationMs)).toBeLessThan(25);
+		expect(line?.durationMs).toBe(plan.durationMs);
 		expect(recordedLine(ltt, 'A line nobody said.')).toBeNull();
 	});
 
@@ -242,10 +261,10 @@ describe('replay — the recording, played back as the plan', () => {
 			};
 			const run = context(replayNarrator(ltt, inner), createTourRecorder({ id: 'x', inputs: INPUTS, digest }), lead);
 			const t0 = Date.now();
-			await storyboard('', tour())(run.ctx);
+			await drive(storyboard('', tour())(run.ctx));
 			const pointAt = t0 + (run.trace.find((t) => t.what === 'point')?.at ?? 0);
 			const wordAt = startedAt[1] + (word?.startMs ?? 0);
-			expect(Math.abs(pointAt + lead - wordAt), `lead ${lead}`).toBeLessThan(25);
+			expect(pointAt + lead - wordAt, `lead ${lead}`).toBe(0); // flaky-ok: Date.now is vi's fake clock (beforeEach), so this is exact virtual time, asserted equal
 		}
 	});
 });

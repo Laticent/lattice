@@ -452,12 +452,12 @@ theme: indaco
 			const page = await offline.newPage();
 			await page.setContent(
 				'<img src="https://img-probe.lattice-e2e.invalid/a.png"><img src="http://10.9.9.9/b.png">'
-				+ '<script>fetch("https://fetch-probe.lattice-e2e.invalid/").catch(() => {});</script>',
+				+ '<script>fetch("https://fetch-probe.lattice-e2e.invalid/").catch(() => {}).finally(() => { window.__fetchSettled = true; });</script>',
 				{ waitUntil: 'domcontentloaded' },
 			);
-			await page.waitForFunction(() => [...document.images].every((i) => i.complete), { timeout: 20000 }).catch(() => {});
-			// A request the listener accepted is written at once; give a late one a moment to land.
-			await new Promise((r) => setTimeout(r, 1000));
+			// Every request has finished, refused or answered, and the listener records a request before it answers it,
+			// so nothing is left to land.
+			await page.waitForFunction(() => window.__fetchSettled === true && [...document.images].every((i) => i.complete), { timeout: 20000 }).catch(() => {});
 		} finally {
 			await offline.close();
 			listener.close();

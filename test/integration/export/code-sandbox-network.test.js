@@ -22,43 +22,25 @@
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const http = require('node:http');
-const dgram = require('node:dgram');
+const { openListener } = require('../../helpers/request-log.js');
 const { SANDBOX_LAUNCH_ARGS, launchSandboxBrowser, openSandboxPage } = require('../../../lib/core/code-sandbox.js');
 const { OFFLINE_CHROMIUM_ARGS } = require('../../../lib/core/offline-chromium.js');
 
 const TIMEOUT = 300000;
-const SETTLE_MS = 1500;
 
 describe('code sandbox: a hostile transform reaches nothing', () => {
-  let server;
-  let hits;
-  let udp;
-  let H;
+  // The walled runs log to `main`. A WITNESS runs the same vectors with no walls, at the same time, against `witness`:
+  // once it has heard every vector, the walled run has had the time a vector needs to land (test/helpers/request-log.js).
+  let main;
+  let witness;
   let vectors;
 
-  test.before(async () => {
-    hits = [];
-    server = http.createServer((req, res) => {
-      hits.push(req.url);
-      res.end('x');
-    });
-    server.on('upgrade', (req, sock) => {
-      hits.push(req.url);
-      sock.destroy();
-    });
-    await new Promise((r) => server.listen(0, '127.0.0.1', r));
-    H = `http://127.0.0.1:${server.address().port}`;
-    udp = {};
-    for (const name of ['webrtc', 'webrtcviaframe']) {
-      const s = dgram.createSocket('udp4');
-      s.on('message', () => hits.push(`/${name}`));
-      await new Promise((r) => s.bind(0, '127.0.0.1', r));
-      udp[name] = s;
-    }
-    const stun = (name) => `stun:127.0.0.1:${udp[name].address().port}`;
-    const P = server.address().port;
-    vectors = {
+  /** Every vector, aimed at one listener. Each URL path is unique, so a hit names the vector that made it. */
+  const vectorsFor = (L) => {
+    const H = L.H;
+    const P = L.P;
+    const stun = (name) => `stun:127.0.0.1:${L.udpPort(name)}`;
+    return {
       image: `new Image().src='${H}/image'`,
       fetch: `fetch('${H}/fetch').catch(()=>{})`,
       xhr: `var x=new XMLHttpRequest();x.open('GET','${H}/xhr');x.send()`,
@@ -97,23 +79,30 @@ describe('code sandbox: a hostile transform reaches nothing', () => {
       webrtc: `try{var pc=new RTCPeerConnection({iceServers:[{urls:'${stun('webrtc')}'}]});pc.createDataChannel('x');pc.createOffer().then(function(o){return pc.setLocalDescription(o)})}catch(e){}`,
       webrtcviaframe: `try{var f=document.createElement('iframe');document.body.appendChild(f);var pc=new f.contentWindow.RTCPeerConnection({iceServers:[{urls:'${stun('webrtcviaframe')}'}]});pc.createDataChannel('x');pc.createOffer().then(function(o){return pc.setLocalDescription(o)})}catch(e){}`,
     };
+  };
+
+  test.before(async () => {
+    const udp = { webrtc: '/webrtc', webrtcviaframe: '/webrtcviaframe' };
+    main = await openListener({ udp });
+    witness = await openListener({ udp });
+    vectors = vectorsFor(main);
   });
 
   test.after(async () => {
-    await new Promise((r) => server.close(r));
-    for (const s of Object.values(udp)) s.close();
+    await main.close();
+    await witness.close();
   });
 
-  /**
-   * Run every vector at once in its own page; return the vectors that reached a listener. Each
-   * vector first logs that it RAN, and the run fails if one did not: a zero from a script that
-   * never executed would otherwise pass every walled arm below.
-   */
-  async function fired(browser, locked) {
-    hits.length = 0;
-    const ran = new Set();
-    const closers = await Promise.all(
-      Object.entries(vectors).map(async ([name, body]) => {
+  /** The vectors a listener heard. `favicon.ico` is the browser's own follow-up after a vector navigates to it. */
+  const heard = (L) => [...new Set(L.hits.map((h) => h.replace(/^\//, '').split(/[/?]/)[0]))].filter((v) => v !== 'favicon.ico').sort();
+  // The plain `Worker` vector is the one an ordinary page cannot fire (an opaque-origin document may not start a worker from a URL).
+  const fireable = () => Object.keys(vectors).filter((v) => v !== 'worker').sort();
+  const covers = (L) => () => fireable().every((v) => heard(L).includes(v));
+
+  /** Open every vector at once, each in its own page; resolves with a closer, and `ran` fills as each vector RUNS. */
+  async function openVectors(browser, locked, set, ran) {
+    return Promise.all(
+      Object.entries(set).map(async ([name, body]) => {
         const code = `console.log('ran:${name}');${body}`;
         const onConsole = (text) => (text.startsWith('ran:') ? ran.add(text.slice(4)) : null);
         // Eleven locked pages load AT ONCE here, and `openSandboxPage`'s 5 s default load cap (which
@@ -130,22 +119,40 @@ describe('code sandbox: a hostile transform reaches nothing', () => {
         return () => context.close();
       }),
     );
-    // Settle on the hits, not a guess: wait at least SETTLE_MS, then until the list has not changed
-    // for SETTLE_MS, within a deadline.
-    const deadline = Date.now() + 8 * SETTLE_MS;
-    await new Promise((r) => setTimeout(r, SETTLE_MS));
-    for (let seen = -1; seen !== hits.length && Date.now() < deadline; ) {
-      seen = hits.length;
-      await new Promise((r) => setTimeout(r, SETTLE_MS));
+  }
+
+  /**
+   * Run every vector in a browser from `launch` and return the vectors that reached `main`. Each vector first logs that
+   * it RAN, and the run fails if one did not: a zero from a script that never executed would otherwise pass every
+   * walled arm below. Waits on signals, not a quiet period: with `witness` set (a walled arm), until the unwalled
+   * witness has heard every fireable vector; without (the control), until `main` has. Then every browser closes and
+   * `main` drains, so a request still in flight is counted.
+   */
+  async function fired(launch, locked, { withWitness }) {
+    main.reset();
+    witness.reset();
+    const ran = new Set();
+    const browser = await launch();
+    const wBrowser = withWitness ? await plainLaunch() : null;
+    let heardAll;
+    try {
+      const closers = await openVectors(browser, locked, vectors, ran);
+      if (withWitness) closers.push(...(await openVectors(wBrowser, false, vectorsFor(witness), new Set())));
+      heardAll = await (withWitness ? witness : main).until(covers(withWitness ? witness : main));
+      await Promise.all(closers.map((c) => c().catch(() => {})));
+    } finally {
+      await browser.close();
+      await wBrowser?.close();
     }
-    await Promise.all(closers.map((c) => c().catch(() => {})));
+    await main.drained();
+    if (withWitness) assert.ok(heardAll, `the unwalled witness never heard ${fireable().filter((v) => !heard(witness).includes(v)).join(' ')}, so the walled run's zero proves nothing`);
     assert.deepEqual([...ran].sort(), Object.keys(vectors).sort(), 'every vector must have RUN, or its zero means nothing');
-    // `favicon.ico` is the browser's own follow-up after a vector navigates to this server.
-    return [...new Set(hits.map((h) => h.replace(/^\//, '').split(/[/?]/)[0]))].filter((v) => v !== 'favicon.ico').sort();
+    return heard(main);
   }
 
   const puppeteer = require('puppeteer');
-  const plainLaunch = (args = []) => puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage', ...args] });
+  const plainLaunch = (args = []) => puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-features=LocalNetworkAccessChecks', ...args] });
+  const sandboxLaunch = () => launchSandboxBrowser(puppeteer, { headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
 
   test('the sandbox browser launches with its own frozen, offline argument list', () => {
     // Pinned LITERALLY: a change to the deck render's offline arguments must not reach this wall
@@ -163,38 +170,22 @@ describe('code sandbox: a hostile transform reaches nothing', () => {
   });
 
   test('CONTROL: with no walls, every vector reaches the listener', { timeout: TIMEOUT }, async () => {
-    const browser = await plainLaunch();
-    try {
-      const got = await fired(browser, false);
-      const expected = Object.keys(vectors).filter((v) => v !== 'worker').sort();
-      assert.deepEqual(got, expected, 'a vector the control cannot fire proves nothing in the arms below');
-    } finally {
-      await browser.close();
-    }
+    const got = await fired(() => plainLaunch(), false, { withWitness: false });
+    assert.deepEqual(got, fireable(), 'a vector the control cannot fire proves nothing in the arms below');
   });
 
   test('the PAGE walls alone, in an online browser, stop every vector', { timeout: TIMEOUT }, async () => {
-    const browser = await plainLaunch();
-    try {
-      assert.deepEqual(await fired(browser, true), []);
-    } finally {
-      await browser.close();
-    }
+    assert.deepEqual(await fired(() => plainLaunch(), true, { withWitness: true }), []);
   });
 
   test('the BROWSER wall alone, with an ordinary page, stops every vector', { timeout: TIMEOUT }, async () => {
-    const browser = await launchSandboxBrowser(puppeteer, { headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-    try {
-      assert.deepEqual(await fired(browser, false), []);
-    } finally {
-      await browser.close();
-    }
+    assert.deepEqual(await fired(sandboxLaunch, false, { withWitness: true }), []);
   });
 
   test('both walls together stop every vector, and the page can still lay out and measure text', { timeout: TIMEOUT }, async () => {
-    const browser = await launchSandboxBrowser(puppeteer, { headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    assert.deepEqual(await fired(sandboxLaunch, true, { withWitness: true }), []);
+    const browser = await sandboxLaunch();
     try {
-      assert.deepEqual(await fired(browser, true), []);
       // The one thing a transform needs from the page (the contract's `measure`): layout.
       const sandbox = await openSandboxPage(browser, {
         body: '<span id="m" style="font:16px serif">Measure me</span>',

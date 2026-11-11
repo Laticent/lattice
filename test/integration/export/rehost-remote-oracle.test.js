@@ -89,12 +89,36 @@ const keptBy = (fn) => (c) => {
 async function fetchedBy(env, pageOrigin, html, hits) {
 	hits.length = 0;
 	const page = await env.browser.newPage();
+	// Every request the page makes, until it finishes or fails. The web server logs a request before it answers, so a
+	// finished one is in `hits`.
+	const pending = new Set();
+	let wake = () => {};
+	page.on('request', (r) => pending.add(r));
+	const done = (r) => {
+		pending.delete(r);
+		wake();
+	};
+	page.on('requestfinished', done);
+	page.on('requestfailed', done);
 	try {
 		pageOrigin.html = html;
 		await page.goto(`${pageOrigin.url}/`, { waitUntil: env.kind === 'puppeteer' ? 'networkidle0' : 'networkidle' });
 		// Paint every element so a lazily decoded image is requested.
 		await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-		await new Promise((r) => setTimeout(r, 300));
+		// Then a signal, not a sleep: one more picture, from the page's own origin. A page reports its requests in the order
+		// it makes them, so once this one is seen every earlier one has been, and once all of them are finished, every
+		// request the corpus made is in the web server's log.
+		const beacon = page.waitForRequest((r) => r.url().endsWith('/__beacon.png'), { timeout: 30000 });
+		await page.evaluate((src) => {
+			const img = document.createElement('img');
+			img.src = src;
+			document.body.appendChild(img);
+		}, `${pageOrigin.url}/__beacon.png`);
+		await beacon;
+		await new Promise((resolve) => {
+			wake = () => pending.size === 0 && resolve();
+			wake();
+		});
 	} finally {
 		await page.close();
 	}

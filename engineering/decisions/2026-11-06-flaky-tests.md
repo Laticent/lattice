@@ -106,6 +106,22 @@ required; a bare `flaky-ok` still counts.
   `charReads(fn)` counts what a hand-written walker does instead (`charCodeAt`, `codePointAt`, and the arrays an Array
   search walks), for the CSS and HTML readers that never call a search. Each rewritten bound sits a few times above
   the measured count, and each was shown failing on a copy of the module with the old shape put back.
+- `test/helpers/property-reads.js` (added 2026-11-11, `docs/src/lib`): `countReads(root, key, { limit })` deep-copies
+  a structure into Proxies that count reads of one property, so a walk over a grammar tree, which touches no string,
+  costs a visit count. A shared node stays one copy, and past `limit` it throws, so a walk gone exponential fails at
+  once instead of hanging the runner. The segno grammar, codegen and publish-review tests bound visits per node with it.
+- `test/helpers/page-settle.js` (`test/integration/export`): `trackPageWork(page)`, called before the page navigates,
+  keeps a ledger of the timers, frames and requests a real page has queued, and its `settled()` resolves once none is
+  left. `settled({ frames: 3 })` also waits for three quiet frames in a row, so a resize's `ResizeObserver` work has
+  run; `{ images: true }` also waits for every `<img>` to complete. A string timer stays off the ledger, because
+  wrapping it would change what the page runs, and a page that never settles fails at the deadline, naming what was
+  still queued. It replaced 1.5 to 2.5 s sleeps and absorbed `page-quiet.js`.
+- `test/helpers/request-log.js` (`test/integration/export`): `drained()` resolves once every connection a client
+  already made to a test listener has been read to its end. It connects once itself and waits for the listener to
+  accept that connection, which the kernel does in arrival order, so every earlier connection is in. It needs the
+  client gone first. A live browser has nothing to drain, so an absence check runs a WITNESS: the same attempts with no
+  walls against a second listener, started after the walled attempts. The witness proves how long one attempt takes
+  to land, not that a subject holding a request back on purpose has sent it.
 
 **Backtracking inside one regex has no count to read.** The audit tried V8's
 `--regexp-backtracks-before-fallback` with `--trace-experimental-regexp-engine`: the count rises about once per start
@@ -178,6 +194,12 @@ The answer for every distinct literal in `lib/**` (keyed on its text, `/source/f
 **The gate read a `flaky-ok` mark from the wrong line after a U+2028 or U+2029.** TypeScript counts both as line
 breaks and `text.split('\n')` does not, so in `test/unit/core/lattice-doc.test.js` every mark below a string holding
 one was read two lines off and ignored. `flakyTestHits` now cuts the line from TypeScript's own line starts.
+
+**The docs unit tests ran a build, not the source** (found 2026-11-11, F8's cousin). Each of the 17 `docs/src/lib`
+packages names its gitignored `dist/` in `main` and its source under the `@laticent/source` export, and the docs import
+them by folder, which reads `main`. So a stale `dist/` decided the result, and a mutation arm against the source proved
+nothing until the package was rebuilt. `libSource()` in `docs/vitest.config.ts` sends any import that lands on a
+`src/lib/<pkg>/dist/` entry to the source file the package exports beside it.
 
 **Without git the gate refuses once** ("could not list the committed test files … do not edit the baseline to match").
 An empty listing would otherwise read as every entry stale, and following that advice would empty the baseline.

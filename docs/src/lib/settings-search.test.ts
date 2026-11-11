@@ -1,5 +1,11 @@
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { SETTINGS_SYNONYMS, settingsMatch } from './settings-search';
+
+// The root's work counter (test/helpers/work-count.js), CommonJS.
+const { charReads } = createRequire(import.meta.url)('../../../test/helpers/work-count.js') as {
+	charReads: <T>(fn: () => T) => { result: T; scanned: number; reads: number };
+};
 
 // A slice of the LIVE panel: rows read off the running Studio (both scopes) exactly as
 // `settingsMatch` sees them — label, then value, then description, space-joined. Kept
@@ -165,10 +171,13 @@ describe('settingsMatch — typo repair', () => {
 describe('settingsMatch — the pathological input', () => {
 	it('survives a pasted blob without stemming a 20,000-character token', () => {
 		const blob = 'x'.repeat(20_000);
-		const t0 = Date.now();
-		expect(settingsMatch(blob, ROWS.theme)).toBe(false);
-		expect(settingsMatch(`page ${blob}`, ROWS.pageNumbers)).toBe(false);
-		expect(Date.now() - t0).toBeLessThan(1000);
+		// The work is counted, not timed (HARD RULE #32, F1): charReads totals every character searched, sliced or read
+		// by code (test/helpers/work-count.js). The query is clipped first, so the cost tracks the rows, not the blob.
+		const w = charReads(() => {
+			expect(settingsMatch(blob, ROWS.theme)).toBe(false);
+			expect(settingsMatch(`page ${blob}`, ROWS.pageNumbers)).toBe(false);
+		});
+		expect(w.reads + w.scanned).toBeLessThan(16 * blob.length); // 4.4x measured; 82x unclipped
 	});
 
 	it('caps the term count, and the cap can only ever WIDEN a result', () => {

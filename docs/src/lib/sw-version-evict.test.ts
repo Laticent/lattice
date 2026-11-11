@@ -77,16 +77,29 @@ function loadSw() {
 	// eslint-disable-next-line no-new-func
 	new Function('self', 'caches', 'fetch', SW_SRC)(selfMock, cachesMock, fetchMock);
 
+	// Every promise the worker hands to waitUntil, including one handed over after `asset` returned (cacheFirst's put).
+	const handed: unknown[] = [];
 	const asset = async (path: string) => {
 		const request = { url: ORIGIN + path, method: 'GET', mode: 'cors', headers: { has: () => false } };
 		const waits: unknown[] = [];
 		let responded: unknown;
-		handlers.fetch({ request, respondWith: (p: unknown) => (responded = p), waitUntil: (p: unknown) => waits.push(p) });
+		handlers.fetch({
+			request,
+			respondWith: (p: unknown) => (responded = p),
+			waitUntil: (p: unknown) => {
+				waits.push(p);
+				handed.push(p);
+			},
+		});
 		await Promise.all([responded, ...waits].map((p) => Promise.resolve(p).catch(() => {})));
+	};
+	/** Settle every waitUntil promise handed over so far: the worker's own end of a put, not a guess at its length. */
+	const settled = async () => {
+		while (handed.length) await Promise.resolve(handed.shift()).catch(() => {});
 	};
 	const assetKeys = () => [...(cachesMock.map.get(ASSETS)?.store.keys() ?? [])];
 	const assetCache = () => cachesMock.map.get(ASSETS);
-	return { asset, assetKeys, assetCache };
+	return { asset, assetKeys, assetCache, settled };
 }
 
 describe('sw.js — cross-deploy version eviction', () => {
@@ -157,7 +170,8 @@ describe('sw.js — one cache listing per put', () => {
 		cache.keysCalls = 0;
 		await sw.asset('/playground/v/bbbbbbbb2222/lattice-runtime.js');
 		await vi.waitFor(() => expect(sw.assetKeys()).not.toContain(`${ORIGIN}/playground/v/aaaaaaaa1111/lattice-runtime.js`));
-		await new Promise((r) => setTimeout(r, 10));
+		// The eviction above proves the put is under way; wait for it to finish its cap pass too, then count the listings.
+		await sw.settled();
 		expect(cache.keysCalls).toBe(1);
 	});
 
