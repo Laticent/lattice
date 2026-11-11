@@ -406,6 +406,7 @@ export function ActivityRail({
 // arriving" instead, so the handoff stays seamless. Fixed widths (no Math.random) keep it
 // deterministic; the real text is sr-only for assistive tech.
 const EDITOR_SKELETON_LINES = [82, 63, 71, 44, 78, 57, 88, 38, 67, 74, 51, 80, 60, 46];
+const EDITOR_SKELETON_NUMBERS = EDITOR_SKELETON_LINES.map((_, i) => i + 1).join('\n');
 // Compose-shaped placeholder, the rich-editor twin of EditorSkeleton below. Compose is a
 // WYSIWYG surface with no line-number gutter, so reusing the code-editor skeleton would
 // read as the wrong pane arriving. Prose blocks — a heading bar, then paragraph runs —
@@ -426,8 +427,8 @@ const COMPOSE_SKELETON_BLOCKS = [
 // so the order cannot drift between them. `name` is the accessible name, which the e2e chrome contract
 // addresses; `Markdown source` keeps its old name because it already contains the visible word "Source".
 export const EDIT_MODES: ReadonlyArray<{ mode: EditMode; label: string; name: string; hint: string; Icon: React.ComponentType<{ className?: string }> }> = [
-	{ mode: 'compose', label: 'Compose', name: 'Compose — rich editor', hint: 'Compose — rich text editor', Icon: Sparkles },
-	{ mode: 'source', label: 'Source', name: 'Markdown source', hint: 'Source — the Markdown', Icon: FileText },
+	{ mode: 'compose', label: 'Compose', name: 'Compose — rich editor', hint: 'Compose — rich text', Icon: Sparkles },
+	{ mode: 'source', label: 'Source', name: 'Markdown source', hint: 'Source — Markdown', Icon: FileText },
 ];
 /** What a mode is called where a sentence names it ("Edit this slide in Source"). */
 export const EDIT_MODE_LABEL: Record<EditMode, string> = { compose: 'Compose', source: 'Source' };
@@ -450,7 +451,7 @@ export function EditModeToggle({ mode, onPick }: { mode: EditMode | null; onPick
 	return (
 		// A real `<fieldset>`, as PostureDial is: the group role is the element's own. `m-0 min-w-0` take off a
 		// fieldset's margin and intrinsic min-width (a bare reset, HARD RULE #20); the border and padding are ours.
-		<fieldset aria-label="Writing mode" className={cn('m-0 inline-flex min-w-0 shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5', mode === null && EDIT_MODE_WORDS.shell)}>
+		<fieldset aria-label={mode === null ? undefined : 'Writing mode'} className={cn('m-0 inline-flex min-w-0 shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal', mode === null && EDIT_MODE_WORDS.shell)}>
 			{EDIT_MODES.map((m) => {
 				const on = mode === m.mode;
 				const button = (
@@ -461,7 +462,7 @@ export function EditModeToggle({ mode, onPick }: { mode: EditMode | null; onPick
 							aria-label={m.name}
 							aria-pressed={mode === null ? undefined : on}
 							onClick={onPick ? () => onPick(m.mode) : undefined}
-							className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal transition-colors', on ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}
+							className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-1', on ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground', mode !== null && 'transition-colors', mode !== null && !on && 'hover:text-foreground')}
 						>
 							<m.Icon className="size-3" />
 							<span className={mode === null ? undefined : EDIT_MODE_WORDS.measured}>{m.label}</span>
@@ -486,7 +487,8 @@ export function ComposeSkeleton({ className, quiet }: { className?: string; quie
 			    alongside this PR). */}
 			{/* The rows' shared look sits on the parent (`*:`), once, not on every row: this skeleton is drawn into the
 			    Studio's static HTML too, which has a byte ceiling (docs/route-budget.json, htmlRaw). */}
-			<div className="contents *:h-[9px] *:rounded-sm *:bg-muted-foreground/10" aria-hidden="true">
+			{/* `quiet` (the shell's aria-hidden copy) drops the wrapper too: nothing in that copy is ever announced. */}
+			<div className="contents *:h-[9px] *:rounded-sm *:bg-muted-foreground/10" aria-hidden={quiet ? undefined : 'true'}>
 				{COMPOSE_SKELETON_BLOCKS.map((b) => (
 					<div key={`${b.w}-${b.h}`} style={b.h === 9 ? { width: `${b.w}%` } : { width: `${b.w}%`, height: `${b.h}px` }} />
 				))}
@@ -504,11 +506,13 @@ export function EditorSkeleton({ className, quiet }: { className?: string; quiet
 			{/* `aria-hidden` sits on the DECORATIVE blocks only, not on the wrapper — see
 			    ComposeSkeleton above. An aria-hidden ancestor removes its whole subtree from
 			    the accessibility tree, so an `sr-only` span inside one announces nothing. */}
-			<div className="contents" aria-hidden="true">
-				<div className="flex select-none flex-col items-end gap-[7px] pr-3 text-muted-foreground/25">
-					{EDITOR_SKELETON_LINES.map((w, i) => (
-						<span key={w}>{i + 1}</span>
-					))}
+			<div className="contents" aria-hidden={quiet ? undefined : 'true'}>
+				{/* The line numbers are ONE text node, a line each, rather than an element per number: the shell draws this
+				    into the Studio's static HTML, which has a byte ceiling (docs/route-budget.json, htmlRaw). The 16 px leading
+				    is the bars' own pitch (9 px bar, 7 px gap), so each number sits beside its bar; the old column ran at 26.5 px
+				    and drifted away from them. */}
+				<div className="select-none whitespace-pre-line pr-3 text-right leading-4 text-muted-foreground/25">
+					{EDITOR_SKELETON_NUMBERS}
 				</div>
 				<div className="flex flex-1 flex-col gap-[7px] pt-[3px] *:h-[9px] *:rounded-sm *:bg-muted-foreground/10">
 					{EDITOR_SKELETON_LINES.map((w) => (

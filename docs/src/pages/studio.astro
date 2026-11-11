@@ -391,7 +391,7 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
 /* Slide settings is compact-only in the app: from 1100 up the activity bar owns it, and a
    duplicate would also break e2e's strict 'Slide settings' locator. */
 @media (min-width:1100px){#studio-ssr-shell .ssr-slide-settings{display:none;}}
-:root:not([data-ssr-src]) #studio-ssr-shell [data-edit-seg=compose],[data-ssr-src] #studio-ssr-shell [data-edit-seg=source]{background:var(--accent-soft);color:var(--accent)}
+:root:not([data-ssr-src]) .ssr-editpane [data-edit-seg=compose],[data-ssr-src] .ssr-editpane [data-edit-seg=source]{background:var(--accent-soft);color:var(--accent)}
 [data-ssr-src] .ssr-body-compose,:root:not([data-ssr-src]) .ssr-body-source{display:none}
 :root[data-ssr-bp="mobile"] #studio-ssr-shell .ssr-editpane,:root[data-ssr-read] #studio-ssr-shell .ssr-editpane{display:none;}
 /* The preview pane's own sub-bar. Absent at Read, where the app renders the preview
@@ -848,7 +848,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						// 32px collapse button — 26px of line box, i.e. 6.8px of growth — so the split
 						// tier takes only what exceeds that.
 						var headerH = chromeless ? C.headerRead : (bpMobile ? C.headerWriteMobile : C.headerWriteSplit + Math.max(0, lhGrow - 6.8));
-						G = { vw: vw2, vh: vh2, posture: posture, cinema: cinema, noTours: noTours, railW: railW, bpMobile: bpMobile, chromeless: chromeless, padX: padX, padY: padY, paneTop: paneTop, headerH: headerH, footerH: footerH, paneX: paneX, paneW: paneW, paneH: vh2 - paneTop, src: !!settings && settings.editMode === 'source' };
+						G = { vw: vw2, vh: vh2, posture: posture, cinema: cinema, noTours: noTours, railW: railW, bpMobile: bpMobile, chromeless: chromeless, padX: padX, padY: padY, paneTop: paneTop, headerH: headerH, footerH: footerH, paneX: paneX, paneW: paneW, paneH: vh2 - paneTop, src: !!settings && settings.editMode == 'source' };
 						// Publishing is a function because the REPLAY seed below can widen the pane to
 						// contain a replayed box (see there) and must re-publish the corrected values.
 						// Every attribute is set OR cleared, never only set: a re-seed after a rotation
