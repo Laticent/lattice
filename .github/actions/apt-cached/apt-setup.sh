@@ -26,15 +26,21 @@ Acquire::ConnectionAttemptDelayMsec "250";
 CONF
 
 # Ubuntu's own archive and well-known full mirrors of it. Every one carries noble, noble-updates, noble-backports and
-# noble-security for amd64 (the runners are amd64; ports are out of scope). security.ubuntu.com holds only
-# the security pocket, so it is last: apt asks it for the others only when every mirror above has failed.
+# noble-security for amd64 (the runners are amd64; ports are out of scope).
+#
+# THE ORDER IS MEASURED. On 2026-11-11 (15:26 UTC), 20 fetches each from a network unrelated to GitHub's: the two names
+# Ubuntu serves from Azure Traffic Manager failed to RESOLVE about half the time (azure.archive 8 of 20, us.archive 8 of
+# 20), archive.ubuntu.com and security.ubuntu.com once each, mirrors.edge.kernel.org and Princeton never. The runner
+# image puts azure.archive first, which is how every integration shard of #3136 failed. So the mirrors that never failed
+# lead, the Azure-backed names follow, and security.ubuntu.com, which holds only the security pocket, is last: apt asks
+# it for the others only when every mirror above has failed.
 mirrors() {
   printf '%s\tpriority:%s\n' \
-    http://azure.archive.ubuntu.com/ubuntu/ 1 \
+    http://mirrors.edge.kernel.org/ubuntu/ 1 \
     http://archive.ubuntu.com/ubuntu/ 2 \
-    http://us.archive.ubuntu.com/ubuntu/ 3 \
-    http://mirrors.edge.kernel.org/ubuntu/ 4 \
-    http://mirror.math.princeton.edu/pub/ubuntu/ 5 \
+    http://mirror.math.princeton.edu/pub/ubuntu/ 3 \
+    http://azure.archive.ubuntu.com/ubuntu/ 4 \
+    http://us.archive.ubuntu.com/ubuntu/ 5 \
     http://security.ubuntu.com/ubuntu/ 6
 }
 
