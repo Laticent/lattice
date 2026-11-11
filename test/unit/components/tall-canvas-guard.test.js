@@ -31,7 +31,6 @@ function draw(source, cls, aspect, opts) {
   assert.ok(out.transformed, `${cls} drew`);
   return doc(out.html).querySelector('svg');
 }
-const tallShape = () => 0.88 / 0.67; // chart-box.js: BOX_FILL over the 9:16 chart box
 const viewBox = (svg) => svg.getAttribute('viewBox').split(/\s+/).map(Number);
 
 describe('the tall canvas is only for the header it was measured under', () => {
