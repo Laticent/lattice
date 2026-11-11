@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { waitForStudioPaint } from './studio-fixture';
+import { isPhone, waitForStudioPaint } from './studio-fixture';
 
 // COMPOSE FIRST (engineering/decisions/2026-11-10-compose-first.md). The rest of the suite stores Source
 // before it opens the Studio (`gotoStudio` in studio-fixture.ts), because its editor helpers type Markdown.
@@ -30,7 +30,8 @@ async function modeOrder(page: Page): Promise<string[]> {
 	return xs.sort((a, b) => a.x - b.x).map((e) => e.name);
 }
 
-test('a first visit writes in Compose, and Compose is listed before Source', async ({ page }) => {
+test('@crosswidth @gecko @webkit-tablet a first visit writes in Compose, and Compose is listed before Source', async ({ page }) => {
+	test.skip(isPhone(page), 'the phone has its own case below');
 	await openFresh(page);
 	await expect(page.getByRole('button', { name: COMPOSE, exact: true })).toHaveAttribute('aria-pressed', 'true');
 	await expect(page.locator('#studio-pane-editor .cs-host .ProseMirror')).toBeVisible();
@@ -38,7 +39,8 @@ test('a first visit writes in Compose, and Compose is listed before Source', asy
 	expect(await modeOrder(page)).toEqual([COMPOSE, SOURCE]);
 });
 
-test('choosing Source is remembered across a reload', async ({ page }) => {
+test('@crosswidth @gecko @webkit-tablet choosing Source is remembered across a reload', async ({ page }) => {
+	test.skip(isPhone(page), 'the phone opens on the preview; the phone case below covers its bar');
 	await openFresh(page);
 	await page.getByRole('button', { name: SOURCE, exact: true }).click();
 	await expect(page.getByLabel('Deck source')).toBeVisible();
@@ -66,7 +68,8 @@ for (const [label, width, height] of [
 	});
 }
 
-test('Fix all works in Compose', async ({ page }) => {
+test('@crosswidth @gecko @webkit-tablet Fix all works in Compose', async ({ page }) => {
+	test.skip(isPhone(page), 'the phone has no editor toolbar; Fix all lives in it');
 	await openFresh(page, { 'lattice-studio-src-welcome': JSON.stringify(FIXABLE) });
 	const fix = page.getByRole('button', { name: 'Fix all issues', exact: true });
 	await expect(fix).toBeEnabled({ timeout: 20_000 });
@@ -76,7 +79,7 @@ test('Fix all works in Compose', async ({ page }) => {
 	await expect(page.getByLabel('Deck source')).not.toContainText('**Speed.**');
 });
 
-test('@mobile the phone bar lists Compose before Source, and Compose opens by default', async ({ page }) => {
+test('@mobile @webkit-phone the phone bar lists Compose before Source, and Compose opens by default', async ({ page }) => {
 	await openFresh(page);
 	expect(await modeOrder(page)).toEqual([COMPOSE, SOURCE]);
 	await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();

@@ -2136,7 +2136,7 @@ const STEP_LABEL = 'composeStepLabel';
  * The selection Refine may rewrite in Compose: non-empty, inside ONE textblock that is not code, on a slide Compose
  * can edit. Plain text in, plain text out, so the rewrite cannot break a list, a table or an object. Null otherwise.
  */
-function refinableRange(state: EditorState): { from: number; to: number } | null {
+export function refinableRange(state: EditorState): { from: number; to: number } | null {
 	const { from, to, $from, $to, empty } = state.selection;
 	if (empty || !$from.sameParent($to) || !$from.parent.isTextblock || $from.parent.type.spec.code) return null;
 	if ($from.depth >= 1 && $from.node(1)?.attrs.locked) return null;
@@ -2146,8 +2146,12 @@ function refinableRange(state: EditorState): { from: number; to: number } | null
 	// lose its bold. A selection like that is not offered.
 	let marks: readonly Mark[] | null = null;
 	let clean = true;
+	// `nodesBetween` visits the ANCESTORS too (the slide, the block), so only inline nodes are judged; the walk
+	// descends through everything else. (Judging every node failed every selection on the slide node itself, which a
+	// real-browser spec caught: compose-refine.spec.ts.)
 	state.doc.nodesBetween(from, to, (node) => {
-		if (!clean || node.isTextblock) return clean;
+		if (!clean) return false;
+		if (!node.isInline) return true;
 		if (!node.isText) clean = false;
 		else if (marks === null) marks = node.marks;
 		else if (!Mark.sameSet(marks, node.marks)) clean = false;
