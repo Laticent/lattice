@@ -130,6 +130,7 @@ export function paneChoices(direction: PaneDirection, share: number): string[] {
 /** The `_pane` marker an author writes for `cls`, keeping the pane's own `no-title`. A component's
  *  modifiers belong to that component, so they are dropped when the component changes. */
 export function paneMarkerText(cls: string, mods: string[] = []): string {
+	// Writes `_pane:` until the cut switches Compose to the record form (record note §5.4.1); every read takes both.
 	const words = [cls, ...mods.filter((w) => w === 'no-title')];
 	return `<!-- _pane: ${words.join(' ')} -->`;
 }
@@ -315,6 +316,7 @@ export function applyPaneChoice(state: EditorState, slidePos: number, index: num
 	}
 	if (!sameMarker) {
 		const words = [choice.cls, ...modifiers, ...pane.mods.filter((w) => w === 'no-title')];
+		// Writes `_pane:` until the cut switches Compose to the record form (record note §5.4.1), as `paneMarkerText` does.
 		const marker = state.schema.nodes.comment.create({ text: `<!-- _pane: ${words.join(' ')} -->` });
 		if (pane.marker !== null) {
 			const pos = childPos(at.slide, at.start, pane.marker);
@@ -388,7 +390,8 @@ export function paneMarkerGuard(onRefuse?: (reason: string) => void) {
 		},
 		appendTransaction(_trs, old, state) {
 			const sel = state.selection;
-			if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment' || !/^<!--\s*_pane\s*:/.test(String(sel.node.attrs.text))) return null;
+			// A marker in any spelling: pane-spec `parseMarker` reads through lib/core/meta-door.mjs `parsePaneMarker`.
+			if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment' || !paneSpec.parseMarker(String(sel.node.attrs.text))) return null;
 			// On in the direction of travel: ArrowUp onto a marker carries on up, or a keyboard user
 			// could never arrow from the second pane into the first.
 			const up = sel.from < old.selection.from;

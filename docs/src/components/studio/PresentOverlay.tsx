@@ -41,6 +41,7 @@ import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { narrationDeck, resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
+import { mayHavePaneSlides } from './pane-probe';
 import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, POINTER_BOX, type SceneRef, type SceneStyle, sceneCue, shownSection as shownSlideSection } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
@@ -369,10 +370,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const cur = set[clamped] ?? '';
 	// A split PANES slide (a square, portrait or story deck splits every panes slide into one
 	// slide per pane, lib/core/panes.js) is one presented slide and several rendered ones. The map
-	// (./pane-pages, loaded only for a deck that has a pane marker) says how many; `page` is the one
+	// (./pane-pages, loaded only for a deck that may hold panes) says how many; `page` is the one
 	// shown, and next/previous spend a split slide's pages before they leave it, as the editor's
-	// preview does.
-	const hasPaneMarker = React.useMemo(() => set.some((s) => /<!--\s*pane\s*:/.test(s)), [set]);
+	// preview does. The gate is the editor's own probe (./pane-probe), which takes every marker spelling
+	// lib/core/meta-door.mjs `parsePaneMarker` reads (`_pane:`, the `pane:` alias, a record) and an
+	// outline-form `columns` / `rows` slide. A local `<!-- pane:` regex here missed `_pane:` and the record.
+	const hasPaneMarker = React.useMemo(() => set.some(mayHavePaneSlides), [set]);
 	const [paneMod, setPaneMod] = React.useState<typeof import('./pane-pages') | null>(null);
 	React.useEffect(() => {
 		if (!hasPaneMarker || paneMod) return;

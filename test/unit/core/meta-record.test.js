@@ -22,10 +22,17 @@ describe('scanMetaSource', () => {
     assert.equal(slides[0].resolved.get('footer').value, 'One');
     assert.equal(slides[1].resolved.has('footer'), false);
   });
-  test('a comment in a fence is not read; a record-shaped comment is classified, not resolved', () => {
+  // Since step 2 of the record note a top-level record is live: the scan resolves it exactly as the engine applies it.
+  test('a comment in a fence is not read; a top-level record resolves like the directive it replaces', () => {
     const s = m.scanMetaSource('```\n<!-- _class: x -->\n```\n\n<!-- {layout=content} -->\n\n<!-- a note -->\n').slides.at(-1);
+    assert.deepEqual([...s.resolved.keys()], ['class']);
+    assert.equal(s.resolved.get('class').value, 'content');
+    assert.deepEqual(s.comments.map((c) => c.kind), ['directive', 'note']);
+  });
+  test('a record in a list item or a blockquote is classified, never resolved (D1: the engine does not apply it)', () => {
+    const s = m.scanMetaSource('- item\n  <!-- {layout=cards} -->\n\n> <!-- {layout=cards} -->\n').slides.at(-1);
     assert.equal(s.resolved.size, 0);
-    assert.deepEqual(s.comments.map((c) => c.kind), ['record', 'note']);
+    assert.deepEqual(s.comments.map((c) => c.kind), ['record', 'record']);
   });
 });
 

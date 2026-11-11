@@ -21,7 +21,9 @@ import path from 'node:path';
  * that assigns `module.exports` and requires nothing itself — plus ONE extension: a module
  * whose every `require(` names a sibling leaf of that same shape (`./x` in the same folder,
  * itself require-free), which is inlined at the call site. That is `remote-ref.js` reading
- * its URL table from `media-sources.js`. It REFUSES anything else with its own `require(`,
+ * its URL table from `media-sources.js`. And ONE more: a `require('./x.mjs')` of an ESM sibling becomes a hoisted
+ * `import * as` of it, which is what Node's require-of-ESM and Rollup both hand back (the namespace): that is
+ * `pane-spec.js` reading the pane-marker reader from `meta-door.mjs`. It REFUSES anything else with its own `require(`,
  * because faithfully resolving a require graph is the job of the real plugin, not of a shim. A refusal fails exactly the way today fails, loudly, at
  * the import site: better than a shim that silently half-loads a module.
  *
@@ -53,6 +55,20 @@ export function inlineSiblingLeaves(src, dir) {
 	return refused || REQUIRE.test(out) ? null : out;
 }
 
+const REQUIRE_ESM_SIBLING = /\brequire\(\s*(['"])\.\/([A-Za-z0-9_.-]+?\.mjs)\1\s*\)/g;
+/**
+ * Hoist every `require('./sibling.mjs')` in `src` to an `import * as` binding: `{ imports, body }`, both strings.
+ * The namespace object is what Node's require of an ES module returns, so the module reads the same names.
+ */
+export function hoistEsmSiblings(src) {
+	const imports = [];
+	const body = src.replace(REQUIRE_ESM_SIBLING, (_whole, _q, name) => {
+		const id = `__latticeEsm${imports.length}`;
+		imports.push(`import * as ${id} from './${name}';`);
+		return id;
+	});
+	return { imports: imports.join('\n'), body };
+}
 export default function viteCjsLibDev(repoRoot) {
 	// Vite ids use POSIX separators on every platform, so compare in that shape rather than
 	// with `path.sep` — on Windows the raw comparison silently never matches and the plugin
@@ -72,6 +88,8 @@ export default function viteCjsLibDev(repoRoot) {
 				return null;
 			}
 			if (!/^\s*module\.exports\s*=/m.test(src)) return null;
+			const esm = hoistEsmSiblings(src);
+			src = esm.body;
 			if (REQUIRE.test(src)) {
 				const inlined = inlineSiblingLeaves(src, path.dirname(file));
 				if (inlined === null) return null;
@@ -90,7 +108,7 @@ export default function viteCjsLibDev(repoRoot) {
 			// re-emitted — `resolve-pace.mjs`'s header records that Rollup will not
 			// resolve those off a CJS file, so offering them in dev only would let a
 			// named import pass here and fail `astro build`.
-			return `const module = { exports: {} };\nconst exports = module.exports;\n${src}\nexport default module.exports;\n`;
+			return `${esm.imports ? `${esm.imports}\n` : ''}const module = { exports: {} };\nconst exports = module.exports;\n${src}\nexport default module.exports;\n`;
 		},
 	};
 }

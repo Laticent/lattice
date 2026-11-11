@@ -55,6 +55,14 @@ describe('the generated registries on a multi-plugin tree', () => {
     fs.copyFileSync(path.join(ROOT, 'lib/core/deck-plugins.mjs'), path.join(root, 'lib/core/deck-plugins.mjs'));
     // …and deck-plugins.mjs reads a comment through the shared grammar (lib/core/comment-directive.mjs).
     fs.copyFileSync(path.join(ROOT, 'lib/core/comment-directive.mjs'), path.join(root, 'lib/core/comment-directive.mjs'));
+    // …and both read a slide-metadata record (`<!-- {layout=cards} -->`) and a pane marker in every spelling through the
+    // shared record reader (lib/core/meta-door.mjs), which needs the vocabulary, the internal form, the fence scan and
+    // Segno (resolved through the repo's node_modules).
+    for (const f of ['meta-door.mjs', 'meta-internal.mjs', 'meta-keys.mjs', 'fence-ranges.mjs', 'fence-opener.js']) {
+      fs.copyFileSync(path.join(ROOT, 'lib/core', f), path.join(root, 'lib/core', f));
+    }
+    fs.copyFileSync(path.join(ROOT, 'lib/plugins/meta.generated.mjs'), path.join(root, 'lib/plugins/meta.generated.mjs'));
+    fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(root, 'node_modules'), 'dir');
 
     // Dependency order a → b → c. Two plugins after `fence`, two before it, one after `table`.
     writePlugin(root, 'a', { syntax: {

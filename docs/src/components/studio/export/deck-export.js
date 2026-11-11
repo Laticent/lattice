@@ -291,7 +291,13 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// rather than name a path the bundle lacks.
 	// The URL is derived like `exportBase` below, the same rule as samplesBaseFor in
 	// samples-base.ts: a `.ts` import would break the node tests that load this file.
-	// The image plugin's records first, in Marp's spelling, so their pictures are staged below and a panel record is lifted
+	// Slide-metadata records go back to directive comments FIRST, before anything reads a class or a pane marker: Marp reads
+	// only comments, an uncompiled record is one of its speaker notes (record note §7), and the image plugin's rewrite below
+	// places a picture by the slide's `_class:`. On demand: the engine ships on every route. Step 4 replaces this with the
+	// full bridge.
+	const { recordsToComments } = await import('../../../../../lib/core/meta-door.mjs');
+	source = recordsToComments(source);
+	// The image plugin's records next, in Marp's spelling, so their pictures are staged below and a panel record is lifted
 	// (lib/export/marp-bundle.js `withImageRecordsAsMarp`). A cached bundle from before the image plugin has none to rewrite.
 	if (typeof marp.withImageRecordsAsMarp === 'function') source = marp.withImageRecordsAsMarp(source, pluginsOff);
 	const samplePaths = new Map();
@@ -813,7 +819,7 @@ export function emptySlidesOf(html, only, slideCount, splitSections) {
  * the loss passes a parity check unnoticed.
  *
  * @param {string} html the engine's rendered deck HTML
- * @returns {Promise<{note: string|null, description: string|null, say: string|null}[]>}
+ * @returns {Promise<{note: string|null, description: string|null, say: string|null, reader: string|null}[]>}
  */
 async function slideChannelRecord(html) {
 	const { notesCore, splitSectionsCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
@@ -2577,6 +2583,10 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 	// "Strip speaker notes" (the CLI's --strip-notes): the notes pane stays empty. The
 	// descriptions are alt text, not private, so they still ride (#1833).
 	if (opts?.stripNotes) for (const r of record) if (r) r.note = null;
+	// The notes field PowerPoint and Impress carry: the speaker note, then the reader note labeled `Reader:` (D8,
+	// lib/authoring/notes-core.js `withReaderNotes`, the CLI's same join). The reader note survives the strip above.
+	const { notesCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
+	const officeNotes = (r) => (r ? notesCore.withReaderNotes([r.note], [r.reader ?? null])[0] : null);
 	const { frame, dispose, stepCounts } = await createCaptureFrame(render);
 	try {
 		// Every step page carries its slide's notes and description, as the CLI's `--steps` does.
@@ -2651,7 +2661,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 				},
 			};
 			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', pictures: officePicturePolicy(images), onWarn: (m) => console.warn(`[deck-export] ${m}`) });
-			slides = captured.slides.map((sl, i) => ({ ...sl, notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null }));
+			slides = captured.slides.map((sl, i) => ({ ...sl, notes: officeNotes(record[i]), description: (record[i]?.description || '').trim() || null }));
 			backgrounds = captured.backgrounds;
 		} else {
 			for (let i = 0; i < sections.length; i++) {
@@ -2671,7 +2681,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 				} catch (e) {
 					throw captureError(e);
 				}
-				slides.push({ image: shot, frames: [], shapes: [], notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null });
+				slides.push({ image: shot, frames: [], shapes: [], notes: officeNotes(record[i]), description: (record[i]?.description || '').trim() || null });
 				await new Promise((r) => setTimeout(r));
 			}
 		}

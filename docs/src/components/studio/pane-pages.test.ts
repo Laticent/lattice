@@ -9,7 +9,7 @@ import { splitSlides } from '../../lib/deck-lint';
 import { frontMatterBlock, stripFrontMatter } from '../../lib/front-matter';
 import { SLIDE_SEP } from './deck-ops';
 import { foldPaneSplits, type SlideScript } from './narration-projection';
-import { panePageOfCaret, paneSplitCounts, paneSplitLineOf, renderedPageCounts } from './pane-pages';
+import { paneMarkerComponents, panePageOfCaret, paneSplitCounts, paneSplitLineOf, renderedPageCounts } from './pane-pages';
 
 // The module under test reads the lint core synchronously; in the app, its loader awaits this first.
 beforeAll(() => loadAuthoring());
@@ -94,6 +94,16 @@ describe('paneSplitCounts (the map) predicts the engine', () => {
 		}
 	});
 
+	// Record note §5.4.1: the record spelling is read by the same shared reader as `_pane:`, so the map and the
+	// engine agree on it too.
+	it('a portrait deck written in the record form splits where the engine splits it', () => {
+		const doc = deck('9:16').replace('<!-- panes: 35/65 -->', '<!-- @meta{panes="35/65"} -->').replace('<!-- pane: list -->', '<!-- {pane="list"} -->').replace('<!-- pane: table -->', '<!-- {footer=x, pane="table"} -->');
+		const slides = splitSlides(stripFrontMatter(doc));
+		const counts = paneSplitCounts(slides, doc);
+		expect(counts).toEqual([1, 2, 1, 1]);
+		expect(rendered(frontMatterBlock(doc) + slides.join(SLIDE_SEP)).length).toBe(5);
+	});
+
 	it('a deck with no panes pays one substring test per slide and returns nothing', () => {
 		expect(paneSplitLineOf('# Just a slide\n\n- a\n- b', deck('9:16'))).toBe(-1);
 		expect(paneSplitCounts(['# a', '# b'], '---\nsize: 9:16\n---\n# a\n---\n# b')).toBeUndefined();
@@ -151,5 +161,15 @@ describe('foldPaneSplits — narration keeps projecting through a split', () => 
 	it('leaves a projection the map does not account for untouched (the callers guard it)', () => {
 		const scripts = [s('a'), s('b'), s('c')];
 		expect(foldPaneSplits(scripts, doc)).toBe(scripts);
+	});
+});
+
+describe('paneMarkerComponents — the components a deck puts in a pane', () => {
+	it('reads every marker spelling through the shared reader, unique, in order', () => {
+		const src = ['<!-- _pane: bar no-title -->', '<!-- pane: list -->', '<!-- {pane="table"} -->', '<!-- @meta{pane="kpi sides"} -->', '<!-- {footer=x, pane="bar"} -->', '<!-- lat-meta: {"carry":false,"d":{"pane":"quote"}} -->'].join('\n\n');
+		expect(paneMarkerComponents(src)).toEqual(['bar', 'list', 'table', 'kpi', 'quote']);
+	});
+	it('names nothing for `no-title` alone, a note, or a record with no pane', () => {
+		expect(paneMarkerComponents('<!-- _pane: no-title -->\n<!-- pane: check the numbers -->\n<!-- {footer=x} -->\n<!-- @meta{panes="60/40"} -->')).toEqual([]);
 	});
 });

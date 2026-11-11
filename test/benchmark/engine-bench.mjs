@@ -35,6 +35,7 @@ import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import MarkdownIt from 'markdown-it';
 import { Bench } from 'tinybench';
+import { migrateMetaSource } from '../../lib/core/meta-migrate.mjs';
 import remoteRef from '../../lib/core/remote-ref.js';
 import latticeEngine from '../../lib/engine/index.js';
 import api from '../../lib/playground/index.js';
@@ -167,6 +168,11 @@ const datasets = [
   // took 0.8 s here, 3.4 s at 16k (followups.d/3051-p9); it skips a scan whose target is not
   // open now. The row holds that path, which no gallery reaches.
   { name: 'unclosed html (div x8000)', src: `---\ntheme: indaco\n---\n\n# Pasted\n\n${'<div>\n'.repeat(8000)}`, theme: 'indaco' },
+  // THE SLIDE-METADATA DOOR (engineering/decisions/2026-10-17-meta-record.md §1, §9 step 2): the same deck written with
+  // records (`<!-- {class=cards} -->`) instead of directive comments, so the pair says what the door
+  // and the token expansion cost against the comments they replace. The claim is "no slower than comments, within the
+  // variance band" (HARD RULE #19); the jargon row above is the comment arm, rendered from the same source.
+  { name: 'records (jargon, every directive a record)', src: migrateMetaSource(jargon).source, theme: 'crepuscolo' },
 ];
 // The datasets the BROWSER tiers (export, print) skip.
 //
