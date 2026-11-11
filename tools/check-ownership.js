@@ -9948,6 +9948,89 @@ function checkRunnerPins(errors, workflowDir = path.join(ROOT, '.github', 'workf
   }
 }
 
+// ── No workflow reads Ubuntu's package mirror directly (owner call on #3139, 2026-11-11) ──
+// On 2026-11-11 a DNS failure on azure.archive.ubuntu.com failed the integration and golden-diff jobs of five PRs for over
+// two hours before a test ran. #3139 moved every package install onto `.github/actions/apt-cached` (packages from GitHub's
+// cache, a measured mirror list, three retries) and every browser onto `.github/actions/playwright-browsers`. A new step that
+// calls `apt-get install` or `playwright install --with-deps` itself reads the mirror on every run and brings the outage
+// back, so this gate fails on one. The two actions are where apt belongs; they live under .github/actions, which this
+// does not scan. A line that has to call apt in a workflow goes in SANCTIONED_RAW_APT with its file, its exact count of
+// such lines and why; the gate fails on a count that no longer matches, so the list cannot rot.
+// A package tool, its options (an option may carry a separate value: `-o Acquire::Retries=3`), then a subcommand that reads
+// the mirror; or Playwright installing system packages (`install-deps`, or `install … --with-deps`, any version pin).
+const RAW_APT =
+  /\b(?:apt-get|apt-fast|aptitude|apt|nala)\s+(?:-\S+\s+(?:[^-\s]\S*\s+)?)*?(?:install|reinstall|update|download|upgrade|dist-upgrade|full-upgrade)\b|\bplaywright(?:@\S+)?\s+install-deps\b|\bplaywright(?:@\S+)?\s+install\b[^\n]*--with-deps\b/;
+const SANCTIONED_RAW_APT = [
+  {
+    file: 'studio-e2e-nightly.yml',
+    count: 2,
+    why: 'The firefox-webrtc job runs in the Playwright container and installs git before checkout, so .github/actions is not on disk yet. The step skips when the image ships git, reads apt-setup.sh\'s mirror list and retries, and installs from its own cache (#3139).',
+  },
+];
+
+// The text the gate matches, one entry per logical line: a shell line continued with `\` is joined to the next (and keeps
+// the first line's number); a `#` comment is cut only outside quotes; a step's `name:` and the words an `echo`/`printf`
+// prints are prose, not commands. Not covered: a folded `>` scalar that splits the tool and its subcommand across lines,
+// and a command held in a variable (`$APT install`); review is the backstop for those.
+function rawAptLines(src) {
+  const out = [];
+  const lines = src.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const start = i + 1;
+    let text = stripShellComment(lines[i]);
+    while (/\\\s*$/.test(text) && i + 1 < lines.length) text = `${text.replace(/\\\s*$/, ' ')}${stripShellComment(lines[++i])}`;
+    if (/^\s*(?:-\s+)?name:/.test(text)) continue;
+    text = text.replace(/\b(?:echo|printf)\s+(?:-\S+\s+)*(?:\s*(?:"[^"]*"|'[^']*'))+/g, '');
+    out.push({ line: start, text });
+  }
+  return out;
+}
+
+function stripShellComment(line) {
+  let quote = '';
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote) {
+      if (c === quote) quote = '';
+    } else if (c === '"' || c === "'") {
+      quote = c;
+    } else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) {
+      return line.slice(0, i);
+    }
+  }
+  return line;
+}
+
+function checkRawAptInWorkflows(errors, workflowDir = path.join(ROOT, '.github', 'workflows'), sanctions = SANCTIONED_RAW_APT) {
+  let files = [];
+  try {
+    files = fs.readdirSync(workflowDir).filter((f) => /\.ya?ml$/.test(f));
+  } catch {
+    return;
+  }
+  const allowed = new Map(sanctions.map((s) => [s.file, s.count]));
+  for (const f of files) {
+    const hits = [];
+    for (const { line, text } of rawAptLines(fs.readFileSync(path.join(workflowDir, f), 'utf8'))) {
+      if (RAW_APT.test(text)) hits.push(line);
+    }
+    const want = allowed.get(f) ?? 0;
+    if (hits.length > want) {
+      const where = hits.map((n) => `.github/workflows/${f}:${n}`).join(', ');
+      errors.push(
+        `${where}: a workflow step calls apt or \`playwright install --with-deps\` itself, which reads Ubuntu's package mirror on every run (the 2026-11-11 outage, engineering/gotchas/ci.md). ` +
+          'Install packages with `uses: ./.github/actions/apt-cached` and browsers with `./.github/actions/playwright-browsers`. ' +
+          (want ? `This file is sanctioned for ${want} such line(s) and has ${hits.length}.` : 'If the line is prose rather than a command, reword it; if a step truly cannot use the actions, add the file to SANCTIONED_RAW_APT in tools/check-ownership.js with its count and why.'),
+      );
+    } else if (hits.length < want) {
+      errors.push(`stale SANCTIONED_RAW_APT entry in tools/check-ownership.js — .github/workflows/${f} is sanctioned for ${want} raw apt line(s) but has ${hits.length}. Lower the count, or remove the entry at 0.`);
+    }
+  }
+  for (const s of sanctions) {
+    if (!files.includes(s.file)) errors.push(`stale SANCTIONED_RAW_APT entry in tools/check-ownership.js — .github/workflows/${s.file} no longer exists. Remove the entry.`);
+  }
+}
+
 function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', 'platform-suites.json'), root = ROOT) {
   let registry;
   try {
@@ -15560,6 +15643,7 @@ function run() {
   checkRegexCensus(errors);
   checkPlatformSuites(errors);
   checkRunnerPins(errors);
+  checkRawAptInWorkflows(errors);
   checkOpenRouterBudget(errors);
   checkE2ESleeps(errors);
   checkVoiceSampleAssets(errors);
@@ -15844,6 +15928,8 @@ module.exports = {
   SANCTIONED_MEDIA_SOURCES,
   checkPlatformSuites,
   checkRunnerPins,
+  checkRawAptInWorkflows,
+  SANCTIONED_RAW_APT,
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,
   SNAPSHOT_WRITE_MARKER,
