@@ -1,23 +1,23 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Why a Studio reload slows down as a profile fills up, measured and profiled, and what to change. Two costs grow with
   use. (1) Version history: opening any deck reads every saved version of every deck from IndexedDB
   (`hydrateCheckpoints` `getAll()`), each a full copy of its deck; with 40 decks x 25 versions a phone-speed boot goes
   from 2.7 s to 3.8 s to the first slide. (2) The deck list: every boot reads and JSON-parses every deck's whole text
-  from localStorage and scans it for a title, although the deck list already stores each title; 40 decks add about
-  250 ms. Photos (Blobs in IndexedDB) cost nothing. A first draft proposed content-addressed metadata-plus-pointer
+  from localStorage and scans it for a title; 40 decks add about 250 ms. Photos (Blobs in IndexedDB) cost nothing. A first draft proposed content-addressed metadata-plus-pointer
   records for decks and versions; the adversarial trio showed the measured costs are fixed by reading less, that content
   addressing saves almost nothing here (`saveCheckpoint` already skips an unchanged version) while adding the only
   path that can silently delete text, and that versions move again in Filo slice 6. Recommended now: report a failed
-  deck save (a live silent-loss defect), read only the open deck's versions, and take deck titles from the deck list.
+  deck save (a live silent-loss defect), read only the open deck's versions, and name decks from a small title record `saveSource` keeps. The owner chose
+  this plan; items shipped with first slide 3.4 s → 2.6 s and heap 177 → 97 MB on the full profile.
   Moving deck text out of localStorage waits for evidence that users reach its quota; the pointer design and the
   trio's constraints on it are kept for that day. No IndexedDB library; no diff format for versions.
 ---
 
 # Studio storage: what slows a full profile down, and the smallest fix
 
-**Date:** 2026-11-11 · **Status:** PROPOSED (design; nothing built) · **Scope decision:** open, see §9
+**Date:** 2026-11-11 · **Status:** IN PROGRESS: §4 items 1–3 shipped with this note, item 4 and the version slide counts are follow-ups · **Scope:** decided by the owner, §9
 **Trigger:** the owner: "when there is lots of stuff in IndexedDB and the cache, load time slows down; with private
 browsing it's snappy. Audit and measure. Are we storing things efficiently?" Then, in the same conversation: should we
 use `idb`; should versions be diffs; should decks move out of localStorage as metadata plus content (the owner proposed
@@ -117,12 +117,15 @@ Ordered by what each protects or unblocks.
    deck (the range query already exists, `checkpoint-store.ts:201`, used at `:211` and `:285`); other decks load when
    opened. `checkpointBytes`, backup and Clear all read everything on demand, off the boot path; the legacy
    localStorage migration runs at idle, in batches. Store `slides` on each version so the version list stops parsing
-   every version's text (`metaFor(cp.source)`, `StudioShell.tsx:8613`). No new database, no schema change beyond an
-   optional field. Done when, with this script, rows 2 and 3 of §2 agree within the spread of repeated row-1/row-2 runs
+   every version's text (`metaFor(cp.source)`, `StudioShell.tsx:8613`); that runs only when the list opens, so it
+   is a follow-up, not part of the boot fix. No new database and no schema change. Done when, with this script, rows 2 and 3 of §2 agree within the spread of repeated row-1/row-2 runs
    on first slide, blocked time and heap.
-3. **Take deck titles from the deck list.** `loadDeckList` uses `IndexEntry.derived`, already kept current by
-   `syncDerivedTitle` (`:540`), and reads a deck's text only when something asks for it; a row without `derived` reads
-   its text once and backfills it. Done when row 2 of §2 matches row 1 within the same spread.
+3. **Name decks without reading them.** `IndexEntry.derived` is not the right source: its own contract says nothing
+   in the app reads it (it serves the pre-paint shell), and it holds the unformatted title, not the list's. Instead
+   `saveSource`, the one writer of deck text, records each deck's list title with the length of the stored text in
+   `lattice-studio-list-titles`. `loadDeckList` trusts an entry only while that length still matches (one `getItem`,
+   no parse) and reads, names and records any deck written around `saveSource` (an older build, a hand edit). Clear all
+   removes the key; deleting a deck removes its entry. Done when row 2 of §2 matches row 1 within the same spread.
 4. **Warn before the quota, then decide on moving decks.** The Privacy & Data tab already measures local storage; it
    warns past 80% of the origin's localStorage allowance. Moving deck text to IndexedDB (§6) waits for evidence that
    users get near it. Moving chats first is the cheaper relief: nothing reads them before paint or on `pagehide`.
@@ -243,7 +246,33 @@ citation, and the transaction-ordering argument. **Disposition:** benchmark fixe
 uncovered is §4 item 3; counts and heap wording corrected; done criteria now name heap and stay in Chromium, with
 WebKit listed as unmeasured.
 
-## 9. Open decision
+## 9. Decision
 
-The owner endorsed metadata-plus-pointer records before the trio ran. The recommendation (§4) does not build them now.
-The choice is the owner's; until then this note is PROPOSED.
+The owner endorsed metadata-plus-pointer records before the trio ran. Shown the trio's case, the owner chose the
+smaller plan on 2026-11-11 and asked for items 1–3 in one PR with before/after numbers.
+
+## 10. Results (items 1–3)
+
+Same script, same machine, same build pipeline (`npm run build:e2e`), 4x throttle, 7 reloads, medians. "Before" is
+the build of `main` at this note's first commit; "after" is the build with items 1–3.
+
+| Stored | First slide before → after | Blocked before → after | Heap before → after |
+|---|---|---|---|
+| Nothing | 2,472 → 2,556 ms | 1,013 → 1,007 ms | 81 → 86 MB |
+| 40 decks | 2,828 → 2,835 ms | 1,255 → 1,119 ms | 116 → 86 MB |
+| 40 decks + 25 versions each | **3,442 → 2,564 ms** | **1,710 → 1,033 ms** | **177 → 97 MB** |
+
+The 40-decks row's first paint did not move in that run while its blocked time and heap did, so the pair was repeated
+(9 reloads, twice): nothing vs 40 decks, 2,509 vs 2,680 ms and 2,590 vs 2,646 ms first slide; 1,048 vs 1,025 ms and
+983 vs 1,078 ms blocked; heap equal (92 / 92, 97 / 92 MB). Before the change the same pairs differed by 216–292 ms of
+paint and 320–340 ms of blocking. A CPU profile of the after build no longer shows `studio-store` among the top self
+times. Reading it:
+
+- **Versions:** the full-profile boot now paints with the empty one, and the version cache no longer holds every deck.
+- **Deck list:** blocked time and heap are back to the empty profile's; the remaining first-paint gap (56–171 ms) is
+  inside the run-to-run spread of these rows. Not claimed as zero.
+- **Not measured:** WebKit and Firefox (the script's throttle and heap readings are Chromium-only); a real phone.
+
+**Verified on the real Studio** (Playwright, built site): `checkpoint-storage.spec.ts`, `decks.spec.ts` and
+`filo-undo.spec.ts` in Chromium, Firefox and WebKit (33 passed; 2 skipped by design: the real-quota case is
+Chromium-only); the new `deck-save-failure.spec.ts` in all three, where a refused deck write shows the notice.
