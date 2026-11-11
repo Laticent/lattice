@@ -8,8 +8,9 @@
  *      on a phone, which opens on the preview, the Compose cell brings the rich editor up;
  *   2. Compose is listed before Source;
  *   3. Compose's slide toolbar keeps its place and width while the caret moves inside a slide (the owner's screen
- *      recording: it grew, shrank and jumped on every move). Slide 1 (heading, eyebrow, paragraph) and slide 3 (heading,
- *      eyebrow, list item) of the welcome deck, each read once two frames agree.
+ *      recording: it grew, shrank and jumped on every move): on up to two slides of whatever deck is open (the
+ *      Simulator keeps the earlier probes' deck), through its heading, eyebrow, paragraph and list item, each read once
+ *      two frames agree, and only passing when the stops offered different styles.
  *
  * One global, `latticeComposeProbe()`, resolving to a plain JSON result. Plain browser JS on purpose: WebDriver's
  * execute-script sends source text, not a module.
@@ -96,21 +97,31 @@ async function latticeComposeProbe() {
 			}
 		};
 		const slides = () => [...pm().querySelectorAll(':scope > .cs-slide')];
-		await until(() => slides().length >= 3, 30000, 'three slides in Compose');
-		const spots = {
-			'slide 1': (s) => [['heading', s.querySelector('h1')], ['eyebrow', s.querySelector('p > code')?.parentElement], ['paragraph', [...s.querySelectorAll('p')].find((p) => !p.querySelector('code'))], ['heading again', s.querySelector('h1')]],
-			'slide 3': (s) => [['heading', s.querySelector('h2')], ['eyebrow', s.querySelector('p > code')?.parentElement], ['list item', s.querySelector('li')], ['heading again', s.querySelector('h2')]],
+		await until(() => slides().length >= 1, 30000, 'a slide in Compose');
+		// Whatever deck is open (on the Simulator the earlier probes leave theirs in storage): each slide's first heading,
+		// eyebrow line, plain paragraph and list item. A slide with two or more of them offers different styles at different
+		// stops, which is what made the toolbar move.
+		const stopsOf = (s) => {
+			const kinds = [
+				['heading', s.querySelector('h1, h2, h3')],
+				['eyebrow', [...s.querySelectorAll('p')].find((p) => p.children.length === 1 && p.firstElementChild?.tagName === 'CODE' && p.textContent.trim() === p.firstElementChild.textContent.trim())],
+				['paragraph', [...s.querySelectorAll('p')].find((p) => !p.querySelector('code') && !p.closest('li') && p.textContent.trim())],
+				['list item', s.querySelector('li')],
+			].filter(([, el]) => el);
+			return kinds.length >= 2 ? [...kinds, [`${kinds[0][0]} again`, kinds[0][1]]] : [];
 		};
-		for (const [name, pick] of Object.entries(spots)) {
-			const slide = slides()[name === 'slide 1' ? 0 : 2];
+		const picked = slides().map((s, i) => [i + 1, s]).filter(([, s]) => stopsOf(s).length).slice(0, 2);
+		step('the deck has a slide with blocks that offer different styles', picked.length > 0, `${slides().length} slides`);
+		let varied = false;
+		for (const [n, slide] of picked) {
 			const boxes = [];
-			for (const [what, el] of pick(slide)) {
-				if (!el) throw new Error(`${name} has no ${what}`);
-				boxes.push(`${what} ${await pillAt(el, `${name} ${what}`)}`);
-			}
+			for (const [what, el] of stopsOf(slide)) boxes.push(`${what} ${await pillAt(el, `slide ${n} ${what}`)}`);
 			const xs = new Set(boxes.map((b) => b.match(/\d+,\d+/)?.[0]));
-			step(`${name}: the toolbar keeps its place and width as the caret moves`, xs.size === 1, boxes.join(' · '));
+			if (new Set(boxes.map((b) => b.match(/\((\d+) chips\)/)?.[1])).size > 1) varied = true;
+			step(`slide ${n}: the toolbar keeps its place and width as the caret moves`, xs.size === 1, boxes.join(' · '));
 		}
+		// Without this the check above could pass on stops that all offer the same styles, where nothing would resize anyway.
+		step('the caret crossed blocks that offer different styles', varied, varied ? '' : 'every stop offered the same chips');
 		result.ok = true;
 	} catch (e) {
 		result.error = String(e?.message || e);
