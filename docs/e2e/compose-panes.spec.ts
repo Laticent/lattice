@@ -60,7 +60,7 @@ test('@crosswidth the pane gallery says what each pick does, starts fresh with a
 	await expect(gallery.getByRole('button', { name: /^Use list in the right pane — keeps your text/ })).toBeVisible();
 	await gallery.getByRole('button', { name: /^Use bar in the right pane — starts with an example/ }).click();
 	await expect(gallery).toBeHidden();
-	await expect.poll(() => deckSource(page)).toContain('<!-- _pane: bar -->\n\n### What changed\n\n- First `120`');
+	await expect.poll(() => deckSource(page)).toContain('<!-- {pane=bar} -->\n\n### What changed\n\n- First `120`');
 	const src = await deckSource(page);
 	expect(src).toContain('> The mix shift is structural.');
 	expect(src).not.toContain('Services crossed licenses');
@@ -74,7 +74,7 @@ test('@crosswidth a pick that keeps the text only names the component, and a tit
 	await openPanes(page);
 	await page.getByRole('button', { name: /^Right pane holds text/ }).click();
 	await page.getByRole('dialog', { name: 'Right pane: what it holds' }).getByRole('button', { name: /^Use list in the right pane/ }).click();
-	await expect.poll(() => deckSource(page)).toContain('<!-- _pane: list -->\n\n### What changed\n\n- Services crossed licenses');
+	await expect.poll(() => deckSource(page)).toContain('<!-- {pane=list} -->\n\n### What changed\n\n- Services crossed licenses');
 	await page.locator('h3.cs-pane-title').filter({ hasText: 'What changed' }).click();
 	await page.keyboard.press('End');
 	await page.keyboard.type(' this year');
