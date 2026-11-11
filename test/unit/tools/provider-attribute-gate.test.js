@@ -3,15 +3,20 @@
  * step is the only writer of a computed `data-*` attribute, and no plugin writes a slide-metadata attribute by name.
  * Each arm is shown failing on a deliberate violation in a throwaway tree, and passing on the real one.
  */
-const { describe, test } = require('node:test');
+const { after, describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { checkProviderAttributeWriters, SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS } = require('../../../tools/check-ownership.js');
 
+const roots = [];
+after(() => {
+  for (const r of roots) fs.rmSync(r, { recursive: true, force: true });
+});
 function tree(files) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'd11-'));
+  roots.push(root);
   for (const [rel, text] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
     fs.writeFileSync(path.join(root, rel), text);

@@ -76,6 +76,8 @@ export function classDirectiveCompletion(before) {
 export function recordCompletion(before) {
 	const m = before.match(/<!--\s*(?:@meta)?\{([^>]*)$/);
 	if (!m) return null;
+	// Inside an inline code span (an odd number of backticks before the comment) it is code, not a record.
+	if ((before.slice(0, m.index).match(/`/g) || []).length % 2 === 1) return null;
 	const inner = m[1];
 	const segs = [''];
 	let quoted = false;

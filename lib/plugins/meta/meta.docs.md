@@ -45,7 +45,7 @@ that the splitter leaves whole. A marker is tooling's, never a speaker note.
 |---|---|---|
 | `layout`, `variant`, `universal`, `modifiers`, `class` | class words | the slide's class |
 | `finish`, `headline`, `rule`, `eyebrow`, `spectrum`, `spectrum-edge`, `spectrum-card`, `spectrum-card-edge`, `spectrum-trim`, `lift`, `stamp`, `tone`, `corners` | the values its front-matter register takes | the word one slide would carry (`{headline=left}` is `head-left`; a default is its restore word, `{lift=off}` is `flat`). Derived from each register's resolver by `tools/lib/record-registers.js` |
-| a plugin's register (`icon`, `spark`, …) | its axis words | `icon-bare`, `with-icon`, … |
+| a plugin's register (`icon`, `spark`, …) | its axis words | `icon-bare`, `icon-etch`, …; `with-<key>` / `no-<key>` for a register with an on/off axis (`callout`) |
 | every other field above, kebab-case (`focus-style`, `background-color`) | its type | the same `data-*` attribute its directive writes |
 | `note`, `reader`, `say`, `describe` | text; a long one on `key: \|` lines | the note channels |
 | `pane`, `panes` | a pane's component, a pane layout | the pane structure |
@@ -56,6 +56,6 @@ and values after `field=`; the Studio's drawer and note editors edit a record in
 ## Who writes the attributes (D11)
 
 A provider declares typed fields; the host's apply step (`lattice_directives_apply`, `lib/engine/slides.js`) validates
-and writes every `data-*` attribute. `checkProviderAttributeWriters` in `tools/check-ownership.js` holds that: no file
-under `lib/` writes a computed `data-*` name but the allowlisted apply step, and no plugin writes a slide-metadata
-attribute by name.
+and writes every `data-*` attribute. `checkProviderAttributeWriters` in `tools/check-ownership.js` holds the two likeliest
+ways around it at zero: no file under `lib/` passes a computed `data-*` name to `attrSet` / `setAttribute` but the
+allowlisted apply step, and no plugin writes a slide-metadata attribute by name. It is a tripwire, not a proof.

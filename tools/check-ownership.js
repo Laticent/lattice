@@ -7642,6 +7642,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
   {
+    file: 'lib/core/meta-edit.mjs',
+    why: 'folds a line break inside ONE FIELD VALUE the Studio hands the structured edit (a note typed in a textarea), '
+       + 'so a note channel becomes a `key: |` block and any other field a single line: a raw CR would end the record\'s '
+       + 'value and drop every field in it. It reads no markdown source and writes only that value.',
+  },
+  {
     file: 'tools/skill-index.js',
     why: 'reads only the repo-committed `design/skills/*.md` files, which `.gitattributes` keeps LF, to '
        + 'build the skill index. It still strips a BOM and folds CRLF before anchoring on `^---`, so a '

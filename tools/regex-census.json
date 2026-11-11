@@ -562,7 +562,6 @@
       "why": "recheck cannot model it: back-reference"
     },
     "/--+>?/g": "safe",
-    "/-->\\s*$/": "safe",
     "/--?[A-Za-z][\\w-]*/": "safe",
     "/--[\\w-]*weight[\\w-]*\\s*:\\s*(\\d{1,4})\\b/gi": "polynomial",
     "/--[a-z0-9-]+/gi": "safe",
@@ -1382,6 +1381,7 @@
     "/\\d{1,9}[.)]|[-*+](?=\\s)/": "safe",
     "/\\n$/": "safe",
     "/\\n+$/": "polynomial",
+    "/\\n+/g": "safe",
     "/\\n-{3}\\n/": "safe",
     "/\\n/": "safe",
     "/\\n/g": "safe",
@@ -1392,6 +1392,7 @@
       "why": "recheck cannot model it: look-ahead assertion"
     },
     "/\\n[ \\t]*/g": "safe",
+    "/\\n[ \\t]*\\n[ \\t]*$/": "safe",
     "/\\n\\/\\/# sourceMappingURL=[^\\n]*\\s*$/": "polynomial",
     "/\\n\\s*\\n/": "safe",
     "/\\n{3,}/g": "safe",
@@ -1409,6 +1410,7 @@
     "/\\r?\\n---\\r?\\n$/": "safe",
     "/\\r?\\n/": "safe",
     "/\\r?\\n/g": "safe",
+    "/\\r?\\n[ \\t]*$/": "safe",
     "/\\r\\n$/": "safe",
     "/\\r\\n/": "safe",
     "/\\r\\n?/g": "safe",

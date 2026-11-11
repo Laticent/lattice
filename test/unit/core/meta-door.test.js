@@ -27,7 +27,7 @@ describe('readRecord: one record comment body', () => {
 
   test('the typed class fields compose in order, plugin registers become their class words', () => {
     const r = door.readRecord(' {modifiers=no-rule, layout=cards, variant=quiet, icon=bare etch, class=dark} ');
-    assert.equal(r.d.class, 'cards quiet no-rule icon-bare icon-etch dark');
+    assert.equal(r.d.class, 'cards quiet no-rule dark icon-bare icon-etch');
   });
 
   test('the class slot sits where the first class field is, so attributes keep the comments’ order', () => {
