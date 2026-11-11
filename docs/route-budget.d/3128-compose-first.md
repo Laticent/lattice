@@ -1,4 +1,4 @@
-studio: +2300
+studio: +2350
 playground: +100
 
 Compose becomes the Studio's default way to write (PR #3128,
@@ -23,5 +23,5 @@ path: Compose's lint pass and Fix all now live in the lazy `deck-lint.ts`, each 
 column, and the two boot loaders became one. That cut 254 bytes locally (studio eagerJsGz 613289 to 613035).
 +2200 covered the rest at `f8673c0`. The adversarial trio's fixes then added the Live-session and restore-focus
 guards to the shell (`inLiveSession`, `nothingFocused`, the carried column spent once): CI measured +2300 at `a3094d9`
-(StudioIsland +1819, tours +270, studio-store +211). The faithful write-back after it lives in the lazy Compose chunk. The heavy parts stay lazy: the column mapping (`caret-line.ts`) and the lint core load
+(StudioIsland +1819, tours +270, studio-store +211). The faithful write-back after it lives in the lazy Compose chunk; CI read +2302 at `88a221d`, a two-byte drift with no shell change. +2350 is that measurement plus 48 bytes of stated headroom, so a docs-only push does not fail the gate. The heavy parts stay lazy: the column mapping (`caret-line.ts`) and the lint core load
 with the editors.
