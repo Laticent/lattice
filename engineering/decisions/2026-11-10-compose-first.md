@@ -121,8 +121,8 @@ come back when the issues are fixed or the pane is widened.
 **The slide toolbar held still.** The owner's screen recording (iPhone, after the first push) showed
 Compose's floating slide toolbar change width as the caret moved: its Format group lists only the styles
 that apply to the block under the caret, and the pill around it is centered, so it jumped on every move.
-`ComposeView`'s `SlideView` now reserves the Format group's width from all six style chips (measured once
-from the real chips), holds the pill at the widest it has been while its slide is active (for the table
+`ComposeView`'s `SlideView` now reserves the Format group's width from the styles the slide can offer in any
+of its blocks (measured from the real chips; a first cut reserved all six and left an empty hole on a wide pane), holds the pill at the widest it has been while its slide is active (for the table
 and code controls), and gives the pill a fixed width on a narrow pane. Measured in Chromium at 390, 820
 and 1440 px and in WebKit at iPhone 15 Pro: the same box with the caret in a heading, an eyebrow and a
 list item (1, 3 and 0 chips).

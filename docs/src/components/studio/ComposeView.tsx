@@ -992,23 +992,23 @@ class SlideView {
 		this.holdPillWidth();
 	}
 	// THE PILL DOES NOT CHANGE SIZE AS THE CARET MOVES. Which styles apply depends on the block under the caret
-	// (a heading offers H2; an eyebrow line offers H2, the eyebrow and the insight), so the Format group used to
-	// grow and shrink on every move and the whole centered pill jumped with it (owner's screen recording,
-	// 2026-11-10, iPhone). Two holds: the group reserves the width of EVERY style chip, measured once per slide
-	// view from the real chips; and the pill keeps the widest it has been while its slide is active, which
-	// covers the table and code islands. On a narrow pane the pill is a fixed width (the CSS), so neither moves it.
-	private formatMin = 0;
+	// (a heading offers H2; an eyebrow line offers H2, the eyebrow and the insight), so the Format group used to grow
+	// and shrink on every move and the whole centered pill jumped with it (owner's screen recording, 2026-11-10,
+	// iPhone). The group now reserves the width of the styles THIS SLIDE can offer anywhere, the union across its
+	// blocks, measured from the real chips: still while the caret moves within the slide, and never wider than the
+	// slide needs. (A first cut reserved all six styles, which left an empty hole on a wide pane: owner, 2026-11-11.)
+	// The pill also keeps the widest it has been while its slide is active, which covers the table and code islands.
+	private formatFor: PMNode | null = null;
 	private reserveFormatWidth() {
-		if (this.formatMin) {
-			this.fmtGroup.style.setProperty('--cs-fmt-min', `${this.formatMin}px`);
-			return;
-		}
+		if (this.formatFor === this.node) return;
+		const keys = this.slideFormatKeys();
 		const ghost = this.fmtGroup.cloneNode(false) as HTMLElement;
 		ghost.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;min-width:0';
 		ghost.removeAttribute('role');
 		ghost.removeAttribute('aria-label');
 		ghost.setAttribute('aria-hidden', 'true');
 		for (const meta of REGISTERS) {
+			if (!keys.has(meta.key)) continue;
 			const b = document.createElement('span');
 			b.className = `cs-fmt-btn${meta.mono ? ' cs-fmt-mono' : ''}`;
 			b.textContent = meta.glyph;
@@ -1017,11 +1017,26 @@ class SlideView {
 		this.pill.append(ghost);
 		const w = Math.ceil(ghost.getBoundingClientRect().width);
 		ghost.remove();
-		// Zero means the slide is not laid out yet (a collapsed or off-screen pass): measure again next time.
-		if (w > 0) {
-			this.formatMin = w;
-			this.fmtGroup.style.setProperty('--cs-fmt-min', `${w}px`);
-		}
+		// Zero with chips to measure means the slide is not laid out yet (a collapsed pass): measure again next time.
+		if (w === 0 && keys.size) return;
+		this.formatFor = this.node;
+		this.fmtGroup.style.setProperty('--cs-fmt-min', `${w}px`);
+		// A block with no style to offer (a list item) keeps the slot and its divider, so the doors do not slide over.
+		this.fmtGroup.toggleAttribute('data-reserved', w > 0);
+	}
+	/** Every style the slide offers in any of its blocks: the caret placed at each top-level block, asked in turn. */
+	private slideFormatKeys(): Set<Reg> {
+		const keys = new Set<Reg>();
+		const pos = this.getPos();
+		const state = this.view.state;
+		if (pos === undefined || this.locked) return keys;
+		this.node.forEach((_child, offset) => {
+			const inside = pos + 1 + offset + 1;
+			if (inside > state.doc.content.size) return;
+			const probe = state.apply(state.tr.setSelection(Selection.near(state.doc.resolve(inside))));
+			for (const k of applicableRegisters(probe, this.getHeadings?.(), this.getBlocks?.()).keys) keys.add(k);
+		});
+		return keys;
 	}
 	private holdPillWidth() {
 		const w = Math.ceil(this.pill.getBoundingClientRect().width);
@@ -3289,7 +3304,7 @@ function ComposeStyles() {
 			.cs-sb-actions{display:inline-flex;align-items:center;gap:2px}
 
 			.cs-sb-div{flex:none;width:1px;height:14px;border-radius:1px;background:var(--border,#e4eaf2)}
-			.cs-sb-format:empty,.cs-sb-format:empty + .cs-sb-div{display:none}
+			.cs-sb-format:empty:not([data-reserved]),.cs-sb-format:empty:not([data-reserved]) + .cs-sb-div{display:none}
 			/* content-register buttons — ghost glyph; the ACTIVE one is a SOLID accent chip (in-effect highlight) */
 			.cs-fmt-btn{min-width:22px;height:22px;padding:0 7px;border:none;border-radius:7px;background:transparent;font-family:var(--font-mono,ui-monospace,monospace);font-size:10.5px;font-weight:600;letter-spacing:.02em;line-height:1;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,background .12s,box-shadow .12s}
 			.cs-fmt-btn:not(.cs-fmt-mono){font-family:var(--font-serif,Georgia,serif);font-size:13px;font-weight:500;letter-spacing:0}
