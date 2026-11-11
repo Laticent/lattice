@@ -306,3 +306,13 @@ test('a crowded scatter on a phone page prints every name inside its drawing, ti
   }
   assert.equal((html.match(/class="cart-series scatter-label"/g) || []).length, 12, 'all twelve names');
 });
+
+test('a keyed column stack on a phone page keeps a plot wide enough for its totals', () => {
+  const deck = '---\ntheme: indaco\nsize: square\n---\n\n<!-- _class: stacked-bar -->\n\n`Ceded premium by layer`\n\n## Every layer costs less in 2027; the bottom layer saves most.\n\n' +
+    '- 2026\n  - Layer 1 `USD 18.4mn`\n  - Layer 2 `USD 14.6mn`\n  - Layer 3 `USD 13.0mn`\n- 2027\n  - Layer 1 `USD 15.9mn`\n  - Layer 2 `USD 13.8mn`\n  - Layer 3 `USD 12.6mn`\n';
+  const html = createEngine().render(deck).html;
+  // Before: the key sat beside a 90-unit plot and both totals were cut to "USD…".
+  assert.doesNotMatch(html, /data-label-drops=/, 'every total prints whole');
+  assert.match(html, />USD 46M</);
+  assert.match(html, />USD 42\.3M</);
+});
