@@ -79,6 +79,7 @@
     "--chart-status-hue",
     "--cover-gutter",
     "--font-body",
+    "--font-display",
     "--chart-text-face",
     "--chart-figure-face",
     "--chrome-fs",
