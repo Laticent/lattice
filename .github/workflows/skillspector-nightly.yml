@@ -28,6 +28,11 @@ on:
   schedule:
     - cron: '47 6 * * *' # daily 06:47 UTC, after publish-kits (06:29) republishes the kit it scans
   workflow_dispatch:
+  # TEMPORARY (PR #3142 only): one real-runner proof before merge. REMOVE BEFORE MERGE.
+  pull_request:
+    paths:
+      - '.github/workflows/skillspector-nightly.yml'
+      - 'tools/scan-skills.sh'
 
 permissions:
   contents: read

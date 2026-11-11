@@ -80,9 +80,15 @@ for t in "${TARGETS[@]}"; do
   rc=$?
   echo "$rc" >"$WORK/$slug.rc"
   if [ -n "$SARIF_DIR" ]; then
-    mkdir -p "$SARIF_DIR"
+    # Where a reader finds the scanned files: repo-relative for our own skills, and under a
+    # `dist-kits/agent/` prefix for the kit, which lives on that branch and not in this tree.
+    case "$dir" in
+      "$ROOT"/*) where="${dir#"$ROOT"/}" ;;
+      *) where="dist-kits/agent/${dir#"$KIT"/}" ;;
+    esac
+    echo "$slug|$where" >>"$WORK/sarif-targets"
     skillspector scan "$dir" --no-llm --baseline "$BASELINE" \
-      -f sarif -o "$SARIF_DIR/$slug.sarif" >/dev/null 2>&1 || true
+      -f sarif -o "$WORK/$slug.sarif" >/dev/null 2>&1 || true
   fi
   if [ "$rc" -ge 2 ] || [ ! -s "$WORK/$slug.json" ]; then
     echo "scan-skills: $name could not be scanned (exit $rc):" >&2
@@ -92,6 +98,41 @@ for t in "${TARGETS[@]}"; do
     WORST=1
   fi
 done
+
+# ONE SARIF, ONE RUN. Code scanning rejects an upload holding several runs with the same tool
+# and category, so 22 per-skill files under one category would fail every night. Merge every
+# target's results into a single run, prefixing each path with where that skill lives.
+if [ -n "$SARIF_DIR" ] && [ -s "$WORK/sarif-targets" ]; then
+  mkdir -p "$SARIF_DIR"
+  node - "$WORK" "$SARIF_DIR/skillspector.sarif" <<'EOF' || echo "scan-skills: SARIF merge failed (the verdict is unaffected)" >&2
+const fs = require('node:fs');
+const path = require('node:path');
+const [dir, out] = process.argv.slice(2);
+let merged = null;
+const rules = new Map();
+for (const line of fs.readFileSync(path.join(dir, 'sarif-targets'), 'utf8').trim().split('\n')) {
+  const [slug, where] = line.split('|');
+  let doc;
+  try { doc = JSON.parse(fs.readFileSync(path.join(dir, `${slug}.sarif`), 'utf8')); } catch { continue; }
+  for (const run of doc.runs || []) {
+    if (!merged) merged = { ...run, results: [], invocations: [] };
+    for (const r of run.tool?.driver?.rules || []) if (!rules.has(r.id)) rules.set(r.id, r);
+    for (const res of run.results || []) {
+      for (const loc of res.locations || []) {
+        const al = loc.physicalLocation?.artifactLocation;
+        if (al?.uri) al.uri = `${where}/${al.uri}`;
+      }
+      merged.results.push(res);
+    }
+    merged.invocations.push(...(run.invocations || []));
+  }
+}
+if (!merged) process.exit(1);
+merged.tool = { ...merged.tool, driver: { ...merged.tool.driver, rules: [...rules.values()] } };
+fs.writeFileSync(out, JSON.stringify({ $schema: 'https://json.schemastore.org/sarif-2.1.0.json', version: '2.1.0', runs: [merged] }, null, 1));
+console.error(`scan-skills: wrote ${out} (${merged.results.length} results, one run)`);
+EOF
+fi
 
 # Summarize. Node is the one runtime every Lattice job already has.
 node - "$WORK" "${MD:-}" <<'EOF'
