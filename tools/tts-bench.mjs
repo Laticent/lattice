@@ -29,7 +29,8 @@
  *   node tools/tts-bench.mjs --kokoro-local                       free, no key
  *   OPEN_ROUTER_KEY=… node tools/tts-bench.mjs [--engine a,b]      prints the plan and cost, exits 2
  *   OPEN_ROUTER_KEY=… OPENROUTER_ALLOW_SPEND=1 node tools/tts-bench.mjs [--engine a,b] [--max-usd 1.5]
- *   Options: --phase latency,ramp,pack  --levels 1,3,6  --out <file.json>
+ *   Options: --phase latency,ramp,pack  --levels 1,3,6  --timeout-ms 120000  --out <file.json>
+ *   Results are written after EACH engine, so one engine that hangs cannot cost the others' numbers.
  *
  * Spends real credits on OUR key, so it is opt-in and cost-visible (HARD RULE #24): without
  * OPENROUTER_ALLOW_SPEND=1 it prints the planned characters and dollars and exits; with it,
@@ -47,7 +48,6 @@ import { ttsCostPerMChars } from '../docs/src/playground/tts-cost.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CATALOG = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/src/playground/tts-voice-catalog.json'), 'utf8'));
 const SPEECH_URL = 'https://openrouter.ai/api/v1/audio/speech';
-const REQUEST_TIMEOUT_MS = 120_000;
 const RATE = 24_000; // every clip is decoded to 24 kHz mono for analysis
 
 /** Narration-shaped sentences: short, long, a number, a question, a list, an abbreviation.
@@ -71,6 +71,7 @@ const PHASES = new Set(String(arg('--phase', 'latency,ramp,pack')).split(','));
 const LEVELS = String(arg('--levels', '1,3,6')).split(',').map(Number).filter((n) => n >= 1);
 const MAX_USD = Number(arg('--max-usd', '1.5'));
 const ENGINE_FILTER = arg('--engine', null)?.split(',');
+const REQUEST_TIMEOUT_MS = Number(arg('--timeout-ms', '120000'));
 const OUT = arg('--out', path.join(ROOT, '.scratch/tts-bench', `${LOCAL_KOKORO ? 'kokoro-local' : 'cloud'}-${Date.now()}.json`));
 
 // ── audio analysis (pure, exported for the unit test) ─────────────────────────────────────
@@ -367,13 +368,18 @@ async function main() {
     for (const e of engines) {
       console.log(`▶ ${e.slug}`);
       results.engines.push(await benchEngine(e, (t) => speak(e, t)));
+      save(results);
     }
   }
 
-  fs.mkdirSync(path.dirname(OUT), { recursive: true });
-  fs.writeFileSync(OUT, `${JSON.stringify(results, null, 2)}\n`);
+  save(results);
   printSummary(results);
   console.log(`\nraw results: ${path.relative(ROOT, OUT)}`);
+}
+
+function save(results) {
+  fs.mkdirSync(path.dirname(OUT), { recursive: true });
+  fs.writeFileSync(OUT, `${JSON.stringify(results, null, 2)}\n`);
 }
 
 function printSummary({ engines }) {
