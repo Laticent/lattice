@@ -126,3 +126,16 @@ test('a map on a phone page scales its basemap into the cell and prints its key 
   const keyG = Number(/<g style="--chart-fs-key:([\d.]+)px">/.exec(html)[1]);
   assert.ok(keyG >= key * (11 / 13) - 0.01 && keyG <= key + 0.01, `key at ${keyG}, role ${key}`);
 });
+
+test('arrangeKeyed steps the key toward the floor, then lays an over-capacity chart out on a larger box', () => {
+  const { withRoles } = require('../../../lib/plugins/chart-family/shared/chart-roles');
+  const keyRows = ['North America', 'Europe', 'Asia Pacific'].map((label) => ({ label }));
+  const run = (box) => withRoles(972, 972 / 320, () => chartForm.withForm(box, () => chartForm.arrangeKeyed({ rows: keyRows, plot: { minW: 150, minH: 140 } })));
+  const roomy = run({ w: 320, h: 600 });
+  assert.equal(roomy.over, false);
+  assert.match(roomy.keySvg(), /--chart-fs-key:/);
+  // A box shorter than the plot's 140-unit floor fits nothing at 11pt: the drawing is laid out taller and marked over capacity.
+  const tight = run({ w: 320, h: 100 });
+  assert.equal(tight.over, true);
+  assert.ok(tight.layout.h > 100);
+});
