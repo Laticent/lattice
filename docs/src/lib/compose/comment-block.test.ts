@@ -311,6 +311,16 @@ describe('the clipboard shape gate', () => {
 		expect(readCommentText('<!-- _pane: bar no-title -->', CLIP_ORIGIN)).toEqual({ text: '<!-- _pane: bar no-title -->' });
 		expect(readCommentText('<!-- _pane: url(https://evil.example/beacon.png) -->', CLIP_ORIGIN)).toBe(false);
 		expect(readCommentText('<!-- _pane: bar -->', null)).toBe(false);
+		// A record sets the same attributes a directive does, so it is refused the same way; its pane marker in the
+		// strict shape is the one carve-out, as `_pane:` is.
+		expect(readCommentText('<!-- {background-image="url(https://evil.example/beacon.png)"} -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- @meta{layout=cards} -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- {pane=bar no-title} -->', CLIP_ORIGIN)).toEqual({ text: '<!-- {pane=bar no-title} -->' });
+		expect(readCommentText('<!-- {pane="url(https://evil.example/x.png)"} -->', CLIP_ORIGIN)).toBe(false);
+		// The bare spelling of a directive is refused too: the engine applies it from this slide on.
+		expect(readCommentText('<!-- backgroundImage: url(https://evil.example/x.png) -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- class: dark -->', CLIP_ORIGIN)).toBe(false);
+		expect(readCommentText('<!-- a plain speaker note -->', CLIP_ORIGIN)).toEqual({ text: '<!-- a plain speaker note -->' });
 	});
 
 	it('a foreign div.cs-comment cannot put a directive into the deck source', () => {

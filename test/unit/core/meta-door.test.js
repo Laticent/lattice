@@ -334,7 +334,9 @@ describe('the first adversarial pass on step 2 (inversion, 2026-11-10)', () => {
   test('the drawer’s answer is the engine’s: a later directive beats a record, and a record in a list sets nothing', async () => {
     const { readMetaField } = await import('../../../lib/core/meta-edit.mjs');
     const later = readMetaField('<!-- {layout=cards} -->\n\n## A\n\n<!-- _class: kpi -->\n', 'class');
-    assert.deepEqual({ value: later.value, editable: later.editable }, { value: 'kpi', editable: true });
+    // Set twice (a record, then a comment that wins): read-only, as two `_class` comments are, because clearing the
+    // winner would bring the record's class back (the red team, #3136).
+    assert.deepEqual({ value: later.value, editable: later.editable, reason: later.reason }, { value: 'kpi', editable: false, reason: 'duplicate' });
     const nested = readMetaField('## A\n\n- point\n  <!-- {layout=kpi} -->\n', 'class');
     assert.deepEqual({ value: nested.value, present: nested.present }, { value: '', present: false });
     const html = (src) => createEngine().render(src).html;

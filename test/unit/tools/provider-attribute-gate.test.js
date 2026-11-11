@@ -53,6 +53,15 @@ describe('D11: the host writes every provider attribute', () => {
     assert.match(errors[0], /writes `data-footer`/);
   });
 
+  test('the write shapes the first version missed fail too (#3136): attrPush, dataset, setAttributeNS', () => {
+    const computed = run(tree({ ...HOST, 'lib/core/a.js': "tok.attrPush(['data-' + k, v]);\n", 'lib/core/b.js': 'el.dataset[key] = v;\n', 'lib/core/c.js': 'el.setAttributeNS(null, `data-${k}`, v);\n' }));
+    assert.equal(computed.length, 3, computed.join('\n'));
+    const named = run(tree({ ...HOST, 'lib/plugins/x/x.js': "tok.attrPush(['data-footer', v]);\nel.dataset.focusStyle = 'ring';\nel.dataset['background-color'] = v;\n" }));
+    assert.deepEqual(named.map((e) => /`data-([a-z-]+)`/.exec(e)[1]), ['footer', 'focus-style', 'background-color']);
+    // A plugin's own data attribute through dataset is not a slide field.
+    assert.deepEqual(run(tree({ ...HOST, 'lib/plugins/x/x.js': "el.dataset.size = 'sm';\n" })), []);
+  });
+
   test('a stale allowlist entry fails', () => {
     const errors = run(tree({ 'lib/engine/slides.js': '// nothing here\n' }));
     assert.match(errors.join('\n'), /stale entry/);

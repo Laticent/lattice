@@ -6288,7 +6288,9 @@ const SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS = [
       'after the internal reader validated every value by type (lib/core/meta-internal.mjs `readInternal`).',
   },
 ];
-const COMPUTED_DATA_ATTR = /\b(?:attrSet|setAttribute|attrJoin|toggleAttribute)\(\s*(?:`data-\$\{|['"]data-['"]\s*\+)/g;
+// A computed name in every write shape the review found passing (#3136): a call (`attrSet`, `setAttribute`, `attrJoin`,
+// `toggleAttribute`, `setAttributeNS(ns, …)`), markdown-it's `attrPush([name, v])`, and `dataset[name] = v`.
+const COMPUTED_DATA_ATTR = /\b(?:(?:attrSet|setAttribute|attrJoin|toggleAttribute)\(\s*|setAttributeNS\(\s*[^,()]+,\s*|attrPush\(\s*\[\s*)(?:`data-\$\{|['"]data-['"]\s*\+)|\bdataset\[\s*(?![\s'"`])[^\]]+\]\s*=(?!=)/g;
 
 /** Problems for one source file's text: computed writers outside the allowlist, and a plugin's literal meta writes. */
 function providerAttributeProblems(rel, code, metaAttrs, sanctioned) {
@@ -6298,8 +6300,14 @@ function providerAttributeProblems(rel, code, metaAttrs, sanctioned) {
     if (!sanctioned.has(rel)) out.push(`D11 (record note §5.7): ${rel}:${lineOf(m.index)} writes a data-* attribute whose NAME is computed; only the host's apply step may (SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS, with its justification)`);
   }
   if (rel.startsWith('lib/plugins/')) {
-    const literal = new RegExp(`\\b(?:attrSet|setAttribute|attrJoin|toggleAttribute)\\(\\s*['"\`]data-(${metaAttrs.join('|')})['"\`]`, 'g');
+    const literal = new RegExp(`\\b(?:(?:attrSet|setAttribute|attrJoin|toggleAttribute)\\(\\s*|setAttributeNS\\(\\s*[^,()]+,\\s*|attrPush\\(\\s*\\[\\s*)['"\`]data-(${metaAttrs.join('|')})['"\`]`, 'g');
     for (const m of code.matchAll(literal)) out.push(`D11 (record note §5.7): plugin file ${rel}:${lineOf(m.index)} writes \`data-${m[1]}\`, a slide-metadata attribute; declare the field and let the host's apply step write it`);
+    // `el.dataset.focusStyle = v` / `el.dataset['focus-style'] = v` is the same attribute (#3136).
+    const camel = new Map(metaAttrs.map((a) => [a.replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase()), a]));
+    for (const m of code.matchAll(/\bdataset(?:\.([A-Za-z]\w*)|\[\s*['"`]([\w-]+)['"`]\s*\])\s*=(?!=)/g)) {
+      const attr = m[1] ? camel.get(m[1]) : metaAttrs.includes(m[2]) ? m[2] : camel.get(m[2]);
+      if (attr) out.push(`D11 (record note §5.7): plugin file ${rel}:${lineOf(m.index)} writes \`data-${attr}\` through \`dataset\`, a slide-metadata attribute; declare the field and let the host's apply step write it`);
+    }
   }
   return out;
 }

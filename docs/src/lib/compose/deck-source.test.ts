@@ -2,7 +2,7 @@
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
-import { hasLossyConstruct, splitSlideDirectives } from './deck-source';
+import { classNameOf, classPayloadOf, hasLossyConstruct, splitSlideDirectives } from './deck-source';
 
 // `hasLossyConstruct` decides which slides Compose locks read-only (edited in Markdown
 // mode). It must fire on constructs the CommonMark round-trip would flatten/escape, and
@@ -91,6 +91,18 @@ describe('hasLossyConstruct — detects what Compose cannot round-trip', () => {
 // A pane marker marks WHERE a pane starts, so Compose keeps it in place in every spelling the shared reader
 // (lib/core/meta-door.mjs `parsePaneMarker`) takes, and hoists only real directives.
 describe('splitSlideDirectives — pane markers stay where they are', () => {
+	it('hoists a record as it hoists a directive, reads its class, and keeps a record pane marker in place (step 3)', () => {
+		const { directives, prose } = splitSlideDirectives('<!-- {layout=columns, footer="Q3"} -->\n\n## T\n\n<!-- {pane=bar} -->\n\n- a');
+		expect(directives).toEqual(['<!-- {layout=columns, footer="Q3"} -->']);
+		expect(prose).toContain('<!-- {pane=bar} -->\n\n- a');
+		expect(classPayloadOf('<!-- {layout=cards, variant=compact} -->')).toBe('cards compact');
+		expect(classNameOf('<!-- @meta{layout=kpi} -->')).toBe('kpi');
+		expect(classPayloadOf('<!-- {footer=x} -->')).toBeNull();
+		// A comment with text after it never runs on to a later comment and hoists the slide between them.
+		const runaway = splitSlideDirectives('<!-- {class=dark} --> trailing\n\n# T\n\nmore prose\n\n<!-- a note -->\n');
+		expect(runaway.prose).toContain('more prose');
+	});
+
 	it('keeps a `_pane:` marker in the prose and hoists the `_class`', () => {
 		const { directives, prose } = splitSlideDirectives('<!-- _class: columns -->\n\n## T\n\n<!-- _pane: bar no-title -->\n\n- a\n\n<!-- _pane: list -->\n\n- b');
 		expect(directives).toEqual(['<!-- _class: columns -->']);

@@ -607,7 +607,7 @@ step 2 door and are decided in §5.4.1, and the rest are strips, over-matching p
   today and a record there does not. The inversion asked that D3 (hard or soft cut) go back to the owner with this cost
   before step 6; it is on the continuation brief.
 - **Proof of byte identity:** every directive comment in `examples/` and the baseline decks rewritten as a record
-  (`lib/core/meta-migrate.mjs`, step 5's kernel), 4,296 comments in 354 decks: 354 render the same HTML and CSS byte for
+  (`lib/cli/meta-migrate.mjs`, step 5's kernel), 4,296 comments in 354 decks: 354 render the same HTML and CSS byte for
   byte.
 
 **Status, 2026-11-11: step 3 is built.** What it delivers, and what differs from the table:
@@ -627,7 +627,8 @@ step 2 door and are decided in §5.4.1, and the rest are strips, over-matching p
   `class` edit keeps typed fields where it can (a removed word leaves the field that wrote it, an added register word
   becomes its field, the edit's first new word fills a `layout` or `variant` the same edit emptied, the rest goes to
   `class`; the register words now follow the `class` words, so the layout stays the first word every reader takes); a key the slide
-  does not set joins the slide's record, or becomes a new record. So writes already speak the form the cut leaves.
+  does not set joins the slide's record; a slide with no record keeps its directive comment (*changed in #3136,
+  below*).
   The drawer, the speaker-note, say and description editors, and Compose's pane writers (`setCommentField`, §5.4.1)
   all go through it. Found on the way: the Studio's note editor read a record as the speaker note and deleted it on
   save; fixed.
@@ -658,6 +659,26 @@ step 2 door and are decided in §5.4.1, and the rest are strips, over-matching p
   old form outside the decks, and decks outside the repo, are on the step 6 follow-up.
 - **Folded in** from the step 1 follow-up: a plugin register named like a record field fails resolution even when
   `meta` is not among the plugins resolved (the generated vocabulary is read too).
+
+**Status, 2026-11-11 (#3136): what step 3 broke or missed, fixed.** The adversarial trio on #3136, run on a parallel
+step 3, found these in the code #3133 merged:
+
+- **The form follows the slide.** #3133 wrote a key the slide does not set as a new record, and Compose's pane writers
+  wrote `{pane=…}`, into decks written in comments. Marp and VS Code read only comments, `design/skill.md` promises they
+  can open Lattice source, and six readers outside the engine still read `_class:` with their own regex, so a new
+  record on a comment slide is invisible to them. Until the cut (D3), `writeMeta` writes the comment form on a slide
+  with no record, and `setCommentField` writes `<!-- _pane: … -->` unless the marker already is a record.
+- **The right record, once.** `readMetaField` edits only a record the engine reads (a copy in a blockquote applied
+  nothing and took the edit), and a key set in two places is read-only (`reason: 'duplicate'`): clearing the winner
+  brought the other back. Lines are counted in one pass (`liveRecordBlocks`): the per-record count was quadratic, 9 s
+  on a 16k-record slide.
+- **Compose** refused neither a pasted record nor a pasted bare directive (`<!-- backgroundImage: url(…) -->`, an older
+  hole); both are refused now, a strict pane marker excepted. It hoists and reads a record's class, and its hoist can no
+  longer run from a comment with text after it to a later comment.
+- **Readers:** Present's section rail, the asset rename, `pane-spec` `classOf` (the lint's pane split) and the
+  `{stress-slide}` marker now read a record; a measured sweep showed three decks gaining warnings in record form
+  without the last two. Lint names a field set by two records of a slide, and reads a record that holds a marker.
+- **The D11 gate** catches `attrPush`, `dataset` and `setAttributeNS` writes too.
 
 Steps 1 to 5 ship with authored comments still read, so every commit is green. **Step 1 delivers the reader, registry,
 completion and structured edit with no syntax change**, and steps 2 to 7 are a syntax layer over a single door.

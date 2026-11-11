@@ -136,7 +136,7 @@ describe('what the second review found a pick could lose', () => {
 			const out = emitDeck(state.apply(tr as NonNullable<typeof tr>).doc, initBaseline(state.doc));
 			expect(out).not.toContain('The best way');
 			expect(out).not.toContain('Ann, CEO');
-			expect(out).toContain('<!-- {pane=list} -->\n\n- One');
+			expect(out).toContain('<!-- _pane: list -->\n\n- One');
 		}
 	});
 	it('a speaker note inside the replaced body survives the starter', () => {
@@ -181,7 +181,7 @@ describe('picking a component', () => {
 		if (!tr) throw new Error('no change');
 		const next = state.apply(tr);
 		const out = emitDeck(next.doc, initBaseline(state.doc));
-		expect(out).toContain('<!-- {pane=bar} -->\n\n### Second pane\n\n- First `120`');
+		expect(out).toContain('<!-- _pane: bar -->\n\n### Second pane\n\n- First `120`');
 		expect(out).toContain("> The slide's Key Insight.");
 		expect(out.match(/- A point/g)).toHaveLength(1); // the first pane's, untouched
 		// Undo is Filo's since slice 4: the text it hands back is applied as a FILO_HISTORY transaction,
@@ -200,7 +200,7 @@ describe('picking a component', () => {
 		const state = stateOf(SLIDE);
 		const tr = applyPaneChoice(state, 0, 0, { cls: 'cards-grid', modifiers: ['compact'], starter: null });
 		const out = emitDeck(state.apply(tr as NonNullable<typeof tr>).doc, initBaseline(state.doc));
-		expect(out).toContain('<!-- {pane=cards-grid compact} -->\n\n### First pane\n\n- A point');
+		expect(out).toContain('<!-- _pane: cards-grid compact -->\n\n### First pane\n\n- A point');
 	});
 	it('the pick passes the marker guard, which refuses a stray delete', () => {
 		const state = stateOf(SLIDE.replace('### First pane', '<!-- _pane: list -->\n### First pane'));

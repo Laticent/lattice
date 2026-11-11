@@ -1,7 +1,7 @@
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 
 import { readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
-import { parsePaneMarker } from '../../../../lib/core/meta-door.mjs';
+import { isRecordOpener, parsePaneMarker, readRecord } from '../../../../lib/core/meta-door.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { math as MATH } from '../../../../lib/plugins/detect.generated.mjs';
 import { splitSlides } from '../deck-lint';
@@ -24,7 +24,12 @@ const hasDisplayMath = MATH.queries?.hasDisplayMath as (src: string) => boolean;
 export type SlideChunk = { directives: string[]; prose: string };
 export type ParsedSlide = SlideChunk & { raw: string };
 
-const DIRECTIVE_LINE_RE = /^[ \t]*<!--\s*_[A-Za-z][\w-]*:[\s\S]*?-->[ \t]*$/gm;
+// A directive comment (`<!-- _class: kpi -->`) or a slide-metadata record (`<!-- {layout=kpi} -->`, `<!-- @meta{…} -->`,
+// record note §4): both set the slide's attributes, so both are hoisted out of the prose the same way.
+// A multi-line comment's body may not cross another `<!--`, so a comment with text after it on its line cannot run on to
+// a later comment and hoist the whole slide between them (red team, 2026-11-11). On ONE line it may: a line holding two
+// comments is one compound directive line to Compose, as it was.
+const DIRECTIVE_LINE_RE = /^[ \t]*<!--\s*(?:_[A-Za-z][\w-]*:|\{|@meta\{)(?:[^\n]*?|(?:(?!<!--)[\s\S])*?)-->[ \t]*$/gm;
 
 /** The `class` slice of the directive vocabulary (lib/core/comment-directive.mjs binds one key). */
 
@@ -34,7 +39,13 @@ const DIRECTIVE_LINE_RE = /^[ \t]*<!--\s*_[A-Za-z][\w-]*:[\s\S]*?-->[ \t]*$/gm;
  *  class the render does not apply: quotes are stripped the engine's way, and a compound comment
  *  is a class directive only when `_class` is its FIRST key. */
 export function classPayloadOf(directive: string): string | null {
-	return readDirectiveComment(String(directive ?? '').trim(), CLASS_VOCAB)?.value ?? null;
+	const text = String(directive ?? '').trim();
+	// A record's class is the words its typed fields compose (lib/core/meta-door.mjs `readRecord`), as the engine applies them.
+	if (text.startsWith('<!--') && text.endsWith('-->') && isRecordOpener(text.slice(4, -3))) {
+		const rec = readRecord(text.slice(4, -3));
+		return rec?.ok && rec.d.class !== undefined ? rec.d.class : null;
+	}
+	return readDirectiveComment(text, CLASS_VOCAB)?.value ?? null;
 }
 
 /** The component of one directive line: the first token of its class payload, or null. */
@@ -68,8 +79,8 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 			// the `##` and the slide lost its panes. Left in the prose it parses as a comment node,
 			// which round-trips its bytes in place (comment-block.ts), and Compose draws it as the
 			// pane's component picker (pane-model.ts).
-			// The marker is read by the one shared reader (lib/core/meta-door.mjs `parsePaneMarker`). A record
-			// (`<!-- {pane="bar"} -->`) never reaches this line: it opens with `{`, not `_`, so it is never hoisted.
+			// The marker is read by the one shared reader (lib/core/meta-door.mjs `parsePaneMarker`), in every spelling: a
+			// record that names a pane (`<!-- {pane=bar} -->`) stays in place too, whatever else it sets.
 			if (inFence(offset) || parsePaneMarker(line.trim())?.pane) return line;
 			directives.push(line.trim());
 			return '';

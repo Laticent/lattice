@@ -1,8 +1,8 @@
 // @vitest-environment node
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
-import { expect, test } from 'vitest';
-import { sectionNameOf, sectionOfIndex, sectionsFromSlides } from './present-sections';
+import { describe, expect, it, test } from 'vitest';
+import { isSectionBoundary, sectionNameOf, sectionOfIndex, sectionsFromSlides } from './present-sections';
 
 const assert = {
 	equal: (a: unknown, b: unknown) => expect(a).toBe(b),
@@ -95,4 +95,11 @@ test('present-sections: sectionNameOf returns the section name (or empty for fla
 	assert.equal(sectionNameOf(grouped, 1), 'A');
 	const flat = sectionsFromSlides([slide('', 'x'), slide('', 'y')]);
 	assert.equal(sectionNameOf(flat, 0), '');
+});
+
+describe('a slide record is a section break as its `_class` comment is (meta record step 3)', () => {
+	it('reads `{layout=divider}`, and not `{layout=divider, class=light}`', () => {
+		expect(isSectionBoundary('<!-- {layout=divider} -->\n\n## Part two')).toBe(true);
+		expect(isSectionBoundary('<!-- {layout=divider, class=light} -->\n\n## Part two')).toBe(false);
+	});
 });

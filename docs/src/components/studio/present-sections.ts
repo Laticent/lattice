@@ -5,11 +5,13 @@
 // boundary. A deck with no boundary slides is ONE flat section, so the rail degrades
 // gracefully to an ungrouped bar. Pure + fs-free — safe in SSR and tests.
 
+import { getClassTokens } from '../../lib/slide-directives';
+
 /** One contiguous run of slides. `start` is the 0-based index of its first slide in the
  *  presented set; `count` is how many slides it spans; `name` is its heading ('' = flat). */
+
 export type DeckSection = { name: string; start: number; count: number };
 
-const CLASS_LINE = /<!--\s*_class:\s*([^\n>]*?)\s*-->/;
 
 /**
  * A slide starts a section iff it's a DARK `divider` (anchor/divider — dark canvas + heading).
@@ -18,9 +20,8 @@ const CLASS_LINE = /<!--\s*_class:\s*([^\n>]*?)\s*-->/;
  * open a top-level rail group. (There is no `section` class — an earlier draft assumed one.)
  */
 export function isSectionBoundary(md: string): boolean {
-	const m = CLASS_LINE.exec(String(md || ''));
-	if (!m) return false;
-	const tokens = m[1].trim().split(/[ \t]+/);
+	// The class as the engine reads it, from a `_class` comment or a slide record (`<!-- {layout=divider} -->`).
+	const tokens = getClassTokens(String(md || ''));
 	return tokens[0] === 'divider' && !tokens.includes('light');
 }
 

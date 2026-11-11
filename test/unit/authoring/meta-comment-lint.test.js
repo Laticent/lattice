@@ -111,7 +111,7 @@ test('legacy-directive-comment is silent by default and fires with metaCut: true
   assert.match(f.message, /`_class:`/);
   assert.match(f.message, /planned cut/);
   assert.match(f.fix, /becomes a record/);
-  assert.equal(f.autofixable, undefined, 'no machine fix before a record is readable (step 2)');
+  assert.equal(f.autofixable, undefined, 'no machine fix before the codemod (step 5)');
 });
 
 test('legacy-directive-comment near misses with metaCut: a speaker note, a marker, a fenced example', () => {
@@ -168,4 +168,9 @@ test('meta-record names what the door drops; meta-class-overridden names the cla
   assert.deepEqual(findMetaCommentIssues(deck('<!-- {layout=kpi, headline=left} -->\n\n# A')), []);
   // A running global `class:` and a spot `_class:` are two scopes, not a collision.
   assert.deepEqual(findMetaCommentIssues(deck('<!-- class: kpi -->\n<!-- _class: kpi dark -->\n\n# A')), []);
+});
+
+test('a record holding a marker is still read, and a field set in two records of one slide is named (#3136, the red team)', () => {
+  const f = findMetaCommentIssues(deck('<!-- {stress-slide, footr=Q3} -->\n\n# One', '<!-- {footer=Q3} -->\n<!-- {footer=Q4} -->\n\n# Two'));
+  assert.deepEqual(f.map((x) => `${x.slide}:${x.rule}:${x.classToken}`), ['1:meta-record:meta-unknown-key', '2:meta-record:meta-repeated-key']);
 });

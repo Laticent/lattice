@@ -16,6 +16,7 @@
 import type { Node as PMNode } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { writeMeta } from '../../../../lib/core/meta-edit.mjs';
 // The engine's own scheme allowlist (a leaf `module.exports`, as the docs dev shim needs): the shortcut is drawn through the
 // record, so an address the record refuses (`http:`) is never placed, and Compose must not say it is (inversion, F5).
 import urlScheme from '../../../../lib/core/url-scheme.js';
@@ -184,9 +185,15 @@ export function tokensWithPlacement(tokens: readonly string[], p: Placement): st
 
 /** The slide's directives with its class set to `tokens`, or null when its class sits in a comment Compose does not rewrite. */
 function directivesWithClass(directives: readonly string[], tokens: readonly string[]): string[] | null {
-	const line = `<!-- _class: ${tokens.join(' ')} -->`;
 	const at = directives.findIndex((x) => classPayloadOf(x) !== null);
-	if (at < 0) return [line, ...directives];
+	// A new class is written as the drawer writes one (lib/core/meta-edit.mjs `writeMeta`: a `_class` comment on a slide
+	// with no record); a record's class is rewritten in the record, every other field kept.
+	if (at < 0) return [writeMeta('', { class: tokens.join(' ') }), ...directives];
+	if (/^\s*<!--\s*(?:\{|@meta\{)/.test(directives[at])) {
+		const next = writeMeta(directives[at], { class: tokens.join(' ') });
+		return next === directives[at] && classPayloadOf(next) !== tokens.join(' ') ? null : directives.map((x, i) => (i === at ? next : x)).filter(Boolean);
+	}
+	const line = `<!-- _class: ${tokens.join(' ')} -->`;
 	// Only a comment that holds the class alone is rewritten: a compound one carries other keys this must not touch.
 	if (!/^\s*<!--\s*_class\s*:[^>]*-->\s*$/.test(directives[at])) return null;
 	return directives.map((x, i) => (i === at ? line : x));
