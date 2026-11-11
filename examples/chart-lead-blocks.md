@@ -23,7 +23,8 @@ footer: "Chart lead blocks — every block before the figure renders"
 Milliseconds per query, p95 over a week.
 
 ```sql
-CREATE INDEX orders_by_region ON orders (region, closed_at);
+CREATE INDEX orders_by_region
+  ON orders (region, closed_at);
 ```
 
 - Before `840`

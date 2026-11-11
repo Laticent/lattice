@@ -2187,6 +2187,7 @@ section.roadmap:where([data-family="tall"], [data-family="square"], [data-family
   font-size: var(--chart-role-category);
 }
 /* tick */
+section.bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .cart-tick,
 section.bullet:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .cart-tick,
 section.ep-curve:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .cart-tick,
 section.gantt:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .gantt-tick,
@@ -2211,6 +2212,7 @@ section.journey:where([data-family="tall"], [data-family="square"], [data-family
   text-transform: none;
   letter-spacing: 0;
 }
+section.bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body svg[data-chart-roles] .cart-tick,
 section.bullet:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body svg[data-chart-roles] .cart-tick,
 section.ep-curve:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body svg[data-chart-roles] .cart-tick,
 section.gantt:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body svg[data-chart-roles] .gantt-tick,
