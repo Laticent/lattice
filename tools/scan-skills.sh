@@ -77,7 +77,7 @@ done
 TARGETS+=("kit-skills|$KIT/skills")
 for f in repo/CLAUDE.md repo/AGENTS.md repo/lattice.mdc plugin/.claude-plugin/plugin.json \
          plugin/.claude-plugin/marketplace.json start paste render authoring examples \
-         components reference upload review README.md; do
+         components reference upload review README.md plugin/README.md; do
   TARGETS+=("kit/$f|$KIT/$f")
 done
 
