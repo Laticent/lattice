@@ -6,11 +6,16 @@
 # installs, MCP tool poisoning and similar. It never runs the skill. This script runs it
 # STATIC-ONLY (--no-llm): nothing leaves the machine and no key is needed.
 #
-# What it scans (one target per skill):
-#   .claude/skills/                  the skills our own agent sessions load
-#   <kit>/plugin/skills/             the agent kit's Claude Code plugin skill
-#   <kit>/repo/skills/               the agent kit's drop-in repo skill
+# What it scans (one target per skill or folder):
+#   .claude/skills/*/                the skills our own agent sessions load
+#   <kit>/plugin/skills/*/           the agent kit's Claude Code plugin skill
+#   <kit>/repo/skills/*/             the agent kit's drop-in repo skill
 #   <kit>/skills/                    the agent kit's per-task skill files
+#   <kit>/repo/{CLAUDE.md,AGENTS.md,lattice.mdc}, <kit>/plugin/.claude-plugin/*.json
+#                                    files an agent loads on its own, one target each
+#   <kit>/{start,paste,render,authoring,examples}/   instructions people paste into an agent
+# NOT YET: <kit>/{components,reference,upload,review}/. Their first scan raised ~230 findings
+# that need reading first (followups.d/3142-p1-skillspector-kit-coverage.md).
 # <kit> is the agent-kit root: `dist/agent-kit` locally (run `npm run build` first), or the
 # `agent/` folder of a `dist-kits` checkout, which is the copy users actually download.
 #
@@ -50,6 +55,7 @@ if [ ! -d "$KIT/skills" ]; then
   echo "scan-skills: no agent kit at $KIT (run \`npm run build\`, or pass the dist-kits agent/ folder)" >&2
   exit 2
 fi
+KIT="$(cd "$KIT" && pwd)"
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -68,6 +74,30 @@ for group in "claude:$ROOT/.claude/skills" "kit-plugin:$KIT/plugin/skills" "kit-
   done
 done
 TARGETS+=("kit-skills|$KIT/skills")
+for f in repo/CLAUDE.md repo/AGENTS.md repo/lattice.mdc plugin/.claude-plugin/plugin.json \
+         plugin/.claude-plugin/marketplace.json start paste render authoring examples; do
+  TARGETS+=("kit/$f|$KIT/$f")
+done
+
+# COVERAGE FLOOR. A scan that covered nothing must not read as a clean night: each skill group
+# must hold at least one skill, and every named kit file or folder must exist. Missing → exit 2.
+for group in "$ROOT/.claude/skills" "$KIT/plugin/skills" "$KIT/repo/skills"; do
+  if ! compgen -G "$group/*/SKILL.md" >/dev/null; then
+    echo "scan-skills: no SKILL.md under $group — refusing to report a scan that covered nothing" >&2
+    exit 2
+  fi
+done
+if ! compgen -G "$KIT/skills/*.md" >/dev/null; then
+  echo "scan-skills: $KIT/skills holds no .md — refusing to report a scan that covered nothing" >&2
+  exit 2
+fi
+for t in "${TARGETS[@]}"; do
+  p="${t#*|}"
+  if [ ! -e "$p" ]; then
+    echo "scan-skills: expected target $p is missing — refusing to report a partial scan as clean" >&2
+    exit 2
+  fi
+done
 
 WORST=0
 : >"$WORK/names"
@@ -82,10 +112,13 @@ for t in "${TARGETS[@]}"; do
   if [ -n "$SARIF_DIR" ]; then
     # Where a reader finds the scanned files: repo-relative for our own skills, and under a
     # `dist-kits/agent/` prefix for the kit, which lives on that branch and not in this tree.
+    # Test the KIT arm first: in CI the kit is checked out INSIDE the repo workspace.
     case "$dir" in
+      "$KIT"/*) where="dist-kits/agent/${dir#"$KIT"/}" ;;
       "$ROOT"/*) where="${dir#"$ROOT"/}" ;;
-      *) where="dist-kits/agent/${dir#"$KIT"/}" ;;
+      *) where="$dir" ;;
     esac
+    [ -f "$dir" ] && where="$(dirname "$where")"
     echo "$slug|$where" >>"$WORK/sarif-targets"
     skillspector scan "$dir" --no-llm --baseline "$BASELINE" \
       -f sarif -o "$WORK/$slug.sarif" >/dev/null 2>&1 || true
@@ -166,7 +199,8 @@ for (const [name, slug] of names) {
       found.push(`| ${name} | ${i.severity} | ${i.category} (${i.id}) | \`${where}\` | ${String(i.finding).replace(/\|/g, '\\|').replace(/\s+/g, ' ').slice(0, 120)} |`);
     }
   }
-  const verdict = rc === 0 ? 'clean' : 'FINDINGS';
+  // rc 2 still writes a JSON report, so the crash has to be named here or it reads as FINDINGS.
+  const verdict = rc === 0 ? 'clean' : rc === 1 ? 'FINDINGS' : `could not scan (exit ${rc})`;
   rows.push(`| ${name} | ${verdict} | ${reports.length} | ${active} | ${suppressed} | ${max} |`);
 }
 const md = [

@@ -189,7 +189,7 @@ npm run lint:deck -- q3-review.md
 npx lattice q3-review.md q3-review.pdf --strip-notes
 ```
 
-The lint is clean, the render prints no warning, and the PDF has selectable text
+The lint is clean, the render log is free of warnings, and the PDF has selectable text
 and no notes.
 
 **Bad** — the same request:

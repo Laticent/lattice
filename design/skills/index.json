@@ -35,7 +35,7 @@
       "description": "Use when rendering, exporting, sharing or checking a finished deck from a terminal: PDF, PowerPoint, images, player, handouts.",
       "kind": "operate",
       "studio": false,
-      "tokens": 3154
+      "tokens": 3155
     },
     {
       "name": "component-showcase",
@@ -107,7 +107,7 @@
       "description": "Use when bringing outside content into Lattice: pasted Markdown, a Marp deck, a PowerPoint or PDF, then cleaning the result into the house deck shape.",
       "kind": "operate",
       "studio": false,
-      "tokens": 3113
+      "tokens": 3115
     },
     {
       "name": "lens",

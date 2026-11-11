@@ -32,7 +32,7 @@ is getting text into Markdown and then shaping it.
   comments, `![bg left:40%]` sizes or remote images left for the linter to
   find.
 - **Clean bytes.** LF line endings, no byte-order mark.
-- **Lint-clean**: no errors, no warnings.
+- **Lint-clean**: zero errors and zero warnings.
 
 Mediocre looks like: a pasted document where every `##` became a slide titled
 "Background", a Marp deck that still says `theme: gaia`, or a PowerPoint

@@ -5,8 +5,9 @@ summary: Agent skills are instructions an agent obeys, so a tampered skill is a 
 
 # SkillSpector nightly: scan every agent skill we ship
 
-Owner decisions, 2026-11-11: a static-only nightly with a reviewed baseline (no LLM pass, no key,
-$0), and the unpinned `npx lattice` finding accepted into the baseline rather than pinned.
+Owner decision, 2026-11-11: a static-only nightly with a reviewed baseline (no LLM pass, no key,
+$0). The unpinned `npx lattice` finding was first accepted on a premise that turned out false
+(§3), so it is back with the owner; the baseline carries an INTERIM rule until they decide.
 
 ## 1. What SkillSpector is
 
@@ -34,8 +35,8 @@ All 19 `.claude/skills/` scored 0. The agent kit's per-task files first scored 7
 
 | Rule | Count | What it matched | Disposition |
 |---|---|---|---|
-| RP1 MCP rug pull | 70 | `npx lattice …` with no `@version` | Baseline: our own CLI; pinning teaching prose goes stale every release (owner decision) |
-| AR2 anti-refusal | 2 | "prints no warning", "no errors, no warnings" | Baseline, one file each: they describe build output |
+| RP1 MCP rug pull | 70 | `npx lattice …` with no `@version` | **A real risk, owner decision pending.** The unscoped `lattice` on npm is an unrelated publisher's package and `@laticent/lattice` is unpublished, so outside a Lattice project the line downloads a stranger's code. Tested fix: `npx --no-install lattice`. Interim baseline rule until decided |
+| AR2 anti-refusal | 2 | "prints no warning", "no errors, no warnings" | **Reworded at source.** A rule on the bare phrase also excused a real "give the user no warning" (reproduced by the review) |
 | YR4 YARA tool poisoning | 1 | a `<!-- describe: … -->` alt-text comment | Baseline: Lattice's accessibility syntax |
 | AE4 Unicode / mixed script | 1 | the Greek Δ in "ΔE" in `theme.md` | **Fixed at source** (`design/skills/theme.md` now says "deltaE"), so the check stays live everywhere |
 | AE1 incomplete analysis | 2 | the scanner could not fully parse `writing-a-deck.md` and `pick-a-layout.md` | Baseline: coverage notes, not hits. `pick-a-layout.md` was bisected: only the full generated catalog table trips it, and it holds no hidden characters or encoded text |
@@ -43,18 +44,36 @@ All 19 `.claude/skills/` scored 0. The agent kit's per-task files first scored 7
 ## 4. How it is built
 
 - `tools/scan-skills.sh` (`npm run scan:skills`) scans one target per skill, because SkillSpector
-  refuses `--baseline` on a `--recursive` scan. It uses `--fail-on-findings`, so a finding outside
+  refuses `--baseline` on a `--recursive` scan: 32 targets, the 19 own skills, the kit's skills,
+  the files an agent loads on its own (`repo/CLAUDE.md`, `AGENTS.md`, `lattice.mdc`, the plugin
+  manifests) and the paste-in folders. A coverage floor exits 2 when a group is empty or a
+  named target is missing, so a scan that covered nothing never reads as clean. It uses `--fail-on-findings`, so a finding outside
   the baseline counts at any severity, not only above the score threshold of 50.
 - `.github/skillspector-baseline.yaml` uses **rules, not fingerprints**. A fingerprint hashes the
   scanner version and the whole file text, so any edit to a skill or any scanner bump would bring
   every excused finding back. A rule matches rule id + path + the matched text, and each rule
   names the exact phrase it excuses.
-- `.github/workflows/skillspector-nightly.yml` pins the scanner to a commit
-  (`SKILLSPECTOR_REF`), uploads SARIF to code scanning, and files or appends one `[skillspector]`
+- `.github/workflows/skillspector-nightly.yml` runs at 06:47 UTC, after `publish-kits.yml`
+  republishes at 06:29. It pins the scanner to a commit (`SKILLSPECTOR_REF`), merges every
+  target's SARIF into ONE run (code scanning rejects several runs under one tool and category),
+  uploads it, and files or appends one `[skillspector]`
   issue. It never closes that issue: a new baseline rule turns a night green without fixing
   anything (`test/unit/tools/nightly-alarm-contract.test.js`, `COMMENTS_ONLY`).
 
+- **GitHub runs `run:` under `bash -e`.** A bare `scan | tee` exited the step on a finding before
+  `found` was written, so no issue would ever have been filed. Found on a real PR runner, fixed with
+  `|| RC=${PIPESTATUS[0]}`; the scan step also runs on `!cancelled()` so a failed install files
+  "the scan did not complete" instead of passing in silence.
+
+Proved on GitHub's ubuntu-24.04 runner through a temporary PR trigger, removed before merge:
+pipx install on Python 3.12.3, 22 targets, `findings=1` (the Δ, still on `dist-kits` then), the
+step surviving to record it, the SARIF upload "complete", and the job green.
+
 ## 5. Limits
+
+- **Not yet scanned:** the kit's `components/`, `reference/`, `upload/` and `review/` folders. Their
+  first scan raised ~230 findings to read first
+  (`followups.d/3142-p1-skillspector-kit-coverage.md`).
 
 - Static only. A skill that behaves differently at runtime, or text crafted to slip past the
   patterns, is out of reach. The LLM pass would read intent but would spend API budget nightly
