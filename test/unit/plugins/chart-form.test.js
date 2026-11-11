@@ -197,3 +197,15 @@ test('a heatmap on a phone page sets its band key as a tile and draws a grid too
   assert.match(keyed, /data-chart-form="fit" class="cart-svg heatmap-svg"/);
   assert.match(keyed, /--chart-fs-key:/, 'the band key is a kernel tile at the key role');
 });
+
+test('a histogram on a phone page prints every value, over capacity when its bands are too narrow for 12pt', () => {
+  const vals = [31, 22, 15, 10, 7, 5, 4, 2.5, 1.5, 1, 0.6, 0.4];
+  const tick = '`';
+  const list = vals.map((v, i) => `- ${tick}${i * 10}..${(i + 1) * 10}${tick} ${tick}${v}%${tick}`).join('\n');
+  const html = createEngine().render(`---\ntheme: indaco\nsize: square\n---\n\n<!-- _class: histogram -->\n\n## A long tail.\n\n${list}\n`).html;
+  assert.match(html, /data-chart-form="over" class="histogram-svg"/);
+  // Every band's value prints (none is left to the hover card).
+  for (const v of vals) assert.ok(html.includes(`>${v}%</tspan>`), `${v}% prints`);
+  const four = createEngine().render(`---\ntheme: indaco\nsize: mobile\n---\n\n<!-- _class: histogram -->\n\n## Most years stay small.\n\n- ${tick}1..10${tick} ${tick}55%${tick}\n- ${tick}10..50${tick} ${tick}30%${tick}\n- ${tick}50..100${tick} ${tick}12%${tick}\n`).html;
+  assert.match(four, /data-chart-form="fit" class="histogram-svg"/);
+});

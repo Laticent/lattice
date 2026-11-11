@@ -254,7 +254,8 @@ the owner's scaled drawing (§ 10).
 | map | yes | the basemap is the plot at its own aspect, scaled into the cell (its regions carry no text); the key a kernel tile, in columns when grouped (a heading starts a group); with notes it keeps its own layout |
 | stacked-bar | yes | the row form's name column wraps names at spaces (bar's rule); a keyed stack's key is a kernel tile under a heading that names the bar its values read; the direct-name column comes off the canvas, and names reflow to a key when the totals no longer fit their bars |
 | heatmap | yes | the row-name column sets every name whole on the lines its row holds (bar's rule, not traded against a cell's number); a band key is a kernel tile; a grid whose names or numbers do not all print whole at 11pt (twelve columns) is laid out on the least larger box, 10% at a time, and scaled (over capacity); with notes it keeps its own layout |
-| histogram, waterfall, word-cloud | to do | size holds; names dropped vs `main` |
+| histogram | yes | a value is measured off its face; a chart whose values cannot all print at 12pt (twelve narrow bands) is laid out on the least larger box and scaled (over capacity), the placement run dry first; with notes it keeps its own layout |
+| waterfall, word-cloud | to do | size holds; names dropped vs `main` |
 | gantt, slope, state-chart | to do | overprints at square; state-chart under the floor at square |
 | roadmap, timeline-list | to do | overflow at square |
 | matrix-grid | to do | holds both bars; floats small at mobile |
