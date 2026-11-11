@@ -172,6 +172,37 @@ describe('studio-store — per-deck source', () => {
 		expect(loadDeckList().some((d) => d.id === mine), 'no empty deck listed in its place').toBe(false);
 	});
 
+	it('a refused in-place restore of a built-in, or of a diverged copy, writes nothing for that deck', () => {
+		const builtin = DECKS[0].id;
+		const mine = createDeck('Mine').id;
+		saveSource(mine, '# Mine here');
+		const snap = exportStudioState();
+		const backup = {
+			...snap,
+			sources: { ...snap.sources, [builtin]: '# Built-in from the backup', [mine]: '# Mine in the backup' },
+			chats: { [builtin]: [{ role: 'user' as const, content: 'hi' }], [mine]: [{ role: 'user' as const, content: 'hi' }] },
+		};
+		localStorage.removeItem(`lattice-studio-src-${builtin}`);
+		const setItem = Storage.prototype.setItem;
+		Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+			if (key.startsWith('lattice-studio-src-')) throw new DOMException('full', 'QuotaExceededError');
+			return setItem.call(this, key, value);
+		};
+		let summary: ReturnType<typeof importStudioState>;
+		try {
+			summary = importStudioState(backup, 1000);
+		} finally {
+			Storage.prototype.setItem = setItem;
+		}
+		expect(summary.refusedIds.sort()).toEqual([builtin, mine].sort());
+		expect(summary.written).toEqual([]);
+		expect(summary.copies).toEqual({});
+		expect(loadSource(builtin), 'the built-in stays unedited').toBeNull();
+		expect(loadSource(mine)).toBe('# Mine here');
+		expect(loadChat(builtin), 'no history for a refused deck').toEqual([]);
+		expect(loadDeckList().filter((d) => d.title.endsWith('(restored)')), 'no restored copy listed').toEqual([]);
+	});
+
 	it('round-trips edited source and overrides the canonical', () => {
 		const id = DECKS[0].id;
 		expect(loadSource(id)).toBeNull();

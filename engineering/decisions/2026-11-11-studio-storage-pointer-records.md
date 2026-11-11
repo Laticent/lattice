@@ -288,6 +288,16 @@ overwrite each other's mirror entry, which only shows when the lost entry's leng
 the card grader pointed out the restore summary would contradict the notice this change added: a refused deck gets no
 index row and is named in the restore report's "not restored" list.
 
+**Second checker (on the fix round and the import fix, after the card grader asked for it).** Six findings, all fixed
+here with a test each that fails without its fix (checked by removing each fix in turn): a version saved after a
+failed REOPEN (another tab's upgrade closed the connection) was dropped without a notice, because the fallback ran
+only in a hydration a loaded deck never repeats, so `change()` now falls back itself; the whole-store read (backup,
+Privacy & Data) still fell back to localStorage on any failure, which would have saved a backup without the history
+of decks this page never opened, so it now retries once and otherwise rejects, and the backup says it failed; photos
+of a deck the restore refused still came back, onto a local deck of the same id, so the photo lane now skips refused
+decks; a deck whose history keeps failing to read is now reported once (a `read` notice); a read that fails once is
+retried within the call; and the idle migration checks a reset counter instead of a cancel function jsdom lacks.
+
 **Verified on the real Studio** (Playwright, built site): `checkpoint-storage.spec.ts`, `decks.spec.ts` and
 `filo-undo.spec.ts` in Chromium, Firefox and WebKit (33 passed; 2 skipped by design: the real-quota case is
 Chromium-only); the new `deck-save-failure.spec.ts` in all three, where a refused deck write shows the notice. Re-run after the

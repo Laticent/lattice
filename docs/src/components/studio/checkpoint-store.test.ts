@@ -240,6 +240,91 @@ describe('one deck at a time', () => {
 		expect(ids(store.readCheckpoints('d1')), 'the failed deck reads on its next try').toEqual(['a']);
 	});
 
+	it('a read that fails once is retried in the same call', async () => {
+		await store.appendCheckpoint('d1', cp('a', 1));
+		reload();
+		const getAll = IDBObjectStore.prototype.getAll;
+		let failures = 1;
+		IDBObjectStore.prototype.getAll = function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['getAll']>) {
+			if (failures-- > 0) throw new DOMException('dropped', 'InvalidStateError');
+			return getAll.apply(this, args);
+		};
+		try {
+			await store.hydrateDeckCheckpoints('d1');
+		} finally {
+			IDBObjectStore.prototype.getAll = getAll;
+		}
+		expect(ids(store.readCheckpoints('d1'))).toEqual(['a']);
+	});
+
+	it('a read that keeps failing is reported once, as a read', async () => {
+		await store.appendCheckpoint('d1', cp('a', 1));
+		reload();
+		const errors: CheckpointWriteError[] = [];
+		store.onCheckpointWriteError((e) => errors.push(e));
+		const getAll = IDBObjectStore.prototype.getAll;
+		IDBObjectStore.prototype.getAll = () => {
+			throw new DOMException('dropped', 'InvalidStateError');
+		};
+		try {
+			await store.hydrateDeckCheckpoints('d1');
+			await store.hydrateDeckCheckpoints('d1');
+		} finally {
+			IDBObjectStore.prototype.getAll = getAll;
+		}
+		expect(errors.map((e) => [e.deckId, e.kind])).toEqual([['d1', 'read']]);
+	});
+
+	it('a database that will not open moves the session to localStorage, legacy list and new versions included', async () => {
+		localStorage.setItem(`${SNAP_PREFIX}d1`, JSON.stringify([cp('x', 1)]));
+		globalThis.indexedDB = {
+			open: () => {
+				throw new DOMException('no', 'UnknownError');
+			},
+		} as unknown as IDBFactory;
+		reload();
+		await store.hydrateDeckCheckpoints('d1');
+		expect(ids(store.readCheckpoints('d1'))).toEqual(['x']);
+		expect(await store.appendCheckpoint('d1', cp('y', 2))).toBe(true);
+		expect(ids(JSON.parse(localStorage.getItem(`${SNAP_PREFIX}d1`) ?? '[]'))).toEqual(['y', 'x']);
+	});
+
+	it('a version saved after a reopen fails moves to localStorage instead of vanishing', async () => {
+		await store.appendCheckpoint('d1', cp('a', 1));
+		await store.hydrateDeckCheckpoints('d1');
+		// Another tab upgrades the database: this connection closes, and its reopen at the old version fails.
+		await new Promise<void>((resolve, reject) => {
+			const req = indexedDB.open('lattice-studio-versions', 2);
+			req.onsuccess = () => {
+				req.result.close();
+				resolve();
+			};
+			req.onerror = () => reject(req.error);
+		});
+		const errors: CheckpointWriteError[] = [];
+		store.onCheckpointWriteError((e) => errors.push(e));
+		await store.appendCheckpoint('d1', cp('b', 2));
+		expect(ids(JSON.parse(localStorage.getItem(`${SNAP_PREFIX}d1`) ?? '[]')), 'the cache, this version included').toEqual(['b', 'a']);
+		expect(errors, 'nothing was lost, so nothing to report').toEqual([]);
+	});
+
+	it('a whole-store read that fails rejects, so a backup says so, and the next call tries again', async () => {
+		await store.appendCheckpoint('d2', cp('b', 2));
+		reload();
+		const getAll = IDBObjectStore.prototype.getAll;
+		IDBObjectStore.prototype.getAll = () => {
+			throw new DOMException('dropped', 'InvalidStateError');
+		};
+		try {
+			await expect(store.hydrateCheckpoints()).rejects.toThrow();
+		} finally {
+			IDBObjectStore.prototype.getAll = getAll;
+		}
+		expect(localStorage.getItem(`${SNAP_PREFIX}d2`), 'no fallback copy').toBeNull();
+		await store.hydrateCheckpoints();
+		expect(ids(store.readCheckpoints('d2'))).toEqual(['b']);
+	});
+
 	it('a version saved before its deck has loaded shows the whole history, and the view hears it', async () => {
 		await store.appendCheckpoint('d1', cp('a', 1));
 		reload();

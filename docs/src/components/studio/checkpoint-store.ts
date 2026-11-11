@@ -50,10 +50,12 @@ const STORE = 'checkpoints'; // records: Checkpoint & { deckId }, keyPath [deckI
 
 type Backend = 'idb' | 'local';
 type Rec = Checkpoint & { deckId: string };
-/** `save`: a version the author made did not persist. `migrate`: a legacy list could not
+/** `read`: a deck's stored versions could not be read (twice in a row); its history shows only what this
+ *  page holds until a read succeeds.
+ *  `save`: a version the author made did not persist. `migrate`: a legacy list could not
  *  move yet (it stays in localStorage and is retried next load). `clear`: Clear all did not
- *  reach IndexedDB. Only `save` warrants telling the author at the moment it happens. */
-export type CheckpointWriteError = { deckId: string; error: unknown; kind: 'save' | 'migrate' | 'clear' };
+ *  reach IndexedDB. `save` and `read` are told to the author when they happen. */
+export type CheckpointWriteError = { deckId: string; error: unknown; kind: 'save' | 'migrate' | 'clear' | 'read' };
 
 const cache = new Map<string, Checkpoint[]>();
 let backend: Backend = typeof indexedDB === 'undefined' ? 'local' : 'idb';
@@ -72,8 +74,9 @@ const inflight = new Map<string, number>(); // deckId → transactions not yet s
 // decks (engineering/decisions/2026-11-11-studio-storage-pointer-records.md §2).
 const deckLoaded = new Set<string>();
 const deckLoading = new Map<string, Promise<void>>();
+const deckReadReported = new Set<string>(); // decks whose failed read was reported once this session
 let legacySweepScheduled = false;
-let cancelLegacySweep: (() => void) | null = null;
+let sweepEpoch = 0; // bumped by a test reset: a sweep scheduled before it does nothing
 const deckGeneration = new Map<string, number>(); // bumped when a deck is dropped: a change issued before it must not refill the cache
 let pending = new Set<Promise<unknown>>();
 let channel: BroadcastChannel | null = null;
@@ -352,9 +355,12 @@ function change(deckId: string, optimistic: Checkpoint[], edit: (list: Checkpoin
 					return true;
 				},
 				(error) => {
-					// A database that never opened is not a lost write: hydration's fallback
-					// re-applies the cache to localStorage and reports only if THAT fails.
-					if (!dbOpenFailed) report({ deckId, error, kind: 'save' });
+					// A database that will not open is not a lost write: fall back here, not only in a
+					// hydration (a loaded deck runs none), so the cache — this version included — moves
+					// to localStorage, and only a failure THERE is reported. `dbOpenFailed` is also set
+					// by a REOPEN that fails (after another tab's upgrade closed the connection).
+					if (dbOpenFailed) fallBackToLocal();
+					else report({ deckId, error, kind: 'save' });
 					return false;
 				},
 			)
@@ -510,10 +516,18 @@ export function hydrateCheckpoints(): Promise<void> {
 	hydration = (async () => {
 		let stored: Rec[];
 		try {
-			stored = await readStored(null);
-		} catch {
-			fallBackToLocal();
-			return;
+			stored = await readStored(null).catch(() => readStored(null));
+		} catch (error) {
+			// The same policy as one deck's read: only a database that will not open moves the
+			// session to localStorage. Any other failure REJECTS, so a backup says it could not read
+			// the versions instead of saving a workspace without them (the cache holds only the
+			// decks this page opened), and the next call tries again.
+			if (dbOpenFailed) {
+				fallBackToLocal();
+				return;
+			}
+			hydration = null; // nothing else can start while this one is pending
+			throw error;
 		}
 		if (fellBack()) return; // another read fell back meanwhile: localStorage is the store now
 		if (gen === generation) adopt(stored, lsLegacyDeckIds(), (id) => (deckGeneration.get(id) ?? 0) !== (dgens.get(id) ?? 0));
@@ -542,18 +556,23 @@ export function hydrateDeckCheckpoints(deckId: string): Promise<void> {
 			// One retry: a dropped connection (the WebKit failure `openDB` handles) fails the first
 			// transaction and reopens for the next.
 			stored = await readStored(deckId).catch(() => readStored(deckId));
-		} catch {
-			// Only a database that never opened moves the session to localStorage. Any other failed
+		} catch (error) {
+			// Only a database that will not open moves the session to localStorage. Any other failed
 			// read leaves this deck unloaded (its legacy list still shows) and the next read tries again:
 			// one deck's hiccup must not hide every other deck's history and copy every cached list into
-			// the quota the deck sources share.
+			// the quota the deck sources share. It is said once, so the author knows the list is short.
 			if (dbOpenFailed) fallBackToLocal();
+			else if (!deckReadReported.has(deckId)) {
+				deckReadReported.add(deckId);
+				report({ deckId, error, kind: 'read' });
+			}
 			return;
 		} finally {
 			deckLoading.delete(deckId);
 		}
 		if (fellBack()) return; // another read fell back meanwhile: localStorage is the store now
 		if (gen === generation) adopt(stored, hasLegacy(deckId) ? [deckId] : [], () => (deckGeneration.get(deckId) ?? 0) !== dgen);
+		deckReadReported.delete(deckId);
 		deckLoaded.add(deckId);
 		notifyChanged();
 		scheduleLegacySweep();
@@ -631,17 +650,15 @@ function scheduleLegacySweep(): void {
 	if (legacySweepScheduled) return;
 	legacySweepScheduled = true;
 	const idle = (globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+	const epoch = sweepEpoch;
 	const run = async () => {
-		for (const id of lsLegacyDeckIds()) await hydrateDeckCheckpoints(id);
+		for (const id of lsLegacyDeckIds()) {
+			if (epoch !== sweepEpoch) return;
+			await hydrateDeckCheckpoints(id);
+		}
 	};
-	const g = globalThis as { requestIdleCallback?: unknown; cancelIdleCallback?: (h: number) => void };
-	if (idle) {
-		const h = idle(() => void run(), { timeout: 5000 });
-		cancelLegacySweep = () => g.cancelIdleCallback?.(h);
-	} else {
-		const h = setTimeout(() => void run(), 2000);
-		cancelLegacySweep = () => clearTimeout(h);
-	}
+	if (idle) idle(() => void run(), { timeout: 5000 });
+	else setTimeout(() => void run(), 2000);
 }
 
 /** Called after hydration and whenever another tab changes a list, so a view can re-read. */
@@ -671,8 +688,8 @@ export function __resetCheckpointStoreForTests(opts: { backend?: Backend } = {})
 	deckLoaded.clear();
 	deckLoading.clear();
 	legacySweepScheduled = false;
-	cancelLegacySweep?.();
-	cancelLegacySweep = null;
+	sweepEpoch++;
+	deckReadReported.clear();
 	deckGeneration.clear();
 	pending = new Set();
 	lastClear = Promise.resolve(true);

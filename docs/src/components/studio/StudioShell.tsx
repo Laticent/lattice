@@ -5579,7 +5579,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// a full quota fails every save, and a stack of identical notices helps nobody.
 	React.useEffect(() => {
 		let shownAt = Number.NEGATIVE_INFINITY;
+		let readShown = false;
 		return onCheckpointWriteError(({ error, kind }) => {
+			if (kind === 'read') {
+				// Once a session: the list shows only what this page holds, and the next read retries.
+				if (readShown) return;
+				readShown = true;
+				notifySticky("Couldn't read this deck's version history.", {
+					description: 'Version history may look shorter than it is. Your saved versions are not deleted; reload to try again.',
+					label: 'OK',
+					onClick: () => {},
+				});
+				return;
+			}
 			if (kind !== 'save') return; // a migration retries next load; a failed clear is reported by the clear itself
 			if (Date.now() - shownAt < 60_000) return;
 			shownAt = Date.now();

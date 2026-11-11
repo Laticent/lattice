@@ -1327,6 +1327,8 @@ export type ImportSummary = {
 	/** Decks this browser refused to store (a full quota, most often): not restored, not counted
 	 *  above, each named with the reason, the shape the restore report lists. */
 	refused: { name: string; why: string }[];
+	/** The backup deck ids behind `refused`, so the photo lane skips their deck-scoped photos. */
+	refusedIds: string[];
 };
 
 /**
@@ -1340,10 +1342,13 @@ export type ImportSummary = {
  * values either way). `ts` is passed in so the store stays free of Date.now.
  */
 export function importStudioState(data: StudioExport, ts: number): ImportSummary {
-	const summary: ImportSummary = { added: 0, restoredCopies: 0, skipped: 0, written: [], copies: {}, refused: [] };
+	const summary: ImportSummary = { added: 0, restoredCopies: 0, skipped: 0, written: [], copies: {}, refused: [], refusedIds: [] };
 	// A deck whose source this browser will not store is not restored: no index row (it would list
 	// an empty deck), no history, and it is named rather than counted as added.
-	const refuse = (entry: IndexEntry) => summary.refused.push({ name: `deck ${entry.title.slice(0, 60)}`, why: "this browser's storage would not take it" });
+	const refuse = (entry: IndexEntry) => {
+		summary.refused.push({ name: `deck ${entry.title.slice(0, 60)}`, why: "this browser's storage would not take it" });
+		summary.refusedIds.push(entry.id);
+	};
 	const index = loadIndex();
 	const have = new Map(index.map((e) => [e.id, e]));
 	let n = 0;
