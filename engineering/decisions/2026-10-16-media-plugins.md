@@ -1183,3 +1183,9 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   does on a `content` slide (on `main` too); the `image` slide used to drop it only because the lift pulled it out of the quote.
   The guarantee that matters holds: it is never re-hosted as the article's photo, and the forged `data-lattice-media` marker
   never survives (author-markup.js renames it). test/unit/transformers/prose-projection.test.js asserts exactly that now.
+- 2026-11-11: **Marp bundles draw full-bleed backgrounds again** (found by the owner in the #3132 sign-off PDFs: the `bleed` slide
+  was blank in every bundle, main included). Marp renders a slide with an advanced background as three sections sharing its
+  classes (`background`, `content`, `pseudo`); the bundle's runtime masthead lift (lib/transformers/masthead-lift.js) matched the
+  `background` one as a `.form` section and wrapped Marp's `section > div > figure` container in a stage cell, leaving the figure
+  0px tall. The lift now skips Marp's `background` and `pseudo` layers. A marp-cli render of the bundle draws the photo, and the
+  slide matches the engine's render of the same deck; a masthead-lift test holds the layers out (fails on the old code).
