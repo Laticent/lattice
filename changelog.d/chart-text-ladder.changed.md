@@ -11,3 +11,4 @@
 - On those pages a chart under a long title keeps its text size: the chart's box now counts the title's real lines (a 68-character title sets on four lines on a phone page, not three).
 - On those pages a deck with `venue:` keeps its chart text at its role sizes: the chart's box now allows for the larger title, eyebrow and captions the venue sets. At `venue: hall` a phone page's chart printed at 9 to 10pt, and one at 1.3pt.
 - A chart these sizes cannot hold on one page at 11pt is drawn whole and scaled to its box, so no name is lost or printed over another.
+- Every docs page that loads the engine downloads about 220KB less script (gzipped): the preview runtime no longer carries the chart kernels, which a preview never ran, because the engine has already drawn its charts. A map's own code is 7KB smaller.
