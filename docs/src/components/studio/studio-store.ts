@@ -25,6 +25,9 @@ export const SRC_PREFIX = 'lattice-studio-src-'; // + deckId → edited source
 /** + deckId → the hash of the source the Studio itself last wrote (Filo's reload sidecar, studio-filo-persist.ts).
  *  Its own prefix, never under SRC_PREFIX: a prefix scan for sources must not read it as a deck. */
 export const FILO_SUM_PREFIX = 'lattice-studio-filo-sum-';
+/** `{ [deckId]: [storedLength, listTitle | null] }`: `saveSource`'s mirror of each stored deck's list
+ *  title, so the deck list need not parse every deck to name it (see `loadDeckList`). */
+export const LIST_TITLES_LS = 'lattice-studio-list-titles';
 const ACTIVE_LS = 'lattice-studio-active'; // { deckId, slideIndex } — the deck+slide last viewed, so a reload boots where you left off
 const SETTINGS_LS = 'lattice-studio-settings'; // { validation, pageNumbers, headerFooter, language }
 const INSTRUCTIONS_LS = 'lattice-studio-instructions'; // CLOUD standing instructions (free text)
@@ -39,12 +42,17 @@ function read<T>(key: string): T | null {
 	}
 }
 function write(key: string, value: unknown): boolean {
+	return writeOrError(key, JSON.stringify(value)) === null;
+}
+/** Store an already-serialized value, handing back what was thrown (a full quota is a
+ *  `QuotaExceededError`), or null. */
+function writeOrError(key: string, raw: string): unknown {
 	try {
-		localStorage.setItem(key, JSON.stringify(value));
-		return true;
-	} catch {
-		/* storage full / unavailable — non-fatal */
-		return false;
+		localStorage.setItem(key, raw);
+		return null;
+	} catch (e) {
+		/* storage full / unavailable — non-fatal to the caller, but see saveSource */
+		return e ?? new Error('localStorage write failed');
 	}
 }
 function remove(key: string): void {
@@ -346,9 +354,35 @@ export function loadSource(id: string): string | null {
 	const raw = read<string>(SRC_PREFIX + id);
 	return raw == null ? raw : normalizeSourceText(raw);
 }
-/** Persist a deck's edited source. */
-export function saveSource(id: string, source: string): void {
-	write(SRC_PREFIX + id, source);
+/**
+ * Persist a deck's edited source. False when the browser refused the write — a full localStorage,
+ * most often — and every `onSourceWriteError` listener hears why. This used to be swallowed, so a
+ * full quota lost the author's edits without a word
+ * (engineering/decisions/2026-11-11-studio-storage-pointer-records.md §3).
+ */
+export function saveSource(id: string, source: string): boolean {
+	const raw = JSON.stringify(source);
+	const error = writeOrError(SRC_PREFIX + id, raw);
+	if (error === null) {
+		// Read back through `loadSource`, which normalizes: name the deck from the same text.
+		recordListTitles({ [id]: [raw.length, listTitleOf(normalizeSourceText(source))] });
+		return true;
+	}
+	for (const fn of sourceWriteErrorListeners) {
+		try {
+			fn({ deckId: id, error });
+		} catch {
+			/* one listener's failure must not hide the next one */
+		}
+	}
+	return false;
+}
+export type SourceWriteError = { deckId: string; error: unknown };
+const sourceWriteErrorListeners = new Set<(e: SourceWriteError) => void>();
+/** Called whenever a deck's source could not be saved. The Studio tells the author. */
+export function onSourceWriteError(fn: (e: SourceWriteError) => void): () => void {
+	sourceWriteErrorListeners.add(fn);
+	return () => sourceWriteErrorListeners.delete(fn);
 }
 /**
  * Record the hash of the source the Studio just wrote for `id`, in the same synchronous moment, or
@@ -361,6 +395,7 @@ export function saveSourceSum(id: string, hash: number | null): void {
 }
 function dropSource(id: string): void {
 	remove(FILO_SUM_PREFIX + id);
+	recordListTitles({ [id]: undefined });
 	try {
 		localStorage.removeItem(SRC_PREFIX + id);
 	} catch {
@@ -383,9 +418,25 @@ function canonicalSource(entry: IndexEntry): string {
  * is the fallback for a deck carrying neither.
  */
 export function loadDeckList(): StudioDeck[] {
-	return loadIndex().map((e) => {
-		const source = loadSource(e.id) ?? canonicalSource(e);
-		const derived = titleFromSource(source, e.title);
+	// NAMED WITHOUT READING. Each stored deck's title comes from the mirror `saveSource` keeps, which
+	// is trusted only while the stored text is still the length it recorded: checking that is one
+	// `getItem`, where naming from the text is a JSON.parse of the whole deck and a heading scan.
+	// Doing that for every deck on every boot cost a phone-speed boot ~250 ms with 40 decks
+	// (engineering/decisions/2026-11-11-studio-storage-pointer-records.md §2). A deck the mirror
+	// does not cover (an older build wrote it, or a hand edit) is read once and recorded.
+	const titles = readListTitles();
+	const learned: Record<string, ListTitle> = {};
+	const list = loadIndex().map((e) => {
+		let source: string | undefined;
+		const text = () => (source ??= loadSource(e.id) ?? canonicalSource(e));
+		const stored = storedLength(e.id);
+		const known = titles[e.id];
+		let derived: string;
+		if (known && stored !== null && known[0] === stored) derived = known[1] ?? e.title;
+		else {
+			derived = titleFromSource(text(), e.title);
+			if (stored !== null) learned[e.id] = [stored, listTitleOf(text())];
+		}
 		// The restore tag is appended for DISPLAY only — two copies of the same deck would
 		// otherwise sit in the switcher under one identical name.
 		// `slides` is split on first READ, not here. Splitting is the slide-boundary parse, and at
@@ -397,10 +448,40 @@ export function loadDeckList(): StudioDeck[] {
 			id: e.id,
 			title: e.restored ? `${derived} (restored)` : derived,
 			get slides() {
-				return slidesFor(source);
+				return slidesFor(text());
 			},
 		};
 	});
+	if (Object.keys(learned).length) recordListTitles(learned);
+	return list;
+}
+
+type ListTitle = [storedLength: number, title: string | null];
+/** A deck's list title from its text, or null when the text names none (the index label stands in). */
+function listTitleOf(source: string): string | null {
+	return titleFromSource(source, '') || null;
+}
+function readListTitles(): Record<string, ListTitle> {
+	const v = read<Record<string, ListTitle>>(LIST_TITLES_LS);
+	return v && typeof v === 'object' ? v : {};
+}
+/** Merge entries into the mirror; `undefined` removes a deck's entry. Best effort: a refused write
+ *  only means the next list reads that deck's text. */
+function recordListTitles(entries: Record<string, ListTitle | undefined>): void {
+	const all = readListTitles();
+	for (const [id, t] of Object.entries(entries)) {
+		if (t) all[id] = t;
+		else delete all[id];
+	}
+	write(LIST_TITLES_LS, all);
+}
+/** The stored source's serialized length, or null when the deck has none. */
+function storedLength(id: string): number | null {
+	try {
+		return localStorage.getItem(SRC_PREFIX + id)?.length ?? null;
+	} catch {
+		return null;
+	}
 }
 
 /**
@@ -670,6 +751,7 @@ export function clearAllDecks(): void {
 	// Every deck's undo history (Filo, IndexedDB) is cleared by the caller, governance.ts, which
 	// awaits it: this module stays free of the history store, which only the Studio loads.
 	remove(INDEX_LS);
+	remove(LIST_TITLES_LS); // deck titles: deck content, cleared with it
 	remove(ACTIVE_LS); // the boot pointer is deck CONTENT state — clear it with the rest
 	// The live editor has no other way to learn its in-memory deck/source state
 	// just went stale — without this, the user could keep typing in the still-
@@ -1242,6 +1324,11 @@ export type ImportSummary = {
 	written: string[];
 	/** Backup deck id → the new id its copy was stored under, for a deck that diverged. */
 	copies: Record<string, string>;
+	/** Decks this browser refused to store (a full quota, most often): not restored, not counted
+	 *  above, each named with the reason, the shape the restore report lists. */
+	refused: { name: string; why: string }[];
+	/** The backup deck ids behind `refused`, so the photo lane skips their deck-scoped photos. */
+	refusedIds: string[];
 };
 
 /**
@@ -1255,7 +1342,13 @@ export type ImportSummary = {
  * values either way). `ts` is passed in so the store stays free of Date.now.
  */
 export function importStudioState(data: StudioExport, ts: number): ImportSummary {
-	const summary: ImportSummary = { added: 0, restoredCopies: 0, skipped: 0, written: [], copies: {} };
+	const summary: ImportSummary = { added: 0, restoredCopies: 0, skipped: 0, written: [], copies: {}, refused: [], refusedIds: [] };
+	// A deck whose source this browser will not store is not restored: no index row (it would list
+	// an empty deck), no history, and it is named rather than counted as added.
+	const refuse = (entry: IndexEntry) => {
+		summary.refused.push({ name: `deck ${entry.title.slice(0, 60)}`, why: "this browser's storage would not take it" });
+		summary.refusedIds.push(entry.id);
+	};
 	const index = loadIndex();
 	const have = new Map(index.map((e) => [e.id, e]));
 	let n = 0;
@@ -1271,8 +1364,11 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			// be someone else's file, and "load this deck's web images" is a choice the reader
 			// makes on this device. The deck arrives with its images blocked.
 			const { webOrigins: _untrusted, ...incoming } = entry;
+			if (incomingSrc != null && !saveSource(entry.id, incomingSrc)) {
+				refuse(entry);
+				continue;
+			}
 			index.push(incoming);
-			if (incomingSrc != null) saveSource(entry.id, incomingSrc);
 			if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
@@ -1300,7 +1396,10 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			// local edits — there is nothing to protect, so the backup's source
 			// restores IN PLACE. This is the whole-point case: a fresh browser after
 			// storage loss, where every built-in id is present but untouched.
-			saveSource(entry.id, incomingSrc);
+			if (!saveSource(entry.id, incomingSrc)) {
+				refuse(entry);
+				continue;
+			}
 			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
@@ -1317,8 +1416,11 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		// a surrogate pair, and on a deck whose cover is heading-less by design
 		// (big-number) it rewrote a body slide's H2 instead of the cover.
 		const newId = `deck-${ts.toString(36)}-r${(n++).toString(36)}`;
+		if (!saveSource(newId, incomingSrc)) {
+			refuse(entry);
+			continue;
+		}
 		index.push({ id: newId, title: `${entry.title} (restored)`, builtin: false, restored: true });
-		saveSource(newId, incomingSrc);
 		if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 		if (data.chats[entry.id]?.length) saveChat(newId, data.chats[entry.id]);
 		summary.restoredCopies++;

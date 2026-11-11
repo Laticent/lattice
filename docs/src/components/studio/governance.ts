@@ -99,7 +99,9 @@ export type GovernanceStats = {
 /** One read of every category's stat line, for the Privacy & Data tab on open. */
 export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	// The Decks row counts checkpoints from the IndexedDB cache, so it must be filled first.
-	await hydrateCheckpoints();
+	// A failed read leaves the stats approximate (the decks this page opened), as they were before a
+	// failed whole-store read rejected; the backup is what must refuse to run without them.
+	await hydrateCheckpoints().catch(() => undefined);
 	const [deck, assets, names, narration] = await Promise.all([
 		Promise.resolve(deckContentStats()),
 		listAssets().catch(() => []),

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { writeFrontMatterLine } from '../../lib/front-matter';
 import { DECKS, deckSource } from './decks';
 import { addComment, listComments } from './slide-comments';
+import type { SourceWriteError } from './studio-store';
 import {
 	clearAllDecks,
 	createDeck,
@@ -28,6 +29,7 @@ import {
 	loadSource,
 	metaFor,
 	ON_DEVICE_INSTRUCTIONS_MAX,
+	onSourceWriteError,
 	resolveTitle,
 	retitleSource,
 	type StudioSettings,
@@ -125,6 +127,82 @@ describe('studio-store — deck index', () => {
 });
 
 describe('studio-store — per-deck source', () => {
+	// A full quota used to be swallowed here, so the author's edits were lost without a word
+	// (engineering/decisions/2026-11-11-studio-storage-pointer-records.md §3).
+	it('a refused save says so, keeps the stored text, and names the error', () => {
+		const id = DECKS[0].id;
+		expect(saveSource(id, '# Kept')).toBe(true);
+		const heard: SourceWriteError[] = [];
+		const off = onSourceWriteError((e) => heard.push(e));
+		const setItem = Storage.prototype.setItem;
+		Storage.prototype.setItem = () => {
+			throw new DOMException('full', 'QuotaExceededError');
+		};
+		let ok: boolean;
+		try {
+			ok = saveSource(id, '# Lost');
+		} finally {
+			Storage.prototype.setItem = setItem;
+			off();
+		}
+		expect(ok).toBe(false);
+		expect(heard.map((e) => [e.deckId, (e.error as DOMException).name])).toEqual([[id, 'QuotaExceededError']]);
+		expect(loadSource(id)).toBe('# Kept');
+		expect(loadDeckList().find((d) => d.id === id)?.title, 'the list still names the stored text').toBe('Kept');
+	});
+
+	it('a backup deck this browser will not store is named as not restored, not counted as added', () => {
+		const mine = createDeck('Mine').id;
+		saveSource(mine, '# Mine');
+		const snap = exportStudioState();
+		localStorage.clear();
+		const setItem = Storage.prototype.setItem;
+		Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+			if (key.startsWith('lattice-studio-src-')) throw new DOMException('full', 'QuotaExceededError');
+			return setItem.call(this, key, value);
+		};
+		let summary: ReturnType<typeof importStudioState>;
+		try {
+			summary = importStudioState(snap, 1000);
+		} finally {
+			Storage.prototype.setItem = setItem;
+		}
+		expect(summary.written).not.toContain(mine);
+		expect(summary.refused.map((r) => r.name)).toContain('deck Mine');
+		expect(loadDeckList().some((d) => d.id === mine), 'no empty deck listed in its place').toBe(false);
+	});
+
+	it('a refused in-place restore of a built-in, or of a diverged copy, writes nothing for that deck', () => {
+		const builtin = DECKS[0].id;
+		const mine = createDeck('Mine').id;
+		saveSource(mine, '# Mine here');
+		const snap = exportStudioState();
+		const backup = {
+			...snap,
+			sources: { ...snap.sources, [builtin]: '# Built-in from the backup', [mine]: '# Mine in the backup' },
+			chats: { [builtin]: [{ role: 'user' as const, content: 'hi' }], [mine]: [{ role: 'user' as const, content: 'hi' }] },
+		};
+		localStorage.removeItem(`lattice-studio-src-${builtin}`);
+		const setItem = Storage.prototype.setItem;
+		Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+			if (key.startsWith('lattice-studio-src-')) throw new DOMException('full', 'QuotaExceededError');
+			return setItem.call(this, key, value);
+		};
+		let summary: ReturnType<typeof importStudioState>;
+		try {
+			summary = importStudioState(backup, 1000);
+		} finally {
+			Storage.prototype.setItem = setItem;
+		}
+		expect(summary.refusedIds.sort()).toEqual([builtin, mine].sort());
+		expect(summary.written).toEqual([]);
+		expect(summary.copies).toEqual({});
+		expect(loadSource(builtin), 'the built-in stays unedited').toBeNull();
+		expect(loadSource(mine)).toBe('# Mine here');
+		expect(loadChat(builtin), 'no history for a refused deck').toEqual([]);
+		expect(loadDeckList().filter((d) => d.title.endsWith('(restored)')), 'no restored copy listed').toEqual([]);
+	});
+
 	it('round-trips edited source and overrides the canonical', () => {
 		const id = DECKS[0].id;
 		expect(loadSource(id)).toBeNull();

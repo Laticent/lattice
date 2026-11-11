@@ -452,7 +452,8 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 
 	// Restore merges checkpoints only where this browser has none, so it must see the stored ones first.
 	await hydrateCheckpoints();
-	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, media: 0, mediaRenamed: 0, refused };
+	const decks = importStudioState(state, now);
+	const summary: RestoreSummary = { ...decks, themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, media: 0, mediaRenamed: 0, refused: [...decks.refused, ...refused] };
 
 	if (parsed) {
 		for (const t of themes) {
@@ -525,7 +526,9 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	// the same name comes back under a new name, and the decks THIS restore wrote are rewritten to name it.
 	// Never throws into the caller: the decks are already written, and a photo lane that failed must be named, not
 	// turn a restore that worked into one that reports failure.
-	const photos = await restoreMedia(zip, now, { backupDeckIds: new Set((state.index ?? []).map((e) => e.id)), copies: summary.copies }).catch((e: unknown) => ({
+	const photos = await restoreMedia(zip, now, { // A deck this browser refused to store is not here: its photos would land on a deck of the same
+		// id that is not it, or on none, in a restore that already ran out of room.
+		backupDeckIds: new Set((state.index ?? []).map((e) => e.id).filter((id) => !summary.refusedIds.includes(id))), copies: summary.copies, refusedDeckIds: new Set(summary.refusedIds) }).catch((e: unknown) => ({
 		restored: 0,
 		shared: 0,
 		refused: [{ name: 'photos', why: `could not be restored (${String((e as Error)?.message || 'unknown error').slice(0, 80)})` }],

@@ -193,6 +193,8 @@ export type RestoreContext = {
 	/** Backup deck id → the new id its copy was stored under, for a deck that diverged. A photo kept to
 	 *  that deck follows the copy, because the copy is the deck that names it. */
 	copies: Readonly<Record<string, string>>;
+	/** Backup deck ids this browser refused to store: their photos are skipped, and say why. */
+	refusedDeckIds?: ReadonlySet<string>;
 };
 
 /**
@@ -295,6 +297,10 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext, o
 			continue;
 		}
 		const backupScope = typeof raw.scope === 'string' ? raw.scope : '';
+		if (backupScope !== LIBRARY_SCOPE && ctx.refusedDeckIds?.has(backupScope)) {
+			skip('its deck could not be restored (this browser\'s storage is full)');
+			continue;
+		}
 		if (backupScope !== LIBRARY_SCOPE && !ctx.backupDeckIds.has(backupScope)) {
 			skip('the deck it belonged to is not in this backup');
 			continue;
