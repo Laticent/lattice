@@ -17,7 +17,7 @@ summary: >
 
 # Studio storage: what slows a full profile down, and the smallest fix
 
-**Date:** 2026-11-11 · **Status:** IN PROGRESS: §4 items 1–3 shipped with this note, item 4 and the version slide counts are follow-ups · **Scope:** decided by the owner, §9
+**Date:** 2026-11-11 · **Status:** IN PROGRESS: §4 items 1–3 shipped with this note; item 4 (the warning, chats to IndexedDB) shipped in the follow-up PR (§11); the version slide counts are a follow-up; moving deck text waits for evidence · **Scope:** decided by the owner, §9
 **Trigger:** the owner: "when there is lots of stuff in IndexedDB and the cache, load time slows down; with private
 browsing it's snappy. Audit and measure. Are we storing things efficiently?" Then, in the same conversation: should we
 use `idb`; should versions be diffs; should decks move out of localStorage as metadata plus content (the owner proposed
@@ -345,3 +345,118 @@ test because it can never matter (after that read no per-deck read runs again), 
 Chromium-only); the new `deck-save-failure.spec.ts` in all three, where a refused deck write shows the notice. Re-run after the
 checker's fixes: 36 passed, the same 2 skipped; the full profile painted at 2,427 ms against the empty profile's
 2,607 ms, heap 92 / 92 MB.
+
+## 11. Results: item 4 (warn before localStorage fills; chats to IndexedDB)
+
+**The allowance, measured** (Playwright, one origin, filling until `setItem` threw, key + value): Chromium and
+Firefox take 5,242,272 characters whatever they are; WebKit takes the same for Latin-1 text and 2,621,131 once the
+values hold a non-Latin-1 character. `local-quota.ts` counts use in Chromium's units and doubles an entry with a
+non-Latin-1 character on WebKit (it tells WebKit by `navigator.vendor`).
+
+**The warning.** Workspace → Data shows "Deck storage is N% full" past 80%, and the Studio says it once a session
+about 15 s after boot (after the chat migration has had its chance to free space). Seen at 1440, 820 and 390 px, light
+and dark. The arithmetic is unit-tested; `studio-chat-storage.spec.ts` fills the real Studio to 85% and sees it.
+
+**Chats** moved to `lattice-studio-chats` / `chats`, one record per deck, behind a synchronous cache
+(`chat-store.ts`). Nothing reads a chat before paint, so the move frees space rather than time:
+
+| `storage-bench.cjs` "everything" row (Chromium, 4x, 7 reloads) | before | after |
+|---|---|---|
+| localStorage after the reloads | 4,007,495 chars (76% of the allowance) | **2,486,345 chars (47%)** |
+| chat keys left in localStorage | 41 | 1 (the chat model choice, a preference) |
+| first slide, median, quiet runs | 3,012 · 2,707 ms | 2,968 · 3,067 ms |
+
+First slide is within the run-to-run spread of these rows (single runs went from 2,768 to 3,589 ms); not claimed as a
+change either way. Runs taken while the unit suite shared the CPU were 600–1,000 ms slower for both builds and are left
+out, and each build timed out a reload at 60 s once under that load, so the timeout is the machine's, not this change's.
+
+**How the two stores agree.** A first draft let a legacy localStorage thread replace the IndexedDB record ("it is the
+newer one"). The first code checker proved two ways that lost a stored thread: a tab still on the older build saves
+`[]` on mount for a deck whose key the migration deleted, and a session where IndexedDB would not open saves a short
+thread to localStorage that later replaced the full one. The fix split the two sources of a legacy key:
+
+- **This build's own fallback write**, built on the thread it read from IndexedDB, is its latest state (a regenerate,
+  a compaction or an answered card included), so `lsWrite` records its fingerprint and the key replaces the record
+  while it still holds that exact text. A session that never read IndexedDB does not know the stored thread, so its
+  writes carry no fingerprint.
+- **Anything else** (an older build's key, an unmarked write) goes through `mergeThreads`, which aligns the two
+  threads where they overlap the most and keeps every message of both, in order. An empty `[]` changes nothing, an
+  older copy the newer thread was trimmed from goes in front, and a new conversation follows.
+
+A second checker, on that fix round, found that the first merge appended an older thread after a newer one (so the
+60-message cap later dropped the newest messages) and duplicated a regenerate written by the fallback; both led to
+the alignment and the fingerprint above. Every scenario has a test that fails under the rule it replaced. Also from
+the two rounds: the chat panel shows the new deck's stand-in at once on a switch; a quick switch away and back before
+the other deck loads cannot save its stand-in over this deck (two guards, `loadedFor` and the list's owning deck; the
+test fails only with both removed); apply and discard wait for the thread like send does; a lost database is said
+once, on its own throttle ("Couldn't open this browser's chat storage").
+
+A third checker, on the second round's fixes, found no loss on this build's own paths and four smaller defects, all
+fixed with a test each: threads that start alike and then part (an older tab and this one both continued the thread)
+duplicated their shared start, so the merge now keeps it once; a fallback write was not broadcast, so another tab's
+next write could erase it; a session that lost IndexedDB dropped the fingerprint after its first write; and Clear all
+left the fingerprint key. Accepted: when an identical exchange ("ok" / "Done.") sits exactly at the join, the merge can
+fold a separate conversation's copy of it into the stored one.
+
+A fourth checker, on that last set, found that one of those fixes could lose a thread on a rare path: after another
+tab's write evicted a deck and IndexedDB then failed mid-session, a write built on the empty stand-in still carried
+the "latest" fingerprint and would replace the stored conversation next load. A deck now loses that standing whenever
+its cached copy is dropped without a write (another tab's write, Clear all, a delete, and decks the fallback did not
+copy), with a test per branch, each shown to fail with its branch removed (the card grader found the first version
+pinned only the broadcast one). Also from it: a parted tail that opens with a reply keeps its question, and
+the broadcast's comment no longer claims an open panel in another tab builds on the fallback write (it keeps its own
+state and its next write wins, as with localStorage). Accepted: an open panel's blind write in another tab, and a
+merged regenerate showing two replies, both last-writer-wins outcomes the localStorage store had.
+
+A fifth checker, on that last fix set, found no path where a write not built on the deck's loaded thread is marked
+"latest"; it found three paths where a legitimate write loses the mark (a regenerated-away reply can come back beside
+the new one; nothing lost). The first is fixed; the second (a copy refused for lack of space) stays a merge on purpose,
+since keeping the standing would let a later panel's empty stand-in be marked; the third is accepted. The card grader
+then found that fix trusted any tab's mark, not this tab's own: each tab now keeps the fingerprints it wrote
+(`ownMarks`), with a test that fails when the shared marks are trusted instead.
+
+**Two real tabs** (`studio-chat-storage.spec.ts`, Chromium, Firefox, WebKit): tab A chats, tab B opens the same chat,
+tab A writes again (B hears the broadcast), B's IndexedDB then refuses every write so its next message falls back to
+localStorage, and a fresh tab shows every message of both. Built once with the broadcast's eviction removed, the same
+test fails in Chromium: the fallback write carries the mark, and the fresh tab is missing tab A's second message.
+
+**Two writers in one tab.** The author and the AI write one thread, and Apply and Discard stay usable while a
+reply streams in (Send clears Undo compaction, and compaction waits for the reply). The finished reply used to commit the thread as it was at Send plus the reply, which
+put an applied edit back to unapplied (a second Apply edited the deck twice) and brought a discarded one back. The
+reply now joins the thread as the store holds it when the reply lands; two tests in
+`studio.chat-stream-commit.test.tsx` fail without it, and a real-browser test in `studio-chat-storage.spec.ts`
+(Apply while a mocked reply is held open; Chromium, Firefox, WebKit) fails with the old commit forced back. Found while discussing whether chats need a CRDT: across tabs
+they do need a proper merge (each tab's author and AI are separate writers), which is the next piece of work.
+
+**Real iOS Safari** (owner's OK on #3138 to add a suite, dispatch and nightly only): `ios-safari-chat-storage` runs
+`docs/scripts/ios-safari/chat-storage-probe.js` in the iPad and iPhone simulators: threads an earlier build left in
+localStorage move to IndexedDB across a real reload, and Safari's localStorage allowance matches `local-quota.ts`. On
+Playwright WebKit it passed at three sizes (5,242,862 to 5,242,871 Latin-1 characters, ratio 0.500 for non-Latin-1) and
+failed on the move against the base build.
+
+**Verified with both builds.** `old-new-tab.cjs` (this folder) serves the base build and this build on one origin
+and swaps between them: the old build shows a thread, this build migrates it, a fresh old-build tab opens the chat on
+that deck and writes `[]` over its key, and this build still shows the whole thread, keeps it in IndexedDB and clears
+the stray key. Chromium.
+
+**The panel waits for its thread.** Before, `ArchitectChat` saved its thread on every mount; with an async read
+that would replace a stored conversation with the empty stand-in it renders first. It now saves and sends only once
+the deck's thread has loaded (`studio.chat-idb-load.test.tsx` fails without the gate).
+
+**Constraints from §6, met or traded:** keys deleted only after commit and only while they hold the merged text
+(met); a migration that drains on every load and at idle (met); a fallback when IndexedDB will not open (met, and
+said); ordered writes (IndexedDB orders transactions on one store; a write during a read wins, tested). **Traded,
+stated in `chat-store.ts`:** the old keys are deleted once moved rather than kept "until verified", because freeing
+the space is the point; a rollback hides migrated chats from the older build (they return with this one, and what that
+build writes meanwhile is merged, not lost). Clear all is guarded by a per-tab generation only, as the localStorage
+store was. A session whose database will not open makes a backup without the threads stored there; it says so.
+
+**Found on the path and fixed:** `lattice-studio-chat-selection` (the chat's model choice, `lib/model-selection.js`)
+shares the chat prefix, so "Clear decks" has been wiping a preference. Both stores now skip it (`NOT_A_THREAD`).
+
+**Deck text stays in localStorage.** The owner's standing decision: move it (with §6's constraints) only on evidence
+that authors reach the allowance. The warning is that evidence's first source; there is no telemetry, so it is local.
+
+**Verified on the real Studio** (Playwright, built site): `studio-chat-storage.spec.ts` (a chat round-trips through
+IndexedDB and survives a reload; an older build's threads move out at idle and still show; the warning at 85%) with
+`checkpoint-storage`, `deck-save-failure` and `decks`, in Chromium, Firefox and WebKit: 29 passed.

@@ -2,6 +2,7 @@ import { buildDeckIndex } from '@/lib/deck-outline';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { splitSlides } from '../../lib/deck-lint';
 import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from '../../lib/front-matter';
+import { CHAT_PREFIX, chatChars, clearChats, dropChat, NOT_A_THREAD, readChat, writeChat } from './chat-store';
 import { appendCheckpoint, type Checkpoint, checkpointBytes, clearCheckpoints, dropCheckpoints, mapCheckpoints, readCheckpoints, replaceCheckpoints, SNAP_CAP, SNAP_PREFIX } from './checkpoint-store';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { asImageLook, DEFAULT_IMAGE_LOOK, DEFAULT_IMAGE_MODEL, type ImageLook } from './image-look';
@@ -666,7 +667,7 @@ export function deleteDeck(id: string): void {
 	saveIndex(loadIndex().filter((e) => e.id !== id));
 	dropSource(id);
 	void dropCheckpoints(id);
-	remove(CHAT_PREFIX + id);
+	void dropChat(id);
 	remove(CHAT_DRAFT_PREFIX + id);
 	clearComments(id);
 	clearActiveDeckIf(id); // don't leave the boot pointer dangling at a deleted deck
@@ -695,8 +696,9 @@ export function deckContentStats(): { count: number; bytes: number } {
 	} catch {
 		/* storage unavailable */
 	}
-	// Checkpoints moved to IndexedDB, so the localStorage scan above no longer sees them.
-	bytes += checkpointBytes();
+	// Checkpoints and chats moved to IndexedDB, so the localStorage scan above no longer sees them.
+	// Chats count only once loaded (`hydrateAllChats`); a thread still in localStorage is in the scan.
+	bytes += checkpointBytes() + chatChars();
 	return { count, bytes };
 }
 
@@ -720,7 +722,6 @@ export function clearAllDecks(): void {
 	// can't do that, since it doesn't know which ids it's touching).
 	for (const { id } of loadIndex()) {
 		dropSource(id);
-		remove(CHAT_PREFIX + id);
 		remove(CHAT_DRAFT_PREFIX + id);
 		clearComments(id);
 	}
@@ -748,6 +749,8 @@ export function clearAllDecks(): void {
 	// `lastCheckpointClear()`. Like the source writes guarded by DECKS_CLEARED_EVENT, a
 	// checkpoint saved in the moment before that reload is not refused here.
 	void clearCheckpoints();
+	// Chats too (IndexedDB, chat-store.ts); callers await `chatsSettled()` and read `lastChatClear()`.
+	void clearChats();
 	// Every deck's undo history (Filo, IndexedDB) is cleared by the caller, governance.ts, which
 	// awaits it: this module stays free of the history store, which only the Studio loads.
 	remove(INDEX_LS);
@@ -808,7 +811,10 @@ export function mapCheckpointSources(deckId: string, fn: (source: string) => str
 }
 
 // ── Architect chat history (per deck) ──────────────────────────────────────
-export const CHAT_PREFIX = 'lattice-studio-chat-'; // + deckId → ChatMessage[] (exported for the storage-overlay drift test)
+// Threads live in IndexedDB (chat-store.ts); CHAT_PREFIX is their legacy localStorage key and fallback,
+// re-exported here for the storage-overlay drift test and the prefix sweeps below.
+export { CHAT_PREFIX };
+
 const CHAT_CAP = 60;
 
 /** A reviewable, re-appliable proposed edit persisted on an assistant turn. Structural
@@ -916,8 +922,10 @@ export type ChatMessage = {
 	trace?: ChatTrace;
 };
 
+/** A deck's thread, synchronously. Until the deck's chat has loaded (`hydrateChat`, chat-store.ts)
+ *  this is its legacy localStorage thread or []; a panel that saves must wait for `chatLoaded`. */
 export function loadChat(deckId: string): ChatMessage[] {
-	return read<ChatMessage[]>(CHAT_PREFIX + deckId) ?? [];
+	return readChat(deckId);
 }
 /** Only this many of a thread's newest replies keep their Show-work trace. A trace is up to ~8 KB (chat-trace.ts), so 60 of them would be
  *  ~480 KB of an origin's ~5 MB. Older replies keep their text, usage and activity line. */
@@ -937,9 +945,10 @@ export function withoutOldTraces(messages: ChatMessage[], keep: number): ChatMes
 	return out;
 }
 
-/** Save a deck's chat. A full storage must never cost the author a REPLY, so when the write is refused the traces go first: all but the
- *  newest three, then all of them. The words, the proposals and the usage are never what gets dropped. */
-export function saveChat(deckId: string, messages: ChatMessage[]): void {
+/** Save a deck's chat (IndexedDB, chat-store.ts). A full storage must never cost the author a REPLY, so when the write falls back to
+ *  localStorage and is refused there, the traces go first: all but the newest three, then all of them. The words, the proposals and the
+ *  usage are never what gets dropped. Resolves true once the thread is stored. */
+export function saveChat(deckId: string, messages: ChatMessage[]): Promise<boolean> {
 	const kept = messages.slice(-CHAT_CAP);
 	// The briefing of a compaction rides the first message kept. When the cap trims that message off, carry the briefing onto the new first
 	// one: it still stands in for the history the model no longer receives, and dropping it would lose that context with no notice.
@@ -950,10 +959,7 @@ export function saveChat(deckId: string, messages: ChatMessage[]): void {
 			.find((m) => m.compacted)?.compacted;
 		if (carried) kept[0] = { ...kept[0], compacted: carried };
 	}
-	const key = CHAT_PREFIX + deckId;
-	if (write(key, withoutOldTraces(kept, CHAT_TRACE_KEEP))) return;
-	if (write(key, withoutOldTraces(kept, 3))) return;
-	write(key, withoutOldTraces(kept, 0));
+	return writeChat(deckId, [withoutOldTraces(kept, CHAT_TRACE_KEEP), withoutOldTraces(kept, 3), withoutOldTraces(kept, 0)]);
 }
 
 // The unsent chat draft, per deck — so a closed (or unmounted) Architect panel
@@ -970,7 +976,8 @@ export const CHAT_DRAFT_PREFIX = 'lattice-studio-chatdraft-'; // + deckId → st
  * set out inline, and a prefix with no export of its own could drift past the overlay).
  */
 export const DECK_CONTENT_PREFIXES: readonly string[] = Object.freeze([SRC_PREFIX, FILO_SUM_PREFIX, SNAP_PREFIX, CHAT_PREFIX, CHAT_DRAFT_PREFIX, COMMENTS_KEY_PREFIX]);
-const isDeckContentKey = (k: string) => DECK_CONTENT_PREFIXES.some((p) => k.startsWith(p));
+// The chat's model choice shares CHAT_PREFIX but is a preference: Privacy & Data clears data, not preferences.
+const isDeckContentKey = (k: string) => !NOT_A_THREAD.has(k) && DECK_CONTENT_PREFIXES.some((p) => k.startsWith(p));
 export function loadChatDraft(deckId: string): string {
 	return read<string>(CHAT_DRAFT_PREFIX + deckId) ?? '';
 }

@@ -5619,6 +5619,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			});
 		});
 	}, []);
+	// Chat storage failures, the idle chat migration and the localStorage-fill warning
+	// (storage-notices.ts), loaded after boot: none of it is needed to paint (route budget).
+	React.useEffect(() => {
+		let stop: (() => void) | null = null;
+		let gone = false;
+		void import('./storage-notices')
+			.then((m) => {
+				if (!gone) stop = m.startStorageNotices();
+			})
+			.catch(() => {});
+		return () => {
+			gone = true;
+			stop?.();
+		};
+	}, []);
 	const checkpoint = React.useCallback((label: string) => setCheckpoints(saveCheckpoint(deck.id, source, label, Date.now())), [deck.id, source]);
 	const saveVersion = () => { checkpoint('Saved version'); notify('Version saved to history.'); };
 	function restoreCheckpoint(cp: Checkpoint) {

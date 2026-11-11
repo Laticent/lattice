@@ -1,0 +1,3 @@
+- The Studio's AI chat threads now live in IndexedDB instead of localStorage, so they no longer share the ~5.2 M-character space deck text needs. Threads saved by earlier versions move over once the page is idle, and a thread still shows while it moves.
+- The Studio warns when localStorage is past 80% full, once a session and in Workspace → Data, because a full one stops deck edits saving. Clearing decks no longer resets your chat model choice.
+- Applying or discarding a proposed edit while the AI is still replying now sticks: the reply used to put an applied edit back to unapplied (a second Apply edited the deck twice) and bring a discarded one back.

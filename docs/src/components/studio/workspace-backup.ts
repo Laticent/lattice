@@ -24,6 +24,7 @@
 
 import { type ParsedBundle, packBundle, unpackBundle } from './asset-bundle';
 import { applyImportRenames } from './asset-rename';
+import { chatsSettled, hydrateAllChats } from './chat-store';
 import { checkpointsSettled, hydrateCheckpoints } from './checkpoint-store';
 import { listStudioComponents, saveStudioComponent, toMeta } from './component-library';
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
@@ -108,8 +109,9 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 	// or a backup taken mid-keystroke misses the newest edits (and a JUST-edited
 	// built-in would have no stored source at all and drop out entirely).
 	requestSourceFlush();
-	// Checkpoints load from IndexedDB after boot; a backup taken first must still carry them.
+	// Checkpoints and chats load from IndexedDB after boot; a backup taken first must still carry them.
 	await hydrateCheckpoints();
+	await hydrateAllChats();
 	const state = exportStudioState();
 	// Scenes come through the RAW reader, not `listStudioScenes`. That list drops any record whose
 	// spec no longer validates, and this function is what turns that drop into permanent data loss:
@@ -450,8 +452,9 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 		if (renames.length) state.sources = Object.fromEntries(Object.entries(state.sources).map(([id, src]) => [id, applyImportRenames(src, renames)]));
 	}
 
-	// Restore merges checkpoints only where this browser has none, so it must see the stored ones first.
+	// Restore merges checkpoints and chats only where this browser has none, so it must see the stored ones first.
 	await hydrateCheckpoints();
+	await hydrateAllChats();
 	const decks = importStudioState(state, now);
 	const summary: RestoreSummary = { ...decks, themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, media: 0, mediaRenamed: 0, refused: [...decks.refused, ...refused] };
 
@@ -556,8 +559,9 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 		// Its saved versions too: restoring one must not bring back a name that now means another photo.
 		void mapCheckpointSources(id, (c) => renameAssetRefs(c, map));
 	}
-	// Checkpoint writes are asynchronous (IndexedDB), and the caller reloads the page after a
+	// Checkpoint and chat writes are asynchronous (IndexedDB), and the caller reloads the page after a
 	// restore: wait for them to land, or a large restore could be cut off by that reload.
 	await checkpointsSettled();
+	await chatsSettled();
 	return summary;
 }

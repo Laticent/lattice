@@ -157,7 +157,19 @@ const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
 		if (THROTTLE > 1 && cdp) await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
 		const runs = [];
 		for (let i = 0; i < RELOADS; i++) runs.push(await paintMs(page));
-		results[name] = { ...info, paintMedian: median(runs.map((r) => r.wall)), longTaskMedian: median(runs.map((r) => r.longTasks)), longTaskBy3sMedian: median(runs.map((r) => r.longTasksAfter3s)), heapMB: median(runs.map((r) => r.heap)), runs: runs.map((r) => r.wall).join(',') };
+		// What localStorage holds once the reloads are done: a build that moves data out of it at idle
+		// (chats, chat-store.ts) shows the move here; seeding wrote everything into localStorage.
+		const after = await page.evaluate(() => {
+			let chars = 0;
+			let chatKeys = 0;
+			for (let i = 0; i < localStorage.length; i++) {
+				const k = localStorage.key(i);
+				chars += k.length + localStorage.getItem(k).length;
+				if (k.startsWith('lattice-studio-chat-')) chatKeys++;
+			}
+			return { localStorageAfterMB: +((chars * 2) / 1e6).toFixed(1), localStorageAfterChars: chars, chatKeysAfter: chatKeys };
+		});
+		results[name] = { ...info, ...after, paintMedian: median(runs.map((r) => r.wall)), longTaskMedian: median(runs.map((r) => r.longTasks)), longTaskBy3sMedian: median(runs.map((r) => r.longTasksAfter3s)), heapMB: median(runs.map((r) => r.heap)), runs: runs.map((r) => r.wall).join(',') };
 		console.log(name, JSON.stringify(results[name]));
 		await ctx.close();
 	}

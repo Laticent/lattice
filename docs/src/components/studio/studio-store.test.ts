@@ -882,6 +882,12 @@ describe('studio-store — Privacy & Data (clearAllDecks / deckContentStats)', (
 		expect(deckContentStats().count).toBe(DECKS.length);
 	});
 
+	it('clearAllDecks keeps the chat model choice, which shares the chat key prefix but is a preference', () => {
+		localStorage.setItem('lattice-studio-chat-selection', '{"v":1,"source":"device"}');
+		clearAllDecks();
+		expect(localStorage.getItem('lattice-studio-chat-selection')).toBe('{"v":1,"source":"device"}');
+	});
+
 	it('clearAllDecks leaves settings and standing instructions untouched (data, not preferences)', () => {
 		saveSettings({ headerFooter: true });
 		saveInstructions('Board voice.');

@@ -211,6 +211,25 @@
       "docs_site": true
     },
     {
+      "name": "ios-safari-chat-storage",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/chat-storage-probe.js",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/src/components/studio/chat-store.ts",
+        "docs/src/components/studio/local-quota.ts",
+        "docs/src/components/studio/storage-notices.ts"
+      ],
+      "run": "PROBE=chat-storage bash docs/scripts/ios-safari/run.sh",
+      "on_pull_request": false,
+      "docs_site": true,
+      "why": "Studio chats in real Mobile Safari, in an iPad and an iPhone iOS Simulator (#3138, engineering/decisions/2026-11-11-studio-storage-pointer-records.md §11): threads an earlier build left in localStorage move to IndexedDB across a real reload, whole, including a deck never opened, and the localStorage allowance is what local-quota.ts assumes for WebKit (about 5.24 M Latin-1 characters, half once a value is non-Latin-1), which the fill warning's arithmetic rests on. Playwright's WebKit on Linux is not iOS Safari. Nightly and on dispatch only (on_pull_request false, the owner's call on #3138): no per-PR macOS job. The probe is proved first by `PROBE=chat-storage node docs/scripts/ios-safari/probe.selftest.mjs` on WebKit, and fails against a build without the migration."
+    },
+    {
       "name": "ios-safari-photo",
       "os": [
         "macos-26"

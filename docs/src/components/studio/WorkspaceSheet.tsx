@@ -1,4 +1,4 @@
-import { BookOpen, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, Image as ImageIcon, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Type, Upload, Volume2, Wallet, Zap } from 'lucide-react';
+import { BookOpen, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, Image as ImageIcon, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, Type, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/components/studio/ai/or-catalog.js';
@@ -32,6 +32,7 @@ import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } fro
 import { KEY_PROVIDER_INFO } from './key-providers';
 import { LanguageSelect } from './LanguageSelect';
 import { useViewKey } from './live/follow-bus';
+import { describeLocalUse } from './local-quota';
 import { AI_CONNECTIONS_LEAD, AI_MODELS_LEAD, AI_USED_BY, WORKSPACE_DEFAULT_TAB, WORKSPACE_HEADER, WORKSPACE_TABS, WorkspaceAiSection, WorkspaceGroupLabel, WorkspaceLead, WorkspaceSelectionLabel, type WorkspaceTab } from './panel-shells';
 import { listStoredScenes } from './scene-library';
 import { languageFor } from './studio-language';
@@ -1280,6 +1281,15 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 								{gov && gov.totalBytes > 0 && <span className="rounded-full border border-border bg-card px-2 py-0.5 font-mono text-[11px] font-semibold text-[var(--text-heading)]">{fmtBytes(gov.totalBytes)} total</span>}
 							</div>
 							<p className="mb-3 text-xs text-muted-foreground">Everything the Studio has stored in this browser — clear one thing, or start over completely. Nothing here reaches a server; it's all local to this device. Your preferences (language, placement handles, etc.) are never touched here.</p>
+							{gov?.local.warn && (
+								<div role="status" data-testid="local-quota-warning" className="mb-3 flex gap-2.5 rounded-xl border border-[var(--warn)] bg-card px-3 py-2.5">
+									<TriangleAlert className="mt-0.5 size-4 shrink-0 text-[var(--warn)]" aria-hidden="true" />
+									<div className="text-xs leading-relaxed text-muted-foreground">
+										<div className="font-semibold text-[var(--text-heading)]">Deck storage is {Math.round(gov.local.fraction * 100)}% full</div>
+										<div className="mt-0.5">This browser keeps deck text and settings in one small space: {describeLocalUse(gov.local)}. When it fills, deck edits stop saving. Download a backup above, then delete decks you no longer need.</div>
+									</div>
+								</div>
+							)}
 							<div className="flex flex-col gap-2.5">
 								<GovRow
 									icon={<FolderTree className="size-4" />}
