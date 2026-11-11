@@ -59,7 +59,7 @@ function ActionBar() {
 	return (
 		<div role="presentation" className="ssr-actionbar flex shrink-0 items-stretch border-b border-border bg-card">
 			{EDIT_MODES.map((m) => (
-				<BarIcon key={m.mode} variant="bar" label={m.name} hint={m.hint} caption={m.label} onClick={NOOP}><m.Icon className="size-[17px]" /></BarIcon>
+				<BarIcon key={m.mode} variant="bar" brand={m.brand} label={m.name} hint={m.hint} caption={m.label} onClick={NOOP}><m.Icon className="size-[17px]" /></BarIcon>
 			))}
 			<BarIcon variant="bar" label="Preview" hint="Preview" caption="Preview" active onClick={NOOP}><PreviewIcon className="size-[17px]" /></BarIcon>
 			<span aria-hidden="true" className="my-2 w-px shrink-0 bg-border" />

@@ -12,10 +12,11 @@
 //
 // THE EDITOR PANE'S MODE (2026-11-10-compose-first.md). The seed below sets `data-ssr-src` from the stored
 // `editMode` when it is Source, the way `asEditMode` (studio-store) reads it: only an explicit 'source' is Source,
-// anything else (nothing stored included) is Compose. `.ssr-body-*` exist only in the shell, so they go unscoped. The shell's CSS lights that segment of the toggle (`data-edit-seg`, the
-// same accent-soft / accent the app's lit segment uses) and hides the other editor's skeleton. These notes live
-// here, in the frontmatter, because the inline style and script ship to every visitor: the page has a byte
-// ceiling (docs/route-budget.json, htmlRaw).
+// anything else (nothing stored included) is Compose. The shell's CSS lights that segment of the toggle
+// (`data-edit-seg`) the way EditModeToggle's `segmentTone` does (Compose: Present's solid accent; Source: the
+// posture dial's neutral chip) and hides the other editor's skeleton (`.ssr-body-*`, which exist only in the shell,
+// so they go unscoped). These notes live here, in the frontmatter, because the inline style and script ship to
+// every visitor: the page has a byte ceiling (docs/route-budget.json, htmlRaw).
 import '../styles/landing.css';
 import { slideFrameShadow } from '../../../lib/core/slide-frame.mjs';
 import StudioIsland from '../components/studio/StudioIsland.tsx';
@@ -391,7 +392,7 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
 /* Slide settings is compact-only in the app: from 1100 up the activity bar owns it, and a
    duplicate would also break e2e's strict 'Slide settings' locator. */
 @media (min-width:1100px){#studio-ssr-shell .ssr-slide-settings{display:none;}}
-:root:not([data-ssr-src]) .ssr-editpane [data-edit-seg=compose],[data-ssr-src] .ssr-editpane [data-edit-seg=source]{background:var(--accent-soft);color:var(--accent)}
+:root:not([data-ssr-src]) .ssr-editpane [data-edit-seg=compose]{background:var(--accent);color:var(--on-accent)}[data-ssr-src] .ssr-editpane [data-edit-seg=source]{background:color-mix(in srgb,var(--text-heading) 12%,var(--bg));color:var(--text-heading)}
 [data-ssr-src] .ssr-body-compose,:root:not([data-ssr-src]) .ssr-body-source{display:none}
 :root[data-ssr-bp="mobile"] #studio-ssr-shell .ssr-editpane,:root[data-ssr-read] #studio-ssr-shell .ssr-editpane{display:none;}
 /* The preview pane's own sub-bar. Absent at Read, where the app renders the preview

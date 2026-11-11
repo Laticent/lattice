@@ -8459,7 +8459,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{/* Compose first (2026-11-10-compose-first.md); both cells come from EDIT_MODES, the list the header
 						    toggle and the pre-paint shell read. The issue badge rides the mode in use: that is where they get fixed. */}
 						{EDIT_MODES.map((m) => (
-							<BarIcon key={m.mode} variant="bar" label={m.name} hint={m.hint} caption={m.label} active={effPane === 'edit' && editMode === m.mode} demo={editMode === m.mode ? 'pane-edit' : undefined} badge={editMode === m.mode ? issues : undefined} describedBy={editMode === m.mode && issues > 0 ? 'mobile-issue-count' : undefined} onClick={() => { setMobilePane('edit'); setEditMode(m.mode); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><m.Icon className="size-[17px]" /></BarIcon>
+							<BarIcon key={m.mode} variant="bar" brand={m.brand} label={m.name} hint={m.hint} caption={m.label} active={effPane === 'edit' && editMode === m.mode} demo={editMode === m.mode ? 'pane-edit' : undefined} badge={editMode === m.mode ? issues : undefined} describedBy={editMode === m.mode && issues > 0 ? 'mobile-issue-count' : undefined} onClick={() => { setMobilePane('edit'); setEditMode(m.mode); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><m.Icon className="size-[17px]" /></BarIcon>
 						))}
 						{issues > 0 && <span id="mobile-issue-count" className="sr-only">{issues} unresolved {issues === 1 ? 'issue' : 'issues'}</span>}
 						<BarIcon variant="bar" label="Preview" hint="Preview" caption="Preview" active={effPane === 'preview'} demo="pane-preview" onClick={() => setMobilePane('preview')}><PreviewIcon className="size-[17px]" /></BarIcon>

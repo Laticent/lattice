@@ -265,7 +265,7 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 // and `badge`/`describedBy` so a status count can ride the cell without changing its
 // accessible name. Both variants now floor at `min-h-11` (44px) — the rail's own
 // `py-1.5` box computed to ~41px, itself under the touch floor.
-export function BarIcon({ label, hint, caption, active, onClick, children, variant = 'rail', demo, badge, describedBy, tone = 'ghost' }: { label: string; hint: string; caption: string; active?: boolean; onClick: () => void; children: React.ReactNode; variant?: 'rail' | 'bar'; demo?: string; badge?: number; describedBy?: string; tone?: 'ghost' | 'outline' | 'solid' }) {
+export function BarIcon({ label, hint, caption, active, onClick, children, variant = 'rail', demo, badge, describedBy, tone = 'ghost', brand = false }: { label: string; hint: string; caption: string; active?: boolean; onClick: () => void; children: React.ReactNode; variant?: 'rail' | 'bar'; demo?: string; badge?: number; describedBy?: string; tone?: 'ghost' | 'outline' | 'solid'; brand?: boolean }) {
 	const bar = variant === 'bar';
 	return (
 		// `describedBy` rides the Tip, not the button: an `aria-describedby` on the button, even an
@@ -279,7 +279,10 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 			className={cn(
 				'group/bar relative flex min-h-11 flex-col items-center justify-center gap-0.5 font-semibold leading-none transition-colors',
 				bar ? 'min-w-0 flex-1 gap-[3px] rounded-none px-1 py-1.5 text-[9px]' : 'w-11 gap-0.5 rounded-xl py-2 text-[8.5px]',
-				tone === 'solid' ? 'bg-[var(--accent)] text-[var(--on-accent)]'
+				// `brand` is Compose's cell (EditModeToggle's `segmentTone` says why): the accent when off, Present's
+				// solid fill when it is the pane on screen.
+				tone === 'solid' || (brand && active) ? 'bg-[var(--accent)] text-[var(--on-accent)]'
+					: brand ? 'text-[var(--accent)] hover:bg-[var(--accent-soft)]'
 					: tone === 'outline' ? 'border border-border text-[var(--text-heading)]'
 					: active
 						// The mobile BAR's selected state swaps --text-heading/--bg rather than tinting with
@@ -426,12 +429,28 @@ const COMPOSE_SKELETON_BLOCKS = [
 // toggle, the phone's action bar, the pre-paint shell and the command palette all read this one list,
 // so the order cannot drift between them. `name` is the accessible name, which the e2e chrome contract
 // addresses; `Markdown source` keeps its old name because it already contains the visible word "Source".
-export const EDIT_MODES: ReadonlyArray<{ mode: EditMode; label: string; name: string; hint: string; Icon: React.ComponentType<{ className?: string }> }> = [
-	{ mode: 'compose', label: 'Compose', name: 'Compose — rich editor', hint: 'Compose — rich text', Icon: Sparkles },
+export const EDIT_MODES: ReadonlyArray<{ mode: EditMode; label: string; name: string; hint: string; Icon: React.ComponentType<{ className?: string }>; brand?: boolean }> = [
+	{ mode: 'compose', label: 'Compose', name: 'Compose — rich editor', hint: 'Compose — rich text', Icon: Sparkles, brand: true },
 	{ mode: 'source', label: 'Source', name: 'Markdown source', hint: 'Source — Markdown', Icon: FileText },
 ];
 /** What a mode is called where a sentence names it ("Edit this slide in Source"). */
 export const EDIT_MODE_LABEL: Record<EditMode, string> = { compose: 'Compose', source: 'Source' };
+/**
+ * COMPOSE IS THE SIGNATURE MODE, and it looks it (owner's pick, 2026-11-11, option D of four mocked on the live
+ * Studio): its word and sparkle stay in the accent even when off, and when on it takes Present's solid accent
+ * fill, so the screen's two filled accent objects are its two hero verbs, write and present. Source, the power
+ * tool, is deliberately quieter: when on it takes the posture dial's neutral chip, a fill mixed from
+ * `--text-heading` into `--bg`, which differs from its container in every palette by construction (the dial's
+ * own note records why `--accent-soft`, the old lit fill here, vanishes in 8 dark palettes). An unlit Source reads
+ * in `--text-body`, the AA-rated channel, not the muted one, which fails AA at 12px in most palettes.
+ * In a monochrome palette `--accent` IS `--text-heading`, so Compose there is simply the ink chip.
+ * `interactive` is false for the pre-paint shell's copy, which never hovers.
+ */
+function segmentTone(brand: boolean | undefined, on: boolean, interactive = true): string {
+	if (brand) return on ? 'bg-[var(--accent)] text-[var(--on-accent)] shadow-sm' : cn('text-[var(--accent)]', interactive && 'hover:bg-[var(--accent-soft)]');
+	return on ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] shadow-sm' : cn('text-[var(--text-body)]', interactive && 'hover:text-[var(--text-heading)]');
+}
+
 /**
  * The words beside the two icons. In the app the header row is MEASURED (`use-row-fit.ts`): it drops the
  * issue pill's word first (`data-fit=1`) and these two only at `data-fit=2`, when nothing else is left to
@@ -462,7 +481,7 @@ export function EditModeToggle({ mode, onPick }: { mode: EditMode | null; onPick
 							aria-label={m.name}
 							aria-pressed={mode === null ? undefined : on}
 							onClick={onPick ? () => onPick(m.mode) : undefined}
-							className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-1', on ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground', mode !== null && 'transition-colors', mode !== null && !on && 'hover:text-foreground')}
+							className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-1', segmentTone(m.brand, on, mode !== null), mode !== null && 'transition-colors')}
 						>
 							<m.Icon className="size-3" />
 							<span className={mode === null ? undefined : EDIT_MODE_WORDS.measured}>{m.label}</span>
