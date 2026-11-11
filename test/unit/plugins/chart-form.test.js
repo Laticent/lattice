@@ -82,3 +82,17 @@ test('on a phone page the kernel draws the chart, and a meta line under the titl
   // Two 48px lines on a page that prints one unit at 972/320 px: 32 units shorter, so the text keeps its size.
   assert.equal(Math.round(viewH(plain) - viewH(meta)), Math.round((2 * 48) / (972 / 320)));
 });
+
+test('a hero pie on a phone page draws on a canvas as narrow as its body, at the same scale', () => {
+  const deck = '---\ntheme: indaco\nsize: mobile\n---\n\n<!-- _class: piechart donut claim-hero -->\n\n## Revenue\n\n' +
+    '- Subscriptions `48%`\n- Services `27%`\n- Licensing `15%`\n- Other `10%`\n';
+  const html = createEngine().render(deck).html;
+  const vb = /class="piechart-svg"[^>]*viewBox="0 0 ([\d.]+) ([\d.]+)"|viewBox="0 0 ([\d.]+) ([\d.]+)"[^>]*class="piechart-svg"/.exec(html);
+  const w = Number(vb[1] ?? vb[3]);
+  // The hero body is 833px wide, not 972: 320 units at 972/320 px each would print the key at 86% of its role.
+  assert.equal(Math.round(w), Math.round((320 * 833) / 972));
+  // Every key entry's value ends inside the canvas (a running key centered on its names alone overran it).
+  const key = /<g transform="translate\(([\d.]+) [\d.]+\)"><g style="--chart-fs-key/.exec(html);
+  const ends = [...html.matchAll(/class="chart-key-value"[^>]*x="([\d.]+)"/g)].map((m) => Number(key[1]) + Number(m[1]));
+  assert.ok(ends.length === 4 && ends.every((x) => x <= w + 0.5), JSON.stringify({ w, ends }));
+});

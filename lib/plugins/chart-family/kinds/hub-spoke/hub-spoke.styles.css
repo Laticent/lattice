@@ -49,6 +49,18 @@ section.hub-spoke:is(.claim-hero, .claim-bleed) .hub-spoke-svg {
   max-height: 100%;
   max-width: 100%;
 }
+/* A phone page (`data-orientation` stamped): the kernel draws the hub on a stage the shape of the chart body, so at
+   hero and bleed it fills the body too. `38cqi` is a landscape measure that held it to 410px on a 1080px-wide page. */
+section.form.hub-spoke:is(.claim-hero, .claim-bleed)[data-orientation] .chart-body {
+  container-type: size;
+}
+section.form.hub-spoke:is(.claim-hero, .claim-bleed)[data-orientation] .hub-spoke-figure {
+  height: 100%;
+}
+section.form.hub-spoke:is(.claim-hero, .claim-bleed)[data-orientation] .hub-spoke-svg {
+  width: 100%;
+  height: 100%;
+}
 section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .chart-body {
   container-type: size;
 }

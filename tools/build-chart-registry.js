@@ -136,6 +136,7 @@ function build() {
       name: m.name,
       figureClass: m.kernel.figureClass,
       form: m.kernel.form === true,
+      formHero: m.kernel.formHero === true,
       variants: effectiveVariants(m),
       dir: componentDir(m, COMPONENTS_DIR),
     })));
@@ -212,7 +213,9 @@ function build() {
   lines.push('// section through as authored and marks it `data-lattice-off` with this name.');
   lines.push(`const PLUGIN = ${JSON.stringify(SLOT.plugin)};`);
   lines.push('');
-  lines.push('module.exports = { LAYOUTS, FIGURE_CLASSES, KERNELS, FORM_KINDS, PLUGIN };');
+  lines.push('// The kinds that take the full-bleed hero body at claim-hero / claim-bleed (a manifest\'s `kernel.formHero: true`).');
+  lines.push(`const FORM_HERO_KINDS = new Set(${JSON.stringify(charts.filter((c) => c.formHero).map((c) => c.name))});`);
+  lines.push('module.exports = { LAYOUTS, FIGURE_CLASSES, KERNELS, FORM_KINDS, FORM_HERO_KINDS, PLUGIN };');
   return lines.join('\n') + '\n';
 }
 

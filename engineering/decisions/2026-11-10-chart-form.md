@@ -216,6 +216,13 @@ it on the section (`data-meta-lines`) for the runtime's redraw to read. On a tal
 at square it docks beside the title, which drops the masthead 6px and narrows the title to about 36 characters a line.
 Before this, a short-titled chart in one of the 26 decks that set `meta:` printed at 10.4 to 10.7pt.
 
+**The box at `claim-hero` and `claim-bleed`.** Pie and radar take a full-bleed body at hero and bleed
+(`chart-family.styles.css`): narrower than 972px (833 to 902px, the caption band's rail beside it) and taller, with the
+eyebrow taking no height. A kind on the kernel says so in its manifest (`kernel.formHero: true`; the pie today, radar when it moves), and the dispatch reads that box from its own table (`HERO_PX`) and draws on a canvas as narrow as
+the body, at the same px per unit, so the role sizes hold. The stylesheet used to size a hero pie or hub-spoke by
+`38cqi`, a landscape measure that held it to 410px on a phone page (the key at 3.5pt on `main`); on a page with an
+orientation stamp it now fills its chart body.
+
 Each kind is checked at mobile, story, 4:5 and square against `main` on two bars: no new overprint, drop, overflow or
 clip in its gallery and the example decks that draw it; and no chart text under 11pt (measured in Chromium per page,
 `.scratch/minsize.mjs`; the CLI's TYPE FLOOR warning fires only under 5.4pt, so it cannot see this bar). Over capacity is
@@ -235,5 +242,5 @@ the owner's scaled drawing (§ 10).
 | gantt, slope, state-chart | to do | overprints at square; state-chart under the floor at square |
 | roadmap, timeline-list | to do | overflow at square |
 | matrix-grid | to do | holds both bars; floats small at mobile |
-| *open on kinds already moved* | fix owed | the example decks, swept for the 11pt bar after the galleries: a long-tail pie with values in `claim.md` (4.4pt), `ep-curve.md` p3 (7.3pt, a value label) and p4, line at square in `global-number-formats.md` (10.7pt), risk-matrix at square in `risk-matrix.md` p3 (9.8pt) |
+| *open on kinds already moved* | fix owed | the example decks, swept for the 11pt bar after the galleries: `ep-curve.md` p3 (7.3pt, a value label) and p4, line at square in `global-number-formats.md` (10.7pt), risk-matrix at square in `risk-matrix.md` p3 (9.8pt) |
 | kanban, journey, progress, flowchart | to do | HTML or self-sized kinds: hold both bars; kanban and journey split into near-empty pages (followups.d/3088-p2-kanban-split-pages.md) |

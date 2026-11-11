@@ -165,6 +165,10 @@
           "pattern": "^[a-z0-9-]+$",
           "description": "The class on the figure root this component's kernel emits — what the chart-frame wrap looks for when it splits the section into header / body / caption. It is NOT derivable from `name` (timeline-list emits `timeline-spine`, kanban emits `kanban-board`), which is why it is declared, and it is the ONE fact about a chart's dispatch that is not. The kernel itself is found by convention at `<name>.transform.js` beside this manifest, and its entrypoint is `transformSection`; declaring either would restate what the loader already requires. Before this field the same set lived as a hand-maintained alternation inside chart-family.js, and a chart added without editing it rendered its figure at full slide width with no frame. `checkChartKernels` in tools/check-ownership.js ties the declaration back to the kernel source, so the two cannot drift."
         },
+        "formHero": {
+          "const": true,
+          "description": "With `form`: at `claim-hero` and `claim-bleed` this kind takes the full-bleed hero body its stylesheet gives it (narrower than the ordinary body, taller, the eyebrow hidden), so the chart form kernel sizes its canvas from that body (chart-family.dispatch.js HERO_PX). A kind without it keeps its ordinary body at hero."
+        },
         "form": {
           "const": true,
           "description": "This kind is placed by the CHART FORM KERNEL (lib/plugins/chart-family/shared/chart-form.js): on a phone page it draws once, on a canvas the shape of its chart box, at a scale known before it draws, with every piece (the plot, its axes, its key) placed inside that canvas so its text prints at its role size. A kind without it keeps the dispatch's fixed-point scale solve. engineering/decisions/2026-11-10-chart-form.md."
