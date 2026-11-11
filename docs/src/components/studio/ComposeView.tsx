@@ -968,7 +968,15 @@ class SlideView {
 		}
 		const { keys, active: activeReg } = applicableRegisters(this.view.state, this.getHeadings?.(), this.getBlocks?.());
 		const sig = `${keys.join(',')}|${activeReg ?? ''}`;
-		if (this.fmtGroup.dataset.sig === sig) return;
+		if (this.fmtGroup.dataset.sig === sig) {
+			// The chips are current, but the reserve may not be: a first pass before the slide was laid out measures
+			// zero and leaves it unset, and an unchanged signature would otherwise never measure again.
+			if (!this.fmtGroup.style.getPropertyValue('--cs-fmt-min')) {
+				this.reserveFormatWidth();
+				this.holdPillWidth();
+			}
+			return;
+		}
 		this.fmtGroup.dataset.sig = sig;
 		this.fmtGroup.replaceChildren();
 		for (const key of keys) {
@@ -998,9 +1006,10 @@ class SlideView {
 	// blocks, measured from the real chips: still while the caret moves within the slide, and never wider than the
 	// slide needs. (A first cut reserved all six styles, which left an empty hole on a wide pane: owner, 2026-11-11.)
 	// The pill also keeps the widest it has been while its slide is active, which covers the table and code islands.
-	private formatFor: PMNode | null = null;
+	// Measured again on every change of the Format group, not cached per slide node: the grammar maps the union reads
+	// (`getHeadings`/`getBlocks`) arrive after the first pass, and a cached early answer under-reserved (measured: a
+	// title slide held 169 px with the caret in its heading, then grew to 232 px in its paragraph).
 	private reserveFormatWidth() {
-		if (this.formatFor === this.node) return;
 		const keys = this.slideFormatKeys();
 		const ghost = this.fmtGroup.cloneNode(false) as HTMLElement;
 		ghost.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;min-width:0';
@@ -1019,7 +1028,6 @@ class SlideView {
 		ghost.remove();
 		// Zero with chips to measure means the slide is not laid out yet (a collapsed pass): measure again next time.
 		if (w === 0 && keys.size) return;
-		this.formatFor = this.node;
 		this.fmtGroup.style.setProperty('--cs-fmt-min', `${w}px`);
 		// A block with no style to offer (a list item) keeps the slot and its divider, so the doors do not slide over.
 		this.fmtGroup.toggleAttribute('data-reserved', w > 0);
@@ -3548,13 +3556,16 @@ function ComposeStyles() {
 				   two. Row two is RESERVED (min-height) on every slide, so switching the active slide never moves
 				   the page. Wide panes keep the single row. */
 				@container (max-width:520px){
-					/* A fixed width on a narrow pane: row two changes with the caret, the pill does not. */
-					.cs-sb-pill{flex-wrap:wrap;justify-content:center;row-gap:3px;width:calc(100% - 68px);max-width:calc(100% - 68px);min-width:0}
-					.cs-sb-pill > .cs-sb-format{order:3;flex:0 0 100%;justify-content:center;min-height:28px}
-					.cs-sb-pill > .cs-sb-actions:last-child{order:2}
+					/* A GRID, so the pill is as wide as its wider row and no wider: row one is history, a divider and
+					   the doors; row two the Format group, whose width the slide reserves (SlideView.reserveFormatWidth),
+					   so the caret moving inside the slide never resizes it. A fixed full width did that too, but left
+					   wide empty margins on most slides (owner, 2026-11-11, on an iPhone). */
+					.cs-sb-pill{display:inline-grid;grid-template-columns:auto auto auto;grid-template-areas:"h d a" "f f f";justify-content:center;justify-items:center;column-gap:3px;row-gap:3px;max-width:calc(100% - 68px);min-width:0}
+					.cs-sb-pill > .cs-sb-actions:first-child{grid-area:h}
+					.cs-sb-pill > .cs-sb-actions:last-child{grid-area:a}
+					.cs-sb-pill > .cs-sb-div:not(.cs-sb-div-hist){grid-area:d;display:block}
 					.cs-sb-pill > .cs-sb-div-hist{display:none}
-					.cs-sb-pill > .cs-sb-format:empty + .cs-sb-div{display:block}
-					.cs-sb-pill > .cs-sb-format:empty{display:block}
+					.cs-sb-pill > .cs-sb-format{grid-area:f;justify-content:center;min-height:28px;display:inline-flex}
 				}
 				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */

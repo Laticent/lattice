@@ -12,8 +12,8 @@
   Source still hears the Markdown wording. Five new narration lines are recorded.
 - **Compose's slide toolbar no longer changes size as the caret moves.** It used to grow and shrink
   with the styles the block under the caret offers (a heading offers one, an eyebrow line three),
-  so the whole pill jumped. It now reserves room for the styles the current slide can offer; on a
-  narrow pane (phone, tablet) its two-row form has a fixed width.
+  so the whole pill jumped. It now reserves room for the styles the current slide can offer, and
+  on a narrow pane (phone, tablet) its two rows are as wide as their contents.
 - **Compose looks like the signature mode without looking like an action.** Its icon and word are in the
   accent color whether it is selected or not; when selected it takes the same neutral chip as Source (on the
   phone bar, the same ink cell as any selected pane). A solid accent fill stays reserved for Present.
