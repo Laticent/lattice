@@ -33,29 +33,37 @@ function draw(source, cls, aspect, opts) {
 }
 const viewBox = (svg) => svg.getAttribute('viewBox').split(/\s+/).map(Number);
 
+// Every kind this canvas rule reached is on the chart form kernel now (`kernel.form`, chart-family.dispatch.js), and on a
+// phone page the kernel sizes its canvas from the slide's own header (`formBoxPx`): a source line, a second title line or
+// a venue take their height off the box, so the chart draws shorter instead of keeping the fixed canvas. The invariant
+// the rule existed for (never smaller type than the fixed canvas) is pinned below for every kind it covered.
+const FIXED = 'line';
+
 describe('the tall canvas is only for the header it was measured under', () => {
-  const plainH = viewBox(draw(`## Revenue grew\n\n${LINE}`, 'line', STORY))[3];
+  const plainH = viewBox(draw(`## Revenue grew\n\n${LINE}`, FIXED, STORY))[3];
 
   test('a plain story slide takes the box-shaped canvas', () => {
     assert.ok(plainH > 300, `a one-line title gets the tall canvas (height ${plainH})`);
   });
 
   for (const [name, source, cls] of [
-    ['a source line', `## Revenue grew\n\n${LINE}\n\nSource: finance ledger, FY26.`, 'line'],
-    ['a title past one line', `## Revenue grew in every quarter of the year, and fastest in the fourth\n\n${LINE}`, 'line'],
-    ['a venue', `## Revenue grew\n\n${LINE}`, 'line venue-hall'],
+    ['a source line', `## Revenue grew\n\n${LINE}\n\nSource: finance ledger, FY26.`, FIXED],
+    ['a title past one line', `## Revenue grew in every quarter of the year, and fastest in the fourth\n\n${LINE}`, FIXED],
+    ['a venue', `## Revenue grew\n\n${LINE}`, `${FIXED} venue-hall`],
   ]) {
-    test(`${name} keeps main's fixed canvas`, () => {
-      const [, , w, h] = viewBox(draw(source, cls, STORY));
+    test(`${name} takes its height off the chart's box`, () => {
+      const svg = draw(source, cls, STORY);
+      const [, , w, h] = viewBox(svg);
+      assert.ok(svg.hasAttribute('data-form-box'), `${name}: the kernel drew it`);
       assert.equal(w, 320);
-      assert.equal(h, 300, `${name}: the fixed portrait canvas, not a taller one its box cannot hold`);
+      assert.ok(h < plainH, `${name}: ${h} high, under the plain slide's ${plainH}`);
     });
   }
 
   test('`@callout{…}` notes do not count as a source line, but a drawing they make taller than the box takes the fixed canvas', () => {
     const src = `## Revenue grew\n\n${LINE}\n\n\`@callout{[{Peak quarter, for=Q4}]}\``;
-    const [, , w, h] = viewBox(draw(src, 'line', STORY));
-    const fixed = viewBox(draw(src, 'line', STORY, { fixedCanvas: true }));
+    const [, , w, h] = viewBox(draw(src, FIXED, STORY));
+    const fixed = viewBox(draw(src, FIXED, STORY, { fixedCanvas: true }));
     const tallShape = 0.88 / 0.67; // chart-box.js: BOX_FILL over the 9:16 chart box
     assert.ok(h / w <= tallShape * 1.01 || (w === fixed[2] && h === fixed[3]),
       `a noted line keeps the box's shape (${w} x ${h}) or draws as on the fixed canvas (${fixed[2]} x ${fixed[3]})`);
@@ -64,7 +72,7 @@ describe('the tall canvas is only for the header it was measured under', () => {
   test('stacked lead paragraphs keep main\'s fixed canvas', () => {
     const lead = 'Revenue grew in every quarter, and fastest in the fourth, as the launch landed with the enterprise accounts.';
     const src = `## Revenue grew.\n\n${lead}\n\n${lead}\n\n${lead}\n\n${LINE}`;
-    assert.deepEqual(viewBox(draw(src, 'line', STORY)), viewBox(draw(src, 'line', STORY, { fixedCanvas: true })));
+    assert.deepEqual(viewBox(draw(src, FIXED, STORY)), viewBox(draw(src, FIXED, STORY, { fixedCanvas: true })));
   });
 
   // The invariant itself, not a proxy for it: whatever canvas the frame picks, its drawing fits the chart box at a scale
@@ -91,12 +99,16 @@ describe('the tall canvas is only for the header it was measured under', () => {
     }
   }
 
-  test('the fluid runtime\'s check can ask for the fixed canvas', () => {
-    assert.equal(viewBox(draw(`## Revenue grew\n\n${LINE}`, 'line', STORY, { fixedCanvas: true }))[3], 300);
-  });
-
-  test('4:5 keeps its canvas whatever the header', () => {
-    assert.equal(viewBox(draw(`## Revenue grew\n\n${LINE}`, 'line', 0.8))[3], 300);
+  test('a kind on the chart form kernel takes its box from its own header: a source line makes its canvas shorter', () => {
+    const plain = draw(`## Revenue grew\n\n${LINE}`, 'line', STORY);
+    const sourced = draw(`## Revenue grew\n\n${LINE}\n\nSource: finance ledger, FY26.`, 'line', STORY);
+    assert.ok(plain.hasAttribute('data-form-box') && sourced.hasAttribute('data-form-box'), 'the kernel drew both');
+    assert.equal(viewBox(plain)[2], 320);
+    assert.ok(viewBox(sourced)[3] < viewBox(plain)[3], `${viewBox(sourced)[3]} under a source line, ${viewBox(plain)[3]} without`);
+    // The box rides on the drawing, and drawing again in it reproduces the export (the fluid runtime's check).
+    const [bw, bh] = sourced.getAttribute('data-form-box').split(' ').map(Number);
+    const again = draw(`## .\n\n${LINE}`, 'line', STORY, { formBoxPx: [bw, bh] });
+    assert.deepEqual(viewBox(again), viewBox(sourced));
   });
 });
 

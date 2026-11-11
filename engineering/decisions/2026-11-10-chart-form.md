@@ -233,6 +233,14 @@ count a line more than they set, which leaves its chart a little short (`hub-spo
 capacity). Across every deck that draws a kind on the kernel at the four phone sizes, the pages under 11pt fell from 194
 to 140.
 
+**The box rides on the drawing.** The fluid runtime trusts an exported chart only when it can draw it again from
+the bare list (`lib/runtime/chart-redraw.js` `verified`), and the bare list has none of the blocks a phone chart's box
+is estimated from. A drawing the kernel laid out carries its box in page px (`data-form-box="972 1474"`), and the check
+draws in that box (`transformChartSection`'s `opts.formBoxPx`). #3088's rule that a portrait chart under a taller header
+keeps the fixed 320 x 300 canvas (`fitsMeasuredBox`) reached only kinds that are on the kernel now, which take that
+header off their box instead; `test/unit/components/tall-canvas-guard.test.js` pins the kernel's version and keeps the
+rule's invariant (no smaller type than the fixed canvas) for every kind it covered.
+
 **No box shorter than a chart.** The estimate never goes under a third of the body's width (340px). A page whose blocks
 leave less (that deck's p8 at 4:5, a long source line at hall: 72px of body) draws the chart whole at that height and the
 page scales it into what is left, as over capacity; squeezed into the sliver, its names printed over each other. One other
