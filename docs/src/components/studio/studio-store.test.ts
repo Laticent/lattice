@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { writeFrontMatterLine } from '../../lib/front-matter';
 import { DECKS, deckSource } from './decks';
 import { addComment, listComments } from './slide-comments';
+import type { SourceWriteError } from './studio-store';
 import {
 	clearAllDecks,
 	createDeck,
@@ -28,6 +29,7 @@ import {
 	loadSource,
 	metaFor,
 	ON_DEVICE_INSTRUCTIONS_MAX,
+	onSourceWriteError,
 	resolveTitle,
 	retitleSource,
 	type StudioSettings,
@@ -125,6 +127,30 @@ describe('studio-store — deck index', () => {
 });
 
 describe('studio-store — per-deck source', () => {
+	// A full quota used to be swallowed here, so the author's edits were lost without a word
+	// (engineering/decisions/2026-11-11-studio-storage-pointer-records.md §3).
+	it('a refused save says so, keeps the stored text, and names the error', () => {
+		const id = DECKS[0].id;
+		expect(saveSource(id, '# Kept')).toBe(true);
+		const heard: SourceWriteError[] = [];
+		const off = onSourceWriteError((e) => heard.push(e));
+		const setItem = Storage.prototype.setItem;
+		Storage.prototype.setItem = () => {
+			throw new DOMException('full', 'QuotaExceededError');
+		};
+		let ok: boolean;
+		try {
+			ok = saveSource(id, '# Lost');
+		} finally {
+			Storage.prototype.setItem = setItem;
+			off();
+		}
+		expect(ok).toBe(false);
+		expect(heard.map((e) => [e.deckId, (e.error as DOMException).name])).toEqual([[id, 'QuotaExceededError']]);
+		expect(loadSource(id)).toBe('# Kept');
+		expect(loadDeckList().find((d) => d.id === id)?.title, 'the list still names the stored text').toBe('Kept');
+	});
+
 	it('round-trips edited source and overrides the canonical', () => {
 		const id = DECKS[0].id;
 		expect(loadSource(id)).toBeNull();

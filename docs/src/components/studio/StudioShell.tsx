@@ -168,7 +168,7 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, onSourceWriteError, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -2191,7 +2191,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (decksClearedRef.current) return;
 		// A practice deck is never saved: the deck keeps the shared text.
 		if (practiceRef.current) src = practiceRef.current.real;
-		saveSource(id, src);
+		// A refused write (a full quota) leaves the stored source, its sidecar and its title mirror
+		// as they were, still in step with each other; the author hears about it below.
+		if (!saveSource(id, src)) return;
 		// Filo's reload sidecar, in the same synchronous write: the Studio wrote this text through the
 		// open deck's history. Not for another deck (a retired-plugin rewrite, `onRetire`), and not
 		// during a live session: the history did not record those, so they read as outside changes.
@@ -5584,6 +5586,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const full = error instanceof DOMException && error.name === 'QuotaExceededError';
 			notifySticky(full ? "Couldn't save this version: this browser's storage is full." : "Couldn't save this version to this browser.", {
 				description: 'It stays in Version history until you reload. Free space in Workspace → Privacy & Data, then save again.',
+				label: 'OK',
+				onClick: () => {},
+			});
+		});
+	}, []);
+	// The same for the deck itself, which is worse: the edits on screen are not in this browser yet.
+	React.useEffect(() => {
+		let shownAt = Number.NEGATIVE_INFINITY;
+		return onSourceWriteError(({ error }) => {
+			if (Date.now() - shownAt < 60_000) return;
+			shownAt = Date.now();
+			const full = error instanceof DOMException && error.name === 'QuotaExceededError';
+			notifySticky(full ? "Couldn't save your deck: this browser's storage is full." : "Couldn't save your deck to this browser.", {
+				description: 'Your latest edits are on screen but will be lost if you close or reload this tab. Free space in Workspace → Privacy & Data; the Studio saves again on your next edit.',
 				label: 'OK',
 				onClick: () => {},
 			});
