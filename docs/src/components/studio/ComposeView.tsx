@@ -961,9 +961,14 @@ class SlideView {
 			slot.className = 'cs-tblc-slot';
 			this.fmtGroup.replaceChildren(slot);
 			this.hosted = kind;
+			// A slide first activated inside a table or code block still reserves its styles, so the first move out
+			// to a text block does not resize the pill.
+			if (!this.fmtGroup.style.getPropertyValue('--cs-fmt-min')) this.reserveFormatWidth();
 			this.mountIsland?.(slot, this, kind, this.stateful);
-			// The island mounts on React's schedule, so hold the width once it has drawn.
-			requestAnimationFrame(() => this.holdPillWidth());
+			// The island mounts on React's schedule, so hold the width once it has drawn (if the slide is still active).
+			requestAnimationFrame(() => {
+				if (this.dom.classList.contains('cs-slide-active')) this.holdPillWidth();
+			});
 			return;
 		}
 		const { keys, active: activeReg } = applicableRegisters(this.view.state, this.getHeadings?.(), this.getBlocks?.());
@@ -1038,10 +1043,14 @@ class SlideView {
 		const pos = this.getPos();
 		const state = this.view.state;
 		if (pos === undefined || this.locked) return keys;
-		this.node.forEach((_child, offset) => {
-			const inside = pos + 1 + offset + 1;
-			if (inside > state.doc.content.size) return;
-			const probe = state.apply(state.tr.setSelection(Selection.near(state.doc.resolve(inside))));
+		this.node.forEach((child, offset) => {
+			// Search forward from just BEFORE the block for its first text position, and drop a probe that lands past the
+			// block: a block with no text (a trailing comment, a raw HTML block) would otherwise borrow the NEXT slide's
+			// styles (checker, 2026-11-11: a code slide ending in a comment reserved the next slide's eyebrow chip).
+			const start = pos + 1 + offset;
+			const found = Selection.findFrom(state.doc.resolve(start), 1, true);
+			if (!found || found.from >= start + child.nodeSize) return;
+			const probe = state.apply(state.tr.setSelection(found));
 			for (const k of applicableRegisters(probe, this.getHeadings?.(), this.getBlocks?.()).keys) keys.add(k);
 		});
 		return keys;
@@ -3560,12 +3569,16 @@ function ComposeStyles() {
 					   the doors; row two the Format group, whose width the slide reserves (SlideView.reserveFormatWidth),
 					   so the caret moving inside the slide never resizes it. A fixed full width did that too, but left
 					   wide empty margins on most slides (owner, 2026-11-11, on an iPhone). */
-					.cs-sb-pill{display:inline-grid;grid-template-columns:auto auto auto;grid-template-areas:"h d a" "f f f";justify-content:center;justify-items:center;column-gap:3px;row-gap:3px;max-width:calc(100% - 68px);min-width:0}
+					.cs-sb-pill{display:inline-grid;grid-template-columns:auto auto auto;grid-template-areas:"h d a" "f f f";justify-content:center;justify-items:center;column-gap:3px;row-gap:3px;max-width:calc(100% - 68px)}
 					.cs-sb-pill > .cs-sb-actions:first-child{grid-area:h}
 					.cs-sb-pill > .cs-sb-actions:last-child{grid-area:a}
 					.cs-sb-pill > .cs-sb-div:not(.cs-sb-div-hist){grid-area:d;display:block}
 					.cs-sb-pill > .cs-sb-div-hist{display:none}
 					.cs-sb-pill > .cs-sb-format{grid-area:f;justify-content:center;min-height:28px;display:inline-flex}
+					/* Row two stays, empty or not, and so does row one's divider: these out-rank the wide pane's rule
+					   that hides an empty, unreserved Format group and the divider after it. */
+					.cs-sb-pill > .cs-sb-format:empty:not([data-reserved]){display:inline-flex}
+					.cs-sb-pill > .cs-sb-format:empty:not([data-reserved]) + .cs-sb-div:not(.cs-sb-div-hist){display:block}
 				}
 				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */

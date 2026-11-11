@@ -69,3 +69,66 @@ test('@mobile @webkit-phone on a phone the two-row toolbar hugs its buttons rath
 	expect(geometry?.gapLeft ?? 0).toBeGreaterThan(24);
 	expect(geometry?.gapRight ?? 0).toBeGreaterThan(24);
 });
+
+/** Replace the deck through Source, then open Compose on it. */
+async function composeDeck(page: Page, deck: string, last: string): Promise<void> {
+	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
+	await waitForStudioPaint(page);
+	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+	await page.getByLabel('Deck source').click();
+	await page.keyboard.press('ControlOrMeta+a');
+	await page.keyboard.press('Backspace');
+	await page.keyboard.insertText(deck);
+	await expect(page.getByLabel('Deck source')).toContainText(last);
+	await page.getByRole('button', { name: 'Compose — rich editor', exact: true }).first().click();
+	await expect(page.locator('#studio-pane-editor .cs-host .ProseMirror')).toContainText(last);
+}
+
+/** The top of `selector`'s first match once it has held still for two reads. */
+async function settledTop(page: Page, selector: string): Promise<number> {
+	const el = page.locator(selector).first();
+	let last = Number.NaN;
+	await expect
+		.poll(async () => {
+			const now = Math.round((await el.boundingBox())?.y ?? Number.NaN);
+			const settled = now === last;
+			last = now;
+			return settled;
+		})
+		.toBe(true);
+	return last;
+}
+
+// A slide whose blocks offer no style (lists, a table) holds row two of a narrow toolbar empty. The checker found
+// row two collapsing there, so the first tap on a slide and every move into the table pushed the content down.
+const PLAIN = ['<!-- _class: content -->', '', '- alpha item', '- beta item', '', '| A | B |', '|---|---|', '| one | two |', '', '- gamma item', ''].join('\n');
+
+test('@crosswidth @webkit-phone the page holds still on a slide\'s first tap and as the caret enters a table', async ({ page }) => {
+	await composeDeck(page, PLAIN, 'gamma item');
+	const cell = '#studio-pane-editor .ProseMirror td';
+	const item = '#studio-pane-editor .ProseMirror li';
+	await page.locator('#studio-pane-editor .ProseMirror').evaluate((pm) => (pm as HTMLElement).blur());
+	const before = await settledTop(page, cell);
+	await page.locator(item).first().click();
+	await expect(page.locator('#studio-pane-editor .cs-slide-active')).toHaveCount(1);
+	expect(await settledTop(page, cell), 'activating the slide moved its content').toBe(before);
+	await page.locator(cell).first().click();
+	await expect(page.locator('#studio-pane-editor .cs-slide-active .cs-tblc-slot')).toHaveCount(1);
+	expect(await settledTop(page, cell), 'entering the table moved the content').toBe(before);
+	await page.locator(item).nth(2).click();
+	await expect(page.locator('#studio-pane-editor .cs-slide-active .cs-tblc-slot')).toHaveCount(0);
+	expect(await settledTop(page, cell), 'leaving the table moved the content').toBe(before);
+});
+
+// A slide that ends in a block with no text (a comment) must not reserve the NEXT slide's styles: the probe used to
+// step past the comment into slide two's eyebrow line and hold its chips' width as an empty gap.
+const TRAILING = ['- alpha item', '- beta item', '', '<!-- a note -->', '', '---', '', '`EYEBROW`', '', '## Next slide', '', 'A paragraph.', ''].join('\n');
+
+test('@crosswidth @webkit-phone a slide ending in a comment reserves no style from the next slide', async ({ page }) => {
+	await composeDeck(page, TRAILING, 'A paragraph.');
+	await page.locator('#studio-pane-editor .ProseMirror li').first().click();
+	const format = page.locator('#studio-pane-editor .cs-slide-active .cs-sb-format').first();
+	await expect(format).toBeAttached();
+	await expect.poll(() => format.evaluate((f) => (f as HTMLElement).style.getPropertyValue('--cs-fmt-min'))).toBe('0px');
+	await expect(format).not.toHaveAttribute('data-reserved', '');
+});
