@@ -105,7 +105,7 @@ describe('ImagePanel — a background', () => {
 	it('a placement the slide cannot take is refused out loud, and a slide that cannot place shows no control', async () => {
 		const { user } = setup({ src: 'asset:forest', alt: 'A forest' }, undefined, { value: 'none', canPlace: true }, vi.fn(() => false));
 		await user.click(screen.getByRole('radio', { name: 'Placement: Full slide' }));
-		expect(screen.getByRole('alert').textContent).toMatch(/Edit this slide in Markdown/);
+		expect(screen.getByRole('alert').textContent).toMatch(/Edit this slide in Source/);
 		cleanup();
 		setup({ src: 'asset:forest', alt: 'A forest' }, undefined, { value: 'none', canPlace: false });
 		expect(screen.queryByRole('radio', { name: /^Placement:/ })).toBeNull();
