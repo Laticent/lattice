@@ -231,3 +231,28 @@ test('a long title on a tall phone page comes off the chart box line by line', (
   const four = h('Two hurricanes added $210M of claims; reinsurance took back $140M.');
   assert.ok(Math.abs(two - four - (2 * 92) / (972 / 320)) < 1, `${two} vs ${four}`);
 });
+
+test('a crowded quadrant on a short phone box numbers its dots over capacity rather than dropping names', () => {
+  const T = String.fromCharCode(96);
+  const pt = (x, y) => `${T}{${x}, ${y}}${T}`;
+  const lead = 'Five names in one corner, and their dots far enough apart to check the reading. An out-of-order position is still a clear one, so its cost rides the anchor preference and never the collision test.';
+  const deck = `---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: quadrant -->\n\n${T}[{Effort, 0..10}, {Reach, 0..100}]${T}\n\n## Order is worth an anchor. It is never worth a name.\n\n${lead}\n\n` +
+    `- Strategic Bets\n  - Fraud-signal rewrite ${pt(3, 70)}\n- Quick Wins\n  - Weekly signal digest ${pt(8.4, 90)}\n  - Slack intake bot ${pt(7.6, 84)}\n` +
+    `  - Decision-log API ${pt(8.2, 78)}\n  - Scoring model v2 ${pt(7.4, 72)}\n  - Partner API keys ${pt(8.6, 66)}\n- Defer\n  - Quarterly vendor review ${pt(2, 24)}\n- Time Sinks\n  - Bespoke board export ${pt(9, 22)}\n`;
+  const html = createEngine().render(deck).html;
+  assert.match(html, /data-chart-form="(fit|over)" class="quadrant-svg/);
+  assert.doesNotMatch(html, /data-label-drops=/, 'every name prints');
+});
+
+test('a cohort quadrant beside its key names every cohort on the plane, or none', () => {
+  const T = String.fromCharCode(96);
+  const pt = (x, y) => `${T}{${x}, ${y}}${T}`;
+  const deck = `---\ntheme: indaco\nsize: square\n---\n\n<!-- _class: quadrant cohort -->\n\n${T}[{Effort, 0..10}, {Reach, 0..100}]${T}\n\n## Where to put the next dollar — clustered by theme.\n\n` +
+    `- Strategic Bets\n  - Scoring model v2 ${pt(3, 70)}\n  - Per-team calibration ${pt(5, 85)}\n- Quick Wins\n  - Weekly signal brief ${pt(8, 80)}\n  - Snapshot exports ${pt(9, 55)}\n` +
+    `- Defer\n  - Vendor scoping ${pt(2, 30)}\n  - Manual recalibration ${pt(1, 22)}\n- Time Sinks\n  - Custom audit log UI ${pt(7, 18)}\n  - Bespoke board export ${pt(9, 28)}\n`;
+  const html = createEngine().render(deck).html;
+  assert.doesNotMatch(html, /data-label-drops=/, 'no cohort name is reported lost');
+  const onPlane = (html.match(/class="quadrant-cohort-label"/g) || []).length;
+  assert.ok(onPlane === 0 || onPlane === 4, `${onPlane} of 4 cohorts named on the plane`);
+  assert.equal((html.match(/class="chart-key-label"/g) || []).length, 4, 'the key names all four');
+});

@@ -261,7 +261,7 @@ the owner's scaled drawing (§ 10).
 
 | Kind | On the kernel | Notes |
 |---|---|---|
-| bar, quadrant, risk-matrix | yes (pilot) | signed off |
+| bar, quadrant, risk-matrix | yes (pilot) | signed off. Quadrant's numbered form grows its box up to 2.5 times when it is over capacity, as every kind does (1.6 left a short box to drop seven names); a cohort chart beside its key names every cohort on the plane or none |
 | line, scatter, ep-curve | yes | clean on both bars with the generic path alone |
 | bullet | yes | the shared axis band holds its ticks at their role |
 | funnel | yes | fills its box; a narrow band takes its callout marker beside |
