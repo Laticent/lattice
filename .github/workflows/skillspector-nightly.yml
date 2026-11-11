@@ -1,0 +1,146 @@
+name: SkillSpector nightly (agent skill security scan)
+
+# NIGHTLY security scan of every agent skill we ship or load, with NVIDIA SkillSpector
+# (github.com/NVIDIA/SkillSpector, Apache-2.0). It reads each skill BEFORE an agent would, and
+# flags prompt injection, data exfiltration, privilege escalation, unpinned installs, MCP tool
+# poisoning, hidden Unicode and similar. It never runs the skill.
+#
+# WHAT IT SCANS, and why the published copy:
+#   - `.claude/skills/` on main: the skills our own agent sessions load.
+#   - the `dist-kits` branch's `agent/` folder: the agent kit as users DOWNLOAD it. That branch
+#     is an orphan that publish-kits.yml force-pushes outside PR review, so scanning the bytes
+#     users receive also catches anything that reached it without passing through `main`.
+# tools/scan-skills.sh does the work; its header is the long form.
+#
+# STATIC ONLY (--no-llm): nothing leaves the runner, no API key, $0. ~4 min.
+# Findings a person reviewed and excused live in .github/skillspector-baseline.yaml, each with
+# its reason; ANY other finding, at any severity, files the rolling issue.
+#
+# PINNED SCANNER. SKILLSPECTOR_REF is a commit, not a branch: a new scanner version brings new
+# rules, and the baseline was reviewed against this one. Bump it in a PR that re-runs
+# `npm run scan:skills` and reviews whatever it newly finds. Dependabot cannot see this pin.
+#
+# Report-only: stays green and files ONE rolling issue, like the rest of the nightly family.
+# It never CLOSES that issue: adding a baseline rule turns a night green without fixing
+# anything, so a green night is not proof (test/unit/tools/nightly-alarm-contract.test.js).
+
+on:
+  schedule:
+    - cron: '29 6 * * *' # daily 06:29 UTC, after model-guard (06:19)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write # open / append the rolling skillspector issue
+  security-events: write # upload SARIF to the repository's code scanning tab
+
+concurrency:
+  group: skillspector-nightly
+  cancel-in-progress: false
+
+env:
+  SKILLSPECTOR_REF: 54824463814a0be01360792523ec7245a69190fc # v2.13.4
+
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: dist-kits
+          path: kits
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # pipx ships on the runner image, and ubuntu-24.04's python3 is 3.12 (SkillSpector needs 3.12+).
+      - name: Install SkillSpector (pinned)
+        run: |
+          set -euo pipefail
+          pipx install "git+https://github.com/NVIDIA/skillspector.git@${SKILLSPECTOR_REF}"
+          skillspector --version
+
+      - name: Scan every skill
+        id: scan
+        run: |
+          set -uo pipefail
+          OUT="$GITHUB_WORKSPACE/skillspector.out"
+          tools/scan-skills.sh "$GITHUB_WORKSPACE/kits/agent" \
+            --md "$GITHUB_WORKSPACE/skillspector.md" \
+            --sarif-dir "$GITHUB_WORKSPACE/sarif" | tee "$OUT"
+          RC=${PIPESTATUS[0]}
+          # 0 clean · 1 an unexcused finding · 2 the scan could not run. Both 1 and 2 file the
+          # issue: a night that scanned nothing is not a clean night.
+          if [ "$RC" -eq 0 ]; then echo "found=false" >> "$GITHUB_OUTPUT"; else echo "found=true" >> "$GITHUB_OUTPUT"; fi
+          if [ "$RC" -ge 2 ]; then
+            echo "" >> "$GITHUB_WORKSPACE/skillspector.md"
+            echo "**The scan did not complete (exit $RC)**, so tonight proves nothing either way. See the run log." >> "$GITHUB_WORKSPACE/skillspector.md"
+          fi
+          TARGETS=$(grep -oE '^targets=[0-9]+' "$OUT" | tail -n 1 | cut -d= -f2 || true)
+          echo "targets=${TARGETS:-0}" >> "$GITHUB_OUTPUT"
+
+      - name: Job summary
+        if: always()
+        run: cat "$GITHUB_WORKSPACE/skillspector.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      # After the verdict, so a failed upload (code scanning off for the repo) changes nothing.
+      - name: Upload SARIF to code scanning
+        if: always() && hashFiles('sarif/*.sarif') != ''
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sarif
+          category: skillspector
+
+      # `always() &&`: an `if:` with no status function is skipped when an earlier step failed,
+      # after `scan` has already recorded `found` (nightly-alarm-contract.test.js).
+      - name: Open / append skillspector issue
+        if: always() && steps.scan.outputs.found == 'true' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          MARKER='[skillspector]'
+          BODY="$GITHUB_WORKSPACE/skillspector.md"
+          {
+            echo ""
+            echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} · commit \`${{ github.sha }}\`._"
+          } >> "$BODY"
+          # Find the rolling issue by its title MARKER and the bot author, client-side
+          # (modulepreload-coverage-nightly.yml has the long form). THE REPORT STEP BELOW MUST
+          # USE THE IDENTICAL LOOKUP.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
+            gh issue comment "$ISSUE" --body-file "$BODY"
+            echo "Appended to issue #$ISSUE"
+          else
+            gh issue create \
+              --title "$MARKER an agent skill has a security finding the baseline does not excuse" \
+              --label "area:infra" --label "type:fix" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi
+
+      # A measured clean night COMMENTS and leaves the thread open: a new baseline rule can turn a
+      # night green without fixing anything, so a person decides whether it is resolved.
+      - name: Report a clean scan on the rolling issue
+        if: always() && steps.scan.outcome == 'success' && steps.scan.outputs.found == 'false' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          MARKER='[skillspector]'
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
+          {
+            echo "Scanned clean on \`main@${{ github.sha }}\`: every skill passed with no finding outside the baseline."
+            echo ""
+            echo "**Left open deliberately.** A new rule in \`.github/skillspector-baseline.yaml\` also turns a night green, so check whether the skill was fixed or the finding excused, then close by hand."
+            echo ""
+            echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$GITHUB_WORKSPACE/stand-down.md"
+          gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true

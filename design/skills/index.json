@@ -161,7 +161,7 @@
       "description": "Use when creating a new palette (`themes/<name>/<name>.css`): the token contract, AA contrast, categorical colors and both modes.",
       "kind": "make",
       "studio": true,
-      "tokens": 5832
+      "tokens": 5835
     }
   ]
 }

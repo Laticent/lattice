@@ -251,7 +251,7 @@ reads, so it takes the AA text floor, not the 3:1 graphical one; an exemption fo
 "deliberately quiet" tokens was tried and removed, because de-emphasis is about
 where a token sits *relative to the code* and the floor is about whether it can be
 read at all. Comment and punctuation must also not **collapse** into each other
-(OKLab ΔE ≥ 0.010, the same anti-collapse floor `--cat-*` uses). Solve a failing
+(OKLab distance deltaE ≥ 0.010, the same anti-collapse floor `--cat-*` uses). Solve a failing
 value with `ensureContrast` (`lib/core/color.js`) — OKLCH, hue and chroma held —
 rather than by eye. Also define **all 12**
 `--cat-N-fill` / `--cat-N-mark` pairs (the skeleton shows only cat-1); `--text-display`,

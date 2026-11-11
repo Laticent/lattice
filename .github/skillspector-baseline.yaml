@@ -1,0 +1,62 @@
+# SkillSpector baseline: findings a person READ and judged harmless.
+#
+# Read by tools/scan-skills.sh (and so by .github/workflows/skillspector-nightly.yml).
+# Any finding NOT matched here makes the nightly file its rolling issue.
+#
+# RULES, NOT FINGERPRINTS. SkillSpector's `fingerprints:` hash the scanner version and the
+# whole file text, so editing a skill or bumping the scanner would bring every suppressed
+# finding back. A rule matches on rule id + path glob + message glob and survives both.
+# Keep every rule NARROW: the scanner sees the matched text in `message`, so a rule names
+# the exact phrase it excuses, never a whole category. Every rule carries the reason a
+# reviewer accepted it. Adding a rule is a PR-reviewed change, like a SANCTIONED_* entry.
+#
+# Syntax: https://github.com/NVIDIA/SkillSpector/blob/main/docs/SUPPRESSION.md
+version: 2
+rules:
+  # MCP rug pull (RP1): `npx lattice …` with no @version. Our skills tell agents to run
+  # OUR OWN CLI. Pinning a version in ~70 lines of teaching prose would go stale on
+  # every release and point users at old builds. Accepted 2026-11-11 by the owner.
+  # The quoted names keep this rule from excusing a lookalike (`npx lattice-x`).
+  - id: "RP1"
+    message: "*'npx lattice'*"
+    reason: "Our own CLI; an unpinned npx is the intended install path (owner decision 2026-11-11)"
+  - id: "RP1"
+    message: "*'npx @laticent/lattice'*"
+    reason: "Our own CLI under its scoped name; same decision as 'npx lattice'"
+
+  # Anti-refusal (AR2) on two sentences that describe BUILD OUTPUT, not the agent's voice:
+  #   cli.md     "the render prints no warning, and the PDF has selectable text"
+  #   import.md  "**Lint-clean**: no errors, no warnings."
+  # Scoped to the one file each, so the same phrase anywhere else still fires.
+  - id: "AR2"
+    path: "*cli.md"
+    message: "no warning"
+    reason: "Describes the renderer's output ('prints no warning'), not an instruction to hide caveats"
+  - id: "AR2"
+    path: "*import.md"
+    message: "no warnings"
+    reason: "Describes a lint-clean result ('no errors, no warnings'), not an instruction to hide caveats"
+
+  # YARA tool-poisoning (YR4) on a slide's alt-text comment, `<!-- describe: … -->`, which
+  # is Lattice's accessibility syntax (lib/base/base.docs.md). Scoped to that file and
+  # that syntax.
+  - id: "YR4"
+    path: "*accessibility-review.md"
+    message: "*<!-- describe:*"
+    reason: "Lattice's alt-text comment syntax, quoted as a teaching example"
+
+  # Analysis evasion (AE1) is a COVERAGE note: the scanner's bounded parser could not
+  # fully resolve one expression in the referenced file. Its own remediation reads
+  # "incomplete analysis is not proof of malicious evasion". Scoped to the one reference.
+  - id: "AE1"
+    path: "*SKILL.md"
+    message: "*references/writing-a-deck.md*"
+    reason: "Scanner parse limit on a plain-Markdown reference, not evasion"
+  # pick-a-layout.md is the generated 80-row component catalog (from component manifests).
+  # The scanner's obfuscated-text check gives up on it ("could not be fully evaluated").
+  # Bisected 2026-11-11: no single passage trips it, only the full table, and the file has
+  # no invisible, bidi or non-Latin characters and no encoded blobs. A coverage note, not a hit.
+  - id: "AE1"
+    path: "*SKILL.md"
+    message: "*references/pick-a-layout.md*"
+    reason: "Scanner gives up on the generated 80-row catalog table; checked by hand, nothing hidden"

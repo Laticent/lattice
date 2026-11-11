@@ -1,0 +1,2 @@
+- **Every agent skill we ship is now scanned nightly for security problems** with NVIDIA SkillSpector: the 19 skills in `.claude/skills/` and the agent kit exactly as users download it from the `dist-kits` branch. A finding the reviewed baseline does not excuse opens a tracking issue and lands in the repository's code scanning tab. Run it locally with `npm run scan:skills`.
+- The `lattice-theme` skill writes "deltaE" for the Greek "ΔE", the one mixed-script character the scanner flagged across every skill.
