@@ -746,6 +746,35 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 	 * @param {number} seq the ownership sequence at schedule time
 	 * @param {number} waited
 	 */
+	// A CLOSED WINDOW THE POLL FOUND BEFORE ITS GOODBYE. A hand-close posts its goodbye from the dying document and
+	// THEN the flag flips, but the two reach this window by different routes: on a loaded machine the 2 s poll can tick
+	// after the flag flipped and before the goodbye's `message` task ran. Announcing then told the presenter "Stage
+	// disconnected" about the window they had just closed (stage-window.spec.ts, the hand-close cell on WebKit, 2 runs
+	// in 160 under four workers). So the console reverts at once, as before, and the SENTENCE waits for a goodbye from
+	// that window: one arriving means a deliberate close, and nothing is said. None by the guard, and it is a
+	// disappearance nobody asked for, announced as before. Firefox sends no goodbye at all (§13), so there a hand-close
+	// is still announced, five seconds later.
+	const GOODBYE_GRACE_MS = 5_000;
+	let cancelGoodbye = /** @type {(() => void) | null} */ (null);
+	/** @param {Window | null} w @param {number} seq */
+	function awaitGoodbye(w, seq) {
+		const onBye = (/** @type {MessageEvent} */ e) => {
+			const d = e.data;
+			if (d && typeof d === 'object' && d.stage === 'closed' && (e.source === w || d.tok === token)) finish(false);
+		};
+		const timer = window.setTimeout(() => finish(true), GOODBYE_GRACE_MS);
+		const finish = (/** @type {boolean} */ announce) => {
+			window.clearTimeout(timer);
+			window.removeEventListener('message', onBye);
+			if (cancelGoodbye === stop) cancelGoodbye = null;
+			if (announce && seq === ownSeq) onLost?.('gone');
+		};
+		const stop = () => finish(false);
+		cancelGoodbye?.();
+		cancelGoodbye = stop;
+		window.addEventListener('message', onBye);
+	}
+
 	function announceUnlessClosed(w, seq, waited = 0) {
 		if (!w || seq !== ownSeq) return; // a new Stage came up — this answer is stale
 		try {
@@ -871,6 +900,8 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		ready = false;
 		written = '';
 		ownSeq += 1;
+		// A goodbye still awaited belongs to a window already let go of; whatever comes next supersedes it.
+		cancelGoodbye?.();
 		// Cancel any classification still walking. It belongs to a window this controller has
 		// already let go of, and the beat path re-schedules a fresh one immediately after this
 		// returns when there is something new to classify.
@@ -971,7 +1002,8 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 			} catch {
 				navigated = false;
 			}
-			onLost?.(navigated ? 'navigated' : 'gone');
+			if (navigated) onLost?.('navigated');
+			else awaitGoodbye(w, ownSeq);
 		}, 2000);
 		autoPlaceStage(win)
 			.then(async (placed) => {

@@ -902,6 +902,12 @@ open and holds a document that is not ours (no `#latt-stage` / `#latt-holding`),
 A window still open on our own document is a hand-close whose flag is late, and it gets until a 10s hang guard
 (`CLOSED_HANG_MS`) to flip; past that it is reported. A navigation is still announced at 600ms, so the
 re-open race below is unchanged.
+
+The liveness poll had the same race from the other side: a hand-close posts its goodbye and then its flag flips,
+and on a loaded machine the 2s poll could tick between the two and announce `'gone'` ("Stage disconnected"). The
+poll still reverts the console at once, but a window it finds CLOSED is now announced only if no goodbye from it
+arrives within `GOODBYE_GRACE_MS` (5s). Firefox sends no goodbye, so a hand-close there is announced five
+seconds later instead of at once; the defect noted below is unchanged.
 **And the headline cell is now DRIVEN on both** — it carries `@webkit-tablet`, so "a Stage the
 presenter closes by hand says nothing" is a real-surface result on two engines rather than a
 Chromium result plus a timing argument. Firefox is a different finding entirely, and it is not

@@ -499,10 +499,32 @@ describe('stage-window — createStageController', () => {
 
 		win.closed = true; // gone, and it never said so
 		await vi.advanceTimersByTimeAsync(2500);
+		// The console lets go at once; the sentence waits for a goodbye that may still be on its way.
+		expect(ctl.isOpen()).toBe(false);
+		expect(onLost, 'announced before a late goodbye could arrive').not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(5000);
 		expect(onLost).toHaveBeenCalledTimes(1);
 		expect(onLost, 'a beatless disappearance is a death, not a navigation').toHaveBeenCalledWith('gone');
-		expect(ctl.isOpen()).toBe(false);
+		expect(vi.getTimerCount() <= 1, 'only the next liveness interval, if any, may remain').toBe(true);
 		vi.useRealTimers();
+	});
+
+	it('stays silent when the poll finds a hand-closed window BEFORE its goodbye lands', async () => {
+		// A loaded machine: the flag flipped and the 2 s poll ticked before the goodbye's message task ran. The goodbye
+		// arriving after the poll is still a deliberate close (e2e stage-window.spec.ts, the hand-close cell on WebKit).
+		vi.useFakeTimers();
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+		win.closed = true;
+		await vi.advanceTimersByTimeAsync(2100); // the poll has torn down
+		expect(ctl.isOpen()).toBe(false);
+		postFromStage({ stage: 'closed', tok: ctl.token }, win); // the goodbye, late
+		await vi.advanceTimersByTimeAsync(10_000);
+		expect(onLost, 'a goodbye after the poll is still a deliberate close').not.toHaveBeenCalled();
 	});
 
 	it('cancels a classification still walking, rather than leaving it to time out', async () => {

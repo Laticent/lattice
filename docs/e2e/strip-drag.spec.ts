@@ -168,8 +168,9 @@ test.describe('@parity with a finger', () => {
 		for (let i = 1; i <= 8; i++) await t('touchMove', { x: q.x - i * 12, y: q.y });
 		// While the finger is still down: nothing lifted and no ghost follows it. Read after the lift, a pill dragged by
 		// mistake had already been dropped back, so a strip that treated the finger like a mouse passed every check.
-		await expect(page.locator('[data-lifted]')).toHaveCount(0);
-		await expect(page.locator('[data-strip-ghost]')).toHaveCount(0);
+		// Read ONCE, not retried: a retrying `toHaveCount(0)` would wait for a lifted pill to be dropped and then pass.
+		// Each move is dispatched and handled before its CDP call returns, so this reads the gesture as it stands.
+		expect(await page.locator('[data-lifted], [data-strip-ghost]').count(), 'the swipe lifted a pill').toBe(0);
 		await t('touchEnd');
 		// The swipe (leftward, so the strip has somewhere to go) scrolled it, since a finger that moves before the hold is
 		// a scroll, and lifted nothing.
