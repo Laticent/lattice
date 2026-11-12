@@ -1,15 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { expect, gotoStudio, railButtons, setEditorContent, shareExport, test, toastText } from '../studio-fixture';
+import { expect, gotoStudio, LIVE_PREVIEW, railButtons, setEditorContent, shareExport, test } from '../studio-fixture';
 
-// Journey: chart deck → PDF. Stylesheet-styled chart SVGs (radar, donut) are the
-// export rasterizer's blind spot: html-to-image inlines computed styles onto
-// HTMLElements ONLY, so a nested SVGElement clone keeps just classes — fills
-// fell to SVG-default black and the CSS-sized root rescaled (the black-pentagon
-// PDFs found on-device, jargon-gallery export). flattenChartSvgs bakes computed
-// paint/text inline in the capture frame before rasterization; this journey
-// pins BOTH the outcome (a real download) and the mechanism (the capture
-// frame's chart polygon carries a baked non-black inline fill).
+// Journey: chart deck → export. Stylesheet-styled chart SVGs (radar, donut) were the
+// old rasterizer's blind spot: html-to-image copied computed styles onto HTML elements
+// ONLY, so a nested SVG kept just its classes, its fills fell to SVG-default black and
+// the CSS-sized root rescaled (the black-pentagon PDFs found on-device). A bake step,
+// `flattenChartSvgs`, inlined the styles before each shot. The slide camera
+// (lib/core/slide-camera.mjs) draws a slide WITH the page's stylesheet, so the bake was
+// retired (2026-11-12, owner's D2 on #3148). The oracle is therefore the OUTCOME, read
+// from the exported pictures themselves: each chart's own box is drawn, not black.
 test.describe.configure({ timeout: 120_000 });
 
 // The committed capture-sensitive coverage fixture (chart SVGs, Mermaid, ribbon
@@ -18,49 +18,88 @@ test.describe.configure({ timeout: 120_000 });
 const FIXTURE = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..', 'test', 'fixtures', 'export-coverage-deck.md');
 const DECK = fs.readFileSync(FIXTURE, 'utf8');
 const SLIDES = (DECK.match(/<!-- _class:/g) || []).length; // every fixture slide declares a class
+// Each slide's first heading, from the source: what tells one slide in the live preview from another.
+const HEADINGS = DECK.replace(/^---\n[\s\S]*?\n---\n/, '')
+	.split(/\n---\n/)
+	.map((slide) => (slide.match(/^#{1,6}\s+(.+)$/m)?.[1] ?? '').replace(/[*_`]/g, '').trim());
 
-test('a chart deck exports to PDF with styled (non-black) chart SVGs', async ({ page }) => {
+test('every exported slide picture looks like the same slide on screen', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
 	await expect(railButtons(page)).toHaveCount(SLIDES);
+	const { decode } = await import('fast-png');
+	// A picture shrunk to 160x90 by averaging, in RGB: fine enough to see a chart lose its paint, its size or its
+	// labels, coarse enough that the camera's scale and anti-aliasing do not count.
+	const W = 160;
+	const H = 90;
+	const shrink = (png: Uint8Array) => {
+		const img = decode(png);
+		const ch = img.channels;
+		const out = new Float64Array(W * H * 3);
+		const n = new Float64Array(W * H);
+		for (let y = 0; y < img.height; y++) {
+			for (let x = 0; x < img.width; x++) {
+				const o = (y * img.width + x) * ch;
+				const c = Math.min(H - 1, Math.floor((y * H) / img.height)) * W + Math.min(W - 1, Math.floor((x * W) / img.width));
+				for (let k = 0; k < 3; k++) out[c * 3 + k] += img.data[o + k];
+				n[c]++;
+			}
+		}
+		for (let c = 0; c < W * H; c++) for (let k = 0; k < 3; k++) out[c * 3 + k] /= n[c] || 1;
+		return out;
+	};
+	const distance = (a: Float64Array, b: Float64Array) => {
+		let d = 0;
+		for (let i = 0; i < a.length; i++) d += Math.abs(a[i] - b[i]);
+		return d / a.length;
+	};
+	// Every slide as the reader sees it in the live preview (it shows the active slide).
+	const live: Float64Array[] = [];
+	for (let i = 0; i < SLIDES; i++) {
+		await railButtons(page).nth(i).click();
+		const sec = page.frameLocator(LIVE_PREVIEW).locator('.lattice section').first();
+		// Wait for the preview to SHOW slide i (it switches after the click; a `silent` title slide carries no page
+		// number, so its heading is the mark), then for its content to stop changing
+		// (a diagram draws after the slide lands): two equal reads in a row, polled, never a fixed sleep (#32).
+		await expect(sec).toContainText(HEADINGS[i]);
+		let last = '';
+		await expect
+			.poll(async () => {
+				const now = await sec.evaluate((el) => `${el.innerHTML.length}:${el.querySelectorAll('svg *').length}:${document.fonts.status}`);
+				const settled = now === last;
+				last = now;
+				return settled;
+			}, { intervals: [250] })
+			.toBe(true);
+		live.push(shrink(new Uint8Array(await sec.screenshot({ animations: 'disabled' }))));
+	}
+
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	await expect(page.getByRole('dialog')).toBeVisible();
-
-	// Probe the throwaway capture frame while the export runs. Discriminators
-	// chosen to flip on the real regression (verified against the pre-fix
-	// build): (a) flattened chart <text> carries a baked inline font-size —
-	// unflattened text has none (its size lived in the stylesheet, which the
-	// html-to-image clone drops); (b) no gradient <stop> may still carry a raw
-	// var() in its inline stop-color — flatten resolves them to literal rgb.
-	const flattenProbe = page.waitForFunction(() => {
-		const f = document.querySelector('[data-lattice-export="capture"] iframe') as HTMLIFrameElement | null;
-		const d = f?.contentDocument;
-		const charts = d ? Array.from(d.querySelectorAll('section .radar-figure svg, section.piechart svg, section .chart-frame svg')) : [];
-		const texts = charts.flatMap((c) => Array.from(c.querySelectorAll('text')));
-		if (!texts.length) return null; // capture frame not up yet — keep polling
-		const sizedTexts = texts.filter((t) => (t as SVGElement).style?.fontSize);
-		const rawVarStops = charts.flatMap((c) => Array.from(c.querySelectorAll('stop')))
-			.filter((st) => /var\(/.test((st as SVGElement).getAttribute('style') || ''));
-		// Truthy ONLY once fully flattened — the probe may fire between frame
-		// load and flattenChartSvgs, so an intermediate state keeps polling. On
-		// regression (flatten never runs) this times out, failing the test.
-		if (sizedTexts.length !== texts.length || rawVarStops.length) return null;
-		return `sizedText=${sizedTexts.length}/${texts.length} rawVarStops=0`;
-		// THREE-arg form on purpose. `waitForFunction(fn, options)` binds that object to `arg`,
-		// not to options — so the 60s here was silently ignored and the probe ran on the 15s
-		// `actionTimeout` while the export it watches is budgeted 60s. It was visible in a
-		// mutation run as "waitForFunction: Timeout 15000ms exceeded"; a slow-but-correct
-		// export would have flaked the same way.
-	}, undefined, { timeout: 60_000 });
-
-	const download = page.waitForEvent('download', { timeout: 60_000 });
-	await shareExport(page, 'pdf');
-	await flattenProbe; // resolves only when the capture frame's charts are baked
-	expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
-	await expect(toastText(page)).toContainText(/PDF ready( \([^)]+\))?\./);
+	const download = page.waitForEvent('download', { timeout: 120_000 });
+	await shareExport(page, 'images');
+	const zip = await (await import('jszip')).default.loadAsync(fs.readFileSync(await (await download).path()));
+	const slidePng = (n: number) => Object.keys(zip.files).find((f) => new RegExp(`/slides/[^/]*-0*${n}\\.png$`).test(f));
+	const exported: Float64Array[] = [];
+	for (let n = 1; n <= SLIDES; n++) {
+		const name = slidePng(n);
+		expect(name, `slide ${n} is in the image set`).toBeTruthy();
+		exported.push(shrink(await zip.files[name as string].async('uint8array')));
+	}
+	const report: string[] = [];
+	for (let i = 0; i < SLIDES; i++) {
+		const own = distance(exported[i], live[i]);
+		const nearestOther = Math.min(...live.map((l, j) => (j === i ? Number.POSITIVE_INFINITY : distance(exported[i], l))));
+		report.push(`slide ${i + 1}: ${own.toFixed(2)} from itself, ${nearestOther.toFixed(2)} from the nearest other slide`);
+		// The picture is the slide on screen: a chart drawn black, unstyled, rescaled or missing moves this far past it.
+		expect(own, report.join('\n')).toBeLessThan(6);
+		// And the comparison can tell slides apart, so a pass above means something: the oracle's own arm.
+		expect(nearestOther, report.join('\n')).toBeGreaterThan(own * 2);
+	}
+	test.info().annotations.push({ type: 'distances', description: report.join('; ') });
 });
 
-// The SAME bake, through the browser half of the export. The CLI path
+// The chart bake that remains: the standalone `.svg` files the image set extracts. The CLI path
 // (`tools/export-chart-svg.js`) is measured on its own exported files, but the
 // Studio reaches `flattenSvgStyles` from four other call sites and only some of
 // them ask for token definitions — so the CLI's artifact says nothing about
@@ -111,91 +150,4 @@ test('a standalone chart SVG in the image set defines the tokens its paints refe
 		withTokenRule++;
 	}
 	expect(withTokenRule, 'at least one extracted chart carries token references').toBeGreaterThan(0);
-});
-
-// The RASTERIZER half of the same bake — the path a user's PDF and PPTX actually
-// come down. The journey above pins the `.svg` FILE exporter, and the two are not
-// the same claim: the file path calls `finalizeStandaloneSvg`, which writes the
-// definitions into a `<style>` rule. Nothing finalizes on the rasterizer path,
-// because there is no file — so for as long as it passed no options at all, every
-// paint the bake left as `var(--token)` reached html-to-image undefined.
-//
-// Why undefined there and not in the live frame: html-to-image deep-clones an
-// `<svg>` root (`cloneSingleNode` → `node.cloneNode(isSVGElement(node))`) and then
-// `cloneChildren` returns early on it, so not one descendant ever gets a
-// computed-style copy. Descendants arrive carrying exactly the inline style the bake
-// wrote, into a detached document with no deck stylesheet. `var()` resolves to
-// nothing, `fill` falls to its SVG initial, and the initial is BLACK — 47 of 62
-// paints on a flattened heatmap (#2210).
-//
-// The oracle is the CAPTURE FRAME rather than the downloaded PDF: the defect is
-// exactly "a descendant names a token its root does not define", which is a DOM fact
-// available before rasterization and an ink-color fact afterwards. Reading it here
-// names the token that would have gone black instead of reporting a dark pixel and
-// leaving the reader to guess which chart it came from. The downloaded file is still
-// asserted — an export that never completes must not pass this.
-test('a flattened chart defines, on its own root, every token its paints still name', async ({ page }) => {
-	await gotoStudio(page);
-	await setEditorContent(page, DECK);
-	await expect(railButtons(page)).toHaveCount(SLIDES);
-	await page.getByRole('button', { name: 'Share', exact: true }).click();
-	await expect(page.getByRole('dialog')).toBeVisible();
-
-	// TWO QUESTIONS, and conflating them is a race. "Has the bake finished?" is what
-	// the poll waits on; "did it define what it referenced?" is what the assertion
-	// reads. An earlier cut polled on the SECOND — resolve only when no token is
-	// undefined — which passed, but could only ever fail as a bare timeout with the
-	// token names it had computed thrown away. Inverting it to resolve immediately
-	// then caught `flattenChartSvgs` mid-walk, reporting charts it had not reached
-	// yet: it replaces roots one at a time, so "no definitions" and "not baked yet"
-	// look identical from outside.
-	//
-	// The discriminator is POSITIVE and per-root: `flattenChartSvgs` pins an inline
-	// `width` on every clone it swaps in (it has to — the style-less serialization
-	// would otherwise rescale the viewBox). A root without one has not been through
-	// the bake. So the poll waits for every candidate to carry one, and only the
-	// complete state is ever read as a verdict.
-	const tokenProbe = page.waitForFunction(() => {
-		const f = document.querySelector('[data-lattice-export="capture"] iframe') as HTMLIFrameElement | null;
-		const d = f?.contentDocument;
-		if (!d) return null;
-		// Only the roots this bake actually touches: self-styled SVGs (Mermaid,
-		// function-plot) are skipped by flattenChartSvgs and carry their own <style>.
-		const roots = Array.from(d.querySelectorAll('section svg')).filter((sv) => !sv.querySelector('style'));
-		if (!roots.length) return null; // capture frame not up yet — keep polling
-		// A root the bake SKIPPED never gets a width, and two paths skip on purpose:
-		// the per-svg `catch` that leaves one vector-unstyled rather than failing the
-		// export, and the `if (!w || !h) continue` for a zero-box svg. Waiting on
-		// `every` would hang on those forever and end as the bare timeout this probe
-		// exists to avoid. Wait for the bake to have REACHED a steady state instead:
-		// a non-zero baked count that has stopped growing between polls.
-		const baked = roots.filter((r) => (r as SVGElement).style?.width);
-		const w = window as unknown as { __bakedSeen?: number };
-		if (!baked.length) return null;
-		if (w.__bakedSeen !== baked.length) { w.__bakedSeen = baked.length; return null; }
-		let referencing = 0;
-		const undefinedOn: string[] = [];
-		for (const root of baked) {
-			const named = new Set<string>();
-			for (const el of Array.from(root.querySelectorAll('[style]'))) {
-				for (const m of ((el as SVGElement).getAttribute('style') || '').matchAll(/var\(\s*(--[a-zA-Z0-9-]+)/g)) named.add(m[1]);
-			}
-			if (!named.size) continue;
-			referencing++;
-			const own = (root as SVGElement).getAttribute('style') || '';
-			for (const t of named) if (!own.includes(`${t}:`)) undefinedOn.push(t);
-		}
-		if (!referencing) return null;
-		return { roots: roots.length, baked: baked.length, referencing, undefinedOn };
-	}, undefined, { timeout: 60_000 });
-
-	const download = page.waitForEvent('download', { timeout: 60_000 });
-	await shareExport(page, 'pdf');
-	// `waitForFunction` only ever resolves on a truthy value, so the object above is
-	// always present here; the cast is for the checker, not for the runtime.
-	const verdict = (await (await tokenProbe).jsonValue()) as { roots: number; baked: number; referencing: number; undefinedOn: string[] };
-	expect(verdict.undefinedOn,
-		`flattened charts reference tokens their own root does not define — each of these paints black in the export: ${verdict.undefinedOn.join(', ')}`)
-		.toEqual([]);
-	expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
 });
