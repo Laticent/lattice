@@ -15,6 +15,8 @@ const { refusePluginCode, workerScript, PLUGIN_DATA_CONTRIBUTIONS, pluginConsent
 const { ENGINE_CLAIMS, untrustedCodePackages } = require('../../../lib/cli/code-door.js');
 const { codeDigest, pluginDigest, isTrusted, grantTrust } = require('../../../lib/packages/trust.js');
 const crypto = require('node:crypto');
+const { charReads } = require('../../helpers/work-count');
+const { assertLinearRegexes, normalKey } = require('../../helpers/regex-trace');
 const engine = require('../../../lib/engine');
 
 const pre = (lang, text) => `<pre><code class="language-${lang}">${text}</code></pre>`;
@@ -61,14 +63,20 @@ describe('finding a fence in the engine’s HTML', () => {
   });
 
   test('it is linear: many fences and a long run of unclosed <pre><code are both fast', () => {
-    const many = pre('gantt', 'row\n').repeat(20000);
-    let t = Date.now();
-    assert.equal(fenceBlocks(many, names('gantt')).length, 20000);
-    assert.ok(Date.now() - t < 2000, `20,000 fences took ${Date.now() - t} ms`);
-    const hostile = '<pre><code class="language-gantt">'.repeat(20000);
-    t = Date.now();
-    assert.deepEqual(fenceBlocks(hostile, names('gantt')), []);
-    assert.ok(Date.now() - t < 2000, `20,000 unclosed openers took ${Date.now() - t} ms`);
+    // Work, not milliseconds (HARD RULE #32): every regex the scan runs is linear, and it touches each character about
+    // four times (charCodeAt, copies, searches). A scan that looked for each opener's close from that opener reads
+    // thousands per character on the unclosed run.
+    const allow = {
+      [normalKey('<(\\/?)([a-zA-Z][a-zA-Z0-9-]*)', 'y')]: "@laticent/markup's tag reader: sticky at one `<`, a name of one class",
+      [normalKey('[>"\']', 'g')]: "@laticent/markup's tag-end search: one character class",
+    };
+    const linear = (html, what) => {
+      const { result, reads, scanned } = charReads(() => assertLinearRegexes(() => fenceBlocks(html, names('gantt')), { allow }).result);
+      assert.ok(reads + scanned <= 16 * html.length, `${what}: read ${reads + scanned} characters for ${html.length}`);
+      return result;
+    };
+    assert.equal(linear(pre('gantt', 'row\n').repeat(20000), '20,000 fences').length, 20000);
+    assert.deepEqual(linear('<pre><code class="language-gantt">'.repeat(20000), '20,000 unclosed openers'), []);
   });
 
   test('decodeFenceBody reads `&amp;lt;` as the author’s `&lt;`', () => {
@@ -378,12 +386,16 @@ describe('a deck that asks for too much', () => {
 
   test('claiming and splicing thousands of fences in one slide is linear, not quadratic', () => {
     const html = many(20000);
-    const t0 = Date.now();
-    const found = fenceBlocks(html, new Set(['gantt']));
-    const claims = found.map((b) => ({ i: 0, start: b.start, end: b.end }));
-    const out = replaceFences(`<section>${html.slice(9, -10)}</section>`, claims.map((c) => ({ ...c, i: 0 })), claims.map(() => '<x/>'));
+    const section = `<section>${html.slice(9, -10)}</section>`;
+    // Work, not milliseconds (HARD RULE #32): the characters read, copied and searched, which a splice that rebuilt the
+    // slide at every fence (it took 50 s) multiplies by the fence count.
+    const { result: out, reads, scanned } = charReads(() => {
+      const found = fenceBlocks(html, new Set(['gantt']));
+      const claims = found.map((b) => ({ i: 0, start: b.start, end: b.end }));
+      return replaceFences(section, claims, claims.map(() => '<x/>'));
+    });
     assert.ok(out.length < html.length);
-    assert.ok(Date.now() - t0 < 3000, `20,000 fences found and spliced in ${Date.now() - t0} ms (it was 50 s)`);
+    assert.ok(reads + scanned <= 16 * html.length, `20,000 fences found and spliced: ${reads + scanned} characters for ${html.length}`);
   });
 
   test('a key is small however large the plugin’s code is: it holds the digest, not the code', () => {

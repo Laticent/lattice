@@ -6,6 +6,8 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { MAX_LABEL_TEXT, overlongLabelText, overlongMessage } = require('../../../lib/plugins/mermaid/shared/label-length.js');
 const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
+const { charReads, scanWork } = require('../../helpers/work-count');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 const B = '`';
 const fence = (label) => `flowchart LR\n  A["${label}"] --> B\n`;
@@ -62,11 +64,13 @@ test('every Mermaid fence the repository ships passes', () => {
   assert.ok(n > 50, `found only ${n} fences`);
 });
 
-test('the check is linear: 2 MB of source in well under a second', () => {
+// Work, not milliseconds (HARD RULE #32): the check's string searches cover each character about once, and it runs no
+// regex recheck does not call linear. (Its bracket walk indexes `s[i]`, which no counter here sees; that loop is a
+// single pass by construction.)
+test('the check is linear: 2 MB of source, each character searched about once', () => {
   const big = `mindmap\n${'  A[b] "c"\n'.repeat(200_000)}`;
-  const t = performance.now();
-  overlongLabelText(big);
-  assert.ok(performance.now() - t < 500);
+  const { reads, scanned } = charReads(() => assertLinearRegexes(() => overlongLabelText(big)));
+  assert.ok(reads + scanned <= 4 * big.length, `read ${reads + scanned} characters for ${big.length}`);
 });
 
 test('at the cap, the marked Mermaid ships lexes the worst known shapes quickly', async (t) => {
@@ -78,13 +82,14 @@ test('at the cap, the marked Mermaid ships lexes the worst known shapes quickly'
     return;
   }
   const { marked } = require(markedPath);
+  // Counted, not timed (HARD RULE #32). marked rescans from every position on these shapes: the characters its searches
+  // cover grow with the square of the label (marked 16.4.2: about 480,000 at the cap, 1.9 million at twice it, 7.5
+  // million at four times), and its time grows faster still, because each search also backtracks inside the regex
+  // (a few ms at the cap, 22.5 s for `[a](` at 8 KB). The bound sits about twice above the count at the cap, so a
+  // cap raised past about 700 characters, or a marked that rescans more, fails here.
   for (const unit of ['[a](', '![a](', '*a ', '_a ']) {
     const s = unit.repeat(Math.floor(MAX_LABEL_TEXT / unit.length));
-    const t0 = performance.now();
-    marked.lexer(s);
-    const ms = performance.now() - t0;
-    // A few ms measured at the cap on marked 16.4.2; 22.5 s for `[a](` at 8 KB. The budget is
-    // wide for slow CI and still a long way under the uncapped cost.
-    assert.ok(ms < 1000, `${JSON.stringify(unit)} at ${s.length} chars took ${ms.toFixed(0)} ms`);
+    const { scanned } = scanWork(() => marked.lexer(s));
+    assert.ok(scanned <= 1_000_000, `${JSON.stringify(unit)} at ${s.length} chars: marked's searches covered ${scanned} characters`);
   }
 });

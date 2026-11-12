@@ -15,15 +15,16 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM, VirtualConsole } = require('jsdom');
+const { virtualClock } = require('../../helpers/runtime-boot');
 
 const RUNTIME = path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js');
 const skip = !fs.existsSync(RUNTIME) && 'dist/ not built';
 
-// The runtime boots on DOMContentLoaded and draws the buttons inside that boot. The count waits for the
-// boot's own mark (`data-lattice-runtime`) and, when buttons are expected, for them, under a deadline,
-// rather than sleeping a fixed time. A frame that should get none still waits for the boot, so a 0 means
-// the runtime ran and drew nothing, not that it had not run yet.
-const DEADLINE_MS = 5000;
+// The runtime boots on DOMContentLoaded and draws the buttons inside that boot. The window's timers and animation
+// frames are a virtual clock (test/helpers/runtime-boot.js), so the count is read once the runtime's own queue has run
+// dry: every timer it armed (the 150 ms and 800 ms ones included) has fired. A frame that should get none has still
+// booted, so a 0 means the runtime ran and drew nothing, not that it had not run yet (HARD RULE #32: a signal, where
+// this file used to poll on the real clock under a deadline).
 
 // AN ERROR THAT ESCAPES A TEST. The merge-queue failure printed only the file's `'test failed'`, which
 // the dot reporter shows for an uncaught exception or an unhandled rejection outside any test, never
@@ -34,41 +35,16 @@ for (const ev of ['uncaughtException', 'unhandledRejection']) {
   process.on(ev, (e) => escaped.push(`${ev}: ${e?.stack || e}`));
 }
 
-// THE CAUSE of the merge-queue failure. `w.close()` empties the document, the runtime's MutationObserver
-// sees that and asks for animation frames on the closed window, and `pretendToBeVisual` runs frames from
-// a plain Node `setInterval` that the close does not clear (jsdom 29). The frame then runs on a torn-down
-// window and jsdom's own error report throws `Cannot read properties of null (reading '_location')` in
-// Node, outside any test. The runtime starts observing from a later timer, so on an idle machine the old
-// 50 ms wait closed the window first; on a slow runner it did not. So the window refuses new frames and
-// cancels the outstanding ones before it closes. A browser does not empty a closed frame's document,
-// so this is the harness's teardown, not the runtime's.
-function closeQuietly(w, frames) {
-  frames.closing = true;
-  for (const h of frames.pending) w.cancelAnimationFrame(h);
-  w.close();
-}
+// THE CAUSE of that merge-queue failure. `w.close()` empties the document, the runtime's MutationObserver
+// sees that and asks for animation frames on the closed window, and `pretendToBeVisual` ran frames from
+// a plain Node `setInterval` that the close does not clear (jsdom 29). The frame then ran on a torn-down
+// window and jsdom's own error report threw `Cannot read properties of null (reading '_location')` in
+// Node, outside any test, on whichever runner was slow enough. On the virtual clock no frame or timer of
+// the window ever runs on its own: the test fires them, and stops firing them before it closes the
+// window, so nothing can run on a torn-down one. A browser does not empty a closed frame's document, so
+// this was the harness's teardown, not the runtime's.
 
-function trackFrames(w) {
-  const frames = { pending: new Set(), closing: false };
-  const request = w.requestAnimationFrame.bind(w);
-  const cancel = w.cancelAnimationFrame.bind(w);
-  w.requestAnimationFrame = (fn) => {
-    if (frames.closing) return 0;
-    const h = request((t) => {
-      frames.pending.delete(h);
-      fn(t);
-    });
-    frames.pending.add(h);
-    return h;
-  };
-  w.cancelAnimationFrame = (h) => {
-    frames.pending.delete(h);
-    cancel(h);
-  };
-  return frames;
-}
-
-async function buttonsOn(htmlAttrs, expected, holdMs = 0) {
+async function buttonsOn(htmlAttrs) {
   const virtualConsole = new VirtualConsole();
   virtualConsole.on('jsdomError', (e) => escaped.push(`jsdomError on <html ${htmlAttrs}>: ${e?.stack || e}`));
   const dom = new JSDOM(
@@ -78,24 +54,21 @@ async function buttonsOn(htmlAttrs, expected, holdMs = 0) {
   const w = dom.window;
   w.console.log = () => {};
   w.console.warn = () => {};
-  const frames = trackFrames(w);
+  const clock = virtualClock(w);
   w.eval(fs.readFileSync(RUNTIME, 'utf8'));
+  await clock.settle();
   const count = () => w.document.querySelectorAll('pre[data-copy] .lat-code-copy-btn').length;
   const booted = () => w.document.documentElement.getAttribute('data-lattice-runtime') === 'loaded';
-  const start = Date.now();
-  while (!(booted() && (expected === 0 || count() >= expected)) && Date.now() - start < DEADLINE_MS) {
-    await new Promise((r) => setTimeout(r, 10));
-  }
-  if (holdMs) await new Promise((r) => setTimeout(r, holdMs));
-  const state = { buttons: count(), booted: booted(), readyState: w.document.readyState, waitedMs: Date.now() - start };
-  closeQuietly(w, frames);
+  const state = { buttons: count(), booted: booted(), readyState: w.document.readyState, ranTo: clock.now() };
+  w.close();
   return state;
 }
 
-async function assertButtons(htmlAttrs, expected, holdMs) {
-  const s = await buttonsOn(htmlAttrs, expected, holdMs);
-  assert.ok(s.booted, `the runtime never booted on <html ${htmlAttrs}> within ${DEADLINE_MS} ms: ${JSON.stringify(s)}`);
+async function assertButtons(htmlAttrs, expected) {
+  const s = await buttonsOn(htmlAttrs);
+  assert.ok(s.booted, `the runtime never booted on <html ${htmlAttrs}>: ${JSON.stringify(s)}`);
   assert.equal(s.buttons, expected, `<html ${htmlAttrs}> drew ${s.buttons} copy buttons, expected ${expected}: ${JSON.stringify(s)}`);
+  return s;
 }
 
 test('a frame a person reads gets the two buttons', { skip }, async () => {
@@ -115,12 +88,13 @@ test('a catalog specimen gets none', { skip }, async () => {
 });
 
 test('a window closed after the runtime starts observing closes cleanly', { skip }, async () => {
-  // Held open past the runtime's 150 ms and 800 ms timers, so its observer is live when the window
-  // closes. Without closeQuietly that throws in Node, and the last test below reports it.
-  await assertButtons('data-lattice-live-media', 2, 1000);
+  // Run past the runtime's 150 ms and 800 ms timers, so its observer is live when the window closes.
+  const s = await assertButtons('data-lattice-live-media', 2);
+  assert.ok(s.ranTo >= 800, `the runtime's timers ran to ${s.ranTo} ms of window time before the close`);
 });
 
 test('no error escaped the runtime, before or after its window closed', { skip }, async () => {
-  await new Promise((r) => setTimeout(r, 300));
+  // The closes above queue observer callbacks and promise jobs; one macrotask turn runs every one of them.
+  await new Promise((r) => setImmediate(r));
   assert.deepEqual(escaped, [], escaped.join('\n'));
 });

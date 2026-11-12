@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { charReads } = require('../../helpers/work-count');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
+const { mulberry32 } = require('../../helpers/regex-differential');
 
 // ESM module under test — dynamic import from this CJS test (mirrors glossary-auto.test.js).
 let core;
@@ -561,13 +564,31 @@ test('a wording difference suppresses the raw-markup fallback', () => {
 test('the section parsers do not backtrack exponentially (js/redos)', () => {
   // CodeQL flagged both quote-aware patterns high: with a `[^>]` catch-all a quote is matchable by
   // BOTH the quoted branch and the catch-all, so a run of `""` decomposes exponentially many ways.
-  // The catch-all is now `[^>"']`, leaving exactly one parse. This input hangs the ambiguous form.
-  const evil = `<section ${'""'.repeat(600)}`;
-  const t0 = process.hrtime.bigint();
-  core.sectionText(evil);
-  core.diffSections(evil, `${evil}x`);
-  const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-  assert.ok(ms < 500, `parsing took ${ms.toFixed(1)}ms — the alternatives are ambiguous again`);
+  // The catch-all is now `[^>"']`, leaving exactly one parse. The tag strip went further: recheck still called its
+  // pattern polynomial (a run of `<` with no `>`), so sectionText reads tags without a regex (stripTags).
+  // Work, not milliseconds (HARD RULE #32): every regex these run is linear by tools/regex-census.json, and each
+  // character is touched a bounded number of times.
+  for (const evil of [`<section ${'""'.repeat(50_000)}`, '<'.repeat(100_000), `<section ${"'".repeat(100_000)}`]) {
+    const { reads, scanned } = charReads(() => assertLinearRegexes(() => {
+      core.sectionText(evil);
+      core.diffSections(evil, `${evil}x`);
+    }));
+    assert.ok(reads + scanned <= 64 * evil.length, `${JSON.stringify(evil.slice(0, 12))}…: ${reads + scanned} characters for ${evil.length}`);
+  }
+});
+
+test('sectionText strips exactly the tags the old quote-aware regex stripped (seeded differential fuzz)', () => {
+  // The regex sectionText used before stripTags, kept here as the oracle.
+  const OLD = /<(?:"[^"]*"|'[^']*'|[^>"'])*>/g;
+  const oldText = (h) => h.replace(OLD, ' ').replace(/\s+/g, ' ').trim();
+  const SEED = 3045;
+  const rand = mulberry32(SEED);
+  const ALPHABET = ['<', '<', '>', '>', '"', '"', "'", "'", 'a', ' ', '=', '/', '\n'];
+  for (let i = 0; i < 40_000; i++) {
+    let h = '';
+    for (let j = Math.floor(rand() * 25); j > 0; j--) h += ALPHABET[Math.floor(rand() * ALPHABET.length)];
+    assert.equal(core.sectionText(h), oldText(h), `differs on ${JSON.stringify(h)} (seed ${SEED})`);
+  }
 });
 
 // ── The cause buckets, split ─────────────────────────────────────────────────

@@ -21,6 +21,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const { closeQuietly } = require('../../helpers/jsdom-close');
+const { virtualClock } = require('../../helpers/runtime-boot');
 
 const RUNTIME = path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js');
 
@@ -32,8 +33,12 @@ async function bootFrame() {
   const w = dom.window;
   w.console.log = () => {};
   w.console.warn = () => {};
+  // The window's timers are a virtual clock (test/helpers/runtime-boot.js), so "booted" is the runtime's own queue
+  // running dry, and "the debounced pass" below is that pass's timer firing: no sleep decides either (HARD RULE #32).
+  const clock = virtualClock(w);
   w.eval(fs.readFileSync(RUNTIME, 'utf8'));
-  await new Promise((r) => setTimeout(r, 50));
+  await clock.settle();
+  w.clock = clock;
   return w;
 }
 
@@ -59,7 +64,9 @@ test('an unstamped write keeps the debounced schedule', { skip: !fs.existsSync(R
   await afterMicrotasks();
   const s = lat.querySelector('section');
   assert.ok(!s.hasAttribute('data-lattice-slide'), 'no transform ran in the microtask');
-  await new Promise((r) => setTimeout(r, 300));
+  const before = w.clock.now();
+  await w.clock.settle();
   assert.ok(s.hasAttribute('data-lattice-slide'), 'the debounced pass still lays it out');
+  assert.ok(w.clock.now() > before, 'and it ran on a timer, after the write\'s microtasks');
   closeQuietly(w);
 });

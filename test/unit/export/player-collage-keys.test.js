@@ -6,6 +6,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const { buildPlayerHtml } = require('../../../lib/export/html-player.js');
+const { virtualClock } = require('../../helpers/runtime-boot');
 
 const PNG = 'data:image/png;base64,iVBORw0KGgo=';
 const tile = (a) => `<li class="collage-tile" data-label="${a}"><img src="${PNG}" alt="${a}"></li>`;
@@ -17,6 +18,7 @@ const docHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><tit
 async function player() {
   const { html } = await buildPlayerHtml({ docHtml, source: '---\ntheme: indaco\n---\n\n# A\n', now: 0 });
   const errs = [];
+  let clock;
   const dom = new JSDOM(html, {
     runScripts: 'dangerously',
     pretendToBeVisual: true,
@@ -24,9 +26,12 @@ async function player() {
     beforeParse(w) {
       w.matchMedia = w.matchMedia || (() => ({ matches: false, addListener() {}, addEventListener() {} }));
       w.onerror = (m) => errs.push(m);
+      // The player's timers run on a virtual clock (test/helpers/runtime-boot.js): "loaded" is its own queue running
+      // dry, not a 100 ms sleep that a loaded runner can outlast (HARD RULE #32).
+      clock = virtualClock(w);
     },
   });
-  await new Promise((r) => setTimeout(r, 100));
+  await clock.settle();
   const w = dom.window;
   const d = w.document;
   const idx = () => [...d.querySelectorAll('.lp-frame')].findIndex((f) => f.classList.contains('lp-active'));

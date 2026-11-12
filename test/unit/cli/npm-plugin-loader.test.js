@@ -268,14 +268,25 @@ describe('fetching into the cache', () => {
   });
 
   test('a list that is not a regular file is refused without reading it (a FIFO hung a render, /dev/zero ran it out of memory)', () => {
+    // "Without reading it" is counted, not timed (HARD RULE #32): no byte is read from either file. A FIFO with no
+    // writer blocks a synchronous open or read forever, where no timer of this process can fire, so the reads run in a
+    // child process and its kill deadline is the hang guard: it turns a hang into a failure, and passing never needs it.
     const dir = fs.mkdtempSync(path.join(home, 'special-'));
     fs.symlinkSync('/dev/zero', path.join(dir, loader.LIST_FILE));
-    const t = Date.now();
-    assert.match(loader.readPluginList(path.join(dir, loader.LIST_FILE)).problems[0], /not a regular file/);
     const fifoDir = fs.mkdtempSync(path.join(home, 'fifo-'));
     require('node:child_process').execFileSync('mkfifo', [path.join(fifoDir, loader.LIST_FILE)]);
-    assert.match(loader.readPluginList(path.join(fifoDir, loader.LIST_FILE)).problems[0], /not a regular file/);
-    assert.ok(Date.now() - t < 2000);
+    const script = `const fs = require('node:fs');
+const loader = require(${JSON.stringify(require.resolve('../../../lib/packages/npm-plugin-loader.js'))});
+let reads = 0;
+for (const k of ['readSync', 'readFileSync']) { const f = fs[k]; fs[k] = (...a) => { reads++; return f(...a); }; }
+const problems = ${JSON.stringify([dir, fifoDir])}.map((d) => loader.readPluginList(require('node:path').join(d, loader.LIST_FILE)).problems[0]);
+process.stdout.write(JSON.stringify({ problems, reads }));`;
+    const r = require('node:child_process').spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', timeout: 60_000 });
+    assert.equal(r.signal, null, `reading the list hung: the child was killed at its hang guard (${r.signal})`);
+    assert.equal(r.status, 0, r.stderr);
+    const { problems, reads } = JSON.parse(r.stdout);
+    for (const p of problems) assert.match(p, /not a regular file/);
+    assert.equal(reads, 0, 'nothing was read from /dev/zero or the FIFO');
   });
 
   test('the search for the list stops at a .git folder and at the home folder', () => {

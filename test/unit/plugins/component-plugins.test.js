@@ -10,6 +10,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const { charReads } = require('../../helpers/work-count');
 
 const { createEngine } = require('../../../lib/engine');
 const { COMPONENT_PLUGINS, componentPluginDiagnostics } = require('../../../lib/plugins/host');
@@ -62,9 +63,10 @@ describe('components depend on plugins', () => {
       '<section data-form=""'.repeat(400000),
       `${'<section data-form="x" class="'.repeat(100000)}>`,
     ]) {
-      const t = performance.now();
-      componentPluginDiagnostics(html, ['math']);
-      assert.ok(performance.now() - t < 500, `took ${Math.round(performance.now() - t)} ms`);
+      // Work, not milliseconds (HARD RULE #32): about 4 reads per character today (charCodeAt, copies and searches).
+      // A scan that looks for each opener's `>` from that opener reads hundreds of thousands per character here.
+      const { reads, scanned } = charReads(() => componentPluginDiagnostics(html, ['math']));
+      assert.ok(reads + scanned <= 16 * html.length, `read ${reads + scanned} characters for ${html.length}`);
     }
   });
 

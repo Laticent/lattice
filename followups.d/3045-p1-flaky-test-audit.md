@@ -131,6 +131,16 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             Worker stand-ins answer on the window's clock; the 2 s font deadline is now checked at 1 ms either side.
             Nine mutations of the built pipeline (deadline, re-check timer, pause length, the stale-chain and
             collapsed-stage guards) each fail a test. Next by weight: `test/unit/plugins` (15).
+            2026-11-12 (flaky tests, unit tier, P1): `test/unit` done outside `components` and `trama` (those two are
+            on #3144): 61 hits in 25 files, no `flaky-ok`; the baseline is now 110 hits in 54 files. Every rewrite was
+            shown failing on a broken product line. Stopwatches became work counts (`charReads`, `scanWork`, a Set-add
+            count, a decoder spy) plus regex traces; sleeps became the virtual clock (`settle`, and `advance` for the
+            VS Code saved-deck watcher's interval), the measure-kit registry, or an exit event. Two hang guards that
+            could never fire (a synchronous hang blocks every timer, node:test's `timeout` included) now run their call
+            in a child with a kill deadline: katex-wall's LIMITS and npm-plugin-loader's FIFO (gotchas/ci.md). Found
+            and fixed: notes-core's comment pattern (polynomial to recheck, run once per `<!--`) is a linear reader
+            held to it by a 60,000-input seeded fuzz, with two smaller slow patterns; slice-equivalence's tag strip is
+            a backward pass. Real-flake sweep (5 clean, 2 loaded, 1 shuffled `npm test`): see the PR body.
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; and the F3-F9 sweep's findings are fixed. (The retries half is done: PR #3144 set
             `docs/playwright.config.ts` to `retries: 0` on the owner's 2026-11-12 order, held by `checkPlaywrightRetries`,
