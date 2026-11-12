@@ -126,11 +126,12 @@ const LOSSY_CONSTRUCTS: RegExp[] = [
 	// the entity to a literal `<` and the serializer emits it unescaped, turning inert escaped text
 	// into LIVE markup in the export on the next edit. Lock it everywhere (also closes the same
 	// pre-existing gap in plain prose). Harmless entities (`&amp;`, `&copy;`) don't match.
-	/&(?:lt|#0*60|#x0*3c);\/?[a-zA-Z]/i,
+	/&(?:lt|#0*60|#x0*3c);[!?/a-zA-Z]/i,
 	// A BACKSLASH-escaped tag (`\<b>`): the same hazard by the other spelling. html:false reads `\<b>` and `<b>` as the same text,
 	// so the serializer writes the escape away and the export draws live HTML; and the faithful write-back cannot tell which
 	// bytes were which (2026-11-10-compose-first.md §6; the checker's catch on #3128). Lock it, as the entity form is.
-	/\\<\/?[a-zA-Z]/,
+	// A comment (`\<!--`) and a processing instruction (`\<?`) are the same hazard (the third checker's catch), in both spellings.
+	/\\<[!?/a-zA-Z]/,
 	// A list item led by `[X]`. The six markers (lib/core/checks-registry.js) round-trip now: the
 	// serializer keeps a list item's leading marker unescaped, as it does in a table cell. `[X]` is
 	// not one of the six (GFM reads it as a checked box, the opposite of a cross), so it stays locked.

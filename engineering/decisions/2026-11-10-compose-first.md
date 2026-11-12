@@ -214,8 +214,10 @@ Source FRAMES THE SLIDE as Compose does (owner, iPad, 2026-11-12: Compose showed
 line at the top of the pane with the slide's heading scrolled off). The slide's first editable line goes at the top when
 the slide down to the caret fits the pane, else the caret goes in the middle (`frameSlide`, Editor.tsx). The heights are
 estimates until the lines are drawn (a phone's wrapped caret line was estimated at 1076 px and measured at 2262 px), so
-over the next few layouts a caret left outside the pane is scrolled just into it, and a pane that is hidden when the
-reveal runs is framed the first time it gets a height. On a tablet the on-screen keyboard covers the lower half of the
+over the next few layouts a caret left outside the pane is scrolled into it (measured at the caret itself, not its
+line: a wrapped paragraph can be taller than the pane), and a pane that is hidden when the reveal runs is framed the
+first time it gets a height. All of it stops the moment the author scrolls, taps or types, or after three seconds, so a
+later keyboard resize never pulls the view back to an old caret. On a tablet the on-screen keyboard covers the lower half of the
 pane without shrinking it, so "fits" and "on screen" are measured against the part the keyboard leaves
 (`visualViewport`), and the caret is checked again when the keyboard rises, a moment after focus. `studio-pane-sync.spec.ts`
 checks the heading and the caret line are both on screen after a switch; the keyboard half cannot be driven from
@@ -277,9 +279,10 @@ default, that is the editor a power user lands in, so the owner chose to fix all
 the canonical serializer would have written, else the canonical text is used; and the slide spliced back around its
 directive lines (a `_class` under an eyebrow stays there) must split back into the same directives and prose. That
 read-back sees what Compose's parser sees (`html:false`), not what the engine draws (`html:true`), so the two spellings it
-cannot tell apart are kept out of reach: a slide holding a backslash-escaped tag (`\<b>`) is locked, as one holding an
-entity-escaped tag (`&lt;b`) already was, and the respelling of an edited line never touches a code span, an HTML tag or
-a link's address. Two original blocks that read alike but are written differently are never kept as written. A block Compose changes on reading (a chart's row list made tight) is never
+cannot tell apart are kept out of reach: a slide holding a backslash- or entity-escaped tag, comment or processing
+instruction (`\<b>`, `\<!--`, `\<?`, `&lt;b`, `&lt;!--`) is locked, and the respelling of an edited line never touches a
+code span, an HTML tag (a `>` inside a quoted attribute included) or a link's address. The fallback text written when the
+slide cannot be spliced back goes through the same read-back. Two original blocks that read alike but are written differently are never kept as written. A block Compose changes on reading (a chart's row list made tight) is never
 kept as written. `docToDeck` stays the plain canonical form (tests and the resync equality check use it); only the
 editor's write-back (`emitDeck`) is faithful.
 

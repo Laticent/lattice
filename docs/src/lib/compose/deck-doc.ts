@@ -352,7 +352,7 @@ function respell(line: string, original: string | undefined): string {
 	if (spaces && out.endsWith('\\') && !out.endsWith('\\\\')) out = out.slice(0, -1) + spaces;
 	// Only the line's prose: a code span, an HTML tag and a link's address are written as they are (a `*a*` in an
 	// attribute is not emphasis, and changing it changes what the engine draws; the checker's catch).
-	return out.replace(/(`+)[\s\S]*?\1|<[^>\n]*>|\]\([^)\n]*\)|[^`<\]]+|[`<\]]/g, (part) => (/^[`<]|^\]\(/.test(part) && part.length > 1 ? part : respellProse(part, original)));
+	return out.replace(/(`+)[\s\S]*?\1|<(?:[^>"'\n]|"[^"\n]*"|'[^'\n]*')*>|\]\([^)\n]*\)|[^`<\]]+|[`<\]]/g, (part) => (/^[`<]|^\]\(/.test(part) && part.length > 1 ? part : respellProse(part, original)));
 }
 
 /** `respell` on a run of prose with no code, tag or link address in it. */
@@ -404,13 +404,22 @@ function faithfulSlide(slide: PMNode, directives: string[], canonicalProse: stri
 	}
 	// It must say what the canonical form says; a spelling that would read differently in this context (a list item
 	// that now continues the list above, a line that now opens a block) falls back.
-	try {
-		if (latticeMarkdownSerializer.serialize(deckSchema.nodes.slide.create(null, slideContent(prose, directives))) !== canonicalProse) return null;
-	} catch {
-		return null;
-	}
+	if (!readsSame(prose, directives, canonicalProse)) return null;
 	const same = directives.length === o.directives.length && directives.every((d, i) => d === o.directives[i]);
-	return (same && spliceProse(raw, o.directives, o.prose, prose)) || composeSlideChunk(directives, tight);
+	const spliced = same ? spliceProse(raw, o.directives, o.prose, prose) : null;
+	if (spliced) return spliced;
+	// The fallback text goes through the same read-back as the faithful one: collapsing a gap can move bytes a block owns
+	// (the trailing spaces of an indented code block's last line), so it is used only if it still says the same.
+	return composeSlideChunk(directives, readsSame(tight, directives, canonicalProse) ? tight : prose);
+}
+
+/** `prose` says what the canonical serializer would have written for the edited slide. */
+function readsSame(prose: string, directives: string[], canonicalProse: string): boolean {
+	try {
+		return latticeMarkdownSerializer.serialize(deckSchema.nodes.slide.create(null, slideContent(prose, directives))) === canonicalProse;
+	} catch {
+		return false;
+	}
 }
 
 /**

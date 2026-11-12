@@ -240,38 +240,51 @@ function isAuthorEdit(u: { transactions: readonly { isUserEvent(e: string): bool
 }
 
 export type EditorSelection = { empty: boolean; text: string; from: number; to: number };
+
 /**
- * FRAME THE SLIDE, AS COMPOSE DOES. Scrolling the caret's line to the top of the pane hid the slide above it (its heading,
- * its eyebrow), so a switch from Compose, which shows the whole slide, landed on a line with no context (owner, iPad,
- * 2026-11-12). The slide's first editable line goes at the top (studio-jargon-alignment.spec.ts's contract for a rail pick) when
- * the slide down to the caret fits the pane; when it does not, the
- * caret goes in the middle, so it is never scrolled out of view.
+ * Where `caret` sits on screen: its own coordinates when its line is drawn, else the start of its line block (a line outside
+ * CodeMirror's drawn viewport has no coordinates; its block is an estimate). A long wrapped line can be taller than the
+ * pane, so the line block alone put the caret below it (the checker's catch).
  */
-/** Over the next `tries` layouts, scroll `caret` just into the pane whenever the measured heights leave it outside. Read from
- *  the measured line block, not the caret's coordinates: a line outside the drawn viewport has none. */
+function caretBox(view: EditorView, caret: number): { top: number; bottom: number } {
+	const at = Math.min(caret, view.state.doc.length);
+	const c = view.coordsAtPos(at);
+	if (c) return { top: c.top, bottom: c.bottom };
+	const block = view.lineBlockAt(at);
+	const top = view.documentTop + block.top;
+	return { top, bottom: top + Math.min(block.height, 24) };
+}
+
+/** The framing in progress on a view: what cancels it when the author takes over, or a newer framing replaces it. */
+const FRAMING = new WeakMap<EditorView, { caret: number; cancel: () => void }>();
+
+/** Stop the framing on `v`, if any: its keyboard listener, its hidden-pane observer and its remaining checks. */
+function stopFraming(v: EditorView): void {
+	FRAMING.get(v)?.cancel();
+	FRAMING.delete(v);
+}
+
+/**
+ * Over the next `tries` layouts, scroll `caret` into the visible part of the pane whenever the measured heights leave it
+ * outside. Only while this framing is current and the caret has not moved: once the author scrolls, taps or types, the view
+ * is theirs (the checker: a keyboard resize yanked the view back to an old caret after the author had scrolled away).
+ */
 function keepCaretInView(v: EditorView, caret: number, tries: number): void {
+	const mine = () => FRAMING.get(v)?.caret === caret && v.state.selection.main.head === Math.min(caret, v.state.doc.length);
 	v.requestMeasure({
-		read: (view) => {
-			const block = view.lineBlockAt(Math.min(caret, view.state.doc.length));
-			const box = view.scrollDOM.getBoundingClientRect();
-			const top = view.documentTop + block.top;
-			return top < box.top || top + block.height > visibleBottom(view);
-		},
-		// Never a dispatch inside the measure cycle (CodeMirror refuses it, which ended the loop after one check): the next frame.
-		write: (outside, view) => {
+		read: () => null,
+		// Never a dispatch or a scroll inside the measure cycle (CodeMirror refuses it): the next frame, measured there, after
+		// CodeMirror's own scroll has landed.
+		write: (_x, view) => {
 			requestAnimationFrame(() => {
-				if (!view.dom.isConnected) return;
-				// Scrolled by hand to sit above the keyboard: CodeMirror's own 'nearest' knows the pane, not the keyboard over it.
-				// Measured again here, after the frame: the measure ran before CodeMirror applied its own scroll, so its answer
-				// can be stale (it re-centered a rail pick that was already framed at the top).
-				const at = Math.min(caret, view.state.doc.length);
-				const block = view.lineBlockAt(at);
+				if (!view.dom.isConnected || !mine()) return;
 				const box = view.scrollDOM.getBoundingClientRect();
-				const onScreen = view.documentTop + block.top;
-				if (outside && (onScreen < box.top || onScreen + block.height > visibleBottom(view))) {
-					const room = visibleBottom(view) - box.top;
-					const top = onScreen - box.top + view.scrollDOM.scrollTop;
-					view.scrollDOM.scrollTop = Math.max(0, top - Math.max(8, (room - block.height) / 2));
+				const bottom = visibleBottom(view);
+				const c = caretBox(view, caret);
+				if (c.top < box.top || c.bottom > bottom) {
+					// By hand, to sit in the space above the keyboard: CodeMirror's 'nearest' knows the pane, not the keyboard over it.
+					const room = bottom - box.top;
+					view.scrollDOM.scrollTop = Math.max(0, view.scrollDOM.scrollTop + c.top - box.top - Math.max(8, (room - (c.bottom - c.top)) / 2));
 				}
 				if (tries > 1) keepCaretInView(view, caret, tries - 1);
 			});
@@ -290,36 +303,59 @@ function visibleBottom(v: EditorView): number {
 	return vv ? Math.min(box.bottom, vv.offsetTop + vv.height) : box.bottom;
 }
 
+/**
+ * FRAME THE SLIDE, AS COMPOSE DOES. Scrolling the caret's line to the top of the pane hid the slide above it (its heading,
+ * its eyebrow), so a switch from Compose, which shows the whole slide, landed on a line with no context (owner, iPad,
+ * 2026-11-12). The slide's first editable line goes at the top (studio-jargon-alignment.spec.ts's contract for a rail pick)
+ * when the slide down to the caret fits the visible part of the pane; when it does not, the caret goes in the middle.
+ */
 function frameSlide(v: EditorView, from: number, caret: number) {
-	const full = v.scrollDOM.clientHeight;
-	const room = full ? Math.max(0, visibleBottom(v) - v.scrollDOM.getBoundingClientRect().top) : 0;
-	// The keyboard rises AFTER focus (on a tablet, after this frame): when it does, the caret is checked again against the
-	// space it leaves. For a few seconds only, so a later keyboard does not pull the view back to an old caret.
+	stopFraming(v);
+	const cleanups: Array<() => void> = [];
+	const cancel = () => {
+		for (const c of cleanups.splice(0)) c();
+	};
+	FRAMING.set(v, { caret, cancel });
+	// The author taking over ends the framing: a scroll, a tap or a key in the editor.
+	const takeOver = () => {
+		if (FRAMING.get(v)?.caret === caret) stopFraming(v);
+	};
+	for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const) {
+		v.scrollDOM.addEventListener(type, takeOver, { passive: true, once: true });
+		cleanups.push(() => v.scrollDOM.removeEventListener(type, takeOver));
+	}
+	// The keyboard rises AFTER focus (on a tablet, a moment after this frame): when it does, the caret is checked again
+	// against the space it leaves. For a few seconds only, and only until the author takes over.
 	const vv = typeof window !== 'undefined' ? window.visualViewport : null;
 	if (vv) {
 		const onResize = () => keepCaretInView(v, caret, 2);
 		vv.addEventListener('resize', onResize);
-		setTimeout(() => vv.removeEventListener('resize', onResize), 3000);
+		cleanups.push(() => vv.removeEventListener('resize', onResize));
 	}
+	const timer = setTimeout(takeOver, 3000);
+	cleanups.push(() => clearTimeout(timer));
+	const full = v.scrollDOM.clientHeight;
 	// A pane with no height yet (a phone's hidden pane) cannot be measured: frame the slide the first time it gets one, and
 	// meanwhile put the caret's line at the top. Framed while hidden, the heights were all estimates, and the caret drifted
-	// below the pane once the phone drew its wrapped lines (owner, iPad; studio-pane-sync's phone case).
+	// below the pane once the phone drew its wrapped lines (studio-pane-sync's phone case). The observer goes with the framing.
 	if (!full) {
 		if (typeof ResizeObserver !== 'undefined') {
 			const ro = new ResizeObserver(() => {
 				if (!v.scrollDOM.clientHeight || !v.dom.isConnected) return;
-				ro.disconnect();
 				const at = Math.min(caret, v.state.doc.length);
-				if (v.state.selection.main.head === at) v.dispatch({ effects: frameSlide(v, Math.min(from, at), at) });
+				const current = FRAMING.get(v)?.caret === caret && v.state.selection.main.head === at;
+				stopFraming(v);
+				if (current) v.dispatch({ effects: frameSlide(v, Math.min(from, at), at) });
 			});
 			ro.observe(v.scrollDOM);
+			cleanups.push(() => ro.disconnect());
 		}
 		return EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 });
 	}
 	// The heights are estimates until the lines are drawn (a phone wraps long lines taller than estimated: a caret line
-	// estimated at 1076 px measured 2262 px), so the check repeats over the next few layouts, until the heights hold, and
-	// a caret that ends up outside the pane is scrolled just into it.
+	// estimated at 1076 px measured 2262 px), so the check repeats over the next few layouts.
 	keepCaretInView(v, caret, 4);
+	const room = Math.max(0, visibleBottom(v) - v.scrollDOM.getBoundingClientRect().top);
 	const span = v.lineBlockAt(caret).bottom - v.lineBlockAt(from).top;
 	return span + 16 <= room ? EditorView.scrollIntoView(from, { y: 'start', yMargin: 8 }) : EditorView.scrollIntoView(caret, { y: 'center' });
 }

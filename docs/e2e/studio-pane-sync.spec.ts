@@ -255,3 +255,32 @@ test('@crosswidth @gecko @webkit-tablet a Source caret on a speaker note does no
 	// The note is not a block Compose shows: the caret falls back to the slide's start, never into the bullet.
 	expect(await liveCaretIn(page)).not.toBe('Revenue grew twelve percent');
 });
+
+test('@crosswidth @gecko @webkit-tablet a caret deep in a paragraph taller than the pane is on screen after a switch to Source', async ({ page }) => {
+	test.skip(isPhone(page), 'the phone switch has its own test above');
+	// One paragraph long enough to wrap taller than the pane: framed by its line's top, the caret fell below the pane (the
+	// third checker's catch, 136 px under it at 1280x600).
+	const words = Array.from({ length: 220 }, (_x, i) => `word${i}`).join(' ');
+	await page.setViewportSize({ width: 1280, height: 600 });
+	await page.addInitScript((deck) => localStorage.setItem('lattice-studio-src-welcome', JSON.stringify(deck)), `# First\n\nShort.\n\n---\n\n# Second\n\n${words} here.\n`);
+	await openFresh(page);
+	test.skip(!(await fine(page)), 'a switch takes the keyboard only with a fine pointer');
+	const para = page.locator('#studio-pane-editor .ProseMirror > .cs-slide').nth(1).locator('p').last();
+	await para.scrollIntoViewIfNeeded();
+	await para.click();
+	await caretBeforeEnd(page, para, 5);
+	await expect.poll(() => afterCaret(page)).toBe('here.');
+	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+	await expect.poll(() => afterCaret(page)).toBe('here.');
+	await expect
+		.poll(() =>
+			page.evaluate(() => {
+				// biome-ignore lint/suspicious/noExplicitAny: CodeMirror keeps its view on the content element (filo-undo.spec.ts).
+				const v = (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
+				const c = v?.coordsAtPos(v.state.selection.main.head);
+				const box = v?.scrollDOM.getBoundingClientRect();
+				return !!c && !!box && c.top >= box.top && c.bottom <= box.bottom;
+			}),
+		)
+		.toBe(true);
+});

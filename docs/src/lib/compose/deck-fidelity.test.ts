@@ -135,9 +135,12 @@ describe('the checker’s cases (2026-11-11)', () => {
 		expect(out).toBe('N\n\n---\n\n# A\n\nbody a\n\n---\n\n# B\n\nbody b\n');
 	});
 
-	it('a slide with a backslash-escaped tag is locked: Compose cannot tell `\\<b>` from `<b>`, and the export can', () => {
-		// html:false reads both as the same text, so no write-back could keep which was which (the second checker's catch).
-		expect(deckToDoc('# T\n\nA <b>x</b>\n\nA \\<b>x\\</b>\n').child(0).attrs.locked).toBe(true);
+	it('a slide with an escaped tag, comment or processing instruction is locked: Compose cannot tell it from the live one, and the export can', () => {
+		// html:false reads `\\<b>` and `<b>` as the same text, so no write-back could keep which was which (the checkers' catches).
+		for (const body of ['A \\<b>x\\</b>', 'See \\<!-- c --> here', 'Run \\<?php x ?> here', 'See &lt;!-- c --> here', 'A &lt;b>x'])
+			expect(deckToDoc(`# T\n\n${body}\n`).child(0).attrs.locked, body).toBe(true);
+		// Prose that only mentions a `<` is not locked.
+		expect(deckToDoc('# T\n\nWhen a \\< b, stop.\n').child(0).attrs.locked).toBe(false);
 	});
 
 	it('an HTML attribute and a code span on the edited line are written as they are', () => {
@@ -152,6 +155,8 @@ describe('the checker’s cases (2026-11-11)', () => {
 		for (const [src, want] of [
 			['# T\n\nSee <span title="*a*">y</span> and _a_ here.\n', '# T\n\nSee <span title="*a*">y</span> and _a_ Xhere.\n'],
 			['# T\n\nCode `*a*` and _a_ here.\n', '# T\n\nCode `*a*` and _a_ Xhere.\n'],
+			// A `>` inside a quoted attribute does not end the tag.
+			['# T\n\nSee <span title="x>*a*">y</span> and _a_ here.\n', '# T\n\nSee <span title="x>*a*">y</span> and _a_ Xhere.\n'],
 		]) {
 			const doc = deckToDoc(src);
 			expect(emitDeck(EditorState.create({ doc }).tr.insertText('X', at(doc, 'here')).doc, initBaseline(doc))).toBe(want);
@@ -171,23 +176,49 @@ describe('the checker’s cases (2026-11-11)', () => {
 		expect(out).toContain('Xbody');
 	});
 
-	it('the scoped resync never leaves a slide moved off the front behind a stale separator', () => {
-		const src = '# A\n---\n# B\n';
-		const next = '# N\n---\n# A\n---\n# B\n';
-		for (const path of ['whole', 'patch'] as const) {
+	it('the scoped resync emits exactly the new text when it takes a front insert, and hands a separator change to the full resync', () => {
+		/** The scoped and the patch path's result for `next`: null, or what the doc then emits. */
+		const run = (src: string, next: string, path: 'whole' | 'patch') => {
 			const doc = deckToDoc(src);
 			const base = initBaseline(doc);
 			const before = emitDeck(doc, base);
 			const state = EditorState.create({ doc });
 			const patch = emitPatch(before, next);
 			const r = path === 'whole' ? scopedResync(state, base, next) : patch && scopedResyncPatch(state, base, patch);
-			// Either it hands the change to the full resync (null), or what it builds emits exactly `next`.
-			if (r) {
-				const after = state.apply(r.tr).doc;
-				r.commit(after);
-				expect(emitDeck(after, base), path).toBe(next);
-			}
+			if (!r) return null;
+			const after = state.apply(r.tr).doc;
+			r.commit(after);
+			return emitDeck(after, base);
+		};
+		for (const path of ['whole', 'patch'] as const) {
+			// A front insert that keeps every separator: the scoped path takes it, and the result is exactly the new text.
+			expect(run('# A\n---\n# B\n', '# N\n\n---\n\n# A\n---\n# B\n', path), path).toBe('# N\n\n---\n\n# A\n---\n# B\n');
+			// The old first slide now behind a separator it never had: the full resync's to rebuild, never a stale one.
+			const moved = run('# A\n\n---\n\n# B\n', '# N\n---\n# A\n\n---\n\n# B\n', path);
+			expect(moved === null || moved === '# N\n---\n# A\n\n---\n\n# B\n', `${path}: ${moved}`).toBe(true);
 		}
+	});
+
+	it('original blocks that read alike but are written differently are all written plainly, in any order', () => {
+		// `A &amp; B` and `A & B` read alike here; which bytes are whose cannot be told. Every pair is read from the keys as
+		// they were (an earlier loop renamed a key mid-scan and let the third block keep bytes that may not be its own).
+		const doc = deckToDoc('# T\n\nA &amp; B\n\nA & B\n\nA &amp; B\n');
+		const out = emitDeck(EditorState.create({ doc }).tr.insertText('X', 3).doc, initBaseline(doc));
+		expect(out.split('\n').filter((l) => l.startsWith('A '))).toEqual(['A & B', 'A & B', 'A & B']);
+	});
+
+	it('a slide that falls back to its directive-free spelling still reads as the edit', () => {
+		// The trailing spaces of an indented code block's last line sit in the gap after it; collapsing that gap must not drop them.
+		const src = '<!-- _class: kpi -->\n\n# T\n\n    code   \n\n\n\nbody\n';
+		const doc = deckToDoc(src);
+		let pos = -1;
+		doc.descendants((n, p) => {
+			if (pos < 0 && n.isText && n.text === 'body') pos = p;
+			return pos < 0;
+		});
+		const edited = EditorState.create({ doc }).tr.setNodeAttribute(0, 'directives', ['<!-- _class: big-number -->']).insertText('X', pos).doc;
+		const out = emitDeck(edited, initBaseline(doc));
+		expect(docToDeck(deckToDoc(out))).toBe(docToDeck(edited));
 	});
 
 	it('an edit inside a 3000-item list aligns only what changed', () => {
@@ -200,5 +231,14 @@ describe('the checker’s cases (2026-11-11)', () => {
 		const at = alignBlocks(edited, lines, stats);
 		expect(stats.cells).toBe(1);
 		expect(at.filter((x) => x >= 0)).toHaveLength(2999);
+		// And end to end: the deck changes by that one line.
+		const deck = `# T\n\n${lines.join('\n')}\n`;
+		const doc = deckToDoc(deck);
+		let pos = -1;
+		doc.descendants((n, p) => {
+			if (pos < 0 && n.isText && n.text === 'item 1500') pos = p + n.nodeSize;
+			return pos < 0;
+		});
+		expect(linesChanged(deck, emitDeck(EditorState.create({ doc }).tr.insertText('X', pos).doc, initBaseline(doc)))).toBe(1);
 	});
 });
