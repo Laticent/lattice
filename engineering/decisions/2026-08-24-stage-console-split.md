@@ -894,6 +894,14 @@ is not. Sampling the flip at 10ms granularity:
 | Firefox | — | — | **never delivered** |
 
 Chromium and WebKit are comfortably inside 600ms and preserve the asymmetry the design rests on.
+
+**Amended 2026-11-12: the grace is no longer the verdict.** Under three loaded e2e workers WebKit flipped the
+flag later than 600ms, and the hand-close cell announced "Stage disconnected" for a window the presenter had
+closed (1 run in 10). A navigation is now announced on EVIDENCE: after the 600ms grace, the window is still
+open and holds a document that is not ours (no `#latt-stage` / `#latt-holding`), or one we can no longer read.
+A window still open on our own document is a hand-close whose flag is late, and it gets until a 10s hang guard
+(`CLOSED_HANG_MS`) to flip; past that it is reported. A navigation is still announced at 600ms, so the
+re-open race below is unchanged.
 **And the headline cell is now DRIVEN on both** — it carries `@webkit-tablet`, so "a Stage the
 presenter closes by hand says nothing" is a real-surface result on two engines rather than a
 Chromium result plus a timing argument. Firefox is a different finding entirely, and it is not

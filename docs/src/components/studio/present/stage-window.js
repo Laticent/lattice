@@ -719,8 +719,27 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 	//
 	// The REVERT is not delayed by any of this; `teardown()` has already run. Only the
 	// sentence waits.
-	const CLOSED_GRACE_MS = 600; // 12× the 50ms the flag actually took, for a slow machine
+	//
+	// THE GRACE IS NOT THE VERDICT. A navigation is announced on EVIDENCE: the window still open, holding a document
+	// that is not ours (or that we can no longer read, a foreign origin). A window that is still open on OUR document
+	// has not navigated anywhere; it is a hand-close whose flag has not flipped yet, and it is given until the hang
+	// guard to flip. The flag used to be given 600 ms and no more, and a loaded WebKit took longer: three e2e workers
+	// announced "Stage disconnected" for a window the presenter had just closed (stage-window.spec.ts, the hand-close
+	// cell, 1 run in 10; followups.d/3101-p4).
+	const CLOSED_GRACE_MS = 600; // the earliest a navigation is announced, so a quick re-open still cancels it
+	const CLOSED_HANG_MS = 10_000; // a window still open on our own document this long after its goodbye is reported
 	const CLOSED_STEP_MS = 50;
+	/** Does `w` show a document that is NOT ours: someone else's page, or one we may no longer read? `null` while
+	 *  there is no document to judge (the window between documents), which is no evidence either way. */
+	function navigatedAway(w) {
+		try {
+			const d = w.document;
+			if (!d) return null;
+			return !(d.getElementById('latt-stage') || d.getElementById('latt-holding'));
+		} catch {
+			return true; // cross-origin: the window is open and showing a page that is not ours
+		}
+	}
 	/**
 	 * Announce the loss unless the window turns out to have simply been closed.
 	 * @param {Window | null} w the handle teardown just let go of
@@ -734,7 +753,7 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		} catch {
 			return; // we cannot even ask any more; do not invent a failure
 		}
-		if (waited >= CLOSED_GRACE_MS) {
+		if ((waited >= CLOSED_GRACE_MS && navigatedAway(w) === true) || waited >= CLOSED_HANG_MS) {
 			onLost?.('navigated');
 			return;
 		}

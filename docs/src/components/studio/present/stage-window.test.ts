@@ -400,6 +400,43 @@ describe('stage-window — createStageController', () => {
 		expect(onChange.mock.calls.slice(-2)).toEqual([[null, true], [null]]);
 	});
 
+	it('stays silent for a hand-close whose `closed` flag flips LATE, past the navigation grace', async () => {
+		// A loaded machine: the goodbye beat lands, the window still shows OUR document, and `closed` takes 1.5 s to flip.
+		// That is a hand-close, not a navigation (nothing else is in the window), so it stays silent. With a fixed 600 ms
+		// verdict it was announced as "Stage disconnected" (e2e stage-window.spec.ts, the hand-close cell on WebKit).
+		vi.useFakeTimers();
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+		postFromStage({ stage: 'closed' }, win);
+		await vi.advanceTimersByTimeAsync(1500);
+		expect(onLost, 'still our document, so not a navigation: the flag is only late').not.toHaveBeenCalled();
+		win.closed = true;
+		await vi.advanceTimersByTimeAsync(12_000);
+		expect(onLost).not.toHaveBeenCalled();
+		expect(vi.getTimerCount(), 'the classification stopped once the window closed').toBe(0);
+	});
+
+	it('still reports a window left open on our own document long after its goodbye', async () => {
+		// The hang guard: no flag, no other page, ten seconds on. Something is wrong with that window, and the presenter
+		// is told rather than left guessing.
+		vi.useFakeTimers();
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+		postFromStage({ stage: 'closed' }, win);
+		await vi.advanceTimersByTimeAsync(9_000);
+		expect(onLost).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(2_000);
+		expect(onLost).toHaveBeenCalledWith('navigated');
+	});
+
 	it('stays silent when WE closed the Stage — and when the PRESENTER closed the window', async () => {
 		// §4's "Stage disconnected" state, narrowed by §13 to the losses NOBODY MEANT.
 		//
