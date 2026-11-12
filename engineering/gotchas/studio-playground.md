@@ -1975,3 +1975,23 @@ never turn "passed in headless" into "works on iOS."
 - **Fix** — count the work at its source. Vetrina's scroll handler publishes `data-vt-scroll-seats` on its layer, one
   per re-seat it performs, and `vetrina-cursor-caption.spec.ts` counts that: 200 in 200 frames with the compare
   removed, 0 with it.
+
+## An e2e that installs `page.clock` never sees a settle that waits on two frames
+
+- **Symptom** — `studio-dock-sizing`'s restore check reads no toast about 1 run in 18. The product shows it every time
+  by hand.
+- **Cause** — `page.clock.install()` fakes `requestAnimationFrame` as well as timers. The restore marks itself done
+  inside a double-`requestAnimationFrame` settle, and on a faked clock those frames run only when the test steps the
+  clock far enough, in an order the test does not control. Stepping by a timer's length is not stepping by frames.
+- **Fix** — install the page clock only when the test needs to own a long timer, and then step it one frame at a time
+  (`frame-clock.ts`). Where the test needs only "after the next task", wait in the page for a `setTimeout(0)` after
+  `layoutSettled`, then `schedulerDrained`: real frames, no faked clock.
+
+## An e2e click on a header control opens nothing, about 1 run in 20 under load
+
+- **Symptom** — `trigger.click()` on the site header's Theme select succeeds, then the option it should reveal never
+  appears and the next click times out.
+- **Cause** — Astro server-renders the header, so the trigger is on screen and accepts a click before React hydrates
+  the island. A click in that window has no handler behind it.
+- **Fix** — wait for hydration before the first click: Astro removes the island's `ssr` attribute when it finishes, so
+  poll for `astro-island[component-url*="NavActions"]:not([ssr])` (as `site-chrome-first-paint.spec.ts` does).
