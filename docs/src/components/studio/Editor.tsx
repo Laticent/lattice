@@ -563,8 +563,12 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// rebuilds the view inside the same synchronous effect, so `viewRef.current` is truthy again
 	// immediately and a pass belonging to the PREVIOUS deck would sail through the old guard and
 	// gate "Fix all" on the wrong deck's answer.
-	const reportLint = React.useCallback((view: EditorView, findings: Array<{ autofixable?: boolean }> | null) => {
+	// `text`: the document this pass linted. Its length goes on the editor's root as `data-linted-chars`, so anything
+	// that must not race the lint (a test driving a 16 MB photo deck, where a pass holds the main thread for seconds in
+	// Firefox) can wait for THIS text's answer rather than guess how long one takes. Read by no app code.
+	const reportLint = React.useCallback((view: EditorView, findings: Array<{ autofixable?: boolean }> | null, text?: string) => {
 		if (viewRef.current !== view) return;
+		if (text !== undefined) view.dom.dataset.lintedChars = String(text.length);
 		onLintCountsRef.current?.(findings && { total: findings.length, fixable: findings.filter((f) => f?.autofixable).length });
 	}, []);
 	const lastHasSelRef = React.useRef(false);
@@ -684,8 +688,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 						return [];
 					}
 					let findings: Array<{ autofixable?: boolean }>;
+					const doc = view.state.doc.toString();
 					try {
-						const doc = view.state.doc.toString();
 						// Under a host that narrowed its plugin set, parse as the engine does (math off →
 						// a `---` inside `$$` is a slide break here too). A no-op on the default set.
 						followDeckAdmission(doc);
@@ -724,7 +728,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 							measuredFindings.push({ ...f, autofixable: false });
 						}
 					}
-					reportLint(view, measuredFindings.length ? findings.concat(measuredFindings) : findings);
+					reportLint(view, measuredFindings.length ? findings.concat(measuredFindings) : findings, doc);
 					const diags = findingsToDiagnostics(view.state.doc, findings, fixOpts) as Diagnostic[];
 					// `thin-card-no-ink` is not auto-fixable in lint (which ink reads depends on the photo, which lint cannot see).
 					// The tooltip builds its own buttons and fills them IN PLACE once the photo has been read from the preview, so

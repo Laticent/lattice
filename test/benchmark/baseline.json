@@ -423,5 +423,13 @@
       "shippedNs": 2254.54,
       "kernelNs": 54.58
     }
+  },
+  "memoDatasets": {
+    "meta-memo · 3 phone-photo slides": {
+      "copiedPerKey": 61,
+      "cutsPerKey": 1,
+      "ms": 63.59,
+      "p95": 104.36
+    }
   }
 }

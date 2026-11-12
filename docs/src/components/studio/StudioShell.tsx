@@ -4155,6 +4155,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				setDeckHasContent(a.hasContent);
 				setFindings(a.findings);
 				setAssessing(false);
+				// The length of the text this assessment answered for, on the root (as the editor stamps its lint pass,
+				// `data-linted-chars`), so a test can wait for THIS text's assessment instead of racing it: on a deck of
+				// phone photos one pass holds Firefox's main thread for seconds. Read by no app code.
+				rootRef.current?.setAttribute('data-assessed-chars', String(source.length));
 			});
 		}, 400);
 		return () => {

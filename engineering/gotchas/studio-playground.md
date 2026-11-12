@@ -1996,3 +1996,35 @@ never turn "passed in headless" into "works on iOS."
   the island. A click in that window has no handler behind it.
 - **Fix** — wait for hydration before the first click: Astro removes the island's `ssr` attribute when it finishes, so
   poll for `astro-island[component-url*="NavActions"]:not([ssr])` (as `site-chrome-first-paint.spec.ts` does).
+
+## A deck with phone photos freezes the Studio for many seconds, and a test's click times out at "scrolling into view"
+
+- **Symptom** — after a deck with a few phone photos (each a multi-megabyte `data:` URI) lands in the editor, Firefox's
+  main thread blocks for 10 to 30 s at a time. A Playwright `click` then fails at "scrolling into view if needed" after its
+  15 s action budget, though the button is visible, enabled and stable. `export-photo-size.spec.ts` on `gecko` failed this
+  way on every run on `main` in November 2026 (followups 3040-p1 read it as a slow slide rail).
+- **Cause** — two per-edit costs that scale with the deck's SIZE, run for every slide on every render. The slide-metadata
+  memo (`lib/core/meta-memo.mjs`) flat-copied each slide's text into its key through `JSON.parse(JSON.stringify(…))`. A
+  photo slide is about 5 MB, past the memo's 2,000,000-character cap, so every read missed, copied 5 MB, and evicted every
+  other slide; the next write evicted the copy. And `splitSlideChunks` (`lib/core/slide-boundaries.mjs`) re-split and
+  re-joined the whole 16 MB text on each of its 35 calls per edit (the linter's rules, the editor, the outline).
+- **How to tell** — record a Gecko profile: launch Firefox with `MOZ_PROFILER_STARTUP=1`,
+  `MOZ_PROFILER_STARTUP_FEATURES=js,stackwalk` and `MOZ_PROFILER_SHUTDOWN=<file>` (Playwright `launchOptions.env`), then
+  count samples per JS function on the `Web Content` process's `GeckoMain` thread. On Chromium, a CDP `Profiler.start`
+  around the edit shows the same functions.
+- **Fix** — the memo neither stores nor looks up a key longer than its cap (it could never hit), and `splitSlideChunks`
+  keeps its last answer beside the boundary memo entry it was cut from. Counted in `test/unit/core/meta-memo.test.js`,
+  `slide-boundaries.test.js` and the bench's `memoDatasets` row: copies per keystroke 15,000,391 to 61, cuts 35 to 1. The
+  two full lint passes per edit (the editor's and the Coach's) still cost seconds on such a deck in Firefox; the spec waits
+  for the Studio to finish them rather than racing its click against them.
+
+## A workspace restore says "Workspace restored" but a reference doc never comes back
+
+- **Symptom** — the restore toast reads "Workspace restored · 1 deck", and the Library has none of the backup's PDFs.
+  `workspace-backup-size.spec.ts`'s 67 MiB case found zero of ten.
+- **Cause** — the restore refuses a reference-doc row whose `dataUrl` is not decodable base64 or is longer than a 5 MiB PDF
+  encodes to (`workspace-backup.ts`, the reference-doc lane), and names it in the toast's "Not restored" list. A test that
+  builds its PDF by repeating the base64 of a block puts the block's `==` padding in the middle of the string, which no
+  decoder accepts, and runs past the cap.
+- **Fix** — encode the whole byte buffer once (`Buffer.toString('base64')`), and have the test assert the toast has no
+  "Not restored" line, so a refused row is named instead of counted as missing later.

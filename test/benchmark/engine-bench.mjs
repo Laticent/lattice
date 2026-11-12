@@ -984,6 +984,64 @@ async function composeUndoRows(deckText) {
   }
 }
 
+// ── META-MEMO TIER (the slide-metadata memo on a deck of phone photos) ─────────────────
+//
+// The Studio reads every slide's metadata on every render (`readMetaField`, `readRecord`), through the memo in
+// lib/core/meta-memo.mjs. A slide holding a phone photo is megabytes of data URI, past the memo's cap: it used to be
+// flat-copied on every read and to evict every other slide, which held Firefox's main thread for up to 29 s
+// (docs/e2e/export-photo-size.spec.ts). The deck is also cut into chunks by every reader (`splitSlideChunks`), 35 times
+// per edit, which re-split the whole 16 MB text each time. The WORK is `copiedPerKey` (characters the memo copied) and
+// `cutsPerKey` (real cuts), the same on every machine, and gated: more is a regression. `ms` is commentary.
+async function memoTier() {
+  let edit;
+  let door;
+  let memo;
+  let bounds;
+  try {
+    [edit, door, memo, bounds] = await Promise.all([import('../../lib/core/meta-edit.mjs'), import('../../lib/core/meta-door.mjs'), import('../../lib/core/meta-memo.mjs'), import('../../lib/core/slide-boundaries.mjs')]);
+  } catch {
+    edit = null;
+  }
+  if (!edit?.readMetaField || !memo?.memoStats || !bounds?.chunkCutCount) {
+    console.log('\n=== META-MEMO · not comparable (no memo counters in this tree) ===');
+    return null;
+  }
+  const photo = (k) => `![bg](data:image/jpeg;base64,${String.fromCharCode(65 + k).repeat(5_000_000)})`;
+  let slides = [
+    '<!-- _class: title -->\n\n# Phone photos',
+    ...[0, 1, 2].map((k) => `<!-- _class: image -->\n\n\`Photo ${k + 1}\`\n\n## A phone photo\n\n${photo(k)}`),
+    '<!-- {layout=cards} -->\n\n## Plain\n\n- One\n  - body',
+    '## End\n\nText.',
+  ];
+  // The linter's rules, the editor and the outline each cut the whole deck into chunks: 35 cuts of one deck per edit,
+  // counted in Firefox's profile of this deck (`splitSlideChunks`).
+  const read = () => {
+    const deck = slides.join('\n\n---\n\n');
+    for (let k = 0; k < 35; k++) bounds.splitSlideChunks(deck);
+    for (const c of slides) {
+      edit.readMetaField(c, 'class');
+      for (const m of c.matchAll(/<!--([\s\S]*?)-->/g)) door.readRecord(m[1]);
+    }
+  };
+  read();
+  const N = 10;
+  const before = memo.memoStats.copiedChars;
+  const cutsBefore = bounds.chunkCutCount();
+  const times = [];
+  for (let i = 0; i < N; i++) {
+    // A character typed on the plain slide, as an author types beside the photos.
+    slides = slides.map((c, j) => (j === 4 ? `${c}x` : c));
+    const t = process.hrtime.bigint();
+    read();
+    times.push(Number(process.hrtime.bigint() - t) / 1e6);
+  }
+  times.sort((a, b) => a - b);
+  const summary = [{ dataset: 'meta-memo · 3 phone-photo slides', work: { copiedPerKey: Math.round((memo.memoStats.copiedChars - before) / N), cutsPerKey: (bounds.chunkCutCount() - cutsBefore) / N }, ms: times[Math.floor(N / 2)], p95: times[N - 1] }];
+  console.log('\n=== META-MEMO · slide-metadata reads per keystroke on a deck of phone photos ===');
+  for (const r of summary) console.log(`${r.dataset.padEnd(48)}${JSON.stringify(r.work).padEnd(40)}${r.ms.toFixed(3).padStart(11)}${r.p95.toFixed(3).padStart(9)}`);
+  return { summary };
+}
+
 // ── SQUADRA TIER (the lint-and-fix library: driver, hostile input, compile cost) ─────────
 //
 // Squadra M1a's HARD RULE #19 record (engineering/decisions/2026-10-26-squadra-lint-library/
@@ -1821,7 +1879,7 @@ function comparableMachine(base, here, probeNow) {
  *   transposition away from blessing the sweep rows into `printDatasets`.
  */
 function blessBaseline(summary, render, opts = {}) {
-  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, collageSummary = null, splitSummary = null, filoSummary = null, squadraSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
+  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, collageSummary = null, splitSummary = null, filoSummary = null, memoSummary = null, squadraSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
   // A bless restamps `blessedOn` (the render tier always runs), and `tierRows` would carry the prior
   // inline rows forward under that new stamp. `checkInlineRows` gates on the fingerprint alone, so
   // those rows would then gate a machine they were never measured on. Refuse instead.
@@ -1926,6 +1984,8 @@ function blessBaseline(summary, render, opts = {}) {
   }));
   // THE FILO TIER BLESSES ITS WORK COUNTS; `ms` and `p95` are the cost record, as in the split tier.
   const filoOut = tierRows(filoSummary?.length ? filoSummary : null, 'filoDatasets', (s) => ({ ...s.work, ms: round2(s.ms), p95: round2(s.p95) }));
+  // THE META-MEMO TIER BLESSES ITS WORK COUNT; `ms` is commentary.
+  const memoOut = tierRows(memoSummary?.length ? memoSummary : null, 'memoDatasets', (s) => ({ ...s.work, ms: round2(s.ms), p95: round2(s.p95) }));
   // THE SQUADRA TIER BLESSES ITS WORK COUNTS; `ms` is the cost record, as in the split tier.
   const squadraOut = tierRows(squadraSummary?.length ? squadraSummary : null, 'squadraDatasets', (s) => ({
     passes: s.passes, applied: s.applied, findings: s.findings, ops: s.ops, ms: Math.round(s.ms * 1000) / 1000, p95: Math.round(s.p95 * 1000) / 1000,
@@ -2003,6 +2063,8 @@ function blessBaseline(summary, render, opts = {}) {
     ...(splitOut ? { splitDatasets: splitOut } : {}),
     // The undo history on the 134 KB deck: work counts gated, timings recorded. Blessed on every bless.
     ...(filoOut ? { filoDatasets: filoOut } : {}),
+    // The slide-metadata memo on a deck of phone photos: characters copied per keystroke gated. Blessed on every bless.
+    ...(memoOut ? { memoDatasets: memoOut } : {}),
     // Squadra: the fix driver's passes and fixes, hostile-input ops, compile cost. Blessed on every bless.
     ...(squadraOut ? { squadraDatasets: squadraOut } : {}),
     // The inline-code dispatcher per span, as a paired ratio against the retired kernel.
@@ -2020,6 +2082,7 @@ function blessBaseline(summary, render, opts = {}) {
   if (collageSummary?.length) wrote.push(`${collageSummary.length} collage`);
   if (splitSummary?.length) wrote.push(`${splitSummary.length} split`);
   if (filoSummary?.length) wrote.push(`${filoSummary.length} filo`);
+  if (memoSummary?.length) wrote.push(`${memoSummary.length} meta-memo`);
   if (squadraSummary?.length) wrote.push(`${squadraSummary.length} squadra`);
   if (inlineSummary?.length) wrote.push(`${inlineSummary.length} inline`);
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${wrote.join(' + ')} datasets).`);
@@ -2099,6 +2162,7 @@ function checkBaseline(summary, render, opts = {}) {
   const collageSummary = opts.collageSummary ?? null;
   const splitSummary = opts.splitSummary ?? null;
   const filoSummary = opts.filoSummary ?? null;
+  const memoSummary = opts.memoSummary ?? null;
   const squadraSummary = opts.squadraSummary ?? null;
   const inlineSummary = opts.inlineSummary ?? null;
   const inlineSkipped = opts.inlineSkipped ?? null;
@@ -2465,6 +2529,35 @@ function checkBaseline(summary, render, opts = {}) {
     }
   }
 
+  // THE META-MEMO TIER. Gates on WORK: more characters copied per keystroke (a slide over the memo's cap is copied
+  // again) or more chunk cuts (a deck cut again for every reader) is a regression; less is a win to re-bless.
+  if (memoSummary?.length) {
+    console.log('\n=== META-MEMO CHECK \u00b7 work per keystroke vs committed baseline ===');
+    for (const s2 of memoSummary) {
+      const b = base.memoDatasets?.[s2.dataset];
+      if (!b) {
+        drift = true;
+        console.log(`${s2.dataset.padEnd(48)}  NEW (re-bless)`);
+        continue;
+      }
+      const rows = Object.entries(s2.work).map(([k, v]) => ({ k, v, b: b[k] }));
+      const unblessed = rows.filter((r) => typeof r.b !== 'number');
+      const worse = rows.filter((r) => typeof r.b === 'number' && r.v > r.b);
+      const less = rows.filter((r) => typeof r.b === 'number' && r.v < r.b);
+      if (worse.length) regressedDatasets.push(s2.dataset);
+      else if (less.length) won = true;
+      if (unblessed.length) drift = true;
+      const shown = rows.map((r) => `${r.k} ${r.b ?? '—'} \u2192 ${r.v}`).join(', ');
+      console.log(`${s2.dataset.padEnd(48)}  ${shown}  ${worse.length ? 'REGRESSION (more work)' : unblessed.length ? 'NEW column (re-bless)' : less.length ? 'less work — re-bless to ratchet' : 'ok'}`);
+    }
+    for (const name of Object.keys(base.memoDatasets ?? {})) {
+      if (!memoSummary.some((s2) => s2.dataset === name)) {
+        drift = true;
+        console.log(`${name.padEnd(48)}  MISSING (re-bless)`);
+      }
+    }
+  }
+
   // THE SQUADRA TIER. Gates on WORK: passes, fixes applied, findings and ops are deterministic, so a
   // moved count is a behavior change to re-bless with the PR saying why; more ops is a regression.
   if (squadraSummary?.length) {
@@ -2734,6 +2827,8 @@ async function main() {
   const split = await splitTier();
   // In-process (~3s), and blessed on its work counts: the undo history's HARD RULE #19 record.
   const filoT = await filoTier();
+  // In-process (~1s), and blessed on its work count: the slide-metadata memo's HARD RULE #19 record.
+  const memoT = await memoTier();
   // In-process (~3s), and blessed on its work counts: Squadra's HARD RULE #19 record.
   const squadra = await squadraTier();
   // Its own process (~5s), and blessed: the inline-code dispatcher's HARD RULE #19 record.
@@ -2745,7 +2840,7 @@ async function main() {
   const cli = wantCli ? await cliTier() : null;
   if (wantBless) {
     blessBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, squadraSummary: squadra?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, memoSummary: memoT?.summary, squadraSummary: squadra?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
   }
   if (wantCheck && wantBless) {
@@ -2769,7 +2864,7 @@ async function main() {
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
     const pass1 = checkBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, squadraSummary: squadra?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, memoSummary: memoT?.summary, squadraSummary: squadra?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
     if (pass1.regressedDatasets.length) {
       // ONLY THE RENDER TIER IS RE-MEASURED. `renderTier()` is what pass 2 runs, and it is
