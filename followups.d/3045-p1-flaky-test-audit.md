@@ -152,7 +152,7 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             `preview-nav`'s remount case were red on `main`; vetrina's scroll-cost test counted style mutations, which
             2026-11-12 (`docs/e2e` census): every `docs/e2e` hit outside the files other sessions own is done, 39
             hits in 24 files, and `SANCTIONED_E2E_SLEEPS` went from 106 calls in 36 files to two calls owned
-            elsewhere (`restyle-overlap`, `workspace-backup-size`); the baseline is now 132 hits in 55 files, no
+            elsewhere (`restyle-overlap`, `workspace-backup-size`); the baseline is now 189 hits in 78 files (228 in 102 on `main` at merge time), no
             `flaky-ok` added and no test disabled. Each rewrite waits on a product signal (five helpers in `docs/e2e`,
             listed in the decision note's tools), and each was shown failing on a broken product line where an arm
             could be built. Found and fixed: vetrina's scroll-cost test counted style mutations, which
