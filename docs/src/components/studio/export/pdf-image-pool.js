@@ -5,11 +5,15 @@
 // (engineering/decisions/2026-11-11-deferred-asset-bytes.md §7). Every page's step is independent, so the pool runs them side
 // by side, and the main thread only places the results.
 //
-// WHY THE FILE CANNOT CHANGE. A worker runs jsPDF's own `processPNG` on exactly the bytes `addImage` would hand it (a data
-// URL's base64, decoded, as jsPDF's `convertBase64ToBinaryString` does) with the same compression word. `prepared` then
-// stands in for the document's own `processPNG` for exactly that image: jsPDF still assigns the index and the alias, still
-// skips a repeated image by its alias, and still writes the objects. Any image without a result (no workers, a failed job,
-// another compression) takes jsPDF's own path. test: pdf-image-pool.test.ts (the worker's result equals the main thread's).
+// TWO KINDS OF PAGE. A plain 8-bit RGB PNG, which is what the shared writer writes for every opaque slide, goes in as its own
+// compressed pixels (`directPng`, lib/core/png-idat.mjs): no decode, no second deflate, nothing for a worker to do. The
+// PIXELS are the PNG's exactly; the file's compression is the shared writer's instead of jsPDF's, so the file's bytes differ
+// from jsPDF's re-compression (2026-11-11-deferred-asset-bytes.md §9, signed off by the owner). Any other PNG (a slide with
+// transparency) takes jsPDF's own `processPNG` in a worker, on exactly the bytes `addImage` would hand it, with the same
+// compression word, so that page is byte for byte what jsPDF writes. `installPreparedPngs` stands in for the document's own
+// `processPNG` for exactly one image: jsPDF still assigns the index and the alias, still skips a repeated image by its alias,
+// and still writes the objects. test: pdf-image-pool.test.ts.
+import { rgbPngIdat } from '../../../../../lib/core/png-idat.mjs';
 import { createSharedPool, createWorkerPool } from '../../../lib/worker-pool.js';
 import { poolSize } from './picture-encoder-pool.js';
 
@@ -34,6 +38,31 @@ export function pngBytesOf(image) {
 	const out = new Uint8Array(bin.length);
 	for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
 	return out;
+}
+
+/**
+ * COMPRESSED ONCE. The shared writer (canvas-encode.mjs) has just written each slide as an 8-bit RGB PNG tuned for size, and
+ * a PDF can carry that PNG's compressed pixels exactly as they are (lib/core/png-idat.mjs). This is the image object jsPDF's
+ * writer reads (`putImage`: width, height, color space, bits, filter, decode parameters, data), built from those bytes with
+ * no decode and no second deflate, the same thing the PDF export's writer does (pdf-compose/write-pdf.mjs `rgbPngXObject`).
+ * The pixels are the PNG's; only the compression in the file is the shared writer's instead of jsPDF's. Null for any PNG
+ * that is not plain RGB (a slide with transparency), which takes jsPDF's own step in the pool.
+ */
+export function directPng(image) {
+	const bytes = pngBytesOf(image);
+	const png = bytes && rgbPngIdat(bytes);
+	if (!png) return null;
+	let data = '';
+	for (let i = 0; i < png.data.length; i += 0x8000) data += String.fromCharCode(...png.data.subarray(i, i + 0x8000));
+	return {
+		data,
+		width: png.width,
+		height: png.height,
+		colorSpace: 'DeviceRGB',
+		bitsPerComponent: 8,
+		filter: 'FlateDecode',
+		decodeParameters: `/Predictor 15 /Colors 3 /BitsPerComponent 8 /Columns ${png.width}`,
+	};
 }
 
 /** One page's job: jsPDF's result for `image`, or null for jsPDF's own path. Never rejects. */
@@ -70,7 +99,10 @@ export function startPngSet() {
 /** Start jsPDF's step for one picture now, in the pool. */
 export function startPng(image, compression) {
 	const key = `${compression}\u0000${image}`;
-	if (!started.has(key)) started.set(key, job(image, compression));
+	if (started.has(key)) return;
+	// A plain RGB PNG goes in as it is, at no cost worth a worker; only another kind of PNG takes jsPDF's step in the pool.
+	const direct = directPng(image);
+	started.set(key, direct ? Promise.resolve(direct) : job(image, compression));
 }
 
 /**

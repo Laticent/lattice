@@ -190,3 +190,18 @@ Its comment says why it exists: html-to-image dropped the stylesheet from SVG ch
 out with the page's own stylesheet (the 2026-10-25 note says so), and skipping the flatten left the owner's print
 byte-identical in Chromium AND WebKit, and the PDF export identical, while saving 11 s of a WebKit print (68.6 s →
 57.6 s). Being checked across every chart kind before it changes.
+
+## 9. Print compresses each page once (owner sign-off, 2026-11-12)
+
+The printed sheet compressed every slide twice: the shared writer (`lib/core/canvas-encode.mjs`) wrote a size-tuned PNG,
+then jsPDF's `processPNG` decoded it and deflated the pixels again. The PDF export never did: its writer carries the
+PNG's compressed bytes as they are (`rgbPngXObject`). That reading now lives once, `lib/core/png-idat.mjs`
+`rgbPngIdat`, used by both writers, and the sheet hands jsPDF an image built from those bytes
+(`export/pdf-image-pool.js` `directPng`). A PNG with transparency still takes jsPDF's step in the pool.
+
+Measured on the owner's deck: Chromium print 55 s → 41.6 s, WebKit 73.5 s → 63.6 s. All 50 images decode to identical
+pixels (pixel comparison of every image stream, and `pdf-image-pool.test.ts` decodes both files). The file is larger,
+22.19 → 22.70 MB in Chromium (+2.3 %) and 13.99 → 14.90 MB in WebKit (+6.5 %), because jsPDF's `'SLOW'` deflate
+squeezes harder than the platform `CompressionStream`, which has no level. A level-9 deflate of the same filtered rows
+would be 21.50 MB but costs ~0.8 s an image even in native zlib, and the browser offers none, so it would be a script
+deflate in the workers: slower on a phone for ~3 %. The owner signed off on the faster, slightly larger file.
