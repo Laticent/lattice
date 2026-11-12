@@ -8,6 +8,7 @@
  *   PROBE=undo node scripts/ios-safari/probe.selftest.mjs   # the undo probe: edit, WebKit undo command, reload
  *   PROBE=chat-storage node scripts/ios-safari/probe.selftest.mjs   # chats move to IndexedDB across a reload; the allowance
  *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
+ *   PROBE=present-memory [BASELINE_URL=http://localhost:4341] node scripts/ios-safari/probe.selftest.mjs   # Present on a photo deck
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -85,6 +86,49 @@ if (process.env.PROBE === 'chat-storage') {
 			report(label, 'chat-storage-probe.js after reload', await page.evaluate((seed) => globalThis.latticeChatStorageAfterReload(seed), first.seed));
 		}
 		await context.close();
+	}
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
+if (process.env.PROBE === 'present-memory') {
+	// The Present probe, as run.mjs runs it, minus the footprint (only the Mac can read the simulator's): send the deck,
+	// import it, reload, open Present, step six slides. iPhone-sized only, as the suite runs it. BASELINE_URL adds a second
+	// arm that is reported and not judged, as PRESENT_BASELINE_URL does on the Mac.
+	const { buildPresentDeck, PRESENT_TITLE, presentChecks } = await import('./present-memory.mjs');
+	const PRESENT = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
+	const deck = await buildPresentDeck();
+	const b64 = Buffer.from(deck.bytes).toString('base64');
+	const PIECE = 4_000_000;
+	const arm = async (name, base) => {
+		const out = { arm: name };
+		const context = await browser.newContext(shapes.at(-1).options);
+		const page = await context.newPage();
+		await page.addInitScript(SEED);
+		const call = (expr) => page.evaluate(`${PRESENT}\n${expr}`);
+		try {
+			await page.goto(`${base}/studio/`, { waitUntil: 'domcontentloaded' });
+			const n = Math.ceil(b64.length / PIECE);
+			for (let i = 0; i < n; i++) await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${n})`);
+			const imported = await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE)}, ${deck.slides})`);
+			Object.assign(out, { importMs: imported.importMs, width: imported.width });
+			await page.goto(`${base}/studio/`, { waitUntil: 'domcontentloaded' });
+			await call('latticePresentReady()');
+			const opened = await call('latticePresentOpen()');
+			Object.assign(out, { openMs: opened.openMs, slides: opened.total });
+			const stepped = await call('latticePresentStep(6)');
+			Object.assign(out, { stepsMs: stepped.steps.map((s) => s.ms), photos: stepped.steps.every((s) => s.photo), alive: (await call('latticePresentAlive()')).mark === opened.mark });
+		} catch (e) {
+			out.error = String(e.message || e).split('\n')[0].slice(0, 300);
+		}
+		await context.close();
+		return out;
+	};
+	const mine = await arm('this build', BASE);
+	const steps = presentChecks(mine, { slides: deck.slides, memory: false });
+	report('iPhone-sized', 'present-memory-probe.js', { ok: steps.every((s) => s.pass), error: steps.filter((s) => !s.pass).map((s) => s.name).join('; '), width: mine.width, steps });
+	if (process.env.BASELINE_URL) {
+		const b = await arm('baseline', process.env.BASELINE_URL.replace(/\/$/, ''));
+		console.log(`baseline (not judged): ${b.error ? `ERROR ${b.error}` : `opened in ${b.openMs} ms, steps ${b.stepsMs.join('/')} ms`}`);
 	}
 	await browser.close();
 	process.exit(failed ? 1 : 0);

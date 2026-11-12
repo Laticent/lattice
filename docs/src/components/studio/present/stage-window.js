@@ -621,6 +621,20 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 	 *  an unrelated re-render doesn't tear down a live Stage and re-run the
 	 *  engine's boot for no change. */
 	let written = '';
+	/** Waiting for the FIRST deck document in this window (`whenDeckWritten`), resolved by `paint` or let go by `teardown`. */
+	let deckWaiters = /** @type {((ok: boolean) => void)[]} */ ([]);
+	const settleDeckWaiters = (ok) => {
+		const list = deckWaiters;
+		deckWaiters = [];
+		for (const done of list) done(ok);
+	};
+	/**
+	 * Resolves true once a DECK document (not the holding page) is in the window, false if the window goes first.
+	 * The fill waits on it: writing a document replaces `documentElement`, and fullscreen exits with it. The deck
+	 * used to be built when Present opened, so it was nearly always in before placement finished; it is built
+	 * when the Stage opens now (PresentOverlay `stageWanted`), so the fill has to wait for it.
+	 */
+	const whenDeckWritten = () => (written && written !== HOLDING ? Promise.resolve(true) : new Promise((done) => deckWaiters.push(done)));
 	/** Baked into every document this controller writes and echoed in that document's
 	 *  beats. Per CONTROLLER rather than per open, because the deck document is built
 	 *  asynchronously and often BEFORE the window exists — a per-open token could not be
@@ -811,6 +825,7 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 			// throwing write: `written === doc` made `write(doc)` a no-op forever after,
 			// so the room kept whatever was on screen and nothing could replace it.
 			written = doc;
+			if (doc !== HOLDING) settleDeckWaiters(true);
 		} catch {
 			written = '';
 			// Not a rewrite in flight any more: nothing will say `ready`, so the console must
@@ -901,6 +916,7 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 	function teardown() {
 		ready = false;
 		written = '';
+		settleDeckWaiters(false);
 		ownSeq += 1;
 		// A goodbye still awaited belongs to a window already let go of; whatever comes next supersedes it.
 		cancelGoodbye?.();
@@ -1011,8 +1027,10 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 			.then(async (placed) => {
 				if (win !== stageWin || win.closed) return; // toggled off while we were asking
 				// Fullscreen AFTER the deck document is live, and only onto a screen we
-				// actually placed onto — see `fillExternalScreen`.
-				const full = placed ? await fillExternalScreen(win) : false;
+				// actually placed onto — see `fillExternalScreen` and `whenDeckWritten`.
+				const deck = placed ? await whenDeckWritten() : false;
+				if (win !== stageWin || win.closed) return;
+				const full = deck ? await fillExternalScreen(win) : false;
 				if (win !== stageWin) return;
 				onPlaced?.({ placed, full });
 			})

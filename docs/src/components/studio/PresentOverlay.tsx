@@ -115,15 +115,19 @@ const UNAVAILABLE_COPY: Record<string, { title: string; body: string }> = {
  * absent, with no width band where its box shows and its preview is empty.
  */
 function useConsolePanel(): boolean {
-	const QUERY = '(min-width: 1024px)';
-	const [wide, setWide] = React.useState(() => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(QUERY).matches : false));
+	return useMinWidth('(min-width: 1024px)');
+}
+
+/** Does `query` match right now? Kept current across resizes. */
+function useMinWidth(query: string): boolean {
+	const [wide, setWide] = React.useState(() => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(query).matches : false));
 	React.useEffect(() => {
-		const mq = window.matchMedia(QUERY);
+		const mq = window.matchMedia(query);
 		const update = () => setWide(mq.matches);
 		update();
 		mq.addEventListener('change', update);
 		return () => mq.removeEventListener('change', update);
-	}, []);
+	}, [query]);
 	return wide;
 }
 
@@ -712,6 +716,15 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// for a frame on every palette change, and the talk clock re-zeroed (stage-window.spec :372).
 	const [stageRewriting, setStageRewriting] = React.useState(false);
 	const stageOn = !!stageHost || stageRewriting;
+	// WHEN THE STAGE DOCUMENT IS BUILT. Built whenever Present opened, it was the whole hang on a deck of
+	// photos on a phone: ~13 s of main thread and ~0.5 GB on lattice.style for 18 phone photos, enough for
+	// iOS to kill the tab, for a window a phone cannot even offer (engineering/decisions/2026-11-11-deferred-asset-bytes.md).
+	// Now it is built while Present is open AND either a Stage window exists (`stageWanted`, from the press that
+	// opened it to the teardown that ends it, an `S` on a narrow window included) or the Stage launcher is offered
+	// (`stageOffered`, the launcher's own `md` breakpoint), so the Stage still opens on the deck at once on a laptop
+	// and a phone never pays for it.
+	const [stageWanted, setStageWanted] = React.useState(false);
+	const stageOffered = useMinWidth('(min-width: 768px)');
 	// ── PRESENT IS PRESENT UNTIL THERE IS A ROOM ───────────────────────────────────
 	//
 	// Present opens as Present: the slide, the transport, the lens, the grid. It becomes a
@@ -774,6 +787,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// nodes in a document nobody is looking at any more.
 			onChange: (win: Window | null, rewriting?: boolean) => {
 				setStageRewriting(!win && !!rewriting);
+				// A real teardown (not a rewrite) ends the Stage. A write that THREW also arrives as a plain null, with
+				// the window still open, so the window itself is asked: only a Stage that is gone stops the build. The
+				// built document stays only while the build effect below keeps it current (its cleanup lets go of it).
+				if (!win && !rewriting && !stageRef.current?.isOpen()) setStageWanted(false);
 				setStageHost(() => {
 					if (!win) return null;
 					try {
@@ -849,6 +866,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		const wasOpen = stageRef.current?.isOpen();
 		stageRef.current?.toggle();
 		const nowOpen = stageRef.current?.isOpen();
+		setStageWanted(!!nowOpen);
 		if (!wasOpen && !nowOpen) {
 			notify('Allow pop-ups to open the Stage on your second screen.');
 			return;
@@ -856,15 +874,17 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		if (!wasOpen && nowOpen) window.focus();
 	}, []);
 
-	// Build (and rebuild) the Stage document while presenting — async (engine render),
-	// so a Stage already open is rewritten once the new doc lands.
+	// Build (and rebuild) the Stage document while a Stage is open — async (engine render): the
+	// window opens on the press with its holding page, and the deck is written once the doc lands.
 	const fmAll = frontMatter;
+	// One boolean, so opening the Stage on a laptop (offered → offered and wanted) does not rebuild what is built.
+	const stageBuild = open && (stageWanted || stageOffered);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: rebuild when the presented SET or theme changes; extraTheme keyed by name (its content hash).
 	React.useEffect(() => {
-		if (!open) return;
+		if (!stageBuild) return;
 		let canceled = false;
 		const source = fmAll + set.join(SLIDE_SEP);
-		buildStageDocument(options, source, set.length, paletteOverride, extraTheme, extraCss, modeOverride, stageRef.current?.token, webOrigins)
+		const build = () => buildStageDocument(options, source, set.length, paletteOverride, extraTheme, extraCss, modeOverride, stageRef.current?.token, webOrigins)
 			.then(({ doc, bg }) => {
 				if (canceled) return;
 				stageDocRef.current = doc;
@@ -877,8 +897,18 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// the presenter no Stage exists while the room reads a loading message.
 				if (!canceled && stageRef.current?.isOpen()) notifyRef.current('The Stage could not render this deck. Close it and try again.');
 			});
-		return () => { canceled = true; };
-	}, [open, set, fmAll, paletteOverride, extraTheme?.name, modeOverride, extraCss, options, chromeGen, (webOrigins ?? []).join(' ')]);
+		// Built NOW, while Present is opening, never deferred to idle. The render is one long main-thread task (~100 ms
+		// on the owner's deck), and an idle build lands about when the presenter makes their first tap: the counter moved
+		// and the slide stayed on the previous one for that long (supplied-page-position.spec). During the opening it
+		// costs nothing anyone sees.
+		void build();
+		return () => {
+			canceled = true;
+			// The document stops being current the moment these inputs change or the build stops, so a Stage opened
+			// before the next one lands shows its holding page, never a deck that has since changed.
+			stageDocRef.current = '';
+		};
+	}, [stageBuild, set, fmAll, paletteOverride, extraTheme?.name, modeOverride, extraCss, options, chromeGen, (webOrigins ?? []).join(' ')]);
 	// The overview grid's thumbnails follow the deck's web-image choice like the stage does.
 	const webKey = (webOrigins ?? []).join(' ');
 	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the list's value, not its identity.

@@ -154,6 +154,19 @@ export function hiddenAuthoredSlides(source: string): number[] {
 	return splitSlideChunks(stripFrontMatter(source)).chunks.flatMap((md, i) => (slideSourceHidden(md) ? [i] : []));
 }
 
+/**
+ * How a full-deck render carries the deck's Library photos (`asset:<name>`).
+ *   · `'inline'` (the default) — as `data:` URIs, the bytes in the markup. Every surface that leaves the
+ *     tab or is captured needs this: a file (PDF, PowerPoint, images, the webpage player, print) and its
+ *     capture frame (`assetOpts`).
+ *   · `'live'` — as the Studio's own `blob:` URLs, through the render hook every preview already uses
+ *     (asset-render-hook.ts). For a surface that stays in this tab, on this origin, and never writes a
+ *     file: the Stage window, the Reading view, the narration script, the Architect's fit check. 18 phone
+ *     photos are a 32.8 MB `data:` document and a 0.2 MB `blob:` one; inline, the narration script alone
+ *     sanitized all of it each time Present opened (engineering/decisions/2026-11-11-deferred-asset-bytes.md §3).
+ */
+export type DeckPhotos = 'inline' | 'live';
+
 export async function buildDeckRender(
 	options: SingleSlideOptions,
 	source: string,
@@ -162,10 +175,11 @@ export async function buildDeckRender(
 	extra?: ExtraTheme,
 	extraCss?: string,
 	styles: 'scoped' | 'flat' = 'scoped',
+	photos: DeckPhotos = 'inline',
 ): Promise<DeckRender> {
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra, source);
-	const out = await renderMarkdown(PG, source, theme, { samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)), ...(styles === 'flat' ? { styles } : {}) });
+	const out = await renderMarkdown(PG, source, theme, { samplesUrl: samplesBaseFor(options.themeBase), ...(photos === 'inline' ? await assetOpts(source) : {}), ...(styles === 'flat' ? { styles } : {}) });
 	const { previewFontFaceCss } = await loadDeckRenderFonts();
 	// Every surface built from this render is a reader's view (an export, the print panel, the Article, narration), so a
 	// hidden slide leaves here, once, off the engine's own mark.
