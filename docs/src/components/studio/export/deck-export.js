@@ -1220,7 +1220,7 @@ async function sectionsOf(frame, fonts, { iconShapes = false } = {}) {
 // No chart bake here. The capture exports used to run `flattenChartSvgs` before every shot: html-to-image copied
 // computed styles onto HTML elements only, so a chart <svg> reached it without its stylesheet (black fills, a rescaled
 // root). The slide camera (lib/core/slide-camera.mjs, 2026-10-25) draws each slide WITH the page's stylesheet, so the
-// bake had nothing left to fix and cost a style pass over every chart: 11 s of an iPhone print of a nine-heatmap deck.
+// bake had nothing left to fix and cost a style pass over every chart: 11 s of a WebKit print of a nine-heatmap deck.
 // Retired 2026-11-12 (PR #3148's follow-up p1, owner's D2): all 28 chart kinds compared with and without it in print,
 // PDF, PowerPoint and images, Chromium and WebKit, light and dark, differ only in anti-aliased edges.
 

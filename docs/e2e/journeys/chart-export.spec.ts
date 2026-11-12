@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { Page } from '@playwright/test';
+import { PENDING_FIGURES } from '../../../lib/plugins/host-browser.mjs';
 import { expect, gotoStudio, LIVE_PREVIEW, railButtons, setEditorContent, shareExport, test } from '../studio-fixture';
 
 // Journey: chart deck → export. Stylesheet-styled chart SVGs (radar, donut) were the
@@ -23,7 +25,9 @@ const HEADINGS = DECK.replace(/^---\n[\s\S]*?\n---\n/, '')
 	.split(/\n---\n/)
 	.map((slide) => (slide.match(/^#{1,6}\s+(.+)$/m)?.[1] ?? '').replace(/[*_`]/g, '').trim());
 
-test('every exported slide picture looks like the same slide on screen', async ({ page }) => {
+// One check, three engines: `@gecko` runs it on desktop Chromium and Firefox, `@webkit-tablet` in WebKit (where the
+// retired bake cost most). Not `@crosswidth`: at phone width the editor this loads the deck through is folded away.
+async function exportMatchesScreen({ page }: { page: Page }) {
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
 	await expect(railButtons(page)).toHaveCount(SLIDES);
@@ -60,8 +64,11 @@ test('every exported slide picture looks like the same slide on screen', async (
 		const sec = page.frameLocator(LIVE_PREVIEW).locator('.lattice section').first();
 		// Wait for the preview to SHOW slide i (it switches after the click; a `silent` title slide carries no page
 		// number, so its heading is the mark), then for its content to stop changing
-		// (a diagram draws after the slide lands): two equal reads in a row, polled, never a fixed sleep (#32).
+		// (a diagram draws after the slide lands): first the engine's own signal, no figure still pending or hydrating
+		// (PENDING_FIGURES, lib/plugins/host-browser.mjs, what the export itself waits on), then two equal reads in a row
+		// for fonts and late layout. Polled, never a fixed sleep (#32).
 		await expect(sec).toContainText(HEADINGS[i]);
+		await expect(sec.locator(PENDING_FIGURES)).toHaveCount(0, { timeout: 60_000 });
 		let last = '';
 		await expect
 			.poll(async () => {
@@ -91,13 +98,16 @@ test('every exported slide picture looks like the same slide on screen', async (
 		const own = distance(exported[i], live[i]);
 		const nearestOther = Math.min(...live.map((l, j) => (j === i ? Number.POSITIVE_INFINITY : distance(exported[i], l))));
 		report.push(`slide ${i + 1}: ${own.toFixed(2)} from itself, ${nearestOther.toFixed(2)} from the nearest other slide`);
-		// The picture is the slide on screen: a chart drawn black, unstyled, rescaled or missing moves this far past it.
+		// The picture is the slide on screen. At 160x90 this catches a chart drawn black, unpainted or missing (the old
+		// bake's failure); it is too coarse to see a lost label or a font size, which it does not claim to.
 		expect(own, report.join('\n')).toBeLessThan(6);
 		// And the comparison can tell slides apart, so a pass above means something: the oracle's own arm.
 		expect(nearestOther, report.join('\n')).toBeGreaterThan(own * 2);
 	}
 	test.info().annotations.push({ type: 'distances', description: report.join('; ') });
-});
+}
+test('every exported slide picture looks like the same slide on screen @gecko', exportMatchesScreen);
+test('every exported slide picture looks like the same slide on screen, in WebKit @webkit-tablet', exportMatchesScreen);
 
 // The chart bake that remains: the standalone `.svg` files the image set extracts. The CLI path
 // (`tools/export-chart-svg.js`) is measured on its own exported files, but the

@@ -182,7 +182,7 @@ draw") made WebKit draw them, so an iPhone print now does the photo work it used
 
 **Where today's print goes** (timed per stage, owner's deck, Chromium / WebKit): setup 1.3 s / 13.4 s · photographing
 50 slides 29.4 s / 32.3 s · **waiting for each slide's PNG before the next shot 17.4 s / 21.0 s** · jsPDF assembly
-3.1 s / 5.5 s · total 60 s / 82 s. The WebKit setup is `flattenChartSvgs`: 10.8 s there, 1.1 s in Chromium (§8.2).
+3.1 s / 5.5 s · total 60 s / 82 s. The WebKit setup was `flattenChartSvgs`: 10.8 s there, 1.1 s in Chromium (§8.2; retired by #3162).
 
 ### 8.1 Shipped: photograph the next slide while the last one encodes
 

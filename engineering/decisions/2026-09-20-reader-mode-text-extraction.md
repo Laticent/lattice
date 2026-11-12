@@ -326,7 +326,7 @@ write. The regression tests now in `read-export.test.js` encode both questions.
   leaves a scheme-varying paint as `var(--token)` so a host shipping the deck CSS can
   re-theme it, and this pane ships none — every node, connector and label rendered BLACK.
   So the Studio caller opts into `applyCollectedTokens`, the same fix and the same shape as
-  `flattenChartSvgs`; the export paths keep the reference and their toggle.
+  `flattenChartSvgs` used (retired 2026-11-12); the export paths keep the reference and their toggle.
 - ~~**No JSON-LD or `og:type` anywhere on the docs site.**~~ **Resolved 2026-09-21, and the
   claim was half wrong.** Measured on the served site rather than read off the source:
   Starlight already emitted `og:type=article` on every docs page. The real gaps were the
