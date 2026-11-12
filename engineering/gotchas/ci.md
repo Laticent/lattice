@@ -902,3 +902,16 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   as a constant. To run a file on CI's build: `npx puppeteer browsers install chrome@131.0.6778.204`, then set
   both `CHROME_PATH` and `PUPPETEER_EXECUTABLE_PATH` to the path it prints (a test may read either).
 - **Removable when:** the sandbox and CI pin the same Chrome.
+
+## A job in the Playwright container fails before any test with `Node.js v22.20.0 is not supported by Astro!`
+
+- **Symptom:** the Studio nightly's `firefox-webrtc` job (it runs in `mcr.microsoft.com/playwright:v1.56.1-noble`) ends in
+  seconds with `Error: Process from config.webServer was not able to start. Exit code: 1`, and the line above it reads
+  `Node.js v22.20.0 is not supported by Astro! Please upgrade Node.js to a supported version: ">=22.23.4"`. No test ran.
+- **Cause:** a container job uses the image's own Node, which is the one Playwright built the image with, and it does not
+  move when our dependencies do. Astro 7.4 raised its floor to 22.23.4; jobs on the host runner get the current 22.x from
+  `actions/setup-node` and never saw it.
+- **How to tell:** `docker run --rm -v "$PWD:/w" -w /w/docs mcr.microsoft.com/playwright:v1.56.1-noble ./node_modules/.bin/astro --version`
+  prints the same refusal.
+- **Fix:** an `actions/setup-node` step (Node 22) before `npm ci` in the container job, which puts the current 22.x first
+  on PATH. Any new container job needs the same step.
