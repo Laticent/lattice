@@ -630,6 +630,24 @@ export async function caretSettled(page: Page): Promise<void> {
 		.toBe(true);
 }
 
+/**
+ * Wait until ProseMirror has run the check it schedules when the editor GAINS focus.
+ *
+ * prosemirror-view's `focus` handler starts a 20 ms timer; when it fires, if the selection ProseMirror last read
+ * differs from the DOM's, it writes its OWN selection back to the DOM. A key that moves the caret natively inside
+ * that window, before its `selectionchange` is read, is undone: the first ArrowRight after a click and Home left
+ * the caret at offset 0 in 1 of 24 bare runs (#3150; listeners slowed the test past 20 ms and hid it). No person
+ * presses a key within 20 ms of the click that focused the editor; a test does.
+ *
+ * The wait is an ORDER, not a guess at a duration: timers with the same delay run in the order they were started
+ * (HTML, "timer initialization steps"), so a 20 ms timer started after the focus runs after ProseMirror's.
+ * Call it after the click that focuses the editor, before native caret keys.
+ */
+export async function editorFocusSettled(page: Page): Promise<void> {
+	// flaky-ok: ordered after prosemirror-view's 20 ms focus check (same-delay timers run in start order), not a sleep
+	await page.evaluate(() => new Promise<void>((done) => setTimeout(done, 20)));
+}
+
 /** Press a key and wait until the caret move it caused (if any) has reached the page's listeners. */
 export async function pressSettled(page: Page, key: string): Promise<void> {
 	await page.keyboard.press(key);
