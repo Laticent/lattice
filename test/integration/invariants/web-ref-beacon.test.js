@@ -60,10 +60,10 @@ describe('web references: a rewritten deck fetches nothing', { skip: SKIP, timeo
   /** The payloads Chromium fetches when unrewritten: a row only another engine fetches (`onlyIn`) is not expected. */
   const fireable = (origin) => webRefBeacons(origin).filter((p) => !p.onlyIn);
 
-  /** Open each document in its own page as a frame (`srcdoc`), the way a preview frame loads it, and return the pages. */
-  async function open(docs) {
+  /** Open each document in its own page of `on` as a frame (`srcdoc`), the way a preview frame loads it. */
+  async function open(on, docs) {
     return Promise.all(docs.map(async (html) => {
-      const page = await browser.newPage();
+      const page = await on.newPage();
       // The browser's preload scanner reads a document ahead of its parser, and `setContent` (document.write) does not use it.
       // `load`, not `networkidle0`: the host has no subresources, and `networkidle0` is a 500 ms quiet period, a duration
       // that timed out at 30 s with sixty pages opening at once on a loaded runner.
@@ -83,28 +83,31 @@ describe('web references: a rewritten deck fetches nothing', { skip: SKIP, timeo
    * test/helpers/request-log.js). `expect` names the hits a control arm must see: the wait ends once every one has
    * landed. An absence arm (`expect` empty) runs a WITNESS instead: the unrewritten payloads, against a second
    * listener, opened only after the rewritten pages have loaded. Once the witness has heard every fireable payload,
-   * any fetch the rewritten pages were going to make has had at least that long to land. Then every page closes and
-   * the log is drained, so a request already on the wire is counted.
+   * any fetch the rewritten pages were going to make has had at least that long to land. Then the browser closes and
+   * the log is drained, so a request already on the wire is counted. The fetches run in a browser of their own, closed
+   * before the drain: the drain needs the client gone, and Chromium keeps idle preconnected sockets in its pool after
+   * the pages that opened them have closed (2 were still open on CI's Chromium 131).
    */
   async function fetched(docs, expect = []) {
     log.reset();
-    const pages = await open(docs);
-    if (expect.length) {
-      const heard = await log.until((h) => expect.every((n) => h.includes(n)));
-      assert.ok(heard, `the control never heard ${expect.filter((n) => !log.hits.includes(n)).join(' ')}`);
-    } else {
-      const witness = await openListener({ handle });
-      try {
+    const client = await require('puppeteer').launch({ headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    let witness = null;
+    try {
+      await open(client, docs);
+      if (expect.length) {
+        const heard = await log.until((h) => expect.every((n) => h.includes(n)));
+        assert.ok(heard, `the control never heard ${expect.filter((n) => !log.hits.includes(n)).join(' ')}`);
+      } else {
+        witness = await openListener({ handle });
         const want = fireable(witness.H);
-        pages.push(...(await open(want.map(asHtml))));
+        await open(client, want.map(asHtml));
         const heard = await witness.until((h) => want.every((p) => h.includes(p.name)));
         assert.ok(heard, `the unrewritten witness never heard ${want.filter((p) => !witness.hits.includes(p.name)).map((p) => p.name).join(' ')}, so a zero proves nothing`);
-      } finally {
-        await Promise.all(pages.map((p) => p.close()));
-        await witness.close();
       }
+    } finally {
+      await client.close();
+      await witness?.close();
     }
-    await Promise.all(pages.map((p) => (p.isClosed() ? null : p.close())));
     await log.drained();
     return [...new Set(log.hits)].sort();
   }
