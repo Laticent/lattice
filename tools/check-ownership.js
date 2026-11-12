@@ -10031,6 +10031,94 @@ function checkRawAptInWorkflows(errors, workflowDir = path.join(ROOT, '.github',
   }
 }
 
+// ── The apt cache warmer covers every cached call in CI, and nothing else (followups.d 3139-p1, 2026-11-12) ──
+// GitHub scopes caches by branch, and ci.yml runs only on pull requests and the merge queue, so a PR restores an apt or
+// Playwright entry only if a run on `main` saved one. apt-cache-warm.yml saves one for every call, from a matrix row per
+// distinct call. A row is only as good as its match with the call: the key hashes the runner image, the container image
+// and the sorted package (or browser) list, so a list that differs by one package warms nothing. This reads every
+// `uses: ./.github/actions/apt-cached` and `./playwright-browsers` step in the other workflows, reduces each to that key
+// identity, and fails on a call with no row (a PR would read the mirror) or a row with no call (a stale row). A call whose
+// runner, container, list or working-directory is an expression cannot be matched, and fails with a request to make it a
+// literal. Playwright calls also match on the folder that pins Playwright: the version is in their key.
+const APT_WARMER = 'apt-cache-warm.yml';
+function aptCacheCalls(doc) {
+  const calls = [];
+  for (const [jobId, job] of Object.entries(doc?.jobs || {})) {
+    const container = typeof job.container === 'string' ? job.container : job.container?.image || '';
+    for (const step of job.steps || []) {
+      const uses = String(step?.uses || '').replace(/\/+$/, '');
+      const kind = uses === './.github/actions/apt-cached' ? 'apt' : uses === './.github/actions/playwright-browsers' ? 'browsers' : '';
+      if (!kind) continue;
+      const list = String((kind === 'apt' ? step.with?.packages : step.with?.browsers) ?? '');
+      const dir = kind === 'browsers' ? String(step.with?.['working-directory'] ?? 'docs') : '';
+      const runsOn = job['runs-on'];
+      // A label list (or a one-label array) is the runner's identity. A runner-group object is not a literal this can
+      // match, so it is spelled as an expression and fails below with the request to name the runner.
+      const EXPR = '$' + '{{';
+      const runner = Array.isArray(runsOn) ? runsOn.join(',') : runsOn && typeof runsOn === 'object' ? `${EXPR} runner group }}` : String(runsOn ?? '');
+      calls.push({ job: jobId, kind, runsOn: runner, container: String(container), list, dir });
+    }
+  }
+  return calls;
+}
+const aptCallId = (c) => [c.kind, c.runsOn, c.container || '-', c.list.split(/\s+/).filter(Boolean).sort().join(' '), c.dir || '-'].join(' | ');
+
+function checkAptCacheWarmer(errors, workflowDir = path.join(ROOT, '.github', 'workflows')) {
+  const YAML = require('yaml');
+  let files = [];
+  try {
+    files = fs.readdirSync(workflowDir).filter((f) => /\.ya?ml$/.test(f));
+  } catch {
+    return;
+  }
+  if (!files.includes(APT_WARMER)) {
+    errors.push(`.github/workflows/${APT_WARMER} is missing: it keeps every apt and Playwright cache entry warm on main, and without it a PR whose list no nightly shares reads Ubuntu's mirror (engineering/gotchas/ci.md).`);
+    return;
+  }
+  const wanted = new Map();
+  for (const f of files) {
+    if (f === APT_WARMER) continue;
+    for (const c of aptCacheCalls(YAML.parse(fs.readFileSync(path.join(workflowDir, f), 'utf8')))) {
+      const where = `.github/workflows/${f} job ${c.job}`;
+      if ([c.runsOn, c.container, c.list, c.dir].some((v) => v.includes('${{'))) {
+        errors.push(`${where}: an ${c.kind === 'apt' ? 'apt-cached' : 'playwright-browsers'} call whose runner, container, list or working-directory is an expression, so ${APT_WARMER} cannot warm its cache entry. Spell it as a literal.`);
+        continue;
+      }
+      if (!wanted.has(aptCallId(c))) wanted.set(aptCallId(c), where);
+    }
+  }
+  const warmer = YAML.parse(fs.readFileSync(path.join(workflowDir, APT_WARMER), 'utf8'));
+  const rows = new Set();
+  for (const [jobId, job] of Object.entries(warmer?.jobs || {})) {
+    const runsInContainer = Boolean(job.container);
+    for (const row of job.strategy?.matrix?.include || []) {
+      // A row's container only reaches the key if its job runs in one, and a container job's row must name its image.
+      if (Boolean(row.container) !== runsInContainer) {
+        errors.push(`.github/workflows/${APT_WARMER} job ${jobId}: a row ${row.container ? 'names a container but the job runs on the host' : 'names no container but the job runs in one'}, so it warms a different key from the call it matches. Move the row to the job that matches.`);
+      }
+      const kind = row.browsers !== undefined ? 'browsers' : 'apt';
+      const id = aptCallId({
+        kind,
+        runsOn: String(row['runs-on'] ?? ''),
+        container: String(row.container ?? ''),
+        list: String((kind === 'apt' ? row.packages : row.browsers) ?? ''),
+        dir: kind === 'browsers' ? String(row.lockfile ?? '') : '',
+      });
+      if (rows.has(id)) errors.push(`duplicate row in .github/workflows/${APT_WARMER} job ${jobId}: [${id}] is already warmed. Remove one.`);
+      rows.add(id);
+      if (!wanted.has(id)) errors.push(`stale row in .github/workflows/${APT_WARMER} job ${jobId}: no workflow makes the call [${id}] it warms. Remove the row.`);
+    }
+  }
+  for (const [id, where] of wanted) {
+    if (!rows.has(id)) {
+      errors.push(
+        `${where}: no row in .github/workflows/${APT_WARMER} warms this call's cache entry [${id}], so a pull request misses and reads Ubuntu's mirror. ` +
+          'Add a matrix row with the same runs-on, container, list and (Playwright) lockfile folder.',
+      );
+    }
+  }
+}
+
 function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', 'platform-suites.json'), root = ROOT) {
   let registry;
   try {
@@ -15644,6 +15732,7 @@ function run() {
   checkPlatformSuites(errors);
   checkRunnerPins(errors);
   checkRawAptInWorkflows(errors);
+  checkAptCacheWarmer(errors);
   checkOpenRouterBudget(errors);
   checkE2ESleeps(errors);
   checkVoiceSampleAssets(errors);
@@ -15929,6 +16018,7 @@ module.exports = {
   checkPlatformSuites,
   checkRunnerPins,
   checkRawAptInWorkflows,
+  checkAptCacheWarmer,
   SANCTIONED_RAW_APT,
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,

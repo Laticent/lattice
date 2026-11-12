@@ -534,8 +534,9 @@ jobs:
         # a portable bonus, but Chromium honors an installed emoji font far more
         # reliably than an @font-face one. See engineering/gotchas.md.
         # The same list as golden-diff, golden-bless and integration-nightly, so the shards restore the entry those
-        # nightlies save on main every night. A list of its own had no main job to warm it, so each new PR's four
-        # shards downloaded from the mirror (found by review on #3139). imagemagick comes along unused.
+        # nightlies, and apt-cache-warm.yml every 30 minutes, save on main. A list of its own had no main job to warm it,
+        # so each new PR's four shards downloaded from the mirror (found by review on #3139). imagemagick comes along
+        # unused.
         uses: ./.github/actions/apt-cached
         with:
           packages: poppler-utils imagemagick fonts-noto-color-emoji

@@ -2,6 +2,8 @@
 # Make apt robust against one bad package mirror, before any apt call in CI (owner call, 2026-11-11).
 #
 #   apt-setup.sh            write the retry policy, and the mirror list wherever apt reads one
+#   apt-setup.sh N          the same, with the mirror list rotated by N (apt-cached.sh's retries), so a mirror that
+#                           stalls is not first for every try; security.ubuntu.com stays last
 #
 # Why: on 2026-11-11 every integration shard of PR #3136 died in `apt-get install poppler-utils` with "Temporary failure
 # resolving 'azure.archive.ubuntu.com'", twice, about 35 minutes apart, before a single test ran. GitHub's Ubuntu images
@@ -34,14 +36,26 @@ CONF
 # image puts azure.archive first, which is how every integration shard of #3136 failed. So the mirrors that never failed
 # lead, the Azure-backed names follow, and security.ubuntu.com, which holds only the security pocket, is last: apt asks
 # it for the others only when every mirror above has failed.
+#
+# Those numbers are from a sandbox, not a GitHub runner. apt-mirror-probe.yml measures this list (it reads it from here)
+# from a runner every four hours and ranks it over the past week in its run summary; re-order from that table, and cite
+# its run here.
+ORDER=(
+  http://mirrors.edge.kernel.org/ubuntu/
+  http://archive.ubuntu.com/ubuntu/
+  http://mirror.math.princeton.edu/pub/ubuntu/
+  http://azure.archive.ubuntu.com/ubuntu/
+  http://us.archive.ubuntu.com/ubuntu/
+)
+SECURITY=http://security.ubuntu.com/ubuntu/
+ROTATE=$(( ${1:-0} % ${#ORDER[@]} ))
 mirrors() {
-  printf '%s\tpriority:%s\n' \
-    http://mirrors.edge.kernel.org/ubuntu/ 1 \
-    http://archive.ubuntu.com/ubuntu/ 2 \
-    http://mirror.math.princeton.edu/pub/ubuntu/ 3 \
-    http://azure.archive.ubuntu.com/ubuntu/ 4 \
-    http://us.archive.ubuntu.com/ubuntu/ 5 \
-    http://security.ubuntu.com/ubuntu/ 6
+  local i p=1
+  for i in "${!ORDER[@]}"; do
+    printf '%s\tpriority:%s\n' "${ORDER[$(( (i + ROTATE) % ${#ORDER[@]} ))]}" "$p"
+    p=$((p + 1))
+  done
+  printf '%s\tpriority:%s\n' "$SECURITY" "$p"
 }
 
 if [ -f /etc/apt/apt-mirrors.txt ] || grep -qs 'mirror+file:/etc/apt/apt-mirrors.txt' /etc/apt/sources.list.d/*.sources /etc/apt/sources.list; then
