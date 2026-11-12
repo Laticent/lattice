@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Chat threads should merge across tabs with a CRDT, and the recommendation is Yjs (already a dependency, the live sessions' model) over a library of our own. Each tab's author and AI are separate writers, so a save today is last-writer-wins and can drop another tab's messages. A bake-off (§10) against Accordo, a zero-dependency list CRDT written for it, passed both on a 4,500-session property gate; Yjs stores an aged thread 8.6x smaller and syncs it 6x or more faster, while Accordo opens a fresh thread about 2x faster with half the heap. Yjs costs about 23 KB gz in lazily loaded chat code and nothing at boot. It retires #3138's fingerprint and merge apparatus. Decks are out of scope.
+summary: Chat threads should merge across tabs with a CRDT, and the recommendation is Yjs (already a dependency, the live sessions' model) over a library of our own. Each tab's author and AI are separate writers, so a save today is last-writer-wins and can drop another tab's messages. A bake-off (§10) against Accordo, a zero-dependency list CRDT written for it, passed both on a 4,500-session property gate; Yjs stores an aged thread 8.6x smaller and syncs it about 6x (Node) to 200x (Chromium) faster, while Accordo opens a fresh thread about 2x faster with half the heap. Yjs costs about 23 KB gz in lazily loaded chat code and nothing at boot. It retires #3138's fingerprint and merge apparatus. Decks are out of scope.
 ---
 
 # Chat threads across tabs: merge them with a CRDT
@@ -200,7 +200,7 @@ answer cards, compact, sync partially, resend stale deltas and broadcast with ra
 |---|---|---|
 | All tabs agree, nothing lost, nothing deleted comes back | pass, 4,500 sessions | pass, 4,500 sessions |
 | Two tabs answer one card differently, any sync order | pass | pass |
-| A reply split from its question by a concurrent turn (measured, not a failure) | 1 in 4,500 (0.02%) | 14 in 4,500 (0.3%) |
+| A reply split from its question by a concurrent turn (measured, not a failure) | 1 in 4,500 (0.02%) | 13–14 in 4,500 (0.3%), across two full runs |
 
 Two mutants prove the gate can fail: Accordo without gap detection fails it within 54 sessions, and Accordo without the
 append rule misplaces replies at the same rate as Yjs. Placement differs between runs because replica ids are random.
@@ -212,13 +212,13 @@ Medians. A "turn" is a 200-character question and a 600-character reply; every f
 
 | Workload | Accordo | Yjs | Better |
 |---|---|---|---|
-| Store a 60-message thread, raw / gzip | 35.4 KB / 8.5 KB | 30.6 KB / 7.7 KB | Yjs, by 13% |
-| Store an aged thread, raw / gzip | **904 KB / 181 KB** | **105 KB / 16.7 KB** | **Yjs, 8.6x / 11x** |
+| Store a 60-message thread, raw / gzip | 35.4 KB / 8.5 KB | 30.6 KB / 7.7 KB | Yjs, by 13% raw / 10% gzip |
+| Store an aged thread, raw / gzip | **904 KB / 181 KB** | **105 KB / 16.7 KB** | **Yjs, 8.6x / 10.8x** |
 | Open a 60-message thread (Chromium / Firefox / WebKit) | 0.13 / 0.24 / 0.17 ms | 0.24 / 0.47 / 0.41 ms | Accordo, about 2x |
-| Open an aged thread (Chromium / Firefox / WebKit) | 14 / 22 / 39 ms | 11 / 22 / 16 ms | Yjs |
+| Open an aged thread (Chromium / Firefox / WebKit) | 14 / 22 / 39 ms | 11 / 22 / 16 ms | Yjs in Chromium and WebKit; a tie in Firefox |
 | One turn, apply, regenerate, compaction | 0.02–0.16 ms | 0.02–0.2 ms | even (all far under a frame) |
-| Broadcast after one turn (fresh / aged) | 1,115 B / 1,171 B | 977 B / 997 B | Yjs, by 15% |
-| Sync a tab one turn behind, aged thread (Chromium / Node) | 10.9 / 20.7 ms | 0.05 / 3.5 ms | **Yjs, 6x or more** |
+| Broadcast after one turn (fresh / aged) | 1,115 B / 1,171 B | 977 B / 997 B | Yjs, by 12–15% |
+| Sync a tab one turn behind, aged thread (Chromium / Node) | 10.9 / 20.7 ms | 0.05 / 3.5 ms | **Yjs, 6x (Node) to 200x (Chromium)** |
 | Four tabs, 50 offline actions each, full merge (Chromium) | 6.1 ms, 621 KB sent | 9.4 ms, 286 KB sent | Accordo on time, Yjs on bytes |
 | Heap per open 60-message thread (Node) | 82 KB | 164 KB | Accordo, 2x |
 
