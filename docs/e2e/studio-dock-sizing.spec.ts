@@ -1,4 +1,4 @@
-import { layoutSettled, schedulerDrained } from './barriers';
+import { layoutSettled, schedulerDrained, timersDrained } from './barriers';
 import { CHROME, expect, gotoStudio, openChat, openInspector, test } from './studio-fixture';
 
 // The Studio's docked panels share one size contract (studio/dock-layout.ts,
@@ -135,7 +135,7 @@ test('desktop: a reload restores the person\'s editor collapse without re-showin
 	// two-frame settle off the real frames, the restore then reads as the person's own collapse, and the toast shows
 	// (9 runs in 165 when this test installed the clock).
 	await layoutSettled(page);
-	await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));
+	await timersDrained(page);
 	await schedulerDrained(page);
 	expect(await toasted()).toBe(false);
 	expect(await page.evaluate(() => sessionStorage.getItem('lattice-docs-split-studio-collapsed'))).toBe('a');

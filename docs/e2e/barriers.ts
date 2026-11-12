@@ -25,6 +25,15 @@ export async function schedulerDrained(target: Page | Frame, rounds = 4): Promis
 	);
 }
 
+/**
+ * Every zero-delay timer the page queued before now has run. Timers of equal delay fire in the order they were queued,
+ * so one more zero-delay timer, queued now, runs after all of them. Use it when the product publishes on
+ * `setTimeout(0)` (Sonner's toast store does), after the moment that publish would have been queued.
+ */
+export async function timersDrained(target: Page | Frame): Promise<void> {
+	await target.evaluate(() => new Promise<void>((done) => setTimeout(done, 0))); // flaky-ok: a task-order barrier (equal-delay timers run in queue order), not a wait for time
+}
+
 let witnessSeq = 0;
 /**
  * Every request the page's main document issued before now has reached Playwright's request log. The page fetches one
