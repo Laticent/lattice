@@ -4,12 +4,12 @@ import { createRequire } from 'node:module';
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 
 import { readFileSync } from 'node:fs';
-import { CompletionContext } from '@codemirror/autocomplete';
+import { CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 // The engine's lint vocabulary (CommonJS) — the value lists the editor completes against.
 import { buildVocab } from '../../../../lib/authoring/lint.js';
-import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS } from './editor-complete';
+import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS, withLazyInlineCore } from './editor-complete';
 
 const COMPS = [
 	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics' },
@@ -557,6 +557,44 @@ describe('inlineCodeCompletion — the named form, `@kind{…}` (2026-10-14-plug
 		expect(labels('`@icon{data')).toEqual(labels('`^{data'));
 		expect(labels('`@pill{S3, icon=buck')).toEqual(labels('`{S3, icon=buck'));
 		expect(labels('`@spark{')?.every((l) => l.startsWith('@spark{'))).toBe(true);
+	});
+});
+
+describe('withLazyInlineCore — a span typed before the lint core lands still opens its menu', () => {
+	// The editor imports the lint core lazily. Before this, a span typed before it arrived got null, and CodeMirror
+	// asks a source again only on the next keystroke, so `` `@ava `` then a pause opened no menu
+	// (docs/e2e/plugin-inline-ui.spec.ts, red on the nightly).
+	const req = createRequire(import.meta.url);
+	const core = req('../../../../lib/authoring/lint-core.js');
+	const at = (doc: string) => new CompletionContext(EditorState.create({ doc }), doc.length, false);
+	const build = () => {
+		let loaded: typeof core | null = null;
+		let loads = 0;
+		const studio = makeStudioCompletion([], [], [], { inlineNext: (span) => loaded?.inlineCodeCompletions(span) ?? null });
+		const source = withLazyInlineCore(studio, () => loaded !== null, async () => {
+			loads++;
+			loaded = core;
+		});
+		return { source, loads: () => loads };
+	};
+
+	it('inside a span, waits for the core and then answers', async () => {
+		const { source, loads } = build();
+		const got = source(at('Owner: `@ava'));
+		expect(got).toBeInstanceOf(Promise);
+		const result = (await got) as CompletionResult | null;
+		expect(result?.options.map((o) => o.label)).toEqual(['@avatar{']);
+		expect(loads()).toBe(1);
+		// Once the core is in, the source answers synchronously and never loads again.
+		const again = source(at('Owner: `@ava')) as CompletionResult | null;
+		expect(again?.options.map((o) => o.label)).toEqual(['@avatar{']);
+		expect(loads()).toBe(1);
+	});
+
+	it('outside a span it never waits on the core', () => {
+		const { source, loads } = build();
+		expect(source(at('Ping @ava'))).toBeNull();
+		expect(loads()).toBe(0);
 	});
 });
 

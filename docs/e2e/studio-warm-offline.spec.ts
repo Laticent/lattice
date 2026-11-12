@@ -133,7 +133,11 @@ test('Fabricate opens offline after a deploy-fresh session, for a browser that h
 // offline — draws from the Mermaid bundle the warm-up cached, because the browser has shown a
 // diagram before. Without the warm-up the fence stays source text. The starter deck on screen
 // during the online session has no diagram, so nothing but the warm-up can have fetched Mermaid.
-test('a diagram never rendered online draws offline, for a browser that has shown one before', async ({ page }) => {
+// Registered twice, as mermaid-cache-bindings.spec.ts is: `@gecko` runs on desktop Chromium AND Firefox, and
+// `@webkit-tablet` runs on WebKit only (desktop's grepInvert drops a WebKit-tagged title without `@crosswidth`).
+const diagramDrawsOffline = async ({ page, browserName }: { page: Page; browserName: string }) => {
+	// disabled: tried a controlled-online then offline run, fetch from inside the srcdoc frame with all four cache modes, page.goto instead of reload; evidence #3152 (Gecko gives the srcdoc frame the parent's controller but never routes its subresource requests through the service worker; the same URL from the top page returns 200 from the worker); re-enable when the preview builder supplies the frame's runtime, sheets and fonts from the parent instead of by URL
+	test.fixme(browserName === 'firefox', 'Gecko does not route a srcdoc frame\'s requests through the service worker (#3152)');
 	test.setTimeout(180_000);
 	const { server, origin } = await serveDist();
 	try {
@@ -153,7 +157,9 @@ test('a diagram never rendered online draws offline, for a browser that has show
 		server.closeAllConnections();
 		server.close();
 	}
-});
+};
+test('a diagram never rendered online draws offline, for a browser that has shown one before @gecko', diagramDrawsOffline);
+test('a diagram never rendered online draws offline, for a browser that has shown one before (WebKit) @webkit-tablet', diagramDrawsOffline);
 
 test('under Save-Data the warm-up fetches the six panels but not Present or the reading view', async ({ page }) => {
 	test.setTimeout(180_000);

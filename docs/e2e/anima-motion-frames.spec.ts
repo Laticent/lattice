@@ -280,14 +280,18 @@ test('createDrawable normalizes real marks and seeks deterministically', async (
 		a.seek(1000);
 		const fromEnd = at(500);
 		const drawnOf = (dash: string) => Number(dash.split('|')[0].split(/\s+/)[0]);
+		const start = at(0);
+		const end = at(1000);
 		return {
 			tag: target.tagName,
 			pathLength: target.getAttribute('pathLength'),
+			vectorEffect: w.getComputedStyle(target).getPropertyValue('vector-effect'),
 			mid: forward,
 			drawnAtMid: drawnOf(forward),
+			drawnAtEnd: drawnOf(end),
 			deterministic: forward === fromStart && fromStart === fromEnd,
-			start: at(0),
-			end: at(1000),
+			start,
+			end,
 		};
 	}, LIVE_BAR);
 
@@ -296,11 +300,17 @@ test('createDrawable normalizes real marks and seeks deterministically', async (
 	// `pathLength` and works in NORMALIZED units, so it never calls `getTotalLength()` — the
 	// call that throws in jsdom and silently disabled the Vivus draw channel.
 	expect(out.pathLength, 'createDrawable normalizes rather than measuring geometry').toBe('1000');
-	// The mid frame is genuinely BETWEEN the ends, in normalized units: `stroke-dasharray`
-	// reads "<drawn> <gap>", so the drawn length at t=0.5 must sit strictly inside (0, 1000).
-	// `toMatch(/\d/)` was the first version of this and it passes on the t=0 frame too.
+	// The mid frame is genuinely BETWEEN the ends: `stroke-dasharray` reads "<drawn> <gap>", and with a linear ease
+	// the drawn length at t=0.5 is half the drawn length at t=1. `toMatch(/\d/)` was the first version of this and it
+	// passes on the t=0 frame too.
+	// Measured as a RATIO, not against 1000. A chart mark carries `vector-effect: non-scaling-stroke` (the chart
+	// family's stroke rule), and for such a mark anime multiplies every dash length by the element's on-screen scale
+	// (its `getScaleFactor`), so the full length is 1000 times that scale: 2456.77 on the 1440px project, which made the
+	// old `< 1000` bound fail with a correct mid frame of 1228.39. The ratio holds at any scale.
+	expect(out.vectorEffect, 'the premise: a chart mark keeps its stroke width in screen pixels').toBe('non-scaling-stroke');
 	expect(out.drawnAtMid, 'the mid frame is partway drawn, not an endpoint').toBeGreaterThan(0);
-	expect(out.drawnAtMid).toBeLessThan(1000);
+	expect(out.drawnAtEnd, 'the end frame draws the whole mark').toBeGreaterThan(out.drawnAtMid as number);
+	expect((out.drawnAtMid as number) / (out.drawnAtEnd as number), 'a linear ease draws half the mark at t=0.5').toBeCloseTo(0.5, 6);
 	expect(out.deterministic, 'the same frame index yields the same still from any seek path').toBe(true);
 	expect(out.start).not.toBe(out.end);
 });

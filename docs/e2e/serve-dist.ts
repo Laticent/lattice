@@ -45,7 +45,10 @@ export function serveDist(): Promise<{ server: Server; origin: string; hits: str
 				body = await readFile(join(DIST, rel, 'index.html')); // extensionless route
 				file = 'index.html';
 			}
-			res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream', 'cache-control': 'no-store' });
+			// `access-control-allow-origin: *` as the real host sends it (GitHub Pages on everything; docs/public/_headers,
+			// preview-e2e.mjs and serve-h2.mjs match it). The sandboxed draw frame has origin `null` and imports Mermaid's
+			// module graph from `frames/`, so without the header no diagram draws here even online.
+			res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream', 'cache-control': 'no-store', 'access-control-allow-origin': '*' });
 			res.end(body);
 		} catch {
 			res.writeHead(404, { 'content-type': 'text/plain' }).end('not found');
