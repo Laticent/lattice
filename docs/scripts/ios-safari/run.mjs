@@ -154,14 +154,68 @@ async function runStudioProbe(id) {
 	const focus = await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe');
 	// A first visit, with nothing stored: Compose is the default and its slide toolbar holds still (compose-probe.js).
 	const compose = await studioPage(id, 'compose-probe.js', 'latticeComposeProbe', { seed: false });
+	// Then a real touch tap on a Compose paragraph, on that page: the probe above places its caret through the Selection API,
+	// which never shows the keyboard or runs Safari's own tap-to-focus path.
+	const tap = compose.ok ? await composeTouchTap(id) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap)],
 	};
+}
+
+/**
+ * A WebDriver touch tap on a Compose paragraph, as a finger does it: the caret lands in that paragraph, the editor has the
+ * focus, and the paragraph carries the caret-line mark (`cs-active-line`). Also records whether the software keyboard came
+ * up (the visual viewport shrinks), as a detail: a simulator with a hardware keyboard attached does not show it.
+ */
+async function composeTouchTap(id) {
+	const run = (script) => wd('POST', `/session/${id}/execute/sync`, { script, args: [] });
+	const steps = [];
+	const step = (name, pass, detail = '') => steps.push({ name, pass: !!pass, detail: String(detail) });
+	try {
+		const target = await run(`
+			document.activeElement?.blur?.(); getSelection()?.removeAllRanges();
+			const ps = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8);
+			const p = ps[1] || ps[0];
+			if (!p) return null;
+			window.__touchIndex = ps.indexOf(p);
+			p.scrollIntoView({ block: 'center' });
+			return { text: p.textContent.slice(0, 40), vv: visualViewport ? visualViewport.height : innerHeight };`);
+		if (!target) return { ok: false, steps, error: 'no Compose paragraph to tap' };
+		const at = await run(`const r = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8)[window.__touchIndex].getBoundingClientRect(); return { x: Math.round(r.left + Math.min(r.width / 2, 40)), y: Math.round(r.top + r.height / 2) };`);
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		await wd('POST', `/session/${id}/actions`, {
+			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 80 }, { type: 'pointerUp', button: 0 }] }],
+		});
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		const seen = await wd('POST', `/session/${id}/execute/async`, {
+			args: [],
+			script: `const done = arguments[arguments.length - 1];
+				const t0 = performance.now();
+				const read = () => {
+					const p = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8)[window.__touchIndex];
+					const sel = getSelection();
+					const node = sel && sel.anchorNode;
+					const inP = !!(p && node && p.contains(node));
+					const focused = !!(document.activeElement && document.activeElement.closest('.ProseMirror'));
+					const marked = !!(p && p.classList.contains('cs-active-line'));
+					if ((inP && focused && marked) || performance.now() - t0 > 4000) done({ inP, focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className });
+					else requestAnimationFrame(read);
+				};
+				read();`,
+		});
+		step('a touch tap puts the caret in the tapped paragraph', seen.inP, `"${target.text}" at ${at.x},${at.y}`);
+		step('the editor has the focus after the tap', seen.focused, `active: ${seen.active}`);
+		step('the tapped paragraph carries the caret-line mark', seen.marked);
+		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);
+		return { ok: steps.every((x) => x.pass), steps };
+	} catch (e) {
+		return { ok: false, steps, error: String(e.message || e) };
+	}
 }
 
 /** The photo memory suite (PROBE=photo-memory): the two arms below, on pages of their own (no docs build). */
