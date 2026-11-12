@@ -960,6 +960,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// Explore renders the walk deck; Edit renders the draft. Ref-read so the
 			// render loop sees a mode/walk change the moment it commits.
 			const src = viewRef.current === 'read' && exploreSourceRef.current != null ? exploreSourceRef.current : getSource();
+			// Whether THIS render was asked for by Explore. A render started in Edit can resolve after the switch, and it
+			// must not spend Explore's target (below): with the walk still warming up there was nothing to aim it at, the
+			// target was lost and Explore opened on slide 1 (playground-tab-switch.spec.ts, 1 run in 10 on WebKit).
+			const forRead = viewRef.current === 'read';
 			// THE NEWCOMER BAKE (playground.astro): the page may have loaded the document this very
 			// render would write. The first render adopts it — takes over the render state baked
 			// into it — and renders as an ordinary patch against that, so a current bake changes
@@ -1020,7 +1024,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// Explore was opened from Edit: open it on the slide the caret is in, once the render says which page that
 				// is. The target is spent by the first render of Explore, whatever kind of walk it shows.
 				const openOn = exploreFlatRef.current;
-				if (openOn >= 0 && viewRef.current === 'read') {
+				const targetWaits = openOn >= 0 && viewRef.current === 'read';
+				if (targetWaits && forRead) {
 					exploreFlatRef.current = -1;
 					void (async () => {
 						try {
@@ -1047,7 +1052,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 							openOnPendingRef.current = false;
 						}
 					})();
-				} else openOnPendingRef.current = false;
+				} else if (!targetWaits) openOnPendingRef.current = false;
 				// A render that lands after the reader has gone back to Edit must not leave Explore's target behind.
 				if (viewRef.current !== 'read') exploreFlatRef.current = -1;
 				// Go live only once the slides are actually revealed — NOT at srcdoc-set —
