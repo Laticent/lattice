@@ -381,6 +381,14 @@ section.journey .journey-legend {
 section.journey .journey-mood-legend {
   padding-top: var(--sp-sm);   /* breathing room between the two key rows (padding, not margin) */
 }
+/* A narrow slide (under about 70 characters a line, #2988's text-room threshold): the actor chips part by the small
+ * step. At their 11pt-and-up roles four actors measure 831px on a square page, and the 2xl step (89px) wrapped them
+ * onto two rows, which pushed the mood scale under the page's edge (journey.gallery.md's stress test at square). */
+@container lattice (width < 34em) {
+  section.journey .journey-legend {
+    column-gap: var(--sp-sm);
+  }
+}
 
 /* ── Section ribbon ─────────────────────────────────────────────────── */
 section.journey .journey-stages {
@@ -864,8 +872,8 @@ section.journey.weighted .journey-task-actors {
 
 
 /* ════════════════════════════════════════════════════════════════════════════
- * VERTICAL BOARD (portrait) — the journey rotated 90°. Emitted by
- * journey.transform.js only on a portrait deck (`.journey-board[data-orient="vertical"]`), so
+ * VERTICAL BOARD (portrait and square) — the journey rotated 90°. Emitted by
+ * journey.transform.js only on a portrait or square deck (`.journey-board[data-orient="vertical"]`), so
  * this whole block self-gates: landscape never sees it. Stages stack down the
  * page; each task is a row; mood reads along the cross-axis. §10 (journey).
  * ════════════════════════════════════════════════════════════════════════════ */

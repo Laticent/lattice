@@ -282,8 +282,12 @@ describe('journey', () => {
     assert.doesNotMatch(html, /class="journey-board[^"]+"/);
   });
 
+  test('square: the vertical board too (the landscape board overprinted at the phone ladder\'s 11pt)', () => {
+    assert.match(transformJourneySection(PORTRAIT_INNER, 'journey', 'square'), /<div class="journey-board" data-orient="vertical"/);
+  });
+
   test('landscape (orientation absent / "landscape") keeps the horizontal board', () => {
-    for (const o of [undefined, 'landscape', 'square']) {
+    for (const o of [undefined, 'landscape']) {
       const html = transformJourneySection(PORTRAIT_INNER, 'journey', o);
       assert.doesNotMatch(html, /data-orient="vertical"/);
       assert.match(html, /class="journey-board"/);

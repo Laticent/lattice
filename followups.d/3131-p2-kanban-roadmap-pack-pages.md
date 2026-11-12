@@ -9,7 +9,7 @@ deferred: blocked — page breaks belong to #2988's measured split (`fit: pack`)
 source: https://github.com/Laticent/lattice/pull/3131
 ---
 
-# A kanban or roadmap on a phone page splits one lane or card per page, leaving most of each page empty
+# A kanban, roadmap or journey on a phone page splits one lane, card or stage per page, leaving most of each page empty
 
 why now   — the owner, on the mobile renders (2026-11-10): "kanban being split like that seems odd". PR #3131 makes both
             charts responsive (on a narrow slide the lanes and phase cards stack full width at their natural height),
