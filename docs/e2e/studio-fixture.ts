@@ -644,8 +644,7 @@ export async function caretSettled(page: Page): Promise<void> {
  * Call it after the click that focuses the editor, before native caret keys.
  */
 export async function editorFocusSettled(page: Page): Promise<void> {
-	// flaky-ok: ordered after prosemirror-view's 20 ms focus check (same-delay timers run in start order), not a sleep
-	await page.evaluate(() => new Promise<void>((done) => setTimeout(done, 20)));
+	await page.evaluate(() => new Promise<void>((done) => setTimeout(done, 20))); // flaky-ok: runs after ProseMirror's 20 ms focus timer (same-delay timers fire in start order)
 }
 
 /** Press a key and wait until the caret move it caused (if any) has reached the page's listeners. */
