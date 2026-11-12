@@ -3,20 +3,23 @@ origin: 3145
 priority: P1
 recorded: 2026-11-12
 area: infra
-severity: medium
+severity: low
 swimlane: engineering/gotchas/ci.md
-deferred: blocked — it can be observed only after #3145 merges and apt-cache-warm.yml runs on main
+deferred: blocked — the firefox-webrtc job's gh step runs only on main and landed after the last main nightly; no main run has logged its key yet (the first, run 43225213036, was queued at 13:13 UTC on 2026-11-12)
 source: https://github.com/Laticent/lattice/pull/3145
 ---
-# Prove a fresh PR restores the apt cache entry the warmer saved on main
+# Compare the firefox-webrtc gh cache key on main with the warmer's container row
 
-why now   — the warmer's core claim. #3145 proved it saves and hits entries in a PR's own cache scope, and that a PR
-            job computes the same key as the warmer row (golden-diff and integration restored
-            apt-ubuntu24-X64-80a7170033b0b09e-20261101.360.1). The restore across scopes, a PR reading main's entry, rests on
-            GitHub's documented rule until a log shows it. The pre-merge card graded MEDIUM on exactly this.
-where     — any PR opened after the warmer has run on main, best the first after a runner-image bump; and a main run of
-            studio-e2e-nightly.yml's firefox-webrtc job, whose `gh` key the warmer's container row must match.
-done when — a PR's ci.yml apt step logs `Cache restored from key: apt-…-<image>` for an entry no run on that PR saved,
-            with cache hit and mirror read none; and the firefox-webrtc job's key equals the warmer container row's.
-evidence  — the PR #3145 card's `raise it` line.
-verify    — read the two job logs; quote the lines in the PR that deletes this file.
+why now   — the last unproven link of the apt cache warmer. Its other half is proven on real runners: golden-bless on
+            main saved apt-ubuntu24-X64-80a7170033b0b09e-20261101.360.1 at 09:39:07 (run 43181102241), and
+            claude/flaky-integration's first run of any workflow restored it as an exact hit in all five integration and
+            golden-diff jobs (run 43198148728). The container row is matched only indirectly: the same image tag, and git
+            already in the image (the warmer asserts it), so the job's git step installs nothing and dpkg's package list,
+            which a container key hashes, is the same in both.
+where     — studio-e2e-nightly.yml's firefox-webrtc job on main, step "Install the gh CLI"; apt-cache-warm.yml's
+            apt-container row (warmer run 43178717523, job 131049159918, logged
+            apt-ubuntu24.04-X64-78a67c439380cc3e-d62894f27a29).
+done when — that step on a main run logs the same key as the warmer's container row for the same image tag, or, if it
+            differs, the row is fixed so they match.
+evidence  — PR #3145's card, `raise it`.
+verify    — quote both key lines in the PR that deletes this file.
