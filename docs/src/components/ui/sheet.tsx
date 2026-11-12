@@ -124,7 +124,7 @@ function SheetContent({
           const unclaimed = !active || active === document.body || (box instanceof Node && box.contains(active))
           if (!unclaimed) return
           e.preventDefault()
-          // Not into a text field on a touch screen: it would raise the keyboard (focus-return.ts).
+          // Not into a text field on a touch screen: it can raise the keyboard (focus-return.ts).
           if (raisesTouchKeyboard(el)) return
           el.focus({ preventScroll: true })
         }}

@@ -7,7 +7,7 @@ const pointer = (fine: boolean) =>
 	((q: string) => ({ matches: fine && q.includes('pointer: fine'), media: q, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
 
 describe('SheetContent', () => {
-	it('returns focus to a text field only on a fine pointer: on touch it would raise the keyboard', async () => {
+	it('returns focus to a text field only on a fine pointer: on touch it can raise the keyboard', async () => {
 		const real = window.matchMedia;
 		for (const fine of [true, false]) {
 			window.matchMedia = pointer(fine);

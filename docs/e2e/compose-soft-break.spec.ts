@@ -1,4 +1,4 @@
-import { caretSettled, expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
+import { caretSettled, editorFocusSettled, expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
 
 // A newline inside a paragraph is a line break on the slide, so editing the paragraph keeps it.
 // followups.d/2846-p6; engineering/decisions/2026-10-21-compose-point-and-click.md §7b.
@@ -25,6 +25,7 @@ test('@crosswidth @gecko @webkit-tablet editing a paragraph keeps its line break
 	const para = page.locator('.cs-host p', { hasText: 'Line one' });
 	await para.click();
 	await caretSettled(page);
+	await editorFocusSettled(page);
 	// Place the caret through the DOM selection, which ProseMirror reads: Home/End and Control+Home move differently in
 	// WebKit, and the test is about the source, not about a browser's caret keys.
 	// ProseMirror learns of a selection set this way only from `selectionchange`, a queued task: a key sent before it
@@ -58,6 +59,7 @@ test('@crosswidth @gecko @webkit-tablet Shift+Enter writes one new line, and Ent
 	const para = page.locator('.cs-host p', { hasText: 'Line three' });
 	await para.click();
 	await caretSettled(page);
+	await editorFocusSettled(page);
 	// Put the caret at the end of the last line through the DOM selection (see the test above).
 	await para.evaluate((p) => {
 		const node = [...p.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE).pop();

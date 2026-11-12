@@ -96,7 +96,7 @@ describe('PersistentSurface', () => {
 		expect(document.activeElement, 'focus was taken back from the new slide').toBe(caret);
 	});
 
-	it('returns focus to a text field only on a fine pointer: on touch it would raise the keyboard', async () => {
+	it('returns focus to a text field only on a fine pointer: on touch it can raise the keyboard', async () => {
 		const real = window.matchMedia;
 		for (const fine of [true, false]) {
 			window.matchMedia = ((q: string) => ({ matches: fine && q.includes('pointer: fine'), media: q, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;

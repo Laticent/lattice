@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { raisesTouchKeyboard } from '@/components/ui/focus-return';
+import { raisesTouchKeyboard, resetLastInput } from '@/components/ui/focus-return';
 
 const real = window.matchMedia;
 const pointer = (fine: boolean) => {
@@ -14,6 +14,25 @@ const el = (html: string) => {
 describe('raisesTouchKeyboard', () => {
 	afterEach(() => {
 		window.matchMedia = real;
+		resetLastInput();
+	});
+	it('is false when the last input was a key (a hardware keyboard on a touch device), true again after a tap', () => {
+		pointer(false);
+		const field = el('<textarea></textarea>');
+		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+		expect(raisesTouchKeyboard(field)).toBe(false);
+		document.dispatchEvent(new Event('pointerdown'));
+		expect(raisesTouchKeyboard(field)).toBe(true);
+	});
+	it("prosemirror-view's focus check still uses a 20 ms timer (the e2e editorFocusSettled orders after it)", async () => {
+		const { readFileSync } = await import('node:fs');
+		const { createRequire } = await import('node:module');
+		const { dirname, join } = await import('node:path');
+		const dist = dirname(createRequire(import.meta.url).resolve('prosemirror-view'));
+		for (const file of [join(dist, 'index.js'), join(dist, 'index.cjs')]) {
+			const src = readFileSync(file, 'utf8');
+			expect(src, file).toMatch(/handlers\.focus = [\s\S]{0,700}?\}, 20\);/);
+		}
 	});
 	it('is true for editable text on a coarse pointer', () => {
 		pointer(false);

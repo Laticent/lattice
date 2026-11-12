@@ -181,8 +181,8 @@ export function PersistentSurface({
     const box = boxRef.current
     const active = document.activeElement
     const unclaimed = !active || active === document.body || (box?.contains(active) ?? false)
-    // Not into a text field on a touch screen: focusing one raises the software keyboard, so a
-    // gallery opened from Compose put the keyboard back up after every insert (compose-stress
+    // Not into a text field on a touch screen: focusing one can raise the software keyboard, so a
+    // gallery opened from Compose put focus back in the editor after every insert (compose-stress
     // e2e on the touch projects, red on main for weeks: followups.d/2927-p18). Focus leaves the
     // box for the page instead, as a tap elsewhere would.
     if (to && raisesTouchKeyboard(to)) {

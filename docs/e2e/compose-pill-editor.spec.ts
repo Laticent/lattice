@@ -81,14 +81,14 @@ const bar = (page: Page) => page.locator('.cs-slide-active');
 /**
  * Put the caret at the end of "Shipped " (offset 8), checking where it is after each press, then step once more onto
  * the pill. Eight presses, each checked: a lost press fails here. The one press that used to be lost, the first
- * ArrowRight after the click, was ProseMirror's focus check writing its old selection back (`editorFocusSettled`).
+ * ArrowRight after the click, was ProseMirror's focus check writing its old selection back: callers wait it out with
+ * `editorFocusSettled` straight after the click.
  */
 async function walkOntoFirstPill(page: Page): Promise<void> {
 	const offset = () => page.evaluate(() => {
 		const s = document.getSelection();
 		return s?.anchorNode?.nodeType === Node.TEXT_NODE && s.anchorNode.textContent === 'Shipped ' ? s.anchorOffset : -1;
 	});
-	await editorFocusSettled(page);
 	for (let presses = 0; (await offset()) !== 8; presses++) {
 		expect(presses, 'eight steps to the end of "Shipped " take eight presses').toBeLessThan(8);
 		await pressSettled(page, 'ArrowRight');
@@ -242,6 +242,7 @@ test.describe('compose pill editor', () => {
 		await expect(drawnPills(page)).toHaveCount(4);
 		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
 		await caretSettled(page);
+		await editorFocusSettled(page);
 		await pressSettled(page, 'Home');
 		// "Shipped" and a space are eight steps; the next lands on the pill itself. Each is the browser's own caret
 		// move, which ProseMirror's state hears of through `selectionchange`: each is settled and checked.
@@ -262,6 +263,7 @@ test.describe('compose pill editor', () => {
 		await expect(drawnPills(page)).toHaveCount(4);
 		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
 		await caretSettled(page);
+		await editorFocusSettled(page);
 		await pressSettled(page, 'Home');
 		await walkOntoFirstPill(page);
 		await page.keyboard.press('ControlOrMeta+c');
