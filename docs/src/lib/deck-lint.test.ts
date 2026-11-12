@@ -47,17 +47,25 @@ const bodyArb = fc.stringMatching(/^[\p{L}\p{N} .,!?#*]{0,40}$/u).filter((b) => 
 // covered — it is just covered with the right expectation.
 const SEP = '\n\n---\n\n';
 
+// Every property here runs on a FIXED seed (HARD RULE #32): the same 100 inputs on every run, so a red run is
+// the code, not the draw. fast-check prints the seed and the counterexample on a failure; to explore other
+// inputs locally, set LATTICE_FC_SEED. An unseeded run drew "___" once in CI (PR #3157) and failed on an
+// invariant the splitter does not promise; that input is now a fixed case below.
+const FC = { seed: Number(process.env.LATTICE_FC_SEED ?? 20_261_112) };
+
 describe('splitSlides (fuzz)', () => {
-	it('never throws and yields trimmed, non-empty chunks for ANY input', () => {
+	// An EMPTY chunk is a slide (a trailing or doubled separator renders a blank one), so the property does not
+	// ask for non-empty chunks. What splitSlides promises for ANY input is: it never throws, every chunk is
+	// trimmed, and only a blank FIRST chunk is dropped, as the engine drops it.
+	it('never throws, yields trimmed chunks, and never leads with a blank one, for ANY input', () => {
 		fc.assert(
 			fc.property(fc.string(), (s) => {
 				const out = splitSlides(s);
 				expect(Array.isArray(out)).toBe(true);
-				for (const chunk of out) {
-					expect(chunk.length).toBeGreaterThan(0);
-					expect(chunk).toBe(chunk.trim());
-				}
+				for (const chunk of out) expect(chunk).toBe(chunk.trim());
+				if (out.length > 1) expect(out[0].length).toBeGreaterThan(0);
 			}),
+			FC,
 		);
 	});
 
@@ -67,7 +75,15 @@ describe('splitSlides (fuzz)', () => {
 				const src = bodies.join(SEP);
 				expect(splitSlides(src)).toHaveLength(bodies.length);
 			}),
+			FC,
 		);
+	});
+
+	it('a body that is only a separator is ONE blank slide, as the engine renders it', () => {
+		// The engine drops the blank chunk before the break and renders the one after it (lib/engine/slides.js
+		// `splitOnHr`; checked: `render("___")` emits one <section>). Every thematic-break spelling counts.
+		for (const sep of ['___', '---', '***', '- - -']) expect(splitSlides(sep), sep).toEqual(['']);
+		expect(splitSlides('# A\n\n---\n')).toEqual(['# A', '']);
 	});
 
 	it('handles undefined/empty without throwing', () => {
@@ -91,6 +107,7 @@ describe('unknownComponents (fuzz)', () => {
 					expect(KNOWN.includes(f)).toBe(false);
 				}
 			}),
+			FC,
 		);
 	});
 
@@ -100,6 +117,7 @@ describe('unknownComponents (fuzz)', () => {
 				const src = names.map((n) => `<!-- _class: ${n} -->`).join('\n---\n');
 				expect(unknownComponents(src, KNOWN)).toEqual([]);
 			}),
+			FC,
 		);
 	});
 
@@ -108,6 +126,7 @@ describe('unknownComponents (fuzz)', () => {
 			fc.property(fc.string(), (s) => {
 				expect(() => unknownComponents(s, KNOWN)).not.toThrow();
 			}),
+			FC,
 		);
 	});
 });
@@ -118,6 +137,7 @@ describe('slideClass (fuzz)', () => {
 			fc.property(nameArb, bodyArb, (name, body) => {
 				expect(slideClass(`<!-- _class: ${name} -->\n${body}`)).toBe(name);
 			}),
+			FC,
 		);
 		// Bare-Markdown slide (no _class) and degenerate inputs fall back to `text`.
 		expect(slideClass('## Just a heading\n\nSome prose.')).toBe('text');
@@ -187,6 +207,7 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 					expect(slideIndexAt(src, start)).toBe(i);
 				}
 			}),
+			FC,
 		);
 	});
 
@@ -199,6 +220,7 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 				expect(here).toBeLessThanOrEqual(slideIndexAt(src, src.length));
 				expect(here).toBeGreaterThanOrEqual(0);
 			}),
+			FC,
 		);
 	});
 
@@ -245,6 +267,7 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 					expect(slideIndexAt(src, start)).toBe(i);
 				}
 			}),
+			FC,
 		);
 	});
 
@@ -371,6 +394,7 @@ describe('presentationSet (reader lenses)', () => {
 				expect(presentationSet(slides, 'full')).toEqual(slides);
 				expect(presentationSet(slides, 'brief')).toEqual(slides); // no registry → safe full-deck fallback
 			}),
+			FC,
 		);
 	});
 
