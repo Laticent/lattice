@@ -20,9 +20,10 @@
   (`docs/src/components/studio/present-sections.ts`)
 - **Editing a slide in Compose no longer changes what the slide applies.** Compose lifts a setting to the top of the
   slide only when the engine applies it there and moving it changes nothing: an example in indented code or inside an
-  HTML block stays put (also at the very top of the slide), and a setting never moves past one that stays in place
-  and sets the same field (a bare `<!-- class: dark -->`, one in a list or quote, or a record's other fields). A
-  seeded test renders 400 random slides before and after the round trip and requires the same result.
+  HTML block stays put, and a setting never moves past one that stays in place and sets the same field (a bare
+  `<!-- class: dark -->`, one in a quote, or a record's other fields). A slide where a setting has to stay inside a
+  list or right under a line of text opens in Markdown, because Compose would write it back as text. A seeded test
+  renders 400 random slides before and after a Compose edit and requires the same result.
 - **Present's section rail reads a quoted divider** (`<!-- _class: "divider" -->`).
 - **A speaker note no longer locks a field.** A note with a line that starts `focus:` or `class:` is not a second
   place the field is set, so the slide panel still edits the record. A field set twice shows the value that wins.

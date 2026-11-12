@@ -213,14 +213,39 @@ describe('the Compose round trip never changes what the engine applies', async (
 		}
 		expect(broken.slice(0, 3), `seed ${SEED}: ${broken.length} of 400 slides changed`).toEqual([]);
 	});
+	// The path an edit takes: the editor parses the slide (`deckToDoc`) and writes it back through its serializer
+	// (`docToDeck` re-serializes every slide, as an edit does). A slide Compose opens read-only (`locked`) is never
+	// written back, so it is skipped. A slide never starts with an indented line here: the deck splitter trims each
+	// slide first, which turns such an example on in main too (followups.d/2772-p5-indented-example-at-slide-top.md).
+	it(`holds through the editor's parser and serializer for 400 random slides (seed ${SEED})`, async () => {
+		const { deckToDoc, docToDeck } = await import('./deck-doc');
+		const broken: string[] = [];
+		let edited = 0;
+		for (let n = 0; n < 400; n++) {
+			const parts = Array.from({ length: 2 + Math.floor(rand() * 5) }, () => SHAPES[Math.floor(rand() * SHAPES.length)]);
+			const slide = ['text', ...parts].join('\n\n');
+			const doc = deckToDoc(slide);
+			if (doc.firstChild?.attrs.locked) continue;
+			edited++;
+			const back = docToDeck(doc);
+			const before = sectionOf(slide);
+			const after = sectionOf(back);
+			if (before.class !== after.class || before.style !== after.style) broken.push(JSON.stringify({ slide, back, before, after }));
+		}
+		expect(edited, 'most random slides are editable in Compose').toBeGreaterThan(200);
+		expect(broken.slice(0, 3), `seed ${SEED}: ${broken.length} of ${edited} edited slides changed`).toEqual([]);
+	});
 });
 
 describe('splitSlideDirectives: the reviewer cases on #3136', () => {
-	it('never lifts a comment past a directive nested in a list that sets the same field', () => {
+	it('lifts a directive nested in a list with the rest, in order, so the last still wins', () => {
 		const slide = '- a\n\n  <!-- _class: dark -->\n\n<!-- _class: light -->\n\n# T';
-		const { directives, prose } = splitSlideDirectives(slide);
-		expect(directives).toEqual([]);
-		expect(prose.indexOf('_class: dark')).toBeLessThan(prose.indexOf('_class: light'));
+		expect(splitSlideDirectives(slide).directives).toEqual(['<!-- _class: dark -->', '<!-- _class: light -->']);
+	});
+	it('opens a slide in Markdown when a setting must stay right under a list item', () => {
+		const slide = '<!-- class: dark -->\n\n- x\n<!-- _class: light -->';
+		const { prose } = splitSlideDirectives(slide);
+		expect(hasLossyConstruct(prose)).toBe(true);
 	});
 	it('keeps an indented example at the top of the prose indented', () => {
 		const a = splitSlideDirectives('    <!-- {layout=kpi} -->\n\n# T');

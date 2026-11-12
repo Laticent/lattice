@@ -72,11 +72,11 @@ export function normalizeSource(source: string): string {
 export function splitSlideDirectives(chunk: string): SlideChunk {
 	const fences = fenceRanges(chunk);
 	const inFence = (i: number) => fences.some(([s, e]) => i >= s && i < e);
-	// Hoist only what the engine applies at the top level (`commentReadings`): a comment in indented code or folded into
-	// an HTML block is an example, and lifting it would turn it on. Walk every comment the engine applies in order, and
-	// keep in place any that cannot move (a nested one, a pane marker, a line the hoist does not match) together with any
-	// that sets a field one of those kept sets: last wins, so lifting it past them would change the winner (the checkers
-	// on #3136).
+	// Hoist only what the engine applies (`commentReadings`): a comment in indented code or folded into an HTML block is an
+	// example, and lifting it would turn it on. Walk every comment the engine applies in order, and keep in place any
+	// that cannot move (one in a quote, a pane marker, a line the hoist does not match) together with any that sets a
+	// field one of those kept sets: last wins, so lifting it past them would change the winner (the checkers on #3136).
+	// A kept comment Compose cannot write back as it is locks the slide (`hasLossyConstruct`).
 	const readings = commentReadings(chunk);
 	const lineStarts = [0];
 	for (let i = chunk.indexOf('\n'); i !== -1; i = chunk.indexOf('\n', i + 1)) lineStarts.push(i + 1);
@@ -105,7 +105,9 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 		const r = readings.get(line);
 		if (!r || r.kind === 'note') continue;
 		const text = matched.get(line);
-		const movable = (r.kind === 'directive' || r.kind === 'record') && text !== undefined && !parsePaneMarker(text.trim())?.pane;
+		// A directive nested in a list moves too, as it always did: left in place, Compose's parser reads it as list text
+		// and escapes its underscore, and the slide loses it (the checker on #3136). Lifting it changes no field.
+		const movable = (r.kind === 'directive' || r.kind === 'record' || r.kind === 'nested') && text !== undefined && !parsePaneMarker(text.trim())?.pane;
 		if (movable && ![...r.keys].some((k) => kept.has(k))) hoist.add(line);
 		else for (const k of r.keys) kept.add(k);
 	}
@@ -211,12 +213,27 @@ function withoutCode(prose: string): string {
  *  uses the ENGINE's own currency-safe rules (`sourceHasMath`) — so `$a_1$` locks the slide but
  *  a `$400M` figure, or a `$x` in a shell fence, does not: the lock matches what the engine renders. */
 export function hasLossyConstruct(prose: string): boolean {
+	if (strandsADirective(prose)) return true;
 	// Modeled blocks first, on the prose as the parser reads it (line numbers must match), then code. An HTML block or a `$$`
 	// block at the top level is an atom that writes its bytes back, so it no longer locks; one inside a list or a quote
 	// is still prose to the parser, and what is left of it below still trips the matching rule. Inline math is modeled
 	// everywhere inline text is parsed, so only a display `$$` line can be left.
 	const bare = withoutCode(withoutModeledBlocks(prose));
 	return hasDisplayMath(bare) || LOSSY_CONSTRUCTS.some((re) => re.test(bare));
+}
+
+/** A comment the engine applies that the lift left in the prose where Compose's parser does not read it as a comment:
+ *  nested in a list item, or right under a line of text (a list item would take it in). Compose would write it back as
+ *  list text with an escaped `_`, and the slide would lose it, so the slide is edited in Markdown (the checker on #3136). */
+function strandsADirective(prose: string): boolean {
+	const lines = prose.split('\n');
+	for (const [line, r] of commentReadings(prose)) {
+		if (r.kind === 'note') continue;
+		const text = lines[line - 1] ?? '';
+		const above = lines[line - 2] ?? '';
+		if (/^[ \t]/.test(text) || above.trim() !== '') return true;
+	}
+	return false;
 }
 
 /** The `_class` component name of a slide's directives (first token), or 'content'. */
