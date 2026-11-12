@@ -106,6 +106,7 @@ the sum of main-thread long tasks; "longest" the largest one; memory is the JS h
 | Present (phone, 6 swipes) | swipe 3 took 19.2 s · 19.8 s · 9.3 s · 1,947 MB | swipes 0.16–0.34 s · 0.4 s · 0.17 s · 68 MB |
 | Present (laptop: open, 6 s, one arrow key) | key took 8.9 s · 13.6 s · 6.4 s · 1,597 MB | key 50–78 ms · 0.85–1.0 s · 0.25–0.33 s · 83–94 MB (Stage built as Present opens; 3 runs. At idle it was key 64 ms · 0.7 s · 0.19 s · 78 MB, but the build could land on the first tap) |
 | Present (WebKit, iPhone size, 6 arrow keys) | opened 4.2 s · 6th key 8.0 s | opened 1.0 s · keys 42–423 ms |
+| Present (real Mobile Safari 26.5, iPhone Simulator, 18-photo fixture deck; `ios-safari-present-memory`, run 43238984976) | `main` (production): Studio 632 MB before Present, Present and 6 steps **+795 MB** (Present alone +306 MB) | Studio 347 MB, Present and 6 steps **+124 MB** (Present alone +129 MB); no reload on either; the Mac's simulator steps both in 0.1-2 s, so time does not separate them there |
 | Stage window | built on Present open (~20 s blocked) · 34.2 MB `data:` doc | 1.4 s to the deck · 0.1 s · 0.1 s · 60 MB · 1.6 MB doc, `blob:` |
 | Reading view | 15.7 s · 14.5 s · 9.5 s · 1,606 MB | 2.5 s · 1.5 s · 1.1 s · 165 MB |
 | Captions | 12.3 s · 10.9 s · 9.1 s · 1,686 MB | 2.7 s · 1.4 s · 0.8 s · 248 MB |

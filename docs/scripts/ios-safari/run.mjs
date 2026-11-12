@@ -311,16 +311,15 @@ async function runPhotoProbe(id) {
  * opens, after it opens and after the steps (photo-memory.mjs).
  *
  * Two arms when PRESENT_BASELINE_URL is set (the suite sets the production site, built from `main`): this build, which must
- * pass, and the baseline, which is only reported, so the job carries its own before and after. Checks on this build: the
- * Studio reads at least 50 MB before Present (else the reader is not reading Safari), Present shows its first slide within
- * 5 s, every step paints its photo within 2 s (in Playwright's WebKit, `main` took 11.8 s and 8.0 s on two of them, this
- * build at most 0.57 s), the page did not reload, and Present with its steps adds at most PRESENT_MEMORY_CAP_MB (a simulator
- * has no memory limit, so this is the cost an iPhone would weigh, not the reload itself).
+ * pass, and the baseline, which is only reported, so the job carries its own before and after. The verdict is
+ * present-memory.mjs `presentChecks`: work, not time (HARD RULE #32). PRESENT_MEMORY_CAP_MB defaults to 300: the first run
+ * (2026-11-12, run 43238984976) read 124 MB on this change and 795 MB on `main`. A simulator has no memory limit, so this is
+ * the cost an iPhone would weigh, not the reload itself.
  */
 async function runPresentMemoryProbe(id) {
 	const { buildPresentDeck, PRESENT_TITLE, presentChecks } = await import('./present-memory.mjs');
 	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
-	const CAP_MB = Number(process.env.PRESENT_MEMORY_CAP_MB || 400);
+	const CAP_MB = Number(process.env.PRESENT_MEMORY_CAP_MB || 300);
 	const deck = await buildPresentDeck();
 	const b64 = Buffer.from(deck.bytes).toString('base64');
 	const PIECE = 4_000_000;
