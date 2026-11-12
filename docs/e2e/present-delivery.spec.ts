@@ -1,3 +1,4 @@
+import { FRAME_MS, pauseFrames, stepFrame } from './frame-clock';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 // THE DELIVERIES on the real Present surface (engineering/decisions/
@@ -33,23 +34,27 @@ const DENSE = (delivery: string) =>
 		'',
 	].join('\n');
 
-/** Count cue-ink bursts on the stage for `ms` (the grouping `present-guide.spec.ts` explains). */
-async function inkBursts(page: import('@playwright/test').Page, ms: number): Promise<number> {
-	const at = await page.evaluate(async (duration) => {
-		const stamps: number[] = [];
-		const t0 = Date.now();
-		const obs = new MutationObserver((records) => {
-			for (const r of records) for (const n of r.addedNodes) if ((n as HTMLElement).dataset?.vtCue) stamps.push(Date.now() - t0);
-		});
-		obs.observe(document.body, { childList: true, subtree: true });
-		await new Promise((r) => setTimeout(r, duration));
-		obs.disconnect();
-		return stamps;
-	}, ms);
-	return at.filter((t, i) => i === 0 || t - at[i - 1] > 400).length;
+/** Start counting cue-ink bursts on the stage; the returned function reads the count so far.
+ *  One gesture adds several nodes (the grouping `present-guide.spec.ts` explains), so nodes closer than 400 ms belong
+ *  to one burst. On a fake clock (`frame-clock.ts`) that gap is virtual time, so a loaded runner cannot split a burst. */
+async function watchInk(page: import('@playwright/test').Page): Promise<() => Promise<number>> {
+	await page.evaluate(() => {
+		const w = window as unknown as { __inkAt: number[] };
+		w.__inkAt = [];
+		new MutationObserver((records) => {
+			for (const r of records) for (const n of r.addedNodes) if ((n as HTMLElement).dataset?.vtCue) w.__inkAt.push(Date.now());
+		}).observe(document.body, { childList: true, subtree: true });
+	});
+	return async () => {
+		const at = await page.evaluate(() => (window as unknown as { __inkAt: number[] }).__inkAt);
+		return at.filter((t, i) => i === 0 || t - at[i - 1] > 400).length;
+	};
 }
 
-async function present(page: import('@playwright/test').Page, deck: string) {
+/** Open Present with the Guide on. With `frames`, the page runs on a fake clock that is paused before Play, so the
+ *  reading moves only as the test steps it (`frame-clock.ts`); `beforePlay` installs the watchers while nothing moves. */
+async function present(page: import('@playwright/test').Page, deck: string, opts: { frames?: boolean; beforePlay?: (dialog: import('@playwright/test').Locator) => Promise<void> } = {}) {
+	if (opts.frames) await page.clock.install();
 	await gotoStudio(page);
 	await setEditorContent(page, deck);
 	await page.getByRole('button', { name: 'Present', exact: true }).click();
@@ -57,39 +62,55 @@ async function present(page: import('@playwright/test').Page, deck: string) {
 	await expect(dialog).toBeVisible();
 	await dialog.getByRole('button', { name: /^Guide (on|off)/ }).click();
 	await expect(page.locator(CURSOR)).toHaveCount(1);
+	if (opts.frames) await pauseFrames(page);
+	await opts.beforePlay?.(dialog);
 	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
 	return dialog;
 }
 
-/** Count focus MOMENTS on the live slide for `ms`: each focus recedes a batch of peers at once,
- *  so class changes are grouped the way `inkBursts` groups ink. */
-async function foci(dialog: import('@playwright/test').Locator, ms: number): Promise<string[]> {
-	const frame = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
-	return frame.locator('body').evaluate(async (body, duration) => {
-		const moments: { t: number; text: string }[] = [];
-		const t0 = Date.now();
-		const obs = new MutationObserver((records) => {
+/** Start recording focus MOMENTS on the live slide; the returned function reads them. Each focus recedes a batch of
+ *  peers at once, so class changes closer than 400 ms (virtual, on a fake clock) are one moment, as for the ink. */
+async function watchFoci(dialog: import('@playwright/test').Locator): Promise<() => Promise<string[]>> {
+	const body = dialog.frameLocator('[aria-label="Presented slide"] iframe.live').locator('body');
+	await body.evaluate((el) => {
+		const w = window as unknown as { __foci: { t: number; text: string }[] };
+		w.__foci = [];
+		new MutationObserver((records) => {
 			for (const r of records) {
-				const el = r.target as Element;
-				if (r.attributeName !== 'class' || !el.classList.contains('lat-guide-dim') || (r.oldValue ?? '').includes('lat-guide-dim')) continue;
-				const t = Date.now() - t0;
-				const last = moments[moments.length - 1];
+				const node = r.target as Element;
+				if (r.attributeName !== 'class' || !node.classList.contains('lat-guide-dim') || (r.oldValue ?? '').includes('lat-guide-dim')) continue;
+				const t = Date.now();
+				const last = w.__foci[w.__foci.length - 1];
 				if (last && t - last.t < 400) continue;
 				// The moment is named by what STAYED full: the dimmed peer's sibling that is not dimmed.
-				const focused = [...(el.parentElement?.children ?? [])].find((c) => c.tagName === el.tagName && !c.classList.contains('lat-guide-dim'));
-				moments.push({ t, text: (focused?.textContent ?? '').trim().slice(0, 40) });
+				const focused = [...(node.parentElement?.children ?? [])].find((c) => c.tagName === node.tagName && !c.classList.contains('lat-guide-dim'));
+				w.__foci.push({ t, text: (focused?.textContent ?? '').trim().slice(0, 40) });
 			}
-		});
-		obs.observe(body, { attributes: true, attributeOldValue: true, subtree: true, attributeFilter: ['class'] });
-		await new Promise((r) => setTimeout(r, duration));
-		obs.disconnect();
-		return moments.map((m) => m.text);
-	}, ms);
+		}).observe(el, { attributes: true, attributeOldValue: true, subtree: true, attributeFilter: ['class'] });
+	});
+	return () => body.evaluate(() => (window as unknown as { __foci: { text: string }[] }).__foci.map((m) => m.text));
+}
+
+/** 25 s of the reading, in frames: the five-bullet slide is read well inside it. */
+const READ_FRAMES = Math.ceil(25_000 / FRAME_MS);
+
+/** Present `deck` on a fake clock, watch the whole reading, and return what was focused and how many ink bursts. */
+async function readThrough(page: import('@playwright/test').Page, deck: string): Promise<{ lit: string[]; bursts: number }> {
+	let foci!: () => Promise<string[]>;
+	let ink!: () => Promise<number>;
+	await present(page, deck, {
+		frames: true,
+		beforePlay: async (dialog) => {
+			foci = await watchFoci(dialog);
+			ink = await watchInk(page);
+		},
+	});
+	for (let i = 0; i < READ_FRAMES; i++) await stepFrame(page);
+	return { lit: await foci(), bursts: await ink() };
 }
 
 test('restrained focuses every bullet the narration names, and draws no ink', async ({ page }) => {
-	const dialog = await present(page, DENSE('restrained'));
-	const [lit, bursts] = await Promise.all([foci(dialog, 25_000), inkBursts(page, 25_000)]);
+	const { lit, bursts } = await readThrough(page, DENSE('restrained'));
 	// No budget: a slide read in five bullets shows five quiet focuses, so nothing named goes dark.
 	expect(lit.length, 'restrained left named bullets dark').toBeGreaterThanOrEqual(4);
 	expect(lit.join(' | '), 'the figure is focused when it is read').toContain('$48.6M');
@@ -97,15 +118,17 @@ test('restrained focuses every bullet the narration names, and draws no ink', as
 });
 
 test('expressive focuses the same bullets, and inks each one', async ({ page }) => {
-	const dialog = await present(page, DENSE('expressive'));
-	const [lit, bursts] = await Promise.all([foci(dialog, 25_000), inkBursts(page, 25_000)]);
+	const { lit, bursts } = await readThrough(page, DENSE('expressive'));
 	expect(lit.length, 'expressive left named bullets dark').toBeGreaterThanOrEqual(4);
 	// Ink marks every act, not only the top moment (owner, 2026-09-27).
 	expect(bursts, 'expressive inks each named block').toBeGreaterThanOrEqual(4);
 });
 
 test('somber focuses the key beat: the rest recedes gently, with no cursor and no ink', async ({ page }) => {
-	const dialog = await present(page, DENSE('somber'));
+	// Ink is watched from before Play, and read once the key beat has been focused: a gesture's ink is drawn with its
+	// focus, so by then any ink the somber beat drew is on the stage.
+	let ink!: () => Promise<number>;
+	const dialog = await present(page, DENSE('somber'), { beforePlay: async () => (ink = await watchInk(page)) });
 	const slide = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
 	// The one somber moment is the slide's KEY beat: its four siblings recede, it stays whole. On a
 	// prose slide the key is the list's FIRST item, not the top-ranked figure — a deliberate change
@@ -121,7 +144,7 @@ test('somber focuses the key beat: the rest recedes gently, with no cursor and n
 	// Never the deck's own focus classes.
 	await expect(slide.locator('.lat-focus, .lat-recede')).toHaveCount(0);
 	expect(await page.locator(CURSOR).evaluate((el) => getComputedStyle(el).opacity)).toBe('0');
-	expect(await inkBursts(page, 4_000)).toBe(0);
+	expect(await ink()).toBe(0);
 });
 
 test('the slide reads along only with the captions off: the caption already does it', async ({ page }) => {
@@ -133,17 +156,19 @@ test('the slide reads along only with the captions off: the caption already does
 	const dialog = await present(page, DENSE('restrained'));
 	// Captions on (the default): the slide never carries a second copy of the words.
 	await expect(dialog.frameLocator('[aria-label="Presented slide"] iframe.live').locator('li.lat-guide-dim').first()).toBeVisible({ timeout: 30_000 });
-	// "Nothing changes" is the claim, so sample it in the page for a fixed window: every frame for
-	// 3 s, the most lat-said ranges any frame carried.
+	// "Nothing changes" is the claim, so sample every frame, from one focused bullet until the Guide moves to the
+	// next: the whole of a bullet is read in between, which is exactly when a read-along would mark its words. The
+	// most lat-said ranges any frame carried must be zero.
 	const seen = await dialog.frameLocator('[aria-label="Presented slide"] iframe.live').locator('body').evaluate(
-		() =>
+		(body) =>
 			new Promise<number>((resolve) => {
 				const w = window as unknown as { CSS: { highlights?: Map<string, { size: number }> } };
+				const focused = () => [...body.querySelectorAll('li:not(.lat-guide-dim)')].map((li) => li.textContent).join('|');
+				const first = focused();
 				let most = 0;
-				const t0 = performance.now();
 				const tick = () => {
 					most = Math.max(most, w.CSS.highlights?.get('lat-said')?.size ?? 0);
-					if (performance.now() - t0 < 3000) requestAnimationFrame(tick);
+					if (focused() === first) requestAnimationFrame(tick);
 					else resolve(most);
 				};
 				requestAnimationFrame(tick);

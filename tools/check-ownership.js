@@ -6684,33 +6684,6 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'be strictly stronger and is the intended fix.',
   },
   {
-    file: 'docs/e2e/present-beat.spec.ts', ms: 60, count: 3,
-    why: 'NOT A SETTLE (#1564). These are the poll INTERVALS of hand-rolled sampling loops that '
-       + 'read a value at the instant a slide advances. An auto-retrying matcher would wait out '
-       + 'the 4s hold under test, which is exactly how the first version of that spec passed '
-       + 'against the unfixed build. Removing them removes the loop.',
-  },
-  {
-    file: 'docs/e2e/present-beat.spec.ts', ms: 1500, count: 1,
-    why: 'MEASUREMENT WINDOW (#1564), not a settle. "The fill advances with the clock" is a RATE, '
-       + 'and for a rate the SAMPLE POINT carries the power, not the bound. Sampling the baseline '
-       + 'at the first non-zero value (0.047px at ~110ms) let one sub-pixel tick satisfy the '
-       + 'assertion, so a fill that started then STALLED passed. Shortening this dwell is what '
-       + 'breaks the test.',
-  },
-  {
-    file: 'docs/e2e/present-beat.spec.ts', ms: 4500, count: 1,
-    why: 'JUDGED KEEP (#1564). Asserts no surviving timer resumed playback across the beat the '
-       + 'tap interrupted — an absence, which no poll expresses. A BUDGET derived from a '
-       + 'configured constant (lattice-present-slide-beat = 4000, set in the beforeEach), not a '
-       + 'guess.',
-  },
-
-  // ── INHERITED, NOT JUDGED — the backlog #1526 still owes ─────────────────────
-  // Seeded when this gate landed so the tree is honest about what nobody has examined.
-  // Each is a claim only that the sleep EXISTS, never that it is correct. Replacing one
-  // with a named signal, or judging it and rewriting this `why`, is the work.
-  {
     file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 160, count: 1,
     why: 'JUDGED KEEP (#1526). The step interval of a hand-rolled STEPPED scroll that samples the '
        + 'marker state as it goes - a sampler\'s tick, not a settle before an assertion. The file\'s '
@@ -6740,21 +6713,6 @@ const SANCTIONED_E2E_SLEEPS = [
        + '`expect.poll(...).toBeLessThanOrEqual(CEILING)` is satisfied by the first sample and '
        + 'never sees a count still on its way up. The pair\'s other half, after the Present click, '
        + 'WAS pollable and is now `expect(dialog).toBeVisible()`.',
-  },
-  {
-    file: 'docs/e2e/present-guide.spec.ts', ms: 120, count: 1,
-    why: 'JUDGED KEEP (#1526). The tick of a hand-rolled sampling loop that collects DISTINCT '
-       + 'cursor positions over time - the assertion is that the Guide cursor came to rest on two '
-       + 'different places, which is a property of a sequence, not of a state. An auto-retrying '
-       + 'matcher reads one state and cannot accumulate.',
-  },
-  {
-    file: 'docs/e2e/present-guide.spec.ts', ms: 5000, count: 1,
-    why: 'JUDGED KEEP (#1526). An ABSENCE held deliberately across a known timer: having hidden '
-       + 'the Guide cursor, the test asserts the REAL pointer was not also taken away, and holds '
-       + 'past the idle timer that would otherwise hide it. The test\'s own comment states the '
-       + 'intent - \'so this cannot pass by simply being sampled too early\' - which is exactly what '
-       + 'a poll would reintroduce.',
   },
   {
     file: 'docs/e2e/preview-nav.spec.ts', ms: 400, count: 1,
