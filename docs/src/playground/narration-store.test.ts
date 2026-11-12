@@ -93,8 +93,10 @@ describe('narration-store', () => {
 
 		it('a read counts as recent use, so a hot entry outlives a colder older one', async () => {
 			setBudgetBytes(2500);
-			await putClip('cold', fakeBlob(1000));
+			// `hot` goes in FIRST, so it is the older of the two and only the read's recency bump can save it. Written the
+			// other way round, `hot` was already the newer entry and the test passed with touch() deleted.
 			await putClip('hot', fakeBlob(1000));
+			await putClip('cold', fakeBlob(1000));
 			await getClip('hot'); // touch() bumps `at`
 			// touch() is fire-and-forget; join its write before the eviction walk reads it.
 			await __touchesSettled();
