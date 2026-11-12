@@ -63,7 +63,9 @@ test('@mobile studio: no text control computes under 16px on a touch device', as
 });
 
 test('@mobile playground: the editor and its controls hold the 16px floor', async ({ page }) => {
-	await page.goto('/playground/', { waitUntil: 'domcontentloaded' });
+	// `?view=edit`: the Playground opens on Explore, which mounts no editor, so a bare `/playground/` waited for a
+	// `.cm-content` that never comes. The editor this spec is about lives in Edit.
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
 
 	// The playground CodeMirror (editor.js carries its own coarse-pointer bump).

@@ -1,0 +1,5 @@
+- The Studio's pre-paint shell draws the slide box at the app's size when the box is bound by height (a collapsed editor, a landscape pane). Its footer constant still assumed the slide navigator was 51px tall; the navigator is 49px, and the shell now derives the footer from the navigator and the status strip.
+- The New slide button no longer covers the clip notice's "Split slide" and "Use Huddle" buttons. The button and the strip's action note now float above the notice whenever one stands on the strip.
+- The slide strip's shortcuts (Duplicate, Move, Delete) work when you click a slide and then arrow to the next one quickly. A key press after the click now counts as keyboard focus, however soon it comes.
+- Compose no longer drops a caret key pressed while it repaints code highlighting or draws pills. Those background updates read the caret's latest position first, instead of writing the old position back over it.
+- The Playground's first-paint snapshot leaves out the color-emoji font faces the first slide never uses, which brings the default Edit deck's snapshot back under half its size cap.
