@@ -5,6 +5,7 @@ import { DismissableLayer } from "radix-ui/internal"
 import * as React from "react"
 import { createPortal, flushSync } from "react-dom"
 
+import { raisesTouchKeyboard } from "@/components/ui/focus-return"
 import { useEverTrue } from "@/components/ui/keep-mounted"
 import { cn } from "@/lib/utils"
 
@@ -184,7 +185,7 @@ export function PersistentSurface({
     // gallery opened from Compose put the keyboard back up after every insert (compose-stress
     // e2e on the touch projects, red on main for weeks: followups.d/2927-p18). Focus leaves the
     // box for the page instead, as a tap elsewhere would.
-    if (to && isTextField(to) && !finePointer()) {
+    if (to && raisesTouchKeyboard(to)) {
       if (unclaimed && box?.contains(active)) (active as HTMLElement).blur()
       return
     }
@@ -263,14 +264,3 @@ export function PersistentSurface({
   )
 }
 
-/** Where focus raises a software keyboard: editable text. */
-function isTextField(el: HTMLElement): boolean {
-  if (el.isContentEditable || el.closest('[contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]')) return true
-  if (el instanceof HTMLTextAreaElement) return !el.readOnly
-  return el instanceof HTMLInputElement && !el.readOnly && !/^(button|checkbox|color|file|hidden|image|radio|range|reset|submit)$/.test(el.type)
-}
-
-/** A mouse or trackpad: no software keyboard to raise. */
-function finePointer(): boolean {
-  return typeof window.matchMedia === "function" && window.matchMedia("(hover: hover) and (pointer: fine)").matches
-}

@@ -1,6 +1,7 @@
 import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 import * as React from "react"
+import { raisesTouchKeyboard } from "@/components/ui/focus-return"
 import { usePersistentIds } from "@/components/ui/persistent-surface"
 import { cn } from "@/lib/utils"
 
@@ -123,6 +124,8 @@ function SheetContent({
           const unclaimed = !active || active === document.body || (box instanceof Node && box.contains(active))
           if (!unclaimed) return
           e.preventDefault()
+          // Not into a text field on a touch screen: it would raise the keyboard (focus-return.ts).
+          if (raisesTouchKeyboard(el)) return
           el.focus({ preventScroll: true })
         }}
       >

@@ -534,6 +534,10 @@ function activeSource(page: Page): Promise<string> {
 }
 
 test('a randomized walk over the compose ops holds the structural invariants', async ({ page }) => {
+	// Thirty-four ops, each waiting out the ~400 ms save debounce: about 11 s alone, about 48 s on
+	// average at eight workers (measured on #3150), against the 60 s default. A walk that ran out of
+	// budget mid-op failed 1 run in about 60 under load, on the clock, not the code (HARD RULE #32).
+	test.slow();
 	// Fixed seed. Every op DRAWS unconditionally (see `deleteSlide`) so the stream does
 	// not depend on live DOM state, which is what makes a failure replayable rather than
 	// merely reproducible-if-you-are-lucky. Be clear about the scope, though: one seed at
