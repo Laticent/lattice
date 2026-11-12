@@ -88,7 +88,12 @@ test('every step page of the Studio\'s PDF carries its slide\'s text marks', asy
 	expect(text(2)).toMatch(/1\s*\/\s*2/);
 	expect(text(3)).toMatch(/1\s*\/\s*2/);
 	expect(text(5)).toMatch(/2\s*\/\s*2/);
-	expect(text(6)).toContain('02 · BETA');
+	// The eyebrow in the AUTHOR'S case, exactly. Since the type voices (#3117,
+	// engineering/decisions/2026-11-09-type-voices.md) an eyebrow is content in the heading face's italic,
+	// `--eyebrow-case: none`, so the slide shows "02 · Beta". The text layer writes what the slide SHOWS
+	// (pdf-text-extract.js `applyTextTransform`), so a theme that sets eyebrows in capitals turns this red
+	// on purpose: the layer and the picture must agree, and this line says which picture it was proved on.
+	expect(text(6)).toContain('02 · Beta');
 });
 
 test('the image set gives each step its own image only when asked', async ({ page }) => {
