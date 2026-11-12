@@ -292,6 +292,18 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 					// that clock however slow the runner is; the old loop slept 250 ms of real time, and WebKit's round
 					// trips stretched each turn, so as few as 2 keys could span the budget.
 					await pauseFrames(page);
+					// Record each request the page posts to its worker. The budget's timer starts at the post, not at the
+					// first input: the post waits for the worker's previous reply, which arrives in real time while this
+					// loop moves the paused clock, so "ms since the input" carried runner load (2,250 under load).
+					await page.evaluate(() => {
+						const w = window as unknown as { __posts: number[]; __post?: Worker['postMessage'] };
+						w.__posts = [];
+						w.__post = Worker.prototype.postMessage;
+						Worker.prototype.postMessage = function (this: Worker, ...args: Parameters<Worker['postMessage']>) {
+							w.__posts.push(performance.now());
+							return (w.__post as Worker['postMessage']).apply(this, args);
+						} as Worker['postMessage'];
+					});
 					await code.fill(runaway);
 					let keys = 0;
 					// 40 keystrokes is 10 s of the page's clock, far past the 1.5 s budget.
@@ -304,10 +316,18 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 					}
 					await page.clock.resume();
 					const { ms } = await landed(page, 1_000);
-					// Virtual milliseconds: the budget is 1.5 s, and the stop lands within one 250 ms keystroke of it.
+					// The runaway's request is the last one posted before the stop (keystrokes queue behind it, unposted).
+					// On the page's clock its timer fires exactly 1.5 s after that post, so the stop is the budget to the
+					// millisecond, whatever the runner's load. A stop that keystrokes kept pushing back would land later.
+					const sincePost = await page.evaluate(() => {
+						const w = window as unknown as { __posts: number[]; __post: Worker['postMessage']; __segno: { t1: number } };
+						Worker.prototype.postMessage = w.__post;
+						const post = w.__posts.filter((t) => t <= w.__segno.t1).at(-1);
+						return post === undefined ? null : w.__segno.t1 - post;
+					});
 					expect(keys).toBeGreaterThan(4);
 					expect(ms).toBeGreaterThan(1_400);
-					expect(ms).toBeLessThan(2_000);
+					expect(sincePost, 'the stop is not 1.5 s after the runaway request was posted').toBe(1_500);
 					record({ step: 13, what: 'typing every 250 ms during a runaway', result: `stopped after ${keys} keystrokes`, ms });
 				});
 
