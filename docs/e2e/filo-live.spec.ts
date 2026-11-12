@@ -312,6 +312,32 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		await expect(guest.locator('.cs-host .cs-slide').first(), "the guest's Compose keeps the composed text").toContainText('にほん');
 	});
 
+	// When the two edits overlap, the merge cannot be placed, and Compose refuses the author's change the way the session
+	// refuses one (live-controller.ts): the co-editor's change stays on both sides, and the author is told. Before, the
+	// author's text won and the co-editor's change was erased without a word. Here the guest's composition reaches the
+	// session, the host then replaces that whole paragraph, and the guest's IME turns its character into another: an edit
+	// to text the host has already replaced.
+	test('an IME edit Compose cannot place on a co-editor\'s change is refused with a notice, and theirs stays', async ({ browser, browserName }, info) => {
+		test.skip(browserName !== 'chromium', 'IME composition is driven through the Chrome DevTools Protocol');
+		const pair = await liveSession(await sessionBrowser(browser), info);
+		const { host, guest } = pair;
+		await openCompose(host);
+		await openCompose(guest);
+		await caretInCompose(guest, 0);
+		const ime = await guest.context().newCDPSession(guest);
+		await ime.send('Input.imeSetComposition', { text: 'に', selectionStart: 1, selectionEnd: 1 });
+		await bothHold(pair, (s) => s.includes('Body one.に'), "the guest's composing character crossed");
+		await caretInCompose(host, 0);
+		await host.keyboard.press('Shift+Home');
+		await host.keyboard.insertText('Gone');
+		await bothHold(pair, (s) => s.includes('# Live deck\n\nGone') && !s.includes('Body one'), 'the host replaced the paragraph');
+		await ime.send('Input.imeSetComposition', { text: 'ニ', selectionStart: 1, selectionEnd: 1 });
+		await ime.send('Input.insertText', { text: 'ニ' });
+		await expect(guest.getByText('Someone edited that part at the same moment', { exact: false }).first(), 'the guest is told').toBeVisible({ timeout: 20_000 });
+		await bothHold(pair, (s) => s.includes('# Live deck\n\nGone') && !s.includes('ニ') && !s.includes('Body one'), "the host's change did not survive the refused edit");
+		await expect(guest.locator('.cs-host .cs-slide').first(), "the guest's Compose shows the host's change").toContainText('Gone');
+	});
+
 		test("Compose's pill undoes each person's own edit, and only theirs", async ({ browser }, info) => {
 		const pair = await liveSession(await sessionBrowser(browser), info);
 		const { host, guest } = pair;

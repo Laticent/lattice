@@ -205,7 +205,7 @@ settles the hold; an Android composition that ProseMirror ends on its timeout se
 placed (the two touch the same text, or adjacent text that repeats, so the text around it does not locate it: the
 checker counted 868 of 104,450 adjacent-or-separate pairs on short repetitive texts) is REFUSED as the session refuses
 one: the co-editor's change stays, and the author sees "Someone edited that part at the same moment, so your change was
-not applied". Before, it kept the author's text and silently erased the co-editor's. A `filo-live` case composes through
+not applied". Before, it kept the author's text and silently erased the co-editor's. A second `filo-live` case forces one (the host replaces the paragraph the guest is composing in, then the guest's IME changes its character): the notice shows and the host's change holds on both sides, 3 of 3; built with the old fallback, it fails. A `filo-live` case composes through
 CDP while the host edits (it failed 2 of 2 before, passes 5 of 5), and a brute-force unit case checks every separated pair
 of edits on a short text. A restore's
 focus also waits for nothing else to have the keyboard: the editor chunk lands about a second after load, and the
