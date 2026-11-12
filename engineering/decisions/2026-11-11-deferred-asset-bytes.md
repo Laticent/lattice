@@ -159,8 +159,8 @@ fonts per export.
 index and alias and skips a repeated picture. A re-placed sheet (a paper change on the same pictures) runs no job.
 `pdf-image-pool.test.ts` holds the worker's object equal to jsPDF's and the whole file byte-identical, with an arm.
 Measured in the dev Studio on the owner's deck, pool off → on: **119 s → 58 s, 95 s → 32 s blocked, longest 2.6 s →
-1.0 s**; all 50 pages and every image stream identical, only `CreationDate` differs. Three workers instead of two
-gave 76 s → 84 s before the overlap (4 cores here); the pool stays at its `min(2, cores − 1)` until measured on a
+1.0 s**; all 50 pages and every image stream identical, only `CreationDate` differs. Before the overlap, three workers
+gave 76 s against two's 84 s (4 cores here); the pool stays at its `min(2, cores − 1)` until measured on a
 laptop with more cores.
 
 Per-slide stylesheet trimming (§7 move 2) was measured and DROPPED: dropping 73 % of slide 5's rules saved 14 ms of
