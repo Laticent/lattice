@@ -15,7 +15,7 @@ The record describes the picture. The slide places it:
 | The slide | The picture becomes |
 |---|---|
 | an `image` slide | the layout's photo panel; the layout picks the composition from the photo's shape. `mirror` puts it on the left |
-| a slide with `bleed` | the slide's background, cropped to fill it. The words pick their ink from the photo: white over a dark photo, dark over a light one, with a scrim or a veil under the heading. A slide whose own class names a color mode keeps it |
+| a slide with `bleed` | the slide's background, cropped to fill it. The words pick their ink from the photo: white over a dark photo, dark over a light one, with a scrim or a veil under the heading (a Marp bundle gets the ink only: Marp draws the photo itself). A slide whose own class names a color mode keeps it |
 | a `collage` | one of the tiles it packs (a list of records or Markdown images) |
 | any other slide | a figure in the slide's flow, sized by the record |
 
@@ -108,7 +108,9 @@ written `color-light` (dark words, a veil lightening the top), over a light one.
 `color-light` in the slide's own class (or a carried `class:`) to choose for yourself; a deck-wide color mode does not count as
 a choice about one photo, and a `print` deck keeps print's ink. Every export makes the same choice: the CLI reads
 the file before its page renders, the Studio and the Playground read it in the preview, and an Export-to-Marp bundle carries
-it in the slide's class. A web picture the export cannot read keeps the theme's ink. `examples/bleed-auto-ink.md` shows each
+it in the slide's class. A bundle carries the ink only, not the scrim or the veil: Marp draws the photo as its own
+background, outside the slide's panel they sit on, so over a busy bright photo a bundle's small type reads fainter than the
+PDF's. A web picture the export cannot read keeps the theme's ink. `examples/bleed-auto-ink.md` shows each
 case.
 
 ## What stays literal
