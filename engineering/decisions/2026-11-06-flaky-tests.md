@@ -202,7 +202,7 @@ The answer for every distinct literal in `lib/**` (keyed on its text, `/source/f
   chart-row-record's, which run all of lint and wait on the lint-core drain (`followups.d/3045-p2-regex-recheck-gate.md`).
   A third, found 2026-11-12 when `findQuadrantAxisIssues`'s stopwatch became a trace: `readIsland`'s `bareOpener` in
   `lib/core/directive-island.mjs`, `^\s*\n\s*(?:\{[^}]*=|@meta\{)`, split a comment's run of blank lines between its
-  two `\s*` (192 ms at 20,000, about 19 s at 200,000). It reads the leading whitespace with `trimStart` now, held to
+  two `\s*` (192 ms at 20,000, about 19 s at 200,000). It is two linear tests now (a line break in the leading whitespace, then the record head), held to
   the old pattern by a seeded fuzz of 20,000 draws.
   The trace cannot see a hand-written loop, so each part-4 reader is also held to linear work by `scanWork`
   (test/unit/core/linear-readers-work.test.js), which caught two readers that still searched afresh from every opener.
