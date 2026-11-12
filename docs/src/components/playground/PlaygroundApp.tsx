@@ -960,10 +960,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// Explore renders the walk deck; Edit renders the draft. Ref-read so the
 			// render loop sees a mode/walk change the moment it commits.
 			const src = viewRef.current === 'read' && exploreSourceRef.current != null ? exploreSourceRef.current : getSource();
-			// Whether THIS render was asked for by Explore. A render started in Edit can resolve after the switch, and it
-			// must not spend Explore's target (below): with the walk still warming up there was nothing to aim it at, the
-			// target was lost and Explore opened on slide 1 (playground-tab-switch.spec.ts, 1 run in 10 on WebKit).
-			const forRead = viewRef.current === 'read';
+			// The walk THIS render was made for, when Explore asked for it. Only such a render may spend Explore's target
+			// (below). A render started in Edit and resolving after the switch, or one the frame scheduler started after
+			// the switch but before the warm-up walk landed, has no walk to aim the target at: it was spent on nothing and
+			// Explore opened on slide 1 (playground-tab-switch.spec.ts, the warm-up cell, 1 to 2 runs in 10 on WebKit).
+			const walkForRead = viewRef.current === 'read' ? walkRef.current : null;
 			// THE NEWCOMER BAKE (playground.astro): the page may have loaded the document this very
 			// render would write. The first render adopts it — takes over the render state baked
 			// into it — and renders as an ordinary patch against that, so a current bake changes
@@ -1025,7 +1026,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// is. The target is spent by the first render of Explore, whatever kind of walk it shows.
 				const openOn = exploreFlatRef.current;
 				const targetWaits = openOn >= 0 && viewRef.current === 'read';
-				if (targetWaits && forRead) {
+				if (targetWaits && walkForRead !== null && walkRef.current !== null) {
 					exploreFlatRef.current = -1;
 					void (async () => {
 						try {
