@@ -19,6 +19,7 @@ import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
 import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
 import { markupHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
+import { writeSrcdoc } from '../lib/srcdoc-write.js';
 import { windowFor } from '../lib/veduta/core.js';
 import { buildSrcdoc, docStyleText, SCAN_SHELL } from './deck-preview.js';
 import { paneComponentsSig } from './pane-sheet-sig.js';
@@ -581,7 +582,8 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 		// `data-lattice-live-media`: the filmstrip is ON SCREEN, so a picture still loading shows the
 		// Underpainting (lib/core/image-painting.js). The export capture and Print build with
 		// `buildSrcdoc` directly and never set it.
-		frame.srcdoc = buildSrcdoc({ html: sanitizeSlideHtml(docHtml), css, mode, geom, ...opts, ...(deck ? { deck } : {}) }).replace('<html ', `<html data-lattice-write="${st.writeId}" data-lattice-live-media `);
+		// writeSrcdoc, not `frame.srcdoc =`: a rewrite keeps Firefox's service worker serving the frame offline (lib/srcdoc-write.js).
+		writeSrcdoc(frame, buildSrcdoc({ html: sanitizeSlideHtml(docHtml), css, mode, geom, ...opts, ...(deck ? { deck } : {}) }).replace('<html ', `<html data-lattice-write="${st.writeId}" data-lattice-live-media `));
 	}
 	st.frameSig = contentSig;
 	st.restyleSig = restyleSig;

@@ -50,6 +50,7 @@ import { renderMarkdown } from '../lib/render-engine';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../lib/render-metrics';
 import { samplesBaseFor } from '../lib/samples-base';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
+import { writeSrcdoc } from '../lib/srcdoc-write.js';
 import { createThemeFetcher } from '../lib/theme-fetch';
 import { installCollageBridge } from '../playground/collage-host.js';
 import { applyDebug } from '../playground/debug-overlay.js';
@@ -1494,7 +1495,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			fr.onload = onLoad;
 			liveHost.__latticePendingLoad = true;
 			liveHost.__latticeShownSlide = bake.host.shownSlide;
-			fr.srcdoc = srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss);
+			// writeSrcdoc, not `fr.srcdoc =`: a rewrite keeps Firefox's service worker serving the frame (lib/srcdoc-write.js).
+			writeSrcdoc(fr, srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss));
 			scaleFrame(host);
 			// The same content-driven reveal poll a full write arms, for the same reason: iOS drops srcdoc `onload`.
 			let ticks = 0;
@@ -2642,7 +2644,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				});
 				(host as LiveHost).__latticeDocSettle = () => settleWrite();
 				captureWrite?.({ html: out.html, css: out.css, mode, drawn, geom, extraCss: extraCss || '' });
-				fr.srcdoc = srcdoc(out.html, out.css, mode, drawn, geom, extraCss);
+				// writeSrcdoc, not `fr.srcdoc =`: on Firefox a second srcdoc write loses the service worker, so offline the
+				// runtime, fonts and Mermaid fail to load after the first edit (lib/srcdoc-write.js).
+				writeSrcdoc(fr, srcdoc(out.html, out.css, mode, drawn, geom, extraCss));
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
 				sanitizeMs = lastSanitizeMs;

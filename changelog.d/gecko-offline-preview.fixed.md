@@ -1,0 +1,1 @@
+- Offline in Firefox, the Studio preview and the Playground keep drawing after you edit. Firefox gave a preview frame's second and later documents no service worker, so the runtime, the theme fonts and Mermaid failed to load once the network was gone. The preview now re-inserts its frame when it rewrites it, and Firefox serves that frame from the worker's cache.
