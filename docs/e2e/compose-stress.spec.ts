@@ -586,14 +586,22 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 				if (await btn.isEnabled()) await btn.click();
 				return;
 			}
-			await page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first().click();
+			// A `railPick` tap on the pill that is already current opens this menu too (as `stripAction` in the fixture says),
+			// and the ⋯ would then close it: the walk timed out on a closed menu about one run in ten. Open it only when it is
+			// not open, then wait for it, so a menu that did not open says so.
+			const menu = page.locator('[data-strip-menu-content]');
+			if (!(await menu.isVisible())) await page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first().click();
+			await expect(menu).toBeVisible();
 			const item = page.locator(`[data-strip-menu-content] [data-strip-action="${name}"]`);
 			if ((await item.getAttribute('data-disabled')) === null) await item.click();
 			else await page.keyboard.press('Escape');
 		},
 		async railPick() {
 			const n = await railButtons(page).count();
-			await railButtons(page).nth(int(n)).click();
+			const pill = railButtons(page).nth(int(n));
+			await pill.click();
+			// Wait for the pick to land before the next op reads the strip (F3, engineering/decisions/2026-11-06-flaky-tests.md).
+			await expect(pill).toHaveAttribute('aria-current', 'true');
 		},
 		async copyPaste() {
 			const n = await page.locator('.cs-slide').count();

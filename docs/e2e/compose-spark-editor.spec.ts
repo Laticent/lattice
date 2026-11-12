@@ -109,13 +109,21 @@ test.describe('compose spark editor', () => {
 		await openDeckInCompose(page);
 		const strokes = () =>
 			page.evaluate(() => {
-				const el = document.querySelector('.cs-npill .lat-spark .s-up, .cs-npill .lat-spark .s-line') as SVGElement;
-				const frame = document.querySelector('#studio-preview iframe.live') as HTMLIFrameElement;
-				const pv = frame.contentDocument?.querySelector('.lat-spark .s-up, .lat-spark .s-line') as SVGElement | null;
-				return { compose: getComputedStyle(el).fill, preview: pv && frame.contentWindow ? frame.contentWindow.getComputedStyle(pv).fill : null };
+				const el = document.querySelector('.cs-npill .lat-spark .s-up, .cs-npill .lat-spark .s-line') as SVGElement | null;
+				const frame = document.querySelector('#studio-preview iframe.live') as HTMLIFrameElement | null;
+				const pv = frame?.contentDocument?.querySelector('.lat-spark .s-up, .lat-spark .s-line') as SVGElement | null;
+				return {
+					compose: el ? getComputedStyle(el).fill : null,
+					preview: pv && frame?.contentWindow ? frame.contentWindow.getComputedStyle(pv).fill : null,
+				};
 			});
+		// Both sparks draw after the deck opens, on their own schedules: wait until both exist and agree before reading
+		// the light fills (F3, engineering/decisions/2026-11-06-flaky-tests.md).
+		await expect.poll(async () => {
+			const s = await strokes();
+			return s.compose !== null && s.compose === s.preview;
+		}).toBe(true);
 		const before = await strokes();
-		expect(before.compose).toBe(before.preview);
 		await page.getByRole('button', { name: 'Switch to dark mode' }).first().click();
 		await expect.poll(async () => (await strokes()).preview, { timeout: 8000 }).not.toBe(before.preview);
 		await expect.poll(async () => {
