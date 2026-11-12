@@ -107,11 +107,12 @@ async function run(page: Page) {
 	// The newer render lands while the older one is still waiting on its file: the race, by construction.
 	await expect.poll(() => sheetLinks(race), { timeout: 20_000, message: 'two stylesheets are still attached' }).toBe(1);
 	await expect.poll(() => accentInFrame(race), { timeout: 20_000, message: 'the frame did not end on the newest palette' }).toBe(cuoio);
-	// Now the older render's file arrives. It can only land once that file has finished: wait for that, then give the
-	// render that follows it (parse, engine, sheet swap) a moment: a stale render taking the frame back would show here.
+	// Now the older render's file arrives. It can only land once that file has finished; then the render that follows it
+	// (parse, engine, sheet swap) runs to its end, and the stage counts it out (RestyleShowcase.tsx `rendersPending`). A
+	// stale render taking the frame back would show once that count is zero. It used to be a 1500 ms wait.
 	release();
 	await slowLoaded;
-	await race.waitForTimeout(1500);
+	await expect(race.locator('[aria-label="A slide re-rendered through the selected palette"]')).toHaveAttribute('data-renders-pending', '0', { timeout: 30_000 });
 	expect(await accentInFrame(race), 'the slow, older render took the frame back from the newer one').toBe(cuoio);
 	expect(await sheetLinks(race), 'the slow, older render left two stylesheets attached').toBe(1);
 }
