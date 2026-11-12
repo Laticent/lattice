@@ -53,7 +53,7 @@ async function restore(page: import('@playwright/test').Page, file: string): Pro
 // A successful restore shows its toast for 1.1 s and then reloads the page (WorkspaceSheet.tsx), so the toast is a
 // transient: a poll on a loaded runner can miss it, and a `load` wait armed after it can miss the reload too (one of 5
 // loaded runs did both, 2026-11-12). So every toast's text is RECORDED from inside the page into sessionStorage, which
-// survives the reload, and the reload is awaited as a navigation armed before the restore starts.
+// survives the reload, and the reload is awaited as a new document's DOMContentLoaded, armed before the restore starts.
 const TOASTS_KEY = 'e2e-backup-toasts';
 
 /** Record every toast the page shows, across reloads. Call before `gotoStudio`: an init script runs on every navigation. */
@@ -83,7 +83,10 @@ async function recordToasts(page: import('@playwright/test').Page): Promise<void
 /** Restore `file`, wait for the reload a successful restore ends with, and return every toast shown on the way. */
 async function restoreAndReload(page: import('@playwright/test').Page, file: string, timeout: number): Promise<string[]> {
 	await page.evaluate((key) => sessionStorage.removeItem(key), TOASTS_KEY);
-	const reloaded = page.waitForEvent('framenavigated', { predicate: (f) => f === page.mainFrame(), timeout });
+	// `domcontentloaded`, not `framenavigated`: the latter also fires for a same-document history change, and at phone
+	// width opening the Workspace sheet pushes one (the back gesture), which ended the wait before the restore ran. The
+	// page's own first DOMContentLoaded fired inside `gotoStudio`, so the only one left to arrive is the reload's.
+	const reloaded = page.waitForEvent('domcontentloaded', { timeout });
 	// A restore that throws does not reload: it leaves a "Restore failed" toast. Fail on that at once, with its text,
 	// rather than wait out the navigation's deadline.
 	const failed = page
@@ -97,7 +100,6 @@ async function restoreAndReload(page: import('@playwright/test').Page, file: str
 	failed.catch(() => {}); // settled by the race below; never an unhandled rejection after the reload wins
 	await restore(page, file);
 	await Promise.race([reloaded, failed]);
-	await page.waitForLoadState('domcontentloaded');
 	return page.evaluate((key) => JSON.parse(sessionStorage.getItem(key) || '[]') as string[], TOASTS_KEY);
 }
 
