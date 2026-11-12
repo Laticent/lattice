@@ -99,3 +99,25 @@ test('every probe starts each state from the page as loaded, and leaves nothing 
 		await p.close();
 	}
 });
+
+// The gate numbers a long computed value (a photo panel's `background-image` is the photo, megabytes of
+// `data:`) instead of holding it in every snapshot (2026-11-11-deferred-asset-bytes.md §4). Numbering must
+// keep the verdict exact: two DIFFERENT long values that share their first kilobytes must still differ,
+// and the same long value must still match itself.
+test('the gate tells two long photo values apart, and matches one to itself', async () => {
+	const { probeGate, GATE_PROPS } = require(path.join(ROOT, 'lib', 'export', 'player-prune.js'));
+	const body = 'iVBORw0KGgo'.repeat(40000);
+	const a = `data:image/png;base64,${body}AAAA`;
+	const b = `data:image/png;base64,${body}BBBB`;
+	const sheet = `.deck .slide{background-image:url("${a}")}.deck .slide.alt{background-image:url("${b}")}`;
+	const p = await browser.newPage();
+	try {
+		await p.setContent(`<!doctype html><html><head><style>${sheet}</style></head><body><div class="deck"><section class="slide alt">x</section></div></body></html>`, { waitUntil: 'load' });
+		const arg = { root: '.deck', states: [[]], reset: [], props: GATE_PROPS, skip: [], fontBlockId: '-' };
+		assert.equal(await p.evaluate(probeGate, { ...arg, prunedCss: sheet }), true, 'the same sheet: the same long value, numbered the same');
+		const withoutAlt = sheet.slice(0, sheet.indexOf('.deck .slide.alt'));
+		assert.equal(await p.evaluate(probeGate, { ...arg, prunedCss: withoutAlt }), false, 'a different long value (same 440 KB prefix) is a different number');
+	} finally {
+		await p.close();
+	}
+});

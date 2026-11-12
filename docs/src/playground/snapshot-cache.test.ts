@@ -262,6 +262,31 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		expect(captureFirstSectionFromFrame(frame, meta)?.css, 'a glyph box (its span names the icon font) keeps it').toContain('lattice-icons.woff2');
 	});
 
+	// "Noto Color Emoji" ships as range-split faces, and every theme names the family as a fallback, so the family test
+	// keeps every one. A face draws only the code points in its unicode-range, so one whose range meets none of the
+	// slide's characters is dropped: that was 6.5K units of the default Edit deck's snapshot (e2e/playground-paint.spec.ts).
+	it('drops a face whose unicode-range covers no character the slide draws, and keeps one that covers any', () => {
+		const frame = fakeFrame();
+		const doc = frame.contentDocument as Document;
+		const face = (file: string, range: string) => `@font-face{font-family:"Noto Color Emoji";src:url(fonts/${file}.woff2);unicode-range:${range}}`;
+		doc.head.innerHTML = `<style>${face('flags', 'U+1F1E6-1F1FF')}${face('keycap', 'U+23, U+30-39')}${face('wild', 'U+26??')}@font-face{font-family:"Noto Color Emoji";src:url(fonts/whole.woff2)}section{font-family:Outfit, "Noto Color Emoji"}</style>`;
+		const meta = { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 };
+		const sec = doc.querySelector('.lattice > section') as HTMLElement;
+		sec.textContent = 'Revenue 2026';
+		const plain = captureFirstSectionFromFrame(frame, meta)?.css;
+		expect(plain, 'digits are in the keycap range').toContain('keycap.woff2');
+		expect(plain, 'no flag on the slide').not.toContain('flags.woff2');
+		expect(plain, 'nothing in U+2600-26FF').not.toContain('wild.woff2');
+		expect(plain, 'a face with no range is kept').toContain('whole.woff2');
+		sec.textContent = 'Shipped \u2615 on time \u{1F1EE}\u{1F1F9}';
+		const emoji = captureFirstSectionFromFrame(frame, meta)?.css;
+		expect(emoji, 'a flag keeps the flags face').toContain('flags.woff2');
+		expect(emoji, 'U+2615 meets U+26??').toContain('wild.woff2');
+		expect(emoji, 'a counter or marker can draw digits, so the keycap face always stays').toContain('keycap.woff2');
+		sec.innerHTML = '<img alt="\u2615">';
+		expect(captureFirstSectionFromFrame(frame, meta)?.css, 'an image\'s alt text is drawn when the image is not').toContain('wild.woff2');
+	});
+
 	it('a pane on a LATER slide does not keep pane arms in the slide-1 snapshot', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;

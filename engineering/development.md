@@ -617,6 +617,19 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   another process frees during the arm. The suite fails when the originals cost under 60 MB or the copies more than 60% of them;
   CI has read 86 to 117 MB against 17 to 34 MB. It was part of `ios-safari-studio` until it took that job to 27.6 of its 30
   minutes.
+  `ios-safari-present-memory` runs it with `PROBE=present-memory` (#3148, D1 on that PR), on the iPhone alone:
+  `present-memory.mjs` packs a `.lattice` with eighteen phone-photo-sized PNGs (24 MB; the owner's deck was 33 MB of `data:`
+  text and reloaded the tab on a real iPhone), `present-memory-probe.js` hands it to the Studio's own "Import deck…" input,
+  the page reloads so the deck comes back from the browser's store, and Present opens and steps six slides, each timed until
+  the next slide's heading shows and the photo it points at decodes. The footprint is read as `ios-safari-photo-memory` reads it, before
+  Present, after it opens and after the steps. A step whose photo does not decode, a reload, or more than
+  `PRESENT_MEMORY_CAP_MB` (300) fails it; the times are reported and never judged (HARD RULE #32: the first run read a
+  1,965 ms step that a 2 s limit would have passed by 35 ms). The production site runs as a second arm
+  (`PRESENT_BASELINE_URL`, time-boxed to 6 minutes) that is reported and never judged: the before until #3148 deployed,
+  the live site after it. The first run
+  (2026-11-12) read 795 MB on `main` and 124 MB on #3148, with no reload on either.
+  `PROBE=present-memory [BASELINE_URL=<url>] node docs/scripts/ios-safari/probe.selftest.mjs` runs the same steps in
+  Playwright's WebKit at iPhone size, without the footprint, so it proves the probe's steps, not the finding.
   `ios-safari-font-cache` runs it with `PROBE=font-cache` (#3087, D2 A): does Safari read the Studio's warmed fonts
   (`studio-warm.ts`, 31 faces, about 2.7 MB) from its HTTP cache? `run.sh` serves the built site with
   `font-cache-server.mjs` instead of `preview:e2e`: GitHub Pages' `max-age=600` on every file, a 404 for `sw.js` (the

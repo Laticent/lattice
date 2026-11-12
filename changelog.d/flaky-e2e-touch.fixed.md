@@ -1,0 +1,3 @@
+- The Playground's Explore tab keeps showing the deck you were editing. A walk that warmed up behind the editor and landed after you switched used to replace your deck with a component gallery, and a switch right after typing rewrote the whole preview instead of patching it.
+- A dialog or sheet opened again just after it closed is no longer drawn under its own dimming, where a tap on its button closed it instead (adding photos to the Library one after another).
+- Closing the Stage window by hand no longer announces "Stage disconnected" on a busy machine. The console now calls it a lost Stage only when the window shows someone else's page, rather than when the browser was slow to report the close.

@@ -5,7 +5,8 @@
  * against Safari's own (PROBE=jpeg), focus-sync-probe.js, real taps on the Playground's editor under a busy page
  * (PROBE=focus-sync), undo-probe.js, the Filo undo checks across a reload (PROBE=undo), or font-cache-probe.js, whether
  * the Studio's warmed fonts are read from Safari's cache (PROBE=font-cache, against font-cache-server.mjs), or chat-storage-probe.js,
- * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage). SIM_UDID=mac drives the
+ * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage), or what Present costs
+ * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js). SIM_UDID=mac drives the
  * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
  *
@@ -104,7 +105,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -300,6 +301,91 @@ async function runPhotoMemory(id) {
 }
 async function runPhotoProbe(id) {
 	return studioPage(id, 'photo-probe.js', 'latticePhotoProbe');
+}
+
+/**
+ * The Present memory probe (PROBE=present-memory, PR #3148): a deck of eighteen phone-photo-sized pictures (present-memory.mjs,
+ * 24 MB, about the owner's 33 MB of `data:` text) imported through "Import deck…", the page reloaded so the deck comes back
+ * from the browser's store, then Present opened and stepped six slides. Each step is timed until the next slide's heading
+ * AND photo are painted (present-memory-probe.js). The simulator's WebKit footprint is read on the Mac before Present
+ * opens, after it opens and after the steps (photo-memory.mjs).
+ *
+ * Two arms when PRESENT_BASELINE_URL is set (the suite sets the production site): this build, which must pass, and the
+ * baseline, which is only reported and has a time budget. Before #3148 merged, that baseline was the before; after it, it
+ * is the last deploy, so a nightly compares `main` with what is live. The verdict is
+ * present-memory.mjs `presentChecks`: work, not time (HARD RULE #32). PRESENT_MEMORY_CAP_MB defaults to 300: the first run
+ * (2026-11-12, run 43238984976) read 124 MB on this change and 795 MB on `main`. A simulator has no memory limit, so this is
+ * the cost an iPhone would weigh, not the reload itself.
+ */
+async function runPresentMemoryProbe(id) {
+	const { buildPresentDeck, PRESENT_TITLE, presentChecks } = await import('./present-memory.mjs');
+	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
+	const CAP_MB = Number(process.env.PRESENT_MEMORY_CAP_MB || 300);
+	const deck = await buildPresentDeck();
+	const b64 = Buffer.from(deck.bytes).toString('base64');
+	const PIECE = 4_000_000;
+	const pieces = Math.ceil(b64.length / PIECE);
+	const source = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
+	const call = (expr) => wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
+	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+	const mac = UDID === 'mac';
+	const readMB = async () => (mac ? new Map() : simulatorWebContentMB());
+	const failIf = (r, what) => {
+		if (r?.error) throw new Error(`${what}: ${r.error}`);
+		return r;
+	};
+	const arm = async (name, base) => {
+		const out = { arm: name, base };
+		try {
+			await wd('POST', `/session/${id}/url`, { url: `${base}/` });
+			await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+			await wd('POST', `/session/${id}/url`, { url: `${base}/studio/` });
+			for (let i = 0; i < pieces; i++) failIf(await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${pieces})`), 'sending the deck');
+			const imported = failIf(await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE)}, ${deck.slides})`), 'importing the deck');
+			out.importMs = imported.importMs;
+			out.ua = imported.ua;
+			out.width = imported.width;
+			// A fresh page: the deck comes back from the browser's store, and nothing the import held is still in memory.
+			await wd('POST', `/session/${id}/url`, { url: `${base}/studio/` });
+			failIf(await call('latticePresentReady()'), 'the deck after the reload');
+			// Settle times, not waits for a signal: memory has no "settled" event. runPhotoMemory reads the same way, and the
+			// margin is wide (102-124 MB read against the 300 MB cap), so a slow runner shifts a reading, not the verdict.
+			await sleep(8000);
+			const m0 = await readMB();
+			const opened = failIf(await call('latticePresentOpen()'), 'opening Present');
+			out.openMs = opened.openMs;
+			out.slides = opened.total;
+			await sleep(3000);
+			const m1 = await readMB();
+			const stepped = failIf(await call('latticePresentStep(6)'), 'stepping through Present');
+			out.stepsMs = stepped.steps.map((s) => s.ms);
+			out.photos = stepped.steps.every((s) => s.photo);
+			out.schemes = [...new Set(stepped.steps.map((s) => s.scheme))].join('/');
+			await sleep(3000);
+			const m2 = await readMB();
+			out.alive = (await call('latticePresentAlive()'))?.mark === opened.mark;
+			const open = growthMB(m0, m1);
+			const all = growthMB(m0, m2);
+			out.baseMB = all.baseMB;
+			out.openGrewMB = open.grew;
+			out.grewMB = all.grew;
+			out.freedMB = all.freed;
+		} catch (e) {
+			out.error = String(e.message || e).slice(0, 300);
+		}
+		console.log(`${LABEL}: present arm ${name}: ${out.error ? `ERROR ${out.error}` : `opened in ${out.openMs} ms, steps ${out.stepsMs.join('/')} ms, ${out.grewMB} MB above ${out.baseMB} MB (Present alone ${out.openGrewMB} MB), photos ${out.schemes}, ${out.alive ? 'no reload' : 'THE PAGE RELOADED'}`}`);
+		return out;
+	};
+	const arms = [await arm('this build', BASE)];
+	const baseline = process.env.PRESENT_BASELINE_URL;
+	// The baseline is reported, never judged, so a slow production Studio must not spend the job's 30 minutes: past its
+	// budget it is recorded as over budget and the job ends (process.exit below drops the call still in flight).
+	const BASELINE_BUDGET_MS = Number(process.env.PRESENT_BASELINE_BUDGET_MS || 6 * 60_000);
+	if (baseline) arms.push(await Promise.race([arm('baseline', baseline.replace(/\/$/, '')), sleep(BASELINE_BUDGET_MS).then(() => ({ arm: 'baseline', error: `over its ${BASELINE_BUDGET_MS / 1000} s budget` }))]));
+	const a = arms[0];
+	const steps = presentChecks(a, { slides: deck.slides, capMB: CAP_MB, memory: !mac });
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: a.ua, width: a.width, deckBytes: deck.bytes.length, arms, steps };
 }
 
 /**

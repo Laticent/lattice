@@ -1817,6 +1817,42 @@ never turn "passed in headless" into "works on iOS."
 - **Removable when** — Radix returns focus to the previously focused element for trigger-less modal dialogs.
 - **Commits** — the docs-perf PR of 2026-11-09 (`engineering/decisions/2026-11-09-studio-react-mount-profile.md` §5).
 
+## The instant shell's slide box is a few px narrower than the app's when the box is bound by height
+
+- **Symptom** — `e2e/studio-instant-shell.spec.ts` fails "slide box width" by 3-4px at a collapsed editor (1440x900) or a landscape pane (844x390), and passes everywhere the box is bound by width. The "preview footer" band passes, at exactly its 2px tolerance.
+- **Cause** — the shell places the box from frozen band heights in `PREVIEW_CHROME` (`docs/src/components/studio/preview-rect.ts`). `footerWrite` was a measured 81.6 (navigator 51 + status 30.6); the navigator row slimmed to 49 and the constant stayed. A 2px-taller footer shortens the box's height by 2px, which a height-bound box turns into 3-4px of width. A width-bound box never shows it, and the band comparison sat on its tolerance edge.
+- **Mitigation** — the navigator strip is ONE element at every stop, so `footerRead` and the write navigator are the same `NAVIGATOR_H`, and `footerWrite` is derived as `NAVIGATOR_H + STATUS_H`. Re-measure with the band heights, not the box: the box only disagrees in the height-bound cases.
+- **Triggered by** — any change to the navigator row's padding, border or control height (`StudioShell.tsx`, the `border-t … py-2` strip row), or to the status strip.
+- **Removable when** — the shell measures its bands instead of modeling them.
+- **Commits** — the flaky-e2e Studio-shell PR of 2026-11-12 (followups 2959-p4, 2982-p3, 3045-p3).
+
+## A caret key pressed while Compose repaints is undone
+
+- **Symptom** — in Compose, an arrow key moves the caret and a moment later the caret is back where it was; nothing selected, nothing typed. Rare by hand, and a Compose e2e caret walk ends one step short now and then under load. Logged in-page: the browser caret went from offset 0 to 1, then the next `selectionchange` found it at 0 again while ProseMirror's state never moved.
+- **Cause** — ProseMirror learns of a native caret move from `selectionchange`, a queued task. A transaction dispatched before that event is read is built on the OLD selection, and `updateState` writes that selection back to the DOM. Compose dispatches from a timer (the code-highlight poll, every 400ms for up to 12s after a deck opens) and from a loader (the inline-object pass when the pill kernels arrive), so either can land in the gap.
+- **Mitigation** — `takePendingSelection` (`docs/src/lib/compose/pending-selection.ts`) calls `domObserver.flush()`, which reads a DOM selection ProseMirror has not taken in yet (and still honors a read it deferred on purpose, on Android, IE and Safari composition), before any transaction no key or click started. Call it before a new timer-, effect- or loader-driven `view.dispatch`. The test-side races of the same family (ProseMirror's focus-handler and mouseup timers that write the selection back after a click) are handled in `docs/e2e/studio-fixture.ts` by #3150.
+- **Triggered by** — a new `view.dispatch` from a timer, an effect or a load callback in `ComposeView.tsx` or `lib/compose/*`.
+- **Removable when** — prosemirror-view reads a pending DOM selection before applying a programmatic transaction.
+- **Commits** — the flaky-e2e Studio-shell PR of 2026-11-12.
+
+## The slide strip ignores its shortcuts right after a click
+
+- **Symptom** — click a slide in the strip, arrow to the next one, press Mod+D: nothing is duplicated, though the same keys work a moment later. `strip-keyboard.spec.ts` failed every run on a quick machine and passed with a 400ms pause.
+- **Cause** — the strip honors shortcuts only on focus that arrived by keyboard, and judged that as "more than 300ms after the last pointer press" (`strip-actions/gestures.ts`). Focus that an arrow key moved within 300ms of a click counted as a pointer arrival.
+- **Mitigation** — a keydown since the last pointer press marks focus as keyboard-arrived outright (`keyedAt >= pressedAt`); the 300ms window now classifies only focus that arrives with no key in between.
+- **Triggered by** — a change to how the strip classifies focus.
+- **Removable when** — `:focus-visible` can be read at keydown without the key press itself flipping it.
+- **Commits** — the flaky-e2e Studio-shell PR of 2026-11-12.
+
+## A deck typed into the Source editor loses the newline after a fence's language
+
+- **Symptom** — an e2e spec that seeds a deck with `page.keyboard.type` gets "```jsconst greeting…" in the saved source, and the Compose chip reads `jsconst`. Only under load (1 run in 25 at 4 workers); alone it passes every time.
+- **Cause** — the Source editor offers a fenced-block language completion right after an opening ``` (`docs/src/components/studio/editor-complete.ts`). Typed key by key, "```js" opens it, and the Enter that should break the line ACCEPTS the suggestion whenever the popup is up in time. A person sees the popup; a test does not.
+- **Mitigation** — seed a deck with `page.keyboard.insertText` (or the fixture's `setEditorContent`), one input event that still runs the editor's own handling and presses no key a completion can claim. Type key by key only when the keystrokes are the subject.
+- **Triggered by** — a new spec that types Markdown with a fence, a list or a front-matter key into Source.
+- **Removable when** — never; the completion is the product working.
+- **Commits** — the flaky-e2e Studio-shell PR of 2026-11-12 (`compose-fenced-code.spec.ts`).
+
 ## A screen reader's description changes with how the button was reached
 
 - **Symptom** — VoiceOver reads a control's name, then a description that differs by route: a keyboard Tab hears the tooltip hint, a swipe on an iPhone hears nothing, and some buttons say their own name twice ("Share… Share"). Found by the owner on a real iPhone (PR #3108).
@@ -1867,3 +1903,21 @@ never turn "passed in headless" into "works on iOS."
   later opens Present is already mounted and nothing did.
 - **Mitigation** — `PresentOverlay.tsx` attaches the listener in `useLayoutEffect`, inside the commit that shows the
   dialog. A surface whose keys must work the instant it appears binds them in a layout effect.
+
+## A dialog opened again right after it closed sits under its own dimming
+
+- **Symptom** — the photo-format dialog (or any `DialogContent` / `SheetContent`) opens dimmed; a click on its button lands on the overlay and closes it. Seen adding photos one after another; an in-page `button.click()` in `e2e/library-images-render.spec.ts` had hidden it, a real Playwright click timed out with "dialog-overlay intercepts pointer events".
+- **Cause** — Radix portals the overlay and the box separately, each kept mounted until its own exit animation ends. The overlay's fade (150 ms) ended before the box's zoom (200 ms) or slide (300 ms); a reopen in that gap reused the box and mounted a NEW overlay, appended to `<body>` after it at the same z-index.
+- **Mitigation** — the overlays exit last: `data-[state=closed]:duration-300` in `ui/dialog.tsx`, `duration-[400ms]` in `ui/sheet.tsx`. Animations on one timeline end in order of their end times, so the order holds on any machine.
+- **Triggered by** — changing a dialog or sheet's exit duration; a new overlay/content pair.
+- **Removable when** — Radix renders a dialog's overlay and content in one portal.
+- **Commits** — the flaky-e2e touch PR of 2026-11-12.
+
+## The Playground's Explore tab shows a component gallery, or reloads the preview, instead of the deck being edited
+
+- **Symptom** — a phone reader edits, taps Explore, sees their slide, and a moment later the preview is rewritten: with the `actors` gallery, or with their own deck from the top after a blank. `e2e/playground-tab-switch.spec.ts` read a replaced document on WebKit (3 to 4 runs in 16).
+- **Cause** — two races on the switch. (1) The walk warmed up behind the editor at boot fetches a component plan; landing after the switch, it set Explore's source to the plan and called `freshRender`. (2) `reusableFrame` compared the draft with the text of the last render that had RESOLVED, one keystroke behind, read "another deck" and rewrote the frame.
+- **Mitigation** — `PlaygroundApp.tsx`: the warm-up runs with `{ warm: true }` and never renders; a switch that beats it waits for it (`warmWalkRef`) and then lands as if it had arrived first. The superseded-plan check and the kept draft are the entry "Explore at a narrow width" above (#3152), and the two compose: `startWalk` takes `{ warm, keepEditedDraft }`. `reusableFrame` treats a frame whose last render was the draft in Edit as still holding the draft. The spec's "a walk that warms up behind the editor" holds the plan fetch past the switch to make race (1) certain.
+- **Triggered by** — a new async step between boot and the first Explore; a new condition in `reusableFrame`.
+- **Removable when** — never; they are ordering rules.
+- **Commits** — the flaky-e2e touch PR of 2026-11-12.

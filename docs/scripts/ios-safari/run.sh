@@ -6,7 +6,8 @@
 # page (it needs an http origin, not the site). PROBE=undo runs the Filo undo probe against the site, in both
 # simulators and then in the Mac's own Safari. PROBE=chat-storage checks that chats move from localStorage to IndexedDB
 # across a reload, and measures the localStorage allowance (chat-storage-probe.js), against the site in both simulators. PROBE=font-cache checks that the Studio's warmed fonts are read from Safari's
-# cache, against font-cache-server.mjs on two ports (font-cache-probe.js). PROBE=office opens each one-slide editable .pptx that
+# cache, against font-cache-server.mjs on two ports (font-cache-probe.js). PROBE=present-memory imports a deck of eighteen phone
+# photos into the Studio, opens Present and steps it, reading the WebKit footprint (present-memory.mjs). PROBE=office opens each one-slide editable .pptx that
 # tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
 # and captures the device screen (office-capture.mjs). Run from the repo root after `npm ci` and `npm run build` (the
 # platform-suites job does both).
@@ -127,6 +128,8 @@ families='iPad iPhone'
 [ "$PROBE" = focus-sync ] && families='iPad'
 # The office probe stands in for the owner's iPhone (Preview, opened from Files): the iPhone alone, to fit the job.
 [ "$PROBE" = office ] && families='iPhone'
+# The Present memory probe stands in for the owner's iPhone, where Present on a deck of photos reloaded the tab (#3148).
+[ "$PROBE" = present-memory ] && families='iPhone'
 # DEVICES picks the devices one job runs, from iPad, iPhone and Mac (the undo probe's desktop half), so a suite can run
 # each device as its own job: the three undo devices one after another took 25.4 min of a 30-min job and passed it
 # twice (flaky shape F4, engineering/decisions/2026-11-06-flaky-tests.md), each about 3 min of probe and the rest

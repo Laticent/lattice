@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { CHROME, expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, LIVE_PREVIEW, livePreview, setEditorContent, test } from './studio-fixture';
 
 // `asset:<name>` renders in the live preview, on the real Studio
 // (engineering/decisions/2026-10-12-library-media-assets.md §2).
@@ -26,18 +26,14 @@ async function addPng(page: Page, name: string, size: { w: number; h: number; co
 			const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
 			input.files = dt.files;
 			input.dispatchEvent(new Event('change', { bubbles: true }));
-			// The format dialog asks how to store them; the probes take its default.
-			for (let i = 0; i < 200; i++) {
-				const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
-				if (b) {
-					b.click();
-					break;
-				}
-				await new Promise((r) => setTimeout(r, 50));
-			}
 		},
 		{ fileName: name, w: size.w, h: size.h, color: size.color ?? '#10a05a' },
 	);
+	// Every photo waits for the format dialog (Library.tsx `addMediaFiles`); the probes take its default. Waited for as a
+	// locator: a hand-rolled 50 ms loop gave up silently after ten seconds and let the test go on with nothing added.
+	const dialog = page.getByRole('dialog', { name: /^Add 1 photo/ });
+	await dialog.getByRole('button', { name: /^Add photo/ }).click();
+	await expect(dialog).toHaveCount(0);
 }
 
 test('@smoke a Library photo paints in the live preview, and deleting it falls back to the stand-in @crosswidth @webkit-tablet @gecko', async ({ page }, testInfo) => {
@@ -170,11 +166,22 @@ test('@smoke a collage of Library photos paints every tile and fills its frame @
 	await setEditorContent(page, `<!-- _class: collage -->\n\n## Library photos\n\n${shapes.map((s) => `- ![${s.n}](asset:${s.n})`).join('\n')}\n`);
 	const imgs = livePreview(page).locator('img[src^="blob:"]');
 	await expect(imgs).toHaveCount(4, { timeout: 30_000 });
-	const loaded = await imgs.evaluateAll((els) => (els as HTMLImageElement[]).map((el) => ({ w: el.naturalWidth, box: el.getBoundingClientRect().width * el.getBoundingClientRect().height })));
-	for (const l of loaded) {
-		expect(l.w, 'each tile loaded a picture').toBeGreaterThan(0);
-		expect(l.box, 'each tile has a real box').toBeGreaterThan(400);
-	}
+	// Four `<img>` elements in the DOM is not four pictures painted: each loads its object URL and the collage packs
+	// it once its shape is known, so a single read raced both on a loaded WebKit. Each tile's state is read in one
+	// task from the frame the page shows now, until every tile has loaded a picture and holds a real box.
+	await expect
+		.poll(
+			() =>
+				page.evaluate((sel) => {
+					const doc = (document.querySelector(sel) as HTMLIFrameElement | null)?.contentDocument;
+					const tiles = [...(doc?.querySelectorAll<HTMLImageElement>('img[src^="blob:"]') ?? [])];
+					if (tiles.length !== 4) return `${tiles.length} tiles`;
+					const bad = tiles.filter((el) => !(el.complete && el.naturalWidth > 0) || el.getBoundingClientRect().width * el.getBoundingClientRect().height <= 400);
+					return bad.length ? `not painted: ${bad.map((el) => `${el.alt} ${el.naturalWidth}px, box ${Math.round(el.getBoundingClientRect().width)}x${Math.round(el.getBoundingClientRect().height)}`).join('; ')}` : 'painted';
+				}, LIVE_PREVIEW),
+			{ timeout: 30_000, message: 'every tile loaded a picture and holds a real box' },
+		)
+		.toBe('painted');
 	await page.screenshot({ path: testInfo.outputPath('collage-assets.png') });
 });
 

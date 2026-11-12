@@ -83,9 +83,12 @@ async function seedDeck(page: Page, source: string): Promise<void> {
 	await page.getByLabel('Deck source').click();
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.press('Backspace');
-	// `type` rather than `insertText`: the editor's own input handling (front-matter
-	// parse, lint, the persist debounce) is part of what we are seeding through.
-	await page.keyboard.type(source, { delay: 0 });
+	// `insertText`, one input event, NOT `type`. Typed key by key, "```js" opens the editor's fence-language completion
+	// (editor-complete.ts), and the Enter after it ACCEPTS the suggestion instead of breaking the line whenever the popup
+	// is up in time, which load decides: the fence became "```jsconst greeting…" and the chip read "jsconst" (1 run in 25
+	// at 4 workers). `insertText` still goes through the editor's own input handling (front-matter parse, lint, the
+	// persist debounce), which is what this seeds through; it just presses no keys a completion could claim.
+	await page.keyboard.insertText(source);
 	await expect.poll(() => deckSource(page)).toContain('```');
 }
 

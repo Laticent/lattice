@@ -26,6 +26,7 @@ import { namedCall } from '../../../../lib/core/named-span.mjs';
 import { deckSchema } from './deck-doc';
 import { closeFiloGroup, isFiloHistory } from './filo-history';
 import { isObjectSource } from './inline-object';
+import { takePendingSelection } from './pending-selection';
 import { PILL_SCOPE } from './pill-sheet';
 import type { PluginKindEntry } from './plugin-kind-entries';
 
@@ -676,6 +677,9 @@ export function isSilentPass(tr: Transaction): boolean {
  * (the caller re-points its emit baseline at the new slide nodes). Returns whether anything changed.
  */
 export function normalizeDeck(view: EditorView, kernels: InlineKernels, deckLiteral: boolean): boolean {
+	// Run when the kernels load or a deck is resynced, never from a key: read a caret move ProseMirror has not taken in
+	// yet, or the pass writes the old caret back over it (pending-selection.ts).
+	takePendingSelection(view);
 	const tr = normalizeObjects(view.state, kernels, deckLiteral, { sparing: false });
 	if (!tr) return false;
 	view.dispatch(tr.setMeta('addToHistory', false).setMeta(objectsKey, { silent: true } satisfies ObjectsMeta));

@@ -31,6 +31,13 @@ function DialogClose({
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
+// THE OVERLAY LEAVES LAST. Radix portals the overlay and the box SEPARATELY, each kept mounted until its own exit
+// animation ends. The overlay's fade (150 ms) used to end before the box's zoom (`duration-200`), so a dialog opened
+// again inside that gap reused the box still on its way out and mounted a NEW overlay, appended to <body> after the
+// box: same z-index, later in the page, so the dimming sat ON the dialog and a click on its button closed it instead
+// (adding photos one after another, e2e/library-images-render.spec.ts). Exiting after the box keeps the order right in
+// every case: inside the gap both are reused, past it only the overlay is, and it is still the earlier node. Animations
+// on one document timeline end in the order of their end times, so this does not depend on the machine's speed.
 function DialogOverlay({
   className,
   ...props
@@ -39,7 +46,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+        "fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:fade-in-0",
         className
       )}
       {...props}

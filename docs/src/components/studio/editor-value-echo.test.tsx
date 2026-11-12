@@ -83,4 +83,44 @@ describe('the editor value-sync', () => {
 		rerender(<Editor value={A} onChange={() => {}} knownComponents={KNOWN} isStaleEcho={() => false} />);
 		expect(view.state.doc.toString(), 'a real write (an undo, say) must land').toBe(A);
 	});
+
+	// A LOCALIZED write (a slide-settings or note write the shell makes elsewhere in the deck) must not
+	// collapse the author's selection. It used to map only the selection's head, so a select-all held
+	// over the write became a caret, and the next Delete removed one character: the e2e helper then
+	// typed a whole deck into the middle of the old one (webkit-phone, 4 workers).
+	it('a localized write keeps a held range, both ends mapped', () => {
+		const NOTE = 'alpha'; // inside the range; text added exactly at a range's edge stays outside it, as in any editor
+		const { container, rerender } = render(<Editor value={DECK} onChange={() => {}} knownComponents={KNOWN} />);
+		const view = viewOf(container.querySelector('.cm-content'));
+		act(() => view.dispatch({ selection: { anchor: 0, head: DECK.length } }));
+		const next = DECK.replace(NOTE, `${NOTE} gamma`);
+		rerender(<Editor value={next} onChange={() => {}} knownComponents={KNOWN} />);
+		expect(view.state.doc.toString()).toBe(next);
+		const sel = view.state.selection.main;
+		expect([sel.from, sel.to], 'the write collapsed the select-all').toEqual([0, next.length]);
+	});
+
+	it('a localized write still carries a caret at its start past the inserted text', () => {
+		const at = DECK.indexOf('beta');
+		const { container, rerender } = render(<Editor value={DECK} onChange={() => {}} knownComponents={KNOWN} />);
+		const view = viewOf(container.querySelector('.cm-content'));
+		act(() => view.dispatch({ selection: { anchor: at } }));
+		const next = `${DECK.slice(0, at)}zz${DECK.slice(at)}`;
+		rerender(<Editor value={next} onChange={() => {}} knownComponents={KNOWN} />);
+		expect(view.state.selection.main.head).toBe(at + 2);
+		expect(view.state.selection.main.empty).toBe(true);
+	});
+
+	it('a range strictly inside the replaced span becomes a caret, and the next edit does not throw', () => {
+		const at = DECK.indexOf('alpha');
+		const { container, rerender } = render(<Editor value={DECK} onChange={() => {}} knownComponents={KNOWN} />);
+		const view = viewOf(container.querySelector('.cm-content'));
+		act(() => view.dispatch({ selection: { anchor: at + 1, head: at + 4 } })); // 'lph'
+		const next = DECK.replace('alpha', 'zzz');
+		rerender(<Editor value={next} onChange={() => {}} knownComponents={KNOWN} />);
+		const sel = view.state.selection.main;
+		expect(sel.from <= sel.to, 'the mapped range is inverted').toBe(true);
+		expect(() => act(() => view.dispatch(view.state.replaceSelection('X')))).not.toThrow();
+		expect(view.state.doc.toString()).toBe(next.replace('zzz', 'zzzX'));
+	});
 });

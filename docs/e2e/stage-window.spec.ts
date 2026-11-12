@@ -45,6 +45,11 @@ async function openStage(page: import('@playwright/test').Page, context: import(
 	const stage = await popupPromise;
 	// The deck really lands — the holding page is replaced and the engine paints.
 	await expect(stage.locator('#latt-film .lattice')).not.toBeEmpty();
+	// …AND THE STAGE'S OWN SCRIPT HAS RUN. Its key handler and its link guard are installed before its last act, which
+	// sets the counter from the placeholder `1 / 1` to the deck's real count (stage-window.js `count()`). The film can
+	// fill first, and a key pressed in that gap reached no handler: under three workers the keyboard cell lost its first
+	// ArrowRight and read 2 / 7 for 3 / 7 (followups.d/3101-p4), the gap stage-placement.spec.ts closed for `f`.
+	await expect(stage.locator('#latt-count')).toHaveText(new RegExp(`^1 / ${total}$`));
 	return { stage, dialog, total, launcher };
 }
 

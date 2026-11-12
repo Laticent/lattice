@@ -266,9 +266,11 @@ test('@parity the slide navigator keeps the current slide in view', async ({ pag
 });
 
 test('@parity a slide navigator that remounts comes back centered on the current slide', async ({ page }) => {
-	// Rotating a phone to landscape unmounts the rail and rotating back mounts a fresh one at
-	// scrollLeft 0, while no slide changed. Found by an independent checker; measured before the
-	// fix with the last slide's pill at 855-950px against a rail spanning 172-378px.
+	// Rotating a phone to landscape hides the strip (the cinema morph keeps its row mounted, so the map
+	// it may hold survives) and rotating back mounts a fresh rail at scrollLeft 0. Found by an
+	// independent checker; measured before the fix with the last slide's pill at 855-950px against a
+	// rail spanning 172-378px. The rail is HIDDEN in landscape, not gone: an earlier version of this
+	// test waited for `toHaveCount(0)` and failed on every run once the row stayed mounted.
 	test.skip((page.viewportSize()?.width ?? 1440) >= 600, 'the landscape-phone layout is the remount a phone can reach');
 	const n = await slideCount(page);
 	const rail = page.locator('nav[aria-label="Slide navigator"]');
@@ -285,10 +287,24 @@ test('@parity a slide navigator that remounts comes back centered on the current
 	await expect(page.getByText(`Slide ${n} / ${n}`, { exact: true })).toBeVisible();
 	await expect.poll(inView).toBe('in view');
 	const portrait = page.viewportSize() ?? { width: 390, height: 844 };
-	await page.setViewportSize({ width: portrait.height, height: portrait.width });
-	await expect(rail).toHaveCount(0);
+	const current = rail.locator('button[aria-current="true"]');
+	const landscape = { width: portrait.height, height: portrait.width };
+	await page.setViewportSize(landscape);
+	await expect(rail).toBeHidden();
 	await page.setViewportSize(portrait);
-	await expect(rail).toHaveCount(1);
+	await expect(rail).toBeVisible();
+	await expect.poll(inView).toBe('in view');
+	// Back to slide 1, then turn the deck to its end while the strip is hidden: the rail that comes back
+	// must center a slide it never showed.
+	await page.keyboard.press('Home');
+	await expect(page.getByText(`Slide 1 / ${n}`, { exact: true })).toBeVisible();
+	await expect.poll(inView).toBe('in view');
+	await page.setViewportSize(landscape);
+	await expect(rail).toBeHidden();
+	await page.keyboard.press('End');
+	await expect(current).toHaveAttribute('data-unit', String(n - 1));
+	await page.setViewportSize(portrait);
+	await expect(rail).toBeVisible();
 	await expect.poll(inView).toBe('in view');
 });
 

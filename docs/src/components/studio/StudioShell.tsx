@@ -7491,6 +7491,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</ErrorBoundary>
 				</div>
 			</div>
+			{/* THE STRIP STACK: whatever stands on the strip (the clip notice) and the strip itself, in one box. The
+			    New slide door and the strip's action note float ABOVE this box, not above the strip row, so a notice
+			    that appears on the strip pushes them up with it. Anchored to the row, the door sat on the notice's
+			    "Use Huddle" button and swallowed its clicks (venue-fixed-size.spec.ts, followups 3057-p2). No box
+			    of its own (no border, padding or background): without a notice it measures exactly the strip row. */}
+			<div className="relative">
 			{slideClipped && clipVenue && clipVenue.scale > 1 && effectiveStop !== 'read' && (
 				<React.Suspense fallback={null}>
 					<ClipNotice venue={clipVenue} down={clipDown} slide={slides[curIndex] ?? ''} splittable={composeLens === 'full'} onSplit={opSplitForVenue} onDown={opVenueDown} />
@@ -7513,27 +7519,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    cover nothing and sit with the navigation they belong to. Labels drop to
 				    icons on a narrow pane (the section is a size container), and the accessible
 				    name stays whole either way. */}
-				{stripNote && (
-					// Not a live region: a note mounts fresh per action, and a fresh region is mostly not announced. The
-					// shell's one Announce says each result in words (2026-10-27-slide-structure-strip.md §9).
-					<div key={stripNote.n} data-strip-note="" className="absolute bottom-[calc(100%+8px)] left-3 z-20 flex max-w-[calc(100%-10rem)] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] py-1 pr-1 pl-3.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
-						<span className={cn('truncate', stripNote.undo === null && 'pr-2.5')}>{stripNote.text}</span>
-						{stripNote.undo !== null && (
-						<button
-							type="button"
-							onClick={() => {
-								// The op is the newest step only while the deck is still what it left; then Undo is the one history's.
-								const left = stripNote.undo;
-								setStripNote(null);
-								if (sourceRef.current === left) runHistoryRef.current('undo');
-							}}
-							className="shrink-0 rounded-full px-2.5 py-0.5 font-semibold text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] [@media(pointer:coarse)]:py-1.5"
-						>
-							Undo
-						</button>
-						)}
-					</div>
-				)}
 				{effectiveStop === 'read' && (
 					<>
 						{!readHintSeen && (
@@ -7573,10 +7558,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</Frozen>
 				</div>
 			)}
-				{/* The one add door, floating over the preview's bottom-right corner just above the strip, like Gmail's
-				    Compose: the owner's call, so it stands out at every width (2026-10-27-slide-structure-strip.md §5).
-				    Anchored to this row, so it rides with the strip whatever height the strip takes. */}
-				{newSlideShown && (!mobile || effPane === 'preview') && <NewSlideButton variant="fab" onChoose={opAddSlide} confirmation={addedNote} className="absolute right-4 bottom-[calc(100%+16px)] z-20" />}
 				{/* The map toggle moved to the preview bar; only the Read stop, which has no bar, keeps
 				    it at the strip's end. */}
 				{previewChromeless && (
@@ -7590,6 +7571,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<GalleryVerticalEnd className="size-4" aria-hidden />
 					</button></Tip>
 				)}
+			</div>
+			{stripNote && !landscapePhone && (
+				// Not a live region: a note mounts fresh per action, and a fresh region is mostly not announced. The
+				// shell's one Announce says each result in words (2026-10-27-slide-structure-strip.md §9).
+				<div key={stripNote.n} data-strip-note="" className="absolute bottom-[calc(100%+8px)] left-3 z-20 flex max-w-[calc(100%-10rem)] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] py-1 pr-1 pl-3.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
+					<span className={cn('truncate', stripNote.undo === null && 'pr-2.5')}>{stripNote.text}</span>
+					{stripNote.undo !== null && (
+					<button
+						type="button"
+						onClick={() => {
+							// The op is the newest step only while the deck is still what it left; then Undo is the one history's.
+							const left = stripNote.undo;
+							setStripNote(null);
+							if (sourceRef.current === left) runHistoryRef.current('undo');
+						}}
+						className="shrink-0 rounded-full px-2.5 py-0.5 font-semibold text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] [@media(pointer:coarse)]:py-1.5"
+					>
+						Undo
+					</button>
+					)}
+				</div>
+			)}
+			{/* The one add door, floating over the preview's bottom-right corner just above the strip stack, like Gmail's
+			    Compose: the owner's call, so it stands out at every width (2026-10-27-slide-structure-strip.md §5). The strip
+			    row is display:none in the iPhone-landscape cinema morph, and the door goes with it. */}
+			{newSlideShown && !landscapePhone && (!mobile || effPane === 'preview') && <NewSlideButton variant="fab" onChoose={opAddSlide} confirmation={addedNote} className="absolute right-4 bottom-[calc(100%+16px)] z-20" />}
 			</div>
 			{!previewChromeless && (
 			<div className="flex items-center gap-3 border-t border-border px-4 py-1.5 font-mono text-[11px] text-muted-foreground">

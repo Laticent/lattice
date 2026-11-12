@@ -81,7 +81,7 @@ test('@crosswidth playground: loading a gallery flips to Preview and the deck pa
 // proves nothing".
 //
 // `<script type="module">` is DEFERRED, and deferred scripts BLOCK DOMContentLoaded — so the
-// 800ms delay lands on the very resources DCL waits for, and DCL is no longer the early
+// module delay (a fixed 800ms per request when this was measured; a signal-gated hold now) lands on the very resources DCL waits for, and DCL is no longer the early
 // milestone the old code took it for. What decides whether it falls inside the window is the
 // SHAPE OF THE BUILD, which is the half of this that cost the most to find:
 //
@@ -119,8 +119,17 @@ function readWindow(page: import('@playwright/test').Page): Promise<HydrationWin
 }
 
 test('@crosswidth a Galleries click waits for hydration, not just for the button', async ({ page }) => {
+	// HOLD THE ISLAND'S MODULES ON A SIGNAL, NOT A CLOCK (HARD RULE #32, F1). Every `/_astro/*.js` request is parked
+	// until the page's own sampler has seen the Galleries trigger get a box, then all of them go at once. That opens
+	// the window by construction: the island cannot hydrate before the trigger is painted, whatever the machine's
+	// load. A fixed 800ms delay per request used to stand in for this, and how wide it held the window depended on
+	// the build's chunk graph and the runner's speed (the table above).
+	let releaseModules!: () => void;
+	const modulesReleased = new Promise<void>((resolve) => {
+		releaseModules = resolve;
+	});
 	await page.route(/\/_astro\/.*\.js($|\?)/, async (route) => {
-		await new Promise((r) => setTimeout(r, 800));
+		await modulesReleased;
 		await route.continue();
 	});
 	await page.addInitScript(() => {
@@ -161,15 +170,17 @@ test('@crosswidth a Galleries click waits for hydration, not just for the button
 	const seen = await readWindow(page);
 	expect(
 		seen.hydratedAt === null || seen.hydratedAt > (seen.visibleAt as number),
-		`the island hydrated at ${seen.hydratedAt}ms and the trigger only had a box at ${seen.visibleAt}ms — the delay never opened the window, so this test proves nothing`,
+		`the island hydrated at ${seen.hydratedAt}ms and the trigger only had a box at ${seen.visibleAt}ms — the hold never opened the window, so this test proves nothing`,
 	).toBe(true);
+	// The window is open and measured: let the island load.
+	releaseModules();
 
 	await controlReady(galleries);
 	await galleries.click();
 	await expect(page.getByRole('dialog')).toBeVisible();
 
-	// What the window actually was on this run, in the report. An OBSERVATION, not a budget —
-	// but the next person asked to re-tune the 800ms delay should not have to re-derive it.
+	// What the window actually was on this run, in the report. An OBSERVATION, not a budget: with the hold it is
+	// however long the runner took to see the trigger, plus the island's own load once released.
 	const settled = await readWindow(page);
 	test.info().annotations.push({ type: 'hydration-window', description: `trigger ${settled.visibleAt}ms → hydrated ${settled.hydratedAt}ms` });
 });

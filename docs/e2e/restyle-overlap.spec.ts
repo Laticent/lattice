@@ -13,9 +13,11 @@ import { expect, type Page, test } from '@playwright/test';
 // TWO CLICKS IN A ROW DO NOT MAKE THE RACE. A control run with the guard removed passed this test
 // three times when the two palettes were equally quick: the older render simply finished first. So the
 // older render is made SLOW on purpose. The colour-blind-safe palette fetches its theme file on first
-// use (Indaco and Cuoio ship with the engine), and that one file is held back 6 s. Click the slow
-// palette, then Cuoio at once: Cuoio is newer and ready first, the slow one arrives later, and without
-// the guard it takes the frame back.
+// use (Indaco and Cuoio ship with the engine), and that one file is HELD until the newer render has
+// landed: click the slow palette, then Cuoio at once, wait for the frame to show Cuoio, and only then let
+// the slow file through. Without the guard the slow render then takes the frame back. The hold used to be
+// a fixed 6 s, which made the order likely rather than certain (a loaded runner could take longer than
+// that to render Cuoio) and cost every run six seconds; the release on a signal makes it certain.
 //
 // The assertion is a comparison, so a green run cannot come from every palette looking alike: the
 // accent each palette gives the slide is measured on its own first, the three must differ, and the
@@ -23,8 +25,6 @@ import { expect, type Page, test } from '@playwright/test';
 
 const FRAME = '[aria-label="A slide re-rendered through the selected palette"] iframe.live';
 const SLOW_THEME = '**/themes/a11y-achromatopsia.css';
-// Long enough that Cuoio, which fetches nothing, lands first even on a loaded runner.
-const SLOW_HOLD_MS = 6000;
 const INDACO = 0;
 const CUOIO = 1;
 const SLOW = 2;
@@ -88,32 +88,31 @@ async function run(page: Page) {
 
 	// The race, on a fresh page (nothing cached) with the slow palette's theme file held back.
 	const race = await page.context().newPage();
+	let release = () => {};
+	const held = new Promise<void>((done) => {
+		release = done;
+	});
 	await race.route(SLOW_THEME, async (route) => {
-		await new Promise((r) => setTimeout(r, SLOW_HOLD_MS));
+		await held;
 		await route.continue();
 	});
 	const raceTabs = await open(race);
 	await expect.poll(() => accentInFrame(race), { timeout: 30_000 }).toBe(indaco);
 	// The signal the late render is waiting on: its held-back theme file finishing.
 	const slowLoaded = race.waitForEvent('requestfinished', { predicate: (r) => r.url().includes('a11y-achromatopsia.css'), timeout: 30_000 });
-	let slowArrived = false;
-	race.on('requestfinished', (r) => {
-		if (r.url().includes('a11y-achromatopsia.css')) slowArrived = true;
-	});
 	await raceTabs.nth(SLOW).click();
 	await raceTabs.nth(CUOIO).click();
 	await expect(raceTabs.nth(CUOIO)).toHaveAttribute('aria-selected', 'true');
 
+	// The newer render lands while the older one is still waiting on its file: the race, by construction.
 	await expect.poll(() => sheetLinks(race), { timeout: 20_000, message: 'two stylesheets are still attached' }).toBe(1);
 	await expect.poll(() => accentInFrame(race), { timeout: 20_000, message: 'the frame did not end on the newest palette' }).toBe(cuoio);
-	// The race only happened if the newer render landed BEFORE the older one's file arrived. If a loaded runner
-	// made Cuoio slower than the hold, the older render wrote first, Cuoio won on top, and a green run proves
-	// nothing about the guard. Say so loudly instead of passing.
-	expect(slowArrived, 'race not exercised: the slow palette\'s file arrived before the newer render landed').toBe(false);
-	// The slow render can only land once its theme file has arrived. Wait for that, then give the render that
-	// follows it (parse, engine, sheet swap) a moment: a stale render taking the frame back would show here.
+	// Now the older render's file arrives. It can only land once that file has finished; then the render that follows it
+	// (parse, engine, sheet swap) runs to its end, and the stage counts it out (RestyleShowcase.tsx `rendersPending`). A
+	// stale render taking the frame back would show once that count is zero. It used to be a 1500 ms wait.
+	release();
 	await slowLoaded;
-	await race.waitForTimeout(1500);
+	await expect(race.locator('[aria-label="A slide re-rendered through the selected palette"]')).toHaveAttribute('data-renders-pending', '0', { timeout: 30_000 });
 	expect(await accentInFrame(race), 'the slow, older render took the frame back from the newer one').toBe(cuoio);
 	expect(await sheetLinks(race), 'the slow, older render left two stylesheets attached').toBe(1);
 }

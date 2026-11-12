@@ -87,7 +87,9 @@ export async function projectDeckScript(
 ): Promise<SlideScript[]> {
 	const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 	const mode = modeOverride ?? docMode;
-	const { html } = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss);
+	// `'live'`: the script is read off the markup's TEXT, and a photo's bytes are never part of it. Inline, an 18-photo
+	// deck sanitized a 32.8 MB document here every time Present opened (1.4 s of main thread, profiled).
+	const { html } = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss, 'scoped', 'live');
 	// paneSplitCounts (pane-pages.ts) reads the lint core synchronously.
 	await import('@/playground/authoring-door.js').then((door) => door.loadAuthoring());
 	const { splitSections } = (await loadDeckPreview()) as unknown as {
