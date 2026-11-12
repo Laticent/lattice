@@ -192,7 +192,101 @@ function familiesNamedIn(doc, root) {
 	}
 	return named.size ? named : null;
 }
-const faceUnused = (rule, named) => {
+// A FACE WITH A `unicode-range` draws only the code points in that range: the browser does not
+// even fetch it for text that has none (CSS Fonts 4 §4.5). "Noto Color Emoji" ships as eleven
+// range-split faces, and every theme names the family as a fallback, so the family test above
+// keeps all eleven (7.9K units) for a slide whose only candidates are digits. A face whose range
+// meets no code point the captured slide can draw is dropped exactly. The set is the slide's text
+// plus everything CSS can add to it: `content` on ::before/::after/::marker, list markers, an image's
+// alt text and a field's value or placeholder. Text inside a shadow root is not read (slides have none). A generated value this cannot read for certain (`attr()`, a counter in a non-decimal
+// style, an unknown marker style) returns null, and every face is kept.
+const QUOTE_CHARS = '"\'\u2018\u2019\u201C\u201D\u00AB\u00BB\u2039\u203A';
+const MARKER_CHARS = { disc: '\u2022', circle: '\u25E6', square: '\u25AA', 'disclosure-open': '\u25BE', 'disclosure-closed': '\u25B8', none: '' };
+const NUMERIC_MARKER = /^(?:decimal|decimal-leading-zero|lower-alpha|upper-alpha|lower-latin|upper-latin|lower-roman|upper-roman|lower-greek)$/;
+const DIGITS_AND_PUNCT = '0123456789.-()';
+function addChars(set, text) {
+	for (const ch of text) set.add(ch.codePointAt(0));
+}
+// The quoted strings of a computed `content` / `list-style-type`, or null if it holds a value whose
+// characters are not written in it. `counter()` in the default (decimal) style draws digits.
+function generatedChars(value) {
+	const v = String(value || '').trim();
+	if (!v || v === 'none' || v === 'normal') return '';
+	let out = '';
+	const rest = v.replace(/"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'/g, (_, a, b) => {
+		out += (a ?? b).replace(/\\(.)/g, '$1');
+		return ' ';
+	});
+	for (const token of rest.match(/[a-z-]+\([^)]*\)|[^\s]+/gi) || []) {
+		if (/^counters?\(/i.test(token)) {
+			const args = token.slice(token.indexOf('(') + 1, -1).split(',').map((a) => a.trim());
+			const style = args[args.length - 1];
+			if (args.length > (/^counters/i.test(token) ? 2 : 1) && !NUMERIC_MARKER.test(style)) return null;
+			out += DIGITS_AND_PUNCT + 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZivxlcdmIVXLCDM';
+		} else if (/^(?:open|close|no-open|no-close)-quote$/i.test(token)) out += QUOTE_CHARS;
+		// An image draws no character; `/` opens the alt text, whose strings were added above (a superset).
+		else if (token === '/' || /^(?:url|image-set|-webkit-image-set|(?:repeating-)?(?:linear|radial|conic)-gradient)\(/i.test(token)) continue;
+		else return null;
+	}
+	return out;
+}
+function codePointsIn(doc, root) {
+	const win = doc.defaultView;
+	const top = root?.nodeType === 9 ? root.documentElement : root;
+	if (!win?.getComputedStyle || !top) return null;
+	const points = new Set();
+	try {
+		const walker = doc.createTreeWalker(top, 4 /* SHOW_TEXT */);
+		for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+			const tag = n.parentElement?.tagName;
+			if (tag === 'STYLE' || tag === 'SCRIPT' || tag === 'TEMPLATE') continue;
+			addChars(points, n.data);
+		}
+		for (const el of [top, ...top.querySelectorAll('*')]) {
+			// Text the walker cannot see: an image's alt (drawn when it fails), a field's value and placeholder.
+			if (el.tagName === 'IMG') addChars(points, el.getAttribute('alt') || '');
+			if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') addChars(points, `${el.value ?? ''}${el.getAttribute('placeholder') ?? ''}`);
+			for (const pseudo of ['::before', '::after', '::marker']) {
+				const chars = generatedChars(win.getComputedStyle(el, pseudo).content);
+				if (chars === null) return null;
+				addChars(points, chars);
+			}
+			const cs = win.getComputedStyle(el);
+			if (!String(cs.display || '').includes('list-item')) continue;
+			const marker = String(cs.listStyleType || 'disc').trim();
+			if (Object.hasOwn(MARKER_CHARS, marker)) addChars(points, MARKER_CHARS[marker]);
+			else if (NUMERIC_MARKER.test(marker)) addChars(points, DIGITS_AND_PUNCT + 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\u03B1\u03B2\u03B3');
+			else {
+				const chars = generatedChars(marker);
+				if (chars === null) return null;
+				addChars(points, chars);
+			}
+		}
+	} catch {
+		return null;
+	}
+	return points;
+}
+// `U+1F1E6-1F1FF, U+26?? , U+A9` -> [[lo, hi], …], or null when a part does not parse (keep the face).
+function parseUnicodeRange(value) {
+	const ranges = [];
+	for (const part of String(value).split(',')) {
+		const m = /^\s*u\+([0-9a-f?]{1,6})(?:-([0-9a-f]{1,6}))?\s*$/i.exec(part);
+		if (!m) return null;
+		if (m[1].includes('?')) ranges.push([parseInt(m[1].replace(/\?/g, '0'), 16), parseInt(m[1].replace(/\?/g, 'F'), 16)]);
+		else ranges.push([parseInt(m[1], 16), parseInt(m[2] ?? m[1], 16)]);
+	}
+	return ranges;
+}
+const rangeMissesAll = (value, points) => {
+	if (!points || !value || !String(value).trim()) return false;
+	const ranges = parseUnicodeRange(value);
+	if (!ranges) return false;
+	for (const cp of points) for (const [lo, hi] of ranges) if (cp >= lo && cp <= hi) return false;
+	return true;
+};
+const faceUnused = (rule, named, points) => {
+	if (rangeMissesAll(rule.style?.getPropertyValue('unicode-range'), points)) return true;
 	if (!named) return false;
 	const family = familyList(rule.style?.getPropertyValue('font-family'))[0];
 	return !!family && !named.has(family);
@@ -252,7 +346,7 @@ function scopeSelector(sel, scope) {
 // When `scope` is set (the Playground path), every kept style rule is scoped under it
 // so the snapshot CSS is inert outside the instant-shell — the Studio path passes no
 // scope and keeps the historical unscoped output (its shell is a full-page overlay).
-function collectRules(rules, doc, out, scope, hasPane, named) {
+function collectRules(rules, doc, out, scope, hasPane, named, points) {
 	for (const rule of rules) {
 		// @import — DROP. The snapshot CSS is injected into the TOP document (not the
 		// sandboxed preview iframe); a replayed @import would fetch an arbitrary external
@@ -271,13 +365,14 @@ function collectRules(rules, doc, out, scope, hasPane, named) {
 			else out.push(`${all.filter((s) => !isPaneArm(s)).join(',')}{${rule.style.cssText}}`);
 		} else if (rule.type === 5 || rule.type === 7 || (rule.constructor && rule.constructor.name === 'CSSPropertyRule')) {
 			// @font-face (5) · @keyframes (7) · @property — position-independent, keep whole,
-			// except a face no captured element names (familiesNamedIn above).
-			if (rule.type === 5 && faceUnused(rule, named)) continue;
+			// except a face no captured element names (familiesNamedIn above) or whose unicode-range
+			// covers no character the slide draws (codePointsIn).
+			if (rule.type === 5 && faceUnused(rule, named, points)) continue;
 			out.push(rule.cssText);
 		} else if (rule.cssRules) {
 			// @media/@container/@supports/@layer{…} — recurse; keep only if non-empty
 			const inner = [];
-			collectRules(rule.cssRules, doc, inner, scope, hasPane, named);
+			collectRules(rule.cssRules, doc, inner, scope, hasPane, named, points);
 			if (inner.length) {
 				const head = rule.cssText.slice(0, rule.cssText.indexOf('{'));
 				out.push(`${head}{${inner.join('')}}`);
@@ -296,9 +391,10 @@ export function extractCriticalFromDoc(doc, scope, root = doc) {
 	const out = [];
 	const hasPane = !!root?.querySelector?.('lat-pane');
 	const named = familiesNamedIn(doc, root);
+	const points = codePointsIn(doc, root);
 	for (const sheet of doc.styleSheets) {
 		try {
-			collectRules(sheet.cssRules, doc, out, scope, hasPane, named);
+			collectRules(sheet.cssRules, doc, out, scope, hasPane, named, points);
 		} catch {
 			/* a sheet we can't read (shouldn't happen for same-origin srcdoc) — skip */
 		}
