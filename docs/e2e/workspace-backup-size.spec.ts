@@ -84,8 +84,19 @@ async function recordToasts(page: import('@playwright/test').Page): Promise<void
 async function restoreAndReload(page: import('@playwright/test').Page, file: string, timeout: number): Promise<string[]> {
 	await page.evaluate((key) => sessionStorage.removeItem(key), TOASTS_KEY);
 	const reloaded = page.waitForEvent('framenavigated', { predicate: (f) => f === page.mainFrame(), timeout });
+	// A restore that throws does not reload: it leaves a "Restore failed" toast. Fail on that at once, with its text,
+	// rather than wait out the navigation's deadline.
+	const failed = page
+		.locator('[data-sonner-toast]')
+		.filter({ hasText: 'Restore failed' })
+		.first()
+		.waitFor({ timeout })
+		.then(async () => {
+			throw new Error(`the restore failed: ${await page.locator('[data-sonner-toast]').filter({ hasText: 'Restore failed' }).first().innerText()}`);
+		});
+	failed.catch(() => {}); // settled by the race below; never an unhandled rejection after the reload wins
 	await restore(page, file);
-	await reloaded;
+	await Promise.race([reloaded, failed]);
 	await page.waitForLoadState('domcontentloaded');
 	return page.evaluate((key) => JSON.parse(sessionStorage.getItem(key) || '[]') as string[], TOASTS_KEY);
 }

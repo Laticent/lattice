@@ -565,7 +565,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// gate "Fix all" on the wrong deck's answer.
 	// `text`: the document this pass linted. Its length goes on the editor's root as `data-linted-chars`, so anything
 	// that must not race the lint (a test driving a 16 MB photo deck, where a pass holds the main thread for seconds in
-	// Firefox) can wait for THIS text's answer rather than guess how long one takes. Read by no app code.
+	// Firefox) can wait for THIS text's answer rather than guess how long one takes. Read by no app code. Only the
+	// LENGTH is stamped (hashing 16 MB per pass would cost what it measures), so it tells apart texts of different
+	// lengths only: a test that edits without changing the length must wait on something else.
 	const reportLint = React.useCallback((view: EditorView, findings: Array<{ autofixable?: boolean }> | null, text?: string) => {
 		if (viewRef.current !== view) return;
 		if (text !== undefined) view.dom.dataset.lintedChars = String(text.length);
