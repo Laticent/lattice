@@ -121,7 +121,6 @@ test('desktop: a reload restores the person\'s editor collapse without re-showin
 		}).observe(document, { subtree: true, childList: true, characterData: true });
 	});
 	const toasted = () => page.evaluate(() => (window as unknown as { __toasted: boolean }).__toasted);
-	await page.clock.install(); // so Sonner's publish timer can be stepped past, below
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
 	await page.getByRole('button', { name: /Collapse editor/ }).first().click();
@@ -129,11 +128,14 @@ test('desktop: a reload restores the person\'s editor collapse without re-showin
 	await page.reload();
 	await expect.poll(async () => (await widths(page))['studio-editor']).toBeLessThan(60);
 	// The restore has landed. A toast for it would come from the collapse the restore looks like: a ResizeObserver
-	// reports it after the frame's layout, Sonner publishes a macrotask late, and React renders it. So: two frames,
-	// the page clock stepped past Sonner's timer, React's scheduler, and the MutationObserver above has seen any toast
-	// (it accumulates, so the toast's own short life cannot hide it). Was a 4000 ms wait (HARD RULE #32).
+	// reports it after the frame's layout (layoutSettled), Sonner publishes on a zero-delay timer and flushes it to the
+	// DOM synchronously (sonner's Toaster subscriber), so a zero-delay timer queued after that runs after any publish,
+	// and the MutationObserver above has seen the toast by then (it accumulates, so the toast's short life cannot hide
+	// it). Was a 4000 ms wait (HARD RULE #32). NOT on the page clock: a faked requestAnimationFrame runs the restore's
+	// two-frame settle off the real frames, the restore then reads as the person's own collapse, and the toast shows
+	// (9 runs in 165 when this test installed the clock).
 	await layoutSettled(page);
-	await page.clock.runFor(500);
+	await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));
 	await schedulerDrained(page);
 	expect(await toasted()).toBe(false);
 	expect(await page.evaluate(() => sessionStorage.getItem('lattice-docs-split-studio-collapsed'))).toBe('a');
