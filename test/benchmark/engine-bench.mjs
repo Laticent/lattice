@@ -809,7 +809,8 @@ function photoDeck() {
       seed = (seed * 1664525 + 1013904223) >>> 0;
       a[i] = B64[seed >>> 26];
     }
-    return `data:image/jpeg;base64,${a.join('')}`;
+    // Ending in `==` padding, as a phone photo's data URL does: a photo line without it once hid a mask that missed every real photo.
+    return `data:image/jpeg;base64,${a.join('')}==`;
   };
   return ['<!-- _class: title -->\n\n# Phone photos\n\nExport size', ...Array.from({ length: PHOTO_DECK_PHOTOS }, (_, i) => `<!-- _class: image -->\n\n\`Photo ${i + 1}\`\n\n## A phone photo beside its caption\n\nThe caption sits beside the photo.\n\n![bg](${photo()})`)].join('\n\n---\n\n');
 }

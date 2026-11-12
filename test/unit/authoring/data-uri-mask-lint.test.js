@@ -71,6 +71,8 @@ describe('lintTextWith: the mask changes no finding', () => {
     for (const name of ['HTML attributes, both quotes', 'front matter url()', 'pills after two photos (col moves)', 'a fix on a photo line', 'a fence inside speaker notes, then a real one']) {
       assert.equal(maskDataUris(DECKS[name]), null, name);
     }
+    // A real photo's base64 ends in `=` padding.
+    for (const pad of ['=', '==']) assert.ok(maskDataUris(`# T\n\n![bg](${P}${pad})\n`), `padding ${pad}`);
     for (const name of ['a background photo', 'a link definition', 'an SVG data image']) {
       assert.ok(maskDataUris(DECKS[name]), name);
     }
@@ -104,7 +106,7 @@ describe('lintTextWith: the mask changes no finding on the baseline gallery with
   }
   // Arm 2: a photo PARAGRAPH (the shape a paste makes) dropped between random lines: inside fences, comments, lists,
   // tables and front matter as well as between blocks. Each eligible one is masked; the findings must not move.
-  const blocks = [(p) => `![bg](${p})`, (p) => `<img src="${p}" alt="x">`, (p) => `<!-- _backgroundImage: url(${p}) -->`, (p) => `![photo](${p} "A title")`, (p) => `[ref]: ${p}`];
+  const blocks = [(p) => `![bg](${p}=)`, (p) => `![bg](${p}==)`, (p) => `<img src="${p}=" alt="x">`, (p) => `<!-- _backgroundImage: url(${p}) -->`, (p) => `![photo](${p} "A title")`, (p) => `[ref]: ${p}`];
   for (const seed of [11, 12, 13, 14, 15, 16]) {
     test(`paragraph, seed ${seed}`, () => {
       const rnd = mulberry32(seed);
