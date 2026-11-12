@@ -128,9 +128,10 @@ test('a map on a phone page scales its basemap into the cell and prints its key 
 });
 
 test('arrangeKeyed steps the key toward the floor, then lays an over-capacity chart out on a larger box', () => {
-  const { withRoles } = require('../../../lib/plugins/chart-family/shared/chart-roles');
+  const { withRoles, stepPx } = require('../../../lib/plugins/chart-family/shared/chart-roles');
   const keyRows = ['North America', 'Europe', 'Asia Pacific'].map((label) => ({ label }));
-  const run = (box) => withRoles(972, 972 / 320, () => chartForm.withForm(box, () => chartForm.arrangeKeyed({ rows: keyRows, plot: { minW: 150, minH: 140 } })));
+  // The phone page's role sizes (a role -> page px map) and the px one of 320 units prints at on a 972px body.
+  const run = (box) => withRoles(stepPx(), 972 / 320, () => chartForm.withForm(box, () => chartForm.arrangeKeyed({ rows: keyRows, plot: { minW: 150, minH: 140 } })));
   const roomy = run({ w: 320, h: 600 });
   assert.equal(roomy.over, false);
   assert.match(roomy.keySvg(), /--chart-fs-key:/);
@@ -334,4 +335,76 @@ test('a keyed column stack on a phone page keeps a plot wide enough for its tota
   assert.doesNotMatch(html, /data-label-drops=/, 'every total prints whole');
   assert.match(html, />USD 46M</);
   assert.match(html, />USD 42\.3M</);
+});
+
+// ── The arrangement's choices, each pinned so that dropping it fails a test (the trio's checker on #3131 mutated the
+// scoring, the key-size steps, the column choice, the over-capacity cap and the plot aspect, and 22 tests stayed green).
+
+/** A tile whose forms are fixed sizes, so a test knows each arrangement's plot area exactly. */
+const fixedTile = (under, beside, sides) => ({ id: 'key', sides, under: () => under, beside: () => beside });
+
+test('the arrangement gives the plot the larger area: beside when beside leaves more', () => {
+  // Under: a 100-unit band leaves a 320 x 292 plot (93,440). Beside: a 60-unit column leaves 252 x 400 (100,800).
+  const at = chartForm.arrange({ box: { w: 320, h: 400 }, gap: 8, tiles: [fixedTile({ w: 320, h: 100 }, { w: 60, h: 400 })] });
+  assert.equal(at.sides.key, 'beside');
+  assert.equal(at.plot.w, 252);
+  // And under when under leaves more: a 20-unit band (320 x 372 = 119,040) against a 120-unit column (192 x 400).
+  const under = chartForm.arrange({ box: { w: 320, h: 400 }, gap: 8, tiles: [fixedTile({ w: 320, h: 20 }, { w: 120, h: 400 })] });
+  assert.equal(under.sides.key, 'under');
+});
+
+test('within 3% of the largest plot, the fuller box wins, in whatever order the sides are tried', () => {
+  // Under leaves 93,440 and fills the box (a 320 x 100 band); beside leaves 94,400, 1% more, beside a short 76 x 50 tile.
+  const tiles = (sides) => [fixedTile({ w: 320, h: 100 }, { w: 76, h: 50 }, sides)];
+  for (const sides of [['under', 'beside'], ['beside', 'under']]) {
+    const at = chartForm.arrange({ box: { w: 320, h: 400 }, gap: 8, tiles: tiles(sides) });
+    assert.equal(at.sides.key, 'under', `tried ${sides.join(' then ')}`);
+  }
+});
+
+test('a plot with an aspect draws in it, whatever room is left', () => {
+  const at = chartForm.arrange({ box: { w: 320, h: 400 }, gap: 8, plot: { aspect: { min: 1, max: 1 } }, tiles: [] });
+  assert.equal(at.plot.w, at.plot.h);
+  assert.equal(at.plot.w, 320);
+});
+
+test('a key under the plot runs in as many columns as its names allow', () => {
+  const short = ['North', 'South', 'East', 'West', 'Core', 'Edge'].map((label, i) => ({ label, i }));
+  const form = chartForm.swatchKeyTile(short, 11, { flow: false }).under(320);
+  const columns = new Set(form.placed.map((p) => Math.round(p.x)));
+  assert.ok(columns.size > 1, `six short names in 320 units take ${columns.size} column(s)`);
+});
+
+test('arrangeKeyed holds the box by stepping the key down before it goes over capacity', () => {
+  const { withRoles, roleU, stepPx } = require('../../../lib/plugins/chart-family/shared/chart-roles');
+  const keyRows = ['North America', 'Europe, Middle East and Africa', 'Asia Pacific', 'Latin America', 'Oceania'].map((label) => ({ label }));
+  const run = (h) => withRoles(stepPx(), 972 / 320, () => chartForm.withForm({ w: 320, h }, () => ({
+    got: chartForm.arrangeKeyed({ rows: keyRows, plot: { minW: 150, minH: 140 } }), role: roleU('key', 9),
+  })));
+  // The shortest box that holds the chart without going over capacity holds it at a key smaller than the role size:
+  // the key stepped toward the floor first.
+  let h = 150;
+  while (h < 800 && run(h).got.over) h += 5;
+  const { got, role } = run(h);
+  assert.equal(got.over, false);
+  assert.ok(got.fs < role - 1e-6, `the key holds the ${h}-unit box at ${got.fs.toFixed(2)} units, under the role's ${role.toFixed(2)}`);
+});
+
+test('an over-capacity box grows as far as the chart needs, to 2.5 times, and wider when a name is wider than the box', () => {
+  const { withRoles, stepPx } = require('../../../lib/plugins/chart-family/shared/chart-roles');
+  const run = (box, labels) => withRoles(stepPx(), 972 / 320, () => chartForm.withForm(box, () => chartForm.arrangeKeyed({
+    rows: labels.map((label) => ({ label })), plot: { minW: 150, minH: 140 },
+  })));
+  // Twenty names under a 200-unit box: the drawing needs about twice its height.
+  const many = run({ w: 320, h: 200 }, Array.from({ length: 20 }, (_, i) => `Region number ${i + 1}`));
+  assert.ok(many && many.over, 'drawn over capacity, not dropped');
+  assert.ok(many.layout.h > 200 * 1.8, `laid out ${many.layout.h.toFixed(0)} units tall`);
+  // Every name fits the width, so only the height grows: a wider box would print the chart smaller than it needs.
+  assert.equal(many.layout.w, 320);
+  // One word wider than the box at the floor: no taller box holds it, so the box grows wide too, and the name is whole.
+  const word = 'Pneumonoultramicroscopicsilicovolcanoconiosis'.repeat(2);
+  const wide = run({ w: 320, h: 400 }, [word, 'B']);
+  assert.ok(wide && wide.over, 'drawn over capacity, not handed back to the pre-kernel drawing');
+  assert.ok(wide.layout.w > 320);
+  assert.ok(wide.keySvg().includes(word), 'the name prints whole');
 });

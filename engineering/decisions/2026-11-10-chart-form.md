@@ -286,3 +286,44 @@ the owner's scaled drawing (§ 10).
 | journey | responsive, not on the kernel | an HTML board. On a portrait or square page it takes the vertical form (stages stacked, a task a row); square joined on 2026-11-12, because at 11pt the landscape board printed its actor dots over its task names and cut its last stage at the page edge. An actor dot is never smaller than 1.45 times its own initial. On a narrow slide (`@container lattice (width < 34em)`) the actor key parts by the small step, so four actors hold one row. A journey whose stacked stages, key and scale fit the page stays one page (`journey.transform.js`, measured in Chromium at mobile, 4:5 and square); one that does not splits a stage a page until #2988's measured split packs them (`followups.d/3131-p2-kanban-roadmap-pack-pages.md`) |
 | progress | responsive, not on the kernel | on a phone page a label on its own row sets at 1.25 of its size, and a status pill is 1.1 of its text tall, as tall as its bar: at 11pt the shared 1.47em pill made rows taller than `main`'s and five rows ran 23px past a 4:5 stage (`data-viz-gallery.md` p24), six 74px past a square one (`status-word-agreement.md` p7) |
 | flowchart | fitted, not on the kernel | HTML or self-sized: holds both bars. Authored notes leave the drawing on a phone page, as the state chart's do (above) |
+
+## 12. The adversarial trio over the kernel (2026-11-12)
+
+The owner asked for the trio over the whole kernel before the merge (decision D1 B on #3131): a red team, a Munger
+inversion and an independent checker, over `chart-form.js`, `chart-form-state.js`, `text-measure.js`, `chart-phone.js`
+and the dispatch. What they found, and what changed:
+
+- **The measurer read the wrong face for some decks.** The glyph table held Outfit and the sketch hand. The ledger,
+  poster and festival type sets paint chart text in Inter (`resolve-typography.js`; chart text reads `--font-body`),
+  about 10% wider than Outfit on a label and up to 4x on a glyph (`·`), and the sketch finish paints a pie's key in
+  the hand, about 17% wider: the key set "merchandising" under "40%". The table gains Inter at 600 and 700; the phone
+  path measures in the slide's body face (`chart-phone.js` `bodyFaceOf`: the hand under `sketch` unless
+  `sketch-clean-body`, Inter under the three sets unless the slide's own `typography-classic`, else Outfit), and a
+  caller's `'clean'` now means that face. No factor on the Outfit rows bills Inter safely: the per-glyph ratio runs 0.8
+  to 4.0. The owner raised the chart kernels' ceiling 1KB for the rows (`docs/route-budget.history.md`).
+- **A name wider than the box had no over-capacity form.** A name is never broken mid-word, so one long word or a CJK
+  run with no spaces fit no taller box, and the kind fell back to its pre-kernel drawing, which cut it mid-word or
+  printed it under 9pt. After height alone fails, the box grows in both sides, to 2.5 times (`arrangeKeyed`, and
+  bar's own ladder): the page scales a drawing by its larger overshoot, so this prints at the same scale as a taller box
+  with more room. Bar had also stamped `data-chart-form="fit"` when nothing held its key, which turned off the phone
+  pass's own over-capacity step.
+- **The arrangement's choice depended on the order it tried them.** "The largest plot; within 3%, the fuller box" was
+  compared pairwise as the combinations came, which is not transitive. It is two passes now: the largest plot, then the
+  fullest box within 3% of it.
+- **The box estimate missed blocks.** A `###` heading, a second or third caption, and a CJK or emoji title (each glyph
+  about 1.75 Latin widths; 2 in the square count) ran the box 8% to 15% tall, and the chart printed at 9.5 to 10.9pt
+  while it said `fit`. Each is counted now, measured on mobile and square, with the tall-page costs scaled by the page's
+  type scale (the 4:5 page's is 0.85 of mobile's). `test/integration/components/phone-box-estimate.test.js` renders
+  ten such slides at the four phone sizes and holds every estimate to the box Chromium lays out: at most 2% over, and
+  short by no more than the second title line the estimate keeps on purpose plus 5%. A type token or a masthead's
+  padding that moves the real box now fails a test. A picture on a chart slide is still uncounted: its height comes
+  from its file (`followups.d/3131-p3-image-on-chart-slide-box.md`).
+- **The spacing steps were a copy.** `PHONE_STEPS` holds `--sp-md`/`--sp-sm` in page px for the stacked-height
+  estimates; `test/unit/plugins/phone-steps-pin.test.js` recomputes them from the tokens and `canvasScaleFor`.
+- **The kernel's tests did not pin its choices.** Seven mutations of `chart-form.js` (no key steps, the smallest plot,
+  no 3% rule, never beside, one column, a 1.5 cap, no plot aspect) left the 22 tests green, and the key-step test ran
+  with no roles active. Each is pinned now, and an eighth for the wider box; each mutation fails a test.
+- **A no-break space counted as a break** in the measurer's and the key's word splits; they split at ASCII white space.
+- **Logged, not changed here:** a lint warning when a chart prints over capacity (`followups.d/3131-p2-over-capacity-lint.md`),
+  and a pie key that double-escapes `R&D`, as `main` does (`followups.d/3131-p3-key-label-double-escape.md`). The
+  inversion's point that every kind now has a phone path and a landscape path stands until the landscape pass (§ 10).

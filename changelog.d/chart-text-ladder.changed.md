@@ -25,3 +25,6 @@
 - A progress chart and a timeline fit their phone pages again at the larger text size: tighter lines on a progress label and its status pill, and on a timeline entry. A square page sets a timeline top to bottom, as a phone page does, where its last entry ran off the right edge.
 - On a phone or square page a flowchart's or state chart's notes print as a numbered list under the drawing at 12pt, and each note's numbered marker sits beside its shape. Inside the drawing they shrank with it to 3 to 5pt.
 - On a phone or square page a timeline too tall for the page at 11pt is drawn a little smaller and stays whole. Its last entry used to run off the page.
+- On a phone page, chart text is measured in the face it paints in: Inter under the `ledger`, `poster` and `festival` type sets, and the hand under the sketch finish, which had set a pie key's name under its value.
+- On a phone page, a chart whose name is wider than its box (one long word, a CJK name with no spaces) is drawn whole and scaled (over capacity), where it fell back to a drawing that cut the name mid-word.
+- On a phone page, a `###` heading, a second caption, and a CJK or emoji title come off the chart's box, so the chart's text keeps its size, and a no-break space no longer breaks a key name.

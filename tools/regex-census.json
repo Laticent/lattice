@@ -817,6 +817,7 @@
     "/<h[1-6][\\s>]/": "safe",
     "/<h[1-6]\\b/": "safe",
     "/<h[12][^>]*>([\\s\\S]*?)<\\/h[12]>/": "polynomial",
+    "/<h[3-6]/": "safe",
     "/<header[\\s\\S]*?<\\/header>/": "polynomial",
     "/<header\\b[\\s\\S]*?<\\/header>/i": "polynomial",
     "/<header\\b[^>]*>[\\s\\S]*?<\\/header>/": "polynomial",
