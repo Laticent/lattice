@@ -152,10 +152,35 @@ test('a cold sheet slides in once, even when its code arrives mid-slide @crosswi
 		};
 		requestAnimationFrame(tick);
 	});
+	// THE CODE ARRIVES MID-SLIDE, by construction. The slide lasts 500 ms, and polling for a running animation before the
+	// release missed it under load: the poll's first read could land after the slide had ended, and the test failed at
+	// the poll (followups.d/2523-p3, 1 to 2 runs in 16 at 4 workers). So the sheet's slide-in is PAUSED the moment it
+	// starts, by a listener installed before the click; the chunk is released and its request finishes while the sheet
+	// is frozen mid-slide; then the slide resumes. The shell swaps for the panel once the slide ends (lazy-panel.tsx).
+	await page.evaluate(() => {
+		const w = window as unknown as { __paused: Animation[] };
+		w.__paused = [];
+		// One-shot: only the sheet's own slide-in is frozen, never an animation that starts after it.
+		const freeze = (e: AnimationEvent) => {
+			const el = e.target as Element;
+			if (!el.closest('[role=dialog]')) return;
+			document.removeEventListener('animationstart', freeze, true);
+			for (const a of el.getAnimations()) {
+				a.pause();
+				w.__paused.push(a);
+			}
+		};
+		document.addEventListener('animationstart', freeze, true);
+	});
 	await page.getByRole('button', { name: 'Share', exact: true }).first().click();
-	// Release while the shell is still sliding in: the case where a naive swap would restart it.
-	await expect.poll(() => topDialog(page).evaluate((e) => e.getAnimations().some((a) => a.playState === 'running'))).toBe(true);
+	await expect.poll(() => page.evaluate(() => (window as unknown as { __paused: Animation[] }).__paused.length)).toBeGreaterThan(0);
+	const arrived = page.waitForEvent('requestfinished', { predicate: (r) => chunkRe('ShareSheet').test(r.url()) });
 	await hold.release();
+	await arrived;
+	await expect(shell(page)).toHaveCount(1);
+	await page.evaluate(() => {
+		for (const a of (window as unknown as { __paused: Animation[] }).__paused) a.play();
+	});
 	await expect(shell(page)).toHaveCount(0);
 	await expect(topDialog(page).getByText('Present link')).toBeVisible();
 	const xs = await page.evaluate(() => (window as unknown as { __xs: number[] }).__xs);

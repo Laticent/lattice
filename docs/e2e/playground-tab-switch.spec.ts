@@ -219,15 +219,56 @@ for (const [name, wide, tags] of [
 		await expect
 			.poll(() => page.evaluate(() => document.querySelector('.pg-preview-wrap')?.classList.contains('is-live')), { timeout: 20_000 })
 			.toBe(true);
-		const frames = await stopWatching(page);
-		const seen = frames.filter((f) => f.seen);
+		// Keep watching until the reader has SEEN the preview, and past it. `is-live` and the shown slide are both true
+		// while the pane is still fading in (opacity under 0.05), so stopping on them alone recorded no seen frame at all
+		// on a loaded WebKit, and `seen.length > 0` failed on a correct switch.
+		await expect.poll(() => page.evaluate(() => (window as unknown as { __frames: Array<{ seen: boolean }> }).__frames.some((f) => f.seen)), { timeout: 20_000 }).toBe(true);
+		await frames(page, 20);
+		const watched = await stopWatching(page);
+		const seen = watched.filter((f) => f.seen);
 		expect(seen.length).toBeGreaterThan(0);
 		// Every frame the reader could see shows the slide the caret is in.
 		expect(seen.filter((f) => f.slide !== 7)).toEqual([]);
 		// And the document was patched, not replaced.
-		expect(frames.every((f) => f.same)).toBe(true);
+		expect(watched.every((f) => f.same)).toBe(true);
 	});
 }
+
+// THE WALK THAT WARMS UP BEHIND THE EDITOR (PlaygroundApp.tsx, boot) fetches a component's plan. When that fetch landed
+// AFTER the reader had switched to Explore, it rewrote the preview with the component's gallery: their own deck, shown
+// for a moment, was replaced by `actors` (seen on WebKit as the switch test above reading a replaced document, 3 runs
+// in 10 when the fetch was slow). Holding the fetch until after the switch makes that order certain here.
+test(`a walk that warms up behind the editor and lands after the switch leaves Explore on the reader's deck ${TAGS}`, async ({ page }) => {
+	const PLAN = /\/plans\/[^/]+\.json$/;
+	let release = () => {};
+	const held = new Promise<void>((done) => {
+		release = done;
+	});
+	await page.route(PLAN, async (route) => {
+		await held;
+		await route.continue();
+	});
+	await open(page);
+	await editLine(page, 'point 7.2');
+	// The document the preview holds now is the reader's deck, written in Edit: mark it, to tell a patch from a rewrite.
+	await page.evaluate(() => {
+		((document.getElementById('preview') as HTMLIFrameElement).contentWindow as unknown as { __before: boolean }).__before = true;
+	});
+	await page.getByRole('tab', { name: 'Explore' }).click();
+	const landed = page.waitForEvent('requestfinished', { predicate: (r) => PLAN.test(r.url()) });
+	release();
+	await landed;
+	// The walk landed (its bar is the walk's own chrome), and Explore shows the reader's slide, revealed.
+	await expect(page.locator('#pg-walk')).toBeVisible({ timeout: 20_000 });
+	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/, { timeout: 20_000 });
+	await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBe(7);
+	const preview = page.frameLocator('#preview');
+	await expect(preview.locator('section[data-lattice-slide="7"]')).toContainText('point 7.2 edited');
+	expect(
+		await page.evaluate(() => ((document.getElementById('preview') as HTMLIFrameElement).contentWindow as unknown as { __before?: boolean }).__before === true),
+		'the late plan rewrote the preview instead of leaving the reader\'s deck in place',
+	).toBe(true);
+});
 
 test(`switching back to Edit never shows a wrong slide for a frame ${WIDE}`, async ({ page }) => {
 	await open(page, true);

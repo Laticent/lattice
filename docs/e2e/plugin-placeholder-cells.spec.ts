@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { BARS_RENDERER, ganttZip } from './plugin-fence-fixture';
-import { CHROME, expect, gotoStudio, livePreview, persistedSource, setEditorContent, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, LIVE_PREVIEW, livePreview, persistedSource, setEditorContent, test } from './studio-fixture';
 
 // ── The plugin placeholder inside a grid cell and in the Reading view (followups.d/2651-p1) ──
 //
@@ -47,11 +47,24 @@ const DECK = [
 ].join('\n');
 
 type Fit = { cell: string; inCell: boolean; inSlide: boolean; w: number; h: number; clipped: boolean };
-function fits(page: import('@playwright/test').Page) {
-	return livePreview(page)
-		.locator('[data-lattice-plugin-off="gantt-plugin"]')
-		.evaluateAll((els) =>
-			els.map((el) => {
+/**
+ * Measure every placeholder in the live preview, in ONE read of the frame the page shows now.
+ *
+ * A resize mounts a fresh preview frame, hidden until it reveals, and the old one goes away under it. Counting the
+ * placeholder through the frame locator and then measuring it in a second call let the swap land between the two:
+ * "Frame was detached" on WebKit, 1 run in 18 alone and more under load. So the read finds the frame from the parent
+ * page, measures only once that frame is revealed and holds `count` placeholders, and returns null until then; the
+ * caller polls it, which waits on the frame's own reveal rather than racing it.
+ */
+function fits(page: import('@playwright/test').Page, count = 1) {
+	return page.evaluate(
+		({ sel, count }) => {
+			const frame = document.querySelector(sel) as HTMLIFrameElement | null;
+			const doc = frame?.contentDocument;
+			if (!frame || !doc || frame.style.opacity !== '1' || frame.style.pointerEvents === 'none') return null;
+			const els = [...doc.querySelectorAll('[data-lattice-plugin-off="gantt-plugin"]')];
+			if (els.length !== count) return null;
+			return els.map((el) => {
 				const r = el.getBoundingClientRect();
 				// The grid cell it stands in: a card's item, or a pane.
 				const cell = (el.closest('li, lat-pane, [data-pane]') || el.parentElement) as Element;
@@ -62,8 +75,22 @@ function fits(page: import('@playwright/test').Page) {
 				const words = el.querySelector('.lattice-plugin-words') as HTMLElement | null;
 				const clipped = !!words && (words.scrollHeight > words.clientHeight + 1 || words.getBoundingClientRect().bottom > r.bottom + 1 || words.getBoundingClientRect().right > r.right + 1);
 				return { cell: cell.localName, inCell: inside(r, c), inSlide: inside(r, s), w: Math.round(r.width), h: Math.round(r.height), clipped };
-			}),
-		) as Promise<Fit[]>;
+			});
+		},
+		{ sel: LIVE_PREVIEW, count },
+	) as Promise<Fit[] | null>;
+}
+
+/** Poll {@link fits} until the revealed frame holds the placeholders, and return what it measured. */
+async function settledFits(page: import('@playwright/test').Page, count = 1): Promise<Fit[]> {
+	let got: Fit[] | null = null;
+	await expect
+		.poll(async () => {
+			got = await fits(page, count);
+			return got !== null;
+		}, { timeout: 30_000, message: 'the live preview never revealed a frame holding the placeholder' })
+		.toBe(true);
+	return got as unknown as Fit[];
 }
 
 for (const placement of ['chip', 'figure', 'stage'] as const) {
@@ -101,7 +128,7 @@ for (const placement of ['chip', 'figure', 'stage'] as const) {
 				await expect(placeholder).toHaveCount(1, { timeout: 30_000 });
 				await expect(placeholder).toHaveAttribute('data-placement', placement);
 				await expect(livePreview(page).locator('section h2', { hasText: name === 'cards' ? 'Two cards hold a plan.' : 'A pane holds the plan.' })).toHaveCount(1);
-				for (const f of await fits(page)) {
+				for (const f of await settledFits(page)) {
 					expect(f.inSlide, `${placement} in ${name} (a ${f.cell}): inside its slide (${f.w}x${f.h})`).toBe(true);
 					expect(f.inCell, `${placement} in ${name} (a ${f.cell}): inside its cell (${f.w}x${f.h})`).toBe(true);
 					// It shows: not collapsed to a line or a sliver, and its words are not cut off.

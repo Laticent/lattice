@@ -34,7 +34,9 @@ function SheetOverlay({
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+        // Leaves AFTER the sheet (300 ms), for the reason `DialogOverlay` gives (ui/dialog.tsx): an overlay that
+        // finished first was mounted again after a sheet still sliding out, on top of it.
+        "fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-[400ms] data-[state=open]:animate-in data-[state=open]:fade-in-0",
         className
       )}
       {...props}

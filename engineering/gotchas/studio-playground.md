@@ -1867,3 +1867,21 @@ never turn "passed in headless" into "works on iOS."
   later opens Present is already mounted and nothing did.
 - **Mitigation** — `PresentOverlay.tsx` attaches the listener in `useLayoutEffect`, inside the commit that shows the
   dialog. A surface whose keys must work the instant it appears binds them in a layout effect.
+
+## A dialog opened again right after it closed sits under its own dimming
+
+- **Symptom** — the photo-format dialog (or any `DialogContent` / `SheetContent`) opens dimmed; a click on its button lands on the overlay and closes it. Seen adding photos one after another; an in-page `button.click()` in `e2e/library-images-render.spec.ts` had hidden it, a real Playwright click timed out with "dialog-overlay intercepts pointer events".
+- **Cause** — Radix portals the overlay and the box separately, each kept mounted until its own exit animation ends. The overlay's fade (150 ms) ended before the box's zoom (200 ms) or slide (300 ms); a reopen in that gap reused the box and mounted a NEW overlay, appended to `<body>` after it at the same z-index.
+- **Mitigation** — the overlays exit last: `data-[state=closed]:duration-300` in `ui/dialog.tsx`, `duration-[400ms]` in `ui/sheet.tsx`. Animations on one timeline end in order of their end times, so the order holds on any machine.
+- **Triggered by** — changing a dialog or sheet's exit duration; a new overlay/content pair.
+- **Removable when** — Radix renders a dialog's overlay and content in one portal.
+- **Commits** — the flaky-e2e touch PR of 2026-11-12.
+
+## The Playground's Explore tab shows a component gallery, or reloads the preview, instead of the deck being edited
+
+- **Symptom** — a phone reader edits, taps Explore, sees their slide, and a moment later the preview is rewritten: with the `actors` gallery, or with their own deck from the top after a blank. `e2e/playground-tab-switch.spec.ts` read a replaced document on WebKit (3 to 4 runs in 16).
+- **Cause** — two races on the switch. (1) The walk warmed up behind the editor at boot fetches a component plan; landing after the switch, it set Explore's source to the plan and called `freshRender`. (2) `reusableFrame` compared the draft with the text of the last render that had RESOLVED, one keystroke behind, read "another deck" and rewrote the frame.
+- **Mitigation** — `PlaygroundApp.tsx`: the warm-up runs with `{ warm: true }` and never renders; a switch that beats it waits for it (`warmWalkRef`) and then lands as if it had arrived first. The superseded-plan check and the kept draft are the entry "Explore at a narrow width" above (#3152), and the two compose: `startWalk` takes `{ warm, keepEditedDraft }`. `reusableFrame` treats a frame whose last render was the draft in Edit as still holding the draft. The spec's "a walk that warms up behind the editor" holds the plan fetch past the switch to make race (1) certain.
+- **Triggered by** — a new async step between boot and the first Explore; a new condition in `reusableFrame`.
+- **Removable when** — never; they are ordering rules.
+- **Commits** — the flaky-e2e touch PR of 2026-11-12.

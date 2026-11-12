@@ -1,0 +1,2 @@
+- The Playground's Explore tab keeps showing the deck you were editing. A walk that warmed up behind the editor and landed after you switched used to replace your deck with a component gallery, and a switch right after typing rewrote the whole preview instead of patching it.
+- A dialog or sheet opened again just after it closed is no longer drawn under its own dimming, where a tap on its button closed it instead (adding photos to the Library one after another).
