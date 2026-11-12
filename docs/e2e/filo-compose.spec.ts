@@ -6,6 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
+import { DEFAULT_COALESCE_MS } from '../src/lib/filo/history';
 import { openDeckInCompose, savedDeck } from './compose-insert';
 import { expect, gotoStudio, test } from './studio-fixture';
 
@@ -72,7 +73,13 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Compose on Filo $
 	});
 
 	test('one history across panes: ⌘Z in Compose undoes an edit made in Markdown', async ({ page }) => {
+		// The deck's load must be its OWN step. Filo coalesces typing commits less than DEFAULT_COALESCE_MS (500 ms)
+		// apart, and the load and " FROMMD" both arrive as Markdown typing. On a fast runner they landed inside one window,
+		// so the ⌘Z took back the load too and left the welcome deck (10 of 10 runs on compose-default, which skips a pane
+		// mount; under load the gap was usually wider). The page clock is moved past the window between them.
+		await page.clock.install();
 		await openDeckInCompose(page, DECK);
+		await page.clock.fastForward(DEFAULT_COALESCE_MS + 100);
 		await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
 		await page.getByLabel('Deck source').click();
 		await page.keyboard.press('ControlOrMeta+End');
