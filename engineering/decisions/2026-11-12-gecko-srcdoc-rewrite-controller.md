@@ -169,6 +169,11 @@ listener on `document` (the DOM spec keeps `window` out of a `load` event's path
 the test fires itself. Real engines fire exactly one `load` for such a frame, after its document loads (measured in
 Chromium, Firefox and WebKit: none fires during the insert).
 
+**After #3152 merged (2026-11-12),** this branch was rebased onto it and the spec carries the edit above: the gecko
+`fixme` is gone, the editor is focused, and the frame is read through `page.evaluate`. #3152's follow-up and its gotcha
+entry, which named the wrong cause, are removed. From the committed spec on the rebased head: gecko 10/10 and
+webkit-tablet 10/10 alone; the PR body has the full table.
+
 ## 7. Playwright, and what is still open
 
 **Playwright's Firefox driver** (1.56.1, and upstream `main` on 2026-11-12) crashed on the re-inserted frame:

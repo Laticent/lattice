@@ -135,9 +135,7 @@ test('Fabricate opens offline after a deploy-fresh session, for a browser that h
 // during the online session has no diagram, so nothing but the warm-up can have fetched Mermaid.
 // Registered twice, as mermaid-cache-bindings.spec.ts is: `@gecko` runs on desktop Chromium AND Firefox, and
 // `@webkit-tablet` runs on WebKit only (desktop's grepInvert drops a WebKit-tagged title without `@crosswidth`).
-const diagramDrawsOffline = async ({ page, browserName }: { page: Page; browserName: string }) => {
-	// disabled: tried a controlled-online then offline run, fetch from inside the srcdoc frame with all four cache modes, page.goto instead of reload; evidence #3152 (Gecko gives the srcdoc frame the parent's controller but never routes its subresource requests through the service worker; the same URL from the top page returns 200 from the worker); re-enable when the preview builder supplies the frame's runtime, sheets and fonts from the parent instead of by URL
-	test.fixme(browserName === 'firefox', 'Gecko does not route a srcdoc frame\'s requests through the service worker (#3152)');
+const diagramDrawsOffline = async ({ page }: { page: Page }) => {
 	test.setTimeout(180_000);
 	const { server, origin } = await serveDist();
 	try {
@@ -145,14 +143,21 @@ const diagramDrawsOffline = async ({ page, browserName }: { page: Page; browserN
 		await goOffline(page, server);
 
 		const editor = page.locator('.cm-content').first();
-		await editor.click();
+		// focus(), not click(): offline on Gecko, Playwright's mouse input hangs once serve-dist's server is closed, even on
+		// the bare /offline/ page (the keyboard still works). studio-preview-sync.spec.ts covers the click online.
+		await editor.focus();
 		await page.keyboard.press('ControlOrMeta+a');
 		await page.keyboard.insertText('# Flow\n\n```mermaid\nflowchart LR\n  A[Draft] --> B[Review]\n```\n');
-		const preview = page.locator('[aria-label="Live deck preview"] iframe.live').contentFrame();
-		await expect(preview.locator('pre[data-lattice-hydrate="mermaid"][data-lattice-settle]').first(), 'the diagram did not render offline').toHaveAttribute('data-lattice-settle', 'rendered', {
-			timeout: 30_000,
-		});
-		await expect(preview.locator('svg').filter({ hasText: 'Review' }).first()).toBeAttached();
+		// Read the live frame through the page, not a contentFrame() locator: on Firefox the preview re-inserts its frame
+		// to keep the service worker (docs/src/lib/srcdoc-write.js), and Playwright's Firefox frame tree does not follow it.
+		const liveState = () =>
+			page.evaluate(() => {
+				const d = document.querySelector<HTMLIFrameElement>('[aria-label="Live deck preview"] iframe.live')?.contentDocument;
+				const fence = d?.querySelector('pre[data-lattice-hydrate="mermaid"][data-lattice-settle]');
+				const svg = !!d && [...d.querySelectorAll('svg')].some((s) => (s.textContent || '').includes('Review'));
+				return `${fence?.getAttribute('data-lattice-settle') ?? 'none'} svg=${svg}`;
+			});
+		await expect.poll(liveState, { timeout: 30_000, message: 'the diagram did not render offline' }).toBe('rendered svg=true');
 	} finally {
 		server.closeAllConnections();
 		server.close();
