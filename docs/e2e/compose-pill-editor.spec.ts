@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { insertVia } from './compose-insert';
-import { caretSettled, expect, gotoStudio, persistedSource, pressSettled, setEditorContent, test } from './studio-fixture';
+import { caretSettled, editorFocusSettled, expect, gotoStudio, persistedSource, pressSettled, setEditorContent, test } from './studio-fixture';
 
 /** The saved deck text. The store keeps it JSON-encoded, so decode it before comparing bytes. */
 async function savedDeck(page: Page): Promise<string> {
@@ -77,6 +77,25 @@ const composeText = (page: Page) => page.locator('.cs-host .ProseMirror').innerT
 const drawnPills = (page: Page) => page.locator('.cs-npill .lat-pill');
 const chip = (page: Page, name: RegExp | string) => page.getByRole('button', { name: typeof name === 'string' ? `Edit pill ${name}` : name });
 const bar = (page: Page) => page.locator('.cs-slide-active');
+
+/**
+ * Put the caret at the end of "Shipped " (offset 8), checking where it is after each press, then step once more onto
+ * the pill. Eight presses, each checked: a lost press fails here. The one press that used to be lost, the first
+ * ArrowRight after the click, was ProseMirror's focus check writing its old selection back: callers wait it out with
+ * `editorFocusSettled` straight after the click.
+ */
+async function walkOntoFirstPill(page: Page): Promise<void> {
+	const offset = () => page.evaluate(() => {
+		const s = document.getSelection();
+		return s?.anchorNode?.nodeType === Node.TEXT_NODE && s.anchorNode.textContent === 'Shipped ' ? s.anchorOffset : -1;
+	});
+	for (let presses = 0; (await offset()) !== 8; presses++) {
+		expect(presses, 'eight steps to the end of "Shipped " take eight presses').toBeLessThan(8);
+		await pressSettled(page, 'ArrowRight');
+	}
+	await pressSettled(page, 'ArrowRight');
+	await expect(page.locator('.ProseMirror-selectednode')).toHaveCount(1);
+}
 
 test.describe('compose pill editor', () => {
 	test('@smoke Compose shows the pill, not its grammar', async ({ page }) => {
@@ -219,14 +238,15 @@ test.describe('compose pill editor', () => {
 
 	test('the keyboard steps over a pill as one thing, Enter opens its editor, and Escape closes it', async ({ page }) => {
 		await openDeckInCompose(page);
+		// The pills become objects when the authoring kernels have loaded; a walk before that lands on text.
+		await expect(drawnPills(page)).toHaveCount(4);
 		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
 		await caretSettled(page);
+		await editorFocusSettled(page);
 		await pressSettled(page, 'Home');
-		// "Shipped" and a space are eight steps; the ninth lands on the pill itself. The first eight are
-		// the browser's own caret moves, and ProseMirror's state hears of each only through
-		// `selectionchange`: settle each, or the ninth runs from a stale caret and skips the pill.
-		for (let i = 0; i < 9; i++) await pressSettled(page, 'ArrowRight');
-		await expect(page.locator('.ProseMirror-selectednode')).toHaveCount(1);
+		// "Shipped" and a space are eight steps; the next lands on the pill itself. Each is the browser's own caret
+		// move, which ProseMirror's state hears of through `selectionchange`: each is settled and checked.
+		await walkOntoFirstPill(page);
 		await page.keyboard.press('Enter');
 		await expect(editor(page)).toBeVisible();
 		await page.keyboard.press('Escape');
@@ -243,9 +263,9 @@ test.describe('compose pill editor', () => {
 		await expect(drawnPills(page)).toHaveCount(4);
 		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
 		await caretSettled(page);
+		await editorFocusSettled(page);
 		await pressSettled(page, 'Home');
-		for (let i = 0; i < 9; i++) await pressSettled(page, 'ArrowRight');
-		await expect(page.locator('.ProseMirror-selectednode')).toHaveCount(1);
+		await walkOntoFirstPill(page);
 		await page.keyboard.press('ControlOrMeta+c');
 		await page.locator('.cs-slide').nth(1).locator('.cs-slide-content p').first().click();
 		// The paste lands where ProseMirror's state holds the caret: settle the click and the End first.

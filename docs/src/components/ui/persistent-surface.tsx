@@ -5,6 +5,7 @@ import { DismissableLayer } from "radix-ui/internal"
 import * as React from "react"
 import { createPortal, flushSync } from "react-dom"
 
+import { focusLauncher, raisesTouchKeyboard, tappedLauncher } from "@/components/ui/focus-return"
 import { useEverTrue } from "@/components/ui/keep-mounted"
 import { cn } from "@/lib/utils"
 
@@ -27,7 +28,8 @@ import { cn } from "@/lib/utils"
  * `defaultPrevented`, so a hidden layer would quietly eat keys. So this renders its OWN dialog
  * element and does the modal work itself, only while open:
  *  - `inert` on every other child of `<body>`: keyboard focus and assistive tech stay inside;
- *  - focus moves in on open and returns to where it came from on close;
+ *  - focus moves in on open and returns to where it came from on close (on a touch screen, not into a
+ *    text field: that would raise the software keyboard);
  *  - the backdrop closes it on a click;
  *  - the backdrop is a Radix DismissableLayer, mounted ONLY while open. It holds no state, so
  *    mounting it costs nothing, and it puts this surface on top of Radix's layer stack. That stack
@@ -103,6 +105,7 @@ export function PersistentSurface({
   const rootRef = React.useRef<HTMLDivElement>(null)
   const boxRef = React.useRef<HTMLDivElement>(null)
   const returnTo = React.useRef<HTMLElement | null>(null)
+  const launcher = React.useRef<HTMLElement | null>(null)
   const layerRef = React.useRef<HTMLDivElement>(null)
   // COVERED: a menu or select opened from inside the box is a Radix layer ABOVE this one, and it
   // locks out everything beneath it, as a Radix modal does, so a tap outside it only closes it.
@@ -136,6 +139,7 @@ export function PersistentSurface({
     const box = boxRef.current
     if (!root || !box) return
     returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    launcher.current = tappedLauncher()
     // SEEN AGAIN, if a Radix modal hid it. A Radix modal opened after this surface first mounted —
     // the phone's drawer, which is how Add slide is reached there — runs `hideOthers` and marks
     // every child of <body> `aria-hidden`, this root included, because a closed surface is still in
@@ -179,6 +183,16 @@ export function PersistentSurface({
     const box = boxRef.current
     const active = document.activeElement
     const unclaimed = !active || active === document.body || (box?.contains(active) ?? false)
+    // Not into a text field on a touch screen: focusing one can raise the software keyboard, so a
+    // gallery opened from Compose put focus back in the editor after every insert (compose-stress
+    // e2e on the touch projects, red on main for weeks: followups.d/2927-p18). Focus leaves the
+    // box for the page instead, as a tap elsewhere would.
+    if (to && raisesTouchKeyboard(to)) {
+      const from = launcher.current
+      launcher.current = null
+      if (unclaimed && !focusLauncher(from) && box?.contains(active)) (active as HTMLElement).blur()
+      return
+    }
     if (to?.isConnected && unclaimed) to.focus({ preventScroll: true })
   }, [drawn])
 
@@ -253,3 +267,4 @@ export function PersistentSurface({
     </DialogPrimitive.Root>
   )
 }
+

@@ -8,7 +8,9 @@
  *   2. the sheet opens as a dialog and holds focus;
  *   3. Escape closes it, and focus is back on that button. Before #3108 a modal Radix sheet returned focus
  *      only to a `SheetTrigger`, so it fell to <body>;
- *   4. a second open and close does the same: the latched (already mounted) path, not only the first mount.
+ *   4. a second open and close does the same: the latched (already mounted) path, not only the first mount;
+ *   5. a TAP open and close while a text field has focus (#3150): on a touch screen focus lands on the opener, not
+ *      back in the field (which would raise the keyboard); with a mouse it goes back to the field.
  *
  * It measures DOM focus, which is what a keyboard and a screen reader's programmatic focus follow. It does not
  * drive VoiceOver, and the button is focused by script before the press: a finger tap on iOS does not focus a
@@ -65,6 +67,37 @@ async function latticeSheetFocusProbe() {
 			// Radix returns focus in a task after the close; give it a beat, then read where focus landed.
 			const landed = await until('focus to settle', () => (document.activeElement && document.activeElement !== document.body ? document.activeElement : null), 3000).catch(() => document.activeElement);
 			step(`${round}: focus is back on the opener after Escape`, landed === opener.el, `focus on ${describe(landed)}`);
+		}
+		// 3. A TAP close from a text field (#3150). A tap focuses no button on iOS, so a sheet opened while a field has focus
+		// would hand focus back to that field on close and raise the keyboard. On a touch screen focus goes to the opener
+		// instead (ui/focus-return.ts); with a mouse it goes back to the field. The taps are a `pointerdown` then a click,
+		// with no focus on the button, which is what WebKit does for a finger; the field is the probe's own.
+		{
+			const round = 'tap close from a text field';
+			const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+			const field = document.createElement('textarea');
+			field.setAttribute('aria-label', 'sheet focus probe field');
+			field.style.cssText = 'position:fixed;left:0;bottom:0;width:40px;height:20px;opacity:0.01';
+			document.body.append(field);
+			try {
+				field.focus();
+				step(`${round}: the field has focus before the tap`, document.activeElement === field, describe(document.activeElement));
+				const tap = (el) => {
+					el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerType: 'touch', isPrimary: true }));
+					el.click();
+				};
+				tap(opener.el);
+				const dialog = await until(`the "${opener.dialog}" sheet`, () => dialogNamed(opener.dialog));
+				await until('focus inside the sheet', () => dialog.contains(document.activeElement));
+				const close = await until('the sheet\'s close control', () => [...dialog.querySelectorAll('button')].find((b) => /^(Close|Back\b)/.test(b.getAttribute('aria-label') || b.textContent.trim()) && visible(b)));
+				tap(close);
+				await until('the sheet to close', () => !dialogNamed(opener.dialog) && ![...document.querySelectorAll('[role="dialog"]')].some(visible));
+				const want = fine ? field : opener.el;
+				const landed = await until('focus to settle', () => (document.activeElement === want ? want : null), 3000).catch(() => document.activeElement);
+				step(`${round}: focus is on the ${fine ? 'field (a mouse)' : 'opener (a touch screen)'}`, landed === want, `focus on ${describe(landed)}`);
+			} finally {
+				field.remove();
+			}
 		}
 		result.ok = true;
 	} catch (e) {

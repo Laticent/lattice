@@ -58,7 +58,10 @@ export function SlideMenuButton({ actions, at, className, inset }: { actions: St
 				align="start"
 				collisionPadding={8}
 				data-strip-menu-content=""
-				className="min-w-[13rem]"
+				// No exit animation, as the Insert menu (InsertControls.tsx): a closing menu stays mounted while it fades, and its
+				// press-outside watcher took the NEXT press on the ⋯ as outside and closed the menu that press had just opened.
+				// Traced on #3150: the ⋯ pressed 160 ms after a close opened the menu for 9 ms.
+				className="min-w-[13rem] data-[state=closed]:animate-none!"
 				// It closes on a pick, Escape, a press outside it, or a scroll the user starts, never because focus moved: a
 				// pick's editor focus can land a moment after the menu opens.
 				onFocusOutside={(e) => e.preventDefault()}

@@ -1,7 +1,7 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { buildDeckIndex } from '../src/lib/deck-outline/deck-outline';
 import { insertEntry, insertVia, openInsertMenu } from './compose-insert';
-import { expect, gotoStudio, persistedSource, railButtons, slideCount, stripAction, test } from './studio-fixture';
+import { expect, gotoStudio, openStripMenu, persistedSource, railButtons, slideCount, stripAction, test } from './studio-fixture';
 
 /**
  * COMPOSE — the stress tier.
@@ -171,12 +171,13 @@ async function caretInto(page: Page, i: number): Promise<void> {
 	await expect.poll(() => activeSlide(page), { message: `the caret never landed in slide ${i}` }).toBe(i);
 }
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, browserName }) => {
 	// Clipboard permission for EVERY test, not per-test. `copyAndSettle` polls
 	// `navigator.clipboard.readText()`, which REJECTS without it — and the poll catches the
 	// rejection to `''`, so an ungranted test does not error, it just never observes its own
 	// copy and times out blaming the clipboard. Granting once here removes the whole class.
-	await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+	// Chromium's names: WebKit knows neither, and only the gallery check runs there (@webkit-phone).
+	if (browserName === 'chromium') await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 	await gotoStudio(page);
 	await toCompose(page);
 });
@@ -508,8 +509,54 @@ test('@parity inserting from the gallery reveals the new slide, taking focus onl
 	// The reveal itself is unconditional — the new slide is where you are, either way.
 	await expect.poll(() => activeSlide(page)).toBe(2);
 
-	const focused = await page.evaluate(() => !!document.querySelector('.cs-host .ProseMirror')?.contains(document.activeElement));
+	// Focus in the editor's TEXT is what raises a keyboard; a non-editable control of the slide bar does not.
+	const focused = await page.evaluate(() => !!(document.activeElement as HTMLElement | null)?.isContentEditable && !!document.querySelector('.cs-host .ProseMirror')?.contains(document.activeElement));
 	expect(focused, finePointer ? 'a fine pointer should land the caret in the new slide' : 'a coarse pointer must not grab focus (it raises the keyboard)').toBe(finePointer);
+});
+
+// A sheet opened from a control while the editor has focus, then closed. A mouse gets its caret back in the editor.
+// A tap close on a touch screen must not hand focus back to the editor's text (it can raise the keyboard), so focus goes
+// to the control the opening tap landed on, and a screen reader keeps its place (ui/focus-return.ts, #3150). The gallery
+// (PersistentSurface) is checked here, opened and closed the way the pointer does it: a tap on a touch project, a click on
+// a mouse one. A plain sheet's branch (SheetContent) runs where a tap focuses no button, which Chromium's touch emulation
+// does not reproduce; the iOS Simulator's sheet focus probe (docs/scripts/ios-safari/sheet-focus-probe.js) covers it.
+async function openAndCloseFromTheEditor(page: Page, launcher: Locator): Promise<{ fine: boolean; onLauncher: boolean; inText: boolean }> {
+	const fine = await page.evaluate(() => window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+	const press = (l: Locator) => (fine ? l.click() : l.tap());
+	await caretInto(page, 1);
+	await press(launcher);
+	const dialog = page.getByRole('dialog').filter({ visible: true }).last();
+	await expect(dialog).toBeVisible();
+	await press(dialog.getByRole('button', { name: /^(Close|Back\b)/ }).first());
+	await expect(dialog).toBeHidden();
+	return page.evaluate((el) => {
+		const a = document.activeElement as HTMLElement | null;
+		return { fine: window.matchMedia('(hover: hover) and (pointer: fine)').matches, onLauncher: a === el, inText: !!a?.isContentEditable };
+	}, await launcher.elementHandle());
+}
+
+test('@parity @crosswidth @webkit-phone closing the add-slide gallery from Compose: a mouse gets its caret back, a tap lands on the launcher', async ({ page }) => {
+	const launcher = composeSlide(page, 1).getByRole('button', { name: 'Add slide below' });
+	const r = await openAndCloseFromTheEditor(page, launcher);
+	if (r.fine) expect(r.inText, 'a fine pointer should get its caret back in the editor').toBe(true);
+	else {
+		expect(r.inText, 'a coarse pointer must not land focus in the editor text (it can raise the keyboard)').toBe(false);
+		expect(r.onLauncher, 'a tap close focuses the control that opened the gallery').toBe(true);
+	}
+});
+
+test('@parity the slide menu opens again straight after it closes', async ({ page }) => {
+	// A closing menu used to stay mounted through its fade, and its press-outside watcher took the next press on the ⋯ as
+	// outside, so the menu that press opened closed 9 ms later (strip-actions/menu.tsx; the walk below met it once in ten).
+	const trigger = page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first();
+	// A phone shows no slide strip beside Compose (its strip lives behind the preview); this check is for the widths that do.
+	test.skip(!(await trigger.isVisible()), 'no slide strip beside Compose at this width');
+	await openStripMenu(page);
+	await slideContent(page, 0).click();
+	await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+	await trigger.click();
+	await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+	await expect(page.locator('[data-strip-menu-content][data-state="open"]')).toBeVisible();
 });
 
 // ── The fuzz walk itself ────────────────────────────────────────────────────
@@ -586,14 +633,26 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 				if (await btn.isEnabled()) await btn.click();
 				return;
 			}
-			await page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first().click();
-			const item = page.locator(`[data-strip-menu-content] [data-strip-action="${name}"]`);
+			// A `railPick` tap on the pill that is already current opens this menu too, and the ⋯ would then close it.
+			// `openStripMenu` opens it only when its ⋯ says it is closed.
+			await openStripMenu(page);
+			const item = page.locator(`[data-strip-menu-content][data-state="open"] [data-strip-action="${name}"]`);
 			if ((await item.getAttribute('data-disabled')) === null) await item.click();
 			else await page.keyboard.press('Escape');
 		},
 		async railPick() {
 			const n = await railButtons(page).count();
-			await railButtons(page).nth(int(n)).click();
+			const pill = railButtons(page).nth(int(n));
+			// A tap on the pill that is already current toggles the slide menu instead (strip-actions/gestures.ts), and the ⋯'s
+			// `aria-expanded` follows a render later. Read it before the tap and wait for it to flip, or the next op reads the
+			// old state and its ⋯ click undoes the toggle (seen once in 100 runs; HARD RULE #34's repeat run on #3150).
+			const trigger = page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first();
+			const wasCurrent = (await pill.getAttribute('aria-current')) === 'true';
+			const menuBefore = wasCurrent && (await trigger.isVisible()) ? await trigger.getAttribute('aria-expanded') : null;
+			await pill.click();
+			// Wait for the pick to land before the next op reads the strip (F3, engineering/decisions/2026-11-06-flaky-tests.md).
+			await expect(pill).toHaveAttribute('aria-current', 'true');
+			if (menuBefore !== null) await expect(trigger).not.toHaveAttribute('aria-expanded', menuBefore);
 		},
 		async copyPaste() {
 			const n = await page.locator('.cs-slide').count();

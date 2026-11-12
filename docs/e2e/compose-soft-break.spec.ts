@@ -1,4 +1,4 @@
-import { caretSettled, expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
+import { caretSettled, editorFocusSettled, expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
 
 // A newline inside a paragraph is a line break on the slide, so editing the paragraph keeps it.
 // followups.d/2846-p6; engineering/decisions/2026-10-21-compose-point-and-click.md §7b.
@@ -27,17 +27,23 @@ test('@crosswidth @gecko @webkit-tablet editing a paragraph keeps its line break
 	// The click's caret reaches ProseMirror through a queued `selectionchange`; wait for it, or it can land AFTER the
 	// caret set below and drag the typing back to where the click fell (HARD RULE #32: a signal, not a sleep).
 	await caretSettled(page);
+	await editorFocusSettled(page);
 	// Place the caret through the DOM selection, which ProseMirror reads: Home/End and Control+Home move differently in
 	// WebKit, and the test is about the source, not about a browser's caret keys.
-	const select = (text: string, whole: boolean) =>
-		para.evaluate(
+	// ProseMirror learns of a selection set this way only from `selectionchange`, a queued task: a key sent before it
+	// lands at the old caret, and the typed text went to the wrong line about one run in three under load (F3,
+	// engineering/decisions/2026-11-06-flaky-tests.md). Wait for it to be delivered.
+	const select = async (text: string, whole: boolean) => {
+		await para.evaluate(
 			(p, [text, whole]) => {
 				const node = [...p.childNodes].find((n) => n.nodeType === Node.TEXT_NODE && n.textContent === text);
 				if (!node) throw new Error(`no text node ${text}`);
 				document.getSelection()?.setBaseAndExtent(node, whole ? 0 : text.length, node, text.length);
 			},
 			[text, whole] as const,
-		).then(() => caretSettled(page));
+		);
+		await caretSettled(page);
+	};
 	await select('Line one', false);
 	await page.keyboard.type('!');
 	await expect.poll(() => stored(page)).toContain('Line one!\nLine two\nLine three');
@@ -54,13 +60,15 @@ test('@crosswidth @gecko @webkit-tablet Shift+Enter writes one new line, and Ent
 	await openDeck(page);
 	const para = page.locator('.cs-host p', { hasText: 'Line three' });
 	await para.click();
-	await caretSettled(page); // see the test above
+	await caretSettled(page);
+	await editorFocusSettled(page);
 	// Put the caret at the end of the last line through the DOM selection (see the test above).
 	await para.evaluate((p) => {
 		const node = [...p.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE).pop();
 		if (!node) throw new Error('no text node');
 		document.getSelection()?.setBaseAndExtent(node, node.textContent?.length ?? 0, node, node.textContent?.length ?? 0);
 	});
+	// Wait for ProseMirror to hear of that caret before the keys (see `select` in the test above).
 	await caretSettled(page);
 	await page.keyboard.press('Shift+Enter');
 	await page.keyboard.type('Line four');
