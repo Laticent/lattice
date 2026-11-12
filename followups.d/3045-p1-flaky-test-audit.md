@@ -126,6 +126,11 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             scans are a regex trace plus `scanWork`/`charReads`, and flowchart's live-layout tests run on
             `virtualClock`, which gained `settle({ done })` and `advance(ms)`. Found and fixed: `readIsland`'s
             `bareOpener` regex was quadratic on a comment of blank lines (lib/core/directive-island.mjs).
+            2026-11-12 (same PR, P2): `test/unit/trama` done, 17 hits in 1 file (pipeline-draw), no `flaky-ok`
+            needed; the baseline is now 135 hits in 72 files. Every jsdom window runs on `virtualClock`, and the
+            Worker stand-ins answer on the window's clock; the 2 s font deadline is now checked at 1 ms either side.
+            Nine mutations of the built pipeline (deadline, re-check timer, pause length, the stale-chain and
+            collapsed-stage guards) each fail a test. Next by weight: `test/unit/plugins` (15).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.

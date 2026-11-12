@@ -212,9 +212,6 @@
     "test/unit/tools/wait-for.test.js": {
       "clock-assert": 4
     },
-    "test/unit/trama/pipeline-draw.test.js": {
-      "fixed-sleep": 17
-    },
     "test/unit/transformers/logo-marks.test.js": {
       "fixed-sleep": 5
     },
