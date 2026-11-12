@@ -457,6 +457,8 @@ describe('commentSites: an opener inside code', () => {
     assert.equal(cls('## T\n\n~~~md\n<!-- _footer: f\n~~~\n\n<!-- {layout=kpi} -->'), 'kpi');
     // A record written inside the fence is still code.
     assert.equal(cls('## T\n\n```\n<!-- {layout=kpi} -->\n```'), undefined);
+    // An opener inside an inline code span is text too.
+    assert.equal(cls('## T\n\nUse `<!--` here.\n\n<!-- {layout=kpi} -->'), 'kpi');
   });
   test('the scan resumes at the end of the code, so the next real comment is its own site', () => {
     const src = '```\n<!-- x\n```\n\n<!-- {a=1} -->';

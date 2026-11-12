@@ -35,3 +35,4 @@
   place the field is set, so the slide panel still edits the record. A field set twice shows the value that wins.
 - **A record after an unclosed `<!--` inside a code block applies again.** The engine paired the fenced `<!--` with
   the record's own `-->` and dropped both as code, so `<!-- {layout=kpi} -->` after such a block did nothing.
+- **A record after an unclosed `<!--` inside an inline code span applies again**, for the same reason.

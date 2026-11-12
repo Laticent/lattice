@@ -284,22 +284,22 @@ type LineKind = 'blank' | 'comment' | 'list' | 'indented' | 'para' | 'other';
 function lineKinds(lines: string[]): LineKind[] {
 	const kinds: LineKind[] = [];
 	let inComment = false;
-	// The open fence's marker (``` or ~~~, at least three), or '' outside one. A fence's lines are code, not comments
-	// or list items: an unclosed `<!--` inside one swallowed the rest of the slide (the checker on #3136).
-	let fence = '';
+	// Fenced code is code, not comments or list items: an unclosed `<!--` inside one swallowed the rest of the slide.
+	// The shared CommonMark scan (`fenceRanges`) decides where a fence opens and closes, a closer indented differently
+	// included; every line of one fence, blank lines too, takes one kind from its opener: inside a list item (indented)
+	// it is that item's text, at the margin it ends any list (the checkers on #3136).
+	const text = lines.join('\n');
+	const fences = fenceRanges(text).map(([start, end]) => ({ start, end, kind: (/^[ \t]/.test(text.slice(start, start + 1)) ? 'indented' : 'other') as LineKind }));
+	let at = 0;
+	let f = 0;
 	for (const l of lines) {
-		const marker = l.match(/^ {0,3}(`{3,}|~{3,})/)?.[1] ?? '';
-		// Inside a list item (indented) a fence is that item's text; at the margin it ends any list.
-		const code: LineKind = /^[ \t]/.test(l) ? 'indented' : 'other';
-		if (fence) {
-			kinds.push(code);
-			if (marker && marker[0] === fence[0] && marker.length >= fence.length && !l.trim().slice(marker.length).trim()) fence = '';
-		} else if (inComment) {
+		while (f < fences.length && fences[f].end < at) f++;
+		const fence = f < fences.length && at >= fences[f].start && at <= fences[f].end ? fences[f] : null;
+		at += l.length + 1;
+		if (fence) kinds.push(fence.kind);
+		else if (inComment) {
 			kinds.push('comment');
 			if (l.includes('-->')) inComment = false;
-		} else if (marker) {
-			kinds.push(code);
-			fence = marker;
 		} else if (!l.trim()) kinds.push('blank');
 		else if (/^[ \t]*<!--/.test(l)) {
 			kinds.push('comment');

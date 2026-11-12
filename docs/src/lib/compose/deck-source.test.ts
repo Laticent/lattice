@@ -356,6 +356,9 @@ describe('splitSlideDirectives and the lock: the second review of #3136', () => 
 		expect(hasLossyConstruct(splitSlideDirectives('## T\n\n- a\n<!-- speaker note -->\n<!-- _class: dark -->\n- b').prose)).toBe(true);
 		// An unclosed `<!--` inside a fence is code: it does not hide the list above the setting.
 		expect(splitSlideDirectives('## T\n\n```\n<!-- x\n```\n\n- a\n\n<!-- _class: dark -->\n\n- b').directives).toEqual([]);
+		// A blank line inside an item's fence, or a closer indented past its opener, does not end the item (the fourth review).
+		expect(splitSlideDirectives('## T\n\n- a\n  ```\n  x\n\n  y\n  ```\n\n<!-- _class: dark -->\n\n- b').directives).toEqual([]);
+		expect(splitSlideDirectives('## T\n\n- a\n  ```\n  x\n    ```\n\n<!-- _class: dark -->\n\n- b').directives).toEqual([]);
 		// A fence inside an item is the item's text: a setting after it, between two lists, stays.
 		expect(splitSlideDirectives('## T\n\n- a\n  ```\n  x\n  ```\n\n<!-- _class: dark -->\n\n- b').directives).toEqual([]);
 		// A bare directive under an item still locks: editable, the whole slide is re-serialized (see strandsADirective).
