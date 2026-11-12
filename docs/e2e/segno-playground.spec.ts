@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { pauseFrames } from './frame-clock';
 
 // The /segno grammar playground, driven through its hostile grammars in all three engines.
 //
@@ -146,6 +147,8 @@ function table(project: string, width: number, rows: Row[]): string {
 for (const tag of [' @gecko', ' @webkit-tablet']) {
 	for (const width of WIDTHS) {
 		test(`the /segno playground answers every hostile grammar at ${width}px${tag}`, async ({ page }, testInfo) => {
+			// On Playwright's clock (flowing at the real pace until step 13 stops it), so step 13's cadence is exact.
+			await page.clock.install();
 			test.setTimeout(240_000);
 			await page.setViewportSize({ width, height: HEIGHT[width] });
 			const pageErrors: string[] = [];
@@ -284,21 +287,27 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 				await test.step('13 typing during a runaway still stops it', async () => {
 					await input.fill(LONG_TEXT);
 					await arm(page, STOPPED);
+					// THE CADENCE IS THE INPUT, so it runs on the page's clock (HARD RULE #32): stopped here, then moved
+					// exactly 250 ms per keystroke. The build's 1.5 s budget is a page timer, so it fires at 1.5 s of
+					// that clock however slow the runner is; the old loop slept 250 ms of real time, and WebKit's round
+					// trips stretched each turn, so as few as 2 keys could span the budget.
+					await pauseFrames(page);
 					await code.fill(runaway);
 					let keys = 0;
-					const deadline = Date.now() + 10_000;
-					while (Date.now() < deadline && !STOPPED.test((await verdict.textContent()) ?? '')) {
+					// 40 keystrokes is 10 s of the page's clock, far past the 1.5 s budget.
+					for (let i = 0; i < 40 && !STOPPED.test((await verdict.textContent()) ?? ''); i++) {
 						// `y`, the runaway's own leaf: the caret can sit anywhere after fill() (Gecko puts it
 						// first), and any other key there makes the text fail at once instead of running away.
 						await input.press('y');
 						keys += 1;
-						await page.waitForTimeout(250);
+						await page.clock.runFor(250);
 					}
+					await page.clock.resume();
 					const { ms } = await landed(page, 1_000);
-					// WebKit's evaluate round trips stretch each loop past 250 ms, so 2 keys can span the 1.5 s.
-					expect(keys).toBeGreaterThan(1);
+					// Virtual milliseconds: the budget is 1.5 s, and the stop lands within one 250 ms keystroke of it.
+					expect(keys).toBeGreaterThan(4);
 					expect(ms).toBeGreaterThan(1_400);
-					expect(ms).toBeLessThan(4_000);
+					expect(ms).toBeLessThan(2_000);
 					record({ step: 13, what: 'typing every 250 ms during a runaway', result: `stopped after ${keys} keystrokes`, ms });
 				});
 

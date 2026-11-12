@@ -77,3 +77,15 @@ export async function documentSettled(target: Page | Frame, within = ':root'): P
 		await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 	}, within);
 }
+
+/**
+ * A layout change has run its course: two frames (a `ResizeObserver` reports after the layout of the frame the size
+ * changed in), React's scheduler (a remount or state that observer set), and two frames again (the layout that render
+ * asked for). For a check that reads geometry after a resize or a remount.
+ */
+export async function layoutSettled(target: Page | Frame): Promise<void> {
+	const frames = () => target.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+	await frames();
+	await schedulerDrained(target);
+	await frames();
+}

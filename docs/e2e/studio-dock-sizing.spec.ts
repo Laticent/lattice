@@ -1,3 +1,4 @@
+import { layoutSettled, schedulerDrained } from './barriers';
 import { CHROME, expect, gotoStudio, openChat, openInspector, test } from './studio-fixture';
 
 // The Studio's docked panels share one size contract (studio/dock-layout.ts,
@@ -120,13 +121,20 @@ test('desktop: a reload restores the person\'s editor collapse without re-showin
 		}).observe(document, { subtree: true, childList: true, characterData: true });
 	});
 	const toasted = () => page.evaluate(() => (window as unknown as { __toasted: boolean }).__toasted);
+	await page.clock.install(); // so Sonner's publish timer can be stepped past, below
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
 	await page.getByRole('button', { name: /Collapse editor/ }).first().click();
 	await expect.poll(toasted).toBe(true); // their own collapse still says so
 	await page.reload();
 	await expect.poll(async () => (await widths(page))['studio-editor']).toBeLessThan(60);
-	await page.waitForTimeout(4000);
+	// The restore has landed. A toast for it would come from the collapse the restore looks like: a ResizeObserver
+	// reports it after the frame's layout, Sonner publishes a macrotask late, and React renders it. So: two frames,
+	// the page clock stepped past Sonner's timer, React's scheduler, and the MutationObserver above has seen any toast
+	// (it accumulates, so the toast's own short life cannot hide it). Was a 4000 ms wait (HARD RULE #32).
+	await layoutSettled(page);
+	await page.clock.runFor(500);
+	await schedulerDrained(page);
 	expect(await toasted()).toBe(false);
 	expect(await page.evaluate(() => sessionStorage.getItem('lattice-docs-split-studio-collapsed'))).toBe('a');
 });

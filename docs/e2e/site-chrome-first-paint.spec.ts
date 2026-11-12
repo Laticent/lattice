@@ -1,3 +1,4 @@
+import { layoutSettled } from './barriers';
 import { expect, test } from './studio-fixture';
 
 // ── The shared header's controls must not fill themselves in while you watch (#1592) ──────
@@ -114,10 +115,10 @@ for (const route of ['/', '/playground/', '/components/']) {
 		await expect
 			.poll(() => page.evaluate(() => !!document.querySelector('astro-island[component-url*="NavActions"]:not([ssr])')), { timeout: 40_000 })
 			.toBe(true);
-		// One dwell after it, and it is the measurement window rather than a settle: the defect
-		// was a correction pass, so the case has to keep watching for a beat AFTER the moment
-		// that pass would have run.
-		await page.waitForTimeout(1500);
+		// Then past the moment the correction pass the defect was would have run: it is a hydration
+		// effect, so React's scheduler (the effect, and the render it asks for), then two frames for
+		// that layout to reach the per-frame sampler. Was a 1500 ms dwell (HARD RULE #32).
+		await layoutSettled(page);
 
 		const log = shown((await page.evaluate(() => (window as unknown as { __hdr: Sample[] }).__hdr)) as Sample[]);
 		expect(log.length, 'the sampler never saw the header — the assertions below would be vacuous').toBeGreaterThan(0);

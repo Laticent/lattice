@@ -148,10 +148,12 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 		expect(docLines.filter((l) => l === t).length, `sampled slide ${i}'s first editable line ${JSON.stringify(t)} is not unique in the deck, so it cannot identify a rendered line`).toBe(1);
 	}
 	const TOLERANCE = 40; // ~1.5 lines: absorbs yMargin + rounding, far under one slide
-	// Generous against the measured settle (61–225ms on an unloaded box, and the poll's own 100ms step
-	// quantizes it) while still an order of magnitude under a stall a human would notice. Wide enough
-	// that CI contention alone should not trip it; narrow enough to catch a deferred or dropped scroll.
-	const SETTLE_BUDGET_MS = 1_500;
+	// THE SETTLE IS COUNTED IN FRAMES, not timed (HARD RULE #32, F1). The reveal is a scroll the click dispatches and
+	// CodeMirror lays out on its next measure, so a prompt one lands within a handful of the page's own frames on any
+	// machine; a deferred one (the 2.5 s defer that motivated the old budget) needs well over a hundred. A loaded runner
+	// paints fewer frames per second, which only makes a deferral cheaper in frames, never a prompt reveal dearer.
+	// 30 frames is half a second at 60 fps, several times what a prompt reveal takes.
+	const SETTLE_FRAMES = 30;
 	// The caret is only readable when the editor took focus, which on this project it does:
 	// `StudioShell.goToSlide` passes `focus: hasFinePointer()`, and the desktop project reports
 	// `(hover: hover) and (pointer: fine)` — verified, not assumed. A rail pick on a TOUCH device
@@ -159,9 +161,10 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 	// desktop-only by design. Where the caret cannot be read the index is recorded and reported rather
 	// than silently passed.
 	const caretUnmeasured: number[] = [];
-	const measure = (text: string) =>
+	const measure = (text: string, waitFrames = 0) =>
 		page.evaluate(
-			({ text }: { text: string }) => {
+			async ({ text, waitFrames, tolerance }: { text: string; waitFrames: number; tolerance: number }) => {
+				const sample = () => {
 				const scroller = document.querySelector('.cm-scroller');
 				if (!scroller) return null;
 				const s = scroller.getBoundingClientRect();
@@ -189,8 +192,19 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 				const caretLine = node instanceof HTMLElement ? (node.textContent ?? '').trim() : null;
 				if (!el) return { found: false, offset: 0, atTopText, caretLine };
 				return { found: true, offset: Math.round(el.getBoundingClientRect().top - s.top), atTopText, caretLine };
+				};
+				// With `waitFrames`, sample once per animation frame until the line is framed or the frames run out, and
+				// say how many it took: the settle is counted in the page's own frames, never in milliseconds.
+				let m = sample();
+				let frames = 0;
+				while (waitFrames > 0 && frames < waitFrames && (!m?.found || Math.abs(m.offset) > tolerance)) {
+					await new Promise((r) => requestAnimationFrame(r));
+					frames++;
+					m = sample();
+				}
+				return m ? { ...m, frames } : null;
 			},
-			{ text },
+			{ text, waitFrames, tolerance: TOLERANCE },
 		);
 	for (const i of indices) {
 		await railButtons(page).nth(i).click();
@@ -210,20 +224,13 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 		// Yield a frame first so the loop cannot open that window. (In practice Playwright's click
 		// round-trip already outlasts a frame — measured 44–225ms — but "in practice" is not a contract.)
 		await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => r(null))));
-		// AND THE POLL IS BOUNDED ON *TIME*, not just on correctness. Polling to success trades away the
-		// one thing the fixed sleep it replaced still measured: a reveal that lands correctly but SLOWLY
-		// used to fail (the 350ms wait expired and the assertion read a stale position); a poll absorbs
-		// any stall shorter than its deadline and reports green. That was demonstrated, not feared —
-		// deferring the scroll dispatch by 2.5s passes this test post-poll and FAILS it pre-poll. So the
-		// settle time is now part of the assertion: correct AND prompt, or it reports.
-		const t0 = Date.now();
-		const deadline = t0 + 5_000;
-		let m = await measure(want);
-		while ((!m?.found || Math.abs(m.offset) > TOLERANCE) && Date.now() < deadline) {
-			await page.waitForTimeout(100);
-			m = await measure(want);
-		}
-		const settleMs = Date.now() - t0;
+		// AND THE SETTLE IS PART OF THE ASSERTION: correct AND prompt. Polling to success alone would absorb any stall
+		// shorter than its deadline and report green (deferring the scroll dispatch by 2.5 s passed a plain poll and
+		// failed the old sleep, demonstrated). So the frames it took are counted and held to a budget.
+		// One evaluate that samples every frame until the line is framed, bounded at SETTLE_FRAMES; a stall past
+		// that is reported below, by its frame count.
+		const m = await measure(want, SETTLE_FRAMES + 1);
+		const settleFrames = m?.frames ?? 0;
 		if (!m) {
 			wrong.push(`rail ${i}: no editor scroller found`);
 		} else if (!m.found) {
@@ -232,9 +239,9 @@ test('jargon deck: the editor frames the slide the rail selected', async ({ page
 			wrong.push(
 				`rail ${i}: slide ${i}'s first editable line ${JSON.stringify(want)} sits ${m.offset}px from the top of the editor (want 0 ±${TOLERANCE}) — a different slide is framed; the line at the top is ${JSON.stringify(m.atTopText)}`,
 			);
-		} else if (settleMs > SETTLE_BUDGET_MS) {
+		} else if (settleFrames > SETTLE_FRAMES) {
 			wrong.push(
-				`rail ${i}: the editor framed the right slide but took ${settleMs}ms to do it (budget ${SETTLE_BUDGET_MS}ms) — a reveal this slow is a visible stall after every rail click`,
+				`rail ${i}: the editor framed the right slide but took ${settleFrames} frames to do it (budget ${SETTLE_FRAMES}) — a reveal this slow is a visible stall after every rail click`,
 			);
 		} else if (m.caretLine === null) {
 			caretUnmeasured.push(i);
@@ -304,13 +311,22 @@ test('jargon deck: clicking into a slide previews THAT slide', async ({ page }) 
 		const line = page.locator('.cm-line', { hasText: target }).first();
 		// Scroll (not reveal) until the line is built. Bounded; a line that never appears was virtualized
 		// away, which is this loop's SKIP — counted below, never silent.
-		const deadline = Date.now() + 10_000;
-		while ((await line.count()) === 0 && Date.now() < deadline) {
-			await page.locator('.cm-scroller').evaluate((el) => {
-				el.scrollTop += 600;
-			});
-			await page.waitForTimeout(50);
-		}
+		// Scroll a step per poll until the line is built (bounded); `expect.poll` paces the steps, not a sleep.
+		await expect
+			.poll(
+				async () => {
+					if ((await line.count()) > 0) return true;
+					await page.locator('.cm-scroller').evaluate((el) => {
+						el.scrollTop += 600;
+					});
+					return (await line.count()) > 0;
+				},
+				// A short fixed tick, as the hand-rolled loop had: the default back-off (up to 1 s between tries)
+				// made too few 600px steps to reach the far slides inside the bound.
+				{ timeout: 10_000, intervals: [50] },
+			)
+			.toBe(true)
+			.catch(() => {});
 		if ((await line.count()) === 0) {
 			skipped.push(i);
 			continue;

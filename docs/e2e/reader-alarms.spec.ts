@@ -110,7 +110,6 @@ test('@smoke docs: EVERY inspected preview frame is really watched', async ({ pa
 	const frames = await slideFrames(page);
 	expect(frames.length, 'no preview frame rendered a slide, so there is nothing to control').toBeGreaterThan(0);
 
-	const silent: number[] = [];
 	for (const i of frames) {
 		const frame = page.frameLocator(`${FRAME} >> nth=${i}`);
 		await frame.locator('section[data-lattice-slide]').first().evaluate((s: Element) => {
@@ -120,8 +119,17 @@ test('@smoke docs: EVERY inspected preview frame is really watched', async ({ pa
 			);
 		});
 	}
-	// One shared settle: the watcher is debounced, and 3s per frame would blow the smoke budget.
-	await page.waitForTimeout(3000);
+	// Not a settle (HARD RULE #32): the watcher is debounced, and what it does when it fires is the thing asserted, so
+	// wait for that. Every frame must come to carry `section.illegible`; one that never does is reported by name.
+	const notYetMarked = async () => {
+		const left: number[] = [];
+		for (const i of frames) {
+			const frame = page.frameLocator(`${FRAME} >> nth=${i}`);
+			if ((await frame.locator('section.illegible').count().catch(() => 0)) === 0) left.push(i);
+		}
+		return left;
+	};
+	await expect.poll(notYetMarked, { timeout: 30_000, message: 'the watcher never marked these frames: it is not running there, so the "zero alarms" assertion proves nothing about them' }).toEqual([]);
 	// …AND the helper the sibling test's assertions run through must SEE it.
 	//
 	// This half is the control on the CONTROL. Every `paintedMarkers()` assertion in
@@ -134,7 +142,6 @@ test('@smoke docs: EVERY inspected preview frame is really watched', async ({ pa
 	const blind: number[] = [];
 	for (const i of frames) {
 		const frame = page.frameLocator(`${FRAME} >> nth=${i}`);
-		if ((await frame.locator('section.illegible').count().catch(() => 0)) === 0) silent.push(i);
 		const m = await frame.locator('body').evaluate(paintedMarkers).catch(() => null);
 		if (!m || m.total === 0) blind.push(i);
 	}
@@ -145,8 +152,4 @@ test('@smoke docs: EVERY inspected preview frame is really watched', async ({ pa
 			+ 'the helper cannot see what it is asked to assert the absence of, so every `toBe(0)` built on it is vacuous',
 	).toEqual([]);
 
-	expect(
-		silent,
-		`frame(s) ${silent.join(', ')} of ${frames.length} did not react to a 4px figure — the watcher is not running there, so the "zero alarms" assertion proves nothing about them`,
-	).toEqual([]);
 });
