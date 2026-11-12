@@ -354,7 +354,7 @@ What it settles:
   The scheduler retries only answers no provider bills: 429, 5xx, no answer.
 - **No voice worker for the network fetch.** S2 moved the export's packing, the measured cost, off the
   main thread. Moving the rungs' fetch and Gemini's decode needs the sealed-key reader and the
-  model-gone and billing latches off the main thread. Recorded in `followups.d/3140-p3-voice-fetch-worker.md`.
+  model-gone and billing latches off the main thread. Recorded in `followups.d/3140-p3-voice-fetch-worker.md`, since closed: §9.6 moved the decode and measured the fetch as not worth moving.
 - **The voice ladder is not deleted.** It is unrelated to speed and reworks about 92 test setups. It
   stays deferred where it already was (`followups.d/3079-p3-delete-the-voice-ladder.md`).
 - **Not built from §3:** the breaker's "waiting for the voice service" message, and the export panel's
@@ -404,3 +404,57 @@ Round 1 did both, and both found something.
   - The time quote still charged the encode as if it were serial; it is now divided by the pack pool size.
   - The kernel's comment overstated a memory guarantee the narration caller does not get; it is corrected.
   - A worker's "no encoder" answer is now confirmed on the main thread before the export refuses.
+
+### 9.6 Gemini's decode moves to a worker (2026-11-12)
+
+This closes `followups.d/3140-p3-voice-fetch-worker.md`. Only the decode moved. The fetch stays on the main thread,
+because the trace shows it costs nothing worth moving.
+
+**What was measured.** Gemini answers each clip as base64 inside a JSON body. `geminiTtsRung` used to parse that JSON
+and decode the base64 on the main thread, in a `charCodeAt` loop. The setup: in real Chromium 153 at 4x CPU throttling
+(a mid-range phone), Present read a two-slide deck of eight sentences on a mocked Gemini, and a Chromium timeline trace
+with CPU sampling attributed every main-thread task.
+
+| clip length, throttle | decode on the main thread, before → after | long tasks from decoding, before → after |
+|---|---|---|
+| 20 s, 4x (2 runs) | 161 ms, 148 ms → 42 ms, 45 ms | 81 + 87 ms, 75 + 76 ms → none |
+| 8 s, 4x (2 runs) | 58 ms, 30 ms → 29 ms, 29 ms | none → none |
+| 8 s, 6x (1 run) | 147 ms → 74 ms | none → none |
+
+- **At phone width.** The same trace at 390 px (Chromium's `mobile` project) after the change: no long task from
+  decoding at 4x (two runs, 47 and 33 ms of main-thread decode) or at 6x (one run, 59 ms). No before trace was taken at
+  this width; the decode code is the same at every width.
+- **What the main thread still does.** About 5 ms per clip at 4x. It copies the response body as a spare for the
+  fallback path, wraps the answer in a `Blob`, and calls `fetch`; the `fetch` call cost the same before. None of it
+  reaches a long task.
+- **The long-task observer misses this.** In untraced runs, `PerformanceObserver('longtask')` reported the same single
+  80–130 ms task (Present's own startup) whether the clips lasted 0.3 s or 20 s. Each decode lands just under its 50 ms
+  threshold when no profiler runs. Only the trace's CPU samples tie a task to the decode, so the trace is the evidence.
+- **Measured with the decode inline, outside Present.** At 4x, JSON parsing plus base64 decoding takes 19 ms for an 8 s
+  clip, 51 ms for 20 s and 123 ms for 40 s. The native `Uint8Array.fromBase64` saves 20–45% of that. The JSON parse
+  stays, so the native call alone would not have been enough.
+
+**What was built.**
+
+- **`voice-decode.js`.** The pure decoder, with no imports. It holds the one PCM-geometry parser and the WAV wrap,
+  which moved here from `voice-model.js` so the worker and the main thread write the same bytes. It uses
+  `Uint8Array.fromBase64` where the engine has it.
+- **`voice-decode-worker.js` and `voice-decode-pool.js`.** One worker on the shared worker-pool kernel
+  (`docs/src/lib/worker-pool.js`). It starts on the first Gemini clip and ends a minute after the last one.
+- **What the rung does now.** `geminiTtsRung` reads the body as bytes and transfers it to the worker.
+- **Failures.** A bad answer (no audio, unreadable JSON) comes back as a value, so it fails that one clip without
+  breaking the worker. A worker that crashes or goes silent falls back to the main thread, as the export's packers do.
+
+**Why the fetch stays where it is.**
+
+- The trace puts the `fetch` call at about 1 ms per clip.
+- The network transfer already runs off the main thread in every browser.
+- Moving `fetch` into the worker would also move the sealed-key read and the model-gone and billing latches, and
+  would buy nothing measurable.
+- The OpenRouter PCM path stays too. It only copies bytes into a WAV header, with no parse and no decode.
+
+**How it is pinned.** `docs/src/playground/voice-decode.test.ts` holds the worker and the main-thread fallback to the
+same bytes. It also shows that a bad answer does not break the worker, that a dead worker loses no clip, and that Node decodes inline without starting a pool. A mutant worker that throws fails three of its tests.
+`docs/e2e/model-spine.spec.ts` (*Present decodes a Gemini clip on a worker…*) runs on Chromium (desktop and phone width), WebKit (iPad and iPhone) and Firefox.
+It checks that the decode worker starts and decodes without falling back to the main thread (the pool warns when it falls back), and that a 16 kHz L16 answer plays at exactly 1.25 s, which only happens when
+the WAV header was written at the declared rate. It checks where the work runs, never how long it takes (HARD RULE #32).
