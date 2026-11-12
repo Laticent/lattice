@@ -103,8 +103,53 @@
     "docs/src/playground/voice-model.test.ts": {
       "fixed-sleep": 8
     },
+    "test/integration/components/bucket-galleries.test.js": {
+      "env-skip": 4
+    },
+    "test/integration/components/component-conformance.test.js": {
+      "env-skip": 2
+    },
+    "test/integration/components/component-galleries.test.js": {
+      "env-skip": 3
+    },
     "test/integration/export-nightly/npm-plugin-export-check.test.js": {
       "fixed-sleep": 2
+    },
+    "test/integration/export/calco-refusals.test.js": {
+      "env-skip": 1
+    },
+    "test/integration/export/cli-camera-isolation.test.js": {
+      "env-skip": 2
+    },
+    "test/integration/export/code-package-door.test.js": {
+      "env-skip": 2
+    },
+    "test/integration/export/export-formats.test.js": {
+      "env-skip": 1
+    },
+    "test/integration/export/marp-admission.test.js": {
+      "env-skip": 3
+    },
+    "test/integration/export/marp-bundle-author-script.test.js": {
+      "env-skip": 11
+    },
+    "test/integration/export/marp-bundle-shell-grammar.test.js": {
+      "env-skip": 4
+    },
+    "test/integration/export/marp-kit-render.test.js": {
+      "env-skip": 7
+    },
+    "test/integration/export/marp-kit-video.test.js": {
+      "env-skip": 9
+    },
+    "test/integration/export/marp-video-link.test.js": {
+      "env-skip": 4
+    },
+    "test/integration/export/marp-vscode-css-parity.test.js": {
+      "env-skip": 1
+    },
+    "test/integration/export/slide-camera-pseudo-content.test.js": {
+      "env-skip": 1
     },
     "test/integration/invariants/axe-a11y.test.js": {
       "fixed-sleep": 1
@@ -120,6 +165,9 @@
     },
     "test/integration/invariants/slide-contrast.test.js": {
       "fixed-sleep": 1
+    },
+    "test/integration/invariants/slide-edge-census.test.js": {
+      "env-skip": 1
     },
     "test/integration/invariants/team-profile-capacity.test.js": {
       "fixed-sleep": 1
@@ -142,8 +190,14 @@
     "test/integration/mermaid/preview-diagram-face.test.js": {
       "fixed-sleep": 1
     },
+    "test/integration/type-voices/typography-sets.test.js": {
+      "env-skip": 2
+    },
     "test/unit/authoring/notes-core.test.js": {
       "clock-assert": 5
+    },
+    "test/unit/calco/serialization.test.js": {
+      "env-skip": 1
     },
     "test/unit/calco/shapes.test.js": {
       "clock-assert": 1
@@ -151,29 +205,29 @@
     "test/unit/cli/code-door-fence.test.js": {
       "clock-assert": 3
     },
+    "test/unit/cli/completion.test.js": {
+      "env-skip": 6
+    },
+    "test/unit/cli/css-modules.test.js": {
+      "env-skip": 2
+    },
     "test/unit/cli/npm-plugin-loader.test.js": {
       "clock-assert": 1
     },
     "test/unit/cli/plugin-returns.test.js": {
       "clock-assert": 2
     },
-    "test/unit/components/cartesian.test.js": {
-      "clock-assert": 1
+    "test/unit/components/code-line-width.test.js": {
+      "env-skip": 2
     },
-    "test/unit/components/chart-folder-drop.test.js": {
-      "unseeded-random": 1
+    "test/unit/css/obligation-matrix-heat-polarity.test.js": {
+      "env-skip": 4
     },
-    "test/unit/components/collage-pack.test.js": {
-      "clock-assert": 3
+    "test/unit/css/selector-validity.test.js": {
+      "env-skip": 2
     },
-    "test/unit/components/flowchart.test.js": {
-      "fixed-sleep": 9
-    },
-    "test/unit/components/hub-spoke.test.js": {
-      "clock-assert": 1
-    },
-    "test/unit/components/lint-core.test.js": {
-      "clock-assert": 4
+    "test/unit/css/split-signal-scope.test.js": {
+      "env-skip": 2
     },
     "test/unit/diagnostics/slice-equivalence-core.test.js": {
       "clock-assert": 1
@@ -187,6 +241,9 @@
     "test/unit/export/inline-url-media-differential.test.js": {
       "clock-assert": 1
     },
+    "test/unit/export/narrate-kokoro.test.js": {
+      "env-skip": 3
+    },
     "test/unit/export/player-collage-keys.test.js": {
       "fixed-sleep": 1
     },
@@ -194,7 +251,8 @@
       "clock-assert": 1
     },
     "test/unit/mermaid/label-length.test.js": {
-      "clock-assert": 2
+      "clock-assert": 2,
+      "env-skip": 1
     },
     "test/unit/plugins/admit.test.js": {
       "clock-assert": 4
@@ -218,20 +276,37 @@
     "test/unit/runtime/bundle-settings-live.test.js": {
       "fixed-sleep": 8
     },
+    "test/unit/runtime/chart-readers.test.js": {
+      "env-skip": 3
+    },
     "test/unit/runtime/code-copy-surfaces.test.js": {
       "fixed-sleep": 3
     },
     "test/unit/runtime/host-swap-layout.test.js": {
-      "fixed-sleep": 2
+      "fixed-sleep": 2,
+      "env-skip": 2
+    },
+    "test/unit/tools/style-needs-common.test.js": {
+      "env-skip": 1
     },
     "test/unit/tools/style-needs-markdown.test.js": {
       "clock-assert": 1
     },
-    "test/unit/tools/wait-for.test.js": {
-      "clock-assert": 4
+    "test/unit/tools/style-subset-default-path.test.js": {
+      "env-skip": 1
     },
-    "test/unit/trama/pipeline-draw.test.js": {
-      "fixed-sleep": 17
+    "test/unit/tools/wait-for.test.js": {
+      "clock-assert": 4,
+      "env-skip": 1
+    },
+    "test/unit/tools/warn-unbounded-wait.test.js": {
+      "env-skip": 2
+    },
+    "test/unit/trama/serialization.test.js": {
+      "env-skip": 1
+    },
+    "test/unit/transformers/compare-code.test.js": {
+      "env-skip": 2
     },
     "test/unit/transformers/logo-marks.test.js": {
       "fixed-sleep": 5

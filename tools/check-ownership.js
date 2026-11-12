@@ -9498,6 +9498,13 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 //                       function the same file built from one: `const ratio = best(poisoned) / best(clean)` where
 //                       `poisoned` times a call is caught.
 //   unseeded-random F5  `Math.random()`.
+//   disabled-test   HARD RULE #33. A test switched off by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
+//                       `test.skip(true, 'why')`, a bare `test.fixme()`, `describe.skip`, `.todo`. Budget 0, never baselined; the one
+//                       exemption is a comment block right above the call reading `// disabled: tried …; evidence <URL, file or
+//                       #N>; re-enable when …`. A skip that
+//                       depends on a value (`test.skip(browserName !== 'webkit', …)`, `{ skip: skipWithoutChrome(chrome) }`) is a
+//                       scoped test and is not counted.
+//   focused-test    HARD RULE #33. `.only` (or `{ only: true }`), which drops every other test in its file. Budget 0, no exemption.
 //
 // PARSED with TypeScript, as checkE2ESleeps is, so a comment or a string never counts and a named duration
 // (`setTimeout(r, SETTLE_MS)`) does. A line that is right as it is says so: `// flaky-ok: <why>` on the line (a deadline
@@ -9517,7 +9524,7 @@ const FLAKY_TEST_FILE = (rel) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /
 const FLAKY_TEST_SKIP = /(?:^|\/)(?:node_modules|dist|fixtures?)\//;
 const FLAKY_OK = /\/\/\s*flaky-ok:\s*\S/;
 const SLEEP_HELPERS = new Set(['sleep', 'delay', 'wait', 'pause']);
-const FLAKY_TRIGGER = /setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime/;
+const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime/;
 
 /** The shape counts of one test file's source. `rel` decides whether `waitForTimeout` is this census's (outside docs/e2e). */
 function flakyTestHits(text, rel = 'test/x.test.js') {
@@ -9646,6 +9653,80 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       if (n.arguments.some((a) => touchesClock(a))) add('clock-assert', n);
     }
   });
+
+  // HARD RULE #33: a test is never switched off without a load-bearing reason, and never focused. These shapes are counted
+  // with their own adder: a `// flaky-ok:` mark (a #32 exemption for a timing line) does not excuse them.
+  //   disabled-test  switched off on every machine by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
+  //                  `test.todo('later')`, Playwright's `test.skip(true, 'why')` and `test.fail()`, a bare `test.fixme()`. The one
+  //                  exemption is the comment block right above the statement, in order: `// disabled: tried …; evidence <a URL,
+  //                  a file or #N>; re-enable when …`. The gate reads the literal; a condition moved into the first argument
+  //                  (`test.skip(!tool, …)`) is a scoped test, and whether its condition can fire in CI is env-skip's question.
+  //   focused-test   `.only` or `{ only: true }`. No exemption.
+  //   env-skip       (node tests, not docs/e2e) a skip whose value depends on the machine — `{ skip: !fs.existsSync(B) && 'not
+  //                  built' }`, `return t.skip('no Chromium')` — that does not go through a helper which FAILS under CI
+  //                  (`skipWithoutChrome`, `skipUnlessCI` in test/helpers/chrome.js). `node --test` reports a skip as a pass, so
+  //                  a CI runner missing the tool turns the suite green. Exempt with `// ci-skip: <which CI job runs it, or why
+  //                  CI never takes this branch>` right above the statement. Baselined, so the backlog can only shrink.
+  const RUNNERS = /^(?:test|it|describe|suite|test\.describe(?:\.parallel|\.serial)?)$/;
+  const SKIP_HELPERS = /^(?:skipWithoutChrome|skipUnlessCI)$/;
+  const isLiteral = (a) => a && (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a) || ts.isTemplateExpression(a));
+  const bump = (shape) => { out[shape] = (out[shape] || 0) + 1; };
+  const notesAbove = (node) => {
+    let st = node;
+    while (st.parent && !ts.isSourceFile(st.parent) && !ts.isBlock(st.parent) && !ts.isModuleBlock(st.parent) && !ts.isCaseClause(st.parent) && !ts.isDefaultClause(st.parent)) st = st.parent;
+    return (ts.getLeadingCommentRanges(sf.text, st.getFullStart()) || []).map((r) => sf.text.slice(r.pos, r.end)).join('\n');
+  };
+  // In order, and the evidence must point at something a reviewer can open: a URL, a file (trace.zip, a log) or #N.
+  const REASON = /disabled:\s*tried\b[\s\S]+?\bevidence\b[^;]*?(?:https?:\/\/|\.(?:zip|log|txt|png|webm)\b|#\d+)[\s\S]*?\bre-?enable when\b\s*\S/i;
+  const justified = (node) => REASON.test(notesAbove(node));
+  const ciSkipOk = (node) => /\bci-skip:\s*\S/.test(notesAbove(node));
+  const viaHelper = (v) => {
+    if (!v) return false;
+    if (ts.isCallExpression(v) && ts.isIdentifier(v.expression) && SKIP_HELPERS.test(v.expression.text)) return true;
+    if (ts.isIdentifier(v)) { const d = resolve(v); return !!d && viaHelper(d); }
+    if (ts.isParenthesizedExpression(v)) return viaHelper(v.expression);
+    return false;
+  };
+  const isTrue = (v) => v && (v.kind === ts.SyntaxKind.TrueKeyword || (ts.isNumericLiteral(v) && Number(v.text) !== 0) || (ts.isPrefixUnaryExpression(v) && v.operator === ts.SyntaxKind.ExclamationToken && ts.isNumericLiteral(v.operand) && Number(v.operand.text) === 0));
+  const isFalse = (v) => v && (v.kind === ts.SyntaxKind.FalseKeyword || v.kind === ts.SyntaxKind.NullKeyword || v.kind === ts.SyntaxKind.UndefinedKeyword || (ts.isIdentifier(v) && v.text === 'undefined') || ((ts.isStringLiteral(v) || ts.isNoSubstitutionTemplateLiteral(v)) && v.text === ''));
+  const keyName = (p) => (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name) ? p.name.text : '');
+  each(sf, (n) => {
+    if (!ts.isCallExpression(n)) return;
+    const e = n.expression;
+    if (ts.isPropertyAccessExpression(e) && RUNNERS.test(e.expression.getText(sf))) {
+      const m = e.name.text;
+      if (m === 'only') { bump('focused-test'); return; }
+      if (!/^(?:skip|fixme|todo|fail)$/.test(m)) return;
+      const [a0, a1] = n.arguments;
+      // On every machine: no argument, a true first argument, a title (`test.todo('later')`, `test.skip('title', fn)`), or a
+      // title held in a name followed by the test body. Playwright's conditional form, `test.skip(cond, 'why')`, is a
+      // scoped test: its second argument is a string, never a function.
+      const always = !a0 || isTrue(a0) || isLiteral(a0) || (a1 && ts.isFunctionLike(a1));
+      if (always && !justified(n)) bump('disabled-test');
+    } else if (ts.isIdentifier(e) && RUNNERS.test(e.text)) {
+      for (const a of n.arguments) {
+        if (!ts.isObjectLiteralExpression(a)) continue;
+        for (const p of a.properties) {
+          if (!ts.isPropertyAssignment(p)) continue;
+          const k = keyName(p);
+          const v = p.initializer;
+          const literal = isTrue(v) || ((ts.isStringLiteral(v) || ts.isNoSubstitutionTemplateLiteral(v)) && v.text !== '');
+          if (k === 'only' && literal) bump('focused-test');
+          else if ((k === 'skip' || k === 'todo') && literal) { if (!justified(n)) bump('disabled-test'); }
+          else if ((k === 'skip' || k === 'todo') && !inE2E && !isFalse(v) && !viaHelper(v) && !ciSkipOk(n)) bump('env-skip');
+        }
+      }
+    } else if (!inE2E && ts.isPropertyAccessExpression(e) && ts.isIdentifier(e.expression) && !RUNNERS.test(e.expression.text) && /^(?:skip|todo)$/.test(e.name.text)) {
+      // node's test context: `t.skip('reason')`, `return ctx.skip(why)`. Inside a test body, it is decided at run time, so
+      // only a helper-built reason (`const why = skipUnlessCI(…); if (why) return t.skip(why)`) or a ci-skip note passes.
+      // Only the test's own context: the first parameter of the nearest function passed to test()/it()/describe().
+      let f = n.parent;
+      while (f && !ts.isFunctionLike(f)) f = f.parent;
+      const p0 = f && f.parameters && f.parameters[0];
+      const isCtx = p0 && ts.isIdentifier(p0.name) && p0.name.text === e.expression.text && f.parent && ts.isCallExpression(f.parent) && ts.isIdentifier(f.parent.expression) && RUNNERS.test(f.parent.expression.text);
+      if (isCtx && !viaHelper(n.arguments[0]) && !ciSkipOk(n)) bump('env-skip');
+    }
+  });
   return out;
 }
 
@@ -9678,6 +9759,21 @@ function flakyTestFindings(tree, baseline) {
     for (const shape of new Set([...Object.keys(got), ...Object.keys(want)])) {
       const g = got[shape] || 0;
       const w = want[shape] || 0;
+      if (shape === 'disabled-test' || shape === 'focused-test') {
+        // Budget 0, never baselined: a backlog of switched-off tests is exactly what HARD RULE #33 forbids.
+        if (w) errors.push(`tools/flaky-test-baseline.json lists ${w} ${shape} for ${file}; that shape is never baselined (HARD RULE #33). Delete the entry.`);
+        if (g && shape === 'focused-test') {
+          errors.push(`focused test in ${file}: ${g} \`.only\` (HARD RULE #33) — Playwright drops every other test in its file, and node runs it alone under --test-only. Remove the \`.only\`.`);
+        } else if (g) {
+          errors.push(
+            `disabled test in ${file}: ${g} switched off with no load-bearing reason (HARD RULE #33) — fix the failure at its root ` +
+            `instead. Disabling is the last resort for a cause that could not be found, and the comment block right above the ` +
+            `call must read \`// disabled: tried <what you tried>; evidence <a run URL, a trace file or #N>; re-enable when <condition>\`. A ` +
+            `missing browser or tool is installed, not skipped: use skipWithoutChrome (test/helpers/chrome.js), which fails in CI.`,
+          );
+        }
+        continue;
+      }
       if (g > w) {
         errors.push(
           `flaky test shape in ${file}: ${g} ${shape} where the baseline allows ${w} (HARD RULE #32) — a test passes or fails on ` +
@@ -9691,6 +9787,52 @@ function flakyTestFindings(tree, baseline) {
     }
   }
   return errors;
+}
+
+/**
+ * HARD RULE #34: Playwright never retries. A retry turns a flaky test into a pass nobody sees, so `retries` in
+ * docs/playwright.config.ts must be the literal 0 (not `isCI ? 1 : 0`). A `--retries` flag on the command line is
+ * reviewed in the workflow; this holds the default every run inherits.
+ */
+function playwrightRetriesFindings(text, rel = 'docs/playwright.config.ts', { optional = false } = {}) {
+  const ts = require('typescript');
+  const sf = ts.createSourceFile(rel, String(text), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const found = [];
+  const each = (n) => {
+    if (ts.isPropertyAssignment(n) && (ts.isIdentifier(n.name) || ts.isStringLiteral(n.name)) && n.name.text === 'retries') found.push(n.initializer);
+    n.forEachChild(each);
+  };
+  each(sf);
+  if (!found.length && optional) return [];
+  if (!found.length) return [`${rel} sets no \`retries\`; Playwright's default is 0 today, but state \`retries: 0\` so the rule is visible (HARD RULE #34).`];
+  return found
+    .filter((v) => !(ts.isNumericLiteral(v) && Number(v.text) === 0))
+    .map((v) => `${rel}: \`retries: ${v.getText(sf)}\` — Playwright must never retry (HARD RULE #34): a retry turns a flaky test into a pass nobody sees. Set it to 0 and fix the flake at its cause (#33).`);
+}
+
+function checkPlaywrightRetries(errors, file = path.join(ROOT, 'docs', 'playwright.config.ts')) {
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch (e) {
+    errors.push(`could not read ${path.relative(ROOT, file)} (${e.message}) to check its retries (HARD RULE #34).`);
+    return;
+  }
+  errors.push(...playwrightRetriesFindings(text, path.relative(ROOT, file)));
+  // A spec can override it: `test.describe.configure({ retries: 2 })`. Every docs/e2e file is held to 0 too.
+  const e2e = path.join(path.dirname(file), 'e2e');
+  let names = [];
+  try {
+    // Recursive: docs/e2e/journeys/ and docs/e2e/scenarios/ hold specs too.
+    names = fs.readdirSync(e2e, { recursive: true }).map(String).filter((n) => /\.[cm]?[jt]s$/.test(n) && !/(?:^|[\\/])node_modules[\\/]/.test(n));
+  } catch {
+    return;
+  }
+  for (const n of names) {
+    const src = fs.readFileSync(path.join(e2e, n), 'utf8');
+    if (!/\bretries\b/.test(src)) continue;
+    errors.push(...playwrightRetriesFindings(src, path.relative(ROOT, path.join(e2e, n)), { optional: true }));
+  }
 }
 
 function checkFlakyTests(errors, root = ROOT, baselineFile = FLAKY_TEST_BASELINE_FILE) {
@@ -15728,6 +15870,7 @@ function run() {
   checkMediaSourceCensus(errors);
   checkSecuritySpineCensus(errors);
   checkFlakyTests(errors);
+  checkPlaywrightRetries(errors);
   checkRegexCensus(errors);
   checkPlatformSuites(errors);
   checkRunnerPins(errors);
@@ -15996,6 +16139,8 @@ module.exports = {
   regexVerdictOf,
   REGEX_CENSUS_FILE,
   flakyTestHits,
+  playwrightRetriesFindings,
+  checkPlaywrightRetries,
   flakyTestTree,
   flakyTestFindings,
   spineCensusHits,
