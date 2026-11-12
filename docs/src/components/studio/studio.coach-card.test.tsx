@@ -67,7 +67,7 @@ const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 beforeEach(() => {
 	localStorage.clear();
 	localStorage.setItem('lattice-studio-deck-index', JSON.stringify([{ id: 'q3-board', title: 'Q3 Board Review', builtin: true }]));
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true }));
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true, editMode: 'source' }));
 	// A FRESH gate per test. One module-scoped promise is single-use: the first test to release it
 	// leaves every later one with no in-flight window, so the race they exist to pin never happens
 	// and they pass vacuously. Caught by mutation, not by reading.

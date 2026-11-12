@@ -560,17 +560,20 @@ export function deckLabels(): { id: string; label: string }[] {
 // deck+slide last viewed and boot from it, and studio.astro derives its bootId from
 // the SAME key so the shell and the hydrated app agree on which deck (and slide) leads.
 
-export type ActiveDeck = { deckId: string; slideIndex: number };
+/** `line`: the caret line's text when it was saved, so a reload lands the caret on it (compose-first decision note). */
+export type ActiveDeck = { deckId: string; slideIndex: number; line?: string; col?: number; colRaw?: boolean };
 
 /** The deck + slide last viewed, or null if never recorded. */
 export function loadActiveDeck(): ActiveDeck | null {
 	const v = read<Partial<ActiveDeck>>(ACTIVE_LS);
 	if (!v || typeof v.deckId !== 'string' || !v.deckId) return null;
-	return { deckId: v.deckId, slideIndex: typeof v.slideIndex === 'number' && v.slideIndex >= 0 ? v.slideIndex : 0 };
+	return { deckId: v.deckId, slideIndex: typeof v.slideIndex === 'number' && v.slideIndex >= 0 ? v.slideIndex : 0, ...(typeof v.line === 'string' && v.line ? { line: v.line.slice(0, 500) } : {}), ...(typeof v.col === 'number' && v.col > 0 ? { col: Math.floor(v.col), ...(v.colRaw === true ? { colRaw: true } : {}) } : {}) };
 }
 /** Record the deck + slide currently in view (called on every deck/slide change). */
-export function saveActiveDeck(deckId: string, slideIndex: number): void {
-	write(ACTIVE_LS, { deckId, slideIndex: Math.max(0, slideIndex | 0) });
+/** `col`: the caret's column on `line`, raw (a Source caret, `line` is its Markdown) or plain (a Compose caret). */
+export function saveActiveDeck(deckId: string, slideIndex: number, line?: string, col?: { col: number; raw?: string } | null): void {
+	const c = line && col && col.col > 0 ? { col: Math.floor(col.col), ...(col.raw !== undefined ? { colRaw: true } : {}) } : {};
+	write(ACTIVE_LS, { deckId, slideIndex: Math.max(0, slideIndex | 0), ...(line ? { line: line.slice(0, 500) } : {}), ...c });
 }
 /** Forget the last-active pointer if it names `deckId` (a deck being deleted) — so it
  *  can never dangle at a deck that no longer exists, which would make the app boot the
@@ -600,6 +603,13 @@ export function loadBootDeck(): StudioDeck {
 export function loadBootSlide(): number {
 	const active = loadActiveDeck();
 	return active && active.deckId === loadBootDeck().id ? active.slideIndex : 0;
+}
+/** The caret saved with the boot slide: its line's text ('' for another deck, or none saved) and its column, in the
+ *  shape the editors carry (`raw` is the Markdown line when the column was a Source caret's). */
+export function loadBootCaret(): { line: string; col: { col: number; raw?: string } | null } {
+	const a = loadActiveDeck();
+	if (!a?.line || a.deckId !== loadBootDeck().id) return { line: '', col: null };
+	return { line: a.line, col: a.col ? (a.colRaw ? { col: a.col, raw: a.line } : { col: a.col }) : null };
 }
 
 /**
@@ -1121,8 +1131,16 @@ export const LEGACY_ONBOARDED_POSTURE: Posture = 'craft';
 // trajectory, and every error, INCLUDING whatever a third-party library chose to put
 // in a `console.error` argument. That is not a thing to switch on for someone.
 // See `2026-08-18-crash-toast-retirement.md` §"Opt-in".
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; pdfWriter: PdfWriter; overflowMarker: StandingOverflowMarker; lensDefaults: boolean; intentSearch: boolean; crashReports: boolean; imageModel: string; imageLook: ImageLook };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', pdfWriter: 'text', overflowMarker: 'reader', lensDefaults: true, intentSearch: true, crashReports: false, imageModel: DEFAULT_IMAGE_MODEL, imageLook: DEFAULT_IMAGE_LOOK };
+/**
+ * How the editor pane writes the deck: COMPOSE (the rich editor, the default since 2026-11-10) or SOURCE (the
+ * Markdown itself, for power users). Stored so a power user picks Source once. Anything else reads as Compose,
+ * including the `'markdown'` an earlier build held in memory under that name.
+ * engineering/decisions/2026-11-10-compose-first.md.
+ */
+export type EditMode = 'compose' | 'source';
+export const asEditMode = (v: unknown): EditMode => (v === 'source' ? 'source' : 'compose');
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; pdfWriter: PdfWriter; overflowMarker: StandingOverflowMarker; lensDefaults: boolean; intentSearch: boolean; crashReports: boolean; imageModel: string; imageLook: ImageLook; editMode: EditMode };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: BOOT_POSTURE, readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', pdfWriter: 'text', overflowMarker: 'reader', lensDefaults: true, intentSearch: true, crashReports: false, imageModel: DEFAULT_IMAGE_MODEL, imageLook: DEFAULT_IMAGE_LOOK, editMode: 'compose' };
 
 // Derive the boot stop for a browser with no explicitly-stored posture — the
 // hardened three-population form (R4/R6, prior-use-first so an actively-editing
@@ -1186,7 +1204,7 @@ export function loadSettings(): StudioSettings {
 	const pdfWriter: PdfWriter = saved.pdfWriter === 'photo' ? 'photo' : 'text';
 	// The photo-looking model is an OpenRouter id (`vendor/name`, or the `~vendor/name-latest` alias); anything else reads as the default.
 	const imageModel = typeof saved.imageModel === 'string' && /^~?[\w.-]+\/[\w.:-]+$/.test(saved.imageModel) ? saved.imageModel : DEFAULT_IMAGE_MODEL;
-	return { ...DEFAULT_SETTINGS, ...saved, language, posture, intentSearch, crashReports, pdfWriter, imageModel, imageLook: asImageLook(saved.imageLook) };
+	return { ...DEFAULT_SETTINGS, ...saved, language, posture, intentSearch, crashReports, pdfWriter, imageModel, imageLook: asImageLook(saved.imageLook), editMode: asEditMode(saved.editMode) };
 }
 // Notify same-tab listeners a setting changed (the native `storage` event only fires in
 // OTHER tabs). The Fabricate designer listens so a handle-style switch in the Workspace

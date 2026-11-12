@@ -11,14 +11,15 @@
 // Keep these PURE and browser-API-free: they are rendered at build time, where there is no
 // `window`. Props only, no hooks that read the DOM.
 
-import { BookOpen, ChevronLeft, ChevronRight, FileBox, FileSliders, GalleryVerticalEnd, Gauge, Layers, PencilLine, Settings as SettingsCog, SlidersHorizontal, UsersRound } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, FileBox, FileSliders, FileText, GalleryVerticalEnd, Gauge, Layers, PencilLine, Settings as SettingsCog, SlidersHorizontal, Sparkles, UsersRound } from 'lucide-react';
 import type * as React from 'react';
+import { Fragment } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Tip } from '@/components/ui/tooltip';
 import { joinBase } from '@/lib/base-url.mjs';
 import { cn } from '@/lib/utils';
 import { ChatIcon, LensIcon } from './icons';
-import type { Posture } from './studio-store';
+import type { EditMode, Posture } from './studio-store';
 
 // The site home, which the brand MARK links to at every width and stop. ONE constant for the
 // same reason `BAR_RULE` is one: the app header and the pre-paint skeleton both draw that link
@@ -234,8 +235,15 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 						      nobody looked at. The hairline is solid where the transient arm's is dashed,
 						      which is what keeps "your saved home" and "showing now" apart.
 						    This also buys back an accent draw: the bar spends accent on ONE filled object
-						    (Present), and here only on a hairline — a state marker, not a filled control. */}
-						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 text-[12px] font-semibold transition-colors', BAR_SEGMENT, lit ? (transient ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] shadow-sm ring-1 ring-inset ring-[color-mix(in_srgb,var(--accent)_55%,transparent)]') : 'text-[var(--text-body)] hover:text-[var(--text-heading)]')}>
+						    (Present), and here only on a hairline — a state marker, not a filled control.
+						    · 2026-11-11, the owner's pick (B of four mocked live): the SAVED stop is now the INK
+						      chip, `--text-heading` filled with `--bg` text, the inversion the phone bar's selected
+						      cell already uses, so "selected" looks the same everywhere and reads at a glance.
+						      Its contrast is the theme's own primary text pair, so it holds in every palette, the
+						      monochrome ones included. Gold stays for the two hero verbs, Present and Compose
+						      (EditModeToggle). The TRANSIENT stop keeps the quieter 12% mix with the dashed
+						      outline, which is what tells "showing now" apart from "your saved home". */}
+						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 text-[12px] font-semibold transition-colors', BAR_SEGMENT, lit ? (transient ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] text-[var(--text-heading)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-[var(--text-heading)] text-[var(--bg)] shadow-sm') : 'text-[var(--text-body)] hover:text-[var(--text-heading)]')}>
 							{/* The words are not optional. They shipped as desktop-only for one release
 							    (#1381) and the reclaim was real — 219px labeled vs 116px — but it landed on
 							    the one control in this row that cannot survive it: a touch user between 700
@@ -264,7 +272,7 @@ export function PostureDial({ posture, quietened, revealCraft, onChange }: { pos
 // and `badge`/`describedBy` so a status count can ride the cell without changing its
 // accessible name. Both variants now floor at `min-h-11` (44px) — the rail's own
 // `py-1.5` box computed to ~41px, itself under the touch floor.
-export function BarIcon({ label, hint, caption, active, onClick, children, variant = 'rail', demo, badge, describedBy, tone = 'ghost' }: { label: string; hint: string; caption: string; active?: boolean; onClick: () => void; children: React.ReactNode; variant?: 'rail' | 'bar'; demo?: string; badge?: number; describedBy?: string; tone?: 'ghost' | 'outline' | 'solid' }) {
+export function BarIcon({ label, hint, caption, active, onClick, children, variant = 'rail', demo, badge, describedBy, tone = 'ghost', brand = false }: { label: string; hint: string; caption: string; active?: boolean; onClick: () => void; children: React.ReactNode; variant?: 'rail' | 'bar'; demo?: string; badge?: number; describedBy?: string; tone?: 'ghost' | 'outline' | 'solid'; brand?: boolean }) {
 	const bar = variant === 'bar';
 	return (
 		// `describedBy` rides the Tip, not the button: an `aria-describedby` on the button, even an
@@ -278,7 +286,12 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 			className={cn(
 				'group/bar relative flex min-h-11 flex-col items-center justify-center gap-0.5 font-semibold leading-none transition-colors',
 				bar ? 'min-w-0 flex-1 gap-[3px] rounded-none px-1 py-1.5 text-[9px]' : 'w-11 gap-0.5 rounded-xl py-2 text-[8.5px]',
+				// `brand` is Compose's cell (EditModeToggle's `segmentTone` says why): its word and icon stay gold
+				// (`--lx-compose`) whether or not it is the pane on screen. Selected, it takes the header toggle's light chip,
+				// not the bar's ink cell: gold on ink fails contrast (about 2.6:1 in cuoio light, 2:1 dark, 1:1 in a
+				// monochrome palette), and a solid accent would read as Present (owner, 2026-11-11).
 				tone === 'solid' ? 'bg-[var(--accent)] text-[var(--on-accent)]'
+					: brand ? cn('text-[var(--lx-compose)]', active ? 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))]' : 'hover:bg-[var(--accent-soft)]')
 					: tone === 'outline' ? 'border border-border text-[var(--text-heading)]'
 					: active
 						// The mobile BAR's selected state swaps --text-heading/--bg rather than tinting with
@@ -311,7 +324,7 @@ export function BarIcon({ label, hint, caption, active, onClick, children, varia
 			    ever rewrite it to name a verb, you re-create the coupling this note exists
 			    to prevent. */}
 			{active && tone === 'ghost' && (
-				<span aria-hidden="true" className={bar ? 'absolute inset-x-2 -bottom-[1px] h-[2px] rounded-full bg-[var(--bg)]' : 'absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]'} />
+				<span aria-hidden="true" className={bar ? cn('absolute inset-x-2 -bottom-[1px] h-[2px] rounded-full', brand ? 'bg-[var(--lx-compose)]' : 'bg-[var(--bg)]') : 'absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]'} />
 			)}
 			{children}
 			<span className="tracking-tight">{caption}</span>
@@ -405,6 +418,7 @@ export function ActivityRail({
 // arriving" instead, so the handoff stays seamless. Fixed widths (no Math.random) keep it
 // deterministic; the real text is sr-only for assistive tech.
 const EDITOR_SKELETON_LINES = [82, 63, 71, 44, 78, 57, 88, 38, 67, 74, 51, 80, 60, 46];
+const EDITOR_SKELETON_NUMBERS = EDITOR_SKELETON_LINES.map((_, i) => i + 1).join('\n');
 // Compose-shaped placeholder, the rich-editor twin of EditorSkeleton below. Compose is a
 // WYSIWYG surface with no line-number gutter, so reusing the code-editor skeleton would
 // read as the wrong pane arriving. Prose blocks — a heading bar, then paragraph runs —
@@ -419,45 +433,124 @@ const COMPOSE_SKELETON_BLOCKS = [
 	{ w: 78, h: 9 },
 	{ w: 58, h: 9 },
 ];
-export function ComposeSkeleton() {
+// ── The editor pane's two writing modes ─────────────────────────────────────────────────────────
+// COMPOSE FIRST, everywhere a menu lists them (owner ruling, 2026-11-10-compose-first.md): the header
+// toggle, the phone's action bar, the pre-paint shell and the command palette all read this one list,
+// so the order cannot drift between them. `name` is the accessible name, which the e2e chrome contract
+// addresses; `Markdown source` keeps its old name because it already contains the visible word "Source".
+export const EDIT_MODES: ReadonlyArray<{ mode: EditMode; label: string; name: string; hint: string; Icon: React.ComponentType<{ className?: string }>; brand?: boolean }> = [
+	{ mode: 'compose', label: 'Compose', name: 'Compose — rich editor', hint: 'Compose — rich text', Icon: Sparkles, brand: true },
+	{ mode: 'source', label: 'Source', name: 'Markdown source', hint: 'Source — Markdown', Icon: FileText },
+];
+/** What a mode is called where a sentence names it ("Edit this slide in Source"). */
+export const EDIT_MODE_LABEL: Record<EditMode, string> = { compose: 'Compose', source: 'Source' };
+/**
+ * COMPOSE IS THE SIGNATURE MODE, and it looks it, without looking like an action. A FILL says "selected": Compose and
+ * Source take the same one when on, the posture dial's neutral chip, a fill mixed from `--text-heading` into `--bg`
+ * that differs from its container in every palette by construction (the dial's note records why `--accent-soft`,
+ * the old lit fill here, vanishes in 8 dark palettes). The ACCENT says "Compose": its icon and word stay in the
+ * accent on or off. A solid accent fill stays reserved for Present, the action; Compose wore it for one round
+ * (option D) and read as a button that does something, beside Present and Share on the phone (owner, 2026-11-11).
+ * An unlit Source reads in `--text-body`, the AA channel, not the muted one, which fails AA at 12px.
+ * In a monochrome palette `--accent` IS `--text-heading`, so there the two modes differ by position and icon only.
+ * `interactive` is false for the pre-paint shell's copy, which never hovers.
+ */
+function segmentTone(brand: boolean | undefined, on: boolean, interactive = true): string {
+	// One SELECTED fill for both modes, the posture dial's neutral chip; the accent marks Compose by its icon and word.
+	const lit = 'bg-[color-mix(in_srgb,var(--text-heading)_12%,var(--bg))] shadow-sm';
+	if (brand) return on ? `${lit} text-[var(--lx-compose)]` : cn('text-[var(--lx-compose)]', interactive && 'hover:bg-[var(--accent-soft)]');
+	return on ? `${lit} text-[var(--text-heading)]` : cn('text-[var(--text-body)]', interactive && 'hover:text-[var(--text-heading)]');
+}
+
+/**
+ * The words beside the two icons. In the app the header row is MEASURED (`use-row-fit.ts`): it drops the
+ * issue pill's word first (`data-fit=1`) and these two only at `data-fit=2`, when nothing else is left to
+ * give, so they go only when the pane is too narrow for them. The pre-paint shell cannot measure, so it
+ * uses the width the tablet row (which carries Slide settings too) was measured to need, 360 px; a desktop pane
+ * narrowed to 320-360 px shows the words a moment after paint (2026-11-10-compose-first.md §4).
+ */
+const EDIT_MODE_WORDS = { measured: 'inline group-data-[fit=2]/editbar:hidden', shell: '[&_span]:hidden @[360px]:[&_span]:inline' } as const;
+
+/**
+ * The pane's title AND its mode switch: `Compose · Source`, where the word `EDIT` used to sit.
+ * `mode: null` is the pre-paint shell, which cannot know the stored mode at build time: it draws both
+ * segments unlit and `studio.astro` lights Compose, or Source under `data-ssr-src`, keyed by `data-edit-seg`.
+ * The app's header row is a `group/editbar` measured by `useRowFit`; the shell's is not.
+ */
+export function EditModeToggle({ mode, onPick }: { mode: EditMode | null; onPick?: (mode: EditMode) => void }) {
 	return (
-		<div className="flex flex-1 flex-col gap-[11px] overflow-hidden p-5">
+		// A real `<fieldset>`, as PostureDial is: the group role is the element's own. `m-0 min-w-0` take off a
+		// fieldset's margin and intrinsic min-width (a bare reset, HARD RULE #20); the border and padding are ours.
+		<fieldset aria-label={mode === null ? undefined : 'Writing mode'} className={cn('m-0 inline-flex min-w-0 shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal', mode === null && EDIT_MODE_WORDS.shell)}>
+			{EDIT_MODES.map((m) => {
+				const on = mode === m.mode;
+				const button = (
+						<button
+							key={m.mode}
+							type="button"
+							data-edit-seg={m.mode}
+							aria-label={m.name}
+							aria-pressed={mode === null ? undefined : on}
+							onClick={onPick ? () => onPick(m.mode) : undefined}
+							className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-1', segmentTone(m.brand, on, mode !== null), mode !== null && 'transition-colors')}
+						>
+							<m.Icon className="size-3" />
+							<span className={mode === null ? undefined : EDIT_MODE_WORDS.measured}>{m.label}</span>
+						</button>
+				);
+				// The shell's copy is inert (`pointer-events:none`), so a tooltip there is bytes for nothing.
+				return mode === null ? <Fragment key={m.mode}>{button}</Fragment> : <Tip key={m.mode} label={m.hint}>{button}</Tip>;
+			})}
+		</fieldset>
+	);
+}
+
+/** `className` lets the pre-paint shell tag it (`ssr-body-compose`) without a wrapper, and `quiet` drops the status line
+ *  the shell's `aria-hidden` copy would never announce: the page has a byte ceiling (docs/route-budget.json, htmlRaw). */
+export function ComposeSkeleton({ className, quiet }: { className?: string; quiet?: boolean } = {}) {
+	return (
+		<div className={cn('flex flex-1 flex-col gap-[11px] overflow-hidden p-5', className)}>
 			{/* `aria-hidden` sits on the DECORATIVE blocks only, not on the wrapper. An
 			    aria-hidden ancestor removes its whole subtree from the accessibility tree,
 			    so an `sr-only` span inside one announces nothing — EditorSkeleton below
 			    mirrors this same shape now (it shipped with the inert version, fixed
 			    alongside this PR). */}
-			<div className="contents" aria-hidden="true">
+			{/* The rows' shared look sits on the parent (`*:`), once, not on every row: this skeleton is drawn into the
+			    Studio's static HTML too, which has a byte ceiling (docs/route-budget.json, htmlRaw). */}
+			{/* `quiet` (the shell's aria-hidden copy) drops the wrapper too: nothing in that copy is ever announced. */}
+			<div className="contents *:h-[9px] *:rounded-sm *:bg-muted-foreground/10" aria-hidden={quiet ? undefined : 'true'}>
 				{COMPOSE_SKELETON_BLOCKS.map((b) => (
-					<div key={`${b.w}-${b.h}`} className="rounded-sm bg-muted-foreground/10" style={{ width: `${b.w}%`, height: `${b.h}px` }} />
+					<div key={`${b.w}-${b.h}`} style={b.h === 9 ? { width: `${b.w}%` } : { width: `${b.w}%`, height: `${b.h}px` }} />
 				))}
 			</div>
-			<span className="sr-only" role="status">
+			{quiet ? null : (<span className="sr-only" role="status">
 				Loading Compose…
-			</span>
+			</span>)}
 		</div>
 	);
 }
 
-export function EditorSkeleton() {
+export function EditorSkeleton({ className, quiet }: { className?: string; quiet?: boolean } = {}) {
 	return (
-		<div className="flex flex-1 gap-3 overflow-hidden p-3 font-mono text-[13px] leading-[1.5]">
+		<div className={cn('flex flex-1 gap-3 overflow-hidden p-3 font-mono text-[13px] leading-[1.5]', className)}>
 			{/* `aria-hidden` sits on the DECORATIVE blocks only, not on the wrapper — see
 			    ComposeSkeleton above. An aria-hidden ancestor removes its whole subtree from
 			    the accessibility tree, so an `sr-only` span inside one announces nothing. */}
-			<div className="contents" aria-hidden="true">
-				<div className="flex select-none flex-col items-end gap-[7px] pr-3 text-muted-foreground/25">
-					{EDITOR_SKELETON_LINES.map((w, i) => (
-						<span key={w}>{i + 1}</span>
-					))}
+			<div className="contents" aria-hidden={quiet ? undefined : 'true'}>
+				{/* The line numbers are ONE text node, a line each, rather than an element per number: the shell draws this
+				    into the Studio's static HTML, which has a byte ceiling (docs/route-budget.json, htmlRaw). The 16 px leading
+				    is the bars' own pitch (9 px bar, 7 px gap), so each number sits beside its bar; the old column ran at 26.5 px
+				    and drifted away from them. */}
+				<div className="select-none whitespace-pre-line pr-3 text-right leading-4 text-muted-foreground/25">
+					{EDITOR_SKELETON_NUMBERS}
 				</div>
-				<div className="flex flex-1 flex-col gap-[7px] pt-[3px]">
+				<div className="flex flex-1 flex-col gap-[7px] pt-[3px] *:h-[9px] *:rounded-sm *:bg-muted-foreground/10">
 					{EDITOR_SKELETON_LINES.map((w) => (
-						<div key={w} className="h-[9px] rounded-sm bg-muted-foreground/10" style={{ width: `${w}%` }} />
+						<div key={w} style={{ width: `${w}%` }} />
 					))}
 				</div>
 			</div>
-			<span className="sr-only" role="status">Loading the editor…</span>
+			{quiet ? null : <span className="sr-only" role="status">Loading the editor…</span>}
 		</div>
 	);
 }

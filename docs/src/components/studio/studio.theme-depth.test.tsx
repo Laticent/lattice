@@ -57,7 +57,7 @@ beforeEach(() => {
 	themeStore.length = 0;
 	// Fabricate is an advanced surface, hidden from the launcher for a fresh
 	// newcomer. Seed onboarded:true so these depth tests can open it.
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true }));
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true, editMode: 'source' }));
 });
 afterEach(() => {
 	document.documentElement.removeAttribute('data-palette');

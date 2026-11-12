@@ -265,6 +265,13 @@ test.describe('compose pill editor', () => {
 				const pv = frame.contentDocument?.querySelector('.lat-pill') as HTMLElement | null;
 				return { compose: getComputedStyle(el).backgroundColor, preview: pv && frame.contentWindow ? frame.contentWindow.getComputedStyle(pv).backgroundColor : null };
 			});
+		// Compare the same slide: setting the deck in Source left the caret, and so the preview, on the LAST slide, and Compose
+		// now keeps that place (it used to jump everything to slide 1 as it mounted, which this test leaned on). Put the caret
+		// on slide 1, where the first drawing is, and wait for the preview to show it.
+		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
+		await caretSettled(page);
+		// The preview follows the caret a moment later: wait until it shows slide 1's pill (the two match), then compare.
+		await expect.poll(async () => { const f = await fills(); return f.preview !== null && f.compose === f.preview; }).toBe(true);
 		const before = await fills();
 		expect(before.compose).toBe(before.preview);
 		// The real toggle, not an attribute: the pill's tokens are `light-dark()`, which resolve from the page's color scheme.

@@ -35,6 +35,7 @@ import { codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packa
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
 import { isTypingTarget, shellKeyAction, zoomKeyAction } from '@/lib/deck-nav';
 import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
+import type { CarriedColumn } from '@/lib/deck-outline/caret-line';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { DEFAULT_DELIVERY, DELIVERY_NAMES, frontMatterDelivery } from '@/lib/delivery-names';
 import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
@@ -83,7 +84,7 @@ import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { onCheckpointsChanged, onCheckpointWriteError } from './checkpoint-store';
-import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SlideCount, SlideNavigator } from './chrome-parts';
+import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_MODE_LABEL, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, PostureDial, SlideCount, SlideNavigator } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
@@ -168,13 +169,14 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, onSourceWriteError, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, type EditMode, FLUSH_EVENT, hasStoredPosture, loadActiveDeck, loadBootCaret, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, onSourceWriteError, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
 import { deckTypography, TYPOGRAPHY_OPTIONS, withTypography } from './typography';
 import type { UndoDoorbell } from './undo-doorbell';
+import { useRowFit } from './use-row-fit';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
 import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
@@ -227,22 +229,24 @@ const IconGrid = React.lazy(() => import('./IconGrid').then((m) => ({ default: m
 // ~196KB gz that, statically imported, bundled into the client:only StudioShell island
 // and blocked hydration. Lazy-load it: the island now hydrates that much lighter and the
 // preview paints (dismissing the SSG instant-shell, which keys on the PREVIEW's first
-// render, not the editor) WITHOUT waiting on CodeMirror parse. The editor is the DEFAULT
-// pane ('markdown' source mode), so its chunk is fetched right after load — but off the
-// critical path, streaming in behind the Suspense fallback (measured: requested ~230ms
+// render, not the editor) WITHOUT waiting on CodeMirror parse. Source was the DEFAULT
+// mode until 2026-11-10 (Compose is now; 2026-11-10-compose-first.md), so its chunk was fetched
+// right after load — but off the critical path, streaming in behind the Suspense fallback (measured: requested ~230ms
 // after the load event, vs blocking it before). A React.lazy over a forwardRef component
 // still forwards `ref` (React 19), so `editorRef` reaches its useImperativeHandle; the
-// module is cached after first load, so toggling markdown⟷compose never re-suspends.
+// module is cached after first load, so toggling Source⟷Compose never re-suspends.
 // Mirrors the Fabricate lazy split above. See
 // engineering/decisions/2026-07-19-defer-editor-hydration.md.
 const Editor = React.lazy(() => import('./Editor').then((m) => ({ default: m.Editor })));
 
 // ComposeView is the OTHER half of the editor pane, and the heaviest thing left on the
 // cold path after the Editor split: ~69KB of its own source plus the whole ProseMirror
-// stack (13 vendor modules, ~693KB of source) — for a pane that is NOT the default.
-// `editMode` starts at 'markdown', and the toggle that reaches Compose is a deliberate
-// user action, so nothing on a cold load needs it. Already conditionally rendered, so
-// this is the same drop-in the Fabricate and Editor splits were. A React.lazy over a
+// stack (13 vendor modules, ~693KB of source). Since 2026-11-10 it IS the default mode
+// (2026-11-10-compose-first.md), and it stays lazy for the reason the Editor is: the preview
+// paints without waiting on ProseMirror, and the chunk streams in behind ComposeSkeleton, the
+// same placeholder the pre-paint shell draws. On a phone it waits for the first slide, as the
+// Editor does (`holdEditor`). Already conditionally rendered, so this is the same drop-in the
+// Fabricate and Editor splits were. A React.lazy over a
 // forwardRef component still forwards `ref` in React 19, so `composeRef` reaches its
 // useImperativeHandle. See engineering/decisions/2026-08-17-studio-dynamic-loading-audit.md §9.4.
 const ComposeView = React.lazy(() => import('./ComposeView').then((m) => ({ default: m.ComposeView })));
@@ -428,6 +432,34 @@ function changedSlides(before: string, after: string): number[] | null {
 	// No slide differs: the change is in the deck's settings, unless the front matter is the same too.
 	if (!out.length && frontMatterBlock(before) === frontMatterBlock(after)) return null;
 	return out;
+}
+
+/** A real keyboard to hand: a fine pointer that hovers (a desktop, a tablet with a trackpad). Focus raises no on-screen keyboard there. */
+function hasRealKeyboard(): boolean {
+	try {
+		return window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * A Live session, joined or being joined (`#live=`): no editor takes the keyboard on its own then. Compose holds back
+ * an outside change while it has focus, and its author's next keystroke supersedes it, so a Compose that took focus on
+ * a mode switch, with no click, dropped a co-editor's edit (filo-live.spec.ts). In a session the author clicks in.
+ */
+function inLiveSession(collab: boolean): boolean {
+	return collab || /[#&]live=/.test(window.location.hash);
+}
+
+/** The boot restore's navigation origin: an editor that mounts later takes the keyboard for it only if `nothingFocused`. */
+const RESTORE_ORIGIN = 'restore';
+
+/** Nothing has the keyboard yet: the restore's focus lands about a second after load, by which time the author may be
+ *  typing in search, chat or the command palette (the trio's inversion). */
+function nothingFocused(): boolean {
+	const a = document.activeElement;
+	return !a || a === document.body;
 }
 
 export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks, slideFences }: Props) {
@@ -912,10 +944,49 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [historyOpen, setHistoryOpen] = React.useState(false); // Version-history sheet (an action, not a deck setting — lives outside the inspector)
 	const [deckMenuOpen, setDeckMenuOpen] = React.useState(false); // deck switcher — controlled so the demo can open it
 	const [view, setView] = React.useState<'compose' | 'fabricate' | 'article'>('compose');
-	// The editor pane's editing MODE: the markdown source (CodeMirror) or the rich
-	// Compose surface (Option B continuous note). Both read/write the same `source`,
-	// so flipping never loses work and the preview tracks either. (2026-07-17 Compose.)
-	const [editMode, setEditMode] = React.useState<'markdown' | 'compose'>('markdown');
+	// The editor pane's editing MODE: the rich Compose surface (Option B continuous note) or
+	// the Markdown Source (CodeMirror). Both read/write the same `source`, so flipping never
+	// loses work and the preview tracks either. (2026-07-17 Compose.) Compose is the default
+	// and the choice is STORED, so a power user picks Source once (2026-11-10-compose-first.md).
+	const [editMode, setEditModeState] = React.useState<EditMode>(() => loadSettings().editMode);
+	const editModeRef = React.useRef(editMode);
+	editModeRef.current = editMode;
+	// SMART FOCUS (owner's pick, 2026-11-11). The editor a switch brings up takes the keyboard when the author is writing:
+	// always with a real keyboard (a fine pointer that hovers), and on a phone only when they switch straight from the other
+	// editor. Arriving from the preview on a phone, it shows a drawn caret instead of throwing the keyboard up. Read once by
+	// the arriving editor (`takeArriveFocus`).
+	const arriveFocusRef = React.useRef(false);
+	const takeArriveFocus = React.useCallback(() => {
+		const f = arriveFocusRef.current;
+		arriveFocusRef.current = false;
+		return f;
+	}, []);
+	// THE CARET'S COLUMN, carried across a switch and a reload (owner, iPhone, 2026-11-11): the line alone put the caret
+	// at the line's start. Read from the editor the author is leaving, in the plain form both editors share
+	// (caret-line.ts). Each editor answers for itself: Compose in the plain form, Source as a raw offset with its Markdown
+	// line, which the arriving editor converts. Both editors load lazily, so none of this rides the startup bundle (the
+	// route budget caught it).
+	const carriedColRef = React.useRef<CarriedColumn>(null);
+	const caretColumnNow = React.useCallback((): CarriedColumn => (editModeRef.current === 'compose' ? composeRef.current : editorRef.current)?.caretColumn() ?? null, []);
+	const caretColumnNowRef = React.useRef(caretColumnNow);
+	caretColumnNowRef.current = caretColumnNow;
+	// The carried column is spent by the first editor placement that reads it: a later navigation that lands on a line
+	// (a preview pick cleared, an undo's reveal) must not reuse a column measured on another line (the trio's checker).
+	const carriedColumn = React.useCallback(() => {
+		const c = carriedColRef.current;
+		carriedColRef.current = null;
+		return c;
+	}, []);
+	const setEditMode = React.useCallback((m: EditMode, o: { focus?: boolean } = {}) => {
+		// Picking the mode already on screen changes nothing, and must not clear a live selection's Refine door.
+		if (m === editModeRef.current) return;
+		carriedColRef.current = caretColumnNowRef.current();
+		arriveFocusRef.current = !inLiveSession(!!liveCollabRef.current) && (o.focus ?? hasRealKeyboard());
+		setEditModeState(m);
+		saveSettings({ editMode: m });
+		// The editor that reported a selection is about to unmount; the one arriving reports its own.
+		setHasSelection(false);
+	}, []);
 	const viewRef = React.useRef(view);
 	viewRef.current = view;
 	const [shareOpen, setShareOpen] = React.useState(false);
@@ -1767,7 +1838,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// within a frame of the pane showing; `editorReady` (the demo's probe) reports the gap honestly.
 	// Fire-and-forget: a warm failure is harmless, since React.lazy re-imports on real render.
 	React.useEffect(() => {
-		void firstSlideShown.then(() => import('./Editor')).catch(() => {});
+		// The stored mode's chunk first, since it is about to mount. The Editor's chunk always follows (it has only this
+		// warm, and every visitor fetched it at startup before Compose became the default). Compose's, when Source is the
+		// stored mode, is left to the idle warm-up in `studio-warm.ts`, which skips it under Save-Data: warming it here too
+		// fetched new bytes a Save-Data visitor never downloaded before (studio-warm-offline.spec.ts caught it).
+		// Two statements, never one conditional expression: Vite wrapped `cond ? import(a) : import(b)` in ONE dependency
+		// preload holding both branches' chunks, so warming the Editor fetched Compose's chunk too (measured on the build).
+		const source = loadSettings().editMode === 'source';
+		const warmEditors = async () => {
+			if (source) {
+				await import('./Editor');
+				return;
+			}
+			await import('./ComposeView');
+			await import('./Editor');
+		};
+		void firstSlideShown.then(warmEditors).catch(() => {});
 	}, []);
 	// The six panels, once the first slide is on screen and the user has paused (`first-slide.ts`), then
 	// `lazy-panel.tsx` › warmPanels' idle scheduling. Scheduled from here, as #2402 shipped it, so their
@@ -2070,8 +2156,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	/** Move the focus to FULL-deck chunk `chunkIndex` — once the hub holds `after`, when given: the
 	 *  text a deck switch or a slide operation is about to put in place. No frame to wait for. */
 	const goToChunk = React.useCallback(
-		(chunkIndex: number, o: { after?: string; section?: number; grab?: boolean; origin?: string } = {}) => {
-			hub.go(o.origin ?? 'shell', { unitIndex: chunkIndex, part: o.section, grab: o.grab }, o.after !== undefined ? { after: o.after } : undefined);
+		(chunkIndex: number, o: { after?: string; section?: number; grab?: boolean; origin?: string; line?: string } = {}) => {
+			hub.go(o.origin ?? 'shell', { unitIndex: chunkIndex, part: o.section, grab: o.grab, line: o.line }, o.after !== undefined ? { after: o.after } : undefined);
 		},
 		[hub],
 	);
@@ -2363,6 +2449,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// callback) commits a task later, and a flush in that gap would write the new deck's text under the old
 		// id. Every switch path flushed the old deck before it wrote the new text, so there is nothing to save.
 		if (sourceOwnerRef.current !== deck.id) return;
+		// The caret's line, as it is now: a reload puts the caret back on it (the slide effect saves only on a slide change).
+		{
+			const active = loadActiveDeck();
+			const line = hub.get().line;
+			if (active && active.deckId === deck.id && line) saveActiveDeck(active.deckId, active.slideIndex, line, caretColumnNowRef.current());
+		}
 		// The LATEST text: the last keystrokes may not have reached `source` (or the autosave effect) yet.
 		const latest = sourceRef.current;
 		if (dirty.current || (loadedFor.current?.id === deck.id && latest !== loadedFor.current.src)) {
@@ -2372,7 +2464,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			if (autosaveTimer.current !== null) { clearTimeout(autosaveTimer.current); autosaveTimer.current = null; }
 			saveSourceGuarded(deck.id, latest);
 		}
-	}, [deck.id, saveSourceGuarded]);
+	}, [deck.id, saveSourceGuarded, hub]);
 	// The backup path (workspace-backup.packWorkspace → requestSourceFlush) asks
 	// for an immediate write-through, so a download can't race the 400ms timer
 	// above — without this, a JUST-edited built-in deck could drop out of the
@@ -2411,8 +2503,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// and saving then would overwrite the slide it is about to restore with 0 (the checker's catch).
 	React.useEffect(() => {
 		if (decksClearedRef.current || focusChunk < 0) return;
-		saveActiveDeck(deck.id, activeSlide);
-	}, [deck.id, activeSlide, focusChunk]);
+		saveActiveDeck(deck.id, activeSlide, hub.get().line);
+	}, [deck.id, activeSlide, focusChunk, hub]);
 	// BOOT AT THE SLIDE YOU LEFT ON — a navigation like any other, so the editor reveals it too.
 	// Read on the FIRST render, before any effect could write the key; applied once at mount,
 	// when the index exists (the render above fed the hub).
@@ -2420,7 +2512,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	bootSlideRef.current ??= loadBootSlide();
 	// biome-ignore lint/correctness/useExhaustiveDependencies: once per mount, by design.
 	React.useEffect(() => {
-		setActiveSlide(bootSlideRef.current ?? 0);
+		// The caret's line comes back with the slide (saved on leaving, `flushActiveDeck`); with a real keyboard the editor takes
+		// focus on it, as it had before the reload. A phone cannot raise the keyboard without a tap: it shows the drawn caret.
+		const { line, col } = loadBootCaret();
+		carriedColRef.current = col;
+		const view = viewChunksRef.current;
+		if (view.length) goToChunk(view[Math.max(0, Math.min(bootSlideRef.current ?? 0, view.length - 1))], { line, grab: !!line && hasRealKeyboard() && !inLiveSession(!!liveCollabRef.current), origin: RESTORE_ORIGIN });
 	}, []);
 
 	// Persist the editor preference as it changes.
@@ -2772,6 +2869,79 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The `theme:` front-matter VALUE vocabulary — the built-in palettes + the user's
 	// saved (Fabricated) themes, so the editor completes a deck's own theme name.
 	const editorPalettes = React.useMemo(() => [...BUILTIN_PALETTES, ...renderThemes.map((t) => t.name)], [renderThemes]);
+	// FIX ALL AND ITS COUNT IN COMPOSE. The Source editor lints inside CodeMirror and owns both there; Compose
+	// has no such pass, so before Compose became the default the button did nothing in it and the count fell back
+	// to the unknown-component estimate the note above calls a bug. Here Compose lints the deck TEXT with the same
+	// kernel and vocabulary (deck-lint.ts), after a typing pause, and Fix all rewrites the text as one undo step.
+	// engineering/decisions/2026-11-10-compose-first.md §1.1.
+	const lintExtras = React.useMemo(() => ({ names: localNames, finishValues: editorFinishValues, palettes: editorPalettes }), [localNames, editorFinishValues, editorPalettes]);
+	// The text (and vocabulary) the Compose pass last linted, so a render that changes neither does not lint again.
+	const lintedRef = React.useRef<import('./deck-lint').Linted>({ text: '', vocab: null, extras: null });
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `source` is the trigger; the pass reads `sourceRef`, the text after the pause.
+	React.useEffect(() => {
+		// Whatever set the count meanwhile (the Markdown editor's pass, then its unmount's null; validation off's zeros)
+		// replaced this pass's answer, so the next Compose pass lints again even on the same text (the trio's checker: a
+		// round trip through Source left the count null and Fix all on its wrong fallback).
+		if (editMode !== 'compose') {
+			lintedRef.current = { text: '', vocab: null, extras: null };
+			return;
+		}
+		// Validation off: the Editor is handed no known names and reports a clean deck; Compose says the same.
+		if (!validation) {
+			lintedRef.current = { text: '', vocab: null, extras: null };
+			setLintCounts({ total: 0, fixable: 0 });
+			return;
+		}
+		// OFF THE TYPING PATH. The pass is one long task (about 80 ms on a 123-slide deck: the lint core plus the
+		// markdown parser it runs), so it waits for a real pause and then for the browser to be idle, and it runs only
+		// on text it has not linted yet. Measured against main with tools/studio-sync-bench.mjs: a 400 ms debounce added
+		// long tasks inside a typing burst (decision note §4, "What it costs").
+		let stale = false;
+		let idle = 0;
+		const run = () => {
+			void firstSlideShown
+				.then(() => import('./deck-lint'))
+				.then((m) => (stale ? undefined : m.composeLintPass(() => sourceRef.current, lintedRef.current, lintVocab, lintExtras)))
+				.then((r) => {
+					if (stale || !r) return;
+					lintedRef.current = r.linted;
+					const counts = r.counts;
+					// The same counts are the same state: an unchanged answer must not re-render the Studio.
+					setLintCounts((prev) => (prev && counts && prev.total === counts.total && prev.fixable === counts.fixable ? prev : counts));
+				})
+				.catch(() => {});
+		};
+		const t = window.setTimeout(() => {
+			if (typeof window.requestIdleCallback === 'function') idle = window.requestIdleCallback(run, { timeout: 2000 });
+			else run();
+		}, 1000);
+		return () => {
+			stale = true;
+			window.clearTimeout(t);
+			if (idle && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idle);
+		};
+	}, [editMode, source, validation, lintVocab, lintExtras]);
+	const fixAllIssues = React.useCallback(() => {
+		const ed = editorRef.current;
+		if (ed) {
+			ed.fixAll();
+			return;
+		}
+		void import('./deck-lint')
+			.then((m) =>
+				m.fixAllCompose(
+					() => sourceRef.current,
+					lintVocab,
+					lintExtras,
+					(text) => {
+						closeGroupRef.current();
+						setSource(text, { label: 'Fix all', origin: 'lint' });
+					},
+					notify,
+				),
+			)
+			.catch(() => notify('The checker could not load, so nothing was fixed. Try again in a moment.'));
+	}, [lintVocab, lintExtras, setSource]);
 	// Lint accepts BOTH the prefixed token and the bare slug of a saved finish (a deck
 	// authored before the prefix convention shouldn't false-warn).
 	const savedFinishLintNames = React.useMemo(() => renderFinishes.flatMap((f) => [`finish-${f.name}`, f.name]), [renderFinishes]);
@@ -3362,11 +3532,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the text here, first, and the caret report that follows resolves against it rather than the
 	// index of the text before the edit.
 	const onComposeChange = React.useCallback(
-		(src: string, meta?: { close?: boolean }) => {
+		(src: string, meta?: { close?: boolean; label?: string }) => {
 			hub.update(src, { by: 'compose' });
-			// A change that is its own step (a pane pick) closes the step before it.
+			// A change that is its own step (a pane pick, a Refine) closes the step before it.
 			if (meta?.close) closeGroupRef.current();
-			setSourceFromCompose(src, meta?.close ? 'Change pane' : 'Typing');
+			setSourceFromCompose(src, meta?.label ?? (meta?.close ? 'Change pane' : 'Typing'));
 		},
 		[hub, setSourceFromCompose],
 	);
@@ -3377,6 +3547,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		},
 		[hub],
 	);
+	// Where a Compose view that is being built starts: the slide (and caret line) the hub holds, so a round trip through
+	// Source, or the phone bringing the Compose pane back, lands where the author was (ComposeView `focusAtMount`).
+	// `peek`: a resync asks where the caret belongs and takes nothing (no keyboard, no carried column).
+	const composeFocusAtMount = React.useCallback((peek = false) => {
+		const f = hub.get();
+		// A switch that asked for the keyboard, or a navigation that did (a rail pick, the boot restore with a real keyboard)
+		// and landed before this view existed to take it. Never in a Live session (`inLiveSession`); a restore only while
+		// nothing else has the keyboard (the author may already be typing in search or chat).
+		const focus = !peek && (takeArriveFocus() || (f.cause === 'nav' && f.grab && !inLiveSession(!!liveCollabRef.current) && (f.origin !== RESTORE_ORIGIN || nothingFocused())));
+		if (f.unitIndex >= 0) composeChunkRef.current = f.unitIndex;
+		return f.unitIndex >= 0 ? { slide: f.unitIndex, line: f.line, col: peek ? carriedColRef.current : carriedColumn(), focus } : null;
+	}, [hub, takeArriveFocus, carriedColumn]);
 	const onComposeCursorText = React.useCallback(
 		(text: string) => {
 			composeLineRef.current = text;
@@ -3384,19 +3566,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		},
 		[hub],
 	);
-	React.useEffect(
-		() =>
-			hub.subscribe(
+	React.useEffect(() => {
+		// Start from where the hub is NOW: the boot navigation (the slide you left on) runs in an effect before this one, so a
+		// subscription alone missed it, and Compose's first caret-text report then said slide 1 (the preview jumped there a
+		// second after a reload).
+		composeChunkRef.current = Math.max(0, hub.get().unitIndex);
+		return hub.subscribe(
 				(f) => f,
 				(f) => {
 					composeChunkRef.current = Math.max(0, f.unitIndex);
 					// An undo's reveal keeps the caret Compose already put where the change was (Filo note §3.4).
-					if (f.cause === 'nav' || f.cause === 'pick') composeRef.current?.revealSlide(f.unitIndex, { focus: f.grab, keepCaret: f.origin === 'history' });
+					if (f.cause === 'nav' || f.cause === 'pick') composeRef.current?.revealSlide(f.unitIndex, { focus: f.grab, keepCaret: f.origin === 'history', line: f.line || undefined, col: f.line ? carriedColumn() : undefined });
 				},
 				{ ignoreOrigin: 'compose', equals: (a, b) => a.seq === b.seq },
-			),
-		[hub],
-	);
+			);
+	}, [hub, carriedColumn]);
 	// A rail pill: a viewed slide, and the heading section of it the pill stands for. Stable, so
 	// the memoized rail re-renders only when the deck or the focused slide changes.
 	const goToSlideLatest = React.useRef(goToSlide);
@@ -3898,8 +4082,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const refine = React.useCallback(
 		async (action: RefineActionId, label: string) => {
 			if (refineBusy) return;
-			const sel = editorRef.current?.getSelection();
-			if (!sel || sel.empty || !sel.text.trim()) {
+			// Either editor: Source rewrites Markdown, Compose plain text inside one block (ComposeView `refinableRange`).
+			const target = editorRef.current ?? composeRef.current;
+			const sel = target?.getSelection();
+			if (!target || !sel || sel.empty || !sel.text.trim()) {
 				notify('Select some text in the editor to refine first.');
 				return;
 			}
@@ -3917,8 +4103,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					notify('No change — the selection already reads well.');
 				} else {
 					setCheckpoints(saveCheckpoint(deck.id, source, `Before ${label}`, Date.now()));
-					editorRef.current?.replaceSelection(out.text, `AI: ${label}`);
-					notify(`${label} applied — ⌘Z or restore from History to undo.`);
+					// False when the selection moved while the model answered: say so rather than claim it applied.
+					if (target.replaceSelection(out.text, `AI: ${label}`) === false) notify('The selection changed while the model was answering, so nothing was replaced.');
+					else notify(`${label} applied — ⌘Z or restore from History to undo.`);
 				}
 			} catch {
 				notify(`${label} failed — try again.`);
@@ -5841,7 +6028,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<div className="mx-2.5 mt-2.5 flex items-center gap-2 rounded-[10px] border border-[color-mix(in_srgb,var(--warn)_28%,transparent)] bg-[color-mix(in_srgb,var(--warn)_7%,transparent)] px-3 py-2">
 					<AlertTriangle className="size-4 text-[var(--warn)]" />
 					<span className="text-xs font-semibold text-[var(--text-heading)]">{issues} inline issue{issues > 1 ? 's' : ''}<span className="font-normal text-muted-foreground"> — {issueHint}</span></span>
-					{fixableIssues > 0 && <button type="button" onClick={() => editorRef.current?.fixAll()} className="ml-auto rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)]">Fix all</button>}
+					{fixableIssues > 0 && <button type="button" onClick={fixAllIssues} className="ml-auto rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)]">Fix all</button>}
 				</div>
 			)}
 			{/* Deck-level assessment — the REAL engine scorecard. TWO grades, not one: Craft is
@@ -7024,6 +7211,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// PANE's width (a user-narrowed editor at a wide viewport), not the viewport;
 	// collapsed → inert (width 0, content unfocusable) while staying mounted so
 	// CodeMirror history survives.
+	// The header keeps `Compose · Source` worded until the pane cannot hold them: measured, not a breakpoint,
+	// because what else sits in the row moves the width they need (use-row-fit.ts). Level 1 drops the issue
+	// pill's word, level 2 the mode words.
+	const editBarRef = useRowFit(3, `${issues}|${hasSelection}|${newSlideShown}|${compact}|${split.collapsed}|${mobile}|${editMode}`);
 	const editorPane = (
 		<section
 			id="studio-pane-editor"
@@ -7041,12 +7232,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    pre-paint shell came to draw ONE control here against this row's twelve without any
 			    spec noticing (reported on an iPad Air 4). */}
 			{!mobile && (
-			<div data-slot="edit-bar" className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-				Edit
+			<div ref={editBarRef} data-slot="edit-bar" className="group/editbar flex items-center gap-1 border-b border-border px-2.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+				{/* The pane's title IS its mode switch, Compose first (2026-11-10-compose-first.md): the word
+				    `EDIT` that sat here named neither mode and cost the width the two words need. */}
+				<EditModeToggle mode={editMode} onPick={setEditMode} />
 				<span className="flex-1" />
 				{issues > 0 && (
 					<Tip label={issueHint}>
-						<button type="button" onClick={() => { revealCraftDock(); setActiveAssistant('coach'); }} aria-label={`${issues} issue${issues > 1 ? 's' : ''}: ${issueHint}`} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)] transition-colors hover:bg-[color-mix(in_srgb,var(--warn)_16%,transparent)]"><AlertTriangle className="size-3" />{issues} issue{issues > 1 ? 's' : ''}</button>
+						<button type="button" onClick={() => { revealCraftDock(); setActiveAssistant('coach'); }} aria-label={`${issues} issue${issues > 1 ? 's' : ''}: ${issueHint}`} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--warn)] transition-colors hover:bg-[color-mix(in_srgb,var(--warn)_16%,transparent)]"><AlertTriangle className="size-3" /><span className="group-data-[fit=1]/editbar:hidden group-data-[fit=2]/editbar:hidden">{issues} issue{issues > 1 ? 's' : ''}</span><span className="hidden group-data-[fit=1]/editbar:inline group-data-[fit=2]/editbar:inline">{issues}</span></button>
 					</Tip>
 				)}
 				{hasSelection && (
@@ -7086,7 +7279,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    boot slide's component against the catalog. `disabled` is what "Fix all issues"
 				    two lines down already does. */}
 				<ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={deckOptions} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} disabled={reshapeVariants.length === 0} />
-				<Tip label="Fix all issues"><button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!fixableIssues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
+				<Tip label="Fix all issues"><button type="button" onClick={fixAllIssues} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!fixableIssues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
 				{/* Version history — deck-level recovery, docked in the editor header at every
 				    width (an action, not a panel; not in the top nav). */}
 				<Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="size-[18px]" /></Button></Tip>
@@ -7094,11 +7287,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    (a duplicate here would break the e2e strict 'Slide settings' locator); on
 				    tablet/mobile the editor header is the opener. */}
 				{compact && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
-				{/* Editing-mode toggle: markdown source ⟷ rich Compose. Both bind to `source`. */}
-				<div className="ml-0.5 inline-flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
-					<button type="button" aria-label="Markdown source" onClick={() => setEditMode('markdown')} aria-pressed={editMode === 'markdown'} className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal transition-colors', editMode === 'markdown' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}><FileText className="size-3" /><span className="hidden @[34rem]:inline">Markdown</span></button>
-					<button type="button" aria-label="Compose — rich editor" onClick={() => setEditMode('compose')} aria-pressed={editMode === 'compose'} className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal transition-colors', editMode === 'compose' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}><Sparkles className="size-3" /><span className="hidden @[34rem]:inline">Compose</span></button>
-				</div>
 				{splitUsable && (
 					<Tip label="Collapse editor — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse editor" onClick={() => collapseFromHeader('a')}><PanelLeftClose className="size-4" /></Button></Tip>
 				)}
@@ -7106,14 +7294,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
-				<ComposeView ref={composeRef} source={source} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />
+				{/* Held on a phone until the first slide, exactly as the Editor below: ProseMirror is the largest
+				    piece of startup the first slide does not need, and Compose is now the default (2026-11-10). */}
+				{holdEditor ? <ComposeSkeleton /> : <ComposeView ref={composeRef} source={source} live={liveShared} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} focusAtMount={composeFocusAtMount} onSelectionChange={setHasSelection} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />}
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
 					{/* On a phone the editor pane is hidden until the user opens it, so CodeMirror builds its view after the
 					    first slide, not beside it: a few hundred ms of main thread in the seconds the slide waits for. Where the
 					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
-					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
+					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} isStaleEcho={isStaleEditorEcho} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} focusOnMount={takeArriveFocus} caretColumn={carriedColumn} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
 			)}
 			{/* A phone's edit pane has no toolbar and no strip, so the floating add door sits here too
@@ -7436,7 +7626,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			onClick={() => splitApiRef.current.expand('a')}
 		>
 			<ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-			<span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground [writing-mode:vertical-rl]">Edit</span>
+			<span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground [writing-mode:vertical-rl]">{EDIT_MODE_LABEL[editMode]}</span>
 			{issues > 0 && (
 				<span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--warn)]"><AlertTriangle className="size-3" />{issues}</span>
 			)}
@@ -7812,13 +8002,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					...(renderedSlides > 1 ? [{ id: 'slide-delete', group: 'actions', label: 'Delete slide', icon: Trash2, run: () => requestDelete() } satisfies StudioCommand] : []),
 				] satisfies StudioCommand[])
 			: []),
+		// The writing modes, Compose first. Only the one not in use is offered: a row that does nothing is noise.
+		...(editMode === 'compose' ? [] : [{ id: 'write-compose', group: 'actions', label: 'Write in Compose', icon: Sparkles, keywords: ['compose', 'rich', 'visual', 'wysiwyg', 'editor'], run: () => setEditMode('compose') } satisfies StudioCommand]),
+		...(editMode === 'source' ? [] : [{ id: 'write-source', group: 'actions', label: 'Write in Source', icon: FileText, keywords: ['source', 'markdown', 'code', 'raw', 'text'], run: () => setEditMode('source') } satisfies StudioCommand]),
 		{ id: 'insert-icon', group: 'actions', label: 'Insert an icon…', icon: Shapes, keywords: ['icon', 'symbol', 'glyph', 'picture', 'browse'], run: () => setIconsOpen(true) },
 		...(posture === 'craft' ? [{ id: 'focus', group: 'actions', label: 'Focus mode — just editor & preview', icon: Focus, run: () => setQuietened(true) } satisfies StudioCommand] : []),
 		// Coach, Fix all, light/dark and slide settings each had a button and no row: a learner who
 		// searched "check", "fix", "dark" or "notes" found nothing, and their lessons had no verb to
 		// do the step with (2026-10-05-studio-lessons.md §Building and Polish).
 		{ id: 'coach', group: 'actions', label: 'Coach — check this deck', icon: Gauge, keywords: ['check', 'lint', 'issues', 'problems', 'review'], run: () => { revealCraftDock(); setActiveAssistant('coach'); } },
-		...(fixableIssues > 0 ? [{ id: 'fix-all', group: 'actions', label: 'Fix all issues', icon: ListChecks, keywords: ['fix', 'repair', 'clean up'], run: () => editorRef.current?.fixAll() } satisfies StudioCommand] : []),
+		...(fixableIssues > 0 ? [{ id: 'fix-all', group: 'actions', label: 'Fix all issues', icon: ListChecks, keywords: ['fix', 'repair', 'clean up'], run: fixAllIssues } satisfies StudioCommand] : []),
 		// Formatting is an authoring step (lib/authoring/code-format/): it rewrites the source in the
 		// editor, so the row is offered only while the deck has a fenced block to format.
 		...(/^\s{0,3}(?:```|~~~)/m.test(source) ? [{ id: 'format-code', group: 'actions', label: 'Format code blocks', icon: Braces, keywords: ['format', 'prettier', 'pretty print', 'indent', 'code'], run: () => runFormatCode(editorRef.current, notify) } satisfies StudioCommand] : []),
@@ -8236,7 +8429,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						onNavigate={closeDrawerAndOpen}
 						effPane={effPane}
 						issues={issues}
-						onFixAll={() => editorRef.current?.fixAll()}
+						onFixAll={fixAllIssues}
 						fixableIssues={fixableIssues}
 						onVersionHistory={() => setHistoryOpen(true)}
 						onLenses={() => setLensesOpen(true)}
@@ -8375,9 +8568,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    them off and leave only the `border-b` this bar actually wants. (`m-0` is
 					    a bare reset — it adds no space, so HARD RULE #20 is satisfied.) */}
 					<fieldset aria-label="Deck actions" className={cn('m-0 flex min-w-0 shrink-0 items-stretch border-x-0 border-t-0 border-b border-border bg-card p-0 transition-[max-height,opacity,transform,padding] duration-200 ease-out', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
-						<BarIcon variant="bar" label="Markdown source" hint="Markdown source" caption="Source" active={effPane === 'edit' && editMode === 'markdown'} demo={editMode === 'markdown' ? 'pane-edit' : undefined} badge={issues} describedBy={issues > 0 ? 'mobile-issue-count' : undefined} onClick={() => { setMobilePane('edit'); setEditMode('markdown'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><FileText className="size-[17px]" /></BarIcon>
+						{/* Compose first (2026-11-10-compose-first.md); both cells come from EDIT_MODES, the list the header
+						    toggle and the pre-paint shell read. The issue badge rides the mode in use: that is where they get fixed. */}
+						{EDIT_MODES.map((m) => (
+							<BarIcon key={m.mode} variant="bar" brand={m.brand} label={m.name} hint={m.hint} caption={m.label} active={effPane === 'edit' && editMode === m.mode} demo={editMode === m.mode ? 'pane-edit' : undefined} badge={editMode === m.mode ? issues : undefined} describedBy={editMode === m.mode && issues > 0 ? 'mobile-issue-count' : undefined} onClick={() => { const fromEditor = effPane === 'edit'; setMobilePane('edit'); setEditMode(m.mode, { focus: fromEditor }); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><m.Icon className="size-[17px]" /></BarIcon>
+						))}
 						{issues > 0 && <span id="mobile-issue-count" className="sr-only">{issues} unresolved {issues === 1 ? 'issue' : 'issues'}</span>}
-						<BarIcon variant="bar" label="Compose — rich editor" hint="Compose — rich editor" caption="Compose" active={effPane === 'edit' && editMode === 'compose'} demo={editMode === 'compose' ? 'pane-edit' : undefined} onClick={() => { setMobilePane('edit'); setEditMode('compose'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><Sparkles className="size-[17px]" /></BarIcon>
 						<BarIcon variant="bar" label="Preview" hint="Preview" caption="Preview" active={effPane === 'preview'} demo="pane-preview" onClick={() => setMobilePane('preview')}><PreviewIcon className="size-[17px]" /></BarIcon>
 						<span aria-hidden="true" className="my-2 w-px shrink-0 bg-border" />
 						<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment" caption="Coach" variant="bar" active={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))}><Gauge className="size-[17px]" /></BarIcon>

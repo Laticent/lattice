@@ -37,6 +37,10 @@
 	 * distinct from the card even in dark palettes, where --accent-soft
 	 * collapses onto the surface. */
 	--lx-ui-accent: color-mix(in oklab, var(--bg-alt), var(--accent) 14%);
+	/* Compose's gold: the accent with a fifth of the heading ink, so its word clears AA on the bar AND on the
+	 * selected chip in every palette and mode (measured: 5.23:1 at worst, laguna light; plain --accent fell to
+	 * 4.08:1 on the chip). In a monochrome palette --accent IS the ink, so this stays the ink. */
+	--lx-compose: color-mix(in oklab, var(--accent) 80%, var(--text-heading));
 	/* Structural, palette-blind (same discipline as shadows). */
 	--radius: 0.5rem;
 	/* On-screen keyboard height, published by useKeyboardInset (ui/panel.tsx) while a
@@ -312,4 +316,54 @@
 }
 [data-settings-filtering]:has([data-setting-hit]) [data-settings-empty] {
 	display: none;
+}
+
+/* THE DRAWN CARET (ComposeView `ghostCaretPlugin`, Editor.tsx `ghostCaret`): where the caret is while an editor does not
+ * have focus, so a phone that came back from the preview shows the author's place without throwing the keyboard up. Both
+ * sit OUTSIDE the editable text (an overlay and a CodeMirror layer), so focusing never changes the DOM under a click.
+ * They look like the live caret, in both editors alike: the body ink, blinking at the live caret's pace (owner, iPad,
+ * 2026-11-12: Compose's blinked and Source's did not, and the two were different colors). The caret's line is marked as
+ * well (`.cs-active-line`, CodeMirror's `.cm-activeLine`), so the place is found at a glance. Still for reduced motion. */
+@keyframes lx-caret-blink {
+	0%,
+	50% {
+		opacity: 1;
+	}
+	50.01%,
+	100% {
+		opacity: 0;
+	}
+}
+.lx-ghost-caret {
+	position: fixed;
+	width: 2px;
+	border-radius: 1px;
+	background: var(--text-body);
+	pointer-events: none;
+	animation: lx-caret-blink 1.06s step-end infinite;
+}
+.lx-ghost-caret-layer {
+	pointer-events: none;
+}
+.lx-ghost-caret-cm {
+	border-left: 2px solid var(--text-body);
+	translate: -1px 0;
+	animation: lx-caret-blink 1.06s step-end infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.lx-ghost-caret,
+	.lx-ghost-caret-cm {
+		animation: none;
+	}
+}
+/* Compose's live caret in the same ink as Source's (lib/editor-chrome.js: the caret stays as legible as the text it sits
+ * in; the site's accent caret carries no AA guarantee). It inherited the accent before. */
+#studio-pane-editor .cs-host .ProseMirror {
+	caret-color: var(--text-body);
+}
+/* The block holding Compose's caret, washed as Source's caret line is (lib/editor-chrome.js `activeLineTheme`, 12%
+ * accent); none while a selection is up, for the same AA reason. */
+.cs-active-line {
+	background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+	border-radius: 4px;
 }

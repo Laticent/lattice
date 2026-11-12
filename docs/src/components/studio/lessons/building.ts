@@ -6,10 +6,11 @@
 // search box rather than asking the user to, because a keystroke the lesson did not ask for reads as
 // "the user took over" and ends it. Kit and rules: ./lesson-kit.ts; every line lives in ./lines.ts.
 
+import { loadSettings } from '../studio-store';
 import { card, chooseAfter, type LessonBuild, SEL, settle, tabNamed, tell, visible, yourTurn } from './lesson-kit';
 import { LESSON_LINES } from './lines';
 
-type InsertLines = Record<'what' | 'click' | 'missing' | 'search' | 'pick' | 'edit', string>;
+type InsertLines = Record<'what' | 'click' | 'missing' | 'search' | 'pick' | 'edit', string> & { editCompose?: string };
 
 /** "How do I add a <kind>?": open the gallery, type the kind, pick its card, say how to edit it. */
 function insertLesson(L: InsertLines, query: string, component: string): LessonBuild {
@@ -23,7 +24,10 @@ function insertLesson(L: InsertLines, query: string, component: string): LessonB
 		await tell(ctx, { say: L.search, point: SEL.pickerSearch, act: (a) => a.type(SEL.pickerSearch, query) });
 		if (!(await settle(ctx, () => visible(...pick)() != null))) return;
 		await yourTurn(ctx, { say: L.pick, target: pick, perform: (a) => a.press(pick) });
-		await tell(ctx, { say: L.edit, point: SEL.editor, circle: SEL.preview });
+		// The last line says how to edit what was added, in the mode the author writes in: Compose, the default, shows a
+		// table as a table and a picture as a picture (2026-11-10-compose-first.md). Read from the stored mode, as basics.ts.
+		if (loadSettings().editMode === 'compose' && L.editCompose) await tell(ctx, { say: L.editCompose, point: SEL.editor, circle: SEL.preview });
+		else await tell(ctx, { say: L.edit, point: SEL.editor, circle: SEL.preview });
 	};
 }
 

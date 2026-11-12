@@ -730,7 +730,7 @@ export function editObjectAsText(view: EditorView, pos: number): boolean {
 export function insertBlocker(state: EditorState, kernels: InlineKernels | null, deckLiteral: boolean, noun = 'pill'): string | null {
 	if (!kernels) return `The ${noun} editor is still loading.`;
 	const { $from, $to, empty } = state.selection;
-	if ($from.node(1)?.attrs.locked) return `This slide is edited in Markdown, so ${noun}s cannot be added here.`;
+	if ($from.node(1)?.attrs.locked) return `This slide is edited in Source, so ${noun}s cannot be added here.`;
 	if (deckLiteral || (($from.node(1)?.attrs.directives as string[]) || []).some((d) => d.includes(kernels.INLINE_CODE_LITERAL))) return `${noun[0].toUpperCase()}${noun.slice(1)}s are turned off here (inline-code: literal).`;
 	if (!$from.parent.inlineContent || $from.parent.type.spec.code || !$from.sameParent($to) || !$from.parent.canReplaceWith($from.index(), $to.index(), objectType())) return `Put the cursor in plain text on one line to insert a ${noun}.`;
 	// Inside the author's own code span the new object would split it in two.

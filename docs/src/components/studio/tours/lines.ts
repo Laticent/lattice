@@ -21,10 +21,16 @@ export const TOUR_LINES = {
 	/** Said by the start card's Test button, panned left, then right. */
 	test: 'This is how the tour will sound. Left, and now right.',
 	hello: 'Welcome to Lattice. I’ll show you around. It takes about two minutes, and you can take over at any moment.',
+	/** The write beat in Compose, the default since 2026-11-10 (2026-11-10-compose-first.md). */
+	writeCompose: 'This is where you write, the way you would in any document. Type a hash and a space to make a heading. Each line across the page starts a new slide.',
+	/** The write beat for a visitor who chose Source: the Markdown wording the tour opened with before. */
 	write: 'This is where you write. Plain text, nothing else. A line of three dashes starts a new slide, and a line that starts with a hash is a heading.',
 	preview: 'And here is the result. Every slide draws itself as you type. No export, no waiting.',
 	rail: 'Every slide in your deck lives in this strip. Click one to jump straight to it.',
 	add: 'New slide brings you a ready-made slide. A chart, a big number, a side-by-side comparison. Pick one, and the sample text is yours to replace.',
+	/** Points at Source from Compose: the power-user mode, introduced second. */
+	source: 'Want the Markdown itself? Source shows the same deck as plain text, for full control. Switch between the two whenever you like.',
+	/** Points at Compose from Source, for a visitor who chose Source. */
 	compose: 'Prefer not to see the markup? Compose is a visual editor for the same deck. Switch between the two whenever you like.',
 	fixAll: 'Some problems have one sure fix, like a slide with no heading. Fix all applies every one of them. Undo takes them back.',
 	reshape: 'Reshape shows the slide you wrote in a different layout. Same words, a new arrangement.',

@@ -56,7 +56,10 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             instead of a toPass retry; the slide map's capture rechecks the scroll after its imports; the Windows
             export-confine stopwatches are counts; first-paint:990 polls a frame with no root as "loading" (40 in 100
             loaded runs threw before). NOT done: `playground-tab-switch.spec.ts:211` did not reproduce in 190 loaded
-            webkit-tablet runs on `main` d1a4704 (instrumented with a write log), so nothing was changed there; the
+            webkit-tablet runs on `main` d1a4704 (instrumented with a write log), so nothing was changed there.
+            It DOES reproduce on webkit-PHONE, unloaded: the (phone) case failed 5 of 8 (`--repeat-each=8`) against a
+            `main` c29f45b build on 2026-11-12, same assertion, `frames.every(f => f.same)` false. Use that project to
+            chase the lead above (found by #3128, which fails it at the same rate); the
             regex work (recheck) is waiting on an owner decision, `followups.d/3045-p2-regex-recheck-gate.md`. The
             newest marp-cli in the range runs in the integration nightly (owner D2 on #3092).
             2026-11-08 (zero-flakes part 3): `docs/e2e` from 66 counted hits to 42. The instant-shell specs

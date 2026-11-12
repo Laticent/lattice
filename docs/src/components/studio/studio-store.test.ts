@@ -17,6 +17,7 @@ import {
 	headingText,
 	importStudioState,
 	loadActiveDeck,
+	loadBootCaret,
 	loadBootDeck,
 	loadBootSlide,
 	loadChat,
@@ -951,6 +952,11 @@ describe('studio-store — last-active deck (boot where you left off)', () => {
 		expect(loadActiveDeck()).toBeNull();
 		saveActiveDeck('q3-board', 3);
 		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 3 });
+		// The caret's line rides along, so a reload lands the caret on it; a save without one drops it.
+		saveActiveDeck('q3-board', 3, '## Revenue grew');
+		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 3, line: '## Revenue grew' });
+		saveActiveDeck('q3-board', 4);
+		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 4 });
 		saveActiveDeck('q3-board', -5);
 		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 0 });
 	});
@@ -973,6 +979,21 @@ describe('studio-store — last-active deck (boot where you left off)', () => {
 		const d = createDeck('Working deck');
 		saveActiveDeck(d.id, 1);
 		expect(loadBootDeck().id).toBe(d.id);
+	});
+
+	it('loadBootCaret gives back the caret line and column saved with the boot deck', () => {
+		expect(loadBootCaret()).toEqual({ line: '', col: null });
+		// A Compose caret: the column is plain, so it carries no raw line.
+		saveActiveDeck('q3-board', 2, 'Revenue grew', { col: 4 });
+		expect(loadBootCaret()).toEqual({ line: 'Revenue grew', col: { col: 4 } });
+		// A Source caret: the column counts in the Markdown line, which comes back as `raw`.
+		saveActiveDeck('q3-board', 2, '## Revenue grew', { col: 7, raw: '## Revenue grew' });
+		expect(loadBootCaret()).toEqual({ line: '## Revenue grew', col: { col: 7, raw: '## Revenue grew' } });
+		// No line, no column; and a pointer at a deck that is not booting gives nothing back.
+		saveActiveDeck('q3-board', 2, undefined, { col: 7 });
+		expect(loadBootCaret()).toEqual({ line: '', col: null });
+		saveActiveDeck('does-not-exist', 2, 'Revenue grew', { col: 4 });
+		expect(loadBootCaret()).toEqual({ line: '', col: null });
 	});
 
 	it('a dangling pointer (deck no longer in the list) falls back to the first deck + slide 0', () => {

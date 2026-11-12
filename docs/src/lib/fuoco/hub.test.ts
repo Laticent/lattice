@@ -43,6 +43,15 @@ function manualScheduler() {
 const DECK = '# One\n\ntext\n\n---\n\n# Two\n\n## Two b\n\nmore\n\n---\n\n# Three\n\n---\n\n# Four\n';
 
 describe('hub — basics', () => {
+	it('a move can carry the caret line to land on, and an ordinary move carries none', () => {
+		const hub = createFocusHub({ outliner: OUTLINER, scheduler: manualScheduler() });
+		hub.update(DECK);
+		hub.go('restore', { unitIndex: 1, line: 'more' });
+		expect(hub.get()).toMatchObject({ unitIndex: 1, line: 'more', head: null, cause: 'nav' });
+		hub.go('shell', { unitIndex: 2 });
+		expect(hub.get().line).toBe('');
+	});
+
 	it('maps a caret report to the unit and part holding it', () => {
 		const hub = createFocusHub({ outliner: OUTLINER, scheduler: manualScheduler() });
 		hub.update(DECK);
