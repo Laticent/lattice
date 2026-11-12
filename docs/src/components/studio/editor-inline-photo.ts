@@ -1,5 +1,5 @@
-import { type EditorState, type Extension, RangeSetBuilder } from '@codemirror/state';
-import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate, WidgetType } from '@codemirror/view';
+import { type EditorState, type Extension, type Range, StateField, type Text } from '@codemirror/state';
+import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemirror/view';
 
 // A PASTED PHOTO IN THE DECK SOURCE, without the freeze. A phone photo inlined as a `data:` address is one line of about
 // 4.5 MB of base64. Measured on a deck of three (docs/e2e/export-photo-size.spec.ts) in Chromium, before this module:
@@ -61,37 +61,37 @@ class PhotoChip extends WidgetType {
 	}
 }
 
-/** The chips for every long line in view. Only lines past CHIP_MIN_PAYLOAD are read, so a deck with no photo pays a length check a line. */
-function chipsInView(view: EditorView): DecorationSet {
-	const b = new RangeSetBuilder<Decoration>();
-	const { doc } = view.state;
-	for (const { from, to } of view.visibleRanges) {
-		for (let pos = from; pos <= to; ) {
-			const line = doc.lineAt(pos);
-			if (line.length >= CHIP_MIN_PAYLOAD) {
-				for (const [a, z] of longPayloads(line.text)) b.add(line.from + a, line.from + z, Decoration.replace({ widget: new PhotoChip(z - a) }));
-			}
-			pos = line.to + 1;
+/** The chips for the lines in [from, to] of `doc`. Only a line past CHIP_MIN_PAYLOAD is read, so a deck with no photo pays a length check a line. */
+function chipsIn(doc: Text, from: number, to: number): Range<Decoration>[] {
+	const out: Range<Decoration>[] = [];
+	for (let pos = from; pos <= to; ) {
+		const line = doc.lineAt(pos);
+		if (line.length >= CHIP_MIN_PAYLOAD) {
+			for (const [a, z] of longPayloads(line.text)) out.push(Decoration.replace({ widget: new PhotoChip(z - a) }).range(line.from + a, line.from + z));
 		}
+		pos = line.to + 1;
 	}
-	return b.finish();
+	return out;
 }
 
-const photoChips = ViewPlugin.fromClass(
-	class {
-		chips: DecorationSet;
-		constructor(view: EditorView) {
-			this.chips = chipsInView(view);
-		}
-		update(u: ViewUpdate) {
-			if (u.docChanged || u.viewportChanged) this.chips = chipsInView(u.view);
-		}
+// A STATE FIELD, not a view plugin: CodeMirror sizes a line it has not drawn from its text, and only decorations in the
+// state reach that estimate. From a plugin, the chip drew but a photo line kept the height of its 145 KB of text
+// (measured: one line 54,319 px tall, the rest of the slide pushed out of view). Each edit maps the chips through
+// the change and reads again only the lines the edit touched.
+export const photoChips = StateField.define<DecorationSet>({
+	create: (state) => Decoration.set(chipsIn(state.doc, 0, state.doc.length)),
+	update(chips, tr) {
+		if (!tr.docChanged) return chips;
+		let next = chips.map(tr.changes);
+		tr.changes.iterChangedRanges((_fa, _ta, fromB, toB) => {
+			const from = tr.state.doc.lineAt(fromB).from;
+			const to = tr.state.doc.lineAt(toB).to;
+			next = next.update({ filterFrom: from, filterTo: to, filter: () => false, add: chipsIn(tr.state.doc, from, to), sort: true });
+		});
+		return next;
 	},
-	{
-		decorations: (p) => p.chips,
-		provide: (p) => EditorView.atomicRanges.of((view) => view.plugin(p)?.chips ?? Decoration.none),
-	},
-);
+	provide: (f) => [EditorView.decorations.from(f), EditorView.atomicRanges.of((view) => view.state.field(f))],
+});
 
 const photoChipTheme = EditorView.baseTheme({
 	'.cm-photo-chip': {
