@@ -33,10 +33,16 @@ async function bundle(entry) {
 
 test('relationship.js gets the class, computed from the kernel, and never the table', async () => {
 	const { inputs, text } = await bundle('lib/core/relationship.js');
-	assert.ok(inputs.includes('shape-glyph-class:shape-glyph-class'), inputs.join('\n'));
+	assert.ok(inputs.includes('shape-glyph-class:class') && inputs.includes('shape-glyph-class:source'), inputs.join('\n'));
 	assert.ok(!inputs.includes('lib/core/shape-glyphs.js'), 'the table reached the bundle');
-	// The regex source the module carries is the kernel's own, so the two can never drift.
-	assert.ok(text.includes(JSON.stringify(shapeGlyphRe().source)), 'the class in the bundle is not the kernel\'s');
+	assert.ok(text.includes('new RegExp(source, "gu")') || text.includes("new RegExp(source, 'gu')"), 'the wrapper builds the regex from the data module');
+	// The data the wrapper reads is the kernel's own class, so the two can never drift; it arrives as JSON, never as code.
+	const loads = [];
+	shapeGlyphClassPlugin.setup({ onResolve() {}, onLoad: (opts, fn) => loads.push([opts.filter, fn]) });
+	const [, source] = loads.find(([filter]) => filter.test('source'));
+	const out = source();
+	assert.equal(out.loader, 'json');
+	assert.equal(JSON.parse(out.contents).source, shapeGlyphRe().source);
 });
 
 test('lint-core still gets the whole kernel, advice and all', async () => {
@@ -59,5 +65,5 @@ test('the shipped ESM build carries the plugin, so the engine entry does not rea
 	walk(engineKey);
 	const engineInputs = new Set([...seen].flatMap((k) => Object.keys(outputs[k].inputs)));
 	assert.ok(!engineInputs.has('lib/core/shape-glyphs.js'), 'the engine\'s static closure reaches the glyph table');
-	assert.ok(engineInputs.has('shape-glyph-class:shape-glyph-class'));
+	assert.ok(engineInputs.has('shape-glyph-class:source'));
 });

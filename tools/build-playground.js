@@ -177,18 +177,19 @@ const shapeGlyphClassPlugin = {
   setup(build) {
     build.onResolve({ filter: /^\.\/shape-glyphs(\.js)?$/ }, (args) =>
       args.importer === RELATIONSHIP && path.resolve(args.resolveDir, args.path).replace(/(\.js)?$/, '.js') === SHAPE_GLYPHS
-        ? { path: 'shape-glyph-class', namespace: 'shape-glyph-class' }
+        ? { path: 'class', namespace: 'shape-glyph-class' }
         : undefined);
-    build.onLoad({ filter: /.*/, namespace: 'shape-glyph-class' }, () => {
+    // The wrapper is fixed code; the class reaches it as DATA (a JSON module), so no build-time value is spliced into code.
+    build.onResolve({ filter: /^shape-glyph-class-source$/ }, () => ({ path: 'source', namespace: 'shape-glyph-class' }));
+    build.onLoad({ filter: /^class$/, namespace: 'shape-glyph-class' }, () => ({
+      contents: "const { source } = require('shape-glyph-class-source');\nmodule.exports = { shapeGlyphRe: () => new RegExp(source, 'gu') };\n",
+      resolveDir: ROOT,
+      loader: 'js',
+    }));
+    build.onLoad({ filter: /^source$/, namespace: 'shape-glyph-class' }, () => {
       // Fresh on every build, so watch mode follows an edit to the table.
       delete require.cache[SHAPE_GLYPHS];
-      const source = require(SHAPE_GLYPHS).shapeGlyphRe().source;
-      return {
-        contents: `module.exports = { shapeGlyphRe: () => new RegExp(${JSON.stringify(source)}, 'gu') };\n`,
-        resolveDir: path.dirname(SHAPE_GLYPHS),
-        loader: 'js',
-        watchFiles: [SHAPE_GLYPHS],
-      };
+      return { contents: JSON.stringify({ source: require(SHAPE_GLYPHS).shapeGlyphRe().source }), loader: 'json', watchFiles: [SHAPE_GLYPHS] };
     });
   },
 };
