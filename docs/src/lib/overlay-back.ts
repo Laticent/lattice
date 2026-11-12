@@ -58,9 +58,10 @@
 // `adopt()` then fails after the next reload, and the module falls back to the
 // orphan-accumulating behavior described above.
 //
-// TWO call sites still do this, both passing `null`:
-//
-//   PlaygroundApp.tsx:1139,1141   null   effect keyed on [view, walk]
+// The last two call sites that did this, PlaygroundApp.tsx's address-bar sync (an effect keyed on
+// [view, walk]), now pass `history.state` through (#3156). They wiped a LIVE marker: a sheet opened
+// just before the trailing-edge write lost it, and `docs/e2e/back-gesture.spec.ts`'s Galleries test
+// waited 10 s for a marker that was gone (1 run in 60 under load on webkit-phone).
 //
 // Two more (`theme-studio.js` and `drawing-board.astro`, both `{}` URL tidies — `{}` wipes
 // the marker just as thoroughly as `null`) went away with the Workbench and Drawing Board

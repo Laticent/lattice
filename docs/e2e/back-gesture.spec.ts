@@ -279,6 +279,34 @@ test.describe('@webkit-phone back closes off-Studio sheets too', () => {
 		expect(page.url(), 'back left the site instead of closing search').toBe(start);
 	});
 
+	// THE PLAYGROUND'S OWN ADDRESS-BAR WRITE. Explore writes the walk's position into the URL with `replaceState`, on a
+	// trailing edge after the reader's scroll rests. It used to pass `null` as the state, which wiped the back
+	// controller's marker (overlay-back.ts STATE_KEY) under an open sheet; the Galleries test below then waited out its
+	// 10 s for a marker that was gone (1 run in 60 under load). Here the write is made to happen while a sheet is open:
+	// the frame is scrolled to the next slide, the URL changing is the signal the write landed, and the marker must survive.
+	test("the Playground's address-bar write keeps an open sheet's back entry", async ({ page }) => {
+		await page.goto('/playground/?view=read', { waitUntil: 'networkidle' });
+		await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/^1 \/ \d+/, { timeout: 30_000 });
+		await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+		const galleries = page.getByRole('button', { name: 'Galleries', exact: true }).first();
+		await controlReady(galleries);
+		await galleries.click();
+		await expect(page.locator('[role=dialog]')).toHaveCount(1);
+		await backEntryRegistered(page);
+		const before = page.url();
+		// The reader's scroll moves the walk; the URL write follows once it rests.
+		await page.evaluate(() => {
+			const f = document.querySelector('#preview') as HTMLIFrameElement;
+			const secs = f.contentDocument?.querySelectorAll('.lattice > section');
+			(secs?.[1] as HTMLElement | undefined)?.scrollIntoView({ block: 'start' });
+		});
+		await expect.poll(() => page.url(), { message: 'the Playground never wrote the new walk position' }).not.toBe(before);
+		expect(
+			await page.evaluate(() => (history.state as { __latticeOverlayBack?: boolean } | null)?.__latticeOverlayBack === true),
+			"the address-bar write wiped the back controller's marker",
+		).toBe(true);
+	});
+
 	test("the Playground's Galleries sheet closes on back and stays on the page", async ({ page }) => {
 		await page.goto('/playground/', { waitUntil: 'networkidle' });
 		const galleries = page.getByRole('button', { name: 'Galleries', exact: true }).first();

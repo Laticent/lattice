@@ -2503,9 +2503,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const { pathname, hash, search } = window.location;
 			if (view === 'read' && walk?.kind === 'plan') {
 				const s = walk.plan.slides[walk.index]?.kind ?? null;
-				window.history.replaceState(null, '', pathname + playgroundQuery({ c: walk.plan.name, view: 'read', s }) + hash);
+				// `history.state` passes through: it holds the back controller's marker (overlay-back.ts STATE_KEY) while a
+				// sheet is open, and `null` wiped it, so a sheet opened just before this write lost its back entry's owner.
+				window.history.replaceState(window.history.state, '', pathname + playgroundQuery({ c: walk.plan.name, view: 'read', s }) + hash);
 			} else if (search) {
-				window.history.replaceState(null, '', pathname + hash);
+				window.history.replaceState(window.history.state, '', pathname + hash);
 			}
 		};
 		const t = setTimeout(write, SCROLL_IDLE_MS);
