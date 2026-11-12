@@ -516,9 +516,10 @@ test('@parity inserting from the gallery reveals the new slide, taking focus onl
 
 // A sheet opened from a control while the editor has focus, then closed. A mouse gets its caret back in the editor.
 // A tap close on a touch screen must not hand focus back to the editor's text (it can raise the keyboard), so focus goes
-// to the control the opening tap landed on, and a screen reader keeps its place (ui/focus-return.ts, #3150). Both the
-// persistent gallery (PersistentSurface) and a plain sheet (SheetContent) are checked, opened and closed the way the
-// pointer does it: a tap on a touch project, a click on a mouse one.
+// to the control the opening tap landed on, and a screen reader keeps its place (ui/focus-return.ts, #3150). The gallery
+// (PersistentSurface) is checked here, opened and closed the way the pointer does it: a tap on a touch project, a click on
+// a mouse one. A plain sheet's branch (SheetContent) runs where a tap focuses no button, which Chromium's touch emulation
+// does not reproduce; the iOS Simulator's sheet focus probe (docs/scripts/ios-safari/sheet-focus-probe.js) covers it.
 async function openAndCloseFromTheEditor(page: Page, launcher: Locator): Promise<{ fine: boolean; onLauncher: boolean; inText: boolean }> {
 	const fine = await page.evaluate(() => window.matchMedia('(hover: hover) and (pointer: fine)').matches);
 	const press = (l: Locator) => (fine ? l.click() : l.tap());
@@ -544,16 +545,18 @@ test('@parity @crosswidth @webkit-phone closing the add-slide gallery from Compo
 	}
 });
 
-test('@parity closing a plain sheet (Version history) opened from Compose lands focus on its button, never in the editor text', async ({ page }) => {
-	const launcher = page.getByRole('button', { name: 'Version history', exact: true }).filter({ visible: true }).first();
-	// A phone reaches Version history through the menu, not a header button; this check is for the widths that show it.
-	test.skip(!(await launcher.isVisible()), 'no Version history button at this width');
-	// A header button takes focus when pressed, unlike the gallery's launcher in the slide bar (which keeps the editor
-	// focused, so the gallery test above is the one that reaches the touch fallback). Either way the sheet must leave
-	// focus on the button that opened it: back on it with a mouse, and never in the editor's text after a tap.
-	const r = await openAndCloseFromTheEditor(page, launcher);
-	expect(r.inText, 'focus must not land in the editor text').toBe(false);
-	expect(r.onLauncher, 'focus is back on the button that opened the sheet').toBe(true);
+test('@parity the slide menu opens again straight after it closes', async ({ page }) => {
+	// A closing menu used to stay mounted through its fade, and its press-outside watcher took the next press on the ⋯ as
+	// outside, so the menu that press opened closed 9 ms later (strip-actions/menu.tsx; the walk below met it once in ten).
+	const trigger = page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first();
+	// A phone shows no slide strip beside Compose (its strip lives behind the preview); this check is for the widths that do.
+	test.skip(!(await trigger.isVisible()), 'no slide strip beside Compose at this width');
+	await openStripMenu(page);
+	await slideContent(page, 0).click();
+	await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+	await trigger.click();
+	await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+	await expect(page.locator('[data-strip-menu-content][data-state="open"]')).toBeVisible();
 });
 
 // ── The fuzz walk itself ────────────────────────────────────────────────────
@@ -578,10 +581,6 @@ function activeSource(page: Page): Promise<string> {
 }
 
 test('a randomized walk over the compose ops holds the structural invariants', async ({ page }) => {
-	// Thirty-four ops, each waiting out the ~400 ms save debounce: about 11 s alone, about 48 s on
-	// average at eight workers (measured on #3150), against the 60 s default. A walk that ran out of
-	// budget mid-op failed 1 run in about 60 under load, on the clock, not the code (HARD RULE #32).
-	test.slow();
 	// Fixed seed. Every op DRAWS unconditionally (see `deleteSlide`) so the stream does
 	// not depend on live DOM state, which is what makes a failure replayable rather than
 	// merely reproducible-if-you-are-lucky. Be clear about the scope, though: one seed at
@@ -634,8 +633,8 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 				if (await btn.isEnabled()) await btn.click();
 				return;
 			}
-			// A `railPick` tap on the pill that is already current opens this menu too, and the ⋯ would then close it: the
-			// walk timed out on a closed menu about one run in ten. `openStripMenu` opens it only when its ⋯ says it is closed.
+			// A `railPick` tap on the pill that is already current opens this menu too, and the ⋯ would then close it.
+			// `openStripMenu` opens it only when its ⋯ says it is closed.
 			await openStripMenu(page);
 			const item = page.locator(`[data-strip-menu-content][data-state="open"] [data-strip-action="${name}"]`);
 			if ((await item.getAttribute('data-disabled')) === null) await item.click();
@@ -644,9 +643,16 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 		async railPick() {
 			const n = await railButtons(page).count();
 			const pill = railButtons(page).nth(int(n));
+			// A tap on the pill that is already current toggles the slide menu instead (strip-actions/gestures.ts), and the ⋯'s
+			// `aria-expanded` follows a render later. Read it before the tap and wait for it to flip, or the next op reads the
+			// old state and its ⋯ click undoes the toggle (seen once in 100 runs; HARD RULE #34's repeat run on #3150).
+			const trigger = page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first();
+			const wasCurrent = (await pill.getAttribute('aria-current')) === 'true';
+			const menuBefore = wasCurrent && (await trigger.isVisible()) ? await trigger.getAttribute('aria-expanded') : null;
 			await pill.click();
 			// Wait for the pick to land before the next op reads the strip (F3, engineering/decisions/2026-11-06-flaky-tests.md).
 			await expect(pill).toHaveAttribute('aria-current', 'true');
+			if (menuBefore !== null) await expect(trigger).not.toHaveAttribute('aria-expanded', menuBefore);
 		},
 		async copyPaste() {
 			const n = await page.locator('.cs-slide').count();
