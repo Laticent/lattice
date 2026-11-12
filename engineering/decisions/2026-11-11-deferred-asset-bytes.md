@@ -166,3 +166,27 @@ laptop with more cores.
 Per-slide stylesheet trimming (§7 move 2) was measured and DROPPED: dropping 73 % of slide 5's rules saved 14 ms of
 187 ms. A slide's cost is the browser PAINTING it (~140 ms at 2×, the same on a second draw of the decoded image),
 not parsing its CSS, and this sandbox paints in software, so it overstates that cost against a laptop's GPU.
+
+## 8. Print, audited against the past (owner: "this used to be super fast several weeks ago")
+
+**It was not faster: it was skipping the photos.** The Studio as of 2026-10-20 (`e6cb9ed5b`), built and run here on the
+owner's deck: Chromium print 113 s (96 s blocked, 7.0 s longest, 1.7 GB); WebKit print 98 s, 8.4 MB, and every photo
+on the collage slide printed as an EMPTY box. `150bddab6` (2026-11-03, "iPhone photo exports: read the photo, finish the
+draw") made WebKit draw them, so an iPhone print now does the photo work it used to skip.
+
+**Where today's print goes** (timed per stage, owner's deck, Chromium / WebKit): setup 1.3 s / 13.4 s · photographing
+50 slides 29.4 s / 32.3 s · **waiting for each slide's PNG before the next shot 17.4 s / 21.0 s** · jsPDF assembly
+3.1 s / 5.5 s · total 60 s / 82 s. The WebKit setup is `flattenChartSvgs`: 10.8 s there, 1.1 s in Chromium (§8.2).
+
+### 8.1 Shipped: photograph the next slide while the last one encodes
+
+`rasterizeDeckImages` photographs a slide (`shootThenEncode`) and starts its PNG in the picture pool, then photographs
+the next, holding at most three pictures waiting. Same pixels, same writer: all 50 pages and every image identical.
+Chromium 60 s → 55 s and 32 s → 20 s blocked; WebKit 82 s → 73.5 s.
+
+### 8.2 Measured, not yet shipped: `flattenChartSvgs` is an html-to-image workaround the camera does not need
+
+Its comment says why it exists: html-to-image dropped the stylesheet from SVG charts. The slide camera lays every slide
+out with the page's own stylesheet (the 2026-10-25 note says so), and skipping the flatten left the owner's print
+byte-identical in Chromium AND WebKit, and the PDF export identical, while saving 11 s of a WebKit print (68.6 s →
+57.6 s). Being checked across every chart kind before it changes.

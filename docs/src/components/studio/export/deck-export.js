@@ -1976,6 +1976,30 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 // wired parameter rots: the next caller wanting JPEG bytes in an alpha-capable container
 // would read this signature, pass 'png', and silently get a square corner. The kernel's
 // fail-safe default would mask that rather than catch it.
+/**
+ * Photograph one slide now, and start writing its picture in the picture pool. Resolves once the slide is photographed,
+ * with `encoded`, the picture's `data:` URL still being written, so the caller can photograph the next slide meanwhile.
+ * The same shot and the same writer as `rasterizeSectionToDataUrl`: the canvas is finished when the camera returns it (it
+ * reads a pixel back to make WebKit run the draw), so writing it after the capture fixups are undone changes nothing.
+ */
+async function shootThenEncode(section, fontEmbedCSS, pageFormat, cornerTarget, log) {
+	let canvas;
+	try {
+		canvas = await withCaptureFixups(section, (_w, _h, pixelRatio) => shootSection(section, pixelRatio, fontEmbedCSS, log, 'export'), undefined, cornerTarget);
+	} catch (e) {
+		throw captureError(e);
+	}
+	const write = pageFormat === 'jpeg'
+		? sharedPictureEncoder().encode(canvas, { type: 'jpeg', quality: 95 }).then((bytes) => blobToDataUri(new Blob([bytes], { type: 'image/jpeg' })))
+		: canvasToPngDataUrl(canvas);
+	const encoded = write.catch((e) => {
+		throw captureError(e);
+	});
+	// Never an unhandled rejection while it waits its turn: the caller awaits it, and that is where a failure surfaces.
+	encoded.catch(() => {});
+	return { encoded };
+}
+
 async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, cornerTarget, log) {
 	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS, cornerTarget, log);
 	return withCaptureFixups(section, async (_w, _h, pixelRatio) => {
@@ -2050,6 +2074,19 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 		// each slide is photographed, it runs while this thread photographs the next one.
 		const pngPool = pageFormat === 'png' ? await import('./pdf-image-pool.js') : null;
 		pngPool?.startPngSet();
+		// PHOTOGRAPH THE NEXT SLIDE WHILE THE LAST ONE ENCODES. A slide's picture is written in the picture pool, off this
+		// thread, and this loop used to wait for it before photographing the next slide: 17 s of a 60 s, 50-slide print in
+		// Chromium and 21 s of 82 s in WebKit, measured on the owner's deck (2026-11-11-deferred-asset-bytes.md §8). Now at
+		// most ENCODE_WINDOW pictures wait at once, so a phone holds a few canvases (14.7 MB each at 2560 x 1440), not a
+		// deck's worth. The same pixels go to the same writer, so every image, and the file, is the same.
+		const ENCODE_WINDOW = 3;
+		const waiting = [];
+		const settleOldest = async () => {
+			const { index, encoded } = waiting.shift();
+			images[index] = await encoded;
+			// `'SLOW'`: what `addImage` resolves to on the sheet's `compress: true` document.
+			pngPool?.startPng(images[index], 'SLOW');
+		};
 		for (let i = 0; i < sections.length; i++) {
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
 			// The corner target is `'pdf'`, NOT `pageFormat`. Those are different axes and this
@@ -2060,13 +2097,13 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 			// straight to `assembleSheetPdf`. Passing 'png' here would keep the rounded corner
 			// and composite its transparency onto the page, which is the pale-notch artifact the
 			// capability rule exists to prevent. lib/core/corner-export-capability.mjs.
-			images.push(await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf', log));
-			// `'SLOW'`: what `addImage` resolves to on the sheet's `compress: true` document.
-			pngPool?.startPng(images[i], 'SLOW');
+			waiting.push({ index: i, encoded: (await shootThenEncode(sections[i], fontEmbedCSS, pageFormat, 'pdf', log)).encoded });
+			if (waiting.length >= ENCODE_WINDOW) await settleOldest();
 			// Yield a macrotask between slides so the progress line paints (see the note
-			// in buildPdfBlobOnMainThread) — the per-slide clone + PNG-deflate is synchronous.
+			// in buildPdfBlobOnMainThread) — the per-slide clone is synchronous.
 			await new Promise((r) => setTimeout(r));
 		}
+		while (waiting.length) await settleOldest();
 		return { images, geom: { w, h }, pageFormat };
 	} finally {
 		dispose();
