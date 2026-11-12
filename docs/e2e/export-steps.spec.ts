@@ -90,8 +90,8 @@ test('every step page of the Studio\'s PDF carries its slide\'s text marks', asy
 	expect(text(5)).toMatch(/2\s*\/\s*2/);
 	// The eyebrow in the AUTHOR'S case, exactly. Since the type voices (#3117,
 	// engineering/decisions/2026-11-09-type-voices.md) an eyebrow is content in the heading face's italic,
-	// `--eyebrow-case: none`, so the slide shows "02 · Beta". The text layer writes what the slide SHOWS
-	// (pdf-text-extract.js `applyTextTransform`), so a theme that sets eyebrows in capitals turns this red
+	// `--eyebrow-case: none`, so the slide shows "02 · Beta". The PDF's text writes what the slide SHOWS
+	// (lib/core/pdf-compose/read-slide.mjs `transformCase`), so a theme that sets eyebrows in capitals turns this red
 	// on purpose: the layer and the picture must agree, and this line says which picture it was proved on.
 	expect(text(6)).toContain('02 · Beta');
 });
