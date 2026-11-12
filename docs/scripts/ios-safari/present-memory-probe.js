@@ -15,7 +15,6 @@
  * A step is done when the reader could see it: the counter moved AND the presented slide's heading and photo are the new
  * ones. Plain browser JS on purpose: WebDriver's execute-script sends source text, not a module.
  */
-/* biome-ignore-all lint/correctness/noUnusedVariables: globals for WebDriver's execute-script and Playwright's addScriptTag */
 
 function latticePresentHelpers() {
 	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -151,3 +150,7 @@ async function latticePresentStep(k) {
 function latticePresentAlive() {
 	return { mark: window.__latticePresentMark || null };
 }
+
+// The steps are reached by name from source text (run.mjs's execute-script, probe.selftest.mjs's evaluate), never imported,
+// so they are put on the page's global object here rather than left as declarations that look unused.
+Object.assign(globalThis, { latticePresentReceive, latticePresentImport, latticePresentReady, latticePresentOpen, latticePresentStep, latticePresentAlive });
