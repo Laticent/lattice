@@ -221,7 +221,18 @@ test('@crosswidth @gecko @webkit-tablet a move inside the slide after a rail pic
 	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
 	await expect.poll(() => sourceLine(page)).toBe('A closing line.');
 	await expect.poll(() => afterCaret(page)).toBe('line.');
+	// Source frames the slide as Compose does: its heading is on screen above the caret, not scrolled off (owner, iPad).
+	await expect.poll(() => lineOnScreen(page, '# Second')).toBe(true);
+	await expect.poll(() => lineOnScreen(page, 'A closing line.')).toBe(true);
 });
+
+/** Whether the Markdown line with exactly this text is inside the editor's visible scroll area. */
+const lineOnScreen = (page: Page, text: string) =>
+	page.evaluate((t) => {
+		const scroller = document.querySelector('.cm-scroller')?.getBoundingClientRect();
+		const line = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent === t)?.getBoundingClientRect();
+		return !!scroller && !!line && line.top >= scroller.top - 1 && line.bottom <= scroller.bottom + 1;
+	}, text);
 
 test('@crosswidth @gecko @webkit-tablet a Source caret on a speaker note does not land on the bullet with the same words', async ({ page }) => {
 	test.skip(isPhone(page), 'the phone switch has its own test above');

@@ -210,6 +210,14 @@ line from Source that the Markdown holds more than once, or that Compose does no
 in Compose: the caret falls back to the slide's start rather than onto a visible block with the same words. The shell reads the column from the editor being left (each editor's `caretColumn()` handle), hands it to the one arriving, and saves it with the line (`lattice-studio-active` gains `col`). Arriving, Compose
 frames the caret, not only the slide, when the caret sits lower than one screen shows.
 
+Source FRAMES THE SLIDE as Compose does (owner, iPad, 2026-11-12: Compose showed the whole slide, Source put the caret's
+line at the top of the pane with the slide's heading scrolled off). The slide's first editable line goes at the top when
+the slide down to the caret fits the pane, else the caret goes in the middle (`frameSlide`, Editor.tsx). The heights are
+estimates until the lines are drawn (a phone's wrapped caret line was estimated at 1076 px and measured at 2262 px), so
+over the next few layouts a caret left outside the pane is scrolled just into it, and a pane that is hidden when the
+reveal runs is framed the first time it gets a height. `studio-pane-sync.spec.ts` checks the heading and the caret line
+are both on screen after a switch.
+
 The drawn caret sits OUTSIDE the editable text: an overlay in Compose (`position: fixed` from the caret's coordinates) and
 a CodeMirror layer in Source. A first cut put a widget inside the text and took it out on focus, and changing the
 editable DOM under a click made Firefox drop where the first click landed (caught by the gecko run). Fuoco's `go` gained

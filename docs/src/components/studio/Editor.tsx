@@ -240,6 +240,59 @@ function isAuthorEdit(u: { transactions: readonly { isUserEvent(e: string): bool
 }
 
 export type EditorSelection = { empty: boolean; text: string; from: number; to: number };
+/**
+ * FRAME THE SLIDE, AS COMPOSE DOES. Scrolling the caret's line to the top of the pane hid the slide above it (its heading,
+ * its eyebrow), so a switch from Compose, which shows the whole slide, landed on a line with no context (owner, iPad,
+ * 2026-11-12). The slide's first editable line goes at the top (studio-jargon-alignment.spec.ts's contract for a rail pick) when
+ * the slide down to the caret fits the pane; when it does not, the
+ * caret goes in the middle, so it is never scrolled out of view.
+ */
+/** Over the next `tries` layouts, scroll `caret` just into the pane whenever the measured heights leave it outside. Read from
+ *  the measured line block, not the caret's coordinates: a line outside the drawn viewport has none. */
+function keepCaretInView(v: EditorView, caret: number, tries: number): void {
+	v.requestMeasure({
+		read: (view) => {
+			const block = view.lineBlockAt(Math.min(caret, view.state.doc.length));
+			const box = view.scrollDOM.getBoundingClientRect();
+			const top = view.documentTop + block.top;
+			return top < box.top || top + block.height > box.bottom;
+		},
+		// Never a dispatch inside the measure cycle (CodeMirror refuses it, which ended the loop after one check): the next frame.
+		write: (outside, view) => {
+			requestAnimationFrame(() => {
+				if (!view.dom.isConnected) return;
+				if (outside) view.dispatch({ effects: EditorView.scrollIntoView(Math.min(caret, view.state.doc.length), { y: 'nearest', yMargin: 8 }) });
+				if (tries > 1) keepCaretInView(view, caret, tries - 1);
+			});
+		},
+	});
+}
+
+function frameSlide(v: EditorView, from: number, caret: number) {
+	const room = v.scrollDOM.clientHeight;
+	// A pane with no height yet (a phone's hidden pane) cannot be measured: frame the slide the first time it gets one, and
+	// meanwhile put the caret's line at the top. Framed while hidden, the heights were all estimates, and the caret drifted
+	// below the pane once the phone drew its wrapped lines (owner, iPad; studio-pane-sync's phone case).
+	if (!room) {
+		if (typeof ResizeObserver !== 'undefined') {
+			const ro = new ResizeObserver(() => {
+				if (!v.scrollDOM.clientHeight || !v.dom.isConnected) return;
+				ro.disconnect();
+				const at = Math.min(caret, v.state.doc.length);
+				if (v.state.selection.main.head === at) v.dispatch({ effects: frameSlide(v, Math.min(from, at), at) });
+			});
+			ro.observe(v.scrollDOM);
+		}
+		return EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 });
+	}
+	// The heights are estimates until the lines are drawn (a phone wraps long lines taller than estimated: a caret line
+	// estimated at 1076 px measured 2262 px), so the check repeats over the next few layouts, until the heights hold, and
+	// a caret that ends up outside the pane is scrolled just into it.
+	keepCaretInView(v, caret, 4);
+	const span = v.lineBlockAt(caret).bottom - v.lineBlockAt(from).top;
+	return span + 16 <= room ? EditorView.scrollIntoView(from, { y: 'start', yMargin: 8 }) : EditorView.scrollIntoView(caret, { y: 'center' });
+}
+
 export type EditorHandle = {
 	/** The caret's column as Source sees it: a raw column in its Markdown line, which the other editor converts. */
 	caretColumn: () => CarriedColumn;
@@ -701,7 +754,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// The hub still holding THIS editor's own caret (an exact source offset, carried through edits since): put it back
 			// exactly. A Compose that took the keyboard and has not moved yet reports nothing, so this is the common case.
 			const caret = Math.min(headOk && f.head !== null ? f.head : onLine >= 0 ? onLine : deckEditableOffset(ix, f.unitIndex, f.part), v.state.doc.length);
-			v.dispatch({ selection: { anchor: caret }, effects: EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 }) });
+			v.dispatch({ selection: { anchor: caret }, effects: frameSlide(v, Math.min(deckEditableOffset(ix, f.unitIndex, f.part), caret), caret) });
 		}
 		// The boot restore's focus lands once this lazy editor arrives, about a second after load: only while nothing else has
 		// the keyboard (the author may already be typing in search or chat; the trio's inversion).
