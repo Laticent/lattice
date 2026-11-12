@@ -7,7 +7,7 @@ asked to keep Accordo rather than throw it away. The decision, the design and th
 
 **Where it stands (round 4).** It passes the 4,500-session correctness gate and two fixed concurrent-delete scenarios,
 and split no reply from its question on the stated seeds (Yjs: 9; Accordo does split 1–2 in 3,000 on other seeds).
-It opens a fresh thread about 2x faster than Yjs and uses half the heap. It stores an aged thread 8.6x larger,
+It opens a fresh thread 1.5–3.4x faster than Yjs in browsers and uses half the heap. It stores an aged thread 8.6x larger,
 because it writes each deleted entry as a JSON row; a run-length binary encoding should close most of that gap (an
 estimate, not built). Three independent audits found defects in rounds 1 to 3, the third a divergence when two tabs
 delete one reply; all are fixed. Round 4 is not audited. Reopening a replica under its own id is safe only from its

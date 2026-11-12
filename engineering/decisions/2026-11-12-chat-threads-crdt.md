@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: Chat threads will merge across tabs with a CRDT, and the owner chose Yjs (2026-11-12) (already a dependency, the live sessions' model) over a library of our own. Each tab's author and AI are separate writers, so a save today is last-writer-wins and can drop another tab's messages. A bake-off (§10) against Accordo, a zero-dependency list CRDT written for it, passed both on a 4,500-session property gate after three independent audits of Accordo, each of which found defects (its fourth round is unaudited). Accordo opens a fresh thread about 2x faster, uses half the heap and split fewer replies from their questions; Yjs stores an aged thread 8.6x smaller, a gap of encoding that Accordo has not closed. Yjs costs about 23 KB gz in lazily loaded chat code and nothing at boot. It retires #3138's fingerprint and merge apparatus. Decks are out of scope.
+summary: Chat threads will merge across tabs with a CRDT, and the owner chose Yjs (2026-11-12) (already a dependency, the live sessions' model) over a library of our own. Each tab's author and AI are separate writers, so a save today is last-writer-wins and can drop another tab's messages. A bake-off (§10) against Accordo, a zero-dependency list CRDT written for it, passed both on a 4,500-session property gate after three independent audits of Accordo, each of which found defects (its fourth round is unaudited). Accordo opens a fresh thread 1.5–3.4x faster in browsers, uses half the heap and split fewer replies from their questions; Yjs stores an aged thread 8.6x smaller, a gap of encoding that Accordo has not closed. Yjs costs about 23 KB gz in lazily loaded chat code and nothing at boot. It retires #3138's fingerprint and merge apparatus. Decks are out of scope.
 ---
 
 # Chat threads across tabs: merge them with a CRDT
@@ -243,18 +243,18 @@ Chromium / Firefox / WebKit; Firefox and WebKit clamp the clock, so their smalle
 
 | Workload | Accordo | Yjs | Better |
 |---|---|---|---|
-| Store a 60-message thread, raw / gzip | 35.4 KB / 8.5 KB | 30.7 KB / 7.3 KB | Yjs, by 13% / 14% |
+| Store a 60-message thread, raw / gzip | 35.4 KB / 8.5 KB | 30.6 KB / 7.3 KB | Yjs, by 13% / 14% |
 | **Store an aged thread, raw / gzip** | **904 KB / 181 KB** | **105 KB / 16.3 KB** | **Yjs, 8.6x / 11x** |
 | Open a 60-message thread | 0.14 / 0.34 / 0.16 ms | 0.26 / 0.50 / 0.56 ms | Accordo, 1.5–3.4x |
 | Open a 600-message thread | 1.6 / 3.1 / 1.6 ms | 2.2 / 5.5 / 4.3 ms | Accordo, 1.3–2.7x |
 | Open an aged thread | 13 / 31 / 23 ms | 11 / 26 / 15 ms | Yjs, 1.1–1.5x |
 | One turn | 0.02 / 0.04 / 0.03 ms | 0.03 / 0.06 / 0.05 ms | even (all far under a frame) |
 | Apply, regenerate, compaction | 0.03–0.18 ms | 0.04–0.18 ms | even |
-| Broadcast after one turn (fresh / aged) | 1,115 B / 1,171 B | 977 B / 997 B | Yjs, by 12–15% |
+| Broadcast after one turn (fresh / aged) | 1,115 B / 1,171 B | 977 B / 999 B | Yjs, by 12–15% |
 | A pull with nothing new, aged | 15 B | 41 B | both negligible |
 | A tab one turn behind pulls and applies it, aged | 0.8 / 2.0 / 2.5 ms | 0.75 / 2.3 / 1.4 ms | even; Yjs 1.8x in WebKit |
 | Four tabs, 50 offline actions each, full merge | 4.2 / 6 / 7 ms, 340 KB sent | 10.8 / 17 / 12 ms, 286 KB sent | Accordo on time, 1.7–2.8x; Yjs on bytes, 16% fewer |
-| Heap per open 60-message thread (Node) | 82 KB | 163 KB | Accordo, 2x |
+| Heap per open 60-message thread (Node) | 82 KB | 164 KB | Accordo, 2x |
 
 Round 2's "Yjs syncs an aged thread 6x to 200x faster" was the stall bug and a noisy measurement (a difference of two
 timings); the sync row is now timed directly. Round 2's four-tab bytes (621 KB) were the stall bug too.
