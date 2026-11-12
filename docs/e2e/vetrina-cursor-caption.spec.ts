@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { FRAME_MS, pauseFrames, stepFramesUntil } from './frame-clock';
 
 // The three behaviors this prototype turns on cannot be tested anywhere but a real browser,
 // because all three are LAYOUT (HARD RULE #23): whether the caption is inside the host's box,
@@ -45,6 +46,57 @@ const countOf = (page: Page, match: string) =>
 
 async function waitForPhase(page: Page, match: string, timeout = 40_000): Promise<void> {
 	await expect.poll(async () => (await phases(page)).some((p) => p.startsWith(match)), { timeout }).toBe(true);
+}
+
+/**
+ * How long each caption line was UP, on a fake clock stepped one frame at a time (frame-clock.ts). Call it right after
+ * `#run` with the page's clock paused. A span is in virtual milliseconds, so a loaded runner cannot shorten or stretch
+ * it (HARD RULE #32): these durations used to be real-time stopwatches.
+ *
+ * "Up" is the stage's own command, `bubble.style.opacity === '1'` (`reveal()` in stage.ts), not the computed opacity:
+ * the fade is a CSS transition the fake clock does not drive, so a computed value would mix real and virtual time. A
+ * stale reveal (the bubble commanded back up while still carrying the previous beat's words) is still a second span of
+ * that text. Steps until `enough(finished spans)` holds or the tour ends (no bubble), 45 s of virtual time at most.
+ */
+async function captionSpans(page: Page, enough: (spans: { text: string; ms: number }[]) => boolean): Promise<{ spans: { text: string; ms: number }[] }> {
+	await page.evaluate(() => {
+		const w = window as unknown as { __spans: { text: string; ms: number }[]; __tourOver: boolean };
+		w.__spans = [];
+		w.__tourOver = false;
+		let current: string | null = null;
+		let since = 0;
+		let seenBubble = false;
+		const tick = () => {
+			const b = document.querySelector('.vetrina-bubble') as HTMLElement | null;
+			if (b) seenBubble = true;
+			const text = b && b.style.opacity === '1' ? (b.textContent ?? '').trim() : null;
+			if (text !== current) {
+				if (current) w.__spans.push({ text: current, ms: Math.round(performance.now() - since) });
+				current = text;
+				since = performance.now();
+			}
+			if (seenBubble && !b) w.__tourOver = true;
+			else requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	});
+	const read = () =>
+		page.evaluate(() => {
+			const w = window as unknown as { __spans: { text: string; ms: number }[]; __tourOver: boolean };
+			return { __spans: w.__spans, __tourOver: w.__tourOver };
+		});
+	await stepFramesUntil(
+		page,
+		async () => {
+			const { __spans, __tourOver } = await read();
+			return __tourOver || enough(__spans);
+		},
+		Math.ceil(45_000 / FRAME_MS),
+		30,
+	);
+	const { __spans } = await read();
+	await page.clock.resume();
+	return { spans: __spans.filter((x) => x.text.length > 0) };
 }
 
 /** Wait until at least `n` rows with this phase have been logged — the positional oracle that
@@ -324,33 +376,18 @@ test.describe('the red-team findings, pinned on the real page', () => {
 		// DEFAULT `'legacy'` — one option, which is what a host sets after reading the caption-style
 		// table — budgeted the SELF-DISMISSING caption at legacy's 300 wpm and erased an 8-word line
 		// after 1900ms. The dwell is now `dwellMs`, always the grounded rate.
+		await page.clock.install();
 		await page.goto(PROTO);
 		await page.check('input[name="caption"][value="cursor"]');
 		await page.check('input[name="pacing"][value="legacy"]');
 		await page.check('input[name="narr"][value="off"]');
+		await expect(page.locator(BUBBLE)).toHaveCount(0);
+		await pauseFrames(page);
 		await page.locator('#run').click();
 
-		// Sampled in the page: how long each distinct line is actually legible. Reading it from the
-		// test side would mean guessing an interval, and the whole point is the duration.
-		const spans = await page.evaluate(async () => {
-			const out: { text: string; ms: number }[] = [];
-			const t0 = performance.now();
-			let current: string | null = null;
-			let since = t0;
-			while (performance.now() - t0 < 45_000) {
-				const b = document.querySelector('.vetrina-bubble') as HTMLElement | null;
-				if (!b) break;
-				const text = Number.parseFloat(getComputedStyle(b).opacity) > 0.5 ? (b.textContent ?? '').trim() : null;
-				if (text !== current) {
-					if (current) out.push({ text: current, ms: Math.round(performance.now() - since) });
-					current = text;
-					since = performance.now();
-				}
-				await new Promise((r) => requestAnimationFrame(r));
-			}
-			if (current) out.push({ text: current, ms: Math.round(performance.now() - since) });
-			return out.filter((s) => s.text.length > 0);
-		});
+		// Sampled in the page: how long each distinct line is up. Reading it from the test side
+		// would mean guessing an interval, and the whole point is the duration.
+		const { spans } = await captionSpans(page, () => false); // the whole tour
 
 		expect(spans.length).toBeGreaterThan(3);
 		for (const s of spans) {
@@ -372,29 +409,17 @@ test.describe('the red-team findings, pinned on the real page', () => {
 		// The seam the red team named as "where I would look next": a drag's performance window spans
 		// the line, so the caption is legible only because it is explicitly HELD — and the tour had no
 		// drag beat, so nothing on this branch had ever run it. It does now (beat 4).
+		await page.clock.install();
 		await page.goto(PROTO);
 		await page.check('input[name="caption"][value="cursor"]');
 		await page.check('input[name="narr"][value="off"]');
+		await expect(page.locator(BUBBLE)).toHaveCount(0);
+		await pauseFrames(page);
 		await page.locator('#run').click();
 
-		const span = await page.evaluate(async () => {
-			const WANT = 'Drag draft';
-			let up: number | null = null;
-			let down: number | null = null;
-			const t0 = performance.now();
-			while (performance.now() - t0 < 45_000) {
-				const b = document.querySelector('.vetrina-bubble') as HTMLElement | null;
-				if (!b) break;
-				const showing = Number.parseFloat(getComputedStyle(b).opacity) > 0.5 && (b.textContent ?? '').includes(WANT);
-				if (showing && up == null) up = performance.now();
-				if (!showing && up != null) {
-					down = performance.now();
-					break;
-				}
-				await new Promise((r) => requestAnimationFrame(r));
-			}
-			return up != null && down != null ? Math.round(down - up) : null;
-		});
+		// Stepped until the drag line has come up and gone down again.
+		const { spans } = await captionSpans(page, (all) => all.some((x) => x.text.includes('Drag draft')));
+		const span = spans.find((x) => x.text.includes('Drag draft'))?.ms ?? null;
 
 		expect(span, 'the drag beat never showed its line').not.toBeNull();
 		// Eight words at the grounded rate is ~3500ms. It must be READ, not merely flashed while the
@@ -470,51 +495,73 @@ test.describe("a scroll the VIEWER performs re-seats the bounds:'host' chrome", 
 		expect(dock.y + dock.height).toBeLessThanOrEqual(app.y + app.height + 1);
 	});
 
-	// HARD RULE #19 territory: the decision record refused this listener until the jank question was
-	// measured, so the number ships with it. The baseline is the SAME scroll on the SAME page with
-	// no tour running — i.e. what the browser costs by itself — which is a truer before/after than
-	// two builds, because it isolates exactly what a running tour adds to a scroll frame.
-	async function scrollFrameCost(page: Page): Promise<{ n: number; mean: number; worst: number; over20: number }> {
-		return page.evaluate(async () => {
-			const deltas: number[] = [];
+	// THE SCROLL HANDLER'S COST, AS WORK (HARD RULE #32, F1). This used to time 200 scroll frames
+	// with and without a tour and fail if the mean grew by 4 ms: a speed check in a pass/fail test,
+	// at the mercy of whatever else the runner was doing. Speed belongs to `npm run bench` (#19).
+	// What the decision record actually refused was a per-frame RELAYOUT, and stage.ts says how the
+	// handler avoids one: it is rAF-coalesced and it COMPARES BEFORE IT WRITES, so a scroll that
+	// leaves the clamped box where it was writes no style at all. That is countable.
+	//
+	// Under the `cursor` caption the Exit chip is written once when it is built and otherwise only
+	// by `seatCorner`, i.e. by a re-seat. So: watch its `style` attribute through 200 scroll frames.
+	//   · On the proto's own host, which slides through the window as it scrolls, re-seats happen
+	//     (the positive control: the observer can see one, at most one per frame).
+	//   · On a host taller than the window, the clamped box is the window at every scroll position,
+	//     so there must be NONE. A handler that re-seats on every scroll writes on every frame.
+	async function exitWritesWhileScrolling(page: Page, from = 30): Promise<{ writes: number; frames: number; travel: number }> {
+		return page.evaluate(async (low) => {
+			const exit = document.querySelector('.vetrina-exit');
+			if (!exit) throw new Error('no Exit chip');
+			let writes = 0;
+			const mo = new MutationObserver((records) => {
+				writes += records.length;
+			});
+			const startY = window.scrollY;
+			window.scrollTo(0, low);
+			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+			mo.observe(exit, { attributes: true, attributeFilter: ['style'] });
+			let travel = 0;
+			let frames = 0;
 			await new Promise<void>((res) => {
-				let last = performance.now();
-				let i = 0;
 				let dir = 1;
-				const tick = (t: number) => {
-					deltas.push(t - last);
-					last = t;
+				const tick = () => {
 					// A scroll EVERY frame — the worst case a handler can be asked to survive.
+					const before = window.scrollY;
 					window.scrollBy(0, 7 * dir);
-					if (window.scrollY < 30) dir = 1;
-					else if (window.scrollY > 300) dir = -1;
-					if (++i >= 200) return res();
+					travel += Math.abs(window.scrollY - before);
+					if (window.scrollY < low) dir = 1;
+					else if (window.scrollY > low + 270) dir = -1;
+					if (++frames >= 200) return res();
 					requestAnimationFrame(tick);
 				};
 				requestAnimationFrame(tick);
 			});
-			deltas.shift(); // the first delta spans the wait, not a frame
-			const mean = deltas.reduce((a, b) => a + b, 0) / deltas.length;
-			return { n: deltas.length, mean: Math.round(mean * 100) / 100, worst: Math.round(Math.max(...deltas) * 100) / 100, over20: deltas.filter((d) => d > 20).length };
-		});
+			// The handler re-seats on the frame AFTER a scroll; give the last scroll its frame.
+			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+			writes += mo.takeRecords().length;
+			mo.disconnect();
+			window.scrollTo(0, startY);
+			return { writes, frames, travel };
+		}, from);
 	}
 
-	test('@mobile re-seating costs the scroll nothing measurable on a phone viewport', async ({ page }) => {
-		// Baseline first, on the same page with no stage mounted.
-		await page.goto(PROTO);
-		const idle = await scrollFrameCost(page);
-
-		await start(page, { caption: 'bar', bounds: 'host', pacing: 'grounded', narr: 'off' });
+	test('@mobile re-seating writes nothing on a scroll that moves nothing, on a phone viewport', async ({ page }) => {
+		await start(page, { caption: 'cursor', bounds: 'host', pacing: 'grounded', narr: 'off' });
 		await waitForPhase(page, 'say');
-		const running = await scrollFrameCost(page);
 
-		console.log(`[scroll-cost] idle mean ${idle.mean}ms worst ${idle.worst}ms (${idle.over20}/${idle.n} frames >20ms) | tour running mean ${running.mean}ms worst ${running.worst}ms (${running.over20}/${running.n} frames >20ms)`);
-		// The claim is "not measurable", not "free": the handler reads the clamped box every frame
-		// and re-seats only when it moved. A 4ms allowance on the MEAN is a quarter of a 60fps
-		// frame and several times any plausible cost of two rect reads — generous enough not to be
-		// flaky on a shared runner, tight enough that a per-frame relayout (the shape the decision
-		// record refused) could not hide inside it.
-		expect(running.mean, `a running tour added ${(running.mean - idle.mean).toFixed(2)}ms to the mean scroll frame`).toBeLessThan(idle.mean + 4);
+		// Positive control: the proto's own host slides through the window, so the clamped box moves and re-seats run.
+		const sliding = await exitWritesWhileScrolling(page);
+		expect(sliding.travel, 'the page did not scroll, so this measured nothing').toBeGreaterThan(0);
+		expect(sliding.writes, 'no re-seat was seen while the host slid through the window — the observer is blind').toBeGreaterThan(0);
+		expect(sliding.writes, 'more than one re-seat per frame: the handler is not rAF-coalesced').toBeLessThanOrEqual(sliding.frames + 1);
+
+		// A host that spans the window at every scroll position: taller than the window, and scrolled
+		// so its top stays above the window's for the whole oscillation. The clamped box never moves.
+		await page.addStyleTag({ content: `${APP}{min-height:3000px}` });
+		const hostTop = await page.locator(APP).evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+		const spanning = await exitWritesWhileScrolling(page, Math.ceil(hostTop) + 30);
+		expect(spanning.travel, 'the page did not scroll, so this measured nothing').toBeGreaterThan(0);
+		expect(spanning.writes, `a scroll that moved nothing re-seated the chrome ${spanning.writes} times in ${spanning.frames} frames`).toBe(0);
 	});
 });
 

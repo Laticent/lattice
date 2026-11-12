@@ -153,25 +153,46 @@ async function breakMermaid(page: import('@playwright/test').Page): Promise<void
  * is exactly the state this fix has to handle — with no margin to lose on a slow CI box. The
  * export finishes at its own budget and the held promise simply dies with the page.
  */
-async function stallMermaidRender(page: import('@playwright/test').Page, holdMs?: number): Promise<void> {
-	await page.addInitScript((ms) => {
-		let held: Record<string, unknown> | undefined;
+async function stallMermaidRender(page: import('@playwright/test').Page, mode: 'forever' | 'held' = 'forever'): Promise<void> {
+	await page.addInitScript((held) => {
+		// One ledger for every frame, kept on the top window (the export's capture frame is a same-origin srcdoc): how
+		// many renders were asked for, and the renders waiting for the test to let them through.
+		const top = window.top as unknown as { __mmd?: { calls: number; waiting: Array<() => void>; open: boolean } };
+		top.__mmd ??= { calls: 0, waiting: [], open: false };
+		const ledger = top.__mmd;
+		let mod: Record<string, unknown> | undefined;
 		Object.defineProperty(window, 'mermaid', {
 			configurable: true,
-			get: () => held,
+			get: () => mod,
 			set: (v: Record<string, unknown> & { __stalled?: boolean }) => {
-				held = v;
+				mod = v;
 				if (!v || v.__stalled || typeof v.render !== 'function') return;
 				const orig = v.render as (...a: unknown[]) => unknown;
 				v.render = async function (this: unknown, ...args: unknown[]) {
-					await new Promise((r) => { if (typeof ms === 'number') setTimeout(r, ms); });
+					ledger.calls++;
+					// `forever`: never resolves. `held`: resolves when the test opens the ledger.
+					await new Promise<void>((r) => {
+						if (held && ledger.open) r();
+						else if (held) ledger.waiting.push(r);
+					});
 					return orig.apply(this, args);
 				};
 				v.__stalled = true;
 			},
 		});
-	}, holdMs);
+	}, mode === 'held');
 }
+
+/** How many Mermaid renders have been asked for, in every frame of the page (see `stallMermaidRender`). */
+const renderCalls = (page: import('@playwright/test').Page) => page.evaluate(() => (window as unknown as { __mmd?: { calls: number } }).__mmd?.calls ?? 0);
+
+/** Let every held render through, and every later one at once. */
+const openRenders = (page: import('@playwright/test').Page) =>
+	page.evaluate(() => {
+		const ledger = (window as unknown as { __mmd: { waiting: Array<() => void>; open: boolean } }).__mmd;
+		ledger.open = true;
+		for (const r of ledger.waiting.splice(0)) r();
+	});
 
 /** What the fence looks like to someone opening the artifact. Read from a REAL layout. */
 function fenceReadback() {
@@ -273,18 +294,30 @@ test('@smoke a diagram that draws INSIDE the bake window still exports as a draw
 	// terminal, so the bake saw a settled fence and returned at once, and a diagram landing
 	// anywhere past 4s shipped as source text instead of the drawing it was about to become.
 	//
-	// 8s sits inside the restored window and outside the frame's own budget, which is exactly
-	// the band that regressed. Asserted on the DOWNLOADED artifact: the drawing is there and
-	// the source is hidden — the opposite of the give-up arm above, from the same code path.
+	// The drawing has to land inside the restored window and outside the frame's own budget, which
+	// is exactly the band that regressed. That used to be an 8 s real-time stall on the render, a
+	// bet that a loaded runner would land it between 4 s and 16 s (HARD RULE #32). Now the page
+	// runs on Playwright's clock (both waits are `Date.now` and `setTimeout` on the Studio page),
+	// the export's render is HELD until it has been asked for, the clock jumps 5 s (past the
+	// frame's 4000; the jump fires the frame wait's due ticks, so it has expired when the jump
+	// returns), and only then does the drawing go through: 5 s in, 11 s still left in the bake.
+	// Asserted on the DOWNLOADED artifact: the drawing is there and the source is hidden — the
+	// opposite of the give-up arm above, from the same code path.
 	test.setTimeout(240_000);
-	await stallMermaidRender(page, 8_000);
+	await page.clock.install();
+	await stallMermaidRender(page, 'held');
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.row }).click();
 	const downloadPromise = page.waitForEvent('download', { timeout: 200_000 });
+	// The live preview has asked for its own render by now; the export's comes after the click.
+	const before = await renderCalls(page);
 	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.confirm }).click();
+	await expect.poll(() => renderCalls(page), { timeout: 60_000, message: 'the export never asked Mermaid to render' }).toBeGreaterThan(before);
+	await page.clock.fastForward(5_000);
+	await openRenders(page);
 	const file = path.join(testInfo.outputDir, 'mermaid-late-but-drawn.html');
 	await (await downloadPromise).saveAs(file);
 
