@@ -715,7 +715,7 @@ export function PrintOptionsPanel({
 					{rendering || building === 'download' ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
 					{building === 'download' ? status || 'Building PDF…' : rendering ? 'Rendering…' : 'Download PDF'}
 				</button>
-				<p className="pod-plat"><span className="pod-dot">●</span> {ios ? 'On iPhone: tap Print to prepare, then Open — the share sheet opens; tap Print.' : pdfPrint ? 'Tap Print to prepare the PDF, then Open — print it from there.' : 'Opens the print dialog on desktop.'}</p>
+				<p className="pod-plat"><span className="pod-dot">●</span> {ios ? 'On iPhone: tap Print to prepare, then Open — the share sheet opens; tap Print.' : pdfPrint ? 'Print prepares the PDF; then Open PDF to print it from there.' : 'Opens the print dialog on desktop.'}</p>
 			</div>
 		</div>
 	);

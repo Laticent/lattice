@@ -218,3 +218,13 @@ are the Library photos INSIDE an exported file (§3), which a file must carry, a
 Photos, videos, themes and reference PDFs are Blobs in IndexedDB (`lattice-workbench/assets`), as
 `2026-11-11-studio-storage-pointer-records.md` §3 records; this work stores nothing new. Whether they move to the Origin
 Private File System is the owner's call: followups.d/3148-p2-studio-media-storage-opfs.md.
+
+### 10.1 A byte picture is named by all of its bytes (the checker, PR #3148)
+
+Carrying pictures as bytes opened a silent defect: jsPDF names an unnamed byte image by a 32-bit hash of its FIRST HALF
+(`sHashCode`), and reuses an earlier image whose name matches. A slide picture is written top row first, so two slides
+differing only near the bottom (a page number, a bullet revealed low) shared a name and one printed on the other's page;
+the checker reproduced it with the shared writer (39 images for 40 page-number slides). `assembleSheetPdf` now names
+every byte picture by a SHA-256 of all of it: equal slides still share one image, as before, and different ones never do.
+`pdf-image-pool.test.ts` holds both, and fails without the name. The pool's jobs for byte pictures are now weakly keyed,
+so they go with the print panel's pictures instead of living until the next print.

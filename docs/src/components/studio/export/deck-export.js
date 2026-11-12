@@ -2150,10 +2150,16 @@ export async function assembleSheetPdf(images, geom, name, meta, opts) {
 	const { preparePngs, installPreparedPngs } = await import('./pdf-image-pool.js');
 	const prepared = pageFormat === 'png' ? await preparePngs(images, 'SLOW') : [];
 	const hook = installPreparedPngs(pdf, 'SLOW');
+	// EVERY PICTURE IS NAMED BY ALL OF ITS BYTES. jsPDF reuses an earlier image whose name matches, and with no name it makes
+	// one up: for a string, a hash of the whole string; for BYTES, a 32-bit hash of only the FIRST HALF. A PNG or JPEG is
+	// written top row first, so two slides that differ only near the bottom (a page number, a bullet revealed low) shared a
+	// name, and one slide printed on the other's page, silently (the checker, PR #3148). A SHA-256 of the whole picture keeps
+	// what the name is for, one image for truly identical slides, and never merges two that differ.
+	const names = await Promise.all(images.map((img) => (img instanceof Uint8Array ? pictureName(img) : undefined)));
 	const place = (idx, x, y, w, h) => {
 		hook.next(prepared[idx]);
 		try {
-			pdf.addImage(images[idx], pageFormat === 'jpeg' ? 'JPEG' : 'PNG', x, y, w, h);
+			pdf.addImage(images[idx], pageFormat === 'jpeg' ? 'JPEG' : 'PNG', x, y, w, h, names[idx]);
 		} finally {
 			hook.done();
 		}
@@ -2188,6 +2194,23 @@ export async function assembleSheetPdf(images, geom, name, meta, opts) {
 		await new Promise((r) => setTimeout(r));
 	}
 	return pdf.output('blob');
+}
+
+/** A picture's name for jsPDF: a SHA-256 of all of its bytes (`assembleSheetPdf`). Without Web Crypto (an insecure page), two
+ *  independent 32-bit hashes of every byte plus the length: no two different slides a deck can hold share it. */
+async function pictureName(bytes) {
+	const subtle = globalThis.crypto?.subtle;
+	if (subtle) {
+		const d = new Uint8Array(await subtle.digest('SHA-256', bytes));
+		return `p${Array.from(d, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+	}
+	let a = 0x811c9dc5;
+	let b = 0x01000193;
+	for (let i = 0; i < bytes.length; i++) {
+		a = Math.imul(a ^ bytes[i], 0x01000193) >>> 0;
+		b = (Math.imul(b, 31) + bytes[i]) >>> 0;
+	}
+	return `p${bytes.length}-${a.toString(16)}-${b.toString(16)}`;
 }
 
 // Draw a slide's speaker notes into the handout's notes band: a hairline rule at the top,

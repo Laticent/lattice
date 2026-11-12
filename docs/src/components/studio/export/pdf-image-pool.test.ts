@@ -131,3 +131,60 @@ describe('a plain RGB PNG goes into the sheet as it is', () => {
 		expect(imagePixels(sheet([directPng(RGB[1]), ...RGB.slice(1).map((img) => directPng(img))], RGB))[0]).not.toEqual(want[0]);
 	});
 });
+
+// Print carries each slide's picture as BYTES. jsPDF names an unnamed byte image by a 32-bit hash of its FIRST HALF, so two
+// slides that differ only near the bottom (a page number, a bullet revealed low) collapsed into one image and one slide
+// printed on the other's page (the checker on PR #3148). `assembleSheetPdf` names every byte picture by a SHA-256 of all of
+// it. Two equal-length PNGs whose first half agrees must give two images; two equal pictures still give one.
+import { deflateSync } from 'node:zlib';
+import { assembleSheetPdf } from './deck-export.js';
+
+function rawPng(w: number, h: number, variant: number): Uint8Array {
+	const crcTable = Array.from({ length: 256 }, (_, n) => {
+		let c = n;
+		for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+		return c >>> 0;
+	});
+	const crc = (buf: Uint8Array) => {
+		let c = ~0;
+		for (const b of buf) c = crcTable[(c ^ b) & 255] ^ (c >>> 8);
+		return ~c >>> 0;
+	};
+	const chunk = (type: string, data: Uint8Array) => {
+		const td = Buffer.concat([Buffer.from(type), Buffer.from(data)]);
+		const out = Buffer.alloc(12 + data.length);
+		out.writeUInt32BE(data.length, 0);
+		td.copy(out, 4);
+		out.writeUInt32BE(crc(td), 8 + data.length);
+		return out;
+	};
+	const raw = Buffer.alloc((w * 3 + 1) * h);
+	for (let y = 0; y < h; y++) for (let x = 0; x < w * 3; x++) raw[y * (w * 3 + 1) + 1 + x] = y < h - 8 ? ((x >> 2) * 7 + (y >> 1) * 13) & 255 : (variant * 50 + x) & 255;
+	const ihdr = Buffer.alloc(13);
+	ihdr.writeUInt32BE(w, 0);
+	ihdr.writeUInt32BE(h, 4);
+	ihdr[8] = 8;
+	ihdr[9] = 2;
+	// Stored (level 0) blocks keep the two files the same length and the same up to their last rows.
+	return new Uint8Array(Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw, { level: 0 })), chunk('IEND', new Uint8Array(0))]));
+}
+
+const imageCount = async (blob: Blob) => (Buffer.from(await blob.arrayBuffer()).toString('latin1').match(/\/Subtype \/Image/g) || []).length;
+const sheetOpts = { sheet: { pageW: 400, pageH: 300 }, pageFormat: 'png' };
+
+describe('a printed sheet of byte pictures', () => {
+	it('keeps two slides that differ only at the bottom as two images', async () => {
+		const a = rawPng(64, 36, 1);
+		const b = rawPng(64, 36, 2);
+		expect(a.length).toBe(b.length);
+		let same = 0;
+		while (a[same] === b[same]) same++;
+		expect(same).toBeGreaterThan(a.length / 2); // the case jsPDF's own name could not tell apart
+		expect(await imageCount(await assembleSheetPdf([a, b], { w: 1280, h: 720 }, 'p', {}, sheetOpts))).toBe(2);
+	});
+
+	it('still writes one image for two slides whose pictures are equal', async () => {
+		const a = rawPng(64, 36, 1);
+		expect(await imageCount(await assembleSheetPdf([a, a.slice()], { w: 1280, h: 720 }, 'p', {}, sheetOpts))).toBe(1);
+	});
+});

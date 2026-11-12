@@ -91,12 +91,23 @@ function job(image, compression) {
  * `rasterizeDeckImages`), so the pool works while the main thread photographs the next slide and the sheet finds most of its
  * results waiting; kept until the next set starts, so a re-placed sheet (a paper or layout change on the same pictures)
  * runs no job at all. Keyed by the picture itself (its bytes object, or its text) under each compression word.
- * @type {Map<string, Map<unknown, Promise<object|null>>>}
+ * @type {Map<string, { has(k: unknown): boolean, get(k: unknown): Promise<object|null>|undefined, set(k: unknown, v: Promise<object|null>): unknown }>}
  */
 let started = new Map();
+/**
+ * The jobs for one compression word. A picture held as BYTES is keyed weakly: its job (and the image built from it, about the
+ * picture's size) goes when the print panel lets go of the picture, not when the next print starts (the checker, PR #3148).
+ * A picture held as text (a `data:` URL) cannot be a weak key, and is kept until `startPngSet`.
+ */
 const jobsFor = (compression) => {
 	let m = started.get(compression);
-	if (!m) started.set(compression, (m = new Map()));
+	if (!m) {
+		const weak = new WeakMap();
+		const strong = new Map();
+		const of = (k) => (typeof k === 'object' && k !== null ? weak : strong);
+		m = { has: (k) => of(k).has(k), get: (k) => of(k).get(k), set: (k, v) => of(k).set(k, v) };
+		started.set(compression, m);
+	}
 	return m;
 };
 
