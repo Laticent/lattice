@@ -217,4 +217,4 @@ are the Library photos INSIDE an exported file (§3), which a file must carry, a
 
 Photos, videos, themes and reference PDFs are Blobs in IndexedDB (`lattice-workbench/assets`), as
 `2026-11-11-studio-storage-pointer-records.md` §3 records; this work stores nothing new. Whether they move to the Origin
-Private File System is the owner's call: followups.d/studio-media-storage-opfs.md.
+Private File System is the owner's call: followups.d/3148-p2-studio-media-storage-opfs.md.
