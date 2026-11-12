@@ -621,11 +621,12 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `present-memory.mjs` packs a `.lattice` with eighteen phone-photo-sized PNGs (24 MB; the owner's deck was 33 MB of `data:`
   text and reloaded the tab on a real iPhone), `present-memory-probe.js` hands it to the Studio's own "Import deck…" input,
   the page reloads so the deck comes back from the browser's store, and Present opens and steps six slides, each timed until
-  the next slide's heading and photo are painted. The footprint is read as `ios-safari-photo-memory` reads it, before
-  Present, after it opens and after the steps. A step that does not paint its photo, a reload, or more than
+  the next slide's heading shows and the photo it points at decodes. The footprint is read as `ios-safari-photo-memory` reads it, before
+  Present, after it opens and after the steps. A step whose photo does not decode, a reload, or more than
   `PRESENT_MEMORY_CAP_MB` (300) fails it; the times are reported and never judged (HARD RULE #32: the first run read a
-  1,965 ms step that a 2 s limit would have passed by 35 ms). The production site, built from `main`, runs as a second arm
-  (`PRESENT_BASELINE_URL`) that is reported and never judged, so a run carries its own before and after. The first run
+  1,965 ms step that a 2 s limit would have passed by 35 ms). The production site runs as a second arm
+  (`PRESENT_BASELINE_URL`, time-boxed to 6 minutes) that is reported and never judged: the before until #3148 deployed,
+  the live site after it. The first run
   (2026-11-12) read 795 MB on `main` and 124 MB on #3148, with no reload on either.
   `PROBE=present-memory [BASELINE_URL=<url>] node docs/scripts/ios-safari/probe.selftest.mjs` runs the same steps in
   Playwright's WebKit at iPhone size, without the footprint, so it proves the probe's steps, not the finding.

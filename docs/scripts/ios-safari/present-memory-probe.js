@@ -7,13 +7,15 @@
  *                                      WebDriver call carries a string, not 25 MB of bytes
  *   latticePresentImport(title, n)     hand the bytes to the Studio's own "Import deck…" input, as a person picking the file
  *                                      does, and wait until the preview shows the deck
- *   latticePresentReady(n)             after a reload: the deck back from the browser's store, its first photo painted
- *   latticePresentOpen()               tap Present; time until the first slide's photo is painted
- *   latticePresentStep(k)              tap Next k times; time each step until the next slide's photo is painted
+ *   latticePresentReady()              after a reload: the deck back from the browser's store, its title in the preview
+ *   latticePresentOpen()               tap Present; time until the presented frame shows the first (title) slide
+ *   latticePresentStep(k)              tap Next k times; time each step until the presented slide is the next one and the
+ *                                      photo it points at loads and decodes
  *   latticePresentAlive()              the mark latticePresentOpen left: gone means the page reloaded under the probe
  *
- * A step is done when the reader could see it: the counter moved AND the presented slide's heading and photo are the new
- * ones. Plain browser JS on purpose: WebDriver's execute-script sends source text, not a module.
+ * A step is done when the counter moved, the presented frame's heading is the new slide's, and the photo URL that slide
+ * shows decodes (read back through a fresh Image: it proves the URL the slide holds is a real picture, which a stand-in
+ * left unrestored is not, not that the frame finished painting it). Plain browser JS on purpose: WebDriver's execute-script sends source text, not a module.
  */
 
 function latticePresentHelpers() {

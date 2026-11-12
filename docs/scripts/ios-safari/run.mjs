@@ -310,8 +310,9 @@ async function runPhotoProbe(id) {
  * AND photo are painted (present-memory-probe.js). The simulator's WebKit footprint is read on the Mac before Present
  * opens, after it opens and after the steps (photo-memory.mjs).
  *
- * Two arms when PRESENT_BASELINE_URL is set (the suite sets the production site, built from `main`): this build, which must
- * pass, and the baseline, which is only reported, so the job carries its own before and after. The verdict is
+ * Two arms when PRESENT_BASELINE_URL is set (the suite sets the production site): this build, which must pass, and the
+ * baseline, which is only reported and has a time budget. Before #3148 merged, that baseline was the before; after it, it
+ * is the last deploy, so a nightly compares `main` with what is live. The verdict is
  * present-memory.mjs `presentChecks`: work, not time (HARD RULE #32). PRESENT_MEMORY_CAP_MB defaults to 300: the first run
  * (2026-11-12, run 43238984976) read 124 MB on this change and 795 MB on `main`. A simulator has no memory limit, so this is
  * the cost an iPhone would weigh, not the reload itself.
@@ -347,6 +348,8 @@ async function runPresentMemoryProbe(id) {
 			// A fresh page: the deck comes back from the browser's store, and nothing the import held is still in memory.
 			await wd('POST', `/session/${id}/url`, { url: `${base}/studio/` });
 			failIf(await call('latticePresentReady()'), 'the deck after the reload');
+			// Settle times, not waits for a signal: memory has no "settled" event. runPhotoMemory reads the same way, and the
+			// margin is wide (102-124 MB read against the 300 MB cap), so a slow runner shifts a reading, not the verdict.
 			await sleep(8000);
 			const m0 = await readMB();
 			const opened = failIf(await call('latticePresentOpen()'), 'opening Present');
@@ -375,7 +378,10 @@ async function runPresentMemoryProbe(id) {
 	};
 	const arms = [await arm('this build', BASE)];
 	const baseline = process.env.PRESENT_BASELINE_URL;
-	if (baseline) arms.push(await arm('baseline', baseline.replace(/\/$/, '')));
+	// The baseline is reported, never judged, so a slow production Studio must not spend the job's 30 minutes: past its
+	// budget it is recorded as over budget and the job ends (process.exit below drops the call still in flight).
+	const BASELINE_BUDGET_MS = Number(process.env.PRESENT_BASELINE_BUDGET_MS || 6 * 60_000);
+	if (baseline) arms.push(await Promise.race([arm('baseline', baseline.replace(/\/$/, '')), sleep(BASELINE_BUDGET_MS).then(() => ({ arm: 'baseline', error: `over its ${BASELINE_BUDGET_MS / 1000} s budget` }))]));
 	const a = arms[0];
 	const steps = presentChecks(a, { slides: deck.slides, capMB: CAP_MB, memory: !mac });
 	const failed = steps.filter((s) => !s.pass);

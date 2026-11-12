@@ -100,7 +100,7 @@ export async function buildPresentDeck(n = PRESENT_PHOTOS, size = 1100) {
 /**
  * The verdict on one arm, shared by run.mjs (Mobile Safari, with the Mac's footprint readings) and probe.selftest.mjs
  * (Playwright's WebKit, `memory: false`, where no footprint can be read). It judges WORK, never the clock (HARD RULE #32):
- * every step painted its slide and photo, the page did not reload, and Present added at most `capMB`. The times are
+ * every step reached its slide and that slide's photo decoded, the page did not reload, and Present added at most `capMB`. The times are
  * reported in the details and judged by no check: the first iOS run read 1,965 ms on a step a 2 s limit would have
  * passed by 35 ms, and on the Mac's fast simulator `main` and this change stepped at the same speed.
  * The memory is what separates them: the first iOS run read 795 MB on `main` and 124 MB on #3148.
@@ -109,7 +109,7 @@ export function presentChecks(a, { slides, capMB, memory }) {
 	const checks = [
 		{ name: 'the deck imported and Present counts all its slides', pass: !a.error && a.slides === slides, detail: a.error || `${a.slides} of ${slides} slides, imported in ${a.importMs} ms` },
 		{ name: 'Present showed its first slide', pass: a.openMs !== undefined, detail: `${a.openMs ?? '?'} ms` },
-		{ name: 'every step painted the next slide and its photo', pass: (a.stepsMs || []).length === 6 && a.photos === true, detail: `${(a.stepsMs || []).join('/')} ms${a.photos === false ? ', a photo did not paint' : ''}` },
+		{ name: 'every step reached the next slide and its photo decoded', pass: (a.stepsMs || []).length === 6 && a.photos === true, detail: `${(a.stepsMs || []).join('/')} ms${a.photos === false ? ', a photo did not decode' : ''}` },
 		{ name: 'the page did not reload under Present', pass: a.alive === true, detail: a.alive ? '' : 'the mark Present left is gone' },
 	];
 	if (memory) {
