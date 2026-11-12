@@ -46,9 +46,6 @@
     "docs/e2e/mermaid-unavailable-export.spec.ts": {
       "fixed-sleep": 1
     },
-    "docs/e2e/playground-paint.spec.ts": {
-      "fixed-sleep": 1
-    },
     "docs/e2e/present-beat.spec.ts": {
       "clock-assert": 1
     },

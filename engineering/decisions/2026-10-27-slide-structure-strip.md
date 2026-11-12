@@ -427,7 +427,9 @@ Each is a file in `followups.d/2927-p<n>-…`.
    follows, and the ⋯ sits beside the pill, outside the roving set. `MapRail` always renders its focused tile, outside
    Veduta's window, and ignores a modified arrow. The strip's shortcuts (`stripShortcut` in `lib/strip-actions/model.ts`)
    fire only on focus that arrived by keyboard: `:focus-visible` cannot say so at keydown, since the key press itself
-   flips the browser's heuristic, so the strip remembers whether a pointer press came just before focus arrived. After
+   flips the browser's heuristic, so the strip remembers whether a pointer press came just before focus arrived. A key
+   pressed since that press settles it as keyboard (amended 2026-11-12: a click followed within 300ms by an arrow key
+   used to read as a pointer arrival, and the strip then ignored Mod+D; `strip-actions/gestures.ts`). After
    an action, focus returns to the strip's new current slide unless the action opened something that takes it (the
    gallery, the Live confirm). The shell's one `Announce` region says each result ("Duplicated. The copy is slide 3 of
    5. Undo available.", "Moved to position 4 of 5."), and the strip note is no longer a live region of its own. "?"

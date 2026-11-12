@@ -138,7 +138,8 @@ builds on a compressing server.
 390 px: a newcomer sees the welcome deck's caption, a returning visitor on a built-in deck sees that deck's, and an edited
 deck, a user deck and a `?lesson=` URL show the bar. Screenshots of shell against app at 1440, 820 and 390 px show the
 caption in the same place. `studio-shell-parity` and `studio-instant-shell` pass, apart from two slide-box-width cases
-that fail the same way on `main` (`followups.d/2959-p4-instant-shell-slide-box-width.md`).
+that fail the same way on `main` (`followups.d/2959-p4-instant-shell-slide-box-width.md`, closed 2026-11-12: a stale footer constant in
+`preview-rect.ts`; see the gotcha "The instant shell's slide box is a few px narrower…").
 
 **The nightly itself, dispatched on the PR branch** (run 42490597756, Chrome 157 on the CI runner, base = `main` about
 24 h earlier): the compare reported no regression and filed nothing. Mobile /studio/ LCP went from 14,218 ms (base) to

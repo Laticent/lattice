@@ -24,42 +24,46 @@ fixed     — on branch claude/plugin-patterns-d2-ghtybq, each a stale test or a
 after     — the full desktop run on the branch, with main at 867e0fff merged in: 1,256 passed, 23 failed, 20 skipped
             (1.2 h). Three of the 23 are new on main since 8a755f69 (#3048, #3054 changed the Studio), not this branch:
             they fail run alone, and still fail with main's own studio-fixture.ts: blank-slide-editors.spec.ts:56,
-            strip-keyboard.spec.ts:51, strip-menu.spec.ts:106. Not investigated. Three more passed run alone
+            strip-keyboard.spec.ts:51, strip-menu.spec.ts:106 (all three fixed 2026-11-12, below). Three more passed run alone
             (compose-pill-editor:259, plugin-inline-ui:170, read-article-beacons:94), so they join the load list below.
 left      — each needs a decision, not a test edit:
-            - playground-paint.spec.ts:230: the first-paint snapshot is 122,947 units against 122,880, a real 67-unit
-              overrun; the budget is not loosened (HARD RULE #14).
             - studio-warm-offline.spec.ts:80: FIXED in #3087. The starter deck's only math is inside inline code, so the
               warm-up rightly never fetched KaTeX; the test now seeds a deck with real math. (:132 is fixed, see 2026-11-12.)
-            - venue-fixed-size.spec.ts:104: a real defect, filed on its own (followups.d/*-new-slide-covers-clip-notice.md).
             - deck-register-gap.spec.ts:99: red only under full-suite load; 0 of 8 runs at 4 workers. Cause unknown.
             - measured 2026-11-06, each run alone (--workers=1), each red every time, with its first error, and EVERY ONE
               of them, with the ones above, also red on a clean checkout of main 867e0fff (its own docs build; 15 failed,
               14 passed). The three marked (main) were green at 8a755f69, so a commit on main between the two broke them
               (#3048 or #3054 touched the Studio):
-              - (main) strip-keyboard.spec.ts:51: Mod+D on a focused strip slide duplicates nothing (order stays
-                "Alpha Bravo Charlie Delta"); the handler is StudioShell.tsx `runStripShortcut`.
-              - (main) strip-menu.spec.ts:106: "New slide after" from the strip menu, a `toMatch` on the source.
-              - (main) blank-slide-editors.spec.ts:56: the Markdown editor's deck reads 0 units where 3 are expected.
               - playground-first-paint.spec.ts:990: the newcomer bake's element is null (`hasAttribute` of null).
-              - studio-instant-shell.spec.ts:252: shell and app slide widths differ by 4 px (1440) and 3 px (390) against
-                a 2 px tolerance.
-              - visual.spec.ts:37: the Studio screenshot differs from its committed baseline.
               - workspace-backup-size.spec.ts:85: a 67 MiB backup restores 0 of its 10 reference docs.
             - passed on a re-run with no change, so red only under the full run's load (cause unknown, HARD RULE #32):
-              library-header-search:19, stage-window:335, studio-map-posters:87,
-              supplied-page-position:18, compose-pill-editor:259.
+              stage-window:335, studio-map-posters:87,
+              supplied-page-position:18, compose-pill-editor:259 (#3150).
             - tablet and mobile, the full projects on the branch: 292 passed, 6 failed, 27 skipped (17.2 m). Each of the
-              6 is main's, measured on a clean checkout of main 867e0fff: visual.spec.ts:37 (tablet and mobile),
-              ios-zoom.spec.ts:65 and plugin-inline-ui.spec.ts:170 (mobile) fail there every run;
-              compose-soft-break.spec.ts:22 and :50 (mobile) are FLAKY there, 3 of 6 runs failing with the editor's
-              source lacking the typed lines (on the branch, 40 runs each: 18 failed with its studio-fixture.ts, 16 with main's, so the fixture does not
-              worsen it).
-              A flaky test is fixed at its cause (HARD RULE #32); not investigated here.
+              6 is main's, measured on a clean checkout of main 867e0fff: plugin-inline-ui.spec.ts:170 (mobile) fails
+              there every run (visual.spec.ts:37, ios-zoom.spec.ts:65 are fixed below; compose-soft-break.spec.ts:22/:50 by #3150).
 done when — `npx playwright test --project=desktop --project=tablet --project=mobile` on a fresh cloud session of `main`
             ends with 0 failed, or each remaining test skips with a stated reason the sandbox cannot meet.
 evidence  — the full-suite summary line before and after, on `main`.
 verify    — tier 1, self-review with the gates.
+fixed     — 2026-11-12, the flaky-e2e Studio-shell PR (branch claude/flaky-e2e-shell), each with its cause:
+            - studio-instant-shell.spec.ts:251 (1440 collapsed editor, 390→844 rotated): PRODUCT. `PREVIEW_CHROME.footerWrite`
+              was a frozen 81.6 (navigator 51); the navigator is 49, so a height-bound box came out 3-4px narrow. Now derived.
+            - venue-fixed-size.spec.ts:104: PRODUCT. The New slide button and the strip note float above the strip stack
+              (clip notice + strip), so a notice pushes them up instead of being covered.
+            - strip-keyboard.spec.ts:51: PRODUCT. Focus moved by an arrow key within 300ms of a click counted as a pointer
+              arrival, so the strip ignored Mod+D; a key since the last press now decides.
+            - playground-paint.spec.ts:230: PRODUCT. The snapshot drops a font face whose unicode-range meets no character
+              the slide draws (the range-split color-emoji faces), 125,246 units → under half the cap. The 800ms module
+              delay in the same file is now a signal-gated hold (its census hit is gone).
+            - visual.spec.ts:37 (all three widths): the baselines predated deliberate Studio changes; re-blessed.
+            - ios-zoom.spec.ts:65: the Playground opens on Explore, which mounts no editor; the spec opens `?view=edit`.
+            - blank-slide-editors.spec.ts:56: an early read of the debounced save.
+            - compose-fenced-code.spec.ts:133: typed seeding accepted the fence-language completion under load.
+            - library-header-search.spec.ts:19 (every engine, not only gecko): measured the Import button while the docked
+              Library was still opening; it waits for the header row to lay out, then compares once.
+            - compose-soft-break.spec.ts:22/:50 and compose-pill-editor.spec.ts:259: fixed by #3150 (claude/compose-e2e-flakes).
+            - strip-menu.spec.ts:106: already fixed on main by the focus wait before Enter; green in every run here.
 
 2026-11-08 — measured on PR #3089 (agenda fill), against a clean main at 1ba5779, desktop project, run alone: the
             same 16 tests red on both trees, so none is the PR's. New to this list: chat-library-assets.spec.ts:251
