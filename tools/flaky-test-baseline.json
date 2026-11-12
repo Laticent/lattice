@@ -181,56 +181,11 @@
     "test/integration/type-voices/typography-sets.test.js": {
       "env-skip": 2
     },
-    "test/unit/calco/serialization.test.js": {
-      "env-skip": 1
-    },
-    "test/unit/cli/completion.test.js": {
-      "env-skip": 6
-    },
-    "test/unit/cli/css-modules.test.js": {
-      "env-skip": 2
-    },
     "test/unit/components/code-line-width.test.js": {
-      "env-skip": 2
-    },
-    "test/unit/css/obligation-matrix-heat-polarity.test.js": {
-      "env-skip": 4
-    },
-    "test/unit/css/selector-validity.test.js": {
-      "env-skip": 2
-    },
-    "test/unit/css/split-signal-scope.test.js": {
-      "env-skip": 2
-    },
-    "test/unit/export/narrate-kokoro.test.js": {
-      "env-skip": 3
-    },
-    "test/unit/mermaid/label-length.test.js": {
-      "env-skip": 1
-    },
-    "test/unit/runtime/chart-readers.test.js": {
-      "env-skip": 3
-    },
-    "test/unit/runtime/host-swap-layout.test.js": {
-      "env-skip": 2
-    },
-    "test/unit/tools/style-needs-common.test.js": {
-      "env-skip": 1
-    },
-    "test/unit/tools/style-subset-default-path.test.js": {
-      "env-skip": 1
-    },
-    "test/unit/tools/wait-for.test.js": {
-      "env-skip": 1
-    },
-    "test/unit/tools/warn-unbounded-wait.test.js": {
       "env-skip": 2
     },
     "test/unit/trama/serialization.test.js": {
       "env-skip": 1
-    },
-    "test/unit/transformers/compare-code.test.js": {
-      "env-skip": 2
     }
   }
 }
