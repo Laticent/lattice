@@ -128,3 +128,12 @@ fixed     — 2026-11-10, the Studio startup PR, test-only (no app change), each
             Four others failed only under load on BOTH builds, 6 loaded runs each, main against the PR:
             export-photo-size:26 5 and 5, deck-drop-import:234 1 and 0, present-beat:231 1 and 0, lenses:21 0 and 0
             (it failed once in the full run). Not investigated.
+
+2026-11-12 — fixed at their causes on `claude/compose-e2e-flakes` (engineering/gotchas/studio-playground.md, the
+            Compose e2e entry): compose-pill-editor:259 and compose-spark-editor:108 (read the drawn pill/spark once,
+            before Compose drew it), compose-pill-editor:238 and the keyboard walk beside it (counted nine ArrowRight
+            presses; one is sometimes absorbed), compose-soft-break:22/:50 (keys before `caretSettled`) and
+            compose-stress:536 (seeded; a `railPick` tap on the current pill opens the slide menu, and the next `rail`
+            op's ⋯ closed it). Under the suite's load, the 20 compose-* specs on desktop ×3: 411 passed, 0 failed.
+            Still open from the same runs: compose-spark-phone.spec.ts:25 (1 of 36), which is a product bug, not a
+            test one: followups.d/3145-p1-compose-pick-edits-the-wrong-object.md.

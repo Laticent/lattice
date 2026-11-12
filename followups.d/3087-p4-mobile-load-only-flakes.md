@@ -86,3 +86,7 @@ PR #3140 (2026-11-11) saw `model-spine.spec.ts:155` (`@crosswidth … picking in
 `mobile` again, after the 2026-11-10 fix: a 15 s click timeout in an 8-file, 3-project (desktop, tablet, mobile) run while
 a commit hook ran the full unit suite beside it (44 passed, 1 failed). It passed 2 of 2 alone on the same build, and 1 of 1
 on main. That PR changes narration export and the voice request path, not the chip.
+
+2026-11-12 — compose-soft-break.spec.ts:22 and :50 fixed at their cause on `claude/compose-e2e-flakes`: the caret was set
+            through the DOM and keys sent before ProseMirror heard the `selectionchange`; each now waits for
+            `caretSettled`. Desktop and mobile, 12 runs each: 15 of 48 failed before, 0 of 48 after.

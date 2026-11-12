@@ -1835,3 +1835,12 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — passing `aria-describedby` to a sheet or dialog, or wiring a description some other way.
 - **Removable when** — VoiceOver stops repeating a container's description, verified on a device.
 - **Commits** — PR #3108.
+
+## A Compose e2e spec types on the wrong line, misses a pill, or reads an element that is not drawn yet, only under load
+
+- **Symptom** — a Compose spec passes alone and fails about one run in four to ten under the full suite: typed text lands on the line the caret left (`Line four` before `Line three`), a counted ArrowRight walk ends on text instead of a pill (`.ProseMirror-selectednode` count 0), or `getComputedStyle` gets `null` right after the deck opens. Seen on `compose-soft-break.spec.ts`, `compose-pill-editor.spec.ts` and `compose-spark-editor.spec.ts`, on `main` and PR branches alike.
+- **Cause** — the spec acted before the state it needed existed (F3 in `engineering/decisions/2026-11-06-flaky-tests.md`). ProseMirror learns where a click, a DOM `setBaseAndExtent` or a native arrow put the caret only from `selectionchange`, a queued task, so a key sent before it lands at the old caret. A walk that COUNTS presses breaks when one press is absorbed (traced: the first ArrowRight after a click and Home left the caret at offset 0). And the pills, sparks and preview are drawn on their own schedules after the deck opens.
+- **Fix** — wait for the signal, then act: `caretSettled(page)` after any click or `setBaseAndExtent` that a key press follows, and `pressSettled` for native caret keys (`docs/e2e/studio-fixture.ts`); walk until the caret is CHECKED at the place you need, not for a fixed count (`walkOntoFirstPill` in `compose-pill-editor.spec.ts`); and poll until the element exists before reading it. Never a retry or a sleep (HARD RULE #32).
+- **Triggered by** — any e2e spec that types or presses keys in Compose, or reads a drawn inline object.
+- **Removable when** — never: it is how a test talks to an editor that hears the caret asynchronously.
+- **Commits** — `claude/compose-e2e-flakes` (six specs fixed at their causes; measured before and after in the PR).
