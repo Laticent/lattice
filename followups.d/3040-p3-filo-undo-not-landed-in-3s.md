@@ -31,6 +31,7 @@ editor's newest emission straight to `source` with no Filo commit, which would p
 list keeps the step, exactly as seen. Next: at a miss, log Filo's head text, the shell's `source`, the editor's text and
 `editorEchoesRef`, which tells (a) from (b). That log line is in (`window.__latticeFiloProbe`, read by the probe at a
 miss, ffce3e5d), and two more dispatches at that commit caught no miss: 43259077319 (iPad and iPhone) and 43259084714
-(iPhone), 9 doorbell rows, all landed. The next miss the nightly records names the writer.
+(iPhone), 9 doorbell rows, all landed; 43298963972 (iPad, iPhone and Mac, d73c8685) landed every row too, with 0 live
+preview frames removed. The next miss the nightly records names the writer.
 
 done when — the probe names what Filo undid at a miss, and the cause is fixed or shown to be the probe's own wait.
