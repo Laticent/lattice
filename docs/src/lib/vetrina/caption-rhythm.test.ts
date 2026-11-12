@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CaptionTrack } from '@/lib/ltt';
 import { resolvePacing } from './pacing';
 import type { RunContext } from './runner';
@@ -23,6 +23,22 @@ function asTrack(words: { text: string; startMs: number; endMs: number }[]): Cap
 // The ordering is the whole of it, so the ordering is what these pin. An earlier build said the
 // line at the TOP of the beat — which put the words beside a cursor still standing wherever the
 // previous beat had left it, and then left the caption up afterwards waiting to be replaced.
+
+// Every test runs on a fake clock. A beat really dwells (the time it takes to read its line) and a
+// `until` really polls, and on the real clock this file spent 28 s asleep (HARD RULE #32). The order
+// of the trace is what is under test, and the fake clock keeps the order: the same waits elapse in
+// the same sequence. `played` steps the clock until the run is over.
+beforeEach(() => {
+	vi.useFakeTimers();
+});
+afterEach(() => {
+	vi.useRealTimers();
+});
+async function played<T>(run: Promise<T>): Promise<T> {
+	run.catch(() => {}); // a rejection is re-thrown by the await below, after the clock has run
+	await vi.runAllTimersAsync();
+	return await run;
+}
 
 function harness(stepsAside: boolean, narrator?: unknown) {
 	const trace: string[] = [];
@@ -64,37 +80,37 @@ function harness(stepsAside: boolean, narrator?: unknown) {
 describe('a transient caption speaks AFTER the cursor arrives', () => {
 	it('point → say → press, so the words land beside a cursor that is already there', async () => {
 		const { ctx, trace } = harness(true);
-		await scene().say('Now click Publish.').point('#publish').click().hold(0).build()(ctx);
+		await played(scene().say('Now click Publish.').point('#publish').click().hold(0).build()(ctx));
 		expect(trace.filter((t) => !t.startsWith('hold:'))).toEqual(['point', 'say:Now click Publish.', 'dismiss', 'press']);
 	});
 
 	it('and takes itself down before the action, not after it', async () => {
 		const { ctx, trace } = harness(true);
-		await scene().say('Now click Publish.').point('#publish').click().hold(0).build()(ctx);
+		await played(scene().say('Now click Publish.').point('#publish').click().hold(0).build()(ctx));
 		expect(trace.indexOf('dismiss')).toBeLessThan(trace.indexOf('press'));
 	});
 
 	it('a drag says its line once the item is lifted and held at the destination', async () => {
 		const { ctx, trace } = harness(true);
-		await scene().say('Reorder the backlog.').drag('#a', '#b').hold(0).build()(ctx);
+		await played(scene().say('Reorder the backlog.').drag('#a', '#b').hold(0).build()(ctx));
 		expect(trace.filter((t) => !t.startsWith('hold:'))).toEqual(['drag', 'say:Reorder the backlog.', 'dismiss', 'drop']);
 	});
 
 	it('a beat whose only movement is a stroke names the thing first, then speaks', async () => {
 		const { ctx, trace } = harness(true);
-		await scene().say('These words are worth reading twice.').gesture('underline', '#prose').hold(0).build()(ctx);
+		await played(scene().say('These words are worth reading twice.').gesture('underline', '#prose').hold(0).build()(ctx));
 		expect(trace.filter((t) => !t.startsWith('hold:'))).toEqual(['gesture:underline', 'say:These words are worth reading twice.', 'dismiss']);
 	});
 
 	it('a beat that does not move at all speaks immediately', async () => {
 		const { ctx, trace } = harness(true);
-		await scene().say('Nothing to point at here.').hold(0).build()(ctx);
+		await played(scene().say('Nothing to point at here.').hold(0).build()(ctx));
 		expect(trace.filter((t) => !t.startsWith('hold:'))).toEqual(['say:Nothing to point at here.', 'dismiss']);
 	});
 
 	it('every line is dismissed — a caption exists when there is something to say and not otherwise', async () => {
 		const { ctx, trace } = harness(true);
-		await scene().say('One.').point('#a').hold(0).say('Two.').point('#b').hold(0).build()(ctx);
+		await played(scene().say('One.').point('#a').hold(0).say('Two.').point('#b').hold(0).build()(ctx));
 		expect(trace.filter((t) => t === 'dismiss')).toHaveLength(2);
 		expect(trace.filter((t) => !t.startsWith('hold:'))).toEqual(['point', 'say:One.', 'dismiss', 'point', 'say:Two.', 'dismiss']);
 	});
@@ -103,12 +119,12 @@ describe('a transient caption speaks AFTER the cursor arrives', () => {
 		// `gesture` used to count as the say-point whenever it was present, so a say+type+gesture
 		// beat typed first and then explained the typing it had just done.
 		const { ctx, trace } = harness(true);
-		await scene()
+		await played(scene()
 			.say('Type the title, then check it.')
 			.type('#title', 'Q4')
 			.gesture('check')
 			.hold(0)
-			.build()(ctx);
+			.build()(ctx));
 		expect(trace.filter((t) => !t.startsWith('hold:'))).toEqual(['say:Type the title, then check it.', 'dismiss', 'type', 'gesture:check']);
 	});
 
@@ -120,12 +136,12 @@ describe('a transient caption speaks AFTER the cursor arrives', () => {
 		setTimeout(() => {
 			ready = true;
 		}, 60);
-		await scene()
+		await played(scene()
 			.say('Wait for the render.')
 			.until(() => ready)
 			.gesture('check')
 			.hold(0)
-			.build()(ctx);
+			.build()(ctx));
 		const order = trace.filter((t) => !t.startsWith('hold:'));
 		expect(order.indexOf('say:Wait for the render.')).toBeLessThan(order.indexOf('gesture:check'));
 	});
@@ -142,7 +158,7 @@ describe('a transient caption speaks AFTER the cursor arrives', () => {
 			.gesture('cross')
 			.hold(0)
 			.build();
-		await expect(play(ctx as never)).rejects.toThrow('boom');
+		await expect(played(play(ctx as never))).rejects.toThrow('boom');
 		expect(trace).toContain('say:This one is going to fail.');
 	});
 
@@ -151,7 +167,7 @@ describe('a transient caption speaks AFTER the cursor arrives', () => {
 		// only because `say()` re-zeroes that count — a line whose own comment calls it a cosmetic
 		// slip. The dwell now pins the caption explicitly.
 		const { ctx, trace } = harness(true);
-		await scene().say('Reorder the backlog.').drag('#a', '#b').hold(0).build()(ctx);
+		await played(scene().say('Reorder the backlog.').drag('#a', '#b').hold(0).build()(ctx));
 		const held = trace.indexOf('hold:true');
 		const dismissed = trace.indexOf('dismiss');
 		expect(held).toBeGreaterThan(-1);
@@ -161,7 +177,7 @@ describe('a transient caption speaks AFTER the cursor arrives', () => {
 
 	it('a TRAILING cued beat clears its hold — a composed segment must not leave it pinned', async () => {
 		const { ctx, trace } = harness(true);
-		await scene().say('Now click Publish.').at('Publish').point('#publish').click().hold(0).build()(ctx);
+		await played(scene().say('Now click Publish.').at('Publish').point('#publish').click().hold(0).build()(ctx));
 		// No narrator here, so the cue does not resolve — but the walkthrough must still end with the
 		// hold released, because a storyboard can be followed by raw primitives in the same run.
 		expect(trace[trace.length - 1]).toBe('hold:false');
@@ -169,7 +185,7 @@ describe('a transient caption speaks AFTER the cursor arrives', () => {
 
 	it('a read beat still draws the eye to the words, after the arrival', async () => {
 		const { ctx, trace } = harness(true);
-		await scene().say('This is the lesson.').read().point('#a').hold(0).build()(ctx);
+		await played(scene().say('This is the lesson.').read().point('#a').hold(0).build()(ctx));
 		expect(trace.filter((t) => !t.startsWith('hold:'))).toEqual(['point', 'say:This is the lesson.', 'emphasize', 'dismiss']);
 	});
 });
@@ -191,13 +207,13 @@ describe('a transient caption is never left standing', () => {
 
 	it('an INSTANT beat does not leave its line up for the rest of the tour', async () => {
 		const { ctx, trace } = harness(true);
-		await scene().say('Setup line, not a lesson.').instant().hold(0).build()(ctx);
+		await played(scene().say('Setup line, not a lesson.').instant().hold(0).build()(ctx));
 		expect(trace.filter((t) => t === 'dismiss')).toHaveLength(1);
 	});
 
 	it('and the beat after it does not inherit a caption', async () => {
 		const { ctx, trace } = harness(true);
-		await scene().say('Setup line.').instant().hold(0).point('#a').hold(0).build()(ctx);
+		await played(scene().say('Setup line.').instant().hold(0).point('#a').hold(0).build()(ctx));
 		// One line said, one line dismissed, and the pointing beat that follows says nothing.
 		expect(trace.filter((t) => t.startsWith('say:'))).toEqual(['say:Setup line.']);
 		expect(trace.filter((t) => t === 'dismiss')).toHaveLength(1);
@@ -208,7 +224,7 @@ describe('a transient caption is never left standing', () => {
 		// A cue only resolves against a narrator that can `plan`, and it is the RESOLVED cue that
 		// takes the beat off the step-aside path — so a harness without one tests the wrong branch.
 		const { ctx, trace } = harness(true, PLANNER);
-		await scene().say('Now click Publish.').at('Publish').point('#publish').click().hold(0).build()(ctx);
+		await played(scene().say('Now click Publish.').at('Publish').point('#publish').click().hold(0).build()(ctx));
 		// Pinned through the action — that is what `at` is for — and then taken down, which is the
 		// part that was missing: the line used to survive the beat and be inherited by the next.
 		expect(trace).toContain('dismiss');
@@ -243,14 +259,14 @@ describe('a transient dwell is budgeted by dwellMs, never captionMs', () => {
 
 	it('a transient beat asks dwellMs', async () => {
 		const { ctx, calls } = spied(true);
-		await scene().say('This panel is the app you are about to tour.').point('#a').hold(0).build()(ctx);
+		await played(scene().say('This panel is the app you are about to tour.').point('#a').hold(0).build()(ctx));
 		expect(calls).toContain('dwellMs');
 		expect(calls).not.toContain('captionMs');
 	});
 
 	it('and an edge dock still asks captionMs, which is a pacing decision and follows the model', async () => {
 		const { ctx, calls } = spied(false);
-		await scene().say('This panel is the app you are about to tour.').point('#a').hold(0).build()(ctx);
+		await played(scene().say('This panel is the app you are about to tour.').point('#a').hold(0).build()(ctx));
 		expect(calls).toContain('captionMs');
 		expect(calls).not.toContain('dwellMs');
 	});
@@ -272,7 +288,7 @@ describe('a hold never outlives the beat that set it', () => {
 			})
 			.hold(0)
 			.build();
-		await expect(play(ctx as never)).rejects.toThrow('boom');
+		await expect(played(play(ctx as never))).rejects.toThrow('boom');
 		expect(trace.lastIndexOf('hold:false')).toBeGreaterThan(trace.lastIndexOf('hold:true'));
 	});
 });
@@ -280,13 +296,13 @@ describe('a hold never outlives the beat that set it', () => {
 describe('an edge dock keeps the rhythm it always had', () => {
 	it('say → point → press, and nothing is ever dismissed', async () => {
 		const { ctx, trace } = harness(false);
-		await scene().say('Now click Publish.').point('#publish').click().hold(0).build()(ctx);
+		await played(scene().say('Now click Publish.').point('#publish').click().hold(0).build()(ctx));
 		expect(trace.filter((t) => !t.startsWith('hold:'))).toEqual(['say:Now click Publish.', 'point', 'press']);
 	});
 
 	it('a read beat is still say → emphasize → dwell → act', async () => {
 		const { ctx, trace } = harness(false);
-		await scene().say('This is the lesson.').read().point('#a').hold(0).build()(ctx);
+		await played(scene().say('This is the lesson.').read().point('#a').hold(0).build()(ctx));
 		expect(trace.filter((t) => !t.startsWith('hold:'))).toEqual(['say:This is the lesson.', 'emphasize', 'point']);
 	});
 
@@ -325,7 +341,7 @@ describe('a stage that predates all of this', () => {
 			pace: 1,
 		} as unknown as Stage;
 		const ctx = { stage, actions: {}, signal: new AbortController().signal, type: async () => {}, awaitUser: async () => new Event('x') } as unknown as RunContext<Record<string, never>>;
-		await scene().say('Hello.').point('#a').click().hold(0).build()(ctx);
+		await played(scene().say('Hello.').point('#a').click().hold(0).build()(ctx));
 		expect(trace).toEqual(['say:Hello.', 'point', 'press']);
 	});
 });

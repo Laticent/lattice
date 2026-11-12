@@ -92,7 +92,29 @@ function mount(theme: Parameters<typeof resolveTheme>[0] = {}): Stage {
 	return active;
 }
 
+// Every test runs on a fake clock (HARD RULE #32): the stage's glides, settles and fades run on
+// requestAnimationFrame, setTimeout and performance.now, all of which the fake clock owns, and on
+// the real clock this file spent 38 s waiting for them. `played` steps the clock one frame at a time
+// until the awaited call settles, so each assertion reads the state at about the moment it did on
+// the real clock, never a later one.
+const FRAME_MS = 16;
+async function played<T>(run: Promise<T>): Promise<T> {
+	let settled = false;
+	run.then(
+		() => {
+			settled = true;
+		},
+		() => {
+			settled = true;
+		},
+	);
+	// 2,000 frames is 32 s of stage time: far past any glide here, so only a hang reaches it.
+	for (let i = 0; i < 2000 && !settled; i++) await vi.advanceTimersByTimeAsync(FRAME_MS);
+	return await run;
+}
+
 beforeEach(() => {
+	vi.useFakeTimers();
 	// jsdom ships no Web Animations API; the cue's fade is theater, not the thing under test.
 	if (!Element.prototype.animate) {
 		Element.prototype.animate = vi.fn(() => ({ cancel() {}, finish() {} })) as unknown as typeof Element.prototype.animate;
@@ -102,13 +124,14 @@ afterEach(() => {
 	active?.destroy();
 	active = null;
 	document.body.innerHTML = '';
+	vi.useRealTimers();
 });
 
 describe('an aimed cue brings its target into view first', () => {
 	it('point() scrolls the target, with the options that make it safe to do every time', async () => {
 		const stage = mount();
 		const { src, calls } = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 });
-		await stage.point(src);
+		await played(stage.point(src));
 		expect(calls).toHaveLength(1);
 		// `nearest` on BOTH axes is what makes this safe before every aim: the decision "is this
 		// already visible" belongs to the browser, and its answer for an in-view target is to
@@ -126,7 +149,7 @@ describe('an aimed cue brings its target into view first', () => {
 		// `moveToEl`, which the first two have already run before: from there, the ping had been
 		// drawn at the old place while the cursor glided to the new one.
 		const { src, log } = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 }, { scrollBy: { dx: 0, dy: -2200 } });
-		await stage.point(src);
+		await played(stage.point(src));
 		expect(log[0], `the stage measured before it scrolled: ${log.slice(0, 4).join(',')}`).toBe('scroll');
 		// And it lands on the target's post-scroll position, not where it used to be.
 		expect(at(cursorEl(), 'top')).toBeCloseTo(218, 0); // aimAt: 200 + min(height/2, 18)
@@ -142,7 +165,7 @@ describe('an aimed cue brings its target into view first', () => {
 		// Not awaited: the orbit's rAF loop deliberately never settles once the stage is destroyed
 		// (teardown is terminal), so awaiting it would hang rather than assert.
 		void stage.gesture('circle', src);
-		await frames(3);
+		await played(frames(3));
 		expect(calls).toHaveLength(1);
 		expect(glowOf()?.style.top, 'the ring is drawn off the bottom of the window — the gesture never revealed its target').toBe('200px');
 	});
@@ -150,7 +173,7 @@ describe('an aimed cue brings its target into view first', () => {
 	it('a target that cannot scroll is not an error — the cue still plays', async () => {
 		const stage = mount();
 		const src = unscrollableTarget({ left: 700, top: 400, width: 40, height: 30 });
-		await stage.point(src);
+		await played(stage.point(src));
 		expect(at(cursorEl(), 'left')).toBeCloseTo(720, 0);
 		expect(at(cursorEl(), 'top')).toBeCloseTo(415, 0);
 	});
@@ -162,7 +185,7 @@ describe('an aimed cue brings its target into view first', () => {
 		// phones this fix is for pointing off-screen again.
 		const stage = mount();
 		const { src, calls, log } = watchedTarget({ left: 300, top: 900, width: 120, height: 40 }, { rejectBehavior: true, scrollBy: { dx: 0, dy: -700 } });
-		await stage.point(src);
+		await played(stage.point(src));
 		expect(calls).toHaveLength(2);
 		expect(calls[1]).toEqual({ block: 'nearest', inline: 'nearest' });
 		expect(log[0]).toBe('scroll'); // the RETRY is what scrolled; the first call threw before logging
@@ -180,7 +203,7 @@ describe('an aimed cue brings its target into view first', () => {
 				throw new Error('this region is positioned by the host');
 			},
 		};
-		await stage.point(src);
+		await played(stage.point(src));
 		// It TRIED — twice, because the first throw is indistinguishable from the `behavior` enum
 		// rejection above, so the retry runs before the stage gives up. Without this the arm passes
 		// against a `reveal` that silently became a no-op, which is the mutant it is nearest to.
@@ -214,7 +237,7 @@ describe("bounds:'host' re-seats the chrome after a scroll the stage itself perf
 	it('moves the caption when the reveal scrolls the host up the window', async () => {
 		const { layer, hostBox } = partlyVisibleHost();
 		const stage = active as Stage;
-		await frames(2); // the mount's own rAF seats the dock once
+		await played(frames(2)); // the mount's own rAF seats the dock once
 		const dock = layer.querySelector('.vetrina-caption') as HTMLElement;
 		const before = Number.parseFloat(dock.style.bottom);
 		expect(Number.isFinite(before)).toBe(true);
@@ -227,7 +250,7 @@ describe("bounds:'host' re-seats the chrome after a scroll the stage itself perf
 			hostBox.top -= 500;
 			scrolled?.call(src, arg);
 		};
-		await stage.point(src);
+		await played(stage.point(src));
 
 		const after = Number.parseFloat(dock.style.bottom);
 		// The host's visible bottom moved from the window's bottom edge (768) up to 500, so the
@@ -270,12 +293,12 @@ describe("a scroll the VIEWER performs re-seats the bounds:'host' chrome", () =>
 	const scrollTo = async (hostBox: { top: number }, top: number) => {
 		hostBox.top = top;
 		window.dispatchEvent(new Event('scroll'));
-		await frames(3); // the handler is rAF-coalesced
+		await played(frames(3)); // the handler is rAF-coalesced
 	};
 
 	it('moves the caption when the viewer scrolls the host through the window', async () => {
 		const { layer, hostBox } = scrollableHost();
-		await frames(2);
+		await played(frames(2));
 		const dock = layer.querySelector('.vetrina-caption') as HTMLElement;
 		const before = Number.parseFloat(dock.style.bottom);
 		expect(Number.isFinite(before)).toBe(true);
@@ -299,7 +322,7 @@ describe("a scroll the VIEWER performs re-seats the bounds:'host' chrome", () =>
 		// only oracle that still works now that the cheap check reads both rects itself.
 		const { layer, hostBox } = scrollableHost();
 		hostBox.top = -500; // already covering the window top to bottom
-		await frames(2);
+		await played(frames(2));
 		const dock = layer.querySelector('.vetrina-caption') as HTMLElement;
 		let writes = 0;
 		const mo = new MutationObserver((recs) => {
@@ -325,16 +348,16 @@ describe("a scroll the VIEWER performs re-seats the bounds:'host' chrome", () =>
 		// scroll to re-seat — and a tour that never asked for any of this should not pay even a
 		// handler that returns early.
 		const { reads } = scrollableHost('viewport');
-		await frames(2);
+		await played(frames(2));
 		const before = reads.root;
 		window.dispatchEvent(new Event('scroll'));
-		await frames(3);
+		await played(frames(3));
 		expect(reads.root - before, 'the default bounds paid for a scroll handler it has no use for').toBe(0);
 	});
 
 	it('stops listening on destroy', async () => {
 		const { hostBox, reads } = scrollableHost();
-		await frames(2);
+		await played(frames(2));
 		(active as Stage).destroy();
 		const before = reads.root;
 		await scrollTo(hostBox, -900);
@@ -407,9 +430,9 @@ describe('the reveal clears the tour\'s own caption', () => {
 
 	it('lands the target clear of the caption, and hands the element back unchanged', async () => {
 		const stage = captionCovering(230);
-		await frames(2); // the mount rAF measures and publishes
+		await played(frames(2)); // the mount rAF measures and publishes
 		const { el, seen, box } = elementTarget();
-		await stage.point(el);
+		await played(stage.point(el));
 
 		// TWO passes, and the order is the contract: scroll first (so nothing in the beat measures
 		// a stale rect), then look at where it landed, then lift it clear if it landed covered.
@@ -434,7 +457,7 @@ describe('the reveal clears the tour\'s own caption', () => {
 
 	it('publishes the same number for a host that scrolls its own content, and takes it back on destroy', async () => {
 		const stage = captionCovering(230);
-		await frames(2);
+		await played(frames(2));
 		// The Studio's editor reads this to follow what a tour types without revealing under the
 		// caption; it cannot measure the stage itself, which is a body-portalled fixed layer.
 		expect(published('bottom')).toBe('230px');
@@ -448,12 +471,12 @@ describe('the reveal clears the tour\'s own caption', () => {
 
 	it('a top-placed caption reserves room at the TOP, and nothing at the bottom', async () => {
 		const stage = captionCovering(64, { placement: 'top' });
-		await frames(2);
+		await played(frames(2));
 		expect(published('top')).toBe('64px');
 		expect(published('bottom')).toBe('0px');
 		const { el, seen, box } = elementTarget();
 		box.top = -900; // above the fold, so `nearest` brings it down to the top edge
-		await stage.point(el);
+		await played(stage.point(el));
 		expect(seen).toHaveLength(2);
 		expect(seen[1].top).toBe('64px');
 		expect(seen[1].bottom).toBe('');
@@ -468,9 +491,9 @@ describe('the reveal clears the tour\'s own caption', () => {
 		// ends 71px above the top. Shipped tours point at whole panes, so this is the ordinary
 		// case; the right answer is to leave such a target where plain `nearest` put it.
 		const stage = captionCovering(230);
-		await frames(2);
+		await played(frames(2));
 		const { el, seen } = elementTarget(window.innerHeight - 230 + 10);
-		await stage.point(el);
+		await played(stage.point(el));
 		expect(seen, 'the reveal asked for room it could only get by scrolling the target off screen').toHaveLength(1);
 		expect(el.getAttribute('style')).toBeNull();
 	});
@@ -479,10 +502,10 @@ describe('the reveal clears the tour\'s own caption', () => {
 		// The lift is not unconditional: an in-view target costs one no-op `nearest` and nothing
 		// else. Without this every aim of every tour would pay two scrolls.
 		const stage = captionCovering(230);
-		await frames(2);
+		await played(frames(2));
 		const { el, seen, box } = elementTarget();
 		box.top = 40; // already on screen, nowhere near the band
-		await stage.point(el);
+		await played(stage.point(el));
 		expect(seen).toHaveLength(1);
 	});
 
@@ -491,20 +514,20 @@ describe('the reveal clears the tour\'s own caption', () => {
 		// balloon away from the thing being pointed at, and its only fixed chrome is a 32px corner
 		// chip; reserving a band for that would move the page for nothing.
 		const stage = captionCovering(230, { caption: 'cursor' });
-		await frames(2);
+		await played(frames(2));
 		expect(published('bottom')).toBe('0px');
 		const { el, seen } = elementTarget();
-		await stage.point(el);
+		await played(stage.point(el));
 		expect(seen, 'the cursor caption made the reveal take a second pass it has no use for').toHaveLength(1);
 		expect(seen[0].bottom, 'the cursor caption reserved a band it does not occupy').toBe('');
 	});
 
 	it('restores an element that DID have inline styles, exactly', async () => {
 		const stage = captionCovering(230);
-		await frames(2);
+		await played(frames(2));
 		const { el } = elementTarget();
 		el.setAttribute('style', 'color: red; scroll-margin-bottom: 9px');
-		await stage.point(el);
+		await played(stage.point(el));
 		// The DECLARATIONS, not the raw string: the restore goes through CSSOM (so a host CSP that
 		// blocks `style-src-attr` cannot strand our value on the element), and any CSSOM write
 		// re-serializes the declaration — `9px` can come back as `9px;`. Semantically identical,
@@ -522,34 +545,34 @@ describe('the reveal clears the tour\'s own caption', () => {
 		// "what I last wrote", the live stage agreed with a value that was gone and never wrote
 		// again. Every reveal for the rest of the run silently reverted to the defect.
 		const tour = captionCovering(230);
-		await frames(2);
+		await played(frames(2));
 		expect(published('bottom')).toBe('230px');
 
 		// A second stage over the top — its own root, its own dock, no occluder of its own.
 		const guideRoot = document.createElement('div');
 		document.body.appendChild(guideRoot);
 		const guide = createStage({ root: guideRoot, onExit: () => {}, theme: resolveTheme({ motion: 'full', caption: 'none' }) });
-		await frames(2);
+		await played(frames(2));
 		guide.destroy();
-		await frames(1);
+		await played(frames(1));
 
 		// The live stage puts its own number back on its next beat, rather than trusting a cache.
 		// A `point` is the smallest real beat: it brackets a performance, and every perform bracket
 		// goes through `syncCaption`, which is where the inset is republished. (`say` would do it
 		// too, but only after its 140ms cross-fade, which is not what is under test here.)
-		await tour.point(watchedTarget({ left: 10, top: 10, width: 20, height: 20 }).src);
+		await played(tour.point(watchedTarget({ left: 10, top: 10, width: 20, height: 20 }).src));
 		expect(published('bottom'), 'a departed stage took the live one\'s inset with it, permanently').toBe('230px');
 	});
 
 	it('a departing stage does not remove an inset that is no longer its own', async () => {
 		const tour = captionCovering(230);
-		await frames(2);
+		await played(frames(2));
 		const otherRoot = document.createElement('div');
 		document.body.appendChild(otherRoot);
 		const other = createStage({ root: otherRoot, onExit: () => {}, theme: resolveTheme({ motion: 'full', caption: 'none' }) });
-		await frames(2);
+		await played(frames(2));
 		// `other` published 0px, so the live tour republishes 230px on its next beat...
-		await tour.point(watchedTarget({ left: 10, top: 10, width: 20, height: 20 }).src);
+		await played(tour.point(watchedTarget({ left: 10, top: 10, width: 20, height: 20 }).src));
 		expect(published('bottom')).toBe('230px');
 		// ...and now `other` tearing down must NOT delete it.
 		other.destroy();
@@ -561,9 +584,9 @@ describe('the reveal clears the tour\'s own caption', () => {
 		// They opt out of scrolling entirely, but a provider that DOES offer `scrollIntoView`
 		// without being an element must not throw on the way past the margin.
 		const stage = captionCovering(230);
-		await frames(2);
+		await played(frames(2));
 		const { src, calls } = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 });
-		await stage.point(src);
+		await played(stage.point(src));
 		expect(calls).toHaveLength(1);
 		expect(calls[0]).toEqual({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
 	});
@@ -582,7 +605,7 @@ describe('the reveal clears the tour\'s own caption', () => {
 
 	it('publishes the clear strip at each side, so a host can see the caption is not full width', async () => {
 		const stage = captionCovering(230, {}, PILL);
-		await frames(2);
+		await played(frames(2));
 		expect(published('left')).toBe('322px');
 		expect(published('right')).toBe('322px');
 		// The vertical pair is untouched by any of this — the published contract did not move.
@@ -597,7 +620,7 @@ describe('the reveal clears the tour\'s own caption', () => {
 		// and leave a stale extent published, which reads as "this pane is beside the caption" for a
 		// pane the caption now covers: the original defect, restored by a resize.
 		const stage = captionCovering(230, {}, { left: 322, width: 380 });
-		await frames(2);
+		await played(frames(2));
 		expect(published('left')).toBe('322px');
 		// Same height, different gutters — exactly what a re-seat produces.
 		const painted = document.querySelector('.vetrina-caption') as HTMLElement;
@@ -605,7 +628,7 @@ describe('the reveal clears the tour\'s own caption', () => {
 		const top = window.innerHeight - 230;
 		el.getBoundingClientRect = () => ({ left: 100, top, width: 380, height: 230, right: 480, bottom: top + 230, x: 100, y: top, toJSON: () => ({}) }) as DOMRect;
 		window.dispatchEvent(new Event('resize'));
-		await frames(2);
+		await played(frames(2));
 		expect(published('bottom'), 'the vertical band did not move, which is the point').toBe('230px');
 		expect(published('left'), 'the extent went stale — the dedupe skipped on the vertical pair').toBe('100px');
 		expect(published('right')).toBe(`${window.innerWidth - 480}px`);
@@ -614,7 +637,7 @@ describe('the reveal clears the tour\'s own caption', () => {
 
 	it('takes all four properties back on destroy, not just the pair it owns the token for', async () => {
 		const stage = captionCovering(230, {}, { left: 322, width: 380 });
-		await frames(2);
+		await played(frames(2));
 		expect(published('left')).toBe('322px');
 		stage.destroy();
 		expect(published('top')).toBe('');
@@ -627,7 +650,7 @@ describe('the reveal clears the tour\'s own caption', () => {
 		// The default `captionCovering` box, i.e. every arm above this one. 0/0 is what makes the
 		// extent additive: a consumer that reads a missing property as 0 rebuilds the old band.
 		const stage = captionCovering(230);
-		await frames(2);
+		await played(frames(2));
 		expect(published('left')).toBe('0px');
 		expect(published('right')).toBe('0px');
 		stage.destroy();
@@ -635,10 +658,10 @@ describe('the reveal clears the tour\'s own caption', () => {
 
 	it('does NOT scroll for a target sitting BESIDE a narrow caption', async () => {
 		const stage = captionCovering(230, {}, PILL);
-		await frames(2);
+		await played(frames(2));
 		// x 40..160 — well clear of the pill's 322..702, and vertically deep in the band.
 		const { el, seen } = elementTarget(40, 40);
-		await stage.point(el);
+		await played(stage.point(el));
 		// ONE pass, not two: the first `nearest` brings it on screen, and the lift never runs
 		// because nothing is painted over where it landed. Before this, it scrolled twice.
 		expect(seen.length, 'the reveal lifted a target the caption does not cover').toBe(1);
@@ -648,10 +671,10 @@ describe('the reveal clears the tour\'s own caption', () => {
 
 	it('still scrolls for a target BEHIND the same narrow caption', async () => {
 		const stage = captionCovering(230, {}, PILL);
-		await frames(2);
+		await played(frames(2));
 		// x 450..570 — inside the pill's span, so this is the case the lift exists for.
 		const { el, seen } = elementTarget(40, 450);
-		await stage.point(el);
+		await played(stage.point(el));
 		expect(seen.length).toBe(2);
 		expect(seen[1].bottom).toBe('230px');
 		expect(seen[1].block).toBe('end');
@@ -663,10 +686,10 @@ describe('the reveal clears the tour\'s own caption', () => {
 		// SYMMETRIC, so swapping `ins.left`/`ins.right` or dropping either half of `overlapsX`
 		// passed the whole suite when a checker mutated them. Band [100, 480] on a 1024px window.
 		const stage = captionCovering(230, {}, { left: 100, width: 380 });
-		await frames(2);
+		await played(frames(2));
 		// x 700..820 — entirely right of the band, covered by nothing, so no lift.
 		const { el, seen } = elementTarget(40, 700);
-		await stage.point(el);
+		await played(stage.point(el));
 		expect(seen.length, 'lifted a target the asymmetric band does not cover').toBe(1);
 		stage.destroy();
 	});
@@ -675,9 +698,9 @@ describe('the reveal clears the tour\'s own caption', () => {
 		// Same band, x 200..320, squarely inside [100, 480]. A swap would read [544, 924] and skip
 		// the lift here — the defect this pair exists to catch, in the direction that UNDER-reserves.
 		const stage = captionCovering(230, {}, { left: 100, width: 380 });
-		await frames(2);
+		await played(frames(2));
 		const { el, seen } = elementTarget(40, 200);
-		await stage.point(el);
+		await played(stage.point(el));
 		expect(seen.length).toBe(2);
 		expect(seen[1].bottom).toBe('230px');
 		stage.destroy();
@@ -685,11 +708,11 @@ describe('the reveal clears the tour\'s own caption', () => {
 
 	it('treats a touching edge as clear, not as covered', async () => {
 		const stage = captionCovering(230, {}, PILL);
-		await frames(2);
+		await played(frames(2));
 		// x 202..322: its right edge is exactly the band's left edge. Nothing is painted over a
 		// zero-width intersection, and a >= test here would lift for it.
 		const { el, seen } = elementTarget(40, 202);
-		await stage.point(el);
+		await played(stage.point(el));
 		expect(seen.length).toBe(1);
 		stage.destroy();
 	});
@@ -705,7 +728,7 @@ describe('the drag path reveals both of its ends, and the snap-back reveals agai
 		const stage = mount();
 		const from = watchedTarget({ left: 40, top: 60, width: 120, height: 40 });
 		const to = watchedTarget({ left: 40, top: 2400, width: 120, height: 40 }, { scrollBy: { dx: 0, dy: -2200 } });
-		await stage.drag(from.src, to.src);
+		await played(stage.drag(from.src, to.src));
 		expect(from.calls, 'the thing being picked up was never revealed').toHaveLength(1);
 		expect(to.calls, 'the drop target was never revealed').toHaveLength(1);
 		expect(to.calls[0]).toEqual({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
@@ -717,8 +740,8 @@ describe('the drag path reveals both of its ends, and the snap-back reveals agai
 		const stage = mount();
 		const from = watchedTarget({ left: 40, top: 60, width: 120, height: 40 });
 		const to = watchedTarget({ left: 40, top: 2400, width: 120, height: 40 });
-		const handle = await stage.drag(from.src, to.src);
-		await handle.snapBack();
+		const handle = await played(stage.drag(from.src, to.src));
+		await played(handle.snapBack());
 		expect(from.calls, 'the snap-back aimed at `from` without asking for it to be on screen').toHaveLength(2);
 	});
 
@@ -730,8 +753,8 @@ describe('the drag path reveals both of its ends, and the snap-back reveals agai
 		const stage = mount({ motion: 'legible' });
 		const from = watchedTarget({ left: 40, top: 2400, width: 120, height: 40 }, { scrollBy: { dx: 0, dy: -2200 }, once: true });
 		const to = watchedTarget({ left: 40, top: 500, width: 120, height: 40 });
-		const handle = await stage.drag(from.src, to.src);
-		await handle.snapBack();
+		const handle = await played(stage.drag(from.src, to.src));
+		await played(handle.snapBack());
 		// `from` starts below the fold and its first reveal brings it to 200, so the cursor must end
 		// on 218 — not on 518, where `to` is and where the unfixed draft left it shaking.
 		expect(at(cursorEl(), 'top'), 'the cursor stayed on `to` — the shake plays where the item is not').toBeCloseTo(218, 0);
@@ -747,10 +770,10 @@ describe('a gesture that does not use its target does not scroll to it', () => {
 		// any kind, so this is reachable from the public surface even though no shipped tour does it.)
 		const stage = mount();
 		const wave = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 });
-		await stage.gesture('wave', wave.src);
+		await played(stage.gesture('wave', wave.src));
 		expect(wave.calls).toHaveLength(0);
 		const shake = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 });
-		await stage.gesture('shake', shake.src);
+		await played(stage.gesture('shake', shake.src));
 		expect(shake.calls).toHaveLength(0);
 	});
 
@@ -760,10 +783,10 @@ describe('a gesture that does not use its target does not scroll to it', () => {
 		// cue the reveal exists to fix.
 		const stage = mount({ cues: { circle: false, underline: false } });
 		const circle = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 });
-		await stage.gesture('circle', circle.src);
+		await played(stage.gesture('circle', circle.src));
 		expect(circle.calls, 'a silenced circle scrolled the page for ink it never drew').toHaveLength(0);
 		const underline = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 });
-		await stage.gesture('underline', underline.src);
+		await played(stage.gesture('underline', underline.src));
 		expect(underline.calls).toHaveLength(0);
 	});
 
@@ -771,7 +794,7 @@ describe('a gesture that does not use its target does not scroll to it', () => {
 		const stage = mount();
 		const circle = watchedTarget({ left: 300, top: 2400, width: 120, height: 40 });
 		void stage.gesture('circle', circle.src);
-		await frames(2);
+		await played(frames(2));
 		expect(circle.calls).toHaveLength(1);
 	});
 });
