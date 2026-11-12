@@ -721,8 +721,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// iOS to kill the tab, for a window a phone cannot even offer (engineering/decisions/2026-11-11-deferred-asset-bytes.md).
 	// Now it is built while Present is open AND either a Stage window exists (`stageWanted`, from the press that
 	// opened it to the teardown that ends it, an `S` on a narrow window included) or the Stage launcher is offered
-	// (`stageOffered`, the launcher's own `md` breakpoint), at idle, so the Stage still opens on the deck at once on a
-	// laptop and a phone never pays for it.
+	// (`stageOffered`, the launcher's own `md` breakpoint), so the Stage still opens on the deck at once on a laptop
+	// and a phone never pays for it.
 	const [stageWanted, setStageWanted] = React.useState(false);
 	const stageOffered = useMinWidth('(min-width: 768px)');
 	// ── PRESENT IS PRESENT UNTIL THERE IS A ROOM ───────────────────────────────────
@@ -879,8 +879,6 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const fmAll = frontMatter;
 	// One boolean, so opening the Stage on a laptop (offered → offered and wanted) does not rebuild what is built.
 	const stageBuild = open && (stageWanted || stageOffered);
-	const stageWantedRef = React.useRef(stageWanted);
-	stageWantedRef.current = stageWanted;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: rebuild when the presented SET or theme changes; extraTheme keyed by name (its content hash).
 	React.useEffect(() => {
 		if (!stageBuild) return;
@@ -899,17 +897,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// the presenter no Stage exists while the room reads a loading message.
 				if (!canceled && stageRef.current?.isOpen()) notifyRef.current('The Stage could not render this deck. Close it and try again.');
 			});
-		// A Stage that is open is waiting on this: build now. One that is only offered is built when the console is
-		// idle, so it never competes with the first slide Present paints.
-		let idle = 0;
-		let timer = 0;
-		if (stageWantedRef.current) void build();
-		else if (typeof window.requestIdleCallback === 'function') idle = window.requestIdleCallback(() => { if (!canceled) void build(); }, { timeout: 2000 });
-		else timer = window.setTimeout(() => { if (!canceled) void build(); }, 0);
+		// Built NOW, while Present is opening, never deferred to idle. The render is one long main-thread task (~100 ms
+		// on the owner's deck), and an idle build lands about when the presenter makes their first tap: the counter moved
+		// and the slide stayed on the previous one for that long (supplied-page-position.spec). During the opening it
+		// costs nothing anyone sees.
+		void build();
 		return () => {
 			canceled = true;
-			if (idle) window.cancelIdleCallback(idle);
-			if (timer) window.clearTimeout(timer);
 			// The document stops being current the moment these inputs change or the build stops, so a Stage opened
 			// before the next one lands shows its holding page, never a deck that has since changed.
 			stageDocRef.current = '';

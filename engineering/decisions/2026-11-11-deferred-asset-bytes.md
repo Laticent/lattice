@@ -62,10 +62,13 @@ and requires identical output with no fallback taken; a third test drives the fa
 
 - **The Stage is built while Present is open and a Stage is open or offered** (`PresentOverlay.tsx` `stageBuild`):
   `stageWanted` holds from the press that opens a Stage to the teardown that ends it (a write that throws leaves the
-  window open, so it does not end it); `stageOffered` is the launcher's own `md` breakpoint. A laptop builds at
-  idle, so the Stage still opens on the deck at once; a phone never builds; an `S` on a narrow window builds on
-  open, behind the holding page. Building only on open was tried first and cost a laptop presenter ~1.8 s of
-  "Preparing the stage…"; with §2 the idle build blocks ~0.4 s. The effect keys on the one boolean, so opening the
+  window open, so it does not end it); `stageOffered` is the launcher's own `md` breakpoint. A laptop builds as
+  Present opens, as `main` did, so the Stage still opens on the deck at once; a phone never builds; an `S` on a narrow
+  window builds when pressed, behind the holding page. Building only when the Stage is pressed was tried first and
+  cost a laptop presenter ~1.8 s of "Preparing the stage…". Building at idle (`requestIdleCallback`) was tried next
+  and is wrong: the build is one long main-thread task, and idle lands about when the presenter makes their first tap,
+  so the counter moved while the slide showed the previous page for ~100 ms (`supplied-page-position.spec`, 1 run in
+  3, never on `main`). During the opening it costs nothing anyone sees. The effect keys on the one boolean, so opening the
   Stage does not rebuild, and its cleanup drops the built document, so a Stage never opens on a deck that changed.
   The fill now waits for the deck document (`stage-window.js` `whenDeckWritten`): a write replaces
   `documentElement`, and fullscreen leaves with it (`stage-placement.spec.ts` caught it). The second build seen in
@@ -101,7 +104,7 @@ the sum of main-thread long tasks; "longest" the largest one; memory is the JS h
 | Surface | Before: time · blocked · longest · memory | After |
 |---|---|---|
 | Present (phone, 6 swipes) | swipe 3 took 19.2 s · 19.8 s · 9.3 s · 1,947 MB | swipes 0.16–0.34 s · 0.4 s · 0.17 s · 68 MB |
-| Present (laptop: open, 6 s, one arrow key) | key took 8.9 s · 13.6 s · 6.4 s · 1,597 MB | key 64 ms · 0.7 s · 0.19 s · 78 MB (Stage pre-built at idle) |
+| Present (laptop: open, 6 s, one arrow key) | key took 8.9 s · 13.6 s · 6.4 s · 1,597 MB | key 64 ms · 0.7 s · 0.19 s · 78 MB (Stage pre-built at open) |
 | Present (WebKit, iPhone size, 6 arrow keys) | opened 4.2 s · 6th key 8.0 s | opened 1.0 s · keys 42–423 ms |
 | Stage window | built on Present open (~20 s blocked) · 34.2 MB `data:` doc | 1.4 s to the deck · 0.1 s · 0.1 s · 60 MB · 1.6 MB doc, `blob:` |
 | Reading view | 15.7 s · 14.5 s · 9.5 s · 1,606 MB | 2.5 s · 1.5 s · 1.1 s · 165 MB |
