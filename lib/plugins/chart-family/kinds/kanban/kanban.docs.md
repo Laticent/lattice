@@ -39,7 +39,7 @@ Use for status snapshots: what's in each lane (todo/doing/done or similar). Each
 
 ### Data shape
 
-- On a phone-shaped page (portrait, square, story, mobile) the lanes stack, each lane's name over its cards, and every card runs the full width with its label and status beside its title. A board that fits the page stays one page; one that does not continues on the next page, cut between whole lanes and balanced across as few pages as it needs, and a lane taller than a page carries its cards on under its name marked (cont.). Nothing on a card is cut short, so a board of short card titles fits more per page.
+- On a phone-shaped page (portrait, square, story, mobile) the lanes stack, each lane's name over its cards, and every card runs the full width, its label and status on the row under its title. A board that fits the page stays one page; one that does not continues on the next page, cut between whole lanes and balanced across as few pages as it needs, and a lane taller than a page carries its cards on under its name marked (cont.). Nothing on a card is cut short, so a board of short card titles fits more per page.
 
 ## When to use
 

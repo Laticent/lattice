@@ -497,9 +497,15 @@ section.kanban:where([data-family="tall"], [data-family="square"], [data-family=
 section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .kanban-page {
   display: contents;
 }
+/* A lane fills the board's width by stretching, border box included. `inline-size: 100%` set its content box to the
+ * board's width and added a tinted lane's padding and border on top, so the lane and its cards ran past the page's
+ * right edge (the clip `main` had on every split page of `kanban tinted`). */
 section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .kanban-column {
   flex: none;
-  inline-size: 100%;
+  align-self: stretch;
+  inline-size: auto;
+  min-inline-size: 0;
+  box-sizing: border-box;
 }
 section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .kanban-cards {
   flex-direction: column;
@@ -508,28 +514,18 @@ section.kanban:where([data-family="tall"], [data-family="square"], [data-family=
 }
 section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .kanban-card {
   flex: none;
-  inline-size: 100%;
+  inline-size: auto;
   max-inline-size: none;
-  /* A full-width card has room beside its title: the label and status chips sit on the title's row, and wrap under it
-   * only when the title leaves them none. A card body takes a row of its own. Two rows of every card spent the
-   * room, and a four-lane board that fits one tall page took three. */
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  column-gap: var(--sp-sm);
-}
-section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .kanban-card-title {
-  flex: 1 1 auto;
-  min-inline-size: 0;
+  /* A card's text keeps half its own size clear of the lane's edge bar. The small step alone set it there, and a
+   * `compact` deck's small step put the title against the bar (on `main` too). */
+  padding-inline: max(var(--sp-sm), 0.5em);
+  /* The card keeps its rows: the title on its own line, the label and status chips on the row under it, every card
+   * the same shape (the owner's call, 2026-11-12). Chips set beside a title when it left room gave one board two card
+   * shapes, chips under one title and crowded beside the next. */
 }
 /* Never clamped here: a name sets whole, on as many lines as it needs (kanban.transform.js counts them). */
 section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .kanban-title-text {
   -webkit-line-clamp: none;
   line-clamp: none;
 }
-section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .kanban-card-meta {
-  flex: 0 0 auto;
-}
-section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .kanban-card-body {
-  flex: 1 0 100%;
-}
+

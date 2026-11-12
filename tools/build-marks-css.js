@@ -949,12 +949,13 @@ function build() {
       const tint = `light-dark(color-mix(in oklab, ${ONE} ${Math.min(washL, KANBAN_CODE_CAP)}%, var(--bg)), color-mix(in oklab, ${ONE} ${washD}%, var(--bg)))`;
       // Pigment is the default finish and its card keeps the shipped surface: a tint under the inline code a card carries
       // measured 4.19:1 on carbone (palette-sweep), so pigment takes the accent edge and the lane rule only. The accent is a
-      // left border (padding gives its width back), not a box-shadow: the card's own elevation stack stays, and a border exports as vector.
+      // left border (padding gives its width back, and keeps half the card's text size clear of it, where a `compact` deck's
+      // small step had set the title against the bar), not a box-shadow: the card's own elevation stack stays, and a border exports as vector.
       // A `keyline` or `tinted` board already colors by lane, and the done lane keeps its status color.
       // Pigment's accent is a solid bar, wider than the washed finishes' edge (5 hairlines against 3). It takes NO tint: a tint under a card's
       // inline code measured 4.19:1 on carbone (the palette sweep catches it, a three-theme probe deck did not).
       const bar = name === 'pigment' ? 5 : 3;
-      const cardDecls = [`border-left: calc(var(--chart-hairline) * ${bar}) solid ` + (name === 'pigment' ? ONE : ONE_INK), `padding-left: calc(var(--sp-sm) - var(--chart-hairline) * ${bar - 1})`];
+      const cardDecls = [`border-left: calc(var(--chart-hairline) * ${bar}) solid ` + (name === 'pigment' ? ONE : ONE_INK), `padding-left: calc(max(var(--sp-sm), 0.5em) - var(--chart-hairline) * ${bar - 1})`];
       if (name !== 'pigment') cardDecls.unshift(`background: ${tint}`);
       w(supports(ruleBoard(name, '.kanban-column:not([data-done]) .kanban-card:not([data-s])', cardDecls)));
       w(supports(ruleBoard(name, '.kanban-column:not([data-done]) .kanban-column-header', [`border-bottom-color: ${ONE}`, ...(name === 'pigment' ? ['border-bottom-width: calc(var(--chart-hairline) * 3)'] : [])])));
