@@ -523,9 +523,10 @@ Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 per leg (raised 
 2026-11-12 `studio-smoke` (19m34s passing) and `docs-build` (14.5-16 min, one run canceled at
 20m07s) were both there. The cuts were: `studio-smoke` stopped recording a trace and a video per
 test (`E2E_RECORD=off`; a third of its time); the `docs-build` Vitest suite runs 4 workers
-instead of 3; and both jobs, and the route-budget base build, run `build:uncommitted` instead of
-the full root build (the committed half is in the checkout, and `lint`'s `build:check` holds it to
-its generators): 42 s against 74 s on 4 cores, and the base measurement 70 s against 150 s. The
+instead of 3; both jobs dropped a root build step that repeated the one `npm ci` already runs
+(the root `prepare` script builds the built-not-committed half); and the route-budget base build
+runs `build:uncommitted` instead of the full build (the committed half is in the checkout, and
+`lint`'s `build:check` holds it to its generators): the base measurement 70 s against 150 s. The
 horizontal-overflow guard opens its four widths at once (106 s to 62 s, the same 40 states), and the
 docs tests that slept on the real clock (lessons, caption-rhythm, reveal, deictic: 140 s) run on a
 fake one. Running the route-budget base build in the background beside Vitest was tried and

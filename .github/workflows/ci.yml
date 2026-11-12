@@ -867,18 +867,16 @@ jobs:
       # lives in ROOT node_modules. Install root deps so npm creates that link; the
       # docs `npm ci` below only populates docs/node_modules, which isn't on the
       # resolution path of a require() from lib/core.
+      # npm ci also BUILDS dist/: the root `prepare` script (tools/prepare.js) runs
+      # `build.js --only-uncommitted`, the built-not-committed half. The docs site imports
+      # dist/docs/*.json and loads the playground bundles, and the workspace libs' dist/
+      # is what `tsc` typechecks against. The committed half is already in the checkout,
+      # and `lint`'s build:check holds it to its generators. A separate build step here
+      # ran that build a second time (47 s on CI); removed on the owner's call to cut this
+      # job's time (2026-11-12).
       - name: Install root deps (for the @laticent/cadenza workspace link)
         run: npm ci
         timeout-minutes: 10
-      # dist/ and the docs bundles are BUILT, not committed (.gitignore). The docs
-      # site imports dist/docs/*.json and loads the playground bundles, and the
-      # workspace libs' dist/ is what `tsc` typechecks against, so build before
-      # either. Only the built-not-committed half (`build:uncommitted`, as `lint` does):
-      # the committed half is already in the checkout, and `lint`'s build:check holds
-      # it to its generators. 42 s against 74 s for the full build on 4 cores; on CI
-      # the full build took 1m38s (owner's call to cut this job's time, 2026-11-12).
-      - name: Build the generated bundles
-        run: npm run build:uncommitted
       - name: Install docs deps
         run: npm ci
         timeout-minutes: 10
@@ -998,11 +996,9 @@ jobs:
         timeout-minutes: 10
         env:
           PUPPETEER_SKIP_DOWNLOAD: '1' # this job never renders; skip the ~150MB Chrome
-      # dist/ and the docs bundles are BUILT, not committed (.gitignore); the Studio
-      # loads them, so build before the preview server starts. Only the built-not-committed
-      # half, as `docs-build` and `lint` do (42 s against 74 s; see docs-build's note).
-      - name: Build the generated bundles
-        run: npm run build:uncommitted
+      # No separate build step: npm ci above builds dist/ through the root `prepare`
+      # script (tools/prepare.js, `build.js --only-uncommitted`), which the Studio loads.
+      # See docs-build's note.
       - name: Install docs deps
         run: npm ci
         timeout-minutes: 10
