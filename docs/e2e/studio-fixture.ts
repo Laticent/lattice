@@ -1088,6 +1088,22 @@ export function deckEditorText(page: Page): Promise<string | null> {
 	});
 }
 
+/**
+ * Replace the editor document with `text` the way an author does with a big deck: copy it, select all, paste. For a deck of
+ * megabytes, `setEditorContent`'s `insertText` is the wrong door: it types the text as one composition into the editor's
+ * DOM, and the browser lays all of it out before CodeMirror reads it back. Measured on a deck of three phone photos (16 MB):
+ * 287 s of that on WebKit and 8 s on Firefox, against 8.6 s for the whole paste-and-settle on WebKit. A paste reaches
+ * CodeMirror as clipboard data and never enters the DOM. Chromium needs the clipboard permission; Firefox and WebKit let
+ * a page in a secure context write it.
+ */
+export async function pasteIntoEditor(page: Page, text: string): Promise<void> {
+	if (page.context().browser()?.browserType().name() === 'chromium') await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+	await page.evaluate((t) => navigator.clipboard.writeText(t), text);
+	await focusEditor(page);
+	await selectAllInEditor(page);
+	await page.keyboard.press('ControlOrMeta+v');
+}
+
 /** Below 700px the Studio shows one pane at a time (docs/src/lib/use-breakpoint.ts): the
  *  `Markdown source` cell swaps the editor in and `Preview` swaps the slide back. On a wider
  *  box both are on screen and `typeDeck` types straight in. Gated on the real viewport width, as
