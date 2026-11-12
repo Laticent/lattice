@@ -607,7 +607,7 @@ step 2 door and are decided in §5.4.1, and the rest are strips, over-matching p
   today and a record there does not. The inversion asked that D3 (hard or soft cut) go back to the owner with this cost
   before step 6; it is on the continuation brief.
 - **Proof of byte identity:** every directive comment in `examples/` and the baseline decks rewritten as a record
-  (`lib/core/meta-migrate.mjs`, step 5's kernel), 4,296 comments in 354 decks: 354 render the same HTML and CSS byte for
+  (`lib/cli/meta-migrate.mjs`, step 5's kernel), 4,296 comments in 354 decks: 354 render the same HTML and CSS byte for
   byte.
 
 **Status, 2026-11-11: step 3 is built.** What it delivers, and what differs from the table:
@@ -627,7 +627,8 @@ step 2 door and are decided in §5.4.1, and the rest are strips, over-matching p
   `class` edit keeps typed fields where it can (a removed word leaves the field that wrote it, an added register word
   becomes its field, the edit's first new word fills a `layout` or `variant` the same edit emptied, the rest goes to
   `class`; the register words now follow the `class` words, so the layout stays the first word every reader takes); a key the slide
-  does not set joins the slide's record, or becomes a new record. So writes already speak the form the cut leaves.
+  does not set joins the slide's record; a slide with no record keeps its directive comment (*changed in #3136,
+  below*).
   The drawer, the speaker-note, say and description editors, and Compose's pane writers (`setCommentField`, §5.4.1)
   all go through it. Found on the way: the Studio's note editor read a record as the speaker note and deleted it on
   save; fixed.
@@ -658,6 +659,72 @@ step 2 door and are decided in §5.4.1, and the rest are strips, over-matching p
   old form outside the decks, and decks outside the repo, are on the step 6 follow-up.
 - **Folded in** from the step 1 follow-up: a plugin register named like a record field fails resolution even when
   `meta` is not among the plugins resolved (the generated vocabulary is read too).
+
+**Status, 2026-11-11 (#3136): what step 3 broke or missed, fixed.** The adversarial trio on #3136, run on a parallel
+step 3, found these in the code #3133 merged:
+
+- **The form follows the slide.** #3133 wrote a key the slide does not set as a new record, and Compose's pane writers
+  wrote `{pane=…}`, into decks written in comments. Marp and VS Code read only comments, `design/skill.md` promises they
+  can open Lattice source, and six readers outside the engine still read `_class:` with their own regex, so a new
+  record on a comment slide is invisible to them. Until the cut (D3), `writeMeta` writes the comment form on a slide
+  with no record, and `setCommentField` writes `<!-- _pane: … -->` unless the marker already is a record.
+- **The right record, once.** `readMetaField` edits only a record the engine reads (a copy in a blockquote applied
+  nothing and took the edit), and a key set in two places is read-only (`reason: 'duplicate'`): clearing the winner
+  brought the other back. Lines are counted in one pass (`liveRecordBlocks`): the per-record count was quadratic, 9 s
+  on a 16k-record slide.
+- **Compose** refused neither a pasted record nor a pasted bare directive (`<!-- backgroundImage: url(…) -->`, an older
+  hole); both are refused now, a strict pane marker excepted. It hoists and reads a record's class, and its hoist can no
+  longer run from a comment with text after it to a later comment.
+- **Readers:** Present's section rail, the asset rename, `pane-spec` `classOf` (the lint's pane split) and the
+  `{stress-slide}` marker now read a record; a measured sweep showed three decks gaining warnings in record form
+  without the last two. Lint names a field set by two records of a slide, and reads a record that holds a marker.
+- **The D11 gate** catches `attrPush`, `dataset` and `setAttributeNS` writes too.
+
+**Status, 2026-11-11: step 4 is built.** The bridge is the first pass plus one shared pass list:
+
+- **One pass list, pinned** (`MARP_PASSES`, `lib/export/marp-directives.mjs`): `recordsToComments`, the image records,
+  the agenda fill, the glossary, the lift, the split bake, the pane strip, the hide bake, the Lattice-only strip, the
+  slide-only respot, the runtime scripts. Both producers write one pass per statement in that order, and
+  `test/unit/export/marp-directives.test.js` fails on a reorder (shown: the Studio's old order, lift after the split bake,
+  fails it). The Studio producer ran the lift LAST, after the split and hide bakes, the bug the CLI's comment describes;
+  it now lifts on the unsplit body, as §7 asked.
+- **Lattice-only keys leave the bundle** (`withMarpDirectivesOnly`). Measured with `@marp-team/marp-core` 4 and
+  marp-cli: Marp reads a comment as directives only when every key in it is one it knows, so `<!-- _focusSteps: 3 -->`,
+  `<!-- _build -->` and `<!-- _hide: false -->` came back as speaker notes, in either spelling, from records and from
+  authored comments alike, while `<!-- _track: x` / `_class: lead -->` applied `lead` and showed nothing. A comment that
+  holds only keys Marp does not know is removed after the hide bake (which reads `_hide`); one that holds any key Marp
+  knows stays whole.
+- **A field that cannot reach Marp whole is never truncated.** `readRecord` already drops a field value holding `-->`
+  (`meta-comment-unsafe`); `recordsToComments` now reports it with its line, the CLI export stops on it, and the Studio
+  says it in the export toast. A note's `-->` is written `-- >` (§7's output form).
+- **Proof, from the real tools:** `examples/meta.md` exported with `tools/export-marp.js`, then rendered by marp-cli
+  (`--pdf --pdf-notes` and `--pptx`, the bundle's own `marp.config.cjs`): six pages, every layout drawn (the panes slide
+  stacked, as the fidelity ledger says), and the PPTX notes hold the speaker notes and the labeled reader notes only: no
+  record, no `_focusSteps`. **The VS Code preview was not opened** (no VS Code in this sandbox); it runs the same
+  marp-core render measured above, so the notes result carries, and the preview itself is UNVERIFIED.
+
+**Status, 2026-11-11: step 5's tool is built; the sweep is held for the cut.** `lattice migrate meta <deck.md>`
+(`lib/cli/migrate-meta.mjs`) runs two passes of the tested kernel (`lib/cli/meta-migrate.mjs`): `migrateMetaSource` writes
+each top-level directive comment as a record on its own lines, a class that opens with a catalog component as the typed
+`layout=` field (only the first word, so the engine composes the same class string in the same order);
+`mergeAdjacentRecords` folds a slide's records on consecutive lines, at zero indent, into one per scope, leaving blank
+lines so nothing below moves. A run breaks at a `carry` boundary, a pane marker, a record with `key: |` lines and a
+repeated field, where every class-shaped field (`layout`, `variant`, `class`, a register) counts as the one engine key
+`class`: merged, two of them would union their words where separate records are last-wins (the checker's case,
+`_class: dark` then `_class: cards-grid`). Line endings are kept line by line; a deck with nothing to migrate comes back
+byte for byte.
+
+- **Measured, not committed:** the tool over `examples/`, `exemplars/`, the baseline decks and the four hand-curated
+  galleries rewrote 404 files (4,569 comments; 1,147 merged before the class-key fix), and every one rendered the same
+  HTML and CSS byte for byte against `HEAD`, with the same lint findings (suggestions included).
+- **Why the sweep is not in this change** (the inversion, 2026-11-11): six readers outside the engine still read
+  `_class:` with their own regex, so a swept corpus would blind `npm run preview`'s scope, the editor's completion ranking
+  and the rest; 379 of the decks declare `marp: true`, and `design/skill.md` promises the same source works in Marp and
+  VS Code; and nothing yet keeps the corpus in records (`legacy-directive-comment` is off until the cut). The sweep lands
+  with the cut, after D3, as its own change with a `.git-blame-ignore-revs` entry.
+- **The identity test runs both directions** (`test/integration/invariants/meta-record-identity.test.js`, now with
+  `exemplars/`): a comment deck migrated the way the tool migrates it, and a record deck written back as comments
+  (`recordsToComments(…, { legacy: true })`), so it keeps proving something once the corpus is records.
 
 Steps 1 to 5 ship with authored comments still read, so every commit is green. **Step 1 delivers the reader, registry,
 completion and structured edit with no syntax change**, and steps 2 to 7 are a syntax layer over a single door.

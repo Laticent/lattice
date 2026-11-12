@@ -1151,6 +1151,8 @@ export function marpExportNote(removed?: {
 	scripts: number; handlers: number; urls: number; escaped?: boolean;
 	refused?: { tags?: Record<string, number>; attrs?: Record<string, number>; unclosed?: string[] };
 	math?: { failed?: number };
+	recordWarnings?: string[];
+	droppedKeys?: string[];
 }): string | undefined {
 	if (removed?.escaped) return "the deck's HTML could not be separated from its script, so the bundle shows all of it as text";
 	const n = removed ? removed.scripts + removed.handlers + removed.urls : 0;
@@ -1166,7 +1168,11 @@ export function marpExportNote(removed?: {
 	// Equations the export could not typeset ship as TeX text (lib/export/marp-bundle-math.js, fail closed).
 	const failed = removed?.math?.failed ?? 0;
 	const math = failed ? `${failed} ${failed === 1 ? 'equation' : 'equations'} could not be typeset and ${failed === 1 ? 'shows' : 'show'} as TeX` : '';
-	return [script, refused, unclosed, math].filter(Boolean).join('; ') || undefined;
+	// A slide record field the bridge left out rather than truncate (a value holding `-->`, record note §7).
+	const records = removed?.recordWarnings?.length ? `a slide record could not reach Marp whole (${removed.recordWarnings.join('; ')})` : '';
+	// Lattice-only settings the bundle left out, because Marp would show them as speaker notes (lib/export/marp-directives.mjs).
+	const dropped = removed?.droppedKeys?.length ? `it left out settings Marp cannot use (${removed.droppedKeys.join(', ')}); your deck keeps them` : '';
+	return [script, refused, unclosed, math, records, dropped].filter(Boolean).join('; ') || undefined;
 }
 
 /** The self-contained Marp ZIP bundle (renders anywhere). Resolves to a reason for the toast

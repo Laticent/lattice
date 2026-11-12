@@ -24,15 +24,15 @@ async function openSlideLook(page: Page): Promise<void> {
 
 const compact = (page: Page) => page.getByRole('switch', { name: 'Compact spacing' }).filter({ visible: true }).first();
 
-test('a `_class` folded into a <div> is not the slide\'s class: Compact spacing writes a new record @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
+test('a `_class` folded into a <div> is not the slide\'s class: Compact spacing writes a new directive @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
 	await typeDeck(page, `---\ntitle: Folded\n---\n\n${FOLDED}`);
 	await openSlideLook(page);
 	await expect(compact(page)).not.toBeChecked();
 	await compact(page).click();
-	// A new comment the engine reads, above the slide, in the record form (record note step 3); the <div> and the comment
-	// inside it are left as written.
-	await expect.poll(() => persistedSource(page)).toContain('<!-- {class=compact} -->');
+	// A new comment the engine reads, above the slide, in the form the slide is written in (#3136); the <div> and the
+	// comment inside it are left as written.
+	await expect.poll(() => persistedSource(page)).toContain('<!-- _class: compact -->');
 	const src = await persistedSource(page);
 	expect(src).toContain('<div>\\n<!-- _class: kpi -->\\n</div>');
 	expect(src).not.toContain('kpi compact');

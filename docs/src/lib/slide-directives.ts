@@ -171,7 +171,8 @@ export function canEditClass(chunk: string): boolean {
  *   • empty tokens + sole-directive comment → remove the whole comment (+ a blank line);
  *   • empty tokens + compound comment → drop just the `_class:` line;
  *   • from a record → edited in the record, its typed fields kept where they can be (lib/core/meta-edit.mjs);
- *   • absent + non-empty → joins the slide's record, or prepends `<!-- {class=…} -->` as the chunk's first line;
+ *   • absent + non-empty → joins the slide's record if it has one, else prepends `<!-- _class: … -->` (the form
+ *     follows the slide: a deck written in comments stays readable in Marp until the cut);
  *   • not editable → returned unchanged (caller gates on canEditClass()).
  * Tokens are written verbatim in the given order — the caller preserves unknown /
  * hand-authored tokens by reading getClassTokens() first and mutating that array.

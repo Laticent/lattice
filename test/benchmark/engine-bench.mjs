@@ -35,7 +35,7 @@ import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import MarkdownIt from 'markdown-it';
 import { Bench } from 'tinybench';
-import { migrateMetaSource } from '../../lib/core/meta-migrate.mjs';
+import { migrateMetaSource } from '../../lib/cli/meta-migrate.mjs';
 import remoteRef from '../../lib/core/remote-ref.js';
 import latticeEngine from '../../lib/engine/index.js';
 import api from '../../lib/playground/index.js';

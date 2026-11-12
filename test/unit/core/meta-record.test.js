@@ -54,13 +54,14 @@ describe('classifyComment and directiveKey', () => {
 describe('readMetaField and writeMeta', () => {
   test('set, replace, remove, and a compound comment keeps its other lines', () => {
     // A key the slide does not set is written as a record, the form the cut (step 6) leaves standing.
-    assert.equal(m.writeMeta('# A', { footer: 'Q3' }), '<!-- {footer=Q3} -->\n\n# A');
+    // A slide with no record keeps the comment form: the form follows the slide until the cut (#3136).
+    assert.equal(m.writeMeta('# A', { footer: 'Q3' }), '<!-- _footer: Q3 -->\n\n# A');
     assert.equal(m.writeMeta('<!-- _footer: Q3 -->\n\n# A', { footer: 'Q4' }), '<!-- _footer: Q4 -->\n\n# A');
     assert.equal(m.writeMeta('<!-- _footer: Q3 -->\n\n# A', { footer: null }), '# A');
     assert.equal(m.writeMeta('<!-- _class: a\n_footer: Q3 -->\n\n# A', { footer: '' }), '<!-- _class: a -->\n\n# A');
   });
   test('a value can never close the comment', () => {
-    assert.equal(m.writeMeta('# A', { footer: 'a --> b' }), '<!-- {footer="a -> b"} -->\n\n# A');
+    assert.equal(m.writeMeta('# A', { footer: 'a --> b' }), '<!-- _footer: a -> b -->\n\n# A');
     assert.equal(m.writeMeta('<!-- _footer: x -->\n\n# A', { footer: 'a ---> b --!> c' }), '<!-- _footer: a -> b -!> c -->\n\n# A');
   });
   test('a duplicate or a YAML array is left alone', () => {
@@ -183,8 +184,8 @@ describe('commentBlocks remembers each text', () => {
 describe('writeMeta on records: the inversion’s cases', () => {
   const edit = require('../../../lib/core/meta-edit.mjs');
   test('a one-slide key never joins a carry record or a pane marker', () => {
-    assert.equal(edit.writeMeta('<!-- {class=cards, carry} -->\n\n# A', { backgroundColor: 'red' }), '<!-- {background-color=red} -->\n\n<!-- {class=cards, carry} -->\n\n# A');
-    assert.equal(edit.writeMeta('<!-- {pane=bar} -->\n\n- a', { footer: 'x' }), '<!-- {footer=x} -->\n\n<!-- {pane=bar} -->\n\n- a');
+    assert.equal(edit.writeMeta('<!-- {class=cards, carry} -->\n\n# A', { backgroundColor: 'red' }), '<!-- _backgroundColor: red -->\n\n<!-- {class=cards, carry} -->\n\n# A');
+    assert.equal(edit.writeMeta('<!-- {pane=bar} -->\n\n- a', { footer: 'x' }), '<!-- _footer: x -->\n\n<!-- {pane=bar} -->\n\n- a');
   });
   test('red team: a note line reading `class:` is never a directive; a cleared field keeps the paragraphs apart; a line break folds', () => {
     const noted = '<!-- {footer=Q3}\nnote: |\n  Open with the chart.\n  class: the cohort we sold to\n-->\n\n# One';
@@ -207,5 +208,26 @@ describe('writeMeta on records: the inversion’s cases', () => {
     const { readRecord } = require('../../../lib/core/meta-door.mjs');
     assert.equal(readRecord(' {headline=left, class=stats} ').d.class, 'stats head-left');
     assert.equal(readRecord(' {finish=ledger, layout=cards, class=compact} ').d.class, 'cards compact finish finish-ledger');
+  });
+});
+
+describe('the red team on #3133 (#3136): the form follows the slide, dead records and repeats', () => {
+  const edit = require('../../../lib/core/meta-edit.mjs');
+  test('the live record is edited, never its twin in a blockquote', () => {
+    assert.equal(edit.writeMeta('<!-- {class=dark} -->\n\n# T\n\n> <!-- {class=dark} -->\n', { class: 'lead' }).split('\n')[0], '<!-- {class=lead} -->');
+  });
+  test('a key set in two records is read-only, so clearing never revives the other', () => {
+    const two = '<!-- {footer=A} -->\n<!-- {footer=B} -->\n\n# T';
+    assert.equal(edit.readMetaField(two, 'footer').reason, 'duplicate');
+    assert.equal(edit.writeMeta(two, { footer: '' }), two);
+  });
+  test('a pane marker written for a comment slide is the comment form', () => {
+    assert.equal(edit.setCommentField('', 'pane', 'bar no-title'), '<!-- _pane: bar no-title -->');
+    assert.equal(edit.setCommentField('<!-- _pane: list -->', 'pane', 'bar'), '<!-- _pane: bar -->');
+    assert.equal(edit.setCommentField('<!-- {pane=list} -->', 'pane', 'bar'), '<!-- {pane=bar} -->');
+  });
+  test('a slide of many records nested in list items has no live record and no field (the shape the quadratic count hit)', () => {
+    const many = (n) => Array.from({ length: n }, (_, i) => `- item\n  <!-- {footer=x${i}} -->`).join('\n');
+    assert.equal(edit.readMetaField(many(300), 'class').present, false);
   });
 });

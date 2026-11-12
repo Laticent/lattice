@@ -44,7 +44,8 @@ function classTokenFor(kind: RenamableKind, name: string): string | null {
 /** Rewrite every `_class` directive token `from` → `to`. Right-to-left, so each
  *  splice leaves the spans of the ones still to come untouched. */
 function renameClassTokens(source: string, from: string, to: string): { source: string; hits: number } {
-	const dirs = commentBlocks(source).filter((c) => directiveKey(c.body) === 'class');
+	// A `_class` comment, or a slide record (`<!-- {layout=kpi} -->`), whose class `getClassTokens` reads as the engine does.
+	const dirs = commentBlocks(source).filter((c) => directiveKey(c.body) === 'class' || /^\s*(?:\{|@meta\{)/.test(c.body));
 	let out = source;
 	let hits = 0;
 	for (const c of [...dirs].reverse()) {

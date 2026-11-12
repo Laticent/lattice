@@ -230,7 +230,7 @@ const HOST_API_CEILING = 14;
  * a core file its second consumer just lowers it), so a file that left cannot quietly come back.
  * `npm run structure` lists them.
  */
-const CORE_SINGLE_CONSUMER_CEILING = 39;
+const CORE_SINGLE_CONSUMER_CEILING = 38;
 /**
  * The grammar compiler. A lib/core file this script imports, and nothing outside tools/ imports, is a grammar
  * source, compiled into a `*.generated.js` parser that sits beside it and that core's own reader imports.

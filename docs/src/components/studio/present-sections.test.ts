@@ -1,8 +1,8 @@
 // @vitest-environment node
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
-import { expect, test } from 'vitest';
-import { sectionNameOf, sectionOfIndex, sectionsFromSlides } from './present-sections';
+import { describe, expect, it, test } from 'vitest';
+import { isSectionBoundary, sectionNameOf, sectionOfIndex, sectionsFromSlides } from './present-sections';
 
 const assert = {
 	equal: (a: unknown, b: unknown) => expect(a).toBe(b),
@@ -95,4 +95,40 @@ test('present-sections: sectionNameOf returns the section name (or empty for fla
 	assert.equal(sectionNameOf(grouped, 1), 'A');
 	const flat = sectionsFromSlides([slide('', 'x'), slide('', 'y')]);
 	assert.equal(sectionNameOf(flat, 0), '');
+});
+
+describe('a slide record is a section break as its `_class` comment is (meta record step 3)', () => {
+	it('reads `{layout=divider}`, and not `{layout=divider, class=light}`', () => {
+		expect(isSectionBoundary('<!-- {layout=divider} -->\n\n## Part two')).toBe(true);
+		expect(isSectionBoundary('<!-- {layout=divider, class=light} -->\n\n## Part two')).toBe(false);
+	});
+});
+
+describe('present-sections: the boundary reads the class the way the engine does', () => {
+	it('a comment holding several keys still opens a section', () => {
+		expect(isSectionBoundary('<!--\n_class: divider\npaginate: false\n-->\n# Part two')).toBe(true);
+		expect(isSectionBoundary('<!-- paginate: false\n_class: divider -->\n# Part two')).toBe(true);
+	});
+	it('a `_class` comment inside fenced code is an example, not the slide', () => {
+		expect(isSectionBoundary('# How to\n\n```md\n<!-- _class: divider -->\n```\n')).toBe(false);
+	});
+	it('a `_class` comment in an indented code block is an example, not the slide', () => {
+		expect(isSectionBoundary('# How to\n\n    <!-- _class: divider -->\n')).toBe(false);
+	});
+});
+
+describe('present-sections: a class set twice', () => {
+	it('opens a section when the class that wins is a divider', () => {
+		expect(isSectionBoundary('<!-- _class: divider -->\n<!-- _class: divider -->\n\n# A')).toBe(true);
+		expect(isSectionBoundary('<!-- {layout=divider} -->\n<!-- {layout=divider} -->\n\n# A')).toBe(true);
+	});
+	it('follows the last one, as the engine does', () => {
+		expect(isSectionBoundary('<!-- _class: divider -->\n<!-- _class: content -->\n\n# A')).toBe(false);
+		expect(isSectionBoundary('<!-- _class: content -->\n<!-- _class: divider -->\n\n# A')).toBe(true);
+	});
+});
+
+test('present-sections: a quoted divider opens a section, as the engine reads it', () => {
+	expect(isSectionBoundary('<!-- _class: "divider" -->\n\n# A')).toBe(true);
+	expect(isSectionBoundary("<!-- _class: 'divider light' -->\n\n# A")).toBe(false);
 });

@@ -24,6 +24,7 @@ import { placedPictureInSlide } from '../../../../lib/core/placed-picture.mjs';
 // that names a component, so a modifier-only slide (`_class: dark`) is a content slide (inversion, F7).
 import STAGE_CATALOG from '../../../../lib/forms/cell/masthead/stage-catalog.generated.js';
 import { deckClassWords, deckPlacingClasses } from '../deck-placing-classes';
+import { setClassTokens } from '../slide-directives';
 import { deckSchema, serializeSlideNode } from './deck-doc';
 import { classPayloadOf } from './deck-source';
 import { closeFiloGroup } from './filo-history';
@@ -186,9 +187,15 @@ export function tokensWithPlacement(tokens: readonly string[], p: Placement): st
 
 /** The slide's directives with its class set to `tokens`, or null when its class sits in a comment Compose does not rewrite. */
 function directivesWithClass(directives: readonly string[], tokens: readonly string[]): string[] | null {
-	const line = `<!-- _class: ${tokens.join(' ')} -->`;
 	const at = directives.findIndex((x) => classPayloadOf(x) !== null);
-	if (at < 0) return [line, ...directives];
+	// A new class is written as the drawer writes one (`setClassTokens`, lib/core/meta-edit.mjs `writeMeta`: a `_class` comment on a slide
+	// with no record); a record's class is rewritten in the record, every other field kept.
+	if (at < 0) return [setClassTokens('', tokens.slice()), ...directives];
+	if (/^\s*<!--\s*(?:\{|@meta\{)/.test(directives[at])) {
+		const next = setClassTokens(directives[at], tokens.slice());
+		return next === directives[at] && classPayloadOf(next) !== tokens.join(' ') ? null : directives.map((x, i) => (i === at ? next : x)).filter(Boolean);
+	}
+	const line = `<!-- _class: ${tokens.join(' ')} -->`;
 	// Only a comment that holds the class alone is rewritten: a compound one carries other keys this must not touch.
 	if (!/^\s*<!--\s*_class\s*:[^>]*-->\s*$/.test(directives[at])) return null;
 	return directives.map((x, i) => (i === at ? line : x));
