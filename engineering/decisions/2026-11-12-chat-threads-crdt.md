@@ -147,7 +147,7 @@ text out of localStorage requires either way.
 ## 7. Decision
 
 **The owner chose B, Yjs, on 2026-11-12**, after the bake-off (§10) measured it against A, a library of our own.
-With it goes Yjs's roughly 23 KB gz in the chat's lazily loaded code (it never reaches boot). 
+With it goes Yjs's roughly 23 KB gz in the chat's lazily loaded code (it never reaches boot).
 
 Accordo is kept in reserve, not thrown away (the owner, 2026-11-12). It stays in the bake-off folder with its gate,
 mutants and benches, and `followups.d/3147-p2-accordo-round-4.md` records what its round 4 needs and when to pick it
