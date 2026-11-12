@@ -27,9 +27,11 @@
   settings, one-line or multi-line, sit between them). A setting indented in a list item after a blank line stays,
   so a loose list is not drawn tight. A spot `_class` or a record's class still moves past a bare `class:` kept in
   place, because the local one wins in either order. A slide where a setting would be taken into a list item
-  (indented under one, or right below one or its lazy next line, pane markers included) opens in Markdown, because Compose would write it back as list text. A seeded test
+  (indented under one, or right below one or its lazy next line, a note between them or not, pane markers included) opens in Markdown, because Compose would write it back as list text. A seeded test
   renders random slides before and after a Compose edit, through the editor's own parser and serializer, and
   requires the same slide class, style, panes, lists and loose or tight items.
 - **Present's section rail reads a quoted divider** (`<!-- _class: "divider" -->`).
 - **A speaker note no longer locks a field.** A note with a line that starts `focus:` or `class:` is not a second
   place the field is set, so the slide panel still edits the record. A field set twice shows the value that wins.
+- **A record after an unclosed `<!--` inside a code block applies again.** The engine paired the fenced `<!--` with
+  the record's own `-->` and dropped both as code, so `<!-- {layout=kpi} -->` after such a block did nothing.

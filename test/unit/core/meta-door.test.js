@@ -448,3 +448,20 @@ describe('meta-edit: what the engine reads decides a carrier (the checker on #31
     assert.equal(commentReadings('# T\n\n<!-- say this -->').get(3)?.kind, 'note');
   });
 });
+
+describe('commentSites: an opener inside code', () => {
+  test('an unclosed `<!--` in a fence does not swallow the record after it (the checker on #3136)', () => {
+    const engine = createEngine();
+    const cls = (md) => String(engine.render(md).html).match(/data-class="([^"]*)"/)?.[1];
+    assert.equal(cls('## T\n\n```\n<!-- x\n```\n\n<!-- {layout=kpi} -->'), 'kpi');
+    assert.equal(cls('## T\n\n~~~md\n<!-- _footer: f\n~~~\n\n<!-- {layout=kpi} -->'), 'kpi');
+    // A record written inside the fence is still code.
+    assert.equal(cls('## T\n\n```\n<!-- {layout=kpi} -->\n```'), undefined);
+  });
+  test('the scan resumes at the end of the code, so the next real comment is its own site', () => {
+    const src = '```\n<!-- x\n```\n\n<!-- {a=1} -->';
+    const fence = [0, src.indexOf('\n\n')];
+    const sites = [...door.commentSites(src, [fence])];
+    assert.deepEqual(sites.map((s) => [s.inCode, s.body.trim()]).at(-1), [false, '{a=1}']);
+  });
+});

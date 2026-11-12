@@ -258,12 +258,21 @@ function strandsADirective(prose: string): boolean {
 	});
 	for (const line of applied) {
 		const text = lines[line - 1] ?? '';
-		const above = lines[line - 2] ?? '';
-		// Indented: it sits in a list item. Under a list item or its continuation: the item takes it in. A comment, a
-		// heading or a paragraph above does not (the checker on #3136: two stacked settings must stay editable).
-		// A lazy line under an item's text counts too: `- a` / `more` / the comment (the grader on #3136).
-		if (/^[ \t]/.test(text) || LIST_ITEM.test(above) || /^[ \t]+\S/.test(above)) return true;
-		if (kinds[line - 2] === 'para' && listAbove(kinds, line)) return true;
+		// Indented: it sits in a list item.
+		if (/^[ \t]/.test(text)) return true;
+		// A bare directive (`<!-- class: dark -->`) under an item locks too, though the engine would read it the same once
+		// the editor took it in: an editable slide is re-serialized whole, and the item's other lines then move with it
+		// (an indented example re-indented; the seeded editor arm on #3136). Over-locking is the safe direction.
+		// The first line above that is not a comment touching this one: a note between a list item and a setting is
+		// taken into the item with it (the checker on #3136: `- a` / `<!-- note -->` / `<!-- _class: dark -->`).
+		let j = line - 2;
+		while (j >= 0 && kinds[j] === 'comment') j--;
+		const above = lines[j] ?? '';
+		// Under a list item or its indented continuation: the item takes it in. A heading, a paragraph or a blank line
+		// above does not (two stacked settings must stay editable). A lazy line under an item's text counts too.
+		if (j < 0) continue;
+		if (LIST_ITEM.test(above) || kinds[j] === 'indented') return true;
+		if (kinds[j] === 'para' && listAbove(kinds, j + 2)) return true;
 	}
 	return false;
 }
@@ -275,10 +284,22 @@ type LineKind = 'blank' | 'comment' | 'list' | 'indented' | 'para' | 'other';
 function lineKinds(lines: string[]): LineKind[] {
 	const kinds: LineKind[] = [];
 	let inComment = false;
+	// The open fence's marker (``` or ~~~, at least three), or '' outside one. A fence's lines are code, not comments
+	// or list items: an unclosed `<!--` inside one swallowed the rest of the slide (the checker on #3136).
+	let fence = '';
 	for (const l of lines) {
-		if (inComment) {
+		const marker = l.match(/^ {0,3}(`{3,}|~{3,})/)?.[1] ?? '';
+		// Inside a list item (indented) a fence is that item's text; at the margin it ends any list.
+		const code: LineKind = /^[ \t]/.test(l) ? 'indented' : 'other';
+		if (fence) {
+			kinds.push(code);
+			if (marker && marker[0] === fence[0] && marker.length >= fence.length && !l.trim().slice(marker.length).trim()) fence = '';
+		} else if (inComment) {
 			kinds.push('comment');
 			if (l.includes('-->')) inComment = false;
+		} else if (marker) {
+			kinds.push(code);
+			fence = marker;
 		} else if (!l.trim()) kinds.push('blank');
 		else if (/^[ \t]*<!--/.test(l)) {
 			kinds.push('comment');

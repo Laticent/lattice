@@ -210,6 +210,9 @@ describe('the Compose round trip never changes what the engine applies', async (
 		'<!--\n_class: multi\n-->',
 		'### H',
 		'> q',
+		'- a\n<!-- note -->\n<!-- _class: dark -->',
+		'```\n<!-- x\n```',
+		'- c\n<!-- class: dark -->',
 	];
 	const SEED = Number(process.env.COMPOSE_ROUNDTRIP_SEED ?? 3136);
 	let s = SEED >>> 0;
@@ -347,6 +350,16 @@ describe('splitSlideDirectives and the lock: the second review of #3136', () => 
 			expect(directives, slide).toEqual(['<!-- _class: dark -->']);
 			expect(hasLossyConstruct(prose), slide).toBe(false);
 		}
+	});
+	it('the third review of #3136: a note in between, fences, and a bare directive under an item', () => {
+		// A note between the item and the setting is taken into the item with it: the slide opens in Markdown.
+		expect(hasLossyConstruct(splitSlideDirectives('## T\n\n- a\n<!-- speaker note -->\n<!-- _class: dark -->\n- b').prose)).toBe(true);
+		// An unclosed `<!--` inside a fence is code: it does not hide the list above the setting.
+		expect(splitSlideDirectives('## T\n\n```\n<!-- x\n```\n\n- a\n\n<!-- _class: dark -->\n\n- b').directives).toEqual([]);
+		// A fence inside an item is the item's text: a setting after it, between two lists, stays.
+		expect(splitSlideDirectives('## T\n\n- a\n  ```\n  x\n  ```\n\n<!-- _class: dark -->\n\n- b').directives).toEqual([]);
+		// A bare directive under an item still locks: editable, the whole slide is re-serialized (see strandsADirective).
+		expect(hasLossyConstruct(splitSlideDirectives('## T\n\n- c\n<!-- paginate: false -->\n\ntext').prose)).toBe(true);
 	});
 	it('a bare class: kept in place does not pin a later _class (the local one wins in either order)', () => {
 		// The bare one stays between two lists; the local one below the second list still moves.

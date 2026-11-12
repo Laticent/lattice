@@ -19,6 +19,8 @@ why now   — the second checker on #3136 fuzzed the editor round trip (`deckToD
             CommonMark, because the marker changed) comes back as one list: `"## T\n\n* c\n- a"` becomes
             `"## T\n\n- c\n\n\n- a"`. An author who split a list with a different marker sees it merge after any edit.
 where     — docs/src/lib/compose/deck-doc.ts (the bullet_list and ordered_list nodes and their serializer).
+also      — a fenced block inside a list item comes back with a blank line before it (`- a\n  ```` becomes
+            `- a\n\n  ````), which draws the list loose; found by the seeded editor arm on #3136.
 done when — both list nodes keep the marker they were parsed with (`-`, `*`, `+`; `.` or `)`) and write it back; the
             seeded editor arm in deck-source.test.ts gains the `* c`, `1) one` and `2) two` shapes and still passes.
 evidence  — the checker's fuzz: /tmp scratch on #3136 (`fuzz.mts`, seeds 7-9); rerun with the SHAPES above.
