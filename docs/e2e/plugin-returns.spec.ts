@@ -82,26 +82,32 @@ test(`a plugin's returned values: consent names them, clean ones land on the sli
 		// A layout change remounts the strip, closed (the preview pane moves to another branch of the shell), and on
 		// WebKit the remount can land a few frames AFTER the resize: the old strip, still open, answered a count and a
 		// text check, then went away under `boundingBox`, which waited 15 s for a visible detail that no longer existed.
-		// So each read finds the strip the page shows NOW, opens it if it is closed, and measures its detail in the
-		// same task; the poll ends when that strip is open and its detail fits.
+		// So each read finds the strip the page shows NOW and measures its detail in the same task, read-only; when that
+		// strip is closed, a REAL click opens it (actionability checked, never an in-page `click()`), and the read waits
+		// for the click to land before it reads again, so a lagging render is never clicked twice.
+		const read = () =>
+			page.evaluate((w) => {
+				const shown = (el: Element) => (el as HTMLElement).offsetParent !== null;
+				const strips = [...document.querySelectorAll('[data-slot="code-packages"]')].filter(shown);
+				if (strips.length !== 1) return `${strips.length} strips shown`;
+				if (strips[0].querySelector('button[aria-expanded]')?.getAttribute('aria-expanded') !== 'true') return 'closed';
+				const detail = strips[0].querySelector('[data-slot="code-packages-detail"]');
+				if (!detail || !shown(detail)) return 'no detail shown';
+				if (!detail.textContent?.includes('status (one of ok, late)')) return 'the detail does not name the returns';
+				const b = detail.getBoundingClientRect();
+				return b.left >= 0 && b.right <= w + 1 ? 'fits' : `overflows: ${Math.round(b.left)}-${Math.round(b.right)} of ${w}`;
+			}, width);
+		const strip = page.locator('[data-slot="code-packages"]:visible');
 		await expect
 			.poll(
-				() =>
-					page.evaluate((w) => {
-						const shown = (el: Element) => (el as HTMLElement).offsetParent !== null;
-						const strips = [...document.querySelectorAll('[data-slot="code-packages"]')].filter(shown);
-						if (strips.length !== 1) return `${strips.length} strips shown`;
-						const toggle = strips[0].querySelector<HTMLButtonElement>('button[aria-expanded]');
-						if (toggle?.getAttribute('aria-expanded') !== 'true') {
-							toggle?.click();
-							return 'the strip was closed';
-						}
-						const detail = strips[0].querySelector('[data-slot="code-packages-detail"]');
-						if (!detail || !shown(detail)) return 'no detail shown';
-						if (!detail.textContent?.includes('status (one of ok, late)')) return 'the detail does not name the returns';
-						const b = detail.getBoundingClientRect();
-						return b.left >= 0 && b.right <= w + 1 ? 'fits' : `overflows: ${Math.round(b.left)}-${Math.round(b.right)} of ${w}`;
-					}, width),
+				async () => {
+					const state = await read();
+					if (state === 'closed') {
+						await strip.getByRole('button', { name: 'What it is' }).click();
+						await expect(strip.getByRole('button', { name: 'Hide details' })).toBeVisible();
+					}
+					return state;
+				},
 				{ message: `the consent detail fits ${width}px` },
 			)
 			.toBe('fits');

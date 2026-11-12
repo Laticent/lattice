@@ -760,6 +760,8 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 	function awaitGoodbye(w, seq) {
 		const onBye = (/** @type {MessageEvent} */ e) => {
 			const d = e.data;
+			// The same origin rule as `onMsg`: a real Stage is written into `about:blank` and posts with OUR origin.
+			if (e.origin !== location.origin) return;
 			if (d && typeof d === 'object' && d.stage === 'closed' && (e.source === w || d.tok === token)) finish(false);
 		};
 		const timer = window.setTimeout(() => finish(true), GOODBYE_GRACE_MS);

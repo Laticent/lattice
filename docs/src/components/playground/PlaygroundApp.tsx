@@ -1671,6 +1671,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const deckPickSeqRef = React.useRef(0);
 	/** The walk warming up behind the editor at boot, while its plan is on the wire (null once it lands). */
 	const warmWalkRef = React.useRef<Promise<boolean> | null>(null);
+	/** Counts the switches to Explore that wait on that warm-up, so only the newest one lands. */
+	const warmWaitRef = React.useRef(0);
 	// A curated deck and an example are both static files under `galleriesBase`, fetched when chosen
 	// (`loadDeck`, below); the route's props carry only their id, label and slide count.
 
@@ -2224,10 +2226,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// the reader's own deck, and the warm-up landing after the switch did the same with a reload.
 				const warming = warmWalkRef.current;
 				if (changing && !walkRef.current && warming) {
-					// A pick made meanwhile (a gallery, a component) owns the screen; it moves the pick sequence.
+					// A pick made meanwhile (a gallery, a component) owns the screen; it moves the pick sequence. Only the
+					// newest waiting switch lands, so Explore, Edit, Explore during one warm-up renders once, not twice. (Its
+					// own counter: moving the pick sequence here would supersede the warm-up's walk itself.)
 					const pick = deckPickSeqRef.current;
+					const wait = ++warmWaitRef.current;
 					void warming.then(() => {
-						if (viewRef.current === 'read' && deckPickSeqRef.current === pick) land(true);
+						if (viewRef.current === 'read' && deckPickSeqRef.current === pick && warmWaitRef.current === wait) land(true);
 					});
 				} else land(changing);
 			} else {
