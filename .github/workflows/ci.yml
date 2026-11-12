@@ -873,9 +873,12 @@ jobs:
       # dist/ and the docs bundles are BUILT, not committed (.gitignore). The docs
       # site imports dist/docs/*.json and loads the playground bundles, and the
       # workspace libs' dist/ is what `tsc` typechecks against, so build before
-      # either. ~16s, no browser.
+      # either. Only the built-not-committed half (`build:uncommitted`, as `lint` does):
+      # the committed half is already in the checkout, and `lint`'s build:check holds
+      # it to its generators. 42 s against 74 s for the full build on 4 cores; on CI
+      # the full build took 1m38s (owner's call to cut this job's time, 2026-11-12).
       - name: Build the generated bundles
-        run: npm run build
+        run: npm run build:uncommitted
       - name: Install docs deps
         run: npm ci
         timeout-minutes: 10
@@ -996,9 +999,10 @@ jobs:
         env:
           PUPPETEER_SKIP_DOWNLOAD: '1' # this job never renders; skip the ~150MB Chrome
       # dist/ and the docs bundles are BUILT, not committed (.gitignore); the Studio
-      # loads them, so build before the preview server starts. ~16s, no browser.
+      # loads them, so build before the preview server starts. Only the built-not-committed
+      # half, as `docs-build` and `lint` do (42 s against 74 s; see docs-build's note).
       - name: Build the generated bundles
-        run: npm run build
+        run: npm run build:uncommitted
       - name: Install docs deps
         run: npm ci
         timeout-minutes: 10
