@@ -654,3 +654,12 @@ becoming a frame. After the fix the same file reads "1 / 3" and Next shows slide
 `getElementById`, and that is safe by order, not by luck: the banner is emitted before
 `#lp-app`, so the real buttons come first in document order. The notes lookup
 (`aside.lattice-notes`) reads text the author controls anyway; it is not a boundary.
+
+### 12. Compressed audio straight from the provider: not offered (#1509, 2026-11-12)
+
+#1509 asked whether a cloud voice would send `opus`, `aac` or `flac`, so Lattice could skip its own encode. No
+provider does. OpenRouter's speech route accepts only `mp3` and `pcm`, for every engine, and refuses any other value at
+its gateway before a provider sees the request. Gemini's direct API has no audio-format option at all. So §9's local
+encode stays where it is, for the engines that answer raw audio. The per-engine table and the method are in
+`2026-11-11-voice-synthesis-spine.md` §9.7, and `node tools/tts-bench.mjs --phase formats` reruns the probe.
+

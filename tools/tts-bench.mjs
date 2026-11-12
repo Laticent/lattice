@@ -19,6 +19,11 @@
  *   pack     the whole corpus as ONE request. Wall time against the latency phase, then a
  *            pause detector on the decoded audio: does each expected sentence boundary land
  *            on its own pause, and how long is that pause? That is S4's gate (§5).
+ *   formats  one fixed sentence in each `response_format` (--formats, default
+ *            opus,aac,flac,mp3,wav,pcm): status, Content-Type, bytes, the container the
+ *            first bytes actually are, decoded length and bitrate. Answers #1509: which
+ *            engines hand back compressed audio, so Lattice need not encode it.
+ *            Opt-in only (not in the default --phase list).
  *
  * Cloud engines go through OpenRouter's /audio/speech, the same route voice-model.js's
  * openRouterRung uses. `--kokoro-local` runs on-device Kokoro in Node through kokoro-js
@@ -29,7 +34,7 @@
  *   node tools/tts-bench.mjs --kokoro-local                       free, no key
  *   OPEN_ROUTER_KEY=… node tools/tts-bench.mjs [--engine a,b]      prints the plan and cost, exits 2
  *   OPEN_ROUTER_KEY=… OPENROUTER_ALLOW_SPEND=1 node tools/tts-bench.mjs [--engine a,b] [--max-usd 1.5]
- *   Options: --phase latency,ramp,pack  --levels 1,3,6  --timeout-ms 120000  --out <file.json>
+ *   Options: --phase latency,ramp,pack[,formats]  --levels 1,3,6  --formats opus,aac,flac,mp3,wav,pcm  --timeout-ms 120000  --out <file.json>
  *   Results are written after EACH engine, so one engine that hangs cannot cost the others' numbers.
  *
  * Spends real credits on OUR key, so it is opt-in and cost-visible (HARD RULE #24): without
@@ -71,6 +76,9 @@ const PHASES = new Set(String(arg('--phase', 'latency,ramp,pack')).split(','));
 const LEVELS = String(arg('--levels', '1,3,6')).split(',').map(Number).filter((n) => n >= 1);
 const MAX_USD = Number(arg('--max-usd', '1.5'));
 const ENGINE_FILTER = arg('--engine', null)?.split(',');
+const FORMATS = String(arg('--formats', 'opus,aac,flac,mp3,wav,pcm')).split(',').filter(Boolean);
+/** The sentence the formats phase speaks: long enough (~5 s) for a bitrate to mean something. */
+export const FORMAT_SENTENCE = CORPUS[1];
 const REQUEST_TIMEOUT_MS = Number(arg('--timeout-ms', '120000'));
 const OUT = arg('--out', path.join(ROOT, '.scratch/tts-bench', `${LOCAL_KOKORO ? 'kokoro-local' : 'cloud'}-${Date.now()}.json`));
 
@@ -166,10 +174,28 @@ export function matchBoundaries(pauses, packedSpan, soloSpeechMs, tolerance = 0.
 const ms = (t0) => Math.round(performance.now() - t0);
 const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; };
 
+/**
+ * What the first bytes of an answer actually are, whatever the Content-Type claims. Pure, exported for the unit test.
+ * `unknown` covers raw PCM (it has no signature) and an error body.
+ * @param {Uint8Array} b
+ */
+export function sniffContainer(b) {
+  const at = (i, s) => [...s].every((c, k) => b[i + k] === c.charCodeAt(0));
+  if (b.length < 4) return 'unknown';
+  if (at(0, 'OggS')) return 'ogg';
+  if (at(0, 'fLaC')) return 'flac';
+  if (at(0, 'RIFF') && at(8, 'WAVE')) return 'wav';
+  if (at(4, 'ftyp')) return 'mp4';
+  if (at(0, 'ID3')) return 'mp3';
+  if (b[0] === 0xff && (b[1] & 0xf6) === 0xf0) return 'aac-adts'; // sync + layer 00 = ADTS
+  if (b[0] === 0xff && (b[1] & 0xe0) === 0xe0) return 'mp3';
+  if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return 'webm';
+  return 'unknown';
+}
+
 // ── cloud requests ─────────────────────────────────────────────────────────────────────────
 
-async function speak(engine, text) {
-  const format = engine.audioFormat === 'wav' ? 'pcm' : 'mp3';
+async function speak(engine, text, format = engine.audioFormat === 'wav' ? 'pcm' : 'mp3') {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), REQUEST_TIMEOUT_MS);
   const t0 = performance.now();
@@ -182,6 +208,7 @@ async function speak(engine, text) {
       body: JSON.stringify({ model: engine.modelId, input: text, voice: engine.voice, response_format: format }),
     });
     row.status = res.status;
+    row.contentType = res.headers.get('content-type');
     row.retryAfter = res.headers.get('retry-after');
     const reader = res.body.getReader();
     const chunks = [];
@@ -195,8 +222,9 @@ async function speak(engine, text) {
     const buf = Buffer.concat(chunks);
     row.bytes = buf.length;
     if (!res.ok) { row.error = buf.toString('utf8').slice(0, 160); return { row, samples: null }; }
+    row.container = sniffContainer(buf);
     const rate = Number(/rate=(\d+)/.exec(res.headers.get('content-type') || '')?.[1]) || 24000;
-    const samples = format === 'pcm' ? pcm16ToF32(buf, rate) : decodeToF32(buf);
+    const samples = format === 'pcm' && row.container === 'unknown' ? pcm16ToF32(buf, rate) : decodeToF32(buf);
     row.audioMs = Math.round((samples.length / RATE) * 1000);
     return { row, samples };
   } catch (e) {
@@ -311,6 +339,15 @@ async function benchEngine(engine, say) {
     }
     result.pack = pack;
   }
+  if (PHASES.has('formats') && engine.slug !== 'kokoro-local') {
+    result.formats = [];
+    for (const format of FORMATS) {
+      const { row } = await speak(engine, FORMAT_SENTENCE, format);
+      const kbps = row.audioMs ? Math.round((row.bytes * 8) / row.audioMs) : null;
+      result.formats.push({ format, status: row.status, contentType: row.contentType, container: row.container ?? null, bytes: row.bytes, audioMs: row.audioMs, kbps, error: row.error });
+      console.log(`  ${format.padEnd(5)} ${row.status} ${row.container ?? '—'} ${row.bytes} B ${row.audioMs ?? '—'} ms ${kbps ?? '—'} kbps${row.error ? ` — ${row.error.slice(0, 100)}` : ''}`);
+    }
+  }
   return result;
 }
 
@@ -322,6 +359,7 @@ function charsPerEngine() {
   if (PHASES.has('latency') || PHASES.has('pack')) n += c;
   if (PHASES.has('ramp')) n += LEVELS.reduce((a, l) => a + c + CORPUS.length * ` (${l})`.length, 0);
   if (PHASES.has('pack')) n += c;
+  if (PHASES.has('formats')) n += FORMATS.length * FORMAT_SENTENCE.length;
   return n;
 }
 

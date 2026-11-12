@@ -458,3 +458,35 @@ same bytes. It also shows that a bad answer does not break the worker, that a de
 `docs/e2e/model-spine.spec.ts` (*Present decodes a Gemini clip on a worker…*) runs on Chromium (desktop and phone width), WebKit (iPad and iPhone) and Firefox.
 It checks that the decode worker starts and decodes without falling back to the main thread (the pool warns when it falls back), and that a 16 kHz L16 answer plays at exactly 1.25 s, which only happens when
 the WAV header was written at the declared rate. It checks where the work runs, never how long it takes (HARD RULE #32).
+
+### 9.7 Asking providers for compressed audio (#1509, 2026-11-12)
+
+§6 named #1509 as the complement to S2: if a provider would send aac or opus, that engine would need no encode at
+all. `tools/tts-bench.mjs --phase formats` now asks each engine for one fixed sentence in every `response_format`. It
+records the HTTP status, what the first bytes actually are (`sniffContainer`, independent of the Content-Type), the
+decoded length, and the bitrate (bytes × 8 ÷ decoded length). Spend: about $0.06 on our key, opt-in as HARD RULE #24
+requires.
+
+| engine (OpenRouter) | opus | aac | flac | wav | mp3 | pcm |
+|---|---|---|---|---|---|---|
+| kokoro | 400 | 400 | 400 | 400 | 200, 56 kbps | 200 |
+| grok | 400 | 400 | 400 | 400 | 200, 128 kbps | 200 |
+| gemini 3.1 flash TTS | 400 | 400 | 400 | 400 | 400 | 200 |
+| orpheus | 400 | 400 | 400 | 400 | 200, 33 kbps | 200 |
+| mai-voice-2 | 400 | 400 | 400 | 400 | 200, 160 kbps | 200 |
+| csm | 400 | 400 | 400 | 400 | 200, 63 kbps | 200 |
+| voxtral | 400 | 400 | 400 | 400 | 200, 56 kbps | 200 |
+
+- **OpenRouter refuses every format but `mp3` and `pcm`, for every engine, at its own gateway.** The 400 is a schema
+  error (`expected one of "mp3"|"pcm"`), the same 294 bytes for every engine, and it comes back even with no key. So
+  no provider behind OpenRouter is asked, and nothing is billed. Gemini through OpenRouter refuses `mp3` too, as the
+  catalog already recorded.
+- **Gemini's own API has no output-format option.** `generationConfig.responseMimeType` set to `audio/mpeg`,
+  `audio/ogg`, `audio/aac` or `audio/wav` is refused with 400: it accepts only text types. With no override it
+  answers `audio/wav`, as `geminiTtsRung` expects. Four refused calls and one 1-second clip, on our Gemini key.
+- **So no rung changes.** The local encode stays in the bake for the two engines that answer raw audio (Gemini and
+  on-device Kokoro). Already-compressed mp3 is still never re-encoded. Two causes stop this from changing: OpenRouter's
+  gateway schema, and Gemini's request schema. Rerun the formats phase if either changes.
+- **The mp3 engines still pick their own bitrate, from 33 to 160 kbps.** #1509's table was parsed from committed
+  samples. This one is measured from live answers to one sentence. Orpheus reads 33 kbps here against 64 there. These
+  figures are approximate: a variable-bitrate encoder and silence padding both move them.
