@@ -2006,6 +2006,11 @@ section.flowchart:where([data-family="tall"], [data-family="square"], [data-fami
 section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .fc-key-label:not(text, tspan) {
   font-size: max(var(--chart-text-min), var(--chart-role-key));
 }
+/* callout */
+section.flowchart:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .graph-callout,
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .graph-callout {
+  font-size: max(var(--chart-text-min), var(--chart-role-callout));
+}
 section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .journey-actor-name,
 section.matrix-grid:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .matrix-grid-key-label,
 section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body .roadmap-legend-label {
@@ -2363,4 +2368,36 @@ section.timeline-list:where([data-family="tall"], [data-family="square"], [data-
    * smaller (30.2px, 9pt, on a kanban card title) than a tall one's (47px). `--chart-text-min` is the family's lower
    * on-screen floor (18px at square), not the phone page's 11pt. */
   font-size: max(var(--chart-role-category), var(--fs-body));
+}
+
+/* ── Graph notes on a phone page (flowchart / state-chart transforms, callout-place.js `notesHtml`): the notes read
+ * as a numbered list under the drawing, at the key's size, so the fit that shrinks the drawing never shrinks them.
+ * The drawing keeps only each note's marker on its node. Padding and gap, never margin. ──────────────── */
+:is(section.flowchart, section.state-chart) .graph-callouts {
+  flex: none;
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: center;
+  gap: var(--sp-xs) var(--sp-lg);
+  width: 100%;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+:is(section.flowchart, section.state-chart) .graph-callout {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-xs);
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  color: var(--text-body);
+}
+:is(section.flowchart, section.state-chart) .graph-callout-marker {
+  flex: none;
+}
+:is(section.flowchart, section.state-chart) .graph-callout-detail {
+  color: var(--text-secondary, var(--text-body));
+}
+:is(section.flowchart, section.state-chart) .graph-callout-detail::before {
+  content: ' · ';
 }

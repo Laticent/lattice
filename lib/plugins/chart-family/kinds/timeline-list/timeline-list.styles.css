@@ -315,3 +315,40 @@ section.timeline-list:where([data-family="tall"], [data-family="square"], [data-
   padding-top: 0;
 }
 
+
+/* OVER CAPACITY on a phone page (timeline-list.transform.js `tlScale`): entries that do not fit the page at the type
+ * ladder's size are drawn whole and scaled by `--tl-k`, the rule every chart follows (2026-11-10-chart-form.md). The
+ * spine is laid out 1/k as wide, so its text wraps as the estimate assumed, then scaled from its top-left corner into
+ * the body. A transform, not `zoom`: WebKit reports a zoomed box at its unzoomed size, so its overflow watcher tagged
+ * every zoomed timeline "Content clipped" while the slide fit; a transformed box measures the same in every engine,
+ * and the scrollable overflow it adds is its scaled box. */
+section.timeline-list.chart-frame:where([data-family="tall"], [data-family="square"], [data-family="strip"]) > .cell-stage > .chart-body:has(> .timeline-spine[data-chart-form="over"]) {
+  /* The body clips and is sized by its content; with a child of no height it would collapse to nothing, so a scaled
+   * spine's body fills the stage instead, and the spine starts at its top. */
+  flex: 1 1 0;
+  min-height: 0;
+  align-self: stretch;
+  justify-content: flex-start;
+}
+/* The box of no height: the scaled spine's unscaled layout adds nothing to the chart body, and the scrollable overflow
+ * it adds is its scaled box, so a slide whose scaled spine fits reports nothing and one that still runs past the stage
+ * is reported as it was. It is the outer `timeline-spine` (the chart frame's figure root), so every spine style it
+ * would take is undone here; the inner `.timeline-scaled` takes them. */
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-spine[data-chart-form="over"] {
+  display: block;
+  flex: none;
+  width: 100%;
+  max-width: none;
+  height: 0;
+  padding: 0;
+  overflow: visible;
+}
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-spine[data-chart-form="over"]::before {
+  content: none;
+}
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-spine[data-chart-form="over"] > .timeline-scaled {
+  width: calc(100% / var(--tl-k, 1));
+  height: auto;
+  transform: scale(var(--tl-k, 1));
+  transform-origin: 0 0;
+}

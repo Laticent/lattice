@@ -135,6 +135,76 @@ describe('the browser half: sanitize, extent, paint', () => {
   }
 });
 
+describe('on a phone page the notes leave the drawing (callout-place.js `numberNotes`, `notesHtml`)', () => {
+  const { createEngine } = engine;
+  const renderAt = (size, cls, body) => String(createEngine().render(`---\nsize: ${size}\n---\n\n<!-- _class: ${cls} -->\n\n## A flow.\n\n${body}\n`).html);
+  for (const [cls, attr, body, targets] of [
+    ['flowchart', 'fc', FLOW, ['Close', 'Triage']],
+    ['state-chart', 'sc', '- Idle => Running => Done\n- Running => Failed\n', ['Failed', 'Running']],
+  ]) {
+    const note = `\`@callout{[{Last, for=${targets[0]}}, {First, for=${targets[1]}, detail="More."}]}\``;
+
+    test(`${cls}: a phone page lists the notes under the canvas, numbered in shape order, and the payload carries the numbers`, () => {
+      const html = renderAt('mobile', cls, `${body}\n${note}`);
+      const list = /<ol class="graph-callouts">([\s\S]*?)<\/ol>/.exec(html);
+      assert.ok(list, 'the notes are a list');
+      assert.ok(html.indexOf('graph-callouts') > html.indexOf(`${attr}-canvas`), 'the list follows the canvas, inside the figure');
+      assert.deepEqual([...list[1].matchAll(/graph-callout-text">([^<]*)/g)].map((m) => m[1]), ['First', 'Last'], 'numbered in the shapes\' order');
+      assert.match(list[1], /graph-callout-detail">More\./);
+      const cs = modelOf(html, attr).callouts;
+      assert.deepEqual(cs.map((c) => [c.text, c.n]), [['First', 1], ['Last', 2]]);
+      assert.ok(cs.every((c) => typeof c.shape === 'string' && Number.isInteger(c.color)));
+    });
+
+    test(`${cls}: a landscape page keeps the notes in the drawing, as before`, () => {
+      const html = renderAt('16:9', cls, `${body}\n${note}`);
+      assert.ok(!/graph-callouts/.test(html));
+      assert.ok(modelOf(html, attr).callouts.every((c) => !('n' in c)));
+    });
+  }
+
+  test('the browser half draws only the markers, on the node corners, sized from the names, and keeps the figure', () => {
+    const nodes = { a: { x: 10, y: 80, w: 100, h: 40, cx: 60, cy: 100 }, b: { x: 150, y: 80, w: 100, h: 40, cx: 200, cy: 100 } };
+    const spec = { callouts: [{ text: 'Slow step', mark: 1, n: 1, shape: 'circle', color: 1 }], ids: ['a', 'b'], nodes, view: { w: 300, h: 200 }, font: 18 };
+    const small = placeCallouts({ ...spec, label: 20 });
+    const big = placeCallouts({ ...spec, label: 40 });
+    assert.deepEqual([small.w, small.h], [300, 200], 'the figure keeps its own size');
+    assert.ok(!/Slow step/.test(small.svg), 'no note text inside the drawing');
+    const r = (svg) => +(/legend-plate[^>]*?\br="([\d.]+)"/.exec(svg) || [])[1];
+    assert.ok(r(big.svg) > r(small.svg) * 1.5, `${r(big.svg)} vs ${r(small.svg)}: the marker follows the names' size`);
+  });
+});
+
+describe('a marker beside a node keeps clear of the other nodes and the edge labels', () => {
+  const nodes = { a: { x: 100, y: 100, w: 100, h: 40, cx: 150, cy: 120 } };
+  const spec = { callouts: [{ text: 'n', mark: 0, n: 1, shape: 'circle', color: 1 }], ids: ['a'], nodes, view: { w: 400, h: 300 }, label: 20 };
+  const at = (svg) => { const m = /legend-plate[^>]*?cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/.exec(svg); return { x: +m[1], y: +m[2], r: +m[3] }; };
+
+  test('the first clear diagonal is taken; one an edge label covers is passed over', () => {
+    const free = at(placeCallouts(spec).svg);
+    assert.ok(free.x < 100 && free.y < 100, `${free.x},${free.y}: clear of its node, top left (a state's step number is top right)`);
+    // An edge label over that spot sends the marker to the next diagonal.
+    const label = { cx: free.x, cy: free.y, w: 60, h: 30 };
+    const moved = at(placeCallouts({ ...spec, labels: [label] }).svg);
+    const hit = Math.abs(moved.x - label.cx) < label.w / 2 + moved.r && Math.abs(moved.y - label.cy) < label.h / 2 + moved.r;
+    assert.ok(!hit, `${moved.x},${moved.y}: off the label`);
+    assert.ok(!(moved.x > 100 && moved.x < 200 && moved.y > 100 && moved.y < 140), 'and off its node');
+  });
+
+  test('an edge line over the first spot sends the marker on too; a node boxed in on every side keeps a small marker on its top edge', () => {
+    const free = at(placeCallouts(spec).svg);
+    const line = [{ x: free.x - 50, y: free.y }, { x: free.x + 50, y: free.y }];
+    const moved = at(placeCallouts({ ...spec, lines: [line] }).svg);
+    assert.ok(Math.abs(moved.y - free.y) > moved.r || Math.abs(moved.x - free.x) > 50 + moved.r, `${moved.x},${moved.y}: off the line`);
+    const wall = [{ cx: 150, cy: 120, w: 400, h: 300 }];
+    const boxed = placeCallouts({ ...spec, labels: wall });
+    assert.equal(boxed.drawn, 1, 'never missing: the top edge takes it');
+    const c = at(boxed.svg);
+    assert.ok(Math.abs(c.y - 100) < 1 && c.x > 100 && c.x < 150, `${c.x},${c.y}: straddling the node's top edge, at its start`);
+    assert.ok(c.r * 2 <= 20 + 1, `${c.r}: no taller than half the node, so it stays above the name`);
+  });
+});
+
 describe('the export embeds the placer once, for a deck with notes on both charts', () => {
   test('one bundle in the exported page, and both passes still get the placer option', () => {
     const fs = require('node:fs');
