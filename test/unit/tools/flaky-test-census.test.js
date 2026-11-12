@@ -225,6 +225,17 @@ describe('flaky-test census (HARD RULE #32)', () => {
     assert.deepEqual(playwrightRetriesFindings("test('a', () => {});", 'docs/e2e/a.spec.ts', { optional: true }), []);
   });
 
+  test('failing arm: a retry in a spec under a docs/e2e subfolder is found', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'retries-'));
+    fs.mkdirSync(path.join(root, 'e2e', 'journeys'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'playwright.config.ts'), 'export default { retries: 0 };');
+    fs.writeFileSync(path.join(root, 'e2e', 'journeys', 'a.spec.ts'), 'test.describe.configure({ retries: 2 });');
+    const errors = [];
+    checkPlaywrightRetries(errors, path.join(root, 'playwright.config.ts'));
+    assert.equal(errors.length, 1, errors.join('\n'));
+    assert.match(errors[0], /journeys/);
+  });
+
   test('build:check runs the census', () => {
     const src = fs.readFileSync(path.join(__dirname, '../../../tools/check-ownership.js'), 'utf8');
     const run = src.slice(src.indexOf('function run('));

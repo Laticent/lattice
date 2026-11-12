@@ -9823,7 +9823,8 @@ function checkPlaywrightRetries(errors, file = path.join(ROOT, 'docs', 'playwrig
   const e2e = path.join(path.dirname(file), 'e2e');
   let names = [];
   try {
-    names = fs.readdirSync(e2e).filter((n) => /\.[cm]?[jt]s$/.test(n));
+    // Recursive: docs/e2e/journeys/ and docs/e2e/scenarios/ hold specs too.
+    names = fs.readdirSync(e2e, { recursive: true }).map(String).filter((n) => /\.[cm]?[jt]s$/.test(n) && !/(?:^|[\\/])node_modules[\\/]/.test(n));
   } catch {
     return;
   }
