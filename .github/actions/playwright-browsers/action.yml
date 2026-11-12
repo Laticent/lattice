@@ -13,6 +13,24 @@ inputs:
   working-directory:
     description: The folder whose node_modules holds the pinned Playwright.
     default: docs
+outputs:
+  key:
+    description: This image's cache key.
+    value: ${{ steps.key.outputs.base }}-${{ steps.key.outputs.image }}
+  base:
+    description: The key without the image version, the prefix the restore key falls back on. Delete every entry under it when one no longer fits.
+    value: ${{ steps.key.outputs.base }}
+  path:
+    description: The cached paths, exactly as the cache step names them, so a caller can save or look up the same entry.
+    value: |
+      ${{ steps.key.outputs.paths }}
+      ~/playwright-debs/${{ steps.key.outputs.base }}
+  cache:
+    description: How the cache answered for the system packages — hit (this image's entry), fallback (the last image's) or miss.
+    value: ${{ steps.install.outputs.cache }}
+  repaired:
+    description: true when the mirror had to repair the cached system packages. After a hit, that repeats on every run.
+    value: ${{ steps.install.outputs.repaired }}
 runs:
   using: composite
   steps:
@@ -68,6 +86,7 @@ runs:
         # shellcheck disable=SC2086 # the list is words
         bash "$GITHUB_ACTION_PATH/../apt-cached/apt-cached.sh" download "$HOME/playwright-debs/$BASE" $PACKAGES
     - name: Install the system packages
+      id: install
       shell: bash
       env:
         PACKAGES: ${{ steps.key.outputs.packages }}

@@ -87,6 +87,23 @@ prune() {
   done
 }
 
+# dpkg -i, waiting out another process that holds dpkg's lock instead of reading that as a set that does not fit:
+# a lock is not a misfit, and a repair here would make apt-cache-warm.yml's alarm fire on a healthy entry. Three tries,
+# 10 s then 20 s apart; a lock still held after that fails the step, because the repair would hit the same lock.
+dpkg_install() {
+  local n log=${RUNNER_TEMP:-/tmp}/apt-cached-dpkg.log
+  for n in 1 2 3; do
+    if $SUDO dpkg -i "$@" 2>&1 | tee "$log"; then return 0; fi
+    grep -qE '(is|was) locked by another process' "$log" || return 1
+    if [ "$n" = 3 ]; then
+      echo "::error::dpkg's lock was still held by another process after three tries; not repairing, because the repair needs the same lock."
+      exit 1
+    fi
+    echo "::warning::dpkg's lock is held by another process (try $n of 3); waiting $((n * 10)) s instead of repairing."
+    sleep $((n * 10))
+  done
+}
+
 # One summary line: the folder, how the cache answered, and what the mirror had to supply.
 # The line also goes to the job log, so a run shows what the summary got (the summary page is not in the API).
 report() {
@@ -103,6 +120,13 @@ report() {
   # shellcheck disable=SC2016 # the backticks are Markdown, not a command
   line=$(printf -- '- apt-cached `%s`: cache **%s**, mirror read: **%s**' "$(basename "$dir")" "$cache" "$mirror")
   echo "apt-cached.sh: summary: $line"
+  # The same answer as step outputs, for a caller that acts on it: apt-cache-warm.yml fails a run whose exact hit still
+  # repaired, because an exact hit is never saved again and so repairs on every run until the image moves. Written
+  # before the summary, which is skipped outside GitHub Actions.
+  if [ -n "${GITHUB_OUTPUT:-}" ]; then
+    printf 'cache=%s\nrepaired=%s\n' "$cache" "$([ "$repaired" = 1 ] && echo true || echo false)" >> "$GITHUB_OUTPUT" ||
+      echo "::warning::apt-cached.sh could not write its step outputs"
+  fi
   if [ -z "${GITHUB_STEP_SUMMARY:-}" ]; then echo "apt-cached.sh: no job summary outside GitHub Actions"; return 0; fi
   # A diagnostics line must never fail an install that worked: under set -e that would also delete the cache folder.
   printf '%s\n' "$line" >> "$GITHUB_STEP_SUMMARY" && echo "apt-cached.sh: wrote the job summary" ||
@@ -129,7 +153,7 @@ case "$mode" in
     echo "apt-cached.sh: installing ${#todo[@]} packages from $dir"
     repaired=0
     dpkg_refused=
-    if [ "${#todo[@]}" -gt 0 ] && ! $SUDO dpkg -i "${todo[@]}"; then
+    if [ "${#todo[@]}" -gt 0 ] && ! dpkg_install "${todo[@]}"; then
       echo "::warning::The cached packages in $dir do not fit this runner image; repairing from Ubuntu's mirror. The cache saved under this image's key will fit."
       # --no-remove: a repair that would take a package off the image fails here, loudly, rather than removing it.
       with_mirror apt_into install -f -y --no-install-recommends --no-remove

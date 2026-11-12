@@ -11,6 +11,12 @@ name: apt cache warm
 # So one job per distinct call, every six hours: each restores its entry (a hit costs seconds), and a new image or a
 # new list saves an entry under `main` within six hours instead of at the next nightly that shares it.
 #
+# A REPAIR THAT WILL REPEAT FAILS THE RUN (followups.d 3139-p4). actions/cache never saves over an exact hit, so an
+# entry that restores as `cache: hit` and still has to repair from the mirror repairs on every run, in every job that
+# restores it, until GitHub moves the runner image. The step after each install turns that into a red run naming the key
+# to delete. One run is enough evidence: the next can only repeat it. A repair after a fallback or a miss is the normal
+# way a new image gets an entry, so it passes, and the next run here shows the saved entry as a clean hit.
+#
 # THE MATRICES BELOW ARE CHECKED, NOT TRUSTED. `checkAptCacheWarmer` in tools/check-ownership.js (via build:check)
 # reads every other workflow's `apt-cached` and `playwright-browsers` calls and fails when one has no row here, or a
 # row here matches no call. Add a call anywhere and the build tells you to add its row.
@@ -59,6 +65,53 @@ jobs:
         uses: ./.github/actions/apt-cached
         with:
           packages: ${{ matrix.packages }}
+      - name: Fail on a repair that will repeat
+        if: steps.apt.outputs.cache == 'hit' && steps.apt.outputs.repaired == 'true'
+        env:
+          KEY: ${{ steps.apt.outputs.key }}
+          BASE: ${{ steps.apt.outputs.base }}
+        run: |
+          echo "::error::The cache entry $KEY restored as an exact hit and still had to repair from Ubuntu's mirror. An exact hit is never saved again, so every job that restores it reads the mirror until the runner image moves. Delete EVERY entry whose key starts with $BASE- (Actions > Caches, or gh cache list --key \"$BASE-\" then gh cache delete each): deleting only this one lets the restore key fall back to the older entry that seeded it, and the next save repeats the misfit. Then re-run this workflow; with nothing to restore it downloads a fresh set that fits."
+          exit 1
+      # Save now and look the key up, instead of trusting the action's post step: a save that fails there is only a log
+      # line, and the next run would fall back and repair again with nothing red. Only a run that did not hit gets here.
+      # The post step then archives the set again and is refused the taken key ("Failed to save: Unable to reserve
+      # cache"), which is expected and costs only that archive time, on the rare run that did not hit.
+      - name: Save the entry now (nothing restored under this image's key)
+        if: steps.apt.outputs.cache != 'hit'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ steps.apt.outputs.path }}
+          key: ${{ steps.apt.outputs.key }}
+      # `cache-hit` is the exact-key flag: a found key alone could be a longer key that only starts with this one.
+      - name: Look the entry up by its exact key
+        id: landed
+        if: steps.apt.outputs.cache != 'hit'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.apt.outputs.path }}
+          key: ${{ steps.apt.outputs.key }}
+          lookup-only: true
+      # Another job saving the same key (a nightly on main making the same call) holds it while it uploads, and this
+      # job's save was refused for it: wait once and look again before calling the save lost.
+      - name: Wait once for a save another job may still be uploading
+        if: steps.apt.outputs.cache != 'hit' && steps.landed.outputs.cache-hit != 'true'
+        run: sleep 60
+      - name: Look the entry up again
+        id: landed-again
+        if: steps.apt.outputs.cache != 'hit' && steps.landed.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.apt.outputs.path }}
+          key: ${{ steps.apt.outputs.key }}
+          lookup-only: true
+      - name: Fail if the entry did not land
+        if: steps.apt.outputs.cache != 'hit' && steps.landed.outputs.cache-hit != 'true' && steps.landed-again.outputs.cache-hit != 'true'
+        env:
+          KEY: ${{ steps.apt.outputs.key }}
+        run: |
+          echo "::error::Nothing is stored under $KEY after this job saved it and waited a minute. The next run here would fall back and repair again, so jobs keep reading the mirror; the save step's log says why it failed."
+          exit 1
 
   apt-container:
     name: apt ${{ matrix.packages }} (${{ matrix.container }})
@@ -83,11 +136,67 @@ jobs:
       - uses: actions/checkout@v4
         with:
           sparse-checkout: .github/actions
+      # The key above holds only while the image ships git: the job this row stands in for installs git first when it
+      # is missing, which changes the package list a container key hashes. Fail loudly rather than warm the wrong entry.
+      - name: The image ships git, so the job this row stands in for installs nothing before apt-cached
+        env:
+          IMAGE: ${{ matrix.container }}
+        run: |
+          command -v git >/dev/null 2>&1 && { echo "git is in $IMAGE: $(git --version)"; exit 0; }
+          echo "::error::$IMAGE has no git. studio-e2e-nightly.yml's firefox-webrtc job installs it before apt-cached, which changes the dpkg package list this key hashes, so this row would warm a different entry from the one that job restores. Give this row the same git step first."
+          exit 1
       - name: Install the packages, from the cache
         id: apt
         uses: ./.github/actions/apt-cached
         with:
           packages: ${{ matrix.packages }}
+      - name: Fail on a repair that will repeat
+        if: steps.apt.outputs.cache == 'hit' && steps.apt.outputs.repaired == 'true'
+        env:
+          KEY: ${{ steps.apt.outputs.key }}
+          BASE: ${{ steps.apt.outputs.base }}
+        run: |
+          echo "::error::The cache entry $KEY restored as an exact hit and still had to repair from Ubuntu's mirror. An exact hit is never saved again, so every job that restores it reads the mirror until the runner image moves. Delete EVERY entry whose key starts with $BASE- (Actions > Caches, or gh cache list --key \"$BASE-\" then gh cache delete each): deleting only this one lets the restore key fall back to the older entry that seeded it, and the next save repeats the misfit. Then re-run this workflow; with nothing to restore it downloads a fresh set that fits."
+          exit 1
+      # Save now and look the key up, instead of trusting the action's post step: a save that fails there is only a log
+      # line, and the next run would fall back and repair again with nothing red. Only a run that did not hit gets here.
+      # The post step then archives the set again and is refused the taken key ("Failed to save: Unable to reserve
+      # cache"), which is expected and costs only that archive time, on the rare run that did not hit.
+      - name: Save the entry now (nothing restored under this image's key)
+        if: steps.apt.outputs.cache != 'hit'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ steps.apt.outputs.path }}
+          key: ${{ steps.apt.outputs.key }}
+      # `cache-hit` is the exact-key flag: a found key alone could be a longer key that only starts with this one.
+      - name: Look the entry up by its exact key
+        id: landed
+        if: steps.apt.outputs.cache != 'hit'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.apt.outputs.path }}
+          key: ${{ steps.apt.outputs.key }}
+          lookup-only: true
+      # Another job saving the same key (a nightly on main making the same call) holds it while it uploads, and this
+      # job's save was refused for it: wait once and look again before calling the save lost.
+      - name: Wait once for a save another job may still be uploading
+        if: steps.apt.outputs.cache != 'hit' && steps.landed.outputs.cache-hit != 'true'
+        run: sleep 60
+      - name: Look the entry up again
+        id: landed-again
+        if: steps.apt.outputs.cache != 'hit' && steps.landed.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.apt.outputs.path }}
+          key: ${{ steps.apt.outputs.key }}
+          lookup-only: true
+      - name: Fail if the entry did not land
+        if: steps.apt.outputs.cache != 'hit' && steps.landed.outputs.cache-hit != 'true' && steps.landed-again.outputs.cache-hit != 'true'
+        env:
+          KEY: ${{ steps.apt.outputs.key }}
+        run: |
+          echo "::error::Nothing is stored under $KEY after this job saved it and waited a minute. The next run here would fall back and repair again, so jobs keep reading the mirror; the save step's log says why it failed."
+          exit 1
 
   browsers:
     name: playwright ${{ matrix.browsers }}
@@ -140,3 +249,96 @@ jobs:
         with:
           browsers: ${{ matrix.browsers }}
           working-directory: .warm-playwright
+      - name: Fail on a repair that will repeat
+        if: steps.apt.outputs.cache == 'hit' && steps.apt.outputs.repaired == 'true'
+        env:
+          KEY: ${{ steps.apt.outputs.key }}
+          BASE: ${{ steps.apt.outputs.base }}
+        run: |
+          echo "::error::The cache entry $KEY restored as an exact hit and still had to repair from Ubuntu's mirror. An exact hit is never saved again, so every job that restores it reads the mirror until the runner image moves. Delete EVERY entry whose key starts with $BASE- (Actions > Caches, or gh cache list --key \"$BASE-\" then gh cache delete each): deleting only this one lets the restore key fall back to the older entry that seeded it, and the next save repeats the misfit. Then re-run this workflow; with nothing to restore it downloads a fresh set that fits."
+          exit 1
+      # Save now and look the key up, instead of trusting the action's post step: a save that fails there is only a log
+      # line, and the next run would fall back and repair again with nothing red. Only a run that did not hit gets here.
+      # The post step then archives the set again and is refused the taken key ("Failed to save: Unable to reserve
+      # cache"), which is expected and costs only that archive time, on the rare run that did not hit.
+      - name: Save the entry now (nothing restored under this image's key)
+        if: steps.apt.outputs.cache != 'hit'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ steps.apt.outputs.path }}
+          key: ${{ steps.apt.outputs.key }}
+      # `cache-hit` is the exact-key flag: a found key alone could be a longer key that only starts with this one.
+      - name: Look the entry up by its exact key
+        id: landed
+        if: steps.apt.outputs.cache != 'hit'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.apt.outputs.path }}
+          key: ${{ steps.apt.outputs.key }}
+          lookup-only: true
+      # Another job saving the same key (a nightly on main making the same call) holds it while it uploads, and this
+      # job's save was refused for it: wait once and look again before calling the save lost.
+      - name: Wait once for a save another job may still be uploading
+        if: steps.apt.outputs.cache != 'hit' && steps.landed.outputs.cache-hit != 'true'
+        run: sleep 60
+      - name: Look the entry up again
+        id: landed-again
+        if: steps.apt.outputs.cache != 'hit' && steps.landed.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.apt.outputs.path }}
+          key: ${{ steps.apt.outputs.key }}
+          lookup-only: true
+      - name: Fail if the entry did not land
+        if: steps.apt.outputs.cache != 'hit' && steps.landed.outputs.cache-hit != 'true' && steps.landed-again.outputs.cache-hit != 'true'
+        env:
+          KEY: ${{ steps.apt.outputs.key }}
+        run: |
+          echo "::error::Nothing is stored under $KEY after this job saved it and waited a minute. The next run here would fall back and repair again, so jobs keep reading the mirror; the save step's log says why it failed."
+          exit 1
+
+  # What every cache in the repo weighs, against GitHub's default 10 GB per repository (a repository can set its own
+  # limit). Past the limit GitHub evicts the least recently used entries, which could be the ones this workflow keeps.
+  # GitHub's usage figure can lag a save by a while, so this reads as of about the previous run. Report-only: a
+  # warning past 8 GB, never a failure.
+  usage:
+    name: cache usage
+    needs: [apt, apt-container, browsers]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    steps:
+      - name: Report the repository's cache usage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          bytes=$(gh api "repos/$GITHUB_REPOSITORY/actions/cache/usage" --jq '.active_caches_size_in_bytes')
+          count=$(gh api "repos/$GITHUB_REPOSITORY/actions/cache/usage" --jq '.active_caches_count')
+          # One row per entry: key, branch kind, bytes, last used. The family is the key up to its first hash-like or
+          # numeric part, so every image and list of one kind add up together.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/caches?per_page=100" \
+            --jq '.actions_caches[] | [.key, .ref, .size_in_bytes, .last_accessed_at] | @tsv' > caches.tsv
+          ours=$(awk -F'\t' '$1 ~ /^(apt|playwright)-/ {s+=$3} END {print s+0}' caches.tsv)
+          oldest=$(cut -f4 caches.tsv | sort | head -1)
+          gb() { awk -v b="$1" 'BEGIN { printf "%.2f", b / 1073741824 }'; }
+          {
+            echo "## Actions cache usage"
+            echo ""
+            echo "- every cache: **$(gb "$bytes") GB** in $count entries (GitHub's default limit is 10 GB per repository; the figure can lag the newest saves)"
+            echo "- apt and Playwright entries, every branch: **$(gb "$ours") GB**"
+            echo "- least recently used entry last used at **${oldest:-none}** (past the limit, GitHub evicts from that end, so this is about how long an unused entry survives)"
+            echo ""
+            echo "| family | branch kind | entries | GB |"
+            echo "|---|---|---:|---:|"
+            awk -F'\t' '{
+              fam = $1; sub(/-([0-9a-f]{8,}|[0-9]+\.[0-9.]+|ubuntu[0-9.]+|Linux|Windows|macOS|X64|ARM64).*$/, "", fam)
+              kind = ($2 == "refs/heads/main") ? "main" : ($2 ~ /^refs\/pull\//) ? "pull request" : ($2 ~ /gh-readonly-queue/) ? "merge queue" : "other"
+              n[fam "\t" kind]++; b[fam "\t" kind] += $3
+            } END { for (k in b) { split(k, f, "\t"); printf "| %s | %s | %d | %.2f |\n", f[1], f[2], n[k], b[k] / 1073741824 } }' caches.tsv | sort -t'|' -k5 -rn
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$bytes" -gt 8589934592 ]; then
+            echo "::warning::The repository's caches hold $(gb "$bytes") GB, past 8 of GitHub's default 10 GB; least recently used entries are evicted at the limit."
+          fi
