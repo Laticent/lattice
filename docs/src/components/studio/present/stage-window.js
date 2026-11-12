@@ -719,14 +719,64 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 	//
 	// The REVERT is not delayed by any of this; `teardown()` has already run. Only the
 	// sentence waits.
-	const CLOSED_GRACE_MS = 600; // 12× the 50ms the flag actually took, for a slow machine
+	//
+	// THE GRACE IS NOT THE VERDICT. A navigation is announced on EVIDENCE: the window still open, holding a document
+	// that is not ours (or that we can no longer read, a foreign origin). A window that is still open on OUR document
+	// has not navigated anywhere; it is a hand-close whose flag has not flipped yet, and it is given until the hang
+	// guard to flip. The flag used to be given 600 ms and no more, and a loaded WebKit took longer: three e2e workers
+	// announced "Stage disconnected" for a window the presenter had just closed (stage-window.spec.ts, the hand-close
+	// cell, 1 run in 10; followups.d/3101-p4).
+	const CLOSED_GRACE_MS = 600; // the earliest a navigation is announced, so a quick re-open still cancels it
+	const CLOSED_HANG_MS = 10_000; // a window still open on our own document this long after its goodbye is reported
 	const CLOSED_STEP_MS = 50;
+	/** Does `w` show a document that is NOT ours: someone else's page, or one we may no longer read? `null` while
+	 *  there is no document to judge (the window between documents), which is no evidence either way. */
+	function navigatedAway(w) {
+		try {
+			const d = w.document;
+			if (!d) return null;
+			return !(d.getElementById('latt-stage') || d.getElementById('latt-holding'));
+		} catch {
+			return true; // cross-origin: the window is open and showing a page that is not ours
+		}
+	}
 	/**
 	 * Announce the loss unless the window turns out to have simply been closed.
 	 * @param {Window | null} w the handle teardown just let go of
 	 * @param {number} seq the ownership sequence at schedule time
 	 * @param {number} waited
 	 */
+	// A CLOSED WINDOW THE POLL FOUND BEFORE ITS GOODBYE. A hand-close posts its goodbye from the dying document and
+	// THEN the flag flips, but the two reach this window by different routes: on a loaded machine the 2 s poll can tick
+	// after the flag flipped and before the goodbye's `message` task ran. Announcing then told the presenter "Stage
+	// disconnected" about the window they had just closed (stage-window.spec.ts, the hand-close cell on WebKit, 2 runs
+	// in 160 under four workers). So the console reverts at once, as before, and the SENTENCE waits for a goodbye from
+	// that window: one arriving means a deliberate close, and nothing is said. None by the guard, and it is a
+	// disappearance nobody asked for, announced as before. Firefox sends no goodbye at all (§13), so there a hand-close
+	// is still announced, five seconds later.
+	const GOODBYE_GRACE_MS = 5_000;
+	let cancelGoodbye = /** @type {(() => void) | null} */ (null);
+	/** @param {Window | null} w @param {number} seq */
+	function awaitGoodbye(w, seq) {
+		const onBye = (/** @type {MessageEvent} */ e) => {
+			const d = e.data;
+			// The same origin rule as `onMsg`: a real Stage is written into `about:blank` and posts with OUR origin.
+			if (e.origin !== location.origin) return;
+			if (d && typeof d === 'object' && d.stage === 'closed' && (e.source === w || d.tok === token)) finish(false);
+		};
+		const timer = window.setTimeout(() => finish(true), GOODBYE_GRACE_MS);
+		const finish = (/** @type {boolean} */ announce) => {
+			window.clearTimeout(timer);
+			window.removeEventListener('message', onBye);
+			if (cancelGoodbye === stop) cancelGoodbye = null;
+			if (announce && seq === ownSeq) onLost?.('gone');
+		};
+		const stop = () => finish(false);
+		cancelGoodbye?.();
+		cancelGoodbye = stop;
+		window.addEventListener('message', onBye);
+	}
+
 	function announceUnlessClosed(w, seq, waited = 0) {
 		if (!w || seq !== ownSeq) return; // a new Stage came up — this answer is stale
 		try {
@@ -734,7 +784,7 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		} catch {
 			return; // we cannot even ask any more; do not invent a failure
 		}
-		if (waited >= CLOSED_GRACE_MS) {
+		if ((waited >= CLOSED_GRACE_MS && navigatedAway(w) === true) || waited >= CLOSED_HANG_MS) {
 			onLost?.('navigated');
 			return;
 		}
@@ -852,6 +902,8 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		ready = false;
 		written = '';
 		ownSeq += 1;
+		// A goodbye still awaited belongs to a window already let go of; whatever comes next supersedes it.
+		cancelGoodbye?.();
 		// Cancel any classification still walking. It belongs to a window this controller has
 		// already let go of, and the beat path re-schedules a fresh one immediately after this
 		// returns when there is something new to classify.
@@ -952,7 +1004,8 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 			} catch {
 				navigated = false;
 			}
-			onLost?.(navigated ? 'navigated' : 'gone');
+			if (navigated) onLost?.('navigated');
+			else awaitGoodbye(w, ownSeq);
 		}, 2000);
 		autoPlaceStage(win)
 			.then(async (placed) => {

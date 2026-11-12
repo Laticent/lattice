@@ -136,7 +136,7 @@ test.describe('@parity with a finger', () => {
 		await expect.poll(() => order(page)).toBe('Bravo Alpha Charlie Delta Echo');
 	});
 
-	test('a long press released without moving opens the menu; a quick swipe moves nothing', async ({ page }) => {
+	test('a long press released without moving opens the menu', async ({ page }) => {
 		const t = await touch(page);
 		const p = center(await box(page, 1));
 		await t('touchStart', p);
@@ -144,20 +144,41 @@ test.describe('@parity with a finger', () => {
 		await t('touchEnd');
 		await expect(menu(page)).toBeVisible();
 		await expect(counter(page)).toHaveText('Slide 2 / 5');
-		await page.keyboard.press('Escape');
-		await page.locator('nav[aria-label="Slide navigator"]').evaluate((el) => {
+		await expect(page.locator('[data-strip-ghost]')).toHaveCount(0);
+	});
+
+	test('a quick swipe scrolls the strip and moves nothing', async ({ page }) => {
+		// The swipe has to have somewhere to go. Five pills fit the strip at 1440px with room to spare
+		// (scrollWidth 438 = clientWidth 438), so on `desktop-touch` scrollLeft could never leave 0 and
+		// this arm failed on every run there; it needs a deck long enough to overflow the strip at
+		// every width the project list holds.
+		const long = DECK + Array.from({ length: 25 }, (_, i) => `\n---\n\n# Slide${i + 6}\n\nx\n`).join('');
+		await typeDeck(page, long);
+		await expect(railButtons(page)).toHaveCount(30);
+		const nav = page.locator('nav[aria-label="Slide navigator"]');
+		expect(await nav.evaluate((el) => el.scrollWidth - el.clientWidth), 'the strip must overflow, or a swipe has nothing to scroll').toBeGreaterThan(200);
+		const before = await order(page);
+		await nav.evaluate((el) => {
 			el.scrollLeft = 0;
 		});
 		await settled(page);
-		const q2 = center(await box(page, 0));
-		await t('touchStart', q2);
-		for (let i = 1; i <= 8; i++) await t('touchMove', { x: q2.x - i * 12, y: q2.y });
+		const t = await touch(page);
+		const q = center(await box(page, 0));
+		await t('touchStart', q);
+		for (let i = 1; i <= 8; i++) await t('touchMove', { x: q.x - i * 12, y: q.y });
+		// While the finger is still down: nothing lifted and no ghost follows it. Read after the lift, a pill dragged by
+		// mistake had already been dropped back, so a strip that treated the finger like a mouse passed every check.
+		// Read ONCE, not retried: a retrying `toHaveCount(0)` would wait for a lifted pill to be dropped and then pass.
+		// Each move is dispatched and handled before its CDP call returns, so this reads the gesture as it stands.
+		expect(await page.locator('[data-lifted], [data-strip-ghost]').count(), 'the swipe lifted a pill').toBe(0);
 		await t('touchEnd');
 		// The swipe (leftward, so the strip has somewhere to go) scrolled it, since a finger that moves before the hold is
 		// a scroll, and lifted nothing.
-		await expect.poll(() => page.locator('nav[aria-label="Slide navigator"]').evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
-		expect(await order(page)).toBe('Alpha Bravo Charlie Delta Echo');
+		await expect.poll(() => nav.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+		expect(await order(page)).toBe(before);
+		await expect(page.locator('[data-lifted]')).toHaveCount(0);
 		await expect(page.locator('[data-strip-ghost]')).toHaveCount(0);
+		await expect(menu(page)).toHaveCount(0);
 	});
 });
 

@@ -50,7 +50,14 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 		(i: number) => {
 			const host = stageRef.current;
 			const pal = palettes[i];
-			if (host && pal) engineRef.current.renderInto(host, data.sample, data.drawn, pal.name);
+			if (!host || !pal) return;
+			// RENDERS IN FLIGHT, on the stage: two clicks can overlap, and the older render may finish late and stand
+			// down (single-slide-render.ts `newerOwns`), which changes nothing on screen. This count is how a reader of
+			// the page, e2e/restyle-overlap.spec.ts included, knows every render has finished rather than guessing.
+			host.dataset.rendersPending = String(Number(host.dataset.rendersPending ?? 0) + 1);
+			void engineRef.current.renderInto(host, data.sample, data.drawn, pal.name).finally(() => {
+				host.dataset.rendersPending = String(Math.max(0, Number(host.dataset.rendersPending ?? 1) - 1));
+			});
 		},
 		[palettes, data.sample, data.drawn],
 	);

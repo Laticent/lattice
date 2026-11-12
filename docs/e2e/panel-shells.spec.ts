@@ -152,9 +152,26 @@ test('a cold sheet slides in once, even when its code arrives mid-slide @crosswi
 		};
 		requestAnimationFrame(tick);
 	});
+	// RELEASED ON THE SLIDE'S OWN START. The slide lasts 500 ms, and the test used to poll for a running animation
+	// before releasing: under load the poll's first read could land after the slide had ended, and the test failed at
+	// the poll (followups.d/2523-p3, 1 to 2 runs in 16 at 4 workers). An `animationstart` listener installed before the
+	// click records the start instead, and a record cannot be missed. The loader times the slide from the open
+	// (lazy-panel.tsx `SHEET_ENTER_MS`), so the release lands inside it unless the runner stalls for half a second
+	// between two lines; then the code arrives after the slide, the swap is the ordinary one, and the assertion below
+	// still holds. Freezing or slowing the animation to force the order was tried and rejected: it changes what the
+	// product does, not when.
+	await page.evaluate(() => {
+		const w = window as unknown as { __slid: boolean };
+		w.__slid = false;
+		const started = (e: AnimationEvent) => {
+			if (!(e.target as Element).closest('[role=dialog]')) return;
+			document.removeEventListener('animationstart', started, true);
+			w.__slid = true;
+		};
+		document.addEventListener('animationstart', started, true);
+	});
 	await page.getByRole('button', { name: 'Share', exact: true }).first().click();
-	// Release while the shell is still sliding in: the case where a naive swap would restart it.
-	await expect.poll(() => topDialog(page).evaluate((e) => e.getAnimations().some((a) => a.playState === 'running'))).toBe(true);
+	await expect.poll(() => page.evaluate(() => (window as unknown as { __slid: boolean }).__slid)).toBe(true);
 	await hold.release();
 	await expect(shell(page)).toHaveCount(0);
 	await expect(topDialog(page).getByText('Present link')).toBeVisible();

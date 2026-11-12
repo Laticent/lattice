@@ -849,3 +849,12 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   browser. For any other tool or build output, `skipUnlessCI(missing, reason)` does the same. `checkFlakyTests` counts a
   literal `{ skip: true }` as a `disabled-test` and a machine-dependent skip that bypasses both helpers as an `env-skip`
   (HARD RULE #33); the second is baselined, so its count can only fall.
+
+## An e2e that counts something in the preview frame, then measures it, fails with "Frame was detached" on WebKit
+
+- **Symptom** — `locator.evaluateAll: Frame was detached` (or "Execution context was destroyed") right after a `toHaveCount` through `livePreview(page)` passed, usually after a `setViewportSize`; 1 run in 18 alone on `webkit-phone`, more under load (`plugin-placeholder-cells.spec.ts`, `library-images-render.spec.ts`).
+- **Cause** — a resize mounts a fresh preview frame, hidden until it reveals, and the old one goes away. The count found the old frame and the measurement the gap between them; a `:visible` locator re-resolves the same way (`plugin-returns.spec.ts`: a strip remounted closed after the check).
+- **Mitigation** — read and measure in ONE `page.evaluate` that finds the frame from the parent (`document.querySelector(LIVE_PREVIEW)`), returns null until that frame is revealed (`style.opacity === '1'`) and holds what the test needs, and poll it. Never split "is it there" and "how big is it" across two calls through a frame locator.
+- **Triggered by** — any e2e that resizes, then measures inside the preview.
+- **Removable when** — never.
+- **Commits** — the flaky-e2e touch PR of 2026-11-12.

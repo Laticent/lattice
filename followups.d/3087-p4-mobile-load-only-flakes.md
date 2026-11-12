@@ -61,14 +61,11 @@ fixed     — 2026-11-10, the Studio startup PR, each at its cause, 24 loaded ru
               landed later was never read again, so the chip said "Model" until opened (architect.ts
               `useArchitectStatus` now waits for the same prefetched catalog). And a test race: picking a model closes
               the popover, so `check()` could not read the radio back; it clicks and asserts the chip.
-also      — 2026-11-10, same PR: demo-mobile.spec.ts:437 (`@webkit-phone`, the CodeMirror follow) fails 6 of 6 at
-            `--repeat-each=6 --workers=3` on main 50f6f4a AND on the PR, with "the editor was never both overflowing and
-            being typed into", and passes 3 of 3 at one worker. Not investigated. collage-lightbox.spec.ts:395 on gecko
+also      — 2026-11-10, same PR: collage-lightbox.spec.ts:395 on gecko
             failed once in a 3-worker mixed run and passed 6 of 6 alone at 3 workers.
             Four more from the same PR's full runs on its build (tablet + mobile at 4 workers; webkit-phone, webkit-tablet
             and gecko at 3), recorded nowhere before: back-gesture.spec.ts:183 (webkit-phone), switch-controls.spec.ts:97
-            (webkit-tablet), table-reflow-preview.spec.ts:71 (webkit-tablet; then 8 of 8 at 4 workers) and
-            library-images-render.spec.ts:152 (mobile). Each failed once in its full run and passed 3 of 3 alone. Not
+            (webkit-tablet) and table-reflow-preview.spec.ts:71 (webkit-tablet; then 8 of 8 at 4 workers). Each failed once in its full run and passed 3 of 3 alone. Not
             compared against main; not investigated.
 where     — the specs named above that the "fixed" entry does not name.
 done when — each failure is reproduced under full-project load and fixed at its cause, or 10 full
@@ -76,10 +73,7 @@ done when — each failure is reproduced under full-project load and fixed at it
 evidence  — per spec, runs and outcomes under load, before and after.
 verify    — npx playwright test --project=mobile --retries=0, repeated.
 
-2026-11-09 — one more load-only occurrence, on the docs-perf PR's build: `demo-mobile.spec.ts:437` (`@webkit-phone the
-editor follows the typing on real WebKit too`) failed once in a 14-spec, 3-project, 4-worker run (203 passed). It passed
-3 of 3 alone and 14 of 14 when its whole file ran twice on `mobile` + `webkit-phone` with 4 workers.
-The same PR's final build lost `collage-lightbox.spec.ts:483` (`@mobile`, the trackpad-pinch zoom) once in a 220-pass,
+2026-11-09 — the docs-perf PR's final build lost `collage-lightbox.spec.ts:483` (`@mobile`, the trackpad-pinch zoom) once in a 220-pass,
 15-file, 3-project, 4-worker run; it passed 3 of 3 alone. The lightbox lives in the slide runtime and shares no code
 with what that PR changed (Studio mount timing, `ui/sheet.tsx` focus return).
 PR #3140 (2026-11-11) saw `model-spine.spec.ts:155` (`@crosswidth … picking in the chip is the global selection`) fail on
@@ -89,3 +83,8 @@ on main. That PR changes narration export and the voice request path, not the ch
 
 2026-11-12 — chart-detail-reveal:269 and lenses-landing:33 fixed at their causes on branch claude/flaky-e2e-render
 (a Playground walk race that showed a gallery over the draft; Present's keyboard attached after paint); removed above.
+
+2026-11-12 — fixed at their causes in the flaky-e2e touch PR (claude/flaky-e2e-touch): demo-mobile.spec.ts:437 (its
+guard counted animation frames, which a loaded WebKit paints about a third as often; it now counts edits) and
+library-images-render.spec.ts:152 (one read of four tiles before they had loaded and packed; now one read of the
+revealed frame, polled). The evidence is in that PR.

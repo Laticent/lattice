@@ -31,9 +31,6 @@
     "docs/e2e/library-images-export.spec.ts": {
       "fixed-sleep": 2
     },
-    "docs/e2e/library-images-render.spec.ts": {
-      "fixed-sleep": 1
-    },
     "docs/e2e/library-images.spec.ts": {
       "fixed-sleep": 3
     },
@@ -52,9 +49,6 @@
     "docs/e2e/present-delivery.spec.ts": {
       "fixed-sleep": 2
     },
-    "docs/e2e/present-emphasis.spec.ts": {
-      "clock-assert": 3
-    },
     "docs/e2e/present-guide-handles.spec.ts": {
       "fixed-sleep": 1
     },
@@ -69,9 +63,6 @@
     },
     "docs/e2e/read-aloud.spec.ts": {
       "fixed-sleep": 5
-    },
-    "docs/e2e/restyle-overlap.spec.ts": {
-      "fixed-sleep": 1
     },
     "docs/e2e/status-pill.spec.ts": {
       "clock-assert": 1
