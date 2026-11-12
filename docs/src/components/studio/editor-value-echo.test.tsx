@@ -110,4 +110,17 @@ describe('the editor value-sync', () => {
 		expect(view.state.selection.main.head).toBe(at + 2);
 		expect(view.state.selection.main.empty).toBe(true);
 	});
+
+	it('a range strictly inside the replaced span becomes a caret, and the next edit does not throw', () => {
+		const at = DECK.indexOf('alpha');
+		const { container, rerender } = render(<Editor value={DECK} onChange={() => {}} knownComponents={KNOWN} />);
+		const view = viewOf(container.querySelector('.cm-content'));
+		act(() => view.dispatch({ selection: { anchor: at + 1, head: at + 4 } })); // 'lph'
+		const next = DECK.replace('alpha', 'zzz');
+		rerender(<Editor value={next} onChange={() => {}} knownComponents={KNOWN} />);
+		const sel = view.state.selection.main;
+		expect(sel.from <= sel.to, 'the mapped range is inverted').toBe(true);
+		expect(() => act(() => view.dispatch(view.state.replaceSelection('X')))).not.toThrow();
+		expect(view.state.doc.toString()).toBe(next.replace('zzz', 'zzzX'));
+	});
 });

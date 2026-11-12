@@ -4,7 +4,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
 import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
-import { Annotation, ChangeSet, Compartment, EditorState, type Extension, StateEffect, Transaction } from '@codemirror/state';
+import { Annotation, ChangeSet, EditorSelection as CmSelection, Compartment, EditorState, type Extension, StateEffect, Transaction } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, highlightActiveLine, highlightActiveLineGutter, hoverTooltip, keymap, layer, lineNumbers, RectangleMarker, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
@@ -1079,6 +1079,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 							// already has that text from the shell, and the caret it leaves is the editor's
 							// own mapping, not a place the author chose.
 							const fromSync = u.transactions.some((tr) => tr.annotation(fromValueSync));
+							// The author acted (a click, a select-all, typing): a reveal still parked for text this view
+							// did not hold yet is stale, and landing it later would move the caret out from under them
+							// (a select-all collapsed to a slide's start, and the next Delete removed one character).
+							if (pendingRevealRef.current && u.transactions.some((tr) => tr.annotation(Transaction.userEvent) !== undefined)) pendingRevealRef.current = null;
 							if (u.docChanged) {
 								// CANONICAL ON THE WAY OUT — see the `noLeadingBom` note above. A document seeded
 								// before the filter landed can still hold a leading BOM, and `source` is what the
@@ -1273,7 +1277,15 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// keeps both ends through a write elsewhere. Mapping only the head collapsed it to a caret,
 			// so a Delete pressed next removed one character instead of the selection. The bias (1)
 			// keeps a caret sitting at the write's start after the inserted text, as before.
-			const selection = v.state.selection.map(ChangeSet.of(change, old.length), 1);
+			// A range strictly inside the replaced span maps its two ends to opposite sides of the insert
+			// (CodeMirror keeps a range from growing), which leaves it inverted and makes the next edit
+			// throw; such a range has nothing left to hold, so it becomes a caret at its far end, which
+			// is where the old head-only mapping put it.
+			const mapped = v.state.selection.map(ChangeSet.of(change, old.length), 1);
+			const selection = CmSelection.create(
+				mapped.ranges.map((r) => (r.from > r.to ? CmSelection.cursor(Math.max(r.anchor, r.head)) : r)),
+				mapped.mainIndex,
+			);
 			v.dispatch({ changes: change, selection, annotations: fromValueSync.of(true) });
 		} else {
 			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value }, selection: { anchor: 0 }, annotations: fromValueSync.of(true) });
