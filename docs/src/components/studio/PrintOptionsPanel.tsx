@@ -263,7 +263,8 @@ export function PrintOptionsPanel({
 	// which change placement, not pixels. A paper/orientation flip re-ASSEMBLES these (cheap
 	// jsPDF geometry) with no re-rasterize; a color/source/theme change makes a new `render`
 	// object → the key misses → we rasterize once more. Cleared when the deck re-renders below.
-	const [imgCache, setImgCache] = React.useState<{ render: DeckRender; images: string[]; geom: { w: number; h: number }; pageFormat: string } | null>(null);
+	// Each slide's picture as its BYTES (PNG or JPEG), as the writer made it: no base64 copy held here.
+	const [imgCache, setImgCache] = React.useState<{ render: DeckRender; images: Uint8Array[]; geom: { w: number; h: number }; pageFormat: string } | null>(null);
 	// Platform is stable per device; decide the print path once. `pdfPrint`: this browser cannot be trusted to print the
 	// hidden print frame (it prints the Studio instead, one page), so Print builds the real PDF and opens THAT
 	// (download.js `needsPdfToPrint`; 2026-06-14-deck-print-styling.md). iOS is one of them, and keeps its own words.

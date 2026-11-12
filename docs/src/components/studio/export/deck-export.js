@@ -1978,7 +1978,7 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 // fail-safe default would mask that rather than catch it.
 /**
  * Photograph one slide now, and start writing its picture in the picture pool. Resolves once the slide is photographed,
- * with `encoded`, the picture's `data:` URL still being written, so the caller can photograph the next slide meanwhile.
+ * with `encoded`, the picture's bytes (PNG or JPEG) still being written, so the caller can photograph the next slide meanwhile.
  * The same shot and the same writer as `rasterizeSectionToDataUrl`: the canvas is finished when the camera returns it (it
  * reads a pixel back to make WebKit run the draw), so writing it after the capture fixups are undone changes nothing.
  */
@@ -1989,9 +1989,9 @@ async function shootThenEncode(section, fontEmbedCSS, pageFormat, cornerTarget, 
 	} catch (e) {
 		throw captureError(e);
 	}
-	const write = pageFormat === 'jpeg'
-		? sharedPictureEncoder().encode(canvas, { type: 'jpeg', quality: 95 }).then((bytes) => blobToDataUri(new Blob([bytes], { type: 'image/jpeg' })))
-		: canvasToPngDataUrl(canvas);
+	// BYTES, not a `data:` URL. The writer hands back bytes and jsPDF takes bytes; a base64 string between them was built
+	// here and decoded again there, a third larger in memory for every slide the print panel keeps (2026-11-11-deferred-asset-bytes.md §10).
+	const write = sharedPictureEncoder().encode(canvas, pageFormat === 'jpeg' ? { type: 'jpeg', quality: 95 } : { type: 'png' });
 	const encoded = write.catch((e) => {
 		throw captureError(e);
 	});

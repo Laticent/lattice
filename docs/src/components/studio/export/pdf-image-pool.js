@@ -29,8 +29,9 @@ const shared = createSharedPool(() =>
 	}),
 );
 
-/** The PNG bytes jsPDF reads from a `data:` URL: its base64, decoded. Anything else is not prepared (null). */
+/** The PNG bytes jsPDF reads: the bytes themselves, or a `data:` URL's base64, decoded. Anything else is not prepared (null). */
 export function pngBytesOf(image) {
+	if (image instanceof Uint8Array) return image[0] === 0x89 && image[1] === 0x50 ? image : null;
 	if (typeof image !== 'string') return null;
 	const m = /^data:image\/png;base64,/i.exec(image);
 	if (!m) return null;
@@ -70,10 +71,12 @@ function job(image, compression) {
 	return shared.use(async (pool) => {
 		// Any failure costs only this image its head start: jsPDF's own path writes it (`installPreparedPngs`).
 		try {
-			if (!/^data:image\/png;base64,/i.test(String(image))) return null;
-			// Decoded only once a worker is held, so a deck's pictures are not all held twice while they wait.
+			if (!pngBytesOf(image)) return null;
+			// Read only once a worker is held, so a deck's pictures are not all held twice while they wait. A COPY goes to the
+			// worker: transferring the caller's own buffer would empty the picture the print panel keeps for a re-placed sheet.
 			const out = await pool.run(() => {
-				const bytes = /** @type {Uint8Array} */ (pngBytesOf(image));
+				const own = /** @type {Uint8Array} */ (pngBytesOf(image));
+				const bytes = typeof image === 'string' ? own : own.slice();
 				return { message: { bytes, compression }, transfer: [bytes.buffer] };
 			});
 			return 'value' in out ? out.value.result : null;
@@ -87,9 +90,15 @@ function job(image, compression) {
  * The jobs of the CURRENT picture set, by picture. Started as each slide is photographed (`startPng`, from
  * `rasterizeDeckImages`), so the pool works while the main thread photographs the next slide and the sheet finds most of its
  * results waiting; kept until the next set starts, so a re-placed sheet (a paper or layout change on the same pictures)
- * runs no job at all. Keyed by the picture's text and the compression word.
+ * runs no job at all. Keyed by the picture itself (its bytes object, or its text) under each compression word.
+ * @type {Map<string, Map<unknown, Promise<object|null>>>}
  */
 let started = new Map();
+const jobsFor = (compression) => {
+	let m = started.get(compression);
+	if (!m) started.set(compression, (m = new Map()));
+	return m;
+};
 
 /** Forget the previous picture set's jobs: a new one is being photographed. */
 export function startPngSet() {
@@ -98,11 +107,11 @@ export function startPngSet() {
 
 /** Start jsPDF's step for one picture now, in the pool. */
 export function startPng(image, compression) {
-	const key = `${compression}\u0000${image}`;
-	if (started.has(key)) return;
+	const jobs = jobsFor(compression);
+	if (jobs.has(image)) return;
 	// A plain RGB PNG goes in as it is, at no cost worth a worker; only another kind of PNG takes jsPDF's step in the pool.
 	const direct = directPng(image);
-	started.set(key, direct ? Promise.resolve(direct) : job(image, compression));
+	jobs.set(image, direct ? Promise.resolve(direct) : job(image, compression));
 }
 
 /**
@@ -115,9 +124,9 @@ export function startPng(image, compression) {
 export function preparePngs(images, compression) {
 	return Promise.all(
 		images.map((image) => {
-			if (typeof image !== 'string') return null;
+			if (typeof image !== 'string' && !(image instanceof Uint8Array)) return null;
 			startPng(image, compression);
-			return started.get(`${compression}\u0000${image}`);
+			return jobsFor(compression).get(image);
 		}),
 	);
 }

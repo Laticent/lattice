@@ -205,3 +205,16 @@ pixels (pixel comparison of every image stream, and `pdf-image-pool.test.ts` dec
 squeezes harder than the platform `CompressionStream`, which has no level. A level-9 deflate of the same filtered rows
 would be 21.50 MB but costs ~0.8 s an image even in native zlib, and the browser offers none, so it would be a script
 deflate in the workers: slower on a phone for ~3 %. The owner signed off on the faster, slightly larger file.
+
+## 10. Print carries each slide's picture as bytes
+
+`rasterizeDeckImages` returned each slide's picture as a base64 `data:` URL: the picture pool hands back bytes, the URL
+was built from them, and jsPDF decoded it again. The print panel keeps those pictures for a re-placed sheet, a third
+larger than their bytes. It now returns the bytes; `assembleSheetPdf` and the pool take bytes or a URL (the pool keys a
+picture by itself, and sends a worker a copy, so the panel's kept picture is never emptied by a transfer). The owner's
+deck prints the same file byte for byte (22,699,356 bytes, every page identical). The remaining `data:` URLs in an export
+are the Library photos INSIDE an exported file (§3), which a file must carry, and the legacy all-main-thread PDF lane.
+
+Photos, videos, themes and reference PDFs are Blobs in IndexedDB (`lattice-workbench/assets`), as
+`2026-11-11-studio-storage-pointer-records.md` §3 records; this work stores nothing new. Whether they move to the Origin
+Private File System is the owner's call: followups.d/studio-media-storage-opfs.md.
