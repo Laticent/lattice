@@ -3,7 +3,8 @@
  *
  * Chromium honors only the LAST `--disable-features`, so appending SANDBOX_LAUNCH_ARGS to puppeteer's defaults
  * silently re-enabled everything puppeteer turns off, `IsolateSandboxedIframes` among them. The package's sandboxed
- * frame then ran out of process, and puppeteer 23 lost its context on 23 of 40 opens under load (code-package-door).
+ * frame then ran out of process, and puppeteer 23 lost its context: 23 of 40 opens under a 12-thread CPU burn in the first
+ * measurement, 24 of 60 in the control run beside the fix (0 of 60 with it), and the code-package-door failures.
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
