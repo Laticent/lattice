@@ -103,8 +103,11 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 	// Past a pane marker a setting belongs to that pane, so nothing after the first one moves (a record lifted out of a
 	// pane took its class to the slide; the checker on #3136).
 	const firstPane = chunkLines.findIndex((l) => l.trim().startsWith('<!--') && parsePaneMarker(l.trim())?.pane) + 1 || Number.POSITIVE_INFINITY;
-	const nonBlankAround = (line: number, step: 1 | -1) => {
-		for (let i = line - 1 + step; i >= 0 && i < chunkLines.length; i += step) if (chunkLines[i].trim()) return chunkLines[i];
+	// The next line that is not blank (and, with `pastComments`, not a one-line comment: lifting every setting in a run
+	// between two lists merges them as surely as lifting one).
+	const nonBlankAround = (line: number, step: 1 | -1, pastComments = false) => {
+		for (let i = line - 1 + step; i >= 0 && i < chunkLines.length; i += step)
+			if (chunkLines[i].trim() && !(pastComments && ONE_LINE_COMMENT.test(chunkLines[i]))) return chunkLines[i];
 		return '';
 	};
 	const hoist = new Set<number>();
@@ -119,7 +122,7 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 		// reorder the slide's notes); or it sits between two list items (lifting it would merge the two lists).
 		const body = text?.trim().slice(4, -3) ?? '';
 		const carriesNote = r.kind === 'record' && isRecordOpener(body) && Object.keys(readRecord(body)?.notes ?? {}).length > 0;
-		const betweenLists = LIST_ITEM.test(nonBlankAround(line, -1)) && LIST_ITEM.test(nonBlankAround(line, 1));
+		const betweenLists = listAbove(chunkLines, line) && LIST_ITEM.test(nonBlankAround(line, 1, true));
 		const movable =
 			(r.kind === 'directive' || r.kind === 'record' || r.kind === 'nested') &&
 			text !== undefined &&
@@ -257,10 +260,34 @@ function strandsADirective(prose: string): boolean {
 		const above = lines[line - 2] ?? '';
 		// Indented: it sits in a list item. Under a list item or its continuation: the item takes it in. A comment, a
 		// heading or a paragraph above does not (the checker on #3136: two stacked settings must stay editable).
+		// A lazy line under an item's text counts too: `- a` / `more` / the comment (the grader on #3136).
 		if (/^[ \t]/.test(text) || LIST_ITEM.test(above) || /^[ \t]+\S/.test(above)) return true;
+		if (above.trim() && !ONE_LINE_COMMENT.test(above) && listAbove(lines, line)) return true;
 	}
 	return false;
 }
+
+/** Whether the text above 1-based `line` ends inside a list: a list item, or its continuation lines (indented ones, a
+ *  lazy line right under the item's text, and indented ones after a blank line). A paragraph after a blank line ends
+ *  the list. Lifting a setting from between such a list and the next one merges the two (the grader on #3136). */
+function listAbove(lines: string[], line: number): boolean {
+	let blank = false;
+	let paragraph = false;
+	for (let i = line - 2; i >= 0; i--) {
+		const l = lines[i];
+		if (ONE_LINE_COMMENT.test(l) && !/^[ \t]/.test(l)) continue;
+		if (!l.trim()) {
+			if (paragraph) return false;
+			blank = true;
+		} else if (LIST_ITEM.test(l)) return true;
+		else if (/^[ \t]/.test(l)) blank = paragraph = false;
+		else if (blank) return false;
+		else paragraph = true;
+	}
+	return false;
+}
+
+const ONE_LINE_COMMENT = /^[ \t]*<!--.*-->[ \t]*$/;
 
 /** A list item's first line: a bullet or a number, then a space or the end of the line. */
 const LIST_ITEM = /^[ \t]*(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)/;

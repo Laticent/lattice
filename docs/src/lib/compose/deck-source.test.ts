@@ -167,7 +167,9 @@ describe('the Compose round trip never changes what the engine applies', async (
 		// Each pane the slide draws, with its classes: a setting moved into or out of a pane changes these.
 		const html = String(engine.render(md).html);
 		const panes = (html.match(/<lat-pane[^>]*>/g) ?? []).join('');
-		return { class: attr('data-class'), style: `${style}|${panes}` };
+		// How many lists and items: a setting lifted from between two lists merges them (the grader on #3136).
+		const lists = `${(html.match(/<[ou]l[\s>]/g) ?? []).length}/${(html.match(/<li[\s>]/g) ?? []).length}`;
+		return { class: attr('data-class'), style: `${style}|${panes}|${lists}` };
 	};
 	const SHAPES = [
 		'<!-- _class: dark -->',
@@ -199,6 +201,10 @@ describe('the Compose round trip never changes what the engine applies', async (
 		'- a\n<!-- _pane: right -->',
 		'1. a',
 		'1. a\n<!-- _footer: z -->',
+		'- a\n  more\n<!-- _footer: z -->',
+		'- a\nmore\n<!-- _footer: z -->',
+		'- a\n\n  more',
+		'- b',
 	];
 	const SEED = Number(process.env.COMPOSE_ROUNDTRIP_SEED ?? 3136);
 	let s = SEED >>> 0;
@@ -296,5 +302,16 @@ describe('splitSlideDirectives and the lock: the second review of #3136', () => 
 	});
 	it('a setting between two list items stays, so the lists do not merge', () => {
 		expect(splitSlideDirectives('## T\n\n1. a\n<!-- _footer: z -->\n\n1. b').directives).toEqual([]);
+	});
+	it('a setting under a list item that runs onto more lines stays too (the grader on #3136)', () => {
+		for (const slide of [
+			'## T\n\n- a\n  more\n<!-- _footer: z -->\n- b',
+			'## T\n\n- a\nmore\n<!-- _footer: z -->\n- b',
+			'## T\n\n- a\n\n  more\n\n<!-- _footer: z -->\n\n- b',
+		])
+			expect(splitSlideDirectives(slide).directives, slide).toEqual([]);
+	});
+	it('a setting under a paragraph that follows a list still moves', () => {
+		expect(splitSlideDirectives('## T\n\n- a\n\npara\n<!-- _footer: z -->\n\n- b').directives).toEqual(['<!-- _footer: z -->']);
 	});
 });
