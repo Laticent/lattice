@@ -516,7 +516,16 @@ run), 29m11s and 11m04s — every one of them `unit (node 24)`, every one ending
 hours is the exposure an uncancelled wedge would reach, not a bill the repo has paid.
 Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 per leg (raised 25 -> 45 on
 2026-10-05, cut to 25 with the four-way shard on 2026-10-09; `ci.yml` has both) · `golden-diff` 25 ·
-`docs-build` 20 · `studio-smoke` 15 · `player-webkit` 12 · `ci` 5.
+`docs-build` 20 · `studio-smoke` 15 · `player-webkit` 12 · `ci` 5. `studio-smoke` was raised to
+20 on 2026-10-22 (#2822).
+
+**When a job nears its cap, cut its time; do not raise the cap** (owner, 2026-11-12). By
+2026-11-12 `studio-smoke` (19m34s passing) and `docs-build` (14.5-16 min, one run canceled at
+20m07s) were both there. The cuts were: `studio-smoke` stopped recording a trace and a video per
+test (`E2E_RECORD=off`; a third of its time), and the `docs-build` Vitest suite runs 4 workers
+instead of 3. Running the route-budget base build in the background beside Vitest was tried and
+reverted: free on a 4-core sandbox (+12 s), it slowed CI's Vitest from 8m41s to 11m36s, because
+the runner's 4 vCPUs do not behave like 4 idle cores.
 
 **A cap is a ceiling, not a detector — and it does not catch every wedge.** 15m on
 `unit` catches three of those four; the 11m04s one finishes underneath it and still
@@ -1205,9 +1214,7 @@ locally from `docs/`:
   A PR may add up to 2KB of eager JS per route over `main` while the route stays at or
   under soft; every byte above soft is declared in the PR's own
   `docs/route-budget.d/<slug>.md` (`studio: +N` plus why). CI measures the growth by
-  building the base (`docs/scripts/measure-route-base.sh`, one to three minutes, run in
-  the background beside the docs typecheck and Vitest suite and joined before the docs
-  build); a local
+  building the base (`docs/scripts/measure-route-base.sh`, about a minute); a local
   `check:route-budget` reports it as not checked. Numbers move only through
   `npm run route-budget:rebaseline` in its own PR, and raising one needs the owner's OK
   (`decisions/2026-09-29-route-budget-soft-hard.md`).

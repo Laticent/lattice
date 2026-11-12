@@ -880,44 +880,30 @@ jobs:
         run: npm ci
         timeout-minutes: 10
         working-directory: docs
+      - name: Typecheck docs (astro sync + tsc --noEmit)
+        run: npm run typecheck
+        working-directory: docs
+      # Four workers, not Vitest's default of cores - 1 = 3 (owner's call to cut this job's time,
+      # 2026-11-12). Many of these tests wait on the clock (a lesson's pause, a caption's dwell), and
+      # a waiting worker leaves its core idle. Measured on 4 cores: 3 workers 387 s, 4 workers 313 s,
+      # 639/639 both. The timeout budgets were set under 4 workers on 4 cores (vitest.config.ts,
+      # vitest.setup.ts), so this is the load they were sized for.
+      - name: Test docs React islands (Vitest + RTL)
+        run: npm test -- --maxWorkers=4
+        working-directory: docs
       # The per-PR route allowance (docs/scripts/check-route-budget.mjs): build the base in a
       # worktree and measure it, so the gate can see how much THIS PR adds. The base is the
       # test-merge commit's first parent, not the event's base.sha, which can be an older
-      # main and would charge the PR for other PRs' growth. Pull requests only. A base that
-      # fails to build leaves no file and the gate reports the allowance as NOT checked. The
-      # owner approved this step (engineering/decisions/2026-09-29-route-budget-soft-hard.md §5).
-      # It runs IN THE BACKGROUND beside the typecheck and the Vitest suite (owner's call to cut
-      # this job's time, 2026-11-12): Vitest uses 3 workers on this 4-core runner, and the base
-      # build (1-3 min, serial before) fits in the core it leaves. This step returns once the
-      # script has copied node_modules (ROUTE_BASE_READY); "Wait for the base" below joins it.
-      - name: Start measuring the base for the per-PR route allowance (background)
+      # main and would charge the PR for other PRs' growth. About 67s on a runner. Pull
+      # requests only. A base that fails to build leaves no file and the gate reports the
+      # allowance as NOT checked. The owner approved this step
+      # (engineering/decisions/2026-09-29-route-budget-soft-hard.md §5).
+      - name: Measure the base for the per-PR route allowance
         if: github.event_name == 'pull_request'
         run: |
           base="$(git cat-file -p HEAD | awk '/^parent/{print $2; exit}')"
           echo "ROUTE_BUDGET_BASE_SHA=$base" >> "$GITHUB_ENV"
-          ROUTE_BASE_READY="$RUNNER_TEMP/route-base.ready" ROUTE_BASE_ASSETS_OUT="$RUNNER_TEMP/route-base-assets" \
-            nohup bash -c 'bash docs/scripts/measure-route-base.sh "$1" "$2" > "$3" 2>&1; echo $? > "$4"' _ \
-            "$base" "$RUNNER_TEMP/route-base.json" "$RUNNER_TEMP/route-base.log" "$RUNNER_TEMP/route-base.exit" > /dev/null 2>&1 &
-          tools/wait-for.sh --job route-base-ready --timeout 300 --interval 1 \
-            --until "test -f '$RUNNER_TEMP/route-base.ready' || test -f '$RUNNER_TEMP/route-base.exit'"
-      - name: Typecheck docs (astro sync + tsc --noEmit)
-        run: npm run typecheck
-        working-directory: docs
-      - name: Test docs React islands (Vitest + RTL)
-        run: npm test
-        working-directory: docs
-      # Joins the background measurement started above and prints its log. Its exit code is
-      # informational: the script exits 0 on every failure it can name, leaving no file.
-      - name: Wait for the base measurement
-        if: github.event_name == 'pull_request'
-        run: |
-          if ! tools/wait-for.sh --job route-base --timeout 900 --interval 2 --until "test -f '$RUNNER_TEMP/route-base.exit'"; then
-            # Stop it and drop any half-written file, so the gate reports the allowance as NOT checked.
-            pkill -f measure-route-base.sh || true
-            rm -f "$RUNNER_TEMP/route-base.json"
-            echo "::warning::the base measurement did not finish in 15 min; the allowance is not checked"
-          fi
-          cat "$RUNNER_TEMP/route-base.log" 2>/dev/null || true
+          ROUTE_BASE_ASSETS_OUT="$RUNNER_TEMP/route-base-assets" bash docs/scripts/measure-route-base.sh "$base" "$RUNNER_TEMP/route-base.json"
       - name: Build docs site
         run: npm run build
         working-directory: docs

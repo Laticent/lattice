@@ -54,10 +54,6 @@ for d in . docs; do
 		(cd "$WT/$d" && npm ci "${flags[@]}" >/dev/null) || { warn "npm ci failed in $d on $BASE"; exit 0; }
 	fi
 done
-# CI starts this script in the background, beside the docs tests, and waits for this file before its next
-# step. The hard-linked copy is complete here, so a file the typecheck or the tests create in the checkout's
-# node_modules afterwards cannot land in the base's copy.
-[ -n "${ROUTE_BASE_READY:-}" ] && touch "$ROUTE_BASE_READY"
 
 start=$SECONDS
 (cd "$WT" && npm run build >/dev/null 2>&1) || { warn "root build failed on $BASE"; exit 0; }

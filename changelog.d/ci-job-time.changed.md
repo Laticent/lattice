@@ -1,2 +1,2 @@
 - **CI:** `studio-smoke` no longer records a trace and a video for each of its 155 tests (`E2E_RECORD=off`, set only on that job). Recording was about a third of the job's time, and the job was hitting its 20-minute cap. The nightly e2e suite and local runs still record everything.
-- **CI:** `docs-build` measures the base for the per-PR route allowance in the background, beside the typecheck and the docs Vitest suite, instead of after them. The checks and the gate are the same.
+- **CI:** `docs-build` runs the docs Vitest suite on 4 workers instead of 3. Many of its tests wait on the clock, so a fourth worker uses the core those waits leave idle (387 s to 313 s on 4 cores, same 639 files passing).
