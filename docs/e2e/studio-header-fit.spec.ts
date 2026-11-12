@@ -1,3 +1,4 @@
+import { motionSettled } from './barriers';
 import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
 // The Studio top bar is one non-wrapping flex row in which every control is
@@ -50,8 +51,10 @@ const X_DRIFT = 1; // sub-pixel only: #1371's defect was a 70px jump, not a roun
 // busy the machine is. A tolerance cannot fix that; it only picks which machines
 // flake. Waiting for two consecutive identical reads can, and it makes the assertions
 // mean what they say: the SETTLED row fits, and the SETTLED cluster does not move.
-const SETTLE_STEP_MS = 100;
-const SETTLE_TRIES = 40; // 4s ceiling — far past the ~100ms reflow, still bounded
+//
+// SETTLE is a signal, not a sample (HARD RULE #32): the row has stopped moving when its layout has settled and every
+// finite animation and transition in the header has finished (`motionSettled`). This replaces reading every 100 ms
+// until two consecutive reads agreed, which sampled quiet rather than waiting for the reflow to end.
 // The row must not merely FIT at its floor — it must fit with room left. `scrollWidth <=
 // clientWidth` cannot fail until the row is ALREADY over; this is the tripwire that goes
 // off while there is still margin to lose.
@@ -318,18 +321,10 @@ async function readPill(page: import('@playwright/test').Page): Promise<PillShap
 	});
 }
 
-/** `readHeader`, but only once two consecutive reads agree — see SETTLE_STEP_MS above. */
+/** `readHeader`, read once the row has stopped moving — see the note above SETTLE. */
 async function readHeaderSettled(page: import('@playwright/test').Page, tail: string[], menuName: string): Promise<HeaderShape> {
-	let prev = await readHeader(page, tail, menuName);
-	for (let i = 0; i < SETTLE_TRIES; i++) {
-		await page.waitForTimeout(SETTLE_STEP_MS);
-		const next = await readHeader(page, tail, menuName);
-		if (JSON.stringify(next) === JSON.stringify(prev)) return next;
-		prev = next;
-	}
-	// Never silently accept an unsettled row: a header still moving after 4s is itself
-	// the finding, and reporting it as a measurement would hide it.
-	throw new Error(`the header never settled after ${(SETTLE_TRIES * SETTLE_STEP_MS) / 1000}s — last read ${JSON.stringify(prev)}`);
+	await motionSettled(page, 'header');
+	return readHeader(page, tail, menuName);
 }
 
 /**
@@ -637,22 +632,14 @@ test('@smoke the Studio header fits — and keeps its words — at every support
  * its pill fails here instead of hollowing the test into a no-op.
  */
 /**
- * `spareAt`, but only once two consecutive reads agree — the same settle discipline
- * `readHeaderSettled` uses, and for the same reason. Measured: the row can still be
+ * `spareAt`, read once the row has stopped moving — the same settle `readHeaderSettled` uses, and for the same reason. Measured: the row can still be
  * mid-reflow when the Search pill's locator resolves, and a `spareAt` taken there returned
  * **-1** (already over) on a run whose three neighbors all returned 56. A guard that
  * reports "this row does not fit" because it measured too early is worse than no guard.
  */
 async function spareAtSettled(page: import('@playwright/test').Page, tolerance: number): Promise<number> {
-	let prev = await spareAt(page, tolerance);
-	for (let i = 0; i < SETTLE_TRIES; i++) {
-		await page.waitForTimeout(SETTLE_STEP_MS);
-		const next = await spareAt(page, tolerance);
-		if (next === prev) return next;
-		prev = next;
-	}
-	// Never silently accept an unsettled row — a header still moving after 4s is the finding.
-	throw new Error(`spare capacity never settled after ${(SETTLE_TRIES * SETTLE_STEP_MS) / 1000}s — last read ${prev}px`);
+	await motionSettled(page, 'header');
+	return spareAt(page, tolerance);
 }
 
 /**

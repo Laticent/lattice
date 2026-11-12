@@ -89,3 +89,20 @@ export async function layoutSettled(target: Page | Frame): Promise<void> {
 	await schedulerDrained(target);
 	await frames();
 }
+
+/**
+ * Everything under `within` has stopped moving: layout has settled, every finite animation and transition there has
+ * finished (an infinite one, a spinner, never does), and layout has settled again after them. For a geometry read that
+ * a reflow in flight would corrupt; it replaces "read until two consecutive reads agree", which samples quiet rather
+ * than waiting for the motion to end.
+ */
+export async function motionSettled(target: Page | Frame, within: string): Promise<void> {
+	await layoutSettled(target);
+	await target.evaluate(async (scope) => {
+		const root = document.querySelector(scope);
+		if (!root) return;
+		const finite = (a: Animation) => a.effect?.getComputedTiming().endTime !== Number.POSITIVE_INFINITY;
+		await Promise.all(root.getAnimations({ subtree: true }).filter(finite).map((a) => a.finished.catch(() => undefined)));
+	}, within);
+	await layoutSettled(target);
+}

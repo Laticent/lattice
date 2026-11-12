@@ -95,6 +95,17 @@ async function collectFrom(page: import('@playwright/test').Page): Promise<void>
 }
 const drain = (page: import('@playwright/test').Page) => page.evaluate(() => (window as unknown as { __bench: Sample[] }).__bench);
 const reset = (page: import('@playwright/test').Page) => page.evaluate(() => { (window as unknown as { __bench: Sample[] }).__bench = []; });
+/**
+ * Do one interaction and wait for the ONE render it causes to finish (HARD RULE #32). Measured: a rail click and a
+ * keystroke on the shown slide each record exactly one render sample, so "a new sample arrived" is the render being
+ * done, where a fixed 700 ms gap used to stand. It also keeps each render alone, which is what the gap was for: the
+ * next interaction starts only once this one's render has finished.
+ */
+async function oneRender(page: import('@playwright/test').Page, act: () => Promise<unknown>): Promise<void> {
+	const before = (await drain(page)).length;
+	await act();
+	await expect.poll(async () => (await drain(page)).length, { timeout: 30_000, message: 'the interaction rendered nothing' }).toBe(before + 1);
+}
 
 /**
  * CEILINGS, from test/benchmark/preview-budget.json — budgets, not a measured baseline.
@@ -206,10 +217,7 @@ test(`@perf preview render path — navigation vs typing (${kind} deck)`, async 
 	await reset(page);
 	const rail = railButtons(page);
 	for (let pass = 0; pass < 2; pass++) {
-		for (let i = 0; i < 10; i++) {
-			await rail.nth(i).click();
-			await page.waitForTimeout(700);
-		}
+		for (let i = 0; i < 10; i++) await oneRender(page, () => rail.nth(i).click());
 	}
 	report(`NAVIGATION — ${SLIDES} ${kind} slides, CPU ${CPU}x`, await drain(page), 'navigation', kind);
 
@@ -222,21 +230,21 @@ test(`@perf preview render path — navigation vs typing (${kind} deck)`, async 
 	// overshoots a short slide — which reads as "zero renders" on the baseline and looks like a
 	// finding rather than a broken harness.
 	const last = (await rail.count()) - 1;
-	await rail.nth(last).click();
-	await page.waitForTimeout(800);
+	await oneRender(page, () => rail.nth(last).click());
 	// Focus and position the caret ONCE, then type with raw keystrokes. `typeInEditor` re-clicks
 	// the editor on every call, which re-seats the caret wherever the click lands — and that
 	// silently invalidates the comparison: before deck context the preview re-rendered ONLY when
 	// the shown slide's own text changed, so an uncontrolled caret makes the baseline read as
 	// zero renders rather than as its real cost.
-	await page.getByLabel('Deck source').click();
+	//
+	// NO CLICK on the editor: a click lands the caret wherever it lands and may render (measured: one sample), which a
+	// counter reset would then have to out-wait. On this fine-pointer project the rail click above already focused the
+	// editor with the caret on the last slide (`goToSlide` passes `focus: hasFinePointer()`), and `End` keeps it inside
+	// that slide, which renders nothing (measured: zero samples). So nothing is in flight when the counters reset.
+	await expect(page.locator('.cm-content').first()).toBeFocused();
 	await page.keyboard.press('ControlOrMeta+End');
-	await page.waitForTimeout(500);
 	await reset(page);
-	for (let i = 0; i < 14; i++) {
-		await page.keyboard.type('x');
-		await page.waitForTimeout(700);
-	}
+	for (let i = 0; i < 14; i++) await oneRender(page, () => page.keyboard.type('x'));
 	const typed = await drain(page);
 	report(`TYPING (shown slide) — ${SLIDES} ${kind} slides, CPU ${CPU}x`, typed, 'typing', kind);
 	// A zero here means the caret was not in the shown slide, not that typing is free.

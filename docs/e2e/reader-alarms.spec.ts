@@ -45,6 +45,9 @@ async function previewsAppear(page: import('@playwright/test').Page): Promise<bo
 	} catch {
 		return false;
 	}
+	// A frame being attached is not a frame having rendered: the engine renders it a beat later, and under four
+	// workers the control below once found NO frame with a slide yet (measured). Wait for the first one to render.
+	await expect.poll(async () => (await slideFrames(page)).length, { timeout: 30_000, message: 'no preview frame on this page ever rendered a slide' }).toBeGreaterThan(0);
 	// Font-gated: the watcher re-measures once webfonts land, so a too-early read can miss a
 	// ring. `markersSettled` waits for that sequence — every frame's own `fonts.ready`, then
 	// the marker set holding still across a frame — instead of guessing an interval that
@@ -67,6 +70,7 @@ async function slideFrames(page: import('@playwright/test').Page): Promise<numbe
 }
 
 test('@smoke docs: no shipped preview paints an authoring alarm to a reader', async ({ page }) => {
+	await page.clock.install(); // markersSettled steps it past the watcher's debounce
 	let inspected = 0;
 	const visited: string[] = [];
 
@@ -101,6 +105,7 @@ test('@smoke docs: no shipped preview paints an authoring alarm to a reader', as
 });
 
 test('@smoke docs: EVERY inspected preview frame is really watched', async ({ page }) => {
+	await page.clock.install(); // markersSettled steps it past the watcher's debounce
 	// POSITIVE CONTROL, per frame. Inject a figure whose labels render far below the type floor into
 	// each preview frame the test above reads, and require the watcher to react in ALL of them.
 	// Proving one frame is watched would leave the rest free to be silent for the wrong reason.
