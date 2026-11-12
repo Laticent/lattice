@@ -50,6 +50,7 @@ import { renderMarkdown } from '../lib/render-engine';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../lib/render-metrics';
 import { samplesBaseFor } from '../lib/samples-base';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
+import { writeSrcdoc } from '../lib/srcdoc-write.js';
 import { createThemeFetcher } from '../lib/theme-fetch';
 import { installCollageBridge } from '../playground/collage-host.js';
 import { applyDebug } from '../playground/debug-overlay.js';
@@ -327,6 +328,20 @@ type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number
 // gate — WITHOUT depending on the `onload` event, which iOS Safari fires unreliably for
 // srcdoc (the on-device stuck-hidden blank). Best-effort: a cross-doc read can't actually
 // throw for a same-origin srcdoc, but guard anyway for teardown races.
+/**
+ * Build a frame's document; if building throws, put the not-yet-inserted frame into `host` before rethrowing. The live
+ * frame is written before it enters the page (lib/srcdoc-write.js), so without this a throw would leave `host` empty and the
+ * next render would mount a second frame and a second ResizeObserver.
+ */
+function docOrMount(fr: HTMLIFrameElement, host: HTMLElement, build: () => string): string {
+	try {
+		return build();
+	} catch (e) {
+		if (!fr.parentNode) host.appendChild(fr);
+		throw e;
+	}
+}
+
 function frameHasPainted(fr: HTMLIFrameElement): boolean {
 	try {
 		return !!fr.contentDocument?.querySelector('.lattice');
@@ -1408,7 +1423,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// for what's behind it (e.g. the landing hero preview) during the load window. Hold
 		// pointer-events off until scaleFrame reveals it (which clears this alongside opacity).
 		fr.style.pointerEvents = 'none';
-		host.appendChild(fr);
+		// NOT appended here: the first write puts it in `host` after its `srcdoc` is set (writeSrcdoc's `parent`). Firefox
+		// gives a srcdoc document the service worker only when `srcdoc` was set before the frame entered the page, so an
+		// empty frame appended first would draw nothing offline (lib/srcdoc-write.js). Both callers write in the same task.
 		// The CONTENT-DRIVEN reveal poll is armed below, at the srcdoc-write site, so it
 		// covers EVERY full write (this first mount AND every subsequent edit) — not just
 		// the create branch. See the block after `fr.srcdoc = …` (#1163).
@@ -1494,7 +1511,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			fr.onload = onLoad;
 			liveHost.__latticePendingLoad = true;
 			liveHost.__latticeShownSlide = bake.host.shownSlide;
-			fr.srcdoc = srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss);
+			// writeSrcdoc, not `fr.srcdoc =`: a rewrite keeps Firefox's service worker serving the frame (lib/srcdoc-write.js).
+			writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss)), host);
 			scaleFrame(host);
 			// The same content-driven reveal poll a full write arms, for the same reason: iOS drops srcdoc `onload`.
 			let ticks = 0;
@@ -2642,7 +2660,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				});
 				(host as LiveHost).__latticeDocSettle = () => settleWrite();
 				captureWrite?.({ html: out.html, css: out.css, mode, drawn, geom, extraCss: extraCss || '' });
-				fr.srcdoc = srcdoc(out.html, out.css, mode, drawn, geom, extraCss);
+				// writeSrcdoc, not `fr.srcdoc =`: on Firefox a srcdoc set on a frame already in the page loses the service worker, so offline the
+				// runtime, fonts and Mermaid fail to load after the first edit (lib/srcdoc-write.js).
+				writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(out.html, out.css, mode, drawn, geom, extraCss)), host);
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
 				sanitizeMs = lastSanitizeMs;

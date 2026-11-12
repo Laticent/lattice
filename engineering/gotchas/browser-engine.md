@@ -329,6 +329,40 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   is a `connect-src` fetch like any other. The same applies to `XMLHttpRequest`
   and to `new EventSource`/`WebSocket` against a same-document payload.
 
+## Firefox: a `srcdoc` set on a frame already in the page gets no service worker
+
+- **Symptom:** offline on Firefox, the Studio preview shows the slide but its runtime, theme fonts and Mermaid never
+  load (status 0, `NS_ERROR_CONNECTION_REFUSED`), so no fence draws. Inside the frame
+  `navigator.serviceWorker.controller` is `null`. Online it looks fine, because the requests reach the network.
+- **Cause:** Gecko gives a `srcdoc` document the page's controller only when `srcdoc` was set BEFORE the frame entered
+  the page. A rewrite, or a first write into a frame appended empty, gets none. Removing the attribute first or loading
+  `about:blank` in between does not help. Chromium and WebKit control all of these.
+- **A trap while diagnosing it:** in a Gecko `srcdoc` frame, CSP `'self'` does not match the parent's origin. The preview
+  policy's `connect-src 'self'` blocks an in-frame `fetch` of a same-origin URL online and offline alike, so a `fetch`
+  probe from inside the frame says nothing about the worker. `img-src` and `media-src` had the same gap until #3132 named the page's origin in them too.
+- **Mitigation:** write preview frames through `writeSrcdoc` (`docs/src/lib/srcdoc-write.js`). A frame not yet in the
+  page is written, then appended; a frame already in the page is detached, written and put back, on an engine whose
+  one-off probe showed it drops the controller. Record:
+  `engineering/decisions/2026-11-12-gecko-srcdoc-rewrite-controller.md`.
+- **Triggered by:** any same-origin `srcdoc` frame whose subresources must load offline on Firefox.
+- **Removable when:** Gecko keeps the controller on a `srcdoc` set on a live frame. The probe then answers "keeps" and the
+  re-insert stops by itself; the append-after-write order costs nothing either way.
+
+## Playwright's Firefox driver crashes when a page re-inserts an iframe
+
+- **Symptom:** a `gecko` run dies with `TypeError: Cannot read properties of undefined (reading 'childFrames')` at
+  whatever Playwright call was pending, or a `contentFrame()` locator never finds an element the page plainly has.
+- **Cause:** `FrameManager.frameCommittedNewDocumentNavigation` in `playwright-core` (1.56.1, and upstream `main` on
+  2026-11-12) looks up the frame with no guard. Its same-document twin has one. When the page removes an iframe and puts it
+  back, Firefox can report a navigation for a frame Playwright has already dropped.
+- **Mitigation:** `docs/patches/playwright-core+1.56.1.patch` adds the missing guard (see `docs/patches/README.md`).
+  Before it, `studio-warm-offline`'s offline diagram case passed 2 of 10 alone and 8 of 10 under load, every failure
+  this crash; with it, 10 of 10 both ways. The driver still does not follow the re-inserted frame, so read its state
+  through `page.evaluate` on its `contentDocument`, not through a `contentFrame()` locator.
+- **Triggered by:** a gecko spec with `serviceWorkers: 'allow'` on a page that writes preview frames (with the worker
+  blocked, `writeSrcdoc` never re-inserts).
+- **Removable when:** Playwright guards that lookup and follows a re-inserted frame; then delete the patch.
+
 ## A regex that matches in Chromium returns NO MATCH in WebKit on a multi-megabyte string (a `data:` URL)
 
 - **Symptom:** In Safari or any iPhone browser, a photo pasted into the Studio as a `data:` URL never gets its
@@ -348,20 +382,3 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   unset); `engineering/decisions/2026-11-03-pictures-at-drawn-size.md` has the measurements. A unit test cannot
   catch it: Node is V8.
 - **Removable when:** never for code that runs in a browser; JSC's backtracking limit is a design choice.
-
-## Firefox: offline, a Studio preview frame loads nothing, though the service worker cached it all
-
-- **Symptom** — offline on Firefox, the Studio preview's runtime never runs (no fence is tagged, nothing hydrates),
-  with `NS_ERROR_CONNECTION_REFUSED` for `playground/v/<hash>/lattice-runtime.js`. Chromium and WebKit draw. The
-  file IS in the worker's cache, and the frame reports `navigator.serviceWorker.controller` set.
-- **Cause** — Gecko gives a `srcdoc` frame its parent's controller but never routes the frame's requests through the
-  service worker. Offline, from inside the frame, `fetch` of the runtime fails for every cache mode (default,
-  no-cache, reload, no-store); the same URL fetched from the top page returns 200 from the worker. `page.goto` in place
-  of a reload changes nothing. Measured 2026-11-12 (PR #3152).
-- **Mitigation** — none yet. The fix is a preview-builder change: the parent, whose fetches the worker serves,
-  supplies the frame's runtime, sheets and fonts instead of the frame loading them by URL. That is a HARD RULE #22
-  preview-builder sink, so it is a design change of its own. Until then `studio-warm-offline.spec.ts` (the "never
-  rendered online" case) is `test.fixme` on Firefox, with the reason above it.
-- **Triggered by** — any surface that relies on a `srcdoc` frame's subresources being served offline.
-- **Removable when** — the preview builder no longer loads frame subresources by URL, or Gecko routes `srcdoc`
-  requests through the controller.

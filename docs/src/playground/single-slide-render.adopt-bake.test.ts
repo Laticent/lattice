@@ -23,7 +23,15 @@ const DECK = '# One\n\n---\n\n# Two';
 
 type Host = HTMLElement & { __latticeFrameSig?: string; __latticeRestyleSig?: string; __latticePendingLoad?: boolean; __latticeDocLoad?: Promise<void> };
 
+// jsdom fires its own `load` on a frame inserted with `srcdoc` set, without loading the document. The live frame is
+// inserted that way now (writeSrcdoc writes a new frame, then appends it, so Firefox serves it from the worker), so these
+// tests stop jsdom's own frame loads: every load below is one a test fires itself, when the document it models lands.
+const stopFrameLoad = (e: Event) => {
+	if (e.target instanceof HTMLIFrameElement) e.stopImmediatePropagation();
+};
+
 beforeEach(() => {
+	document.addEventListener('load', stopFrameLoad, true);
 	class RO {
 		observe = vi.fn();
 		unobserve = vi.fn();
@@ -37,6 +45,7 @@ beforeEach(() => {
 	clearSliceCache();
 });
 afterEach(() => {
+	document.removeEventListener('load', stopFrameLoad, true);
 	(window as unknown as { LatticePlayground?: unknown }).LatticePlayground = undefined;
 	document.body.innerHTML = '';
 });

@@ -56,7 +56,10 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			const placeholder = preview.locator(`img[data-lattice-web-src="${origin}/team.png"]`);
 			await expect(placeholder).toHaveCount(1, { timeout: 30_000 });
 			await expect(preview.locator(`img[src^="${origin}"]`)).toHaveCount(0);
-			await expect(preview.locator('meta[http-equiv="Content-Security-Policy"]').first()).toHaveAttribute('content', /img-src 'self' data: blob:;/);
+			// The frame's img-src may name the page's OWN origin (a srcdoc frame's 'self' is not the site's origin in Firefox,
+			// lib/core/subresource-csp.mjs `fontOrigins`), and nothing else: never the blocked web origin.
+			const own = new URL(page.url()).origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			await expect(preview.locator('meta[http-equiv="Content-Security-Policy"]').first()).toHaveAttribute('content', new RegExp(`img-src 'self' data: blob:(?: ${own})?;`));
 			expect(hits, `the blocked preview fetched: ${hits.join(', ')}`).toEqual([]);
 
 			await page.getByRole('button', { name: 'Share', exact: true }).click();
@@ -71,7 +74,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			await expect(notice).toHaveAttribute('data-state', 'loaded');
 			await expect(preview.locator(`img[src="${origin}/team.png"]`)).toHaveCount(1, { timeout: 30_000 });
 			await expect.poll(() => hits.length, { timeout: 30_000 }).toBeGreaterThan(0);
-			await expect(preview.locator('meta[http-equiv="Content-Security-Policy"]').first()).toHaveAttribute('content', new RegExp(`img-src 'self' data: blob: ${origin.replace(/[.*+?^${}()|[\]\\:/]/g, '\\$&')};`));
+			await expect(preview.locator('meta[http-equiv="Content-Security-Policy"]').first()).toHaveAttribute('content', new RegExp(`img-src 'self' data: blob:(?: ${own})? ${origin.replace(/[.*+?^${}()|[\]\\:/]/g, '\\$&')};`));
 			const previewHits = hits.length;
 
 			await page.getByRole('button', { name: 'Share', exact: true }).click();

@@ -45,7 +45,13 @@ async function recordWrites(page: import('@playwright/test').Page) {
 			configurable: true,
 			get,
 			set(this: HTMLIFrameElement, v: string) {
-				if (this.classList.contains('live') && this.closest('[aria-label="Live deck preview"]')) w.__liveWrites?.push({ engine: !!w.LatticePlayground });
+				// The engine flag is read at the write; WHERE the frame is, once the write's task has run. A new preview frame
+				// is written before it enters the page (Firefox gives a srcdoc frame the service worker only then;
+				// docs/src/lib/srcdoc-write.js), and the same task inserts it, so a microtask sees it in the preview's host.
+				const write = { engine: !!w.LatticePlayground };
+				queueMicrotask(() => {
+					if (this.classList.contains('live') && this.closest('[aria-label="Live deck preview"]')) w.__liveWrites?.push(write);
+				});
 				set.call(this, v);
 			},
 		});
