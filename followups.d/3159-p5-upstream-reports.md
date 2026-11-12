@@ -13,6 +13,6 @@ source: https://github.com/Laticent/lattice/pull/3159
 
 why now   — the probe in docs/src/lib/srcdoc-write.js retires itself when Gecko is fixed; a report makes that likelier
 where     — Mozilla Bugzilla (Core :: DOM: Service Workers); microsoft/playwright
-done when — both reports are filed with minimal repros, and their links are added to the decision note
+done when — both reports are filed (draft texts are in PR #3159's body), their links are in the decision note, and docs/patches/playwright-core+1.56.1.patch is deleted once Playwright ships the guard
 evidence  — the decision note §2 table (Gecko) and engineering/gotchas/browser-engine.md (Playwright)
 verify    — none: tracking only

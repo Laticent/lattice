@@ -355,12 +355,13 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Cause:** `FrameManager.frameCommittedNewDocumentNavigation` in `playwright-core` (1.56.1, and upstream `main` on
   2026-11-12) looks up the frame with no guard. Its same-document twin has one. When the page removes an iframe and puts it
   back, Firefox can report a navigation for a frame Playwright has already dropped.
-- **Mitigation:** read a re-inserted frame's state through `page.evaluate` on its `contentDocument`, not through a frame
-  locator. That avoids the lost frame, not the crash. Measured on `studio-warm-offline`'s offline diagram case: 2 of 10
-  alone and 8 of 10 under load passed, and every failure was this crash.
+- **Mitigation:** `docs/patches/playwright-core+1.56.1.patch` adds the missing guard (see `docs/patches/README.md`).
+  Before it, `studio-warm-offline`'s offline diagram case passed 2 of 10 alone and 8 of 10 under load, every failure
+  this crash; with it, 10 of 10 both ways. The driver still does not follow the re-inserted frame, so read its state
+  through `page.evaluate` on its `contentDocument`, not through a `contentFrame()` locator.
 - **Triggered by:** a gecko spec with `serviceWorkers: 'allow'` on a page that writes preview frames (with the worker
   blocked, `writeSrcdoc` never re-inserts).
-- **Removable when:** Playwright guards that lookup.
+- **Removable when:** Playwright guards that lookup and follows a re-inserted frame; then delete the patch.
 
 ## A regex that matches in Chromium returns NO MATCH in WebKit on a multi-megabyte string (a `data:` URL)
 

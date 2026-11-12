@@ -154,8 +154,10 @@ bare `/offline/` page); the assertion reads the live frame's document through `p
 |---|---|
 | desktop, 10 repeats alone / under load | 10/10, 10/10 |
 | webkit-tablet, 10 repeats alone / under load | 10/10, 10/10 |
-| gecko, 10 repeats alone / under load | 2/10, 8/10 — every failure is the Playwright driver crash (§7), none the product |
-| gecko, fix reverted (append, then assign) | 3/3 red: `ctrl=false`, no diagram |
+| gecko, 10 repeats alone / under load, before the Playwright patch | 2/10, 8/10 — every failure the driver crash (§7), none the product |
+| gecko, 10 repeats alone / under load, with `docs/patches/playwright-core+1.56.1.patch` | **10/10, 10/10**, no crash |
+| gecko, fix reverted (append, then assign), with the patch | 3/3 red: no fence drawn, no diagram |
+| desktop, fix reverted | 2/2 green: Chromium never needed the fix |
 
 Unit: `docs/src/lib/srcdoc-write.test.ts` (13 cells: the three paths, the probe's three verdicts, focus, sibling order,
 detached frames, no service-worker API).
@@ -167,13 +169,23 @@ listener on `document` (the DOM spec keeps `window` out of a `load` event's path
 the test fires itself. Real engines fire exactly one `load` for such a frame, after its document loads (measured in
 Chromium, Firefox and WebKit: none fires during the insert).
 
-## 7. Open, for the owner
+## 7. Playwright, and what is still open
 
-1. **The gecko e2e.** Playwright's `FrameManager.frameCommittedNewDocumentNavigation` (1.56.1 and upstream `main`) does
-   not guard an unknown frame, and Firefox reports one when a page re-inserts an iframe. The spec cannot pass reliably on
-   gecko until that is guarded: by a `patch-package` patch in `docs/patches/` (the repo already patches `sonner`), by an
-   upstream fix, or by keeping the gecko case `fixme` with that reason.
-2. **Same-origin images in the Firefox preview** (§2): add the page's origin to `img-src` and `media-src` as `font-src`
-   already does. This changes a Firefox export's bytes.
-3. **Offline Firefox export** (§4): route the capture and prune frames through `writeSrcdoc`. Export path.
-4. **Upstream reports** to Mozilla (§2) and Playwright (item 1).
+**Playwright's Firefox driver** (1.56.1, and upstream `main` on 2026-11-12) crashed on the re-inserted frame:
+`FrameManager.frameCommittedNewDocumentNavigation` reads a frame with no guard, and Firefox reports a navigation for a
+frame Playwright has already dropped. `docs/patches/playwright-core+1.56.1.patch` adds the guard its same-document twin
+already has (decided by the session coordinator, 2026-11-12: reversible, inside the branch, test-only).
+`patch-package --error-on-fail` re-applies it on every install and fails the install if a version bump stops it
+applying; `docs/patches/README.md` says to delete it once Playwright ships the guard. With the patch, the driver still
+does not follow the re-inserted frame, so a `contentFrame()` locator finds nothing in it; the spec reads the live
+frame's document through `page.evaluate` instead.
+
+**Open, for the owner:**
+
+1. **Same-origin images in the Firefox preview** (§2): add the page's origin to `img-src` and `media-src` as `font-src`
+   does. This changes a Firefox export's bytes, so it waits for export sign-off. `followups.d/3159-p3-…`.
+2. **Offline Firefox export** (§4): write the capture and prune frames before appending them. That should leave online
+   export bytes unchanged, but proving it needs a before/after export comparison, and the export path needs sign-off.
+   `followups.d/3159-p4-…`.
+3. **Upstream reports** to Mozilla (§2) and Playwright (the guard above). Drafts are in PR #3159's body; filing them is
+   outward-facing. `followups.d/3159-p5-…`.
