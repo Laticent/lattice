@@ -184,8 +184,8 @@ figure.timeline-list.chart-frame .chart-body {
 
 /* ── Family RESTRUCTURE (tall + strip, ≤0.9): the left-to-right spine becomes
  * a real vertical timeline — items stack down the page, each dot rides a left
- * rail, the date/title/body fill the width beside it. Keyed on the deck's `data-family` stamp (the section), so it fires on any tall or strip deck. See engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) .chart-body {
+ * rail, the date/title/body fill the width beside it. Keyed on the deck's `data-family` stamp (the section), so it fires on any tall, square or strip deck (square since 2026-11-12: at the phone ladder's 11pt the four-across form ran its last entry past a square page's right edge, chart-hue-collapse.md p3). See engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
+section.timeline-list.chart-frame:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body {
   align-items: stretch;
   justify-content: center;
 }
@@ -206,7 +206,7 @@ section.timeline-list.chart-frame:where([data-family="tall"], [data-family="stri
  * caught it independently. `--chart-panel-x` is exactly the token that exists so
  * one of these can never move the other again, so the panel half is restated on
  * it: the frame inset goes, the panel's berth stays where it was. */
-section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) {
+section.timeline-list.chart-frame:where([data-family="tall"], [data-family="square"], [data-family="strip"]) {
   --chart-panel-x: var(--sp-xl);
   /* The same second-consumer story on the BLOCK axis, one retirement later: this
    * pair was the frame inset here, and the family's `--chart-panel-y` (which the
@@ -215,7 +215,7 @@ section.timeline-list.chart-frame:where([data-family="tall"], [data-family="stri
    * than inheriting the family's tightening — the inline half's exact argument. */
   --chart-panel-y: var(--sp-lg);
 }
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-spine {
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-spine {
   grid-auto-flow: row;
   grid-auto-columns: auto;
   max-width: none;
@@ -231,7 +231,7 @@ section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeli
   align-content: space-evenly;
 }
 /* The spine line runs vertically through the dots on the left rail. */
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-spine::before {
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-spine::before {
   top: 1.5cqi;
   bottom: 1.5cqi;
   left: 0.546875cqi;
@@ -242,7 +242,7 @@ section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeli
   background: color-mix(in oklab, var(--accent) 55%, transparent);
   transform: translateX(-1px);
 }
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item {
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-item {
   display: grid;
   grid-column: 1 / -1;
   grid-template-columns: subgrid;
@@ -251,12 +251,12 @@ section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeli
   padding: 0;
 }
 /* Dot anchors the left rail; everything else fills the right column. */
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > * {
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-item > * {
   grid-column: 2;
   text-align: left;
   align-self: start;
 }
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-dot {
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-dot {
   grid-column: 1;
   grid-row: 1;
   /* Portrait: the dot rides its own left-rail grid cell, so it needs no
@@ -268,33 +268,36 @@ section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeli
 }
 /* Chips hug their content; the title/body keep the default stretch so prose
  * fills the column and wraps. */
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-dot,
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-pill,
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item .chart-status { justify-self: start; }
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-dot,
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-pill,
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-item .chart-status { justify-self: start; }
 /* Portrait pill→title gap tightens to var(--sp-2xs) (was the pill's
  * margin-bottom: var(--sp-2xs)); it rides the title's padding-top, overriding
  * the landscape var(--sp-sm). The pill is filled, so the spacing can't sit on
  * the pill itself. */
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-title { padding-top: var(--sp-2xs); }
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-title,
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-body { max-width: none; }
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-title { padding-top: var(--sp-2xs); }
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-title,
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-body { max-width: none; }
 /* The date pill and the title share one row on the rail: pill, then title beside it, body
  * and status beneath. Stacked in their own rows they cost a pill-height of block space per
  * entry, and four entries with a two-line headline and a lead clipped a portrait slide by
  * 174px (check:chart-fit; the fourth row never painted). Sharing the row buys that height
  * back without touching type size or the budget. */
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > .timeline-pill {
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-item > .timeline-pill {
   grid-column: 2;
   grid-row: 1;
 }
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > .timeline-title {
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-item > .timeline-title {
   grid-column: 3;
   grid-row: 1;
   align-self: center;
   padding-block: 0;
 }
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > .timeline-body {
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-item > .timeline-body {
   grid-column: 2 / -1;
+  /* The snug step, not the relaxed one: at the phone ladder's 12pt a one-clause body set at 1.7 made each entry 16px
+   * taller than main's, and four entries ran 15px past a 4:5 stage (data-viz-gallery.md, chart-hue-collapse.md p3). */
+  line-height: var(--lh-snug);
 }
 /* The STATUS chip shares that row too, at its end, in a fourth spine column that only
  * a status widens. Stacked under the title it cost a chip-height plus a gap per entry,
@@ -303,12 +306,12 @@ section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeli
  * would wrap to two lines in a narrower column and give most of that height back, so it
  * keeps the full width under the row; the stacked status→body gap goes with the stack. The
  * fourth column is declared on the spine above. */
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > .chart-status {
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .timeline-item > .chart-status {
   grid-column: 4;
   grid-row: 1;
   align-self: center;
 }
-section.timeline-list:where([data-family="tall"], [data-family="strip"]) .chart-status + .timeline-body {
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-status + .timeline-body {
   padding-top: 0;
 }
 
