@@ -2921,6 +2921,9 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				// Text that is an object becomes one now that the engine can say which spans those are.
 				const v = viewRef.current;
 				if (v) normalizeDeck(v, kernels, kernels.isLiteralFromSource(sourceRef.current));
+				// A signal a test can wait for (HARD RULE #32: a signal, not network quiet): the kernels are in and the first
+				// object pass has run, so no later transaction moves the caret on its own (studio-pane-sync.spec.ts).
+				hostRef.current?.setAttribute('data-compose-kernels', '');
 			})
 			// Without the kernels a pill stays plain code and the insert door declines; say so in the console.
 			.catch((e) => console.error('[compose] the pill editor could not load its kernels', e));

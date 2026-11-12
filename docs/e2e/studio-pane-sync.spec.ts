@@ -149,11 +149,11 @@ test('@crosswidth @gecko @webkit-tablet @webkit-phone a reload comes back on the
 
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await waitForStudioPaint(page);
-	// The reset came with Compose's first transaction after it mounted, once the object kernels landed: wait for the page to
-	// finish loading what it fetches, then for Compose to be on the restored slide, and only then read the counter.
-	await page.waitForLoadState('networkidle');
+	// The reset came with Compose's first transaction after it mounted, once the object kernels landed. Wait for that signal
+	// (`data-compose-kernels`), never for network quiet: the Studio keeps warming chunks in the background, and under load
+	// `networkidle` never came (a Firefox run timed out at 40 s, HARD RULE #32). A phone mounts no Compose until a tap.
 	if (isPhone(page)) {
-		expect(await counter(page)).toBe('3 / 7');
+		await expect.poll(() => counter(page)).toBe('3 / 7');
 		// A phone cannot raise the keyboard without a tap: Compose shows the drawn caret on the line.
 		await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
 		await expect.poll(() => composeSlide(page)).toBe(3);
@@ -162,6 +162,7 @@ test('@crosswidth @gecko @webkit-tablet @webkit-phone a reload comes back on the
 		await expect.poll(() => counter(page)).toBe('3 / 7');
 		return;
 	}
+	await expect(page.locator('#studio-pane-editor .cs-host[data-compose-kernels]')).toBeAttached();
 	await expect.poll(() => composeSlide(page)).toBe(3);
 	expect(await counter(page)).toBe('3 / 7');
 	// A pointer that hovers is a real keyboard to hand: Compose has focus again, caret on the line.

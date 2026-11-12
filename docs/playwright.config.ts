@@ -149,7 +149,7 @@ export default defineConfig({
 		{
 			name: 'compose-default',
 			use: { viewport: { width: 1440, height: 900 } },
-			testMatch: /(smoke|filo-[a-z-]+|lessons|studio-pane-sync|compose-first)\.spec\.ts$/,
+			testMatch: /(smoke|filo-[a-z-]+|lessons|studio-pane-sync|compose-first|compose-fidelity)\.spec\.ts$/,
 			grepInvert: /@mobile|@player-parity|@perf|^(?!.*@crosswidth).*@webkit/,
 		},
 		// THE HOST-PARITY SPEC (e2e/player-host-parity.spec.ts). Both hosts must measure text the same
