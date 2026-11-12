@@ -661,10 +661,12 @@ jobs:
 
       # The image's own Node is the one Playwright shipped it with (22.20 in v1.56.1), and Astro refuses to build
       # below 22.23.4: on 2026-11-11 the webServer exited before a test ran ("Node.js v22.20.0 is not supported by
-      # Astro!"). Node 22 from setup-node, as every other job here pins it, puts the current 22.x first on PATH.
+      # Astro!"). So the image pins the BROWSER and the repo pins NODE: setup-node reads .nvmrc and puts that Node
+      # first on PATH, and a dependency that raises its floor can no longer break this job silently. Owner's pick,
+      # 2026-11-12 (PR #3153).
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       - name: Install root deps (engine deps the docs build imports)
         run: npm ci

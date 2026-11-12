@@ -913,5 +913,5 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   `actions/setup-node` and never saw it.
 - **How to tell:** `docker run --rm -v "$PWD:/w" -w /w/docs mcr.microsoft.com/playwright:v1.56.1-noble ./node_modules/.bin/astro --version`
   prints the same refusal.
-- **Fix:** an `actions/setup-node` step (Node 22) before `npm ci` in the container job, which puts the current 22.x first
+- **Fix:** an `actions/setup-node` step with `node-version-file: .nvmrc` before `npm ci` in the container job, which puts the repo's Node first
   on PATH. Any new container job needs the same step.
