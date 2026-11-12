@@ -1,11 +1,11 @@
 ---
-status: proposed
-summary: Chat threads should merge across tabs with a CRDT, and the recommendation is Yjs (already a dependency, the live sessions' model) over a library of our own. Each tab's author and AI are separate writers, so a save today is last-writer-wins and can drop another tab's messages. A bake-off (§10) against Accordo, a zero-dependency list CRDT written for it, passed both on a 4,500-session property gate after three audit rounds. Accordo opens a fresh thread about 2x faster, uses half the heap and never split a reply from its question; Yjs stores an aged thread 8.6x smaller, a gap of encoding that Accordo has not closed. Yjs costs about 23 KB gz in lazily loaded chat code and nothing at boot. It retires #3138's fingerprint and merge apparatus. Decks are out of scope.
+status: in-progress
+summary: Chat threads will merge across tabs with a CRDT, and the owner chose Yjs (2026-11-12) (already a dependency, the live sessions' model) over a library of our own. Each tab's author and AI are separate writers, so a save today is last-writer-wins and can drop another tab's messages. A bake-off (§10) against Accordo, a zero-dependency list CRDT written for it, passed both on a 4,500-session property gate after two independent audits of Accordo (its third round's fixes are unaudited). Accordo opens a fresh thread about 2x faster, uses half the heap and never split a reply from its question; Yjs stores an aged thread 8.6x smaller, a gap of encoding that Accordo has not closed. Yjs costs about 23 KB gz in lazily loaded chat code and nothing at boot. It retires #3138's fingerprint and merge apparatus. Decks are out of scope.
 ---
 
 # Chat threads across tabs: merge them with a CRDT
 
-**Date:** 2026-11-12 · **Status:** PROPOSED: the owner picks an option (§7) · **Scope:** Studio chat threads only.
+**Date:** 2026-11-12 · **Status:** DECIDED, option B (Yjs), by the owner on 2026-11-12 (§7); the build is §8 · **Scope:** Studio chat threads only.
 Deck text is out of scope (§6).
 **Trigger:** the owner, reviewing #3138: "chat is two people in a sense, the author and the AI", and "once we introduce
 multiple tabs we are essentially talking about multiple people". Data loss is the serious concern.
@@ -20,7 +20,7 @@ the AI (a reply arriving). Today a save writes the tab's whole thread over the s
 wins and another tab's messages can be lost (§2). The fix is a data type that merges every writer's changes into the
 same result in any order: a CRDT (conflict-free replicated data type).
 
-**Recommendation: Yjs (option B).** It is already a dependency (`yjs` 13.6.33) and the model live sessions use
+**Decision: Yjs (option B), the owner's choice after the bake-off (§10).** It is already a dependency (`yjs` 13.6.33) and the model live sessions use
 (`docs/src/components/studio/live/live-controller.ts`). It costs about 23 KB gz in the chat's lazily loaded code and
 nothing at boot. It retires the merge rules #3138 had to write by hand: `mergeThreads`, the fallback fingerprints,
 `ownMarks` and `fromDb`. Those rules took five review rounds, and every round found a defect in the previous round's
@@ -144,10 +144,11 @@ at boot, so Yjs would reach the boot path, and the migration touches every deck.
 design, which should start from the live sessions' `Y.Text` model. §6 of the 2026-11-11 note lists what moving deck
 text out of localStorage requires either way.
 
-## 7. Decision needed
+## 7. Decision
 
-1. **B (recommended; §10 measures it against A, a library of our own), A (needs round 4, §10.4), or neither.**
-2. On B: Yjs's roughly 23 KB gz in the chat's lazy code is acceptable (it never reaches boot).
+**The owner chose B, Yjs, on 2026-11-12**, after the bake-off (§10) measured it against A, a library of our own.
+With it goes Yjs's roughly 23 KB gz in the chat's lazily loaded code (it never reaches boot). Accordo stays in the
+bake-off folder as a measured prototype, not a shipped library.
 
 ## 8. Plan, once chosen
 
@@ -179,7 +180,7 @@ about 300 lines, no dependencies, no DOM), and ran both through one interface (`
 and one set of workloads. Everything below reproduces from `docs/` or the bakeoff folder (commands in each file's
 header).
 
-### 10.1 The two contenders, and three rounds of audit
+### 10.1 The two contenders: three rounds of Accordo, two audits
 
 - **Accordo.** An ordered list of records. Order is a tree (the RGA scheme: each record names the record it went in
   after). Each change carries a per-replica sequence number with no gaps, so a lost broadcast is asked for again;
@@ -194,7 +195,7 @@ Each round of Accordo went to an independent auditor, and each audit found real 
 |---|---|---|
 | 1 | fractional position keys | concurrent turns interleaved; every delta carried the whole deleted set; one lost broadcast diverged a tab for good; the harness was unfair to Yjs (V1 encoding, a scan per write, no transactions) |
 | 2 | RGA tree, gap-free sequences | a change overwritten or wiped by a delete was never resent, so a receiver's version vector stalled below it and every later pull resent everything above (903,876 B to an up-to-date peer); reopening under the same replica id reused an id and crashed; `NaN` and shared references leaked through `encode`; the gate could catch none of these; the aged-sync timing was noise |
-| 3 | round 2, fixed | (this round: below) |
+| 3 | round 2, fixed | not audited: the owner chose Yjs (§7), so Accordo does not ship |
 
 Round 3 fixes all of round 2's findings. A delta now names the sequences the sender holds but no longer stores
 (superseded), so a receiver holds them too; a stored state carries the sender's version vector; a replica reopened
@@ -242,7 +243,7 @@ Chromium / Firefox / WebKit; Firefox and WebKit clamp the clock, so their smalle
 | Broadcast after one turn (fresh / aged) | 1,115 B / 1,171 B | 977 B / 997 B | Yjs, by 12–15% |
 | A pull with nothing new, aged | 15 B | 41 B | both negligible |
 | A tab one turn behind pulls and applies it, aged | 1.2 / 2.1 / 2.0 ms | 0.7 / 1.9 / 1.3 ms | Yjs, 1.1–1.7x |
-| Four tabs, 50 offline actions each, full merge | 4.4 / 5 / 7 ms, 340 KB sent | 8.5 / 13 / 11 ms, 286 KB sent | Accordo on time; Yjs on bytes, by 19% |
+| Four tabs, 50 offline actions each, full merge | 4.4 / 5 / 7 ms, 340 KB sent | 8.5 / 13 / 11 ms, 286 KB sent | Accordo on time; Yjs on bytes, 16% fewer |
 | Heap per open 60-message thread (Node) | 82 KB | 163 KB | Accordo, 2x |
 
 Round 2's "Yjs syncs an aged thread 6x to 200x faster" was the stall bug and a noisy measurement (a difference of two
@@ -267,7 +268,7 @@ So the choice is not "a proven merge against a weaker one". It is:
   and 4. Each of the first two rounds passed this gate as it stood and still had defects an auditor found, so the
   maintenance and review cost is the real price of A.
 
-**Recommendation: still B (Yjs)**, now for the honest reason: the storage gap is real today, closing it is unbuilt
-work, and two audits in a row found defects in our own merge after it passed every test we had. If the owner prefers
-to own the library (the rule for this repo's other in-house libraries), round 4 is the compact encoding plus an
-audit; the gate, the mutants and the benchmarks here are ready to judge it.
+**Recommendation, and the owner's choice (§7): B (Yjs)**, for these reasons: the storage gap is real today, closing
+it is unbuilt work, and two audits in a row found defects in our own merge after it passed every test we had. Should
+a library of our own come back, round 4 is the compact encoding plus an audit; the gate, the mutants and the
+benchmarks here are ready to judge it, and the gate becomes the Yjs chat store's property test (§8).
