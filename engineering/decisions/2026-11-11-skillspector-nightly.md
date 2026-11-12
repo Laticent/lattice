@@ -74,6 +74,10 @@ scoped to that file.
   `|| RC=${PIPESTATUS[0]}`; the scan step also runs on `!cancelled()` so a failed install files
   "the scan did not complete" instead of passing in silence.
 
+**Runtime.** On a GitHub runner the full 38-target set took 29.4 minutes one target after another,
+past the job's original 20-minute limit, where a timeout ends the night in silence. The script now
+runs one scan per core (`SCAN_JOBS` overrides), and the job limit is 45 minutes.
+
 Proved on GitHub's ubuntu-24.04 runner through a temporary PR trigger, removed before merge:
 pipx install on Python 3.12.3, 22 targets, `findings=1` (the Δ, still on `dist-kits` then), the
 step surviving to record it, the SARIF upload "complete", and the job green.

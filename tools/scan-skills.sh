@@ -101,16 +101,15 @@ for t in "${TARGETS[@]}"; do
   fi
 done
 
-WORST=0
+# Record the targets in order first: the summary and the SARIF merge read these lists, so the
+# report's order does not depend on which scan finishes first.
 : >"$WORK/names"
+: >"$WORK/jobs"
 for t in "${TARGETS[@]}"; do
   IFS='|' read -r name dir <<<"$t"
   slug="${name//\//__}"
   echo "$name|$slug" >>"$WORK/names"
-  skillspector scan "$dir" --no-llm --fail-on-findings --baseline "$BASELINE" \
-    -f json -o "$WORK/$slug.json" >"$WORK/$slug.log" 2>&1
-  rc=$?
-  echo "$rc" >"$WORK/$slug.rc"
+  printf '%s|%s\0' "$slug" "$dir" >>"$WORK/jobs"
   if [ -n "$SARIF_DIR" ]; then
     # Where a reader finds the scanned files: repo-relative for our own skills, and under a
     # `dist-kits/agent/` prefix for the kit, which lives on that branch and not in this tree.
@@ -122,17 +121,39 @@ for t in "${TARGETS[@]}"; do
     esac
     [ -f "$dir" ] && where="$(dirname "$where")"
     echo "$slug|$where" >>"$WORK/sarif-targets"
+  fi
+done
+
+# PARALLEL. The targets are independent, and one after another they took 29 min on a GitHub
+# runner (each scans twice: the verdict, then SARIF), against a job limit where a timeout ends
+# the night in silence. One scan per core. SCAN_JOBS overrides the count.
+scan_one() {
+  local slug="${1%%|*}" dir="${1#*|}" rc
+  skillspector scan "$dir" --no-llm --fail-on-findings --baseline "$BASELINE" \
+    -f json -o "$WORK/$slug.json" >"$WORK/$slug.log" 2>&1
+  rc=$?
+  echo "$rc" >"$WORK/$slug.rc"
+  if [ -n "$SARIF_DIR" ]; then
     skillspector scan "$dir" --no-llm --baseline "$BASELINE" \
       -f sarif -o "$WORK/$slug.sarif" >/dev/null 2>&1 || true
   fi
+}
+export -f scan_one
+export BASELINE WORK SARIF_DIR
+JOBS="${SCAN_JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)}"
+xargs -0 -n 1 -P "$JOBS" bash -c 'scan_one "$1"' _ <"$WORK/jobs"
+
+WORST=0
+while IFS='|' read -r name slug; do
+  rc="$(cat "$WORK/$slug.rc" 2>/dev/null || echo 2)"
   if [ "$rc" -ge 2 ] || [ ! -s "$WORK/$slug.json" ]; then
     echo "scan-skills: $name could not be scanned (exit $rc):" >&2
-    tail -n 5 "$WORK/$slug.log" >&2
+    tail -n 5 "$WORK/$slug.log" >&2 2>/dev/null
     WORST=2
   elif [ "$rc" -eq 1 ] && [ "$WORST" -lt 1 ]; then
     WORST=1
   fi
-done
+done <"$WORK/names"
 
 # ONE SARIF, ONE RUN. Code scanning rejects an upload holding several runs with the same tool
 # and category, so 22 per-skill files under one category would fail every night. Merge every
@@ -180,7 +201,8 @@ const found = [];
 let skills = 0;
 let targets = 0;
 for (const [name, slug] of names) {
-  const rc = Number(fs.readFileSync(path.join(dir, `${slug}.rc`), 'utf8'));
+  let rc = 2; // no rc file: the scan died before writing one, which is "could not scan"
+  try { rc = Number(fs.readFileSync(path.join(dir, `${slug}.rc`), 'utf8')); } catch {}
   let d = null;
   try { d = JSON.parse(fs.readFileSync(path.join(dir, `${slug}.json`), 'utf8')); } catch {}
   if (!d) { rows.push(`| ${name} | could not scan (exit ${rc}) | – | – | – | – |`); continue; }

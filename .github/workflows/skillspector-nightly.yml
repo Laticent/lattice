@@ -28,10 +28,6 @@ on:
   schedule:
     - cron: '47 6 * * *' # daily 06:47 UTC, after publish-kits (06:29) republishes the kit it scans
   workflow_dispatch:
-  # TEMPORARY (PR #3142 only): measure the 37-target run on a real runner. REMOVE BEFORE MERGE.
-  pull_request:
-    paths:
-      - '.github/workflows/skillspector-nightly.yml'
 
 permissions:
   contents: read
@@ -48,9 +44,10 @@ env:
 jobs:
   scan:
     runs-on: ubuntu-24.04
-    # Each target is scanned twice (verdict JSON, then SARIF). The 37-target set took ~11 min
-    # single-pass locally; a timeout kills the scan step before `found` is written, and the night
-    # would pass in silence. 45 leaves room for a slow runner.
+    # A timeout kills the scan step before `found` is written, and the night would pass in
+    # silence. Measured on a ubuntu-24.04 runner: the 38 targets one after another took 29.4 min
+    # (each scans twice: verdict, then SARIF), so scan-skills.sh runs one scan per core. 45 is
+    # the ceiling, not the budget.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
