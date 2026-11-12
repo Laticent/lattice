@@ -1,6 +1,6 @@
 // Run bench.ts's `runAll()` in real Chromium, Firefox and WebKit (Playwright), RUNS times each, and print the median of
 // each metric per engine. usage (from docs/, which has esbuild and Playwright's browsers):
-//   node ../engineering/decisions/2026-11-12-chat-threads-crdt/bakeoff/browser-bench.mjs [runs]
+//   node ../experiments/accordo/browser-bench.mjs [runs]
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

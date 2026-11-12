@@ -149,7 +149,7 @@ text out of localStorage requires either way.
 **The owner chose B, Yjs, on 2026-11-12**, after the bake-off (§10) measured it against A, a library of our own.
 With it goes Yjs's roughly 23 KB gz in the chat's lazily loaded code (it never reaches boot).
 
-Accordo is kept in reserve, not thrown away (the owner, 2026-11-12). It stays in the bake-off folder with its gate,
+Accordo is kept in reserve, not thrown away (the owner, 2026-11-12). It stays in `experiments/accordo/` with its gate,
 mutants and benches, and `followups.d/3147-p2-accordo-round-4.md` records what its round 4 needs and when to pick it
 up. The Yjs build is `followups.d/3147-p1-yjs-chat-store.md`.
 
@@ -178,9 +178,9 @@ migration, the localStorage-fill warning, the error notices, and the panel's wai
 ## 10. Bake-off: Yjs against a library of our own
 
 The owner asked for metrics before choosing, and would rather write a dependency-free library for general use than
-fit Yjs where it does not belong. So we wrote one, **Accordo** (`2026-11-12-chat-threads-crdt/bakeoff/accordo.ts`,
+fit Yjs where it does not belong. So we wrote one, **Accordo** (`experiments/accordo/accordo.ts`,
 about 300 lines, no dependencies, no DOM), and ran both through one interface (`contender.ts`), one correctness gate
-and one set of workloads. Everything below reproduces from `docs/` or the bakeoff folder (commands in each file's
+and one set of workloads. Everything below reproduces from `docs/` or the `experiments/accordo/` folder (commands in each file's
 header).
 
 ### 10.1 The two contenders: three rounds of Accordo, two audits

@@ -1,6 +1,6 @@
 /**
  * Yjs behind the bake-off interface: one Y.Doc, a Y.Array of Y.Maps (one map per record, `id` as a field).
- * The design note's option B (../../2026-11-12-chat-threads-crdt.md §5.1), used the way a careful integration would
+ * The design note's option B (engineering/decisions/2026-11-12-chat-threads-crdt.md §5.1), used the way a careful integration would
  * (round 2, after the audit): an id index kept current on load and on remote updates (no scan per field write), a
  * fast path for appends, edits batched in one transaction, and the V2 update encoding for storage and sync.
  */

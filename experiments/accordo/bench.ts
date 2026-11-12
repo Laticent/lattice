@@ -1,5 +1,5 @@
 /**
- * The bake-off's PERFORMANCE runs (../../2026-11-12-chat-threads-crdt.md §10). Every workload is seeded, so both
+ * The bake-off's PERFORMANCE runs (engineering/decisions/2026-11-12-chat-threads-crdt.md §10). Every workload is seeded, so both
  * contenders do exactly the same chat work. Times are medians of repeated runs; sizes are exact.
  *
  * usage (Node): node --experimental-strip-types --expose-gc bench.ts

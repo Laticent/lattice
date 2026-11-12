@@ -14,7 +14,7 @@ import { seedIds } from './ids.ts';
 import { yjsDoc } from './yjs-adapter.ts';
 
 const SEED = Number(process.env.SEED ?? 42);
-const require = createRequire(new URL('../../../../docs/', import.meta.url));
+const require = createRequire(new URL('../../docs/', import.meta.url));
 const fc = require('fast-check') as typeof import('fast-check');
 
 type Op =

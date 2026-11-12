@@ -1,5 +1,5 @@
 /**
- * ACCORDO, round 2 (prototype for the bake-off in ../../2026-11-12-chat-threads-crdt.md §10): a replicated, ordered
+ * ACCORDO, round 3 (prototype for the bake-off in engineering/decisions/2026-11-12-chat-threads-crdt.md §10): a replicated, ordered
  * list of records. General-purpose, zero dependencies, no DOM. Several replicas (tabs, devices) edit their own copy and
  * exchange changes in any order, any number of times, with a change lost and resent later; every replica that has seen
  * the same changes holds the same list.
