@@ -112,8 +112,15 @@ have an opaque origin, which is never a worker client in any engine; the draw ho
 
 **Behavior a reviewer should know about.**
 - After a re-insert, `frame.contentDocument` is a fresh `about:blank` until the new document commits, where an in-place
-  write kept the outgoing one. In `deck-render.js`, a second full write in that gap reads no anchor and opens at slide 1.
-  On Gecko an in-place write already blanks the document early (§5), so this is close to what Gecko did before.
+  write kept the outgoing one. So on Firefox every full write shows an empty frame until it commits; Gecko already blanks
+  for 4 to 7 frames during an in-place write (§5), and the patch and restyle fast paths keep full writes rare.
+- In `deck-render.js`, a second full write in that gap read no anchor, and the Playground opened the deck at slide 1. The
+  independent checker of the shipped design found this. `renderDeck` now keeps the anchor of a write still in flight and
+  reuses it (`deck-render.anchor-in-flight.test.ts`, red without the fix).
+- The Playground's newcomer bake (`playground.astro`, an inline loader) writes a static frame already in the page; on a
+  controlled page it now takes the still-empty frame out for the write, inline, the same way.
+- `mountLiveFrame` no longer appends, so a throw while building the first document would have left `host` empty and the
+  next render mounting a second frame and ResizeObserver; `docOrMount` puts the frame in `host` before rethrowing.
 - Re-inserting a focused frame fires the parent window's `focus` (and `blur` on Chromium and WebKit). Two handlers wake
   up (`StudioShell` asset refresh, `PlaygroundApp` hand-off check); both are idempotent. With the probe, Chromium and
   WebKit see it at most once per page.
@@ -168,6 +175,11 @@ document has not loaded yet" saw that fake load and failed. The file now stops j
 listener on `document` (the DOM spec keeps `window` out of a `load` event's path), and every load in those cells is one
 the test fires itself. Real engines fire exactly one `load` for such a frame, after its document loads (measured in
 Chromium, Firefox and WebKit: none fires during the insert).
+
+**Independent eyes on what ships.** The trio reviewed the first version. A fifth agent, an independent checker approved by
+the session coordinator, reviewed the shipped write-before-insert and probe design at `f9f00b9`. It confirmed the
+claim and the probe in all three engines and found the Playground anchor loss above (fixed), the newcomer-bake shape
+(fixed), the throw-before-insert leak (fixed), and the Firefox blank on a full write (stated above).
 
 **After #3152 merged (2026-11-12),** this branch was rebased onto it and the spec carries the edit above: the gecko
 `fixme` is gone, the editor is focused, and the frame is read through `page.evaluate`. #3152's follow-up and its gotcha

@@ -559,6 +559,11 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 		// instead of at slide 1. Read only here, on the rare full write, never per keystroke —
 		// and never on a `fresh` write, which is a DIFFERENT deck and opens at its start.
 		anchor = fresh ? null : readAnchor(frame);
+		// A WRITE STILL IN FLIGHT has no reader's place to read: on Firefox (and once per page elsewhere) the frame is
+		// re-inserted for its write (lib/srcdoc-write.js), so until the new document commits it holds an empty
+		// about:blank. Keep the place that write was opened at, or a second write in that window would open at slide 1.
+		if (!anchor && !fresh && !current && st.writeId) anchor = st.writeAnchor ?? null;
+		st.writeAnchor = anchor;
 		// WRITE path (first render / theme·mode·size change / deck swap) — NOT the hot
 		// path. Sanitize the whole document so buildSrcdoc sees any inter/trailing
 		// content splitSections drops, keeping the written srcdoc byte-identical.

@@ -328,6 +328,20 @@ type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number
 // gate — WITHOUT depending on the `onload` event, which iOS Safari fires unreliably for
 // srcdoc (the on-device stuck-hidden blank). Best-effort: a cross-doc read can't actually
 // throw for a same-origin srcdoc, but guard anyway for teardown races.
+/**
+ * Build a frame's document; if building throws, put the not-yet-inserted frame into `host` before rethrowing. The live
+ * frame is written before it enters the page (lib/srcdoc-write.js), so without this a throw would leave `host` empty and the
+ * next render would mount a second frame and a second ResizeObserver.
+ */
+function docOrMount(fr: HTMLIFrameElement, host: HTMLElement, build: () => string): string {
+	try {
+		return build();
+	} catch (e) {
+		if (!fr.parentNode) host.appendChild(fr);
+		throw e;
+	}
+}
+
 function frameHasPainted(fr: HTMLIFrameElement): boolean {
 	try {
 		return !!fr.contentDocument?.querySelector('.lattice');
@@ -1498,7 +1512,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			liveHost.__latticePendingLoad = true;
 			liveHost.__latticeShownSlide = bake.host.shownSlide;
 			// writeSrcdoc, not `fr.srcdoc =`: a rewrite keeps Firefox's service worker serving the frame (lib/srcdoc-write.js).
-			writeSrcdoc(fr, srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss), host);
+			writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss)), host);
 			scaleFrame(host);
 			// The same content-driven reveal poll a full write arms, for the same reason: iOS drops srcdoc `onload`.
 			let ticks = 0;
@@ -2648,7 +2662,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				captureWrite?.({ html: out.html, css: out.css, mode, drawn, geom, extraCss: extraCss || '' });
 				// writeSrcdoc, not `fr.srcdoc =`: on Firefox a srcdoc set on a frame already in the page loses the service worker, so offline the
 				// runtime, fonts and Mermaid fail to load after the first edit (lib/srcdoc-write.js).
-				writeSrcdoc(fr, srcdoc(out.html, out.css, mode, drawn, geom, extraCss), host);
+				writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(out.html, out.css, mode, drawn, geom, extraCss)), host);
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
 				sanitizeMs = lastSanitizeMs;
