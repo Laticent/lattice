@@ -303,9 +303,11 @@ and the dispatch. What they found, and what changed:
   to 4.0. The owner raised the chart kernels' ceiling 1KB for the rows (`docs/route-budget.history.md`).
 - **A name wider than the box had no over-capacity form.** A name is never broken mid-word, so one long word or a CJK
   run with no spaces fit no taller box, and the kind fell back to its pre-kernel drawing, which cut it mid-word or
-  printed it under 9pt. After height alone fails, the box grows in both sides, to 2.5 times (`arrangeKeyed`, and
-  bar's own ladder): the page scales a drawing by its larger overshoot, so this prints at the same scale as a taller box
-  with more room. Bar had also stamped `data-chart-form="fit"` when nothing held its key, which turned off the phone
+  printed it under 9pt. After height alone fails, the box grows in both sides, to 2.5 times (`arrangeKeyed`'s `widen`,
+  which the pie asks for, and bar's own ladder): the page scales a drawing by its larger overshoot, so this prints at the
+  same scale as a taller box with more room. It is opt-in because a kind with a placed next form of its own keeps it: the
+  radar's holds 11pt, and a widened box printed its rim at 9.6pt over the `10` tick (`panes-radar.md` p18,
+  `svg-chart-labels-motion.md` p4, caught by fingerprinting every chart deck at the four phone sizes before and after). Bar had also stamped `data-chart-form="fit"` when nothing held its key, which turned off the phone
   pass's own over-capacity step.
 - **The arrangement's choice depended on the order it tried them.** "The largest plot; within 3%, the fuller box" was
   compared pairwise as the combinations came, which is not transitive. It is two passes now: the largest plot, then the

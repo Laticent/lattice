@@ -390,10 +390,10 @@ test('arrangeKeyed holds the box by stepping the key down before it goes over ca
   assert.ok(got.fs < role - 1e-6, `the key holds the ${h}-unit box at ${got.fs.toFixed(2)} units, under the role's ${role.toFixed(2)}`);
 });
 
-test('an over-capacity box grows as far as the chart needs, to 2.5 times, and wider when a name is wider than the box', () => {
+test('an over-capacity box grows as far as the chart needs, to 2.5 times, and wider when a name is wider than the box and the kind asks', () => {
   const { withRoles, stepPx } = require('../../../lib/plugins/chart-family/shared/chart-roles');
-  const run = (box, labels) => withRoles(stepPx(), 972 / 320, () => chartForm.withForm(box, () => chartForm.arrangeKeyed({
-    rows: labels.map((label) => ({ label })), plot: { minW: 150, minH: 140 },
+  const run = (box, labels, widen = true) => withRoles(stepPx(), 972 / 320, () => chartForm.withForm(box, () => chartForm.arrangeKeyed({
+    rows: labels.map((label) => ({ label })), plot: { minW: 150, minH: 140 }, widen,
   })));
   // Twenty names under a 200-unit box: the drawing needs about twice its height.
   const many = run({ w: 320, h: 200 }, Array.from({ length: 20 }, (_, i) => `Region number ${i + 1}`));
@@ -407,4 +407,6 @@ test('an over-capacity box grows as far as the chart needs, to 2.5 times, and wi
   assert.ok(wide && wide.over, 'drawn over capacity, not handed back to the pre-kernel drawing');
   assert.ok(wide.layout.w > 320);
   assert.ok(wide.keySvg().includes(word), 'the name prints whole');
+  // Without `widen` the kind keeps its own next form (the radar's placed drawing): arrangeKeyed hands it back.
+  assert.equal(run({ w: 320, h: 400 }, [word, 'B'], false), null);
 });
