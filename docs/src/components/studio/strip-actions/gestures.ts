@@ -46,13 +46,23 @@ export function attachStripGestures(el: HTMLElement, opts: { readonly current: S
 	// Backspace never deletes a slide while the author thinks they are typing. `:focus-visible` cannot say it at
 	// keydown, because the key press itself flips the browser's heuristic, so the strip remembers how focus arrived:
 	// with a pointer press just before it, or without one (Tab, the arrows, a refocus after an action).
+	// A KEY PRESSED SINCE THE LAST POINTER PRESS decides it outright: focus that an arrow key moved arrived by keyboard,
+	// however soon after a click. The 300ms window alone misread a click-then-arrow inside 300ms as a pointer arrival,
+	// and every shortcut on that slide was then ignored (strip-keyboard.spec.ts failed whenever the run was quick).
+	// The window still classifies focus that arrives with no key in between: a press's own focus lands at once, a
+	// refocus after an action lands later.
 	let pressedAt = -1;
+	let keyedAt = -1;
 	let keyboardArrived = false;
 	const onAnyPointerDown = () => {
 		pressedAt = performance.now();
 	};
+	// Capture, on the document: it runs before the strip's own arrow handler moves focus.
+	const onAnyKeyDown = () => {
+		keyedAt = performance.now();
+	};
 	const onFocusIn = () => {
-		keyboardArrived = performance.now() - pressedAt > 300;
+		keyboardArrived = keyedAt >= pressedAt || performance.now() - pressedAt > 300;
 	};
 	const onClick = (e: MouseEvent) => {
 		const a = opts.current.actions;
@@ -97,6 +107,7 @@ export function attachStripGestures(el: HTMLElement, opts: { readonly current: S
 	};
 	el.addEventListener('pointerdown', onPointerDown, true);
 	document.addEventListener('pointerdown', onAnyPointerDown, true);
+	document.addEventListener('keydown', onAnyKeyDown, true);
 	el.addEventListener('focusin', onFocusIn);
 	el.addEventListener('click', onClick, true);
 	el.addEventListener('contextmenu', onContextMenu);
@@ -107,6 +118,7 @@ export function attachStripGestures(el: HTMLElement, opts: { readonly current: S
 		detachDrag();
 		el.removeEventListener('pointerdown', onPointerDown, true);
 		document.removeEventListener('pointerdown', onAnyPointerDown, true);
+		document.removeEventListener('keydown', onAnyKeyDown, true);
 		el.removeEventListener('focusin', onFocusIn);
 		el.removeEventListener('click', onClick, true);
 		el.removeEventListener('contextmenu', onContextMenu);
