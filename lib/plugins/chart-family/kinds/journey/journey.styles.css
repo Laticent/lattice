@@ -218,8 +218,10 @@ section.journey .journey-actor-dot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.45cqi;
-  height: 1.45cqi;
+  /* Never smaller than its own initial: on a phone page the type ladder sets the initial at its 11pt role
+   * (36.8px), and a 1.45cqi disc (15.7px) printed it spilling past the disc's edge. Landscape keeps 1.45cqi. */
+  width: max(1.45cqi, 1.45em);
+  height: max(1.45cqi, 1.45em);
   border-radius: 50%;
   background: var(--actor-color);
   color: var(--on-accent, var(--on-dark-primary));
@@ -232,6 +234,9 @@ section.journey .journey-actor-dot {
 section.journey .journey-actor-dot[data-label-len="2"] {
   font-size: 0.7cqi; /* cqi-ok: 2-char actor initials fit inside a fixed 1.45cqi disc */
   letter-spacing: 0;
+  /* Two initials need a wider disc once the ladder sets them at 11pt. */
+  width: max(1.45cqi, 1.75em);
+  height: max(1.45cqi, 1.75em);
 }
 section.journey .journey-actor-name {
   font-weight: 500;
