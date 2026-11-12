@@ -120,6 +120,8 @@ the sum of main-thread long tasks; "longest" the largest one; memory is the JS h
 **Every exported file is the same.** PowerPoint (267 parts), LibreOffice, captions, the webpage and print match
 byte for byte or part for part; the PDF matches page by page (content and every image stream) and differs only in
 `CreationDate`/`ModDate`, as two runs of `main` do; the images zip differs only in its manifest's `createdAt`.
+**Print stopped matching later, by the owner's choice:** §9 passes each plain-RGB slide picture's PNG pixels straight
+into the PDF, so a printed file now has identical pixels and is 2.3% / 6.5% larger. Every other row above still holds.
 
 ## 6. What is left, and is the owner's
 
@@ -214,8 +216,8 @@ deflate in the workers: slower on a phone for ~3 %. The owner signed off on the 
 `rasterizeDeckImages` returned each slide's picture as a base64 `data:` URL: the picture pool hands back bytes, the URL
 was built from them, and jsPDF decoded it again. The print panel keeps those pictures for a re-placed sheet, a third
 larger than their bytes. It now returns the bytes; `assembleSheetPdf` and the pool take bytes or a URL (the pool keys a
-picture by itself, and sends a worker a copy, so the panel's kept picture is never emptied by a transfer). The owner's
-deck prints the same file byte for byte (22,699,356 bytes, every page identical). The remaining `data:` URLs in an export
+picture by itself, and sends a worker a copy, so the panel's kept picture is never emptied by a transfer). At that step the owner's
+deck printed the same file byte for byte (22,699,356 bytes, every page identical), before §9 changed print's bytes. The remaining `data:` URLs in an export
 are the Library photos INSIDE an exported file (§3), which a file must carry, and the legacy all-main-thread PDF lane.
 
 Photos, videos, themes and reference PDFs are Blobs in IndexedDB (`lattice-workbench/assets`), as
