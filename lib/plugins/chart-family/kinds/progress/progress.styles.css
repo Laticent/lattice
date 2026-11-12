@@ -242,9 +242,12 @@ section.progress:where([data-family="square"], [data-family="tall"], [data-famil
    * past the stage. Statement scale is for a slide's message, not a row label
    * (engineering/typography.md). */
   font-size: var(--fs-body);
-  /* A label on its own row sets at 1.25 of its size, not the body's 1.6: the phone type ladder grew each status pill
-   * to 11pt (56px rows where main had 46), and five rows ran 23px past a 4:5 stage (data-viz-gallery.md p24). The
-   * tighter line gives back 16px a row and reads cleanly on a one- or two-line label. */
+}
+/* A label on its own row sets at 1.25 of its size, not the body's 1.6: the phone type ladder grew each status pill
+ * to 11pt (56px rows where main had 46), and five rows ran 23px past a 4:5 stage (data-viz-gallery.md p24). The
+ * tighter line gives back 16px a row and reads cleanly on a one- or two-line label. A PAGE rule, like the ladder
+ * itself: `:not(lat-pane)` keeps it off a progress pane on a wide slide, which keeps main's rows (pane-css.js). */
+section.progress:where(:not(lat-pane):is([data-family="tall"], [data-family="square"], [data-family="strip"])) .progress-label {
   line-height: 1.25;
 }
 section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-track {
@@ -264,7 +267,7 @@ section.progress:where([data-family="square"], [data-family="tall"], [data-famil
 /* A pill is 1.1 of its own text tall here, as tall as the bar beside it, not the shared 1.47 (chart-family.styles.css): at the phone ladder's 11pt
  * the shared height made each pill 54px, taller than the bar beside it, and six rows ran 74px past a square stage
  * (status-word-agreement.md p7; main's 35px pills printed at 6.6pt). */
-section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-row > .chart-status {
+section.progress:where(:not(lat-pane):is([data-family="tall"], [data-family="square"], [data-family="strip"])) .progress-row > .chart-status {
   height: 1.1em;
   line-height: 1.15;
 }

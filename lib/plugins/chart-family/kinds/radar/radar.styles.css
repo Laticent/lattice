@@ -437,6 +437,6 @@ section.radar:is(.claim-hero, .claim-bleed) .radar-tick {
 /* THE PHONE LADDER (chart-family/shared/chart-roles.js): on a 1080-wide page the minis run in TWO columns. Three
  * across left a 283px cell, where the 11pt axis labels would take a third of the plot; the dispatch measures the
  * minis at a two-column cell (chart-family.dispatch.js `scaleOf`), so this grid is the one it sized the text for. */
-section.radar:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .radar-multiples {
+section.radar:where(:not(lat-pane):is([data-family="tall"], [data-family="square"], [data-family="strip"])) .radar-multiples {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
