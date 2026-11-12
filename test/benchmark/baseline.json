@@ -360,6 +360,20 @@
       "narrowedBytes": 279520,
       "ms": 21.77,
       "p95": 22.27
+    },
+    "filo · compose undo + redo (an early slide)": {
+      "slidesReplaced": 2,
+      "scannedChars": 3695,
+      "deckChars": 134371,
+      "ms": 2.28,
+      "p95": 2.59
+    },
+    "filo · compose undo + redo (the middle slide)": {
+      "slidesReplaced": 2,
+      "scannedChars": 4405,
+      "deckChars": 134371,
+      "ms": 2.52,
+      "p95": 5.39
     }
   },
   "squadraDatasets": {

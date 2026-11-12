@@ -136,13 +136,17 @@ test('an undo during a real Chromium IME composition waits for the commit, then 
 	await expect(slides(page).nth(1)).toContainText('IME');
 });
 
-// THE BUDGET FOR COMPOSE (§4.3): the history's own work in applying an undo to Compose (the scoped
-// transaction, the change diff, the emit check and the silent object pass: `filo:compose-work`) on
-// the 134 KB deck stays under 16 ms on the main thread, in all three engines. ProseMirror's render of
-// the replaced slide is logged with it (`filo:compose-apply`) but not budgeted: every edit on this
-// deck pays it, a keystroke included. The deck is seeded as the boot deck's saved source.
+// THE BUDGET FOR COMPOSE (§4.3), held as WORK, not milliseconds (HARD RULE #32). An undo on the 134 KB
+// deck must touch the slide it changed and nothing else: the scoped transaction replaces ONE slide node,
+// and the split and parse read only the source around that slide. The regression this guards is the
+// full rebuild (every slide re-parsed and re-rendered, hundreds of ms here) or the whole-source path
+// (the whole deck split and parsed on every undo). `filo:compose-work` carries what the apply did in
+// its `detail`; a full rebuild leaves a `filo:compose-resync` mark. The time is logged, not asserted: a
+// main-thread millisecond bar failed on runner load (19 ms against 16 in Firefox beside other engines),
+// and the speed record lives in `npm run bench`'s Compose row (HARD RULE #19). The deck is seeded as the
+// boot deck's saved source.
 const BIG = readFileSync(fileURLToPath(new URL('../../examples/system-design-foundations.md', import.meta.url)), 'utf8');
-for (const tag of ['@gecko', '@webkit-tablet']) test(`the history work of an undo in Compose stays under 16 ms on the 134 KB deck ${tag}`, async ({ page }) => {
+for (const tag of ['@gecko', '@webkit-tablet']) test(`an undo in Compose replaces one slide and reads a small part of the 134 KB deck ${tag}`, async ({ page }) => {
 	test.setTimeout(240_000);
 	await page.addInitScript((src) => {
 		if (!sessionStorage.getItem('filo-seeded')) {
@@ -166,21 +170,22 @@ for (const tag of ['@gecko', '@webkit-tablet']) test(`the history work of an und
 		// A pause, so the next slide's typing is its own step.
 		await page.keyboard.press('Escape');
 	}
-	const read = (name: string) => page.evaluate((n) => performance.getEntriesByType('measure').filter((m) => m.name === n).map((m) => m.duration), name);
-	const work = await read('filo:compose-work');
-	const total = await read('filo:compose-apply');
-	expect(work.length, 'witness: two undos and two redos were applied to Compose').toBeGreaterThanOrEqual(4);
-	const worst = Math.max(...work);
-	console.log(`[filo compose budget] ${tag} history work worst ${worst.toFixed(1)} ms (${work.map((m) => m.toFixed(1)).join(', ')}); with ProseMirror's render ${total.map((m) => m.toFixed(1)).join(', ')} ms`);
-	// The history's own work. ProseMirror re-rendering the slide it replaced is the cost every edit on
-	// this deck pays (a keystroke included) and is reported above, not budgeted here.
-	//
-	// The MEDIAN is held to 16 ms and the worst to 50. Measured alone, the worst is 3-9 ms in Chromium
-	// and Firefox and 6-11 ms in WebKit; with a second engine running beside it WebKit's single samples
-	// reached 34 ms, so a worst-case 16 ms bar would fail on runner load, not on the code. 50 ms still
-	// catches the regression this guards: the full rebuild this replaced costs hundreds of ms here.
-	const median = [...work].sort((a, b) => a - b)[Math.floor(work.length / 2)];
-	expect(median, `the history work of applying an undo to Compose took ${median.toFixed(1)} ms (median)`).toBeLessThan(16);
-	expect(worst, `the history work of applying an undo to Compose took ${worst.toFixed(1)} ms (worst)`).toBeLessThan(50);
+	type Work = { duration: number; scanned?: number; removed?: number; added?: number; deck?: number };
+	const applies = (await page.evaluate(() =>
+		performance.getEntriesByType('measure').filter((m) => m.name === 'filo:compose-work').map((m) => ({ duration: m.duration, ...((m as PerformanceMeasure).detail || {}) })),
+	)) as Work[];
+	const total = await page.evaluate(() => performance.getEntriesByType('measure').filter((m) => m.name === 'filo:compose-apply').map((m) => m.duration));
+	const rebuilds = await page.evaluate(() => performance.getEntriesByName('filo:compose-resync').length);
+	expect(rebuilds, 'an undo or redo fell back to rebuilding the whole of Compose').toBe(0);
+	expect(applies.length, 'witness: two undos and two redos were applied to Compose').toBeGreaterThanOrEqual(4);
+	console.log(
+		`[filo compose budget] ${tag} history work ${applies.map((w) => w.duration.toFixed(1)).join(', ')} ms; read ${applies.map((w) => w.scanned).join(', ')} of ${applies[0].deck} characters; with ProseMirror's render ${total.map((m) => m.toFixed(1)).join(', ')} ms`,
+	);
+	for (const w of applies) {
+		expect([w.removed, w.added], 'an undo or redo of one typed word replaces exactly one slide').toEqual([1, 1]);
+		// Measured: 1,363 and 1,861 characters (the slide, the next slide's probe and the parse) on a deck of
+		// 134,371; the whole-source path reads all of it. A sixteenth of the deck sits far from both.
+		expect(w.scanned, `an undo or redo read ${w.scanned} characters of a ${w.deck}-character deck`).toBeLessThan((w.deck as number) / 16);
+	}
 });
 
