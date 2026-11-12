@@ -136,11 +136,11 @@ describe('splitSlideDirectives hoists only what the engine applies (the checker 
 			'<!-- _footer: Q3 -->',
 		]);
 	});
-	it('never lifts a record past a bare directive the engine applies, so the last one still wins', () => {
-		const slide = '<!-- class: dark -->\n\n# T\n\n<!-- {class=light} -->';
-		const { directives, prose } = splitSlideDirectives(slide);
-		expect(directives).toEqual([]);
-		expect(prose.indexOf('class: dark')).toBeLessThan(prose.indexOf('{class=light}'));
+	it('lifts a record past a bare class:, because a local class wins in either order', () => {
+		// The engine renders `light` with the record above or below `class: dark` (checked in the seeded test below).
+		const { directives, prose } = splitSlideDirectives('<!-- class: dark -->\n\n# T\n\n<!-- {class=light} -->');
+		expect(directives).toEqual(['<!-- {class=light} -->']);
+		expect(prose).toContain('class: dark');
 	});
 });
 
@@ -168,7 +168,8 @@ describe('the Compose round trip never changes what the engine applies', async (
 		const html = String(engine.render(md).html);
 		const panes = (html.match(/<lat-pane[^>]*>/g) ?? []).join('');
 		// How many lists and items: a setting lifted from between two lists merges them (the grader on #3136).
-		const lists = `${(html.match(/<[ou]l[\s>]/g) ?? []).length}/${(html.match(/<li[\s>]/g) ?? []).length}`;
+		// And whether the items are loose (each a paragraph) or tight.
+		const lists = `${(html.match(/<[ou]l[\s>]/g) ?? []).length}/${(html.match(/<li[\s>]/g) ?? []).length}/${(html.match(/<li>\s*<p>/g) ?? []).length}`;
 		return { class: attr('data-class'), style: `${style}|${panes}|${lists}` };
 	};
 	const SHAPES = [
@@ -205,6 +206,10 @@ describe('the Compose round trip never changes what the engine applies', async (
 		'- a\nmore\n<!-- _footer: z -->',
 		'- a\n\n  more',
 		'- b',
+		'- a\nlazy',
+		'<!--\n_class: multi\n-->',
+		'### H',
+		'> q',
 	];
 	const SEED = Number(process.env.COMPOSE_ROUNDTRIP_SEED ?? 3136);
 	let s = SEED >>> 0;
@@ -221,7 +226,8 @@ describe('the Compose round trip never changes what the engine applies', async (
 			const parts = Array.from({ length: 2 + Math.floor(rand() * 5) }, () => SHAPES[Math.floor(rand() * SHAPES.length)]);
 			// At most one heading, and only first: the engine starts a new slide at a top-level heading, and Compose
 			// splits a deck into slides before this round trip, so a chunk never holds two.
-			const slide = (rand() < 0.5 ? ['## T', ...parts] : parts).join('\n\n');
+			// Joined by a blank line or a bare newline, so shapes also meet head to tail (a setting right under a lazy line).
+			const slide = (rand() < 0.5 ? ['## T', ...parts] : parts).reduce((a, b) => a + (rand() < 0.3 ? '\n' : '\n\n') + b);
 			const { directives, prose } = splitSlideDirectives(slide);
 			const back = composeSlideChunk(directives, prose);
 			const before = sectionOf(slide);
@@ -256,13 +262,25 @@ describe('the Compose round trip never changes what the engine applies', async (
 
 describe('splitSlideDirectives: the reviewer cases on #3136', () => {
 	it('lifts a directive nested in a list with the rest, in order, so the last still wins', () => {
-		const slide = '- a\n\n  <!-- _class: dark -->\n\n<!-- _class: light -->\n\n# T';
+		const slide = '- a\n  <!-- _class: dark -->\n\n<!-- _class: light -->\n\n# T';
 		expect(splitSlideDirectives(slide).directives).toEqual(['<!-- _class: dark -->', '<!-- _class: light -->']);
 	});
-	it('opens a slide in Markdown when a setting must stay right under a list item', () => {
-		const slide = '<!-- class: dark -->\n\n- x\n<!-- _class: light -->';
-		const { prose } = splitSlideDirectives(slide);
+	it('keeps a nested directive after a blank line, and every later one for its field, and opens the slide in Markdown', () => {
+		// Lifted, the blank line left behind no longer makes the list loose, and the item loses its paragraph.
+		const { directives, prose } = splitSlideDirectives('- a\n\n  <!-- _class: dark -->\n\n<!-- _class: light -->\n\n# T');
+		expect(directives).toEqual([]);
 		expect(hasLossyConstruct(prose)).toBe(true);
+	});
+	it('opens a slide in Markdown when a setting must stay right under a list item', () => {
+		// The second footer pins the first in place (last wins), and the first sits right under the item.
+		const { directives, prose } = splitSlideDirectives('<!-- _footer: a -->\n\n<!-- {pane=left} -->\n\n- x\n<!-- _footer: b -->');
+		expect(directives).toEqual(['<!-- _footer: a -->']);
+		expect(hasLossyConstruct(prose)).toBe(true);
+	});
+	it('lifts a _class from under a list item past a bare class:, and the slide stays editable', () => {
+		const { directives, prose } = splitSlideDirectives('<!-- class: dark -->\n\n- x\n<!-- _class: light -->');
+		expect(directives).toEqual(['<!-- _class: light -->']);
+		expect(hasLossyConstruct(prose)).toBe(false);
 	});
 	it('keeps an indented example at the top of the prose indented', () => {
 		const a = splitSlideDirectives('    <!-- {layout=kpi} -->\n\n# T');
@@ -272,9 +290,12 @@ describe('splitSlideDirectives: the reviewer cases on #3136', () => {
 		expect(composeSlideChunk(b.directives, b.prose)).toContain('\n\n    <!-- _class: divider -->');
 	});
 	it('a record kept in place keeps the other fields it sets in place too', () => {
-		const slide = '<!-- class: dark -->\n\n# T\n\n<!-- {class=light, footer=f} -->\n\n<!-- _footer: g -->';
-		const { directives, prose } = splitSlideDirectives(slide);
-		expect(directives).toEqual([]);
+		// A footer kept after a pane marker pins the record that also sets a footer, so the record stays, ahead of `_footer: g`.
+		const slide = '<!-- {pane=left} -->\n\n<!-- _footer: e -->\n\n# T';
+		expect(splitSlideDirectives(slide).directives).toEqual([]);
+		const two = '<!-- _footer: e -->\n\n<!-- {pane=left} -->\n\n<!-- _footer: k -->\n\n<!-- {class=light, footer=f} -->\n\n<!-- _footer: g -->';
+		const { directives, prose } = splitSlideDirectives(two);
+		expect(directives).toEqual(['<!-- _footer: e -->']);
 		expect(prose.indexOf('footer=f')).toBeLessThan(prose.indexOf('_footer: g'));
 	});
 });
@@ -310,6 +331,26 @@ describe('splitSlideDirectives and the lock: the second review of #3136', () => 
 			'## T\n\n- a\n\n  more\n\n<!-- _footer: z -->\n\n- b',
 		])
 			expect(splitSlideDirectives(slide).directives, slide).toEqual([]);
+	});
+	it('the second checker on #3136: lazy text, multi-line settings, and what ends a list', () => {
+		const stays = [
+			'## T\n\n- a\nlazy\n\n<!-- {class=dark} -->\n\n- b', // a lazy line, then a blank line
+			'## T\n\n- a\n  more\ntext\n\n<!-- _class: dark -->\n\n- b',
+			'## T\n\n- a\n\n<!--\n_class: dark\n-->\n\n- b', // a multi-line setting between two lists
+			'## T\n\n- a\n\n<!-- _footer: z -->\n\n<!--\n_class: dark\n-->\n\n- b',
+			'## T\n\n- b\n- b\n\n  <!-- _footer: ind -->', // lifting it would draw the loose list tight
+		];
+		for (const slide of stays) expect(splitSlideDirectives(slide).directives, slide).toEqual([]);
+		// A heading, a quote or a fence ends a list, so a setting under one is free to move and the slide stays editable.
+		for (const slide of ['## T\n\n- a\n### H\n<!-- _class: dark -->\n- b', '## T\n\n- a\n> q\n<!-- _class: dark -->\n- b', '## T\n\n```\n- x\n```\n<!-- _class: dark -->\n- b']) {
+			const { directives, prose } = splitSlideDirectives(slide);
+			expect(directives, slide).toEqual(['<!-- _class: dark -->']);
+			expect(hasLossyConstruct(prose), slide).toBe(false);
+		}
+	});
+	it('a bare class: kept in place does not pin a later _class (the local one wins in either order)', () => {
+		// The bare one stays between two lists; the local one below the second list still moves.
+		expect(splitSlideDirectives('## T\n\n- a\n\n<!-- class: dark -->\n\n- b\n\n<!-- _class: light -->').directives).toEqual(['<!-- _class: light -->']);
 	});
 	it('a setting under a paragraph that follows a list still moves', () => {
 		expect(splitSlideDirectives('## T\n\n- a\n\npara\n<!-- _footer: z -->\n\n- b').directives).toEqual(['<!-- _footer: z -->']);

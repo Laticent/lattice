@@ -23,11 +23,13 @@
   HTML block stays put, and a setting never moves past one that stays in place and sets the same field (a bare
   `<!-- class: dark -->`, one in a quote, or a record's other fields). Nothing after a pane marker leaves its pane,
   a record with a speaker note stays put so the notes keep their order, and a setting between two lists stays so the
-  lists do not merge (also when the first list's last item runs onto more lines, or several settings sit between
-  them). A slide where a setting would be taken into a list item (indented under one, or right below one or its
-  lazy next line, pane markers included) opens in Markdown, because Compose would write it back as list text. A seeded test
+  lists do not merge (also when the first list's last item runs onto more lines, lazy or indented, or several
+  settings, one-line or multi-line, sit between them). A setting indented in a list item after a blank line stays,
+  so a loose list is not drawn tight. A spot `_class` or a record's class still moves past a bare `class:` kept in
+  place, because the local one wins in either order. A slide where a setting would be taken into a list item
+  (indented under one, or right below one or its lazy next line, pane markers included) opens in Markdown, because Compose would write it back as list text. A seeded test
   renders random slides before and after a Compose edit, through the editor's own parser and serializer, and
-  requires the same slide class, style, panes and lists.
+  requires the same slide class, style, panes, lists and loose or tight items.
 - **Present's section rail reads a quoted divider** (`<!-- _class: "divider" -->`).
 - **A speaker note no longer locks a field.** A note with a line that starts `focus:` or `class:` is not a second
   place the field is set, so the slide panel still edits the record. A field set twice shows the value that wins.

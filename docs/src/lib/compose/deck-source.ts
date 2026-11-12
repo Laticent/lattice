@@ -103,13 +103,7 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 	// Past a pane marker a setting belongs to that pane, so nothing after the first one moves (a record lifted out of a
 	// pane took its class to the slide; the checker on #3136).
 	const firstPane = chunkLines.findIndex((l) => l.trim().startsWith('<!--') && parsePaneMarker(l.trim())?.pane) + 1 || Number.POSITIVE_INFINITY;
-	// The next line that is not blank (and, with `pastComments`, not a one-line comment: lifting every setting in a run
-	// between two lists merges them as surely as lifting one).
-	const nonBlankAround = (line: number, step: 1 | -1, pastComments = false) => {
-		for (let i = line - 1 + step; i >= 0 && i < chunkLines.length; i += step)
-			if (chunkLines[i].trim() && !(pastComments && ONE_LINE_COMMENT.test(chunkLines[i]))) return chunkLines[i];
-		return '';
-	};
+	const kinds = lineKinds(chunkLines);
 	const hoist = new Set<number>();
 	const kept = new Set<string>();
 	for (const line of [...readings.keys()].sort((a, b) => a - b)) {
@@ -119,19 +113,25 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 		// A directive nested in a list moves too, as it always did: left in place, Compose's parser reads it as list text
 		// and escapes its underscore, and the slide loses it (the checker on #3136). Lifting it changes no field.
 		// It stays when: it is a pane marker or comes after one; it is a record carrying a speaker note (lifting it would
-		// reorder the slide's notes); or it sits between two list items (lifting it would merge the two lists).
+		// reorder the slide's notes); it sits between two lists (lifting it would merge them); or it is indented in a list
+		// item after a blank line (lifting it would draw a loose list tight).
 		const body = text?.trim().slice(4, -3) ?? '';
 		const carriesNote = r.kind === 'record' && isRecordOpener(body) && Object.keys(readRecord(body)?.notes ?? {}).length > 0;
-		const betweenLists = listAbove(chunkLines, line) && LIST_ITEM.test(nonBlankAround(line, 1, true));
+		const betweenLists = listAbove(kinds, line) && listBelow(kinds, line + (text?.trim().split('\n').length ?? 1) - 2);
+		// Indented in a list item after a blank line: that blank line is what makes the list loose (each item a
+		// paragraph), so lifting the comment would draw the list tight. Kept, the slide opens in Markdown.
+		const loosensList = /^[ \t]/.test(chunkLines[line - 1] ?? '') && kinds[line - 2] === 'blank' && listAbove(kinds, line);
 		const movable =
 			(r.kind === 'directive' || r.kind === 'record' || r.kind === 'nested') &&
 			text !== undefined &&
 			!parsePaneMarker(text.trim())?.pane &&
 			line < firstPane &&
 			!carriesNote &&
-			!betweenLists;
-		if (movable && ![...r.keys].some((k) => kept.has(k))) hoist.add(line);
-		else for (const k of r.keys) kept.add(k);
+			!betweenLists &&
+			!loosensList;
+		const keys = [...r.keys].map((k) => scopedKey(k, r.kind, chunkLines.slice(line - 1, line + 2).join('\n')));
+		if (movable && !keys.some((k) => kept.has(k))) hoist.add(line);
+		else for (const k of keys) kept.add(k);
 	}
 	const directives: string[] = [];
 	const prose = chunk
@@ -249,6 +249,7 @@ export function hasLossyConstruct(prose: string): boolean {
  *  list text with an escaped `_`, and the slide would lose it, so the slide is edited in Markdown (the checker on #3136). */
 function strandsADirective(prose: string): boolean {
 	const lines = prose.split('\n');
+	const kinds = lineKinds(lines);
 	// What the engine applies: its readings, and the pane markers (which commentReadings does not report).
 	const applied = new Set<number>();
 	for (const [line, r] of commentReadings(prose)) if (r.kind !== 'note') applied.add(line);
@@ -262,32 +263,65 @@ function strandsADirective(prose: string): boolean {
 		// heading or a paragraph above does not (the checker on #3136: two stacked settings must stay editable).
 		// A lazy line under an item's text counts too: `- a` / `more` / the comment (the grader on #3136).
 		if (/^[ \t]/.test(text) || LIST_ITEM.test(above) || /^[ \t]+\S/.test(above)) return true;
-		if (above.trim() && !ONE_LINE_COMMENT.test(above) && listAbove(lines, line)) return true;
+		if (kinds[line - 2] === 'para' && listAbove(kinds, line)) return true;
 	}
 	return false;
 }
 
-/** Whether the text above 1-based `line` ends inside a list: a list item, or its continuation lines (indented ones, a
- *  lazy line right under the item's text, and indented ones after a blank line). A paragraph after a blank line ends
- *  the list. Lifting a setting from between such a list and the next one merges the two (the grader on #3136). */
-function listAbove(lines: string[], line: number): boolean {
-	let blank = false;
-	let paragraph = false;
+type LineKind = 'blank' | 'comment' | 'list' | 'indented' | 'para' | 'other';
+
+/** What each line is, as far as list membership goes. A comment block (one line or several) is `comment`; a heading,
+ *  quote, fence, HTML line or thematic break is `other` (it ends a list item's lazy text); plain text is `para`. */
+function lineKinds(lines: string[]): LineKind[] {
+	const kinds: LineKind[] = [];
+	let inComment = false;
+	for (const l of lines) {
+		if (inComment) {
+			kinds.push('comment');
+			if (l.includes('-->')) inComment = false;
+		} else if (!l.trim()) kinds.push('blank');
+		else if (/^[ \t]*<!--/.test(l)) {
+			kinds.push('comment');
+			inComment = !l.slice(l.indexOf('<!--') + 4).includes('-->');
+		} else if (LIST_ITEM.test(l)) kinds.push('list');
+		else if (/^[ \t]/.test(l)) kinds.push('indented');
+		else if (/^(?:#{1,6}(?:[ \t]|$)|>|```|~~~|<|(?:[-*_][ \t]*){3,}$)/.test(l)) kinds.push('other');
+		else kinds.push('para');
+	}
+	return kinds;
+}
+
+/** Whether the text above 1-based `line` ends inside a list: a list item, its indented continuation lines (blank lines
+ *  between them included), or a paragraph that runs straight on from one (lazy text, `- a` / `more`). A paragraph with a
+ *  blank line or the slide top above it, or a heading, quote, fence or HTML line, ends the list. Comments are skipped.
+ *  Lifting a setting from between such a list and the next one merges the two (the checkers on #3136). */
+function listAbove(kinds: LineKind[], line: number): boolean {
 	for (let i = line - 2; i >= 0; i--) {
-		const l = lines[i];
-		if (ONE_LINE_COMMENT.test(l) && !/^[ \t]/.test(l)) continue;
-		if (!l.trim()) {
-			if (paragraph) return false;
-			blank = true;
-		} else if (LIST_ITEM.test(l)) return true;
-		else if (/^[ \t]/.test(l)) blank = paragraph = false;
-		else if (blank) return false;
-		else paragraph = true;
+		const k = kinds[i];
+		if (k === 'list') return true;
+		if (k === 'blank' || k === 'comment' || k === 'indented') continue;
+		if (k === 'other') return false;
+		// A paragraph: walk to its first line, then ask what is right above it.
+		while (i > 0 && kinds[i - 1] === 'para') i--;
+		if (kinds[i - 1] === 'list') return true;
+		if (kinds[i - 1] !== 'indented') return false;
+		// Right under an item's indented text: keep walking up from there.
 	}
 	return false;
 }
 
-const ONE_LINE_COMMENT = /^[ \t]*<!--.*-->[ \t]*$/;
+/** Whether the next line after 0-based `last` that is not blank or a comment is a list item. */
+function listBelow(kinds: LineKind[], last: number): boolean {
+	for (let i = last + 1; i < kinds.length; i++) if (kinds[i] !== 'blank' && kinds[i] !== 'comment') return kinds[i] === 'list';
+	return false;
+}
+
+/** A field's key in the walk's `kept` set. `class` is scoped: a spot `_class` or a record's class beats a bare `class:`
+ *  in either order, so a bare one kept in place does not pin a later local one (the checker on #3136). Every other
+ *  field is last-comment-wins, whatever its scope. */
+function scopedKey(key: string, kind: string, source: string): string {
+	return key === 'class' && kind === 'directive' && /^\s*<!--\s*class\s*:/.test(source) ? 'class:global' : key;
+}
 
 /** A list item's first line: a bullet or a number, then a space or the end of the line. */
 const LIST_ITEM = /^[ \t]*(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)/;
