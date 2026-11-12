@@ -1269,8 +1269,12 @@ export const Editor = React.forwardRef<EditorHandle, {
 		syncedValueRef.current = value;
 		if (localized) {
 			const change = { from, to: toOld, insert };
-			const mappedHead = ChangeSet.of(change, old.length).mapPos(v.state.selection.main.head, 1);
-			v.dispatch({ changes: change, selection: { anchor: mappedHead }, annotations: fromValueSync.of(true) });
+			// Map the WHOLE selection, not just its head: a select-all, or any range the author holds,
+			// keeps both ends through a write elsewhere. Mapping only the head collapsed it to a caret,
+			// so a Delete pressed next removed one character instead of the selection. The bias (1)
+			// keeps a caret sitting at the write's start after the inserted text, as before.
+			const selection = v.state.selection.map(ChangeSet.of(change, old.length), 1);
+			v.dispatch({ changes: change, selection, annotations: fromValueSync.of(true) });
 		} else {
 			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value }, selection: { anchor: 0 }, annotations: fromValueSync.of(true) });
 		}
