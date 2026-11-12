@@ -525,7 +525,10 @@ Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 per leg (raised 
 test (`E2E_RECORD=off`; a third of its time); the `docs-build` Vitest suite runs 4 workers
 instead of 3; and both jobs, and the route-budget base build, run `build:uncommitted` instead of
 the full root build (the committed half is in the checkout, and `lint`'s `build:check` holds it to
-its generators): 42 s against 74 s on 4 cores, and the base measurement 70 s against 150 s. Running the route-budget base build in the background beside Vitest was tried and
+its generators): 42 s against 74 s on 4 cores, and the base measurement 70 s against 150 s. The
+horizontal-overflow guard opens its four widths at once (106 s to 62 s, the same 40 states), and the
+docs tests that slept on the real clock (lessons, caption-rhythm, reveal, deictic: 140 s) run on a
+fake one. Running the route-budget base build in the background beside Vitest was tried and
 reverted: free on a 4-core sandbox (+12 s), it slowed CI's Vitest from 8m41s to 11m36s, because
 the runner's 4 vCPUs do not behave like 4 idle cores.
 

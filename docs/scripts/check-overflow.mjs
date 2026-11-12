@@ -239,7 +239,11 @@ async function main() {
 	const failures = [];
 	let checks = 0;
 
-	for (const [bp, w, h] of BREAKPOINTS) {
+	// The four widths run at once, one page each: every page spends most of its time in the settle
+	// pauses below, so in series the guard took 1m48s on CI for 40 states. Each width still walks its
+	// cases in order on a page of its own, with the same pauses and the same checks.
+	await Promise.all(
+		BREAKPOINTS.map(async ([bp, w, h]) => {
 		for (const c of CASES) {
 			const page = await browser.newPage();
 			await page.setViewport({ width: w, height: h, deviceScaleFactor: 1 });
@@ -284,7 +288,8 @@ async function main() {
 			}
 			await page.close();
 		}
-	}
+		}),
+	);
 
 	await browser.close();
 	server.close();
