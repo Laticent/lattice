@@ -42,3 +42,6 @@
   has a light accent wash, the Playground's, so the caret is found at a glance; it steps aside while text is selected.
   Compose's caret is now the body ink, like Source's, and the caret an editor shows while it is not focused looks and
   blinks like the live one.
+- **A co-editor's change survives your IME typing in Compose.** In a Live session, a change that arrived while you were
+  composing a word with a Japanese, Chinese or Korean input method was replaced by your text when the word was done; now
+  both are kept.

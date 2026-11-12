@@ -196,8 +196,13 @@ a co-editor's edit (`filo-live.spec.ts`, caught by the full local e2e run); the 
 rail pick or arrow step re-armed that focus, and that a guest who simply clicked into Compose lost the host's edit too.
 So in a session Compose applies an outside change AT ONCE (`resyncFrom` keeps the caret's slide, line and column), and
 holds it only while an IME composition is open, until it ends. A new `filo-live` case has the guest typing in Compose
-while the host edits, and checks both edits survive. Outside a session the hold-back stays as it was. The one edge left, a change that arrives during an IME composition, is
-`followups.d/3128-p2-compose-live-parked-change.md`. A restore's
+while the host edits, and checks both edits survive. Outside a session the hold-back stays as it was. A change that arrives during an IME composition is held (rebuilding the document would break the
+composition) and MERGED: each local emit while it is held moves the author's edit onto it (`applyOnto`,
+`live/text-rebase.ts`; by position when the two edits touch separate text, which is exact, else by the text around it, as
+the session's own `rebase` does), so the session gets both, and the editor shows the merge once ProseMirror finishes the
+composition. Only two edits to the same text still pick one: the author's, as before. A `filo-live` case composes through
+CDP while the host edits (it failed 2 of 2 before, passes 5 of 5), and a brute-force unit case checks every separated pair
+of edits on a short text. A restore's
 focus also waits for nothing else to have the keyboard: the editor chunk lands about a second after load, and the
 author may already be typing in search, chat or the command palette.
 

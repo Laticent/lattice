@@ -288,6 +288,30 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		await expect(guest.locator('.cs-host .cs-slide').nth(2), "the guest's Compose shows the host's edit").toContainText('HOSTFIRST');
 	});
 
+	// The same, while the guest is mid-composition with an IME (Japanese, Chinese, Korean input): Compose cannot rebuild its
+	// document then, so it holds the host's change, and the composed text used to replace it when the composition ended.
+	// Chromium only: the composition is driven through CDP (`Input.imeSetComposition`), which WebKit and Gecko do not offer.
+	test("a guest composing with an IME in Compose keeps the host's edit that arrived meanwhile", async ({ browser, browserName }, info) => {
+		test.skip(browserName !== 'chromium', 'IME composition is driven through the Chrome DevTools Protocol');
+		const pair = await liveSession(await sessionBrowser(browser), info);
+		const { host, guest } = pair;
+		await openCompose(host);
+		await openCompose(guest);
+		await caretInCompose(guest, 0);
+		await caretInCompose(host, 2);
+		const ime = await guest.context().newCDPSession(guest);
+		await ime.send('Input.imeSetComposition', { text: 'に', selectionStart: 1, selectionEnd: 1 });
+		await expect(guest.locator('.cs-host .cs-slide').first(), 'the composition is on the page').toContainText('に');
+		await host.keyboard.insertText(' HOSTMID');
+		await expect.poll(() => host.evaluate(() => document.querySelector('.cs-host')?.textContent ?? ''), { message: 'the host edit landed' }).toContain('HOSTMID');
+		// The guest's session copy has the host's words while the composition is still open; then it commits.
+		await ime.send('Input.imeSetComposition', { text: 'にほ', selectionStart: 2, selectionEnd: 2 });
+		await ime.send('Input.insertText', { text: 'にほん' });
+		await bothHold(pair, (s) => s.includes('Body three. HOSTMID') && s.includes('にほん'), "the guest's composition dropped the host's edit");
+		await expect(guest.locator('.cs-host .cs-slide').nth(2), "the guest's Compose shows the host's edit").toContainText('HOSTMID');
+		await expect(guest.locator('.cs-host .cs-slide').first(), "the guest's Compose keeps the composed text").toContainText('にほん');
+	});
+
 		test("Compose's pill undoes each person's own edit, and only theirs", async ({ browser }, info) => {
 		const pair = await liveSession(await sessionBrowser(browser), info);
 		const { host, guest } = pair;

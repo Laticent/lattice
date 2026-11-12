@@ -41,6 +41,7 @@ import { registerValue } from './deck-preset';
 import { InsertControls } from './InsertControls';
 import { imageNodeView } from './image-node-view';
 import type { LinkEdit } from './LinkPanel';
+import { applyOnto } from './live/text-rebase';
 import { type MarkerEdit, MarkerPicker } from './MarkerPicker';
 import { mathInlineNodeView, rawBlockNodeView } from './raw-node-view';
 import { blurToDoorbell, undoChord, undoOwner } from './studio-filo';
@@ -2398,6 +2399,9 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// An external source change that arrived while the editor held focus — parked here
 	// and flushed on blur so it is never silently lost (D2). null = nothing pending.
 	const pendingResyncRef = React.useRef<string | null>(null);
+	// A co-editor's change held while an IME composition is open (live sessions only): `base` is the text the editor's own
+	// document says, so each local emit in the meantime is moved onto the held change instead of replacing it.
+	const liveHoldRef = React.useRef<{ base: string } | null>(null);
 	const [failed, setFailed] = React.useState(false);
 	// A change painted by the flash that is out of view: a chip says how many lines are above or below and scrolls to the nearest on a tap.
 	const [flashChip, setFlashChip] = React.useState<{ dir: 'above' | 'below'; n: number; pos: number } | null>(null);
@@ -2610,6 +2614,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			// Filo's text supersedes anything parked: an outside change the undo just took back must not
 			// land on the next blur.
 			pendingResyncRef.current = null;
+			liveHoldRef.current = null;
 			if (text === lastEmittedRef.current) return;
 			const prev = lastEmittedRef.current;
 			const base = baselineRef.current;
@@ -2670,6 +2675,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			}
 			lastEmittedRef.current = text;
 			pendingResyncRef.current = null;
+			liveHoldRef.current = null;
 			// New slides arrive with their pills as text: a silent pass turns them back into objects.
 			const kernels = kernelsRef.current;
 			const t = performance.now();
@@ -3075,6 +3081,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		baselineRef.current = initBaseline(doc);
 		lastEmittedRef.current = src;
 		pendingResyncRef.current = null;
+		liveHoldRef.current = null;
 		// The rebuilt doc has its pills as text again: turn them back into objects (a silent pass, so
 		// no slide is re-serialized and the emit baseline keeps every untouched slide's bytes).
 		const kernels = kernelsRef.current;
@@ -3185,6 +3192,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						// is emitted; the untouched slides keep their cached bytes.
 						historyCommitRef.current?.(next.doc);
 						pendingResyncRef.current = null;
+						liveHoldRef.current = null;
 					} else if (next.doc !== prevDoc && isSilentPass(tr)) {
 						// The inline-object pass changes how a slide is REPRESENTED, never what it says: re-point
 						// the baseline at the new slide nodes and keep every cached byte, and emit nothing.
@@ -3193,15 +3201,29 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						// A fresh local edit supersedes any parked external change — otherwise the
 						// blur flush would replay a now-stale snapshot over the user's typing (the
 						// trio's resync race). Favor the actively-typing author.
-						pendingResyncRef.current = null;
 						// Edit-local emit: only the slide the caret changed is re-serialized;
 						// every untouched slide re-emits its cached bytes (baselineRef).
 						const base = baselineRef.current ?? initBaseline(next.doc);
 						const src = emitDeck(next.doc, base);
 						baselineRef.current = base;
-						lastEmittedRef.current = src;
+						// In a live session a co-editor's change held for an IME composition is MERGED, not superseded: the
+						// author's edit (base to src) is moved onto it, and the merge goes out, so the session keeps both. The
+						// editor shows the merge when the composition ends. An edit that cannot be placed falls back to the rule.
+						const hold = liveHoldRef.current;
+						const held = pendingResyncRef.current;
+						const merged = hold && held != null ? applyOnto(hold.base, src, held) : null;
+						let out = src;
+						if (hold && merged != null) {
+							hold.base = src;
+							pendingResyncRef.current = merged;
+							out = merged;
+						} else {
+							pendingResyncRef.current = null;
+							liveHoldRef.current = null;
+						}
+						lastEmittedRef.current = out;
 						// `close`: this change is its own undo step (a pane pick), never joined to the typing before it.
-						(retiringRef.current ?? onChangeRef.current)(src, closesFiloGroup(tr) ? { close: true, label: tr.getMeta(STEP_LABEL) } : undefined);
+						(retiringRef.current ?? onChangeRef.current)(out, closesFiloGroup(tr) ? { close: true, label: tr.getMeta(STEP_LABEL) } : undefined);
 					} else if (closesFiloGroup(tr)) {
 						// An object edit just committed: the next change starts a new undo step.
 						onCloseGroupRef.current?.();
@@ -3351,6 +3373,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			viewRef.current = null;
 			baselineRef.current = null;
 			pendingResyncRef.current = null;
+			liveHoldRef.current = null;
 		};
 	}, [resetKey, resyncFrom]);
 
@@ -3371,22 +3394,27 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// composition in progress holds it, until the composition ends (the trio's inversion; filo-live.spec.ts).
 		if (liveRef.current) {
 			if (view.composing) {
+				// The text the editor's document says now, read without moving the live baseline.
+				const b = baselineRef.current;
+				if (!liveHoldRef.current) liveHoldRef.current = { base: b ? emitDeck(view.state.doc, { nodes: [...b.nodes], raws: [...b.raws] }) : lastEmittedRef.current };
 				pendingResyncRef.current = source;
-				view.dom.addEventListener(
-					'compositionend',
-					() =>
-						setTimeout(() => {
-							const v = viewRef.current;
-							const pending = pendingResyncRef.current;
-							if (!v || pending == null || v.composing) return;
-							try {
-								resyncFrom(v, pending);
-							} catch (e) {
-								console.error('[compose] live resync', e);
-							}
-						}, 0),
-					{ once: true },
-				);
+				// ProseMirror finishes a composition a beat after `compositionend` (it flushes the composed text then), so the
+				// held change waits until the view says it is done, a bounded number of times.
+				let tries = 0;
+				const settle = () => {
+					const v = viewRef.current;
+					if (!v || pendingResyncRef.current == null || !liveHoldRef.current) return;
+					if (v.composing && ++tries < 100) {
+						setTimeout(settle, 10);
+						return;
+					}
+					try {
+						resyncFrom(v, pendingResyncRef.current);
+					} catch (e) {
+						console.error('[compose] live resync', e);
+					}
+				};
+				view.dom.addEventListener('compositionend', () => setTimeout(settle, 0), { once: true });
 				return;
 			}
 		} else if (view.hasFocus() || (document.activeElement instanceof Element && view.dom.contains(document.activeElement) && document.activeElement.closest('.cs-comment-panel'))) {
