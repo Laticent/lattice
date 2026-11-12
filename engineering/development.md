@@ -528,8 +528,11 @@ instead of 3; both jobs dropped a root build step that repeated the one `npm ci`
 runs `build:uncommitted` instead of the full build (the committed half is in the checkout, and
 `lint`'s `build:check` holds it to its generators): the base measurement 70 s against 150 s. The
 horizontal-overflow guard opens its four widths at once (106 s to 62 s, the same 40 states), and the
-docs tests that slept on the real clock (lessons, caption-rhythm, reveal, deictic: 140 s) run on a
-fake one. Running the route-budget base build in the background beside Vitest was tried and
+docs tests that slept on the real clock (lessons, caption-rhythm, reveal, deictic, live-controller:
+185 s) run on a fake one. live-controller's harness shows the pattern for a test that mixes timers with
+real async work: it counts in-flight WebCrypto calls and setImmediate tasks and moves the fake clock only
+when none is pending, because a fake clock that outruns real work reorders events under load (a first
+attempt without that wait failed 3 of 10 loaded runs). Running the route-budget base build in the background beside Vitest was tried and
 reverted: free on a 4-core sandbox (+12 s), it slowed CI's Vitest from 8m41s to 11m36s, because
 the runner's 4 vCPUs do not behave like 4 idle cores.
 
