@@ -1,4 +1,7 @@
+import { boundaryParser } from '../../../../lib/core/boundary-parser.mjs';
 import { compositionOf, effectiveCard, inkOf, needsInk, pickCardInk, THIN_BACKING } from '../../../../lib/core/card-ink.mjs';
+import { placedPictureInSlide } from '../../../../lib/core/placed-picture.mjs';
+import { deckPlacingClasses } from '../../lib/deck-placing-classes';
 import { getClassTokens } from '../../lib/slide-directives';
 import { type Rgb, sampleBehindCard } from './card-ink-sampler';
 import { deckImageCardClasses, setImageCard } from './slide-provenance';
@@ -56,9 +59,11 @@ function recordAddress(body: string): string | null {
  * The slide's photo, as written, and where its line starts: an old `![bg …](dest)`, a lone `@image{dest, …}` record, or, on a
  * slide that places a picture (`image`, `bleed`), a lone `![title](dest)`, the record's shortcut since 2026-11-10. The engine
  * draws all three as the slide's photo panel. Null when the slide has none, or its address cannot be read (the caller then
- * skips the photo check rather than guess).
+ * skips the photo check rather than guess). `deck`: the classes the slide receives besides the `_class` in `chunk`: the deck's
+ * `class:` tokens (`deckPlacingClasses`), which the engine appends to the slide's own, so a deck-wide `bleed` places the picture
+ * here as it does there; a caller that blanked the chunk's comments passes the slide's own classes here too.
  */
-export function photoAt(chunk: string): { ref: string; index: number } | null {
+export function photoAt(chunk: string, deck: readonly string[] = []): { ref: string; index: number } | null {
 	const bg = /!\[bg[^\]]*\]\(/.exec(chunk);
 	if (bg) {
 		const ref = destinationAt(chunk, bg.index + bg[0].length);
@@ -69,20 +74,21 @@ export function photoAt(chunk: string): { ref: string; index: number } | null {
 		const ref = recordAddress(rec[1]);
 		return ref ? { ref, index: rec.index } : null;
 	}
-	const tokens = getClassTokens(chunk);
-	if ((!tokens.includes('image') && !tokens.includes('bleed')) || tokens.includes('collage')) return null;
-	// The whole line is the picture, as the engine places it (a picture with words after it stays in the text), and only the
-	// slide's ONE such picture: with two, the engine places neither, and a collage packs them as tiles (inversion, F10).
-	const pics = [...chunk.matchAll(/^[ \t]{0,3}!\[[^\]\n]*\]\((?=[^\n]*\)[ \t]*$)/gm)];
-	if (pics.length !== 1) return null;
-	const pic = pics[0];
-	const ref = destinationAt(chunk, pic.index + pic[0].length);
-	return ref ? { ref, index: pic.index } : null;
+	// The shortcut: whether a lone picture is the slide's photo is the engine's rule, asked of the one kernel every reader asks
+	// (lib/core/placed-picture.mjs). It names the picture's line, and the address is read there as written.
+	const placed = placedPictureInSlide(chunk, [...getClassTokens(chunk), ...deck], { md: boundaryParser });
+	if (!placed) return null;
+	const lineStart = placed.line <= 0 ? 0 : chunk.split('\n').slice(0, placed.line).join('\n').length + 1;
+	const open = chunk.indexOf('![', lineStart);
+	if (open < 0) return null;
+	const close = /^!\[[^\]\n]*\]\(/.exec(chunk.slice(open));
+	const ref = close ? destinationAt(chunk, open + close[0].length) : null;
+	return ref ? { ref, index: open } : null;
 }
 
 /** The slide's photo address as written (see `photoAt`), or null. */
-export function photoRefOf(chunk: string): string | null {
-	return photoAt(chunk)?.ref ?? null;
+export function photoRefOf(chunk: string, source = ''): string | null {
+	return photoAt(chunk, source ? deckPlacingClasses(source) : [])?.ref ?? null;
 }
 
 /** The slide's own first heading as written in the source (`## A photo.`), for the preview identity check. */
@@ -91,8 +97,8 @@ export function headingOf(chunk: string): string | null {
 }
 
 /** The colour behind this slide's card, or null when the preview cannot say. */
-export function readBehindCard(chunk: string, slideNumber: number): Promise<Rgb | null> {
-	return sampleBehindCard(slideNumber, headingOf(chunk), photoRefOf(chunk), getClassTokens(chunk));
+export function readBehindCard(chunk: string, slideNumber: number, source = ''): Promise<Rgb | null> {
+	return sampleBehindCard(slideNumber, headingOf(chunk), photoRefOf(chunk, source), getClassTokens(chunk));
 }
 
 /**

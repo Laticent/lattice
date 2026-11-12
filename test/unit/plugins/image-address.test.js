@@ -10,7 +10,10 @@ const { JSDOM } = require('jsdom');
 const engine = require('../../../lib/engine');
 const dispatcher = require('../../../lib/core/inline-code-directives.js');
 const { migrateBgLine, classLineWith } = require('../../../lib/plugins/image/shared/image-migrate.js');
-const { withImageMarkdown } = require('../../../lib/plugins/image/shared/image-marp-export.js');
+const { withImageMarkdown: translate } = require('../../../lib/plugins/image/shared/image-marp-export.js');
+const { picturePlacement } = require('../../../lib/export/picture-placement.js');
+// The translation as the bundle calls it (lib/export/marp-bundle.js): with the export host's reading of where pictures are placed.
+const withImageMarkdown = (md, opts, ctx) => translate(md, { ...opts, placement: picturePlacement(md) }, ctx);
 const { ctxFor } = require('../../../lib/core/plugin-ctx.js');
 const { lintText, buildVocab } = require('../../../lib/authoring/lint.js');
 
@@ -251,6 +254,46 @@ describe('the engine and Export-to-Marp agree on which picture is placed (invers
       const exportSays = withImageMarkdown(md, {}, ctxFor('image')).includes(`![bg](${addr}`);
       assert.equal(engineSays, placed, `the engine (${name})`);
       assert.equal(exportSays, placed, `the export (${name})`);
+    });
+  }
+});
+
+describe('Export-to-Marp writes a placed picture its own line pattern cannot read', () => {
+  // A title holding a parenthesis: the line is written from the parse, address only, because the bundle's lift reads
+  // `![bg](…)` up to the first `)` (lib/core/bg-directive.js); with the title kept, the panel's address came out
+  // `photo.jpg %22Dawn (east` (found by the export comparison on #3132).
+  test('a title with parentheses becomes a clean `![bg](address)`', () => {
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Harbor](https://x.test/p.jpg "Dawn (east)")\n';
+    const out = withImageMarkdown(md, {}, ctxFor('image'));
+    assert.match(out, /^!\[bg\]\(https:\/\/x\.test\/p\.jpg\)$/m);
+  });
+  test('an address in angle brackets is written from the parse, never with its brackets', () => {
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Harbor](<https://x.test/a b.jpg>)\n';
+    assert.match(withImageMarkdown(md, {}, ctxFor('image')), /^!\[bg\]\(https:\/\/x\.test\/a%20b\.jpg\)$/m);
+  });
+  test('an indented closing fence above it does not hide a picture the parse places', () => {
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n- ```\n  x\n  ```\n\n![H](https://x.test/c.jpg)\n';
+    assert.match(withImageMarkdown(md, {}, ctxFor('image')), /^!\[bg\]\(https:\/\/x\.test\/c\.jpg\)$/m);
+  });
+  test('a line of text right under it is kept out of the panel\'s HTML block by a blank line', () => {
+    // The bundle lifts `![bg]` into a raw `<div>` line, and an HTML block runs to the next blank line: without one, a list
+    // right under the picture printed as the text `- a point` in a marp-cli render.
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Harbor](https://x.test/p.jpg)\n- a point\n';
+    assert.match(withImageMarkdown(md, {}, ctxFor('image')), /^!\[bg\]\(https:\/\/x\.test\/p\.jpg\)\n\n- a point$/m);
+  });
+});
+
+describe('the image lint agrees with the placed-picture rule (test/fixtures/placed-picture-cases.json)', () => {
+  // `image-extra-panel` flags a picture exactly where the table says the slide is crowded (several lone pictures, no other
+  // photo, so none is placed), and never a picture the engine places.
+  const { lintTextWith } = require('../../../lib/authoring/lint-core.js');
+  const lintText = (md) => lintTextWith(md, { names: new Set(), modifiers: new Set() });
+  const { cases } = require('../../fixtures/placed-picture-cases.json');
+  for (const { name, md, addr, placed, crowded } of cases) {
+    test(name, () => {
+      const flagged = lintText(md).some((f) => f.rule === 'image-extra-panel' && String(f.line).includes(`(${addr}`));
+      assert.equal(flagged, !!crowded, `image-extra-panel (${name})`);
+      if (placed) assert.equal(flagged, false, `a placed picture is never flagged (${name})`);
     });
   }
 });

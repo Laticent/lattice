@@ -737,3 +737,23 @@ describe('DOM mirror on a raw card section keeps header and footer out of the st
     });
   }
 });
+
+describe("Marp's advanced background sections are not lifted (#3132)", () => {
+  // A `![bg]` on a non-image slide in an Export-to-Marp bundle makes Marp render the slide as three sections that share its
+  // classes; only `content` is the slide. Lifting the `background` one wrapped Marp's container in a stage cell, the figure
+  // came out 0px tall, and every full-bleed background in a Marp bundle drew nothing.
+  test('only the content section is lifted; the background and pseudo sections keep their children', () => {
+    const dom = new JSDOM(`<body>
+      <section class="content bleed form" data-marpit-advanced-background="background"><div data-marpit-advanced-background-container="true" data-marpit-advanced-background-direction="horizontal"><figure style="background-image:url(a.jpg)"></figure></div></section>
+      <section class="content bleed form" data-marpit-advanced-background="content"><h2>T</h2><p>Words.</p></section>
+      <section class="content bleed form" data-marpit-advanced-background="pseudo"></section>
+    </body>`);
+    const doc = dom.window.document;
+    adapter.applyToDom(doc);
+    const [bg, content, pseudo] = doc.querySelectorAll('section');
+    assert.ok(bg.querySelector(':scope > div[data-marpit-advanced-background-container] > figure'), 'Marp\'s container stays a direct child');
+    assert.equal(bg.querySelector('.cell-stage'), null);
+    assert.equal(pseudo.querySelector('.cell-stage'), null);
+    assert.ok(content.querySelector(':scope > .cell-masthead, :scope > .cell-stage'), 'the content section is still lifted');
+  });
+});

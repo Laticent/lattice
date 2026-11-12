@@ -214,3 +214,31 @@ test('the host may name its own origin for fonts, and only an exact origin gets 
     /font-src 'self' data: https:\/\/lattice\.example https:\/\/cdn\.example;/,
   );
 });
+
+test('the host\'s own origin serves its pictures too; a font mirror does not', async () => {
+  // Firefox read the `srcdoc` frame's `'self'` as no origin for pictures as well, so every `sample:` photo the site serves drew
+  // nothing in the Studio's preview, and a `bleed` slide had no photo to read its ink from (#3132).
+  const { subresourceCspPolicy } = await import('../../../lib/core/subresource-csp.mjs');
+  const p = subresourceCspPolicy({ fontOrigins: ['https://lattice.example', 'https://a.com; x'], katexUrl: 'https://cdn.example/katex.css' });
+  assert.match(p, /img-src 'self' data: blob: https:\/\/lattice\.example;/);
+  assert.match(p, /media-src 'self' data: blob: https:\/\/lattice\.example;/);
+  assert.doesNotMatch(p.split(';').filter((d) => /img-src|media-src/.test(d)).join(';'), /cdn\.example|a\.com/);
+  assert.match(subresourceCspPolicy({}), /img-src 'self' data: blob:;/, 'without it, nothing changes');
+});
+
+test('the policy and the markup pass agree on the site\'s own pictures: allowed by both, never on the refused list', async () => {
+  // The preview's markup pass already treats the site's own origin as allowed (`withOwnOrigin`, at every preview call site), so a
+  // same-origin picture is never in `blocked`. The policy now names that origin too, so Firefox loads what the markup pass kept;
+  // a third-party picture stays refused by both (#3132).
+  const { withOwnOrigin } = require('../../../lib/core/remote-ref.js');
+  const { subresourceCspPolicy } = await import('../../../lib/core/subresource-csp.mjs');
+  const own = 'https://lattice.example';
+  const html = `<img src="${own}/samples/photo.svg"><img src="https://tracker.test/p.png">`;
+  const { html: out, blocked } = blockWebImages(html, withOwnOrigin([], own), { DOMParser: null });
+  assert.deepEqual(out.split('"').filter((v) => v === `${own}/samples/photo.svg`).length, 1, 'the site\'s own picture is kept, as its own attribute value');
+  assert.deepEqual(blocked.map((b) => b.origin), ['https://tracker.test'], 'only the third party is refused');
+  const policy = subresourceCspPolicy({ fontOrigins: [own], blocked });
+  const sources = policy.split(';').map((d) => d.trim().split(/\s+/)).find((d) => d[0] === 'img-src').slice(1);
+  assert.deepEqual(sources.filter((src) => src === own), [own], 'the policy loads what the markup pass kept');
+  assert.deepEqual(sources.filter((src) => /^https?:/.test(src) && new URL(src).hostname === 'tracker.test'), [], 'and refuses what it refused');
+});
