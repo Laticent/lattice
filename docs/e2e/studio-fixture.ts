@@ -961,7 +961,37 @@ export async function setEditorContent(page: Page, text: string): Promise<void> 
 	await focusEditor(page);
 	await selectAllInEditor(page);
 	await page.keyboard.press('Delete');
+	// The select-all and the Delete are two events, and a source write that lands between them (a
+	// boot-time hydration, a mapped selection) collapses the selection, so the Delete removes one
+	// character and the deck below goes in at the caret, inside the old one (seen on webkit-phone at
+	// 4 workers: the welcome deck's first 13 lines, then the test deck, then the rest of the welcome
+	// deck). Wait for the signal that matters, an empty document, before inserting.
+	await expect
+		.poll(() => deckEditorText(page), { message: 'setEditorContent: the Delete after select-all left text behind (a late write collapsed the selection)' })
+		.toBe('');
 	await page.keyboard.insertText(text);
+	// And prove the result: a deck that is not exactly `text` fails here, at the helper, instead of
+	// as a confusing assertion three steps later in the spec (HARD RULE #33).
+	await expect
+		.poll(() => deckEditorText(page), { message: 'setEditorContent: the editor does not hold exactly the deck it was given' })
+		.toBe(text);
+}
+
+/**
+ * The deck editor's WHOLE document. CodeMirror virtualizes long documents (the rendered text is
+ * only the visible lines), so read its state through the view the content node carries; the plain
+ * `<textarea>` fallback reports `value`. Null when the deck editor is not on the page.
+ */
+export function deckEditorText(page: Page): Promise<string | null> {
+	return page.evaluate(() => {
+		const el = document.querySelector('[aria-label="Deck source"]');
+		if (!el) return null;
+		if (el instanceof HTMLTextAreaElement) return el.value;
+		// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle (as demo-mobile.spec.ts does).
+		const handle = el as any;
+		const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view ?? null;
+		return view ? view.state.doc.toString() : null;
+	});
 }
 
 /** Below 700px the Studio shows one pane at a time (docs/src/lib/use-breakpoint.ts): the
