@@ -8,6 +8,7 @@ const { MAX_LABEL_TEXT, overlongLabelText, overlongMessage } = require('../../..
 const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
 const { charReads, scanWork } = require('../../helpers/work-count');
 const { assertLinearRegexes } = require('../../helpers/regex-trace');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 const B = '`';
 const fence = (label) => `flowchart LR\n  A["${label}"] --> B\n`;
@@ -73,13 +74,14 @@ test('the check is linear: 2 MB of source, each character searched about once', 
   assert.ok(reads + scanned <= 4 * big.length, `read ${reads + scanned} characters for ${big.length}`);
 });
 
-test('at the cap, the marked Mermaid ships lexes the worst known shapes quickly', async (t) => {
+test('at the cap, the marked Mermaid ships lexes the worst known shapes with bounded work', async (t) => {
   let markedPath;
   try {
     markedPath = require.resolve('marked', { paths: [path.dirname(require.resolve('mermaid/package.json'))] });
   } catch {
-    t.skip('mermaid or its marked is not installed');
-    return;
+    const why = skipUnlessCI(true, 'mermaid or its marked is not installed');
+    if (why) return t.skip(why);
+    throw new Error('mermaid and its marked are dependencies, so CI must have them');
   }
   const { marked } = require(markedPath);
   // Counted, not timed (HARD RULE #32). marked rescans from every position on these shapes: the characters its searches

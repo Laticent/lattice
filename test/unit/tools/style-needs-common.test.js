@@ -12,10 +12,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildLatticeIndex } = require('../../../tools/style-needs-lattice');
 const common = require('../../../tools/style-needs-common');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 const built = fs.existsSync(path.join(__dirname, '../../../dist/styles/manifest.json')) && fs.existsSync(path.join(__dirname, '../../../dist/styles-min/manifest.json'));
 
-describe('style-needs-common', { skip: !built && 'dist/styles is not built' }, () => {
+describe('style-needs-common', { skip: skipUnlessCI(!built, 'dist/styles is not built') }, () => {
   const list = common.read();
 
   test('the ids are real modules, once each; a few stale ones are tolerated, a stale list is not', () => {

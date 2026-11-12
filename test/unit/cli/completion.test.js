@@ -26,6 +26,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const C = require('../../../lib/cli/complete.js');
 const O = require('../../../lib/cli/options.js');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 const FLAG = /'(--?[A-Za-z][\w-]*)'/g;
 /** Flags parseArgs may still name itself: the retired ones it refuses with a pointer. */
@@ -316,7 +317,7 @@ for c in "\${COMPREPLY[@]}"; do printf '%s\\n' "$c"; done`;
     });
   }
 
-  test('PowerShell: through TabExpansion2', { skip: !has('pwsh') && 'pwsh is not installed' }, () => {
+  test('PowerShell: through TabExpansion2', { skip: skipUnlessCI(!has('pwsh'), 'pwsh is not installed') }, () => {
     const f = script('powershell');
     const lines = [
       'lattice --pa', 'lattice --palette=indaco', 'lattice --disable-plugin mermaid,m', 'lattice packages un',
@@ -440,7 +441,7 @@ describe('interactive shells, through a pty', () => {
   }
 
   for (const bin of shells('bash', 'COMPLETION_TEST_BASH')) {
-    test(`bash (${bin}), interactive`, { skip: !python && 'python3 is not installed' }, () => {
+    test(`bash (${bin}), interactive`, { skip: skipUnlessCI(!python, 'python3 is not installed') }, () => {
       const setup = [
         'set -o emacs',
         `source ${file('bash')}`,
@@ -452,11 +453,11 @@ describe('interactive shells, through a pty', () => {
       expectLines(drive([bin, '--norc', '--noprofile', '-i'], setup));
     });
   }
-  test('failing arm: with no script loaded, the same Tab leaves the line as typed', { skip: (!has('bash') && 'bash is not installed') || (!python && 'python3 is not installed') }, () => {
+  test('failing arm: with no script loaded, the same Tab leaves the line as typed', { skip: skipUnlessCI(!has('bash') || !python, 'bash or python3 is not installed') }, () => {
     assert.deepEqual(drive(['bash', '--norc', '--noprofile', '-i'], ['complete -r lattice 2>/dev/null; :'], CASES.slice(0, 2), false), ['lattice --pale', 'lattice --palette=cuoio-d']);
   });
   for (const bin of shells('fish', 'COMPLETION_TEST_FISH')) {
-    test(`fish (${bin}), interactive`, { skip: !python && 'python3 is not installed' }, () => {
+    test(`fish (${bin}), interactive`, { skip: skipUnlessCI(!python, 'python3 is not installed') }, () => {
       expectLines(drive([bin, '--no-config', '-i'], [
         'function fish_prompt; printf "READY> "; end',
         `source ${file('fish')}`,
@@ -469,7 +470,8 @@ describe('interactive shells, through a pty', () => {
   // hyphen-insensitive and substring matchers, menu select) and its own compinit. Opt-in, since
   // it needs a checkout: COMPLETION_TEST_OMZ=/path/to/ohmyzsh.
   const omz = process.env.COMPLETION_TEST_OMZ;
-  test('zsh under oh-my-zsh, interactive', { skip: (!omz && 'set COMPLETION_TEST_OMZ to an oh-my-zsh checkout') || (!has('zsh') && 'zsh is not installed') || (!python && 'python3 is not installed') }, () => {
+  // ci-skip: opt-in; no CI job sets COMPLETION_TEST_OMZ (an oh-my-zsh checkout), and the plain zsh test below runs in CI.
+  test('zsh under oh-my-zsh, interactive', { skip: (!omz && 'set COMPLETION_TEST_OMZ to an oh-my-zsh checkout') || skipUnlessCI(!has('zsh'), 'zsh is not installed') || skipUnlessCI(!python, 'python3 is not installed') }, () => {
     const got = drive(['zsh', '-f', '-i'], [
       `export ZSH=${omz} ZSH_THEME= DISABLE_AUTO_UPDATE=true ZSH_COMPDUMP=${path.join(dir, '.zcompdump')}`,
       'plugins=(git)',
@@ -482,7 +484,7 @@ describe('interactive shells, through a pty', () => {
     ]);
     expectLines(got);
   });
-  test('zsh, interactive', { skip: (!has('zsh') && 'zsh is not installed') || (!python && 'python3 is not installed') }, () => {
+  test('zsh, interactive', { skip: skipUnlessCI(!has('zsh') || !python, 'zsh or python3 is not installed') }, () => {
     const got = drive(['zsh', '-f', '-i'], [
       // zsh picks vi keys when $EDITOR or $VISUAL names vi (npm sets EDITOR); the driver uses emacs keys.
       'bindkey -e',

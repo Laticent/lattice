@@ -450,6 +450,8 @@ describe('wait-for — the lock is the kernel\'s, not ours', () => {
 // This does NOT verify macOS. It verifies the mechanism the macOS path uses.
 // The platform itself stays UNVERIFIED from a Linux sandbox (HARD RULE #23).
 for (const impl of ['flock', 'perl']) {
+  // ci-skip: stock macOS has no flock(1); the macOS suite (.github/platform-suites.json `wait-for-macos`) runs the perl
+  // lock instead, and the Linux unit job has flock, so it runs both.
   describe(`wait-for — the lock via ${impl}`, { skip: impl === 'flock' && !HAS_FLOCK && 'no flock(1) on this box (stock macOS)' }, () => {
     test('refuses a second waiter while the job is held', () => {
       const job = jobName(`impl-${impl}`);

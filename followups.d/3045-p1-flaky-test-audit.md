@@ -141,6 +141,9 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             and fixed: notes-core's comment pattern (polynomial to recheck, run once per `<!--`) is a linear reader
             held to it by a 60,000-input seeded fuzz, with two smaller slow patterns; slice-equivalence's tag strip is
             a backward pass. Real-flake sweep (5 clean, 2 loaded, 1 shuffled `npm test`): see the PR body.
+            Same PR: test/unit's `env-skip` sites (HARD RULE #33, #3144's census) at zero outside components and
+            trama: 33 in 15 files through `skipUnlessCI` / `skipWithoutChrome`, two `ci-skip` notes (oh-my-zsh opt-in;
+            flock on macOS, run by `wait-for-macos`).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; and the F3-F9 sweep's findings are fixed. (The retries half is done: PR #3144 set
             `docs/playwright.config.ts` to `retries: 0` on the owner's 2026-11-12 order, held by `checkPlaywrightRetries`,

@@ -18,9 +18,10 @@ const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const { closeQuietly } = require('../../helpers/jsdom-close');
 const { virtualClock } = require('../../helpers/runtime-boot');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 const RUNTIME = path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js');
-const skip = !fs.existsSync(RUNTIME) && 'dist/ not built';
+const skip = skipUnlessCI(!fs.existsSync(RUNTIME), 'dist/ not built');
 
 // A deck the way Marp renders a bundle: the settings block lands inside slide 1, and a slide's own
 // `_class` REPLACED any deck class Marp knew about (so Marp stamped nothing on those slides).

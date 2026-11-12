@@ -100,29 +100,36 @@ for (const kind of Object.keys(READERS)) {
       assert.deepEqual(charts.filter((c) => !read(c)).map((c) => c.s.id), want);
     });
 
+    // A chart the reader refuses is pinned in REFUSED, and asserted refused here, not skipped (HARD RULE #33): a skip
+    // reads as green whatever the reader did, and a chart that started reading back would go unseen.
+    const refused = new Set((REFUSED[kind] || []).map((r) => /^slide (\d+):/.exec(r)?.[1]));
     for (const c of charts) {
       const name = `slide ${c.s.id} (${clsOf(c.s)})`;
-      test(`${name}: read back and redrawn at the export's box, byte for byte`, (t) => {
+      if (refused.has(c.s.id)) {
+        test(`${name}: refused, so the export keeps its drawing`, () => assert.ok(!read(c), 'a pinned refusal now reads back: update REFUSED'));
+        continue;
+      }
+      test(`${name}: read back and redrawn at the export's box, byte for byte`, () => {
         const list = read(c);
-        if (!list) { t.skip('refused: keeps the exported drawing'); return; }
+        assert.ok(list, 'the reader refused a chart REFUSED does not pin');
         const out = transformChartSection(`<h2>.</h2>${list}`, clsOf(c.s), c.s.getAttribute('data-orientation') || undefined, undefined, null, undefined);
         assert.ok(out.transformed, 'the kernel drew the list');
         const fresh = freshBody(out.html, c.body);
         assert.equal(normalize(fresh.innerHTML), normalize(c.body.innerHTML));
       });
 
-      test(`${name}: passes the runtime's check before trust`, (t) => {
+      test(`${name}: passes the runtime's check before trust`, () => {
         const list = read(c);
-        if (!list) { t.skip('refused'); return; }
+        assert.ok(list, 'the reader refused a chart REFUSED does not pin');
         const rec = { orientation: c.s.getAttribute('data-orientation') || undefined, aspect: undefined, checked: new Map() };
         withDocument(() => assert.equal(verified(rec, list, clsOf(c.s), c.body.cloneNode(true), false), true));
       });
 
       // Only the marks that carry a value are compared: roadmap, journey and some hub-spoke charts have
       // none, so for those this proves the phone drawing draws; the byte-for-byte test above proves the read.
-      test(`${name}: redrawn for a phone, the same valued marks`, (t) => {
+      test(`${name}: redrawn for a phone, the same valued marks`, () => {
         const list = read(c);
-        if (!list) { t.skip('refused'); return; }
+        assert.ok(list, 'the reader refused a chart REFUSED does not pin');
         const out = transformChartSection(`<h2>.</h2>${list}`, clsOf(c.s), 'portrait', { w: 200, h: 188 }, null, undefined);
         assert.ok(out.transformed, 'the kernel drew the list for a phone');
         assert.deepEqual(marks(freshBody(out.html, c.body)), marks(c.body));

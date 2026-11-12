@@ -16,9 +16,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM, VirtualConsole } = require('jsdom');
 const { virtualClock } = require('../../helpers/runtime-boot');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 const RUNTIME = path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js');
-const skip = !fs.existsSync(RUNTIME) && 'dist/ not built';
+const skip = skipUnlessCI(!fs.existsSync(RUNTIME), 'dist/ not built');
 
 // The runtime boots on DOMContentLoaded and draws the buttons inside that boot. The window's timers and animation
 // frames are a virtual clock (test/helpers/runtime-boot.js), so the count is read once the runtime's own queue has run
