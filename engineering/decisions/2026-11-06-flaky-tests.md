@@ -103,6 +103,11 @@ required; a bare `flaky-ok` still counts.
   the runtime's callbacks, so a test that must see an invariant hold THROUGHOUT a run checks every state a frame could
   paint; `runtime-mode-geometry`'s backdrop window used a 10 ms poll on the real clock that saw only the states its ticks
   hit. A settle that never ends is a finding, not a cap to raise: see "The virtual clock found a live loop" below.
+  `settle({ done })` and `advance(ms)` (added 2026-11-12, `test/unit/components/flowchart.test.js`) are for code whose
+  own timers are the behavior under test: `done()` stops at the first resting point where the signal holds (what a
+  polling loop waited for), and `advance(ms)` fires every timer due within `ms`, in order, and no other, so a debounce
+  is checked at 1 ms short of its delay and past it. Name such a helper for what it advances past (`pastRewrap`), not
+  `pause` or `sleep`: the census counts those names as sleeps whatever they do.
 - node:test's `mock.timers` (`setTimeout`, `setInterval`, `Date`) where the code under test reads Node's own timers: a
   timeout bound is checked at 1 ms before and at the bound, which the old `elapsed >= 140 && < 500` window could not do.
 - `test/helpers/work-count.js`: `scanWork(fn)` totals the characters every string search and regex `exec` covered, so a
@@ -195,6 +200,10 @@ The answer for every distinct literal in `lib/**` (keyed on its text, `/source/f
   paragraphs linearly; each is held to its old pattern by a seeded differential fuzz with a mutation arm. Ten of the
   twenty hang guards were retired in part 3 and seven more in part 4 (2026-11-09). The three left are
   chart-row-record's, which run all of lint and wait on the lint-core drain (`followups.d/3045-p2-regex-recheck-gate.md`).
+  A third, found 2026-11-12 when `findQuadrantAxisIssues`'s stopwatch became a trace: `readIsland`'s `bareOpener` in
+  `lib/core/directive-island.mjs`, `^\s*\n\s*(?:\{[^}]*=|@meta\{)`, split a comment's run of blank lines between its
+  two `\s*` (192 ms at 20,000, about 19 s at 200,000). It reads the leading whitespace with `trimStart` now, held to
+  the old pattern by a seeded fuzz of 20,000 draws.
   The trace cannot see a hand-written loop, so each part-4 reader is also held to linear work by `scanWork`
   (test/unit/core/linear-readers-work.test.js), which caught two readers that still searched afresh from every opener.
   recheck cannot model a look-around, so a pattern made linear by one (a look-behind, or the atomic-group idiom

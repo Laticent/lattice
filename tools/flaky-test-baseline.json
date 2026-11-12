@@ -157,24 +157,6 @@
     "test/unit/cli/plugin-returns.test.js": {
       "clock-assert": 2
     },
-    "test/unit/components/cartesian.test.js": {
-      "clock-assert": 1
-    },
-    "test/unit/components/chart-folder-drop.test.js": {
-      "unseeded-random": 1
-    },
-    "test/unit/components/collage-pack.test.js": {
-      "clock-assert": 3
-    },
-    "test/unit/components/flowchart.test.js": {
-      "fixed-sleep": 9
-    },
-    "test/unit/components/hub-spoke.test.js": {
-      "clock-assert": 1
-    },
-    "test/unit/components/lint-core.test.js": {
-      "clock-assert": 4
-    },
     "test/unit/diagnostics/slice-equivalence-core.test.js": {
       "clock-assert": 1
     },

@@ -12,6 +12,7 @@ const assert = require('node:assert/strict');
 const engine = require('../../../lib/engine');
 const { transformSection, payload } = require('../../../lib/plugins/chart-family/kinds/flowchart/flowchart.transform');
 const { browserJs, installFlowchartLayout } = require('../../../lib/plugins/chart-family/kinds/flowchart/flowchart.layout');
+const { virtualClock } = require('../../helpers/runtime-boot');
 const { parseFlowchart, outlineFromMarkdown } = require('../../../lib/core/flowchart-grammar');
 
 const render = (body, cls = 'flowchart') => String((engine.render(`<!-- _class: ${cls} -->\n\n## A flow.\n\n${body}\n`)).html);
@@ -200,6 +201,9 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     const dom = new JSDOM(`<!doctype html><html${liveAttr ? ' data-lattice-live-layout' : ''}><head><script src="https://example.test/lattice-dagre.js"></script></head>` +
       `<body>${wrap(figHtml(['Alpha', 'Beta', 'Gamma']))}</body></html>`, { runScripts: 'outside-only' });
     const w = dom.window;
+    // A virtual clock (HARD RULE #32, F2): the pipeline's own timers (the 300 ms REWRAP_AFTER pause, the 3 s worker
+    // DEADLINE) and the stand-in worker's 5 ms answer fire when the test advances time, never on the machine's.
+    const clock = virtualClock(w);
     w.__latticeDagre = globalThis.__latticeDagre;
     const K = graphLayoutKernel();
     const log = { posts: [], sources: [], answered: 0 };
@@ -215,7 +219,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
         // 'nolines': a search answers the way a search that picks dagre's layout does (no
         // `lines`); the first draw (synchronous, the real kernel) still pins a grid.
         const out = () => { const g = K.layout(d.model, d.sizes, d.opts, globalThis.__latticeDagre); if (mode === 'nolines' && g && d.opts.wrap) delete g.lines; return g; };
-        setTimeout(() => { log.answered++; this.onmessage({ data: { id: d.id, geo: mode === 'null' ? null : JSON.parse(JSON.stringify(out())) } }); }, 5);
+        w.setTimeout(() => { log.answered++; this.onmessage({ data: { id: d.id, geo: mode === 'null' ? null : JSON.parse(JSON.stringify(out())) } }); }, 5);
       }
       terminate() {}
     };
@@ -223,19 +227,15 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     // The Studio replaces the figure on every edit.
     const edit = (names, dir) => { (w.document.querySelector('section') || w.document.body).innerHTML = figHtml(names, dir); pass(); };
     pass();
-    return { w, log, edit, fig: () => w.document.querySelector('.flowchart-figure'), text: () => w.document.querySelector('svg.flowchart-svg').textContent };
+    return { w, log, edit, clock, fig: () => w.document.querySelector('.flowchart-figure'), text: () => w.document.querySelector('svg.flowchart-svg').textContent };
   };
-  // Wait for the stand-in worker to answer every post and the figure to leave pending, not
-  // for a fixed interval: a fixed 60 ms lost the race on a loaded machine. Bounded, so a
-  // real hang still fails the test's own assertions rather than the runner's timeout.
-  const settle = async (t) => {
-    const tick = () => new Promise((r) => setTimeout(r, 10));
-    for (const end = Date.now() + 2000; Date.now() < end;) {
-      await tick();
-      if (t.log.answered === t.log.posts.length && t.fig()?.getAttribute('data-fc-pending') == null) break;
-    }
-    await tick();
-  };
+  // Run the virtual clock until the stand-in worker has answered every post and the figure has
+  // left pending: the signal, not an interval (a fixed 60 ms lost the race on a loaded machine,
+  // and the 10 ms poll that replaced it still read the real clock). Timers fire in time order,
+  // so the 5 ms answers land long before the 300 ms pause; a figure that never settles throws.
+  const settle = (t) => t.clock.settle({
+    done: () => t.log.answered === t.log.posts.length && t.fig()?.getAttribute('data-fc-pending') == null,
+  });
 
   test('the first draw is synchronous and starts no worker', () => {
     const t = setup(true);
@@ -320,20 +320,24 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
 
   // STICKY WRAP (pipeline.ts): a keystroke lays out the grid the last search picked; the
   // search runs again once the author pauses; a newer key cancels that search.
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // The author's pause: past REWRAP_AFTER (300 ms), on the virtual clock.
+  const pastRewrap = (t) => t.clock.advance(360);
   test('a keystroke lays out the pinned grid, and one search follows the pause', async () => {
     const t = setup(true);
     t.edit(['Alpha', 'Beta', 'Delta']);
     await settle(t);
     assert.equal(t.log.posts.length, 1);
-    await sleep(360);
+    // The pause is REWRAP_AFTER (300 ms) from the drawing's answer: 1 ms short of it, still no search.
+    await t.clock.advance(299);
+    assert.equal(t.log.posts.length, 1, 'no search before the pause');
+    await pastRewrap(t);
     await settle(t);
     assert.equal(t.log.posts.length, 2, 'one search after the pause');
     assert.equal(t.log.posts[1].opts.wrap, true);
     assert.equal(t.log.posts[1].opts.grid, undefined);
     assert.match(t.text(), /Delta/);
     // Nothing more: the search kept the wrap, so no further round is asked for.
-    await sleep(360);
+    await pastRewrap(t);
     assert.equal(t.log.posts.length, 2);
   });
 
@@ -343,7 +347,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     await settle(t);
     t.edit(['Alpha', 'Beta', 'Delta']);
     await settle(t);
-    await sleep(360);
+    await pastRewrap(t);
     await settle(t);
     const searches = t.log.posts.filter((p) => p.opts.wrap === true);
     assert.equal(searches.length, 1);
@@ -356,7 +360,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     const t = setup(true, 'nolines');
     t.edit(['Alpha', 'Beta', 'Delta']);
     await settle(t);
-    await sleep(360);
+    await pastRewrap(t);
     await settle(t);
     assert.equal(t.log.posts.length, 2, 'a pinned key, then the pause search');
     t.edit(['Alpha', 'Beta', 'Delt']);
@@ -370,7 +374,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     const t = setup(true);
     t.edit(['Alpha', 'Beta', 'Delta']);
     await settle(t);
-    await sleep(360);
+    await pastRewrap(t);
     await settle(t);
     assert.equal(t.log.posts.length, 2);
     assert.equal(t.log.posts[0].via, 1, 'the key on the live worker');
@@ -392,7 +396,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     await settle(t);
     assert.equal(t.log.posts.length, 1);
     t.log.worker.onerror();
-    await sleep(360);
+    await pastRewrap(t);
     await settle(t);
     assert.equal(t.log.posts.length, 1, 'no search posted to the dropped worker');
     assert.equal(t.fig().getAttribute('data-fc-pending'), null);
@@ -403,7 +407,7 @@ describe('flowchart — live layout: a redraw in the typing preview runs in a wo
     const t = setup(true, 'silent');
     t.edit(['Alpha', 'Beta', 'Delta']);
     assert.equal(t.fig().getAttribute('data-fc-pending'), '1');
-    await new Promise((r) => setTimeout(r, 3200));
+    await t.clock.advance(3200); // past the worker's 3 s DEADLINE
     assert.equal(t.fig().getAttribute('data-fc-pending'), null);
     assert.match(t.text(), /Delta/);
     t.edit(['Alpha', 'Beta', 'Epsilon']);

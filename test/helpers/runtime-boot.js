@@ -57,19 +57,31 @@ function virtualClock(win) {
    * `onStep()`, when given, runs at every resting point: once the job queue has drained after each callback (and before
    * the first). A test that must see an invariant hold THROUGHOUT a run, not only at its end, checks it there; that is
    * every state a frame could paint, where a sampling loop on a real clock saw whichever ones its ticks happened to hit.
+   *
+   * Two ways to stop before the queue is empty, for code whose own timers ARE the behavior under test (a debounce, a
+   * watchdog), where running every timer would skip past the state the test means to read:
+   * - `done()`: stop at the first resting point where it returns true (the signal a polling loop used to wait for);
+   * - `until`: a virtual time; stop before firing any callback due after it, and move the clock there. `advance(ms)`
+   *   is `settle({ until: now + ms })`, the virtual form of a sleep: every timer that would have fired in `ms` fires,
+   *   in order, and none that would not.
    */
-  async function settle({ maxSteps = 500, onStep } = {}) {
+  async function settle({ maxSteps = 500, onStep, done, until } = {}) {
     let steps = 0;
     for (;;) {
       await turn();
       await turn();
       if (onStep) onStep();
-      if (queue.size === 0) return steps;
+      if (done?.()) return steps;
+      let pick = null;
+      for (const [id, t] of queue) if (!pick || t.at < pick[1].at || (t.at === pick[1].at && t.seq < pick[1].seq)) pick = [id, t];
+      if (!pick || (until != null && pick[1].at > until)) {
+        if (done) throw new Error(`settle: nothing left to run${until != null ? ` before ${until} ms` : ''} and done() is still false`);
+        if (until != null) now = Math.max(now, until);
+        return steps;
+      }
       if (steps >= maxSteps) {
         throw new Error(`the runtime still had ${queue.size} callback(s) queued after ${maxSteps}: it never settles`);
       }
-      let pick = null;
-      for (const [id, t] of queue) if (!pick || t.at < pick[1].at || (t.at === pick[1].at && t.seq < pick[1].seq)) pick = [id, t];
       const [id, t] = pick;
       now = Math.max(now, t.at);
       if (t.every) t.at = now + t.every;
@@ -78,7 +90,7 @@ function virtualClock(win) {
       if (typeof t.fn === 'function') t.fn(...t.args);
     }
   }
-  return { settle, now: () => now };
+  return { settle, advance: (ms) => settle({ until: now + ms }), now: () => now };
 }
 
 /**

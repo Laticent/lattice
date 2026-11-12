@@ -118,6 +118,14 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             instead of racing a 10 ms timer against a 50 ms one. The abort test's `elapsed < 1000` is now "settled
             within one turn of the abort". Next by weight: `test/unit/components` (19), `test/unit/trama` (17),
             `test/unit/plugins` (15).
+            2026-11-12 (CI + flaky tests, third PR, P1): `test/unit/components` done, 19 hits in 6 files; the baseline
+            is now 152 hits in 73 files. One `flaky-ok` is left: lint-core's track-directive hang guard (in-regex
+            backtracking that no count sees, and the whole lint still runs non-linear patterns until the lint-core
+            drain), sized 25x over today and 16x under the old 33 s. The rest count work: `packCollage` and the
+            tiered hub-spoke now report their search's work (`opts.work`, `meta.work`), parseAffix and three lint-core
+            scans are a regex trace plus `scanWork`/`charReads`, and flowchart's live-layout tests run on
+            `virtualClock`, which gained `settle({ done })` and `advance(ms)`. Found and fixed: `readIsland`'s
+            `bareOpener` regex was quadratic on a comment of blank lines (lib/core/directive-island.mjs).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
             `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.
