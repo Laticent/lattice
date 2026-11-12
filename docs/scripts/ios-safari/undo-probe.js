@@ -513,7 +513,14 @@ async function latticeUndoProbe() {
 					while (q < a.length - p && q < b.length - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q++;
 					return `${JSON.stringify(a.slice(p, a.length - q))} -> ${JSON.stringify(b.slice(p, b.length - q))} at ${p}`;
 				};
-				miss = ` | MISS: text ${changedAt < 0 ? 'unchanged after 15 s' : `changed ${changedAt} ms after the command`}; from typed ${diff(typed, now)}; ${now === pasted ? 'now equals the deck before the word' : 'not the deck before the word'}; filo ${await k.storedTops()}`;
+				// Who holds which text (StudioShell's `__latticeFiloProbe`): Filo's history, the shell's `source`, the editor,
+				// and the editor's trailing emissions. Filo at the deck-before-word with `source` at the typed text says a
+				// writer put the typed text back after the undo (`catchUpEditor` with an echo left; or a typing transition
+				// landing late); `source` at the deck-before-word with the editor still typed says the editor dropped it.
+				const which = (t) => (t == null ? 'none' : t === pasted ? 'BEFORE-WORD' : t === typed ? 'TYPED' : `other(${t.length})`);
+				const st = window.__latticeFiloProbe?.();
+				const holds = st ? `filo ${which(st.filo)}, source ${which(st.source)}, editor ${which(now)}, echoes ${st.echoes} (newest ${which(st.echoNewest)})` : 'no probe hook';
+				miss = ` | MISS: text ${changedAt < 0 ? 'unchanged after 15 s' : `changed ${changedAt} ms after the command`}; from typed ${diff(typed, now)}; ${now === pasted ? 'now equals the deck before the word' : 'not the deck before the word'}; holds: ${holds}; stored ${await k.storedTops()}`;
 			}
 			await k.sleep(300);
 			bellRows.push(`#${r + 1}: after the wipe undo ${rearmed}; focus kept ${focusKept}; caret ${caretBefore}→${caretAfter}; command ${fired || 'NONE'}; undid the word ${undone}; enabled after ${document.queryCommandEnabled('undo')} | ${(result.events || []).at(-1)}${miss}`);
