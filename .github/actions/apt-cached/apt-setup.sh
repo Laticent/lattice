@@ -34,6 +34,10 @@ CONF
 # image puts azure.archive first, which is how every integration shard of #3136 failed. So the mirrors that never failed
 # lead, the Azure-backed names follow, and security.ubuntu.com, which holds only the security pocket, is last: apt asks
 # it for the others only when every mirror above has failed.
+#
+# Those numbers are from a sandbox, not a GitHub runner. apt-mirror-probe.yml measures this list (it reads it from here)
+# from a runner every four hours and ranks it over the past week in its run summary; re-order from that table, and cite
+# its run here.
 mirrors() {
   printf '%s\tpriority:%s\n' \
     http://mirrors.edge.kernel.org/ubuntu/ 1 \
