@@ -239,13 +239,17 @@ async function main() {
 	const failures = [];
 	let checks = 0;
 
-	// The four widths run at once, one page each: every page spends most of its time in the settle
-	// pauses below, so in series the guard took 1m48s on CI for 40 states. Each width still walks its
-	// cases in order on a page of its own, with the same pauses and the same checks.
+	// The four widths run at once: every page spends most of its time in the settle pauses below, so in
+	// series the guard took 1m48s on CI for 40 states. Each width walks its cases in order, with the same
+	// pauses and the same checks, in a BROWSER CONTEXT OF ITS OWN. Pages that share one context are tabs of
+	// one window, and only the newest is visible: the others report `visibilityState: 'hidden'` and never
+	// run a requestAnimationFrame, so a layout that settles on rAF or a ResizeObserver (a toolbar that
+	// folds) would never settle at those widths. A context per width keeps every page visible.
 	await Promise.all(
 		BREAKPOINTS.map(async ([bp, w, h]) => {
+		const context = await browser.createBrowserContext();
 		for (const c of CASES) {
-			const page = await browser.newPage();
+			const page = await context.newPage();
 			await page.setViewport({ width: w, height: h, deviceScaleFactor: 1 });
 			await page.goto(`http://127.0.0.1:${PORT}${c.path}`, { waitUntil: 'networkidle0', timeout: 45000 });
 			await new Promise((r) => setTimeout(r, 2500));
@@ -288,6 +292,7 @@ async function main() {
 			}
 			await page.close();
 		}
+		await context.close();
 		}),
 	);
 

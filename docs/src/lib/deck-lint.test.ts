@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildDeckIndex } from '@/lib/deck-outline';
 import { partStart, unitAt } from '@/lib/fuoco';
 import { boundaryParser as md } from '../../../lib/core/boundary-parser.js';
+import { splitSlideChunks } from '../../../lib/core/slide-boundaries.mjs';
 import { presentationIndices, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './deck-lint';
 import { stripFrontMatter } from './front-matter';
 
@@ -55,15 +56,29 @@ const FC = { seed: Number(process.env.LATTICE_FC_SEED ?? 20_261_112) };
 
 describe('splitSlides (fuzz)', () => {
 	// An EMPTY chunk is a slide (a trailing or doubled separator renders a blank one), so the property does not
-	// ask for non-empty chunks. What splitSlides promises for ANY input is: it never throws, every chunk is
-	// trimmed, and only a blank FIRST chunk is dropped, as the engine drops it.
-	it('never throws, yields trimmed chunks, and never leads with a blank one, for ANY input', () => {
+	// ask for non-empty chunks. For ANY string it never throws and every chunk is trimmed.
+	it('never throws and yields trimmed chunks, for ANY input', () => {
 		fc.assert(
 			fc.property(fc.string(), (s) => {
 				const out = splitSlides(s);
 				expect(Array.isArray(out)).toBe(true);
 				for (const chunk of out) expect(chunk).toBe(chunk.trim());
-				if (out.length > 1) expect(out[0].length).toBeGreaterThan(0);
+			}),
+			FC,
+		);
+	});
+
+	// fc.string() draws no newline, so it never makes a separator. This property builds decks from separators,
+	// headings, prose and blank lines, and holds splitSlides to the engine's own kernel (splitSlideChunks, the
+	// split the renderer uses): the same slides, blank ones included, with only a blank FIRST chunk dropped.
+	it('splits a deck of separators, headings and prose exactly as the engine kernel does', () => {
+		const piece = fc.constantFrom('---', '___', '***', '- - -', '# A', '## B', 'prose', '- item', '');
+		fc.assert(
+			fc.property(fc.array(piece, { maxLength: 10 }), (pieces) => {
+				const body = pieces.join('\n\n');
+				// One documented difference: an empty body is no slides here (`splitSlides('')` is []), one empty chunk there.
+				const kernel = body.trim() ? splitSlideChunks(body).chunks.map((c: string) => c.trim()) : [];
+				expect(splitSlides(body)).toEqual(kernel);
 			}),
 			FC,
 		);
@@ -83,6 +98,8 @@ describe('splitSlides (fuzz)', () => {
 		// The engine drops the blank chunk before the break and renders the one after it (lib/engine/slides.js
 		// `splitOnHr`; checked: `render("___")` emits one <section>). Every thematic-break spelling counts.
 		for (const sep of ['___', '---', '***', '- - -']) expect(splitSlides(sep), sep).toEqual(['']);
+		// Two separators are two blank slides: the blank chunk before the first is dropped, the other two are not.
+		expect(splitSlides('___\n\n___')).toEqual(['', '']);
 		expect(splitSlides('# A\n\n---\n')).toEqual(['# A', '']);
 	});
 

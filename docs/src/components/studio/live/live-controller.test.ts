@@ -92,6 +92,9 @@ const realSleep = ((real) => (ms: number) => new Promise<void>((r) => real(r, ms
 const LATE_POLLS = 100;
 const LATE_PAUSE_MS = 20;
 const realImmediate = globalThis.setImmediate;
+const realClearImmediate = globalThis.clearImmediate;
+/** setImmediate tasks counted in `inFlight` and not yet run, so a cleared one is uncounted too. */
+const pendingImmediates = new Set<unknown>();
 const realTurn = () => new Promise<void>((r) => realImmediate(r));
 let inFlight = 0;
 const SUBTLE = ['digest', 'generateKey', 'exportKey', 'importKey', 'sign', 'verify', 'encrypt', 'decrypt', 'deriveKey', 'deriveBits', 'wrapKey', 'unwrapKey'] as const;
@@ -112,17 +115,27 @@ function countRealWork() {
 	}
 	globalThis.setImmediate = ((fn: (...a: unknown[]) => void, ...a: unknown[]) => {
 		inFlight++;
-		return realImmediate(() => {
+		const handle = realImmediate(() => {
+			pendingImmediates.delete(handle);
 			inFlight--;
 			fn(...a);
 		});
+		pendingImmediates.add(handle);
+		return handle;
 	}) as typeof setImmediate;
+	globalThis.clearImmediate = ((handle: unknown) => {
+		if (pendingImmediates.delete(handle)) inFlight--;
+		realClearImmediate(handle as Parameters<typeof clearImmediate>[0]);
+	}) as typeof clearImmediate;
 }
 function stopCounting() {
 	const subtle = globalThis.crypto.subtle as unknown as Record<string, unknown>;
 	for (const name of subtleReal.keys()) delete subtle[name];
 	subtleReal.clear();
 	globalThis.setImmediate = realImmediate;
+	globalThis.clearImmediate = realClearImmediate;
+	pendingImmediates.clear();
+	inFlight = 0;
 }
 /** Real turns until no counted work is in flight. Capped at 2 s of real time, so a count that leaks reports
  *  through the test's own assertion rather than hanging it. */
