@@ -41,6 +41,7 @@ import type { SingleSlideOptions } from '@/playground/single-slide-render';
 import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { splitSlides } from '../../lib/deck-lint';
 import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from '../../lib/front-matter';
+import { writeSrcdoc } from '../../lib/srcdoc-write.js';
 import { downloadBlob, downloadUrl, isIOSLike, namedFileUrl, needsPdfToPrint } from './download';
 import { OffFencesNotice } from './OffFencesNotice';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
@@ -194,7 +195,8 @@ function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialo
 	}
 	const entry: PrintFrame = { frame, doc, loaded: false };
 	frame.onload = () => { entry.loaded = true; printWhenReady(frame); };
-	frame.srcdoc = doc;
+	// writeSrcdoc: a kept frame is rewritten, and Firefox gives a rewritten frame no service worker (lib/srcdoc-write.js).
+	writeSrcdoc(frame, doc);
 	slot.current = entry;
 	if (!kept) document.body.appendChild(frame);
 	// Safety: if load never fires, release the caller's loading state.
@@ -433,6 +435,12 @@ export function PrintOptionsPanel({
 			});
 		});
 	}, [render, sections, pageIdx, nup, pooled]);
+	// A new set of documents gets new frames: React would otherwise set `srcdoc` on the frame already in the page, and Firefox
+	// gives such a frame no service worker, so offline its fonts and runtime fail (lib/srcdoc-write.js). A frame React builds
+	// fresh gets `srcdoc` before it is inserted, which Firefox does control.
+	const docsGenRef = React.useRef(0);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the generation must change exactly when the documents do.
+	const docsGen = React.useMemo(() => ++docsGenRef.current, [previewDocs]);
 
 	const { paper, orientation, layout } = opts;
 	// Does the built PDF match the CURRENT settings? Drives the iOS button (build vs open).
@@ -668,7 +676,7 @@ export function PrintOptionsPanel({
 							const doc = previewDocs[k];
 							if (!doc) return null;
 							const slideIdx = pageIdx * nup + k;
-							return <iframe key={slideIdx} title={`Print preview slide ${slideIdx + 1}`} className="pod-frame" scrolling="no" srcDoc={doc} style={{ left: `${cr.left}%`, top: `${cr.top}%`, width: `${cr.width}%`, height: `${cr.height}%` }} />;
+							return <iframe key={`${slideIdx}:${docsGen}`} title={`Print preview slide ${slideIdx + 1}`} className="pod-frame" scrolling="no" srcDoc={doc} style={{ left: `${cr.left}%`, top: `${cr.top}%`, width: `${cr.width}%`, height: `${cr.height}%` }} />;
 						})}
 						{notesRect ? (
 							<div className="pod-notes" style={{ left: `${notesRect.left}%`, top: `${notesRect.top}%`, width: `${notesRect.width}%`, height: `${notesRect.height}%` }}>

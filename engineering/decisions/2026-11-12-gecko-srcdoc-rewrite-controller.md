@@ -1,96 +1,129 @@
 ---
 status: in-progress
-summary: Offline on Firefox the Studio preview stopped drawing after the first edit. The cause is a Gecko behavior, not srcdoc routing in general — a frame's FIRST srcdoc document is a service-worker client, but setting `srcdoc` AGAIN on the same element gives a document with no controller, online and offline alike, so its runtime, fonts and Mermaid go to the network. Chromium and WebKit keep the controller. Fix: `docs/src/lib/srcdoc-write.js` `writeSrcdoc` detaches the frame, assigns, and re-inserts it when the page is controlled and the frame already holds a srcdoc document. The markup is unchanged (HARD RULE #22 untouched), one code path for every engine, no measurable cost. #3152's diagnosis ("Gecko never routes a srcdoc frame through the worker") was a misread of a CSP block.
+summary: Offline on Firefox the Studio preview drew nothing. Gecko gives a srcdoc document the page's service worker only when `srcdoc` was set BEFORE the frame entered the page; a rewrite, or a first write into a frame appended empty, gets none, so the runtime, fonts and Mermaid go to the network. Chromium and WebKit control every case. Fix — `docs/src/lib/srcdoc-write.js` `writeSrcdoc`: a new frame is written, then appended; a live frame is detached, written and put back, but only on an engine a one-off probe shows drops the controller (no user-agent test; it switches off when Gecko is fixed). Markup unchanged (HARD RULE #22). #3152's "Gecko never routes srcdoc" was a misread of a CSP `'self'` block. The gecko e2e cannot pass reliably until Playwright's Firefox driver stops crashing on a re-inserted frame.
 ---
 
-# Firefox: a srcdoc REWRITE loses the service worker
+# Firefox: a srcdoc set on a live frame loses the service worker
 
-**Date:** 2026-11-12 · **Status:** DECIDED (decision D2 option A, a dedicated session with the adversarial trio) ·
-**Scope:** the docs site's live preview frames (the Studio's `single-slide-render.ts`, the Playground's `deck-render.js`).
-No export path, no builder's markup.
+**Date:** 2026-11-12 · **Status:** in progress (the fix is in PR; the gecko e2e waits on #3152 and on a Playwright
+decision, §7) · **Scope:** the docs site's preview frames that the Studio, the Playground and Print rewrite. No export
+path, no builder's markup.
 
 ## 1. The answer
 
-A document reached by setting `srcdoc` a second time on the same `<iframe>` gets no service-worker controller in Gecko.
-The Studio preview writes `srcdoc` on every full render, so from the first edit on, the preview's `lattice-runtime.js`,
-its theme fonts and Mermaid are fetched from the network. Offline, every one of them fails and nothing hydrates. The fix
-re-inserts the frame around the assignment, which gives it a fresh browsing context, and Gecko makes that one a client.
+Gecko hands a `srcdoc` document the page's service-worker controller only when `srcdoc` was set before the frame went
+into the page. The Studio appended its frame empty and wrote it afterward, then wrote it again on every full render, so
+none of its documents was a worker client. Offline, `lattice-runtime.js`, the theme fonts and Mermaid all failed, and
+nothing hydrated.
+
+The fix writes a new frame before appending it. A frame already in the page is taken out, written and put back, which
+gives it a fresh browsing context that Gecko does control. That second move runs only on an engine that needs it.
 
 ## 2. What was measured (Firefox 142.0.1, Playwright's `gecko` project, the built site over `serve-dist.ts`)
 
-Each probe made its frames from the top page of a controlled Studio session, then fetched
-`/playground/v/<hash>/lattice-runtime.js` from inside the frame.
+Frames made from the top page of a controlled Studio session; each fetched `/playground/v/<hash>/lattice-runtime.js`
+from inside the frame, offline.
 
-| Frame | `navigator.serviceWorker.controller` in the frame | fetch, offline |
+| Frame | controller in the frame | fetch, offline |
 |---|---|---|
-| first `srcdoc` write on a new element | set | 200 from the worker (1,473,476 bytes) |
-| `srcdoc` set again on that element | **null** | **fails** |
-| third write | null | fails |
+| `srcdoc` set, then appended | set | 200 from the worker (1,473,476 bytes) |
+| that frame, `srcdoc` set again | **null** | **fails** |
+| a third write | null | fails |
 | `removeAttribute('srcdoc')`, then set | null | fails |
 | `src = 'about:blank'`, load, then set `srcdoc` | null | fails |
+| detach, set `srcdoc`, put back at the same place | set | 200 |
 | a fresh element | set | 200 |
-| detach, set `srcdoc`, re-insert at the same place | set | 200 |
 | about:blank (no src), a same-origin `src`, a `blob:` document | set | 200 |
 
-The second row behaves the same ONLINE: the frame is still uncontrolled and its requests go to the network, which
-answers, so nobody saw it. Chromium (desktop) and WebKit (`webkit-tablet`) return "set, 200" for every row.
+The independent checker found the row this table first missed, on the same Firefox build with a minimal pass-through
+worker: a frame **appended empty and then written** is uncontrolled on its first document too (Chromium: controlled).
+That is how `mountLiveFrame` built the Studio's frame. The red team found the same for a frame that exists before the
+page is controlled. Online, all of these go to the network and succeed, so nobody saw it. Chromium (desktop) and WebKit
+(`webkit-tablet`) are controlled in every row.
 
-The Studio's live frame shows the same thing end to end. After the offline edit, its resource timing lists
-`lattice-runtime.js` and the JetBrains Mono faces with status 0, and the console reports
-`downloadable font: download failed … status=2152398861` (NS_ERROR_CONNECTION_REFUSED).
+In the Studio, after an offline edit, the live frame's resource timing lists `lattice-runtime.js` and the JetBrains Mono
+faces with status 0, and the console reports `downloadable font: download failed … status=2152398861`
+(NS_ERROR_CONNECTION_REFUSED).
 
 ### Why #3152 concluded otherwise
 
-#3152 fetched the runtime from inside the live preview frame and saw it fail for every cache mode, while the controller
-read "set". Two things were mixed in that probe. First, the frame it read may have been a first-write document while
-the failing loads came from a rewrite. Second, the preview's meta CSP has `connect-src 'self'`, and **in a srcdoc frame
-Gecko does not match `'self'` to the parent's origin**: `fetch` is blocked by CSP online and offline alike (console:
-"The page's settings blocked the loading of a resource (connect-src)"). Measured: `connect-src 'self'` and
-`default-src 'self'` fail, while `connect-src <the origin>`, `connect-src *` and an unrelated directive (`img-src 'self'`)
-pass. So an in-frame `fetch` cannot test service-worker routing in this frame. The `<script src>`, the fonts and Mermaid
-are governed by `script-src` (nonce, `strict-dynamic`) and `font-src` (the origin is listed explicitly), so the CSP
-trap does not touch them. The worker trap does.
+#3152 fetched the runtime from inside the live frame and saw it fail for every cache mode. But the preview's meta CSP
+has `connect-src 'self'`, and **in a Gecko srcdoc frame `'self'` does not match the parent's origin**: that `fetch` is
+blocked by CSP online and offline alike (console: "The page's settings blocked the loading of a resource (connect-src)").
+Measured: `connect-src 'self'` and `default-src 'self'` fail; `connect-src <the origin>`, `connect-src *` and an
+unrelated directive pass. So an in-frame `fetch` cannot test the worker in this frame. The `<script src>` is allowed by
+nonce, and `font-src` already names the origin (a fix for this same gap), so the CSP trap does not touch the preview's
+own loads.
+
+It does touch images. The inversion reviewer measured `img-src 'self'` blocking a same-origin `<img>` in a Gecko srcdoc
+frame, and the preview policy's `img-src` and `media-src` are `'self' data: blob:` (`lib/core/subresource-csp.mjs`), so
+a `sample:` image is likely blocked in the Firefox preview online and offline. That is pre-existing and the fix is one
+line, but the Studio's export capture frame shares the policy, so the fix changes a Firefox export's bytes. That needs
+the owner's sign-off (QUALITY BAR, exports), so it is a decision, not part of this change (§7).
 
 ### Upstream
 
 No Gecko bug matches. Bug 1426979 (fixed in Firefox 59) made about:blank and about:srcdoc documents keep their
-controller, and its tests cover a first load only. Bug 1942354 (Firefox 136) is about srcdoc inheritance in general.
-Filing a new report is an outward-facing act, so it is left to the owner (follow-up note,
-`followups.d/gecko-srcdoc-rewrite-upstream.md`).
+controller on a first load; Bug 1942354 (Firefox 136) is about srcdoc inheritance in general. Filing a report is an
+outward-facing act, so it is left to the owner (§7).
 
 ## 3. Options
 
 | Option | What it costs | Verdict |
 |---|---|---|
-| **A. Re-insert the frame around a rewrite** (`writeSrcdoc`) | 40 lines; the frame's window is a new object after a write | **chosen** |
-| B. Give the frame a real same-origin URL the worker serves | a new route the worker must synthesize from the parent's markup, a second path for an uncontrolled first visit, and a builder change at the #22 sink | larger than the defect |
-| C. The parent supplies the bytes (inline the runtime, blob URLs) | 1.4 MB re-parsed per write, or a blob per asset; the runtime's "load Mermaid beside me" and every `url()` in the theme would need rewriting; touches what markup the frame receives (#22) | larger, and riskier |
-| D. A fresh `<iframe>` element per write | callers hold the element (React refs, `host` lookups, `onload`); every one would need re-wiring | larger than A for the same effect |
-| E. Re-insert on Gecko only (user-agent test) | Chromium CI never runs the branch; a sniff to maintain | rejected: A costs nothing measurable (§5) |
+| **A. Write a new frame before appending it; re-insert a live frame around a write** (`writeSrcdoc`) | ~100 lines with the probe; the frame's window is a new object after a re-insert | **chosen** |
+| B. Give the frame a real same-origin URL the worker serves | a route the worker must synthesize from the parent's markup, a second path for an uncontrolled first visit, a builder change at the #22 sink | larger than the defect |
+| C. The parent supplies the bytes (inline the runtime, blob URLs) | 1.4 MB re-parsed per write, or a blob per asset; every `url()` in the theme rewritten; changes what markup the frame receives (#22) | larger, riskier |
+| D. A fresh `<iframe>` element per write | every caller holds the element (React refs, `host` lookups, `onload`) | larger than A for the same effect |
+| E. Re-insert on every engine | no probe | rejected after measuring (§5) |
+| F. Re-insert on Gecko only, by user-agent | a sniff to maintain, and it never switches off | rejected for the probe |
 
-## 4. The fix, and what it keeps
+## 4. The fix
 
-`writeSrcdoc(frame, html)` assigns in place unless the page has a controller AND the frame is connected AND it already
-holds a `srcdoc` document. Then it removes the frame, assigns, and inserts it back before the same sibling. If the
-frame had focus, it gets focus back (the preview's keyboard verbs live on it). The element is the same object, so its
-id, classes, inline style, `onload` and listeners survive. Its window is new, which matters only to code that cached
-`contentWindow` across a write; an audit of every `contentWindow` read under `docs/src` found none that does (each reads
-it after the load).
+`writeSrcdoc(frame, html, parent?)`:
 
-**HARD RULE #22.** The helper never sees markup it did not get from a builder: each call site passes exactly what it
-assigned to `.srcdoc` before (`srcdoc()` in `single-slide-render.ts`, `buildSrcdoc` in `deck-render.js`, both
-sanitized). No allowlist changes. The frame's CSP, nonce and sandbox are as before.
+1. **A frame not in the page** is written, then appended to `parent`. Every engine controls that shape, so it needs no
+   probe. `mountLiveFrame` no longer appends; both of its callers write in the same task and pass `host`.
+2. **A frame in the page, on a controlled page,** is detached, written and put back before the same sibling, unless the
+   probe has shown this engine keeps the controller. Focus that was on the frame comes back (looked up on the frame's
+   own root, so a shadow root works). If the sibling moved, the frame is appended instead, never left out of the page.
+3. **Otherwise** the write is in place, as before.
 
-**Not changed:** the export capture frame (`deck-export.js` `createCaptureFrame`), Print (`PrintOptionsPanel.tsx`) and
-the player prune frame (`player-prune-browser.ts`) each write `srcdoc` once into a frame they just created, and a first
-write is controlled in every engine (§2). The sandboxed draw and code-package frames have an opaque origin, which is
-never a worker client in any engine; the draw host already falls back to the page for that. A future builder that
-rewrites a live frame should call `writeSrcdoc` too.
+**The probe.** The first re-insert on a page starts it: a hidden 1×1 frame written twice, then read. "Controller kept"
+sends that page back to in-place writes for good; "dropped" keeps re-inserting; a first document with no controller at
+all (an engine that never serves srcdoc frames) also turns re-inserting off, since it cannot help. It writes two empty
+paragraphs, never the deck. Measured by the red team: Firefox answers "drops" in 19 ms, Chromium "keeps" in 25 ms, WebKit
+"keeps" in 14 ms.
+
+**Call sites.** `single-slide-render.ts` (the bake write and the full write), `deck-render.js` (the Playground),
+`PrintOptionsPanel.tsx` (Print reuses its kept frame, which the first draft of this note wrongly listed as written once).
+The non-pooled print preview renders `<iframe srcDoc>` through React. Its key now changes with each new set of documents,
+so React builds a fresh frame (written before it is inserted) instead of setting `srcdoc` on the one in the page.
+
+**HARD RULE #22.** Every call passes exactly the expression it assigned before (`srcdoc()`, `buildSrcdoc(…)`, Print's
+`doc`), all built and sanitized upstream. No allowlist changes. The gates key on the builders, not the assignment, and
+`build:check` passes all four #22 checks. The frame's CSP, nonce and sandbox are unchanged.
+
+**Not changed, and why.** The export capture frame (`deck-export.js` `createCaptureFrame`) and the player prune frame
+(`player-prune-browser.ts`) append an empty frame and then write it, so by §2 they are uncontrolled on Firefox and an
+offline Firefox export would miss its runtime and fonts. That is pre-existing and on the export path, which needs the
+owner's sign-off, so it is recorded as a follow-up rather than changed here. The sandboxed draw and code-package frames
+have an opaque origin, which is never a worker client in any engine; the draw host already falls back for that.
+
+**Behavior a reviewer should know about.**
+- After a re-insert, `frame.contentDocument` is a fresh `about:blank` until the new document commits, where an in-place
+  write kept the outgoing one. In `deck-render.js`, a second full write in that gap reads no anchor and opens at slide 1.
+  On Gecko an in-place write already blanks the document early (§5), so this is close to what Gecko did before.
+- Re-inserting a focused frame fires the parent window's `focus` (and `blur` on Chromium and WebKit). Two handlers wake
+  up (`StudioShell` asset refresh, `PlaygroundApp` hand-off check); both are idempotent. With the probe, Chromium and
+  WebKit see it at most once per page.
+- Exactly one `load` fires per write, for the new document (checked in all three engines, including a write during an
+  in-flight load). `history.length` does not grow. Scroll position, ResizeObserver and keyboard input to the new
+  document survive.
 
 ## 5. Cost
 
-Median time from the write to the runtime's boot mark, ten rewrites each of the real Studio preview document, same
-machine, three runs:
+Time from the write to the runtime's boot mark, ten rewrites of the real Studio preview document, three runs, medians:
 
 | Engine | in place | re-insert |
 |---|---|---|
@@ -98,13 +131,42 @@ machine, three runs:
 | Gecko | 217 / 243 / 231 ms | 239 / 255 / 228 ms |
 | WebKit | 181 / 231 / 186 ms | 211 / 229 / 193 ms |
 
-The run-to-run spread is larger than the difference in every engine, so the fix ships for all of them.
+Load time is within noise. What the screen shows is not: animation frames with no slide in the frame, six writes each,
+
+| Engine | in place | re-insert |
+|---|---|---|
+| Chromium | 0,1,0,0,0,0 | 0,1,0,1,1,0 |
+| WebKit | 0,0,0,0,0,0 | 0,0,1,0,0,0 |
+| Gecko | 4,4,7,7,5,6 | 5,5,5,5,5,7 |
+
+Re-inserting adds an occasional one-frame blank on Chromium and WebKit, which gain nothing from it. Gecko already
+blanks during an in-place write. Hence the probe: Chromium and WebKit re-insert at most once per page. (The checker's
+pixel sample of a slow load showed no difference; the frame count above is the stricter measure.)
 
 ## 6. Evidence
 
-`docs/e2e/studio-warm-offline.spec.ts` "a diagram never rendered online draws offline" on gecko, webkit-tablet and
-desktop; the failing arm and the repeat counts are in the PR. Unit: `docs/src/lib/srcdoc-write.test.ts`.
+The test is `studio-warm-offline.spec.ts`, "a diagram never rendered online draws offline". It needs #3152's draw-host
+and `serve-dist` fixes, which are not on `main` yet, so these runs used #3152's four product files applied locally and
+not committed. The editor is focused rather than clicked (Playwright's mouse input hangs offline on Gecko, even on the
+bare `/offline/` page); the assertion reads the live frame's document through `page.evaluate`.
 
-**A harness note, not a product one.** Offline on Gecko, Playwright's mouse input hangs after `serve-dist`'s server is
-closed, even on the bare `/offline/` page, while the keyboard and `evaluate` answer. So that spec focuses the editor
-instead of clicking it. A real user's click is an OS event and never goes through that path.
+| Run | Result |
+|---|---|
+| desktop, 10 repeats alone / under load | 10/10, 10/10 |
+| webkit-tablet, 10 repeats alone / under load | 10/10, 10/10 |
+| gecko, 10 repeats alone / under load | 2/10, 8/10 — every failure is the Playwright driver crash (§7), none the product |
+| gecko, fix reverted (append, then assign) | 3/3 red: `ctrl=false`, no diagram |
+
+Unit: `docs/src/lib/srcdoc-write.test.ts` (13 cells: the three paths, the probe's three verdicts, focus, sibling order,
+detached frames, no service-worker API).
+
+## 7. Open, for the owner
+
+1. **The gecko e2e.** Playwright's `FrameManager.frameCommittedNewDocumentNavigation` (1.56.1 and upstream `main`) does
+   not guard an unknown frame, and Firefox reports one when a page re-inserts an iframe. The spec cannot pass reliably on
+   gecko until that is guarded: by a `patch-package` patch in `docs/patches/` (the repo already patches `sonner`), by an
+   upstream fix, or by keeping the gecko case `fixme` with that reason.
+2. **Same-origin images in the Firefox preview** (§2): add the page's origin to `img-src` and `media-src` as `font-src`
+   already does. This changes a Firefox export's bytes.
+3. **Offline Firefox export** (§4): route the capture and prune frames through `writeSrcdoc`. Export path.
+4. **Upstream reports** to Mozilla (§2) and Playwright (item 1).

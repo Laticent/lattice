@@ -1409,7 +1409,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// for what's behind it (e.g. the landing hero preview) during the load window. Hold
 		// pointer-events off until scaleFrame reveals it (which clears this alongside opacity).
 		fr.style.pointerEvents = 'none';
-		host.appendChild(fr);
+		// NOT appended here: the first write puts it in `host` after its `srcdoc` is set (writeSrcdoc's `parent`). Firefox
+		// gives a srcdoc document the service worker only when `srcdoc` was set before the frame entered the page, so an
+		// empty frame appended first would draw nothing offline (lib/srcdoc-write.js). Both callers write in the same task.
 		// The CONTENT-DRIVEN reveal poll is armed below, at the srcdoc-write site, so it
 		// covers EVERY full write (this first mount AND every subsequent edit) — not just
 		// the create branch. See the block after `fr.srcdoc = …` (#1163).
@@ -1496,7 +1498,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			liveHost.__latticePendingLoad = true;
 			liveHost.__latticeShownSlide = bake.host.shownSlide;
 			// writeSrcdoc, not `fr.srcdoc =`: a rewrite keeps Firefox's service worker serving the frame (lib/srcdoc-write.js).
-			writeSrcdoc(fr, srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss));
+			writeSrcdoc(fr, srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss), host);
 			scaleFrame(host);
 			// The same content-driven reveal poll a full write arms, for the same reason: iOS drops srcdoc `onload`.
 			let ticks = 0;
@@ -2644,9 +2646,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				});
 				(host as LiveHost).__latticeDocSettle = () => settleWrite();
 				captureWrite?.({ html: out.html, css: out.css, mode, drawn, geom, extraCss: extraCss || '' });
-				// writeSrcdoc, not `fr.srcdoc =`: on Firefox a second srcdoc write loses the service worker, so offline the
+				// writeSrcdoc, not `fr.srcdoc =`: on Firefox a srcdoc set on a frame already in the page loses the service worker, so offline the
 				// runtime, fonts and Mermaid fail to load after the first edit (lib/srcdoc-write.js).
-				writeSrcdoc(fr, srcdoc(out.html, out.css, mode, drawn, geom, extraCss));
+				writeSrcdoc(fr, srcdoc(out.html, out.css, mode, drawn, geom, extraCss), host);
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
 				sanitizeMs = lastSanitizeMs;

@@ -329,6 +329,39 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   is a `connect-src` fetch like any other. The same applies to `XMLHttpRequest`
   and to `new EventSource`/`WebSocket` against a same-document payload.
 
+## Firefox: a `srcdoc` set on a frame already in the page gets no service worker
+
+- **Symptom:** offline on Firefox, the Studio preview shows the slide but its runtime, theme fonts and Mermaid never
+  load (status 0, `NS_ERROR_CONNECTION_REFUSED`), so no fence draws. Inside the frame
+  `navigator.serviceWorker.controller` is `null`. Online it looks fine, because the requests reach the network.
+- **Cause:** Gecko gives a `srcdoc` document the page's controller only when `srcdoc` was set BEFORE the frame entered
+  the page. A rewrite, or a first write into a frame appended empty, gets none. Removing the attribute first or loading
+  `about:blank` in between does not help. Chromium and WebKit control all of these.
+- **A trap while diagnosing it:** in a Gecko `srcdoc` frame, CSP `'self'` does not match the parent's origin. The preview
+  policy's `connect-src 'self'` blocks an in-frame `fetch` of a same-origin URL online and offline alike, so a `fetch`
+  probe from inside the frame says nothing about the worker. `img-src 'self'` and `media-src 'self'` have the same gap.
+- **Mitigation:** write preview frames through `writeSrcdoc` (`docs/src/lib/srcdoc-write.js`). A frame not yet in the
+  page is written, then appended; a frame already in the page is detached, written and put back, on an engine whose
+  one-off probe showed it drops the controller. Record:
+  `engineering/decisions/2026-11-12-gecko-srcdoc-rewrite-controller.md`.
+- **Triggered by:** any same-origin `srcdoc` frame whose subresources must load offline on Firefox.
+- **Removable when:** Gecko keeps the controller on a `srcdoc` set on a live frame. The probe then answers "keeps" and the
+  re-insert stops by itself; the append-after-write order costs nothing either way.
+
+## Playwright's Firefox driver crashes when a page re-inserts an iframe
+
+- **Symptom:** a `gecko` run dies with `TypeError: Cannot read properties of undefined (reading 'childFrames')` at
+  whatever Playwright call was pending, or a `contentFrame()` locator never finds an element the page plainly has.
+- **Cause:** `FrameManager.frameCommittedNewDocumentNavigation` in `playwright-core` (1.56.1, and upstream `main` on
+  2026-11-12) looks up the frame with no guard. Its same-document twin has one. When the page removes an iframe and puts it
+  back, Firefox can report a navigation for a frame Playwright has already dropped.
+- **Mitigation:** read a re-inserted frame's state through `page.evaluate` on its `contentDocument`, not through a frame
+  locator. That avoids the lost frame, not the crash. Measured on `studio-warm-offline`'s offline diagram case: 2 of 10
+  alone and 8 of 10 under load passed, and every failure was this crash.
+- **Triggered by:** a gecko spec with `serviceWorkers: 'allow'` on a page that writes preview frames (with the worker
+  blocked, `writeSrcdoc` never re-inserts).
+- **Removable when:** Playwright guards that lookup.
+
 ## A regex that matches in Chromium returns NO MATCH in WebKit on a multi-megabyte string (a `data:` URL)
 
 - **Symptom:** In Safari or any iPhone browser, a photo pasted into the Studio as a `data:` URL never gets its
