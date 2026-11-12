@@ -32,9 +32,7 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
+const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome');
 const puppeteer = require('puppeteer');
 const { trackPageWork } = require('../../helpers/page-settle');
 const { renderHtml } = require('../../helpers/semantic-render');
@@ -42,18 +40,6 @@ const {
   CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, probeSectionOverflow,
   probeFigureLegibility, FIGURE_TEXT_FLOOR_RATIO,
 } = require('../../../lib/core/overflow-probe');
-
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
 
 function formDeck(sample) {
   return `---\nmarp: true\ntheme: indaco\n---\n\n${sample.trim()}\n`;
@@ -177,7 +163,7 @@ describe('chart overflow detection is preserved after the .viz-frame stage wrap'
   let browser;
 
   if (!chrome) {
-    test('SKIPPED — no Chromium available', { skip: true }, () => {});
+    test('needs Chromium', { skip: skipWithoutChrome(chrome) }, () => assert.fail('no Chromium on this runner: install it (test/helpers/chrome.js)'));
     return;
   }
   process.env.CHROME_PATH = chrome;

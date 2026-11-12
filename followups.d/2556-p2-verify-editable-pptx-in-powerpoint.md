@@ -34,5 +34,10 @@ type sets — (2026-11-11, #3130 P3) the same check now also covers #3117's type
             and Fraunces draw from the 15 embedded faces on slides 3, 7 and 8, not a fallback. Both files were
             sent to the owner on 2026-11-11; the owner's screenshot closes this half. Google Slides already
             draws them (#3117).
+            2026-11-12: CLOSED for the type sets. The owner opened both files (regenerated from `e29618e`) in
+            desktop PowerPoint: no repair prompt, and slides 3, 7 and 8 match the PDF renders letter for letter,
+            wrapping included. Not yet established: whether any of the four faces is installed on that machine
+            (an installed face would mask a failed embed). LEFT OPEN: the baseline half above (`baseline-check.md`
+            and three decks, boxes on the picture's text within a few px).
 evidence  — screenshots from PowerPoint side by side with the PDF of the same deck.
 verify    — needs a machine with PowerPoint; the decision note §6 says UNVERIFIED until then.

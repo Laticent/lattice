@@ -6288,7 +6288,9 @@ const SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS = [
       'after the internal reader validated every value by type (lib/core/meta-internal.mjs `readInternal`).',
   },
 ];
-const COMPUTED_DATA_ATTR = /\b(?:attrSet|setAttribute|attrJoin|toggleAttribute)\(\s*(?:`data-\$\{|['"]data-['"]\s*\+)/g;
+// A computed name in every write shape the review found passing (#3136): a call (`attrSet`, `setAttribute`, `attrJoin`,
+// `toggleAttribute`, `setAttributeNS(ns, …)`), markdown-it's `attrPush([name, v])`, and `dataset[name] = v`.
+const COMPUTED_DATA_ATTR = /\b(?:(?:attrSet|setAttribute|attrJoin|toggleAttribute)\(\s*|setAttributeNS\(\s*[^,()]+,\s*|attrPush\(\s*\[\s*)(?:`data-\$\{|['"]data-['"]\s*\+)|\bdataset\[\s*(?![\s'"`])[^\]]+\]\s*=(?!=)/g;
 
 /** Problems for one source file's text: computed writers outside the allowlist, and a plugin's literal meta writes. */
 function providerAttributeProblems(rel, code, metaAttrs, sanctioned) {
@@ -6298,8 +6300,14 @@ function providerAttributeProblems(rel, code, metaAttrs, sanctioned) {
     if (!sanctioned.has(rel)) out.push(`D11 (record note §5.7): ${rel}:${lineOf(m.index)} writes a data-* attribute whose NAME is computed; only the host's apply step may (SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS, with its justification)`);
   }
   if (rel.startsWith('lib/plugins/')) {
-    const literal = new RegExp(`\\b(?:attrSet|setAttribute|attrJoin|toggleAttribute)\\(\\s*['"\`]data-(${metaAttrs.join('|')})['"\`]`, 'g');
+    const literal = new RegExp(`\\b(?:(?:attrSet|setAttribute|attrJoin|toggleAttribute)\\(\\s*|setAttributeNS\\(\\s*[^,()]+,\\s*|attrPush\\(\\s*\\[\\s*)['"\`]data-(${metaAttrs.join('|')})['"\`]`, 'g');
     for (const m of code.matchAll(literal)) out.push(`D11 (record note §5.7): plugin file ${rel}:${lineOf(m.index)} writes \`data-${m[1]}\`, a slide-metadata attribute; declare the field and let the host's apply step write it`);
+    // `el.dataset.focusStyle = v` / `el.dataset['focus-style'] = v` is the same attribute (#3136).
+    const camel = new Map(metaAttrs.map((a) => [a.replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase()), a]));
+    for (const m of code.matchAll(/\bdataset(?:\.([A-Za-z]\w*)|\[\s*['"`]([\w-]+)['"`]\s*\])\s*=(?!=)/g)) {
+      const attr = m[1] ? camel.get(m[1]) : metaAttrs.includes(m[2]) ? m[2] : camel.get(m[2]);
+      if (attr) out.push(`D11 (record note §5.7): plugin file ${rel}:${lineOf(m.index)} writes \`data-${attr}\` through \`dataset\`, a slide-metadata attribute; declare the field and let the host's apply step write it`);
+    }
   }
   return out;
 }
@@ -7616,6 +7624,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
     why: 'formatDeck — `lattice fmt` reads an author\'s deck, folds CRLF to LF and strips the BOM so '
        + 'the planner reads it as the engine does, then puts both back on write: a formatter must not '
        + 'rewrite a file\'s line endings, only its code blocks.',
+  },
+  {
+    file: 'lib/cli/migrate-meta.mjs',
+    why: 'migrateDeckText — `lattice migrate meta` reads an author\'s deck, folds CRLF to LF and strips the BOM so '
+       + 'the migration kernel reads it as the engine does (it refuses anything else), then puts both back on write: '
+       + 'a codemod must not rewrite a file\'s line endings, only its directive comments.',
   },
   {
     file: 'tools/export-marp.js',
@@ -9498,6 +9512,13 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 //                       function the same file built from one: `const ratio = best(poisoned) / best(clean)` where
 //                       `poisoned` times a call is caught.
 //   unseeded-random F5  `Math.random()`.
+//   disabled-test   HARD RULE #33. A test switched off by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
+//                       `test.skip(true, 'why')`, a bare `test.fixme()`, `describe.skip`, `.todo`. Budget 0, never baselined; the one
+//                       exemption is a comment block right above the call reading `// disabled: tried …; evidence <URL, file or
+//                       #N>; re-enable when …`. A skip that
+//                       depends on a value (`test.skip(browserName !== 'webkit', …)`, `{ skip: skipWithoutChrome(chrome) }`) is a
+//                       scoped test and is not counted.
+//   focused-test    HARD RULE #33. `.only` (or `{ only: true }`), which drops every other test in its file. Budget 0, no exemption.
 //
 // PARSED with TypeScript, as checkE2ESleeps is, so a comment or a string never counts and a named duration
 // (`setTimeout(r, SETTLE_MS)`) does. A line that is right as it is says so: `// flaky-ok: <why>` on the line (a deadline
@@ -9517,7 +9538,7 @@ const FLAKY_TEST_FILE = (rel) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /
 const FLAKY_TEST_SKIP = /(?:^|\/)(?:node_modules|dist|fixtures?)\//;
 const FLAKY_OK = /\/\/\s*flaky-ok:\s*\S/;
 const SLEEP_HELPERS = new Set(['sleep', 'delay', 'wait', 'pause']);
-const FLAKY_TRIGGER = /setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime/;
+const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime/;
 
 /** The shape counts of one test file's source. `rel` decides whether `waitForTimeout` is this census's (outside docs/e2e). */
 function flakyTestHits(text, rel = 'test/x.test.js') {
@@ -9646,6 +9667,80 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       if (n.arguments.some((a) => touchesClock(a))) add('clock-assert', n);
     }
   });
+
+  // HARD RULE #33: a test is never switched off without a load-bearing reason, and never focused. These shapes are counted
+  // with their own adder: a `// flaky-ok:` mark (a #32 exemption for a timing line) does not excuse them.
+  //   disabled-test  switched off on every machine by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
+  //                  `test.todo('later')`, Playwright's `test.skip(true, 'why')` and `test.fail()`, a bare `test.fixme()`. The one
+  //                  exemption is the comment block right above the statement, in order: `// disabled: tried …; evidence <a URL,
+  //                  a file or #N>; re-enable when …`. The gate reads the literal; a condition moved into the first argument
+  //                  (`test.skip(!tool, …)`) is a scoped test, and whether its condition can fire in CI is env-skip's question.
+  //   focused-test   `.only` or `{ only: true }`. No exemption.
+  //   env-skip       (node tests, not docs/e2e) a skip whose value depends on the machine — `{ skip: !fs.existsSync(B) && 'not
+  //                  built' }`, `return t.skip('no Chromium')` — that does not go through a helper which FAILS under CI
+  //                  (`skipWithoutChrome`, `skipUnlessCI` in test/helpers/chrome.js). `node --test` reports a skip as a pass, so
+  //                  a CI runner missing the tool turns the suite green. Exempt with `// ci-skip: <which CI job runs it, or why
+  //                  CI never takes this branch>` right above the statement. Baselined, so the backlog can only shrink.
+  const RUNNERS = /^(?:test|it|describe|suite|test\.describe(?:\.parallel|\.serial)?)$/;
+  const SKIP_HELPERS = /^(?:skipWithoutChrome|skipUnlessCI)$/;
+  const isLiteral = (a) => a && (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a) || ts.isTemplateExpression(a));
+  const bump = (shape) => { out[shape] = (out[shape] || 0) + 1; };
+  const notesAbove = (node) => {
+    let st = node;
+    while (st.parent && !ts.isSourceFile(st.parent) && !ts.isBlock(st.parent) && !ts.isModuleBlock(st.parent) && !ts.isCaseClause(st.parent) && !ts.isDefaultClause(st.parent)) st = st.parent;
+    return (ts.getLeadingCommentRanges(sf.text, st.getFullStart()) || []).map((r) => sf.text.slice(r.pos, r.end)).join('\n');
+  };
+  // In order, and the evidence must point at something a reviewer can open: a URL, a file (trace.zip, a log) or #N.
+  const REASON = /disabled:\s*tried\b[\s\S]+?\bevidence\b[^;]*?(?:https?:\/\/|\.(?:zip|log|txt|png|webm)\b|#\d+)[\s\S]*?\bre-?enable when\b\s*\S/i;
+  const justified = (node) => REASON.test(notesAbove(node));
+  const ciSkipOk = (node) => /\bci-skip:\s*\S/.test(notesAbove(node));
+  const viaHelper = (v) => {
+    if (!v) return false;
+    if (ts.isCallExpression(v) && ts.isIdentifier(v.expression) && SKIP_HELPERS.test(v.expression.text)) return true;
+    if (ts.isIdentifier(v)) { const d = resolve(v); return !!d && viaHelper(d); }
+    if (ts.isParenthesizedExpression(v)) return viaHelper(v.expression);
+    return false;
+  };
+  const isTrue = (v) => v && (v.kind === ts.SyntaxKind.TrueKeyword || (ts.isNumericLiteral(v) && Number(v.text) !== 0) || (ts.isPrefixUnaryExpression(v) && v.operator === ts.SyntaxKind.ExclamationToken && ts.isNumericLiteral(v.operand) && Number(v.operand.text) === 0));
+  const isFalse = (v) => v && (v.kind === ts.SyntaxKind.FalseKeyword || v.kind === ts.SyntaxKind.NullKeyword || v.kind === ts.SyntaxKind.UndefinedKeyword || (ts.isIdentifier(v) && v.text === 'undefined') || ((ts.isStringLiteral(v) || ts.isNoSubstitutionTemplateLiteral(v)) && v.text === ''));
+  const keyName = (p) => (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name) ? p.name.text : '');
+  each(sf, (n) => {
+    if (!ts.isCallExpression(n)) return;
+    const e = n.expression;
+    if (ts.isPropertyAccessExpression(e) && RUNNERS.test(e.expression.getText(sf))) {
+      const m = e.name.text;
+      if (m === 'only') { bump('focused-test'); return; }
+      if (!/^(?:skip|fixme|todo|fail)$/.test(m)) return;
+      const [a0, a1] = n.arguments;
+      // On every machine: no argument, a true first argument, a title (`test.todo('later')`, `test.skip('title', fn)`), or a
+      // title held in a name followed by the test body. Playwright's conditional form, `test.skip(cond, 'why')`, is a
+      // scoped test: its second argument is a string, never a function.
+      const always = !a0 || isTrue(a0) || isLiteral(a0) || (a1 && ts.isFunctionLike(a1));
+      if (always && !justified(n)) bump('disabled-test');
+    } else if (ts.isIdentifier(e) && RUNNERS.test(e.text)) {
+      for (const a of n.arguments) {
+        if (!ts.isObjectLiteralExpression(a)) continue;
+        for (const p of a.properties) {
+          if (!ts.isPropertyAssignment(p)) continue;
+          const k = keyName(p);
+          const v = p.initializer;
+          const literal = isTrue(v) || ((ts.isStringLiteral(v) || ts.isNoSubstitutionTemplateLiteral(v)) && v.text !== '');
+          if (k === 'only' && literal) bump('focused-test');
+          else if ((k === 'skip' || k === 'todo') && literal) { if (!justified(n)) bump('disabled-test'); }
+          else if ((k === 'skip' || k === 'todo') && !inE2E && !isFalse(v) && !viaHelper(v) && !ciSkipOk(n)) bump('env-skip');
+        }
+      }
+    } else if (!inE2E && ts.isPropertyAccessExpression(e) && ts.isIdentifier(e.expression) && !RUNNERS.test(e.expression.text) && /^(?:skip|todo)$/.test(e.name.text)) {
+      // node's test context: `t.skip('reason')`, `return ctx.skip(why)`. Inside a test body, it is decided at run time, so
+      // only a helper-built reason (`const why = skipUnlessCI(…); if (why) return t.skip(why)`) or a ci-skip note passes.
+      // Only the test's own context: the first parameter of the nearest function passed to test()/it()/describe().
+      let f = n.parent;
+      while (f && !ts.isFunctionLike(f)) f = f.parent;
+      const p0 = f && f.parameters && f.parameters[0];
+      const isCtx = p0 && ts.isIdentifier(p0.name) && p0.name.text === e.expression.text && f.parent && ts.isCallExpression(f.parent) && ts.isIdentifier(f.parent.expression) && RUNNERS.test(f.parent.expression.text);
+      if (isCtx && !viaHelper(n.arguments[0]) && !ciSkipOk(n)) bump('env-skip');
+    }
+  });
   return out;
 }
 
@@ -9678,6 +9773,21 @@ function flakyTestFindings(tree, baseline) {
     for (const shape of new Set([...Object.keys(got), ...Object.keys(want)])) {
       const g = got[shape] || 0;
       const w = want[shape] || 0;
+      if (shape === 'disabled-test' || shape === 'focused-test') {
+        // Budget 0, never baselined: a backlog of switched-off tests is exactly what HARD RULE #33 forbids.
+        if (w) errors.push(`tools/flaky-test-baseline.json lists ${w} ${shape} for ${file}; that shape is never baselined (HARD RULE #33). Delete the entry.`);
+        if (g && shape === 'focused-test') {
+          errors.push(`focused test in ${file}: ${g} \`.only\` (HARD RULE #33) — Playwright drops every other test in its file, and node runs it alone under --test-only. Remove the \`.only\`.`);
+        } else if (g) {
+          errors.push(
+            `disabled test in ${file}: ${g} switched off with no load-bearing reason (HARD RULE #33) — fix the failure at its root ` +
+            `instead. Disabling is the last resort for a cause that could not be found, and the comment block right above the ` +
+            `call must read \`// disabled: tried <what you tried>; evidence <a run URL, a trace file or #N>; re-enable when <condition>\`. A ` +
+            `missing browser or tool is installed, not skipped: use skipWithoutChrome (test/helpers/chrome.js), which fails in CI.`,
+          );
+        }
+        continue;
+      }
       if (g > w) {
         errors.push(
           `flaky test shape in ${file}: ${g} ${shape} where the baseline allows ${w} (HARD RULE #32) — a test passes or fails on ` +
@@ -9691,6 +9801,52 @@ function flakyTestFindings(tree, baseline) {
     }
   }
   return errors;
+}
+
+/**
+ * HARD RULE #34: Playwright never retries. A retry turns a flaky test into a pass nobody sees, so `retries` in
+ * docs/playwright.config.ts must be the literal 0 (not `isCI ? 1 : 0`). A `--retries` flag on the command line is
+ * reviewed in the workflow; this holds the default every run inherits.
+ */
+function playwrightRetriesFindings(text, rel = 'docs/playwright.config.ts', { optional = false } = {}) {
+  const ts = require('typescript');
+  const sf = ts.createSourceFile(rel, String(text), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const found = [];
+  const each = (n) => {
+    if (ts.isPropertyAssignment(n) && (ts.isIdentifier(n.name) || ts.isStringLiteral(n.name)) && n.name.text === 'retries') found.push(n.initializer);
+    n.forEachChild(each);
+  };
+  each(sf);
+  if (!found.length && optional) return [];
+  if (!found.length) return [`${rel} sets no \`retries\`; Playwright's default is 0 today, but state \`retries: 0\` so the rule is visible (HARD RULE #34).`];
+  return found
+    .filter((v) => !(ts.isNumericLiteral(v) && Number(v.text) === 0))
+    .map((v) => `${rel}: \`retries: ${v.getText(sf)}\` — Playwright must never retry (HARD RULE #34): a retry turns a flaky test into a pass nobody sees. Set it to 0 and fix the flake at its cause (#33).`);
+}
+
+function checkPlaywrightRetries(errors, file = path.join(ROOT, 'docs', 'playwright.config.ts')) {
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch (e) {
+    errors.push(`could not read ${path.relative(ROOT, file)} (${e.message}) to check its retries (HARD RULE #34).`);
+    return;
+  }
+  errors.push(...playwrightRetriesFindings(text, path.relative(ROOT, file)));
+  // A spec can override it: `test.describe.configure({ retries: 2 })`. Every docs/e2e file is held to 0 too.
+  const e2e = path.join(path.dirname(file), 'e2e');
+  let names = [];
+  try {
+    // Recursive: docs/e2e/journeys/ and docs/e2e/scenarios/ hold specs too.
+    names = fs.readdirSync(e2e, { recursive: true }).map(String).filter((n) => /\.[cm]?[jt]s$/.test(n) && !/(?:^|[\\/])node_modules[\\/]/.test(n));
+  } catch {
+    return;
+  }
+  for (const n of names) {
+    const src = fs.readFileSync(path.join(e2e, n), 'utf8');
+    if (!/\bretries\b/.test(src)) continue;
+    errors.push(...playwrightRetriesFindings(src, path.relative(ROOT, path.join(e2e, n)), { optional: true }));
+  }
 }
 
 function checkFlakyTests(errors, root = ROOT, baselineFile = FLAKY_TEST_BASELINE_FILE) {
@@ -10028,6 +10184,94 @@ function checkRawAptInWorkflows(errors, workflowDir = path.join(ROOT, '.github',
   }
   for (const s of sanctions) {
     if (!files.includes(s.file)) errors.push(`stale SANCTIONED_RAW_APT entry in tools/check-ownership.js — .github/workflows/${s.file} no longer exists. Remove the entry.`);
+  }
+}
+
+// ── The apt cache warmer covers every cached call in CI, and nothing else (followups.d 3139-p1, 2026-11-12) ──
+// GitHub scopes caches by branch, and ci.yml runs only on pull requests and the merge queue, so a PR restores an apt or
+// Playwright entry only if a run on `main` saved one. apt-cache-warm.yml saves one for every call, from a matrix row per
+// distinct call. A row is only as good as its match with the call: the key hashes the runner image, the container image
+// and the sorted package (or browser) list, so a list that differs by one package warms nothing. This reads every
+// `uses: ./.github/actions/apt-cached` and `./playwright-browsers` step in the other workflows, reduces each to that key
+// identity, and fails on a call with no row (a PR would read the mirror) or a row with no call (a stale row). A call whose
+// runner, container, list or working-directory is an expression cannot be matched, and fails with a request to make it a
+// literal. Playwright calls also match on the folder that pins Playwright: the version is in their key.
+const APT_WARMER = 'apt-cache-warm.yml';
+function aptCacheCalls(doc) {
+  const calls = [];
+  for (const [jobId, job] of Object.entries(doc?.jobs || {})) {
+    const container = typeof job.container === 'string' ? job.container : job.container?.image || '';
+    for (const step of job.steps || []) {
+      const uses = String(step?.uses || '').replace(/\/+$/, '');
+      const kind = uses === './.github/actions/apt-cached' ? 'apt' : uses === './.github/actions/playwright-browsers' ? 'browsers' : '';
+      if (!kind) continue;
+      const list = String((kind === 'apt' ? step.with?.packages : step.with?.browsers) ?? '');
+      const dir = kind === 'browsers' ? String(step.with?.['working-directory'] ?? 'docs') : '';
+      const runsOn = job['runs-on'];
+      // A label list (or a one-label array) is the runner's identity. A runner-group object is not a literal this can
+      // match, so it is spelled as an expression and fails below with the request to name the runner.
+      const EXPR = '$' + '{{';
+      const runner = Array.isArray(runsOn) ? runsOn.join(',') : runsOn && typeof runsOn === 'object' ? `${EXPR} runner group }}` : String(runsOn ?? '');
+      calls.push({ job: jobId, kind, runsOn: runner, container: String(container), list, dir });
+    }
+  }
+  return calls;
+}
+const aptCallId = (c) => [c.kind, c.runsOn, c.container || '-', c.list.split(/\s+/).filter(Boolean).sort().join(' '), c.dir || '-'].join(' | ');
+
+function checkAptCacheWarmer(errors, workflowDir = path.join(ROOT, '.github', 'workflows')) {
+  const YAML = require('yaml');
+  let files = [];
+  try {
+    files = fs.readdirSync(workflowDir).filter((f) => /\.ya?ml$/.test(f));
+  } catch {
+    return;
+  }
+  if (!files.includes(APT_WARMER)) {
+    errors.push(`.github/workflows/${APT_WARMER} is missing: it keeps every apt and Playwright cache entry warm on main, and without it a PR whose list no nightly shares reads Ubuntu's mirror (engineering/gotchas/ci.md).`);
+    return;
+  }
+  const wanted = new Map();
+  for (const f of files) {
+    if (f === APT_WARMER) continue;
+    for (const c of aptCacheCalls(YAML.parse(fs.readFileSync(path.join(workflowDir, f), 'utf8')))) {
+      const where = `.github/workflows/${f} job ${c.job}`;
+      if ([c.runsOn, c.container, c.list, c.dir].some((v) => v.includes('${{'))) {
+        errors.push(`${where}: an ${c.kind === 'apt' ? 'apt-cached' : 'playwright-browsers'} call whose runner, container, list or working-directory is an expression, so ${APT_WARMER} cannot warm its cache entry. Spell it as a literal.`);
+        continue;
+      }
+      if (!wanted.has(aptCallId(c))) wanted.set(aptCallId(c), where);
+    }
+  }
+  const warmer = YAML.parse(fs.readFileSync(path.join(workflowDir, APT_WARMER), 'utf8'));
+  const rows = new Set();
+  for (const [jobId, job] of Object.entries(warmer?.jobs || {})) {
+    const runsInContainer = Boolean(job.container);
+    for (const row of job.strategy?.matrix?.include || []) {
+      // A row's container only reaches the key if its job runs in one, and a container job's row must name its image.
+      if (Boolean(row.container) !== runsInContainer) {
+        errors.push(`.github/workflows/${APT_WARMER} job ${jobId}: a row ${row.container ? 'names a container but the job runs on the host' : 'names no container but the job runs in one'}, so it warms a different key from the call it matches. Move the row to the job that matches.`);
+      }
+      const kind = row.browsers !== undefined ? 'browsers' : 'apt';
+      const id = aptCallId({
+        kind,
+        runsOn: String(row['runs-on'] ?? ''),
+        container: String(row.container ?? ''),
+        list: String((kind === 'apt' ? row.packages : row.browsers) ?? ''),
+        dir: kind === 'browsers' ? String(row.lockfile ?? '') : '',
+      });
+      if (rows.has(id)) errors.push(`duplicate row in .github/workflows/${APT_WARMER} job ${jobId}: [${id}] is already warmed. Remove one.`);
+      rows.add(id);
+      if (!wanted.has(id)) errors.push(`stale row in .github/workflows/${APT_WARMER} job ${jobId}: no workflow makes the call [${id}] it warms. Remove the row.`);
+    }
+  }
+  for (const [id, where] of wanted) {
+    if (!rows.has(id)) {
+      errors.push(
+        `${where}: no row in .github/workflows/${APT_WARMER} warms this call's cache entry [${id}], so a pull request misses and reads Ubuntu's mirror. ` +
+          'Add a matrix row with the same runs-on, container, list and (Playwright) lockfile folder.',
+      );
+    }
   }
 }
 
@@ -15640,10 +15884,12 @@ function run() {
   checkMediaSourceCensus(errors);
   checkSecuritySpineCensus(errors);
   checkFlakyTests(errors);
+  checkPlaywrightRetries(errors);
   checkRegexCensus(errors);
   checkPlatformSuites(errors);
   checkRunnerPins(errors);
   checkRawAptInWorkflows(errors);
+  checkAptCacheWarmer(errors);
   checkOpenRouterBudget(errors);
   checkE2ESleeps(errors);
   checkVoiceSampleAssets(errors);
@@ -15907,6 +16153,8 @@ module.exports = {
   regexVerdictOf,
   REGEX_CENSUS_FILE,
   flakyTestHits,
+  playwrightRetriesFindings,
+  checkPlaywrightRetries,
   flakyTestTree,
   flakyTestFindings,
   spineCensusHits,
@@ -15929,6 +16177,7 @@ module.exports = {
   checkPlatformSuites,
   checkRunnerPins,
   checkRawAptInWorkflows,
+  checkAptCacheWarmer,
   SANCTIONED_RAW_APT,
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,

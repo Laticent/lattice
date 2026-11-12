@@ -334,7 +334,9 @@ describe('the first adversarial pass on step 2 (inversion, 2026-11-10)', () => {
   test('the drawer’s answer is the engine’s: a later directive beats a record, and a record in a list sets nothing', async () => {
     const { readMetaField } = await import('../../../lib/core/meta-edit.mjs');
     const later = readMetaField('<!-- {layout=cards} -->\n\n## A\n\n<!-- _class: kpi -->\n', 'class');
-    assert.deepEqual({ value: later.value, editable: later.editable }, { value: 'kpi', editable: true });
+    // Set twice (a record, then a comment that wins): read-only, as two `_class` comments are, because clearing the
+    // winner would bring the record's class back (the red team, #3136).
+    assert.deepEqual({ value: later.value, editable: later.editable, reason: later.reason }, { value: 'kpi', editable: false, reason: 'duplicate' });
     const nested = readMetaField('## A\n\n- point\n  <!-- {layout=kpi} -->\n', 'class');
     assert.deepEqual({ value: nested.value, present: nested.present }, { value: '', present: false });
     const html = (src) => createEngine().render(src).html;
@@ -416,5 +418,55 @@ describe('the red team on step 2 (2026-11-10)', () => {
       const { steps, size } = work(n);
       assert.ok(steps <= 2 * size, `n=${n}: ${steps} steps for ${size} characters`);
     }
+  });
+});
+
+describe('meta-edit: what the engine reads decides a carrier (the checker on #3136)', () => {
+  const { readMetaField, writeMeta, commentReadings } = require('../../../lib/core/meta-edit.mjs');
+
+  test('a speaker note with a line that starts `focus:` does not lock the record field', () => {
+    const slide = '<!-- {focus=2} -->\n\n# T\n\n<!-- remember the\nfocus: margin story -->';
+    const r = readMetaField(slide, 'focus');
+    assert.equal(r.editable, true);
+    assert.equal(r.value, '2');
+    assert.match(writeMeta(slide, { focus: '3' }), /^<!-- \{focus=3\} -->/);
+    assert.match(writeMeta(slide, { focus: '3' }), /focus: margin story -->$/);
+  });
+
+  test('two directive comments still lock the field, and report the one the engine applies', () => {
+    const r = readMetaField('<!-- _class: divider -->\n<!-- _class: content -->\n\n# A', 'class');
+    assert.equal(r.editable, false);
+    assert.equal(r.reason, 'duplicate');
+    assert.equal(r.value, 'content');
+  });
+
+  test('commentReadings: indented and folded comments are not applied; a note is a note', () => {
+    assert.equal(commentReadings('# T\n\n    <!-- {layout=kpi} -->\n').size, 0);
+    assert.equal(commentReadings('<div>\n<!-- {layout=kpi} -->\n</div>').get(2), undefined);
+    assert.equal(commentReadings('<!-- {layout=kpi} -->\n# T').get(1)?.kind, 'record');
+    assert.equal(commentReadings('<!-- _class: kpi -->\n# T').get(1)?.kind, 'directive');
+    assert.equal(commentReadings('# T\n\n<!-- say this -->').get(3)?.kind, 'note');
+  });
+});
+
+describe('commentSites: an opener inside code', () => {
+  test('an unclosed `<!--` in a fence does not swallow the record after it (the checker on #3136)', () => {
+    const engine = createEngine();
+    const cls = (md) => String(engine.render(md).html).match(/data-class="([^"]*)"/)?.[1];
+    assert.equal(cls('## T\n\n```\n<!-- x\n```\n\n<!-- {layout=kpi} -->'), 'kpi');
+    assert.equal(cls('## T\n\n~~~md\n<!-- _footer: f\n~~~\n\n<!-- {layout=kpi} -->'), 'kpi');
+    // A record written inside the fence is still code.
+    assert.equal(cls('## T\n\n```\n<!-- {layout=kpi} -->\n```'), undefined);
+    // An opener inside an inline code span is text too.
+    assert.equal(cls('## T\n\nUse `<!--` here.\n\n<!-- {layout=kpi} -->'), 'kpi');
+    assert.equal(cls('## T\n\nUse ``<!--`` here.\n\n<!-- {layout=kpi} -->'), 'kpi');
+    // A lone backtick opens no span its line does not close: a real record later on the line still counts.
+    assert.equal(cls('## T\n\nA ` tick.\n\n<!-- {layout=kpi} -->'), 'kpi');
+  });
+  test('the scan resumes at the end of the code, so the next real comment is its own site', () => {
+    const src = '```\n<!-- x\n```\n\n<!-- {a=1} -->';
+    const fence = [0, src.indexOf('\n\n')];
+    const sites = [...door.commentSites(src, [fence])];
+    assert.deepEqual(sites.map((s) => [s.inCode, s.body.trim()]).at(-1), [false, '{a=1}']);
   });
 });

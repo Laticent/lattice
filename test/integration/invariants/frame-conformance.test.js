@@ -24,26 +24,12 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const { renderHtml, ROOT } = require('../../helpers/semantic-render');
 const { componentCorpusRoots } = require('../../../lib/packages/fs.js');
 const { conformanceViolations, CELL_DOM_CLASS } = require('../../../lib/forms/frame-conformance');
-
-/** Best-effort Chromium path — mirrors component-invariants.test.js. */
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
-
 /** Every component manifest that opted into `conformance: "strict"`, sorted by name. */
 function strictComponents() {
   const out = [];
@@ -81,7 +67,7 @@ describe('frame-conformance render gate (strict components materialize their cel
   const strict = strictComponents();
 
   if (!chrome) {
-    test('SKIPPED — no Chromium (CHROME_PATH / puppeteer cache) available', { skip: true }, () => {});
+    test('needs Chromium', { skip: skipWithoutChrome(chrome) }, () => assert.fail('no Chromium on this runner: install it (test/helpers/chrome.js)'));
     return;
   }
   process.env.CHROME_PATH = chrome;

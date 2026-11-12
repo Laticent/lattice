@@ -385,22 +385,28 @@ describe('hub-spoke solver', () => {
     }
   });
 
-  test('a six-branch, eighteen-leaf tiered slide lays out in well under a second', () => {
+  test('a six-branch, eighteen-leaf tiered slide stays inside its search budget', () => {
     // The worst tiered search: every attempt runs, unkeyed then keyed. It took about two
     // seconds a slide in Node (2,015 / 2,097 / 1,691 ms for these three) and now takes
-    // about 50. The bound is generous on purpose — it catches the search going
-    // exponential again, not a slow runner. test/benchmark/engine-bench.mjs tracks it.
+    // about 50. The arrangement cache, the leaf-label cache and the `bound` cut-off are
+    // what saved it, so the test counts the work each one saves, not milliseconds (HARD
+    // RULE #32, F1): the ring searches and label passes the layout reports in meta.work.
+    // Speed is test/benchmark/engine-bench.mjs's job. The counts are deterministic, so the
+    // ceilings sit at today's (13 attempts, 10 ring searches, 19 to 21 label passes): with
+    // the leaf cache gone the passes are 22 to 24, with no `bound` at all 23 (the first
+    // cut-off alone, 22; the second alone changes no count on these slides, so it is not
+    // guarded here), and with no arrangement cache the ring searches are 13. A search change that costs more raises
+    // them here, in review.
     const teams = ['Payments', 'Lending', 'Identity', 'Data platform', 'Channels', 'Core banking'];
     const svc = ['Card issuing', 'Acquiring', 'Fraud scoring', 'Origination', 'Servicing', 'Collections', 'Login', 'KYC checks', 'Consent',
       'Warehouse', 'Streaming', 'Catalog', 'Mobile app', 'Web banking', 'Branch tools', 'Ledger', 'Accounts', 'Statements'];
     for (let k = 0; k < 3; k++) {
       const m = model('Platform organization', teams.map((t, i) => [t, [`$${40 + i * 7 + k}M`, ...(i === 2 ? ['blocked'] : [])],
         [0, 1, 2].map((j) => [svc[i * 3 + j], (i + j + k) % 5 === 0 ? ['at-risk'] : []])]), ['tiered'], [`$${640 + k}M`]);
-      T.buildHubSpoke(m);
-      const t0 = process.hrtime.bigint();
       const { meta } = T.buildHubSpoke(m);
-      const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-      assert.ok(ms < 600, `slide ${k}: ${ms.toFixed(0)} ms`);
+      assert.ok(meta.work.attempts <= 13, `slide ${k}: ${JSON.stringify(meta.work)}`);
+      assert.ok(meta.work.ringSearches <= 10, `slide ${k}: ${JSON.stringify(meta.work)}`);
+      assert.ok(meta.work.labelPasses <= 21, `slide ${k}: ${JSON.stringify(meta.work)}`);
       assert.deepEqual(meta.bad, [], `slide ${k}: ${meta.bad.join(',')}`);
     }
   });

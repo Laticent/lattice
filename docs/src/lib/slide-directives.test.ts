@@ -80,8 +80,8 @@ describe('setClassTokens — span-surgical', () => {
 		expect(toggleToken(chunk, 'dark')).toBe('<!-- _class: kpi tint-corner at-tl my-local-thing dark -->\n\n# Hi');
 	});
 	it('inserts a directive when absent', () => {
-		// A new key is written in the record form, the one the cut (record note step 6) leaves standing.
-		expect(setClassTokens('# Bare slide\n\nbody', ['content', 'dark'])).toBe('<!-- {class=content dark} -->\n\n# Bare slide\n\nbody');
+		// A slide with no record keeps the comment form: the form follows the slide until the cut (#3136).
+		expect(setClassTokens('# Bare slide\n\nbody', ['content', 'dark'])).toBe('<!-- _class: content dark -->\n\n# Bare slide\n\nbody');
 	});
 	it('removes a sole-directive comment when cleared to empty', () => {
 		expect(setClassTokens('<!-- _class: kpi -->\n\n# Hi', [])).toBe('# Hi');
@@ -202,9 +202,9 @@ describe('the class drawer on a record slide', () => {
 		expect(setClassTokens(slide, ['cards'])).toBe('<!-- {layout=cards, footer="Q3, final"} -->\n\n# Hi');
 		expect(setGroupToken(slide, ['cards', 'kpi'], 'kpi')).toBe('<!-- {layout=kpi, footer="Q3, final", finish=ledger} -->\n\n# Hi');
 	});
-	it('a record that does not read is left as written; the class lands in a record of its own', () => {
+	it('a record that does not read is left as written; the class lands in a comment of its own', () => {
 		// It applies nothing, so the slide has no class to show; the linter names it (`meta-record`).
 		expect(canEditClass('<!-- {layout=cards, footer="open} -->\n\n# Hi')).toBe(true);
-		expect(setClassTokens('<!-- {layout=cards, footer="open} -->\n\n# Hi', ['kpi'])).toContain('{class=kpi}');
+		expect(setClassTokens('<!-- {layout=cards, footer="open} -->\n\n# Hi', ['kpi'])).toContain('<!-- _class: kpi -->');
 	});
 });

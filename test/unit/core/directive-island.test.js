@@ -198,3 +198,35 @@ describe('a record sets every field it names', () => {
     assert.equal(two.resolved.get('class').record, undefined);
   });
 });
+
+describe('readIsland: bareOpener reads in one pass', () => {
+  const { mulberry32 } = require('../../helpers/regex-differential');
+  const { assertLinearRegexes } = require('../../helpers/regex-trace');
+  // The regex bareOpener used to be, verbatim: polynomial by recheck 4.6.2, since its two `\s*` split a run of blank
+  // lines every way (about 19 s for a comment holding 200,000 of them).
+  const OLD = /^\s*\n\s*(?:\{[^}]*=|@meta\{)/;
+  const bare = (inner) => readIsland({ content: `<!--${inner}-->`, folded: false, level: 0, indent: '' }).bareOpener;
+
+  test('answers as the regex it replaced (seeded fuzz, seed 3045)', () => {
+    const rand = mulberry32(3045);
+    // 251 of the 20,000 draws are bare openers today.
+    const tokens = [' ', '\t', '\n', '\r', ' ', ' ', '{', '}', '=', '@meta{', '@', 'meta', 'a', 'x=1', ' '];
+    let opened = 0;
+    for (let i = 0; i < 20_000; i++) {
+      let inner = '';
+      const len = Math.floor(rand() * 12);
+      for (let k = 0; k < len; k++) inner += tokens[Math.floor(rand() * tokens.length)];
+      const want = OLD.test(inner);
+      if (want) opened++;
+      assert.equal(bare(inner), want, `seed 3045, draw ${i}: ${JSON.stringify(inner)}`);
+    }
+    assert.ok(opened > 100, `only ${opened} draws were bare openers: the fuzz did not reach the true branch`);
+  });
+
+  test('runs only regexes the census calls linear, on a comment of 200,000 blank lines', () => {
+    const inner = `${'\n'.repeat(200_000)}x`;
+    const { result } = assertLinearRegexes(() => bare(inner));
+    assert.equal(result, false);
+    assert.throws(() => assertLinearRegexes(() => OLD.test(inner.slice(0, 20))), /polynomial|does not hold/);
+  });
+});

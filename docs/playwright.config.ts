@@ -67,10 +67,10 @@ export default defineConfig({
 	},
 	fullyParallel: true,
 	forbidOnly: isCI,
-	// The E2E suite is nightly (not the PR critical path), so a single retry to
-	// absorb browser-launch jitter is acceptable; local runs get none so flake is
-	// visible immediately.
-	retries: isCI ? 1 : 0,
+	// No retries anywhere (HARD RULE #34): a retry turns a flaky test into a pass
+	// nobody sees. A test that fails once is fixed at its cause (#33). Held at 0 by
+	// checkPlaywrightRetries in tools/check-ownership.js.
+	retries: 0,
 	workers: isCI ? 2 : undefined,
 	reporter: isCI
 		? [['list'], ['html', { open: 'never' }], ['github']]

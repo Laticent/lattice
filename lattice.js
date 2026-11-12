@@ -552,6 +552,14 @@ if (process.argv[2] === 'fmt') {
   process.exit(r.status ?? 1);
 }
 
+// `lattice migrate meta <deck.md>` — directive comments rewritten as slide records (lib/cli/migrate-meta.mjs,
+// engineering/decisions/2026-10-17-meta-record.md §9 step 5). Dispatched as a child for the same reason as `packages`.
+if (process.argv[2] === 'migrate') {
+  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli/migrate-meta.mjs'), ...process.argv.slice(3)], { stdio: 'inherit' });
+  if (r.error) console.error(`error: ${r.error.message}`);
+  process.exit(r.status ?? 1);
+}
+
 // `--help` / `-h` is one screen; `--help all` (`-h all`, `--help=all`, any case) is the full
 // reference. A help flag anywhere asks for help, as it always has; `--help=<anything>` counts too,
 // so `--help=` or a mistyped value prints the short help rather than "unknown option".

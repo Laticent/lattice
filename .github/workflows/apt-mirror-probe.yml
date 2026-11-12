@@ -1,0 +1,88 @@
+name: apt mirror probe
+
+# MEASURES UBUNTU'S PACKAGE MIRRORS FROM A GITHUB RUNNER (followups.d 3139-p3).
+#
+# .github/actions/apt-cached/apt-setup.sh orders its mirror list by measurement, and the measurements behind that order
+# (2026-11-11) came from a cloud sandbox behind a proxy. GitHub's runners sit in Azure, where azure.archive.ubuntu.com
+# may be the fastest mirror whenever its DNS works. This times every mirror apt-setup.sh lists (it reads the list from
+# that file), from a runner, every four hours, keeps each run's samples as an artifact for ten days, and writes the
+# ranking over the past seven days of runs on `main` to the run summary. A week of it sets the order.
+#
+# REPORT-ONLY. It never fails on what it measures: a mirror that fails is data. It fails only when it cannot measure.
+# tools/apt-mirror-probe.mjs says what one sample is and how the ranking works.
+
+on:
+  schedule:
+    # Every four hours at :47, a non-round minute like every other cron here: six samples of the day a week.
+    - cron: '47 */4 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - tools/apt-mirror-probe.mjs
+      - .github/workflows/apt-mirror-probe.yml
+
+permissions:
+  contents: read
+  actions: read # list this workflow's past runs and download their samples
+
+concurrency:
+  group: apt-mirror-probe-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    # Six mirrors, three rounds, two fetches each with a 30 s ceiling: about a minute when every mirror answers, and
+    # under ten when every fetch times out.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            tools/apt-mirror-probe.mjs
+            .github/actions/apt-cached/apt-setup.sh
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Measure every mirror
+        run: |
+          set -euo pipefail
+          mkdir -p probe
+          node tools/apt-mirror-probe.mjs measure --rounds 3 --out "probe/apt-mirror-probe-${{ github.run_id }}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apt-mirror-probe
+          path: probe/
+          retention-days: 10
+      # The past week of runs on main, this run included. A run on a pull request reports its own samples and main's week.
+      - name: Rank the mirrors over the past week
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          since=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          mkdir -p week
+          # An API hiccup must not cost the report: on a failed listing the week table covers this run only.
+          if ! ids=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow apt-mirror-probe.yml --branch main --status success \
+            --created ">=$since" --limit 100 --json databaseId --jq '.[].databaseId'); then
+            echo "::warning::could not list earlier runs; the week table covers this run only"
+            ids=
+          fi
+          n=0
+          for id in $ids; do
+            [ "$id" = "$GITHUB_RUN_ID" ] && continue
+            gh run download "$id" --repo "$GITHUB_REPOSITORY" --name apt-mirror-probe --dir "week/$id" 2>/dev/null && n=$((n + 1)) || true
+          done
+          echo "downloaded $n earlier run(s) since $since"
+          {
+            echo "## apt mirrors from a GitHub runner"
+            echo ""
+            echo "### This run"
+            echo ""
+            node tools/apt-mirror-probe.mjs report probe
+            echo ""
+            echo "### The past seven days on main ($n earlier run(s) and this one)"
+            echo ""
+            node tools/apt-mirror-probe.mjs report probe week
+          } | tee -a "$GITHUB_STEP_SUMMARY"

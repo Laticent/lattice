@@ -50,20 +50,33 @@ trap drop_on_failure EXIT
 
 # Three tries, 10 s then 20 s apart, around every call that reads a mirror. apt's own retries cover one download; this
 # covers a whole `update` whose index files all failed (apt-get update exits 0 on that, so the install after it is what
-# fails, and both are retried together).
+# fails, and both are retried together). Each retry first rotates the mirror list (apt-setup.sh N), so a mirror that
+# stalls rather than fails is not first in line for all three tries.
 with_mirror() {
   local n
   for n in 1 2 3; do
     if "$@"; then return 0; fi
-    [ "$n" = 3 ] || { echo "::warning::apt attempt $n of 3 failed; retrying in $((n * 10)) s"; sleep $((n * 10)); }
+    [ "$n" = 3 ] && break
+    echo "::warning::apt attempt $n of 3 failed; retrying in $((n * 10)) s with the mirror list rotated by $n"
+    sleep $((n * 10))
+    bash "$here/apt-setup.sh" "$n"
   done
   return 1
 }
 
-# apt with <dir> as its download folder, so whatever it fetches lands in the cache.
+# apt with <dir> as its download folder, so whatever it fetches lands in the cache. The two network phases each run
+# under a hard deadline: apt's timeouts bound one fetch, not a call, and on 2026-11-12 an `apt-get update` that kept a
+# connection trickling sat 24 minutes in InRelease fetches until the job was cancelled (run 43162229732; three
+# integration shards of #3144 did the same). The install itself never runs under a deadline: it reads only the .deb
+# files the download put in <dir> (--no-download), so killing it could only leave dpkg half-configured, never save time.
+APT_DEADLINE=${APT_DEADLINE:-150}
 apt_into() {
   mkdir -p "$dir/partial"
-  $SUDO apt-get update && $SUDO apt-get "$@" -o Dir::Cache::archives="$dir"
+  timeout -k 15 "$APT_DEADLINE" $SUDO apt-get update || { echo "::warning::apt-get update failed or passed ${APT_DEADLINE} s"; return 1; }
+  timeout -k 15 "$APT_DEADLINE" $SUDO apt-get "$@" --download-only -o Dir::Cache::archives="$dir" ||
+    { echo "::warning::the package download failed or passed ${APT_DEADLINE} s"; return 1; }
+  case " $* " in *" --download-only "*) return 0 ;; esac
+  $SUDO apt-get "$@" --no-download -o Dir::Cache::archives="$dir"
 }
 settle() {
   $SUDO rm -rf "$dir/partial" "$dir/lock"
@@ -87,6 +100,23 @@ prune() {
   done
 }
 
+# dpkg -i, waiting out another process that holds dpkg's lock instead of reading that as a set that does not fit:
+# a lock is not a misfit, and a repair here would make apt-cache-warm.yml's alarm fire on a healthy entry. Three tries,
+# 10 s then 20 s apart; a lock still held after that fails the step, because the repair would hit the same lock.
+dpkg_install() {
+  local n log=${RUNNER_TEMP:-/tmp}/apt-cached-dpkg.log
+  for n in 1 2 3; do
+    if $SUDO dpkg -i "$@" 2>&1 | tee "$log"; then return 0; fi
+    grep -qE '(is|was) locked by another process' "$log" || return 1
+    if [ "$n" = 3 ]; then
+      echo "::error::dpkg's lock was still held by another process after three tries; not repairing, because the repair needs the same lock."
+      exit 1
+    fi
+    echo "::warning::dpkg's lock is held by another process (try $n of 3); waiting $((n * 10)) s instead of repairing."
+    sleep $((n * 10))
+  done
+}
+
 # One summary line: the folder, how the cache answered, and what the mirror had to supply.
 # The line also goes to the job log, so a run shows what the summary got (the summary page is not in the API).
 report() {
@@ -103,6 +133,13 @@ report() {
   # shellcheck disable=SC2016 # the backticks are Markdown, not a command
   line=$(printf -- '- apt-cached `%s`: cache **%s**, mirror read: **%s**' "$(basename "$dir")" "$cache" "$mirror")
   echo "apt-cached.sh: summary: $line"
+  # The same answer as step outputs, for a caller that acts on it: apt-cache-warm.yml fails a run whose exact hit still
+  # repaired, because an exact hit is never saved again and so repairs on every run until the image moves. Written
+  # before the summary, which is skipped outside GitHub Actions.
+  if [ -n "${GITHUB_OUTPUT:-}" ]; then
+    printf 'cache=%s\nrepaired=%s\n' "$cache" "$([ "$repaired" = 1 ] && echo true || echo false)" >> "$GITHUB_OUTPUT" ||
+      echo "::warning::apt-cached.sh could not write its step outputs"
+  fi
   if [ -z "${GITHUB_STEP_SUMMARY:-}" ]; then echo "apt-cached.sh: no job summary outside GitHub Actions"; return 0; fi
   # A diagnostics line must never fail an install that worked: under set -e that would also delete the cache folder.
   printf '%s\n' "$line" >> "$GITHUB_STEP_SUMMARY" && echo "apt-cached.sh: wrote the job summary" ||
@@ -129,7 +166,7 @@ case "$mode" in
     echo "apt-cached.sh: installing ${#todo[@]} packages from $dir"
     repaired=0
     dpkg_refused=
-    if [ "${#todo[@]}" -gt 0 ] && ! $SUDO dpkg -i "${todo[@]}"; then
+    if [ "${#todo[@]}" -gt 0 ] && ! dpkg_install "${todo[@]}"; then
       echo "::warning::The cached packages in $dir do not fit this runner image; repairing from Ubuntu's mirror. The cache saved under this image's key will fit."
       # --no-remove: a repair that would take a package off the image fails here, loudly, rather than removing it.
       with_mirror apt_into install -f -y --no-install-recommends --no-remove

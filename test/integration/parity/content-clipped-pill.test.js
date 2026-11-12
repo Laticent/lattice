@@ -26,8 +26,8 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const puppeteer = require('puppeteer');
 const { trackPageWork } = require('../../helpers/page-settle');
@@ -54,19 +54,6 @@ function renderAt(markdown, key, level) {
   if (!fs.existsSync(html)) throw new Error(`emulator produced no HTML sidecar for ${key}`);
   return html;
 }
-
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
-
 const deck = (body) => `---\nmarp: true\ntheme: indaco\n---\n\n${body.trim()}\n`;
 // The same deck with an ordinary, over-long running footer — the shape that made the
 // reader pill paint an opaque capsule across the confidentiality line it was reporting.
@@ -116,7 +103,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   let browser;
 
   if (!chrome) {
-    test('SKIPPED — no Chromium available', { skip: true }, () => {});
+    test('needs Chromium', { skip: skipWithoutChrome(chrome) }, () => assert.fail('no Chromium on this runner: install it (test/helpers/chrome.js)'));
     return;
   }
   process.env.CHROME_PATH = chrome;

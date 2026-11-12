@@ -126,6 +126,14 @@ fixed     — 2026-11-10, the Studio startup PR, test-only (no app change), each
             op's ⋯ closed it). Under the suite's load, the 20 compose-* specs on desktop ×3: 411 passed, 0 failed.
             Still open from the same runs: compose-spark-phone.spec.ts:25 (1 of 36), which is a product bug, not a
             test one: followups.d/3150-p1-compose-pick-edits-the-wrong-object.md.
+2026-11-12 — measured on PR #3136 (meta record), desktop project, the 20 compose-* specs under the suite's own load,
+            twice with the PR's Compose and slide-panel code (0fdcdf72) and twice with it swapped back to 48928446's
+            (deck-source.ts and meta-edit.mjs): both trees show the same load-only failures, so none is the PR's. Two are
+            new to this list: compose-spark-editor.spec.ts:108 ("the drawn spark follows the site into dark mode",
+            `getComputedStyle` given a non-element; failed once on each tree, passes run alone) and
+            compose-stress.spec.ts:536 ("a randomized walk over the compose ops holds the structural invariants", failed
+            once on each tree). The stress walk draws random ops: check it prints and pins its seed (HARD RULE #32, F5)
+            before reading it as load. compose-pill-editor:259 and compose-soft-break:22/:50 failed again the same way.
 fixed     — 2026-11-12, branch claude/flaky-e2e-render, each at its cause, with a failing arm, 10 runs alone and loaded runs
             (numbers in that PR):
             - playground-kpi-pill.spec.ts ×3: rewritten to the status-mark contract (2026-10-24-status-is-one-system.md):
