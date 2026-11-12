@@ -113,7 +113,10 @@ function halfFor(kind: string): Promise<HostHalf> {
 }
 
 async function drawKind(job: Job): Promise<string> {
-	const half = await halfFor(job.kind);
+	// A host half whose chunk could not load (offline, a stale deploy) is the host failing, not the figure: the page draws it itself.
+	const half = await halfFor(job.kind).catch((e) => {
+		throw Object.assign(e instanceof Error ? e : new Error(String(e)), { drawUnavailable: true });
+	});
 	const env = envFor(job.kind);
 	const sent = half.prepare ? half.prepare(job, env) : job;
 	const raw = await host.draw(sent as Parameters<typeof host.draw>[0]);

@@ -818,3 +818,13 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   nothing: since 2026-11-04 the `alert` job files no issue for it, and `platform-suites-supervisor.yml` re-runs the job once.
   `npm run evidence` no longer lists a suite for dispatch when the PR run already starts it.
 - **Record:** `engineering/decisions/2026-11-04-ci-flake-audit.md` §5 and §6 (D2, decided A).
+
+## A spec on `serveDist` draws no diagram, even online
+
+- **Symptom** — a spec that serves the built site with `docs/e2e/serve-dist.ts` (the PWA and offline specs) sees a
+  Mermaid fence settle `error`, and the console says "Access to script at …/frames/mermaid/… from origin 'null' has
+  been blocked by CORS policy".
+- **Cause** — the sandboxed draw frame has origin `null` and imports Mermaid's module graph from `frames/`, which needs
+  `Access-Control-Allow-Origin: *`. GitHub Pages sends it on everything, and `preview-e2e.mjs` and `serve-h2.mjs` match
+  it; `serve-dist.ts` did not, so no test on it could draw a diagram.
+- **Fix** — `serve-dist.ts` sends the header (2026-11-12). A new static server for tests sends it too.
