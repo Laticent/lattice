@@ -27,7 +27,8 @@ import { cn } from "@/lib/utils"
  * `defaultPrevented`, so a hidden layer would quietly eat keys. So this renders its OWN dialog
  * element and does the modal work itself, only while open:
  *  - `inert` on every other child of `<body>`: keyboard focus and assistive tech stay inside;
- *  - focus moves in on open and returns to where it came from on close;
+ *  - focus moves in on open and returns to where it came from on close (on a touch screen, not into a
+ *    text field: that would raise the software keyboard);
  *  - the backdrop closes it on a click;
  *  - the backdrop is a Radix DismissableLayer, mounted ONLY while open. It holds no state, so
  *    mounting it costs nothing, and it puts this surface on top of Radix's layer stack. That stack
@@ -179,6 +180,14 @@ export function PersistentSurface({
     const box = boxRef.current
     const active = document.activeElement
     const unclaimed = !active || active === document.body || (box?.contains(active) ?? false)
+    // Not into a text field on a touch screen: focusing one raises the software keyboard, so a
+    // gallery opened from Compose put the keyboard back up after every insert (compose-stress
+    // e2e on the touch projects, red on main for weeks: followups.d/2927-p18). Focus leaves the
+    // box for the page instead, as a tap elsewhere would.
+    if (to && isTextField(to) && !finePointer()) {
+      if (unclaimed && box?.contains(active)) (active as HTMLElement).blur()
+      return
+    }
     if (to?.isConnected && unclaimed) to.focus({ preventScroll: true })
   }, [drawn])
 
@@ -252,4 +261,16 @@ export function PersistentSurface({
       )}
     </DialogPrimitive.Root>
   )
+}
+
+/** Where focus raises a software keyboard: editable text. */
+function isTextField(el: HTMLElement): boolean {
+  if (el.isContentEditable || el.closest('[contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]')) return true
+  if (el instanceof HTMLTextAreaElement) return !el.readOnly
+  return el instanceof HTMLInputElement && !el.readOnly && !/^(button|checkbox|color|file|hidden|image|radio|range|reset|submit)$/.test(el.type)
+}
+
+/** A mouse or trackpad: no software keyboard to raise. */
+function finePointer(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia("(hover: hover) and (pointer: fine)").matches
 }

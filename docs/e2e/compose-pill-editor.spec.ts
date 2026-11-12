@@ -82,7 +82,8 @@ const bar = (page: Page) => page.locator('.cs-slide-active');
  * Put the caret at the end of "Shipped " (offset 8), checking where it is after each press, then step once more onto
  * the pill. Counting exactly nine presses was flaky under the full suite's load: now and then the first ArrowRight after
  * the click and Home leaves the browser's caret where it was, on the same text node at offset 0 (traced in #3150:
- * once in 240 runs alone; its cause is open in followups.d/3150-p2). So the walk forgives ONE lost press and no more:
+ * in 1 of 24 bare runs, and never in 216 with keydown, selectionchange and mutation listeners attached, which hide it;
+ * its cause is open in followups.d/3150-p2). So the walk forgives ONE lost press and no more:
  * eight steps take at most nine presses, and a regression that drops keys still fails here. The last step is still a
  * real ArrowRight that must select the pill.
  */
@@ -92,7 +93,7 @@ async function walkOntoFirstPill(page: Page): Promise<void> {
 		return s?.anchorNode?.nodeType === Node.TEXT_NODE && s.anchorNode.textContent === 'Shipped ' ? s.anchorOffset : -1;
 	});
 	for (let presses = 0; (await offset()) !== 8; presses++) {
-		expect(presses, 'eight steps to the end of "Shipped " take at most nine presses (one lost press forgiven)').toBeLessThan(9);
+		expect(presses, 'eight steps to the end of "Shipped " take at most nine presses (one lost press forgiven until followups.d/3150-p2 restores eight)').toBeLessThan(9);
 		await pressSettled(page, 'ArrowRight');
 	}
 	await pressSettled(page, 'ArrowRight');

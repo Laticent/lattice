@@ -507,9 +507,21 @@ export function addedNote(page: Page): Locator {
 /** Run one of the slide menu's actions on the current slide (components/studio/strip-actions), through the ⋯ beside it in whichever
  *  strip is on screen: the pills or the slide map. `id` is the item's `data-strip-action`. */
 export async function stripAction(page: Page, id: 'new-after' | 'new-before' | 'duplicate' | 'move-before' | 'move-after' | 'hide' | 'delete'): Promise<void> {
-	// A tap on the slide that is already current opens the menu too, so it may be open already; the ⋯ would close it.
-	if (!(await page.locator('[data-strip-menu-content]').isVisible())) await page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first().click();
-	await page.locator(`[data-strip-menu-content] [data-strip-action="${id}"]`).click();
+	await openStripMenu(page);
+	await page.locator(`[data-strip-menu-content][data-state="open"] [data-strip-action="${id}"]`).click();
+}
+
+/** Open the slide menu through the ⋯ of whichever strip is on screen, unless it is open already.
+ *  A tap on the slide that is already current opens the menu too, and the ⋯ would then close it. Read
+ *  the ⋯'s `aria-expanded`, not the menu's visibility: a menu playing its exit animation is still
+ *  visible, and a menu whose lazy chunk has not landed is not, so visibility misreads both (the
+ *  checker on #3150). */
+export async function openStripMenu(page: Page): Promise<void> {
+	const trigger = page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first();
+	await expect(trigger).toBeVisible();
+	if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
+	await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+	await expect(page.locator('[data-strip-menu-content][data-state="open"]')).toBeVisible();
 }
 
 /** What a strip action said, on the strip with its Undo (2026-10-27-slide-structure-strip.md §7), not in a toast. */
@@ -572,18 +584,19 @@ export async function gotoStudio(page: Page): Promise<void> {
 		};
 	});
 	// Record the selection each `selectionchange` delivered, so `caretSettled` can tell whether one is
-	// still on its way. Passive: it only reads the selection.
+	// still on its way. Passive: it only reads the selection. It keeps the NODES, not a description of
+	// them: "Line one" and "Line two" are both 8 characters, so a name-and-length key read a caret moved
+	// between them as already delivered (the checker on #3150, compose-soft-break).
 	await page.addInitScript(() => {
-		const w = window as unknown as { __latticeDeliveredCaret?: string };
-		const key = (): string => {
+		type Caret = [Node | null, number, Node | null, number] | null;
+		const w = window as unknown as { __latticeDeliveredCaret?: Caret };
+		const snap = (): Caret => {
 			const s = document.getSelection();
-			if (!s) return '';
-			const id = (n: Node | null): string => (n ? `${n.nodeName}:${n.textContent?.length ?? 0}` : '-');
-			return `${id(s.anchorNode)}@${s.anchorOffset}/${id(s.focusNode)}@${s.focusOffset}`;
+			return s ? [s.anchorNode, s.anchorOffset, s.focusNode, s.focusOffset] : null;
 		};
-		w.__latticeDeliveredCaret = key();
+		w.__latticeDeliveredCaret = snap();
 		document.addEventListener('selectionchange', () => {
-			w.__latticeDeliveredCaret = key();
+			w.__latticeDeliveredCaret = snap();
 		});
 	});
 	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
@@ -600,11 +613,9 @@ export async function gotoStudio(page: Page): Promise<void> {
  * at 460 ms, its `selectionchange` at 469 ms, and a Tab sent in between ran against the heading the
  * caret had left, so Tab moved focus out of the editor. A human cannot type inside that gap; a test can.
  *
- * The signal: the selection the last delivered event saw equals the selection now. A caret move
- * that has not been delivered yet makes them differ until it is. Needs `gotoStudio`'s recorder.
- * The comparison is by node name, text length and offset, so two different nodes that agree on
- * all three would read as settled: good enough for one paragraph's caret walk, not a general
- * identity check.
+ * The signal: the selection the last delivered event saw is the selection now, the same nodes at the
+ * same offsets. A caret move that has not been delivered yet makes them differ until it is. Needs
+ * `gotoStudio`'s recorder. A press that moves nothing reads as settled at once, which is right.
  */
 export async function caretSettled(page: Page): Promise<void> {
 	await expect
@@ -612,9 +623,8 @@ export async function caretSettled(page: Page): Promise<void> {
 			page.evaluate(() => {
 				const s = document.getSelection();
 				if (!s) return true;
-				const id = (n: Node | null): string => (n ? `${n.nodeName}:${n.textContent?.length ?? 0}` : '-');
-				const now = `${id(s.anchorNode)}@${s.anchorOffset}/${id(s.focusNode)}@${s.focusOffset}`;
-				return (window as unknown as { __latticeDeliveredCaret?: string }).__latticeDeliveredCaret === now;
+				const d = (window as unknown as { __latticeDeliveredCaret?: [Node | null, number, Node | null, number] | null }).__latticeDeliveredCaret;
+				return !!d && d[0] === s.anchorNode && d[1] === s.anchorOffset && d[2] === s.focusNode && d[3] === s.focusOffset;
 			}),
 		)
 		.toBe(true);

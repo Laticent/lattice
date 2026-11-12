@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { buildDeckIndex } from '../src/lib/deck-outline/deck-outline';
 import { insertEntry, insertVia, openInsertMenu } from './compose-insert';
-import { expect, gotoStudio, persistedSource, railButtons, slideCount, stripAction, test } from './studio-fixture';
+import { expect, gotoStudio, openStripMenu, persistedSource, railButtons, slideCount, stripAction, test } from './studio-fixture';
 
 /**
  * COMPOSE — the stress tier.
@@ -586,13 +586,10 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 				if (await btn.isEnabled()) await btn.click();
 				return;
 			}
-			// A `railPick` tap on the pill that is already current opens this menu too (as `stripAction` in the fixture says),
-			// and the ⋯ would then close it: the walk timed out on a closed menu about one run in ten. Open it only when it is
-			// not open, then wait for it, so a menu that did not open says so.
-			const menu = page.locator('[data-strip-menu-content]');
-			if (!(await menu.isVisible())) await page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first().click();
-			await expect(menu).toBeVisible();
-			const item = page.locator(`[data-strip-menu-content] [data-strip-action="${name}"]`);
+			// A `railPick` tap on the pill that is already current opens this menu too, and the ⋯ would then close it: the
+			// walk timed out on a closed menu about one run in ten. `openStripMenu` opens it only when its ⋯ says it is closed.
+			await openStripMenu(page);
+			const item = page.locator(`[data-strip-menu-content][data-state="open"] [data-strip-action="${name}"]`);
 			if ((await item.getAttribute('data-disabled')) === null) await item.click();
 			else await page.keyboard.press('Escape');
 		},

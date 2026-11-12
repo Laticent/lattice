@@ -96,6 +96,42 @@ describe('PersistentSurface', () => {
 		expect(document.activeElement, 'focus was taken back from the new slide').toBe(caret);
 	});
 
+	it('returns focus to a text field only on a fine pointer: on touch it would raise the keyboard', async () => {
+		const real = window.matchMedia;
+		for (const fine of [true, false]) {
+			window.matchMedia = ((q: string) => ({ matches: fine && q.includes('pointer: fine'), media: q, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+			try {
+				function FromEditor() {
+					const [open, setOpen] = React.useState(false);
+					return (
+						<>
+							<textarea data-testid="editor" />
+							<button type="button" onClick={() => setOpen(true)}>
+								gallery
+							</button>
+							<PersistentSurface open={open} onOpenChange={setOpen}>
+								<DialogTitle>Add a slide</DialogTitle>
+								<DialogClose>done</DialogClose>
+							</PersistentSurface>
+						</>
+					);
+				}
+				const { unmount } = render(<FromEditor />);
+				const editor = screen.getByTestId('editor');
+				editor.focus();
+				// Opened from the editor's own toolbar, which keeps the editor focused (as Compose's slide bar does).
+				fireEvent.click(screen.getByText('gallery'));
+				fireEvent.click(screen.getByText('done'));
+				await waitFor(() => expect(dialog()?.hasAttribute('data-hidden')).toBe(true));
+				if (fine) await waitFor(() => expect(document.activeElement, 'a mouse gets its caret back').toBe(editor));
+				else expect(document.activeElement, 'a touch screen got the keyboard back up').not.toBe(editor);
+				unmount();
+			} finally {
+				window.matchMedia = real;
+			}
+		}
+	});
+
 	it('closes on Escape, but a Radix layer opened from inside takes Escape first', () => {
 		function WithMenu() {
 			const [open, setOpen] = React.useState(true);

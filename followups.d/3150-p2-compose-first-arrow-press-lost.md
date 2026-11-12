@@ -5,7 +5,7 @@ recorded: 2026-11-12
 area: website
 severity: low
 swimlane: engineering/decisions/2026-10-21-compose-point-and-click.md §8
-deferred: off-path — product code in Compose's caret handling that this test-only PR does not touch; the cause is not found yet and needs its own trace
+deferred: large — the lost press vanishes whenever listeners are attached (0 of 216 runs), so naming its handler needs a new EditorView test hook and its own trace; #3150's walk forgives exactly one lost press meanwhile
 source: https://github.com/Laticent/lattice/pull/3150
 ---
 
