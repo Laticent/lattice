@@ -2006,9 +2006,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	/** Enter (or move) the component walk. `step` is a stable plan kind (or null →
 	 * title; 'LAST' → the closing slide, for walking backwards across components). */
 	const startWalk = React.useCallback(
-		async (name: string, step: string | null): Promise<boolean> => {
-			deckPickSeqRef.current++;
+		async (name: string, step: string | null, { keepEditedDraft = false }: { keepEditedDraft?: boolean } = {}): Promise<boolean> => {
+			const seq = ++deckPickSeqRef.current;
 			const plan = await fetchPlan(name);
+			// A LATER PICK WINS. Every route that replaces the explored deck bumps the counter, this walk included, so a
+			// plan that lands after a newer walk or deck pick must not take the deck back. The one that mattered: the
+			// warm-up walk the Edit boot starts behind the editor, landing after the reader had entered Explore and
+			// started Explore's own walk, rendered the component's gallery over the reader's draft
+			// (chart-detail-reveal.spec.ts at 390px, red under load).
+			if (seq !== deckPickSeqRef.current) return false;
 			if (!plan) {
 				// The designed 404 path: the staged tree was rewritten by a deploy while
 				// this tab sat open — never a dead Next button. (Silent when the walk is
@@ -2020,17 +2026,31 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				}
 				return false;
 			}
-			const at = step === 'LAST' ? { index: plan.slides.length - 1, notice: null } : resolvePlanStep(plan, step);
-			setWalkNotice(at.notice);
-			setWalk({ kind: 'plan', plan, index: at.index });
-			walkRef.current = { kind: 'plan', plan, index: at.index };
+			const planSource = plan.slides.map((s) => s.md).join('\n\n---\n\n');
 			setReaderComponent(name);
 			try {
 				localStorage.setItem(COMPONENT_KEY, name);
 			} catch {
 				/* private mode */
 			}
-			exploreSourceRef.current = plan.slides.map((s) => s.md).join('\n\n---\n\n');
+			// EXPLORE ENTERED BEFORE ANY WALK HAD LANDED shows what the editor holds when it is not the plan, the same
+			// answer `setViewMode` gives once a walk exists (its save-back). Without this the answer to one click on
+			// Explore depended on how fast a plan fetch was: the draft, or the component's gallery.
+			const edited = keepEditedDraft ? getSource() : null;
+			if (edited != null && lf(edited) !== lf(planSource)) {
+				const w: Walk = { kind: 'deck', label: 'draft', index: 0, count: 0 };
+				setWalkNotice(null);
+				setWalk(w);
+				walkRef.current = w;
+				exploreSourceRef.current = edited;
+				if (viewRef.current === 'read') freshRender();
+				return true;
+			}
+			const at = step === 'LAST' ? { index: plan.slides.length - 1, notice: null } : resolvePlanStep(plan, step);
+			setWalkNotice(at.notice);
+			setWalk({ kind: 'plan', plan, index: at.index });
+			walkRef.current = { kind: 'plan', plan, index: at.index };
+			exploreSourceRef.current = planSource;
 			// Warming up behind the editor (tour targets need #pg-walk mounted):
 			// no render — Edit still shows the draft; entering Explore renders.
 			if (viewRef.current === 'read') freshRender();
@@ -2039,7 +2059,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			if (next) void fetchPlan(next);
 			return true;
 		},
-		[fetchPlan, freshRender, walkOrder],
+		[fetchPlan, freshRender, walkOrder, getSource],
 	);
 	startWalkRef.current = startWalk;
 	const stepWalk = React.useCallback(
@@ -2174,7 +2194,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				if (walkRef.current) {
 					if (reusableFrame(exploreSourceRef.current, walkRef.current.kind)) void render(false);
 					else freshRender();
-				} else void startWalk(readerComponent, null);
+				} else void startWalk(readerComponent, null, { keepEditedDraft: true });
 			} else {
 				// Entering Edit: open the current deck's markdown in the editor. Flipping
 				// back to Explore renders whatever you changed. (Whole-deck edit; Explore

@@ -29,6 +29,13 @@ const KINDS: readonly string[] = DRAW_KINDS;
 const down = new Set<string>();
 export const markDrawKindDown = (kind: string) => void down.add(kind);
 
+/** The host's own code could not load (offline before it was ever fetched, a stale deploy): the kind leaves the list and
+ *  the page draws it itself, as when its frame cannot open (`drawUnavailable`, read by the runtime's Mermaid pass). */
+function unavailable(kind: unknown, e: unknown): Error {
+	if (typeof kind === 'string') markDrawKindDown(kind);
+	return Object.assign(e instanceof Error ? e : new Error(String(e)), { drawUnavailable: true });
+}
+
 /** Install the host on `win`, once. Idempotent; never replaces a host something else defined. */
 export function installPreviewDrawHost(win: Window = window): void {
 	if (Object.getOwnPropertyDescriptor(win, '__latticeDrawHost')) return;
@@ -37,8 +44,8 @@ export function installPreviewDrawHost(win: Window = window): void {
 			get kinds() {
 				return Object.freeze(KINDS.filter((k) => !down.has(k)));
 			},
-			draw: (job: Job) => impl().then((m) => m.draw(job)),
-			warm: (kind: string) => void impl().then((m) => m.warm(kind)),
+			draw: (job: Job) => impl().then((m) => m.draw(job), (e) => Promise.reject(unavailable(job.kind, e))),
+			warm: (kind: string) => void impl().then((m) => m.warm(kind), () => markDrawKindDown(kind)),
 		}),
 	});
 }

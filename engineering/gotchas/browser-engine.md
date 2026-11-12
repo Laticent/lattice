@@ -348,3 +348,20 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   unset); `engineering/decisions/2026-11-03-pictures-at-drawn-size.md` has the measurements. A unit test cannot
   catch it: Node is V8.
 - **Removable when:** never for code that runs in a browser; JSC's backtracking limit is a design choice.
+
+## Firefox: offline, a Studio preview frame loads nothing, though the service worker cached it all
+
+- **Symptom** — offline on Firefox, the Studio preview's runtime never runs (no fence is tagged, nothing hydrates),
+  with `NS_ERROR_CONNECTION_REFUSED` for `playground/v/<hash>/lattice-runtime.js`. Chromium and WebKit draw. The
+  file IS in the worker's cache, and the frame reports `navigator.serviceWorker.controller` set.
+- **Cause** — Gecko gives a `srcdoc` frame its parent's controller but never routes the frame's requests through the
+  service worker. Offline, from inside the frame, `fetch` of the runtime fails for every cache mode (default,
+  no-cache, reload, no-store); the same URL fetched from the top page returns 200 from the worker. `page.goto` in place
+  of a reload changes nothing. Measured 2026-11-12 (PR #3152).
+- **Mitigation** — none yet. The fix is a preview-builder change: the parent, whose fetches the worker serves,
+  supplies the frame's runtime, sheets and fonts instead of the frame loading them by URL. That is a HARD RULE #22
+  preview-builder sink, so it is a design change of its own. Until then `studio-warm-offline.spec.ts` (the "never
+  rendered online" case) is `test.fixme` on Firefox, with the reason above it.
+- **Triggered by** — any surface that relies on a `srcdoc` frame's subresources being served offline.
+- **Removable when** — the preview builder no longer loads frame subresources by URL, or Gecko routes `srcdoc`
+  requests through the controller.

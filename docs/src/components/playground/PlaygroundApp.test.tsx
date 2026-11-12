@@ -39,7 +39,10 @@ vi.mock('@/lib/playground-engine', () => ({
 		ready: () => true,
 		ensure: () => {},
 		prefetchTheme: () => {},
-		renderInto: async () => ({
+		// Records the source of every render, for the cells that ask WHICH deck the preview was given.
+		renderInto: async (_frame: unknown, src: string) => {
+			(globalThis as { __pgRenders?: string[] }).__pgRenders?.push(src);
+			return {
 			status: 'rendered' as const,
 			count: 3,
 			state: { frameSig: 'sig', lastSections: null },
@@ -47,7 +50,8 @@ vi.mock('@/lib/playground-engine', () => ({
 			patched: true,
 			anchor: null,
 			index: async () => ({ pages: [], byFlat: [], unexplainedPages: [], unexplainedParts: [], slides: 0 }),
-		}),
+			};
+		},
 	}),
 }));
 
@@ -214,6 +218,42 @@ describe('PlaygroundApp — the mode toggle keeps view and pane in sync', () => 
 		const user = await mountPlayground();
 		await loadGallery(user, 'Jargon');
 		await waitFor(() => expect(visiblePane()).toBe('preview'));
+	});
+});
+
+// ── Explore entered before the warm-up walk lands ───────────────────────────
+// The Edit boot warms the component walk behind the editor (a plan fetch). A reader who entered Explore before that
+// fetch landed got the component's gallery once it did, over their draft; once the walk had landed, the same click showed
+// the draft (setViewMode's save-back). docs/e2e/chart-detail-reveal.spec.ts hit it at 390px under load.
+describe('PlaygroundApp — Explore shows the draft however fast the plan fetch is', () => {
+	it('a plan that lands after the reader entered Explore does not replace the draft', async () => {
+		const renders: string[] = [];
+		(globalThis as { __pgRenders?: string[] }).__pgRenders = renders;
+		const held: Array<() => void> = [];
+		const plan = JSON.stringify({ name: 'verdict-grid', slides: [{ kind: 'default', caption: 'c', md: '<!-- _class: verdict-grid -->\n# PLAN SLIDE' }] });
+		vi.stubGlobal(
+			'fetch',
+			vi.fn((url: string) => {
+				const reply = { ok: true, text: async () => (url.startsWith('/plans/') ? plan : '') };
+				// Every plan fetch waits until the test lets it land.
+				return url.startsWith('/plans/') ? new Promise((resolve) => held.push(() => resolve(reply))) : Promise.resolve(reply);
+			}),
+		);
+		try {
+			const user = await mountPlayground();
+			await waitFor(() => expect(held.length).toBeGreaterThan(0)); // the warm-up walk is in flight
+			await clickMode(user, 'Explore');
+			await waitFor(() => expect(currentView()).toBe('read'));
+			// Explore started its own walk: two plan fetches are held, the warm-up's and Explore's.
+			await waitFor(() => expect(held.length).toBe(2));
+			// Land both, oldest first. Each walk's continuation is a microtask chain, so by the time the newer walk has
+			// rendered, the older one has finished too, and anything it rendered is already in `renders`.
+			while (held.length) held.shift()?.();
+			await waitFor(() => expect(renders.at(-1)).toContain('# Starter'));
+			expect(renders.some((src) => src.includes('PLAN SLIDE')), 'the gallery plan reached the preview over the draft').toBe(false);
+		} finally {
+			delete (globalThis as { __pgRenders?: string[] }).__pgRenders;
+		}
 	});
 });
 

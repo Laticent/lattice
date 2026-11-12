@@ -1,4 +1,4 @@
-import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
+import type { Completion, CompletionContext, CompletionResult, CompletionSource } from '@codemirror/autocomplete';
 import { altFromAssetName } from '@/lib/photo-alt';
 import { PACE_NAMES } from '@/lib/resolve-pace';
 import { classDirectiveCompletion, classTokenResult, deckSplit, recordCompletion, recordOptions, slideBodyAfter } from '@/playground/slide-context.js';
@@ -232,6 +232,29 @@ export function inlineCodeCompletion(
 		typed,
 		options: got.words.map((w, i) => option(w, axes.indexOf(w.axis), i)),
 		validFor: (t) => WORD.test(t) && !inPrimary(t),
+	};
+}
+
+/**
+ * Inside an inline code span the menu comes from the lint core, which the editor imports lazily
+ * (`inlineNext` is null until it lands). CodeMirror asks a source again only on the next
+ * keystroke, so a span typed before the core arrived (`` `@ava ``, then a pause) opened no menu
+ * at all until the author typed again. Until the core is in, a source that found nothing inside a
+ * span waits for the core and asks once more, so the menu opens the moment it lands. Outside a
+ * span, or once the core is in, the source answers as it always did.
+ */
+export function withLazyInlineCore(
+	source: (context: CompletionContext) => CompletionResult | null,
+	coreReady: () => boolean,
+	loadCore: () => Promise<unknown>,
+): CompletionSource {
+	return (context) => {
+		const got = source(context);
+		if (got || coreReady()) return got;
+		const line = context.state.doc.lineAt(context.pos);
+		const before = line.text.slice(0, context.pos - line.from);
+		if (((before.match(/`/g) || []).length & 1) === 0) return null;
+		return loadCore().then(() => (context.aborted || !coreReady() ? null : source(context)));
 	};
 }
 

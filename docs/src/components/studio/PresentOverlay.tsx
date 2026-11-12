@@ -2216,7 +2216,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		if (!seen) setShowHint(true);
 	}, [open]);
 
-	React.useEffect(() => {
+	// A LAYOUT effect, not a passive one: the keyboard has to arrive in the same commit as the dialog. A passive effect
+	// runs after paint, and React may defer it to a later task (a render that was not the click's own, a busy main
+	// thread), so for that gap Present was on screen and Escape did nothing: lenses-landing.spec.ts lost 2 of 20 closes
+	// with the unit suite running beside it. On a FIRST open the shell's loading handler covers the gap; on every later
+	// open Present is already mounted and nothing did.
+	React.useLayoutEffect(() => {
 		if (!open) return;
 		const onKey = (e: KeyboardEvent) => {
 			// Opened by the room and not clicked into yet: only Escape (leave) does anything.

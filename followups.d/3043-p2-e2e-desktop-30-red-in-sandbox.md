@@ -27,13 +27,10 @@ after     — the full desktop run on the branch, with main at 867e0fff merged i
             strip-keyboard.spec.ts:51, strip-menu.spec.ts:106. Not investigated. Three more passed run alone
             (compose-pill-editor:259, plugin-inline-ui:170, read-article-beacons:94), so they join the load list below.
 left      — each needs a decision, not a test edit:
-            - playground-kpi-pill.spec.ts:53 ×3: the test writes pills as bare backticks, which the pills plugin no
-              longer reads (`{…}` now); with `{…}` the ground is opaque, but its "ink equals border" rule contradicts
-              the current status mark (white ink on a status fill, status rim). A design-contract call.
             - playground-paint.spec.ts:230: the first-paint snapshot is 122,947 units against 122,880, a real 67-unit
               overrun; the budget is not loosened (HARD RULE #14).
             - studio-warm-offline.spec.ts:80: FIXED in #3087. The starter deck's only math is inside inline code, so the
-              warm-up rightly never fetched KaTeX; the test now seeds a deck with real math. (:132 is diagnosed below.)
+              warm-up rightly never fetched KaTeX; the test now seeds a deck with real math. (:132 is fixed, see 2026-11-12.)
             - venue-fixed-size.spec.ts:104: a real defect, filed on its own (followups.d/*-new-slide-covers-clip-notice.md).
             - deck-register-gap.spec.ts:99: red only under full-suite load; 0 of 8 runs at 4 workers. Cause unknown.
             - measured 2026-11-06, each run alone (--workers=1), each red every time, with its first error, and EVERY ONE
@@ -44,22 +41,14 @@ left      — each needs a decision, not a test edit:
                 "Alpha Bravo Charlie Delta"); the handler is StudioShell.tsx `runStripShortcut`.
               - (main) strip-menu.spec.ts:106: "New slide after" from the strip menu, a `toMatch` on the source.
               - (main) blank-slide-editors.spec.ts:56: the Markdown editor's deck reads 0 units where 3 are expected.
-              - anima-motion-frames.spec.ts:247: the mid frame's drawn length is 1228, past the test's 1000.
-              - mermaid-cache-bindings.spec.ts:143 (Studio and Playground): the drawn flowchart node is never hoverable
-                (hover / dispatchEvent time out); also red on gecko and webkit-tablet. Touches D2's draw path.
-              - studio-warm-offline.spec.ts:132: offline, the Mermaid fence settles `error`, not `rendered`. Likely cause,
-                not yet confirmed: since D1 the preview draws Mermaid in the sandboxed draw frame from its ES module graph
-                (`frames/mermaid/*.mjs`), but the Studio warm-up (studio-warm.ts → lib/plugins/drawn-library.mjs
-                `drawnLibraryUrls`) still caches only the in-page `mermaid.min.js`, so offline the frame has nothing to
-                import. A real offline defect in the plugin-patterns swimlane's preview path, which predates PR #3057.
               - playground-first-paint.spec.ts:990: the newcomer bake's element is null (`hasAttribute` of null).
               - studio-instant-shell.spec.ts:252: shell and app slide widths differ by 4 px (1440) and 3 px (390) against
                 a 2 px tolerance.
               - visual.spec.ts:37: the Studio screenshot differs from its committed baseline.
               - workspace-backup-size.spec.ts:85: a 67 MiB backup restores 0 of its 10 reference docs.
             - passed on a re-run with no change, so red only under the full run's load (cause unknown, HARD RULE #32):
-              lenses-landing:33, library-header-search:19, stage-window:335, studio-map-posters:87,
-              supplied-page-position:18, compose-pill-editor:259, plugin-inline-ui:170, read-article-beacons:94.
+              library-header-search:19, stage-window:335, studio-map-posters:87,
+              supplied-page-position:18, compose-pill-editor:259.
             - tablet and mobile, the full projects on the branch: 292 passed, 6 failed, 27 skipped (17.2 m). Each of the
               6 is main's, measured on a clean checkout of main 867e0fff: visual.spec.ts:37 (tablet and mobile),
               ios-zoom.spec.ts:65 and plugin-inline-ui.spec.ts:170 (mobile) fail there every run;
@@ -132,8 +121,27 @@ fixed     — 2026-11-10, the Studio startup PR, test-only (no app change), each
 2026-11-12 — fixed at their causes on `claude/compose-e2e-flakes` (engineering/gotchas/studio-playground.md, the
             Compose e2e entry): compose-pill-editor:259 and compose-spark-editor:108 (read the drawn pill/spark once,
             before Compose drew it), compose-pill-editor:238 and the keyboard walk beside it (counted nine ArrowRight
-            presses; one is sometimes absorbed), compose-soft-break:22/:50 (keys before `caretSettled`) and
+            presses; ProseMirror's 20 ms focus check sometimes undid the first), compose-soft-break:22/:50 (keys before `caretSettled`) and
             compose-stress:536 (seeded; a `railPick` tap on the current pill opens the slide menu, and the next `rail`
             op's ⋯ closed it). Under the suite's load, the 20 compose-* specs on desktop ×3: 411 passed, 0 failed.
             Still open from the same runs: compose-spark-phone.spec.ts:25 (1 of 36), which is a product bug, not a
             test one: followups.d/3150-p1-compose-pick-edits-the-wrong-object.md.
+fixed     — 2026-11-12, branch claude/flaky-e2e-render, each at its cause, with a failing arm, 10 runs alone and loaded runs
+            (numbers in that PR):
+            - playground-kpi-pill.spec.ts ×3: rewritten to the status-mark contract (2026-10-24-status-is-one-system.md):
+              `{…}` pills, opaque status fill, one `--on-mark` ink, the drawn mark, the role border, the rim at 3:1.
+            - anima-motion-frames.spec.ts:247: a `non-scaling-stroke` mark scales anime's dash lengths; the test now
+              asserts the mid/end ratio, not `< 1000`.
+            - mermaid-cache-bindings.spec.ts:143 ×2 (all engines): the draw shim moves `title` into `data-lattice-tip`;
+              the test finds the node by its class.
+            - studio-warm-offline.spec.ts:132 (now :136): a product defect, not the warm-up list. serve-dist.ts lacked the
+              CORS header the draw frame needs, and offline the draw host's own chunks failed without falling back; the
+              diagram now falls back to the page's Mermaid in the same preview (engineering/gotchas/mermaid.md).
+            - plugin-inline-ui.spec.ts:139 and :173 (every project): a product race, the `@` menu returned nothing until
+              the lazy lint core landed (`withLazyInlineCore`).
+            - plugin-admission.spec.ts:168: `image` (#3114) joined the plugins; the expected list is read from the
+              manifests.
+            - lenses-landing.spec.ts:33 (load only): Present attached its keyboard in a passive effect, after paint, so an
+              Escape on a later open could land before it; now a layout effect. 2 of 20 under load before, 20 of 20 after.
+            - read-article-beacons.spec.ts:94 (load only, now :103): `server.close()` waited for the browser's keep-alive
+              connections; it closes them first. 2 of 10 under load before, 10 of 10 after.
