@@ -1,3 +1,4 @@
+import { routeHolds } from './route-hold';
 import { expect, gotoStudio, openChatAtWidth, test } from './studio-fixture';
 
 // THE ACTIVITY ROW AND THE SHOW WORK SHEET, IN WEBKIT ON THE iPHONE 15 PRO PROFILE (PR #2821).
@@ -15,8 +16,10 @@ const USAGE_2 = { prompt_tokens: 18400, completion_tokens: 60, total_tokens: 184
 
 const LONG_THOUGHT = 'I should read the big-number layout first, then check the stats slide, because the author wants one number to carry the claim and the cards-grid slide may repeat it. After that I will compare the eyebrow wording across slides and look for a caption longer than one line so nothing overflows. Last words are the finish line.';
 
-/** Mock the model. `holdSecondRoundMs` keeps the second call open so the live thought stays on screen while a test looks at it. */
-async function mockModel(page: import('@playwright/test').Page, opts: { reasoning?: string; holdSecondRoundMs?: number } = {}) {
+/** Mock the model. With `holdSecondRound`, the second call stays open until the test releases it, so the live thought
+ *  stays on screen for exactly as long as the test looks at it. */
+async function mockModel(page: import('@playwright/test').Page, opts: { reasoning?: string; holdSecondRound?: boolean } = {}) {
+	const holds = routeHolds();
 	await page.addInitScript(() => {
 		try {
 			localStorage.setItem('lattice-db-or-key', 'sk-e2e-mock-not-a-real-key');
@@ -34,7 +37,7 @@ async function mockModel(page: import('@playwright/test').Page, opts: { reasonin
 			return;
 		}
 		round++;
-		if (round % 2 === 0 && opts.holdSecondRoundMs) await new Promise((r) => setTimeout(r, opts.holdSecondRoundMs));
+		if (round % 2 === 0 && opts.holdSecondRound) await holds.hold();
 		const frames =
 			round % 2 === 1
 				? [
@@ -49,6 +52,7 @@ async function mockModel(page: import('@playwright/test').Page, opts: { reasonin
 					];
 		await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse(frames) });
 	});
+	return holds;
 }
 
 test('@webkit-phone a finished reply is one tappable line, and its sheet scrolls inside itself', async ({ page }) => {
@@ -109,7 +113,7 @@ test('@webkit-phone a finished reply is one tappable line, and its sheet scrolls
 
 test('@webkit-phone the streaming thought is two lines at most and shows its latest words', async ({ page }) => {
 	test.setTimeout(90_000);
-	await mockModel(page, { reasoning: LONG_THOUGHT, holdSecondRoundMs: 8_000 });
+	const holds = await mockModel(page, { reasoning: LONG_THOUGHT, holdSecondRound: true });
 	const { width } = page.viewportSize() ?? { width: 390 };
 	await gotoStudio(page);
 	await openChatAtWidth(page, width);
@@ -117,6 +121,7 @@ test('@webkit-phone the streaming thought is two lines at most and shows its lat
 	await page.getByRole('button', { name: 'Send', exact: true }).tap();
 
 	// The second call is held open, so the first call's thought is what the author is looking at.
+	await holds.held();
 	const thought = page.getByTestId('chat-live-thought');
 	await expect(thought).toBeVisible({ timeout: 30_000 });
 	await expect(thought).toContainText('finish line');
@@ -138,4 +143,8 @@ test('@webkit-phone the streaming thought is two lines at most and shows its lat
 	expect(Math.min(intoLine, 16 - intoLine)).toBeLessThan(0.75); // and it falls between lines: no line is cut through the middle
 	expect(geometry.sideways).toBeLessThanOrEqual(0);
 	await page.screenshot({ path: test.info().outputPath('webkit-live-thought.png') });
+	// Let the held call answer: the turn then finishes, so the live thought was a state the chat leaves.
+	holds.releaseAll();
+	await expect(page.getByText('Slide 2 makes one claim')).toBeVisible({ timeout: 30_000 });
+	await expect(thought).toHaveCount(0);
 });

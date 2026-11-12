@@ -12,6 +12,7 @@
  * state that was ever painted shows up in the log.
  */
 import type { Frame, Page } from '@playwright/test';
+import { routeHolds } from './route-hold';
 import { expect, gotoStudio, LIVE_PREVIEW, livePreview, setEditorContent, test } from './studio-fixture';
 
 const deck = `---
@@ -64,12 +65,13 @@ async function record(frame: Frame): Promise<void> {
 const painted = (frame: Frame) => frame.evaluate(() => (window as unknown as { __wallLog?: string[] }).__wallLog ?? []);
 
 test('a logo wall paints once, packed, and a revisit stamps with no fetch @crosswidth @webkit-phone', async ({ page }) => {
-	// A phone-like network for the marks: every mark takes 300 ms.
+	// A phone-like network for the marks: they arrive only after the wall has started measuring.
 	const fetched: string[] = [];
+	const marks = routeHolds();
 	await page.route('**/samples/logo-*.svg', async (route) => {
 		// The runtime's shape reads, not the browser's own image loads for the masks.
 		if (route.request().resourceType() === 'fetch') fetched.push(route.request().url());
-		await new Promise((r) => setTimeout(r, 300));
+		await marks.hold();
 		await route.continue();
 	});
 	const target = page.viewportSize() ?? { width: 1440, height: 900 };
@@ -82,8 +84,10 @@ test('a logo wall paints once, packed, and a revisit stamps with no fetch @cross
 	const heading = livePreview(page).locator('section h2').first();
 	await expect(heading).toHaveText('After the wall.', { timeout: 20_000 });
 
-	// First visit: measures (4 fetches), then packs.
+	// First visit: measures (4 fetches), then packs. The marks are let in once the wall is measuring.
 	await prev.click();
+	await expect(livePreview(page).locator('section.logo-wall .cell-stage > ul[data-logo-wall="measuring"]').first()).toBeAttached({ timeout: 20_000 });
+	marks.releaseAll();
 	const wall = livePreview(page).locator('section.logo-wall .cell-stage > ul[data-logo-wall="packed"]').first();
 	await expect(wall).toBeVisible({ timeout: 20_000 });
 	const frame = await previewFrame(page);
