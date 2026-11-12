@@ -63,11 +63,12 @@ describe('history.state is preserved by the URL scrubs', () => {
 		expect(scrub('/studio/')).toBe('/studio/');
 	});
 
-	it("overlay-back's offender roster names only call sites that really still drop state", () => {
+	it("overlay-back's offender roster is empty, and no call site still drops state", () => {
 		// The roster is prose in a header, and its own text records having been wrong three
-		// commits running. This checks the count it claims against the tree.
+		// commits running. This checks what it claims against the tree: the last two offenders,
+		// PlaygroundApp's address-bar sync, now pass `history.state` through (#3156), so none remain.
 		const roster = read('lib/overlay-back.ts');
-		const claimed = /TWO call sites still do this/.test(roster);
+		const claimed = /The last two call sites that did this, PlaygroundApp\.tsx's address-bar sync/.test(roster);
 		expect(claimed, 'the roster wording changed — re-count and update this test with it').toBe(true);
 
 		const files = [
@@ -75,16 +76,10 @@ describe('history.state is preserved by the URL scrubs', () => {
 			'components/studio/StudioShell.tsx',
 			'components/studio/architect.ts',
 		];
-		const dropping = files.flatMap((rel) =>
-			historyWrites(read(rel))
-				.filter((arg) => !/history\.state/.test(arg))
-				.map(() => rel),
-		);
-		// PlaygroundApp has two; the two fixed sites contribute none. theme-studio.js was
-		// the third, and it was deleted with the Workbench rather than fixed.
-		expect(dropping.sort()).toEqual([
-			'components/playground/PlaygroundApp.tsx',
-			'components/playground/PlaygroundApp.tsx',
-		]);
+		const writes = files.flatMap((rel) => historyWrites(read(rel)).map((arg) => ({ rel, arg })));
+		// PlaygroundApp's two, StudioShell's scrub and the OAuth scrub: a count that drops means a write
+		// moved where this cannot see it, so the check below would pass on nothing.
+		expect(writes.length).toBeGreaterThanOrEqual(4);
+		expect(writes.filter((w) => !/history\.state/.test(w.arg)).map((w) => w.rel)).toEqual([]);
 	});
 });
