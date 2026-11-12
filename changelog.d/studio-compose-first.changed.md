@@ -38,3 +38,7 @@
   (`_em_` became `*em*`, `*` bullets became `-`, a table lost its padding) and dropped the deck's trailing newline. Now
   only the line you changed changes: the rest of the slide, every other slide, the separators and the trailing newline
   stay as you wrote them, and the edited line keeps your list markers and emphasis style.
+- **Both editors mark the caret's line, and their carets match.** The line (Source) or block (Compose) holding the caret
+  has a light accent wash, the Playground's, so the caret is found at a glance; it steps aside while text is selected.
+  Compose's caret is now the body ink, like Source's, and the caret an editor shows while it is not focused looks and
+  blinks like the live one.

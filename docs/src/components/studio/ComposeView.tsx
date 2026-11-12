@@ -1638,6 +1638,25 @@ function startSelection(doc: PMNode, folded?: ReadonlySet<number>): Selection {
  *  editable DOM under a click made Firefox drop where the first click landed. `position: fixed` from the caret's
  *  coordinates, so no ancestor has to be positioned; it lives in the host, so a hidden pane hides it.
  *  Styled by `.lx-ghost-caret` (styles/tailwind.css). */
+/**
+ * THE CARET'S LINE, marked as Source marks it (owner, 2026-11-12: "it would be nice not to have to search for the caret").
+ * The textblock holding an empty selection gets `.cs-active-line`, the same 12% accent wash as CodeMirror's active line;
+ * none while a selection is up, for the AA reason lib/editor-chrome.js gives (two washes stacked under the ink).
+ */
+function activeLinePlugin(): Plugin {
+	return new Plugin({
+		props: {
+			decorations(state) {
+				const sel = state.selection;
+				if (!sel.empty || !(sel instanceof TextSelection)) return null;
+				const { $head } = sel;
+				if ($head.depth < 1 || !$head.parent.isTextblock) return null;
+				return DecorationSet.create(state.doc, [Decoration.node($head.before(), $head.after(), { class: 'cs-active-line' })]);
+			},
+		},
+	});
+}
+
 function ghostCaretPlugin(): Plugin {
 	return new Plugin({
 		view(view) {
@@ -3117,7 +3136,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						getKernels: () => kernelsRef.current,
 						getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,
 						onOpenChange: (open) => setObjEdit(open),
-					}, () => setFlashChip(null), { onMarker: openMarker, onLink: openLink }).concat(ghostCaretPlugin()),
+					}, () => setFlashChip(null), { onMarker: openMarker, onLink: openLink }).concat(ghostCaretPlugin(), activeLinePlugin()),
 				}),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>

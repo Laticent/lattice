@@ -223,6 +223,14 @@ pane without shrinking it, so "fits" and "on screen" are measured against the pa
 checks the heading and the caret line are both on screen after a switch; the keyboard half cannot be driven from
 Playwright (no real on-screen keyboard) and is checked on the owner's iPad.
 
+BOTH EDITORS MARK THE CARET'S LINE AND SHOW THE SAME CARET (owner, iPad, 2026-11-12: "it would be nice not to have to
+search for the caret"; Compose's caret was gold and blinked, Source's drawn one was faint and still). Source installs
+`highlightActiveLine()` with the Playground's band, now one shared definition (`lib/editor-chrome.js` `activeLineTheme`,
+12% accent, standing down while a selection is up for the AA reason recorded there); Compose washes the textblock that holds
+an empty selection the same way (`activeLinePlugin`, `.cs-active-line`). Compose's live caret takes Source's `--text-body`
+(it inherited the accent), and both drawn carets are the body ink at full strength, blinking at the live caret's pace, still
+for reduced motion. The axe scan over the Studio passes with the band on.
+
 The drawn caret sits OUTSIDE the editable text: an overlay in Compose (`position: fixed` from the caret's coordinates) and
 a CodeMirror layer in Source. A first cut put a widget inside the text and took it out on focus, and changing the
 editable DOM under a click made Firefox drop where the first click landed (caught by the gecko run). Fuoco's `go` gained

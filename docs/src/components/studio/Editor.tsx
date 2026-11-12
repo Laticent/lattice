@@ -5,7 +5,7 @@ import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
 import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
 import { Annotation, ChangeSet, Compartment, EditorState, type Extension, StateEffect, Transaction } from '@codemirror/state';
-import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, layer, lineNumbers, RectangleMarker, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
+import { closeHoverTooltips, EditorView, hasHoverTooltips, highlightActiveLine, highlightActiveLineGutter, hoverTooltip, keymap, layer, lineNumbers, RectangleMarker, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
 import { type CarriedColumn, lineOffsetIn, plainColumnOfCarried, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
@@ -1002,6 +1002,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 					doc: collab ? collab.seed() : stripBom(value),
 					extensions: [
 						lineNumbers(),
+						// The caret's line, marked as the Playground marks it (owner, 2026-11-12), and standing down while a selection
+						// is up (the AA reason is lib/editor-chrome.js `activeLineTheme`'s).
+						highlightActiveLine(),
+						highlightActiveLineGutter(),
+						EditorView.editorAttributes.compute(['selection'], (state): Record<string, string> => (state.selection.ranges.some((r) => !r.empty) ? { class: 'cm-has-selection' } : {})),
 						noLeadingBom,
 						...(collab ? [collab.extension, EditorState.readOnly.of(collab.readOnly), EditorView.editable.of(!collab.readOnly)] : []),
 						keymap.of([...defaultKeymap, ...completionKeymap]),
