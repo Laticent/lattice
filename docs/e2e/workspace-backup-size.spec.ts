@@ -84,9 +84,15 @@ test('a deflate-bomb backup is refused before it inflates, and the tab keeps wor
 // (the bomb, the flood, IndexedDB keying) runs on WebKit and Firefox in the tests tagged for them.
 test('a real-shaped backup with 67 MiB of reference docs still restores', async ({ page }) => {
 	test.slow();
-	// Ten maximum-size PDFs: 5 MB each, 6.7 MiB as a data URL — 67 MiB of refdocs.json.
-	const block = Buffer.from(Array.from({ length: 65536 }, (_, i) => (i * 2654435761) >>> 24)).toString('base64');
-	const records = Array.from({ length: 10 }, (_, i) => ({ id: `r${i}`, kind: 'refdoc', name: `brand-${i}.pdf`, docKind: 'pdf', dataUrl: `data:application/pdf;base64,${block.repeat(80)}`, bytes: 5 * MIB, addedAt: i }));
+	// Ten maximum-size PDFs: 5 MiB each (MAX_DOC_BYTES), 6.7 MiB as a data URL — 67 MiB of refdocs.json.
+	// Encoded WHOLE, so the data URL is real base64 a restore can decode. Repeating the base64 of a
+	// 64 KiB block put its `==` padding mid-string 80 times and ran the URL 177 characters past the
+	// cap, and the restore rightly refuses such a row (workspace-backup.ts, the reference-doc lane).
+	const pdf = Buffer.alloc(5 * MIB);
+	for (let i = 0; i < pdf.length; i++) pdf[i] = (i * 2654435761) >>> 24;
+	pdf.write('%PDF-1.7\n', 0, 'latin1');
+	const dataUrl = `data:application/pdf;base64,${pdf.toString('base64')}`;
+	const records = Array.from({ length: 10 }, (_, i) => ({ id: `r${i}`, kind: 'refdoc', name: `brand-${i}.pdf`, docKind: 'pdf', dataUrl, bytes: pdf.length, addedAt: i }));
 	const refdocs = JSON.stringify(records, null, 2);
 	expect(refdocs.length).toBeGreaterThan(64 * MIB);
 	const file = await writeZip({ 'manifest.json': manifest, 'workspace.json': state('deck-big', 'Big restore probe'), 'refdocs.json': refdocs });
@@ -98,6 +104,8 @@ test('a real-shaped backup with 67 MiB of reference docs still restores', async 
 	await expect(toast).toContainText(/1 deck/, { timeout: 60_000 });
 	const ms = Date.now() - t0;
 	const toastText = await toast.innerText(); // before the reload clears it
+	// A restore that skipped a row still says "Workspace restored", and names the row: say which one here.
+	expect(toastText, 'no reference doc was skipped').not.toContain('Not restored');
 	await page.waitForEvent('load', { timeout: 30_000 });
 
 	const refdocNames = await page.evaluate(async () => {
