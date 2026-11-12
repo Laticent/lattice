@@ -572,8 +572,12 @@ test('an Explore reload paints one geometry per element too', async ({ page }) =
 // it. A reader who steps BEFORE the slides render is the boot that has a land to make: the walk names slide 2 while the
 // frame opens on slide 1. The engine is held so the step lands in that window every run (`holdEngine`), then let
 // through. A slide geometry cannot judge this one: the instant shell paints slide 1 and the reader's step moves it
-// either way. What the guard decides is WHERE THE FRAME IS when `.is-live` starts the cross-fade, so that is read at
-// that instant, from a MutationObserver, and compared with where the land leaves it.
+// either way. What the guard decides is whether a land is behind `.is-live`, so that is read at that instant, from a
+// MutationObserver: the land state the app publishes (`data-pg-land`, `data-pg-lands`) and the frame's scroll.
+// DETERMINISTIC either way the race goes: a land finishes no sooner than two frames after the slides reveal (it scrolls
+// on a revealed, stable frame, then verifies two frames later), and an unguarded reveal fires on the first revealed
+// frame, so without the guard `.is-live` always meets a land still pending, or none finished yet. Reading only the
+// scroll caught it 2 runs in 3, because a land can scroll before it is done.
 test('a reader who steps before the slides render sees the frame go live already on that slide', async ({ page }) => {
 	await seedRealSession(page);
 	const engine = await holdEngine(page);
@@ -584,12 +588,17 @@ test('a reader who steps before the slides render sees the frame go live already
 
 	engine.hold();
 	await page.addInitScript(() => {
-		const w = window as unknown as { __liveScroll?: number };
+		const w = window as unknown as { __atLive?: { land: string; lands: number; scroll: number } };
 		new MutationObserver((list) => {
 			for (const m of list) {
 				const el = m.target as HTMLElement;
-				if (w.__liveScroll === undefined && el.classList?.contains('pg-preview-wrap') && el.classList.contains('is-live')) {
-					w.__liveScroll = (document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow?.scrollY ?? -1;
+				if (!w.__atLive && el.classList?.contains('pg-preview-wrap') && el.classList.contains('is-live')) {
+					const root = document.documentElement.dataset;
+					w.__atLive = {
+						land: root.pgLand ?? 'none',
+						lands: Number(root.pgLands || 0),
+						scroll: (document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow?.scrollY ?? -1,
+					};
 				}
 			}
 		}).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
@@ -605,11 +614,13 @@ test('a reader who steps before the slides render sees the frame go live already
 	await handOffSettled(page);
 
 	const at = await page.evaluate(() => ({
-		live: (window as unknown as { __liveScroll?: number }).__liveScroll,
+		live: (window as unknown as { __atLive?: { land: string; lands: number; scroll: number } }).__atLive,
 		landed: (document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow?.scrollY ?? -1,
 	}));
 	expect(at.landed, 'the land never left slide 1, so this measured nothing').toBeGreaterThan(100);
-	expect(at.live, 'the frame went live before the land put it on the slide the walk names').toBe(at.landed);
+	expect(at.live, 'the reveal was never seen').toBeTruthy();
+	expect([at.live?.land, (at.live?.lands ?? 0) > 0], 'the frame went live with no finished land behind it').toEqual(['done', true]);
+	expect(at.live?.scroll, 'the frame went live before the land put it on the slide the walk names').toBe(at.landed);
 });
 
 // …and again on the phone, which is the other reference condition in the card and the one
