@@ -54,6 +54,7 @@ const clipOf = (size: number, type = 'audio/mpeg') => ({ size, type, arrayBuffer
 vi.mock('@/playground/narration-prefs.js', () => ({
 	narrationCacheEnabled: () => narrationCacheOn,
 	narrationBitrate: () => mockBitrate,
+	parallelPref: () => 'auto',
 }));
 
 vi.mock('@/playground/narration-store.js', () => ({

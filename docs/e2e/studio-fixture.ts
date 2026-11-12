@@ -536,11 +536,16 @@ export async function gotoStudio(page: Page): Promise<void> {
 	// without this the 'Toggle Coach' / 'Toggle Chat' / 'Deck scope' launchers wouldn't exist.
 	// (2026-07-17-studio-persona-dial.md; the newcomer Read/Write surfaces get their
 	// own dedicated specs.) The runtime read is loadSettings().posture.
-	await page.addInitScript(() => {
+	// The `compose-default` project stores no mode, so the Studio opens in Compose as it ships (see `toSourceIfCompose`).
+	const storeSource = base.info().project.name !== COMPOSE_DEFAULT_PROJECT;
+	await page.addInitScript((source) => {
 		try {
 			const k = 'lattice-studio-settings';
 			const cur = JSON.parse(localStorage.getItem(k) || '{}');
-			localStorage.setItem(k, JSON.stringify({ ...cur, posture: 'craft' }));
+			// SOURCE, not the shipped Compose default (2026-11-10-compose-first.md): the editor helpers below type into the
+			// Markdown editor, and the suite was written against it. A spec that is about Compose clicks into it as
+			// before; `compose-first.spec.ts` pins the real default. An explicit `editMode` already stored wins.
+			localStorage.setItem(k, JSON.stringify({ ...(source ? { editMode: 'source' } : {}), ...cur, posture: 'craft' }));
 			// The settings panels open on the BASIC tier for a real first visit (a short list,
 			// no section strip). Specs address controls by section, so they get ADVANCED —
 			// the full panel they were written against. Basic's own contract is pinned in
@@ -550,7 +555,7 @@ export async function gotoStudio(page: Page): Promise<void> {
 		} catch {
 			/* storage unavailable — the app falls back to its default */
 		}
-	});
+	}, storeSource);
 	// On a desktop (fine-pointer) project, pressing Play starts the on-device voice's ~80 MB
 	// download in the background (the desktop default — voice-model.js › summonDefaultVoice).
 	// Refuse to construct its worker, so a spec never pulls kokoro-js and the model weights over
@@ -849,8 +854,24 @@ export async function openSection(page: Page, name: string): Promise<void> {
 
 /** Focus the CodeMirror editor (the `.cm-content` carries aria-label "Deck source"). */
 async function focusEditor(page: Page): Promise<void> {
+	await toSourceIfCompose(page);
 	await page.getByLabel('Deck source').click();
 }
+
+/**
+ * The `compose-default` project boots in Compose, the shipped default (playwright.config.ts), and the helpers here type
+ * Markdown: they open Source first when Compose is the mode on screen. Every other project stores Source, so this does
+ * nothing there.
+ */
+export async function toSourceIfCompose(page: Page): Promise<void> {
+	if (base.info().project.name !== COMPOSE_DEFAULT_PROJECT) return;
+	if (await page.getByLabel('Deck source').isVisible()) return;
+	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+	await expect(page.getByLabel('Deck source')).toBeVisible();
+}
+
+/** The project that runs a core set of Studio specs in the shipped default mode, Compose (playwright.config.ts). */
+export const COMPOSE_DEFAULT_PROJECT = 'compose-default';
 
 /** Move the caret to the end of the editor document and type an appended block. */
 export async function appendToEditor(page: Page, text: string): Promise<void> {

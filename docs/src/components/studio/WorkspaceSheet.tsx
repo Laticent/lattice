@@ -1,4 +1,4 @@
-import { BookOpen, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, Image as ImageIcon, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Type, Upload, Volume2, Wallet, Zap } from 'lucide-react';
+import { BookOpen, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, Image as ImageIcon, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, PencilLine, PencilRuler, ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, Type, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { fmtPrice, fmtTokens, fmtUSD } from '@/components/studio/ai/or-catalog.js';
@@ -13,7 +13,7 @@ import { clearCrashReports, collectCrashReports, crashReportStats, OPEN_CRASH_RE
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { FIDELITY_OVERLAY_AVAILABLE, fidelityOverlayEnabled, onFidelityOverlayEnabledChange, setFidelityOverlayEnabled } from '@/playground/fidelity-overlay-prefs';
-import { cheapestVoiceEnabled, DEFAULT_BITRATE_KBPS, lookaheadPref, narrationBitrate, narrationCacheEnabled, pacePref, setCheapestVoiceEnabled, setLookaheadPref, setNarrationBitrate, setNarrationCacheEnabled, setPacePref } from '@/playground/narration-prefs.js';
+import { cheapestVoiceEnabled, DEFAULT_BITRATE_KBPS, lookaheadPref, MAX_PARALLEL, narrationBitrate, narrationCacheEnabled, pacePref, parallelPref, setCheapestVoiceEnabled, setLookaheadPref, setNarrationBitrate, setNarrationCacheEnabled, setPacePref, setParallelPref } from '@/playground/narration-prefs.js';
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
 import { onReadAloudOverlayEnabledChange, READALOUD_OVERLAY_AVAILABLE, readAloudOverlayEnabled, setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 import { onStorageOverlayEnabledChange, STORAGE_OVERLAY_AVAILABLE, setStorageOverlayEnabled, storageOverlayEnabled } from '@/playground/storage-overlay-prefs';
@@ -32,6 +32,7 @@ import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } fro
 import { KEY_PROVIDER_INFO } from './key-providers';
 import { LanguageSelect } from './LanguageSelect';
 import { useViewKey } from './live/follow-bus';
+import { describeLocalUse } from './local-quota';
 import { AI_CONNECTIONS_LEAD, AI_MODELS_LEAD, AI_USED_BY, WORKSPACE_DEFAULT_TAB, WORKSPACE_HEADER, WORKSPACE_TABS, WorkspaceAiSection, WorkspaceGroupLabel, WorkspaceLead, WorkspaceSelectionLabel, type WorkspaceTab } from './panel-shells';
 import { listStoredScenes } from './scene-library';
 import { languageFor } from './studio-language';
@@ -268,6 +269,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	const [cheapestVoice, setCheapestVoiceState] = React.useState(false);
 	const [narrationBitrateState, setNarrationBitrateState] = React.useState(DEFAULT_BITRATE_KBPS);
 	const [pace, setPaceState] = React.useState('natural');
+	const [parallel, setParallelState] = React.useState<string>('auto');
 	React.useEffect(() => {
 		if (!open) return;
 		setLookaheadState(String(lookaheadPref()));
@@ -275,6 +277,7 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		setCheapestVoiceState(cheapestVoiceEnabled());
 		setNarrationBitrateState(narrationBitrate());
 		setPaceState(pacePref());
+		setParallelState(String(parallelPref()));
 	}, [open]);
 	React.useEffect(() => {
 		setStorageOverlay(storageOverlayEnabled());
@@ -986,6 +989,19 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 									</Select>
 								</div>
 								<div className="mt-2 rounded-xl border border-border bg-background px-3 py-2.5">
+									<label htmlFor="ws-voice-parallel" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Parallel requests</label>
+									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How many sentences a cloud voice may speak at once while you present or export. <strong>Automatic</strong> starts from what this voice handled well when we measured it, slows itself down the moment the provider says it is busy, and speeds back up when it clears, so you shouldn't normally need to change it. Choose a number only if your account's rate limit is higher or lower than most. The on-device voice always speaks one sentence at a time.</p>
+									<Select value={parallel} onValueChange={(v) => { setParallelState(v); setParallelPref(v === 'auto' ? 'auto' : Number(v)); notify(v === 'auto' ? 'Parallel requests: automatic.' : `Parallel requests: at most ${v} at once.`); }}>
+										<SelectTrigger id="ws-voice-parallel" className="w-full"><SelectValue /></SelectTrigger>
+										<SelectContent>
+											<SelectItem value="auto">Automatic (recommended)</SelectItem>
+											{Array.from({ length: MAX_PARALLEL }, (_, i) => String(i + 1)).map((n) => (
+												<SelectItem key={n} value={n}>{n === '1' ? '1 at a time' : `Up to ${n} at once`}</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="mt-2 rounded-xl border border-border bg-background px-3 py-2.5">
 									<label htmlFor="ws-narration-bitrate" className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Audio quality</label>
 									<p className="mb-2 mt-0.5 text-[11px] leading-relaxed text-muted-foreground">How much detail to keep in the audio of a deck you <strong>share</strong>. This is the single biggest lever on its size — a 300-sentence deck is about 22 MB at 64 kbps and 44 MB at 128. It applies when the file is built, so it never affects how narration sounds while you are reading here, and it only reaches the two voices that produce uncompressed audio (<strong>on-device</strong> and <strong>Gemini</strong>); every other voice arrives already compressed and is passed through untouched. Speech carries almost nothing above 8 kHz, so the higher settings mostly buy bytes rather than clarity.</p>
 									<Select value={String(narrationBitrateState)} onValueChange={(v) => { setNarrationBitrateState(Number(v)); setNarrationBitrate(Number(v)); notify(`Audio quality: ${v} kbps for shared decks. Reading here is unaffected.`); }}>
@@ -1280,6 +1296,15 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 								{gov && gov.totalBytes > 0 && <span className="rounded-full border border-border bg-card px-2 py-0.5 font-mono text-[11px] font-semibold text-[var(--text-heading)]">{fmtBytes(gov.totalBytes)} total</span>}
 							</div>
 							<p className="mb-3 text-xs text-muted-foreground">Everything the Studio has stored in this browser — clear one thing, or start over completely. Nothing here reaches a server; it's all local to this device. Your preferences (language, placement handles, etc.) are never touched here.</p>
+							{gov?.local.warn && (
+								<div role="status" data-testid="local-quota-warning" className="mb-3 flex gap-2.5 rounded-xl border border-[var(--warn)] bg-card px-3 py-2.5">
+									<TriangleAlert className="mt-0.5 size-4 shrink-0 text-[var(--warn)]" aria-hidden="true" />
+									<div className="text-xs leading-relaxed text-muted-foreground">
+										<div className="font-semibold text-[var(--text-heading)]">Deck storage is {Math.round(gov.local.fraction * 100)}% full</div>
+										<div className="mt-0.5">This browser keeps deck text and settings in one small space: {describeLocalUse(gov.local)}. When it fills, deck edits stop saving. Download a backup above, then delete decks you no longer need.</div>
+									</div>
+								</div>
+							)}
 							<div className="flex flex-col gap-2.5">
 								<GovRow
 									icon={<FolderTree className="size-4" />}

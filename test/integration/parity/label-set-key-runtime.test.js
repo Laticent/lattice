@@ -26,6 +26,7 @@ const { test, before, after, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
+const { trackPageWork, installLedger } = require('../../helpers/page-settle');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const RUNTIME = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
@@ -64,9 +65,13 @@ async function onRuntime(body, fn) {
     `<!DOCTYPE html><html><head><style>${CSS}</style></head><body>${body}</body></html>`,
     { waitUntil: 'load' },
   );
-  // The bundle applies the registry on load, exactly as a preview does.
+  // The bundle applies the registry on load, exactly as a preview does. The ledger goes in first, so every timer and
+  // frame the bundle queues is on it, and the read waits until none is left (HARD RULE #32, a signal, not 300 ms).
+  // `setContent` writes into the page's existing document, so there is no navigation for `trackPageWork` to hook.
+  const settled = await trackPageWork(page);
+  await page.evaluate(installLedger);
   await page.evaluate(RUNTIME);
-  await page.evaluate(() => new Promise((r) => setTimeout(r, 300)));
+  await settled({ frames: 3 });
   try { return await fn(page); } finally { await page.close(); }
 }
 

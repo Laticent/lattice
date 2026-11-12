@@ -203,9 +203,8 @@ describe('createRehearsalPlanner (metas-based)', () => {
     // same metas + minutes → served from cache, no second model call
     assert.equal(await planner.plan(M, 10).refined, aiPlan);
     assert.equal(calls, 1);
-    // changed length → re-assessed
-    planner.plan(M, 12);
-    await new Promise((r) => setTimeout(r, 0));
+    // changed length → re-assessed: await the refined plan itself, the signal that the model answered
+    assert.equal((await planner.plan(M, 12).refined).source, 'ai');
     assert.equal(calls, 2);
   });
 
@@ -255,7 +254,9 @@ describe('createRehearsalPlanner (metas-based)', () => {
     const det = planner.detOnly(metasFromSource(DECK), 10);
     assert.equal(det.source, 'deterministic');
     assert.equal(det.slides.length, 6);
-    await new Promise((r) => setTimeout(r, 0));
+    // An absence check reads after one macrotask turn: the model is an in-process mock with no timer, so a call
+    // detOnly had started would have run by then (HARD RULE #32: a turn of the job queue, not a duration).
+    await new Promise((resolve) => setImmediate(resolve));
     assert.equal(calls, 0);
   });
 });

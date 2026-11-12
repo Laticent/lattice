@@ -95,6 +95,17 @@ also red  — 2026-11-11, PR #3088's full WebKit and Gecko run (802 tests, 14 re
             full-suite load only, passing 3 of 3 run alone on both trees: logo-wall-equal-weight.spec.ts:27
             (webkit-phone) and plugin-placeholder-cells.spec.ts:75 (gecko). Intermittent on both trees:
             plugin-inline-ui.spec.ts:139 (webkit-tablet, 1 of 3 red alone on the branch and on main). Not investigated.
+also red  — 2026-11-11, PR #3141's WebKit and Gecko run (the raise loop's evidence row; the run was stopped at its
+            50-minute deadline after 604 of 830 tests): under full-suite load only, slide-bar-studio.spec.ts:35
+            (webkit-tablet, "choosing a different placement does not move a border frame's heading") read the heading
+            64 px right of its `top` position right after the class became `spectrum-edge-left`, then passed 15 of 15
+            run alone (--repeat-each=5) on the branch and 3 of 3 on main's product code. Not patched with a poll on
+            purpose: the read is a frame where the heading stood 64 px off, which may be a real jump on screen
+            (engineering/jank.md), so it wants a root cause, not a wait. Also seen red on the same run and already listed
+            above: library-header-search:19 (gecko, red on main's product code too), mermaid-cache-bindings:143 and
+            playground-tab-switch:211. Sandbox note: the export specs need the `chromium-1194` path the docs' pinned
+            Playwright names; this sandbox ships build 1243, so they fail with "Browser was not found" until that path
+            points at a Chrome (a symlink made them pass, 16 of 18 with the two above).
 fixed     — 2026-11-10, the Studio startup PR, test-only (no app change), each failing alone 3 of 3 on main 50f6f4a:
             - architect.spec.ts:53, :157, :225 and :273 (the first now :60) waited for the old catch-all notice "Connect a
               model in Workspace → AI and I can answer and edit your deck." Since the model spine (#3079) the notice names

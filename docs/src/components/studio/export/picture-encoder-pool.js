@@ -1,10 +1,11 @@
 // A few workers that write the export's pictures, PNG and JPEG, with the shared writers (picture-encode-worker.js), and the
-// main-thread writer as the fallback.
+// main-thread writer as the fallback. The pool machinery itself is docs/src/lib/worker-pool.js, shared with the narration bake.
 //
 // Each request holds a slot for the length of its encode: a bitmap of a 4K slide is 33 MB, and a phone must not hold a deck's worth. A
 // browser without module workers or OffscreenCanvas, and a worker that fails, fall back to `encodeCanvas` on the main
 // thread: the export is slower there, never lost, and the same bytes.
 import { encodeCanvas } from '../../../../../lib/core/canvas-encode.mjs';
+import { createSharedPool, createWorkerPool } from '../../../lib/worker-pool.js';
 
 /** How many encodes may be in flight: one worker each, at most 2 (a third buys little and costs another 33 MB bitmap). */
 export function poolSize(cores = globalThis.navigator?.hardwareConcurrency || 2) {
@@ -19,57 +20,16 @@ export function canEncodeOffThread() {
 export const ENCODE_DEADLINE_MS = 45_000;
 
 export function createPictureEncoder({ size = poolSize(), deadlineMs = ENCODE_DEADLINE_MS } = {}) {
-	const idle = [];
-	const waiting = [];
-	const all = [];
-	let broken = !canEncodeOffThread();
-	let nextId = 0;
-
-	const spawn = () => {
-		const worker = new Worker(new URL('./picture-encode-worker.js', import.meta.url), { type: 'module' });
-		all.push(worker);
-		return worker;
-	};
-	const acquire = () => {
-		if (broken) return Promise.resolve(null);
-		if (idle.length) return Promise.resolve(idle.pop());
-		if (all.length < size) return Promise.resolve(spawn());
-		return new Promise((resolve) => waiting.push(resolve));
-	};
-	const release = (worker) => {
-		// A pool that broke while this worker was busy lets it finish its job, then ends it.
-		if (broken) {
-			worker.terminate();
-			return;
-		}
-		const next = waiting.shift();
-		if (next) next(worker);
-		else idle.push(worker);
-	};
-	const run = (worker, pixels, format) =>
-		new Promise((resolve, reject) => {
-			const id = nextId++;
-			const timer = setTimeout(() => reject(new Error(`no answer in ${deadlineMs / 1000} s`)), deadlineMs);
-			const done = (settle, value) => {
-				clearTimeout(timer);
-				settle(value);
-			};
-			worker.onmessage = (e) => (e.data.id === id ? (e.data.error ? done(reject, new Error(e.data.error)) : done(resolve, e.data.bytes)) : undefined);
-			worker.onmessageerror = () => done(reject, new Error('picture worker sent a message that could not be read'));
-			worker.onerror = (e) => done(reject, new Error(e.message || 'picture worker failed'));
-			worker.postMessage({ id, width: pixels.width, height: pixels.height, buffer: pixels.data.buffer, format }, [pixels.data.buffer]);
-		});
-
+	const pool = createWorkerPool({
+		spawn: () => new Worker(new URL('./picture-encode-worker.js', import.meta.url), { type: 'module' }),
+		size,
+		deadlineMs,
+		label: 'picture',
+		available: canEncodeOffThread,
+	});
 	return {
 		/** Start every worker now, so the first slide finds them loaded instead of paying their start-up. */
-		warm() {
-			if (broken) return;
-			try {
-				while (all.length < size) idle.push(spawn());
-			} catch {
-				broken = true;
-			}
-		},
+		warm: () => pool.warm(),
 		/**
 		 * A canvas's bytes, written by the shared writers.
 		 * @param {HTMLCanvasElement|OffscreenCanvas} canvas
@@ -77,36 +37,17 @@ export function createPictureEncoder({ size = poolSize(), deadlineMs = ENCODE_DE
 		 * @returns {Promise<Uint8Array>}
 		 */
 		async encode(canvas, format = { type: 'png' }) {
-			if (broken) return encodeCanvas(canvas, format);
-			let worker = null;
-			try {
-				worker = await acquire();
-				// The pool broke while this request waited for a slot: every waiter is handed null so none waits forever.
-				if (!worker) return encodeCanvas(canvas, format);
-				// The PIXELS go to the worker, not an ImageBitmap of the canvas: on WebKit the first bitmap a session sent arrived blank,
-				// and an iPhone's PowerPoint had a black title slide (decisions/2026-11-03-pictures-at-drawn-size.md). Reading them here
-				// also makes WebKit finish the canvas's drawing, and keeps partial alpha exact (a bitmap's round trip premultiplied it).
+			// The PIXELS go to the worker, not an ImageBitmap of the canvas: on WebKit the first bitmap a session sent arrived blank,
+			// and an iPhone's PowerPoint had a black title slide (decisions/2026-11-03-pictures-at-drawn-size.md). Reading them here
+			// also makes WebKit finish the canvas's drawing, and keeps partial alpha exact (a bitmap's round trip premultiplied it).
+			// They are read only once a worker is held, so a phone never holds a deck's worth of 33 MB bitmaps.
+			const out = await pool.run(() => {
 				const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-				const pixels = { data, width: canvas.width, height: canvas.height };
-				const bytes = await run(worker, pixels, format);
-				release(worker);
-				return bytes;
-			} catch (e) {
-				console.warn(`[lattice-export] picture worker failed (${e?.message || e}); writing pictures on the main thread.`);
-				broken = true;
-				// The failed worker and the idle ones end now; a worker busy with another request ends when that request releases it.
-				if (worker) worker.terminate();
-				for (const w of idle.splice(0)) w.terminate();
-				for (const next of waiting.splice(0)) next(null);
-				return encodeCanvas(canvas, format);
-			}
+				return { message: { width: canvas.width, height: canvas.height, buffer: data.buffer, format }, transfer: [data.buffer] };
+			});
+			return 'value' in out ? out.value.bytes : encodeCanvas(canvas, format);
 		},
-		dispose() {
-			for (const w of all) w.terminate();
-			all.length = 0;
-			idle.length = 0;
-			for (const next of waiting.splice(0)) next(null);
-		},
+		dispose: () => pool.dispose(),
 	};
 }
 
@@ -114,46 +55,13 @@ export function createPictureEncoder({ size = poolSize(), deadlineMs = ENCODE_DE
 // created and torn down around it. This one starts when the first export asks (`warm()` at the top of an export, so the workers load while
 // the fonts and the first slide are prepared) and ends 10 s after the last picture is written, so a phone does not keep four threads and their
 // heaps for the length of a session.
-const IDLE_MS = 10_000;
-let shared = null;
-let inFlight = 0;
-let idleTimer = null;
-
-function pool() {
-	clearTimeout(idleTimer);
-	idleTimer = null;
-	if (!shared) shared = createPictureEncoder();
-	return shared;
-}
-
-function settled() {
-	if (inFlight > 0 || idleTimer) return;
-	idleTimer = setTimeout(() => {
-		idleTimer = null;
-		if (inFlight === 0 && shared) {
-			shared.dispose();
-			shared = null;
-		}
-	}, IDLE_MS);
-}
+const shared = createSharedPool(() => createPictureEncoder());
 
 /** The shared pool: `warm()` to start its workers early, `encode(canvas, format)` for a picture's bytes. */
 export function sharedPictureEncoder() {
 	return {
-		warm() {
-			pool().warm();
-			settled();
-		},
+		warm: () => shared.warm(),
 		/** @param {HTMLCanvasElement|OffscreenCanvas} canvas @param {{ type: 'png'|'jpeg', quality?: number }} [format] */
-		async encode(canvas, format) {
-			const p = pool();
-			inFlight++;
-			try {
-				return await p.encode(canvas, format);
-			} finally {
-				inFlight--;
-				settled();
-			}
-		},
+		encode: (canvas, format) => shared.use((p) => p.encode(canvas, format)),
 	};
 }

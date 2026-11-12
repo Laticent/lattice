@@ -33,6 +33,7 @@ const fs = require('fs');
 const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'jsdom-close'));
 const { JSDOM } = require('jsdom');
 const { frontMatterBlock, FRONT_MATTER_TYPE } = require('../../../lib/core/deck-front-matter');
+const { virtualClock, bootRuntime } = require('../../helpers/runtime-boot');
 
 const RUNTIME_SRC = fs.readFileSync(
   path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js'),
@@ -102,12 +103,15 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
 
     // Execute the real bundle now that `fetch` is stubbed (a script inserted
     // after the initial parse runs synchronously — bootstrap() fires inline).
+    // A virtual clock: `settle()` returns once the runtime has nothing queued, the fetch, its apply and the
+    // MutationObserver's 150 ms re-run debounce included (HARD RULE #32: a signal, not a duration).
+    const { settle } = virtualClock(window);
     const scriptEl = document.createElement('script');
     scriptEl.textContent = RUNTIME_SRC;
     document.body.appendChild(scriptEl);
 
     // Let the three boot-time fetches resolve and their first apply run.
-    await new Promise((r) => setTimeout(r, 250));
+    await settle();
 
     // ONE fetch for all three registers. It used to be three — each register
     // fetched the same file for the same answer — which is now one memoized
@@ -123,7 +127,7 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     assert.equal(document.querySelector('img.deck-logo'), null, 'sanity: the wipe actually removed the logo');
 
     // MutationObserver → scheduleRun's 150ms trailing debounce → initAndRun().
-    await new Promise((r) => setTimeout(r, 400));
+    await settle();
 
     assert.equal(fetchCalls, 1, 'the re-fire reuses the cached config — no second fetch');
     assert.ok(document.querySelector('img.deck-logo'), 'logo re-injected after the live-edit wipe');
@@ -155,10 +159,11 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
       return Promise.reject(new TypeError('Failed to fetch')); // what file:// really does
     };
 
+    const { settle } = virtualClock(window);
     const scriptEl = document.createElement('script');
     scriptEl.textContent = RUNTIME_SRC;
     document.body.appendChild(scriptEl);
-    await new Promise((r) => setTimeout(r, 250));
+    await settle();
 
     assert.equal(fetchCalls, 0, 'the baked block is read from the DOM — no network at all');
     assert.ok(document.querySelector('img.deck-logo'), 'logo injected from the baked front matter');
@@ -174,7 +179,7 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     // …and it survives a live-edit wipe from cache, same as the fetched path,
     // even though the block it came from is long gone.
     document.body.innerHTML = RAW_SECTION;
-    await new Promise((r) => setTimeout(r, 400));
+    await settle();
     assert.equal(fetchCalls, 0, 'still no fetch after the wipe');
     assert.ok(document.querySelector('img.deck-logo'), 'logo re-injected after the live-edit wipe');
     assert.ok(document.querySelector('.tile-meta'), 'meta Tile re-filled after the live-edit wipe');
@@ -202,10 +207,11 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     const { document } = window;
     window.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
 
+    const { settle } = virtualClock(window);
     const scriptEl = document.createElement('script');
     scriptEl.textContent = RUNTIME_SRC;
     document.body.appendChild(scriptEl);
-    await new Promise((r) => setTimeout(r, 250));
+    await settle();
 
     assert.deepEqual(componentsOn(document), ['content'], 'default component stamped on the first pass');
 
@@ -214,7 +220,7 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     document.body.innerHTML = RAW_UNCLASSED_SECTION;
     assert.deepEqual(componentsOn(document), [], 'sanity: the wipe actually removed the stamp');
 
-    await new Promise((r) => setTimeout(r, 400));
+    await settle();
     assert.deepEqual(componentsOn(document), ['content'],
       're-stamped after the wipe — otherwise every render after the first is unstyled, which is #1292 itself');
 
@@ -235,15 +241,16 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     const { document } = window;
     window.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
 
+    const { settle } = virtualClock(window);
     const scriptEl = document.createElement('script');
     scriptEl.textContent = RUNTIME_SRC;
     document.body.appendChild(scriptEl);
-    await new Promise((r) => setTimeout(r, 250));
+    await settle();
 
     assert.deepEqual(componentsOn(document), ['content'], 'the deck-wide component is refused; the default applies');
 
     document.body.innerHTML = RAW_UNCLASSED_SECTION;
-    await new Promise((r) => setTimeout(r, 400));
+    await settle();
     assert.deepEqual(componentsOn(document), ['content'], 'and still after a live-edit wipe');
 
     closeQuietly(window);
@@ -267,10 +274,11 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     const { document } = window;
     window.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
 
+    const { settle } = virtualClock(window);
     const scriptEl = document.createElement('script');
     scriptEl.textContent = RUNTIME_SRC;
     document.body.appendChild(scriptEl);
-    await new Promise((r) => setTimeout(r, 250));
+    await settle();
 
     const cls = [...document.querySelector('section').classList];
     assert.ok(cls.includes('kpi'), `the section keeps the component it named, got "${cls.join(' ')}"`);
@@ -292,10 +300,11 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     const { document } = window;
     window.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
 
+    const { settle } = virtualClock(window);
     const scriptEl = document.createElement('script');
     scriptEl.textContent = RUNTIME_SRC;
     document.body.appendChild(scriptEl);
-    await new Promise((r) => setTimeout(r, 250));
+    await settle();
 
     const cls = [...document.querySelector('section').classList];
     assert.ok(cls.includes('dark'), `the slide's own pin survives, got "${cls.join(' ')}"`);
@@ -330,14 +339,12 @@ const PRINT_CSS = fs.readFileSync(
 );
 const inlinedSheet = (theme) => `${themeCss(theme)}\n${PRINT_CSS}`;
 
-const bootRuntime = async (html) => {
+/** Boot the bundle over `html` on a virtual clock; `settle()` waits out the next pass after a live edit. */
+const bootTextures = async (html) => {
   const dom = new JSDOM(html, { url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true });
   dom.window.fetch = () => Promise.resolve({ ok: true, text: () => Promise.resolve('') });
-  const el = dom.window.document.createElement('script');
-  el.textContent = RUNTIME_SRC;
-  dom.window.document.body.appendChild(el);
-  await new Promise((r) => setTimeout(r, 250));
-  return dom.window.document;
+  const clock = await bootRuntime(dom, { bundle: RUNTIME_SRC });
+  return { document: dom.window.document, settle: clock.settle };
 };
 const emitted = (document) => {
   const el = document.querySelector('.latt-a11y-defs');
@@ -351,7 +358,7 @@ const emitted = (document) => {
 
 describe('runtime texture <defs> — narrowed to the sets the document references', () => {
   test('a hue-carried theme ships only the sets its print overrides reference', async () => {
-    const document = await bootRuntime(
+    const { document } = await bootTextures(
       `<!DOCTYPE html><html><head><style id="theme">${inlinedSheet('indaco')}</style></head><body>${RAW_SECTION}</body></html>`,
     );
     assert.deepEqual(emitted(document), {
@@ -360,7 +367,7 @@ describe('runtime texture <defs> — narrowed to the sets the document reference
   });
 
   test('a live `theme:` edit re-derives the defs, and reverses cleanly', async () => {
-    const document = await bootRuntime(
+    const { document, settle } = await bootTextures(
       `<!DOCTYPE html><html><head><style id="theme">${inlinedSheet('indaco')}</style></head><body>${RAW_SECTION}</body></html>`,
     );
     assert.equal(emitted(document).patterns, 20);
@@ -369,7 +376,7 @@ describe('runtime texture <defs> — narrowed to the sets the document reference
     // re-render the sections. The section replacement is what wakes the pass.
     document.getElementById('theme').textContent = inlinedSheet('onyx');
     document.body.innerHTML = RAW_SECTION;
-    await new Promise((r) => setTimeout(r, 400));
+    await settle();
 
     const after = emitted(document);
     assert.equal(after.patterns, 56, 'onyx pulls in its scheme-aware set and both polarity pins');
@@ -378,12 +385,12 @@ describe('runtime texture <defs> — narrowed to the sets the document reference
 
     document.getElementById('theme').textContent = inlinedSheet('indaco');
     document.body.innerHTML = RAW_SECTION;
-    await new Promise((r) => setTimeout(r, 400));
+    await settle();
     assert.equal(emitted(document).patterns, 20, 'narrowing is reversible, not a one-way ratchet');
   });
 
   test('every referenced id resolves — no dangling paint-server ref after a swap', async () => {
-    const document = await bootRuntime(
+    const { document } = await bootTextures(
       `<!DOCTYPE html><html><head><style id="theme">${inlinedSheet('concrete')}</style></head><body>${RAW_SECTION}</body></html>`,
     );
     const ids = new Set([...document.querySelectorAll('.latt-a11y-defs pattern')].map((p) => p.id));
@@ -400,14 +407,14 @@ describe('runtime texture <defs> — narrowed to the sets the document reference
   // BLACK. The gate is now the answer itself, and these pin each scenario.
 
   test('a reference arriving through slide MARKUP is picked up (no stylesheet change)', async () => {
-    const document = await bootRuntime(
+    const { document, settle } = await bootTextures(
       `<!DOCTYPE html><html><head><style id="theme">${inlinedSheet('indaco')}</style></head><body>${RAW_SECTION}</body></html>`,
     );
     assert.equal(emitted(document).patterns, 20);
     // The author adds a slide with inline SVG of their own. No `<style>` moves.
     document.body.innerHTML =
       '<section class="content"><svg><rect fill="url(#latt-concrete-tex-1)"/></svg></section>';
-    await new Promise((r) => setTimeout(r, 400));
+    await settle();
     assert.match(emitted(document).sets, /latt-concrete-tex$/,
       'a markup-only reference is a different INPUT to the same scan, and was invisible '
       + 'to a gate that watched only stylesheet text');
@@ -422,23 +429,23 @@ describe('runtime texture <defs> — narrowed to the sets the document reference
     const after = `${inlinedSheet('indaco')}\nsection{--cat-1-texture:url(#latt-onyx-tex-1)}`;
     assert.equal(before.length, after.length, 'the premise: these edits are the same length');
 
-    const document = await bootRuntime(
+    const { document, settle } = await bootTextures(
       `<!DOCTYPE html><html><head><style id="theme">${before}</style></head><body>${RAW_SECTION}</body></html>`,
     );
     assert.equal(emitted(document).sets, 'latt-a11y-tex latt-a11y-chart-tex');
     document.getElementById('theme').textContent = after;
     document.body.innerHTML = RAW_SECTION;
-    await new Promise((r) => setTimeout(r, 400));
+    await settle();
     assert.match(emitted(document).sets, /latt-onyx-tex$/);
   });
 
   test('a destroyed defs element is restored, even when the answer did not change', async () => {
-    const document = await bootRuntime(
+    const { document, settle } = await bootTextures(
       `<!DOCTYPE html><html><head><style id="theme">${inlinedSheet('indaco')}</style></head><body>${RAW_SECTION}</body></html>`,
     );
     document.querySelector('.latt-a11y-defs').remove();
     document.body.innerHTML = RAW_SECTION;
-    await new Promise((r) => setTimeout(r, 400));
+    await settle();
     assert.deepEqual(emitted(document), {
       sets: 'latt-a11y-tex latt-a11y-chart-tex', patterns: 20, elements: 1,
     }, 'an early return on an unchanged signature never noticed the element was gone — '
@@ -448,7 +455,7 @@ describe('runtime texture <defs> — narrowed to the sets the document reference
   test('an unreadable stylesheet falls back to EVERY set, never to none', async () => {
     // A <link> theme: its text is not in the DOM, so the narrow answer cannot be
     // proved. Emitting everything is waste; emitting nothing is a black fill.
-    const linked = await bootRuntime(
+    const { document: linked } = await bootTextures(
       '<!DOCTYPE html><html><head><link rel="stylesheet" href="/theme.css"></head>'
       + `<body>${RAW_SECTION}</body></html>`,
     );
@@ -456,7 +463,7 @@ describe('runtime texture <defs> — narrowed to the sets the document reference
 
     // And a document with no engine sheet at all — the sentinel is absent, so the
     // runtime is not looking at a real Lattice stylesheet.
-    const bare = await bootRuntime(
+    const { document: bare } = await bootTextures(
       `<!DOCTYPE html><html><head><style>body{color:red}</style></head><body>${RAW_SECTION}</body></html>`,
     );
     assert.equal(emitted(bare).patterns, 92, 'no print sentinel means "cannot tell", not "needs none"');

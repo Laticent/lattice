@@ -7,6 +7,7 @@ import { SettingsTierSwitch } from '@/components/ui/settings-view';
 import { Textarea } from '@/components/ui/textarea';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import { hydrateChat } from './chat-store';
 import { SHARE_HEADER, SHARE_MENU, ShareRow } from './share-menu';
 import { loadChat } from './studio-store';
 
@@ -313,7 +314,18 @@ export function ChatEmptyCard({ aiReady, mode = 'review' }: { aiReady: boolean; 
 
 export function ChatShell({ title, aiReady, deckId, children }: { title?: string; aiReady: boolean; deckId: string; children?: React.ReactNode }) {
 	// The saved thread decides what the panel opens on: the first-run card, or the conversation.
-	const hasThread = React.useMemo(() => loadChat(deckId).length > 0, [deckId]);
+	// Start reading the deck's chat (chat-store.ts) while the panel's code loads, and re-check once it has.
+	const [hasThread, setHasThread] = React.useState(() => loadChat(deckId).length > 0);
+	React.useEffect(() => {
+		let live = true;
+		setHasThread(loadChat(deckId).length > 0);
+		void hydrateChat(deckId).then(() => {
+			if (live) setHasThread(loadChat(deckId).length > 0);
+		});
+		return () => {
+			live = false;
+		};
+	}, [deckId]);
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			{title && <div className="flex items-center justify-between gap-2 border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{title}</div>}

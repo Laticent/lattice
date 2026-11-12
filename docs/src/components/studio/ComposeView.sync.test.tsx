@@ -451,3 +451,48 @@ describe('Compose delete keeps the say: narration on its slide', () => {
 		expect(out.at(-1)).toContain('  1: Narrate two\n');
 	});
 });
+
+// Owner, iPhone (2026-11-11): Compose on slide 5, then Source, then Compose put the preview on slide 1, and a reload
+// jumped there too. A view built while the author is on a slide starts there and says nothing; a resync keeps the
+// slide the hub holds (by identity), not the old index.
+describe('ComposeView — keeps the author on their slide', () => {
+	beforeEach(() => {
+		liveView = null;
+	});
+	const slideOf = (v: EditorView) => v.state.selection.$from.index(0);
+	const blockOf = (v: EditorView) => v.state.selection.$from.parent.textContent;
+
+	it('a view built while the author is on a slide starts there, on the caret line, and reports nothing', () => {
+		const reports: number[] = [];
+		render(<ComposeView source={DECK} onChange={() => {}} onCursorSlide={(i) => reports.push(i)} focusAtMount={() => ({ slide: 1, line: 'body two' })} />);
+		const v = theView();
+		expect(slideOf(v)).toBe(1);
+		expect(blockOf(v)).toBe('body two');
+		// A selection-only transaction, as the kernels' first pass makes: still the same slide, so still nothing to report.
+		v.dispatch(v.state.tr.setMeta('probe', true));
+		expect(reports).toEqual([]);
+	});
+
+	it('a caret line that matches no block lands on the slide, and a slide out of range falls back to the start', () => {
+		render(<ComposeView source={DECK} onChange={() => {}} focusAtMount={() => ({ slide: 1, line: 'not on this slide' })} />);
+		expect(slideOf(theView())).toBe(1);
+		liveView = null;
+		render(<ComposeView source={DECK} onChange={() => {}} focusAtMount={() => ({ slide: 9, line: null })} />);
+		expect(slideOf(theView())).toBe(0);
+	});
+
+	it('a resync after a slide is inserted above follows the slide the hub holds, not the old index, and reports nothing', () => {
+		const reports: number[] = [];
+		let hubSlide = 2;
+		const props = { onChange: () => {}, onCursorSlide: (i: number) => reports.push(i), focusAtMount: () => ({ slide: hubSlide, line: '' }) };
+		const r = render(<ComposeView source={DECK} {...props} />);
+		expect(slideOf(theView())).toBe(2);
+		// An outside change puts a slide in front; the hub, matching slides by identity, now holds index 3 for the same slide.
+		hubSlide = 3;
+		r.rerender(<ComposeView source={['# Zero\n\nbody zero', DECK].join('\n\n---\n\n')} {...props} />);
+		const v = theView();
+		expect(slideOf(v)).toBe(3);
+		expect(v.state.doc.child(3).textContent).toContain('Three');
+		expect(reports).toEqual([]);
+	});
+});

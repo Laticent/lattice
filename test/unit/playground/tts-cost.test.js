@@ -118,19 +118,20 @@ function withEnv(fn) {
 }
 
 test('cheapest-voice setting resolves at creation, before any read asks for a model', async () => withEnv(async () => {
-  const { createVoiceModel } = await load('voice-model.js');
+  const { createVoiceModel, listOpenRouterVoiceCatalog } = await load('voice-model.js');
   const { setCheapestVoiceEnabled } = await load('narration-prefs.js');
   setCheapestVoiceEnabled(true);
   const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test', keyPrefix: 'eager' });
-  await new Promise((r) => setTimeout(r, 0));
-  await new Promise((r) => setTimeout(r, 0));
+  // The catalog promise is the signal (HARD RULE #32): the model attached its pick to that same promise first, so
+  // the pick has landed by the time this await returns.
+  await listOpenRouterVoiceCatalog();
   // No orModel() call before this point: the pick is already there for the first sentence.
   assert.equal(v.orModel(), 'google/gemini-3.8-flash-tts');
   setCheapestVoiceEnabled(false);
 }));
 
 test('cheapest-voice setting: off → default; on → the ranked pick; an explicit pick always wins', async () => withEnv(async () => {
-  const { createVoiceModel } = await load('voice-model.js');
+  const { createVoiceModel, listOpenRouterVoiceCatalog } = await load('voice-model.js');
   const { setCheapestVoiceEnabled } = await load('narration-prefs.js');
   const v = createVoiceModel({ getOpenRouterKey: () => 'sk-test', keyPrefix: 'studio' });
 
@@ -138,8 +139,7 @@ test('cheapest-voice setting: off → default; on → the ranked pick; an explic
 
   setCheapestVoiceEnabled(true);
   v.orModel(); // first ask starts the catalog fetch; the default holds until it answers
-  await new Promise((r) => setTimeout(r, 0));
-  await new Promise((r) => setTimeout(r, 0));
+  await listOpenRouterVoiceCatalog(); // the pick's handler is on this promise ahead of us
   // This mocked catalog has no Kokoro. CSM and Orpheus ($7) are cheaper but sit below the
   // Kokoro floor, so the only candidate is Gemini (~$18.9).
   assert.equal(v.orModel(), 'google/gemini-3.8-flash-tts');

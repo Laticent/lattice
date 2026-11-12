@@ -65,7 +65,7 @@ describe('a `_pane` marker stays where the author wrote it', () => {
 	});
 	it('an untouched pane slide still round-trips byte for byte', () => {
 		const src = deck('## Intro', MARKED);
-		expect(typeInSlide(src, 0, '!').endsWith(MARKED.trimEnd())).toBe(true);
+		expect(typeInSlide(src, 0, '!').trimEnd().endsWith(MARKED.trimEnd())).toBe(true);
 	});
 	it('keeps a `_pane` line inside a code fence as code', () => {
 		const fenced = '## T\n\n```md\n<!-- _pane: bar -->\n```';
@@ -191,7 +191,9 @@ describe('the pane picker and the title field write what an author would', () =>
 		const state = stateOf(MARKED);
 		const tr = applyPaneChoice(state, 0, 1, { cls: 'big-number', starter: null });
 		const out = emitDeck(tr?.doc ?? state.doc, initBaseline(state.doc));
-		expect(out).toContain('<!-- _pane: big-number no-title -->\n\n### What changed');
+		// The marker keeps the comment form the slide is written in (#3136), and the spacing the author wrote: it sat right
+		// above its heading (#3128).
+		expect(out).toContain('<!-- _pane: big-number no-title -->\n### What changed');
 		expect(out).not.toContain('_pane: list');
 		expect(applyPaneChoice(state, 0, 0, { cls: 'bar', starter: null })).toBeNull(); // already bar
 	});

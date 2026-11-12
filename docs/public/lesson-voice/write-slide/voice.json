@@ -6,7 +6,7 @@
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 196992,
+	"bytes": 297360,
 	"lines": [
 		{
 			"key": "3dfcbba468de",
@@ -590,6 +590,469 @@
 					}
 				],
 				"durationMs": 5838
+			}
+		},
+		{
+			"key": "a1a3fe8ba33a",
+			"text": "You write on the left, the way you would in any document, and the slides appear on the right.",
+			"file": "a1a3fe8ba33a.mp3",
+			"bytes": 31248,
+			"speechMs": 5139,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "You write on the left, the way you would in any document, and the slides appear on the right.",
+						"words": [
+							{
+								"display": "You",
+								"spoken": "You",
+								"startMs": 0,
+								"endMs": 182,
+								"charOffset": 0
+							},
+							{
+								"display": "write",
+								"spoken": "write",
+								"startMs": 182,
+								"endMs": 364,
+								"charOffset": 4
+							},
+							{
+								"display": "on",
+								"spoken": "on",
+								"startMs": 364,
+								"endMs": 545,
+								"charOffset": 10
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 545,
+								"endMs": 727,
+								"charOffset": 13
+							},
+							{
+								"display": "left,",
+								"spoken": "left,",
+								"startMs": 727,
+								"endMs": 936,
+								"charOffset": 17
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1113,
+								"endMs": 1295,
+								"charOffset": 23
+							},
+							{
+								"display": "way",
+								"spoken": "way",
+								"startMs": 1295,
+								"endMs": 1477,
+								"charOffset": 27
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 1477,
+								"endMs": 1658,
+								"charOffset": 31
+							},
+							{
+								"display": "would",
+								"spoken": "would",
+								"startMs": 1658,
+								"endMs": 1840,
+								"charOffset": 35
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 1840,
+								"endMs": 2022,
+								"charOffset": 41
+							},
+							{
+								"display": "any",
+								"spoken": "any",
+								"startMs": 2022,
+								"endMs": 2385,
+								"charOffset": 44
+							},
+							{
+								"display": "document,",
+								"spoken": "document,",
+								"startMs": 2385,
+								"endMs": 2957,
+								"charOffset": 48
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 3135,
+								"endMs": 3317,
+								"charOffset": 58
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 3317,
+								"endMs": 3498,
+								"charOffset": 62
+							},
+							{
+								"display": "slides",
+								"spoken": "slides",
+								"startMs": 3498,
+								"endMs": 3862,
+								"charOffset": 66
+							},
+							{
+								"display": "appear",
+								"spoken": "appear",
+								"startMs": 3862,
+								"endMs": 4226,
+								"charOffset": 73
+							},
+							{
+								"display": "on",
+								"spoken": "on",
+								"startMs": 4226,
+								"endMs": 4407,
+								"charOffset": 80
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 4407,
+								"endMs": 4589,
+								"charOffset": 83
+							},
+							{
+								"display": "right.",
+								"spoken": "right.",
+								"startMs": 4589,
+								"endMs": 4798,
+								"charOffset": 87
+							}
+						],
+						"startMs": 0,
+						"endMs": 5139,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 5139
+			}
+		},
+		{
+			"key": "208fa412f93e",
+			"text": "Each slide sits between two lines across the page. Type a hash and a space at the start of a line to make it the slide’s heading.",
+			"file": "208fa412f93e.mp3",
+			"bytes": 49248,
+			"speechMs": 8137,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Each slide sits between two lines across the page.",
+						"words": [
+							{
+								"display": "Each",
+								"spoken": "Each",
+								"startMs": 0,
+								"endMs": 221,
+								"charOffset": 0
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 221,
+								"endMs": 442,
+								"charOffset": 5
+							},
+							{
+								"display": "sits",
+								"spoken": "sits",
+								"startMs": 442,
+								"endMs": 662,
+								"charOffset": 11
+							},
+							{
+								"display": "between",
+								"spoken": "between",
+								"startMs": 662,
+								"endMs": 1104,
+								"charOffset": 16
+							},
+							{
+								"display": "two",
+								"spoken": "two",
+								"startMs": 1104,
+								"endMs": 1325,
+								"charOffset": 24
+							},
+							{
+								"display": "lines",
+								"spoken": "lines",
+								"startMs": 1325,
+								"endMs": 1766,
+								"charOffset": 28
+							},
+							{
+								"display": "across",
+								"spoken": "across",
+								"startMs": 1766,
+								"endMs": 2208,
+								"charOffset": 34
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2208,
+								"endMs": 2429,
+								"charOffset": 41
+							},
+							{
+								"display": "page.",
+								"spoken": "page.",
+								"startMs": 2429,
+								"endMs": 2682,
+								"charOffset": 45
+							}
+						],
+						"startMs": 0,
+						"endMs": 3096,
+						"charOffset": 0
+					},
+					{
+						"display": "Type a hash and a space at the start of a line to make it the slide’s heading.",
+						"words": [
+							{
+								"display": "Type",
+								"spoken": "Type",
+								"startMs": 3274,
+								"endMs": 3495,
+								"charOffset": 51
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 3495,
+								"endMs": 3716,
+								"charOffset": 56
+							},
+							{
+								"display": "hash",
+								"spoken": "hash",
+								"startMs": 3716,
+								"endMs": 3937,
+								"charOffset": 58
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 3937,
+								"endMs": 4157,
+								"charOffset": 63
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 4157,
+								"endMs": 4378,
+								"charOffset": 67
+							},
+							{
+								"display": "space",
+								"spoken": "space",
+								"startMs": 4378,
+								"endMs": 4599,
+								"charOffset": 69
+							},
+							{
+								"display": "at",
+								"spoken": "at",
+								"startMs": 4599,
+								"endMs": 4820,
+								"charOffset": 75
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 4820,
+								"endMs": 5041,
+								"charOffset": 78
+							},
+							{
+								"display": "start",
+								"spoken": "start",
+								"startMs": 5041,
+								"endMs": 5261,
+								"charOffset": 82
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 5261,
+								"endMs": 5482,
+								"charOffset": 88
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 5482,
+								"endMs": 5703,
+								"charOffset": 91
+							},
+							{
+								"display": "line",
+								"spoken": "line",
+								"startMs": 5703,
+								"endMs": 5924,
+								"charOffset": 93
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 5924,
+								"endMs": 6144,
+								"charOffset": 98
+							},
+							{
+								"display": "make",
+								"spoken": "make",
+								"startMs": 6144,
+								"endMs": 6365,
+								"charOffset": 101
+							},
+							{
+								"display": "it",
+								"spoken": "it",
+								"startMs": 6365,
+								"endMs": 6586,
+								"charOffset": 106
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 6586,
+								"endMs": 6807,
+								"charOffset": 109
+							},
+							{
+								"display": "slide’s",
+								"spoken": "slide’s",
+								"startMs": 6807,
+								"endMs": 7248,
+								"charOffset": 113
+							},
+							{
+								"display": "heading.",
+								"spoken": "heading.",
+								"startMs": 7248,
+								"endMs": 7722,
+								"charOffset": 121
+							}
+						],
+						"startMs": 3274,
+						"endMs": 8137,
+						"charOffset": 51
+					}
+				],
+				"durationMs": 8137
+			}
+		},
+		{
+			"key": "d3c2120f0812",
+			"text": "Your turn: click into any slide and change a word.",
+			"file": "d3c2120f0812.mp3",
+			"bytes": 19872,
+			"speechMs": 3245,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Your turn: click into any slide and change a word.",
+						"words": [
+							{
+								"display": "Your",
+								"spoken": "Your",
+								"startMs": 0,
+								"endMs": 204,
+								"charOffset": 0
+							},
+							{
+								"display": "turn:",
+								"spoken": "turn,",
+								"startMs": 204,
+								"endMs": 439,
+								"charOffset": 5
+							},
+							{
+								"display": "click",
+								"spoken": "click",
+								"startMs": 788,
+								"endMs": 992,
+								"charOffset": 11
+							},
+							{
+								"display": "into",
+								"spoken": "into",
+								"startMs": 992,
+								"endMs": 1401,
+								"charOffset": 17
+							},
+							{
+								"display": "any",
+								"spoken": "any",
+								"startMs": 1401,
+								"endMs": 1809,
+								"charOffset": 22
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 1809,
+								"endMs": 2014,
+								"charOffset": 26
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 2014,
+								"endMs": 2218,
+								"charOffset": 32
+							},
+							{
+								"display": "change",
+								"spoken": "change",
+								"startMs": 2218,
+								"endMs": 2423,
+								"charOffset": 36
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 2423,
+								"endMs": 2627,
+								"charOffset": 43
+							},
+							{
+								"display": "word.",
+								"spoken": "word.",
+								"startMs": 2627,
+								"endMs": 2861,
+								"charOffset": 45
+							}
+						],
+						"startMs": 0,
+						"endMs": 3245,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 3245
 			}
 		},
 		{

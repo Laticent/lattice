@@ -142,36 +142,6 @@
     "test/integration/mermaid/preview-diagram-face.test.js": {
       "fixed-sleep": 1
     },
-    "test/integration/parity/chart-overflow-preserved.test.js": {
-      "fixed-sleep": 1
-    },
-    "test/integration/parity/content-clipped-pill.test.js": {
-      "fixed-sleep": 5
-    },
-    "test/integration/parity/guards-trim-deliverables.test.js": {
-      "fixed-sleep": 1
-    },
-    "test/integration/parity/label-set-key-runtime.test.js": {
-      "fixed-sleep": 1
-    },
-    "test/integration/parity/runtime-cards-align.test.js": {
-      "fixed-sleep": 1
-    },
-    "test/integration/parity/runtime-frontmatter-refire.test.js": {
-      "fixed-sleep": 16
-    },
-    "test/integration/parity/runtime-marks.test.js": {
-      "fixed-sleep": 2
-    },
-    "test/integration/parity/runtime-mode-geometry.test.js": {
-      "fixed-sleep": 3
-    },
-    "test/integration/parity/runtime-overflow-marker.test.js": {
-      "fixed-sleep": 3
-    },
-    "test/integration/parity/runtime-plugin-output-not-reread.test.js": {
-      "fixed-sleep": 1
-    },
     "test/unit/authoring/notes-core.test.js": {
       "clock-assert": 5
     },
@@ -225,16 +195,6 @@
     },
     "test/unit/mermaid/label-length.test.js": {
       "clock-assert": 2
-    },
-    "test/unit/playground/rehearsal.test.js": {
-      "fixed-sleep": 2
-    },
-    "test/unit/playground/tts-cost.test.js": {
-      "fixed-sleep": 4
-    },
-    "test/unit/playground/voice-model.test.js": {
-      "fixed-sleep": 14,
-      "clock-assert": 1
     },
     "test/unit/plugins/admit.test.js": {
       "clock-assert": 4

@@ -85,6 +85,21 @@ describe('governance — stats', () => {
 		expect(stats.models.count).toBe(2);
 	});
 
+	it('reports how full the localStorage allowance is, and warns past 80% of it', async () => {
+		stubCaches({});
+		localStorage.clear();
+		expect((await loadGovernanceStats()).local.warn).toBe(false);
+		// One deck's text at 81% of the measured allowance (local-quota.ts).
+		localStorage.setItem('lattice-studio-src-big', 'x'.repeat(Math.ceil(5_242_272 * 0.81)));
+		try {
+			const { local } = await loadGovernanceStats();
+			expect(local.warn).toBe(true);
+			expect(Math.round(local.fraction * 100)).toBe(81);
+		} finally {
+			localStorage.removeItem('lattice-studio-src-big');
+		}
+	});
+
 	it('aggregates byte size across every entry in a cache bucket, from content-length', async () => {
 		stubCaches({
 			'webllm/model-cache': [

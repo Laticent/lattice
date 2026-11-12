@@ -54,7 +54,7 @@ const editorBuilt = () => document.querySelector('.cm-editor') !== null;
 
 beforeEach(() => {
 	localStorage.clear();
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'write' }));
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'write', editMode: 'source' }));
 });
 afterEach(() => {
 	window.matchMedia = realMatchMedia;
@@ -106,5 +106,33 @@ describe('the editor waits for the first slide only where it is hidden', () => {
 		setViewport('mobile');
 		// The layout change may remount the pane; what must not happen is the editor waiting for the 6 s backstop.
 		await waitFor(() => expect(editorBuilt(), 'the editor stayed gone after the resize').toBe(true), { timeout: 2_500 });
+	});
+});
+
+// Compose is the default since 2026-11-10 (2026-11-10-compose-first.md), and ProseMirror is the larger editor: the same
+// hold applies to it, or a Compose default would put it in front of the first slide on the slowest devices.
+describe('Compose, the default, is held the same way', () => {
+	const composeBuilt = () => document.querySelector('.cs-host .ProseMirror') !== null;
+	beforeEach(() => {
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'write' }));
+	});
+
+	it('phone: held until the first slide, then built', async () => {
+		setViewport('mobile');
+		const { StudioShell, slide } = await fresh();
+		render(<StudioShell options={options} />);
+		await screen.findByTestId('deck-preview');
+		// The signal, not a sleep: the hold draws Compose's own placeholder in the editor pane, and ProseMirror is not built.
+		await screen.findByText('Loading Compose…');
+		expect(composeBuilt(), 'built before the first slide').toBe(false);
+		await act(async () => slide.markFirstSlideShown());
+		await waitFor(() => expect(composeBuilt()).toBe(true), { timeout: 10_000 });
+	});
+
+	it('desktop: built at once, before any slide', async () => {
+		setViewport('desktop');
+		const { StudioShell } = await fresh();
+		render(<StudioShell options={options} />);
+		await waitFor(() => expect(composeBuilt()).toBe(true), { timeout: 5_000 });
 	});
 });

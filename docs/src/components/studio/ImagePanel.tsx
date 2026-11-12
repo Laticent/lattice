@@ -85,7 +85,7 @@ export function ImagePanel({ fields, onEdit, onRemove, onDone, holdOpen, onOpenL
 					onPick={(p) => {
 						// A photo with a description of its own gives it to the slide; otherwise the name, as the Markdown editor's completion does. A description the author already wrote stays.
 						const next = background || alt.trim() ? undefined : descriptionAsAlt(p.caption ?? altFromAssetName(p.name));
-						send({ src: `asset:${p.name}`, ...(next !== undefined ? { alt: next } : {}) }, 'That photo cannot be written here. Edit this slide in Markdown.');
+						send({ src: `asset:${p.name}`, ...(next !== undefined ? { alt: next } : {}) }, 'That photo cannot be written here. Edit this slide in Source.');
 						openPicker(false);
 					}}
 				/>
@@ -100,7 +100,7 @@ export function ImagePanel({ fields, onEdit, onRemove, onDone, holdOpen, onOpenL
 							names={SIDE_NAMES}
 							noAuto
 							onPick={(v) => {
-								if (!onPlace((v ?? 'none') as Placement)) setRefused('That placement cannot be written here. Edit this slide in Markdown.');
+								if (!onPlace((v ?? 'none') as Placement)) setRefused('That placement cannot be written here. Edit this slide in Source.');
 								else setRefused(null);
 							}}
 						/>
@@ -109,7 +109,7 @@ export function ImagePanel({ fields, onEdit, onRemove, onDone, holdOpen, onOpenL
 				) : null}
 				{background ? null : (
 					<Field label="Description" id={`${labelId}-alt`}>
-						<TextRow id={`${labelId}-alt-input`} label="Description" value={alt} placeholder="What the picture shows" onCommit={(v) => send({ alt: descriptionAsAlt(v) }, 'That description cannot be written here. Edit this slide in Markdown.')} />
+						<TextRow id={`${labelId}-alt-input`} label="Description" value={alt} placeholder="What the picture shows" onCommit={(v) => send({ alt: descriptionAsAlt(v) }, 'That description cannot be written here. Edit this slide in Source.')} />
 						<p className="text-[11px] text-muted-foreground">Read aloud for people who cannot see the picture, and shown if it does not load.</p>
 					</Field>
 				)}
@@ -120,7 +120,7 @@ export function ImagePanel({ fields, onEdit, onRemove, onDone, holdOpen, onOpenL
 				) : null}
 			</div>
 			<PanelFooter onDone={onDone}>
-				<Button type="button" variant="ghost" size="sm" onClick={() => !onRemove() && setRefused('This image cannot be removed here. Edit this slide in Markdown.')}>
+				<Button type="button" variant="ghost" size="sm" onClick={() => !onRemove() && setRefused('This image cannot be removed here. Edit this slide in Source.')}>
 					<Trash2 aria-hidden /> Remove
 				</Button>
 			</PanelFooter>

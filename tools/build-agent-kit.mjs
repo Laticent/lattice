@@ -2407,7 +2407,7 @@ const BUNDLE_LAYOUTS = [
   ['8-layouts-legal-and-contact', ['legal', 'connect'], 'Citation-aware legal layouts, and the cards a room can scan.'],
 ];
 
-function uploadBundles(components, files, examples) {
+function uploadBundles(components, files, examples, layoutCount) {
   const byBucket = new Map();
   for (const c of components) {
     if (!byBucket.has(c.bucket)) byBucket.set(c.bucket, []);
@@ -2454,7 +2454,7 @@ function uploadBundles(components, files, examples) {
   // 2 — the picker.
   out.push({
     name: 'lattice-2-pick-a-layout.md',
-    blurb: 'Which of the 61 layouts to use, by intent — and which to use instead when yours is the wrong fit.',
+    blurb: `Which of the ${layoutCount} layouts to use, by intent — and which to use instead when yours is the wrong fit.`,
     body: [
       ...header('Pick a layout', 'Match your intent to a layout, then count your content against its capacity.', []),
       demote(txt(`${COMPONENTS}/README.md`).replace(/^# .*\n/, ''), 1),
@@ -2537,7 +2537,7 @@ function uploadBundles(components, files, examples) {
  * starves the nested file that describes the consumer's actual project, and the
  * failure is invisible. Half the budget is the most we should ever take.
  */
-function repoFiles(paste) {
+function repoFiles(paste, layoutCount) {
   const agents = [
     '# Authoring Lattice decks',
     '',
@@ -2549,7 +2549,7 @@ function repoFiles(paste) {
     '',
     '## Where the catalog is',
     '',
-    'The full catalog — 61 layouts, one file each, with slots, capacity and',
+    `The full catalog — ${layoutCount} layouts, one file each, with slots, capacity and`,
     'anti-patterns — is published at',
     '<https://github.com/Laticent/lattice/tree/dist-kits/agent>.',
     'Read `upload/lattice-2-pick-a-layout.md` to choose, then that layout\'s own file.',
@@ -2937,13 +2937,13 @@ async function buildKit() {
 
   // upload/ — the ten bundles. Built last of the content, because every one of
   // them re-projects a file already in the map.
-  for (const b of uploadBundles(components, files, examples)) {
+  for (const b of uploadBundles(components, files, examples, layoutCount)) {
     files.set(`${UPLOAD}/${b.name}`, Buffer.from(b.body, 'utf8'));
   }
 
   // repo/ + plugin/ — the coding-agent lane. Both carry the SAME skill text; a
   // plugin is the packaging, not a second body of knowledge.
-  const { agents, skill } = repoFiles(files.get(`${PASTE}/lattice-instructions-standard.md`).toString('utf8'));
+  const { agents, skill } = repoFiles(files.get(`${PASTE}/lattice-instructions-standard.md`).toString('utf8'), layoutCount);
   files.set(`${REPO}/AGENTS.md`, Buffer.from(agents, 'utf8'));
   files.set(`${REPO}/CLAUDE.md`, Buffer.from('@AGENTS.md\n', 'utf8'));
   files.set(

@@ -39,7 +39,7 @@ export function MarkerPicker({ view, edit, onClose }: { view: EditorView; edit: 
 	const current = `[${edit.marker}]`;
 	const pick = (token: string) => {
 		// A refusal (the marker moved, or the slide is locked) is said, never swallowed.
-		if (token !== current && !setListMarker(edit.pos, token)(view.state, view.dispatch)) notify('This answer could not be written here. Edit this slide in Markdown.');
+		if (token !== current && !setListMarker(edit.pos, token)(view.state, view.dispatch)) notify('This answer could not be written here. Edit this slide in Source.');
 		onClose();
 		if (hasFinePointer()) view.focus();
 	};

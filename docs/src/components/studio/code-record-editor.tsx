@@ -139,7 +139,7 @@ export function CodeRecordPanel({ record, defaults, lang, kernel, onWrite }: { r
 			const why = Object.entries(edit)
 				.map(([k, v]) => kernel.problem(k, v))
 				.find(Boolean);
-			return setRefused(why ? `Not written: ${why}.` : 'This record cannot be changed here safely. Edit it in the Markdown source.');
+			return setRefused(why ? `Not written: ${why}.` : 'This record cannot be changed here safely. Edit it in Source.');
 		}
 		setRefused(null);
 		if (next !== record && !onWrite(next)) setRefused('Not written: the caret is no longer in this code block.');

@@ -193,6 +193,14 @@ describe('values', () => {
     const ok = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), 'completion', 'bash'], { encoding: 'utf8' });
     assert.equal(ok.status, 0);
     assert.match(ok.stdout, /complete -F _lattice_complete lattice/);
+    // `lat` is the short bin (package.json). Each shell's script registers it beside `lattice`,
+    // or tab-complete silently does nothing for the command people type most.
+    assert.ok(require('../../../package.json').bin.lat, 'package.json ships the `lat` bin');
+    assert.match(C.script('bash'), /complete -F _lattice_complete lattice lat\n/);
+    assert.match(C.script('zsh'), /^#compdef lattice lat\n/);
+    assert.match(C.script('zsh'), /compdef _lattice lattice lat\n/);
+    assert.match(C.script('fish'), /complete -c lat -f -a/);
+    assert.match(C.script('powershell'), /-CommandName lattice, lat /);
     const bad = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), 'completion', 'cmd'], { encoding: 'utf8' });
     assert.equal(bad.status, 1);
     assert.match(bad.stderr, /pick one of bash, zsh, fish, powershell/);

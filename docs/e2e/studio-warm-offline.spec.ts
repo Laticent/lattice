@@ -40,7 +40,7 @@ async function warmOnline(
 	await page.addInitScript(
 		([used, diagrams, save, math, mathSource]) => {
 			try {
-				localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft' }));
+				localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft', editMode: 'source' }));
 				if (used) localStorage.setItem('lattice-studio-fabricate-used', '1');
 				if (diagrams) localStorage.setItem('lattice-studio-diagrams-used', '1');
 				// The starter deck's stored source (studio-store.ts SRC_PREFIX), as a JSON string.

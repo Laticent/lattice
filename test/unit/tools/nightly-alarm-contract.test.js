@@ -134,6 +134,9 @@ const COMMENTS_ONLY = {
   'webkit-baselines-nightly.yml::audit':
     'absolute per run, but its tolerance lives in the workflow and the tool, and widening it ' +
     'turns a night green without moving a label — the same shape as a re-bless',
+  'skillspector-nightly.yml::scan':
+    'baseline-scored — .github/skillspector-baseline.yaml excuses reviewed findings, and adding a ' +
+    'rule there turns a night green without changing a skill',
   'perf-nightly.yml::watch':
     'differential — head against a base ~24h old, and it emits no harness-failure marker to ' +
     'discriminate on',

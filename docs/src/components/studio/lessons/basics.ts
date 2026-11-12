@@ -5,7 +5,8 @@
 // and ends by naming the search words that bring it back. Kit and rules: ./lesson-kit.ts. Every line
 // a lesson says lives in ./lines.ts, because each one has a recorded clip.
 
-import { chooseAfter, type LessonBuild, SEL, settle, tell, visible, yourTurn } from './lesson-kit';
+import { loadSettings } from '../studio-store';
+import { chooseAfter, type LessonActions, type LessonBuild, SEL, settle, tell, visible, yourTurn } from './lesson-kit';
 import { LESSON_LINES } from './lines';
 
 /** The slide "Write a slide" adds when it does the step for the user. */
@@ -47,13 +48,22 @@ const writeSlide: LessonBuild = () => async (ctx) => {
 		await tell(ctx, { say: W.hidden });
 		return;
 	}
-	await tell(ctx, { say: W.plain, point: SEL.editor });
-	await tell(ctx, { say: W.dashes, point: SEL.editor });
-	const who = await yourTurn(ctx, {
-		say: W.turn,
-		target: SEL.editor,
-		perform: (a) => a.appendSlide(SAMPLE_SLIDE),
-	});
+	// Compose, the default, teaches no markup; a writer who chose Source learns the Markdown, as this lesson always did
+	// (2026-11-10-compose-first.md). Read from the stored mode, as the welcome tour does: Compose may still be loading
+	// (or held on a phone) when the lesson starts, and its absence then must not read as Source.
+	// Each beat names its line directly (a member of W) so the recorder and lesson-voice.test.ts can see it.
+	const compose = loadSettings().editMode === 'compose';
+	const perform = (a: LessonActions) => a.appendSlide(SAMPLE_SLIDE);
+	let who: 'user' | 'lesson' | 'nobody';
+	if (compose) {
+		await tell(ctx, { say: W.plainCompose, point: SEL.editor });
+		await tell(ctx, { say: W.headingCompose, point: SEL.editor });
+		who = await yourTurn(ctx, { say: W.turnCompose, target: SEL.editor, perform });
+	} else {
+		await tell(ctx, { say: W.plain, point: SEL.editor });
+		await tell(ctx, { say: W.dashes, point: SEL.editor });
+		who = await yourTurn(ctx, { say: W.turn, target: SEL.editor, perform });
+	}
 	if (who === 'user') {
 		await tell(ctx, { say: W.keepTyping });
 		return;

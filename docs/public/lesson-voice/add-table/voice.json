@@ -6,7 +6,7 @@
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 108432,
+	"bytes": 137088,
 	"lines": [
 		{
 			"key": "9a129c4d81d7",
@@ -532,6 +532,133 @@
 					}
 				],
 				"durationMs": 5682
+			}
+		},
+		{
+			"key": "e2b6f3b3d4b5",
+			"text": "Click a cell and type to change it. Insert row below adds a row.",
+			"file": "e2b6f3b3d4b5.mp3",
+			"bytes": 28656,
+			"speechMs": 4718,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Click a cell and type to change it.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 0,
+								"endMs": 226,
+								"charOffset": 0
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 226,
+								"endMs": 452,
+								"charOffset": 6
+							},
+							{
+								"display": "cell",
+								"spoken": "cell",
+								"startMs": 452,
+								"endMs": 679,
+								"charOffset": 8
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 679,
+								"endMs": 905,
+								"charOffset": 13
+							},
+							{
+								"display": "type",
+								"spoken": "type",
+								"startMs": 905,
+								"endMs": 1131,
+								"charOffset": 17
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 1131,
+								"endMs": 1357,
+								"charOffset": 22
+							},
+							{
+								"display": "change",
+								"spoken": "change",
+								"startMs": 1357,
+								"endMs": 1584,
+								"charOffset": 25
+							},
+							{
+								"display": "it.",
+								"spoken": "it.",
+								"startMs": 1584,
+								"endMs": 1843,
+								"charOffset": 32
+							}
+						],
+						"startMs": 0,
+						"endMs": 2268,
+						"charOffset": 0
+					},
+					{
+						"display": "Insert row below adds a row.",
+						"words": [
+							{
+								"display": "Insert",
+								"spoken": "Insert",
+								"startMs": 2450,
+								"endMs": 2903,
+								"charOffset": 36
+							},
+							{
+								"display": "row",
+								"spoken": "row",
+								"startMs": 2903,
+								"endMs": 3129,
+								"charOffset": 43
+							},
+							{
+								"display": "below",
+								"spoken": "below",
+								"startMs": 3129,
+								"endMs": 3581,
+								"charOffset": 47
+							},
+							{
+								"display": "adds",
+								"spoken": "adds",
+								"startMs": 3581,
+								"endMs": 3808,
+								"charOffset": 53
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 3808,
+								"endMs": 4034,
+								"charOffset": 58
+							},
+							{
+								"display": "row.",
+								"spoken": "row.",
+								"startMs": 4034,
+								"endMs": 4293,
+								"charOffset": 60
+							}
+						],
+						"startMs": 2450,
+						"endMs": 4718,
+						"charOffset": 36
+					}
+				],
+				"durationMs": 4718
 			}
 		}
 	]

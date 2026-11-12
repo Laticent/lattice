@@ -5,10 +5,11 @@
 // and last slide, then the undo back.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { Node as PMNode } from 'prosemirror-model';
 import { EditorState, Selection } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
-import { deckSchema, deckToDoc, emitDeck, initBaseline } from './deck-doc';
+import { deckSchema, deckToDoc, emitDeck, initBaseline, SEP, slideSep } from './deck-doc';
 import { parseDeck } from './deck-source';
 import { baselineSource, emitPatch, scopedResync, scopedResyncPatch } from './scoped-resync';
 
@@ -23,20 +24,38 @@ const decks = [
 type Op = 'edit' | 'delete' | 'insert' | 'frontmatter';
 const OPS: Op[] = ['edit', 'delete', 'insert', 'frontmatter'];
 
-function mutate(fm: string, raws: string[], k: number, op: Op): string | null {
+/** The deck the editor would emit for `raws` with these separators and the doc's own head and tail (deck-doc.ts `deckFrame`). */
+function sourceOf(fm: string, raws: string[], seps: string[], head: string, tail: string): string {
+	let body = head;
+	raws.forEach((r, i) => {
+		body += (i > 0 ? seps[i] || SEP : '') + r;
+	});
+	return fm + body + tail;
+}
+
+/** The edited deck, spelled as the editor writes it: every kept slide keeps its separator, a new one takes the canonical one.
+ *  (Built with canonical separators and no tail, a deck with any other spelling fell back to the full resync and the test
+ *  counted it as a pass; the checker's catch.) */
+function mutate(doc: PMNode, fm: string, raws: string[], k: number, op: Op): string | null {
 	const r = raws.slice();
+	const seps = raws.map((_x, i) => slideSep(doc, i));
+	const head = (doc.attrs.head as string) || '';
+	const tail = (doc.attrs.tail as string) || '';
 	if (op === 'edit') r[k] = `${r[k]}\n\nAn added paragraph.`;
 	else if (op === 'delete') {
 		if (r.length < 2) return null;
 		r.splice(k, 1);
-	} else if (op === 'insert') r.splice(k + 1, 0, '# A new slide\n\nIts body.');
-	else {
+		seps.splice(k, 1);
+	} else if (op === 'insert') {
+		r.splice(k + 1, 0, '# A new slide\n\nIts body.');
+		seps.splice(k + 1, 0, SEP);
+	} else {
 		if (!fm || !/\n---\s*$/.test(fm.trimEnd() + '\n')) return null;
 		const at = fm.lastIndexOf('\n---');
 		if (at <= 0) return null;
-		return baselineSource(`${fm.slice(0, at)}\nfiloSpike: 1${fm.slice(at)}`, r);
+		return sourceOf(`${fm.slice(0, at)}\nfiloSpike: 1${fm.slice(at)}`, r, seps, head, tail);
 	}
-	return baselineSource(fm, r);
+	return sourceOf(fm, r, seps, head, tail);
 }
 
 const stats = { decks: 0, unstable: [] as string[], cases: 0, fallbacks: [] as string[], patchCases: 0 };
@@ -59,7 +78,7 @@ describe('scoped resync over every deck', () => {
 			const n = base.raws.length;
 			for (const k of [...new Set([0, Math.floor(n / 2), n - 1])]) {
 				for (const op of OPS) {
-					const S1 = mutate(fm, base.raws, k, op);
+					const S1 = mutate(doc0, fm, base.raws, k, op);
 					if (S1 == null) continue;
 					// Fresh state and baseline per case.
 					const d0 = deckToDoc(src);
@@ -144,6 +163,8 @@ describe('scoped resync over every deck', () => {
 		if (stats.unstable.length) console.log('[scoped-resync] unstable:', stats.unstable.map((f) => f.replace(ROOT, '')).join(', '));
 		if (stats.fallbacks.length) console.log('[scoped-resync] fallbacks:', stats.fallbacks.slice(0, 20).map((f) => f.replace(ROOT, '')).join(', '));
 		expect(stats.decks).toBeGreaterThan(100);
+		// Every case must take the scoped path: a fallback is coverage the full resync quietly took over.
+		expect(stats.fallbacks).toEqual([]);
 	}, 600_000);
 });
 
@@ -162,7 +183,8 @@ describe('scoped resync cost on the 134 KB deck (Node)', () => {
 			const k = Math.floor(b.raws.length / 2);
 			const raws = b.raws.slice();
 			raws[k] += '\n\nAn added paragraph.';
-			const S1 = baselineSource((d0.attrs.frontMatter as string) || '', raws);
+			// Spelled as the editor writes it (its own separators and tail), so the patch spans one slide, as it does in use.
+			const S1 = baselineSource((d0.attrs.frontMatter as string) || '', raws, d0);
 			let t = performance.now();
 			const r = scopedResync(state, b, S1);
 			if (!r) throw new Error('fallback');
@@ -202,7 +224,7 @@ describe('an edit that opens a code fence', () => {
 			const fm = (d.attrs.frontMatter as string) || '';
 			const raws = b.raws.slice();
 			raws[k] = `${raws[k]}\n\n\`\`\`text\nan unclosed fence`;
-			const S1 = baselineSource(fm, raws);
+			const S1 = baselineSource(fm, raws, d);
 			const patch = emitPatch(S0, S1);
 			if (!patch) continue;
 			const full = scopedResync(EditorState.create({ doc: deckToDoc(src), schema: deckSchema }), (() => { const x = initBaseline(deckToDoc(src)); return x; })(), S1);

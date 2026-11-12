@@ -1675,6 +1675,7 @@ describe('check-ownership', () => {
         'tools/record-lesson-voice.mjs',
         'tools/intent-bakeoff/judge-eval.mjs',
         'tools/probe-picture-tokens.mjs', // measures per-model picture cost for the Studio chat's budget gate; opt-in, capped, prints its call count first
+        'tools/tts-bench.mjs', // S0 of the voice synthesis spine: TTS latency, 429 onset, packed cuts; opt-in, refuses a plan over --max-usd, prints spend first
       ]);
       for (const rel of SANCTIONED_OPENROUTER_SPENDERS) assert.ok(fs.existsSync(path.join(REPO, rel)), `${rel} is sanctioned but missing`);
       // A sanctioned spender must actually CARRY the opt-in guard, not merely be listed.

@@ -6,6 +6,7 @@
  *
  *   node scripts/ios-safari/probe.selftest.mjs
  *   PROBE=undo node scripts/ios-safari/probe.selftest.mjs   # the undo probe: edit, WebKit undo command, reload
+ *   PROBE=chat-storage node scripts/ios-safari/probe.selftest.mjs   # chats move to IndexedDB across a reload; the allowance
  *   PROBE=font-cache node scripts/ios-safari/probe.selftest.mjs   # the font cache probe, against font-cache-server.mjs
  */
 import fs from 'node:fs';
@@ -24,6 +25,8 @@ const PROBES = [
 	{ file: 'photo-probe.js', fn: 'latticePhotoProbe' },
 	{ file: 'panes-probe.js', fn: 'latticePanesProbe' },
 	{ file: 'sheet-focus-probe.js', fn: 'latticeSheetFocusProbe' },
+	// A first visit: nothing stored, so the Studio opens in Compose (run.mjs passes `seed: false` for it too).
+	{ file: 'compose-probe.js', fn: 'latticeComposeProbe', fresh: true },
 ].map((p) => ({ ...p, source: withEditorHelper(fs.readFileSync(path.join(here, p.file), 'utf8')) }));
 const BASE = process.env.STUDIO_URL || 'http://localhost:4321';
 const SEED = fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8');
@@ -65,6 +68,27 @@ if (process.env.PROBE === 'font-cache') {
 	}
 	process.exit(failed ? 1 : 0);
 }
+if (process.env.PROBE === 'chat-storage') {
+	// The chat storage probe, as run.mjs runs it: plant the legacy threads, a real reload, then the after-reload half.
+	const CHAT = fs.readFileSync(path.join(here, 'chat-storage-probe.js'), 'utf8');
+	for (const { label, options } of shapes) {
+		const context = await browser.newContext(options);
+		const page = await context.newPage();
+		await page.addInitScript(SEED);
+		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
+		await page.addScriptTag({ content: CHAT });
+		const first = await page.evaluate(() => globalThis.latticeChatStorageProbe());
+		report(label, 'chat-storage-probe.js', first);
+		if (first.ok) {
+			await page.reload({ waitUntil: 'domcontentloaded' });
+			await page.addScriptTag({ content: CHAT });
+			report(label, 'chat-storage-probe.js after reload', await page.evaluate((seed) => globalThis.latticeChatStorageAfterReload(seed), first.seed));
+		}
+		await context.close();
+	}
+	await browser.close();
+	process.exit(failed ? 1 : 0);
+}
 if (process.env.PROBE === 'undo') {
 	// The undo probe, as run.mjs runs it: the edit half, a real reload, then the after-reload half.
 	for (const { label, options } of shapes) {
@@ -89,7 +113,7 @@ for (const { label, options } of shapes) {
 	for (const probe of PROBES) {
 		const context = await browser.newContext(options);
 		const page = await context.newPage();
-		await page.addInitScript(SEED);
+		if (!probe.fresh) await page.addInitScript(SEED);
 		await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
 		await page.addScriptTag({ content: probe.source });
 		const result = await page.evaluate((fn) => globalThis[fn](), probe.fn);

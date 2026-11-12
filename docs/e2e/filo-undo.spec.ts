@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
-import { expect, gotoStudio, railButtons, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, railButtons, setEditorContent, test, toSourceIfCompose } from './studio-fixture';
 
 const DECK = ['# Filo deck', '', 'First slide.', '', '---', '', '# Second', '', 'Second slide.', '', '---', '', '# Third', '', 'Third slide.', ''].join('\n');
 
@@ -163,6 +163,7 @@ for (const tag of ['@gecko', '@webkit-tablet']) test(`Filo stays under 16 ms per
 		}
 	}, BIG);
 	await gotoStudio(page);
+	await toSourceIfCompose(page);
 	await expect.poll(() => editorDoc(page).then((d) => d.length), { timeout: 60_000, message: 'witness: the 134 KB deck is open' }).toBe(BIG.length);
 	await page.evaluate(() => performance.clearMeasures());
 	await page.getByLabel('Deck source').click();

@@ -39,7 +39,10 @@
 //
 // This is slice 0 of the Filo plan. Filo (slice 6) later turns checkpoints into marks.
 
-export type Checkpoint = { id: string; ts: number; label: string; source: string };
+/** `slides`: the deck's rendered slide count when the version was saved, so the Version history row
+ *  need not parse every version to show it. Absent on versions saved before it existed, and dropped
+ *  from a restored backup (`importStudioState`), so the row then counts from `source`. */
+export type Checkpoint = { id: string; ts: number; label: string; source: string; slides?: number };
 
 export const SNAP_PREFIX = 'lattice-studio-snap-'; // + deckId → Checkpoint[] (legacy localStorage key; exported for the storage-overlay drift test)
 export const SNAP_CAP = 25; // keep the most recent N per deck
