@@ -1,12 +1,12 @@
 ---
-origin: 3145
+origin: 3150
 priority: P1
 recorded: 2026-11-12
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-10-13-compose-inline-notation-editors.md
 deferred: large — a product bug in how the open object editor tracks its target, found by an e2e; it needs its own trace and fix, not a test change
-source: https://github.com/Laticent/lattice/pull/3145
+source: https://github.com/Laticent/lattice/pull/3150
 ---
 
 # A pick in Compose's object editor can write to the NEXT object on the line
