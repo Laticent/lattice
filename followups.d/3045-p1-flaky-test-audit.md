@@ -150,10 +150,17 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             waits on a product signal (five helpers in `docs/e2e`, listed in the decision note's tools), and 24 were
             shown failing on a broken product line. Found and fixed: `workspace-backup-size`'s 67 MiB case and
             `preview-nav`'s remount case were red on `main`; vetrina's scroll-cost test counted style mutations, which
+            2026-11-12 (`docs/e2e` census): every `docs/e2e` hit outside the files other sessions own is done, 39
+            hits in 24 files, and `SANCTIONED_E2E_SLEEPS` went from 106 calls in 36 files to two calls owned
+            elsewhere (`restyle-overlap`, `workspace-backup-size`); the baseline is now 132 hits in 55 files, no
+            `flaky-ok` added and no test disabled. Each rewrite waits on a product signal (five helpers in `docs/e2e`,
+            listed in the decision note's tools), and each was shown failing on a broken product line where an arm
+            could be built. Found and fixed: vetrina's scroll-cost test counted style mutations, which
             cannot see a same-value write, so it passed with the compare removed (it now counts re-seats);
             `filo-compose`'s 16 ms undo budget is now a work count (one slide replaced, a sixteenth of the deck read)
-            with the time in `npm run bench`. Left in `docs/e2e`: `library-images-render`, `playground-paint` and
-            `restyle-overlap`, owned by the "e2e Studio shell" and "e2e touch + WebKit" sessions.
+            with the time in `npm run bench`. Left in `docs/e2e` for the sessions that own them: `library-images-render`,
+            `playground-paint`, `restyle-overlap`, `workspace-backup-size` (with its 67 MiB fixture, red on `main`) and
+            `preview-nav`'s landscape remount (red on `main`, 3 runs in 10).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; and the F3-F9 sweep's findings are fixed. (The retries half is done: PR #3144 set
             `docs/playwright.config.ts` to `retries: 0` on the owner's 2026-11-12 order, held by `checkPlaywrightRetries`,

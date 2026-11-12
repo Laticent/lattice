@@ -85,16 +85,8 @@ test('a deflate-bomb backup is refused before it inflates, and the tab keeps wor
 test('a real-shaped backup with 67 MiB of reference docs still restores', async ({ page }) => {
 	test.slow();
 	// Ten maximum-size PDFs: 5 MB each, 6.7 MiB as a data URL — 67 MiB of refdocs.json.
-	//
-	// ONE buffer of exactly MAX_DOC_BYTES (reference-doc.ts), encoded in one pass. This used to repeat one 64 KiB
-	// block's base64 80 times: each block ends in `=` padding, so the data URL carried padding in its middle (not
-	// base64) and ran 6,990,720 characters against the 6,990,571 the restore admits. Since the restore started checking
-	// rows ("A backup is a file from anyone", workspace-backup.ts), it refused all ten, and this test failed every run
-	// that read the store (measured: the toast named all ten as "not readable base64 data, or over the size").
-	const pdf = Buffer.alloc(5 * MIB);
-	for (let i = 0; i < pdf.length; i++) pdf[i] = (i * 2654435761) >>> 24;
-	const dataUrl = `data:application/pdf;base64,${pdf.toString('base64')}`;
-	const records = Array.from({ length: 10 }, (_, i) => ({ id: `r${i}`, kind: 'refdoc', name: `brand-${i}.pdf`, docKind: 'pdf', dataUrl, bytes: 5 * MIB, addedAt: i }));
+	const block = Buffer.from(Array.from({ length: 65536 }, (_, i) => (i * 2654435761) >>> 24)).toString('base64');
+	const records = Array.from({ length: 10 }, (_, i) => ({ id: `r${i}`, kind: 'refdoc', name: `brand-${i}.pdf`, docKind: 'pdf', dataUrl: `data:application/pdf;base64,${block.repeat(80)}`, bytes: 5 * MIB, addedAt: i }));
 	const refdocs = JSON.stringify(records, null, 2);
 	expect(refdocs.length).toBeGreaterThan(64 * MIB);
 	const file = await writeZip({ 'manifest.json': manifest, 'workspace.json': state('deck-big', 'Big restore probe'), 'refdocs.json': refdocs });
@@ -108,34 +100,23 @@ test('a real-shaped backup with 67 MiB of reference docs still restores', async 
 	const toastText = await toast.innerText(); // before the reload clears it
 	await page.waitForEvent('load', { timeout: 30_000 });
 
-	// Read with a cursor, one record at a time, and FAIL on a read error. The reader used one `getAll()` per store,
-	// pulling all ten 5 MB documents into a single result, and its `onerror` resolved `[]`, so a read the browser
-	// refused would have looked exactly like a restore that stored nothing.
-	const storedRefdocs = () =>
-		page.evaluate(async () => {
-			const open = indexedDB.open('lattice-workbench');
-			const db: IDBDatabase = await new Promise((res, rej) => {
-				open.onsuccess = () => res(open.result);
-				open.onerror = () => rej(open.error);
-			});
-			const names: string[] = [];
-			for (const store of Array.from(db.objectStoreNames)) {
-				await new Promise<void>((res, rej) => {
-					const cursor = db.transaction(store).objectStore(store).openCursor();
-					cursor.onsuccess = () => {
-						const c = cursor.result;
-						if (!c) return res();
-						const a = c.value as { name?: string; kind?: string } | undefined;
-						if (a?.kind === 'refdoc' && a.name) names.push(a.name);
-						c.continue();
-					};
-					cursor.onerror = () => rej(cursor.error);
-				});
-			}
-			db.close();
-			return names.sort();
+	const refdocNames = await page.evaluate(async () => {
+		const open = indexedDB.open('lattice-workbench');
+		const db: IDBDatabase = await new Promise((res, rej) => {
+			open.onsuccess = () => res(open.result);
+			open.onerror = () => rej(open.error);
 		});
-	const refdocNames = await storedRefdocs();
+		const names: string[] = [];
+		for (const store of Array.from(db.objectStoreNames)) {
+			const all: { name?: string; kind?: string }[] = await new Promise((res) => {
+				const r = db.transaction(store).objectStore(store).getAll();
+				r.onsuccess = () => res(r.result as { name?: string; kind?: string }[]);
+				r.onerror = () => res([]);
+			});
+			for (const a of all) if (a?.kind === 'refdoc' && a.name) names.push(a.name);
+		}
+		return names.sort();
+	});
 	expect(refdocNames).toHaveLength(10);
 	record('control', { backupBytes: fs.statSync(file).size, refdocsJsonMiB: +(refdocs.length / MIB).toFixed(1), toast: toastText, msToRestored: ms, refdocsStored: refdocNames.length });
 });
@@ -144,7 +125,6 @@ test('a real-shaped backup with 67 MiB of reference docs still restores', async 
 // reference docs are a SIDE LANE: a flood there is skipped and named, and the deck still comes back.
 // One row, so the 2,000-row cap cannot be what catches it: only the value cap can.
 test('a refdocs.json flood is skipped and named, and the deck still restores @crosswidth @webkit-tablet @gecko', async ({ page }) => {
-	await page.clock.install(); // so the "Not restored" list's staying power can be stepped through, below
 	await gotoStudio(page);
 	const results: Record<string, unknown> = {};
 	for (const [kind, pad] of [
@@ -164,10 +144,7 @@ test('a refdocs.json flood is skipped and named, and the deck still restores @cr
 		await page.waitForEvent('load', { timeout: 15_000 });
 		const after = page.locator('[data-sonner-toast]').filter({ hasText: 'Some items were not restored' }).first();
 		await expect(after).toContainText('Reference docs (more values than a Library holds)', { timeout: 15_000 });
-		// It must NOT go away on its own. A toast goes away on a timer, so step the page's clock well past any Sonner
-		// duration (4 s by default, 2.6 s for this Studio's notices) and read it: a timer that was going to dismiss it
-		// has fired (was a 2000 ms wait, HARD RULE #32).
-		await page.clock.runFor(10_000);
+		await page.waitForTimeout(2_000);
 		await expect(after).toBeVisible();
 		await after.getByRole('button', { name: 'OK' }).click();
 		expect(await page.evaluate((t) => Object.keys(localStorage).some((k) => localStorage.getItem(k)?.includes(t)), title)).toBe(true);

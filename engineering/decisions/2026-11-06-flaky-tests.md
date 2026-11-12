@@ -131,8 +131,8 @@ required; a bare `flaky-ok` still counts.
   client gone first. A live browser has nothing to drain, so an absence check runs a WITNESS: the same attempts with no
   walls against a second listener, started after the walled attempts. The witness proves how long one attempt takes
   to land, not that a subject holding a request back on purpose has sent it.
-- `docs/e2e` (added 2026-11-12, the `docs/e2e` pass): five helpers replaced the 106 sanctioned `waitForTimeout` calls
-  (52 entries in 36 files) and the 39 counted hits in 24 spec files.
+- `docs/e2e` (added 2026-11-12, the `docs/e2e` pass): five helpers replaced 105 of the 106 sanctioned `waitForTimeout` calls
+  (51 of 52 entries, in 35 files) and the 39 counted hits in 24 spec files.
   - `barriers.ts`: `schedulerDrained(target)` posts MessageChannel rounds behind React's scheduler, so a state update
     the last action queued has committed. `requestsFlushed(page)` fetches a numbered marker and waits for the route to
     see it, so every earlier request is in. `documentSettled(target, within)` waits for the images, media and frames

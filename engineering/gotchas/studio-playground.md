@@ -1954,16 +1954,6 @@ never turn "passed in headless" into "works on iOS."
 - **Related** — while the Studio is presenting, a drop reaches no handler at all, so a test of that case asserts the
   sign never shows rather than waiting for an import that cannot start.
 
-## The landscape-phone Studio hides the slide rail; it does not unmount it
-
-- **Symptom** — a test that expects the rail to leave the DOM (`toHaveCount(0)`) when the phone turns landscape fails
-  about 3 runs in 10, though the rail is not visible.
-- **Cause** — `StudioShell.tsx` keeps the strip that holds the rail mounted in the iPhone-landscape cinema morph and
-  hides it ("Hidden, not unmounted"), so scroll state survives the turn. Whether the old element is gone depends on when
-  the landscape media query matches.
-- **Fix** — assert what a person sees: the rail is out of view (`toBeHidden`) in landscape and back in view
-  (`toBeVisible`) in portrait. `preview-nav.spec.ts`'s remount test does this.
-
 ## A product change does not reach the e2e build, though `npm run build:e2e` ran
 
 - **Symptom** — you edit `docs/src/lib/cadenza/cadence.ts` (or `vetrina/stage.ts`), rebuild the docs site, and the

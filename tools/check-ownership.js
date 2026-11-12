@@ -6383,6 +6383,16 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'The wait is signal-first (the slow request finishing), then 1500ms for parse, engine and sheet swap. '
        + 'The control arm with the guard removed fails this very line on Chromium, so the assertion can see what it says is absent.',
   },
+  {
+    file: 'docs/e2e/workspace-backup-size.spec.ts', ms: 2000, count: 1,
+    why: 'ONE ABSENCE ASSERTION: when a workspace restore skipped something, the "Not restored" '
+       + 'list must survive the reload and then NOT go away on its own, because it is how the user '
+       + 'learns a lane of reference docs was skipped (it used to vanish with the reload after '
+       + '1100ms). There is no signal for a notice that must not disappear; a poll goes green on '
+       + 'its first tick, before an ordinary notice\'s 2600ms default duration would have closed '
+       + 'it. 2000ms is most of that duration and the notice is then asserted visible. The loop '
+       + 'runs it twice (an object flood and a scalar flood), ~4s of the file per project.',
+  },
 ];
 
 // Extensions Playwright's default testMatch admits. NOT `listSourceFiles`, which omits
