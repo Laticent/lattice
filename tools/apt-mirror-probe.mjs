@@ -32,10 +32,11 @@ const APT_SETUP = path.join(ROOT, '.github', 'actions', 'apt-cached', 'apt-setup
 const SMALL = 'dists/noble-security/InRelease';
 const LARGE = 'dists/noble-security/main/binary-amd64/Packages.gz';
 
-/** The mirrors apt-setup.sh writes, in its order: every `http(s)://… <priority>` pair in its `mirrors()` printf. */
+/** The mirrors apt-setup.sh writes, unrotated: its `ORDER=( … )` list, then `SECURITY=`, which it always puts last. */
 export function mirrorsFrom(src) {
-  const body = src.match(/mirrors\(\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? '';
-  return [...body.matchAll(/(https?:\/\/\S+?\/)\s+\d+/g)].map((m) => m[1]);
+  const order = src.match(/^ORDER=\(([\s\S]*?)^\)/m)?.[1] ?? '';
+  const security = src.match(/^SECURITY=(\S+)/m)?.[1];
+  return [...order.matchAll(/https?:\/\/\S+\//g)].map((m) => m[0]).concat(security ? [security] : []);
 }
 
 const median = (xs) => {

@@ -50,20 +50,33 @@ trap drop_on_failure EXIT
 
 # Three tries, 10 s then 20 s apart, around every call that reads a mirror. apt's own retries cover one download; this
 # covers a whole `update` whose index files all failed (apt-get update exits 0 on that, so the install after it is what
-# fails, and both are retried together).
+# fails, and both are retried together). Each retry first rotates the mirror list (apt-setup.sh N), so a mirror that
+# stalls rather than fails is not first in line for all three tries.
 with_mirror() {
   local n
   for n in 1 2 3; do
     if "$@"; then return 0; fi
-    [ "$n" = 3 ] || { echo "::warning::apt attempt $n of 3 failed; retrying in $((n * 10)) s"; sleep $((n * 10)); }
+    [ "$n" = 3 ] && break
+    echo "::warning::apt attempt $n of 3 failed; retrying in $((n * 10)) s with the mirror list rotated by $n"
+    sleep $((n * 10))
+    bash "$here/apt-setup.sh" "$n"
   done
   return 1
 }
 
-# apt with <dir> as its download folder, so whatever it fetches lands in the cache.
+# apt with <dir> as its download folder, so whatever it fetches lands in the cache. The two network phases each run
+# under a hard deadline: apt's timeouts bound one fetch, not a call, and on 2026-11-12 an `apt-get update` that kept a
+# connection trickling sat 24 minutes in InRelease fetches until the job was cancelled (run 43162229732; three
+# integration shards of #3144 did the same). The install itself never runs under a deadline: it reads only the .deb
+# files the download put in <dir> (--no-download), so killing it could only leave dpkg half-configured, never save time.
+APT_DEADLINE=${APT_DEADLINE:-150}
 apt_into() {
   mkdir -p "$dir/partial"
-  $SUDO apt-get update && $SUDO apt-get "$@" -o Dir::Cache::archives="$dir"
+  timeout -k 15 "$APT_DEADLINE" $SUDO apt-get update || { echo "::warning::apt-get update failed or passed ${APT_DEADLINE} s"; return 1; }
+  timeout -k 15 "$APT_DEADLINE" $SUDO apt-get "$@" --download-only -o Dir::Cache::archives="$dir" ||
+    { echo "::warning::the package download failed or passed ${APT_DEADLINE} s"; return 1; }
+  case " $* " in *" --download-only "*) return 0 ;; esac
+  $SUDO apt-get "$@" --no-download -o Dir::Cache::archives="$dir"
 }
 settle() {
   $SUDO rm -rf "$dir/partial" "$dir/lock"

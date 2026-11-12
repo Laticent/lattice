@@ -8,8 +8,17 @@ name: apt cache warm
 # install step that night. A list no nightly used missed on every new PR and read Ubuntu's mirror, which is what
 # failed five PRs on 2026-11-11. GitHub's roughly weekly runner-image bump also moves every key.
 #
-# So one job per distinct call, every six hours: each restores its entry (a hit costs seconds), and a new image or a
-# new list saves an entry under `main` within six hours instead of at the next nightly that shares it.
+# So one job per distinct call, every 30 minutes: each restores its entry (a hit costs seconds), and a new image or a
+# new list saves an entry under `main` within the half hour instead of at the next nightly that shares it.
+#
+# WHY EVERY 30 MINUTES, NOT EVERY SIX HOURS. The repository's caches sit at GitHub's 10 GB limit, and past it GitHub
+# evicts the least recently used entries. Measured by this workflow's `cache usage` job on 2026-11-12: 10.25 GB in 54
+# entries, the least recently used last touched 84 minutes before (07:45 against 06:21), and every entry this workflow
+# had saved on a pull request at 02:36 and 04:00 gone by 06:10. An entry restored less often than that is evicted, so
+# a six-hourly warmer would keep nothing warm most of the day. A restore counts as a use, so running more often than
+# the eviction window keeps these entries off the evicted end. A run that hits costs about 3.5 runner-minutes in all
+# (7 to 42 s a job; the repository is public, so standard runners are not billed). GitHub can start scheduled runs
+# late under load, which a half-hour cadence absorbs better than an hourly one.
 #
 # A REPAIR THAT WILL REPEAT FAILS THE RUN (followups.d 3139-p4). actions/cache never saves over an exact hit, so an
 # entry that restores as `cache: hit` and still has to repair from the mirror repairs on every run, in every job that
@@ -23,8 +32,9 @@ name: apt cache warm
 
 on:
   schedule:
-    # Every six hours at :23. A non-round minute like every other cron here: GitHub queues the top of the hour heavily.
-    - cron: '23 */6 * * *'
+    # Every 30 minutes, at :23 and :53: non-round minutes like every other cron here, since GitHub queues the top of
+    # the hour heavily. The header says why not every six hours.
+    - cron: '23,53 * * * *'
   workflow_dispatch:
   # A change to the cache actions, or to this file, runs every call on the pull request that makes it, so a broken
   # action shows up on its own PR rather than on the next night's nightlies. Entries a PR saves stay in its own scope.
