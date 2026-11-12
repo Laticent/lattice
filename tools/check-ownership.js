@@ -9498,6 +9498,13 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 //                       function the same file built from one: `const ratio = best(poisoned) / best(clean)` where
 //                       `poisoned` times a call is caught.
 //   unseeded-random F5  `Math.random()`.
+//   disabled-test   HARD RULE #33. A test switched off by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
+//                       `test.skip(true, 'why')`, a bare `test.fixme()`, `describe.skip`, `.todo`. Budget 0, never baselined; the one
+//                       exemption is a comment block right above the call reading `// disabled: tried …; evidence <URL, file or
+//                       #N>; re-enable when …`. A skip that
+//                       depends on a value (`test.skip(browserName !== 'webkit', …)`, `{ skip: skipWithoutChrome(chrome) }`) is a
+//                       scoped test and is not counted.
+//   focused-test    HARD RULE #33. `.only` (or `{ only: true }`), which drops every other test in its file. Budget 0, no exemption.
 //
 // PARSED with TypeScript, as checkE2ESleeps is, so a comment or a string never counts and a named duration
 // (`setTimeout(r, SETTLE_MS)`) does. A line that is right as it is says so: `// flaky-ok: <why>` on the line (a deadline
@@ -9517,7 +9524,7 @@ const FLAKY_TEST_FILE = (rel) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /
 const FLAKY_TEST_SKIP = /(?:^|\/)(?:node_modules|dist|fixtures?)\//;
 const FLAKY_OK = /\/\/\s*flaky-ok:\s*\S/;
 const SLEEP_HELPERS = new Set(['sleep', 'delay', 'wait', 'pause']);
-const FLAKY_TRIGGER = /setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime/;
+const FLAKY_TRIGGER = /\.(?:skip|fixme|todo|only)\(|\b(?:skip|todo|only):|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime/;
 
 /** The shape counts of one test file's source. `rel` decides whether `waitForTimeout` is this census's (outside docs/e2e). */
 function flakyTestHits(text, rel = 'test/x.test.js') {
@@ -9646,6 +9653,44 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       if (n.arguments.some((a) => touchesClock(a))) add('clock-assert', n);
     }
   });
+
+  // HARD RULE #33: a test is never switched off without a load-bearing reason, and never focused. Disabling is the one
+  // exit for a failure whose cause could not be found, so the comment block right above the call must say what was
+  // tried, the evidence, and what would re-enable it: `// disabled: tried …; evidence …; re-enable when …`. A skip that
+  // depends on a value (`test.skip(browserName !== 'webkit', …)`, `{ skip: skipWithoutChrome(chrome) }`) is a scoped
+  // test, not a disabled one, and is not counted; only a literal (`{ skip: true }`, `{ skip: 'why' }`, `test.skip('title',
+  // fn)`, a bare `test.fixme()`) switches a test off whatever the machine.
+  const RUNNERS = /^(?:test|it|describe|suite|test\.describe(?:\.parallel|\.serial)?)$/;
+  const isLiteral = (a) => a && (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a) || ts.isTemplateExpression(a));
+  const justified = (node) => {
+    let s = node;
+    while (s.parent && !ts.isSourceFile(s.parent) && !ts.isBlock(s.parent) && !ts.isModuleBlock(s.parent)) s = s.parent;
+    const notes = (ts.getLeadingCommentRanges(sf.text, s.getFullStart()) || []).map((r) => sf.text.slice(r.pos, r.end)).join('\n');
+    // The evidence must point at something a reviewer can open: a URL, a file (trace.zip, a log) or an issue / PR number.
+    return /\bdisabled:/.test(notes) && /\btried\b/i.test(notes) && /\bevidence\b[^;]*(?:https?:\/\/|\.(?:zip|log|txt|png|webm)\b|#\d+)/i.test(notes) && /\bre-?enable/i.test(notes);
+  };
+  each(sf, (n) => {
+    if (!ts.isCallExpression(n)) return;
+    const e = n.expression;
+    if (ts.isPropertyAccessExpression(e) && RUNNERS.test(e.expression.getText(sf))) {
+      const m = e.name.text;
+      if (m === 'only') add('focused-test', n);
+      // `test.skip()`, `test.skip('title', fn)` and Playwright's `test.skip(true, 'why')` switch a test off on every machine.
+      const always = n.arguments.length === 0 || n.arguments[0].kind === ts.SyntaxKind.TrueKeyword || (isLiteral(n.arguments[0]) && n.arguments.length >= 2);
+      if ((m === 'skip' || m === 'fixme' || m === 'todo') && always && !justified(n)) add('disabled-test', n);
+    } else if (ts.isIdentifier(e) && RUNNERS.test(e.text)) {
+      for (const a of n.arguments) {
+        if (!ts.isObjectLiteralExpression(a)) continue;
+        for (const p of a.properties) {
+          if (!ts.isPropertyAssignment(p) || !ts.isIdentifier(p.name)) continue;
+          const v = p.initializer;
+          const literal = v.kind === ts.SyntaxKind.TrueKeyword || ts.isStringLiteral(v) || ts.isNoSubstitutionTemplateLiteral(v);
+          if (p.name.text === 'only' && literal) add('focused-test', n);
+          else if ((p.name.text === 'skip' || p.name.text === 'todo') && literal && !justified(n)) add('disabled-test', n);
+        }
+      }
+    }
+  });
   return out;
 }
 
@@ -9678,6 +9723,21 @@ function flakyTestFindings(tree, baseline) {
     for (const shape of new Set([...Object.keys(got), ...Object.keys(want)])) {
       const g = got[shape] || 0;
       const w = want[shape] || 0;
+      if (shape === 'disabled-test' || shape === 'focused-test') {
+        // Budget 0, never baselined: a backlog of switched-off tests is exactly what HARD RULE #33 forbids.
+        if (w) errors.push(`tools/flaky-test-baseline.json lists ${w} ${shape} for ${file}; that shape is never baselined (HARD RULE #33). Delete the entry.`);
+        if (g && shape === 'focused-test') {
+          errors.push(`focused test in ${file}: ${g} \`.only\` (HARD RULE #33) — a focused test silently drops every other test in its file from the run. Remove the \`.only\`.`);
+        } else if (g) {
+          errors.push(
+            `disabled test in ${file}: ${g} switched off with no load-bearing reason (HARD RULE #33) — fix the failure at its root ` +
+            `instead. Disabling is the last resort for a cause that could not be found, and the comment block right above the ` +
+            `call must read \`// disabled: tried <what you tried>; evidence <a run URL, a trace file or #N>; re-enable when <condition>\`. A ` +
+            `missing browser or tool is installed, not skipped: use skipWithoutChrome (test/helpers/chrome.js), which fails in CI.`,
+          );
+        }
+        continue;
+      }
       if (g > w) {
         errors.push(
           `flaky test shape in ${file}: ${g} ${shape} where the baseline allows ${w} (HARD RULE #32) — a test passes or fails on ` +
@@ -9691,6 +9751,37 @@ function flakyTestFindings(tree, baseline) {
     }
   }
   return errors;
+}
+
+/**
+ * HARD RULE #34: Playwright never retries. A retry turns a flaky test into a pass nobody sees, so `retries` in
+ * docs/playwright.config.ts must be the literal 0 (not `isCI ? 1 : 0`). A `--retries` flag on the command line is
+ * reviewed in the workflow; this holds the default every run inherits.
+ */
+function playwrightRetriesFindings(text, rel = 'docs/playwright.config.ts') {
+  const ts = require('typescript');
+  const sf = ts.createSourceFile(rel, String(text), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const found = [];
+  const each = (n) => {
+    if (ts.isPropertyAssignment(n) && (ts.isIdentifier(n.name) || ts.isStringLiteral(n.name)) && n.name.text === 'retries') found.push(n.initializer);
+    n.forEachChild(each);
+  };
+  each(sf);
+  if (!found.length) return [`${rel} sets no \`retries\`; Playwright's default is 0 today, but state \`retries: 0\` so the rule is visible (HARD RULE #34).`];
+  return found
+    .filter((v) => !(ts.isNumericLiteral(v) && Number(v.text) === 0))
+    .map((v) => `${rel}: \`retries: ${v.getText(sf)}\` — Playwright must never retry (HARD RULE #34): a retry turns a flaky test into a pass nobody sees. Set it to 0 and fix the flake at its cause (#33).`);
+}
+
+function checkPlaywrightRetries(errors, file = path.join(ROOT, 'docs', 'playwright.config.ts')) {
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch (e) {
+    errors.push(`could not read ${path.relative(ROOT, file)} (${e.message}) to check its retries (HARD RULE #34).`);
+    return;
+  }
+  errors.push(...playwrightRetriesFindings(text, path.relative(ROOT, file)));
 }
 
 function checkFlakyTests(errors, root = ROOT, baselineFile = FLAKY_TEST_BASELINE_FILE) {
@@ -15640,6 +15731,7 @@ function run() {
   checkMediaSourceCensus(errors);
   checkSecuritySpineCensus(errors);
   checkFlakyTests(errors);
+  checkPlaywrightRetries(errors);
   checkRegexCensus(errors);
   checkPlatformSuites(errors);
   checkRunnerPins(errors);
@@ -15907,6 +15999,8 @@ module.exports = {
   regexVerdictOf,
   REGEX_CENSUS_FILE,
   flakyTestHits,
+  playwrightRetriesFindings,
+  checkPlaywrightRetries,
   flakyTestTree,
   flakyTestFindings,
   spineCensusHits,

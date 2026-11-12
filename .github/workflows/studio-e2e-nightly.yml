@@ -361,10 +361,8 @@ jobs:
       # baselines in `docs/e2e/visual.spec.ts-snapshots`, and blessing those turns the specs
       # green without fixing anything. So a green night means "the suite matches its
       # baselines", which is a different claim from "the regression is fixed", and the two
-      # are indistinguishable from inside the run. `retries: 1` in CI adds a second reason:
-      # a spec that fails and passes on retry reports `1 flaky` alongside the pass count and
-      # still exits 0 — and an intermittent failure is exactly what a rolling issue is most
-      # likely to be tracking, so it would open and close on alternate nights.
+      # are indistinguishable from inside the run. (CI used to retry a failing spec once,
+      # which hid flakes as `1 flaky`; retries are 0 since HARD RULE #34.)
       #
       # A first cut of this step called the suite ABSOLUTE and closed. Commenting is not a
       # consolation prize: the ratchet was never really "it does not close", it was "nothing
@@ -401,7 +399,7 @@ jobs:
           {
             echo "Measured green on \`main@${{ github.sha }}\`: the deterministic Studio E2E suite passed (${PASSED})."
             echo ""
-            echo "**Left open deliberately.** Part of this suite asserts screenshots against committed baselines, and CI retries a failing spec once — so a green night cannot distinguish a fix from a blessed baseline or a flaky spec that passed on its second try. Check which happened and close by hand; a recurrence appends here."
+            echo "**Left open deliberately.** Part of this suite asserts screenshots against committed baselines, so a green night cannot distinguish a fix from a blessed baseline. Check which happened and close by hand; a recurrence appends here."
             echo ""
             echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$GITHUB_WORKSPACE/stand-down.md"
@@ -1124,10 +1122,8 @@ jobs:
       # baselines in `docs/e2e/visual.spec.ts-snapshots`, and blessing those turns the specs
       # green without fixing anything. So a green night means "the suite matches its
       # baselines", which is a different claim from "the regression is fixed", and the two
-      # are indistinguishable from inside the run. `retries: 1` in CI adds a second reason:
-      # a spec that fails and passes on retry reports `1 flaky` alongside the pass count and
-      # still exits 0 — and an intermittent failure is exactly what a rolling issue is most
-      # likely to be tracking, so it would open and close on alternate nights.
+      # are indistinguishable from inside the run. (CI used to retry a failing spec once,
+      # which hid flakes as `1 flaky`; retries are 0 since HARD RULE #34.)
       #
       # A first cut of this step called the suite ABSOLUTE and closed. Commenting is not a
       # consolation prize: the ratchet was never really "it does not close", it was "nothing

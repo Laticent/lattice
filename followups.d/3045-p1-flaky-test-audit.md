@@ -132,8 +132,9 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             Nine mutations of the built pipeline (deadline, re-check timer, pause length, the stale-chain and
             collapsed-stage guards) each fail a test. Next by weight: `test/unit/plugins` (15).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
-            reason; the F3-F9 sweep's findings are fixed or each recorded with its reason; and the last PR sets
-            `docs/playwright.config.ts` `retries` to 0 with the Studio e2e nightly no redder than before it.
+            reason; and the F3-F9 sweep's findings are fixed. (The retries half is done: PR #3144 set
+            `docs/playwright.config.ts` to `retries: 0` on the owner's 2026-11-12 order, held by `checkPlaywrightRetries`,
+            while seven sessions fix every test the nightly reports red; see HARD RULES #33 and #34.)
 evidence  — per PR: the baseline's diff, and for each rewritten timing or sleep test, the run that shows it failing on
-            the defect it guards; for the retries change, three nightlies' results before and after.
-verify    — self-review with the gates per batch; maker-checker on the retries PR, since it changes what CI reports.
+            the defect it guards.
+verify    — self-review with the gates per batch, and the HARD RULE #34 evidence for every rewritten test.

@@ -99,11 +99,7 @@ test('the Studio PowerPoint export shows no authoring ring on a clipped slide @c
 
 test('the Studio PDF export shows no authoring ring on a clipped slide @crosswidth @webkit-tablet @webkit-phone @gecko', async ({ page }) => {
 	test.setTimeout(300_000);
-	try {
-		execFileSync('pdftoppm', ['-v'], { stdio: 'ignore' });
-	} catch {
-		test.skip(true, 'pdftoppm (poppler-utils) is not installed; the images and PowerPoint arms cover the same capture frame');
-	}
+	// pdftoppm (poppler-utils) is required, as in every PDF spec: a missing tool is installed, never skipped (HARD RULE #33).
 	const file = await exportOverflowDeck(page, 'pdf');
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-pdf-marker-'));
 	execFileSync('pdftoppm', ['-r', '50', '-f', '2', '-l', '2', '-png', file, path.join(dir, 'page')]);
@@ -146,11 +142,6 @@ async function printSheetRedPixels(page: import('@playwright/test').Page): Promi
 for (const [level, seeded] of [['reader (the default)', null], ['author (the workspace setting)', 'author']] as const) {
 	test(`the Studio Print deck PDF follows the export setting: ${level} @crosswidth @webkit-tablet @webkit-phone @gecko`, async ({ page }) => {
 		test.setTimeout(300_000);
-		try {
-			execFileSync('pdftoppm', ['-v'], { stdio: 'ignore' });
-		} catch {
-			test.skip(true, 'pdftoppm (poppler-utils) is not installed');
-		}
 		if (seeded) {
 			await page.addInitScript((v) => {
 				try {

@@ -836,3 +836,14 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Cause** — `server.close()` in the `finally` waits for every open connection to end, and the browser keeps its
   keep-alive connections to the loopback server open.
 - **Fix** — call `server.closeAllConnections()` before `close()`, as `studio-warm-offline.spec.ts` does.
+
+## A Chromium-backed test file reads green in CI when the runner has no browser
+
+- **Symptom:** A render-backed `node --test` file passes in CI, and nothing in the log says it never rendered a slide.
+- **Cause:** The file resolved Chromium itself and, finding none, declared
+  `test('SKIPPED — no Chromium available', { skip: true }, () => {})` and returned. `node --test` counts a skipped test
+  as passing and reports nothing at the file level, so a runner that lost its browser turns the whole suite green. Twelve
+  integration files did this until 2026-11-12.
+- **Fix:** Resolve with `resolveChrome` and gate with `skipWithoutChrome` from `test/helpers/chrome.js`: it skips on a
+  laptop with no browser and returns `false` under `CI`, so the test runs and fails loudly. `checkFlakyTests` now counts a
+  literal `{ skip: true }` as a `disabled-test` (HARD RULE #33), so the hand-rolled form cannot come back.
