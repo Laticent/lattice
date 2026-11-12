@@ -3,7 +3,7 @@ import path from 'node:path';
 import { toggleMark } from 'prosemirror-commands';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
-import { alignBlocks, deckSchema, deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
+import { alignBlocks, deckSchema, deckToDoc, docToDeck, emitDeck, initBaseline, serializeSlideNode } from './deck-doc';
 import { normalizeSource } from './deck-source';
 import { emitPatch, scopedResync, scopedResyncPatch } from './scoped-resync';
 
@@ -32,11 +32,15 @@ function linesGone(a: string, b: string): number {
 /** Lines changed between `a` and `b`: removed or added, whichever is more (a duplicated line counts too). */
 const linesChanged = (a: string, b: string) => Math.max(linesGone(a, b), linesGone(b, a));
 
-/** Each unlocked slide with a textblock, its deck after an `X` typed at the end of that slide's first textblock, and what the
- *  edited document says (its canonical form): the faithful text must read back to the same. */
-function* oneEdits(src: string): Generator<{ slide: number; out: string; means: string }> {
+/** Each unlocked slide with a textblock, its deck after an `X` typed at the end of that slide's first textblock, the edited
+ *  slide's own written bytes, and what the edited slide says (its canonical form): the faithful text must read back to the
+ *  same. The read-back is checked on the edited slide alone, because every other slide re-emits its cached bytes and the
+ *  line count proves that; whole-deck read-backs on each of a 232-slide deck's edits cost 11 s and timed out on a loaded CI
+ *  runner. `whole` is set on the first edit only, which still reads the whole deck back once. */
+function* oneEdits(src: string): Generator<{ slide: number; out: string; raw: string; means: string; whole?: string }> {
 	const doc = deckToDoc(src);
 	let pos = 0;
+	let first = true;
 	for (let s = 0; s < doc.childCount; s++) {
 		const slide = doc.child(s);
 		let at = -1;
@@ -47,7 +51,10 @@ function* oneEdits(src: string): Generator<{ slide: number; out: string; means: 
 			});
 		if (at >= 0) {
 			const edited = EditorState.create({ doc }).tr.insertText('X', at).doc;
-			yield { slide: s, out: emitDeck(edited, initBaseline(doc)), means: docToDeck(edited) };
+			const baseline = initBaseline(doc);
+			const out = emitDeck(edited, baseline);
+			yield { slide: s, out, raw: baseline.raws[s], means: serializeSlideNode(edited.child(s)), whole: first ? docToDeck(edited) : undefined };
+			first = false;
 		}
 		pos += slide.nodeSize;
 	}
@@ -63,10 +70,12 @@ describe('Compose writes back what the author wrote', () => {
 	it.each(DECKS)('%s: a one-character edit on a slide changes only its line, and says what the edit says', (f) => {
 		const src = normalizeSource(readFileSync(path.join(DIR, f), 'utf8'));
 		const bad: string[] = [];
-		for (const { slide, out, means } of oneEdits(src)) {
+		for (const { slide, out, raw, means, whole } of oneEdits(src)) {
 			const changed = linesChanged(src, out);
 			if (changed !== 1) bad.push(`slide ${slide + 1}: ${changed} lines`);
-			if (docToDeck(deckToDoc(out)) !== means) bad.push(`slide ${slide + 1}: reads differently`);
+			const alone = deckToDoc(raw);
+			if (alone.childCount !== 1 || serializeSlideNode(alone.child(0)) !== means) bad.push(`slide ${slide + 1}: reads differently`);
+			if (whole !== undefined && docToDeck(deckToDoc(out)) !== whole) bad.push(`slide ${slide + 1}: the deck reads differently`);
 		}
 		expect(bad).toEqual([]);
 	});
