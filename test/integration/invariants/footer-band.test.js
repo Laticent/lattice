@@ -53,6 +53,7 @@ const fs = require('fs');
 const os = require('os');
 const puppeteer = require('puppeteer');
 const { ROOT, runEmulator } = require('../../helpers/render');
+const { trackPageWork } = require('../../helpers/page-settle');
 
 /** Best-effort Chromium path — mirrors split-envelope-css.test.js. */
 function resolveChrome() {
@@ -80,8 +81,9 @@ describe('footer band — a contended band keeps every mark legible', () => {
     // The deck's own `portrait` canvas — the viewport the emulator measures at. Reading the band at some
     // other size lays it out differently and reports numbers for a slide nobody renders.
     await page.setViewport({ width: 1080, height: 1350 });
-    await page.goto('file://' + path.resolve(pdf.replace(/\.pdf$/, '.html')), { waitUntil: 'networkidle0' });
-    await new Promise((r) => setTimeout(r, 2500));
+    const settled = await trackPageWork(page);
+    await page.goto('file://' + path.resolve(pdf.replace(/\.pdf$/, '.html')), { waitUntil: 'load' });
+    await settled({ frames: 3, images: true }); // the runtime's passes, its fonts and its pictures are done
     const read = await page.evaluate(() => {
       const promoted = [];
       const suppressed = [];

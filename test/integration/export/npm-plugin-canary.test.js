@@ -35,6 +35,10 @@ const os = require('node:os');
 const path = require('node:path');
 
 const TIMEOUT = 300000;
+// The door's two clocks, the render's 30 s budget for code packages and the contract's 2 s a slide, are product
+// deadlines on a stranger's code. No test here is about them, so each is set to this file's own hang guard: on a loaded
+// runner the budget ran out and every check failed at once, a result about the machine, not the door (HARD RULE #32, F4).
+const DOOR_CLOCK = { budgetMs: TIMEOUT, slideMs: TIMEOUT };
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-canary-home-'));
 process.env.LATTICE_HOME = home;
@@ -183,6 +187,7 @@ const runDoor = (code) => {
     executablePath: CHROME,
     warn: (l) => lines.warn.push(l),
     info: (l) => lines.info.push(l),
+    ...DOOR_CLOCK,
   });
   return { ...r, lines };
 };
@@ -458,6 +463,7 @@ describe('npm-plugin canary: a hostile plugin reaches nothing', () => {
       executablePath: CHROME,
       warn: (l) => lines.warn.push(l),
       info: (l) => lines.info.push(l),
+      ...DOOR_CLOCK,
     });
     const html = r.rendered.html;
     const problems = [];

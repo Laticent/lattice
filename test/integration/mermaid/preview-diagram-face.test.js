@@ -91,19 +91,26 @@ async function previewFaces(deckSource, theme) {
   });
   try {
     const page = await browser.newPage();
-    await page.setContent(doc, { waitUntil: 'networkidle0' });
+    // `load`: the document is inline and fetches nothing, and `networkidle0` is a 500 ms quiet period that timed out at
+    // 30 s on a loaded runner (HARD RULE #32).
+    await page.setContent(doc, { waitUntil: 'load' });
     // The bundles go in as SCRIPT TAGS, the way the real preview frame loads them —
     // inlining mermaid's ~3 MB IIFE into `setContent` made a document large enough to
     // kill the tab ("Target closed") before the first evaluate.
     await page.addScriptTag({ path: path.join(ROOT, 'node_modules', 'mermaid', 'dist', 'mermaid.js') });
     await page.addScriptTag({ path: path.join(ROOT, 'dist', 'lattice-runtime.js') });
-    await page.evaluate(() => document.fonts.ready);
-    // The runtime renders diagrams asynchronously, off its own queue.
+    // The runtime renders diagrams asynchronously, off its own queue. Wait until EVERY fence has settled (drawn, or
+    // handed back), a signal and not a duration (HARD RULE #32): the first drawn diagram plus a 3 s sleep read the
+    // rest mid-queue on a loaded runner. A queue that never drains falls through at the deadline to the assertions,
+    // which count the fences still pending.
     await page.waitForFunction(
-      () => [...document.querySelectorAll('section svg')].some((s) => s.querySelector('text, foreignObject')),
+      (n) => document.querySelectorAll('pre[data-lattice-hydrate="mermaid"]:not([data-lattice-settle="pending"]), marp-pre[data-lattice-hydrate="mermaid"]:not([data-lattice-settle="pending"])').length >= n
+        && !document.querySelector('pre[data-lattice-hydrate="mermaid"]:not([data-lattice-settle]), marp-pre[data-lattice-hydrate="mermaid"]:not([data-lattice-settle])'),
       { timeout: 60000 },
+      fenceCount(deckSource),
     ).catch(() => {});
-    await new Promise((r) => { setTimeout(r, 3000); });
+    // The faces are read from computed style, so the fonts the labels ask for must have loaded.
+    await page.evaluate(() => document.fonts.ready);
     // `return await`, not `return` — the `finally` below closes the browser, and an
     // un-awaited promise settles after it ("Target closed").
     return await page.evaluate(() => {

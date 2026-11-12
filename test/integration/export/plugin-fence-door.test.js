@@ -29,6 +29,10 @@ const os = require('node:os');
 const path = require('node:path');
 
 const TIMEOUT = 300000;
+// The door's two clocks, the render's 30 s budget for code packages and the contract's 2 s a slide, are product
+// deadlines on a stranger's code. No test here is about them, so each is set to this file's own hang guard: on a loaded
+// runner the budget ran out and every check failed at once, a result about the machine, not the door (HARD RULE #32, F4).
+const DOOR_CLOCK = { budgetMs: TIMEOUT, slideMs: TIMEOUT };
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-fence-home-'));
 process.env.LATTICE_HOME = home;
@@ -93,6 +97,7 @@ const run = (p, md = DECK, extra = {}) => {
     executablePath: process.env.CHROME_PATH || undefined,
     warn: (l) => lines.warn.push(l),
     info: (l) => lines.info.push(l),
+    ...DOOR_CLOCK,
     ...extra,
   });
   return { ...r, lines };

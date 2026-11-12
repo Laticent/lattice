@@ -70,6 +70,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const puppeteer = require('puppeteer');
 const { ROOT, runEmulator } = require('../../helpers/render');
+const { trackPageWork } = require('../../helpers/page-settle');
 const { PROBE } = require('../../../tools/check-slide-contrast.js');
 
 /**
@@ -321,8 +322,9 @@ describe('slide contrast — the rendered galleries, against written-down exclus
       assert.ok(fs.existsSync(html), `no HTML sidecar for ${s.id} at ${html}`);
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
-      await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
-      await new Promise((r) => setTimeout(r, 400));
+      const settled = await trackPageWork(page);
+      await page.goto(`file://${html}`, { waitUntil: 'load' });
+      await settled({ frames: 3, images: true }); // the runtime's passes, its fonts and its pictures are done
       measured.push({ surface: s.id, rows: await page.evaluate(PROBE) });
       await page.close();
     }

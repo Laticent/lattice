@@ -41,6 +41,7 @@ const fs = require('fs');
 const os = require('os');
 const puppeteer = require('puppeteer');
 const { ROOT, runEmulator } = require('../../helpers/render');
+const { trackPageWork } = require('../../helpers/page-settle');
 
 /** Best-effort Chromium path — mirrors team-profile-sides-leadin.test.js. */
 function resolveChrome() {
@@ -67,8 +68,9 @@ describe('team-profile — capacity holds, and the coda reflow fires only on a c
     // The deck's own 16:9 canvas — the viewport the emulator measures at. Reading the
     // stage at another size lays it out differently and reports numbers nobody renders.
     await page.setViewport({ width: 1280, height: 720 });
-    await page.goto('file://' + path.resolve(pdf.replace(/\.pdf$/, '.html')), { waitUntil: 'networkidle0' });
-    await new Promise((r) => setTimeout(r, 2500));
+    const settled = await trackPageWork(page);
+    await page.goto('file://' + path.resolve(pdf.replace(/\.pdf$/, '.html')), { waitUntil: 'load' });
+    await settled({ frames: 3, images: true }); // the runtime's passes, its fonts and its pictures are done
     slides = await page.evaluate(() => {
       const out = [];
       document.querySelectorAll('section.team-profile').forEach((s) => {
