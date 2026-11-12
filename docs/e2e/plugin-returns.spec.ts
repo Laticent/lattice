@@ -102,11 +102,17 @@ test(`a plugin's returned values: consent names them, clean ones land on the sli
 			.poll(
 				async () => {
 					const state = await read();
-					if (state === 'closed') {
-						await strip.getByRole('button', { name: 'What it is' }).click();
-						await expect(strip.getByRole('button', { name: 'Hide details' })).toBeVisible();
+					if (state !== 'closed') return state;
+					// A throw inside a poll callback is not retried (Playwright fails the whole poll), and the strip can
+					// remount again between the click and its check. So a click that does not land reports back and the
+					// poll reads afresh.
+					try {
+						await strip.getByRole('button', { name: 'What it is' }).click({ timeout: 5_000 });
+						await expect(strip.getByRole('button', { name: 'Hide details' })).toBeVisible({ timeout: 5_000 });
+						return 'clicked';
+					} catch {
+						return 'the click did not land';
 					}
-					return state;
 				},
 				{ message: `the consent detail fits ${width}px` },
 			)
