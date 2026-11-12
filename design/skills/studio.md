@@ -166,8 +166,10 @@ opens the presenter's second window; Esc leaves.
 | `lattice-studio-active` | The deck and slide you last viewed |
 | `lattice-studio-settings` | Studio settings |
 
-Undo history and checkpoints live in the browser's IndexedDB, and so do
-Library items. Nothing is on a server. Clearing site data, a private window,
+Undo history, checkpoints and chat threads live in the browser's IndexedDB,
+and so do Library items. Deck text stays in localStorage, which holds about
+5.2 M characters (half that in Safari for non-Latin-1 text); Setup → "Data"
+warns once it is 80% full, because a full one stops deck edits saving. Nothing is on a server. Clearing site data, a private window,
 or a browser that evicts storage loses them. "Backup & restore" downloads
 `lattice-workspace.zip`: the Studio's store, a readable `decks/<slug>.md` for
 every deck, the Library, and reference docs. It leaves out the OpenRouter key.

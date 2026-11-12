@@ -168,7 +168,7 @@ import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, isMacLike, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, onSourceWriteError, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, checkpointMeta, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckMetaFor, deckSourceFor, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, onSourceWriteError, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveCheckpointDurably, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { CONTENT_SWITCH_TOKENS, CONTENT_SWITCHES, type ContentSwitch, type SwitchState, switchState } from './switch-controls';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -5619,6 +5619,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			});
 		});
 	}, []);
+	// Chat storage failures, the idle chat migration and the localStorage-fill warning
+	// (storage-notices.ts), loaded after boot: none of it is needed to paint (route budget).
+	React.useEffect(() => {
+		let stop: (() => void) | null = null;
+		let gone = false;
+		void import('./storage-notices')
+			.then((m) => {
+				if (!gone) stop = m.startStorageNotices();
+			})
+			.catch(() => {});
+		return () => {
+			gone = true;
+			stop?.();
+		};
+	}, []);
 	const checkpoint = React.useCallback((label: string) => setCheckpoints(saveCheckpoint(deck.id, source, label, Date.now())), [deck.id, source]);
 	const saveVersion = () => { checkpoint('Saved version'); notify('Version saved to history.'); };
 	function restoreCheckpoint(cp: Checkpoint) {
@@ -8640,7 +8655,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<ul className="space-y-0.5">
 							{checkpoints.map((cp) => (
 								<li key={cp.id} className="flex items-center gap-2 rounded-md px-1.5 py-1.5 hover:bg-[var(--accent-soft)]">
-									<span className="min-w-0 flex-1"><span className="block truncate text-[12px] font-semibold text-[var(--text-heading)]">{cp.label}</span><span className="block font-mono text-[10.5px] text-muted-foreground">{timeAgo(cp.ts)} · {metaFor(cp.source)}</span></span>
+									<span className="min-w-0 flex-1"><span className="block truncate text-[12px] font-semibold text-[var(--text-heading)]">{cp.label}</span><span className="block font-mono text-[10.5px] text-muted-foreground">{timeAgo(cp.ts)} · {checkpointMeta(cp)}</span></span>
 									<button type="button" onClick={() => restoreCheckpoint(cp)} className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-[var(--accent)] hover:bg-background">Restore</button>
 								</li>
 							))}

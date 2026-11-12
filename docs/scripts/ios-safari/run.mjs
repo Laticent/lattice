@@ -4,7 +4,8 @@
  * on pages of their own (PROBE=photo-memory), jpeg-probe.js, the shared JPEG encoder
  * against Safari's own (PROBE=jpeg), focus-sync-probe.js, real taps on the Playground's editor under a busy page
  * (PROBE=focus-sync), undo-probe.js, the Filo undo checks across a reload (PROBE=undo), or font-cache-probe.js, whether
- * the Studio's warmed fonts are read from Safari's cache (PROBE=font-cache, against font-cache-server.mjs). SIM_UDID=mac drives the
+ * the Studio's warmed fonts are read from Safari's cache (PROBE=font-cache, against font-cache-server.mjs), or chat-storage-probe.js,
+ * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage). SIM_UDID=mac drives the
  * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
  *
@@ -103,7 +104,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -309,6 +310,24 @@ async function runUndoProbe(id) {
 		error = ok ? undefined : [steps.filter((s) => !s.pass).map((s) => s.name).join('; '), pass ? '' : 'the ⌘Z key did not undo after the reload'].filter(Boolean).join('; ');
 	}
 	return { ok, error, ua: second.ua ?? first.ua, width: first.width, steps };
+}
+
+/**
+ * The chat storage probe (chat-storage-probe.js): plant the threads an earlier build left in localStorage in a booted
+ * Studio, reload for real, then check they moved to IndexedDB and measure the localStorage allowance
+ * (engineering/decisions/2026-11-11-studio-storage-pointer-records.md §11).
+ */
+async function runChatStorageProbe(id) {
+	const source = fs.readFileSync(path.join(here, 'chat-storage-probe.js'), 'utf8');
+	const first = await studioPage(id, 'chat-storage-probe.js', 'latticeChatStorageProbe');
+	if (!first.ok) return first;
+	await wd('POST', `/session/${id}/refresh`, {});
+	const second = await wd('POST', `/session/${id}/execute/async`, {
+		script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeChatStorageAfterReload(${JSON.stringify(first.seed)}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+		args: [],
+	});
+	const steps = [...first.steps, ...(second.steps || []).map((s) => ({ ...s, name: `after reload · ${s.name}` }))];
+	return { ok: !!second.ok, error: second.error, ua: second.ua ?? first.ua, width: first.width, steps };
 }
 
 /**

@@ -4,7 +4,8 @@
 # preview probe against the built docs site; PROBE=photo runs the Studio's photo verdict probe (photo-probe.js) there; PROBE=focus-sync taps the Playground's editor on an iPad under a busy page
 # (focus-sync-probe.js); PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
 # page (it needs an http origin, not the site). PROBE=undo runs the Filo undo probe against the site, in both
-# simulators and then in the Mac's own Safari. PROBE=font-cache checks that the Studio's warmed fonts are read from Safari's
+# simulators and then in the Mac's own Safari. PROBE=chat-storage checks that chats move from localStorage to IndexedDB
+# across a reload, and measures the localStorage allowance (chat-storage-probe.js), against the site in both simulators. PROBE=font-cache checks that the Studio's warmed fonts are read from Safari's
 # cache, against font-cache-server.mjs on two ports (font-cache-probe.js). PROBE=office opens each one-slide editable .pptx that
 # tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
 # and captures the device screen (office-capture.mjs). Run from the repo root after `npm ci` and `npm run build` (the

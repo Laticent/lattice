@@ -2,6 +2,7 @@ import { buildDeckIndex } from '@/lib/deck-outline';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { splitSlides } from '../../lib/deck-lint';
 import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from '../../lib/front-matter';
+import { CHAT_PREFIX, chatChars, clearChats, dropChat, NOT_A_THREAD, readChat, writeChat } from './chat-store';
 import { appendCheckpoint, type Checkpoint, checkpointBytes, clearCheckpoints, dropCheckpoints, mapCheckpoints, readCheckpoints, replaceCheckpoints, SNAP_CAP, SNAP_PREFIX } from './checkpoint-store';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { asImageLook, DEFAULT_IMAGE_LOOK, DEFAULT_IMAGE_MODEL, type ImageLook } from './image-look';
@@ -260,15 +261,26 @@ export function newDeckSource(title = 'Untitled deck'): string {
 // Deck lists and the history panel ask for the same few decks' labels on every render; an index
 // build is a parse, so remember the last answers by text.
 const META_MAX = 64;
-const metaMemo = new Map<string, string>();
-export function metaFor(source: string): string {
-	let m = metaMemo.get(source);
-	if (m === undefined) {
-		m = slideCountLabel(buildDeckIndex(source).partBase.at(-1) ?? 0);
-		if (metaMemo.size >= META_MAX) metaMemo.delete(metaMemo.keys().next().value as string);
-		metaMemo.set(source, m);
+const countMemo = new Map<string, number>();
+/** The deck's RENDERED slide count (the PDF's), remembered by text. */
+export function slideCount(source: string): number {
+	let n = countMemo.get(source);
+	if (n === undefined) {
+		n = buildDeckIndex(source).partBase.at(-1) ?? 0;
+		if (countMemo.size >= META_MAX) countMemo.delete(countMemo.keys().next().value as string);
+		countMemo.set(source, n);
 	}
-	return m;
+	return n;
+}
+export function metaFor(source: string): string {
+	return slideCountLabel(slideCount(source));
+}
+
+/** A Version history row's "N slides": the count stored with the version, else counted from its text
+ *  (a version saved before counts were stored). The list used to parse every version, up to 25 deck
+ *  copies, each time it opened (2026-11-11-studio-storage-pointer-records.md §4 item 2). */
+export function checkpointMeta(cp: Checkpoint): string {
+	return Number.isInteger(cp.slides) && (cp.slides as number) > 0 ? slideCountLabel(cp.slides as number) : metaFor(cp.source);
 }
 
 /** "N slides", counting RENDERED slides — the PDF's count, heading splits included, so the deck
@@ -666,7 +678,7 @@ export function deleteDeck(id: string): void {
 	saveIndex(loadIndex().filter((e) => e.id !== id));
 	dropSource(id);
 	void dropCheckpoints(id);
-	remove(CHAT_PREFIX + id);
+	void dropChat(id);
 	remove(CHAT_DRAFT_PREFIX + id);
 	clearComments(id);
 	clearActiveDeckIf(id); // don't leave the boot pointer dangling at a deleted deck
@@ -695,8 +707,9 @@ export function deckContentStats(): { count: number; bytes: number } {
 	} catch {
 		/* storage unavailable */
 	}
-	// Checkpoints moved to IndexedDB, so the localStorage scan above no longer sees them.
-	bytes += checkpointBytes();
+	// Checkpoints and chats moved to IndexedDB, so the localStorage scan above no longer sees them.
+	// Chats count only once loaded (`hydrateAllChats`); a thread still in localStorage is in the scan.
+	bytes += checkpointBytes() + chatChars();
 	return { count, bytes };
 }
 
@@ -720,7 +733,6 @@ export function clearAllDecks(): void {
 	// can't do that, since it doesn't know which ids it's touching).
 	for (const { id } of loadIndex()) {
 		dropSource(id);
-		remove(CHAT_PREFIX + id);
 		remove(CHAT_DRAFT_PREFIX + id);
 		clearComments(id);
 	}
@@ -748,6 +760,8 @@ export function clearAllDecks(): void {
 	// `lastCheckpointClear()`. Like the source writes guarded by DECKS_CLEARED_EVENT, a
 	// checkpoint saved in the moment before that reload is not refused here.
 	void clearCheckpoints();
+	// Chats too (IndexedDB, chat-store.ts); callers await `chatsSettled()` and read `lastChatClear()`.
+	void clearChats();
 	// Every deck's undo history (Filo, IndexedDB) is cleared by the caller, governance.ts, which
 	// awaits it: this module stays free of the history store, which only the Studio loads.
 	remove(INDEX_LS);
@@ -784,7 +798,7 @@ export function loadCheckpoints(deckId: string): Checkpoint[] {
 export function saveCheckpoint(deckId: string, source: string, label: string, ts: number): Checkpoint[] {
 	const list = loadCheckpoints(deckId);
 	if (list[0]?.source === source) return list; // nothing changed since the last one
-	const cp: Checkpoint = { id: `cp-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ts, label, source };
+	const cp: Checkpoint = { id: `cp-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ts, label, source, slides: slideCount(source) };
 	void appendCheckpoint(deckId, cp);
 	return [cp, ...list].slice(0, SNAP_CAP);
 }
@@ -797,7 +811,7 @@ export function saveCheckpoint(deckId: string, source: string, label: string, ts
 export function saveCheckpointDurably(deckId: string, source: string, label: string, ts: number): Promise<boolean> {
 	const list = loadCheckpoints(deckId);
 	if (list[0]?.source === source) return Promise.resolve(true);
-	const cp: Checkpoint = { id: `cp-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ts, label, source };
+	const cp: Checkpoint = { id: `cp-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ts, label, source, slides: slideCount(source) };
 	return appendCheckpoint(deckId, cp);
 }
 
@@ -808,7 +822,10 @@ export function mapCheckpointSources(deckId: string, fn: (source: string) => str
 }
 
 // ── Architect chat history (per deck) ──────────────────────────────────────
-export const CHAT_PREFIX = 'lattice-studio-chat-'; // + deckId → ChatMessage[] (exported for the storage-overlay drift test)
+// Threads live in IndexedDB (chat-store.ts); CHAT_PREFIX is their legacy localStorage key and fallback,
+// re-exported here for the storage-overlay drift test and the prefix sweeps below.
+export { CHAT_PREFIX };
+
 const CHAT_CAP = 60;
 
 /** A reviewable, re-appliable proposed edit persisted on an assistant turn. Structural
@@ -916,8 +933,10 @@ export type ChatMessage = {
 	trace?: ChatTrace;
 };
 
+/** A deck's thread, synchronously. Until the deck's chat has loaded (`hydrateChat`, chat-store.ts)
+ *  this is its legacy localStorage thread or []; a panel that saves must wait for `chatLoaded`. */
 export function loadChat(deckId: string): ChatMessage[] {
-	return read<ChatMessage[]>(CHAT_PREFIX + deckId) ?? [];
+	return readChat(deckId);
 }
 /** Only this many of a thread's newest replies keep their Show-work trace. A trace is up to ~8 KB (chat-trace.ts), so 60 of them would be
  *  ~480 KB of an origin's ~5 MB. Older replies keep their text, usage and activity line. */
@@ -937,9 +956,10 @@ export function withoutOldTraces(messages: ChatMessage[], keep: number): ChatMes
 	return out;
 }
 
-/** Save a deck's chat. A full storage must never cost the author a REPLY, so when the write is refused the traces go first: all but the
- *  newest three, then all of them. The words, the proposals and the usage are never what gets dropped. */
-export function saveChat(deckId: string, messages: ChatMessage[]): void {
+/** Save a deck's chat (IndexedDB, chat-store.ts). A full storage must never cost the author a REPLY, so when the write falls back to
+ *  localStorage and is refused there, the traces go first: all but the newest three, then all of them. The words, the proposals and the
+ *  usage are never what gets dropped. Resolves true once the thread is stored. */
+export function saveChat(deckId: string, messages: ChatMessage[]): Promise<boolean> {
 	const kept = messages.slice(-CHAT_CAP);
 	// The briefing of a compaction rides the first message kept. When the cap trims that message off, carry the briefing onto the new first
 	// one: it still stands in for the history the model no longer receives, and dropping it would lose that context with no notice.
@@ -950,10 +970,7 @@ export function saveChat(deckId: string, messages: ChatMessage[]): void {
 			.find((m) => m.compacted)?.compacted;
 		if (carried) kept[0] = { ...kept[0], compacted: carried };
 	}
-	const key = CHAT_PREFIX + deckId;
-	if (write(key, withoutOldTraces(kept, CHAT_TRACE_KEEP))) return;
-	if (write(key, withoutOldTraces(kept, 3))) return;
-	write(key, withoutOldTraces(kept, 0));
+	return writeChat(deckId, [withoutOldTraces(kept, CHAT_TRACE_KEEP), withoutOldTraces(kept, 3), withoutOldTraces(kept, 0)]);
 }
 
 // The unsent chat draft, per deck — so a closed (or unmounted) Architect panel
@@ -970,7 +987,8 @@ export const CHAT_DRAFT_PREFIX = 'lattice-studio-chatdraft-'; // + deckId → st
  * set out inline, and a prefix with no export of its own could drift past the overlay).
  */
 export const DECK_CONTENT_PREFIXES: readonly string[] = Object.freeze([SRC_PREFIX, FILO_SUM_PREFIX, SNAP_PREFIX, CHAT_PREFIX, CHAT_DRAFT_PREFIX, COMMENTS_KEY_PREFIX]);
-const isDeckContentKey = (k: string) => DECK_CONTENT_PREFIXES.some((p) => k.startsWith(p));
+// The chat's model choice shares CHAT_PREFIX but is a preference: Privacy & Data clears data, not preferences.
+const isDeckContentKey = (k: string) => !NOT_A_THREAD.has(k) && DECK_CONTENT_PREFIXES.some((p) => k.startsWith(p));
 export function loadChatDraft(deckId: string): string {
 	return read<string>(CHAT_DRAFT_PREFIX + deckId) ?? '';
 }
@@ -1341,6 +1359,10 @@ export type ImportSummary = {
  * Settings + instructions are restored from the backup (they're the user's own
  * values either way). `ts` is passed in so the store stays free of Date.now.
  */
+/** A backup's versions, capped, without their stored slide counts: a backup is outside input, and a
+ *  count it carries is not checked against the text, so the row counts from the text instead. */
+const fromBackup = (list: Checkpoint[]): Checkpoint[] => list.slice(0, SNAP_CAP).map(({ slides: _untrusted, ...c }) => c);
+
 export function importStudioState(data: StudioExport, ts: number): ImportSummary {
 	const summary: ImportSummary = { added: 0, restoredCopies: 0, skipped: 0, written: [], copies: {}, refused: [], refusedIds: [] };
 	// A deck whose source this browser will not store is not restored: no index row (it would list
@@ -1369,7 +1391,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 				continue;
 			}
 			index.push(incoming);
-			if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(entry.id, fromBackup(data.checkpoints[entry.id]));
 			if (data.chats[entry.id]?.length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
 			summary.written.push(entry.id);
@@ -1386,7 +1408,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		// still whatever each side already had, so nothing is rewritten under the user.
 		if (incomingSrc == null || incomingSrc === normalizeSourceText(currentSrc)) {
 			// Same deck — take the backup's history wherever ours is missing.
-			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, fromBackup(data.checkpoints[entry.id]));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.skipped++;
 			continue;
@@ -1400,7 +1422,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 				refuse(entry);
 				continue;
 			}
-			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, fromBackup(data.checkpoints[entry.id]));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
 			summary.written.push(entry.id);
@@ -1421,7 +1443,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			continue;
 		}
 		index.push({ id: newId, title: `${entry.title} (restored)`, builtin: false, restored: true });
-		if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+		if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(newId, fromBackup(data.checkpoints[entry.id]));
 		if (data.chats[entry.id]?.length) saveChat(newId, data.chats[entry.id]);
 		summary.restoredCopies++;
 		summary.written.push(newId);
