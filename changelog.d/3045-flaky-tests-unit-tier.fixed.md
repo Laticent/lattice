@@ -9,7 +9,7 @@
 - **Fixed: the unit tier's stopwatches and sleeps are gone (HARD RULE #32).** 61 timing assertions and fixed sleeps in
   25 files under `test/unit/` now count work, read a virtual clock, or wait for a signal, and each was shown failing on
   the defect it guards.
-- **Fixed: a unit test that needs a tool or a built file no longer skips silently in CI (HARD RULE #33).** 33 skips in
+- **Fixed: a unit test that needs a tool or a built file no longer skips silently in CI (the env-skip rule #3144 adds).** 33 skips in
   15 files route through `skipUnlessCI` / `skipWithoutChrome` (`test/helpers/chrome.js`), which skip on a laptop and
   fail under CI; two carry a `// ci-skip:` note naming the job that runs them instead. chart-readers asserts a pinned
   refusal instead of skipping three tests per refused chart.

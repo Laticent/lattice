@@ -100,7 +100,7 @@ for (const kind of Object.keys(READERS)) {
       assert.deepEqual(charts.filter((c) => !read(c)).map((c) => c.s.id), want);
     });
 
-    // A chart the reader refuses is pinned in REFUSED, and asserted refused here, not skipped (HARD RULE #33): a skip
+    // A chart the reader refuses is pinned in REFUSED, and asserted refused here, not skipped (the env-skip rule, #3144): a skip
     // reads as green whatever the reader did, and a chart that started reading back would go unseen.
     const refused = new Set((REFUSED[kind] || []).map((r) => /^slide (\d+):/.exec(r)?.[1]));
     for (const c of charts) {

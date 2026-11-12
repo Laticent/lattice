@@ -878,3 +878,15 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   stopped), never on how long it ran. `katex-wall`'s LIMITS test and `npm-plugin-loader`'s FIFO test are the pattern.
 - **Cost of not knowing this:** a guard that reads as protection and catches nothing; the rewrite's own failing arm is
   how this one was found.
+
+## A gate test fails with ENOENT on a file nobody committed (`__or_probe__.astro`)
+
+- **Symptom:** under load, or with two suites running at once, a test that walks a real folder (here
+  `checkAudioPlaybackBoundary` over `docs/src`) throws `ENOENT: no such file or directory, open
+  '…/docs/src/pages/__or_probe__.astro'`. Seen 2026-11-12 in the unit-tier load sweep, never on an idle run.
+- **Cause:** another test wrote a probe file INTO the live checkout and deleted it in `finally`. A concurrent walk listed
+  the probe, then read it after it was gone (HARD RULE #32, F7). The voice-sample tests did the same with a worse
+  failure: they renamed the real, paid-for `docs/public/voice-samples` aside to a fixed `.test-backup` name, which two
+  concurrent runs race on.
+- **Fix:** a gate a test feeds fixtures to takes its root (`checkOpenRouterBudget(errors, root)`,
+  `checkVoiceSampleAssets(errors, samplesDir)`), and the test passes a `mkdtemp` tree. Never write a probe under the repo.

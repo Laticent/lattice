@@ -10383,12 +10383,14 @@ function listDocsCodeFiles(dir, out = []) {
   return out;
 }
 
-function checkOpenRouterBudget(errors) {
+// `root` defaults to the repo; the gate's own test passes a temporary tree, so its probe files never sit in the live
+// checkout where a concurrent walk of docs/ (another test process, a build) reads a file that vanishes (HARD RULE #32, F7).
+function checkOpenRouterBudget(errors, root = ROOT) {
   // Invariant 1 — no exposure to the deployed site (incl. `.astro` build-time frontmatter).
-  for (const file of listDocsCodeFiles(path.join(ROOT, 'docs'))) {
+  for (const file of listDocsCodeFiles(path.join(root, 'docs'))) {
     if (OPENROUTER_KEY_NAME.test(fs.readFileSync(file, 'utf8'))) {
       errors.push(
-        `${relPosix(ROOT, file)} references OPEN_ROUTER_KEY — our server-side key must NEVER ` +
+        `${relPosix(root, file)} references OPEN_ROUTER_KEY — our server-side key must NEVER ` +
         `reach the site (HARD RULE #24). The deployed docs are a static bundle; the Playground uses ` +
         `the USER's own OpenRouter key via OAuth. A reference here leaks our key into the bundle and ` +
         `spends our budget on the live site. Keep the site bring-your-own-key.`,
@@ -10401,8 +10403,8 @@ function checkOpenRouterBudget(errors) {
   // (`page.route('**/openrouter.ai/**', …)`) or drives the Playground on the USER's own / a test
   // key. Only a COMMITTED test that reads OUR key (and would then run in CI) is the budget hole.
   // (The bare name also catches bracket/destructure reads.)
-  for (const file of listSourceFiles(path.join(ROOT, 'test'))) {
-    const rel = relPosix(ROOT, file);
+  for (const file of listSourceFiles(path.join(root, 'test'))) {
+    const rel = relPosix(root, file);
     if (OPENROUTER_SCAN_EXEMPT.has(rel)) continue;
     if (OPENROUTER_KEY_NAME.test(fs.readFileSync(file, 'utf8'))) {
       errors.push(
@@ -10417,7 +10419,7 @@ function checkOpenRouterBudget(errors) {
   // PR/commit critical path (nightly schedule / workflow_dispatch, budgeted, skipping or failing
   // visibly when the secret is unset). pull_request/push/merge_group fire constantly = the budget hole a
   // sanction can't bless. See engineering/decisions/2026-06-13-gate-strategy-change-detection.md.
-  const wfDir = path.join(ROOT, '.github', 'workflows');
+  const wfDir = path.join(root, '.github', 'workflows');
   const seenWf = new Set();
   if (fs.existsSync(wfDir)) {
     for (const f of fs.readdirSync(wfDir)) {
@@ -10454,7 +10456,7 @@ function checkOpenRouterBudget(errors) {
     }
   }
   // Invariant 2c — no `test`-family npm script invokes a spender.
-  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   for (const [name, cmd] of Object.entries(pkg.scripts || {})) {
     if (name.startsWith('test') && /component-gen-eval|OPEN_ROUTER_KEY/.test(cmd)) {
       errors.push(
@@ -10465,7 +10467,7 @@ function checkOpenRouterBudget(errors) {
   }
   // Anti-rot: every sanctioned spender must still exist.
   for (const rel of SANCTIONED_OPENROUTER_SPENDERS) {
-    if (!fs.existsSync(path.join(ROOT, rel))) {
+    if (!fs.existsSync(path.join(root, rel))) {
       errors.push(
         `stale OpenRouter sanction in tools/check-ownership.js — ${rel} no longer exists (HARD RULE #24). ` +
         `Remove the SANCTIONED_OPENROUTER_SPENDERS entry.`,
@@ -10486,16 +10488,18 @@ function checkOpenRouterBudget(errors) {
 const VOICE_CATALOG_PATH = path.join(ROOT, 'docs', 'src', 'playground', 'tts-voice-catalog.json');
 const VOICE_SAMPLES_DIR = path.join(ROOT, 'docs', 'public', 'voice-samples');
 
-function checkVoiceSampleAssets(errors) {
-  if (!fs.existsSync(VOICE_SAMPLES_DIR)) return; // not generated in this checkout — fine, it's opt-in tooling
+// `samplesDir` defaults to docs/public/voice-samples; the gate's tests pass a temporary folder, so they never move the
+// real, paid-for samples aside while another process reads them (HARD RULE #32, F7).
+function checkVoiceSampleAssets(errors, samplesDir = VOICE_SAMPLES_DIR) {
+  if (!fs.existsSync(samplesDir)) return; // not generated in this checkout — fine, it's opt-in tooling
   const catalog = JSON.parse(fs.readFileSync(VOICE_CATALOG_PATH, 'utf8'));
   const engines = catalog.engines || {};
-  const seenDirs = fs.readdirSync(VOICE_SAMPLES_DIR, { withFileTypes: true })
+  const seenDirs = fs.readdirSync(samplesDir, { withFileTypes: true })
     .filter((e) => e.isDirectory())
     .map((e) => e.name);
 
   for (const [slug, def] of Object.entries(engines)) {
-    const dir = path.join(VOICE_SAMPLES_DIR, slug);
+    const dir = path.join(samplesDir, slug);
     if (!def.requiresAsset) {
       if (seenDirs.includes(slug)) {
         errors.push(
