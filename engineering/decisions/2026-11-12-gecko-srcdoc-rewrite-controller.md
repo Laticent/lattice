@@ -55,11 +55,11 @@ unrelated directive pass. So an in-frame `fetch` cannot test the worker in this 
 nonce, and `font-src` already names the origin (a fix for this same gap), so the CSP trap does not touch the preview's
 own loads.
 
-It does touch images. The inversion reviewer measured `img-src 'self'` blocking a same-origin `<img>` in a Gecko srcdoc
-frame, and the preview policy's `img-src` and `media-src` are `'self' data: blob:` (`lib/core/subresource-csp.mjs`), so
-a `sample:` image is likely blocked in the Firefox preview online and offline. That is pre-existing and the fix is one
-line, but the Studio's export capture frame shares the policy, so the fix changes a Firefox export's bytes. That needs
-the owner's sign-off (QUALITY BAR, exports), so it is a decision, not part of this change (§7).
+It touched images too. The inversion reviewer measured `img-src 'self'` blocking a same-origin `<img>` in a Gecko srcdoc
+frame. While this PR was open, #3132 (on `main`, 2026-11-12) closed that gap the same way `font-src` was closed: the
+page's own origin now joins `img-src` and `media-src` (`lib/core/subresource-csp.mjs`, `fontOrigins`). That left
+`web-images.spec.ts` asserting the old policy, red on gecko and webkit-tablet on `main`; this PR updates its two
+assertions to allow the page's own origin and still refuse the blocked web origin.
 
 ### Upstream
 
@@ -187,10 +187,8 @@ frame's document through `page.evaluate` instead.
 
 **Open, for the owner:**
 
-1. **Same-origin images in the Firefox preview** (§2): add the page's origin to `img-src` and `media-src` as `font-src`
-   does. This changes a Firefox export's bytes, so it waits for export sign-off. `followups.d/3159-p3-…`.
-2. **Offline Firefox export** (§4): write the capture and prune frames before appending them. That should leave online
+1. **Offline Firefox export** (§4): write the capture and prune frames before appending them. That should leave online
    export bytes unchanged, but proving it needs a before/after export comparison, and the export path needs sign-off.
    `followups.d/3159-p4-…`.
-3. **Upstream reports** to Mozilla (§2) and Playwright (the guard above). Drafts are in PR #3159's body; filing them is
+2. **Upstream reports** to Mozilla (§2) and Playwright (the guard above). Drafts are in PR #3159's body; filing them is
    outward-facing. `followups.d/3159-p5-…`.

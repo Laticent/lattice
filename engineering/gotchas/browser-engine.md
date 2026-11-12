@@ -339,7 +339,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   `about:blank` in between does not help. Chromium and WebKit control all of these.
 - **A trap while diagnosing it:** in a Gecko `srcdoc` frame, CSP `'self'` does not match the parent's origin. The preview
   policy's `connect-src 'self'` blocks an in-frame `fetch` of a same-origin URL online and offline alike, so a `fetch`
-  probe from inside the frame says nothing about the worker. `img-src 'self'` and `media-src 'self'` have the same gap.
+  probe from inside the frame says nothing about the worker. `img-src` and `media-src` had the same gap until #3132 named the page's origin in them too.
 - **Mitigation:** write preview frames through `writeSrcdoc` (`docs/src/lib/srcdoc-write.js`). A frame not yet in the
   page is written, then appended; a frame already in the page is detached, written and put back, on an engine whose
   one-off probe showed it drops the controller. Record:
