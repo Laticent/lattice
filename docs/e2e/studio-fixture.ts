@@ -957,7 +957,7 @@ async function selectAllInEditor(page: Page): Promise<void> {
  * (list auto-continuation) would rewrite a multi-line deck typed key-by-key —
  * `---` separators land inside auto-continued bullets and slides merge.
  */
-export async function setEditorContent(page: Page, text: string): Promise<void> {
+export async function setEditorContent(page: Page, text: string, opts: { timeout?: number } = {}): Promise<void> {
 	await focusEditor(page);
 	await selectAllInEditor(page);
 	await page.keyboard.press('Delete');
@@ -967,14 +967,48 @@ export async function setEditorContent(page: Page, text: string): Promise<void> 
 	// 4 workers: the welcome deck's first 13 lines, then the test deck, then the rest of the welcome
 	// deck). Wait for the signal that matters, an empty document, before inserting.
 	await expect
-		.poll(() => deckEditorText(page), { message: 'setEditorContent: the Delete after select-all left text behind (a late write collapsed the selection)' })
-		.toBe('');
+		.poll(() => deckEditorFingerprint(page), { message: 'setEditorContent: the Delete after select-all left text behind (a late write collapsed the selection)' })
+		.toEqual(fingerprint(''));
 	await page.keyboard.insertText(text);
 	// And prove the result: a deck that is not exactly `text` fails here, at the helper, instead of
-	// as a confusing assertion three steps later in the spec (HARD RULE #33).
+	// as a confusing assertion three steps later in the spec (HARD RULE #33). The poll compares a
+	// fingerprint the page computes, not the text itself: a deck with inline phone photos is 14 MB,
+	// and copying it out of the browser on every poll took up to 10 s a read, so one slow read under
+	// CI load outlasted the poll (export-photo-size.spec.ts, studio-smoke on #3161). That cut the
+	// cost of a read to about 0.1 s, but not the wait: after a 14 MB insert the Studio holds the main
+	// thread for about 16 s, and no read answers until it lets go. A spec that loads a deck that heavy
+	// says so with `timeout`; every other deck keeps the 15 s default, so a mix still fails fast.
 	await expect
-		.poll(() => deckEditorText(page), { message: 'setEditorContent: the editor does not hold exactly the deck it was given' })
-		.toBe(text);
+		.poll(() => deckEditorFingerprint(page), { message: 'setEditorContent: the editor does not hold exactly the deck it was given', timeout: opts.timeout })
+		.toEqual(fingerprint(text));
+}
+
+/** A deck's length and its 32-bit FNV-1a hash over UTF-16 code units. `deckEditorFingerprint`
+ *  runs the same loop inside the page; keep the two identical, or every `setEditorContent` fails. */
+export function fingerprint(text: string): { length: number; hash: number } {
+	let h = 0x811c9dc5;
+	for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+	return { length: text.length, hash: h >>> 0 };
+}
+
+/** The editor document's `fingerprint`, computed in the page so only two numbers cross the protocol. */
+export function deckEditorFingerprint(page: Page): Promise<{ length: number; hash: number } | null> {
+	return page.evaluate(() => {
+		const el = document.querySelector('[aria-label="Deck source"]');
+		if (!el) return null;
+		let text: string | null = null;
+		if (el instanceof HTMLTextAreaElement) text = el.value;
+		else {
+			// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle (as demo-mobile.spec.ts does).
+			const handle = el as any;
+			const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view ?? null;
+			text = view ? view.state.doc.toString() : null;
+		}
+		if (text === null) return null;
+		let h = 0x811c9dc5;
+		for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+		return { length: text.length, hash: h >>> 0 };
+	});
 }
 
 /**
