@@ -459,6 +459,9 @@ describe('commentSites: an opener inside code', () => {
     assert.equal(cls('## T\n\n```\n<!-- {layout=kpi} -->\n```'), undefined);
     // An opener inside an inline code span is text too.
     assert.equal(cls('## T\n\nUse `<!--` here.\n\n<!-- {layout=kpi} -->'), 'kpi');
+    assert.equal(cls('## T\n\nUse ``<!--`` here.\n\n<!-- {layout=kpi} -->'), 'kpi');
+    // A lone backtick opens no span its line does not close: a real record later on the line still counts.
+    assert.equal(cls('## T\n\nA ` tick.\n\n<!-- {layout=kpi} -->'), 'kpi');
   });
   test('the scan resumes at the end of the code, so the next real comment is its own site', () => {
     const src = '```\n<!-- x\n```\n\n<!-- {a=1} -->';

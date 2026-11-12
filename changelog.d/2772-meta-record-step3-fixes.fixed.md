@@ -36,3 +36,5 @@
 - **A record after an unclosed `<!--` inside a code block applies again.** The engine paired the fenced `<!--` with
   the record's own `-->` and dropped both as code, so `<!-- {layout=kpi} -->` after such a block did nothing.
 - **A record after an unclosed `<!--` inside an inline code span applies again**, for the same reason.
+- **The same holds for a `<!--` inside a double-backtick span** (``` ``<!--`` ```): spans are matched by backtick-run
+  length, as CommonMark does.
