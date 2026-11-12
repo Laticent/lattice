@@ -1485,8 +1485,15 @@ presence, or location**:
 4. Update **both** tiers — unit **and** e2e — and run `npm run test:e2e:smoke`
    (or the touched specs). State in the PR whether the e2e suite was actually run.
 
-The `@smoke`-tagged subset is a stable, fast (~1 min incl. build) chrome sanity
-net. It runs on every docs-touching PR via the **`studio-smoke`** job in
+The `@smoke`-tagged subset is the chrome sanity net: 155 tests on the desktop
+project, about 8 minutes on 4 cores with 2 workers, plus the site build. **On CI
+it records no trace and no video** (`E2E_RECORD=off`, set only on that job):
+recording was about a third of its time (11.9 min recorded, 8.2 min not, same
+155 passing) and the job was hitting its 20-minute cap. A smoke failure still
+uploads its screenshot and error context; for the trace, re-run the failed spec
+locally, where recording is on by default (`npx playwright test <spec>
+--project=desktop`), or read it from the nightly, which records everything.
+It runs on every docs-touching PR via the **`studio-smoke`** job in
 `ci.yml` — but **advisory**: it sits outside the required `ci` gate (like
 `golden-diff`), so a red reports fast but doesn't block merge or jam the queue.
 Promotion to merge-**blocking** (move `studio-smoke` into `ci`'s `needs`) waits

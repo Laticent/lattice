@@ -1016,11 +1016,15 @@ jobs:
       # `build:e2e` skips the two post-build steps that rewrite every page's head
       # (modulepreload injection, stylesheet hoisting). See that config's webServer
       # note and #2134.
+      # E2E_RECORD=off: no trace and no video per test (playwright.config.ts). Recording was about a third of
+      # this step (measured locally, 155 tests: 11.9 min recorded, 8.2 min not) and the job sat at its cap; a
+      # failure still uploads its screenshot and error context below. The nightly suite still records.
       - name: Run Studio E2E @smoke subset
         run: npm run test:e2e:smoke -- --retries=0
         working-directory: docs
         env:
           CI: 'true'
+          E2E_RECORD: 'off'
       - name: Upload Playwright report (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
