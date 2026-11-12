@@ -109,23 +109,20 @@ test.describe('compose spark editor', () => {
 		await openDeckInCompose(page);
 		const strokes = () =>
 			page.evaluate(() => {
-				const el = document.querySelector('.cs-npill .lat-spark .s-up, .cs-npill .lat-spark .s-line') as SVGElement | null;
-				const frame = document.querySelector('#studio-preview iframe.live') as HTMLIFrameElement | null;
-				const pv = frame?.contentDocument?.querySelector('.lat-spark .s-up, .lat-spark .s-line') as SVGElement | null;
-				return {
-					compose: el ? getComputedStyle(el).fill : null,
-					preview: pv && frame?.contentWindow ? frame.contentWindow.getComputedStyle(pv).fill : null,
-				};
+				const el = document.querySelector('.cs-npill .lat-spark .s-up, .cs-npill .lat-spark .s-line') as SVGElement;
+				const frame = document.querySelector('#studio-preview iframe.live') as HTMLIFrameElement;
+				const pv = frame.contentDocument?.querySelector('.lat-spark .s-up, .lat-spark .s-line') as SVGElement | null;
+				return { compose: getComputedStyle(el).fill, preview: pv && frame.contentWindow ? frame.contentWindow.getComputedStyle(pv).fill : null };
 			});
 		// Compare the same slide: setting the deck in Source left the caret, and so the preview, on the LAST slide, and Compose
 		// now keeps that place (it used to jump everything to slide 1 as it mounted, which this test leaned on). Put the caret
 		// on slide 1, where the first drawing is, and wait for the preview to show it.
 		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
 		await caretSettled(page);
-		// The preview follows the caret a moment later: wait until both drawings exist (Compose draws its own on its own schedule, F3) and it shows slide 1's spark (the two match), then compare.
-		// Polled as the pair, so a failure prints both colors, not a bare false.
-		await expect.poll(async () => { const f = await strokes(); return f.compose !== null && f.preview !== null && f.compose === f.preview ? 'match' : JSON.stringify(f); }).toBe('match');
+		// The preview follows the caret a moment later: wait until it shows slide 1's spark (the two match), then compare.
+		await expect.poll(async () => { const f = await strokes(); return f.preview !== null && f.compose === f.preview; }).toBe(true);
 		const before = await strokes();
+		expect(before.compose).toBe(before.preview);
 		await page.getByRole('button', { name: 'Switch to dark mode' }).first().click();
 		await expect.poll(async () => (await strokes()).preview, { timeout: 8000 }).not.toBe(before.preview);
 		await expect.poll(async () => {
