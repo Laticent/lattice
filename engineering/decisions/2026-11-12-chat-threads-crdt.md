@@ -179,7 +179,7 @@ migration, the localStorage-fill warning, the error notices, and the panel's wai
 
 The owner asked for metrics before choosing, and would rather write a dependency-free library for general use than
 fit Yjs where it does not belong. So we wrote one, **Accordo** (`experiments/accordo/accordo.ts`,
-about 300 lines, no dependencies, no DOM), and ran both through one interface (`contender.ts`), one correctness gate
+about 330 lines, no dependencies, no DOM), and ran both through one interface (`contender.ts`), one correctness gate
 and one set of workloads. Everything below reproduces from `docs/` or the `experiments/accordo/` folder (commands in each file's
 header).
 
@@ -210,7 +210,7 @@ list once per pass instead of splicing each row. Reopening under the same id fro
 unsafe on `RecordList.decode`, as for any replica id (a session must never reuse an id with an older history). Round 5
 fixes round 4's: a third fixed scenario (the third tab already holds the reply) that fails without the later-delete
 rule, a mutant aimed at that rule alone, apply in linear time in any row order (a waiting row is released when its
-origin arrives; 20,000 reversed rows load in 47 ms, against 13 s), and mutants run on a temporary copy.
+origin arrives; 20,000 reversed rows load in about 0.1 s, against 13 s), and mutants run on a temporary copy.
 
 ### 10.2 Correctness gate (`property.ts`, `mutants.mjs`)
 
@@ -265,7 +265,7 @@ timings); the sync row is now timed directly. Round 2's four-tab bytes (621 KB) 
 ### 10.4 What the numbers say
 
 With its bugs fixed, Accordo is as fast as Yjs or faster everywhere but on an aged thread, uses half the heap, and
-split no reply from its question on the three stated seeds (it did split 1 or 2 in 3,000 on other seeds, so this is a
+split no reply from its question on the three stated seeds (on other seeds it split up to 2 in 3,000, and none on some, so this is a
 lower rate than Yjs's, not zero). Yjs wins one thing by a wide margin: **an aged thread's stored size, 8.6x
 smaller.** That gap is encoding, not algorithm. Both libraries keep a small marker for every deleted list entry (Yjs
 replaces a deleted item's content but keeps the item); Yjs writes those markers in a binary, run-length form, while
