@@ -1,5 +1,5 @@
 /**
- * ACCORDO, round 4 (prototype for the bake-off in engineering/decisions/2026-11-12-chat-threads-crdt.md §10): a replicated, ordered
+ * ACCORDO, round 5 (prototype for the bake-off in engineering/decisions/2026-11-12-chat-threads-crdt.md §10): a replicated, ordered
  * list of records. General-purpose, zero dependencies, no DOM. Several replicas (tabs, devices) edit their own copy and
  * exchange changes in any order, any number of times, with a change lost and resent later; every replica that has seen
  * the same changes holds the same list.
@@ -213,8 +213,9 @@ export class RecordList {
 			}
 			const whole = fresh(n.t);
 			if (whole) for (const [k, fld] of n.f) if (!(k in fields)) fields[k] = fld.v === undefined ? [ws(fld.t)] : [ws(fld.t), copy(fld.v)];
-			// A whole row always carries its delete: the receiver may already hold the delete's sequence (as a superseded
-			// one, from a concurrent delete) without having the record, and would otherwise get it back alive (audit 3, #1).
+			// A whole row always carries its delete. Convergence does not need it (the later-delete rule below is the fix for
+			// audit 3, #1, and audit 4 showed removing this alone changes nothing); it guards a receiver that holds the
+			// delete's sequence without the record, for wires this module did not encode.
 			const sendDel = n.del !== undefined && (whole || fresh(n.del));
 			if (!any && !sendDel) continue;
 			const row: WNode = [n.id, n.origin, ws(n.t), fields, whole ? (n.tail ? 2 : 1) : 0];
@@ -261,53 +262,59 @@ export class RecordList {
 	/** Merge a state or a delta from any replica. Commutative, associative, idempotent. */
 	apply(w: Wire): void {
 		const st = (s: WStamp): Stamp => ({ c: s[0], r: w.r[s[1]], s: s[2] });
-		// Origins before the records inserted after them: a delta may carry both, in either order.
-		// Each pass applies what it can and keeps the rest, in order, for the next (one rebuild per pass, not a splice per
-		// row, which was quadratic on a large state: audit 3, #3).
-		let pending = w.n;
-		let progress = true;
-		while (pending.length && progress) {
-			progress = false;
-			const waiting: WNode[] = [];
-			for (const row of pending) {
-				const [id, origin, wt, fields, whole, wdel] = row;
-				let n = this.nodes.get(id);
-				if (!n) {
-					// A partial row for a record never seen: skip it, holding nothing, so a later pull sends it whole.
-					if (!whole) continue;
-					if (origin !== null && !this.nodes.has(origin)) {
-						waiting.push(row); // its origin has not arrived yet
-						continue;
-					}
-					const t = st(wt);
-					this.hold(t);
-					n = { id, origin, t, f: new Map(), ...(whole === 2 ? { tail: true as const } : {}) };
-					this.add(n);
+		// Origins before the records inserted after them: a delta may carry both, in either order. A row whose origin has
+		// not arrived waits under that origin and is released the moment the origin is added, so a state applies in linear
+		// time in any row order (a splice per row, then a rescan per pass, were each quadratic: audits 3 and 4).
+		const waiting = new Map<string, WNode[]>();
+		let unplaced = 0;
+		const stack: WNode[] = [];
+		for (let i = w.n.length - 1; i >= 0; i--) stack.push(w.n[i]);
+		while (stack.length) {
+			const row = stack.pop() as WNode;
+			const [id, origin, wt, fields, whole, wdel] = row;
+			let n = this.nodes.get(id);
+			if (!n) {
+				// A partial row for a record never seen: skip it, holding nothing, so a later pull sends it whole.
+				if (!whole) continue;
+				if (origin !== null && !this.nodes.has(origin)) {
+					const queue = waiting.get(origin);
+					if (queue) queue.push(row);
+					else waiting.set(origin, [row]);
+					unplaced++;
+					continue;
 				}
-				for (const wf of Object.values(fields)) this.hold(st(wf[0]));
-				if (wdel) this.hold(st(wdel));
-				// Two replicas may delete one record concurrently. Every replica keeps the LATER delete stamp, so all agree on
-				// which one is stored and which is superseded (keeping the first to arrive let them disagree: audit 3, #1).
-				if (wdel && (!n.del || later(st(wdel), n.del))) {
-					n.del = st(wdel);
-					n.f.clear();
-					this.order = null;
+				const t = st(wt);
+				this.hold(t);
+				n = { id, origin, t, f: new Map(), ...(whole === 2 ? { tail: true as const } : {}) };
+				this.add(n);
+				const kids = waiting.get(id);
+				if (kids) {
+					waiting.delete(id);
+					unplaced -= kids.length;
+					for (let i = kids.length - 1; i >= 0; i--) stack.push(kids[i]);
 				}
-				if (!n.del)
-					for (const [k, wf] of Object.entries(fields)) {
-						const ft = st(wf[0]);
-						const old = n.f.get(k);
-						if (!old || later(ft, old.t)) n.f.set(k, { v: wf.length > 1 ? copy(wf[1]) : undefined, t: ft });
-					}
-				progress = true;
 			}
-			pending = waiting;
+			for (const wf of Object.values(fields)) this.hold(st(wf[0]));
+			if (wdel) this.hold(st(wdel));
+			// Two replicas may delete one record concurrently. Every replica keeps the LATER delete stamp, so all agree on
+			// which one is stored and which is superseded (keeping the first to arrive let them disagree: audit 3, #1).
+			if (wdel && (!n.del || later(st(wdel), n.del))) {
+				n.del = st(wdel);
+				n.f.clear();
+				this.order = null;
+			}
+			if (!n.del)
+				for (const [k, wf] of Object.entries(fields)) {
+					const ft = st(wf[0]);
+					const old = n.f.get(k);
+					if (!old || later(ft, old.t)) n.f.set(k, { v: wf.length > 1 ? copy(wf[1]) : undefined, t: ft });
+				}
 		}
 		// A record whose origin never arrived stays out, and its changes stay unheld, so the next pull resends them.
 		// Superseded sequences: their effect is overruled by stamps the receiver holds or will be sent, so hold them.
 		for (const [ri, from, to] of w.d ?? []) this.holdSeq(w.r[ri], from, to);
 		// A whole state: every row applied (all origins are in it), so hold what the sender held.
-		if (w.h && !pending.length)
+		if (w.h && unplaced === 0)
 			for (const [ri, upTo, ...above] of w.h) {
 				if (upTo > 0) this.holdSeq(w.r[ri], 1, upTo);
 				for (const x of above) this.holdSeq(w.r[ri], x, x);

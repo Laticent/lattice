@@ -1,40 +1,35 @@
 // Prove the correctness gate (property.ts) can fail: each mutant removes one of Accordo's safeguards, runs the gate,
-// and must be caught. The mutant is written over accordo.ts for the run and the original is restored afterwards,
-// even on failure. usage: node mutants.mjs [runs]   (from this folder)
+// and must be caught. Mutants run on a COPY of this folder in a temporary directory, so the tracked accordo.ts never
+// changes on disk (a concurrent commit, hook or benchmark could otherwise pick a mutant up: audit of round 4, #4).
+// usage: node mutants.mjs [runs]   (from this folder)
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const FILE = new URL('./accordo.ts', import.meta.url);
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO = path.resolve(HERE, '../..');
 const runs = process.argv[2] ?? '500';
 const MUTANTS = [
 	{ name: 'no gap detection (the vector jumps over a missing change)', from: 'if (from > h.upTo + 1) for (let s = from; s <= to; s++) h.above.add(s);\n\t\telse {', to: 'if (false) {} else {', caught: /accordo: FAIL/ },
 	{ name: 'no superseded ranges (the vector stalls below an overwritten change)', from: 'for (const [ri, from, to] of w.d ?? []) this.holdSeq(w.r[ri], from, to);', to: '', caught: /accordo: FAIL/ },
 	{ name: 'no sequence resume (reopening under its own id reuses ids)', from: 'if (r === this.replica && to > this.seq) this.seq = to;', to: '', caught: /reopened under its own id: FAIL/ },
-	{
-		// Both halves of round 3's delete fix: either alone makes the two fixed scenarios converge (the later-wins rule is
-		// the fix, carrying the delete on every whole row is a second guard), so the mutant removes both.
-		name: 'concurrent deletes as in round 3 (a deleted reply comes back)',
-		edits: [
-			['const sendDel = n.del !== undefined && (whole || fresh(n.del));', 'const sendDel = n.del !== undefined && fresh(n.del);'],
-			['if (wdel && (!n.del || later(st(wdel), n.del))) {', 'if (wdel && !n.del) {'],
-		],
-		caught: /accordo two tabs delete one reply: FAIL/,
-	},
+	{ name: 'the first delete to arrive wins (a deleted reply comes back on a third tab)', from: 'if (wdel && (!n.del || later(st(wdel), n.del))) {', to: 'if (wdel && !n.del) {', caught: /accordo two tabs delete one reply: FAIL/ },
 	{ name: 'no append yield (measured: replies misplaced, not a failure)', from: 'return this.insert(all.length ? all[all.length - 1].id : null, fields, true);', to: 'return this.insert(all.length ? all[all.length - 1].id : null, fields, false);', caught: null },
 ];
-const original = readFileSync(FILE, 'utf8');
+const original = readFileSync(path.join(HERE, 'accordo.ts'), 'utf8');
+const work = mkdtempSync(path.join(tmpdir(), 'accordo-mutant-'));
 let bad = 0;
 try {
+	cpSync(HERE, work, { recursive: true, filter: (src) => !src.includes(`${path.sep}results`) });
+	symlinkSync(path.join(REPO, 'node_modules'), path.join(work, 'node_modules'), 'dir');
 	for (const m of MUTANTS) {
-		let mutated = original;
-		for (const [from, to] of m.edits ?? [[m.from, m.to]]) {
-			if (mutated.split(from).length !== 2) throw new Error(`mutant "${m.name}": its target line is not in accordo.ts exactly once`);
-			mutated = mutated.replace(from, to);
-		}
-		writeFileSync(FILE, mutated);
+		if (original.split(m.from).length !== 2) throw new Error(`mutant "${m.name}": its target line is not in accordo.ts exactly once`);
+		writeFileSync(path.join(work, 'accordo.ts'), original.replace(m.from, m.to));
 		let out;
 		try {
-			out = execFileSync(process.execPath, ['--experimental-strip-types', '--no-warnings', 'property.ts', runs], { cwd: new URL('.', import.meta.url), encoding: 'utf8', env: { ...process.env, ONLY: 'accordo' } });
+			out = execFileSync(process.execPath, ['--experimental-strip-types', '--no-warnings', 'property.ts', runs], { cwd: work, encoding: 'utf8', env: { ...process.env, ONLY: 'accordo', ACCORDO_DOCS: path.join(REPO, 'docs') } });
 		} catch (e) {
 			out = `${e.stdout ?? ''}${e.stderr ?? ''}`;
 		}
@@ -44,6 +39,6 @@ try {
 		console.log(`${ok ? (m.caught ? 'CAUGHT' : 'MEASURED') : 'MISSED'}  ${m.name}\n    ${line}`);
 	}
 } finally {
-	writeFileSync(FILE, original);
+	rmSync(work, { recursive: true, force: true });
 }
 process.exit(bad ? 1 : 0);

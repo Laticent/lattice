@@ -7,6 +7,7 @@
  * usage: node --experimental-strip-types property.ts [runs]   (fast-check comes from docs/node_modules)
  */
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { RecordList } from './accordo.ts';
 import { accordoDoc } from './accordo-adapter.ts';
 import type { Contender } from './contender.ts';
@@ -14,7 +15,8 @@ import { seedIds } from './ids.ts';
 import { yjsDoc } from './yjs-adapter.ts';
 
 const SEED = Number(process.env.SEED ?? 42);
-const require = createRequire(new URL('../../docs/', import.meta.url));
+// fast-check comes from docs/; mutants.mjs runs a copy of this folder elsewhere and says where docs/ is.
+const require = createRequire(process.env.ACCORDO_DOCS ? pathToFileURL(`${process.env.ACCORDO_DOCS}/`) : new URL('../../docs/', import.meta.url));
 const fc = require('fast-check') as typeof import('fast-check');
 
 type Op =
@@ -306,7 +308,29 @@ function checkConcurrentDelete(make: () => Contender): { ok: boolean; detail: st
 		const bad = verdict([A, B, Q], X);
 		if (bad) return { ok: false, detail: `scenario 2 (concurrent regenerate): ${bad}` };
 	}
-	return { ok: true, detail: '2 fixed scenarios' };
+	// Scenario 3 (audit of round 4): the third tab ALREADY HOLDS the reply alive and learns of both deletes only through
+	// the two deleters' broadcasts. Here no whole row carries the delete, so only the later-delete rule converges.
+	seedIds(SEED * 1_000_003 + 13);
+	{
+		const [A, B, C, Z] = [make(), make(), make(), make()];
+		const R = C.push({ role: 'assistant', content: 'a' });
+		for (const x of [A, B, Z]) sync(C, x);
+		// Each tab's checkpoint is taken AFTER its own delete, so its later broadcast carries only what it learned from
+		// the other tab: that tab's delete, as a superseded sequence. The third tab then holds both deletes' sequences
+		// and never receives either delete, unless every replica stored the same one.
+		A.delete(R);
+		const tA = A.since();
+		B.delete(R);
+		const tB = B.since();
+		sync(A, B);
+		sync(B, A);
+		Z.apply(A.encodeSince(tA));
+		Z.apply(B.encodeSince(tB));
+		for (let r = 0; r < 3; r++) for (const a of [A, B, C, Z]) for (const b of [A, B, C, Z]) if (a !== b) sync(a, b);
+		const bad = verdict([A, B, C, Z], R);
+		if (bad) return { ok: false, detail: `scenario 3 (the third tab holds the reply): ${bad}` };
+	}
+	return { ok: true, detail: '3 fixed scenarios' };
 }
 
 const runs = Number(process.argv[2] ?? 500);
