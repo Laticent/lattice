@@ -9524,7 +9524,7 @@ const FLAKY_TEST_FILE = (rel) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /
 const FLAKY_TEST_SKIP = /(?:^|\/)(?:node_modules|dist|fixtures?)\//;
 const FLAKY_OK = /\/\/\s*flaky-ok:\s*\S/;
 const SLEEP_HELPERS = new Set(['sleep', 'delay', 'wait', 'pause']);
-const FLAKY_TRIGGER = /\.(?:skip|fixme|todo|only)\(|\b(?:skip|todo|only):|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime/;
+const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime/;
 
 /** The shape counts of one test file's source. `rel` decides whether `waitForTimeout` is this census's (outside docs/e2e). */
 function flakyTestHits(text, rel = 'test/x.test.js') {
@@ -9654,41 +9654,77 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
     }
   });
 
-  // HARD RULE #33: a test is never switched off without a load-bearing reason, and never focused. Disabling is the one
-  // exit for a failure whose cause could not be found, so the comment block right above the call must say what was
-  // tried, the evidence, and what would re-enable it: `// disabled: tried …; evidence …; re-enable when …`. A skip that
-  // depends on a value (`test.skip(browserName !== 'webkit', …)`, `{ skip: skipWithoutChrome(chrome) }`) is a scoped
-  // test, not a disabled one, and is not counted; only a literal (`{ skip: true }`, `{ skip: 'why' }`, `test.skip('title',
-  // fn)`, a bare `test.fixme()`) switches a test off whatever the machine.
+  // HARD RULE #33: a test is never switched off without a load-bearing reason, and never focused. These shapes are counted
+  // with their own adder: a `// flaky-ok:` mark (a #32 exemption for a timing line) does not excuse them.
+  //   disabled-test  switched off on every machine by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
+  //                  `test.todo('later')`, Playwright's `test.skip(true, 'why')` and `test.fail()`, a bare `test.fixme()`. The one
+  //                  exemption is the comment block right above the statement, in order: `// disabled: tried …; evidence <a URL,
+  //                  a file or #N>; re-enable when …`. The gate reads the literal; a condition moved into the first argument
+  //                  (`test.skip(!tool, …)`) is a scoped test, and whether its condition can fire in CI is env-skip's question.
+  //   focused-test   `.only` or `{ only: true }`. No exemption.
+  //   env-skip       (node tests, not docs/e2e) a skip whose value depends on the machine — `{ skip: !fs.existsSync(B) && 'not
+  //                  built' }`, `return t.skip('no Chromium')` — that does not go through a helper which FAILS under CI
+  //                  (`skipWithoutChrome`, `skipUnlessCI` in test/helpers/chrome.js). `node --test` reports a skip as a pass, so
+  //                  a CI runner missing the tool turns the suite green. Exempt with `// ci-skip: <which CI job runs it, or why
+  //                  CI never takes this branch>` right above the statement. Baselined, so the backlog can only shrink.
   const RUNNERS = /^(?:test|it|describe|suite|test\.describe(?:\.parallel|\.serial)?)$/;
+  const SKIP_HELPERS = /^(?:skipWithoutChrome|skipUnlessCI)$/;
   const isLiteral = (a) => a && (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a) || ts.isTemplateExpression(a));
-  const justified = (node) => {
-    let s = node;
-    while (s.parent && !ts.isSourceFile(s.parent) && !ts.isBlock(s.parent) && !ts.isModuleBlock(s.parent)) s = s.parent;
-    const notes = (ts.getLeadingCommentRanges(sf.text, s.getFullStart()) || []).map((r) => sf.text.slice(r.pos, r.end)).join('\n');
-    // The evidence must point at something a reviewer can open: a URL, a file (trace.zip, a log) or an issue / PR number.
-    return /\bdisabled:/.test(notes) && /\btried\b/i.test(notes) && /\bevidence\b[^;]*(?:https?:\/\/|\.(?:zip|log|txt|png|webm)\b|#\d+)/i.test(notes) && /\bre-?enable/i.test(notes);
+  const bump = (shape) => { out[shape] = (out[shape] || 0) + 1; };
+  const notesAbove = (node) => {
+    let st = node;
+    while (st.parent && !ts.isSourceFile(st.parent) && !ts.isBlock(st.parent) && !ts.isModuleBlock(st.parent) && !ts.isCaseClause(st.parent) && !ts.isDefaultClause(st.parent)) st = st.parent;
+    return (ts.getLeadingCommentRanges(sf.text, st.getFullStart()) || []).map((r) => sf.text.slice(r.pos, r.end)).join('\n');
   };
+  // In order, and the evidence must point at something a reviewer can open: a URL, a file (trace.zip, a log) or #N.
+  const REASON = /disabled:\s*tried\b[\s\S]+?\bevidence\b[^;]*?(?:https?:\/\/|\.(?:zip|log|txt|png|webm)\b|#\d+)[\s\S]*?\bre-?enable when\b\s*\S/i;
+  const justified = (node) => REASON.test(notesAbove(node));
+  const ciSkipOk = (node) => /\bci-skip:\s*\S/.test(notesAbove(node));
+  const viaHelper = (v) => {
+    if (!v) return false;
+    if (ts.isCallExpression(v) && ts.isIdentifier(v.expression) && SKIP_HELPERS.test(v.expression.text)) return true;
+    if (ts.isIdentifier(v)) { const d = resolve(v); return !!d && viaHelper(d); }
+    if (ts.isParenthesizedExpression(v)) return viaHelper(v.expression);
+    return false;
+  };
+  const isTrue = (v) => v && (v.kind === ts.SyntaxKind.TrueKeyword || (ts.isNumericLiteral(v) && Number(v.text) !== 0) || (ts.isPrefixUnaryExpression(v) && v.operator === ts.SyntaxKind.ExclamationToken && ts.isNumericLiteral(v.operand) && Number(v.operand.text) === 0));
+  const isFalse = (v) => v && (v.kind === ts.SyntaxKind.FalseKeyword || v.kind === ts.SyntaxKind.NullKeyword || v.kind === ts.SyntaxKind.UndefinedKeyword || (ts.isIdentifier(v) && v.text === 'undefined') || ((ts.isStringLiteral(v) || ts.isNoSubstitutionTemplateLiteral(v)) && v.text === ''));
+  const keyName = (p) => (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name) ? p.name.text : '');
   each(sf, (n) => {
     if (!ts.isCallExpression(n)) return;
     const e = n.expression;
     if (ts.isPropertyAccessExpression(e) && RUNNERS.test(e.expression.getText(sf))) {
       const m = e.name.text;
-      if (m === 'only') add('focused-test', n);
-      // `test.skip()`, `test.skip('title', fn)` and Playwright's `test.skip(true, 'why')` switch a test off on every machine.
-      const always = n.arguments.length === 0 || n.arguments[0].kind === ts.SyntaxKind.TrueKeyword || (isLiteral(n.arguments[0]) && n.arguments.length >= 2);
-      if ((m === 'skip' || m === 'fixme' || m === 'todo') && always && !justified(n)) add('disabled-test', n);
+      if (m === 'only') { bump('focused-test'); return; }
+      if (!/^(?:skip|fixme|todo|fail)$/.test(m)) return;
+      const [a0, a1] = n.arguments;
+      // On every machine: no argument, a true first argument, a title (`test.todo('later')`, `test.skip('title', fn)`), or a
+      // title held in a name followed by the test body. Playwright's conditional form, `test.skip(cond, 'why')`, is a
+      // scoped test: its second argument is a string, never a function.
+      const always = !a0 || isTrue(a0) || isLiteral(a0) || (a1 && ts.isFunctionLike(a1));
+      if (always && !justified(n)) bump('disabled-test');
     } else if (ts.isIdentifier(e) && RUNNERS.test(e.text)) {
       for (const a of n.arguments) {
         if (!ts.isObjectLiteralExpression(a)) continue;
         for (const p of a.properties) {
-          if (!ts.isPropertyAssignment(p) || !ts.isIdentifier(p.name)) continue;
+          if (!ts.isPropertyAssignment(p)) continue;
+          const k = keyName(p);
           const v = p.initializer;
-          const literal = v.kind === ts.SyntaxKind.TrueKeyword || ts.isStringLiteral(v) || ts.isNoSubstitutionTemplateLiteral(v);
-          if (p.name.text === 'only' && literal) add('focused-test', n);
-          else if ((p.name.text === 'skip' || p.name.text === 'todo') && literal && !justified(n)) add('disabled-test', n);
+          const literal = isTrue(v) || ((ts.isStringLiteral(v) || ts.isNoSubstitutionTemplateLiteral(v)) && v.text !== '');
+          if (k === 'only' && literal) bump('focused-test');
+          else if ((k === 'skip' || k === 'todo') && literal) { if (!justified(n)) bump('disabled-test'); }
+          else if ((k === 'skip' || k === 'todo') && !inE2E && !isFalse(v) && !viaHelper(v) && !ciSkipOk(n)) bump('env-skip');
         }
       }
+    } else if (!inE2E && ts.isPropertyAccessExpression(e) && ts.isIdentifier(e.expression) && !RUNNERS.test(e.expression.text) && /^(?:skip|todo)$/.test(e.name.text)) {
+      // node's test context: `t.skip('reason')`, `return ctx.skip(why)`. Inside a test body, it is decided at run time, so
+      // only a helper-built reason (`const why = skipUnlessCI(…); if (why) return t.skip(why)`) or a ci-skip note passes.
+      // Only the test's own context: the first parameter of the nearest function passed to test()/it()/describe().
+      let f = n.parent;
+      while (f && !ts.isFunctionLike(f)) f = f.parent;
+      const p0 = f && f.parameters && f.parameters[0];
+      const isCtx = p0 && ts.isIdentifier(p0.name) && p0.name.text === e.expression.text && f.parent && ts.isCallExpression(f.parent) && ts.isIdentifier(f.parent.expression) && RUNNERS.test(f.parent.expression.text);
+      if (isCtx && !viaHelper(n.arguments[0]) && !ciSkipOk(n)) bump('env-skip');
     }
   });
   return out;
@@ -9727,7 +9763,7 @@ function flakyTestFindings(tree, baseline) {
         // Budget 0, never baselined: a backlog of switched-off tests is exactly what HARD RULE #33 forbids.
         if (w) errors.push(`tools/flaky-test-baseline.json lists ${w} ${shape} for ${file}; that shape is never baselined (HARD RULE #33). Delete the entry.`);
         if (g && shape === 'focused-test') {
-          errors.push(`focused test in ${file}: ${g} \`.only\` (HARD RULE #33) — a focused test silently drops every other test in its file from the run. Remove the \`.only\`.`);
+          errors.push(`focused test in ${file}: ${g} \`.only\` (HARD RULE #33) — Playwright drops every other test in its file, and node runs it alone under --test-only. Remove the \`.only\`.`);
         } else if (g) {
           errors.push(
             `disabled test in ${file}: ${g} switched off with no load-bearing reason (HARD RULE #33) — fix the failure at its root ` +
@@ -9758,7 +9794,7 @@ function flakyTestFindings(tree, baseline) {
  * docs/playwright.config.ts must be the literal 0 (not `isCI ? 1 : 0`). A `--retries` flag on the command line is
  * reviewed in the workflow; this holds the default every run inherits.
  */
-function playwrightRetriesFindings(text, rel = 'docs/playwright.config.ts') {
+function playwrightRetriesFindings(text, rel = 'docs/playwright.config.ts', { optional = false } = {}) {
   const ts = require('typescript');
   const sf = ts.createSourceFile(rel, String(text), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const found = [];
@@ -9767,6 +9803,7 @@ function playwrightRetriesFindings(text, rel = 'docs/playwright.config.ts') {
     n.forEachChild(each);
   };
   each(sf);
+  if (!found.length && optional) return [];
   if (!found.length) return [`${rel} sets no \`retries\`; Playwright's default is 0 today, but state \`retries: 0\` so the rule is visible (HARD RULE #34).`];
   return found
     .filter((v) => !(ts.isNumericLiteral(v) && Number(v.text) === 0))
@@ -9782,6 +9819,19 @@ function checkPlaywrightRetries(errors, file = path.join(ROOT, 'docs', 'playwrig
     return;
   }
   errors.push(...playwrightRetriesFindings(text, path.relative(ROOT, file)));
+  // A spec can override it: `test.describe.configure({ retries: 2 })`. Every docs/e2e file is held to 0 too.
+  const e2e = path.join(path.dirname(file), 'e2e');
+  let names = [];
+  try {
+    names = fs.readdirSync(e2e).filter((n) => /\.[cm]?[jt]s$/.test(n));
+  } catch {
+    return;
+  }
+  for (const n of names) {
+    const src = fs.readFileSync(path.join(e2e, n), 'utf8');
+    if (!/\bretries\b/.test(src)) continue;
+    errors.push(...playwrightRetriesFindings(src, path.relative(ROOT, path.join(e2e, n)), { optional: true }));
+  }
 }
 
 function checkFlakyTests(errors, root = ROOT, baselineFile = FLAKY_TEST_BASELINE_FILE) {

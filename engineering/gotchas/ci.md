@@ -845,5 +845,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   as passing and reports nothing at the file level, so a runner that lost its browser turns the whole suite green. Twelve
   integration files did this until 2026-11-12.
 - **Fix:** Resolve with `resolveChrome` and gate with `skipWithoutChrome` from `test/helpers/chrome.js`: it skips on a
-  laptop with no browser and returns `false` under `CI`, so the test runs and fails loudly. `checkFlakyTests` now counts a
-  literal `{ skip: true }` as a `disabled-test` (HARD RULE #33), so the hand-rolled form cannot come back.
+  laptop with no browser and returns `false` under `CI`, so the test runs and fails loudly in any job that expects a
+  browser. For any other tool or build output, `skipUnlessCI(missing, reason)` does the same. `checkFlakyTests` counts a
+  literal `{ skip: true }` as a `disabled-test` and a machine-dependent skip that bypasses both helpers as an `env-skip`
+  (HARD RULE #33); the second is baselined, so its count can only fall.

@@ -252,8 +252,9 @@ about 30 s for the whole ownership check.
 The owner's order on 2026-11-12: every red or flaky test fixed, at its root, with no follow-ups and no exceptions, and
 rules so a flaky test is never created and never left. #32 already said how a test should be written. What it did not
 stop was the habit that let the Studio E2E nightly stay red on `main` for weeks: each session that met a red test
-showed it was red on `main` too, wrote a `followups.d/` note, and moved on. By 2026-11-12, every one of the nightly's eight
-shards was red (run 43017679054 listed 33 failures across 29 tests), and most of them already had a note and no fix.
+showed it was red on `main` too, wrote a `followups.d/` note, and moved on. The last scheduled run before the order,
+43017679054 on 2026-11-11, reported 31 failed and 3 flaky tests across all eight shards, and many of them already had
+a note and no fix.
 
 - **#33 owns the encounter.** Whoever meets a red or flaky test fixes it, on its own branch from `main` so the fix does
   not ride in a feature diff (#8, #17). "Red on main too" proves you did not cause it, which is #18's question, not who
@@ -273,6 +274,15 @@ whatever the machine: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', f
 `{ skip: skipWithoutChrome(chrome) }`, scopes a test to the machines it can run on, and is not counted. `focused-test`
 counts `.only`. Both are budget 0 and are never baselined, because a baseline of switched-off tests is the backlog #33
 forbids.
+
+**A third shape, `env-skip`, for node tests.** A skip whose value depends on the machine (`{ skip: !fs.existsSync(B) &&
+'not built' }`, `return t.skip('no Chromium')`) is not disabled everywhere, but `node --test` reports it as a pass, so
+a CI job that lost its tool reads green. It must go through a helper that fails under CI (`skipWithoutChrome`, or the
+general `skipUnlessCI(missing, reason)` in `test/helpers/chrome.js`), or carry `// ci-skip: <which job runs it, or why
+CI never takes this branch>` right above it. Day one held 94, baselined like #32's shapes so the count only falls.
+`docs/e2e` is out of scope: there `test.skip(cond, …)` scopes a test to the projects (engines, widths) it can run on,
+and each project is an explicit CI target. The gate reads literals: `if (!tool) test.skip(true, …)` counts as disabled,
+and moving the condition into the first argument is review's question, not the gate's.
 
 **What the first run found.** Fourteen tests in twelve integration files skipped themselves with
 `test('SKIPPED — no Chromium available', { skip: true }, …)` behind a local copy of the Chromium resolver.

@@ -679,12 +679,13 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   |---|---|---|
   | green only on `retry #1` | "CI is green" | It is flaky: `--repeat-each=10` until it fails, then fix the race |
   | red on `main` too | "not my PR", a `followups.d/` note | Fix it now, on its own branch from `main` |
-  | red only under load, or on one engine | a longer timeout, `test.skip(browserName === …)` | Find what it waits on, or the engine difference, and fix that |
-  | Chromium or `pdftoppm` missing | `{ skip: true }`, `test.skip(true, …)` | Install it; `skipWithoutChrome(chrome)` skips on a laptop and fails in CI |
+  | red only under load, or on one engine | a longer timeout, skipping the engine it fails on | Find what it waits on, or the engine difference, and fix that |
+  | Chromium or `pdftoppm` missing | `{ skip: true }`, `test.skip(true, …)` | Install it; `skipUnlessCI(…)` / `skipWithoutChrome(…)` skip on a laptop, fail in CI |
   | no cause after a real investigation | delete it, or leave it red | `test.fixme` with the three-part `// disabled:` reason |
 
-  *(partly gated — `checkFlakyTests` counts `disabled-test` and `focused-test` at budget 0, never baselined; the reason
-  must name all three parts and point its evidence at a URL, a file or `#N`. Ownership is discipline.
+  *(partly gated — `checkFlakyTests` counts `disabled-test` and `focused-test` at budget 0, never baselined (the reason
+  reads in order, its evidence a URL, a file or `#N`), and a node-test `env-skip` that bypasses `skipUnlessCI` /
+  `skipWithoutChrome` or a `// ci-skip:` note, baselined. Ownership is discipline.
   `engineering/decisions/2026-11-06-flaky-tests.md` §HARD RULES #33 and #34.)*
 
 - **#34 — A test proves it can fail, and that it holds under load, before it lands.** Every new test, and every test whose

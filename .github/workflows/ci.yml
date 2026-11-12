@@ -957,7 +957,7 @@ jobs:
   # runs, but promote to blocking (move this into `ci`'s `needs`) only once the streak
   # is on record. Tracked in #800;
   # engineering/decisions/2026-07-06-e2e-chrome-selector-contract.md § Decision (4).
-  # `--retries=0` overrides the config's CI retry so a flake shows here, not hidden.
+  # `--retries=0` matches the config (retries are 0 everywhere since HARD RULE #34); kept so a local override cannot hide a flake here.
   studio-smoke:
     needs: changes
     # Pull requests only (2026-10-29). In the merge queue it is advisory too, so its result reaches no one: 2,408

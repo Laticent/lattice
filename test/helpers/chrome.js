@@ -64,11 +64,29 @@ function resolveChrome() {
  * wants these gates simply does not set the variable — which is exactly what
  * integration-nightly does.
  */
+/** An env flag that is set to something other than '', '0' or 'false' (so `CI=false` and `PUPPETEER_SKIP_DOWNLOAD=0` read as unset). */
+function flag(name) {
+  const v = process.env[name];
+  return v !== undefined && v !== '' && v !== '0' && v.toLowerCase() !== 'false';
+}
+
 function skipWithoutChrome(chrome) {
   if (chrome) return false;
-  if (process.env.PUPPETEER_SKIP_DOWNLOAD) return 'render-free job (PUPPETEER_SKIP_DOWNLOAD)';
-  if (process.env.CI) return false;
+  if (flag('PUPPETEER_SKIP_DOWNLOAD')) return 'render-free job (PUPPETEER_SKIP_DOWNLOAD)';
+  if (flag('CI')) return false;
   return 'no Chromium (CHROME_PATH / puppeteer cache)';
 }
 
-module.exports = { resolveChrome, skipWithoutChrome };
+/**
+ * The general form, for any tool or build output a test needs (HARD RULE #33): `{ skip: skipUnlessCI(!built, 'dist/
+ * is not built') }`. On a laptop a missing prerequisite skips with the reason; under CI it returns false, so the test
+ * runs and fails loudly, because a CI job that lost its tool must not read as green. A prerequisite that CI genuinely
+ * never has belongs in a `// ci-skip: <which job runs it instead>` note, not here.
+ */
+function skipUnlessCI(missing, reason) {
+  if (!missing) return false;
+  if (flag('CI')) return false;
+  return reason;
+}
+
+module.exports = { resolveChrome, skipWithoutChrome, skipUnlessCI, flag };
