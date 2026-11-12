@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: Chat threads will merge across tabs with a CRDT, and the owner chose Yjs (2026-11-12) (already a dependency, the live sessions' model) over a library of our own. Each tab's author and AI are separate writers, so a save today is last-writer-wins and can drop another tab's messages. A bake-off (§10) against Accordo, a zero-dependency list CRDT written for it, passed both on a 4,500-session property gate after two independent audits of Accordo (its third round's fixes are unaudited). Accordo opens a fresh thread about 2x faster, uses half the heap and never split a reply from its question; Yjs stores an aged thread 8.6x smaller, a gap of encoding that Accordo has not closed. Yjs costs about 23 KB gz in lazily loaded chat code and nothing at boot. It retires #3138's fingerprint and merge apparatus. Decks are out of scope.
+summary: Chat threads will merge across tabs with a CRDT, and the owner chose Yjs (2026-11-12) (already a dependency, the live sessions' model) over a library of our own. Each tab's author and AI are separate writers, so a save today is last-writer-wins and can drop another tab's messages. A bake-off (§10) against Accordo, a zero-dependency list CRDT written for it, passed both on a 4,500-session property gate after three independent audits of Accordo, each of which found defects (its fourth round is unaudited). Accordo opens a fresh thread about 2x faster, uses half the heap and split fewer replies from their questions; Yjs stores an aged thread 8.6x smaller, a gap of encoding that Accordo has not closed. Yjs costs about 23 KB gz in lazily loaded chat code and nothing at boot. It retires #3138's fingerprint and merge apparatus. Decks are out of scope.
 ---
 
 # Chat threads across tabs: merge them with a CRDT
@@ -150,7 +150,7 @@ text out of localStorage requires either way.
 With it goes Yjs's roughly 23 KB gz in the chat's lazily loaded code (it never reaches boot).
 
 Accordo is kept in reserve, not thrown away (the owner, 2026-11-12). It stays in `experiments/accordo/` with its gate,
-mutants and benches, and `followups.d/3147-p2-accordo-round-4.md` records what its round 4 needs and when to pick it
+mutants and benches, and `followups.d/3147-p2-accordo-next-round.md` records what its next round needs and when to pick it
 up. The Yjs build is `followups.d/3147-p1-yjs-chat-store.md`.
 
 ## 8. Plan, once chosen
@@ -183,7 +183,7 @@ about 300 lines, no dependencies, no DOM), and ran both through one interface (`
 and one set of workloads. Everything below reproduces from `docs/` or the `experiments/accordo/` folder (commands in each file's
 header).
 
-### 10.1 The two contenders: three rounds of Accordo, two audits
+### 10.1 The two contenders: four rounds of Accordo, three audits
 
 - **Accordo.** An ordered list of records. Order is a tree (the RGA scheme: each record names the record it went in
   after). Each change carries a per-replica sequence number with no gaps, so a lost broadcast is asked for again;
@@ -198,11 +198,16 @@ Each round of Accordo went to an independent auditor, and each audit found real 
 |---|---|---|
 | 1 | fractional position keys | concurrent turns interleaved; every delta carried the whole deleted set; one lost broadcast diverged a tab for good; the harness was unfair to Yjs (V1 encoding, a scan per write, no transactions) |
 | 2 | RGA tree, gap-free sequences | a change overwritten or wiped by a delete was never resent, so a receiver's version vector stalled below it and every later pull resent everything above (903,876 B to an up-to-date peer); reopening under the same replica id reused an id and crashed; `NaN` and shared references leaked through `encode`; the gate could catch none of these; the aged-sync timing was noise |
-| 3 | round 2, fixed | not audited: the owner chose Yjs (§7), so Accordo does not ship |
+| 3 | round 2, fixed | **two tabs deleting the same reply concurrently could leave it alive on a third tab for good**, with every version vector equal (each tab kept the first delete to arrive, so their superseded ranges pointed at each other); reopening under the same id from an OLDER save reuses ids; applying a large state was quadratic; "perfect placement" held only for the stated seeds; the gate missed the first finding at 24,000 sessions |
+| 4 | round 3, fixed | not audited: the owner chose Yjs (§7), so Accordo does not ship |
 
-Round 3 fixes all of round 2's findings. A delta now names the sequences the sender holds but no longer stores
-(superseded), so a receiver holds them too; a stored state carries the sender's version vector; a replica reopened
-under its own id resumes its sequence; values are copied as JSON. Round 3 has not been audited.
+Round 3 fixed round 2's findings: a delta names the sequences the sender holds but no longer stores (superseded), so
+a receiver holds them too; a stored state carries the sender's version vector; a replica reopened under its own id
+from its latest state resumes its sequence; values are copied as JSON. Round 4 fixes round 3's: every replica keeps
+the LATER of two concurrent deletes, and a whole row always carries its delete; applying a state rebuilds its waiting
+list once per pass instead of splicing each row. Reopening under the same id from an older save is documented as
+unsafe on `RecordList.decode`, as for any replica id (a session must never reuse an id with an older history). Round 4
+has not been audited.
 
 ### 10.2 Correctness gate (`property.ts`, `mutants.mjs`)
 
@@ -216,7 +221,8 @@ version vector). Replica ids are seeded, so every count below reproduces exactly
 |---|---|---|
 | All tabs agree, nothing lost, nothing deleted comes back, nobody owes anybody | pass, 4,500 sessions | pass, 4,500 sessions |
 | Two tabs answer one card differently, any sync order | pass | pass |
-| Reopened under its own replica id, then edited (Accordo only) | pass | not applicable |
+| Reopened under its own replica id from its latest state, then edited (Accordo only) | pass | not applicable |
+| Two tabs delete the same reply, a third learns it by broadcast and pull (2 fixed scenarios; random search missed it) | pass | pass |
 | A reply split from its question by a concurrent turn (measured, not a failure) | **0 in 4,500** | 9 in 4,500 (0.2%) |
 
 `mutants.mjs` proves the gate can fail. It removes one safeguard at a time and runs the gate:
@@ -226,6 +232,7 @@ version vector). Replica ids are seeded, so every count below reproduces exactly
 | no gap detection (the vector jumps over a missing change) | caught |
 | no superseded ranges (round 2's stall) | caught |
 | no sequence resume (round 2's crash) | caught |
+| concurrent deletes as in round 3 (both halves of the fix removed; either alone fixes the two scenarios) | caught |
 | no append yield | measured: 2 of 1,500 replies misplaced (0 with it) |
 
 ### 10.3 Performance (`bench.ts`, `browser-bench.mjs`; `results/`)
@@ -238,15 +245,15 @@ Chromium / Firefox / WebKit; Firefox and WebKit clamp the clock, so their smalle
 |---|---|---|---|
 | Store a 60-message thread, raw / gzip | 35.4 KB / 8.5 KB | 30.7 KB / 7.3 KB | Yjs, by 13% / 14% |
 | **Store an aged thread, raw / gzip** | **904 KB / 181 KB** | **105 KB / 16.3 KB** | **Yjs, 8.6x / 11x** |
-| Open a 60-message thread | 0.16 / 0.23 / 0.17 ms | 0.28 / 0.38 / 0.38 ms | Accordo, 1.6–2.2x |
-| Open a 600-message thread | 1.4 / 2.8 / 1.6 ms | 2.9 / 4.4 / 4.5 ms | Accordo, 1.6–2.8x |
-| Open an aged thread | 12 / 28 / 42 ms | 10 / 24 / 14 ms | Yjs; 3x in WebKit |
-| One turn | 0.02 / 0.04 / 0.02 ms | 0.03 / 0.04 / 0.05 ms | even (all far under a frame) |
-| Apply, regenerate, compaction | 0.03–0.17 ms | 0.03–0.18 ms | even |
+| Open a 60-message thread | 0.14 / 0.34 / 0.16 ms | 0.26 / 0.50 / 0.56 ms | Accordo, 1.5–3.4x |
+| Open a 600-message thread | 1.6 / 3.1 / 1.6 ms | 2.2 / 5.5 / 4.3 ms | Accordo, 1.3–2.7x |
+| Open an aged thread | 13 / 31 / 23 ms | 11 / 26 / 15 ms | Yjs, 1.1–1.5x |
+| One turn | 0.02 / 0.04 / 0.03 ms | 0.03 / 0.06 / 0.05 ms | even (all far under a frame) |
+| Apply, regenerate, compaction | 0.03–0.18 ms | 0.04–0.18 ms | even |
 | Broadcast after one turn (fresh / aged) | 1,115 B / 1,171 B | 977 B / 997 B | Yjs, by 12–15% |
 | A pull with nothing new, aged | 15 B | 41 B | both negligible |
-| A tab one turn behind pulls and applies it, aged | 1.2 / 2.1 / 2.0 ms | 0.7 / 1.9 / 1.3 ms | Yjs, 1.1–1.7x |
-| Four tabs, 50 offline actions each, full merge | 4.4 / 5 / 7 ms, 340 KB sent | 8.5 / 13 / 11 ms, 286 KB sent | Accordo on time; Yjs on bytes, 16% fewer |
+| A tab one turn behind pulls and applies it, aged | 0.8 / 2.0 / 2.5 ms | 0.75 / 2.3 / 1.4 ms | even; Yjs 1.8x in WebKit |
+| Four tabs, 50 offline actions each, full merge | 4.2 / 6 / 7 ms, 340 KB sent | 10.8 / 17 / 12 ms, 286 KB sent | Accordo on time, 1.7–2.8x; Yjs on bytes, 16% fewer |
 | Heap per open 60-message thread (Node) | 82 KB | 163 KB | Accordo, 2x |
 
 Round 2's "Yjs syncs an aged thread 6x to 200x faster" was the stall bug and a noisy measurement (a difference of two
@@ -255,7 +262,8 @@ timings); the sync row is now timed directly. Round 2's four-tab bytes (621 KB) 
 ### 10.4 What the numbers say
 
 With its bugs fixed, Accordo is as fast as Yjs or faster everywhere but on an aged thread, uses half the heap, and
-keeps every reply next to its question. Yjs wins one thing by a wide margin: **an aged thread's stored size, 8.6x
+split no reply from its question on the three stated seeds (it did split 1 or 2 in 3,000 on other seeds, so this is a
+lower rate than Yjs's, not zero). Yjs wins one thing by a wide margin: **an aged thread's stored size, 8.6x
 smaller.** That gap is encoding, not algorithm. Both libraries keep a small marker for every deleted list entry (Yjs
 replaces a deleted item's content but keeps the item); Yjs writes those markers in a binary, run-length form, while
 Accordo writes each as a JSON row of about 83 bytes. The aged thread holds 10,477 such markers in about 3,400 runs, so
@@ -266,12 +274,12 @@ So the choice is not "a proven merge against a weaker one". It is:
 - **B, Yjs:** ready now, smaller on disk today, and maintained by others. It costs about 23 KB gz in the chat's lazy
   code, and splits a reply from its question in about 0.2% of concurrent sessions unless the design stores a turn (a
   question and its replies) as one `Y.Map` (unmeasured).
-- **A, Accordo:** zero dependencies and general-purpose, faster on fresh threads and lighter in memory, with perfect
-  reply placement in this gate. Before it could ship it needs a compact encoding (round 4), and an audit of rounds 3
-  and 4. Each of the first two rounds passed this gate as it stood and still had defects an auditor found, so the
-  maintenance and review cost is the real price of A.
+- **A, Accordo:** zero dependencies and general-purpose, faster on fresh threads and lighter in memory, with fewer
+  replies split from their questions than Yjs. Before it could ship it needs a compact encoding, and an audit of round 4 and of that.
+  Each of the first three rounds passed this gate as it stood and still had defects an auditor found, the third a
+  divergence, so the maintenance and review cost is the real price of A.
 
 **Recommendation, and the owner's choice (§7): B (Yjs)**, for these reasons: the storage gap is real today, closing
-it is unbuilt work, and two audits in a row found defects in our own merge after it passed every test we had. Should
-a library of our own come back, round 4 is the compact encoding plus an audit; the gate, the mutants and the
+it is unbuilt work, and three audits in a row found defects in our own merge after it passed every test we had. Should
+a library of our own come back, the next round is the compact encoding plus an audit; the gate, the mutants and the
 benchmarks here are ready to judge it, and the gate becomes the Yjs chat store's property test (§8).

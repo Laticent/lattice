@@ -254,6 +254,61 @@ function checkReopen(runs: number): { ok: boolean; detail: string } {
 	}
 }
 
+/**
+ * Fixed scenarios random search missed (audit of round 3, finding 1): two tabs delete the same reply concurrently, and a
+ * third tab learns of it through a broadcast and a pull. Each must converge with the reply gone. Both contenders.
+ */
+function checkConcurrentDelete(make: () => Contender): { ok: boolean; detail: string } {
+	const sync = (from: Contender, to: Contender) => to.apply(from.encodeSince(to.since()));
+	const verdict = (reps: Contender[], gone: string) => {
+		const views = reps.map((r) => canon(r.toArray()));
+		if (new Set(views).size !== 1) return `replicas differ:\n${views.join('\n')}`;
+		if (reps[0].toArray().some((r) => r.id === gone)) return `a reply deleted on two tabs came back: ${gone}`;
+		return '';
+	};
+	// Scenario 1: delete only. C asks; B replies; A and B both delete the reply; B broadcasts to a fresh tab Q, Q pulls A.
+	seedIds(SEED * 1_000_003 + 11);
+	{
+		const [A, B, C, Q] = [make(), make(), make(), make()];
+		const O = C.push({ role: 'user', content: 'q' });
+		sync(C, A);
+		sync(C, B);
+		const X = B.insertAfter(O, { role: 'assistant', content: 'a' });
+		sync(B, A);
+		A.delete(X);
+		const tok = B.since();
+		B.delete(X);
+		sync(A, B);
+		sync(B, A);
+		Q.apply(B.encodeSince(tok));
+		sync(A, Q);
+		for (let r = 0; r < 3; r++) for (const a of [A, B, C, Q]) for (const b of [A, B, C, Q]) if (a !== b) sync(a, b);
+		const bad = verdict([A, B, C, Q], X);
+		if (bad) return { ok: false, detail: `scenario 1 (concurrent delete): ${bad}` };
+	}
+	// Scenario 2: the gate's own actions: both tabs regenerate the same reply, then broadcast and pull.
+	seedIds(SEED * 1_000_003 + 12);
+	{
+		const [A, B, Q] = [make(), make(), make()];
+		const O = B.push({ role: 'user', content: 'q' });
+		const X = B.insertAfter(O, { role: 'assistant', content: 'a' });
+		sync(B, A);
+		A.delete(X);
+		A.insertAfter(O, { role: 'assistant', content: "a'" });
+		const tok = B.since();
+		B.delete(X);
+		B.insertAfter(O, { role: 'assistant', content: 'a"' });
+		sync(A, B);
+		sync(B, A);
+		Q.apply(B.encodeSince(tok));
+		sync(A, Q);
+		for (let r = 0; r < 2; r++) for (const a of [A, B, Q]) for (const b of [A, B, Q]) if (a !== b) sync(a, b);
+		const bad = verdict([A, B, Q], X);
+		if (bad) return { ok: false, detail: `scenario 2 (concurrent regenerate): ${bad}` };
+	}
+	return { ok: true, detail: '2 fixed scenarios' };
+}
+
 const runs = Number(process.argv[2] ?? 500);
 {
 	const r = checkReopen(runs);
@@ -264,6 +319,8 @@ for (const [name, make] of [
 	['yjs', () => yjsDoc()],
 ] as const) {
 	if (process.env.ONLY && process.env.ONLY !== name) continue;
+	const d = checkConcurrentDelete(make);
+	console.log(`${name} two tabs delete one reply: ${d.ok ? 'PASS' : 'FAIL'} — ${d.detail}`);
 	const r = check(make, runs);
 	console.log(`${name}: ${r.ok ? 'PASS' : 'FAIL'} — ${r.detail}`);
 	const c = checkConflict(make, runs);

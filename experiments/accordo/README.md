@@ -5,11 +5,13 @@ was written to compete with Yjs for merging Studio chat threads across tabs. The
 asked to keep Accordo rather than throw it away. The decision, the design and the full results are
 `engineering/decisions/2026-11-12-chat-threads-crdt.md` §7 and §10.
 
-**Where it stands (round 3).** It passes the 4,500-session correctness gate with no reply split from its question
-(Yjs: 9). It opens a fresh thread about 2x faster than Yjs and uses half the heap. It stores an aged thread 8.6x
-larger, because it writes each deleted entry as a JSON row; a run-length binary encoding should close most of that
-gap (an estimate, not built). Two independent audits found defects in rounds 1 and 2, all fixed; round 3 is not
-audited. What round 4 needs is `followups.d/3147-p2-accordo-round-4.md`.
+**Where it stands (round 4).** It passes the 4,500-session correctness gate and two fixed concurrent-delete scenarios,
+and split no reply from its question on the stated seeds (Yjs: 9; Accordo does split 1–2 in 3,000 on other seeds).
+It opens a fresh thread about 2x faster than Yjs and uses half the heap. It stores an aged thread 8.6x larger,
+because it writes each deleted entry as a JSON row; a run-length binary encoding should close most of that gap (an
+estimate, not built). Three independent audits found defects in rounds 1 to 3, the third a divergence when two tabs
+delete one reply; all are fixed. Round 4 is not audited. Reopening a replica under its own id is safe only from its
+latest state (see `RecordList.decode`). What the next round needs is `followups.d/3147-p2-accordo-next-round.md`.
 
 | File | What it is | Run it (from this folder unless noted) |
 |---|---|---|

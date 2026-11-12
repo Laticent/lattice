@@ -1,5 +1,5 @@
 /**
- * ACCORDO, round 3 (prototype for the bake-off in engineering/decisions/2026-11-12-chat-threads-crdt.md §10): a replicated, ordered
+ * ACCORDO, round 4 (prototype for the bake-off in engineering/decisions/2026-11-12-chat-threads-crdt.md §10): a replicated, ordered
  * list of records. General-purpose, zero dependencies, no DOM. Several replicas (tabs, devices) edit their own copy and
  * exchange changes in any order, any number of times, with a change lost and resent later; every replica that has seen
  * the same changes holds the same list.
@@ -213,7 +213,9 @@ export class RecordList {
 			}
 			const whole = fresh(n.t);
 			if (whole) for (const [k, fld] of n.f) if (!(k in fields)) fields[k] = fld.v === undefined ? [ws(fld.t)] : [ws(fld.t), copy(fld.v)];
-			const sendDel = n.del !== undefined && fresh(n.del);
+			// A whole row always carries its delete: the receiver may already hold the delete's sequence (as a superseded
+			// one, from a concurrent delete) without having the record, and would otherwise get it back alive (audit 3, #1).
+			const sendDel = n.del !== undefined && (whole || fresh(n.del));
 			if (!any && !sendDel) continue;
 			const row: WNode = [n.id, n.origin, ws(n.t), fields, whole ? (n.tail ? 2 : 1) : 0];
 			if (sendDel) row.push(ws(n.del as Stamp));
@@ -260,20 +262,23 @@ export class RecordList {
 	apply(w: Wire): void {
 		const st = (s: WStamp): Stamp => ({ c: s[0], r: w.r[s[1]], s: s[2] });
 		// Origins before the records inserted after them: a delta may carry both, in either order.
-		const pending = [...w.n];
+		// Each pass applies what it can and keeps the rest, in order, for the next (one rebuild per pass, not a splice per
+		// row, which was quadratic on a large state: audit 3, #3).
+		let pending = w.n;
 		let progress = true;
 		while (pending.length && progress) {
 			progress = false;
-			for (let i = 0; i < pending.length; i++) {
-				const [id, origin, wt, fields, whole, wdel] = pending[i];
+			const waiting: WNode[] = [];
+			for (const row of pending) {
+				const [id, origin, wt, fields, whole, wdel] = row;
 				let n = this.nodes.get(id);
 				if (!n) {
 					// A partial row for a record never seen: skip it, holding nothing, so a later pull sends it whole.
-					if (!whole) {
-						pending.splice(i--, 1);
+					if (!whole) continue;
+					if (origin !== null && !this.nodes.has(origin)) {
+						waiting.push(row); // its origin has not arrived yet
 						continue;
 					}
-					if (origin !== null && !this.nodes.has(origin)) continue; // its origin has not arrived yet
 					const t = st(wt);
 					this.hold(t);
 					n = { id, origin, t, f: new Map(), ...(whole === 2 ? { tail: true as const } : {}) };
@@ -281,7 +286,9 @@ export class RecordList {
 				}
 				for (const wf of Object.values(fields)) this.hold(st(wf[0]));
 				if (wdel) this.hold(st(wdel));
-				if (wdel && !n.del) {
+				// Two replicas may delete one record concurrently. Every replica keeps the LATER delete stamp, so all agree on
+				// which one is stored and which is superseded (keeping the first to arrive let them disagree: audit 3, #1).
+				if (wdel && (!n.del || later(st(wdel), n.del))) {
 					n.del = st(wdel);
 					n.f.clear();
 					this.order = null;
@@ -292,9 +299,9 @@ export class RecordList {
 						const old = n.f.get(k);
 						if (!old || later(ft, old.t)) n.f.set(k, { v: wf.length > 1 ? copy(wf[1]) : undefined, t: ft });
 					}
-				pending.splice(i--, 1);
 				progress = true;
 			}
+			pending = waiting;
 		}
 		// A record whose origin never arrived stays out, and its changes stay unheld, so the next pull resends them.
 		// Superseded sequences: their effect is overruled by stamps the receiver holds or will be sent, so hold them.
@@ -307,6 +314,11 @@ export class RecordList {
 			}
 	}
 
+	/**
+	 * A replica from a stored state. Pass `replica` only to reopen a replica from its LATEST state: changes it made after
+	 * an older save would be minted again with the same ids and different content (audit of round 3, finding 2). When
+	 * in doubt, omit it and take a fresh id, as the bake-off does.
+	 */
 	static decode(w: Wire, replica?: string): RecordList {
 		const l = new RecordList(replica);
 		l.apply(w);
