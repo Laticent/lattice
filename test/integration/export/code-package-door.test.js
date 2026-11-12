@@ -320,9 +320,12 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
     const { detectChromeExecutable } = require('../../../lib/core/chrome-exec.js');
     const probe = await launchCodeSandbox(require('puppeteer'), { executablePath: detectChromeExecutable() || undefined });
     await probe.close();
-    // CI's browser gets no OS sandbox, so this test runs there; a runner where it does would lose the test, so CI fails.
-    const why = skipUnlessCI(probe.layer.os === 'on', 'the default browser here gets the OS sandbox, so there is no weaker layer to refuse');
+    // CI's browser gets no OS sandbox, so this test runs there; a runner where it does would lose the test, so CI fails,
+    // and says why rather than tripping an assertion further down.
+    const noWeakerLayer = 'the default browser here gets the OS sandbox, so there is no weaker layer to refuse';
+    const why = skipUnlessCI(probe.layer.os === 'on', noWeakerLayer);
     if (why) return t.skip(why);
+    assert.notEqual(probe.layer.os, 'on', `under CI: ${noWeakerLayer}, so this test would prove nothing`);
     const { grantTrust, codeDigest } = require('../../../lib/packages/trust.js');
     const { findInstalled } = require('../../../lib/packages/home.js');
     const inst = findInstalled(path.join(home, 'packages'), 'component', 'tally');
