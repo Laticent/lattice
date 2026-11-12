@@ -782,6 +782,85 @@ async function splitTier() {
   return { summary };
 }
 
+// ── PHOTO TIER (a deck carrying pasted phone photos) ─────────────────────────
+//
+// A phone photo pasted into a deck is a `data:` address of about 4.5 MB on one line. Before
+// lib/core/data-uri-mask.mjs, one lint pass over a deck of three such photos took about 4 s, and the
+// slide-metadata readers copied and hashed each photo slide on every ask (lib/core/meta-memo.mjs): the
+// Studio froze for many seconds after the paste, and docs/e2e/export-photo-size.spec.ts went red under
+// load. This tier is that deck, in Node, through the three readers the Studio runs per keystroke.
+//
+// IT GATES ON WORK: `lintChars` is how many characters the linter is handed (the deck's length when
+// nothing is masked, a few hundred when every photo is), and `findings` is what it reports, so a mask
+// that stopped engaging, or one that changed a finding, moves a count. `lintMs`, `metaMs` (the drawer's
+// `readMetaField` on five keys over every slide) and `blocksMs` (`commentBlocks` on every slide, each a
+// fresh string as the Studio's slicing makes it) are the cost record, printed and blessed, not gated.
+// A base tree with no mask runs it too (the nightly copies this file into one): its `lintChars` is the
+// deck's length.
+const PHOTO_DECK_PHOTOS = 3;
+const PHOTO_PAYLOAD_CHARS = 4_500_000;
+function photoDeck() {
+  // Seeded base64, so the deck is byte-identical on every run (HARD RULE #32's seed rule, kept here too).
+  const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let seed = 4242;
+  const photo = () => {
+    const a = new Array(PHOTO_PAYLOAD_CHARS);
+    for (let i = 0; i < a.length; i++) {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      a[i] = B64[seed >>> 26];
+    }
+    return `data:image/jpeg;base64,${a.join('')}`;
+  };
+  return ['<!-- _class: title -->\n\n# Phone photos\n\nExport size', ...Array.from({ length: PHOTO_DECK_PHOTOS }, (_, i) => `<!-- _class: image -->\n\n\`Photo ${i + 1}\`\n\n## A phone photo beside its caption\n\nThe caption sits beside the photo.\n\n![bg](${photo()})`)].join('\n\n---\n\n');
+}
+async function photoTier() {
+  const { createRequire } = await import('node:module');
+  const req = createRequire(import.meta.url);
+  const core = req(join(ROOT, 'lib/authoring/lint-core.js'));
+  const { buildVocab } = req(join(ROOT, 'lib/authoring/lint.js'));
+  const sb = await import('../../lib/core/slide-boundaries.mjs');
+  const me = await import('../../lib/core/meta-edit.mjs').catch(() => null);
+  const mr = await import('../../lib/core/meta-record.mjs').catch(() => null);
+  const mask = await import('../../lib/core/data-uri-mask.mjs').catch(() => null);
+  const vocab = buildVocab();
+  const deck = photoDeck();
+  const median = (a) => a.sort((x, y) => x - y)[a.length >> 1];
+  const time = (n, f) => {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const t0 = process.hrtime.bigint();
+      f(i);
+      out.push(Number(process.hrtime.bigint() - t0) / 1e6);
+    }
+    return median(out);
+  };
+  // A distinct edit each pass, as an author types, so no whole-text memo can answer.
+  const edited = (i) => `${deck}\n\n<!-- ${'e'.repeat(i + 1)} -->`;
+  let findings = 0;
+  core.lintTextWith(edited(99), vocab); // warm
+  const lintMs = time(3, (i) => {
+    findings = core.lintTextWith(edited(i), vocab).length;
+  });
+  const lintChars = mask?.maskDataUris?.(deck)?.text.length ?? deck.length;
+  const chunks = sb.splitSlideChunks(deck).chunks;
+  // Fresh strings per pass: the Studio slices each slide out of the editor's text again on every render.
+  const fresh = (c, i) => `${c} `.slice(0, c.length + (i % 2));
+  const metaMs = me?.readMetaField ? time(5, (i) => {
+    for (const k of ['class', 'paginate', 'header', 'footer', 'backgroundImage']) for (const c of chunks) me.readMetaField(fresh(c, i), k);
+  }) : null;
+  const blocksMs = mr?.commentBlocks ? time(5, (i) => {
+    for (const c of chunks) mr.commentBlocks(fresh(c, i));
+  }) : null;
+  const summary = [{ dataset: `photo \u00b7 ${PHOTO_DECK_PHOTOS} inline phone photos`, work: { slides: chunks.length, deckChars: deck.length, lintChars, findings }, ms: lintMs, p95: lintMs, lintMs, metaMs, blocksMs }];
+  console.log('\n=== PHOTO \u00b7 a deck of pasted phone photos, through the per-keystroke readers ===');
+  console.log(`${'dataset'.padEnd(34)}${'deck chars'.padStart(12)}${'lint chars'.padStart(12)}${'findings'.padStart(10)}${'lint ms'.padStart(10)}${'meta ms'.padStart(10)}${'blocks ms'.padStart(11)}`);
+  for (const r of summary) {
+    const f = (v) => (v == null ? 'n/a' : v.toFixed(1));
+    console.log(`${r.dataset.padEnd(34)}${String(r.work.deckChars).padStart(12)}${String(r.work.lintChars).padStart(12)}${String(r.work.findings).padStart(10)}${f(r.lintMs).padStart(10)}${f(r.metaMs).padStart(10)}${f(r.blocksMs).padStart(11)}`);
+  }
+  return { summary };
+}
+
 // ── FILO TIER (the undo history, on the 134 KB deck) ─────────────────────────
 //
 // docs/src/lib/filo is the Studio's one undo history (engineering/decisions/2026-10-27-filo-undo-history.md).
@@ -1750,7 +1829,7 @@ function comparableMachine(base, here, probeNow) {
  *   transposition away from blessing the sweep rows into `printDatasets`.
  */
 function blessBaseline(summary, render, opts = {}) {
-  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, collageSummary = null, splitSummary = null, filoSummary = null, squadraSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
+  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, collageSummary = null, splitSummary = null, filoSummary = null, photoSummary = null, squadraSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
   // A bless restamps `blessedOn` (the render tier always runs), and `tierRows` would carry the prior
   // inline rows forward under that new stamp. `checkInlineRows` gates on the fingerprint alone, so
   // those rows would then gate a machine they were never measured on. Refuse instead.
@@ -1855,6 +1934,10 @@ function blessBaseline(summary, render, opts = {}) {
   }));
   // THE FILO TIER BLESSES ITS WORK COUNTS; `ms` and `p95` are the cost record, as in the split tier.
   const filoOut = tierRows(filoSummary?.length ? filoSummary : null, 'filoDatasets', (s) => ({ ...s.work, ms: round2(s.ms), p95: round2(s.p95) }));
+  // THE PHOTO TIER BLESSES ITS WORK COUNTS; the three timings are the cost record, as in the filo tier.
+  const photoOut = tierRows(photoSummary?.length ? photoSummary : null, 'photoDatasets', (s) => ({
+    ...s.work, lintMs: round2(s.lintMs), ...(s.metaMs == null ? {} : { metaMs: round2(s.metaMs) }), ...(s.blocksMs == null ? {} : { blocksMs: round2(s.blocksMs) }),
+  }));
   // THE SQUADRA TIER BLESSES ITS WORK COUNTS; `ms` is the cost record, as in the split tier.
   const squadraOut = tierRows(squadraSummary?.length ? squadraSummary : null, 'squadraDatasets', (s) => ({
     passes: s.passes, applied: s.applied, findings: s.findings, ops: s.ops, ms: Math.round(s.ms * 1000) / 1000, p95: Math.round(s.p95 * 1000) / 1000,
@@ -1932,6 +2015,8 @@ function blessBaseline(summary, render, opts = {}) {
     ...(splitOut ? { splitDatasets: splitOut } : {}),
     // The undo history on the 134 KB deck: work counts gated, timings recorded. Blessed on every bless.
     ...(filoOut ? { filoDatasets: filoOut } : {}),
+    // A deck of three pasted phone photos: characters the linter reads and its findings gated, timings recorded.
+    ...(photoOut ? { photoDatasets: photoOut } : {}),
     // Squadra: the fix driver's passes and fixes, hostile-input ops, compile cost. Blessed on every bless.
     ...(squadraOut ? { squadraDatasets: squadraOut } : {}),
     // The inline-code dispatcher per span, as a paired ratio against the retired kernel.
@@ -1949,6 +2034,7 @@ function blessBaseline(summary, render, opts = {}) {
   if (collageSummary?.length) wrote.push(`${collageSummary.length} collage`);
   if (splitSummary?.length) wrote.push(`${splitSummary.length} split`);
   if (filoSummary?.length) wrote.push(`${filoSummary.length} filo`);
+  if (photoSummary?.length) wrote.push(`${photoSummary.length} photo`);
   if (squadraSummary?.length) wrote.push(`${squadraSummary.length} squadra`);
   if (inlineSummary?.length) wrote.push(`${inlineSummary.length} inline`);
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${wrote.join(' + ')} datasets).`);
@@ -2028,6 +2114,7 @@ function checkBaseline(summary, render, opts = {}) {
   const collageSummary = opts.collageSummary ?? null;
   const splitSummary = opts.splitSummary ?? null;
   const filoSummary = opts.filoSummary ?? null;
+  const photoSummary = opts.photoSummary ?? null;
   const squadraSummary = opts.squadraSummary ?? null;
   const inlineSummary = opts.inlineSummary ?? null;
   const inlineSkipped = opts.inlineSkipped ?? null;
@@ -2394,6 +2481,29 @@ function checkBaseline(summary, render, opts = {}) {
     }
   }
 
+  // THE PHOTO TIER. Gates on WORK, like the filo tier: `lintChars` moving up means the linter walks a photo's
+  // bytes again, and `findings` moving means the mask changed what lint says. Re-bless with the PR saying why.
+  if (photoSummary?.length) {
+    console.log('\n=== PHOTO CHECK \u00b7 work counts vs committed baseline ===');
+    for (const s2 of photoSummary) {
+      const b = base.photoDatasets?.[s2.dataset];
+      if (!b) {
+        drift = true;
+        console.log(`${s2.dataset.padEnd(48)}  NEW (re-bless)`);
+        continue;
+      }
+      const moved = Object.entries(s2.work).filter(([k, v]) => b[k] !== v);
+      if (moved.length) drift = true;
+      console.log(`${s2.dataset.padEnd(48)}  ${moved.length ? `MOVED ${moved.map(([k, v]) => `${k} ${b[k]} \u2192 ${v}`).join(', ')} (re-bless, and say why)` : 'ok'}`);
+    }
+    for (const name of Object.keys(base.photoDatasets ?? {})) {
+      if (!photoSummary.some((s2) => s2.dataset === name)) {
+        drift = true;
+        console.log(`${name.padEnd(48)}  MISSING (re-bless)`);
+      }
+    }
+  }
+
   // THE SQUADRA TIER. Gates on WORK: passes, fixes applied, findings and ops are deterministic, so a
   // moved count is a behavior change to re-bless with the PR saying why; more ops is a regression.
   if (squadraSummary?.length) {
@@ -2663,6 +2773,8 @@ async function main() {
   const split = await splitTier();
   // In-process (~3s), and blessed on its work counts: the undo history's HARD RULE #19 record.
   const filoT = await filoTier();
+  // In-process (~25 s on a tree without the data-URI mask, ~2 s with it), blessed on its work counts: the photo deck's HARD RULE #19 record.
+  const photo = await photoTier();
   // In-process (~3s), and blessed on its work counts: Squadra's HARD RULE #19 record.
   const squadra = await squadraTier();
   // Its own process (~5s), and blessed: the inline-code dispatcher's HARD RULE #19 record.
@@ -2674,7 +2786,7 @@ async function main() {
   const cli = wantCli ? await cliTier() : null;
   if (wantBless) {
     blessBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, squadraSummary: squadra?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, photoSummary: photo?.summary, squadraSummary: squadra?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
   }
   if (wantCheck && wantBless) {
@@ -2698,7 +2810,7 @@ async function main() {
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
     const pass1 = checkBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, squadraSummary: squadra?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, photoSummary: photo?.summary, squadraSummary: squadra?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
     if (pass1.regressedDatasets.length) {
       // ONLY THE RENDER TIER IS RE-MEASURED. `renderTier()` is what pass 2 runs, and it is
@@ -2790,7 +2902,7 @@ async function main() {
   // result, leaving the memo's regression guard reachable only when a human typed
   // `npm run bench:check`. The comparator does not read it yet; shipping the data
   // is the half that belongs to this file.
-  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, collage, split, squadra, inline, export: exp, print, diagrams, cli }, null, 2));
+  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, collage, split, photo, squadra, inline, export: exp, print, diagrams, cli }, null, 2));
   const missing = [
     !wantExport && '--export (rasterize tier, ~2 min)',
     !wantPrint && '--print (print re-place tier, ~11 min)',

@@ -1059,6 +1059,7 @@
     "/[A-Z]/g": "safe",
     "/[A-Za-z/!]/": "safe",
     "/[A-Za-z0-9+/=\\s]/": "safe",
+    "/[A-Za-z0-9+/]*/y": "safe",
     "/[A-Za-z0-9-]/": "safe",
     "/[A-Za-z0-9_-]/": "safe",
     "/[A-Za-z0-9_]/": "safe",

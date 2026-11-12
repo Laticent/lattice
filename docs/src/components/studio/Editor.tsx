@@ -18,6 +18,7 @@ import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { lintCoreNow, loadLintCore, studioVocabSets } from './deck-lint';
 import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists, withLazyInlineCore } from './editor-complete';
+import { inlinePhotoEditing } from './editor-inline-photo';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { firstSlideShown } from './first-slide';
 import { iconPreviewOption } from './icon-preview';
@@ -1059,6 +1060,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 						// typeTail) can still center the last slide instead of clamping short.
 						scrollPastEnd(),
 						EditorView.lineWrapping,
+						// A pasted photo's base64 shows as a chip, and a megabyte insertion skips the browser's layout of it
+						// (editor-inline-photo.ts: a phone-photo deck froze the Studio for seconds).
+						inlinePhotoEditing,
 						EditorView.contentAttributes.of({ 'aria-label': 'Deck source' }),
 						// FORMAT ON LEAVING THE EDITOR, for the blocks that ask (`@code{format}`, or the
 						// deck's `code: format`). The Studio autosaves on every keystroke, so leaving the

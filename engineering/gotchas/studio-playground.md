@@ -1930,3 +1930,24 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — a new async step between boot and the first Explore; a new condition in `reusableFrame`.
 - **Removable when** — never; they are ordering rules.
 - **Commits** — the flaky-e2e touch PR of 2026-11-12.
+
+## The Studio freezes for many seconds after a deck of phone photos is pasted or typed in
+
+- **Symptom** — a deck that inlines photos as `data:` addresses (a phone photo is one line of about 4.5 MB of base64)
+  goes into the Source editor and the whole Studio stops answering: measured on three photos in Chromium, 34.7 s of long
+  tasks, the longest 9 s, and the slide rail 22 s late. `e2e/export-photo-size.spec.ts` failed 5 of 5 under
+  `--workers=4`, at the rail count right after the insert.
+- **Cause** — every reader walked the photo bytes, and none of them reads anything in them. The browser laid out the
+  inserted text before CodeMirror read it back (`TypingCommand::InsertText`, 11.6 s, mostly text shaping); the linter
+  walked every photo line many times a pass (4 s a pass, run on every keystroke); the slide-metadata memo copied and
+  hashed each photo slide as a key (`flatCopy`, 6.7 s) and evicted every other slide to hold it; `commentBlocks`'
+  memo hashed a fresh 4.5 MB key on every ask; and `ReshapePicker` rebuilt a preview of every look of the slide on
+  every render with its popover closed.
+- **Fix** — `lib/core/data-uri-mask.mjs` gives the linter a copy in which the middle of each photo's payload is a short
+  stand-in, and puts the bytes back into the findings (`lintTextWith`). Only a PHOTO LINE is masked (the image alone
+  on its line, its own paragraph, outside code): a data address inside other text is characters a rule counts
+  (`tag-budget`, a chart's label rows), and masking one there changed findings; the memos in `meta-memo.mjs` and
+  `meta-record.mjs` never hold or look up a key past their bound; `editor-inline-photo.ts` takes a typed insertion of
+  64 K characters or more as one transaction and shows each payload as an `image data · 3.4 MB` chip; `ReshapePicker`
+  builds its tiles only when the popover opens. After: 4.5 s of long tasks, rail 3.7 s. `npm run bench` prints the
+  `photo` tier. A new per-keystroke reader of the deck text that scans every character needs the same treatment.

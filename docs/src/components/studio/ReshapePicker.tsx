@@ -37,9 +37,10 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 	disabled?: boolean;
 }) {
 	const [open, setOpen] = React.useState(false);
-	const component = getClassTokens(chunk)[0] ?? '';
+	const classTokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
+	const component = classTokens[0] ?? '';
 	const looks = React.useMemo(() => componentLooks(variants, axes, variantAxes), [variants, axes, variantAxes]);
-	const tokens = React.useMemo(() => new Set(getClassTokens(chunk)), [chunk]);
+	const tokens = React.useMemo(() => new Set(classTokens), [classTokens]);
 	// Is any real look on? Decides whether DEFAULT may claim the badge (see the tile map).
 	const anyLookOn = looks.some((l) => variantActive(tokens, l.token));
 
@@ -73,47 +74,74 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 				<div className="max-h-[60vh] overflow-y-auto overscroll-contain [touch-action:pan-y]">
 					<PreviewPool>
 						<div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-							{looks.map((look) => {
-								// "Current" means CLICKING CHANGES NOTHING, not "this token is present": the two
-								// came apart on the Default tile, which restores an axis default, so on a bare
-								// `map` it claimed to be current and then rewrote `_class` to `map world`. Ask
-								// the model rather than guessing from the token set.
-								const next = applyVariant(chunk, look.token, axes, variants, variantAxes);
-								// …but a no-op is not enough for DEFAULT on its own. On `map world` both Default
-								// and the `world` tile are no-ops, and badging both put two "Current" tiles in one
-								// pick-one family. The look that is actually on wins; Default claims the badge
-								// only when no look is on AND clicking it really would do nothing.
-								const on = look.token ? next === chunk : !anyLookOn && variantNoop(chunk, '', axes, variants, variantAxes);
-								// An active TOGGLE is the one tile whose click is deliberately destructive: it
-								// removes the look. Preview the slide as it stands (previewing it turned off
-								// reads as the wrong slide) and say so — in the label AND on the badge, since
-								// an accessible name alone leaves a sighted author no warning at all.
-								const removes = !!look.token && !look.exclusive && variantActive(tokens, look.token);
-								return (
-									<ReshapeTile
-										key={look.token || '__default'}
-										sample={(frontMatter ?? '') + (removes || on ? chunk : next)}
-										label={look.token ? look.label : 'Default'}
-										actionLabel={removes ? `Remove ${look.label}` : `Reshape to ${look.token ? look.label : 'Default'}`}
-										badge={removes ? 'Current ×' : on ? 'Current' : ''}
-										active={on || removes}
-										options={options}
-										paletteOverride={paletteOverride}
-										extraTheme={extraTheme}
-										modeOverride={modeOverride}
-										extraCss={extraCss}
-										onClick={() => {
-											onReshape(look.token);
-											setOpen(false);
-										}}
-									/>
-								);
-							})}
+							{/* A component, not an inline map: JSX children are built when THIS component renders, open or not,
+							    and each tile rebuilds the slide's text to preview its look. On a slide carrying a pasted photo
+							    (a 4.5 MB chunk) that was about 1 s of every Studio render with the popover closed. */}
+							<ReshapeTiles chunk={chunk} looks={looks} tokens={tokens} anyLookOn={anyLookOn} variants={variants} axes={axes} variantAxes={variantAxes} frontMatter={frontMatter} options={options} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} onPick={(token) => {
+								onReshape(token);
+								setOpen(false);
+							}} />
 						</div>
 					</PreviewPool>
 				</div>
 			</PopoverContent>
 		</Popover>
+	);
+}
+
+/** The look tiles, built only when the popover mounts them (see the note where `ReshapePicker` renders this). */
+function ReshapeTiles({ chunk, looks, tokens, anyLookOn, variants, axes, variantAxes, frontMatter, options, paletteOverride, extraTheme, modeOverride, extraCss, onPick }: {
+	chunk: string;
+	looks: ReturnType<typeof componentLooks>;
+	tokens: Set<string>;
+	anyLookOn: boolean;
+	variants: string[];
+	axes: Record<string, readonly string[]>;
+	variantAxes: readonly VariantAxis[];
+	frontMatter?: string;
+	options: SingleSlideOptions;
+	paletteOverride?: string;
+	extraTheme?: { name: string; css: string };
+	modeOverride?: 'light' | 'dark';
+	extraCss?: string;
+	onPick: (token: string) => void;
+}) {
+	return (
+		<>
+		{looks.map((look) => {
+			// "Current" means CLICKING CHANGES NOTHING, not "this token is present": the two
+			// came apart on the Default tile, which restores an axis default, so on a bare
+			// `map` it claimed to be current and then rewrote `_class` to `map world`. Ask
+			// the model rather than guessing from the token set.
+			const next = applyVariant(chunk, look.token, axes, variants, variantAxes);
+			// …but a no-op is not enough for DEFAULT on its own. On `map world` both Default
+			// and the `world` tile are no-ops, and badging both put two "Current" tiles in one
+			// pick-one family. The look that is actually on wins; Default claims the badge
+			// only when no look is on AND clicking it really would do nothing.
+			const on = look.token ? next === chunk : !anyLookOn && variantNoop(chunk, '', axes, variants, variantAxes);
+			// An active TOGGLE is the one tile whose click is deliberately destructive: it
+			// removes the look. Preview the slide as it stands (previewing it turned off
+			// reads as the wrong slide) and say so — in the label AND on the badge, since
+			// an accessible name alone leaves a sighted author no warning at all.
+			const removes = !!look.token && !look.exclusive && variantActive(tokens, look.token);
+			return (
+				<ReshapeTile
+					key={look.token || '__default'}
+					sample={(frontMatter ?? '') + (removes || on ? chunk : next)}
+					label={look.token ? look.label : 'Default'}
+					actionLabel={removes ? `Remove ${look.label}` : `Reshape to ${look.token ? look.label : 'Default'}`}
+					badge={removes ? 'Current ×' : on ? 'Current' : ''}
+					active={on || removes}
+					options={options}
+					paletteOverride={paletteOverride}
+					extraTheme={extraTheme}
+					modeOverride={modeOverride}
+					extraCss={extraCss}
+					onClick={() => onPick(look.token)}
+				/>
+			);
+		})}
+		</>
 	);
 }
 
