@@ -125,7 +125,8 @@ fixed     — 2026-11-10, the Studio startup PR, test-only (no app change), each
             compose-stress:536 (seeded; a `railPick` tap on the current pill opens the slide menu, and the next `rail`
             op's ⋯ closed it). Under the suite's load, the 20 compose-* specs on desktop ×3: 411 passed, 0 failed.
             Still open from the same runs: compose-spark-phone.spec.ts:25 (1 of 36), which is a product bug, not a
-            test one: followups.d/3150-p1-compose-pick-edits-the-wrong-object.md.
+            test one: fixed at its cause in PR #3164 (a pick reads the open object when it writes, and never
+            writes to a neighbor).
 2026-11-12 — measured on PR #3136 (meta record), desktop project, the 20 compose-* specs under the suite's own load,
             twice with the PR's Compose and slide-panel code (0fdcdf72) and twice with it swapped back to 48928446's
             (deck-source.ts and meta-edit.mjs): both trees show the same load-only failures, so none is the PR's. Two are
