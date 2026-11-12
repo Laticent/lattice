@@ -1,5 +1,7 @@
 import http from 'node:http';
 import path from 'node:path';
+import { documentSettled } from './barriers';
+import { witnessLanded } from './net-witness';
 import { expect, gotoStudio, persistedSource, SHARE_EXPORTS, setEditorContent, test } from './studio-fixture';
 
 /** Write the deck at any width: at phone width the editor sits behind the Source cell, so open it and come back to Preview. */
@@ -66,7 +68,10 @@ for (const tag of [' @gecko', ' @webkit-tablet @webkit-phone']) {
 			const banner = reader.locator('#lp-consent');
 			await expect(banner).toBeVisible({ timeout: 30_000 });
 			await expect(banner).toContainText(host.split(':')[0]);
-			await reader.waitForTimeout(1500);
+			// An absence, so it waits on barriers rather than a window (HARD RULE #32): the player has settled
+			// (every resource it started has answered) and a witness has landed on a second listener.
+			await documentSettled(reader);
+			await witnessLanded(browser, { udp: false });
 			expect(hits, 'nothing loads before the reader consents').toEqual([]);
 			const shot = (n: string) => (process.env.CONSENT_EVIDENCE ? reader.screenshot({ path: path.join(process.env.CONSENT_EVIDENCE, `${testInfo.project.name}-${n}.png`) }) : undefined);
 			await shot('1-before');
@@ -82,7 +87,10 @@ for (const tag of [' @gecko', ' @webkit-tablet @webkit-phone']) {
 			const plain = await context.newPage();
 			await plain.goto(`file://${file}`);
 			await expect(plain.locator('#lp-consent a').first()).toHaveAttribute('href', new RegExp(`${host}/p.png`));
-			await plain.waitForTimeout(1500);
+			// With scripting off the document's own requests are the parser's, all issued by the time it has loaded;
+			// the witness runs from a context that CAN script, since this one cannot.
+			await plain.waitForLoadState('load');
+			await witnessLanded(browser, { udp: false });
 			expect(hits, 'nothing loads with scripting off').toEqual([]);
 			await context.close();
 		} finally {

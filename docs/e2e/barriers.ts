@@ -41,3 +41,39 @@ export async function requestsFlushed(page: Page): Promise<void> {
 	}, marker);
 	await seen;
 }
+
+/**
+ * Everything a document (or the part of it under `within`) had started to load has finished, and two frames have run
+ * after it: every `<img>` complete,
+ * every `<video>`/`<audio>` past its first answer (metadata or an error), every `<iframe>` loaded. For an absence check
+ * on what a payload in that document could do once its resource answered (an `onerror`, an `onload`): a handler the
+ * document registered at parse time runs before one the test adds later, so when the test's own listener has fired,
+ * the payload's has too. The two frames cover what fires on a rendering opportunity (an SVG animation's `begin`, a
+ * `<details>` toggle task).
+ */
+export async function documentSettled(target: Page | Frame, within = ':root'): Promise<void> {
+	await target.evaluate(async (scope) => {
+		const root = document.querySelector(scope);
+		if (!root) throw new Error(`documentSettled: nothing matches ${scope}`);
+		const once = (el: Element, events: string[]) =>
+			new Promise<void>((r) => {
+				for (const e of events) el.addEventListener(e, () => r(), { once: true });
+			});
+		const pending: Promise<void>[] = [];
+		for (const img of root.querySelectorAll('img')) if (!img.complete) pending.push(once(img, ['load', 'error']));
+		for (const m of root.querySelectorAll('video, audio') as NodeListOf<HTMLMediaElement>) {
+			if (m.getAttribute('src') && m.readyState === 0 && !m.error && m.networkState !== HTMLMediaElement.NETWORK_NO_SOURCE) pending.push(once(m, ['loadedmetadata', 'error']));
+		}
+		for (const f of root.querySelectorAll('iframe')) {
+			let loaded = false;
+			try {
+				loaded = f.contentDocument?.readyState === 'complete';
+			} catch {
+				loaded = true; // a cross-origin frame has loaded far enough to refuse us
+			}
+			if (!loaded) pending.push(once(f, ['load', 'error']));
+		}
+		await Promise.all(pending);
+		await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+	}, within);
+}

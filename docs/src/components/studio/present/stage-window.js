@@ -1044,6 +1044,11 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 			if (navigated) onLost?.('navigated');
 			else awaitGoodbye(w, ownSeq);
 		}, 2000);
+		try {
+			delete document.documentElement.dataset.stagePlacement;
+		} catch {
+			/* no document */
+		}
 		autoPlaceStage(win)
 			.then(async (placed) => {
 				if (win !== stageWin || win.closed) return; // toggled off while we were asking
@@ -1055,7 +1060,17 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 				if (win !== stageWin) return;
 				onPlaced?.({ placed, full });
 			})
-			.catch(() => {});
+			.catch(() => {})
+			// Published on `<html data-stage-placement="settled">` once the whole chain has run, moved or not:
+			// stage-placement.spec.ts reads "the Stage was never moved / fullscreened" after it instead of
+			// sleeping 1200 ms (HARD RULE #32). Cleared when a Stage opens. Nothing in the app reads it.
+			.finally(() => {
+				try {
+					document.documentElement.dataset.stagePlacement = 'settled';
+				} catch {
+					/* no document */
+				}
+			});
 		const doc = getDoc?.();
 		if (doc) paint(doc);
 	}

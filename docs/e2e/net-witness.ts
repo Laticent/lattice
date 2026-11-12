@@ -1,6 +1,6 @@
 import dgram from 'node:dgram';
 import http from 'node:http';
-import { type BrowserContext, expect } from '@playwright/test';
+import { type Browser, type BrowserContext, expect } from '@playwright/test';
 
 /** A loopback HTTP server (WebSocket upgrades included) and a UDP socket, each logging what reaches it. */
 export type Listeners = { origin: string; udpPort: number; hits: string[]; udpHits: string[]; close: () => Promise<void> };
@@ -49,9 +49,11 @@ export async function openListeners(contentType = 'image/png'): Promise<Listener
  * What it does not prove, as `request-log.js` says of its own witness: that a subject HOLDING a request back on purpose
  * has sent it. That is what the subject-side reports (`data-wall`, `data-rtc`) and the import gate are for.
  */
-export async function witnessLanded(context: BrowserContext, { udp }: { udp: boolean }): Promise<void> {
+export async function witnessLanded(from: BrowserContext | Browser, { udp }: { udp: boolean }): Promise<void> {
 	const witness = await openListeners();
-	const page = await context.newPage();
+	// A Browser gets a context of its own (a page made by `browser.newPage()` owns its context and cannot open another).
+	const own = 'newContext' in from ? await from.newContext() : null;
+	const page = await (own ?? (from as BrowserContext)).newPage();
 	try {
 		await page.evaluate(
 			async ({ origin, udpPort, udp }) => {
@@ -78,6 +80,7 @@ export async function witnessLanded(context: BrowserContext, { udp }: { udp: boo
 		if (udp) await expect.poll(() => witness.udpHits.length, { timeout: 30_000, message: 'the witness STUN request never landed' }).toBeGreaterThan(0);
 	} finally {
 		await page.close();
+		await own?.close();
 		await witness.close();
 	}
 }

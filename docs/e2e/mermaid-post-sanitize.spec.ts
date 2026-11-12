@@ -1,3 +1,4 @@
+import { documentSettled, requestsFlushed } from './barriers';
 import { expect, test } from './studio-fixture';
 
 // ── #1246: Mermaid renders AFTER sanitizeSlideHtml ────────────────────────────────────
@@ -122,6 +123,13 @@ async function openDeck(page: import('@playwright/test').Page, mermaidSrc: strin
 // The oracle is `top.__pwned`, not a network beacon: it detects script EXECUTION directly,
 // and reaching `top` from the preview frame is the actual harm (that is the origin holding
 // the visitor's OpenRouter key). It also needs no quotes.
+/** The preview iframe's own document, for a barrier that runs inside it. */
+async function previewDocument(page: import('@playwright/test').Page) {
+	const frame = await (await page.locator('#preview').elementHandle())?.contentFrame();
+	if (!frame) throw new Error('no preview frame');
+	return frame;
+}
+
 const SCRIPT_VECTORS: Array<{ name: string; label: string; click?: boolean }> = [
 	{ name: 'img onerror', label: '<img src=x onerror=top.__pwned=1>one' },
 	{ name: 'img onerror quoted', label: "<img src=x onerror='top.__pwned=1'>one" },
@@ -151,8 +159,11 @@ for (const v of SCRIPT_VECTORS) {
 			const target = preview.locator('svg foreignObject a').first();
 			if (await target.count()) await target.click({ force: true }).catch(() => {});
 		}
-		// Give anything that survived time to actually run.
-		await page.waitForTimeout(1500);
+		// Let anything that survived actually run: every resource the preview started has answered (an `onerror` or
+		// `onload` payload has fired), two frames have run (an SVG `begin`, a `<details>` toggle), and every request
+		// the page issued before now has reached the probe's log.
+		await documentSettled(await previewDocument(page));
+		await requestsFlushed(page);
 
 		expect(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned), `${v.name} EXECUTED script in the top docs origin`).toBeUndefined();
 		expect(probe.hits.concat(probe.navigations), `${v.name} reached the network from the preview frame`).toEqual([]);
@@ -177,7 +188,10 @@ test('a mermaid click directive cannot run javascript: in the preview frame', as
 	// And clicking the node does nothing — the assertion #1246's acceptance names.
 	const node = preview.locator('.node').first();
 	if (await node.count()) await node.click({ force: true }).catch(() => {});
-	await page.waitForTimeout(1000);
+	// A followed link navigates in a task the click queued, and its request is issued before the page's next one:
+	// let the frame settle, then flush the request log.
+	await documentSettled(await previewDocument(page));
+	await requestsFlushed(page);
 	expect(probe.hits.concat(probe.navigations), 'clicking the node exfiltrated').toEqual([]);
 });
 

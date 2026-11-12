@@ -6376,41 +6376,12 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
-    file: 'docs/e2e/editor-lint-stale-pass.spec.ts', ms: 2000, count: 1,
-    why: 'ORDERING WAIT with no signal (PR #3040): after inline validation goes off, @codemirror/lint runs the NEWER '
-       + 'pass on its own 750ms timer, and with validation off that pass answers "nothing", which changes nothing '
-       + 'on the page to poll. The race under test is the OLDER pass landing after it, so the held lint core is '
-       + 'released only once that timer has had time to fire. Without the wait the older pass lands first and is '
-       + 'overwritten, and the spec passed vacuously against a guard-less build (measured).',
-  },
-  {
-    file: 'docs/e2e/editor-lint-stale-pass.spec.ts', ms: 1500, count: 1,
-    why: 'ABSENCE ASSERTION (PR #3040): once the held lint core has loaded, the stale pass must put back NO '
-       + 'underline. There is no signal for a diagnostic that must not appear, and a poll of a zero count goes '
-       + 'green on its first tick. The wait is signal-first (the lint core response), then 1500ms for evaluation '
-       + 'and the dispatch. The control arm with the generation guard disabled fails this line 6 of 6 on WebKit '
-       + 'tablet and Gecko, so the assertion can see what it says is absent.',
-  },
-  {
-    file: 'docs/e2e/playground-lint-hidden.spec.ts', ms: 3000, count: 2,
-    why: 'TWO ABSENCE ASSERTIONS: while the Playground editor is hidden (Explore, or a style that hides it '
-       + 'before first paint), the page must NOT request the lint core `esm/lint.js` (followup 2913-p1). There '
-       + 'is no signal for a request that must not happen; a poll of the empty list goes green on its first '
-       + 'tick. 3000ms is several times the linter\'s 350ms delay after the editor mounts; each test\'s POSITIVE '
-       + 'arm (showing the editor) then sees the request or the underline, so the list can see what it says is absent.',
-  },
-  {
-    file: 'docs/e2e/playground-editor-deferred.spec.ts', ms: 3000, count: 1,
-    why: 'ABSENCE ASSERTION: an Explore load must build NO CodeMirror view while the editor is hidden (followup '
-       + '2921-p1). There is no signal for a view that must not appear; a poll of a zero count goes green on its '
-       + 'first tick. 3000ms is longer than the idle build the first sign of a reader would trigger, and the '
-       + 'spec\'s other tests build the view on the switch to Edit and on a pointer move, so the count can rise.',
-  },
-  {
-    file: 'docs/e2e/playground-editor-deferred.spec.ts', ms: 1500, count: 1,
-    why: 'ABSENCE ASSERTION, the quiet period before the pointer move in the warm-up test: no view yet, then a '
-       + 'pointer move must build one. The positive arm (the poll that moves the pointer until `.cm-editor` '
-       + 'appears) is what proves the count can rise (followup 2921-p1).',
+    file: 'docs/e2e/restyle-overlap.spec.ts', ms: 1500, count: 1,
+    why: 'ABSENCE ASSERTION: after the held-back theme file of the OLDER render has finished loading, that render '
+       + 'must change nothing (#2916: it used to take the frame back from the newer one). A stale render that '
+       + 'stands down leaves no signal, and a poll of "still the newer palette" goes green on its first tick. '
+       + 'The wait is signal-first (the slow request finishing), then 1500ms for parse, engine and sheet swap. '
+       + 'The control arm with the guard removed fails this very line on Chromium, so the assertion can see what it says is absent.',
   },
   {
     file: 'docs/e2e/phone-sheet-tap-after-typing.spec.ts', ms: 500, count: 2,
@@ -6427,35 +6398,6 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'is no signal for a toast that must not appear. 4000ms outlasts the restore\'s two-rAF settle '
        + 'and the toast\'s ~1.5s life; the same test\'s POSITIVE arm (their own collapse sets the same '
        + 'MutationObserver flag) proves the observer can see it, and the test fails without the fix.',
-  },
-  {
-    file: 'docs/e2e/read-article-beacons.spec.ts', ms: 3000, count: 2,
-    why: 'TWO ABSENCE ASSERTIONS on a loopback server\'s request log. (1) The Studio\'s Reading view, with '
-       + 'nothing allowed, must fetch NONE of the deck\'s web references (HARD RULE #22). There is no signal '
-       + 'for a request that must not happen; a poll of the empty log goes green on its first tick. 3000ms '
-       + 'covers the article\'s projection, its two blockWebImages passes and any fetch it would wrongly '
-       + 'start; the same test\'s CONTROL arm (after "Load images", the server sees the control image) '
-       + 'proves the log can see a fetch. (2) A drawn Mermaid `click … href` link must not request its '
-       + 'address before a click (followups 2909-p5): the same 3000ms, and the click that follows proves '
-       + 'the log sees that address.',
-  },
-  {
-    file: 'docs/e2e/studio-player-consent.spec.ts', ms: 1500, count: 2,
-    why: 'TWO ABSENCE ASSERTIONS on a loopback server\'s request log: a player file opened with a declared '
-       + 'consent origin must fetch NOTHING before the reader presses "Load pictures", and nothing at all '
-       + 'with scripting off. There is no signal for a request that must not happen; a poll of the empty '
-       + 'log goes green on its first tick. 1500ms covers the player\'s boot, its placeholder pass and '
-       + 'any fetch it would wrongly start; the same test\'s POSITIVE arm (after the click, the server '
-       + 'sees the request and the image decodes) proves the log can see a fetch.',
-  },
-  {
-    file: 'docs/e2e/deck-drop-import.spec.ts', ms: 1000, count: 3,
-    why: 'THREE ABSENCE ASSERTIONS: a PDF dropped on the code editor, on the compose editor and '
-       + 'while presenting must import NOTHING and leave the tab on the Studio. There is no signal '
-       + 'for an import that must not happen; a poll of the unchanged source goes green on its first '
-       + 'tick, before the lazy deck-import chunk could even load. 1000ms covers that chunk, the PDF '
-       + 'read and the debounced source save that a wrong import would cause; the same file\'s '
-       + 'POSITIVE arms show those all land inside it (a real import there is polled, and passes).',
   },
   {
     file: 'docs/e2e/segno-playground.spec.ts', ms: 250, count: 1,
@@ -6484,69 +6426,6 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'it. 2000ms is most of that duration and the notice is then asserted visible. The loop '
        + 'runs it twice (an object flood and a scalar flood), ~4s of the file per project.',
   },
-  {
-    file: 'docs/e2e/stage-placement.spec.ts', ms: 1200, count: 3,
-    why: 'ABSENCE ASSERTIONS on an ASYNC path. `autoPlaceStage` runs off the open gesture as a '
-       + 'promise chain, so "the Stage was never moved" and "the Stage was never fullscreened" '
-       + 'have no signal to poll — a poll goes green on its first tick, before the placement it '
-       + 'is meant to catch could have been attempted. All three are the cases where the correct '
-       + 'behavior is that NOTHING happens: a single screen (which must never take the display '
-       + 'from the console the presenter drives), a refused Window Management permission, and an '
-       + 'engine with no Window Management at all. Everything pollable around them already is — '
-       + 'the popup via `context.waitForEvent(\'page\')`, the deck paint via `not.toBeEmpty()`, '
-       + 'the slide index via `toBeVisible`, and every case where placement SHOULD happen is an '
-       + '`expect.poll` on the recorded call rather than a wait.',
-  },
-  {
-    file: 'docs/e2e/mermaid-post-sanitize.spec.ts', ms: 1500, count: 1,
-    why: 'ABSENCE ASSERTION. The script-vector table injects a payload into a rendered node label '
-       + 'and then asserts `top.__pwned` is still undefined and no request left the frame. The '
-       + 'render itself is polled (data-lattice-settle + the label element); this is the settle '
-       + 'window for an execution that must never come. COUNT SEMANTICS, stated because this gate '
-       + 'counts TEXT matches and its docblock says counts are of WAITS: this single occurrence '
-       + 'sits inside a `for (const v of SCRIPT_VECTORS)` loop and therefore executes once per '
-       + 'vector — NINE times, ~13.5s of the suite. A table-driven loop is the same shape as the '
-       + 'helper-hiding-N-waits case that gate was written for; the `via` mechanism only covers '
-       + 'named helpers, so it is written down here instead.',
-  },
-  {
-    file: 'docs/e2e/mermaid-post-sanitize.spec.ts', ms: 1000, count: 1,
-    why: 'ABSENCE ASSERTION, post-interaction. After clicking a node whose `click` directive '
-       + 'carries a javascript: URL, the assertion is that no navigation and no request followed. '
-       + 'A click has no completion signal when the correct outcome is that nothing happens.',
-  },
-  // ── judged in #1618 ──────────────────────────────────────────────────────────
-  // The 12000ms entry is RETIRED. Its justification claimed a poll "would go green
-  // without ever waking the frozen tab" and that 12s "outlasts several 5s
-  // heartbeats" — the first was a rationalization (the DRIVE signal, how many ticks
-  // the woken page has run, is perfectly pollable even though the ASSERTION is an
-  // absence) and the second was wrong arithmetic (12s is two beats, not several).
-  // The spec now polls the page's own tick counter and then asserts.
-  {
-    file: 'docs/e2e/crash-sentinel.spec.ts', ms: 1500, count: 2,
-    why: 'JUDGED KEEP (crash recording made opt-in). The expected outcome IS "nothing changes": '
-       + 'with the Workspace switch off, a console.error must produce no session record and no tab '
-       + 'mirror, and there is nothing to poll for a write that must never happen — the recorder is '
-       + 'not running, so it has no heartbeat, no listener and no counter to observe. The length is '
-       + 'DERIVED rather than guessed: the only timer that could turn a console error into a write '
-       + 'is the CONSOLE_PERSIST_MS throttle (1000ms in lib/crash-sentinel.ts), so the wait clears '
-       + 'it with margin. If that constant moves, this must move with it. TWO of them: the same '
-       + 'assertion runs once on Chromium and once as a tagged @webkit-phone twin, because the tag '
-       + 'system is per-project and exclusive and this is a privacy control on the engine the '
-       + 'original report came from.',
-  },
-  {
-    file: 'docs/e2e/crash-sentinel.spec.ts', ms: 2000, count: 1,
-    why: 'JUDGED KEEP (#1618, re-judged when the crash toast was retired). The one that remains '
-       + 'is the window during which the page is STOPPED and the other tab wipes: the stopped '
-       + 'page by definition runs nothing to poll, and the length only has to exceed the wipe, '
-       + 'which is a single synchronous storage write. The clean-session wait went with the '
-       + 'toast — "an ordinary visit raises no crash report" is now asserted on the Workspace '
-       + 'row, which is durable state and can simply be awaited. The 3000ms entry that once '
-       + 'stood here is retired with the freeze-observation window it measured — the skip '
-       + 'predicate reads whether the page HEARD the wipe rather than counting ticks.',
-  },
-  // ── judged in #1564 ──────────────────────────────────────────────────────────
   {
     file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 160, count: 1,
     why: 'JUDGED KEEP (#1526). The step interval of a hand-rolled STEPPED scroll that samples the '
