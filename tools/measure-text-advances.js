@@ -36,6 +36,10 @@ const FACES = [
   ['clean-600', 'Outfit', 600, ['assets/fonts/outfit-600.woff2', 'docs/src/playground/fonts/outfit-600.woff2']],
   ['clean-700', 'Outfit', 700, ['assets/fonts/outfit-700.woff2', 'docs/src/playground/fonts/outfit-700.woff2']],
   ['hand-700', 'Shantell Sans', 700, ['assets/fonts/shantell-700.woff2', 'docs/src/playground/fonts/shantell-sans-700.woff2']],
+  // The ledger, poster and festival type sets paint chart text in Inter (lib/core/resolve-typography.js), about 10%
+  // wider than Outfit on a label and up to 4x on a glyph, so no factor on the Outfit rows bills it safely.
+  ['inter-600', 'Inter', 600, ['assets/fonts/inter-600.woff2', 'docs/src/playground/fonts/inter-600.woff2']],
+  ['inter-700', 'Inter', 700, ['assets/fonts/inter-700.woff2', 'docs/src/playground/fonts/inter-700.woff2']],
 ];
 // A row is a string, one character per glyph: the advance in hundredths of an em, rounded UP (a label is never billed
 // narrower than it paints), plus CODE0. A code that would land on DEL or a C1 control (127 to 160) steps past them by

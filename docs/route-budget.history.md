@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-12 — the owner raised one ceiling by 1KB, for the fonts a deck paints in
+
+PR #3131: the adversarial trio found the phone kernel measured chart text in Outfit while the ledger, poster and festival type sets paint it in Inter (about 10% wider on a label, up to 4x on a glyph) and the sketch finish in the hand face, so names could overprint on a phone. The measurement table gains Inter at 600 and 700 (text-advance.generated.js), and the phone path measures in the slide's body face (chart-phone.js `bodyFaceOf`). Measured 260.0KB against the 259.7KB ceiling set below. The owner raised chartKernelsGz's ceiling by 1KB (1,024 bytes) on 2026-11-12, to cover the Inter rows (+0.5KB) and the trio's other fixes in one raise; the soft target is unchanged. Set by hand, for the same reason as the entries below.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelsGz | 231477 | 231477 | +0 | 266913 |
+
 ### 2026-11-12 — the owner raised one ceiling by 1KB, for timelines and graph notes
 
 PR #3131: a timeline too tall for a phone page is drawn whole and scaled, from an estimate of the stacked spine's height (timeline-list.transform.js `tlHeight`, `tlScale`), and notes on a flowchart or state chart read as a list under the drawing on a phone page. The timeline's estimate is about 1.1KB of the union of every chart kernel's closure; 0.3KB was given back by sharing one table of the phone page's spacing steps between the four stacked-height estimates (chart-phone.js `phoneSteps`). Measured 259.4KB against the 258.7KB ceiling set above. The owner raised chartKernelsGz's ceiling by 1KB (1,024 bytes) on 2026-11-12 (decision D1 on the PR); the soft target is unchanged. Set by hand, for the same reason as the entries below.

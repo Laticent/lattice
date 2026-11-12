@@ -966,6 +966,7 @@
     "/Cannot find (?:package|module) '((?:@[^/']+\\/)?[^/']+)/": "safe",
     "/Extension=\"lattice\"/i": "safe",
     "/Target closed|Target crashed|Page crashed|Protocol error|Session closed|Connection closed|browser has disconnected|Navigation failed because|Execution context was destroyed/i": "safe",
+    "/[ \\t\\n\\r\\f]+/": "safe",
     "/[ \\t]#/": "safe",
     "/[ \\t]*$/": "polynomial",
     "/[ \\t]+#.*$/": "polynomial",
