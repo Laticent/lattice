@@ -140,7 +140,7 @@ onEveryEngine('@smoke a phone-photo deck exports small, distinct slide pictures 
 		'<!-- _class: title -->\n\n# Phone photos\n\nExport size',
 		...photos.map((p, i) => `<!-- _class: image -->\n\n\`Photo ${i + 1}\`\n\n## A phone photo beside its caption\n\nThe caption sits beside the photo.\n\n![bg](${p})`),
 	].join('\n\n---\n\n');
-	await pasteIntoEditor(page, deck);
+	await pasteIntoEditor(page, deck, { timeout: DECK_WORK_MS });
 	await expect(railButtons(page)).toHaveCount(PHOTOS + 1, { timeout: DECK_WORK_MS });
 
 	// The Studio found the photo and measured its shape. Before the fix WebKit never did, for any photo over half a megabyte.

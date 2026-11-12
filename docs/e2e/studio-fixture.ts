@@ -1096,12 +1096,18 @@ export function deckEditorText(page: Page): Promise<string | null> {
  * CodeMirror as clipboard data and never enters the DOM. Chromium needs the clipboard permission; Firefox and WebKit let
  * a page in a secure context write it.
  */
-export async function pasteIntoEditor(page: Page, text: string): Promise<void> {
+export async function pasteIntoEditor(page: Page, text: string, opts: { timeout?: number } = {}): Promise<void> {
 	if (page.context().browser()?.browserType().name() === 'chromium') await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 	await page.evaluate((t) => navigator.clipboard.writeText(t), text);
 	await focusEditor(page);
 	await selectAllInEditor(page);
 	await page.keyboard.press('ControlOrMeta+v');
+	// Prove the paste, as setEditorContent proves its insert: a paste that lost the selection or dropped its data fails
+	// here, naming the helper, instead of as a missing slide later. The fingerprint is computed in the page (two numbers
+	// cross the protocol, not the deck).
+	await expect
+		.poll(() => deckEditorFingerprint(page), { message: 'pasteIntoEditor: the editor does not hold exactly the deck it was given', timeout: opts.timeout })
+		.toEqual(fingerprint(text));
 }
 
 /** Below 700px the Studio shows one pane at a time (docs/src/lib/use-breakpoint.ts): the
