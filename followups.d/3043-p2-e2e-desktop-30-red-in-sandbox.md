@@ -47,8 +47,8 @@ left      — each needs a decision, not a test edit:
               - visual.spec.ts:37: the Studio screenshot differs from its committed baseline.
               - workspace-backup-size.spec.ts:85: a 67 MiB backup restores 0 of its 10 reference docs.
             - passed on a re-run with no change, so red only under the full run's load (cause unknown, HARD RULE #32):
-              lenses-landing:33, library-header-search:19, stage-window:335, studio-map-posters:87,
-              supplied-page-position:18, compose-pill-editor:259, read-article-beacons:94.
+              library-header-search:19, stage-window:335, studio-map-posters:87,
+              supplied-page-position:18, compose-pill-editor:259.
             - tablet and mobile, the full projects on the branch: 292 passed, 6 failed, 27 skipped (17.2 m). Each of the
               6 is main's, measured on a clean checkout of main 867e0fff: visual.spec.ts:37 (tablet and mobile),
               ios-zoom.spec.ts:65 and plugin-inline-ui.spec.ts:170 (mobile) fail there every run;
@@ -132,4 +132,7 @@ fixed     — 2026-11-12, branch claude/flaky-e2e-render, each at its cause, wit
               the lazy lint core landed (`withLazyInlineCore`).
             - plugin-admission.spec.ts:168: `image` (#3114) joined the plugins; the expected list is read from the
               manifests.
-
+            - lenses-landing.spec.ts:33 (load only): Present attached its keyboard in a passive effect, after paint, so an
+              Escape on a later open could land before it; now a layout effect. 2 of 20 under load before, 20 of 20 after.
+            - read-article-beacons.spec.ts:94 (load only, now :103): `server.close()` waited for the browser's keep-alive
+              connections; it closes them first. 2 of 10 under load before, 10 of 10 after.

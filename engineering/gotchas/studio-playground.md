@@ -1857,3 +1857,13 @@ never turn "passed in headless" into "works on iOS."
 - **Mitigation** — `startWalk` (`docs/src/components/playground/PlaygroundApp.tsx`) drops a plan that a later pick
   superseded, and a walk started by entering Explore keeps an edited draft, as `setViewMode`'s save-back does once a
   walk exists. `PlaygroundApp.test.tsx` holds the plan fetch to pin it.
+
+## Escape right after Present opens does nothing (a second or later open)
+
+- **Symptom** — Present is on screen with its counter, Escape is pressed and Present stays open; a second Escape works.
+  `e2e/lenses-landing.spec.ts:33` lost 2 of 20 closes with the unit suite running beside it.
+- **Cause** — the overlay attached its `window` `keydown` listener in a passive `useEffect`, which runs after paint and
+  which React may defer to a later task. On the first open the shell's loading-Escape handler covers that gap; on
+  later opens Present is already mounted and nothing did.
+- **Mitigation** — `PresentOverlay.tsx` attaches the listener in `useLayoutEffect`, inside the commit that shows the
+  dialog. A surface whose keys must work the instant it appears binds them in a layout effect.

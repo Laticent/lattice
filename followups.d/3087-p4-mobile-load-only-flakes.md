@@ -43,9 +43,9 @@ desktop   — PR #3102 then ran the full `--project=desktop` suite once (4 worke
             The other 11 pass alone: they fail only under load. Run 4 times each at 4 workers, the 10 that
             are not this PR's own spec failed 3 of 40 on main and 5 of 40 on the PR's build, on the same
             tests (gallery-preview-metamorphic:370, lenses-landing:33, chart-detail-reveal:269 on main;
-            model-spine:155 once on the PR). Load-only on desktop, then: chart-detail-reveal:269,
+            model-spine:155 once on the PR). Load-only on desktop, then:
             compose-soft-break:22, fabricate:311, filo-undo:157, gallery-preview-metamorphic:370,
-            lenses-landing:33, model-spine:155, panel-shells:138, stage-window:168, status-pill:24.
+            model-spine:155, panel-shells:138, stage-window:168, status-pill:24.
 fixed     — 2026-11-10, the Studio startup PR, each at its cause, 24 loaded runs per test (--project=mobile,
             --repeat-each=24, --workers=4, --retries=0), main 50f6f4a against the fix:
             - demo-mobile.spec.ts:535 (now :543), 8 failed on main, 0 after. The test's own sampler counted the
@@ -86,3 +86,6 @@ PR #3140 (2026-11-11) saw `model-spine.spec.ts:155` (`@crosswidth … picking in
 `mobile` again, after the 2026-11-10 fix: a 15 s click timeout in an 8-file, 3-project (desktop, tablet, mobile) run while
 a commit hook ran the full unit suite beside it (44 passed, 1 failed). It passed 2 of 2 alone on the same build, and 1 of 1
 on main. That PR changes narration export and the voice request path, not the chip.
+
+2026-11-12 — chart-detail-reveal:269 and lenses-landing:33 fixed at their causes on branch claude/flaky-e2e-render
+(a Playground walk race that showed a gallery over the draft; Present's keyboard attached after paint); removed above.
