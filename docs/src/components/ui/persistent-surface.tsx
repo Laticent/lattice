@@ -5,7 +5,7 @@ import { DismissableLayer } from "radix-ui/internal"
 import * as React from "react"
 import { createPortal, flushSync } from "react-dom"
 
-import { raisesTouchKeyboard } from "@/components/ui/focus-return"
+import { focusLauncher, raisesTouchKeyboard, tappedLauncher } from "@/components/ui/focus-return"
 import { useEverTrue } from "@/components/ui/keep-mounted"
 import { cn } from "@/lib/utils"
 
@@ -105,6 +105,7 @@ export function PersistentSurface({
   const rootRef = React.useRef<HTMLDivElement>(null)
   const boxRef = React.useRef<HTMLDivElement>(null)
   const returnTo = React.useRef<HTMLElement | null>(null)
+  const launcher = React.useRef<HTMLElement | null>(null)
   const layerRef = React.useRef<HTMLDivElement>(null)
   // COVERED: a menu or select opened from inside the box is a Radix layer ABOVE this one, and it
   // locks out everything beneath it, as a Radix modal does, so a tap outside it only closes it.
@@ -138,6 +139,7 @@ export function PersistentSurface({
     const box = boxRef.current
     if (!root || !box) return
     returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    launcher.current = tappedLauncher()
     // SEEN AGAIN, if a Radix modal hid it. A Radix modal opened after this surface first mounted —
     // the phone's drawer, which is how Add slide is reached there — runs `hideOthers` and marks
     // every child of <body> `aria-hidden`, this root included, because a closed surface is still in
@@ -186,7 +188,9 @@ export function PersistentSurface({
     // e2e on the touch projects, red on main for weeks: followups.d/2927-p18). Focus leaves the
     // box for the page instead, as a tap elsewhere would.
     if (to && raisesTouchKeyboard(to)) {
-      if (unclaimed && box?.contains(active)) (active as HTMLElement).blur()
+      const from = launcher.current
+      launcher.current = null
+      if (unclaimed && !focusLauncher(from) && box?.contains(active)) (active as HTMLElement).blur()
       return
     }
     if (to?.isConnected && unclaimed) to.focus({ preventScroll: true })

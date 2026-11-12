@@ -33,12 +33,14 @@ describe('SheetContent', () => {
 				const editor = screen.getByTestId('editor');
 				editor.focus();
 				// Opened from a control that keeps the editor focused, as Compose's slide bar does.
+				// A real tap: pointerdown, then click. The launcher is what a touch close focuses instead of the editor.
+				if (!fine) fireEvent.pointerDown(screen.getByText('open'));
 				fireEvent.click(screen.getByText('open'));
 				await waitFor(() => expect(screen.getByText('done')).toBeTruthy());
 				fireEvent.click(screen.getByText('done'));
 				await waitFor(() => expect(screen.queryByText('done')).toBeNull());
 				if (fine) expect(document.activeElement, 'a mouse gets its caret back').toBe(editor);
-				else expect(document.activeElement, 'a touch screen got the keyboard back up').not.toBe(editor);
+				else expect(document.activeElement, 'a touch close focuses the control that opened the sheet, not the editor').toBe(screen.getByText('open'));
 				unmount();
 			} finally {
 				window.matchMedia = real;

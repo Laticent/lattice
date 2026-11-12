@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { raisesTouchKeyboard, resetLastInput } from '@/components/ui/focus-return';
+import { focusLauncher, raisesTouchKeyboard, resetLastInput, tappedLauncher } from '@/components/ui/focus-return';
 
 const real = window.matchMedia;
 const pointer = (fine: boolean) => {
@@ -39,6 +39,24 @@ describe('raisesTouchKeyboard', () => {
 		for (const html of ['<textarea></textarea>', '<input>', '<input type="search">', '<div contenteditable="true"></div>', '<div contenteditable=""><p>x</p></div>'])
 			expect(raisesTouchKeyboard(el(html)), html).toBe(true);
 		expect(raisesTouchKeyboard(el('<div contenteditable="true"><p>x</p></div>').firstElementChild as HTMLElement), 'inside an editor').toBe(true);
+	});
+	it('a button in a non-editable bar inside an editor is not text (Compose\'s slide bar)', () => {
+		pointer(false);
+		const bar = el('<div contenteditable="true"><div contenteditable="false"><button>Add</button></div></div>');
+		expect(raisesTouchKeyboard(bar.querySelector('button') as HTMLElement)).toBe(false);
+	});
+	it('remembers the control a tap landed on, and focuses it only while it is on the page and not text', () => {
+		const host = document.createElement('div');
+		host.innerHTML = '<button>launch</button><textarea></textarea>';
+		document.body.append(host);
+		const [button, field] = [host.querySelector('button') as HTMLElement, host.querySelector('textarea') as HTMLElement];
+		button.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+		expect(tappedLauncher()).toBe(button);
+		expect(focusLauncher(button)).toBe(true);
+		expect(document.activeElement).toBe(button);
+		expect(focusLauncher(field), 'a text field is never the fallback').toBe(false);
+		host.remove();
+		expect(focusLauncher(button), 'a launcher that left the page is not focused').toBe(false);
 	});
 	it('is false for controls, read-only fields, and on a fine pointer', () => {
 		pointer(false);

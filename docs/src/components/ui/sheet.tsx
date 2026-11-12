@@ -1,7 +1,7 @@
 import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 import * as React from "react"
-import { raisesTouchKeyboard } from "@/components/ui/focus-return"
+import { focusLauncher, raisesTouchKeyboard, tappedLauncher } from "@/components/ui/focus-return"
 import { usePersistentIds } from "@/components/ui/persistent-surface"
 import { cn } from "@/lib/utils"
 
@@ -89,6 +89,7 @@ function SheetContent({
   // that is gone (a drawer row that launched this sheet) falls back to Radix's own behavior.
   const { onOpenAutoFocus, onCloseAutoFocus } = props
   const returnTo = React.useRef<HTMLElement | null>(null)
+  const launcher = React.useRef<HTMLElement | null>(null)
   return (
     <SheetPortal>
       {overlay && <SheetOverlay className={overlayClassName} />}
@@ -112,6 +113,7 @@ function SheetContent({
         onOpenAutoFocus={(e) => {
           const active = document.activeElement
           returnTo.current = active instanceof HTMLElement && active !== document.body ? active : null
+          launcher.current = tappedLauncher()
           onOpenAutoFocus?.(e)
         }}
         onCloseAutoFocus={(e) => {
@@ -124,8 +126,14 @@ function SheetContent({
           const unclaimed = !active || active === document.body || (box instanceof Node && box.contains(active))
           if (!unclaimed) return
           e.preventDefault()
-          // Not into a text field on a touch screen: it can raise the keyboard (focus-return.ts).
-          if (raisesTouchKeyboard(el)) return
+          // Not into a text field on a touch screen: it can raise the keyboard. The control that opened the sheet
+          // takes focus instead, when it is still there (focus-return.ts).
+          const from = launcher.current
+          launcher.current = null
+          if (raisesTouchKeyboard(el)) {
+            focusLauncher(from)
+            return
+          }
           el.focus({ preventScroll: true })
         }}
       >

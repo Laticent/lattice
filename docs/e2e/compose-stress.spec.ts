@@ -508,7 +508,8 @@ test('@parity inserting from the gallery reveals the new slide, taking focus onl
 	// The reveal itself is unconditional — the new slide is where you are, either way.
 	await expect.poll(() => activeSlide(page)).toBe(2);
 
-	const focused = await page.evaluate(() => !!document.querySelector('.cs-host .ProseMirror')?.contains(document.activeElement));
+	// Focus in the editor's TEXT is what raises a keyboard; a non-editable control of the slide bar does not.
+	const focused = await page.evaluate(() => !!(document.activeElement as HTMLElement | null)?.isContentEditable && !!document.querySelector('.cs-host .ProseMirror')?.contains(document.activeElement));
 	expect(focused, finePointer ? 'a fine pointer should land the caret in the new slide' : 'a coarse pointer must not grab focus (it raises the keyboard)').toBe(finePointer);
 });
 

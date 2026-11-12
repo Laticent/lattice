@@ -120,11 +120,13 @@ describe('PersistentSurface', () => {
 				const editor = screen.getByTestId('editor');
 				editor.focus();
 				// Opened from the editor's own toolbar, which keeps the editor focused (as Compose's slide bar does).
+				// A real tap: pointerdown, then click. The launcher is what a touch close focuses instead of the editor.
+				if (!fine) fireEvent.pointerDown(screen.getByText('gallery'));
 				fireEvent.click(screen.getByText('gallery'));
 				fireEvent.click(screen.getByText('done'));
 				await waitFor(() => expect(dialog()?.hasAttribute('data-hidden')).toBe(true));
 				if (fine) await waitFor(() => expect(document.activeElement, 'a mouse gets its caret back').toBe(editor));
-				else expect(document.activeElement, 'a touch screen got the keyboard back up').not.toBe(editor);
+				else expect(document.activeElement, 'a touch close focuses the control that opened the sheet, not the editor').toBe(screen.getByText('gallery'));
 				unmount();
 			} finally {
 				window.matchMedia = real;
