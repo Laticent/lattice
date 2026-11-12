@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { buildDeckIndex } from '../src/lib/deck-outline/deck-outline';
 import { insertEntry, insertVia, openInsertMenu } from './compose-insert';
 import { expect, gotoStudio, openStripMenu, persistedSource, railButtons, slideCount, stripAction, test } from './studio-fixture';
@@ -171,12 +171,13 @@ async function caretInto(page: Page, i: number): Promise<void> {
 	await expect.poll(() => activeSlide(page), { message: `the caret never landed in slide ${i}` }).toBe(i);
 }
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, browserName }) => {
 	// Clipboard permission for EVERY test, not per-test. `copyAndSettle` polls
 	// `navigator.clipboard.readText()`, which REJECTS without it — and the poll catches the
 	// rejection to `''`, so an ungranted test does not error, it just never observes its own
 	// copy and times out blaming the clipboard. Granting once here removes the whole class.
-	await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+	// Chromium's names: WebKit knows neither, and only the gallery check runs there (@webkit-phone).
+	if (browserName === 'chromium') await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 	await gotoStudio(page);
 	await toCompose(page);
 });
@@ -511,6 +512,48 @@ test('@parity inserting from the gallery reveals the new slide, taking focus onl
 	// Focus in the editor's TEXT is what raises a keyboard; a non-editable control of the slide bar does not.
 	const focused = await page.evaluate(() => !!(document.activeElement as HTMLElement | null)?.isContentEditable && !!document.querySelector('.cs-host .ProseMirror')?.contains(document.activeElement));
 	expect(focused, finePointer ? 'a fine pointer should land the caret in the new slide' : 'a coarse pointer must not grab focus (it raises the keyboard)').toBe(finePointer);
+});
+
+// A sheet opened from a control while the editor has focus, then closed. A mouse gets its caret back in the editor.
+// A tap close on a touch screen must not hand focus back to the editor's text (it can raise the keyboard), so focus goes
+// to the control the opening tap landed on, and a screen reader keeps its place (ui/focus-return.ts, #3150). Both the
+// persistent gallery (PersistentSurface) and a plain sheet (SheetContent) are checked, opened and closed the way the
+// pointer does it: a tap on a touch project, a click on a mouse one.
+async function openAndCloseFromTheEditor(page: Page, launcher: Locator): Promise<{ fine: boolean; onLauncher: boolean; inText: boolean }> {
+	const fine = await page.evaluate(() => window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+	const press = (l: Locator) => (fine ? l.click() : l.tap());
+	await caretInto(page, 1);
+	await press(launcher);
+	const dialog = page.getByRole('dialog').filter({ visible: true }).last();
+	await expect(dialog).toBeVisible();
+	await press(dialog.getByRole('button', { name: /^(Close|Back\b)/ }).first());
+	await expect(dialog).toBeHidden();
+	return page.evaluate((el) => {
+		const a = document.activeElement as HTMLElement | null;
+		return { fine: window.matchMedia('(hover: hover) and (pointer: fine)').matches, onLauncher: a === el, inText: !!a?.isContentEditable };
+	}, await launcher.elementHandle());
+}
+
+test('@parity @crosswidth @webkit-phone closing the add-slide gallery from Compose: a mouse gets its caret back, a tap lands on the launcher', async ({ page }) => {
+	const launcher = composeSlide(page, 1).getByRole('button', { name: 'Add slide below' });
+	const r = await openAndCloseFromTheEditor(page, launcher);
+	if (r.fine) expect(r.inText, 'a fine pointer should get its caret back in the editor').toBe(true);
+	else {
+		expect(r.inText, 'a coarse pointer must not land focus in the editor text (it can raise the keyboard)').toBe(false);
+		expect(r.onLauncher, 'a tap close focuses the control that opened the gallery').toBe(true);
+	}
+});
+
+test('@parity closing a plain sheet (Version history) opened from Compose lands focus on its button, never in the editor text', async ({ page }) => {
+	const launcher = page.getByRole('button', { name: 'Version history', exact: true }).filter({ visible: true }).first();
+	// A phone reaches Version history through the menu, not a header button; this check is for the widths that show it.
+	test.skip(!(await launcher.isVisible()), 'no Version history button at this width');
+	// A header button takes focus when pressed, unlike the gallery's launcher in the slide bar (which keeps the editor
+	// focused, so the gallery test above is the one that reaches the touch fallback). Either way the sheet must leave
+	// focus on the button that opened it: back on it with a mouse, and never in the editor's text after a tap.
+	const r = await openAndCloseFromTheEditor(page, launcher);
+	expect(r.inText, 'focus must not land in the editor text').toBe(false);
+	expect(r.onLauncher, 'focus is back on the button that opened the sheet').toBe(true);
 });
 
 // ── The fuzz walk itself ────────────────────────────────────────────────────
