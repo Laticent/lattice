@@ -12,7 +12,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 
 ## Agent contract
 
-**Capacity** ~4 columns (over 5 overflows) — past that, split across slides. Columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; on a phone page the horizons cards stack and paginate between whole cards instead.
+**Capacity** ~4 columns (over 5 overflows) — past that, split across slides. Columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; at portrait the horizons cards paginate instead (one card per page since #2016 — the four-page budget it used to name is gone).
 
 **By venue** (`venue:`, ~12 words each) it holds laptop ~5 · huddle ~5 · conference ~5 · hall ~5 columns. No venue goes past the Capacity max of 5, which holds in every room. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
@@ -40,7 +40,7 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 
 ### Data shape
 
-- On a portrait, story or mobile page the roadmap is set as phase cards, one per phase, stacked full width, each workstream on its own full-width row under the phase name. A roadmap that fits the page stays one page; one that does not continues on the next page, cut between whole phases and balanced across as few pages as it needs, with the status key on every page. Short workstream values keep each row to one line, so more phases fit a page.
+- On a portrait, story or mobile page the roadmap is set as phase cards, and on a narrow slide (under about 70 characters a line) the cards stack full width at their natural height, each workstream on its own full-width row under the phase name. A square page keeps the table unless the deck asks for `horizons`.
 
 ## When to use
 
