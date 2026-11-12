@@ -19,4 +19,16 @@ Leads, not verified: the word joined the step before it (the probe restores the 
 different step than the word, or the undo landed after 3 s on a loaded simulator. Next: have the probe log Filo's top
 history entry and the deck text at the miss, and how long after the command the text changed, if it did.
 
+2026-11-12 (PR #3156): the probe now records a miss (`undo-probe.js`, the doorbell rows): it keeps watching 15 s, then
+reads Filo's stored undo and redo tops. Dispatch 43241110666 caught one on the iPhone, row #1: the `historyUndo` was
+prevented (Filo took the command), the deck text was UNCHANGED after 15 s, and Filo's store held the typed word's step on
+its REDO list (`undone top Typing/markdown (25..25, last 19576 ms ago)`, `done 1`). So it is not the probe's wait: Filo
+moved the step to undone and the editor never received the text that undo produced. The iPad's three rows passed.
+Leads, read but not reproduced: (a) the editor's value sync skips a `source` that `isStaleEditorEcho` calls one of
+its own trailing emissions (Editor.tsx, StudioShell.tsx); `setSourceFromHistory` clears that list, so the undo's text
+should pass, unless a typing transition still in flight lands after the history write; (b) `catchUpEditor` writes the
+editor's newest emission straight to `source` with no Filo commit, which would put the typed text back while Filo's redo
+list keeps the step, exactly as seen. Next: at a miss, log Filo's head text, the shell's `source`, the editor's text and
+`editorEchoesRef`, which tells (a) from (b).
+
 done when — the probe names what Filo undid at a miss, and the cause is fixed or shown to be the probe's own wait.
