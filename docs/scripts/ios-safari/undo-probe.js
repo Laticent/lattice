@@ -100,6 +100,46 @@ function undoProbeKit(result) {
 		f.addEventListener('load', () => frameEvent(`load ${tag(f)}`));
 	};
 	for (const f of document.querySelectorAll('iframe')) watchFrame(f);
+	// WHAT DROPS A LIVE FRAME (followups.d/3040-p4). A second live frame means the preview's host lost its first one.
+	// Record each removal of a node that is, or holds, an `iframe.live`: the node removed (the frame itself, or the
+	// ancestor whose subtree went, by class) and the call stack that removed it, so a run names the remount's cause.
+	const liveIn = (n) => (n && n.nodeType === 1 ? (n.matches?.('iframe.live') ? [n] : [...(n.querySelectorAll?.('iframe.live') || [])]) : []);
+	const removals = [];
+	const noteRemoval = (node, how) => {
+		const live = liveIn(node);
+		if (!live.length) return;
+		const what = node.tagName === 'IFRAME' ? 'the frame' : `${node.tagName.toLowerCase()}.${String(node.className || '').trim().split(/\s+/).slice(0, 3).join('.') || '(no class)'}`;
+		const stack = String(new Error().stack || '').split('\n').slice(2, 10).map((l) => l.trim().replace(/https?:\/\/[^/]+/, '')).join(' < ');
+		removals.push(`${how} ${what} holding ${live.map(tag).join(',')}: ${stack}`);
+		frameEvent(`removed ${live.map(tag).join(',')} via ${how} of ${what}`);
+	};
+	for (const [proto, name, pick] of [
+		[Node.prototype, 'removeChild', (self, args) => args[0]],
+		[Node.prototype, 'replaceChild', (self, args) => args[1]],
+		[Element.prototype, 'remove', (self) => self],
+	]) {
+		const orig = proto[name];
+		proto[name] = function (...args) {
+			try {
+				noteRemoval(pick(this, args), name);
+			} catch {
+				// the probe must never break the page it watches
+			}
+			return orig.apply(this, args);
+		};
+	}
+	for (const [proto, name] of [[Element.prototype, 'replaceChildren'], [Element.prototype, 'replaceWith']]) {
+		const orig = proto[name];
+		proto[name] = function (...args) {
+			try {
+				if (name === 'replaceWith') noteRemoval(this, name);
+				else for (const c of this.children) noteRemoval(c, name);
+			} catch {
+				// as above
+			}
+			return orig.apply(this, args);
+		};
+	}
 	new MutationObserver((list) => {
 		for (const m of list) {
 			if (m.type === 'attributes' && m.target.tagName === 'IFRAME') frameEvent(`${m.attributeName} ${tag(m.target)}`);
@@ -265,7 +305,28 @@ function undoProbeKit(result) {
 		removeEventListener('focusout', onFocus, true);
 		return flip;
 	};
-	return { step, sleep, until, button, deckText, said, focusEnd, type, command, storedTexts, ready, snapshot, watchUndo, framesSince };
+	/** The top of each stored history's undo and redo lists (label, origin, age), for a miss to name what Filo held. */
+	const storedTops = () =>
+		new Promise((resolve) => {
+			const req = indexedDB.open('lattice-filo');
+			req.onerror = () => resolve('no store');
+			req.onsuccess = () => {
+				const db = req.result;
+				if (!db.objectStoreNames.contains('histories')) {
+					db.close();
+					resolve('no histories');
+					return;
+				}
+				const all = db.transaction('histories', 'readonly').objectStore('histories').getAll();
+				const fmt = (st) => (st ? `${st.label}/${st.origin} (${st.first?.id}..${st.last?.id}, last ${Math.round(Date.now() - (st.last?.ts || 0))} ms ago)` : 'none');
+				all.onsuccess = () => {
+					db.close();
+					resolve(all.result.map((r) => `done ${r.snap?.done?.length ?? '?'} top ${fmt(r.snap?.done?.at(-1))}; undone top ${fmt(r.snap?.undone?.at(-1))}`).join(' || ') || 'empty');
+				};
+				all.onerror = () => resolve('unreadable');
+			};
+		});
+	return { step, sleep, until, button, deckText, said, focusEnd, type, command, storedTexts, storedTops, ready, snapshot, watchUndo, framesSince, removals };
 }
 
 async function latticeUndoProbe() {
@@ -434,15 +495,36 @@ async function latticeUndoProbe() {
 			const rearmed = document.queryCommandEnabled('undo');
 			const focusKept = document.activeElement === ed;
 			const caretAfter = getSelection().rangeCount ? `${getSelection().getRangeAt(0).startOffset}` : 'none';
+			const typed = k.deckText();
 			const fired = await k.command('undo');
+			const sent = performance.now();
 			const undone = await k.until(() => k.deckText() === pasted, 3000, 'bell undo').then(() => true, () => false);
+			// A MISS (followups.d/3040-p3): name what happened instead. Keep watching for 15 s: did the text change late,
+			// and to what? Then the top of Filo's stored history, which says which step it held at the miss.
+			let miss = '';
+			if (!undone) {
+				let changedAt = -1;
+				await k.until(() => k.deckText() !== typed, 15000, 'any change').then(() => (changedAt = Math.round(performance.now() - sent)), () => {});
+				const now = k.deckText();
+				const diff = (a, b) => {
+					let p = 0;
+					while (p < a.length && p < b.length && a[p] === b[p]) p++;
+					let q = 0;
+					while (q < a.length - p && q < b.length - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q++;
+					return `${JSON.stringify(a.slice(p, a.length - q))} -> ${JSON.stringify(b.slice(p, b.length - q))} at ${p}`;
+				};
+				miss = ` | MISS: text ${changedAt < 0 ? 'unchanged after 15 s' : `changed ${changedAt} ms after the command`}; from typed ${diff(typed, now)}; ${now === pasted ? 'now equals the deck before the word' : 'not the deck before the word'}; filo ${await k.storedTops()}`;
+			}
 			await k.sleep(300);
-			bellRows.push(`#${r + 1}: after the wipe undo ${rearmed}; focus kept ${focusKept}; caret ${caretBefore}→${caretAfter}; command ${fired || 'NONE'}; undid the word ${undone}; enabled after ${document.queryCommandEnabled('undo')} | ${(result.events || []).at(-1)}`);
+			bellRows.push(`#${r + 1}: after the wipe undo ${rearmed}; focus kept ${focusKept}; caret ${caretBefore}→${caretAfter}; command ${fired || 'NONE'}; undid the word ${undone}; enabled after ${document.queryCommandEnabled('undo')} | ${(result.events || []).at(-1)}${miss}`);
 			await restoreDeck();
 		}
 		for (const f of labFrames) f.remove();
 		const rung = bellRows.filter((r) => /undo true; focus kept true;.* command historyUndo; undid the word true/.test(r)).length;
 		k.step(`doorbell: ${rung} of ${bellRows.length} frame wipes re-armed WebKit's undo, reached Filo and kept focus`, true, `\n    ${bellRows.join('\n    ')}`);
+		// Recorded, not asserted (followups.d/3040-p4): every removal of a live preview frame so far, with what went and
+		// the stack that removed it. The probe's own lab frames are not `.live`, so each row here is the Studio's.
+		k.step(`live preview frames removed: ${k.removals.length}`, true, k.removals.length ? `\n    ${k.removals.join('\n    ')}` : '');
 
 		// FIELD CHECK (the doorbell's open question, PR #3040). After a ring, the top of WebKit's undo list is the bell's
 		// own step. Move focus to a plain text field the Studio does not own, with no edits of its own, and send WebKit's
