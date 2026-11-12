@@ -124,3 +124,29 @@ The same 50 slides with **no photos** export in PDF 28 s, images 67 s, print 120
 blocking. That cost is the capture pipeline itself (drawing each slide, resampling and JPEG-encoding on the main
 thread), photo-independent and older than this change. With photos, about 3.4 s of the PDF's remaining overhead is
 the real resample and encode of the 18 photos, which sets the output bytes. Options, measured, are in the PR.
+
+## 7. The capture exports without photos: where 50 slides go (design, owner-confirmed scope)
+
+The owner chose to take this on in the same PR ("Everything in this PR"). Measured on the same deck with its photos
+removed (dev server, Chromium, CPU profiles and an instrumented `Blob`):
+
+| Export | Wall | Where it goes |
+|---|---|---|
+| PDF | 26 s | 7.4 s before the first shot (render, capture frame, fonts, diagrams, chart flatten) · 17.5 s for 50 shots, ~350 ms each · ~1.2 s compose |
+| Print (Download PDF) | 110 s | **51 s in jsPDF's own deflate**: `addImage` decodes each slide's PNG and compresses it again in script, on this thread (`assembleSheetPdf`) · the shots as above |
+| Images, PowerPoint | 57 s, 34 s | the shots (`drawSlide` ~9 s of rasterizing) and idle waits between them |
+
+**Why a shot costs ~350 ms.** The camera (`lib/core/slide-camera.mjs`) draws each slide as an SVG `foreignObject`
+image, and every slide's SVG is **2.0 MB**: 1.3 MB of it is the WHOLE page stylesheet and 0.67 MB is 26 embedded
+font faces (11 of them emoji slices), the same on every slide. The browser parses and matches 100 MB of CSS and
+fonts per export.
+
+**Moves, byte-identical first:**
+1. Print: run jsPDF's sheet assembly off the main thread (same library, same bytes): the 51 s stops freezing the
+   page. Faster still, and NOT byte-identical: hand jsPDF the already-deflated image stream, or compose sheets with
+   `pdf-compose` as the PDF export does. That changes the file and goes to the owner with rendered artifacts.
+2. Per-slide sheet: give each shot only the rules and faces its slide can use, with a gate that the slide's pixels
+   are identical to the full-sheet shot (the same discipline as the player prune's computed-style gate).
+3. The 7.4 s before the first shot: profile and cut, unchanged output.
+4. Photos: resample and JPEG-encode in a worker (same kernels, same bytes); carry photos by reference to the webpage
+   file's sink (680 MB toward ~250 MB).
