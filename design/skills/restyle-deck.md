@@ -92,7 +92,7 @@ for that slide.
   slide in the deck's theme and color mode. "Slide settings" (rail,
   "Slide") holds one slide's look. The chat can set a key with
   `set_front_matter` after reading it with `read_front_matter`.
-- **Commands**: `npm run lint:deck -- <file>`; `npx lattice deck.md deck.pdf`.
+- **Commands**: `npm run lint:deck -- <file>`; `npx @laticent/lattice deck.md deck.pdf`.
 
 ---
 

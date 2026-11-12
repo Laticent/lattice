@@ -43,6 +43,10 @@ install it globally with `npm install -g @laticent/lattice` and type `lattice`):
 the unscoped `lattice` package on npm belongs to someone else, so a bare
 `npx lattice` in an empty folder downloads that package instead.
 
+Installed, the command also answers to `lat`, for less typing: `lat deck.md deck.pdf`.
+The same caution applies, since `lat` on npm is someone else's package too. Type `lat`
+after an install, never `npx lat` in a folder without Lattice.
+
 To check it works, ask for the version:
 
 ```sh

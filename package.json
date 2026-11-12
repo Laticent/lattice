@@ -25,7 +25,8 @@
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "main": "lib/engine/index.js",
   "bin": {
-    "lattice": "dist/lattice.js"
+    "lattice": "dist/lattice.js",
+    "lat": "dist/lattice.js"
   },
   "exports": {
     ".": "./lib/engine/index.js",
@@ -366,6 +367,7 @@
     "lint:coverage": "node tools/check-lint-coverage.js",
     "lint:coverage:bless": "node tools/check-lint-coverage.js --bless",
     "lint:deck": "node tools/lint-deck.js",
+    "scan:skills": "bash tools/scan-skills.sh",
     "lint:deck:all": "node tools/lint-deck.js --all --strict",
     "export:marp": "node tools/export-marp.js",
     "audit:hygiene": "node tools/audit-queue-hygiene.js",

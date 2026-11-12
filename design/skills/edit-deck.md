@@ -84,7 +84,7 @@ deck already uses it, and don't strip `---` lines from a deck that has them.
   - `npm run lint:deck -- --fix <file>` — applies every machine fix in place.
   - `npm run new:slide -- <name>` — prints a component's skeleton when a split
     needs a different component.
-  - `npx lattice <file>.md <file>.pdf` — render and look.
+  - `npx @laticent/lattice <file>.md <file>.pdf` — render and look.
 - **In the Studio**: the slide strip moves, duplicates and deletes slides
   (keys below), and the command palette (⌘K / Ctrl+K) has "Move slide left",
   "Move slide right", "Duplicate slide" and "Delete slide". ⌘Z / Ctrl+Z undoes
@@ -135,7 +135,7 @@ deck already uses it, and don't strip `---` lines from a deck that has them.
    slides you touched. Suggestions on untouched slides are not yours to fix
    unless asked; mention them instead.
 
-7. **Render and look** (`npx lattice deck.md deck.pdf`). Check the reorder
+7. **Render and look** (`npx @laticent/lattice deck.md deck.pdf`). Check the reorder
    reads as a story and no slide clips.
 
 ---

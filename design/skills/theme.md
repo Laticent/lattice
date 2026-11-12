@@ -88,10 +88,10 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
   - `npm run new:theme <name>` — copies `indaco.css` (a correct three-layer block),
     rewrites `@theme`, stamps a `TODO(palette):` checklist (see the warning above about
     its stale prose), and stamps the `<name>-dark.css` wrapper.
-  - `npx lattice test/integration/baseline-decks/gallery.md /tmp/x.pdf
+  - `npx @laticent/lattice test/integration/baseline-decks/gallery.md /tmp/x.pdf
     -p <name>` — render a broad component gallery in your palette (`-p`/`--palette`
     overrides the deck's `theme:`).
-  - `npx lattice examples/diagram-narration.md /tmp/x.pdf -p <name>` —
+  - `npx @laticent/lattice examples/diagram-narration.md /tmp/x.pdf -p <name>` —
     verify Mermaid diagram colors.
   - `node tools/contrast-audit.js`, `node tools/cvd-audit.js` — contrast tooling.
 
@@ -251,7 +251,7 @@ reads, so it takes the AA text floor, not the 3:1 graphical one; an exemption fo
 "deliberately quiet" tokens was tried and removed, because de-emphasis is about
 where a token sits *relative to the code* and the floor is about whether it can be
 read at all. Comment and punctuation must also not **collapse** into each other
-(OKLab ΔE ≥ 0.010, the same anti-collapse floor `--cat-*` uses). Solve a failing
+(OKLab distance deltaE ≥ 0.010, the same anti-collapse floor `--cat-*` uses). Solve a failing
 value with `ensureContrast` (`lib/core/color.js`) — OKLCH, hue and chroma held —
 rather than by eye. Also define **all 12**
 `--cat-N-fill` / `--cat-N-mark` pairs (the skeleton shows only cat-1); `--text-display`,
