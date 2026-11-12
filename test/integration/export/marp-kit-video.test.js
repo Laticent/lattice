@@ -16,6 +16,7 @@
  */
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const path = require('node:path');
 const fs = require('node:fs');
 const { marpCli } = require('../../helpers/marp-cli');
@@ -123,7 +124,8 @@ describe('an @video record in a hand-written Marp kit deck — real marp-cli, re
   after(async () => { if (browser) await browser.close(); });
 
   test('the engine handed the records over in one inert block, read from the Markdown', (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const blocks = html.match(/<script type="application\/lattice-video-records">[^<]*<\/script>/g) || [];
     assert.equal(blocks.length, 1, 'one block');
     // The block's text, by position: it is the engine's own fixed block, so no tag pattern is needed to find its body.
@@ -136,7 +138,8 @@ describe('an @video record in a hand-written Marp kit deck — real marp-cli, re
   });
 
   test('a record on a video slide draws the poster figure inside the layout card, linked to the watch page', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const s1 = await page.$eval('section[id="1"]', (s) => ({
       card: !!s.querySelector('.video-card > .video-head h2'),
       figure: s.querySelector('.video-card figure.video-embed[data-lattice-media="video"]')?.dataset.provider,
@@ -157,7 +160,8 @@ describe('an @video record in a hand-written Marp kit deck — real marp-cli, re
   });
 
   test('a hostile address draws no link to its host', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const hosts = await page.$$eval('a[href^="http"]', (as) => as.map((a) => new URL(a.getAttribute('href')).hostname));
     assert.deepEqual(hosts.filter((h) => h === 'evil.example' || h.endsWith('.evil.example')), []);
     for (const h of hosts) assert.match(h, /(^|\.)(youtube\.com|tiktok\.com|vimeo\.com)$/, h);
@@ -166,7 +170,8 @@ describe('an @video record in a hand-written Marp kit deck — real marp-cli, re
   });
 
   test('a span the Markdown did not write as a record, or one inside a plugin subtree, stays code', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const s3 = await page.$eval('section[id="3"]', (s) => ({
       figures: s.querySelectorAll('figure').length,
       inPlugin: s.querySelector('[data-lattice-plugin] code')?.textContent.startsWith('@video{'),
@@ -178,12 +183,14 @@ describe('an @video record in a hand-written Marp kit deck — real marp-cli, re
   });
 
   test('a record alone in a list item draws in the item, as the engine nests it', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     assert.equal(await page.$eval('section[id="4"]', (s) => s.querySelector('li > figure[data-lattice-media="video"]')?.dataset.provider), 'vimeo');
   });
 
   test('a video card on the LAST slide leaves the deck footer outside the card (red team, 2026-11-10)', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const last = await page.$eval('section[id="5"]', (s) => ({
       card: !!s.querySelector('.video-card figure'),
       footerInCard: !!s.querySelector('.video-card footer'),
@@ -193,7 +200,8 @@ describe('an @video record in a hand-written Marp kit deck — real marp-cli, re
   });
 
   test('the page asks the network for nothing', (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     assert.deepEqual(offsite, []);
   });
 });
@@ -242,7 +250,8 @@ describe('the VS Code channel: records from the saved deck, after the first pass
   });
 
   test('the late records draw, and the card is composed once, over the slide as the host wrote it', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const s1 = await page.$eval('section[id="1"]', (s) => ({
       cards: s.querySelectorAll('.video-card').length,
       stages: s.querySelectorAll('.cell-stage').length,
@@ -254,7 +263,8 @@ describe('the VS Code channel: records from the saved deck, after the first pass
   });
 
   test('it read only the deck and its own files', (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     assert.deepEqual(offsite, []);
   });
 });

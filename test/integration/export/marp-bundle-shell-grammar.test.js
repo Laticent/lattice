@@ -18,6 +18,7 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
@@ -119,7 +120,8 @@ describe('Export to Marp and the code plugin — real marp-cli', () => {
   });
 
   test('the bundle colors each command as a built-in and each flag as a parameter', (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     for (const cmd of ['npm', 'docker', 'kubectl']) {
       assert.match(withConfig, new RegExp(`<span class="hljs-built_in">${cmd}</span>`), cmd);
     }
@@ -129,13 +131,15 @@ describe('Export to Marp and the code plugin — real marp-cli', () => {
   });
 
   test('stock Marp does not, so the config is what colors the block', (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     assert.doesNotMatch(stock, /hljs-params/);
     assert.doesNotMatch(stock, /<span class="hljs-built_in">(?:npm|docker|kubectl)<\/span>/);
   });
 
   test('a fence on a plain slide sits on the code panel, as it does in the engine', (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     assert.equal(panel.bg, panel.want, 'the <pre> paints --code-bg');
     assert.notEqual(panel.bg, panel.slide, 'and that is not the slide background');
   });
@@ -143,7 +147,8 @@ describe('Export to Marp and the code plugin — real marp-cli', () => {
   // Not a marp-cli question, but this file already runs the CLI export: the bundle's deck carries no
   // record line (withoutCodeRecords), since Marp has no rule that reads one.
   test('the exported deck carries the block and no record line', (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     assert.match(exported, /```ts\nconst a = \{ b: 1 \};\n```/);
     assert.doesNotMatch(exported, /@code\{/);
   });

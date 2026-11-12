@@ -16,6 +16,7 @@
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipWithoutChrome } = require('../../helpers/chrome');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -118,8 +119,9 @@ function census() {
 
 test('the engine keyline yields to the spectrum bar on exactly the sides the bar is the edge', { timeout: TIMEOUT }, async (t) => {
 	const executablePath = resolveChrome();
-	if (!executablePath) {
-		t.skip('no Chromium in this environment');
+	const why = skipWithoutChrome(executablePath);
+	if (why) {
+		t.skip(why);
 		return;
 	}
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-edge-census-'));

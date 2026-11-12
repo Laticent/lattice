@@ -85,6 +85,7 @@ describe('calco refusal budget', () => {
 
   for (const deck of DECKS) {
     test(`${deck}: no more refusals or pictures than the budget, and no fewer shapes`, (t) => {
+      // ci-skip: an opt-in mode. No workflow sets CALCO_REFUSALS_BLESS; a person sets it to re-bless the budget file.
       if (BLESS) return t.skip('blessing');
       const budget = JSON.parse(fs.readFileSync(BUDGET, 'utf8'))[deck];
       assert.ok(budget, `no budget for ${deck}: bless it`);

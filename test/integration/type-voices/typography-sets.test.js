@@ -29,6 +29,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -82,7 +83,7 @@ async function auditOne(theme, mode, typography) {
 
 const distBuilt = fs.existsSync(path.join(ROOT, 'dist', 'lattice.js'));
 
-test('every palette theme × every typography set keeps the type study\'s rules, light and dark', { skip: !distBuilt && 'needs `npm run build` (dist/lattice.js)' }, async () => {
+test('every palette theme × every typography set keeps the type study\'s rules, light and dark', { skip: skipUnlessCI(!distBuilt, 'needs `npm run build` (dist/lattice.js)') }, async () => {
   const jobs = [];
   for (const theme of THEMES) for (const mode of MODES) for (const set of TYPOGRAPHY_NAMES) jobs.push({ theme, mode, set });
   assert.ok(THEMES.length >= 14, `expected the 14 palette themes, found ${THEMES.length}: ${THEMES.join(', ')}`);
@@ -107,7 +108,7 @@ test('every palette theme × every typography set keeps the type study\'s rules,
 // THE ARM THAT PROVES THE GATE CAN FAIL. Put the eyebrow back in the chrome's voice (mono
 // capitals at chrome size and ink, today's look before the sets) and the same check must report
 // the zero-axis pair the study found, or the green above means nothing.
-test('the gate fails when the eyebrow speaks in the chrome voice', { skip: !distBuilt && 'needs `npm run build` (dist/lattice.js)' }, async () => {
+test('the gate fails when the eyebrow speaks in the chrome voice', { skip: skipUnlessCI(!distBuilt, 'needs `npm run build` (dist/lattice.js)') }, async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'type-voice-arm-'));
   const css = path.join(dir, 'mono-eyebrow.css');
   fs.writeFileSync(css, 'section p:has(> code:only-child):has(+ h2) > code { font-family: var(--font-mono) !important; font-style: normal !important; text-transform: uppercase !important; font-size: var(--chrome-fs) !important; font-weight: 500 !important; color: var(--text-muted) !important; letter-spacing: 0.08em !important; }\n');
