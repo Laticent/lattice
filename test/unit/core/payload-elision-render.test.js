@@ -13,7 +13,9 @@ const elision = require('../../../lib/core/payload-elision.js');
 
 const realElide = elision.elidePayloads;
 let skipping = true;
-elision.elidePayloads = (...args) => (skipping ? realElide(...args) : null);
+// A test may reshape what the kernel hands the engine, to reach a guard no real deck reaches on its own.
+let tamper = (cut) => cut;
+elision.elidePayloads = (...args) => (skipping ? tamper(realElide(...args), args) : null);
 const { createEngine } = require('../../../lib/engine/index.js');
 const { blockWebImages } = require('../../../lib/core/remote-ref.js');
 
@@ -113,6 +115,25 @@ describe('engine render: a photo payload is skipped and put back byte for byte',
 		);
 		assert.deepEqual(door.on, door.off);
 		assert.ok(seen.every((h) => !h.includes('LatticeElidedPayload')), 'a package was handed a stand-in');
+	});
+
+	test('a stand-in that reaches a field other than a string is never returned: the whole text is rendered', () => {
+		// The engine puts payloads back in its string fields only. A stand-in in `diagnostics` (here a plugin name the
+		// front matter quotes, cut everywhere and with `standIns` emptied so the html check above it passes) must send the
+		// render to the whole text instead of returning the marker.
+		tamper = (cut, [source, opts]) => {
+			const wide = realElide(source, { ...opts, imageLinesOnly: false });
+			return wide && { ...wide, standIns: [] };
+		};
+		try {
+			const deck = `---\nplugins: ["=data:image/png;base64,${LONG}"]\n---\n\n# A\n`;
+			const { on, off } = bothWays(() => engine.render(deck));
+			assert.ok(JSON.stringify(off.diagnostics).includes(LONG), 'the diagnostic quotes the payload');
+			assert.ok(!JSON.stringify(on).includes('LatticeElided'), 'a stand-in came back in the render');
+			assert.deepEqual(on, off);
+		} finally {
+			tamper = (cut) => cut;
+		}
 	});
 });
 

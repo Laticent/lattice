@@ -2,7 +2,7 @@
 // skipped by the Studio's readers and folded by its editor.
 import elision from '../../../lib/core/payload-elision.js';
 
-type Elided = { text: string; restore: <T>(findings: T[]) => T[]; restoreAll: <T>(value: T) => T };
+type Elided = { text: string; standIns: string[]; lost: number[]; restoreText: (s: string) => string };
 
 const kernel = elision as {
 	elidePayloads: (text: string) => Elided | null;

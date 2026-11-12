@@ -12,6 +12,7 @@ elision.elidePayloads = (...args) => (skipping ? realElide(...args) : null);
 const core = require('../../../lib/authoring/lint-core.js');
 const review = require('../../../lib/authoring/review-core.js');
 const { buildVocab } = require('../../../lib/authoring/lint.js');
+const { restoreValue } = require('../../../lib/authoring/elided-findings.js');
 
 const { readStats, MIN_PAYLOAD, payloadRanges } = elision;
 
@@ -138,12 +139,13 @@ describe('payload elision: what counts as a payload', () => {
 		assert.ok(standIn.startsWith(run.slice(0, 900)) && standIn.endsWith('LatticeElidedPayload0x'));
 		assert.equal(cut.text, `a\n![x](data:image/png;base64,${standIn})\nb`);
 		assert.equal(cut.text.split('\n').length, src.split('\n').length, 'lines are kept');
-		assert.deepEqual(cut.restoreAll({ line: cut.text, nested: [standIn], n: 3 }), { line: src, nested: [`${run}Zg==`], n: 3 });
+		assert.equal(cut.restoreText(cut.text), src);
+		assert.deepEqual(restoreValue({ line: cut.text, nested: [standIn], n: 3 }, cut.restoreText), { line: src, nested: [`${run}Zg==`], n: 3 });
 	});
 
 	test('a marker with no payload of its number is left as it is; a deck that holds the marker is read whole', () => {
 		const cut = elision.elidePayloads(`![x](data:image/png;base64,${run})`);
-		assert.equal(cut.restoreAll('<p>LatticeElidedPayload7x</p>'), '<p>LatticeElidedPayload7x</p>');
+		assert.equal(cut.restoreText('<p>LatticeElidedPayload7x</p>'), '<p>LatticeElidedPayload7x</p>');
 		assert.equal(elision.elidePayloads(`LatticeElidedPayload0x\n![x](data:image/png;base64,${run})`), null);
 		assert.equal(elision.elidePayloads('# A deck\n\nNo pictures.'), null);
 	});
