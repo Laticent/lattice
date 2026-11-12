@@ -80,9 +80,11 @@ const bar = (page: Page) => page.locator('.cs-slide-active');
 
 /**
  * Put the caret at the end of "Shipped " (offset 8), checking where it is after each press, then step once more onto
- * the pill. Counting nine presses was flaky (F3, engineering/decisions/2026-11-06-flaky-tests.md): about one run in
- * four, the first ArrowRight after the click and Home left the caret where it was (traced, #3136's follow-up), so the
- * ninth press ended on text. The last step is still a real ArrowRight that must select the pill.
+ * the pill. Counting exactly nine presses was flaky under the full suite's load: now and then the first ArrowRight after
+ * the click and Home leaves the browser's caret where it was, on the same text node at offset 0 (traced in #3150:
+ * once in 240 runs alone; its cause is open in followups.d/3150-p2). So the walk forgives ONE lost press and no more:
+ * eight steps take at most nine presses, and a regression that drops keys still fails here. The last step is still a
+ * real ArrowRight that must select the pill.
  */
 async function walkOntoFirstPill(page: Page): Promise<void> {
 	const offset = () => page.evaluate(() => {
@@ -90,7 +92,7 @@ async function walkOntoFirstPill(page: Page): Promise<void> {
 		return s?.anchorNode?.nodeType === Node.TEXT_NODE && s.anchorNode.textContent === 'Shipped ' ? s.anchorOffset : -1;
 	});
 	for (let presses = 0; (await offset()) !== 8; presses++) {
-		expect(presses, 'the caret reaches the end of "Shipped " within 16 presses').toBeLessThan(16);
+		expect(presses, 'eight steps to the end of "Shipped " take at most nine presses (one lost press forgiven)').toBeLessThan(9);
 		await pressSettled(page, 'ArrowRight');
 	}
 	await pressSettled(page, 'ArrowRight');

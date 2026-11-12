@@ -5,7 +5,7 @@ recorded: 2026-11-12
 area: website
 severity: medium
 swimlane: engineering/decisions/2026-10-13-compose-inline-notation-editors.md
-deferred: large — a product bug in how the open object editor tracks its target, found by an e2e; it needs its own trace and fix, not a test change
+deferred: off-path — product code (InlineObjectEditor.tsx, inline-objects.ts) this test-only PR does not touch, did not cause and does not worsen; it needs its own trace of the race
 source: https://github.com/Laticent/lattice/pull/3150
 ---
 
