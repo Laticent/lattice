@@ -143,6 +143,11 @@ export const STUDIO_SPLIT_COLLAPSE_KEY = collapseKeyFor(STUDIO_SPLIT_KEY);
  * A post-paint measure-and-republish would fix `mobileBarH` too and loses a race against the
  * rotation re-seed; the note in studio.astro records what broke when it was tried.
  */
+/** The slide navigator strip's height, the same at every stop and tier (see `footerRead`). */
+const NAVIGATOR_H = 49;
+/** The deck status strip under the navigator at Write/Craft. */
+const STATUS_H = 30.6;
+
 export const PREVIEW_CHROME = {
 	topbarH: 54, // the studio topbar (StudioShell `header` h-[54px])
 	// Mobile only: the eight-cell deck-actions bar below the topbar (pane starts at 103).
@@ -161,8 +166,8 @@ export const PREVIEW_CHROME = {
 	padCinemaY: 12,
 	// Chrome ABOVE/BELOW the holder inside the preview pane, per stop (CSS-fixed):
 	//  read/chromeless — no preview header, a 49px read affordance below.
-	//  write/build     — a 45px (two-pane) / 38.2px (phone) preview header, 81.6px
-	//                    slide-navigator below.
+	//  write/build     — a 45px (two-pane) / 38.2px (phone) preview header, the 49px
+	//                    navigator plus the 30.6px status strip below (79.6px).
 	headerRead: 0,
 	// The write/build sub-bar has ONE height per tier, and the tier is the whole story: the
 	// height is set by the tallest control in the row, and the two tiers do not have the same
@@ -181,14 +186,19 @@ export const PREVIEW_CHROME = {
 	// at 700/760/820/1024/1099/1100/1280/1440 (45px, flat).
 	headerWriteSplit: 45,
 	headerWriteMobile: 38.2,
-	footerRead: 49,
-	footerWrite: 81.6,
+	// The navigator strip is ONE element at every stop (StudioShell's `border-t … py-2` row:
+	// 1 + 8 + a 32px control row + 8 = 49px), so the Read band and the Write/Craft navigator are
+	// the same number, and the write footer is DERIVED from it plus the status strip. It used to
+	// be a frozen 81.6 (navigator 51, measured 2026-08-09) and went 2px stale when the strip
+	// slimmed to 49: invisible on a width-bound box, but the shell drew a height-bound box
+	// (a collapsed editor, a landscape pane) 3-4px narrower than the app, which the instant-
+	// shell spec caught (followups 2959-p4 / 2982-p3 / 3045-p3). Re-measured 2026-11-12 on the
+	// built site at 390/700/820/844/1280/1440: navigator 49, status 30.6, flat.
+	footerRead: NAVIGATOR_H,
+	footerWrite: NAVIGATOR_H + STATUS_H,
 	// The write/build footer is TWO stacked bands — the slide navigator on top, the deck
-	// status strip below it. Only the total (`footerWrite`) bounds the preview box, so the
-	// split lived nowhere until the shell started DRAWING the footer; the navigator's height
-	// is derived (`footerWrite - statusH`) so the total stays the one source of truth.
-	// Measured 2026-08-09 at 393x651: navigator 51, status 30.6.
-	statusH: 30.6,
+	// status strip below it. The shell DRAWS both, so it needs the split as well as the total.
+	statusH: STATUS_H,
 	// Desktop at the CRAFT stop only: the left activity rail (`w-[52px]`). It sits OUTSIDE the
 	// editor|preview split, so the split divides `vw - railW`, not `vw` — miss it and every band
 	// right of it lands ~29px off while the editor band lands 52px off. That was the shape of the

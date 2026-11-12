@@ -194,7 +194,7 @@ visitor and wrong for those specs, so `holdEngine` (`e2e/engine-glob.ts`, which 
 stage 1 passes 12 of 12. The same pass found three smaller gaps, all closed: a full write that replaces a still-loading bake now releases
 every render waiting on it, a render re-checks that it still owns the frame after the wait, and `dispose()` releases a
 bake it wrote. Two `:252` geometry cases in `studio-instant-shell` fail on `main`'s build too
-(`followups.d/2982-p3-instant-shell-slide-box-drift.md`).
+(`followups.d/2982-p3-instant-shell-slide-box-drift.md`, closed 2026-11-12: a stale footer constant in `preview-rect.ts`).
 
 ### A first visit the bake misses wrote the preview twice (fixed 2026-11-10)
 
