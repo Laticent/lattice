@@ -138,13 +138,9 @@ for (const [w, h] of [
 		await openChatAtWidth(page, w);
 		await ask(page, 'does slide 2 work as a single number?');
 		// Grow the saved thread to 24 messages, then reload so the panel reads it.
-		await page.evaluate(() => {
-			const key = Object.keys(localStorage).find((k) => k.startsWith('lattice-studio-chat-') && Array.isArray(JSON.parse(localStorage.getItem(k) || 'null')));
-			if (!key) throw new Error('no saved chat');
-			const msgs = JSON.parse(localStorage.getItem(key) || '[]');
-			const filler = Array.from({ length: 22 }, (_, i) => (i % 2 === 0 ? { role: 'user', content: `Earlier question ${i / 2 + 1}: ${'detail '.repeat(60)}` } : { role: 'assistant', content: `Earlier answer ${(i - 1) / 2 + 1}: ${'detail '.repeat(60)}` }));
-			localStorage.setItem(key, JSON.stringify([...filler, ...msgs]));
-		});
+		const thread = await savedThread(page, 2); // the question and its reply
+		const filler = Array.from({ length: 22 }, (_, i) => (i % 2 === 0 ? { role: 'user', content: `Earlier question ${i / 2 + 1}: ${'detail '.repeat(60)}` } : { role: 'assistant', content: `Earlier answer ${(i - 1) / 2 + 1}: ${'detail '.repeat(60)}` }));
+		await writeThread(page, thread.deckId, [...filler, ...thread.messages]);
 		await page.reload();
 		await gotoStudioReady(page, w);
 		await page.getByRole('button', { name: /^Chat metrics:/ }).click();
@@ -176,13 +172,10 @@ test('sending is held while a compaction runs, so the new message is never dropp
 	await gotoStudio(page);
 	await openChatAtWidth(page, 1440);
 	await ask(page, 'does slide 2 work as a single number?');
-	await page.evaluate(() => {
-		const key = Object.keys(localStorage).find((k) => k.startsWith('lattice-studio-chat-') && Array.isArray(JSON.parse(localStorage.getItem(k) || 'null')));
-		if (!key) throw new Error('no saved chat');
-		const msgs = JSON.parse(localStorage.getItem(key) || '[]');
-		const filler = Array.from({ length: 22 }, (_, i) => (i % 2 === 0 ? { role: 'user', content: `Earlier question ${i / 2 + 1}` } : { role: 'assistant', content: `Earlier answer ${(i - 1) / 2 + 1}` }));
-		localStorage.setItem(key, JSON.stringify([...filler, ...msgs]));
-	});
+	const thread = await savedThread(page, 2); // the question and its reply
+	const filler = Array.from({ length: 22 }, (_, i) => (i % 2 === 0 ? { role: 'user', content: `Earlier question ${i / 2 + 1}` } : { role: 'assistant', content: `Earlier answer ${(i - 1) / 2 + 1}` }));
+	await writeThread(page, thread.deckId, [...filler, ...thread.messages]);
+	const seeded = filler.length + thread.messages.length;
 	await page.reload();
 	await gotoStudioReady(page, 1440);
 	await page.getByRole('button', { name: /^Chat metrics:/ }).click();
@@ -195,12 +188,69 @@ test('sending is held while a compaction runs, so the new message is never dropp
 	await expect(page.getByTestId('chat-compacted')).toBeVisible({ timeout: 20_000 });
 	// Nothing was sent: the text is still in the composer and no such message is in the thread.
 	await expect(page.getByRole('textbox', { name: 'Message the Architect' })).toHaveValue('a message typed mid-compaction');
-	const saved = await page.evaluate(() => {
-		const key = Object.keys(localStorage).find((k) => k.startsWith('lattice-studio-chat-') && Array.isArray(JSON.parse(localStorage.getItem(k) || 'null')));
-		return JSON.parse(localStorage.getItem(key ?? '') || '[]') as { content: string }[];
-	});
+	// Read the thread the compaction STORED (it is shorter than the seeded one), so the absence below is read from the
+	// write that would have carried the message, not from a store that has not caught up yet.
+	await expect.poll(async () => (await savedThread(page)).messages.length, { message: 'the compacted thread was never stored' }).toBeLessThan(seeded);
+	const saved = (await savedThread(page)).messages;
 	expect(saved.some((m) => m.content === 'a message typed mid-compaction')).toBe(false);
 });
+
+type Thread = { deckId: string; messages: { role: string; content: string }[] };
+
+/**
+ * The deck's saved chat thread, from the Studio's chats database (`chat-store.ts`, #3138: one `{ deckId, messages }`
+ * record per deck in `lattice-studio-chats` / `chats`). Chats left localStorage in #3138, which is what turned this
+ * file's localStorage reads into "no saved chat" on every run. Waits until the stored thread holds `min` messages: a
+ * seed written before the reply's own write has landed would be overwritten by it.
+ */
+async function savedThread(page: import('@playwright/test').Page, min = 1): Promise<Thread> {
+	const read = () =>
+		page.evaluate(
+			() =>
+				new Promise<Thread | null>((resolve, reject) => {
+					const open = indexedDB.open('lattice-studio-chats');
+					open.onerror = () => reject(open.error);
+					open.onsuccess = () => {
+						const db = open.result;
+						if (!db.objectStoreNames.contains('chats')) {
+							db.close();
+							return resolve(null);
+						}
+						const all = db.transaction('chats').objectStore('chats').getAll();
+						all.onerror = () => reject(all.error);
+						all.onsuccess = () => {
+							db.close();
+							const rows = (all.result as Thread[]).filter((r) => Array.isArray(r?.messages) && r.messages.length > 0);
+							resolve(rows.length === 1 ? rows[0] : null);
+						};
+					};
+				}),
+		);
+	await expect.poll(async () => (await read())?.messages.length ?? 0, { message: 'no chat thread was saved' }).toBeGreaterThanOrEqual(min);
+	return (await read()) as Thread;
+}
+
+/** Replace the deck's stored thread; a reload then reads it (the Studio hydrates each deck's thread on load). */
+async function writeThread(page: import('@playwright/test').Page, deckId: string, messages: Thread['messages']): Promise<void> {
+	await page.evaluate(
+		({ deckId, messages }) =>
+			new Promise<void>((resolve, reject) => {
+				const open = indexedDB.open('lattice-studio-chats');
+				open.onerror = () => reject(open.error);
+				open.onsuccess = () => {
+					const db = open.result;
+					const t = db.transaction('chats', 'readwrite');
+					t.objectStore('chats').put({ deckId, messages });
+					t.oncomplete = () => {
+						db.close();
+						resolve();
+					};
+					t.onerror = () => reject(t.error);
+				};
+			}),
+		{ deckId, messages },
+	);
+}
 
 async function gotoStudioReady(page: import('@playwright/test').Page, w: number) {
 	// After a reload the posture is re-seeded by gotoStudio's init script; only the panel needs reopening.
