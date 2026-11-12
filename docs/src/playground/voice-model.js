@@ -39,6 +39,8 @@ import { recordLatency } from './narration-latency.js';
 import { cheapestVoiceEnabled, narrationCacheEnabled, onNarrationPrefsChange, parallelPref } from './narration-prefs.js';
 import { getClip, putClip } from './narration-store.js';
 import { isGeminiTtsModel, pickCheapestTtsModel } from './tts-cost.js';
+import { pcmToWavBuffer } from './voice-decode.js';
+import { decodeGeminiSpeechOffThread } from './voice-decode-pool.js';
 import { autoParallelFor, parallelCapFor } from './voice-engine-profile.js';
 import { createVoiceScheduler } from './voice-scheduler.js';
 
@@ -366,30 +368,13 @@ export function isPcmOnlyModel(model) {
 // avoids an extra Blob-wrap/unwrap round trip that buys nothing (the bytes are
 // already an ArrayBuffer). A real Blob works fine in every real browser target too,
 // if a future caller needs one — this just isn't that caller.
-// The response's declared PCM geometry, e.g. "audio/pcm;rate=24000;channels=1". ONE parser,
-// because both consumers below (the mp3 encode and the WAV fallback) have to agree about the
-// sample rate: a mismatch does not fail, it plays the clip back at the wrong speed.
-function parsePcmHeaderInfo(contentType) {
-  return {
-    rate: Number(/rate=(\d+)/.exec(contentType || '')?.[1]) || 24000,
-    channels: Number(/channels=(\d+)/.exec(contentType || '')?.[1]) || 1,
-  };
+// The WAV wrap itself (and the one PCM-geometry parser every consumer shares) lives in voice-decode.js, so the
+// Gemini decode worker produces the same bytes as this main-thread path.
+function pcmBlobFromResponse(pcmBytes, contentType) {
+  return wavLike(pcmToWavBuffer(pcmBytes, contentType));
 }
 
-function pcmBlobFromResponse(pcmBytes, contentType) {
-  const { rate, channels } = parsePcmHeaderInfo(contentType);
-  const bitsPerSample = 16;
-  const blockAlign = channels * (bitsPerSample / 8);
-  const byteRate = rate * blockAlign;
-  const n = pcmBytes.length;
-  const buf = new ArrayBuffer(44 + n);
-  const dv = new DataView(buf);
-  const wstr = (off, str) => { for (let i = 0; i < str.length; i++) dv.setUint8(off + i, str.charCodeAt(i)); };
-  wstr(0, 'RIFF'); dv.setUint32(4, 36 + n, true); wstr(8, 'WAVE');
-  wstr(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, channels, true);
-  dv.setUint32(24, rate, true); dv.setUint32(28, byteRate, true); dv.setUint16(32, blockAlign, true); dv.setUint16(34, bitsPerSample, true);
-  wstr(36, 'data'); dv.setUint32(40, n, true);
-  new Uint8Array(buf, 44).set(pcmBytes);
+function wavLike(buf) {
   // `arrayBuffer()` returns a FRESH COPY (`.slice(0)`) on every call, not the
   // closed-over `buf` itself — the consumer's `decodeAudioData` (Suono) DETACHES
   // whatever ArrayBuffer it's given (a real, spec'd side effect, not a bug in this
@@ -510,13 +495,6 @@ const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
 /** The curated default Gemini voice model (GA): Flash-Lite TTS. Used until the live list answers, which then decides. */
 export const GEMINI_TTS_DEFAULT_MODEL = MODELS.defaults.voice.gemini;
 
-function base64ToBytes(b64) {
-  const bin = typeof atob === 'function' ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-const isRiff = (b) => b.length > 12 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46;
 
 /** The request body for one Gemini speech call. `voice` '' = the model's own default voice. */
 export function geminiSpeechBody(text, voice) {
@@ -576,15 +554,15 @@ function geminiTtsRung({ getKey, getModel, getVoice, fetchImpl, noteStatus, gone
       // Out of quota or billing: the key and the model are fine. Say so once; this read goes silent.
       if (!res.ok && classifyProviderError(status, detail) === 'billing') gone?.billing('gemini');
       if (!res.ok) throw voiceHttpError('Gemini TTS error ' + status + (detail ? ': ' + detail.slice(0, 200) : ''), res, detail, status);
-      const json = await res.json();
-      const part = (json?.candidates?.[0]?.content?.parts || []).find((p) => p?.inlineData?.data);
-      if (!part) throw new Error('Gemini returned no audio');
-      const bytes = base64ToBytes(part.inlineData.data);
-      if (!bytes.length) throw new Error('Gemini returned empty audio');
-      const mime = String(part.inlineData.mimeType || '');
-      if (isRiff(bytes) || /wav/i.test(mime)) return new Blob([bytes], { type: 'audio/wav' });
-      // Headerless L16 (an older model, or a non-default format): 24 kHz mono unless the type says.
-      return pcmBlobFromResponse(bytes, mime || 'audio/L16;rate=24000');
+      // The clip arrives as base64 inside JSON. Parsing and decoding it is the one heavy step on this path: measured
+      // at 75-87 ms per 20 s clip on a 4x-throttled main thread, while Present reads aloud. So the raw body goes to a
+      // worker, which answers WAV bytes (voice-decode-pool.js; spine note §9.6). The fetch, the key and the
+      // model-gone and billing latches stay here: they cost nothing measurable.
+      const out = await decodeGeminiSpeechOffThread(await res.arrayBuffer());
+      if ('error' in out) throw new Error(out.error);
+      // Gemini's own WAV stays a real Blob; a wrapped headerless L16 clip is the same duck-typed shape the
+      // OpenRouter PCM path returns.
+      return out.wrapped ? wavLike(out.wav) : new Blob([out.wav], { type: 'audio/wav' });
     },
   };
 }

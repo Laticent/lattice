@@ -294,6 +294,70 @@ test('@webkit-tablet @gecko Present reads in the selected voice and names it', a
 	await shot(page, `present-voice-${page.viewportSize()?.width}`);
 });
 
+// Gemini answers each clip as base64 inside JSON, and decoding that blocked Present's main thread for 75-87 ms per
+// 20 s clip on a 4x-throttled CPU (engineering/decisions/2026-11-11-voice-synthesis-spine.md §9.6). The decode now runs
+// on a worker. This pins WHERE it runs and that its bytes are right, never how long it takes (HARD RULE #32): the mock
+// answers headerless 16 kHz L16, so a clip that plays at exactly 1.25 s was wrapped at the rate the answer declared.
+// Registered twice, because a `@webkit` tag keeps a test off the Chromium projects: the first title runs on Chromium at
+// desktop and phone width and on Firefox, the second on WebKit's iPad and iPhone. The phone matters most: it is where a
+// decode on the main thread costs the most.
+for (const tags of ['@crosswidth @gecko', '@webkit-tablet @webkit-phone'])
+test(`${tags} Present decodes a Gemini clip on a worker and plays it at the declared rate`, async ({ page }) => {
+	const GEM = 'AIzaE2eSpineGeminiKey0000a1b2';
+	await seed(page, { 'lattice-db-gemini-key': GEM, 'lattice-studio-voice-selection': SEL({ source: 'cloud', provider: 'gemini', model: 'gemini-3.8-flash-lite-tts', voice: 'Kore' }) }, { promptApi: false });
+	await page.addInitScript(() => {
+		const w = window as unknown as { __played: number[] };
+		w.__played = [];
+		const start = AudioBufferSourceNode.prototype.start;
+		AudioBufferSourceNode.prototype.start = function (...a: Parameters<typeof start>) {
+			// Past the 1-sample unlock blip and the keep-alive tone: a real clip is longer than 0.3 s.
+			if (this.buffer && this.buffer.duration > 0.3) w.__played.push(this.buffer.duration);
+			return start.apply(this, a);
+		};
+	});
+	const seen = await mockOpenRouter(page);
+	const pcm = Buffer.alloc(20000 * 2);
+	for (let i = 0; i < 20000; i++) pcm.writeInt16LE(Math.round(3000 * Math.sin((2 * Math.PI * 220 * i) / 16000)), i * 2);
+	const answer = JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;codec=pcm;rate=16000', data: pcm.toString('base64') } }] } }] });
+	let asked = 0;
+	await page.route('https://generativelanguage.googleapis.com/**', async (route) => {
+		const req = route.request();
+		if (req.method() === 'OPTIONS') return route.fulfill({ status: 204 });
+		const url = req.url().split('?')[0];
+		if (url.endsWith(':generateContent')) {
+			asked++;
+			return route.fulfill({ status: 200, contentType: 'application/json', body: answer });
+		}
+		if (url.endsWith('/v1beta/models')) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ models: [{ name: 'models/gemini-3.8-flash-lite-tts' }] }) });
+		return route.fulfill({ status: 200, contentType: 'application/json', body: '{"voices":[]}' });
+	});
+	const workers: string[] = [];
+	page.on('worker', (w) => workers.push(w.url()));
+	// The pool falls back to the main thread when the worker fails, and the clip still plays; the pool's warning is what
+	// tells a decode that ran on the worker from one that only started it.
+	const warnings: string[] = [];
+	page.on('console', (m) => {
+		if (m.type() === 'warning') warnings.push(m.text());
+	});
+	await gotoStudio(page);
+	// A phone shows the slides first; its Markdown source tab reveals the editor.
+	const source = page.getByRole('button', { name: 'Markdown source', exact: true }).first();
+	if (await source.isVisible()) await source.click();
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n# Spine\n\n<!-- say: The decoded clip reads this line. -->\n\n---\n\n# Two\n\n<!-- say: The decoded clip reads this line. -->\n');
+	await page.getByRole('button', { name: 'Present', exact: true }).click();
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	const voice = dialog.getByRole('button', { name: /^Voice (on|off)/ });
+	if ((await voice.getAttribute('aria-pressed')) !== 'true') await voice.click();
+	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+	const played = () => page.evaluate(() => (window as unknown as { __played: number[] }).__played);
+	await expect.poll(async () => (await played()).length, { timeout: 30_000 }).toBeGreaterThan(0);
+	expect((await played())[0]).toBeCloseTo(1.25, 2);
+	expect(asked).toBeGreaterThan(0);
+	expect(workers.some((u) => /voice-decode-worker/.test(u))).toBe(true);
+	expect(warnings.filter((w) => /voice decode worker failed/.test(w))).toEqual([]);
+	expect(seen.speech).toEqual([]);
+});
+
 test('@crosswidth @webkit-phone @webkit-tablet @gecko saving a Gemini key fills a chat model that is not set, and never moves a voice that is', async ({ page }) => {
 	const GEM = 'AIzaE2eSpineGeminiKey0000a1b2';
 	await seed(page, { 'lattice-studio-voice-selection': SEL({ source: 'cloud', provider: 'openrouter', model: 'hexgrad/kokoro-82m', voice: 'af_bella' }) }, { promptApi: false });

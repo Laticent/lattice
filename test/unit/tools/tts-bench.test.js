@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { findPauses, matchBoundaries, speechSpan } from '../../../tools/tts-bench.mjs';
+import { findPauses, matchBoundaries, sniffContainer, speechSpan } from '../../../tools/tts-bench.mjs';
 
 const RATE = 24000;
 
@@ -57,4 +57,21 @@ test('matchBoundaries never reuses one pause for two boundaries', () => {
   const s = clip([[100, false], [500, true], [300, false], [1000, true], [100, false]]);
   const r = matchBoundaries(findPauses(s, RATE), speechSpan(s, RATE), solo, 1);
   assert.ok(r.matched <= 1);
+});
+
+// The formats phase (#1509) records what a provider ACTUALLY sent, whatever its Content-Type says, so a 200 that is
+// really an error body or raw PCM is never counted as compressed audio. Each case is the container's own signature.
+test('sniffContainer names each container from its first bytes', () => {
+  const b = (...xs) => Uint8Array.from(xs.flatMap((x) => (typeof x === 'string' ? [...x].map((c) => c.charCodeAt(0)) : [x])));
+  assert.equal(sniffContainer(b('OggS', 0, 2, 0, 0)), 'ogg');
+  assert.equal(sniffContainer(b('fLaC', 0, 0, 0, 34)), 'flac');
+  assert.equal(sniffContainer(b('RIFF', 0, 0, 0, 0, 'WAVEfmt ')), 'wav');
+  assert.equal(sniffContainer(b(0, 0, 0, 0x20, 'ftypM4A ')), 'mp4');
+  assert.equal(sniffContainer(b('ID3', 4, 0, 0)), 'mp3');
+  assert.equal(sniffContainer(b(0xff, 0xfb, 0x90, 0x64)), 'mp3'); // MPEG-1 layer III frame
+  assert.equal(sniffContainer(b(0xff, 0xf1, 0x50, 0x80)), 'aac-adts'); // ADTS: layer bits 00
+  assert.equal(sniffContainer(b(0x1a, 0x45, 0xdf, 0xa3)), 'webm');
+  assert.equal(sniffContainer(b('{"error":1}')), 'unknown');
+  assert.equal(sniffContainer(Uint8Array.from([1, 0, 2, 0, 3, 0])), 'unknown'); // raw PCM has no signature
+  assert.equal(sniffContainer(b(1, 2)), 'unknown');
 });
