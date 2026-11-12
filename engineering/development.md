@@ -1205,7 +1205,9 @@ locally from `docs/`:
   A PR may add up to 2KB of eager JS per route over `main` while the route stays at or
   under soft; every byte above soft is declared in the PR's own
   `docs/route-budget.d/<slug>.md` (`studio: +N` plus why). CI measures the growth by
-  building the base (`docs/scripts/measure-route-base.sh`, about a minute); a local
+  building the base (`docs/scripts/measure-route-base.sh`, one to three minutes, run in
+  the background beside the docs typecheck and Vitest suite and joined before the docs
+  build); a local
   `check:route-budget` reports it as not checked. Numbers move only through
   `npm run route-budget:rebaseline` in its own PR, and raising one needs the owner's OK
   (`decisions/2026-09-29-route-budget-soft-hard.md`).
