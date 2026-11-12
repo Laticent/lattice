@@ -1943,7 +1943,7 @@ never turn "passed in headless" into "works on iOS."
   hashed each photo slide as a key (`flatCopy`, 6.7 s) and evicted every other slide to hold it; `commentBlocks`'
   memo hashed a fresh 4.5 MB key on every ask; and `ReshapePicker` rebuilt a preview of every look of the slide on
   every render with its popover closed.
-- **Fix** — `lib/core/data-uri-mask.mjs` gives the linter a copy in which the middle of each photo's payload is a short
+- **Fix** — `lib/authoring/data-uri-mask.mjs` gives the linter a copy in which the middle of each photo's payload is a short
   stand-in, and puts the bytes back into the findings (`lintTextWith`). Only a PHOTO LINE is masked (the image alone
   on its line, its own paragraph, outside code): a data address inside other text is characters a rule counts
   (`tag-budget`, a chart's label rows), and masking one there changed findings; the memos in `meta-memo.mjs` and

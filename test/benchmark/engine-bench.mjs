@@ -785,7 +785,7 @@ async function splitTier() {
 // ── PHOTO TIER (a deck carrying pasted phone photos) ─────────────────────────
 //
 // A phone photo pasted into a deck is a `data:` address of about 4.5 MB on one line. Before
-// lib/core/data-uri-mask.mjs, one lint pass over a deck of three such photos took about 4 s, and the
+// lib/authoring/data-uri-mask.mjs, one lint pass over a deck of three such photos took about 4 s, and the
 // slide-metadata readers copied and hashed each photo slide on every ask (lib/core/meta-memo.mjs): the
 // Studio froze for many seconds after the paste, and docs/e2e/export-photo-size.spec.ts went red under
 // load. This tier is that deck, in Node, through the three readers the Studio runs per keystroke.
@@ -821,7 +821,7 @@ async function photoTier() {
   const sb = await import('../../lib/core/slide-boundaries.mjs');
   const me = await import('../../lib/core/meta-edit.mjs').catch(() => null);
   const mr = await import('../../lib/core/meta-record.mjs').catch(() => null);
-  const mask = await import('../../lib/core/data-uri-mask.mjs').catch(() => null);
+  const mask = await import('../../lib/authoring/data-uri-mask.mjs').catch(() => null);
   const vocab = buildVocab();
   const deck = photoDeck();
   const median = (a) => a.sort((x, y) => x - y)[a.length >> 1];

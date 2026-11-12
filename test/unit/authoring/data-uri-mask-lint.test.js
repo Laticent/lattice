@@ -1,5 +1,5 @@
 /**
- * The linter reads a pasted photo's address, never its bytes (lib/core/data-uri-mask.mjs), and the slide-metadata memo
+ * The linter reads a pasted photo's address, never its bytes (lib/authoring/data-uri-mask.mjs), and the slide-metadata memo
  * never holds a key it cannot keep (lib/core/meta-memo.mjs). Both were the Studio freezing for seconds after a deck of
  * phone photos was pasted (docs/e2e/export-photo-size.spec.ts, red under load).
  *
@@ -12,7 +12,7 @@ const core = require('../../../lib/authoring/lint-core.js');
 const { buildVocab } = require('../../../lib/authoring/lint.js');
 const { readFileSync } = require('node:fs');
 const path = require('node:path');
-const { maskDataUris, MIN_PAYLOAD, KEEP_ENDS } = require('../../../lib/core/data-uri-mask.mjs');
+const { maskDataUris, MIN_PAYLOAD, KEEP_ENDS } = require('../../../lib/authoring/data-uri-mask.mjs');
 const { mulberry32 } = require('../../helpers/regex-differential');
 const { memoGet, memoSet } = require('../../../lib/core/meta-memo.mjs');
 const { readMetaField } = require('../../../lib/core/meta-edit.mjs');

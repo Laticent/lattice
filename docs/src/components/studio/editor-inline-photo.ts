@@ -11,9 +11,9 @@ import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate
 //     transaction, the way CodeMirror already takes a paste, so the browser never lays the raw text out.
 //   · `photoChips` shows each long base64 payload as a short chip ("image data · 3.4 MB"). The text is untouched: the
 //     chip is a view of it, copy and save carry every byte, and the caret steps over it as one character.
-// The linter does the same for its own reads (lib/core/data-uri-mask.mjs, whose MIN_PAYLOAD this mirrors).
+// The linter does the same for its own reads (lib/authoring/data-uri-mask.mjs, whose MIN_PAYLOAD this mirrors).
 
-/** The shortest base64 payload shown as a chip, in characters. lib/core/data-uri-mask.mjs masks from the same length. */
+/** The shortest base64 payload shown as a chip, in characters. lib/authoring/data-uri-mask.mjs masks from the same length. */
 export const CHIP_MIN_PAYLOAD = 4096;
 /** A typed insertion this long or longer is applied by the editor, not by the browser's DOM editing. */
 export const LARGE_INSERT = 65_536;
