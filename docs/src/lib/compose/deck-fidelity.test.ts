@@ -3,8 +3,9 @@ import path from 'node:path';
 import { toggleMark } from 'prosemirror-commands';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
-import { deckSchema, deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
+import { alignBlocks, deckSchema, deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
 import { normalizeSource } from './deck-source';
+import { emitPatch, scopedResync, scopedResyncPatch } from './scoped-resync';
 
 // COMPOSE WRITES BACK WHAT YOU WROTE (engineering/decisions/2026-11-10-compose-first.md §6). Compose is the default editor,
 // so an edit there must change only what the author changed: a one-character edit on a slide changes one line of the
@@ -134,32 +135,70 @@ describe('the checker’s cases (2026-11-11)', () => {
 		expect(out).toBe('N\n\n---\n\n# A\n\nbody a\n\n---\n\n# B\n\nbody b\n');
 	});
 
-	it('two blocks that read alike but are written differently keep their own bytes when one moves', () => {
-		const src = '# T\n\nA \\<b>x\\</b>\n\nmid\n\nA <b>x</b>\n';
-		const doc = deckToDoc(src);
-		const slide = doc.child(0);
-		// Move the last block to the top of the slide.
-		const blocks: import('prosemirror-model').Node[] = [];
-		slide.forEach((b) => {
-			blocks.push(b);
-		});
-		const moved = slide.copy(slide.content.replaceChild(1, blocks[3]).replaceChild(3, blocks[1]));
-		const out = emitDeck(EditorState.create({ doc }).tr.replaceWith(0, slide.nodeSize, moved).doc, initBaseline(doc));
-		// Which bytes belonged to which block cannot be told, so neither keeps an escape it may not have had.
-		expect(out.split('\n').filter((l) => l.startsWith('A '))).not.toEqual(['A \\<b>x\\</b>', 'A <b>x</b>']);
+	it('a slide with a backslash-escaped tag is locked: Compose cannot tell `\\<b>` from `<b>`, and the export can', () => {
+		// html:false reads both as the same text, so no write-back could keep which was which (the second checker's catch).
+		expect(deckToDoc('# T\n\nA <b>x</b>\n\nA \\<b>x\\</b>\n').child(0).attrs.locked).toBe(true);
 	});
 
-	it('an edit inside a 3000-item list stays fast', () => {
-		const items = Array.from({ length: 3000 }, (_x, i) => `- item ${i}`).join('\n');
-		const doc = deckToDoc(`# T\n\n${items}\n`);
-		let at = -1;
+	it('an HTML attribute and a code span on the edited line are written as they are', () => {
+		const at = (doc: import('prosemirror-model').Node, word: string) => {
+			let pos = -1;
+			doc.descendants((n, p) => {
+				if (pos < 0 && n.isText && n.text?.includes(word)) pos = p + n.text.indexOf(word);
+				return pos < 0;
+			});
+			return pos;
+		};
+		for (const [src, want] of [
+			['# T\n\nSee <span title="*a*">y</span> and _a_ here.\n', '# T\n\nSee <span title="*a*">y</span> and _a_ Xhere.\n'],
+			['# T\n\nCode `*a*` and _a_ here.\n', '# T\n\nCode `*a*` and _a_ Xhere.\n'],
+		]) {
+			const doc = deckToDoc(src);
+			expect(emitDeck(EditorState.create({ doc }).tr.insertText('X', at(doc, 'here')).doc, initBaseline(doc))).toBe(want);
+		}
+	});
+
+	it('a slide that cannot be spliced around its directive keeps no blank lines the directive left behind', () => {
+		const src = '# T\n\n```md\n<!-- _class: kpi -->\n```\n\n<!-- _class: kpi -->\n\nbody\n';
+		const doc = deckToDoc(src);
+		let pos = -1;
 		doc.descendants((n, p) => {
-			if (at < 0 && n.isText && n.text === 'item 1500') at = p + n.nodeSize;
-			return at < 0;
+			if (pos < 0 && n.isText && n.text === 'body') pos = p;
+			return pos < 0;
 		});
-		const base = initBaseline(doc);
-		const edited = EditorState.create({ doc }).tr.insertText('X', at).doc;
-		// Work done, not time (HARD RULE #32): the edit changes one line of three thousand.
-		expect(linesChanged(`# T\n\n${items}\n`, emitDeck(edited, base))).toBe(1);
+		const out = emitDeck(EditorState.create({ doc }).tr.insertText('X', pos).doc, initBaseline(doc));
+		expect(out).not.toMatch(/\n{3,}/);
+		expect(out).toContain('Xbody');
+	});
+
+	it('the scoped resync never leaves a slide moved off the front behind a stale separator', () => {
+		const src = '# A\n---\n# B\n';
+		const next = '# N\n---\n# A\n---\n# B\n';
+		for (const path of ['whole', 'patch'] as const) {
+			const doc = deckToDoc(src);
+			const base = initBaseline(doc);
+			const before = emitDeck(doc, base);
+			const state = EditorState.create({ doc });
+			const patch = emitPatch(before, next);
+			const r = path === 'whole' ? scopedResync(state, base, next) : patch && scopedResyncPatch(state, base, patch);
+			// Either it hands the change to the full resync (null), or what it builds emits exactly `next`.
+			if (r) {
+				const after = state.apply(r.tr).doc;
+				r.commit(after);
+				expect(emitDeck(after, base), path).toBe(next);
+			}
+		}
+	});
+
+	it('an edit inside a 3000-item list aligns only what changed', () => {
+		// Work done, not time (HARD RULE #32): the common head and tail match one to one, so the quadratic table covers only
+		// the edited line, one cell, not 3000 x 3000.
+		const lines = Array.from({ length: 3000 }, (_x, i) => `- item ${i}`);
+		const edited = lines.slice();
+		edited[1500] = '- item 1500X';
+		const stats = { cells: 0 };
+		const at = alignBlocks(edited, lines, stats);
+		expect(stats.cells).toBe(1);
+		expect(at.filter((x) => x >= 0)).toHaveLength(2999);
 	});
 });

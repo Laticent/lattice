@@ -268,10 +268,14 @@ function originalOf(raw: string): Original | null {
 			// here, html:false, and render differently in the engine): which bytes belong to which cannot be told, so neither
 			// is kept as written (the checker's catch: a reorder swapped them).
 			const bytes = spans.map((r) => prose.slice(r.from, r.to));
-			for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) if (keys[i] === keys[j] && bytes[i] !== bytes[j]) {
-				keys[i] = `\u0000ambiguous ${i}`;
-				keys[j] = `\u0000ambiguous ${j}`;
-			}
+			// Read from the keys as they were, so a pair is not skipped because an earlier pair already renamed one of it.
+			const was = keys.slice();
+			for (let i = 0; i < was.length; i++)
+				for (let j = i + 1; j < was.length; j++)
+					if (was[i] === was[j] && bytes[i] !== bytes[j]) {
+						keys[i] = `\u0000ambiguous ${i}`;
+						keys[j] = `\u0000ambiguous ${j}`;
+					}
 			out = { directives, prose, spans, keys };
 		}
 	} catch {
@@ -283,7 +287,7 @@ function originalOf(raw: string): Original | null {
 }
 
 /** For each of `now`, the index of the original block it keeps (a longest common subsequence of keys), else -1. */
-function alignBlocks(now: string[], was: string[]): number[] {
+export function alignBlocks(now: string[], was: string[], stats?: { cells: number }): number[] {
 	const n = now.length;
 	const m = was.length;
 	const at = new Array<number>(n).fill(-1);
@@ -300,6 +304,7 @@ function alignBlocks(now: string[], was: string[]): number[] {
 	const mm = m - p - q;
 	// A middle too large to align cheaply is left unmatched: those blocks are written canonically, which is always correct.
 	if (mn > 0 && mm > 0 && mn * mm <= 40_000) {
+		if (stats) stats.cells += mn * mm;
 		const L: number[][] = Array.from({ length: mn + 1 }, () => new Array<number>(mm + 1).fill(0));
 		for (let i = mn - 1; i >= 0; i--) for (let j = mm - 1; j >= 0; j--) L[i][j] = now[p + i] === was[p + j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
 		for (let i = 0, j = 0; i < mn && j < mm; ) {
@@ -345,7 +350,14 @@ function respell(line: string, original: string | undefined): string {
 	let out = line;
 	const spaces = original?.match(/ {2,}$/)?.[0];
 	if (spaces && out.endsWith('\\') && !out.endsWith('\\\\')) out = out.slice(0, -1) + spaces;
-	out = out.replace(/\\~/g, (m, i: number, str: string) => (str[i - 1] === '~' || str[i + 2] === '~' || str.slice(i + 2, i + 4) === '\\~' ? m : '~'));
+	// Only the line's prose: a code span, an HTML tag and a link's address are written as they are (a `*a*` in an
+	// attribute is not emphasis, and changing it changes what the engine draws; the checker's catch).
+	return out.replace(/(`+)[\s\S]*?\1|<[^>\n]*>|\]\([^)\n]*\)|[^`<\]]+|[`<\]]/g, (part) => (/^[`<]|^\]\(/.test(part) && part.length > 1 ? part : respellProse(part, original)));
+}
+
+/** `respell` on a run of prose with no code, tag or link address in it. */
+function respellProse(part: string, original: string | undefined): string {
+	let out = part.replace(/\\~/g, (m, i: number, str: string) => (str[i - 1] === '~' || str[i + 2] === '~' || str.slice(i + 2, i + 4) === '\\~' ? m : '~'));
 	// Emphasis the original line wrote with `_`: the serializer writes `*`, and the spelling is not kept on the mark (an
 	// attr would split one emphasis run into two). A run whose words the original wrapped in `_` gets `_` back.
 	if (original?.includes('_')) out = out.replace(/(\*\*|\*)(?=\S)([^*\n]*?\S)\1/g, (m, run: string, inner: string) => (original.includes(`${run.replace(/\*/g, '_')}${inner}${run.replace(/\*/g, '_')}`) ? `${run.replace(/\*/g, '_')}${inner}${run.replace(/\*/g, '_')}` : m));
@@ -371,17 +383,24 @@ function faithfulSlide(slide: PMNode, directives: string[], canonicalProse: stri
 	// place[i] >= 0: an original kept as written; <= -2: an edited block standing in original -(p + 2)'s place; -1: new.
 	const orig = (p: number) => (p >= 0 ? p : p <= -2 ? -(p + 2) : -1);
 	let prose = '';
+	// The same prose with no gap wider than one blank line: what the slide is written with when it cannot be spliced back
+	// around its directive lines, since an original gap may be wide only because a directive line sat in it (the checker).
+	let tight = '';
 	for (let i = 0; i < blocks.length; i++) {
 		if (i > 0) {
 			const a = orig(place[i - 1]);
 			const b = orig(place[i]);
 			// Two original neighbors, kept or edited in place, keep the space between them; a new block takes the spacing the
 			// serializer gives it in context.
-			prose += a >= 0 && b === a + 1 ? o.prose.slice(o.spans[a].to, o.spans[b].from) : canon.slice(spans[i - 1].to, spans[i].from);
+			const gap = a >= 0 && b === a + 1 ? o.prose.slice(o.spans[a].to, o.spans[b].from) : canon.slice(spans[i - 1].to, spans[i].from);
+			prose += gap;
+			tight += /^\s*$/.test(gap) && (gap.match(/\n/g) ?? []).length > 2 ? '\n\n' : gap;
 		}
 		const text = canon.slice(spans[i].from, spans[i].to);
 		const p = orig(place[i]);
-		prose += place[i] >= 0 ? o.prose.slice(o.spans[p].from, o.spans[p].to) : p >= 0 ? keepLines(o.prose.slice(o.spans[p].from, o.spans[p].to), o.keys[p], text) : text;
+		const block = place[i] >= 0 ? o.prose.slice(o.spans[p].from, o.spans[p].to) : p >= 0 ? keepLines(o.prose.slice(o.spans[p].from, o.spans[p].to), o.keys[p], text) : text;
+		prose += block;
+		tight += block;
 	}
 	// It must say what the canonical form says; a spelling that would read differently in this context (a list item
 	// that now continues the list above, a line that now opens a block) falls back.
@@ -391,7 +410,7 @@ function faithfulSlide(slide: PMNode, directives: string[], canonicalProse: stri
 		return null;
 	}
 	const same = directives.length === o.directives.length && directives.every((d, i) => d === o.directives[i]);
-	return (same && spliceProse(raw, o.directives, o.prose, prose)) || composeSlideChunk(directives, prose);
+	return (same && spliceProse(raw, o.directives, o.prose, prose)) || composeSlideChunk(directives, tight);
 }
 
 /**

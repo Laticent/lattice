@@ -264,9 +264,11 @@ default, that is the editor a power user lands in, so the owner chose to fix all
 
 **It does not change what the slide says.** The faithful text must read back, through Compose's own parser, to exactly what
 the canonical serializer would have written, else the canonical text is used; and the slide spliced back around its
-directive lines (a `_class` under an eyebrow stays there) must split back into the same directives and prose. Two original
-blocks that read the same but are written differently (`A \<b>x\</b>` and `A <b>x</b>` parse alike there, `html:false`)
-are never kept as written, since which bytes belong to which cannot be told. A block Compose changes on reading (a chart's row list made tight) is never
+directive lines (a `_class` under an eyebrow stays there) must split back into the same directives and prose. That
+read-back sees what Compose's parser sees (`html:false`), not what the engine draws (`html:true`), so the two spellings it
+cannot tell apart are kept out of reach: a slide holding a backslash-escaped tag (`\<b>`) is locked, as one holding an
+entity-escaped tag (`&lt;b`) already was, and the respelling of an edited line never touches a code span, an HTML tag or
+a link's address. Two original blocks that read alike but are written differently are never kept as written. A block Compose changes on reading (a chart's row list made tight) is never
 kept as written. `docToDeck` stays the plain canonical form (tests and the resync equality check use it); only the
 editor's write-back (`emitDeck`) is faithful.
 
