@@ -195,77 +195,29 @@ function familiesNamedIn(doc, root) {
 // A FACE WITH A `unicode-range` draws only the code points in that range: the browser does not
 // even fetch it for text that has none (CSS Fonts 4 §4.5). "Noto Color Emoji" ships as eleven
 // range-split faces, and every theme names the family as a fallback, so the family test above
-// keeps all eleven (7.9K units) for a slide whose only candidates are digits. A face whose range
-// meets no code point the captured slide can draw is dropped exactly. The set is the slide's text
-// plus everything CSS can add to it: `content` on ::before/::after/::marker, list markers, an image's
-// alt text and a field's value or placeholder. Text inside a shadow root is not read (slides have none). A generated value this cannot read for certain (`attr()`, a counter in a non-decimal
-// style, an unknown marker style) returns null, and every face is kept.
-const QUOTE_CHARS = '"\'\u2018\u2019\u201C\u201D\u00AB\u00BB\u2039\u203A';
-const MARKER_CHARS = { disc: '\u2022', circle: '\u25E6', square: '\u25AA', 'disclosure-open': '\u25BE', 'disclosure-closed': '\u25B8', none: '' };
-const NUMERIC_MARKER = /^(?:decimal|decimal-leading-zero|lower-alpha|upper-alpha|lower-latin|upper-latin|lower-roman|upper-roman|lower-greek)$/;
-const DIGITS_AND_PUNCT = '0123456789.-()';
-function addChars(set, text) {
-	for (const ch of text) set.add(ch.codePointAt(0));
-}
-// The quoted strings of a computed `content` / `list-style-type`, or null if it holds a value whose
-// characters are not written in it. `counter()` in the default (decimal) style draws digits.
-function generatedChars(value) {
-	const v = String(value || '').trim();
-	if (!v || v === 'none' || v === 'normal') return '';
-	let out = '';
-	const rest = v.replace(/"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'/g, (_, a, b) => {
-		out += (a ?? b).replace(/\\(.)/g, '$1');
-		return ' ';
-	});
-	for (const token of rest.match(/[a-z-]+\([^)]*\)|[^\s]+/gi) || []) {
-		if (/^counters?\(/i.test(token)) {
-			const args = token.slice(token.indexOf('(') + 1, -1).split(',').map((a) => a.trim());
-			const style = args[args.length - 1];
-			if (args.length > (/^counters/i.test(token) ? 2 : 1) && !NUMERIC_MARKER.test(style)) return null;
-			out += DIGITS_AND_PUNCT + 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZivxlcdmIVXLCDM';
-		} else if (/^(?:open|close|no-open|no-close)-quote$/i.test(token)) out += QUOTE_CHARS;
-		// An image draws no character; `/` opens the alt text, whose strings were added above (a superset).
-		else if (token === '/' || /^(?:url|image-set|-webkit-image-set|(?:repeating-)?(?:linear|radial|conic)-gradient)\(/i.test(token)) continue;
-		else return null;
-	}
-	return out;
-}
+// keeps all eleven (7.9K units) for a slide that draws no emoji. A face whose range meets no code
+// point the slide can draw is dropped exactly. The set is a SUPERSET, kept small on purpose (this
+// ships in the Playground's eager bundle): the slide's text nodes, alt text, field values and
+// placeholders, the RAW computed `content` of ::before/::after/::marker and `list-style-type`
+// (quotes and function names included, which only widens it), and every digit, since a counter
+// or a marker can draw digits. `attr()` draws text this cannot see, so it keeps every face.
 function codePointsIn(doc, root) {
 	const win = doc.defaultView;
 	const top = root?.nodeType === 9 ? root.documentElement : root;
 	if (!win?.getComputedStyle || !top) return null;
-	const points = new Set();
+	let text = '0123456789';
 	try {
-		const walker = doc.createTreeWalker(top, 4 /* SHOW_TEXT */);
-		for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-			const tag = n.parentElement?.tagName;
-			if (tag === 'STYLE' || tag === 'SCRIPT' || tag === 'TEMPLATE') continue;
-			addChars(points, n.data);
-		}
 		for (const el of [top, ...top.querySelectorAll('*')]) {
-			// Text the walker cannot see: an image's alt (drawn when it fails), a field's value and placeholder.
-			if (el.tagName === 'IMG') addChars(points, el.getAttribute('alt') || '');
-			if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') addChars(points, `${el.value ?? ''}${el.getAttribute('placeholder') ?? ''}`);
-			for (const pseudo of ['::before', '::after', '::marker']) {
-				const chars = generatedChars(win.getComputedStyle(el, pseudo).content);
-				if (chars === null) return null;
-				addChars(points, chars);
-			}
-			const cs = win.getComputedStyle(el);
-			if (!String(cs.display || '').includes('list-item')) continue;
-			const marker = String(cs.listStyleType || 'disc').trim();
-			if (Object.hasOwn(MARKER_CHARS, marker)) addChars(points, MARKER_CHARS[marker]);
-			else if (NUMERIC_MARKER.test(marker)) addChars(points, DIGITS_AND_PUNCT + 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ\u03B1\u03B2\u03B3');
-			else {
-				const chars = generatedChars(marker);
-				if (chars === null) return null;
-				addChars(points, chars);
-			}
+			if (el.tagName === 'STYLE' || el.tagName === 'SCRIPT') continue;
+			for (const n of el.childNodes) if (n.nodeType === 3) text += n.data;
+			text += `${el.getAttribute('alt') || ''}${el.getAttribute('placeholder') || ''}${el.value ?? ''}${win.getComputedStyle(el).listStyleType}`;
+			for (const pseudo of ['::before', '::after', '::marker']) text += win.getComputedStyle(el, pseudo).content;
 		}
 	} catch {
 		return null;
 	}
-	return points;
+	if (/attr\(/i.test(text)) return null;
+	return new Set([...text].map((ch) => ch.codePointAt(0)));
 }
 // `U+1F1E6-1F1FF, U+26?? , U+A9` -> [[lo, hi], …], or null when a part does not parse (keep the face).
 function parseUnicodeRange(value) {

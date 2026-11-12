@@ -282,7 +282,7 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		const emoji = captureFirstSectionFromFrame(frame, meta)?.css;
 		expect(emoji, 'a flag keeps the flags face').toContain('flags.woff2');
 		expect(emoji, 'U+2615 meets U+26??').toContain('wild.woff2');
-		expect(emoji, 'and no digit drops the keycap face').not.toContain('keycap.woff2');
+		expect(emoji, 'a counter or marker can draw digits, so the keycap face always stays').toContain('keycap.woff2');
 		sec.innerHTML = '<img alt="\u2615">';
 		expect(captureFirstSectionFromFrame(frame, meta)?.css, 'an image\'s alt text is drawn when the image is not').toContain('wild.woff2');
 	});
