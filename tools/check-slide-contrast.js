@@ -246,7 +246,6 @@ const PROBE = () => {
     if (cs.webkitBackgroundClip === 'text' || cs.backgroundClip === 'text') return [];
     const layers = splitTop(bi);
     const sizes = splitTop(cs.backgroundSize);
-    const poss = splitTop(cs.backgroundPosition);
     const reps = splitTop(cs.backgroundRepeat);
     const r = node.getBoundingClientRect();
     // A CSS transform scales the painted box but not the px lengths read from computed style.
@@ -267,37 +266,26 @@ const PROBE = () => {
       const tw = full.includes(size[0]) ? box.w : lenOf(size[0], box.w, sx);
       const th = size[1] === undefined || full.includes(size[1]) ? box.h : lenOf(size[1], box.h, sy);
       if (!(tw > 0) || !(th > 0)) return;
-      // Position: `x y`, or the keyword-with-offset forms `right 10px bottom 5px` (Chromium keeps
-      // those as written). Percent offsets are of the free space; px offsets are scaled.
-      const ptoks = (poss[i % poss.length] || '0% 0%').split(/\s+/);
-      if (ptoks.some((t5) => t5.includes('calc('))) return;
-      const KW = ['left', 'right', 'top', 'bottom', 'center'];
-      let ox = null;
-      let oy = null;
-      for (let k = 0; k < ptoks.length; k++) {
-        const t5 = ptoks[k];
-        if (KW.includes(t5)) {
-          const next = ptoks[k + 1];
-          const hasOff = next !== undefined && !KW.includes(next);
-          const off = hasOff ? next : null;
-          if (hasOff) k++;
-          const horizontal = t5 === 'left' || t5 === 'right' || (t5 === 'center' && ox === null);
-          const outer = horizontal ? box.w : box.h;
-          const tile = horizontal ? tw : th;
-          const sc = horizontal ? sx : sy;
-          const o = off === null ? 0 : lenOf(off, outer - tile, sc);
-          const v = t5 === 'center' ? (outer - tile) / 2 : t5 === 'left' || t5 === 'top' ? o : outer - tile - o;
-          if (horizontal) ox = v; else oy = v;
-        } else {
-          const horizontal = ox === null;
-          const outer = horizontal ? box.w : box.h;
-          const tile = horizontal ? tw : th;
-          const v = t5.endsWith('%') ? (outer - tile) * (parseFloat(t5) / 100) : (parseFloat(t5) || 0) * (horizontal ? sx : sy);
-          if (horizontal) ox = v; else oy = v;
+      // Position, read per axis from the longhands. The shorthand's serialization moves between builds: Chromium 131
+      // keeps `right 10px bottom 5px` as written, Chromium 153 writes `calc(100% - 10px) calc(100% - 5px)`. Each
+      // longhand is a percent, a length, or a calc() summing the two, on both. A percent is of the free space; a px
+      // length is scaled by the box's transform. A value outside that shape skips the layer, as it did before.
+      const axisAt = (v, outer, tile, sc) => {
+        const inner = /^calc\((.*)\)$/.exec(v)?.[1] ?? v;
+        const terms = inner.replace(/\s*([+-])\s+/g, ' $1').trim().split(/\s+/);
+        let at = 0;
+        for (const t of terms) {
+          const mm = /^([+-]?[\d.]+(?:e[+-]?\d+)?)(%|px)$/.exec(t);
+          if (!mm) return null;
+          at += mm[2] === '%' ? (outer - tile) * (parseFloat(mm[1]) / 100) : parseFloat(mm[1]) * sc;
         }
-      }
-      ox = ox ?? 0;
-      oy = oy ?? 0;
+        return at;
+      };
+      const pxs = splitTop(cs.backgroundPositionX || '0%');
+      const pys = splitTop(cs.backgroundPositionY || '0%');
+      const ox = axisAt((pxs[i % pxs.length] || '0%').trim(), box.w, tw, sx);
+      const oy = axisAt((pys[i % pys.length] || '0%').trim(), box.h, th, sy);
+      if (ox === null || oy === null) return;
       let rep = (reps[i % reps.length] || 'repeat').split(/\s+/);
       if (rep[0] === 'repeat-x') rep = ['repeat', 'no-repeat'];
       else if (rep[0] === 'repeat-y') rep = ['no-repeat', 'repeat'];
