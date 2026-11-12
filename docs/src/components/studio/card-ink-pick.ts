@@ -22,19 +22,21 @@ export { compositionOf };
 /** The destination right after an opening `](` at `from`, as written: `<a b.jpg>` with spaces, or a bare one with balanced
  *  parentheses (`img/(1).jpg`). Null when it cannot be read. */
 function destinationAt(chunk: string, from: number): string | null {
-	const rest = chunk.slice(from);
-	if (rest.startsWith('<')) {
-		const end = rest.indexOf('>');
-		return end > 0 ? rest.slice(1, end) : null;
+	if (chunk.startsWith('<', from)) {
+		const end = chunk.indexOf('>', from);
+		return end > from ? chunk.slice(from + 1, end) : null;
 	}
+	// From one parenthesis or space to the next, not a character at a time: a phone photo's address is megabytes of base64
+	// with none in it, and the per-character walk took about 0.35 s of a paste in Firefox (PR #3153, Gecko profile).
+	const stop = /[()\s]/g;
+	stop.lastIndex = from;
 	let depth = 0;
-	for (let i = 0; i < rest.length; i++) {
-		const ch = rest[i];
-		if (ch === '(') depth++;
-		else if (ch === ')') {
-			if (depth === 0) return rest.slice(0, i) || null;
+	for (let m = stop.exec(chunk); m; m = stop.exec(chunk)) {
+		if (m[0] === '(') depth++;
+		else if (m[0] === ')') {
+			if (depth === 0) return chunk.slice(from, m.index) || null;
 			depth--;
-		} else if (/\s/.test(ch) && depth === 0) return rest.slice(0, i) || null;
+		} else if (depth === 0) return chunk.slice(from, m.index) || null;
 	}
 	return null;
 }

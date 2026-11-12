@@ -13,7 +13,7 @@
 // with `authoring()`, after its own loader awaited `loadAuthoring()`.
 
 import { adoptLintBoundarySetter } from '../lib/lint-boundary-state.js';
-import { loadLintCore } from './lint-core-source.js';
+import { lintCoreUrl, loadLintCore } from './lint-core-source.js';
 
 /** @typedef {typeof import('./authoring-core.generated.js')} Authoring */
 
@@ -49,4 +49,14 @@ export function loadAuthoring() {
 export function authoring() {
 	if (!core) throw new Error('authoring-door: the lint core has not loaded. Await loadAuthoring() in the loader of the module that reads it.');
 	return core;
+}
+
+/**
+ * The lint core's address, for the Studio's lint worker (components/studio/lint/lint-worker.js), or null where no worker
+ * can load it. The worker holds its own copy of the module, so it gets no switch from here: the lint client sends the
+ * deck's `off` set with every pass, and the worker switches its copy before it lints.
+ * @returns {string | null}
+ */
+export function lintCoreAddress() {
+	return lintCoreUrl();
 }

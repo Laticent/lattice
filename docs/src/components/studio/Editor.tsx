@@ -4,7 +4,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
 import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
-import { Annotation, ChangeSet, EditorSelection as CmSelection, Compartment, EditorState, type Extension, StateEffect, Transaction } from '@codemirror/state';
+import { Annotation, ChangeSet, EditorSelection as CmSelection, Compartment, EditorState, type Extension, StateEffect, type Text, Transaction } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, highlightActiveLine, highlightActiveLineGutter, hoverTooltip, keymap, layer, lineNumbers, RectangleMarker, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
@@ -18,6 +18,7 @@ import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { lintCoreNow, loadLintCore, studioVocabSets } from './deck-lint';
 import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists, withLazyInlineCore } from './editor-complete';
+import { payloadFold } from './editor-payload-fold';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { firstSlideShown } from './first-slide';
 import { iconPreviewOption } from './icon-preview';
@@ -93,6 +94,20 @@ const oneLintTooltip = ViewPlugin.define((view: EditorView) => {
 	return { destroy: () => view.dom.removeEventListener('mouseover', onMouseOver) };
 });
 
+// THE DOCUMENT AS ONE STRING, built once per version. CodeMirror's `Text` is immutable and keeps no string of itself, and
+// the editor asks for the whole text in several places per keystroke (the outward sync, the value check, the lint, the
+// outline check). On a deck of phone photos that is 16 MB a time: about 0.6 s of a keystroke in Firefox (PR #3153, Gecko
+// profile). Keyed by the `Text` object, so a version's string goes when the version does.
+const docStrings = new WeakMap<Text, string>();
+function docString(doc: Text): string {
+	let s = docStrings.get(doc);
+	if (s === undefined) {
+		s = doc.toString();
+		docStrings.set(doc, s);
+	}
+	return s;
+}
+
 // THE EDITOR IS AN INGEST — a leading BOM never reaches the deck source.
 //
 // A paste is external text entering the app, which is exactly what
@@ -139,9 +154,9 @@ const stripBom = (text: string) => (text.charCodeAt(0) === 0xfeff ? text.slice(1
  * they ran, the result is for text that no longer exists: nothing is applied, and null comes back.
  */
 async function formatInto(view: EditorView, all: boolean): Promise<FormatResult | null> {
-	const before = view.state.doc.toString();
+	const before = docString(view.state.doc);
 	const result = await formatCode(before, { all });
-	if (view.state.doc.toString() !== before) return null;
+	if (docString(view.state.doc) !== before) return null;
 	if (result.changes.length) view.dispatch({ changes: result.changes, userEvent: 'input.format', annotations: editAs.of({ label: 'Format code' }) });
 	return result;
 }
@@ -163,7 +178,7 @@ const NEVER_LINT: Promise<Diagnostic[]> = new Promise(() => {});
 
 function makeLinter(known: Set<string>, report?: (view: EditorView, findings: Array<{ autofixable?: boolean }>) => void) {
 	return linter((view): Diagnostic[] => {
-		const text = view.state.doc.toString();
+		const text = docString(view.state.doc);
 		const out: Diagnostic[] = [];
 		let m: RegExpExecArray | null;
 		CLASS_RE.lastIndex = 0;
@@ -629,7 +644,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 		hoverTooltip((view, pos) => {
 			const line = view.state.doc.lineAt(pos);
 			const values = { ...completionRegisters, ...(completionPalettes.length ? { theme: completionPalettes } : {}), ...(completionFinishValues.length ? { finish: completionFinishValues } : {}) };
-			const hit = frontMatterKeyAt(view.state.doc.toString(), line.text, line.from, pos, values);
+			const hit = frontMatterKeyAt(docString(view.state.doc), line.text, line.from, pos, values);
 			if (!hit) return null;
 			return {
 				pos: hit.from,
@@ -669,6 +684,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// CodeMirror would dispatch that and wipe the newer pass's diagnostics. A promise that never settles is
 	// dropped by `@codemirror/lint`, which holds no lock on a pending pass.
 	const lintGenRef = React.useRef(0);
+	const lintLane = React.useId();
 	const buildLint = () => {
 		const gen = ++lintGenRef.current;
 		const stale = () => gen !== lintGenRef.current;
@@ -690,12 +706,31 @@ export const Editor = React.forwardRef<EditorHandle, {
 						return [];
 					}
 					let findings: Array<{ autofixable?: boolean }>;
-					const doc = view.state.doc.toString();
+					const asked = view.state;
+					const doc = docString(asked.doc);
+					// Under a host that narrowed its plugin set, parse as the engine does (math off →
+					// a `---` inside `$$` is a slide break here too). A no-op on the default set. The page's
+					// copy follows it for the quick fixes and the measured findings below; the worker's
+					// copy is switched by the lint client.
+					let off: Awaited<ReturnType<typeof import('./lint/lint-client.js')['lintOffThread']>>;
 					try {
-						// Under a host that narrowed its plugin set, parse as the engine does (math off →
-						// a `---` inside `$$` is a slide break here too). A no-op on the default set.
 						followDeckAdmission(doc);
-						findings = core.lintTextWith(doc, vocabSets);
+						// The pass runs in the Studio's lint worker, so typing never waits for it (lint/lint-client.js), and on
+						// this thread where no worker can run. The client loads with the first pass, like the lint core, so it
+						// and its worker pool stay off the Studio's startup path. One lane per editor, so two editors on a page
+						// never replace each other's passes.
+						const { lintOffThread } = await import('./lint/lint-client.js');
+						off = await lintOffThread(lintLane, doc, vocabSets);
+					} catch {
+						reportLint(view, null);
+						return [];
+					}
+					// A newer pass replaced this one, or the text moved on while it ran: its answer is for a stale
+					// text, and CodeMirror runs a pass for the new one.
+					if (stale() || 'superseded' in off || view.state.doc !== asked.doc) return NEVER_LINT;
+					try {
+						if ('threw' in off) throw new Error(off.threw);
+						findings = 'fallback' in off ? core.lintTextWith(doc, vocabSets) : off.findings;
 					} catch {
 						// The lint threw, so this pass knows NOTHING. Say so rather than reporting
 						// zero, which would read as "clean" and disable Fix all over a real issue.
@@ -705,7 +740,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 					const fixOpts = {
 						// biome-ignore lint/suspicious/noExplicitAny: lint-core finding + CM view.
 						onFix: (v: any, f: any) => {
-							const out = core.applyFix(v.state.doc.toString(), f);
+							const out = core.applyFix(docString(v.state.doc), f);
 							if (out != null) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out }, annotations: editAs.of({ label: 'Quick fix', origin: 'lint' }) });
 						},
 					};
@@ -716,7 +751,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 					const measured: Diagnostic[] = [];
 					const measuredFindings: Array<{ autofixable?: boolean }> = [];
 					if (m?.reports.length && core.sparkFitFindings) {
-						const text = view.state.doc.toString();
+						const text = docString(view.state.doc);
 						const live = hubRef.current?.outline();
 						const ix = live && live.source === text ? live : buildDeckIndex(text);
 						for (const f of core.sparkFitFindings(text, m.reports)) {
@@ -748,7 +783,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 						if (stale()) return NEVER_LINT;
 						if (fix) {
 							keepInkTooltip = fix.keepTooltipOnSameDiagnostics;
-							const text = view.state.doc.toString();
+							const text = docString(view.state.doc);
 							fix.attachInkFixes(thin, text, () => hubRef.current?.get().unitIndex, () => measuredPhotoRef.current);
 							if (photo && photoWanted) {
 								const ix = buildDeckIndex(text);
@@ -793,7 +828,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const revealFocus = React.useCallback((v: EditorView, f: Focus, onlyIfElsewhere = false) => {
 		const ix = hubRef.current?.outline();
 		if (!ix || f.unitIndex < 0) return;
-		if (ix.source.length !== v.state.doc.length || ix.source !== v.state.doc.toString()) {
+		if (ix.source.length !== v.state.doc.length || ix.source !== docString(v.state.doc)) {
 			pendingRevealRef.current = f;
 			return;
 		}
@@ -871,7 +906,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 					// The fix driver is a chunk of its own, fetched on the first press (lint-core `loadFixDriver`).
 					await core.loadFixDriver();
 					// Read the document AFTER the await, so a keystroke typed while it loaded is kept.
-					const cur = v.state.doc.toString();
+					const cur = docString(v.state.doc);
 					const res = core.fixAllDetailed(cur, vocabSets);
 					if (res.text !== cur) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: res.text }, annotations: editAs.of({ label: 'Fix all', origin: 'lint' }) });
 					// Say what it did, naming each fix the driver refused (a refused fix keeps its underline).
@@ -882,12 +917,12 @@ export const Editor = React.forwardRef<EditorHandle, {
 				return;
 			}
 			// Fallback: swap each unknown `_class` for its nearest known suggestion.
-			let text = v.state.doc.toString();
+			let text = docString(v.state.doc);
 			CLASS_RE.lastIndex = 0;
 			text = text.replace(CLASS_RE, (full, name: string) =>
 				known.size && !known.has(name) ? full.replace(name, suggestFor(name, known)) : full,
 			);
-			if (text !== v.state.doc.toString()) {
+			if (text !== docString(v.state.doc)) {
 				v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text }, annotations: editAs.of({ label: 'Fix all', origin: 'lint' }) });
 			}
 		},
@@ -964,14 +999,14 @@ export const Editor = React.forwardRef<EditorHandle, {
 		placeCaret(text: string, offset: number) {
 			const v = viewRef.current;
 			if (!v) return;
-			if (stripBom(v.state.doc.toString()) === text) {
+			if (stripBom(docString(v.state.doc)) === text) {
 				const at = Math.max(0, Math.min(offset, v.state.doc.length));
 				v.dispatch({ selection: { anchor: at }, scrollIntoView: true, annotations: fromValueSync.of(true) });
 			} else pendingCaretRef.current = { text, offset };
 		},
 		resetDoc(text: string) {
 			const v = viewRef.current;
-			if (!v || v.state.doc.toString() === text) return;
+			if (!v || docString(v.state.doc) === text) return;
 			// Whole-doc replace, right now — the demo's guarantee that the canvas is exactly
 			// `text` before the first typeTail (see the handle doc above). Caret to the top.
 			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text }, selection: { anchor: 0 } });
@@ -1065,6 +1100,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 						// typeTail) can still center the last slide instead of clamping short.
 						scrollPastEnd(),
 						EditorView.lineWrapping,
+						// An inline picture's bytes show as a chip with its size, so the editor never lays out megabytes of base64.
+						payloadFold(),
 						EditorView.contentAttributes.of({ 'aria-label': 'Deck source' }),
 						// FORMAT ON LEAVING THE EDITOR, for the blocks that ask (`@code{format}`, or the
 						// deck's `code: format`). The Studio autosaves on every keystroke, so leaving the
@@ -1074,7 +1111,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 							blur: (e, view) => {
 								// The undo doorbell's ring is not the author leaving: focus comes straight back.
 								if (blurToDoorbell(e)) return false;
-								if (!view.state.facet(EditorState.readOnly) && wantsFormat(view.state.doc.toString())) void formatInto(view, false);
+								if (!view.state.facet(EditorState.readOnly) && wantsFormat(docString(view.state.doc))) void formatInto(view, false);
 								return false;
 							},
 						}),
@@ -1094,7 +1131,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 								// before the filter landed can still hold a leading BOM, and `source` is what the
 								// preview renders, the export ships and the autosave stores, so it is this boundary
 								// that has to hold rather than the filter alone.
-								const text = stripBom(u.state.doc.toString());
+								const text = stripBom(docString(u.state.doc));
 								// The hub first, with the editor's own account of what changed: a text diff
 								// cannot tell which of two equal-looking edits the author made, and the slide
 								// ids that keep the rail stable depend on it.
@@ -1179,7 +1216,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// A view built without a dispatch — a deck switch — otherwise kept the PREVIOUS deck's
 			// revision, and the hub dropped every caret report as stale until the next keystroke.
 			const hub = hubRef.current;
-			revRef.current = hub ? hub.update(stripBom(view.state.doc.toString()), { by: 'sync' }) : undefined;
+			revRef.current = hub ? hub.update(stripBom(docString(view.state.doc)), { by: 'sync' }) : undefined;
 			const f = hub?.get();
 			// Taking the keyboard, or carrying a line or an offset: put the caret where it belongs even on the slide the view
 			// opened on (slide 1), whose offset 0 is inside the front-matter fence (the trio's checker). Otherwise a view on the
@@ -1254,10 +1291,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 		const v = viewRef.current;
 		// Bound to a live session: the binding carries every change (see `collab`).
 		if (collabRef.current) return;
-		if (!v || value === v.state.doc.toString()) return;
+		if (!v || value === docString(v.state.doc)) return;
 		// A trailing echo of the author's own typing, not a write (see `isStaleEcho`).
 		if (isStaleEchoRef.current?.(value)) return;
-		const old = v.state.doc.toString();
+		const old = docString(v.state.doc);
 		// Minimal diff — the common prefix/suffix the two docs share.
 		const minLen = Math.min(old.length, value.length);
 		let p = 0;

@@ -15,28 +15,32 @@ export type PhotoFinding = Finding & { pin: Fix | null };
 const SETTLE_MS = 900;
 
 /**
- * `context` is everything outside the slide that changes what the preview paints (the site's mode and palette, the deck's
- * front matter): a new value re-reads the slide, so a theme or mode switch cannot leave an old verdict on screen.
+ * `context` stands for everything outside the slide that changes what the preview paints (the site's mode and palette, the
+ * rest of the deck), compared by identity: a new object re-reads the slide, so a theme or mode switch cannot leave an old verdict on screen.
  * `slideIndex` is 0-based. `verdict` is null until this slide has been read, and when it cannot be measured.
  */
 export function usePhotoContrast(
 	chunk: string,
 	slideIndex: number,
 	source: string,
-	context: string,
+	context: object,
 ): { verdict: PhotoVerdict | null; fresh: boolean; findings: PhotoFinding[]; settled: boolean } {
-	const [state, setState] = React.useState<{ key: string; slide: number; verdict: PhotoVerdict | null }>({ key: '', slide: -1, verdict: null });
-	const photo = /!\[bg[^\]]*\]\(/.test(chunk);
+	const [state, setState] = React.useState<{ key: object | null; slide: number; verdict: PhotoVerdict | null }>({ key: null, slide: -1, verdict: null });
+	const photo = React.useMemo(() => /!\[bg[^\]]*\]\(/.test(chunk), [chunk]);
 	// Derived in render, so it flips the moment the slide changes: `settled` means the read for THIS slide, in THIS context, has
-	// finished (or there is no photo to read).
-	const key = `${slideIndex}|${context}|${chunk}`;
+	// finished (or there is no photo to read). An OBJECT, new whenever the slide, its text or the context is: it used to be
+	// the string `${slideIndex}|${context}|${chunk}`, built on every render and compared three times, which on a slide that
+	// holds a phone photo copied and compared megabytes per render (Firefox flattens a joined string to compare it: about
+	// 0.4 s of a paste, PR #3153, Gecko profile).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the three inputs are the key's identity; the body reads none of them.
+	const key = React.useMemo(() => ({}), [slideIndex, context, chunk]);
 	const sourceRef = React.useRef(source);
 	sourceRef.current = source;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `context` is not read in the body; a new value is the signal to re-read the preview.
 	React.useEffect(() => {
 		let live = true;
 		if (!photo) {
-			setState((prev) => (prev.verdict ? { key: '', slide: -1, verdict: null } : prev));
+			setState((prev) => (prev.verdict ? { key: null, slide: -1, verdict: null } : prev));
 			return;
 		}
 		const id = setTimeout(async () => {

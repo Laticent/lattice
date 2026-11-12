@@ -13,6 +13,10 @@
       "count": 4,
       "why": "loads a built asset by URL at runtime in the browser (a versioned engine, kernel or model file), not a repo module"
     },
+    "docs/src/components/studio/lint/lint-worker.js": {
+      "count": 1,
+      "why": "loads a built asset by URL at runtime in the browser (the lint core, esm/lint.js, by the address the page sends), not a repo module"
+    },
     "docs/src/lib/ensure-charts.ts": {
       "count": 2,
       "why": "loads a built asset by URL at runtime in the browser (a versioned engine, kernel or model file), not a repo module"
