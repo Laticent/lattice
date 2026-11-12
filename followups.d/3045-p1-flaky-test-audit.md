@@ -144,16 +144,10 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             Same PR: test/unit's `env-skip` sites (#3144's census and rule) at zero outside components and
             trama: 33 in 15 files through `skipUnlessCI` / `skipWithoutChrome`, two `ci-skip` notes (oh-my-zsh opt-in;
             flock on macOS, run by `wait-for-macos`).
-            2026-11-12 (`docs/e2e` census): every `docs/e2e` hit outside three files other sessions own is done, 39
-            hits in 24 files, and `SANCTIONED_E2E_SLEEPS` went from 106 calls in 36 files to the one `restyle-overlap`
-            entry; the baseline is now 132 hits in 55 files, no `flaky-ok` added and no test disabled. Each rewrite
-            waits on a product signal (five helpers in `docs/e2e`, listed in the decision note's tools), and 24 were
-            shown failing on a broken product line. Found and fixed: `workspace-backup-size`'s 67 MiB case and
-            `preview-nav`'s remount case were red on `main`; vetrina's scroll-cost test counted style mutations, which
             2026-11-12 (`docs/e2e` census): every `docs/e2e` hit outside the files other sessions own is done, 39
             hits in 24 files, and `SANCTIONED_E2E_SLEEPS` went from 106 calls in 36 files to one call owned
             elsewhere (`workspace-backup-size`, #3153; #3155 removed `restyle-overlap`'s). With #3155 the `docs/e2e`
-            baseline is empty, and the whole baseline is 187 hits in 76 files (223 in 99 on `main` at merge time). One
+            baseline is empty, and the whole baseline is 93 hits in 39 files (129 in 62 on `main` at merge time). One
             `flaky-ok` was added, on `timersDrained`, a zero-delay-timer ordering barrier, and no test was disabled. Each
             rewrite waits on a product signal (six helpers in `docs/e2e`,
             listed in the decision note's tools), and each was shown failing on a broken product line where an arm
