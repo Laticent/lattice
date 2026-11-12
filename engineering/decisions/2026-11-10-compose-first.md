@@ -215,8 +215,11 @@ line at the top of the pane with the slide's heading scrolled off). The slide's 
 the slide down to the caret fits the pane, else the caret goes in the middle (`frameSlide`, Editor.tsx). The heights are
 estimates until the lines are drawn (a phone's wrapped caret line was estimated at 1076 px and measured at 2262 px), so
 over the next few layouts a caret left outside the pane is scrolled just into it, and a pane that is hidden when the
-reveal runs is framed the first time it gets a height. `studio-pane-sync.spec.ts` checks the heading and the caret line
-are both on screen after a switch.
+reveal runs is framed the first time it gets a height. On a tablet the on-screen keyboard covers the lower half of the
+pane without shrinking it, so "fits" and "on screen" are measured against the part the keyboard leaves
+(`visualViewport`), and the caret is checked again when the keyboard rises, a moment after focus. `studio-pane-sync.spec.ts`
+checks the heading and the caret line are both on screen after a switch; the keyboard half cannot be driven from
+Playwright (no real on-screen keyboard) and is checked on the owner's iPad.
 
 The drawn caret sits OUTSIDE the editable text: an overlay in Compose (`position: fixed` from the caret's coordinates) and
 a CodeMirror layer in Source. A first cut put a widget inside the text and took it out on focus, and changing the

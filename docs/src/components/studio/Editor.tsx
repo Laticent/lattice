@@ -255,25 +255,56 @@ function keepCaretInView(v: EditorView, caret: number, tries: number): void {
 			const block = view.lineBlockAt(Math.min(caret, view.state.doc.length));
 			const box = view.scrollDOM.getBoundingClientRect();
 			const top = view.documentTop + block.top;
-			return top < box.top || top + block.height > box.bottom;
+			return top < box.top || top + block.height > visibleBottom(view);
 		},
 		// Never a dispatch inside the measure cycle (CodeMirror refuses it, which ended the loop after one check): the next frame.
 		write: (outside, view) => {
 			requestAnimationFrame(() => {
 				if (!view.dom.isConnected) return;
-				if (outside) view.dispatch({ effects: EditorView.scrollIntoView(Math.min(caret, view.state.doc.length), { y: 'nearest', yMargin: 8 }) });
+				// Scrolled by hand to sit above the keyboard: CodeMirror's own 'nearest' knows the pane, not the keyboard over it.
+				// Measured again here, after the frame: the measure ran before CodeMirror applied its own scroll, so its answer
+				// can be stale (it re-centered a rail pick that was already framed at the top).
+				const at = Math.min(caret, view.state.doc.length);
+				const block = view.lineBlockAt(at);
+				const box = view.scrollDOM.getBoundingClientRect();
+				const onScreen = view.documentTop + block.top;
+				if (outside && (onScreen < box.top || onScreen + block.height > visibleBottom(view))) {
+					const room = visibleBottom(view) - box.top;
+					const top = onScreen - box.top + view.scrollDOM.scrollTop;
+					view.scrollDOM.scrollTop = Math.max(0, top - Math.max(8, (room - block.height) / 2));
+				}
 				if (tries > 1) keepCaretInView(view, caret, tries - 1);
 			});
 		},
 	});
 }
 
+/**
+ * Where the editor's visible area ends on screen: the pane's bottom, or the top of an on-screen keyboard over it. An iPad's
+ * keyboard covers the lower half of the pane without shrinking it, so a caret framed in the pane's full height sat under
+ * the keyboard (owner, iPad, 2026-11-12). `visualViewport` is the part of the page the keyboard leaves.
+ */
+function visibleBottom(v: EditorView): number {
+	const box = v.scrollDOM.getBoundingClientRect();
+	const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+	return vv ? Math.min(box.bottom, vv.offsetTop + vv.height) : box.bottom;
+}
+
 function frameSlide(v: EditorView, from: number, caret: number) {
-	const room = v.scrollDOM.clientHeight;
+	const full = v.scrollDOM.clientHeight;
+	const room = full ? Math.max(0, visibleBottom(v) - v.scrollDOM.getBoundingClientRect().top) : 0;
+	// The keyboard rises AFTER focus (on a tablet, after this frame): when it does, the caret is checked again against the
+	// space it leaves. For a few seconds only, so a later keyboard does not pull the view back to an old caret.
+	const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+	if (vv) {
+		const onResize = () => keepCaretInView(v, caret, 2);
+		vv.addEventListener('resize', onResize);
+		setTimeout(() => vv.removeEventListener('resize', onResize), 3000);
+	}
 	// A pane with no height yet (a phone's hidden pane) cannot be measured: frame the slide the first time it gets one, and
 	// meanwhile put the caret's line at the top. Framed while hidden, the heights were all estimates, and the caret drifted
 	// below the pane once the phone drew its wrapped lines (owner, iPad; studio-pane-sync's phone case).
-	if (!room) {
+	if (!full) {
 		if (typeof ResizeObserver !== 'undefined') {
 			const ro = new ResizeObserver(() => {
 				if (!v.scrollDOM.clientHeight || !v.dom.isConnected) return;
