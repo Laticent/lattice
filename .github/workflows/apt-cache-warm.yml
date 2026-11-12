@@ -1,0 +1,142 @@
+name: apt cache warm
+
+# KEEPS EVERY APT AND PLAYWRIGHT CACHE ENTRY WARM ON `main` (engineering/gotchas/ci.md, the 2026-11-11 mirror outage).
+#
+# GitHub scopes caches by branch: a pull request restores its own entries or `main`'s, never another PR's. ci.yml runs
+# only on pull requests and the merge queue, so nothing it saves reaches the next PR. Until this workflow, an entry
+# existed on `main` only if some nightly happened to use the same package list, on the same runner, and reached its
+# install step that night. A list no nightly used missed on every new PR and read Ubuntu's mirror, which is what
+# failed five PRs on 2026-11-11. GitHub's roughly weekly runner-image bump also moves every key.
+#
+# So one job per distinct call, every six hours: each restores its entry (a hit costs seconds), and a new image or a
+# new list saves an entry under `main` within six hours instead of at the next nightly that shares it.
+#
+# THE MATRICES BELOW ARE CHECKED, NOT TRUSTED. `checkAptCacheWarmer` in tools/check-ownership.js (via build:check)
+# reads every other workflow's `apt-cached` and `playwright-browsers` calls and fails when one has no row here, or a
+# row here matches no call. Add a call anywhere and the build tells you to add its row.
+
+on:
+  schedule:
+    # Every six hours at :23. A non-round minute like every other cron here: GitHub queues the top of the hour heavily.
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+  # A change to the cache actions, or to this file, runs every call on the pull request that makes it, so a broken
+  # action shows up on its own PR rather than on the next night's nightlies. Entries a PR saves stay in its own scope.
+  pull_request:
+    paths:
+      - .github/actions/apt-cached/**
+      - .github/actions/playwright-browsers/**
+      - .github/workflows/apt-cache-warm.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apt-cache-warm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apt:
+    name: apt ${{ matrix.packages }}
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-24.04
+            packages: poppler-utils imagemagick fonts-noto-color-emoji
+          - runs-on: ubuntu-24.04
+            packages: fonts-noto-color-emoji
+          - runs-on: ubuntu-24.04
+            packages: poppler-utils
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+      - name: Install the packages, from the cache
+        id: apt
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: ${{ matrix.packages }}
+
+  apt-container:
+    name: apt ${{ matrix.packages }} (${{ matrix.container }})
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 15
+    container:
+      image: ${{ matrix.container }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-24.04
+            container: mcr.microsoft.com/playwright:v1.56.1-noble
+            packages: gh
+    steps:
+      # No git step first, unlike the job this row stands in for (studio-e2e-nightly.yml's firefox-webrtc): the image
+      # ships git, and that job's git step installs nothing on it. Installing anything before apt-cached would change
+      # the key, which in a container hashes dpkg's package list.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+      - name: Install the packages, from the cache
+        id: apt
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: ${{ matrix.packages }}
+
+  browsers:
+    name: playwright ${{ matrix.browsers }}
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # `lockfile` is the folder whose package-lock.json pins Playwright for the calls this row stands in for (their
+        # `working-directory`, docs/ by default). The key carries that version, so the warmer installs the same one.
+        include:
+          - runs-on: ubuntu-24.04
+            lockfile: docs
+            browsers: chromium
+          - runs-on: ubuntu-24.04
+            lockfile: docs
+            browsers: webkit
+          - runs-on: ubuntu-24.04
+            lockfile: docs
+            browsers: firefox webkit
+          - runs-on: ubuntu-24.04
+            lockfile: docs
+            browsers: chromium firefox webkit
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/actions
+            ${{ matrix.lockfile }}/package-lock.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Only Playwright, at the locked version: the action reads its package list and version from the folder's
+      # node_modules, and a full `npm ci` of docs/ would cost minutes for one package.
+      - name: Playwright, at the version ${{ matrix.lockfile }}/ locks
+        env:
+          LOCKFILE: ${{ matrix.lockfile }}/package-lock.json
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./$LOCKFILE').packages['node_modules/playwright-core'].version")
+          echo "Playwright $version, from $LOCKFILE"
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          printf '{"private":true}\n' > package.json
+          npm install --no-audit --no-fund --loglevel=error "playwright@$version"
+          rm -rf "$GITHUB_WORKSPACE/.warm-playwright" && mv "$RUNNER_TEMP/pw" "$GITHUB_WORKSPACE/.warm-playwright"
+      - name: Install the browsers, from the cache
+        id: apt
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: ${{ matrix.browsers }}
+          working-directory: .warm-playwright
