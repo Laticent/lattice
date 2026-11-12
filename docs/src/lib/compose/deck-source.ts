@@ -99,6 +99,14 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 		const next = chunk.slice((m.index ?? 0) + m[0].length).match(/^(?:[ \t]*\r?\n)*([^\n]*)/)?.[1] ?? '';
 		if (!inFence(at) && !/^[ \t]/.test(next)) matched.set(lineOf(at), m[0]);
 	}
+	const chunkLines = chunk.split('\n');
+	// Past a pane marker a setting belongs to that pane, so nothing after the first one moves (a record lifted out of a
+	// pane took its class to the slide; the checker on #3136).
+	const firstPane = chunkLines.findIndex((l) => l.trim().startsWith('<!--') && parsePaneMarker(l.trim())?.pane) + 1 || Number.POSITIVE_INFINITY;
+	const nonBlankAround = (line: number, step: 1 | -1) => {
+		for (let i = line - 1 + step; i >= 0 && i < chunkLines.length; i += step) if (chunkLines[i].trim()) return chunkLines[i];
+		return '';
+	};
 	const hoist = new Set<number>();
 	const kept = new Set<string>();
 	for (const line of [...readings.keys()].sort((a, b) => a - b)) {
@@ -107,7 +115,18 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 		const text = matched.get(line);
 		// A directive nested in a list moves too, as it always did: left in place, Compose's parser reads it as list text
 		// and escapes its underscore, and the slide loses it (the checker on #3136). Lifting it changes no field.
-		const movable = (r.kind === 'directive' || r.kind === 'record' || r.kind === 'nested') && text !== undefined && !parsePaneMarker(text.trim())?.pane;
+		// It stays when: it is a pane marker or comes after one; it is a record carrying a speaker note (lifting it would
+		// reorder the slide's notes); or it sits between two list items (lifting it would merge the two lists).
+		const body = text?.trim().slice(4, -3) ?? '';
+		const carriesNote = r.kind === 'record' && isRecordOpener(body) && Object.keys(readRecord(body)?.notes ?? {}).length > 0;
+		const betweenLists = LIST_ITEM.test(nonBlankAround(line, -1)) && LIST_ITEM.test(nonBlankAround(line, 1));
+		const movable =
+			(r.kind === 'directive' || r.kind === 'record' || r.kind === 'nested') &&
+			text !== undefined &&
+			!parsePaneMarker(text.trim())?.pane &&
+			line < firstPane &&
+			!carriesNote &&
+			!betweenLists;
 		if (movable && ![...r.keys].some((k) => kept.has(k))) hoist.add(line);
 		else for (const k of r.keys) kept.add(k);
 	}
@@ -227,14 +246,24 @@ export function hasLossyConstruct(prose: string): boolean {
  *  list text with an escaped `_`, and the slide would lose it, so the slide is edited in Markdown (the checker on #3136). */
 function strandsADirective(prose: string): boolean {
 	const lines = prose.split('\n');
-	for (const [line, r] of commentReadings(prose)) {
-		if (r.kind === 'note') continue;
+	// What the engine applies: its readings, and the pane markers (which commentReadings does not report).
+	const applied = new Set<number>();
+	for (const [line, r] of commentReadings(prose)) if (r.kind !== 'note') applied.add(line);
+	lines.forEach((l, i) => {
+		if (l.trim().startsWith('<!--') && parsePaneMarker(l.trim())?.pane) applied.add(i + 1);
+	});
+	for (const line of applied) {
 		const text = lines[line - 1] ?? '';
 		const above = lines[line - 2] ?? '';
-		if (/^[ \t]/.test(text) || above.trim() !== '') return true;
+		// Indented: it sits in a list item. Under a list item or its continuation: the item takes it in. A comment, a
+		// heading or a paragraph above does not (the checker on #3136: two stacked settings must stay editable).
+		if (/^[ \t]/.test(text) || LIST_ITEM.test(above) || /^[ \t]+\S/.test(above)) return true;
 	}
 	return false;
 }
+
+/** A list item's first line: a bullet or a number, then a space or the end of the line. */
+const LIST_ITEM = /^[ \t]*(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)/;
 
 /** The `_class` component name of a slide's directives (first token), or 'content'. */
 export function slideClassOf(directives: string[]): string {

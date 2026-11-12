@@ -21,9 +21,12 @@
 - **Editing a slide in Compose no longer changes what the slide applies.** Compose lifts a setting to the top of the
   slide only when the engine applies it there and moving it changes nothing: an example in indented code or inside an
   HTML block stays put, and a setting never moves past one that stays in place and sets the same field (a bare
-  `<!-- class: dark -->`, one in a quote, or a record's other fields). A slide where a setting has to stay inside a
-  list or right under a line of text opens in Markdown, because Compose would write it back as text. A seeded test
-  renders 400 random slides before and after a Compose edit and requires the same result.
+  `<!-- class: dark -->`, one in a quote, or a record's other fields). Nothing after a pane marker leaves its pane,
+  a record with a speaker note stays put so the notes keep their order, and a setting between two lists stays so the
+  lists do not merge. A slide where a setting would be taken into a list item (indented under one, or right below
+  one, pane markers included) opens in Markdown, because Compose would write it back as list text. A seeded test
+  renders random slides before and after a Compose edit, through the editor's own parser and serializer, and
+  requires the same slide class, style and panes.
 - **Present's section rail reads a quoted divider** (`<!-- _class: "divider" -->`).
 - **A speaker note no longer locks a field.** A note with a line that starts `focus:` or `class:` is not a second
   place the field is set, so the slide panel still edits the record. A field set twice shows the value that wins.

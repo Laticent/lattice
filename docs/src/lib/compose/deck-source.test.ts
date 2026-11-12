@@ -164,7 +164,10 @@ describe('the Compose round trip never changes what the engine applies', async (
 		const attr = (name: string) => tag.match(new RegExp(`${name}="([^"]*)"`))?.[1] ?? '';
 		// Declaration ORDER in the style attribute is not what applies; the set of declarations is.
 		const style = attr('style').replaceAll('&quot;', '"').split(';').filter(Boolean).sort().join(';');
-		return { class: attr('data-class'), style };
+		// Each pane the slide draws, with its classes: a setting moved into or out of a pane changes these.
+		const html = String(engine.render(md).html);
+		const panes = (html.match(/<lat-pane[^>]*>/g) ?? []).join('');
+		return { class: attr('data-class'), style: `${style}|${panes}` };
 	};
 	const SHAPES = [
 		'<!-- _class: dark -->',
@@ -188,6 +191,14 @@ describe('the Compose round trip never changes what the engine applies', async (
 		'<!-- {focus=3} -->',
 		'<!-- paginate: false -->',
 		'<!-- _paginate: false -->',
+		'<!-- theme: indaco -->\n<!-- paginate: true -->',
+		'<!-- _class: split-compare -->',
+		'<!-- _pane: right -->',
+		'<!-- {pane=left} -->',
+		'<!-- {class=dark, note=hi} -->',
+		'- a\n<!-- _pane: right -->',
+		'1. a',
+		'1. a\n<!-- _footer: z -->',
 	];
 	const SEED = Number(process.env.COMPOSE_ROUNDTRIP_SEED ?? 3136);
 	let s = SEED >>> 0;
@@ -259,5 +270,31 @@ describe('splitSlideDirectives: the reviewer cases on #3136', () => {
 		const { directives, prose } = splitSlideDirectives(slide);
 		expect(directives).toEqual([]);
 		expect(prose.indexOf('footer=f')).toBeLessThan(prose.indexOf('_footer: g'));
+	});
+});
+
+describe('splitSlideDirectives and the lock: the second review of #3136', () => {
+	it('two settings stacked on adjacent lines stay editable', () => {
+		const { prose } = splitSlideDirectives('<!-- theme: indaco -->\n<!-- paginate: true -->\n\n## Title');
+		expect(hasLossyConstruct(prose)).toBe(false);
+	});
+	it('a setting right under a heading or a paragraph stays editable', () => {
+		expect(hasLossyConstruct('## T\n<!-- paginate: false -->')).toBe(false);
+		expect(hasLossyConstruct('text\n<!-- {pane=right} -->')).toBe(false);
+	});
+	it('a pane marker right under a list item locks the slide (the list would take it in)', () => {
+		const { prose } = splitSlideDirectives('<!-- _class: split-compare -->\n\n## T\n\n- a\n<!-- _pane: right -->\n\nb');
+		expect(hasLossyConstruct(prose)).toBe(true);
+	});
+	it('a record that carries a speaker note stays where it is, so the notes keep their order', () => {
+		const { directives } = splitSlideDirectives('## T\n\n<!-- first note -->\n\ntext\n\n<!-- {class=dark, note=second} -->');
+		expect(directives).toEqual([]);
+	});
+	it('nothing after a pane marker moves out of its pane', () => {
+		const slide = '<!-- _class: split-compare -->\n\n## T\n\n<!-- {pane=right} -->\n\n<!-- {class=dark} -->\n\nbody\n\n<!-- {pane=left} -->\n\nx';
+		expect(splitSlideDirectives(slide).directives).toEqual(['<!-- _class: split-compare -->']);
+	});
+	it('a setting between two list items stays, so the lists do not merge', () => {
+		expect(splitSlideDirectives('## T\n\n1. a\n<!-- _footer: z -->\n\n1. b').directives).toEqual([]);
 	});
 });
