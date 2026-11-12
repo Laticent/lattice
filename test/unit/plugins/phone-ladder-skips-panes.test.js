@@ -5,7 +5,7 @@
  * onto it as `section lat-pane.<kind>…`. So a ladder rule keyed on a bare family test, `section.progress:where(
  * [data-family="square"] …)`, also matched a 35% progress pane on a 16:9 slide, and set its labels at a phone page's
  * 11pt measured against the whole 1920px slide: examples/panes-row-labels.md p4 printed its names at 3x and clipped.
- * The ladder's rules read `:where(:not(lat-pane):is([data-family=…]))` instead; a pane only ever sits on a wide slide
+ * The ladder's rules add `:where(:not(lat-pane))` to the family test instead; a pane only ever sits on a wide slide
  * (a phone deck splits its panes) and the dispatch already leaves one out (`ctx.paneView`).
  *
  * This walks every rule of the chart family's sheets, widened for a progress pane exactly as a panes deck's sheet is,
@@ -81,7 +81,7 @@ describe('the phone ladder is a page rule', () => {
   });
 
   test('failing arm: a bare family test catches the pane', () => {
-    const bare = ladderSelectors((css) => css.replaceAll(':where(:not(lat-pane):is(', ':where(:is('));
+    const bare = ladderSelectors((css) => css.replaceAll(':where(:not(lat-pane))', ''));
     assert.ok(matching(PANE, bare).length > 0, 'without :not(lat-pane) the ladder reaches the pane');
   });
 });
