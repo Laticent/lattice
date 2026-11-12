@@ -184,3 +184,26 @@ One branch, one PR, one commit per slice (HARD RULE #17):
 **Verification:** Playwright Chromium is a natural LITE machine (SwiftShader); a GPU-backed FULL run and real Safari
 need the macOS suite by dispatch. A real low-memory Android phone is **UNVERIFIED** from here (HARD RULE #23), and the
 PR will say so.
+
+## 9. Test plan (HARD RULES #32–#34)
+
+This feature's job is to read the machine and the clock. Those are exactly the inputs a test must never depend on
+(F8 and F1 in `2026-11-06-flaky-tests.md`). So every test feeds the profile its inputs and never lets it read the
+runner.
+
+| What | How it is tested | Never |
+|---|---|---|
+| `classify(signals)` | A table of signal objects in, `{ tier, reasons }` out. Pure, no browser | Reading `navigator` or the runner's cores, memory or GPU (F8) |
+| `readSignals()` | Takes `navigator`, `document` and `CSS` as arguments; tests pass fakes. Each field has a case where the API is absent | A real WebGL context in a unit test |
+| CPU micro-benchmark | Takes a `now()` function. Tests pass a fake clock that advances by a fixed step per call, then assert the **count of units** the probe ran and the median it picked | Asserting how long it took, or comparing two runs (F1) |
+| `detect-gpu` | Its benchmark fetch is stubbed with a recorded table (`page.route` in e2e, an injected loader in unit tests) | Fetching unpkg or our own CDN from a test (F6) |
+| Boot probe (FULL → LITE) | The long-task source is injected; the test feeds it entries and asserts the transition | Making the page slow and hoping it trips (F4) |
+| e2e, every surface | Each spec pins its tier with an init script (`?tier=full` / `lite` / `unsupported`), because the CI browser is software-rendered and would otherwise land in LITE by accident. It waits on `html[data-device-tier]` and on the element under test, never a duration | `waitForTimeout`, hand-made sleeps, relying on the runner's GPU (F2, F8) |
+| Visual evidence | `tools/screenshot.js` at 390, 820 and 1440 px, each tier pinned | A pixel golden from another machine (F8) |
+
+Every new test carries in the PR body:
+- its **failing arm**: break the product, watch the test go red, then restore it byte for byte;
+- **repeat green alone**: five runs for a unit file, `--repeat-each=10` for e2e;
+- **green under load**: `--workers=4 --repeat-each=5`.
+
+Playwright `retries` stays at 0. The flaky-test baseline (`tools/flaky-test-baseline.json`) does not grow.
