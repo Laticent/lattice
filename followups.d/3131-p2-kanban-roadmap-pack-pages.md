@@ -9,12 +9,13 @@ deferred: blocked — page breaks belong to #2988's measured split (`fit: pack`)
 source: https://github.com/Laticent/lattice/pull/3131
 ---
 
-# A kanban, roadmap or journey on a phone page splits one lane, card or stage per page, leaving most of each page empty
+# A kanban, roadmap or journey too tall for one phone page splits one lane, card or stage per page, leaving most of each page empty
 
 why now   — the owner, on the mobile renders (2026-11-10): "kanban being split like that seems odd". PR #3131 makes both
             charts responsive (on a narrow slide the lanes and phase cards stack full width at their natural height),
             and the owner ruled (2026-11-12) that packing them onto pages is #2988's job, not a second engine in #3131.
-            So a board that would fit one phone page still splits one lane a page, as on main.
+            A chart that fits one page stays one page (the owner's call, 2026-11-12, estimated in each transform); one
+            that does not still splits one lane, card or stage a page, as on main.
 where     — #2988's measured split (`lib/core/fit-measure.js` on `claude/fit-everywhere-tier1`) and the strategies it
             packs (`kanban-lanes`, `roadmap-horizons` in lib/core/carousel.js).
 evidence  — a bake-off on 2026-11-12 (#3131): four decks (kanban.gallery, kanban-chart-redesign, roadmap.gallery,
@@ -27,6 +28,6 @@ evidence  — a bake-off on 2026-11-12 (#3131): four decks (kanban.gallery, kanb
             2. roadmap's TABLE form overflows the frame at square: 8 pages in roadmap.gallery, 4 in roadmap-label-sets
                (main: 0). Not isolated from #3131's CSS, which the arm carried; the table rules #3131 touches are the
                legend's spacing only.
-done when — with `fit: pack`, a kanban or roadmap whose stacked lanes or cards fit a phone page stays one page, one
-            that does not packs whole lanes or cards a page, and the four decks above render with no overflow at the
+done when — with `fit: pack`, a kanban, roadmap or journey too tall for one phone page packs whole lanes, cards or
+            stages a page (and the transforms' fit estimates retire in favor of the measurement), and the four decks above render with no overflow at the
             four phone sizes.

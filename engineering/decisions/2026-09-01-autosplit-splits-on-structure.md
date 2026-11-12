@@ -7,6 +7,20 @@ supersedes: the trigger clause of 2026-07-29-autosplit-is-not-a-toggle.md; the p
 
 # Auto-split splits on structure
 
+> **AMENDED FOR KANBAN, ROADMAP AND JOURNEY ON A PHONE PAGE (2026-11-12, owner's call).** On a phone or square page
+> these three stack (a lane, a phase card or a stage under the one before), and a chart whose stacked form FITS the
+> page stays one page: the rule below split even a three-lane board that fit, one near-empty page a lane. One that
+> does not fit still splits one element a page, as below; packing several onto a page is #2988's measured split. The
+> fit is decided from the markup and the stored glyph widths in each kind's transform (`kanban.transform.js`,
+> `roadmap.transform.js`, `journey.transform.js` § ON A PAGE READ ON A PHONE), never a render, so the same deck always
+> splits the same way. Every other component still gets one element per page.
+>
+> **This overlaps #2988, on purpose.** #2988's measured split (`fit: pack`) also keeps a slide whole when it fits, by
+> measuring the render, but only in a deck that opts in, and its kanban, roadmap and journey strategies do not read a
+> measured plan yet (confirmed by #2988's session, 2026-11-12). Without this, every deck would keep cutting a board that
+> fits into near-empty pages until then. When #2988's split can measure these three, the transforms' estimates retire
+> in its favor: `followups.d/3131-p2-kanban-roadmap-pack-pages.md` holds that handoff.
+
 > **PART SUPERSEDED (2026-09-13).** The native-slice cover this note leaves as an open
 > question ("**Owner's call**") is decided — every run opens on a cover. The chrome ruling is
 > extended to a slide's own `_footer:`, which is now said once, on the page that opens the run.

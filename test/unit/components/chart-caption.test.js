@@ -21,6 +21,11 @@ const { JSDOM } = require('jsdom');
 
 const { render } = require('../../../lib/engine');
 
+// A board too tall for one portrait page, so it splits: a board whose stacked lanes fit the page stays one page
+// (kanban.transform.js; the owner's call, 2026-11-12), so three one-card lanes no longer split.
+const lane = (name) => `- ${name}\n` + [1, 2, 3, 4, 5].map((i) => `  - ${name} card ${i} \`S\`\n`).join('');
+const TALL_BOARD = lane('Backlog') + lane('In progress') + lane('Review');
+
 const ROOT = path.join(__dirname, '..', '..', '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
@@ -132,7 +137,7 @@ describe('chart lead — every paragraph before the figure renders', () => {
   test('a split chart carries its leads on the cover, never on every body page', () => {
     const { carouselize } = require('../../../lib/core/carousel');
     const md = '---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: kanban -->\n\n## Board\n\nFirst line.\n\nSecond LEADX line.\n\n'
-      + '- Backlog\n  - Waiting cards `S`\n- In progress\n  - The active limit `M`\n- Review\n  - Almost done `S`\n';
+      + TALL_BOARD;
     const m = render(md).html.match(/(<section[^>]*>)([\s\S]*?)<\/section>/);
     const pages = carouselize(m[1], m[2], { strategy: 'kanban-lanes' }, 2, 'kanban');
     assert.ok(pages && pages.length > 2, 'the board splits');
@@ -191,7 +196,7 @@ describe('chart lead blocks — every block before the figure renders', () => {
   test('a split chart keeps a lead block on its first body page only, never on every page', () => {
     const { carouselize } = require('../../../lib/core/carousel');
     const md = '---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: kanban -->\n\n## Board\n\nFirst line.\n\n```js\nBLOCKX = 1\n```\n\n'
-      + '- Backlog\n  - Waiting cards `S`\n- In progress\n  - The active limit `M`\n- Review\n  - Almost done `S`\n';
+      + TALL_BOARD;
     const m = render(md).html.match(/(<section[^>]*>)([\s\S]*?)<\/section>/);
     const pages = carouselize(m[1], m[2], { strategy: 'kanban-lanes' }, 2, 'kanban');
     assert.ok(pages && pages.length > 2, 'the board splits');

@@ -19,3 +19,4 @@
 - On a portrait, story or mobile page a roadmap's phase cards stack full width at their natural height, each workstream on its own full-width row; before, rows sat two across in cards stretched to fill the page.
 - A journey's actor dots on a phone page grow to hold their initials. The type ladder set the initial at 11pt inside a dot sized for the old 7pt letter, and the letter spilled past the dot's edge.
 - On a square page a journey stacks its stages, one per page, as it does on a phone page. The side-by-side board printed its actor dots over its task names at the 11pt text size and cut off its last stage at the page's right edge.
+- On a phone or square page a kanban, roadmap or journey that fits the page stays on one page. Before, every one split into a page per lane, phase or stage, even a small board that fit: the kanban gallery at mobile was 41 pages and is now 13. One that does not fit still splits a lane, phase or stage a page.
