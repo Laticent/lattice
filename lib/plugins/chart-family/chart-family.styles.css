@@ -1902,7 +1902,10 @@ section.chart-frame[data-lattice-slide]:is(.radar, .map, .quadrant, .word-cloud,
  * untouched. */
 /* The deck's display face, kept before the remap: the word cloud's words are drawn sizes, not text roles, and keep
  * the display face they were measured in (word-cloud.transform.js THE PHONE LADDER'S SPECIAL CASE). */
-:is(section, figure)[data-family]:where([data-family="tall"], [data-family="square"], [data-family="strip"]) {
+/* Keyed on `.chart-frame` (every chart's slide, and the Read·Article figure that re-hosts one), never on the bare
+ * section: a rule with no class is needed by every deck, so the on-demand style loader (tools/style-needs.js) would
+ * ship this whole sheet to a deck with no chart (docs/e2e/playground-style-loader.spec.ts). */
+:is(section, figure).chart-frame[data-family]:where([data-family="tall"], [data-family="square"], [data-family="strip"]) {
   --_chart-display-face: var(--font-display);
 }
 :is(section, figure)[data-family]:where([data-family="tall"], [data-family="square"], [data-family="strip"]) .chart-body {
@@ -1922,8 +1925,9 @@ section.chart-frame[data-lattice-slide]:is(.radar, .map, .quadrant, .word-cloud,
  * size, weight, ink and case in every chart. Sizes: a drawn kind reads `--chart-fs-<role>` (drawing units, stamped
  * on each <svg data-chart-roles> by chart-family.dispatch.js); the HTML kinds, and the drawn kinds already sized in
  * cqi (flowchart, state-chart), read `--chart-role-<role>` (cqi of the slide, below); an item keeps the deck body.
- * Written from the role map, and test/unit/plugins/chart-roles.test.js fails when the two disagree. Landscape is untouched. */
-section:where([data-family="tall"], [data-family="square"], [data-family="strip"]) {
+ * Written from the role map, and test/unit/plugins/chart-roles.test.js fails when the two disagree. Landscape is untouched.
+ * On `.chart-frame`, as the display-face rule above is, so a deck with no chart never loads this sheet. */
+section.chart-frame:where([data-family="tall"], [data-family="square"], [data-family="strip"]) {
   --chart-role-key: calc(4.025 * var(--_sec-1cqi, 1cqi));
   --chart-role-heading: calc(4.025 * var(--_sec-1cqi, 1cqi));
   --chart-role-direct: calc(3.715 * var(--_sec-1cqi, 1cqi));
