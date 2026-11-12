@@ -500,35 +500,35 @@ test.describe("a scroll the VIEWER performs re-seats the bounds:'host' chrome", 
 	// at the mercy of whatever else the runner was doing. Speed belongs to `npm run bench` (#19).
 	// What the decision record actually refused was a per-frame RELAYOUT, and stage.ts says how the
 	// handler avoids one: it is rAF-coalesced and it COMPARES BEFORE IT WRITES, so a scroll that
-	// leaves the clamped box where it was writes no style at all. That is countable.
+	// leaves the clamped box where it was re-seats nothing. That is countable.
 	//
-	// Under the `cursor` caption the Exit chip is written once when it is built and otherwise only
-	// by `seatCorner`, i.e. by a re-seat. So: watch its `style` attribute through 200 scroll frames.
+	// Count the re-seats a scroll causes: the stage publishes each one as `data-vt-scroll-seats` on its
+	// layer (a re-seat the tour's own step makes is not a scroll's, and is not counted). The
+	// Exit chip's `style` attribute is NOT a witness: a re-seat onto the same box writes the same values,
+	// and a MutationObserver records no change for those, so a handler that re-seated on every scroll
+	// passed a style-mutation count (shown by deleting the compare: 0 writes either way).
 	//   · On the proto's own host, which slides through the window as it scrolls, re-seats happen
-	//     (the positive control: the observer can see one, at most one per frame).
+	//     (the positive control: the counter moves, at most once per frame).
 	//   · On a host taller than the window, the clamped box is the window at every scroll position,
-	//     so there must be NONE. A handler that re-seats on every scroll writes on every frame.
-	async function exitWritesWhileScrolling(page: Page, from = 30): Promise<{ writes: number; frames: number; travel: number }> {
+	//     so there must be NONE. A handler that re-seats on every scroll re-seats on every frame.
+	async function reseatsWhileScrolling(page: Page, from = 30): Promise<{ writes: number; frames: number; travel: number }> {
 		return page.evaluate(async (low) => {
-			const exit = document.querySelector('.vetrina-exit');
-			if (!exit) throw new Error('no Exit chip');
-			let writes = 0;
-			const mo = new MutationObserver((records) => {
-				writes += records.length;
-			});
+			const layer = document.querySelector<HTMLElement>('.vetrina-stage');
+			if (!layer) throw new Error('no stage layer');
+			const seats = () => Number(layer.dataset.vtScrollSeats || 0);
 			const startY = window.scrollY;
 			window.scrollTo(0, low);
 			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-			mo.observe(exit, { attributes: true, attributeFilter: ['style'] });
+			const before = seats();
 			let travel = 0;
 			let frames = 0;
 			await new Promise<void>((res) => {
 				let dir = 1;
 				const tick = () => {
 					// A scroll EVERY frame — the worst case a handler can be asked to survive.
-					const before = window.scrollY;
+					const y = window.scrollY;
 					window.scrollBy(0, 7 * dir);
-					travel += Math.abs(window.scrollY - before);
+					travel += Math.abs(window.scrollY - y);
 					if (window.scrollY < low) dir = 1;
 					else if (window.scrollY > low + 270) dir = -1;
 					if (++frames >= 200) return res();
@@ -538,8 +538,7 @@ test.describe("a scroll the VIEWER performs re-seats the bounds:'host' chrome", 
 			});
 			// The handler re-seats on the frame AFTER a scroll; give the last scroll its frame.
 			await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-			writes += mo.takeRecords().length;
-			mo.disconnect();
+			const writes = seats() - before;
 			window.scrollTo(0, startY);
 			return { writes, frames, travel };
 		}, from);
@@ -550,7 +549,7 @@ test.describe("a scroll the VIEWER performs re-seats the bounds:'host' chrome", 
 		await waitForPhase(page, 'say');
 
 		// Positive control: the proto's own host slides through the window, so the clamped box moves and re-seats run.
-		const sliding = await exitWritesWhileScrolling(page);
+		const sliding = await reseatsWhileScrolling(page);
 		expect(sliding.travel, 'the page did not scroll, so this measured nothing').toBeGreaterThan(0);
 		expect(sliding.writes, 'no re-seat was seen while the host slid through the window — the observer is blind').toBeGreaterThan(0);
 		expect(sliding.writes, 'more than one re-seat per frame: the handler is not rAF-coalesced').toBeLessThanOrEqual(sliding.frames + 1);
@@ -559,7 +558,7 @@ test.describe("a scroll the VIEWER performs re-seats the bounds:'host' chrome", 
 		// so its top stays above the window's for the whole oscillation. The clamped box never moves.
 		await page.addStyleTag({ content: `${APP}{min-height:3000px}` });
 		const hostTop = await page.locator(APP).evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
-		const spanning = await exitWritesWhileScrolling(page, Math.ceil(hostTop) + 30);
+		const spanning = await reseatsWhileScrolling(page, Math.ceil(hostTop) + 30);
 		expect(spanning.travel, 'the page did not scroll, so this measured nothing').toBeGreaterThan(0);
 		expect(spanning.writes, `a scroll that moved nothing re-seated the chrome ${spanning.writes} times in ${spanning.frames} frames`).toBe(0);
 	});
