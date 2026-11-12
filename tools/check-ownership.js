@@ -6376,14 +6376,6 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
-    file: 'docs/e2e/restyle-overlap.spec.ts', ms: 1500, count: 1,
-    why: 'ABSENCE ASSERTION: after the held-back theme file of the OLDER render has finished loading, that render '
-       + 'must change nothing (#2916: it used to take the frame back from the newer one). A stale render that '
-       + 'stands down leaves no signal, and a poll of "still the newer palette" goes green on its first tick. '
-       + 'The wait is signal-first (the slow request finishing), then 1500ms for parse, engine and sheet swap. '
-       + 'The control arm with the guard removed fails this very line on Chromium, so the assertion can see what it says is absent.',
-  },
-  {
     file: 'docs/e2e/workspace-backup-size.spec.ts', ms: 2000, count: 1,
     why: 'ONE ABSENCE ASSERTION: when a workspace restore skipped something, the "Not restored" '
        + 'list must survive the reload and then NOT go away on its own, because it is how the user '

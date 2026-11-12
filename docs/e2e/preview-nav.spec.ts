@@ -293,7 +293,7 @@ test('@parity a slide navigator that remounts comes back centered on the current
 	await page.setViewportSize(landscape);
 	await expect(rail).toBeHidden();
 	await page.setViewportSize(portrait);
-	await expect(rail).toHaveCount(1);
+	await expect(rail).toBeVisible();
 	await expect.poll(inView).toBe('in view');
 	// Back to slide 1, then turn the deck to its end while the strip is hidden: the rail that comes back
 	// must center a slide it never showed.

@@ -1,3 +1,4 @@
+import { schedulerDrained } from './barriers';
 import { expect, gotoStudio, setEditorContent, slideCount, test } from './studio-fixture';
 
 // ── THE STAGE — the window the ROOM looks at ─────────────────────────────────
@@ -23,6 +24,33 @@ import { expect, gotoStudio, setEditorContent, slideCount, test } from './studio
 // CONSOLE's counter — the writer, not the surface the gesture was made on.
 
 /** Open Present, then the Stage, and hand back both surfaces. */
+// ── BARRIERS FOR "AND THEN NOTHING HAPPENED" (HARD RULE #32) ──────────────────────────────────
+// Each absence check in this file used to wait a fixed 400 ms or 3000 ms. The events they wait out are all ordered:
+//   · a state update in the console renders on React's Scheduler task, which is posted through a MessageChannel, and
+//     its effects follow on later tasks of the same kind, so a few MessageChannel round trips queued after it run
+//     after the render, its effects and the render those effects ask for;
+//   · the Stage talks to the console only by `postMessage`, and messages from one window to another arrive in the
+//     order they were posted, so a probe the Stage posts NOW reaches the console after anything it posted before.
+
+const consoleDrained = (page: import('@playwright/test').Page) => schedulerDrained(page);
+
+/** Everything the Stage posted to the console before now has arrived there and been rendered. */
+async function relayDrained(page: import('@playwright/test').Page, stage: import('@playwright/test').Page) {
+	const count = () => page.evaluate(() => (window as unknown as { __relayProbe?: number }).__relayProbe ?? 0);
+	await page.evaluate(() => {
+		const w = window as unknown as { __relayProbe?: number };
+		if (w.__relayProbe !== undefined) return;
+		w.__relayProbe = 0;
+		window.addEventListener('message', (e) => {
+			if ((e.data as { __relayProbe?: number } | null)?.__relayProbe) w.__relayProbe = (w.__relayProbe ?? 0) + 1;
+		});
+	});
+	const before = await count();
+	await stage.evaluate(() => (window.opener as Window).postMessage({ __relayProbe: 1 }, '*'));
+	await expect.poll(count, { message: "the Stage's probe never reached the console" }).toBeGreaterThan(before);
+	await consoleDrained(page);
+}
+
 async function openStage(page: import('@playwright/test').Page, context: import('@playwright/test').BrowserContext) {
 	await gotoStudio(page);
 	const total = await slideCount(page);
@@ -125,7 +153,10 @@ test('EITHER surface drives the deck, and the other follows', async ({ page, con
 	// rather than an index.
 	await stage.keyboard.press('ArrowRight');
 	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
-	await page.waitForTimeout(400);
+	// The Stage has applied the console's answer — the handler an echo would post from has run — and
+	// whatever it posted has reached the console and rendered.
+	await expect.poll(() => shownSlide(stage)).toBe(1);
+	await relayDrained(page, stage);
 	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
 });
 
@@ -300,7 +331,8 @@ test('@parity a pinch on the Stage zooms nothing and turns nothing', async ({ pa
 		},
 		{ x: cx, y: cy },
 	);
-	await page.waitForTimeout(400);
+	// The Stage's touch handlers are synchronous: a turn would already be posted. Let it arrive and render.
+	await relayDrained(page, stage);
 	await expect(at(2), 'a pinch turned the deck — the finger count was never read').toBeVisible();
 
 	// And the trackpad form of the same gesture.
@@ -308,7 +340,7 @@ test('@parity a pinch on the Stage zooms nothing and turns nothing', async ({ pa
 	await stage.keyboard.down('Control');
 	await stage.mouse.wheel(0, -120);
 	await stage.keyboard.up('Control');
-	await page.waitForTimeout(400);
+	await relayDrained(page, stage);
 	await expect(at(2), 'ctrl+wheel (a trackpad pinch) scrubbed the deck').toBeVisible();
 
 	// A REAL one-finger swipe still turns it, which is what makes the guard a fix and not
@@ -379,12 +411,13 @@ test('a site palette change does not blink the presenter view off', async ({ pag
 	const clock = dialog.getByText(/Talk time/i);
 	await expect(clock).toBeVisible();
 
+	// Every DOM state, not a 16 ms sample of them: a blink is a mutation, so a MutationObserver sees each one.
 	await page.evaluate(() => {
 		const w = window as unknown as { __gone: number };
 		w.__gone = 0;
-		window.setInterval(() => {
+		new MutationObserver(() => {
 			if (!document.body.textContent?.match(/Talk time/)) w.__gone++;
-		}, 16);
+		}).observe(document.body, { childList: true, subtree: true, characterData: true });
 	});
 	// Exactly what `setPalette()` does — set the root attribute, then announce on the event
 	// `PresentOverlay`'s rewrite effect listens for.
@@ -393,7 +426,8 @@ test('a site palette change does not blink the presenter view off', async ({ pag
 			document.documentElement.setAttribute('data-palette', p);
 			window.dispatchEvent(new CustomEvent('lattice-chrome-change'));
 		}, palette);
-		await page.waitForTimeout(400);
+		// The announcement's render, the rewrite effect and the render a rewrite would ask for have all run.
+		await consoleDrained(page);
 	}
 
 	const gone = await page.evaluate(() => (window as unknown as { __gone: number }).__gone);
@@ -445,9 +479,13 @@ test('a Stage the presenter closes by hand reverts the console — and says noth
 	await stage.close();
 	await expect(launcher).toHaveAttribute('aria-pressed', 'false');
 	await expect(dialog.getByRole('group', { name: /Deck progress/ })).toHaveCount(1);
-	// Past BOTH deadlines the notice could arrive on — the 600ms loss classification and a 2s
-	// liveness poll — because "nothing yet" a beat after the close is true for the wrong reason.
-	await page.waitForTimeout(3000);
+	// The beat tore the Stage down, which stops the 2 s liveness poll, so the ONE thing that could
+	// still raise a notice is the loss classification (stage-window.js `announceUnlessClosed`). It
+	// publishes how it ended on `<html data-stage-loss>`: wait for an end, let a notice it asked for
+	// render, and only then read the log. This replaces a 3000 ms wait past both deadlines.
+	await expect(page.locator('html'), 'the loss classification never finished').toHaveAttribute('data-stage-loss', /^(closed|cancelled|navigated|unreadable)$/);
+	expect(await page.locator('html').getAttribute('data-stage-loss'), 'a hand-closed Stage was classified as taken over').not.toBe('navigated');
+	await consoleDrained(page);
 	expect(await seen(), 'a Stage the presenter closed by hand must not announce itself').toEqual([]);
 
 	// THE POSITIVE CONTROL, in this same cell and on this same surface. Without it "nothing was
@@ -580,6 +618,15 @@ test('the Stage does not follow links — the room cannot navigate the deck away
 	// accidental, so it is simply not a gesture.
 	const { stage, launcher } = await openStage(page, context);
 	const before = stage.url();
+	// By the HTML spec a link follows only if its click was NOT cancelled, and the guard is a capture-phase
+	// `preventDefault`. So record, at the very end of each click's dispatch (a bubble listener on the window, the last
+	// one to run), whether it was cancelled: that is the decision itself, read before any navigation could start,
+	// where a fixed 400 ms wait for the URL to change used to stand (HARD RULE #32).
+	await stage.evaluate(() => {
+		const w = window as unknown as { __clicks: boolean[] };
+		w.__clicks = [];
+		window.addEventListener('click', (e) => w.__clicks.push(e.defaultPrevented));
+	});
 	// THREE SHAPES, because the guard's first selector caught only one of them. Measured
 	// against `sanitizeSlideHtml`, all three survive it; measured in Chromium, `closest
 	// ('a[href]')` is FALSE for the SVG link (an SVG `<a>` carries `xlink:href`, not an
@@ -611,7 +658,7 @@ test('the Stage does not follow links — the room cannot navigate the deck away
 		const hitBox = await target.boundingBox();
 		if (!hitBox) throw new Error(`the ${shape} probe has no box`);
 		await stage.mouse.click(hitBox.x + hitBox.width / 2, hitBox.y + hitBox.height / 2);
-		await page.waitForTimeout(400);
+		expect(await stage.evaluate(() => (window as unknown as { __clicks: boolean[] }).__clicks.at(-1)), `a ${shape} link click was not cancelled, so it navigates`).toBe(true);
 		expect(stage.url(), `a ${shape} link click navigated the Stage`).toBe(before);
 	}
 	await stage.evaluate(() => {

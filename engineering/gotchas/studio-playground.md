@@ -1937,9 +1937,10 @@ never turn "passed in headless" into "works on iOS."
 - **Cause** — the Stage document carries the deck's markup BEFORE the multi-megabyte runtime script and the handshake
   script after it. The deck paints as soon as the markup parses, but the key, wheel and touch handlers arrive with the
   second script. A key pressed in that gap reaches no handler. "The deck is visible" is not "the Stage is listening".
-- **Fix** — wait for the handshake, seen from the Stage itself. It ends with `{stage:'ready'}`, on which the console
-  portals its rail into the Stage (`stageHost.rail`), so `#latt-rail > *` inside the Stage window is the signal.
-  `openStage` in the spec waits for it; 24 in 24 loaded runs passed after, against 1 failure in 12 before.
+- **Fix** — wait for the Stage's script to finish, seen from the Stage itself. Its last act sets the counter from the
+  placeholder `1 / 1` to the deck's real count (`stage-window.js` `count()`), after the key handler and the link guard
+  are installed, so `#latt-count` reading `1 / <total>` is the signal. `openStage` in the spec waits for it (#3155 and
+  this census reached the same gap; the counter is the wait that shipped).
 
 ## An e2e that dispatches one `dragover` loses the drop sign before it can measure it
 
