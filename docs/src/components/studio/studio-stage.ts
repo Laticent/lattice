@@ -30,7 +30,11 @@ function hexRgb(hex: string): [number, number, number] {
 export async function buildStageDocument(options: SingleSlideOptions, source: string, total: number, paletteOverride?: string, extraTheme?: ExtraTheme, extraCss?: string, modeOverride?: 'light' | 'dark', token = '', webOrigins: string[] = []): Promise<{ doc: string; total: number; bg: string }> {
 	const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 	const mode = modeOverride ?? docMode;
-	const render = await buildDeckRender(options, source, palette, mode, extraTheme);
+	// The Library photos as this tab's own `blob:` URLs: the Stage is a same-origin window this tab wrote and
+	// holds, so it can load them, and its document stays the deck's size instead of the photos' (an 18-photo deck:
+	// 34.2 MB → under 1 MB). The preview's extra CSS carries the asset stamp, so a Library change that revokes a
+	// URL also rebuilds this document (PresentOverlay's Stage effect keys on `extraCss`).
+	const render = await buildDeckRender(options, source, palette, mode, extraTheme, undefined, 'scoped', 'live');
 	// THE LETTERBOX, and it is dark in BOTH modes on purpose: a projected deck sits on a
 	// black surround whatever the app is set to. Returned as well as baked in, because the
 	// audience chrome is painted ON it — its ink has to be resolved against this color and

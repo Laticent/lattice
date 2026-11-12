@@ -148,14 +148,28 @@ export function sourceUsesAssets(source: string): boolean {
 	return /\basset:[a-z0-9]/i.test(source);
 }
 
-/** A Blob as a `data:` URI. Reads the bytes and encodes in chunks, so it runs the same in a
- *  browser and in Node, and a multi-megabyte photo does not blow the argument limit of `btoa`. */
-async function blobToDataUri(blob: Blob, mime: string): Promise<string> {
+/** A Blob as a `data:` URI, with the record's own type in the header. The browser's `FileReader` does the
+ *  base64 natively, off this thread: the chunked `String.fromCharCode` + `btoa` it replaces held the main thread
+ *  ~50 ms per phone photo, 0.9 s for 18 of them on every first export or Present (profiled). Without a
+ *  `FileReader` (Node, a test) the chunked encoder runs instead; both are RFC 4648 base64 of the same bytes,
+ *  so the URI is the same string either way (media-urls.test.ts). */
+export async function blobToDataUri(blob: Blob, mime: string): Promise<string> {
+	// The record's own type, not the Blob's: a Blob that lost its type would otherwise ship as a mystery download.
+	const head = `data:${mime || blob.type || 'application/octet-stream'};base64,`;
+	if (typeof FileReader === 'function') {
+		const read = await new Promise<string>((resolve, reject) => {
+			const r = new FileReader();
+			r.onload = () => resolve(String(r.result));
+			r.onerror = () => reject(r.error ?? new Error('FileReader failed'));
+			r.readAsDataURL(blob);
+		});
+		// `readAsDataURL` writes the BLOB's type (or none) into its header; only the base64 after the comma is kept.
+		return head + read.slice(read.indexOf(',') + 1);
+	}
 	const bytes = new Uint8Array(await blob.arrayBuffer());
 	let bin = '';
 	for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-	// The record's own type, not the Blob's: a Blob that lost its type would otherwise ship as a mystery download.
-	return `data:${mime || blob.type || 'application/octet-stream'};base64,${btoa(bin)}`;
+	return head + btoa(bin);
 }
 
 /** The names a source writes as `asset:<name>`, lowercased and de-duplicated. The kernel
@@ -172,7 +186,9 @@ export function assetNamesIn(source: string): string[] {
 /**
  * The name → `data:` URI map an EXPORT renders with, for the photos `source` names and the open deck
  * may see. A `blob:` URL cannot be used here: it dies with the tab, so a saved file would ship a dead
- * link, and a capture frame (the PDF, PNG and PowerPoint cameras) is not allowed to fetch one. Only
+ * link. (A capture frame on its own can draw one: the camera reads a `blob:` picture's bytes itself,
+ * lib/core/slide-camera.mjs `toDataUri`, which is how the Architect's fit check and `render_slide` draw
+ * with the live map, share-export.ts `DeckPhotos`.) Only
  * the photos the deck names are read, and each is encoded once per session. A name the shelf does
  * not hold is left out, so the engine draws the missing-image stand-in for it.
  */

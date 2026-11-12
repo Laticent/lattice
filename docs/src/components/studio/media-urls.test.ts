@@ -165,6 +165,9 @@ describe('dataUrlsFor — what an export renders with', () => {
 		const uri = (await dataUrlsFor('![a](asset:big)')).big;
 		expect(uri.startsWith('data:image/jpeg;base64,')).toBe(true);
 		expect(Buffer.from(uri.split(',')[1], 'base64').equals(Buffer.from(big))).toBe(true);
+		// The exact string, not only the decoded bytes: the browser's FileReader path is held to this same
+		// oracle (media-urls.encode.test.ts), so the two encoders write one URI.
+		expect(uri).toBe(`data:image/jpeg;base64,${Buffer.from(big).toString('base64')}`);
 	});
 
 	it('encodes each photo once per session — counted at the byte read, not by comparing two equal strings', async () => {

@@ -30,6 +30,7 @@ import fontPolicyCore from '../../../lib/core/font-policy.js';
 import emojiCore from '../../../lib/fonts/emoji-faces.js';
 // Vite bundles each .woff2 and resolves the import to its served URL.
 import faceRuleCore from '../../../lib/fonts/face-rule.js';
+import glyphScanCore from '../../../lib/fonts/glyph-scan-text.js';
 import iconFacesCore from '../../../lib/fonts/icon-faces.js';
 import iconFallbackCore from '../../../lib/fonts/icon-fallback.js';
 import textFacesCore from '../../../lib/fonts/text-faces.js';
@@ -214,7 +215,9 @@ function buildIconFontCss() {
  * Studio's camera reads each `data-glyph`), or the engine's markup, where it is a glyph box, its character written as a
  * reference (`&#xE019;`) and hidden under an `icon-svg` slide (lib/fonts/icon-fallback.js).
  */
-function drawsIcons(text) {
+function drawsIcons(raw) {
+	// The bulk of each base64 run left out: neither scan below can match inside one (lib/fonts/glyph-scan-text.js).
+	const text = glyphScanCore.glyphScanText(raw);
 	if (iconFallbackCore.drawsIconGlyphs(text)) return true;
 	for (const hex of Object.values(iconFacesCore.ICON_CODEPOINTS)) if (text.includes(String.fromCodePoint(Number.parseInt(hex, 16)))) return true;
 	return false;
