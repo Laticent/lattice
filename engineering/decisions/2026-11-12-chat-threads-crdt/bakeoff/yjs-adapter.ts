@@ -8,12 +8,15 @@
 import * as Y from 'yjs';
 import type { Contender } from './contender.ts';
 import { gzipLength } from './gzip.ts';
+import { seededId } from './ids.ts';
 
 let n = 0;
-const newId = () => `y${(n++).toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
 export function yjsDoc(): Contender {
 	const doc = new Y.Doc();
+	const seeded = seededId();
+	if (seeded !== null) doc.clientID = seeded;
+	const newId = () => `${doc.clientID.toString(36)}.${(n++).toString(36)}`;
 	const arr = doc.getArray<Y.Map<unknown>>('records');
 	const byId = new Map<string, Y.Map<unknown>>();
 	// Keep the index current when records arrive from another replica (a careful integration observes, not scans).

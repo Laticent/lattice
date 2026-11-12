@@ -168,23 +168,26 @@ export function runAll(): Record<string, Record<string, number>> {
 			const d = longLife(make, ops);
 			const s = d.encode();
 			m[`life_${ops}_bytes`] = d.bytes(s);
-		m[`life_${ops}_gzip`] = d.sizes().gzip;
-		// On an aged thread: what one new turn broadcasts, and a full sync round trip with a tab one turn behind.
-		{
-			const peer = d.load(s);
-			const before = d.since();
-			turn(d, rng(5), 0);
-			const delta = d.encodeSince(before);
-			m[`life_${ops}_delta_turn_bytes`] = d.bytes(delta);
-			m[`life_${ops}_sync_ms`] = r3(
-				time(() => {
-					const p = peer.load(peer.encode());
-					p.apply(d.encodeSince(p.since()));
-				}, 7) - time(() => void peer.load(peer.encode()), 7),
-			);
-		}
+			m[`life_${ops}_gzip`] = d.sizes().gzip;
 			m[`life_${ops}_live`] = d.toArray().length;
 			m[`life_${ops}_open_ms`] = r3(time(() => void d.load(s).toArray(), 9));
+		// On an aged thread: what one new turn broadcasts; what a pull costs when there is nothing new; and a sync, timed
+		// directly: tabs opened from storage (made before the clock starts) each pull the one new turn and apply it.
+		{
+			const before = d.since();
+			turn(d, rng(5), 0);
+			m[`life_${ops}_delta_turn_bytes`] = d.bytes(d.encodeSince(before));
+			const synced = d.load(d.encode());
+			m[`life_${ops}_idle_pull_bytes`] = d.bytes(d.encodeSince(synced.since()));
+			const xs: number[] = [];
+			for (let i = 0; i < 8; i++) {
+				const tabs = Array.from({ length: 20 }, () => d.load(s));
+				const t = now();
+				for (const p of tabs) p.apply(d.encodeSince(p.since()));
+				if (i >= 1) xs.push((now() - t) / tabs.length);
+			}
+			m[`life_${ops}_sync_ms`] = r3(median(xs));
+		}
 		}
 		// Four tabs on one synced thread, 50 actions each with no sync, then everyone syncs with everyone. Nine
 		// independent rounds; the median.

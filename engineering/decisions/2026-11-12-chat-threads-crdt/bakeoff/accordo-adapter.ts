@@ -3,9 +3,14 @@
 import { RecordList, type Wire } from './accordo.ts';
 import type { Contender } from './contender.ts';
 import { gzipLength } from './gzip.ts';
+import { seededId } from './ids.ts';
 
 const enc = new TextEncoder();
-export function accordoDoc(list: RecordList = new RecordList()): Contender {
+const replica = () => {
+	const r = seededId();
+	return r === null ? undefined : r.toString(16).padStart(8, '0');
+};
+export function accordoDoc(list: RecordList = new RecordList(replica())): Contender {
 	return {
 		name: 'accordo',
 		push: (fields) => list.push(fields),
@@ -21,7 +26,7 @@ export function accordoDoc(list: RecordList = new RecordList()): Contender {
 		encodeSince: (token) => JSON.stringify(list.encode(token as Record<string, number>)),
 		apply: (update) => list.apply(JSON.parse(update as string) as Wire),
 		bytes: (update) => enc.encode(update as string).length,
-		load: (update) => accordoDoc(RecordList.decode(JSON.parse(update as string) as Wire)),
+		load: (update) => accordoDoc(RecordList.decode(JSON.parse(update as string) as Wire, replica())),
 		transact: (fn) => fn(),
 		sizes() {
 			const t = JSON.stringify(list.encode());

@@ -40,10 +40,20 @@ type WField = [WStamp] | [WStamp, unknown]; // [stamp] alone: the field was clea
 /** A record on the wire. `whole` 1: the row carries the insert (all the record's fields); 0: only changed fields. A
  *  replica that lacks the record ignores a partial row, so it does not half-create it; a later pull sends it whole. */
 type WNode = [id: string, origin: string | null, t: WStamp, fields: Record<string, WField>, whole: 0 | 1 | 2, del?: WStamp];
-export type Wire = { r: string[]; n: WNode[] };
+/** `h` (a whole state only): the sender's held sequences per replica, [replicaIndex, upTo, ...above]. `d` (a delta
+ *  only): sequences the sender holds but no longer stores, because a later write or a delete superseded them, as
+ *  [replicaIndex, from, to] ranges. Without them a receiver could never hold those sequences, its version vector would
+ *  stop below them for good, and every later pull would resend everything above (the round-2 audit's finding 1). */
+export type Wire = { r: string[]; n: WNode[]; h?: number[][]; d?: [number, number, number][] };
 
 const later = (a: Stamp, b: Stamp) => a.c > b.c || (a.c === b.c && a.r > b.r);
-const copy = <T>(v: T): T => (v === undefined || v === null || typeof v !== 'object' ? v : (JSON.parse(JSON.stringify(v)) as T));
+/** A JSON copy, primitives included, so a replica holds exactly what a peer will decode (NaN becomes null on both). */
+const copy = <T>(v: T): T =>
+	v === undefined || v === null || typeof v === 'string' || typeof v === 'boolean'
+		? v
+		: typeof v === 'number'
+			? ((Number.isFinite(v) ? v : null) as T)
+			: (JSON.parse(JSON.stringify(v)) as T);
 
 /** 16 hex characters of randomness. `getRandomValues` exists in insecure contexts too, unlike `randomUUID`. */
 function randomReplica(): string {
@@ -160,10 +170,22 @@ export class RecordList {
 	// ── Sync ─────────────────────────────────────────────────────────────────────────────────
 	private hold(t: Stamp) {
 		if (t.c > this.lamport) this.lamport = t.c; // Lamport: never stamp below what we have seen
-		let h = this.held.get(t.r);
-		if (!h) this.held.set(t.r, (h = { upTo: 0, above: new Set() }));
-		if (t.s <= h.upTo) return;
-		h.above.add(t.s);
+		this.holdSeq(t.r, t.s, t.s);
+	}
+	/** Hold sequences `from`..`to` of replica `r`. Reopening under this replica's own id resumes its sequence, so a new
+	 *  insert never reuses an id (the round-2 audit's finding 2: a reused id made a cycle and `walk` threw). */
+	private holdSeq(r: string, from: number, to: number) {
+		if (r === this.replica && to > this.seq) this.seq = to;
+		let h = this.held.get(r);
+		if (!h) this.held.set(r, (h = { upTo: 0, above: new Set() }));
+		if (to <= h.upTo) return;
+		if (from > h.upTo + 1) for (let s = from; s <= to; s++) h.above.add(s);
+		else {
+			const was = h.upTo;
+			h.upTo = to;
+			// A range jumped past sequences already held above; drop those (a single step needs no sweep).
+			if (to > was + 1) for (const s of h.above) if (s <= to) h.above.delete(s);
+		}
 		while (h.above.has(h.upTo + 1)) h.above.delete(++h.upTo);
 	}
 	/** Every change whose sequence is above `since` (all of them when omitted). */
@@ -186,18 +208,53 @@ export class RecordList {
 			let any = fresh(n.t);
 			for (const [k, fld] of n.f) {
 				if (!fresh(fld.t)) continue;
-				fields[k] = fld.v === undefined ? [ws(fld.t)] : [ws(fld.t), fld.v];
+				fields[k] = fld.v === undefined ? [ws(fld.t)] : [ws(fld.t), copy(fld.v)];
 				any = true;
 			}
 			const whole = fresh(n.t);
-			if (whole) for (const [k, fld] of n.f) if (!(k in fields)) fields[k] = fld.v === undefined ? [ws(fld.t)] : [ws(fld.t), fld.v];
+			if (whole) for (const [k, fld] of n.f) if (!(k in fields)) fields[k] = fld.v === undefined ? [ws(fld.t)] : [ws(fld.t), copy(fld.v)];
 			const sendDel = n.del !== undefined && fresh(n.del);
 			if (!any && !sendDel) continue;
 			const row: WNode = [n.id, n.origin, ws(n.t), fields, whole ? (n.tail ? 2 : 1) : 0];
 			if (sendDel) row.push(ws(n.del as Stamp));
 			out.push(row);
 		}
-		return { r: table, n: out };
+		const wire: Wire = { r: table, n: out };
+		const rIndex = (r: string) => ws({ c: 0, r, s: 0 })[1];
+		if (!since) {
+			// A whole state carries every stored record, so its receiver holds everything the sender holds.
+			wire.h = [...this.held].map(([r, h]) => [rIndex(r), h.upTo, ...h.above]);
+			return wire;
+		}
+		// A delta: sequences above `since` that the sender holds but no longer stores (superseded), as ranges.
+		const live = new Map<string, Set<number>>();
+		const mark = (t: Stamp) => {
+			if (t.s <= (since[t.r] ?? 0)) return;
+			let set = live.get(t.r);
+			if (!set) live.set(t.r, (set = new Set()));
+			set.add(t.s);
+		};
+		for (const n of this.nodes.values()) {
+			mark(n.t);
+			for (const fld of n.f.values()) mark(fld.t);
+			if (n.del) mark(n.del);
+		}
+		const dead: [number, number, number][] = [];
+		for (const [r, h] of this.held) {
+			const lo = since[r] ?? 0;
+			const set = live.get(r);
+			const seqs = [...h.above].filter((x) => x > lo).sort((a, b) => a - b);
+			const consider = (x: number) => {
+				if (set?.has(x)) return;
+				const last = dead[dead.length - 1];
+				if (last && last[0] === rIndex(r) && last[2] === x - 1) last[2] = x;
+				else dead.push([rIndex(r), x, x]);
+			};
+			for (let x = lo + 1; x <= h.upTo; x++) consider(x);
+			for (const x of seqs) consider(x);
+		}
+		if (dead.length) wire.d = dead;
+		return wire;
 	}
 	/** Merge a state or a delta from any replica. Commutative, associative, idempotent. */
 	apply(w: Wire): void {
@@ -240,6 +297,14 @@ export class RecordList {
 			}
 		}
 		// A record whose origin never arrived stays out, and its changes stay unheld, so the next pull resends them.
+		// Superseded sequences: their effect is overruled by stamps the receiver holds or will be sent, so hold them.
+		for (const [ri, from, to] of w.d ?? []) this.holdSeq(w.r[ri], from, to);
+		// A whole state: every row applied (all origins are in it), so hold what the sender held.
+		if (w.h && !pending.length)
+			for (const [ri, upTo, ...above] of w.h) {
+				if (upTo > 0) this.holdSeq(w.r[ri], 1, upTo);
+				for (const x of above) this.holdSeq(w.r[ri], x, x);
+			}
 	}
 
 	static decode(w: Wire, replica?: string): RecordList {
