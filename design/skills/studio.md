@@ -49,9 +49,10 @@ screen to Write for this session without changing the saved stop; Esc clears
 it. Opening a Craft-only panel from Read or Write raises the screen to Craft
 for as long as that panel is open.
 
-Everything edits one **source**: the deck's Markdown. The Markdown editor and
-Compose (the rich editor) are two views of it, and the preview renders it
-with the same engine as the CLI.
+Everything edits one deck: its Markdown text. **Compose** (the rich editor,
+and the default) and **Source** (the Markdown itself, for power users) are two
+views of it, and the preview renders it with the same engine as the CLI. The
+Studio remembers which one the author picked.
 
 ---
 
@@ -61,7 +62,7 @@ with the same engine as the CLI.
 
 | Surface | Where | What it is for |
 |---|---|---|
-| **Editor** | toggle "Markdown" / "Compose" above it | Write the deck as Markdown, or edit it as rich text. Both change the same source. |
+| **Editor** | toggle "Compose" / "Source" at the top of the pane (the phone bar has the same two cells, Compose first) | Write the deck as rich text in Compose, or as Markdown in Source. Both change the same deck; ⌘K "Write in Compose" / "Write in Source" switches too. |
 | **Preview** | beside the editor | The rendered slide. Overflow shows as a ring. |
 | **Slide strip** | the row of slide thumbnails | Every slide as a thumbnail; move, duplicate, delete. |
 | **Command palette** | ⌘K / Ctrl+K | Search and run any Studio verb. |
@@ -131,8 +132,8 @@ opens the presenter's second window; Esc leaves.
 
 **Common jobs**
 
-1. **Start a deck**: ⌘K → "New deck", then write or paste Markdown. Paste a
-   whole deck into the Markdown editor to bring it in.
+1. **Start a deck**: ⌘K → "New deck", then write in Compose. To bring in a
+   whole Markdown deck, paste it into Source.
 2. **Open a file**: "Import deck…" or drop the file on the Studio. It opens
    `.md`, `.lattice`, and a webpage, PDF or PowerPoint that Lattice exported
    re-openable. See `import.md`.
@@ -166,8 +167,10 @@ opens the presenter's second window; Esc leaves.
 | `lattice-studio-active` | The deck and slide you last viewed |
 | `lattice-studio-settings` | Studio settings |
 
-Undo history and checkpoints live in the browser's IndexedDB, and so do
-Library items. Nothing is on a server. Clearing site data, a private window,
+Undo history, checkpoints and chat threads live in the browser's IndexedDB,
+and so do Library items. Deck text stays in localStorage, which holds about
+5.2 M characters (half that in Safari for non-Latin-1 text); Setup → "Data"
+warns once it is 80% full, because a full one stops deck edits saving. Nothing is on a server. Clearing site data, a private window,
 or a browser that evicts storage loses them. "Backup & restore" downloads
 `lattice-workspace.zip`: the Studio's store, a readable `decks/<slug>.md` for
 every deck, the Library, and reference docs. It leaves out the OpenRouter key.
@@ -305,8 +308,9 @@ We recommend Denver, where a third of the waitlist lives.
 
 - `docs/src/components/studio/studio-commands.ts` — every command-palette verb.
 - `docs/src/components/studio/StudioShell.tsx` — the shell, the palette rows,
-  the posture dial and the editor toggle.
-- `docs/src/components/studio/chrome-parts.tsx` — the activity rail and the dial.
+  the posture dial and the Compose/Source mode state.
+- `docs/src/components/studio/chrome-parts.tsx` — the activity rail, the dial and
+  `EDIT_MODES`, the one list of writing modes (Compose first).
 - `docs/src/components/studio/strip-actions/model.ts` and `shortcuts.tsx` — the
   strip's keys and the shortcuts list.
 - `lib/core/present-transport.mjs` — the shared Present navigation keys.

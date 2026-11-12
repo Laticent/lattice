@@ -73,7 +73,7 @@ beforeEach(() => {
 	gate.reset();
 	localStorage.clear();
 	localStorage.setItem('lattice-studio-deck-index', JSON.stringify([{ id: 'q3-board', title: 'Q3 Board Review', builtin: true }]));
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true }));
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true, editMode: 'source' }));
 });
 
 /** Same explicit budget, same reason, as `studio.controls.test.tsx`: this waits on Vite

@@ -42,7 +42,7 @@ export function closesFiloGroup(tr: Transaction): boolean {
 export function historyTransaction(state: EditorState, baseline: EmitBaseline, prev: string, next: string): ScopedResync | null {
 	const fm = (state.doc.attrs.frontMatter as string) || '';
 	let r: ScopedResync | null = null;
-	if (baselineSource(fm, baseline.raws) === prev) {
+	if (baselineSource(fm, baseline.raws, state.doc) === prev) {
 		// The patch-driven path: only the slides the change overlaps are split and parsed.
 		const p = emitPatch(prev, next);
 		r = p ? scopedResyncPatch(state, baseline, p) : null;

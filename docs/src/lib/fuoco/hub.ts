@@ -112,6 +112,8 @@ export interface Target {
 	page?: number | null;
 	/** Ask the receiving editor to take keyboard focus (see `Focus.grab`). */
 	grab?: boolean;
+	/** The caret line to land on inside the target, as `Focus.line` (a restore carries the line it saved). */
+	line?: string;
 }
 
 export type StepAction = 'next' | 'prev' | 'first' | 'last';
@@ -362,7 +364,7 @@ export function createFocusHub(opts: FocusHubOptions): FocusHub {
 		const r = resolve(t);
 		if (!r || !ol) return;
 		const unit = ol.units[r.unitIndex];
-		publish({ origin, cause, unit: unit.id, unitIndex: r.unitIndex, part: r.part, page: t.page === undefined ? 0 : t.page, head: null, anchor: null, line: '', element: null, grab: t.grab === true });
+		publish({ origin, cause, unit: unit.id, unitIndex: r.unitIndex, part: r.part, page: t.page === undefined ? 0 : t.page, head: null, anchor: null, line: t.line ?? '', element: null, grab: t.grab === true });
 	}
 
 	const stale = (rev?: number) => !unsafe.acceptStale && rev !== undefined && ol !== null && rev !== ol.rev;

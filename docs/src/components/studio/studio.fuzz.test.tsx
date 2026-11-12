@@ -24,7 +24,7 @@ beforeEach(() => {
 		{ id: 'q3-board', title: 'Q3 Board Review', builtin: true },
 		{ id: 'product-strategy', title: 'FY26 Product Strategy', builtin: true },
 	]));
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true }));
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true, editMode: 'source' }));
 });
 afterEach(() => {
 	cleanup();

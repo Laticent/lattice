@@ -16,6 +16,8 @@ export type StudioCommandId =
 	| 'insert'
 	| 'insert-icon'
 	| 'focus'
+	| 'write-compose'
+	| 'write-source'
 	| 'fabricate'
 	| 'read-article'
 	| 'library'
@@ -58,6 +60,8 @@ export type StudioCommand = {
  */
 export const COMMAND_DESCRIPTIONS: Record<StudioCommandId, string> = {
 	present: 'Shows the deck full screen, one slide at a time, from this slide.',
+	'write-compose': 'Edits the deck as formatted text: headings, lists and objects, no markup.',
+	'write-source': 'Edits the deck as its Markdown, for full control. Remembered for next time.',
 	share: 'Opens sharing: a present link, the Markdown source, and every export format.',
 	'export-pdf': 'Opens sharing on the PDF step, ready to download this deck as a PDF.',
 	reshape: 'Opens reader views: a subset of this deck you approve for one kind of reader.',

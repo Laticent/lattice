@@ -1143,3 +1143,86 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   slide 1 was edited, against 10 with the same-microtask redraw removed. `spec/LPM.md` §10 names the channel; the
   rule is unchanged. Pinned by test/unit/plugins/video-marp-records.test.js and test/integration/export/marp-kit-video.test.js
   (a plugin-subtree span with an owed record goes red with the guard removed).
+- 2026-11-11: **one placed-picture rule** (branch `claude/media-engine-break-cont-3ukhz8`; followups.d/3126-p2, now deleted).
+  `lib/core/placed-picture.mjs` decides whether a lone `![title](src)` is the slide's placed photo, from a markdown-it parse, and
+  every reader asks it: the engine (`placedPictureIndex` on its own tokens), Export-to-Marp (lib/export/picture-placement.js
+  reads the deck with the engine's slide boundaries and class rules, then hands the plugin the placed lines), Compose's badge and
+  Placement control (the kernel names the placed picture by its ordinal in the serialized slide), the photo finder `photoAt` and
+  `image-extra-panel`, which now also warns on two lone pictures and no other photo (none is placed). **The parse is the
+  caller's:** the playground keeps the lint's boundary parser apart from the engine's (`assertLintParserIsolated`), so the
+  kernel imports neither, and the export's slide reading sits on the Node side because the plugin's files are reached from the
+  lint core. **Fixed drifts, each now a row of test/fixtures/placed-picture-cases.json:** the export placed an indented picture
+  in a list item; `photoAt` placed a `BG` alt, an `http:` address and a picture in a sentence; Compose missed a deck-wide `bleed`
+  under a slide class, a deck-wide `collage` (a component name the engine drops) and a `backgroundImage` directive. **Engine
+  change:** a `backgroundColor` wrote `background-image: none`, which the engine read as a photo in place; it no longer blocks
+  the shortcut (0 of 466 decks differ). The table (26 cases) runs through the engine, the export and the lint in node, and
+  through Compose and `photoAt` in vitest; each new arm fails on `main`'s readers (5 node, 9 vitest). **After the checker:** the
+  kernel judges a `backgroundImage` exactly as the engine's style sink writes it (`realDeclValueIsSafe` moved to
+  lib/core/decl-value-safe.js, shared; `none` in any case is no photo); the export writes every picture the kernel places, from
+  the parse when its old line pattern cannot read it (a title with parentheses, a setext heading above, CRLF), and carries a
+  front-matter or running `backgroundImage` into the kernel as the engine does; the Studio's photo underline reads the slide's
+  class before it blanks comments. The table is 35 cases. The Studio readers cannot see a class or a background carried from an
+  earlier slide, nor a `split: headings` boundary (they read one `---` slide): five cases skipped by name, recorded in
+  followups.d/3126-p3-studio-carried-class.md.
+- 2026-11-11: **the `image` slide lifts only its own panels** (followups.d/3126-p1, now deleted). `wrapImageText`
+  (lib/core/bg-image.js) collected every `<div class="lattice-bg…` with a regex and moved it to section level, so an author's raw
+  panel in a quote drew as the slide's photo and hid the real one (measured on a CLI PNG render: before, the quoted square photo
+  filled the panel slot and the slide's `![bg right]` never showed). **The panel is the slide's by provenance, not by position.**
+  The engine hoists a `![bg]` that sits anywhere but its own top-level paragraph (a heading, a list item, a quote, a table cell,
+  prose, a lazy continuation after a list) to its own block before the slide-level block that held it
+  (lib/engine/background-image.js `liftToPanels`). `slidePanelSpans` reads the section with the shared tag scanner
+  (`@laticent/markup` `scanTags`) and lifts a panel at section level, or the image plugin's panel (`data-lattice-media="image"`,
+  a host marker author-markup.js renames) from any depth outside a plugin's drawing, so a record alone in a quote stays the photo;
+  panels come out by position. The DOM mirror already moved only direct children, and image-adaptive now measures only the
+  section's own panel. A first cut lifted "section level or a paragraph" and lost the photo in every other shape; the checker
+  caught it with the CLI (a photo typed on the line after a list drew no photo), and each shape is now a test row. The `image`
+  layout's thirteen `.lattice-bg` rules now use the child combinator (`section.image > .lattice-bg`, no change in specificity), so
+  a panel left in a quote is not positioned as the slide's photo either. test/unit/core/image-text-nested-panels.test.js renders each shape
+  through the real engine and the DOM mirror, one test per shape; `npm run identity:check`: 466 decks, 0 differ.
+  **The Reading view, decided:** a quoted raw panel now reaches the article as the author's quoted HTML, as any quoted raw HTML
+  does on a `content` slide (on `main` too); the `image` slide used to drop it only because the lift pulled it out of the quote.
+  The guarantee that matters holds: it is never re-hosted as the article's photo, and the forged `data-lattice-media` marker
+  never survives (author-markup.js renames it). test/unit/transformers/prose-projection.test.js asserts exactly that now.
+- 2026-11-11: **Marp bundles draw full-bleed backgrounds again** (found by the owner in the #3132 sign-off PDFs: the `bleed` slide
+  was blank in every bundle, main included). Marp renders a slide with an advanced background as three sections sharing its
+  classes (`background`, `content`, `pseudo`); the bundle's runtime masthead lift (lib/transformers/masthead-lift.js) matched the
+  `background` one as a `.form` section and wrapped Marp's `section > div > figure` container in a stage cell, leaving the figure
+  0px tall. The lift now skips Marp's `background` and `pseudo` layers. A marp-cli render of the bundle draws the photo, and the
+  slide matches the engine's render of the same deck; a masthead-lift test holds the layers out (fails on the old code).
+- 2026-11-11: **a `bleed` slide picks its ink from its photo** (the owner, on the #3132 sign-off PDFs: dark words over a dark
+  photo; first logged for a separate PR, then brought into #3132 at the owner's word). One decision, lib/core/bleed-ink.mjs: the
+  slide's heading band (its top 45%, mapped onto the photo as `background-size: cover` crops it, card-ink's `coverSourceRect`) is
+  averaged in linear light and the ink that reads better on it by WCAG contrast wins (card-ink's own inks, `pickCardInk` at no
+  backing). Light ink is the theme's `dark` mode on that slide and dark ink its `light` mode, so every token follows the theme;
+  a slide whose own `_class` (`data-class`) names a mode keeps it. Three hosts read the pixels, because no single place can: the
+  runtime (lib/transformers/bleed-ink.js) in the Studio, the Playground and the fluid viewer; the CLI (lib/export/bleed-ink-stamp.js
+  from lattice.js, before the page loads, since its export page carries no runtime: the file is read through the deck's confiner
+  and drawn as a `data:` image so its pixels are readable); and Export-to-Marp (lib/export/marp-bleed-ink.js, called by both
+  producers: tools/export-marp.js samples in a child Chromium, tools/bleed-ink-sampler.cjs, and the Studio in a canvas), because
+  a bundle opened over `file://` may not read its local pictures' pixels (measured: the runtime pass works in a bundle only with
+  `--allow-file-access-from-files`, which marp-cli does not pass). image.styles.css gains the `light` bleed veil beside the `dark`
+  scrim: dark words over a mid-tone photo with a dark shape under the heading did not read without it. In a Marp bundle the
+  photo is Marp's own figure, so the scrim and veil (which sit on the engine's panel) do not apply there; the ink does. No shipped
+  deck changes (identity:check 466/0); examples/bleed-auto-ink.md is the demo, rendered light and dark for the owner.
+  The checker on the first cut found two collisions and a wrong band, fixed before merge: dark ink is written `color-light`, not
+  the bare `light` (that word is also the `divider light` subtopic variant, the collision lib/core/resolve-color-mode.js already
+  avoids), and applying an ink evicts every other color-mode token (a deck's `color-light` won on source order and put dark words
+  over the dark scrim); a `print` deck and a slide whose carried `class:` names a mode are left alone; a layout that centers its
+  words (divider, title, closing, quote, big-number) reads the middle band of the photo, not its top. The Marp rewrite
+  reads `_class` per comment (a shared line with `_paginate` kept its other directive), keeps CRLF, and builds a new spot `_class`
+  from the carried class or the deck register so `bleed` is not dropped. The Gecko Studio e2e then showed the photo itself
+  missing: the preview's CSP named the site's own origin for fonts only, and Firefox does not read a `srcdoc` frame's `'self'` as
+  the site, so every `sample:` picture drew nothing there. lib/core/subresource-csp.mjs now names it in `img-src` and `media-src`
+  too (the host's own origin only; a KaTeX mirror stays a font host).
+  The runtime pass put the docs route budget's engineJsGz 2.3KB past its ceiling. tools/build-runtime.js gives the bytes back
+  without a ceiling raise: the placed-picture rule (read only by the Marp writer and the lint) resolves to a stub in every
+  runtime build, and an `import` of a `@laticent/*` package resolves to the CommonJS copy the runtime already carries
+  (meta-door.mjs had brought in a second, ESM copy of segno's reader). The preview runtime ends 11.8KB gzipped under `main`'s.
+  A second checker, on the fixed Marp rewrite, found it still wrong on real bundles, fixed before merge. It wrote a new spot
+  `_class` above slide 1's settings block, so the block no longer folded and a re-imported bundle lost every deck setting. It
+  read deck classes from Marp's front matter only, where a bundle keeps none (its `class:` and `color-mode:` move into the
+  settings block), so a `print` bundle still took an ink. It read a `_class` or a `![bg]` inside a code fence. It turned a
+  multi-key comment's `_class` line into a value that swallowed `_paginate`, and it skipped a comment written right after
+  another. Now the rewrite reads the deck as Lattice reads a bundle (the block folded), skips code (markdown-it's fences), edits
+  only the `_class` line of a multi-key comment, inserts below the block, and applies `classesWithInk` everywhere, so the eviction
+  holds there too. `statement` left the centered list: it is a bucket, not a layout.

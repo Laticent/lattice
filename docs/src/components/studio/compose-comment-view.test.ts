@@ -242,7 +242,7 @@ describe('a locked slide says so instead of doing nothing', () => {
 		pills()[0].click();
 		const btn = document.querySelector('.cs-comment-remove') as HTMLButtonElement;
 		expect(btn.disabled).toBe(true);
-		expect(btn.textContent).toMatch(/Markdown/);
+		expect(btn.textContent).toMatch(/Source/);
 	});
 
 	it('so clicking it cannot silently no-op', () => {

@@ -44,7 +44,8 @@ function seedReturningUser() {
 	]));
 	// lensDefaults:false so these manual-add / approval flows (written before workspace inheritance) start
 	// from an EMPTY reader-view slate — the inherited-starters behavior gets its own block below.
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture: 'craft', lensDefaults: false }));
+	// Source: the suite drives the Markdown editor (the shipped default is Compose, 2026-11-10-compose-first.md).
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture: 'craft', lensDefaults: false, editMode: 'source' }));
 }
 
 // The live preview loads the real engine by polling `window.LatticePlayground`
@@ -144,10 +145,10 @@ describe('StudioShell — smoke', () => {
 		expect(screen.getByText('Q3 Board Review')).toBeInTheDocument();
 		// The Coach is its own panel now (its header names it), not a tab in "Architect".
 		expect(screen.getByText('Deck read')).toBeInTheDocument();
-		// 'Edit' / 'Preview' appear in the pane header AND its collapse rail (rails
-		// are ALWAYS rendered, visibility-gated by the split's 0px track) — assert
-		// the panes are present, not that the label is unique.
-		expect(screen.getAllByText('Edit').length).toBeGreaterThan(0);
+		// The editor pane names its mode ('Source' here, the seeded one) in the header toggle AND its collapse
+		// rail (rails are ALWAYS rendered, visibility-gated by the split's 0px track) — assert the panes are
+		// present, not that the label is unique. 'Preview' likewise.
+		expect(screen.getAllByText('Source').length).toBeGreaterThan(0);
 		expect(screen.getAllByText('Preview').length).toBeGreaterThan(0);
 		// Present is a verb (button), not a persistent tab.
 		expect(screen.getByRole('button', { name: 'Present' })).toBeInTheDocument();
@@ -162,7 +163,7 @@ describe('StudioShell — smoke', () => {
 // the surface and the Read→Write step they cover are unchanged.
 const seedPosture = (posture: 'read' | 'write' | 'craft') => {
 	localStorage.clear();
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture }));
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture, editMode: 'source' }));
 };
 
 describe('StudioShell — the posture dial (persona experiences)', () => {
@@ -171,7 +172,9 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		render(<StudioShell options={options} />);
 		// Write, not Read: no "Edit this slide" overlay to dismiss before you can work.
 		expect(screen.queryByRole('button', { name: 'Edit this slide' })).not.toBeInTheDocument();
-		expect(screen.getAllByText('Edit').length).toBeGreaterThan(0);
+		// The editor pane is on screen, and a first visit writes in Compose (2026-11-10-compose-first.md).
+		expect(screen.getByRole('group', { name: 'Writing mode' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Compose — rich editor' })).toHaveAttribute('aria-pressed', 'true');
 		// Still the calm middle — Craft's activity-bar launcher stays hidden.
 		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
 		// The boot stop is persisted once (R1).

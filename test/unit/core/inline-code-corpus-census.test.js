@@ -69,6 +69,7 @@ const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/checkbox-semantics.md', 'the demo deck showing an inline `[ ]` mark draws the same ring as a pricing row or a state-cells cell (HARD RULE #9)'],
   ['examples/image-plugin.md', 'the demo deck for the image plugin and the shared display layer: its last slide shows a clip as a `>{…}` record beside the pictures (HARD RULE #9)'],
   ['examples/video-plugin.md', 'the demo deck for the video plugin: its new slide writes the clip as a `>{…}` record, the short form (HARD RULE #9)'],
+  ['examples/bleed-auto-ink.md', 'the demo deck for a bleed slide\'s automatic ink: one slide writes its photo as an `@image{…}` record, to show the record reads its photo as the `![…](…)` shortcut does (HARD RULE #9)'],
 ]);
 
 /**

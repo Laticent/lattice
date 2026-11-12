@@ -288,13 +288,13 @@ test.describe('compose pill editor', () => {
 					preview: pv && frame?.contentWindow ? frame.contentWindow.getComputedStyle(pv).backgroundColor : null,
 				};
 			});
-		// Both pills draw after the deck opens, Compose's and the preview frame's on their own schedules: wait until both
-		// exist and agree before reading the light colors (F3, engineering/decisions/2026-11-06-flaky-tests.md). A single
-		// read here found Compose's pill not yet drawn under the full suite's load.
-		await expect.poll(async () => {
-			const f = await fills();
-			return f.compose !== null && f.compose === f.preview;
-		}).toBe(true);
+		// Compare the same slide: setting the deck in Source left the caret, and so the preview, on the LAST slide, and Compose
+		// now keeps that place (it used to jump everything to slide 1 as it mounted, which this test leaned on). Put the caret
+		// on slide 1, where the first drawing is, and wait for the preview to show it.
+		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
+		await caretSettled(page);
+		// The preview follows the caret a moment later: wait until both drawings exist (Compose draws its own on its own schedule, F3) and it shows slide 1's pill (the two match), then compare.
+		await expect.poll(async () => { const f = await fills(); return f.compose !== null && f.preview !== null && f.compose === f.preview; }).toBe(true);
 		const before = await fills();
 		// The real toggle, not an attribute: the pill's tokens are `light-dark()`, which resolve from the page's color scheme.
 		await page.getByRole('button', { name: 'Switch to dark mode' }).first().click();

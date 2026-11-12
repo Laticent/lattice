@@ -117,7 +117,7 @@ a different coverage tier, not a faster version of this one.
 notes, WebVTT captions, the fluid-box mobile viewer, the offline player, and
 more — it's grown considerably past a bare PDF exporter).
 
-Installed via npm, the same binary is `npx lattice`.
+Installed via npm, the same binary is `lattice`, or `lat` for short; with no install, `npx @laticent/lattice`.
 
 **Palette resolution** (highest wins): CLI positional/`--palette` flag →
 `LATTICE_PALETTE` env → the deck's own front-matter `theme:` → default
@@ -343,6 +343,24 @@ that keeps text or a raster image in it. That covers:
   `text-decoration-color` first, because Blink paints a `currentcolor` decoration with the text
   fill, and hiding the text by fill color used to erase the line with it (a rejected option's
   struck tag read as live; `test/integration/export/pdf-text-decoration.test.js`).
+- a list marker (a bullet or a number). It inherits its item's text fill, and Chromium ignores
+  `-webkit-text-fill-color` in a `::marker` rule (and in `::first-letter`/`::first-line`), so hiding
+  the item's words by fill used to take the marker of every drawn list item out of the PDF.
+  `hideDrawn` first applies that fill hide to everything, as before; then `markerPass` tries the
+  list items in one batch: it reads the item, its pseudo-elements and every descendant (every
+  property a change of color can reach, found once per document by `colorReach`), switches the item to `color: transparent` with its fill following (`::marker` honors
+  `color`, so a per-item rule gives the marker its paint back; descendants' colors and the item's
+  own painting box colors are pinned), reads them all again, and keeps the switch only if every
+  difference is an intended one (the item's own text color, the marker, its first line and letter
+  going transparent, colors that painted nothing before and after). Anything else puts the fill
+  hide back, and the rest are read again until a round finds no failure, so the
+  photo is never worse than before by construction: a case nobody listed costs that item its
+  marker, not its look. Styles only: a span around the words would change what structural
+  selectors (`li > code:first-child`) match. The camera copies each `<style>` element's TEXT, so
+  the per-item rules are written back into the element's text once at the end.
+  `LATTICE_PDF_REPORT` carries `markers: { tried, kept, refused }`, `refused` counting the first
+  difference that sent each other item back to the fill hide
+  (`test/integration/export/pdf-list-markers.test.js`, `docs/e2e/studio-pdf-list-markers.spec.ts`).
 
 Otherwise the photo is 1x: the background (finish, boxes, borders) is sharp on screen but soft at
 deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size. Every

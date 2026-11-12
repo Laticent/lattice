@@ -4,7 +4,8 @@
  * on pages of their own (PROBE=photo-memory), jpeg-probe.js, the shared JPEG encoder
  * against Safari's own (PROBE=jpeg), focus-sync-probe.js, real taps on the Playground's editor under a busy page
  * (PROBE=focus-sync), undo-probe.js, the Filo undo checks across a reload (PROBE=undo), or font-cache-probe.js, whether
- * the Studio's warmed fonts are read from Safari's cache (PROBE=font-cache, against font-cache-server.mjs). SIM_UDID=mac drives the
+ * the Studio's warmed fonts are read from Safari's cache (PROBE=font-cache, against font-cache-server.mjs), or chat-storage-probe.js,
+ * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage). SIM_UDID=mac drives the
  * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
  *
@@ -103,7 +104,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -121,10 +122,15 @@ try {
 process.exit(ok ? 0 : 1);
 
 
-/** Load a fresh Studio (settings seeded on its own origin first) and run one page-side probe in it. */
-async function studioPage(id, file, fn) {
+/**
+ * Load a fresh Studio (settings seeded on its own origin first) and run one page-side probe in it. `seed: false` clears the
+ * stored settings instead, so the Studio opens as it does for a new visitor (compose-probe.js): the session keeps
+ * localStorage from the probes before it, and those stored Source.
+ */
+async function studioPage(id, file, fn, { seed = true } = {}) {
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
-	await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+	const settings = seed ? fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8') : "try { localStorage.removeItem('lattice-studio-settings'); } catch {}";
+	await wd('POST', `/session/${id}/execute/sync`, { script: settings, args: [] });
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
 	const probe = withEditorHelper(fs.readFileSync(path.join(here, file), 'utf8'));
 	return wd('POST', `/session/${id}/execute/async`, {
@@ -134,8 +140,8 @@ async function studioPage(id, file, fn) {
 }
 
 /**
- * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), the pane-swap probe (panes-probe.js, #2916)
- * and the sheet focus probe (sheet-focus-probe.js, #3108), each on a fresh page. One result: every step, each named for its probe, and a pass only when both pass. The photo suite
+ * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), the pane-swap probe (panes-probe.js, #2916),
+ * the sheet focus probe (sheet-focus-probe.js, #3108) and the first-visit Compose probe (compose-probe.js), each on a fresh page. One result: every step, each named for its probe, and a pass only when both pass. The photo suite
  * (PROBE=photo): the photo verdict probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change
  * does not pay for the photo check and a Coach change does run it; together they used to make one job that ran out of its 30 minutes
  * on a slow runner. The photo memory arms (PROBE=photo-memory, #2998) are a suite of their own for the same reason: inside this
@@ -146,14 +152,70 @@ async function runStudioProbe(id) {
 	const panes = await studioPage(id, 'panes-probe.js', 'latticePanesProbe');
 	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
 	const focus = await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe');
+	// A first visit, with nothing stored: Compose is the default and its slide toolbar holds still (compose-probe.js).
+	const compose = await studioPage(id, 'compose-probe.js', 'latticeComposeProbe', { seed: false });
+	// Then a real touch tap on a Compose paragraph, on that page: the probe above places its caret through the Selection API,
+	// which never shows the keyboard or runs Safari's own tap-to-focus path.
+	const tap = compose.ok ? await composeTouchTap(id) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok && !!focus.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap)],
 	};
+}
+
+/**
+ * A WebDriver touch tap on a Compose paragraph, as a finger does it: the caret lands in that paragraph, the editor has the
+ * focus, and the paragraph carries the caret-line mark (`cs-active-line`). Also records whether the software keyboard came
+ * up (the visual viewport shrinks), as a detail: a simulator with a hardware keyboard attached does not show it.
+ */
+async function composeTouchTap(id) {
+	const run = (script) => wd('POST', `/session/${id}/execute/sync`, { script, args: [] });
+	const steps = [];
+	const step = (name, pass, detail = '') => steps.push({ name, pass: !!pass, detail: String(detail) });
+	try {
+		const target = await run(`
+			document.activeElement?.blur?.(); getSelection()?.removeAllRanges();
+			const ps = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8);
+			const p = ps[1] || ps[0];
+			if (!p) return null;
+			window.__touchIndex = ps.indexOf(p);
+			p.scrollIntoView({ block: 'center' });
+			return { text: p.textContent.slice(0, 40), vv: visualViewport ? visualViewport.height : innerHeight };`);
+		if (!target) return { ok: false, steps, error: 'no Compose paragraph to tap' };
+		const at = await run(`const r = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8)[window.__touchIndex].getBoundingClientRect(); return { x: Math.round(r.left + Math.min(r.width / 2, 40)), y: Math.round(r.top + r.height / 2) };`);
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		await wd('POST', `/session/${id}/actions`, {
+			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 80 }, { type: 'pointerUp', button: 0 }] }],
+		});
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		const seen = await wd('POST', `/session/${id}/execute/async`, {
+			args: [],
+			script: `const done = arguments[arguments.length - 1];
+				const t0 = performance.now();
+				const read = () => {
+					const p = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8)[window.__touchIndex];
+					const sel = getSelection();
+					const node = sel && sel.anchorNode;
+					const inP = !!(p && node && p.contains(node));
+					const focused = !!(document.activeElement && document.activeElement.closest('.ProseMirror'));
+					const marked = !!(p && p.classList.contains('cs-active-line'));
+					if ((inP && focused && marked) || performance.now() - t0 > 4000) done({ inP, focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className });
+					else requestAnimationFrame(read);
+				};
+				read();`,
+		});
+		step('a touch tap puts the caret in the tapped paragraph', seen.inP, `"${target.text}" at ${at.x},${at.y}`);
+		step('the editor has the focus after the tap', seen.focused, `active: ${seen.active}`);
+		step('the tapped paragraph carries the caret-line mark', seen.marked);
+		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);
+		return { ok: steps.every((x) => x.pass), steps };
+	} catch (e) {
+		return { ok: false, steps, error: String(e.message || e) };
+	}
 }
 
 /** The photo memory suite (PROBE=photo-memory): the two arms below, on pages of their own (no docs build). */
@@ -309,6 +371,24 @@ async function runUndoProbe(id) {
 		error = ok ? undefined : [steps.filter((s) => !s.pass).map((s) => s.name).join('; '), pass ? '' : 'the ⌘Z key did not undo after the reload'].filter(Boolean).join('; ');
 	}
 	return { ok, error, ua: second.ua ?? first.ua, width: first.width, steps };
+}
+
+/**
+ * The chat storage probe (chat-storage-probe.js): plant the threads an earlier build left in localStorage in a booted
+ * Studio, reload for real, then check they moved to IndexedDB and measure the localStorage allowance
+ * (engineering/decisions/2026-11-11-studio-storage-pointer-records.md §11).
+ */
+async function runChatStorageProbe(id) {
+	const source = fs.readFileSync(path.join(here, 'chat-storage-probe.js'), 'utf8');
+	const first = await studioPage(id, 'chat-storage-probe.js', 'latticeChatStorageProbe');
+	if (!first.ok) return first;
+	await wd('POST', `/session/${id}/refresh`, {});
+	const second = await wd('POST', `/session/${id}/execute/async`, {
+		script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeChatStorageAfterReload(${JSON.stringify(first.seed)}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+		args: [],
+	});
+	const steps = [...first.steps, ...(second.steps || []).map((s) => ({ ...s, name: `after reload · ${s.name}` }))];
+	return { ok: !!second.ok, error: second.error, ua: second.ua ?? first.ua, width: first.width, steps };
 }
 
 /**

@@ -178,5 +178,5 @@ export function cardOf(chunk: string, source: string): Omit<CardBox, 'ref'> & { 
 	// The composition the slide names and whether it has body text change the scenes a fix is judged on, so they key it too.
 	const body = hasBodyText(chunk) ? 'body' : 'heading';
 	const shape = [...[...deck, ...tokens].filter((c) => BOX_CLASSES.test(c)).sort(), compositionOf(tokens) ?? 'auto', body].join(' ');
-	return { ref: photoRefOf(chunk), placement: placementOf(tokens, deck), backing: effectiveCard(tokens, deck).backing, shape };
+	return { ref: photoRefOf(chunk, source), placement: placementOf(tokens, deck), backing: effectiveCard(tokens, deck).backing, shape };
 }

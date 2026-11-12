@@ -76,7 +76,7 @@ see `chart-from-data.md`) or positions on two scores (`quadrant`).
   `_class: diagram`), `lib/components/diagram/diagram/diagram.gallery.md`,
   `examples/mermaid-motion.md`, `examples/flowchart.md`.
 - **Commands:** `npm run new:slide -- diagram` prints the skeleton;
-  `npm run lint:deck -- deck.md`; `npx lattice deck.md deck.pdf` renders and bakes.
+  `npm run lint:deck -- deck.md`; `npx @laticent/lattice deck.md deck.pdf` renders and bakes.
 
 ---
 
@@ -233,7 +233,7 @@ still, and a viewer who asks the OS to reduce motion sees it settled.
 - [ ] No Mermaid `title` on sequence, journey, C4, quadrant, timeline or xy-chart.
 - [ ] The fence is not inside a blockquote or an HTML comment.
 - [ ] `npm run lint:deck -- deck.md` reports no errors or warnings.
-- [ ] Rendered with `npx lattice`, with no Mermaid warning, and every diagram slide
+- [ ] Rendered with `npx @laticent/lattice`, with no Mermaid warning, and every diagram slide
       looked at in each color mode the deck uses.
 
 ---

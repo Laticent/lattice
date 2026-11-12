@@ -629,6 +629,14 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   by `Sec-Fetch-Dest`; in Mobile Safari 26.5 neither arm saw a request marked `font`, so it proved nothing.)
   `PROBE=font-cache node docs/scripts/ios-safari/probe.selftest.mjs`, with the server running, does the same on
   Playwright WebKit with a persistent profile: an ephemeral WebKit context keeps no disk cache across preview documents.
+  `ios-safari-chat-storage` runs it with `PROBE=chat-storage` (#3138), nightly and on dispatch only (`on_pull_request: false`):
+  `chat-storage-probe.js` plants two chat threads the way a build before #3138 saved them (`lattice-studio-chat-<deckId>`,
+  one on the open deck, one on a deck never opened), `run.mjs` reloads the page for real, and the probe then waits up to a
+  minute for the idle migration to empty localStorage of them and checks both arrive whole in IndexedDB
+  (`lattice-studio-chats`). Last, it fills localStorage until Safari refuses, with Latin-1 and then non-Latin-1 text, and
+  fails unless the allowance is within 3% of `local-quota.ts`' 5,242,272 characters and the non-Latin-1 one about half of it,
+  the arithmetic the fill warning rests on. `PROBE=chat-storage node docs/scripts/ios-safari/probe.selftest.mjs` proves it on
+  Playwright WebKit; against a build without the migration it fails on the move.
   `ios-safari-focus-sync` runs it with `PROBE=focus-sync` on an iPad Pro 13-inch alone (a phone is never wide enough for the
   Playground's two-pane layout, which starts above 820 px): `run.mjs` makes real WebDriver taps on editor lines (an element
   click; the harness found nothing else was needed) while `focus-sync-probe.js` keeps the page busy, and the suite fails when a tap
@@ -1351,7 +1359,7 @@ number:
 **The shot's subject is a fixture, not the seeded deck** (2026-09-02). It used
 to be `DECKS[0]`, whose editor pane fills a third of the frame — so the welcome
 deck's copy was baked into all three PNGs, and one line of that copy is the live
-catalog count (`61 components / 14 themes`), held current by
+catalog count (then `61 components / 14 themes`), held current by
 `test/unit/playground/welcome-deck-counts.test.js`. Adding a component therefore
 turned three baselines red in a PR that never touched the Studio, and the only
 available answer was a re-bless — the one thing this section tells you not to do

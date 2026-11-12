@@ -1,0 +1,73 @@
+# SkillSpector baseline: findings a person READ and judged harmless.
+#
+# Read by tools/scan-skills.sh (and so by .github/workflows/skillspector-nightly.yml).
+# Any finding NOT matched here makes the nightly file its rolling issue.
+#
+# RULES, NOT FINGERPRINTS. SkillSpector's `fingerprints:` hash the scanner version and the
+# whole file text, so editing a skill or bumping the scanner would bring every suppressed
+# finding back. A rule matches on rule id + path glob + message glob and survives both.
+# Keep every rule NARROW: the scanner sees the matched text in `message`, so a rule names
+# the exact phrase it excuses, never a whole category. Every rule carries the reason a
+# reviewer accepted it. Adding a rule is a PR-reviewed change, like a SANCTIONED_* entry.
+#
+# Syntax: https://github.com/NVIDIA/SkillSpector/blob/main/docs/SUPPRESSION.md
+version: 2
+rules:
+  # MCP rug pull (RP1): `npx @laticent/lattice …` with no @version. It is OUR package on npm.
+  # Pinning a version in teaching prose would go stale every release. The BARE names are
+  # deliberately NOT excused: on npm, unscoped `lattice` and `lat` belong to other publishers,
+  # so outside a Lattice project `npx lattice` or `npx lat` runs their code. PR #3142 rewrote
+  # all 69 bare lines in the skills; one creeping back in fires the nightly. The quotes keep
+  # this rule from excusing a lookalike scope.
+  - id: "RP1"
+    message: "*'npx @laticent/lattice'*"
+    reason: "Our own package on npm (owner decision 2026-11-11); the unscoped name is NOT excused"
+
+  # YARA tool-poisoning (YR4) on a slide's alt-text comment, `<!-- describe: … -->`, which
+  # is Lattice's accessibility syntax (lib/base/base.docs.md). Scoped to that file and
+  # that syntax.
+  - id: "YR4"
+    path: "*accessibility-review.md"
+    message: "*<!-- describe:*"
+    reason: "Lattice's alt-text comment syntax, quoted as a teaching example"
+
+  # Analysis evasion (AE1) is a COVERAGE note: the scanner's bounded parser could not
+  # fully resolve one expression in the referenced file. Its own remediation reads
+  # "incomplete analysis is not proof of malicious evasion". Scoped to the one reference.
+  - id: "AE1"
+    path: "*SKILL.md"
+    message: "*references/writing-a-deck.md*"
+    reason: "Scanner parse limit on a plain-Markdown reference, not evasion"
+  # pick-a-layout.md is the generated 80-row component catalog (from component manifests).
+  # The scanner's obfuscated-text check gives up on it ("could not be fully evaluated").
+  # Bisected 2026-11-11: no single passage trips it, only the full table, and the file has
+  # no invisible, bidi or non-Latin characters and no encoded blobs. A coverage note, not a hit.
+  - id: "AE1"
+    path: "*SKILL.md"
+    message: "*references/pick-a-layout.md*"
+    reason: "Scanner gives up on the generated 80-row catalog table; checked by hand, nothing hidden"
+
+  # review/check.mjs is the agent kit's bundled deck checker: CODE an agent runs, not prose it
+  # reads. Three rules fire on ordinary bundled JavaScript (read 2026-11-11):
+  #   MP2 (context-window stuffing), 212 hits: every one is a digits-and-commas run inside a
+  #     `new Uint8Array([...])` lookup table from a bundled library. Stuffing is an attack on
+  #     text an agent reads; nobody reads this file into context to follow it.
+  #   RA2 (session persistence), 7 hits: the variable `topLists` (contains "pList") and a
+  #     highlighter language map entry `plist: "xml"`.
+  #   P6 (prompt extraction), 2 hits: `return rules` in the lint code.
+  # MP2 is scoped by file because its matched text varies; RA2 and P6 match their exact text.
+  - id: "MP2"
+    path: "*check.mjs"
+    reason: "Uint8Array lookup tables in the bundled deck checker (code an agent runs, not reads)"
+  - id: "RA2"
+    path: "*check.mjs"
+    message: "pList"
+    reason: "the variable name topLists in the bundled deck checker"
+  - id: "RA2"
+    path: "*check.mjs"
+    message: "plist"
+    reason: "the highlighter language map entry plist: \"xml\" in the bundled deck checker"
+  - id: "P6"
+    path: "*check.mjs"
+    message: "return rules"
+    reason: "a lint function returning its rule list in the bundled deck checker"

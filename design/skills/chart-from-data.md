@@ -88,7 +88,7 @@ Other kinds exist for narrower jobs (`radar`, `quadrant`, `risk-matrix`, `tower`
 - **Commands:**
   - `npm run new:slide -- bar` prints a kind's skeleton.
   - `npm run lint:deck -- deck.md` catches malformed values and series typos.
-  - `npx lattice deck.md deck.pdf` renders; then look at the slide.
+  - `npx @laticent/lattice deck.md deck.pdf` renders; then look at the slide.
 
 ---
 

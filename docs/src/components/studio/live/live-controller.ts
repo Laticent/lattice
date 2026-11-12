@@ -20,6 +20,7 @@ import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveClip, type Liv
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveFinish, type LiveHost, type LiveLook, type LiveRecords, type LiveTheme, NO_RECORDS, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
 import { WakeKeeper } from './live-wake';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
+import { rebase } from './text-rebase';
 
 // The Studio's side of a live session, loaded only when a session starts or a link is opened
 // (use-live-session.ts holds the tiny always-loaded half). It turns a Tavola session plus a Yjs
@@ -462,43 +463,10 @@ type Runtime = {
 	release: (() => void) | null;
 };
 
-/**
- * The edit that turns `base` into `next`, located in `cur` (which may have moved on since `base`).
- * The changed span is found by the unchanged text on either side of it. When that text is gone the
- * edit is refused (null) rather than guessed: a guessed delete removes text the writer never saw, a
- * guessed replace doubles it, and a guessed insert lands mid-sentence in a co-author's line
- * (red-team round 2, finding 4).
- */
-export function rebase(base: string, next: string, cur: string): { from: number; to: number; insert: string } | null {
-	let p = 0;
-	const min = Math.min(base.length, next.length);
-	while (p < min && base.charCodeAt(p) === next.charCodeAt(p)) p++;
-	let s = 0;
-	while (s < min - p && base.charCodeAt(base.length - 1 - s) === next.charCodeAt(next.length - 1 - s)) s++;
-	const insert = next.slice(p, next.length - s);
-	const removed = base.slice(p, base.length - s);
-	if (cur === base) return { from: p, to: base.length - s, insert };
-	const ANCHOR = 24;
-	const before = base.slice(Math.max(0, p - ANCHOR), p);
-	const after = base.slice(base.length - s, base.length - s + ANCHOR);
-	const needle = before + removed + after;
-	if (needle.length === 0) return null;
-	let at = -1;
-	let best = Number.POSITIVE_INFINITY;
-	for (let i = cur.indexOf(needle); i !== -1; i = cur.indexOf(needle, i + 1)) {
-		const d = Math.abs(i - (p - before.length));
-		if (d < best) {
-			best = d;
-			at = i;
-		}
-	}
-	if (at === -1) return null;
-	const from = at + before.length;
-	return { from, to: from + removed.length, insert };
-}
-
 /** A y-codemirror caret position, kept only in the shape y-codemirror can read: one bad field there
  *  throws inside CodeMirror and turns off everyone's remote carets (red-team round 2, finding 5). */
+export { rebase };
+
 export function cleanRelPos(x: unknown): Record<string, unknown> | null {
 	if (!x || typeof x !== 'object') return null;
 	const p = x as Record<string, unknown>;

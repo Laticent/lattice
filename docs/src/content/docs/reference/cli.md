@@ -17,6 +17,10 @@ The command is `lattice`; the package is `@laticent/lattice`. Every `npx lattice
 below runs the copy installed in your project. Outside one, write
 `npx @laticent/lattice`, because the unscoped `lattice` package on npm is unrelated.
 
+`lat` is the same command, shorter: `lat deck.md deck.pdf`. It exists once the package is
+installed (globally, or in your project's scripts). Never run it through `npx` outside a
+project: the unscoped `lat` package on npm is someone else's, just like `lattice`.
+
 ## Command shapes
 
 ```sh

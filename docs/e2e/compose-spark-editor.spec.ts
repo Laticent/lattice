@@ -117,12 +117,13 @@ test.describe('compose spark editor', () => {
 					preview: pv && frame?.contentWindow ? frame.contentWindow.getComputedStyle(pv).fill : null,
 				};
 			});
-		// Both sparks draw after the deck opens, on their own schedules: wait until both exist and agree before reading
-		// the light fills (F3, engineering/decisions/2026-11-06-flaky-tests.md).
-		await expect.poll(async () => {
-			const s = await strokes();
-			return s.compose !== null && s.compose === s.preview;
-		}).toBe(true);
+		// Compare the same slide: setting the deck in Source left the caret, and so the preview, on the LAST slide, and Compose
+		// now keeps that place (it used to jump everything to slide 1 as it mounted, which this test leaned on). Put the caret
+		// on slide 1, where the first drawing is, and wait for the preview to show it.
+		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
+		await caretSettled(page);
+		// The preview follows the caret a moment later: wait until both drawings exist (Compose draws its own on its own schedule, F3) and it shows slide 1's spark (the two match), then compare.
+		await expect.poll(async () => { const f = await strokes(); return f.compose !== null && f.preview !== null && f.compose === f.preview; }).toBe(true);
 		const before = await strokes();
 		await page.getByRole('button', { name: 'Switch to dark mode' }).first().click();
 		await expect.poll(async () => (await strokes()).preview, { timeout: 8000 }).not.toBe(before.preview);

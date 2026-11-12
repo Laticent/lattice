@@ -179,7 +179,7 @@
       "fix": "The `today` pill works with or without a window pill, but the point has to fall INSIDE the axis the chart resolves to. A `today` outside the derived or declared range draws nothing."
     },
     {
-      "mistake": "Reading a pale bar as 'deferred' without checking the key.",
+      "mistake": "Reading a pale bar as 'deferred' before reading the key.",
       "fix": "A `deferred` bar and a bar with no status share the neutral ramp. `deferred` is drawn hollow with a DASHED edge; an unstated bar is solid. When a chart carries both, the key names the second one `no status` — so the answer is on the slide rather than in the author's head."
     }
   ],

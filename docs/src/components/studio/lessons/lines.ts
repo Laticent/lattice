@@ -30,6 +30,10 @@ export const LESSON_LINES = {
 		plain: 'A deck is plain text. You write on the left, and the slides appear on the right.',
 		dashes: 'A line of three dashes starts a new slide. A line that starts with # is the slide’s heading.',
 		turn: 'Your turn: click at the end of your text, type three dashes, then a # heading.',
+		/** The same lesson in Compose, the default since 2026-11-10: no markup to learn. */
+		plainCompose: 'You write on the left, the way you would in any document, and the slides appear on the right.',
+		headingCompose: 'Each slide sits between two lines across the page. Type a hash and a space at the start of a line to make it the slide’s heading.',
+		turnCompose: 'Your turn: click into any slide and change a word.',
 		keepTyping: 'Keep typing. The preview follows every keystroke.',
 		made: 'That is the slide those lines made. Change any word and the slide follows.',
 	},
@@ -68,7 +72,7 @@ export const LESSON_LINES = {
 		missing: 'I’ll open the slide gallery for you.',
 		search: 'Typing in the search box narrows the gallery. I’ll type chart.',
 		pick: 'Pick the bar chart.',
-		edit: 'The numbers are plain text in your slide. Change one and the bars follow.',
+		edit: 'The numbers sit in the slide’s rows. Change one and the bars follow.',
 	},
 	'add-table': {
 		what: 'A table slide lays out rows and columns for you, with the house style already applied.',
@@ -77,6 +81,8 @@ export const LESSON_LINES = {
 		search: 'I’ll type table in the search box.',
 		pick: 'Pick the table.',
 		edit: 'Each row is a line of text, with a bar between the cells. Add a line to add a row.',
+		/** Compose, the default (2026-11-10-compose-first.md): it shows the table as a table, with its own row buttons. */
+		editCompose: 'Click a cell and type to change it. Insert row below adds a row.',
 	},
 	'add-comparison': {
 		what: 'A comparison puts two options side by side and marks the one you recommend.',
@@ -93,6 +99,8 @@ export const LESSON_LINES = {
 		search: 'I’ll type image in the search box.',
 		pick: 'Pick image.',
 		edit: 'Replace the sample link with the address of your own picture.',
+		/** Compose shows the picture, not its link: a tap opens its panel. */
+		editCompose: 'Click the picture, then Replace photo to use your own.',
 	},
 	'speaker-notes': {
 		what: 'Speaker notes are for you. Present shows them to you, and the audience never sees them.',

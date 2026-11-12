@@ -24,6 +24,8 @@ test('@crosswidth @gecko @webkit-tablet editing a paragraph keeps its line break
 	await expect(page.locator('.cs-host .cs-slide-locked, .cs-host [data-locked="true"]')).toHaveCount(0);
 	const para = page.locator('.cs-host p', { hasText: 'Line one' });
 	await para.click();
+	// The click's caret reaches ProseMirror through a queued `selectionchange`; wait for it, or it can land AFTER the
+	// caret set below and drag the typing back to where the click fell (HARD RULE #32: a signal, not a sleep).
 	await caretSettled(page);
 	await editorFocusSettled(page);
 	// Place the caret through the DOM selection, which ProseMirror reads: Home/End and Control+Home move differently in

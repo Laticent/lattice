@@ -65,6 +65,8 @@ const path = require('node:path');
 
 const { STATIC_ASSETS, fontAssetsFor, MARP_SUPPORT, marpSupportLine, vscodeExtensions, VSCODE_ONLY_ASSETS, KIT_VSCODE_STYLESHEET } = require('../lib/export/marp-bundle.js');
 const { stubOf } = require('../lib/export/marp-vscode-stub.js');
+// The Lattice layouts extension for VS Code, packaged from its source and the catalog (kit/vscode/vsix.js).
+const { buildVsix, FILE_NAME: VSIX } = require('../kit/vscode/vsix.js');
 // The video plugin's Marp engine, as source (lib/plugins/video/video.services.js `marpEngineSource`).
 const videoRecordsEngine = require('../lib/core/plugin-services.js').service('video', 'marpEngineSource')();
 
@@ -357,6 +359,7 @@ changes to engine, tooling or test code, not on documentation-only ones.
 | \`marp.config.cjs\` | Registers the stylesheets for marp-cli. |
 | \`.vscode/settings.json\` | Registers them for the VS Code extension. |
 | \`.vscode/lattice.code-snippets\` | One completion per layout. On an empty line in the deck, type \`lattice-\` and press **Ctrl+Space** (**⌃Space** on a Mac): pick a layout and VS Code writes its skeleton. |
+| \`${VSIX}\` | A small VS Code extension that completes layout NAMES where one goes: type \`<!-- _class: \` and the menu opens with every layout and its summary, and nowhere else, so prose never opens it. Install it once: **Extensions → ⋯ → Install from VSIX…**, or \`code --install-extension ${VSIX}\`. |
 | \`.vscode/extensions.json\` | Makes VS Code offer to install Marp for VS Code. |
 | \`NOTICE.md\` · \`LICENSE\` · \`THIRD-PARTY-LICENSES.txt\` | The terms these files come under, and the full third-party license texts. Worth two minutes. |
 
@@ -525,6 +528,7 @@ function buildKit() {
   out.set('marp.config.cjs', marpConfig());
   out.set('.vscode/settings.json', vscodeSettings());
   out.set('.vscode/extensions.json', vscodeExtensions());
+  out.set(VSIX, buildVsix());
   out.set('README.md', readme());
   out.set('NOTICE.md', notice());
   // Verbatim, not summarized: an AGPL conveyance has to carry the actual text.

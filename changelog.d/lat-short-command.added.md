@@ -1,0 +1,1 @@
+- **`lat` is a short name for the `lattice` command.** After `npm install -g @laticent/lattice` (or in your project's scripts), `lat deck.md deck.pdf` works exactly like `lattice deck.md deck.pdf`, and tab completion covers both in bash, zsh, fish and PowerShell. Don't run it through `npx` in a folder without Lattice: the unscoped `lat` package on npm belongs to someone else.
