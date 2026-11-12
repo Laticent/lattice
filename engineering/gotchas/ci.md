@@ -818,3 +818,21 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   nothing: since 2026-11-04 the `alert` job files no issue for it, and `platform-suites-supervisor.yml` re-runs the job once.
   `npm run evidence` no longer lists a suite for dispatch when the PR run already starts it.
 - **Record:** `engineering/decisions/2026-11-04-ci-flake-audit.md` §5 and §6 (D2, decided A).
+
+## A spec on `serveDist` draws no diagram, even online
+
+- **Symptom** — a spec that serves the built site with `docs/e2e/serve-dist.ts` (the PWA and offline specs) sees a
+  Mermaid fence settle `error`, and the console says "Access to script at …/frames/mermaid/… from origin 'null' has
+  been blocked by CORS policy".
+- **Cause** — the sandboxed draw frame has origin `null` and imports Mermaid's module graph from `frames/`, which needs
+  `Access-Control-Allow-Origin: *`. GitHub Pages sends it on everything, and `preview-e2e.mjs` and `serve-h2.mjs` match
+  it; `serve-dist.ts` did not, so no test on it could draw a diagram.
+- **Fix** — `serve-dist.ts` sends the header (2026-11-12). A new static server for tests sends it too.
+
+## A spec with its own `http` server hangs at its test timeout after every step passed
+
+- **Symptom** — the trace's last step passes, nothing more is recorded, and the test dies at its test timeout
+  (`read-article-beacons.spec.ts`, 2 of 10 runs under load, at 300 s).
+- **Cause** — `server.close()` in the `finally` waits for every open connection to end, and the browser keeps its
+  keep-alive connections to the loopback server open.
+- **Fix** — call `server.closeAllConnections()` before `close()`, as `studio-warm-offline.spec.ts` does.

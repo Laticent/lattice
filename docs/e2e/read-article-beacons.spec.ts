@@ -78,8 +78,14 @@ const readingViewRefusesTheWeb = async ({ page }: { page: import('@playwright/te
 		await expect(notice).toHaveAttribute('data-state', 'loaded');
 		await openArticle();
 		await expect.poll(() => hits.includes('control-image.png'), { message: 'the control fetched nothing, so the blocked arm proves nothing', timeout: 30_000 }).toBe(true);
-		// The rest of the article's fetches, for the report below: once the page goes quiet.
-		await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+		// The rest of the article's fetches, for the report below: once every image in the article has settled
+		// (loaded or failed). Not `networkidle`, which waits for 500 ms of quiet, a guess about time.
+		await expect
+			.poll(() => page.locator('article.st-read-article img').evaluateAll((imgs) => imgs.every((i) => (i as HTMLImageElement).complete)), {
+				message: 'an image in the article never settled',
+				timeout: 30_000,
+			})
+			.toBe(true);
 		const loaded = [...new Set(hits)].sort();
 		const reached = payloads.map((p) => p.name).filter((n) => loaded.includes(n));
 		const absent = payloads.map((p) => p.name).filter((n) => !loaded.includes(n));
@@ -87,6 +93,9 @@ const readingViewRefusesTheWeb = async ({ page }: { page: import('@playwright/te
 		test.info().annotations.push({ type: 'never reached it (escaped or sanitized upstream)', description: `${absent.length}: ${absent.join(', ')}` });
 		console.log(`reached (${reached.length}): ${reached.join(', ')}\nnever reached (${absent.length}): ${absent.join(', ')}`);
 	} finally {
+		// `close` waits for every open connection to end, and the browser keeps its keep-alive connections to this
+		// server open: without `closeAllConnections` the test hung here until its 300 s cap (2 of 10 runs under load).
+		server.closeAllConnections();
 		await new Promise<void>((r) => server.close(() => r()));
 	}
 };
@@ -145,6 +154,9 @@ const diagramLinkNavigatesOnClick = async ({ page }: { page: import('@playwright
 		expect(page.url()).not.toBe(studioUrl);
 		expect(hits.filter((h) => h === 'diagram-link')).toHaveLength(1);
 	} finally {
+		// `close` waits for every open connection to end, and the browser keeps its keep-alive connections to this
+		// server open: without `closeAllConnections` the test hung here until its 300 s cap (2 of 10 runs under load).
+		server.closeAllConnections();
 		await new Promise<void>((r) => server.close(() => r()));
 	}
 };

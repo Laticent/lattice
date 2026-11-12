@@ -98,17 +98,19 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false, overrides =
     ...require('../../../lib/plugins/mermaid/shared/baked-figure'),
     // A preview render: Mermaid's own temporary box, never the export stage.
     exportStage: () => undefined,
+    // The pass's own scheduler (ctx.schedule): a fence handed back to `pending` asks for the next pass through it.
+    scheduleRun: () => log.push('schedule'),
     ...overrides,
   };
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED queue is the point — a paraphrase would test the paraphrase.
   const factory = eval(
-    `(function (configureForScope, attachError, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn, rememberDrawnScope, diagramFontReady, tagDiagramMotion, bindDiagramFunctions, rememberDiagram, overlongLabelText, overlongMessage, labelDiagramSvg, collapseSankeyText, exportStage) {
+    `(function (configureForScope, attachError, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn, rememberDrawnScope, diagramFontReady, tagDiagramMotion, bindDiagramFunctions, rememberDiagram, overlongLabelText, overlongMessage, labelDiagramSvg, collapseSankeyText, exportStage, scheduleRun) {
        let renderCounter = 0;
 ${block}
        return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
      })`,
   );
-  const q = factory(deps.configureForScope, deps.attachError, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn, deps.rememberDrawnScope, deps.diagramFontReady, deps.tagDiagramMotion, deps.bindDiagramFunctions, deps.rememberDiagram, deps.overlongLabelText, deps.overlongMessage, deps.labelDiagramSvg, deps.collapseSankeyText, deps.exportStage);
+  const q = factory(deps.configureForScope, deps.attachError, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn, deps.rememberDrawnScope, deps.diagramFontReady, deps.tagDiagramMotion, deps.bindDiagramFunctions, deps.rememberDiagram, deps.overlongLabelText, deps.overlongMessage, deps.labelDiagramSvg, deps.collapseSankeyText, deps.exportStage, deps.scheduleRun);
 
   /** Drive the real kernel over a deck, exactly as the runtime does. */
   const tagOf = new WeakMap();
@@ -145,6 +147,41 @@ function twoBandDeck(aFences, bFences) {
     { scope: b, diagrams: bFences, tag: 'B' },
   ];
 }
+
+describe('a draw host that cannot draw hands the fence to the page, not to an error', () => {
+  // Offline, the preview's sandboxed draw frame cannot load Mermaid (the service worker never serves it) and the draw
+  // host's own chunks may never have been fetched. The host then stops offering Mermaid, which makes the stand-in
+  // stale, and rejects with `drawUnavailable`. The fence goes back to `pending` and the next pass loads the page's own
+  // library (docs/e2e/studio-warm-offline.spec.ts drives the real Studio offline).
+  const unavailable = () => Object.assign(new Error('the mermaid draw frame could not load its library'), { drawUnavailable: true });
+
+  test('an unavailable draw with a stale stand-in: back to pending, one more pass, no error', async () => {
+    const log = [];
+    const mermaid = { initialize: () => {}, render: () => Promise.reject(unavailable()), __latticeStale: true };
+    const f = fence('offline');
+    await liftQueue({ mermaid, log, capMs: 200 }).run(twoBandDeck([f], []));
+    assert.equal(f.preEl.dataset.latticeSettle, 'pending');
+    assert.deepEqual(log.filter((l) => l === 'schedule' || l.startsWith('error:')), ['schedule']);
+  });
+
+  test('an unavailable draw while the stand-in is still offered is an error, so a pass cannot loop on it', async () => {
+    const log = [];
+    const mermaid = { initialize: () => {}, render: () => Promise.reject(unavailable()), __latticeStale: false };
+    const f = fence('still-offered');
+    await liftQueue({ mermaid, log, capMs: 200 }).run(twoBandDeck([f], []));
+    assert.equal(f.preEl.dataset.latticeSettle, 'error');
+    assert.ok(!log.includes('schedule'));
+  });
+
+  test('a diagram the library refused is still an error with a stale stand-in', async () => {
+    const log = [];
+    const mermaid = { initialize: () => {}, render: () => Promise.reject(new Error('Parse error on line 2')), __latticeStale: true };
+    const f = fence('bad');
+    await liftQueue({ mermaid, log, capMs: 200 }).run(twoBandDeck([f], []));
+    assert.equal(f.preEl.dataset.latticeSettle, 'error');
+    assert.ok(!log.includes('schedule'));
+  });
+});
 
 describe('the diagram queue always advances', () => {
   test('a render that NEVER settles does not wedge the next band, or the session', async () => {
