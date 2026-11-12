@@ -2046,6 +2046,10 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 		await recordUnreachableAssets(sections, log);
 		const { w, h } = slideGeom(sections[0]);
 		const images = [];
+		// Every image here goes to `assembleSheetPdf`, whose jsPDF step per page runs in a pool (pdf-image-pool.js). Started as
+		// each slide is photographed, it runs while this thread photographs the next one.
+		const pngPool = pageFormat === 'png' ? await import('./pdf-image-pool.js') : null;
+		pngPool?.startPngSet();
 		for (let i = 0; i < sections.length; i++) {
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
 			// The corner target is `'pdf'`, NOT `pageFormat`. Those are different axes and this
@@ -2057,6 +2061,8 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 			// and composite its transparency onto the page, which is the pale-notch artifact the
 			// capability rule exists to prevent. lib/core/corner-export-capability.mjs.
 			images.push(await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf', log));
+			// `'SLOW'`: what `addImage` resolves to on the sheet's `compress: true` document.
+			pngPool?.startPng(images[i], 'SLOW');
 			// Yield a macrotask between slides so the progress line paints (see the note
 			// in buildPdfBlobOnMainThread) — the per-slide clone + PNG-deflate is synchronous.
 			await new Promise((r) => setTimeout(r));
@@ -2101,6 +2107,20 @@ export async function assembleSheetPdf(images, geom, name, meta, opts) {
 	// pageW=1344px → 1008pt = 14in.
 	const pdf = new jsPDF({ orientation, unit: 'px', format: [pageW, pageH], compress: true, hotfixes: ['px_scaling'] });
 	pdf.setProperties(pdfProps(name, meta, images.length));
+	// jsPDF's PNG step for every page, run side by side in the pool before the pages are placed (pdf-image-pool.js): the
+	// same function on the same bytes, so the same file, without 51 s of it on this thread for a 50-slide deck. `'SLOW'` is
+	// what `addImage` resolves to on a `compress: true` document. A JPEG sheet needs no step: jsPDF stores a JPEG as it is.
+	const { preparePngs, installPreparedPngs } = await import('./pdf-image-pool.js');
+	const prepared = pageFormat === 'png' ? await preparePngs(images, 'SLOW') : [];
+	const hook = installPreparedPngs(pdf, 'SLOW');
+	const place = (idx, x, y, w, h) => {
+		hook.next(prepared[idx]);
+		try {
+			pdf.addImage(images[idx], pageFormat === 'jpeg' ? 'JPEG' : 'PNG', x, y, w, h);
+		} finally {
+			hook.done();
+		}
+	};
 	const pages = handout ? images.length : Math.ceil(images.length / nup) || 1;
 	for (let p = 0; p < pages; p++) {
 		if (p > 0) pdf.addPage([pageW, pageH], orientation);
@@ -2110,7 +2130,7 @@ export async function assembleSheetPdf(images, geom, name, meta, opts) {
 		pdf.rect(0, 0, pageW, pageH, 'F');
 		if (handout) {
 			if (onStatus) onStatus('Placing slide ' + (p + 1) + ' of ' + images.length + '…', { current: p, total: images.length });
-			pdf.addImage(images[p], pageFormat === 'jpeg' ? 'JPEG' : 'PNG', regions.slide.x, regions.slide.y, regions.slide.w, regions.slide.h);
+			place(p, regions.slide.x, regions.slide.y, regions.slide.w, regions.slide.h);
 			drawHandoutNotes(pdf, regions.notes, notes[p]);
 		} else {
 			for (let k = 0; k < nup; k++) {
@@ -2118,7 +2138,7 @@ export async function assembleSheetPdf(images, geom, name, meta, opts) {
 				if (idx >= images.length) break;
 				if (onStatus) onStatus('Placing slide ' + (idx + 1) + ' of ' + images.length + '…', { current: idx, total: images.length });
 				const cell = cells[k];
-				pdf.addImage(images[idx], pageFormat === 'jpeg' ? 'JPEG' : 'PNG', cell.x, cell.y, cell.w, cell.h);
+				place(idx, cell.x, cell.y, cell.w, cell.h);
 			}
 		}
 		// Yield a macrotask between pages — LOAD-BEARING for the re-place path. A

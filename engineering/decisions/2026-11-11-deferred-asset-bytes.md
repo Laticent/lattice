@@ -150,3 +150,19 @@ fonts per export.
 3. The 7.4 s before the first shot: profile and cut, unchanged output.
 4. Photos: resample and JPEG-encode in a worker (same kernels, same bytes); carry photos by reference to the webpage
    file's sink (680 MB toward ~250 MB).
+
+### 7.1 Shipped: print's PNG step in the pool
+
+`assembleSheetPdf`'s per-page jsPDF `processPNG` runs in a worker pool (`export/pdf-image-pool.js`, on
+`lib/worker-pool.js`, size `poolSize()`), started as each slide is photographed (`rasterizeDeckImages` →
+`startPng`), and the document's own `processPNG` returns the worker's result for that image. jsPDF still assigns the
+index and alias and skips a repeated picture. A re-placed sheet (a paper change on the same pictures) runs no job.
+`pdf-image-pool.test.ts` holds the worker's object equal to jsPDF's and the whole file byte-identical, with an arm.
+Measured in the dev Studio on the owner's deck, pool off → on: **119 s → 58 s, 95 s → 32 s blocked, longest 2.6 s →
+1.0 s**; all 50 pages and every image stream identical, only `CreationDate` differs. Three workers instead of two
+gave 76 s → 84 s before the overlap (4 cores here); the pool stays at its `min(2, cores − 1)` until measured on a
+laptop with more cores.
+
+Per-slide stylesheet trimming (§7 move 2) was measured and DROPPED: dropping 73 % of slide 5's rules saved 14 ms of
+187 ms. A slide's cost is the browser PAINTING it (~140 ms at 2×, the same on a second draw of the decoded image),
+not parsing its CSS, and this sandbox paints in software, so it overstates that cost against a laptop's GPU.
