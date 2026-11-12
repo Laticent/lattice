@@ -2028,3 +2028,15 @@ never turn "passed in headless" into "works on iOS."
   decoder accepts, and runs past the cap.
 - **Fix** — encode the whole byte buffer once (`Buffer.toString('base64')`), and have the test assert the toast has no
   "Not restored" line, so a refused row is named instead of counted as missing later.
+
+## A restore test misses the "Workspace restored" toast, though the restore worked
+
+- **Symptom** — under load, `expect(toast).toContainText('Workspace restored…')` times out, and the failure screenshot
+  shows a freshly loaded Studio with no toast and no Workspace sheet. 1 of 15 loaded runs of
+  `workspace-backup-size.spec.ts` on 2026-11-12.
+- **Cause** — a successful restore shows its toast for 1.1 s and then reloads the page (`WorkspaceSheet.tsx`,
+  `setTimeout(() => location.reload(), 1100)`). A poll on a loaded runner can miss that window, and a
+  `waitForEvent('load')` armed after the toast can miss the reload as well.
+- **Fix** — record toasts from inside the page into `sessionStorage`, which survives the reload, and arm the wait for the
+  reload's navigation before the restore starts (`recordToasts` and `restoreAndReload` in that spec). Read the toast from
+  the record afterwards; never poll a toast that a reload is about to take away.

@@ -50,6 +50,46 @@ async function restore(page: import('@playwright/test').Page, file: string): Pro
 	await page.getByLabel('Restore a workspace backup').setInputFiles(file);
 }
 
+// A successful restore shows its toast for 1.1 s and then reloads the page (WorkspaceSheet.tsx), so the toast is a
+// transient: a poll on a loaded runner can miss it, and a `load` wait armed after it can miss the reload too (one of 5
+// loaded runs did both, 2026-11-12). So every toast's text is RECORDED from inside the page into sessionStorage, which
+// survives the reload, and the reload is awaited as a navigation armed before the restore starts.
+const TOASTS_KEY = 'e2e-backup-toasts';
+
+/** Record every toast the page shows, across reloads. Call before `gotoStudio`: an init script runs on every navigation. */
+async function recordToasts(page: import('@playwright/test').Page): Promise<void> {
+	await page.addInitScript((key) => {
+		const note = () => {
+			let all: string[] = [];
+			try {
+				all = JSON.parse(sessionStorage.getItem(key) || '[]');
+			} catch {
+				all = [];
+			}
+			let changed = false;
+			for (const t of document.querySelectorAll('[data-sonner-toast]')) {
+				const text = t.textContent || '';
+				if (text && !all.includes(text)) {
+					all.push(text);
+					changed = true;
+				}
+			}
+			if (changed) sessionStorage.setItem(key, JSON.stringify(all));
+		};
+		new MutationObserver(note).observe(document, { childList: true, subtree: true, characterData: true });
+	}, TOASTS_KEY);
+}
+
+/** Restore `file`, wait for the reload a successful restore ends with, and return every toast shown on the way. */
+async function restoreAndReload(page: import('@playwright/test').Page, file: string, timeout: number): Promise<string[]> {
+	await page.evaluate((key) => sessionStorage.removeItem(key), TOASTS_KEY);
+	const reloaded = page.waitForEvent('framenavigated', { predicate: (f) => f === page.mainFrame(), timeout });
+	await restore(page, file);
+	await reloaded;
+	await page.waitForLoadState('domcontentloaded');
+	return page.evaluate((key) => JSON.parse(sessionStorage.getItem(key) || '[]') as string[], TOASTS_KEY);
+}
+
 /** One evidence file per test AND project: desktop and mobile both run Chromium. */
 function record(name: string, data: unknown): void {
 	const dir = process.env.LATTICE_EVIDENCE_DIR;
@@ -97,16 +137,16 @@ test('a real-shaped backup with 67 MiB of reference docs still restores', async 
 	expect(refdocs.length).toBeGreaterThan(64 * MIB);
 	const file = await writeZip({ 'manifest.json': manifest, 'workspace.json': state('deck-big', 'Big restore probe'), 'refdocs.json': refdocs });
 
+	await recordToasts(page);
 	await gotoStudio(page);
 	const t0 = Date.now();
-	await restore(page, file);
-	const toast = page.locator('[data-sonner-toast]').filter({ hasText: 'Workspace restored' }).first();
-	await expect(toast).toContainText(/1 deck/, { timeout: 60_000 });
+	// One wait for the restore and its reload, with the two deadlines it replaces added together (60 s + 30 s).
+	const toasts = await restoreAndReload(page, file, 90_000);
 	const ms = Date.now() - t0;
-	const toastText = await toast.innerText(); // before the reload clears it
+	const toastText = toasts.find((t) => t.includes('Workspace restored')) ?? `(no "Workspace restored" toast; saw: ${toasts.join(' | ') || 'none'})`;
+	expect(toastText, 'the restore said it restored the deck').toMatch(/Workspace restored — 1 deck/);
 	// A restore that skipped a row still says "Workspace restored", and names the row: say which one here.
 	expect(toastText, 'no reference doc was skipped').not.toContain('Not restored');
-	await page.waitForEvent('load', { timeout: 30_000 });
 
 	const refdocNames = await page.evaluate(async () => {
 		const open = indexedDB.open('lattice-workbench');
@@ -133,6 +173,7 @@ test('a real-shaped backup with 67 MiB of reference docs still restores', async 
 // reference docs are a SIDE LANE: a flood there is skipped and named, and the deck still comes back.
 // One row, so the 2,000-row cap cannot be what catches it: only the value cap can.
 test('a refdocs.json flood is skipped and named, and the deck still restores @crosswidth @webkit-tablet @gecko', async ({ page }) => {
+	await recordToasts(page);
 	await gotoStudio(page);
 	const results: Record<string, unknown> = {};
 	for (const [kind, pad] of [
@@ -142,14 +183,13 @@ test('a refdocs.json flood is skipped and named, and the deck still restores @cr
 		const title = `Flood probe ${kind}`;
 		const file = await writeZip({ 'manifest.json': manifest, 'workspace.json': state(`deck-flood-${kind}`, title), 'refdocs.json': `[{"name":"x","pad":${pad}}]` });
 		const t0 = Date.now();
-		await restore(page, file);
-		const toast = page.locator('[data-sonner-toast]').filter({ hasText: 'Workspace restored' }).first();
-		await expect(toast).toContainText('Not restored', { timeout: 30_000 });
-		await expect(toast).toContainText('Reference docs (more values than a Library holds)');
-		results[kind] = { backupBytes: fs.statSync(file).size, values: 1_000_001, msToRestored: Date.now() - t0, toast: await toast.innerText() };
+		const toasts = await restoreAndReload(page, file, 45_000);
+		const toast = toasts.find((t) => t.includes('Workspace restored')) ?? `(no "Workspace restored" toast; saw: ${toasts.join(' | ') || 'none'})`;
+		expect(toast).toContain('Not restored');
+		expect(toast).toContain('Reference docs (more values than a Library holds)');
+		results[kind] = { backupBytes: fs.statSync(file).size, values: 1_000_001, msToRestored: Date.now() - t0, toast };
 		// The restore reloads at once, then shows the skipped list again on the restored Studio and
 		// keeps it up until dismissed (it used to vanish with the reload).
-		await page.waitForEvent('load', { timeout: 15_000 });
 		const after = page.locator('[data-sonner-toast]').filter({ hasText: 'Some items were not restored' }).first();
 		await expect(after).toContainText('Reference docs (more values than a Library holds)', { timeout: 15_000 });
 		await page.waitForTimeout(2_000);
