@@ -73,7 +73,7 @@ colors and CSS nesting all supported. Two consequences:
 - **Measured beats guessed.** A boot probe (long tasks over the first few seconds of the Studio) can drop FULL to LITE mid-session, never the other way, and says so in a toast.
 - **The user can override** (Workspace settings → Auto / Full / Lite). Auto is the default. The override never lifts UNSUPPORTED past a missing feature.
 - **One place decides.** `docs/src/lib/device-profile.ts`: a pure `classify(signals) → { tier, reasons[] }` plus a `readSignals()` that touches the browser. `classify` is unit-tested over a signal table; nothing else in the app reads `deviceMemory` or the renderer string. `prefetch-engine.ts`'s network signals fold in as inputs, and the inline copies in `studio.astro` / `playground.astro` go.
-- **Before first paint.** A small inline script in the page head runs the same feature list and the renderer test, and sets `data-device-tier` on `<html>`. CSS reads the attribute, so the Studio shell's inline Nacre never paints on a LITE machine at all.
+- **Before first paint.** A small inline script in the page head runs the same feature list and the renderer test (the renderer string is cached after the first visit, §3.2), and sets `data-device-tier` on `<html>`. CSS reads the attribute, so the Studio shell's inline Nacre never paints on a LITE machine at all.
 
 ### 3.1 Quick, cross-browser hardware detection (the owner asked for one)
 
@@ -81,7 +81,7 @@ The owner wants hardware to count toward a decline, "best effort but somewhat ac
 cannot do that alone (memory is missing on Safari and Firefox), so the profile adds two signals that work on every
 engine:
 
-1. **A CPU micro-benchmark** (about 140 ms, run once at boot and cached for the day): a fixed unit of typed-array
+1. **A CPU micro-benchmark** (about 140 ms of work, run in a Web Worker after the first slide paints and cached for a day; see §3.2): a fixed unit of typed-array
    math, a JSON round trip and string building, counted in seven 20 ms windows, median taken. It measures the thing
    we care about (how fast this browser runs our kind of JavaScript right now) and it sees what the spec numbers
    cannot: thermal throttling, battery saver, a busy machine.
@@ -111,6 +111,26 @@ only add a less reliable second answer. The System panel shows the UA-derived na
 
 One weak signal makes LITE (the owner's threshold, 2026-11-12). Two floor signals make UNSUPPORTED, with the
 "continue anyway" link. The floor column is a proposal; the owner sets the final numbers on the PR.
+
+### 3.2 What detection costs at load (measured 2026-11-12)
+
+Playwright Chromium 153 in the cloud sandbox, fresh page per run, median of 5:
+
+| Step | CPU x1 | CPU x4 (CDP throttle) | Where it runs |
+|---|---|---|---|
+| Feature tests (`CSS.supports`, `typeof`) | 0.2 ms | 0.7 ms | Pre-paint, main thread |
+| WebGL renderer read (make a context, read, release) | 7.4 ms (first run 19.9) | 21.4 ms (first run 27.9) | Pre-paint on the FIRST visit only; later visits read the cached string |
+| CPU probe (7 × 20 ms windows) | 140.5 ms | 142.8 ms | A Web Worker, after the first slide paints, at most once a day |
+| `detect-gpu` | 3.3 KB gzipped code + one vendor table, 2–14 KB gzipped | — | After first paint, async fetch from our own origin |
+
+The probe takes a fixed ~140 ms on every machine by design (it counts work in fixed windows), so it can never go on
+the main thread at boot. In a worker it measures the same JavaScript engine without blocking a frame. Until its first
+result lands, the CPU signal is `null` (unknown), which by the rules in §3 never lowers the tier. A slow result found
+later drops FULL to LITE with a toast, the same path the boot probe uses.
+
+**Load cost after this change:** under 1 ms on a returning visit (feature tests plus a cached renderer string), and
+about 7–28 ms once, on the first visit, for the WebGL read. A real GPU's first context can cost more than SwiftShader's
+(driver start-up); that is **UNVERIFIED** until the macOS and Windows runners measure it.
 
 ## 4. What LITE changes
 
