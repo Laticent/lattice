@@ -2012,11 +2012,38 @@ never turn "passed in headless" into "works on iOS."
   `MOZ_PROFILER_STARTUP_FEATURES=js,stackwalk` and `MOZ_PROFILER_SHUTDOWN=<file>` (Playwright `launchOptions.env`), then
   count samples per JS function on the `Web Content` process's `GeckoMain` thread. On Chromium, a CDP `Profiler.start`
   around the edit shows the same functions.
-- **Fix** — the memo neither stores nor looks up a key longer than its cap (it could never hit), and `splitSlideChunks`
-  keeps its last answer beside the boundary memo entry it was cut from. Counted in `test/unit/core/meta-memo.test.js`,
-  `slide-boundaries.test.js` and the bench's `memoDatasets` row: copies per keystroke 15,000,391 to 61, cuts 35 to 1. The
-  two full lint passes per edit (the editor's and the Coach's) still cost seconds on such a deck in Firefox; the spec waits
-  for the Studio to finish them rather than racing its click against them.
+- **Fix, part 1** — the memo neither stores nor looks up a key longer than its cap (it could never hit), and
+  `splitSlideChunks` keeps its last answer beside the boundary memo entry it was cut from. Counted in
+  `test/unit/core/meta-memo.test.js`, `slide-boundaries.test.js` and the bench's `memoDatasets` row: copies per keystroke
+  15,000,391 to 61, cuts 35 to 1. That took the worst stall from 28.7 s to 11.2 s.
+- **Fix, part 2: readers stop walking a photo's base64** — no reader of a deck needs a payload's bytes, and every one
+  walked them: lint-core, review-core, the engine's `render`, the preview's HTML and CSS scanners, the source checks one
+  preview render makes, a photo address reader that tested a regex per character. Two remedies, chosen by what the reader
+  decides:
+  - **Readers that only describe the deck skip the payload** through one kernel, `lib/core/payload-elision.js`, and put
+    it back in what they return: lint-core, review-core, the engine's `render`, the Studio's source checks and the
+    editor's fold. A payload is narrow (a `data:` URI's run where a URL value opens, `](` `url(` `=`, with no `=` but its
+    padding, not ending in `/`, followed by a character that ends a URL), because a looser run can hide syntax: inside a
+    tag `/` ends an attribute name, so `data:a/b;base64,AAAA…/src="https://…"` carries a real `src`. The engine skips
+    even less: only a line that is one markdown image, outside a code fence and a `$$` block, never on the code door's
+    passes, and it renders the whole text if a stand-in does not come out whole. A stand-in is the payload's own first
+    960 characters, then a marker, so a rule that quotes a line cut short quotes the author's characters.
+  - **The web-image blocker skips nothing**: it decides what a page may fetch. It reads every character, fast: the
+    entity decoder and the CSS string reader copy runs instead of characters (`lib/core/web-ref-readers.js`,
+    `css-token-readers.js`), which took a photo slide from 1.2 s to 0.1 s in Node.
+  Both were found by the checker; `test/unit/core/payload-elision*.test.js` compare each skipping reader with skipping on
+  and off on the same input and pin the checker's attacks.
+- **Fix, part 3: the rest of the per-edit cost** — the editor's lint and the Coach's assessment run in one worker
+  (`docs/src/components/studio/lint/`), sharing a pass when their vocabularies agree; the Reshape picker builds its tiles
+  only while open; the photo verdict's key is an object, not a string holding the slide; the editor turns its document
+  into a string once per version. On the spec's deck in Firefox, the longest stall is now under 1 s on paste and about
+  1 s on a keystroke.
+- **Measuring it** — `insertText` is the wrong way to put a deck of megabytes into the editor: it types the text into the
+  editor's DOM as one composition, and the browser lays all of it out before CodeMirror reads it (8 s on Firefox, 287 s
+  on WebKit). Paste it instead (`pasteIntoEditor` in `docs/e2e/studio-fixture.ts`), as an author does. Two more traps: a
+  memo or hook dependency keyed by a string that CONTAINS the slide (`${index}|${chunk}`) makes Firefox flatten and
+  compare megabytes on every render; and `npm run build:e2e`'s log still holds the last run's `EXIT` line while a new
+  build runs, so delete it before waiting on it.
 
 ## A workspace restore says "Workspace restored" but a reference doc never comes back
 
