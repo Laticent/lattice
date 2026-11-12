@@ -484,10 +484,7 @@ describe('interactive shells, through a pty', () => {
     ]);
     expectLines(got);
   });
-  // ci-skip: the ubuntu unit runner ships no zsh and the job installs no packages (ci.yml, the owner's "NO APT" call), so
-  // CI never runs this; PR #3151's first CI run proved it ("No such file or directory: b'/snap/bin/zsh'"). Installing zsh in
-  // the unit job is the owner's call; until then zsh completion is checked only where zsh exists (a laptop, this sandbox).
-  test('zsh, interactive', { skip: (!has('zsh') && 'zsh is not installed') || skipUnlessCI(!python, 'python3 is not installed') }, () => {
+  test('zsh, interactive', { skip: skipUnlessCI(!has('zsh') || !python, 'zsh or python3 is not installed') }, () => {
     const got = drive(['zsh', '-f', '-i'], [
       // zsh picks vi keys when $EDITOR or $VISUAL names vi (npm sets EDITOR); the driver uses emacs keys.
       'bindkey -e',

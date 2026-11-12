@@ -12,4 +12,5 @@
 - **Fixed: a unit test that needs a tool or a built file no longer skips silently in CI (the env-skip rule #3144 adds).** 33 skips in
   15 files route through `skipUnlessCI` / `skipWithoutChrome` (`test/helpers/chrome.js`), which skip on a laptop and
   fail under CI; two carry a `// ci-skip:` note naming the job that runs them instead. chart-readers asserts a pinned
-  refusal instead of skipping three tests per refused chart.
+  refusal instead of skipping three tests per refused chart. The `unit` CI job now installs zsh (through
+  `.github/actions/apt-cached`), so the interactive zsh completion test runs in CI for the first time.

@@ -355,6 +355,14 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
+      # zsh for test/unit/cli/completion.test.js, which drives a real interactive zsh through a pty: the runner image has
+      # none, so the test used to skip here and zsh completion was never tested in CI (owner call D3 A, 2026-11-12, #3151).
+      # Only the node 22 legs run the full suite; the node 24 smoke subset has no completion test.
+      - name: Install zsh (the completion tests drive a real zsh)
+        if: matrix.node-version == 22
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: zsh
       - run: npm ci
         timeout-minutes: 10 # an npm ci that never exits (run 40590390608 hung 14 min) fails here, not at the job cap
       # dist/ and the docs-site bundles are BUILT, not committed (.gitignore), so a
