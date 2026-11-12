@@ -128,7 +128,11 @@ test('somber focuses the key beat: the rest recedes gently, with no cursor and n
 	// Ink is watched from before Play, and read once the key beat has been focused: a gesture's ink is drawn with its
 	// focus, so by then any ink the somber beat drew is on the stage.
 	let ink!: () => Promise<number>;
-	const dialog = await present(page, DENSE('somber'), { beforePlay: async () => (ink = await watchInk(page)) });
+	const dialog = await present(page, DENSE('somber'), {
+		beforePlay: async () => {
+			ink = await watchInk(page);
+		},
+	});
 	const slide = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
 	// The one somber moment is the slide's KEY beat: its four siblings recede, it stays whole. On a
 	// prose slide the key is the list's FIRST item, not the top-ranked figure — a deliberate change

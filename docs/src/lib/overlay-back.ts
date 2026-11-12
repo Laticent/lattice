@@ -138,8 +138,30 @@ function adopt(): void {
 }
 
 
+/** Counts every level added or removed, so an observer can tell a NEW depth-1 stack from the old one. */
+let generation = 0;
+
+/**
+ * Publish the controller's state on `<html data-overlay-back="depth/owned/pending">`, with a trailing `*` while a
+ * reconcile is queued or deferred, and `data-overlay-back-gen` (see `generation`). It is read by the e2e specs that
+ * drive the back gesture: a drawer's level is registered in a passive effect, after paint, so "the drawer is on
+ * screen" does not mean "a back gesture will pop it", and they used to sleep 650 ms to cover the gap (HARD RULE #32).
+ * Settled at depth N reads `N/1/0` (or `0/0/0` with nothing open). Nothing in the app reads either attribute.
+ */
+function publish(): void {
+	if (typeof document === 'undefined') return;
+	const root = document.documentElement.dataset;
+	root.overlayBack = `${stack.length}/${sentinel ? 1 : 0}/${pendingPops}${dirty || deferred ? '*' : ''}`;
+	root.overlayBackGen = String(generation);
+}
+
 function reconcile(): void {
 	dirty = false;
+	reconcileInner();
+	publish();
+}
+
+function reconcileInner(): void {
 	// A traversal WE started has not landed yet. Touching history now is the latent
 	// re-entry of the bug that got the first implementation reverted: `history.back()` is
 	// asynchronous, so between firing it and its `popstate` the stack is un-owned, and a
@@ -181,6 +203,7 @@ function reconcile(): void {
 function schedule(): void {
 	if (dirty || typeof window === 'undefined') return;
 	dirty = true;
+	publish();
 	queueMicrotask(reconcile);
 }
 
@@ -193,6 +216,7 @@ function onPopState(): void {
 			deferred = false;
 			schedule();
 		}
+		publish();
 		return;
 	}
 	// Not our entry: a genuine page navigation. Let it happen.
@@ -202,6 +226,7 @@ function onPopState(): void {
 	sentinel = false;
 	stack[stack.length - 1]?.onBack();
 	schedule();
+	publish();
 }
 
 // NO `pageshow` HANDLER, and that is a decision, not an omission.
@@ -246,10 +271,12 @@ export function useOverlayBack(active: boolean, onBack: () => void): void {
 		if (!active || typeof window === 'undefined') return;
 		const entry: Entry = { onBack: () => cb.current() };
 		stack.push(entry);
+		generation += 1;
 		listen();
 		schedule();
 		return () => {
 			stack = stack.filter((e) => e !== entry);
+			generation += 1;
 			schedule();
 		};
 	}, [active]);
@@ -262,4 +289,9 @@ export function __resetOverlayBack(): void {
 	pendingPops = 0;
 	dirty = false;
 	deferred = false;
+	generation = 0;
+	if (typeof document !== 'undefined') {
+		delete document.documentElement.dataset.overlayBack;
+		delete document.documentElement.dataset.overlayBackGen;
+	}
 }

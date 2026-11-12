@@ -6449,32 +6449,6 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'sees the request and the image decodes) proves the log can see a fetch.',
   },
   {
-    file: 'docs/e2e/collage-lightbox-present.spec.ts', ms: 400, count: 3,
-    why: 'THREE ABSENCE ASSERTIONS: with the collage lightbox open, a digit must NOT also mark a chart '
-       + 'point behind it (#2648 P1). Present\'s window listener would open the chart-detail card on '
-       + 'the same keydown if the lightbox\'s capture-phase swallow failed, and there is no signal '
-       + 'for a card that must not open; a poll of the unchanged DOM goes green on its first tick. '
-       + '400ms covers the key dispatch, the chart-detail reveal and the popover mount; the same '
-       + 'file\'s POSITIVE arm shows that card mounts inside 1s once Escape closes the lightbox.',
-  },
-  {
-    file: 'docs/e2e/collage-lightbox-present.spec.ts', ms: 600, count: 1,
-    why: 'AN ABSENCE ASSERTION: a click on a photo inside Present opens no lightbox, because the slide '
-       + 'card is pointer-events-none (PresentOverlay.tsx). There is no signal for an open that must '
-       + 'not happen. 600ms covers the click dispatch and the 400ms open glide the other arms wait '
-       + 'out, so a lightbox that was going to open would already be mounted.',
-  },
-  {
-    file: 'docs/e2e/collage-player-engines.spec.ts', ms: 600, count: 2,
-    why: 'TWO ABSENCE ASSERTIONS in Firefox and WebKit (#2648 P2): with the exported player\'s collage '
-       + 'lightbox open, a wheel flick must NOT also turn the slide behind it. The player\'s window '
-       + 'listener turns a slide inside the same event dispatch, but a leak past the lightbox\'s '
-       + 'stopPropagation has no signal of its own; a poll of the unchanged index goes green on its '
-       + 'first tick. 600ms outlasts the player\'s 350ms wheel cooldown, so a leaked event would have '
-       + 'fired and the index moved. The same file\'s control arm (a wheel on the closed deck turns '
-       + 'the slide) and its closed-again arm prove the listener is live in that engine.',
-  },
-  {
     file: 'docs/e2e/deck-drop-import.spec.ts', ms: 1000, count: 3,
     why: 'THREE ABSENCE ASSERTIONS: a PDF dropped on the code editor, on the compose editor and '
        + 'while presenting must import NOTHING and leave the tab on the Studio. There is no signal '
@@ -6501,28 +6475,6 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'fixed wait, so the window measures the edit alone.',
   },
   {
-    file: 'docs/e2e/code-packages.spec.ts', ms: 2500, count: 4,
-    why: 'FOUR ABSENCE ASSERTIONS, and they are the claim the spec exists to prove: a hostile code '
-       + 'package (unapproved, then approved), a package that reads only `slide.facts` and tries '
-       + 'to send them out (contract note §11), and a package holding a dynamic import() that the '
-       + 'Library import refuses, so that no sandbox frame opens for it (contract note §10), send NOTHING to a loopback HTTP server or a UDP '
-       + 'socket (contract note 2026-09-24 §9). There is no signal for a request that must not '
-       + 'arrive; a poll of an empty log goes green on its first tick. 2500ms covers the package\'s '
-       + 'own load-time and per-slide attempts (fetch, WebSocket, WebRTC ICE gathering, which is '
-       + 'the slowest) after the slide has visibly rendered; the same file\'s CONTROLS then show '
-       + 'the page reaching both listeners within a bounded poll.',
-  },
-  {
-    file: 'docs/e2e/plugin-fence.spec.ts', ms: 2500, count: 3,
-    why: 'THREE ABSENCE ASSERTIONS, the claim the spec exists to prove (plugin-system §9 decisions 10 to 14): '
-       + 'a hostile zip plugin (listed but unapproved, then approved, then run again by Share to PDF) sends '
-       + 'NOTHING to a loopback HTTP server or a UDP socket. There is no signal for a request that must not '
-       + 'arrive; a poll of an empty log goes green on its first tick. 2500ms is the same window '
-       + 'code-packages.spec.ts holds, covering the renderer\'s load-time and per-fence attempts (fetch, '
-       + 'WebSocket, WebRTC ICE gathering, the slowest) after the fence has visibly drawn; the same test\'s '
-       + 'CONTROLS then show the page reaching both listeners within a bounded poll.',
-  },
-  {
     file: 'docs/e2e/workspace-backup-size.spec.ts', ms: 2000, count: 1,
     why: 'ONE ABSENCE ASSERTION: when a workspace restore skipped something, the "Not restored" '
        + 'list must survive the reload and then NOT go away on its own, because it is how the user '
@@ -6545,58 +6497,6 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'the slide index via `toBeVisible`, and every case where placement SHOULD happen is an '
        + '`expect.poll` on the recorded call rather than a wait.',
   },
-  {
-    file: 'docs/e2e/stage-window.spec.ts', ms: 400, count: 5,
-    why: 'ABSENCE ASSERTIONS, four of them, all the same "and then nothing happened" shape. (1) The '
-       + 'ECHO: the Stage and the console both drive the deck now, and the relay that carries a Stage '
-       + 'gesture to the console invites a move posted out, applied, and posted back as a second move '
-       + '— so the cell presses once and asserts the counter is STILL on the same slide. (2) The LINK '
-       + 'GUARD, once per shape: a click on a deck link inside the projected copy used to strand the '
-       + 'console and hand a foreign origin `window.opener` on the origin holding the user\'s API key, '
-       + 'and the assertion is that the URL did NOT change — measured across all three shapes that '
-       + 'survive the sanitizer, because the first selector caught only the plain anchor and a real '
-       + 'click on an SVG `xlink:href` navigated. (3) The PINCH and the trackpad `ctrl`+wheel: both '
-       + 'were read as swipes and turned the deck (#1294 again), and the fix is that they now do '
-       + 'NOTHING, which is again an absence. None has a signal to poll — a poll goes green on its '
-       + 'first tick, before the navigation or the extra advance it is meant to catch could commit. '
-       + '(5) The REWRITE FLICKER: a site palette change is announced and the presenter view must '
-       + 'not blink off while the Stage document is rebuilt — the assertion is a 16ms SAMPLER over '
-       + 'that window reading zero, so the wait is what gives the sampler a window to sample. '
-       + 'Everything pollable around them already is: the popup via `context.waitForEvent(\'page\')`, '
-       + 'the deck paint via `not.toBeEmpty()`, every slide ARRIVAL via `toBeVisible`, and the pill '
-       + 'state via `toHaveAttribute`.',
-  },
-  {
-    file: 'docs/e2e/stage-window.spec.ts', ms: 3000, count: 1,
-    why: 'ABSENCE ASSERTION over an ACCUMULATOR, which is what makes this length safe rather '
-       + 'than merely long. A Stage the presenter closes by hand must revert the console and say '
-       + 'NOTHING — a notice for an act you just performed is the one people learn to dismiss '
-       + 'unread, which costs the case it exists for (2026-08-24-stage-console-split.md §13). The '
-       + 'wait outlives the TWO deadlines the notice could arrive on: the loss classification '
-       + 'samples `window.closed` for up to 600ms (a hand-closed window still reports '
-       + '`closed === false` when its own unload beat lands, measured), and the liveness poll '
-       + 'fires every 2000ms. There is no signal to poll for a thing that must never happen. '
-       + 'THE TRAP THIS ENTRY ORIGINALLY WALKED INTO, recorded because the number looks like a '
-       + 'derivation either way: the first draft read `toHaveCount(0)` on the toaster at the end '
-       + 'of the wait, and `notify` is `toast(msg, {duration: 2600})` with a 200ms unmount — so '
-       + 'the toast it forbids is GONE FROM THE DOM by ~2800ms and the read could not see it. '
-       + 'Two deadlines were derived and a third clock (how long the notice lives) decided '
-       + 'whether the assertion had anything to look at, which made LENGTHENING the wait the '
-       + 'thing that broke it. The cell now installs a MutationObserver BEFORE the close and '
-       + 'accumulates every toast text that appears, so an auto-dismissal cannot hide one and the '
-       + 'wait can be as long as the deadlines require. Its POSITIVE CONTROL is inside the same '
-       + 'cell — it re-opens the Stage, navigates it away, and awaits the same log filling — so a '
-       + 'Studio whose toaster never rendered cannot satisfy it. Verified by mutation: the cell '
-       + 'now fails on its OWN assertion, where before it failed on the control.',
-  },
-  // ── #1246, the post-sanitize injection suite ─────────────────────────────────
-  // Both are the canonical "and then nothing happened" shape this allowlist exists for:
-  // the assertion is that a payload did NOT execute and did NOT reach the network, and an
-  // absence has no signal to poll — a poll would go green on its first tick, before the
-  // payload it is meant to catch had any chance to fire. Everything POLLABLE in these
-  // specs already is: the diagram's own `data-lattice-settle` settle stamp and the rendered
-  // label are awaited with `expect`, so the wait covers only the gap between "the payload
-  // is in the live DOM" and "we conclude it did nothing".
   {
     file: 'docs/e2e/mermaid-post-sanitize.spec.ts', ms: 1500, count: 1,
     why: 'ABSENCE ASSERTION. The script-vector table injects a payload into a rendered node label '
@@ -6647,25 +6547,6 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'predicate reads whether the page HEARD the wipe rather than counting ticks.',
   },
   // ── judged in #1564 ──────────────────────────────────────────────────────────
-  {
-    file: 'docs/e2e/back-gesture.spec.ts', ms: 650, count: 23, via: 'settle',
-    why: 'PARTLY JUDGED (#1564). Spans drawer-paints -> drawer-REGISTERS the history entry a '
-       + 'following goBack() pops. Genuinely unpollable at a door transition (Menu -> Themes '
-       + 'pushes nothing: history.length holds and __latticeOverlayBack is already true) and at '
-       + 'the post-reload adopt. The remaining call sites are NOT individually judged — most look '
-       + 'like dead time before an auto-retrying assertion; a few precede a synchronous '
-       + 'history.length read or an absence assertion and are load-bearing. See the comment at '
-       + 'the declaration. Reducing this count is the next slice in that file.',
-  },
-  {
-    file: 'docs/e2e/back-gesture.spec.ts', ms: 1200, count: 1,
-    why: 'JUDGED KEEP (#1564). The regression is the MENU COMING BACK after the child closes, so '
-       + 'the pass is "and then nothing else happened" — a poll for count===0 fires at the first '
-       + 'zero (~410-460ms measured) and never sees a later re-open. Two known limits, recorded '
-       + 'at the call site: it samples ONCE at t=1200ms, and the interval was calibrated on a '
-       + 'build where the bug does not exist. A MutationObserver record-then-assert-empty would '
-       + 'be strictly stronger and is the intended fix.',
-  },
   {
     file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 160, count: 1,
     why: 'JUDGED KEEP (#1526). The step interval of a hand-rolled STEPPED scroll that samples the '
@@ -6789,18 +6670,6 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'BALANCE artifact that moves with text metrics, so it can appear on the re-layout that '
        + 'follows the font swap rather than on the swap itself. Same shape as the playground- '
        + 'first-paint entries, and judged the same way.',
-  },
-  {
-    file: 'docs/e2e/playground-first-paint.spec.ts', ms: 1500, count: 7,
-    why: 'MEASUREMENT WINDOW (#1589/#1588/#1590), not a settle. Every one of these follows a '
-       + 'signal that has ALREADY been awaited (`.pg-preview-wrap.is-live`, the walk position, '
-       + 'the 404 toast) and then keeps the per-frame sampler running for a beat, because what '
-       + 'this file asserts is "and then nothing moved". Polling cannot express that: an '
-       + 'auto-retrying matcher fires at the first frame that satisfies it and never sees the '
-       + 'second geometry arriving after. The bound is the 0.2s shell-to-filmstrip cross-fade '
-       + 'plus room for a late correction pass; shortening it is what stops these cases '
-       + 'catching the defect they were written for. Three were inherited from #1581 and were '
-       + 'UNJUDGED; they are judged now and the four added here are the same shape.',
   },
   {
     file: 'docs/e2e/present-chunk-hr.spec.ts', ms: 1500, count: 1,

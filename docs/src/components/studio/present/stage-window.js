@@ -755,6 +755,20 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		}
 	}
 	/**
+	 * Publish where the classification stands on `<html data-stage-loss>`: `classifying` while it walks, then
+	 * `closed` (the presenter closed it: say nothing), `navigated` (say so), `cancelled` (a later beat or a new Stage
+	 * took over) or `unreadable`. The e2e spec that holds "a hand-close says nothing" waits for an end state instead
+	 * of sleeping past the grace window (HARD RULE #32). Nothing in the app reads it.
+	 * @param {string} state
+	 */
+	const publishLoss = (state) => {
+		try {
+			document.documentElement.dataset.stageLoss = state;
+		} catch {
+			/* no document */
+		}
+	};
+	/**
 	 * Announce the loss unless the window turns out to have simply been closed.
 	 * @param {Window | null} w the handle teardown just let go of
 	 * @param {number} seq the ownership sequence at schedule time
@@ -794,14 +808,20 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 	function announceUnlessClosed(w, seq, waited = 0) {
 		if (!w || seq !== ownSeq) return; // a new Stage came up — this answer is stale
 		try {
-			if (w.closed) return; // deliberate: the presenter closed the window themselves
+			if (w.closed) {
+				publishLoss('closed');
+				return; // deliberate: the presenter closed the window themselves
+			}
 		} catch {
+			publishLoss('unreadable');
 			return; // we cannot even ask any more; do not invent a failure
 		}
 		if ((waited >= CLOSED_GRACE_MS && navigatedAway(w) === true) || waited >= CLOSED_HANG_MS) {
+			publishLoss('navigated');
 			onLost?.('navigated');
 			return;
 		}
+		publishLoss('classifying');
 		lossTimer = window.setTimeout(() => {
 			lossTimer = 0;
 			announceUnlessClosed(w, seq, waited + CLOSED_STEP_MS);
@@ -926,6 +946,7 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		if (lossTimer) {
 			window.clearTimeout(lossTimer);
 			lossTimer = 0;
+			publishLoss('cancelled');
 		}
 		if (pollId) {
 			window.clearInterval(pollId);

@@ -17,26 +17,31 @@ import { backEntryRegistered, controlReady, currentSlide } from './studio-fixtur
 const MENU = 'Menu';
 const HOST = 'Deck';
 
-// ONE declaration, 23 CALL SITES, and they are NOT all the same kind — read this before
-// deleting one. #1526's census counts this file as "14 sleeps" because it greps
-// `waitForTimeout(`; the honest count of fixed 650ms waits here is 23. The sweep in #1564
-// judged the RAW sleeps and this helper's role, not each of the 23 individually. What is
-// known about them:
-//
-//   · LOAD-BEARING — a synchronous `history.length` read follows, with no retry to absorb a
-//     slow registration (the reload test), and one site where an ABSENCE is asserted
-//     (`Close` must not exist) which no poll can shorten safely.
-//   · NO SIGNAL EXISTS — a DOOR transition (Menu → Themes/Library) pushes nothing:
-//     `history.length` holds at 3 → 3 and `__latticeOverlayBack` is already `true` from the
-//     parent, so `backEntryRegistered` returns instantly there and is not a wait at all. Same
-//     for a re-open AFTER RELOAD, where the module ADOPTS the surviving marked entry.
-//   · PROBABLY DEAD TIME — the majority. An auto-retrying assertion follows that already
-//     polls a real change (`toHaveText`, `toHaveCount`), so the settle adds latency and no
-//     power. These have NOT been individually judged and are the remaining work in this file;
-//     removing one is safe only where no `goBack()` and no synchronous read follows it.
-//
-// Where a signal exists and the site was judged, `backEntryRegistered` replaced this.
-const settle = (page: Page) => page.waitForTimeout(650);
+// WAITING FOR THE BACK STACK, not for 650 ms. A drawer registers its level with the back controller
+// (docs/src/lib/overlay-back.ts) in a passive effect, after paint: "the drawer is on screen" does not
+// mean "a back gesture will pop it", and a `goBack()` sent in between pops the wrong level or leaves
+// the Studio. This file used to cover that gap with a fixed 650 ms `settle` at 23 call sites (#1526,
+// #1564). The controller now publishes its state on `<html data-overlay-back="depth/owned/pending">`
+// plus a generation that ticks on every level added or removed, so each step below waits for exactly
+// what it needs: a NEWER generation (Menu → Library is depth 1 → 1, so depth alone would pass on the
+// old stack) settled at the depth that step should leave. A door transition and the post-reload
+// adopt, the two places #1564 found no signal, both tick the generation.
+const overlayGen = async (page: Page) => Number((await page.locator('html').getAttribute('data-overlay-back-gen')) ?? 0);
+async function step(page: Page, depth: number, act: () => Promise<unknown>): Promise<void> {
+	const before = await overlayGen(page);
+	await act();
+	await expect
+		.poll(
+			async () => {
+				const [state, gen] = await page.evaluate(() => [document.documentElement.dataset.overlayBack ?? '', Number(document.documentElement.dataset.overlayBackGen ?? 0)] as const);
+				return gen > before ? state : `not yet registered (${state})`;
+			},
+			{ message: `the back stack never settled at depth ${depth}` },
+		)
+		.toBe(depth ? `${depth}/1/0` : '0/0/0');
+}
+/** A tap or click whose overlay change `step` waits for. */
+const tap = (locator: import('@playwright/test').Locator) => () => locator.click();
 const dialog = (page: Page) => page.locator('[role=dialog]');
 /** `.last()` — during a hand-off the outgoing drawer and its child are briefly BOTH
  *  mounted, and the topmost is the surface under test. Reading `.first()` here made an
@@ -68,22 +73,18 @@ async function openStudio(page: Page) {
 test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', () => {
 	test('pops one level at a time: door → index → closed → actually leaves', async ({ page }) => {
 		await openStudio(page);
-		await page.getByRole('button', { name: 'Menu' }).click();
-		await settle(page);
+		await step(page, 1, tap(page.getByRole('button', { name: 'Menu' })));
 		await expect(title(page)).toHaveText(MENU);
 
-		await page.getByRole('button', { name: 'Themes', exact: true }).click();
-		await settle(page);
+		await step(page, 2, tap(page.getByRole('button', { name: 'Themes', exact: true })));
 		await expect(title(page)).toHaveText('Themes');
 
 		// A door pops to the index — the sheet stays open. This is the step the reverted
 		// implementation got wrong: the door never opened at all.
-		await page.goBack();
-		await settle(page);
+		await step(page, 1, () => page.goBack());
 		await expect(title(page)).toHaveText(MENU);
 
-		await page.goBack();
-		await settle(page);
+		await step(page, 0, () => page.goBack());
 		await expect(dialog(page)).toHaveCount(0);
 		expect(page.url()).toContain('/studio');
 
@@ -99,8 +100,7 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 			await page.getByRole('button', { name: opener, exact: true }).first().click();
 			await expect(dialog(page).first()).toBeVisible();
 			await backEntryRegistered(page);
-			await page.goBack();
-			await settle(page);
+			await step(page, 0, () => page.goBack());
 			await expect(dialog(page)).toHaveCount(0);
 			expect(page.url(), `${opener} left the Studio`).toContain('/studio');
 		}
@@ -108,33 +108,27 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 
 	test('a panel launched from the menu returns to the menu, not to the deck', async ({ page }) => {
 		await openStudio(page);
-		await page.getByRole('button', { name: 'Menu' }).click();
-		await settle(page);
-		await page.getByRole('button', { name: 'Library', exact: true }).click();
-		await settle(page);
+		await step(page, 1, tap(page.getByRole('button', { name: 'Menu' })));
+		await step(page, 1, tap(page.getByRole('button', { name: 'Library', exact: true })));
 		await expect(title(page)).toHaveText('Library');
 		// The chevron names where it actually goes — and the destination is a property of
 		// the LAUNCH PATH, so the same panel names a different one from the bar (below).
 		await expect(page.getByRole('button', { name: `Back to ${MENU}` })).toBeVisible();
 
-		await page.goBack();
-		await settle(page);
+		await step(page, 1, () => page.goBack());
 		await expect(title(page)).toHaveText(MENU);
 	});
 
 	test('the same panel launched from the bar points at the deck', async ({ page }) => {
 		await openStudio(page);
-		await page.getByRole('button', { name: 'Toggle Coach', exact: true }).click();
-		await settle(page);
+		await step(page, 1, tap(page.getByRole('button', { name: 'Toggle Coach', exact: true })));
 		await expect(page.getByRole('button', { name: `Back to ${HOST}` })).toBeVisible();
 	});
 
 	test('dismissing by the chevron leaves NO history residue', async ({ page }) => {
 		await openStudio(page);
-		await page.getByRole('button', { name: 'Menu' }).click();
-		await settle(page);
-		await page.getByRole('button', { name: `Back to ${HOST}` }).click();
-		await settle(page);
+		await step(page, 1, tap(page.getByRole('button', { name: 'Menu' })));
+		await step(page, 0, tap(page.getByRole('button', { name: `Back to ${HOST}` })));
 		await expect(dialog(page)).toHaveCount(0);
 
 		// The entry we pushed has to be spent, or this back would be eaten by a drawer
@@ -145,10 +139,8 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 
 	test('dismissing by the scrim leaves NO history residue', async ({ page }) => {
 		await openStudio(page);
-		await page.getByRole('button', { name: 'Menu' }).click();
-		await settle(page);
-		await page.locator('[data-slot=sheet-overlay], .sheet-overlay').first().click({ position: { x: 5, y: 5 }, force: true });
-		await settle(page);
+		await step(page, 1, tap(page.getByRole('button', { name: 'Menu' })));
+		await step(page, 0, () => page.locator('[data-slot=sheet-overlay], .sheet-overlay').first().click({ position: { x: 5, y: 5 }, force: true }));
 		await expect(dialog(page)).toHaveCount(0);
 
 		await page.goBack();
@@ -160,8 +152,7 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 		// Before the module read that marker, the next panel to open pushed a SECOND entry
 		// on top of the orphan and every cycle after the reload left one more behind.
 		await openStudio(page);
-		await page.getByRole('button', { name: 'Menu' }).click();
-		await settle(page);
+		await step(page, 1, tap(page.getByRole('button', { name: 'Menu' })));
 		const len = await page.evaluate(() => history.length);
 
 		await page.reload({ waitUntil: 'networkidle' });
@@ -172,11 +163,9 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 
 		// Re-open, then close: the adopted entry is reused and then spent, so the depth
 		// comes back to where it started rather than growing.
-		await page.getByRole('button', { name: 'Menu' }).click();
-		await settle(page);
+		await step(page, 1, tap(page.getByRole('button', { name: 'Menu' })));
 		expect(await page.evaluate(() => history.length)).toBe(len);
-		await page.getByRole('button', { name: `Back to ${HOST}` }).click();
-		await settle(page);
+		await step(page, 0, tap(page.getByRole('button', { name: `Back to ${HOST}` })));
 		expect(await page.evaluate(() => history.length)).toBe(len);
 	});
 
@@ -189,49 +178,54 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 		// The distinction that fixes it: back (gesture or chevron) steps back ONE level;
 		// the scrim IS the deck, so tapping it lands on the deck.
 		await openStudio(page);
-		await page.getByRole('button', { name: 'Menu' }).click();
-		await settle(page);
-		await page.getByRole('button', { name: 'Library', exact: true }).click();
-		await settle(page);
+		await step(page, 1, tap(page.getByRole('button', { name: 'Menu' })));
+		await step(page, 1, tap(page.getByRole('button', { name: 'Library', exact: true })));
 		await expect(title(page)).toHaveText('Library');
 
 		// The visible deck band above the sheet — where a thumb reaches for "get out".
-		await page.mouse.click(196, 25);
-		// KEPT (#1526). The regression is the MENU COMING BACK after the child closes, so the pass
-		// condition is "and then nothing else happened", which a poll for `count === 0` cannot
-		// express — it fires at the first zero (~410–460ms sampled here) and never sees a later
-		// re-open. So the interval must OUTLAST the window the bug lives in.
-		//
-		// TWO HONEST LIMITS, since this is the weakest guard in the file:
-		//  1. It samples ONCE, at t=1200ms. A re-open at 1250ms, or one that opens and closes
-		//     inside the window, still passes. A MutationObserver installed before the tap —
-		//     record, dwell, then assert the trace never went back to ≥1 — would be strictly
-		//     stronger and is the right fix; it is not done here.
-		//  2. The 1200ms is calibrated on a build where the bug does NOT exist, so it says how
-		//     long the FIXED app takes to settle, not how wide the bug's window is. Treat it as
-		//     a floor that happened to hold, not a measured bound.
-		await page.waitForTimeout(1200);
-		await expect(dialog(page)).toHaveCount(0);
+		await step(page, 0, () => page.mouse.click(196, 25));
+		// The regression is the MENU COMING BACK after the child closes, so the pass condition is
+		// "and then nothing else happened". The re-open is an effect in StudioShell (`drawerPendingReturn`)
+		// that runs in the SAME passive-effect flush as the closing panel's back-stack cleanup, and it
+		// opens the menu by setting state. React renders that state on a Scheduler task, posted through
+		// a MessageChannel. So once the back stack has settled (the cleanup ran), a message posted now
+		// is queued BEHIND that render: when it arrives, a re-opened menu is in the DOM. Two rounds, for
+		// a render that yields once. This replaces a 1200 ms wait that sampled once and was calibrated
+		// on a build without the bug (#1564's own two limits).
+		await page.evaluate(
+			() =>
+				new Promise<void>((done) => {
+					const round = (left: number) => {
+						const ch = new MessageChannel();
+						ch.port1.onmessage = () => (left > 1 ? round(left - 1) : done());
+						ch.port2.postMessage(0);
+					};
+					round(2);
+				}),
+		);
+		// OPEN dialogs: the Library (and the menu it replaced) are still playing their exit animations
+		// here, as `data-state="closed"`; a menu that came back is `data-state="open"`.
+		expect(await page.locator('[role=dialog][data-state=open]').count(), 'the menu came back after a tap on the deck').toBe(0);
 
 		// …while back from the same panel still returns to the menu, unchanged.
-		await page.getByRole('button', { name: 'Menu' }).click();
-		await settle(page);
-		await page.getByRole('button', { name: 'Library', exact: true }).click();
-		await settle(page);
-		await page.goBack();
-		await settle(page);
+		await step(page, 1, tap(page.getByRole('button', { name: 'Menu' })));
+		await step(page, 1, tap(page.getByRole('button', { name: 'Library', exact: true })));
+		await step(page, 1, () => page.goBack());
 		await expect(title(page)).toHaveText(MENU);
 	});
 
 	test('the phone header has no Close, and its lone action holds the 44px floor', async ({ page }) => {
 		await openStudio(page);
-		await page.getByRole('button', { name: 'Menu' }).click();
-		await settle(page);
-		await page.getByRole('button', { name: 'Reader views', exact: true }).click();
-		await settle(page);
+		await step(page, 1, tap(page.getByRole('button', { name: 'Menu' })));
+		await step(page, 1, tap(page.getByRole('button', { name: 'Reader views', exact: true })));
 
 		await expect(dialog(page).last().getByRole('button', { name: 'Close' })).toHaveCount(0);
 		const add = dialog(page).last().getByRole('button', { name: 'Add a reader view' });
+		// Measured at rest: the sheet slides in, and a box read mid-animation came out 43.99997px. Its
+		// finite animations finishing is the signal (an infinite one, a spinner, never finishes).
+		await dialog(page)
+			.last()
+			.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).filter((a) => a.effect?.getComputedTiming().endTime !== Number.POSITIVE_INFINITY).map((a) => a.finished)));
 		const box = await add.boundingBox();
 		expect(box?.width, 'action width').toBeGreaterThanOrEqual(44);
 		expect(box?.height, 'action height').toBeGreaterThanOrEqual(44);

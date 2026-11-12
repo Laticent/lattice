@@ -62,6 +62,9 @@ test('a wheel flick turns the closed deck: the control for the lightbox arm @gec
 });
 
 test('the open lightbox takes the wheel and digits and the deck behind does not turn @gecko @webkit-tablet', async ({ page }) => {
+	// The player's wheel lock (`wheelBusy`, a 350 ms `setTimeout`) and the lightbox's wheel gate (a timestamp cooldown)
+	// both run on the page clock, so the test steps that clock past them instead of sleeping (HARD RULE #32).
+	await page.clock.install();
 	await openCollage(page);
 	const before = await slideIndex(page);
 	const n = await page.locator('.lp-active .collage-tile').count();
@@ -79,8 +82,9 @@ test('the open lightbox takes the wheel and digits and the deck behind does not 
 	await page.mouse.move(400, 300);
 	await page.mouse.wheel(0, 120);
 	await expect(counter(page)).toHaveText(`2 / ${n}`);
-	// Settle past the player's 350 ms wheel cooldown so a leaked event would have fired by now.
-	await page.waitForTimeout(600);
+	// A leaked event turns the deck inside the same dispatch; step past the player's 350 ms wheel lock as well, so a
+	// turn deferred behind it would have fired by now, on any runner.
+	await page.clock.runFor(600);
 	expect(await slideIndex(page), 'the deck behind did not turn').toBe(before);
 
 	await page.keyboard.press('3');
@@ -90,7 +94,8 @@ test('the open lightbox takes the wheel and digits and the deck behind does not 
 	// Closing returns the wheel to the deck.
 	await page.keyboard.press('Escape');
 	await expect(page.locator('.collage-lightbox')).toHaveCount(0);
-	await page.waitForTimeout(600);
+	// Past every wheel cooldown the lightbox notch could have left armed, before the deck's own notch.
+	await page.clock.runFor(600);
 	await page.mouse.wheel(0, 240);
 	await expect.poll(() => slideIndex(page), { message: 'the wheel is the deck\'s again once the photo closes' }).toBe(before + 1);
 });
