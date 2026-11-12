@@ -12,7 +12,7 @@
  */
 import type { Frame, Page } from '@playwright/test';
 import { routeHolds } from './route-hold';
-import { expect, gotoStudio, LIVE_PREVIEW, livePreview, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, LIVE_PREVIEW, livePreview, test } from './studio-fixture';
 
 const deck = `---
 marp: true
@@ -57,16 +57,26 @@ const RECORDER = (sel: string) => {
 };
 const painted = (page: Page) => page.evaluate(() => (window as unknown as { __wallLog?: string[] }).__wallLog ?? []);
 
+/**
+ * Open the Studio on `deck`, SEEDED as the boot deck's saved source (as filo-compose.spec.ts does), on slide 1. The wall
+ * is slide 2, so the returned Next button is what brings it on screen for the first time.
+ *
+ * Not typed in: `setEditorContent` selects all, deletes and inserts, and on webkit-phone at four workers a source write
+ * landing between the select-all and the delete collapsed the selection, so the deck went in at the caret inside the
+ * welcome deck (1 run in 10). This spec is about the wall's first paint, not about typing, so it skips that path.
+ */
 async function openDeck(page: Page) {
-	await page.addInitScript(RECORDER, LIVE_PREVIEW);
-	const target = page.viewportSize() ?? { width: 1440, height: 900 };
-	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.addInitScript(RECORDER);
+	await page.addInitScript((src) => {
+		if (!sessionStorage.getItem('logo-wall-seeded')) {
+			localStorage.setItem('lattice-studio-src-welcome', JSON.stringify(src));
+			sessionStorage.setItem('logo-wall-seeded', '1');
+		}
+	}, deck);
 	await gotoStudio(page);
-	await setEditorContent(page, deck);
-	await page.setViewportSize(target);
 	const heading = livePreview(page).locator('section h2').first();
-	await expect(heading).toHaveText('After the wall.', { timeout: 20_000 });
-	return page.getByRole('button', { name: 'Previous slide' }).first();
+	await expect(heading).toHaveText('Before the wall.', { timeout: 20_000 });
+	return page.getByRole('button', { name: 'Next slide' }).first();
 }
 
 test('a first visit holds the wall hidden while it measures, then paints it once, packed @crosswidth @webkit-phone', async ({ page }) => {
@@ -75,17 +85,17 @@ test('a first visit holds the wall hidden while it measures, then paints it once
 		await marks.hold();
 		await route.continue();
 	});
-	const prev = await openDeck(page);
-	await prev.click();
+	const next = await openDeck(page);
+	await next.click();
 	// The marks are held, so the wall must be measuring, and hidden while it does. Only then let them in.
 	await expect.poll(async () => painted(await previewFrame(page)), { timeout: 20_000 }).toContain('measuring/hidden');
 	marks.releaseAll();
 	const wall = livePreview(page).locator('section.logo-wall .cell-stage > ul[data-logo-wall="packed"]').first();
 	await expect(wall).toBeVisible({ timeout: 20_000 });
-	// The sampler logs on the top page's next animation frame, which can trail the locator's own check: wait for it.
-	const walls = async () => (await painted(page)).filter((s) => s !== 'none');
-	await expect.poll(async () => (await walls()).at(-1)).toBe('packed/visible');
-	const log = await walls();
+	// The recorder samples once per frame inside the preview, so the packed wall can be visible before the frame that
+	// logs it has run (1 run in 10 on webkit-phone). Wait for the recorder to have logged it, then read its history.
+	await expect.poll(async () => (await painted(await previewFrame(page))).filter((s) => s !== 'none').at(-1), { message: 'the recorder never logged the packed wall' }).toBe('packed/visible');
+	const log = (await painted(await previewFrame(page))).filter((s) => s !== 'none');
 	// Never the unpacked grid on screen: every state before `packed` is hidden.
 	for (const s of log.slice(0, -1)) expect(s).toBe('measuring/hidden');
 	expect(log).not.toContain('unstamped/visible');
@@ -100,8 +110,8 @@ test('a mark that never arrives does not leave the wall hidden: the cap shows th
 		if (route.request().resourceType() === 'fetch') await acme.hold();
 		await route.continue();
 	});
-	const prev = await openDeck(page);
-	await prev.click();
+	const next = await openDeck(page);
+	await next.click();
 	const wall = livePreview(page).locator('section.logo-wall .cell-stage > ul[data-logo-wall="fallback"]').first();
 	await expect(wall).toBeVisible({ timeout: 15_000 });
 	const log = (await painted(await previewFrame(page))).filter((s) => s !== 'none');
