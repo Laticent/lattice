@@ -1,4 +1,5 @@
 import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL, PG_SPLIT_SNAP_MIDPOINT } from '../src/components/playground/pg-split';
+import { holdEngine } from './engine-glob';
 import { expect, test } from './studio-fixture';
 
 // ── The Playground must not ASSEMBLE IN VIEW (#1563) ──────────────────────────────────
@@ -563,6 +564,52 @@ test('an Explore reload paints one geometry per element too', async ({ page }) =
 		(log.walkBar ?? []).length,
 		'the walk bar never laid out, so "one geometry" above is the absence of a bar rather than a bar that did not move',
 	).toBeGreaterThan(0);
+});
+
+// A LAND IN FLIGHT AT THE REVEAL. A plain reload opens the walk on slide 1, where the frame already sits at the land's
+// position (measured: scrollY 16 before and after both lands), so the reveal's wait for the land
+// (`markLiveWhenSlidesVisible`'s `!landPendingRef.current`) changes no geometry there and the test above cannot fail on
+// it. A reader who steps BEFORE the slides render is the boot that has a land to make: the walk names slide 2 while the
+// frame opens on slide 1. The engine is held so the step lands in that window every run (`holdEngine`), then let
+// through. A slide geometry cannot judge this one: the instant shell paints slide 1 and the reader's step moves it
+// either way. What the guard decides is WHERE THE FRAME IS when `.is-live` starts the cross-fade, so that is read at
+// that instant, from a MutationObserver, and compared with where the land leaves it.
+test('a reader who steps before the slides render sees the frame go live already on that slide', async ({ page }) => {
+	await seedRealSession(page);
+	const engine = await holdEngine(page);
+	engine.release();
+	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/^1 \/ \d+/, { timeout: 30_000 });
+
+	engine.hold();
+	await page.addInitScript(() => {
+		const w = window as unknown as { __liveScroll?: number };
+		new MutationObserver((list) => {
+			for (const m of list) {
+				const el = m.target as HTMLElement;
+				if (w.__liveScroll === undefined && el.classList?.contains('pg-preview-wrap') && el.classList.contains('is-live')) {
+					w.__liveScroll = (document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow?.scrollY ?? -1;
+				}
+			}
+		}).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
+	});
+	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
+	const next = page.locator('#pg-walk .pg-walk-step.next');
+	await expect(next, 'the walk could not be stepped before the slides rendered').toBeEnabled({ timeout: 30_000 });
+	await expect(page.locator('.pg-preview-wrap.is-live'), 'the preview went live with the engine held').toHaveCount(0);
+	await next.click();
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/^2 \//);
+	engine.release();
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+	await handOffSettled(page);
+
+	const at = await page.evaluate(() => ({
+		live: (window as unknown as { __liveScroll?: number }).__liveScroll,
+		landed: (document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow?.scrollY ?? -1,
+	}));
+	expect(at.landed, 'the land never left slide 1, so this measured nothing').toBeGreaterThan(100);
+	expect(at.live, 'the frame went live before the land put it on the slide the walk names').toBe(at.landed);
 });
 
 // …and again on the phone, which is the other reference condition in the card and the one
