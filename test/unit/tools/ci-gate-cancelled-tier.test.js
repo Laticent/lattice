@@ -25,7 +25,7 @@ const NEWER = 'b'.repeat(40);
 
 /** Run the gate with `results` for each tier, on `event`, with the PR's head reading `head` (null: the read fails). */
 function gate({ results = {}, event = 'pull_request', head = RUN_SHA }) {
-  const r = { changes: 'success', lint: 'success', unit: 'success', integration: 'success', 'docs-build': 'success', 'player-webkit': 'success', ...results };
+  const r = { changes: 'success', lint: 'success', unit: 'success', integration: 'success', 'docs-build': 'success', 'docs-test': 'success', 'player-webkit': 'success', ...results };
   const values = {
     'github.event_name': event,
     'github.repository': 'Laticent/lattice',
@@ -52,6 +52,12 @@ test('a full green run passes', () => {
 test('a skipped tier passes, a failed one fails', () => {
   assert.equal(gate({ results: { integration: 'skipped' } }).code, 0);
   assert.equal(gate({ results: { unit: 'failure' } }).code, 1);
+});
+
+test('docs-test is a required tier: red fails the gate, skipped (no docs change) passes', () => {
+  // Split out of docs-build on the owner's call (D1 A, PR #3157); the docs Vitest suite must still gate the merge.
+  assert.equal(gate({ results: { 'docs-test': 'failure' } }).code, 1);
+  assert.equal(gate({ results: { 'docs-test': 'skipped', 'docs-build': 'skipped' } }).code, 0);
 });
 
 test('a tier cancelled on the PR\'s current head fails: a timeout or a hand cancel', () => {

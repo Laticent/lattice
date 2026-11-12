@@ -832,6 +832,45 @@ jobs:
   # still surfaces as a failed (red ✗) step in the job's log. See
   # engineering/decisions/2026-06-17-workflow-efficiency-review.md §D and
   # engineering/decisions/2026-06-15-docs-perf-gating-policy.md.
+  # ── Docs tests — the docs Vitest suite, beside docs-build ───────────────
+  # Split out of docs-build on the owner's call (2026-11-12, D1 A, PR #3157): the suite was
+  # docs-build's longest step (6.5-9.3 min of a 9.7-14.3 min job on CI), so running it
+  # beside the build, typecheck, route budget and overflow guard takes it off docs-build's
+  # critical path. Same trigger as docs-build, and required by the `ci` gate like it.
+  docs-test:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: '1' # no browser: jsdom only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+      # Root deps for the @laticent/cadenza workspace link that lib/core requires, and the
+      # built-not-committed dist/ the root `prepare` script builds (see docs-build's note).
+      - name: Install root deps (for the @laticent/cadenza workspace link)
+        run: npm ci
+        timeout-minutes: 10
+      - name: Install docs deps
+        run: npm ci
+        timeout-minutes: 10
+        working-directory: docs
+      # Four workers, not Vitest's default of cores - 1 = 3 (owner's call to cut this job's time,
+      # 2026-11-12). Many of these tests wait on the clock (a lesson's pause, a caption's dwell), and
+      # a waiting worker leaves its core idle. Measured on 4 cores: 3 workers 387 s, 4 workers 313 s,
+      # 639/639 both. The timeout budgets were set under 4 workers on 4 cores (vitest.config.ts,
+      # vitest.setup.ts), so this is the load they were sized for.
+      - name: Test docs React islands (Vitest + RTL)
+        run: npm test -- --maxWorkers=4
+        working-directory: docs
+
   docs-build:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
@@ -883,14 +922,6 @@ jobs:
         working-directory: docs
       - name: Typecheck docs (astro sync + tsc --noEmit)
         run: npm run typecheck
-        working-directory: docs
-      # Four workers, not Vitest's default of cores - 1 = 3 (owner's call to cut this job's time,
-      # 2026-11-12). Many of these tests wait on the clock (a lesson's pause, a caption's dwell), and
-      # a waiting worker leaves its core idle. Measured on 4 cores: 3 workers 387 s, 4 workers 313 s,
-      # 639/639 both. The timeout budgets were set under 4 workers on 4 cores (vitest.config.ts,
-      # vitest.setup.ts), so this is the load they were sized for.
-      - name: Test docs React islands (Vitest + RTL)
-        run: npm test -- --maxWorkers=4
         working-directory: docs
       # The per-PR route allowance (docs/scripts/check-route-budget.mjs): build the base in a
       # worktree and measure it, so the gate can see how much THIS PR adds. The base is the
@@ -1111,7 +1142,7 @@ jobs:
   # green streak (#800). Adding a job here makes it merge-BLOCKING — do it deliberately.
   ci:
     if: always()
-    needs: [changes, lint, unit, integration, docs-build, player-webkit]
+    needs: [changes, lint, unit, integration, docs-build, docs-test, player-webkit]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -1121,7 +1152,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }} # read the PR's head, to tell a superseded run from a timeout
         run: |
-          echo "changes=${{ needs.changes.result }} lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }} player-webkit=${{ needs.player-webkit.result }}"
+          echo "changes=${{ needs.changes.result }} lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }} docs-test=${{ needs.docs-test.result }} player-webkit=${{ needs.player-webkit.result }}"
           # A tier result is acceptable when it's: success; skipped (a conditional
           # tier that didn't apply — e.g. docs-only skips integration); or
           # cancelled. NOTE THE SPELLING: 'cancelled' is GitHub's own enum value
@@ -1176,7 +1207,7 @@ jobs:
           fi
           for tier in "lint=${{ needs.lint.result }}" "unit=${{ needs.unit.result }}" \
                       "integration=${{ needs.integration.result }}" "docs-build=${{ needs.docs-build.result }}" \
-                      "player-webkit=${{ needs.player-webkit.result }}"; do
+                      "docs-test=${{ needs.docs-test.result }}" "player-webkit=${{ needs.player-webkit.result }}"; do
             case "${tier#*=}" in
               success|skipped) ;;
               cancelled)
@@ -1241,6 +1272,7 @@ jobs:
           TIER_UNIT: ${{ needs.unit.result }}
           TIER_INTEGRATION: ${{ needs.integration.result }}
           TIER_DOCS_BUILD: ${{ needs.docs-build.result }}
+          TIER_DOCS_TEST: ${{ needs.docs-test.result }}
         with:
           script: |
             const marker = '<!-- ci-green-beacon -->';
@@ -1251,7 +1283,7 @@ jobs:
             // The tiers the Verify gate above actually decided. Everything else on
             // this SHA — CodeQL, the advisory jobs, other workflows — is OUTSIDE the
             // claim, which is the whole point of the snapshot below.
-            const COVERED = new Set(['changes', 'ci', 'lint', 'unit', 'integration', 'docs-build']);
+            const COVERED = new Set(['changes', 'ci', 'lint', 'unit', 'integration', 'docs-build', 'docs-test']);
             // `integration` runs as four legs named `integration (node 22, shard K/4)`.
             const isCovered = (n) => COVERED.has(n)
               || /^(unit|integration) \(node \d+(, shard \d+\/\d+)?\)$/.test(n);
@@ -1302,6 +1334,7 @@ jobs:
               ['unit', process.env.TIER_UNIT],
               ['integration', process.env.TIER_INTEGRATION],
               ['docs-build', process.env.TIER_DOCS_BUILD],
+              ['docs-test', process.env.TIER_DOCS_TEST],
             ];
             const named = (want) => TIERS.filter(([, r]) => r === want).map(([n]) => n);
             const ran = named('success');
