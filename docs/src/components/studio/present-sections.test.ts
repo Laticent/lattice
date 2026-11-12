@@ -127,3 +127,8 @@ describe('present-sections: a class set twice', () => {
 		expect(isSectionBoundary('<!-- _class: content -->\n<!-- _class: divider -->\n\n# A')).toBe(true);
 	});
 });
+
+test('present-sections: a quoted divider opens a section, as the engine reads it', () => {
+	expect(isSectionBoundary('<!-- _class: "divider" -->\n\n# A')).toBe(true);
+	expect(isSectionBoundary("<!-- _class: 'divider light' -->\n\n# A")).toBe(false);
+});

@@ -2,7 +2,7 @@
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
-import { classNameOf, classPayloadOf, hasLossyConstruct, splitSlideDirectives } from './deck-source';
+import { classNameOf, classPayloadOf, composeSlideChunk, hasLossyConstruct, splitSlideDirectives } from './deck-source';
 
 // `hasLossyConstruct` decides which slides Compose locks read-only (edited in Markdown
 // mode). It must fire on constructs the CommonMark round-trip would flatten/escape, and
@@ -147,5 +147,92 @@ describe('splitSlideDirectives hoists only what the engine applies (the checker 
 describe('splitSlideDirectives: a bare directive blocks only the field it sets', () => {
 	it('still hoists a `_class` below a bare `paginate:` comment', () => {
 		expect(splitSlideDirectives('<!-- paginate: false -->\n<!-- _class: title -->\n\n# T').directives).toEqual(['<!-- _class: title -->']);
+	});
+});
+
+// The round trip Compose makes on every edit (split the slide's directives off its prose, then put them back) must not
+// change what the ENGINE applies to the slide. A seeded walk over slides built from the shapes the checkers on #3136 broke
+// it with: renders each slide with lib/engine before and after, and compares the slide's class and its style declarations. The seed is
+// fixed and printed (HARD RULE #32).
+describe('the Compose round trip never changes what the engine applies', async () => {
+	const { createRequire } = await import('node:module');
+	const require = createRequire(import.meta.url);
+	const { createEngine } = require('../../../../lib/engine');
+	const engine = createEngine();
+	const sectionOf = (md: string) => {
+		const tag = String(engine.render(md).html).match(/<section[^>]*>/)?.[0] ?? '';
+		const attr = (name: string) => tag.match(new RegExp(`${name}="([^"]*)"`))?.[1] ?? '';
+		// Declaration ORDER in the style attribute is not what applies; the set of declarations is.
+		const style = attr('style').replaceAll('&quot;', '"').split(';').filter(Boolean).sort().join(';');
+		return { class: attr('data-class'), style };
+	};
+	const SHAPES = [
+		'<!-- _class: dark -->',
+		'<!-- _class: light -->',
+		'<!-- class: dark -->',
+		'<!-- {class=light, footer=f} -->',
+		'<!-- _footer: g -->',
+		'<!-- {layout=kpi} -->',
+		'<!-- {layout=divider} -->',
+		'- a\n\n  <!-- _class: dark -->',
+		'> <!-- _class: dark -->',
+		'    <!-- {layout=kpi} -->',
+		'    <!-- _class: divider -->',
+		'```md\n<!-- _class: x -->\n```',
+		'<div>\n<!-- _class: kpi -->\n</div>',
+		'<div>\n<!-- {layout=kpi} -->\n</div>',
+		'text',
+		'more text',
+		'<!-- remember\nfocus: c -->',
+		'<!-- _focus: 2 -->',
+		'<!-- {focus=3} -->',
+		'<!-- paginate: false -->',
+		'<!-- _paginate: false -->',
+	];
+	const SEED = Number(process.env.COMPOSE_ROUNDTRIP_SEED ?? 3136);
+	let s = SEED >>> 0;
+	const rand = () => {
+		s = (s + 0x6d2b79f5) >>> 0;
+		let t = s;
+		t = Math.imul(t ^ (t >>> 15), t | 1);
+		t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+	it(`holds for 400 random slides (seed ${SEED})`, () => {
+		const broken: string[] = [];
+		for (let n = 0; n < 400; n++) {
+			const parts = Array.from({ length: 2 + Math.floor(rand() * 5) }, () => SHAPES[Math.floor(rand() * SHAPES.length)]);
+			// At most one heading, and only first: the engine starts a new slide at a top-level heading, and Compose
+			// splits a deck into slides before this round trip, so a chunk never holds two.
+			const slide = (rand() < 0.5 ? ['## T', ...parts] : parts).join('\n\n');
+			const { directives, prose } = splitSlideDirectives(slide);
+			const back = composeSlideChunk(directives, prose);
+			const before = sectionOf(slide);
+			const after = sectionOf(back);
+			if (before.class !== after.class || before.style !== after.style) broken.push(JSON.stringify({ slide, back, before, after }));
+		}
+		expect(broken.slice(0, 3), `seed ${SEED}: ${broken.length} of 400 slides changed`).toEqual([]);
+	});
+});
+
+describe('splitSlideDirectives: the reviewer cases on #3136', () => {
+	it('never lifts a comment past a directive nested in a list that sets the same field', () => {
+		const slide = '- a\n\n  <!-- _class: dark -->\n\n<!-- _class: light -->\n\n# T';
+		const { directives, prose } = splitSlideDirectives(slide);
+		expect(directives).toEqual([]);
+		expect(prose.indexOf('_class: dark')).toBeLessThan(prose.indexOf('_class: light'));
+	});
+	it('keeps an indented example at the top of the prose indented', () => {
+		const a = splitSlideDirectives('    <!-- {layout=kpi} -->\n\n# T');
+		expect(a.directives).toEqual([]);
+		expect(a.prose.startsWith('    <!--')).toBe(true);
+		const b = splitSlideDirectives('<!-- _footer: Q3 -->\n\n    <!-- _class: divider -->\n\nExample above.');
+		expect(composeSlideChunk(b.directives, b.prose)).toContain('\n\n    <!-- _class: divider -->');
+	});
+	it('a record kept in place keeps the other fields it sets in place too', () => {
+		const slide = '<!-- class: dark -->\n\n# T\n\n<!-- {class=light, footer=f} -->\n\n<!-- _footer: g -->';
+		const { directives, prose } = splitSlideDirectives(slide);
+		expect(directives).toEqual([]);
+		expect(prose.indexOf('footer=f')).toBeLessThan(prose.indexOf('_footer: g'));
 	});
 });

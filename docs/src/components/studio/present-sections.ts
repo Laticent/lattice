@@ -23,7 +23,9 @@ export function isSectionBoundary(md: string): boolean {
 	// The class as the engine applies it: a `_class` comment, a comment holding several keys, a slide record
 	// (`<!-- {layout=divider} -->`), or the last of two that set it; never one inside fenced or indented code. The
 	// shared reader, not a regex of its own: a regex here missed a several-key comment and saw a fenced one.
-	const tokens = readMetaField(String(md || ''), 'class').value.trim().split(/\s+/);
+	// A quoted value (`<!-- _class: "divider" -->`) is unquoted as the engine unquotes it.
+	const value = readMetaField(String(md || ''), 'class').value.trim().replace(/^(["'])(.*)\1$/s, '$2');
+	const tokens = value.trim().split(/\s+/);
 	return tokens[0] === 'divider' && !tokens.includes('light');
 }
 

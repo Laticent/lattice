@@ -72,10 +72,11 @@ export function normalizeSource(source: string): string {
 export function splitSlideDirectives(chunk: string): SlideChunk {
 	const fences = fenceRanges(chunk);
 	const inFence = (i: number) => fences.some(([s, e]) => i >= s && i < e);
-	// Hoist only what the engine applies: a comment in indented code or folded into an HTML block is an example, and
-	// lifting it to the head would turn it on (the checker on #3136). And never lift one past a directive the engine
-	// applies that stays in place and sets the same field (a bare `<!-- class: dark -->` above a `{class=light}`): last
-	// wins, so the move would change the winner.
+	// Hoist only what the engine applies at the top level (`commentReadings`): a comment in indented code or folded into
+	// an HTML block is an example, and lifting it would turn it on. Walk every comment the engine applies in order, and
+	// keep in place any that cannot move (a nested one, a pane marker, a line the hoist does not match) together with any
+	// that sets a field one of those kept sets: last wins, so lifting it past them would change the winner (the checkers
+	// on #3136).
 	const readings = commentReadings(chunk);
 	const lineStarts = [0];
 	for (let i = chunk.indexOf('\n'); i !== -1; i = chunk.indexOf('\n', i + 1)) lineStarts.push(i + 1);
@@ -89,13 +90,25 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 		}
 		return lo + 1;
 	};
-	const hoistable = new Set<number>();
-	for (const m of chunk.matchAll(DIRECTIVE_LINE_RE)) hoistable.add(lineOf((m.index ?? 0) + m[0].search(/\S/)));
-	const staying = [...readings].filter(([line, r]) => r.kind !== 'note' && !hoistable.has(line));
-	const blocked = (line: number) => {
-		const keys = readings.get(line)?.keys ?? new Set<string>();
-		return staying.some(([at, r]) => at < line && [...r.keys].some((k) => keys.has(k)));
-	};
+	// A line is lifted only when the next non-blank line is not indented: lifting it out from between a list and an
+	// indented line would make that line part of the list item, where an indented example becomes live (the seeded
+	// round trip in deck-source.test.ts found it).
+	const matched = new Map<number, string>();
+	for (const m of chunk.matchAll(DIRECTIVE_LINE_RE)) {
+		const at = (m.index ?? 0) + m[0].search(/\S/);
+		const next = chunk.slice((m.index ?? 0) + m[0].length).match(/^(?:[ \t]*\r?\n)*([^\n]*)/)?.[1] ?? '';
+		if (!inFence(at) && !/^[ \t]/.test(next)) matched.set(lineOf(at), m[0]);
+	}
+	const hoist = new Set<number>();
+	const kept = new Set<string>();
+	for (const line of [...readings.keys()].sort((a, b) => a - b)) {
+		const r = readings.get(line);
+		if (!r || r.kind === 'note') continue;
+		const text = matched.get(line);
+		const movable = (r.kind === 'directive' || r.kind === 'record') && text !== undefined && !parsePaneMarker(text.trim())?.pane;
+		if (movable && ![...r.keys].some((k) => kept.has(k))) hoist.add(line);
+		else for (const k of r.keys) kept.add(k);
+	}
 	const directives: string[] = [];
 	const prose = chunk
 		.replace(DIRECTIVE_LINE_RE, (line, offset: number) => {
@@ -107,14 +120,13 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 			// The marker is read by the one shared reader (lib/core/meta-door.mjs `parsePaneMarker`), in every spelling: a
 			// record that names a pane (`<!-- {pane=bar} -->`) stays in place too, whatever else it sets.
 			if (inFence(offset) || parsePaneMarker(line.trim())?.pane) return line;
-			const at = lineOf(offset + line.search(/\S/));
-			const reading = readings.get(at);
-			if (reading?.kind !== 'directive' && reading?.kind !== 'record') return line;
-			if (blocked(at)) return line;
+			if (!hoist.has(lineOf(offset + line.search(/\S/)))) return line;
 			directives.push(line.trim());
 			return '';
 		})
-		.replace(/^\s+/, '')
+		// Leading BLANK lines only: a leading indent is an indented code block, and stripping it would turn an example
+		// into a live comment (the checker on #3136).
+		.replace(/^(?:[ \t]*\r?\n)+/, '')
 		.trimEnd();
 	return { directives, prose };
 }
@@ -122,7 +134,7 @@ export function splitSlideDirectives(chunk: string): SlideChunk {
 /** Re-assemble a slide chunk from its directives + prose. */
 export function composeSlideChunk(directives: string[], prose: string): string {
 	const head = directives.join('\n');
-	const body = prose.trim();
+	const body = prose.replace(/^(?:[ \t]*\r?\n)+/, '').trimEnd();
 	if (!head) return body;
 	return body ? `${head}\n\n${body}` : head;
 }
