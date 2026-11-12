@@ -168,14 +168,22 @@ test('a real-shaped backup with 67 MiB of reference docs still restores', async 
 			open.onerror = () => rej(open.error);
 		});
 		const names: string[] = [];
+		// A cursor, one record at a time: `getAll()` held all ten 5 MB documents in one result. And a refused read
+		// REJECTS, so it fails as a read error rather than looking exactly like a restore that stored nothing.
 		for (const store of Array.from(db.objectStoreNames)) {
-			const all: { name?: string; kind?: string }[] = await new Promise((res) => {
-				const r = db.transaction(store).objectStore(store).getAll();
-				r.onsuccess = () => res(r.result as { name?: string; kind?: string }[]);
-				r.onerror = () => res([]);
+			await new Promise<void>((res, rej) => {
+				const cursor = db.transaction(store).objectStore(store).openCursor();
+				cursor.onsuccess = () => {
+					const c = cursor.result;
+					if (!c) return res();
+					const a = c.value as { name?: string; kind?: string } | undefined;
+					if (a?.kind === 'refdoc' && a.name) names.push(a.name);
+					c.continue();
+				};
+				cursor.onerror = () => rej(cursor.error);
 			});
-			for (const a of all) if (a?.kind === 'refdoc' && a.name) names.push(a.name);
 		}
+		db.close();
 		return names.sort();
 	});
 	expect(refdocNames).toHaveLength(10);
