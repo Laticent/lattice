@@ -9,9 +9,9 @@ header: "Lattice · charts on a phone page"
 
 # Charts that fit a phone page
 
-`Responsive charts · kanban, roadmap, journey, progress, timeline, word cloud, slope`
+`Responsive charts · kanban, roadmap, journey, progress, timeline, word cloud, slope, flowchart notes`
 
-Render at `--size mobile`, `story`, `4:5` or `square`: each chart fits its page at the 11pt text size, and one that fits a page stays on one page.
+Render at `--size mobile`, `story`, `4:5` or `square`: each chart fits its page at the 11pt text size, and one that fits a page stays on one page. One that cannot fit at 11pt is drawn whole and a little smaller.
 
 ---
 
@@ -95,6 +95,47 @@ Four milestones show the shape; the date chips carry the when.
    - Sixteen words is each entry's budget.
 4. `Q4` The fourth milestone
    - Four to six entries reads best.
+
+---
+
+<!-- _class: timeline-list -->
+
+`chart · timeline-list · six entries`
+
+## Six milestones run long on a square page.
+
+On a square page this spine does not fit at 11pt, so it is drawn whole and a little smaller.
+
+1. `2025 Q1` Discovery interviews with the first design partners
+   - Twelve teams, two weeks each, one shared intake form.
+2. `2025 Q2` Scoring model drafted and reviewed `decision`
+   - The architecture review signs off the first weighting.
+3. `2025 Q3` Pilot with one team for a full quarter `pilot`
+   - Eighteen decisions logged, three of them reversed.
+4. `2025 Q4` Calibration against the pilot's outcomes
+   - Weights move for two of the five signals.
+5. `2026 Q1` Production for every product team `live`
+   - Policy live; twelve percent adoption in the first month.
+6. `2026 Q2` Phase two: per-team weights
+   - Each team tunes its own signals within a shared range.
+
+---
+
+<!-- _class: flowchart -->
+
+`chart · flowchart · notes`
+
+## The queue clears in three steps.
+
+- Intake `pill` => Triage => Severity?
+- Severity? `diamond`
+  - =SEV1=> Page on-call
+  - -SEV2-> Open ticket => Mitigate
+- Page on-call `fail`
+- Mitigate => Postmortem
+- Postmortem `doc`
+
+`@callout{[{Pages the secondary after five minutes, for=Page on-call, detail="Then the manager."}, {The slowest step in the loop, for=Mitigate}]}`
 
 ---
 
