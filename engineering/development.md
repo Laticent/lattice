@@ -617,6 +617,16 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   another process frees during the arm. The suite fails when the originals cost under 60 MB or the copies more than 60% of them;
   CI has read 86 to 117 MB against 17 to 34 MB. It was part of `ios-safari-studio` until it took that job to 27.6 of its 30
   minutes.
+  `ios-safari-present-memory` runs it with `PROBE=present-memory` (#3148, D1 on that PR), on the iPhone alone:
+  `present-memory.mjs` packs a `.lattice` with eighteen phone-photo-sized PNGs (24 MB; the owner's deck was 33 MB of `data:`
+  text and reloaded the tab on a real iPhone), `present-memory-probe.js` hands it to the Studio's own "Import deck…" input,
+  the page reloads so the deck comes back from the browser's store, and Present opens and steps six slides, each timed until
+  the next slide's heading and photo are painted. The footprint is read as `ios-safari-photo-memory` reads it, before
+  Present, after it opens and after the steps. A step over 2 s, a reload, or more than `PRESENT_MEMORY_CAP_MB` fails it. The
+  production site, built from `main`, runs as a second arm (`PRESENT_BASELINE_URL`) that is reported and never judged, so a
+  run carries its own before and after. `PROBE=present-memory [BASELINE_URL=<url>] node docs/scripts/ios-safari/probe.selftest.mjs`
+  runs the same steps in Playwright's WebKit at iPhone size, without the footprint: `main` failed it (19.6 s on one step)
+  and #3148 passed (at most 0.57 s).
   `ios-safari-font-cache` runs it with `PROBE=font-cache` (#3087, D2 A): does Safari read the Studio's warmed fonts
   (`studio-warm.ts`, 31 faces, about 2.7 MB) from its HTTP cache? `run.sh` serves the built site with
   `font-cache-server.mjs` instead of `preview:e2e`: GitHub Pages' `max-age=600` on every file, a 404 for `sw.js` (the
