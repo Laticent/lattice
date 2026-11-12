@@ -184,7 +184,7 @@ for (const tag of ['@gecko', '@webkit-tablet']) test(`an undo in Compose replace
 	for (const w of applies) {
 		expect([w.removed, w.added], 'an undo or redo of one typed word replaces exactly one slide').toEqual([1, 1]);
 		// Measured: 1,363 and 1,861 characters (the slide, the next slide's probe and the parse) on a deck of
-		// 134,371; the whole-source path reads all of it. A sixteenth of the deck sits far from both.
+		// 134,372; the whole-source path reads all of it. A sixteenth of the deck sits far from both.
 		expect(w.scanned, `an undo or redo read ${w.scanned} characters of a ${w.deck}-character deck`).toBeLessThan((w.deck as number) / 16);
 	}
 });

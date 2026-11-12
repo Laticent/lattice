@@ -707,7 +707,7 @@ not budgeted here. The e2e first held the median of the history work to 16 ms an
 that bar failed on runner load (19 ms in Firefox beside other engines, 2026-11-12), so it now holds
 the WORK instead (HARD RULE #32): each undo or redo replaces exactly one slide node, leaves no
 `filo:compose-resync` mark (the full rebuild), and its split and parse read under a sixteenth of the
-deck (`scanned` on `ScopedResync`, measured 1,363 and 1,861 of 134,371 characters; the whole-source
+deck (`scanned` on `ScopedResync`, measured 1,363 and 1,861 of 134,372 characters; the whole-source
 path reads all of it). The milliseconds are logged by the e2e and recorded by `npm run bench`'s
 Compose row, which gates on the same characters read.
 
