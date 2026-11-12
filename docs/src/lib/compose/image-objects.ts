@@ -13,17 +13,19 @@
 //   · The slide's markdown is written by prosemirror-markdown's own image rule, so a slide the author did not touch
 //     keeps its bytes (the emit baseline) and one they did touch writes `![alt](src "title")` as the editor always has.
 
-import type { Node as PMNode } from 'prosemirror-model';
+import { Fragment, type Node as PMNode, Slice } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-// The engine's own scheme allowlist (a leaf `module.exports`, as the docs dev shim needs): the shortcut is drawn through the
-// record, so an address the record refuses (`http:`) is never placed, and Compose must not say it is (inversion, F5).
-import urlScheme from '../../../../lib/core/url-scheme.js';
+// THE placed-picture rule (lib/core/placed-picture.mjs): whether a picture is the slide's photo is the engine's decision, and
+// Compose asks the same function the engine does rather than spelling it out (followups.d/3126-p2-one-placed-picture-rule.md).
+import { boundaryParser } from '../../../../lib/core/boundary-parser.mjs';
+import { placedPictureInSlide } from '../../../../lib/core/placed-picture.mjs';
 // The component names (the stage catalog's keys, as reserved-names.ts reads them): a slide's LAYOUT is its first class word
 // that names a component, so a modifier-only slide (`_class: dark`) is a content slide (inversion, F7).
 import STAGE_CATALOG from '../../../../lib/forms/cell/masthead/stage-catalog.generated.js';
+import { deckClassWords, deckPlacingClasses } from '../deck-placing-classes';
 import { setClassTokens } from '../slide-directives';
-import { deckSchema } from './deck-doc';
+import { deckSchema, serializeSlideNode } from './deck-doc';
 import { classPayloadOf } from './deck-source';
 import { closeFiloGroup } from './filo-history';
 import { objectsKey } from './inline-objects';
@@ -221,20 +223,11 @@ export function placeImage(view: EditorView, pos: number, p: Placement): boolean
 	const tr = view.state.tr.setNodeMarkup(slidePos, undefined, { ...slide.attrs, directives: next });
 	if (wasBg) {
 		// The old description becomes the name, once: kept as both it read the same words twice (inversion, F9).
-		const title = (node.attrs.title as string | null) ?? '';
-		tr.replaceWith(pos, pos + 1, imageType().create({ ...node.attrs, alt: title ? descriptionAsAlt(title) : '', title: null }, null, node.marks));
+		tr.replaceWith(pos, pos + 1, asPlainPicture(node));
 	}
 	tr.setSelection(NodeSelection.create(tr.doc, pos)).setMeta(objectsKey, { edited: true });
 	view.dispatch(tr);
 	return true;
-}
-
-/** The deck's own `class:` in its front matter (`class: bleed`), which the engine appends to every slide's class. */
-function deckClassTokens(frontMatter: string): string[] {
-	const line = /^class[ \t]*:(.*)$/m.exec(frontMatter || '');
-	// Quotes go, as the engine strips them; brackets and commas stay, as the engine keeps them (`class: [bleed]` places
-	// nothing there, so it places nothing here: inversion, F6).
-	return line ? line[1].replace(/["']/g, ' ').trim().split(/\s+/).filter(Boolean) : [];
 }
 
 /**
@@ -256,36 +249,59 @@ function carriedClassBefore(state: EditorState, slideIndex: number): string[] | 
 	return carried;
 }
 
-/** Whether the slide already places a photo another way: an old `![bg …]` picture other than this one, or a lone record. */
-function placesPhotoAlready(slide: PMNode, except: PMNode): boolean {
-	let found = false;
-	slide.descendants((n) => {
-		if (found) return false;
-		if (isImage(n) && n !== except && bgKeywords((n.attrs.alt as string | null) ?? '') !== null) found = true;
-		// A record is an `inline_object` atom (its text is the source, no backticks) or code-marked text.
-		if (n.type.name === 'paragraph' && /^\s*`?@image\{[^\n]*\}`?\s*$/.test(n.textContent)) found = true;
-		return !found;
-	});
-	return found;
+/** The kernel's answer for one slide under these classes, kept per slide node (nodes are immutable, so an edit makes a new one):
+ *  the ordinal of its placed picture among its pictures, or -1. */
+const placedBySlide = new WeakMap<PMNode, Map<string, number>>();
+function placedOrdinal(slide: PMNode, classes: readonly string[]): number {
+	const key = classes.join(' ');
+	let bySlide = placedBySlide.get(slide);
+	if (!bySlide) placedBySlide.set(slide, (bySlide = new Map()));
+	let ordinal = bySlide.get(key);
+	if (ordinal === undefined) {
+		ordinal = placedPictureInSlide(serializeSlideNode(slide), [...classes], { md: boundaryParser })?.ordinal ?? -1;
+		bySlide.set(key, ordinal);
+	}
+	return ordinal;
 }
 
-/** Whether the picture at `pos` is the slide's ONLY lone picture, as a direct paragraph of the slide: the one the engine places. */
-function soleLonePicture(state: EditorState, pos: number): boolean {
-	const $at = state.doc.resolve(pos);
-	if ($at.depth !== 2 || $at.parent.childCount !== 1) return false;
-	const node = state.doc.nodeAt(pos);
-	if (!node) return false;
-	// What the engine refuses to place: a Marp keyword alt (any case), an address the record's allowlist refuses, or a slide
-	// that already places a photo (plugins.js `lonePicture`, `placesPhotoAlready`; inversion, F1, F4, F5).
-	const alt = (node.attrs.alt as string | null) ?? '';
-	if (bgKeywords(alt) === null && /^bg(?:\s|$)/i.test(alt.trim())) return false;
-	if (!urlScheme.urlVerdict(String(node.attrs.src ?? '').trim()).ok) return false;
-	if (placesPhotoAlready($at.node(1), node)) return false;
-	let lone = 0;
-	$at.node(1).forEach((block) => {
-		if (block.type.name === 'paragraph' && block.childCount === 1 && isImage(block.firstChild)) lone++;
+/** Whether the picture at `offset` inside `slide` is the one the engine places under these classes: the kernel reads the slide's
+ *  Markdown and names its placed picture by its place among the slide's pictures, which is this node's place in the tree. */
+function placedAtOffset(slide: PMNode, offset: number, classes: readonly string[]): boolean {
+	const want = placedOrdinal(slide, classes);
+	if (want < 0) return false;
+	let ordinal = 0;
+	let found = -1;
+	slide.descendants((n, at) => {
+		if (found >= 0) return false;
+		if (!isImage(n)) return true;
+		if (at === offset) found = ordinal;
+		ordinal++;
+		return true;
 	});
-	return lone === 1;
+	return found === want;
+}
+
+/** Whether the picture at `pos` is the one the engine places on its slide under these classes. */
+function isPlacedPicture(state: EditorState, pos: number, classes: readonly string[]): boolean {
+	const $at = state.doc.resolve(pos);
+	if ($at.depth < 1) return false;
+	return placedAtOffset($at.node(1), pos - $at.before(1) - 1, classes);
+}
+
+/** The picture an old `![bg …]` one becomes when it is placed (`placeImage`): its description as its name, no keywords. */
+function asPlainPicture(node: PMNode): PMNode {
+	const title = (node.attrs.title as string | null) ?? '';
+	return imageType().create({ ...node.attrs, alt: title ? descriptionAsAlt(title) : '', title: null }, null, node.marks);
+}
+
+/** Whether the old `![bg …]` picture at `pos`, once placed as the plain picture it becomes, is the one an `image` slide places. */
+function placeableBgPicture(state: EditorState, pos: number, classes: readonly string[]): boolean {
+	const node = state.doc.nodeAt(pos);
+	const $at = state.doc.resolve(pos);
+	if (!node || $at.depth < 1) return false;
+	const offset = pos - $at.before(1) - 1;
+	const slide = $at.node(1).replace(offset, offset + 1, new Slice(Fragment.from(asPlainPicture(node)), 0, 0));
+	return placedAtOffset(slide, offset, classes);
 }
 
 /**
@@ -300,16 +316,21 @@ export function placementAt(state: EditorState, pos: number): { placement: Place
 	const $at = state.doc.resolve(pos);
 	const ownDirectives = ($at.node(1).attrs.directives as string[] | null) ?? [];
 	const own = slideClassTokens(ownDirectives);
-	const deck = deckClassTokens((state.doc.attrs.frontMatter as string) || '');
+	const frontMatter = (state.doc.attrs.frontMatter as string) || '';
+	const deck = deckClassWords(frontMatter);
 	// A slide with no class of its own takes the carried one, as the engine does: the badge then says what the slide draws.
 	const carried = carriedClassBefore(state, $at.index(0));
 	const inherited = deck.length > 0 || carried !== null;
 	const effective = own.length ? own : (carried ?? []);
+	// The classes the engine resolves for the slide: its own (or the carried one), plus the deck's without its component names.
+	const classes = [...effective, ...deckPlacingClasses(frontMatter)];
 	const alt = (node.attrs.alt as string | null) ?? '';
-	const sole = soleLonePicture(state, pos);
 	// An old `![bg …]` picture is placed by its keywords until it is placed again; a plain one only when the engine places it.
-	const placement = bgKeywords(alt) !== null ? bgSideOf(alt) : sole ? placementOf([...effective, ...deck.filter((t) => t !== 'image')]) : 'none';
-	return { placement, canPlace: sole && !inherited && canPlaceOn(own) && !inLockedSlide(state, pos) };
+	const placement = bgKeywords(alt) !== null ? bgSideOf(alt) : isPlacedPicture(state, pos, classes) ? placementOf(classes) : 'none';
+	// It may be placed when the engine WOULD place it once the slide places a picture: the same rule, asked of the slide as an
+	// `image` slide (an old `![bg …]` alt loses its keywords when it is placed, so it is asked as the plain picture it becomes).
+	const placeable = bgKeywords(alt) !== null ? placeableBgPicture(state, pos, tokensWithPlacement(classes, 'right')) : isPlacedPicture(state, pos, tokensWithPlacement(classes, 'right'));
+	return { placement, canPlace: placeable && !inherited && canPlaceOn(own) && !inLockedSlide(state, pos) };
 }
 
 /** Take the image out. A paragraph left empty by it goes too, so no blank line is left on the slide. */

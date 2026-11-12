@@ -15,7 +15,7 @@ The record describes the picture. The slide places it:
 | The slide | The picture becomes |
 |---|---|
 | an `image` slide | the layout's photo panel; the layout picks the composition from the photo's shape. `mirror` puts it on the left |
-| a slide with `bleed` | the slide's background, cropped to fill it. Pair it with `dark` so the words read |
+| a slide with `bleed` | the slide's background, cropped to fill it. The words pick their ink from the photo: white over a dark photo, dark over a light one, with a scrim or a veil under the heading (a Marp bundle gets the ink only: Marp draws the photo itself). A slide whose own class names a color mode keeps it |
 | a `collage` | one of the tiles it packs (a list of records or Markdown images) |
 | any other slide | a figure in the slide's flow, sized by the record |
 
@@ -49,8 +49,9 @@ words for a screen reader. Anywhere else it stays an ordinary picture; write the
 tone, a size or `show=`. Both forms take a `sample:` or `asset:` name, a path beside the deck, or an `https:` address.
 
 It is placed only when it is the slide's one lone picture and the slide places no photo another way. A second lone picture,
-a `![bg]` or a record on the same slide keeps it in the text, as does a picture inside a list or a quote, an `http:`
-address (the record refuses it), or an alt that starts with Marp's `bg` keyword.
+a `![bg]`, a record or a `backgroundImage` directive on the same slide keeps it in the text (a `backgroundColor` does not),
+as does a picture inside a list or a quote, an `http:` address (the record refuses it), or an alt that starts with Marp's
+`bg` keyword. The engine, Export-to-Marp, the Studio and the linter all ask one rule for this, `lib/core/placed-picture.mjs`.
 
 ## Setting it for the whole deck
 
@@ -94,9 +95,23 @@ finished page, and every picture, a plugin's own included, still waits for the r
 |---|---|
 | `image-marp-keyword` | A Marp `![bg …](…)` line. Retired: `--fix` rewrites it into the record and moves its placement to the slide (`left` becomes `mirror`; on a slide that is not an `image` slide, the slide gains `bleed`). |
 | `image-not-alone` | A record in running text, which stays code. |
-| `image-extra-panel` | A second record on one `image` slide, which the layout seats over the first. |
+| `image-extra-panel` | A second photo on a slide that seats one: a second record, which lands over the first, or two `![title](src)` pictures on lines of their own, so neither becomes the photo. |
 | `image-web-source` | A picture from another site. Save it beside the deck instead. |
 | `unknown-image` | A word the `image:` register does not know. |
+
+## Words over a full-bleed photo
+
+A `bleed` slide reads the band of its photo under the heading, cropped as the slide crops it, and gives its words the ink
+that reads better there: the theme's `dark` mode (white words, a scrim darkening the top) over a dark photo, its light mode,
+written `color-light` (dark words, a veil lightening the top), over a light one. A layout that centers its words (`divider`,
+`title`, `closing`, `quote`, `big-number`) reads the middle of the photo instead. Name `dark`, `light` or
+`color-light` in the slide's own class (or a carried `class:`) to choose for yourself; a deck-wide color mode does not count as
+a choice about one photo, and a `print` deck keeps print's ink. Every export makes the same choice: the CLI reads
+the file before its page renders, the Studio and the Playground read it in the preview, and an Export-to-Marp bundle carries
+it in the slide's class. A bundle carries the ink only, not the scrim or the veil: Marp draws the photo as its own
+background, outside the slide's panel they sit on, so over a busy bright photo a bundle's small type reads fainter than the
+PDF's. A web picture the export cannot read keeps the theme's ink. `examples/bleed-auto-ink.md` shows each
+case.
 
 ## What stays literal
 

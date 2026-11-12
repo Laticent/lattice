@@ -236,6 +236,44 @@ export async function importedThemeNames(css) {
 		.map((i) => i.target.toLowerCase());
 }
 
+const PHOTO_TYPES = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml', avif: 'image/avif' };
+
+/** The photo reader and pixel sampler `bakeBleedInk` asks for, over the bundle's own zip (its `assets/` files). */
+function bleedInkHost(dir, source) {
+	const size = /^size[ \t]*:[ \t]*["']?([\w:/.-]+)/m.exec(String(source || ''))?.[1] || '';
+	const ratio = /^(\d+):(\d+)$/.exec(size);
+	const draw = (src) => new Promise((resolve) => {
+		const img = new Image();
+		img.onload = () => resolve(img);
+		img.onerror = () => resolve(null);
+		img.src = src;
+	});
+	return {
+		slideW: ratio ? Number(ratio[1]) : 16,
+		slideH: ratio ? Number(ratio[2]) : 9,
+		readPhoto: async (url) => {
+			const mime = PHOTO_TYPES[String(url).split('.').pop().toLowerCase()];
+			const file = mime ? dir.file(decodeURI(url)) : null;
+			if (!file) return null;
+			// Measured from a `data:` URL, the same form the sampler draws: no `blob:` URL is made here (download.test.ts).
+			const base64 = await file.async('base64');
+			const img = await draw(`data:${mime};base64,${base64}`);
+			return img ? { bytes: await file.async('uint8array'), mime, width: img.naturalWidth, height: img.naturalHeight } : null;
+		},
+		samplePixels: async (dataUri, rect, w, h) => {
+			const img = await draw(dataUri);
+			if (!img) return null;
+			const canvas = document.createElement('canvas');
+			canvas.width = w;
+			canvas.height = h;
+			const ctx = canvas.getContext('2d');
+			if (!ctx) return null;
+			ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h, 0, 0, w, h);
+			return ctx.getImageData(0, 0, w, h).data;
+		},
+	};
+}
+
 // Export to Marp — the SAME self-contained bundle as `npm run export:marp`,
 // assembled in the browser: bake the slide splits into literal `---`, fetch the
 // staged static assets (minified stylesheet / runtime / mermaid) + the
@@ -376,7 +414,13 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
 			{ localAssets: false, bundledAssets: [...samplePaths.values()], overflowMarker, pluginsOff, vscodeLink: !saved },
 		);
-	dir.file(`${slug}.md`, bundled.markdown);
+	// A `bleed` slide's ink, decided from the photo this bundle carries and written into its `_class`: the recipient opens the
+	// deck over `file://`, where its runtime may not read a local picture's pixels (lib/export/marp-bleed-ink.js). The photos are
+	// this zip's own files; a canvas reads them here, where they are same-origin bytes.
+	const markdown = typeof marp.bakeBleedInk === 'function' && typeof document !== 'undefined'
+		? await marp.bakeBleedInk(bundled.markdown, bleedInkHost(dir, source))
+		: bundled.markdown;
+	dir.file(`${slug}.md`, markdown);
 
 	// palette CSS (+ dark), fetched from the staged theme dir — or, for a SAVED
 	// library theme, written from its own CSS, since the site has no file for it.

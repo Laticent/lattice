@@ -160,7 +160,7 @@ async function readLive(chunk: string, source: string, slideNumber: number): Pro
 		const panel = section.querySelector<HTMLElement>('.lattice-bg');
 		const card = section.querySelector<HTMLElement>('.image-text');
 		const url = /url\((['"]?)(.*?)\1\)/.exec(panel?.style.backgroundImage ?? '')?.[2];
-		if (!panel || !card || !url || !photoMatches(photoRefOf(chunk), url)) return null;
+		if (!panel || !card || !url || !photoMatches(photoRefOf(chunk, source), url)) return null;
 		// The preview can still be showing the OLD render of this slide right after an edit.
 		if (getClassTokens(chunk).some((c) => (CARD_CLASS.test(c) || c === 'dark' || c === 'light') && !section.classList.contains(c))) return null;
 
@@ -222,7 +222,7 @@ async function readEstimate(chunk: string, source: string): Promise<PhotoVerdict
  * no estimate when the measure fails. Never throws.
  */
 export async function readVerdict(chunk: string, source: string, slideIndex: number, onScreen: boolean, liveOnly = false): Promise<PhotoVerdict | null> {
-	if (!photoRefOf(chunk)) return null;
+	if (!photoRefOf(chunk, source)) return null;
 	if (onScreen) {
 		const live = await readLive(chunk, source, slideIndex + 1);
 		if (live) {

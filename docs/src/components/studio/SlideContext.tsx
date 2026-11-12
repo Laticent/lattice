@@ -473,6 +473,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	slideRef.current = slideNumber;
 	const chunkRef = React.useRef(chunk);
 	chunkRef.current = chunk;
+	const sourceRef = React.useRef(source);
+	sourceRef.current = source;
 	const pickRef = React.useRef<typeof import('./card-ink-pick') | null>(null);
 	// Whether the read-ahead has landed for this slide: shown on the control, so a test (and a person
 	// watching) can tell the next thin step will be one edit.
@@ -496,7 +498,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 			for (const wait of [0, 700]) {
 				if (wait) await new Promise((r) => setTimeout(r, wait));
 				if (!live) return;
-				const rgb = await pick.readBehindCard(chunkRef.current, at);
+				const rgb = await pick.readBehindCard(chunkRef.current, at, sourceRef.current);
 				if (!live) return;
 				if (rgb) {
 					behindRef.current = { slide: at, rgb };
@@ -542,7 +544,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		onMutate((c) => setImageCard(c, 'backing', word));
 		void (async () => {
 			const mod = pick ?? (await import('./card-ink-pick'));
-			const rgb = behind ?? (await mod.readBehindCard(chunk, at));
+			const rgb = behind ?? (await mod.readBehindCard(chunk, at, source));
 			if (!rgb || slideRef.current !== at) return;
 			if (behindRef.current?.slide !== at) behindRef.current = { slide: at, rgb };
 			onMutate((c) => {

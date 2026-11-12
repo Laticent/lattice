@@ -3559,7 +3559,55 @@ const CAPTURE_TYPES = {
   '.webp': 'image/webp', '.avif': 'image/avif', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf',
 };
 
+/**
+ * A `bleed` slide's ink, from its photo (lib/export/bleed-ink-stamp.js, deciding by lib/core/bleed-ink.mjs). Run before the
+ * capture page loads, because the export page carries no runtime: the photo is read through the deck's confiner and drawn as a
+ * `data:` image in a scratch page, so its pixels are readable, and the winning ink's class is written into the document.
+ */
+async function stampBleedInkForExport(browser, g, html) {
+  if (!/\bbleed\b/.test(html)) return html;
+  const { stampBleedInk } = require('./lib/export/bleed-ink-stamp.js');
+  let scratch = null;
+  try {
+    return await stampBleedInk(html, {
+      slideW: parseFloat(_geom.width),
+      slideH: parseFloat(_geom.height),
+      readPhoto: (url) => {
+        const local = imageDimensions.urlToLocalPath(String(url));
+        if (!local) return null; // a web address: the export is offline
+        let real;
+        try { real = fs.realpathSync(path.resolve(local)); } catch { return null; }
+        if (!DECK_CONFINE.allows(real)) return null;
+        const mime = CAPTURE_TYPES[path.extname(real).toLowerCase()];
+        const dims = mime?.startsWith('image/') ? imageDimensions.readDimensions(real) : null;
+        return dims ? { bytes: fs.readFileSync(real), mime, width: dims.w, height: dims.h } : null;
+      },
+      samplePixels: async (dataUri, rect, w, h) => {
+        scratch ??= await g(() => browser.newPage(), 'bleed-ink scratch page');
+        return g(() => scratch.evaluate(async (src, r, cw, ch) => {
+          const img = new Image();
+          img.src = src;
+          try { await img.decode(); } catch { return null; }
+          const canvas = document.createElement('canvas');
+          canvas.width = cw;
+          canvas.height = ch;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, cw, ch);
+          return Array.from(ctx.getImageData(0, 0, cw, ch).data);
+        }, dataUri, rect, w, h), 'sample a bleed photo');
+      },
+    });
+  } catch {
+    return html; // the slide keeps the ink its author gave it
+  } finally {
+    if (scratch) await scratch.close().catch(() => {});
+  }
+}
+
 async function renderBody(browser, g, closeBrowser) {
+  // A `bleed` slide's ink, decided from its photo before the page loads (stampBleedInkForExport, above).
+  cleanDocHtml = await stampBleedInkForExport(browser, g, cleanDocHtml);
+  fs.writeFileSync(outHtml, cleanDocHtml);
   // THE CLI'S DRAW HOST: one locked page per host-drawn plugin, opened WHILE the capture page loads, so a figure's draw
   // pays almost nothing for its setup (lib/export/locked-figures.js `openExportDrawHost`). A page that cannot open is
   // reported once, and its figures export showing their source.

@@ -78,7 +78,7 @@ test('a `![bg]` inside a raw HTML block, a comment or a fence is text, as markdo
   assert.equal(panels(render('<!-- _class: image -->\n\n# T\n\n```md\n![bg left](a.jpg)\n```\n', {}).html), 'image none');
 });
 
-test('a picture alone on its lines leaves no paragraph; one inside prose becomes inline HTML in its place', () => {
+test('a picture alone on its lines leaves no paragraph; one inside prose is hoisted to slide level', () => {
   // A hard break between two pictures, or a caption on the next line, leaves no stray `<br>` (the P4 checker).
   assert.doesNotMatch(render('<!-- _class: image -->\n\n# T\n\n![bg](a.jpg)  \n![bg](b.jpg)\n', {}).html, /<br|<p><div/);
   assert.match(render('<!-- _class: image -->\n\n# T\n\n![bg left](a.jpg)\ncaption text\n', {}).html, /<p>caption text<\/p>/);
@@ -86,10 +86,11 @@ test('a picture alone on its lines leaves no paragraph; one inside prose becomes
   assert.match(alone, /<div class="lattice-bg lattice-bg-left" style="background-image:url\('a\.jpg'\)"><\/div>/);
   assert.match(alone, /<div class="lattice-bg lattice-bg-right" style="background-image:url\('b\.jpg'\)"><\/div>/);
   assert.doesNotMatch(alone, /<p>\s*<div class="lattice-bg/, 'no paragraph is left around the panels');
-  // Inside prose too (a line walk lifted only at line start, so this drew as the section's background); the wrap
-  // pass then moves the panel beside the prose, as it does every panel.
+  // Inside prose too (a line walk lifted only at line start, so this drew as the section's background). The engine writes
+  // the panel as its own block before the paragraph (lib/engine/background-image.js `liftToPanels`), and the wrap pass then
+  // moves it beside the prose, as it does every panel at section level (followups.d/3126-p1).
   const inline = render('<!-- _class: image -->\n\n# T\n\nText ![bg](c.jpg)\n', {}).html;
-  assert.match(inline, /<div class="lattice-bg lattice-bg-full" style="background-image:url\('c\.jpg'\)"><\/div><div class="image-text"><h1>T<\/h1>\n<p>Text <\/p>/);
+  assert.match(inline, /<div class="lattice-bg lattice-bg-full" style="background-image:url\('c\.jpg'\)"><\/div><div class="image-text"><h1>T<\/h1>\n+<p>Text <\/p>/);
 });
 
 test('the panel resolves against the render\'s base, and a URL markdown-it refuses never becomes a panel', () => {
