@@ -2401,7 +2401,9 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	const pendingResyncRef = React.useRef<string | null>(null);
 	// A co-editor's change held while an IME composition is open (live sessions only): `base` is the text the editor's own
 	// document says, so each local emit in the meantime is moved onto the held change instead of replacing it.
-	const liveHoldRef = React.useRef<{ base: string } | null>(null);
+	const liveHoldRef = React.useRef<{ base: string; refused?: boolean } | null>(null);
+	// Apply a held co-editor change once no composition is open (assigned below, beside `resyncFrom`).
+	const settleHoldRef = React.useRef<() => void>(() => {});
 	const [failed, setFailed] = React.useState(false);
 	// A change painted by the flash that is out of view: a chip says how many lines are above or below and scrolls to the nearest on a tap.
 	const [flashChip, setFlashChip] = React.useState<{ dir: 'above' | 'below'; n: number; pos: number } | null>(null);
@@ -2815,6 +2817,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	focusAtMountRef.current = focusAtMount;
 	const liveRef = React.useRef(live);
 	liveRef.current = live;
+	// A hold belongs to the session: once it ends, the held change is an ordinary parked change (flushed on blur).
+	if (!live) liveHoldRef.current = null;
 	const sourceNowRef = React.useRef(source);
 	sourceNowRef.current = source;
 	const onCursorSlideRef = React.useRef(onCursorSlide);
@@ -3105,6 +3109,21 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	}, []);
 
 	resyncRef.current = resyncFrom;
+	settleHoldRef.current = () => {
+		const v = viewRef.current;
+		const pending = pendingResyncRef.current;
+		if (!v || pending == null || !liveHoldRef.current) return;
+		// A new composition opened first: wait for that one to end, rather than rebuild under it.
+		if (v.composing) {
+			v.dom.addEventListener('compositionend', () => setTimeout(() => settleHoldRef.current(), 0), { once: true });
+			return;
+		}
+		try {
+			resyncFrom(v, pending);
+		} catch (e) {
+			console.error('[compose] live resync', e);
+		}
+	};
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: construct-once per deck; `source` seeds the doc and syncs separately.
 	React.useEffect(() => {
@@ -3208,22 +3227,31 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						baselineRef.current = base;
 						// In a live session a co-editor's change held for an IME composition is MERGED, not superseded: the
 						// author's edit (base to src) is moved onto it, and the merge goes out, so the session keeps both. The
-						// editor shows the merge when the composition ends. An edit that cannot be placed falls back to the rule.
+						// editor shows the merge when the composition ends. An edit that cannot be placed is refused, as the
+						// session refuses one (live-controller.ts): the co-editor's change stays, the author is told, and the
+						// editor shows the change when the composition ends.
 						const hold = liveHoldRef.current;
 						const held = pendingResyncRef.current;
-						const merged = hold && held != null ? applyOnto(hold.base, src, held) : null;
-						let out = src;
-						if (hold && merged != null) {
-							hold.base = src;
-							pendingResyncRef.current = merged;
-							out = merged;
+						if (hold && held != null) {
+							const merged = applyOnto(hold.base, src, held);
+							if (merged == null) {
+								if (!hold.refused) notify('Someone edited that part at the same moment, so your change was not applied. Try it again.');
+								hold.refused = true;
+							} else {
+								hold.base = src;
+								pendingResyncRef.current = merged;
+								lastEmittedRef.current = merged;
+								(retiringRef.current ?? onChangeRef.current)(merged, closesFiloGroup(tr) ? { close: true, label: tr.getMeta(STEP_LABEL) } : undefined);
+							}
+							// ProseMirror can end a composition without a `compositionend` (Android, on a timeout): settle on its last change.
+							if (!view.composing) setTimeout(() => settleHoldRef.current(), 0);
 						} else {
 							pendingResyncRef.current = null;
 							liveHoldRef.current = null;
+							lastEmittedRef.current = src;
+							// `close`: this change is its own undo step (a pane pick), never joined to the typing before it.
+							(retiringRef.current ?? onChangeRef.current)(src, closesFiloGroup(tr) ? { close: true, label: tr.getMeta(STEP_LABEL) } : undefined);
 						}
-						lastEmittedRef.current = out;
-						// `close`: this change is its own undo step (a pane pick), never joined to the typing before it.
-						(retiringRef.current ?? onChangeRef.current)(out, closesFiloGroup(tr) ? { close: true, label: tr.getMeta(STEP_LABEL) } : undefined);
 					} else if (closesFiloGroup(tr)) {
 						// An object edit just committed: the next change starts a new undo step.
 						onCloseGroupRef.current?.();
@@ -3398,23 +3426,9 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				const b = baselineRef.current;
 				if (!liveHoldRef.current) liveHoldRef.current = { base: b ? emitDeck(view.state.doc, { nodes: [...b.nodes], raws: [...b.raws] }) : lastEmittedRef.current };
 				pendingResyncRef.current = source;
-				// ProseMirror finishes a composition a beat after `compositionend` (it flushes the composed text then), so the
-				// held change waits until the view says it is done, a bounded number of times.
-				let tries = 0;
-				const settle = () => {
-					const v = viewRef.current;
-					if (!v || pendingResyncRef.current == null || !liveHoldRef.current) return;
-					if (v.composing && ++tries < 100) {
-						setTimeout(settle, 10);
-						return;
-					}
-					try {
-						resyncFrom(v, pendingResyncRef.current);
-					} catch (e) {
-						console.error('[compose] live resync', e);
-					}
-				};
-				view.dom.addEventListener('compositionend', () => setTimeout(settle, 0), { once: true });
+				// ProseMirror's own `compositionend` handler runs first and flushes the composed text in a microtask, so by this
+				// timeout the composed text has been emitted (and merged) and the view is no longer composing.
+				view.dom.addEventListener('compositionend', () => setTimeout(() => settleHoldRef.current(), 0), { once: true });
 				return;
 			}
 		} else if (view.hasFocus() || (document.activeElement instanceof Element && view.dom.contains(document.activeElement) && document.activeElement.closest('.cs-comment-panel'))) {

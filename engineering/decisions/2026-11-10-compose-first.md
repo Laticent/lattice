@@ -200,7 +200,12 @@ while the host edits, and checks both edits survive. Outside a session the hold-
 composition) and MERGED: each local emit while it is held moves the author's edit onto it (`applyOnto`,
 `live/text-rebase.ts`; by position when the two edits touch separate text, which is exact, else by the text around it, as
 the session's own `rebase` does), so the session gets both, and the editor shows the merge once ProseMirror finishes the
-composition. Only two edits to the same text still pick one: the author's, as before. A `filo-live` case composes through
+composition (ProseMirror's own `compositionend` handler flushes the composed text in a microtask, before Compose's timeout
+settles the hold; an Android composition that ProseMirror ends on its timeout settles on the emit). An edit that cannot be
+placed (the two touch the same text, or adjacent text that repeats, so the text around it does not locate it: the
+checker counted 868 of 104,450 adjacent-or-separate pairs on short repetitive texts) is REFUSED as the session refuses
+one: the co-editor's change stays, and the author sees "Someone edited that part at the same moment, so your change was
+not applied". Before, it kept the author's text and silently erased the co-editor's. A `filo-live` case composes through
 CDP while the host edits (it failed 2 of 2 before, passes 5 of 5), and a brute-force unit case checks every separated pair
 of edits on a short text. A restore's
 focus also waits for nothing else to have the keyboard: the editor chunk lands about a second after load, and the
