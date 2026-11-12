@@ -96,15 +96,15 @@ async function collectFrom(page: import('@playwright/test').Page): Promise<void>
 const drain = (page: import('@playwright/test').Page) => page.evaluate(() => (window as unknown as { __bench: Sample[] }).__bench);
 const reset = (page: import('@playwright/test').Page) => page.evaluate(() => { (window as unknown as { __bench: Sample[] }).__bench = []; });
 /**
- * Do one interaction and wait for the ONE render it causes to finish (HARD RULE #32). Measured: a rail click and a
- * keystroke on the shown slide each record exactly one render sample, so "a new sample arrived" is the render being
- * done, where a fixed 700 ms gap used to stand. It also keeps each render alone, which is what the gap was for: the
- * next interaction starts only once this one's render has finished.
+ * Do one interaction and wait for its render to finish (HARD RULE #32): "a new sample arrived" is the render being done,
+ * where a fixed 700 ms gap used to stand, and the next interaction starts only once it has. AT LEAST one, never exactly
+ * one: a rail click usually records one sample, but now and then a second follows it (a repeat run caught 3 in 48), and
+ * an exact target can never be met once overshot. The report reads every sample, as it did behind the old gap.
  */
 async function oneRender(page: import('@playwright/test').Page, act: () => Promise<unknown>): Promise<void> {
 	const before = (await drain(page)).length;
 	await act();
-	await expect.poll(async () => (await drain(page)).length, { timeout: 30_000, message: 'the interaction rendered nothing' }).toBe(before + 1);
+	await expect.poll(async () => (await drain(page)).length, { timeout: 30_000, message: 'the interaction rendered nothing' }).toBeGreaterThan(before);
 }
 
 /**

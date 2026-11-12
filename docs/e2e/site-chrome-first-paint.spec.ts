@@ -163,6 +163,12 @@ test('the palette and mode controls still drive the site chrome after hydration'
 				.join(','),
 		);
 	await expect.poll(shownLabel).toBe('Burgundy');
+	// The trigger is server-rendered, so it is on screen and clickable before React has hydrated it. A click that lands
+	// first opens nothing and the option never appears (1 run in 20 under load). Astro drops the island's `ssr`
+	// attribute when hydration finishes; that is the moment the control can answer.
+	await expect
+		.poll(() => page.evaluate(() => !!document.querySelector('astro-island[component-url*="NavActions"]:not([ssr])')), { timeout: 40_000 })
+		.toBe(true);
 	await trigger.click();
 	await page.getByRole('option', { name: 'Laguna', exact: true }).click();
 	await expect.poll(shownLabel).toBe('Laguna');

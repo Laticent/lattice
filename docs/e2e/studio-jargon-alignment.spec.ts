@@ -293,6 +293,19 @@ test('jargon deck: clicking into a slide previews THAT slide', async ({ page }) 
 		// cannot produce. That also retires the 400ms settle this used to need: there is now a positive
 		// signal to poll for, so nothing here is a guessed interval.
 		await railButtons(page).nth(0).click();
+		// AND WAIT FOR THAT PARK'S REVEAL TO LAND before scrolling. The click dispatches a scroll that CodeMirror applies
+		// on its next measure; a step of ours that builds slide i's line first is then undone by it, the line is
+		// virtualized away, and the click below waits on a detached element (1 run in 30). Slide 0's first editable
+		// line framed at the top of the editor is the reveal done.
+		await page.waitForFunction(
+			(text) => {
+				const scroller = document.querySelector('.cm-scroller');
+				const line = scroller && [...scroller.querySelectorAll('.cm-line')].find((l) => (l.textContent ?? '').trim() === text);
+				return !!line && Math.abs(line.getBoundingClientRect().top - scroller.getBoundingClientRect().top) <= 40;
+			},
+			editableLineOf(authored[0]),
+			{ polling: 'raf', timeout: 15_000 },
+		);
 		const ownLines = authored[i].split('\n').map((l) => l.trim()).filter((l) => l.length > 8);
 		const target = ownLines[ownLines.length - 1];
 		// A slide of nothing but short lines yields no target; `hasText: undefined` would silently drop
