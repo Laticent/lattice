@@ -1930,3 +1930,58 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — a new async step between boot and the first Explore; a new condition in `reusableFrame`.
 - **Removable when** — never; they are ordering rules.
 - **Commits** — the flaky-e2e touch PR of 2026-11-12.
+## An e2e key pressed in a fresh Stage window is lost, 1 run in 12 under load
+
+- **Symptom** — `docs/e2e/stage-window.spec.ts` opens the Stage, sees the deck painted, presses ArrowRight twice, and
+  the console reads "2 / 7" instead of "3 / 7". It passes alone and fails about 1 run in 12 under four workers.
+- **Cause** — the Stage document carries the deck's markup BEFORE the multi-megabyte runtime script and the handshake
+  script after it. The deck paints as soon as the markup parses, but the key, wheel and touch handlers arrive with the
+  second script. A key pressed in that gap reaches no handler. "The deck is visible" is not "the Stage is listening".
+- **Fix** — wait for the handshake, seen from the Stage itself. It ends with `{stage:'ready'}`, on which the console
+  portals its rail into the Stage (`stageHost.rail`), so `#latt-rail > *` inside the Stage window is the signal.
+  `openStage` in the spec waits for it; 24 in 24 loaded runs passed after, against 1 failure in 12 before.
+
+## An e2e that dispatches one `dragover` loses the drop sign before it can measure it
+
+- **Symptom** — `deck-drop-import.spec.ts`'s sign-fits test reads the drop sign's box as `null`, 1 run in 3 under four
+  workers. The screenshot shows no sign.
+- **Cause** — the sign has a dead-man timer: `deck-drop.ts` (`quiet`) hides it 1000 ms after the last `dragover`. A real
+  drag sends `dragover` continuously, so the timer never fires. A test sends ONE and then measures and screenshots, which
+  takes longer than a second on a loaded runner.
+- **Fix** — stop the page clock (`page.clock.install()` with no `runFor`) while the synthetic drag is held. The timer
+  cannot fire, which is the state a real drag keeps it in. Do not "dispatch dragover in a loop": that is a sleep with
+  extra steps.
+- **Related** — while the Studio is presenting, a drop reaches no handler at all, so a test of that case asserts the
+  sign never shows rather than waiting for an import that cannot start.
+
+## The landscape-phone Studio hides the slide rail; it does not unmount it
+
+- **Symptom** — a test that expects the rail to leave the DOM (`toHaveCount(0)`) when the phone turns landscape fails
+  about 3 runs in 10, though the rail is not visible.
+- **Cause** — `StudioShell.tsx` keeps the strip that holds the rail mounted in the iPhone-landscape cinema morph and
+  hides it ("Hidden, not unmounted"), so scroll state survives the turn. Whether the old element is gone depends on when
+  the landscape media query matches.
+- **Fix** — assert what a person sees: the rail is out of view (`toBeHidden`) in landscape and back in view
+  (`toBeVisible`) in portrait. `preview-nav.spec.ts`'s remount test does this.
+
+## A product change does not reach the e2e build, though `npm run build:e2e` ran
+
+- **Symptom** — you edit `docs/src/lib/cadenza/cadence.ts` (or `vetrina/stage.ts`), rebuild the docs site, and the
+  built Studio behaves exactly as before. A mutation meant to turn a test red leaves it green.
+- **Cause** — `@/lib/cadenza` and `@/lib/vetrina` are directory imports of packages with their own `package.json`, and
+  Vite resolves a directory import through its `module` field: `dist/index.mjs`, not the `.ts` source. The site
+  build does not rebuild those `dist/` files.
+- **Fix** — rebuild the package first (`npm run vetrina-lib:build`, or the package's own build script), then
+  `npm run build:e2e`. For a quick arm, mutate the package's `dist/` file directly and restore it. Importing a file
+  by path (`@/lib/vetrina/index.js`) reaches the source; a bare directory does not.
+
+## A MutationObserver test of "no writes" passes on code that writes every frame
+
+- **Symptom** — a test watches an element's `style` attribute through 200 scroll frames and counts 0 mutations. Delete
+  the compare-before-write the test guards, and it still counts 0.
+- **Cause** — the handler re-seats onto the same box and writes the SAME values. Setting a style property to its
+  current value does not change the attribute, so the observer records nothing. The test could not see the work it
+  claimed to bound.
+- **Fix** — count the work at its source. Vetrina's scroll handler publishes `data-vt-scroll-seats` on its layer, one
+  per re-seat it performs, and `vetrina-cursor-caption.spec.ts` counts that: 200 in 200 frames with the compare
+  removed, 0 with it.

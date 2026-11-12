@@ -144,6 +144,16 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             Same PR: test/unit's `env-skip` sites (#3144's census and rule) at zero outside components and
             trama: 33 in 15 files through `skipUnlessCI` / `skipWithoutChrome`, two `ci-skip` notes (oh-my-zsh opt-in;
             flock on macOS, run by `wait-for-macos`).
+            2026-11-12 (`docs/e2e` census): every `docs/e2e` hit outside three files other sessions own is done, 39
+            hits in 24 files, and `SANCTIONED_E2E_SLEEPS` went from 106 calls in 36 files to the one `restyle-overlap`
+            entry; the baseline is now 132 hits in 55 files, no `flaky-ok` added and no test disabled. Each rewrite
+            waits on a product signal (five helpers in `docs/e2e`, listed in the decision note's tools), and 24 were
+            shown failing on a broken product line. Found and fixed: `workspace-backup-size`'s 67 MiB case and
+            `preview-nav`'s remount case were red on `main`; vetrina's scroll-cost test counted style mutations, which
+            cannot see a same-value write, so it passed with the compare removed (it now counts re-seats);
+            `filo-compose`'s 16 ms undo budget is now a work count (one slide replaced, a sixteenth of the deck read)
+            with the time in `npm run bench`. Left in `docs/e2e`: `library-images-render`, `playground-paint` and
+            `restyle-overlap`, owned by the "e2e Studio shell" and "e2e touch + WebKit" sessions.
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; and the F3-F9 sweep's findings are fixed. (The retries half is done: PR #3144 set
             `docs/playwright.config.ts` to `retries: 0` on the owner's 2026-11-12 order, held by `checkPlaywrightRetries`,

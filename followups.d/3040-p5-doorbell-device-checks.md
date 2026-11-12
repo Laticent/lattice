@@ -24,9 +24,6 @@ no VoiceOver. Its adversarial review (red team and inversion) left these unverif
 - **VoiceOver.** Focus visits an `aria-hidden` field for one edit; VoiceOver may re-announce the editor on each ring.
 - **A second gesture undo after a wipe.** After the wipe the bell arms ONE step; a gesture undo moves it onto WebKit's redo
   list, and the bell will not re-ring while redo holds a step (ringing would empty redo). So a second shake does nothing
-  until the next typed word or ring. Strictly better than before the bell, which armed none.
-- **A second gesture undo after a wipe.** After the wipe the bell arms ONE step; a gesture undo moves it onto WebKit's redo
-  list, and the bell will not re-ring while redo holds a step (ringing would empty redo). So a second shake does nothing
   until the next typed word or ring. Strictly better than before the bell, which armed none. **Tried and reverted:** ten
   edits with the caret moved between them give ten undo steps in Playwright's Linux WebKit (6 of 6 gestures in a row),
   but on the iOS simulators they still make one (2 of 6, dispatches 42151613459 and 42151609955), so the change bought

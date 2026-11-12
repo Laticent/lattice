@@ -902,3 +902,13 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   as a constant. To run a file on CI's build: `npx puppeteer browsers install chrome@131.0.6778.204`, then set
   both `CHROME_PATH` and `PUPPETEER_EXECUTABLE_PATH` to the path it prints (a test may read either).
 - **Removable when:** the sandbox and CI pin the same Chrome.
+## `workspace-backup-size`'s 67 MiB restore refuses all ten documents, on `main` too
+
+- **Symptom** — the "67 MiB" case in `docs/e2e/workspace-backup-size.spec.ts` fails every run: the restore toast names
+  all ten reference documents as "not readable base64 data, or over the size", and the store read back is empty.
+- **Cause** — two test defects. The fixture repeated one padded base64 block 80 times, so the data URL carried `=`
+  padding in its middle (not valid base64) and ran 6,990,720 characters against the 6,990,571 the restore admits. It
+  passed until the restore began checking each row. And the spec's reader used one `getAll()` per store with
+  `onerror → []`, so a failed read looked like an empty store.
+- **Fix** — build one 5 MiB buffer and encode it once, and read with a cursor that rejects on a read error. A test
+  helper that turns an error into an empty result hides the failure it should report.

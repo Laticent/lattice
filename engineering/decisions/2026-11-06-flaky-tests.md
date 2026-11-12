@@ -131,6 +131,29 @@ required; a bare `flaky-ok` still counts.
   client gone first. A live browser has nothing to drain, so an absence check runs a WITNESS: the same attempts with no
   walls against a second listener, started after the walled attempts. The witness proves how long one attempt takes
   to land, not that a subject holding a request back on purpose has sent it.
+- `docs/e2e` (added 2026-11-12, the `docs/e2e` pass): five helpers replaced the 106 sanctioned `waitForTimeout` calls
+  (52 entries in 36 files) and the 39 counted hits in 24 spec files.
+  - `barriers.ts`: `schedulerDrained(target)` posts MessageChannel rounds behind React's scheduler, so a state update
+    the last action queued has committed. `requestsFlushed(page)` fetches a numbered marker and waits for the route to
+    see it, so every earlier request is in. `documentSettled(target, within)` waits for the images, media and frames
+    under `within` to answer, then two frames. `layoutSettled` is two frames, a scheduler drain and two frames;
+    `motionSettled` adds every finite animation finishing. Scope `documentSettled` to the region the test reads: the
+    whole Studio page never settles, because a frame in it keeps loading.
+  - `frame-clock.ts`: `pauseFrames(page)` stops the page clock; `stepFrame(page)` runs it 16 ms and drains the
+    scheduler, so a test that must see every frame of an animation or a timed cue (Present's emphasis, beats, the
+    guide cursor) reads each one instead of sampling the real clock. `stepFramesUntil(page, done, limit)` stops at a
+    condition, with a frame cap that fails loudly.
+  - `route-hold.ts`: `routeHolds()` holds a mocked request open until the test releases it, so a test of an in-flight
+    state (a streaming chat reply, a logo still measuring) chooses when the request lands instead of racing it.
+  - `net-witness.ts`: `witnessLanded(context, { udp })` makes the same kinds of attempt (fetch, WebSocket, image, and an
+    RTC STUN packet) from a fresh page against a second pair of listeners and waits until they land. An absence check
+    ("the sandbox sent nothing") runs it after the walled attempts, so "nothing arrived" means "nothing was sent", not
+    "not yet".
+  - `photo-format.ts`: `confirmPhotoFormat(page)` answers the add-photo format dialog and waits for it to close, the
+    step four library-image specs slept through.
+  Where no signal existed, the product now publishes one on `<html>` for tests: `data-overlay-back` and
+  `data-overlay-back-gen` (`overlay-back.ts`, the back-gesture stack), `data-stage-loss` and `data-stage-placement`
+  (`stage-window.js`), and `data-deck-imports` (`StudioShell.tsx`).
 
 **The virtual clock found a live loop** (2026-11-11). When `runtime-cards-align.test.js` moved from a 250 ms sleep to
 `bootRuntime`, its boot over every governed component never went idle: `settle()` gave up after 2,000 callbacks. The
