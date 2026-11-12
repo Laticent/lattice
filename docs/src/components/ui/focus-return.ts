@@ -15,18 +15,29 @@ export function raisesTouchKeyboard(el: HTMLElement): boolean {
 let viaKeyboard = false
 // The control the last tap landed on: the launcher of a sheet opened by a tap.
 let lastTapped: HTMLElement | null = null
+let tappedAt = Number.NEGATIVE_INFINITY
 if (typeof document !== "undefined") {
-  document.addEventListener("keydown", (e) => { if (!e.isComposing) viaKeyboard = true }, true)
+  document.addEventListener("keydown", (e) => {
+    if (e.isComposing) return
+    viaKeyboard = true
+    lastTapped = null
+  }, true)
   document.addEventListener("pointerdown", (e) => {
     viaKeyboard = false
+    tappedAt = performance.now()
     const t = e.target instanceof Element ? e.target.closest('button, a[href], [role="button"]') : null
     lastTapped = t instanceof HTMLElement ? t : null
   }, true)
 }
 
-/** The control a sheet was opened from, read when it opens: the last control tapped, if any. */
+/**
+ * The control a sheet was opened from, read when it opens: the control the last tap landed on, only when that tap is
+ * the one that opened it. A key since the tap (a keyboard open) clears it, and a sheet that opens itself from code
+ * well after a tap does not inherit it (the checker on #3150). A lazy sheet that opens more than a second after its
+ * tap falls back to the page, the behavior before the launcher was recorded.
+ */
 export function tappedLauncher(): HTMLElement | null {
-  return lastTapped
+  return lastTapped && performance.now() - tappedAt < 1000 ? lastTapped : null
 }
 
 /**
@@ -44,6 +55,7 @@ export function focusLauncher(launcher: HTMLElement | null): boolean {
 export function resetLastInput(): void {
   viaKeyboard = false
   lastTapped = null
+  tappedAt = Number.NEGATIVE_INFINITY
 }
 
 function isTextField(el: HTMLElement): boolean {

@@ -58,6 +58,15 @@ describe('raisesTouchKeyboard', () => {
 		host.remove();
 		expect(focusLauncher(button), 'a launcher that left the page is not focused').toBe(false);
 	});
+	it('a key since the tap clears the launcher: a sheet opened by keyboard has none', () => {
+		const button = document.createElement('button');
+		document.body.append(button);
+		button.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+		expect(tappedLauncher()).toBe(button);
+		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k' }));
+		expect(tappedLauncher()).toBeNull();
+		button.remove();
+	});
 	it('is false for controls, read-only fields, and on a fine pointer', () => {
 		pointer(false);
 		for (const html of ['<button>x</button>', '<input type="checkbox">', '<input readonly>', '<textarea readonly></textarea>', '<a href="#">x</a>'])
