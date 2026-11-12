@@ -66,6 +66,8 @@ jobs:
             packages: fonts-noto-color-emoji
           - runs-on: ubuntu-24.04
             packages: poppler-utils
+          - runs-on: ubuntu-24.04
+            packages: zsh
     steps:
       - uses: actions/checkout@v4
         with:

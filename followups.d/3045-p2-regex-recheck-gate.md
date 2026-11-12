@@ -80,6 +80,11 @@ progress  — 2026-11-08 (zero-flakes part 3): part (a) shipped. `checkRegexCens
             back-reference) and first-heading read (firstHeadingInner). Each is held to its old pattern by a seeded
             fuzz (test/unit/core/agenda-progress-readers.test.js) and to linear work by scanWork
             (test/unit/core/linear-readers-work.test.js). Backlog 675 -> 670.
+            2026-11-12 (flaky tests, unit tier): notes-core's five hang guards retired (test/unit/authoring/
+            notes-core.test.js now asserts `assertLinearRegexes` plus a work count). Drained on that path: the
+            run-time COMMENT_SOURCE (`CommentScan`, a seeded fuzz in notes-comment-reader.test.js), `/[\r\n]+$/` x3
+            (`withoutEol`), the heading/rule back-reference (three alternatives, `safe`); and slice-equivalence-core's
+            quote-aware tag strip (`stripTags`). Each with a mutation arm.
 done when — the ratchet holds lib/** to its table in build:check; the table and the hang guards are gone, or each
             remaining entry carries its reason.
 evidence  — each rewritten pattern: a seeded differential fuzz against the old one, and the old pattern failing its test.

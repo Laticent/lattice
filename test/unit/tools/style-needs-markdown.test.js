@@ -4,6 +4,7 @@
  */
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
+const { scanWork } = require('../../helpers/work-count');
 
 const load = () => import('../../../lib/core/style-markdown-scan.mjs');
 
@@ -24,10 +25,20 @@ describe('scanMarkdown', () => {
     assert.ok(!c.has('trailing'));
   });
 
-  test('stays linear on a pathological source', async () => {
+  // Work, not milliseconds (HARD RULE #32). Two guards keep a hostile source cheap: a line longer than 4,000 characters is
+  // skipped, so no per-line regex ever sees more than that, and every other line is read on its own. The count covers
+  // each string search and regex exec; a reader that looks ahead through the rest of the text from every line fails it.
+  test('stays linear on a pathological source: long lines are skipped, short ones read once', async () => {
     const { scanMarkdown } = await load();
-    const t0 = Date.now();
-    scanMarkdown(`<!-- _class: ${' '.repeat(200000)}x\n${'| '.repeat(100000)}\n${'<'.repeat(100000)} class=`);
-    assert.ok(Date.now() - t0 < 1000, 'a hostile line must not cost seconds');
+    const long = `<!-- _class: ${' '.repeat(200000)}x\n${'| '.repeat(100000)}\n${'<'.repeat(100000)} class=`;
+    const skipped = scanWork(() => scanMarkdown(long));
+    assert.ok(!skipped.result.c.has('x'), 'a line past the cap is not read');
+    assert.ok(skipped.scanned <= 16 * long.length, `read ${skipped.scanned} characters for ${long.length}`);
+    // The same three shapes just under the cap, 200 times over, so every line IS read.
+    const block = `<!-- _class: ${' '.repeat(3900)}x\n${'| '.repeat(1950)}\n${'<'.repeat(3900)} class="y"`;
+    const short = Array.from({ length: 200 }, () => block).join('\n');
+    const read = scanWork(() => scanMarkdown(short));
+    assert.ok(read.result.c.has('x') && read.result.c.has('y'), 'a line under the cap is read');
+    assert.ok(read.scanned <= 16 * short.length, `read ${read.scanned} characters for ${short.length}`);
   });
 });

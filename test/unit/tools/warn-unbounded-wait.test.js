@@ -32,6 +32,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const { spawnSync } = require('node:child_process');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const HOOK = path.join(REPO, '.claude', 'hooks', 'warn-unbounded-wait.sh');
@@ -157,7 +158,7 @@ describe('warn-unbounded-wait — it stays quiet where the helper cannot run', (
 
   const haveSandboxParts = Boolean(onPath('bash') && onPath('cat'));
 
-  test('warns when both dependencies are present (the control)', { skip: !haveSandboxParts }, () => {
+  test('warns when both dependencies are present (the control)', { skip: skipUnlessCI(!haveSandboxParts, 'no bash or cat on PATH') }, () => {
     // A stock Mac with `brew install coreutils`: gtimeout for the deadline,
     // perl for the lock. The helper runs there, so the coaching still fires —
     // and a green here is what makes the silences below mean something.
@@ -173,7 +174,7 @@ describe('warn-unbounded-wait — it stays quiet where the helper cannot run', (
   };
 
   for (const [label, stubs] of Object.entries(silent)) {
-    test(`says nothing with ${label}`, { skip: !haveSandboxParts }, () => {
+    test(`says nothing with ${label}`, { skip: skipUnlessCI(!haveSandboxParts, 'no bash or cat on PATH') }, () => {
       const { code, out } = fireWith(stubs);
       assert.equal(code, 0, 'a warning hook must still exit 0');
       assert.equal(out, '', 'the fix it names cannot run here, so it must not name it');

@@ -5,6 +5,7 @@
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const { scanWork } = require('../../helpers/work-count');
 const { checkReturnData, renderReturnMarkdown, returnAttr } = require('../../../lib/packages/plugin-returns.mjs');
 const { RETURN_ENVELOPE, splitReturn, pluginReturnFields, returnsRefusal, returnsConsent, pluginConsentText, MAX_RETURN_TEXT, MAX_RETURN_MARKDOWN } = require('../../../lib/core/code-shape.mjs');
 const { replaceFences } = require('../../../lib/packages/code-door-fence.mjs');
@@ -237,9 +238,11 @@ describe('host slots, after review (red team, inversion, checker; 2026-10-20)', 
   test('the fills of one render are budgeted: 200,000 slots of one 2,000-character value stop at the budget', () => {
     const html = '<p>${summary}</p>'.repeat(200000);
     const budget = { left: SLOT_FILL_MAX };
-    const started = Date.now();
-    assert.equal(fillWith(html, { summary: 'x'.repeat(1900) }, { budget }), null);
-    assert.ok(Date.now() - started < 3000, 'the budget stops the fill early');
+    // Work, not milliseconds (HARD RULE #32): the budget runs out after about 1,050 slots, so the scan reads a few
+    // percent of the drawing. A fill that checked the budget only at the end would read all of it.
+    const { result, scanned } = scanWork(() => fillWith(html, { summary: 'x'.repeat(1900) }, { budget }));
+    assert.equal(result, null);
+    assert.ok(scanned < html.length / 20, `the budget stops the fill early: read ${scanned} of ${html.length} characters`);
     // Within budget, the budget is spent across blocks.
     const shared = { left: 20 };
     assert.equal(fillWith('<p>${note}</p>', { note: 'a'.repeat(15) }, { budget: shared }), `<p>${'a'.repeat(15)}</p>`);
@@ -247,9 +250,20 @@ describe('host slots, after review (red team, inversion, checker; 2026-10-20)', 
   });
   test('many raw-text elements cost linear time (a 480 KB drawing took 23 s when the scan lowercased the whole drawing per element)', () => {
     const html = `<p>\${note}</p>${'<title>x</title>'.repeat(30000)}`;
-    const started = Date.now();
-    assert.ok(fillWith(html, { note: 'z' }).startsWith('<p>z</p>'));
-    assert.ok(Date.now() - started < 1500, `took ${Date.now() - started} ms`);
+    // Work, not milliseconds (HARD RULE #32): count the characters lowercased and searched. The drawing is lowered once.
+    const S = String.prototype;
+    const toLowerCase = S.toLowerCase;
+    let lowered = 0;
+    S.toLowerCase = function () { lowered += this.length; return toLowerCase.call(this); };
+    let out;
+    let scanned;
+    try {
+      ({ result: out, scanned } = scanWork(() => fillWith(html, { note: 'z' })));
+    } finally {
+      S.toLowerCase = toLowerCase;
+    }
+    assert.ok(out.startsWith('<p>z</p>'));
+    assert.ok(lowered + scanned <= 8 * html.length, `lowered ${lowered} and searched ${scanned} characters for ${html.length}`);
   });
 });
 

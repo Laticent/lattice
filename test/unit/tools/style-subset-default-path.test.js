@@ -23,6 +23,7 @@ const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const { buildIndex, scanDocument, neededModules } = require('../../../tools/style-needs');
 const { runtimeTokensFor, readModules } = require('../../../tools/style-needs-lattice');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const built = fs.existsSync(path.join(ROOT, 'dist/styles-min/manifest.json')) && fs.existsSync(path.join(ROOT, 'dist/lattice-min.css'));
@@ -35,7 +36,7 @@ const deckSheet = (html) => [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g
 // A statement ahead of a rule (`@layer a,b;`) belongs to no rule, so the prelude is read after the last `;`.
 const ruleSet = (css) => new Set([...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => `${m[1].split(';').pop().trim()}{${m[2]}}`));
 
-describe('style subset through the default render path', { skip: !built && 'dist/styles-min is not built' }, () => {
+describe('style subset through the default render path', { skip: skipUnlessCI(!built, 'dist/styles-min is not built') }, () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'subset-path-'));
   const deck = 'examples/claim.md';
 

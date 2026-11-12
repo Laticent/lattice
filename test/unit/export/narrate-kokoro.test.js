@@ -9,6 +9,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 const ROOT = path.join(__dirname, '../../..');
 
@@ -29,7 +30,7 @@ function fakeTts() {
 
 test('voiceDeck speaks each distinct sentence once and ships clips the way the Studio bake does', async (t) => {
 	const { encoderAvailable } = await import('../../../lib/core/narration-encode.mjs');
-	if (!(await encoderAvailable())) return t.skip('the MP3 encoder (@breezystack/lamejs) is not installed here');
+	{ const why = skipUnlessCI(!(await encoderAvailable()), 'the MP3 encoder (@breezystack/lamejs) is not installed here'); if (why) return t.skip(why); }
 	const { voiceDeck } = await import('../../../lib/export/narrate-kokoro.mjs');
 	const { buildTrack } = await import('@laticent/cadenza');
 	const one = buildTrack('Revenue grew. Churn fell.');
@@ -59,12 +60,17 @@ test('voiceDeck speaks each distinct sentence once and ships clips the way the S
 });
 
 test('without kokoro-js, loading the voice says how to install it', async (t) => {
+	let installed = true;
 	try {
 		require.resolve('kokoro-js');
-		return t.skip('kokoro-js is installed here');
-	} catch {}
+	} catch {
+		installed = false;
+	}
+	// kokoro-js is not in package.json, so CI never has it and always runs this.
+	const why = skipUnlessCI(installed, 'kokoro-js is installed here');
+	if (why) return t.skip(why);
 	const { encoderAvailable } = await import('../../../lib/core/narration-encode.mjs');
-	if (!(await encoderAvailable())) return t.skip('the MP3 encoder is missing too, and is reported first');
+	{ const missing = skipUnlessCI(!(await encoderAvailable()), 'the MP3 encoder is missing too, and is reported first'); if (missing) return t.skip(missing); }
 	const { loadKokoro, INSTALL_HINT } = await import('../../../lib/export/narrate-kokoro.mjs');
 	await assert.rejects(loadKokoro(), (e) => e.message.includes(INSTALL_HINT));
 });

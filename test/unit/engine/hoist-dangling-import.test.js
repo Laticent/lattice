@@ -83,12 +83,25 @@ describe('hoistImports — a dangling theme name is dropped, a URL is hoisted', 
     // `decodeCssEscapesMapped` builds a decoded copy AND a per-character index map, so
     // an unbounded call cost 651ms / 141MB on a path the live preview re-runs per
     // keystroke. Over the bound the target is not a name, so it hoists without decoding.
+    // Counted, not timed (HARD RULE #32): the characters handed to the escape decoder. css.js takes the decoder when it
+    // loads, so a fresh copy of it is loaded with a counting decoder in its place.
     const huge = `@import '${'a'.repeat(2_000_000)}';\n.a{}`;
-    const t0 = process.hrtime.bigint();
-    const out = hoistImports(huge);
-    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+    const escapes = require('../../../lib/core/css-escapes.js');
+    const cssPath = require.resolve('../../../lib/engine/css.js');
+    const real = escapes.decodeCssEscapes;
+    let decoded = 0;
+    escapes.decodeCssEscapes = (s, ...rest) => { decoded += String(s).length; return real(s, ...rest); };
+    const cached = require.cache[cssPath];
+    delete require.cache[cssPath];
+    let out;
+    try {
+      out = require(cssPath).hoistImports(huge);
+    } finally {
+      escapes.decodeCssEscapes = real;
+      require.cache[cssPath] = cached;
+    }
+    assert.ok(decoded < 1_000, `decoding was not bounded: ${decoded} characters went through the decoder`);
     assert.ok(out.startsWith('@import'), 'an over-long target is not a theme name — it hoists');
-    assert.ok(ms < 150, `decoding was not bounded: ${ms.toFixed(0)}ms`);
   });
 
   test('drops a name hidden behind a CSS escape', () => {

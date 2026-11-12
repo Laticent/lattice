@@ -858,3 +858,35 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Triggered by** — any e2e that resizes, then measures inside the preview.
 - **Removable when** — never.
 - **Commits** — the flaky-e2e touch PR of 2026-11-12.
+
+## A hang guard on a synchronous call never fires, and the test runner hangs instead of failing
+
+- **Symptom:** a test guards against a hang with node:test's `{ timeout }`, a `Promise.race` against a timer, or a
+  stopwatch assertion after the call. When the code under test does hang (a QuickJS loop the wall's limit no longer
+  stops, a `readFileSync` on a FIFO with no writer), the test neither passes nor fails: the runner sits at 100% CPU or
+  blocked, and CI fails only at its job limit with no test named.
+- **Cause:** every one of those guards is a timer or an assertion that runs AFTER the call returns, and a synchronous
+  call that never returns blocks the event loop, so no timer of that process can fire. node:test's own `timeout` is a
+  timer too. Seen 2026-11-12 on `test/unit/plugins/katex-wall.test.js`: with the wall's interrupt handler removed
+  before a result is read, a hostile getter spun for minutes under a 120 s test `timeout`.
+- **How to tell:** the hanging call is synchronous (WebAssembly, `fs.*Sync`, a regex `exec`, a tight loop) and the
+  process shows one core pinned or a blocked read.
+- **Fix:** run the call that might hang in a child process (`spawnSync(process.execPath, ['-e', script], { timeout })`)
+  and assert `signal === null`: the kernel kills the child at the deadline whatever its event loop is doing, so a hang
+  becomes a clean failure. The deadline is a hang guard, sized far above the normal cost, and passing never depends on
+  it (HARD RULE #32, F4). Assert on what the child reports (an error message, a count of reads, where a fake clock
+  stopped), never on how long it ran. `katex-wall`'s LIMITS test and `npm-plugin-loader`'s FIFO test are the pattern.
+- **Cost of not knowing this:** a guard that reads as protection and catches nothing; the rewrite's own failing arm is
+  how this one was found.
+
+## A gate test fails with ENOENT on a file nobody committed (`__or_probe__.astro`)
+
+- **Symptom:** under load, or with two suites running at once, a test that walks a real folder (here
+  `checkAudioPlaybackBoundary` over `docs/src`) throws `ENOENT: no such file or directory, open
+  '…/docs/src/pages/__or_probe__.astro'`. Seen 2026-11-12 in the unit-tier load sweep, never on an idle run.
+- **Cause:** another test wrote a probe file INTO the live checkout and deleted it in `finally`. A concurrent walk listed
+  the probe, then read it after it was gone (HARD RULE #32, F7). The voice-sample tests did the same with a worse
+  failure: they renamed the real, paid-for `docs/public/voice-samples` aside to a fixed `.test-backup` name, which two
+  concurrent runs race on.
+- **Fix:** a gate a test feeds fixtures to takes its root (`checkOpenRouterBudget(errors, root)`,
+  `checkVoiceSampleAssets(errors, samplesDir)`), and the test passes a `mkdtemp` tree. Never write a probe under the repo.

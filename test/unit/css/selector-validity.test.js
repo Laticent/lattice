@@ -37,6 +37,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const csstree = require('css-tree');
 const { resolveChrome } = require('../../../tools/lib/resolve-chrome');
+const { skipWithoutChrome, skipUnlessCI } = require('../../helpers/chrome');
 
 const ROOT = path.resolve(__dirname, '../../..');
 
@@ -123,9 +124,9 @@ describe('engine CSS — every selector parses in the browser that ships it', ()
   // failure names a file someone can open rather than a line in a 1.6MB artifact.
   for (const rel of ['dist/lattice.css', 'dist/lattice-default.css']) {
     test(`${rel} has no selector Chromium rejects`, async (t) => {
-      if (!exe) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
+      { const why = skipWithoutChrome(exe); if (why) return t.skip(why); }
       const file = path.join(ROOT, rel);
-      if (!fs.existsSync(file)) return t.skip(`${rel} not built — run npm run build`);
+      { const why = skipUnlessCI(!fs.existsSync(file), `${rel} not built — run npm run build`); if (why) return t.skip(why); }
       const selectors = selectorsOf(fs.readFileSync(file, 'utf8'));
       assert.ok(selectors.length > 1000, `expected a real bundle, parsed ${selectors.length} rules`);
 
