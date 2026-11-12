@@ -160,6 +160,13 @@ bare `/offline/` page); the assertion reads the live frame's document through `p
 Unit: `docs/src/lib/srcdoc-write.test.ts` (13 cells: the three paths, the probe's three verdicts, focus, sibling order,
 detached frames, no service-worker API).
 
+`single-slide-render.adopt-bake.test.ts` needed one harness change. jsdom fires its own `load` on a frame inserted with
+`srcdoc` set, without loading anything, and the live frame is now inserted that way. Six cells that model "the adopted
+document has not loaded yet" saw that fake load and failed. The file now stops jsdom's frame loads with a capture
+listener on `document` (the DOM spec keeps `window` out of a `load` event's path), and every load in those cells is one
+the test fires itself. Real engines fire exactly one `load` for such a frame, after its document loads (measured in
+Chromium, Firefox and WebKit: none fires during the insert).
+
 ## 7. Open, for the owner
 
 1. **The gecko e2e.** Playwright's `FrameManager.frameCommittedNewDocumentNavigation` (1.56.1 and upstream `main`) does
