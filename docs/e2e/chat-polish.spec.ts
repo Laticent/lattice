@@ -108,7 +108,10 @@ for (const [w, h] of [
 	await expect(page.getByText('Ask a question')).toBeVisible();
 	await expect(page.getByText('Make an edit')).toBeVisible();
 	await page.getByRole('tab', { name: 'All' }).click();
-	await page.getByRole('radio', { name: /Gemini 3 Flash/ }).check();
+	// `click`, not `check`: picking a model closes the picker, and `check` re-reads the radio's state after its click.
+	// Under load the picker had already unmounted it, so `check` retried against a radio that no longer exists until its
+	// timeout (1 run in 10 at --workers=4). The two lines below assert what the pick must do.
+	await page.getByRole('radio', { name: /Gemini 3 Flash/ }).click();
 	await expect(page.getByLabel('Search OpenRouter models')).toHaveCount(0);
 	await expect(chip).toContainText('Gemini 3 Flash');
 	await page.screenshot({ path: test.info().outputPath(`chat-polish-chip-${w}.png`) });
