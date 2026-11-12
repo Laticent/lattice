@@ -22,6 +22,7 @@ import { insertLineBreak } from '@/lib/compose/line-break-command';
 import { linkAt, linkBlocker, selectedLink, startLink } from '@/lib/compose/link-commands';
 import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, type PaneInfo, paneChoices, paneFit, paneLabel, paneMarkerGuard, paneOwnsTitles, paneStarter, slidePanes, starterEditable } from '@/lib/compose/pane-model';
 import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
+import { takePendingSelection } from '@/lib/compose/pending-selection';
 import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/pill-sheet';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
@@ -2535,7 +2536,12 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			const v = viewRef.current;
 			// Never dispatch mid-composition: a transaction during IME composition is a
 			// documented way to lose a half-typed character, and nothing here is urgent.
-			if (v && !v.composing) v.dispatch(v.state.tr.setMeta(codeHighlightKey, true));
+			if (v && !v.composing) {
+				// A timer, not an input: take in a caret move ProseMirror has not read yet, or this
+				// transaction writes the old caret back over it (pending-selection.ts).
+				takePendingSelection(v);
+				v.dispatch(v.state.tr.setMeta(codeHighlightKey, true));
+			}
 			const now = snapshot();
 			const stable = now !== null && now === last;
 			last = now;
