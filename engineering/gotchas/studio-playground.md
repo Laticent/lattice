@@ -1835,3 +1835,25 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — passing `aria-describedby` to a sheet or dialog, or wiring a description some other way.
 - **Removable when** — VoiceOver stops repeating a container's description, verified on a device.
 - **Commits** — PR #3108.
+
+## Typing `` `@ava `` in the Studio editor opens no menu, then a later keystroke does
+
+- **Symptom** — the `@` kind menu, or `@check{y`'s answers, does not open for the first span typed after the Studio
+  loads; typing one more character opens it. `e2e/plugin-inline-ui.spec.ts` :139 and :173 failed 11 of 12 runs.
+- **Cause** — inside an inline span the completion comes from the lint core, which the editor imports lazily. Before
+  it lands the source returns `null`, and CodeMirror asks a source again only on the next keystroke.
+- **Mitigation** — `withLazyInlineCore` (`docs/src/components/studio/editor-complete.ts`) waits for the core when a
+  span found nothing and the core is not in, then asks once more, so the menu opens the moment it lands.
+- **Triggered by** — a new completion that reads a lazily loaded module.
+
+## Explore at a narrow width shows the component gallery instead of your draft
+
+- **Symptom** — on the Playground, entering Explore (the eye button) soon after load shows a component's gallery (the
+  first is `actors`) instead of the draft; a moment later the same click shows the draft.
+  `e2e/chart-detail-reveal.spec.ts:269` failed at 390px under load.
+- **Cause** — the Edit boot warms the component walk behind the editor with a plan fetch. Entering Explore before it
+  landed started a walk of the gallery and ignored the draft, and the warm-up walk landing later rendered the gallery
+  too: `startWalk` bumped `deckPickSeqRef` but never checked it after its `await`.
+- **Mitigation** — `startWalk` (`docs/src/components/playground/PlaygroundApp.tsx`) drops a plan that a later pick
+  superseded, and a walk started by entering Explore keeps an edited draft, as `setViewMode`'s save-back does once a
+  walk exists. `PlaygroundApp.test.tsx` holds the plan fetch to pin it.
