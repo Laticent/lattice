@@ -1,15 +1,15 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Lattice has no idea what machine it runs on. About a dozen features each check one API on their own, nothing
-  reads memory or GPU, and there is no minimum browser and no "unsupported" message. Proposed: one kernel reads
+  reads memory or GPU, and there is no minimum browser and no "unsupported" message. The design: one kernel reads
   the device once, before first paint, and puts it in one of three tiers. FULL is today's app. LITE keeps every
   feature but swaps the GPU-heavy visuals (the Nacre loader becomes the landing hero's pulse skeleton, backdrop
   blur becomes a solid fill), sizes worker pools from cores and memory, and keeps the local AI models off.
   UNSUPPORTED declines, out loud, naming the failed check. A System diagnostic panel in Workspace settings shows
   every signal and the reason for the tier. Declines are driven by facts the browser cannot misreport (missing
-  features); hardware numbers are unreliable across browsers, so they choose LITE, not a decline, unless the
-  owner sets a hard floor.
+  features) or by two hardware signals that agree, using a short CPU micro-benchmark and the detect-gpu library to
+  cover what Safari and Firefox do not report.
 ---
 
 # Device capability tiers: detect the machine, degrade on purpose, decline out loud
@@ -64,16 +64,53 @@ colors and CSS nesting all supported. Two consequences:
 |---|---|---|
 | **FULL** | A real GPU, enough cores and memory (or no evidence against them) | Today's app, unchanged |
 | **LITE** | Software GPU, or ≤ 4 GB / ≤ 4 cores where reported, or the boot probe measured sustained long tasks | Every feature works; the costly *presentation* is swapped (§4) |
-| **UNSUPPORTED** | Missing a feature the app cannot run without, or below a hardware floor the owner sets (§6, question 1) | A full-page decline that names the failed check and what to use instead |
+| **UNSUPPORTED** | Missing a feature the app cannot run without, or below the hardware floor in §3.1 | A full-page decline that names the failed check and what to use instead, with a small "continue anyway" link that runs the session as LITE |
 
 **Rules that keep it honest:**
 
 - **Absent signal is not a weak signal.** Safari reports no memory; that is "unknown", and unknown never pushes a user down a tier.
-- **Feature tests decline; hardware numbers degrade** (by default). A missing `:has()` is a fact; "8 GB" is a rounded guess from one engine.
+- **Hardware declines only on agreeing evidence.** A missing `:has()` is a fact and declines alone. A hardware number is a guess, so the hardware floor (§3.1) needs two independent signals to agree before it declines; one weak signal only makes LITE.
 - **Measured beats guessed.** A boot probe (long tasks over the first few seconds of the Studio) can drop FULL to LITE mid-session, never the other way, and says so in a toast.
 - **The user can override** (Workspace settings → Auto / Full / Lite). Auto is the default. The override never lifts UNSUPPORTED past a missing feature.
 - **One place decides.** `docs/src/lib/device-profile.ts`: a pure `classify(signals) → { tier, reasons[] }` plus a `readSignals()` that touches the browser. `classify` is unit-tested over a signal table; nothing else in the app reads `deviceMemory` or the renderer string. `prefetch-engine.ts`'s network signals fold in as inputs, and the inline copies in `studio.astro` / `playground.astro` go.
 - **Before first paint.** A small inline script in the page head runs the same feature list and the renderer test, and sets `data-device-tier` on `<html>`. CSS reads the attribute, so the Studio shell's inline Nacre never paints on a LITE machine at all.
+
+### 3.1 Quick, cross-browser hardware detection (the owner asked for one)
+
+The owner wants hardware to count toward a decline, "best effort but somewhat accurate". The browser's own numbers
+cannot do that alone (memory is missing on Safari and Firefox), so the profile adds two signals that work on every
+engine:
+
+1. **A CPU micro-benchmark** (about 140 ms, run once at boot and cached for the day): a fixed unit of typed-array
+   math, a JSON round trip and string building, counted in seven 20 ms windows, median taken. It measures the thing
+   we care about (how fast this browser runs our kind of JavaScript right now) and it sees what the spec numbers
+   cannot: thermal throttling, battery saver, a busy machine.
+   **Measured here** (Playwright Chromium 153, sandbox, CDP CPU throttling): unthrottled median 178 units, 4x
+   throttle 24, 6x throttle 28. It separates a fast machine from a slow one by about 7x, and it does **not**
+   separate 4x from 6x. It is a coarse gate, good for "clearly slow", useless for fine grading. The first window
+   reads low (76) because the JIT is still warming, which is why it takes the median. The cut-off is calibrated in
+   slice 1 against the macOS and Windows runners, and the PR records the numbers.
+2. **`detect-gpu`** (pmndrs, MIT, v5.0.70): looks the WebGL renderer string up in a table of measured GPU frame
+   rates and returns tier 0–3. Tier 0 means no WebGL, a blocklisted GPU, or under 15 fps. It ranks real GPUs (an
+   old integrated chip versus a discrete card), which our own software-renderer test cannot. Two costs: its
+   benchmark tables must be **self-hosted** (it defaults to unpkg, and the app has no CDN dependency), and they were
+   last published 2025-02, so a GPU newer than that is unknown and the library falls back to a guess. It loads
+   lazily after first paint; the pre-paint script uses only our renderer-string test.
+
+No library is needed for browser version: feature tests are exact, and a UA parser (`bowser`, `ua-parser-js`) would
+only add a less reliable second answer. The System panel shows the UA-derived name for humans; nothing decides on it.
+
+**The floor.** Decline when the browser lacks a required feature (§6), **or** when two hardware signals agree:
+
+| Signal | Weak (counts toward LITE) | Floor (counts toward decline) |
+|---|---|---|
+| GPU | software renderer, or `detect-gpu` tier 1 | no WebGL at all, or `detect-gpu` tier 0 |
+| Memory (Chromium only) | ≤ 4 GB | ≤ 1 GB |
+| Cores (not Safari) | ≤ 4 | ≤ 2 |
+| Micro-benchmark | below the LITE cut-off | below the floor cut-off (calibrated in slice 1) |
+
+One weak signal makes LITE (the owner's threshold, 2026-11-12). Two floor signals make UNSUPPORTED, with the
+"continue anyway" link. The floor column is a proposal; the owner sets the final numbers on the PR.
 
 ## 4. What LITE changes
 
@@ -86,14 +123,14 @@ Ordered by how much each saves on a weak machine.
 | `backdrop-filter: blur` (header, chart interact, playground) | Blur | Opaque surface token | Backdrop blur re-samples what is behind it every frame it scrolls |
 | Preview iframe pool (`preview-pool.tsx`) | 10–28 slots | 6–12 | Each slot is a full document in memory |
 | Worker pools (encoder, narration, PDF in-flight) | cores − 1, current caps | 1 worker, 1 PDF slide in flight | Memory more than CPU: one 4K bitmap is about 33 MB |
-| Export capture | `pixelRatio` 2 below 2048 px | 1 | Halves capture memory; the PDF stays vector |
 | Local AI models (Kokoro, Transformers.js, WebLLM) | Offered | Hidden; hosted voice only | 80 MB to 1 GB downloads on a machine that cannot hold them |
 | Idle prefetch (`studio-warm.ts`) | Compose, Present, reading view, Fabricate | Off; panels load on first open | Prefetch is CPU and memory spent on a guess |
 | Anima / motion | Author's tier | `legible` tier, the same floor `prefers-reduced-motion` uses | The kernel already has the tier |
 
-LITE is a **look** change on screen, never an **export** change: no exported byte differs between tiers (the
-capture `pixelRatio` row is the one exception, and it only applies to raster image export, which goes through the
-QUALITY BAR's export sign-off before it ships).
+LITE is a change to what the app shows and how fast it works, **never to what it exports.** A deck exported on a
+LITE machine is byte-for-byte the one a FULL machine exports. Export work may run slower on LITE (one worker, one
+slide in flight), but capture resolution, fonts and encoders do not change, so no tier ever needs the QUALITY BAR's
+export sign-off.
 
 ## 5. The System diagnostic panel
 
@@ -125,12 +162,14 @@ one in a real browser before it joins the list: module workers, IndexedDB, CSS `
 `structuredClone`, and the ES level the build emits. Anything with a working fallback today (OffscreenCanvas,
 CompressionStream, relative colors, `requestIdleCallback`) is **not** on it.
 
-## 7. Open decisions (owner's call)
+## 7. Decisions (owner, 2026-11-12)
 
-1. **Does weak hardware ever decline, or only degrade?** Recommended: degrade only, decline on missing features. Memory is unreported on Safari and Firefox, so a hardware floor declines only Chromium users and lets the same weak machine through on Safari.
-2. **Does the decline screen keep a "continue anyway" link?** Recommended: yes, small, below the report button, and the session then runs as LITE with a persistent banner. Without it, one wrong feature test locks a capable user out with no recourse.
-3. **Which surfaces does the gate cover?** Recommended: the Studio, Playground and Present. The landing and docs pages are static and serve everyone.
-4. **The LITE thresholds.** Proposed: software renderer, or ≤ 4 GB reported, or ≤ 4 cores reported on a non-Safari engine, or the boot probe. These are the owner's numbers to set (CLAUDE.md, second filter, row 3).
+1. **Decline on features and hardware**, best effort: the floor in §3.1, two agreeing signals, with the
+   micro-benchmark and `detect-gpu` filling the gaps the browser's own numbers leave.
+2. **The decline screen keeps a "continue anyway" link.** The session then runs as LITE with a banner that stays up.
+3. **The gate covers the Studio, the Playground and Present.** Landing and docs pages serve everyone.
+4. **LITE triggers as proposed:** a software GPU, or ≤ 4 GB reported, or ≤ 4 cores reported outside Safari, or the
+   boot probe. Any one is enough.
 
 ## 8. Delivery
 
@@ -140,7 +179,7 @@ One branch, one PR, one commit per slice (HARD RULE #17):
 2. System diagnostic panel.
 3. LITE visuals: Nacre → skeleton, Underpainting static, backdrop blur → solid. Owes a demo deck only if a slide surface changes (it does not; these are app chrome), and owes `tools/screenshot.js` at three widths in both tiers.
 4. LITE resources: pool sizes, preview slots, prefetch, model visibility.
-5. Decline screen + override setting.
+5. Decline screen, "continue anyway", and the override setting.
 
 **Verification:** Playwright Chromium is a natural LITE machine (SwiftShader); a GPU-backed FULL run and real Safari
 need the macOS suite by dispatch. A real low-memory Android phone is **UNVERIFIED** from here (HARD RULE #23), and the
