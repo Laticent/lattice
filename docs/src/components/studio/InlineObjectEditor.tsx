@@ -143,13 +143,20 @@ export function InlineObjectEditorHost({
 		}
 	}, [entry, onClose, view]);
 
+	// Where the open object is NOW: the plugin's position when it still holds this editor's object (its id), else the last
+	// render's. The anchor and the placement read it too, so neither points at the neighbor a moved position lands on.
+	const livePos = React.useCallback((): number => {
+		const o = openObject(view.state);
+		return o && o.id === openRef.current.id ? o.pos : openRef.current.pos;
+	}, [view]);
 	const anchorRef = React.useRef<Anchor>({
 		getBoundingClientRect: () => {
 			// The object's live element: ProseMirror hands back the node view's DOM for a position.
 			try {
-				const el = view.nodeDOM(openRef.current.pos);
+				const pos = livePos();
+				const el = view.nodeDOM(pos);
 				if (el instanceof HTMLElement && el.isConnected) return el.getBoundingClientRect();
-				const c = view.coordsAtPos(Math.min(openRef.current.pos, view.state.doc.content.size));
+				const c = view.coordsAtPos(Math.min(pos, view.state.doc.content.size));
 				return new DOMRect(c.left, c.top, Math.max(1, c.right - c.left), c.bottom - c.top);
 			} catch {
 				return new DOMRect(0, 0, 0, 0);
@@ -227,7 +234,7 @@ export function InlineObjectEditorHost({
 				holdOpen={holdOpen}
 				onOpenLibrary={onOpenLibrary}
 				placement={(() => {
-					const at = placementAt(view.state, openRef.current.pos);
+					const at = placementAt(view.state, livePos());
 					return { value: at.placement, canPlace: at.canPlace };
 				})()}
 				onPlace={(p) => {
