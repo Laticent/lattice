@@ -1037,6 +1037,35 @@ async function memoTier() {
   }
   times.sort((a, b) => a - b);
   const summary = [{ dataset: 'meta-memo · 3 phone-photo slides', work: { copiedPerKey: Math.round((memo.memoStats.copiedChars - before) / N), cutsPerKey: (bounds.chunkCutCount() - cutsBefore) / N }, ms: times[Math.floor(N / 2)], p95: times[N - 1] }];
+  // THE SAME DECK THROUGH ITS WHOLE-DECK READERS: lint-core, review-core and the engine's render, each of which skips a
+  // photo's base64 (lib/core/payload-elision.js). The work is the characters each was handed per pass: 16 MB each when a
+  // payload reaches them whole.
+  const elision = createRequire(import.meta.url)('../../lib/core/payload-elision.js');
+  if (elision.readStats?.renderChars !== undefined) {
+    const lintCore = createRequire(import.meta.url)('../../lib/authoring/lint-core.js');
+    const reviewCore = createRequire(import.meta.url)('../../lib/authoring/review-core.js');
+    const { buildVocab } = createRequire(import.meta.url)('../../lib/authoring/lint.js');
+    const { createEngine } = createRequire(import.meta.url)('../../lib/engine/index.js');
+    const vocab = buildVocab();
+    const engine = createEngine();
+    const deck = slides.join('\n\n---\n\n');
+    const pass = () => {
+      lintCore.lintTextWith(deck, vocab);
+      reviewCore.reviewText(deck, {});
+      engine.render(deck);
+    };
+    pass();
+    const at = { ...elision.readStats };
+    const passTimes = [];
+    for (let i = 0; i < 5; i++) {
+      const t = process.hrtime.bigint();
+      pass();
+      passTimes.push(Number(process.hrtime.bigint() - t) / 1e6);
+    }
+    passTimes.sort((a, b) => a - b);
+    const per = (k) => Math.round((elision.readStats[k] - at[k]) / 5);
+    summary.push({ dataset: 'payload skip · 3 phone-photo slides', work: { lintChars: per('lintChars'), reviewChars: per('reviewChars'), renderChars: per('renderChars') }, ms: passTimes[2], p95: passTimes[4] });
+  }
   console.log('\n=== META-MEMO · slide-metadata reads per keystroke on a deck of phone photos ===');
   for (const r of summary) console.log(`${r.dataset.padEnd(48)}${JSON.stringify(r.work).padEnd(40)}${r.ms.toFixed(3).padStart(11)}${r.p95.toFixed(3).padStart(9)}`);
   return { summary };
