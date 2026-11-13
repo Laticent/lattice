@@ -27,6 +27,7 @@ import hashlib
 import io
 import json
 import os
+import random
 import shutil
 import struct
 import subprocess
@@ -121,7 +122,7 @@ def filter_row(kind, row, prev, bpp):
 
 
 def encode_png(arr, color_type, depth, interlace=0, plte=None, trns=None, filters='cycle', idat_split=0, before_idat=(), seed=0,
-               trns_bytes=None, trns_where='after-plte', after_idat=(), extra_raw=b'', zlib_tail=b''):
+               trns_bytes=None, trns_where='after-plte', after_idat=(), extra_raw=b'', zlib_tail=b'', adler='good'):
     """arr: (h, w, channels) samples. filters: 'cycle' (row % 5), 'none', 'paeth', or 'adaptive' (least sum)."""
     h, w, ch = arr.shape
     bpp = max(1, ch * depth // 8)
@@ -146,7 +147,12 @@ def encode_png(arr, color_type, depth, interlace=0, plte=None, trns=None, filter
             raw += filter_row(kind, row, prev, bpp)
             prev = row
             row_no += 1
-    z = zlib.compress(bytes(raw) + extra_raw, 9) + zlib_tail
+    z = zlib.compress(bytes(raw) + extra_raw, 9)
+    if adler == 'bad':
+        z = z[:-1] + bytes([z[-1] ^ 0x5A])
+    elif adler == 'none':
+        z = z[:-4]
+    z += zlib_tail
     written = bytes(trns_bytes) if trns_bytes is not None else (bytes(trns) if trns is not None else None)
     out = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, depth, color_type, 0, 0, interlace))
     for kind, data in before_idat:
@@ -333,6 +339,9 @@ def png_cases():
     # Image data past what the header needs: extra scanline bytes, and bytes after the zlib stream.
     cases.append(('edge-extra-inflated', samples(2, 8, 9, 7), 2, 8, dict(extra_raw=bytes(range(200)))))
     cases.append(('edge-zlib-trailing-bytes', samples(2, 8, 9, 7), 2, 8, dict(zlib_tail=b'trailing bytes after the zlib stream')))
+    # The Adler-32 wrong, and missing: the engines once disagreed on these through DecompressionStream.
+    cases.append(('edge-zlib-bad-adler', samples(2, 8, 9, 7), 2, 8, dict(adler='bad', pillow=False)))
+    cases.append(('edge-zlib-no-adler', samples(2, 8, 9, 7), 2, 8, dict(adler='none', pillow=False)))
 
     # Color-tagged files: the pixels decode as stored; the profile and the tags come back.
     photo_rgb = np.asarray(photo(48, 32, SEED + 30)).astype(np.int64)
@@ -526,6 +535,38 @@ def pillow_c_rgba(data):
     return np.frombuffer(raw, np.uint8).reshape(im.height, im.width, 4)
 
 
+def jpegtran(src, script):
+    """Re-encode `src` losslessly with a custom progressive scan script (jpegtran -scans)."""
+    exe = shutil.which('jpegtran')
+    if not exe:
+        raise SystemExit('jpegtran (libjpeg-turbo-progs) is required for the custom-scan fixtures')
+    with tempfile.TemporaryDirectory() as tmp:
+        a, sf, out = (os.path.join(tmp, n) for n in ('in.jpg', 'scans.txt', 'out.jpg'))
+        open(a, 'wb').write(src)
+        open(sf, 'w').write(script)
+        subprocess.run([exe, '-scans', sf, '-outfile', out, a], check=True)
+        return open(out, 'rb').read()
+
+
+def jpegtran_cases():
+    """Legal progressive files from stock jpegtran scan scripts with many scans: each must decode."""
+    gray = save_jpeg(photo(160, 120, SEED + 60).convert('L'), quality=90)
+    color = save_jpeg(photo(160, 120, SEED + 61), quality=90, subsampling='4:4:4')
+    per_coef = '0: 0 0 0 0;\n' + ''.join(f'0: {k} {k} 0 0;\n' for k in range(1, 64))
+    pairs = '0,1,2: 0 0 0 0;\n' + ''.join(f'{c}: {k} {min(k + 1, 63)} 0 0;\n' for c in range(3) for k in range(1, 64, 2))
+    band_sa = ('0: 0 0 0 0;\n' + ''.join(f'0: {b} {b + 3} 0 3;\n' for b in range(1, 61, 4)) + '0: 61 63 0 3;\n'
+               + ''.join(f'0: {b} {b + 3} {a} {a - 1};\n' for a in (3, 2, 1) for b in range(1, 61, 4)) + ''.join(f'0: 61 63 {a} {a - 1};\n' for a in (3, 2, 1)))
+    # jpegtran takes at most 100 scans: the 32 lowest coefficients alone, each refined once, the rest as a band.
+    deep = ('0: 0 0 0 2;\n0: 0 0 2 1;\n0: 0 0 1 0;\n' + ''.join(f'0: {k} {k} 0 1;\n' for k in range(1, 33)) + '0: 33 63 0 1;\n'
+            + ''.join(f'0: {k} {k} 1 0;\n' for k in range(1, 33)) + '0: 33 63 1 0;\n')
+    return [
+        ('jpegtran-gray-64-scans-one-coefficient', jpegtran(gray, per_coef)),
+        ('jpegtran-444-97-scans-pairs', jpegtran(color, pairs)),
+        ('jpegtran-gray-65-scans-bands-refined', jpegtran(gray, band_sa)),
+        ('jpegtran-gray-69-scans-refined', jpegtran(gray, deep)),
+    ]
+
+
 def jpeg_cases():
     big = photo(1001, 667, SEED + 10)
     mid = photo(257, 193, SEED + 11)
@@ -583,6 +624,8 @@ def jpeg_cases():
     add('phone-ultra-hdr-gain-map', ultra_hdr(phone, DISPLAY_P3, exif.tobytes()))
     big_icc = (DISPLAY_P3 + bytes(70000))[:70000]  # a profile over one APP2 segment (65,519 bytes) splits in two
     add('phone-icc-two-segments', save_jpeg(phone, quality=90, icc_profile=big_icc))
+    for name, data in jpegtran_cases():
+        add(name, data)
     add('big-base-420-q75', save_jpeg(big, quality=75, subsampling='4:2:0'))
     add('big-prog-444-q90', save_jpeg(big, quality=90, subsampling='4:4:4', progressive=True))
     return cases
@@ -602,6 +645,76 @@ def sha(a):
 
 # ── Main ─────────────────────────────────────────────────────────────────────────────────────────────
 
+# ── zlib streams (the in-tree inflate's oracle) ─────────────────────────────────────────────────────
+
+def zlib_reference(stream):
+    """What Python's zlib makes of a stream, fed a byte at a time so its output up to an error survives:
+    (output, verdict), verdict one of 'ok', 'adler' (all data out, the check failed), 'error', 'truncated'."""
+    d = zlib.decompressobj()
+    out = bytearray()
+    for i in range(len(stream)):
+        try:
+            out += d.decompress(stream[i:i + 1])
+        except zlib.error as e:
+            return bytes(out), 'adler' if 'incorrect data check' in str(e) else 'error'
+        if d.eof:
+            return bytes(out), 'ok'
+    return bytes(out), 'truncated'
+
+
+def zlib_cases():
+    """Streams from every zlib setting a PNG encoder uses, and seeded mutations of a few of them."""
+    rng = random.Random(SEED + 50)
+    text = (' '.join(rng.choice(['image', 'lastra', 'deflate', 'window', 'Huffman', 'block', '0123', 'stored']) for _ in range(8000))).encode()
+    noise = bytes(rng.randrange(256) for _ in range(12000))
+    ramp = bytes((i * 7 + (i >> 9)) & 255 for i in range(40000))  # repeats past the 32 KB window
+    far = noise[:200] + bytes(32000) + noise[:200] + text[:3000] + noise[:200]  # a match 32 KB back
+    sources = {'text': text, 'noise': noise, 'ramp': ramp, 'far': far, 'empty': b'', 'one': b'x'}
+    cases = []
+    for name, data in sources.items():
+        for level in (0, 1, 6, 9):
+            cases.append((f'{name}-l{level}', zlib.compress(data, level)))
+    for strategy, tag in ((zlib.Z_FILTERED, 'filtered'), (zlib.Z_HUFFMAN_ONLY, 'huffman'), (zlib.Z_RLE, 'rle'), (zlib.Z_FIXED, 'fixed')):
+        c = zlib.compressobj(9, zlib.DEFLATED, 15, 9, strategy)
+        cases.append((f'text-{tag}', c.compress(text) + c.flush()))
+    for wbits in (9, 12):
+        c = zlib.compressobj(6, zlib.DEFLATED, wbits)
+        cases.append((f'ramp-window{wbits}', c.compress(ramp) + c.flush()))
+    c = zlib.compressobj(6)
+    flushed = c.compress(text[:5000]) + c.flush(zlib.Z_SYNC_FLUSH) + c.compress(noise[:3000]) + c.flush(zlib.Z_FULL_FLUSH) + c.compress(text[5000:9000]) + c.flush()
+    cases.append(('text-sync-full-flush', flushed))
+    # Empty stored blocks after compressed data at every bit alignment: a stored block must start from the
+    # whole bytes the reader has already buffered, not past them.
+    for n in range(1, 17):
+        c = zlib.compressobj(9, zlib.DEFLATED, 15, 9, zlib.Z_FIXED)
+        cases.append((f'stored-after-fixed-{n:02d}', c.compress(text[:n]) + c.flush(zlib.Z_SYNC_FLUSH) + c.compress(text[n:n + 40]) + c.flush()))
+    files = []
+    for name, stream in cases:
+        out, verdict = zlib_reference(stream)
+        assert verdict == 'ok' and len(out) >= 0, name
+        files.append((name, stream, out, verdict))
+    # Seeded damage on small streams: flipped bytes, cut ends, a bad Adler-32, trailing bytes.
+    small = {'text': zlib.compress(text[:6000], 9), 'fixed': files[[n for n, *_ in files].index('text-fixed')][1][:0] or zlib.compressobj(9, zlib.DEFLATED, 15, 9, zlib.Z_FIXED).compress(text[:4000]), 'noise': zlib.compress(noise[:3000], 0)}
+    c = zlib.compressobj(9, zlib.DEFLATED, 15, 9, zlib.Z_FIXED)
+    small['fixed'] = c.compress(text[:4000]) + c.flush()
+    for base_name, base in small.items():
+        for k in range(12):
+            b = bytearray(base)
+            kind = k % 4
+            if kind == 0:
+                for _ in range(1 + rng.randrange(3)):
+                    b[2 + rng.randrange(len(b) - 2)] ^= 1 << rng.randrange(8)
+            elif kind == 1:
+                b = b[:rng.randrange(2, len(b))]
+            elif kind == 2:
+                b[-1] ^= 0x5A
+            else:
+                b += bytes(rng.randrange(256) for _ in range(1 + rng.randrange(8)))
+            out, verdict = zlib_reference(bytes(b))
+            files.append((f'damaged-{base_name}-{k:02d}', bytes(b), out, verdict))
+    return files
+
+
 def build():
     files = {}
     expected = {
@@ -615,8 +728,10 @@ def build():
     for name, arr, ct, depth, kw in png_cases():
         tags = kw.pop('tags', [])
         icc = kw.pop('icc', None)
+        check = kw.pop('pillow', True)  # Pillow refuses a bad or missing Adler-32; the encoder's truth stands
         data = encode_png(arr, ct, depth, **kw)
-        pillow_samples_agree(data, arr, ct, depth, name)
+        if check:
+            pillow_samples_agree(data, arr, ct, depth, name)
         truth = truth_rgba(arr, ct, depth, kw.get('plte'), kw.get('trns'))
         files[f'png/{name}.png'] = data
         expected['png'][f'{name}.png'] = {
@@ -657,6 +772,12 @@ def build():
             'exifOrientation': None,
             'oracle': oracle,
         }
+    expected['zlib'] = {}
+    for name, stream, out, verdict in zlib_cases():
+        files[f'zlib/{name}.z'] = stream
+        if verdict != 'ok':
+            files[f'zlib/{name}.out'] = out  # zlib's output up to where it stopped: the prefix lastra must match
+        expected['zlib'][f'{name}.z'] = {'outputLength': len(out), 'outputSha256': hashlib.sha256(out).hexdigest(), 'zlibVerdict': verdict}
     files['expected.json'] = (json.dumps(expected, indent=2) + '\n').encode()
     return files
 

@@ -52,6 +52,10 @@ const require = createRequire(path.join(ROOT, 'docs/package.json'));
  *   and Firefox. WebKit differs by at most a few levels on the smoothed files (14 on the one-scan file).
  * - A file that ends with no EOI: Chromium refuses it, WebKit shows nothing, Firefox shows the scan-boundary
  *   cut as lastra does and the other two differently. lastra reads the end as EOI, as libjpeg does.
+ * - A zlib stream with a wrong Adler-32, or none at all: the engines disagree with each other. Chromium
+ *   decodes the bad checksum as lastra does and refuses the missing one; Firefox refuses the missing one
+ *   and drops the last rows of the bad one; WebKit drops rows of both. lastra reads neither (it stops at
+ *   the image's size), so its answer is the same in every engine, which is what the in-engine run checks.
  * - Coefficients a quantization table pushes past 16 bits: every engine runs libjpeg-turbo's SIMD IDCT,
  *   which saturates in 16-bit lanes; lastra follows the C code, which does not (real encoders never write
  *   such a file; on the reviewers' 951 damaged files lastra matches the C build on every one).
@@ -71,6 +75,7 @@ const CEILINGS = {
     ),
     'cut-prog-inside-scan.jpg': ANY,
     'cut-base-no-eoi-only.jpg': ANY,
+    'edge-zlib-bad-adler.png': ANY,
   },
   webkit: {
     ...SIMD_OVERFLOW,
@@ -87,6 +92,8 @@ const CEILINGS = {
         'cut-prog-at-scan-boundary.jpg',
         'cut-prog-inside-scan.jpg',
         'cut-base-no-eoi-only.jpg',
+        'edge-zlib-bad-adler.png',
+        'edge-zlib-no-adler.png',
       ].map((f) => [f, ANY]),
     ),
     ...Object.fromEntries(['partial-prog-keep1of10.jpg', 'partial-prog-keep3of10.jpg', 'partial-prog-keep6of10.jpg', 'partial-prog-keep9of10.jpg'].map((f) => [f, { maxDiff: 14, minPsnr: 40 }])),
@@ -106,8 +113,45 @@ function args() {
 async function loadLastra() {
   const esbuild = require('esbuild');
   const out = await esbuild.build({ entryPoints: [path.join(ROOT, 'docs/src/lib/lastra/decode/index.ts')], bundle: true, format: 'esm', platform: 'neutral', write: false });
-  const url = `data:text/javascript;base64,${Buffer.from(out.outputFiles[0].text).toString('base64')}`;
-  return import(url);
+  const code = out.outputFiles[0].text;
+  const url = `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
+  return { lastra: await import(url), code };
+}
+
+/**
+ * Run lastra itself inside the engine on every fixture and hand back a digest per file (SHA-256 of the
+ * RGBA, or the refusal code). Node's digests must match exactly: the decoders are pure JavaScript, so a
+ * difference here is an engine-dependent path inside lastra (the platform inflate once was one).
+ */
+async function lastraInEngine(page, code, files) {
+  await page.addScriptTag({ type: 'module', content: `${code.replace(/export\s*\{([^}]*)\};?\s*$/, (_, names) => `window.__lastra = {${names.split(',').map((n) => { const [l, a] = n.trim().split(/\s+as\s+/); return `${a ?? l}: ${l}`; }).join(',')}};`)}` });
+  await page.waitForFunction(() => window.__lastra);
+  return page.evaluate(async ([list, digestSrc]) => {
+    const digestOf = new Function(`return ${digestSrc}`)();
+    const out = {};
+    for (const [name, kind, b64] of list) {
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      try {
+        const img = kind === 'jpeg' ? await window.__lastra.decodeJpeg(bytes) : await window.__lastra.decodePng(bytes);
+        out[name] = digestOf(img.data);
+      } catch (e) {
+        out[name] = `refused ${e?.code ?? String(e)}`;
+      }
+    }
+    return out;
+  }, [files, pixelDigest.toString()]);
+}
+
+/** Two FNV-1a hashes with different offsets: a digest computed the same way in Node and in a page (a page
+ * opened with setContent has no `crypto.subtle`). */
+function pixelDigest(data) {
+  let a = 0x811c9dc5;
+  let b = 0x01000193;
+  for (let i = 0; i < data.length; i++) {
+    a = Math.imul(a ^ data[i], 0x01000193) >>> 0;
+    b = Math.imul(b ^ data[i] ^ (i & 255), 0x01000193) >>> 0;
+  }
+  return `${data.length}:${a.toString(16)}:${b.toString(16)}`;
 }
 
 function stats(ours, theirs, onlyOpaque) {
@@ -196,20 +240,21 @@ async function engineDecode(page, bytes, type, options) {
 
 async function main() {
   const opts = args();
-  const lastra = await loadLastra();
+  const { lastra, code } = await loadLastra();
   const pw = require('@playwright/test');
   const expected = JSON.parse(readFileSync(path.join(FIXTURES, 'expected.json'), 'utf8'));
   const files = [...Object.keys(expected.jpeg).map((f) => ['jpeg', f]), ...Object.keys(expected.png).map((f) => ['png', f])];
   const ours = new Map();
   for (const [kind, f] of files) {
     const bytes = new Uint8Array(readFileSync(path.join(FIXTURES, kind, f)));
-    let img = kind === 'jpeg' ? await lastra.decodeJpeg(bytes) : await lastra.decodePng(bytes);
+    const raw = kind === 'jpeg' ? await lastra.decodeJpeg(bytes) : await lastra.decodePng(bytes);
+    const digest = pixelDigest(raw.data);
     // Every engine now turns a picture by its EXIF orientation even with `imageOrientation: 'none'`
     // (the value was retired from the spec in favor of 'from-image'), so the comparison turns lastra's
     // as-stored pixels the same way first, with applyOrientation.
     const o = expected[kind][f].exifOrientation;
-    if (o) img = lastra.applyOrientation(img, o);
-    ours.set(f, { kind, bytes, img });
+    const img = o ? lastra.applyOrientation(raw, o) : raw;
+    ours.set(f, { kind, bytes, img, digest });
   }
 
   const results = {};
@@ -220,13 +265,23 @@ async function main() {
     await page.setContent('<!doctype html><title>lastra</title>');
     const version = browser.version();
     const rows = [];
+    // lastra in this engine against lastra in Node: identical on every fixture, or the run fails.
+    const inEngine = await lastraInEngine(page, code, [...ours].map(([f, o]) => [f, o.kind, Buffer.from(o.bytes).toString('base64')]));
+    let sameAsNode = 0;
+    for (const [f, o] of ours) {
+      if (inEngine[f] === o.digest) sameAsNode++;
+      else {
+        failed++;
+        rows.push({ file: f, kind: o.kind, error: `lastra in ${engine} gave ${String(inEngine[f]).slice(0, 140)}, in Node ${o.digest.slice(0, 16)}`, ok: false });
+      }
+    }
     for (const [f, o] of ours) {
       const type = o.kind === 'jpeg' ? 'image/jpeg' : 'image/png';
       const got = await engineDecode(page, o.bytes, type, { colorSpaceConversion: 'none', premultiplyAlpha: 'none', imageOrientation: 'none' });
       if (got.refused) {
         // A damaged or cut file an engine will not decode at all: reported, and allowed only for the
         // damaged and partial fixtures, whose whole point is that decoders disagree on them.
-        const allowed = /^(damaged|partial|cut|overflow)-/.test(f);
+        const allowed = /^(damaged|partial|cut|overflow)-/.test(f) || f === 'edge-zlib-no-adler.png';
         if (!allowed) failed++;
         rows.push({ file: f, kind: o.kind, error: `the engine refuses it (${got.refused.slice(0, 60)})`, ok: allowed });
         continue;
@@ -258,13 +313,13 @@ async function main() {
       rows.push(row);
     }
     await browser.close();
-    results[engine] = { version, rows };
+    results[engine] = { version, lastraSameAsNode: `${sameAsNode}/${ours.size}`, rows };
   }
 
   if (opts.json) console.log(JSON.stringify(results, null, 2));
   else {
     for (const [engine, { version, rows }] of Object.entries(results)) {
-      console.log(`\n${engine} ${version}`);
+      console.log(`\n${engine} ${version}: lastra in the engine matches lastra in Node on ${results[engine].lastraSameAsNode} fixtures`);
       for (const r of rows) {
         if (r.error) console.log(`  ${r.file.padEnd(36)} ${r.error}`);
         else {

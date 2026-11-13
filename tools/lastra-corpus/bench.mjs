@@ -8,7 +8,7 @@
  *   node tools/lastra-corpus/bench.mjs --runs 9
  *
  * The 4000 x 3000 picture is drawn here from a seed (smooth fields, grain, edges) and encoded by
- * lib/core/jpeg-encode.mjs (baseline 4:2:0, quality 85) and by node:zlib (PNG, RGB, Paeth rows), so the
+ * lastra's own encodeJpeg (baseline 4:2:0, quality 85) and by node:zlib (PNG, RGB, Paeth rows), so the
  * bench needs no fixture and no Python. A progressive 12 MP file comes from Pillow when `python3` has it
  * (skipped otherwise, and the output says so).
  */
@@ -29,7 +29,7 @@ const RUNS = Number(argv[argv.indexOf('--runs') + 1]) || 5;
 
 async function bundle() {
   const esbuild = require('esbuild');
-  const out = await esbuild.build({ entryPoints: [path.join(ROOT, 'docs/src/lib/lastra/decode/index.ts')], bundle: true, format: 'esm', platform: 'neutral', write: false, minify: true });
+  const out = await esbuild.build({ entryPoints: [path.join(ROOT, 'docs/src/lib/lastra/index.ts')], bundle: true, format: 'esm', platform: 'neutral', write: false, minify: true });
   return out.outputFiles[0].text;
 }
 
@@ -112,10 +112,27 @@ async function timeNode(fn) {
   return median(t);
 }
 
+/** The longest the async decode keeps the thread without a turn for the event loop (how long an abort waits). */
+async function longestStretch(fn) {
+  let last = performance.now();
+  let worst = 0;
+  let running = true;
+  const tick = () => {
+    const t = performance.now();
+    worst = Math.max(worst, t - last);
+    last = t;
+    if (running) setImmediate(tick);
+  };
+  setImmediate(tick);
+  await fn();
+  running = false;
+  return Math.max(worst, performance.now() - last);
+}
+
 async function main() {
   const code = await bundle();
   const lastra = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
-  const { encodeJpeg } = await import(path.join(ROOT, 'lib/core/jpeg-encode.mjs'));
+  const { encodeJpeg } = lastra;
   const rgba = picture();
   const files = { 'JPEG baseline 4:2:0 q85': ['jpeg', encodeJpeg(rgba, W, H, 85)] };
   const prog = progressiveFromPillow(files['JPEG baseline 4:2:0 q85'][1]);
@@ -127,7 +144,8 @@ async function main() {
   console.log(`Node ${process.version} on ${process.arch}`);
   for (const [name, [kind, bytes]] of Object.entries(files)) {
     const ms = await timeNode(() => (kind === 'jpeg' ? lastra.decodeJpeg(bytes) : lastra.decodePng(bytes)));
-    console.log(`  ${name.padEnd(36)} ${(bytes.length / 1e6).toFixed(2).padStart(6)} MB  ${ms.toFixed(0).padStart(6)} ms  ${((W * H) / 1e6 / (ms / 1000)).toFixed(1)} MP/s`);
+    const stretch = await longestStretch(() => (kind === 'jpeg' ? lastra.decodeJpeg(bytes) : lastra.decodePng(bytes)));
+    console.log(`  ${name.padEnd(36)} ${(bytes.length / 1e6).toFixed(2).padStart(6)} MB  ${ms.toFixed(0).padStart(6)} ms  ${((W * H) / 1e6 / (ms / 1000)).toFixed(1)} MP/s  longest stretch without a yield ${stretch.toFixed(0)} ms`);
   }
 
   if (!argv.includes('--browsers')) return;
