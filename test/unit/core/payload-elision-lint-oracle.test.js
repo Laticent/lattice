@@ -13,7 +13,14 @@ const realElide = elision.elidePayloads;
 // 'narrow' is the shipped path (lint and review pass the image-line rule); 'off' is the oracle; 'wide' is the old rule,
 // kept here only as the failing arm.
 let mode = 'narrow';
-elision.elidePayloads = (source, opts) => (mode === 'off' ? null : mode === 'wide' ? realElide(source) : realElide(source, opts));
+// Stand-ins cut, so the corpus test shows skipping took effect rather than assuming it.
+let cuts = 0;
+elision.elidePayloads = (source, opts) => {
+	if (mode === 'off') return null;
+	const out = mode === 'wide' ? realElide(source) : realElide(source, opts);
+	if (out) cuts += out.standIns.length;
+	return out;
+};
 const core = require('../../../lib/authoring/lint-core.js');
 const review = require('../../../lib/authoring/review-core.js');
 const { buildVocab } = require('../../../lib/authoring/lint.js');
@@ -38,9 +45,12 @@ const MEASURED = {
 	'hub-spoke-crowded on a spoke holding an escaped img': `<!-- _class: hub-spoke -->\n\n## Hub\n\n- Center\n  - Spoke &lt;img src=data:image/png;base64,${LONG}&gt;\n  - Two\n`,
 };
 
-// Every form a deck carries a picture in, appended to each example deck.
+// Every form a deck carries a picture in, appended to each example deck. The first two are photos on a line of their
+// own, which the narrow rule cuts: one on an image slide, one under a list on a plain slide, where the rules that
+// measure a slide's text run. The narrow rule leaves the rest whole.
 const FORMS = [
 	`<!-- _class: image -->\n\n## Photo\n\n![bg](data:image/png;base64,${LONG})`,
+	`## Words\n\n- A point the slide makes\n- Another point\n\n![p](data:image/jpeg;base64,${LONG})`,
 	`## Inline\n\nAn inline ![a](data:image/jpeg;base64,${LONG}) in prose.`,
 	`## Tag\n\n<img src="data:image/png;base64,${LONG}" alt="x">`,
 	`## Styled\n\n<div style="background-image:url('data:image/png;base64,${LONG}')">S</div>`,
@@ -62,20 +72,32 @@ describe('photo skip: lint and review find what the whole text gives', () => {
 		const files = fs.readdirSync(dir).filter((f) => f.endsWith('.md')).sort();
 		assert.ok(files.length > 300, 'the corpus is the examples folder');
 		const differ = [];
+		let skipped = 0;
 		for (const f of files) {
 			const deck = `${fs.readFileSync(path.join(dir, f), 'utf8')}\n\n---\n\n${FORMS.join('\n\n---\n\n')}\n`;
 			const off = inMode('off', () => findings(deck));
+			cuts = 0;
 			const on = inMode('narrow', () => findings(deck));
 			if (on.lint !== off.lint) differ.push(`${f} (lint)`);
 			if (on.review !== off.review) differ.push(`${f} (review)`);
+			// Lint and review each cut both photos on a line of their own, unless the deck holds `$$`: then nothing is cut.
+			if (deck.includes('$$')) assert.equal(cuts, 0, `${f}: a deck holding $$ is read whole`);
+			else {
+				assert.equal(cuts, 4, `${f}: lint and review each skipped the two photos on a line of their own`);
+				skipped++;
+			}
 		}
 		assert.deepEqual(differ, []);
+		assert.ok(skipped > 300, 'most decks ran the skip, not only the oracle');
 	});
 
-	test('a photo on a line of its own is still skipped', () => {
+	test('a photo on a line of its own is still skipped, by lint and by review', () => {
 		const deck = ['# Photos', ...[1, 2, 3].map((k) => `## Photo ${k}\n\n![bg](data:image/jpeg;base64,${LONG})`)].join('\n\n---\n\n');
-		const before = elision.readStats.lintChars;
+		const lintBefore = elision.readStats.lintChars;
 		core.lintTextWith(deck, vocab);
-		assert.ok(elision.readStats.lintChars - before < deck.length / 2, 'lint read the photo deck whole');
+		assert.ok(elision.readStats.lintChars - lintBefore < deck.length / 2, 'lint read the photo deck whole');
+		const reviewBefore = elision.readStats.reviewChars;
+		review.reviewText(deck, {});
+		assert.ok(elision.readStats.reviewChars - reviewBefore < deck.length / 2, 'review read the photo deck whole');
 	});
 });

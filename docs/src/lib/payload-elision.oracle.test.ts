@@ -43,13 +43,18 @@ describe('analysisText: every source check answers what the whole deck gives', (
 		const files = fs.readdirSync(dir).filter((f) => f.endsWith('.md')).sort();
 		expect(files.length).toBeGreaterThan(300);
 		const differ: string[] = [];
+		// Each deck twice: with every form, and without the math one, so "has math" can read false and a stand-in that
+		// brings in math would show.
+		const withoutMath = FORMS.filter((form) => !form.startsWith('## Math'));
 		for (const f of files) {
-			const deck = `${fs.readFileSync(path.join(dir, f), 'utf8')}\n\n---\n\n${FORMS.join('\n\n---\n\n')}\n`;
-			const scan = analysisText(deck);
-			expect(scan.length, `${f}: the stand-ins took effect`).toBeLessThan(deck.length);
-			const slideCount = splitSlideChunks(deck).chunks.length;
-			expect(slideCount, `${f}: slides counted`).toBeGreaterThan(FORMS.length);
-			if (JSON.stringify(answers(scan, slideCount)) !== JSON.stringify(answers(deck, slideCount))) differ.push(f);
+			for (const forms of [FORMS, withoutMath]) {
+				const deck = `${fs.readFileSync(path.join(dir, f), 'utf8')}\n\n---\n\n${forms.join('\n\n---\n\n')}\n`;
+				const scan = analysisText(deck);
+				expect(scan.length, `${f}: the stand-ins took effect`).toBeLessThan(deck.length);
+				const slideCount = splitSlideChunks(deck).chunks.length;
+				expect(slideCount, `${f}: slides counted`).toBeGreaterThan(forms.length);
+				if (JSON.stringify(answers(scan, slideCount)) !== JSON.stringify(answers(deck, slideCount))) differ.push(`${f} (${forms.length} forms)`);
+			}
 		}
 		expect(differ).toEqual([]);
 	});
