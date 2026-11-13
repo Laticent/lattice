@@ -218,23 +218,24 @@ rows, where both keys ran back to back under the same conditions, are read. Runs
 no focus), 43384956399 (shortcut off) and 43387275107 (shortcut on), probe source at commit `65d40c7f`.
 
 **Real Safari.** A second one-off probe drove the Studio in Safari through WebDriver, the harness the repo's iOS
-Simulator suites use (`docs/scripts/ios-safari/run.mjs`), on the same branch-only basis. Two runs (Actions 43425946776,
-43431987884):
+Simulator suites use (`docs/scripts/ios-safari/run.mjs`), on the same branch-only basis. Three runs (Actions
+43425946776, 43431987884, 43447718738); the third typed on the iPad the way `undo-probe.js` does, through WebKit's
+`insertText` command, and latched the 1.6 s note:
 
-| Step | Safari 27.2 on macOS | Mobile Safari 26.5, iPad Simulator |
+| Step | Safari 27.2 on macOS (runs 1, 2) | Mobile Safari 26.5, iPad Simulator (run 3) |
 |---|---|---|
 | a bare `_class:` position opens nothing by itself | pass | pass |
 | Ctrl-Space opens the component menu; Escape closes it | pass | pass |
 | Option-Esc opens the component menu | pass | pass |
-| Ctrl-Space where nothing completes shows the note | pass | pass, then missed (the note shows for 1.6 s, and a Simulator round trip is slow) |
-| typing a key opens its menu; Tab accepts it and opens the values | pass | not delivered: neither WebDriver key actions nor send-keys reached the editor as text |
+| Ctrl-Space where nothing completes shows the note | pass | pass |
+| typing a key opens its menu | pass | pass |
+| Tab accepts it and opens the values | pass | pass |
 | a click (Mac) or tap (iPad) on a menu row picks it | pass | not delivered: neither an element click nor a touch pointer action reached the row as a press |
 
-On the iPad the keys arrive and every key step passes. The rows marked "not delivered" are this harness's reach, not a
-reading of the editor: the document never changed. Those two behaviors are covered by Playwright's WebKit with touch at
-iPhone and iPad size (all green), and a touch tap on a menu row in WebKit fires `touchstart`, `touchend`, then the
-`mousedown` CodeMirror picks on, and picks the row. A person on a real iPad is the one check left.
-
+The iPad tap is this harness's reach, not a reading of the editor: the document never changed. A touch tap on a menu
+row in Playwright's WebKit fires `touchstart`, `touchend`, then the `mousedown` CodeMirror picks on, and picks the row.
+A person tapping a row on a real iPad is the one check left. (Runs 1 and 2 typed on the iPad with WebDriver key actions
+and send-keys, which never reached the editor as text; run 3 replaced them.)
 
 ### 7.4 Start-up cost
 
