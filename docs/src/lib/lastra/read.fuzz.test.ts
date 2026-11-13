@@ -2,10 +2,11 @@
 // Hostile bytes: seeded truncations and corruptions of a valid file of every format, read and cleaned. The reader must
 // answer null or a header that holds (a known format, a size that is a positive integer within the format's limit, an
 // orientation from 1 to 8) and never throw; a cleaner must answer null or a file of the same format that cleans to
-// itself. The seed is printed; LASTRA_FUZZ_SEED=<n> replays a run, LASTRA_FUZZ_ROUNDS=<n> runs longer.
+// itself, reads with the same size and turn, and (a JPEG) decodes to the same pixels. The seed is printed; LASTRA_FUZZ_SEED=<n> replays a run, LASTRA_FUZZ_ROUNDS=<n> runs longer.
 import assert from 'node:assert/strict';
 import { describe, test } from 'vitest';
 import { cleanerFor } from './clean.js';
+import { decodeJpegSync } from './decode/index.js';
 import { encodeJpeg } from './jpeg.js';
 import { IMAGE_MIME, imageFormat, readImage } from './read.js';
 
@@ -126,6 +127,20 @@ function checkClean(b: Uint8Array, label: string) {
 	if (before) {
 		const after = readImage(out);
 		assert.deepEqual([after?.width, after?.height, after?.orientation], [before.width, before.height, before.orientation], `${label}: the clean file paints like the original`);
+	}
+	// And a cleaned JPEG decodes to the same pixels: the keep-list drops no segment a decoder reads.
+	if (format === 'jpeg') {
+		const pixels = (x: Uint8Array) => {
+			try {
+				// The seed is 33 x 17: a corrupted header that claims more is refused before any work, so the check costs the
+				// same whatever a corruption claims (a 4000-round run decoded up to the default limit otherwise).
+				return decodeJpegSync(x, { maxPixels: 64 * 64 }).data;
+			} catch {
+				return null;
+			}
+		};
+		const original = pixels(b);
+		if (original) assert.ok(Buffer.from(pixels(out) ?? []).equals(Buffer.from(original)), `${label}: the clean file decodes to the same pixels`);
 	}
 }
 

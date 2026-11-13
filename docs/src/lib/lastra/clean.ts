@@ -233,11 +233,35 @@ export function cleanGif(b: Uint8Array): Uint8Array | null {
 	return out.done();
 }
 
-/** JPEG: walk every segment through to the end-of-image marker, keeping JFIF (APP0), an ICC color profile (APP2
- *  that really is one) and the picture's own segments, and dropping EXIF, XMP, IPTC, Photoshop, MPF, vendor
- *  segments and comments. A picture's rotation survives as an orientation-only EXIF block. Everything AFTER the
- *  end-of-image marker is dropped too: cameras append a second image, a motion-photo video or a gain map there,
- *  and each can carry its own location. Null when the file is not a JPEG or is cut short before its end marker. */
+/** The JFIF APP0 rebuilt minimal: version, density unit and density, and no thumbnail (a thumbnail is a second picture,
+ *  and the bytes after the density are free to carry anything). */
+function minimalJfif(b: Uint8Array, at: number): number[] {
+	return [0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0, ...b.subarray(at + 9, at + 16), 0, 0];
+}
+
+/** The Adobe APP14 rebuilt to its 12 defined bytes (`Adobe`, version, two flag words, the color transform), which a
+ *  decoder needs to tell RGB, YCbCr, CMYK and YCCK apart; anything after them goes. */
+function minimalAdobe(b: Uint8Array, at: number): number[] {
+	return [0xff, 0xee, 0, 14, ...b.subarray(at + 4, at + 16)];
+}
+
+/** The marker segments a picture needs, kept as they are: DQT (DB), DRI (DD), DNL (DC), and C0 to CF but the reserved
+ *  JPG (C8): every start-of-frame, DHT (C4) and DAC (CC). */
+const isJpegTableOrFrame = (marker: number) => marker === 0xdb || marker === 0xdd || marker === 0xdc || (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc8);
+
+const CLEAN_JFIF_SIGNATURE = [0x4a, 0x46, 0x49, 0x46, 0]; // JFIF\0
+const CLEAN_EXIF_SIGNATURE = [0x45, 0x78, 0x69, 0x66, 0, 0]; // Exif\0\0
+const CLEAN_ADOBE_SIGNATURE = [0x41, 0x64, 0x6f, 0x62, 0x65]; // Adobe
+
+/** JPEG: a KEEP-LIST like the others. Kept: SOI; a JFIF APP0 rebuilt minimal (version, density, no thumbnail); the turn
+ *  of the first Exif block as an orientation-only EXIF block; ICC profile APP2 chunks; an Adobe APP14 rebuilt to its
+ *  12 defined bytes (the color transform); DQT, DHT, DAC, DRI, DNL, the frame header; each scan with its entropy-coded
+ *  data and restart markers; EOI. Everything else goes: any other APP0 (a `JFXX` thumbnail), EXIF beyond the turn, XMP,
+ *  IPTC, Photoshop, MPF, every other APPn, comments, the reserved JPGn markers (F0 to FD) and any marker an encoder
+ *  has not invented yet. Everything AFTER the end-of-image marker is dropped too: cameras append a second image, a
+ *  motion-photo video or a gain map there, and each can carry its own location. The pixels decode the same
+ *  (read.fuzz.test.ts and clean.test.ts decode both). Null when the file is not a JPEG or is cut short before its end
+ *  marker. */
 export function cleanJpeg(b: Uint8Array): Uint8Array | null {
 	if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8) return null;
 	const out = new CleanWriter(b.length + 64);
@@ -247,9 +271,9 @@ export function cleanJpeg(b: Uint8Array): Uint8Array | null {
 	// from it (read.ts readJpeg, and the engines' probe in read.test.ts). Later Exif blocks are dropped like the rest.
 	let exifSeen = false;
 	let scanSeen = false;
-	const isIcc = (at: number, len: number) => {
-		if (len < 14) return false;
-		for (let k = 0; k < 11; k++) if (b[at + 4 + k] !== CLEAN_ICC_SIGNATURE[k]) return false;
+	// Does the segment at `at` open with these bytes? Compared byte by byte: a file can hold millions of segments.
+	const opens = (at: number, sig: ArrayLike<number>) => {
+		for (let k = 0; k < sig.length; k++) if (b[at + 4 + k] !== sig[k]) return false;
 		return true;
 	};
 	while (i + 2 <= b.length) {
@@ -263,31 +287,34 @@ export function cleanJpeg(b: Uint8Array): Uint8Array | null {
 			out.put(b.subarray(i, i + 2));
 			return out.done();
 		}
+		// Markers with no length: a restart marker is kept; a stray SOI, TEM or 0xFF00 pair outside a scan is not.
 		if (marker === 0x00 || (marker >= 0xd0 && marker <= 0xd8) || marker === 0x01) {
-			out.put(b.subarray(i, i + 2)); // standalone markers carry no length
+			if (marker >= 0xd0 && marker <= 0xd7) out.put(b.subarray(i, i + 2));
 			i += 2;
 			continue;
 		}
 		if (i + 4 > b.length) return null;
 		const len = (b[i + 2] << 8) | b[i + 3];
 		if (len < 2 || i + 2 + len > b.length) return null;
-		const seg = b.subarray(i, i + 2 + len);
-		let keep = true;
-		if (marker === 0xe1) {
+		if (marker === 0xe0) {
+			// JFIF with its 14 defined bytes (identifier, version, unit, densities, thumbnail size); any other APP0 goes.
+			if (len >= 16 && opens(i, CLEAN_JFIF_SIGNATURE)) out.put(minimalJfif(b, i));
+		} else if (marker === 0xe1) {
 			// EXIF keeps only its rotation; XMP and the rest of APP1 go.
-			keep = false;
-			if (!exifSeen && !scanSeen && len >= 8 && chunkTag(b, i + 4) === 'Exif' && b[i + 8] === 0 && b[i + 9] === 0) {
+			if (!exifSeen && !scanSeen && len >= 8 && opens(i, CLEAN_EXIF_SIGNATURE)) {
 				exifSeen = true;
 				const o = tiffOrientation(b.subarray(i + 10, i + 2 + len));
 				if (o !== 1) {
 					const tiff = orientationOnlyTiff(o);
-					const body = new Uint8Array([0x45, 0x78, 0x69, 0x66, 0, 0, ...tiff]);
+					const body = [...CLEAN_EXIF_SIGNATURE, ...tiff];
 					out.put([0xff, 0xe1, (body.length + 2) >> 8, (body.length + 2) & 255, ...body]);
 				}
 			}
-		} else if (marker === 0xe2) keep = isIcc(i, len);
-		else if ((marker >= 0xe3 && marker <= 0xef) || marker === 0xfe) keep = false;
-		if (keep) out.put(seg);
+		} else if (marker === 0xe2) {
+			if (len >= 14 && opens(i, CLEAN_ICC_SIGNATURE)) out.put(b.subarray(i, i + 2 + len));
+		} else if (marker === 0xee) {
+			if (len >= 14 && opens(i, CLEAN_ADOBE_SIGNATURE)) out.put(minimalAdobe(b, i));
+		} else if (marker === 0xda || isJpegTableOrFrame(marker)) out.put(b.subarray(i, i + 2 + len));
 		i += 2 + len;
 		if (marker === 0xda) {
 			scanSeen = true;

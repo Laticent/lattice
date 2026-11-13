@@ -1,8 +1,10 @@
 // @vitest-environment node
 // The cleaners (clean.ts): keep-lists, not drop-lists. Every case below came from the Studio's red team on the photo
 // scrubber (engineering/decisions/2026-10-12-library-media-assets.md §3) and moved here with the code.
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { cleanerFor, cleanGif, cleanJpeg, cleanPng, cleanWebp } from './clean.js';
+import { decodeJpegSync } from './decode/index.js';
 import { encodeJpeg } from './jpeg.js';
 import { readImage, tiffOrientation } from './read.js';
 
@@ -180,6 +182,75 @@ describe('cleanJpeg', () => {
 		expect(cleanJpeg(j)).toEqual(j);
 		expect(cleanJpeg(new Uint8Array([1, 2, 3, 4, 5]))).toBeNull();
 		expect(cleanJpeg(j.subarray(0, 10))).toBeNull();
+	});
+});
+
+describe('cleanJpeg — a keep-list of segments', () => {
+	const segmentsOf = (b: Uint8Array) => {
+		const out: number[] = [];
+		for (let i = 2; i + 4 <= b.length && b[i] === 0xff; ) {
+			out.push(b[i + 1]);
+			if (b[i + 1] === 0xda) break;
+			i += 2 + ((b[i + 2] << 8) | b[i + 3]);
+		}
+		return out;
+	};
+	const real = () => {
+		const px = new Uint8ClampedArray(24 * 16 * 4).map((_v, i) => (i % 4 === 3 ? 255 : (i * 37) & 255));
+		return encodeJpeg(px, 24, 16, 85); // SOI, JFIF APP0, DQT, SOF0, DHT, SOS
+	};
+	const withSegments = (b: Uint8Array, segs: number[][]) => new Uint8Array([0xff, 0xd8, ...segs.flat(), ...b.subarray(2)]);
+	it('drops an APP0 that is not JFIF (a JFXX thumbnail can carry anything a browser never shows)', () => {
+		const dirty = withSegments(real(), [jpegSegment(0xe0, [...ascii('JFXX\0'), 0x10, ...ascii(GPS)])]);
+		const clean = cleanJpeg(dirty) as Uint8Array;
+		expect(has(clean, GPS) || has(clean, 'JFXX')).toBe(false);
+	});
+	it('rebuilds JFIF minimal: the version and density stay, the thumbnail and any trailing bytes go', () => {
+		const jfif = [...ascii('JFIF\0'), 1, 2, 1, 0, 72, 0, 96, 2, 1, ...new Array(6).fill(200), ...ascii(GPS)]; // a 2x1 RGB thumbnail
+		const b = real();
+		const dirty = new Uint8Array([0xff, 0xd8, ...jpegSegment(0xe0, jfif), ...b.subarray(2 + 18)]); // replace the encoder's APP0
+		const clean = cleanJpeg(dirty) as Uint8Array;
+		expect(has(clean, GPS)).toBe(false);
+		expect([...clean.subarray(2, 20)]).toEqual([0xff, 0xe0, 0, 16, ...ascii('JFIF\0'), 1, 2, 1, 0, 72, 0, 96, 0, 0]);
+	});
+	it('drops every reserved JPGn marker segment (F0 to FD) and the reserved JPG frame marker (C8)', () => {
+		const reserved = [0xc8, ...Array.from({ length: 14 }, (_v, k) => 0xf0 + k)];
+		const dirty = withSegments(real(), reserved.map((m) => jpegSegment(m, ascii(GPS))));
+		const clean = cleanJpeg(dirty) as Uint8Array;
+		expect(has(clean, GPS)).toBe(false);
+		for (const m of reserved) expect(segmentsOf(clean), m.toString(16)).not.toContain(m);
+	});
+	it('keeps the tables, the frame and the scan, in order', () => {
+		expect(segmentsOf(cleanJpeg(withSegments(real(), [jpegSegment(0xfe, ascii(GPS)), jpegSegment(0xdd, [0, 4])])) as Uint8Array)).toEqual([0xdd, 0xe0, 0xdb, 0xc0, 0xc4, 0xda]);
+	});
+	it('keeps an Adobe APP14 to its 12 defined bytes, so a CMYK or YCCK file decodes to the same pixels', () => {
+		const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`./decode/fixtures/jpeg/${name}`, import.meta.url)));
+		for (const name of ['mid-cmyk.jpg', 'mid-ycck.jpg', 'mid-rgb-adobe0.jpg']) {
+			const original = fixture(name);
+			const clean = cleanJpeg(original) as Uint8Array;
+			expect(segmentsOf(clean), name).toContain(0xee);
+			expect(Buffer.from(decodeJpegSync(clean).data).equals(Buffer.from(decodeJpegSync(original).data)), name).toBe(true);
+		}
+		const padded = withSegments(real(), [jpegSegment(0xee, [...ascii('Adobe'), 0, 100, 0, 0, 0, 0, 1, ...ascii(GPS)])]);
+		expect(has(cleanJpeg(padded) as Uint8Array, GPS), 'nothing after the 12 bytes').toBe(false);
+	});
+	it('every JPEG in the decoder corpus that decodes cleans to the same pixels', () => {
+		const dir = new URL('./decode/fixtures/jpeg/', import.meta.url);
+		let checked = 0;
+		for (const name of readdirSync(dir).filter((f) => f.endsWith('.jpg'))) {
+			const original = new Uint8Array(readFileSync(new URL(name, dir)));
+			let before: Uint8ClampedArray;
+			try {
+				before = decodeJpegSync(original).data;
+			} catch {
+				continue; // a damaged file the decoder refuses has no pixels to compare
+			}
+			const clean = cleanJpeg(original);
+			if (!clean) continue; // refused (cut short): the importer re-encodes it instead
+			expect(Buffer.from(decodeJpegSync(clean).data).equals(Buffer.from(before)), name).toBe(true);
+			checked++;
+		}
+		expect(checked).toBeGreaterThan(40);
 	});
 });
 

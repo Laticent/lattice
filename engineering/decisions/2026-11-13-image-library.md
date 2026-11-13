@@ -427,6 +427,14 @@ engine"; Playwright's Chromium 141 turns a magic-43 file, Chrome 153, WebKit and
 lastra build also let a later PNG `eXIf` chunk decide and let `cleanJpeg` and `cleanPng` keep the turn of every Exif
 block; an independent check found the cleaner case, the engines' probe settled the PNG one, and both now follow the
 first block, which `read.fuzz.test.ts` holds by reading every cleaned file against its original.
+A privacy check then found `cleanJpeg` was a drop-list in disguise: it removed APP1, non-ICC APP2, APP3 to APP15 and
+COM and kept every other marker, so a non-JFIF APP0 (a `JFXX` thumbnail with any payload, which Chrome still renders)
+and the reserved JPGn segments (F0 to FD) reached the Studio's "Keep original" and the CLI's `.lattice`. It is a true
+keep-list now: SOI; JFIF APP0 rebuilt minimal (version and density, no thumbnail); the orientation-only Exif; ICC APP2;
+Adobe APP14 rebuilt to its 12 defined bytes (the color transform); DQT, DHT, DAC, DRI, DNL, the frame header; scans
+with their data and restart markers; EOI. An ICC profile is kept whole, description text and all: it is what the colors
+are drawn with. `clean.test.ts` cleans every JPEG in the decoder's corpus that decodes and compares the pixels, and the
+fuzz does the same for every corrupted JPEG.
 
 **SVG.** `imageFormat` recognizes an SVG, but `readImage` gives it no size: an SVG's box is its markup's
 `width`/`height`/`viewBox`, which `lib/core/image-aspect.js` `aspectFromSvgTag` reads for files AND for inline
