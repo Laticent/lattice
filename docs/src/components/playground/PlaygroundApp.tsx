@@ -590,6 +590,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const openOnPendingRef = React.useRef(false);
 	/** True from a switch to Edit until the sync has put the preview on the editor's slide: the reveal waits for it too. */
 	const realignPendingRef = React.useRef(false);
+	/** Which switch the realign hold belongs to. Each switch moves it, so a settle loop a later switch overtook stops. */
+	const realignSeqRef = React.useRef(0);
 	const coverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 	const markLiveWhenSlidesVisible = React.useCallback((frame: HTMLIFrameElement) => {
 		const wrap = frame.parentElement;
@@ -601,6 +603,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// now paints the cached slide at the rect the filmstrip is about to use (#1563),
 			// the two pictures coincide and the swap is invisible rather than a jump.
 			wrap.classList.add('is-live');
+			wrap.removeAttribute('data-hold');
 			if (coverTimerRef.current) {
 				clearTimeout(coverTimerRef.current);
 				coverTimerRef.current = null;
@@ -633,7 +636,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// timeout, and `landWalk`'s own settle + retry budget), so neither can wedge the
 			// reveal shut on a frame whose FIT never settles.
 			if ((ready && !landPendingRef.current && !openOnPendingRef.current && !realignPendingRef.current) || Date.now() - start > REVEAL_CAP_MS) goLive();
-			else requestAnimationFrame(check);
+			else {
+				// What the reveal is waiting for, as observable state (`data-hold` on the wrapper, cleared on reveal): the
+				// same idea as Present's `data-beat`. A test that guesses at this from timings measures the wrong thing.
+				const hold = [!ready && 'fit', landPendingRef.current && 'land', openOnPendingRef.current && 'open-on', realignPendingRef.current && 'realign'].filter(Boolean).join(' ');
+				if (wrap.getAttribute('data-hold') !== hold) wrap.setAttribute('data-hold', hold);
+				requestAnimationFrame(check);
+			}
 		};
 		check();
 	}, []);
@@ -761,9 +770,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	/** Put the preview on the editor's slide and lift the reveal's hold on it. The sync can only realign once it can
 	 *  measure both panes (it needs the rendered index and a laid-out frame), so ask again for a few frames until it has
 	 *  nothing owed; the hold is lifted then, or after the cap, which is the reveal's own budget in frames. */
-	const settleRealign = React.useCallback((first: boolean) => {
+	const settleRealign = React.useCallback((first: boolean, seq = realignSeqRef.current) => {
 		let tries = 0;
 		const step = () => {
+			// A later switch owns the hold now: a switch to Explore dropped it, a new one to Edit runs its own settle.
+			if (seq !== realignSeqRef.current) return;
 			if (first && tries === 0) frameRef.current?.contentWindow?.__latticeFit?.();
 			const sync = syncRef.current;
 			sync?.loaded();
@@ -2176,6 +2187,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				if (changing) {
 					exploreFlatRef.current = syncRef.current?.enterExplore() ?? -1;
 					openOnPendingRef.current = exploreFlatRef.current >= 0;
+					// The realign hold is Edit's: it waits for the preview to follow the editor's caret, which Explore does
+					// not do. A quick Explore, Edit, Explore left it set by the Edit in between, and that Edit's settle loop
+					// (two frames late, so it starts AFTER this switch) asks the sync for 60 frames, because the sync's
+					// realign is only ever paid in Edit. Explore's reveal then waited out all 60: a second on an idle
+					// machine, past the spec's 4 s on a loaded Firefox, where the preview stayed hidden.
+					realignPendingRef.current = false;
+					realignSeqRef.current++;
 					coverPreview();
 				}
 				// Leaving Edit: save the edited deck back so Explore renders the edits
@@ -2264,6 +2282,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					exploreFlatRef.current = -1;
 					openOnPendingRef.current = false;
 					realignPendingRef.current = true;
+					realignSeqRef.current++;
 					coverPreview();
 				}
 				setPane('edit');
@@ -2273,7 +2292,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					void render(false);
 					// No document load will say the frame has settled at Edit's width, so say it once it has re-fitted:
 					// the sync holds the preview's own scroll until then and puts it on the editor's slide.
-					requestAnimationFrame(() => requestAnimationFrame(() => settleRealign(true)));
+					const seq = realignSeqRef.current;
+					requestAnimationFrame(() => requestAnimationFrame(() => settleRealign(true, seq)));
 				} else freshRender();
 				// A click in Explore on another slide puts the caret at the end of its title.
 				if (changing) syncRef.current?.leaveExplore();

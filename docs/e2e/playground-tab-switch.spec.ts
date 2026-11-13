@@ -290,6 +290,37 @@ test(`switching back to Edit never shows a wrong slide for a frame ${WIDE}`, asy
 	expect(watched.every((f) => f.same)).toBe(true);
 });
 
+// THE REALIGN HOLD IS EDIT'S. In Edit the preview stays covered until it follows the editor's caret; Explore lands by
+// its own walk and never pays that realign. A quick Explore, Edit, Explore left the hold set by the Edit in between, and
+// that Edit's settle loop, which starts two frames after its switch and so after the next one, held Explore's reveal for
+// all of its 60 frames: on a loaded Firefox long enough that the case below missed its 4 s (1 run in 20 on main). The
+// reveal publishes what it is waiting for (`data-hold`), so this asserts the cause, on every engine, at any load.
+test(`a quick Explore and back never holds Explore's reveal for Edit's realign ${WIDE}`, async ({ page }) => {
+	await open(page, true);
+	await editLine(page, 'point 9.2');
+	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/);
+	await page.evaluate(() => {
+		const w = window as unknown as { __holds: string[] };
+		w.__holds = [];
+		const wrap = document.querySelector('.pg-preview-wrap') as HTMLElement;
+		new MutationObserver(() => {
+			const hold = wrap.getAttribute('data-hold');
+			if (hold) w.__holds.push(`${document.body.getAttribute('data-view')}:${hold}`);
+		}).observe(wrap, { attributes: true, attributeFilter: ['data-hold'] });
+	});
+	await clickTab(page, 'Explore');
+	await frames(page, 1);
+	await clickTab(page, 'Edit');
+	await frames(page, 1);
+	await clickTab(page, 'Explore');
+	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/, { timeout: 20_000 });
+	await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBe(9);
+	const holds = await page.evaluate(() => (window as unknown as { __holds: string[] }).__holds);
+	// The reveal did wait for something (the switches covered it), and in Explore never for the realign.
+	expect(holds.length).toBeGreaterThan(0);
+	expect(holds.filter((h) => h.startsWith('read:') && h.split(':')[1].split(' ').includes('realign'))).toEqual([]);
+});
+
 for (const [name, wide, tags] of [
 	['phone', false, TAGS],
 	['wide', true, WIDE],
