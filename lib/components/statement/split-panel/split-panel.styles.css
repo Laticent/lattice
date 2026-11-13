@@ -478,6 +478,15 @@ section.split-panel-cover .split-feat-lede {
 section.split-panel-lede .split-lede-page {
   font-size: var(--fs-emphasis); line-height: var(--lh-snug); color: var(--text-heading); max-width: 22em;
 }
+/* `qr` split at its seam (carousel.js splitFeatureAtSeam): the feature took the cover, and the code takes
+   this page, centered with its caption under it, as it sat in the panel. */
+section.split-panel-code .split-qr-page {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-md);
+  text-align: center;
+}
+section.split-panel-code .split-qr-caption {
+  margin: 0; font-size: var(--fs-emphasis); line-height: var(--lh-snug); color: var(--text-heading); max-width: 18em;
+}
 
 /* Point pages — the supporting points flow under a running header of the feature. */
 section.split-panel-points .split-runhead {

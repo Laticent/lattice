@@ -2177,3 +2177,29 @@ describe('core: carousel — feature-cover with ledePage', () => {
     assert.deepEqual(lede.slice(2).map(text), plain.slice(1).map(text), 'the points pages are unchanged');
   });
 });
+
+// split-panel `qr` at its seam (owner, 2026-11-06 "split at the seam"; 2026-11-13): no points to page,
+// so the feature takes the cover and the code the page after it, but only on a measured plan
+// (`atSeam`). Rendered through the real engine, so the panel markup is the one it emits.
+describe('core: carousel — feature-cover splits split-panel qr at its seam', () => {
+  const { createEngine } = require('../../../lib/engine');
+  const src = "---\ntheme: indaco\n---\n\n<!-- _class: split-panel qr -->\n\n`Split-panel qr`\n\n## The payload bullet becomes a code on the panel.\n\nA bare URL auto-resolves; the caption line labels the scan.\n\n- https://example.com/docs\n- Scan for this layout's docs\n";
+  const { html } = createEngine().render(src, 'indaco');
+  const [qr] = splitSections(html).filter((p) => p.type === 'section');
+  const text = (h) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  test('without a measured seam the slide stays whole', () => {
+    assert.equal(carouselize(qr.openTag, qr.inner, { strategy: 'feature-cover' }), null);
+  });
+
+  test('with `atSeam` the feature takes the cover and the code the next page, every word kept', () => {
+    const parts = carouselize(qr.openTag, qr.inner, { strategy: 'feature-cover', atSeam: true });
+    assert.equal(parts.length, 2);
+    assert.match(parts[0], /split-panel-cover/);
+    assert.match(text(parts[0]), /The payload bullet becomes a code on the panel\./);
+    assert.match(text(parts[0]), /A bare URL auto-resolves/);
+    assert.match(parts[1], /split-panel-code/);
+    assert.match(parts[1], /<figure class="qr-figure"[\s\S]*<svg/);
+    assert.match(text(parts[1]), /Scan for this layout's docs/);
+  });
+});

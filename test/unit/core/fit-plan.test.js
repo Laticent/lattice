@@ -15,9 +15,11 @@ describe('planFromFacts, stateless', () => {
     assert.equal(plan['1'], 'whole');
     assert.deepEqual(plan['2'], [2, 1]);
   });
-  test('an overflowing slide with no members, or no packing, is left to today\'s split', () => {
+  test('an overflowing slide with no packing is left to today\'s split; one with no members is marked for its seam', () => {
+    // No members: `{ atSeam: true }` (2026-11-13). A strategy with a seam (split-panel `qr`) splits there;
+    // every other strategy ignores it, so the slide gets today's split as before.
     const plan = planFromFacts([{ slide: '1', over: true, members: null }, over('2', [900], 700)], {}, pack, 'greedy');
-    assert.ok(!Object.hasOwn(plan, '1'));
+    assert.deepEqual(plan['1'], { atSeam: true });
     assert.ok(!Object.hasOwn(plan, '2'));
   });
 });
@@ -54,6 +56,14 @@ describe('planFromFacts, with memory (§11)', () => {
     const plan = { 1: 'whole', 2: [2, 1] };
     assert.deepEqual(nextMemory(facts, plan), { 1: { split: false }, 2: { split: true, sizes: [2, 1] } });
     assert.deepEqual(JSON.parse(JSON.stringify(nextMemory(facts, plan))), nextMemory(facts, plan));
+  });
+});
+
+describe('planFromFacts: a slide with nothing to page', () => {
+  test('an overflowing slide with no members is marked to split at its seam; a fitting one stays whole', () => {
+    const plan = planFromFacts([{ slide: '1', over: true, members: null }, fits('2')], {}, pack, 'knuth-plass');
+    assert.deepEqual(plan['1'], { atSeam: true });
+    assert.equal(plan['2'], 'whole');
   });
 });
 

@@ -1223,8 +1223,14 @@ over redline, authority-chain, logo-wall, code, legal and others. The owner rule
   plan entry carries `ledePage` (a tighter room cannot help a cover); `coverWindow` then emits the
   lede on a `split-panel-lede` page. It costs a round only for a slide whose cover overflows. On the
   split-panel gallery at a phone square, slides 2, 7 and 8 take a lede page and every page fits.
-  The `qr` variant (slide 10) is not covered: it has no points list, so it never splits, and at the
-  phone venue its title set one word a line and clipped. Stacking its panels left the code too small
-  to scan, so it needs a seam split of its own (feature page, then the code page).
+  The `qr` variant (slide 10) has no points list, so it never split, and at the phone venue its title
+  set one word a line and clipped 387px. Two layouts were rendered and rejected: stacking its panels
+  left the code too small to scan, and a wider title panel cut the text at the slide's edge. It now
+  splits AT ITS SEAM (§20's ruling): `planFromFacts` marks an overflowing slide with no members
+  `{ atSeam: true }`, and split-panel's strategy answers with the feature on the cover and the code,
+  with its caption, on the page after it (`splitFeatureAtSeam`). Every other strategy ignores the mark,
+  so its slides get today's split as before. Only the measured plan sets it, so under `fit: heal` a
+  `qr` slide that fits never splits. At a phone square the split-panel gallery now has no page past
+  its frame.
 
 The owner's bar for the merge ask is HIGH or VERY HIGH, with no slide this PR breaks left behind.
