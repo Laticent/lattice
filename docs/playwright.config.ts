@@ -42,6 +42,7 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = 4321;
 const BASE_URL = `http://localhost:${PORT}`;
 const isCI = !!process.env.CI;
+const RECORD = process.env.E2E_RECORD !== 'off';
 
 export default defineConfig({
 	testDir: './e2e',
@@ -78,8 +79,13 @@ export default defineConfig({
 	outputDir: 'test-results',
 	use: {
 		baseURL: BASE_URL,
-		trace: 'on',
-		video: 'on',
+		// Every test records a trace and a video, so a nightly failure carries both. E2E_RECORD=off turns both
+		// off: the per-PR `studio-smoke` job sets it, because recording is about a third of that job's time
+		// (measured on 4 cores, 2 workers, the 155 @smoke tests: 11.9 min recorded, 8.2 min not, the same 155
+		// pass) and the job sat at its 20-minute cap. A failure there still keeps its screenshot and error
+		// context; re-run the one test locally (recording is on by default) for its trace.
+		trace: RECORD ? 'on' : 'off',
+		video: RECORD ? 'on' : 'off',
 		screenshot: 'only-on-failure',
 		actionTimeout: 15_000,
 		navigationTimeout: 40_000,

@@ -646,7 +646,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Symptom:** `studio-smoke` is red while `ci` is green, or the reverse. On a markdown-only PR
   one e2e test fails.
 - **Cause:** `studio-smoke` is advisory by design. The `ci` job's `needs` are `changes`, `lint`,
-  `unit`, `integration`, `docs-build` and `player-webkit`, and `.github/workflows/ci.yml`
+  `unit`, `integration`, `docs-build`, `docs-test` and `player-webkit`, and `.github/workflows/ci.yml`
   (around lines 975-982) says `golden-diff` and `studio-smoke` are "intentionally ABSENT" from
   them: they run and report, and they do not gate. It promotes into `needs` only after a nightly
   green streak (#800).

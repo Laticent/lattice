@@ -828,6 +828,45 @@ jobs:
               await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
             }
 
+  # ── Docs tests — the docs Vitest suite, beside docs-build ───────────────
+  # Split out of docs-build on the owner's call (2026-11-12, D1 A, PR #3157): the suite was
+  # docs-build's longest step (6.5-9.3 min of a 9.7-14.3 min job on CI), so running it
+  # beside the build, typecheck, route budget and overflow guard takes it off docs-build's
+  # critical path. Same trigger as docs-build, and required by the `ci` gate like it.
+  docs-test:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: '1' # no browser: jsdom only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+      # Root deps for the @laticent/cadenza workspace link that lib/core requires, and the
+      # built-not-committed dist/ the root `prepare` script builds (see docs-build's note).
+      - name: Install root deps (for the @laticent/cadenza workspace link)
+        run: npm ci
+        timeout-minutes: 10
+      - name: Install docs deps
+        run: npm ci
+        timeout-minutes: 10
+        working-directory: docs
+      # Four workers, not Vitest's default of cores - 1 = 3 (owner's call to cut this job's time,
+      # 2026-11-12). Many of these tests wait on the clock (a lesson's pause, a caption's dwell), and
+      # a waiting worker leaves its core idle. Measured on 4 cores: 3 workers 387 s, 4 workers 313 s,
+      # 639/639 both. The timeout budgets were set under 4 workers on 4 cores (vitest.config.ts,
+      # vitest.setup.ts), so this is the load they were sized for.
+      - name: Test docs React islands (Vitest + RTL)
+        run: npm test -- --maxWorkers=4
+        working-directory: docs
+
   # ── Docs site build (+ overflow guard) — docs (or engine) changes only ──
   # The deploy workflow (docs.yml) only builds on push to main, so PRs got no
   # docs-build validation. This builds the Astro site (same `npm run build` the
@@ -876,24 +915,22 @@ jobs:
       # lives in ROOT node_modules. Install root deps so npm creates that link; the
       # docs `npm ci` below only populates docs/node_modules, which isn't on the
       # resolution path of a require() from lib/core.
+      # npm ci also BUILDS dist/: the root `prepare` script (tools/prepare.js) runs
+      # `build.js --only-uncommitted`, the built-not-committed half. The docs site imports
+      # dist/docs/*.json and loads the playground bundles, and the workspace libs' dist/
+      # is what `tsc` typechecks against. The committed half is already in the checkout,
+      # and `lint`'s build:check holds it to its generators. A separate build step here
+      # ran that build a second time (47 s on CI); removed on the owner's call to cut this
+      # job's time (2026-11-12).
       - name: Install root deps (for the @laticent/cadenza workspace link)
         run: npm ci
         timeout-minutes: 10
-      # dist/ and the docs bundles are BUILT, not committed (.gitignore). The docs
-      # site imports dist/docs/*.json and loads the playground bundles, and the
-      # workspace libs' dist/ is what `tsc` typechecks against, so build before
-      # either. ~16s, no browser.
-      - name: Build the generated bundles
-        run: npm run build
       - name: Install docs deps
         run: npm ci
         timeout-minutes: 10
         working-directory: docs
       - name: Typecheck docs (astro sync + tsc --noEmit)
         run: npm run typecheck
-        working-directory: docs
-      - name: Test docs React islands (Vitest + RTL)
-        run: npm test
         working-directory: docs
       # The per-PR route allowance (docs/scripts/check-route-budget.mjs): build the base in a
       # worktree and measure it, so the gate can see how much THIS PR adds. The base is the
@@ -999,10 +1036,9 @@ jobs:
         timeout-minutes: 10
         env:
           PUPPETEER_SKIP_DOWNLOAD: '1' # this job never renders; skip the ~150MB Chrome
-      # dist/ and the docs bundles are BUILT, not committed (.gitignore); the Studio
-      # loads them, so build before the preview server starts. ~16s, no browser.
-      - name: Build the generated bundles
-        run: npm run build
+      # No separate build step: npm ci above builds dist/ through the root `prepare`
+      # script (tools/prepare.js, `build.js --only-uncommitted`), which the Studio loads.
+      # See docs-build's note.
       - name: Install docs deps
         run: npm ci
         timeout-minutes: 10
@@ -1025,11 +1061,15 @@ jobs:
       # `build:e2e` skips the two post-build steps that rewrite every page's head
       # (modulepreload injection, stylesheet hoisting). See that config's webServer
       # note and #2134.
+      # E2E_RECORD=off: no trace and no video per test (playwright.config.ts). Recording was about a third of
+      # this step (measured locally, 155 tests: 11.9 min recorded, 8.2 min not) and the job sat at its cap; a
+      # failure still uploads its screenshot and error context below. The nightly suite still records.
       - name: Run Studio E2E @smoke subset
         run: npm run test:e2e:smoke -- --retries=0
         working-directory: docs
         env:
           CI: 'true'
+          E2E_RECORD: 'off'
       - name: Upload Playwright report (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
@@ -1111,7 +1151,7 @@ jobs:
   # green streak (#800). Adding a job here makes it merge-BLOCKING — do it deliberately.
   ci:
     if: always()
-    needs: [changes, lint, unit, integration, docs-build, player-webkit]
+    needs: [changes, lint, unit, integration, docs-build, docs-test, player-webkit]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -1121,7 +1161,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }} # read the PR's head, to tell a superseded run from a timeout
         run: |
-          echo "changes=${{ needs.changes.result }} lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }} player-webkit=${{ needs.player-webkit.result }}"
+          echo "changes=${{ needs.changes.result }} lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }} docs-test=${{ needs.docs-test.result }} player-webkit=${{ needs.player-webkit.result }}"
           # A tier result is acceptable when it's: success; skipped (a conditional
           # tier that didn't apply — e.g. docs-only skips integration); or
           # cancelled. NOTE THE SPELLING: 'cancelled' is GitHub's own enum value
@@ -1176,7 +1216,7 @@ jobs:
           fi
           for tier in "lint=${{ needs.lint.result }}" "unit=${{ needs.unit.result }}" \
                       "integration=${{ needs.integration.result }}" "docs-build=${{ needs.docs-build.result }}" \
-                      "player-webkit=${{ needs.player-webkit.result }}"; do
+                      "docs-test=${{ needs.docs-test.result }}" "player-webkit=${{ needs.player-webkit.result }}"; do
             case "${tier#*=}" in
               success|skipped) ;;
               cancelled)
@@ -1241,6 +1281,7 @@ jobs:
           TIER_UNIT: ${{ needs.unit.result }}
           TIER_INTEGRATION: ${{ needs.integration.result }}
           TIER_DOCS_BUILD: ${{ needs.docs-build.result }}
+          TIER_DOCS_TEST: ${{ needs.docs-test.result }}
         with:
           script: |
             const marker = '<!-- ci-green-beacon -->';
@@ -1251,7 +1292,7 @@ jobs:
             // The tiers the Verify gate above actually decided. Everything else on
             // this SHA — CodeQL, the advisory jobs, other workflows — is OUTSIDE the
             // claim, which is the whole point of the snapshot below.
-            const COVERED = new Set(['changes', 'ci', 'lint', 'unit', 'integration', 'docs-build']);
+            const COVERED = new Set(['changes', 'ci', 'lint', 'unit', 'integration', 'docs-build', 'docs-test']);
             // `integration` runs as four legs named `integration (node 22, shard K/4)`.
             const isCovered = (n) => COVERED.has(n)
               || /^(unit|integration) \(node \d+(, shard \d+\/\d+)?\)$/.test(n);
@@ -1302,6 +1343,7 @@ jobs:
               ['unit', process.env.TIER_UNIT],
               ['integration', process.env.TIER_INTEGRATION],
               ['docs-build', process.env.TIER_DOCS_BUILD],
+              ['docs-test', process.env.TIER_DOCS_TEST],
             ];
             const named = (want) => TIERS.filter(([, r]) => r === want).map(([n]) => n);
             const ran = named('success');
