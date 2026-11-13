@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { CHROME, deckEditorText, expect, gotoStudio, openSection, persistedSource, test, typeDeck } from './studio-fixture';
+import { deckEditorText, expect, gotoStudio, isPhone, openSlideLook, persistedSource, test, typeDeck } from './studio-fixture';
 
 // A held selection in Source survives a write the Studio makes elsewhere in the deck (Editor.tsx's value sync maps the
 // whole selection through a localized write). Before the fix, Slide settings rewriting the class comment above the
@@ -30,21 +30,30 @@ const selectedText = (page: Page) =>
 		return view.state.sliceDoc(from, to);
 	});
 
-test('a range held in Source survives a Slide settings write above it, and one Delete removes exactly that range @crosswidth @webkit-tablet @gecko', async ({ page }) => {
+test('a range held in Source survives a Slide settings write above it, and one Delete removes exactly that range @crosswidth @webkit-phone @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
 	await typeDeck(page, DECK);
 	await holdRange(page);
 	await expect.poll(() => selectedText(page)).toBe(RANGE);
 
 	// A localized write ABOVE the range: Compact spacing rewrites the slide's class comment.
-	await page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true }).first().click();
-	await openSection(page, CHROME.slideTab.look);
+	await openSlideLook(page);
 	await page.getByRole('switch', { name: 'Compact spacing' }).filter({ visible: true }).first().click();
 	await expect.poll(() => persistedSource(page)).toContain('<!-- _class: kpi compact -->');
 	await expect.poll(() => deckEditorText(page)).toContain('<!-- _class: kpi compact -->');
 
 	// The range is still held, whole.
 	expect(await selectedText(page), 'the write collapsed the held range').toBe(RANGE);
+
+	// At phone width the settings sheet covers the one pane on screen, so a key would go to the sheet: close it and bring
+	// the Source pane back, as an author would, and check the range is still held after the switch.
+	if (isPhone(page)) {
+		await page.keyboard.press('Escape');
+		await expect(page.getByRole('switch', { name: 'Compact spacing' }).filter({ visible: true }), 'Escape left the settings sheet open').toHaveCount(0);
+		await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+		await expect(page.getByLabel('Deck source')).toBeVisible();
+		expect(await selectedText(page), 'switching back to Source dropped the held range').toBe(RANGE);
+	}
 
 	// And one Delete removes exactly it.
 	await page.evaluate(() => {

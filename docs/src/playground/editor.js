@@ -439,7 +439,7 @@ const TOOLTIP_CSS = `
 	box-shadow: 0 12px 30px color-mix(in srgb, var(--text-heading) 30%, transparent);
 	overflow: hidden;
 }
-.cm-tooltip-autocomplete > ul { font-family: var(--font-mono); font-size: 13px; max-height: 15em; }
+.cm-tooltip-autocomplete > ul { font-family: var(--font-mono); font-variant-ligatures: none; font-size: 13px; max-height: 15em; }
 .cm-tooltip-autocomplete > ul > li { padding: 3px 10px; color: var(--text-body); }
 .cm-tooltip-autocomplete > ul > li[aria-selected] { background-color: var(--accent); color: var(--on-accent); }
 .cm-completionMatchedText { text-decoration: none; font-weight: 700; color: var(--accent); }

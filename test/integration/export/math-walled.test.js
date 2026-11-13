@@ -19,10 +19,15 @@ const { spawnSync } = require('node:child_process');
 const ROOT = path.join(__dirname, '../../..');
 const TIMEOUT = 300000;
 // Reports, at exit, whether KaTeX's own file was ever `require`d, and how many browsers were launched.
-const PROBE = `const Module = require('module'); const orig = Module.prototype.require; let launches = 0;
-Module.prototype.require = function (id) { const m = orig.apply(this, arguments);
-  if (id === 'puppeteer' && !m.__counted) { m.__counted = true; const l = m.launch.bind(m); m.launch = (o) => { launches++; return l(o); }; }
-  return m; };
+// Browsers are counted where they start, at `child_process.spawn`: puppeteer 25 is an ES module, so
+// `require('puppeteer')` returns a frozen namespace whose `launch` cannot be wrapped (the assignment
+// is silently dropped and every count reads 0). Every Chrome puppeteer drives, `launch` and the
+// sandbox's `launchAsUser` alike, carries a `--remote-debugging-*` switch. @puppeteer/browsers imports the
+// module's default export, which is this object; `syncBuiltinESMExports` also covers a named `{ spawn }`
+// import. A browser started by a child Node process (lib/plugins/host-bake.js) is not counted, as before.
+const PROBE = `const Module = require('module'); const cp = require('child_process'); const spawn = cp.spawn; let launches = 0;
+cp.spawn = function (cmd, args) { if (Array.isArray(args) && args.some((a) => /^--remote-debugging-(pipe|port)/.test(a))) launches++; return spawn.apply(this, arguments); };
+Module.syncBuiltinESMExports();
 process.on('exit', () => process.stderr.write('KATEX_IN_PROCESS=' + Object.keys(require.cache).some((p) => p.endsWith('katex.min.js')) + ' LAUNCHES=' + launches + '\\n'));\n`;
 
 function exportHtml(markdown) {

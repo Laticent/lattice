@@ -653,6 +653,7 @@ check.
 | `error: unsupported output extension` | Use `.pdf`, `.pptx`, `.odp`, `.png`, `.zip` or `.html`. For JPEG or WebP, use a `.zip` with `--image-format` |
 | `error: unknown option` | Check the flag in the [CLI reference](/reference/cli/). Flags that take a value accept `--flag value` and `--flag=value` |
 | The render says it cannot find a browser | Set `CHROME_PATH` to a Chrome or Chromium on your machine |
+| Installing Lattice fails to download Chrome behind a company proxy | Install `proxy-agent` next to Lattice (`npm install proxy-agent`) so the download uses your `HTTPS_PROXY`, or install with `PUPPETEER_SKIP_DOWNLOAD=1` and set `CHROME_PATH` to a Chrome you already have |
 | A web image shows as a placeholder | Add `--allow-remote` |
 | `OVERFLOW — 1 slide exceed the frame` | The slide holds more than fits. Render with `--overflow-marker author` to see it, then cut or split the content |
 

@@ -997,8 +997,9 @@ async function memoTier() {
   let door;
   let memo;
   let bounds;
+  let record;
   try {
-    [edit, door, memo, bounds] = await Promise.all([import('../../lib/core/meta-edit.mjs'), import('../../lib/core/meta-door.mjs'), import('../../lib/core/meta-memo.mjs'), import('../../lib/core/slide-boundaries.mjs')]);
+    [edit, door, memo, bounds, record] = await Promise.all([import('../../lib/core/meta-edit.mjs'), import('../../lib/core/meta-door.mjs'), import('../../lib/core/meta-memo.mjs'), import('../../lib/core/slide-boundaries.mjs'), import('../../lib/core/meta-record.mjs')]);
   } catch {
     edit = null;
   }
@@ -1018,11 +1019,18 @@ async function memoTier() {
   const read = () => {
     const deck = slides.join('\n\n---\n\n');
     for (let k = 0; k < 35; k++) bounds.splitSlideChunks(deck);
+    // The class editor asks `commentBlocks` for every slide on every render, each time with a NEW string (a slice of the
+    // editor's text), so a remembered photo slide is hashed whole on every ask.
+    if (record?.commentBlocks) for (const c of slides) record.commentBlocks(`${c} `.slice(0, -1));
     for (const c of slides) {
       edit.readMetaField(c, 'class');
       for (const m of c.matchAll(/<!--([\s\S]*?)-->/g)) door.readRecord(m[1]);
     }
   };
+  // `blocksHeldChars` is what THIS tier adds to `commentBlocks`'s memo, a module-global the edit tier fills first. It reads
+  // exactly while nothing here evicts or hits an earlier tier's entry; if an earlier tier ever fills the memo toward its
+  // bounds, this column moves with no change to the memo, so re-bless with the PR saying so.
+  const heldBefore = record?.blocksStats?.heldChars ?? 0;
   read();
   const N = 10;
   const before = memo.memoStats.copiedChars;
@@ -1036,7 +1044,7 @@ async function memoTier() {
     times.push(Number(process.hrtime.bigint() - t) / 1e6);
   }
   times.sort((a, b) => a - b);
-  const summary = [{ dataset: 'meta-memo · 3 phone-photo slides', work: { copiedPerKey: Math.round((memo.memoStats.copiedChars - before) / N), cutsPerKey: (bounds.chunkCutCount() - cutsBefore) / N }, ms: times[Math.floor(N / 2)], p95: times[N - 1] }];
+  const summary = [{ dataset: 'meta-memo · 3 phone-photo slides', work: { copiedPerKey: Math.round((memo.memoStats.copiedChars - before) / N), cutsPerKey: (bounds.chunkCutCount() - cutsBefore) / N, ...(record?.blocksStats ? { blocksHeldChars: record.blocksStats.heldChars - heldBefore } : {}) }, ms: times[Math.floor(N / 2)], p95: times[N - 1] }];
   // THE SAME DECK THROUGH ITS WHOLE-DECK READERS: lint-core, review-core and the engine's render, each of which skips a
   // photo's base64 (lib/core/payload-elision.js). The work is the characters each was handed per pass: 16 MB each when a
   // payload reaches them whole.

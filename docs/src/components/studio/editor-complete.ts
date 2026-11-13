@@ -1,7 +1,9 @@
-import type { Completion, CompletionContext, CompletionResult, CompletionSource } from '@codemirror/autocomplete';
+import { type Completion, type CompletionContext, type CompletionResult, type CompletionSource, insertCompletionText, pickedCompletion, startCompletion } from '@codemirror/autocomplete';
 import { altFromAssetName } from '@/lib/photo-alt';
 import { PACE_NAMES } from '@/lib/resolve-pace';
-import { classDirectiveCompletion, classTokenResult, deckSplit, recordCompletion, recordOptions, slideBodyAfter } from '@/playground/slide-context.js';
+import { contextSources } from '@/playground/context-sources.js';
+import { DATA_SOURCE_COMPONENTS } from '@/playground/data-source-components.js';
+import { classDirectiveCompletion, classTokenResult, deckSplit, recordCompletion, recordOptions, slideBodyAfter, slideClassAt } from '@/playground/slide-context.js';
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from '../../lib/front-matter-keys';
 import { MARKS_AXES } from '../../lib/marks-words';
 import { AGENDA_AXIS_ORDER, agendaWords } from './agenda';
@@ -87,18 +89,28 @@ export function nextAxisWords(key: string, written: string, words: readonly stri
 	return words.filter((w) => !used.has(w) && !filled.some((axis) => axis.includes(w)));
 }
 
-// Fenced-block languages the engine renders specially, plus common code langs.
-const FENCE_LANGS: { lang: string; info: string }[] = [
-	{ lang: 'mermaid', info: 'Mermaid diagram (flow, sequence, gantt…).' },
-	{ lang: 'chart', info: 'Lattice chart block.' },
-	{ lang: 'math', info: 'Display math (KaTeX).' },
-	{ lang: 'js', info: 'JavaScript' },
-	{ lang: 'ts', info: 'TypeScript' },
-	{ lang: 'python', info: 'Python' },
-	{ lang: 'bash', info: 'Shell' },
-	{ lang: 'json', info: 'JSON' },
-	{ lang: 'sql', info: 'SQL' },
-];
+
+/** The top-level keys the leading front matter sets, other than on line `skip` (the line being typed). Exported for a test. */
+export function frontMatterKeysSet(lineText: (n: number) => string, lines: number, skip: number): Set<string> {
+	const set = new Set<string>();
+	if (lines < 1 || !/^---[ \t]*$/.test(lineText(1))) return set;
+	for (let n = 2; n <= lines; n++) {
+		const t = lineText(n);
+		if (/^---[ \t]*$/.test(t)) break;
+		if (n === skip) continue;
+		const m = /^([A-Za-z_][\w-]*)[ \t]*:/.exec(t);
+		if (m) set.add(m[1]);
+	}
+	return set;
+}
+
+/** Write `key: `, then, when the key's value completes, open that menu at once: the next thing the author types is the value. */
+function applyKey(key: string, opensValues: boolean): Completion['apply'] {
+	return (view, completion, from, to) => {
+		view.dispatch({ ...insertCompletionText(view.state, `${key}: `, from, to), annotations: pickedCompletion.of(completion) });
+		if (opensValues) startCompletion(view);
+	};
+}
 
 /** True when `pos` sits inside the leading `---` front-matter block. */
 function inFrontMatter(doc: string, pos: number): boolean {
@@ -305,6 +317,15 @@ export function makeStudioCompletion(
 	const usage: Record<string, number> = { ...(opts.vocab?.modifierUsage || {}) };
 	if (!opts.vocab?.modifierUsage) for (const c of components) for (const [t, n] of Object.entries(c.modifierUsage || {})) usage[t] = (usage[t] || 0) + n;
 	const classExtra = { finishClasses, usage };
+	// The keys whose value completes: picking one of them goes straight on to its value menu.
+	const hasValues = (key: string): boolean =>
+		Object.hasOwn(registerOptions, key) ||
+		key === 'lang' ||
+		key === 'ai-lang' ||
+		key === 'pace' ||
+		(key === 'theme' && paletteOptions.length > 0) ||
+		(key === 'finish' && finishOptions.length > 0) ||
+		(key === 'class' && (modifierOptions.length > 0 || classFinishOptions.length > 0));
 
 	return function studioComplete(context: CompletionContext): CompletionResult | null {
 		const line = context.state.doc.lineAt(context.pos);
@@ -398,16 +419,8 @@ export function makeStudioCompletion(
 			return { from: word ? word.from : context.pos, options, validFor: /^[\w-]*$/ };
 		}
 
-		// 2. Fenced-block language right after the opening ``` .
-		const fence = context.matchBefore(/^[ \t]*`{3,}[\w-]*/);
-		if (fence && /`{3,}[\w-]*$/.test(before)) {
-			const tick = context.matchBefore(/[\w-]*/);
-			return {
-				from: tick ? tick.from : context.pos,
-				options: FENCE_LANGS.map((f) => ({ label: f.lang, type: 'keyword', info: f.info })),
-				validFor: /^[\w-]*$/,
-			};
-		}
+		// 2. A fence's language is a shared source (context-sources.js `fenceLanguageSource`), which loads the plugin
+		// registry on first use.
 
 		// 3. Finish register value on a `finish:` line — built-ins + saved finishes.
 		if (finishOptions.length && /^[ \t]*finish:[ \t]*[\w-]*$/.test(before) && inFrontMatter(context.state.doc.toString(), context.pos)) {
@@ -415,14 +428,17 @@ export function makeStudioCompletion(
 			return { from: word ? word.from : context.pos, options: finishOptions, validFor: /^[\w-]*$/ };
 		}
 
-		// 4. Front-matter directive key (start of a line inside the `---` block).
-		if (inFrontMatter(context.state.doc.toString(), context.pos) && /^[ \t]*[\w-]*$/.test(before)) {
+		// 4. Front-matter directive key, at column 0 inside the `---` block. An indented line is an entry of a nested
+		// map (`backdrop:` → `  strength:`), whose keys are the map's own (context-sources.js), never the deck's.
+		if (inFrontMatter(context.state.doc.toString(), context.pos) && /^[\w-]*$/.test(before)) {
 			const word = context.matchBefore(/[\w-]*/);
 			// Don't fire on the `---` fence lines themselves.
 			if (/^-+$/.test(line.text.trim())) return null;
+			// A key the front matter already sets is not offered again (YAML keeps only the last one).
+			const set = frontMatterKeysSet((n) => context.state.doc.line(n).text, context.state.doc.lines, line.number);
 			return {
 				from: word ? word.from : context.pos,
-				options: FRONT_MATTER_KEYS.map((k) => ({ label: k.key, type: 'property', info: k.info, apply: `${k.key}: ` })),
+				options: FRONT_MATTER_KEYS.filter((k) => !set.has(k.key)).map((k) => ({ label: k.key, type: 'property', info: k.info, apply: applyKey(k.key, hasValues(k.key)) })),
 				validFor: /^[\w-]*$/,
 			};
 		}
@@ -436,10 +452,11 @@ export function makeStudioCompletion(
  * the two never apply to the same spot). `loadAssets` reads the shelf on demand, so the editor pays nothing
  * until the first image reference is typed.
  *   - Inside the `(…)` of any markdown image (`![alt](`, `![bg](`, a collage's list item): `asset:<name>` for
- *     each photo this deck can see. A reference already written as a URL (`https:`, `sample:`) is left alone.
+ *     each photo this deck can see, and `sample:<name>` for Lattice's sample art (`loadSamples`, when given). A
+ *     reference already written as a URL (`https:`) is left alone.
  *   - On a collage slide, a bare list item is a photo: each whole `![Alt](asset:name)` line, alt text selected.
  */
-export function makeAssetCompletion(loadAssets: () => Promise<AssetChoice[]> | AssetChoice[]) {
+export function makeAssetCompletion(loadAssets: () => Promise<AssetChoice[]> | AssetChoice[], loadSamples?: () => Promise<string[]> | string[]) {
 	const photoOption = (a: AssetChoice, kind: 'ref' | 'line'): Completion => {
 		const detail = `${a.width}×${a.height}${a.scope === 'library' ? '' : ' · this deck'}`;
 		if (kind === 'ref') return { label: `asset:${a.name}`, type: 'constant', detail, info: a.sourceName };
@@ -465,9 +482,18 @@ export function makeAssetCompletion(loadAssets: () => Promise<AssetChoice[]> | A
 		// (`https:`, `sample:`) is left alone: the typed prefix must be a prefix of `asset:`, or `asset:` plus a name.
 		// Only the end of the line is read: a 250 KB line of `![a](` repeats would otherwise cost seconds per keystroke.
 		const ref = /!\[[^\]\n]*\]\(([^)\s]*)$/.exec(before.slice(-300));
-		if (ref && ('asset:'.startsWith(ref[1].toLowerCase()) || /^asset:/i.test(ref[1]))) {
+		const typed = ref ? ref[1].toLowerCase() : '';
+		const wantsAssets = !!ref && ('asset:'.startsWith(typed) || typed.startsWith('asset:'));
+		// Lattice's sample art (`sample:<name>`, lib/samples/), so an image reference completes even with an empty Library.
+		const wantsSamples = !!ref && !!loadSamples && ('sample:'.startsWith(typed) || typed.startsWith('sample:'));
+		if (ref && (wantsAssets || wantsSamples)) {
 			const from = context.pos - ref[1].length;
-			return Promise.resolve(loadAssets()).then((list) => (list.length ? { from, options: list.map((a) => photoOption(a, 'ref')), validFor: /^[\w:.-]*$/ } : null)).catch(() => null);
+			const assets = wantsAssets ? Promise.resolve(loadAssets()).catch(() => [] as AssetChoice[]) : Promise.resolve([] as AssetChoice[]);
+			const samples = wantsSamples && loadSamples ? Promise.resolve(loadSamples()).catch(() => [] as string[]) : Promise.resolve([] as string[]);
+			return Promise.all([assets, samples]).then(([list, names]) => {
+				const options = [...list.map((a) => photoOption(a, 'ref')), ...names.map((n): Completion => ({ label: `sample:${n}`, type: 'constant', detail: 'sample art' }))];
+				return options.length ? { from, options, validFor: /^[\w:.-]*$/ } : null;
+			});
 		}
 		// A bare list item on a collage slide is a photo: offer each whole line. Only once something is typed (or on
 		// Ctrl-Space), so an Enter on an empty bullet stays a newline.
@@ -478,4 +504,42 @@ export function makeAssetCompletion(loadAssets: () => Promise<AssetChoice[]> | A
 		}
 		return null;
 	};
+}
+
+/**
+ * The map's body completer, loaded on first use: its basemaps are about 100 KB, and the Studio pays nothing for them
+ * until the caret is on a `map` slide. The slide check runs first, synchronously, so every other line returns null at
+ * once. (The Playground imports the registry statically; context-sources.js takes either.)
+ */
+const lazyDataSource: CompletionSource = (context) => {
+	const doc = context.state.doc;
+	const line = doc.lineAt(context.pos);
+	const info = slideClassAt((n: number) => doc.line(n).text, line.number);
+	if (!info || !DATA_SOURCE_COMPONENTS.includes(info.name)) return null;
+	return import('@/playground/data-sources.js').then(({ dataSources }) => {
+		if (context.aborted) return null;
+		for (const source of dataSources) {
+			const got = source(context);
+			if (got) return got;
+		}
+		return null;
+	});
+};
+
+/** Brings in the lint core's `flowchartCompletions` (tests pass the core directly; the site loads it on demand). */
+export type FlowchartLoader = () => Promise<{ flowchartCompletions: (md: string) => { names: string[]; spanWords: { label: string; axis: string }[] } }>;
+
+/**
+ * Every source the Studio's deck editor runs: its own completer (`main`, from `makeStudioCompletion`), the Library
+ * photos (`assets`), then the slide-context sources it shares with the Playground (context-sources.js). One function,
+ * so the parity test reads the same list Editor.tsx installs.
+ */
+export function studioCompletionSources(
+	main: CompletionSource,
+	assets: CompletionSource,
+	catalog: CompletionComponent[] = [],
+	registers: Record<string, string[]> = {},
+	loadFlowchart?: FlowchartLoader,
+): CompletionSource[] {
+	return [main, assets, ...contextSources({ catalog, dataSources: [lazyDataSource], registers, loadFlowchart })];
 }

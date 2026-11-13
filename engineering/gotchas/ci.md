@@ -894,12 +894,14 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 ## A test is red in the cloud sandbox and green on CI: two different Chromes
 
 - **Symptom:** an integration test fails every time in the sandbox and passes on CI, with no flake.
-- **Cause:** CI's integration job uses puppeteer's pinned Chrome (131.0.6778.204, from `~/.cache/puppeteer`).
+- **Cause:** CI's integration job uses puppeteer's pinned Chrome (157.0.8103.50 since puppeteer 25.17; it was
+  131.0.6778.204 under puppeteer 23), from `~/.cache/puppeteer`.
   The sandbox exports `CHROME_PATH` and `PUPPETEER_EXECUTABLE_PATH` as `/usr/bin/google-chrome`, Chrome for
-  Testing 153. Two builds round and serialize differently: 153 snaps outline widths and offsets to whole pixels
-  (`calco-focus-column`), and writes keyword background positions as `calc()` (`contrast-probe-gradient`).
+  Testing 153. Two builds round and serialize differently. Measured between 131 and 153: 153 snaps outline widths
+  and offsets to whole pixels (`calco-focus-column`), and writes keyword background positions as `calc()`
+  (`contrast-probe-gradient`).
 - **Fix:** a test asserts what the browser itself reports, read from the same page, never one build's rounding
-  as a constant. To run a file on CI's build: `npx puppeteer browsers install chrome@131.0.6778.204`, then set
+  as a constant. To run a file on CI's build: `npx puppeteer browsers install chrome@157.0.8103.50`, then set
   both `CHROME_PATH` and `PUPPETEER_EXECUTABLE_PATH` to the path it prints (a test may read either).
 - **Removable when:** the sandbox and CI pin the same Chrome.
 

@@ -2063,6 +2063,12 @@ never turn "passed in headless" into "works on iOS."
   `splitSlideChunks` keeps its last answer beside the boundary memo entry it was cut from. Counted in
   `test/unit/core/meta-memo.test.js`, `slide-boundaries.test.js` and the bench's `memoDatasets` row: copies per keystroke
   15,000,391 to 61, cuts 35 to 1. That took the worst stall from 28.7 s to 11.2 s.
+  The directive editors' `commentBlocks` memo (`lib/core/meta-record.mjs`) had the same flaw with a different bound: it
+  was capped by COUNT (512 texts), so it kept every photo slide it was asked about, and each lookup flattened and compared
+  the whole text, since the editor hands it a new string each time. It now reads a text past 1,000,000 characters without
+  the memo, and holds 4,000,000 characters at most in all; `blocksStats.heldChars` counts what it keeps
+  (`test/unit/core/meta-record.test.js`, the bench's `memoDatasets` row: 15,000,881 characters held for the three photo
+  slides and the plain slides beside them, now 632, the plain slides alone).
 - **Fix, part 2: readers stop walking a photo's base64** — no reader of a deck needs a payload's bytes, and every one
   walked them: lint-core, review-core, the engine's `render`, the preview's HTML and CSS scanners, the source checks one
   preview render makes, a photo address reader that tested a regex per character. Two remedies, chosen by what the reader
@@ -2138,3 +2144,23 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — any new looping animation (a caret, a spinner, a pulse) on a page a spec waits on.
 - **Removable when** — never; a blinking caret is correct, and the wait was the wrong signal.
 - **Commits** — fix(e2e) chat-photos composer wait, 2026-11-13.
+
+## A controlled CodeMirror field drops letters typed quickly
+
+- **Symptom** — typing fast into the Theme CSS field loses letters: `font-sze`, `var(-accent`. Seen on Firefox at
+  Playwright's full typing speed, 4 runs in 5; never at 40 ms a key, and never in the deck editor.
+- **Cause** — `CodeField` tells the parent each edit through `onChange`, and the parent's re-render brings the text back
+  as `value` a keystroke or more later. The field's sync effect read any `value` that differed from its document as an
+  outside change and wrote it over the document, erasing the letters typed since.
+- **Fix** — the field remembers the texts it emitted and ignores a `value` that is one of them (`CodeField.tsx`
+  `emittedRef`), as the deck editor's `isStaleEcho` does. Pinned by `editor-completion-keys.spec.ts` "typing fast into a
+  CSS field loses no characters". Any other controlled CodeMirror surface needs the same echo check.
+
+## An e2e that asserts a completion option is ABSENT passes before the menu opens
+
+- **Symptom** — a test asserts `getByRole('option', { name: /^theme/ })` `toHaveCount(0)` and stays green with the
+  filter it guards removed.
+- **Cause** — the menu opens asynchronously, so `toHaveCount(0)` is true at once, before any option exists. A menu
+  opened by typing can also open before the key under test, so "the key opened it" passes on a key that does nothing.
+- **Fix** — wait for a positive option first, then read the absence; and test a key at a spot that opens nothing by
+  itself (a bare `<!-- _class: ` stays quiet until a letter or the key). `editor-completion-keys.spec.ts` does both.

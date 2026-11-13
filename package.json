@@ -407,7 +407,7 @@
     "parse5": "^8.0.1",
     "pdf-lib": "^1.17.1",
     "pptxgenjs": "^3.12.0",
-    "puppeteer": "^23.0.0",
+    "puppeteer": "^25.17.0",
     "qrcode": "^1.5.4",
     "quickjs-emscripten-core": "0.31.0",
     "roughjs": "^4.6.6",
@@ -473,6 +473,9 @@
   "overrides": {
     "@mermaid-js/mermaid-cli": {
       "puppeteer": "$puppeteer"
+    },
+    "pptxgenjs": {
+      "image-size": "^2.1.0"
     },
     "marp-core-4.0.1": {
       "@marp-team/marpit": "3.1.2"
