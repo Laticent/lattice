@@ -1,12 +1,35 @@
 // @vitest-environment node
+// The cleaners (clean.ts): keep-lists, not drop-lists. Every case below came from the Studio's red team on the photo
+// scrubber (engineering/decisions/2026-10-12-library-media-assets.md §3) and moved here with the code.
 import { describe, expect, it } from 'vitest';
-import { scrubberFor, scrubGif, scrubJpeg, scrubPng, scrubWebp, tiffOrientation } from './media-scrub';
-import { jpeg, jpegSegment, png, pngChunk, webp, webpChunk } from './test-images';
+import { cleanerFor, cleanGif, cleanJpeg, cleanPng, cleanWebp } from './clean.js';
+import { tiffOrientation } from './read.js';
 
 const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
 const le32 = (n: number) => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
 const has = (b: Uint8Array, s: string) => new TextDecoder('latin1').decode(b).includes(s);
 const GPS = 'GPSLatitude=51.5'; // the marker: if it survives, the location survives
+
+// Tiny but STRUCTURALLY VALID images: they walk as real PNG, WebP and JPEG files. `seed` makes two of them differ.
+const be32 = (n: number) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
+
+const pngChunk = (type: string, data: number[]) => [...be32(data.length), ...ascii(type), ...data, 0, 0, 0, 0];
+function png(seed = 1, extra: number[][] = []): Uint8Array {
+	return new Uint8Array([0x89, ...ascii('PNG'), 13, 10, 26, 10, ...pngChunk('IHDR', [0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0]), ...extra.flat(), ...pngChunk('IDAT', [seed, 2, 3, 4]), ...pngChunk('IEND', [])]);
+}
+
+const webpChunk = (type: string, data: number[]) => [...ascii(type), ...le32(data.length), ...data, ...(data.length & 1 ? [0] : [])];
+function webp(seed = 1, chunks: number[][] = [], flags = 0): Uint8Array {
+	const body = [...ascii('WEBP'), ...webpChunk('VP8X', [flags, 0, 0, 0, 0, 0, 0, 0, 0, 0]), ...webpChunk('VP8 ', [seed, 9, 9, 9]), ...chunks.flat()];
+	return new Uint8Array([...ascii('RIFF'), ...le32(body.length), ...body]);
+}
+
+/** SOI, optional extra segments, a JFIF APP0, a start-of-scan header and some scan bytes, EOI. */
+function jpeg(seed = 1, segments: number[][] = []): Uint8Array {
+	const seg = (marker: number, data: number[]) => [0xff, marker, (data.length + 2) >> 8, (data.length + 2) & 255, ...data];
+	return new Uint8Array([0xff, 0xd8, ...seg(0xe0, [...ascii('JFIF'), 0, 1, 1, 0, 0, 1, 0, 1, 0, 0]), ...segments.flat(), ...seg(0xda, [1, 1, 0, 0, 63, 0]), seed, 1, 2, 3, 0xff, 0xd9]);
+}
+const jpegSegment = (marker: number, data: number[]) => [0xff, marker, (data.length + 2) >> 8, (data.length + 2) & 255, ...data];
 
 /** A TIFF block with Orientation = `o` and a GPS-looking string behind it, as a phone writes it. */
 const tiff = (o: number) => [0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 2, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, o, 0, 0, 0x88, 0x25, 0, 4, 0, 0, 0, 1, 0, 0, 0, 38, 0, 0, 0, 0, ...ascii(GPS)];
@@ -21,48 +44,48 @@ describe('tiffOrientation', () => {
 	});
 });
 
-describe('scrubPng — a keep-list', () => {
+describe('cleanPng — a keep-list', () => {
 	it('drops every chunk that is not on the list, including ones nobody has heard of, and keeps the picture', () => {
 		const junk = ['eXIf', 'tEXt', 'zTXt', 'iTXt', 'caBX', 'tIME', 'exIf', 'zxIf', 'iTXT', 'vpAg', 'prVW', 'mkBS', 'zzZz'];
 		const dirty = png(1, [...junk.map((t) => pngChunk(t, ascii(`${t}${GPS}`))), pngChunk('gAMA', [0, 0, 177, 143]), pngChunk('iCCP', ascii('profile\0\0abc'))]);
 		expect(has(dirty, GPS), 'positive control: the input carries the marker').toBe(true);
-		const clean = scrubPng(dirty) as Uint8Array;
+		const clean = cleanPng(dirty) as Uint8Array;
 		expect(has(clean, GPS)).toBe(false);
 		for (const t of junk) expect(has(clean, t), t).toBe(false);
 		for (const t of ['IHDR', 'gAMA', 'iCCP', 'IDAT', 'IEND']) expect(has(clean, t), t).toBe(true);
-		expect(scrubPng(clean)).toEqual(clean); // idempotent
+		expect(cleanPng(clean)).toEqual(clean); // idempotent
 	});
 	it('leaves a clean PNG byte for byte', () => {
 		const p = png(4);
-		expect(scrubPng(p)).toEqual(p);
+		expect(cleanPng(p)).toEqual(p);
 	});
 	it('keeps a picture’s rotation as a chunk of its own, with nothing else from the EXIF block', () => {
-		const clean = scrubPng(png(1, [pngChunk('eXIf', tiff(6))])) as Uint8Array;
+		const clean = cleanPng(png(1, [pngChunk('eXIf', tiff(6))])) as Uint8Array;
 		expect(has(clean, GPS)).toBe(false);
 		expect(has(clean, 'eXIf')).toBe(true);
 		const at = new TextDecoder('latin1').decode(clean).indexOf('eXIf');
 		expect(tiffOrientation(clean.subarray(at + 4, at + 4 + 26))).toBe(6);
 	});
 	it('drops an eXIf that does not rotate the picture', () => {
-		expect(has(scrubPng(png(1, [pngChunk('eXIf', tiff(1))])) as Uint8Array, 'eXIf')).toBe(false);
+		expect(has(cleanPng(png(1, [pngChunk('eXIf', tiff(1))])) as Uint8Array, 'eXIf')).toBe(false);
 	});
 	it('answers null for a file that is not a PNG or is cut short, so the importer re-encodes it', () => {
-		expect(scrubPng(new Uint8Array([1, 2, 3]))).toBeNull();
-		expect(scrubPng(png().subarray(0, 40))).toBeNull();
+		expect(cleanPng(new Uint8Array([1, 2, 3]))).toBeNull();
+		expect(cleanPng(png().subarray(0, 40))).toBeNull();
 	});
 	it('drops whatever follows IEND', () => {
 		const p = png();
 		const trailing = new Uint8Array([...p, ...ascii(GPS)]);
-		expect(has(scrubPng(trailing) as Uint8Array, GPS)).toBe(false);
+		expect(has(cleanPng(trailing) as Uint8Array, GPS)).toBe(false);
 	});
 });
 
-describe('scrubWebp — a keep-list', () => {
+describe('cleanWebp — a keep-list', () => {
 	it('drops EXIF, XMP and every unknown chunk, clears the VP8X flags, and rewrites the RIFF size', () => {
 		const junk = ['EXIF', 'XMP ', 'C2PA', 'exif', 'XMP\0', 'zzzz'];
 		const dirty = webp(1, junk.map((t) => webpChunk(t, ascii(`${t}${GPS}`))), 0x0c);
 		expect(has(dirty, GPS)).toBe(true);
-		const clean = scrubWebp(dirty) as Uint8Array;
+		const clean = cleanWebp(dirty) as Uint8Array;
 		expect(has(clean, GPS)).toBe(false);
 		expect(has(clean, 'VP8 '), 'the image data stays').toBe(true);
 		const view = new DataView(clean.buffer, clean.byteOffset);
@@ -74,13 +97,13 @@ describe('scrubWebp — a keep-list', () => {
 		const nested = [...frameHeader, 0, 0, 0, 0, ...webpChunk('VP8 ', [5, 5, 5, 5]), ...webpChunk('EXIF', ascii(GPS))];
 		const dirty = webp(1, [webpChunk('ANIM', [0, 0, 0, 0, 0, 0]), webpChunk('ANMF', nested)]);
 		expect(has(dirty, GPS)).toBe(true);
-		const clean = scrubWebp(dirty) as Uint8Array;
+		const clean = cleanWebp(dirty) as Uint8Array;
 		expect(has(clean, GPS)).toBe(false);
 		expect(has(clean, 'ANMF') && has(clean, 'ANIM')).toBe(true);
 		expect(new DataView(clean.buffer, clean.byteOffset).getUint32(4, true)).toBe(clean.length - 8);
 	});
 	it('keeps a rotation as an orientation-only EXIF chunk, and the flag that announces it', () => {
-		const clean = scrubWebp(webp(1, [webpChunk('EXIF', tiff(8))], 0x08)) as Uint8Array;
+		const clean = cleanWebp(webp(1, [webpChunk('EXIF', tiff(8))], 0x08)) as Uint8Array;
 		expect(has(clean, GPS)).toBe(false);
 		const at = new TextDecoder('latin1').decode(clean).indexOf('EXIF');
 		expect(at).toBeGreaterThan(0);
@@ -90,12 +113,12 @@ describe('scrubWebp — a keep-list', () => {
 	it('reads a file whose last chunk is odd-sized and unpadded, as a browser does', () => {
 		const body = [...ascii('WEBP'), ...webpChunk('VP8X', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), ...ascii('VP8 '), ...le32(3), 7, 7, 7]; // no pad byte
 		const odd = new Uint8Array([...ascii('RIFF'), ...le32(body.length), ...body]);
-		const clean = scrubWebp(odd) as Uint8Array;
+		const clean = cleanWebp(odd) as Uint8Array;
 		expect(clean).not.toBeNull();
 		expect(clean.length % 2).toBe(0);
 	});
 	it('answers null for something that is not a WebP', () => {
-		expect(scrubWebp(new Uint8Array(30))).toBeNull();
+		expect(cleanWebp(new Uint8Array(30))).toBeNull();
 	});
 });
 
@@ -103,9 +126,9 @@ const sub = (data: number[]) => [data.length, ...data, 0];
 const gif = (exts: number[][], trailer = true) =>
 	new Uint8Array([...ascii('GIF89a'), 1, 0, 1, 0, 0, 0, 0, ...exts.flat(), 0x2c, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, ...sub([1, 2, 3]), ...(trailer ? [0x3b] : [])]);
 
-describe('scrubGif — a keep-list', () => {
+describe('cleanGif — a keep-list', () => {
 	const netscape = [0x21, 0xff, 11, ...ascii('NETSCAPE2.0'), ...sub([1, 0, 0])];
-	it('keeps the loop count, frame timing and colour profile; drops comments, XMP, plain text and extra data', () => {
+	it('keeps the loop count, frame timing and color profile; drops comments, XMP, plain text and extra data', () => {
 		const xmp = [0x21, 0xff, 11, ...ascii('XMP DataXMP'), ...sub(ascii(GPS))];
 		const comment = [0x21, 0xfe, ...sub(ascii(GPS))];
 		const plain = [0x21, 0x01, ...sub([...Array(12).fill(0), ...ascii(GPS)])];
@@ -115,72 +138,72 @@ describe('scrubGif — a keep-list', () => {
 		const loopWithExtra = [0x21, 0xff, 11, ...ascii('NETSCAPE2.0'), 3, 1, 0, 0, ...sub(ascii(GPS))];
 		const dirty = gif([loopWithExtra, xmp, comment, plain, gce, icc]);
 		expect(has(dirty, GPS)).toBe(true);
-		const clean = scrubGif(dirty) as Uint8Array;
+		const clean = cleanGif(dirty) as Uint8Array;
 		expect(has(clean, GPS)).toBe(false);
-		expect(has(clean, 'NETSCAPE2.0') && has(clean, 'ICCRGBG1012'), 'loop count and colour profile stay').toBe(true);
+		expect(has(clean, 'NETSCAPE2.0') && has(clean, 'ICCRGBG1012'), 'loop count and color profile stay').toBe(true);
 		expect(clean.at(-1)).toBe(0x3b);
-		expect(scrubGif(clean)).toEqual(clean);
+		expect(cleanGif(clean)).toEqual(clean);
 	});
 	it('reads a GIF that has no trailer, as a browser does, and gives it one', () => {
-		const clean = scrubGif(gif([netscape], false)) as Uint8Array;
+		const clean = cleanGif(gif([netscape], false)) as Uint8Array;
 		expect(clean.at(-1)).toBe(0x3b);
 	});
 	it('answers null for a truncated or non-GIF file', () => {
-		expect(scrubGif(new Uint8Array(20))).toBeNull();
-		expect(scrubGif(gif([]).subarray(0, 14))).toBeNull();
+		expect(cleanGif(new Uint8Array(20))).toBeNull();
+		expect(cleanGif(gif([]).subarray(0, 14))).toBeNull();
 	});
 });
 
-describe('scrubJpeg', () => {
-	it('drops EXIF, XMP, IPTC and comments; keeps JFIF, the colour profile and the scan', () => {
+describe('cleanJpeg', () => {
+	it('drops EXIF, XMP, IPTC and comments; keeps JFIF, the color profile and the scan', () => {
 		const dirty = jpeg(1, [jpegSegment(0xe1, ascii(`Exif\0\0${GPS}`)), jpegSegment(0xe1, ascii(`http://ns.adobe.com/xap/1.0/\0${GPS}`)), jpegSegment(0xed, ascii(`Photoshop 3.0\0${GPS}`)), jpegSegment(0xfe, ascii(GPS)), jpegSegment(0xe2, ascii('ICC_PROFILE\0abc'))]);
 		expect(has(dirty, GPS)).toBe(true);
-		const clean = scrubJpeg(dirty) as Uint8Array;
+		const clean = cleanJpeg(dirty) as Uint8Array;
 		expect(has(clean, GPS)).toBe(false);
 		expect(has(clean, 'JFIF') && has(clean, 'ICC_PROFILE')).toBe(true);
 		expect(clean.at(-1)).toBe(0xd9);
 	});
 	it('leaves a clean JPEG byte for byte and answers null for a file that is not one', () => {
 		const j = jpeg(3);
-		expect(scrubJpeg(j)).toEqual(j);
-		expect(scrubJpeg(new Uint8Array([1, 2, 3, 4, 5]))).toBeNull();
-		expect(scrubJpeg(j.subarray(0, 10))).toBeNull();
+		expect(cleanJpeg(j)).toEqual(j);
+		expect(cleanJpeg(new Uint8Array([1, 2, 3, 4, 5]))).toBeNull();
+		expect(cleanJpeg(j.subarray(0, 10))).toBeNull();
 	});
 });
 
-describe('scrubJpeg — the rest of the file', () => {
+describe('cleanJpeg — the rest of the file', () => {
 	it('drops everything after the end-of-image marker (a second image, a motion-photo video) and every MPF/vendor APP segment', () => {
 		const trailer = [...jpeg(5, [jpegSegment(0xe1, ascii(`Exif\0\0${GPS}`))])]; // a whole second JPEG, with its own EXIF
 		const dirty = new Uint8Array([...jpeg(1, [jpegSegment(0xe2, ascii('MPF\0abc')), jpegSegment(0xeb, ascii(GPS))]), ...trailer, ...ascii('ftypmp42')]);
 		expect(has(dirty, GPS)).toBe(true);
-		const clean = scrubJpeg(dirty) as Uint8Array;
+		const clean = cleanJpeg(dirty) as Uint8Array;
 		expect(has(clean, GPS) || has(clean, 'MPF') || has(clean, 'ftyp')).toBe(false);
 		expect(clean.at(-1)).toBe(0xd9);
-		expect(scrubJpeg(clean)).toEqual(clean);
+		expect(cleanJpeg(clean)).toEqual(clean);
 	});
 	it('drops an APPn or comment segment placed BETWEEN the scans of a progressive file', () => {
 		const seg = (m: number, d: number[]) => jpegSegment(m, d);
 		const sos = seg(0xda, [1, 1, 0, 0, 63, 0]);
 		const file = new Uint8Array([0xff, 0xd8, ...seg(0xe0, ascii('JFIF\0\x01\x01\0\0\x01\0\x01\0\0')), ...sos, 7, 8, 9, ...seg(0xe1, ascii(`Exif\0\0${GPS}`)), ...sos, 4, 5, 6, 0xff, 0xd9]);
 		expect(has(file, GPS)).toBe(true);
-		const clean = scrubJpeg(file) as Uint8Array;
+		const clean = cleanJpeg(file) as Uint8Array;
 		expect(has(clean, GPS)).toBe(false);
 		expect(clean.at(-1)).toBe(0xd9);
 	});
 	it('keeps a picture’s rotation as an orientation-only EXIF block, and nothing else from it', () => {
-		const clean = scrubJpeg(jpeg(1, [jpegSegment(0xe1, [...ascii('Exif\0\0'), ...tiff(6)])])) as Uint8Array;
+		const clean = cleanJpeg(jpeg(1, [jpegSegment(0xe1, [...ascii('Exif\0\0'), ...tiff(6)])])) as Uint8Array;
 		expect(has(clean, GPS)).toBe(false);
 		const at = new TextDecoder('latin1').decode(clean).indexOf('Exif');
 		expect(tiffOrientation(clean.subarray(at + 6, at + 6 + 26))).toBe(6);
 	});
 	it('keeps an ICC profile and drops an APP2 that is not one', () => {
-		const clean = scrubJpeg(jpeg(1, [jpegSegment(0xe2, ascii('ICC_PROFILE\0abc')), jpegSegment(0xe2, ascii('MPF\0abcdefghij'))])) as Uint8Array;
+		const clean = cleanJpeg(jpeg(1, [jpegSegment(0xe2, ascii('ICC_PROFILE\0abc')), jpegSegment(0xe2, ascii('MPF\0abcdefghij'))])) as Uint8Array;
 		expect(has(clean, 'ICC_PROFILE')).toBe(true);
 		expect(has(clean, 'MPF')).toBe(false);
 	});
 	it('answers null for a JPEG cut anywhere before its end marker', () => {
 		const j = jpeg(1);
-		for (let n = 4; n < j.length; n++) expect(scrubJpeg(j.subarray(0, n)), `${n} bytes`).toBeNull();
+		for (let n = 4; n < j.length; n++) expect(cleanJpeg(j.subarray(0, n)), `${n} bytes`).toBeNull();
 	});
 });
 
@@ -188,26 +211,28 @@ describe('cut-short files are refused, not stored as pictures that cannot decode
 	it('a WebP cut at any point is null unless it still holds a whole picture', () => {
 		const w = webp(1, [webpChunk('EXIF', ascii(GPS))]);
 		for (let n = 12; n < w.length - 1; n++) {
-			const out = scrubWebp(w.subarray(0, n));
+			const out = cleanWebp(w.subarray(0, n));
 			// Either refused, or (cut only inside the dropped EXIF chunk) a complete picture with the right RIFF size.
 			if (out) expect(new DataView(out.buffer, out.byteOffset).getUint32(4, true), `${n} bytes`).toBe(out.length - 8);
 		}
-		expect(scrubWebp(w.subarray(0, 30)), 'only the VP8X header: no picture').toBeNull();
+		expect(cleanWebp(w.subarray(0, 30)), 'only the VP8X header: no picture').toBeNull();
 	});
 	it('a WebP with no image chunk is null', () => {
 		const body = [...ascii('WEBP'), ...webpChunk('VP8X', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0])];
-		expect(scrubWebp(new Uint8Array([...ascii('RIFF'), ...le32(body.length), ...body]))).toBeNull();
+		expect(cleanWebp(new Uint8Array([...ascii('RIFF'), ...le32(body.length), ...body]))).toBeNull();
 	});
 	it('a GIF whose frame data stops before its terminator is null', () => {
 		const g = gif([]);
-		expect(scrubGif(g.subarray(0, g.length - 2))).toBeNull(); // cut inside the frame's data sub-blocks
-		expect(scrubGif(g.subarray(0, g.length - 1)), 'only the trailer missing is fine').not.toBeNull();
+		expect(cleanGif(g.subarray(0, g.length - 2))).toBeNull(); // cut inside the frame's data sub-blocks
+		expect(cleanGif(g.subarray(0, g.length - 1)), 'only the trailer missing is fine').not.toBeNull();
 	});
 });
 
-describe('scrubberFor', () => {
+describe('cleanerFor', () => {
 	it('has one for the four stored types and none for the rest', () => {
-		for (const m of ['image/png', 'image/webp', 'image/gif', 'image/jpeg']) expect(scrubberFor(m), m).toBeTypeOf('function');
-		for (const m of ['image/avif', 'image/svg+xml']) expect(scrubberFor(m), m).toBeUndefined();
+		for (const m of ['image/png', 'image/webp', 'image/gif', 'image/jpeg']) expect(cleanerFor(m), m).toBeTypeOf('function');
+		for (const m of ['image/avif', 'image/svg+xml']) expect(cleanerFor(m), m).toBeUndefined();
+		// A MIME type is text from a file: a name an object inherits must not come back as a "cleaner".
+		for (const m of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) expect(cleanerFor(m), m).toBeUndefined();
 	});
 });

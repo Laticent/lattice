@@ -3,6 +3,7 @@
  * DOM and no dependencies. Design: engineering/decisions/2026-11-13-image-library.md.
  *
  *   read    format, size, alpha hint and orientation from the header alone
+ *   clean   strip metadata by an allow-list of blocks, keeping an orientation-only EXIF
  *   resize  Lanczos-3 on RGBA pixels, streamed
  *   encode  the JPEG encoder and the PNG writer; a PNG's own IDAT for a PDF
  *   decide  whether a re-encode is worth planning, and worth keeping, from thresholds the caller passes
@@ -13,6 +14,7 @@
  * an exported file as `toString()` source: a helper called `info` once turned a player's `info` into `info2`.
  */
 
+export { cleanerFor, cleanGif, cleanJpeg, cleanPng, cleanWebp } from './clean.js';
 export { acceptRecode, planRecode, type RecodePlan, type RecodeThresholds } from './decide.js';
 export { createJpegEncoder, encodeJpeg, type JpegEncoder, type JpegOptions } from './jpeg.js';
 export { crc32, encodePng, PNG_BAND, type PngRowReader, rgbPngIdat } from './png.js';

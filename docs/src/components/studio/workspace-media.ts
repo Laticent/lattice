@@ -21,8 +21,8 @@
 // the restore itself wrote are rewritten once, from one name map, to match (studio-store.ts
 // `importStudioState` does the same "beside, never over" for a deck that diverged).
 
+import { cleanerFor } from '@laticent/lastra';
 import { cleanLine, isIsoDate } from './media-edit';
-import { scrubberFor } from './media-scrub';
 import { isIsoVideo, isMediaName, isPosterDataUrl, LIBRARY_SCOPE, listMedia, MAX_ALIASES, MAX_MEDIA_FILE_BYTES, type MediaRecord, namesOf, saveMedia, setMediaScope, sniffImageMime, sniffVideoMime, uniqueName } from './media-store';
 import { declaredInflatedBytes, jsonGuard, readBudget, readBytesBudget } from './zip-limits';
 
@@ -374,7 +374,7 @@ export async function restoreMedia(zip: Zip, now: number, ctx: RestoreContext, o
 				bytes = cleaned as Uint8Array<ArrayBuffer>;
 			}
 		} else {
-			const scrub = scrubberFor(mime);
+			const scrub = cleanerFor(mime);
 			const cleaned = scrub ? scrub(bytes) : null;
 			if (!cleaned) {
 				skip('its image data could not be read');

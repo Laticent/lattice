@@ -1,11 +1,13 @@
 // @vitest-environment node
-// Hostile bytes: seeded truncations and corruptions of a valid file of every format, read. The reader must
+// Hostile bytes: seeded truncations and corruptions of a valid file of every format, read and cleaned. The reader must
 // answer null or a header that holds (a known format, a size that is a positive integer within the format's limit, an
-// orientation from 1 to 8) and never throw. The seed is printed; LASTRA_FUZZ_SEED=<n> replays a run, LASTRA_FUZZ_ROUNDS=<n> runs longer.
+// orientation from 1 to 8) and never throw; a cleaner must answer null or a file of the same format that cleans to
+// itself. The seed is printed; LASTRA_FUZZ_SEED=<n> replays a run, LASTRA_FUZZ_ROUNDS=<n> runs longer.
 import assert from 'node:assert/strict';
 import { describe, test } from 'vitest';
+import { cleanerFor } from './clean.js';
 import { encodeJpeg } from './jpeg.js';
-import { IMAGE_MIME, readImage } from './read.js';
+import { IMAGE_MIME, imageFormat, readImage } from './read.js';
 
 const SEED = Number(process.env.LASTRA_FUZZ_SEED ?? 20261113) >>> 0;
 const ROUNDS = Number(process.env.LASTRA_FUZZ_ROUNDS ?? 4000);
@@ -104,6 +106,21 @@ function checkInfo(b: Uint8Array, label: string) {
 	assert.equal(typeof info.alpha, 'boolean', `${label}: alpha`);
 }
 
+function checkClean(b: Uint8Array, label: string) {
+	const format = imageFormat(b);
+	const clean = format && format !== 'svg' ? cleanerFor(IMAGE_MIME[format]) : undefined;
+	if (!clean) return;
+	let out: Uint8Array | null;
+	try {
+		out = clean(b);
+	} catch (e) {
+		assert.fail(`${label}: the ${format} cleaner threw ${e}`);
+	}
+	if (out === null) return;
+	assert.equal(imageFormat(out), format, `${label}: a cleaned ${format} is still one`);
+	assert.deepEqual(clean(out), out, `${label}: a cleaned file cleans to itself`);
+}
+
 describe(`seeded corruption (seed ${SEED})`, () => {
 	const base = seeds();
 	test('every seed file reads cleanly before it is corrupted', () => {
@@ -120,12 +137,13 @@ describe(`seeded corruption (seed ${SEED})`, () => {
 		);
 	});
 	for (const [name, file] of Object.entries(seeds())) {
-		test(`${name}: ${ROUNDS} corruptions read without a throw or an impossible header`, () => {
+		test(`${name}: ${ROUNDS} corruptions read and clean without a throw or an impossible header`, () => {
 			const r = rng(SEED ^ name.split('').reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261));
 			for (let round = 0; round < ROUNDS; round++) {
 				const b = mutate(file, r);
 				const label = `${name} round ${round} (seed ${SEED})`;
 				checkInfo(b, label);
+				checkClean(b, label);
 			}
 		});
 	}
