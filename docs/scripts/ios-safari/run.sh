@@ -130,6 +130,8 @@ families='iPad iPhone'
 [ "$PROBE" = office ] && families='iPhone'
 # The Present memory probe stands in for the owner's iPhone, where Present on a deck of photos reloaded the tab (#3148).
 [ "$PROBE" = present-memory ] && families='iPhone'
+# The completion probe (one-off for PR #3174): an iPad (a hardware-keyboard device) and the Mac's Safari.
+[ "$PROBE" = completion ] && families='iPad'
 # DEVICES picks the devices one job runs, from iPad, iPhone and Mac (the undo probe's desktop half), so a suite can run
 # each device as its own job: the three undo devices one after another took 25.4 min of a 30-min job and passed it
 # twice (flaky shape F4, engineering/decisions/2026-11-06-flaky-tests.md), each about 3 min of probe and the rest
@@ -149,7 +151,7 @@ if [ -n "${DEVICES:-}" ]; then
     esac
   done
   # A selection this probe runs nothing on must fail, not pass with nothing tested: only the undo probe has a Mac half.
-  if [ -z "${families// /}" ] && { [ "$PROBE" != undo ] || [ "$run_mac" = 0 ]; }; then
+  if [ -z "${families// /}" ] && { { [ "$PROBE" != undo ] && [ "$PROBE" != completion ]; } || [ "$run_mac" = 0 ]; }; then
     echo "DEVICES='$DEVICES' selects no device the $PROBE probe runs on" >&2
     exit 1
   fi
@@ -264,9 +266,9 @@ for family in $families; do
 done
 
 # The undo probe's desktop half: the runner's own Safari, through the same safaridriver.
-if [ "$PROBE" = undo ] && [ "$run_mac" = 1 ]; then
+if { [ "$PROBE" = undo ] || [ "$PROBE" = completion ]; } && [ "$run_mac" = 1 ]; then
   xcrun simctl shutdown all || true
-  if ! PROBE=undo SIM_UDID=mac SIM_LABEL=macOS ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs; then
+  if ! PROBE=$PROBE SIM_UDID=mac SIM_LABEL=macOS ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs; then
     status=1
     probe_failed=1
   fi

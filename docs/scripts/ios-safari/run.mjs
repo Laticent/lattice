@@ -105,7 +105,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'completion' ? await runCompletionProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -463,6 +463,98 @@ async function runUndoProbe(id) {
 		error = ok ? undefined : [steps.filter((s) => !s.pass).map((s) => s.name).join('; '), pass ? '' : 'the ⌘Z key did not undo after the reload'].filter(Boolean).join('; ');
 	}
 	return { ok, error, ua: second.ua ?? first.ua, width: first.width, steps };
+}
+
+/**
+ * The completion probe (completion-probe.js, one-off for PR #3174): keys as WebDriver key actions, a menu row picked by an
+ * element click, the deck and the menu read back from the page.
+ */
+async function runCompletionProbe(id) {
+	const source = withEditorHelper(fs.readFileSync(path.join(here, 'completion-probe.js'), 'utf8'));
+	const first = await studioPage(id, 'completion-probe.js', 'latticeCompletionReady');
+	if (!first.ok) return first;
+	const steps = [];
+	const page = (call) => wd('POST', `/session/${id}/execute/sync`, { script: `${source}\nreturn ${call};`, args: [] });
+	const set = (doc) => page(`latticeCompletionSet(${JSON.stringify(doc)})`);
+	const state = () => page('latticeCompletionState()');
+	const CTRL = '\uE009';
+	const ALT = '\uE00A';
+	const keys = (mods, key) =>
+		wd('POST', `/session/${id}/actions`, {
+			actions: [{ type: 'key', id: 'kb', actions: [...mods.map((m) => ({ type: 'keyDown', value: m })), { type: 'keyDown', value: key }, { type: 'keyUp', value: key }, ...mods.reverse().map((m) => ({ type: 'keyUp', value: m }))] }],
+		});
+	const elementId = async (css) => {
+		const el = await wd('POST', `/session/${id}/element`, { using: 'css selector', value: css });
+		return el['element-6066-11e4-a52e-4f735466cecf'] || el.ELEMENT;
+	};
+	// On the Mac, key actions type; on iOS they reach the page as keydowns without text input (and send-keys does not
+	// either), so the letters go in through WebKit's insertText command, as undo-probe.js types on the iPad.
+	const type = async (text) => {
+		if (MAC) return wd('POST', `/session/${id}/actions`, { actions: [{ type: 'key', id: 'kb', actions: [...text].flatMap((c) => [{ type: 'keyDown', value: c }, { type: 'keyUp', value: c }]) }] });
+		return page(`latticeCompletionType(${JSON.stringify(text)})`);
+	};
+	// A pick: on the Mac a mouse click on the row; on iOS a touch pointer press and release at the row's centre, as a finger.
+	const pick = async (css) => {
+		const eid = await elementId(css);
+		if (MAC) return wd('POST', `/session/${id}/element/${eid}/click`, {});
+		return wd('POST', `/session/${id}/actions`, {
+			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, origin: { 'element-6066-11e4-a52e-4f735466cecf': eid }, x: 0, y: 0 }, { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 80 }, { type: 'pointerUp', button: 0 }] }],
+		});
+	};
+	const until = async (pred, ms = 8000) => {
+		const t0 = Date.now();
+		for (;;) {
+			const st = await state();
+			if (pred(st)) return st;
+			if (Date.now() - t0 > ms) return st;
+			await new Promise((r) => setTimeout(r, 150));
+		}
+	};
+	const step = (name, pass, st) => steps.push({ name, pass: !!pass, detail: pass ? '' : JSON.stringify({ labels: st.labels.slice(0, 6), hint: st.hint, tail: st.doc.slice(-40) }) });
+	const FM = '---\ntitle: Probe\n---\n\n';
+	const ESC = '\uE00C';
+	const TAB = '\uE004';
+
+	await set(`${FM}<!-- _class: `);
+	let st = await until((x) => x.labels.includes('cards-grid'));
+	step('a bare _class: position opens nothing by itself', !st.labels.length, st);
+	await keys([CTRL], ' ');
+	st = await until((x) => x.labels.includes('cards-grid'));
+	step('Ctrl-Space opens the component menu', st.labels.includes('cards-grid'), st);
+	await keys([], ESC);
+	st = await until((x) => !x.labels.length);
+	step('Escape closes it', !st.labels.length, st);
+
+	await keys([ALT], ESC);
+	st = await until((x) => x.labels.includes('cards-grid'));
+	step('Option-Esc opens the component menu', st.labels.includes('cards-grid'), st);
+	await keys([], ESC);
+
+	await set(`${FM}# A heading\n\nSome prose`);
+	await keys([CTRL], ' ');
+	st = await until((x) => x.hint);
+	step('Ctrl-Space where nothing completes shows "No suggestions here"', st.hint && !st.labels.length, st);
+
+	await set('---\ntitle: Probe\n');
+	await type('them');
+	st = await until((x) => x.labels.includes('theme'));
+	step('typing a front-matter key opens its menu', st.labels.includes('theme'), st);
+	await new Promise((r) => setTimeout(r, 300)); // past CodeMirror's 75 ms interaction delay, as a person's Tab is
+	await keys([], TAB);
+	st = await until((x) => x.doc.includes('theme: ') && x.labels.length > 0);
+	step('Tab accepts it, and the theme values open at once', st.doc.includes('theme: ') && st.labels.length > 0, st);
+	await keys([], ESC);
+
+	await set(`${FM}<!-- _class: `);
+	await keys([CTRL], ' ');
+	await until((x) => x.labels.includes('cards-grid'));
+	const marked = await page("latticeCompletionMark('cards-grid')");
+	if (marked) await pick('[data-probe-pick]');
+	st = await until((x) => x.doc.includes('<!-- _class: cards-grid'));
+	step(`a ${MAC ? 'click' : 'tap'} on a menu row picks it`, marked && st.doc.includes('<!-- _class: cards-grid'), st);
+
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: first.ua, width: first.width, steps };
 }
 
 /**

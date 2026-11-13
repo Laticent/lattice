@@ -49,7 +49,7 @@ test('Ctrl-Space where nothing completes says so, and the note goes on the next 
 	await expect(editorText(page)).toContainText('Some prose.');
 });
 
-test('while the component catalog is still loading, an empty Ctrl-Space says so, then the components arrive @crosswidth @gecko', async ({ page }) => {
+test('while the component catalog is still loading, an empty Ctrl-Space says so, then the components arrive @crosswidth @gecko @webkit-phone', async ({ page }) => {
 	// Hold the catalog until the test lets it go: the editor shows before the catalog lands (StudioShell fetches it).
 	let release: () => void = () => {};
 	const held = new Promise<void>((r) => {
