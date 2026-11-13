@@ -10248,10 +10248,12 @@ function unreadableModuleCalls(src, fileName = 'x.ts') {
  * Report every import in `dir` that leaves it, except a `node:` built-in when `allowNode` and a bare
  * specifier named exactly in `allowBare`. `describe(rel, spec)` writes the error for a boundary hit.
  */
-function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe, testHelpers = new Set() }) {
+function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe, testHelpers = new Set(), allowBareUnder = new Map() }) {
   if (!fs.existsSync(dir)) return;
   const root = path.resolve(dir);
-  const isHelper = (abs) => testHelpers.has(path.relative(root, abs).split(path.sep).join('/'));
+  const relToRoot = (abs) => path.relative(root, abs).split(path.sep).join('/');
+  // A helper is named by its `.ts` path; an import may spell it `./x.js`, `./x.ts` or `./x` (extensionless).
+  const isHelper = (abs) => testHelpers.has(relToRoot(abs).replace(/\.[cm]?[jt]sx?$/, '') + '.ts');
   for (const file of listPackageSources(root)) {
     if (TEST_FILE.test(file)) continue; // tests use the dev runner (vitest), not host coupling
     if (isHelper(file)) continue; // a test helper with a non-test name, listed by the package's gate
@@ -10268,13 +10270,16 @@ function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe
         if (spec.startsWith('.')) {
           const target = path.resolve(path.dirname(file), spec);
           if (target !== root && !target.startsWith(root + path.sep)) errors.push(describe(rel, spec));
-          else if (/\.test(?:\.[cm]?[jt]sx?)?$/.test(spec) || isHelper(target.replace(/\.js$/, '.ts'))) {
+          else if (/\.test(?:\.[cm]?[jt]sx?)?$/.test(spec) || isHelper(target)) {
             errors.push(`${rel} imports '${spec}', a test module. Test files are not gated, so production code may not reach through one.`);
           }
           continue;
         }
         if (allowNode && spec.startsWith('node:')) continue;
         if (allowBare.has(spec)) continue;
+        // A bare name allowed only below one folder (a package's subpath importing its own root by name).
+        const under = allowBareUnder.get(spec);
+        if (under !== undefined && relToRoot(file).startsWith(under)) continue;
         errors.push(describe(rel, spec));
       }
     }
@@ -10357,9 +10362,11 @@ const LASTRA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'lastra');
 function checkLastraBoundary(errors, dir = LASTRA_DIR) {
   checkStrictPackageImports(errors, dir, {
     allowNode: false,
+    allowBare: new Set(),
     // The decoders (`@laticent/lastra/decode`) import the root by the package's own name, so the two entries
-    // share one LastraError; a self-reference resolves inside the folder.
-    allowBare: new Set(['@laticent/lastra']),
+    // share one LastraError; a self-reference resolves inside the folder. Only under decode/: a root-entry file
+    // that imported its own package by name would import itself.
+    allowBareUnder: new Map([['@laticent/lastra', 'decode/']]),
     // decode/test-support.ts builds fixtures with node:fs and node:zlib for the decode tests. It is excluded
     // from the package's files, its declarations and check:lastra by name, and production code may not
     // import it.

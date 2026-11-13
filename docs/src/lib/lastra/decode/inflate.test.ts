@@ -143,17 +143,20 @@ describe('inflate on blocks with no output', () => {
 
 describe('inflate refuses what zlib refuses in the header', () => {
   const run = (bytes: number[]) => inflateAll(Uint8Array.from(bytes)).error;
-  test('a method other than 8, a window over 32 KB, a bad check, a preset dictionary', () => {
+  test('a method other than 8, a window over 32 KB, a bad check, a preset dictionary, each for its own reason', () => {
     const ok = run([0x78, 0x9c, 0x03, 0x00]);
     expect(ok).toBeNull();
-    for (const [cmf, flg] of [
-      [0x77, 0x9c], // method 7
-      [0x88, 0x98], // window 2^16
-      [0x78, 0x9d], // check not a multiple of 31
-      [0x78, 0xbb], // FDICT set (0x78bb is a multiple of 31)
-    ]) {
-      const e = run([cmf, flg, 0x03, 0x00]);
-      expect(isLastraError(e) && (e as { code: string }).code, `${cmf.toString(16)} ${flg.toString(16)}`).toBe('corrupt');
+    // Each header passes every check but the one it names (the check is a multiple of 31 except where the
+    // check is the point), so removing any one check lets its header through or refuses it for another reason.
+    for (const [cmf, flg, reason] of [
+      [0x77, 0x09, 'compression method 7'], // method 7; 0x7709 is a multiple of 31
+      [0x88, 0x98, 'a window over 32 KB'], // window 2^16
+      [0x78, 0x9d, 'the header check'], // check not a multiple of 31
+      [0x78, 0xbb, 'a preset dictionary'], // FDICT set (0x78bb is a multiple of 31)
+    ] as const) {
+      const e = run([cmf, flg, 0x03, 0x00]) as { code?: string; message?: string } | null;
+      expect(isLastraError(e) && e?.code, `${cmf.toString(16)} ${flg.toString(16)}`).toBe('corrupt');
+      expect(e?.message, `${cmf.toString(16)} ${flg.toString(16)}`).toContain(reason);
     }
   });
 });

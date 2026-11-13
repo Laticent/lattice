@@ -2231,6 +2231,36 @@ describe('check-ownership', () => {
       }
       assert.deepEqual(run({ 'read.test.ts': "import { readFileSync } from 'node:fs';" }), [], 'a test may use the runner and node:');
     });
+    // `run` writes flat files; these need decode/.
+    const runTree = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lastra-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) {
+          fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+          fs.writeFileSync(path.join(dir, name), body);
+        }
+        const errors = [];
+        checkLastraBoundary(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the decode test helper is skipped, and production code may not import it however the path is spelled', () => {
+      const helper = { 'decode/test-support.ts': "import { readFileSync } from 'node:fs';" };
+      assert.deepEqual(runTree(helper), [], 'the helper itself may use node:');
+      for (const spec of ['./test-support.js', './test-support.ts', './test-support']) {
+        const errors = runTree({ ...helper, 'decode/png.ts': `import { FIXTURES } from '${spec}';` });
+        assert.equal(errors.length, 1, `not caught: ${spec}`);
+        assert.match(errors[0], /a test module/);
+      }
+    });
+    test("the package's own name is allowed only under decode/", () => {
+      const self = "import { LastraError } from '@laticent/lastra';";
+      assert.deepEqual(runTree({ 'decode/jpeg.ts': self }), []);
+      assert.equal(runTree({ 'clean.ts': self }).length, 1, 'a root-entry file importing its own package by name');
+      assert.equal(runTree({ 'decode/jpeg.ts': "import { x } from '@laticent/lastra/decode';" }).length, 1, 'only the root name');
+    });
   });
 
   // Fluido: the fit-policy core is pure too, so every surface gets the same decision (Fluid P1).
