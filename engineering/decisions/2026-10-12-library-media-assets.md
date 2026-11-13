@@ -171,8 +171,8 @@ the import's own encoder (`media-import.ts` `measureFormats`, a sample of up to 
 
 | Choice | Stores | Cost |
 |---|---|---|
-| Keep original | the file's pixels and type, metadata cut (`media-scrub.ts`), no resize; HEIC and AVIF become JPEG | largest |
-| JPEG (default) | lossy q0.88, long edge at most 2560 px, transparency painted white | |
+| Keep original (default since 2026-11-13) | the file's pixels and type, metadata cut (`media-scrub.ts`), no resize; HEIC and AVIF become JPEG | largest |
+| JPEG (the default until 2026-11-13) | lossy q0.88, long edge at most 2560 px, transparency painted white | |
 | WebP | lossy q0.82, same cap, transparency kept; hidden where the browser cannot write WebP | about two thirds of JPEG |
 | PNG | lossless, same cap; a PNG already under the cap is kept as it is | several times JPEG for a photograph |
 
@@ -180,6 +180,14 @@ PNG is offered but not recommended for photographs: on a photo-like test image P
 against 0.9 and 1.3 MB for JPEG (synthetic proxy, `python3` + PIL; no real photos were reachable). The last choice is remembered.
 Each option's one-line meaning is on the dialog, since the choice decides what the photo can do later (a `.lattice` carries
 128 MB of photos, `MAX_LATTICE_MEDIA_BYTES`).
+
+**Keep original is the default (owner, 2026-11-13).** A `.lattice` is Lattice's file format, so it carries each photo as the
+author added it; every other export (PDF, PowerPoint, LibreOffice, the webpage, the image set) decides by its own Pictures
+choice whether to send a smaller copy. A JPEG re-encode at intake lost the original before any of those choices could be made:
+the owner's 19-photo deck from 2026-10-21 has no originals left to export. `DEFAULT_PHOTO_FORMAT` in `PhotoFormatDialog.tsx`
+holds the default, and a remembered choice still wins. The cost is storage: a phone photo is kept at 3 to 6 MB instead of about
+1 MB, so a deck of them reaches the 128 MB `.lattice` cap at about 25 to 40 photos. Whether that cap should rise is open
+(`followups.d/`, recorded with the PR that made this change). The chat's own intake keeps the automatic policy above.
 
 ### 4. Quotas and limits
 
