@@ -131,7 +131,7 @@ test.describe('on a Mac', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.addInitScript(() => Object.defineProperty(navigator, 'platform', { get: () => 'MacIntel' }));
 	});
-	test('Option-Esc opens suggestions, and so does Ctrl-Space @gecko @webkit-phone', async ({ page }) => {
+	test('Option-Esc opens suggestions, and so does Ctrl-Space @crosswidth @gecko @webkit-phone', async ({ page }) => {
 		await gotoStudio(page);
 		// A bare `_class:` position opens nothing by itself (an Enter there must stay a newline), so only the key can
 		// open this menu.
