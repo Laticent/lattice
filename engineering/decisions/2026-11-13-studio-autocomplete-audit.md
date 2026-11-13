@@ -150,14 +150,21 @@ Ranking (recently used and catalog usage first, which `modifierUsage` already su
 small rendered thumbnail for a component, and a pass at all three widths (1440, 820, 390) with `tools/screenshot.js`
 evidence, since the menu has to fit on a phone.
 
-## 6. Decisions for the owner
+## 6. Decisions
 
-1. **Share one completer between the Studio and the Playground** (recommended), or copy the eight missing sources into
-   `editor-complete.ts`. Sharing costs one refactor of `playground/complete.js`; copying costs nothing now and drifts
-   again with the next source.
-2. **The second Mac trigger.** Alt-Escape is recommended. One cost: macOS also uses Option-Esc for "Speak selection",
-   which is off by default; an author who turned it on keeps Alt-\` and Alt-i. Other options: Cmd-I (conflicts with italic, which authors
-   expect in a Markdown editor), or only listing Alt-\` / Alt-i in the shortcut sheet (no code, but Alt-\` is a dead
-   key on many layouts).
-3. **Tab accepts a completion while the menu is open.** Recommended yes.
-4. **The blank-line "insert" list on Ctrl-Space.** Recommended yes, explicit-only, so typing prose never opens a menu.
+Settled by the owner on 2026-11-13:
+
+1. **One completer, shared by the Studio and the Playground** (slice 1), not a copy of the eight missing sources.
+2. **Tab accepts a completion while the menu is open.** With no menu open, Tab keeps moving focus.
+3. **Ctrl-Space on a blank body line opens a short "insert" list.** It never opens while the author types prose.
+
+Still open: **the second trigger on macOS.** The usual keys, by platform:
+
+| Platform | Usual key | What else uses it |
+|---|---|---|
+| Windows | Ctrl-Space (VS Code, Visual Studio, JetBrains) | Some Chinese and Japanese IMEs toggle on Ctrl-Space |
+| Linux | Ctrl-Space (VS Code, JetBrains, Eclipse) | fcitx switches input method on Ctrl-Space by default |
+| macOS | Ctrl-Space in code editors; Option-Esc in native Mac text fields | macOS "Select the previous input source" is Ctrl-Space by default |
+
+The recommendation is Ctrl-Space on every platform, plus Option-Esc on macOS, the key Mac text fields already use
+for completion. CodeMirror's own Alt-\` and Alt-i stay bound. All of them go in the `?` shortcut sheet.
