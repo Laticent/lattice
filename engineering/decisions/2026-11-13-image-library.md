@@ -1,13 +1,13 @@
 ---
-status: proposed
-summary: Design for lastra, a zero-dependency image library (read, clean, decode, resize, encode, decide, measure, crop, tone) that replaces about fifteen scattered image helpers in lib/core, the Studio and Calco. Owner rulings 2026-11-13 — own pure-JS decoders, internal now in the publishable shape, built before the export-size fixes D1 to D3. Proposes six slices, each byte-identical on every export until the hosts adopt the decoders, and the review each one owes.
+status: in-progress
+summary: Slices 1 and 2 built (the fenced package with read, resize, encode, decide and clean; byte-identical exports). Design for lastra, a zero-dependency image library (read, clean, decode, resize, encode, decide, measure, crop, tone) that replaces about fifteen scattered image helpers in lib/core, the Studio and Calco. Owner rulings 2026-11-13 — own pure-JS decoders, internal now in the publishable shape, built before the export-size fixes D1 to D3. Proposes six slices, each byte-identical on every export until the hosts adopt the decoders, and the review each one owes.
 ---
 
 # lastra: one image library (2026-11-13)
 
-**Status: proposed.** The owner asked for "a standard zero dependency general library that can be used in
-other domains too", for stability first. Three forks and the name were settled on 2026-11-13 (§7); the
-open questions in §8 are not.
+**Status: in progress; slices 1 and 2 built (§5.1).** The owner asked for "a standard zero dependency general library
+that can be used in other domains too", for stability first. Three forks and the name were settled on 2026-11-13
+(§7); the open questions in §8 are not.
 
 ## 1. Why
 
@@ -140,6 +140,89 @@ corpus, never the owner's).
    ceiling in Chromium, WebKit and Firefox. Nothing uses it until D2 lifts toned photos.
 
 Then D1 to D3 from the export-size investigation build on it.
+
+### 5.1 What slices 1 and 2 built (2026-11-13)
+
+**The package.** `docs/src/lib/lastra/` is `@laticent/lastra`, private, in the publishable shape of `@laticent/markup`:
+`package.json` with `exports` (`@laticent/source`, `import`, `require`), `tools/build-lastra-lib.js` on the shared
+library builder, a boundary gate (`checkLastraBoundary`: nothing outside the folder, not even `node:`), a standalone
+typecheck with no DOM and no Node types (`cd docs && npm run check:lastra`), and a README. The PNG writer finds
+`CompressionStream` on `globalThis` at run time, so not even the DOM's types are needed.
+
+**One implementation each; every caller moved; no shim.**
+
+| Job | Was | Now | Callers moved |
+|---|---|---|---|
+| read | `image-policy.js` `readImageInfo` and its private EXIF parser; `compose.mjs` `sniffImage`; `media-store.ts` `sniffImageMime`'s magic numbers; `image-dimensions.js` `pngSize`, `jpegSize`, `gifSize`, `webpSize`; `exif-orientation.mjs`; `media-scrub.ts` `tiffOrientation` | `imageFormat`, `readImage`, `displaySize`, `tiffOrientation` (read.ts) | image-recode.mjs, compose.mjs, image-dimensions.js (`dimensionsOf`), media-store.ts (the Library's five types over `imageFormat`) |
+| resize | `lib/core/lanczos.mjs` | `lanczosResize`, `lanczosWeights` (resize.ts) | slide-camera.mjs |
+| encode | `lib/core/jpeg-encode.mjs`; the PNG writer inside `canvas-encode.mjs`; `lib/core/png-idat.mjs` | `createJpegEncoder`, `encodeJpeg`, `encodePng` (rows in, through a reader), `rgbPngIdat`, `crc32` (jpeg.ts, png.ts) | canvas-encode.mjs keeps only the canvas half (`encodePng(canvas)`, `encodeJpegCanvas`), image-recode.mjs, chrome-recode.js, write-pdf.mjs (`RGB_PNG_DECODE_PARMS` moved in, its one user), pdf-image-pool.js, pdf-export-worker.js, the iOS probe and the engines spec |
+| decide | `image-policy.js` `planRecode`, `acceptRecode` | the same two with every threshold passed in, PNG and JPEG only (decide.ts) | image-recode.mjs, which also owns the `original` word now |
+| clean | Studio `media-scrub.ts` | `cleanPng`, `cleanJpeg`, `cleanWebp`, `cleanGif`, `cleanerFor` (clean.ts); its tests and every red-team case moved with it | media-import.ts, workspace-media.ts |
+
+**The dev-server constraint, solved by the split rather than a shim.** `image-policy.js` had to stay a require-free
+CommonJS leaf because the docs dev server serves such a file to the browser only when it requires nothing
+(`docs/src/plugins/vite-cjs-lib-dev.mjs`), and that is why it carried its own EXIF parser. It now holds only Lattice's
+`images:` words and their numbers: those numbers ARE lastra's thresholds, and the one place that applies them,
+`lib/core/image-recode.mjs`, is an ES module that imports lastra directly. The policy file no longer reads bytes, so
+it needs nothing, and the constraint costs nothing. `image-dimensions.js` (Node-only, it reads files) `require`s the
+package.
+
+**Where the old readers disagreed.** Every row is in `read.test.ts` with each old reader's answer; the answer lastra
+gives is what Chromium, WebKit and Firefox paint, probed on self-made files in Playwright's builds, and where they split,
+Chromium's (both export hosts paint with it). `docs/e2e/lastra-read-engines.spec.ts` holds the engines to the probe.
+
+| File | Old answers | Engines | lastra |
+|---|---|---|---|
+| JPEG, an Exif block with Orientation 1, then one with 6 | policy 1, PDF writer 6, layout 6 | all unturned | 1 |
+| JPEG, first Exif block without the tag, then 6 | policy 1, PDF 6, layout 6 | Chromium and Firefox unturned, WebKit turned | 1 |
+| JPEG, Exif 6 after the frame header | policy 6, PDF 1, layout 1 | all turned | 6 |
+| JPEG, TIFF magic 43 / Orientation 9 | policy 6 / 9, PDF and layout 1 | all unturned | 1 |
+| JPEG, XMP APP1 then Exif 6 | all 6 | Chromium and WebKit turned, Firefox not | 6 |
+| JPEG, junk or fill bytes between segments | policy: no size; layout: the size | all decode | the size |
+| JPEG, `FF D8` not followed by a marker | PDF and Library: not JPEG; layout: the size | Chromium and WebKit refuse | not JPEG |
+| PNG, wrong signature bytes 4 to 7 | policy, PDF, layout: PNG | all refuse | not PNG |
+| PNG, a chunk before IHDR | policy and layout read a chunk length as the width | Chromium and WebKit refuse | no size |
+| PNG, eXIf Orientation 6 | unturned | Chromium and Firefox turned, WebKit not | 6 (so the recode leaves it) |
+| WebP, EXIF Orientation 6 | unturned | all unturned | 1 |
+| GIF, version `GIF8x` | layout: the size | all refuse | not GIF |
+
+What it changes: on those files only. A JPEG with its Exif block after the frame header now stays in the PDF's photo
+(upright) instead of being embedded sideways, and the image layout sizes it upright; the other rows move the recode
+plan, the PDF's embed-or-photo choice or the layout's bucket for files no gallery and no photo deck here contains.
+One addition: the image layout now sizes an AVIF photo (its header reader read none, so an AVIF fell to the Clean floor).
+
+**SVG.** `imageFormat` recognizes an SVG, but `readImage` gives it no size: an SVG's box is its markup's
+`width`/`height`/`viewBox`, which `lib/core/image-aspect.js` `aspectFromSvgTag` reads for files AND for inline
+posters. Moving that parser would make `image-aspect.js`, a browser-served CommonJS leaf, require a package. Left for
+the slice that needs an SVG size from bytes.
+
+**Measured.**
+
+- Byte-identical exports, before (`f0e4c6d9`) and after, `SOURCE_DATE_EPOCH=1700000000`, with the CLI (`dist/lattice.js`):
+  `test/integration/baseline-decks/gallery.md`, `examples/gallery-jargon.md`, `examples/data-viz-gallery.md`, and the
+  imagery, image and collage galleries, plus a self-generated photo deck (a 4032 px JPEG, a progressive JPEG, JPEGs
+  turned 3, 6 and 8, a small JPEG, an opaque PNG, an RGBA PNG, an opaque RGBA PNG, a palette PNG with tRNS, a GIF and a
+  WebP), each to PDF, PPTX and `--player` HTML. The 7 PDFs and 7 player files have the same SHA-256 before and after.
+  The 7 PowerPoints have the same bytes in every part but `docProps/core.xml`, whose created and modified stamps are the
+  time of the run: the PowerPoint export ignores `SOURCE_DATE_EPOCH`, so two runs of the base differ there too.
+- A first run was NOT identical, and it is the finding of this slice: every player file differed. A bundler that
+  scope-hoists a library renames each same-named local elsewhere in the bundle, and the player ships functions as
+  `toString()` source, so lastra's private helpers `info` and `view` turned a player's `info` into `info2`. The fix is in
+  the code, not the comparison: lastra's private helpers carry distinctive names (index.ts says why), and the CLI bundle
+  reads lastra's CommonJS build, which stays inside its own closure. Checked by counting renamed identifiers in the
+  CLI and player-core bundles before and after: none outside lastra's own code.
+- The golden JPEG hash (`jpeg.test.ts`) did not move.
+- Failing arms: 15 deliberate breaks across read, clean, decide, resize and encode each turned their test red, and each
+  file was restored byte for byte. Two breaks first survived and got tests (a version 1 `pitm` cut short, a box longer
+  than the file); a third showed that the JPEG encoder's literal `cos(pi/4)` is not pinned by the golden picture, and
+  its comment now says so.
+- Fuzz: `read.fuzz.test.ts` corrupts a JPEG, PNG, GIF, two WebPs and an AVIF 4,000 times each per run (seed printed;
+  five more seeds at 40,000 rounds each also clean): no throw, no impossible header, and every cleaned file cleans to
+  itself.
+
+**Found, not caused:** the `--player` export of the photo deck runs out of the default 2 GB Node heap on the base
+commit too (40 MB of pictures as data URIs through jsdom); the comparison ran both trees with an 8 GB heap. The
+PowerPoint export writes the wall-clock time into `docProps/core.xml` whatever `SOURCE_DATE_EPOCH` says.
 
 ## 6. Review tier and budget
 

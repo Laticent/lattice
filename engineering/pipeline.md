@@ -582,16 +582,16 @@ deck's world (`installPictureWriter`, editable office exports only): they encode
   viewer deficiency, not a design choice, and the PDF therefore lacks, for example, a topic slide's lighter shelf.
 - **Each picture at the pixels it covers.** Before the draw, the camera measures every `<img>` and CSS background on the
   live slide (`object-fit`, `background-size`) and shrinks a picture with twice or more the pixels it covers to that size itself
-  (a Lanczos-3 resize, `lib/core/lanczos.mjs`, as lossless PNG), so no engine scales it inside the SVG. WebKit's own shrink left
+  (a Lanczos-3 resize, `@laticent/lastra` `lanczosResize`, as lossless PNG), so no engine scales it inside the SVG. WebKit's own shrink left
   grain a JPEG cannot compress, and an iPhone's PowerPoint came out larger and further from the photo than Chromium's. Only the
   uses it measured get the shrunk copy, grouped by the picture's bytes so the largest use sets the size; any other use (a mask,
   a pseudo-element, a poster, the stylesheet) keeps the original (`decisions/2026-11-03-pictures-at-drawn-size.md`).
 - **The draw is done before the canvas leaves.** WebKit runs a canvas's drawing lazily; one pixel read back after the slide draw,
   and again at the top of `encodeCanvas`, makes it run before a worker or writer takes the canvas (it otherwise got a blank, or the
   previous slide).
-- **One PNG encoder** (`encodePng`): per-row adaptive filtering and the platform's deflate, 8-bit RGB for an opaque slide.
+- **One PNG encoder** (`@laticent/lastra` `encodePng`, fed a canvas's rows by `lib/core/canvas-encode.mjs`): per-row adaptive filtering and the platform's deflate, 8-bit RGB for an opaque slide.
   The browser's `toBlob('image/png')` wrote files about 40% larger.
-- **One JPEG encoder** (`lib/core/jpeg-encode.mjs`): baseline JFIF, 4:2:0 color, libjpeg's quality tables, Huffman tables built per picture, the AAN DCT with
+- **One JPEG encoder** (`@laticent/lastra` `createJpegEncoder`, `docs/src/lib/lastra/jpeg.ts`): baseline JFIF, 4:2:0 color, libjpeg's quality tables, Huffman tables built per picture, the AAN DCT with
   its constants written out, transparency composited onto white. The browser's `toBlob('image/jpeg')` writes different bytes
   in every engine: on the Yearn deck's 52 slide pictures Firefox's wrote 16.59 MB where ours writes 12.45 MB, and the same
   picture PowerPoint was 12.5 MB from Chromium and 43.3 MB from an iPhone. Apple's encoder is the cause: in an iOS 26.5

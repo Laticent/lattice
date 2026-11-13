@@ -61,7 +61,7 @@ it at release time:
   the bulk of it.
 - **`dependencies`** — everything shipped code loads at run time, and
   nothing else. That includes the workspace libraries the engine imports
-  (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`), which the
+  (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`), which the
   bundled CLI also inlines, so `lattice` runs even where `./engine`'s
   imports would not resolve. A library a plugin keeps a committed copy of
   (Mermaid and its CLI render page, ZenUML, KaTeX, function-plot) is a
@@ -262,14 +262,14 @@ Prerequisites:
 - The jobs declare the permissions they need: `contents: write` +
   `pull-requests: write` for phase 1, `contents: write` + `id-token: write` for
   phase 2 (`id-token` for npm `--provenance`).
-- **Do not set `NPM_TOKEN` yet.** `@laticent/lattice` depends on nine workspace
-  libraries (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`) that are not
+- **Do not set `NPM_TOKEN` yet.** `@laticent/lattice` depends on ten workspace
+  libraries (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`, `squadra`, `markup`, `lastra`) that are not
   on npm, and this workflow publishes only the root package. A root-only publish
   would make every `npm i @laticent/lattice` fail with E404. The libraries
   publish first, from the multi-package release that replaces this step (slices C
-  and E of `engineering/decisions/2026-10-07-first-npm-release.md`). `@laticent/markup` is
-  still `"private": true` (its publish has not been approved, so it has no docs-site page): that release clears the
-  flag and adds the page, or `npm publish` refuses it.
+  and E of `engineering/decisions/2026-10-07-first-npm-release.md`). `@laticent/markup` and
+  `@laticent/lastra` are still `"private": true` (their publish has not been approved, so they have no docs-site page): that
+  release clears the flag and adds the page, or `npm publish` refuses it.
 - **To enable npm publish (after that):** add an **`NPM_TOKEN`** secret (publish rights,
   exposed as `NODE_AUTH_TOKEN`) and confirm the `@laticent` scope exists and
   the token can publish to it. **Put it in the `automation` environment, not in
