@@ -13,6 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         slot: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+        arm: [before, after]
     env:
       PUPPETEER_SKIP_DOWNLOAD: '1'
     steps:
@@ -22,7 +23,7 @@ jobs:
           node-version: 24
           cache: npm
       - name: npm ci x3, capture a wedge
-        shell: bash
+        shell: bash {0}
         run: |
           set -u
           cp .github/wedge-probe/handles.js /tmp/handles.js
@@ -32,13 +33,17 @@ jobs:
           for i in 1 2 3; do
             d=$R/run-$i; mkdir -p $d; export WEDGE_DUMP_DIR=$d
             start=$(date +%s)
-            npm ci > $d/out.log 2>&1 &
+            if [ "${{ matrix.arm }}" = after ]; then
+              node --single-threaded "$(dirname "$(readlink -f "$(command -v npm)")")/npm-cli.js" ci > $d/out.log 2>&1 &
+            else
+              npm ci > $d/out.log 2>&1 &
+            fi
             pid=$!; hung=0
             while kill -0 $pid 2>/dev/null; do
               sleep 2
               if [ $(( $(date +%s) - start )) -ge 200 ]; then
                 hung=1
-                ps -eLo pid,ppid,tid,etimes,stat,wchan:32,args --forest > $d/ps.txt
+                ps -eo pid,ppid,etimes,stat,wchan:32,args > $d/ps.txt 2>&1
                 for p in $(desc $pid); do
                   echo "== pid $p $(cat /proc/$p/cmdline | tr '\0' ' ')" >> $d/proc.txt
                   for t in /proc/$p/task/*; do echo "-- tid ${t##*/} $(cat $t/comm) wchan=$(cat $t/wchan) state=$(awk '{print $3}' $t/stat)" >> $d/proc.txt; sudo cat $t/stack >> $d/proc.txt 2>&1; done
@@ -55,12 +60,14 @@ jobs:
               fi
             done
             wait $pid; rc=$?
-            echo "slot ${{ matrix.slot }} run $i rc=$rc secs=$(( $(date +%s) - start )) hung=$hung" | tee -a $R/summary.txt
+            echo "arm ${{ matrix.arm }} slot ${{ matrix.slot }} run $i rc=$rc secs=$(( $(date +%s) - start )) hung=$hung" | tee -a $R/summary.txt
             ls -t ~/.npm/_logs/*-debug-0.log | head -1 | xargs -I{} cp {} $d/npm-debug-final.log
           done
-          if grep -q "hung=1" $R/summary.txt; then echo "::warning::WEDGE in slot ${{ matrix.slot }}"; fi
+          if grep -q "hung=1" $R/summary.txt; then echo "::warning::WEDGE in ${{ matrix.arm }} slot ${{ matrix.slot }}"; fi
+          cat $R/summary.txt
+          true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: wedge-${{ matrix.slot }}
+          name: wedge-${{ matrix.arm }}-${{ matrix.slot }}
           path: /tmp/wedge
