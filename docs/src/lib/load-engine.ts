@@ -26,7 +26,7 @@
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 
-import { ENGINE_ENTRY, engineBaseFor, recordEngineUrl } from './engine-base';
+import { ENGINE_ENTRY, engineBaseFor, recordEngineUrl, scriptSrc } from './engine-base';
 import { preloadEntry } from './ensure-charts';
 import { installPreviewDrawHost } from './preview-draw-host';
 
@@ -57,11 +57,13 @@ export function ensureEngine(url: string): Promise<void> {
 
 	const existing = loaders.get(url);
 	if (existing) return existing;
+	const src = scriptSrc(url);
+	if (src === null) return Promise.reject(new Error(`lattice engine URL refused: ${url}`));
 
 	const base = engineBaseFor(url);
 	if (base && url.endsWith(ENGINE_ENTRY)) {
 		void preloadEntry(base, 'engine.js');
-		const m = import(/* @vite-ignore */ url).then(() => {
+		const m = import(/* @vite-ignore */ src).then(() => {
 			if (!window.LatticePlayground) throw new Error(`lattice engine loaded but did not register: ${url}`);
 		});
 		// A failed import() is cached by the browser for the page's lifetime, so a retry would replay
@@ -100,7 +102,7 @@ export function ensureEngine(url: string): Promise<void> {
 		const already = document.querySelector<HTMLScriptElement>(`script[data-lattice-engine][src="${cssEscape(url)}"]`);
 		if (!already) {
 			const s = document.createElement('script');
-			s.src = url;
+			s.src = src;
 			s.defer = true;
 			s.setAttribute('data-lattice-engine', '');
 			// onload covers the not-yet-cached case; the poll below covers the

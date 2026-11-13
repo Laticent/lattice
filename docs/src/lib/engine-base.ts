@@ -28,6 +28,7 @@ export function engineBaseFor(engineUrl: string): string | null {
 
 /** Record the engine URL a page is loading. Called by `ensureEngine`. */
 export function recordEngineUrl(engineUrl: string): void {
+	if (scriptSrc(engineUrl) === null) return; // a URL the loaders refuse names no asset directory either
 	recorded = engineBaseFor(engineUrl) ?? recorded;
 }
 
@@ -48,6 +49,28 @@ export function sameOriginAsset(base: string, rel: string): URL | null {
 	try {
 		const url = new URL(rel, new URL(base, window.location.href));
 		return url.origin === window.location.origin ? url : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * The URL to put in an injected `<script src>`, or null when it is not one this page should load.
+ *
+ * The three script loaders (`ensureEngine`, `ensureKatexProvider`, the fence-grammar injector) take
+ * their URL from the page: a `data-*` attribute or the engine's own `<script src>`, both written at
+ * build time. CodeQL's js/xss-through-dom follows that DOM text into `script.src` (#1958 §2, §7). The
+ * text is ours, but the sink is a script load, so the loaders now refuse what no build writes: a
+ * quote, an angle bracket, a backtick, a backslash or whitespace, and any scheme but `http:` or
+ * `https:` (`javascript:`, `data:` and `blob:` included). A URL that passes comes back unchanged, so
+ * the `src` attribute and the loaders' `[src="…"]` lookups still compare equal.
+ */
+export function scriptSrc(url: string): string | null {
+	if (typeof url !== 'string' || url === '' || /[<>"'`\\\s]/.test(url)) return null;
+	try {
+		const base = typeof window === 'undefined' ? 'http://localhost/' : window.location.href;
+		const { protocol } = new URL(url, base);
+		return protocol === 'https:' || protocol === 'http:' ? url : null;
 	} catch {
 		return null;
 	}

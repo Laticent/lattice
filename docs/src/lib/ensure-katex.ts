@@ -6,7 +6,7 @@
 // a separate on-demand bundle at all.
 //
 // Idempotent: a module-level singleton keyed by URL, same as ensureEngine.
-import { engineBase, engineBaseFor } from './engine-base';
+import { engineBase, engineBaseFor, scriptSrc } from './engine-base';
 
 const loaders = new Map<string, Promise<void>>();
 const POLL_MS = 50;
@@ -23,6 +23,8 @@ export function ensureKatexProvider(url: string): Promise<void> {
 
 	const existing = loaders.get(url);
 	if (existing) return existing;
+	const src = scriptSrc(url);
+	if (src === null) return Promise.reject(new Error(`katex provider URL refused: ${url}`));
 
 	const p = new Promise<void>((resolve, reject) => {
 		let attempts = 0;
@@ -48,7 +50,7 @@ export function ensureKatexProvider(url: string): Promise<void> {
 		const already = document.querySelector<HTMLScriptElement>(`script[data-lattice-katex-provider][src="${cssEscape(url)}"]`);
 		if (!already) {
 			const s = document.createElement('script');
-			s.src = url;
+			s.src = src;
 			s.defer = true;
 			s.setAttribute('data-lattice-katex-provider', '');
 			s.addEventListener('load', () => finish());

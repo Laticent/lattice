@@ -17,7 +17,7 @@
 // missing (`missingLanguages`) and performs the registration (`drainLanguages`);
 // this module answers only HOW to fetch, because the asset base, the content hash
 // and the service worker are the host's business and not the engine's.
-import { engineBase, engineBaseFor } from './engine-base';
+import { engineBase, engineBaseFor, scriptSrc } from './engine-base';
 
 /**
  * How long any single fetch here may hold up a render, in ms.
@@ -102,6 +102,8 @@ async function loadManifest(base: string): Promise<Manifest | null> {
 function injectGrammar(url: string): Promise<boolean> {
 	const existing = loaders.get(url);
 	if (existing) return existing;
+	const src = scriptSrc(url);
+	if (src === null) return Promise.resolve(false); // not a URL this page loads: the fence stays plain
 
 	const p = new Promise<boolean>((resolve) => {
 		let settled = false;
@@ -131,7 +133,7 @@ function injectGrammar(url: string): Promise<boolean> {
 		timer = setTimeout(() => done(false), LOAD_TIMEOUT_MS);
 
 		const s = document.createElement('script');
-		s.src = url;
+		s.src = src;
 		s.async = true;
 		s.setAttribute('data-lattice-hljs', '');
 		s.addEventListener('load', () => done(true));
