@@ -116,6 +116,26 @@ start_driver() {
   echo 'safaridriver did not answer on :4444 within 30 s' >&2
   return 1
 }
+# Run a command for at most $1 seconds: macOS ships no `timeout`, and perl's alarm survives the exec.
+bounded() { local secs=$1; shift; perl -e 'alarm shift @ARGV; exec @ARGV or die "exec: $!"' "$secs" "$@"; }
+# The settings safaridriver needs inside the simulator, as domain:key.
+PREF_KEYS='com.apple.webinspectord:RemoteInspectorEnabled com.apple.webinspectord:RemoteAutomationEnabled
+  com.apple.webinspectord:WIRRemoteAutomationEnabled com.apple.mobilesafari:WebKitDeveloperExtrasEnabledPreferenceKey
+  com.apple.mobilesafari:WebInspectorEnabled com.apple.mobilesafari:RemoteAutomationEnabled
+  com.apple.mobilesafari:WebKitRemoteAutomationEnabled'
+# After a boot: are the settings in force? If the ones written before the first boot did not survive it, write them
+# inside the device and reboot it, as this script always did. Says which path it took, so a run shows whether it saved
+# the boot.
+ensure_prefs() {
+  local id=$1
+  if [ "$(xcrun simctl spawn "$id" defaults read com.apple.webinspectord RemoteAutomationEnabled 2>/dev/null)" = 1 ]; then
+    echo "settings in force after one boot"
+    return 0
+  fi
+  echo "settings missing after boot: writing them inside the device and rebooting it"
+  for key in $PREF_KEYS; do xcrun simctl spawn "$id" defaults write "${key%%:*}" "${key#*:}" -bool true; done
+  xcrun simctl shutdown "$id" && xcrun simctl boot "$id" && xcrun simctl bootstatus "$id" -b
+}
 trap 'kill "$driver" "$server" 2>/dev/null || true; xcrun simctl shutdown all || true' EXIT
 start_driver
 
@@ -173,22 +193,17 @@ for family in $families; do
   xcrun simctl shutdown all || true
   udid=$(xcrun simctl create "lattice-$family" "$device_type" "$runtime")
   echo "$family: $device_type ($udid)"
-  xcrun simctl boot "$udid"
-  xcrun simctl bootstatus "$udid" -b
-  for key in \
-    com.apple.webinspectord:RemoteInspectorEnabled \
-    com.apple.webinspectord:RemoteAutomationEnabled \
-    com.apple.webinspectord:WIRRemoteAutomationEnabled \
-    com.apple.mobilesafari:WebKitDeveloperExtrasEnabledPreferenceKey \
-    com.apple.mobilesafari:WebInspectorEnabled \
-    com.apple.mobilesafari:RemoteAutomationEnabled \
-    com.apple.mobilesafari:WebKitRemoteAutomationEnabled; do
-    xcrun simctl spawn "$udid" defaults write "${key%%:*}" "${key#*:}" -bool true
-  done
+  # ONE BOOT, NOT TWO. The remote-automation settings are read at boot, so this used to boot the new device, write
+  # them inside it and boot it again. A boot cost 1 to 7 minutes on the macOS runners, and two of them pushed a single
+  # device job to 27.7 of its 30 minutes (run 43355906725). They are written into the device's own preference files
+  # before its first boot instead; `ensure_prefs` checks them after the boot and falls back to the old write and reboot
+  # when they did not survive it, so a wrong guess about the first boot costs the time saved, never the run.
+  prefs="$HOME/Library/Developer/CoreSimulator/Devices/$udid/data/Library/Preferences"
+  mkdir -p "$prefs"
+  for key in $PREF_KEYS; do defaults write "$prefs/${key%%:*}" "${key#*:}" -bool true; done
   # The office probe shows each file in QLProbe and captures the screen: no WebDriver session, no Safari
   # (docs/scripts/ios-safari/office-capture.mjs says why).
   if [ "$PROBE" = office ]; then
-    xcrun simctl shutdown "$udid" || true
     xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b
     SIM_UDID="$udid" SIM_LABEL="$family" OFFICE_INDEX="$ROOT/platform-suite-artifacts/office-quicklook/index.json" \
       APP_DIR="$app" ARTIFACT_DIR="$OUT" node docs/scripts/ios-safari/office-capture.mjs || { status=1; probe_failed=1; }
@@ -223,7 +238,7 @@ for family in $families; do
           # WebDriver session" (main's nightly, 2026-11-01, #2911). A relaunch drops the pairing without a device reboot.
           xcrun simctl terminate "$udid" com.apple.mobilesafari || true
           sleep 2
-          xcrun simctl launch "$udid" com.apple.mobilesafari || true
+          bounded 180 xcrun simctl launch "$udid" com.apple.mobilesafari || true
           sleep 18
           if start_driver; then
             rc=0
@@ -238,8 +253,13 @@ for family in $families; do
       driver=
     fi
     xcrun simctl shutdown "$udid" || true
-    if ! { xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b && xcrun simctl launch "$udid" com.apple.mobilesafari; }; then
-      rc=5; why='the simulator did not boot or Safari did not launch'; continue
+    if ! { xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b && ensure_prefs "$udid"; }; then
+      rc=5; why='the simulator did not boot'; continue
+    fi
+    # Bounded: a launch that never returned held the iPad job silent for 18 minutes, until the job's 30-minute limit
+    # canceled it (run 43355906725). It now fails here and takes the second start below, if the budget allows one.
+    if ! bounded 180 xcrun simctl launch "$udid" com.apple.mobilesafari; then
+      rc=5; why='Safari did not launch within 180 s'; continue
     fi
     sleep 5
     if ! start_driver; then rc=4; why='safaridriver did not answer'; continue; fi
