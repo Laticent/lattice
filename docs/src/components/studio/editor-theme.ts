@@ -67,6 +67,9 @@ const studioTheme = (focusRing: boolean) =>
 		...tooltipShell,
 		'.cm-tooltip.cm-tooltip-autocomplete > ul': {
 			fontFamily: 'var(--font-mono, ui-monospace, monospace)',
+			// A menu row shows the exact text it writes, so no ligature may redraw it: the mono font drew `<!--` as an
+			// arrow and `-->` as a long arrow in the insert list.
+			fontVariantLigatures: 'none',
 			maxHeight: '16em',
 		},
 		'.cm-tooltip-autocomplete > ul > li': { padding: '3px 8px', color: 'var(--text-body)' },
