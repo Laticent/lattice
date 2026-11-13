@@ -5,7 +5,7 @@
     "lib/authoring/bare-row-pill.js": 2,
     "lib/authoring/code-format/plan.mjs": 2,
     "lib/authoring/fact-check-core.js": 9,
-    "lib/authoring/lint-core.js": 91,
+    "lib/authoring/lint-core.js": 90,
     "lib/authoring/notes-core.js": 4,
     "lib/authoring/review-core.js": 1,
     "lib/authoring/venue-prose.js": 3,
