@@ -49,14 +49,10 @@ async function checkPanel(page: Page): Promise<void> {
 		await expect(rowValue(page, f)).toHaveText('Supported');
 	}
 
-	// Both actions sit outside the scroll area, so they are inside the viewport at every width.
-	const vp = page.viewportSize();
-	if (!vp) throw new Error('no viewport size');
+	// Both actions sit outside the scroll area, so they are fully on screen at every width: not clipped by
+	// the panel's scrolling list (which a bounding box cannot see) nor by the viewport.
 	for (const name of ['Run speed test', 'Copy report']) {
-		const box = await panel.getByRole('button', { name }).boundingBox();
-		if (!box) throw new Error(`${name} has no box`);
-		expect(box.y + box.height).toBeLessThanOrEqual(vp.height);
-		expect(box.x + box.width).toBeLessThanOrEqual(vp.width);
+		await expect(panel.getByRole('button', { name })).toBeInViewport({ ratio: 1 });
 	}
 
 	// The speed test fills its row with a count of work units.
