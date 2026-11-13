@@ -340,14 +340,42 @@ Chromium's (both export hosts paint with it). `docs/e2e/lastra-read-engines.spec
 | JPEG, `FF D8` not followed by a marker | PDF and Library: not JPEG; layout: the size | Chromium and WebKit refuse | not JPEG |
 | PNG, wrong signature bytes 4 to 7 | policy, PDF, layout: PNG | all refuse | not PNG |
 | PNG, a chunk before IHDR | policy and layout read a chunk length as the width | Chromium and WebKit refuse | no size |
-| PNG, eXIf Orientation 6 | unturned | Chromium and Firefox turned, WebKit not | 6 (so the recode leaves it) |
+| PNG, eXIf Orientation 6 | unturned | Chromium and Firefox turned, WebKit not | 6 (so the recode leaves it, and the PDF keeps it in the photo) |
+| PNG, two eXIf chunks: 1 then 6 / 6 then 1 | unturned | Chromium and Firefox: the first decides (1 / 6); WebKit applies neither | the first |
+| WebP, a first chunk too small for its header | layout read the next chunk's bytes as the size | (not decodable) | no size |
 | WebP, EXIF Orientation 6 | unturned | all unturned | 1 |
 | GIF, version `GIF8x` | layout: the size | all refuse | not GIF |
 
-What it changes: on those files only. A JPEG with its Exif block after the frame header now stays in the PDF's photo
-(upright) instead of being embedded sideways, and the image layout sizes it upright; the other rows move the recode
-plan, the PDF's embed-or-photo choice or the layout's bucket for files no gallery and no photo deck here contains.
-One addition: the image layout now sizes an AVIF photo (its header reader read none, so an AVIF fell to the Clean floor).
+**Which exported bytes change, on purpose.** Only an export whose deck holds one of these pictures; every gallery and
+both photo decks keep their bytes (§Measured). The demo deck `examples/lastra-image-reading.md` shows the first three.
+
+| The picture | What changes |
+|---|---|
+| a JPEG whose first `Exif` block sits after the frame header | PDF: it stays in the slide's photo, upright, instead of being embedded sideways; image layout: sized upright (its bucket and composition) |
+| a PNG whose first `eXIf` chunk turns it (before the pixels) | PDF: it stays in the photo instead of being embedded stretched across the turned box; image layout: sized turned; recode: no longer planned (PDF, player) |
+| an AVIF on an `image` slide | image layout: sized (it fell to the Clean floor before) |
+| a JPEG whose first `Exif` block says 1 or has no tag, with a later block that turns | PDF: embedded at its own bytes (it was kept in the photo as turned); image layout: sized unturned |
+| a JPEG whose TIFF block has the wrong magic number, or an orientation outside 1 to 8 | recode: now planned like any upright JPEG (the policy read 9 as turned); PDF and player bytes change when it wins |
+| a JPEG with junk or fill bytes between segments | recode: now planned (the policy could not read its size); PDF and player bytes change when it wins |
+| a file whose first bytes only resemble a PNG (bytes 4 to 7 wrong), a JPEG (`FF D8` then no marker) or a GIF (`GIF8x`), or a PNG whose first chunk is not IHDR | PDF: no longer embedded (no browser decodes it either); image layout: no size; the CLI's PDF asset reader refuses it |
+| a WebP whose first chunk is smaller than its own header | image layout: no size |
+| in the Studio: a JPEG with two `Exif` blocks, or a PNG with two `eXIf` chunks or one after its pixels | the stored, cleaned bytes keep only the first block's turn, so they paint as the original did |
+
+**Deliberate leftovers.** Each reads bytes for a reason of its own, not a picture's header, so each stays where it is:
+
+| Where | What it reads | Why it stays |
+|---|---|---|
+| `docs/src/lib/calco/picture.ts` `imageMime` | JPEG or PNG of a slide picture Calco itself was handed | Calco has its own fence and no dependencies; it picks between the two formats its host gives it, never untrusted bytes |
+| `lib/core/pdf-compose/compose.mjs` `pngIsFlat` | a slide photo's IHDR size against its byte count | a compression measure on a PNG the slide camera just wrote, not a header read of a stranger's file |
+| `docs/src/components/studio/export/pdf-image-pool.js` `pngBytesOf` | two signature bytes | it routes bytes the shared writer just wrote to jsPDF's PNG step; `rgbPngIdat` (lastra) does the real check |
+| `docs/src/components/studio/media-exif.ts` | EXIF, XMP and IPTC text for a caption, a credit and a date | metadata the importer shows the author, not the picture's format or size |
+| `docs/src/lib/preview-image-scale.ts` `animated` | `acTL`, `ANIM`, `avis` in a worker's source text | runs inside a worker built from a string, which cannot import a module; it only decides "do not scale an animation" |
+
+**Corrections.** `fa095bc4`'s commit message (now on the pushed branch) says the TIFF magic-number rule matches "every
+engine"; Playwright's Chromium 141 turns a magic-43 file, Chrome 153, WebKit and Firefox do not (row above). The first
+lastra build also let a later PNG `eXIf` chunk decide and let `cleanJpeg` and `cleanPng` keep the turn of every Exif
+block; an independent check found the cleaner case, the engines' probe settled the PNG one, and both now follow the
+first block, which `read.fuzz.test.ts` holds by reading every cleaned file against its original.
 
 **SVG.** `imageFormat` recognizes an SVG, but `readImage` gives it no size: an SVG's box is its markup's
 `width`/`height`/`viewBox`, which `lib/core/image-aspect.js` `aspectFromSvgTag` reads for files AND for inline
@@ -366,8 +394,10 @@ the slice that needs an SVG size from bytes.
 - A first run was NOT identical, and it is the finding of this slice: every player file differed. A bundler that
   scope-hoists a library renames each same-named local elsewhere in the bundle, and the player ships functions as
   `toString()` source, so lastra's private helpers `info` and `view` turned a player's `info` into `info2`. The fix is in
-  the code, not the comparison: lastra's private helpers carry distinctive names (index.ts says why), and the CLI bundle
-  reads lastra's CommonJS build, which stays inside its own closure. Checked by counting renamed identifiers in the
+  the code, not the comparison: the CLI bundle and the Studio's player core both read lastra's CommonJS build, which
+  stays inside its own closure, so its names cannot reach the rest of the bundle (structural; it costs the lazily loaded
+  player core about 5 KB gzipped, the parts of lastra it did not use); lastra's private helpers also carry distinctive
+  names (index.ts says why). Checked by counting renamed identifiers in the
   CLI and player-core bundles before and after: none outside lastra's own code.
 - The golden JPEG hash (`jpeg.test.ts`) did not move.
 - Failing arms: 15 deliberate breaks across read, clean, decide, resize and encode each turned their test red, and each
