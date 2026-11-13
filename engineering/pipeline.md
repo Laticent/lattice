@@ -530,10 +530,16 @@ orientation-only EXIF block. The three paths that carry a source file:
 **Which `data:` pictures the player reads.** Any address a browser draws: any letter case
 (`DATA:IMAGE/JPEG`), any parameters (`;name=x.jpg`), a base64 body wrapped across lines, or a
 percent-encoded body. The decoded bytes decide what the picture is (lastra `imageFormat`), never the
-address's type, so `image/jpg` and a JPEG labelled `image/png` are cleaned as JPEGs. An SVG is read
-for the pictures inside it (four levels deep at most), each cleaned by the same rule; the SVG is
-re-encoded only when one of them changed, and still goes through the player's SVG sanitizing after.
-A picture that does not decode, or whose type the cleaner does not read (AVIF), becomes the stand-in.
+address's type, so `image/jpg` and a JPEG labelled `image/png` are cleaned as JPEGs. An escaped
+spelling is read the way the browser reads it: CSS (a `style` attribute, a `<style>` element, and
+the CSS places inside an SVG) through `cssRefSpans`, so `url('data\3a image/…')` and `u\72l(…)`
+are found, and an SVG's XML character references (`data&#58;image/…`) are decoded first. An SVG is
+read for the pictures inside it (four levels deep at most), each cleaned by the same rule; it is
+re-encoded only when one of them changed. Inline deck SVG goes through the slide sanitizer after
+cleaning; nothing sanitizes inside an SVG kept as a picture (`<img src="data:image/svg+xml…">`,
+a copied `.svg` file), and the image context is what keeps its script inert. A picture that does not
+decode, or whose type the cleaner does not read (AVIF), becomes the stand-in, percent-encoded so it
+cannot end the quote, attribute or `url(…)` it is pasted into.
 
 **Not cleaned yet, pending the owner's decision: the deck's own source.** A `data:` picture written in
 the Markdown rides verbatim wherever the source does (cleaning it means rewriting the deck as written,

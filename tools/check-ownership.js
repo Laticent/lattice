@@ -8538,11 +8538,11 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
   {
     file: 'lib/export/player-images.mjs',
     reads: ['regex'],
-    sinks: { 'set-attribute': 1 },
+    sinks: { 'css-url': 1, 'set-attribute': 1 },
     guards: 0,
     guard: 'none',
     why:
-      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text.',
+      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text. The `url(${next})` write (PR #3183) puts back a picture the metadata cleaner rewrote, found by `cssRefSpans` at a `data:image/` value: `next` is only ever that picture re-encoded as base64, an SVG re-encoded as base64, or the percent-encoded drawn stand-in, none of which can hold a quote, a space or a `)`, so it cannot end the `url(…)` or its container, and it is never a web address.',
   },
   {
     file: 'lib/integrations/markdown-it/plugins.js',
