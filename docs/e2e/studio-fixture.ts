@@ -994,8 +994,8 @@ export async function setEditorContent(page: Page, text: string, opts: { timeout
 	// 4 workers: the welcome deck's first 13 lines, then the test deck, then the rest of the welcome
 	// deck). Wait for the signal that matters, an empty document, before inserting.
 	await expect
-		.poll(() => deckEditorFingerprint(page), { message: 'setEditorContent: the Delete after select-all left text behind (a late write collapsed the selection)' })
-		.toEqual(fingerprint(''));
+		.poll(() => deckEditorLength(page), { message: 'setEditorContent: the Delete after select-all left text behind (a late write collapsed the selection)' })
+		.toBe(0);
 	await page.keyboard.insertText(text);
 	// And prove the result: a deck that is not exactly `text` fails here, at the helper, instead of
 	// as a confusing assertion three steps later in the spec (HARD RULE #33). The poll compares a
@@ -1010,17 +1010,49 @@ export async function setEditorContent(page: Page, text: string, opts: { timeout
 		.toEqual(fingerprint(text));
 }
 
-/** A deck's length and its 32-bit FNV-1a hash over UTF-16 code units. `deckEditorFingerprint`
- *  runs the same loop inside the page; keep the two identical, or every `setEditorContent` fails. */
-export function fingerprint(text: string): { length: number; hash: number } {
+/** How the deck check folds line breaks, on BOTH sides, so it asks "is this the deck?" and not "did each
+ *  engine type every line-break byte the same way?". They do not. `page.keyboard.insertText`, measured on
+ *  read-article-beacons.spec.ts's payloads:
+ *
+ *    typed   Chromium  WebKit  Firefox
+ *    \r\n    \n\n      \n\n    \n
+ *    \r      \n        \n      \n
+ *    \f      kept      kept    dropped
+ *
+ *  CodeMirror then stores every break as `\n`, and Editor.tsx strips a leading BOM. The fold deletes the
+ *  characters an engine may drop (`EDITOR_DROP`) and turns every run of `\r`/`\n` into one `\n`
+ *  (`EDITOR_BREAKS`), which matches every row above. What it does NOT check: a run's length, so a lost or
+ *  extra blank line passes. Two lines merged into one, a mixed deck and a truncated one all still fail. */
+export const EDITOR_DROP = /[\f\v\u0085\u2028\u2029]/g;
+export const EDITOR_BREAKS = /[\r\n]+/g;
+
+/** A deck's length and its 32-bit FNV-1a hash over UTF-16 code units, after a leading BOM is stripped and
+ *  line breaks are folded (`EDITOR_DROP`, `EDITOR_BREAKS`). `deckEditorFingerprint` runs the same fold and
+ *  loop inside the page; keep the two identical, or every `setEditorContent` fails. */
+export function fingerprint(raw: string): { length: number; hash: number } {
+	const text = (raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw).replace(EDITOR_DROP, '').replace(EDITOR_BREAKS, '\n');
 	let h = 0x811c9dc5;
 	for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
 	return { length: text.length, hash: h >>> 0 };
 }
 
+/** The editor document's raw length, line breaks included: the empty check before an insert must not pass
+ *  with blank lines left behind, because a deck typed below them loses its front matter. */
+export function deckEditorLength(page: Page): Promise<number | null> {
+	return page.evaluate(() => {
+		const el = document.querySelector('[aria-label="Deck source"]');
+		if (!el) return null;
+		if (el instanceof HTMLTextAreaElement) return el.value.length;
+		// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle (as demo-mobile.spec.ts does).
+		const handle = el as any;
+		const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view ?? null;
+		return view ? view.state.doc.length : null;
+	});
+}
+
 /** The editor document's `fingerprint`, computed in the page so only two numbers cross the protocol. */
 export function deckEditorFingerprint(page: Page): Promise<{ length: number; hash: number } | null> {
-	return page.evaluate(() => {
+	return page.evaluate(([drop, breaks]) => {
 		const el = document.querySelector('[aria-label="Deck source"]');
 		if (!el) return null;
 		let text: string | null = null;
@@ -1032,10 +1064,11 @@ export function deckEditorFingerprint(page: Page): Promise<{ length: number; has
 			text = view ? view.state.doc.toString() : null;
 		}
 		if (text === null) return null;
+		text = (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text).replace(new RegExp(drop, 'g'), '').replace(new RegExp(breaks, 'g'), '\n');
 		let h = 0x811c9dc5;
 		for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
 		return { length: text.length, hash: h >>> 0 };
-	});
+	}, [EDITOR_DROP.source, EDITOR_BREAKS.source]);
 }
 
 /**
