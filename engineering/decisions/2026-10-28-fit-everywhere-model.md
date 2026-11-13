@@ -1234,3 +1234,39 @@ over redline, authority-chain, logo-wall, code, legal and others. The owner rule
   its frame.
 
 The owner's bar for the merge ask is HIGH or VERY HIGH, with no slide this PR breaks left behind.
+
+## 22. A square slide at phone stacks its masthead, and the export diff that found it (2026-11-13)
+
+**What broke.** The masthead band is a grid, `[masthead-lede] 1fr [masthead-bay] auto`: the
+eyebrow and title on the left, the deck's `meta:` line (and a split page's counter) docked in an
+`auto` bay on the right. At phone type on a square slide (x1.5, §18) a long meta asked its `auto`
+track for most of the 972px band, and the lede's `1fr` resolved to **0px**: the title broke one
+word a line under the bay and ran off the slide, and the eyebrow ran into the meta. Measured on
+the 27 example decks that set `meta:`: at square phone, 22 decks had a masthead slide whose lede
+column was under half the band, almost all of them at 0px. At `venue: laptop` none did.
+
+**Why §21's harness missed it.** The fit harness counts overflow. A lede squeezed to 0px spills
+mostly sideways into the bay, so many of these slides never reported an overflow at all, and the
+ones that did were filed under their component. The real-export diff that found it
+(`.scratch/export-diff.mjs`: each gallery and example exported through the CLI at the phone
+default and again at `venue: laptop`, listing slides that overflow only at phone) is the ground
+truth for this PR from here on. Its first version read only the CLI's stdout, and the CLI prints
+its OVERFLOW warning on stderr, so it reported every deck clean; it now reads both.
+
+**The fix.** A square slide at the phone default stacks the lede over the bay, the layout the
+`standard` Frame's `slicing` already gives `tall` and `strip` (`lib/forms/cell/masthead/masthead.css`).
+It is not a family slice, because a square deck at `venue: laptop` keeps the side-by-side band it
+was designed with: the rule keys on the phone default's own selector, with its exclusions, the
+chart one included, and `test/unit/parsing/resolve-venue.test.js` holds the two lists equal. After
+it, no example deck has a visible lede under half the band at square phone. The stacked meta now
+breaks into balanced lines (`text-wrap: balance` on `.tile-meta`), not a full line and one
+stranded word, on every narrow band.
+
+**Rejected.** A 50% floor on the lede (`minmax(50%, 1fr)`): it fixes every venue at once, but at
+phone type a long meta wraps three or four lines deep in half the band, spending the height a
+phone slide is shortest of. Adding `square` to the Frame's `slicing`: it stacks laptop squares too.
+
+**Not this PR's.** Three 16:9 examples at laptop (`mermaid-engine-fences`, `mermaid-motion`,
+`mermaid-tilde-fences`) give the lede 29% to 40% of the band beside a long meta. That is the same
+`auto` bay on `main`, untouched by this PR's venues; it is logged in
+`followups.d/2988-p3-masthead-lede-floor-wide.md`.

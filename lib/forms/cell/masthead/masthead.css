@@ -62,6 +62,17 @@ section.form .cell-masthead {
  * clears the base/override rules. `margin:0`/`padding-block:0` add no space, so they're exempt
  * from the HARD RULE #20 ratchet. */
 section.form .cell-masthead :is(h1, h2, h3, h4) { margin: 0; padding-block: 0; }
+/* A SQUARE SLIDE AT THE PHONE DEFAULT stacks the lede over the bay, as `tall` and `strip` do (the
+ * `standard` Frame's `slicing`). At phone type (x1.5, base.modifiers.css § THE SHAPE DECIDES THE
+ * STEP) the bay's `auto` track grew to the deck's `meta:` line and left the lede column 0px wide:
+ * the title broke one word a line under the bay and the eyebrow ran into the meta, on 22 of the 27
+ * example decks that set `meta:` (fit-everywhere-model.md §22). It is not a family slice, because a
+ * square deck at `venue: laptop` keeps the side-by-side band it was designed with, so the selector
+ * is the phone default's own, exclusions and all (a chart section keeps laptop).
+ * test/unit/parsing/resolve-venue.test.js holds the two exclusion lists equal. */
+section.form:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet, .chart-frame) {
+  --masthead-cols: [masthead-lede masthead-bay] 1fr;
+}
 /* The frame section is a flex column (base.elements.css). Space the masthead band from the
  * stage with a gap rather than a margin. Scoped to masthead-bearing slides so sovereign
  * frames (title / divider / closing — no masthead) are untouched. Halved from the legacy

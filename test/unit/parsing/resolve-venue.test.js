@@ -82,6 +82,22 @@ test('the handheld default skips a chart section', () => {
   assert.equal(venueOfTokens(['roadmap', 'chart-frame']), 'laptop');
 });
 
+// The masthead stacks its lede over its bay on a square slide at the phone default (masthead.css), where
+// phone type left the lede 0px wide beside a long meta. It keys on the same unstamped section the square
+// type rule does, so the two exclusion lists must not drift: a venue added to one and not the other would
+// stack the band at a size whose type is laptop's, or leave it side by side at phone size.
+test('the square masthead stack and the square phone type rule exclude the same venues', () => {
+  const mast = fs.readFileSync(path.join(__dirname, '../../../lib/forms/cell/masthead/masthead.css'), 'utf8');
+  const notOf = (src, prefix) => {
+    const m = src.match(new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:where\\(\\[data-family="square"\\]\\):not\\(([^)]*)\\)\\s*\\{`));
+    assert.ok(m, `no square default rule in ${prefix}`);
+    return m[1].split(',').map((t) => t.trim()).sort();
+  };
+  const type = notOf(css, 'section');
+  assert.deepEqual(notOf(mast, 'section.form'), type);
+  assert.ok(/--masthead-cols:\s*\[masthead-lede masthead-bay\] 1fr/.test(mast), 'the stack re-declares both line names');
+});
+
 test('no tall or strip room venue leaves fewer than about 35 characters a line', () => {
   // The designed tall size reads about 43 characters a line on a 1080-wide box (measured,
   // fit-everywhere-model.md §18); a step of s leaves 43 / s. The 17em tight threshold is ~35.
