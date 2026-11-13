@@ -21,6 +21,11 @@ describe('PNG corpus: exact ground truth', () => {
       expect([img.width, img.height]).toEqual([want.width, want.height]);
       expect(img.data.length).toBe(want.width * want.height * 4);
       expect(sha256(img.data)).toBe(want.rgbaSha256);
+      expect(img.icc ? sha256(img.icc) : null).toBe(want.iccSha256);
+      expect(Object.entries(img.tags)
+        .filter(([, on]) => on)
+        .map(([k]) => k)
+        .sort()).toEqual(want.tags);
     });
   }
 });
@@ -32,6 +37,8 @@ describe('JPEG corpus: exact match with libjpeg-turbo via Pillow', () => {
       const img = await decodeJpeg(bytes);
       expect([img.width, img.height]).toEqual([want.width, want.height]);
       expect(sha256(img.data)).toBe(want.rgbaSha256);
+      // The embedded ICC profile comes back byte for byte, as Pillow reassembles it, and is never applied.
+      expect(img.icc ? sha256(img.icc) : null).toBe(want.iccSha256);
     });
   }
 

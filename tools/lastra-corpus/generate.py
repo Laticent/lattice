@@ -37,6 +37,9 @@ import zlib
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, features
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from icc import ADOBE_RGB, DISPLAY_P3  # noqa: E402
+
 SEED = 20261113
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OUT = os.path.join(ROOT, 'docs', 'src', 'lib', 'lastra', 'decode', 'fixtures')
@@ -117,7 +120,8 @@ def filter_row(kind, row, prev, bpp):
     return bytes([kind]) + bytes(out)
 
 
-def encode_png(arr, color_type, depth, interlace=0, plte=None, trns=None, filters='cycle', idat_split=0, before_idat=(), seed=0):
+def encode_png(arr, color_type, depth, interlace=0, plte=None, trns=None, filters='cycle', idat_split=0, before_idat=(), seed=0,
+               trns_bytes=None, trns_where='after-plte', after_idat=(), extra_raw=b'', zlib_tail=b''):
     """arr: (h, w, channels) samples. filters: 'cycle' (row % 5), 'none', 'paeth', or 'adaptive' (least sum)."""
     h, w, ch = arr.shape
     bpp = max(1, ch * depth // 8)
@@ -142,17 +146,26 @@ def encode_png(arr, color_type, depth, interlace=0, plte=None, trns=None, filter
             raw += filter_row(kind, row, prev, bpp)
             prev = row
             row_no += 1
-    z = zlib.compress(bytes(raw), 9)
+    z = zlib.compress(bytes(raw) + extra_raw, 9) + zlib_tail
+    written = bytes(trns_bytes) if trns_bytes is not None else (bytes(trns) if trns is not None else None)
     out = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, depth, color_type, 0, 0, interlace))
     for kind, data in before_idat:
         out += chunk(kind, data)
+    if written is not None and trns_where == 'before-plte':
+        out += chunk(b'tRNS', written)
     if plte is not None:
         out += chunk(b'PLTE', bytes(plte))
-    if trns is not None:
-        out += chunk(b'tRNS', bytes(trns))
+    if written is not None and trns_where in ('after-plte', 'twice'):
+        out += chunk(b'tRNS', written)
+    if trns_where == 'twice':
+        out += chunk(b'tRNS', bytes(len(written)))
     step = idat_split or len(z)
     for i in range(0, len(z), step):
         out += chunk(b'IDAT', z[i:i + step])
+    if written is not None and trns_where == 'after-idat':
+        out += chunk(b'tRNS', written)
+    for kind, data in after_idat:
+        out += chunk(kind, data)
     return out + chunk(b'IEND', b'')
 
 
@@ -172,13 +185,13 @@ def truth_rgba(arr, color_type, depth, plte=None, trns=None):
         g = to8(a[..., 0], depth)
         out[..., 0] = out[..., 1] = out[..., 2] = g
         if trns is not None:
-            key = (trns[0] << 8) | trns[1]
+            key = ((trns[0] << 8) | trns[1]) & (0xFFFF if depth == 16 else (1 << depth) - 1)  # png_do_expand masks it
             out[..., 3] = np.where(a[..., 0] == key, 0, 255)
     elif color_type == 2:
         for c in range(3):
             out[..., c] = to8(a[..., c], depth)
         if trns is not None:
-            k = [(trns[2 * i] << 8) | trns[2 * i + 1] for i in range(3)]
+            k = [((trns[2 * i] << 8) | trns[2 * i + 1]) & (0xFFFF if depth == 16 else 0xFF) for i in range(3)]
             hit = (a[..., 0] == k[0]) & (a[..., 1] == k[1]) & (a[..., 2] == k[2])
             out[..., 3] = np.where(hit, 0, 255)
     elif color_type == 3:
@@ -298,7 +311,38 @@ def png_cases():
     cases.append(('ct2-d8-noise-paeth', noise[..., :3], 2, 8, dict(filters='paeth')))
     cases.append(('ct6-d8-noise-cycle', noise, 6, 8, dict()))
     gama = struct.pack('>I', 45455)
-    cases.append(('ct2-d8-ancillary', rgb, 2, 8, dict(before_idat=[(b'gAMA', gama), (b'sRGB', b'\x00'), (b'tEXt', b'Comment\x00made by lastra-corpus'), (b'pHYs', struct.pack('>IIB', 2835, 2835, 1))])))
+    cases.append(('ct2-d8-ancillary', rgb, 2, 8, dict(before_idat=[(b'gAMA', gama), (b'sRGB', b'\x00'), (b'tEXt', b'Comment\x00made by lastra-corpus'), (b'pHYs', struct.pack('>IIB', 2835, 2835, 1))], tags=['gama', 'srgb'])))
+
+    # libpng's tRNS policy (lastra's): a misplaced, repeated or wrongly sized tRNS is ignored, and a key is
+    # masked to the bit depth. `trns` is what applies (the truth); `trns_bytes` is what the file says.
+    pal2 = [255, 0, 0, 0, 255, 0]
+    idx = np.array([[[(x + y) % 2] for x in range(4)] for y in range(2)])
+    cases.append(('edge-trns-before-plte', idx, 3, 8, dict(plte=pal2, trns_bytes=[0, 0], trns_where='before-plte')))
+    cases.append(('edge-trns-after-idat', idx, 3, 8, dict(plte=pal2, trns_bytes=[0, 0], trns_where='after-idat')))
+    cases.append(('edge-trns-longer-than-plte', idx, 3, 8, dict(plte=pal2, trns_bytes=[0, 0, 0, 0])))
+    cases.append(('edge-trns-twice', idx, 3, 8, dict(plte=pal2, trns=[0, 128], trns_where='twice')))
+    g8 = np.array([[[v] for v in (0, 1, 2, 3)]])
+    cases.append(('edge-gray8-trns-length3', g8, 0, 8, dict(trns_bytes=[0, 1, 9])))
+    cases.append(('edge-gray8-key-0x0101', g8, 0, 8, dict(trns=[1, 1])))
+    g2 = np.array([[[v] for v in (0, 1, 2, 3)]])
+    cases.append(('edge-gray2-key-257', g2, 0, 2, dict(trns=[1, 1])))
+    rgb2 = np.array([[[1, 2, 3], [4, 5, 6]]])
+    cases.append(('edge-rgb8-key-masked', rgb2, 2, 8, dict(trns=[0x11, 4, 0x22, 5, 0x33, 6])))
+    cases.append(('edge-rgba-with-trns', samples(6, 8, 3, 2), 6, 8, dict(trns_bytes=[0] * 6)))
+    cases.append(('edge-plte-in-rgb', rgb2, 2, 8, dict(before_idat=[(b'PLTE', bytes(pal2))])))
+    # Image data past what the header needs: extra scanline bytes, and bytes after the zlib stream.
+    cases.append(('edge-extra-inflated', samples(2, 8, 9, 7), 2, 8, dict(extra_raw=bytes(range(200)))))
+    cases.append(('edge-zlib-trailing-bytes', samples(2, 8, 9, 7), 2, 8, dict(zlib_tail=b'trailing bytes after the zlib stream')))
+
+    # Color-tagged files: the pixels decode as stored; the profile and the tags come back.
+    photo_rgb = np.asarray(photo(48, 32, SEED + 30)).astype(np.int64)
+    iccp = lambda name, prof: (b'iCCP', name + b'\x00\x00' + zlib.compress(prof, 9))
+    cases.append(('tagged-display-p3-iccp', photo_rgb, 2, 8, dict(before_idat=[iccp(b'Display P3', DISPLAY_P3)], tags=['iccp'], icc=DISPLAY_P3)))
+    cases.append(('tagged-adobe-rgb-iccp', photo_rgb, 2, 8, dict(before_idat=[iccp(b'Adobe RGB', ADOBE_RGB)], tags=['iccp'], icc=ADOBE_RGB)))
+    chrm = struct.pack('>8I', 31270, 32900, 64000, 33000, 30000, 60000, 15000, 6000)
+    cases.append(('tagged-srgb-gama-chrm', photo_rgb, 2, 8, dict(before_idat=[(b'sRGB', b'\x00'), (b'gAMA', struct.pack('>I', 45455)), (b'cHRM', chrm)], tags=['srgb', 'gama', 'chrm'])))
+    cases.append(('tagged-p3-cicp', photo_rgb, 2, 8, dict(before_idat=[(b'cICP', bytes([12, 13, 0, 1]))], tags=['cicp'])))
+    cases.append(('tagged-gama-only-1.0', photo_rgb, 2, 8, dict(before_idat=[(b'gAMA', struct.pack('>I', 100000))], tags=['gama'])))
     return cases
 
 
@@ -323,6 +367,56 @@ def magick_jpeg(im, sampling, quality, progressive=False):
             args += ['-interlace', 'JPEG']
         subprocess.run(args + [dst], check=True)
         return open(dst, 'rb').read()
+
+
+def mpo(primary, second, icc=None):
+    b = io.BytesIO()
+    kw = {'icc_profile': icc} if icc else {}
+    primary.save(b, 'MPO', save_all=True, append_images=[second], quality=90, **kw)
+    return b.getvalue()
+
+
+ULTRA_HDR_XMP_PRIMARY = (
+    '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+    '<rdf:Description xmlns:Container="http://ns.google.com/photos/1.0/container/" '
+    'xmlns:Item="http://ns.google.com/photos/1.0/container/item/" xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" '
+    'hdrgm:Version="1.0"><Container:Directory><rdf:Seq>'
+    '<rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="Primary" Item:Mime="image/jpeg"/></rdf:li>'
+    '<rdf:li rdf:parseType="Resource"><Container:Item Item:Semantic="GainMap" Item:Mime="image/jpeg" Item:Length="0"/></rdf:li>'
+    '</rdf:Seq></Container:Directory></rdf:Description></rdf:RDF></x:xmpmeta>'
+)
+ULTRA_HDR_XMP_GAIN = (
+    '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+    '<rdf:Description xmlns:hdrgm="http://ns.adobe.com/hdr-gain-map/1.0/" hdrgm:Version="1.0" '
+    'hdrgm:GainMapMin="0" hdrgm:GainMapMax="2.0" hdrgm:Gamma="1" hdrgm:OffsetSDR="0.015625" '
+    'hdrgm:OffsetHDR="0.015625" hdrgm:HDRCapacityMin="0" hdrgm:HDRCapacityMax="2.0" hdrgm:BaseRenditionIsHDR="False"/>'
+    '</rdf:RDF></x:xmpmeta>'
+)
+
+
+def ultra_hdr(primary, icc, exif):
+    """An Ultra HDR-shaped JPEG: XMP with the hdrgm container, MPF, a gray gain map as the second picture."""
+    gain = primary.convert('L').resize((primary.width // 4, primary.height // 4))
+    b = io.BytesIO()
+    primary.save(b, 'MPO', save_all=True, append_images=[gain], quality=90, icc_profile=icc, exif=exif, xmp=ULTRA_HDR_XMP_PRIMARY.encode())
+    data = b.getvalue()
+    # Put the gain map's own XMP on the second picture, after its SOI, and grow picture 2's size in the
+    # MPF index by the inserted bytes (its offset does not move).
+    first_eoi = data.index(b'\xff\xd8', 2)
+    seg = b'http://ns.adobe.com/xap/1.0/\x00' + ULTRA_HDR_XMP_GAIN.encode()
+    app1 = b'\xff\xe1' + struct.pack('>H', len(seg) + 2) + seg
+    out = bytearray(data[:first_eoi + 2] + app1 + data[first_eoi + 2:])
+    mpf = out.index(b'MPF\x00') + 4
+    big = out[mpf:mpf + 2] == b'MM'
+    u16 = lambda o: struct.unpack('>H' if big else '<H', out[mpf + o:mpf + o + 2])[0]
+    u32 = lambda o: struct.unpack('>I' if big else '<I', out[mpf + o:mpf + o + 4])[0]
+    ifd = u32(4)
+    for i in range(u16(ifd)):
+        e = ifd + 2 + 12 * i
+        if u16(e) == 0xB002:
+            entry2 = u32(e + 8) + 16
+            out[mpf + entry2 + 4:mpf + entry2 + 8] = struct.pack('>I' if big else '<I', u32(entry2 + 4) + len(app1))
+    return bytes(out)
 
 
 def segments(data):
@@ -356,6 +450,80 @@ def set_adobe_transform(data, transform):
             b[s + 4 + 11] = transform
             return bytes(b)
     raise SystemExit('no Adobe segment to edit')
+
+
+def damaged_jpeg_cases():
+    """
+    Damaged and partial files, each with the oracle that applies (the third item):
+    - 'pillow': Pillow's decode, as for every other fixture.
+    - 'pillow-with-eoi': the file ends early without EOI. Pillow refuses every such file; libjpeg (and
+      lastra, once a scan is whole) reads the end of the file as EOI, so the oracle is Pillow's decode of
+      the same bytes with FF D9 appended.
+    - 'pillow-c': libjpeg-turbo's C code (Pillow run with JSIMD_FORCENONE=1). Used where the dequantized
+      coefficients pass 16 bits, which the SIMD code (Pillow's default, and the browsers') handles
+      differently from the C reference lastra follows.
+    """
+    mid = photo(96, 64, SEED + 40)
+    out = []
+    rst_file = save_jpeg(mid, quality=80, subsampling='4:2:0', restart_marker_blocks=2)
+    sos_end = [e for m, s_, e in segments(rst_file) if m == 0xDA][0]
+    rst = [j for j in range(sos_end, len(rst_file) - 1) if rst_file[j] == 0xFF and 0xD0 <= rst_file[j + 1] <= 0xD7]
+    a, b2 = rst[3], rst[4]
+    out.append(('damaged-rst-dropped', rst_file[:a] + rst_file[b2:], 'pillow'))  # one RST and its interval gone
+    out.append(('damaged-rst-doubled', rst_file[:a] + rst_file[a:a + 2] + rst_file[a:], 'pillow'))
+    behind = bytearray(rst_file)
+    behind[a + 1] = 0xD0 + ((behind[a + 1] - 0xD0 - 2) & 7)
+    out.append(('damaged-rst-two-behind', bytes(behind), 'pillow'))
+    ahead = bytearray(rst_file)
+    ahead[a + 1] = 0xD0 + ((ahead[a + 1] - 0xD0 + 1) & 7)
+    out.append(('damaged-rst-one-ahead', bytes(ahead), 'pillow'))
+    far = bytearray(rst_file)
+    far[a + 1] = 0xD0 + ((far[a + 1] - 0xD0 + 4) & 7)
+    out.append(('damaged-rst-four-ahead', bytes(far), 'pillow'))
+    out.append(('damaged-junk-before-rst', rst_file[:a] + bytes([0x12, 0x34, 0x56]) + rst_file[a:], 'pillow'))
+    out.append(('damaged-interval-short', rst_file[:a - 6] + rst_file[a:], 'pillow'))
+    # Bytes that match no Huffman code (all ones), inside the first interval: libjpeg consumes 17 bits each.
+    # Runs of one-bits (stuffed FF 00 pairs) match no Huffman code: libjpeg consumes 17 bits for each.
+    bad = rst_file[:sos_end + 8] + b'\xff\x00' * 4 + rst_file[sos_end + 8:]
+    out.append(('damaged-bad-huffman-codes', bad, 'pillow'))
+    # A baseline scan cut by an EOI in the middle: the rest of the scan stays mid-gray.
+    base = save_jpeg(mid, quality=80, subsampling='4:2:0')
+    sos_b = [e for m, s_, e in segments(base) if m == 0xDA][0]
+    out.append(('damaged-eoi-mid-scan', base[:sos_b + (len(base) - sos_b) // 2] + b'\xff\xd9', 'pillow'))
+    # Progressive files whose last scans never came (EOI kept): libjpeg's block smoothing fills them in.
+    prog = save_jpeg(mid, quality=80, subsampling='4:2:0', progressive=True)
+    starts = [j for j in range(len(prog) - 1) if prog[j] == 0xFF and prog[j + 1] == 0xDA]
+    for keep in (1, 3, 6, 9):
+        out.append((f'partial-prog-keep{keep}of{len(starts)}', prog[:starts[keep]] + b'\xff\xd9', 'pillow'))
+    gray = save_jpeg(mid.convert('L'), quality=80, progressive=True)
+    gs = [j for j in range(len(gray) - 1) if gray[j] == 0xFF and gray[j + 1] == 0xDA]
+    out.append((f'partial-gray-keep2of{len(gs)}', gray[:gs[2]] + b'\xff\xd9', 'pillow'))
+    # Files that end with no EOI: at a scan boundary, and inside a later scan.
+    out.append(('cut-prog-at-scan-boundary', prog[:starts[5]], 'pillow-with-eoi'))
+    out.append(('cut-prog-inside-scan', prog[:starts[5] + (starts[6] - starts[5]) // 2], 'pillow-with-eoi'))
+    out.append(('cut-base-no-eoi-only', base[:-2], 'pillow-with-eoi'))
+    # A quantization table redefined before the first scan with values that push coefficients past 16 bits.
+    dqt = b'\xff\xdb\x00\x43\x00' + bytes([99] * 64) + b'\xff\xdb\x00\x43\x01' + bytes([3] * 64)
+    out.append(('overflow-dqt-before-first-scan', prog[:starts[0]] + dqt + prog[starts[0]:], 'pillow-c'))
+    # 16-bit tables over 32767: libjpeg-turbo stores them as `short` (they turn negative), and the IDCT's
+    # sums pass 2^31, where its 64-bit JLONG keeps what 32 bits would lose.
+    dqt16 = b'\xff\xdb\x00\x83\x10' + struct.pack('>64H', *([40000] * 6 + [65000] * 10 + [30000] * 48)) + b'\xff\xdb\x00\x83\x11' + struct.pack('>64H', *([50000] * 64))
+    out.append(('overflow-dqt16-large-values', insert_before_sof(base, dqt16), 'pillow-c'))
+    return out
+
+
+def insert_before_sof(data, extra):
+    sof = [st for m, st, e in segments(data) if m in (0xC0, 0xC1, 0xC2)][0]
+    return data[:sof] + extra + data[sof:]
+
+
+def pillow_c_rgba(data):
+    """Pillow's decode through libjpeg-turbo's C code: a subprocess with SIMD switched off."""
+    code = 'import sys,io;from PIL import Image;im=Image.open(io.BytesIO(sys.stdin.buffer.read()));im.load();sys.stdout.buffer.write(im.convert("RGBA").tobytes())'
+    env = dict(os.environ, JSIMD_FORCENONE='1')
+    raw = subprocess.run([sys.executable, '-I', '-c', code], input=data, capture_output=True, check=True, env=env).stdout
+    im = Image.open(io.BytesIO(data))
+    return np.frombuffer(raw, np.uint8).reshape(im.height, im.width, 4)
 
 
 def jpeg_cases():
@@ -402,6 +570,19 @@ def jpeg_cases():
     add('mid-cmyk', save_jpeg(cmyk, quality=85))
     add('mid-ycck', set_adobe_transform(save_jpeg(cmyk, quality=85), 2))
     add('mid-base-420-no-dht', strip_dht(save_jpeg(mid, quality=75, subsampling='4:2:0')))
+    # Phone-shaped files: wide-gamut profiles, an EXIF rotation, an MPF second picture, an Ultra HDR
+    # gain map. lastra decodes the primary picture as stored and returns the profile.
+    phone = photo(96, 64, SEED + 31)
+    exif = Image.Exif()
+    exif[0x0112] = 6
+    exif[0x010F] = 'lastra-corpus'
+    add('phone-display-p3', save_jpeg(phone, quality=90, subsampling='4:2:0', icc_profile=DISPLAY_P3))
+    add('phone-adobe-rgb', save_jpeg(phone, quality=90, subsampling='4:2:0', icc_profile=ADOBE_RGB))
+    add('phone-exif-orientation-6', save_jpeg(phone, quality=90, subsampling='4:2:0', exif=exif.tobytes()))
+    add('phone-mpf-two-pictures', mpo(phone, phone.resize((48, 32)).convert('RGB'), icc=DISPLAY_P3))
+    add('phone-ultra-hdr-gain-map', ultra_hdr(phone, DISPLAY_P3, exif.tobytes()))
+    big_icc = (DISPLAY_P3 + bytes(70000))[:70000]  # a profile over one APP2 segment (65,519 bytes) splits in two
+    add('phone-icc-two-segments', save_jpeg(phone, quality=90, icc_profile=big_icc))
     add('big-base-420-q75', save_jpeg(big, quality=75, subsampling='4:2:0'))
     add('big-prog-444-q90', save_jpeg(big, quality=90, subsampling='4:4:4', progressive=True))
     return cases
@@ -432,16 +613,50 @@ def build():
         'jpeg': {},
     }
     for name, arr, ct, depth, kw in png_cases():
+        tags = kw.pop('tags', [])
+        icc = kw.pop('icc', None)
         data = encode_png(arr, ct, depth, **kw)
         pillow_samples_agree(data, arr, ct, depth, name)
         truth = truth_rgba(arr, ct, depth, kw.get('plte'), kw.get('trns'))
         files[f'png/{name}.png'] = data
-        expected['png'][f'{name}.png'] = {'width': arr.shape[1], 'height': arr.shape[0], 'rgbaSha256': sha(truth)}
+        expected['png'][f'{name}.png'] = {
+            'width': arr.shape[1],
+            'height': arr.shape[0],
+            'rgbaSha256': sha(truth),
+            'iccSha256': hashlib.sha256(icc).hexdigest() if icc else None,
+            'tags': sorted(tags),
+        }
     for name, data in jpeg_cases():
         mode, rgba = pillow_rgba(data)
+        im = Image.open(io.BytesIO(data))
+        icc = im.info.get('icc_profile')
         files[f'jpeg/{name}.jpg'] = data
-        entry = {'width': rgba.shape[1], 'height': rgba.shape[0], 'pillowMode': mode, 'rgbaSha256': sha(rgba)}
+        entry = {
+            'width': rgba.shape[1],
+            'height': rgba.shape[0],
+            'pillowMode': mode,
+            'rgbaSha256': sha(rgba),
+            'iccSha256': hashlib.sha256(icc).hexdigest() if icc else None,
+            'exifOrientation': im.getexif().get(0x0112),
+        }
         expected['jpeg'][f'{name}.jpg'] = entry
+    for name, data, oracle in damaged_jpeg_cases():
+        if oracle == 'pillow-c':
+            rgba = pillow_c_rgba(data)
+            simd = pillow_rgba(data)[1]
+            assert not np.array_equal(rgba, simd), f'{name} no longer separates the C and SIMD decodes'
+        else:
+            rgba = pillow_rgba(data + b'\xff\xd9' if oracle == 'pillow-with-eoi' else data)[1]
+        files[f'jpeg/{name}.jpg'] = data
+        expected['jpeg'][f'{name}.jpg'] = {
+            'width': rgba.shape[1],
+            'height': rgba.shape[0],
+            'pillowMode': Image.open(io.BytesIO(data)).mode,
+            'rgbaSha256': sha(rgba),
+            'iccSha256': None,
+            'exifOrientation': None,
+            'oracle': oracle,
+        }
     files['expected.json'] = (json.dumps(expected, indent=2) + '\n').encode()
     return files
 
