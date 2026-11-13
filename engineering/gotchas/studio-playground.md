@@ -2063,6 +2063,12 @@ never turn "passed in headless" into "works on iOS."
   `splitSlideChunks` keeps its last answer beside the boundary memo entry it was cut from. Counted in
   `test/unit/core/meta-memo.test.js`, `slide-boundaries.test.js` and the bench's `memoDatasets` row: copies per keystroke
   15,000,391 to 61, cuts 35 to 1. That took the worst stall from 28.7 s to 11.2 s.
+  The directive editors' `commentBlocks` memo (`lib/core/meta-record.mjs`) had the same flaw with a different bound: it
+  was capped by COUNT (512 texts), so it kept every photo slide it was asked about, and each lookup flattened and compared
+  the whole text, since the editor hands it a new string each time. It now reads a text past 1,000,000 characters without
+  the memo, and holds 4,000,000 characters at most in all; `blocksStats.heldChars` counts what it keeps
+  (`test/unit/core/meta-record.test.js`, the bench's `memoDatasets` row: 15,000,881 characters held for the three photo
+  slides and the plain slides beside them, now 632, the plain slides alone).
 - **Fix, part 2: readers stop walking a photo's base64** — no reader of a deck needs a payload's bytes, and every one
   walked them: lint-core, review-core, the engine's `render`, the preview's HTML and CSS scanners, the source checks one
   preview render makes, a photo address reader that tested a regex per character. Two remedies, chosen by what the reader

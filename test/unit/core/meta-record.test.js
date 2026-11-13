@@ -231,3 +231,41 @@ describe('the red team on #3133 (#3136): the form follows the slide, dead record
     assert.equal(edit.readMetaField(many(300), 'class').present, false);
   });
 });
+
+describe('commentBlocks never remembers a slide too long to keep', () => {
+  // A pasted phone photo makes a slide of about 4.5 MB. Remembered, every ask hashed the whole text (the Studio hands a new
+  // string each time) and the memo, bounded only by count, could hold 512 of them (engineering/gotchas/studio-playground.md).
+  const photoSlide = (k) => `<!-- _class: image -->\n\n![bg](data:image/jpeg;base64,${String.fromCharCode(65 + k).repeat(1_200_000)})\n`;
+
+  test('three photo slides leave the memo holding none of their text, and the answer is unchanged', () => {
+    const before = m.blocksStats.heldChars;
+    for (let k = 0; k < 3; k++) {
+      const found = m.commentBlocks(photoSlide(k));
+      assert.deepEqual(found.map((b) => b.body.trim()), ['_class: image']);
+      assert.equal(found[0].start, 0);
+      assert.ok(Object.isFrozen(found[0]), 'a record read past the memo is frozen like a remembered one');
+    }
+    assert.equal(m.blocksStats.heldChars - before, 0);
+  });
+
+  test('a slide of ordinary length is still remembered', () => {
+    const slide = "<!-- _class: kpi -->\n\n# Held only by this test\n";
+    const before = m.blocksStats.heldChars;
+    m.commentBlocks(slide);
+    assert.equal(m.blocksStats.heldChars - before, slide.length);
+  });
+});
+
+describe('commentBlocks memory is bounded by size as well as count', () => {
+  test('slides just under the per-text cap never hold more than four million characters in all', () => {
+    const slide = (k) => `<!-- _class: image -->\n\n![bg](data:image/jpeg;base64,${String.fromCharCode(65 + (k % 26)).repeat(900_000)}${k})\n`;
+    for (let k = 0; k < 12; k++) {
+      assert.deepEqual(m.commentBlocks(slide(k)).map((b) => b.body.trim()), ['_class: image']);
+      assert.ok(m.blocksStats.heldChars <= 4_000_000, `after ${k + 1} slides the memo holds ${m.blocksStats.heldChars}`);
+    }
+    // The newest is still remembered: a size bound evicts the oldest, never the one just read.
+    const before = m.blocksStats.heldChars;
+    m.commentBlocks(slide(11));
+    assert.equal(m.blocksStats.heldChars, before);
+  });
+});
