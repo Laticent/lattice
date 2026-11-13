@@ -69,7 +69,24 @@ describe('classify', () => {
 
 	it('ONE hardware floor signal only makes LITE: one guess never turns a user away', () => {
 		expect(classify(strong({ memoryGB: 1 })).tier).toBe('lite');
-		expect(classify(strong({ renderer: null })).tier).toBe('lite');
+		expect(classify(strong({ gpuTier: 0 })).tier).toBe('lite');
+	});
+
+	// Headless Firefox has no WebGL, and a person can turn it off for privacy: its absence is a guess about
+	// the GPU, not proof, so it never counts toward a decline (measured on Gecko, 2026-11-13).
+	it('no WebGL is weak, never a floor, even with a 2-core floor signal beside it', () => {
+		const p = classify(strong({ renderer: null, cores: 2 }));
+		expect(p.tier).toBe('lite');
+		expect(p.reasons.map((r) => r.code)).toEqual(['weak:gpu', 'floor:cores']);
+		expect(p.reasons[0].text).toBe("This browser has no WebGL (it may be turned off), so Lattice can't use the graphics chip.");
+	});
+
+	it("detect-gpu's tier 0 without a WebGL context is not a floor either", () => {
+		expect(classify(strong({ renderer: null, gpuTier: 0, cores: 2 })).tier).toBe('lite');
+	});
+
+	it('a real chip that detect-gpu ranks 0 is a floor', () => {
+		expect(codes(strong({ gpuTier: 0, cores: 2 }))).toEqual(['floor:gpu', 'floor:cores']);
 	});
 
 	it('TWO agreeing floor signals decline', () => {

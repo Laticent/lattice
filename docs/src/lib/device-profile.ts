@@ -118,12 +118,20 @@ export function classify(signals: DeviceSignals, opts: { override?: TierOverride
 	};
 
 	const { renderer, gpuTier, memoryGB, cores, cpuScore } = signals;
+	// No WebGL is WEAK, never a floor: headless Firefox has none, and a person can turn WebGL off for
+	// privacy, so its absence does not prove a missing GPU (measured 2026-11-13, decision note §2). For the
+	// same reason detect-gpu's tier 0, which it also returns when it cannot make a WebGL context, counts as a
+	// floor only when a context exists and the chip it names ranks that low.
 	hw(
 		'gpu',
-		renderer === null || (gpuTier !== null && gpuTier <= FLOOR_GPU_TIER),
-		isSoftwareRenderer(renderer) || (gpuTier !== null && gpuTier <= LITE_GPU_TIER),
-		renderer === null ? 'This browser has no WebGL, so it has no usable graphics.' : 'The graphics chip is too slow for Lattice.',
-		isSoftwareRenderer(renderer) ? `The browser draws in software (${shortRenderer(renderer ?? '')}), with no graphics chip.` : 'The graphics chip is slow.',
+		renderer !== null && gpuTier !== null && gpuTier <= FLOOR_GPU_TIER,
+		renderer === null || isSoftwareRenderer(renderer) || (gpuTier !== null && gpuTier <= LITE_GPU_TIER),
+		'The graphics chip is too slow for Lattice.',
+		renderer === null
+			? "This browser has no WebGL (it may be turned off), so Lattice can't use the graphics chip."
+			: isSoftwareRenderer(renderer)
+				? `The browser draws in software (${shortRenderer(renderer)}), with no graphics chip.`
+				: 'The graphics chip is slow.',
 	);
 	if (memoryGB !== null) hw('memory', memoryGB <= FLOOR_MEMORY_GB, memoryGB <= LITE_MEMORY_GB, `This device reports ${memoryGB} GB of memory.`, `This device reports ${memoryGB} GB of memory.`);
 	if (cores !== null) hw('cores', cores <= FLOOR_CORES, cores <= LITE_CORES, `This device reports ${cores} CPU cores.`, `This device reports ${cores} CPU cores.`);

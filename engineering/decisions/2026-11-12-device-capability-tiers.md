@@ -72,9 +72,9 @@ Three consequences for the slices still to build:
    software-renderer test sees nothing. Harmless on a real Apple device, which always has a GPU; on WebKit the
    tier rests on the CPU probe and the boot probe.
 2. **"No WebGL" is not proof of no GPU.** Headless Firefox has none, and a real Firefox user can turn WebGL off for
-   privacy. As built, that is a floor signal, so such a user on a machine reporting ≤ 2 cores would be DECLINED.
-   Before slice 5 ships a decline, "no WebGL" must count only as weak (LITE), never as a floor, unless WebGPU or the
-   CPU probe agrees.
+   privacy. As first built it was a floor signal, so such a user on a machine reporting ≤ 2 cores would have been
+   DECLINED. **Fixed the same day:** no WebGL is now weak (LITE) only, and detect-gpu's tier 0 counts as a floor
+   only when a WebGL context exists, because detect-gpu also returns 0 when it cannot make one.
 3. The memory and core columns of §2 are now measured on all three engines, not only taken from vendor docs.
 
 ## 3. The model: three tiers, decided once, before first paint
