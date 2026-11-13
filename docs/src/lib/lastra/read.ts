@@ -349,7 +349,8 @@ function readAvif(b: Uint8Array): ImageInfo | null {
 	const inMeta = childBoxes(b, meta.body + 4, meta.end); // FullBox: version and flags first
 	const pitm = firstBox(inMeta, 'pitm');
 	const iprp = firstBox(inMeta, 'iprp');
-	if (!pitm || !iprp || pitm.body + 6 > pitm.end) return null;
+	// pitm version 0 holds a 16-bit item id, version 1 a 32-bit one, after the four bytes of version and flags.
+	if (!pitm || !iprp || pitm.body + (b[pitm.body] === 0 ? 6 : 8) > pitm.end) return null;
 	const primary = b[pitm.body] === 0 ? readU16be(b, pitm.body + 4) : readU32be(b, pitm.body + 4);
 	const inIprp = childBoxes(b, iprp.body, iprp.end);
 	const ipco = firstBox(inIprp, 'ipco');

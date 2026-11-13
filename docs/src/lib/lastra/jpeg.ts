@@ -186,8 +186,9 @@ export function createJpegEncoder({ width, height, quality }: JpegOptions): Jpeg
 	word(W);
 	bytes([3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]);
 	// ── Blocks ────────────────────────────────────────────────────────────────────────────────────────────
-	// libjpeg's literal cos(pi/4), as jfdctflt.c writes it. Not Math.SQRT1_2: the last digits differ, and they reach every
-	// exported JPEG's bytes (the golden hash in jpeg.test.ts would change).
+	// libjpeg's literal cos(pi/4), as jfdctflt.c writes it. Not Math.SQRT1_2: the last digits differ, and a coefficient that
+	// lands on a rounding edge would change with them. (Measured 2026-11-13: on the golden picture in jpeg.test.ts the swap
+	// moves no byte, so that hash does not pin this literal; the literal is kept because it is the specification.)
 	// biome-ignore lint/suspicious/noApproximativeNumericConstant: the literal is the specification, see above.
 	const C4 = 0.707106781;
 	const block = new Float64Array(64);

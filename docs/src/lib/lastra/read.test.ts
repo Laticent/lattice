@@ -355,6 +355,23 @@ describe('readImage: GIF, WebP, AVIF', () => {
 		assert.equal(read(avif([ispe(512, 512)], { 2: [1] })), null, 'the primary item has no size');
 		assert.equal(read(avif([ispe(0, 512)], { 1: [1] })), null);
 	});
+	test('AVIF: a version 1 pitm (a 32-bit id) cut to a 16-bit body is refused, not read into the next box', () => {
+		// pitm v1 with only two id bytes: a reader that ignored the box's end would take the next box's size bytes
+		// (00 00) as the id's low half, id 0x00010000, which the ipma (version 1, 32-bit ids) gives a size.
+		const ftyp = box('ftyp', [...ascii('avif'), 0, 0, 0, 0, ...ascii('mif1'), ...ascii('avif')]);
+		const ipma = fullBox('ipma', 1, 0, [...be32(1), ...be32(0x00010000), 1, 0x81]);
+		const meta = fullBox('meta', 0, 0, [...fullBox('pitm', 1, 0, be16(1)), ...box('iprp', [...box('ipco', ispe(64, 32)), ...ipma])]);
+		assert.equal(read(bytes(ftyp, meta)), null);
+		// The same file with a whole 32-bit id reads.
+		const whole = fullBox('meta', 0, 0, [...fullBox('pitm', 1, 0, be32(0x00010000)), ...box('iprp', [...box('ipco', ispe(64, 32)), ...ipma])]);
+		assert.deepEqual([read(bytes(ftyp, whole))?.width, read(bytes(ftyp, whole))?.height], [64, 32]);
+	});
+	test('AVIF: a box that claims more bytes than the file holds is cut short, so the picture is refused', () => {
+		const b = avif([ispe(64, 32)], { 1: [1] });
+		const at = Buffer.from(b).indexOf('meta') - 4;
+		new DataView(b.buffer, b.byteOffset).setUint32(at, new DataView(b.buffer, b.byteOffset).getUint32(at) + 100);
+		assert.equal(read(b), null);
+	});
 	test('AVIF: irot and imir map to the EXIF orientation, in the order the item lists them', () => {
 		const o = (props: number[][]) => read(avif([ispe(64, 32), ...props], { 1: [1, ...props.map((_p, i) => i + 2)] }))?.orientation;
 		assert.equal(o([]), 1);
