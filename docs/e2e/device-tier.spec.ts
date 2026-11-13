@@ -15,6 +15,19 @@ const TIERS = /^(full|lite|unsupported)$/;
 const tierAttr = (page: Page) => page.evaluate(() => document.documentElement.getAttribute('data-device-tier'));
 const stored = (page: Page, key: string) => page.evaluate((k) => localStorage.getItem(k), key);
 
+/**
+ * Record the attribute AT DOMContentLoaded, inside the page: only the inline boot script can have set it by then (the app
+ * decides after its first slide), so this reads the pre-paint value deterministically, whatever the runner's speed.
+ */
+async function recordAtDomContentLoaded(page: Page): Promise<void> {
+	await page.addInitScript(() => {
+		document.addEventListener('DOMContentLoaded', () => {
+			(window as unknown as { __tierAtDcl?: string | null }).__tierAtDcl = document.documentElement.getAttribute('data-device-tier');
+		});
+	});
+}
+const tierAtDcl = (page: Page) => page.evaluate(() => (window as unknown as { __tierAtDcl?: string | null }).__tierAtDcl);
+
 /** Seed localStorage before the page's own scripts run. */
 async function seed(page: Page, entries: Record<string, string>): Promise<void> {
 	await page.addInitScript((e) => {
@@ -29,22 +42,30 @@ async function runtimeRan(page: Page): Promise<void> {
 
 test('@crosswidth @webkit-phone @webkit-tablet @gecko a saved tier is on <html> before the app runs', async ({ page }) => {
 	await seed(page, { [TIER_KEY]: 'lite' });
-	// At DOMContentLoaded only the inline boot script has run: the app sets the tier after its first slide and a quiet
-	// moment, so an attribute here can only have come from the pre-paint read.
+	await recordAtDomContentLoaded(page);
 	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
-	expect(await tierAttr(page)).toBe('lite');
+	expect(await tierAtDcl(page)).toBe('lite');
+});
+
+test('@crosswidth @webkit-phone @webkit-tablet @gecko a pin that is not a tier falls back to the saved tier', async ({ page }) => {
+	await seed(page, { [TIER_KEY]: 'lite' });
+	await recordAtDomContentLoaded(page);
+	await page.goto('/studio/?tier=turbo', { waitUntil: 'domcontentloaded' });
+	expect(await tierAtDcl(page)).toBe('lite');
 });
 
 test('@crosswidth @webkit-phone @webkit-tablet @gecko a saved value that is not a tier is ignored', async ({ page }) => {
 	await seed(page, { [TIER_KEY]: 'turbo" onload="x' });
+	await recordAtDomContentLoaded(page);
 	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
-	expect(await tierAttr(page)).toBeNull();
+	expect(await tierAtDcl(page)).toBeNull();
 });
 
 test('@crosswidth @webkit-phone @webkit-tablet @gecko a ?tier= pin wins before first paint and is never saved', async ({ page }) => {
 	await seed(page, { [TIER_KEY]: 'full' });
+	await recordAtDomContentLoaded(page);
 	await page.goto('/studio/?tier=unsupported', { waitUntil: 'domcontentloaded' });
-	expect(await tierAttr(page)).toBe('unsupported');
+	expect(await tierAtDcl(page)).toBe('unsupported');
 	await runtimeRan(page);
 	expect(await tierAttr(page)).toBe('unsupported');
 	expect(await stored(page, TIER_KEY)).toBe('full');
@@ -60,8 +81,9 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko unpinned, the app decides 
 	expect(Number.isInteger(cpu.score) && cpu.score >= 0).toBe(true);
 
 	// The next visit paints the saved tier before the app runs.
+	await recordAtDomContentLoaded(page);
 	await page.reload({ waitUntil: 'domcontentloaded' });
-	expect(await tierAttr(page)).toBe(saved);
+	expect(await tierAtDcl(page)).toBe(saved);
 });
 
 test('@crosswidth @webkit-phone @webkit-tablet @gecko the System panel shows the speed test the app saved', async ({ page }) => {
