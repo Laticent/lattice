@@ -65,16 +65,21 @@ section.glossary h2 > .lat-pill[data-glossary-range] {
    `.glossary.glossary` clears the base table rules. */
 section.glossary > .cell-stage { container-type: inline-size; }
 
-section.glossary.glossary:where([data-family="strip"]) table thead { display: none; }
-section.glossary.glossary:where([data-family="strip"]) table,
-section.glossary.glossary:where([data-family="strip"]) table tbody,
-section.glossary.glossary:where([data-family="strip"]) table tr,
-section.glossary.glossary:where([data-family="strip"]) table td { display: block; }
-section.glossary.glossary:where([data-family="strip"]) table tbody tr { padding: var(--sp-2xs) var(--sp-sm); }
-section.glossary.glossary:where([data-family="strip"]) table td { padding: 0; }
-section.glossary.glossary:where([data-family="strip"]) table td:first-child { white-space: normal; padding: 0 0 0.15em; }
+/* No step at ~47 characters a line: at square@hall (21.4em) and portrait@laptop the table's
+   definition column still reads about twenty-five characters a line, so the table stays, as at
+   hd. A block form here made the same glossary change shape between hd and square (owner,
+   2026-11-04; fit-everywhere-model.md §17). Under ~35 (below) the rows stack.
+   ONE THING CHANGES at ~47: the term may wrap. Held on one line (`nowrap`, above), a long term set
+   the column's width and left the definition about fourteen characters a line ("Predicted outcome"
+   on story@laptop: "The author's / stated / expectation,"). Wrapping between its words, a term's
+   column is never wider than its longest word, and the table's own auto layout gives the definition
+   the rest. A one-word term renders exactly as before. */
+@container lattice (width < 23em) {
+  section.glossary.glossary:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) td:first-child,
+  section.glossary.glossary:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) td:first-child strong { white-space: normal; }
+}
 
-@container (width < 17em) {
+@container lattice (width < 17em) {
   section.glossary.glossary:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) thead { display: none; }
   section.glossary.glossary:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held),
   section.glossary.glossary:not(.no-table-reflow) > .cell-stage > table:not(.lat-reflow-held) tbody,

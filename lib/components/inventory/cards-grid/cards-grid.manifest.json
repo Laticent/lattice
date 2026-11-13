@@ -18,13 +18,13 @@
     ],
     "note": "the grid loses scannability past four cards"
   },
-  "cards": {
-    "default": "center",
+  "align": {
+    "default": "middle",
     "byFamily": {
       "tall": "spread",
       "strip": "spread"
     },
-    "withCoda": "stretch"
+    "withCoda": "fill"
   },
   "density": {
     "axis": "item",

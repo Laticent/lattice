@@ -38,6 +38,29 @@ modifier keeps slide content clear of those bands.
 
 See `engineering/decisions/2026-06-16-social-mobile-portrait-sizes.md`.
 
+## Narrow boxes — layouts reflow by text room
+
+A layout changes shape when its text would run short of room, measured in characters a line,
+not by the box's shape. A square post shown in a hall has the same room as a portrait post on a
+laptop, so the two get the same layout. Nothing to author: every layout below does it on its own.
+
+- **Three thresholds.** Under ~70 characters a line (square at laptop), a row of four or more
+  fields side by side stacks. Under ~47 (square at hall, portrait and story at laptop), a
+  two-column form goes to one and a fixed-width tab becomes a band. Under ~35 (portrait and
+  story at conference and hall), a row's marker (an ordinal, a check, a label column, a page
+  reference) moves above, below or in line with its text, so the text keeps the full width.
+- **16:9 is untouched.** A landscape box holds at least ~74 characters even at `venue: hall`,
+  so no threshold reaches it.
+- **Which layouts.** agenda, checklist, list, list-steps, statute-stack, regulatory-update,
+  authority-chain, glossary, list-tabular, inventory, premise, math (`matrix`), topic (`fact`),
+  video, and the split cover's lead-in.
+- **For component CSS.** Reflow with `@container lattice (width < 34em | 23em | 17em)`, no
+  other value (a test pins the three), and lay a multi-column grid on
+  `grid-template-columns: var(--fluid-cols)` with `--col-max` set: as many columns as keep 24
+  characters each, never more than designed.
+
+See `engineering/decisions/2026-10-28-fit-everywhere-model.md` §13.
+
 ## Animate a chart in place — the `chart-anima` modifier
 
 On the live surfaces (Studio, Playground, Present), **`chart-anima`** brings a rendered chart to life — a funnel's bands build in top-to-bottom (its labels follow, the worst drop-off emphasizes); a pie fades in as a whole disc. Model-free: the motion is derived from the chart's own marks, no LLM.
@@ -165,9 +188,9 @@ subtitle, Key Insight, below-note, header, footer and page number; only the body
   directives (`_class`, `_footer`, …) reach every page wherever you wrote them, and a component
   named in its `_class` does not: each page is its pane's. The same markdown reads side by side
   at 16:9 and one-per-slide on a phone.
-- **`cards:` works in a pane** as on a slide: a card row or list in a pane sits at the top,
-  centers or stretches as the deck's `cards:` or the slide's `_class: cards-*` says, for every
-  component that goes in a pane and takes `cards:` on a slide (tables do not; `split-panel` and
+- **`align:` works in a pane** as on a slide: a card row or list in a pane sits at the top,
+  middle or bottom, spreads or fills as the deck's `align:` or the slide's `_class: align-*`
+  says, for every component that goes in a pane and declares an `align` default (tables do not; `split-panel` and
   `split-compare` opt out of panes; `inventory`'s cards need its `.cards` modifier, which a pane
   marker cannot carry). One setting per slide: both panes take it.
 - **A chart in a pane draws for the pane.** Its labels, ticks and key print at the size a chart

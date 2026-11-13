@@ -929,6 +929,8 @@ function sanitizeOnce(html: string): string {
 	}
 	return safe;
 }
+/** The measured-split module once a `fit: pack` slide has loaded it (lazy; never loaded for other decks). */
+let measuredSplitModule: typeof import('../lib/measured-split') | null = null;
 function memoKey(markdown: string, theme: string, mode: string, extraCss: string, extraThemeCss: string): string {
 	// Hash the long strings; keep theme/mode literal so a collision cannot cross palettes.
 	return `${theme}|${mode}|${hashString(markdown)}|${markdown.length}|${hashString(extraCss)}|${hashString(extraThemeCss)}`;
@@ -2140,7 +2142,40 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				} else if (PG.splitForPreview && typeof opts?.slideIndex === 'number' && opts?.slideMarkdown && typeof opts?.caretText === 'string') {
 					// `firstSlide` is the shown slide's RENDERED number: after a split panes slide it is
 					// one past the source index, and the run's stamps must read as the PDF does.
-					const r = PG.splitForPreview(out.html, opts.slideMarkdown, out.width, out.height, { firstSlide: renderedBase + 1 });
+					const splitOpts = { firstSlide: renderedBase + 1 };
+					const slideSource = opts.slideMarkdown;
+					let r = PG.splitForPreview(out.html, slideSource, out.width, out.height, splitOpts);
+					// THE MEASURED SPLIT (`fit: pack`, 2026-10-28-fit-everywhere-model.md §16): the same
+					// measure, plan and verify the CLI runs, in a hidden frame built as this one is, with the
+					// §11 memory so a slide does not re-split as the author types. Only a slide the
+					// structural split cuts can need it; the module loads on the first such slide. A failed
+					// load, or a frame that cannot be measured, keeps today's split.
+					// A slide the structural split does not cut calls off the host's pending pause measurement
+					// for the slide shown before it, once the lazy module has loaded; `previewPlan` (§17) does
+					// both, and builds the layout key, the frame size and the callbacks from these raw values.
+					const ms = r.changed
+						? await import('../lib/measured-split').catch((e) => (console.warn('lattice: the measured split did not load; keeping the structural split', e), null))
+						: measuredSplitModule;
+					if (ms) {
+						measuredSplitModule = ms;
+						const measured = await ms.previewPlan({
+							host,
+							opts,
+							changed: r.changed,
+							out,
+							pg: PG,
+							first: splitOpts.firstSlide,
+							mode,
+							drawn,
+							extraCss,
+							hash: hashString,
+							box: [DEFAULT_W, DEFAULT_H],
+							doc: srcdoc,
+							alive: () => !disposed && host.isConnected,
+						});
+						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
+						if (measured) r = measured;
+					}
 					canSplit = r.applies === true;
 					if (r.changed) {
 						const pages = sectionsOf(r.html);

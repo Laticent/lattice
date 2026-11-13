@@ -18,23 +18,32 @@ test.beforeEach(async ({ page }) => {
 	await openInspector(page);
 });
 
-test('Look ▸ Frame and fit: Card rows and Fit write cards: and fit:', async ({ page }) => {
+test('Look ▸ Frame and fit: Align and Fit write align: and fit:', async ({ page }) => {
 	// The rows sit under a heading in Advanced now, not inside a "More look settings" drawer.
 
-	await page.getByRole('combobox', { name: 'Choose card row placement' }).click();
+	await page.getByRole('combobox', { name: 'Choose vertical alignment' }).click();
 	await page.getByRole('option', { name: /Spread/ }).click();
-	await expect.poll(() => persistedSource(page)).toContain('\\ncards: spread\\n');
-	// Auto is "each component decides" — it REMOVES the key rather than writing a value.
-	await page.getByRole('combobox', { name: 'Choose card row placement' }).click();
-	await page.getByRole('option', { name: "Auto — Component's own" }).click();
-	await expect.poll(() => persistedSource(page)).not.toContain('cards:');
+	await expect.poll(() => persistedSource(page)).toContain('\\nalign: spread\\n');
+	// The second axis joins the first word on the same line. The Studio's writer quotes a
+	// value with a space in it (`quoteIfNeeded`), and the engine reads `"spread right"` and
+	// `spread right` the same.
+	await page.getByRole('combobox', { name: 'Choose horizontal alignment' }).click();
+	await page.getByRole('option', { name: /Right/ }).click();
+	await expect.poll(() => persistedSource(page)).toContain('\\nalign: \\"spread right\\"\\n');
+	// Auto is "each layout decides" — it drops that axis's word, and both Autos remove the key.
+	await page.getByRole('combobox', { name: 'Choose vertical alignment' }).click();
+	await page.getByRole('option', { name: "Auto — Layout's own" }).click();
+	await expect.poll(() => persistedSource(page)).toContain('\\nalign: right\\n');
+	await page.getByRole('combobox', { name: 'Choose horizontal alignment' }).click();
+	await page.getByRole('option', { name: "Auto — Layout's own" }).click();
+	await expect.poll(() => persistedSource(page)).not.toContain('align:');
 
 	await page.getByRole('combobox', { name: 'Choose how slides fit' }).click();
-	await page.getByRole('option', { name: /Heal and trim/ }).click();
+	await page.getByRole('option', { name: /Split by count and trim/ }).click();
 	await expect.poll(() => persistedSource(page)).toContain('\\nfit: trim\\n');
-	// Heal is the default — choosing it REMOVES the key.
+	// Measure and split is the default — choosing it REMOVES the key.
 	await page.getByRole('combobox', { name: 'Choose how slides fit' }).click();
-	await page.getByRole('option', { name: 'Auto — Heal' }).click();
+	await page.getByRole('option', { name: 'Auto — Measure and split' }).click();
 	await expect.poll(() => persistedSource(page)).not.toContain('fit:');
 });
 
@@ -74,7 +83,7 @@ test('the editor completes fit: values from the engine vocabulary', async ({ pag
 test('a commented value reads the way the engine reads it', async ({ page }) => {
 	await setEditorContent(page, '---\ntitle: Gap\nmotion: on\nguards: strict  # board pack\nplayer-motion: off # x\n---\n\n# Gap\n');
 	// The OLD spelling, still honored: `guards: strict` reads as the Fit field's trim level.
-	await expect(page.getByRole('combobox', { name: 'Choose how slides fit' })).toContainText('Heal and trim');
+	await expect(page.getByRole('combobox', { name: 'Choose how slides fit' })).toContainText('Split by count and trim');
 	await openSection(page, 'Motion');
 	await expect(page.getByRole('switch', { name: 'Motion in the exported player' })).toHaveAttribute('aria-checked', 'false');
 });
@@ -125,11 +134,11 @@ for (const [label, width, height] of [
 			await el.click();
 		};
 
-		await tap(page.getByRole('combobox', { name: 'Choose card row placement' }));
+		await tap(page.getByRole('combobox', { name: 'Choose vertical alignment' }));
 		await page.getByRole('option', { name: /Spread/ }).click();
-		await expect.poll(() => persistedSource(page)).toContain('\\ncards: spread\\n');
+		await expect.poll(() => persistedSource(page)).toContain('\\nalign: spread\\n');
 		await tap(page.getByRole('combobox', { name: 'Choose how slides fit' }));
-		await page.getByRole('option', { name: /Heal and trim/ }).click();
+		await page.getByRole('option', { name: /Split by count and trim/ }).click();
 		await expect.poll(() => persistedSource(page)).toContain('\\nfit: trim\\n');
 
 		await openSection(page, 'General');

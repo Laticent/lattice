@@ -792,6 +792,44 @@ describe('core: carousel — code-cards (code: by block, then by line-run)', () 
     assert.deepEqual(seen, lines.map((_, i) => i));
   });
 
+  // A MEASURED plan sets the runs (fit-everywhere-model.md §23): on a phone every line wraps, so the
+  // plan's line count a page, read from the lines' measured heights, replaces the count of 12.
+  test('a measured plan sets the line runs, every line once, in order', () => {
+    const lines = Array.from({ length: 7 }, (_, i) => `const a${i} = ${i};`);
+    const body = bodies(carouselize(cdTag, wrap(pre(...lines)), { ...recipe, plan: [3, 4] }));
+    assert.deepEqual(body.map((p) => (p.match(/const a\d+ = /g) || []).length), [3, 4]);
+    const seen = body.flatMap((p) => [...p.matchAll(/const a(\d+) = /g)].map((m) => Number(m[1])));
+    assert.deepEqual(seen, lines.map((_, i) => i));
+  });
+
+  test('one planned page with a heading → a cover and one body page', () => {
+    const lines = Array.from({ length: 5 }, (_, i) => `const a${i} = ${i};`);
+    const parts = carouselize(cdTag, wrap(pre(...lines)), { ...recipe, plan: [5] });
+    assert.equal(parts.length, 2, 'the heading on a cover, the whole block on the page after it');
+    assert.match(parts[0], /data-split-role="cover"/);
+    assert.equal((bodies(parts)[0].match(/const a\d+ = /g) || []).length, 5);
+  });
+
+  test('a plan that does not place every line is refused: the count decides (inside it, whole)', () => {
+    const lines = Array.from({ length: 7 }, (_, i) => `const a${i} = ${i};`);
+    assert.equal(carouselize(cdTag, wrap(pre(...lines)), { ...recipe, plan: [3, 3] }), null);
+  });
+
+  test('a numbered block\'s empty first and last lines are blank: the plan still places every line', () => {
+    const ln = (n, t) => `<span class="ln" data-n="${n}">${t}</span>`;
+    const body = [ln(1, ''), ...Array.from({ length: 6 }, (_, i) => ln(i + 2, `const a${i} = ${i};`)), ln(8, '')].join('\n');
+    const parts = carouselize(cdTag, `${mast}<div class="cell-stage"><pre><code class="language-js">${body}\n</code></pre></div>`, { ...recipe, plan: [3, 3] });
+    assert.ok(parts, 'a plan of 3 + 3 for the six written lines was refused');
+    assert.deepEqual(bodies(parts).map((p) => (p.match(/const a\d+ = /g) || []).length), [3, 3]);
+  });
+
+  test('no page opens its block with a blank line', () => {
+    const lines = Array.from({ length: 27 }, (_, i) => `const a${i} = ${i};`);
+    for (const p of bodies(carouselize(cdTag, wrap(pre(...lines)), recipe))) {
+      assert.match(p, /<code class="language-js">const a\d+ = /, 'a newline right after <code> renders as a blank first line');
+    }
+  });
+
   // THE ARM THIS KERNEL EXISTS FOR. Highlighted code is HTML and a span can legitimately cross a
   // newline — a block comment, a template literal, a multi-line string. Cutting the string at a
   // `\n` would leave one page with an unclosed `<span>` and the next starting inside a tag that
@@ -1004,6 +1042,32 @@ const cdInner = '<div class="cell-masthead"><div class="masthead-lede"><h2>The e
   + Array.from({ length: 25 }, (_, i) => `const a${i} = ${i};`).join('\n')
   + '\n</code></pre></div>';
 
+// progress-rows: the markup `progress.transform.js` emits (copied from a real render at size: square), one
+// `.progress-row` a bar inside the `role="list"` container.
+const pgTag = '<section data-lattice-slide="1" id="s1" class="progress chart-frame form">';
+const pgRow = (label, pct, s) => `<div class="progress-row" role="listitem" data-label="${label}" data-value="${pct}%"><div class="progress-label">${label}</div><div class="progress-track" style="--pct:${pct}"><div class="progress-fill" data-s="${s}"></div><span class="progress-pct">${pct}%</span></div><span class="chart-status" data-s="${s}">${s}</span></div>`;
+const pgInner = '<div class="chart-header"><p class="chart-eyebrow"><code>H1 2026</code></p><h2>Progress bars race toward their targets.</h2></div>'
+  + '<div class="chart-body"><div class="progress-bars" role="list">'
+  + pgRow('Signal Intake', 92, 'on-track') + pgRow('Scoring policy', 68, 'at-risk') + pgRow('Decision Log', 81, 'on-track')
+  + pgRow('Calibration cadence', 34, 'deferred') + pgRow('Adoption', 12, 'blocked')
+  + '</div></div><footer>F</footer>';
+
+// timeline-items: the markup `timeline-list.transform.js` emits, one `.timeline-item` a milestone inside
+// the `role="list"` spine.
+const tlTag = '<section data-lattice-slide="1" id="s1" class="timeline-list chart-frame canvas">';
+const tlItem = (d, t) => `<div class="timeline-item" role="listitem" data-label="${d}"><div class="timeline-dot"></div><div class="timeline-pill">${d}</div><div class="timeline-title">${t}</div><div class="timeline-body">What changed.</div></div>`;
+const tlInner = '<div class="chart-header"><h2>The timeline pins events to their dates.</h2></div>'
+  + '<div class="chart-body"><div class="timeline-spine" role="list">'
+  + tlItem('Q1', 'Kickoff') + tlItem('Q2', 'Pilot') + tlItem('Q3', 'Launch') + tlItem('Q4', 'Review') + tlItem('Q5', 'Scale')
+  + '</div></div><footer>F</footer>';
+
+// passage: a real rendered citation-card (fixtures/citation-card.rendered.html), its clause given a
+// second sentence so the plan has a sentence break to cut at as well as the gloss seam.
+const pcFixture = fs.readFileSync(path.join(__dirname, 'fixtures/citation-card.rendered.html'), 'utf8');
+const [pcBase] = splitSections(pcFixture).filter((p) => p.type === 'section');
+// `§` swapped out: the replacement-pattern test stands `§` in for `$` and swaps it back.
+const pcSection = { openTag: pcBase.openTag, inner: pcBase.inner.replaceAll('§', 'Sec. ').replace(/(<blockquote\b[^>]*>)[\s\S]*?(<\/blockquote>)/, '$1\n<p>The first rule binds. The second rule widens it.</p>\n$2') };
+
 const STRATEGY_CASES = [
   ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
   ['feature-cover',  spSection.openTag, spSection.inner, { strategy: 'feature-cover', perPage: 2 }],
@@ -1014,11 +1078,15 @@ const STRATEGY_CASES = [
   ['cover-cards',    ctTag,             ctInner,         { strategy: 'cover-cards', axis: 'row', perPage: 1 }],
   ['redline-blocks', rlTag,             rlInner,         { strategy: 'redline-blocks' }],
   ['kanban-lanes',   kbTag,             kbInner,         { strategy: 'kanban-lanes' }],
+  ['progress-rows',  pgTag,             pgInner,         { strategy: 'progress-rows', perPage: 3 }],
+  ['timeline-items', tlTag,             tlInner,         { strategy: 'timeline-items', perPage: 3 }],
   ['roadmap-horizons', rmTag,           rmInner,         { strategy: 'roadmap-horizons' }],
   ['journey-stages', jnTag,             jnInner,         { strategy: 'journey-stages' }],
   ['compare-options', scSection.openTag, scSection.inner, { strategy: 'compare-options', axis: 'item', perPage: 1 }],
   ['math-structures', mtTag,             mtInner,         { strategy: 'math-structures' }],
   ['code-cards',     cdTag2,            cdInner,         { strategy: 'code-cards', axis: 'line', perPage: 12 }],
+  // passage reads only a MEASURED plan: two sentences, then the gloss's two items, two a page.
+  ['passage',        pcSection.openTag, pcSection.inner, { strategy: 'passage', plan: [2, 2] }],
 ];
 
 // THE TABLE'S POPULATION COMES FROM THE ENGINE, not from whatever fixtures anyone happened to
@@ -2099,5 +2167,77 @@ describe('core: carousel — compare-options reads the verdict from its slot', (
   });
   test('each appears once', () => {
     for (const s of ['UNCLAIMED NOTE', 'SECOND QUOTE', verdictText]) assert.equal(run.split(s).length - 1, 1, s);
+  });
+});
+
+// progress-rows groups bars: a page holds up to `perPage`, spread so no page is a runt, and a
+// measured plan (an array of page sizes) sets the pages exactly (fit-everywhere-model.md §18).
+test('core: carousel — progress-rows keeps several bars a page and never leaves one alone', () => {
+  const bodies = (rec) => carouselize(pgTag, pgInner, rec).filter((p) => /data-split-role="body"/.test(p));
+  const bars = (p) => (p.match(/class="progress-row"/g) || []).length;
+  assert.deepEqual(bodies({ strategy: 'progress-rows', perPage: 3 }).map(bars), [3, 2]);
+  assert.deepEqual(bodies({ strategy: 'progress-rows', perPage: 4 }).map(bars), [3, 2], 'a ceiling of 4 still spreads 5 as 3 + 2, never 4 + 1');
+  assert.deepEqual(bodies({ strategy: 'progress-rows', perPage: 3, plan: [2, 3] }).map(bars), [2, 3], 'a measured plan sets the pages');
+  assert.equal(carouselize(pgTag, pgInner, { strategy: 'progress-rows', perPage: 5 }), null, 'all five fit one page: no split');
+});
+
+// timeline-items groups milestones the way progress-rows groups bars, in date order, and each page
+// carries its own spine (fit-everywhere-model.md §18).
+test('core: carousel — timeline-items keeps several milestones a page, in order, each page with its spine', () => {
+  const bodies = (rec) => carouselize(tlTag, tlInner, rec).filter((p) => /data-split-role="body"/.test(p));
+  const dates = (p) => [...p.matchAll(/class="timeline-pill">([^<]+)</g)].map((m) => m[1]);
+  assert.deepEqual(bodies({ strategy: 'timeline-items', perPage: 4 }).map(dates), [['Q1', 'Q2', 'Q3'], ['Q4', 'Q5']]);
+  assert.deepEqual(bodies({ strategy: 'timeline-items', perPage: 4, plan: [2, 3] }).map(dates), [['Q1', 'Q2'], ['Q3', 'Q4', 'Q5']]);
+  for (const page of bodies({ strategy: 'timeline-items', perPage: 3 })) assert.match(page, /<div class="timeline-spine" role="list">/);
+  assert.equal(carouselize(tlTag, tlInner, { strategy: 'timeline-items', perPage: 5 }), null, 'all five fit one page: no split');
+});
+
+// The lede's own page (owner, 2026-11-13): when the measured split saw this cover overflow, the plan
+// carries `ledePage` and the lede leaves the cover for a page right after it. Without the flag the
+// cover keeps its lede and no page is added.
+describe('core: carousel — feature-cover with ledePage', () => {
+  const plain = carouselize(spSection.openTag, spSection.inner, { strategy: 'feature-cover' });
+  const lede = carouselize(spSection.openTag, spSection.inner, { strategy: 'feature-cover', ledePage: true });
+
+  test('without the flag the cover holds the lede and no lede page is emitted', () => {
+    assert.match(plain[0], /class="split-feat-lede"/);
+    assert.equal(plain.filter((p) => /split-panel-lede/.test(p)).length, 0);
+  });
+
+  test('with the flag the lede moves to the page right after the cover, every word kept', () => {
+    assert.equal(lede.length, plain.length + 1);
+    assert.doesNotMatch(lede[0], /split-feat-lede/);
+    assert.match(lede[1], /split-panel-lede/);
+    const text = (h) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const ledeText = text((plain[0].match(/<div class="split-feat-lede">([\s\S]*?)<\/div>/) || [])[1] || '');
+    assert.ok(ledeText.length > 0);
+    assert.ok(text(lede[1]).includes(ledeText));
+    assert.deepEqual(lede.slice(2).map(text), plain.slice(1).map(text), 'the points pages are unchanged');
+  });
+});
+
+// split-panel `qr` at its seam (owner, 2026-11-06 "split at the seam"; 2026-11-13): no points to page,
+// so the feature takes the cover and the code the page after it, but only on a measured plan
+// (`atSeam`). Rendered through the real engine, so the panel markup is the one it emits.
+describe('core: carousel — feature-cover splits split-panel qr at its seam', () => {
+  const { createEngine } = require('../../../lib/engine');
+  const src = "---\ntheme: indaco\n---\n\n<!-- _class: split-panel qr -->\n\n`Split-panel qr`\n\n## The payload bullet becomes a code on the panel.\n\nA bare URL auto-resolves; the caption line labels the scan.\n\n- https://example.com/docs\n- Scan for this layout's docs\n";
+  const { html } = createEngine().render(src, 'indaco');
+  const [qr] = splitSections(html).filter((p) => p.type === 'section');
+  const text = (h) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  test('without a measured seam the slide stays whole', () => {
+    assert.equal(carouselize(qr.openTag, qr.inner, { strategy: 'feature-cover' }), null);
+  });
+
+  test('with `atSeam` the feature takes the cover and the code the next page, every word kept', () => {
+    const parts = carouselize(qr.openTag, qr.inner, { strategy: 'feature-cover', atSeam: true });
+    assert.equal(parts.length, 2);
+    assert.match(parts[0], /split-panel-cover/);
+    assert.match(text(parts[0]), /The payload bullet becomes a code on the panel\./);
+    assert.match(text(parts[0]), /A bare URL auto-resolves/);
+    assert.match(parts[1], /split-panel-code/);
+    assert.match(parts[1], /<figure class="qr-figure"[\s\S]*<svg/);
+    assert.match(text(parts[1]), /Scan for this layout's docs/);
   });
 });

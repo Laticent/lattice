@@ -76,8 +76,8 @@ test('effectiveVariants honors a group exclusion, including multi-token decorati
 
 test('excludedModifiers is the manifest escape hatch, groups expanded', () => {
   assert.deepEqual(excludedModifiers({ name: 'x' }), []);
-  const out = excludedModifiers({ name: 'x', excludes: ['cards', 'claim-bleed'] });
-  assert.ok(out.includes('cards-center'));
+  const out = excludedModifiers({ name: 'x', excludes: ['align', 'claim-bleed'] });
+  assert.ok(out.includes('align-middle'));
   assert.ok(out.includes('claim-bleed'));
 });
 

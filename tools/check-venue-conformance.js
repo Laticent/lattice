@@ -73,15 +73,7 @@ const SCAN_MIN = Object.freeze({ laptop: 0.1, huddle: 0.12, conference: 0.16, ha
  */
 const PORTRAIT_HALL = 'Display text on a portrait canvas at a hall: the type scales twice (the canvas, then the venue) and a portrait slide is read on a phone, not from the back of a room. The venue contract is a landscape one; recorded, not designed for.';
 const KNOWN = Object.freeze([
-  { component: 'closing', variant: 'index', families: ['tall'], venues: ['hall'], why: PORTRAIT_HALL },
   { component: 'closing', variant: 'qr', families: ['tall'], venues: ['conference', 'hall'], why: PORTRAIT_HALL },
-  { component: 'divider', variant: 'qr', families: ['tall'], venues: ['hall'], why: PORTRAIT_HALL },
-  { component: 'content', families: ['tall'], venues: ['hall'], why: PORTRAIT_HALL },
-  { component: 'piechart', variant: 'donut', families: ['tall'], venues: ['hall'], why: PORTRAIT_HALL },
-  { component: 'quote', families: ['tall'], venues: ['hall'], why: PORTRAIT_HALL },
-  { component: 'scene', families: ['tall'], venues: ['conference', 'hall'], why: PORTRAIT_HALL },
-  { component: 'state-chart', families: ['tall'], venues: ['hall'], why: PORTRAIT_HALL },
-  { component: 'title', families: ['tall'], venues: ['hall'], why: PORTRAIT_HALL },
   { component: 'topic', variant: 'fact', families: ['tall'], venues: ['conference', 'hall'], why: PORTRAIT_HALL },
   { component: 'video', families: ['square', 'tall'], venues: ['conference', 'hall'], why: PORTRAIT_HALL },
   { component: 'contact', families: ['square'], venues: ['hall'], why: 'The venueProbe card (full name, title, org, phone, email, URL, caption) marks the slide clipped at hall on a square canvas; no text or image leaves the frame, so the overshoot is small. Found 2026-10-22 when the ratchet first held the square canvas; the fix is a layout pass on the square structure, recorded in followups.d/2862-p7-contact-square-hall-clip.md.' },

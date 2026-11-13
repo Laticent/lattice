@@ -122,7 +122,7 @@ specify them, and `split:` and `preset:` have none.
 | `eyebrow:` | `plain` · `dot` · `bar` · `arrow` · `underline` | The decoration on a kicker (§3.4). | `unknown-eyebrow` |
 | `headline:` | `auto` · `left` · `center` · `right` | The alignment of a slide's framing text. | `unknown-headline` |
 | `lift:` | `off` · `on` | Whether cards are raised off the slide. | `unknown-lift` |
-| `cards:` | `center` · `stretch` · `top` · `spread` | Where a row of cards puts the height it does not need. | `unknown-cards` |
+| `align:` | up and down `top` · `middle` · `bottom` · `spread` · `fill`; side to side `left` · `center` · `right` · `full` | Where content sits on the slide. One word or two, in any order; `center` alone centers both axes. Omitted, each component keeps its own. | `unknown-align` |
 | `tag:` | up to one word per axis: color (`color` `plain` `bare`), size (`small` `regular` `large`), placement (`corner` `foot` `notch` `band` `inline`), alignment (`start` `center` `end`) | The look of a card's tag. | `unknown-tag` |
 | `image-card:` | up to one word per axis: placement (`top-left` `top` `top-right` `center` `bottom-left` `bottom` `bottom-right`), backing (`solid` `soft` `sheer` `clear`, or a level in 5% steps: `5%` `10%` `15%` `20%` `25%` `30%` `35%` `40%` `45%` `50%` `60%` `65%` `70%` `75%` `85%` `90%` `95%`), ink (`light` `dark`), size (`sm` `md` `lg`), density (`regular` `compact`), shape (`float` `band`) | The text card on an `image` slide that floats its words over the photo (`spotlight`, `statement`). Image slides only. | `unknown-image-card` |
 | `corners:` | `square` · `rounded` | The corners of the slide itself. | `unknown-corners` |
@@ -135,8 +135,8 @@ specify them, and `split:` and `preset:` have none.
 | `inline-code:` | `rich` · `literal` | Whether the inline notation (§3.6) runs. `literal` leaves every single-backtick span as code. | `unknown-inline-code` |
 | `claim:` | `framed` · `quiet` · `hero` · `bleed` | The treatment of a slide's lead claim. | `unknown-claim` |
 | `color-mode:` | `light` · `dark` · `system` · `inherited` · `print` | Which palette the deck renders in. | `unknown-color-mode` |
-| `fit:` | `heal` · `report` · `trim` | What the renderer may do to make a slide fit: repair, only report, or cut. A renderer SHOULD accept the older key `guards:`, whose values map `loose` to `heal` and `strict` to `trim`; `fit:` wins when both are set. | `unknown-fit` |
-| `venue:` | `laptop` · `huddle` · `conference` · `hall` | Where the deck is seen, which sets its type scale. | `unknown-venue` |
+| `fit:` | `pack` · `heal` · `report` · `trim` | What the renderer may do to make a slide fit: split by measurement (`pack`, the default: a slide that fits stays whole, and one that overflows packs as many members a page as fit, measured), split by count (`heal`), only report, or split by count and cut (`trim`). A renderer SHOULD accept the older key `guards:`, whose values map `loose` to `heal` and `strict` to `trim`; `fit:` wins when both are set. | `unknown-fit` |
+| `venue:` | `laptop` · `huddle` · `conference` · `hall` · `phone` · `tablet` | Where the deck is seen, which sets its type scale. The default is `laptop` on a 16:9 deck and `phone` on a square, portrait or story one, and the deck's shape sets each venue's step. | `unknown-venue` |
 | `typography:` | `classic` · `ledger` · `poster` · `festival` | The curated type set: heading and body faces, the eyebrow and the chart text. A preset may carry one; this key wins. | `unknown-typography` |
 
 **Settings** carry a value that is not one word from a list.

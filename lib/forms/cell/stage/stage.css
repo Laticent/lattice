@@ -508,22 +508,23 @@ section.form > .cell-footer > .lat-split-rail { grid-column: split; grid-row: 1;
  * pass on #2206. */
 section[data-lattice-pagination]:has(> .lat-pagination)::after,
 section[data-lattice-pagination]:has(> .cell-footer > .lat-pagination)::after { content: ''; }
-/* ── Universal ALIGNMENT modifiers (#527) — the author's call ────────────────
- * Two independent axes act on the stage cell, so they read the same on EVERY
- * frame. Default is top-left (the natural reading origin); a component never
- * bakes its own centering — the author opts in per slide. The stage is plain
- * block flow by default (so paragraph margins collapse exactly as before); ANY
- * alignment modifier promotes it to a flex column so justify/align resolve.
- *   vertical   — align-top (default) · align-middle · align-bottom   (justify-content)
- *   horizontal — align-left (default) · align-center · align-right    (align-items, the BLOCK)
- * `middle` vs `center` disambiguates the axis (middle = vertical). Horizontal
- * moves the content BLOCK, never `text-align` (centered prose lines rag badly).
- * `fill-center`/`fill-anchor` are retained as legacy aliases of align-middle/
- * align-bottom (consolidation tracked in #527). The stage is ALWAYS a flex
- * column now (it owns prose rhythm via `gap`, above), so these modifiers only
- * need to set the justify/align axis — the flex promotion is already in force. */
-section.form:is(.align-top, .align-middle, .align-bottom, .align-left, .align-center, .align-right,
-                .fill-center, .fill-anchor) > .cell-stage {
+/* ── The `align:` register, per slide (engineering/decisions/2026-11-06-unified-align.md) ──
+ * The deck's `align:` key and a slide's `_class: align-*` put these classes on the section
+ * (lib/core/resolve-align.js); they act on the stage, so they read the same on EVERY frame.
+ *   up and down    align-top · align-middle · align-bottom · align-spread · align-fill
+ *   side to side   align-left · align-center · align-right · align-full
+ * `align-center` ALONE centers both axes, the one word that does. Side to side moves the
+ * content BLOCK (`align-items`), never `text-align` (centered prose lines rag badly).
+ * A component that declares an up-and-down default in its manifest reads the resolved word
+ * through `data-align` and `--align-v` instead (base.tokens.css), so these up-and-down rules
+ * are what every OTHER component gets. `align-fill` grows nothing on a stage that is not a row
+ * of members, so it reads as `align-top` there. It replaced the #527 classes and their
+ * `fill-center` / `fill-anchor` aliases, and the `cards-*` classes, on 2026-11-06. */
+/* ANY align word promotes the stage to a flex column so justify/align resolve. The stage is a flex
+ * column by default already; this is for the components that make it a grid at (0,3,1) (bare
+ * `math`, `canvas`, `matrix`, citation-card `margin`, …), which this rule beats by coming later in
+ * the bundle. Without it `align-left` on a grid stage acts up and down and moves nothing. */
+section.form:is(.align-top, .align-middle, .align-bottom, .align-spread, .align-fill, .align-left, .align-center, .align-right, .align-full) > .cell-stage {
   display: flex;
   flex-direction: column;
 }
@@ -536,20 +537,21 @@ section.form:is(.align-top, .align-middle, .align-bottom, .align-left, .align-ce
  * byte-identical and an overflowing one loses its LAST line instead of its first.
  * `flex-start` needs nothing; `space-between`/`space-around`/`space-evenly` measured
  * as start-fallback in Chromium 131 and take no `safe` keyword (invalid CSS). */
-section.form:is(.align-middle, .fill-center) > .cell-stage { justify-content: safe center; }
-section.form:is(.align-bottom, .fill-anchor) > .cell-stage { justify-content: safe flex-end; }
-section.form.align-top    > .cell-stage { justify-content: flex-start; }
+section.form.align-middle > .cell-stage,
+section.form.align-center:not(.align-top, .align-bottom, .align-spread, .align-fill) > .cell-stage { justify-content: safe center; }
+section.form.align-bottom > .cell-stage { justify-content: safe flex-end; }
+section.form:is(.align-top, .align-fill) > .cell-stage { justify-content: flex-start; }
+section.form.align-spread > .cell-stage { justify-content: space-evenly; }
 section.form.align-center > .cell-stage { align-items: center; }
 section.form.align-right  > .cell-stage { align-items: flex-end; }
 section.form.align-left   > .cell-stage { align-items: flex-start; }
+section.form.align-full   > .cell-stage { align-items: stretch; }
 
 /* ── STAGE Cell · fill discipline (design/forms.md §5) ──────────────────────
  * How an underfilling stage distributes its content — the difference between a
  * "grid of correct boxes" and a board deck. Default is `start` (top-anchored
- * flow, unchanged). Authors opt a slide into a board-style distribution; each
- * is a Cell `fill` value made selectable. */
-section.form.fill-center  { justify-content: safe center; }
-section.form.fill-anchor  { justify-content: safe flex-end; }
+ * flow, unchanged). `fill-optical` is the one board-style distribution left as its own
+ * class; centering and floor-anchoring are `align-middle` and `align-bottom` now. */
 /* optical-center sits the content slightly above true center (the eye reads a
  * geometric center as low) — extra bottom reserve biases it up. */
 section.form.fill-optical {

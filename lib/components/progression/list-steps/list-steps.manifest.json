@@ -19,9 +19,9 @@
     ],
     "note": "past five steps the row crowds and a split paces one step per page; a split run paces ONE step per page and carries a derived “→ next: …” signal (§0b connected members)"
   },
-  "cards": {
-    "default": "center",
-    "withCoda": "stretch"
+  "align": {
+    "default": "middle",
+    "withCoda": "fill"
   },
   "density": {
     "axis": "item",

@@ -22,14 +22,35 @@ section {
   /* The slide is a size container so every `cq*` unit in the token system resolves
    * against it — that is what `container-type` is here for, and it is load-bearing.
    *
-   * The `lattice` NAME is now queried by NO engine rule. Structural family reflow
-   * used to key off `@container lattice (aspect-ratio …)`; #1218 replaced that with
-   * the `data-family` stamp the engine derives from the deck geometry, because a
-   * container query measures the container's CONTENT box, which drifts off the deck
-   * aspect (see the header of lib/adaptive/families.js). The name is kept as a
-   * stable handle for theme and deck CSS that wants to size-query the slide box —
-   * it costs nothing and removing it would break any such rule silently. Do NOT
-   * reintroduce an aspect-ratio query on it. */
+   * The `lattice` NAME is queried for TEXT ROOM only, never for shape. Structural
+   * family reflow used to key off `@container lattice (aspect-ratio …)`; #1218
+   * replaced that with the `data-family` stamp the engine derives from the deck
+   * geometry, because a container query measures the container's CONTENT box, which
+   * drifts off the deck aspect (see the header of lib/adaptive/families.js). Do NOT
+   * reintroduce an aspect-ratio query on it.
+   *
+   * THE TEXT-ROOM RULE. The content box is exactly what a reflow by text room wants
+   * to measure, and `em` in a container query resolves against the container's own
+   * font size, which is `--fs-body` here (below) and so already carries the venue's
+   * `--fs-scale`. Body text averages about 0.49em a character, so a width in `em`
+   * is a count of characters a line, whatever the box or venue. A component reflows
+   * at one of THREE thresholds and no others (pinned by
+   * test/unit/css/text-room-thresholds.test.js):
+   *
+   *   @container lattice (width < 34em)  MEDIUM: under ~70 characters a line —
+   *       square at laptop and conference. Only a row of four or more fields side by
+   *       side (regulatory-update's changelog row, a four-column table) reflows here.
+   *   @container lattice (width < 23em)  NARROW: under ~47 characters a line —
+   *       square@hall, portrait and story at laptop and huddle. A row of three or
+   *       more side-by-side fields stacks; a two-column grid goes to one.
+   *   @container lattice (width < 17em)  TIGHT: under ~35 characters a line —
+   *       portrait and story at conference and hall. A row's marker gutter (a
+   *       number, a check, a label column, a page reference) moves above or below
+   *       its text, so the text keeps the frame's full width.
+   *
+   * All three are inert at hd, where the content box is 36em even at hall, so a
+   * 16:9 deck renders exactly as before. Multi-column grids use `--fluid-cols` (after this block),
+   * which needs no threshold. engineering/decisions/2026-10-28-fit-everywhere-model.md §13 */
   container-name:lattice;
   /* ── EVERY SLIDE IS A STACKING CONTEXT, unconditionally ────────────────────
    * This is what makes the `--z-*` plane scale (base.tokens.css) mean the same
@@ -97,6 +118,49 @@ section {
   --_bar-room-t: var(--_bar-w); /* the top room the default bar reserves; a frame that owns its top edge sets 0 */
   --_bar-t: var(--_bar-w); /* how far the bar reaches in — the edge box covers it (base.modifiers.css) */
 }
+
+/* THE CONTENT AREA IS THE TEXT-ROOM BOX. A component reflows on the width of the box its content
+ * is laid out in, so a list in a narrow pane reflows as the same list on a narrow slide does: the
+ * content area (`.cell-stage`) carries the `lattice` name too, and a query from inside it answers
+ * with the nearest one, the content area, which on an unpaned slide is the slide's content box.
+ * It also carries `lat-cards`, the name the card rows query (base.card-reflow.css). One
+ * declaration, because `container` names the element's WHOLE list: a second rule naming one of
+ * them would drop the other. `inline-size`, so a `cqh` inside still measures the slide.
+ * The pane kernel (lib/core/pane-css.js) twins this onto every pane's own content area.
+ * Two are left out. `collage`: its content area is sized by the photo grid it holds, and a width
+ * container ignores its contents when it sizes, so the grid lost its width (measured on the
+ * collage gallery at square and portrait). A chart (`chart-frame`): `claim-bleed` pads its content
+ * area, so a raw `cqi` inside measured a narrower box and progress and kanban labels moved at hd;
+ * no chart carries a text-room or card rule, so it keeps the slide as its box.
+ * engineering/decisions/2026-10-28-fit-everywhere-model.md §17. */
+section:not(.collage):not(.chart-frame) > .cell-stage { container: lattice lat-cards / inline-size; }
+
+/* A LONG WORD BREAKS WITH A DASH, ON A SQUARE, TALL OR STRIP SLIDE. A title set large on a narrow
+ * box can hold a word wider than the box: "straightforward" at a portrait split cover's title size
+ * ran past the right edge and was clipped (owner, 2026-11-05, the Yearn deck at portrait). Venue is
+ * the only thing that sizes type (fit-everywhere-model.md §18), so the word breaks instead: the
+ * browser's dictionary for the page's `lang` (the deck's `lang:`, `en` by default) splits it at a
+ * syllable with a dash, and only a word of 10 or more letters, keeping 4 on each side, so an
+ * ordinary word never splits. A word the dictionary cannot split is NEVER broken bare: an
+ * `overflow-wrap: break-word` last resort here broke "Connector" into "Conne / ctor" in a square
+ * roadmap's 87px cell (and "UNCERTAI / N"), where on main the word ran into the cell's icon padding
+ * and read whole; the fit ratchet caught it (roadmap square@laptop, clip 0 -> 1). A break without a
+ * dash is the defect this rule exists to remove, so the word stays whole and the fit check judges it.
+ * Scoped to the `data-family` stamp, which a 16:9 slide does not carry, so a wide deck renders as
+ * it did. The exporter's Chrome hyphenates (Chrome 131 measured, 2026-11-05), as do Safari and
+ * Firefox; Safari reads the prefixed forms. Code keeps its characters whole: `pre`, `code` and
+ * KaTeX opt out. */
+section:where([data-family]) {
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  hyphenate-limit-chars: 10 4 4;
+  -webkit-hyphenate-limit-before: 4;
+  -webkit-hyphenate-limit-after: 4;
+}
+section:where([data-family]) :where(pre, code, kbd, samp, .katex, mjx-container) {
+  -webkit-hyphens: manual;
+  hyphens: manual;
+}
 /* Where the engine has CSS round() (Chrome/Edge 125, Firefox 118, Safari 15.4) the bar is a whole CSS pixel, as the comment in the
    block above explains. Older engines keep the exact width: a custom property holding round() is invalid there at computed
    time, and that would zero the padding and the bar on every slide. */
@@ -104,6 +168,29 @@ section {
   section {
     --_bar-w: max(1px, round(down, calc(0.3125 * var(--_sec-1cqi, 1cqi)), 1px));
   }
+}
+/* FLUID COLUMNS — as many columns as keep `--col-min` (24 characters) each, never more
+ * than `--col-max`, sharing the row equally. A grid writes
+ * `grid-template-columns: var(--fluid-cols)` and sets `--col-max` (and `--col-gap`, which
+ * must equal its `column-gap`) on the same element.
+ *
+ * Declared on EVERY element under a slide, at zero specificity, because an unregistered
+ * custom property substitutes its `var()`s where it is declared: declared once on `:root`,
+ * it would read `:root`'s `--col-max` and ignore the grid's own. `ch` and `%` stay unresolved
+ * until the grid uses the value, so `ch` is the grid's own type and `%` its own width.
+ *
+ * How it reads: each track is at least the larger of `--col-min` (capped at the full width,
+ * so one column never overflows) and an equal share of `--col-max` columns, so auto-fit can
+ * never place more than `--col-max`; and when even `--col-min` does not fit `--col-max`
+ * times, auto-fit drops to fewer, wider columns. The share gives back 0.1px: layout runs in
+ * 1/64px units, and an exact fit of `--col-max` equal shares that rounds a hair over the row
+ * would drop a column. */
+:where(section) :where(*) {
+  /* The gap the share subtracts. A default only: a grid that sets its own `column-gap` sets
+     `--col-gap` to match. Declared here rather than on `:root`, because `--sp-md` is a
+     slide-relative length and on `:root` it would resolve against no slide. */
+  --col-gap: var(--sp-md);
+  --fluid-cols: repeat(auto-fit, minmax(max(min(var(--col-min), 100%), calc((100% - (var(--col-max) - 1) * var(--col-gap)) / var(--col-max) - 0.1px)), 1fr));
 }
 
 /* NOTE — there is deliberately NO `section > * { z-index: … }` rule here. Content is the

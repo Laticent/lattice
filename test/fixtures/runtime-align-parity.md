@@ -334,9 +334,9 @@ theme: indaco
 
 ---
 
-<!-- _class: decision cards-top -->
+<!-- _class: decision align-top -->
 
-## decision cards-top
+## decision align-top
 
 - Alpha
   - The first card carries one line.

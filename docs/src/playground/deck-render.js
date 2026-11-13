@@ -596,5 +596,7 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	return { state: st, count: sections.length, patched, restyled, anchor };
 }
 
-export { SCAN_SHELL };
+// The frame builder too: the Playground page wraps it as `measureDoc` for the measured split's
+// hidden frame (src/lib/measured-split.ts), so it is built exactly as this filmstrip's.
+export { buildSrcdoc, SCAN_SHELL };
 export default { renderDeck, patchSections, restyleDocument, syncVirtual, mountAround, attachVirtual };

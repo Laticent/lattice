@@ -47,7 +47,7 @@ import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
 import { narrationCanSynthesize, narrationLatencyKey, narrationReadiness, narrationStage, prefetchFrontOf, sentenceHash, setRoomClipSource, slideToSpeech, spokenSentencesPerSlide, useReadAloud, useSelectedVoiceLabel, warmNarrationWindow } from './read-aloud';
 import { sizeFromSource, sizeRatio } from './slide-size';
-import { deckVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
+import { deckVenue, defaultVenue, familyForAspect, type VenueName, venueOption, venueOptionsFor, withVenue } from './venue';
 
 /** Emphasis spans over a slide's narration text — char offsets from the shared projection. */
 type EmphasisSpans = readonly { start: number; end: number; weight: number }[];
@@ -190,6 +190,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		[deckFrontMatter, venuePick, authoredVenue],
 	);
 	const shownVenue = venuePick === undefined ? authoredVenue : venuePick;
+	// The deck's shape: a square, portrait or story deck reads at `phone` by default (venue.ts).
+	const venueFamily = React.useMemo(() => {
+		const [w, h] = sizeRatio(sizeFromSource(deckFrontMatter));
+		return familyForAspect(w / h);
+	}, [deckFrontMatter]);
 	const wideRoom = useConsolePanel();
 	// Notes on a narrow console: opened deliberately, because a phone-width Present has no
 	// room to keep them up. Reset whenever Present closes, like every other transient here.
@@ -2540,13 +2545,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				<DropdownMenu>
 					<Tip label="Venue — the room size, for this showing only">
 						<DropdownMenuTrigger asChild>
-							<button type="button" aria-label={`Venue: ${venueOption(shownVenue)?.label ?? 'Default'}`} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', venuePick !== undefined && venuePick !== authoredVenue ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Users className="size-4" /><span className="hidden md:inline">{venueOption(shownVenue)?.label ?? 'Venue'}</span></button>
+							<button type="button" aria-label={`Venue: ${venueOption(shownVenue ?? defaultVenue(venueFamily), venueFamily)?.label ?? 'Default'}`} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[12px] font-semibold sm:text-[13px]', venuePick !== undefined && venuePick !== authoredVenue ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Users className="size-4" /><span className="hidden md:inline">{venueOption(shownVenue ?? defaultVenue(venueFamily), venueFamily)?.label ?? 'Venue'}</span></button>
 						</DropdownMenuTrigger>
 					</Tip>
 					<DropdownMenuContent align="end" className="z-[130] w-60 bg-card shadow-xl">
-						<DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Room size · this showing</DropdownMenuLabel>
-						<DropdownMenuItem onSelect={() => setVenuePick(null)}>Default<span className="ml-2 text-muted-foreground">designed size</span>{shownVenue === null && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
-						{VENUES.map((v) => (
+						<DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Venue · this showing</DropdownMenuLabel>
+						<DropdownMenuItem onSelect={() => setVenuePick(null)}>Default<span className="ml-2 text-muted-foreground">{venueFamily === 'wide' ? 'designed size' : 'phone'}</span>{shownVenue === null && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
+						{venueOptionsFor(venueFamily).map((v) => (
 							<DropdownMenuItem key={v.value} onSelect={() => setVenuePick(v.value)} className="gap-2">
 								<span className="flex min-w-0 flex-col"><span>{v.label} · {v.scale}x{authoredVenue === v.value ? ' (deck)' : ''}</span><span className="text-[11px] text-muted-foreground">{v.who}</span></span>
 								{shownVenue === v.value && <Check className="ml-auto size-3.5 shrink-0 text-[var(--accent)]" />}

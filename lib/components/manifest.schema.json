@@ -1132,22 +1132,23 @@
         }
       }
     },
-    "cards": {
+    "align": {
       "type": "object",
       "additionalProperties": false,
-      "description": "How this component's CARD ROW composes when it is handed more height than its cards need. A row of cards is a wrapped flex container given the whole stage; stretching its lines to share that height makes a one-line card as tall as the row and leaves the difference empty INSIDE it. Which composition is right depends on the component and on the slide's shape, so the component DECLARES it here and the engine resolves it — `lib/core/resolve-cards.js`, baked into `lib/core/cards-catalog.generated.js` because the runtime bundle cannot fs-load manifests. The resolved value is stamped as `data-cards` on the section and read by ONE declaration per container (`align-content: var(--cards-align)`), so a component never encodes its own default in CSS. Declaring it is half the opt-in: the component stylesheet must also read the token (align-content: var(--cards-align)), and a unit test fails a component that declares a composition its CSS never consumes. Omit this field and the component is not governed at all: nothing is stamped and its stylesheet keeps whatever it does today. The deck-level `cards:` register and a per-slide `_class: cards-*` both override everything here. See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §10.",
+      "description": "Where this component's content sits UP AND DOWN when it is handed more height than it needs: the default for the `align:` register (engineering/decisions/2026-11-06-unified-align.md). The engine resolves it — `lib/core/resolve-align.js`, baked into `lib/core/align-catalog.generated.js` because the runtime bundle cannot fs-load manifests — stamps the word as `data-align` on the section, and base.tokens.css turns it into `--align-v`, which the component stylesheet reads (`align-content` or `justify-content: var(--align-v)`). Declaring it is half the opt-in: a unit test fails a component that declares a default its CSS never reads. Omit this field and the component reads the stage's `align-*` classes instead. The deck's `align:` key and a per-slide `_class: align-*` both override everything here.",
       "required": [
         "default"
       ],
       "properties": {
         "default": {
           "enum": [
-            "center",
-            "stretch",
             "top",
-            "spread"
+            "middle",
+            "bottom",
+            "spread",
+            "fill"
           ],
-          "description": "The composition this component wants when nothing else applies. `center` sizes the cards to their text and centers the band; `stretch` fills the row (the pre-register behavior); `top` sits the band under the headline rule; `spread` shares the height out between the rows."
+          "description": "The word this component wants when nothing else applies. `top` sits the content under the headline rule; `middle` centers it; `bottom` sets it on the floor; `spread` shares the spare height out between rows; `fill` grows the rows to fill the height."
         },
         "byFamily": {
           "type": "object",
@@ -1156,56 +1157,62 @@
           "properties": {
             "wide": {
               "enum": [
-                "center",
-                "stretch",
                 "top",
-                "spread"
+                "middle",
+                "bottom",
+                "spread",
+                "fill"
               ]
             },
             "square": {
               "enum": [
-                "center",
-                "stretch",
                 "top",
-                "spread"
+                "middle",
+                "bottom",
+                "spread",
+                "fill"
               ]
             },
             "tall": {
               "enum": [
-                "center",
-                "stretch",
                 "top",
-                "spread"
+                "middle",
+                "bottom",
+                "spread",
+                "fill"
               ]
             },
             "strip": {
               "enum": [
-                "center",
-                "stretch",
                 "top",
-                "spread"
+                "middle",
+                "bottom",
+                "spread",
+                "fill"
               ]
             }
           }
         },
         "withCoda": {
           "enum": [
-            "center",
-            "stretch",
             "top",
-            "spread"
+            "middle",
+            "bottom",
+            "spread",
+            "fill"
           ],
           "description": "The composition to use when the slide ends in a CODA (a key-insight or below-note panel). `--coda-step` is measured from the stage, so shrinking the cards adds the freed height to that step and the panel stops reading as a comment on the cards above it. Overrides `default`, `byFamily` and `byClass`."
         },
         "byClass": {
           "type": "object",
-          "description": "Per-VARIANT overrides, keyed by a class on the slide, for a component whose variants are different shapes. split-panel's `proof` fills its evidence column with equal cards (`stretch`) while its plain evidence list spreads its items (`spread`). Beats `byFamily` and `default`; `withCoda` and every author override beat it. Keys are checked in sorted order.",
+          "description": "Per-VARIANT overrides, keyed by a class on the slide, for a component whose variants are different shapes. split-panel's `proof` fills its evidence column with equal cards (`fill`) while its plain evidence list spreads its items (`spread`). Beats `byFamily` and `default`; `withCoda` and every author override beat it. Keys are checked in sorted order.",
           "additionalProperties": {
             "enum": [
-              "center",
-              "stretch",
               "top",
-              "spread"
+              "middle",
+              "bottom",
+              "spread",
+              "fill"
             ]
           }
         }
@@ -1593,13 +1600,16 @@
             "cover-code",
             "redline-blocks",
             "kanban-lanes",
+            "progress-rows",
+            "timeline-items",
             "roadmap-horizons",
             "journey-stages",
             "cover-cards",
             "cover-paginate",
             "compare-options",
             "math-structures",
-            "code-cards"
+            "code-cards",
+            "passage"
           ],
           "description": "Which carouselize() splitter re-authors the overflowing section. See lib/core/carousel.js for what each strategy parses and emits."
         },
@@ -1635,6 +1645,11 @@
             "minLength": 1
           },
           "description": "The page roles the strategy emits, for docs (e.g. [\"cover\", \"points\"]); not read by carouselize."
+        },
+        "onlyVariant": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Split only a slide that carries this variant class; any other slide of the component stays whole (carouselize declines, and the strategy must not be on auto-split's shape-reader fallthrough list). `closing` uses it so only its `index` see-also list splits (owner, 2026-11-13; fit-everywhere-model.md §21)."
         },
         "note": {
           "type": "string",

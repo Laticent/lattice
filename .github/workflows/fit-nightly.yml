@@ -4,8 +4,9 @@ name: Fit nightly (per-component split ratchet)
 # its author did not write it for.
 #
 # `tools/fit-harness.js` renders each component gallery through the real CLI at the three
-# boxes that split (square, portrait, story) and two venues (laptop, hall), scores the split
-# the engine SHIPS today (the `structural` arm), and `--ratchet` compares each component's
+# boxes that split (square, portrait, story) and three venues (laptop, hall, and phone, the default
+# for a deck read in a hand; owner, 2026-11-06), scores the split the engine SHIPS today (the
+# `structural` arm, which measures by default since the same day), and `--ratchet` compares each component's
 # clipped, unreadable and lost-content slides, per box and venue, against `test/fit/baseline.json`. A
 # count may only go down; a component the baseline does not name starts at zero, so a new
 # component that clips is named on its first night (`tools/lib/fit-harness/ratchet.js`).
@@ -112,7 +113,7 @@ jobs:
           set -uo pipefail
           REPORT="$GITHUB_WORKSPACE/fit-nightly-report.txt"
           CODE=0
-          if npm run --silent fit:harness -- --sizes square,portrait,story --venues laptop,hall --packs none --edits none \
+          if npm run --silent fit:harness -- --sizes square,portrait,story --venues laptop,hall,phone --packs none --edits none \
                --out "$RUNNER_TEMP/fit" --ratchet test/fit/baseline.json --bless "$RUNNER_TEMP/fit/baseline.json" 2>&1 | grep -v 'bus.cc\|object_proxy' | tee "$REPORT"; then CODE=0; else CODE=$?; fi
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
           # NOT SCORED wins over everything: a verdict over galleries that did not render is not

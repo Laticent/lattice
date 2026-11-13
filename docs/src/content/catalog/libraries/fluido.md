@@ -77,7 +77,8 @@ rescueRuns(34, 12);
 ```
 
 A slide stays whole, with a reason, when the author opts out, when it has no seam, when its one
-recipe vetoes a cut, or when it has a single member. And every run the host builds is checked with
+recipe vetoes a cut, or when it has a single member and no measured plan (with `measured: true`, a
+single member still paginates, because the measurement already knows the slide does not fit whole). And every run the host builds is checked with
 `fitsCap(pages)`: past **64 pages** the slide stays whole and is marked, however the run was built,
 so a runaway or forged seam can never cost a reader thousands of pages.
 

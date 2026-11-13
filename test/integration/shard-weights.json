@@ -87,7 +87,7 @@
   "test/integration/parity/list-row-fit.test.js": 12.8,
   "test/integration/parity/list-steps-card-chrome-clip.test.js": 11.8,
   "test/integration/parity/numbered-bookend-stamp.test.js": 10.1,
-  "test/integration/parity/runtime-cards-align.test.js": 17.1,
+  "test/integration/parity/runtime-align.test.js": 17.1,
   "test/integration/parity/runtime-frontmatter-refire.test.js": 19.8,
   "test/integration/parity/runtime-mode-geometry.test.js": 7.8,
   "test/integration/parity/runtime-overflow-marker.test.js": 8.9,

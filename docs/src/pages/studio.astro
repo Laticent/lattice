@@ -200,7 +200,7 @@ try {
 		// `class:` modifier completion (never a hand-kept list).
 		universalModifiers: [...(v.universalModifiers || [])],
 		mapRegions: Object.fromEntries(Object.entries(v.mapRegions || {}).map(([k, mv]) => [k, { valid: [...mv.valid], names: mv.names }])),
-		// EVERY register value list (`guardsNames`, `cardsNames`, `claimNames`, the spectrum
+		// EVERY register value list (`guardsNames`, `alignNames`, `claimNames`, the spectrum
 		// family, …), not a hand-picked few: the editor completes front-matter values from
 		// them (editor-complete.ts `VOCAB_VALUE_FIELDS`), and the inline lint and the Coach
 		// check them (`buildVocabSets` in lib/editor-diagnostics.js forwards every
@@ -219,6 +219,8 @@ try {
 		// The plugin-declared registers (`icon:`, `avatar:`): their keys and words, for the
 		// inline lint's `unknown-<key>` and the editor's value completion.
 		pluginRegisters: v.pluginRegisters || [],
+		// The `align:` register's two axes, for `unknown-align` and the compound `align-bottom-right` class.
+		alignAxes: v.alignAxes,
 	};
 } catch (e) {
 	lintVocab = null;

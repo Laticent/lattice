@@ -970,6 +970,16 @@ export function DeckPreview({
 		return () => host.removeEventListener('lattice:preview-images-ready', onReady);
 	}, []);
 
+	// The pause after an edit measured a `fit: pack` slide (single-slide-render.ts, §17 of
+	// 2026-10-28-fit-everywhere-model.md): re-render, and the cached plan settles its pages.
+	React.useEffect(() => {
+		const host = stageRef.current;
+		if (!host) return;
+		const onSettled = () => schedulerRef.current?.schedule();
+		host.addEventListener('lattice:measured-split-ready', onSettled);
+		return () => host.removeEventListener('lattice:measured-split-ready', onSettled);
+	}, []);
+
 	// Render ONLY on the rising edge of `active` (e.g. switching back to a tab).
 	// Also routed through the frame scheduler (was a bare requestAnimationFrame →
 	// direct render), so a re-show mid-render can't overlap the in-flight one either.

@@ -23,9 +23,9 @@
     ],
     "note": "the cards crowd and the criteria pills lose legibility past four; a split run spotlights ONE option per page and carries a derived “Option N of M · comparing …” signal so the atomized tiers still read as a compared set (§0b connected members)"
   },
-  "cards": {
-    "default": "center",
-    "withCoda": "stretch"
+  "align": {
+    "default": "middle",
+    "withCoda": "fill"
   },
   "density": {
     "axis": "item",

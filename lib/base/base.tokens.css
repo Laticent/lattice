@@ -220,6 +220,18 @@
    * engineering/decisions/2026-08-04-measure-body-floor.md */
   --measure-body: 36em;             /* ~80 characters at the body tier — see above */
 
+  /* The NARROWEST a text column may get: 24 characters of body text. `ch` is the
+   * width of "0", wider than the average letter, so 24 characters is about 19ch.
+   * Unregistered, so `ch` resolves at the element that uses it: the column's own
+   * type, which follows the venue. `--col-max` is the most columns a layout was
+   * designed for; `--fluid-cols` (base.elements.css) fits as many columns as keep
+   * `--col-min` each, never more than `--col-max`; its `--col-gap` default is set beside it,
+   * per element, since `--sp-md` is slide-relative. The text-room rule and its three
+   * container-query thresholds are documented beside `container-name: lattice`
+   * in base.elements.css. engineering/decisions/2026-10-28-fit-everywhere-model.md §13 */
+  --col-min: 19ch;
+  --col-max: 1;
+
   /* ── Radii / line-heights ─────────────────────────────────────────── */
   --radius-sm:0.625cqi; --radius-md:0.9375cqi; --radius-lg:1.09375cqi;
   /* A fully round end — a capsule's corner. Any radius past half the box's height does it. */
@@ -1729,18 +1741,18 @@ section.flat {
   --elevation-berth: 0;
 }
 
-/* ── `cards:` — where a CARD ROW puts the height it does not need ────────────────────
+/* ── `align:` — where a CARD ROW puts the height it does not need ────────────────────
  * A row of cards is a wrapped flex container handed the full stage height. Stretching its
  * lines to share that height makes a card holding one line of text as tall as the row,
  * carrying the difference as empty space inside itself. Which composition is right depends
  * on the component and on the slide's shape, so nobody guesses: the COMPONENT declares its
- * default in its manifest (`cards`), the AUTHOR overrides it with `cards:` front matter or
+ * default in its manifest (`align`), the AUTHOR overrides it with `align:` front matter or
  * a per-slide `_class: cards-*`, and the ENGINE resolves the two and stamps the answer as
- * `data-cards` (lib/core/resolve-cards.js). These eight rules are the whole CSS side of it —
+ * `data-align` (lib/core/resolve-align.js). These ten rules are the whole CSS side of it —
  * four for the resolved value, four for the coda arm below.
  *
- * NO `:root` DEFAULT, and no component-side fallback either. `--cards-align` is set here or
- * nowhere, so a card row reads it in ONE declaration — `align-content: var(--cards-align)`
+ * NO `:root` DEFAULT, and no component-side fallback either. `--align-v` is set here or
+ * nowhere, so a card row reads it in ONE declaration — `align-content: var(--align-v)`
  * — and no stylesheet encodes a default the engine cannot see. A component that declares
  * nothing in its manifest is never stamped and never governed.
  *
@@ -1749,31 +1761,33 @@ section.flat {
  * the freed height to that step and the panel stops reading as a comment on the cards above
  * it (48px becomes 239px centered, 431px topped). The engine cannot settle that on the
  * export path — the cell is built after the token stream — so the manifest's `withCoda`
- * value rides along as `data-cards-coda` and the shape test happens here, on the same
+ * value rides along as `data-align-coda` and the shape test happens here, on the same
  * direct-child `.cell-coda` contract coda.js builds to (`lib/core/coda.js`). The VALUE is the manifest's;
  * only the test is CSS's.
  *
  * THE COLUMN FORM. A single-column stack (`list`) lays its rows out as a one-column grid and
- * reads `align-content: var(--cards-align)` like a row form. Its rows carry a CEILING (a
+ * reads `align-content: var(--align-v)` like a row form. Its rows carry a CEILING (a
  * one-line row with its full air), so they sit at a comfortable height and compress on a full
  * stage, and a capped track is not an `auto` track, which `align-content: stretch` stretches.
- * `--cards-grow` (1 only under `stretch`) lifts that ceiling, and it is set by the same eight
+ * `--align-grow` (1 only under `stretch`) lifts that ceiling, and it is set by the same eight
  * rules so the two can never disagree. A row form ignores it. A flex COLUMN (cards-stack,
  * decision at tall) reads the same token as `justify-content` and grows each card by
- * `--cards-grow` from a basis of `--cards-basis`: `0%` under `stretch`, where the cards share
+ * `--align-grow` from a basis of `--align-basis`: `0%` under `stretch`, where the cards share
  * the stage equally exactly as `flex: 1` always did, and `auto` otherwise, so a card sits at
  * its content height and, on a stage too full for that, still gives way as it did before. A grid whose EQUAL rows are its
- * design (split-panel `proof`) needs a track keyword rather than a number, `--cards-track`:
+ * design (split-panel `proof`) needs a track keyword rather than a number, `--align-track`:
  * `1fr` under `stretch`, `auto` otherwise.
  * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §10, §12 and §13. */
-section[data-cards="center"]  { --cards-align: center;       --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
-section[data-cards="stretch"] { --cards-align: stretch;      --cards-grow: 1; --cards-track: 1fr;  --cards-basis: 0%; }
-section[data-cards="top"]     { --cards-align: flex-start;   --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
-section[data-cards="spread"]  { --cards-align: space-evenly; --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
-section[data-cards-coda="center"]:has(> .cell-coda)  { --cards-align: center;       --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
-section[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch;      --cards-grow: 1; --cards-track: 1fr;  --cards-basis: 0%; }
-section[data-cards-coda="top"]:has(> .cell-coda)     { --cards-align: flex-start;   --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
-section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-evenly; --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
+section[data-align="middle"]  { --align-v: center;       --align-grow: 0; --align-track: auto; --align-basis: auto; }
+section[data-align="fill"]    { --align-v: stretch;      --align-grow: 1; --align-track: 1fr;  --align-basis: 0%; }
+section[data-align="top"]     { --align-v: flex-start;   --align-grow: 0; --align-track: auto; --align-basis: auto; }
+section[data-align="bottom"]  { --align-v: flex-end;     --align-grow: 0; --align-track: auto; --align-basis: auto; }
+section[data-align="spread"]  { --align-v: space-evenly; --align-grow: 0; --align-track: auto; --align-basis: auto; }
+section[data-align-coda="middle"]:has(> .cell-coda)  { --align-v: center;       --align-grow: 0; --align-track: auto; --align-basis: auto; }
+section[data-align-coda="fill"]:has(> .cell-coda)    { --align-v: stretch;      --align-grow: 1; --align-track: 1fr;  --align-basis: 0%; }
+section[data-align-coda="top"]:has(> .cell-coda)     { --align-v: flex-start;   --align-grow: 0; --align-track: auto; --align-basis: auto; }
+section[data-align-coda="bottom"]:has(> .cell-coda)  { --align-v: flex-end;     --align-grow: 0; --align-track: auto; --align-basis: auto; }
+section[data-align-coda="spread"]:has(> .cell-coda)  { --align-v: space-evenly; --align-grow: 0; --align-track: auto; --align-basis: auto; }
 
 /* ── Split-page RUNHEAD register — one setting, seven consumers ───────────────────────
  * The runhead is the mark that names the slide a split page came from

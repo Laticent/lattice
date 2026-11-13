@@ -79,6 +79,8 @@ instead.
 | `--default-plugins <names>` | Narrow the default plugin set for this run, comma-separated, or `none` (default: every shipped plugin). A plugin outside it loads only when the deck lists it in `plugins:` or a component the deck uses requires it; one that does not load exports as source on every output. An unknown name fails the run |
 | `--overflow-marker <level>` | What a clipped slide shows: `reader` (default, a "Content clipped" tag), `author` (red ring and "Overflows" flag) or `off` |
 | `--no-split` | Never paginate an overflowing slide. For measurement rigs that need page N to stay slide N |
+| `--fit-pack NAME` | Measured split, on the boxes that split (square, portrait, story, mobile): a slide stays whole when it fits at its box and venue, and one that overflows packs as many items a page as fit, measured. `NAME` is the packer: `greedy`, `balanced` or `knuth-plass`. Without it, the split puts one item on each page. A 16:9 slide is unaffected, and `--no-split` turns it off with the rest of the split |
+| `--fit-memory FILE` | With `--fit-pack`: read the last render's split decisions from `FILE` and write this render's back. A slide that was split keeps its pages while they still fit, and goes back to one page only when the whole slide fits with 30% of its room spare, so re-rendering after a small edit does not move items between pages. A missing file is no memory |
 
 ## PDF options
 
