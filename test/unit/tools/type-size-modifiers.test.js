@@ -32,6 +32,10 @@ test('arm A: a role token belongs to the tokens files and the venue / scale rung
   // family's default venue where the slide names none, are rungs too.
   assert.equal(offenses('section.venue-hall:where([data-family="tall"], [data-family="strip"]) { --fs-scale: 1.22; }').length, 0);
   assert.equal(offenses('section:where([data-family="square"]):not(.venue-laptop, .venue-hall) { --fs-scale: 1.5; }').length, 0);
+  // A chart keeps laptop (fit-everywhere-model.md §21): the default may leave out `.chart-frame`, and nothing else.
+  assert.equal(offenses('section:where([data-family="square"]):not(.venue-laptop, .venue-hall, .chart-frame) { --fs-scale: 1.5; }').length, 0);
+  assert.equal(offenses('section:where([data-family="square"]):not(.venue-laptop, .venue-hall, .cards-stack) { --fs-scale: 1.5; }').length, 1);
+  assert.equal(offenses('section:where([data-family="square"]):not(.chart-frame, .venue-hall) { --fs-scale: 1.5; }').length, 1);
   // ...and nothing may ride along: a component, a modifier, or a family default with no venue exclusion.
   assert.equal(offenses('section.venue-hall:where([data-family="tall"]).compact { --fs-scale: 1.22; }').length, 1);
   assert.equal(offenses('section.cards-stack:where([data-family="tall"]) { --fs-scale: 1.22; }').length, 1);
