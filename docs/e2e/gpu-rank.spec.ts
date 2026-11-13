@@ -45,7 +45,7 @@ test('@crosswidth @webkit-phone the GPU rank loads its table from our own origin
 
 // A browser with WebGL turned off (headless Firefox has none either: "Exhausted GL driver options"). The test turns it off
 // itself, so it means the same on every engine that runs it. No renderer means no rank: the library does not even load,
-// nothing is fetched from anywhere, and the panel shows no GPU rank row (unknown never lowers the tier).
+// nothing is fetched from anywhere, and the panel's GPU rank row says why (unknown never lowers the tier).
 test('@gecko with no WebGL there is no GPU rank, and neither the library nor a table is fetched', async ({ page }) => {
 	await page.addInitScript(() => {
 		const real = HTMLCanvasElement.prototype.getContext;
@@ -61,6 +61,7 @@ test('@gecko with no WebGL there is no GPU rank, and neither the library nor a t
 	// The runtime has run once the CPU probe has saved its score; the GPU rank starts at the same moment.
 	await expect.poll(() => page.evaluate(() => localStorage.getItem('lattice-device-cpu')), { timeout: 150_000 }).not.toBeNull();
 	await expect(page.locator('[data-testid="system-overlay"] dt').filter({ hasText: /^Graphics$/ })).toBeVisible();
-	await expect(page.locator('[data-testid="system-overlay"] dt').filter({ hasText: /^GPU rank$/ })).toHaveCount(0);
+	const rank = page.locator('[data-testid="system-overlay"] dt').filter({ hasText: /^GPU rank$/ }).locator('xpath=following-sibling::dd[1]');
+	await expect(rank).toHaveText('Not ranked: no WebGL');
 	expect(tables).toEqual([]);
 });

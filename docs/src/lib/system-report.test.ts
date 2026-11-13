@@ -84,6 +84,19 @@ describe('reportRows', () => {
 	});
 });
 
+describe('the GPU rank row', () => {
+	it('always shows, and says why there is no rank (an iPhone showed no row at all before)', () => {
+		const rank = (over: Partial<ReportInput>, sig: Partial<DeviceSignals> = {}) => row(reportRows(input(signals(sig), over)), 'GPU rank');
+		expect(rank({}, { gpuTier: 2 })[0]).toMatchObject({ value: 'Tier 2 of 3' });
+		expect(rank({ gpuRank: 'pending' })[0]).toMatchObject({ value: 'Not measured yet', status: 'unknown' });
+		expect(rank({ gpuRank: 'unknown' })[0]).toMatchObject({ value: "Unknown: detect-gpu couldn't rank this chip", status: 'unknown' });
+		expect(rank({ gpuRank: 'none' }, { renderer: null })[0]).toMatchObject({ value: 'Not ranked: no WebGL', status: 'unknown' });
+		expect(rank({})[0]).toMatchObject({ value: 'Not measured yet' });
+		expect(rank({ gpuRank: 'unknown' }, { renderer: 'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)))' })[0]).toMatchObject({ value: 'Not ranked: software renderer' });
+		for (const r of [rank({ gpuRank: 'unknown' }), rank({}, { gpuTier: 1 })]) expect(r).toHaveLength(1);
+	});
+});
+
 describe('reportText', () => {
 	it('is the rows as plain text, one header per section', () => {
 		const text = reportText(reportRows(input(signals())));
@@ -96,6 +109,11 @@ describe('browserName', () => {
 	it.each([
 		['Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15', 'Safari 26.0'],
 		['Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0', 'Firefox 140'],
+		// iOS browsers: WebKit with their own token and no Version/ (both read "Unknown browser" on the owner's iPhone).
+		['Mozilla/5.0 (iPhone; CPU iPhone OS 26_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/141.0.7390.96 Mobile/15E148 Safari/604.1', 'Chrome 141 (iOS)'],
+		['Mozilla/5.0 (iPhone; CPU iPhone OS 26_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/145.0 Mobile/15E148 Safari/605.1.15', 'Firefox 145 (iOS)'],
+		['Mozilla/5.0 (iPhone; CPU iPhone OS 26_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 EdgiOS/141.0 Mobile/15E148 Safari/605.1.15', 'Edge 141 (iOS)'],
+		['Mozilla/5.0 (iPhone; CPU iPhone OS 26_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.4 Mobile/15E148 Safari/604.1', 'Safari 26.4'],
 		['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0', 'Edge 153'],
 		['Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36', 'Chrome 153'],
 		['curl/8.0', 'Unknown browser'],

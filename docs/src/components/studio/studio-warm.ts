@@ -1,5 +1,5 @@
 import { isLiteDevice } from '@/lib/device-lite.js';
-import { browserTierDeps, startDeviceTier } from '@/lib/device-tier';
+import { ensureDeviceTier } from '@/lib/device-tier';
 import typographyCore from '../../../../lib/core/resolve-typography.js';
 import emojiFacesCore from '../../../../lib/fonts/emoji-faces.js';
 import iconFacesCore from '../../../../lib/fonts/icon-faces.js';
@@ -146,7 +146,7 @@ export type WarmUpInputs = {
  * runs in a worker, at most once a day. A failure leaves the tier the page's inline boot script applied. */
 function startTier(): void {
 	try {
-		startDeviceTier(browserTierDeps(window));
+		ensureDeviceTier(window);
 	} catch {}
 }
 

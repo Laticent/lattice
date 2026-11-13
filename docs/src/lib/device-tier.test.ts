@@ -3,7 +3,7 @@
 // cores, HARD RULE #32 F8), a fake store, a fixed clock, and a probe the test resolves by hand.
 
 import { describe, expect, it } from 'vitest';
-import { CPU_KEY, CPU_MAX_AGE_MS, decide, probeAllowed, probeWhileVisible, readCachedCpu, startDeviceTier, TIER_KEY, type TierDeps, type VisibilityDoc, writeCachedCpu } from './device-tier';
+import { CONTINUE_KEY, CPU_KEY, CPU_MAX_AGE_MS, continueAnyway, decide, OVERRIDE_KEY, probeAllowed, probeWhileVisible, readCachedCpu, setTierOverride, startDeviceTier, TIER_KEY, type TierDeps, type VisibilityDoc, writeCachedCpu } from './device-tier';
 
 const NOON = Date.UTC(2026, 10, 13, 12, 0, 0);
 
@@ -14,6 +14,9 @@ function fakeStore(seed: Record<string, string> = {}) {
 		getItem: (k: string) => data.get(k) ?? null,
 		setItem: (k: string, v: string) => {
 			data.set(k, v);
+		},
+		removeItem: (k: string) => {
+			data.delete(k);
 		},
 	};
 }
@@ -134,15 +137,38 @@ describe('startDeviceTier', () => {
 		expect(store.data.get(TIER_KEY)).toBe('full');
 	});
 
-	it('a probe that cannot run leaves the tier as it was and saves nothing', async () => {
+	it('a probe that cannot run keeps the tier the other signals give, and saves it', async () => {
 		const { win, attrs } = fakeWin({ renderer: 'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)' });
 		const store = fakeStore();
 		const p = manualProbe();
 		const { probed } = startDeviceTier(deps({ win, store, probe: p.probe }));
+		expect(store.data.has(TIER_KEY)).toBe(false);
 		p.settle(null);
 		expect((await probed).tier).toBe('lite');
 		expect(attrs['data-device-tier']).toBe('lite');
-		expect(store.data.has(TIER_KEY)).toBe(false);
+		expect(store.data.get(TIER_KEY)).toBe('lite');
+	});
+
+	it('a probe that cannot run keeps a saved LITE: no CPU evidence is not evidence of a fast CPU', async () => {
+		const { win } = fakeWin();
+		const store = fakeStore({ [TIER_KEY]: 'lite' });
+		const p = manualProbe();
+		const { probed } = startDeviceTier(deps({ win, store, probe: p.probe }));
+		p.settle(null);
+		expect((await probed).tier).toBe('lite');
+		expect(store.data.get(TIER_KEY)).toBe('lite');
+	});
+
+	it('a saved decline the signals no longer support lifts once the probe answers, even when it cannot run (review finding)', async () => {
+		const { win, attrs } = fakeWin();
+		const store = fakeStore({ [TIER_KEY]: 'unsupported' });
+		const p = manualProbe();
+		const { state, probed } = startDeviceTier(deps({ win, store, probe: p.probe }));
+		expect(state.tier).toBe('unsupported');
+		p.settle(null);
+		expect((await probed).tier).toBe('lite');
+		expect(attrs['data-device-tier']).toBe('lite');
+		expect(store.data.get(TIER_KEY)).toBe('lite');
 	});
 
 	// The reviewer's scenario: LITE only because of the CPU, and the cached score has expired. Measurement may lower the
@@ -269,10 +295,126 @@ describe('startDeviceTier — the GPU rank and the boot probe', () => {
 		expect(drops).toEqual([]);
 	});
 
+	it('records where the GPU rank stands: pending, then ranked or unknown; none with no WebGL (for the System panel)', async () => {
+		let answer: (v: number | null) => void = () => {};
+		const run = startDeviceTier(deps({ win: fakeWin().win, store: fast(), gpu: () => new Promise((r) => (answer = r)) }));
+		expect(run.state.gpuRank).toBe('pending');
+		answer(2);
+		expect((await run.settled).gpuRank).toBe('ranked');
+		const unknown = startDeviceTier(deps({ win: fakeWin().win, store: fast(), gpu: () => Promise.resolve(null) }));
+		expect((await unknown.settled).gpuRank).toBe('unknown');
+		const failed = startDeviceTier(deps({ win: fakeWin().win, store: fast(), gpu: () => Promise.reject(new Error('x')) }));
+		expect((await failed.settled).gpuRank).toBe('unknown');
+		const noGl = fakeWin();
+		(noGl.win.document as unknown as { createElement: () => unknown }).createElement = () => ({ getContext: () => null });
+		const none = startDeviceTier(deps({ win: noGl.win, store: fast(), gpu: () => Promise.resolve(3) }));
+		expect(none.state.gpuRank).toBe('none');
+	});
+
 	it('a failing GPU rank or boot probe leaves the tier as it was', async () => {
 		const { win } = fakeWin();
 		const { settled } = startDeviceTier(deps({ win, store: fast(), gpu: () => Promise.reject(new Error('x')), boot: () => Promise.reject(new Error('y')) }));
 		expect((await settled).tier).toBe('full');
+	});
+});
+
+describe('startDeviceTier — the person\'s choices (override, continue anyway)', () => {
+	const fast = () => fakeStore({ [CPU_KEY]: JSON.stringify({ score: 200, at: NOON - 1000 }) });
+	/** A browser with no CSS :has(): a missing feature, so a decline. */
+	function oldWin(search = '') {
+		const w = fakeWin({ search });
+		(w.win as unknown as { CSS: { supports: (c: string) => boolean } }).CSS = { supports: (c: string) => !c.includes(':has(') };
+		return w;
+	}
+
+	it('a stored Full or Lite wins over Auto, and the next visit paints it', () => {
+		const lite = fakeWin({ renderer: 'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)))' });
+		const store = fakeStore({ [CPU_KEY]: JSON.stringify({ score: 200, at: NOON - 1000 }), [OVERRIDE_KEY]: 'full' });
+		expect(startDeviceTier(deps({ win: lite.win, store })).state.tier).toBe('full');
+		expect(store.data.get(TIER_KEY)).toBe('full');
+		const forced = fakeStore({ [CPU_KEY]: JSON.stringify({ score: 200, at: NOON - 1000 }), [OVERRIDE_KEY]: 'lite' });
+		expect(startDeviceTier(deps({ win: fakeWin().win, store: forced })).state.tier).toBe('lite');
+	});
+
+	it('setTierOverride applies at once, silently, and never lifts a decline', () => {
+		const { win, attrs } = fakeWin();
+		const store = fast();
+		const drops: string[] = [];
+		startDeviceTier(deps({ win, store, onDrop: (s) => drops.push(s.tier) }));
+		expect(setTierOverride(store, 'lite')?.tier).toBe('lite');
+		expect(attrs['data-device-tier']).toBe('lite');
+		expect(drops).toEqual([]);
+		expect(setTierOverride(store, 'auto')?.tier).toBe('full');
+		expect(store.data.get(OVERRIDE_KEY)).toBe('auto');
+
+		const old = oldWin();
+		const oldStore = fast();
+		startDeviceTier(deps({ win: old.win, store: oldStore }));
+		expect(setTierOverride(oldStore, 'full')?.tier).toBe('unsupported');
+		expect(old.attrs['data-device-tier']).toBe('unsupported');
+	});
+
+	it('continue anyway runs the session as LITE, and saves the decline so the next session declines from its first paint', () => {
+		const { win, attrs } = oldWin();
+		const store = fast();
+		const session = fakeStore();
+		expect(startDeviceTier(deps({ win, store, session })).state.tier).toBe('unsupported');
+		const after = continueAnyway(session);
+		expect(after?.tier).toBe('lite');
+		expect(after?.profile.detected).toBe('unsupported');
+		expect(session.data.get(CONTINUE_KEY)).toBe('1');
+		expect(attrs['data-device-tier']).toBe('lite');
+		expect(store.data.get(TIER_KEY)).toBe('unsupported');
+	});
+
+	it('a feature decline is saved at once, while the probe is still pending (review finding)', () => {
+		const { win } = oldWin();
+		const store = fakeStore();
+		expect(startDeviceTier(deps({ win, store, probe: manualProbe().probe })).state.tier).toBe('unsupported');
+		expect(store.data.get(TIER_KEY)).toBe('unsupported');
+	});
+
+	it('a decline a later measurement finds holds this visit at LITE and is saved for the next (review finding)', async () => {
+		const { win, attrs } = fakeWin();
+		(win.navigator as { hardwareConcurrency: number }).hardwareConcurrency = 2; // a cores floor
+		const store = fast();
+		let rank: (v: number | null) => void = () => {};
+		const { state, settled } = startDeviceTier(deps({ win, store, gpu: () => new Promise((r) => (rank = r)) }));
+		expect(state.tier).toBe('lite');
+		rank(0); // a real chip ranked 0: the second floor
+		const after = await settled;
+		expect(after.profile.detected).toBe('unsupported');
+		expect(after.tier).toBe('lite');
+		expect(attrs['data-device-tier']).toBe('lite');
+		expect(store.data.get(TIER_KEY)).toBe('unsupported');
+		// The next visit starts from that saved decline and shows it.
+		const next = fakeWin();
+		(next.win.navigator as { hardwareConcurrency: number }).hardwareConcurrency = 2;
+		let rank2: (v: number | null) => void = () => {};
+		const again = startDeviceTier(deps({ win: next.win, store, gpu: () => new Promise((r) => (rank2 = r)) }));
+		expect(again.state.tier).toBe('unsupported');
+		rank2(0);
+		expect((await again.settled).tier).toBe('unsupported');
+	});
+
+	it('the continue flag is cleared once the browser is not declined, which takes the banner down', () => {
+		const session = fakeStore({ [CONTINUE_KEY]: '1' });
+		startDeviceTier(deps({ win: fakeWin().win, store: fast(), session }));
+		expect(session.data.has(CONTINUE_KEY)).toBe(false);
+	});
+
+	it('continue anyway gets past a pinned decline too', () => {
+		const { win } = fakeWin({ search: '?tier=unsupported' });
+		const session = fakeStore();
+		expect(startDeviceTier(deps({ win, store: fast(), session })).state.tier).toBe('unsupported');
+		expect(continueAnyway(session)?.tier).toBe('lite');
+	});
+
+	it('a continued session whose saved tier is the decline does not fall back to it while the CPU is re-measured', () => {
+		const { win } = oldWin();
+		const store = fakeStore({ [TIER_KEY]: 'unsupported' });
+		const session = fakeStore({ [CONTINUE_KEY]: '1' });
+		expect(startDeviceTier(deps({ win, store, session, probe: manualProbe().probe })).state.tier).toBe('lite');
 	});
 });
 

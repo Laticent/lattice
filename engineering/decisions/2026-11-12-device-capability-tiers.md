@@ -189,7 +189,9 @@ LITE after the first paint shows a toast ("Lattice switched to Lite mode to stay
 is never dropped or toasted.
 
 - **GPU rank** (`docs/src/lib/gpu-rank.ts`). detect-gpu 5.0.70 gets the renderer string we already read, so it makes no
-  second WebGL context, except for Safari's masked "Apple GPU", which it reads itself to tell Apple chips apart.
+  second WebGL context. Safari's masked "Apple GPU" is the exception: on an iPhone or iPad detect-gpu reads it with its own
+  context to tell Apple chips apart; on a Mac it is not asked at all, because that path makes a high-performance context
+  (which may wake a discrete GPU) only to answer FALLBACK (found by the independent review).
   BENCHMARK and BLOCKLISTED give the tier; FALLBACK (a GPU the 2025-02 tables do not know) and no WebGL give null, and
   null never lowers the tier.
 - **Self-hosted tables** (`docs/src/lib/gpu-rank-tables.ts`). `import.meta.glob(…, { query: '?url' })` copies the 12
@@ -200,14 +202,25 @@ is never dropped or toasted.
   library does not load at all.
 - **Boot probe** (`docs/src/lib/boot-probe.ts`). It sums the blocking time of long tasks (each task's time past 50 ms)
   that start in the first 10 s after navigation, buffered from navigation start, and calls the boot slow at 2 s or more.
+  It always waits at least one task before answering: a buffered observer delivers its backlog in a later task, so a probe
+  started after the window used to read every boot as fast (the review measured it in Chromium).
   Measured on the Studio (Chromium 153, sandbox, 3 runs each): 461 to 606 ms at CPU x1, 3.3 to 3.6 s at x4, about 5.0 s
   at x6. Driven on the built Studio, the System panel lists "Lattice fell behind while starting up." at x6 and not at
   x1. Safari and Firefox have no long-task API, so the probe answers null there.
-- **System panel.** It merges the app's GPU rank and boot result into its own reading and follows later changes, so the
-  "GPU rank" row (§5.1) and the boot reason appear once they are measured.
+- **System panel.** It merges the app's GPU rank and boot result into its own reading and follows later changes. The
+  "GPU rank" row (§5.1) always shows: `Tier N of 3`, or why there is no rank: "Not measured yet", "Unknown: detect-gpu couldn't rank
+  this chip", "Not ranked: software renderer" or "Not ranked: no WebGL" (`gpuRank` on the tier state). It used to
+  appear only once a rank existed. On the owner's iPhone (Safari 26.4, 2026-11-13) the panel showed Full, every required
+  feature supported and a 515-unit speed test, but no GPU rank row, and the screenshot could not say whether detect-gpu
+  had answered.
+- **Real device, after the row change** (the owner's iPhone, iOS Chrome and iOS Firefox, both WebKit, 2026-11-13): Tier
+  Full, **GPU rank Tier 3 of 3**, every required feature supported, speed tests of 522 and 526 units. So detect-gpu does
+  rank a real Apple GPU through its own-context path, from our self-hosted tables. The same screens read "Unknown
+  browser": iOS browsers carry `CriOS/`, `FxiOS/` or `EdgiOS/` and no `Version/`, so `browserName` now matches those
+  tokens first ("Chrome 141 (iOS)").
 - **Not verified here.** The toast needs a FULL device that boots slowly; the sandbox is LITE before the probe runs (a
   software renderer). Unit tests drive it with injected results. A real GPU's rank from the real tables is
-  **UNVERIFIED** until the macOS and Windows runners run the System panel.
+  **UNVERIFIED** on a desktop GPU; a real Apple GPU ranked Tier 3 of 3 on the owner's iPhone (below).
 
 
 ## 4. What LITE changes
@@ -255,8 +268,8 @@ markup, the hand-off and the tests that drive them are the same in both tiers.
   alone it dropped the prefix Safari before 18 reads. The site header and the chart popover turn opaque
   (`var(--bg)`) in their own stylesheets. The Tailwind `backdrop-blur` pills and overlays keep their fills, which
   are 85% to 96% opaque and read cleanly without the blur.
-- **Not changed.** The tier is decided only on the Studio (Present runs inside it), so the Playground and the docs keep
-  their blur on every device until slice 5 extends the gate to the Playground. The `logo-plate` base modifier's blur is slide
+- **Not changed.** The docs and landing pages carry no tier, so they keep their blur on every device. The Playground
+  gets the tier from slice 5's gate (§6.1), and with it the LITE backdrop rule. The `logo-plate` base modifier's blur is slide
   CSS inside the frame and reaches exports, so it stays (§4: no tier changes an exported file).
 - **Verified.** `e2e/lite-visuals.spec.ts` pins each tier on all six Playwright projects and reads the computed loader,
   the probe element's backdrop filter and the slide frame's attribute. The screenshots at 1440, 820 and 390 px in both
@@ -357,6 +370,43 @@ The required-feature list (the decline set) is short and comes from what actuall
 one in a real browser before it joins the list: module workers, IndexedDB, CSS `:has()`, container queries,
 `structuredClone`, and the ES level the build emits. Anything with a working fallback today (OffscreenCanvas,
 CompressionStream, relative colors, `requestIdleCallback`) is **not** on it.
+
+### 6.1 Slice 5, as built (2026-11-13): the decline screen, "continue anyway" and the setting
+
+- **The gate** (`docs/src/lib/device-gate.ts`) is the eager half: it watches `html[data-device-tier]`, loads the screen
+  (`decline-screen.ts`, a lazy chunk) when the tier reads "unsupported", and removes it when the tier moves off. On the
+  Studio it starts from the island's module, so the Studio's HTML gains nothing; on the Playground it is a page script that
+  also applies a pin or the saved tier and starts the decision once the page is idle. Present runs inside the Studio.
+  `ensureDeviceTier()` starts the runtime once per page, whoever asks first (the Studio's warm-up, the Playground's gate,
+  the screen when a saved decline paints before either, or the Performance mode setting).
+- **Focus and `inert`.** The screen makes inert only what was not inert already, makes anything added to `<body>` while it
+  shows inert too (a toast, a portal), gives back only what it set, and returns focus to where it was.
+- **The screen** is plain DOM in the site's tokens and fonts, over everything (`z-index` at the top of the range), with
+  the app beneath made `inert` and focus on its heading. It names the failed checks ("It needs CSS :has(), which this
+  browser doesn't support."), or the hardware floors that agreed, and says what to do. "Copy system report" copies the
+  System panel's report.
+- **"Continue anyway"** writes `lattice-device-continue` to sessionStorage, so the rest of this tab's session runs as
+  LITE, a reload included, under a one-line banner that stays up (§7.2). sessionStorage is per tab, so a second tab
+  declines again. The saved tier stays "unsupported", so the next visit declines from its first paint. It also gets past
+  a pinned `?tier=unsupported`, which is how the screen is tested. The runtime clears the flag once the browser is no longer
+  declined, and the banner goes with it.
+- **When a decline is decided** (`apply` in `device-tier.ts`, reworked after the independent review of this slice):
+  - Until the CPU score and the GPU rank have both answered, the page shows the lower of the saved tier and the signal
+    tier, and saves nothing, except a missing feature, which is a fact and is saved at once.
+  - A probe that cannot run keeps a saved LITE but not a saved decline. A decline the signals alone do not support lifts;
+    before the fix it stayed up for good under Save-Data.
+  - A decline that is new when the measurements land (the page was already in use) holds this visit at LITE and is saved,
+    so the next visit declines from its first paint. A screen never appears over live work.
+- **The setting** (Workspace settings, General, "Performance mode": Auto, Full, Lite) writes
+  `lattice-device-tier-override`, and `setTierOverride` applies it at once with the signals already measured, with no
+  toast. It picks FULL or LITE; a missing feature still declines (classify's rule), and the notice says so.
+- **The required-feature list is the one from slice 1** (module workers, IndexedDB, `:has()`, container queries,
+  `structuredClone`). Verifying each by switching it off in a real browser to see what breaks (§6) is still open; the e2e
+  switches `:has()` off in the page's `CSS.supports` and checks the screen names it.
+- **Verified.** `e2e/decline-screen.spec.ts` on all six projects (the tablet width from the WebKit tablet profile): a
+  pinned decline, continue anyway, the banner across a reload, `:has()` switched off unpinned, no decline unpinned on a
+  supported browser, the Playground, and the setting. Screenshots at 1440, 820 and 390 px, dark and light, are in the PR.
+
 
 ## 7. Decisions (owner, 2026-11-12)
 

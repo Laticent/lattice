@@ -1,6 +1,6 @@
-// The device tier at RUNTIME: reads the device once after the first slide is showing, sets
-// `data-device-tier` on <html>, saves the tier so the next page load can set it before first paint, and
-// runs the CPU probe in a worker at most once a day. Design: engineering/decisions/2026-11-12-device-capability-tiers.md
+// The device tier at RUNTIME: reads the device after the first slide is showing, sets `data-device-tier` on <html> (again
+// as the CPU score, the GPU rank and the boot probe land), saves the tier so the next page load can set it before first
+// paint, and runs the CPU probe in a worker at most once a day. Design: engineering/decisions/2026-11-12-device-capability-tiers.md
 // §3 and §3.2 (and "Slice 1b, as built").
 //
 // Why after the first slide and not before first paint: the Studio's HTML sits about 250 bytes under its
@@ -12,11 +12,12 @@
 // and never read the runner's machine or clock (HARD RULE #32).
 
 import { browserLongTasks, watchBoot } from './boot-probe';
-import { browserEnv, classify, type DeviceSignals, type Profile, pinnedTier, readSignals, type Tier } from './device-profile';
+import { browserEnv, classify, type DeviceSignals, type Profile, pinnedTier, readSignals, type Tier, type TierOverride } from './device-profile';
+import { CONTINUE_KEY, OVERRIDE_KEY, TIER_KEY } from './device-tier-keys';
 import { rankGpu } from './gpu-rank';
 
-/** Where the decided tier is saved for the next page load's pre-paint read. The inline boot script reads this key. */
-export const TIER_KEY = 'lattice-device-tier';
+/** Where the decided tier is saved for the next page load's pre-paint read (the inline boot script reads it too). */
+export { CONTINUE_KEY, OVERRIDE_KEY, TIER_KEY };
 /** Where the last CPU probe score is saved, with when it was taken. */
 export const CPU_KEY = 'lattice-device-cpu';
 /** A probe result is reused for a day: long enough that the 140 ms of work is rare, short enough to see a slower machine. */
@@ -49,8 +50,29 @@ export function writeCachedCpu(store: KeyStore, score: number, now: number): voi
  * The tier to show, and whether to save it. A pin (`?tier=`) is shown but never saved, so a test URL or a
  * shared link cannot change what the next ordinary visit paints.
  */
-export function decide(profile: Profile, pinned: Tier | null): { tier: Tier; save: boolean } {
+export function decide(profile: Profile, pinned: Tier | null, continued = false): { tier: Tier; save: boolean } {
+	// "Continue anyway" gets past a pinned decline too, so the screen can be tested with `?tier=unsupported`.
+	if (pinned === 'unsupported' && continued) return { tier: 'lite', save: false };
 	return pinned ? { tier: pinned, save: false } : { tier: profile.tier, save: true };
+}
+
+/** The stored Auto / Full / Lite choice; anything unknown reads as Auto. */
+export function readTierOverride(store: KeyStore | null): TierOverride {
+	try {
+		const v = store?.getItem(OVERRIDE_KEY);
+		return v === 'full' || v === 'lite' ? v : 'auto';
+	} catch {
+		return 'auto';
+	}
+}
+
+/** Whether this tab chose "continue anyway" (sessionStorage is per tab). */
+export function readContinued(session: KeyStore | null): boolean {
+	try {
+		return session?.getItem(CONTINUE_KEY) === '1';
+	} catch {
+		return false;
+	}
 }
 
 export interface TierDeps {
@@ -65,13 +87,23 @@ export interface TierDeps {
 	boot?: () => Promise<boolean | null>;
 	/** Told when a measurement drops this visit from FULL to LITE after it was first shown, so the page can say so. */
 	onDrop?: (s: TierState) => void;
+	/** sessionStorage, for "continue anyway". Omitted: no session store, so a decline always shows. */
+	session?: KeyStore | null;
 }
+
+/**
+ * Where the GPU rank stands, so the System panel can say why there is no rank instead of hiding the row:
+ * `pending` (not answered yet), `ranked` (detect-gpu gave a tier), `unknown` (it answered without one: a chip newer than its
+ * tables, a Mac's masked "Apple GPU", Save-Data, or a failure), `none` (no WebGL, so there is nothing to rank).
+ */
+export type GpuRankStatus = 'pending' | 'ranked' | 'unknown' | 'none';
 
 export interface TierState {
 	profile: Profile;
 	signals: DeviceSignals;
 	tier: Tier;
 	pinned: Tier | null;
+	gpuRank: GpuRankStatus;
 }
 
 let state: TierState | null = null;
@@ -107,25 +139,67 @@ export function readSavedTier(store: KeyStore | null): Tier | null {
 	}
 }
 
+/** What `apply` needs to know besides the signals: where in the visit it is, and what the page showed before. */
+interface ApplyMode {
+	/** A measurement that can decline (the CPU score, the GPU rank) has not answered yet. */
+	pending: boolean;
+	/** The tier the previous visit saved. */
+	saved: Tier | null;
+	/** The CPU probe could not run, so this visit has no CPU evidence of its own. */
+	noCpuEvidence: boolean;
+	/** The tier this visit showed before this apply; null on the first. */
+	shownBefore: Tier | null;
+	/** Where the GPU rank stands (carried onto the state for the System panel). */
+	gpuRank: GpuRankStatus;
+}
+
 /**
- * `interim`: the CPU probe has not answered yet. Measurement may lower the tier mid-session but never raise it (§3),
- * so until it answers the page shows the LOWER of the saved tier and the tier the other signals give, and saves nothing:
- * a device that is LITE only because of its CPU must not flash FULL, or save FULL, while its expired score is re-measured.
+ * Apply the tier. Four rules on top of classify() (decision note §3.3 and §6.1, and the independent reviews):
+ *   - PENDING: until the CPU score and the GPU rank have both answered, the page shows the lower of the saved and the signal
+ *     tier, and saves nothing, so a device LITE (or declined) only by a measurement never flashes or saves FULL meanwhile.
+ *     A missing feature is a fact, not a guess awaiting a probe, so a feature decline is saved at once.
+ *   - NO CPU EVIDENCE: a probe that could not run keeps a saved LITE, but never a saved decline, which the signals alone
+ *     must support or it lifts. (A stale decline otherwise stayed up for good under Save-Data.)
+ *   - HELD DECLINE: a decline first found once the page is in use does not cover live work. This visit holds at LITE, and
+ *     the decline is saved, so the next visit declines from its first paint.
+ *   - CONTINUED: "continue anyway" runs this tab as LITE and saves the decline; once the browser is no longer declined, the
+ *     flag is cleared, which takes the Lite banner down (device-gate.ts).
+ * A person's explicit Full or Lite is never lowered to a saved tier: it is not a guess.
  */
-function apply(deps: TierDeps, signals: DeviceSignals, pinned: Tier | null, interim: { saved: Tier | null } | null = null): TierState {
-	const profile = classify(signals);
-	let { tier, save } = decide(profile, pinned);
-	if (interim && !pinned) {
-		if (interim.saved) tier = lowerTier(tier, interim.saved);
-		save = false;
+function apply(deps: TierDeps, signals: DeviceSignals, pinned: Tier | null, mode: ApplyMode): TierState {
+	const override = readTierOverride(deps.store);
+	const continued = readContinued(deps.session ?? null);
+	const profile = classify(signals, { override, continueAnyway: continued });
+	let { tier, save } = decide(profile, pinned, continued);
+	let held = false;
+	if (!pinned) {
+		if (mode.pending) {
+			const floor = continued && mode.saved === 'unsupported' ? 'lite' : mode.saved;
+			if (floor && override === 'auto') tier = lowerTier(tier, floor);
+			save = profile.reasons.some((r) => r.kind === 'feature');
+		} else {
+			if (mode.noCpuEvidence) {
+				const floor = mode.saved === 'unsupported' ? 'lite' : mode.saved;
+				if (floor && override === 'auto') tier = lowerTier(tier, floor);
+			}
+			held = tier === 'unsupported' && mode.shownBefore !== null && mode.shownBefore !== 'unsupported';
+			if (held) tier = 'lite';
+			if (continued && profile.detected !== 'unsupported') {
+				try {
+					(deps.session as Storage | null | undefined)?.removeItem?.(CONTINUE_KEY);
+				} catch {}
+			}
+		}
 	}
 	deps.win.document.documentElement.setAttribute('data-device-tier', tier);
 	if (save && deps.store) {
 		try {
-			deps.store.setItem(TIER_KEY, tier);
+			// A continued or held decline is saved as the decline, so the NEXT visit declines from its first paint; this one
+			// stays LITE (a continued tab because its session flag says so: device-gate.ts reads the same flag pre-paint).
+			deps.store.setItem(TIER_KEY, profile.detected === 'unsupported' && (continued || held) ? 'unsupported' : tier);
 		} catch {}
 	}
-	state = { profile, signals, tier, pinned };
+	state = { profile, signals, tier, pinned, gpuRank: mode.gpuRank };
 	for (const fn of listeners) {
 		try {
 			fn(state);
@@ -137,10 +211,9 @@ function apply(deps: TierDeps, signals: DeviceSignals, pinned: Tier | null, inte
 /**
  * Decide the tier for this visit. Resolves once the tier from the synchronous signals is applied. Three measurements land
  * later and each applies again: the CPU probe when it has to run (the returned `probed` promise), the GPU rank and the boot
- * probe (`settled` waits for all three). Each only ADDS evidence, so after the first paint a measurement can lower the tier
- * but never raise it, with one exception kept from slice 1b: while the CPU score is pending the page shows the lower of the
- * saved and the signal tier, and the score, once it lands, decides. A drop from FULL to LITE after the first paint calls
- * `onDrop` (the toast).
+ * probe (`settled` waits for all three). See `apply` for the rules; in short, a measurement lowers the tier and never raises
+ * it, except that the interim (saved) tier gives way once the CPU score and the GPU rank have answered. A drop from FULL to
+ * LITE after the first paint calls `onDrop` (the toast).
  */
 export function startDeviceTier(deps: TierDeps): { state: TierState; probed: Promise<TierState>; settled: Promise<TierState> } {
 	const pinned = pinnedTier(deps.win.location.search);
@@ -148,11 +221,14 @@ export function startDeviceTier(deps: TierDeps): { state: TierState; probed: Pro
 	const cached = deps.store ? readCachedCpu(deps.store, deps.now()) : null;
 	if (cached !== null) signals.cpuScore = cached;
 	let cpuPending = cached === null;
+	let gpuPending = !!deps.gpu && signals.renderer !== null;
+	let noCpuEvidence = false;
+	let gpuRank: GpuRankStatus = signals.renderer === null ? 'none' : gpuPending ? 'pending' : 'unknown';
 	const saved = readSavedTier(deps.store);
-	const reapply = (): TierState => {
-		const before = state?.tier;
-		const next = apply(deps, signals, pinned, cpuPending ? { saved } : null);
-		if (before === 'full' && next.tier === 'lite' && !pinned) {
+	const reapply = (silent = false): TierState => {
+		const before = state?.tier ?? null;
+		const next = apply(deps, signals, pinned, { pending: cpuPending || gpuPending, saved, noCpuEvidence, shownBefore: before, gpuRank });
+		if (!silent && before === 'full' && next.tier === 'lite' && !pinned) {
 			try {
 				deps.onDrop?.(next);
 			} catch {}
@@ -160,28 +236,37 @@ export function startDeviceTier(deps: TierDeps): { state: TierState; probed: Pro
 		return next;
 	};
 	state = null;
+	rerun = () => reapply(true);
 	const first = reapply();
 	const probed = cpuPending
 		? deps
 				.probe()
-				// A probe that cannot run brings no new evidence, so the interim tier stays and nothing is saved: the saved tier
-				// keeps whatever the last real measurement decided.
 				.then((score) => {
-					if (score === null) return state ?? first;
-					if (deps.store) writeCachedCpu(deps.store, score, deps.now());
 					cpuPending = false;
-					signals = { ...signals, cpuScore: score };
+					// A probe that cannot run brings no CPU evidence: the saved LITE stands (see `apply`), a saved decline does not.
+					if (score === null) noCpuEvidence = true;
+					else {
+						if (deps.store) writeCachedCpu(deps.store, score, deps.now());
+						signals = { ...signals, cpuScore: score };
+					}
 					return reapply();
 				})
-				.catch(() => state ?? first)
+				.catch(() => {
+					cpuPending = false;
+					noCpuEvidence = true;
+					return reapply();
+				})
 		: Promise.resolve(first);
-	const ranked = (deps.gpu ? deps.gpu(signals.renderer) : Promise.resolve(null))
-		.then((tier) => {
-			if (tier === null) return;
-			signals = { ...signals, gpuTier: tier };
-			reapply();
-		})
-		.catch(() => {});
+	const ranked = gpuPending
+		? (deps.gpu as NonNullable<TierDeps['gpu']>)(signals.renderer)
+				.catch(() => null)
+				.then((tier) => {
+					gpuPending = false;
+					gpuRank = tier === null ? 'unknown' : 'ranked';
+					if (tier !== null) signals = { ...signals, gpuTier: tier };
+					reapply();
+				})
+		: Promise.resolve();
 	const booted = (deps.boot ? deps.boot() : Promise.resolve(null))
 		.then((slow) => {
 			if (slow !== true) return;
@@ -191,6 +276,37 @@ export function startDeviceTier(deps: TierDeps): { state: TierState; probed: Pro
 		.catch(() => {});
 	const settled = Promise.all([probed, ranked, booted]).then(() => state ?? first);
 	return { state: first, probed, settled };
+}
+
+let rerun: (() => TierState) | null = null;
+let started: { state: TierState; probed: Promise<TierState>; settled: Promise<TierState> } | null = null;
+
+/**
+ * Start the tier once per page, whoever asks first: the Studio's warm-up, the Playground's gate, or the decline screen when
+ * a saved decline paints before either. Later calls get the same run.
+ */
+export function ensureDeviceTier(win: Window & typeof globalThis = window): { state: TierState; probed: Promise<TierState>; settled: Promise<TierState> } {
+	started ??= startDeviceTier(browserTierDeps(win));
+	return started;
+}
+
+/**
+ * The person's Auto / Full / Lite choice: stored, then applied at once with the signals already measured. It picks FULL
+ * or LITE but never lifts a decline (classify's rule). Applied silently: they chose it, so there is no toast.
+ */
+export function setTierOverride(store: KeyStore | null, choice: TierOverride): TierState | null {
+	try {
+		store?.setItem(OVERRIDE_KEY, choice);
+	} catch {}
+	return rerun ? rerun() : null;
+}
+
+/** "Continue anyway": this tab runs as LITE from now on. Returns the applied state. */
+export function continueAnyway(session: KeyStore | null): TierState | null {
+	try {
+		session?.setItem(CONTINUE_KEY, '1');
+	} catch {}
+	return rerun ? rerun() : null;
 }
 
 /** The slice of `document` the visibility guard reads. */
@@ -249,9 +365,17 @@ export function browserTierDeps(win: Window & typeof globalThis): TierDeps {
 		store = null;
 	}
 	const allowed = () => probeAllowed(win.navigator as Navigator & { connection?: { saveData?: boolean } });
+	let session: KeyStore | null = null;
+	try {
+		session = win.sessionStorage;
+		session.getItem(CONTINUE_KEY);
+	} catch {
+		session = null;
+	}
 	return {
 		win,
 		store,
+		session,
 		now: () => Date.now(),
 		probe: () => {
 			if (!allowed()) return Promise.resolve(null);

@@ -10,6 +10,7 @@ import { PillTabs } from '@/components/ui/pill-tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { clearCrashReports, collectCrashReports, crashReportStats, OPEN_CRASH_REPORT_EVENT, startCrashSentinel, stopCrashSentinel } from '@/lib/crash-sentinel';
+import { OVERRIDE_KEY } from '@/lib/device-tier-keys';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { FIDELITY_OVERLAY_AVAILABLE, fidelityOverlayEnabled, onFidelityOverlayEnabledChange, setFidelityOverlayEnabled } from '@/playground/fidelity-overlay-prefs';
@@ -285,6 +286,35 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 		return onStorageOverlayEnabledChange(setStorageOverlay);
 	}, []);
 	// System panel — same shared-pref pattern; `?system` and the panel's close button write the same flag.
+	// Performance mode (device-capability-tiers §3, §7): Auto, or the person's own Full or Lite. Read from storage on open;
+	// a change is applied at once by the tier runtime, loaded on demand so this sheet carries none of it.
+	const [tierChoice, setTierChoice] = React.useState<'auto' | 'full' | 'lite'>('auto');
+	React.useEffect(() => {
+		try {
+			const v = localStorage.getItem(OVERRIDE_KEY);
+			setTierChoice(v === 'full' || v === 'lite' ? v : 'auto');
+		} catch {}
+	}, []);
+	const chooseTier = (choice: 'auto' | 'full' | 'lite') => {
+		setTierChoice(choice);
+		void import('@/lib/device-tier').then(({ ensureDeviceTier, setTierOverride }) => {
+			let store: Storage | null = null;
+			try {
+				store = localStorage;
+			} catch {}
+			// Opened before the warm-up has started the runtime: start it, so the choice applies now, not after the warm-up.
+			ensureDeviceTier(window);
+			const after = setTierOverride(store, choice);
+			const shown = after?.tier ?? document.documentElement.getAttribute('data-device-tier');
+			notify(
+				choice === 'auto'
+					? `Performance mode: Auto. Lattice picks for this device${shown === 'lite' ? ', and it runs in Lite.' : '.'}`
+					: shown === 'unsupported'
+						? 'Saved, but this browser is missing something Lattice needs, so it still declines.'
+						: `Performance mode: ${choice === 'full' ? 'Full' : 'Lite'}.`,
+			);
+		});
+	};
 	const [systemOverlay, setSystemOverlay] = React.useState(false);
 	React.useEffect(() => {
 		setSystemOverlay(systemOverlayEnabled());
@@ -839,6 +869,25 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 									)}
 								</div>
 							)}
+							{/* Performance mode — the person's own say over the device tier. Not behind the
+							    diagnostics gate: it changes how the app runs, it is not a developer overlay. */}
+							<div className="mt-6">
+								<GroupLabel icon={<Cpu className="size-3.5" />}>Performance mode</GroupLabel>
+								<fieldset aria-label="Performance mode" className="m-0 grid min-w-0 grid-cols-3 gap-1 rounded-xl border border-border bg-background p-1">
+									{(
+										[
+											['auto', 'Auto'],
+											['full', 'Full'],
+											['lite', 'Lite'],
+										] as const
+									).map(([value, label]) => (
+										<button key={value} type="button" aria-pressed={tierChoice === value} onClick={() => chooseTier(value)} className={cn('rounded-lg px-2 py-1.5 text-[12.5px] font-semibold', tierChoice === value ? 'bg-primary text-primary-foreground' : 'text-[var(--text-heading)] hover:bg-[var(--accent-soft)]')}>
+											{label}
+										</button>
+									))}
+								</fieldset>
+								<p className="mt-1.5 text-[11px] text-muted-foreground">Auto picks from this device. Lite keeps every feature but uses less graphics and memory: a simpler loading screen, no blur, smaller previews, and no downloaded on-device models. A browser missing something Lattice needs is declined either way.</p>
+							</div>
 							{/* Crash reports — its OWN group, not a row inside Diagnostics above,
 							    because that whole block sits behind PERF_OVERLAY_AVAILABLE (a GA
 							    gate that is expected to go false one day). A crash report is not a
