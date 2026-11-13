@@ -5,6 +5,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const elision = require('../../../lib/core/payload-elision.js');
+const { imageLineRanges } = require('../../../lib/engine/image-line-payloads.js');
 
 const realElide = elision.elidePayloads;
 let skipping = true;
@@ -153,7 +154,7 @@ describe('payload elision: what counts as a payload', () => {
 	test('the engine skips only a line that is one image, outside a fence', () => {
 		const img = `![bg](data:image/png;base64,${run})`;
 		const text = [img, `   ![a b](<data:image/png;base64,${run}>)`, `Text ${img}`, `${img} text`, '```md', img, '```', '~~~~', '```', img, '~~~~', img].join('\n');
-		const skipped = elision.imageLineRanges(text).map(([s]) => text.slice(0, s).split('\n').length);
+		const skipped = imageLineRanges(text).map(([s]) => text.slice(0, s).split('\n').length);
 		assert.deepEqual(skipped, [1, 2, 12]);
 	});
 });

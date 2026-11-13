@@ -10,6 +10,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const elision = require('../../../lib/core/payload-elision.js');
+const { imageLineRanges } = require('../../../lib/engine/image-line-payloads.js');
 
 const realElide = elision.elidePayloads;
 let skipping = true;
@@ -93,7 +94,7 @@ describe('engine render: a photo payload is skipped and put back byte for byte',
 	// checker's case: the stand-in came out glyph by glyph and the payload past its first 960 characters was lost).
 	test('an image line inside a math block is read whole', () => {
 		const deck = `---\ntheme: indaco\n---\n\n## Math\n\n$$\n${FORMS[0](LONG)}\n$$\n\n---\n\n${FORMS[0](LONG)}\n`;
-		assert.equal(elision.imageLineRanges(deck).length, 1, 'only the line outside the math block');
+		assert.equal(imageLineRanges(deck).length, 1, 'only the line outside the math block');
 		const { on, off } = bothWays(() => engine.render(deck));
 		assert.deepEqual(on, off);
 	});
@@ -122,7 +123,7 @@ describe('engine render: a photo payload is skipped and put back byte for byte',
 		// front matter quotes, cut everywhere and with `standIns` emptied so the html check above it passes) must send the
 		// render to the whole text instead of returning the marker.
 		tamper = (cut, [source, opts]) => {
-			const wide = realElide(source, { ...opts, imageLinesOnly: false });
+			const wide = realElide(source, { ...opts, rangesOf: undefined });
 			return wide && { ...wide, standIns: [] };
 		};
 		try {
