@@ -3,7 +3,6 @@ import { altFromAssetName } from '@/lib/photo-alt';
 import { PACE_NAMES } from '@/lib/resolve-pace';
 import { contextSources } from '@/playground/context-sources.js';
 import { DATA_SOURCE_COMPONENTS } from '@/playground/data-source-components.js';
-import { FENCE_LANGUAGES } from '@/playground/grammar-vocab.js';
 import { classDirectiveCompletion, classTokenResult, deckSplit, recordCompletion, recordOptions, slideBodyAfter, slideClassAt } from '@/playground/slide-context.js';
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from '../../lib/front-matter-keys';
 import { MARKS_AXES } from '../../lib/marks-words';
@@ -418,16 +417,8 @@ export function makeStudioCompletion(
 			return { from: word ? word.from : context.pos, options, validFor: /^[\w-]*$/ };
 		}
 
-		// 2. Fenced-block language right after the opening ``` .
-		const fence = context.matchBefore(/^[ \t]*`{3,}[\w-]*/);
-		if (fence && /`{3,}[\w-]*$/.test(before)) {
-			const tick = context.matchBefore(/[\w-]*/);
-			return {
-				from: tick ? tick.from : context.pos,
-				options: FENCE_LANGUAGES.map((f) => ({ label: f.lang, type: 'keyword', info: f.info })),
-				validFor: /^[\w-]*$/,
-			};
-		}
+		// 2. A fence's language is a shared source (context-sources.js `fenceLanguageSource`), which loads the plugin
+		// registry on first use.
 
 		// 3. Finish register value on a `finish:` line — built-ins + saved finishes.
 		if (finishOptions.length && /^[ \t]*finish:[ \t]*[\w-]*$/.test(before) && inFrontMatter(context.state.doc.toString(), context.pos)) {
@@ -533,11 +524,20 @@ const lazyDataSource: CompletionSource = (context) => {
 	});
 };
 
+/** Brings in the lint core's `flowchartCompletions` (tests pass the core directly; the site loads it on demand). */
+export type FlowchartLoader = () => Promise<{ flowchartCompletions: (md: string) => { names: string[]; spanWords: { label: string; axis: string }[] } }>;
+
 /**
  * Every source the Studio's deck editor runs: its own completer (`main`, from `makeStudioCompletion`), the Library
  * photos (`assets`), then the slide-context sources it shares with the Playground (context-sources.js). One function,
  * so the parity test reads the same list Editor.tsx installs.
  */
-export function studioCompletionSources(main: CompletionSource, assets: CompletionSource, catalog: CompletionComponent[] = [], registers: Record<string, string[]> = {}): CompletionSource[] {
-	return [main, assets, ...contextSources({ catalog, dataSources: [lazyDataSource], registers })];
+export function studioCompletionSources(
+	main: CompletionSource,
+	assets: CompletionSource,
+	catalog: CompletionComponent[] = [],
+	registers: Record<string, string[]> = {},
+	loadFlowchart?: FlowchartLoader,
+): CompletionSource[] {
+	return [main, assets, ...contextSources({ catalog, dataSources: [lazyDataSource], registers, loadFlowchart })];
 }

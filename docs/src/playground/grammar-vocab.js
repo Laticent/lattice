@@ -11,8 +11,8 @@
 // Slide-scoped Marp directives authored as `<!-- _name: value -->`. `_class` is
 // completed with its full grammar elsewhere (component names + modifiers); it's
 // listed here too so the NAME completes before the colon is typed.
-import { COMPLETE_KEYS, enumValues, HOST_REGISTERS, kebab, META_COMMENTS, REGISTERS } from '../../../lib/core/meta-keys.mjs';
-import { PLUGIN_GRAMMAR } from '../../../lib/plugins/grammar.generated.mjs';
+import { COMPLETE_KEYS, enumValues, HOST_REGISTERS, kebab, REGISTERS } from '../../../lib/core/meta-keys.mjs';
+import { META_COMMENTS } from '../../../lib/plugins/meta.generated.mjs';
 
 export const DIRECTIVE_NAMES = COMPLETE_KEYS.map((k) => `_${k}`);
 
@@ -75,32 +75,38 @@ export const SPLIT_VALUES = ['rule', 'headings'];
 // so the picker, this autocomplete, and the engine can't drift apart.
 export const SIZE_VALUES = ['hd', '4K', 'standard', 'mobile-landscape', 'square', 'portrait', 'story', 'mobile'];
 
-// Fenced-block languages offered after ``` — ONE list for both editors (the Studio's editor-complete.ts reads
-// FENCE_LANGUAGES, the Playground's complete.js FENCE_LANGS). The fences a plugin renders come from the plugin
-// registry (lib/plugins/grammar.generated.mjs, built from each manifest's `contributes.fences`), so a plugin's fence
-// completes the day it lands and a name no plugin renders is never offered: the old hand list offered `chart`, which
-// the engine shows as plain code. A fence's aliases (deprecated `latticeplot`) are not keys of `fences`, so they are not
-// offered. Then the common code languages, which the code
-// plugin highlights, with the short aliases (`js`, `ts`, `py`) so they resolve too.
-export const FENCE_LANGUAGES = [
-	...PLUGIN_GRAMMAR.flatMap((g) => Object.keys(g.fences || {}).map((lang) => ({ lang, info: g.title }))),
-	...[
-		['javascript', 'JavaScript'],
-		['js', 'JavaScript'],
-		['typescript', 'TypeScript'],
-		['ts', 'TypeScript'],
-		['tsx', 'TypeScript JSX'],
-		['python', 'Python'],
-		['py', 'Python'],
-		['sql', 'SQL'],
-		['json', 'JSON'],
-		['yaml', 'YAML'],
-		['css', 'CSS'],
-		['html', 'HTML'],
-		['bash', 'Shell'],
-	].map(([lang, info]) => ({ lang, info })),
-];
-export const FENCE_LANGS = FENCE_LANGUAGES.map((f) => f.lang);
+// Fenced-block languages offered after ``` — ONE list, completed by context-sources.js `fenceLanguageSource` in both
+// editors. The fences a plugin renders come from the plugin registry (lib/plugins/grammar.generated.mjs, built from each
+// manifest's `contributes.fences`), so a plugin's fence completes the day it lands and a name no plugin renders is never
+// offered: the old hand list offered `chart`, which the engine shows as plain code. A fence's aliases (deprecated
+// `latticeplot`) are not keys of `fences`, so they are not offered. The registry carries every plugin's syntax rules,
+// so it loads the first time a fence is opened, not at start-up (the route budget, docs/route-budget.json). Then the
+// common code languages, which the code plugin highlights, with the short aliases (`js`, `ts`, `py`) so they resolve.
+export const CODE_FENCE_LANGUAGES = [
+	['javascript', 'JavaScript'],
+	['js', 'JavaScript'],
+	['typescript', 'TypeScript'],
+	['ts', 'TypeScript'],
+	['tsx', 'TypeScript JSX'],
+	['python', 'Python'],
+	['py', 'Python'],
+	['sql', 'SQL'],
+	['json', 'JSON'],
+	['yaml', 'YAML'],
+	['css', 'CSS'],
+	['html', 'HTML'],
+	['bash', 'Shell'],
+].map(([lang, info]) => ({ lang, info }));
+
+let fenceLanguages = null;
+/** The plugin fences, then the code languages: `[{ lang, info }]`. Loads the plugin registry once. */
+export function loadFenceLanguages() {
+	fenceLanguages ??= import('../../../lib/plugins/grammar.generated.mjs').then(({ PLUGIN_GRAMMAR }) => [
+		...PLUGIN_GRAMMAR.flatMap((g) => Object.keys(g.fences || {}).map((lang) => ({ lang, info: g.title }))),
+		...CODE_FENCE_LANGUAGES,
+	]);
+	return fenceLanguages;
+}
 
 // Mermaid keyword grammar, the single source of truth shared by the highlighter
 // (editor.js builds its KW_DECLARE / KW_FLOW regexes from these) and the

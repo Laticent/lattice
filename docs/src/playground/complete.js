@@ -5,7 +5,7 @@
 // so they never compete:
 //   • class-directive — component names + modifiers inside `<!-- _class: … -->`
 //   • record          — fields and values inside `<!-- { … } -->`
-//   • theme / finish / split / size / fence language — front-matter and fence values
+//   • theme / finish / split / size — front-matter values
 //   • the shared context sources (context-sources.js) — directive names, focus,
 //     nested backdrop, mermaid, skeleton and the data-source registry; the Studio's
 //     editor runs the same list
@@ -24,12 +24,11 @@ import { registerValueLists } from '../lib/front-matter-values';
 import { completionKeys } from './completion-keys.js';
 import { contextSources, lineLocalSource } from './context-sources.js';
 import { dataSources } from './data-sources.js';
-import { FENCE_LANGS, SIZE_VALUES, SPLIT_VALUES } from './grammar-vocab.js';
+import { SIZE_VALUES, SPLIT_VALUES } from './grammar-vocab.js';
 import {
 	classDirectiveCompletion,
 	classTokenResult,
 	deckSplit,
-	fenceLangAt,
 	finishValuePosition,
 	inFrontMatter,
 	recordCompletion,
@@ -45,7 +44,6 @@ const TOKEN = /^[\w-]*$/;
 // Static option lists (built once) for the line-local Tier-2 sources.
 const SPLIT_OPTIONS = SPLIT_VALUES.map((v) => ({ label: v, type: 'constant', detail: 'split' }));
 const SIZE_OPTIONS = SIZE_VALUES.map((v) => ({ label: v, type: 'constant', detail: 'size' }));
-const FENCE_OPTIONS = FENCE_LANGS.map((l) => ({ label: l, type: 'constant', detail: 'language' }));
 
 // Completes the registered theme names after `theme:` in the deck's front
 // matter. A theme not in the registered set renders unstyled (white,
@@ -133,16 +131,15 @@ function recordSource(catalog, vocab) {
 // names. All optional — without them only the (self-sufficient) data sources
 // are live.
 /** The Playground's source list: its own sources plus the shared `contextSources`. Exported for the parity test. */
-export function playgroundCompletionSources({ vocab, catalog, themes, finishes } = {}) {
+export function playgroundCompletionSources({ vocab, catalog, themes, finishes, loadFlowchart } = {}) {
 	return [
 		themeSource(themes),
 		finishSource(finishes),
 		lineLocalSource(splitValuePosition, SPLIT_OPTIONS),
 		lineLocalSource(sizeValuePosition, SIZE_OPTIONS),
-		lineLocalSource(fenceLangAt, FENCE_OPTIONS),
 		classDirectiveSource(catalog, vocab),
 		recordSource(catalog, vocab),
-		...contextSources({ catalog, dataSources, registers: registerValueLists(vocab) }),
+		...contextSources({ catalog, dataSources, registers: registerValueLists(vocab), loadFlowchart }),
 	];
 }
 

@@ -7,13 +7,14 @@
 //
 //   • directive names    — `<!-- _hea…` → `_header`, `_focus`, …, and the note channels and pane keys (`say:`, `panes:`)
 //   • directive values   — `<!-- _paginate: ` → its register's words (the deck's register lists, passed in)
+//   • fence language     — after ``` : the plugin fences (from the registry, loaded on first use), then code languages
 //   • `_focusStyle:`     — its enum values
 //   • `_focus:` axis     — narrowed by the slide's layout (`focusAxes`)
 //   • nested `backdrop:` — its axis keys
 //   • mermaid            — keywords inside a ```mermaid fence
 //   • flowchart          — on a `flowchart` slide: arrow forms after a name, the chart's own names after an arrow,
 //                          and the span words (outline, color, status, line) inside a backtick; the grammar kernel
-//                          (lib/core/flowchart-grammar.js) loads on first use and supplies every word
+//                          (through the lint core, `loadFlowchart`) supplies every word
 //   • math               — TeX commands after `\` inside `$…$`, `$$…$$` or a ```math fence (tex-commands.js)
 //   • skeleton           — a one-shot slot scaffold on an empty classed slide body
 //   • insert list        — Ctrl-Space on a blank body line: a layout directive, a record, a note, a heading, a list,
@@ -26,11 +27,12 @@
 
 import { insertCompletionText, pickedCompletion, startCompletion } from '@codemirror/autocomplete';
 import { KNOWN_KEYS } from '../../../lib/core/meta-keys.mjs';
-import { COMMENT_KEYS, DIRECTIVE_NAMES, FOCUS_AXIS_VALUES, FOCUS_STYLE_VALUES, MERMAID_KEYWORDS } from './grammar-vocab.js';
+import { COMMENT_KEYS, DIRECTIVE_NAMES, FOCUS_AXIS_VALUES, FOCUS_STYLE_VALUES, loadFenceLanguages, MERMAID_KEYWORDS } from './grammar-vocab.js';
 import {
 	backdropAxisPosition,
 	blankBodyPartial,
 	directiveNameAt,
+	fenceLangAt,
 	focusAxisPosition,
 	focusStyleValuePosition,
 	identifierBefore,
@@ -313,8 +315,8 @@ function mathSource(context) {
 }
 
 // ── flowchart (followups.d/2385) ──────────────────────────────────────────────
-// Every word comes from the grammar kernel's own tables, loaded the first time the caret is on a flowchart slide, so a
-// shape or status added there completes with no editor change.
+// Every word comes from the grammar kernel's own tables, so a shape or status added there completes with no editor
+// change. The kernel is reached through the lint core, which both editors already load on demand.
 const ARROWS = [
 	['->', 'a line'],
 	['=>', 'the heavy main path'],
@@ -376,83 +378,92 @@ export function arrowTarget(text) {
 	const amp = rest.lastIndexOf('&');
 	return (amp === -1 ? rest : rest.slice(amp + 1)).replace(/^\s+/, '');
 }
-let flowchartKernel = null;
-const loadFlowchartKernel = () => (flowchartKernel ??= import('../../../lib/core/flowchart-grammar.js').then((m) => m.default ?? m));
+const spanWordOptions = (spanWords) => spanWords.map((w) => ({ label: w.label, detail: w.axis, type: 'keyword' }));
 
-function spanWordOptions(g) {
-	const word = (label, detail) => ({ label, detail, type: 'keyword' });
-	return [
-		...g.SHAPES.map((w) => word(w, 'outline')),
-		...Array.from({ length: g.SLOT_COUNT }, (_, i) => word(`c${i + 1}`, 'color')),
-		...g.STATUS_WORDS.map((w) => word(w, 'status')),
-		...[...g.PATTERNS, ...g.HEADS, 'loose'].map((w) => word(w, 'line')),
-	];
+/**
+ * The flowchart source. Every word comes from the grammar kernel, through the lint core's `flowchartCompletions`
+ * (lib/authoring/lint-core.js), which `loadFlowchart` brings in: the editors already load that core lazily, so the
+ * grammar adds nothing to start-up. Tests pass their own loader.
+ */
+const loadLintCoreForFlowchart = () => import('./authoring-door.js').then((door) => door.loadAuthoring()).then((a) => a.lintCore);
+
+function flowchartSource(loadFlowchart = loadLintCoreForFlowchart) {
+	return (context) => {
+		const doc = context.state.doc;
+		const line = doc.lineAt(context.pos);
+		const getLine = (n) => doc.line(n).text;
+		const info = slideClassAt(getLine, line.number);
+		if (!info || info.name !== 'flowchart' || line.number <= info.directiveLine) return null;
+		const before = context.state.sliceDoc(line.from, context.pos);
+		const row = /^\s*[-*+]\s+(.*)$/.exec(before);
+		if (!row) return null;
+		const text = row[1];
+		const rowFrom = before.length - text.length;
+		const ticks = (text.match(/`/g) || []).length;
+		const words = () => Promise.resolve(loadFlowchart()).catch(() => null);
+		// 1. Inside a backtick span: the span words.
+		if (ticks % 2 === 1) {
+			if (!/(?:^|[`{,\s])[\w-]*$/.test(text)) return null;
+			const w = /[\w-]*$/.exec(text)[0];
+			return words().then((core) => {
+				if (context.aborted || !core) return null;
+				const { spanWords } = core.flowchartCompletions('');
+				return { from: context.pos - w.length, options: spanWordOptions(spanWords), validFor: /^[\w-]*$/ };
+			});
+		}
+		// 2. After an arrow: the chart's own names.
+		const target = arrowTarget(text);
+		// A target already written, then a space and an arrow begun (`A -> B -`), is a chain: that is case 3.
+		if (target !== null && !/\S\s+[-=<]+$/.test(target)) {
+			const typed = target;
+			if (!typed && !context.explicit) return null;
+			let last = line.number;
+			while (last < doc.lines && !/^---\s*$/.test(getLine(last + 1))) last++;
+			const rows = [];
+			for (let n = info.directiveLine + 1; n <= last; n++) if (n !== line.number) rows.push(getLine(n));
+			return words().then((core) => {
+				if (context.aborted || !core) return null;
+				const { names } = core.flowchartCompletions(rows.join('\n'));
+				if (!names.length) return null;
+				return { from: line.from + rowFrom + text.length - typed.length, options: names.map((n) => ({ label: n, type: 'variable', detail: 'shape' })), validFor: /^[^&`]*$/ };
+			});
+		}
+		// 3. After a name and a space: the arrow forms (typed `-`, `=` or `<`, or Ctrl-Space).
+		const arrow = /\S\s+([-=<]*)$/.exec(text);
+		if (arrow && (arrow[1] || context.explicit)) return { from: context.pos - arrow[1].length, options: ARROW_OPTIONS, validFor: /^[-=<]*$/ };
+		return null;
+	};
 }
 
-/** The names a flowchart slide already holds (shapes and groups), from the kernel's own parse of the slide's list. */
-function chartNames(g, getLine, firstLine, lastLine, skipLine) {
-	const lines = [];
-	for (let n = firstLine; n <= lastLine; n++) if (n !== skipLine) lines.push(getLine(n));
-	const { items } = g.outlineFromMarkdown(lines.join('\n'));
-	const model = g.parseFlowchart(items);
-	return [...new Set([...(model.shapes || []), ...(model.groups || [])].map((s) => s.name).filter(Boolean))];
-}
-
-function flowchartSource(context) {
-	const doc = context.state.doc;
-	const line = doc.lineAt(context.pos);
-	const getLine = (n) => doc.line(n).text;
-	const info = slideClassAt(getLine, line.number);
-	if (!info || info.name !== 'flowchart' || line.number <= info.directiveLine) return null;
-	const before = context.state.sliceDoc(line.from, context.pos);
-	const row = /^\s*[-*+]\s+(.*)$/.exec(before);
-	if (!row) return null;
-	const text = row[1];
-	const rowFrom = before.length - text.length;
-	const ticks = (text.match(/`/g) || []).length;
-	// 1. Inside a backtick span: the span words.
-	if (ticks % 2 === 1) {
-		const w = /[\w-]*$/.exec(text)[0];
-		if (!/(?:^|[`{,\s])[\w-]*$/.test(text)) return null;
-		return loadFlowchartKernel().then((g) => (context.aborted ? null : { from: context.pos - w.length, options: spanWordOptions(g), validFor: /^[\w-]*$/ }));
-	}
-	// 2. After an arrow: the chart's own names.
-	const target = arrowTarget(text);
-	// A target already written, then a space and an arrow begun (`A -> B -`), is a chain: that is case 3.
-	if (target !== null && !/\S\s+[-=<]+$/.test(target)) {
-		const typed = target;
-		if (!typed && !context.explicit) return null;
-		let last = line.number;
-		while (last < doc.lines && !/^---\s*$/.test(getLine(last + 1))) last++;
-		return loadFlowchartKernel().then((g) => {
-			if (context.aborted) return null;
-			const names = chartNames(g, getLine, info.directiveLine + 1, last, line.number);
-			if (!names.length) return null;
-			return { from: line.from + rowFrom + text.length - typed.length, options: names.map((n) => ({ label: n, type: 'variable', detail: 'shape' })), validFor: /^[^&`]*$/ };
-		});
-	}
-	// 3. After a name and a space: the arrow forms (typed `-`, `=` or `<`, or Ctrl-Space).
-	const arrow = /\S\s+([-=<]*)$/.exec(text);
-	if (arrow && (arrow[1] || context.explicit)) return { from: context.pos - arrow[1].length, options: ARROW_OPTIONS, validFor: /^[-=<]*$/ };
-	return null;
+// The language after an opening ``` (or ~~~): the plugin fences, then the code languages (grammar-vocab.js). Quiet on
+// a bare fence until a letter or Ctrl-Space, as every line-local source is.
+function fenceLanguageSource(context) {
+	const line = context.state.doc.lineAt(context.pos);
+	const spot = fenceLangAt(context.state.sliceDoc(line.from, context.pos));
+	if (!spot || (!spot.typed && !context.explicit)) return null;
+	const from = line.from + spot.from;
+	return loadFenceLanguages().then((langs) =>
+		context.aborted ? null : { from, options: langs.map((f) => ({ label: f.lang, type: 'keyword', detail: 'language', info: f.info })), validFor: TOKEN },
+	);
 }
 
 /**
  * The shared sources, in order. `catalog` is the compact component catalog (`name`, `skeleton`,
  * `focusAxes`); `dataSources` the per-component body completers (complete.js passes the static
  * registry, the Studio a lazy one); `registers` the key → words lists for directive values. All optional.
- * @param {{ catalog?: { name: string, skeleton?: string, focusAxes?: string[] }[], dataSources?: import('@codemirror/autocomplete').CompletionSource[], registers?: Record<string, string[]> }} [opts]
+ * @param {{ catalog?: { name: string, skeleton?: string, focusAxes?: string[] }[], dataSources?: import('@codemirror/autocomplete').CompletionSource[], registers?: Record<string, string[]>, loadFlowchart?: () => Promise<{ flowchartCompletions: (md: string) => { names: string[], spanWords: { label: string, axis: string }[] } }> }} [opts]
  * @returns {import('@codemirror/autocomplete').CompletionSource[]}
  */
-export function contextSources({ catalog, dataSources = [], registers } = {}) {
+export function contextSources({ catalog, dataSources = [], registers, loadFlowchart } = {}) {
 	return [
 		lineLocalSource(directiveNameAt, DIRECTIVE_OPTIONS, DIRECTIVE_TOKEN),
 		directiveValueSource(registers),
+		fenceLanguageSource,
 		lineLocalSource(focusStyleValuePosition, FOCUS_STYLE_OPTIONS),
 		focusAxisSource(catalog),
 		backdropAxisSource(),
 		mermaidSource,
-		flowchartSource,
+		flowchartSource(loadFlowchart),
 		mathSource,
 		skeletonSource(catalog),
 		insertListSource(),

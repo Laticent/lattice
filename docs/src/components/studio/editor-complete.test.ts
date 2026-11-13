@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { playgroundCompletionSources } from '@/playground/complete.js';
 // The engine's lint vocabulary (CommonJS) — the value lists the editor completes against.
 import { buildVocab } from '../../../../lib/authoring/lint.js';
+import lintCore from '../../../../lib/authoring/lint-core.js';
 import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, frontMatterKeysSet, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, studioCompletionSources, VOCAB_VALUE_FIELDS, withLazyInlineCore } from './editor-complete';
 
 const COMPS = [
@@ -37,13 +38,8 @@ describe('makeStudioCompletion', () => {
 		expect(r?.from).toBe('<!-- _class: '.length);
 	});
 
-	it('completes fenced-block languages after ```', () => {
-		const r = complete('```');
-		expect(labels(r)).toContain('mermaid');
-		// The plugin fences come from the registry; `chart` is no fence the engine renders, so it is never offered.
-		expect(labels(r)).toEqual(expect.arrayContaining(['math', 'functionplot', 'anima', 'js']));
-		expect(labels(r)).not.toContain('chart');
-		expect(labels(r)).not.toContain('latticeplot');
+	it('leaves fenced-block languages to the shared source (context-sources.js)', () => {
+		expect(complete('```')).toBeNull();
 	});
 
 	it('completes front-matter keys inside the --- block', () => {
@@ -800,8 +796,10 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		{ name: 'flowchart', bucket: 'chart', description: 'A flowchart', skeleton: '<!-- _class: flowchart -->\n\n- A -> B' },
 	];
 	const lintVocab = buildVocab();
-	const studio = studioCompletionSources(makeStudioCompletion(CATALOG), () => null, CATALOG, registerValueLists(lintVocab));
-	const playground = playgroundCompletionSources({ catalog: CATALOG, vocab: lintVocab });
+	// The flowchart words come through the lint core; here it is loaded directly rather than through the site's lazy door.
+	const loadFlowchart = async () => lintCore;
+	const studio = studioCompletionSources(makeStudioCompletion(CATALOG), () => null, CATALOG, registerValueLists(lintVocab), loadFlowchart);
+	const playground = playgroundCompletionSources({ catalog: CATALOG, vocab: lintVocab, loadFlowchart });
 	async function ask(sources: CompletionSource[], doc: string): Promise<string[]> {
 		const context = new CompletionContext(EditorState.create({ doc }), doc.length, true);
 		const got = await Promise.all(sources.map((s) => s(context)));
