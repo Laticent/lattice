@@ -253,6 +253,20 @@ describe('what the rewrite must never touch', () => {
 	});
 });
 
+describe('a photo inline as a data: URL', () => {
+	// A phone photo pasted into a deck is megabytes of base64 in one attribute. It is never scaled here (only `blob:` and
+	// allowed web addresses are), so it comes back as written, and the web photo beside it still gets its copy.
+	it('is left as written, and does not hide the web photo beside it', () => {
+		const LONG = 'QUJD'.repeat(250_000);
+		const photo = `data:image/jpeg;base64,${LONG}`;
+		const html = `${panel(photo)}<img src="data:image/png;base64,${LONG}" alt="pasted">${panel(PHOTO)}`;
+		const out = scale.rewrite(html, 640, new EventTarget(), BASE, ...deps());
+		expect(out.html.startsWith(panel(photo))).toBe(true);
+		expect(out.html).toContain(`<img src="data:image/png;base64,${LONG}" alt="pasted">`);
+		expect(posted.map((j) => j.url)).toEqual([PHOTO]);
+	});
+});
+
 describe('the cache, the queue and the worker', () => {
 	it('scales a Library photo (the page\'s own blob: URL), which is where a camera-roll photo lives', () => {
 		const library = `blob:${window.location.origin}/0f1e2d3c`;

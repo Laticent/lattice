@@ -49,6 +49,7 @@ import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensI
 import { fillFromConnections, SELECTION_FILLED_EVENT } from '@/lib/model-selection.js';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { actionLive, actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
+import { analysisText } from '@/lib/payload-elision';
 import { followDeckAdmission, PLUGIN_DEFAULTS_EVENT } from '@/lib/plugin-admission';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
@@ -2362,7 +2363,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		const id = deck.id;
 		// A deck with no image-shaped web reference never loads the scanner (or the kernel).
-		if (!mayReferenceWebImage(source)) {
+		if (!mayReferenceWebImage(analysisText(source))) {
 			setWebScan({ id, summary: NO_WEB_IMAGES_EAGER });
 			return;
 		}
@@ -4155,6 +4156,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				setDeckHasContent(a.hasContent);
 				setFindings(a.findings);
 				setAssessing(false);
+				// The length of the text this assessment answered for, on the root (as the editor stamps its lint pass,
+				// `data-linted-chars`), so a test can wait for THIS text's assessment instead of racing it: on a deck of
+				// phone photos one pass holds Firefox's main thread for seconds. Read by no app code. Length only, so it tells
+				// apart texts of different lengths only (see the editor's note).
+				rootRef.current?.setAttribute('data-assessed-chars', String(source.length));
 			});
 		}, 400);
 		return () => {
@@ -5866,7 +5872,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const activeChunk = slides[activeFullIndex] ?? '';
 	// THE PHOTO VERDICT for the slide on screen (photo-verdict.ts), measured in the preview. One read feeds both views: the
 	// Coach's `photo-contrast` finding and the editor's measured underline and `thin-card-no-ink` fix, so they cannot disagree.
-	const { verdict: photoVerdict, fresh: photoFresh, findings: photoFindings, settled: photoSettled } = usePhotoContrast(activeChunk, activeFullIndex, source, `${mode}|${palette}|${source}`);
+	// The context is an object, new when the mode, the palette or the deck's text is (anything outside the slide that changes
+	// what the preview paints): a string of all three was built on every render, 16 MB on a deck of phone photos.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the three inputs are the context's identity; the body reads none of them.
+	const photoContext = React.useMemo(() => ({}), [mode, palette, source]);
+	const { verdict: photoVerdict, fresh: photoFresh, findings: photoFindings, settled: photoSettled } = usePhotoContrast(activeChunk, activeFullIndex, source, photoContext);
 	// The one click the photo verdict offers, the same edit the editor's button makes (photo-verdict.ts `applyFix`). Never
 	// applied on its own. Loaded with the verdict, which is already in memory by the time a button shows.
 	const pinActiveSlide = React.useCallback(
@@ -6332,10 +6342,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		async (draft: string) => {
 			const diagrams = extractDiagrams(draft);
 			const [a, errs] = await Promise.all([
-				assessDeck(draft, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes),
+				// A one-off lane: every draft the agent writes gets its own answer, and none replaces the Coach's pass.
+				assessDeck(draft, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes, null),
 				diagrams.length ? import('./mermaid-parse').then((m) => m.checkDiagrams(diagrams, options?.runtimeUrl ?? '')).catch(() => undefined) : Promise.resolve(undefined),
 			]);
-			return { findings: a.findings, ...(errs ? { diagrams: errs } : {}) };
+			return { findings: a?.findings ?? [], ...(errs ? { diagrams: errs } : {}) };
 		},
 		[lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride, editorPalettes, options?.runtimeUrl],
 	);

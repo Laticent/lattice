@@ -10,6 +10,7 @@
 // render is skipped outright when the source has no image-shaped web reference at all
 // (web-image-hint.ts), which is nearly every deck, so the common case costs one regex test.
 
+import { analysisText } from '@/lib/payload-elision';
 import { renderMarkdown } from '@/lib/render-engine';
 import remoteRef from '../../../../lib/core/remote-ref.js';
 import { mayReferenceWebImage } from './web-image-hint';
@@ -42,7 +43,7 @@ export const NO_WEB_IMAGES: WebImageSummary = Object.freeze({ count: 0, origins:
 
 /** Every web reference in the deck `source`. Never throws: a failed render counts nothing. */
 export async function deckWebImages(source: string): Promise<WebImageSummary> {
-	if (!mayReferenceWebImage(source)) return NO_WEB_IMAGES;
+	if (!mayReferenceWebImage(analysisText(source))) return NO_WEB_IMAGES;
 	try {
 		const { html } = await renderMarkdown(await engine(), source, SCAN_THEME, { assetUrls: {}, warmDraw: false });
 		// Distinct addresses, not references: a logo repeated on twenty slides is one image.

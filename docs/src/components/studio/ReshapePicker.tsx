@@ -37,11 +37,11 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 	disabled?: boolean;
 }) {
 	const [open, setOpen] = React.useState(false);
-	const component = getClassTokens(chunk)[0] ?? '';
+	// Read once per slide text, not once per render: the shell re-renders on every edit, and a slide that holds a phone
+	// photo is megabytes of text.
+	const classTokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
+	const component = classTokens[0] ?? '';
 	const looks = React.useMemo(() => componentLooks(variants, axes, variantAxes), [variants, axes, variantAxes]);
-	const tokens = React.useMemo(() => new Set(getClassTokens(chunk)), [chunk]);
-	// Is any real look on? Decides whether DEFAULT may claim the badge (see the tile map).
-	const anyLookOn = looks.some((l) => variantActive(tokens, l.token));
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
@@ -66,54 +66,82 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 					Reshape <span className="text-[var(--text-heading)]">{component || 'slide'}</span> › pick a look
 					<span className="normal-case tracking-normal">— {looks.length - 1} variant{looks.length - 1 === 1 ? '' : 's'}</span>
 				</div>
-				{/* The variant tiles draw from a shared `PreviewPool` (#1538): a small fixed set of
-				    engine frames, re-pointed over the tiles on screen rather than torn down, because
-				    WebKit never gives a torn-down preview document back. The pool layer sits inside
-				    the scroll content, so it scrolls with the tiles. */}
-				<div className="max-h-[60vh] overflow-y-auto overscroll-contain [touch-action:pan-y]">
-					<PreviewPool>
-						<div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-							{looks.map((look) => {
-								// "Current" means CLICKING CHANGES NOTHING, not "this token is present": the two
-								// came apart on the Default tile, which restores an axis default, so on a bare
-								// `map` it claimed to be current and then rewrote `_class` to `map world`. Ask
-								// the model rather than guessing from the token set.
-								const next = applyVariant(chunk, look.token, axes, variants, variantAxes);
-								// …but a no-op is not enough for DEFAULT on its own. On `map world` both Default
-								// and the `world` tile are no-ops, and badging both put two "Current" tiles in one
-								// pick-one family. The look that is actually on wins; Default claims the badge
-								// only when no look is on AND clicking it really would do nothing.
-								const on = look.token ? next === chunk : !anyLookOn && variantNoop(chunk, '', axes, variants, variantAxes);
-								// An active TOGGLE is the one tile whose click is deliberately destructive: it
-								// removes the look. Preview the slide as it stands (previewing it turned off
-								// reads as the wrong slide) and say so — in the label AND on the badge, since
-								// an accessible name alone leaves a sighted author no warning at all.
-								const removes = !!look.token && !look.exclusive && variantActive(tokens, look.token);
-								return (
-									<ReshapeTile
-										key={look.token || '__default'}
-										sample={(frontMatter ?? '') + (removes || on ? chunk : next)}
-										label={look.token ? look.label : 'Default'}
-										actionLabel={removes ? `Remove ${look.label}` : `Reshape to ${look.token ? look.label : 'Default'}`}
-										badge={removes ? 'Current ×' : on ? 'Current' : ''}
-										active={on || removes}
-										options={options}
-										paletteOverride={paletteOverride}
-										extraTheme={extraTheme}
-										modeOverride={modeOverride}
-										extraCss={extraCss}
-										onClick={() => {
-											onReshape(look.token);
-											setOpen(false);
-										}}
-									/>
-								);
-							})}
-						</div>
-					</PreviewPool>
-				</div>
+				{/* The tiles are their own component so they are built only while the popover is open: as children of
+				    PopoverContent they were evaluated on every render of the toolbar, open or not, and each tile rewrites
+				    the slide's class line, which on a photo slide copied megabytes per look per edit (PR #3153, Gecko profile). */}
+				<ReshapeLooks
+					chunk={chunk}
+					classTokens={classTokens}
+					looks={looks}
+					variants={variants}
+					axes={axes}
+					variantAxes={variantAxes}
+					options={options}
+					frontMatter={frontMatter}
+					paletteOverride={paletteOverride}
+					extraTheme={extraTheme}
+					modeOverride={modeOverride}
+					extraCss={extraCss}
+					onPick={(token) => {
+						onReshape(token);
+						setOpen(false);
+					}}
+				/>
 			</PopoverContent>
 		</Popover>
+	);
+}
+
+type Look = ReturnType<typeof componentLooks>[number];
+
+function ReshapeLooks({ chunk, classTokens, looks, variants, axes, variantAxes, options, frontMatter, paletteOverride, extraTheme, modeOverride, extraCss, onPick }: { chunk: string; classTokens: string[]; looks: Look[]; variants: string[]; axes: Record<string, readonly string[]>; variantAxes: readonly VariantAxis[]; options: SingleSlideOptions; frontMatter?: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; onPick: (token: string) => void }) {
+	const tokens = React.useMemo(() => new Set(classTokens), [classTokens]);
+	// Is any real look on? Decides whether DEFAULT may claim the badge (see the tile map).
+	const anyLookOn = looks.some((l) => variantActive(tokens, l.token));
+	// The variant tiles draw from a shared `PreviewPool` (#1538): a small fixed set of
+	// engine frames, re-pointed over the tiles on screen rather than torn down, because
+	// WebKit never gives a torn-down preview document back. The pool layer sits inside
+	// the scroll content, so it scrolls with the tiles.
+	return (
+		<div className="max-h-[60vh] overflow-y-auto overscroll-contain [touch-action:pan-y]">
+			<PreviewPool>
+				<div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+					{looks.map((look) => {
+						// "Current" means CLICKING CHANGES NOTHING, not "this token is present": the two
+						// came apart on the Default tile, which restores an axis default, so on a bare
+						// `map` it claimed to be current and then rewrote `_class` to `map world`. Ask
+						// the model rather than guessing from the token set.
+						const next = applyVariant(chunk, look.token, axes, variants, variantAxes);
+						// …but a no-op is not enough for DEFAULT on its own. On `map world` both Default
+						// and the `world` tile are no-ops, and badging both put two "Current" tiles in one
+						// pick-one family. The look that is actually on wins; Default claims the badge
+						// only when no look is on AND clicking it really would do nothing.
+						const on = look.token ? next === chunk : !anyLookOn && variantNoop(chunk, '', axes, variants, variantAxes);
+						// An active TOGGLE is the one tile whose click is deliberately destructive: it
+						// removes the look. Preview the slide as it stands (previewing it turned off
+						// reads as the wrong slide) and say so — in the label AND on the badge, since
+						// an accessible name alone leaves a sighted author no warning at all.
+						const removes = !!look.token && !look.exclusive && variantActive(tokens, look.token);
+						return (
+							<ReshapeTile
+								key={look.token || '__default'}
+								sample={(frontMatter ?? '') + (removes || on ? chunk : next)}
+								label={look.token ? look.label : 'Default'}
+								actionLabel={removes ? `Remove ${look.label}` : `Reshape to ${look.token ? look.label : 'Default'}`}
+								badge={removes ? 'Current ×' : on ? 'Current' : ''}
+								active={on || removes}
+								options={options}
+								paletteOverride={paletteOverride}
+								extraTheme={extraTheme}
+								modeOverride={modeOverride}
+								extraCss={extraCss}
+								onClick={() => onPick(look.token)}
+							/>
+						);
+					})}
+				</div>
+			</PreviewPool>
+		</div>
 	);
 }
 

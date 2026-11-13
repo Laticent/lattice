@@ -444,3 +444,20 @@ test('a memo miss derived from a held model is a full parse of the same text', a
 		setBoundaryDeriver(null);
 	}
 });
+
+// The Studio cuts the same deck into chunks dozens of times per edit (35 calls for one edit, measured in Firefox on a
+// deck of phone photos). Counted, not timed (HARD RULE #32): a repeat ask cuts nothing, and hands back its own array.
+test('splitSlideChunks cuts a text once, and a caller cannot change the next answer', () => {
+	const { chunkCutCount } = require('../../../lib/core/slide-boundaries.mjs');
+	resetBoundaryMemo();
+	const deck = '# One\n\n---\n\n## Two\n\nText.\n\n---\n\n## Three\n';
+	const first = splitSlideChunks(deck).chunks;
+	assert.equal(chunkCutCount(), 1);
+	for (let i = 0; i < 20; i++) assert.deepEqual(splitSlideChunks(deck).chunks, first);
+	assert.equal(chunkCutCount(), 1, 'a repeated ask re-cut the text');
+	splitSlideChunks(deck).chunks.push('poison');
+	assert.deepEqual(splitSlideChunks(deck).chunks, ['# One\n', '\n## Two\n\nText.\n', '\n## Three\n']);
+	splitSlideChunks(`${deck}x`);
+	assert.equal(chunkCutCount(), 2, 'a changed text cuts once');
+	assert.deepEqual(splitSlideChunks(deck).chunks, first, 'the earlier text still answers right after another was cut');
+});
