@@ -890,3 +890,15 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   concurrent runs race on.
 - **Fix:** a gate a test feeds fixtures to takes its root (`checkOpenRouterBudget(errors, root)`,
   `checkVoiceSampleAssets(errors, samplesDir)`), and the test passes a `mkdtemp` tree. Never write a probe under the repo.
+
+## A test is red in the cloud sandbox and green on CI: two different Chromes
+
+- **Symptom:** an integration test fails every time in the sandbox and passes on CI, with no flake.
+- **Cause:** CI's integration job uses puppeteer's pinned Chrome (131.0.6778.204, from `~/.cache/puppeteer`).
+  The sandbox exports `CHROME_PATH` and `PUPPETEER_EXECUTABLE_PATH` as `/usr/bin/google-chrome`, Chrome for
+  Testing 153. Two builds round and serialize differently: 153 snaps outline widths and offsets to whole pixels
+  (`calco-focus-column`), and writes keyword background positions as `calc()` (`contrast-probe-gradient`).
+- **Fix:** a test asserts what the browser itself reports, read from the same page, never one build's rounding
+  as a constant. To run a file on CI's build: `npx puppeteer browsers install chrome@131.0.6778.204`, then set
+  both `CHROME_PATH` and `PUPPETEER_EXECUTABLE_PATH` to the path it prints (a test may read either).
+- **Removable when:** the sandbox and CI pin the same Chrome.

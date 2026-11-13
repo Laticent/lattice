@@ -10,6 +10,7 @@
  */
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
@@ -102,7 +103,8 @@ describe('an @video record in an Export-to-Marp bundle — real marp-cli, real C
   after(async () => { if (browser) await browser.close(); });
 
   test('the record became a link to the watch page, and its title is text', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const links = await page.$$eval('a[href*="youtube.com/watch"]', (as) => as.map((a) => ({ href: a.getAttribute('href'), text: a.textContent, kids: a.children.length })));
     assert.equal(links.length, 1, JSON.stringify(links));
     assert.equal(links[0].href, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
@@ -111,7 +113,8 @@ describe('an @video record in an Export-to-Marp bundle — real marp-cli, real C
   });
 
   test('a hostile address adds no second link and moves no link to another host', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     // The PARSED host decides where a click goes, not the text of the href: the engine keeps `evil.example&sol;.instagram.com` as one
     // (unresolvable) Instagram-suffixed host, and so must the bundle.
     const hosts = await page.$$eval('a[href^="http"]', (as) => as.map((a) => new URL(a.getAttribute('href')).hostname));
@@ -121,14 +124,16 @@ describe('an @video record in an Export-to-Marp bundle — real marp-cli, real C
   });
 
   test('a record the export left as code (alone in a list item) draws the poster: the config hands it to the runtime from the Markdown', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     assert.ok(md.includes('- `@video{"https://vimeo.com/76979871"'), 'the export left the list-item record as written');
     await page.waitForFunction(() => !!document.querySelector('li > figure[data-lattice-media="video"]'), { timeout: 60000 });
     assert.equal(await page.$eval('li > figure[data-lattice-media="video"] a.video-poster', (a) => a.getAttribute('href')), 'https://vimeo.com/76979871');
   });
 
   test('a record in running text stays code, as the engine prints it', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     assert.ok(md.includes('A sentence with `@video{'), 'the bundle source keeps the span');
     assert.equal(await page.$$eval('code', (cs) => cs.filter((c) => c.textContent.startsWith('@video{')).length), 1);
   });

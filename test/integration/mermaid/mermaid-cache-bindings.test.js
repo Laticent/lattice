@@ -56,7 +56,18 @@ function hoverAndRead(page) {
   });
 }
 
-const settle = () => new Promise((r) => { setTimeout(r, 1000); });
+/**
+ * Wait until `n` fences are drawn again: a signal, not a duration (HARD RULE #32). The runtime binds a diagram's
+ * functions BEFORE it marks the fence `rendered` (`settleFenceFromCache` and the render queue in
+ * lib/plugins/mermaid/mermaid.hydrate.js), and a swap or a strip leaves fewer than `n` drawn fences behind, so this
+ * holds only once every fence has been handed its SVG and its bindings.
+ */
+const drawn = (page, n) => page.waitForFunction(
+  (k) => document.querySelectorAll('pre[data-lattice-settle="rendered"]').length === k
+    && document.querySelectorAll('.mermaid > svg').length === k,
+  { timeout: 30000 },
+  n,
+);
 
 function assertBound(read, when) {
   assert.ok(read.node, `${when}: the node with a tooltip is drawn (read: ${JSON.stringify(read)})`);
@@ -72,12 +83,12 @@ describe('a cached Mermaid hand-back keeps its click bindings', { skip: skipWith
       // The Studio's swap: the same engine HTML written over the deck again. The fence is new
       // and unmarked; the replay settles it from the cache in the mutation microtask.
       await page.evaluate(() => { document.querySelector('article.lattice').innerHTML = window.__deckHtml; });
-      await settle();
+      await drawn(page, 1);
       assertBound(await hoverAndRead(page), 'after a cache replay');
 
       // VS Code's strip: the line its mermaid-markdown-features preview script opens with.
       await page.evaluate('for (const svg of document.querySelectorAll(".mermaid > svg")) svg.remove();');
-      await settle();
+      await drawn(page, 1);
       assertBound(await hoverAndRead(page), 'after a strip-and-restore');
     });
   });
@@ -143,21 +154,21 @@ describe('two linked gantts: every hand-back binds each chart\'s own link', { sk
         assertOwnLinks(await clickTasks(page), false, 'fresh render');
 
         await swap(await page.evaluate(() => window.__deckHtml)); // both from the cache
-        await settle();
+        await drawn(page, 2);
         assertOwnLinks(await clickTasks(page), false, 'after a cache replay');
 
         const edited = await page.evaluate(() => window.__deckHtml.split('one.example').join('uno.example'));
         await swap(edited); // gantt 1's source changed: it re-renders, gantt 2 comes from the cache
-        await settle();
+        await drawn(page, 2);
         assertOwnLinks(await clickTasks(page), true, 'after an edit');
 
         await swap(edited); // a keystroke elsewhere: both from the cache
-        await settle();
+        await drawn(page, 2);
         assertOwnLinks(await clickTasks(page), true, 'after a keystroke elsewhere');
 
         for (let i = 0; i < 2; i++) {
           await page.evaluate(() => document.querySelector('.mermaid > svg')?.remove());
-          await settle();
+          await drawn(page, 2);
           assertOwnLinks(await clickTasks(page), true, `after partial strip ${i + 1}`);
         }
       });

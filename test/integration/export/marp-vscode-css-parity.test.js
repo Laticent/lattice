@@ -27,6 +27,7 @@
  */
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -145,7 +146,8 @@ describe('the VS Code-shaped stylesheet styles the preview exactly as the regist
   for (const d of RUNS) {
     const tag = `${d.name}-core${d.core.core}`;
     test(`${d.name} under marp-core ${d.core.core} (Marp for VS Code ${d.core.vscode}): every slide identical`, async (t) => {
-      if (skip) return t.skip(skip);
+      const why = skipUnlessCI(Boolean(skip), skip);
+      if (why) return t.skip(why);
       const h = HANDOFFS[d.handoff];
       const palettes = PALETTES().map(h.prepare);
       const deck = d.deck();

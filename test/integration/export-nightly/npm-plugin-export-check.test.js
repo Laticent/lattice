@@ -39,34 +39,46 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const http = require('node:http');
-const dgram = require('node:dgram');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { openListener } = require('../../helpers/request-log');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
 const TIMEOUT = 600000;
-const SETTLE_MS = 2000;
 
 const DECK = '---\ntheme: indaco\n---\n\n# Canary export\n\nOne\n\n---\n\n## Two\n\n- A\n- B\n';
 
 let dir;
-let server;
-let udp;
-let hits;
-let H;
-let P;
+let main;
 let built;
 
-const vectorsHit = () => [...new Set(hits.map((h) => h.replace(/^\//, '').split(/[/?]/)[0]))].filter((v) => v && v !== 'favicon.ico').sort();
+/**
+ * A listener for one run: HTTP, WebSocket and a UDP socket where a TURN server would be (any datagram is a hit, so
+ * WebRTC cannot reach it unseen). `Connection: close` ends each socket once answered, so `drained()` can see every
+ * connection end while the browser is still open (test/helpers/request-log.js).
+ */
+const listener = () =>
+  openListener({
+    udp: { turn: '/webrtc' },
+    handle: (req, res, record) => {
+      record(req.url);
+      res.writeHead(200, { 'content-type': 'text/plain', 'access-control-allow-origin': '*', connection: 'close' }).end('x');
+    },
+  });
+
+const vectorsHit = (hits) => [...new Set(hits.map((h) => h.replace(/^\//, '').split(/[/?]/)[0]))].filter((v) => v && v !== 'favicon.ico').sort();
 
 /** The vectors that replace the page, so the call that started them may not answer. */
 const NAVIGATES = ['navigate', 'metarefresh', 'form'];
 
-/** Every exit a script could try, as the body of a function run in the opened export. Unique path per vector. */
-const vectors = () => ({
+/** Every exit a script could try against `log`, as the body of a function run in the opened export. Unique path per vector. */
+const vectors = (log = main) => {
+  const H = log.H;
+  const P = log.P;
+  const udp = { port: log.udpPort('turn') };
+  return {
   navigate: `setTimeout(function(){ location.href = '${H}/navigate'; }, 50)`,
   windowopen: `window.open('${H}/windowopen')`,
   webrtc: `var pc = new RTCPeerConnection({ iceServers: [{ urls: 'turn:127.0.0.1:${udp.port}', username: 'page-text', credential: 'x' }] }); pc.createDataChannel('x'); pc.createOffer().then(function(o){ return pc.setLocalDescription(o); })`,
@@ -88,26 +100,11 @@ const vectors = () => ({
   form: `document.body.insertAdjacentHTML('beforeend', '<form id="cf" action="${H}/form" method="post"></form>'); document.getElementById('cf').submit()`,
   ping: `document.body.insertAdjacentHTML('beforeend', '<a id="cp" href="#x" ping="${H}/ping">p</a>'); document.getElementById('cp').click()`,
   blanklink: `document.body.insertAdjacentHTML('beforeend', '<a id="cb" href="${H}/blanklink" target="_blank">b</a>'); document.getElementById('cb').click()`,
-});
+  };
+};
 
 before(async () => {
-  hits = [];
-  server = http.createServer((req, res) => {
-    hits.push(req.url);
-    res.writeHead(200, { 'content-type': 'text/plain', 'access-control-allow-origin': '*' }).end('x');
-  });
-  server.on('upgrade', (req, socket) => {
-    hits.push(req.url);
-    socket.destroy();
-  });
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  P = server.address().port;
-  H = `http://127.0.0.1:${P}`;
-  // A UDP socket where a TURN server would be: any datagram is a hit, so WebRTC cannot reach it unseen.
-  udp = dgram.createSocket('udp4');
-  udp.on('message', () => hits.push('/webrtc'));
-  await new Promise((r) => udp.bind(0, '127.0.0.1', r));
-  udp.port = udp.address().port;
+  main = await listener();
 
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-export-check-'));
   const deck = path.join(dir, 'deck.md');
@@ -126,8 +123,7 @@ before(async () => {
   }
 });
 after(async () => {
-  await new Promise((r) => server.close(r));
-  udp.close();
+  await main?.close();
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -166,12 +162,10 @@ function engines() {
   return list;
 }
 
-/** Open `file`, run every vector in its own page at once, and return the vectors that reached the listener. */
-async function reached(browser, file) {
-  hits = [];
-  const code = vectors();
-  const pages = await Promise.all(
-    Object.entries(code).map(async ([name, body]) => {
+/** Open `file` once per vector in `browser`, run each vector against `log`, and return whether each vector RAN. */
+async function attempt(browser, file, log) {
+  return Promise.all(
+    Object.entries(vectors(log)).map(async ([name, body]) => {
       const page = await browser.newPage();
       await page.goto(`file://${file}`, { waitUntil: 'load' }).catch(() => {});
       // Each vector first records that it RAN, so a zero is never a script that did not execute.
@@ -179,19 +173,47 @@ async function reached(browser, file) {
       return { page, name, ran };
     }),
   );
-  const deadline = Date.now() + 8 * SETTLE_MS;
-  await new Promise((r) => setTimeout(r, SETTLE_MS));
-  for (let seen = -1; seen !== hits.length && Date.now() < deadline; ) {
-    seen = hits.length;
-    await new Promise((r) => setTimeout(r, SETTLE_MS));
+}
+
+/**
+ * Run every vector in `file`, each in its own page, and return the vectors that reached the listener. Waits on
+ * signals, never on a quiet period (HARD RULE #32; test/helpers/request-log.js):
+ *   - the CONTROL (`witness` unset) waits until the listener has heard every vector this engine can fire;
+ *   - a walled run opens the export's pages first and only then runs a WITNESS, the control file against a second
+ *     listener. Once the witness has heard every fireable vector, any attempt the walled pages made has had at least
+ *     that long to land. A quiet period of 2 s, repeated until the count stopped moving, was the old wait.
+ * Then every page closes and the listener is drained, so an attempt already on the wire is counted.
+ */
+async function reached(eng, file, { witness = null } = {}) {
+  main.reset();
+  const fireable = Object.keys(vectors()).filter((v) => !MAY_MISS[eng.name].includes(v));
+  const heardAll = (log) => log.until((h) => fireable.every((v) => vectorsHit(h).includes(v)));
+  // A browser of its own per run, closed before the drain: the drain needs the client gone, and Chromium keeps an
+  // idle socket in its pool after the page that opened it has closed.
+  const browser = await eng.launch();
+  let pages = [];
+  let w = null;
+  try {
+    pages = await attempt(browser, file, main);
+    if (witness) {
+      w = await listener();
+      await attempt(browser, witness, w);
+      assert.ok(await heardAll(w), `the witness never heard ${fireable.filter((v) => !vectorsHit(w.hits).includes(v)).join(' ')}, so the walled run's zero proves nothing`);
+    } else {
+      // A vector the control cannot fire leaves the wait at its deadline; the harness test names it.
+      await heardAll(main);
+    }
+  } finally {
+    await browser.close();
+    await w?.close();
   }
-  const got = vectorsHit();
+  await main.drained();
+  const got = vectorsHit(main.hits);
   // A vector that threw never tried: its zero would be a closed exit by accident (a stub that
   // throws is not a wall, plugin code can fetch the original from a fresh frame). Only a vector that
   // navigates the page away may lose its answer.
   // A SecurityError is the engine enforcing a policy synchronously (WebKit's SecurityError, Firefox's NS_ERROR_CONTENT_BLOCKED, and Firefox's blank error for a form post that `form-action 'none'` refuses), which is a wall.
   const unrun = pages.filter((p) => p.ran !== true && !/^threw:(SecurityError|NS_ERROR_CONTENT_BLOCKED)$/.test(p.ran) && !(p.name === 'form' && p.ran === 'threw:') && !(p.ran === 'navigated' && NAVIGATES.includes(p.name))).map((p) => `${p.name}:${p.ran}`);
-  await Promise.all(pages.map((p) => p.page.close().catch(() => {})));
   return { got, unrun };
 }
 
@@ -207,14 +229,9 @@ function cell(eng, kind) {
       key,
       (async () => {
         if (eng.needs) throw new Error(`UNVERIFIED: ${eng.name} is not reachable (${eng.needs})`);
-        const browser = await eng.launch();
-        try {
-          const control = await reached(browser, built[kind].control);
-          const real = await reached(browser, built[kind].file);
-          return { control, real };
-        } finally {
-          await browser.close();
-        }
+        const control = await reached(eng, built[kind].control);
+        const real = await reached(eng, built[kind].file, { witness: built[kind].control });
+        return { control, real };
       })(),
     );
   }

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createVoiceModel } from './voice-model.js';
 
 // ABANDONED PREFETCH: DROP is not ABORT (#1391).
@@ -35,9 +35,18 @@ function kokoroModel() {
 	return { v, started, release: (t: string) => gates.get(t)?.() };
 }
 
-const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms));
+// The model's patience (`waitMs`), the serial queue and every hand-off between them run on timers, so the tests run
+// them on vitest's virtual clock (HARD RULE #32): advancing it N ms fires exactly the timers due by then and drains the
+// promise jobs between them. The same steps on the real clock were sleeps a loaded runner could overrun.
+const tick = (ms = 0) => vi.advanceTimersByTimeAsync(ms);
 
 beforeEach(() => localStorage.clear());
+beforeEach(() => {
+	vi.useFakeTimers();
+});
+afterEach(() => {
+	vi.useRealTimers();
+});
 
 describe('abandoned prefetch (#1391)', () => {
 	it('drops queued prefetch when the presenter leaves the slide', async () => {

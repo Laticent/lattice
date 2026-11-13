@@ -27,6 +27,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -301,6 +302,8 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
 
   test('the OS layer: as root on Linux, a Chromium the unprivileged user can run gets the OS sandbox, measured', async (t) => {
     const exe = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+    // ci-skip: CI's runner is not root, so it never takes this test; the cloud sandbox image (root, a Chromium under
+    // /opt/pw-browsers) runs it. CI's log shows it as the one skip in the integration tier (run 43216077994).
     if (process.platform !== 'linux' || process.getuid?.() !== 0 || !fs.existsSync(exe)) return t.skip('needs root on Linux and a Chromium outside /root (the sandbox image has one at /opt/pw-browsers)');
     const { launchCodeSandbox } = require('../../../lib/core/os-sandbox.js');
     const s = await launchCodeSandbox(require('puppeteer'), { executablePath: exe });
@@ -317,7 +320,12 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
     const { detectChromeExecutable } = require('../../../lib/core/chrome-exec.js');
     const probe = await launchCodeSandbox(require('puppeteer'), { executablePath: detectChromeExecutable() || undefined });
     await probe.close();
-    if (probe.layer.os === 'on') return t.skip('the default browser here gets the OS sandbox, so there is no weaker layer to refuse');
+    // CI's browser gets no OS sandbox, so this test runs there; a runner where it does would lose the test, so CI fails,
+    // and says why rather than tripping an assertion further down.
+    const noWeakerLayer = 'the default browser here gets the OS sandbox, so there is no weaker layer to refuse';
+    const why = skipUnlessCI(probe.layer.os === 'on', noWeakerLayer);
+    if (why) return t.skip(why);
+    assert.notEqual(probe.layer.os, 'on', `under CI: ${noWeakerLayer}, so this test would prove nothing`);
     const { grantTrust, codeDigest } = require('../../../lib/packages/trust.js');
     const { findInstalled } = require('../../../lib/packages/home.js');
     const inst = findInstalled(path.join(home, 'packages'), 'component', 'tally');

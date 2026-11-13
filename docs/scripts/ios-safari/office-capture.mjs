@@ -32,8 +32,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * Show one file (a path inside the app's own sandbox, or none) in QLProbe and capture the screen once the preview has
  * SETTLED: two captures 3 s apart that match. A fixed wait caught slides mid-load ("Loading…", the slide still faded in)
  * on the first app run; the spinner animates, so a settled screen is a finished one. At most `budget` ms.
+ * With `blank` (the empty viewer's capture), a screen still matching it is NOT settled: Quick Look can sit on an empty
+ * white page for longer than 3 s before it draws a .pptx, and two identical blank captures read as a finished slide
+ * (run 43285290891, inline-icons slide 5: "settled", 0.4% different from the blank page, the export itself correct).
  */
-async function capture(file, out, budget) {
+async function capture(file, out, budget, blank = null) {
 	simctl('launch', '--terminate-running-process', UDID, BUNDLE, file);
 	await sleep(3000);
 	simctl('io', UDID, 'screenshot', out);
@@ -42,7 +45,7 @@ async function capture(file, out, budget) {
 		await sleep(3000);
 		simctl('io', UDID, 'screenshot', out);
 		const now = PNG.sync.read(fs.readFileSync(out));
-		if (changed(now, last).share < 0.002) return { img: now, settled: true };
+		if (changed(now, last).share < 0.002 && !(blank && changed(now, blank).share <= 0.05)) return { img: now, settled: true };
 		last = now;
 	}
 	// Never still within the budget: a preview still loading is not a slide, so the caller fails it.
@@ -105,7 +108,7 @@ const steps = [];
 for (const f of index.filter((x) => x.slides)) {
 	const name = `${f.deck} ${f.variant} slides ${f.slides.join(', ')}`;
 	try {
-		const { settled } = await capture(inApp(f), path.join(dir, `${LABEL}-${stem(f)}.png`), 30000);
+		const { settled } = await capture(inApp(f), path.join(dir, `${LABEL}-${stem(f)}.png`), 30000, baseline);
 		steps.push({ name, pass: settled, detail: settled ? 'settled' : 'never settled' });
 	} catch (e) {
 		steps.push({ name, pass: false, detail: String(e.message).slice(0, 200) });
@@ -115,7 +118,7 @@ for (const f of index.filter((x) => !x.slides)) {
 	const name = `${f.deck} slide ${f.slide}`;
 	const file = path.join(dir, `${LABEL}-${f.deck}-slide-${String(f.slide).padStart(2, '0')}.png`);
 	try {
-		const { img: shot, settled } = await capture(inApp(f), file, 30000);
+		const { img: shot, settled } = await capture(inApp(f), file, 30000, baseline);
 		const { share, colors } = changed(shot, baseline);
 		// The slide's own background is on screen: the dominant color of the same cut's Quick Look render (made by
 		// tools/office-quicklook.mjs earlier in this job) covers a real share of the screen. A download prompt (a dimmed

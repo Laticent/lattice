@@ -10,6 +10,7 @@
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -18,7 +19,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const BUNDLE = path.join(ROOT, 'dist', 'lattice-pdf-compose-min.js');
 const { EMOJI_SLICES, slicesFor } = require('../../../lib/fonts/emoji-faces.js');
 
-test('a ::before emoji keeps its slice, and content:" body " stays text', { skip: !fs.existsSync(BUNDLE) && 'needs npm run build' }, async () => {
+test('a ::before emoji keeps its slice, and content:" body " stays text', { skip: skipUnlessCI(!fs.existsSync(BUNDLE), 'needs npm run build') }, async () => {
   const puppeteer = require('puppeteer');
   const fontsDir = path.join(ROOT, 'assets', 'fonts');
   const faces = EMOJI_SLICES.map(

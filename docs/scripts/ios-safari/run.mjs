@@ -189,9 +189,14 @@ async function composeTouchTap(id) {
 		if (!target) return { ok: false, steps, error: 'no Compose paragraph to tap' };
 		const at = await run(`const r = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8)[window.__touchIndex].getBoundingClientRect(); return { x: Math.round(r.left + Math.min(r.width / 2, 40)), y: Math.round(r.top + r.height / 2) };`);
 		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		// NO HOLD between down and up. A tap has none, and the simulator can stretch a hold: with an 80 ms pause here, a slow
+		// iPad simulator (run 43266767594, the one whose session had already timed out once) read the tap as a long press and
+		// selected the word under the finger, so the paragraph held a range, not a caret, and correctly got no caret-line mark.
+		const tapStart = Date.now();
 		await wd('POST', `/session/${id}/actions`, {
-			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 80 }, { type: 'pointerUp', button: 0 }] }],
+			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
 		});
+		const tapMs = Date.now() - tapStart;
 		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 		const seen = await wd('POST', `/session/${id}/execute/async`, {
 			args: [],
@@ -204,12 +209,13 @@ async function composeTouchTap(id) {
 					const inP = !!(p && node && p.contains(node));
 					const focused = !!(document.activeElement && document.activeElement.closest('.ProseMirror'));
 					const marked = !!(p && p.classList.contains('cs-active-line'));
-					if ((inP && focused && marked) || performance.now() - t0 > 4000) done({ inP, focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className });
+					const caret = !!(sel && sel.isCollapsed);
+					if ((inP && caret && focused && marked) || performance.now() - t0 > 4000) done({ inP, caret, picked: sel ? String(sel).slice(0, 40) : '', focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className });
 					else requestAnimationFrame(read);
 				};
 				read();`,
 		});
-		step('a touch tap puts the caret in the tapped paragraph', seen.inP, `"${target.text}" at ${at.x},${at.y}`);
+		step('a touch tap puts the caret in the tapped paragraph', seen.inP && seen.caret, `"${target.text}" at ${at.x},${at.y}, gesture ${tapMs} ms${seen.caret ? '' : `, but it SELECTED "${seen.picked}" (read as a long press)`}`);
 		step('the editor has the focus after the tap', seen.focused, `active: ${seen.active}`);
 		step('the tapped paragraph carries the caret-line mark', seen.marked);
 		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);

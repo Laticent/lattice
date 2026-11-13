@@ -47,7 +47,9 @@ describe('deck-context alignment (real engine, real splitter)', () => {
 	it('real decks EXIST whose engine section count differs from the authored slide count', () => {
 		const dir = path.join(ROOT, 'examples');
 		const mismatched: Record<string, [number, number]> = {};
-		for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.md'))) {
+		// The two real decks the assertions name, not all of examples/ (360 decks): rendering every deck to read two
+		// answers cost 20-40 s and overran the test's deadline on a loaded runner (HARD RULE #32, F4: shrink the work).
+		for (const f of ['focus.md', 'split-headings.md']) {
 			const { slides, doc } = deckDoc(fs.readFileSync(path.join(dir, f), 'utf8'));
 			const sections = sectionCount(engine.render(doc, 'lattice').html);
 			if (sections !== slides.length) mismatched[f] = [slides.length, sections];

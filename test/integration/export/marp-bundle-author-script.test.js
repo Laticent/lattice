@@ -20,6 +20,7 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
@@ -198,25 +199,29 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
   });
 
   test('no payload ran', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const hits = await page.evaluate(() => Object.keys(window).filter((k) => k.startsWith('__hit_')));
     assert.deepEqual(hits, [], `ran: ${hits.join(', ')}`);
   });
 
   test('the Lattice runtime still loaded from its own tags, and no <base> re-pointed them', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     assert.equal(await page.evaluate(() => document.querySelector('base')), null);
     assert.equal(await page.evaluate(() => document.documentElement.getAttribute('data-lattice-runtime')), 'loaded');
   });
 
   test('quoted code still shows as written', (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     assert.match(html, /Quoted: <code>&lt;script&gt;alert\(1\)&lt;\/script&gt;<\/code>/);
     assert.match(html, /onerror/, 'the fenced sample keeps its text');
   });
 
   test('allowlist: with the strip taken away, the config alone runs no payload and still loads the runtime', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const hits = await rawPage.evaluate(() => Object.keys(window).filter((k) => k.startsWith('__hit_')));
     assert.deepEqual(hits, [], `ran: ${hits.join(', ')}`);
     // A frame is on the list (an https: page, § 11 "What it does not do"); its srcdoc is not.
@@ -229,7 +234,8 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
   });
 
   test('a gradient drawing keeps its paint server, and an unclosed <pre> on the last slide keeps the runtime', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     for (const p of [page, rawPage]) {
       assert.equal(await p.evaluate(() => document.querySelectorAll('svg linearGradient stop').length), 2);
       assert.equal(await p.evaluate(() => typeof window.mermaid), 'object', 'the Mermaid tag the <pre> swallowed still loaded');
@@ -238,20 +244,23 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
   });
 
   test('the speaker notes hold only the author\'s note, not the bundle\'s own comments', (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     assert.match(notes, /Say the number slowly\./);
     assert.doesNotMatch(notes, /Lattice:|markdownlint/);
   });
 
   test('a deck that ends in an open comment keeps the bundle\'s own comments out of its notes', (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     assert.match(tailNotes['open-comment'], /left open/, 'the author\'s own text is still there');
     assert.doesNotMatch(tailNotes['open-comment'], /Lattice:|markdownlint|<\/pre>/);
   });
 
   for (const name of Object.keys(TAILS)) {
     test(`a deck ending in ${name} still loads the runtime, as HTML scripts`, (t) => {
-      if (skip) return t.skip(skip);
+      const why = skipUnlessCI(Boolean(skip), skip);
+      if (why) return t.skip(why);
       assert.deepEqual(tails[name], { runtime: 'loaded', svgScripts: 0 });
     });
   }
@@ -361,7 +370,8 @@ And $E = mc^2$ is math.
   });
 
   test('no arm runs a handler or fires the beacon', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     for (const [arm, { page }] of Object.entries(arms)) {
       const ran = await page.evaluate(() => Object.keys(window).filter((k) => k.startsWith('__hit_')));
       assert.deepEqual(ran, [], `${arm} ran: ${ran.join(', ')}`);
@@ -370,7 +380,8 @@ And $E = mc^2$ is math.
   });
 
   test('the bundle\'s math renders, typeset by KaTeX at export, and Marp typeset none of it', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const { page } = arms.bundle;
     // A DOM query, not a text match: lattice.css itself names `mjx-container` in a selector.
     assert.equal(await page.evaluate(() => document.querySelector('mjx-container')), null);
@@ -387,7 +398,8 @@ And $E = mc^2$ is math.
   });
 
   test('the unbaked deck under the bundle\'s config shows its TeX as text, and the open config typesets nothing', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     assert.equal(await arms.raw.page.evaluate(() => document.querySelector('mjx-container, section .katex')), null);
     assert.match(await arms.raw.page.evaluate(() => document.body.textContent), /And \$E = mc\^2\$ is math/);
     assert.equal(await arms.open.page.evaluate(() => document.querySelector('mjx-container')), null);
