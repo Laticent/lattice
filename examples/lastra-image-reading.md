@@ -85,3 +85,14 @@ The header reader finds the primary picture's size, so the layout picks a compos
 `@image{media/canoe.jpg, title="A canoe on a still lake", sm}`
 
 Every gallery and photo deck kept its bytes; only the files above change.
+
+---
+
+<!-- _class: closing -->
+<!-- _header: '' -->
+
+## Each picture lands as painted.
+
+`Fix · one header reader`
+
+One reader now settles every turn, and the exports follow the browser.

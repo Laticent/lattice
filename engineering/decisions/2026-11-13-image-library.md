@@ -395,8 +395,9 @@ the slice that needs an SVG size from bytes.
   scope-hoists a library renames each same-named local elsewhere in the bundle, and the player ships functions as
   `toString()` source, so lastra's private helpers `info` and `view` turned a player's `info` into `info2`. The fix is in
   the code, not the comparison: the CLI bundle and the Studio's player core both read lastra's CommonJS build, which
-  stays inside its own closure, so its names cannot reach the rest of the bundle (structural; it costs the lazily loaded
-  player core about 5 KB gzipped, the parts of lastra it did not use); lastra's private helpers also carry distinctive
+  stays inside its own closure, so its names cannot reach the rest of the bundle (structural). A CommonJS build is not
+  tree-shaken, so the player core carries the parts of lastra it does not call; the decoders' own subpath,
+  `@laticent/lastra/decode`, keeps them out of it. Lastra's private helpers also carry distinctive
   names (index.ts says why). Checked by counting renamed identifiers in the
   CLI and player-core bundles before and after: none outside lastra's own code.
 - The golden JPEG hash (`jpeg.test.ts`) did not move.
