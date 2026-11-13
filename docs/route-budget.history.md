@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-13 — the owner raised one ceiling by hand, for PR 2988: home eagerJsGz to 314.5 KB
+
+Owner OK 2026-11-13 in the PR 2988 session: "Raise ceiling, own PR", chosen over dropping the warning the preview logs when the lazy measured-split module fails to load (about 45 B, leaving under 30 B of room) and over hunting unrelated bytes in the home page's start-up modules.
+
+PR 2988 runs the measured split in every preview, and the home page loads the preview renderer (`single-slide-render`) eagerly. It gave back first: the renderer now hands its raw values to the lazy module, which builds the layout key, the frame size and the callbacks, cutting the PR's home cost from +322 B to +205 B gz (+190 single-slide-render, +15 DeckPreview). CI on 6b0d2dd then measured home eagerJsGz at 313.2 KB against the 313.2 KB ceiling, under 50 B over; `main` alone sits about 190 B under it. The ceiling rises 320684 -> 322048 (314.5 KB), about 1.3 KB over the measurement. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| home | eagerJsGz | 291531 | 291531 | +0 | 322048 |
+
 ### 2026-11-13 — the owner raised two ceilings by hand, for PR 2988: Studio htmlRaw to 246.0 KB, getting-started engineJsGz to 342.0 KB
 
 Owner OK 2026-11-13 in the PR 2988 session: "Rework #3066", chosen over giving the bytes back first (finding why getting-started loads the split code, about half a day or more) and over closing #3066 for a fresh PR. An earlier raise this PR carried, the shared engine to 766.0 KB, is dropped: `main`'s later reset gave that metric room.
