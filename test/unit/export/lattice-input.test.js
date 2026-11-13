@@ -9,8 +9,11 @@
  *   CLASH     two rows claiming one name, or a row's old name that is another photo's name, are refused by name
  *   ROW       only the fields a Studio row has survive, each cleaned and bounded
  *   SIGNALS   the private folder is removed when the CLI is stopped by SIGINT, SIGTERM or SIGHUP
+ *   NESTED    an unpack asked for inside an unpack child is refused at once, with a typed error and no folder:
+ *             if the child path ever resolved to the CLI again, that is one error, never a chain of processes
+ *   ALIAS MAP `buildAssetUrls` resolves an old name like `constructor` by own keys, not through Object.prototype
  */
-const { test, describe } = require('node:test');
+const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -24,7 +27,16 @@ const li = require('../../../lib/export/lattice-input');
 const ROOT = path.join(__dirname, '..', '..', '..');
 /** A 1 x 1 PNG. */
 const PNG = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8cfc0f01f0005000201a3b2a7e60000000049454e44ae426082', 'hex');
-const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `li-unit-${p}-`));
+// Every folder a test makes is removed when the file ends, so runs do not pile up in the system temp folder.
+const made = [];
+const tmp = (p) => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), `li-unit-${p}-`));
+  made.push(d);
+  return d;
+};
+after(() => {
+  for (const d of made) fs.rmSync(d, { recursive: true, force: true });
+});
 const row = (over = {}) => ({ name: 'hero', kind: 'image', scope: 'library', mime: 'image/png', bytes: PNG.length, width: 1, height: 1, sourceName: 'hero.png', original: true, addedAt: 0, file: 'hero.png', ...over });
 
 async function latticeFile(source, rows, files) {
@@ -38,6 +50,38 @@ describe('unpackSync', () => {
   test('the child is the shipped file, by its path in the package', () => {
     assert.equal(li.ENTRY, path.join(ROOT, 'lib', 'export', 'lattice-input.js'));
     assert.ok(fs.existsSync(li.ENTRY));
+  });
+
+  test('an unpack asked for inside an unpack child is refused at once, and makes no folder', async () => {
+    const file = await latticeFile('# D\n', [], {});
+    const root = tmp('nested');
+    const was = process.env[li.CHILD_MARK];
+    process.env[li.CHILD_MARK] = '1';
+    try {
+      assert.throws(() => li.unpackSync(file, { tmpRoot: root }), { code: 'LATTICE_NESTED_UNPACK' });
+    } finally {
+      if (was === undefined) delete process.env[li.CHILD_MARK];
+      else process.env[li.CHILD_MARK] = was;
+    }
+    assert.deepEqual(fs.readdirSync(root), [], 'no private folder was made');
+  });
+
+  test('the CLI started as an unpack child refuses a .lattice input with that error', async () => {
+    const file = await latticeFile('# D\n', [], {});
+    const r = require('node:child_process').spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), file, path.join(tmp('nested-cli'), 'x.pdf')], { encoding: 'utf8', env: { ...process.env, [li.CHILD_MARK]: '1' } });
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /started the CLI again on a \.lattice, so it stopped/);
+  });
+
+  test('an old name that is also an Object.prototype key resolves to its photo', () => {
+    const deck = tmp('alias-map');
+    fs.mkdirSync(path.join(deck, 'assets'));
+    fs.writeFileSync(path.join(deck, 'assets', 'hero.png'), PNG);
+    const { buildAssetUrls } = require('../../../lib/export/deck-assets');
+    const { urls } = buildAssetUrls(deck, undefined, { constructor: 'hero', tostring: 'hero' });
+    assert.ok(Object.hasOwn(urls, 'constructor'), 'an own entry');
+    assert.equal(urls.constructor, urls.hero);
+    assert.equal(urls.tostring, urls.hero);
   });
 
   test('a photo the deck names by every one of its old names is written once', async () => {

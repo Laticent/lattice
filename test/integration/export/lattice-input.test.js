@@ -21,7 +21,7 @@
  *
  * Slow tier: eight CLI renders per CLI.
  */
-const { test, describe } = require('node:test');
+const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -35,7 +35,16 @@ const CLIS = [['source', path.join(ROOT, 'lattice.js')], ['shipped bin', path.jo
 const TIMEOUT = 300000;
 const PHOTO = fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'lattice-input', 'photo.jpg'));
 // Not the product's own `lattice-input-` prefix: a test folder must never look like one the CLI left behind.
-const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `li-int-${p}-`));
+const made = [];
+const tmp = (p) => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), `li-int-${p}-`));
+  made.push(d);
+  return d;
+};
+// Every folder a test makes is removed when the file ends, so runs do not pile up in the system temp folder.
+after(() => {
+  for (const d of made) fs.rmSync(d, { recursive: true, force: true });
+});
 
 const photoMedia = () => ({
   index: JSON.stringify([{ name: 'pic', kind: 'image', scope: 'library', mime: 'image/jpeg', bytes: PHOTO.length, width: 320, height: 200, sourceName: 'pic.jpg', original: true, addedAt: 0, file: 'pic.jpg' }]),
@@ -114,6 +123,32 @@ for (const [label, bin] of CLIS) {
       assert.equal(r.status, 0, r.stderr);
       assert.match(r.stdout, /components: probe-box \(installed packages\)/);
       assert.match(fs.readFileSync(out, 'utf8'), /section\.probe-box \{ outline: 7px solid var\(--accent\); \}/, 'the installed component is embedded');
+    });
+
+    test("a .lattice's package that does not read is refused with its reason, and never falls back to an installed one", { timeout: TIMEOUT }, async () => {
+      const dir = tmp('broken');
+      const home = tmp('home');
+      // A working installed component and theme, under the names the file's broken copies take.
+      const comp = path.join(home, 'packages', 'component', 'probe-box');
+      fs.mkdirSync(comp, { recursive: true });
+      for (const [f, b] of Object.entries(compFiles('probe-box', 'section.probe-box { outline: 7px solid #111111; }'))) fs.writeFileSync(path.join(comp, f), b);
+      const theme = path.join(home, 'packages', 'theme', 'probe-brand');
+      fs.mkdirSync(theme, { recursive: true });
+      for (const [f, b] of Object.entries(themeFiles('probe-brand', '#111111'))) fs.writeFileSync(path.join(theme, f), b);
+      const newer = (files) => Object.fromEntries(Object.entries(files).map(([f, b]) => [f, f.endsWith('.manifest.json') ? JSON.stringify({ ...JSON.parse(b), format: 99 }) : b]));
+      const compFile = await writeLattice(dir, { source: '---\ntheme: indaco\n---\n\n<!-- _class: probe-box -->\n\n## Boxed\n', packages: [{ type: 'component', name: 'probe-box', files: newer(compFiles('probe-box', 'section.probe-box { outline: 9px solid red; }')) }] });
+      const out = path.join(dir, 'c.html');
+      const r = cli([compFile, out], home);
+      assert.equal(r.status, 0, r.stderr);
+      assert.match(r.stderr, /the \.lattice's component probe-box cannot be read and is not used: .*"format": 99/);
+      assert.doesNotMatch(r.stderr, /so its copy is used/, 'the note is only for a copy that is used');
+      assert.doesNotMatch(fs.readFileSync(out, 'utf8'), /7px solid #111111/, 'the installed copy is not drawn in its place');
+      fs.rmSync(path.join(dir, 'deck.lattice'));
+      const themeFile = await writeLattice(dir, { source: '---\ntheme: probe-brand\n---\n\n# Branded\n', packages: [{ type: 'theme', name: 'probe-brand', files: newer(themeFiles('probe-brand', '#2d4ed8')) }] });
+      const t = cli([themeFile, path.join(dir, 't.html')], home);
+      assert.equal(t.status, 1);
+      assert.match(t.stderr, /the \.lattice's theme probe-brand cannot be read: .*"format": 99/);
+      assert.doesNotMatch(t.stderr, /so its copy is used/);
     });
 
     test('a code component in the file fails without consent and renders with --trust, writing nothing', { timeout: TIMEOUT }, async () => {

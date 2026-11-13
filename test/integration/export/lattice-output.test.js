@@ -18,7 +18,7 @@
  *
  * Slow tier: three CLI renders per CLI; the `.lattice` writes need no browser.
  */
-const { test, describe } = require('node:test');
+const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -32,7 +32,16 @@ const CLIS = [['source', path.join(ROOT, 'lattice.js')], ['shipped bin', path.jo
 const TIMEOUT = 300000;
 const PHOTO = fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'lattice-input', 'photo.jpg'));
 // Not the product's `lattice-input-` / `lattice-write-` prefixes: a test folder must never look like one the CLI left.
-const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), `lo-int-${p}-`));
+const made = [];
+const tmp = (p) => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), `lo-int-${p}-`));
+  made.push(d);
+  return d;
+};
+// Every folder a test makes is removed when the file ends, so runs do not pile up in the system temp folder.
+after(() => {
+  for (const d of made) fs.rmSync(d, { recursive: true, force: true });
+});
 const DECK = '---\ntheme: indaco\n---\n\n## A photo\n\n![A gradient](asset:pic)\n';
 const ROW = { name: 'pic', kind: 'image', scope: 'library', mime: 'image/jpeg', bytes: PHOTO.length, width: 320, height: 200, sourceName: 'pic.jpg', original: true, addedAt: 0, file: 'pic.jpg', caption: 'A gradient' };
 const COMMENTS = [{ id: 'c1', slide: 1, text: 'Tighten the title', author: 'Ann', ts: 5 }];
@@ -94,6 +103,16 @@ for (const [label, bin] of CLIS) {
       assert.deepEqual(pkgs(b), pkgs(a), 'the same package files');
       assert.equal(pkgs(a).length, 5);
       for (const p of pkgs(a)) assert.deepEqual(Buffer.from(await b.file(p).async('uint8array')), Buffer.from(await a.file(p).async('uint8array')), `${p} is byte-identical`);
+    });
+
+    test('a .lattice output makes its folder, and says when -p themes it but the deck re-opens in another', { timeout: TIMEOUT }, async () => {
+      const dir = tmp('nested');
+      fs.writeFileSync(path.join(dir, 'deck.md'), '# No theme named\n');
+      const out = path.join(dir, 'new', 'sub', 'deck.lattice');
+      const r = cli([path.join(dir, 'deck.md'), out, '-p', 'cuoio'], tmp('home'), NO_BROWSER);
+      assert.equal(r.status, 0, r.stderr);
+      assert.ok(fs.existsSync(out), 'written into a folder that did not exist');
+      assert.match(r.stderr, /\.lattice: this \.lattice carries cuoio by -p cuoio, but the deck re-opens in the default theme, indaco/);
     });
 
     test('a .lattice output starts no browser and runs no package code: an unapproved code package is carried', { timeout: TIMEOUT }, async () => {
