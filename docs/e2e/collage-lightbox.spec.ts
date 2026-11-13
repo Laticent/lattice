@@ -115,8 +115,17 @@ async function openStudioDeck(page: Page, source: string = deck) {
 }
 
 const lightbox = (page: Page) => page.locator('.collage-lightbox');
-/** The glide has ended: the photo carries no transform. */
-const glideDone = (page: Page) => expect(lightbox(page).locator('img')).toHaveCSS('transform', 'none');
+/**
+ * The photo has loaded and the open glide has ended. The glide moves the photo's FRAME (its parent,
+ * `.collage-lightbox > div`; lib/core/collage-lightbox.mjs), not the img, so the frame is what has
+ * to read `transform: none`; the img carries only the zoom. Before this read the frame, it checked
+ * the img, which is untransformed throughout the glide, so it waited for nothing.
+ */
+const glideDone = async (page: Page) => {
+	const img = lightbox(page).locator('img');
+	await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0)).toBe(true);
+	await expect(img.locator('xpath=..')).toHaveCSS('transform', 'none');
+};
 /**
  * Click `at` until the lightbox is gone. A backdrop click inside the first 400 ms of an open is
  * ignored on purpose (the ghost-click guard), so the retry is the behavior under test, not a sleep.
