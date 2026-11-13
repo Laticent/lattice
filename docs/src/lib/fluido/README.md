@@ -44,6 +44,7 @@ What one slide becomes. `facts`:
 | `recipe` | `{ strategy, shapeReader }`, the component's own page recipe, if it has one. |
 | `recipeDeclined` | The recipe was tried and declined. |
 | `reSplit` | The slide is a page an earlier cut emitted. |
+| `measured` | A measured plan named the slide's pages. One member then still paginates: the measurement already knows the slide does not fit whole, so the cover takes the heading and the closing page the beats. |
 | `seam`, `members` | The seam to cut on and its member count, or leave both out and pass `readSeam`. |
 
 `readSeam` is a function returning `{ seam, members }`. Fluido calls it only when the decision

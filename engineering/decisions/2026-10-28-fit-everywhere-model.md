@@ -1323,3 +1323,24 @@ between a deletion and its insertion. On the redline gallery at a phone square, 
 60-word clause clipped now split between its clauses; the one page still past its frame is the old/new
 split's NEW page, whose why list rides with the clause, a layout fix of its own.
 
+**Prose, built.** A layout that declares the `item` axis but renders no list or table (a `content` slide
+of paragraphs, or paragraphs around one code block) now derives the `block` axis (`deriveAxis`,
+lib/core/split-envelope.js). Its members are the stage's top-level elements less a trailing run of beats
+(a key-insight blockquote, a `.below-note`, a coda cell), the same rule on both sides: `blockSpans` in
+the envelope, the `section.content` branch of `members()` in lib/core/fit-measure.js. `block` splits
+only on a measured plan (`fit: heal` keeps prose whole: paragraphs have no count). One block is a member
+too when a beat rides the slide, so the beat can leave the page (§20's seam): Fluido's `planSlide` now
+paginates one member when the plan was measured (`SlideFacts.measured`), and still keeps it whole
+otherwise. Only `content` reads block members in the page, so a layout with no members keeps the
+`{ atSeam: true }` mark its own strategy reads (split-panel `qr`). A single paragraph with no beat has no
+seam and still clips; a content slide that is only a code block has one block and is not cut by line.
+
+The maker-checker review of the prose seam found five defects before the commit, each fixed and tested:
+a page boundary dropped loose text between two blocks (a page now runs to the next page's first member);
+a subheading could end a page (headings are `keepWithNext` for Fluido's `pack`, which also keeps an
+`# H1` title with its first paragraph); a prose run carried no forward pointer (`membersIn` reads `block`
+pages through `blockSpans`); an inline `<svg viewBox>` (KaTeX's root sign) made a math paragraph a
+`figure` slide, and a one-item list derived `item` while the page measured blocks, so both stayed
+clipped (`deriveAxis` now takes the page's own test: no table and no list of two or more items); and
+the Fluido docs still said a single member always stays whole.
+

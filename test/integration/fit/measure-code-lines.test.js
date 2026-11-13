@@ -9,6 +9,8 @@
  *   TWO BLOCKS     a slide with two blocks splits one block a page, by count: no line members
  *   NOT CODE       a `content` slide with a block is not read as code lines here
  *   HIGHLIGHTED    each line in its own span (highlighted code): every line keeps its own height
+ *   CONTENT BLOCKS a `content` slide reads its paragraphs as members (the `block` axis), not a trailing insight
+ *   CONTENT LIST   a `content` slide with a list keeps its items as members
  *
  * FALSIFIABLE: without `codeOf`, WRAPPED LINES reads no members (a code slide has no list), so the
  * plan cannot split it; with the edge blanks kept, EDGE BLANKS reads 8 members against the strategy's 4; with a line's
@@ -86,4 +88,25 @@ test('HIGHLIGHTED: a line that starts in a new text node keeps its own height', 
   assert.equal(heights.length, 3, JSON.stringify(heights));
   assert.ok(heights[0] >= 18 && heights[0] <= 20, `the first line is one row, got ${JSON.stringify(heights)}`);
   assert.deepEqual(heights.slice(1), [20, 20], 'each later line is one 20px row, not 0 or two rows');
+});
+
+// PROSE (owner, 2026-11-13; §23): a `content` slide with no list or table reads its top-level blocks as
+// members, the `block` axis the strategy cuts (split-envelope.js `blockSpans`), less a trailing key
+// insight, which a split moves to its closing page.
+test('CONTENT BLOCKS: each paragraph is a member, and a trailing key insight is not', async () => {
+  const p = (t) => `<p style="margin:0;font:20px/30px serif">${t}</p>`;
+  const out = await measure('content', `${p('One.')}${p('Two.')}${p('Three.')}<blockquote><p>The insight.</p></blockquote>`);
+  assert.equal(out[0].members.heights.length, 3, JSON.stringify(out[0].members));
+  const one = await measure('content', `${p('Only one.')}`);
+  assert.equal(one[0].members, null, 'one block with no beat has no seam');
+});
+
+test('CONTENT LIST: a content slide with a list keeps its list items as members', async () => {
+  const out = await measure('content', '<p>Lead.</p><ul><li>a</li><li>b</li><li>c</li></ul>');
+  assert.equal(out[0].members.heights.length, 3, JSON.stringify(out[0].members));
+});
+
+test('CONTENT HEADING: a subheading keeps with the block after it, so no page ends on it', async () => {
+  const out = await measure('content', '<p>Lead.</p><h3>A sub heading</h3><p>Body one.</p><p>Body two.</p>');
+  assert.deepEqual(out[0].members.keepWithNext, [false, true, false, false]);
 });
