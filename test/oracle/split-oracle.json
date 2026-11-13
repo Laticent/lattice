@@ -70,6 +70,11 @@
       "deck": "examples/passage-split.md",
       "by": "PR #2988, 2026-11-06 (rendered at size: square, the phone venue, indaco, and read page by page; the component gallery at square, portrait and story under the fit harness)",
       "note": "A seven-sentence quote at square splits into pages at sentence breaks, each page a whole quote card with its marks, and the attribution rides the last page. A one-sentence quote has nowhere to break and stays whole (the gallery stress slide rings by design). Quote has no masthead, so its run opens on the first quote page rather than a cover."
+    },
+    "closing": {
+      "deck": "examples/closing-index-split.md",
+      "by": "PR 2988, 2026-11-13 (rendered at size: square and portrait, phone venue, indaco, read page by page)",
+      "note": "Slide 4 is `closing silent index`, five two-line see-also rows: at square it splits into an accent cover (title, subtitle) and two pages of its own rows (3 + 2), every page fitting. At portrait it fits whole. Slide 2, a one-line `closing`, and slide 3, a three-row index that fits, stay whole at both sizes: only `index` splits (split.onlyVariant)."
     }
   },
   "components": {
@@ -184,14 +189,14 @@
       "relationship": null
     },
     "closing": {
-      "treatment": "anchor",
+      "treatment": "read-across",
       "axis": null,
       "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
-      "perPage": null,
+      "enrolled": true,
+      "strategy": "cover-paginate",
+      "reshape": "paginator",
+      "coverClass": "lat-split-cover",
+      "perPage": 1,
       "relationship": null
     },
     "code": {

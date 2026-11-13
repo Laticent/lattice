@@ -24,7 +24,7 @@ Last slide of every deck. Restates the takeaway or call-to-action. Drops the pag
 
 - **default (no modifier).** A single-sentence takeaway or call-to-action closes the deck — the common case.
 - **`qr`.** The audience should leave with a scannable link (docs URL, contact card) rather than just a text call-to-action.
-- **`index`.** The closing is a reference/see-also list of multiple next steps or resources, not a single takeaway sentence. On a square, tall or strip slide its rows read at body size, not lede size: five two-line rows at lede size ran past the footer on a phone square.
+- **`index`.** The closing is a reference/see-also list of multiple next steps or resources, not a single takeaway sentence. On a square, tall or strip slide its rows read at body size, not lede size: five two-line rows at lede size ran past the footer on a phone square. It is the one closing that splits: a list that still does not fit becomes an accent cover and its rows over as many pages as they need (`split.onlyVariant`). Any other closing stays one slide, however long.
 - **`spectrum`.** `title` also carries `spectrum` — closes the bookend pair with the same generated gradient bar, echoing the deck's own multi-step color story one last time.
 
 ### Common mistakes

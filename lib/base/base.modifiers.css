@@ -3460,6 +3460,13 @@ section.lat-split-cover .split-feat-h {
    SUBTITLE block sets for a live slide), so the title's own bottom padding tightens when
    one follows; the lede then gets its own air below. Both in `padding` only (HARD #20)
    and color-free apart from --on-accent (HARD #3). */
+/* THE COVER'S TITLE IS THE SLIDE'S HEADING, SO IT IS SET IN THE DISPLAY FACE every heading uses
+   (base.elements.css `section h2`). It is a <div>, so it inherited the body face: on a theme whose
+   display and body faces differ (indaco: Playfair and Outfit) one slide's title read in two
+   typefaces across its run, the cover's against its own native pages' `h2` (seen on a split
+   `closing index`, 2026-11-13). Keyed on the cover ROLE, so it reaches the components that restyle
+   their own cover (compare-code, compare-prose, decision) too. */
+section[data-split-role="cover"] .split-feat-h { font-family: var(--font-display); }
 section.lat-split-cover .split-feat-h:has(+ .split-feat-sub) { padding-bottom: var(--sp-xs); }
 section.lat-split-cover .split-feat-sub {
   font-size: var(--fs-emphasis); font-style: italic; line-height: var(--lh-snug);

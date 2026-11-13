@@ -1646,6 +1646,11 @@
           },
           "description": "The page roles the strategy emits, for docs (e.g. [\"cover\", \"points\"]); not read by carouselize."
         },
+        "onlyVariant": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Split only a slide that carries this variant class; any other slide of the component stays whole (carouselize declines, and the strategy must not be on auto-split's shape-reader fallthrough list). `closing` uses it so only its `index` see-also list splits (owner, 2026-11-13; fit-everywhere-model.md §21)."
+        },
         "note": {
           "type": "string",
           "minLength": 1,
