@@ -427,3 +427,20 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Fix:** a document with only inline content waits for `load`; one that does fetch waits on the thing it fetches
   (`test/helpers/page-settle.js`, `test/helpers/request-log.js`).
 - **Removable when:** never; `networkidle0` stays a duration.
+
+## On a worker-controlled Studio page, Playwright's Firefox click hangs past its timeout
+
+- **Symptom:** `locator.click: Timeout 15000ms exceeded` on Firefox (the `gecko` project), on a Studio page the
+  service worker controls (`serviceWorkers: 'allow'`). The log ends at "performing click action". The button is on
+  screen and enabled, and the same spec passes on Chromium. Seen in `studio-export-offline.spec.ts` on the Share
+  sheet's buttons: 8 of 10 runs, on `main` and with that PR's fix alike.
+- **Cause:** on a controlled page Firefox re-inserts the live preview frame on each write (`docs/src/lib/srcdoc-write.js`),
+  and Playwright's Firefox frame tree does not follow a re-inserted frame (the entry above). A pointer action waits on
+  that tree and never completes. `locator.focus()` then `Enter`, and `locator.dispatchEvent('click')`, failed in the
+  same spec too.
+- **Fix:** click from inside the page and wait for the outcome, not the click:
+  `await expect(button).toBeEnabled(); await button.evaluate((el) => { setTimeout(() => el.click(), 0); });`, then wait
+  on the signal the click produces (a download, a dialog). A button that is drawn twice as a sheet mounts needs its
+  mounted copy (the Share rows carry `data-demo`). `studio-warm-offline.spec.ts` uses the keyboard on the editor for
+  the same reason.
+- **Removable when:** Playwright's Firefox driver follows a re-inserted frame, or the preview stops re-inserting.
