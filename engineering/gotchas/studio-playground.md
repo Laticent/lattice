@@ -1913,6 +1913,28 @@ never turn "passed in headless" into "works on iOS."
 - **Mitigation** — `PresentOverlay.tsx` attaches the listener in `useLayoutEffect`, inside the commit that shows the
   dialog. A surface whose keys must work the instant it appears binds them in a layout effect.
 
+## Escape does nothing while Present is open, under load, and the next click times out on Present's toolbar
+
+- **Symptom** — Present is open and settled, Escape is pressed and Present stays open for good; the next click in the
+  Studio fails with "Present dialog subtree intercepts pointer events". `e2e/studio-warm-offline.spec.ts` (the
+  "every on-demand Studio surface" sweep) failed 5 of 130 runs under load (2 to 4 workers, with the unit suite or
+  another e2e run beside it). It reads like a
+  closing dialog that still takes hits, but Present has no exit fade: it was never closed.
+- **Cause** — Present's key effect subscribed its handler itself, so a change to any of its deps (`NAV`,
+  `overviewOpen`, …) swapped the `window` listener. The shell's own `window` keydown listener comes first in the list
+  and sets state; React renders that in the microtask after the listener returns, still inside the same dispatch. If
+  that render changes a dep, the old listener is skipped as removed, and the new one was not on the list when dispatch
+  reached the window. Chromium runs neither (measured; Firefox happened to run the old one in the same experiment),
+  so the key is lost.
+- **Mitigation** — `PresentOverlay.tsx` subscribes one listener per open (`[open]`), which calls `keyRef.current`; the
+  deps-driven layout effect only re-points the ref. `e2e/present.spec.ts` "an Escape still reaches Present when a
+  render re-wires its keys mid-delivery" stages the order: a listener ahead of Present's turns the Escape into a `g`
+  in a microtask.
+- **Triggered by** — any `window`/`document` key or pointer listener whose effect lists changing deps; the listener
+  must be stable while the surface is up, and read changing state through a ref.
+- **Removable when** — never; it is how event dispatch works.
+- **Commits** — the flaky-e2e PR for followups 3159-p6 and 3159-p7.
+
 ## A dialog opened again right after it closed sits under its own dimming
 
 - **Symptom** — the photo-format dialog (or any `DialogContent` / `SheetContent`) opens dimmed; a click on its button lands on the overlay and closes it. Seen adding photos one after another; an in-page `button.click()` in `e2e/library-images-render.spec.ts` had hidden it, a real Playwright click timed out with "dialog-overlay intercepts pointer events".
@@ -1930,6 +1952,29 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — a new async step between boot and the first Explore; a new condition in `reusableFrame`.
 - **Removable when** — never; they are ordering rules.
 - **Commits** — the flaky-e2e touch PR of 2026-11-12.
+
+## On a loaded machine, a quick Explore and back leaves the Playground preview covered for seconds
+
+- **Symptom** — Explore, Edit, Explore a frame or two apart, wide layout: the preview stays covered (`.pg-preview-wrap`
+  without `is-live`) well after Explore's slide has landed. Shown on desktop and webkit-tablet by the spec's "never
+  holds Explore's reveal for Edit's realign" (red 4 of 17 without the fix). The gecko flake of "a quick Explore and
+  back, 0 frames apart … (wide)" (1 in 20 on main) looks the same but is NOT shown to be this: it never reproduced
+  here, and `followups.d/3159-p7-gecko-quick-explore-not-live.md` keeps it open.
+- **Cause** — the reveal waits for every hold to lift, and the realign hold is Edit's (the preview follows the
+  editor's caret first). The Edit in between set it, and its settle loop starts two frames after that switch, so after
+  the next one; in Explore the sync's realign usually cannot be paid (the editor pane is hidden), so the loop asked for
+  all 60 of its frames before giving up: about a second idle, more on a loaded machine. It is rare on gecko: 1 of 60
+  instrumented runs under load held on it (1031 ms), and 0 of 40 in a later round.
+- **Mitigation** — `PlaygroundApp.tsx`: entering Explore clears `realignPendingRef`, and `realignSeqRef` ties each settle
+  loop to the switch that started it, so an overtaken loop stops on its next frame. `playground-sync.ts` `enterExplore()`
+  drops the sync's owed realign too, so no frame load in Explore pays it by scrolling the preview to the editor's slide
+  mid-landing; `leaveExplore` owes it again on the way back. The reveal publishes what it waits for as `data-hold`
+  on the wrapper; the spec's "never holds Explore's reveal for Edit's realign" asserts on it. Without the fix that case
+  went red in 4 of 17 runs across desktop and webkit-tablet; with it, nothing can set the hold in Explore.
+- **Triggered by** — a new hold on the reveal, or a new async step a switch starts and a later switch can overtake.
+- **Removable when** — never; holds that belong to one view have to be dropped by the switch that leaves it.
+- **Commits** — the flaky-e2e PR for followups 3159-p6 and 3159-p7.
+
 ## An e2e key pressed in a fresh Stage window is lost, 1 run in 12 under load
 
 - **Symptom** — `docs/e2e/stage-window.spec.ts` opens the Stage, sees the deck painted, presses ArrowRight twice, and
@@ -2075,3 +2120,19 @@ never turn "passed in headless" into "works on iOS."
 - **Fix** — record toasts from inside the page into `sessionStorage`, which survives the reload, and arm the wait for the
   reload's navigation before the restore starts (`recordToasts` and `restoreAndReload` in that spec). Read the toast from
   the record afterwards; never poll a toast that a reload is about to take away.
+
+## An e2e that waits for "every animation to finish" never returns in the Studio
+
+- **Symptom** — `page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)))` hangs until the test
+  times out, on every engine, with nothing on screen moving. `e2e/chat-photos.spec.ts:516` (the phone composer) failed
+  this way on desktop, mobile and webkit-phone from #3128 on.
+- **Cause** — the Studio runs an animation that never ends by design: the editor's drawn caret
+  (`.lx-ghost-caret-cm` / `.lx-ghost-caret`, `lx-caret-blink … infinite` in `styles/tailwind.css`) blinks for as long
+  as the editor lacks focus, which is whenever a sheet or dialog has it. Its `finished` promise never settles.
+- **Mitigation** — wait on the animations of the element that is moving, not the document's:
+  `el.closest('[role="dialog"]').getAnimations({ subtree: true })`, as `chat-photos.spec.ts` now does, or
+  `locator.evaluate((el) => el.getAnimations())` (`compose-fenced-code.spec.ts`, `library-image-metadata.spec.ts`).
+  A count of RUNNING animations that skips infinite ones (`plugin-address-attack.spec.ts`) also works.
+- **Triggered by** — any new looping animation (a caret, a spinner, a pulse) on a page a spec waits on.
+- **Removable when** — never; a blinking caret is correct, and the wait was the wrong signal.
+- **Commits** — fix(e2e) chat-photos composer wait, 2026-11-13.

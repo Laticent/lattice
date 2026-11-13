@@ -530,6 +530,10 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			const f = hub.get();
 			caretFlat = caretSlide >= 0 ? caretSlide : f.unitIndex >= 0 ? f.flat : -1;
 			exploreClick = -1;
+			// A realign is Edit's debt (the preview following the caret). Explore lands by its own walk, so one still
+			// owed from a quick Edit in between must not be paid here: a frame load in Explore would scroll the preview
+			// to the editor's slide in the middle of Explore's landing. `leaveExplore` owes it again on the way back.
+			owed = false;
 			return caretFlat;
 		},
 		exploreClicked(page) {
