@@ -1913,6 +1913,28 @@ never turn "passed in headless" into "works on iOS."
 - **Mitigation** — `PresentOverlay.tsx` attaches the listener in `useLayoutEffect`, inside the commit that shows the
   dialog. A surface whose keys must work the instant it appears binds them in a layout effect.
 
+## Escape does nothing while Present is open, under load, and the next click times out on Present's toolbar
+
+- **Symptom** — Present is open and settled, Escape is pressed and Present stays open for good; the next click in the
+  Studio fails with "Present dialog subtree intercepts pointer events". `e2e/studio-warm-offline.spec.ts` (the
+  "every on-demand Studio surface" sweep) failed 5 of 130 runs under load (2 to 4 workers, with the unit suite or
+  another e2e run beside it). It reads like a
+  closing dialog that still takes hits, but Present has no exit fade: it was never closed.
+- **Cause** — Present's key effect subscribed its handler itself, so a change to any of its deps (`NAV`,
+  `overviewOpen`, …) swapped the `window` listener. The shell's own `window` keydown listener comes first in the list
+  and sets state; React renders that in the microtask after the listener returns, still inside the same dispatch. If
+  that render changes a dep, the old listener is skipped as removed, and the new one was not on the list when dispatch
+  reached the window. Chromium runs neither (measured; Firefox happened to run the old one in the same experiment),
+  so the key is lost.
+- **Mitigation** — `PresentOverlay.tsx` subscribes one listener per open (`[open]`), which calls `keyRef.current`; the
+  deps-driven layout effect only re-points the ref. `e2e/present.spec.ts` "an Escape still reaches Present when a
+  render re-wires its keys mid-delivery" stages the order: a listener ahead of Present's turns the Escape into a `g`
+  in a microtask.
+- **Triggered by** — any `window`/`document` key or pointer listener whose effect lists changing deps; the listener
+  must be stable while the surface is up, and read changing state through a ref.
+- **Removable when** — never; it is how event dispatch works.
+- **Commits** — the flaky-e2e PR for followups 3159-p6 and 3159-p7.
+
 ## A dialog opened again right after it closed sits under its own dimming
 
 - **Symptom** — the photo-format dialog (or any `DialogContent` / `SheetContent`) opens dimmed; a click on its button lands on the overlay and closes it. Seen adding photos one after another; an in-page `button.click()` in `e2e/library-images-render.spec.ts` had hidden it, a real Playwright click timed out with "dialog-overlay intercepts pointer events".
