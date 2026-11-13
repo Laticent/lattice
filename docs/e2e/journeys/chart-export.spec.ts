@@ -28,6 +28,11 @@ const HEADINGS = DECK.replace(/^---\n[\s\S]*?\n---\n/, '')
 // One check, three engines: `@gecko` runs it on desktop Chromium and Firefox, `@webkit-tablet` in WebKit (where the
 // retired bake cost most). Not `@crosswidth`: at phone width the editor this loads the deck through is folded away.
 async function exportMatchesScreen({ page }: { page: Page }) {
+	// The budget is set by the work, measured: alone this test spends about 6 s reading the 8 live slides and 11 s on
+	// the image export it checks (23-34 s in all, per engine); under 4 workers about 60-80 s; with six browsers on four
+	// cores about 160 s (six WebKit processes on four cores ran each export about 5x slower, slow but never stuck).
+	// The repo's other image-export specs budget 240-300 s for the same reason.
+	test.setTimeout(240_000);
 	await gotoStudio(page);
 	await setEditorContent(page, DECK);
 	await expect(railButtons(page)).toHaveCount(SLIDES);
@@ -83,7 +88,8 @@ async function exportMatchesScreen({ page }: { page: Page }) {
 
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	await expect(page.getByRole('dialog')).toBeVisible();
-	const download = page.waitForEvent('download', { timeout: 120_000 });
+	// No second clock: the download is waited for within the test's one budget above (timeout 0 hands it to that).
+	const download = page.waitForEvent('download', { timeout: 0 });
 	await shareExport(page, 'images');
 	const zip = await (await import('jszip')).default.loadAsync(fs.readFileSync(await (await download).path()));
 	const slidePng = (n: number) => Object.keys(zip.files).find((f) => new RegExp(`/slides/[^/]*-0*${n}\\.png$`).test(f));
