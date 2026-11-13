@@ -131,7 +131,7 @@ unit tier. What this arm adds is the other 18 (the embedded fonts and the agent 
 LICENSE files, which nothing compared) and, more usefully, the ~95 seconds between a 13s
 gate and a 108s suite — which, when you run the suite yourself, is the difference between being told your `dist/`
 is behind and reading two unrelated unit failures as a defect in your own diff. On CI it is
-close to decorative: the freshness job runs `build:uncommitted` first, so the copies are
+close to decorative: the freshness job's `npm ci` runs `build:uncommitted` (the root `prepare` script) first, so the copies are
 regenerated moments before they are compared, and what survives that is a BUILDER that
 stopped copying verbatim rather than a stale tree.
 
