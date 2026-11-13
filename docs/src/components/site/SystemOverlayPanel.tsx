@@ -6,7 +6,6 @@
 // browser once and draws the rows lib/system-report.ts builds; the wording and the rules live there,
 // under unit tests.
 
-import { Check, Copy, Gauge } from 'lucide-react';
 import * as React from 'react';
 import { DiagnosticPanel } from '@/components/diagnostics/diagnostic-overlay';
 import { Sep } from '@/components/diagnostics/Sep';
@@ -111,13 +110,14 @@ export default function SystemOverlayPanel() {
 			</div>
 			{/* The actions sit outside the scroll area, so they stay in reach on a short phone screen. */}
 			<div className="shrink-0">
+				{/* Text-only buttons, like the read-aloud overlay's "copy trace": a lucide icon shared with an eager chunk
+				    is split into its own eager chunk the moment this lazy panel imports it, and lucide's Copy did
+				    exactly that (+202 gz bytes on every page, check:route-budget). */}
 				<div className="mt-2 flex gap-1.5">
 					<button type="button" onClick={runProbe} disabled={probing} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2 py-1.5 text-[11px] text-popover-foreground hover:bg-muted/60 disabled:opacity-60">
-						<Gauge className="size-3.5" aria-hidden />
 						{probing ? 'Running…' : 'Run speed test'}
 					</button>
 					<button type="button" onClick={copy} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border bg-background px-2 py-1.5 text-[11px] text-popover-foreground hover:bg-muted/60">
-						{copied ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
 						{copied ? 'Copied' : 'Copy report'}
 					</button>
 				</div>
