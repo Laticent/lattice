@@ -1226,3 +1226,11 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   another. Now the rewrite reads the deck as Lattice reads a bundle (the block folded), skips code (markdown-it's fences), edits
   only the `_class` line of a multi-key comment, inserts below the block, and applies `classesWithInk` everywhere, so the eviction
   holds there too. `statement` left the centered list: it is a bucket, not a layout.
+- 2026-11-13: **owner, 2026-11-09: the image plugin, the video catch-up and the end of Marp's alt-text keywords all ship
+  before GA.** Each one changes how authors write a deck, and before GA a codemod over our own decks covers that, where
+  after GA it would need a migration story. "We are not GA, so we don't need to be backward compatible": the safety net is
+  a lint warning and its `--fix`, never a period where the engine reads both forms. Shipped toward it: the slide-text
+  address gate (#3110), slice 3 with the shared display layer, video on any slide and the `>` sigil (#3114), and one
+  placed-picture rule for every reader (#3132). Still owed before GA: the deck-wide `--fix` sweep off `![bg]`, then the
+  engine stops reading the keywords, in its own PR (`followups.d/3126-p2-deck-sweep-then-engine-break.md`). The order the
+  owner set: the meta record's codemod, then this sweep and the engine break, then the meta cut last.
