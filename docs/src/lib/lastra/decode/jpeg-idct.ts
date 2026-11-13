@@ -20,7 +20,7 @@
  * 2015, 2020, 2022, D. R. Commander. jdcolor.c: Copyright (C) 1991-1997, Thomas G. Lane; modified 2011 by
  * Guido Vollbeding; libjpeg-turbo modifications Copyright 2009 Pierre Ossman for Cendio AB, Copyright (C)
  * 2009, 2011-2012, 2014-2015, 2022, 2024, D. R. Commander, Copyright (C) 2013, Linaro Limited. Used under the IJG
- * license and libjpeg-turbo's Modified BSD license (README.ijg and LICENSE.libjpeg-turbo.md, copied unaltered beside this file); this file is a TypeScript
+ * license and libjpeg-turbo's Modified BSD license (README.ijg.txt and LICENSE.libjpeg-turbo.md, copied unaltered beside this file); this file is a TypeScript
  * re-expression, not the original code.
  */
 

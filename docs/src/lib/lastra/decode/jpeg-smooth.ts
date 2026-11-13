@@ -15,7 +15,7 @@
  * Based in part on the work of the Independent JPEG Group. jdcoefct.c: Copyright (C) 1994-1997, Thomas G.
  * Lane; libjpeg-turbo modifications Copyright 2009 Pierre Ossman for Cendio AB, Copyright (C) 2010,
  * 2015-2016, 2019-2020, 2022-2023, D. R. Commander, Copyright (C) 2015, 2020, Google, Inc. Used under the
- * IJG license and libjpeg-turbo's Modified BSD license (README.ijg and LICENSE.libjpeg-turbo.md, copied unaltered beside this file); this file is a
+ * IJG license and libjpeg-turbo's Modified BSD license (README.ijg.txt and LICENSE.libjpeg-turbo.md, copied unaltered beside this file); this file is a
  * TypeScript re-expression, not the original code.
  */
 

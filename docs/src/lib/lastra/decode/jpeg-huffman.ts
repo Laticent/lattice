@@ -14,7 +14,7 @@
  * Copyright (C) 1991-1998, Thomas G. Lane; lossless modifications Copyright (C) 1999, Ken Murchison;
  * libjpeg-turbo modifications Copyright (C) 2009-2011, 2012, 2015-2016, 2018-2019, 2022, 2024,
  * D. R. Commander, and Copyright (C) 2018, Matthias Räncker. Used under the IJG license and libjpeg-turbo's
- * Modified BSD license (README.ijg and LICENSE.libjpeg-turbo.md, copied unaltered beside this file); this file is a TypeScript re-expression, not the
+ * Modified BSD license (README.ijg.txt and LICENSE.libjpeg-turbo.md, copied unaltered beside this file); this file is a TypeScript re-expression, not the
  * original code.
  */
 

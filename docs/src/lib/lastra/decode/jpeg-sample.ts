@@ -15,7 +15,7 @@
  * Lane; libjpeg-turbo modifications Copyright 2009 Pierre Ossman for Cendio AB, Copyright (C) 2010,
  * 2015-2016, 2022, 2024, D. R. Commander, Copyright (C) 2014, MIPS Technologies, Inc., California,
  * Copyright (C) 2015, Google, Inc., Copyright (C) 2019-2020, Arm Limited. jdmainct.c: Copyright (C)
- * 1994-1996, Thomas G. Lane. Used under the IJG license and libjpeg-turbo's Modified BSD license (README.ijg and
+ * 1994-1996, Thomas G. Lane. Used under the IJG license and libjpeg-turbo's Modified BSD license (README.ijg.txt and
  * LICENSE.libjpeg-turbo.md in this folder); this file is a TypeScript re-expression, not the original code.
  */
 
