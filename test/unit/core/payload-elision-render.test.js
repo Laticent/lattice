@@ -57,7 +57,7 @@ function withPhotos(deck, p) {
 
 const DECKS = [
 	path.join(__dirname, '../../integration/baseline-decks/gallery.md'),
-	...['adaptive-image', 'bg-on-any-slide', 'bg-split-ratio', 'image-band', 'image-card-controls'].map((f) => path.join(__dirname, '../../../examples', `${f}.md`)),
+	...['adaptive-image', 'bg-on-any-slide', 'image-pane-story', 'image-band', 'image-card-controls'].map((f) => path.join(__dirname, '../../../examples', `${f}.md`)),
 ];
 
 describe('engine render: a photo payload is skipped and put back byte for byte', () => {

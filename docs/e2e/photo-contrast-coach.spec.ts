@@ -7,14 +7,14 @@ import { CHROME, expect, gotoStudio, persistedSource, test, typeDeck } from './s
 
 // `card-clear` drops the card's backing, so the theme's own (dark, in light mode) ink sits on a dark photo.
 // A heading alone, so the pin's verdict is the heading's: the theme's muted body ink is a second text the pin must also clear.
-const DARK_PHOTO_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\n![bg](sample:photo-wide.svg)\n';
+const DARK_PHOTO_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\n![A harbor](sample:photo-wide.svg)\n';
 // With a paragraph the muted body ink on this photo stays under 4.5:1 even pinned dark, so no pin is offered: the card ink is.
-const BODY_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\nThe words sit right on the photo.\n\n![bg](sample:photo-wide.svg)\n';
+const BODY_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\nThe words sit right on the photo.\n\n![A harbor](sample:photo-wide.svg)\n';
 // The mirror case: a bright photo under light ink (a dark deck), where the fix is to pin the slide light.
 const BRIGHT_PHOTO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA1klEQVR42u3SMQ0AAAgEsfcvEwEMKMADYWxSBZfLdMFZJMBAGAgDYSAwEAbCQBgIDISBMBAGAgNhIAyEgcBAGAgDYSAMBAbCQBgIA4GBMBAGwkBgIAyEgTAQGAgDYSAMhIHAQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIHAQBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEBgIA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA2EgDISBMBAYCANhIAwEBsJAGAgDgYEwEAbCQGAgPi0bG28SdoIc2AAAAABJRU5ErkJggg==';
-const BRIGHT_PHOTO_DECK = `---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\n![bg](${BRIGHT_PHOTO})\n`;
+const BRIGHT_PHOTO_DECK = `---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\n![A harbor](${BRIGHT_PHOTO})\n`;
 // A solid card carries the theme's own contrast, whatever the photo is.
-const SOLID_CARD_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight -->\n\n## A quiet harbor.\n\nThe words sit on a card.\n\n![bg](sample:photo-wide.svg)\n';
+const SOLID_CARD_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight -->\n\n## A quiet harbor.\n\nThe words sit on a card.\n\n![A harbor](sample:photo-wide.svg)\n';
 
 async function openCoach(page: import('@playwright/test').Page): Promise<void> {
 	const coach = page.getByRole('button', { name: CHROME.coach }).filter({ visible: true });
@@ -224,7 +224,7 @@ test('a deck-level image-card register change clears the finding without touchin
 
 // The preview follows the caret even where it is parked (the phone's Source tab): crossing to a slide draws it once, and the
 // editor re-lints after, so the tooltip for the slide the caret is on reads ITS photo and offers the single ink.
-const THREE = ['---\ntitle: Photos\n---\n', ...[1, 2, 3].map((n) => `\n<!-- _class: image spotlight card-clear -->\n\n## Slide ${n}\n\n![bg](sample:photo-wide.svg)\n`)].join('\n---\n').replace('---\n\n---\n', '---\n\n');
+const THREE = ['---\ntitle: Photos\n---\n', ...[1, 2, 3].map((n) => `\n<!-- _class: image spotlight card-clear -->\n\n## Slide ${n}\n\n![A harbor](sample:photo-wide.svg)\n`)].join('\n---\n').replace('---\n\n---\n', '---\n\n');
 for (const width of [1440, 390]) {
 	const engines = width === 1440 ? ' @webkit-tablet @crosswidth' : ' @webkit-phone @crosswidth';
 	test(`moving the caret to another slide gives that slide's tooltip the single ink (${width}px)${engines}`, async ({ page }) => {
@@ -415,7 +415,7 @@ test('a statement the Coach flags is underlined in the editor too, and the edito
 	await expect(finding).toContainText('Setting the card ink dark', { timeout: 20_000 });
 	const said = (await finding.textContent())?.trim() ?? '';
 
-	const underline = page.locator('.cm-line', { hasText: '![bg]' }).locator('.cm-lintRange-warning');
+	const underline = page.locator('.cm-line', { hasText: '![A harbor]' }).locator('.cm-lintRange-warning');
 	await expect(underline).toHaveCount(1, { timeout: 20_000 });
 	await underline.hover();
 	const tip = page.locator('.cm-tooltip-lint');
@@ -423,7 +423,7 @@ test('a statement the Coach flags is underlined in the editor too, and the edito
 	await tip.locator('.cm-diagnosticAction', { hasText: 'Set card ink dark' }).click();
 	await expect.poll(() => persistedSource(page)).toMatch(/_class: image statement card-clear ink-dark/);
 	await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true })).toHaveCount(0, { timeout: 20_000 });
-	await expect(page.locator('.cm-line', { hasText: '![bg]' }).locator('.cm-lintRange-warning')).toHaveCount(0, { timeout: 20_000 });
+	await expect(page.locator('.cm-line', { hasText: '![A harbor]' }).locator('.cm-lintRange-warning')).toHaveCount(0, { timeout: 20_000 });
 });
 
 // The fix lands on the slide you are looking at, and the preview STAYS there. A one-slide edit used to rewrite the whole

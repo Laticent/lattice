@@ -1896,7 +1896,7 @@ and `…-cvd-redundant-encoding.md`.
 ## Library photos — `asset:<name>`
 
 In the Studio, a photo you add to the Library is a picture any deck can show: `![](asset:team-offsite)` on a slide, or
-`![bg](asset:hero)` as a background. The name is the one on the photo's card. It works wherever an image does (an
+`![Hero](asset:hero)` on a `bleed` slide as its background. The name is the one on the photo's card. It works wherever an image does (an
 `image` slide, a `collage` list, a `logo-wall` mark, a deck `logo:`). The Library exists only in the Studio's browser; in
 the CLI the same name reads a file in an `assets/` folder beside the deck (see below). A Markdown or Marp export carries
 the reference, not the photo (a workspace backup carries the photo).

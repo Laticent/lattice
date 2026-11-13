@@ -915,3 +915,45 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   prints the same refusal.
 - **Fix:** an `actions/setup-node` step with `node-version-file: .nvmrc` before `npm ci` in the container job, which puts the repo's Node first
   on PATH. Any new container job needs the same step.
+
+## npm ci on node 24 prints everything, then never exits
+
+- **Symptom:** `unit (node 24)` (merge queue only) is cancelled or times out in its `npm ci` step. The log carries the
+  whole install, `prepare`'s `build OK`, `added N packages, and audited M`, the funding line, the audit summary and the
+  `npm warn install-scripts` lines, then nothing until the step's 10-minute timeout (`The action 'Run npm ci' has timed out after 10 minutes`; since
+  2026-11-13 the step is named `npm ci (npm itself single-threaded, …)`), and
+  the cleanup lists one orphan, `npm ci`. Node 22 never does it. Seen in September (runs 33582248943, 33586223061,
+  33519483686, 33593380463, all the same last line) and on 2026-11-13, when it ejected #3176 from the queue (run
+  43399170758).
+- **Cause:** a deadlock in node 24's `process.exit()`, not in npm and not in this repo. npm's exit handler calls
+  `process.exit()`; node then shuts its platform down and joins V8's worker threads while the isolate is still alive.
+  If a worker is mid-compile in the background (Maglev) and runs out of room, it parks in
+  `CollectionBarrier::AwaitCollectionBackground` waiting for a garbage collection only the main thread can run, and the
+  main thread is the one blocked in the join. The `gdb` stacks of a hung `npm ci` (node 24.22.1, npm 11.19.1):
+  - main thread: `uv_thread_join` ← `node::WorkerThreadsTaskRunner::Shutdown` ← `node::NodePlatform::Shutdown` ←
+    `node::DefaultProcessExitHandlerInternal` ← `node::Environment::Exit`;
+  - `V8Worker`: `CollectionBarrier::AwaitCollectionBackground` ← `HeapAllocator::AllocateRawWithLightRetrySlowPath` ←
+    `MaglevCodeGenerator::BuildCodeObject` ← `MaglevCompiler::Compile`.
+
+  Upstream: nodejs/node#64274, fix proposed in nodejs/node#66171, in no release on 2026-11-13.
+- **How to reproduce:** loop `npm ci` on node 24 and treat a run past 200 s as hung. On the runners (ubuntu-24.04,
+  node 24.22.2), the probe on scratch PR #3179 hung 4 of 60 plain runs with output redirected to a FILE (run
+  43407363473). In the cloud sandbox (node 24.22.1) a file never hung in 9 runs, but stdout and stderr on PIPES
+  (`npm ci 2> >(cat >e) | cat >o`) hung 4 of 34 (3 of 14, then 1 of 20 in a loop that alternated with the fix), so
+  locally, use pipes. A hung process is in state `Sl` with wchan `futex_do_wait`, not `ep_poll`, so a JS-level handle
+  dump never runs; attach `gdb -p <pid> -batch -ex "thread apply all bt"` for the stacks above (taken locally; on the
+  runners the probe captured the threads' kernel futex stacks, and npm's debug log of a hung run ends `verbose exit 0`
+  / `info ok`, which npm writes from its `exit` handler, so process.exit() had been called).
+- **Fix:** the `unit` job runs npm's own process with V8's background tasks off:
+  `node --single-threaded "$(dirname "$(readlink -f "$(command -v npm)")")/npm-cli.js" ci`. With no background compile
+  there is nothing to park. Measured after: 0 of 20 locally (the alternating loop), 0 of 145 on the runners: 60 in the same run as the
+  4 of 60 (the other arm), 85 more in run 43421579091. At the plain rate, 0 of 145 by chance is about 1 in 20,000. It costs nothing measurable: the 56 finished plain runs took 57 s at the median and 66 s at p90, the 60 flagged
+  runs 56 s and 69 s. The flag cannot go in `NODE_OPTIONS` (node refuses `--single-threaded`, `--no-maglev` and
+  `--no-concurrent-sparkplug` there), so it is passed on the command line of npm itself, and npm's children run as
+  before. `--no-maglev --no-concurrent-sparkplug` is the narrower mitigation others report; one reproduction upstream
+  still hung with it, so it was not chosen.
+- **Not a fix:** a longer timeout or a retry. The 10-minute step cap only bounds the cost.
+- **Any node 24 process that calls `process.exit()` is exposed,** not only npm. Nothing else in CI runs on node 24 except
+  this job's later steps, which have shown no such hang; if one appears, the same stacks will say so.
+- **Removable when:** the fix in nodejs/node#66171 (or another for #64274) ships in the node 24 line CI uses; then the
+  step goes back to plain `npm ci`.

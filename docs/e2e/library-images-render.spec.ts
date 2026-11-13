@@ -60,8 +60,8 @@ test('@smoke a Library photo paints in the live preview, and deleting it falls b
 	await expect(page.locator('[data-media-card="probe-photo"]').getByText(/used in 1 deck/)).toBeVisible({ timeout: 15_000 });
 	await page.screenshot({ path: testInfo.outputPath('asset-renders.png') });
 
-	// An image slide's background paints too.
-	await setEditorContent(page, '<!-- _class: image -->\n\n## Cover\n\n![bg](asset:probe-photo)\n');
+	// An image slide's photo panel paints too.
+	await setEditorContent(page, '<!-- _class: image -->\n\n## Cover\n\n![Probe photo](asset:probe-photo)\n');
 	await expect
 		.poll(async () => livePreview(page).locator('.lattice-bg').first().evaluate((el) => getComputedStyle(el).backgroundImage), { timeout: 30_000 })
 		.toMatch(/blob:/);

@@ -26,7 +26,7 @@ Every picture in this deck is named `sample:<file>`. It resolves the same way in
 
 The image layout reads the photo's shape from the file in `lib/samples/`, so the composition matches what the Studio previews.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 ---
 
@@ -38,7 +38,7 @@ The image layout reads the photo's shape from the file in `lib/samples/`, so the
 
 `sample:photo-tall.jpg` is a real raster photo, so a deck can test the JPEG route without bringing its own file.
 
-![bg](sample:photo-tall.jpg)
+![A figure before violet hills and a pale sun](sample:photo-tall.jpg)
 
 ---
 

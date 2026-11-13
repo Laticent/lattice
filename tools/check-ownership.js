@@ -8492,7 +8492,7 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
     guards: 0,
     guard: 'none',
     why:
-      'The `text` read is `wrapImageText`\'s empty-fold check, which only decides whether to wrap. The `url()` writes are `liftBgImages` (the author\'s `![bg]` markdown, rewritten in the SOURCE before the render) and `resolveInlineImageSrcs`, which maps an address already in the page to the same file and never invents one. The door drops any address a plugin invents (lib/core/door-attr.mjs `doorFilterAttr`) before this pass sees the page.',
+      'The `text` read is `wrapImageText`\'s empty-fold check, which only decides whether to wrap. The `url()` writes are `bgDiv`/`bgPanel`, the panel the Export-to-Marp source lift writes for an author\'s `![bg]` markdown (lib/core/bg-image-lift.js; the engine itself stopped reading `![bg]` on 2026-11-13), and `resolveInlineImageSrcs`, which maps an address already in the page to the same file and never invents one. The door drops any address a plugin invents (lib/core/door-attr.mjs `doorFilterAttr`) before this pass sees the page.',
   },
   {
     file: 'lib/core/css-scan.js',
@@ -8906,7 +8906,7 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'lib/core/pdf-compose/read-slide.mjs', shape: 'url-reader', count: 7, why: 'ENGINE-WRITTEN: the PDF composer reads the COMPUTED style of the rendered slide (masks, gradients, backgrounds) to draw native shapes; the render already blocked every web address before it runs.' },
   { file: 'docs/src/lib/calco/picture.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: Calco tests a computed background for the presence of a picture, to pick a tone; a presence test, never a fetch decision.' },
   { file: 'docs/src/lib/calco/reader.ts', shape: 'url-reader', count: 4, why: 'ENGINE-WRITTEN: Calco reads computed styles of the rendered slide (a picture present, an SVG data: mask) to build native shapes; the render already blocked.' },
-  { file: 'docs/src/components/studio/card-ink-sampler.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the picture off a panel\'s own `style.backgroundImage` (the engine\'s `![bg]` panel) to sample its tone.' },
+  { file: 'docs/src/components/studio/card-ink-sampler.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: reads the picture off a panel\'s own `style.backgroundImage` (the engine\'s `.lattice-bg` photo panel) to sample its tone.' },
   { file: 'docs/src/components/studio/photo-verdict.ts', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: the same panel read as card-ink-sampler.ts, for the photo verdict.' },
   { file: 'lib/export/html-player.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: matches the `--background-image:"url(\\"file://…\\")"` marker the engine writes for a local picture, to inline it.' },
   { file: 'lib/export/player-core.mjs', shape: 'url-reader', count: 3, why: 'ENGINE-WRITTEN: two skip url() tokens while minifying the player\'s own sheet; one reads the `@font-face` urls of the player\'s own fonts.' },

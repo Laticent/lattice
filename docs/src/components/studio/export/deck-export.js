@@ -382,7 +382,8 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// resolves it from the workspace setting (share-export.ts).
 	// `withRuntimeScriptsReport` also drops the deck's own executable HTML (marp-cli would run it on the
 	// recipient's machine) and says what it dropped; this function returns that for the toast.
-	// The Marp bundle ships Markdown, so it keeps the SOURCE lift of `![bg]`; every render lifts on the engine's tokens.
+	// The Marp bundle ships Markdown, and Export-to-Marp writes a placed photo as `![bg]` for Marp, so it keeps the SOURCE lift
+	// of `![bg]`; no render of ours reads `![bg]` since 2026-11-13.
 	// Imported here, not at the top: Node's unit tests import this module, and the loader names `@/` paths.
 	const { liftImageBgImages } = await (await import('../../../playground/bg-image-lift-source.js')).loadBgImageLift();
 	// Lattice scopes a plain `<!-- header: H -->` (and `footer:`) to its own slide; Marp carries it onto

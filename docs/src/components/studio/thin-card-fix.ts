@@ -6,6 +6,7 @@ import { unitAt } from '@/lib/fuoco/outline';
 import { slideRanges, splitSlides } from '../../lib/deck-lint';
 import { deckPlacingClasses } from '../../lib/deck-placing-classes';
 import { stripFrontMatter } from '../../lib/front-matter';
+import { slidePlacingAt } from '../../lib/slide-carried';
 import { canEditClass, getClassTokens } from '../../lib/slide-directives';
 import { photoAt } from './card-ink-pick';
 import { replaceSlide } from './deck-ops';
@@ -204,7 +205,7 @@ export function attachInkFixes(diags: Diagnostic[], text: string, focusUnit: () 
 }
 
 /**
- * The measured `photo-contrast` underline for the slide on screen, on its `![bg](…)` line, or null when the verdict
+ * The measured `photo-contrast` underline for the slide on screen, on its photo's line, or null when the verdict
  * passes or the line cannot be found. The editor adds it only where lint flags nothing on that slide: where lint does,
  * the `thin-card-no-ink` tooltip already carries this verdict.
  */
@@ -215,16 +216,16 @@ export function photoDiagnostic(doc: Text, m: NonNullable<MeasuredPhoto>, measur
 	const r = slideRanges(body)[m.slideIndex];
 	if (!r) return null;
 	const at = text.length - body.length + r.from;
-	// The `![bg]` the slide renders: not one quoted in a comment or a code fence, which are blanked first (same length, so the
+	// The photo the slide renders: not one quoted in a comment or a code fence, which are blanked first (same length, so the
 	// offsets hold).
 	const slideText = text
 		.slice(at, at + (r.to - r.from))
 		.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' '))
 		.replace(/^([ \t]*)(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1\2[ \t]*$/gm, (m) => m.replace(/[^\n]/g, ' '));
-	// The photo's line: an old `![bg]`, a record, or the record's shortcut on a placing slide (card-ink-pick.ts `photoAt`).
-	// The comments were blanked above, which takes the slide's `_class` with them: its classes are read from the slide as written.
-	const own = getClassTokens(text.slice(at, at + (r.to - r.from)));
-	const photo = photoAt(slideText, [...own, ...deckPlacingClasses(text)]);
+	// The photo's line: a record, or the record's shortcut on a placing slide (card-ink-pick.ts `photoAt`).
+	// The comments were blanked above, which takes the slide's `_class` with them: what the slide inherits is read from the deck
+	// as written (lib/slide-carried.ts), its carried class and background included.
+	const photo = photoAt(slideText, slidePlacingAt(text, at) ?? [...getClassTokens(text.slice(at, at + (r.to - r.from))), ...deckPlacingClasses(text)]);
 	if (!photo) return null;
 	const line = doc.lineAt(at + photo.index);
 	const message = m.verdict.message;

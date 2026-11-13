@@ -240,7 +240,7 @@ is a single full-bleed 2× JPEG (speaker notes, `--present`, and
 source as a PDF embedded file, so anyone holding the PDF can recover and
 re-render the deck (note: that ships your source, speaker notes included, inside
 the artifact). By default the exporter also **rasterizes SVG images**
-(`![bg](photo.svg)`, inline `![](photo.svg)`) into the otherwise-vector PDF,
+(a placed photo `photo.svg`, inline `![](photo.svg)`) into the otherwise-vector PDF,
 because iOS's built-in PDF viewer mishandles the vector constructs Chromium
 prints for them; `--keep-vector-images` opts back into vectors. Inline SVG —
 Mermaid diagrams, charts, logo marks — always stays vector.
