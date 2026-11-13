@@ -12,7 +12,6 @@ import { DiagnosticPanel } from '@/components/diagnostics/diagnostic-overlay';
 import { Sep } from '@/components/diagnostics/Sep';
 import { browserEnv, classify, type DeviceSignals, pinnedTier, readSignals, runCpuProbe } from '@/lib/device-profile';
 import { browserName, type ReportRow, type RowStatus, reportRows, reportText } from '@/lib/system-report';
-import { estimateQuota } from '@/playground/storage-metrics';
 import { setSystemOverlayEnabled } from '@/playground/system-overlay-prefs';
 
 // The rating colors the Perf and Storage overlays use, so the diagnostics read as one family.
@@ -35,7 +34,15 @@ export default function SystemOverlayPanel() {
 	React.useEffect(() => {
 		setSignals(readSignals(browserEnv(window)));
 		let alive = true;
-		void estimateQuota().then((q) => alive && q && setStorage({ usage: q.usage, quota: q.quota }));
+		// Read directly rather than through storage-metrics' estimateQuota: sharing that module with this
+		// lazy chunk split it out of the Storage overlay's eager chunk, and the split alone cost every page
+		// about 1 KB of eager JS (check:route-budget's per-PR allowance).
+		void navigator.storage
+			?.estimate?.()
+			.then(({ usage, quota }) => {
+				if (alive && typeof usage === 'number' && typeof quota === 'number') setStorage({ usage, quota });
+			})
+			.catch(() => {});
 		return () => {
 			alive = false;
 		};
