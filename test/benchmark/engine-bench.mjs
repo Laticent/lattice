@@ -1177,6 +1177,23 @@ async function squadraTier() {
   const c = time(() => sq.compileRuleset({ name: 'bench', version: '1', languages: [lines], rules: many, examples }), 5);
   summary.push({ dataset: 'squadra · compile · per rule', passes: 0, applied: 0, findings: c.out.rules.length, ops: 0, ms: c.ms / many.length, p95: c.p95 / many.length });
 
+  // THE DECK RULESET (M1b): the rules that moved out of lint-core, on `lattice-deck`, over the gallery. `findings` and
+  // `ops` are the work; `ms` is what moving a rule to Squadra costs per lint. A base tree with no deck ruleset skips it.
+  const deckRulesPath = join(ROOT, 'lib/authoring/squadra/deck-rules.js');
+  if (existsSync(deckRulesPath)) {
+    const req = createRequire(import.meta.url);
+    const { deckRuleset } = req(deckRulesPath);
+    const { RULES, EXAMPLES } = req(join(ROOT, 'lib/authoring/rules/index.js'));
+    const { latticeDeck } = req(join(ROOT, 'lib/authoring/squadra/deck-language.js'));
+    const gallery = readFileSync(join(ROOT, 'test/integration/baseline-decks/gallery.md'), 'utf8');
+    const dc = time(() => sq.compileRuleset({ name: 'deck', version: '1', languages: [latticeDeck], rules: RULES, examples: EXAMPLES }), 5);
+    summary.push({ dataset: 'squadra · deck ruleset · compile', passes: 0, applied: 0, findings: dc.out.rules.length, ops: 0, ms: dc.ms, p95: dc.p95 });
+    const drs = deckRuleset();
+    const dl = time(() => sq.lint(drs, [{ path: 'gallery.md', text: gallery, language: 'lattice-deck' }]), 10);
+    const dops = Object.values(dl.out.stats.perRule).reduce((n, r) => n + r.ops, 0);
+    summary.push({ dataset: 'squadra · deck ruleset · gallery', passes: 0, applied: 0, findings: dl.out.findings.length, ops: dops, ms: dl.ms, p95: dl.p95 });
+  }
+
   console.log('\n=== SQUADRA · fix driver, hostile input, strict compile ===');
   console.log(`${'dataset'.padEnd(34)}${'passes'.padStart(8)}${'applied'.padStart(9)}${'findings'.padStart(10)}${'ops'.padStart(10)}${'median ms'.padStart(11)}${'p95 ms'.padStart(9)}`);
   for (const r of summary) console.log(`${r.dataset.padEnd(34)}${String(r.passes).padStart(8)}${String(r.applied).padStart(9)}${String(r.findings).padStart(10)}${String(r.ops).padStart(10)}${r.ms.toFixed(3).padStart(11)}${r.p95.toFixed(3).padStart(9)}`);

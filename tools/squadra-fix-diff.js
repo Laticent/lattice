@@ -28,15 +28,14 @@
  */
 
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
 
 const ROOT = path.join(__dirname, '..');
 const core = require('../lib/authoring/lint-core');
 const { buildVocab } = require('../lib/authoring/lint');
 const { splitTopLevel } = require('../lib/authoring/slide-split');
 const { discoverDecks } = require('./lint-deck');
+const { recordLintInputs } = require('./squadra/corpus');
 const { separatorLines } = require('../lib/authoring/slide-split');
 const { fencedLines } = require('../lib/core/shape-glyphs');
 const { deckLanguage: deckLanguageOf } = require('../lib/authoring/squadra/bridge');
@@ -64,40 +63,10 @@ function legacyApplyAllFixes(source, vocab) {
   return cur;
 }
 
-// ── Corpus 1: the lint unit tests' own inputs ───────────────────────────────
-
-function lintTestFiles() {
-  const out = [];
-  const walk = (dir) => {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith('.test.js') && /lintTextWith|lintText\(|applyAllFixes|applyFix\(/.test(fs.readFileSync(p, 'utf8'))) out.push(p);
-    }
-  };
-  walk(path.join(ROOT, 'test', 'unit'));
-  return out.sort();
-}
+// ── Corpus 1: the lint unit tests' own inputs (tools/squadra/corpus.js) ──────
 
 function recordCorpus1() {
-  const reuse = flag('--corpus', null);
-  if (reuse) {
-    const seen = new Set();
-    for (const line of fs.readFileSync(reuse, 'utf8').split('\n')) if (line) seen.add(JSON.parse(line).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n'));
-    return { inputs: [...seen], tests: lintTestFiles().length, testExit: 'reused recording' };
-  }
-  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'squadra-fix-diff-')), 'inputs.jsonl');
-  const tests = lintTestFiles();
-  const res = spawnSync(process.execPath, ['--require', path.join(__dirname, 'squadra', 'record-lint-inputs.cjs'), '--test', '--test-reporter=dot', ...tests], {
-    cwd: ROOT,
-    env: { ...process.env, SQUADRA_RECORD: file },
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  if (!fs.existsSync(file)) throw new Error(`recording the lint tests' inputs wrote nothing (exit ${res.status}): ${String(res.stderr).slice(-2000)}`);
-  const seen = new Set();
-  for (const line of fs.readFileSync(file, 'utf8').split('\n')) if (line) seen.add(JSON.parse(line).replace(/^﻿/, '').replace(/\r\n?/g, '\n'));
-  return { inputs: [...seen], tests: tests.length, testExit: res.status };
+  return recordLintInputs(flag('--corpus', null));
 }
 
 // ── Corpus 2: fixable sources spliced into tracked decks ────────────────────

@@ -189,14 +189,53 @@ lint-core's `applyAllFixes` runs through it. The whole-deck fix diff (`npm run s
 applied fixes, and no fixable finding left on a live line. The reference YAML language is not built yet: nothing
 in M1a reads YAML, so it moves to M1b, where `lattice-deck`'s front-matter island first needs it.
 
-**M1b waits on the deck pipeline.** `lattice-deck` needs the pipeline's block pass (its phase P2) and its front-matter
-and directive islands (P3). As of 2026-10-28, `main` has the pipeline's census harness (P0) and native-run code
-generation (G6), not `deckModel`. M1a does not need the pipeline and can start now.
+**M1b as built (2026-11-13), first slice.** The deck pipeline's P2 (`deckModel`) and its P3 directive island landed
+on 2026-11-05, so M1b started. What exists:
 
-**Still waiting (2026-10-29).** `main` at `09d6b11` has no `deckModel`, and the one open Segno PR (#2980) does not
-build it, so M1b did not start. The reference YAML language waits with it: its first reader is the front-matter
-island, which is pipeline P3. What the swimlane could do without the pipeline it did: no lint rule reports a fenced
-line, and "Fix all" names every fix it refused (design §15.4).
+- **The reference Markdown language**, `@laticent/squadra/markdown` (`docs/src/lib/squadra/markdown.ts`). It adapts a
+  deck model the host hands in as a function, so Squadra keeps no dependency. The tree is `deck` → `front-matter`,
+  `slide`, `break`, and inside a slide the blocks the model records as ranges (`paragraph`, `heading`, `cell`,
+  `fence`, `code-block`, `comment`, `html-block`, `plugin-block`), flat, with `attrs.level`. Fenced and indented code is
+  inert. It maps offsets back onto a source with a BOM or CRLF line ends. Lists, items, quotes and tables are not nodes
+  yet: the model's range views do not expose them and no migrated rule reads them.
+- **`lattice-deck`** (`lib/authoring/squadra/deck-language.js`), on the deck model the slide splitter and the
+  directive scan already read, from the same memo, so a Squadra rule costs no second block parse. Its facts are
+  `deck.meta` (the directive scan, now one shared memo, `scanMetaSourceShared`), `deck.frontMatterChunks`,
+  `deck.lineStarts` and `slide.number`.
+- **Two migrated rules**, `deck/tag-alias` and `deck/say-key-case` (`lib/authoring/rules/`), each with fixtures the
+  strict compile runs. Their lint-core detectors are deleted. `tag-alias` gained its fix (`banner-tag` → `tag-band`);
+  `say-key-case` keeps none on purpose, because lowercasing `Say:` publishes a private note (the census called it "a
+  case swap"; it is not a safe one).
+- **The legacy-shape adapter** (`lib/authoring/squadra/deck-rules.js`). lint-core calls the ruleset where each
+  detector was called, on the same text, and gets its own record back. A `safe` one-line fix becomes `replaceLine`, so
+  the quick fix and the bridge's Fix-all path apply it with no new code. Fix all still runs on the bridge's language,
+  not `lattice-deck`: moving the whole fix path onto the deck model's fence reading is its own change, measured by
+  `npm run squadra:fix-diff`.
+- **The per-rule migration diff** (`npm run squadra:migration-diff`, report in
+  `2026-10-26-squadra-lint-library/migration-diff.md`; unit arm `test/unit/authoring/squadra-migration.test.js`). It
+  holds each migrated rule to its old detector, frozen in `tools/squadra/legacy-detectors.js`, on the three corpora of
+  design §15.3: 58,960 lint-test inputs, 624 mutated decks and 520 tracked decks. 0 differences for both rules; 134 and
+  325 findings; 96 `tag-alias` fixes applied through `applyFix`, each resolving its finding.
+- **`say-key-case` reads in linear time.** lint-core's regex for it was quadratic on a run of unclosed openers
+  (recheck's attack string; the regex census held it as `unknown`). The rule now reads each opener with a sticky regex
+  and finds the close with one search: 50,000 unclosed openers lint in well under a second, pinned by the unit arm.
+  lint-core's slow-regex backlog drops from 92 to 91.
+
+Progress (design §15.3): lint-core 10,812 → 10,772 lines; rule ids lint-core writes as literals 171 → 169; two rules
+on Squadra. Effort: one session for the language, the adapter, the diff and two rules. With those built, a further
+near-mechanical rule is its detector, fixtures, patterns and a frozen copy: roughly an hour of agent work each.
+
+**What stopped the first slice at two rules: the Studio's lint-core budget.** Running Squadra rules in lint-core puts
+the rule compiler and the lint path in the Studio's lint core. Measured with `check-route-budget.mjs`'s own `measure()`
+on the built ESM: `lintCoreGz` 164,196 → 182,665 bytes (+18.5 KB), past the 167,366-byte ceiling, which `main` already
+sits 3.2 KB under. A runtime that trusts build-time verified stamps (design §8.2) instead of compiling in the browser
+would cost about 9 KB (5.7 KB of Squadra, 3.3 KB of language, adapter and rules), still past the ceiling. Raising it is
+the owner's call (design §15.6), put to the owner on the M1b PR. Until it is decided, more rules add little to the
+bundle but no rule should ride on a budget nobody has approved.
+
+**Still waiting on the front-matter island.** Rules that read front matter, and the reference YAML language, wait on
+the pipeline's P3 front-matter island (`followups.d/3042-p1-segno-p3-the-remaining-islands.md`), which changes export
+bytes and waits on the owner's sign-off.
 
 ## 7. Proving it is generic
 

@@ -153,7 +153,7 @@ distinct, stable ID.
 | `map-highlight-implied` | info | — | A `map highlight` slide whose values are labels (or absent), so the data already fills it by category and the class says nothing. |
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
 | `tag-budget` | warning | — | On `decision` and `compare-prose` (not `axis`), a card tag long enough to wrap, or a band label long enough to run past two lines, which grows every tag on the slide and pushes the cards down. |
-| `tag-alias` | info | — | `banner-tag`, the old name for `tag-band`. |
+| `tag-alias` | info | ✓ | `banner-tag`, the old name for `tag-band`. |
 | `bg-side-unread` | warning | — | A `![bg left]` / `![bg right]` (or a ratio) on a slide that is not `image`: only the image layout places a picture beside the text, so it fills the whole slide behind it instead. |
 | `empty-section` | warning | — | A divider straight after another divider, so the section before it holds no slide, its mark on the section rail never lights, and the first rail a reader sees can say `2 / 4`. |
 | `bg-ratio-unread` | warning | — | A ratio such as `![bg left:40%]` on an `image` slide: the ratio is not read, so the slide falls back to a full-bleed background and loses its panel. |

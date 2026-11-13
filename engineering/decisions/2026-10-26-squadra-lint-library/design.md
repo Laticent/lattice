@@ -522,6 +522,12 @@ harness (P0) and the native-run code generation (G6); `deckModel` itself is not 
 (§15.5): the core, the fix driver and the reference YAML language do not need the pipeline and can start now;
 `lattice-deck` and the first deck-rule migrations start when P2 lands.
 
+**As built (2026-11-13).** P2 and the P3 directive island landed on 2026-11-05. `lattice-deck` is built on them
+(`lib/authoring/squadra/deck-language.js`) and carries its facts and `slide.number`; the front-matter island, the inline
+islands, `rendered-slide` nodes and the `fm-key` / `directive` node kinds wait for the pipeline and for a rule that
+reads them. Inert is fences and indented code only: non-directive comments stay visible until a rule needs otherwise.
+Parent note §6, "M1b as built".
+
 **No inline suppressions in decks.** An HTML comment in a deck that is not a directive is a speaker note
 (`lib/authoring/notes-core.js`): it reaches the PPTX notes pane, the HTML export's notes and the presenter view. A
 `<!-- squadra-ignore … -->` comment would therefore ship in the export. `lattice-deck` declares no `comment` syntax, so
@@ -1511,8 +1517,10 @@ does not carry it (`lintCoreGz`, parent note §10.4).
   card items takes sixty passes.
 - **Each fix keeps its finding's `data`** (`AppliedFix.data`, `SkippedFix.data`), so `lint:deck --fix` names the
   slide lint-core numbered on the text of that fix's own pass.
-- **The legacy-shape adapter is not needed yet.** "Fix all" returns text, so no consumer reads a Squadra finding
-  before M1b; the adapter lands with the first migrated rule.
+- **The legacy-shape adapter landed with the first migrated rules (M1b, 2026-11-13):**
+  `lib/authoring/squadra/deck-rules.js`. lint-core asks the `deck` ruleset for a migrated rule where its detector was
+  called, on the same text, and gets its own record back; a `safe` one-line fix becomes `replaceLine`, so the quick
+  fix and this bridge apply it unchanged. Parent note §6, "M1b as built".
 - **`lint:deck --fix` prints every refusal** with its rule, slide and reason, so a refused fix never reads as
   "nothing to fix". The Studio's "Fix all" and the Playground's Alt-Shift-F say the same in a notice (2026-10-29):
   the count applied, then each refusal by slide, rule and reason in plain words (`docs/src/lib/fix-all-notice.ts`,

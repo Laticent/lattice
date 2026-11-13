@@ -14,6 +14,8 @@
  *   - an object literal `rule: 'id'` (lint-core, review-core, the CLI),
  *   - `diag('severity', 'id', …)` (lib/core/flowchart-grammar.js),
  *   - `add('id', 'severity', …)` (lib/core/hub-spoke-model.js),
+ *   - a Squadra rule's `legacy: 'id'` (lib/authoring/rules/*.js, the deck rules that moved out of
+ *     lint-core), its severity and `fixable: true` read from the same object,
  * plus template IDs written `rule: \`…${…}…\`` or `` `verbose-${…}` ``, which are families.
  *
  * COVERAGE BOUNDARY, stated plainly: an ID assembled any other way (a variable passed as
@@ -38,6 +40,9 @@ const EMITTERS = [
   'lib/core/flowchart-grammar.js',
   'lib/core/hub-spoke-model.js',
   'tools/lint-deck.js',
+  ...require('node:fs').readdirSync(path.join(ROOT, 'lib', 'authoring', 'rules'))
+    .filter((f) => f.endsWith('.js') && f !== 'index.js')
+    .map((f) => `lib/authoring/rules/${f}`),
   // A plugin's lint role (`<name>.lint.js`, HARD RULE #7 amended 2026-11-01) emits findings lint-core runs.
   ...require('node:fs').readdirSync(path.join(ROOT, 'lib', 'plugins'), { withFileTypes: true })
     .filter((d) => d.isDirectory() && require('node:fs').existsSync(path.join(ROOT, 'lib', 'plugins', d.name, `${d.name}.lint.js`)))
@@ -146,6 +151,11 @@ function emitted(source) {
     const { body, open } = objectAround(src, m.index);
     const sev = body.match(/\bseverity:\s*([^,\n}]+(?:\?[^,\n}]+)?)/);
     note(m[2], sev ? severitiesOf(sev[1], src) : [], autofixOf(src, body, open));
+  }
+  for (const m of src.matchAll(/\blegacy:\s*'([a-z0-9-]+)'/g)) {
+    const { body } = objectAround(src, m.index);
+    const sev = body.match(/\bseverity:\s*'([a-z]+)'/);
+    note(m[1], sev ? [sev[1]] : [], /\bfixable:\s*true/.test(body));
   }
   for (const m of src.matchAll(/\bdiag\(\s*'([a-z]+)',\s*'([a-z0-9-]+)'/g)) note(m[2], [m[1]], false);
   for (const m of src.matchAll(/\badd\(\s*'([a-z0-9-]+)',\s*'([a-z]+)'/g)) note(m[1], [m[2]], false);

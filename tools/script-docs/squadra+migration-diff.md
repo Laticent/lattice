@@ -1,0 +1,4 @@
+---
+group: Lint & audit
+---
+The per-rule migration diff (2026-10-26-squadra-lint-library design §15.3): every deck rule that moved from lint-core into the Squadra `deck` ruleset (`lib/authoring/rules/`), held record for record to the lint-core detector it replaced (frozen in `tools/squadra/legacy-detectors.js`), over the lint tests' own inputs, each rule's bad patterns injected into tracked decks, and the tracked decks. Applies every fix a migrated rule offers through lint-core's `applyFix` and checks it resolves. Exits 1 on any difference, a rule that never fires, or a fix that does not resolve. Prints lint-core's line count and rule ids. About two minutes to record the lint inputs (`--corpus` reuses a recording); the unit arm, `test/unit/authoring/squadra-migration.test.js`, runs the last two corpora on every PR.

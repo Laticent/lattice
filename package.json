@@ -202,6 +202,7 @@
     "squadra-lib:build": "node tools/build-squadra-lib.js",
     "squadra-lib:check": "node tools/build-squadra-lib.js --check",
     "squadra:fix-diff": "node tools/squadra-fix-diff.js",
+    "squadra:migration-diff": "node tools/squadra-migration-diff.js",
     "ltt-lib:build": "node tools/build-ltt-lib.js",
     "ltt-lib:check": "node tools/build-ltt-lib.js --check",
     "ltt-schema:build": "node tools/build-ltt-schema.js",

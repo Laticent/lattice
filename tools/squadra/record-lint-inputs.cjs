@@ -1,4 +1,4 @@
-// Preload for tools/squadra-fix-diff.js: while the lint unit tests run, record every source they
+// Preload for the Squadra migration diffs (tools/squadra/corpus.js): while the lint unit tests run, record every source they
 // hand the linter, so the fix diff's first corpus is "the cases someone already thought mattered"
 // (design §15.3, corpus 1) without anyone copying them out by hand. Appends one JSON string per
 // line to $SQUADRA_RECORD. Loaded with `node --require`, never by shipped code.

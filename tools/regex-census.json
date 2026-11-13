@@ -5,7 +5,7 @@
     "lib/authoring/bare-row-pill.js": 2,
     "lib/authoring/code-format/plan.mjs": 2,
     "lib/authoring/fact-check-core.js": 9,
-    "lib/authoring/lint-core.js": 92,
+    "lib/authoring/lint-core.js": 91,
     "lib/authoring/notes-core.js": 4,
     "lib/authoring/review-core.js": 1,
     "lib/authoring/venue-prose.js": 3,
@@ -643,10 +643,7 @@
     },
     "/<!--|<(style|script|textarea|title|xmp|iframe|noembed|noframes|noscript)(?=[\\t\\n\\f\\r />])/gi": "safe",
     "/<!--|<\\/?div\\b[^>]*>/g": "polynomial",
-    "/<!-{2,}\\s*(?!say\\s*:)[Ss][Aa][Yy]\\s*:[\\s\\S]*?-{2,}!?>/g": {
-      "verdict": "unknown",
-      "why": "recheck cannot model it: look-ahead assertion"
-    },
+    "/<!-{2,}\\s*(?:S[Aa][Yy]|s(?:A[Yy]|aY))\\s*:/y": "safe",
     "/<!-{2,}\\s*(caption)\\s*:[\\s\\S]*?-{2,}!?>/gi": "polynomial",
     "/<((?:https?|mailto):[^>\\s]*)>/g": "polynomial",
     "/<((?:https?|mailto|ftp):[^<>\\s]*)>/gi": "safe",
@@ -2785,6 +2782,7 @@
     "/^﻿?---\\r?\\n([\\s\\S]*?)\\r?\\n---[ \\t]*\\r?\\n?/": "safe",
     "/^﻿?---\\r?\\n/": "safe",
     "/^﻿?---\\r?\\n[\\s\\S]*?\\r?\\n---/": "safe",
+    "/_?class\\s*:/g": "safe",
     "/_Back/i": "safe",
     "/_[lr]$/": "safe",
     "/_class/": "safe",
