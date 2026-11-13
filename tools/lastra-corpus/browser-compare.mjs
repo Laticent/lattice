@@ -112,7 +112,8 @@ function args() {
 
 async function loadLastra() {
   const esbuild = require('esbuild');
-  const out = await esbuild.build({ entryPoints: [path.join(ROOT, 'docs/src/lib/lastra/decode/index.ts')], bundle: true, format: 'esm', platform: 'neutral', write: false });
+  // `conditions`: the decoders import the package root by name; read it from source, not a dist/ that may be stale.
+  const out = await esbuild.build({ entryPoints: [path.join(ROOT, 'docs/src/lib/lastra/decode/index.ts')], bundle: true, format: 'esm', platform: 'neutral', conditions: ['@laticent/source'], write: false });
   const code = out.outputFiles[0].text;
   const url = `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
   return { lastra: await import(url), code };

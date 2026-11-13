@@ -12,7 +12,7 @@
 
 import { describe, expect, test } from 'vitest';
 import { decodeJpeg, decodeJpegSync, decodePng } from './index.js';
-import { expected, fixture, sha256 } from './test-support.test.mjs';
+import { expected, fixture, sha256 } from './test-support.js';
 
 describe('PNG corpus: exact ground truth', () => {
   for (const [name, want] of Object.entries(expected.png)) {

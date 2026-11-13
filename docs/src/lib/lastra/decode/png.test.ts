@@ -4,10 +4,11 @@
  * the hostile shapes from the design note §4 (a decompression bomb, a header that lies about its size).
  */
 
+import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, test } from 'vitest';
 import { decodePng, isLastraError, type LastraErrorCode, MAX_PNG_CHUNKS, type WorkMeter } from './index.js';
-import { chunk, concat, deflateSync, ihdr, PNG_SIGNATURE, rawRows, rgbPng } from './test-support.test.mjs';
+import { chunk, concat, deflateSync, FIXTURES, ihdr, PNG_SIGNATURE, rawRows, rgbPng } from './test-support.js';
 
 async function refusal(bytes: Uint8Array, opts?: Parameters<typeof decodePng>[1]): Promise<LastraErrorCode> {
   try {
@@ -145,6 +146,63 @@ describe('decodePng refuses with a typed code', () => {
     expect(img.icc).toBeNull();
     const good = chunk('iCCP', [80, 0, 0, ...deflateSync(Uint8Array.from([1, 2, 3, 4]))]);
     expect(Array.from((await decodePng(rgbPng(2, 2, { extra: [good] }))).icc ?? [])).toEqual([1, 2, 3, 4]);
+  });
+
+  test('only the first iCCP is read, and a compressed profile over 4 MB is dropped unread', async () => {
+    // A file of many iCCP chunks costs one inflate (libpng ignores a duplicate), so a broken first one is
+    // not replaced by a later one.
+    const bad = chunk('iCCP', [80, 0, 0, 0x78, 0x9c, 1, 2, 3]);
+    const good = chunk('iCCP', [80, 0, 0, ...deflateSync(Uint8Array.from([1, 2, 3, 4]))]);
+    expect((await decodePng(rgbPng(2, 2, { extra: [bad, good] }))).icc).toBeNull();
+    expect(Array.from((await decodePng(rgbPng(2, 2, { extra: [good, bad] }))).icc ?? [])).toEqual([1, 2, 3, 4]);
+    // Stored blocks: 5 MB of profile in 5 MB of stream, under the 16 MB inflated cap, over the 4 MB one.
+    const big = deflateSync(new Uint8Array(5 << 20), { level: 0 });
+    const header = Uint8Array.from([80, 0, 0]);
+    const iccp = chunk('iCCP', concat(header, big));
+    expect((await decodePng(rgbPng(2, 2, { extra: [iccp] }))).icc).toBeNull();
+  });
+
+  test('the CRC check yields across many small IDAT chunks, not only inside a large one', async () => {
+    // Pillow writes 64 KB IDAT chunks: a 24 MB file of them was checked in one 120 ms stretch, because the
+    // CRC yielded only inside a chunk over 1 MB. A 1x1 image, then 40 chunks of 64 KB the inflate never reads.
+    const turnsFor = async (bytes: Uint8Array) => {
+      let turns = 0;
+      let done = false;
+      const tick = () => {
+        if (!done) {
+          turns++;
+          setImmediate(tick);
+        }
+      };
+      setImmediate(tick);
+      await decodePng(bytes);
+      done = true;
+      return turns;
+    };
+    const head = concat(PNG_SIGNATURE, ihdr(1, 1), idat(rawRows(1, 1, 3)));
+    const own = await turnsFor(concat(head, iend));
+    const filler = chunk('IDAT', new Uint8Array(64 << 10));
+    const many = await turnsFor(concat(head, ...Array.from({ length: 40 }, () => filler), iend));
+    expect(many).toBeGreaterThanOrEqual(own + 4);
+  });
+
+  test('an iCCP of 1,000 empty deflate blocks yields while it inflates', async () => {
+    // red team R3-2: 20 MB of these held the thread 12 s and ignored the abort signal.
+    const stream = new Uint8Array(readFileSync(`${FIXTURES}zlib/accept-empty-dynamic-blocks.z`));
+    const iccp = chunk('iCCP', concat(Uint8Array.from([80, 0, 0]), stream));
+    let turns = 0;
+    let done = false;
+    const tick = () => {
+      if (!done) {
+        turns++;
+        setImmediate(tick);
+      }
+    };
+    setImmediate(tick);
+    const img = await decodePng(rgbPng(2, 2, { extra: [iccp] }));
+    done = true;
+    expect(Array.from(img.icc ?? [])).toEqual([65]);
+    expect(turns).toBeGreaterThanOrEqual(4);
   });
 
   test('an aborted signal rejects with its reason', async () => {

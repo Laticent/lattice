@@ -6,7 +6,7 @@
  * the mutation reaches the inflate and the filters instead of stopping at the first checksum.
  *
  * Every case must either decode inside its limits or refuse with a LastraError, and either way stay
- * under the work limit proven from the decoders' loops (test-support.test.mts `workLimit`) and under a ceiling
+ * under the work limit proven from the decoders' loops (test-support.ts `workLimit`) and under a ceiling
  * on steps per unit of declared work set from measurement (`RATIO_CEILING` below). Work is counted in
  * steps, never timed (HARD RULE #32). The seed prints; replay or deepen with
  *   LASTRA_FUZZ_SEED=<n> LASTRA_FUZZ_CASES=<n> npx vitest run src/lib/lastra/decode/fuzz.test.ts
@@ -16,7 +16,7 @@
 import { crc32, deflateSync, inflateSync } from 'node:zlib';
 import { describe, expect, test } from 'vitest';
 import { decodeJpegSync, decodePng, isLastraError, type WorkMeter } from './index.js';
-import { expected, fixture, rng, workLimit, workRatio } from './test-support.test.mjs';
+import { expected, fixture, rng, workLimit, workRatio } from './test-support.js';
 
 const SEED = Number(process.env.LASTRA_FUZZ_SEED ?? 20261113);
 const CASES = Number(process.env.LASTRA_FUZZ_CASES ?? 600);
@@ -210,14 +210,15 @@ function tally(outcomes: Outcome[]): string {
 const BATCH = 50;
 
 /**
- * The highest steps per unit of declared work (test-support.test.mts `workRatio`) any case may reach: twice the
- * measured maximum (JPEG 15.59, PNG 0.87; the default seed's 600 cases each and seed 1's 20,000 each,
- * 2026-11-13, with the meter counting a step per block plus one per 8 coefficients of the scan's band and
- * the in-tree inflate's steps per 4 KB and per Huffman table). The proven limit
+ * The highest steps per unit of declared work (test-support.ts `workRatio`) any case may reach: twice the
+ * measured maximum, rounded up (JPEG 15.59, PNG 2.26; seeds 20261113, 1 and 2 at 10,000 cases each,
+ * 2026-11-13, with the meter counting a step per block plus one per 8 coefficients of the scan's band, and
+ * the in-tree inflate's steps per 4 KB of output and per Huffman table build, charged for the symbols it
+ * walks: the fixed tables cost 126 steps, which is most of a tiny PNG's count). The proven limit
  * above stops a runaway; this one fails a change that makes ordinary decoding do several times the work
  * per block or per scanline, which the proven limit is too loose to see.
  */
-const RATIO_CEILING = { jpeg: 31.2, png: 1.8 };
+const RATIO_CEILING = { jpeg: 31.2, png: 4.6 };
 
 // Each case is computed once, on first use, whichever test asks: a batch or the summary, run together or
 // alone (`-t 'reach every outcome'`), in any order.

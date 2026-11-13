@@ -80,6 +80,8 @@ function diffTrees(want, have) {
  * @param {{ entry: string, out: string }[]} spec.entries  source path (relative to the
  *   library) and output basename, e.g. { entry: 'adapters/trystero.ts', out: 'trystero' }
  * @param {string[]} [spec.external]  bare packages left as imports (peer dependencies)
+ * @param {string[]} [spec.exclude]  source paths (relative to the library) left out of the declarations:
+ *   a test helper with a non-test name, which imports node: modules the library itself may not
  * @param {'node'|'neutral'|'browser'} [spec.platform]
  * @param {string} [spec.script]   the npm script that rebuilds it, named in messages
  * @param {string} [spec.target]   esbuild's target (default es2022). A library whose functions
@@ -147,7 +149,8 @@ function defineLibraryBuild(spec) {
         // `@laticent/source` export condition, never through its built `types`, which a fresh
         // checkout has not built yet (Cadenza reads @laticent/ltt before ltt's dist/ exists).
         '--customConditions', '@laticent/source',
-        '--strict', '--skipLibCheck', ...(types.lib === null ? [] : ['--lib', types.lib ?? 'es2022,dom']), ...sourceFiles(LIB_DIR),
+        '--strict', '--skipLibCheck', ...(types.lib === null ? [] : ['--lib', types.lib ?? 'es2022,dom']),
+        ...sourceFiles(LIB_DIR).filter((f) => !(spec.exclude ?? []).includes(path.relative(LIB_DIR, f).split(path.sep).join('/'))),
       ],
       { cwd: ROOT, stdio: 'inherit' },
     );

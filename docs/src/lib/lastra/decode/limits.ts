@@ -2,7 +2,7 @@
  * Caller limits, resolved once per decode and checked before any allocation that scales with the image.
  */
 
-import { LastraError } from '../errors.js';
+import { LastraError } from '@laticent/lastra';
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_PIXELS, type DecodeOptions, type WorkMeter } from './types.js';
 
 export interface Limits {

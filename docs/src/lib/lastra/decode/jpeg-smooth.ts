@@ -101,7 +101,7 @@ export function* componentSamples(c: CoefComponent, latch: Latch | null, lastGoo
     for (let by = 0; by < c.bh; by++) {
       tickWork(meter, c.bw);
       for (let bx = 0; bx < c.bw; bx++) idctIslow(coefs, (by * c.stride + bx) * 64, q, out, by * 8 * pw + bx * 8, pw, ws);
-      if ((by & 15) === 15) yield;
+      if ((by & 7) === 7) yield;
     }
     return out;
   }
@@ -242,7 +242,7 @@ export function* componentSamples(c: CoefComponent, latch: Latch | null, lastGoo
         DC23 = DC24;
         DC24 = DC25;
       }
-      if ((row & 15) === 15) yield;
+      if ((row & 7) === 7) yield;
     }
   }
   return out;

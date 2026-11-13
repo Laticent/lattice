@@ -18,7 +18,7 @@ export interface Expected {
   libjpegTurbo: string;
   png: Record<string, { width: number; height: number; rgbaSha256: string; iccSha256: string | null; tags: string[] }>;
   jpeg: Record<string, { width: number; height: number; pillowMode: string; rgbaSha256: string; iccSha256: string | null; exifOrientation: number | null }>;
-  zlib: Record<string, { outputLength: number; outputSha256: string; zlibVerdict: 'ok' | 'adler' | 'error' | 'truncated' }>;
+  zlib: Record<string, { outputLength: number; outputSha256: string; zlibVerdict: 'ok' | 'adler' | 'error' | 'truncated'; zlibReason?: string }>;
 }
 
 export const expected: Expected = JSON.parse(readFileSync(`${FIXTURES}expected.json`, 'utf8'));
@@ -107,7 +107,9 @@ export function declared(kind: 'png' | 'jpeg', b: Uint8Array): Declared {
  */
 export function workLimit(kind: 'png' | 'jpeg', b: Uint8Array): number {
   const d = declared(kind, b);
-  if (kind === 'png') return 1000 + b.length + 2 * d.units + 4 * d.height;
+  // Inflate costs under 29 steps per compressed byte at worst (inflate.test.ts proves the bound); chunks,
+  // CRC slices and scanlines are a step each.
+  if (kind === 'png') return 1000 + 32 * b.length + 2 * d.units + 4 * d.height;
   // Decoded blocks: a step per block plus one per 8 coefficients, inside the coefficient-work cap of
   // max(1024 x blocks, 2^26) (jpeg.ts COEF_WORK_PER_BLOCK, COEF_WORK_FLOOR); a DC scan is the worst case.
   return 50_000 + 3 * b.length + 1100 * d.units + (1 << 26) + 6 * Math.ceil(d.pixels / 64) + 2 * d.height;

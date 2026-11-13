@@ -1341,10 +1341,158 @@
       "outputSha256": "b9c5a589fd0a140d7b68359a9b21e65a2f33e096c03940362d9b0791e4d6e68d",
       "zlibVerdict": "ok"
     },
+    "refuse-distance-too-far.z": {
+      "outputLength": 1,
+      "outputSha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid distance too far back"
+    },
+    "accept-distance-at-start.z": {
+      "outputLength": 5,
+      "outputSha256": "41a807afe27629aef41d4f9338d7c2b903f658690fd5000ac6355f6d35e70be2",
+      "zlibVerdict": "adler"
+    },
+    "refuse-fixed-distance-30.z": {
+      "outputLength": 1,
+      "outputSha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid distance code"
+    },
+    "refuse-fixed-distance-31.z": {
+      "outputLength": 1,
+      "outputSha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid distance code"
+    },
+    "refuse-fixed-length-286.z": {
+      "outputLength": 1,
+      "outputSha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid literal/length code"
+    },
+    "refuse-fixed-length-287.z": {
+      "outputLength": 1,
+      "outputSha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid literal/length code"
+    },
+    "refuse-stored-length.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid stored block lengths"
+    },
+    "refuse-block-type-3.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid block type"
+    },
+    "refuse-cl-overfull.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid code lengths set"
+    },
+    "refuse-cl-overfull-by-one.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid code lengths set"
+    },
+    "refuse-cl-incomplete.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid code lengths set"
+    },
+    "refuse-literal-overfull-by-one.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid literal/lengths set"
+    },
+    "refuse-literal-incomplete.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid literal/lengths set"
+    },
+    "refuse-distance-incomplete.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid distances set"
+    },
+    "refuse-no-end-of-block.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid code -- missing end-of-block"
+    },
+    "refuse-distance-missing-code.z": {
+      "outputLength": 1,
+      "outputSha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid distance code"
+    },
+    "refuse-distance-missing-code-at-end.z": {
+      "outputLength": 1,
+      "outputSha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid distance code"
+    },
+    "refuse-literal-overfull-at-15.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid literal/lengths set"
+    },
+    "refuse-repeat-first.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid bit length repeat"
+    },
+    "refuse-repeat-past-end.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid bit length repeat"
+    },
+    "refuse-repeat-one-past-end.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "invalid bit length repeat"
+    },
+    "accept-empty-dynamic-blocks.z": {
+      "outputLength": 1,
+      "outputSha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+      "zlibVerdict": "ok"
+    },
+    "refuse-hlit-287.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "too many length or distance symbols"
+    },
+    "refuse-hdist-31.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error",
+      "zlibReason": "too many length or distance symbols"
+    },
+    "accept-hlit-286-hdist-30.z": {
+      "outputLength": 1,
+      "outputSha256": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+      "zlibVerdict": "ok"
+    },
     "damaged-text-00.z": {
       "outputLength": 0,
       "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "zlibVerdict": "error"
+      "zlibVerdict": "error",
+      "zlibReason": "invalid literal/lengths set"
     },
     "damaged-text-01.z": {
       "outputLength": 203,
@@ -1384,7 +1532,8 @@
     "damaged-text-08.z": {
       "outputLength": 645,
       "outputSha256": "d68419dcaa0a80adb6fd57e4b9f1a1e6cb1f02f306857c21759b9b226bfa2c3f",
-      "zlibVerdict": "error"
+      "zlibVerdict": "error",
+      "zlibReason": "invalid distance too far back"
     },
     "damaged-text-09.z": {
       "outputLength": 5972,
@@ -1444,7 +1593,8 @@
     "damaged-fixed-08.z": {
       "outputLength": 94,
       "outputSha256": "cd4e5fa0e5e26e7ad296578d249ef11fc33717529b4230356969b71d7bacffae",
-      "zlibVerdict": "error"
+      "zlibVerdict": "error",
+      "zlibReason": "invalid distance too far back"
     },
     "damaged-fixed-09.z": {
       "outputLength": 2144,

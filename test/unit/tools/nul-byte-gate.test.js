@@ -26,6 +26,7 @@ const {
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
   NUL_BINARY_EXTENSIONS,
+  NUL_BINARY_FOLDERS,
 } = require(path.join(__dirname, '..', '..', '..', 'tools', 'check-ownership.js'));
 
 const NUL = String.fromCharCode(0);
@@ -138,18 +139,23 @@ describe('the shipped allowlist', () => {
     assert.ok(tracked.length > 1000, 'a broken query, not an empty repo');
 
     const unclassified = new Set();
+    const folderHits = new Set();
     for (const f of tracked) {
       const base = path.basename(f);
       const m = /(\.[A-Za-z0-9]+)$/.exec(base);
       if (!m) continue; // an extensionless file (LICENSE, Dockerfile) — out of scope by design
       const ext = m[1].toLowerCase();
-      if (!NUL_TEXT_EXTENSIONS.includes(ext) && !NUL_BINARY_EXTENSIONS.includes(ext)) unclassified.add(ext);
+      const folder = NUL_BINARY_FOLDERS.find((b) => f.startsWith(b.dir) && ext === b.ext);
+      if (folder) folderHits.add(folder);
+      else if (!NUL_TEXT_EXTENSIONS.includes(ext) && !NUL_BINARY_EXTENSIONS.includes(ext)) unclassified.add(ext);
     }
     assert.deepEqual(
       [...unclassified].sort(),
       [],
-      'add each to NUL_TEXT_EXTENSIONS (scanned) or NUL_BINARY_EXTENSIONS (skipped)',
+      'add each to NUL_TEXT_EXTENSIONS (scanned), NUL_BINARY_EXTENSIONS (skipped), or NUL_BINARY_FOLDERS (skipped in one folder)',
     );
+    // A folder entry no tracked file matches is stale: it would quietly classify a future file.
+    assert.deepEqual(NUL_BINARY_FOLDERS.filter((b) => !folderHits.has(b)), [], 'remove the stale NUL_BINARY_FOLDERS entry');
   });
 
   test('.astro is scanned — it is docs-site SOURCE, and it was the one that got missed', () => {

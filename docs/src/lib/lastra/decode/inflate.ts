@@ -10,20 +10,26 @@
  * Adler-32, which is never computed) is not read. Every engine displays extra data and trailing bytes;
  * on the checksum they split (Chromium ignores a bad one, Firefox and WebKit drop the last rows), and
  * lastra takes Chromium's answer.
- * Refused, as `corrupt`: a bad zlib header (method not 8, window over 32 KB, a check that is not a multiple
- * of 31, a preset dictionary), a block type of 3, a stored block whose length and its complement disagree,
- * an over-full or (apart from zlib's one-code exception) incomplete Huffman code, a code-length repeat with
- * nothing to repeat or past the end, a dynamic block with no end-of-block code, a length or distance
- * symbol that does not exist, a distance before the start of the output. Running out of input is
- * `truncated`. These are zlib's own refusals, so lastra's output matches zlib's byte for byte up to the
- * point either stops (the corpus test holds it to Python's zlib).
+ *
+ * Refused, as `corrupt`, each with zlib's own reason (the corpus test pairs them): a bad zlib header
+ * (method not 8, window over 32 KB, a check that is not a multiple of 31, a preset dictionary), a block
+ * type of 3, a stored block whose length and its complement disagree, more than 286 length or 30 distance
+ * codes, an over-full or (apart from zlib's one-code exception) incomplete Huffman code, a code-length
+ * repeat with nothing to repeat or past the end, a dynamic block with no end-of-block code, a code that
+ * matches no symbol, a length symbol of 286 or 287 or a distance symbol of 30 or 31, a distance before the
+ * start of the output. Running out of input is `truncated`. Before either refusal the consumer gets every
+ * byte inflated so far, as zlib hands it out, so lastra's output equals zlib's byte for byte up to the
+ * point both stop (the corpus test holds it to zlib itself), and a consumer that already has the image
+ * ends the inflate there.
  *
  * Input comes from a `ByteSource`, so a PNG's IDAT chunks are read in place with no copy and no object
- * per chunk. Output goes through a 64 KB window to a consumer in slices. Work is counted per 4 KB of
- * output and per Huffman table, and the inflate yields between slices.
+ * per chunk. Output goes through a 64 KB window to a consumer in slices. Work is counted per block, per
+ * Huffman table, per 64 code lengths and per 4 KB of output; the inflate yields after each 32 KB of output
+ * and after every INFLATE_YIELD_STEPS steps of work, so a stream of millions of empty blocks yields too.
+ * The three Huffman tables of a dynamic block are rebuilt in place, so a block allocates nothing.
  */
 
-import { LastraError } from '../errors.js';
+import { LastraError } from '@laticent/lastra';
 import { tickWork } from './limits.js';
 import type { WorkMeter } from './types.js';
 
@@ -50,12 +56,22 @@ const INFLATE_CODE_LENGTH_ORDER = Uint8Array.from([16, 17, 18, 0, 8, 7, 9, 6, 10
 /** Bits a first-level lookup resolves; longer codes finish canonically, one length at a time. */
 const INFLATE_FAST_BITS = 9;
 
+/** Steps of work between yields when a stream makes little or no output: a few milliseconds. */
+const INFLATE_YIELD_STEPS = 1 << 14;
+
 /** A canonical Huffman code: a FAST_BITS lookup, plus counts and sorted symbols for longer codes. */
 interface InflateCode {
   /** (length << 9) | symbol for codes up to FAST_BITS long, else 0. Codes are stored bit-reversed. */
   fast: Uint16Array;
   counts: Uint16Array;
+  offs: Uint16Array;
   symbols: Uint16Array;
+  /** The longest code length in use; a canonical walk past it matches no symbol. */
+  maxLen: number;
+}
+
+function newInflateCode(symbols: number): InflateCode {
+  return { fast: new Uint16Array(1 << INFLATE_FAST_BITS), counts: new Uint16Array(16), offs: new Uint16Array(16), symbols: new Uint16Array(symbols), maxLen: 0 };
 }
 
 function inflateCorrupt(why: string): never {
@@ -63,11 +79,13 @@ function inflateCorrupt(why: string): never {
 }
 
 /**
- * zlib's `inflate_table` rules: over-full is an error; incomplete is an error unless the code has a
- * single code of length 1 (`allowOne`, for literal/length and distance codes).
+ * Build `c` in place from `lengths[0..n)`, by zlib's `inflate_table` rules: over-full is an error;
+ * incomplete is an error unless the code has a single code of length 1 (`allowOne`, for literal/length
+ * and distance codes). `what` names the code in the refusal, as zlib does.
  */
-function buildInflateCode(lengths: Uint8Array, n: number, allowOne: boolean, meter: WorkMeter, fixed = false): InflateCode {
-  const counts = new Uint16Array(16);
+function buildInflateCode(c: InflateCode, lengths: Uint8Array, n: number, allowOne: boolean, what: string, meter: WorkMeter): void {
+  const { counts, offs, symbols, fast } = c;
+  counts.fill(0);
   for (let i = 0; i < n; i++) counts[lengths[i]]++;
   counts[0] = 0;
   let left = 1;
@@ -75,19 +93,19 @@ function buildInflateCode(lengths: Uint8Array, n: number, allowOne: boolean, met
   for (let len = 1; len <= 15; len++) {
     left <<= 1;
     left -= counts[len];
-    if (left < 0) inflateCorrupt('an over-full Huffman code');
+    if (left < 0) inflateCorrupt(`an over-full ${what} code`);
     if (counts[len]) max = len;
   }
-  // The fixed distance code is incomplete by design (30 of 32 five-bit codes); zlib builds it apart.
-  if (!fixed && left > 0 && (max === 0 ? false : !allowOne || max !== 1)) inflateCorrupt('an incomplete Huffman code');
-  const offs = new Uint16Array(16);
+  if (left > 0 && max !== 0 && (!allowOne || max !== 1)) inflateCorrupt(`an incomplete ${what} code`);
+  c.maxLen = max;
+  offs[1] = 0;
   for (let len = 1; len < 15; len++) offs[len + 1] = offs[len] + counts[len];
-  const symbols = new Uint16Array(n);
   for (let i = 0; i < n; i++) if (lengths[i]) symbols[offs[lengths[i]]++] = i;
   // The fast table: walk codes in canonical order, store each short one bit-reversed (deflate sends codes
   // most significant bit first, and the reader takes bits least significant first).
-  const fast = new Uint16Array(1 << INFLATE_FAST_BITS);
-  tickWork(meter, 1 + ((1 << INFLATE_FAST_BITS) >> 6));
+  fast.fill(0);
+  // A build walks its n lengths three times and fills the 512-entry table: charge for both.
+  tickWork(meter, 1 + ((3 * n + (1 << INFLATE_FAST_BITS)) >> 4));
   let code = 0;
   let k = 0;
   for (let len = 1; len <= INFLATE_FAST_BITS; len++) {
@@ -98,14 +116,14 @@ function buildInflateCode(lengths: Uint8Array, n: number, allowOne: boolean, met
     }
     code <<= 1;
   }
-  return { fast, counts, symbols };
 }
 
 const INFLATE_WINDOW = 1 << 15;
 
 /**
  * Inflate a zlib stream from `src` into `sink`. Returns true when the sink was satisfied, false when the
- * stream's last block ended first. A generator: it yields after each 64 KB of output.
+ * stream's last block ended first. A generator: it yields after each 32 KB of output and every
+ * INFLATE_YIELD_STEPS steps of work.
  */
 export function* inflateTo(src: ByteSource, sink: InflateSink, meter: WorkMeter): Generator<void, boolean> {
   let bitBuf = 0;
@@ -126,7 +144,7 @@ export function* inflateTo(src: ByteSource, sink: InflateSink, meter: WorkMeter)
     bitCnt -= n;
     return v;
   };
-  const decodeSym = (c: InflateCode): number => {
+  const decodeSym = (c: InflateCode, what: string): number => {
     // Fill as far as the input allows: near the end a short code needs fewer bits than FAST_BITS.
     while (bitCnt < INFLATE_FAST_BITS) {
       const b = src.next();
@@ -141,11 +159,12 @@ export function* inflateTo(src: ByteSource, sink: InflateSink, meter: WorkMeter)
       bitCnt -= len;
       return e & 511;
     }
-    // Canonical decode, one bit at a time (puff's decode): bounded by 15 lengths.
+    // Canonical decode, one bit at a time (puff's decode), up to the code's longest length: past it no
+    // symbol can match (the missing code of a one-code table), which zlib refuses at once.
     let code = 0;
     let first = 0;
     let index = 0;
-    for (let len = 1; len <= 15; len++) {
+    for (let len = 1; len <= c.maxLen; len++) {
       code |= bits(1);
       const count = c.counts[len];
       if (code - count < first) return c.symbols[index + (code - first)];
@@ -154,16 +173,8 @@ export function* inflateTo(src: ByteSource, sink: InflateSink, meter: WorkMeter)
       first <<= 1;
       code <<= 1;
     }
-    return inflateCorrupt('a code that matches no symbol');
+    return inflateCorrupt(`an invalid ${what} code`);
   };
-
-  // RFC 1950 header.
-  const cmf = bits(8);
-  const flg = bits(8);
-  if ((cmf & 15) !== 8) inflateCorrupt(`compression method ${cmf & 15}`);
-  if (cmf >> 4 > 7) inflateCorrupt('a window over 32 KB');
-  if ((cmf * 256 + flg) % 31 !== 0) inflateCorrupt('the header check');
-  if (flg & 32) inflateCorrupt('a preset dictionary');
 
   // The window: 32 KB of history plus room to write; flushed to the sink as it fills.
   const win = new Uint8Array(INFLATE_WINDOW * 2);
@@ -171,12 +182,19 @@ export function* inflateTo(src: ByteSource, sink: InflateSink, meter: WorkMeter)
   let flushed = 0;
   let total = 0;
   let satisfied = false;
-  const flush = (): boolean => {
+  let inSink = false;
+  const deliver = (): boolean => {
     if (wpos > flushed) {
       tickWork(meter, 1 + ((wpos - flushed) >> 12));
+      inSink = true;
       satisfied = sink(win, flushed, wpos);
+      inSink = false;
       flushed = wpos;
     }
+    return satisfied;
+  };
+  const flush = (): boolean => {
+    deliver();
     if (wpos >= INFLATE_WINDOW * 2 - 258) {
       win.copyWithin(0, wpos - INFLATE_WINDOW, wpos);
       wpos = INFLATE_WINDOW;
@@ -185,109 +203,146 @@ export function* inflateTo(src: ByteSource, sink: InflateSink, meter: WorkMeter)
     return satisfied;
   };
 
-  let fixedLit: InflateCode | null = null;
-  let fixedDist: InflateCode | null = null;
-  const lengths = new Uint8Array(320);
-  for (;;) {
-    tickWork(meter, 1);
-    const final = bits(1);
-    const type = bits(2);
-    if (type === 0) {
-      // Skip to a byte boundary; whole bytes already in the bit buffer are the block's first bytes.
-      const drop = bitCnt & 7;
-      bitBuf >>>= drop;
-      bitCnt -= drop;
-      const len = bits(16);
-      const nlen = bits(16);
-      if (len !== (~nlen & 0xffff)) inflateCorrupt('a stored block whose length and its complement disagree');
-      for (let i = 0; i < len; i++) {
-        let b: number;
-        if (bitCnt >= 8) b = bits(8);
-        else {
-          b = src.next();
-          if (b < 0) throw new LastraError('truncated', 'the zlib stream ends inside a stored block');
-        }
-        win[wpos++] = b;
-        total++;
-        if (wpos >= INFLATE_WINDOW * 2 - 258 || wpos - flushed >= 1 << 15) {
-          if (flush()) return true;
-          yield;
-        }
+  try {
+    // RFC 1950 header.
+    const cmf = bits(8);
+    const flg = bits(8);
+    if ((cmf & 15) !== 8) inflateCorrupt(`compression method ${cmf & 15}`);
+    if (cmf >> 4 > 7) inflateCorrupt('a window over 32 KB');
+    if ((cmf * 256 + flg) % 31 !== 0) inflateCorrupt('the header check');
+    if (flg & 32) inflateCorrupt('a preset dictionary');
+
+    // The fixed codes are complete: 288 literal/length codes and 32 distance codes, of which 286, 287, 30
+    // and 31 exist only to be refused (RFC 1951 3.2.6), as zlib refuses them.
+    let fixedLit: InflateCode | null = null;
+    let fixedDist: InflateCode | null = null;
+    const dynLit = newInflateCode(288);
+    const dynDist = newInflateCode(32);
+    const dynCl = newInflateCode(19);
+    const lengths = new Uint8Array(320);
+    const clens = new Uint8Array(19);
+    let yieldMark = meter.steps;
+    for (;;) {
+      tickWork(meter, 1);
+      if (meter.steps - yieldMark >= INFLATE_YIELD_STEPS) {
+        yieldMark = meter.steps;
+        yield;
       }
-    } else if (type === 3) {
-      inflateCorrupt('block type 3');
-    } else {
-      let lit: InflateCode;
-      let dist: InflateCode;
-      if (type === 1) {
-        if (!fixedLit || !fixedDist) {
-          for (let i = 0; i < 288; i++) lengths[i] = i < 144 ? 8 : i < 256 ? 9 : i < 280 ? 7 : 8;
-          fixedLit = buildInflateCode(lengths, 288, true, meter, true);
-          for (let i = 0; i < 30; i++) lengths[i] = 5;
-          fixedDist = buildInflateCode(lengths, 30, true, meter, true);
-        }
-        lit = fixedLit;
-        dist = fixedDist;
-      } else {
-        const nlen = bits(5) + 257;
-        const ndist = bits(5) + 1;
-        const ncode = bits(4) + 4;
-        if (nlen > 286 || ndist > 30) inflateCorrupt('too many length or distance codes');
-        const clens = new Uint8Array(19);
-        for (let i = 0; i < ncode; i++) clens[INFLATE_CODE_LENGTH_ORDER[i]] = bits(3);
-        const cl = buildInflateCode(clens, 19, false, meter);
-        lengths.fill(0);
-        let i = 0;
-        while (i < nlen + ndist) {
-          const sym = decodeSym(cl);
-          if (sym < 16) lengths[i++] = sym;
+      const final = bits(1);
+      const type = bits(2);
+      if (type === 0) {
+        // Skip to a byte boundary; whole bytes already in the bit buffer are the block's first bytes.
+        const drop = bitCnt & 7;
+        bitBuf >>>= drop;
+        bitCnt -= drop;
+        const len = bits(16);
+        const nlen = bits(16);
+        if (len !== (~nlen & 0xffff)) inflateCorrupt('a stored block whose length and its complement disagree');
+        for (let i = 0; i < len; i++) {
+          let b: number;
+          if (bitCnt >= 8) b = bits(8);
           else {
-            let len = 0;
-            let rep: number;
-            if (sym === 16) {
-              if (i === 0) inflateCorrupt('a repeat with no length before it');
-              len = lengths[i - 1];
-              rep = 3 + bits(2);
-            } else if (sym === 17) rep = 3 + bits(3);
-            else rep = 11 + bits(7);
-            if (i + rep > nlen + ndist) inflateCorrupt('code lengths past the end');
-            while (rep--) lengths[i++] = len;
+            b = src.next();
+            if (b < 0) throw new LastraError('truncated', 'the zlib stream ends inside a stored block');
+          }
+          win[wpos++] = b;
+          total++;
+          if (wpos >= INFLATE_WINDOW * 2 - 258 || wpos - flushed >= 1 << 15) {
+            if (flush()) return true;
+            yieldMark = meter.steps;
+            yield;
           }
         }
-        if (lengths[256] === 0) inflateCorrupt('no end-of-block code');
-        lit = buildInflateCode(lengths, nlen, true, meter);
-        dist = buildInflateCode(lengths.subarray(nlen), ndist, true, meter);
-      }
-      for (;;) {
-        const sym = decodeSym(lit);
-        if (sym < 256) {
-          win[wpos++] = sym;
-          total++;
-        } else if (sym === 256) break;
-        else {
-          const li = sym - 257;
-          if (li >= 29) inflateCorrupt(`length symbol ${sym}`);
-          const len = INFLATE_LENGTH_BASE[li] + bits(INFLATE_LENGTH_EXTRA[li]);
-          const ds = decodeSym(dist);
-          if (ds >= 30) inflateCorrupt(`distance symbol ${ds}`);
-          const d = INFLATE_DIST_BASE[ds] + bits(INFLATE_DIST_EXTRA[ds]);
-          if (d > total) inflateCorrupt('a distance before the start of the output');
-          for (let k = 0; k < len; k++, wpos++) win[wpos] = win[wpos - d];
-          total += len;
+      } else if (type === 3) {
+        inflateCorrupt('block type 3');
+      } else {
+        let lit: InflateCode;
+        let dist: InflateCode;
+        if (type === 1) {
+          if (!fixedLit || !fixedDist) {
+            fixedLit = newInflateCode(288);
+            fixedDist = newInflateCode(32);
+            for (let i = 0; i < 288; i++) lengths[i] = i < 144 ? 8 : i < 256 ? 9 : i < 280 ? 7 : 8;
+            buildInflateCode(fixedLit, lengths, 288, true, 'literal/length', meter);
+            lengths.fill(5, 0, 32);
+            buildInflateCode(fixedDist, lengths, 32, true, 'distance', meter);
+          }
+          lit = fixedLit;
+          dist = fixedDist;
+        } else {
+          const nlen = bits(5) + 257;
+          const ndist = bits(5) + 1;
+          const ncode = bits(4) + 4;
+          if (nlen > 286 || ndist > 30) inflateCorrupt('too many length or distance symbols');
+          clens.fill(0);
+          for (let i = 0; i < ncode; i++) clens[INFLATE_CODE_LENGTH_ORDER[i]] = bits(3);
+          buildInflateCode(dynCl, clens, 19, false, 'code-length', meter);
+          lengths.fill(0);
+          tickWork(meter, (nlen + ndist) >> 6);
+          let i = 0;
+          while (i < nlen + ndist) {
+            const sym = decodeSym(dynCl, 'code-length');
+            if (sym < 16) lengths[i++] = sym;
+            else {
+              let len = 0;
+              let rep: number;
+              if (sym === 16) {
+                if (i === 0) inflateCorrupt('a repeat with no length before it');
+                len = lengths[i - 1];
+                rep = 3 + bits(2);
+              } else if (sym === 17) rep = 3 + bits(3);
+              else rep = 11 + bits(7);
+              if (i + rep > nlen + ndist) inflateCorrupt('code lengths that repeat past the end');
+              while (rep--) lengths[i++] = len;
+            }
+          }
+          if (lengths[256] === 0) inflateCorrupt('no end-of-block code');
+          buildInflateCode(dynLit, lengths, nlen, true, 'literal/length', meter);
+          buildInflateCode(dynDist, lengths.subarray(nlen), ndist, true, 'distance', meter);
+          lit = dynLit;
+          dist = dynDist;
         }
-        if (wpos >= INFLATE_WINDOW * 2 - 258 || wpos - flushed >= 1 << 15) {
-          if (flush()) return true;
-          yield;
+        for (;;) {
+          const sym = decodeSym(lit, 'literal/length');
+          if (sym < 256) {
+            win[wpos++] = sym;
+            total++;
+          } else if (sym === 256) break;
+          else {
+            const li = sym - 257;
+            if (li >= 29) inflateCorrupt(`length symbol ${sym}`);
+            const len = INFLATE_LENGTH_BASE[li] + bits(INFLATE_LENGTH_EXTRA[li]);
+            const ds = decodeSym(dist, 'distance');
+            if (ds >= 30) inflateCorrupt(`distance symbol ${ds}`);
+            const d = INFLATE_DIST_BASE[ds] + bits(INFLATE_DIST_EXTRA[ds]);
+            if (d > total) inflateCorrupt('a distance before the start of the output');
+            for (let k = 0; k < len; k++, wpos++) win[wpos] = win[wpos - d];
+            total += len;
+          }
+          if (wpos >= INFLATE_WINDOW * 2 - 258 || wpos - flushed >= 1 << 15) {
+            if (flush()) return true;
+            yieldMark = meter.steps;
+            yield;
+          }
         }
       }
+      if (flush()) return true;
+      if (final) return false;
     }
-    if (flush()) return true;
-    if (final) return false;
+  } catch (e) {
+    // The stream failed: hand over what was inflated before it, as zlib does. A consumer that now has all
+    // it needs (the image ended before the damage) is satisfied, and the inflate ends there.
+    if (!(e instanceof LastraError) || inSink) throw e;
+    if (deliver()) return true;
+    throw e;
   }
 }
 
-/** Inflate a whole small stream (an ICC profile), or null if it is refused or passes `cap` bytes. */
-export function inflateSmall(bytes: Uint8Array, cap: number, meter: WorkMeter): Uint8Array | null {
+/**
+ * Inflate a whole small stream (an ICC profile), or null if it is refused or passes `cap` bytes. A
+ * generator, so a hostile profile yields and can be aborted like the image data.
+ */
+export function* inflateWhole(bytes: Uint8Array, cap: number, meter: WorkMeter): Generator<void, Uint8Array | null> {
   const parts: Uint8Array[] = [];
   let size = 0;
   let over = false;
@@ -298,10 +353,7 @@ export function inflateSmall(bytes: Uint8Array, cap: number, meter: WorkMeter): 
     return over;
   };
   try {
-    const steps = inflateTo(rangeSource(bytes), sink, meter);
-    while (!steps.next().done) {
-      // Profiles are small; run to the end.
-    }
+    yield* inflateTo(rangeSource(bytes), sink, meter);
   } catch (e) {
     if (e instanceof LastraError && (e.code === 'corrupt' || e.code === 'truncated')) return null;
     throw e;

@@ -35,8 +35,9 @@
  * names that is over-full or was never defined, EOI before any scan, a DC sum past 32 bits in a
  * progressive scan, as libjpeg-turbo refuses it); `too-large` (`maxPixels`, `maxBytes`, the two caps).
  *
- * `decodeJpeg` yields to the event loop between slices of work (at most about 2^20 coefficients, 16 block
- * rows of IDCT, 64 rows of upsampling or color) and honors an `AbortSignal`; `decodeJpegSync` runs the same
+ * `decodeJpeg` yields to the event loop between slices of work (2^15 meter steps of scan data, 8 block rows
+ * of IDCT or smoothing, 32 rows of upsampling or color, 2^14 markers, 1 MB of stray bytes) and honors an
+ * `AbortSignal`; `decodeJpegSync` runs the same
  * steps to the end without yielding. `opts.meter` counts the work: one step per segment, Huffman or
  * quantization table, decoded block plus one per 8 coefficients of its band, restart, IDCT block and 64
  * output pixels.
@@ -48,7 +49,7 @@
  * LICENSE.libjpeg-turbo.md, copied unaltered beside this file); this file is a TypeScript re-expression.
  */
 
-import { LastraError } from '../errors.js';
+import { LastraError } from '@laticent/lastra';
 import {
   BitReader,
   type BlockDecoder,
@@ -72,13 +73,17 @@ import type { DecodedImage, DecodeOptions, WorkMeter } from './types.js';
 export const MAX_SCANS = 500;
 /**
  * Coefficient work per block, summed over every scan: a block decoded in a scan counts the coefficients
- * that scan covers (64 for a sequential scan, 1 for a DC scan, the band for an AC scan). A legal
- * progression sends each of the 64 coefficients once and refines it at most 13 times, so no file that
- * does not replay scans can pass 14 x 64 = 896; 1024 allows that with room. Blocks inside an end-of-band
- * run of a first AC pass are skipped in one step and cost nothing. Images under 2^16 blocks get the
- * floor COEF_WORK_FLOOR instead, so small replayed files are not refused for being small.
+ * that scan covers (64 for a sequential scan, the band for an AC scan), and never fewer than
+ * COEF_WORK_MIN_BAND (8), so a DC scan or a one-coefficient band costs 8. A progression that sends the
+ * DC and the 63 AC coefficients once, in AC bands of 8 or more, and refines each at most 13 times costs at
+ * most 14 x (8 + 63) = 994, under 1024; a script that sends the 64 coefficients one per scan costs 512. A
+ * file with more than 128 one-coefficient scans is refused, legal or not: libjpeg's default progression
+ * sends 10 scans (6 for gray). Blocks inside an end-of-band run of a first AC pass, and blocks with
+ * nothing to refine inside a refinement's run, are skipped and cost nothing. Images under 2^16 blocks get
+ * the floor COEF_WORK_FLOOR instead, so small replayed files are not refused for being small.
  */
 export const COEF_WORK_PER_BLOCK = 1024;
+const COEF_WORK_MIN_BAND = 8;
 export const COEF_WORK_FLOOR = 1 << 26;
 
 /** A decoded JPEG: the pixels, and the ICC profile the file carries (not applied), or null. */
@@ -145,7 +150,10 @@ interface State {
   restartInterval: number;
   jfif: boolean;
   adobeTransform: number;
-  icc: { seq: number; count: number; data: Uint8Array }[];
+  /** ICC chunks by sequence number (at most 255), the count they declare, and whether the set already failed. */
+  iccSlots: (Uint8Array | null)[] | null;
+  iccCount: number;
+  iccBroken: boolean;
 }
 
 const readJpegU16 = (b: Uint8Array, o: number) => (b[o] << 8) | b[o + 1];
@@ -166,16 +174,32 @@ function* jpegSteps(bytes: Uint8Array, opts: DecodeOptions | undefined): Generat
   const len = bytes.length;
   if (len < 2) throw new LastraError('truncated', 'the file ends before SOI');
   if (bytes[0] !== 0xff || bytes[1] !== 0xd8) throw new LastraError('bad-marker', 'not a JPEG: no SOI marker');
-  const s: State = { quant: [null, null, null, null], dcAt: [-1, -1, -1, -1], acAt: [-1, -1, -1, -1], specs: new Map(), frame: null, restartInterval: 0, jfif: false, adobeTransform: -1, icc: [] };
+  const s: State = { quant: [null, null, null, null], dcAt: [-1, -1, -1, -1], acAt: [-1, -1, -1, -1], specs: new Map(), frame: null, restartInterval: 0, jfif: false, adobeTransform: -1, iccSlots: null, iccCount: 0, iccBroken: false };
 
   let pos = 2;
+  let markers = 0;
   for (;;) {
     tickWork(meter);
-    // Find the next marker. libjpeg skips stray bytes before one (with a warning); so does this.
-    const from = pos;
-    while (pos < len && bytes[pos] !== 0xff) pos++;
-    while (pos < len && bytes[pos] === 0xff) pos++;
-    tickWork(meter, (pos - from) >> 6);
+    // A file of millions of tiny segments (comments, APP blocks) must not hold the thread.
+    if ((++markers & (JPEG_MARKER_SLICE - 1)) === 0) yield;
+    // Find the next marker. libjpeg skips stray bytes before one (with a warning); so does this, a slice
+    // at a time, so a long run of junk yields too.
+    for (;;) {
+      const from = pos;
+      const stop = Math.min(len, pos + JPEG_SKIP_SLICE);
+      while (pos < stop && bytes[pos] !== 0xff) pos++;
+      tickWork(meter, (pos - from) >> 6);
+      if (pos < stop || pos >= len) break;
+      yield;
+    }
+    for (;;) {
+      const from = pos;
+      const stop = Math.min(len, pos + JPEG_SKIP_SLICE);
+      while (pos < stop && bytes[pos] === 0xff) pos++;
+      tickWork(meter, (pos - from) >> 6);
+      if (pos < stop || pos >= len) break;
+      yield;
+    }
     if (pos >= len) {
       if (jpegEndsEarly(s.frame)) break;
       throw new LastraError('truncated', 'the file ends before EOI');
@@ -238,7 +262,7 @@ function* jpegSteps(bytes: Uint8Array, opts: DecodeOptions | undefined): Generat
   if (!f) throw new LastraError('corrupt', 'EOI before any frame header');
   if (!f.allocated) throw new LastraError('corrupt', 'the frame has no scan');
   const pixels = yield* assembleJpeg(f, s, meter);
-  return { ...pixels, icc: jpegIccProfile(s.icc) };
+  return { ...pixels, icc: jpegIccProfile(s) };
 }
 
 /** A file that ends early decodes when at least one scan was read to its end. */
@@ -283,33 +307,53 @@ function readJpegHuffman(b: Uint8Array, at: number, end: number, s: State, meter
   }
 }
 
-/** APP2 "ICC_PROFILE\0", sequence number, count, data (ICC.1 Annex B.4). */
+/** Markers between yields while segments are walked, and stray bytes scanned between yields. */
+const JPEG_MARKER_SLICE = 1 << 14;
+const JPEG_SKIP_SLICE = 1 << 20;
+
+/**
+ * APP2 "ICC_PROFILE\0", sequence number, count, data (ICC.1 Annex B.4), kept as libjpeg's
+ * `jpeg_read_icc_profile` reads them: every chunk 1..count present once, with one count, or no profile.
+ * A chunk that breaks that (a duplicate, a sequence number of 0 or past the count, a second count) drops
+ * the profile at once, so a file of millions of ICC segments keeps at most 255 views and no list.
+ */
 function readJpegIccChunk(b: Uint8Array, at: number, end: number, s: State): void {
-  const sig = 'ICC_PROFILE';
-  if (end - at < 14) return;
-  for (let i = 0; i < sig.length; i++) if (b[at + i] !== sig.charCodeAt(i)) return;
+  if (s.iccBroken || end - at < 14) return;
+  for (let i = 0; i < 11; i++) if (b[at + i] !== JPEG_ICC_SIGNATURE[i]) return;
   if (b[at + 11] !== 0) return;
-  s.icc.push({ seq: b[at + 12], count: b[at + 13], data: b.subarray(at + 14, end) });
+  const seq = b[at + 12];
+  const count = b[at + 13];
+  if (s.iccSlots === null) {
+    s.iccCount = count;
+    s.iccSlots = new Array<Uint8Array | null>(count + 1).fill(null);
+  }
+  if (count === 0 || count !== s.iccCount || seq === 0 || seq > count || s.iccSlots[seq] !== null) {
+    s.iccBroken = true;
+    s.iccSlots = null;
+    return;
+  }
+  s.iccSlots[seq] = b.subarray(at + 14, end);
 }
 
-/** libjpeg's `jpeg_read_icc_profile`: every chunk 1..count present once, one count, or no profile. */
-function jpegIccProfile(chunks: State['icc']): Uint8Array | null {
-  if (chunks.length === 0) return null;
-  const count = chunks[0].count;
-  if (count === 0 || chunks.length !== count) return null;
-  const bySeq: (Uint8Array | null)[] = new Array(count + 1).fill(null);
-  for (const c of chunks) {
-    if (c.count !== count || c.seq === 0 || c.seq > count || bySeq[c.seq]) return null;
-    bySeq[c.seq] = c.data;
-  }
+const JPEG_ICC_SIGNATURE = Array.from('ICC_PROFILE', (c) => c.charCodeAt(0));
+
+/** The profile, joined in sequence order, or null when a chunk is missing or the set broke. */
+function jpegIccProfile(s: State): Uint8Array | null {
+  const slots = s.iccSlots;
+  if (s.iccBroken || slots === null) return null;
   let total = 0;
-  for (let i = 1; i <= count; i++) total += (bySeq[i] as Uint8Array).length;
+  for (let i = 1; i <= s.iccCount; i++) {
+    const c = slots[i];
+    if (c === null) return null;
+    total += c.length;
+  }
   if (total === 0) return null;
   const out = new Uint8Array(total);
   let o = 0;
-  for (let i = 1; i <= count; i++) {
-    out.set(bySeq[i] as Uint8Array, o);
-    o += (bySeq[i] as Uint8Array).length;
+  for (let i = 1; i <= s.iccCount; i++) {
+    const c = slots[i] as Uint8Array;
+    out.set(c, o);
+    o += c.length;
   }
   return out;
 }
@@ -418,8 +462,8 @@ function jpegTableFor(b: Uint8Array, s: State, index: number, isDC: boolean, pro
   return spec.derived;
 }
 
-/** Meter steps between yields (a block plus one per 8 coefficients of its band): a few milliseconds. */
-const JPEG_SLICE = 1 << 16;
+/** Meter steps between yields (a block plus one per 8 coefficients of its band): about 5 ms. */
+const JPEG_SLICE = 1 << 15;
 
 function* readJpegScan(b: Uint8Array, at: number, end: number, s: State, f: Frame, limits: Limits): Generator<void, number> {
   const meter = limits.meter;
@@ -491,7 +535,9 @@ function* readJpegScan(b: Uint8Array, at: number, end: number, s: State, f: Fram
   const perMcu = single ? 1 : blocksPerMcu;
   const cap = Math.max(COEF_WORK_PER_BLOCK * f.blocks, COEF_WORK_FLOOR);
   const band = !f.progressive ? 64 : ss === 0 ? 1 : se - ss + 1;
-  const mcuWork = perMcu * band;
+  // A decoded block costs its band, and never less than 8: reading even a one-bit end-of-band code is a
+  // block visit, and 500 scans of one-coefficient bands would otherwise pass every cap.
+  const mcuWork = perMcu * Math.max(band, COEF_WORK_MIN_BAND);
   const mcuSteps = perMcu * (1 + (band >> 3));
   const acFirst = f.progressive && ss > 0 && ah === 0;
   const acRefine = f.progressive && ss > 0 && ah > 0;
@@ -613,7 +659,7 @@ function* assembleJpeg(f: Frame, s: State, meter: WorkMeter): Generator<void, De
   const perRow = Math.ceil(width / 64);
   for (let y = 0; y < height; y++) {
     tickWork(meter, perRow);
-    if ((y & 63) === 63) yield;
+    if ((y & 31) === 31) yield;
     let o = y * width * 4;
     const r0 = y * p0.stride;
     if (transform === 'gray') {

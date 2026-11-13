@@ -23,6 +23,8 @@ decode is.
 Requires numpy, Pillow (with libjpeg-turbo) and, for three files, ImageMagick's `convert`.
 """
 
+import ctypes
+import ctypes.util
 import hashlib
 import io
 import json
@@ -44,6 +46,11 @@ from icc import ADOBE_RGB, DISPLAY_P3  # noqa: E402
 SEED = 20261113
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OUT = os.path.join(ROOT, 'docs', 'src', 'lib', 'lastra', 'decode', 'fixtures')
+
+
+def read_bytes(path):
+    with open(path, 'rb') as f:
+        return f.read()
 
 
 # ── Content ──────────────────────────────────────────────────────────────────────────────────────────
@@ -375,7 +382,7 @@ def magick_jpeg(im, sampling, quality, progressive=False):
         if progressive:
             args += ['-interlace', 'JPEG']
         subprocess.run(args + [dst], check=True)
-        return open(dst, 'rb').read()
+        return read_bytes(dst)
 
 
 def mpo(primary, second, icc=None):
@@ -542,10 +549,12 @@ def jpegtran(src, script):
         raise SystemExit('jpegtran (libjpeg-turbo-progs) is required for the custom-scan fixtures')
     with tempfile.TemporaryDirectory() as tmp:
         a, sf, out = (os.path.join(tmp, n) for n in ('in.jpg', 'scans.txt', 'out.jpg'))
-        open(a, 'wb').write(src)
-        open(sf, 'w').write(script)
+        with open(a, 'wb') as f:
+            f.write(src)
+        with open(sf, 'w') as f:
+            f.write(script)
         subprocess.run([exe, '-scans', sf, '-outfile', out, a], check=True)
-        return open(out, 'rb').read()
+        return read_bytes(out)
 
 
 def jpegtran_cases():
@@ -647,19 +656,231 @@ def sha(a):
 
 # ── zlib streams (the in-tree inflate's oracle) ─────────────────────────────────────────────────────
 
+class _ZStream(ctypes.Structure):
+    _fields_ = [
+        ('next_in', ctypes.c_void_p), ('avail_in', ctypes.c_uint), ('total_in', ctypes.c_ulong),
+        ('next_out', ctypes.c_void_p), ('avail_out', ctypes.c_uint), ('total_out', ctypes.c_ulong),
+        ('msg', ctypes.c_char_p), ('state', ctypes.c_void_p),
+        ('zalloc', ctypes.c_void_p), ('zfree', ctypes.c_void_p), ('opaque', ctypes.c_void_p),
+        ('data_type', ctypes.c_int), ('adler', ctypes.c_ulong), ('reserved', ctypes.c_ulong),
+    ]
+
+
 def zlib_reference(stream):
-    """What Python's zlib makes of a stream, fed a byte at a time so its output up to an error survives:
-    (output, verdict), verdict one of 'ok', 'adler' (all data out, the check failed), 'error', 'truncated'."""
-    d = zlib.decompressobj()
-    out = bytearray()
-    for i in range(len(stream)):
-        try:
-            out += d.decompress(stream[i:i + 1])
-        except zlib.error as e:
-            return bytes(out), 'adler' if 'incorrect data check' in str(e) else 'error'
-        if d.eof:
-            return bytes(out), 'ok'
-    return bytes(out), 'truncated'
+    """What zlib itself makes of a stream: (output, verdict, reason). verdict is 'ok', 'adler' (all data
+    out, the check failed), 'error' or 'truncated'; reason is zlib's message for an error ('invalid
+    distance too far back'), else None. It calls libz's inflate() through ctypes with the whole stream and
+    room for all the output, because zlib leaves every byte it inflated before an error in the output
+    buffer, and Python's zlib module throws those bytes away when it raises."""
+    lib = ctypes.CDLL(ctypes.util.find_library('z'))
+    z = _ZStream()
+    if lib.inflateInit_(ctypes.byref(z), zlib.ZLIB_RUNTIME_VERSION.encode(), ctypes.sizeof(z)) != 0:
+        raise SystemExit('inflateInit failed')
+    src = ctypes.create_string_buffer(stream, len(stream) or 1)
+    room = 1040 * len(stream) + 1024  # deflate inflates at most about 1032:1
+    dst = ctypes.create_string_buffer(room)
+    z.next_in, z.avail_in = ctypes.addressof(src), len(stream)
+    z.next_out, z.avail_out = ctypes.addressof(dst), room
+    ret = lib.inflate(ctypes.byref(z), 2)  # Z_SYNC_FLUSH: hand out everything it can
+    out = dst.raw[:z.total_out]
+    msg = z.msg.decode() if z.msg else None
+    lib.inflateEnd(ctypes.byref(z))
+    if ret == 1:  # Z_STREAM_END
+        return out, 'ok', None
+    if ret == -3:  # Z_DATA_ERROR
+        return out, ('adler' if msg == 'incorrect data check' else 'error'), (None if msg == 'incorrect data check' else msg)
+    assert ret in (0, -5) and z.avail_out > 0, (ret, msg)  # Z_OK or Z_BUF_ERROR with room left: input ran out
+    return out, 'truncated', None
+
+
+class DeflateBits:
+    """A deflate bit writer: values least significant bit first, Huffman codes most significant bit first."""
+
+    def __init__(self):
+        self.bits = []
+
+    def put(self, value, n):
+        self.bits += [(value >> i) & 1 for i in range(n)]
+
+    def code(self, code, n):
+        self.bits += [(code >> i) & 1 for i in range(n - 1, -1, -1)]
+
+    def stream(self, pad=8):
+        """A zlib stream: the header, these bits, then `pad` zero bytes so only the bits decide the verdict."""
+        b = bytearray()
+        for i in range(0, len(self.bits), 8):
+            b.append(sum(bit << j for j, bit in enumerate(self.bits[i:i + 8])))
+        return b'\x78\x9c' + bytes(b) + bytes(pad)
+
+
+def canonical_codes(lengths):
+    """RFC 1951 3.2.2: symbol -> (code, length) for the nonzero lengths."""
+    count = [0] * 17
+    for n in lengths:
+        if n:
+            count[n] += 1
+    nxt, code = [0] * 17, 0
+    for n in range(1, 17):
+        code = (code + count[n - 1]) << 1
+        nxt[n] = code
+    codes = {}
+    for sym, n in enumerate(lengths):
+        if n:
+            codes[sym] = (nxt[n], n)
+            nxt[n] += 1
+    return codes
+
+
+FIXED_LIT = canonical_codes([8] * 144 + [9] * 112 + [7] * 24 + [8] * 8)
+CL_ORDER = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]
+
+
+def fixed_block(w, symbols, final=1):
+    """A fixed-code block: each item a literal/length symbol, or ('dist', code) for a raw 5-bit distance code."""
+    w.put(final, 1)
+    w.put(1, 2)
+    for sym in symbols:
+        if isinstance(sym, tuple):
+            w.code(sym[1], 5)
+        else:
+            w.code(*FIXED_LIT[sym])
+
+
+def dynamic_header(w, nlen, ndist, cl_lengths, final=1):
+    """A dynamic block's header: HLIT, HDIST, HCLEN and the code-length code; returns that code's codes."""
+    w.put(final, 1)
+    w.put(2, 2)
+    w.put(nlen - 257, 5)
+    w.put(ndist - 1, 5)
+    w.put(19 - 4, 4)
+    for sym in CL_ORDER:
+        w.put(cl_lengths.get(sym, 0), 3)
+    return canonical_codes([cl_lengths.get(i, 0) for i in range(19)])
+
+
+def dynamic_lengths(w, cl, lengths):
+    """Send `lengths` as plain code-length symbols (0 to 15)."""
+    for n in lengths:
+        w.code(*cl[n])
+
+
+def zlib_refusals():
+    """Hand-built streams, one per refusal lastra documents, each paired with zlib's reason. The seeded
+    damage reaches most refusals by chance; these reach every one on purpose, at its exact edge."""
+    cases = {}
+    w = DeflateBits()  # a match 2 back after 1 byte of output
+    fixed_block(w, [65, 257, ('dist', 1), 256])
+    cases['refuse-distance-too-far'] = w.stream()
+    w = DeflateBits()  # a match exactly as far back as the output reaches: allowed
+    fixed_block(w, [65, 66, 257, ('dist', 1), 256])
+    cases['accept-distance-at-start'] = w.stream()
+    for code in (30, 31):
+        w = DeflateBits()
+        fixed_block(w, [65, 257, ('dist', code), 256])
+        cases[f'refuse-fixed-distance-{code}'] = w.stream()
+    for sym in (286, 287):
+        w = DeflateBits()
+        fixed_block(w, [65, sym, ('dist', 0), 256])
+        cases[f'refuse-fixed-length-{sym}'] = w.stream()
+    cases['refuse-stored-length'] = b'\x78\x9c' + bytes([1, 3, 0, 0, 0]) + b'abc'
+    w = DeflateBits()
+    w.put(1, 1)
+    w.put(3, 2)
+    cases['refuse-block-type-3'] = w.stream()
+    # Code-length codes: over-full by many, over-full by exactly one, incomplete (no one-code exception).
+    for name, cl in (('refuse-cl-overfull', {i: 1 for i in range(19)}), ('refuse-cl-overfull-by-one', {0: 1, 1: 1, 2: 1}), ('refuse-cl-incomplete', {0: 1})):
+        w = DeflateBits()
+        dynamic_header(w, 257, 1, cl)
+        cases[name] = w.stream()
+    cl = {0: 1, 1: 2, 2: 2}
+    lit = [1, 1] + [0] * 254 + [2]  # over-full by exactly one: 1/2 + 1/2 + 1/4
+    w = DeflateBits()
+    dynamic_lengths(w, dynamic_header(w, 257, 1, cl), lit + [1])
+    cases['refuse-literal-overfull-by-one'] = w.stream()
+    lit = [2, 2] + [0] * 254 + [2]  # incomplete: 3/4
+    w = DeflateBits()
+    dynamic_lengths(w, dynamic_header(w, 257, 1, cl), lit + [1])
+    cases['refuse-literal-incomplete'] = w.stream()
+    lit = [1] + [0] * 255 + [1]
+    w = DeflateBits()
+    dynamic_lengths(w, dynamic_header(w, 257, 2, cl), lit + [2, 2])
+    cases['refuse-distance-incomplete'] = w.stream()  # two distance codes of length 2: half the code space
+    w = DeflateBits()
+    dynamic_lengths(w, dynamic_header(w, 257, 1, cl), [1, 1] + [0] * 255 + [0])
+    cases['refuse-no-end-of-block'] = w.stream()
+    # One distance code of length 1 (zlib allows it), then a match that sends the other, missing code.
+    lit = [2, 0, 0] + [0] * 253 + [2, 1]  # literal 0, end of block, length symbol 257
+    w = DeflateBits()
+    lit_codes = canonical_codes(lit)
+    dynamic_lengths(w, dynamic_header(w, 258, 1, cl), lit + [1])
+    w.code(*lit_codes[0])
+    w.code(*lit_codes[257])
+    w.code(1, 1)
+    cases['refuse-distance-missing-code'] = w.stream()
+    w = DeflateBits()  # the same with nothing after the missing code: zlib needs only its one bit to refuse
+    dynamic_lengths(w, dynamic_header(w, 258, 1, cl), lit + [1])
+    w.code(*lit_codes[0])
+    w.code(*lit_codes[257])
+    w.code(1, 1)
+    cases['refuse-distance-missing-code-at-end'] = w.stream(0)
+    # Over-full by exactly one code at the longest length, 15, where nothing later doubles the excess:
+    # lengths 1 to 14 once each, then three codes of 15 where two would complete the code.
+    lit = list(range(1, 15)) + [15, 15] + [0] * 240 + [15]
+    w = DeflateBits()
+    dynamic_lengths(w, dynamic_header(w, 257, 1, {i: 4 for i in range(16)}), lit + [1])
+    cases['refuse-literal-overfull-at-15'] = w.stream()
+    # Repeats: a 16 with nothing before it, and an 18 that runs past HLIT + HDIST.
+    w = DeflateBits()
+    rcl = canonical_codes([1 if i in (0, 16) else 0 for i in range(19)])
+    dynamic_header(w, 257, 1, {0: 1, 16: 1})
+    w.code(*rcl[16])
+    w.put(0, 2)
+    cases['refuse-repeat-first'] = w.stream()
+    w = DeflateBits()
+    rcl = canonical_codes([1 if i in (0, 18) else 0 for i in range(19)])
+    dynamic_header(w, 257, 1, {0: 1, 18: 1})
+    w.code(*rcl[18])
+    w.put(127, 7)
+    w.code(*rcl[18])
+    w.put(127, 7)
+    cases['refuse-repeat-past-end'] = w.stream()
+    w = DeflateBits()  # 138 + 121 zero lengths: exactly one past the 258 a block of 257 + 1 codes has
+    dynamic_header(w, 257, 1, {0: 1, 18: 1})
+    w.code(*rcl[18])
+    w.put(127, 7)
+    w.code(*rcl[18])
+    w.put(110, 7)
+    cases['refuse-repeat-one-past-end'] = w.stream()
+    # 1,000 dynamic blocks with no output (one literal/length code, end of block; one distance code),
+    # then a fixed block with 'A': red team R3-2's shape, small, for the yield and allocation tests.
+    w = DeflateBits()
+    ecl = canonical_codes([2 if i in (0, 1) else 1 if i == 18 else 0 for i in range(19)])
+    for _ in range(1000):
+        dynamic_header(w, 257, 1, {0: 2, 1: 2, 18: 1}, final=0)
+        w.code(*ecl[18])
+        w.put(127, 7)
+        w.code(*ecl[18])
+        w.put(107, 7)
+        w.code(*ecl[1])
+        w.code(*ecl[1])
+        w.code(0, 1)
+    fixed_block(w, [65, 256])
+    cases['accept-empty-dynamic-blocks'] = w.stream(0) + zlib.adler32(b'A').to_bytes(4, 'big')
+    for name, nlen, ndist in (('refuse-hlit-287', 287, 1), ('refuse-hdist-31', 257, 31), ('accept-hlit-286-hdist-30', 286, 30)):
+        w = DeflateBits()
+        if name.startswith('accept'):
+            lens = [0] * 286 + [0] * 30
+            lens[65], lens[256] = 1, 1
+            lens[286] = 1
+            dynamic_lengths(w, dynamic_header(w, nlen, ndist, cl), lens)
+            codes = canonical_codes(lens[:286])
+            w.code(*codes[65])
+            w.code(*codes[256])
+            cases[name] = w.stream(0) + zlib.adler32(b'A').to_bytes(4, 'big')
+        else:
+            dynamic_header(w, nlen, ndist, cl)
+            cases[name] = w.stream()
+    return cases
 
 
 def zlib_cases():
@@ -690,9 +911,13 @@ def zlib_cases():
         cases.append((f'stored-after-fixed-{n:02d}', c.compress(text[:n]) + c.flush(zlib.Z_SYNC_FLUSH) + c.compress(text[n:n + 40]) + c.flush()))
     files = []
     for name, stream in cases:
-        out, verdict = zlib_reference(stream)
+        out, verdict, reason = zlib_reference(stream)
         assert verdict == 'ok' and len(out) >= 0, name
-        files.append((name, stream, out, verdict))
+        files.append((name, stream, out, verdict, reason))
+    for name, stream in zlib_refusals().items():
+        out, verdict, reason = zlib_reference(stream)
+        assert verdict in (('ok', 'adler') if name.startswith('accept') else ('error',)), (name, verdict, reason)
+        files.append((name, stream, out, verdict, reason))
     # Seeded damage on small streams: flipped bytes, cut ends, a bad Adler-32, trailing bytes.
     small = {'text': zlib.compress(text[:6000], 9), 'fixed': files[[n for n, *_ in files].index('text-fixed')][1][:0] or zlib.compressobj(9, zlib.DEFLATED, 15, 9, zlib.Z_FIXED).compress(text[:4000]), 'noise': zlib.compress(noise[:3000], 0)}
     c = zlib.compressobj(9, zlib.DEFLATED, 15, 9, zlib.Z_FIXED)
@@ -710,8 +935,8 @@ def zlib_cases():
                 b[-1] ^= 0x5A
             else:
                 b += bytes(rng.randrange(256) for _ in range(1 + rng.randrange(8)))
-            out, verdict = zlib_reference(bytes(b))
-            files.append((f'damaged-{base_name}-{k:02d}', bytes(b), out, verdict))
+            out, verdict, reason = zlib_reference(bytes(b))
+            files.append((f'damaged-{base_name}-{k:02d}', bytes(b), out, verdict, reason))
     return files
 
 
@@ -773,11 +998,12 @@ def build():
             'oracle': oracle,
         }
     expected['zlib'] = {}
-    for name, stream, out, verdict in zlib_cases():
+    for name, stream, out, verdict, reason in zlib_cases():
         files[f'zlib/{name}.z'] = stream
-        if verdict != 'ok':
-            files[f'zlib/{name}.out'] = out  # zlib's output up to where it stopped: the prefix lastra must match
-        expected['zlib'][f'{name}.z'] = {'outputLength': len(out), 'outputSha256': hashlib.sha256(out).hexdigest(), 'zlibVerdict': verdict}
+        entry = {'outputLength': len(out), 'outputSha256': hashlib.sha256(out).hexdigest(), 'zlibVerdict': verdict}
+        if reason:
+            entry['zlibReason'] = reason
+        expected['zlib'][f'{name}.z'] = entry
     files['expected.json'] = (json.dumps(expected, indent=2) + '\n').encode()
     return files
 
@@ -788,7 +1014,7 @@ def main():
     drift = []
     for rel, data in sorted(files.items()):
         path = os.path.join(OUT, rel)
-        old = open(path, 'rb').read() if os.path.exists(path) else None
+        old = read_bytes(path) if os.path.exists(path) else None
         if old != data:
             drift.append(rel)
             if not check:

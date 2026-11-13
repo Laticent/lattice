@@ -29,7 +29,17 @@ const RUNS = Number(argv[argv.indexOf('--runs') + 1]) || 5;
 
 async function bundle() {
   const esbuild = require('esbuild');
-  const out = await esbuild.build({ entryPoints: [path.join(ROOT, 'docs/src/lib/lastra/index.ts')], bundle: true, format: 'esm', platform: 'neutral', write: false, minify: true });
+  // The decoders are the `./decode` subpath; the encoder that makes the test pictures is the root. Read both
+  // from source (`@laticent/source`), never from a dist/ that may be stale.
+  const out = await esbuild.build({
+    stdin: { contents: "export { encodeJpeg } from '@laticent/lastra';\nexport * from '@laticent/lastra/decode';\n", resolveDir: ROOT, loader: 'ts' },
+    bundle: true,
+    format: 'esm',
+    platform: 'neutral',
+    conditions: ['@laticent/source'],
+    write: false,
+    minify: true,
+  });
   return out.outputFiles[0].text;
 }
 
@@ -113,20 +123,38 @@ async function timeNode(fn) {
 }
 
 /** The longest the async decode keeps the thread without a turn for the event loop (how long an abort waits). */
+/**
+ * The longest slice of decode work between two of its own yields, in ms. The decoders yield through
+ * `globalThis.scheduler.yield` when it exists (steps.ts), so a stand-in there times each slice from the turn
+ * it resumes to the next yield: the decoder's own stretch, not the event loop's latency on a busy machine.
+ */
 async function longestStretch(fn) {
+  const g = globalThis;
+  const had = Object.getOwnPropertyDescriptor(g, 'scheduler');
   let last = performance.now();
   let worst = 0;
-  let running = true;
-  const tick = () => {
-    const t = performance.now();
-    worst = Math.max(worst, t - last);
-    last = t;
-    if (running) setImmediate(tick);
-  };
-  setImmediate(tick);
-  await fn();
-  running = false;
-  return Math.max(worst, performance.now() - last);
+  Object.defineProperty(g, 'scheduler', {
+    configurable: true,
+    value: {
+      yield: () => {
+        worst = Math.max(worst, performance.now() - last);
+        return new Promise((resolve) =>
+          setImmediate(() => {
+            last = performance.now();
+            resolve();
+          }),
+        );
+      },
+    },
+  });
+  try {
+    last = performance.now();
+    await fn();
+    return Math.max(worst, performance.now() - last);
+  } finally {
+    if (had) Object.defineProperty(g, 'scheduler', had);
+    else delete g.scheduler;
+  }
 }
 
 async function main() {

@@ -21,6 +21,7 @@
     "src/lib/lastra/**/*.ts"
   ],
   "exclude": [
-    "src/lib/lastra/**/*.test.ts"
+    "src/lib/lastra/**/*.test.ts",
+    "src/lib/lastra/decode/test-support.ts"
   ]
 }

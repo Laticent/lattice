@@ -29,7 +29,7 @@ export interface Plane {
 
 /**
  * Upsample `src` by integer factors (`hr`, `vr`) to `outW` x `outH`. Returns `src` itself when both are 1.
- * A generator: it yields every 64 input rows.
+ * A generator: it yields every 32 input rows.
  */
 export function* upsampleJpegPlane(src: Plane, hr: number, vr: number, outW: number, outH: number): Generator<void, Plane> {
   if (hr === 1 && vr === 1) return src;
@@ -44,8 +44,8 @@ export function* upsampleJpegPlane(src: Plane, hr: number, vr: number, outW: num
   const line = new Uint8Array(wide);
 
   for (let ir = 0; ir * vr < outH; ir++) {
-    // A turn for the event loop every 64 input rows (an abort waits at most that long).
-    if ((ir & 63) === 63) yield;
+    // A turn for the event loop every 32 input rows (an abort waits at most that long).
+    if ((ir & 31) === 31) yield;
     for (let v = 0; v < vr; v++) {
       const oy = ir * vr + v;
       if (oy >= outH) break;

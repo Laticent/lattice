@@ -18,7 +18,7 @@
  * original code.
  */
 
-import { LastraError } from '../errors.js';
+import { LastraError } from '@laticent/lastra';
 
 /** Zigzag position to natural (row-major) position, with 16 extra entries for the decoder's overrun. */
 export const JPEG_NATURAL_ORDER = new Int32Array([

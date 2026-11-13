@@ -23,7 +23,7 @@ import {
   sofSeg,
   sosSeg,
   workLimit,
-} from './test-support.test.mjs';
+} from './test-support.js';
 
 const base = fixture('jpeg', 'odd-base-420.jpg');
 const prog = fixture('jpeg', 'mid-prog-420-q75.jpg');
@@ -258,9 +258,11 @@ describe('decodeJpeg refuses with a typed code', () => {
   });
 
   test('end-of-band runs over zero blocks cost nothing per block; replayed refinements of real data stop at the work cap', () => {
-    // A 4096 x 4096 gray frame: 262,144 blocks, past the floor, so the per-block cap applies.
-    const w = 4096;
-    const blocks = (w / 8) * (w / 8);
+    // A 2056 x 2048 gray frame: 65,792 blocks, just past the floor (2^16), so the per-block cap applies.
+    // (4096 x 4096 tested the same with four times the work and ran past 20 s under load.)
+    const w = 2056;
+    const h = 2048;
+    const blocks = (w / 8) * (h / 8);
     expect(COEF_WORK_PER_BLOCK * blocks).toBeGreaterThan(COEF_WORK_FLOOR);
     const bitsToBytes = (bits: number[]) => {
       const out: number[] = [];
@@ -283,7 +285,7 @@ describe('decodeJpeg refuses with a typed code', () => {
     };
     const sosTables = (ss: number, se: number, ah: number, al: number, ta: number) => [0xff, 0xda, 0, 8, 1, 1, ta, ss, se, (ah << 4) | al];
     const twoSymbols = [0xff, 0xc4, 0, 21, 0x10, 1, 1, ...Array.from({ length: 14 }, () => 0), 0x01, 0x00]; // AC 0: '0' -> (0,1), '10' -> EOB
-    const head = [SOI, dqtAll(), sofSeg(0xc2, w, w, [[1, 0x11, 0]]), dhtOne(0, 0), twoSymbols, dhtOne(1, 1, 0xe0), sosSeg([1], 0, 0, 0, 1), [0, 0, 0, 0]];
+    const head = [SOI, dqtAll(), sofSeg(0xc2, w, h, [[1, 0x11, 0]]), dhtOne(0, 0), twoSymbols, dhtOne(1, 1, 0xe0), sosSeg([1], 0, 0, 0, 1), [0, 0, 0, 0]];
     // Over zero blocks: a first pass of runs only, then 40 full-band refinements of runs only. Free.
     const zeroFirst = [...sosTables(1, 63, 0, 1, 1), ...eobRuns(0)];
     const zeroRefine = Array.from({ length: 40 }, () => [...sosTables(1, 63, 1, 0, 1), ...eobRuns(0)]);
@@ -291,7 +293,7 @@ describe('decodeJpeg refuses with a typed code', () => {
     expect(free.code).toBe('ok');
     // The scans cost a step per run and per 64 skipped blocks; the rest is the output (an IDCT step per
     // block and two per 64 pixels). Walking the runs block by block would add 8 steps a block per scan.
-    expect(free.steps).toBeLessThan(blocks + 3 * ((w * w) / 64) + 41 * (blocks / 64) + 2000);
+    expect(free.steps).toBeLessThan(blocks + 3 * ((w * h) / 64) + 41 * (blocks / 64) + 2000);
     // Over real data: coefficient 1 nonzero in every block (4 bits a block), then full-band refinements,
     // each reading a correction bit per block: 63 coefficients of work per block per scan, past 1,024.
     const dataFirst = [...sosTables(1, 63, 0, 1, 0), ...bitsToBytes(Array.from({ length: blocks }, () => [0, 1, 1, 0]).flat())];
@@ -421,5 +423,98 @@ describe('decodeJpeg ends in bounded work on hostile shapes that are not refusal
 
   test('the work meter refuses once its limit is passed', () => {
     expect(refusal(prog, { meter: { steps: 0, limit: 50 } })).toBe('too-large');
+  });
+});
+
+describe('decodeJpeg on files of many tiny segments, and scans under every other cap', () => {
+  const one = fixture('jpeg', 'one-base-420.jpg');
+  /** `segments` laid between SOI and the rest of a 1x1 JPEG. */
+  const behind = (...segments: Uint8Array[]) => concat(Uint8Array.from(SOI), ...segments, one.subarray(2));
+  const iccSeg = (seq: number, count: number, data: number[]) => bytesOf([0xff, 0xe2, 0, 16 + data.length], Array.from('ICC_PROFILE\0', (c) => c.charCodeAt(0)), [seq, count], data);
+  const repeat = (unit: Uint8Array, n: number) => {
+    const out = new Uint8Array(unit.length * n);
+    for (let i = 0; i < n; i++) out.set(unit, i * unit.length);
+    return out;
+  };
+  /** Event-loop turns `decodeJpeg` gives back while it decodes `bytes`. */
+  async function turnsDuring(bytes: Uint8Array): Promise<number> {
+    let turns = 0;
+    let done = false;
+    const tick = () => {
+      if (!done) {
+        turns++;
+        setImmediate(tick);
+      }
+    };
+    setImmediate(tick);
+    await decodeJpeg(bytes);
+    done = true;
+    return turns;
+  }
+
+  test('ICC chunks join in sequence order; a duplicate, a second count or a sequence of 0 or past the count drops the profile', () => {
+    expect(Array.from(decodeJpegSync(behind(iccSeg(2, 2, [3, 4]), iccSeg(1, 2, [1, 2]))).icc ?? [])).toEqual([1, 2, 3, 4]);
+    expect(decodeJpegSync(behind(iccSeg(1, 2, [1]), iccSeg(1, 2, [1]), iccSeg(2, 2, [2]))).icc).toBeNull();
+    expect(decodeJpegSync(behind(iccSeg(1, 2, [1]), iccSeg(2, 3, [2]))).icc).toBeNull();
+    expect(decodeJpegSync(behind(iccSeg(0, 1, [1]))).icc).toBeNull();
+    expect(decodeJpegSync(behind(iccSeg(2, 1, [1]))).icc).toBeNull();
+    expect(decodeJpegSync(behind(iccSeg(1, 2, [1]))).icc).toBeNull();
+  });
+
+  test('2^17 ICC segments keep no view per segment: the profile breaks at the second and the rest are skipped', () => {
+    // red team R3-1: 255 MB of these ran Node out of memory, an object kept per segment. Count the views
+    // the decode makes: a handful, not one per segment.
+    const file = behind(repeat(iccSeg(1, 1, []), 1 << 17));
+    const subarray = Uint8Array.prototype.subarray;
+    let views = 0;
+    Uint8Array.prototype.subarray = function (this: Uint8Array, ...args: [number?, number?]) {
+      views++;
+      return subarray.apply(this, args);
+    };
+    let icc: Uint8Array | null | undefined;
+    try {
+      icc = decodeJpegSync(file).icc;
+    } finally {
+      Uint8Array.prototype.subarray = subarray;
+    }
+    expect(icc).toBeNull();
+    expect(views).toBeLessThan(1000);
+  });
+
+  test('2^17 comment segments, or 3 MB of stray bytes between segments, give the event loop turns', async () => {
+    // red team R3-1: 255 MB of COM segments held the thread for 1.1 s in one stretch. The 1x1 picture's
+    // own decode gives a turn or two; the segments (a yield per 2^14) and the junk (per 1 MB) add theirs.
+    const own = await turnsDuring(behind());
+    expect(await turnsDuring(behind(repeat(Uint8Array.from([0xff, 0xfe, 0, 2]), 1 << 17)))).toBeGreaterThanOrEqual(own + 7);
+    expect(await turnsDuring(behind(new Uint8Array(3 << 20)))).toBeGreaterThanOrEqual(own + 2);
+  });
+
+  test('a block costs at least 8 coefficients a scan: 128 one-coefficient scans of 2^16 blocks decode, 129 are refused', () => {
+    // red team R3-3: 500 scans of one-coefficient bands, every block a one-bit EOB0, stayed under the scan
+    // cap and the coefficient cap (charged 1 a block) and ran 23 s at 100 MP. At 8 a block, the cap of
+    // 1024 a block allows 128 such scans. 2048 x 2048 gray is 2^16 blocks, where the per-block cap
+    // (2^26) meets the floor.
+    const w = 2048;
+    const data = new Uint8Array((w / 8) ** 2 / 8); // zero bits: an EOB0 per block
+    const file = (scans: number) => {
+      const parts: Uint8Array[] = [bytesOf(SOI, dqtAll(), dhtOne(1, 0, 0x00), sofSeg(0xc2, w, w, [[1, 0x11, 0]]))];
+      for (let i = 0; i < scans; i++) {
+        const k = 1 + (i % 63);
+        const a = Math.floor(i / 63);
+        parts.push(bytesOf(a === 0 ? sosSeg([1], k, k, 0, 13) : sosSeg([1], k, k, 14 - a, 13 - a)), data);
+      }
+      parts.push(Uint8Array.from(EOI));
+      return concat(...parts);
+    };
+    expect(COEF_WORK_PER_BLOCK * (w / 8) ** 2).toBe(COEF_WORK_FLOOR);
+    expect(decodeJpegSync(file(128), { maxPixels: w * w }).width).toBe(w);
+    let message = '';
+    try {
+      decodeJpegSync(file(129), { maxPixels: w * w });
+    } catch (e) {
+      message = String(e);
+    }
+    expect(message).toContain('too-large');
+    expect(message).toContain('coefficients decoded per block');
   });
 });

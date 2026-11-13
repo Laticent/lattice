@@ -1,10 +1,11 @@
 // @vitest-environment node
 /**
- * The in-tree inflate against Python's zlib (tools/lastra-corpus/generate.py records zlib's verdict and
- * output for every stream): byte for byte on every stream zlib inflates, the same refusals where zlib
- * refuses, and lastra's one deliberate difference, the Adler-32, which lastra never checks (libpng and the
- * browsers display such files). Then seeded damage: every case ends in bounded work with the bytes or a
- * LastraError, never anything else.
+ * The in-tree inflate against zlib itself (tools/lastra-corpus/generate.py calls libz's inflate() and
+ * records its verdict, reason and output for every stream): byte for byte on every stream zlib inflates; on
+ * every stream zlib refuses, the same refusal for the same reason after exactly the same output; and
+ * lastra's one deliberate difference, the Adler-32, which lastra never checks (Chromium displays such
+ * files). Then seeded damage: every case ends in bounded work with the bytes or a LastraError, never
+ * anything else.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -12,7 +13,7 @@ import { inflateSync } from 'node:zlib';
 import { describe, expect, test } from 'vitest';
 import { isLastraError, type WorkMeter } from './index.js';
 import { type InflateSink, inflateTo, rangeSource } from './inflate.js';
-import { expected, FIXTURES, rng, sha256 } from './test-support.test.mjs';
+import { expected, FIXTURES, rng, sha256 } from './test-support.js';
 
 
 function inflateAll(stream: Uint8Array, meter: WorkMeter = { steps: 0 }): { out: Uint8Array; ended: boolean; error: unknown } {
@@ -33,6 +34,25 @@ function inflateAll(stream: Uint8Array, meter: WorkMeter = { steps: 0 }): { out:
 
 const cases = Object.entries(expected.zlib);
 
+/**
+ * zlib's reason for each refusal, and the words lastra uses for the same one. Every documented refusal of
+ * inflate.ts has a hand-built fixture (generate.py `zlib_refusals`), so loosening any check either lets a
+ * stream through or refuses it for another reason, and the pair below catches both.
+ */
+const ZLIB_REASONS: Record<string, RegExp> = {
+  'invalid distance too far back': /a distance before the start of the output/,
+  'invalid distance code': /distance symbol 3[01]|an invalid distance code/,
+  'invalid literal/length code': /length symbol 28[67]|an invalid literal\/length code/,
+  'invalid stored block lengths': /a stored block whose length and its complement disagree/,
+  'invalid block type': /block type 3/,
+  'invalid code lengths set': /an (over-full|incomplete) code-length code/,
+  'invalid literal/lengths set': /an (over-full|incomplete) literal\/length code/,
+  'invalid distances set': /an (over-full|incomplete) distance code/,
+  'invalid code -- missing end-of-block': /no end-of-block code/,
+  'invalid bit length repeat': /a repeat with no length before it|code lengths that repeat past the end/,
+  'too many length or distance symbols': /too many length or distance symbols/,
+};
+
 describe('inflate matches zlib', () => {
   test('the corpus has every verdict', () => {
     const verdicts = new Set(cases.map(([, c]) => c.zlibVerdict));
@@ -51,14 +71,24 @@ describe('inflate matches zlib', () => {
         expect(sha256(r.out)).toBe(want.outputSha256);
         return;
       }
-      // zlib stopped: lastra refuses too, with what it delivered a prefix of zlib's output.
+      // zlib stopped: lastra refuses too, for zlib's reason, having handed out exactly zlib's output.
       expect(isLastraError(r.error), String(r.error)).toBe(true);
-      expect((r.error as { code: string }).code).toBe(want.zlibVerdict === 'truncated' ? 'truncated' : 'corrupt');
-      const zout = new Uint8Array(readFileSync(`${FIXTURES}zlib/${name.replace(/\.z$/, '.out')}`));
-      expect(r.out.length).toBeLessThanOrEqual(zout.length);
-      expect(Buffer.from(r.out).equals(Buffer.from(zout.subarray(0, r.out.length)))).toBe(true);
+      const err = r.error as { code: string; message: string };
+      expect(err.code).toBe(want.zlibVerdict === 'truncated' ? 'truncated' : 'corrupt');
+      if (want.zlibVerdict === 'error') {
+        const reason = want.zlibReason as string;
+        expect(ZLIB_REASONS[reason], `no lastra reason paired with zlib's '${reason}'`).toBeDefined();
+        expect(err.message).toMatch(ZLIB_REASONS[reason]);
+      }
+      expect(r.out.length).toBe(want.outputLength);
+      expect(sha256(r.out)).toBe(want.outputSha256);
     });
   }
+
+  test('a hand-built stream reaches every documented refusal', () => {
+    const reasons = new Set(cases.map(([, c]) => c.zlibReason).filter(Boolean));
+    for (const reason of Object.keys(ZLIB_REASONS)) expect(reasons, `no fixture where zlib says '${reason}'`).toContain(reason);
+  });
 
   test("the consumer's stop ends the inflate: later bytes, more streams and the checksum are never read", () => {
     const stream = new Uint8Array(readFileSync(`${FIXTURES}zlib/text-l9.z`));
@@ -71,6 +101,43 @@ describe('inflate matches zlib', () => {
     while (!r.done) r = steps.next();
     expect(r.value).toBe(true);
     expect(got).toBeGreaterThanOrEqual(1000);
+  });
+});
+
+describe('inflate on blocks with no output', () => {
+  // red team R3-2: minimal dynamic blocks make no output, so a yield that waited for output never came:
+  // 20 MB held the thread 12 s, and each block allocated its three tables afresh.
+  const stream = () => new Uint8Array(readFileSync(`${FIXTURES}zlib/accept-empty-dynamic-blocks.z`));
+
+  test('1,000 empty dynamic blocks yield on work, not only on output', () => {
+    let yields = 0;
+    const steps = inflateTo(rangeSource(stream()), () => false, { steps: 0 });
+    let r = steps.next();
+    while (!r.done) {
+      yields++;
+      r = steps.next();
+    }
+    expect(yields).toBeGreaterThanOrEqual(4);
+  });
+
+  test('a dynamic block rebuilds its tables in place: no typed array per block', () => {
+    const real = globalThis.Uint16Array;
+    let made = 0;
+    globalThis.Uint16Array = new Proxy(real, {
+      construct(target, args) {
+        made++;
+        return Reflect.construct(target, args);
+      },
+    });
+    let out: ReturnType<typeof inflateAll>;
+    try {
+      out = inflateAll(stream());
+    } finally {
+      globalThis.Uint16Array = real;
+    }
+    expect(out.error).toBeNull();
+    expect(Array.from(out.out)).toEqual([65]);
+    expect(made).toBeLessThan(50);
   });
 });
 
@@ -161,8 +228,11 @@ describe('inflate on seeded damage', () => {
       const base = bases[Math.floor(r() * bases.length)];
       const b = base.slice(0, Math.max(2, Math.floor(r() * base.length) + 1));
       for (let k = 1 + Math.floor(r() * 4); k > 0; k--) b[Math.floor(r() * b.length)] ^= 1 << Math.floor(r() * 8);
-      // Work: a step per 4 KB of output and per table; inflated output is at most 1032 times the input.
-      const meter: WorkMeter = { steps: 0, limit: 64 + b.length * 2 };
+      // Work, from inflate.ts's loops: a dynamic block costs at most 165 steps (a block, its three table
+      // builds at 1 + (3n + 512) / 16 for n of 19, 286 and 30, and 316 code lengths) and reads at least 46
+      // bits, so under 29 steps a byte; a fixed or stored block reads at least 3 bits for a step and a
+      // flush; the fixed tables cost 126 steps once; output, at most 1032 times the input, a step per 4 KB.
+      const meter: WorkMeter = { steps: 0, limit: 256 + b.length * 32 };
       const res = inflateAll(b, meter);
       if (res.error && !isLastraError(res.error)) throw new Error(`case ${i} (seed ${SEED + i}) threw ${String(res.error)}`);
       const code = res.error ? (res.error as { code: string }).code : 'ok';

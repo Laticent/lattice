@@ -31,6 +31,17 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./decode": {
+      "@laticent/source": "./decode/index.ts",
+      "import": {
+        "types": "./dist/decode/index.d.ts",
+        "default": "./dist/decode.mjs"
+      },
+      "require": {
+        "types": "./dist/decode/index.d.ts",
+        "default": "./dist/decode.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -39,6 +50,7 @@
     "!*.test.ts",
     "decode/*.ts",
     "!decode/*.test.ts",
+    "!decode/test-support.ts",
     "decode/README.md",
     "decode/README.ijg.txt",
     "decode/LICENSE.libjpeg-turbo.md",

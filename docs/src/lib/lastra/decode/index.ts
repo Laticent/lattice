@@ -3,8 +3,7 @@
  * a worker (engineering/decisions/2026-11-13-image-library.md §3 and §4). See README.md beside this file.
  */
 
-export type { LastraErrorCode } from '../errors.js';
-export { isLastraError, LastraError } from '../errors.js';
+export { isLastraError, LastraError, type LastraErrorCode } from '@laticent/lastra';
 export type { JpegImage } from './jpeg.js';
 export { COEF_WORK_FLOOR, COEF_WORK_PER_BLOCK, decodeJpeg, decodeJpegSync, MAX_SCANS } from './jpeg.js';
 export { applyOrientation } from './orientation.js';

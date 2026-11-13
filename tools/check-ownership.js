@@ -10248,11 +10248,13 @@ function unreadableModuleCalls(src, fileName = 'x.ts') {
  * Report every import in `dir` that leaves it, except a `node:` built-in when `allowNode` and a bare
  * specifier named exactly in `allowBare`. `describe(rel, spec)` writes the error for a boundary hit.
  */
-function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe }) {
+function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe, testHelpers = new Set() }) {
   if (!fs.existsSync(dir)) return;
   const root = path.resolve(dir);
+  const isHelper = (abs) => testHelpers.has(path.relative(root, abs).split(path.sep).join('/'));
   for (const file of listPackageSources(root)) {
     if (TEST_FILE.test(file)) continue; // tests use the dev runner (vitest), not host coupling
+    if (isHelper(file)) continue; // a test helper with a non-test name, listed by the package's gate
     const rel = relPosix(ROOT, file);
     const raw = fs.readFileSync(file, 'utf8');
     for (const problem of unreadableModuleCalls(raw, file)) errors.push(`${rel} ${problem}`);
@@ -10266,7 +10268,7 @@ function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe
         if (spec.startsWith('.')) {
           const target = path.resolve(path.dirname(file), spec);
           if (target !== root && !target.startsWith(root + path.sep)) errors.push(describe(rel, spec));
-          else if (/\.test(?:\.[cm]?[jt]sx?)?$/.test(spec)) {
+          else if (/\.test(?:\.[cm]?[jt]sx?)?$/.test(spec) || isHelper(target.replace(/\.js$/, '.ts'))) {
             errors.push(`${rel} imports '${spec}', a test module. Test files are not gated, so production code may not reach through one.`);
           }
           continue;
@@ -10355,7 +10357,13 @@ const LASTRA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'lastra');
 function checkLastraBoundary(errors, dir = LASTRA_DIR) {
   checkStrictPackageImports(errors, dir, {
     allowNode: false,
-    allowBare: new Set(),
+    // The decoders (`@laticent/lastra/decode`) import the root by the package's own name, so the two entries
+    // share one LastraError; a self-reference resolves inside the folder.
+    allowBare: new Set(['@laticent/lastra']),
+    // decode/test-support.ts builds fixtures with node:fs and node:zlib for the decode tests. It is excluded
+    // from the package's files, its declarations and check:lastra by name, and production code may not
+    // import it.
+    testHelpers: new Set(['decode/test-support.ts']),
     describe: (rel, spec) =>
       `${rel} imports '${spec}', which escapes the Lastra folder. @laticent/lastra is pure and dependency-free so ` +
       `it runs the same on the CLI, in the browser and in a worker: every import must resolve inside ` +
@@ -13178,9 +13186,6 @@ const NUL_TEXT_EXTENSIONS = [
   // The office probe's test app around Apple's Quick Look viewer (docs/scripts/ios-safari/QLProbe.swift) and its
   // Info.plist — plain text source.
   '.swift', '.plist',
-  // A TypeScript module that stays out of a package's build: lastra's decode test helper
-  // (docs/src/lib/lastra/decode/test-support.test.mts).
-  '.mts',
 ];
 
 // The BINARY half of the same partition. Every tracked file must fall in one list
@@ -13195,9 +13200,14 @@ const NUL_TEXT_EXTENSIONS = [
 const NUL_BINARY_EXTENSIONS = [
   '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
   '.wav', '.woff', '.woff2', '.wasm', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
-  // lastra's inflate oracle (docs/src/lib/lastra/decode/fixtures/zlib/): raw zlib streams and the bytes
-  // Python's zlib inflated from the damaged ones.
-  '.z', '.out',
+];
+
+// Binary extensions that hold only inside one folder: a corpus whose files take a name no other part of
+// the tree should use. Scoped, so a `.z` anywhere else is unclassified and fails the partition test
+// instead of being skipped. `nul-byte-gate.test.js` fails on an entry no tracked file matches.
+const NUL_BINARY_FOLDERS = [
+  // lastra's inflate oracle: raw zlib streams, some deliberately damaged (tools/lastra-corpus/generate.py).
+  { dir: 'docs/src/lib/lastra/decode/fixtures/zlib/', ext: '.z' },
 ];
 
 /**
@@ -15593,6 +15603,7 @@ module.exports = {
   findNulBytes,
   auditNulBytes,
   NUL_BINARY_EXTENSIONS,
+  NUL_BINARY_FOLDERS,
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,
