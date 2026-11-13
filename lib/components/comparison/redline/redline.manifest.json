@@ -12,7 +12,7 @@
   },
   "split": {
     "strategy": "redline-blocks",
-    "note": "Portrait SPLIT after the CSS collapse: when the stacked .split/.three-col still overflows, OLD gets its own slide and NEW (with the note/why list riding) gets the next — heading + citation repeat; OLD/NEW identity rides rl-old/rl-new. With one blockquote it splits as a passage (owner, 2026-11-06): the why list moves to the next page, and a clause longer than a page continues at a sentence break, on a measured plan only. lib/core/carousel.js redline-blocks; 2026-06-25-retire-landscape-locks-portrait-everything.md."
+    "note": "Portrait SPLIT after the CSS collapse: when the stacked .split/.three-col still overflows, OLD gets its own slide and NEW (with the note/why list riding) gets the next — heading + citation repeat; OLD/NEW identity rides rl-old/rl-new. With one blockquote it splits as a passage (owner, 2026-11-06): the why list moves to the next page, and a clause longer than a page continues at a sentence break, or, inside one long sentence, at a clause break (after a semicolon, or a comma before and / or / but; never inside an edit; owner 2026-11-13, fit-everywhere-model.md §23), on a measured plan only. lib/core/carousel.js redline-blocks; 2026-06-25-retire-landscape-locks-portrait-everything.md."
   },
   "function": "comparison",
   "form": "canvas",

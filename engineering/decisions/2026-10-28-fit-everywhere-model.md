@@ -1314,3 +1314,12 @@ one-row lines), and markup-blank edge lines made the counts disagree, so the pla
 slide with several blocks still splits one block a page, and a block that overflows its own page is
 not cut again.
 
+**Redline clauses, built.** `clauseStarts` (lib/core/passage-sentences.js) finds where a clause begins
+inside a sentence: after a semicolon, or after a comma when the next word is `and`, `or` or `but`. A plain
+scan, self-contained, so it travels into the measuring page beside `sentenceStarts`. For a `redline`
+only, the measured split (`passageOf`) and the `passage` strategy (`passageCuts(…, { clauses: true })`)
+merge those starts with the sentence starts, and `passageBreaks` still refuses any cut inside an edit or
+between a deletion and its insertion. On the redline gallery at a phone square, the slides whose one
+60-word clause clipped now split between its clauses; the one page still past its frame is the old/new
+split's NEW page, whose why list rides with the clause, a layout fix of its own.
+

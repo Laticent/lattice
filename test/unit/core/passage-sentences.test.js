@@ -5,7 +5,7 @@
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { sentenceStarts, textOf, splitHtmlAtText, passageCuts, editMarks } = require('../../../lib/core/passage-sentences');
+const { sentenceStarts, clauseStarts, textOf, splitHtmlAtText, passageCuts, editMarks, CLAUSE_STARTS_SRC } = require('../../../lib/core/passage-sentences');
 
 const starts = (t) => sentenceStarts(t).map((i) => t.slice(i, i + 8));
 
@@ -96,4 +96,31 @@ test('a whole inserted sentence may begin or end a page; a cut inside one edit m
   assert.equal(passageCuts('<p><ins>One added. Two added.</ins></p>').length, 0, 'never inside one insertion');
   assert.equal(passageCuts('<p><del>Old rule.</del> <ins>New rule.</ins></p>').length, 0, 'never between a deletion and its replacement');
   assert.equal(editMarks('<p>a<del>b</del><ins>c</ins></p>'), '0di');
+});
+
+// A REDLINE MAY BREAK BETWEEN CLAUSES (owner, 2026-11-13; fit-everywhere-model.md §23): after a
+// semicolon, or after a comma before `and`, `or` or `but`, never elsewhere inside a clause.
+test('a clause starts after a semicolon, or after a comma before and / or / but', () => {
+  const text = 'The lessee shall pay rent; the lessor shall keep the roof, and neither may assign, or sublet, but notice cures.';
+  const starts = clauseStarts(text);
+  assert.deepEqual(starts.map((at) => text.slice(at, at + 4)), ['the ', 'and ', 'or s', 'but ']);
+});
+
+test('a comma before any other word, or with no space after it, starts no clause', () => {
+  assert.deepEqual(clauseStarts('Rent, taxes, andirons, ordinary wear, butter.'), []);
+  assert.deepEqual(clauseStarts('1,000 or 2;3'), []);
+});
+
+test('only a redline breaks between clauses, and never inside or across an edit', () => {
+  const html = '<p>The lessee shall pay rent; the lessor shall keep the roof.</p>';
+  assert.equal(passageCuts(html).length, 0, 'a quote or citation keeps the sentence whole');
+  assert.equal(passageCuts(html, { clauses: true }).length, 1, 'a redline may break after the semicolon');
+  const edited = '<p>The lessee <del>shall pay rent; the lessor</del> <ins>must pay rent; the owner</ins> keeps the roof.</p>';
+  assert.equal(passageCuts(edited, { clauses: true }).length, 0, 'a clause break inside a deletion or an insertion is refused');
+});
+
+test('the clause rule is self-contained, so it can travel into the page as source', () => {
+  const fromSource = new Function(`return (${CLAUSE_STARTS_SRC})`)();
+  const text = 'One clause; two clauses, and three.';
+  assert.deepEqual(fromSource(text), clauseStarts(text));
 });
