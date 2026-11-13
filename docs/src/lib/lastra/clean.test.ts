@@ -3,7 +3,8 @@
 // scrubber (engineering/decisions/2026-10-12-library-media-assets.md §3) and moved here with the code.
 import { describe, expect, it } from 'vitest';
 import { cleanerFor, cleanGif, cleanJpeg, cleanPng, cleanWebp } from './clean.js';
-import { tiffOrientation } from './read.js';
+import { encodeJpeg } from './jpeg.js';
+import { readImage, tiffOrientation } from './read.js';
 
 const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
 const le32 = (n: number) => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
@@ -65,6 +66,17 @@ describe('cleanPng — a keep-list', () => {
 		expect(has(clean, 'eXIf')).toBe(true);
 		const at = new TextDecoder('latin1').decode(clean).indexOf('eXIf');
 		expect(tiffOrientation(clean.subarray(at + 4, at + 4 + 26))).toBe(6);
+	});
+	it('keeps the turn of the first eXIf ahead of the pixels only, as the reader and the engines do', () => {
+		const count = (b: Uint8Array) => new TextDecoder('latin1').decode(b).split('eXIf').length - 1;
+		expect(count(cleanPng(png(1, [pngChunk('eXIf', tiff(1)), pngChunk('eXIf', tiff(6))])) as Uint8Array)).toBe(0);
+		const first = cleanPng(png(1, [pngChunk('eXIf', tiff(6)), pngChunk('eXIf', tiff(1))])) as Uint8Array;
+		expect(count(first)).toBe(1);
+		expect(readImage(first)?.orientation).toBe(6);
+		// An eXIf after the pixels turns nothing in any engine, so it leaves nothing behind.
+		const p = png(1);
+		const late = new Uint8Array([...p.subarray(0, p.length - 12), ...pngChunk('eXIf', tiff(6)), ...p.subarray(p.length - 12)]);
+		expect(count(cleanPng(late) as Uint8Array)).toBe(0);
 	});
 	it('drops an eXIf that does not rotate the picture', () => {
 		expect(has(cleanPng(png(1, [pngChunk('eXIf', tiff(1))])) as Uint8Array, 'eXIf')).toBe(false);
@@ -195,6 +207,31 @@ describe('cleanJpeg — the rest of the file', () => {
 		expect(has(clean, GPS)).toBe(false);
 		const at = new TextDecoder('latin1').decode(clean).indexOf('Exif');
 		expect(tiffOrientation(clean.subarray(at + 6, at + 6 + 26))).toBe(6);
+	});
+	it('keeps the turn of the FIRST Exif block only, as the reader and the engines do', () => {
+		const exifCount = (b: Uint8Array) => new TextDecoder('latin1').decode(b).split('Exif\0\0').length - 1;
+		const tiffNoTag = [0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 1, 0x01, 0x0f, 0, 2, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0];
+		// Orientation 1, then 6: no engine turns it, so the clean file must carry no turn.
+		expect(exifCount(cleanJpeg(jpeg(1, [jpegSegment(0xe1, [...ascii('Exif\0\0'), ...tiff(1)]), jpegSegment(0xe1, [...ascii('Exif\0\0'), ...tiff(6)])])) as Uint8Array)).toBe(0);
+		// A first block with no Orientation tag, then 6: Chromium and Firefox leave it unturned.
+		expect(exifCount(cleanJpeg(jpeg(1, [jpegSegment(0xe1, [...ascii('Exif\0\0'), ...tiffNoTag]), jpegSegment(0xe1, [...ascii('Exif\0\0'), ...tiff(6)])])) as Uint8Array)).toBe(0);
+		// An APP1 that says `Exif` without the two zero bytes is not an Exif block, so the next one is the first.
+		const kept = cleanJpeg(jpeg(1, [jpegSegment(0xe1, [...ascii('Exif!!'), ...tiff(8)]), jpegSegment(0xe1, [...ascii('Exif\0\0'), ...tiff(6)])])) as Uint8Array;
+		expect(exifCount(kept)).toBe(1);
+		const at = new TextDecoder('latin1').decode(kept).indexOf('Exif\0\0');
+		expect(tiffOrientation(kept.subarray(at + 6, at + 6 + 26)), 'the turn is the real Exif block\'s').toBe(6);
+	});
+	it('a real JPEG cleans to the turn readImage reads from the original, whatever its Exif blocks say', () => {
+		const px = new Uint8ClampedArray(16 * 8 * 4).fill(128);
+		const base = encodeJpeg(px, 16, 8, 80);
+		const exif = (o: number) => jpegSegment(0xe1, [...ascii('Exif\0\0'), ...tiff(o)]);
+		const xmp = jpegSegment(0xe1, ascii('http://ns.adobe.com/xap/1.0/\0<x/>'));
+		const cases = [[exif(6)], [exif(1), exif(6)], [exif(6), exif(1)], [xmp, exif(8)], [exif(3), exif(6), exif(8)], [exif(9), exif(6)], []];
+		for (const [k, blocks] of cases.entries()) {
+			const file = new Uint8Array([0xff, 0xd8, ...blocks.flat(), ...base.subarray(2)]);
+			const clean = cleanJpeg(file) as Uint8Array;
+			expect(readImage(clean)?.orientation, `case ${k}`).toBe(readImage(file)?.orientation);
+		}
 	});
 	it('keeps an ICC profile and drops an APP2 that is not one', () => {
 		const clean = cleanJpeg(jpeg(1, [jpegSegment(0xe2, ascii('ICC_PROFILE\0abc')), jpegSegment(0xe2, ascii('MPF\0abcdefghij'))])) as Uint8Array;

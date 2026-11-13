@@ -179,7 +179,7 @@ function readPng(b: Uint8Array): ImageInfo | null {
 	const colorType = b[25];
 	// Gray + alpha and RGBA carry an alpha channel; a palette or gray PNG carries it in a tRNS chunk.
 	let alpha = colorType === 4 || colorType === 6;
-	let orientation = 1;
+	let orientation = 0; // 0 = no eXIf seen yet: the FIRST one decides, as in Chromium and Firefox
 	// The ancillary chunks a browser reads sit before the first IDAT: tRNS, and the eXIf whose
 	// rotation Chromium and Firefox apply (WebKit does not; read.test.ts has the probe).
 	for (let o = 33; o + 8 <= b.length; ) {
@@ -187,10 +187,10 @@ function readPng(b: Uint8Array): ImageInfo | null {
 		const type = fourCC(b, o + 4);
 		if (type === 'IDAT' || type === 'IEND') break;
 		if (type === 'tRNS') alpha = true;
-		else if (type === 'eXIf' && orientation === 1) orientation = tiffOrientation(tiffSlice(b, o + 8, o + 8 + len));
+		else if (type === 'eXIf' && !orientation) orientation = tiffOrientation(tiffSlice(b, o + 8, o + 8 + len));
 		o += 12 + len;
 	}
-	return headerInfo('png', width, height, alpha, orientation);
+	return headerInfo('png', width, height, alpha, orientation || 1);
 }
 
 // ── JPEG ────────────────────────────────────────────────────────────────────────────────────────
@@ -265,22 +265,27 @@ function readGif(b: Uint8Array): ImageInfo | null {
  * applies a WebP's EXIF orientation (read.test.ts), so it is always 1.
  */
 function readWebp(b: Uint8Array): ImageInfo | null {
-	if (b.length < 30) return null;
+	// Each first chunk needs only its own header: VP8 and VP8X read to byte 30, VP8L to byte 25. A cleaned lossless file
+	// can be that short, and must read as the file it was cleaned from (read.fuzz.test.ts).
+	if (b.length < 25) return null;
 	const fmt = fourCC(b, 12);
+	// The chunk must hold the header it is read for: a size read past a chunk's end is the next chunk's bytes.
+	const chunk = readU32le(b, 16);
 	if (fmt === 'VP8 ') {
-		if (b[23] !== 0x9d || b[24] !== 0x01 || b[25] !== 0x2a) return null;
+		if (b.length < 30 || chunk < 10 || b[23] !== 0x9d || b[24] !== 0x01 || b[25] !== 0x2a) return null;
 		const width = readU16le(b, 26) & 0x3fff;
 		const height = readU16le(b, 28) & 0x3fff;
 		if (!width || !height) return null;
 		return headerInfo('webp', width, height, false, 1);
 	}
 	if (fmt === 'VP8L') {
-		if (b[20] !== 0x2f) return null;
+		if (chunk < 5 || b[20] !== 0x2f) return null;
 		const bits = readU32le(b, 21);
 		// 14 bits of width - 1, 14 of height - 1, then the alpha_is_used hint.
 		return headerInfo('webp', (bits & 0x3fff) + 1, ((bits >>> 14) & 0x3fff) + 1, ((bits >>> 28) & 1) === 1, 1);
 	}
 	if (fmt === 'VP8X') {
+		if (b.length < 30 || chunk < 10) return null;
 		const width = (b[24] | (b[25] << 8) | (b[26] << 16)) + 1;
 		const height = (b[27] | (b[28] << 8) | (b[29] << 16)) + 1;
 		// The canvas width times height must fit in 32 bits (the WebP container spec).

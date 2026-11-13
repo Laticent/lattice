@@ -187,6 +187,13 @@ const ROWS: Row[] = [
 		why: 'Chromium and Firefox turn it (WebKit does not). The recode now leaves it alone instead of squeezing the turned bitmap into the stored box',
 	},
 	{
+		name: 'PNG: two eXIf chunks, Orientation 1 then 6',
+		bytes: () => png(64, 32, 2, [pngChunk('eXIf', tiff(1)), pngChunk('eXIf', tiff(6))]),
+		was: 'every reader: unturned (none read PNG eXIf); the first lastra build read on past the 1 and said 6',
+		check: (i) => assert.equal(i?.orientation, 1),
+		why: 'the first eXIf decides: Chromium and Firefox paint 1-then-6 unturned and 6-then-1 turned (WebKit applies neither)',
+	},
+	{
 		name: 'WebP: an EXIF chunk with Orientation 6',
 		bytes: () => vp8x(64, 32, 0x08, [webpChunk('VP8 ', [0, 0, 0, 0x9d, 1, 0x2a, 64, 0, 32, 0]), webpChunk('EXIF', tiff(6))]),
 		was: 'every reader: unturned',
@@ -347,6 +354,11 @@ describe('readImage: GIF, WebP, AVIF', () => {
 		assert.equal(read(vp8x(5000, 4000, 0))?.alpha, false);
 		assert.equal(read(vp8x(1 << 24, 1 << 24, 0)), null, 'a canvas over 2^32 pixels');
 		assert.equal(read(riff(webpChunk('ALPH', new Array(20).fill(0)))), null, 'no image chunk first');
+		// A first chunk too small for its own header: the size bytes there belong to whatever follows it.
+		assert.equal(read(riff([...ascii('VP8L'), ...le32(0), 0x2f, ...le32(299 | (199 << 14)), 0, 0, 0, 0])), null, 'a VP8L chunk of 0 bytes');
+		assert.equal(read(riff([...ascii('VP8 '), ...le32(4), 0, 0, 0, 0x9d, 1, 0x2a, 64, 0, 32, 0, 0, 0])), null, 'a VP8 chunk of 4 bytes');
+		// A lossless file needs only 25 bytes for its header: a cleaned one that short still reads.
+		assert.equal(read(riff(webpChunk('VP8L', [0x2f, ...le32(299 | (199 << 14)), 0, 0, 0])).subarray(0, 28))?.width, 300);
 	});
 	test("AVIF: the PRIMARY item's ispe, not the first one (a grid's tiles, an alpha plane)", () => {
 		const b = avif([ispe(512, 512), ispe(4032, 3024)], { 1: [2], 2: [1], 3: [1] });

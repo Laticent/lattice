@@ -58,12 +58,17 @@ export function cleanPng(b: Uint8Array): Uint8Array | null {
 	const parts: Uint8Array[] = [b.subarray(0, 8)];
 	let i = 8;
 	let sawEnd = false;
+	// Only the FIRST eXIf ahead of the pixels can turn the picture (read.ts readPng, and the engines' probe).
+	let exifSeen = false;
+	let pixelsSeen = false;
 	while (i + 12 <= b.length) {
 		const len = cleanU32be(b, i);
 		const end = i + 12 + len;
 		if (end > b.length) return null;
 		const type = chunkTag(b, i + 4);
-		if (type === 'eXIf') {
+		if (type === 'IDAT') pixelsSeen = true;
+		if (type === 'eXIf' && !exifSeen && !pixelsSeen) {
+			exifSeen = true;
 			const o = tiffOrientation(b.subarray(i + 8, i + 8 + len));
 			if (o !== 1) parts.push(pngOrientationChunk(o));
 		}
@@ -213,6 +218,10 @@ export function cleanJpeg(b: Uint8Array): Uint8Array | null {
 	if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8) return null;
 	const parts: Uint8Array[] = [b.subarray(0, 2)];
 	let i = 2;
+	// The turn a browser applies comes from the FIRST APP1 that opens with `Exif\0\0` before the first scan, and only
+	// from it (read.ts readJpeg, and the engines' probe in read.test.ts). Later Exif blocks are dropped like the rest.
+	let exifSeen = false;
+	let scanSeen = false;
 	const isIcc = (at: number, len: number) => len >= 14 && chunkTag(b, at + 4).slice(0, 4) === 'ICC_' && String.fromCharCode(...b.subarray(at + 4, at + 15)) === 'ICC_PROFILE';
 	while (i + 2 <= b.length) {
 		if (b[i] !== 0xff) return null;
@@ -238,7 +247,8 @@ export function cleanJpeg(b: Uint8Array): Uint8Array | null {
 		if (marker === 0xe1) {
 			// EXIF keeps only its rotation; XMP and the rest of APP1 go.
 			keep = false;
-			if (len >= 16 && chunkTag(b, i + 4) === 'Exif') {
+			if (!exifSeen && !scanSeen && len >= 8 && chunkTag(b, i + 4) === 'Exif' && b[i + 8] === 0 && b[i + 9] === 0) {
+				exifSeen = true;
 				const o = tiffOrientation(b.subarray(i + 10, i + 2 + len));
 				if (o !== 1) {
 					const tiff = orientationOnlyTiff(o);
@@ -251,6 +261,7 @@ export function cleanJpeg(b: Uint8Array): Uint8Array | null {
 		if (keep) parts.push(seg);
 		i += 2 + len;
 		if (marker === 0xda) {
+			scanSeen = true;
 			// Entropy-coded scan data runs to the next real marker (an FF followed by anything but 00 or a restart).
 			const start = i;
 			while (i + 1 < b.length && !(b[i] === 0xff && b[i + 1] !== 0x00 && !(b[i + 1] >= 0xd0 && b[i + 1] <= 0xd7))) i++;

@@ -49,7 +49,9 @@ function seeds(): Record<string, Uint8Array> {
 	const ipco = box('ipco', [...fullBox('ispe', [...be32(512), ...be32(512)]), ...fullBox('ispe', [...be32(4032), ...be32(3024)]), ...box('irot', [1]), ...box('imir', [0])]);
 	const ipma = fullBox('ipma', [...be32(2), ...be16(1), 3, 0x82, 0x83, 0x84, ...be16(2), 1, 0x81]);
 	const avif = new Uint8Array([...box('ftyp', [...ascii('mif1'), 0, 0, 0, 0, ...ascii('mif1'), ...ascii('avif')]), ...fullBox('meta', [...fullBox('pitm', be16(1)), ...box('iprp', [...ipco, ...ipma])])]);
-	return { jpeg, png, gif, webp, lossless, avif };
+	// Two Exif blocks, the first unturned: a browser paints it unturned, so a cleaned copy must too.
+	const twoExif = new Uint8Array([0xff, 0xd8, ...segment(0xe1, [...ascii('Exif'), 0, 0, ...tiff(1)]), ...segment(0xe1, [...ascii('Exif'), 0, 0, ...tiff(6)]), ...jpg.subarray(2)]);
+	return { jpeg, twoExif, png, gif, webp, lossless, avif };
 }
 
 /** One corruption of `b`, chosen and placed by `r`. */
@@ -119,6 +121,12 @@ function checkClean(b: Uint8Array, label: string) {
 	if (out === null) return;
 	assert.equal(imageFormat(out), format, `${label}: a cleaned ${format} is still one`);
 	assert.deepEqual(clean(out), out, `${label}: a cleaned file cleans to itself`);
+	// Cleaning keeps what a browser paints: the same size and the same turn, read before and after.
+	const before = readImage(b);
+	if (before) {
+		const after = readImage(out);
+		assert.deepEqual([after?.width, after?.height, after?.orientation], [before.width, before.height, before.orientation], `${label}: the clean file paints like the original`);
+	}
 }
 
 describe(`seeded corruption (seed ${SEED})`, () => {
@@ -128,6 +136,7 @@ describe(`seeded corruption (seed ${SEED})`, () => {
 			Object.fromEntries(Object.entries(base).map(([k, v]) => [k, readImage(v)])),
 			{
 				jpeg: { format: 'jpeg', mime: 'image/jpeg', width: 33, height: 17, alpha: false, orientation: 6 },
+				twoExif: { format: 'jpeg', mime: 'image/jpeg', width: 33, height: 17, alpha: false, orientation: 1 },
 				png: { format: 'png', mime: 'image/png', width: 300, height: 200, alpha: true, orientation: 6 },
 				gif: { format: 'gif', mime: 'image/gif', width: 64, height: 32, alpha: true, orientation: 1 },
 				webp: { format: 'webp', mime: 'image/webp', width: 64, height: 32, alpha: true, orientation: 1 },
