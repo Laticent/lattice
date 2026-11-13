@@ -50,7 +50,7 @@ skill. The others are authorable end-to-end from the file.
 
 | Skill | Use when… | ≈ tokens |
 |---|---|---|
-| [`accessibility-review`](./accessibility-review.md) | Use when reviewing a deck for accessibility: contrast, alt text and describe: comments, reading order, color as the only signal, type size, captions and motion. | 3.4k |
+| [`accessibility-review`](./accessibility-review.md) | Use when reviewing a deck for accessibility: contrast, alt text and describe: comments, reading order, color as the only signal, type size, captions and motion. | 3.5k |
 | [`chart-from-data`](./chart-from-data.md) | Use when the author has numbers (pasted rows, a CSV, a table) and needs the right chart on a slide: pick the kind from the question, author the data, write the claim. | 3.3k |
 | [`cli`](./cli.md) | Use when rendering, exporting, sharing or checking a finished deck from a terminal: PDF, PowerPoint, images, player, handouts. | 3.4k |
 | [`diagram`](./diagram.md) | Use when a slide needs a diagram: a Mermaid flowchart, sequence or state diagram, or a native flowchart; when it helps, size limits, theming and what breaks. | 3.0k |

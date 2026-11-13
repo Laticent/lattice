@@ -113,24 +113,18 @@ describe('the engine, end to end', () => {
       assert.equal(ids.length, 1, v);
     }
   });
-  test('![bg] follows the same list, on an image slide and on every other slide', () => {
-    const lift = (u) => e.render(`<!-- _class: image -->\n\n![bg](${u})\n\n## T\n`).html;
-    const plain = (u) => e.render(`## T\n\n![bg](${u})\n`);
-    for (const u of ['http://evil/x.png', '//evil/x.png', 'blob:x', 'ftp://e/x', 'javascript:alert(1)', 'file:///etc/x']) {
-      // No panel and no live URL. markdown-it refuses javascript: and file: as links, so on an image slide, as on
-      // any other, those stay escaped text in a paragraph; the rest the allowlist drops before the panel is drawn.
-      assert.doesNotMatch(lift(u), /lattice-bg|url\(/, `image slide: ${u}`);
-      const r = plain(u);
-      assert.doesNotMatch(r.html, /background-image:url\(&quot;(?:http|\/\/|blob|ftp|javascript|file)/, `plain slide: ${u}`);
-      // markdown-it's own link check already refuses javascript: and file: on this path, so no image token
-      // reaches the engine to be reported; the rest are reported.
-      if (!/^(javascript|file):/.test(u)) assert.equal((r.diagnostics || []).filter((d) => d.id === 'meta/url-scheme').length, 1, `diagnostic: ${u}`);
+  // Marp's `![bg]` is not read since the engine break (2026-11-13); the photo a slide places is Markdown's picture, the record's
+  // shortcut, which asks the same list (lib/core/placed-picture.mjs rule 6).
+  test('the placed photo follows the same list, on an image slide and a bleed slide', () => {
+    for (const cls of ['image', 'content bleed']) {
+      const place = (u) => e.render(`<!-- _class: ${cls} -->\n\n![Photo](${u})\n\n## T\n`).html;
+      for (const u of ['http://evil/x.png', '//evil/x.png', 'blob:x', 'ftp://e/x', 'javascript:alert(1)', 'file:///etc/x']) {
+        assert.doesNotMatch(place(u), /lattice-bg|url\(/, `${cls}: ${u}`);
+      }
+      assert.match(place('https://x.example/a.png'), /lattice-bg/, cls);
+      assert.match(place('img/a.png'), /lattice-bg/, cls);
+      assert.match(place('sample:logo-acme-mark.svg'), /lattice-bg/, cls);
     }
-    assert.match(lift('https://x.example/a.png'), /lattice-bg/);
-    assert.match(lift('img/a.png'), /lattice-bg/);
-    assert.match(plain('https://x.example/a.png').html, /background-image:url\(&quot;https:/);
-    assert.match(plain('img/a.png').html, /background-image:url\(&quot;img\/a\.png/);
-    assert.deepEqual((plain('sample:logo-acme-mark.svg').diagnostics || []).filter((d) => d.id === 'meta/url-scheme'), []);
   });
   test('a gradient still renders', () => {
     assert.equal(section('<!-- _backgroundImage: linear-gradient(red, blue) -->\n# A').bg, 'linear-gradient(red, blue)');

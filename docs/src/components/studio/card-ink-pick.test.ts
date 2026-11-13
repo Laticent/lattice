@@ -5,7 +5,7 @@ import { photoMatches, sameSlide } from './card-ink-sampler';
 
 describe('thin spotlight card: when the backing slider should pick an ink', () => {
 	const deck = (fm: string) => `---\ntitle: T\n${fm}---\n\n`;
-	const slide = (cls: string) => `<!-- _class: ${cls} -->\n\n## A photo.\n\nWords.\n\n![bg](sample:photo-wide.svg)\n`;
+	const slide = (cls: string) => `<!-- _class: ${cls} -->\n\n## A photo.\n\nWords.\n\n![A lake](sample:photo-wide.svg)\n`;
 
 	it('asks for an ink only for a thin card with none, from the slide or the deck', () => {
 		expect(slideNeedsInk(slide('image spotlight card-o35'), deck(''))).toBe(true);
@@ -105,7 +105,7 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 		expect(getClassTokens(own.chunk)).toContain('ink-light');
 	});
 
-	it('photo reference: the raw `![bg](ref)` of the slide', () => {
+	it('photo reference: the slide\'s photo as written', () => {
 		expect(photoRefOf(slide('image spotlight'))).toBe('sample:photo-wide.svg');
 		expect(photoRefOf('## No photo\n')).toBeNull();
 	});
@@ -127,19 +127,21 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 	});
 
 	it('reading the slide\'s photo reference: spaces, angle brackets, parentheses, titles, modifiers', () => {
-		expect(photoRefOf('![bg](<a b.jpg>)')).toBe('a b.jpg');
-		expect(photoRefOf('![bg](img/(1).jpg)')).toBe('img/(1).jpg');
-		// A title ends the address, a space inside parentheses does not, and an unclosed one reads as nothing.
-		expect(photoRefOf('![bg](a.jpg "Title")')).toBe('a.jpg');
-		expect(photoRefOf('![bg](img/(a b).jpg)')).toBe('img/(a b).jpg');
-		expect(photoRefOf('![bg](img/(1.jpg')).toBeNull();
+		const on = (line: string) => `<!-- _class: image -->\n\n## T\n\n${line}\n`;
+		expect(photoRefOf(on('![A](<a b.jpg>)'))).toBe('a b.jpg');
+		expect(photoRefOf(on('![A](img/(1).jpg)'))).toBe('img/(1).jpg');
+		// A title ends the address, and an unclosed one reads as nothing. A bare space inside the address is not a picture to
+		// CommonMark (only `<…>` may hold one), so the engine places nothing, and neither does the finder.
+		expect(photoRefOf(on('![A](a.jpg "Title")'))).toBe('a.jpg');
+		expect(photoRefOf(on('![A](img/(a b).jpg)'))).toBeNull();
+		expect(photoRefOf(on('![A](img/(1.jpg'))).toBeNull();
 		// A phone photo inline: megabytes of base64 read whole.
 		const photo = `data:image/jpeg;base64,${'QUJD'.repeat(500_000)}`;
-		expect(photoRefOf(`## Hi\n\n![bg](${photo})\n`)).toBe(photo);
-		expect(photoRefOf('![bg](a.jpg "A title")')).toBe('a.jpg');
-		expect(photoRefOf('![bg left:40%](sample:photo-wide.svg)')).toBe('sample:photo-wide.svg');
-		expect(photoRefOf('![bg](https://cdn.test/a.jpg?w=1600&q=80)')).toBe('https://cdn.test/a.jpg?w=1600&q=80');
-		expect(photoRefOf('![bg](unterminated')).toBeNull();
+		expect(photoRefOf(on(`![A](${photo})`))).toBe(photo);
+		expect(photoRefOf(on('![A](https://cdn.test/a.jpg?w=1600&q=80)'))).toBe('https://cdn.test/a.jpg?w=1600&q=80');
+		expect(photoRefOf(on('![A](unterminated'))).toBeNull();
+		// A Marp `![bg …]` is an ordinary picture to the engine since the break (2026-11-13), so it is no photo here.
+		expect(photoRefOf(on('![bg left:40%](sample:photo-wide.svg)'))).toBeNull();
 	});
 
 	it('the photo check: relative paths with ../ pass on a / boundary, and a look-alike name does not', () => {
@@ -172,8 +174,8 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 });
 
 describe('photoAt: the slide\'s photo however it is written (2026-11-10)', () => {
-	it('finds an old `![bg]`, a lone record, and the shortcut on an image or bleed slide', () => {
-		expect(photoAt('<!-- _class: image -->\n\n## T\n\n![bg right](a.jpg)\n')).toMatchObject({ ref: 'a.jpg' });
+	it('finds a lone record and the shortcut on an image or bleed slide, and no longer an old `![bg]`', () => {
+		expect(photoAt('<!-- _class: image -->\n\n## T\n\n![bg right](a.jpg)\n')).toBeNull();
 		expect(photoAt('<!-- _class: image -->\n\n## T\n\n`@image{"b c.jpg", title="x"}`\n')).toMatchObject({ ref: 'b c.jpg' });
 		expect(photoAt('<!-- _class: content -->\n\n## T\n\n`@image{asset:harbor}`\n')).toMatchObject({ ref: 'asset:harbor' });
 		expect(photoAt('<!-- _class: image mirror -->\n\n## T\n\n![A lake](sample:photo-wide.jpg "Dawn")\n')).toMatchObject({ ref: 'sample:photo-wide.jpg' });

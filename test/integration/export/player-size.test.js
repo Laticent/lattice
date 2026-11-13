@@ -30,13 +30,17 @@ Body text in the deck's own faces, with **bold** and \`code\`.
 
 ---
 
-![bg](sample:photo-wide.jpg)
+<!-- _class: content bleed -->
+
+![](sample:photo-wide.jpg)
 
 ## The photo, full bleed
 
 ---
 
-![bg left](sample:photo-wide.jpg)
+<!-- _class: image mirror -->
+
+![](sample:photo-wide.jpg)
 
 ## The same photo, on the left
 `;
@@ -52,6 +56,8 @@ Body text in the deck's own faces, with **bold** and \`code\`.
 		html = fs.readFileSync(out, 'utf8');
 	}, { timeout: TIMEOUT });
 
+	// Untitled, so the photo is decorative and stays out of the Reading view: this pins the style-attribute hoist. A TITLED placed
+// photo is also a figure in the article, an <img> whose src no var() can share (the image shortcut's Reading-view figure, #3126).
 	test('a photo used on two slides is stored once', () => {
 		const uris = [...html.matchAll(/data:image\/jpeg;base64,[A-Za-z0-9+/=]+/g)].map((m) => m[0]);
 		assert.ok(uris.length >= 1, 'the photo is inlined');

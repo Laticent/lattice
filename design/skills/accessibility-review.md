@@ -21,8 +21,9 @@ and the fix, and then the fixed deck.
 
 - **Every slide has a text alternative.** A `<!-- describe: … -->` comment says what
   the slide SHOWS, for anyone who cannot see it.
-- **Every meaningful image is described.** Inline images carry alt text; background
-  images (`![bg](…)`) are covered by the slide's `describe:`.
+- **Every meaningful image is described.** Every picture carries a name: `![A name](…)`,
+  or `title=` on an `@image{…}` record. A slide's placed photo (an `image` panel, a `bleed`
+  background) speaks its name too, and the slide's `describe:` covers the rest.
 - **Nothing depends on color alone.** Status reads by shape, categories by texture or
   label, change by underline and strike-through.
 - **No author-made contrast failure.** The theme holds WCAG AA; the review checks the
@@ -89,16 +90,16 @@ Review in this order: the cheap machine pass first, then the human passes it can
    suggestions: `image-no-alt`, `collage-alt`, `typed-shape-glyph`, `capacity-scale`
    and `chart-no-takeaway` all bear on access.
 2. **Text alternatives.** Walk every slide. Does it carry a `describe:` comment? Does
-   every inline image have alt text? Is every `![bg](…)` photo covered by the slide's
-   `describe:`? A background image paints as CSS with no `<img>`, so it gives a screen
-   reader nothing on its own.
+   picture have a name, including the photo an `image` or `bleed` slide places? An
+   untitled placed photo is decorative: it paints as CSS with no `<img>`, so it gives a
+   screen reader nothing on its own.
 3. **Color as the only signal.** Look for meaning carried by hue: red and green text,
    colored table cells, "the blue line". Replace with state marks, labels, patterns or
    words. If the audience includes color-blind readers, or the deck will print in
    grayscale, switch to an `a11y-*` theme or `color-mode: print` and look again.
 4. **Contrast an author can break.** Search the source for `style=`, a `style:` front
    matter block, `\color`, `classDef`, `style ` lines in Mermaid fences, and text laid
-   over `![bg]` photos. Render to HTML and run `tools/check-slide-contrast.js`. It
+   over a placed photo. Render to HTML and run `tools/check-slide-contrast.js`. It
    always reports the muted footer and pagination (exempt by palette contract), and
    it cannot measure text over a photo, so look at those slides yourself.
 5. **Type size.** Check `venue:` matches the room (`laptop`, `huddle`, `conference`,
@@ -147,7 +148,7 @@ The marks draw a shape and carry a spoken name, so status survives without color
 the six exact forms dispatch, and a screen reader says their names: `[x]` yes,
 `[-]` partly, `[!]` no, `[?]` unknown, `[ ]` open, `[/]` does not apply.
 
-**A background photo, covered by `describe:`:**
+**A placed photo, named and covered by `describe:`:**
 
 ```markdown
 <!-- _class: image -->
@@ -158,7 +159,7 @@ the six exact forms dispatch, and a screen reader says their names: `[x]` yes,
 
 The second lane opens when the floor resurfacing finishes in October.
 
-![bg](sample:photo-wide.jpg)
+![A loading dock with three bays](sample:photo-wide.jpg)
 
 <!-- describe: A photo of a loading dock with three bays and a single marked forklift lane. -->
 ```
@@ -226,7 +227,7 @@ works visually. Those are this skill's human passes.
 
 - [ ] `npm run lint:deck -- deck.md` reports no errors or warnings; suggestions read.
 - [ ] Every slide carries a `<!-- describe: … -->` comment.
-- [ ] Every inline image has alt text; every `![bg]` photo is described.
+- [ ] Every picture has a name, the slide's placed photo included.
 - [ ] No meaning rests on color alone; status uses marks or words.
 - [ ] No hand-set color (`style=`, `style:` front matter, `\color`, Mermaid hex).
 - [ ] Text over images checked by eye; `tools/check-slide-contrast.js` run on the HTML.
@@ -240,8 +241,8 @@ works visually. Those are this skill's human passes.
 
 ## Common mistakes
 
-1. **Treating alt text as optional on a photo slide.** A `![bg]` image has no
-   `<img>`; without `describe:` it does not exist for a screen reader.
+1. **Treating alt text as optional on a photo slide.** A placed photo has no `<img>`;
+   without a name or `describe:` it does not exist for a screen reader.
 2. **Writing `describe:` as a speaker note.** It is public: it survives
    `--strip-notes` and reaches the recipient. Describe what is shown, not what you say.
 3. **Assuming the theme fixes everything.** It fixes its own tokens. It cannot fix a

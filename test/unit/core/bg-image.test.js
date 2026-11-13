@@ -11,57 +11,61 @@ const assert = require('node:assert/strict');
 const bg = require('../../../lib/core/bg-image');
 const { liftImageBgImages } = require('../../../lib/core/bg-image-lift');
 
-describe('bg-image — liftBgImages (markdown pre-pass)', () => {
+// Marp's `![bg …]` grammar (`BG_RE`) and the panel it becomes (`bgDiv`), as the Export-to-Marp source lift applies them
+// (lib/core/bg-image-lift.js). The engine stopped reading `![bg]` on 2026-11-13; the bundle still writes and lifts it.
+const lift = (md, baseDir) => (typeof md !== 'string' || md.indexOf('![bg') === -1 ? md : md.replace(bg.BG_RE, (_w, keywords, url) => bg.bgDiv(keywords, url, baseDir)));
+
+describe('bg-image — the `![bg]` grammar and its panel (the Marp source lift)', () => {
   test('rewrites ![bg right] to the lattice-bg background div', () => {
-    const out = bg.liftBgImages('## Heading\n\n![bg right](pic.svg)\n');
+    const out = lift('## Heading\n\n![bg right](pic.svg)\n');
     assert.match(out, /<div class="lattice-bg lattice-bg-right" style="background-image:url\('pic\.svg'\)"><\/div>/);
     assert.doesNotMatch(out, /!\[bg/);
   });
 
   test('resolves deck-relative URLs against a file:// base', () => {
-    const out = bg.liftBgImages('![bg right](pic.svg)', 'file:///decks/q/');
+    const out = lift('![bg right](pic.svg)', 'file:///decks/q/');
     assert.match(out, /background-image:url\('file:\/\/\/decks\/q\/pic\.svg'\)/);
   });
 
   test('maps left / (none) to the right side keyword', () => {
-    assert.match(bg.liftBgImages('![bg left](a.svg)'), /lattice-bg-left/);
-    assert.match(bg.liftBgImages('![bg](a.svg)'), /lattice-bg-full/);
-    assert.match(bg.liftBgImages('![bg fit](a.svg)'), /lattice-bg-full/);
+    assert.match(lift('![bg left](a.svg)'), /lattice-bg-left/);
+    assert.match(lift('![bg](a.svg)'), /lattice-bg-full/);
+    assert.match(lift('![bg fit](a.svg)'), /lattice-bg-full/);
   });
 
   test('only matches at line start (inline `![bg…]` in code is left alone)', () => {
     const src = 'Write `![bg right](x)` to anchor the image.';
-    assert.equal(bg.liftBgImages(src), src);
+    assert.equal(lift(src), src);
   });
 
   test('a multi-keyword run (e.g. `cover blur`) is captured and its side keyword still wins', () => {
     // The `(?:[^\S\r\n](?:[^\S\r\n]|\w)*)?` keyword capture must still carry every keyword
     // through to bgSide — a `left`/`right` anywhere in the run picks the split side.
-    assert.match(bg.liftBgImages('![bg cover blur right](a.svg)'), /lattice-bg-right/);
-    assert.match(bg.liftBgImages('![bg cover blur](a.svg)'), /lattice-bg-full/);
+    assert.match(lift('![bg cover blur right](a.svg)'), /lattice-bg-right/);
+    assert.match(lift('![bg cover blur](a.svg)'), /lattice-bg-full/);
   });
 
   test('a Unicode / non-breaking space after `bg` still lifts (true superset of the old `\\s` run)', () => {
     // The keyword class is `[^\S\r\n]` (horizontal whitespace INCLUDING nbsp), not `[ \t]`:
     // a `![bg` + nbsp + `right](x)` pasted from Word/Docs rendered a panel under the old
     // `\s`-based regex and must keep doing so — a plain `[ \t]` would silently drop it.
-    assert.match(bg.liftBgImages("![bg\u00A0right](a.svg)"), /lattice-bg-right/); // nbsp (U+00A0)
-    assert.match(bg.liftBgImages("![bg\u202Fright](a.svg)"), /lattice-bg-right/); // narrow nbsp (U+202F)
-    assert.match(bg.liftBgImages("![bg\u2003right](a.svg)"), /lattice-bg-right/); // em space (U+2003)
+    assert.match(lift("![bg\u00A0right](a.svg)"), /lattice-bg-right/); // nbsp (U+00A0)
+    assert.match(lift("![bg\u202Fright](a.svg)"), /lattice-bg-right/); // narrow nbsp (U+202F)
+    assert.match(lift("![bg\u2003right](a.svg)"), /lattice-bg-right/); // em space (U+2003)
   });
 
   test('`![bgleft]` stays a normal image — a leading space is still required after `bg`', () => {
     // The keyword run is OPTIONAL but must start with whitespace, so `bg`+letters (no space)
     // is NOT a background directive: it must pass through untouched (parity with the old regex).
     const src = '![bgleft](a.svg)';
-    assert.equal(bg.liftBgImages(src), src);
+    assert.equal(lift(src), src);
   });
 
   test('tolerates a trailing space before `]` (leniency win over the old form)', () => {
     // `![bg right ](x)` — the old `(?:\s+\w+)*` rejected a run ending in whitespace and left
     // the typo unrendered; the new form lifts it, and the trailing space is inert to bgSide().
-    assert.match(bg.liftBgImages('![bg right ](a.svg)'), /lattice-bg-right/);
-    assert.match(bg.liftBgImages('![bg ](a.svg)'), /lattice-bg-full/); // space-only run → full
+    assert.match(lift('![bg right ](a.svg)'), /lattice-bg-right/);
+    assert.match(lift('![bg ](a.svg)'), /lattice-bg-full/); // space-only run → full
   });
 
   test('does NOT cross a newline — a broken multi-line `![bg` never swallows following prose', () => {
@@ -72,7 +76,7 @@ describe('bg-image — liftBgImages (markdown pre-pass)', () => {
     // div. The new form stops at `\n` and leaves the source verbatim (revert `[^\S\r\n]`→`\s`
     // and THIS test goes red — the guard the earlier trailing-`\n` variant silently lacked).
     const src = '![bg right\nRevenue growth story\nmore prose here](oops.svg)\n';
-    const out = bg.liftBgImages(src);
+    const out = lift(src);
     assert.equal(out, src); // verbatim: no match, nothing lifted
     assert.match(out, /Revenue growth story/); // prose survives
     assert.doesNotMatch(out, /lattice-bg/);
@@ -82,11 +86,11 @@ describe('bg-image — liftBgImages (markdown pre-pass)', () => {
     // The rewritten regex is linear: a pathological all-space lead with no `]( )` tail must
     // fail fast and leave the source verbatim, not hang the render.
     const src = `![bg${' '.repeat(5000)}`;
-    assert.equal(bg.liftBgImages(src), src);
+    assert.equal(lift(src), src);
   });
 
   test('is a no-op when there is no bg directive', () => {
-    assert.equal(bg.liftBgImages('## Just a heading\n\nbody'), '## Just a heading\n\nbody');
+    assert.equal(lift('## Just a heading\n\nbody'), '## Just a heading\n\nbody');
   });
 });
 

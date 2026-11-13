@@ -39,7 +39,7 @@ theme: indaco
 </script>
 
 <!-- _class: image -->
-![bg right](photo.jpg)
+![A photo](photo.jpg)
 # A photo slide
 `;
 

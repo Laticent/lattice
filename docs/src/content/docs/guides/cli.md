@@ -260,8 +260,8 @@ lists each picture as a link instead:
 npx lattice deck.md deck.html --player --player-consent https://images.example.com
 ```
 
-Only pictures placed with `![](…)` are offered. A web background (`![bg](…)`)
-stays a placeholder, and the run says so. The site must allow pages to read its
+Only pictures drawn as `<img>` are offered. A web photo that a slide places
+as its panel or background (an `image` or `bleed` slide) stays a placeholder, and the run says so. The site must allow pages to read its
 pictures from another origin (it sends an `Access-Control-Allow-Origin`
 header). If it does not, the banner says the pictures could not be loaded and
 lists their links. To put the pictures in the file itself instead, so the reader

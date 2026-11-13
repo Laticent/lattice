@@ -1613,7 +1613,8 @@ describe('lint-core: web-image (rule 12d, security spine S1)', () => {
       [3, '![r][pic]', 'warning'],
     ]);
     assert.match(got[0].message, /https:\/\/images\.example\.com/);
-    assert.match(got[1].message, /^This background loads from another site \(https:\/\/cdn\.example\.net\)/);
+    // A Marp `![bg]` is an ordinary picture since the engine break (2026-11-13), so it is named as one.
+    assert.match(got[1].message, /^This image loads from another site \(https:\/\/cdn\.example\.net\)/);
     assert.match(got[0].fix, /relative path/);
     // `chunkLine` places the finding where `applyFix` and the Squadra bridge look for it.
     const lines = src.split('\n');
@@ -1663,13 +1664,13 @@ describe('lint-core: web-image (rule 12d, security spine S1)', () => {
     assert.deepEqual(rendered, ['//b.example/2.png', 'http://f.example/4.png', 'https://a.example/1.png', 'https://e.example/3.jpg', 'https://g.example/5.png']);
   });
 
-  test('the review\'s cases: a table cell, CR-only line endings, several backgrounds, a code span holding `![`', () => {
+  test('the review\'s cases: a table cell, CR-only line endings, several `![bg]` pictures, a code span holding `![`', () => {
     // A table cell's inline token has no line map; it takes the row's.
     assert.deepEqual(all(`${FM}| a | b |\n|---|---|\n| ![a](https://t.example/1.png) | x |\n`).map((f) => f.line), ['| ![a](https://t.example/1.png) | x |']);
     // markdown-it folds a bare CR into a line break, so the rule counts lines on the same text and does not throw.
     assert.deepEqual(all('---\rmarp: true\r---\r\r![a](https://cr.example/1.png)\r').map((f) => f.line), ['![a](https://cr.example/1.png)']);
-    // The engine draws the last `![bg]` of a slide, so only that one loads.
-    assert.deepEqual(all(`${FM}![bg](https://a.example/1.png) ![bg](https://b.example/1.png)\n\n![bg](https://c.example/1.png)\n`).map((f) => f.message.match(/\((https?:\/\/[^)]+)\)/)[1]), ['https://c.example']);
+    // Every `![bg]` is an ordinary picture since the engine break (2026-11-13), so each one loads and each is reported.
+    assert.deepEqual(all(`${FM}![bg](https://a.example/1.png) ![bg](https://b.example/1.png)\n\n![bg](https://c.example/1.png)\n`).map((f) => f.message.match(/\((https?:\/\/[^)]+)\)/)[1]), ['https://a.example', 'https://b.example', 'https://c.example']);
     // The k-th `![` is not the k-th image when a code span holds one; the line that holds the address wins.
     assert.deepEqual(all(`${FM}a \`![x]\` here\nand ![a](https://m.example/1.png)\n`).map((f) => f.line), ['and ![a](https://m.example/1.png)']);
   });

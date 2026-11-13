@@ -9,7 +9,8 @@
 //   · Anything else (a web address, `sample:` art, a relative file) is drawn as a stand-in that says what it is. The editor
 //     fetches nothing the author did not put in the deck's own bytes, so opening a deck never reaches the network; the slide
 //     preview beside Compose draws the real picture, under the Studio's own web-image setting.
-//   · A background (`![bg right](…)`) says so: it fills a side of the slide, it is not a picture in the text.
+//   · An old Marp `![bg right](…)` says so: Lattice draws it as a picture in the text since 2026-11-13, and Placement turns it
+//     into the slide's photo.
 //
 // One button holds the drawing, as the inline objects do, so a press never moves the caret or raises a touch keyboard, and the
 // click selects the node and opens its editor (inline-objects.ts `openObjectEditor`).
@@ -97,7 +98,7 @@ class ImageView implements NodeView {
 		this.btn.replaceChildren();
 		this.dom.className = `cs-img${bg ? ' cs-img-bg' : ''}`;
 		this.btn.title = 'Edit this image';
-		this.btn.setAttribute('aria-label', `Edit ${bg ? 'background image' : 'image'}${alt && !bg ? `: ${alt}` : ''}`);
+		this.btn.setAttribute('aria-label', `Edit ${bg ? 'image written with Marp\'s retired bg keyword' : 'image'}${alt && !bg ? `: ${alt}` : ''}`);
 
 		// The engine matches a name without regard to case, and a name is never an object's own property (`asset:constructor`).
 		const key = name?.toLowerCase() ?? '';

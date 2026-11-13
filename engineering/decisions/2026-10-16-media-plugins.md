@@ -1233,3 +1233,69 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   Shipped toward it: the slide-text address gate (#3110), slice 3 with the shared display layer, video on any slide and the
   `>` sigil (#3114), and one placed-picture rule for every reader (#3132). Still owed before GA: the deck-wide `--fix`
   sweep off `![bg]`, then the engine stops reading the keywords (`followups.d/3126-p2-deck-sweep-then-engine-break.md`).
+- 2026-11-13: **the deck sweep, non-gallery decks** (branch `claude/funny-dijkstra-n64iog`; followups.d/3126-p2 step 1). Meta
+  step 5 is on `main` (#3136), so the sweep ran. `lint:deck --fix` (lib/plugins/image/shared/image-migrate.js) now writes
+  Markdown's picture, `![description](src)`, rather than a record, and moves the placement to the slide as before: on an
+  `image` or `bleed` slide the shortcut is the record's own path, so it draws the same photo, and the author keeps the line they
+  know. The old description becomes the name, as Compose's Placement control does; one starting with `bg` becomes `Image: …`.
+  17 example decks had `![bg]`; 16 are swept (`bg-split-ratio`, the demo of a `![bg left:40%]` share the engine never read, is deleted: with the
+  keyword gone it has no subject); every swept photo got a name for a screen reader (`![bg]` never had one, and the shortcut's empty
+  alt made that visible to `image-no-alt`). Measured same-machine, `main`'s text against the swept text, PNG per slide: 15
+  decks pixel-identical; `bg-on-any-slide` differs on its three background slides, which gain `bleed`'s scrim under the heading
+  (the class the migration adds by design). Rendering `marp-export-fidelity` found the bundled CLI reading two files relative
+  to `dist/` (lib/export/locked-figures.js, lib/core/policy-page-script.js), so a PNG export of a deck with a locked figure
+  failed on `main`; both read from the package root now, and test/unit/cli/cli-bundle.test.js checks every relative read in
+  the bundle (red on the old code).
+- 2026-11-13: **the Studio sees what a slide inherits** (followups.d/3126-p3, the carried class and background). The carry walk
+  Export-to-Marp ran inline moved into one ESM kernel, lib/core/slide-carried.mjs: handed the front matter and each slide's text
+  in order (cut on the engine's boundaries by the caller), it returns each slide's carried `class:` and whether a carried
+  `backgroundImage` is already its photo (the slide's own `_backgroundImage` replaces it). The export hands it
+  `slideClassSpans`; the Studio hands it its deck units (docs/src/lib/slide-carried.ts `slidePlacingAt` / `slidePlacingOf`),
+  which `photoAt` and through it the photo checks, the ink fix and SlideContext now read. Compose reads the same carries from its
+  document (`carriedBackgroundPlaces` beside `carriedClassBefore`, image-objects.ts). The five named skips in
+  docs/src/lib/compose/placed-picture-parity.test.ts are gone and the `carried`/`carriedBackground` flags left the table, which
+  gains two rows (an own `_backgroundImage: none` under a carried one; a class carried two slides). Failing arms: Compose's
+  change reverted, and `photoAt` without the carried background, each turn two cases red. Left: a `split: headings` part is not a
+  Studio unit, followups.d/3126-p3-studio-heading-split-photo.md.
+- 2026-11-13: **the galleries, and the rule in the role** (followups.d/3126-p2 step 2, a commit of its own: HARD RULE #8). The
+  baseline gallery, the image gallery and the imagery bucket gallery swept by the same `--fix`, each photo named; the `image`
+  manifest's 28 samples, its skeleton and its slot description write `![A name](path)`, so the Studio's inserts and the
+  generated docs teach the shortcut. `image-marp-keyword` joins the plugin's `lint` role, so `lint:deck` and the Studio warn on
+  every `![bg]` and offer the fix. `lint:deck:all --strict`: 519 decks, no warning. Same-machine renders: the image and imagery
+  galleries pixel-identical; the baseline gallery differs on one slide, whose sentence about `![bg left]` now names `mirror`.
+- 2026-11-13: **the engine break** (followups.d/3126-p2 step 3, now deleted; owner's order: no compatibility period). The
+  `lattice_background_image` ruler is gone (lib/engine/background-image.js keeps only the `sample:`/`asset:` resolver): a
+  `![bg …]` is an ordinary `<img>` wherever it stands, never a panel, never the section background. One deliberate read stays:
+  the placed-picture kernel's rule 5 still declines to place a lone picture on a slide that holds a `![bg]` line, so an unswept
+  deck's logo does not take the photo panel; the lint names the line and its fix. Retired with it: `bg-side-unread` and
+  `bg-ratio-unread` (lint-core rule 14e, and their registry rows), the
+  last-`![bg]`-only filter in `web-image` (each one loads now), `photoAt`'s `![bg]` branch and Compose's badge by keyword (the
+  Placement control still turns an old `![bg]` into the picture it should be: the migration path), `bgSideOf`/`withBgSide`,
+  `liftBgImages`, and the scheme check on `![bg]` tokens. Kept, because Marp reads `![bg]`: Export-to-Marp's writer and source
+  lift (`BG_RE`, `bgDiv`, lib/core/bg-image-lift.js). Found on the way and fixed: the Studio's photo-contrast watch armed only
+  on a `![bg]` line, so after the sweep it checked no photo at all. Tests that pinned the old drawing are rewritten for the
+  shortcut where they tested a placement question (which slide a picture is on: test/unit/engine/bg-image-panel.test.js keeps
+  all 32 boundary cases, and the 9:16 pane case) and deleted where they tested the lift itself (the nested `![bg]` hoist, bg-keyword-lint.test.js);
+  new arms show `![bg]` drawing as a picture, each red on the engine before the break.
+- 2026-11-13: **the trio on the engine break** (red team, inversion, checker). **Fixed in the PR:** `image-marp-keyword` named only
+  a `![bg]` at the start of a line, while rule 5 refuses placement for one anywhere, so a `![bg]` in a sentence, a list item, a
+  quote, a table cell or a heading, or written `![BG …]`, kept the slide's photo out of its panel with no finding. One predicate
+  now serves rule 3, rule 5 and the lint (`isMarpKeywordPicture`, lib/core/placed-picture.mjs), and the lint walks its own parse,
+  so every `![bg]` the kernel refuses on is one the lint names. `--fix` turned Marp's stacked backgrounds into two pictures that
+  place neither, a `![bg]` with a caption on the next line into a picture in a paragraph, and a `![bg]` beside a logo into two
+  lone pictures: it now refuses all three with the reason. A Library photo described "BG …" read as the keyword (pre-existing;
+  the `meta.assetAlt` marker is restored and the predicate honors it). Two rewritten tests had gone vacuous: the player's
+  inline-media test gains a `backgroundImage` slide so the `--background-image` string it guards is in the output again, and
+  the style-injection test says it now holds one writer. The Studio's photo-size prefetch read `![bg]` lines only; it asks the
+  placement rule per slide. The chat's authoring rules and the `image` skeleton no longer prime `![bg]`. Stale comments and docs
+  corrected (Compose's image panel and node view, collage, marp-independence, bg-image-lift, lattice.js, bleed-ink).
+  The checker then found the integration and Studio e2e decks still written in `![bg]` (player-size, slide-planes,
+  frame-chrome-out-of-flow, pagination-one-mark, cli-camera-isolation, confine-cli, export-formats; photo-contrast-coach,
+  compose-image, webpage-export, preview-photo-copies, library-images-render, image-card-register, export-photo-size,
+  pptx-export-photo-size), all rewritten to the shortcut, and pending changelog fragments that described the removed reading
+  (one deleted, four amended, the url-scheme security note among them). Running export-photo-size caught a regression of this
+  PR's own: the carry walk ran a full markdown parse of every slide, and `slidePlacingAt` repeated it for every earlier one, so
+  a deck of pasted phone photos (3.5 MB `data:` addresses) froze the Studio; it now reads block tokens only (about 1 s to 60 ms
+  on three such slides), and the photo-size prefetch parses only a slide holding a lone `http(s)` picture.
+  **Not taken, for the owner:** the inversion's alternative, desugaring `![bg]` in memory at render time (the `--fix` kernel as
+  an ingest step), which keeps Marp decks and model output rendering at the price of an alias; on the decision card.

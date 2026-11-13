@@ -260,7 +260,7 @@ logo: sample:logo-acme-mark.svg
 ---
 
 ${['image clean', 'image spotlight', 'image statement', 'image gallery', 'image split']
-  .map((cls) => `<!-- _class: ${cls} -->\n\n![bg](sample:logo-acme-mark.svg)\n\n## ${cls}\n\nProse over the photo.\n`)
+  .map((cls) => `<!-- _class: ${cls} -->\n\n![Acme](sample:logo-acme-mark.svg)\n\n## ${cls}\n\nProse over the photo.\n`)
   .join('\n---\n\n')}
 ---
 

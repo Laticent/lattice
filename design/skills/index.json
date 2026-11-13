@@ -8,7 +8,7 @@
       "description": "Use when reviewing a deck for accessibility: contrast, alt text and describe: comments, reading order, color as the only signal, type size, captions and motion.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3430
+      "tokens": 3469
     },
     {
       "name": "chart-component",
@@ -107,7 +107,7 @@
       "description": "Use when bringing outside content into Lattice: pasted Markdown, a Marp deck, a PowerPoint or PDF, then cleaning the result into the house deck shape.",
       "kind": "operate",
       "studio": false,
-      "tokens": 3120
+      "tokens": 3113
     },
     {
       "name": "lens",

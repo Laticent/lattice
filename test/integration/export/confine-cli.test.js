@@ -25,7 +25,7 @@ test('a symlink out of the deck is refused, a host-qualified file address does n
     fs.copyFileSync(path.join(ROOT, 'lib/samples/photo-wide.jpg'), path.join(outside, 'secret.jpg'));
     fs.symlinkSync(path.join(outside, 'secret.jpg'), path.join(deck, 'linked.jpg'));
     fs.symlinkSync(realout, path.join(base, 'linkout'));
-    fs.writeFileSync(path.join(deck, 'd.md'), '---\ntheme: indaco\n---\n<!-- _class: image -->\n![bg right](linked.jpg)\n# T\n<iframe src="file://evilhost/share/x.png"></iframe>\n');
+    fs.writeFileSync(path.join(deck, 'd.md'), '---\ntheme: indaco\n---\n<!-- _class: image -->\n![Linked](linked.jpg)\n# T\n<iframe src="file://evilhost/share/x.png"></iframe>\n');
     const r = run([path.join(deck, 'd.md'), path.join(base, 'linkout', 'o.png')]);
     assert.equal(r.status, 0, why(r));
     assert.match(r.stderr, /refused file:\/\/\/.*linked\.jpg/);
