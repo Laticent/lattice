@@ -1218,5 +1218,13 @@ over redline, authority-chain, logo-wall, code, legal and others. The owner rule
 - **split-panel's lede gets its own page.** When a split-panel's cover still overflows after the
   cover lift (§19), the lede moves to a page of its own between the cover and the points, chosen by
   the measured split so the page is in the split's HTML (and so in every surface's page count).
+  Built as: the verify probe (`overflowBySlide`) now checks a split's COVER too, which it never did,
+  and reports it as `N:cover`; `measuredSplit` answers that with one more split of that slide whose
+  plan entry carries `ledePage` (a tighter room cannot help a cover); `coverWindow` then emits the
+  lede on a `split-panel-lede` page. It costs a round only for a slide whose cover overflows. On the
+  split-panel gallery at a phone square, slides 2, 7 and 8 take a lede page and every page fits.
+  The `qr` variant (slide 10) is not covered: it has no points list, so it never splits, and at the
+  phone venue its title set one word a line and clipped. Stacking its panels left the code too small
+  to scan, so it needs a seam split of its own (feature page, then the code page).
 
 The owner's bar for the merge ask is HIGH or VERY HIGH, with no slide this PR breaks left behind.

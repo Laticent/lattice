@@ -2153,3 +2153,27 @@ test('core: carousel — timeline-items keeps several milestones a page, in orde
   for (const page of bodies({ strategy: 'timeline-items', perPage: 3 })) assert.match(page, /<div class="timeline-spine" role="list">/);
   assert.equal(carouselize(tlTag, tlInner, { strategy: 'timeline-items', perPage: 5 }), null, 'all five fit one page: no split');
 });
+
+// The lede's own page (owner, 2026-11-13): when the measured split saw this cover overflow, the plan
+// carries `ledePage` and the lede leaves the cover for a page right after it. Without the flag the
+// cover keeps its lede and no page is added.
+describe('core: carousel — feature-cover with ledePage', () => {
+  const plain = carouselize(spSection.openTag, spSection.inner, { strategy: 'feature-cover' });
+  const lede = carouselize(spSection.openTag, spSection.inner, { strategy: 'feature-cover', ledePage: true });
+
+  test('without the flag the cover holds the lede and no lede page is emitted', () => {
+    assert.match(plain[0], /class="split-feat-lede"/);
+    assert.equal(plain.filter((p) => /split-panel-lede/.test(p)).length, 0);
+  });
+
+  test('with the flag the lede moves to the page right after the cover, every word kept', () => {
+    assert.equal(lede.length, plain.length + 1);
+    assert.doesNotMatch(lede[0], /split-feat-lede/);
+    assert.match(lede[1], /split-panel-lede/);
+    const text = (h) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const ledeText = text((plain[0].match(/<div class="split-feat-lede">([\s\S]*?)<\/div>/) || [])[1] || '');
+    assert.ok(ledeText.length > 0);
+    assert.ok(text(lede[1]).includes(ledeText));
+    assert.deepEqual(lede.slice(2).map(text), plain.slice(1).map(text), 'the points pages are unchanged');
+  });
+});

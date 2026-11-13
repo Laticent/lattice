@@ -1,0 +1,1 @@
+- **A split-panel whose split cover cannot hold its lede now gives the lede a page of its own**, between the cover and the points, instead of running the cover into its footer. Three gallery slides did this at a phone square. The measured split now also checks each split's cover page, which it never did, and moves the lede only for a cover that still overflows.

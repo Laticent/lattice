@@ -59,6 +59,33 @@ describe('planFromFacts, with memory (§11)', () => {
 
 describe('measuredSplit: the verify loop', () => {
   const facts = [over('1', [300, 300, 300, 300], 700), over('2', [300, 300, 300], 700)];
+  // A COVER that overflows is answered with a lede page, not a tighter room (owner, 2026-11-13): verify
+  // reports it as `N:cover`, the next split carries `ledePage` for that slide, and it is tried once.
+  test('a cover that overflows re-splits that slide once with its lede on a page of its own', async () => {
+    const plans = [];
+    let n = 0;
+    const run = await measuredSplit({
+      facts, pack, packer: 'greedy',
+      split: async (plan) => { plans.push(plan); return { planned: ['1', '2'] }; },
+      verify: async () => (n++ === 0 ? { '2:cover': 40 } : {}),
+    });
+    assert.equal(plans.length, 2);
+    assert.equal(plans[0]['2']?.ledePage, undefined, 'the first split carries no lede page');
+    assert.equal(plans[1]['2'].ledePage, true);
+    assert.deepEqual(plans[1]['2'].sizes, plans[0]['2'], 'the pages of points are unchanged');
+    assert.equal(plans[1]['1']?.ledePage, undefined, 'only the slide whose cover overflowed');
+    assert.equal(run.rounds, 2);
+  });
+  test('a cover still too full after its lede moved is not retried', async () => {
+    const plans = [];
+    const run = await measuredSplit({
+      facts, pack, packer: 'greedy',
+      split: async (plan) => { plans.push(plan); return { planned: ['1', '2'] }; },
+      verify: async () => ({ '2:cover': 40 }),
+    });
+    assert.equal(plans.length, 2, 'one lede round, then the loop stops');
+    assert.equal(run.rounds, 2);
+  });
   test('one round when every body page fits', async () => {
     let splits = 0;
     const run = await measuredSplit({ facts, pack, packer: 'greedy', split: async (plan) => { splits++; return { planned: Object.keys(plan) }; }, verify: async () => ({}) });

@@ -472,6 +472,12 @@ section.split-panel-cover .split-feat-h {
 section.split-panel-cover .split-feat-lede {
   font-size: var(--fs-emphasis); line-height: var(--lh-snug); opacity: 0.92; max-width: 20em;
 }
+/* The lede's own page (carousel.js `ledePage`): when the measured split finds the cover too full for
+   its lede, the lede moves here, right after the cover, read at the same emphasis size it had there
+   (owner, 2026-11-13). The run's placement (`align:`) seats it like any body page. */
+section.split-panel-lede .split-lede-page {
+  font-size: var(--fs-emphasis); line-height: var(--lh-snug); color: var(--text-heading); max-width: 22em;
+}
 
 /* Point pages — the supporting points flow under a running header of the feature. */
 section.split-panel-points .split-runhead {
