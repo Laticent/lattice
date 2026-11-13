@@ -147,7 +147,7 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             2026-11-12 (`docs/e2e` census): every `docs/e2e` hit outside the files other sessions own is done, 39
             hits in 24 files, and `SANCTIONED_E2E_SLEEPS` went from 106 calls in 36 files to one call owned
             elsewhere (`workspace-backup-size`, #3153; #3155 removed `restyle-overlap`'s). With #3155 the `docs/e2e`
-            baseline is empty, and the whole baseline is 93 hits in 39 files (129 in 62 on `main` at merge time). One
+            baseline is empty, and the whole baseline is 4 hits in 3 files (40 in 26 on `main` at merge time). One
             `flaky-ok` was added, on `timersDrained`, a zero-delay-timer ordering barrier, and no test was disabled. Each
             rewrite waits on a product signal (six helpers in `docs/e2e`,
             listed in the decision note's tools), and each was shown failing on a broken product line where an arm
