@@ -72,8 +72,10 @@ export interface SyncPorts {
 	/** Mark these pages of the preview as the slide in focus (none: clear the mark). */
 	markPages(pages: readonly number[] | null): void;
 	/** Bring the preview to `page` the way a pick asks: centered, animated unless `instant`. Returns false when the
-	 *  preview cannot move yet (collapsed, not laid out): the sync does not retry. */
-	show(page: number, opts: { instant: boolean }): boolean;
+	 *  preview cannot move yet (collapsed, not laid out): the sync does not retry. Returns the scroll offset the
+	 *  preview is heading to, clamped to where it can go, when this call scrolled it; `true` when something else
+	 *  moves it (Explore's walk). The offset is how the sync tells a pick still in flight from one that has stopped. */
+	show(page: number, opts: { instant: boolean }): boolean | number;
 	/** The Edit view is showing: the editor's text IS the deck. In Explore the preview can show something the
 	 *  editor does not hold (a component's gallery, a plan step), so the render is the text of record. */
 	editing(): boolean;
@@ -177,6 +179,8 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	/** The slide the caret is in (the last focus an editor move reported), apart from where a scroll has put the focus. */
 	let caretSlide = -1;
 	let ownUntil = 0;
+	/** Where a pick's own scroll started and where it is going, when the host said (see `show`). */
+	let ownTrip: { from: number; to: number } | null = null;
 	let lastPreviewScroll = 0;
 	/** When the reader last moved the caret or typed. The editor scrolling right after is CodeMirror bringing the
 	 *  caret into view, and the caret, not the scroll, names the slide. */
@@ -344,7 +348,27 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		report(sectionAt(L.pv, L.pv.scroll), 'preview');
 	}
 
-	const settling = () => ports.now() < ownUntil && ports.now() - lastPreviewScroll < SETTLE_MS;
+	/**
+	 * Whether a pick's scroll still owns the preview: inside its window, and either still moving or still on its way.
+	 *
+	 * STILL MOVING alone was the rule, and a busy page breaks it. A frame stall stops the scroll events for longer than
+	 * `SETTLE_MS` while the pick is still in flight, so the next frame read the slide the preview was PASSING as where
+	 * it had stopped: the focus moved there, the editor followed it, and the editor's scroll then drove the preview,
+	 * which cancelled the pick halfway (the comment in `drivenByEditor`). Measured on the built Playground: one 300ms
+	 * main-thread stall three frames into a map pick left the rail on the slide it had left, in 3 runs of 4, which
+	 * is the `playground-map` failure the full e2e suite showed under load.
+	 *
+	 * ON ITS WAY means between where the pick started and where it is going, short of the target. A reader who scrolls
+	 * past the target, or back past the start, is not the pick, so the stillness rule decides as before; a reader who
+	 * stops between the two waits out the window (`MAX_OWN_MS`) before their slide is named.
+	 */
+	const enRoute = () => {
+		if (!ownTrip) return false;
+		const y = ports.previewScroll();
+		const { from, to } = ownTrip;
+		return Math.abs(y - to) >= 1 && y >= Math.min(from, to) - 1 && y <= Math.max(from, to) + 1;
+	};
+	const settling = () => ports.now() < ownUntil && (ports.now() - lastPreviewScroll < SETTLE_MS || enRoute());
 
 	/** Wait out a pick's scroll (or the reader's, if it came during one), then name the slide the preview stopped on. */
 	function settle() {
@@ -477,7 +501,9 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		const page = ix && f.unitIndex >= 0 ? pageOfFlat(ix, f.flat) : -1;
 		if (page < 0) return;
 		ownUntil = ports.now() + MAX_OWN_MS;
-		ports.show(page, { instant: false });
+		const from = ports.previewScroll();
+		const to = ports.show(page, { instant: false });
+		ownTrip = typeof to === 'number' ? { from, to } : null;
 	}
 
 	return {

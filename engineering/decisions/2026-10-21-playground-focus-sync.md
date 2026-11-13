@@ -477,3 +477,29 @@ Probe steps that time out after the session has started are not start failures. 
 (2 of 5 iPad runs) is issue #2967; the Studio editor's load, the Coach button and two focus-sync taps are in followup
 `2950-p4`. One more,
 the iPad's Coach sheet not closing after a synthetic Escape, was the probe's own: it now presses the sheet's close button.
+
+## A frame stall is not the pick stopping (2026-11-13)
+
+`settling()` decided that a map pick's smooth scroll had ended once the preview had sent no scroll event for
+`SETTLE_MS` (160 ms). On a busy page a single long task does exactly that while the pick is still in flight. `settle()`
+then reported the slide the preview was passing, the editor followed that slide, and `drivenByEditor`, no longer
+deferring to the pick, drove the preview from the editor. That cancelled the pick partway, the case the comment there
+warns about. The rail ended on the slide the reader had left.
+
+**Measured** on the built Playground (`playground-map.spec.ts`, "in Edit the rail follows the preview"): one 300 ms
+main-thread stall three frames into a pick of tile 6 left the rail on tile 3 or 4 in 3 runs of 4. This is the
+signature the full e2e suite showed under load (`expect("2").toBe("5")`). After the fix, 18 of 18 runs passed with the
+stall at frames 2, 3 and 4.
+
+**The rule now.** `show` returns the offset the preview is heading to (clamped to where it can scroll) when it moves
+the preview itself. While the preview sits between where the pick started and that offset, short of it, the pick
+still owns the preview, whatever the clock says. `MAX_OWN_MS` stays the backstop. Explore's walk moves the preview by
+its own path (`show` returns `true`), so the stillness rule alone applies there, as before.
+
+**What it costs.** A reader who scrolls during a pick and stops *between* its start and its target now waits out the
+pick's window (up to 1.5 s) before their slide is named. A reader who scrolls past the target or back past the start
+is told apart at once, as before. A target that goes stale mid-pick (a re-fit shrinks the document below it, so
+the preview stops short) reads as en route until the same window closes, so the slide is named up to 1.5 s late and
+the editor does not drive the preview meanwhile; both end at `MAX_OWN_MS`. Neither case was seen in the e2e runs; the existing test "once a pick has settled, the reader scrolling the preview to
+another slide names that slide" holds that. `playground-sync.test.ts` "a frame stall in the middle of a pick" fails
+on the old rule.
