@@ -3,6 +3,7 @@ import { altFromAssetName } from '@/lib/photo-alt';
 import { PACE_NAMES } from '@/lib/resolve-pace';
 import { contextSources } from '@/playground/context-sources.js';
 import { DATA_SOURCE_COMPONENTS } from '@/playground/data-source-components.js';
+import { FENCE_LANGUAGES } from '@/playground/grammar-vocab.js';
 import { classDirectiveCompletion, classTokenResult, deckSplit, recordCompletion, recordOptions, slideBodyAfter, slideClassAt } from '@/playground/slide-context.js';
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from '../../lib/front-matter-keys';
 import { MARKS_AXES } from '../../lib/marks-words';
@@ -87,18 +88,6 @@ export function nextAxisWords(key: string, written: string, words: readonly stri
 	return words.filter((w) => !used.has(w) && !filled.some((axis) => axis.includes(w)));
 }
 
-// Fenced-block languages the engine renders specially, plus common code langs.
-const FENCE_LANGS: { lang: string; info: string }[] = [
-	{ lang: 'mermaid', info: 'Mermaid diagram (flow, sequence, gantt…).' },
-	{ lang: 'chart', info: 'Lattice chart block.' },
-	{ lang: 'math', info: 'Display math (KaTeX).' },
-	{ lang: 'js', info: 'JavaScript' },
-	{ lang: 'ts', info: 'TypeScript' },
-	{ lang: 'python', info: 'Python' },
-	{ lang: 'bash', info: 'Shell' },
-	{ lang: 'json', info: 'JSON' },
-	{ lang: 'sql', info: 'SQL' },
-];
 
 /** The top-level keys the leading front matter sets, other than on line `skip` (the line being typed). Exported for a test. */
 export function frontMatterKeysSet(lineText: (n: number) => string, lines: number, skip: number): Set<string> {
@@ -435,7 +424,7 @@ export function makeStudioCompletion(
 			const tick = context.matchBefore(/[\w-]*/);
 			return {
 				from: tick ? tick.from : context.pos,
-				options: FENCE_LANGS.map((f) => ({ label: f.lang, type: 'keyword', info: f.info })),
+				options: FENCE_LANGUAGES.map((f) => ({ label: f.lang, type: 'keyword', info: f.info })),
 				validFor: /^[\w-]*$/,
 			};
 		}
@@ -539,6 +528,6 @@ const lazyDataSource: CompletionSource = (context) => {
  * photos (`assets`), then the slide-context sources it shares with the Playground (context-sources.js). One function,
  * so the parity test reads the same list Editor.tsx installs.
  */
-export function studioCompletionSources(main: CompletionSource, assets: CompletionSource, catalog: CompletionComponent[] = []): CompletionSource[] {
-	return [main, assets, ...contextSources({ catalog, dataSources: [lazyDataSource] })];
+export function studioCompletionSources(main: CompletionSource, assets: CompletionSource, catalog: CompletionComponent[] = [], registers: Record<string, string[]> = {}): CompletionSource[] {
+	return [main, assets, ...contextSources({ catalog, dataSources: [lazyDataSource], registers })];
 }

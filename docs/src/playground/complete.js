@@ -20,6 +20,7 @@
 // class-directive and skeleton sources are simply inert.
 
 import { autocompletion } from '@codemirror/autocomplete';
+import { registerValueLists } from '../lib/front-matter-values';
 import { completionKeys } from './completion-keys.js';
 import { contextSources, lineLocalSource } from './context-sources.js';
 import { dataSources } from './data-sources.js';
@@ -141,7 +142,7 @@ export function playgroundCompletionSources({ vocab, catalog, themes, finishes }
 		lineLocalSource(fenceLangAt, FENCE_OPTIONS),
 		classDirectiveSource(catalog, vocab),
 		recordSource(catalog, vocab),
-		...contextSources({ catalog, dataSources }),
+		...contextSources({ catalog, dataSources, registers: registerValueLists(vocab) }),
 	];
 }
 

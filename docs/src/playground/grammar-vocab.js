@@ -11,9 +11,19 @@
 // Slide-scoped Marp directives authored as `<!-- _name: value -->`. `_class` is
 // completed with its full grammar elsewhere (component names + modifiers); it's
 // listed here too so the NAME completes before the colon is typed.
-import { COMPLETE_KEYS, enumValues, HOST_REGISTERS, kebab, REGISTERS } from '../../../lib/core/meta-keys.mjs';
+import { COMPLETE_KEYS, enumValues, HOST_REGISTERS, kebab, META_COMMENTS, REGISTERS } from '../../../lib/core/meta-keys.mjs';
+import { PLUGIN_GRAMMAR } from '../../../lib/plugins/grammar.generated.mjs';
 
 export const DIRECTIVE_NAMES = COMPLETE_KEYS.map((k) => `_${k}`);
+
+// The comment keys that are not directives: the note channels (`<!-- say: … -->`, `describe:`, `reader:`) and the pane
+// structure (`panes:`, `pane:`), each with the first sentence of its manifest description. Offered beside the directive
+// names after `<!-- `, so a speaker-note channel is one keystroke away. From the `meta` manifest, like DIRECTIVE_NAMES.
+export const COMMENT_KEYS = Object.entries(META_COMMENTS).map(([name, c]) => ({
+	name,
+	kind: c.kind === 'channel' ? 'note channel' : c.kind,
+	info: String(c.describe || '').split(/(?<=\.)\s/)[0],
+}));
 
 // The fields a slide RECORD offers after `<!-- {` (record note §4.2, step 3), each with a short detail: the typed
 // class fields first, then the host's registers, the plugins' registers, the completable directive keys (kebab-case,
@@ -65,28 +75,31 @@ export const SPLIT_VALUES = ['rule', 'headings'];
 // so the picker, this autocomplete, and the engine can't drift apart.
 export const SIZE_VALUES = ['hd', '4K', 'standard', 'mobile-landscape', 'square', 'portrait', 'story', 'mobile'];
 
-// Fence info-strings worth completing: the Lattice-special focusable fences
-// (`mermaid`, `chart`) plus the languages editor.js highlights, with the common
-// short aliases (`js`/`ts`/`py`) so they resolve too. A practical completion
-// set, not a strict mirror of editor.js's EAGER_LANGUAGES — a language missing
-// here just isn't suggested, never broken.
-export const FENCE_LANGS = [
-	'mermaid',
-	'chart',
-	'javascript',
-	'js',
-	'typescript',
-	'ts',
-	'tsx',
-	'python',
-	'py',
-	'sql',
-	'json',
-	'yaml',
-	'css',
-	'html',
-	'bash',
+// Fenced-block languages offered after ``` — ONE list for both editors (the Studio's editor-complete.ts reads
+// FENCE_LANGUAGES, the Playground's complete.js FENCE_LANGS). The fences a plugin renders come from the plugin
+// registry (lib/plugins/grammar.generated.mjs, built from each manifest's `contributes.fences`), so a plugin's fence
+// completes the day it lands and a name no plugin renders is never offered: the old hand list offered `chart`, which
+// the engine shows as plain code. Deprecated aliases are left out. Then the common code languages, which the code
+// plugin highlights, with the short aliases (`js`, `ts`, `py`) so they resolve too.
+export const FENCE_LANGUAGES = [
+	...PLUGIN_GRAMMAR.flatMap((g) => Object.keys(g.fences || {}).map((lang) => ({ lang, info: g.title }))),
+	...[
+		['javascript', 'JavaScript'],
+		['js', 'JavaScript'],
+		['typescript', 'TypeScript'],
+		['ts', 'TypeScript'],
+		['tsx', 'TypeScript JSX'],
+		['python', 'Python'],
+		['py', 'Python'],
+		['sql', 'SQL'],
+		['json', 'JSON'],
+		['yaml', 'YAML'],
+		['css', 'CSS'],
+		['html', 'HTML'],
+		['bash', 'Shell'],
+	].map(([lang, info]) => ({ lang, info })),
 ];
+export const FENCE_LANGS = FENCE_LANGUAGES.map((f) => f.lang);
 
 // Mermaid keyword grammar, the single source of truth shared by the highlighter
 // (editor.js builds its KW_DECLARE / KW_FLOW regexes from these) and the

@@ -639,7 +639,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const measuredPhotoRef = React.useRef(measuredPhoto);
 	measuredPhotoRef.current = measuredPhoto;
 	const buildAutocomplete = () => [
-		autocompletion({ override: studioCompletionSources(withLazyInlineCore(makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), () => lintCoreNow() !== null, loadLintCore), makeAssetCompletion(() => assetsRef.current?.() ?? []), completionComponents), activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption], defaultKeymap: false }),
+		autocompletion({ override: studioCompletionSources(withLazyInlineCore(makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), () => lintCoreNow() !== null, loadLintCore), makeAssetCompletion(() => assetsRef.current?.() ?? []), completionComponents, completionRegisters), activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption], defaultKeymap: false }),
 		// The completion keys (Ctrl-Space, Option-Esc on macOS, Tab to accept) and the "No suggestions here" note, shared
 		// with CodeField and the Playground (completion-keys.js).
 		completionKeys(),

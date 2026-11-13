@@ -117,3 +117,56 @@ test.describe('on a Mac', () => {
 		await expect(menu(page).getByRole('option', { name: /^indaco/ })).toBeVisible();
 	});
 });
+
+// Slice 3: the slide-body gaps the audit found, each driven by the key an author presses.
+test('Ctrl-Space on a blank body line offers what a line starts with, and a layout opens the component menu @crosswidth @webkit-tablet @gecko', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, '---\ntitle: Insert\n---\n\n# A heading\n\n');
+	await watchMenuOpen(page);
+	await page.keyboard.press('Control+Space');
+	await expect(menu(page).getByRole('option', { name: /^<!-- _class: -->/ })).toBeVisible();
+	await expect(menu(page).getByRole('option', { name: /^<!-- say: -->/ })).toBeVisible();
+	await acceptCompletion(page);
+	await expect(editorText(page)).toContainText('<!-- _class:  -->');
+	// The layout names follow at once, with the caret inside the directive.
+	await expect(menu(page).getByRole('option').first()).toBeVisible();
+	await page.keyboard.type('flowch');
+	await expect(menu(page).getByRole('option', { name: /^flowchart/ })).toBeVisible();
+});
+
+test('a flowchart completes its own names after an arrow, and span words in a backtick @crosswidth @webkit-tablet @gecko', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, '---\ntitle: Flow\n---\n\n<!-- _class: flowchart -->\n\n## Orders reach the ledger.\n\n- Storefront => Payments\n- Payments\n- Ledger\n');
+	await watchMenuOpen(page);
+	await appendToEditor(page, '- Payments -> Led');
+	await expect(menu(page).getByRole('option', { name: /^Ledger/ })).toBeVisible();
+	await acceptCompletion(page);
+	await expect(editorText(page)).toContainText('- Payments -> Ledger');
+	await page.keyboard.type(' `dia');
+	await expect(menu(page).getByRole('option', { name: /^diamond/ })).toBeVisible();
+});
+
+test('math completes TeX commands, and a command with arguments puts the caret inside @crosswidth @webkit-tablet @gecko', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, '---\ntitle: Math\n---\n\n# Growth\n\nRate $r = ');
+	await watchMenuOpen(page);
+	await appendToEditor(page, '\\fra');
+	await expect(menu(page).getByRole('option', { name: /^\\frac/ })).toBeVisible();
+	await acceptCompletion(page);
+	await page.keyboard.type('a');
+	await expect(editorText(page)).toContainText('$r = \\frac{a}{}');
+});
+
+test('a slide directive completes its values, and <!-- offers the note channels @crosswidth @gecko', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, '---\ntitle: Directives\n---\n\n# A\n\n<!-- _paginate: ');
+	await page.keyboard.press('Control+Space');
+	await expect(menu(page).getByRole('option', { name: /^false/ })).toBeVisible();
+	await page.keyboard.press('Escape');
+	await setEditorContent(page, '---\ntitle: Directives\n---\n\n# A\n\n');
+	await watchMenuOpen(page);
+	await appendToEditor(page, '<!-- sa');
+	await expect(menu(page).getByRole('option', { name: /^say/ })).toBeVisible();
+	await acceptCompletion(page);
+	await expect(editorText(page)).toContainText('<!-- say: ');
+});

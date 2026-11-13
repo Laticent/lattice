@@ -40,7 +40,10 @@ describe('makeStudioCompletion', () => {
 	it('completes fenced-block languages after ```', () => {
 		const r = complete('```');
 		expect(labels(r)).toContain('mermaid');
-		expect(labels(r)).toContain('chart');
+		// The plugin fences come from the registry; `chart` is no fence the engine renders, so it is never offered.
+		expect(labels(r)).toEqual(expect.arrayContaining(['math', 'functionplot', 'anima', 'js']));
+		expect(labels(r)).not.toContain('chart');
+		expect(labels(r)).not.toContain('latticeplot');
 	});
 
 	it('completes front-matter keys inside the --- block', () => {
@@ -794,15 +797,18 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		{ name: 'cards-grid', bucket: 'inventory', description: 'Cards', skeleton: '<!-- _class: cards-grid -->\n\n## Slide heading.\n\n- First card title\n  - Body.' },
 		{ name: 'table', bucket: 'evidence', description: 'A table', skeleton: '<!-- _class: table -->\n\n| a | b |', focusAxes: ['row', 'col', 'cell'] },
 		{ name: 'map', bucket: 'chart', description: 'A map', skeleton: '<!-- _class: map -->\n\n- California: 4' },
+		{ name: 'flowchart', bucket: 'chart', description: 'A flowchart', skeleton: '<!-- _class: flowchart -->\n\n- A -> B' },
 	];
-	const studio = studioCompletionSources(makeStudioCompletion(CATALOG), () => null, CATALOG);
-	const playground = playgroundCompletionSources({ catalog: CATALOG });
+	const lintVocab = buildVocab();
+	const studio = studioCompletionSources(makeStudioCompletion(CATALOG), () => null, CATALOG, registerValueLists(lintVocab));
+	const playground = playgroundCompletionSources({ catalog: CATALOG, vocab: lintVocab });
 	async function ask(sources: CompletionSource[], doc: string): Promise<string[]> {
 		const context = new CompletionContext(EditorState.create({ doc }), doc.length, true);
 		const got = await Promise.all(sources.map((s) => s(context)));
 		return got.flatMap((r) => (r ? r.options.map((o) => o.label) : []));
 	}
 	const FM = '---\ntitle: T\n---\n\n';
+	const FLOW = `${FM}<!-- _class: flowchart -->\n\n## Flow\n\n- Storefront => Payments\n- Payments\n- Ledger\n- Risk\n  - KYC check\n`;
 	// [what, doc, a label both editors must offer, a label neither may offer]
 	const PROBES: [string, string, string, string | null][] = [
 		['a slide directive name', `${FM}<!-- _`, '_header', null],
@@ -812,6 +818,20 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		['a mermaid keyword', `${FM}\`\`\`mermaid\nflow`, 'flowchart', null],
 		['the slot skeleton on an empty classed slide', `${FM}<!-- _class: cards-grid -->\n\n`, 'skeleton', null],
 		['a map region (the lazily loaded data source)', `${FM}<!-- _class: map -->\n\n- Fra`, 'France', null],
+		// Slice 3.
+		['a slide directive value', `${FM}<!-- _paginate: `, 'false', null],
+		['a note channel after <!--', `${FM}<!-- sa`, 'say', null],
+		['a TeX command in inline math', `${FM}Growth $g = \\fr`, '\\frac', null],
+		['a TeX command in a display block', `${FM}$$\n\\sum_{i=1}^{n} \\al`, '\\alpha', null],
+		['a TeX command in a math fence', `${FM}\`\`\`math\n\\sq`, '\\sqrt', null],
+		['the insert list on a blank body line', `${FM}# Title\n\n`, '<!-- _class: -->', null],
+		['the plugin fences after ```', `${FM}\`\`\``, 'functionplot', 'chart'],
+		['a flowchart name after an arrow', `${FLOW}- Storefront -> Le`, 'Ledger', 'Storefront -> Le'],
+		['a flowchart group name after an arrow', `${FLOW}- Ledger => Ri`, 'Risk', null],
+		['a flowchart span word', `${FLOW}- Ledger \`dia`, 'diamond', null],
+		['a flowchart status in a record', `${FLOW}- Ledger \`{cylinder, do`, 'done', null],
+		['a flowchart arrow after a name', `${FLOW}- Ledger -`, '->', null],
+		['an arrow to chain after a target', `${FLOW}- Ledger -> Payments =`, '=>', null],
 	];
 	for (const [what, doc, want, never] of PROBES) {
 		it(`both editors complete ${what}`, async () => {
@@ -825,6 +845,29 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 			}
 		});
 	}
+
+	it('a backslash outside math, or after a closed `$…$`, offers no TeX', async () => {
+		expect(await ask(studio, `${FM}A path C:\\Users\\fr`)).not.toContain('\\frac');
+		expect(await ask(studio, `${FM}Costs $5 and $10 then \\fr`)).not.toContain('\\frac');
+		expect(await ask(studio, `${FM}An escaped \\$ sign \\fr`)).not.toContain('\\frac');
+	});
+
+	it('a word that is not a slide directive gets no directive values (it is a speaker note)', async () => {
+		expect(await ask(studio, `${FM}<!-- cards: `)).toEqual([]);
+	});
+
+	it('the insert list stays out of the front matter, fences and lines with text', async () => {
+		expect(await ask(studio, '---\ntitle: T\n')).not.toContain('<!-- _class: -->');
+		expect(await ask(studio, `${FM}\`\`\`js\n`)).not.toContain('<!-- _class: -->');
+		expect(await ask(studio, `${FM}Prose`)).not.toContain('<!-- _class: -->');
+	});
+
+	it('the insert list opens only on Ctrl-Space, never while typing', async () => {
+		const doc = `${FM}# Title\n\n`;
+		const typed = new CompletionContext(EditorState.create({ doc }), doc.length, false);
+		const got = await Promise.all(studio.map((s) => s(typed)));
+		expect(got.flatMap((r) => (r ? r.options.map((o) => o.label) : []))).not.toContain('<!-- _class: -->');
+	});
 
 	it('the map completer loads only on a map slide', async () => {
 		const elsewhere = await ask(studio, `${FM}<!-- _class: cards-grid -->\n\n- Fra`);
