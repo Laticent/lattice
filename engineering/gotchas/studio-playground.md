@@ -1964,8 +1964,9 @@ never turn "passed in headless" into "works on iOS."
   all 60 of its frames before giving up. On a loaded Firefox, 60 frames is several seconds. The slowest of 60 passing
   gecko runs under load waited 1031 ms with `realign` the only hold left.
 - **Mitigation** — `PlaygroundApp.tsx`: entering Explore clears `realignPendingRef`, and `realignSeqRef` ties each settle
-  loop to the switch that started it, so an overtaken loop stops on its next frame (and no longer scrolls Explore's
-  preview to the editor's slide when the realign does succeed). The reveal publishes what it waits for as `data-hold`
+  loop to the switch that started it, so an overtaken loop stops on its next frame. `playground-sync.ts` `enterExplore()`
+  drops the sync's owed realign too, so no frame load in Explore pays it by scrolling the preview to the editor's slide
+  mid-landing; `leaveExplore` owes it again on the way back. The reveal publishes what it waits for as `data-hold`
   on the wrapper; the spec's "never holds Explore's reveal for Edit's realign" asserts on it. Without the fix that case
   went red in 4 of 17 runs across desktop and webkit-tablet; with it, nothing can set the hold in Explore.
 - **Triggered by** — a new hold on the reveal, or a new async step a switch starts and a later switch can overtake.

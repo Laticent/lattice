@@ -640,7 +640,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// What the reveal is waiting for, as observable state (`data-hold` on the wrapper, cleared on reveal): the
 				// same idea as Present's `data-beat`. A test that guesses at this from timings measures the wrong thing.
 				const hold = [!ready && 'fit', landPendingRef.current && 'land', openOnPendingRef.current && 'open-on', realignPendingRef.current && 'realign'].filter(Boolean).join(' ');
-				if (wrap.getAttribute('data-hold') !== hold) wrap.setAttribute('data-hold', hold);
+				// Not on a wrapper something else already revealed (the backstop, an engine error): it would read as held.
+				if (wrap.classList.contains('is-live')) wrap.removeAttribute('data-hold');
+				else if (wrap.getAttribute('data-hold') !== hold) wrap.setAttribute('data-hold', hold);
 				requestAnimationFrame(check);
 			}
 		};
@@ -666,6 +668,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		coverTimerRef.current = setTimeout(() => {
 			coverTimerRef.current = null;
 			wrap.classList.add('is-live');
+			wrap.removeAttribute('data-hold');
 		}, COVER_BACKSTOP_MS);
 	}, []);
 
@@ -1003,6 +1006,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				realignPendingRef.current = false;
 				exploreFlatRef.current = -1;
 				frame.parentElement?.classList.add('is-live');
+				frame.parentElement?.removeAttribute('data-hold');
 			} else {
 				previewStateRef.current = r.state;
 				lastGeomRef.current = r.geom;
@@ -1264,8 +1268,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const owedSlide = viewRef.current === 'edit' && !freshWhileCollapsedRef.current;
 		if (owedSlide) {
 			realignPendingRef.current = true;
+			realignSeqRef.current++;
 			coverPreview();
 		}
+		// Taken with the hold, so a switch in the next two frames stops this settle rather than inheriting it.
+		const seq = realignSeqRef.current;
 		requestAnimationFrame(() =>
 			requestAnimationFrame(() => {
 				const swapped = freshWhileCollapsedRef.current;
@@ -1275,9 +1282,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				} else {
 					frameRef.current?.contentWindow?.__latticeFit?.();
 					render(false);
-					if (owedSlide) {
+					if (owedSlide && seq === realignSeqRef.current) {
 						syncRef.current?.expanded();
-						settleRealign(true);
+						settleRealign(true, seq);
 						if (frameRef.current) markLiveWhenSlidesVisible(frameRef.current);
 					}
 				}
