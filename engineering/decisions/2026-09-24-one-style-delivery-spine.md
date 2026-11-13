@@ -44,7 +44,7 @@ content it shows, and there are five answers today:
 | CLI PDF, PNG, HTML sidecar, `--player` | `lattice-emulator.js` (`layoutCSS + paletteCSS`) | **as written** — unpacked | Yes (player Read · Article) |
 | Studio preview, Playground, docs embeds | `lib/engine/css.js` `packTheme` | **scoped** to the inside of a slide; `:root` moved onto the slide | No |
 | Studio Webpage player | `share-export.ts` | scoped, plus the as-written arms (`flatCss`, #2344) | Yes |
-| Studio PDF/PPTX rasterizer, chart "download as SVG" | `deck-export.js` `flattenChartSvgs`, `standalone-svg.js` | **baked**: computed styles inlined per SVG, tokens frozen onto the root | No stylesheet at all |
+| Studio PDF/PPTX rasterizer, chart "download as SVG" | `deck-export.js` (the slide camera since 2026-10-25; `flattenChartSvgs` retired 2026-11-12), `standalone-svg.js` | rasterizer: **scoped**, the camera draws with the page's stylesheet; "download as SVG": **baked** | rasterizer: Yes; SVG file: no stylesheet at all |
 | Studio in-app Reading view | `ReadArticle.tsx` | **none** — its own 34 prose rules only | Yes, and nothing styles it |
 
 So "the same deck on two surfaces" means the same HTML under up to five
@@ -101,7 +101,7 @@ a row here and asks for its mode by name; it does not invent a shape.
 | Studio preview, Playground, docs embeds | `scoped` | `render(md, theme)`; `scoped` is the default |
 | Studio Webpage player (and its strip-notes re-render) | `flat`, unwrapped to top-level slides | `render(md, theme, { styles: 'flat' })`, ships `unwrapFlatSheet(flatCss)` (`share-export.ts`, `lib/export/unwrap-flat-sheet.mjs`) |
 | Studio diagram bake (exported player, Reading view) | `baked` | `bakeSvg(svg, win, { foreignObjectLabels: 'text', freezeTokens })` (`deck-export.js`) |
-| Studio PDF/PPTX rasterizer | `baked` | `bakeSvg(svg, win)` (`deck-export.js` `flattenChartSvgs`) |
+| Studio PDF/PPTX rasterizer | `scoped` (since 2026-11-12) | the slide camera draws the slide with its stylesheet; the `flattenChartSvgs` bake is retired |
 | `check:render` baked pass | `baked` | `bakeSvg(svg, win, { freezeTokens })` (`tools/check-viz-render.js`) |
 | Chart "download as SVG" (Studio + `tools/export-chart-svg.js`) | `baked`, to a file | `flattenSvgStyles(…, { collectTokens: true })` + `finalizeStandaloneSvg`; a file takes its tokens in its own `<style>`, not on an element |
 | Studio Reading view | `flat`, pruned to the article and fenced to its figures | `buildDeckRender(…, 'flat')` (unwrapped by `unwrapFlatSheet`), then `scopedArticleCss` → `scopeReHostedCss` (`lib/export/player-prune.js`) → `sanitizeStyleText` (`article-projection.ts`) |

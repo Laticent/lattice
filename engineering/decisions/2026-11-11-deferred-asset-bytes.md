@@ -182,7 +182,7 @@ draw") made WebKit draw them, so an iPhone print now does the photo work it used
 
 **Where today's print goes** (timed per stage, owner's deck, Chromium / WebKit): setup 1.3 s / 13.4 s · photographing
 50 slides 29.4 s / 32.3 s · **waiting for each slide's PNG before the next shot 17.4 s / 21.0 s** · jsPDF assembly
-3.1 s / 5.5 s · total 60 s / 82 s. The WebKit setup is `flattenChartSvgs`: 10.8 s there, 1.1 s in Chromium (§8.2).
+3.1 s / 5.5 s · total 60 s / 82 s. The WebKit setup was `flattenChartSvgs`: 10.8 s there, 1.1 s in Chromium (§8.2; retired by #3162).
 
 ### 8.1 Shipped: photograph the next slide while the last one encodes
 
@@ -190,12 +190,14 @@ draw") made WebKit draw them, so an iPhone print now does the photo work it used
 the next, holding at most three pictures waiting. Same pixels, same writer: all 50 pages and every image identical.
 Chromium 60 s → 55 s and 32 s → 20 s blocked; WebKit 82 s → 73.5 s.
 
-### 8.2 Measured, not yet shipped: `flattenChartSvgs` is an html-to-image workaround the camera does not need
+### 8.2 Retired: `flattenChartSvgs` was an html-to-image workaround the camera does not need
 
 Its comment says why it exists: html-to-image dropped the stylesheet from SVG charts. The slide camera lays every slide
 out with the page's own stylesheet (the 2026-10-25 note says so), and skipping the flatten left the owner's print
 byte-identical in Chromium AND WebKit, and the PDF export identical, while saving 11 s of a WebKit print (68.6 s →
-57.6 s). Being checked across every chart kind before it changes.
+57.6 s). Retired by #3162 (the owner's D2): all 28 chart kinds, with and without it, in print, PDF, PowerPoint and
+images, Chromium and WebKit, light and dark, differ only in anti-aliased edges. The `chart-export` journey now checks the
+outcome: every exported slide picture looks like the same slide on screen.
 
 ## 9. Print compresses each page once (owner sign-off, 2026-11-12)
 
