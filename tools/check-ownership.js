@@ -14556,7 +14556,7 @@ function verbatimCopyProblems(entry, root = ROOT) {
 // guard for this arm alone; every other arm here is mode-blind.
 //
 // WHAT IT CANNOT CATCH, stated because a gate that quietly measures nothing is the
-// failure this repo keeps paying for. On CI the freshness job runs `build:uncommitted`
+// failure this repo keeps paying for. On CI the freshness job's `npm ci` runs `build:uncommitted`
 // BEFORE `build:check`, so dist/ is regenerated from source moments earlier and a
 // hand-edited copy cannot survive to be seen. What survives that bootstrap — and what
 // this arm therefore does catch on CI — is a BUILDER that stops copying verbatim. The

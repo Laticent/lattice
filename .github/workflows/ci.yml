@@ -290,17 +290,16 @@ jobs:
       # BOOTSTRAP, and the order is the whole point. The ownership guard inside
       # build:check reads dist/ CSS to know which tokens are declared, and a
       # generated docs bundle for the style-sink check — but dist/ is built, not
-      # committed, so a checkout has neither and the guard fails on the absence of
-      # the files the build exists to produce.
+      # committed, so a checkout has neither. `npm ci` above already builds them:
+      # the root `prepare` script runs `build.js --only-uncommitted`, the same
+      # command a separate "Bootstrap" step used to run again here (48 s a PR,
+      # removed 2026-11-13 as docs-build and studio-smoke dropped theirs). If
+      # prepare ever stops building, build.js bootstraps a cold tree itself.
       #
-      # This generates ONLY the built-not-committed half. Running the FULL build
-      # here would rewrite the committed artifacts too, and the freshness check
-      # after it would then compare fresh against fresh and pass vacuously — a gate
-      # that cannot fail. Generating only the uncommitted half gives the guard its
-      # inputs while leaving the committed half exactly as checked out.
-      - name: Bootstrap the built-not-committed artifacts (no render)
-        run: npm run build:uncommitted
-
+      # Only the built-not-committed half is generated. A FULL build before this
+      # gate would rewrite the committed artifacts too, and the freshness check
+      # would then compare fresh against fresh and pass vacuously — a gate that
+      # cannot fail. The committed half stays exactly as checked out.
       - name: Artifact freshness gate (committed artifacts, no render)
         run: npm run build:check
 
