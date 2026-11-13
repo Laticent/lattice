@@ -75,7 +75,14 @@ thresholds, the slide camera, the placed-picture rule, Calco's "is this slide a 
 stay in Lattice and call lastra.
 
 **Out of scope for decode.** WebP, AVIF, GIF and HEIC decoding. They are read and cleaned, never decoded; a
-recode of one stays with the host, as today. Revisit only with a measured need.
+recode of one stays with the host, as today. Revisit only with a measured need. So the host's decode path is
+permanent, not a fallback that slice 5 deletes, and the two paths must agree on color (§5, slice 5).
+
+**No color management.** lastra decodes the samples a file holds and applies no ICC profile; it returns the
+embedded profile so a host can decide. A browser converts a tagged photo to sRGB when it decodes it
+(`createImageBitmap`'s default `colorSpaceConversion`), and every iPhone photo since 2016 is tagged Display P3.
+A lastra decode of such a photo, written out untagged, looks duller than the browser's. That is why slice 5 is
+guarded, not a swap.
 
 ## 4. Why our own decoders (the owner's ruling, and what it buys)
 
@@ -108,9 +115,27 @@ corpus, never the owner's).
 3. **PNG decode, measure and crop.** The three `bleed` ink hosts and the card-ink samplers move onto one read; the
    inks they pick must not change on the galleries, the image plugin's demo deck and both photo decks.
 4. **JPEG decode**, behind the trio.
-5. **Hosts adopt decode.** The CLI's recode leaves Chrome; the Studio's recode moves into its worker pool
-   (`followups.d/3148-p4-photo-resample-in-a-worker.md`). This slice changes picture bytes, so it owes the
-   owner's export sign-off (dark and light, both photo decks).
+5. **Hosts adopt decode, where it is provably equal.** Not a swap: lastra decodes an untagged or sRGB-tagged
+   JPEG or PNG, and the host keeps its own color-managed decode for anything else (a non-sRGB ICC profile, CMYK
+   with a profile, a refusal, a frame over the host's limit). A one-release setting keeps a kill switch back to
+   the host decode. Before this slice may start (the inversion on the decoders, 2026-11-13):
+   - **color**: tagged fixtures (Display P3, Adobe RGB, CMYK with a profile, sRGB) and a ceiling on the color
+     difference between the lastra path and the browser's, with color conversion left on;
+   - **memory on a real iPhone**: peak memory and time for 12, 24 and 48 megapixel photos in a 50-photo deck,
+     measured on the device (the simulator does not reproduce iOS's memory limit); the condition
+     `followups.d/3148-p4-photo-resample-in-a-worker.md` already sets. Until it passes, the Studio stays on its
+     strip-read decode. A baseline JPEG decoded by row bands with no coefficient store, and a scaled IDCT where
+     the target is small, are the expected answer;
+   - **no silent refusal**: an export counts refusals by code in its report and falls back to the host, so a
+     refused photo never ships at full size unannounced;
+   - **worker only**: a boundary test that the Studio imports decode only from worker modules, and a time and
+     memory bench row (byte-identical gates cannot see either);
+   - **orientation**: a rotated fixture exports upright on both hosts;
+   - **sign-off decks with phone-shaped photos** (tagged, rotated, 24 megapixel, multi-picture), side by side with
+     today's export, dark and light;
+   - **the browser comparison runs nightly**, and Safari on Apple hardware is measured, not assumed.
+
+   This slice changes picture bytes, so it owes the owner's export sign-off.
 6. **Tone.** Grayscale and duotone on pixels, held to the browser's blend layers by a pixel-difference
    ceiling in Chromium, WebKit and Firefox. Nothing uses it until D2 lifts toned photos.
 
@@ -136,7 +161,8 @@ Then D1 to D3 from the export-size investigation build on it.
 
 ## 8. Open
 
-- **The corpus.** Which licensed photo set (public-domain or CC0), its size, and whether it lives in the
-  repo or is fetched by the corpus tool.
-- **Speed on a phone.** A JS JPEG decode of a 12-megapixel photo against `createImageBitmap`, measured in
-  WebKit before slice 5 makes it the Studio's default.
+- **The phone-photo corpus.** Load-bearing for slice 5, not optional: which licensed (public-domain or CC0)
+  phone photos, tagged and untagged, and whether they live in the repo or are fetched by the corpus tool.
+- **Speed and memory on a phone.** Measured on a real iPhone, not in desktop WebKit (§5, slice 5).
+- **Matrix-shaper profile conversion.** Display P3 and Adobe RGB are simple matrix-and-curve profiles; converting
+  them to sRGB in lastra (a few hundred lines) would let slice 5 narrow its host fallback. Not built.
