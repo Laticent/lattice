@@ -124,6 +124,22 @@ describe('unpackSync', () => {
     assert.equal(Array.from(kept.caption).length, 140);
   });
 
+  test("assets/ photos past the cap: what fits goes, the rest is named, a refused one is named with its reason", () => {
+    const deck = tmp('cap');
+    fs.mkdirSync(path.join(deck, 'assets'));
+    const F = path.join(ROOT, 'test', 'fixtures', 'lattice-input');
+    fs.copyFileSync(path.join(F, 'gps.jpg'), path.join(deck, 'assets', 'a.jpg'));
+    fs.copyFileSync(path.join(F, 'text.png'), path.join(deck, 'assets', 'b.png'));
+    fs.copyFileSync(path.join(F, 'garbage.jpg'), path.join(deck, 'assets', 'c.jpg'));
+    const first = li.cleanAssetPhoto(path.join(deck, 'assets', 'a.jpg'));
+    // Room for the first cleaned photo and not the second.
+    const carry = li.photosToCarry({ assetsDir: path.join(deck, 'assets'), names: new Set(['a', 'b', 'c', 'absent']), maxBytes: first.bytes.length + 10 });
+    assert.deepEqual(carry.included, ['a']);
+    assert.deepEqual(carry.omitted, ['b']);
+    assert.deepEqual(carry.refused, [{ name: 'c', why: 'it does not read as a whole JPEG file, so its metadata cannot be removed' }]);
+    assert.deepEqual(Object.keys(carry.paths), ['media/a.jpg']);
+  });
+
   for (const [sig, n] of [['SIGINT', 2], ['SIGTERM', 15], ['SIGHUP', 1]]) {
     test(`the private folder is removed when the CLI is stopped by ${sig}`, async () => {
       const file = await latticeFile('# D\n\n![](asset:hero)\n', [row()], { 'media/hero.png': PNG });

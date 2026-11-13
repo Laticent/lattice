@@ -31,6 +31,19 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const CLIS = [['source', path.join(ROOT, 'lattice.js')], ['shipped bin', path.join(ROOT, 'dist', 'lattice.js')]];
 const TIMEOUT = 300000;
 const PHOTO = fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'lattice-input', 'photo.jpg'));
+const FIXTURES = path.join(ROOT, 'test', 'fixtures', 'lattice-input');
+/** The tag numbers in a JPEG's EXIF IFD0 (0x0112 orientation, 0x8825 the GPS block, 0x010f the camera maker). */
+function exifTags(jpeg) {
+  for (let o = 2; o + 4 < jpeg.length && jpeg[o] === 0xff; o += 2 + jpeg.readUInt16BE(o + 2)) {
+    if (jpeg[o + 1] !== 0xe1 || jpeg.toString('latin1', o + 4, o + 8) !== 'Exif') continue;
+    const t = o + 10;
+    const le = jpeg[t] === 0x49;
+    const u16 = (p) => (le ? jpeg.readUInt16LE(p) : jpeg.readUInt16BE(p));
+    const ifd = t + (le ? jpeg.readUInt32LE(t + 4) : jpeg.readUInt32BE(t + 4));
+    return Array.from({ length: u16(ifd) }, (_, i) => u16(ifd + 2 + i * 12));
+  }
+  return [];
+}
 // Not the product's `lattice-input-` / `lattice-write-` prefixes: a test folder must never look like one the CLI left.
 const made = [];
 const tmp = (p) => {
@@ -154,7 +167,7 @@ for (const [label, bin] of CLIS) {
       assert.equal(await zip.file('packages/component/ticker/ticker.transform.js').async('string'), code['ticker.transform.js'], 'the code rides as its file');
     });
 
-    test('a .md with assets/: the deck and its theme go, the camera originals are left out and named', { timeout: TIMEOUT }, async () => {
+    test('a .md with assets/: photos go cleaned as the Studio keeps an original, a refused one is named, the theme travels', { timeout: TIMEOUT }, async () => {
       const dir = tmp('md');
       const home = tmp('home');
       const theme = path.join(home, 'packages', 'theme', 'probe-brand');
@@ -162,21 +175,49 @@ for (const [label, bin] of CLIS) {
       fs.writeFileSync(path.join(theme, 'probe-brand.manifest.json'), JSON.stringify({ name: 'probe-brand', type: 'theme', format: 1, label: 'probe-brand' }));
       fs.writeFileSync(path.join(theme, 'probe-brand.css'), "/* @theme probe-brand */\n@import 'lattice';\n:root { --accent: #2d4ed8; }\n");
       fs.mkdirSync(path.join(dir, 'assets'));
-      fs.writeFileSync(path.join(dir, 'assets', 'pic.jpg'), PHOTO);
-      fs.writeFileSync(path.join(dir, 'deck.md'), DECK.replace('theme: indaco', 'theme: probe-brand'));
+      fs.copyFileSync(path.join(FIXTURES, 'gps.jpg'), path.join(dir, 'assets', 'gps.jpg'));
+      fs.copyFileSync(path.join(FIXTURES, 'text.png'), path.join(dir, 'assets', 'note.png'));
+      fs.copyFileSync(path.join(FIXTURES, 'garbage.jpg'), path.join(dir, 'assets', 'junk.jpg'));
+      fs.writeFileSync(path.join(dir, 'deck.md'), '---\ntheme: probe-brand\n---\n\n## Photos\n\n![](asset:gps)\n\n![](asset:note)\n\n![](asset:junk)\n');
       const out = path.join(dir, 'deck.lattice');
       const r = cli([path.join(dir, 'deck.md'), out], home, NO_BROWSER);
       assert.equal(r.status, 0, r.stderr);
-      assert.match(r.stdout, /1 photo from assets\/ left out: a camera original can carry where it was taken, and the CLI cannot remove that yet/);
+      assert.match(r.stdout, /Lattice project: .*deck\.lattice \(2 photos\)/);
+      assert.match(r.stderr, /the photo junk is left out of the \.lattice: it does not read as a whole JPEG file, so its metadata cannot be removed/);
       const zip = await JSZip.loadAsync(fs.readFileSync(out));
-      assert.equal(zip.file('media.json'), null, 'no photo index');
-      assert.deepEqual(Object.keys(zip.files).filter((p) => p.startsWith('media/')), [], 'no photo bytes');
+      const jpeg = Buffer.from(await zip.file('media/gps.jpg').async('uint8array'));
+      assert.ok(fs.readFileSync(path.join(FIXTURES, 'gps.jpg')).includes('ProbeCam'), 'the fixture carries camera data');
+      assert.deepEqual(exifTags(fs.readFileSync(path.join(FIXTURES, 'gps.jpg'))).includes(0x8825), true, 'the fixture carries a GPS block');
+      assert.deepEqual(exifTags(jpeg), [0x0112], 'only the orientation survives: no GPS block, no camera name');
+      assert.equal(require('@laticent/lastra').readImage(new Uint8Array(jpeg)).orientation, 6, 'the orientation is kept');
+      const png = Buffer.from(await zip.file('media/note.png').async('uint8array'));
+      assert.ok(fs.readFileSync(path.join(FIXTURES, 'text.png')).includes('secret-place'), 'the fixture carries a text chunk');
+      assert.ok(!png.includes('secret-place') && !png.includes('tEXt'), 'the text chunk is gone');
+      assert.equal(zip.file('media/junk.jpg'), null, 'the refused file is not carried');
+      const rows = JSON.parse(await zip.file('media.json').async('string'));
+      assert.deepEqual(rows.map((x) => [x.name, x.mime, x.bytes, x.width, x.height, x.original, x.sourceName, x.file]), [
+        ['gps', 'image/jpeg', jpeg.length, 64, 40, true, 'gps.jpg', 'gps.jpg'],
+        ['note', 'image/png', png.length, 32, 20, true, 'note.png', 'note.png'],
+      ], "the Library's row for a photo kept as it was added");
       assert.ok(zip.file('packages/theme/probe-brand/probe-brand.css'), 'the installed theme travels');
       // The round trip: on a machine with an EMPTY store, the file renders with the theme it carries.
       const html = path.join(dir, 'elsewhere.html');
       const elsewhere = cli([out, html], tmp('empty-home'));
       assert.equal(elsewhere.status, 0, elsewhere.stderr);
       assert.match(fs.readFileSync(html, 'utf8'), /--accent:\s*#2d4ed8/i);
+    });
+
+    test('--reopenable carries a cleaned assets/ photo inside the PDF', { timeout: TIMEOUT }, async () => {
+      const dir = tmp('reopen-md');
+      fs.mkdirSync(path.join(dir, 'assets'));
+      fs.copyFileSync(path.join(FIXTURES, 'gps.jpg'), path.join(dir, 'assets', 'gps.jpg'));
+      fs.writeFileSync(path.join(dir, 'deck.md'), '---\ntheme: indaco\n---\n\n## A photo\n\n![](asset:gps)\n');
+      const pdf = path.join(dir, 'deck.pdf');
+      const r = cli([path.join(dir, 'deck.md'), pdf, '--reopenable'], tmp('home'));
+      assert.equal(r.status, 0, r.stderr);
+      const zip = await attachedLattice(pdf);
+      const jpeg = Buffer.from(await zip.file('media/gps.jpg').async('uint8array'));
+      assert.deepEqual(exifTags(jpeg), [0x0112], 'the re-openable copy carries the photo without its GPS block');
     });
 
     test('--reopenable carries the photos a .lattice input carried, inside the PDF', { timeout: TIMEOUT }, async () => {

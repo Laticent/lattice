@@ -63,8 +63,13 @@ component the deck does not name) go back out as they came. From a `.md`, the in
 components the deck uses go. Which photos it carries is one function, `photosToCarry` in
 `lib/export/lattice-input.js`: photos from a `.lattice` input pass through as their bytes (only
 the ones the deck names, as in the Studio), because the Studio scrubbed them at intake; photos
-from `assets/` are withheld and counted until a shared metadata scrubber exists (owner,
-2026-11-13). `--reopenable` uses the same function at the embedded cap
+from `assets/` are cleaned as the Studio's "Keep original" intake stores one
+(`cleanAssetPhoto`: `@laticent/lastra` `cleanerFor` cuts EXIF, XMP, text chunks and comments and
+keeps the pixels and an orientation-only EXIF block), with the Library's row (`original: true`,
+width and height from lastra's `readImage`). Where the Studio would re-encode instead (HEIC, AVIF,
+SVG, or a file the cleaner cannot parse), the CLI, with no encoder for that, leaves the photo out
+and names it with the reason. Both kinds are held to the byte cap and MAX_LATTICE_PHOTOS, and the
+ones past it are named. `--reopenable` uses the same function at the embedded cap
 (`MAX_EMBEDDED_MEDIA_BYTES`). `--strip-notes` and `--strip-say` scrub the carried `deck.md` with
 the functions `--reopenable` uses (`stripSharedSource`, the cut from
 `notesCore.measureScrubBoundary`), fed by an engine render that runs no package code

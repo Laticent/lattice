@@ -2170,10 +2170,9 @@ if (OUT_FORMAT === 'lattice') {
     if (why) console.error(`warning: the component ${p.name} is refused and not carried: ${why}`);
     else add('component', p.name, p.dir);
   }
-  const carry = photosToCarry({ fromLattice: LATTICE_INPUT, assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'), names: new Set(assetRefs(mdRaw).map((r) => r.name)), maxBytes: limits.MAX_LATTICE_MEDIA_BYTES });
+  const carry = photosToCarry({ fromLattice: LATTICE_INPUT, assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'), names: new Set(assetRefs(mdRaw).map((r) => r.name)), maxBytes: limits.MAX_LATTICE_MEDIA_BYTES, now: resolveEpoch() * 1000 });
   const plural = (k) => `${k} photo${k === 1 ? '' : 's'}`;
-  if (carry.withheld.length && !QUIET) console.log(`  ${plural(carry.withheld.length)} from assets/ left out: a camera original can carry where it was taken, and the CLI cannot remove that yet`);
-  if (carry.omitted.length) console.warn(`  ⚠ ${plural(carry.omitted.length)} left out to stay under ${Math.floor(limits.MAX_LATTICE_MEDIA_BYTES / 1_048_576)} MB of photos: ${carry.omitted.join(', ')}`);
+  reportPhotosLeftOut(carry, limits.MAX_LATTICE_MEDIA_BYTES, 'the .lattice');
   const { directives: fm } = require('./lib/engine/directives').parseFrontMatter(mdRaw);
   const heading = (mdRaw.replace(/```[\s\S]*?```/g, '').match(/^#{1,3}\s+(.+?)\s*#*\s*$/m) || [])[1];
   const title = LATTICE_INPUT?.title || String(fm.title || heading || path.basename(outFile).replace(/\.[^.]+$/, '') || 'Lattice deck').replace(/\s+/g, ' ').trim().slice(0, 120);
@@ -6429,8 +6428,17 @@ function attachableSource(src) {
 //   · CLOCK — pinned like every PDF date (SOURCE_DATE_EPOCH, else the epoch), so a re-render of
 //     an unchanged deck writes the same payload bytes.
 //   · PHOTOS — what `photosToCarry` (lib/export/lattice-input.js) allows, at MAX_EMBEDDED_MEDIA_BYTES: the photos a
-//     `.lattice` input carried, as their bytes. A photo from `assets/` is left out until the CLI can remove a camera
-//     original's location data, and the run says how many. A `.lattice` OUTPUT uses the same function, far above.
+//     `.lattice` input carried, as their bytes; a photo from `assets/`, cleaned as the Studio's "Keep original" stores
+//     one (`cleanAssetPhoto`), or left out and named with the reason. A `.lattice` OUTPUT uses the same function.
+/** Name every photo a carried deck leaves out, and why: one the cleaner refused, and the ones past the cap. */
+function reportPhotosLeftOut(carry, maxBytes, where) {
+  const { printableLine } = require('./lib/cli/package-gate.js');
+  for (const r of carry.refused) console.warn(printableLine(`  ⚠ the photo ${r.name} is left out of ${where}: ${r.why}`));
+  if (carry.omitted.length) {
+    const n = carry.omitted.length;
+    console.warn(printableLine(`  ⚠ ${n} photo${n === 1 ? '' : 's'} left out of ${where} to stay under ${Math.floor(maxBytes / 1_048_576)} MB (or ${require('./lib/packages/limits.js').MAX_LATTICE_PHOTOS} photos): ${carry.omitted.join(', ')}`));
+  }
+}
 let reopenableMemo = null;
 function reopenableDate() {
   return new Date(resolveEpoch() * 1000);
@@ -6443,10 +6451,8 @@ function reopenableLattice() {
   const { photosToCarry, mediaOf } = require('./lib/export/lattice-input.js');
   const { assetRefs } = require('./lib/export/deck-assets.js');
   const maxBytes = require('./lib/packages/limits.js').MAX_EMBEDDED_MEDIA_BYTES;
-  const carry = photosToCarry({ fromLattice: LATTICE_INPUT, assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'), names: new Set(assetRefs(mdRaw).map((r) => r.name)), maxBytes });
-  const n = (k) => `${k} photo${k === 1 ? '' : 's'}`;
-  if (carry.withheld.length && !QUIET) console.log(`  ${n(carry.withheld.length)} from assets/ left out of the re-openable copy: a camera original can carry where it was taken, and the CLI cannot remove that yet`);
-  if (carry.omitted.length) console.warn(`  ⚠ ${n(carry.omitted.length)} left out of the re-openable copy to stay under ${Math.floor(maxBytes / 1_048_576)} MB of photos: ${carry.omitted.join(', ')}`);
+  const carry = photosToCarry({ fromLattice: LATTICE_INPUT, assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'), names: new Set(assetRefs(mdRaw).map((r) => r.name)), maxBytes, now: reopenableDate().getTime() });
+  reportPhotosLeftOut(carry, maxBytes, 'the re-openable copy');
   const media = mediaOf(carry);
   const { buildLatticeZip } = require('./lib/core/reopenable');
   return (reopenableMemo = buildLatticeZip(require('jszip'), {

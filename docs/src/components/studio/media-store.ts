@@ -24,8 +24,8 @@ export type MediaKind = 'image' | 'video';
 export type MediaScope = string;
 export const LIBRARY_SCOPE: MediaScope = 'library';
 /** The most one photo may be, on import and on restore. The two must agree, or a photo the Library
- *  accepted would be one a backup could never bring back (workspace-media.ts). */
-export const MAX_MEDIA_FILE_BYTES = 50 * 1024 * 1024;
+ *  accepted would be one a backup could never bring back (workspace-media.ts). Shared with the CLI (lib/packages/limits.js). */
+export const MAX_MEDIA_FILE_BYTES: number = limits.MAX_MEDIA_FILE_BYTES;
 
 export type MediaRecord = {
 	id: string;

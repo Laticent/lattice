@@ -55,7 +55,7 @@ it.
 | `.png` | One PNG per slide, named `<output>.001.png`, `<output>.002.png`, … |
 | `.zip` | An image set: one image per slide, plus thumbnails and chart SVGs. See [Image set](#image-set) |
 | `.html` | The rendered HTML as the deliverable, with no PDF. See [HTML output](#html-output) |
-| `.lattice` | A project file the Studio opens: the deck, the installed theme and components it uses, and its photos. Written without a render. Photos from a `.lattice` input are carried as they are; photos from an `assets/` folder are left out for now, because the CLI cannot yet remove a camera original's location data |
+| `.lattice` | A project file the Studio opens: the deck, the installed theme and components it uses, and its photos. Written without a render. Photos from a `.lattice` input are carried as they are. Photos from an `assets/` folder are carried the way the Studio keeps an original: the location, camera data, text and comments are removed and the pixels are kept. A photo the CLI cannot clean (a HEIC, an AVIF, a damaged file) is left out and named with the reason |
 | no extension | A PDF, plus the HTML sidecar as the deliverable |
 
 For a `.pdf`, `.pptx`, `.odp`, `.png` or `.zip`, the render captures from an
