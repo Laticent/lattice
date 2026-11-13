@@ -18,6 +18,16 @@ export function ShortcutsDialog({ open, onOpenChange, mac }: { open: boolean; on
 				{ keys: ['?'], does: 'This list' },
 			],
 		],
+		[
+			// The completion keys (playground/completion-keys.js). On a Mac both keys are listed: macOS takes ⌃Space for
+			// switching the keyboard input source unless that shortcut is turned off, and ⌥Esc always reaches the editor.
+			'Editor',
+			[
+				{ keys: mac ? ['⌥Esc', '⌃Space'] : ['Ctrl+Space'], does: 'Show suggestions' },
+				{ keys: ['Enter', 'Tab'], does: 'Accept the highlighted suggestion' },
+				{ keys: ['Esc'], does: 'Close the suggestions' },
+			],
+		],
 	];
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>

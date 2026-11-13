@@ -1,4 +1,4 @@
-import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
+import { autocompletion } from '@codemirror/autocomplete';
 import { defaultKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
@@ -16,6 +16,7 @@ import { partAt, unitAt } from '@/lib/fuoco/outline';
 import { notify } from '@/lib/notify';
 import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
+import { completionKeys } from '@/playground/completion-keys.js';
 import { lintCoreNow, loadLintCore, studioVocabSets } from './deck-lint';
 import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists, studioCompletionSources, withLazyInlineCore } from './editor-complete';
 import { largeInsert } from './editor-large-insert';
@@ -638,7 +639,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const measuredPhotoRef = React.useRef(measuredPhoto);
 	measuredPhotoRef.current = measuredPhoto;
 	const buildAutocomplete = () => [
-		autocompletion({ override: studioCompletionSources(withLazyInlineCore(makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), () => lintCoreNow() !== null, loadLintCore), makeAssetCompletion(() => assetsRef.current?.() ?? []), completionComponents), activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption] }),
+		autocompletion({ override: studioCompletionSources(withLazyInlineCore(makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), () => lintCoreNow() !== null, loadLintCore), makeAssetCompletion(() => assetsRef.current?.() ?? []), completionComponents), activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption], defaultKeymap: false }),
+		// The completion keys (Ctrl-Space, Option-Esc on macOS, Tab to accept) and the "No suggestions here" note, shared
+		// with CodeField and the Playground (completion-keys.js).
+		completionKeys(),
 		// Hover a front-matter key for what it does, its values and its default: the same row of
 		// the engine's table (lib/core/deck-settings.js) that the completion menu and the
 		// reference page print. In this compartment so a vocab change reaches it too.
@@ -1052,7 +1056,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 						EditorView.editorAttributes.compute(['selection'], (state): Record<string, string> => (state.selection.ranges.some((r) => !r.empty) ? { class: 'cm-has-selection' } : {})),
 						noLeadingBom,
 						...(collab ? [collab.extension, EditorState.readOnly.of(collab.readOnly), EditorView.editable.of(!collab.readOnly)] : []),
-						keymap.of([...defaultKeymap, ...completionKeymap]),
+						keymap.of(defaultKeymap),
 						// `yamlFrontmatter` WRAPS the Markdown language rather than sitting beside it, and
 						// without it a deck's front matter is parsed as a CommonMark SETEXT HEADING — the
 						// closing `---` reads as the underline — so `marp: true / theme: … ` rendered bold

@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { playgroundCompletionSources } from '@/playground/complete.js';
 // The engine's lint vocabulary (CommonJS) — the value lists the editor completes against.
 import { buildVocab } from '../../../../lib/authoring/lint.js';
-import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, studioCompletionSources, VOCAB_VALUE_FIELDS, withLazyInlineCore } from './editor-complete';
+import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, frontMatterKeysSet, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, studioCompletionSources, VOCAB_VALUE_FIELDS, withLazyInlineCore } from './editor-complete';
 
 const COMPS = [
 	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics' },
@@ -829,5 +829,29 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 	it('the map completer loads only on a map slide', async () => {
 		const elsewhere = await ask(studio, `${FM}<!-- _class: cards-grid -->\n\n- Fra`);
 		expect(elsewhere).not.toContain('France');
+	});
+});
+
+// Slice 2 of the audit: a key the front matter already sets is not offered again, and picking a key whose value
+// completes opens that value's menu (the second half is driven in the real Studio, docs/e2e/editor-completion-keys.spec.ts).
+describe('front-matter keys already set', () => {
+	const lines = (doc: string) => doc.split('\n');
+	it('reads the top-level keys of the leading block, skipping the line being typed', () => {
+		const doc = '---\ntheme: indaco\nbackdrop:\n  strength: 0.5\nthe\n---\n\nfooter: not front matter';
+		const l = lines(doc);
+		expect([...frontMatterKeysSet((n) => l[n - 1], l.length, 5)]).toEqual(['theme', 'backdrop']);
+	});
+	it('reads nothing without a leading block', () => {
+		const l = lines('# Title\ntheme: x');
+		expect(frontMatterKeysSet((n) => l[n - 1], l.length, 0).size).toBe(0);
+	});
+	it('a key already set is not offered, and the others still are', () => {
+		const offered = labels(complete('---\ntheme: indaco\nthe'));
+		expect(offered).not.toContain('theme');
+		expect(labels(complete('---\nthe'))).toContain('theme');
+	});
+	it('the key being retyped on its own line is still offered', () => {
+		const doc = '---\nthem\n---';
+		expect(labels(complete(doc, '---\nthem'.length))).toContain('theme');
 	});
 });

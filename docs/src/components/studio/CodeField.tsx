@@ -1,4 +1,4 @@
-import { autocompletion, type CompletionContext, type CompletionResult, completionKeymap } from '@codemirror/autocomplete';
+import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { css } from '@codemirror/lang-css';
 import { json } from '@codemirror/lang-json';
@@ -8,6 +8,7 @@ import { EditorState } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers } from '@codemirror/view';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { completionKeys } from '@/playground/completion-keys.js';
 import { codeFieldTheme, studioHighlight } from './editor-theme';
 
 // A small, single-purpose CodeMirror 6 field — syntax highlighting + line numbers
@@ -77,8 +78,9 @@ export function CodeField({
 					extensions: [
 						lineNumbers(),
 						history(),
-						keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
-							autocompletion({ override: [(ctx) => completionRef.current?.(ctx) ?? null] }),
+						keymap.of([...defaultKeymap, ...historyKeymap]),
+						autocompletion({ override: [(ctx) => completionRef.current?.(ctx) ?? null], defaultKeymap: false }),
+						completionKeys(),
 						LANGS[language](),
 						syntaxHighlighting(studioHighlight),
 						codeFieldTheme,

@@ -1240,7 +1240,7 @@ export { expect };
 // whenever the assertions before the Enter all passed on their first poll, which is a matter of when the
 // menu happened to appear. So the helper records
 // when the menu opened, from the page, and polls until it is older than the delay and enabled.
-const CM_INTERACTION_DELAY_MS = 75;
+export const CM_INTERACTION_DELAY_MS = 75;
 
 export async function watchMenuOpen(page: Page) {
 	await page.evaluate(() => {

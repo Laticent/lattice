@@ -1,4 +1,4 @@
-import type { Completion, CompletionContext, CompletionResult, CompletionSource } from '@codemirror/autocomplete';
+import { type Completion, type CompletionContext, type CompletionResult, type CompletionSource, insertCompletionText, pickedCompletion, startCompletion } from '@codemirror/autocomplete';
 import { altFromAssetName } from '@/lib/photo-alt';
 import { PACE_NAMES } from '@/lib/resolve-pace';
 import { contextSources } from '@/playground/context-sources.js';
@@ -99,6 +99,28 @@ const FENCE_LANGS: { lang: string; info: string }[] = [
 	{ lang: 'json', info: 'JSON' },
 	{ lang: 'sql', info: 'SQL' },
 ];
+
+/** The top-level keys the leading front matter sets, other than on line `skip` (the line being typed). Exported for a test. */
+export function frontMatterKeysSet(lineText: (n: number) => string, lines: number, skip: number): Set<string> {
+	const set = new Set<string>();
+	if (lines < 1 || !/^---[ \t]*$/.test(lineText(1))) return set;
+	for (let n = 2; n <= lines; n++) {
+		const t = lineText(n);
+		if (/^---[ \t]*$/.test(t)) break;
+		if (n === skip) continue;
+		const m = /^([A-Za-z_][\w-]*)[ \t]*:/.exec(t);
+		if (m) set.add(m[1]);
+	}
+	return set;
+}
+
+/** Write `key: `, then, when the key's value completes, open that menu at once: the next thing the author types is the value. */
+function applyKey(key: string, opensValues: boolean): Completion['apply'] {
+	return (view, completion, from, to) => {
+		view.dispatch({ ...insertCompletionText(view.state, `${key}: `, from, to), annotations: pickedCompletion.of(completion) });
+		if (opensValues) startCompletion(view);
+	};
+}
 
 /** True when `pos` sits inside the leading `---` front-matter block. */
 function inFrontMatter(doc: string, pos: number): boolean {
@@ -305,6 +327,15 @@ export function makeStudioCompletion(
 	const usage: Record<string, number> = { ...(opts.vocab?.modifierUsage || {}) };
 	if (!opts.vocab?.modifierUsage) for (const c of components) for (const [t, n] of Object.entries(c.modifierUsage || {})) usage[t] = (usage[t] || 0) + n;
 	const classExtra = { finishClasses, usage };
+	// The keys whose value completes: picking one of them goes straight on to its value menu.
+	const hasValues = (key: string): boolean =>
+		Object.hasOwn(registerOptions, key) ||
+		key === 'lang' ||
+		key === 'ai-lang' ||
+		key === 'pace' ||
+		(key === 'theme' && paletteOptions.length > 0) ||
+		(key === 'finish' && finishOptions.length > 0) ||
+		(key === 'class' && (modifierOptions.length > 0 || classFinishOptions.length > 0));
 
 	return function studioComplete(context: CompletionContext): CompletionResult | null {
 		const line = context.state.doc.lineAt(context.pos);
@@ -421,9 +452,11 @@ export function makeStudioCompletion(
 			const word = context.matchBefore(/[\w-]*/);
 			// Don't fire on the `---` fence lines themselves.
 			if (/^-+$/.test(line.text.trim())) return null;
+			// A key the front matter already sets is not offered again (YAML keeps only the last one).
+			const set = frontMatterKeysSet((n) => context.state.doc.line(n).text, context.state.doc.lines, line.number);
 			return {
 				from: word ? word.from : context.pos,
-				options: FRONT_MATTER_KEYS.map((k) => ({ label: k.key, type: 'property', info: k.info, apply: `${k.key}: ` })),
+				options: FRONT_MATTER_KEYS.filter((k) => !set.has(k.key)).map((k) => ({ label: k.key, type: 'property', info: k.info, apply: applyKey(k.key, hasValues(k.key)) })),
 				validFor: /^[\w-]*$/,
 			};
 		}

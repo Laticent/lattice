@@ -20,6 +20,7 @@
 // class-directive and skeleton sources are simply inert.
 
 import { autocompletion } from '@codemirror/autocomplete';
+import { completionKeys } from './completion-keys.js';
 import { contextSources, lineLocalSource } from './context-sources.js';
 import { dataSources } from './data-sources.js';
 import { FENCE_LANGS, SIZE_VALUES, SPLIT_VALUES } from './grammar-vocab.js';
@@ -145,9 +146,14 @@ export function playgroundCompletionSources({ vocab, catalog, themes, finishes }
 }
 
 export function latticeAutocomplete(opts = {}) {
-	return autocompletion({
-		override: playgroundCompletionSources(opts),
-		activateOnTyping: true,
-		icons: false,
-	});
+	return [
+		autocompletion({
+			override: playgroundCompletionSources(opts),
+			activateOnTyping: true,
+			icons: false,
+			// The keys come from completion-keys.js, shared with the Studio's editors.
+			defaultKeymap: false,
+		}),
+		completionKeys(),
+	];
 }
