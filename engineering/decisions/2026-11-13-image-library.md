@@ -176,7 +176,7 @@ Chromium's (both export hosts paint with it). `docs/e2e/lastra-read-engines.spec
 | JPEG, an Exif block with Orientation 1, then one with 6 | policy 1, PDF writer 6, layout 6 | all unturned | 1 |
 | JPEG, first Exif block without the tag, then 6 | policy 1, PDF 6, layout 6 | Chromium and Firefox unturned, WebKit turned | 1 |
 | JPEG, Exif 6 after the frame header | policy 6, PDF 1, layout 1 | all turned | 6 |
-| JPEG, TIFF magic 43 / Orientation 9 | policy 6 / 9, PDF and layout 1 | all unturned | 1 |
+| JPEG, TIFF magic 43 / Orientation 9 | policy 6 / 9, PDF and layout 1 | all unturned (but Playwright's Chromium 141 turns the magic-43 file; Chrome 153 does not) | 1 |
 | JPEG, XMP APP1 then Exif 6 | all 6 | Chromium and WebKit turned, Firefox not | 6 |
 | JPEG, junk or fill bytes between segments | policy: no size; layout: the size | all decode | the size |
 | JPEG, `FF D8` not followed by a marker | PDF and Library: not JPEG; layout: the size | Chromium and WebKit refuse | not JPEG |

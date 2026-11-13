@@ -118,7 +118,7 @@ const ROWS: Row[] = [
 		bytes: () => jpeg(64, 32, [exif(6, { magic: 43 })]),
 		was: 'A 6 · B 1 · D 1',
 		check: (i) => assert.equal(i?.orientation, 1),
-		why: 'not TIFF, so not EXIF; no engine turns it',
+		why: 'not TIFF, so not EXIF; Chrome 153, WebKit and Firefox leave it unturned (Playwright\'s Chromium 141 turned it)',
 	},
 	{
 		name: 'JPEG: Orientation 9',
