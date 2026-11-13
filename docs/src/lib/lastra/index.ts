@@ -19,7 +19,7 @@
  * an exported file as `toString()` source: a helper called `info` once turned a player's `info` into `info2`.
  */
 
-export { cleanerFor, cleanGif, cleanJpeg, cleanPng, cleanWebp } from './clean.js';
+export { cleanAsync, cleanerFor, cleanGif, cleanJpeg, cleanPng, cleanWebp } from './clean.js';
 export { acceptRecode, planRecode, type RecodePlan, type RecodeThresholds } from './decide.js';
 export { isLastraError, LastraError, type LastraErrorCode } from './errors.js';
 export { createJpegEncoder, encodeJpeg, type JpegEncoder, type JpegOptions } from './jpeg.js';

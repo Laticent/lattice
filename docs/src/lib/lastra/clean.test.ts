@@ -3,7 +3,7 @@
 // scrubber (engineering/decisions/2026-10-12-library-media-assets.md §3) and moved here with the code.
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { cleanerFor, cleanGif, cleanJpeg, cleanPng, cleanWebp } from './clean.js';
+import { cleanAsync, cleanerFor, cleanGif, cleanJpeg, cleanPng, cleanWebp } from './clean.js';
 import { decodeJpegSync } from './decode/index.js';
 import { encodeJpeg } from './jpeg.js';
 import { readImage, tiffOrientation } from './read.js';
@@ -33,6 +33,8 @@ function jpeg(seed = 1, segments: number[][] = []): Uint8Array {
 	return new Uint8Array([0xff, 0xd8, ...seg(0xe0, [...ascii('JFIF'), 0, 1, 1, 0, 0, 1, 0, 1, 0, 0]), ...segments.flat(), ...seg(0xda, [1, 1, 0, 0, 63, 0]), seed, 1, 2, 3, 0xff, 0xd9]);
 }
 const jpegSegment = (marker: number, data: number[]) => [0xff, marker, (data.length + 2) >> 8, (data.length + 2) & 255, ...data];
+/** An ICC APP2 chunk's body: `ICC_PROFILE\0`, its sequence number, the chunk count, the data. */
+const iccChunk = (seq: number, count: number, data: number[]) => [...ascii('ICC_PROFILE\0'), seq, count, ...data];
 
 /** A TIFF block with Orientation = `o` and a GPS-looking string behind it, as a phone writes it. */
 const tiff = (o: number) => [0x4d, 0x4d, 0, 0x2a, 0, 0, 0, 8, 0, 2, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, o, 0, 0, 0x88, 0x25, 0, 4, 0, 0, 0, 1, 0, 0, 0, 38, 0, 0, 0, 0, ...ascii(GPS)];
@@ -170,7 +172,7 @@ describe('cleanGif — a keep-list', () => {
 
 describe('cleanJpeg', () => {
 	it('drops EXIF, XMP, IPTC and comments; keeps JFIF, the color profile and the scan', () => {
-		const dirty = jpeg(1, [jpegSegment(0xe1, ascii(`Exif\0\0${GPS}`)), jpegSegment(0xe1, ascii(`http://ns.adobe.com/xap/1.0/\0${GPS}`)), jpegSegment(0xed, ascii(`Photoshop 3.0\0${GPS}`)), jpegSegment(0xfe, ascii(GPS)), jpegSegment(0xe2, ascii('ICC_PROFILE\0abc'))]);
+		const dirty = jpeg(1, [jpegSegment(0xe1, ascii(`Exif\0\0${GPS}`)), jpegSegment(0xe1, ascii(`http://ns.adobe.com/xap/1.0/\0${GPS}`)), jpegSegment(0xed, ascii(`Photoshop 3.0\0${GPS}`)), jpegSegment(0xfe, ascii(GPS)), jpegSegment(0xe2, iccChunk(1, 1, ascii('abc')))]);
 		expect(has(dirty, GPS)).toBe(true);
 		const clean = cleanJpeg(dirty) as Uint8Array;
 		expect(has(clean, GPS)).toBe(false);
@@ -305,9 +307,43 @@ describe('cleanJpeg — the rest of the file', () => {
 		}
 	});
 	it('keeps an ICC profile and drops an APP2 that is not one', () => {
-		const clean = cleanJpeg(jpeg(1, [jpegSegment(0xe2, ascii('ICC_PROFILE\0abc')), jpegSegment(0xe2, ascii('MPF\0abcdefghij'))])) as Uint8Array;
+		const clean = cleanJpeg(jpeg(1, [jpegSegment(0xe2, iccChunk(1, 1, ascii('abc'))), jpegSegment(0xe2, ascii('MPF\0abcdefghij'))])) as Uint8Array;
 		expect(has(clean, 'ICC_PROFILE')).toBe(true);
 		expect(has(clean, 'MPF')).toBe(false);
+	});
+	it('keeps the ICC chunks only as one whole set, where the decoder keeps the profile', () => {
+		// red team R4-2: every ICC chunk was kept, so 255 MB of them cleaned to 255 MB of them. The cleaner now keeps
+		// exactly what decode/jpeg.ts and libjpeg read as a profile: one count, each sequence from 1 to it once.
+		const real = encodeJpeg(new Uint8ClampedArray(8 * 8 * 4).fill(200), 8, 8, 90);
+		const withSegments = (segments: number[][]) => new Uint8Array([0xff, 0xd8, ...segments.flat(), ...real.subarray(2)]);
+		const icc = (...chunks: [number, number, string][]) => withSegments(chunks.map(([seq, count, data]) => jpegSegment(0xe2, iccChunk(seq, count, ascii(data)))));
+		const iccOf = (file: Uint8Array) => decodeJpegSync(file).icc;
+		const cases: [string, Uint8Array, string | null][] = [
+			['two chunks out of order', icc([2, 2, 'cd'], [1, 2, 'ab']), 'abcd'],
+			['a duplicate', icc([1, 2, 'ab'], [1, 2, 'ab'], [2, 2, 'cd']), null],
+			['a second count', icc([1, 2, 'ab'], [2, 3, 'cd']), null],
+			['sequence 0', icc([0, 1, 'ab']), null],
+			['a sequence past the count', icc([2, 1, 'ab']), null],
+			['a missing chunk', icc([1, 2, 'ab']), null],
+		];
+		for (const [what, file, profile] of cases) {
+			const clean = cleanJpeg(file) as Uint8Array;
+			expect(has(clean, 'ICC_PROFILE'), what).toBe(profile !== null);
+			expect(iccOf(file) === null ? null : String.fromCharCode(...(iccOf(file) as Uint8Array)), `${what}: the decoder`).toBe(profile);
+			expect(iccOf(clean) === null ? null : String.fromCharCode(...(iccOf(clean) as Uint8Array)), `${what}: cleaned`).toBe(profile);
+		}
+		// 2^16 copies of one chunk: the set breaks at the second, and the cleaned file holds none of them.
+		const spam = new Uint8Array(jpegSegment(0xe2, iccChunk(1, 1, [])));
+		const many = new Uint8Array(spam.length << 16);
+		for (let k = 0; k < 1 << 16; k++) many.set(spam, k * spam.length);
+		const base = real;
+		const file = new Uint8Array(base.length + many.length);
+		file.set(base.subarray(0, 2));
+		file.set(many, 2);
+		file.set(base.subarray(2), 2 + many.length);
+		const clean = cleanJpeg(file) as Uint8Array;
+		expect(clean.length).toBeLessThan(base.length + 64);
+		expect(has(clean, 'ICC_PROFILE')).toBe(false);
 	});
 	it('answers null for a JPEG cut anywhere before its end marker', () => {
 		const j = jpeg(1);
@@ -342,5 +378,76 @@ describe('cleanerFor', () => {
 		for (const m of ['image/avif', 'image/svg+xml']) expect(cleanerFor(m), m).toBeUndefined();
 		// A MIME type is text from a file: a name an object inherits must not come back as a "cleaner".
 		for (const m of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) expect(cleanerFor(m), m).toBeUndefined();
+	});
+});
+
+describe('each block a decoder reads once is kept once', () => {
+	it('a PNG keeps its first iCCP, a WebP its first ICCP, a GIF its first loop count and ICC extension', () => {
+		const p = cleanPng(png(1, [pngChunk('iCCP', ascii('one\0\0x')), pngChunk('iCCP', ascii('two\0\0y'))])) as Uint8Array;
+		expect(has(p, 'one') && !has(p, 'two')).toBe(true);
+		const w = cleanWebp(webp(1, [webpChunk('ICCP', ascii('onex')), webpChunk('ICCP', ascii('twoy'))])) as Uint8Array;
+		expect(has(w, 'one') && !has(w, 'two')).toBe(true);
+		const loop = (n: number) => [0x21, 0xff, 11, ...ascii('NETSCAPE2.0'), ...sub([1, n, 0])];
+		const icc = (tag: string) => [0x21, 0xff, 11, ...ascii('ICCRGBG1012'), ...sub(ascii(tag))];
+		const g = cleanGif(gif([loop(5), icc('one'), loop(9), icc('two')])) as Uint8Array;
+		expect(has(g, 'one') && !has(g, 'two')).toBe(true);
+		expect(g.filter((_, k) => g[k] === 0x21 && g[k + 1] === 0xff && g[k + 3] === 0x4e).length, 'one loop extension').toBe(1);
+	});
+});
+
+describe('the cleaners count, then write once', () => {
+	it('allocate the result and little else: no buffer sized from the input', () => {
+		// red team R4-2: the writer was sized from the input and the result copied out of it, so a file that is
+		// mostly metadata peaked at about three times its size. Count the bytes the cleaner allocates.
+		const comment = jpegSegment(0xfe, Array(60000).fill(0x41));
+		const base = encodeJpeg(new Uint8ClampedArray(8 * 8 * 4).fill(90), 8, 8, 90);
+		const file = new Uint8Array([0xff, 0xd8, ...Array.from({ length: 16 }, () => comment).flat(), ...base.subarray(2)]);
+		const Real = globalThis.Uint8Array;
+		let allocated = 0;
+		globalThis.Uint8Array = new Proxy(Real, {
+			construct(target, args) {
+				if (typeof args[0] === 'number') allocated += args[0];
+				return Reflect.construct(target, args);
+			},
+		});
+		let clean: Uint8Array | null;
+		try {
+			clean = cleanJpeg(file);
+		} finally {
+			globalThis.Uint8Array = Real;
+		}
+		expect(clean?.length).toBeLessThan(base.length + 64);
+		expect(file.length).toBeGreaterThan(900_000);
+		expect(allocated).toBeLessThan(2 * (clean?.length ?? 0) + 4096);
+		expect(clean?.buffer.byteLength).toBe(clean?.length);
+	});
+
+	it('cleanAsync gives the same bytes as the synchronous cleaner, yields on a large file, and stops at its signal', async () => {
+		const comment = jpegSegment(0xfe, Array(60000).fill(0x42));
+		const base = encodeJpeg(new Uint8ClampedArray(8 * 8 * 4).fill(90), 8, 8, 90);
+		const file = new Uint8Array([0xff, 0xd8, ...Array.from({ length: 64 }, () => comment).flat(), ...base.subarray(2)]);
+		let turns = 0;
+		let done = false;
+		const tick = () => {
+			if (!done) {
+				turns++;
+				setImmediate(tick);
+			}
+		};
+		setImmediate(tick);
+		const clean = await cleanAsync('image/jpeg', file);
+		done = true;
+		expect(Array.from(clean ?? [])).toEqual(Array.from(cleanJpeg(file) ?? [1]));
+		// 3.8 MB, walked twice, a turn after every 1 MB of input.
+		expect(turns).toBeGreaterThanOrEqual(6);
+		for (const mime of ['image/png', 'image/webp', 'image/gif']) {
+			const sample = mime === 'image/png' ? png(3) : mime === 'image/webp' ? webp(3) : gif([]);
+			expect(Array.from((await cleanAsync(mime, sample)) ?? []), mime).toEqual(Array.from(cleanerFor(mime)?.(sample) ?? [1]));
+		}
+		expect(await cleanAsync('image/avif', file)).toBeNull();
+		const c = new AbortController();
+		const pending = cleanAsync('image/jpeg', file, { signal: c.signal });
+		c.abort(new Error('stop'));
+		await expect(pending).rejects.toThrow('stop');
 	});
 });
