@@ -70,7 +70,7 @@ http
 const server = await preview({
 	root: process.cwd(),
 	// A sandboxed preview frame loads Mermaid's modules and the engine's fonts with CORS; this server serves only the public `dist`.
-	server: { port: PORT, headers: { 'Access-Control-Allow-Origin': '*' } },
+	server: { host: '127.0.0.1', port: PORT, headers: { 'Access-Control-Allow-Origin': '*' } },
 	vite: { preview: { strictPort: true } },
 });
 
