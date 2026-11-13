@@ -978,6 +978,18 @@ async function selectAllInEditor(page: Page): Promise<void> {
 	throw new Error('setEditorContent: neither ControlOrMeta+a nor Meta+a selected the editor document');
 }
 
+/** Open the current slide's Slide settings at its Look section, at any width. Wide layouts show a Slide settings
+ *  button; at phone width (390px) the bottom bar's Settings opens both scopes behind a Slide | Deck switch. */
+export async function openSlideLook(page: Page): Promise<void> {
+	const slideButton = page.getByRole('button', { name: CHROME.slideSettings }).filter({ visible: true });
+	if (await slideButton.count()) await slideButton.first().click();
+	else {
+		await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
+		await page.getByRole('button', { name: 'Slide scope', exact: true }).filter({ visible: true }).first().click();
+	}
+	await openSection(page, CHROME.slideTab.look);
+}
+
 /**
  * Replace the entire editor document with `text`. Uses `insertText` (a single
  * input event) rather than per-key typing: the editor's markdown niceties
