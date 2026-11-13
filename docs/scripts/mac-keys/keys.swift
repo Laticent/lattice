@@ -6,6 +6,8 @@
 //   keys sources                 → the enabled keyboard input sources, and the current one
 //   keys enable <id>             → enable an installed input source (e.g. com.apple.keylayout.ABC)
 //   keys activate                → bring the newest Chromium-family app to the front
+//   keys frontmost               → the bundle id of the app in front
+//   keys click <x> <y>           → a real left click at screen point (x, y), which focuses that window
 //   keys press <keycode> <mods>  → post keydown+keyup; mods is a comma list of ctrl,alt,cmd,shift or "none"
 import AppKit
 import Carbon
@@ -46,6 +48,16 @@ case "activate":
   let app = apps.max { ($0.launchDate ?? .distantPast) < ($1.launchDate ?? .distantPast) }
   let ok = app?.activate(options: [.activateIgnoringOtherApps]) ?? false
   print("{\"activated\":\(ok),\"bundle\":\"\(app?.bundleIdentifier ?? "none")\"}")
+case "frontmost":
+  print("{\"bundle\":\"\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none")\"}")
+case "click":
+  let pt = CGPoint(x: Double(args[2])!, y: Double(args[3])!)
+  let src = CGEventSource(stateID: .hidSystemState)
+  for type in [CGEventType.leftMouseDown, .leftMouseUp] {
+    CGEvent(mouseEventSource: src, mouseType: type, mouseCursorPosition: pt, mouseButton: .left)!.post(tap: .cghidEventTap)
+    usleep(80_000)
+  }
+  print("{\"clicked\":true}")
 case "press":
   let code = CGKeyCode(Int(args[2])!)
   var flags = CGEventFlags()
