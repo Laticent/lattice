@@ -1257,3 +1257,9 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   gains two rows (an own `_backgroundImage: none` under a carried one; a class carried two slides). Failing arms: Compose's
   change reverted, and `photoAt` without the carried background, each turn two cases red. Left: a `split: headings` part is not a
   Studio unit, followups.d/3126-p3-studio-heading-split-photo.md.
+- 2026-11-13: **the galleries, and the rule in the role** (followups.d/3126-p2 step 2, a commit of its own: HARD RULE #8). The
+  baseline gallery, the image gallery and the imagery bucket gallery swept by the same `--fix`, each photo named; the `image`
+  manifest's 28 samples, its skeleton and its slot description write `![A name](path)`, so the Studio's inserts and the
+  generated docs teach the shortcut. `image-marp-keyword` joins the plugin's `lint` role, so `lint:deck` and the Studio warn on
+  every `![bg]` and offer the fix. `lint:deck:all --strict`: 519 decks, no warning. Same-machine renders: the image and imagery
+  galleries pixel-identical; the baseline gallery differs on one slide, whose sentence about `![bg left]` now names `mirror`.

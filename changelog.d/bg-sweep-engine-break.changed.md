@@ -13,3 +13,6 @@
   which picture is a slide's photo; the Studio read one slide's text, so its photo-contrast check stayed silent on such a
   slide, and Compose's Placement badge called a picture placed that the engine drew in the text. Both read the whole deck now,
   through the walk Export-to-Marp uses (lib/core/slide-carried.mjs).
+- `lint:deck` (and the Studio's lint panel) now warns on every Marp `![bg …]` line (`image-marp-keyword`), and its fix
+  rewrites the line as above. The `image` layout's samples, skeleton and slot description, the galleries and the component's
+  docs now teach `![A name](path)` on an `image` slide.

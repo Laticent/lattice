@@ -22,7 +22,7 @@ Image as the slide's anchor, with optional text alongside — composition adapts
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -34,7 +34,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 Two-thirds of trials that reach the first generated report convert; the ones that stall almost never do.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -46,7 +46,7 @@ Two-thirds of trials that reach the first generated report convert; the ones tha
 
 A portrait photo wants its full height. We give it a column and let the argument run alongside.
 
-![bg](sample:photo-tall.svg)
+![A figure before violet hills and a pale sun](sample:photo-tall.svg)
 
 
 ---
@@ -58,7 +58,7 @@ A portrait photo wants its full height. We give it a column and let the argument
 
 When the photo already matches the canvas, let it carry the slide — the message rides in a solid card so it never fights the image.
 
-![bg](sample:photo-pano.svg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.svg)
 
 
 ---
@@ -70,7 +70,7 @@ When the photo already matches the canvas, let it carry the slide — the messag
 
 The whole asset on a matte with a placard. For diagrams and screenshots where the whitespace is the point.
 
-![bg](sample:photo-square.svg)
+![A figure on a green shore under a pale sun](sample:photo-square.svg)
 
 
 ---
@@ -82,7 +82,7 @@ The whole asset on a matte with a placard. For diagrams and screenshots where th
 
 The title rides the photo on a scrim — a deliberate, editorial choice.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -94,7 +94,7 @@ The title rides the photo on a scrim — a deliberate, editorial choice.
 
 Text leads from the right; image anchors from the left.
 
-![bg left](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -106,7 +106,7 @@ Text leads from the right; image anchors from the left.
 
 Move the card to wherever the photo is quiet, so the subject keeps the frame.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -118,7 +118,7 @@ Move the card to wherever the photo is quiet, so the subject keeps the frame.
 
 The scrim follows the words to the top edge.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -130,7 +130,7 @@ The scrim follows the words to the top edge.
 
 The subject sits low and left, so the words take the open sky.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -142,7 +142,7 @@ The subject sits low and left, so the words take the open sky.
 
 A radial scrim darkens only the middle.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -154,7 +154,7 @@ A radial scrim darkens only the middle.
 
 Name it to return a slide to bottom left inside a deck that moved it.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -166,7 +166,7 @@ Name it to return a slide to bottom left inside a deck that moved it.
 
 A caption band under the subject, centered on the slide.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -178,7 +178,7 @@ A caption band under the subject, centered on the slide.
 
 The scrim flips to darken the right side.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -190,7 +190,7 @@ The scrim flips to darken the right side.
 
 Full legibility over any photo. This is the default.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -202,7 +202,7 @@ Full legibility over any photo. This is the default.
 
 The panel drops to 80% and loses its lift shadow.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -214,7 +214,7 @@ The panel drops to 80% and loses its lift shadow.
 
 At 55% the photo reads through; pair it with an ink that suits the photo.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -226,7 +226,7 @@ At 55% the photo reads through; pair it with an ink that suits the photo.
 
 Only for a photo with a calm, dark patch where the words land.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -238,7 +238,7 @@ Only for a photo with a calm, dark patch where the words land.
 
 The card turns dark to match, whatever the deck palette.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -250,7 +250,7 @@ The card turns dark to match, whatever the deck palette.
 
 For a bright photo: the scrim turns light and the title goes dark.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -262,7 +262,7 @@ For a bright photo: the scrim turns light and the title goes dark.
 
 Smaller type and a narrower card leave the photo the slide.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -274,7 +274,7 @@ Smaller type and a narrower card leave the photo the slide.
 
 Name it to return a slide to the default inside a deck that resized it.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -286,7 +286,7 @@ Name it to return a slide to the default inside a deck that resized it.
 
 Wider card, bigger heading, room for a longer line.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -298,7 +298,7 @@ Wider card, bigger heading, room for a longer line.
 
 In a deck that sets `image-card: compact`, this slide keeps the roomier card.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -310,7 +310,7 @@ In a deck that sets `image-card: compact`, this slide keeps the roomier card.
 
 The heading takes the left column and the text the right, in one short strip along the edge.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -322,7 +322,7 @@ The heading takes the left column and the text the right, in one short strip alo
 
 In a deck that sets `image-card: bottom band`, this slide keeps the floating card.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -334,7 +334,7 @@ In a deck that sets `image-card: bottom band`, this slide keeps the floating car
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -346,7 +346,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
@@ -358,7 +358,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 Two-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.
 
-![bg](sample:photo-wide.svg)
+![A figure by a lake under a low sun](sample:photo-wide.svg)
 
 
 ---
