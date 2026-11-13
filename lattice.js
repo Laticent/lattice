@@ -1632,7 +1632,9 @@ const { SIZES, isRegisteredSize } = require('./lib/core/sizes');
 const _mdFmMatch  = md.match(FRONT_MATTER_RE);
 const _mdFm       = _mdFmMatch ? _mdFmMatch[0] : '';
 const explicitSize = (sizeDirective(_mdFm) || [])[1];
-if (explicitSize && !isRegisteredSize(explicitSize)) {
+// A `.lattice` output renders nothing: it carries the deck as written, so a size this CLI does not know (a deck from
+// a newer Studio, say) is the next reader's business, not a reason to refuse the copy.
+if (explicitSize && !isRegisteredSize(explicitSize) && OUT_FORMAT !== 'lattice') {
   console.error(`error: unknown size: ${explicitSize}`);
   console.error(`available sizes: ${Object.keys(SIZES).sort().join(', ')}`);
   process.exit(1);
@@ -1871,7 +1873,8 @@ const CHROME_EXEC = detectChromeExecutable();
 // Every browser this run starts is kept off the network unless the author passed
 // --allow-remote (lib/core/offline-chromium.js; 2026-09-01 export posture, revised 2026-09-24).
 const OFFLINE_ARGS = require('./lib/core/offline-chromium.js').offlineChromiumArgs(!!flags['allow-remote']);
-if (!CHROME_EXEC) {
+// A `.lattice` output starts no browser, so it needs none and says nothing about one.
+if (!CHROME_EXEC && OUT_FORMAT !== 'lattice') {
   console.warn('  ⚠ No Chrome binary detected. Set PUPPETEER_EXECUTABLE_PATH or CHROME_PATH, or install puppeteer to download one.');
 }
 
@@ -2299,7 +2302,9 @@ function warnThemeDoesNotTravel(what) {
   if ((declared ?? DEFAULT_PALETTE) === paletteName) return;
   const how = paletteSource === 'cli' ? `-p ${paletteName}` : `LATTICE_PALETTE=${paletteName}`;
   const reopensIn = declared ? `its own theme, ${declared}` : `the default theme, ${DEFAULT_PALETTE}, because the deck names none`;
-  const themed = what === '.lattice' ? `this .lattice carries ${paletteName} by ${how}, but the deck` : `this export is themed ${paletteName} by ${how}, but the embedded deck`;
+  // A `.lattice` output is not themed at all (it renders nothing), and a shipped theme is never carried in one, so the
+  // warning says only what is true either way: the flag does not change the deck the file carries.
+  const themed = what === '.lattice' ? `${how} does not change the deck this .lattice carries, which` : `this export is themed ${paletteName} by ${how}, but the embedded deck`;
   console.warn(`  ⚠ ${what}: ${themed} re-opens in ${reopensIn}. To make ${paletteName} travel, put \`theme: ${paletteName}\` in the deck's front matter.`);
 }
 // Self-contained HTML PLAYER (2026-07-07-html-lattice-player.md): rewrite the .html

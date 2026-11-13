@@ -127,7 +127,19 @@ for (const [label, bin] of CLIS) {
       const r = cli([path.join(dir, 'deck.md'), out, '-p', 'cuoio'], tmp('home'), NO_BROWSER);
       assert.equal(r.status, 0, r.stderr);
       assert.ok(fs.existsSync(out), 'written into a folder that did not exist');
-      assert.match(r.stderr, /\.lattice: this \.lattice carries cuoio by -p cuoio, but the deck re-opens in the default theme, indaco/);
+      assert.match(r.stderr, /\.lattice: -p cuoio does not change the deck this \.lattice carries, which re-opens in the default theme, indaco/);
+    });
+
+    test('a .lattice output carries a deck whose size this CLI does not know, and says nothing about a browser', { timeout: TIMEOUT }, async () => {
+      const dir = tmp('size');
+      const deck = '---\nsize: 32:9\ntheme: indaco\n---\n\n## Wide\n';
+      fs.writeFileSync(path.join(dir, 'deck.md'), deck);
+      const out = path.join(dir, 'deck.lattice');
+      const r = cli([path.join(dir, 'deck.md'), out], tmp('home'), NO_BROWSER);
+      assert.equal(r.status, 0, r.stderr);
+      assert.doesNotMatch(r.stderr, /unknown size|No Chrome binary/);
+      const zip = await JSZip.loadAsync(fs.readFileSync(out));
+      assert.equal(await zip.file('deck.md').async('string'), deck, 'the deck rides as written');
     });
 
     test('a .lattice output starts no browser and runs no package code: an unapproved code package is carried', { timeout: TIMEOUT }, async () => {
