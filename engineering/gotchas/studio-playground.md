@@ -2144,3 +2144,23 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — any new looping animation (a caret, a spinner, a pulse) on a page a spec waits on.
 - **Removable when** — never; a blinking caret is correct, and the wait was the wrong signal.
 - **Commits** — fix(e2e) chat-photos composer wait, 2026-11-13.
+
+## A controlled CodeMirror field drops letters typed quickly
+
+- **Symptom** — typing fast into the Theme CSS field loses letters: `font-sze`, `var(-accent`. Seen on Firefox at
+  Playwright's full typing speed, 4 runs in 5; never at 40 ms a key, and never in the deck editor.
+- **Cause** — `CodeField` tells the parent each edit through `onChange`, and the parent's re-render brings the text back
+  as `value` a keystroke or more later. The field's sync effect read any `value` that differed from its document as an
+  outside change and wrote it over the document, erasing the letters typed since.
+- **Fix** — the field remembers the texts it emitted and ignores a `value` that is one of them (`CodeField.tsx`
+  `emittedRef`), as the deck editor's `isStaleEcho` does. Pinned by `editor-completion-keys.spec.ts` "typing fast into a
+  CSS field loses no characters". Any other controlled CodeMirror surface needs the same echo check.
+
+## An e2e that asserts a completion option is ABSENT passes before the menu opens
+
+- **Symptom** — a test asserts `getByRole('option', { name: /^theme/ })` `toHaveCount(0)` and stays green with the
+  filter it guards removed.
+- **Cause** — the menu opens asynchronously, so `toHaveCount(0)` is true at once, before any option exists. A menu
+  opened by typing can also open before the key under test, so "the key opened it" passes on a key that does nothing.
+- **Fix** — wait for a positive option first, then read the absence; and test a key at a spot that opens nothing by
+  itself (a bare `<!-- _class: ` stays quiet until a letter or the key). `editor-completion-keys.spec.ts` does both.
