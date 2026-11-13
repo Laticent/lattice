@@ -198,7 +198,9 @@ jobs:
     needs: [plan, docs-site, run]
     # `cancelled` counts: a job killed by its timeout reads that way. These runs have no supersession (the concurrency group is per run on a
     # schedule or dispatch), so a cancel here is a timeout, a person, or GitHub giving the job no runner (triage tells that one apart).
-    if: ${{ always() && github.event_name != 'pull_request' && (contains(fromJSON('["failure","cancelled"]'), needs.plan.result) || contains(fromJSON('["failure","cancelled"]'), needs.docs-site.result) || contains(fromJSON('["failure","cancelled"]'), needs.run.result)) }}
+    # RAISE-LOOP ARM ONLY (#3171, never merged): this run is meant to fail; do not file it on the shared issue.
+    if: ${{ false }}
+    # was: if: ${{ always() && github.event_name != 'pull_request' && (contains(fromJSON('["failure","cancelled"]'), needs.plan.result) || contains(fromJSON('["failure","cancelled"]'), needs.docs-site.result) || contains(fromJSON('["failure","cancelled"]'), needs.run.result)) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
