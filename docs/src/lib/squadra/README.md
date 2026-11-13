@@ -13,8 +13,9 @@ text, so the same rules run in Node, a browser and a worker.
 Lattice is the first user. The design is
 [`2026-10-26-squadra-lint-library.md`](../../../../engineering/decisions/2026-10-26-squadra-lint-library.md)
 and its [design.md](../../../../engineering/decisions/2026-10-26-squadra-lint-library/design.md).
-This package is milestone **M1a**: findings with spans, the edit kernel, the fix driver with its
-shape check, the `edits` fix engine, the registration refusals, waivers and ratchets.
+This package carries milestone **M1a** (findings with spans, the edit kernel, the fix driver with its
+shape check, the `edits` fix engine, the registration refusals, waivers and ratchets) and the
+reference Markdown language from **M1b**.
 
 ## The model
 
@@ -164,6 +165,28 @@ findings from outside the ruleset, `{ id, produce(source) }`, and lower and fix 
 same driver, so every fix gets the driver's checks. The registration refusals do not apply to
 them, because nothing registers them; a migration gains those one rule at a time.
 
+## The reference Markdown language
+
+`@laticent/squadra/markdown` adapts a deck model, the document model the Segno deck pipeline builds,
+into Squadra's node shape. Squadra writes no Markdown parser and keeps no dependency: the host hands
+the model in as a function.
+
+```ts
+import { BlockParser, deckModel } from '@laticent/segno-markdown';
+import { markdownLanguage } from '@laticent/squadra/markdown';
+
+const parser = new BlockParser({});
+const markdown = markdownLanguage({ model: (text) => deckModel(text, { parser }) });
+```
+
+The tree is `deck` → `front-matter`, then a `slide` per chunk between top-level thematic breaks with
+the `break` between them. Inside a slide sit the blocks the model records: `paragraph`, `heading`,
+`cell`, `fence` (its info string in `attrs.info`), `code-block`, `comment`, `html-block` and
+`plugin-block`, flat and in document order, each with `attrs.level` for its depth in lists and
+quotes. Lists, items, quotes and tables are not nodes yet. Fenced and indented code is inert. A span
+indexes the text the host handed over: when that text has a BOM or CRLF line ends, the language maps
+the model's offsets back onto it. Any model that answers `MarkdownModel` works.
+
 ## Budgets
 
 Every `ctx` call costs one op against the rule's `budget.ops`; a selector costs one per new answer.
@@ -223,8 +246,8 @@ input, and why the bench keeps the case.
 
 ## Not yet
 
-M1b brings the reference Markdown language and Lattice's deck language, on the Segno deck
-pipeline. M2 adds the reference JSON language and moves Lattice's allowlists onto waivers. M3 adds
+The rest of M1b: lists, items, quotes and tables as nodes, and the reference YAML language, whose
+first reader is `lattice-deck`'s front-matter island (Segno pipeline P3, not landed yet). M2 adds the reference JSON language and moves Lattice's allowlists onto waivers. M3 adds
 CSS, the JS/TS adapter, project rules (`collect` and `decide`), the cache and workers. M4 adds the
 declarative selector language and rule manifests, inline suppressions, and the SARIF, GitHub and LSP
-reporters. The Learn and demo pages, first planned for M4, are built: `/libraries/squadra/`. The reference YAML language moves to M1b, where `lattice-deck`'s front-matter island first needs it.
+reporters. The Learn and demo pages, first planned for M4, are built: `/libraries/squadra/`.
