@@ -67,3 +67,12 @@ test('the shipped ESM build carries the plugin, so the engine entry does not rea
 	assert.ok(!engineInputs.has('lib/core/shape-glyphs.js'), 'the engine\'s static closure reaches the glyph table');
 	assert.ok(engineInputs.has('shape-glyph-class:source'));
 });
+
+test('relationship.js asks shape-glyphs for shapeGlyphRe alone, the one name the stub carries', () => {
+	// The stub answers only `shapeGlyphRe`; a second name would be `undefined` in the browser build alone, where no unit
+	// test runs. Widen the stub in tools/build-playground.js before importing more.
+	const src = require('node:fs').readFileSync(path.join(ROOT, 'lib', 'core', 'relationship.js'), 'utf8');
+	const imports = [...src.matchAll(/(?:const|let|var)\s*\{([^}]*)\}\s*=\s*require\(['"]\.\/shape-glyphs(?:\.js)?['"]\)/g)].map((m) => m[1].split(',').map((n) => n.trim()).filter(Boolean));
+	assert.deepEqual(imports, [['shapeGlyphRe']]);
+	assert.ok(!/require\(['"]\.\/shape-glyphs(?:\.js)?['"]\)(?!;)/.test(src.replace(/(?:const|let|var)\s*\{[^}]*\}\s*=\s*require\(['"]\.\/shape-glyphs(?:\.js)?['"]\);/g, '')), 'another require of shape-glyphs');
+});

@@ -2025,8 +2025,11 @@ never turn "passed in headless" into "works on iOS."
     editor's fold. A payload is narrow (a `data:` URI's run where a URL value opens, `](` `url(` `=`, with no `=` but its
     padding, not ending in `/`, followed by a character that ends a URL), because a looser run can hide syntax: inside a
     tag `/` ends an attribute name, so `data:a/b;base64,AAAA…/src="https://…"` carries a real `src`. The engine skips
-    even less: only a line that is one markdown image, outside a code fence and a `$$` block, never on the code door's
-    passes, and it renders the whole text if a stand-in does not come out whole. A stand-in is the payload's own first
+    even less (`lib/engine/image-line-payloads.js`): only a line that is one markdown image, outside a code fence (a
+    closer must be bare; an opener after a list marker or `>` counts), never in a deck holding `$$` anywhere, never in a
+    paragraph holding a `$`, never on the code door's passes, and it renders the whole text if a stand-in does not come
+    out whole or reaches an output field that is not a string. Every doubt reads the line whole: a stray `$$` in a code
+    span once flipped a count and let KaTeX draw the marker as glyphs. A stand-in is the payload's own first
     960 characters, then a marker, so a rule that quotes a line cut short quotes the author's characters.
   - **The web-image blocker skips nothing**: it decides what a page may fetch. It reads every character, fast: the
     entity decoder and the CSS string reader copy runs instead of characters (`lib/core/web-ref-readers.js`,
@@ -2036,8 +2039,9 @@ never turn "passed in headless" into "works on iOS."
 - **Fix, part 3: the rest of the per-edit cost** — the editor's lint and the Coach's assessment run in one worker
   (`docs/src/components/studio/lint/`), sharing a pass when their vocabularies agree; the Reshape picker builds its tiles
   only while open; the photo verdict's key is an object, not a string holding the slide; the editor turns its document
-  into a string once per version. On the spec's deck in Firefox, the longest stall is now under 1 s on paste and about
-  1 s on a keystroke.
+  into a string once per version. On the spec's deck in Firefox, the longest stall is now about 0.8 s after the paste,
+  about 0.5 s after a keystroke in text, and about 1.5 s after a keystroke on a photo's own line, which is no longer one
+  image and is read whole (WebKit: 0.6, 0.5 and 0.9 s).
 - **Measuring it** — `insertText` is the wrong way to put a deck of megabytes into the editor: it types the text into the
   editor's DOM as one composition, and the browser lays all of it out before CodeMirror reads it (8 s on Firefox, 287 s
   on WebKit). Paste it instead (`pasteIntoEditor` in `docs/e2e/studio-fixture.ts`), as an author does. Two more traps: a

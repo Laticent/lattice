@@ -71,10 +71,9 @@ describe('engine render: a photo payload is skipped and put back byte for byte',
 			assert.ok(on.html.includes(LONG), 'the pictures reached the output');
 			assert.deepEqual(on, off);
 			assert.deepEqual(skipped, on);
-			// Read once, and shorter: a render that fell back to the whole text reads the stand-ins AND the deck. The gallery
-			// falls back, rightly: two of its slides leave an image the author wrote out of the slide, so a stand-in never
-			// comes out, and the render is redone whole. The five photo decks take the short path.
-			if (path.basename(file) === 'gallery.md') assert.ok(read > deck.length, 'the gallery falls back to the whole text');
+			// Read once, and shorter. The gallery is read whole, rightly: it has display math (`$$`), and two of its slides
+			// leave an image the author wrote out of the slide. The five photo decks take the short path.
+			if (path.basename(file) === 'gallery.md') assert.ok(read >= deck.length, 'the gallery is read whole');
 			else assert.ok(read < deck.length, `the skipping render read ${read} of ${deck.length} characters`);
 		});
 	}
@@ -91,12 +90,44 @@ describe('engine render: a photo payload is skipped and put back byte for byte',
 	});
 
 	// A `$$` block's text goes to KaTeX, which sets each character as a glyph: an image line there is not skipped (the
-	// checker's case: the stand-in came out glyph by glyph and the payload past its first 960 characters was lost).
-	test('an image line inside a math block is read whole', () => {
-		const deck = `---\ntheme: indaco\n---\n\n## Math\n\n$$\n${FORMS[0](LONG)}\n$$\n\n---\n\n${FORMS[0](LONG)}\n`;
-		assert.equal(imageLineRanges(deck).length, 1, 'only the line outside the math block');
-		const { on, off } = bothWays(() => engine.render(deck));
-		assert.deepEqual(on, off);
+	// checker's case: the stand-in came out glyph by glyph and the payload past its first 960 characters was lost). A
+	// stray `$$` before the block, in a code span, a fence or a comment, once flipped a count and let the line through
+	// (the checker's second case), so a deck with any `$$` skips nothing. Inline math runs across a paragraph's lines, so
+	// a line in a paragraph holding a `$` is read whole too.
+	test('an image line math could reach is read whole', () => {
+		const img = FORMS[0](LONG);
+		for (const [deck, why] of [
+			[`## Math\n\n$$\n${img}\n$$\n\n---\n\n${img}\n`, 'a math block'],
+			[`## Hi\n\nPrice is \`$$\` today.\n\n$$\n${img}\n$$\n`, 'a stray $$ in a code span'],
+			[`## Hi\n\n\`\`\`text\n$$\n\`\`\`\n\n$$\n${img}\n$$\n`, 'a stray $$ in a fence'],
+			[`## Hi\n\n<!-- $$ -->\n\n$$\n${img}\n$$\n`, 'a stray $$ in a comment'],
+			[`## Hi\n\n$x\n${img}\ny$\n`, 'inline math across lines'],
+			[`## Hi\n\nCosts $5\n${img}\n`, 'a $ in the paragraph'],
+		]) {
+			const full = `---\ntheme: indaco\n---\n\n${deck}`;
+			assert.equal(imageLineRanges(full).length, 0, why);
+			const { on, off } = bothWays(() => engine.render(full));
+			assert.deepEqual(on, off, why);
+			assert.ok(!JSON.stringify(on).includes('LatticeElided'), why);
+		}
+		// A `$` in another paragraph does not stop the skip.
+		assert.equal(imageLineRanges(`## Costs $5\n\n${img}\n`).length, 1);
+	});
+
+	// The fence scan errs toward "inside": a closer must be bare (CommonMark), and an opener after a list marker or a
+	// `>` counts (the checker's cases: an info-string line read as a closer, and a list-item anima fence missed).
+	test('an image line a fence could hold is read whole', () => {
+		const img = FORMS[0](LONG);
+		for (const [deck, why] of [
+			[`\`\`\`anima\n\`\`\`x\n${img}\n\`\`\`\n`, 'an info-string line is not a closer'],
+			[`- \`\`\`anima\n  ${img}\n  \`\`\`\n`, 'a fence in a list item'],
+			[`> \`\`\`text\n> ${img}\n> \`\`\`\n`, 'a fence in a blockquote'],
+		]) {
+			assert.equal(imageLineRanges(deck).length, 0, why);
+			const full = `---\ntheme: indaco\nplugins: [anima]\n---\n\n${deck}`;
+			const { on, off } = bothWays(() => engine.render(full));
+			assert.deepEqual(on, off, why);
+		}
 	});
 
 	test('the flat sheet, a deck that already holds the marker, and the code door are read whole or identically', () => {
