@@ -367,3 +367,13 @@
 	background-color: color-mix(in srgb, var(--accent) 12%, transparent);
 	border-radius: 4px;
 }
+
+/* A HINT THAT KEYBOARD FOCUS OPENED LETS THE POINTER THROUGH, WRAPPER AND ALL (ui/tooltip.tsx `viaFocus`).
+ * `Tip` marks such a hint `lx-tip-passthrough` + `pointer-events-none`, but Radix renders it inside its own
+ * positioning div, `[data-radix-popper-content-wrapper]`, which keeps `pointer-events:auto`: the hint was
+ * see-through and the box around it was not, so on a phone the Chat launcher's hint still took the tap
+ * meant for Workspace settings (e2e/model-spine.spec.ts on `mobile`). The same fix as the chart card's
+ * (chart-interact.css). `:has()` scopes it to that one hint; every other popover keeps its pointer. */
+[data-radix-popper-content-wrapper]:has(> .lx-tip-passthrough) {
+	pointer-events: none;
+}

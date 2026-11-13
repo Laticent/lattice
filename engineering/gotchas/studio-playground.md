@@ -1863,6 +1863,15 @@ never turn "passed in headless" into "works on iOS."
 - **Removable when** — Radix describes a closed tooltip trigger.
 - **Commits** — the docs-perf PR of 2026-11-09 (#3108).
 
+## A keyboard-opened hint eats the tap on the button under it
+
+- **Symptom** — after Escape closes the chat sheet on a phone, the first tap on Workspace settings does nothing. Playwright reports `tooltip-content … intercepts pointer events` (`e2e/model-spine.spec.ts:87`, `mobile`, red on every run).
+- **Cause** — Escape hands focus back to the sheet's launcher, and that focus counts as `:focus-visible`, so `Tip` opens the launcher's hint, as it should for a keyboard reader. The hint stays open until focus moves. The Chat hint renders above its button, over the header, and a Radix tooltip takes pointer events (its hoverable content, WCAG 1.4.13), so the tap landed on the hint.
+- **Mitigation** — `Tip` (`docs/src/components/ui/tooltip.tsx`) marks a hint that keyboard focus opened `lx-tip-passthrough pointer-events-none`, and clears the mark when the pointer enters the trigger. The hint alone is not enough: Radix renders it inside its own `[data-radix-popper-content-wrapper]`, which keeps `pointer-events:auto` and still took the tap, so `docs/src/styles/tailwind.css` frees the wrapper with `:has(> .lx-tip-passthrough)`, the chart card's fix (`chart-interact.css`). A hint the pointer is on keeps its hit area, including one the pointer was already resting on when focus arrived (the focus asks `:hover`, but only where `(hover: none)` is false, because a touch screen leaves `:hover` on the last thing tapped). Pinned by `tooltip.test.tsx` (the classes, the hover and touch cases, and the stylesheet rule as text) and the two `model-spine` tests on `mobile`.
+- **Triggered by** — a hint that keyboard focus can open over another control.
+- **Removable when** — never; a hint opened by focus is read, not hovered.
+- **Commits** — the e2e P1/P2 flake PR of 2026-11-13.
+
 ## A dialog's description is read after every control inside it
 
 - **Symptom** — on an iPhone, VoiceOver reads each control in a sheet or dialog, its own description, and then the dialog's description again: "Run a command or jump somewhere in the Studio" after every command palette row (owner, PR #3108).

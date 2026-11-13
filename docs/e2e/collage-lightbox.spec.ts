@@ -401,10 +401,15 @@ for (const tag of ['', ' @gecko @webkit-tablet']) {
 		await glideDone(page);
 		await page.mouse.move(at.x, at.y);
 
-		// One flick is a burst of wheel events; the deck's cooldown turns it into one step.
-		await page.mouse.wheel(0, 120);
-		await page.mouse.wheel(0, 120);
-		await page.mouse.wheel(0, 300);
+		// One flick is a burst of wheel events; the deck's cooldown turns it into one step. The burst is
+		// dispatched in the page, three events in one task, because neither way of sending it from the runner
+		// tests the cooldown: awaited one by one on a loaded runner the three reached the page at +0, +195 and
+		// +715 ms, past the 480 ms cooldown (two flicks by the gate's rule, so it stepped twice: 3 / 4), and sent
+		// together Chromium coalesced them into one event, which passed even with the cooldown set to 0. The
+		// real wheel path is driven below (the up-flick and the pinch).
+		await lightbox(page).locator('img').evaluate((img, at) => {
+			for (const deltaY of [120, 120, 300]) img.dispatchEvent(new WheelEvent('wheel', { deltaY, clientX: at.x, clientY: at.y, bubbles: true, cancelable: true }));
+		}, at);
 		await expect(counter(page)).toHaveText('2 / 4');
 		// Once the cooldown has passed, up is previous. Retry the flick until it lands: the retry IS the
 		// cooldown under test, not a sleep.

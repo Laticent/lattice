@@ -15,6 +15,8 @@ import { CHROME, gotoStudio, livePreview, setEditorContent } from './studio-fixt
 // same sheet on a bare page; this spec is the real surface, READ_ARTICLE_CSS and the app
 // around it included (HARD RULE #23).
 const GALLERY = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../lib/components/chart/chart.gallery.md'), 'utf8');
+/** The gallery's own title (its first `# ` heading), which the header's deck chip shows once the deck lands. */
+const GALLERY_TITLE = (GALLERY.match(/^# (.+)$/m)?.[1] ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Per chart figure: how many drawn SVG shapes it has, how many compute to opaque black, and
  *  whether its status pills (flow charts) kept their pill ground (a color or an image). */
@@ -65,6 +67,12 @@ for (const scheme of ['light', 'dark'] as const) {
 		await page.evaluate((m) => document.documentElement.setAttribute('data-mode', m), scheme);
 		await setEditorContent(page, GALLERY);
 		await expect(livePreview(page).locator('section').first()).toBeVisible({ timeout: 60_000 });
+		// Wait for the header to name the NEW deck before pressing anything in it. The preview's first
+		// section is visible for the seed deck too, so it does not prove the gallery has landed, and
+		// when the gallery lands the deck chip shrinks from the seed's long title to "chart" and the
+		// posture dial moves about 85px left. Under load the press went down on Read and came up on
+		// Craft: no click, and the article button never appeared (2 in 100 loaded WebKit runs).
+		await expect(page.getByRole('banner').getByRole('button', { name: new RegExp(`^${GALLERY_TITLE} \\d+ slides$`) })).toBeVisible({ timeout: 60_000 });
 
 		await page.getByRole('button', { name: CHROME.postureStops[0] }).click();
 		// THE FENCE'S OWN CLAIM: the deck sheet reaches the figures and nothing of the app. The
