@@ -50,6 +50,9 @@ function recordLintInputs(reuse = null) {
     maxBuffer: 64 * 1024 * 1024,
   });
   if (!fs.existsSync(file)) throw new Error(`recording the lint tests' inputs wrote nothing (exit ${res.status}): ${String(res.stderr).slice(-2000)}`);
+  // A red lint test means the corpus is the input set of a run that broke somewhere: stop rather than diff over it.
+  // The preload is lazy so that no test is red because of it (record-lint-inputs.cjs).
+  if (res.status !== 0) throw new Error(`the lint tests failed while their inputs were recorded (exit ${res.status}), so the corpus cannot be trusted:\n${String(res.stdout).slice(-3000)}`);
   const seen = new Set();
   for (const line of fs.readFileSync(file, 'utf8').split('\n')) if (line) seen.add(fold(JSON.parse(line)));
   return { inputs: [...seen], tests: tests.length, testExit: res.status, file };

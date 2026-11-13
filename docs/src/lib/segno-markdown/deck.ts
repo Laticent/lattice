@@ -179,7 +179,6 @@ function lineAt(bMarks: Int32Array, lines: number, offset: number): number {
 const CONTAINER_OPENS: ReadonlySet<number> = new Set([KIND.bullet_list_open, KIND.ordered_list_open, KIND.list_item_open, KIND.blockquote_open, KIND.table_open, KIND.tr_open]);
 
 /** A deck read once: the S0 text, the front-matter split and the block tape of the body, slide by slide. */
-
 export class DeckModel {
 	/** The source as given. */
 	readonly source: string;

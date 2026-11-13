@@ -231,6 +231,16 @@ after it, and a key part found inside another field's value. All are fixed and p
 test/unit/authoring/squadra-lattice-deck.test.js, with a CRLF span start that could split a line end
 (markdown.test.ts) and a RegExp field both hashes missed.
 
+**The diff can fail (2026-11-13, the card grader's raise).** The grader set the card at `medium` because the diff had
+never compared a real finding. So a temporary `deck/paginate-comment-retired`, a faithful copy of lint-core's rule on
+`lattice-deck`'s tree, ran against a 3,003-input subset of the recorded corpus (every input naming `paginate`, plus
+every 25th other one), with 2,832 mutated decks and the 520 tracked decks. Faithful: 36 of 36 findings matched on line
+text, PASS, exit 0. One message changed: 36 only in lint-core and 36 only in Squadra, FAIL, exit 1. The rule was then
+removed and the stamps restored byte for byte. The same grader found why every recording run exited 1: the preload
+loaded lint-core before `payload-elision-lint-oracle.test.js` could stub `elidePayloads`, which lint-core captures at
+load. The preload now wraps the linter when a test first loads it, and a recording with any red test now stops the
+diff instead of being printed and ignored.
+
 **Carried into step 4, from the same review.**
 - Notes are inert, and `<!-- _clas: kpi -->` is a note. A rule that reports or fixes a misspelled directive reads with
   `inert: 'include'` and declares `changes: inert`.
