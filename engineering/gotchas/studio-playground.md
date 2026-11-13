@@ -1930,3 +1930,19 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — a new async step between boot and the first Explore; a new condition in `reusableFrame`.
 - **Removable when** — never; they are ordering rules.
 - **Commits** — the flaky-e2e touch PR of 2026-11-12.
+
+## An e2e that waits for "every animation to finish" never returns in the Studio
+
+- **Symptom** — `page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)))` hangs until the test
+  times out, on every engine, with nothing on screen moving. `e2e/chat-photos.spec.ts:516` (the phone composer) failed
+  this way on desktop, mobile and webkit-phone from #3128 on.
+- **Cause** — the Studio runs an animation that never ends by design: the editor's drawn caret
+  (`.lx-ghost-caret-cm` / `.lx-ghost-caret`, `lx-caret-blink … infinite` in `styles/tailwind.css`) blinks for as long
+  as the editor lacks focus, which is whenever a sheet or dialog has it. Its `finished` promise never settles.
+- **Mitigation** — wait on the animations of the element that is moving, not the document's:
+  `el.closest('[role="dialog"]').getAnimations({ subtree: true })`, as `chat-photos.spec.ts` now does, or
+  `locator.evaluate((el) => el.getAnimations())` (`compose-fenced-code.spec.ts`, `library-image-metadata.spec.ts`).
+  A count of RUNNING animations that skips infinite ones (`plugin-address-attack.spec.ts`) also works.
+- **Triggered by** — any new looping animation (a caret, a spinner, a pulse) on a page a spec waits on.
+- **Removable when** — never; a blinking caret is correct, and the wait was the wrong signal.
+- **Commits** — fix(e2e) chat-photos composer wait, 2026-11-13.
