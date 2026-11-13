@@ -1,8 +1,8 @@
 // The slide-context completion sources BOTH editors run: the Studio's deck editor
 // (docs/src/components/studio/Editor.tsx, through editor-complete.ts `studioCompletionSources`)
 // and the Playground's (complete.js `latticeAutocomplete`). One list, so a source added for
-// one editor reaches the other; test/unit/components/autocomplete-parity.test.js and
-// editor-complete.test.ts pin that both assemblies include it.
+// one editor reaches the other; docs/src/components/studio/editor-complete.test.ts asks both assemblies the same
+// questions and pins that they answer alike.
 // (engineering/decisions/2026-11-13-studio-autocomplete-audit.md, slice 1.)
 //
 //   • directive names    — `<!-- _hea…` → `_header`, `_focus`, …, and the note channels and pane keys (`say:`, `panes:`)
@@ -210,11 +210,29 @@ const INSERTS = [
 	{ label: '---', detail: 'new slide', text: '---\n\n' },
 ];
 
-/** True when line `lineNo` (1-based) sits inside a fenced block: an odd number of fence lines above it. */
-function insideFence(getLine, lineNo) {
-	let open = false;
-	for (let n = 1; n < lineNo; n++) if (/^\s*(?:```|~~~)/.test(getLine(n))) open = !open;
-	return open;
+/**
+ * The info string of the fenced block line `lineNo` (1-based) sits inside, `''` for a fence with none, or null when it
+ * is outside every fence. Follows CommonMark's rules: a fence is three or more backticks or tildes indented at most
+ * three spaces, and only a fence of the same character, at least as long and with no info string, closes it. So a
+ * ```` ```` ```` block holding a ```` ``` ```` sample stays open, and a `~~~` block ignores backticks. Exported for a test.
+ */
+export function fenceAround(getLine, lineNo) {
+	let open = null;
+	for (let n = 1; n < lineNo; n++) open = stepFence(open, getLine(n));
+	return open ? open.info : null;
+}
+
+/** One line of the fence walk: the fence open after `line`, given the fence open before it (null for none). */
+function stepFence(open, line) {
+	const m = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+	if (!m) return open;
+	const [, run, rest] = m;
+	if (!open) {
+		// A backtick fence's info string may not hold a backtick.
+		if (run[0] === '`' && rest.includes('`')) return open;
+		return { ch: run[0], len: run.length, info: rest.trim().split(/\s+/)[0] || '' };
+	}
+	return run[0] === open.ch && run.length >= open.len && rest.trim() === '' ? null : open;
 }
 
 function insertListSource() {
@@ -237,22 +255,29 @@ function insertListSource() {
 		if (line.text.trim() !== '') return null;
 		const getLine = (n) => doc.line(n).text;
 		if (inFrontMatter(getLine, line.number)) return null;
-		if (insideFence(getLine, line.number)) return null;
+		if (fenceAround(getLine, line.number) !== null) return null;
 		return { from: context.pos, options, filter: false };
 	};
 }
 
 // Is the caret inside math? A ```math fence; a `$$` display block left open above it on this slide; or an inline `$`
-// left open on this line. An escaped `\$` is a dollar sign, not math.
+// left open on this line. Code is never math: inside any other fence there is none, and a backtick span on the line is
+// removed before the dollars are counted (`$PATH` in a shell line is not an equation). An escaped `\$` is a dollar sign.
+const withoutCode = (t) => t.replace(/`[^`]*`/g, '').replace(/`[^`]*$/, '');
 function inMath(getLine, lineNo, before) {
-	if (inFencedLang(getLine, lineNo, ['math']) === 'math') return true;
+	// One walk down to the caret: the fence state, and the `$$` count since this slide's `---`, outside every fence.
+	let open = null;
 	let display = 0;
-	for (let n = lineNo - 1; n >= 1; n--) {
+	for (let n = 1; n < lineNo; n++) {
 		const t = getLine(n);
-		if (/^---\s*$/.test(t)) break;
-		display += (t.replace(/\\\$/g, '').match(/\$\$/g) || []).length;
+		const wasOpen = open;
+		open = stepFence(open, t);
+		if (wasOpen || open) continue;
+		if (/^---\s*$/.test(t)) display = 0;
+		else display += (withoutCode(t).replace(/\\\$/g, '').match(/\$\$/g) || []).length;
 	}
-	const here = before.replace(/\\\$/g, '');
+	if (open) return open.info === 'math';
+	const here = withoutCode(before).replace(/\\\$/g, '');
 	display += (here.match(/\$\$/g) || []).length;
 	if (display % 2 === 1) return true;
 	return (here.replace(/\$\$/g, '').match(/\$/g) || []).length % 2 === 1;
@@ -280,7 +305,9 @@ function mathSource(context) {
 	const line = doc.lineAt(context.pos);
 	const before = context.state.sliceDoc(line.from, context.pos);
 	const m = /\\([A-Za-z]*)$/.exec(before);
-	if (!m || !inMath((n) => doc.line(n).text, line.number, before.slice(0, -m[0].length))) return null;
+	// A bare `\` opens nothing while typing (a line continuation, a path), only a letter after it or the key does.
+	if (!m || (!m[1] && !context.explicit)) return null;
+	if (!inMath((n) => doc.line(n).text, line.number, before.slice(0, -m[0].length))) return null;
 	const from = context.pos - m[0].length;
 	return loadTexOptions().then((options) => (context.aborted ? null : { from, options, validFor: /^\\[A-Za-z]*$/ }));
 }

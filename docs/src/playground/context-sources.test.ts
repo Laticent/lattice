@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arrowTarget, lastArrowEnd } from './context-sources.js';
+import { arrowTarget, fenceAround, lastArrowEnd } from './context-sources.js';
 
 // The flowchart source reads a row's arrows with one pass over its words (context-sources.js `lastArrowEnd`): a row
 // is untrusted text read on the main thread (HARD RULE #22), and the regex it replaced backtracked exponentially.
@@ -27,5 +27,27 @@ describe('flowchart arrows', () => {
 		// The shape CodeQL reported against the old pattern: `<-` then many `\t&`.
 		const row = `<-${'\t&'.repeat(50_000)}x`;
 		expect(arrowTarget(row)).toBe('x');
+	});
+});
+
+describe('fenceAround (CommonMark fences)', () => {
+	const lines = (doc: string) => {
+		const l = doc.split('\n');
+		return (n: number) => l[n - 1];
+	};
+	it('names the open fence, or null outside', () => {
+		expect(fenceAround(lines('```bash\necho\n'), 2)).toBe('bash');
+		expect(fenceAround(lines('```bash\necho\n```\n'), 4)).toBeNull();
+		expect(fenceAround(lines('```\nx\n'), 2)).toBe('');
+	});
+	it('a longer fence holding a shorter sample stays open', () => {
+		expect(fenceAround(lines('````md\n```\nsample\n```\n\n'), 5)).toBe('md');
+	});
+	it('a tilde fence ignores backtick lines', () => {
+		expect(fenceAround(lines('~~~\n```\n~~~\n\n'), 4)).toBeNull();
+		expect(fenceAround(lines('~~~js\n```\n\n'), 3)).toBe('js');
+	});
+	it('a line indented four spaces is not a fence', () => {
+		expect(fenceAround(lines('    ```\n\n'), 2)).toBeNull();
 	});
 });

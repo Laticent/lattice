@@ -14,7 +14,7 @@
 // Each editor passes `autocompletion({ defaultKeymap: false })` and adds `completionKeys()`, so this keymap is the
 // only one.
 
-import { acceptCompletion, completionKeymap, completionStatus, startCompletion } from '@codemirror/autocomplete';
+import { acceptCompletion, closeCompletion, completionKeymap, completionStatus, currentCompletions, startCompletion } from '@codemirror/autocomplete';
 import { Prec, StateEffect, StateField } from '@codemirror/state';
 import { EditorView, keymap, showTooltip, ViewPlugin } from '@codemirror/view';
 
@@ -56,17 +56,27 @@ const emptyHintField = StateField.define({
 // completion state shows the query running; the answer is "none" when it then settles with no menu.
 const asked = new WeakMap();
 
+/** Whether the "No suggestions here" note is up, and at which position (null when it is not). For tests. */
+export function emptyHintAt(state) {
+	return state.field(emptyHintField, false) ?? null;
+}
+
 /** Open suggestions, and say so when there are none. The command every "open suggestions" key runs. */
 export function startCompletionOrSayNone(view) {
 	asked.set(view, { pending: false });
 	return startCompletion(view);
 }
 
+// A menu is shown: the completion state is active with options left after filtering. (An ask whose answer filters down
+// to nothing settles to no state at all in this CodeMirror, @codemirror/autocomplete 6.20, so it reads as "none".)
+const menuShown = (state) => completionStatus(state) === 'active' && currentCompletions(state).length > 0;
+
 const emptyHintWatcher = ViewPlugin.fromClass(
 	class {
 		constructor(view) {
 			this.view = view;
 			this.timer = 0;
+			this.pendingShow = 0;
 		}
 		update(u) {
 			if (u.state.field(emptyHintField, false) === null && this.timer) {
@@ -75,9 +85,8 @@ const emptyHintWatcher = ViewPlugin.fromClass(
 			}
 			const ask = asked.get(u.view);
 			if (!ask) return;
-			const status = completionStatus(u.state);
-			if (status === 'active') return void asked.delete(u.view);
-			if (status === 'pending') {
+			if (menuShown(u.state)) return void asked.delete(u.view);
+			if (completionStatus(u.state) === 'pending') {
 				ask.pending = true;
 				return;
 			}
@@ -85,8 +94,10 @@ const emptyHintWatcher = ViewPlugin.fromClass(
 			asked.delete(u.view);
 			const pos = u.state.selection.main.head;
 			// A view update may not dispatch; the next task may.
-			setTimeout(() => {
-				if (u.view.state.selection.main.head !== pos || completionStatus(u.view.state) !== null) return;
+			clearTimeout(this.pendingShow);
+			this.pendingShow = setTimeout(() => {
+				this.pendingShow = 0;
+				if (u.view.state.selection.main.head !== pos || menuShown(u.view.state)) return;
 				u.view.dispatch({ effects: setEmptyHint.of(pos) });
 				clearTimeout(this.timer);
 				this.timer = setTimeout(() => {
@@ -97,11 +108,28 @@ const emptyHintWatcher = ViewPlugin.fromClass(
 		}
 		destroy() {
 			clearTimeout(this.timer);
+			clearTimeout(this.pendingShow);
 		}
 	},
 );
 
+/** Escape closes the menu and withdraws a pending ask, so a cancelled Ctrl-Space never says "No suggestions here". */
+export function closeAndForget(view) {
+	asked.delete(view);
+	return closeCompletion(view);
+}
+
+/**
+ * Tab accepts while a menu is shown. CodeMirror's `acceptCompletion` declines for its first 75 ms (its interaction
+ * delay), and a declined Tab moved focus out of the editor with the menu still up; a shown menu now keeps the Tab.
+ */
+export function acceptWithTab(view) {
+	if (acceptCompletion(view)) return true;
+	return menuShown(view.state);
+}
+
 const OPENERS = new Set([startCompletion]);
+
 
 /** The keys, highest precedence: a key that opens or drives the menu wins over the editor's own bindings. */
 export const completionKeyBindings = [
@@ -109,10 +137,11 @@ export const completionKeyBindings = [
 	{ mac: 'Alt-Escape', run: startCompletionOrSayNone },
 	{ mac: 'Alt-`', run: startCompletionOrSayNone },
 	{ mac: 'Alt-i', run: startCompletionOrSayNone },
-	// CodeMirror's menu keys (Escape, the arrows, PgUp/PgDn, Enter), without its own openers.
-	...completionKeymap.filter((b) => !OPENERS.has(b.run)),
-	// Only while the menu is open: `acceptCompletion` declines otherwise, and Tab moves focus as before.
-	{ key: 'Tab', run: acceptCompletion },
+	// CodeMirror's menu keys (the arrows, PgUp/PgDn, Enter), without its own openers; Escape also withdraws an ask.
+	...completionKeymap.filter((b) => !OPENERS.has(b.run) && b.run !== closeCompletion),
+	{ key: 'Escape', run: closeAndForget },
+	// Only while a menu is shown; with none, Tab moves focus (or indents, in the Playground) as before.
+	{ key: 'Tab', run: acceptWithTab },
 ];
 
 const emptyHintTheme = EditorView.baseTheme({

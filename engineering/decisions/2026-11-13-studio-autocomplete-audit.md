@@ -181,7 +181,23 @@ restored), green 10 times in a row alone, and green under load (`--workers=4 --r
 | 4 | CodeField keeps CodeMirror's CSS completion (the old `override` replaced it with nothing) and completes token names inside `var(`: the palette contract by role and the type scale, whose list moved from the ownership gate to `lib/core/type-tokens.js` so the gate and the editor read one list | `CodeField.tsx`, `css-token-complete.ts`, `lib/core/type-tokens.js` |
 | found | CodeField dropped letters typed quickly: it wrote the parent's late echo of its own text over the newest letters (Firefox at full speed: 4 runs in 5 on `main`). It now recognizes its echoes | `CodeField.tsx` `emittedRef`; `engineering/gotchas/studio-playground.md` |
 
-### 7.2 macOS, measured
+### 7.2 What the independent review changed
+
+A `checker` agent bug-hunted the diff before the merge ask. Its findings and what was done:
+
+| Finding | Done |
+|---|---|
+| The flowchart arrow regex backtracked exponentially (also CodeQL) | Replaced by one pass over the row's words (`lastArrowEnd`); a 100,000-character hostile row is a unit test |
+| TeX opened on a bare `\` while typing, and inside shell fences and prose with dollar amounts: `\` then Enter wrote `\frac{}{}` | A bare `\` opens nothing until a letter or Ctrl-Space; no fence but `math` is math, and inline code is removed before dollars are counted |
+| The fence walk ignored fence character and length | `fenceAround` follows CommonMark: same character, at least as long, no info string, indent under four |
+| The CodeField echo guard could take a later Reset that repeats an earlier typed text for an echo | Emissions expire after 1.5 s (`reconcileValue`, unit-tested with that exact sequence); the list clears when the view rebuilds |
+| Escape right after Ctrl-Space, while an answer was loading, showed "No suggestions here" | Escape withdraws the ask (`closeAndForget`); a jsdom test drives the order with a source it controls |
+| Tab inside CodeMirror's first 75 ms moved focus out with the menu up | A shown menu keeps the Tab (`acceptWithTab`) |
+| An untracked timer could outlive the view | Tracked and cleared on destroy |
+| The hint missed an answer that filters to nothing | Not reproduced: in @codemirror/autocomplete 6.20 such an ask settles to no state, and the note shows (unit test) |
+| CodeField's markdown field now runs lang-markdown's own completion (HTML tags) | Kept: a component skeleton is Markdown with HTML, and the tag menu closes on `<!` |
+
+### 7.3 macOS, measured
 
 A one-off probe ran on GitHub's `macos-26` runner (dispatched on this branch only, then removed): headed Chromium on the
 built Studio, keys posted through the OS (CGEvent at the HID tap, and System Events), and per key whether the page saw a
@@ -198,7 +214,7 @@ The first keys of each pass were dropped whatever they were (the plain-letter co
 rows, where both keys ran back to back under the same conditions, are read. Runs: Actions runs 43380691273 (first try,
 no focus), 43384956399 (shortcut off) and 43387275107 (shortcut on), probe source at commit `65d40c7f`.
 
-### 7.3 Not built, on purpose
+### 7.4 Not built, on purpose
 
 - **A color swatch beside a color token.** Component CSS is palette-blind (HARD RULE #3): a token has no one value to
   show until a theme supplies it, and the Theme CSS field already shows the value on the line that declares it.

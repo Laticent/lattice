@@ -23,8 +23,27 @@ import { codeFieldTheme, studioHighlight } from './editor-theme';
 
 const LANGS = { css, markdown, json } as const;
 
-// How many of its own emitted texts the field remembers while waiting for the parent's re-renders to catch up.
+// How many of its own emitted texts the field remembers while waiting for the parent's re-renders to catch up, and for
+// how long. A parent that batches several edits into one render never echoes the ones in between, so without an age
+// limit those would wait forever, and a later reset that happened to repeat one (type x, delete it, type it again,
+// then Reset) would be taken for an echo and ignored. A re-render arrives within a frame or two even under load.
 const MAX_ECHOES = 64;
+const ECHO_TTL_MS = 1500;
+
+export type Emission = { text: string; at: number };
+
+/**
+ * What a new `value` prop means to a field that has emitted `pending` (oldest first): an ECHO of one of them, which is
+ * dropped along with everything older (later emissions may still be on their way), or an outside change to write into
+ * the document when it differs from `doc`. Emissions older than ECHO_TTL_MS are forgotten first, so a batched-away
+ * emission cannot later swallow a reset that repeats its text. Pure, so it is unit-tested without a view.
+ */
+export function reconcileValue(pending: readonly Emission[], value: string, doc: string, now: number): { apply: boolean; pending: Emission[] } {
+	const live = pending.filter((e) => e.at >= now - ECHO_TTL_MS);
+	const echo = live.findIndex((e) => e.text === value);
+	if (echo !== -1) return { apply: false, pending: live.slice(echo + 1) };
+	return { apply: value !== doc, pending: value !== doc ? [] : live };
+}
 
 export function CodeField({
 	value,
@@ -57,8 +76,9 @@ export function CodeField({
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
-	// The texts this field has emitted through `onChange` that the parent has not yet echoed back as `value`.
-	const emittedRef = React.useRef<string[]>([]);
+	// The texts this field has emitted through `onChange` that the parent has not yet echoed back as `value`, oldest
+	// first, each with when it was emitted.
+	const emittedRef = React.useRef<Emission[]>([]);
 	onChangeRef.current = onChange;
 	// Keep the latest completion source reachable from the construct-once editor.
 	const completionRef = React.useRef(completion);
@@ -104,7 +124,7 @@ export function CodeField({
 							if (!u.docChanged) return;
 							const next = u.state.doc.toString();
 							// Remember what we told the parent, so its later re-render with that text is known as an echo.
-							emittedRef.current.push(next);
+							emittedRef.current.push({ text: next, at: Date.now() });
 							if (emittedRef.current.length > MAX_ECHOES) emittedRef.current.shift();
 							onChangeRef.current(next);
 						}),
@@ -112,6 +132,8 @@ export function CodeField({
 				}),
 			});
 			viewRef.current = view;
+			// A new view starts from `value`: nothing it emitted is in flight yet.
+			emittedRef.current = [];
 		} catch {
 			setFailed(true);
 		}
@@ -129,17 +151,9 @@ export function CodeField({
 	React.useEffect(() => {
 		const v = viewRef.current;
 		if (!v) return;
-		const doc = v.state.doc.toString();
-		const echo = emittedRef.current.indexOf(value);
-		if (echo !== -1) {
-			// Everything up to that echo has now come back; later emissions may still be on their way.
-			emittedRef.current.splice(0, echo + 1);
-			return;
-		}
-		if (value !== doc) {
-			emittedRef.current = [];
-			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value } });
-		}
+		const { apply, pending } = reconcileValue(emittedRef.current, value, v.state.doc.toString(), Date.now());
+		emittedRef.current = pending;
+		if (apply) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value } });
 	}, [value]);
 
 	if (failed) {

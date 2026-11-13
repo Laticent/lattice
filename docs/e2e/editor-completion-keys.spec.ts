@@ -39,6 +39,15 @@ test('Ctrl-Space where nothing completes says so, and the note goes on the next 
 	await expect(editorText(page)).toContainText('Some prose.');
 });
 
+test('Ctrl-Space where a source answers but nothing matches the word also says so @crosswidth @gecko', async ({ page }) => {
+	await gotoStudio(page);
+	// The front-matter key source answers at column 0, and `zzz` filters every key out: CodeMirror shows no menu.
+	await setEditorContent(page, '---\ntitle: Keys\nzzz');
+	await page.keyboard.press('Control+Space');
+	await expect(hint(page)).toHaveText('No suggestions here');
+	await expect(menu(page)).toHaveCount(0);
+});
+
 test('Ctrl-Space where something completes opens the menu and no note @crosswidth @webkit-tablet @gecko', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, '---\ntheme: ');

@@ -846,6 +846,20 @@ describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
 		});
 	}
 
+	it('code is never math: a shell line continuation, a `$VAR`, an inline code span', async () => {
+		expect(await ask(studio, `${FM}\`\`\`bash\ncp $SRC \\`)).toEqual([]);
+		expect(await ask(studio, `${FM}\`\`\`bash\necho $$\n\`\`\`\n\nText \\fr`)).not.toContain('\\frac');
+		expect(await ask(studio, `${FM}Run \`echo $PATH\` then \\fr`)).not.toContain('\\frac');
+	});
+
+	it('a bare backslash opens TeX only on Ctrl-Space, never while typing', async () => {
+		const doc = `${FM}Rate $r = \\`;
+		const typed = new CompletionContext(EditorState.create({ doc }), doc.length, false);
+		const got = await Promise.all(studio.map((s) => s(typed)));
+		expect(got.flatMap((r) => (r ? r.options.map((o) => o.label) : []))).not.toContain('\\frac');
+		expect(await ask(studio, doc)).toContain('\\frac');
+	});
+
 	it('a backslash outside math, or after a closed `$…$`, offers no TeX', async () => {
 		expect(await ask(studio, `${FM}A path C:\\Users\\fr`)).not.toContain('\\frac');
 		expect(await ask(studio, `${FM}Costs $5 and $10 then \\fr`)).not.toContain('\\frac');

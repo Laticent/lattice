@@ -79,7 +79,8 @@ export const SIZE_VALUES = ['hd', '4K', 'standard', 'mobile-landscape', 'square'
 // FENCE_LANGUAGES, the Playground's complete.js FENCE_LANGS). The fences a plugin renders come from the plugin
 // registry (lib/plugins/grammar.generated.mjs, built from each manifest's `contributes.fences`), so a plugin's fence
 // completes the day it lands and a name no plugin renders is never offered: the old hand list offered `chart`, which
-// the engine shows as plain code. Deprecated aliases are left out. Then the common code languages, which the code
+// the engine shows as plain code. A fence's aliases (deprecated `latticeplot`) are not keys of `fences`, so they are not
+// offered. Then the common code languages, which the code
 // plugin highlights, with the short aliases (`js`, `ts`, `py`) so they resolve too.
 export const FENCE_LANGUAGES = [
 	...PLUGIN_GRAMMAR.flatMap((g) => Object.keys(g.fences || {}).map((lang) => ({ lang, info: g.title }))),
