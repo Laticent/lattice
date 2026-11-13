@@ -169,7 +169,9 @@ CodeMirror's own Alt-\` and Alt-i stay bound. All of them go in the `?` shortcut
 ## 7. What shipped, and the evidence
 
 One PR, one commit per slice. Every new or changed test was seen red (the product broken or the fix reverted, then
-restored), green 10 times in a row alone, and green under load (`--workers=4 --repeat-each=5`), on Chromium and Firefox.
+restored), green 10 times in a row alone, and green under load (`--workers=4 --repeat-each=5`), on Chromium, Firefox and
+real WebKit at iPhone size. The browser spec, `docs/e2e/editor-completion-keys.spec.ts`, runs on every Playwright
+project the Studio has: desktop, mobile, webkit-tablet, webkit-phone and gecko.
 
 ### 7.1 The slices
 
@@ -179,6 +181,7 @@ restored), green 10 times in a row alone, and green under load (`--workers=4 --r
 | 2 | Ctrl-Space everywhere, Option-Esc on macOS (Option-\` and Option-i kept), Tab accepts while the menu is open, "No suggestions here" when an asked-for menu is empty, a picked key opens its values, set keys are not offered again, an Editor section in the `?` list | `docs/src/playground/completion-keys.js`, `strip-actions/shortcuts.tsx` |
 | 3 | Directive values (`<!-- _paginate: `), the note-channel and pane keys after `<!-- `, TeX commands inside math, a flowchart's names, arrows and span words (closes `followups.d/2385`), the Ctrl-Space insert list on a blank line, `sample:` art inside an image reference, fence languages from the plugin registry (drops `chart`, which the engine renders as plain code) | `context-sources.js`, `tex-commands.js`, `grammar-vocab.js` `loadFenceLanguages` / `COMMENT_KEYS`, `lib/authoring/lint-core.js` `flowchartCompletions`, `makeAssetCompletion`, `sync-playground-assets.mjs` (`samples/index.json`) |
 | 4 | CodeField keeps CodeMirror's CSS completion (the old `override` replaced it with nothing) and completes token names inside `var(`: the palette contract by role and the type scale, whose list moved from the ownership gate to `lib/core/type-tokens.js` so the gate and the editor read one list | `CodeField.tsx`, `css-token-complete.ts`, `lib/core/type-tokens.js` |
+| found | A Ctrl-Space in the first moments after the Studio opens, before the component catalog lands, said "No suggestions here" on a line that offers 80 components seconds later. It now says "Loading suggestions…" until the catalog arrives | `completion-keys.js` `completionLoading`, set by `StudioShell.tsx` |
 | found | CodeField dropped letters typed quickly: it wrote the parent's late echo of its own text over the newest letters (Firefox at full speed: 4 runs in 5 on `main`). It now recognizes its echoes | `CodeField.tsx` `emittedRef`; `engineering/gotchas/studio-playground.md` |
 
 ### 7.2 What the independent review changed
@@ -197,7 +200,7 @@ A `checker` agent bug-hunted the diff before the merge ask. Its findings and wha
 | The hint missed an answer that filters to nothing | Not reproduced: in @codemirror/autocomplete 6.20 such an ask settles to no state, and the note shows (unit test) |
 | CodeField's markdown field now runs lang-markdown's own completion (HTML tags) | Kept: a component skeleton is Markdown with HTML, and the tag menu closes on `<!` |
 
-### 7.3 macOS, measured
+### 7.3 macOS and Safari, measured
 
 A one-off probe ran on GitHub's `macos-26` runner (dispatched on this branch only, then removed): headed Chromium on the
 built Studio, keys posted through the OS (CGEvent at the HID tap, and System Events), and per key whether the page saw a
@@ -214,13 +217,32 @@ The first keys of each pass were dropped whatever they were (the plain-letter co
 rows, where both keys ran back to back under the same conditions, are read. Runs: Actions runs 43380691273 (first try,
 no focus), 43384956399 (shortcut off) and 43387275107 (shortcut on), probe source at commit `65d40c7f`.
 
+**Real Safari.** A second one-off probe drove the Studio in Safari through WebDriver, the harness the repo's iOS
+Simulator suites use (`docs/scripts/ios-safari/run.mjs`), on the same branch-only basis. Two runs (Actions 43425946776,
+43431987884):
+
+| Step | Safari 27.2 on macOS | Mobile Safari 26.5, iPad Simulator |
+|---|---|---|
+| a bare `_class:` position opens nothing by itself | pass | pass |
+| Ctrl-Space opens the component menu; Escape closes it | pass | pass |
+| Option-Esc opens the component menu | pass | pass |
+| Ctrl-Space where nothing completes shows the note | pass | pass, then missed (the note shows for 1.6 s, and a Simulator round trip is slow) |
+| typing a key opens its menu; Tab accepts it and opens the values | pass | not delivered: neither WebDriver key actions nor send-keys reached the editor as text |
+| a click (Mac) or tap (iPad) on a menu row picks it | pass | not delivered: neither an element click nor a touch pointer action reached the row as a press |
+
+On the iPad the keys arrive and every key step passes. The rows marked "not delivered" are this harness's reach, not a
+reading of the editor: the document never changed. Those two behaviors are covered by Playwright's WebKit with touch at
+iPhone and iPad size (all green), and a touch tap on a menu row in WebKit fires `touchstart`, `touchend`, then the
+`mousedown` CodeMirror picks on, and picks the row. A person on a real iPad is the one check left.
+
+
 ### 7.4 Start-up cost
 
 The first full build put the Studio, Playground and home routes over budget (+985 / +807 / +784 bytes of gzipped
 start-up JavaScript, home 0.2 KB past its ceiling): the plugin fence registry and the flowchart grammar, imported for
 completion, pulled their dependencies into a new shared chunk that every page loads. Both now load on first use: fence
 languages through one shared source, and the flowchart words through the lint core (`flowchartCompletions`), which both
-editors already load on demand. With the TeX list also deferred, the growth is +126 / +32 / +6 bytes, declared in
+editors already load on demand. With the TeX list also deferred, the growth is +147 / +32 / +6 bytes, declared in
 `docs/route-budget.d/3174-studio-autocomplete.md`.
 
 ### 7.5 Not built, on purpose
