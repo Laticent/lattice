@@ -156,6 +156,25 @@ later drops FULL to LITE with a toast, the same path the boot probe uses.
 about 7–28 ms once, on the first visit, for the WebGL read. A real GPU's first context can cost more than SwiftShader's
 (driver start-up); that is **UNVERIFIED** until the macOS and Windows runners measure it.
 
+### 3.3 Slice 1b, as built (2026-11-13): saved before paint, decided after the first slide
+
+§3's "before first paint" detector does not fit: the Studio's HTML sat about 254 bytes under its route-budget ceiling
+(249,037 of 249,291), and the feature tests plus the WebGL read are several hundred bytes even minified. Raising the
+ceiling is the owner's call, so the slice splits the work instead:
+
+- **Before paint, a saved value.** One line in the Studio's inline boot script applies a `?tier=` pin or the tier the
+  PREVIOUS visit decided (`lattice-device-tier` in localStorage), and ignores anything that is not a known tier. It ships
+  compressed; its explanation, and one existing comment block from the same script, moved to an Astro comment that does
+  not ship. Net Studio HTML: **−320 bytes** (240,268 → 239,948 in the e2e build).
+- **After the first slide, the decision.** `lib/device-tier.ts`, started from `studio-warm.ts` (a chunk that already
+  loads after the first slide and a quiet moment, so it adds no eager JS), reads the signals, classifies, sets the
+  attribute, and saves the tier for the next visit. A pin is shown but never saved. The CPU probe runs in a module
+  worker (`cpu-probe.worker.ts`) at most once a day; its score is cached in `lattice-device-cpu`, and the System panel
+  reads the same cached score.
+- **The cost:** a device's FIRST visit paints FULL until the tier is decided, then switches if it is LITE. Every later
+  visit paints the right tier from the first frame. If the owner raises the Studio's HTML ceiling, a pre-paint WebGL read
+  can close the first-visit gap.
+
 ## 4. What LITE changes
 
 Ordered by how much each saves on a weak machine.
