@@ -88,9 +88,10 @@ test('EXPORT: --player ships the plot baked, and the kept .html still carries th
   try {
     const deck = path.join(dir, 'deck.md');
     fs.writeFileSync(deck, '---\ntheme: indaco\n---\n\n## Plot\n\n```functionplot\n{ "data": [{ "fn": "x^2" }] }\n```\n');
-    // Counts the browsers each export launches.
+    // Counts the browsers each export launches, at `child_process.spawn`: puppeteer 25 is an ES module
+    // whose namespace `launch` cannot be wrapped (math-walled.test.js has the long form).
     const probe = path.join(dir, 'probe.cjs');
-    fs.writeFileSync(probe, "const M = require('module'); const o = M.prototype.require; let n = 0; M.prototype.require = function (id) { const m = o.apply(this, arguments); if (id === 'puppeteer' && !m.__c) { m.__c = 1; const l = m.launch.bind(m); m.launch = (x) => { n++; return l(x); }; } return m; }; process.on('exit', () => process.stderr.write('LAUNCHES=' + n + '\\n'));\n");
+    fs.writeFileSync(probe, "const cp = require('child_process'); const s = cp.spawn; let n = 0; cp.spawn = function (c, a) { if (Array.isArray(a) && a.some((x) => /^--remote-debugging-(pipe|port)/.test(x))) n++; return s.apply(this, arguments); }; require('module').syncBuiltinESMExports(); process.on('exit', () => process.stderr.write('LAUNCHES=' + n + '\\n'));\n");
     const run = (out, ...flags) => spawnSync(process.execPath, ['-r', probe, path.join(ROOT, 'lattice.js'), deck, out, ...flags], { encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, LATTICE_HOME: dir } });
     const player = run(path.join(dir, 'player.html'), '--player');
     assert.equal(player.status, 0, player.stderr);

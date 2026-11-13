@@ -399,7 +399,8 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Fix:** `mergeFeatureSwitches` in `lib/core/os-sandbox.js` folds every copy into one switch each.
   Measured with the real launch: the iframe ran out of process on 10 of 10 opens before and 0 of 10 after, and
   `frame.evaluate` hung on 24 of 60 opens under a 12-thread CPU burn before and 0 of 60 after. puppeteer 25.17
-  does not lose the context either (0 of 40), but that bump changes the bundled Chrome, so it waits for the owner.
+  does not lose the context either (0 of 40); the CLI moved to it on 2026-11-13 for its security advisories. The
+  merge stays: Chromium still honors only the last `--disable-features`, whatever puppeteer does.
 - **Triggered by:** `test/integration/export/code-package-door.test.js` (approved package "must have drawn") and
   the npm-plugin and plugin-fence integration files, which run in the same sandbox;
   `test/unit/core/os-sandbox-feature-switches.test.js` holds the merge.

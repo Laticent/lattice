@@ -352,7 +352,7 @@ async function main() {
     try {
       const puppeteer = require('puppeteer');
       const { detectChromeExecutable } = require(path.join(ROOT, 'lib/core/chrome-exec.js'));
-      browserPath = detectChromeExecutable() || puppeteer.executablePath();
+      browserPath = detectChromeExecutable() || (await puppeteer.executablePath()); // async from puppeteer 24 on
       // `--no-sandbox` here on purpose: this step asks only whether a browser starts and which one.
       // Whether its OS sandbox starts is step 7's question, and on Ubuntu 24.04 (AppArmor) it does not
       // for an ordinary user, which made this step fail for the wrong reason (the CI probe run).

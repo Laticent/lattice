@@ -16,7 +16,7 @@
  */
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { skipUnlessCI } = require('../../helpers/chrome');
+const { resolveChrome, skipUnlessCI } = require('../../helpers/chrome');
 const path = require('node:path');
 const fs = require('node:fs');
 const { marpCli } = require('../../helpers/marp-cli');
@@ -86,7 +86,8 @@ const MARP = marpCli();
 function marp(args, cwd) {
   const env = { ...process.env, CHROME_NO_SANDBOX: '1' };
   if (!env.CHROME_PATH) {
-    try { env.CHROME_PATH = require('puppeteer').executablePath(); } catch { /* marp-cli finds its own */ }
+    const chrome = resolveChrome(); // puppeteer's own resolver is async from 24 on
+    if (chrome) env.CHROME_PATH = chrome; // else marp-cli finds its own
   }
   if (!MARP.ok) return { status: null, stdout: '', stderr: MARP.reason };
   return MARP.run([...args], { cwd, encoding: 'utf8', env, timeout: TIMEOUT });

@@ -301,7 +301,12 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
   });
 
   test('the OS layer: as root on Linux, a Chromium the unprivileged user can run gets the OS sandbox, measured', async (t) => {
-    const exe = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+    // The sandbox image's Playwright Chromium: its build number moves with the image (1194, then 1243), and a
+    // pinned path made this test skip silently, so the folder is listed rather than named.
+    const pw = '/opt/pw-browsers';
+    const exe = (fs.existsSync(pw) ? fs.readdirSync(pw).filter((d) => d.startsWith('chromium-')).sort().reverse() : [])
+      .flatMap((d) => ['chrome-linux64', 'chrome-linux'].map((sub) => path.join(pw, d, sub, 'chrome')))
+      .find((p) => fs.existsSync(p)) || '';
     // ci-skip: CI's runner is not root, so it never takes this test; the cloud sandbox image (root, a Chromium under
     // /opt/pw-browsers) runs it. CI's log shows it as the one skip in the integration tier (run 43216077994).
     if (process.platform !== 'linux' || process.getuid?.() !== 0 || !fs.existsSync(exe)) return t.skip('needs root on Linux and a Chromium outside /root (the sandbox image has one at /opt/pw-browsers)');

@@ -3669,8 +3669,10 @@ async function renderBody(browser, g, closeBrowser) {
         req.respond({ status: 200, contentType: CAPTURE_TYPES[path.extname(fromDeck).toLowerCase()] || 'application/octet-stream', body: fs.readFileSync(fromDeck) });
         return;
       }
-      if (!refused.has(url)) {
-        refused.add(url);
+      // One warning per file: puppeteer 25 reports the URL with its #fragment, so `x.svg#a` and `x.svg#b` are one.
+      const refusedKey = url.split('#')[0];
+      if (!refused.has(refusedKey)) {
+        refused.add(refusedKey);
         console.error(`  ⚠ refused ${url.slice(0, 200)}: it resolves outside the deck folder`);
       }
       if (req.resourceType() === 'image') req.respond({ status: 200, contentType: 'image/svg+xml', body: standIn });
