@@ -4,8 +4,8 @@
   "tolerancePct": 12,
   "calibration": {
     "probe": "calibration (markdown-it)",
-    "ms": 3.75,
-    "rmePct": 3.14
+    "ms": 3.89,
+    "rmePct": 4.51
   },
   "blessedOn": {
     "node": "v22",
@@ -16,52 +16,52 @@
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "index": 29.37,
-      "ms": 110.16,
-      "slidesPerSec": 527,
-      "rmePct": 3.95
+      "index": 27.74,
+      "ms": 107.97,
+      "slidesPerSec": 537,
+      "rmePct": 3.49
     },
     "charts": {
       "slides": 29,
-      "index": 28.7,
-      "ms": 107.65,
-      "slidesPerSec": 269,
-      "rmePct": 6.49
+      "index": 28.4,
+      "ms": 110.51,
+      "slidesPerSec": 262,
+      "rmePct": 3.77
     },
     "math": {
       "slides": 16,
-      "index": 42.91,
-      "ms": 160.96,
-      "slidesPerSec": 99,
-      "rmePct": 1.84
+      "index": 40.49,
+      "ms": 157.58,
+      "slidesPerSec": 102,
+      "rmePct": 3.44
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "index": 89.71,
-      "ms": 336.51,
-      "slidesPerSec": 1034,
-      "rmePct": 4.5
+      "index": 83.81,
+      "ms": 326.16,
+      "slidesPerSec": 1067,
+      "rmePct": 4.9
     },
     "hub-spoke (gallery + tiered x3)": {
       "slides": 17,
-      "index": 26.88,
-      "ms": 100.82,
-      "slidesPerSec": 169,
-      "rmePct": 3.99
+      "index": 27.62,
+      "ms": 107.49,
+      "slidesPerSec": 158,
+      "rmePct": 6.43
     },
     "unclosed html (div x8000)": {
       "slides": 1,
-      "index": 18.51,
-      "ms": 69.44,
+      "index": 18.04,
+      "ms": 70.22,
       "slidesPerSec": 14,
-      "rmePct": 6.69
+      "rmePct": 3.67
     },
     "records (jargon, every directive a record)": {
       "slides": 58,
-      "index": 31.07,
-      "ms": 116.55,
-      "slidesPerSec": 498,
-      "rmePct": 10
+      "index": 26.75,
+      "ms": 104.11,
+      "slidesPerSec": 557,
+      "rmePct": 4.63
     }
   },
   "printDatasets": {
@@ -166,73 +166,73 @@
       "slides": 58,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 49.4,
+      "ms": 44.4,
       "scanMs": 0.01,
-      "burstMs": 551.05,
+      "burstMs": 558.78,
       "parses": 1,
-      "parseMs": 1.28,
-      "metaMs": 0.67,
-      "drawerMs": 0.17
+      "parseMs": 1.37,
+      "metaMs": 0.93,
+      "drawerMs": 0.27
     },
     "edit · charts": {
       "slides": 29,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 44.56,
+      "ms": 47.98,
       "scanMs": 0.01,
-      "burstMs": 532.24,
+      "burstMs": 575.99,
       "parses": 1,
-      "parseMs": 0.52,
-      "metaMs": 0.37,
-      "drawerMs": 0.08
+      "parseMs": 0.51,
+      "metaMs": 0.32,
+      "drawerMs": 0.12
     },
     "edit · math": {
       "slides": 16,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 19.4,
+      "ms": 19.27,
       "scanMs": 0.01,
-      "burstMs": 227.32,
+      "burstMs": 255.7,
       "parses": 3,
-      "parseMs": 0.77,
-      "metaMs": 0.47,
+      "parseMs": 0.58,
+      "metaMs": 0.43,
       "drawerMs": 0.09
     },
     "edit · hub-spoke (gallery + tiered x3)": {
       "slides": 17,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 41.86,
+      "ms": 46.81,
       "scanMs": 0.01,
-      "burstMs": 516.45,
+      "burstMs": 551.48,
       "parses": 1,
-      "parseMs": 0.33,
-      "metaMs": 0.22,
-      "drawerMs": 0.06
+      "parseMs": 0.28,
+      "metaMs": 0.25,
+      "drawerMs": 0.09
     },
     "edit · unclosed html (div x8000)": {
       "slides": 1,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 16.66,
-      "scanMs": 0,
-      "burstMs": 198.61,
+      "ms": 16.68,
+      "scanMs": 0.01,
+      "burstMs": 198.87,
       "parses": 0,
-      "parseMs": 1.62,
-      "metaMs": 0.75,
-      "drawerMs": 0.15
+      "parseMs": 1.35,
+      "metaMs": 0.74,
+      "drawerMs": 0.32
     },
     "edit · records (jargon, every directive a record)": {
       "slides": 58,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 48.68,
+      "ms": 45.81,
       "scanMs": 0.01,
-      "burstMs": 560.74,
+      "burstMs": 591.81,
       "parses": 1,
-      "parseMs": 0.82,
-      "metaMs": 0.66,
-      "drawerMs": 0.25
+      "parseMs": 0.97,
+      "metaMs": 0.65,
+      "drawerMs": 0.28
     }
   },
   "flowchartDatasets": {
@@ -241,28 +241,28 @@
       "routed": 12,
       "bounded": 41,
       "hits": 1,
-      "ms": 161.19
+      "ms": 149.12
     },
     "flowchart · same calls, no cache": {
       "calls": 10,
       "routed": 14,
       "bounded": 44,
       "hits": 0,
-      "ms": 145.26
+      "ms": 150.31
     },
     "state chart · stress deck page (17 calls)": {
       "calls": 17,
       "routed": 23,
       "bounded": 70,
       "hits": 0,
-      "ms": 701.75
+      "ms": 693.46
     },
     "state chart · same calls, no cache": {
       "calls": 17,
       "routed": 23,
       "bounded": 70,
       "hits": 0,
-      "ms": 726.63
+      "ms": 695.83
     }
   },
   "collageDatasets": {
@@ -270,52 +270,52 @@
       "photos": 4,
       "arrangements": 52,
       "scored": 5,
-      "ms": 0.14,
-      "p95": 0.89
+      "ms": 0.15,
+      "p95": 1.13
     },
     "collage pack · 5 photos, free": {
       "photos": 5,
       "arrangements": 472,
       "scored": 13,
-      "ms": 0.53,
-      "p95": 1.1
+      "ms": 0.52,
+      "p95": 1.47
     },
     "collage pack · 6 photos, free": {
       "photos": 6,
       "arrangements": 5484,
       "scored": 1114,
-      "ms": 8,
-      "p95": 12.88
+      "ms": 7.88,
+      "p95": 9.48
     },
     "collage pack · 6 photos, ordered": {
       "photos": 6,
       "arrangements": 394,
       "scored": 62,
-      "ms": 0.6,
-      "p95": 1.61
+      "ms": 0.38,
+      "p95": 1.23
     }
   },
   "splitDatasets": {
     "split · gallery @square": {
       "slides": 120,
-      "split": 64,
-      "pages": 356,
-      "ms": 74.17,
-      "p95": 99.44
+      "split": 65,
+      "pages": 359,
+      "ms": 66.69,
+      "p95": 70.72
     },
     "split · gallery @portrait": {
       "slides": 120,
       "split": 66,
       "pages": 362,
-      "ms": 72.63,
-      "p95": 99.76
+      "ms": 72.24,
+      "p95": 94.98
     },
     "split · gallery @mobile": {
       "slides": 120,
-      "split": 66,
-      "pages": 362,
-      "ms": 71.89,
-      "p95": 79.47
+      "split": 64,
+      "pages": 355,
+      "ms": 69.05,
+      "p95": 92.65
     }
   },
   "filoDatasets": {
@@ -326,40 +326,40 @@
     },
     "filo · AI apply (two distant slides)": {
       "storedChars": 210694,
-      "ms": 0.03,
-      "p95": 0.07
+      "ms": 0.02,
+      "p95": 0.06
     },
     "filo · undo + redo of it": {
       "steps": 1,
-      "ms": 0.24,
+      "ms": 0.2,
       "p95": 0.38
     },
     "filo · snapshot (100 steps)": {
       "steps": 90,
       "bytes": 2181166,
-      "ms": 0.58,
-      "p95": 0.63
+      "ms": 0.3,
+      "p95": 0.39
     },
     "filo · verify after reload (worker)": {
       "steps": 90,
-      "ms": 14.04,
-      "p95": 15.4
+      "ms": 18.32,
+      "p95": 20.81
     },
     "filo · restore after reload (main thread)": {
       "steps": 90,
-      "ms": 0.33,
-      "p95": 0.7
+      "ms": 0.41,
+      "p95": 0.56
     },
     "filo · restore, verifying in place (no worker)": {
       "steps": 90,
-      "ms": 14.42,
-      "p95": 31.11
+      "ms": 15.34,
+      "p95": 44.43
     },
     "filo · narrow broad steps (worker)": {
       "bytes": 2181166,
       "narrowedBytes": 279520,
-      "ms": 21.77,
-      "p95": 22.27
+      "ms": 25.56,
+      "p95": 66.67
     }
   },
   "squadraDatasets": {
@@ -368,46 +368,55 @@
       "applied": 50,
       "findings": 0,
       "ops": 0,
-      "ms": 2.109,
-      "p95": 8.152
+      "ms": 1.993,
+      "p95": 5.846
     },
     "squadra · lint · 1 MB one token": {
       "passes": 0,
       "applied": 0,
       "findings": 1001,
       "ops": 3004,
-      "ms": 67.102,
-      "p95": 133.735
+      "ms": 51.672,
+      "p95": 54.32
     },
     "squadra · select · depth 1000": {
       "passes": 0,
       "applied": 0,
       "findings": 1,
       "ops": 5503,
-      "ms": 1.743,
-      "p95": 1.905
+      "ms": 1.558,
+      "p95": 6.416
     },
     "squadra · compile · per rule": {
       "passes": 0,
       "applied": 0,
       "findings": 50,
       "ops": 0,
-      "ms": 0.052,
-      "p95": 0.09
+      "ms": 0.073,
+      "p95": 0.099
+    }
+  },
+  "cssDatasets": {
+    "css · a photo data URL (computed background-image)": {
+      "valueChars": 4500032,
+      "spans": 1,
+      "urlChars": 4500025,
+      "ms": 42.95,
+      "p95": 43.16
     }
   },
   "inlineDatasets": {
     "inline · ordinary code / retired kernel": {
       "spans": 4961,
-      "ratio": 4.119,
-      "shippedNs": 49.7,
-      "kernelNs": 11.89
+      "ratio": 3.866,
+      "shippedNs": 41.4,
+      "kernelNs": 10.46
     },
     "inline · directives / retired kernel": {
       "spans": 353,
-      "ratio": 41.702,
-      "shippedNs": 2254.54,
-      "kernelNs": 54.58
+      "ratio": 39.604,
+      "shippedNs": 1886.67,
+      "kernelNs": 54.4
     }
   }
 }

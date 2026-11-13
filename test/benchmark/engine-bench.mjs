@@ -782,6 +782,44 @@ async function splitTier() {
   return { summary };
 }
 
+// ── CSS TIER (the security spine's CSS reader on a photo's data URL) ─────────────────
+//
+// The Studio's export sweeps every element's computed `background-image` (and `::before`/`::after`) through
+// `cssRefSpans` (docs/src/components/studio/export/deck-export.js `computedUrlSpans`). On a slide carrying a pasted
+// phone photo that value is a 4.5 MB data URL, and the reader's string decoder appended it one character at a time:
+// about 400 ms a read, most of it garbage collection, once per element per export. This tier reads that value.
+// `ms` IS THE RECORD this tier exists for, printed and blessed but not gated (a wall-clock band is flaky in the merge
+// train): a reader that went back to one-by-one appends shows here as ~400 ms against ~45. The work counts gate only
+// that the reader still finds the photo and decodes it whole (one span, every character); they do not move with speed.
+const CSS_PHOTO_CHARS = 4_500_000;
+async function cssTier() {
+  const { createRequire } = await import('node:module');
+  const req = createRequire(import.meta.url);
+  const remoteRef = req(join(ROOT, 'lib/core/remote-ref.js'));
+  const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  let seed = 4242; // seeded, so the value is byte-identical on every run
+  const a = new Array(CSS_PHOTO_CHARS);
+  for (let i = 0; i < a.length; i++) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    a[i] = B64[seed >>> 26];
+  }
+  // The value as getComputedStyle serializes it: the URL quoted.
+  const value = `url("data:image/jpeg;base64,${a.join('')}==")`;
+  let spans = remoteRef.cssRefSpans(value); // warm
+  const ms = [];
+  for (let i = 0; i < 7; i++) {
+    const v = `${value}${' '.repeat(i)}`; // a fresh string each read, as each element's computed style is
+    const t0 = process.hrtime.bigint();
+    spans = remoteRef.cssRefSpans(v);
+    ms.push(Number(process.hrtime.bigint() - t0) / 1e6);
+  }
+  ms.sort((x, y) => x - y);
+  const summary = [{ dataset: 'css \u00b7 a photo data URL (computed background-image)', work: { valueChars: value.length, spans: spans.length, urlChars: spans[0]?.value.length ?? 0 }, ms: ms[ms.length >> 1], p95: ms[ms.length - 1] }];
+  console.log('\n=== CSS \u00b7 cssRefSpans on a pasted photo\'s computed background-image ===');
+  for (const r of summary) console.log(`${r.dataset.padEnd(58)}${String(r.work.spans).padStart(6)} span${String(r.work.urlChars).padStart(10)} chars${r.ms.toFixed(1).padStart(9)} ms`);
+  return { summary };
+}
+
 // ── FILO TIER (the undo history, on the 134 KB deck) ─────────────────────────
 //
 // docs/src/lib/filo is the Studio's one undo history (engineering/decisions/2026-10-27-filo-undo-history.md).
@@ -1750,7 +1788,7 @@ function comparableMachine(base, here, probeNow) {
  *   transposition away from blessing the sweep rows into `printDatasets`.
  */
 function blessBaseline(summary, render, opts = {}) {
-  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, collageSummary = null, splitSummary = null, filoSummary = null, squadraSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
+  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, collageSummary = null, splitSummary = null, filoSummary = null, squadraSummary = null, cssSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
   // A bless restamps `blessedOn` (the render tier always runs), and `tierRows` would carry the prior
   // inline rows forward under that new stamp. `checkInlineRows` gates on the fingerprint alone, so
   // those rows would then gate a machine they were never measured on. Refuse instead.
@@ -1859,6 +1897,8 @@ function blessBaseline(summary, render, opts = {}) {
   const squadraOut = tierRows(squadraSummary?.length ? squadraSummary : null, 'squadraDatasets', (s) => ({
     passes: s.passes, applied: s.applied, findings: s.findings, ops: s.ops, ms: Math.round(s.ms * 1000) / 1000, p95: Math.round(s.p95 * 1000) / 1000,
   }));
+  // THE CSS TIER BLESSES ITS WORK COUNTS; `ms` and `p95` are the cost record.
+  const cssOut = tierRows(cssSummary?.length ? cssSummary : null, 'cssDatasets', (s) => ({ ...s.work, ms: round2(s.ms), p95: round2(s.p95) }));
   // THE INLINE-SPAN TIER BLESSES ITS PAIRED RATIO, which is what `checkInlineRows` compares; the
   // two ns columns ride along so the diff shows the size of a change in real units.
   const inlineOut = tierRows(inlineSummary, 'inlineDatasets', (s) => ({
@@ -1934,6 +1974,8 @@ function blessBaseline(summary, render, opts = {}) {
     ...(filoOut ? { filoDatasets: filoOut } : {}),
     // Squadra: the fix driver's passes and fixes, hostile-input ops, compile cost. Blessed on every bless.
     ...(squadraOut ? { squadraDatasets: squadraOut } : {}),
+    // The CSS reader on a photo's data URL: spans and decoded length gated, timing recorded.
+    ...(cssOut ? { cssDatasets: cssOut } : {}),
     // The inline-code dispatcher per span, as a paired ratio against the retired kernel.
     // Blessed on every bless.
     ...(inlineOut ? { inlineDatasets: inlineOut } : {}),
@@ -1950,6 +1992,7 @@ function blessBaseline(summary, render, opts = {}) {
   if (splitSummary?.length) wrote.push(`${splitSummary.length} split`);
   if (filoSummary?.length) wrote.push(`${filoSummary.length} filo`);
   if (squadraSummary?.length) wrote.push(`${squadraSummary.length} squadra`);
+  if (cssSummary?.length) wrote.push(`${cssSummary.length} css`);
   if (inlineSummary?.length) wrote.push(`${inlineSummary.length} inline`);
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${wrote.join(' + ')} datasets).`);
 }
@@ -2029,6 +2072,7 @@ function checkBaseline(summary, render, opts = {}) {
   const splitSummary = opts.splitSummary ?? null;
   const filoSummary = opts.filoSummary ?? null;
   const squadraSummary = opts.squadraSummary ?? null;
+  const cssSummary = opts.cssSummary ?? null;
   const inlineSummary = opts.inlineSummary ?? null;
   const inlineSkipped = opts.inlineSkipped ?? null;
   const confirming = opts.confirming ?? null;
@@ -2394,6 +2438,22 @@ function checkBaseline(summary, render, opts = {}) {
     }
   }
 
+  // THE CSS TIER. Gates on WORK: a moved span count or decoded length is the reader reading differently.
+  if (cssSummary?.length) {
+    console.log('\n=== CSS CHECK \u00b7 work counts vs committed baseline ===');
+    for (const s2 of cssSummary) {
+      const b = base.cssDatasets?.[s2.dataset];
+      if (!b) {
+        drift = true;
+        console.log(`${s2.dataset.padEnd(48)}  NEW (re-bless)`);
+        continue;
+      }
+      const moved = Object.entries(s2.work).filter(([k, v]) => b[k] !== v);
+      if (moved.length) drift = true;
+      console.log(`${s2.dataset.padEnd(48)}  ${moved.length ? `MOVED ${moved.map(([k, v]) => `${k} ${b[k]} \u2192 ${v}`).join(', ')} (re-bless, and say why)` : 'ok'}`);
+    }
+  }
+
   // THE SQUADRA TIER. Gates on WORK: passes, fixes applied, findings and ops are deterministic, so a
   // moved count is a behavior change to re-bless with the PR saying why; more ops is a regression.
   if (squadraSummary?.length) {
@@ -2665,6 +2725,8 @@ async function main() {
   const filoT = await filoTier();
   // In-process (~3s), and blessed on its work counts: Squadra's HARD RULE #19 record.
   const squadra = await squadraTier();
+  // In-process (~6 s on a tree with the one-by-one string decoder, under 1 s without), blessed on its work counts.
+  const css = await cssTier();
   // Its own process (~5s), and blessed: the inline-code dispatcher's HARD RULE #19 record.
   const inline = await inlineSpanTier(inlineRuns);
   const exp = wantExport ? await exportTier() : null;
@@ -2674,7 +2736,7 @@ async function main() {
   const cli = wantCli ? await cliTier() : null;
   if (wantBless) {
     blessBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, squadraSummary: squadra?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, squadraSummary: squadra?.summary, cssSummary: css?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
   }
   if (wantCheck && wantBless) {
@@ -2698,7 +2760,7 @@ async function main() {
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
     const pass1 = checkBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, squadraSummary: squadra?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, squadraSummary: squadra?.summary, cssSummary: css?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
     if (pass1.regressedDatasets.length) {
       // ONLY THE RENDER TIER IS RE-MEASURED. `renderTier()` is what pass 2 runs, and it is
@@ -2790,7 +2852,7 @@ async function main() {
   // result, leaving the memo's regression guard reachable only when a human typed
   // `npm run bench:check`. The comparator does not read it yet; shipping the data
   // is the half that belongs to this file.
-  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, collage, split, squadra, inline, export: exp, print, diagrams, cli }, null, 2));
+  if (asJson) console.log('\n' + JSON.stringify({ render, edit, flowchart: flow, collage, split, squadra, css, inline, export: exp, print, diagrams, cli }, null, 2));
   const missing = [
     !wantExport && '--export (rasterize tier, ~2 min)',
     !wantPrint && '--print (print re-place tier, ~11 min)',
