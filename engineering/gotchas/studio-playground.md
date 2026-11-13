@@ -2026,7 +2026,8 @@ never turn "passed in headless" into "works on iOS."
     padding, not ending in `/`, followed by a character that ends a URL), because a looser run can hide syntax: inside a
     tag `/` ends an attribute name, so `data:a/b;base64,AAAA…/src="https://…"` carries a real `src`. The engine skips
     even less (`lib/engine/image-line-payloads.js`): only a line that is one markdown image, outside a code fence (a
-    closer must be bare; an opener after a list marker or `>` counts), never in a deck holding `$$` anywhere, never in a
+    closer must be bare; an opener after any run of list markers and `>`s counts; the image line is indented by
+    spaces only, since a tab can carry it into a list item's fence), never in a deck holding `$$` anywhere, never in a
     paragraph holding a `$`, never on the code door's passes, and it renders the whole text if a stand-in does not come
     out whole or reaches an output field that is not a string. Every doubt reads the line whole: a stray `$$` in a code
     span once flipped a count and let KaTeX draw the marker as glyphs. A stand-in is the payload's own first

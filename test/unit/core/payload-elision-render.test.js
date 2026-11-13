@@ -122,6 +122,8 @@ describe('engine render: a photo payload is skipped and put back byte for byte',
 			[`\`\`\`anima\n\`\`\`x\n${img}\n\`\`\`\n`, 'an info-string line is not a closer'],
 			[`- \`\`\`anima\n  ${img}\n  \`\`\`\n`, 'a fence in a list item'],
 			[`> \`\`\`text\n> ${img}\n> \`\`\`\n`, 'a fence in a blockquote'],
+			[`- - \`\`\`anima\n\t\t${img}\n\t\t\`\`\`\n`, 'a fence after two list markers, its line indented with tabs'],
+			[`1. - \`\`\`anima\n      ${img}\n      \`\`\`\n`, 'a fence in a nested ordered list'],
 		]) {
 			assert.equal(imageLineRanges(deck).length, 0, why);
 			const full = `---\ntheme: indaco\nplugins: [anima]\n---\n\n${deck}`;
