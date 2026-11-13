@@ -40,7 +40,6 @@ import {
 	slideBodyEmpty,
 	slideClassAt,
 } from './slide-context.js';
-import { TEX_COMMANDS } from './tex-commands.js';
 
 const TOKEN = /^[\w-]*$/;
 const DIRECTIVE_TOKEN = /^_?[\w-]*$/;
@@ -259,7 +258,11 @@ function inMath(getLine, lineNo, before) {
 	return (here.replace(/\$\$/g, '').match(/\$/g) || []).length % 2 === 1;
 }
 
-const TEX_OPTIONS = TEX_COMMANDS.map((c) => {
+// The command list loads the first time the caret is in math: it is about 1 KB the Studio and the Playground would
+// otherwise pay at start-up (the route budget, docs/route-budget.json).
+let texOptions = null;
+const loadTexOptions = () => (texOptions ??= import('./tex-commands.js').then(({ TEX_COMMANDS }) => TEX_COMMANDS.map(texOption)));
+const texOption = (c) => {
 	const caret = c.template.indexOf('{');
 	return {
 		label: `\\${c.name}`,
@@ -270,7 +273,7 @@ const TEX_OPTIONS = TEX_COMMANDS.map((c) => {
 			view.dispatch({ ...tr, selection: { anchor: from + (caret === -1 ? c.template.length : caret + 1) }, annotations: pickedCompletion.of(completion) });
 		},
 	};
-});
+};
 
 function mathSource(context) {
 	const doc = context.state.doc;
@@ -278,7 +281,8 @@ function mathSource(context) {
 	const before = context.state.sliceDoc(line.from, context.pos);
 	const m = /\\([A-Za-z]*)$/.exec(before);
 	if (!m || !inMath((n) => doc.line(n).text, line.number, before.slice(0, -m[0].length))) return null;
-	return { from: context.pos - m[0].length, options: TEX_OPTIONS, validFor: /^\\[A-Za-z]*$/ };
+	const from = context.pos - m[0].length;
+	return loadTexOptions().then((options) => (context.aborted ? null : { from, options, validFor: /^\\[A-Za-z]*$/ }));
 }
 
 // ── flowchart (followups.d/2385) ──────────────────────────────────────────────
@@ -306,8 +310,45 @@ const ARROW_OPTIONS = ARROWS.map(([label, info], i) => ({
 		view.dispatch({ ...tr, selection: sel, annotations: pickedCompletion.of(completion) });
 	},
 }));
-// An arrow is a word of its own: the light and heavy forms, a label inside one (`-ships via->`).
-const ARROW_THEN_TARGET = /(?:^|\s)(?:<->|<=>|<-|<=|->|=>|--|==|-[^\s-][^>]*->|=[^\s=][^>]*=>)\s+(?:[^&`]*&\s*)*([^&`]*)$/;
+// An arrow is a word of its own: the light and heavy forms, or a label inside one (`-ships via->`, which may span
+// words). Read by a single pass over the row's words, not a regex: a row is untrusted text linted on the main thread
+// (HARD RULE #22), and the pattern this replaced backtracked exponentially on a row of repeated `\t&` (CodeQL).
+const PLAIN_ARROWS = new Set(['<->', '<=>', '<-', '<=', '->', '=>', '--', '==']);
+const opensLabel = (w) => (w[0] === '-' || w[0] === '=') && w.length > 1 && w[1] !== '-' && w[1] !== '=' && !/\s/.test(w[1]);
+const closesLabel = (w) => w.endsWith('->') || w.endsWith('=>');
+
+/** The offset just past the row's LAST arrow, or -1. Exported for a test. */
+export function lastArrowEnd(text) {
+	let end = -1;
+	let open = false;
+	for (const m of text.matchAll(/\S+/g)) {
+		const w = m[0];
+		const stop = m.index + w.length;
+		if (PLAIN_ARROWS.has(w)) {
+			end = stop;
+			open = false;
+		} else if (open) {
+			if (closesLabel(w)) {
+				end = stop;
+				open = false;
+			}
+		} else if (opensLabel(w)) {
+			if (w.length > 3 && closesLabel(w)) end = stop;
+			else open = true;
+		}
+	}
+	return end;
+}
+
+/** The target being typed after the row's last arrow (after the last `&` of a fan-out), or null when there is none. */
+export function arrowTarget(text) {
+	const end = lastArrowEnd(text);
+	if (end === -1 || !/^\s/.test(text.slice(end))) return null;
+	const rest = text.slice(end);
+	if (rest.includes('`')) return null;
+	const amp = rest.lastIndexOf('&');
+	return (amp === -1 ? rest : rest.slice(amp + 1)).replace(/^\s+/, '');
+}
 let flowchartKernel = null;
 const loadFlowchartKernel = () => (flowchartKernel ??= import('../../../lib/core/flowchart-grammar.js').then((m) => m.default ?? m));
 
@@ -349,10 +390,10 @@ function flowchartSource(context) {
 		return loadFlowchartKernel().then((g) => (context.aborted ? null : { from: context.pos - w.length, options: spanWordOptions(g), validFor: /^[\w-]*$/ }));
 	}
 	// 2. After an arrow: the chart's own names.
-	const target = ARROW_THEN_TARGET.exec(text);
+	const target = arrowTarget(text);
 	// A target already written, then a space and an arrow begun (`A -> B -`), is a chain: that is case 3.
-	if (target && !/\S\s+[-=<]+$/.test(target[1])) {
-		const typed = target[1];
+	if (target !== null && !/\S\s+[-=<]+$/.test(target)) {
+		const typed = target;
 		if (!typed && !context.explicit) return null;
 		let last = line.number;
 		while (last < doc.lines && !/^---\s*$/.test(getLine(last + 1))) last++;
