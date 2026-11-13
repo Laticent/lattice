@@ -938,10 +938,15 @@ export async function typeInEditor(page: Page, text: string): Promise<void> {
  * document on `webkit-tablet` on the first press.
  *
  * So: press, then CHECK THE OBSERVABLE and take the other modifier if the first did
- * nothing. The check is `window.getSelection()` — a standard API on the real editor —
- * rather than a re-derivation of CodeMirror's own platform sniff, which would just be the
- * same guess in a new place. (CodeMirror virtualizes long documents, so the selected
- * STRING covers only the rendered lines; empty-vs-not is the signal, never its length.)
+ * nothing. The observable is CODEMIRROR'S OWN STATE SELECTION, which must span the whole
+ * document, rather than a re-derivation of CodeMirror's platform sniff, which would just be the
+ * same guess in a new place. It used to be `window.getSelection()`, and that was wrong: on
+ * `webkit-phone`, Ctrl+A is not CodeMirror's select-all, so WebKit runs a NATIVE select-all,
+ * the DOM selection fills at once, and CodeMirror's state stays the click's caret until it
+ * syncs from the DOM asynchronously. Under load the Delete reached CodeMirror's keymap first
+ * and removed one character: 10 of 80 runs at 4 workers left the welcome deck minus one
+ * character (1,695 of 1,696), with no transaction between the two keys. Meta+A, which is
+ * CodeMirror's select-all there, went 0 of 80. Reading the state selection is engine-agnostic.
  */
 async function selectAllInEditor(page: Page): Promise<void> {
 	// Read the probe off the DECK SOURCE editor specifically, never a bare `.cm-content`.
@@ -961,19 +966,22 @@ async function selectAllInEditor(page: Page): Promise<void> {
 			const el = document.querySelector('[aria-label="Deck source"]');
 			if (!el) return null;
 			if (el instanceof HTMLTextAreaElement) {
-				return { selected: el.selectionEnd - el.selectionStart, rendered: el.value.length };
+				return { from: el.selectionStart, to: el.selectionEnd, len: el.value.length };
 			}
-			return { selected: (window.getSelection()?.toString() ?? '').length, rendered: (el.textContent ?? '').length };
+			// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle (as demo-mobile.spec.ts does).
+			const handle = el as any;
+			const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view ?? null;
+			if (!view) return null;
+			const { from, to } = view.state.selection.main;
+			return { from, to, len: view.state.doc.length };
 		});
 	for (const combo of ['ControlOrMeta+a', 'Meta+a']) {
 		await page.keyboard.press(combo);
 		const seen = await probe();
-		if (!seen) throw new Error('setEditorContent: no element labelled `Deck source` — the editor is not on this page');
-		// An ALREADY-EMPTY document selects to an empty string too, and that is a success, not a
-		// missed keystroke: without this arm the helper would newly throw on a deck it used to
-		// clear happily. It is gated on having actually FOUND the editor, so it can no longer
-		// stand in for one that is absent.
-		if (seen.selected > 0 || seen.rendered === 0) return;
+		if (!seen) throw new Error('setEditorContent: no element labelled `Deck source` (or no editor view behind it) — the editor is not on this page');
+		// The whole document, from 0 to its length. An ALREADY-EMPTY document is 0..0 and passes
+		// too, which is right: it is gated on having actually FOUND the editor.
+		if (seen.from === 0 && seen.to === seen.len) return;
 	}
 	throw new Error('setEditorContent: neither ControlOrMeta+a nor Meta+a selected the editor document');
 }
