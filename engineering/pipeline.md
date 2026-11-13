@@ -54,16 +54,22 @@ consent: `lattice packages trust`, or `--trust` for that render (`lib/cli/code-d
 including after SIGINT, SIGTERM or SIGHUP. Any other binary input, such as a PDF or a picture, is
 refused at once. It used to be parsed as Markdown and fail after a 60 s navigation timeout.
 
-**A `.lattice` output** (`lattice deck.md deck.lattice`) is written right after the theme is
-resolved, before any HTML, engine pass, code door or browser: a `.lattice` is the deck, not a
-render, so an unapproved code package rides in it as its files and is never run. The writer is the
-Studio's (`buildLatticeZip`), run in the same child (`writeSync`). From a `.lattice` input the deck,
-its title, its review comments and every package it carried (used or not: a finish, a plugin, a component the deck does not name) go back out as they came. From a `.md`, the installed theme and components the deck uses go. Which photos it carries is one
-function, `photosToCarry` in `lib/export/lattice-input.js`. Photos from a `.lattice` input pass
-through as their bytes, because the Studio scrubbed them at intake. Photos from `assets/` are
-withheld and counted until a shared metadata scrubber exists (owner, 2026-11-13). `--reopenable`
-uses the same function at the embedded cap (`MAX_EMBEDDED_MEDIA_BYTES`). `--strip-notes` and
-`--strip-say` are refused for a `.lattice` output, which is the deck as written, to edit.
+**A `.lattice` output** (`lattice deck.md deck.lattice`) is written before the code packages are
+filled and before any HTML or browser: a `.lattice` is the deck, not a render, so an unapproved
+code package rides in it as its files and is never run. The writer is the Studio's
+(`buildLatticeZip`), run in the same child (`writeSync`). From a `.lattice` input the deck, its
+title, its review comments and every package it carried (used or not: a finish, a plugin, a
+component the deck does not name) go back out as they came. From a `.md`, the installed theme and
+components the deck uses go. Which photos it carries is one function, `photosToCarry` in
+`lib/export/lattice-input.js`: photos from a `.lattice` input pass through as their bytes (only
+the ones the deck names, as in the Studio), because the Studio scrubbed them at intake; photos
+from `assets/` are withheld and counted until a shared metadata scrubber exists (owner,
+2026-11-13). `--reopenable` uses the same function at the embedded cap
+(`MAX_EMBEDDED_MEDIA_BYTES`). `--strip-notes` and `--strip-say` scrub the carried `deck.md` with
+the functions `--reopenable` uses (`stripSharedSource`, the cut from
+`notesCore.measureScrubBoundary`), fed by an engine render that runs no package code
+(`latticeStrippedSource`); under a strip the review comments stay out, as `--reopenable` leaves
+them out. `strip-notes-every-format.test.js` holds a `lattice` case.
 
 **That list is closed** — an extension not on it is a usage error. It used to fall
 through to the PDF path, which wrote PDF bytes under whatever name was asked for:

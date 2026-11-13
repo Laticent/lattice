@@ -105,6 +105,21 @@ for (const [label, bin] of CLIS) {
       for (const p of pkgs(a)) assert.deepEqual(Buffer.from(await b.file(p).async('uint8array')), Buffer.from(await a.file(p).async('uint8array')), `${p} is byte-identical`);
     });
 
+    test('--strip-notes and --strip-say scrub a .lattice copy, and its review comments stay out', { timeout: TIMEOUT }, async () => {
+      const dir = tmp('strip');
+      const source = '---\ntheme: indaco\n---\n\n## A slide\n\nBody text.\n\n<!-- Private note 51f0 -->\n\n<!-- say: private narration 7c2a -->\n';
+      const input = await studioLattice(dir, { source });
+      const out = path.join(dir, 'out.lattice');
+      const r = cli([input, out, '--strip-notes', '--strip-say'], tmp('home'), NO_BROWSER);
+      assert.equal(r.status, 0, r.stderr);
+      const zip = await JSZip.loadAsync(fs.readFileSync(out));
+      const deck = await zip.file('deck.md').async('string');
+      assert.notEqual(deck, source, 'a stripped copy is not the input byte for byte');
+      assert.ok(!deck.includes('Private note 51f0') && !deck.includes('private narration 7c2a'), deck);
+      assert.match(deck, /## A slide\n\nBody text\./, 'the slides stay');
+      assert.deepEqual(JSON.parse(await zip.file('manifest.json').async('string')).comments, [], 'no review comments under a strip');
+    });
+
     test('a .lattice output makes its folder, and says when -p themes it but the deck re-opens in another', { timeout: TIMEOUT }, async () => {
       const dir = tmp('nested');
       fs.writeFileSync(path.join(dir, 'deck.md'), '# No theme named\n');
