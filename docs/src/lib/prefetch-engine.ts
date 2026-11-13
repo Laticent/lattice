@@ -21,7 +21,7 @@
 //   effectiveType 4g                 → eager (capped to intent off the funnel)
 //   unknown (no NetInfo API)         → viewport proxy: ≥768px eager, else intent
 
-import { ENGINE_ENTRY, engineBaseFor, SAFE_CHUNK, sameOriginAsset } from './engine-base';
+import { ENGINE_ENTRY, engineBaseFor, SAFE_CHUNK, sameOriginAsset, scriptTagFor } from './engine-base';
 export type Decision = 'eager' | 'intent' | 'off';
 
 export interface WarmSignals {
@@ -134,7 +134,7 @@ export function injectPrefetch(engineUrl: string): void {
 	if ((window as Window & { LatticePlayground?: unknown }).LatticePlayground) return;
 	const href = cssEscape(engineUrl);
 	if (document.querySelector(`link[rel="prefetch"][href="${href}"]`)) return;
-	if (document.querySelector(`script[data-lattice-engine][src="${href}"]`)) return;
+	if (scriptTagFor('data-lattice-engine', engineUrl)) return;
 	const link = document.createElement('link');
 	link.rel = 'prefetch';
 	link.href = engineUrl;

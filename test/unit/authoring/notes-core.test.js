@@ -1033,6 +1033,51 @@ describe('notes-core: say channel (say:)', () => {
       assert.deepEqual(core.HTML_BLOCK_NAMES.split('|'), names);
     });
 
+    // HTML block types 1–5 end on a line markdown-it tests with its own regex. notes-core writes two of
+    // those tests without a regex (CodeQL's js/bad-tag-filter, #1958 §5 and §7). Each opener is followed
+    // by a probe line, then a fence holding a comment. markdown-it decides whether the probe closed the
+    // block (the fence is code) or not (the comment is raw HTML, a note); the mask must decide the same.
+    // Ending a block too EARLY is the leak direction, which the `liveCommentOpeners` backstop also
+    // catches; ending it too LATE leaves the fence unmasked, so `--strip-notes` deletes a comment out of
+    // a code sample. Dropping the case fold or one closer turns this red.
+    // A `<!X` declaration (type 4) opens on ANY ASCII letter in markdown-it 14 (`<![A-Za-z]`). The probe
+    // test above cannot see the case: its comment line holds a `>`, which ends a type-4 block either way.
+    // Here the fence comes before any `>`, so markdown-it reads the fence lines as raw HTML while a mask
+    // that only knew `<![A-Z]` would open a fence on a lowercase declaration and hide what is inside.
+    test('a lowercase <!x declaration opens an HTML block, as markdown-it reads it', async () => {
+      const { default: MarkdownIt } = await import('markdown-it');
+      const md = new MarkdownIt({ html: true });
+      for (const open of ['<!a', '<!doctype html', '<!DOCTYPE html', '<!x y']) {
+        const src = `${open}\n\`\`\`\nSECRETCODE --\n\`\`\`\n> \n`;
+        const inFence = md.parse(src, {}).some((t) => t.type === 'fence' && t.content.includes('SECRETCODE'));
+        const masked = !core.maskCodeRegions(src).includes('SECRETCODE');
+        assert.equal(masked, inFence, `${JSON.stringify(open)}: markdown-it ${inFence ? 'fences' : 'keeps as raw HTML'} the line`);
+      }
+    });
+
+    test('the HTML block end tests agree with markdown-it, opener by probe', async () => {
+      const { default: MarkdownIt } = await import('markdown-it');
+      const md = new MarkdownIt({ html: true });
+      const openers = ['<script>', '<SCRIPT type="x">', '<pre', '<style>', '<textarea>', '<!-- open', '<?php', '<!DOCTYPE x', '<!doctype x', '<!a', '<![CDATA[ x'];
+      const probes = [
+        'plain', '</script>', '</SCRIPT>', '</ScRiPt>', '</script >', '</script\t>', '</scrİpt>', '</scrıpt>', 'a</pre>b', '</PRE>',
+        '</style>', '</STYLE >', '</textarea>', '</TextArea>', '</scriptx>', '<\\/script>', '-->', '--!>', '- ->', 'x -->',
+        '?>', '? >', '>', 'no close', ']]>', '] ]>', '</', '<</style>>',
+      ];
+      let fenced = 0;
+      for (const open of openers) {
+        for (const probe of probes) {
+          const src = `${open}\n${probe}\n\`\`\`\n<!-- SECRETNOTE -->\n\`\`\`\n`;
+          const inFence = md.parse(src, {}).some((t) => t.type === 'fence' && t.content.includes('SECRETNOTE'));
+          if (inFence) fenced++;
+          const masked = !core.maskCodeRegions(src).includes('SECRETNOTE');
+          assert.equal(masked, inFence, `${JSON.stringify(open)} then ${JSON.stringify(probe)}: markdown-it ${inFence ? 'fences' : 'keeps'} the comment`);
+        }
+      }
+      // Both outcomes occur, so the probes exercise the end tests rather than one branch of them.
+      assert.ok(fenced > 20 && fenced < openers.length * probes.length - 20, `fenced ${fenced}`);
+    });
+
     // The lone-tag reader (HTML block type 7) is a hand-written linear version of markdown-it's
     // `HTML_OPEN_CLOSE_TAG_RE + \\s*$`. Disagreeing where markdown-it sees a tag is the LEAK
     // direction (a fence the scan opens inside what markdown-it reads as HTML), so it is checked

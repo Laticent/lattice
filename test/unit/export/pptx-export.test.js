@@ -15,6 +15,7 @@ const fs     = require('fs');
 const os     = require('os');
 
 const { writePptx, pptxLayout } = require('../../../lib/export/pptx-export');
+const { removeTags } = require('@laticent/markup');
 
 // A minimal valid 1×1 PNG — enough for pptxgenjs to embed as slide media.
 const ONE_PX_PNG = Buffer.from(
@@ -118,7 +119,9 @@ describe('pptx-export', () => {
     // notesSlide parts with their slide-number field, so the only text is digits —
     // assert no authored WORDS leak in when notes are absent.
     const bodies = await notesText(out);
-    const authored = bodies.join('').replace(/<[^>]+>/g, '').trim();
+    // Strip to a fixed point (removeTags), not a one-pass `<[^>]+>` (js/incomplete-multi-character-
+    // sanitization, #1958 §3, §7); the shared strip is what every production path already uses.
+    const authored = removeTags(bodies.join('')).trim();
     assert.doesNotMatch(authored, /[A-Za-z]/, `expected no authored note words, got: ${authored.slice(0, 80)}`);
   });
 

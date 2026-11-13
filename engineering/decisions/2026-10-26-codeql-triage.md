@@ -126,3 +126,80 @@ one shape that can argue for an exception, and then only with the evidence writt
 A re-check on 2026-11-08 (PR #3084, from the `CodeQL` check on every PR merged since
 2026-10-25) found no new JavaScript alerts; the remaining count is about 35 (inferred, the alerts
 API is still 403 for agents). The work is `followups.d/1958-p2-fix-not-dismiss-codeql.md`.
+
+### 7.1 Done, 2026-11-13 (D2, security pre-GA pass)
+
+Every JavaScript alert in §2, §3 and §5 is now fixed in code except the one fixture exception
+below. The alerts API is still 403 for an agent token and the CodeQL CLI could not be fetched
+(the release download is blocked), so the before/after is read from each file rather than a dashboard
+diff; the PR's own `CodeQL` check confirms the branch adds no new alert. How each class was fixed,
+so the fix survives a reviewer who cannot see the dashboard either:
+
+- **notes-core `HTML_BLOCK_ENDS` (§5), js/bad-tag-filter.** The `/<\/(script|pre|style|textarea)>/i`
+  end test became `hasRawTextCloser` — an ASCII case fold, then a substring search for each of the
+  four closers — keeping byte-for-byte agreement with markdown-it. A differential test parses 11
+  openers × 28 probes with markdown-it and holds the mask to its answer, so the rule still cannot
+  end a block earlier than markdown-it does (the leak direction). The `<!X` declaration start
+  follows markdown-it 14's `[A-Za-z]`.
+- **Playground script-URL loaders (§2), js/xss-through-dom.** The source is the engine `<script>`'s
+  own `src` attribute, read by `engineBase()`. In `ensureEngine`, `ensureKatexProvider` and the
+  fence-grammar injector the barrier sits **inline at the sink**: an empty URL, or one holding a quote,
+  angle bracket, backtick, backslash or whitespace, is refused; the rest is resolved against the page
+  and refused unless it shares the page's origin AND scheme (which also turns away `javascript:`,
+  `data:` and a same-origin `blob:`); only the resolved href reaches `script.src` or `import()`. The
+  origin comparison is what clears the alert: PR #3187's first two pushes put a character check behind
+  a helper and then inline, and CodeQL still traced the DOM string to the sink both times. The engine
+  and its assets are same-origin on every real page, so nothing legitimate is refused. A separate
+  `scriptSrc` helper ran first until the home route crossed its hard byte ceiling; its scheme check
+  duplicated the origin-and-scheme comparison, so it went and its character check moved inline.
+  **The recorded engine base is a sink too.** `ensureEngine` records the engine's asset directory, and
+  loaders that take no URL of their own build on it: the code formatter `import()`s
+  `${engineBase()}fmt/browser.mjs`. `ensureEngine` records only AFTER its barrier, so a refused URL
+  cannot overwrite a good base, and the formatter's `loadModule` carries the same barrier inline at its
+  own `import()`. (An earlier push recorded first; a refused `data:` URL then ran as the formatter.)
+  Because the injected `src` is now the resolved href, the dedup lookups compare resolved URLs
+  (`scriptTagFor`) in the two loaders and in `injectPrefetch`; comparing the caller's raw string missed
+  a tag injected from a relative URL and added a second `<script>` on retry. `specimen.js` builds its
+  Playground route from the site base instead of reading `data.playgroundUrl` off the
+  `#specimen-data` island. Arms: `docs/src/lib/script-src.test.ts`,
+  `test/unit/playground/specimen-navigation.test.js`.
+
+  **Known limit for the desktop app.** The check compares serialized origins, and a `file:` page or a
+  custom-scheme page (`tauri://localhost`) has an opaque origin that serializes as the string `"null"`
+  on both sides (checked with Node's `URL`: `file:///app/index.html` and a relative asset under it both
+  read `"null"`). So on such a page relative assets load, but the origin half of the barrier
+  degrades: any URL of the same scheme passes, `file:///anything.js` included. Before the desktop app
+  loads the engine, compare against its real asset base (or `http://tauri.localhost` on Windows, a real
+  origin) instead of relying on `location.origin`. A guard that refuses outright on an opaque-origin page
+  (`window.location.origin === 'null'`) was written and tested, then left out: it cost the home route
+  55 gzip bytes and left 9 under its hard ceiling. The risk is latent while the site is served over
+  https and the desktop app does not exist; add the guard when the desktop app loads the engine.
+- **Playground directive scanners (§2), js/bad-tag-filter.** The editor's four Mermaid arrow families
+  (each held both `<` and `>`) moved to `docs/src/playground/mermaid-arrows.js`, split so no single
+  pattern holds both brackets; `slide-context.js`'s `/^\s*<!--.*-->\s*$/` line test became
+  `isCommentLine`. Both are pinned to the old regexes' answers over millions of generated strings:
+  `test/unit/playground/mermaid-arrows.test.js`, `test/unit/playground/slide-context.test.js`.
+- **The 19 chart-test polynomial scrapers (§3), js/polynomial-redos.** `heatmap`, `map`, `quadrant`
+  and `word-cloud` tests scraped rendered SVG with `[^>]*` / `[\s\S]*` runs. They now read the markup
+  through `test/helpers/svg-tags.js` (one linear pass, the helper written for exactly this) or
+  string ops, so no polynomial regex is left. (`quadrant.test.js`'s earlier "linear" rewrite still
+  had two unbounded runs; it is the file that proves a comment claiming linearity is not a gate.)
+- **The remaining §3 single alerts.** `pptx-export` strips with `removeTags` (fixed point) not a
+  one-pass `<[^>]+>`; `shadcn-bridge` scans for `token:` by string instead of a RegExp built with a
+  `-`-only escape; `chart-narration` asserts the link target absent by substring not `/https?:/`;
+  `interpret` drops a no-op `.replace('split-panel','split-panel')` (js/identity-replacement);
+  `slide-directives.test.ts` counts `-->` with `split` not a regex; `check-overflow.mjs` and
+  `check-preview-render.mjs` confine the served path to `dist/` through the new
+  `docs/scripts/lib/confined-path.mjs` (tested, with a traversal failing arm), closing
+  js/path-injection.
+
+**The one exception — `test/fixtures/npm-plugin-canary.js:173, js/bad-code-sanitization.** This fixture's
+job is to GENERATE hostile plugin source and feed it to the npm-plugin canary to prove the sandbox
+blocks it. Line 173 concatenates each attempt's `body` — the exploit vectors under test — straight
+into the generated `render()` source. That concatenation IS the test: `attempts` /`markupVectors`
+are the payloads the canary must neutralize, and any sanitization of them would make the fixture
+assert nothing. The generated code never runs outside the canary's sandboxed harness and no
+production path imports it. There is no rewrite that keeps the fixture hostile and clears the query
+(moving the bodies to data the generated code `eval`s or `new Function`s is the same flag). This
+is the §7 "fixture that must stay hostile" case: **dismiss on the dashboard with this reason**
+(requires `security_events` access; an agent token is 403). It is the only JS alert left open.

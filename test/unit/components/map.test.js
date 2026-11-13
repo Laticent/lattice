@@ -15,7 +15,7 @@
  *   5. Basemap integrity: the baked asset has 51 regions and a valid viewBox.
  */
 
-const { tagsOf } = require('../../helpers/svg-tags');
+const { tagsOf, innerOf } = require('../../helpers/svg-tags');
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const {
@@ -86,8 +86,10 @@ describe('map kernel', () => {
       assert.match(html, /data-unmatched="Atlantis"/);
       // SVG-native key (2026-06-13-svg-native-legend.md): the unmatched row is a
       // hollow swatch (fill:transparent) with a "?" value, inside the diagram <svg>.
-      assert.match(html, /class="chart-key-swatch"[^>]*fill="transparent"/);
-      assert.match(html, /class="chart-key-value"[^>]*>\?<\/text>/);
+      const swatch = tagsOf(html).find((t) => (t.attrs.class || '').includes('chart-key-swatch') && t.attrs.fill === 'transparent');
+      assert.ok(swatch, 'a hollow (fill:transparent) chart-key-swatch');
+      const values = tagsOf(html, 'text').filter((t) => (t.attrs.class || '').includes('chart-key-value'));
+      assert.ok(values.some((t) => innerOf(html, t) === '?'), 'a chart-key-value reads "?"');
     });
 
     test('no unmatched names → no data-unmatched attribute', () => {
@@ -166,7 +168,13 @@ describe('map kernel', () => {
     });
     test('a category is a label: the same label is the same color, and bare names are one set', () => {
       const engine = require('../../../lib/engine');
-      const hues = (md) => [...engine.render(md).html.matchAll(/class="map-region map-region--hl"[^>]*--region-hue:var\(--chart-cat-(\d)-hue\)/g)].map((m) => m[1]);
+      // One linear pass over the tags (svg-tags), then a fixed `--chart-cat-N-hue` read, not a
+      // `class="…"[^>]*--region-hue:…` scrape (js/polynomial-redos, #1958 §3, §7).
+      const hues = (md) =>
+        tagsOf(engine.render(md).html)
+          .filter((t) => (t.attrs.class || '').split(/\s+/).includes('map-region--hl'))
+          .map((t) => (/--region-hue:var\(--chart-cat-(\d)-hue\)/.exec(t.raw) || [])[1])
+          .filter(Boolean);
       const labeled = '---\nmarp: true\n---\n\n<!-- _class: map -->\n\n## Where\n\n- Brazil `Latin America`\n- Peru `Latin America`\n- Kenya `East Africa`\n';
       const h = hues(labeled);
       assert.equal(new Set(h).size, 2, `two labels, two colors: ${h.join(',')}`);
@@ -293,7 +301,7 @@ describe('map kernel', () => {
       const f = findUnknownMapRegions(deck, vocab);
       assert.equal(f.length, 1);
       assert.equal(f[0].rule, 'unknown-map-region');
-      assert.match(f[0].message, /Brasil.*did you mean 'Brazil'/);
+      assert.ok(f[0].message.includes('Brasil') && f[0].message.includes("did you mean 'Brazil'"), f[0].message);
     });
 
     test('resolves valid names, codes, aliases, and groups silently', () => {
@@ -374,7 +382,8 @@ describe('map kernel', () => {
 
     test('the region path carries data-mark and an inert template by index', () => {
       const html = buildMap(parseMap(withDetail, BASEMAP), 'choropleth', ['us']);
-      assert.match(html, /<path class="map-region[^"]*"[^>]*data-mark="0"/);
+      const region = tagsOf(html, 'path').find((t) => (t.attrs.class || '').startsWith('map-region') && t.attrs['data-mark'] === '0');
+      assert.ok(region, 'the region path carries data-mark="0"');
       assert.match(html, /<template class="chart-detail" data-mark="0">/);
       assert.equal((html.match(/class="chart-detail"/g) || []).length, 1);
     });

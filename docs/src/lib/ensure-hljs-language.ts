@@ -102,6 +102,19 @@ async function loadManifest(base: string): Promise<Manifest | null> {
 function injectGrammar(url: string): Promise<boolean> {
 	const existing = loaders.get(url);
 	if (existing) return existing;
+	// A grammar lives beside the engine, so it is same-origin; a refused one leaves the fence plain. The barrier is INLINE at the sink because CodeQL js/xss-through-dom reads it here and
+	// not through a helper: an empty URL, or one holding a quote, angle bracket, backtick, backslash or
+	// whitespace, is refused; the rest is resolved and refused unless it shares this page's origin AND
+	// scheme (which also turns away `javascript:`, `data:` and a same-origin `blob:`). Only the resolved
+	// href reaches the sink.
+	let resolved: URL | null = null;
+	try {
+		if (url && !/[<>"'`\\\s]/.test(url)) resolved = new URL(url, window.location.href);
+	} catch {
+		// an unparseable URL is refused just below
+	}
+	if (resolved === null || resolved.origin !== window.location.origin || resolved.protocol !== window.location.protocol) return Promise.resolve(false);
+	const safeSrc = resolved.href;
 
 	const p = new Promise<boolean>((resolve) => {
 		let settled = false;
@@ -131,7 +144,7 @@ function injectGrammar(url: string): Promise<boolean> {
 		timer = setTimeout(() => done(false), LOAD_TIMEOUT_MS);
 
 		const s = document.createElement('script');
-		s.src = url;
+		s.src = safeSrc;
 		s.async = true;
 		s.setAttribute('data-lattice-hljs', '');
 		s.addEventListener('load', () => done(true));

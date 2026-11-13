@@ -13,9 +13,11 @@
 // the playground uses.
 
 import { slideFrameShadow } from '../../../lib/core/slide-frame.mjs';
+import { joinBase } from '../lib/base-url.mjs';
 import { createEditor } from './editor.js';
 import { createSingleSlideRenderer } from './single-slide-render';
 
+const PLAYGROUND_HREF = joinBase(import.meta.env.BASE_URL || '/', 'playground/');
 const FLIP_MS = 350; // keep in sync with @keyframes ll-flip in components.css
 const _SOURCE_KEY = 'lattice-docs-pg-source'; // shared handoff key the playground reads
 
@@ -215,7 +217,9 @@ export function initSpecimen() {
     } catch {
       /* non-fatal — playground falls back to its starter */
     }
-    window.location.href = data.playgroundUrl;
+    // Built here, not read from the page: the specimen-data island is DOM text, and CodeQL's
+    // js/xss-through-dom follows DOM text into a navigation (#1958 §7). The route is fixed.
+    window.location.href = PLAYGROUND_HREF;
   }
 
   // Delegated so the same actions work from the specimen's own variant pills

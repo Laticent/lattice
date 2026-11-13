@@ -26,7 +26,7 @@
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 
-import { ENGINE_ENTRY, engineBaseFor, recordEngineUrl } from './engine-base';
+import { ENGINE_ENTRY, engineBaseFor, recordEngineUrl, scriptTagFor } from './engine-base';
 import { preloadEntry } from './ensure-charts';
 import { installPreviewDrawHost } from './preview-draw-host';
 
@@ -50,7 +50,22 @@ const POLL_MS = 50;
  */
 export function ensureEngine(url: string): Promise<void> {
 	if (typeof window === 'undefined') return Promise.resolve();
-	recordEngineUrl(url);
+	// The engine is same-origin. The barrier is INLINE at the sink because CodeQL js/xss-through-dom reads it here and
+	// not through a helper: an empty URL, or one holding a quote, angle bracket, backtick, backslash or
+	// whitespace, is refused; the rest is resolved and refused unless it shares this page's origin AND
+	// scheme (which also turns away `javascript:`, `data:` and a same-origin `blob:`). Only the resolved
+	// href reaches the sink.
+	let resolved: URL | null = null;
+	try {
+		if (url && !/[<>"'`\\\s]/.test(url)) resolved = new URL(url, window.location.href);
+	} catch {
+		// an unparseable URL is refused just below
+	}
+	if (resolved === null || resolved.origin !== window.location.origin || resolved.protocol !== window.location.protocol) return Promise.reject(new Error(`lattice engine URL refused: ${url}`));
+	const safeSrc = resolved.href;
+	// Record only a URL that passed the barrier: the asset directory it names feeds other loaders (the code
+	// formatter's import() among them), so a refused URL recorded first would overwrite a good base.
+	recordEngineUrl(safeSrc);
 	// Every surface that shows a preview loads the engine here, so this is where the page offers its frames a draw host.
 	installPreviewDrawHost();
 	if (window.LatticePlayground) return Promise.resolve();
@@ -61,7 +76,7 @@ export function ensureEngine(url: string): Promise<void> {
 	const base = engineBaseFor(url);
 	if (base && url.endsWith(ENGINE_ENTRY)) {
 		void preloadEntry(base, 'engine.js');
-		const m = import(/* @vite-ignore */ url).then(() => {
+		const m = import(/* @vite-ignore */ safeSrc).then(() => {
 			if (!window.LatticePlayground) throw new Error(`lattice engine loaded but did not register: ${url}`);
 		});
 		// A failed import() is cached by the browser for the page's lifetime, so a retry would replay
@@ -97,10 +112,10 @@ export function ensureEngine(url: string): Promise<void> {
 		// If a matching <script> was already injected (e.g. a legacy eager tag,
 		// or a prior call on a different URL string), don't add a second one —
 		// just poll for the global.
-		const already = document.querySelector<HTMLScriptElement>(`script[data-lattice-engine][src="${cssEscape(url)}"]`);
+		const already = scriptTagFor('data-lattice-engine', safeSrc);
 		if (!already) {
 			const s = document.createElement('script');
-			s.src = url;
+			s.src = safeSrc;
 			s.defer = true;
 			s.setAttribute('data-lattice-engine', '');
 			// onload covers the not-yet-cached case; the poll below covers the
@@ -121,10 +136,4 @@ export function ensureEngine(url: string): Promise<void> {
 
 	loaders.set(url, p);
 	return p;
-}
-
-// Minimal attribute-selector escape for the URL (which can contain `?`/`.`/`=`
-// from the cache-buster). Avoids depending on CSS.escape's spotty support.
-function cssEscape(value: string): string {
-	return value.replace(/["\\]/g, '\\$&');
 }
