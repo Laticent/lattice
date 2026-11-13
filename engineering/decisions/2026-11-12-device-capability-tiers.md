@@ -170,12 +170,20 @@ A sixth overlay on the existing `DiagnosticPanel` chassis, toggled under Workspa
 
 ### 5.1 As built (2026-11-13, slice 2)
 
-`docs/src/components/site/SystemOverlay.tsx` draws the rows that `docs/src/lib/system-report.ts` builds; the wording
+`docs/src/components/site/SystemOverlayPanel.tsx` draws the rows that `docs/src/lib/system-report.ts` builds; the wording
 and the status rules (green / amber / red, gray for a value the browser does not report) live in that pure module
 under unit tests. The panel shows a short graphics name (`SwiftShader (software)`) and the copied report keeps the
 full renderer string. The speed test runs only on a click, because it pauses the page for about 140 ms (§3.2). The
 "GPU rank" row appears once `detect-gpu` is wired (slice 1b). Until slice 5, the panel shows the tier the device
 WOULD get; nothing in the app acts on it yet.
+
+**Bytes.** The first cut mounted the panel as its own eager island and CI's route budget failed it (home eager JS
+315.8 KB over a 313.2 KB ceiling, Studio HTML 243.5 KB over 243.4 KB). It now follows `PerfOverlay.tsx`: the eager
+gate (`SystemOverlay.tsx`) only reads the pref, and the panel with the profile and report code is a lazy chunk that
+loads on the first switch-on. The gate shares the Storage overlay's island (`SiteDiagnostics.tsx`), so no page
+carries an extra island tag. Local production build after the fix: home eager JS 311.2 KB, Studio HTML 243.2 KB,
+every route under its ceiling; with the panel off the Studio requests no `SystemOverlayPanel` chunk, and `?system`
+requests exactly one.
 
 Driven on the real Studio (`npm run dev`, Playwright Chromium 153, 390 and 1440 px): the sandbox reads as Lite
 (software renderer, 4 cores), "Run speed test" turned "Not run yet" into "248 units", "Copy report" put the full report
