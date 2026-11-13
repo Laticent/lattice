@@ -400,7 +400,7 @@
     "dompurify": "^3.4.17",
     "harfbuzzjs": "^0.10.3",
     "highlight.js": "^11.11.1",
-    "jsdom": "^29.1.1",
+    "jsdom": "^31.0.0",
     "jszip": "^3.10.1",
     "markdown-it": "^14.3.3",
     "mediabunny": "1.60.0",
