@@ -118,6 +118,8 @@ start_driver() {
 }
 # Run a command for at most $1 seconds: macOS ships no `timeout`, and perl's alarm survives the exec.
 bounded() { local secs=$1; shift; perl -e 'alarm shift @ARGV; exec @ARGV or die "exec: $!"' "$secs" "$@"; }
+# The most a Safari launch may take before the device counts as stuck (seconds); see the launch below.
+LAUNCH_LIMIT=${LAUNCH_LIMIT:-480}
 # The settings safaridriver needs inside the simulator, as domain:key.
 PREF_KEYS='com.apple.webinspectord:RemoteInspectorEnabled com.apple.webinspectord:RemoteAutomationEnabled
   com.apple.webinspectord:WIRRemoteAutomationEnabled com.apple.mobilesafari:WebKitDeveloperExtrasEnabledPreferenceKey
@@ -238,7 +240,7 @@ for family in $families; do
           # WebDriver session" (main's nightly, 2026-11-01, #2911). A relaunch drops the pairing without a device reboot.
           xcrun simctl terminate "$udid" com.apple.mobilesafari || true
           sleep 2
-          bounded 180 xcrun simctl launch "$udid" com.apple.mobilesafari || true
+          bounded "$LAUNCH_LIMIT" xcrun simctl launch "$udid" com.apple.mobilesafari || true
           sleep 18
           if start_driver; then
             rc=0
@@ -253,14 +255,21 @@ for family in $families; do
       driver=
     fi
     xcrun simctl shutdown "$udid" || true
+    t0=$SECONDS
     if ! { xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b && ensure_prefs "$udid"; }; then
       rc=5; why='the simulator did not boot'; continue
     fi
+    echo "$family: boot took $((SECONDS - t0)) s"
     # Bounded: a launch that never returned held the iPad job silent for 18 minutes, until the job's 30-minute limit
-    # canceled it (run 43355906725). It now fails here and takes the second start below, if the budget allows one.
-    if ! bounded 180 xcrun simctl launch "$udid" com.apple.mobilesafari; then
-      rc=5; why='Safari did not launch within 180 s'; continue
+    # canceled it (run 43355906725). It now fails here, so run.sh ends it as "no probe ran" and the supervisor
+    # (.github/workflows/platform-suites-supervisor.yml) re-runs the job on a fresh runner, instead of the limit
+    # canceling it as a finding. LAUNCH_LIMIT is generous on purpose until the logged launch times say how far it can
+    # come down: the slowest boot-and-launch seen took 219 s, and how much of that was the launch is not yet measured.
+    t0=$SECONDS
+    if ! bounded "$LAUNCH_LIMIT" xcrun simctl launch "$udid" com.apple.mobilesafari; then
+      rc=5; why="Safari did not launch within $LAUNCH_LIMIT s"; continue
     fi
+    echo "$family: Safari launch took $((SECONDS - t0)) s"
     sleep 5
     if ! start_driver; then rc=4; why='safaridriver did not answer'; continue; fi
     rc=0
