@@ -36,7 +36,7 @@
 import { LastraError } from './errors.js';
 import { CB_B, CB_G, CR_G, CR_R, idctIslow } from './jpeg-idct.js';
 import { type Plane, upsample } from './jpeg-sample.js';
-import { checkPixels, resolveLimits, tick } from './limits.js';
+import { allocating, checkPixels, resolveLimits, tick } from './limits.js';
 import type { DecodedImage, DecodeOptions, WorkMeter } from './types.js';
 
 /** Zigzag position to natural (row-major) position, with 16 extra entries for the decoder's overrun. */
@@ -165,7 +165,8 @@ export function decodeJpegSync(bytes: Uint8Array, opts?: DecodeOptions): Decoded
   }
 
   if (!frame) throw new LastraError('corrupt', 'EOI before any frame header');
-  return assemble(frame, jfif, adobeTransform, meter);
+  const f = frame;
+  return allocating(`the pixels of a ${f.width}x${f.height} frame`, () => assemble(f, jfif, adobeTransform, meter));
 }
 
 function readQuant(b: Uint8Array, at: number, end: number, quant: (Uint16Array | null)[]): void {
@@ -284,12 +285,7 @@ function readFrame(b: Uint8Array, at: number, end: number, progressive: boolean)
 }
 
 function allocate(f: Frame): void {
-  try {
-    allocateStores(f);
-  } catch (e) {
-    if (e instanceof RangeError) throw new LastraError('too-large', `the platform cannot allocate the coefficients of a ${f.width}x${f.height} frame`);
-    throw e;
-  }
+  allocating(`the coefficients of a ${f.width}x${f.height} frame`, () => allocateStores(f));
 }
 
 function allocateStores(f: Frame): void {
@@ -516,6 +512,7 @@ function readScan(
     if (r.short) {
       // The data ran out: libjpeg leaves the rest of the scan alone, up to the next restart marker.
       if (restartInterval === 0) break;
+      tick(meter);
       n = Math.ceil((n + 1) / restartInterval) * restartInterval - 1;
       continue;
     }

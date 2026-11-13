@@ -38,3 +38,16 @@ export function tick(meter: WorkMeter, n = 1): void {
   meter.steps += n;
   if (meter.steps > (meter.limit ?? Number.POSITIVE_INFINITY)) throw new LastraError('too-large', `over the work limit of ${meter.limit} steps`);
 }
+
+/**
+ * Run an allocation, turning the platform's out-of-memory `RangeError` into a `too-large` refusal: an
+ * image under `maxPixels` can still be more than a constrained engine will hand out.
+ */
+export function allocating<T>(what: string, make: () => T): T {
+  try {
+    return make();
+  } catch (e) {
+    if (e instanceof RangeError) throw new LastraError('too-large', `the platform cannot allocate ${what}`);
+    throw e;
+  }
+}

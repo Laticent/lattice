@@ -26,7 +26,7 @@
 
 import { LastraError } from './errors.js';
 import { inflateExact } from './inflate.js';
-import { checkPixels, resolveLimits, tick } from './limits.js';
+import { allocating, checkPixels, resolveLimits, tick } from './limits.js';
 import type { DecodedImage, DecodeOptions } from './types.js';
 
 const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -168,7 +168,7 @@ export async function decodePng(bytes: Uint8Array, opts?: DecodeOptions): Promis
   }
   const raw = await inflateExact(compressed, expected, meter);
 
-  const out = new Uint8ClampedArray(width * height * 4);
+  const out = allocating(`the pixels of a ${width}x${height} image`, () => new Uint8ClampedArray(width * height * 4));
   const emit = pixelWriter(header, palette, trns, out);
   let pos = 0;
   for (const [x0, y0, dx, dy] of passes) {
