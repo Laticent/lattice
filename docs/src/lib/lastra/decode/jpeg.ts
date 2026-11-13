@@ -4,8 +4,8 @@
  * Decodes: baseline and extended sequential (SOF0, SOF1) and progressive (SOF2) frames, 8-bit, Huffman
  * coded; spectral selection and successive approximation; restart intervals; one, three or four
  * components; any integer chroma sampling (4:4:4, 4:2:2, 4:2:0, 4:4:0, 4:1:1, ...) at any size; the
- * Adobe APP14 transform (RGB, YCbCr, CMYK, YCCK); the Annex K tables when a Huffman table is missing
- * (Motion-JPEG frames), as libjpeg-turbo does. The primary image only: an MPF second picture or an Ultra
+ * Adobe APP14 transform (RGB, YCbCr, CMYK, YCCK); the Annex K tables when a sequential frame names
+ * table 0 or 1 without defining it (Motion-JPEG frames), as libjpeg-turbo's Huffman decoder does. The primary image only: an MPF second picture or an Ultra
  * HDR gain map after the first EOI is not read. The embedded ICC profile comes back as bytes, unapplied.
  *
  * Follows libjpeg-turbo 3.1's default decode (what Chromium, Firefox, Linux WebKit and Pillow run): the
@@ -16,58 +16,80 @@
  *
  * Where it departs from libjpeg, on purpose:
  * - bounded work. At most MAX_SCANS scans per frame (libjpeg-turbo's own fuzzer sets its scan limit to the
- *   same 500) and at most VISITS_PER_BLOCK block visits per coefficient block across all scans; past
- *   either, `too-large`. libjpeg has neither limit by default.
+ *   same 500) and at most COEF_WORK_PER_BLOCK coefficients decoded per block over all scans (a legal
+ *   progression needs at most 896; COEF_WORK_FLOOR for small images); past either, `too-large`. libjpeg
+ *   has neither limit by default. End-of-band runs of a first AC pass are skipped in one step.
  * - a component in two sequential scans is refused (`corrupt`); libjpeg errors on it in a single-scan
  *   file and overwrites in place in a multi-scan one.
- * - a file that ends before EOI decodes only if at least one scan was read to its end; otherwise
- *   `truncated` (libjpeg decodes whatever it has; Pillow refuses every truncated file).
+ * - a file cut short decodes only when it ends in scan data or between segments after at least one scan
+ *   was read whole, so every pixel has data from a whole scan; it is `truncated` when it ends inside a
+ *   marker segment or before any scan is whole (so a cut baseline file, one scan, is always refused).
+ *   libjpeg shows whatever it has, Firefox shows both kinds partly, Chromium refuses both and Pillow
+ *   refuses every cut file; lastra will not hand a host a half-gray photo, but will hand it a whole
+ *   progressive pass.
  *
  * Refuses, with a `LastraError`: `unsupported` (arithmetic, lossless, hierarchical, 12- or 16-bit, a height
- * set by DNL, two or more than four components, a fractional sampling ratio); `truncated` (above, or the
- * file ends before the first scan); `bad-marker` (no SOI, a segment length under 2 or past its contents,
- * an unknown marker, a scan before its frame, a second frame); `corrupt` (an impossible frame, table or
- * scan header, an over-full Huffman table a scan uses, EOI before any scan, a DC sum past 32 bits in a
- * progressive scan, as libjpeg-turbo refuses it); `too-large` (`maxPixels`, `maxBytes`, the two work caps).
+ * set by DNL, two or more than four components, a fractional sampling ratio); `truncated` (above);
+ * `bad-marker` (no SOI, a segment length under 2 or past its contents, an unknown marker, a scan before its
+ * frame, a second frame); `corrupt` (an impossible frame, table or scan header, a Huffman table a scan
+ * names that is over-full or was never defined, EOI before any scan, a DC sum past 32 bits in a
+ * progressive scan, as libjpeg-turbo refuses it); `too-large` (`maxPixels`, `maxBytes`, the two caps).
  *
- * `decodeJpeg` yields to the event loop between slices of work and honors an `AbortSignal`;
- * `decodeJpegSync` runs the same steps to the end without yielding. `opts.meter` counts the work: one
- * step per segment, Huffman or quantization table, decoded block, restart, IDCT block and 64 output
- * pixels.
+ * `decodeJpeg` yields to the event loop between slices of work (at most about 2^20 coefficients, 16 block
+ * rows of IDCT, 64 rows of upsampling or color) and honors an `AbortSignal`; `decodeJpegSync` runs the same
+ * steps to the end without yielding. `opts.meter` counts the work: one step per segment, Huffman or
+ * quantization table, decoded block plus one per 8 coefficients of its band, restart, IDCT block and 64
+ * output pixels.
+ *
+ * Based in part on the work of the Independent JPEG Group: the scan, marker and color-space logic follow
+ * libjpeg-turbo's jdmarker.c, jdinput.c, jdapimin.c and jdcolor.c (Copyright (C) 1991-1998, Thomas G. Lane;
+ * libjpeg-turbo modifications Copyright (C) 2009-2024, D. R. Commander, and the contributors listed in
+ * those files), used under the IJG license and libjpeg-turbo's Modified BSD license (README.ijg.txt and
+ * LICENSE.libjpeg-turbo.md, copied unaltered beside this file); this file is a TypeScript re-expression.
  */
 
-import { LastraError } from './errors.js';
+import { LastraError } from '../errors.js';
 import {
   BitReader,
   type BlockDecoder,
   decodeSequential,
-  derive,
+  deriveHuffman,
   type Huffman,
   type HuffmanSpec,
   huffmanSpec,
-  NATURAL,
+  JPEG_NATURAL_ORDER,
   progressiveDecoder,
   standardSpec,
 } from './jpeg-huffman.js';
 import { CB_B, CB_G, CR_G, CR_R } from './jpeg-idct.js';
-import { type Plane, upsample } from './jpeg-sample.js';
+import { type Plane, upsampleJpegPlane } from './jpeg-sample.js';
 import { componentSamples, smoothingLatches } from './jpeg-smooth.js';
-import { allocating, checkPixels, type Limits, resolveLimits, tick } from './limits.js';
+import { allocating, allocatingSteps, checkPixels, type Limits, resolveLimits, tickWork } from './limits.js';
 import { runSteps, runStepsSync } from './steps.js';
 import type { DecodedImage, DecodeOptions, WorkMeter } from './types.js';
 
 /** Scans per frame. libjpeg's own progression writes 10 (6 for gray); libjpeg-turbo's fuzzer caps at 500. */
 export const MAX_SCANS = 500;
 /**
- * Block visits per coefficient block, summed over every scan. libjpeg's progression visits a luma block 6
- * times and a chroma block 4 times; a baseline file visits each once. 32 is five times the most a real
- * encoder needs and bounds a file of empty or end-of-band scans to 32 passes over its blocks.
+ * Coefficient work per block, summed over every scan: a block decoded in a scan counts the coefficients
+ * that scan covers (64 for a sequential scan, 1 for a DC scan, the band for an AC scan). A legal
+ * progression sends each of the 64 coefficients once and refines it at most 13 times, so no file that
+ * does not replay scans can pass 14 x 64 = 896; 1024 allows that with room. Blocks inside an end-of-band
+ * run of a first AC pass are skipped in one step and cost nothing. Images under 2^16 blocks get the
+ * floor COEF_WORK_FLOOR instead, so small replayed files are not refused for being small.
  */
-export const VISITS_PER_BLOCK = 32;
+export const COEF_WORK_PER_BLOCK = 1024;
+export const COEF_WORK_FLOOR = 1 << 26;
 
 /** A decoded JPEG: the pixels, and the ICC profile the file carries (not applied), or null. */
 export interface JpegImage extends DecodedImage {
   icc: Uint8Array | null;
+  /**
+   * How the file stores its color, as decoded: gray, YCbCr or RGB (both shown as stored), or CMYK and
+   * YCCK, converted to RGB with Pillow's uncalibrated formula. A host that color-manages hands a file with
+   * a profile, or a CMYK one, to a color-managed decoder instead.
+   */
+  colorSpace: 'gray' | 'ycc' | 'rgb' | 'cmyk' | 'ycck';
 }
 
 interface Component {
@@ -83,6 +105,7 @@ interface Component {
   stride: number;
   rows: number;
   coefs: Int16Array;
+  nz: Uint8Array;
   quant: Uint16Array | null;
   quantIdct: Int16Array | null;
   coefBits: Int8Array;
@@ -103,9 +126,9 @@ interface Frame {
   mcusY: number;
   comps: Component[];
   allocated: boolean;
-  /** Blocks in all stores, and block visits so far. */
+  /** Blocks in all stores, and coefficient work so far (COEF_WORK_PER_BLOCK). */
   blocks: number;
-  visits: number;
+  work: number;
   scans: number;
   completeScans: number;
   /** libjpeg's last_good_iMCU_row, for the smoothing. */
@@ -125,7 +148,7 @@ interface State {
   icc: { seq: number; count: number; data: Uint8Array }[];
 }
 
-const u16 = (b: Uint8Array, o: number) => (b[o] << 8) | b[o + 1];
+const readJpegU16 = (b: Uint8Array, o: number) => (b[o] << 8) | b[o + 1];
 
 /** Decode a JPEG to RGBA, yielding to the event loop as it goes; `opts.signal` aborts it. */
 export function decodeJpeg(bytes: Uint8Array, opts?: DecodeOptions): Promise<JpegImage> {
@@ -147,14 +170,14 @@ function* jpegSteps(bytes: Uint8Array, opts: DecodeOptions | undefined): Generat
 
   let pos = 2;
   for (;;) {
-    tick(meter);
+    tickWork(meter);
     // Find the next marker. libjpeg skips stray bytes before one (with a warning); so does this.
     const from = pos;
     while (pos < len && bytes[pos] !== 0xff) pos++;
     while (pos < len && bytes[pos] === 0xff) pos++;
-    tick(meter, (pos - from) >> 6);
+    tickWork(meter, (pos - from) >> 6);
     if (pos >= len) {
-      if (endsEarly(s.frame)) break;
+      if (jpegEndsEarly(s.frame)) break;
       throw new LastraError('truncated', 'the file ends before EOI');
     }
     const marker = bytes[pos++];
@@ -162,11 +185,10 @@ function* jpegSteps(bytes: Uint8Array, opts: DecodeOptions | undefined): Generat
     if (marker === 0xd9) break; // EOI
     if ((marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) continue; // RSTn, TEM: no length
     if (marker === 0xd8) throw new LastraError('bad-marker', 'a second SOI');
-    if (pos + 2 > len) {
-      if (endsEarly(s.frame)) break;
-      throw new LastraError('truncated', `the file ends inside the 0x${marker.toString(16)} marker's length`);
-    }
-    const length = u16(bytes, pos);
+    // A file that ends inside a marker segment is truncated, whatever came before: libjpeg reads its fake
+    // EOI as the segment's bytes and refuses (a scan header cut short), and a half table is no table.
+    if (pos + 2 > len) throw new LastraError('truncated', `the file ends inside the 0x${marker.toString(16)} marker's length`);
+    const length = readJpegU16(bytes, pos);
     if (length < 2) throw new LastraError('bad-marker', `marker 0x${marker.toString(16)} has length ${length}`);
     const start = pos + 2;
     const end = pos + length;
@@ -175,19 +197,16 @@ function* jpegSteps(bytes: Uint8Array, opts: DecodeOptions | undefined): Generat
     if (start < len && ((marker === 0xda && length !== 6 + 2 * bytes[start]) || ((marker === 0xc0 || marker === 0xc1 || marker === 0xc2) && start + 5 < len && length !== 8 + 3 * bytes[start + 5]))) {
       throw new LastraError('bad-marker', `the 0x${marker.toString(16)} header length ${length} does not fit its component count`);
     }
-    if (end > len) {
-      if (endsEarly(s.frame)) break;
-      throw new LastraError('truncated', `the file ends inside the 0x${marker.toString(16)} segment`);
-    }
+    if (end > len) throw new LastraError('truncated', `the file ends inside the 0x${marker.toString(16)} segment`);
     pos = end;
 
     if (marker === 0xdb) {
-      readQuant(bytes, start, end, s.quant, meter);
+      readJpegQuant(bytes, start, end, s.quant, meter);
     } else if (marker === 0xc4) {
-      readHuffman(bytes, start, end, s, meter);
+      readJpegHuffman(bytes, start, end, s, meter);
     } else if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
       if (s.frame) throw new LastraError('bad-marker', 'a second frame header');
-      s.frame = readFrame(bytes, start, end, marker === 0xc2);
+      s.frame = readJpegFrame(bytes, start, end, marker === 0xc2);
       checkPixels(s.frame.width, s.frame.height, limits);
     } else if (marker === 0xc3 || (marker >= 0xc5 && marker <= 0xc7)) {
       throw new LastraError('unsupported', `lossless or hierarchical JPEG (SOF 0x${marker.toString(16)})`);
@@ -195,11 +214,11 @@ function* jpegSteps(bytes: Uint8Array, opts: DecodeOptions | undefined): Generat
       throw new LastraError('unsupported', `arithmetic-coded JPEG (SOF 0x${marker.toString(16)})`);
     } else if (marker === 0xdd) {
       if (length !== 4) throw new LastraError('bad-marker', `DRI has length ${length}, not 4`);
-      s.restartInterval = u16(bytes, start);
+      s.restartInterval = readJpegU16(bytes, start);
     } else if (marker === 0xda) {
       if (!s.frame) throw new LastraError('bad-marker', 'a scan before the frame header');
-      pos = yield* readScan(bytes, start, end, s, s.frame, limits);
-      if (pos >= len && endsEarly(s.frame)) break;
+      pos = yield* readJpegScan(bytes, start, end, s, s.frame, limits);
+      if (pos >= len && jpegEndsEarly(s.frame)) break;
     } else if (marker === 0xe0) {
       // JFIF: libjpeg needs the 14-byte header to count it.
       if (end - start >= 14 && bytes[start] === 0x4a && bytes[start + 1] === 0x46 && bytes[start + 2] === 0x49 && bytes[start + 3] === 0x46 && bytes[start + 4] === 0) s.jfif = true;
@@ -207,7 +226,7 @@ function* jpegSteps(bytes: Uint8Array, opts: DecodeOptions | undefined): Generat
       // Adobe: "Adobe", version, flags0, flags1, transform: 12 bytes.
       if (end - start >= 12 && bytes[start] === 0x41 && bytes[start + 1] === 0x64 && bytes[start + 2] === 0x6f && bytes[start + 3] === 0x62 && bytes[start + 4] === 0x65) s.adobeTransform = bytes[start + 11];
     } else if (marker === 0xe2) {
-      readIccChunk(bytes, start, end, s);
+      readJpegIccChunk(bytes, start, end, s);
     } else if ((marker >= 0xe1 && marker <= 0xef) || marker === 0xfe || marker === 0xcc || marker === 0xdc) {
       // Other APPn (EXIF, XMP, MPF), COM, DAC (arithmetic conditioning, unused by a Huffman frame), DNL.
     } else {
@@ -218,25 +237,25 @@ function* jpegSteps(bytes: Uint8Array, opts: DecodeOptions | undefined): Generat
   const f = s.frame;
   if (!f) throw new LastraError('corrupt', 'EOI before any frame header');
   if (!f.allocated) throw new LastraError('corrupt', 'the frame has no scan');
-  const pixels = yield* assemble(f, s, meter);
-  return { ...pixels, icc: iccProfile(s.icc) };
+  const pixels = yield* assembleJpeg(f, s, meter);
+  return { ...pixels, icc: jpegIccProfile(s.icc) };
 }
 
 /** A file that ends early decodes when at least one scan was read to its end. */
-function endsEarly(f: Frame | null): boolean {
+function jpegEndsEarly(f: Frame | null): boolean {
   return f !== null && f.completeScans > 0;
 }
 
-function readQuant(b: Uint8Array, at: number, end: number, quant: (Uint16Array | null)[], meter: WorkMeter): void {
+function readJpegQuant(b: Uint8Array, at: number, end: number, quant: (Uint16Array | null)[], meter: WorkMeter): void {
   while (at < end) {
-    tick(meter);
+    tickWork(meter);
     const pq = b[at] >> 4;
     const tq = b[at] & 15;
     if (pq > 1 || tq > 3) throw new LastraError('corrupt', `DQT precision ${pq}, table ${tq}`);
     const size = pq ? 128 : 64;
     if (at + 1 + size > end) throw new LastraError('bad-marker', 'DQT runs past its segment');
     const t = new Uint16Array(64);
-    for (let k = 0; k < 64; k++) t[NATURAL[k]] = pq ? u16(b, at + 1 + 2 * k) : b[at + 1 + k];
+    for (let k = 0; k < 64; k++) t[JPEG_NATURAL_ORDER[k]] = pq ? readJpegU16(b, at + 1 + 2 * k) : b[at + 1 + k];
     quant[tq] = t;
     at += 1 + size;
   }
@@ -247,9 +266,9 @@ function readQuant(b: Uint8Array, at: number, end: number, quant: (Uint16Array |
  * libjpeg builds it at the start of the scan. A file of millions of unused tables costs one step each and
  * no allocation.
  */
-function readHuffman(b: Uint8Array, at: number, end: number, s: State, meter: WorkMeter): void {
+function readJpegHuffman(b: Uint8Array, at: number, end: number, s: State, meter: WorkMeter): void {
   while (at < end) {
-    tick(meter);
+    tickWork(meter);
     if (at + 17 > end) throw new LastraError('bad-marker', 'DHT runs past its segment');
     const tc = b[at] >> 4;
     const th = b[at] & 15;
@@ -265,7 +284,7 @@ function readHuffman(b: Uint8Array, at: number, end: number, s: State, meter: Wo
 }
 
 /** APP2 "ICC_PROFILE\0", sequence number, count, data (ICC.1 Annex B.4). */
-function readIccChunk(b: Uint8Array, at: number, end: number, s: State): void {
+function readJpegIccChunk(b: Uint8Array, at: number, end: number, s: State): void {
   const sig = 'ICC_PROFILE';
   if (end - at < 14) return;
   for (let i = 0; i < sig.length; i++) if (b[at + i] !== sig.charCodeAt(i)) return;
@@ -274,7 +293,7 @@ function readIccChunk(b: Uint8Array, at: number, end: number, s: State): void {
 }
 
 /** libjpeg's `jpeg_read_icc_profile`: every chunk 1..count present once, one count, or no profile. */
-function iccProfile(chunks: State['icc']): Uint8Array | null {
+function jpegIccProfile(chunks: State['icc']): Uint8Array | null {
   if (chunks.length === 0) return null;
   const count = chunks[0].count;
   if (count === 0 || chunks.length !== count) return null;
@@ -295,11 +314,11 @@ function iccProfile(chunks: State['icc']): Uint8Array | null {
   return out;
 }
 
-function readFrame(b: Uint8Array, at: number, end: number, progressive: boolean): Frame {
+function readJpegFrame(b: Uint8Array, at: number, end: number, progressive: boolean): Frame {
   if (end - at < 6) throw new LastraError('bad-marker', 'the frame header is too short');
   const precision = b[at];
-  const height = u16(b, at + 1);
-  const width = u16(b, at + 3);
+  const height = readJpegU16(b, at + 1);
+  const width = readJpegU16(b, at + 3);
   const nf = b[at + 5];
   if (end - at !== 6 + 3 * nf) throw new LastraError('bad-marker', `the frame header length does not fit ${nf} components`);
   if (precision !== 8) throw new LastraError('unsupported', `${precision}-bit samples`);
@@ -333,6 +352,7 @@ function readFrame(b: Uint8Array, at: number, end: number, progressive: boolean)
       stride: 0,
       rows: 0,
       coefs: new Int16Array(0),
+      nz: new Uint8Array(0),
       quant: null,
       quantIdct: null,
       coefBits: new Int8Array(64).fill(-1),
@@ -358,21 +378,29 @@ function readFrame(b: Uint8Array, at: number, end: number, progressive: boolean)
     c.rows = mcusY * c.v;
     blocks += c.stride * c.rows;
   }
-  return { progressive, width, height, hmax, vmax, mcusX, mcusY, comps, allocated: false, blocks, visits: 0, scans: 0, completeScans: 0, lastGood: 0 };
+  return { progressive, width, height, hmax, vmax, mcusX, mcusY, comps, allocated: false, blocks, work: 0, scans: 0, completeScans: 0, lastGood: 0 };
 }
 
 /** The coefficient stores, allocated at the first scan: a header with no scan costs no memory. */
-function allocate(f: Frame): void {
+function allocateCoefficients(f: Frame): void {
   allocating(`the coefficients of a ${f.width}x${f.height} frame`, () => {
-    for (const c of f.comps) c.coefs = new Int16Array(c.stride * c.rows * 64);
+    for (const c of f.comps) {
+      c.coefs = new Int16Array(c.stride * c.rows * 64);
+      c.nz = new Uint8Array(c.stride * c.rows);
+    }
   });
   f.allocated = true;
 }
 
-function tableFor(b: Uint8Array, s: State, index: number, isDC: boolean, meter: WorkMeter): Huffman | null {
+/**
+ * The table a scan names. A missing table 0 or 1 in a sequential frame is Annex K's, as libjpeg-turbo's
+ * Huffman decoder installs for Motion-JPEG frames (jdhuff.c `std_huff_tables`); its progressive decoder
+ * has no such fallback, so there, and for tables 2 and 3, a missing table is refused.
+ */
+function jpegTableFor(b: Uint8Array, s: State, index: number, isDC: boolean, progressive: boolean, meter: WorkMeter): Huffman | null {
   const at = (isDC ? s.dcAt : s.acAt)[index];
   let spec: HuffmanSpec | null;
-  if (at < 0) spec = standardSpec(isDC, index);
+  if (at < 0) spec = progressive ? null : standardSpec(isDC, index);
   else {
     spec = s.specs.get(at) ?? null;
     if (!spec) {
@@ -384,16 +412,16 @@ function tableFor(b: Uint8Array, s: State, index: number, isDC: boolean, meter: 
   }
   if (!spec) return null;
   if (!spec.derived) {
-    tick(meter, 4);
-    spec.derived = derive(spec, isDC);
+    tickWork(meter, 4);
+    spec.derived = deriveHuffman(spec, isDC);
   }
   return spec.derived;
 }
 
-/** Steps of work between yields: about a few milliseconds of decoding. */
-const SLICE = 1 << 15;
+/** Meter steps between yields (a block plus one per 8 coefficients of its band): a few milliseconds. */
+const JPEG_SLICE = 1 << 16;
 
-function* readScan(b: Uint8Array, at: number, end: number, s: State, f: Frame, limits: Limits): Generator<void, number> {
+function* readJpegScan(b: Uint8Array, at: number, end: number, s: State, f: Frame, limits: Limits): Generator<void, number> {
   const meter = limits.meter;
   if (++f.scans > MAX_SCANS) throw new LastraError('too-large', `more than ${MAX_SCANS} scans in one frame`);
   const ns = b[at];
@@ -449,11 +477,11 @@ function* readScan(b: Uint8Array, at: number, end: number, s: State, f: Frame, l
     }
     const needDC = !f.progressive || (ss === 0 && ah === 0);
     const needAC = !f.progressive || ss > 0;
-    c.dc = needDC ? tableFor(b, s, tables[i][0], true, meter) : null;
-    c.ac = needAC ? tableFor(b, s, tables[i][1], false, meter) : null;
+    c.dc = needDC ? jpegTableFor(b, s, tables[i][0], true, f.progressive, meter) : null;
+    c.ac = needAC ? jpegTableFor(b, s, tables[i][1], false, f.progressive, meter) : null;
     if ((needDC && !c.dc) || (needAC && !c.ac)) throw new LastraError('corrupt', `component ${c.id} uses a Huffman table never defined`);
   });
-  if (!f.allocated) allocate(f);
+  if (!f.allocated) allocateCoefficients(f);
 
   const ri = s.restartInterval;
   const r = new BitReader(b, end);
@@ -461,13 +489,18 @@ function* readScan(b: Uint8Array, at: number, end: number, s: State, f: Frame, l
   const c0 = comps[0];
   const total = single ? c0.bw * c0.bh : f.mcusX * f.mcusY;
   const perMcu = single ? 1 : blocksPerMcu;
-  const cap = VISITS_PER_BLOCK * f.blocks;
+  const cap = Math.max(COEF_WORK_PER_BLOCK * f.blocks, COEF_WORK_FLOOR);
+  const band = !f.progressive ? 64 : ss === 0 ? 1 : se - ss + 1;
+  const mcuWork = perMcu * band;
+  const mcuSteps = perMcu * (1 + (band >> 3));
+  const acFirst = f.progressive && ss > 0 && ah === 0;
+  const acRefine = f.progressive && ss > 0 && ah > 0;
   const stepLimit = meter.limit ?? Number.POSITIVE_INFINITY;
   let work = 0;
   let stoppedEarly = false;
   for (let n = 0; n < total; n++) {
     if (ri > 0 && n > 0 && n % ri === 0) {
-      tick(meter);
+      tickWork(meter);
       r.restart();
       for (const c of comps) c.pred = 0;
     }
@@ -480,14 +513,43 @@ function* readScan(b: Uint8Array, at: number, end: number, s: State, f: Frame, l
         stoppedEarly = true;
         break;
       }
-      tick(meter);
+      tickWork(meter);
       n = Math.ceil((n + 1) / ri) * ri - 1;
       continue;
     }
-    f.visits += perMcu;
-    if (f.visits > cap) throw new LastraError('too-large', `more than ${VISITS_PER_BLOCK} visits per coefficient block`);
-    meter.steps += perMcu;
-    if (meter.steps > stepLimit) tick(meter, 0); // throws the work-limit refusal
+    if (acFirst && r.eobrun > 0) {
+      // Inside an end-of-band run a first AC pass leaves blocks as they are: skip the run to its end, the
+      // next restart or the end of the scan in one step (libjpeg walks it a block at a time).
+      const stop = Math.min(total, ri > 0 ? Math.ceil((n + 1) / ri) * ri : total, n + r.eobrun);
+      r.eobrun -= stop - n;
+      f.lastGood = ((((stop - 1) / c0.bw) | 0) / c0.v) | 0;
+      tickWork(meter);
+      n = stop - 1;
+      continue;
+    }
+    if (acRefine && r.eobrun > 0) {
+      // Inside an end-of-band run a refinement touches only blocks with a nonzero AC coefficient; skip the
+      // zero ones in a tight loop, up to the run's end, the next restart or the end of the scan.
+      const stop = Math.min(total, ri > 0 ? Math.ceil((n + 1) / ri) * ri : total);
+      let m = n;
+      while (m < stop && r.eobrun > 0) {
+        const row = (m / c0.bw) | 0;
+        if (c0.nz[row * c0.stride + (m - row * c0.bw)] !== 0) break;
+        r.eobrun--;
+        m++;
+      }
+      if (m > n) {
+        f.lastGood = ((((m - 1) / c0.bw) | 0) / c0.v) | 0;
+        tickWork(meter, 1 + ((m - n) >> 6));
+        work += (m - n) >> 6;
+        n = m - 1;
+        continue;
+      }
+    }
+    f.work += mcuWork;
+    if (f.work > cap) throw new LastraError('too-large', `more than ${COEF_WORK_PER_BLOCK} coefficients decoded per block`);
+    meter.steps += mcuSteps;
+    if (meter.steps > stepLimit) tickWork(meter, 0); // throws the work-limit refusal
     if (single) {
       const row = (n / c0.bw) | 0;
       f.lastGood = (row / c0.v) | 0;
@@ -504,8 +566,8 @@ function* readScan(b: Uint8Array, at: number, end: number, s: State, f: Frame, l
         }
       }
     }
-    work += perMcu;
-    if (work >= SLICE) {
+    work += mcuSteps;
+    if (work >= JPEG_SLICE) {
       work = 0;
       yield;
     }
@@ -524,7 +586,7 @@ function* readScan(b: Uint8Array, at: number, end: number, s: State, f: Frame, l
 }
 
 /** IDCT every component (with smoothing where libjpeg would), upsample, convert to RGBA. */
-function* assemble(f: Frame, s: State, meter: WorkMeter): Generator<void, DecodedImage> {
+function* assembleJpeg(f: Frame, s: State, meter: WorkMeter): Generator<void, DecodedImage & { colorSpace: JpegImage['colorSpace'] }> {
   const { width, height } = f;
   const latches = smoothingLatches(f.comps, f.progressive, f.scans);
   const planes: Plane[] = [];
@@ -532,8 +594,8 @@ function* assemble(f: Frame, s: State, meter: WorkMeter): Generator<void, Decode
     const c = f.comps[ci];
     const data = yield* componentSamples(c, latches ? latches[ci] : null, f.lastGood, meter);
     c.coefs = new Int16Array(0); // free the store before the next plane allocates
-    tick(meter, Math.ceil((width * height) / 64));
-    planes.push(allocating('an upsampled plane', () => upsample({ data, stride: c.bw * 8, width: c.dw, height: c.dh }, f.hmax / c.h, f.vmax / c.v, width, height)));
+    tickWork(meter, Math.ceil((width * height) / 64));
+    planes.push(yield* allocatingSteps('an upsampled plane', upsampleJpegPlane({ data, stride: c.bw * 8, width: c.dw, height: c.dh }, f.hmax / c.h, f.vmax / c.v, width, height)));
     yield;
   }
 
@@ -550,8 +612,8 @@ function* assemble(f: Frame, s: State, meter: WorkMeter): Generator<void, Decode
   const [p0, p1, p2, p3] = planes;
   const perRow = Math.ceil(width / 64);
   for (let y = 0; y < height; y++) {
-    tick(meter, perRow);
-    if ((y & 255) === 255) yield;
+    tickWork(meter, perRow);
+    if ((y & 63) === 63) yield;
     let o = y * width * 4;
     const r0 = y * p0.stride;
     if (transform === 'gray') {
@@ -592,25 +654,25 @@ function* assemble(f: Frame, s: State, meter: WorkMeter): Generator<void, Decode
         if (transform === 'ycck') {
           // libjpeg's ycck_cmyk_convert: YCC to RGB, then C = 255 - R, M = 255 - G, Y = 255 - B; K as stored.
           const yy = c;
-          c = 255 - clamp8(yy + CR_R[ye]);
-          const g = 255 - clamp8(yy + ((CB_G[m] + CR_G[ye]) >> 16));
-          ye = 255 - clamp8(yy + CB_B[m]);
+          c = 255 - clampToByte(yy + CR_R[ye]);
+          const g = 255 - clampToByte(yy + ((CB_G[m] + CR_G[ye]) >> 16));
+          ye = 255 - clampToByte(yy + CB_B[m]);
           m = g;
         }
         // Adobe-inverted CMYK to RGB, Pillow's cmyk2rgb on the un-inverted values: R = nk - nk*C/255.
         const nk = p3.data[r3 + x];
-        out[o] = nk - muldiv255(255 - c, nk);
-        out[o + 1] = nk - muldiv255(255 - m, nk);
-        out[o + 2] = nk - muldiv255(255 - ye, nk);
+        out[o] = nk - mulDiv255Pillow(255 - c, nk);
+        out[o + 1] = nk - mulDiv255Pillow(255 - m, nk);
+        out[o + 2] = nk - mulDiv255Pillow(255 - ye, nk);
         out[o + 3] = 255;
       }
     }
   }
-  return { width, height, data: out };
+  return { width, height, data: out, colorSpace: transform };
 }
 
-const clamp8 = (v: number) => (v < 0 ? 0 : v > 255 ? 255 : v);
-const muldiv255 = (a: number, b: number) => {
+const clampToByte = (v: number) => (v < 0 ? 0 : v > 255 ? 255 : v);
+const mulDiv255Pillow = (a: number, b: number) => {
   const t = a * b + 128;
   return ((t >> 8) + t) >> 8;
 };

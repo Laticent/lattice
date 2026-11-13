@@ -20,7 +20,7 @@
  */
 
 import { idctIslow } from './jpeg-idct.js';
-import { tick } from './limits.js';
+import { tickWork } from './limits.js';
 import type { WorkMeter } from './types.js';
 
 /** The coefficients a component holds and what the smoothing needs to know about them. */
@@ -46,15 +46,15 @@ export interface Latch {
   prev: Int32Array;
 }
 
-const Q01 = 1;
-const Q10 = 8;
-const Q20 = 16;
-const Q11 = 9;
-const Q02 = 2;
-const Q03 = 3;
-const Q12 = 10;
-const Q21 = 17;
-const Q30 = 24;
+const SMOOTH_Q01 = 1;
+const SMOOTH_Q10 = 8;
+const SMOOTH_Q20 = 16;
+const SMOOTH_Q11 = 9;
+const SMOOTH_Q02 = 2;
+const SMOOTH_Q03 = 3;
+const SMOOTH_Q12 = 10;
+const SMOOTH_Q21 = 17;
+const SMOOTH_Q30 = 24;
 
 /** `smoothing_ok`: the per-component latches when smoothing applies, else null. */
 export function smoothingLatches(comps: CoefComponent[], progressive: boolean, scans: number): Latch[] | null {
@@ -64,7 +64,7 @@ export function smoothingLatches(comps: CoefComponent[], progressive: boolean, s
   for (const c of comps) {
     const q = c.quant;
     if (!q) return null;
-    if (q[0] === 0 || q[Q01] === 0 || q[Q10] === 0 || q[Q20] === 0 || q[Q11] === 0 || q[Q02] === 0 || q[Q03] === 0 || q[Q12] === 0 || q[Q21] === 0 || q[Q30] === 0) return null;
+    if (q[0] === 0 || q[SMOOTH_Q01] === 0 || q[SMOOTH_Q10] === 0 || q[SMOOTH_Q20] === 0 || q[SMOOTH_Q11] === 0 || q[SMOOTH_Q02] === 0 || q[SMOOTH_Q03] === 0 || q[SMOOTH_Q12] === 0 || q[SMOOTH_Q21] === 0 || q[SMOOTH_Q30] === 0) return null;
     if (c.coefBits[0] < 0) return null;
     const cur = new Int32Array(10);
     const prev = new Int32Array(10);
@@ -80,7 +80,7 @@ export function smoothingLatches(comps: CoefComponent[], progressive: boolean, s
 }
 
 /** Divide as libjpeg's estimate does: round half away from zero, clamp to what Al bits leave unknown. */
-function estimate(num: number, q: number, al: number): number {
+function smoothEstimate(num: number, q: number, al: number): number {
   const neg = num < 0;
   let pred = Math.floor((q * 128 + (neg ? -num : num)) / (q * 256));
   if (al > 0 && pred >= 1 << al) pred = (1 << al) - 1;
@@ -99,9 +99,9 @@ export function* componentSamples(c: CoefComponent, latch: Latch | null, lastGoo
   const coefs = c.coefs;
   if (!latch) {
     for (let by = 0; by < c.bh; by++) {
-      tick(meter, c.bw);
+      tickWork(meter, c.bw);
       for (let bx = 0; bx < c.bw; bx++) idctIslow(coefs, (by * c.stride + bx) * 64, q, out, by * 8 * pw + bx * 8, pw, ws);
-      if ((by & 63) === 63) yield;
+      if ((by & 15) === 15) yield;
     }
     return out;
   }
@@ -122,7 +122,7 @@ export function* componentSamples(c: CoefComponent, latch: Latch | null, lastGoo
     for (let br = 0; br < blockRows; br++) {
       const row = imcu * v + br;
       if (row >= c.bh) break;
-      tick(meter, c.bw);
+      tickWork(meter, c.bw);
       // libjpeg's neighbor rows, with its own row arithmetic (image_block_row uses this iMCU row's count).
       const ibr = imcu * blockRows + br;
       const prevRow = ibr > 0 ? row - 1 : row;
@@ -163,7 +163,7 @@ export function* componentSamples(c: CoefComponent, latch: Latch | null, lastGoo
             (changeDc
               ? -DC01 - DC02 + DC04 + DC05 - 3 * DC06 + 13 * DC07 - 13 * DC09 + 3 * DC10 - 3 * DC11 + 38 * DC12 - 38 * DC14 + 3 * DC15 - 3 * DC16 + 13 * DC17 - 13 * DC19 + 3 * DC20 - DC21 - DC22 + DC24 + DC25
               : -7 * DC11 + 50 * DC12 - 50 * DC14 + 7 * DC15);
-          work[1] = estimate(num, qt[Q01], al);
+          work[1] = smoothEstimate(num, qt[SMOOTH_Q01], al);
         }
         if ((al = bits[2]) !== 0 && work[8] === 0) {
           const num =
@@ -171,26 +171,26 @@ export function* componentSamples(c: CoefComponent, latch: Latch | null, lastGoo
             (changeDc
               ? -DC01 - 3 * DC02 - 3 * DC03 - 3 * DC04 - DC05 - DC06 + 13 * DC07 + 38 * DC08 + 13 * DC09 - DC10 + DC16 - 13 * DC17 - 38 * DC18 - 13 * DC19 + DC20 + DC21 + 3 * DC22 + 3 * DC23 + 3 * DC24 + DC25
               : -7 * DC03 + 50 * DC08 - 50 * DC18 + 7 * DC23);
-          work[8] = estimate(num, qt[Q10], al);
+          work[8] = smoothEstimate(num, qt[SMOOTH_Q10], al);
         }
         if ((al = bits[3]) !== 0 && work[16] === 0) {
           const num = Q00 * (changeDc ? DC03 + 2 * DC07 + 7 * DC08 + 2 * DC09 - 5 * DC12 - 14 * DC13 - 5 * DC14 + 2 * DC17 + 7 * DC18 + 2 * DC19 + DC23 : -DC03 + 13 * DC08 - 24 * DC13 + 13 * DC18 - DC23);
-          work[16] = estimate(num, qt[Q20], al);
+          work[16] = smoothEstimate(num, qt[SMOOTH_Q20], al);
         }
         if ((al = bits[4]) !== 0 && work[9] === 0) {
           const num =
             Q00 * (changeDc ? -DC01 + DC05 + 9 * DC07 - 9 * DC09 - 9 * DC17 + 9 * DC19 + DC21 - DC25 : DC10 + DC16 - 10 * DC17 + 10 * DC19 - DC02 - DC20 + DC22 - DC24 + DC04 - DC06 + 10 * DC07 - 10 * DC09);
-          work[9] = estimate(num, qt[Q11], al);
+          work[9] = smoothEstimate(num, qt[SMOOTH_Q11], al);
         }
         if ((al = bits[5]) !== 0 && work[2] === 0) {
           const num = Q00 * (changeDc ? 2 * DC07 - 5 * DC08 + 2 * DC09 + DC11 + 7 * DC12 - 14 * DC13 + 7 * DC14 + DC15 + 2 * DC17 - 5 * DC18 + 2 * DC19 : -DC11 + 13 * DC12 - 24 * DC13 + 13 * DC14 - DC15);
-          work[2] = estimate(num, qt[Q02], al);
+          work[2] = smoothEstimate(num, qt[SMOOTH_Q02], al);
         }
         if (changeDc) {
-          if ((al = bits[6]) !== 0 && work[3] === 0) work[3] = estimate(Q00 * (DC07 - DC09 + 2 * DC12 - 2 * DC14 + DC17 - DC19), qt[Q03], al);
-          if ((al = bits[7]) !== 0 && work[10] === 0) work[10] = estimate(Q00 * (DC07 - 3 * DC08 + DC09 - DC17 + 3 * DC18 - DC19), qt[Q12], al);
-          if ((al = bits[8]) !== 0 && work[17] === 0) work[17] = estimate(Q00 * (DC07 - DC09 - 3 * DC12 + 3 * DC14 + DC17 - DC19), qt[Q21], al);
-          if ((al = bits[9]) !== 0 && work[24] === 0) work[24] = estimate(Q00 * (DC07 + 2 * DC08 + DC09 - DC17 - 2 * DC18 - DC19), qt[Q30], al);
+          if ((al = bits[6]) !== 0 && work[3] === 0) work[3] = smoothEstimate(Q00 * (DC07 - DC09 + 2 * DC12 - 2 * DC14 + DC17 - DC19), qt[SMOOTH_Q03], al);
+          if ((al = bits[7]) !== 0 && work[10] === 0) work[10] = smoothEstimate(Q00 * (DC07 - 3 * DC08 + DC09 - DC17 + 3 * DC18 - DC19), qt[SMOOTH_Q12], al);
+          if ((al = bits[8]) !== 0 && work[17] === 0) work[17] = smoothEstimate(Q00 * (DC07 - DC09 - 3 * DC12 + 3 * DC14 + DC17 - DC19), qt[SMOOTH_Q21], al);
+          if ((al = bits[9]) !== 0 && work[24] === 0) work[24] = smoothEstimate(Q00 * (DC07 + 2 * DC08 + DC09 - DC17 - 2 * DC18 - DC19), qt[SMOOTH_Q30], al);
           const num =
             Q00 *
             (-2 * DC01 -
@@ -218,7 +218,7 @@ export function* componentSamples(c: CoefComponent, latch: Latch | null, lastGoo
               8 * DC23 -
               6 * DC24 -
               2 * DC25);
-          work[0] = estimate(num, Q00, 0);
+          work[0] = smoothEstimate(num, Q00, 0);
         }
         idctIslow(work, 0, q, out, row * 8 * pw + col * 8, pw, ws);
         DC01 = DC02;
@@ -242,7 +242,7 @@ export function* componentSamples(c: CoefComponent, latch: Latch | null, lastGoo
         DC23 = DC24;
         DC24 = DC25;
       }
-      if ((row & 63) === 63) yield;
+      if ((row & 15) === 15) yield;
     }
   }
   return out;

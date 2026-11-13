@@ -18,10 +18,10 @@
  * original code.
  */
 
-import { LastraError } from './errors.js';
+import { LastraError } from '../errors.js';
 
 /** Zigzag position to natural (row-major) position, with 16 extra entries for the decoder's overrun. */
-export const NATURAL = new Int32Array([
+export const JPEG_NATURAL_ORDER = new Int32Array([
   0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 21, 28, 35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51, 58, 59, 52,
   45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55, 62, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63, 63,
 ]);
@@ -51,7 +51,7 @@ export function huffmanSpec(counts: Uint8Array, defined: Uint8Array): HuffmanSpe
 }
 
 /** libjpeg's `jpeg_make_d_derived_tbl`, with its two refusals: an over-full code space and a DC symbol over 15. */
-export function derive(spec: HuffmanSpec, isDC: boolean): Huffman {
+export function deriveHuffman(spec: HuffmanSpec, isDC: boolean): Huffman {
   const { counts, symbols } = spec;
   const fast = new Uint16Array(512);
   const maxcode = new Int32Array(18).fill(-1);
@@ -83,27 +83,27 @@ const STD_AC_LUMA =
   '01020300041105122131410613516107227114328191a1082342b1c11552d1f02433627282090a161718191a25262728292a3435363738393a434445464748494a535455565758595a636465666768696a737475767778797a838485868788898a92939495969798999aa2a3a4a5a6a7a8a9aab2b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5d6d7d8d9dae1e2e3e4e5e6e7e8e9eaf1f2f3f4f5f6f7f8f9fa';
 const STD_AC_CHROMA =
   '000102031104052131061241510761711322328108144291a1b1c109233352f0156272d10a162434e125f11718191a262728292a35363738393a434445464748494a535455565758595a636465666768696a737475767778797a82838485868788898a92939495969798999aa2a3a4a5a6a7a8a9aab2b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5d6d7d8d9dae2e3e4e5e6e7e8e9eaf2f3f4f5f6f7f8f9fa';
-const hex = (s: string) => Uint8Array.from(s.match(/../g) as string[], (x) => Number.parseInt(x, 16));
+const hexToBytes = (s: string) => Uint8Array.from(s.match(/../g) as string[], (x) => Number.parseInt(x, 16));
 const STD_DC_SYMBOLS = Uint8Array.from({ length: 12 }, (_, i) => i);
-let standard: HuffmanSpec[] | null = null;
+let standardHuffmanSpecs: HuffmanSpec[] | null = null;
 
 /** The Annex K table for a DC or AC slot 0 or 1, or null for slots 2 and 3 (libjpeg: JERR_NO_HUFF_TABLE). */
 export function standardSpec(isDC: boolean, index: number): HuffmanSpec | null {
   if (index > 1) return null;
-  if (!standard) {
+  if (!standardHuffmanSpecs) {
     const c = (a: number[]) => Uint8Array.from(a);
-    standard = [
+    standardHuffmanSpecs = [
       huffmanSpec(c([0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0]), STD_DC_SYMBOLS),
       huffmanSpec(c([0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0]), STD_DC_SYMBOLS),
-      huffmanSpec(c([0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 125]), hex(STD_AC_LUMA)),
-      huffmanSpec(c([0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 119]), hex(STD_AC_CHROMA)),
+      huffmanSpec(c([0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 125]), hexToBytes(STD_AC_LUMA)),
+      huffmanSpec(c([0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 119]), hexToBytes(STD_AC_CHROMA)),
     ];
   }
-  return standard[(isDC ? 0 : 2) + index];
+  return standardHuffmanSpecs[(isDC ? 0 : 2) + index];
 }
 
 /** The marker code an end of file stands for: libjpeg's source manager inserts a fake EOI there. */
-const FAKE_EOI = 0xd9;
+const JPEG_FAKE_EOI = 0xd9;
 
 /** The entropy-coded segment reader, with libjpeg's rules for markers, fill bytes and running out. */
 export class BitReader {
@@ -131,7 +131,7 @@ export class BitReader {
   /** The marker the reader is stopped at, or -1; the end of the file counts as EOI. */
   pending(): number {
     if (this.marker) return this.markerCode;
-    if (this.eof) return FAKE_EOI;
+    if (this.eof) return JPEG_FAKE_EOI;
     return -1;
   }
 
@@ -274,11 +274,13 @@ export class BitReader {
   }
 }
 
-export const extend = (v: number, s: number) => (v < 1 << (s - 1) ? v - (1 << s) + 1 : v);
+export const huffExtend = (v: number, s: number) => (v < 1 << (s - 1) ? v - (1 << s) + 1 : v);
 
 /** What a block decoder needs of its component. */
 export interface BlockTarget {
   coefs: Int16Array;
+  /** Per block: 1 once any AC coefficient is nonzero (progressive), so a refinement can skip zero blocks. */
+  nz: Uint8Array;
   pred: number;
   dc: Huffman | null;
   ac: Huffman | null;
@@ -290,7 +292,7 @@ export type BlockDecoder = (r: BitReader, c: BlockTarget, at: number) => void;
 export function decodeSequential(r: BitReader, c: BlockTarget, at: number): void {
   const coefs = c.coefs;
   const t = r.decode(c.dc as Huffman);
-  const diff = t === 0 ? 0 : extend(r.bits(t), t);
+  const diff = t === 0 ? 0 : huffExtend(r.bits(t), t);
   c.pred = (c.pred + diff) | 0;
   coefs[at] = c.pred;
   const ac = c.ac as Huffman;
@@ -304,7 +306,7 @@ export function decodeSequential(r: BitReader, c: BlockTarget, at: number): void
       continue;
     }
     k += run;
-    coefs[at + NATURAL[k]] = extend(r.bits(s), s);
+    coefs[at + JPEG_NATURAL_ORDER[k]] = huffExtend(r.bits(s), s);
   }
 }
 
@@ -314,7 +316,7 @@ export function progressiveDecoder(ss: number, se: number, ah: number, al: numbe
     if (ah === 0) {
       return (r, c, at) => {
         const t = r.decode(c.dc as Huffman);
-        const diff = t === 0 ? 0 : extend(r.bits(t), t);
+        const diff = t === 0 ? 0 : huffExtend(r.bits(t), t);
         const pred = c.pred + diff;
         // libjpeg-turbo refuses a DC sum past a 32-bit int here (JERR_BAD_DCT_COEF).
         if (pred > 0x7fffffff || pred < -0x80000000) throw new LastraError('corrupt', 'a DC coefficient overflows 32 bits');
@@ -340,7 +342,8 @@ export function progressiveDecoder(ss: number, se: number, ah: number, al: numbe
         const run = rs >> 4;
         if (s !== 0) {
           k += run;
-          coefs[at + NATURAL[k]] = extend(r.bits(s), s) * (1 << al);
+          coefs[at + JPEG_NATURAL_ORDER[k]] = huffExtend(r.bits(s), s) * (1 << al);
+          c.nz[at >> 6] = 1;
         } else if (run === 15) {
           k += 15;
         } else {
@@ -369,18 +372,23 @@ export function progressiveDecoder(ss: number, se: number, ah: number, al: numbe
         }
         // Step over coefficients already nonzero (refining each) and `run` zero ones.
         do {
-          const i = at + NATURAL[k];
+          const i = at + JPEG_NATURAL_ORDER[k];
           if (coefs[i] !== 0) {
             if (r.bit() && (coefs[i] & p1) === 0) coefs[i] += coefs[i] >= 0 ? p1 : m1;
           } else if (--run < 0) break;
           k++;
         } while (k <= se);
-        if (s !== 0) coefs[at + NATURAL[k]] = s;
+        if (s !== 0) {
+          coefs[at + JPEG_NATURAL_ORDER[k]] = s;
+          c.nz[at >> 6] = 1;
+        }
       }
     }
     if (r.eobrun > 0) {
+      // A block with no nonzero AC coefficient has nothing to refine and reads no bits.
+      if (c.nz[at >> 6] === 0) k = se + 1;
       for (; k <= se; k++) {
-        const i = at + NATURAL[k];
+        const i = at + JPEG_NATURAL_ORDER[k];
         if (coefs[i] !== 0 && r.bit() && (coefs[i] & p1) === 0) coefs[i] += coefs[i] >= 0 ? p1 : m1;
       }
       r.eobrun--;

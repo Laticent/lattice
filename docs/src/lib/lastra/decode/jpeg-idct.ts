@@ -24,18 +24,18 @@
  * re-expression, not the original code.
  */
 
-const F_0_298 = 2446;
-const F_0_390 = 3196;
-const F_0_541 = 4433;
-const F_0_765 = 6270;
-const F_0_899 = 7373;
-const F_1_175 = 9633;
-const F_1_501 = 12299;
-const F_1_847 = 15137;
-const F_1_961 = 16069;
-const F_2_053 = 16819;
-const F_2_562 = 20995;
-const F_3_072 = 25172;
+const ISLOW_F_0_298 = 2446;
+const ISLOW_F_0_390 = 3196;
+const ISLOW_F_0_541 = 4433;
+const ISLOW_F_0_765 = 6270;
+const ISLOW_F_0_899 = 7373;
+const ISLOW_F_1_175 = 9633;
+const ISLOW_F_1_501 = 12299;
+const ISLOW_F_1_847 = 15137;
+const ISLOW_F_1_961 = 16069;
+const ISLOW_F_2_053 = 16819;
+const ISLOW_F_2_562 = 20995;
+const ISLOW_F_3_072 = 25172;
 
 // DESCALE(x, n) cast to `int`, as libjpeg computes it: `x` is a 64-bit JLONG there, shifted, then cut to
 // 32 bits. A plain `>>` would cut first and shift after, which differs once `x` passes 2^31 (a file whose
@@ -43,10 +43,10 @@ const F_3_072 = 25172;
 // each use below, because a helper call per sample cost 15% of a baseline decode.
 
 /** libjpeg's post-IDCT range-limit table: index `(v & 1023)` for a centered result `v`. */
-const RANGE = new Uint8Array(1024);
+const IDCT_RANGE_LIMIT = new Uint8Array(1024);
 for (let i = 0; i < 1024; i++) {
   const v = (i < 512 ? i : i - 1024) + 128;
-  RANGE[i] = v < 0 ? 0 : v > 255 ? 255 : v;
+  IDCT_RANGE_LIMIT[i] = v < 0 ? 0 : v > 255 ? 255 : v;
 }
 
 /**
@@ -73,9 +73,9 @@ export function idctIslow(coefs: Int16Array, at: number, q: Int16Array, out: Uin
     }
     let z2 = coefs[i + 16] * q[c + 16];
     let z3 = coefs[i + 48] * q[c + 48];
-    let z1 = (z2 + z3) * F_0_541;
-    let tmp2 = z1 + z3 * -F_1_847;
-    let tmp3 = z1 + z2 * F_0_765;
+    let z1 = (z2 + z3) * ISLOW_F_0_541;
+    let tmp2 = z1 + z3 * -ISLOW_F_1_847;
+    let tmp3 = z1 + z2 * ISLOW_F_0_765;
     z2 = coefs[i] * q[c];
     z3 = coefs[i + 32] * q[c + 32];
     let tmp0 = (z2 + z3) * 8192;
@@ -93,15 +93,15 @@ export function idctIslow(coefs: Int16Array, at: number, q: Int16Array, out: Uin
     z2 = tmp1 + tmp2;
     z3 = tmp0 + tmp2;
     let z4 = tmp1 + tmp3;
-    const z5 = (z3 + z4) * F_1_175;
-    tmp0 *= F_0_298;
-    tmp1 *= F_2_053;
-    tmp2 *= F_3_072;
-    tmp3 *= F_1_501;
-    z1 *= -F_0_899;
-    z2 *= -F_2_562;
-    z3 = z3 * -F_1_961 + z5;
-    z4 = z4 * -F_0_390 + z5;
+    const z5 = (z3 + z4) * ISLOW_F_1_175;
+    tmp0 *= ISLOW_F_0_298;
+    tmp1 *= ISLOW_F_2_053;
+    tmp2 *= ISLOW_F_3_072;
+    tmp3 *= ISLOW_F_1_501;
+    z1 *= -ISLOW_F_0_899;
+    z2 *= -ISLOW_F_2_562;
+    z3 = z3 * -ISLOW_F_1_961 + z5;
+    z4 = z4 * -ISLOW_F_0_390 + z5;
     tmp0 += z1 + z3;
     tmp1 += z2 + z4;
     tmp2 += z2 + z3;
@@ -124,15 +124,15 @@ export function idctIslow(coefs: Int16Array, at: number, q: Int16Array, out: Uin
     let o = outAt + r * stride;
     if (ws[w + 1] === 0 && ws[w + 2] === 0 && ws[w + 3] === 0 && ws[w + 4] === 0 && ws[w + 5] === 0 && ws[w + 6] === 0 && ws[w + 7] === 0) {
       const d = ws[w] + 16;
-      const v = RANGE[(d <= 2147483647 ? d >> 5 : Math.floor(d / 32)) & 1023];
+      const v = IDCT_RANGE_LIMIT[(d <= 2147483647 ? d >> 5 : Math.floor(d / 32)) & 1023];
       for (let k = 0; k < 8; k++) out[o++] = v;
       continue;
     }
     let z2 = ws[w + 2];
     let z3 = ws[w + 6];
-    let z1 = (z2 + z3) * F_0_541;
-    let tmp2 = z1 + z3 * -F_1_847;
-    let tmp3 = z1 + z2 * F_0_765;
+    let z1 = (z2 + z3) * ISLOW_F_0_541;
+    let tmp2 = z1 + z3 * -ISLOW_F_1_847;
+    let tmp3 = z1 + z2 * ISLOW_F_0_765;
     let tmp0 = (ws[w] + ws[w + 4]) * 8192;
     let tmp1 = (ws[w] - ws[w + 4]) * 8192;
     const tmp10 = tmp0 + tmp3;
@@ -148,29 +148,29 @@ export function idctIslow(coefs: Int16Array, at: number, q: Int16Array, out: Uin
     z2 = tmp1 + tmp2;
     z3 = tmp0 + tmp2;
     let z4 = tmp1 + tmp3;
-    const z5 = (z3 + z4) * F_1_175;
-    tmp0 *= F_0_298;
-    tmp1 *= F_2_053;
-    tmp2 *= F_3_072;
-    tmp3 *= F_1_501;
-    z1 *= -F_0_899;
-    z2 *= -F_2_562;
-    z3 = z3 * -F_1_961 + z5;
-    z4 = z4 * -F_0_390 + z5;
+    const z5 = (z3 + z4) * ISLOW_F_1_175;
+    tmp0 *= ISLOW_F_0_298;
+    tmp1 *= ISLOW_F_2_053;
+    tmp2 *= ISLOW_F_3_072;
+    tmp3 *= ISLOW_F_1_501;
+    z1 *= -ISLOW_F_0_899;
+    z2 *= -ISLOW_F_2_562;
+    z3 = z3 * -ISLOW_F_1_961 + z5;
+    z4 = z4 * -ISLOW_F_0_390 + z5;
     tmp0 += z1 + z3;
     tmp1 += z2 + z4;
     tmp2 += z2 + z3;
     tmp3 += z1 + z4;
 
     // DESCALE(x, 18) = (x + 2^17) >> 18
-    out[o] = RANGE[((t = tmp10 + tmp3 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
-    out[o + 7] = RANGE[((t = tmp10 - tmp3 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
-    out[o + 1] = RANGE[((t = tmp11 + tmp2 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
-    out[o + 6] = RANGE[((t = tmp11 - tmp2 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
-    out[o + 2] = RANGE[((t = tmp12 + tmp1 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
-    out[o + 5] = RANGE[((t = tmp12 - tmp1 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
-    out[o + 3] = RANGE[((t = tmp13 + tmp0 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
-    out[o + 4] = RANGE[((t = tmp13 - tmp0 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o] = IDCT_RANGE_LIMIT[((t = tmp10 + tmp3 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 7] = IDCT_RANGE_LIMIT[((t = tmp10 - tmp3 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 1] = IDCT_RANGE_LIMIT[((t = tmp11 + tmp2 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 6] = IDCT_RANGE_LIMIT[((t = tmp11 - tmp2 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 2] = IDCT_RANGE_LIMIT[((t = tmp12 + tmp1 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 5] = IDCT_RANGE_LIMIT[((t = tmp12 - tmp1 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 3] = IDCT_RANGE_LIMIT[((t = tmp13 + tmp0 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 4] = IDCT_RANGE_LIMIT[((t = tmp13 - tmp0 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
   }
 }
 

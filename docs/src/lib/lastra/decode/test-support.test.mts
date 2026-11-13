@@ -1,13 +1,16 @@
 /**
  * Shared by the decode tests (Node only: they read committed fixtures and hash with node:crypto).
- * Not part of the library.
+ * Not part of the library. Named `*.test.mts` on purpose: lastra's builder, its standalone typecheck and
+ * its import-boundary gate skip test files, and vitest collects only `*.test.ts`, so this is neither
+ * shipped nor run as a suite.
  */
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { crc32, deflateSync } from 'node:zlib';
 
-export const FIXTURES = new URL('./fixtures/', import.meta.url);
+export const FIXTURES = fileURLToPath(new URL('./fixtures/', import.meta.url));
 
 export interface Expected {
   seed: number;
@@ -15,12 +18,13 @@ export interface Expected {
   libjpegTurbo: string;
   png: Record<string, { width: number; height: number; rgbaSha256: string; iccSha256: string | null; tags: string[] }>;
   jpeg: Record<string, { width: number; height: number; pillowMode: string; rgbaSha256: string; iccSha256: string | null; exifOrientation: number | null }>;
+  zlib: Record<string, { outputLength: number; outputSha256: string; zlibVerdict: 'ok' | 'adler' | 'error' | 'truncated' }>;
 }
 
-export const expected: Expected = JSON.parse(readFileSync(new URL('expected.json', FIXTURES), 'utf8'));
+export const expected: Expected = JSON.parse(readFileSync(`${FIXTURES}expected.json`, 'utf8'));
 
 export function fixture(kind: 'png' | 'jpeg', name: string): Uint8Array {
-  return new Uint8Array(readFileSync(new URL(`${kind}/${name}`, FIXTURES)));
+  return new Uint8Array(readFileSync(`${FIXTURES}${kind}/${name}`));
 }
 
 export function sha256(data: Uint8Array | Uint8ClampedArray): string {
@@ -97,14 +101,16 @@ export function declared(kind: 'png' | 'jpeg', b: Uint8Array): Declared {
  * The most steps a decode may count: a bound proven from the decoders' loops (their headers say how),
  * so a decode past it is a runaway whatever the clock says. The meter counts work: per segment, table and
  * 64 skipped bytes (each at most one per input byte); per decoded block, at most 32 visits a block plus a
- * restart or skip per visit or per input byte; per IDCT block; per 64 output pixels, once for the color
+ * restart or skip per visit or per input byte (`decoded block` steps sit under the coefficient-work cap); per IDCT block; per 64 output pixels, once for the color
  * conversion and once per component's upsampling. PNG: per chunk, per inflated read plus per 4 KB, per
  * scanline plus per 64 of its bytes.
  */
 export function workLimit(kind: 'png' | 'jpeg', b: Uint8Array): number {
   const d = declared(kind, b);
   if (kind === 'png') return 1000 + b.length + 2 * d.units + 4 * d.height;
-  return 50_000 + 3 * b.length + 100 * d.units + 6 * Math.ceil(d.pixels / 64) + 2 * d.height;
+  // Decoded blocks: a step per block plus one per 8 coefficients, inside the coefficient-work cap of
+  // max(1024 x blocks, 2^26) (jpeg.ts COEF_WORK_PER_BLOCK, COEF_WORK_FLOOR); a DC scan is the worst case.
+  return 50_000 + 3 * b.length + 1100 * d.units + (1 << 26) + 6 * Math.ceil(d.pixels / 64) + 2 * d.height;
 }
 
 /** Steps per unit of declared work: what the fuzz holds near its measured maximum. */

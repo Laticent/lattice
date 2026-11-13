@@ -1,3 +1,5 @@
+import type { AbortSignalLike } from './steps.js';
+
 /**
  * The shapes the decoders share: what a caller passes in and what comes back.
  */
@@ -28,7 +30,7 @@ export interface DecodeOptions {
   /** Optional work counter (see `WorkMeter`). */
   meter?: WorkMeter;
   /** Abort an async decode: it rejects with the signal's reason at its next yield. Ignored by `decodeJpegSync`. */
-  signal?: AbortSignal;
+  signal?: AbortSignalLike;
 }
 
 export const DEFAULT_MAX_PIXELS = 100_000_000;

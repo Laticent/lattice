@@ -2,9 +2,10 @@
  * PNG to RGBA (engineering/decisions/2026-11-13-image-library.md §3, slice 3).
  *
  * Every color type (gray, RGB, palette, gray + alpha, RGBA) at every bit depth the format allows
- * (1, 2, 4, 8, 16), `tRNS` transparency, and Adam7 interlacing. Inflate is the platform's
- * `DecompressionStream` (inflate.ts), so the decode is async; each scanline is unfiltered and written out
- * as it arrives, so the inflated image is never held whole beside the RGBA it becomes.
+ * (1, 2, 4, 8, 16), `tRNS` transparency, and Adam7 interlacing. Inflate is lastra's own (inflate.ts), so
+ * the answer is the same in Node, every browser and a worker. The IDAT chunks are read in place, and each
+ * scanline is unfiltered and written out as it inflates, so neither the compressed nor the inflated image
+ * is ever copied whole.
  *
  * What it reads and what it ignores, following libpng (which Firefox and WebKit decode with):
  * - 16-bit samples become 8-bit by their high byte (libpng `png_set_strip_16`, Chromium, WebKit, Pillow;
@@ -16,30 +17,33 @@
  *   palette), never on a type with an alpha channel. Anywhere else it is ignored, not refused. A gray or
  *   RGB key is masked to the bit depth before it is compared, as `png_do_expand` does.
  * - The image data stops at the size the header implies: more inflated bytes, bytes after the zlib stream
- *   and the Adler-32 after it are not read, as libpng and every browser engine display such files.
- * - Color management is NOT applied. The samples come back as stored, and the color chunks are reported
- *   so a host can hand a tagged file to a color-managed decoder instead: `icc` (the inflated `iCCP`
- *   profile, or null) and `tags` (which of `iCCP`, `sRGB`, `gAMA`, `cHRM`, `cICP` the file carries).
+ *   and the Adler-32 after it are not read. Every engine displays the extra data; on a bad or missing
+ *   Adler-32 they split (Chromium shows a bad one, Firefox and WebKit drop rows), and lastra reads none.
+ *   Zero-length IDAT chunks are skipped.
+ * - Color management is NOT applied. The samples come back as stored, and the color chunks come back
+ *   parsed (`color`: the inflated `iCCP` profile, the `sRGB` intent, `gAMA`, `cHRM`, `cICP`), so a host can
+ *   hand a tagged file to a color-managed decoder instead.
  * - APNG: the default image only (`acTL`, `fcTL`, `fdAT` are ancillary and skipped).
  *
  * Refusals (each a `LastraError`): no signature or a malformed chunk header (`bad-marker`); bytes that
- * end mid-chunk or before any image data (`truncated`); a bad CRC on IHDR, PLTE, IDAT or IEND (`crc`); an
- * impossible header, a bad filter byte, IDAT chunks that are not consecutive, image data that inflates to
- * less than the header implies or fails to inflate before then (`corrupt`, or `truncated` when the stream
- * ends cleanly short); an unknown critical chunk (`unsupported`); an input over `maxBytes`, or a header
- * over `maxPixels`, before anything is inflated (`too-large`). A bad CRC on a chunk lastra reads but does
- * not need (`tRNS`, `iCCP`, `sRGB`, `gAMA`, `cHRM`, `cICP`) drops that chunk, as libpng does.
+ * end mid-chunk or before the image data is complete (`truncated`); a bad CRC on IHDR, PLTE, IDAT or IEND
+ * (`crc`); an impossible header, a bad filter byte, IDAT chunks that are not consecutive, a zlib stream
+ * that does not inflate (`corrupt`); an unknown critical chunk (`unsupported`); an input over `maxBytes`, a
+ * header over `maxPixels`, or more than MAX_PNG_CHUNKS chunks (`too-large`), each before anything is
+ * inflated. A bad CRC on a chunk lastra reads but does not need (`tRNS`, `iCCP`, `sRGB`, `gAMA`, `cHRM`,
+ * `cICP`) drops that chunk, as libpng does.
  */
 
-import { LastraError } from './errors.js';
-import { inflateInto, inflateSmall } from './inflate.js';
-import { allocating, checkPixels, resolveLimits, tick } from './limits.js';
+import { LastraError } from '../errors.js';
+import { type ByteSource, type InflateSink, inflateSmall, inflateTo } from './inflate.js';
+import { allocating, checkPixels, resolveLimits, tickWork } from './limits.js';
+import { runSteps, runStepsSync } from './steps.js';
 import type { DecodedImage, DecodeOptions, WorkMeter } from './types.js';
 
-const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+const PNG_SIGNATURE_BYTES = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 /** Adam7: x offset, y offset, x step, y step, per pass. */
-const ADAM7 = [
+const ADAM7_PASSES = [
   [0, 0, 8, 8],
   [4, 0, 8, 8],
   [0, 4, 4, 8],
@@ -50,43 +54,64 @@ const ADAM7 = [
 ] as const;
 
 /** Allowed bit depths per color type. */
-const DEPTHS: Record<number, readonly number[]> = { 0: [1, 2, 4, 8, 16], 2: [8, 16], 3: [1, 2, 4, 8], 4: [8, 16], 6: [8, 16] };
-const CHANNELS: Record<number, number> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
+const PNG_BIT_DEPTHS: Record<number, readonly number[]> = { 0: [1, 2, 4, 8, 16], 2: [8, 16], 3: [1, 2, 4, 8], 4: [8, 16], 6: [8, 16] };
+const PNG_CHANNEL_COUNT: Record<number, number> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
 
 /** The largest inflated `iCCP` profile kept; a bigger one is dropped (a real profile is under 1 MB). */
-const MAX_ICC_BYTES = 16 * 1024 * 1024;
+const MAX_PNG_ICC_BYTES = 16 * 1024 * 1024;
 
-/** Which color chunks a PNG carries (none of them is applied). */
-export interface PngColorTags {
-  iccp: boolean;
-  srgb: boolean;
-  gama: boolean;
-  chrm: boolean;
-  cicp: boolean;
+/**
+ * Chunks per file. A real PNG has tens; an encoder that writes one IDAT per row reaches the height of the
+ * image (65,535 for the tallest a browser shows comfortably). Twenty million empty IDATs once aborted Node
+ * with an uncatchable heap exhaustion; past this, `too-large`.
+ */
+export const MAX_PNG_CHUNKS = 1 << 20;
+
+/** The color information a PNG carries, parsed; none of it is applied. */
+export interface PngColor {
+  /** The `sRGB` rendering intent (0 to 3), or null. */
+  srgbIntent: number | null;
+  /** `gAMA` as a number (45455 in the file is 0.45455), or null. */
+  gamma: number | null;
+  /** `cHRM` white point and primaries as CIE x, y, or null. */
+  chromaticities: { white: [number, number]; red: [number, number]; green: [number, number]; blue: [number, number] } | null;
+  /** `cICP` (ITU-T H.273 code points), or null. */
+  cicp: { primaries: number; transfer: number; matrix: number; fullRange: boolean } | null;
 }
 
-/** A decoded PNG: the pixels, the `iCCP` profile (not applied) or null, and the color chunks present. */
+/** A decoded PNG: the pixels, the `iCCP` profile (not applied) or null, and the other color chunks. */
 export interface PngImage extends DecodedImage {
   icc: Uint8Array | null;
-  tags: PngColorTags;
+  color: PngColor;
 }
 
-let crcTable: Uint32Array | null = null;
-function crc32(bytes: Uint8Array, start: number, end: number): number {
-  if (!crcTable) {
-    crcTable = new Uint32Array(256);
+/** CRC-32 (PNG's polynomial) continued from `c`; the decode feeds a large chunk to it in slices. */
+let pngCrcTable: Uint32Array | null = null;
+function pngCrcUpdate(c: number, bytes: Uint8Array, start: number, end: number): number {
+  if (!pngCrcTable) {
+    pngCrcTable = new Uint32Array(256);
     for (let n = 0; n < 256; n++) {
-      let c = n;
-      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-      crcTable[n] = c >>> 0;
+      let k = n;
+      for (let j = 0; j < 8; j++) k = k & 1 ? 0xedb88320 ^ (k >>> 1) : k >>> 1;
+      pngCrcTable[n] = k >>> 0;
     }
   }
+  const t = pngCrcTable;
+  for (let i = start; i < end; i++) c = t[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return c;
+}
+
+/** A chunk's CRC over its type and data, yielding every 1 MB so a 100 MB IDAT does not hold the thread. */
+function* pngChunkCrc(bytes: Uint8Array, at: number, dataEnd: number): Generator<void, number> {
   let c = 0xffffffff;
-  for (let i = start; i < end; i++) c = crcTable[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  for (let i = at + 4; i < dataEnd; i += 1 << 20) {
+    c = pngCrcUpdate(c, bytes, i, Math.min(dataEnd, i + (1 << 20)));
+    if (dataEnd - i > 1 << 20) yield;
+  }
   return (c ^ 0xffffffff) >>> 0;
 }
 
-const u32 = (b: Uint8Array, o: number) => ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0;
+const readPngU32 = (b: Uint8Array, o: number) => ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0;
 
 interface Header {
   width: number;
@@ -96,89 +121,125 @@ interface Header {
   interlace: number;
 }
 
-function isLetter(c: number): boolean {
+function isChunkLetter(c: number): boolean {
   return (c >= 65 && c <= 90) || (c >= 97 && c <= 122);
 }
 
 /** The color chunks, read only before PLTE and IDAT (libpng ignores them later as out of place). */
-const COLOR_CHUNKS = new Set(['iCCP', 'sRGB', 'gAMA', 'cHRM', 'cICP']);
+const PNG_COLOR_CHUNKS = new Set(['iCCP', 'sRGB', 'gAMA', 'cHRM', 'cICP']);
 
-/** Decode a PNG to RGBA. Async because inflate runs through `DecompressionStream`; `opts.signal` aborts it. */
-export async function decodePng(bytes: Uint8Array, opts?: DecodeOptions): Promise<PngImage> {
+/** Chunks between yields while the chunk list is walked. */
+const PNG_CHUNK_SLICE = 1 << 14;
+
+/** Decode a PNG to RGBA, yielding to the event loop as it goes; `opts.signal` aborts it. */
+export function decodePng(bytes: Uint8Array, opts?: DecodeOptions): Promise<PngImage> {
+  return runSteps(() => pngSteps(bytes, opts), opts?.signal);
+}
+
+/** The same decode, start to finish, without yielding. */
+export function decodePngSync(bytes: Uint8Array, opts?: DecodeOptions): PngImage {
+  return runStepsSync(pngSteps(bytes, opts));
+}
+
+/**
+ * The bytes of every IDAT chunk from `first` on, in order, read in place: chunk headers are walked as the
+ * inflate asks for bytes, so no list of chunks is ever built. The first pass already checked them.
+ */
+function idatSource(b: Uint8Array, first: number): ByteSource {
+  let at = first + 8;
+  let end = at + readPngU32(b, first);
+  return {
+    next: () => {
+      while (at >= end) {
+        // Step over the CRC to the next chunk; past the last IDAT the stream has no more bytes.
+        const next = end + 4;
+        if (next + 8 > b.length || b[next + 4] !== 0x49 || b[next + 5] !== 0x44 || b[next + 6] !== 0x41 || b[next + 7] !== 0x54) return -1;
+        at = next + 8;
+        end = at + readPngU32(b, next);
+      }
+      return b[at++];
+    },
+  };
+}
+
+function* pngSteps(bytes: Uint8Array, opts: DecodeOptions | undefined): Generator<void, PngImage> {
   const limits = resolveLimits(bytes, opts);
   const meter = limits.meter;
-  const signal = opts?.signal;
-  signal?.throwIfAborted();
   const len = bytes.length;
-  for (let i = 0; i < SIGNATURE.length; i++) {
+  for (let i = 0; i < PNG_SIGNATURE_BYTES.length; i++) {
     if (i >= len) throw new LastraError('truncated', 'the file ends inside the PNG signature');
-    if (bytes[i] !== SIGNATURE[i]) throw new LastraError('bad-marker', 'not a PNG: the signature does not match');
+    if (bytes[i] !== PNG_SIGNATURE_BYTES[i]) throw new LastraError('bad-marker', 'not a PNG: the signature does not match');
   }
 
   let header: Header | null = null;
   let palette: Uint8Array | null = null;
   let trns: Uint8Array | null = null;
   let sawTrns = false;
-  let iccp: Uint8Array | null = null;
-  const tags: PngColorTags = { iccp: false, srgb: false, gama: false, chrm: false, cicp: false };
-  const idat: Uint8Array[] = [];
+  let icc: Uint8Array | null = null;
+  const color: PngColor = { srgbIntent: null, gamma: null, chromaticities: null, cicp: null };
+  let firstIdat = -1;
   let idatBytes = 0;
   let idatClosed = false;
   let sawEnd = false;
+  let chunks = 0;
 
   let at = 8;
   while (at < len) {
-    tick(meter);
+    tickWork(meter);
+    if (++chunks > MAX_PNG_CHUNKS) throw new LastraError('too-large', `more than ${MAX_PNG_CHUNKS} chunks`);
+    if ((chunks & (PNG_CHUNK_SLICE - 1)) === 0) yield;
     if (at + 8 > len) throw new LastraError('truncated', 'the file ends inside a chunk header');
-    const length = u32(bytes, at);
+    const length = readPngU32(bytes, at);
     if (length > 0x7fffffff) throw new LastraError('bad-marker', `a chunk declares ${length} bytes, over the format's 2^31 - 1`);
     const t0 = bytes[at + 4];
     const t1 = bytes[at + 5];
     const t2 = bytes[at + 6];
     const t3 = bytes[at + 7];
-    if (!isLetter(t0) || !isLetter(t1) || !isLetter(t2) || !isLetter(t3)) throw new LastraError('bad-marker', `a chunk type at byte ${at + 4} is not four letters`);
-    const type = String.fromCharCode(t0, t1, t2, t3);
+    if (!isChunkLetter(t0) || !isChunkLetter(t1) || !isChunkLetter(t2) || !isChunkLetter(t3)) throw new LastraError('bad-marker', `a chunk type at byte ${at + 4} is not four letters`);
+    const isIdat = t0 === 0x49 && t1 === 0x44 && t2 === 0x41 && t3 === 0x54;
     const dataStart = at + 8;
     const dataEnd = dataStart + length;
-    if (dataEnd + 4 > len) throw new LastraError('truncated', `the file ends inside the ${type} chunk`);
+    if (dataEnd + 4 > len) throw new LastraError('truncated', `the file ends inside the ${String.fromCharCode(t0, t1, t2, t3)} chunk`);
     const critical = (t0 & 0x20) === 0;
-    const read = critical || type === 'tRNS' || COLOR_CHUNKS.has(type);
-    const crcOk = read ? crc32(bytes, at + 4, dataEnd) === u32(bytes, dataEnd) : true;
-    if (!header && type !== 'IHDR') throw new LastraError('bad-marker', `the first chunk is ${type}, not IHDR`);
+    if (!header && !(t0 === 0x49 && t1 === 0x48 && t2 === 0x44 && t3 === 0x52)) throw new LastraError('bad-marker', 'the first chunk is not IHDR');
+    tickWork(meter, length >> 16);
+    if (isIdat) {
+      // The hot path for a file of many IDATs: no string, no object, nothing kept but the first offset.
+      if ((yield* pngChunkCrc(bytes, at, dataEnd)) !== readPngU32(bytes, dataEnd)) throw new LastraError('crc', "an IDAT chunk's CRC does not match its bytes");
+      if (idatClosed) throw new LastraError('corrupt', 'IDAT chunks are not consecutive');
+      if (firstIdat < 0) firstIdat = at;
+      idatBytes += length;
+      at = dataEnd + 4;
+      continue;
+    }
+    if (firstIdat >= 0) idatClosed = true;
+    const type = String.fromCharCode(t0, t1, t2, t3);
+    const read = critical || type === 'tRNS' || PNG_COLOR_CHUNKS.has(type);
+    const crcOk = read ? (yield* pngChunkCrc(bytes, at, dataEnd)) === readPngU32(bytes, dataEnd) : true;
     if (critical && !crcOk) throw new LastraError('crc', `the ${type} chunk's CRC does not match its bytes`);
-    if (idat.length > 0 && type !== 'IDAT') idatClosed = true;
-    tick(meter, length >> 16);
 
     if (type === 'IHDR') {
       if (header) throw new LastraError('bad-marker', 'a second IHDR chunk');
       if (length !== 13) throw new LastraError('bad-marker', `IHDR is ${length} bytes, not 13`);
-      header = readHeader(bytes, dataStart);
+      header = readPngHeader(bytes, dataStart);
       checkPixels(header.width, header.height, limits);
     } else if (type === 'PLTE') {
-      if (idat.length > 0) throw new LastraError('bad-marker', 'PLTE after the image data');
+      if (firstIdat >= 0) throw new LastraError('bad-marker', 'PLTE after the image data');
       if (palette) throw new LastraError('bad-marker', 'a second PLTE chunk');
       if (length === 0 || length % 3 !== 0 || length > 768) throw new LastraError('corrupt', `PLTE is ${length} bytes, not 3 to 768 in steps of 3`);
       palette = bytes.subarray(dataStart, dataEnd);
     } else if (type === 'tRNS') {
       // libpng's png_handle_tRNS: every misplaced, repeated or wrongly sized tRNS is a benign error, ignored.
       const h = header as Header;
-      const placed = crcOk && !sawTrns && idat.length === 0 && (h.colorType !== 3 || palette !== null);
+      const placed = crcOk && !sawTrns && firstIdat < 0 && (h.colorType !== 3 || palette !== null);
       const sized = h.colorType === 0 ? length === 2 : h.colorType === 2 ? length === 6 : h.colorType === 3 ? palette !== null && length > 0 && length <= palette.length / 3 : false;
       if (placed && sized) trns = bytes.subarray(dataStart, dataEnd);
       sawTrns = true;
-    } else if (type === 'IDAT') {
-      if (idatClosed) throw new LastraError('corrupt', 'IDAT chunks are not consecutive');
-      idat.push(bytes.subarray(dataStart, dataEnd));
-      idatBytes += length;
     } else if (type === 'IEND') {
       sawEnd = true;
       break;
-    } else if (COLOR_CHUNKS.has(type)) {
-      if (crcOk && idat.length === 0 && !palette) {
-        const key = type === 'iCCP' ? 'iccp' : type === 'sRGB' ? 'srgb' : type === 'gAMA' ? 'gama' : type === 'cHRM' ? 'chrm' : 'cicp';
-        tags[key] = true;
-        if (type === 'iCCP' && !iccp) iccp = await readIccp(bytes, dataStart, dataEnd, meter);
-      }
+    } else if (PNG_COLOR_CHUNKS.has(type)) {
+      if (crcOk && firstIdat < 0 && !palette) readColorChunk(type, bytes, dataStart, dataEnd, color, (b) => (icc = icc ?? b), meter);
     } else if (critical) {
       throw new LastraError('unsupported', `unknown critical chunk ${type}`);
     }
@@ -186,30 +247,19 @@ export async function decodePng(bytes: Uint8Array, opts?: DecodeOptions): Promis
   }
 
   if (!header) throw new LastraError('truncated', 'the file ends before IHDR');
-  if (idat.length === 0) throw new LastraError(sawEnd ? 'corrupt' : 'truncated', 'no image data (IDAT)');
+  if (firstIdat < 0 || idatBytes === 0) throw new LastraError(sawEnd ? 'corrupt' : 'truncated', 'no image data (IDAT)');
   if (header.colorType === 3 && !palette) throw new LastraError('corrupt', 'a palette image without PLTE');
 
   const { width, height, depth, colorType, interlace } = header;
-  const channels = CHANNELS[colorType];
+  const channels = PNG_CHANNEL_COUNT[colorType];
   const bitsPerPixel = channels * depth;
   const bpp = Math.max(1, bitsPerPixel >> 3);
-  const passes = (interlace ? ADAM7 : [[0, 0, 1, 1]]).filter(([x0, y0, dx, dy]) => width > x0 && height > y0 && Math.ceil((width - x0) / dx) > 0 && Math.ceil((height - y0) / dy) > 0);
-
-  let compressed: Uint8Array;
-  if (idat.length === 1) compressed = idat[0];
-  else {
-    compressed = new Uint8Array(idatBytes);
-    let o = 0;
-    for (const part of idat) {
-      compressed.set(part, o);
-      o += part.length;
-    }
-  }
+  const passes = (interlace ? ADAM7_PASSES : [[0, 0, 1, 1] as const]).filter(([x0, y0]) => width > x0 && height > y0);
 
   // The pixels are allocated when the first scanline arrives, so a header with no real image data behind
   // it costs no memory.
   let out: Uint8ClampedArray | null = null;
-  let emit: ReturnType<typeof pixelWriter> | null = null;
+  let emit: Emit | null = null;
   const h = header;
 
   // The row assembler: inflated bytes fill one filtered scanline at a time, which is unfiltered and
@@ -235,23 +285,23 @@ export async function decodePng(bytes: Uint8Array, opts?: DecodeOptions): Promis
     filled = 0;
   };
   startPass();
-  const take = (chunk: Uint8Array): boolean => {
-    let i = 0;
-    while (i < chunk.length) {
-      const n = Math.min(row.length - filled, chunk.length - i);
+  const sink: InflateSink = (chunk, start, end) => {
+    let i = start;
+    while (i < end) {
+      const n = Math.min(row.length - filled, end - i);
       row.set(chunk.subarray(i, i + n), filled);
       filled += n;
       i += n;
       if (filled < row.length) break;
-      tick(meter, 1 + (rowBytes >> 6));
-      unfilter(row[0], row, 1, rowBytes, bpp, prev, cur);
-      if (!out) {
+      tickWork(meter, 1 + (rowBytes >> 6));
+      unfilterScanline(row[0], row, 1, rowBytes, bpp, prev, cur);
+      if (!emit) {
         const pixels = allocating(`the pixels of a ${width}x${height} image`, () => new Uint8ClampedArray(width * height * 4));
         out = pixels;
-        emit = pixelWriter(h, palette, trns, pixels);
+        emit = pngPixelWriter(h, palette, trns, pixels);
       }
       const [x0, y0, dx, dy] = passes[pass];
-      (emit as ReturnType<typeof pixelWriter>)(cur, pw, x0, y0 + y * dy, dx);
+      emit(cur, pw, x0, y0 + y * dy, dx);
       const t = prev;
       prev = cur;
       cur = t;
@@ -263,26 +313,43 @@ export async function decodePng(bytes: Uint8Array, opts?: DecodeOptions): Promis
     }
     return false;
   };
-  const complete = await inflateInto(compressed, take, meter, signal);
-  if (!complete || !out) throw new LastraError('truncated', 'the image data inflates to less than the header implies');
-  return { width, height, data: out, icc: iccp, tags };
+  const complete = yield* inflateTo(idatSource(bytes, firstIdat), sink, meter);
+  const pixels = out as Uint8ClampedArray | null;
+  if (!complete || !pixels) throw new LastraError('truncated', 'the image data inflates to less than the header implies');
+  return { width, height, data: pixels, icc, color };
 }
 
-/** iCCP: a name of 1 to 79 bytes, a zero, compression method 0, then the zlib-compressed profile. */
-async function readIccp(b: Uint8Array, start: number, end: number, meter: WorkMeter): Promise<Uint8Array | null> {
-  let z = start;
-  while (z < end && z - start < 80 && b[z] !== 0) z++;
-  if (z === start || z >= end - 1 || b[z] !== 0 || b[z + 1] !== 0) return null;
-  return inflateSmall(b.subarray(z + 2, end), MAX_ICC_BYTES, meter);
+/** iCCP, sRGB, gAMA, cHRM, cICP: parsed when well formed, ignored otherwise (libpng treats them as benign). */
+function readColorChunk(type: string, b: Uint8Array, start: number, end: number, color: PngColor, setIcc: (icc: Uint8Array | null) => void, meter: WorkMeter): void {
+  const n = end - start;
+  if (type === 'sRGB') {
+    if (n === 1 && b[start] <= 3 && color.srgbIntent === null) color.srgbIntent = b[start];
+  } else if (type === 'gAMA') {
+    const g = n === 4 ? readPngU32(b, start) : 0;
+    if (g > 0 && color.gamma === null) color.gamma = g / 100000;
+  } else if (type === 'cHRM') {
+    if (n === 32 && color.chromaticities === null) {
+      const v = (i: number): [number, number] => [readPngU32(b, start + 8 * i) / 100000, readPngU32(b, start + 8 * i + 4) / 100000];
+      color.chromaticities = { white: v(0), red: v(1), green: v(2), blue: v(3) };
+    }
+  } else if (type === 'cICP') {
+    if (n === 4 && color.cicp === null) color.cicp = { primaries: b[start], transfer: b[start + 1], matrix: b[start + 2], fullRange: b[start + 3] === 1 };
+  } else if (type === 'iCCP') {
+    // A name of 1 to 79 bytes, a zero, compression method 0, then the zlib-compressed profile.
+    let z = start;
+    while (z < end && z - start < 80 && b[z] !== 0) z++;
+    if (z === start || z >= end - 1 || b[z] !== 0 || b[z + 1] !== 0) setIcc(null);
+    else setIcc(inflateSmall(b.subarray(z + 2, end), MAX_PNG_ICC_BYTES, meter));
+  }
 }
 
-function readHeader(b: Uint8Array, o: number): Header {
-  const width = u32(b, o);
-  const height = u32(b, o + 4);
+function readPngHeader(b: Uint8Array, o: number): Header {
+  const width = readPngU32(b, o);
+  const height = readPngU32(b, o + 4);
   const depth = b[o + 8];
   const colorType = b[o + 9];
   if (width === 0 || height === 0 || width > 0x7fffffff || height > 0x7fffffff) throw new LastraError('corrupt', `IHDR size ${width}x${height} is out of range`);
-  const depths = DEPTHS[colorType];
+  const depths = PNG_BIT_DEPTHS[colorType];
   if (!depths) throw new LastraError('corrupt', `IHDR color type ${colorType} does not exist`);
   if (!depths.includes(depth)) throw new LastraError('corrupt', `IHDR bit depth ${depth} is not allowed for color type ${colorType}`);
   if (b[o + 10] !== 0) throw new LastraError('unsupported', `IHDR compression method ${b[o + 10]}`);
@@ -292,7 +359,7 @@ function readHeader(b: Uint8Array, o: number): Header {
 }
 
 /** Undo one scanline's filter from `raw[at..at+rowBytes)` into `cur`, given the previous unfiltered row. */
-function unfilter(filter: number, raw: Uint8Array, at: number, rowBytes: number, bpp: number, prev: Uint8Array, cur: Uint8Array): void {
+function unfilterScanline(filter: number, raw: Uint8Array, at: number, rowBytes: number, bpp: number, prev: Uint8Array, cur: Uint8Array): void {
   switch (filter) {
     case 0:
       cur.set(raw.subarray(at, at + rowBytes));
@@ -326,7 +393,7 @@ function unfilter(filter: number, raw: Uint8Array, at: number, rowBytes: number,
 type Emit = (row: Uint8Array, count: number, x0: number, y: number, dx: number) => void;
 
 /** One function per color type that writes a scanline's pixels into the RGBA output. */
-function pixelWriter(h: Header, palette: Uint8Array | null, trns: Uint8Array | null, out: Uint8ClampedArray): Emit {
+function pngPixelWriter(h: Header, palette: Uint8Array | null, trns: Uint8Array | null, out: Uint8ClampedArray): Emit {
   const { width, depth, colorType } = h;
   const sampleAt = (row: Uint8Array, i: number): number => {
     if (depth === 8) return row[i];
@@ -396,7 +463,7 @@ function pixelWriter(h: Header, palette: Uint8Array | null, trns: Uint8Array | n
       }
     };
   }
-  const n = CHANNELS[colorType];
+  const n = PNG_CHANNEL_COUNT[colorType];
   return (row, count, x0, y, dx) => {
     let o = (y * width + x0) * 4;
     const step = dx * 4;

@@ -2,7 +2,7 @@
  * Caller limits, resolved once per decode and checked before any allocation that scales with the image.
  */
 
-import { LastraError } from './errors.js';
+import { LastraError } from '../errors.js';
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_PIXELS, type DecodeOptions, type WorkMeter } from './types.js';
 
 export interface Limits {
@@ -11,7 +11,7 @@ export interface Limits {
   meter: WorkMeter;
 }
 
-function positive(v: number | undefined, fallback: number, name: string): number {
+function positiveLimit(v: number | undefined, fallback: number, name: string): number {
   if (v === undefined) return fallback;
   if (typeof v !== 'number' || !(v > 0)) throw new TypeError(`lastra: ${name} must be a positive number`);
   return v;
@@ -21,8 +21,8 @@ export function resolveLimits(bytes: Uint8Array, opts: DecodeOptions | undefined
   // `instanceof` fails for a Uint8Array from another realm (a worker message, an iframe, a vm context).
   const isBytes = bytes instanceof Uint8Array || Object.prototype.toString.call(bytes) === '[object Uint8Array]';
   if (!isBytes) throw new TypeError('lastra: bytes must be a Uint8Array');
-  const maxBytes = positive(opts?.maxBytes, DEFAULT_MAX_BYTES, 'maxBytes');
-  const maxPixels = positive(opts?.maxPixels, DEFAULT_MAX_PIXELS, 'maxPixels');
+  const maxBytes = positiveLimit(opts?.maxBytes, DEFAULT_MAX_BYTES, 'maxBytes');
+  const maxPixels = positiveLimit(opts?.maxPixels, DEFAULT_MAX_PIXELS, 'maxPixels');
   if (bytes.length > maxBytes) throw new LastraError('too-large', `input is ${bytes.length} bytes, over maxBytes ${maxBytes}`);
   return { maxBytes, maxPixels, meter: opts?.meter ?? { steps: 0 } };
 }
@@ -36,7 +36,7 @@ export function checkPixels(width: number, height: number, limits: Limits): void
 }
 
 /** Count `n` steps of work (default 1), and refuse once a caller's work limit is passed. */
-export function tick(meter: WorkMeter, n = 1): void {
+export function tickWork(meter: WorkMeter, n = 1): void {
   meter.steps += n;
   if (meter.steps > (meter.limit ?? Number.POSITIVE_INFINITY)) throw new LastraError('too-large', `over the work limit of ${meter.limit} steps`);
 }
@@ -51,5 +51,20 @@ export function allocating<T>(what: string, make: () => T): T {
   } catch (e) {
     if (e instanceof RangeError) throw new LastraError('too-large', `the platform cannot allocate ${what}`);
     throw e;
+  }
+}
+
+/** `allocating` for a generator: its steps run under the same out-of-memory guard. */
+export function* allocatingSteps<T>(what: string, steps: Generator<void, T>): Generator<void, T> {
+  for (;;) {
+    let r: IteratorResult<void, T>;
+    try {
+      r = steps.next();
+    } catch (e) {
+      if (e instanceof RangeError) throw new LastraError('too-large', `the platform cannot allocate ${what}`);
+      throw e;
+    }
+    if (r.done) return r.value;
+    yield;
   }
 }

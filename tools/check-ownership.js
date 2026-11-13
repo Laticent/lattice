@@ -13178,6 +13178,9 @@ const NUL_TEXT_EXTENSIONS = [
   // The office probe's test app around Apple's Quick Look viewer (docs/scripts/ios-safari/QLProbe.swift) and its
   // Info.plist — plain text source.
   '.swift', '.plist',
+  // A TypeScript module that stays out of a package's build: lastra's decode test helper
+  // (docs/src/lib/lastra/decode/test-support.test.mts).
+  '.mts',
 ];
 
 // The BINARY half of the same partition. Every tracked file must fall in one list
@@ -13192,6 +13195,9 @@ const NUL_TEXT_EXTENSIONS = [
 const NUL_BINARY_EXTENSIONS = [
   '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
   '.wav', '.woff', '.woff2', '.wasm', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
+  // lastra's inflate oracle (docs/src/lib/lastra/decode/fixtures/zlib/): raw zlib streams and the bytes
+  // Python's zlib inflated from the damaged ones.
+  '.z', '.out',
 ];
 
 /**

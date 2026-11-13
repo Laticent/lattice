@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { decodeJpeg, decodeJpegSync, isLastraError, type LastraErrorCode, MAX_SCANS, VISITS_PER_BLOCK, type WorkMeter } from './index.js';
+import { COEF_WORK_FLOOR, COEF_WORK_PER_BLOCK, decodeJpeg, decodeJpegSync, isLastraError, type LastraErrorCode, MAX_SCANS, type WorkMeter } from './index.js';
 import {
   bytesOf,
   concat,
@@ -23,7 +23,7 @@ import {
   sofSeg,
   sosSeg,
   workLimit,
-} from './test-support.js';
+} from './test-support.test.mjs';
 
 const base = fixture('jpeg', 'odd-base-420.jpg');
 const prog = fixture('jpeg', 'mid-prog-420-q75.jpg');
@@ -72,19 +72,53 @@ describe('decodeJpeg refuses with a typed code', () => {
     expect(refusal(Uint8Array.from([0x89, 0x50, 0x4e, 0x47]))).toBe('bad-marker');
   });
 
-  test('a cut before any scan is whole is truncated; a cut after one decodes, as libjpeg reads it (EOI at the end)', () => {
+  test('cut short: truncated inside a marker segment or before a scan is whole; decoded in scan data after one', () => {
     for (const file of [base, prog]) {
+      // Where each marker segment (its header) lies, and where scan 1's data ends.
+      const segs: [number, number][] = [];
+      let p = 2;
+      while (p + 4 <= file.length) {
+        const m = file[p + 1];
+        if (m === 0xd9) break;
+        const e = p + 2 + ((file[p + 2] << 8) | file[p + 3]);
+        segs.push([p, e]);
+        p = e;
+        if (m === 0xda) {
+          while (p + 1 < file.length && !(file[p] === 0xff && file[p + 1] !== 0 && (file[p + 1] < 0xd0 || file[p + 1] > 0xd7))) p++;
+        }
+      }
       const starts = scanStarts(file);
-      const firstWhole = starts.length > 1 ? starts[1] : file.length - 2; // where scan 1's data ends
+      const firstWhole = starts.length > 1 ? starts[1] : file.length - 2;
       const step = Math.max(1, Math.floor(file.length / 97));
       for (let cut = 2; cut < file.length; cut += step) {
-        if (cut < firstWhole) expect(refusal(file.subarray(0, cut)), `cut at ${cut}`).toBe('truncated');
+        const inSegment = segs.some(([a, e]) => cut > a && cut < e);
+        if (cut < firstWhole || inSegment) expect(refusal(file.subarray(0, cut)), `cut at ${cut}`).toBe('truncated');
         else expect(decodeJpegSync(file.subarray(0, cut)).width, `cut at ${cut}`).toBeGreaterThan(0);
       }
       // At a scan boundary the early end reads exactly as EOI there would.
       for (const at of starts.slice(1)) expect(sha256(decodeJpegSync(file.subarray(0, at)).data)).toBe(sha256(decodeJpegSync(concat(file.subarray(0, at), Uint8Array.from(EOI))).data));
+      // Inside a later scan header: truncated, as libjpeg refuses it.
+      for (const at of starts.slice(1)) expect(refusal(file.subarray(0, at + 5))).toBe('truncated');
     }
-    expect(refusal(base.subarray(0, scanStarts(base)[0] + 20))).toBe('truncated'); // inside the only scan
+    // A baseline file has one scan: cut anywhere in it, no scan is whole, so it is refused, not shown part gray.
+    expect(refusal(base.subarray(0, scanStarts(base)[0] + 20))).toBe('truncated');
+  });
+
+  test('a progressive scan naming a Huffman table the file never defined is refused (no Annex K fallback)', () => {
+    const file = bytesOf(SOI, dqtAll(), sofSeg(0xc2, 8, 8, [[1, 0x11, 0]]), sosSeg([1], 0, 0, 0, 0), [0], EOI);
+    expect(refusal(file)).toBe('corrupt');
+    // The same scan in a sequential frame reads Annex K's tables, as libjpeg-turbo does for Motion-JPEG.
+    const seq = bytesOf(SOI, dqtAll(), sofSeg(0xc0, 8, 8, [[1, 0x11, 0]]), sosSeg([1], 0, 63, 0, 0), [0], EOI);
+    expect(decodeJpegSync(seq).width).toBe(8);
+  });
+
+  test('a progressive DC sum past 32 bits is refused, as libjpeg-turbo refuses it', () => {
+    // DC table: one 1-bit code ('0') for symbol 15, then 15 one-bits: every block adds +32767. 65,537 blocks
+    // pass 2^31; 0xFF data bytes are stuffed with 0x00.
+    const blocks = 257 * 256; // 2056 x 2048
+    const data = Array.from({ length: blocks }, () => [0x7f, 0xff, 0x00]).flat();
+    const file = bytesOf(SOI, dqtAll(), sofSeg(0xc2, 2056, 2048, [[1, 0x11, 0]]), dhtOne(0, 0, 15), sosSeg([1], 0, 0, 0, 0), data, EOI);
+    expect(refusal(file)).toBe('corrupt');
   });
 
   test('a scan header whose length cannot fit its count is refused, even where the file then ends early', () => {
@@ -223,18 +257,47 @@ describe('decodeJpeg refuses with a typed code', () => {
     }
   });
 
-  test('scans that each visit every block are cut off at the visit cap, in proportion to the blocks', () => {
-    // Every AC first-pass band for one component, each a single end-of-band run covering the image.
-    const w = 512;
-    const h = 512;
-    const blocks = (w / 8) * (h / 8);
-    // One end-of-band run covers the 4096 blocks: the 1-bit code for EOB14 (symbol 0xE0), then 14 one-bits.
-    const scans: number[][] = [];
-    for (let k = 1; k < 64 && scans.length < VISITS_PER_BLOCK + 8; k++) scans.push([...sosSeg([1], k, k, 0, 0), 0x7f, 0xff, 0x00, 0xff, 0x00]); // 0xFF data bytes are stuffed
-    const file = bytesOf(SOI, dqtAll(), sofSeg(0xc2, w, h, [[1, 0x11, 0]]), dhtOne(0, 0), dhtOne(1, 0, 0xe0), sosSeg([1], 0, 0, 0, 0), [0, 0, 0, 0], ...scans, EOI);
-    const r = bounded(file);
-    expect(r.code).toBe('too-large');
-    expect(r.steps).toBeLessThan((VISITS_PER_BLOCK + 3) * blocks);
+  test('end-of-band runs over zero blocks cost nothing per block; replayed refinements of real data stop at the work cap', () => {
+    // A 4096 x 4096 gray frame: 262,144 blocks, past the floor, so the per-block cap applies.
+    const w = 4096;
+    const blocks = (w / 8) * (w / 8);
+    expect(COEF_WORK_PER_BLOCK * blocks).toBeGreaterThan(COEF_WORK_FLOOR);
+    const bitsToBytes = (bits: number[]) => {
+      const out: number[] = [];
+      for (let i = 0; i < bits.length; i += 8) {
+        let v = 0;
+        for (let j = 0; j < 8; j++) v = (v << 1) | (bits[i + j] ?? 1);
+        out.push(v);
+        if (v === 0xff) out.push(0);
+      }
+      return out;
+    };
+    // End-of-band runs: the 1-bit code for EOB14 (symbol 0xE0), 14 one-bits: 32,767 blocks a run.
+    const eobRuns = (extraPerBlock: number) => {
+      const bits: number[] = [];
+      for (let left = blocks; left > 0; left -= 32767) {
+        bits.push(0, ...Array.from({ length: 14 }, () => 1));
+        for (let i = 0; i < Math.min(left, 32767) * extraPerBlock; i++) bits.push(0); // correction bits
+      }
+      return bitsToBytes(bits);
+    };
+    const sosTables = (ss: number, se: number, ah: number, al: number, ta: number) => [0xff, 0xda, 0, 8, 1, 1, ta, ss, se, (ah << 4) | al];
+    const twoSymbols = [0xff, 0xc4, 0, 21, 0x10, 1, 1, ...Array.from({ length: 14 }, () => 0), 0x01, 0x00]; // AC 0: '0' -> (0,1), '10' -> EOB
+    const head = [SOI, dqtAll(), sofSeg(0xc2, w, w, [[1, 0x11, 0]]), dhtOne(0, 0), twoSymbols, dhtOne(1, 1, 0xe0), sosSeg([1], 0, 0, 0, 1), [0, 0, 0, 0]];
+    // Over zero blocks: a first pass of runs only, then 40 full-band refinements of runs only. Free.
+    const zeroFirst = [...sosTables(1, 63, 0, 1, 1), ...eobRuns(0)];
+    const zeroRefine = Array.from({ length: 40 }, () => [...sosTables(1, 63, 1, 0, 1), ...eobRuns(0)]);
+    const free = bounded(bytesOf(...head, zeroFirst, ...zeroRefine, EOI), 1 << 24);
+    expect(free.code).toBe('ok');
+    // The scans cost a step per run and per 64 skipped blocks; the rest is the output (an IDCT step per
+    // block and two per 64 pixels). Walking the runs block by block would add 8 steps a block per scan.
+    expect(free.steps).toBeLessThan(blocks + 3 * ((w * w) / 64) + 41 * (blocks / 64) + 2000);
+    // Over real data: coefficient 1 nonzero in every block (4 bits a block), then full-band refinements,
+    // each reading a correction bit per block: 63 coefficients of work per block per scan, past 1,024.
+    const dataFirst = [...sosTables(1, 63, 0, 1, 0), ...bitsToBytes(Array.from({ length: blocks }, () => [0, 1, 1, 0]).flat())];
+    const dataRefine = Array.from({ length: 20 }, () => [...sosTables(1, 63, 1, 0, 1), ...eobRuns(1)]);
+    const capped = bounded(bytesOf(...head, dataFirst, ...dataRefine, EOI), 1 << 24);
+    expect(capped.code).toBe('too-large');
   });
 
   test('empty scans with a restart every MCU stop at the next marker: work in the scans, not the image', () => {

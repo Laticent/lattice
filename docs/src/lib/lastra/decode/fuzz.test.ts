@@ -6,7 +6,7 @@
  * the mutation reaches the inflate and the filters instead of stopping at the first checksum.
  *
  * Every case must either decode inside its limits or refuse with a LastraError, and either way stay
- * under the work limit proven from the decoders' loops (test-support.ts `workLimit`) and under a ceiling
+ * under the work limit proven from the decoders' loops (test-support.test.mts `workLimit`) and under a ceiling
  * on steps per unit of declared work set from measurement (`RATIO_CEILING` below). Work is counted in
  * steps, never timed (HARD RULE #32). The seed prints; replay or deepen with
  *   LASTRA_FUZZ_SEED=<n> LASTRA_FUZZ_CASES=<n> npx vitest run src/lib/lastra/decode/fuzz.test.ts
@@ -16,7 +16,7 @@
 import { crc32, deflateSync, inflateSync } from 'node:zlib';
 import { describe, expect, test } from 'vitest';
 import { decodeJpegSync, decodePng, isLastraError, type WorkMeter } from './index.js';
-import { expected, fixture, rng, workLimit, workRatio } from './test-support.js';
+import { expected, fixture, rng, workLimit, workRatio } from './test-support.test.mjs';
 
 const SEED = Number(process.env.LASTRA_FUZZ_SEED ?? 20261113);
 const CASES = Number(process.env.LASTRA_FUZZ_CASES ?? 600);
@@ -113,7 +113,12 @@ function mutatePngInside(src: Uint8Array, r: () => number): Uint8Array {
   const ihdr = chunks.find((c) => c.type === 'IHDR');
   const idats = chunks.filter((c) => c.type === 'IDAT');
   if (!ihdr || idats.length === 0) return src;
-  let raw: Uint8Array = new Uint8Array(inflateSync(concatBytes(...idats.map((c) => c.body))));
+  let raw: Uint8Array;
+  try {
+    raw = new Uint8Array(inflateSync(concatBytes(...idats.map((c) => c.body))));
+  } catch {
+    return src; // a fixture whose zlib stream Node's strict inflate refuses (a bad or missing Adler-32)
+  }
   switch (pick(4)) {
     case 0: // scanline bytes, filter bytes included
       for (let k = 1 + pick(32); k > 0; k--) raw[pick(raw.length)] = pick(256);
@@ -205,13 +210,14 @@ function tally(outcomes: Outcome[]): string {
 const BATCH = 50;
 
 /**
- * The highest steps per unit of declared work (test-support.ts `workRatio`) any case may reach: twice the
- * measured maximum (JPEG 5.13, PNG 0.59; the default seed's 600 cases each and seed 1's 20,000 each,
- * 2026-11-13). The proven limit
+ * The highest steps per unit of declared work (test-support.test.mts `workRatio`) any case may reach: twice the
+ * measured maximum (JPEG 15.59, PNG 0.87; the default seed's 600 cases each and seed 1's 20,000 each,
+ * 2026-11-13, with the meter counting a step per block plus one per 8 coefficients of the scan's band and
+ * the in-tree inflate's steps per 4 KB and per Huffman table). The proven limit
  * above stops a runaway; this one fails a change that makes ordinary decoding do several times the work
  * per block or per scanline, which the proven limit is too loose to see.
  */
-const RATIO_CEILING = { jpeg: 10.3, png: 1.2 };
+const RATIO_CEILING = { jpeg: 31.2, png: 1.8 };
 
 // Each case is computed once, on first use, whichever test asks: a batch or the summary, run together or
 // alone (`-t 'reach every outcome'`), in any order.
@@ -270,7 +276,12 @@ describe(`fuzz JPEG (seed ${SEED})`, () => {
     const outcomes = Array.from({ length: CASES }, (_, i) => caseJpeg(i));
     console.log(`lastra fuzz JPEG: ${tally(outcomes)}`);
     const codes = new Set(outcomes.map((o) => o.code));
-    for (const c of ['ok', 'truncated', 'bad-marker', 'corrupt']) expect(codes, c).toContain(c);
+    // Every outcome shows up in 600 cases; a short run (LASTRA_FUZZ_CASES under 600) may miss one, so it
+    // reports instead of failing.
+    for (const c of ['ok', 'truncated', 'bad-marker', 'corrupt']) {
+      if (CASES >= 600) expect(codes, `no JPEG case ended '${c}' in ${CASES} cases`).toContain(c);
+      else if (!codes.has(c)) console.log(`lastra fuzz JPEG: no case ended '${c}' in only ${CASES} cases`);
+    }
   });
 });
 
@@ -286,6 +297,9 @@ describe(`fuzz PNG (seed ${SEED} + 1,000,000)`, () => {
     for (let i = 0; i < CASES; i++) outcomes.push(await casePng(1_000_000 + i));
     console.log(`lastra fuzz PNG: ${tally(outcomes)}`);
     const codes = new Set(outcomes.map((o) => o.code));
-    for (const c of ['ok', 'truncated', 'crc', 'corrupt', 'bad-marker']) expect(codes, c).toContain(c);
+    for (const c of ['ok', 'truncated', 'crc', 'corrupt', 'bad-marker']) {
+      if (CASES >= 600) expect(codes, `no PNG case ended '${c}' in ${CASES} cases`).toContain(c);
+      else if (!codes.has(c)) console.log(`lastra fuzz PNG: no case ended '${c}' in only ${CASES} cases`);
+    }
   });
 });

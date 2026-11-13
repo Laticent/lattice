@@ -462,6 +462,20 @@
       "iccSha256": null,
       "tags": []
     },
+    "edge-zlib-bad-adler.png": {
+      "width": 9,
+      "height": 7,
+      "rgbaSha256": "1a095fd8b6de955e4ad804640c179d65aa8293ae0f0882fdef84fc95cfedb17d",
+      "iccSha256": null,
+      "tags": []
+    },
+    "edge-zlib-no-adler.png": {
+      "width": 9,
+      "height": 7,
+      "rgbaSha256": "1a095fd8b6de955e4ad804640c179d65aa8293ae0f0882fdef84fc95cfedb17d",
+      "iccSha256": null,
+      "tags": []
+    },
     "tagged-display-p3-iccp.png": {
       "width": 48,
       "height": 32,
@@ -871,6 +885,38 @@
       "iccSha256": "da44bde3c75a407b8c1f41d4a9953ac36ee9335eca4f23a09b0f64f5ea8e7318",
       "exifOrientation": null
     },
+    "jpegtran-gray-64-scans-one-coefficient.jpg": {
+      "width": 160,
+      "height": 120,
+      "pillowMode": "L",
+      "rgbaSha256": "a77e55bfc41c7a439bdd1728079e797d524a79c9928d926018616d6172193022",
+      "iccSha256": null,
+      "exifOrientation": null
+    },
+    "jpegtran-444-97-scans-pairs.jpg": {
+      "width": 160,
+      "height": 120,
+      "pillowMode": "RGB",
+      "rgbaSha256": "9c52df42b55c3e195ce3e529aa6792c9234d8b79c6464b41d1aaaab4fc7eaca3",
+      "iccSha256": null,
+      "exifOrientation": null
+    },
+    "jpegtran-gray-65-scans-bands-refined.jpg": {
+      "width": 160,
+      "height": 120,
+      "pillowMode": "L",
+      "rgbaSha256": "a77e55bfc41c7a439bdd1728079e797d524a79c9928d926018616d6172193022",
+      "iccSha256": null,
+      "exifOrientation": null
+    },
+    "jpegtran-gray-69-scans-refined.jpg": {
+      "width": 160,
+      "height": 120,
+      "pillowMode": "L",
+      "rgbaSha256": "a77e55bfc41c7a439bdd1728079e797d524a79c9928d926018616d6172193022",
+      "iccSha256": null,
+      "exifOrientation": null
+    },
     "big-base-420-q75.jpg": {
       "width": 1001,
       "height": 667,
@@ -1057,6 +1103,423 @@
       "iccSha256": null,
       "exifOrientation": null,
       "oracle": "pillow-c"
+    }
+  },
+  "zlib": {
+    "text-l0.z": {
+      "outputLength": 53910,
+      "outputSha256": "68e1bc8b61af9ef0e03f175f2a08926c72e702f58d03ec621dd268fbc993c7bf",
+      "zlibVerdict": "ok"
+    },
+    "text-l1.z": {
+      "outputLength": 53910,
+      "outputSha256": "68e1bc8b61af9ef0e03f175f2a08926c72e702f58d03ec621dd268fbc993c7bf",
+      "zlibVerdict": "ok"
+    },
+    "text-l6.z": {
+      "outputLength": 53910,
+      "outputSha256": "68e1bc8b61af9ef0e03f175f2a08926c72e702f58d03ec621dd268fbc993c7bf",
+      "zlibVerdict": "ok"
+    },
+    "text-l9.z": {
+      "outputLength": 53910,
+      "outputSha256": "68e1bc8b61af9ef0e03f175f2a08926c72e702f58d03ec621dd268fbc993c7bf",
+      "zlibVerdict": "ok"
+    },
+    "noise-l0.z": {
+      "outputLength": 12000,
+      "outputSha256": "edae8f50dd2095caa4f5aaf1f62d98e356b20d2fd14b2df1e1189602c790c689",
+      "zlibVerdict": "ok"
+    },
+    "noise-l1.z": {
+      "outputLength": 12000,
+      "outputSha256": "edae8f50dd2095caa4f5aaf1f62d98e356b20d2fd14b2df1e1189602c790c689",
+      "zlibVerdict": "ok"
+    },
+    "noise-l6.z": {
+      "outputLength": 12000,
+      "outputSha256": "edae8f50dd2095caa4f5aaf1f62d98e356b20d2fd14b2df1e1189602c790c689",
+      "zlibVerdict": "ok"
+    },
+    "noise-l9.z": {
+      "outputLength": 12000,
+      "outputSha256": "edae8f50dd2095caa4f5aaf1f62d98e356b20d2fd14b2df1e1189602c790c689",
+      "zlibVerdict": "ok"
+    },
+    "ramp-l0.z": {
+      "outputLength": 40000,
+      "outputSha256": "fe3daa0b5e7bea070eaeed5e8bd01052adeaccece49417b1cafdca5ec6345794",
+      "zlibVerdict": "ok"
+    },
+    "ramp-l1.z": {
+      "outputLength": 40000,
+      "outputSha256": "fe3daa0b5e7bea070eaeed5e8bd01052adeaccece49417b1cafdca5ec6345794",
+      "zlibVerdict": "ok"
+    },
+    "ramp-l6.z": {
+      "outputLength": 40000,
+      "outputSha256": "fe3daa0b5e7bea070eaeed5e8bd01052adeaccece49417b1cafdca5ec6345794",
+      "zlibVerdict": "ok"
+    },
+    "ramp-l9.z": {
+      "outputLength": 40000,
+      "outputSha256": "fe3daa0b5e7bea070eaeed5e8bd01052adeaccece49417b1cafdca5ec6345794",
+      "zlibVerdict": "ok"
+    },
+    "far-l0.z": {
+      "outputLength": 35600,
+      "outputSha256": "c610a59b584b03790acb0aaabf90cade207c5743ae455fc4162876c216d51ad3",
+      "zlibVerdict": "ok"
+    },
+    "far-l1.z": {
+      "outputLength": 35600,
+      "outputSha256": "c610a59b584b03790acb0aaabf90cade207c5743ae455fc4162876c216d51ad3",
+      "zlibVerdict": "ok"
+    },
+    "far-l6.z": {
+      "outputLength": 35600,
+      "outputSha256": "c610a59b584b03790acb0aaabf90cade207c5743ae455fc4162876c216d51ad3",
+      "zlibVerdict": "ok"
+    },
+    "far-l9.z": {
+      "outputLength": 35600,
+      "outputSha256": "c610a59b584b03790acb0aaabf90cade207c5743ae455fc4162876c216d51ad3",
+      "zlibVerdict": "ok"
+    },
+    "empty-l0.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "ok"
+    },
+    "empty-l1.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "ok"
+    },
+    "empty-l6.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "ok"
+    },
+    "empty-l9.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "ok"
+    },
+    "one-l0.z": {
+      "outputLength": 1,
+      "outputSha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+      "zlibVerdict": "ok"
+    },
+    "one-l1.z": {
+      "outputLength": 1,
+      "outputSha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+      "zlibVerdict": "ok"
+    },
+    "one-l6.z": {
+      "outputLength": 1,
+      "outputSha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+      "zlibVerdict": "ok"
+    },
+    "one-l9.z": {
+      "outputLength": 1,
+      "outputSha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+      "zlibVerdict": "ok"
+    },
+    "text-filtered.z": {
+      "outputLength": 53910,
+      "outputSha256": "68e1bc8b61af9ef0e03f175f2a08926c72e702f58d03ec621dd268fbc993c7bf",
+      "zlibVerdict": "ok"
+    },
+    "text-huffman.z": {
+      "outputLength": 53910,
+      "outputSha256": "68e1bc8b61af9ef0e03f175f2a08926c72e702f58d03ec621dd268fbc993c7bf",
+      "zlibVerdict": "ok"
+    },
+    "text-rle.z": {
+      "outputLength": 53910,
+      "outputSha256": "68e1bc8b61af9ef0e03f175f2a08926c72e702f58d03ec621dd268fbc993c7bf",
+      "zlibVerdict": "ok"
+    },
+    "text-fixed.z": {
+      "outputLength": 53910,
+      "outputSha256": "68e1bc8b61af9ef0e03f175f2a08926c72e702f58d03ec621dd268fbc993c7bf",
+      "zlibVerdict": "ok"
+    },
+    "ramp-window9.z": {
+      "outputLength": 40000,
+      "outputSha256": "fe3daa0b5e7bea070eaeed5e8bd01052adeaccece49417b1cafdca5ec6345794",
+      "zlibVerdict": "ok"
+    },
+    "ramp-window12.z": {
+      "outputLength": 40000,
+      "outputSha256": "fe3daa0b5e7bea070eaeed5e8bd01052adeaccece49417b1cafdca5ec6345794",
+      "zlibVerdict": "ok"
+    },
+    "text-sync-full-flush.z": {
+      "outputLength": 12000,
+      "outputSha256": "e24303723229beb54cb2027b10e3787202876a095976baccbe78a1379f2ecb7f",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-01.z": {
+      "outputLength": 41,
+      "outputSha256": "6e9a869ea1dacc2f2d34e874e0fcc03a230e246176129f5d972451d1257d835f",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-02.z": {
+      "outputLength": 42,
+      "outputSha256": "2f3fe065c075962189a3e6e1ee96a2e71f1a49eac0845aeae44402bee658d2b5",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-03.z": {
+      "outputLength": 43,
+      "outputSha256": "6d55eacf7f0f5deb0f6c3786729966c2e01d7fcae6b2646f84e0774bae6a20f5",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-04.z": {
+      "outputLength": 44,
+      "outputSha256": "4e972e141a33391f15db382c98609c69fbfae62858cef29b32ed2b784474a946",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-05.z": {
+      "outputLength": 45,
+      "outputSha256": "eafd94752b978957b7070303bad8c2da6335d55528733c1746d231e0ca2a9a7c",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-06.z": {
+      "outputLength": 46,
+      "outputSha256": "abf289db243373317d961fcb5719e573907457347ecf022a772ea5def227f6a2",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-07.z": {
+      "outputLength": 47,
+      "outputSha256": "85541792390b7ef4c3815b8bc97b646856c645336512dae953290e6b42bbca77",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-08.z": {
+      "outputLength": 48,
+      "outputSha256": "aa0926d7e30d24c28fdac206c85cc39bbf31f2afd50e800299bd5429f088e09a",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-09.z": {
+      "outputLength": 49,
+      "outputSha256": "427a6d0695435ae2f3a9f828409a237e673221d0300562b35ce4312e3080426e",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-10.z": {
+      "outputLength": 50,
+      "outputSha256": "dba47616b7f932e59bac7ad780e915a91fd8f5ef864714b1462094b87beb9276",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-11.z": {
+      "outputLength": 51,
+      "outputSha256": "281d7fdd9edb8986565e1edfd93710e1cef27123ba213aa683a6ef4279610c9a",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-12.z": {
+      "outputLength": 52,
+      "outputSha256": "cc85a5b7053ab5e2d57dcc69afda814240bb970b1729b95eca45f3355b81da9b",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-13.z": {
+      "outputLength": 53,
+      "outputSha256": "ab7ad7a08331df4cf563628de6813c604b00d2c40463e228a98377b7cc9441b9",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-14.z": {
+      "outputLength": 54,
+      "outputSha256": "48218a3c9336c2d6439ad80cfe608857f98e77ad69d06640a5c1caeacf031d1f",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-15.z": {
+      "outputLength": 55,
+      "outputSha256": "73e6e70a3b5fc8adb6eae1b78be640fa230be410b54e2a62ed234af24084935a",
+      "zlibVerdict": "ok"
+    },
+    "stored-after-fixed-16.z": {
+      "outputLength": 56,
+      "outputSha256": "b9c5a589fd0a140d7b68359a9b21e65a2f33e096c03940362d9b0791e4d6e68d",
+      "zlibVerdict": "ok"
+    },
+    "damaged-text-00.z": {
+      "outputLength": 0,
+      "outputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "zlibVerdict": "error"
+    },
+    "damaged-text-01.z": {
+      "outputLength": 203,
+      "outputSha256": "aa6f304ca877e4fcaf4e9cfe26c8e57598e96c578bcf9510df928b5a2b0d2cf1",
+      "zlibVerdict": "truncated"
+    },
+    "damaged-text-02.z": {
+      "outputLength": 6000,
+      "outputSha256": "62acdc4b276f1254ac2bcc5f4e65ae889de86e26ffe7b2c425ac512039aeaabc",
+      "zlibVerdict": "adler"
+    },
+    "damaged-text-03.z": {
+      "outputLength": 6000,
+      "outputSha256": "62acdc4b276f1254ac2bcc5f4e65ae889de86e26ffe7b2c425ac512039aeaabc",
+      "zlibVerdict": "ok"
+    },
+    "damaged-text-04.z": {
+      "outputLength": 5985,
+      "outputSha256": "59ff60d2f8bfba2a99cfff2be2fa955bdbd6d74a64335c0ee9d2e48c3fad4b91",
+      "zlibVerdict": "adler"
+    },
+    "damaged-text-05.z": {
+      "outputLength": 3650,
+      "outputSha256": "72cf8d66422b86fa5a5d7f9daab417732643a8d1590162890a9175ffe4d1ddec",
+      "zlibVerdict": "truncated"
+    },
+    "damaged-text-06.z": {
+      "outputLength": 6000,
+      "outputSha256": "62acdc4b276f1254ac2bcc5f4e65ae889de86e26ffe7b2c425ac512039aeaabc",
+      "zlibVerdict": "adler"
+    },
+    "damaged-text-07.z": {
+      "outputLength": 6000,
+      "outputSha256": "62acdc4b276f1254ac2bcc5f4e65ae889de86e26ffe7b2c425ac512039aeaabc",
+      "zlibVerdict": "ok"
+    },
+    "damaged-text-08.z": {
+      "outputLength": 645,
+      "outputSha256": "d68419dcaa0a80adb6fd57e4b9f1a1e6cb1f02f306857c21759b9b226bfa2c3f",
+      "zlibVerdict": "error"
+    },
+    "damaged-text-09.z": {
+      "outputLength": 5972,
+      "outputSha256": "747a8924ea18d5d3dcb932337144232e63329f5a1bc81873657e982df2a459f6",
+      "zlibVerdict": "truncated"
+    },
+    "damaged-text-10.z": {
+      "outputLength": 6000,
+      "outputSha256": "62acdc4b276f1254ac2bcc5f4e65ae889de86e26ffe7b2c425ac512039aeaabc",
+      "zlibVerdict": "adler"
+    },
+    "damaged-text-11.z": {
+      "outputLength": 6000,
+      "outputSha256": "62acdc4b276f1254ac2bcc5f4e65ae889de86e26ffe7b2c425ac512039aeaabc",
+      "zlibVerdict": "ok"
+    },
+    "damaged-fixed-00.z": {
+      "outputLength": 4000,
+      "outputSha256": "bab50cd7c5021527cb3eb6e821d90f99de8dce6539da24036043fe49ec637bf4",
+      "zlibVerdict": "adler"
+    },
+    "damaged-fixed-01.z": {
+      "outputLength": 3759,
+      "outputSha256": "6d1107fdca5231e95db1a90a0f21fef7f4f8bea13b38b04524defeac853533da",
+      "zlibVerdict": "truncated"
+    },
+    "damaged-fixed-02.z": {
+      "outputLength": 4000,
+      "outputSha256": "7fa8db0d60ca0b4b0c5c8eeacc23595be81d92a04405c7baea45c778c6c60fd5",
+      "zlibVerdict": "adler"
+    },
+    "damaged-fixed-03.z": {
+      "outputLength": 4000,
+      "outputSha256": "7fa8db0d60ca0b4b0c5c8eeacc23595be81d92a04405c7baea45c778c6c60fd5",
+      "zlibVerdict": "ok"
+    },
+    "damaged-fixed-04.z": {
+      "outputLength": 4002,
+      "outputSha256": "51a0cf7be6651e7a4d7096cb9ebcbc0ab944c4eed8ba9f17865181114542aa48",
+      "zlibVerdict": "adler"
+    },
+    "damaged-fixed-05.z": {
+      "outputLength": 3603,
+      "outputSha256": "f52e82bcc3b77a1043d80f713f9facab9c615e44a3f8c67429a152afad74b2fa",
+      "zlibVerdict": "truncated"
+    },
+    "damaged-fixed-06.z": {
+      "outputLength": 4000,
+      "outputSha256": "7fa8db0d60ca0b4b0c5c8eeacc23595be81d92a04405c7baea45c778c6c60fd5",
+      "zlibVerdict": "adler"
+    },
+    "damaged-fixed-07.z": {
+      "outputLength": 4000,
+      "outputSha256": "7fa8db0d60ca0b4b0c5c8eeacc23595be81d92a04405c7baea45c778c6c60fd5",
+      "zlibVerdict": "ok"
+    },
+    "damaged-fixed-08.z": {
+      "outputLength": 94,
+      "outputSha256": "cd4e5fa0e5e26e7ad296578d249ef11fc33717529b4230356969b71d7bacffae",
+      "zlibVerdict": "error"
+    },
+    "damaged-fixed-09.z": {
+      "outputLength": 2144,
+      "outputSha256": "798b596d3e0e102b6d6d247b306dce10ea8068df549a140553c8f6f95416b4c3",
+      "zlibVerdict": "truncated"
+    },
+    "damaged-fixed-10.z": {
+      "outputLength": 4000,
+      "outputSha256": "7fa8db0d60ca0b4b0c5c8eeacc23595be81d92a04405c7baea45c778c6c60fd5",
+      "zlibVerdict": "adler"
+    },
+    "damaged-fixed-11.z": {
+      "outputLength": 4000,
+      "outputSha256": "7fa8db0d60ca0b4b0c5c8eeacc23595be81d92a04405c7baea45c778c6c60fd5",
+      "zlibVerdict": "ok"
+    },
+    "damaged-noise-00.z": {
+      "outputLength": 3000,
+      "outputSha256": "6f15badc835506bfd78524e5d3820d4c9da70be75dcaf04efc6ad0023069d238",
+      "zlibVerdict": "adler"
+    },
+    "damaged-noise-01.z": {
+      "outputLength": 50,
+      "outputSha256": "c2ee9018e491e6a076290e90d3c3b37a047e1ed414788ee14e6d3c5d3308fbf1",
+      "zlibVerdict": "truncated"
+    },
+    "damaged-noise-02.z": {
+      "outputLength": 3000,
+      "outputSha256": "3bcc7e680ae4afeb4ecc9465ab15bf1590ba186c07a0e6f031dbca50eafac216",
+      "zlibVerdict": "adler"
+    },
+    "damaged-noise-03.z": {
+      "outputLength": 3000,
+      "outputSha256": "3bcc7e680ae4afeb4ecc9465ab15bf1590ba186c07a0e6f031dbca50eafac216",
+      "zlibVerdict": "ok"
+    },
+    "damaged-noise-04.z": {
+      "outputLength": 3000,
+      "outputSha256": "ff1a7d2f831a1bbf122e67e17ce16fa3de1b63f90798e8c49edce504b2d4d2a6",
+      "zlibVerdict": "adler"
+    },
+    "damaged-noise-05.z": {
+      "outputLength": 1360,
+      "outputSha256": "db3e3b67621e6a5998509174e0794bfee6c44bd5c2b6fd61b6efb20f06e0438a",
+      "zlibVerdict": "truncated"
+    },
+    "damaged-noise-06.z": {
+      "outputLength": 3000,
+      "outputSha256": "3bcc7e680ae4afeb4ecc9465ab15bf1590ba186c07a0e6f031dbca50eafac216",
+      "zlibVerdict": "adler"
+    },
+    "damaged-noise-07.z": {
+      "outputLength": 3000,
+      "outputSha256": "3bcc7e680ae4afeb4ecc9465ab15bf1590ba186c07a0e6f031dbca50eafac216",
+      "zlibVerdict": "ok"
+    },
+    "damaged-noise-08.z": {
+      "outputLength": 3000,
+      "outputSha256": "fa4275df2bc0110ccb03f53fa814a5de47eee4a07fead0f53c5ea2a83609750d",
+      "zlibVerdict": "adler"
+    },
+    "damaged-noise-09.z": {
+      "outputLength": 912,
+      "outputSha256": "8577ef32d3ee29eb8c33bedc1443d70872faf7822d019c4dc9f6797fcb64d3a1",
+      "zlibVerdict": "truncated"
+    },
+    "damaged-noise-10.z": {
+      "outputLength": 3000,
+      "outputSha256": "3bcc7e680ae4afeb4ecc9465ab15bf1590ba186c07a0e6f031dbca50eafac216",
+      "zlibVerdict": "adler"
+    },
+    "damaged-noise-11.z": {
+      "outputLength": 3000,
+      "outputSha256": "3bcc7e680ae4afeb4ecc9465ab15bf1590ba186c07a0e6f031dbca50eafac216",
+      "zlibVerdict": "ok"
     }
   }
 }

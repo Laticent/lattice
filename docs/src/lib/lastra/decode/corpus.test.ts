@@ -12,7 +12,7 @@
 
 import { describe, expect, test } from 'vitest';
 import { decodeJpeg, decodeJpegSync, decodePng } from './index.js';
-import { expected, fixture, sha256 } from './test-support.js';
+import { expected, fixture, sha256 } from './test-support.test.mjs';
 
 describe('PNG corpus: exact ground truth', () => {
   for (const [name, want] of Object.entries(expected.png)) {
@@ -22,10 +22,15 @@ describe('PNG corpus: exact ground truth', () => {
       expect(img.data.length).toBe(want.width * want.height * 4);
       expect(sha256(img.data)).toBe(want.rgbaSha256);
       expect(img.icc ? sha256(img.icc) : null).toBe(want.iccSha256);
-      expect(Object.entries(img.tags)
-        .filter(([, on]) => on)
-        .map(([k]) => k)
-        .sort()).toEqual(want.tags);
+      // Which color chunks the file carries, from the parsed values (none of them is applied).
+      const c = img.color;
+      const present = { iccp: img.icc !== null, srgb: c.srgbIntent !== null, gama: c.gamma !== null, chrm: c.chromaticities !== null, cicp: c.cicp !== null };
+      expect(
+        Object.entries(present)
+          .filter(([, on]) => on)
+          .map(([k]) => k)
+          .sort(),
+      ).toEqual(want.tags);
     });
   }
 });

@@ -6,8 +6,8 @@
 
 import { runInNewContext } from 'node:vm';
 import { describe, expect, test } from 'vitest';
-import { decodePng, isLastraError, type LastraErrorCode, type WorkMeter } from './index.js';
-import { chunk, concat, deflateSync, ihdr, PNG_SIGNATURE, rawRows, rgbPng } from './test-support.js';
+import { decodePng, isLastraError, type LastraErrorCode, MAX_PNG_CHUNKS, type WorkMeter } from './index.js';
+import { chunk, concat, deflateSync, ihdr, PNG_SIGNATURE, rawRows, rgbPng } from './test-support.test.mjs';
 
 async function refusal(bytes: Uint8Array, opts?: Parameters<typeof decodePng>[1]): Promise<LastraErrorCode> {
   try {
@@ -143,7 +143,6 @@ describe('decodePng refuses with a typed code', () => {
     const bad = chunk('iCCP', [80, 0, 0, 0x78, 0x9c, 1, 2, 3]);
     const img = await decodePng(rgbPng(2, 2, { extra: [bad] }));
     expect(img.icc).toBeNull();
-    expect(img.tags.iccp).toBe(true);
     const good = chunk('iCCP', [80, 0, 0, ...deflateSync(Uint8Array.from([1, 2, 3, 4]))]);
     expect(Array.from((await decodePng(rgbPng(2, 2, { extra: [good] }))).icc ?? [])).toEqual([1, 2, 3, 4]);
   });
@@ -183,6 +182,31 @@ describe('decodePng limits come before allocation', () => {
     expect([img.width, img.height]).toEqual([16, 16]);
     // Work is counted per 4 KB of output read: well under the 16,384 steps the whole bomb would cost.
     expect(meter.steps).toBeLessThan(400);
+  });
+
+  test('zero-length IDAT chunks are skipped in place; past MAX_PNG_CHUNKS chunks, too-large', async () => {
+    const empty = chunk('IDAT');
+    const real = chunk('IDAT', deflateSync(rawRows(4, 4, 3)));
+    const many = (n: number, withData: boolean) => {
+      const out = new Uint8Array(8 + 25 + n * empty.length + (withData ? real.length : 0) + 12);
+      let o = 0;
+      for (const part of [PNG_SIGNATURE, ihdr(4, 4)]) {
+        out.set(part, o);
+        o += part.length;
+      }
+      for (let i = 0; i < n; i++, o += empty.length) out.set(empty, o);
+      if (withData) {
+        out.set(real, o);
+        o += real.length;
+      }
+      out.set(iend, o);
+      return out;
+    };
+    const meter: WorkMeter = { steps: 0 };
+    const img = await decodePng(many(100_000, true), { meter });
+    expect(img.width).toBe(4);
+    expect(meter.steps).toBeLessThan(110_000); // a step a chunk, nothing kept per chunk
+    expect(await refusal(many(MAX_PNG_CHUNKS + 10, false))).toBe('too-large');
   });
 
   test('the work meter refuses once its limit is passed', async () => {
