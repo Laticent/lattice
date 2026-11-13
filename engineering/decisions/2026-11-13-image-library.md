@@ -1,13 +1,13 @@
 ---
 status: proposed
-summary: Design for lastra, a zero-dependency image library (read, clean, decode, resize, encode, decide) that replaces about fifteen scattered image helpers in lib/core, the Studio and Calco. Owner rulings 2026-11-13 — own pure-JS decoders, internal now in the publishable shape, built before the export-size fixes D1 to D3. Proposes five slices, each byte-identical on every export until the decoder slice, and the review each one owes.
+summary: Design for lastra, a zero-dependency image library (read, clean, decode, resize, encode, decide, measure, crop, tone) that replaces about fifteen scattered image helpers in lib/core, the Studio and Calco. Owner rulings 2026-11-13 — own pure-JS decoders, internal now in the publishable shape, built before the export-size fixes D1 to D3. Proposes six slices, each byte-identical on every export until the hosts adopt the decoders, and the review each one owes.
 ---
 
 # lastra: one image library (2026-11-13)
 
 **Status: proposed.** The owner asked for "a standard zero dependency general library that can be used in
-other domains too", for stability first. Three forks were settled on 2026-11-13 (§7); the name and the open
-questions in §8 are not.
+other domains too", for stability first. Three forks and the name were settled on 2026-11-13 (§7); the
+open questions in §8 are not.
 
 ## 1. Why
 
@@ -49,9 +49,29 @@ size regression lived in one of them:
 - **resize**: Lanczos-3, as today.
 - **encode**: our JPEG encoder and PNG writer, as today.
 - **decide**: `planRecode` and `acceptRecode` with every threshold passed in.
+- **measure**: the mean color of a region, averaged in linear light (`card-ink.mjs` `meanLinear` moves). The
+  WCAG choice of ink stays in Lattice; lastra gives it the number.
+- **crop**: the `cover` and `contain` source rectangle for a box and a focus point (`top`, `bottom`, `left`,
+  `right`, `center`, or a fraction), the math CSS `object-fit` and `object-position` do.
+- **tone**: grayscale and duotone on pixels, built from the separable and non-separable blend modes of the
+  W3C Compositing and Blending spec (`saturation`, `color`, …), so a baked picture matches the browser's
+  blend layers within a stated tolerance.
 
-**Not in lastra.** Anything about a slide: the slide camera, the placed-picture rule, the image layout's
-aspect buckets, Calco's "is this slide a photograph", the `images:` front-matter words, the panels. Those
+**What the image plugin needs from it (2026-11-13).** The plugin (`lib/plugins/image`) has four features that work on
+a photo's pixels, and each reads them its own way today:
+
+| Plugin feature | Today | From lastra |
+|---|---|---|
+| `bleed` ink | three hosts read the photo: the runtime (`lib/transformers/bleed-ink.js`), the CLI (`lib/export/bleed-ink-stamp.js`, which draws the file in its page first) and the Studio (`photo-ink-read.ts`) | decode, crop, measure: one read in every host, the CLI without a page |
+| card ink and the photo-contrast Coach | `card-ink.mjs` math, canvas `getImageData` in `card-ink-sampler.ts`, `photo-verdict.ts` | measure |
+| `focus=` | CSS `object-position`, and the ink code repeats the crop | crop |
+| `duotone`, `grayscale` | CSS blend layers (`lib/base/base.media.css`) | tone, so an export can ship a toned photo as one photo-sized file instead of a slide picture (the `filter` refusals in the PDF writer: 11 on the owner's Bilan deck) |
+
+The image layout's shape (`image-dimensions.js`, `image-aspect.js`) uses `read`; the preview copies
+(`docs/src/lib/preview-image-scale.ts`) use `resize`.
+
+**Not in lastra.** Anything about a slide: frames, finishes, sizes, `show=`, the image layout's aspect
+thresholds, the slide camera, the placed-picture rule, Calco's "is this slide a photograph", the `images:` front-matter words, the panels. Those
 stay in Lattice and call lastra.
 
 **Out of scope for decode.** WebP, AVIF, GIF and HEIC decoding. They are read and cleaned, never decoded; a
@@ -85,21 +105,24 @@ corpus, never the owner's).
 2. **Clean moves out of the Studio.** `media-scrub.ts` becomes lastra `clean`; the Studio calls it. The CLI
    gains it, which unblocks packing `assets/` photos into a CLI-written `.lattice` and `--reopenable`
    (held back in the CLI `.lattice` PR for exactly this).
-3. **PNG decode.**
+3. **PNG decode, measure and crop.** The three `bleed` ink hosts and the card-ink samplers move onto one read; the
+   inks they pick must not change on the galleries, the image plugin's demo deck and both photo decks.
 4. **JPEG decode**, behind the trio.
 5. **Hosts adopt decode.** The CLI's recode leaves Chrome; the Studio's recode moves into its worker pool
    (`followups.d/3148-p4-photo-resample-in-a-worker.md`). This slice changes picture bytes, so it owes the
    owner's export sign-off (dark and light, both photo decks).
+6. **Tone.** Grayscale and duotone on pixels, held to the browser's blend layers by a pixel-difference
+   ceiling in Chromium, WebKit and Firefox. Nothing uses it until D2 lifts toned photos.
 
 Then D1 to D3 from the export-size investigation build on it.
 
 ## 6. Review tier and budget
 
-- Slices 1 to 3: maker-checker (one `checker`), because they move code every export runs.
+- Slices 1 to 3 and 6: maker-checker (one `checker`), because they move code every export runs.
 - Slice 4: the adversarial trio (red team, inversion, checker) on the decoders as they will ship. Novel
   code that parses untrusted bytes.
 - Session count so far: two agents (the CLI `.lattice` builder and its checker). This note adds one checker
-  per slice for 1 to 3 and three for slice 4: seven, nine in the session. Under the ~10 that needs an OK.
+  per slice for 1 to 3 and 6, and three for slice 4: seven, nine in the session. Under the ~10 that needs an OK.
 
 ## 7. Owner rulings (2026-11-13)
 
@@ -108,10 +131,11 @@ Then D1 to D3 from the export-size investigation build on it.
    waits for its own ruling, the trio over the whole library and the license call
    (`2026-10-08-library-audit.md` §3).
 3. **Order: the library before D1 to D3.**
+4. **The name: lastra.**
+5. **It serves the image plugin too** (the owner, 2026-11-13): measure, crop and tone join the scope (§3).
 
 ## 8. Open
 
-- **The name.** `lastra` is a photographic plate. Alternatives: `scatto` (a shot), `pellicola` (film).
 - **The corpus.** Which licensed photo set (public-domain or CC0), its size, and whether it lives in the
   repo or is fetched by the corpus tool.
 - **Speed on a phone.** A JS JPEG decode of a 12-megapixel photo against `createImageBitmap`, measured in
