@@ -18,7 +18,9 @@ function positive(v: number | undefined, fallback: number, name: string): number
 }
 
 export function resolveLimits(bytes: Uint8Array, opts: DecodeOptions | undefined): Limits {
-  if (!(bytes instanceof Uint8Array)) throw new TypeError('lastra: bytes must be a Uint8Array');
+  // `instanceof` fails for a Uint8Array from another realm (a worker message, an iframe, a vm context).
+  const isBytes = bytes instanceof Uint8Array || Object.prototype.toString.call(bytes) === '[object Uint8Array]';
+  if (!isBytes) throw new TypeError('lastra: bytes must be a Uint8Array');
   const maxBytes = positive(opts?.maxBytes, DEFAULT_MAX_BYTES, 'maxBytes');
   const maxPixels = positive(opts?.maxPixels, DEFAULT_MAX_PIXELS, 'maxPixels');
   if (bytes.length > maxBytes) throw new LastraError('too-large', `input is ${bytes.length} bytes, over maxBytes ${maxBytes}`);

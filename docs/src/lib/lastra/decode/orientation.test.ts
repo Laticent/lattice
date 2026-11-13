@@ -69,9 +69,14 @@ describe('applyOrientation', () => {
     expect(grid(applyOrientation(applyOrientation(img, 3), 3))).toEqual(source);
   });
 
-  test('a value outside 1 to 8 returns the image unchanged', () => {
+  test('a value outside 1 to 8, and 1 itself, return an unchanged copy, never the input', () => {
     const img = image(source);
-    for (const o of [0, 9, -1, 2.5, Number.NaN]) expect(applyOrientation(img, o)).toBe(img);
+    for (const o of [1, 0, 9, -1, 2.5, Number.NaN]) {
+      const out = applyOrientation(img, o);
+      expect(out).not.toBe(img);
+      expect(out.data).not.toBe(img.data);
+      expect(grid(out)).toEqual(source);
+    }
   });
 
   test('a view into a larger buffer at an odd offset', () => {

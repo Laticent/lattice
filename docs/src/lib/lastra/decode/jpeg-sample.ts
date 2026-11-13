@@ -10,6 +10,13 @@
  *
  * Vertical context at the image edges repeats the first or last real row, as libjpeg's main buffer
  * controller does (`make_funny_pointers`, `set_bottom_pointers`).
+ *
+ * Based in part on the work of the Independent JPEG Group. jdsample.c: Copyright (C) 1991-1996, Thomas G.
+ * Lane; libjpeg-turbo modifications Copyright 2009 Pierre Ossman for Cendio AB, Copyright (C) 2010,
+ * 2015-2016, 2022, 2024, D. R. Commander, Copyright (C) 2014, MIPS Technologies, Inc., California,
+ * Copyright (C) 2015, Google, Inc., Copyright (C) 2019-2020, Arm Limited. jdmainct.c: Copyright (C)
+ * 1994-1996, Thomas G. Lane. Used under the IJG license and libjpeg-turbo's Modified BSD license (README.ijg and
+ * LICENSE.libjpeg-turbo.md in this folder); this file is a TypeScript re-expression, not the original code.
  */
 
 /** A component's samples after the IDCT: `width` x `height` real samples inside rows of `stride`. */
@@ -31,7 +38,7 @@ export function upsample(src: Plane, hr: number, vr: number, outW: number, outH:
   const dw = src.width;
   const lastRow = src.height - 1;
   const row = (r: number) => (r < 0 ? 0 : r > lastRow ? lastRow : r) * ss;
-  // One upsampled row group at a time; `tmp` holds a full row group's worth when the output is cropped.
+  // One output row at a time, built in `line` and cropped to the output width.
   const wide = dw * hr;
   const line = new Uint8Array(wide);
 

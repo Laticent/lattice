@@ -6,7 +6,8 @@
  * the mutation reaches the inflate and the filters instead of stopping at the first checksum.
  *
  * Every case must either decode inside its limits or refuse with a LastraError, and either way stay
- * under the work budget the decoders are built to (test-support.ts `workBudget`). Work is counted in
+ * under the work limit proven from the decoders' loops (test-support.ts `workLimit`) and under a ceiling
+ * on steps per unit of declared work set from measurement (`RATIO_CEILING` below). Work is counted in
  * steps, never timed (HARD RULE #32). The seed prints; replay or deepen with
  *   LASTRA_FUZZ_SEED=<n> LASTRA_FUZZ_CASES=<n> npx vitest run src/lib/lastra/decode/fuzz.test.ts
  * Each case derives its own generator from SEED + its index, so a failure names the one case to replay.
@@ -15,7 +16,7 @@
 import { crc32, deflateSync, inflateSync } from 'node:zlib';
 import { describe, expect, test } from 'vitest';
 import { decodeJpegSync, decodePng, isLastraError, type WorkMeter } from './index.js';
-import { expected, fixture, rng, workBudget } from './test-support.js';
+import { expected, fixture, rng, workLimit, workRatio } from './test-support.js';
 
 const SEED = Number(process.env.LASTRA_FUZZ_SEED ?? 20261113);
 const CASES = Number(process.env.LASTRA_FUZZ_CASES ?? 600);
@@ -166,30 +167,32 @@ function fixCrcs(b: Uint8Array): void {
   }
 }
 
-type Outcome = { code: string; steps: number };
+type Outcome = { code: string; steps: number; ratio: number };
 
 /** A case passes when it decoded inside its limits or refused with a LastraError, under its work budget. */
-function check(kind: 'png' | 'jpeg', i: number, result: unknown, meter: WorkMeter): Outcome {
+function check(kind: 'png' | 'jpeg', i: number, input: Uint8Array, result: unknown, meter: WorkMeter): Outcome {
+  const ratio = workRatio(kind, input, meter.steps);
   const replay = `${kind} case ${i} (seed ${SEED + i})`;
   if (isLastraError(result)) {
     expect(result.message, `${replay} ran past its work budget`).not.toContain('work limit');
     // Under a 1 MP limit no allocation can be too big for the platform; one that is means a size
     // reached an allocation without passing the limit check first.
     expect(result.message, `${replay} allocated past maxPixels`).not.toContain('cannot allocate');
-    return { code: result.code, steps: meter.steps };
+    return { code: result.code, steps: meter.steps, ratio };
   }
   if (result instanceof Error) throw new Error(`${replay} threw a non-lastra error: ${result.stack}`);
   const img = result as { width: number; height: number; data: Uint8ClampedArray };
   expect(img.width * img.height, replay).toBeLessThanOrEqual(MAX_PIXELS);
   expect(img.data.length, replay).toBe(img.width * img.height * 4);
-  return { code: 'ok', steps: meter.steps };
+  return { code: 'ok', steps: meter.steps, ratio };
 }
 
 function tally(outcomes: Outcome[]): string {
   const by = new Map<string, number>();
   for (const o of outcomes) by.set(o.code, (by.get(o.code) ?? 0) + 1);
   const most = Math.max(...outcomes.map((o) => o.steps));
-  return `${[...by].map(([k, v]) => `${k} ${v}`).join(', ')}; most steps ${most}`;
+  const ratio = Math.max(...outcomes.map((o) => o.ratio));
+  return `${[...by].map(([k, v]) => `${k} ${v}`).join(', ')}; most steps ${most}; highest steps per unit of declared work ${ratio.toFixed(2)}`;
 }
 
 /**
@@ -200,45 +203,73 @@ function tally(outcomes: Outcome[]): string {
  * the machine (HARD RULE #32). A batch is a twelfth of that.
  */
 const BATCH = 50;
-const jpegOutcomes: Outcome[] = [];
-const pngOutcomes: Outcome[] = [];
 
-function decodeCaseJpeg(i: number): Outcome {
+/**
+ * The highest steps per unit of declared work (test-support.ts `workRatio`) any case may reach: twice the
+ * measured maximum (JPEG 5.13, PNG 0.59; the default seed's 600 cases each and seed 1's 20,000 each,
+ * 2026-11-13). The proven limit
+ * above stops a runaway; this one fails a change that makes ordinary decoding do several times the work
+ * per block or per scanline, which the proven limit is too loose to see.
+ */
+const RATIO_CEILING = { jpeg: 10.3, png: 1.2 };
+
+// Each case is computed once, on first use, whichever test asks: a batch or the summary, run together or
+// alone (`-t 'reach every outcome'`), in any order.
+const jpegCases = new Map<number, Outcome>();
+const pngCases = new Map<number, Promise<Outcome>>();
+
+function caseJpeg(i: number): Outcome {
+  let o = jpegCases.get(i);
+  if (o) return o;
   const r = rng(SEED + i);
   const input = mutate(jpegs[Math.floor(r() * jpegs.length)], jpegs, r, 'jpeg');
-  const meter: WorkMeter = { steps: 0, limit: workBudget('jpeg', input.length, MAX_PIXELS) };
+  const meter: WorkMeter = { steps: 0, limit: workLimit('jpeg', input) };
   let result: unknown;
   try {
     result = decodeJpegSync(input, { maxPixels: MAX_PIXELS, meter });
   } catch (e) {
     result = e;
   }
-  return check('jpeg', i, result, meter);
+  o = check('jpeg', i, input, result, meter);
+  expect(o.ratio, `jpeg case ${i} (seed ${SEED + i}): ${o.steps} steps`).toBeLessThanOrEqual(RATIO_CEILING.jpeg);
+  jpegCases.set(i, o);
+  return o;
 }
 
-async function decodeCasePng(i: number): Promise<Outcome> {
-  const r = rng(SEED + i);
-  const input = mutate(pngs[Math.floor(r() * pngs.length)], pngs, r, 'png');
-  const meter: WorkMeter = { steps: 0, limit: workBudget('png', input.length, MAX_PIXELS) };
-  let result: unknown;
-  try {
-    result = await decodePng(input, { maxPixels: MAX_PIXELS, meter });
-  } catch (e) {
-    result = e;
-  }
-  return check('png', i, result, meter);
+function casePng(i: number): Promise<Outcome> {
+  let o = pngCases.get(i);
+  if (o) return o;
+  o = (async () => {
+    const r = rng(SEED + i);
+    const input = mutate(pngs[Math.floor(r() * pngs.length)], pngs, r, 'png');
+    const meter: WorkMeter = { steps: 0, limit: workLimit('png', input) };
+    let result: unknown;
+    try {
+      result = await decodePng(input, { maxPixels: MAX_PIXELS, meter });
+    } catch (e) {
+      result = e;
+    }
+    const out = check('png', i, input, result, meter);
+    expect(out.ratio, `png case ${i} (seed ${SEED + i}): ${out.steps} steps`).toBeLessThanOrEqual(RATIO_CEILING.png);
+    return out;
+  })();
+  pngCases.set(i, o);
+  return o;
 }
 
 describe(`fuzz JPEG (seed ${SEED})`, () => {
   for (let from = 0; from < CASES; from += BATCH) {
     const to = Math.min(CASES, from + BATCH);
     test(`cases ${from} to ${to - 1} decode or refuse, inside the work budget`, () => {
-      for (let i = from; i < to; i++) jpegOutcomes.push(decodeCaseJpeg(i));
+      for (let i = from; i < to; i++) caseJpeg(i);
     });
   }
-  test('the mutations reach every outcome: some decode, some refuse for each reason', () => {
-    console.log(`lastra fuzz JPEG: ${tally(jpegOutcomes)}`);
-    const codes = new Set(jpegOutcomes.map((o) => o.code));
+  // Run alone, this test decodes every case itself (600 at about 2 ms idle), so it carries a budget that
+  // allows for a loaded machine; run with the batches it reads their cached outcomes.
+  test('the mutations reach every outcome: some decode, some refuse for each reason', { timeout: 120_000 }, () => {
+    const outcomes = Array.from({ length: CASES }, (_, i) => caseJpeg(i));
+    console.log(`lastra fuzz JPEG: ${tally(outcomes)}`);
+    const codes = new Set(outcomes.map((o) => o.code));
     for (const c of ['ok', 'truncated', 'bad-marker', 'corrupt']) expect(codes, c).toContain(c);
   });
 });
@@ -247,12 +278,14 @@ describe(`fuzz PNG (seed ${SEED} + 1,000,000)`, () => {
   for (let from = 0; from < CASES; from += BATCH) {
     const to = Math.min(CASES, from + BATCH);
     test(`cases ${from} to ${to - 1} decode or refuse, inside the work budget`, async () => {
-      for (let i = from; i < to; i++) pngOutcomes.push(await decodeCasePng(1_000_000 + i));
+      for (let i = from; i < to; i++) await casePng(1_000_000 + i);
     });
   }
-  test('the mutations reach every outcome: some decode, some refuse for each reason', () => {
-    console.log(`lastra fuzz PNG: ${tally(pngOutcomes)}`);
-    const codes = new Set(pngOutcomes.map((o) => o.code));
+  test('the mutations reach every outcome: some decode, some refuse for each reason', { timeout: 120_000 }, async () => {
+    const outcomes: Outcome[] = [];
+    for (let i = 0; i < CASES; i++) outcomes.push(await casePng(1_000_000 + i));
+    console.log(`lastra fuzz PNG: ${tally(outcomes)}`);
+    const codes = new Set(outcomes.map((o) => o.code));
     for (const c of ['ok', 'truncated', 'crc', 'corrupt', 'bad-marker']) expect(codes, c).toContain(c);
   });
 });

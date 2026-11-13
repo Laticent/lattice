@@ -1,18 +1,27 @@
 /**
- * The JPEG inverse DCT and the sample-side steps after it, each a transcription of libjpeg-turbo's
- * default path so a decode here gives the bytes libjpeg-turbo gives (engineering/decisions/2026-11-13-
- * image-library.md §4):
+ * The JPEG inverse DCT and the YCbCr tables, transcribed from libjpeg-turbo 3.1's C code
+ * (engineering/decisions/2026-11-13-image-library.md §4):
  *
- * - `idctIslow`: `jidctint.c` `jpeg_idct_islow`, the accurate integer IDCT (CONST_BITS 13, PASS1_BITS 2)
- *   and libjpeg's default `dct_method`. Chromium and Firefox decode through libjpeg-turbo with it, and so
- *   does Pillow. Its SIMD versions are bit-exact with this C code.
- * - the post-IDCT range limit, indexed by `value & 1023` exactly as libjpeg's table, so even a corrupt
- *   block's out-of-range values land where libjpeg's would rather than being clamped differently.
+ * - `idctIslow`: `jidctint.c` `jpeg_idct_islow`, the accurate integer IDCT (CONST_BITS 13, PASS1_BITS 2),
+ *   libjpeg's default `dct_method`, which Chromium, Firefox, Linux WebKit and Pillow decode with.
+ * - the post-IDCT range limit, indexed by `value & 1023` exactly as libjpeg's table.
  * - `jdcolor.c` `ycc_rgb_convert` tables (SCALEBITS 16).
  *
- * Arithmetic is on doubles holding integers, exact below 2^53, then cut to 32 bits by the shifts. A
- * valid file never leaves 32 bits; a hostile one wraps here where libjpeg's 64-bit `JLONG` would not,
- * which changes only which garbage it shows, never a bound.
+ * Arithmetic is on doubles holding integers (exact below 2^53) and follows the C types: products and
+ * sums are 64-bit `JLONG` there, and each DESCALE result is cut to a 32-bit `int` after the shift.
+ *
+ * Where it is exact, and where it is not: on every file whose dequantized coefficients fit in 16 bits
+ * (every file a real encoder writes) this equals libjpeg-turbo's C code and its SIMD code, which agree
+ * there. Past 16 bits the SIMD builds browsers and Pillow ship multiply and pack in 16-bit lanes and
+ * saturate, so they differ from the C reference and, on such a file, from lastra, which follows the C.
+ *
+ * Based in part on the work of the Independent JPEG Group. jidctint.c: Copyright (C) 1991-1998, Thomas G.
+ * Lane; modification developed 2002-2018 by Guido Vollbeding; libjpeg-turbo modifications Copyright (C)
+ * 2015, 2020, 2022, D. R. Commander. jdcolor.c: Copyright (C) 1991-1997, Thomas G. Lane; modified 2011 by
+ * Guido Vollbeding; libjpeg-turbo modifications Copyright 2009 Pierre Ossman for Cendio AB, Copyright (C)
+ * 2009, 2011-2012, 2014-2015, 2022, 2024, D. R. Commander, Copyright (C) 2013, Linaro Limited. Used under the IJG
+ * license and libjpeg-turbo's Modified BSD license (README.ijg and LICENSE.libjpeg-turbo.md, copied unaltered beside this file); this file is a TypeScript
+ * re-expression, not the original code.
  */
 
 const F_0_298 = 2446;
@@ -28,6 +37,11 @@ const F_2_053 = 16819;
 const F_2_562 = 20995;
 const F_3_072 = 25172;
 
+// DESCALE(x, n) cast to `int`, as libjpeg computes it: `x` is a 64-bit JLONG there, shifted, then cut to
+// 32 bits. A plain `>>` would cut first and shift after, which differs once `x` passes 2^31 (a file whose
+// quantization tables multiply its coefficients far past what any encoder writes). Written inline at
+// each use below, because a helper call per sample cost 15% of a baseline decode.
+
 /** libjpeg's post-IDCT range-limit table: index `(v & 1023)` for a centered result `v`. */
 const RANGE = new Uint8Array(1024);
 for (let i = 0; i < 1024; i++) {
@@ -37,14 +51,16 @@ for (let i = 0; i < 1024; i++) {
 
 /**
  * Inverse-transform one 8x8 block of coefficients (natural order, at `coefs[at..at+64)`) with the
- * dequantization table `q` (natural order), writing 8x8 samples to `out` at `outAt` with row `stride`.
+ * dequantization table `q` (natural order, as 16-bit signed values: a SIMD build of libjpeg-turbo, which
+ * is what browsers and Pillow ship, stores `ISLOW_MULT_TYPE` as `short`), writing 8x8 samples to `out` at `outAt` with row `stride`.
  */
-export function idctIslow(coefs: Int16Array, at: number, q: Uint16Array, out: Uint8Array, outAt: number, stride: number, ws: Int32Array): void {
+export function idctIslow(coefs: Int16Array, at: number, q: Int16Array, out: Uint8Array, outAt: number, stride: number, ws: Int32Array): void {
+  let t: number;
   // Pass 1: columns from the input into the work array, scaled up by 2^PASS1_BITS.
   for (let c = 0; c < 8; c++) {
     const i = at + c;
     if (coefs[i + 8] === 0 && coefs[i + 16] === 0 && coefs[i + 24] === 0 && coefs[i + 32] === 0 && coefs[i + 40] === 0 && coefs[i + 48] === 0 && coefs[i + 56] === 0) {
-      const dc = (coefs[i] * q[c]) << 2;
+      const dc = (coefs[i] * q[c]) << 2; // LEFT_SHIFT into an int: the low 32 bits
       ws[c] = dc;
       ws[c + 8] = dc;
       ws[c + 16] = dc;
@@ -92,14 +108,14 @@ export function idctIslow(coefs: Int16Array, at: number, q: Uint16Array, out: Ui
     tmp3 += z1 + z4;
 
     // DESCALE(x, CONST_BITS - PASS1_BITS) = (x + 2^10) >> 11
-    ws[c] = (tmp10 + tmp3 + 1024) >> 11;
-    ws[c + 56] = (tmp10 - tmp3 + 1024) >> 11;
-    ws[c + 8] = (tmp11 + tmp2 + 1024) >> 11;
-    ws[c + 48] = (tmp11 - tmp2 + 1024) >> 11;
-    ws[c + 16] = (tmp12 + tmp1 + 1024) >> 11;
-    ws[c + 40] = (tmp12 - tmp1 + 1024) >> 11;
-    ws[c + 24] = (tmp13 + tmp0 + 1024) >> 11;
-    ws[c + 32] = (tmp13 - tmp0 + 1024) >> 11;
+    ws[c] = (t = tmp10 + tmp3 + 1024) <= 2147483647 && t >= -2147483648 ? t >> 11 : Math.floor(t / 2048) | 0;
+    ws[c + 56] = (t = tmp10 - tmp3 + 1024) <= 2147483647 && t >= -2147483648 ? t >> 11 : Math.floor(t / 2048) | 0;
+    ws[c + 8] = (t = tmp11 + tmp2 + 1024) <= 2147483647 && t >= -2147483648 ? t >> 11 : Math.floor(t / 2048) | 0;
+    ws[c + 48] = (t = tmp11 - tmp2 + 1024) <= 2147483647 && t >= -2147483648 ? t >> 11 : Math.floor(t / 2048) | 0;
+    ws[c + 16] = (t = tmp12 + tmp1 + 1024) <= 2147483647 && t >= -2147483648 ? t >> 11 : Math.floor(t / 2048) | 0;
+    ws[c + 40] = (t = tmp12 - tmp1 + 1024) <= 2147483647 && t >= -2147483648 ? t >> 11 : Math.floor(t / 2048) | 0;
+    ws[c + 24] = (t = tmp13 + tmp0 + 1024) <= 2147483647 && t >= -2147483648 ? t >> 11 : Math.floor(t / 2048) | 0;
+    ws[c + 32] = (t = tmp13 - tmp0 + 1024) <= 2147483647 && t >= -2147483648 ? t >> 11 : Math.floor(t / 2048) | 0;
   }
 
   // Pass 2: rows from the work array to samples, descaled by 2^(CONST_BITS + PASS1_BITS + 3).
@@ -107,7 +123,8 @@ export function idctIslow(coefs: Int16Array, at: number, q: Uint16Array, out: Ui
     const w = r * 8;
     let o = outAt + r * stride;
     if (ws[w + 1] === 0 && ws[w + 2] === 0 && ws[w + 3] === 0 && ws[w + 4] === 0 && ws[w + 5] === 0 && ws[w + 6] === 0 && ws[w + 7] === 0) {
-      const v = RANGE[((ws[w] + 16) >> 5) & 1023];
+      const d = ws[w] + 16;
+      const v = RANGE[(d <= 2147483647 ? d >> 5 : Math.floor(d / 32)) & 1023];
       for (let k = 0; k < 8; k++) out[o++] = v;
       continue;
     }
@@ -146,14 +163,14 @@ export function idctIslow(coefs: Int16Array, at: number, q: Uint16Array, out: Ui
     tmp3 += z1 + z4;
 
     // DESCALE(x, 18) = (x + 2^17) >> 18
-    out[o] = RANGE[((tmp10 + tmp3 + 131072) >> 18) & 1023];
-    out[o + 7] = RANGE[((tmp10 - tmp3 + 131072) >> 18) & 1023];
-    out[o + 1] = RANGE[((tmp11 + tmp2 + 131072) >> 18) & 1023];
-    out[o + 6] = RANGE[((tmp11 - tmp2 + 131072) >> 18) & 1023];
-    out[o + 2] = RANGE[((tmp12 + tmp1 + 131072) >> 18) & 1023];
-    out[o + 5] = RANGE[((tmp12 - tmp1 + 131072) >> 18) & 1023];
-    out[o + 3] = RANGE[((tmp13 + tmp0 + 131072) >> 18) & 1023];
-    out[o + 4] = RANGE[((tmp13 - tmp0 + 131072) >> 18) & 1023];
+    out[o] = RANGE[((t = tmp10 + tmp3 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 7] = RANGE[((t = tmp10 - tmp3 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 1] = RANGE[((t = tmp11 + tmp2 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 6] = RANGE[((t = tmp11 - tmp2 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 2] = RANGE[((t = tmp12 + tmp1 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 5] = RANGE[((t = tmp12 - tmp1 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 3] = RANGE[((t = tmp13 + tmp0 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
+    out[o + 4] = RANGE[((t = tmp13 - tmp0 + 131072) <= 2147483647 && t >= -2147483648 ? t >> 18 : Math.floor(t / 262144)) & 1023];
   }
 }
 

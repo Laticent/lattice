@@ -7,13 +7,14 @@
  * 1 as stored, 2 mirrored left-right, 3 turned 180 degrees, 4 mirrored top-bottom, 5 transposed (mirrored
  * across the top-left to bottom-right diagonal), 6 turned 90 degrees clockwise, 7 transversed (mirrored
  * across the other diagonal), 8 turned 90 degrees counter-clockwise. Orientations 5 to 8 swap the width
- * and height. Any other value returns the image as it is.
+ * and height. Any other value returns an unchanged copy. The result is always a new image; the input is
+ * never modified or returned.
  */
 
 import type { DecodedImage } from './types.js';
 
 export function applyOrientation(image: DecodedImage, orientation: number): DecodedImage {
-  if (!Number.isInteger(orientation) || orientation < 2 || orientation > 8) return image;
+  if (!Number.isInteger(orientation) || orientation < 2 || orientation > 8) return { width: image.width, height: image.height, data: image.data.slice() };
   const { width: w, height: h, data } = image;
   const swap = orientation >= 5;
   const ow = swap ? h : w;

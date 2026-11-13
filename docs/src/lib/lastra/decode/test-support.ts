@@ -13,8 +13,8 @@ export interface Expected {
   seed: number;
   pillow: string;
   libjpegTurbo: string;
-  png: Record<string, { width: number; height: number; rgbaSha256: string }>;
-  jpeg: Record<string, { width: number; height: number; pillowMode: string; rgbaSha256: string }>;
+  png: Record<string, { width: number; height: number; rgbaSha256: string; iccSha256: string | null; tags: string[] }>;
+  jpeg: Record<string, { width: number; height: number; pillowMode: string; rgbaSha256: string; iccSha256: string | null; exifOrientation: number | null }>;
 }
 
 export const expected: Expected = JSON.parse(readFileSync(new URL('expected.json', FIXTURES), 'utf8'));
@@ -39,22 +39,79 @@ export function rng(seed: number): () => number {
   };
 }
 
+/** What a file's header declares, read here independently of the decoders: the size of the work. */
+export interface Declared {
+  pixels: number;
+  height: number;
+  /** JPEG: coefficient blocks in all stores (whole MCUs). PNG: inflated scanline bytes. */
+  units: number;
+}
+
+/** The size a file's header declares, or zeros when no header parses. */
+export function declared(kind: 'png' | 'jpeg', b: Uint8Array): Declared {
+  const none = { pixels: 0, height: 0, units: 0 };
+  if (kind === 'png') {
+    if (b.length < 33) return none;
+    const u32 = (o: number) => ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0;
+    const w = u32(16);
+    const h = u32(20);
+    const ch = ({ 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 } as Record<number, number>)[b[25]] ?? 4;
+    const bits = ch * Math.max(1, b[24]);
+    // Adam7 adds at most a filter byte and a partial byte per pass row: twice the plain size bounds it.
+    return { pixels: w * h, height: h, units: 2 * h * (1 + Math.ceil((w * bits) / 8)) };
+  }
+  for (let i = 2; i + 4 <= b.length; ) {
+    if (b[i] !== 0xff) {
+      i++;
+      continue;
+    }
+    const m = b[i + 1];
+    if (m === 0xff || m === 0 || m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) {
+      i += m === 0xff ? 1 : 2;
+      continue;
+    }
+    const len = (b[i + 2] << 8) | b[i + 3];
+    if ((m === 0xc0 || m === 0xc1 || m === 0xc2) && i + 10 <= b.length) {
+      const h = (b[i + 5] << 8) | b[i + 6];
+      const w = (b[i + 7] << 8) | b[i + 8];
+      const nf = b[i + 9];
+      let hmax = 1;
+      let vmax = 1;
+      const comps: [number, number][] = [];
+      for (let c = 0; c < nf && i + 12 + 3 * c < b.length; c++) {
+        const hv = b[i + 11 + 3 * c];
+        comps.push([Math.max(1, hv >> 4), Math.max(1, hv & 15)]);
+        hmax = Math.max(hmax, hv >> 4);
+        vmax = Math.max(vmax, hv & 15);
+      }
+      const mx = Math.ceil(w / (8 * hmax));
+      const my = Math.ceil(h / (8 * vmax));
+      return { pixels: w * h, height: h, units: comps.reduce((n, [ch, cv]) => n + mx * ch * my * cv, 0) };
+    }
+    i += 2 + Math.max(len, 2);
+  }
+  return none;
+}
+
 /**
- * The most steps a decode of `bytes` input bytes may count under `maxPixels`, from the bounds the
- * decoders are built to (their headers say how). A decode that passes it is a runaway, whatever the clock.
- *
- * PNG: one step a chunk (at most bytes / 12), one a read of inflated data plus one per 4 KB of it (the
- * data is at most 8 bytes a pixel plus a filter byte a row), one a scanline (at most 2 x height with
- * Adam7). JPEG: one step a segment; per scan, one an MCU plus one a restart, where an image under
- * `maxPixels` with sides up to 65,535 has at most maxPixels / 64 + 2 x 8,192 + 1 MCUs; scans are at most
- * bytes / 8 (a scan header is 8 bytes or more) and at most 4 x 64 x 14 (each coefficient of each of 4
- * components takes one first pass and 13 refinements); then one step a block row and one an output row.
+ * The most steps a decode may count: a bound proven from the decoders' loops (their headers say how),
+ * so a decode past it is a runaway whatever the clock says. The meter counts work: per segment, table and
+ * 64 skipped bytes (each at most one per input byte); per decoded block, at most 32 visits a block plus a
+ * restart or skip per visit or per input byte; per IDCT block; per 64 output pixels, once for the color
+ * conversion and once per component's upsampling. PNG: per chunk, per inflated read plus per 4 KB, per
+ * scanline plus per 64 of its bytes.
  */
-export function workBudget(kind: 'png' | 'jpeg', bytes: number, maxPixels: number): number {
-  if (kind === 'png') return 1000 + bytes + 12 * maxPixels;
-  const mcus = Math.ceil(maxPixels / 64) + 2 * 8192 + 1;
-  const scans = Math.min(Math.ceil(bytes / 8), 4 * 64 * 14);
-  return 1000 + bytes + scans * 2 * mcus + 4 * 8192 + 65536;
+export function workLimit(kind: 'png' | 'jpeg', b: Uint8Array): number {
+  const d = declared(kind, b);
+  if (kind === 'png') return 1000 + b.length + 2 * d.units + 4 * d.height;
+  return 50_000 + 3 * b.length + 100 * d.units + 6 * Math.ceil(d.pixels / 64) + 2 * d.height;
+}
+
+/** Steps per unit of declared work: what the fuzz holds near its measured maximum. */
+export function workRatio(kind: 'png' | 'jpeg', b: Uint8Array, steps: number): number {
+  const d = declared(kind, b);
+  const work = kind === 'png' ? b.length / 64 + d.units / 64 + d.height : b.length / 16 + d.units + d.pixels / 64;
+  return steps / (work + 64);
 }
 
 // ── PNG building blocks ─────────────────────────────────────────────────────────────────────────
@@ -132,3 +189,19 @@ export function scanStarts(b: Uint8Array): number[] {
 export function replaceRange(b: Uint8Array, start: number, end: number, insert: ArrayLike<number>): Uint8Array {
   return concat(b.subarray(0, start), Uint8Array.from(insert), b.subarray(end));
 }
+
+// ── Synthetic JPEG segments, for files no encoder writes ────────────────────────────────────────
+
+export const SOI = [0xff, 0xd8];
+export const EOI = [0xff, 0xd9];
+const seg16 = (marker: number, body: number[]) => [0xff, marker, (body.length + 2) >> 8, (body.length + 2) & 255, ...body];
+/** Quantization table 0, every entry `q`. */
+export const dqtAll = (q = 1) => seg16(0xdb, [0, ...Array.from({ length: 64 }, () => q)]);
+/** A frame header: `comps` as [id, sampling byte, table]. */
+export const sofSeg = (marker: number, w: number, h: number, comps: [number, number, number][]) => seg16(marker, [8, h >> 8, h & 255, w >> 8, w & 255, comps.length, ...comps.flat()]);
+export const driSeg = (n: number) => seg16(0xdd, [n >> 8, n & 255]);
+/** A scan header with Huffman tables 0/0 for every component. */
+export const sosSeg = (ids: number[], ss: number, se: number, ah: number, al: number) => seg16(0xda, [ids.length, ...ids.flatMap((id) => [id, 0]), ss, se, (ah << 4) | al]);
+/** A Huffman table with one 1-bit code (symbol `sym`). */
+export const dhtOne = (tc: number, th: number, sym = 0) => seg16(0xc4, [(tc << 4) | th, 1, ...Array.from({ length: 15 }, () => 0), sym]);
+export const bytesOf = (...parts: number[][]) => Uint8Array.from(parts.flat());

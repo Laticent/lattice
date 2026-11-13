@@ -4,6 +4,7 @@
  * the hostile shapes from the design note §4 (a decompression bomb, a header that lies about its size).
  */
 
+import { runInNewContext } from 'node:vm';
 import { describe, expect, test } from 'vitest';
 import { decodePng, isLastraError, type LastraErrorCode, type WorkMeter } from './index.js';
 import { chunk, concat, deflateSync, ihdr, PNG_SIGNATURE, rawRows, rgbPng } from './test-support.js';
@@ -107,14 +108,52 @@ describe('decodePng refuses with a typed code', () => {
     expect((await decodePng(rgbPng(2, 2, { extra: [chunk('zzZZ', [1])] }))).width).toBe(2);
   });
 
-  test('image data that inflates short, inflates long, or does not inflate', async () => {
+  test('image data that inflates short or does not inflate is refused; data past the image is not read', async () => {
     expect(await refusal(rgbPng(4, 4, { raw: rawRows(4, 3, 3) }))).toBe('truncated');
-    expect(await refusal(rgbPng(4, 4, { raw: rawRows(4, 5, 3) }))).toBe('corrupt');
     const garbage = concat(PNG_SIGNATURE, ihdr(4, 4), chunk('IDAT', [0x78, 0x9c, 0xff, 0xff, 0xff, 0xff]), iend);
     expect(await refusal(garbage)).toBe('corrupt');
-    const z = deflateSync(rawRows(4, 4, 3));
-    z[z.length - 1] ^= 0xff; // Adler-32
-    expect(await refusal(concat(PNG_SIGNATURE, ihdr(4, 4), chunk('IDAT', z), iend))).toBe('corrupt');
+    // An extra scanline, and bytes after the zlib stream: decoded, as libpng and every engine show them.
+    const want = Array.from((await decodePng(rgbPng(4, 4))).data);
+    expect(Array.from((await decodePng(rgbPng(4, 4, { raw: rawRows(4, 5, 3) }))).data)).toEqual(want);
+    const tail = concat(deflateSync(rawRows(4, 4, 3)), Uint8Array.from([1, 2, 3, 4, 5]));
+    expect(Array.from((await decodePng(concat(PNG_SIGNATURE, ihdr(4, 4), chunk('IDAT', tail), iend))).data)).toEqual(want);
+  });
+
+  test('tRNS that libpng ignores is ignored: before PLTE, after IDAT, repeated, the wrong length, on RGBA', async () => {
+    const plte = chunk('PLTE', [255, 0, 0, 0, 255, 0]);
+    const idx = idat(Uint8Array.from([0, 0, 1]));
+    const alpha = async (png: Uint8Array) => Array.from((await decodePng(png)).data.filter((_, i) => i % 4 === 3));
+    expect(await alpha(concat(PNG_SIGNATURE, ihdr(2, 1, 8, 3), plte, chunk('tRNS', [0, 7]), idx, iend))).toEqual([0, 7]);
+    expect(await alpha(concat(PNG_SIGNATURE, ihdr(2, 1, 8, 3), chunk('tRNS', [0, 7]), plte, idx, iend))).toEqual([255, 255]);
+    expect(await alpha(concat(PNG_SIGNATURE, ihdr(2, 1, 8, 3), plte, idx, chunk('tRNS', [0, 7]), iend))).toEqual([255, 255]);
+    expect(await alpha(concat(PNG_SIGNATURE, ihdr(2, 1, 8, 3), plte, chunk('tRNS', [0, 7, 9]), idx, iend))).toEqual([255, 255]);
+    expect(await alpha(concat(PNG_SIGNATURE, ihdr(2, 1, 8, 3), plte, chunk('tRNS', [0, 7]), chunk('tRNS', [9, 9]), idx, iend))).toEqual([0, 7]);
+    expect(await alpha(concat(PNG_SIGNATURE, ihdr(2, 1, 8, 0), chunk('tRNS', [0, 7, 0]), idat(Uint8Array.from([0, 7, 8])), iend))).toEqual([255, 255]);
+    expect(await alpha(concat(PNG_SIGNATURE, ihdr(1, 1, 8, 6), chunk('tRNS', [0, 0, 0, 0, 0, 0]), idat(Uint8Array.from([0, 0, 0, 0, 77])), iend))).toEqual([77]);
+  });
+
+  test('a gray or RGB key is masked to the bit depth, as png_do_expand does', async () => {
+    const alpha = async (png: Uint8Array) => Array.from((await decodePng(png)).data.filter((_, i) => i % 4 === 3));
+    // 2-bit samples 0, 1, 2, 3 against key 257: masked to 1.
+    expect(await alpha(concat(PNG_SIGNATURE, ihdr(4, 1, 2, 0), chunk('tRNS', [1, 1]), idat(Uint8Array.from([0, 0b00011011])), iend))).toEqual([255, 0, 255, 255]);
+    expect(await alpha(concat(PNG_SIGNATURE, ihdr(2, 1, 8, 0), chunk('tRNS', [1, 7]), idat(Uint8Array.from([0, 7, 8])), iend))).toEqual([0, 255]);
+  });
+
+  test('an iCCP that does not inflate drops the profile, not the image', async () => {
+    const bad = chunk('iCCP', [80, 0, 0, 0x78, 0x9c, 1, 2, 3]);
+    const img = await decodePng(rgbPng(2, 2, { extra: [bad] }));
+    expect(img.icc).toBeNull();
+    expect(img.tags.iccp).toBe(true);
+    const good = chunk('iCCP', [80, 0, 0, ...deflateSync(Uint8Array.from([1, 2, 3, 4]))]);
+    expect(Array.from((await decodePng(rgbPng(2, 2, { extra: [good] }))).icc ?? [])).toEqual([1, 2, 3, 4]);
+  });
+
+  test('an aborted signal rejects with its reason', async () => {
+    const c = new AbortController();
+    c.abort(new Error('stop'));
+    const meter: WorkMeter = { steps: 0 };
+    await expect(decodePng(rgbPng(4, 4), { signal: c.signal, meter })).rejects.toThrow('stop');
+    expect(meter.steps).toBe(0); // refused before reading a chunk
   });
 });
 
@@ -136,12 +175,13 @@ describe('decodePng limits come before allocation', () => {
   });
 
   test('a decompression bomb stops at the declared size', async () => {
-    // 64 MB of zeros deflates to about 64 KB; the header says 16 x 16.
+    // 64 MB of zeros deflates to about 64 KB; the header says 16 x 16, so 784 bytes are read and the
+    // stream is canceled: a black 16 x 16 image, as a browser shows it.
     const bomb = deflateSync(new Uint8Array(64 * 1024 * 1024));
     const meter: WorkMeter = { steps: 0 };
-    const png = concat(PNG_SIGNATURE, ihdr(16, 16), chunk('IDAT', bomb), iend);
-    expect(await refusal(png, { meter })).toBe('corrupt');
-    // Work is counted per 4 KB of output: well under the 16,384 steps the whole bomb would cost.
+    const img = await decodePng(concat(PNG_SIGNATURE, ihdr(16, 16), chunk('IDAT', bomb), iend), { meter });
+    expect([img.width, img.height]).toEqual([16, 16]);
+    // Work is counted per 4 KB of output read: well under the 16,384 steps the whole bomb would cost.
     expect(meter.steps).toBeLessThan(400);
   });
 
@@ -169,6 +209,14 @@ describe('decodePng reads what browsers read', () => {
   test('ancillary chunks after IEND are ignored', async () => {
     const img = await decodePng(concat(rgbPng(2, 2), chunk('IDAT', [1, 2, 3])));
     expect(img.width).toBe(2);
+  });
+
+  test('a Uint8Array from another realm decodes the same', async () => {
+    const png = rgbPng(5, 3);
+    const foreign = runInNewContext(`new Uint8Array(${png.length})`) as Uint8Array;
+    foreign.set(png);
+    expect(foreign instanceof Uint8Array).toBe(false);
+    expect(Array.from((await decodePng(foreign)).data)).toEqual(Array.from((await decodePng(png)).data));
   });
 
   test('input backed by a SharedArrayBuffer decodes the same', async () => {

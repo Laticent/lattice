@@ -6,8 +6,24 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { decodeJpegSync, isLastraError, type LastraErrorCode, type WorkMeter } from './index.js';
-import { concat, fixture, jpegSegments, replaceRange, scanStarts, sha256, workBudget } from './test-support.js';
+import { decodeJpeg, decodeJpegSync, isLastraError, type LastraErrorCode, MAX_SCANS, VISITS_PER_BLOCK, type WorkMeter } from './index.js';
+import {
+  bytesOf,
+  concat,
+  dhtOne,
+  dqtAll,
+  driSeg,
+  EOI,
+  fixture,
+  jpegSegments,
+  replaceRange,
+  SOI,
+  scanStarts,
+  sha256,
+  sofSeg,
+  sosSeg,
+  workLimit,
+} from './test-support.js';
 
 const base = fixture('jpeg', 'odd-base-420.jpg');
 const prog = fixture('jpeg', 'mid-prog-420-q75.jpg');
@@ -23,9 +39,9 @@ function refusal(bytes: Uint8Array, opts?: Parameters<typeof decodeJpegSync>[1])
   throw new Error('decoded, expected a refusal');
 }
 
-/** Decode, or refuse with a LastraError; either way within the proven work budget. */
+/** Decode, or refuse with a LastraError; either way within the proven work limit. */
 function bounded(bytes: Uint8Array, maxPixels = 1 << 20): { steps: number; code: LastraErrorCode | 'ok' } {
-  const meter: WorkMeter = { steps: 0, limit: workBudget('jpeg', bytes.length, maxPixels) };
+  const meter: WorkMeter = { steps: 0, limit: workLimit('jpeg', bytes) };
   try {
     decodeJpegSync(bytes, { maxPixels, meter });
     return { steps: meter.steps, code: 'ok' };
@@ -56,13 +72,41 @@ describe('decodeJpeg refuses with a typed code', () => {
     expect(refusal(Uint8Array.from([0x89, 0x50, 0x4e, 0x47]))).toBe('bad-marker');
   });
 
-  test('every cut short of EOI is truncated: in a header, a table, a scan, between progressive scans', () => {
+  test('a cut before any scan is whole is truncated; a cut after one decodes, as libjpeg reads it (EOI at the end)', () => {
     for (const file of [base, prog]) {
+      const starts = scanStarts(file);
+      const firstWhole = starts.length > 1 ? starts[1] : file.length - 2; // where scan 1's data ends
       const step = Math.max(1, Math.floor(file.length / 97));
-      for (let cut = 2; cut < file.length; cut += step) expect(refusal(file.subarray(0, cut)), `cut at ${cut}`).toBe('truncated');
-      expect(refusal(file.subarray(0, file.length - 2))).toBe('truncated'); // no EOI at all
-      for (const at of scanStarts(file)) expect(refusal(file.subarray(0, at))).toBe('truncated');
+      for (let cut = 2; cut < file.length; cut += step) {
+        if (cut < firstWhole) expect(refusal(file.subarray(0, cut)), `cut at ${cut}`).toBe('truncated');
+        else expect(decodeJpegSync(file.subarray(0, cut)).width, `cut at ${cut}`).toBeGreaterThan(0);
+      }
+      // At a scan boundary the early end reads exactly as EOI there would.
+      for (const at of starts.slice(1)) expect(sha256(decodeJpegSync(file.subarray(0, at)).data)).toBe(sha256(decodeJpegSync(concat(file.subarray(0, at), Uint8Array.from(EOI))).data));
     }
+    expect(refusal(base.subarray(0, scanStarts(base)[0] + 20))).toBe('truncated'); // inside the only scan
+  });
+
+  test('a scan header whose length cannot fit its count is refused, even where the file then ends early', () => {
+    const at = scanStarts(prog)[3];
+    expect(refusal(poke(prog, at + 2, 0x99))).toBe('bad-marker');
+  });
+
+  test('a frame with no scan is refused, and costs no coefficient memory', () => {
+    const noScan = bytesOf(SOI, dqtAll(), sofSeg(0xc2, 10000, 10000, [[1, 0x11, 0]]), EOI);
+    const meter: WorkMeter = { steps: 0 };
+    expect(refusal(noScan, { meter })).toBe('corrupt');
+    expect(meter.steps).toBeLessThan(10);
+    expect(refusal(bytesOf(SOI, dqtAll(), sofSeg(0xc0, 8, 8, [[1, 0x11, 0]])))).toBe('truncated');
+  });
+
+  test('progressive parameters libjpeg refuses: Al over 13, Al not Ah - 1, an AC band over two components', () => {
+    const head = (scan: number[]) => bytesOf(SOI, dqtAll(), sofSeg(0xc2, 8, 8, [[1, 0x11, 0], [2, 0x11, 0], [3, 0x11, 0]]), dhtOne(0, 0), dhtOne(1, 0), scan, [0], EOI);
+    expect(refusal(head(sosSeg([1], 0, 0, 0, 14)))).toBe('corrupt');
+    expect(refusal(head(sosSeg([1], 0, 0, 3, 1)))).toBe('corrupt');
+    expect(refusal(head(sosSeg([1, 2], 1, 5, 0, 0)))).toBe('corrupt');
+    expect(refusal(head(sosSeg([1], 5, 3, 0, 0)))).toBe('corrupt');
+    expect(decodeJpegSync(head(sosSeg([1], 0, 0, 0, 13))).width).toBe(8);
   });
 
   test('unsupported frames: 12-bit, arithmetic, lossless, hierarchical, DNL height, two components', () => {
@@ -160,17 +204,103 @@ describe('decodeJpeg refuses with a typed code', () => {
     expect(refusal(twice)).toBe('corrupt');
   });
 
-  test('a progressive scan replayed out of sequence, once or two thousand times', () => {
+  test('a progressive scan replayed: decoded once more, as libjpeg does; replayed past the scan cap, refused', () => {
     const starts = scanStarts(prog);
     const eoi = prog.length - 2;
-    // The first scan is the DC first pass; sending it again would refine nothing and cost a full pass.
     const first = prog.subarray(starts[0], starts[1]);
+    const once = bounded(concat(prog.subarray(0, eoi), first, prog.subarray(eoi)));
+    expect(once.code).toBe('ok');
+    const many = concat(prog.subarray(0, starts[1]), ...Array.from({ length: MAX_SCANS }, () => first), prog.subarray(starts[1]));
+    expect(bounded(many).code).toBe('too-large');
+    // Scans with no data visit no block, so only the scan cap stops them, after MAX_SCANS headers.
+    const empty = sosSeg([1], 0, 0, 1, 0);
+    const file = bytesOf(SOI, dqtAll(), sofSeg(0xc2, 64, 64, [[1, 0x11, 0]]), dhtOne(0, 0), sosSeg([1], 0, 0, 0, 1), [0], ...Array.from({ length: MAX_SCANS }, () => empty), EOI);
+    try {
+      decodeJpegSync(file);
+      throw new Error('decoded');
+    } catch (e) {
+      expect(String(e)).toContain(`more than ${MAX_SCANS} scans`);
+    }
+  });
+
+  test('scans that each visit every block are cut off at the visit cap, in proportion to the blocks', () => {
+    // Every AC first-pass band for one component, each a single end-of-band run covering the image.
+    const w = 512;
+    const h = 512;
+    const blocks = (w / 8) * (h / 8);
+    // One end-of-band run covers the 4096 blocks: the 1-bit code for EOB14 (symbol 0xE0), then 14 one-bits.
+    const scans: number[][] = [];
+    for (let k = 1; k < 64 && scans.length < VISITS_PER_BLOCK + 8; k++) scans.push([...sosSeg([1], k, k, 0, 0), 0x7f, 0xff, 0x00, 0xff, 0x00]); // 0xFF data bytes are stuffed
+    const file = bytesOf(SOI, dqtAll(), sofSeg(0xc2, w, h, [[1, 0x11, 0]]), dhtOne(0, 0), dhtOne(1, 0, 0xe0), sosSeg([1], 0, 0, 0, 0), [0, 0, 0, 0], ...scans, EOI);
+    const r = bounded(file);
+    expect(r.code).toBe('too-large');
+    expect(r.steps).toBeLessThan((VISITS_PER_BLOCK + 3) * blocks);
+  });
+
+  test('empty scans with a restart every MCU stop at the next marker: work in the scans, not the image', () => {
+    const scans: number[][] = [];
+    for (let a = 13; a >= 1; a--) scans.push(sosSeg([1], 0, 0, a, a - 1));
+    const file = bytesOf(SOI, dqtAll(), sofSeg(0xc2, 4096, 4096, [[1, 0x11, 0]]), driSeg(1), dhtOne(0, 0), sosSeg([1], 0, 0, 0, 13), ...scans, EOI);
     const meter: WorkMeter = { steps: 0 };
-    expect(refusal(concat(prog.subarray(0, eoi), first, prog.subarray(eoi)), { meter })).toBe('corrupt');
-    const many = concat(prog.subarray(0, starts[1]), ...Array.from({ length: 2000 }, () => first), prog.subarray(starts[1]));
-    const r = bounded(many);
-    expect(r.code).toBe('corrupt');
-    expect(r.steps).toBeLessThan(5 * meter.steps);
+    decodeJpegSync(file, { meter });
+    // 14 scans of one MCU each, then the output (262,144 blocks, 16 MP): nothing per scan per block.
+    expect(meter.steps).toBeLessThan(2 * 262_144 + 3 * (16_777_216 / 64));
+    const scanWork = meter.steps;
+    const twice = bytesOf(SOI, dqtAll(), sofSeg(0xc2, 4096, 4096, [[1, 0x11, 0]]), driSeg(1), dhtOne(0, 0), sosSeg([1], 0, 0, 0, 13), ...scans, ...scans, EOI);
+    const m2: WorkMeter = { steps: 0 };
+    decodeJpegSync(twice, { meter: m2 });
+    expect(m2.steps - scanWork).toBeLessThan(100); // 13 more empty scans cost a handful of steps
+  });
+
+  test('a file of unused Huffman tables costs a step a table and no lookup is built for them', () => {
+    const table = [0x10, 1, ...Array.from({ length: 15 }, () => 0), 0];
+    const perSeg = 3000;
+    const body = Array.from({ length: perSeg }, () => table).flat();
+    const dht = [0xff, 0xc4, (body.length + 2) >> 8, (body.length + 2) & 255, ...body];
+    const file = bytesOf(SOI, dqtAll(), ...Array.from({ length: 20 }, () => dht), sofSeg(0xc0, 8, 8, [[1, 0x11, 0]]), sosSeg([1], 0, 63, 0, 0), [0], EOI);
+    const meter: WorkMeter = { steps: 0 };
+    decodeJpegSync(file, { meter });
+    expect(meter.steps).toBeGreaterThanOrEqual(20 * perSeg);
+    expect(meter.steps).toBeLessThan(20 * perSeg + 200);
+  });
+});
+
+describe('decodeJpeg yields and can be aborted', () => {
+  test('the async decode gives the event loop turns while it works', async () => {
+    // A check-phase callback that re-queues itself runs once per event-loop turn the decode gives back.
+    let turns = 0;
+    let done = false;
+    const tick = () => {
+      if (!done) {
+        turns++;
+        setImmediate(tick);
+      }
+    };
+    setImmediate(tick);
+    const img = await decodeJpeg(fixture('jpeg', 'big-prog-444-q90.jpg'));
+    done = true;
+    expect(img.width).toBe(1001);
+    expect(turns).toBeGreaterThan(2);
+  });
+
+  test('an aborted signal rejects with its reason, before or during the decode', async () => {
+    const before = new AbortController();
+    before.abort(new Error('stop before'));
+    await expect(decodeJpeg(prog, { signal: before.signal })).rejects.toThrow('stop before');
+    // decodeJpeg runs to its first yield before it returns, so an abort right after it is an abort during.
+    const during = new AbortController();
+    const meter: WorkMeter = { steps: 0 };
+    const pending = decodeJpeg(fixture('jpeg', 'big-prog-444-q90.jpg'), { signal: during.signal, meter });
+    during.abort(new Error('stop during'));
+    await expect(pending).rejects.toThrow('stop during');
+    const whole: WorkMeter = { steps: 0 };
+    decodeJpegSync(fixture('jpeg', 'big-prog-444-q90.jpg'), { meter: whole });
+    expect(meter.steps).toBeGreaterThan(0);
+    expect(meter.steps).toBeLessThan(whole.steps);
+  });
+
+  test('decodeJpegSync and decodeJpeg give the same pixels', async () => {
+    expect(sha256((await decodeJpeg(prog)).data)).toBe(sha256(decodeJpegSync(prog).data));
   });
 });
 
@@ -193,7 +323,9 @@ describe('decodeJpeg ends in bounded work on hostile shapes that are not refusal
     const empty = concat(mid.subarray(0, sos.end), Uint8Array.from([0xff, 0xd9]));
     const r = bounded(empty);
     expect(r.code).toBe('ok');
-    expect(r.steps).toBeLessThan(2000); // segments, one MCU, block rows and output rows: no pass over every MCU
+    // Segments, one MCU, then the output (about 1.5 blocks and 3 64-pixel chunks per 64 pixels): the scan
+    // stops at EOI instead of walking every MCU.
+    expect(r.steps).toBeLessThan(100 + 6 * Math.ceil((257 * 193) / 64));
     const img = decodeJpegSync(empty);
     expect(Array.from(img.data.subarray(img.data.length - 4))).toEqual([128, 128, 128, 255]);
   });

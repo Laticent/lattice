@@ -5,8 +5,10 @@
 
 export type { LastraErrorCode } from './errors.js';
 export { isLastraError, LastraError } from './errors.js';
-export { decodeJpeg, decodeJpegSync } from './jpeg.js';
+export type { JpegImage } from './jpeg.js';
+export { decodeJpeg, decodeJpegSync, MAX_SCANS, VISITS_PER_BLOCK } from './jpeg.js';
 export { applyOrientation } from './orientation.js';
+export type { PngColorTags, PngImage } from './png.js';
 export { decodePng } from './png.js';
 export type { DecodedImage, DecodeOptions, WorkMeter } from './types.js';
 export { DEFAULT_MAX_BYTES, DEFAULT_MAX_PIXELS } from './types.js';
