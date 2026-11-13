@@ -8,12 +8,12 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        slot: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-        arm: [before, after]
+        slot: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
+        arm: [after]
     env:
       PUPPETEER_SKIP_DOWNLOAD: '1'
     steps:
@@ -30,7 +30,7 @@ jobs:
           export NODE_OPTIONS="--require /tmp/handles.js"
           R=/tmp/wedge; mkdir -p $R
           desc() { echo $1; for c in $(pgrep -P $1); do desc $c; done; }
-          for i in 1 2 3; do
+          for i in 1 2 3 4 5; do
             d=$R/run-$i; mkdir -p $d; export WEDGE_DUMP_DIR=$d
             start=$(date +%s)
             if [ "${{ matrix.arm }}" = after ]; then
