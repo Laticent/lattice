@@ -68,13 +68,24 @@ describe('transform-dsl — DOM interpreter', () => {
   });
 
   test('section scoping — a rule never touches another component\'s sections', () => {
-    const dom = new JSDOM('<body>' + SAMPLE_HTML + '<section class="cards"><p><code>x</code></p><h2>Other</h2></section></body>');
+    // Scoping is the guard for a rule that does NOT name its section, so this test uses exactly that
+    // rule: the fixture with `section` dropped from its match. The foreign section is the sample's own
+    // shape under another class, so the rule would fire on it and only the scoping keeps it untouched.
+    // The earlier form used the fixture's `match: { section: 'split-panel' }` and a differently shaped
+    // section, and stayed green with scoping removed.
+    const loose = JSON.parse(JSON.stringify(SPLIT_PANEL_RULES));
+    for (const r of loose) if (r.match) delete r.match.section;
+    const v = validateTransform(loose);
+    assert.equal(v.ok, true, JSON.stringify(v.errors));
+    const foreign = SAMPLE_HTML.replace('<section class="split-panel">', '<section class="cards">');
+    assert.notEqual(foreign, SAMPLE_HTML);
+    const dom = new JSDOM('<body>' + SAMPLE_HTML + foreign + '</body>');
     const root = dom.window.document.body;
-    applyRulesToDom(root, RULES, { component: COMPONENT });
+    applyRulesToDom(root, v.rules, { component: COMPONENT });
     assert.equal(root.querySelector('section.cards .panel-left'), null, 'cards section untouched');
     assert.ok(root.querySelector('section.split-panel .panel-left'), 'split-panel transformed');
     // the other section still has its raw code-only <p> (capability never ran there).
-    assert.equal(root.querySelector('section.cards code').textContent, 'x');
+    assert.equal(root.querySelector('section.cards code').textContent, 'Q2 board review');
   });
 
   test('ctx.component is required (scoping is mandatory)', () => {
