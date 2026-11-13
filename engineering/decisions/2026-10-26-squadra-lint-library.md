@@ -214,8 +214,18 @@ on 2026-11-05, so M1b started. What exists:
 - **The per-rule migration diff** (`npm run squadra:migration-diff`, report in
   `2026-10-26-squadra-lint-library/migration-diff.md`; unit arm `test/unit/authoring/squadra-migration.test.js`). It
   holds each migrated rule to its old detector, frozen in `tools/squadra/legacy-detectors.js`, on the three corpora of
-  design §15.3: 58,960 lint-test inputs, 624 mutated decks and 520 tracked decks. 0 differences for both rules; 134 and
-  325 findings; 96 `tag-alias` fixes applied through `applyFix`, each resolving its finding.
+  design §15.3: 59,007 lint-test inputs, 624 mutated decks and 520 tracked decks. 0 differences for both rules; 183 and
+  326 findings; 142 `tag-alias` fixes applied through `applyFix`, each resolving its finding.
+- **Outside the corpora, from the maker-checker review.** The corpora hold no BOM, CRLF, indented-code or
+  malformed-front-matter deck, so the review tried those by hand. Fixed in the same PR: `tag-alias` dropped a finding
+  when two comments shared its line (it now reports the line, with no fix); on front matter closed by `----` or
+  `---x`, both rules numbered slides by a different cut than lint-core (`lattice-deck` now cuts front matter as
+  `splitTopLevel` does, and `tag-alias` stays inside its chunks); the two new memos ignored a plugin-rules switch
+  (both now key on `boundaryRulesGeneration`); and a line fix on a deck that opens with a BOM dropped the BOM or, with
+  front matter, landed nowhere, in `applyFix` and the Fix-all bridge alike, a bug older than this PR that the new fix
+  rode on. One INTENDED difference stays: `say-key-case` no longer reports a commented `Say:` inside indented code, an
+  unclosed fence or a longer fence, which the deck model reads as code, as markdown-it does. The unit arm pins each
+  case.
 - **`say-key-case` reads in linear time.** lint-core's regex for it was quadratic on a run of unclosed openers
   (recheck's attack string; the regex census held it as `unknown`). The rule now reads each opener with a sticky regex
   and finds the close with one search: 50,000 unclosed openers lint in well under a second, pinned by the unit arm.
