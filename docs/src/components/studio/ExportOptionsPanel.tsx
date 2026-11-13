@@ -190,8 +190,11 @@ export function ExportOptionsPanel({
 					</div>
 				)}
 
-				<ResolutionControl key={deckId} deckId={deckId} source={source} busy={busy} format={format} />
-				<PicturesControl key={deckId} deckId={deckId} source={source} busy={busy} applies={isPdf ? 'the PDF writes' : `${label} slides use`} />
+				{/* Each control keys on the deck so a deck switch resets it, and each key is its own: two siblings sharing
+				    `key={deckId}` let React keep a stale copy of one beside the new one (two Resolution controls, and the
+				    Share dialog's Download PDF click timed out under the open copy; PR #3153). */}
+				<ResolutionControl key={`resolution-${deckId}`} deckId={deckId} source={source} busy={busy} format={format} />
+				<PicturesControl key={`pictures-${deckId}`} deckId={deckId} source={source} busy={busy} applies={isPdf ? 'the PDF writes' : `${label} slides use`} />
 				<FontsControl key={`fonts-${deckId}`} deckId={deckId} source={source} busy={busy} format={isPdf ? 'pdf' : 'office'} />
 
 				{/* Re-openable: the deck's source rides inside the file. */}

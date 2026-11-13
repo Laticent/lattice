@@ -8,3 +8,5 @@
 - Every docs page that loads the engine downloads 4.7 KB less (gzipped). The engine carried the whole typed-glyph table,
   advice text included, for one question it asks of it; it now carries only the set of glyphs, built from the same table.
   The table moves to the Studio's lint, which loads later.
+- The Share dialog's PDF options no longer show the Resolution control twice for a 4K deck. Two of its controls shared one
+  React key, so a re-render could keep a stale copy beside the new one, and the Download button sat under it.
