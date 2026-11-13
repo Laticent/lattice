@@ -151,10 +151,12 @@ describe('payload elision: what counts as a payload', () => {
 		assert.equal(elision.elidePayloads('# A deck\n\nNo pictures.'), null);
 	});
 
-	test('the engine skips only a line that is one image, outside a fence', () => {
+	test('the engine skips only a line markdown-it reads as a paragraph of its own: one image, outside a fence', () => {
 		const img = `![bg](data:image/png;base64,${run})`;
-		const text = [img, `   ![a b](<data:image/png;base64,${run}>)`, `Text ${img}`, `${img} text`, '```md', img, '```', '~~~~', '```', img, '~~~~', img].join('\n');
+		const parts = [img, `   ![a b](<data:image/png;base64,${run}>)`, `Text ${img}`, `${img} text`, `\`\`\`md\n${img}\n\`\`\``, `~~~~\n\`\`\`\n\n${img}\n\n~~~~`, `${img}\n${img}`, img];
+		const text = parts.join('\n\n');
 		const skipped = imageLineRanges(text).map(([s]) => text.slice(0, s).split('\n').length);
-		assert.deepEqual(skipped, [1, 2, 12]);
+		const lineOf = (k) => (k ? parts.slice(0, k).join('\n\n').split('\n').length + 2 : 1); // past the blank line
+		assert.deepEqual(skipped, [lineOf(0), lineOf(1), lineOf(7)]);
 	});
 });

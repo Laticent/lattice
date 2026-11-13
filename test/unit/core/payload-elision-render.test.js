@@ -114,8 +114,8 @@ describe('engine render: a photo payload is skipped and put back byte for byte',
 		assert.equal(imageLineRanges(`## Costs $5\n\n${img}\n`).length, 1);
 	});
 
-	// The fence scan errs toward "inside": a closer must be bare (CommonMark), and an opener after a list marker or a
-	// `>` counts (the checker's cases: an info-string line read as a closer, and a list-item anima fence missed).
+	// markdown-it's own block pass decides: a fence body is never a paragraph (the checker broke three line scans with an
+	// info-string line read as a closer, a nested-list fence and a line that only looked like an opener).
 	test('an image line a fence could hold is read whole', () => {
 		const img = FORMS[0](LONG);
 		for (const [deck, why] of [
@@ -124,6 +124,7 @@ describe('engine render: a photo payload is skipped and put back byte for byte',
 			[`> \`\`\`text\n> ${img}\n> \`\`\`\n`, 'a fence in a blockquote'],
 			[`- - \`\`\`anima\n\t\t${img}\n\t\t\`\`\`\n`, 'a fence after two list markers, its line indented with tabs'],
 			[`1. - \`\`\`anima\n      ${img}\n      \`\`\`\n`, 'a fence in a nested ordered list'],
+			[`\`\`\`a\`b\n\n\`\`\`\`anima\n\`\`\`\n${img}\n\`\`\`\`\n`, 'a line that is no opener (a backtick in its info string) does not pair with a longer fence\'s content'],
 		]) {
 			assert.equal(imageLineRanges(deck).length, 0, why);
 			const full = `---\ntheme: indaco\nplugins: [anima]\n---\n\n${deck}`;
