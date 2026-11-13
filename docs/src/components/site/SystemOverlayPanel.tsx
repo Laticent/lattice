@@ -10,6 +10,7 @@ import * as React from 'react';
 import { DiagnosticPanel } from '@/components/diagnostics/diagnostic-overlay';
 import { Sep } from '@/components/diagnostics/Sep';
 import { browserEnv, classify, type DeviceSignals, pinnedTier, readSignals, runCpuProbe } from '@/lib/device-profile';
+import { readCachedCpu } from '@/lib/device-tier';
 import { browserName, type ReportRow, type RowStatus, reportRows, reportText } from '@/lib/system-report';
 import { setSystemOverlayEnabled } from '@/playground/system-overlay-prefs';
 
@@ -31,7 +32,12 @@ export default function SystemOverlayPanel() {
 
 	// Read once on open. The WebGL read makes (and releases) one context, so it is not polled.
 	React.useEffect(() => {
-		setSignals(readSignals(browserEnv(window)));
+		const read = readSignals(browserEnv(window));
+		// The score the app's own background probe saved (device-tier.ts), so the panel and the app agree.
+		try {
+			read.cpuScore = readCachedCpu(window.localStorage, Date.now());
+		} catch {}
+		setSignals(read);
 		let alive = true;
 		// Read directly rather than through storage-metrics' estimateQuota: sharing that module with this
 		// lazy chunk split it out of the Storage overlay's eager chunk, and the split alone cost every page

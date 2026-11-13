@@ -547,16 +547,22 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			[data-studio-split][data-studio-stop="read"] > [data-pane-role="editor"] { display: none !important; }
 		</style>
 		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_BANDS_CSS + '\n' + SHELL_NACRE_CSS}></style>
+		{/* Notes on the boot script below, kept here so they do not ship in every page's HTML (the Studio's HTML is held to a
+		    route-budget ceiling):
+		    • SHELL FIRST: show the instant shell to EVERY visitor FIRST, before any localStorage read. In a storage-blocked
+		      context (private mode, disabled cookies) `getItem` THROWS, and if that throw happened before the line the catch
+		      would skip it, leaving the shell hidden = a blank preview (the exact failure this shell exists to prevent). It's
+		      a palette-blind Nacre skeleton, so it is correct for every visitor with no per-visitor decision to make;
+		      palette/geometry seeds below only refine it.
+		    • DEVICE TIER (the `dt` line): applies the tier the previous visit decided, or a `?tier=` pin, before first
+		      paint, so a LITE device never paints the Nacre loader. Only a saved value fits here, not a full detector; this
+		      visit's tier is decided after the first slide (lib/device-tier.ts, started from studio-warm.ts), and a
+		      value that is not a known tier is ignored. engineering/decisions/2026-11-12-device-capability-tiers.md. */}
 		<script is:inline define:vars={{ STUDIO_BAKE, KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DECK_CAPTIONS, DEFAULT_RATIO, PREVIEW_CHROME, BOOT_POSTURE, LEGACY_ONBOARDED_POSTURE, POSTURES, POSTURE_ALIASES, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_BUCKET, STUDIO_SPLIT_COLLAPSE_KEY, STUDIO_SPLIT_PANEL_IDS }}>
 			(function () {
 				var r = document.documentElement;
-				// Show the instant shell to EVERY visitor FIRST — before any localStorage read.
-				// In a storage-blocked context (private mode, disabled cookies) `getItem` THROWS,
-				// and if that throw happened before this line the catch would skip it, leaving the
-				// shell hidden = a blank preview (the exact failure this shell exists to prevent).
-				// It's a palette-blind Nacre skeleton, so it is correct for every visitor with no
-				// per-visitor decision to make; palette/geometry seeds below only refine it.
 				r.setAttribute('data-ssr-shell', 'on');
+				try{var dt=/[?&]tier=(\w+)/.exec(location.search);dt=dt?dt[1]:localStorage.getItem('lattice-device-tier');if(/^(full|lite|unsupported)$/.test(dt))r.setAttribute('data-device-tier',dt)}catch(e){}
 				// Declared and DEFAULTED before the storage reads below, because the geometry seed
 				// closes over it: if a blocked-storage throw skipped the assignment, `rr` would be
 				// undefined and the box could not be computed at all.
