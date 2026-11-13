@@ -1,7 +1,9 @@
 import type { Completion, CompletionContext, CompletionResult, CompletionSource } from '@codemirror/autocomplete';
 import { altFromAssetName } from '@/lib/photo-alt';
 import { PACE_NAMES } from '@/lib/resolve-pace';
-import { classDirectiveCompletion, classTokenResult, deckSplit, recordCompletion, recordOptions, slideBodyAfter } from '@/playground/slide-context.js';
+import { contextSources } from '@/playground/context-sources.js';
+import { DATA_SOURCE_COMPONENTS } from '@/playground/data-source-components.js';
+import { classDirectiveCompletion, classTokenResult, deckSplit, recordCompletion, recordOptions, slideBodyAfter, slideClassAt } from '@/playground/slide-context.js';
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from '../../lib/front-matter-keys';
 import { MARKS_AXES } from '../../lib/marks-words';
 import { AGENDA_AXIS_ORDER, agendaWords } from './agenda';
@@ -413,8 +415,9 @@ export function makeStudioCompletion(
 			return { from: word ? word.from : context.pos, options: finishOptions, validFor: /^[\w-]*$/ };
 		}
 
-		// 4. Front-matter directive key (start of a line inside the `---` block).
-		if (inFrontMatter(context.state.doc.toString(), context.pos) && /^[ \t]*[\w-]*$/.test(before)) {
+		// 4. Front-matter directive key, at column 0 inside the `---` block. An indented line is an entry of a nested
+		// map (`backdrop:` → `  strength:`), whose keys are the map's own (context-sources.js), never the deck's.
+		if (inFrontMatter(context.state.doc.toString(), context.pos) && /^[\w-]*$/.test(before)) {
 			const word = context.matchBefore(/[\w-]*/);
 			// Don't fire on the `---` fence lines themselves.
 			if (/^-+$/.test(line.text.trim())) return null;
@@ -476,4 +479,33 @@ export function makeAssetCompletion(loadAssets: () => Promise<AssetChoice[]> | A
 		}
 		return null;
 	};
+}
+
+/**
+ * The map's body completer, loaded on first use: its basemaps are about 100 KB, and the Studio pays nothing for them
+ * until the caret is on a `map` slide. The slide check runs first, synchronously, so every other line returns null at
+ * once. (The Playground imports the registry statically; context-sources.js takes either.)
+ */
+const lazyDataSource: CompletionSource = (context) => {
+	const doc = context.state.doc;
+	const line = doc.lineAt(context.pos);
+	const info = slideClassAt((n: number) => doc.line(n).text, line.number);
+	if (!info || !DATA_SOURCE_COMPONENTS.includes(info.name)) return null;
+	return import('@/playground/data-sources.js').then(({ dataSources }) => {
+		if (context.aborted) return null;
+		for (const source of dataSources) {
+			const got = source(context);
+			if (got) return got;
+		}
+		return null;
+	});
+};
+
+/**
+ * Every source the Studio's deck editor runs: its own completer (`main`, from `makeStudioCompletion`), the Library
+ * photos (`assets`), then the slide-context sources it shares with the Playground (context-sources.js). One function,
+ * so the parity test reads the same list Editor.tsx installs.
+ */
+export function studioCompletionSources(main: CompletionSource, assets: CompletionSource, catalog: CompletionComponent[] = []): CompletionSource[] {
+	return [main, assets, ...contextSources({ catalog, dataSources: [lazyDataSource] })];
 }

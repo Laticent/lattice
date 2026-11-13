@@ -4,12 +4,13 @@ import { createRequire } from 'node:module';
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 
 import { readFileSync } from 'node:fs';
-import { CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+import { CompletionContext, type CompletionResult, type CompletionSource } from '@codemirror/autocomplete';
 import { EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
+import { playgroundCompletionSources } from '@/playground/complete.js';
 // The engine's lint vocabulary (CommonJS) — the value lists the editor completes against.
 import { buildVocab } from '../../../../lib/authoring/lint.js';
-import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS, withLazyInlineCore } from './editor-complete';
+import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, studioCompletionSources, VOCAB_VALUE_FIELDS, withLazyInlineCore } from './editor-complete';
 
 const COMPS = [
 	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics' },
@@ -782,5 +783,51 @@ describe('marks: completes one word per axis', () => {
 		expect(nextAxisWords('marks', 'pigment ', words)).toEqual(['muted', 'vivid']);
 		expect(nextAxisWords('marks', 'vivid ', words)).toEqual(['pigment', 'etch', 'tone']);
 		expect(nextAxisWords('marks', 'etch vivid', words)).toEqual([]);
+	});
+});
+
+// Slice 1 of the autocomplete audit (engineering/decisions/2026-11-13-studio-autocomplete-audit.md): the Studio's deck
+// editor and the Playground's run the same slide-context sources (playground/context-sources.js). Each probe asks every
+// source an EXPLICIT question (Ctrl-Space) at the end of `doc`, the way CodeMirror does, and merges what they answer.
+describe('studioCompletionSources ⇄ the Playground (one shared list)', () => {
+	const CATALOG = [
+		{ name: 'cards-grid', bucket: 'inventory', description: 'Cards', skeleton: '<!-- _class: cards-grid -->\n\n## Slide heading.\n\n- First card title\n  - Body.' },
+		{ name: 'table', bucket: 'evidence', description: 'A table', skeleton: '<!-- _class: table -->\n\n| a | b |', focusAxes: ['row', 'col', 'cell'] },
+		{ name: 'map', bucket: 'chart', description: 'A map', skeleton: '<!-- _class: map -->\n\n- California: 4' },
+	];
+	const studio = studioCompletionSources(makeStudioCompletion(CATALOG), () => null, CATALOG);
+	const playground = playgroundCompletionSources({ catalog: CATALOG });
+	async function ask(sources: CompletionSource[], doc: string): Promise<string[]> {
+		const context = new CompletionContext(EditorState.create({ doc }), doc.length, true);
+		const got = await Promise.all(sources.map((s) => s(context)));
+		return got.flatMap((r) => (r ? r.options.map((o) => o.label) : []));
+	}
+	const FM = '---\ntitle: T\n---\n\n';
+	// [what, doc, a label both editors must offer, a label neither may offer]
+	const PROBES: [string, string, string, string | null][] = [
+		['a slide directive name', `${FM}<!-- _`, '_header', null],
+		['a _focusStyle value', `${FM}<!-- _focusStyle: `, 'spotlight', null],
+		['a _focus axis, narrowed by the layout', `${FM}<!-- _class: table -->\n\n<!-- _focus: `, 'row', 'item'],
+		['a nested backdrop axis, never a deck key', '---\nbackdrop:\n  ', 'strength', 'title'],
+		['a mermaid keyword', `${FM}\`\`\`mermaid\nflow`, 'flowchart', null],
+		['the slot skeleton on an empty classed slide', `${FM}<!-- _class: cards-grid -->\n\n`, 'skeleton', null],
+		['a map region (the lazily loaded data source)', `${FM}<!-- _class: map -->\n\n- Fra`, 'France', null],
+	];
+	for (const [what, doc, want, never] of PROBES) {
+		it(`both editors complete ${what}`, async () => {
+			const s = await ask(studio, doc);
+			const p = await ask(playground, doc);
+			expect(s).toContain(want);
+			expect(p).toContain(want);
+			if (never) {
+				expect(s).not.toContain(never);
+				expect(p).not.toContain(never);
+			}
+		});
+	}
+
+	it('the map completer loads only on a map slide', async () => {
+		const elsewhere = await ask(studio, `${FM}<!-- _class: cards-grid -->\n\n- Fra`);
+		expect(elsewhere).not.toContain('France');
 	});
 });
