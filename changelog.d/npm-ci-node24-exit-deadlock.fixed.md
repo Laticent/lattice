@@ -1,0 +1,1 @@
+- **CI:** the merge queue's `unit (node 24)` job no longer hangs in `npm ci` after the install has finished. The cause was a deadlock in node 24's `process.exit()` (nodejs/node#64274): a background compile waited for a garbage collection that the exiting main thread never ran. The job now runs npm itself with V8's background tasks off (`--single-threaded`).
