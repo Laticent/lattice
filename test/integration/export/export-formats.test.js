@@ -796,6 +796,51 @@ describe('export-formats', () => {
     assert.equal(rep.images, 1, `the plain copy is embedded natively: ${JSON.stringify(rep)}`);
   });
 
+  test('a PNG turned by its eXIf chunk, and a JPEG whose Exif sits after its frame header, stay in the photo', { timeout: TIMEOUT }, () => {
+    // Chromium paints both turned (the engines' probe in docs/src/lib/lastra/read.test.ts); the PDF would draw the stored
+    // pixels, a PNG stretched across the turned box. Only the plain PNG may be embedded at its own bytes.
+    const dir = tmpDir();
+    const zlib = require('node:zlib');
+    const chunk = (type, data) => {
+      const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+      const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+      const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(body));
+      return Buffer.concat([len, body, crc]);
+    };
+    const W = 60; const H = 40;
+    const rows = Buffer.alloc((W * 3 + 1) * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) rows.set([x * 4, y * 6, 120], y * (W * 3 + 1) + 1 + x * 3);
+    const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(H, 4); ihdr[8] = 8; ihdr[9] = 2;
+    const tiff6 = Buffer.from([0x4d, 0x4d, 0, 42, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 6, 0, 0, 0, 0, 0, 0]);
+    const png = (extra) => Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 13, 10, 26, 10]), chunk('IHDR', ihdr), ...extra, chunk('IDAT', zlib.deflateSync(rows)), chunk('IEND', Buffer.alloc(0))]);
+    fs.writeFileSync(path.join(dir, 'turned.png'), png([chunk('eXIf', tiff6)]));
+    fs.writeFileSync(path.join(dir, 'plain.png'), png([]));
+    // The shipped rotated sample with its Exif segment moved from ahead of the frame header to just after it.
+    const sample = fs.readFileSync(path.join(ROOT, 'lib/samples/photo-tall-rotated.jpg'));
+    const app1 = sample.indexOf(Buffer.from([0xff, 0xe1]));
+    const app1End = app1 + 2 + sample.readUInt16BE(app1 + 2);
+    const noExif = Buffer.concat([sample.subarray(0, app1), sample.subarray(app1End)]);
+    const sof = noExif.indexOf(Buffer.from([0xff, 0xc0]));
+    const sofEnd = sof + 2 + noExif.readUInt16BE(sof + 2);
+    fs.writeFileSync(path.join(dir, 'late-exif.jpg'), Buffer.concat([noExif.subarray(0, sofEnd), sample.subarray(app1, app1End), noExif.subarray(sofEnd)]));
+    const src = path.join(dir, 'turned.md');
+    fs.writeFileSync(src, [
+      '---', 'html: true', 'paginate: false', '---', '',
+      '## Turned PNG', '', '<img src="turned.png" style="width:200px;height:300px">', '', '---', '',
+      '## Late Exif', '', '<img src="late-exif.jpg" style="width:200px;height:300px">', '', '---', '',
+      '## Plain PNG', '', '<img src="plain.png" style="width:300px;height:200px">', '',
+    ].join('\n'));
+    const out = path.join(dir, 'turned.pdf');
+    const report = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
+    assert.equal(rep.refusedImages.rotated, 2, `both turned pictures stay in the photo: ${JSON.stringify(rep)}`);
+    assert.equal(rep.images, 1, `the plain PNG is embedded natively: ${JSON.stringify(rep)}`);
+  });
+
   test('--chrome-pdf prints with Chrome: the finish stays vector drawing, nothing is photographed', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.pdf');
