@@ -239,9 +239,12 @@ async function encodeAs(file: File, bitmap: ImageBitmap, mime: string, format: P
 	return { blob, mime: blob.type || target, width, height, original: false };
 }
 
+/** Bytes read to sniff a picture's type: an AVIF names its brand among the compatible brands after the first 16. */
+const SNIFF_BYTES = 64;
+
 /** The type the bytes say a file is, as the importer reads it. */
 async function sniffedMime(file: File): Promise<string> {
-	return sniffImageMime(new Uint8Array(await file.slice(0, 16).arrayBuffer())) ?? mimeOf(file);
+	return sniffImageMime(new Uint8Array(await file.slice(0, SNIFF_BYTES).arrayBuffer())) ?? mimeOf(file);
 }
 
 export type FormatSizes = {
@@ -301,7 +304,7 @@ export async function importImage(file: File, scope: string, format?: PhotoForma
 	if (file.size > MAX_MEDIA_FILE_BYTES) throw new MediaImportError(`${file.name} is ${Math.round(file.size / 1_048_576)} MB; a photo may be at most ${Math.floor(MAX_MEDIA_FILE_BYTES / 1_048_576)} MB.`);
 	// The bytes decide what a file is, not its extension: a JPEG named `.png` carries the phone's GPS and
 	// would otherwise skip the re-encode that removes it.
-	const sniffed = sniffImageMime(new Uint8Array(await file.slice(0, 16).arrayBuffer()));
+	const sniffed = sniffImageMime(new Uint8Array(await file.slice(0, SNIFF_BYTES).arrayBuffer()));
 	const mime = sniffed ?? mimeOf(file);
 	if (mime === 'image/svg+xml') {
 		const { blob, width, height } = await rasterizeSvg(file);
