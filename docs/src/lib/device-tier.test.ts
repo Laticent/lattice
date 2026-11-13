@@ -82,7 +82,7 @@ describe('decide', () => {
 });
 
 describe('startDeviceTier', () => {
-	it('applies and saves the tier from the synchronous signals, then again when the probe lands', async () => {
+	it('shows the tier from the synchronous signals, saves nothing until the probe lands, then applies and saves', async () => {
 		const { win, attrs } = fakeWin();
 		const store = fakeStore();
 		const p = manualProbe();
@@ -90,7 +90,7 @@ describe('startDeviceTier', () => {
 		const { state, probed } = startDeviceTier(deps({ win, store, probe: p.probe }));
 		expect(state.tier).toBe('full');
 		expect(attrs['data-device-tier']).toBe('full');
-		expect(store.data.get(TIER_KEY)).toBe('full');
+		expect(store.data.has(TIER_KEY)).toBe(false);
 
 		const { onDeviceTierChange } = await import('./device-tier');
 		const off = onDeviceTierChange((s) => seen.push(s.tier));
@@ -134,13 +134,60 @@ describe('startDeviceTier', () => {
 		expect(store.data.get(TIER_KEY)).toBe('full');
 	});
 
-	it('a probe that cannot run leaves the tier as it was', async () => {
+	it('a probe that cannot run leaves the tier as it was and saves nothing', async () => {
 		const { win, attrs } = fakeWin({ renderer: 'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)' });
+		const store = fakeStore();
 		const p = manualProbe();
-		const { probed } = startDeviceTier(deps({ win, probe: p.probe }));
+		const { probed } = startDeviceTier(deps({ win, store, probe: p.probe }));
 		p.settle(null);
 		expect((await probed).tier).toBe('lite');
 		expect(attrs['data-device-tier']).toBe('lite');
+		expect(store.data.has(TIER_KEY)).toBe(false);
+	});
+
+	// The reviewer's scenario: LITE only because of the CPU, and the cached score has expired. Measurement may lower the
+	// tier mid-session but never raise it, so the page must not flash FULL, or save FULL, while the probe re-measures.
+	it('a device saved as LITE never shows or saves FULL while its expired score is re-measured', async () => {
+		const { win } = fakeWin();
+		const shown: string[] = [];
+		const realWin = win as unknown as { document: { documentElement: { setAttribute: (k: string, v: string) => void } } };
+		const set = realWin.document.documentElement.setAttribute;
+		realWin.document.documentElement.setAttribute = (k: string, v: string) => {
+			if (k === 'data-device-tier') shown.push(v);
+			set(k, v);
+		};
+		const store = fakeStore({ [TIER_KEY]: 'lite', [CPU_KEY]: JSON.stringify({ score: 30, at: NOON - CPU_MAX_AGE_MS }) });
+		const p = manualProbe();
+		const { state, probed } = startDeviceTier(deps({ win, store, probe: p.probe }));
+		expect(state.tier).toBe('lite');
+		expect(store.data.get(TIER_KEY)).toBe('lite');
+		p.settle(30);
+		await probed;
+		expect(shown).toEqual(['lite', 'lite']);
+		expect(store.data.get(TIER_KEY)).toBe('lite');
+	});
+
+	it('a probe that cannot run keeps a saved LITE instead of raising it on no evidence', async () => {
+		const { win, attrs } = fakeWin();
+		const store = fakeStore({ [TIER_KEY]: 'lite' });
+		const p = manualProbe();
+		const { probed } = startDeviceTier(deps({ win, store, probe: p.probe }));
+		p.settle(null);
+		await probed;
+		expect(attrs['data-device-tier']).toBe('lite');
+		expect(store.data.get(TIER_KEY)).toBe('lite');
+	});
+
+	it('a good probe result is what raises a saved LITE back to FULL', async () => {
+		const { win, attrs } = fakeWin();
+		const store = fakeStore({ [TIER_KEY]: 'lite' });
+		const p = manualProbe();
+		const { probed } = startDeviceTier(deps({ win, store, probe: p.probe }));
+		expect(attrs['data-device-tier']).toBe('lite');
+		p.settle(200);
+		await probed;
+		expect(attrs['data-device-tier']).toBe('full');
+		expect(store.data.get(TIER_KEY)).toBe('full');
 	});
 
 	it('works with storage blocked: applies the tier, saves nothing, still probes', () => {

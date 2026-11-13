@@ -82,9 +82,35 @@ export function onDeviceTierChange(fn: (s: TierState) => void): () => void {
 	};
 }
 
-function apply(deps: TierDeps, signals: DeviceSignals, pinned: Tier | null): TierState {
+const RANK: Record<Tier, number> = { unsupported: 0, lite: 1, full: 2 };
+
+/** The lower of two tiers. */
+export function lowerTier(a: Tier, b: Tier): Tier {
+	return RANK[a] <= RANK[b] ? a : b;
+}
+
+/** The tier the previous visit saved, or null when there is none or it is not a known tier. */
+export function readSavedTier(store: KeyStore | null): Tier | null {
+	try {
+		const v = store?.getItem(TIER_KEY);
+		return v === 'full' || v === 'lite' || v === 'unsupported' ? v : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * `interim`: the CPU probe has not answered yet. Measurement may lower the tier mid-session but never raise it (§3),
+ * so until it answers the page shows the LOWER of the saved tier and the tier the other signals give, and saves nothing:
+ * a device that is LITE only because of its CPU must not flash FULL, or save FULL, while its expired score is re-measured.
+ */
+function apply(deps: TierDeps, signals: DeviceSignals, pinned: Tier | null, interim: { saved: Tier | null } | null = null): TierState {
 	const profile = classify(signals);
-	const { tier, save } = decide(profile, pinned);
+	let { tier, save } = decide(profile, pinned);
+	if (interim && !pinned) {
+		if (interim.saved) tier = lowerTier(tier, interim.saved);
+		save = false;
+	}
 	deps.win.document.documentElement.setAttribute('data-device-tier', tier);
 	if (save && deps.store) {
 		try {
@@ -109,10 +135,15 @@ export function startDeviceTier(deps: TierDeps): { state: TierState; probed: Pro
 	const signals = readSignals(browserEnv(deps.win));
 	const cached = deps.store ? readCachedCpu(deps.store, deps.now()) : null;
 	if (cached !== null) signals.cpuScore = cached;
-	const first = apply(deps, signals, pinned);
-	if (cached !== null) return { state: first, probed: Promise.resolve(first) };
+	if (cached !== null) {
+		const done = apply(deps, signals, pinned);
+		return { state: done, probed: Promise.resolve(done) };
+	}
+	const first = apply(deps, signals, pinned, { saved: readSavedTier(deps.store) });
 	const probed = deps
 		.probe()
+		// A probe that cannot run brings no new evidence, so the interim tier stays and nothing is saved: the saved tier
+		// keeps whatever the last real measurement decided.
 		.then((score) => {
 			if (score === null) return state ?? first;
 			if (deps.store) writeCachedCpu(deps.store, score, deps.now());
@@ -144,11 +175,12 @@ export function browserTierDeps(win: Window & typeof globalThis): TierDeps {
 					resolve(null);
 					return;
 				}
-				// A hang guard, not a measurement: a worker a phone killed silently never answers.
+				// A hang guard, not a measurement: a worker a phone killed silently never answers. Generous, because the probe
+				// is ~140 ms of work and a slow or busy machine is exactly the one whose score matters.
 				const guard = win.setTimeout(() => {
 					worker.terminate();
 					resolve(null);
-				}, 10_000);
+				}, 30_000);
 				worker.onmessage = (e: MessageEvent<unknown>) => {
 					win.clearTimeout(guard);
 					worker.terminate();
