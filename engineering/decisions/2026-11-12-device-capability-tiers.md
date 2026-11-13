@@ -201,6 +201,39 @@ LITE machine is byte-for-byte the one a FULL machine exports. Export work may ru
 slide in flight), but capture resolution, fonts and encoders do not change, so no tier ever needs the QUALITY BAR's
 export sign-off.
 
+### 4.1 Slice 3, as built (2026-11-13): LITE visuals
+
+Everything keys on `html[data-device-tier="lite"]`, which the Studio's boot script sets before paint from the saved
+tier (or a `?tier=` pin) and `lib/device-tier.ts` sets again once it decides (§3.3). CSS alone does the swap, so the
+markup, the hand-off and the tests that drive them are the same in both tiers.
+
+- **Loader.** `nacre-loader.css` and the shell copy in `studio.astro` (`SHELL_NACRE_CSS`) both paint the loader box with
+  the landing skeleton's gradient (`landing.css`, `.live-host:not(.is-live)::after`) and pulse it with the same 1.4 s
+  keyframes, renamed `nacre-lite-pulse` so the island's chunk carries its own. The core, the three layers, the vignette
+  and the grain get `display: none`, so their compositor layers are never made. The pulse stops under
+  `prefers-reduced-motion`, and on `is-done` the box fades as before. `nacre-loader.test.ts` holds the two copies
+  together. The shell copy adds 773 bytes of raw Studio HTML.
+- **Underpainting.** The two Studio live builders (`single-slide-render.ts`, the Present stage window) write
+  `data-lattice-live-media="still"` on LITE, through `docs/src/lib/live-media-attr.ts`. The runtime
+  (`holdsStill` in `lib/core/image-painting.js`) then lays the canvas down at once (the `"again"` state, no sweep)
+  and adds no brush span, so nothing drifts. It is not the muted failed-picture "still" state, because the picture
+  is still coming, and it fades away on load as before. This lives in the runtime and not in `base.modifiers.css`,
+  because the engine's CSS packer scopes every selector to the slide, and a rule keyed on the frame's `<html>` packs
+  to a selector that never matches (`css-scope.test.js` caught the first attempt). Exports never set the attribute.
+- **Backdrop blur.** Two rules in `landing.css` turn `backdrop-filter` and `-webkit-backdrop-filter` off for every
+  element in the app under LITE (`!important`, because the Vetrina tour stage sets its blur inline). They are two rules
+  with different selectors on purpose: written together, the CSS minifier kept only the prefixed property, and written
+  alone it dropped the prefix Safari before 18 reads. The site header and the chart popover turn opaque
+  (`var(--bg)`) in their own stylesheets. The Tailwind `backdrop-blur` pills and overlays keep their fills, which
+  are 85% to 96% opaque and read cleanly without the blur.
+- **Not changed.** The tier is decided only on the Studio (Present runs inside it), so the Playground and the docs keep
+  their blur on every device until slice 5 extends the gate to the Playground. The `logo-plate` base modifier's blur is slide
+  CSS inside the frame and reaches exports, so it stays (§4: no tier changes an exported file).
+- **Verified.** `e2e/lite-visuals.spec.ts` pins each tier on all six Playwright projects and reads the computed loader,
+  the probe element's backdrop filter and the slide frame's attribute. The screenshots at 1440, 820 and 390 px in both
+  tiers are in the PR.
+
+
 ## 5. The System diagnostic panel
 
 A sixth overlay on the existing `DiagnosticPanel` chassis, toggled under Workspace settings → Diagnostics as

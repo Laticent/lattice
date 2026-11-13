@@ -152,6 +152,44 @@
 	}
 }
 
+/* LITE device tier (engineering/decisions/2026-11-12-device-capability-tiers.md §4): a software-rendered or weak
+   machine gets the landing hero's skeleton instead (landing.css `.live-host:not(.is-live)::after`): ONE gradient with
+   one slow pulse, where Nacre composites three oversized blended layers every frame (18 fps at 4K in software, §1).
+   The layers, core, vignette and grain are not drawn at all (`display: none`), so no compositor layer exists for them.
+   `html[data-device-tier]` is set before paint from the saved tier; studio.astro's shell copy carries the same rules,
+   and nacre-loader.test.ts holds the two together. */
+:root[data-device-tier='lite'] .nacre-loader {
+	background: linear-gradient(
+		115deg,
+		color-mix(in srgb, var(--bg-alt, #e7e7ea) 88%, var(--border, #c9c9cf)) 0%,
+		color-mix(in srgb, var(--bg-alt, #e7e7ea) 70%, var(--border, #c9c9cf)) 45%,
+		color-mix(in srgb, var(--bg-alt, #e7e7ea) 88%, var(--border, #c9c9cf)) 90%
+	);
+	background-size: 220% 100%;
+}
+:root[data-device-tier='lite'] .nacre-loader > *,
+:root[data-device-tier='lite'] .nacre-loader::after {
+	display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+	:root[data-device-tier='lite'] .nacre-loader:not(.is-done) {
+		animation: nacre-lite-pulse 1.4s ease-in-out infinite;
+	}
+}
+@keyframes nacre-lite-pulse {
+	0% {
+		background-position: 100% 0;
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.6;
+	}
+	100% {
+		background-position: 0 0;
+		opacity: 1;
+	}
+}
+
 /* #1164 — terminal failure affordance for a NON-loader preview host (a render that errors, or a
    frame whose slide never paints). Minimal, palette-blind (the same --bg / --text-body /
    --text-heading / --accent docs-root tokens the rest of the Studio reads), sits on the box's own

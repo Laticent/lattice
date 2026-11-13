@@ -1,0 +1,2 @@
+studio: +300
+The LITE device tier (engineering/decisions/2026-11-12-device-capability-tiers.md §4.1) adds `liveMediaAttr()` to the Studio's slide-frame builder, so a LITE device writes `data-lattice-live-media="still"` and its loading pictures hold still. The rest of the slice is CSS. The pre-paint shell's LITE rules add 773 bytes of raw HTML, which is under the Studio's htmlRaw ceiling and is not eager JS.
