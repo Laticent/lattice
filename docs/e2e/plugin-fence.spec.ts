@@ -2,6 +2,7 @@ import dgram from 'node:dgram';
 import fs from 'node:fs';
 import http from 'node:http';
 import { WORKER_NETWORK } from '../../lib/core/code-shape.mjs';
+import { witnessLanded } from './net-witness';
 import { ganttZip } from './plugin-fence-fixture';
 import { expect, gotoStudio, livePreview, setEditorContent, shareExport, test, toastText } from './studio-fixture';
 
@@ -84,7 +85,8 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		udp.on('message', () => udpHits.push('udp'));
 		await new Promise<void>((r) => udp.bind(0, '127.0.0.1', () => r()));
 		const udpPort = udp.address().port;
-		const settle = () => page.waitForTimeout(2500);
+		// Every absence check below waits for the witness, not a fixed 2500 ms (net-witness.ts).
+		const settle = () => witnessLanded(page.context(), { udp: browserName !== 'firefox' });
 
 		try {
 			await gotoStudio(page);

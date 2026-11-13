@@ -21,5 +21,10 @@ is open: it costs a full write (hundreds of ms on a phone) where a patch would d
 suggests queued renders that should have collapsed into one. Leads, not verified: something re-keys `DeckPreview` or
 replaces its host mid-session (a pane or mode switch, a late setting), or a render sig that resolves asynchronously.
 
+2026-11-12 (PR #3156): the probe now records every removal of a node holding an `iframe.live`, with what went (the
+frame or the ancestor, by class) and the call stack that removed it (the step "live preview frames removed"). Its first
+dispatch (43241110666) saw none: 0 on the iPad and 0 on the iPhone, and 0 of 8 undo cycles on each saw a frame event, so
+the remount did not happen in that run. The nightly carries the recorder from now on.
+
 done when — the probe (or a Studio trace) names what drops the old frame, and the remount is removed or shown to be needed,
 with the burst collapsed to one write.

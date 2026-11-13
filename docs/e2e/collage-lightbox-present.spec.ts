@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { schedulerDrained } from './barriers';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 // ── Lightbox digits vs Present's chart-detail digits, on the REAL Studio Present ─────
@@ -108,13 +109,14 @@ for (const tag of ['@gecko', '@webkit-tablet']) {
 		await expect(counter(page)).toHaveText('2 / 3');
 		await page.keyboard.press('3');
 		await expect(counter(page)).toHaveText('3 / 3');
-		// Give a (wrongly) delivered keydown time to open a card before asserting there is none.
-		await page.waitForTimeout(400);
+		// A wrongly delivered keydown opens the card synchronously in Present's key handler
+		// (`ChartDetailLayer.handleKey`), by React state: once the scheduler has drained, it is mounted.
+		await schedulerDrained(page);
 		await expect(popover(page)).toHaveCount(0);
 
 		// A digit naming no photo (4 of 3) is swallowed too: it must not fall through to mark 4.
 		await page.keyboard.press('4');
-		await page.waitForTimeout(400);
+		await schedulerDrained(page);
 		await expect(counter(page)).toHaveText('3 / 3');
 		await expect(popover(page)).toHaveCount(0);
 
@@ -135,7 +137,7 @@ for (const tag of ['@gecko', '@webkit-tablet']) {
 		expect(await openTilesOnChartSlide(page)).toBe(true);
 		await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
 		for (const k of ['1', '2', '3', '0']) await page.keyboard.press(k);
-		await page.waitForTimeout(400);
+		await schedulerDrained(page);
 		await expect(popover(page)).toHaveCount(0);
 		await expect(slide).toHaveText(before);
 		await expect(dialog(page)).toBeVisible();
@@ -166,7 +168,9 @@ for (const tag of ['@gecko', '@webkit-tablet']) {
 		const box = await dialog(page).locator('iframe.live').boundingBox();
 		if (!box) throw new Error('no Present frame');
 		await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-		await page.waitForTimeout(600);
+		// A click that reached a tile would open the lightbox synchronously (the frame's guard calls the parent's
+		// `__collageOpen`), by React state: once the scheduler has drained, it is mounted.
+		await schedulerDrained(page);
 		await expect(lightbox(page)).toHaveCount(0);
 	});
 }

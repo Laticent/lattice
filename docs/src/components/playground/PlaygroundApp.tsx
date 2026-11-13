@@ -1879,6 +1879,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// here rather than in `onFrameLoad` so the two callbacks' order cannot matter.
 			observeReadyRef.current = false;
 			landPendingRef.current = true;
+			// Published for tests, as the overlay stack and the Stage publish theirs: `data-pg-land` is `pending` while a
+			// land owns the position and `done` after, and `data-pg-lands` counts the lands that finished. The reveal waits
+			// for the land (`markLiveWhenSlidesVisible`), so at `.is-live` both say a land is behind it.
+			document.documentElement.dataset.pgLand = 'pending';
 			const start = Date.now();
 			// The retry re-enters this function, so the "has the reader taken over?" clock is
 			// the FIRST attempt's start, not this one's — otherwise a retry would forget the
@@ -1933,6 +1937,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				if (frame) bandSigRef.current = bandSig(frameBands(frame, walkRef.current?.kind === 'plan'));
 				observeReadyRef.current = true;
 				landPendingRef.current = false;
+				const root = document.documentElement.dataset;
+				root.pgLand = 'done';
+				root.pgLands = String(Number(root.pgLands || 0) + 1);
 			};
 			/** THE READER OUTRANKS THE LANDER — when they moved the DECK. A wheel or a drag
 			 *  since this land began means they have chosen a position; finishing would scroll
@@ -2496,9 +2503,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const { pathname, hash, search } = window.location;
 			if (view === 'read' && walk?.kind === 'plan') {
 				const s = walk.plan.slides[walk.index]?.kind ?? null;
-				window.history.replaceState(null, '', pathname + playgroundQuery({ c: walk.plan.name, view: 'read', s }) + hash);
+				// `history.state` passes through: it holds the back controller's marker (overlay-back.ts STATE_KEY) while a
+				// sheet is open, and `null` wiped it, so a sheet opened just before this write lost its back entry's owner.
+				window.history.replaceState(window.history.state, '', pathname + playgroundQuery({ c: walk.plan.name, view: 'read', s }) + hash);
 			} else if (search) {
-				window.history.replaceState(null, '', pathname + hash);
+				window.history.replaceState(window.history.state, '', pathname + hash);
 			}
 		};
 		const t = setTimeout(write, SCROLL_IDLE_MS);

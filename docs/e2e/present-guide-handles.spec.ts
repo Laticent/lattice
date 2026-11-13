@@ -1,3 +1,4 @@
+import { FRAME_MS, pauseFrames, stepFramesUntil } from './frame-clock';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 // THE DECLARED HANDLE, on the real Present surface (#2251).
@@ -47,6 +48,9 @@ delivery: expressive
 `;
 
 test('the Guide inks a person’s NAME, not the card around it', async ({ page }) => {
+	// A fake clock stepped one frame at a time from Play (frame-clock.ts), so "the whole reading" is a count of
+	// virtual frames, not a guess at how long a loaded runner takes (HARD RULE #32).
+	await page.clock.install();
 	await gotoStudio(page);
 	await setEditorContent(page, ROSTER);
 
@@ -92,7 +96,18 @@ test('the Guide inks a person’s NAME, not the card around it', async ({ page }
 		}).observe(document.body, { childList: true, subtree: true });
 	});
 
-	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+	await pauseFrames(page);
+	const play = dialog.getByRole('button', { name: 'Play the presentation' });
+	await play.click();
+	await expect(dialog.getByRole('button', { name: /Pause/ })).toBeVisible();
+	// WATCH THE WHOLE READING, not up to the first hit. Stopping at the first stroke that lands on
+	// a name checks the second assertion over a PREFIX of the presentation only: a build that
+	// inks Ada's name and then brackets Marcus's whole card would pass. An independent check
+	// caught that. So the reading is stepped until it has finished and Play is offered again
+	// (checked every 30 frames), capped at 60 s of virtual time.
+	const frames = await stepFramesUntil(page, async () => (await play.isVisible()), Math.ceil(60_000 / FRAME_MS), 30);
+	expect(frames, 'the reading never finished inside 60 s of virtual time').toBeLessThan(Math.ceil(60_000 / FRAME_MS));
+	await page.clock.resume();
 
 	// THE ORACLE: some stroke lands on a name span, and no stroke wraps the card.
 	//
@@ -100,17 +115,12 @@ test('the Guide inks a person’s NAME, not the card around it', async ({ page }
 	// job. Ink NOT around the card is the defect the declaration removes — before it, the whole
 	// `<li class="person">` was the handle, so `bracket` drew a second boundary around a bordered
 	// card. Checking only the first would pass on a build that inked both.
-	const seen = await page.evaluate(async () => {
+	const seen = await page.evaluate(() => {
 		const w = window as unknown as { __ink: { kind: string; box: DOMRect }[] };
 		const onName: string[] = [];
 		const roundCard: string[] = [];
-		// WATCH THE WHOLE WINDOW, not up to the first hit. Stopping at the first stroke that lands on
-		// a name checks the second assertion over a PREFIX of the presentation only: a build that
-		// inks Ada's name and then brackets Marcus's whole card would pass. An independent check
-		// caught that; the loop now runs the full window and both tallies see every stroke.
-		const deadline = Date.now() + 60_000;
 		const overlaps = (a: DOMRect, b: { l: number; t: number; r: number; b: number }) => a.left < b.r && a.right > b.l && a.top < b.b && a.bottom > b.t;
-		while (Date.now() < deadline) {
+		{
 			const frame = document.querySelector('[role="dialog"] [aria-label="Presented slide"] iframe.live') as HTMLIFrameElement | null;
 			const doc = frame?.contentDocument;
 			if (frame && doc) {
@@ -142,7 +152,6 @@ test('the Guide inks a person’s NAME, not the card around it', async ({ page }
 					}
 				}
 			}
-			await new Promise((r) => setTimeout(r, 120));
 		}
 		return { onName: [...new Set(onName)], roundCard: [...new Set(roundCard)] };
 	});

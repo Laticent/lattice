@@ -206,6 +206,10 @@ describe('scoped resync cost on the 134 KB deck (Node)', () => {
 			rp.commit(st2.apply(rp.tr).doc);
 			patched.push(performance.now() - t);
 			expect(S0.length).toBeGreaterThan(100_000);
+			// The cost is held as WORK (HARD RULE #32): the patch-driven path reads the slides the patch
+			// overlaps, the whole-source path the whole deck. The times above are reported, not asserted.
+			expect(rp.scanned, 'the patch-driven path reads a small part of the deck').toBeLessThan(S0.length / 16);
+			expect(r.scanned, 'the whole-source path reads the whole deck').toBeGreaterThanOrEqual(S1.length);
 		}
 		console.log(`[scoped-resync] 134 KB deck, one-slide change: scoped median ${median(scoped).toFixed(2)} ms, patch-driven median ${median(patched).toFixed(2)} ms, full rebuild median ${median(full).toFixed(2)} ms`);
 	});

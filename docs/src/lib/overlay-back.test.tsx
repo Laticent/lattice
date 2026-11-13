@@ -90,6 +90,28 @@ describe('useOverlayBack', () => {
 		expect(back).not.toHaveBeenCalled();
 	});
 
+	it('publishes its settled state and a generation on <html>, for the e2e specs to wait on', async () => {
+		const html = document.documentElement;
+		const noop = () => {};
+		const { rerender } = render(<Harness outer={true} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(html.dataset.overlayBack).toBe('1/1/0');
+		const opened = Number(html.dataset.overlayBackGen);
+
+		// A door: depth 2, still one owned entry, and a newer generation.
+		rerender(<Harness outer={true} inner={true} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(html.dataset.overlayBack).toBe('2/1/0');
+		expect(Number(html.dataset.overlayBackGen)).toBeGreaterThan(opened);
+
+		// Everything closed: the entry is consumed, and the traversal we started is in flight until its popstate lands.
+		rerender(<Harness outer={false} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(html.dataset.overlayBack).toBe('0/0/1');
+		window.dispatchEvent(new PopStateEvent('popstate'));
+		expect(html.dataset.overlayBack).toBe('0/0/0');
+	});
+
 	it('pops the INNERMOST level first, then closes the outer one', async () => {
 		const onOuter = vi.fn();
 		const onInner = vi.fn();

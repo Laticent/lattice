@@ -1190,12 +1190,17 @@ export function createStage(opts: StageOptions): Stage {
 	// run rather than reaching this. What reaches it is a wheel or trackpad scroll, a host that
 	// scrolls its own page, an anchor jump, and momentum still running when a run starts.
 	let scrollRaf = 0;
+	let scrollSeats = 0;
 	const reseatForScroll = (): void => {
 		scrollRaf = 0;
 		if (destroyed || boundsMode !== 'host') return;
 		if (seatKey(boundsRect(), layerRect()) === seatedKey) return; // scrolled, but nothing moved
 		relayout();
 		publishChromeInset();
+		// How many re-seats a viewer's scroll has caused, published as `data-vt-scroll-seats` on the layer.
+		// A re-seat onto the same box writes the same style values, which no MutationObserver can see,
+		// so a test that must prove a scroll re-seated NOTHING counts this instead (HARD RULE #32).
+		layer.dataset.vtScrollSeats = String(++scrollSeats);
 	};
 	const onViewerScroll = (): void => {
 		if (!scrollRaf) scrollRaf = requestAnimationFrame(reseatForScroll);

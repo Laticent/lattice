@@ -907,10 +907,81 @@ async function filoTier() {
     });
     summary.push({ dataset: 'filo · narrow broad steps (worker)', work: { bytes, narrowedBytes: filo.snapshotBytes(narrowed) }, ms: n.ms, p95: n.p95 });
   }
+  // COMPOSE'S SIDE OF AN UNDO (§4.3): Filo hands Compose the undo's text and Compose applies it as a
+  // scoped transaction (`historyTransaction`, docs/src/lib/compose/filo-history.ts). The browser e2e
+  // (docs/e2e/filo-compose.spec.ts) asserts the same WORK in Firefox and WebKit; this is the cost
+  // record. It gates on what the apply did (slides replaced, characters of source read), which is the
+  // same on every machine; the ms are reported. The modules are TypeScript in the docs app, so they are
+  // bundled here with esbuild; a tree without the docs app's packages skips these rows.
+  {
+    const rows = await composeUndoRows(deck);
+    if (rows) summary.push(...rows);
+  }
   console.log('\n=== FILO · the undo history on the 134 KB deck (system-design-foundations) ===');
   console.log(`${'dataset'.padEnd(48)}${'work'.padEnd(40)}${'median ms'.padStart(11)}${'p95 ms'.padStart(9)}`);
   for (const r of summary) console.log(`${r.dataset.padEnd(48)}${JSON.stringify(r.work).padEnd(40)}${r.ms.toFixed(3).padStart(11)}${r.p95.toFixed(3).padStart(9)}`);
   return { summary };
+}
+
+/** The Compose rows of the Filo tier, or null when the docs app's packages are not installed. */
+async function composeUndoRows(deckText) {
+  const docsModules = join(ROOT, 'docs/node_modules');
+  if (!existsSync(join(docsModules, 'prosemirror-state'))) {
+    console.log('\n(filo · compose rows skipped: the docs app has no node_modules in this tree)');
+    return null;
+  }
+  const { build } = await import('esbuild');
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const dir = mkdtempSync(join(tmpdir(), 'bench-compose-'));
+  try {
+    const entry = join(dir, 'entry.ts');
+    writeFileSync(
+      entry,
+      "export { historyTransaction } from '@/lib/compose/filo-history';\n" +
+        "export { emitDeck, initBaseline, deckToDoc } from '@/lib/compose/deck-doc';\n" +
+        "export { EditorState } from 'prosemirror-state';\n",
+    );
+    const out = join(dir, 'compose.cjs');
+    await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile: out, alias: { '@': join(ROOT, 'docs/src') }, nodePaths: [docsModules, join(ROOT, 'node_modules')], logLevel: 'error' });
+    const { createRequire } = await import('node:module');
+    const m = createRequire(import.meta.url)(out);
+    const doc = m.deckToDoc(deckText);
+    const state0 = m.EditorState.create({ doc });
+    const rows = [];
+    // An undo of one typed word at the end of slide `i`, then its redo, from a fresh baseline each run.
+    for (const [label, pick] of [['an early slide', 3], ['the middle slide', -1]]) {
+      const base0 = m.initBaseline(state0.doc);
+      const probe = { base: base0, text: m.emitDeck(state0.doc, base0) };
+      const i = pick < 0 ? probe.base.raws.length >> 1 : pick;
+      let at = ((doc.attrs.frontMatter || '').length);
+      for (let k = 0; k < i; k++) at += probe.base.raws[k].length + '\n\n---\n\n'.length;
+      at += probe.base.raws[i].length;
+      const typed = probe.text.slice(0, at) + ' FILOMARK' + probe.text.slice(at);
+      // One baseline and one state carried through every run: each run types, then takes it back, so it
+      // ends where it began and the next run starts from the same text.
+      const { base, text } = probe;
+      let st = state0;
+      let work = null;
+      const r = timeRuns(30, () => {
+        // The redo first (the typed state), committed, so the undo applies from it as the Studio's does.
+        const redo = m.historyTransaction(st, base, text, typed);
+        if (!redo) throw new Error('filo tier: compose redo fell back');
+        const s1 = st.apply(redo.tr);
+        redo.commit(s1.doc);
+        const undo = m.historyTransaction(s1, base, typed, text);
+        if (!undo) throw new Error('filo tier: compose undo fell back');
+        st = s1.apply(undo.tr);
+        undo.commit(st.doc);
+        work = { slidesReplaced: undo.removed + redo.removed, scannedChars: undo.scanned + redo.scanned, deckChars: text.length };
+      });
+      if (m.emitDeck(st.doc, base) !== text) throw new Error('filo tier: compose undo did not restore the deck');
+      rows.push({ dataset: `filo · compose undo + redo (${label})`, work, ms: r.ms, p95: r.p95 });
+    }
+    return rows;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 // ── SQUADRA TIER (the lint-and-fix library: driver, hostile input, compile cost) ─────────

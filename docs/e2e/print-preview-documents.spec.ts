@@ -1,5 +1,6 @@
+import { schedulerDrained } from './barriers';
 import { countDocuments, documentsMade } from './preview-documents';
-import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, livePreview, SHARE_EXPORTS, setEditorContent, test } from './studio-fixture';
 
 // The offscreen print frame: its off-screen offset AND its width (PrintOptionsPanel.tsx). The draw host's frame
 // (code-packages/draw-host.ts) sits at the same offset at 1200px, so the offset alone matched two frames.
@@ -160,8 +161,11 @@ test('reopening the Print drawer builds no preview documents, and each open star
 	// A slide ADDED, not just text: the kept drawer must not read 13 markdown slides against the
 	// 12 sections it rendered before the close, take the per-cell fallback, and drop its pool.
 	await setEditorContent(page, `${DECK.replace('Body 1.', 'Body one, edited while the sheet was closed.')}\n---\n\n## Slide 13\n\nBody 13.\n`);
-	// An absence: nothing signals a render that must not happen (SANCTIONED_E2E_SLEEPS).
-	await page.waitForTimeout(1_500);
+	// An absence, read after the edit has flowed through (HARD RULE #32; was a 1500 ms wait): the Studio's own live
+	// preview shows the new slide, so the deck update the kept drawer would answer has been made, and React has
+	// rendered whatever that update asked of it.
+	await expect(livePreview(page).getByText('Body 13.')).toBeVisible({ timeout: 30_000 });
+	await schedulerDrained(page);
 	expect(await takeMutations(), 'a hidden Print drawer does not re-render on keystrokes').toBe(0);
 	// Counted from AFTER the edit: the Studio's own previews redraw the edited deck, and that is
 	// not the drawer's to answer for.

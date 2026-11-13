@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { Locator, Page } from '@playwright/test';
+import { pauseFrames } from './frame-clock';
 import { expect, gotoStudio, railButtons, setEditorContent, test, toastText } from './studio-fixture';
 
 // Drop a deck file on the Studio to open it (deck-drop.ts; owner's model, 2026-10-07: the
@@ -74,6 +75,25 @@ async function nativeDrag(page: Page, target: Locator, paths: string[], { drop =
 	}
 }
 
+/**
+ * How many deck imports the Studio has STARTED (`importDeckFile` counts them on `<html data-deck-imports>`). The shell
+ * decides synchronously, inside `onDrop`, whether a file drop imports, so a refused drop is proven by this count not
+ * moving once the drop has been handled: no wait for an import that must not happen (HARD RULE #32).
+ */
+const importsStarted = (page: Page) => page.evaluate(() => Number(document.documentElement.dataset.deckImports ?? 0));
+
+/** Resolve once the page has finished dispatching a `drop` (a window bubble listener runs after React's root one). */
+async function armDropSeen(page: Page) {
+	await page.evaluate(() => {
+		const w = window as unknown as { __drops?: number };
+		w.__drops = 0;
+		window.addEventListener('drop', () => {
+			w.__drops = (w.__drops ?? 0) + 1;
+		});
+	});
+	return () => expect.poll(() => page.evaluate(() => (window as unknown as { __drops?: number }).__drops ?? 0), { message: 'the drop was never dispatched' }).toBeGreaterThan(0);
+}
+
 const sign = (page: Page) => page.locator('[data-deck-drop-sign]');
 const preview = (page: Page) => page.locator('[aria-label="Live deck preview"]').first();
 
@@ -137,6 +157,7 @@ test.describe('native drags (Chromium CDP)', () => {
 	test.skip(({ browserName }) => browserName !== 'chromium', 'CDP drag events are Chromium-only');
 
 	test('a re-openable PDF dropped on the preview opens as a new deck, and the open one is kept', async ({ page }) => {
+		const before = await importsStarted(page);
 		await nativeDrag(page, preview(page), [files.pdf], {
 			before: async () => {
 				// The sign is up while the file is over the shell, and says what a drop does.
@@ -147,6 +168,8 @@ test.describe('native drags (Chromium CDP)', () => {
 		await expect(sign(page)).toBeHidden();
 		await expect(toastText(page)).toContainText('Imported');
 		await expect.poll(() => activeSource(page)).toBe(DECK);
+		// The count the refused drops below are held to can see an import: this one moved it by exactly one.
+		expect(await importsStarted(page)).toBe(before + 1);
 		// A drop never edits the open deck: the scratch deck is still there, unchanged.
 		expect(await allSources(page)).toContain(SCRATCH);
 	});
@@ -170,12 +193,15 @@ test.describe('native drags (Chromium CDP)', () => {
 	test('the code editor keeps its own drop: no sign, no import', async ({ page }) => {
 		const editor = page.locator('.cm-editor').first();
 		test.skip(!(await editor.isVisible()), 'the code editor is not on screen at this width');
+		const before = await importsStarted(page);
+		const dropped = await armDropSeen(page);
 		await nativeDrag(page, editor, [files.pdf], {
 			before: async () => {
 				await expect(sign(page)).toBeHidden();
 			},
 		});
-		await page.waitForTimeout(1000);
+		await dropped();
+		expect(await importsStarted(page), 'the editor drop started an import').toBe(before);
 		expect(await activeSource(page)).toBe(SCRATCH);
 		expect((await allSources(page)).filter((s) => s === DECK)).toHaveLength(0);
 	});
@@ -190,12 +216,15 @@ test.describe('native drags (Chromium CDP)', () => {
 		const compose = page.locator('.cs-host .ProseMirror').first();
 		await compose.waitFor();
 		const url = page.url();
+		const before = await importsStarted(page);
+		const dropped = await armDropSeen(page);
 		await nativeDrag(page, compose, [files.pdf], {
 			before: async () => {
 				await expect(sign(page)).toBeHidden();
 			},
 		});
-		await page.waitForTimeout(1000);
+		await dropped();
+		expect(await importsStarted(page), 'the compose drop started an import').toBe(before);
 		expect(page.url()).toBe(url);
 		expect(await activeSource(page)).toBe(SCRATCH);
 		expect((await allSources(page)).filter((s) => s === DECK)).toHaveLength(0);
@@ -207,12 +236,18 @@ test.describe('native drags (Chromium CDP)', () => {
 		const present = page.getByRole('dialog', { name: 'Present' });
 		await expect(present).toBeVisible();
 		const url = page.url();
+		const before = await importsStarted(page);
+		await armDropSeen(page);
 		await nativeDrag(page, page.locator('body'), [files.pdf], {
 			before: async () => {
 				await expect(sign(page)).toBeHidden();
 			},
 		});
-		await page.waitForTimeout(1000);
+		// While presenting the shell does not accept the drag (its `dragover` is left alone), so the browser never
+		// dispatches `drop` at all, and an import starts only inside `onDrop`. `Input.dispatchDragEvent` resolves
+		// once the browser has handled the drop, so both counts are final here.
+		expect(await page.evaluate(() => (window as unknown as { __drops?: number }).__drops ?? 0), 'a drop reached the page while presenting').toBe(0);
+		expect(await importsStarted(page), 'a drop while presenting started an import').toBe(before);
 		await expect(present).toBeVisible();
 		expect(page.url()).toBe(url);
 		expect(await activeSource(page)).toBe(SCRATCH);
@@ -233,6 +268,12 @@ test.describe('native drags (Chromium CDP)', () => {
 	// DROP_SHOTS=<dir> to keep the shots; they land in the test's output folder otherwise.
 	test('the sign fits the screen at desktop, tablet and phone widths, light and dark', async ({ page }, info) => {
 		const shots = [['1440', 1440, 900, 'light'], ['820', 820, 1180, 'light'], ['390', 390, 844, 'light'], ['1440-dark', 1440, 900, 'dark']] as const;
+		// THE SIGN HAS A DEAD-MAN TIMER: it hides 1000 ms after the last `dragover` (deck-drop.ts `quiet`). A real drag
+		// sends `dragover` all the time; this one sends ONE and then measures and screenshots, which on a loaded runner
+		// took longer than a second, and the box read came back null (1 run in 3 under four workers, measured). So the
+		// page's clock is stopped while the drag is held: the timer cannot fire, which is the state a real drag keeps
+		// it in (HARD RULE #32).
+		await page.clock.install();
 		for (const [label, width, height, colorScheme] of shots) {
 			await page.setViewportSize({ width, height });
 			if (colorScheme === 'dark') {
@@ -241,6 +282,7 @@ test.describe('native drags (Chromium CDP)', () => {
 				await page.reload();
 				await expect(page.locator('html')).toHaveAttribute('data-mode', 'dark');
 			}
+			await pauseFrames(page);
 			await nativeDrag(page, page.locator('header').first(), [files.pdf], {
 				drop: false,
 				before: async () => {
@@ -251,6 +293,7 @@ test.describe('native drags (Chromium CDP)', () => {
 					await page.screenshot({ path: out });
 				},
 			});
+			await page.clock.resume();
 			await expect(sign(page)).toBeHidden();
 		}
 		expect(await activeSource(page)).toBe(SCRATCH);

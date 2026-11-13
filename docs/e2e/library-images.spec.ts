@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { confirmPhotoFormat } from './photo-format';
 import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
 // The Library's Images tab, driven on the real Studio (engineering/decisions/2026-10-12-library-media-assets.md).
@@ -16,7 +17,7 @@ import { CHROME, expect, gotoStudio, test } from './studio-fixture';
  *  Orientation=6 and a GPS IFD — the shape a phone held upright writes. Returns file bytes
  *  through a DataTransfer onto the Images tab's hidden input, exactly what the OS picker does. */
 async function pickPhoto(page: Page, files: { name: string; width: number; height: number; exif?: boolean; type?: string; claimType?: string }[]): Promise<boolean[]> {
-	return page.evaluate(async (specs) => {
+	const hadExif = await page.evaluate(async (specs) => {
 		const made: File[] = [];
 		for (const s of specs) {
 			const c = document.createElement('canvas');
@@ -64,22 +65,12 @@ async function pickPhoto(page: Page, files: { name: string; width: number; heigh
 		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
-		// The format dialog asks how to store them; the probes take its default.
-		for (let i = 0; i < 200; i++) {
-			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
-			if (b) {
-				// A PNG probe must stay byte-exact, so it asks for the original; a camera JPEG takes the default.
-				const choose = specs.every((s) => s.type === 'image/png') ? 'Keep original' : 'JPEG';
-				// The dialog remembers the last choice, so every pick states its own.
-				(document.querySelector(`[role="dialog"] [role="radio"][aria-label="${choose}"]`) as HTMLButtonElement | null)?.click();
-				await new Promise((r) => setTimeout(r, 150));
-				b.click();
-				break;
-			}
-			await new Promise((r) => setTimeout(r, 50));
-		}
 		return hadExif;
 	}, files);
+	// A PNG probe must stay byte-exact, so it asks for the original; a camera JPEG takes JPEG. The dialog remembers
+	// the last choice, so every pick states its own.
+	await confirmPhotoFormat(page, files.every((s) => s.type === 'image/png') ? 'Keep original' : 'JPEG');
+	return hadExif;
 }
 
 type Stored = { name: string; scope: string; width: number; height: number; bytes: number; original: boolean; mime: string; hasExif: boolean };
@@ -313,22 +304,13 @@ test('@smoke a PNG with an eXIf GPS chunk and a GIF with comment and XMP blocks 
 		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
-		// The format dialog asks how to store them. ORIGINAL, not its default: the byte scrub this test is about runs
-		// only for a photo kept as it is. The default is JPEG (PhotoFormatDialog `loadPhotoFormat`), which re-encodes
-		// the PNG and the GIF through a canvas, so taking it tested the canvas, not the scrubber, and failed on every
-		// engine the test runs on (followups.d/3087-p5).
-		for (let i = 0; i < 200; i++) {
-			const original = document.querySelector('[role="dialog"] [role="radio"][value="original"]') as HTMLButtonElement | null;
-			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
-			if (original && original.getAttribute('aria-checked') !== 'true') original.click();
-			else if (original && b) {
-				b.click();
-				break;
-			}
-			await new Promise((r) => setTimeout(r, 50));
-		}
 		return { pngHadMark: has(dirtyPng), gifHadMark: has(dirtyGif), pngLength: dirtyPng.length, gifLength: dirtyGif.length };
 	}, MARK);
+	// The format dialog asks how to store them. ORIGINAL, not its default: the byte scrub this test is about runs
+	// only for a photo kept as it is. The default is JPEG (PhotoFormatDialog `loadPhotoFormat`), which re-encodes
+	// the PNG and the GIF through a canvas, so taking it tested the canvas, not the scrubber, and failed on every
+	// engine the test runs on (followups.d/3087-p5).
+	await confirmPhotoFormat(page, 'Keep original');
 	expect([before.pngHadMark, before.gifHadMark], 'positive control: both inputs carried the marker').toEqual([true, true]);
 	await expect(page.locator('[data-media-card="rotated-png"]')).toBeVisible({ timeout: 30_000 });
 	await expect(page.locator('[data-media-card="marked-png"]')).toBeVisible({ timeout: 30_000 });

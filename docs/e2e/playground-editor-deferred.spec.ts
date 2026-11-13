@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { schedulerDrained } from './barriers';
 
 /**
  * The Playground builds CodeMirror only when someone can see it, or a reader shows up
@@ -26,11 +27,22 @@ test.beforeEach(async ({ page }) => {
 	);
 });
 
+/**
+ * Instead of sleeping (HARD RULE #32), the page runs on Playwright's clock: step it `ms`, so every timer and idle
+ * callback that could build the editor unprompted has fired (Playwright fakes `requestIdleCallback` too), then let React
+ * render whatever they set. A view built in that time is in the DOM when the count is read.
+ */
+async function pastTheIdleBuild(page: import('@playwright/test').Page, ms: number) {
+	await page.clock.runFor(ms);
+	await schedulerDrained(page);
+}
+
 test('@crosswidth an Explore load builds no editor; the switch to Edit builds it on the walked deck', async ({ page }) => {
+	await page.clock.install();
 	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('body')).toHaveAttribute('data-view', 'read');
 	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/, { timeout: 90_000 });
-	await page.waitForTimeout(3_000);
+	await pastTheIdleBuild(page, 3_000);
 	await expect(page.locator('.cm-editor'), 'CodeMirror was built while the editor was hidden').toHaveCount(0);
 	await page.getByRole('tab', { name: 'Edit' }).click();
 	await expect(page.locator('body')).toHaveAttribute('data-view', 'edit');
@@ -45,9 +57,10 @@ test('@crosswidth an Explore load builds no editor; the switch to Edit builds it
 });
 
 test('@crosswidth the first sign of a reader builds the hidden editor ahead of the switch', async ({ page }) => {
+	await page.clock.install();
 	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/, { timeout: 90_000 });
-	await page.waitForTimeout(1_500);
+	await pastTheIdleBuild(page, 1_500);
 	await expect(page.locator('.cm-editor')).toHaveCount(0);
 	// The listener arrives with hydration, which the live preview has already passed; moving until it lands is belt and braces.
 	let wiggle = 0;

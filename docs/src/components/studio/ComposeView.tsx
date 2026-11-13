@@ -2632,10 +2632,13 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			// `filo:compose-work` is the history's own work, without ProseMirror's render of the result
 			// (which every edit pays, a keystroke included); the budget e2e reads both measures.
 			let work = 0;
+			// What the apply DID, for the budget e2e: it asserts on this work, and reports the time.
+			let did: { scanned: number; removed: number; added: number } | null = null;
 			try {
 				let t = performance.now();
 				const r = base ? historyTransaction(v.state, base, prev, text) : null;
 				if (r) {
+					did = { scanned: r.scanned, removed: r.removed, added: r.added };
 					// The flash rides in the same transaction: a second, doc-less dispatch re-rendered the
 					// whole view again, measured at 38-57 ms in WebKit on the 134 KB deck.
 					try {
@@ -2675,6 +2678,13 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			}
 			if (!applied) {
 				try {
+					// The full rebuild: every slide re-parsed, the whole view re-rendered. The budget e2e
+					// counts this mark and allows none.
+					performance.mark('filo:compose-resync');
+				} catch {
+					// No User Timing: nothing to record.
+				}
+				try {
 					resyncRef.current?.(v, text);
 				} catch (e) {
 					console.error('[compose] history resync', e);
@@ -2690,7 +2700,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			if (kernels) normalizeDeck(v, kernels, kernels.isLiteralFromSource(text));
 			work += performance.now() - t;
 			try {
-				performance.measure('filo:compose-work', { start: 0, duration: work });
+				performance.measure('filo:compose-work', { start: 0, duration: work, detail: { ...did, deck: text.length } });
 			} catch {
 				// No User Timing: nothing to record.
 			}

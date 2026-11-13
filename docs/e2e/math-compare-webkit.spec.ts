@@ -1,3 +1,4 @@
+import { documentSettled } from './barriers';
 import { expect, gotoStudio, livePreview, railButtons, setEditorContent, test } from './studio-fixture';
 
 // `math compare` in REAL WebKit: every `<h3>` must paint exactly ONCE.
@@ -318,7 +319,9 @@ test('every math compare h3 paints exactly once in WebKit (#1554) @webkit-tablet
 		await probe.goto(`${baseURL}/studio/`, { waitUntil: 'domcontentloaded' });
 		await probe.setContent(presentedHtml as string, { waitUntil: 'load' });
 		await probe.evaluate(() => document.fonts.ready);
-		await probe.waitForTimeout(400);
+		// The ghost moves with text metrics, so it can appear on the re-layout the faces cause, which runs on the
+		// frame after `fonts.ready`: two frames, not 400 ms (HARD RULE #32).
+		await documentSettled(probe);
 
 		const section = probe.locator('section.math.compare').first();
 		await expect(section, `${label}: re-hosted section`).toBeVisible();
