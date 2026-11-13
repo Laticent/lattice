@@ -498,6 +498,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  transition, so `value` can trail the document by a keystroke or two; syncing such a value back would undo
 	 *  what the author just typed. Every other `value` is a real write and is synced as before. */
 	isStaleEcho?: (value: string) => boolean;
+	/** The newest text the shell holds, read now. It runs AHEAD of `value` while a transition trails the keyboard, and
+	 *  a view built in that window (a layout switch remounting the editor) must start from it, not from the render's
+	 *  `value`. A `value` that differs from it is a trailing render; the render carrying the newest text follows. */
+	latestValue?: () => string;
 	/** Identity of the deck this editor is showing. A different key builds a new view, so nothing
 	 *  of one deck's editor state (its caret, its selection) is ever shown on another. The undo
 	 *  history is not the editor's: the Studio keeps it in Filo, one history per deck. */
@@ -532,7 +536,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  browser's own Studio write (a strip op) reaching the editor through the session. Either only maps the caret. */
 	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string; isPeer?: (tr: Transaction) => boolean } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionSamples, completionLoading = false, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, caretColumn, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionSamples, completionLoading = false, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, caretColumn, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, latestValue, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const pendingCaretRef = React.useRef<{ text: string; offset: number } | null>(null);
@@ -558,6 +562,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	hubRef.current = focusHub;
 	const isStaleEchoRef = React.useRef(isStaleEcho);
 	isStaleEchoRef.current = isStaleEcho;
+	const latestValueRef = React.useRef(latestValue);
+	latestValueRef.current = latestValue;
 	// The index revision the editor's text was last fed as, so a caret report names the text
 	// it was computed against (the hub drops a report against older text).
 	const revRef = React.useRef<number | undefined>(undefined);
@@ -1053,7 +1059,13 @@ export const Editor = React.forwardRef<EditorHandle, {
 			const seed = {
 					// Canonicalized here because `EditorState.create` runs NO transaction filter — a
 					// deck stored with a BOM before this landed would otherwise keep it on screen.
-					doc: collab ? collab.seed() : stripBom(value),
+					// THE SHELL'S NEWEST TEXT, not this render's `value`, which can trail it (see `latestValue`). The hub
+					// holds that newest text, and the build below restates the view's text to the hub: a view seeded
+					// from a trailing `value` moved the hub BACK, and with it the caret's slide and the preview. Measured
+					// on WebKit at phone size after typing a deck at 1440 px: the switch to one pane rebuilt the editor
+					// from an empty `value` (Delete after select-all, still in a transition), and the preview went to
+					// slide 1 for good, 3 runs in 16 under load (logo-wall-revisit.spec.ts).
+					doc: collab ? collab.seed() : stripBom(latestValueRef.current?.() ?? value),
 					extensions: [
 						lineNumbers(),
 						// The caret's line, marked as the Playground marks it (owner, 2026-11-12), and standing down while a selection
@@ -1308,6 +1320,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 		if (!v || value === docString(v.state.doc)) return;
 		// A trailing echo of the author's own typing, not a write (see `isStaleEcho`).
 		if (isStaleEchoRef.current?.(value)) return;
+		// A trailing render of any older text: the shell already holds a newer one, and the render that carries it
+		// follows. A view built in between starts from that newer text, so syncing this one back would undo it.
+		const latest = latestValueRef.current?.();
+		if (latest !== undefined && latest !== value) return;
 		const old = docString(v.state.doc);
 		// Minimal diff — the common prefix/suffix the two docs share.
 		const minLen = Math.min(old.length, value.length);
