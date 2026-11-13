@@ -22,8 +22,9 @@ const TIMEOUT = 300000;
 // Browsers are counted where they start, at `child_process.spawn`: puppeteer 25 is an ES module, so
 // `require('puppeteer')` returns a frozen namespace whose `launch` cannot be wrapped (the assignment
 // is silently dropped and every count reads 0). Every Chrome puppeteer drives, `launch` and the
-// sandbox's `launchAsUser` alike, carries a `--remote-debugging-*` switch; Chrome's own helpers do not
-// come through Node. `syncBuiltinESMExports` carries the patch to ES-module importers.
+// sandbox's `launchAsUser` alike, carries a `--remote-debugging-*` switch. @puppeteer/browsers imports the
+// module's default export, which is this object; `syncBuiltinESMExports` also covers a named `{ spawn }`
+// import. A browser started by a child Node process (lib/plugins/host-bake.js) is not counted, as before.
 const PROBE = `const Module = require('module'); const cp = require('child_process'); const spawn = cp.spawn; let launches = 0;
 cp.spawn = function (cmd, args) { if (Array.isArray(args) && args.some((a) => /^--remote-debugging-(pipe|port)/.test(a))) launches++; return spawn.apply(this, arguments); };
 Module.syncBuiltinESMExports();
