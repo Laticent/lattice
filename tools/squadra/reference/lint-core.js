@@ -1,8 +1,9 @@
-// FROZEN REFERENCE — lib/authoring/lint-core.js as it stood at the fork point of the lint-core rewrite (commit
-// 8e68a196, engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §6). Test-only: tools/squadra-reference-diff.js
-// runs it beside the new `deck` ruleset and compares what each reports. Its requires point at the live lib/ modules it
-// read then; only lint-core itself is frozen, because it is the file the rewrite deletes. Never edit it to make a diff
-// pass; it is deleted when the rewrite merges.
+// FROZEN REFERENCE — lib/authoring/lint-core.js as this branch carries it (frozen from commit b60f0ab87), for the
+// lint-core rewrite (engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §6). Test-only:
+// tools/squadra-reference-diff.js runs it beside the new `deck` ruleset and compares what each reports. Its requires
+// point at the live lib/ modules; only lint-core itself is frozen, because it is the file the rewrite deletes. Never
+// edit it to make a diff pass: re-freeze with tools/squadra/freeze-reference.js when the branch takes main's
+// lint-core. It is deleted when the rewrite merges.
 /**
  * Pure, dependency-free lint core — the SINGLE SOURCE of the deck-authoring
  * footgun checks, shared by:

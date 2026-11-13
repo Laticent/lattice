@@ -241,6 +241,19 @@ loaded lint-core before `payload-elision-lint-oracle.test.js` could stub `elideP
 load. The preload now wraps the linter when a test first loads it, and a recording with any red test now stops the
 diff instead of being printed and ignored.
 
+**Re-freeze when the branch takes main's lint-core.** The fork's lint-core is the reference only while it is also the
+branch's. Main has already changed lint-core since the fork (#3174, #3181, which reworked `bg-ratio-unread`), and a
+behind-but-clean PR never rebases (#16), so those changes would reach this branch only at a rebase or merge of main. At
+that point the reference must move too, or a family is held to behavior main dropped and step 6 quietly undoes main's
+change. `tools/squadra/freeze-reference.js` re-freezes it, and test/unit/authoring/squadra-lattice-deck.test.js fails
+while the frozen copy differs from the branch's lint-core. Before a family's diff, take main (the plan's step 4 needs
+main's current rules, which is a reason #16 accepts) and re-freeze.
+
+**What the failing arm did not cover.** It changed a message, so it exercised that field and not severity, slide or
+line text (those are covered by the matcher's unit tests) and not the `--fix` path. And while most rules are still
+unmigrated, the fix diff skips every source with an unmigrated rule's fix in it; the report prints that count, so a
+family's commit says how many sources its fix diff actually compared.
+
 **Carried into step 4, from the same review.**
 - Notes are inert, and `<!-- _clas: kpi -->` is a note. A rule that reports or fixes a misspelled directive reads with
   `inert: 'include'` and declares `changes: inert`.

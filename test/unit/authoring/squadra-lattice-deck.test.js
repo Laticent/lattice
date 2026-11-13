@@ -256,3 +256,10 @@ describe('the reference diff: matching and explanations', () => {
     assert.equal(entries[0].hits, 1);
   });
 });
+
+describe('the frozen reference', () => {
+  test('is lib/authoring/lint-core.js as this branch carries it (re-freeze: node tools/squadra/freeze-reference.js)', () => {
+    const { isCurrent } = require('../../../tools/squadra/freeze-reference');
+    assert.ok(isCurrent(), 'lint-core moved (a rebase or merge of main brought it): run `node tools/squadra/freeze-reference.js`');
+  });
+});
