@@ -1010,20 +1010,27 @@ export async function setEditorContent(page: Page, text: string, opts: { timeout
 		.toEqual(fingerprint(text));
 }
 
-/** Line-break characters, which the check leaves out on BOTH sides, so it asks "is this the deck?" and not
- *  "did each engine type every line-break byte the same way?". They do not. `page.keyboard.insertText`,
- *  measured on read-article-beacons.spec.ts's payloads: Chromium and WebKit turn `\r\n` into TWO line
- *  breaks and keep a form feed; Firefox turns `\r\n` into one and drops the form feed; all three turn a
- *  lone `\r` into `\n`; CodeMirror then stores every break as `\n`, and Editor.tsx strips a leading BOM.
- *  No single fold matches all three engines, so the breaks leave the comparison. A mixed deck still differs
- *  in the text that remains, which is what this check is for. */
-export const EDITOR_FOLD = /[\r\n\f\v\u0085\u2028\u2029]/g;
+/** How the deck check folds line breaks, on BOTH sides, so it asks "is this the deck?" and not "did each
+ *  engine type every line-break byte the same way?". They do not. `page.keyboard.insertText`, measured on
+ *  read-article-beacons.spec.ts's payloads:
+ *
+ *    typed   Chromium  WebKit  Firefox
+ *    \r\n    \n\n      \n\n    \n
+ *    \r      \n        \n      \n
+ *    \f      kept      kept    dropped
+ *
+ *  CodeMirror then stores every break as `\n`, and Editor.tsx strips a leading BOM. The fold deletes the
+ *  characters an engine may drop (`EDITOR_DROP`) and turns every run of `\r`/`\n` into one `\n`
+ *  (`EDITOR_BREAKS`), which matches every row above. What it does NOT check: a run's length, so a lost or
+ *  extra blank line passes. Two lines merged into one, a mixed deck and a truncated one all still fail. */
+export const EDITOR_DROP = /[\f\v\u0085\u2028\u2029]/g;
+export const EDITOR_BREAKS = /[\r\n]+/g;
 
-/** A deck's length and its 32-bit FNV-1a hash over UTF-16 code units, with a leading BOM and every
- *  `EDITOR_FOLD` character left out. `deckEditorFingerprint` runs the same fold and loop inside the page; keep the two
- *  identical, or every `setEditorContent` fails. */
+/** A deck's length and its 32-bit FNV-1a hash over UTF-16 code units, after a leading BOM is stripped and
+ *  line breaks are folded (`EDITOR_DROP`, `EDITOR_BREAKS`). `deckEditorFingerprint` runs the same fold and
+ *  loop inside the page; keep the two identical, or every `setEditorContent` fails. */
 export function fingerprint(raw: string): { length: number; hash: number } {
-	const text = (raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw).replace(EDITOR_FOLD, '');
+	const text = (raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw).replace(EDITOR_DROP, '').replace(EDITOR_BREAKS, '\n');
 	let h = 0x811c9dc5;
 	for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
 	return { length: text.length, hash: h >>> 0 };
@@ -1045,7 +1052,7 @@ export function deckEditorLength(page: Page): Promise<number | null> {
 
 /** The editor document's `fingerprint`, computed in the page so only two numbers cross the protocol. */
 export function deckEditorFingerprint(page: Page): Promise<{ length: number; hash: number } | null> {
-	return page.evaluate((fold) => {
+	return page.evaluate(([drop, breaks]) => {
 		const el = document.querySelector('[aria-label="Deck source"]');
 		if (!el) return null;
 		let text: string | null = null;
@@ -1057,11 +1064,11 @@ export function deckEditorFingerprint(page: Page): Promise<{ length: number; has
 			text = view ? view.state.doc.toString() : null;
 		}
 		if (text === null) return null;
-		text = (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text).replace(new RegExp(fold, 'g'), '');
+		text = (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text).replace(new RegExp(drop, 'g'), '').replace(new RegExp(breaks, 'g'), '\n');
 		let h = 0x811c9dc5;
 		for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
 		return { length: text.length, hash: h >>> 0 };
-	}, EDITOR_FOLD.source);
+	}, [EDITOR_DROP.source, EDITOR_BREAKS.source]);
 }
 
 /**
