@@ -756,8 +756,8 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 	}
 	/**
 	 * Publish where the classification stands on `<html data-stage-loss>`: `classifying` while it walks, then
-	 * `closed` (the presenter closed it: say nothing), `navigated` (say so), `cancelled` (a later beat or a new Stage
-	 * took over) or `unreadable`. The e2e spec that holds "a hand-close says nothing" waits for an end state instead
+	 * `closed` (the presenter closed it: say nothing), `navigated` (say so), `gone` (the liveness poll's window
+	 * vanished with no goodbye: say so), `cancelled` (a later beat or a new Stage took over) or `unreadable`. The e2e spec that holds "a hand-close says nothing" waits for an end state instead
 	 * of sleeping past the grace window (HARD RULE #32). Nothing in the app reads it.
 	 * @param {string} state
 	 */
@@ -790,23 +790,31 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 			const d = e.data;
 			// The same origin rule as `onMsg`: a real Stage is written into `about:blank` and posts with OUR origin.
 			if (e.origin !== location.origin) return;
-			if (d && typeof d === 'object' && d.stage === 'closed' && (e.source === w || d.tok === token)) finish(false);
+			if (d && typeof d === 'object' && d.stage === 'closed' && (e.source === w || d.tok === token)) finish(false, 'closed');
 		};
-		const timer = window.setTimeout(() => finish(true), GOODBYE_GRACE_MS);
-		const finish = (/** @type {boolean} */ announce) => {
+		const timer = window.setTimeout(() => finish(true, 'gone'), GOODBYE_GRACE_MS);
+		/** `outcome` is published on `<html data-stage-loss>` like the classification's, so a spec waiting for
+		 *  "the loss has been decided" also sees the poll's path end (a goodbye, silence, or a newer Stage). */
+		const finish = (/** @type {boolean} */ announce, /** @type {string} */ outcome) => {
 			window.clearTimeout(timer);
 			window.removeEventListener('message', onBye);
 			if (cancelGoodbye === stop) cancelGoodbye = null;
-			if (announce && seq === ownSeq) onLost?.('gone');
+			const current = seq === ownSeq;
+			publishLoss(current ? outcome : 'cancelled');
+			if (announce && current) onLost?.('gone');
 		};
-		const stop = () => finish(false);
+		const stop = () => finish(false, 'cancelled');
 		cancelGoodbye?.();
 		cancelGoodbye = stop;
 		window.addEventListener('message', onBye);
 	}
 
 	function announceUnlessClosed(w, seq, waited = 0) {
-		if (!w || seq !== ownSeq) return; // a new Stage came up — this answer is stale
+		if (!w) return;
+		if (seq !== ownSeq) {
+			publishLoss('cancelled'); // a new Stage came up — this answer is stale
+			return;
+		}
 		try {
 			if (w.closed) {
 				publishLoss('closed');

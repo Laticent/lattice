@@ -505,6 +505,8 @@ describe('stage-window — createStageController', () => {
 		await vi.advanceTimersByTimeAsync(5000);
 		expect(onLost).toHaveBeenCalledTimes(1);
 		expect(onLost, 'a beatless disappearance is a death, not a navigation').toHaveBeenCalledWith('gone');
+		// The e2e hand-close cell waits for `<html data-stage-loss>` to reach an end; the poll's path publishes one too.
+		expect(document.documentElement.dataset.stageLoss).toBe('gone');
 		expect(vi.getTimerCount() <= 1, 'only the next liveness interval, if any, may remain').toBe(true);
 		vi.useRealTimers();
 	});
@@ -513,6 +515,7 @@ describe('stage-window — createStageController', () => {
 		// A loaded machine: the flag flipped and the 2 s poll ticked before the goodbye's message task ran. The goodbye
 		// arriving after the poll is still a deliberate close (e2e stage-window.spec.ts, the hand-close cell on WebKit).
 		vi.useFakeTimers();
+		delete document.documentElement.dataset.stageLoss;
 		const win = fakeWindow();
 		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
 		const onLost = vi.fn();
@@ -521,10 +524,15 @@ describe('stage-window — createStageController', () => {
 		postFromStage({ stage: 'ready' }, win);
 		win.closed = true;
 		await vi.advanceTimersByTimeAsync(2100); // the poll has torn down
+		expect(document.documentElement.dataset.stageLoss, 'nothing is decided while the goodbye may still come').toBeUndefined();
 		expect(ctl.isOpen()).toBe(false);
 		postFromStage({ stage: 'closed', tok: ctl.token }, win); // the goodbye, late
 		await vi.advanceTimersByTimeAsync(10_000);
 		expect(onLost, 'a goodbye after the poll is still a deliberate close').not.toHaveBeenCalled();
+		// …and says so on `<html data-stage-loss>`, the end state the e2e hand-close cell waits for. Before, this path
+		// published nothing, and the cell timed out on the 2-in-160 runs where the poll won (the checker on #3156).
+		expect(document.documentElement.dataset.stageLoss).toBe('closed');
+		vi.useRealTimers();
 	});
 
 	it('cancels a classification still walking, rather than leaving it to time out', async () => {
@@ -593,6 +601,8 @@ describe('stage-window — createStageController', () => {
 		postFromStage({ stage: 'ready' }, fresh);
 		await vi.advanceTimersByTimeAsync(2000);
 		expect(onLost, 'the obituary of the old Stage must not land on the new one').not.toHaveBeenCalled();
+		// The stale classification ends as `cancelled`, not stuck at `classifying`.
+		expect(document.documentElement.dataset.stageLoss).toBe('cancelled');
 		expect(ctl.isOpen()).toBe(true);
 		vi.useRealTimers();
 	});

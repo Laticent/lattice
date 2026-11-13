@@ -479,12 +479,14 @@ test('a Stage the presenter closes by hand reverts the console — and says noth
 	await stage.close();
 	await expect(launcher).toHaveAttribute('aria-pressed', 'false');
 	await expect(dialog.getByRole('group', { name: /Deck progress/ })).toHaveCount(1);
-	// The beat tore the Stage down, which stops the 2 s liveness poll, so the ONE thing that could
-	// still raise a notice is the loss classification (stage-window.js `announceUnlessClosed`). It
-	// publishes how it ended on `<html data-stage-loss>`: wait for an end, let a notice it asked for
-	// render, and only then read the log. This replaces a 3000 ms wait past both deadlines.
-	await expect(page.locator('html'), 'the loss classification never finished').toHaveAttribute('data-stage-loss', /^(closed|cancelled|navigated|unreadable)$/);
-	expect(await page.locator('html').getAttribute('data-stage-loss'), 'a hand-closed Stage was classified as taken over').not.toBe('navigated');
+	// Whichever tore the Stage down decides it: the goodbye beat runs the loss classification
+	// (stage-window.js `announceUnlessClosed`), and the 2 s liveness poll, when it ticks first (closed
+	// already, goodbye not yet in: 2 runs in 160 on loaded WebKit, #3155), waits for the goodbye
+	// (`awaitGoodbye`). Both publish how they ended on `<html data-stage-loss>`: wait for an end, let a
+	// notice it asked for render, and only then read the log. This replaces a 3000 ms wait past both
+	// deadlines.
+	await expect(page.locator('html'), 'the loss classification never finished').toHaveAttribute('data-stage-loss', /^(closed|cancelled|navigated|gone|unreadable)$/);
+	expect(await page.locator('html').getAttribute('data-stage-loss'), 'a hand-closed Stage was classified as lost').not.toMatch(/^(navigated|gone)$/);
 	await consoleDrained(page);
 	expect(await seen(), 'a Stage the presenter closed by hand must not announce itself').toEqual([]);
 
@@ -657,8 +659,13 @@ test('the Stage does not follow links — the room cannot navigate the deck away
 		await expect(target).toBeVisible();
 		const hitBox = await target.boundingBox();
 		if (!hitBox) throw new Error(`the ${shape} probe has no box`);
+		const clicksBefore = await stage.evaluate(() => (window as unknown as { __clicks: boolean[] }).__clicks.length);
 		await stage.mouse.click(hitBox.x + hitBox.width / 2, hitBox.y + hitBox.height / 2);
-		expect(await stage.evaluate(() => (window as unknown as { __clicks: boolean[] }).__clicks.at(-1)), `a ${shape} link click was not cancelled, so it navigates`).toBe(true);
+		// THIS click's record, not the previous shape's: a guard that also stopped the click's propagation would keep the
+		// window listener from recording it, and `.at(-1)` would re-read the last shape's `true`.
+		const clicks = await stage.evaluate(() => (window as unknown as { __clicks: boolean[] }).__clicks);
+		expect(clicks.length, `the ${shape} link click never reached the end of its dispatch`).toBe(clicksBefore + 1);
+		expect(clicks.at(-1), `a ${shape} link click was not cancelled, so it navigates`).toBe(true);
 		expect(stage.url(), `a ${shape} link click navigated the Stage`).toBe(before);
 	}
 	await stage.evaluate(() => {

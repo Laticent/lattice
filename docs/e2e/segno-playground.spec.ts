@@ -322,12 +322,18 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 					const sincePost = await page.evaluate(() => {
 						const w = window as unknown as { __posts: number[]; __post: Worker['postMessage']; __segno: { t1: number } };
 						Worker.prototype.postMessage = w.__post;
-						const post = w.__posts.filter((t) => t <= w.__segno.t1).at(-1);
-						return post === undefined ? null : w.__segno.t1 - post;
+						const posts = w.__posts.filter((t) => t <= w.__segno.t1);
+						const post = posts.at(-1);
+						return post === undefined ? null : { since: w.__segno.t1 - post, posts: posts.length };
 					});
 					expect(keys).toBeGreaterThan(4);
 					expect(ms).toBeGreaterThan(1_400);
-					expect(sincePost, 'the stop is not 1.5 s after the runaway request was posted').toBe(1_500);
+					expect(sincePost?.since, 'the stop is not 1.5 s after the runaway request was posted').toBe(1_500);
+					// AND THE KEYSTROKES WAITED. While a request is in flight a keystroke's parse queues, unposted (`post()`), so
+					// the whole step posts twice: the compile, then the runaway parse (measured on webkit-tablet and gecko). A
+					// page that posted, and so re-armed the budget, on every keystroke would stop 1.5 s after the 40th post and
+					// pass the check above; it fails this one. A count, not a time, so load cannot move it.
+					expect(sincePost?.posts, 'typing posted to the busy worker and pushed the stop back').toBeLessThanOrEqual(3);
 					record({ step: 13, what: 'typing every 250 ms during a runaway', result: `stopped after ${keys} keystrokes`, ms });
 				});
 
