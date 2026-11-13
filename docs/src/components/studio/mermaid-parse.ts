@@ -3,6 +3,7 @@
 // lazily). Why it exists, and why the return type is the contract: mermaid-check.ts and the
 // docblock on `checkDiagrams` below.
 
+import initDirective from '../../../../lib/plugins/mermaid/shared/init-directive.js';
 import labelLength from '../../../../lib/plugins/mermaid/shared/label-length.js';
 import { engineBase } from '../../lib/engine-base';
 import { installPreviewDrawHost } from '../../lib/preview-draw-host';
@@ -11,6 +12,7 @@ import { installPreviewDrawHost } from '../../lib/preview-draw-host';
 import type { Diagram, DiagramError } from './mermaid-check';
 
 // A CommonJS file: default import, then destructure (docs/src/plugins/vite-cjs-lib-dev.test.ts).
+const { engineInitConfig } = initDirective as { engineInitConfig: (themeVars: Record<string, string>, o?: { omitPalette?: boolean }) => Record<string, unknown> };
 const { overlongLabelText, overlongMessage } = labelLength as { overlongLabelText: (s: string) => { kind: string; length: number; max: number } | null; overlongMessage: (o: { kind: string; length: number; max: number }) => string };
 
 // THE LIBRARY IS NOT IN THIS PAGE. Each diagram is sent to the preview's sandboxed draw frame as an ordinary
@@ -96,7 +98,7 @@ export async function checkDiagrams(diagrams: Diagram[], _runtimeUrl = '', stale
 			continue;
 		}
 		try {
-			await draw.draw({ kind: 'mermaid', definition: d.code, svgId: idFor(d.code), config: { startOnLoad: false, securityLevel: 'strict' }, stage: 1200, fonts: [] });
+			await draw.draw({ kind: 'mermaid', definition: d.code, svgId: idFor(d.code), config: CHECK_CONFIG, stage: 1200, fonts: [] });
 		} catch (e) {
 			// Only the library's own refusal is a diagnosis. A frame that stopped, timed out or could not open says nothing about the diagram,
 			// so the whole check gives no answer (`null`) instead of claiming a result it did not get.
@@ -106,6 +108,15 @@ export async function checkDiagrams(diagrams: Diagram[], _runtimeUrl = '', stale
 	}
 	return errors;
 }
+
+/**
+ * The config the check draws under: the engine's, minus the palette (the drawing is thrown away).
+ * Mermaid 12 moved its own defaults (elk layout, the `neo` look, a 120-unit node floor), so the
+ * bare `{ startOnLoad, securityLevel }` this used to send checked a diagram under a layout the
+ * preview and the export never draw, and a diagram that fails under only one of them got the
+ * wrong verdict (the red-team pass on the Mermaid 12 bump).
+ */
+const CHECK_CONFIG = engineInitConfig({}, { omitPalette: true });
 
 /** Bounds on the check loop. */
 const MAX_DIAGRAMS = 40;

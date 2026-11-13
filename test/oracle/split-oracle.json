@@ -359,6 +359,17 @@
       "perPage": null,
       "relationship": null
     },
+    "gift-card": {
+      "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
+      "relationship": null
+    },
     "glossary": {
       "treatment": "record",
       "axis": null,

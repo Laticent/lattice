@@ -41,14 +41,16 @@ describe('the vocabulary is derived from the meta manifest', () => {
     // The set the engine kept by hand before the manifest owned it. A change here is a decision.
     assert.deepEqual([...keys.KNOWN_KEYS].sort(), [
       'backgroundColor', 'backgroundImage', 'backgroundPosition', 'backgroundRepeat', 'backgroundSize', 'build', 'class',
-      'color', 'debug', 'focus', 'focusStyle', 'focusSteps', 'footer', 'header', 'lang', 'lens', 'logo', 'marp', 'paginate', 'size',
+      'color', 'debug', 'focus', 'focusStyle', 'focusSteps', 'footer', 'header', 'hide', 'lang', 'lens', 'logo', 'marp', 'paginate', 'size',
       'style', 'theme', 'track',
     ].sort());
-    assert.deepEqual([...keys.FLAG_KEYS].sort(), ['build', 'debug', 'lens']);
+    assert.deepEqual([...keys.FLAG_KEYS].sort(), ['build', 'debug', 'hide', 'lens']);
     assert.deepEqual([...keys.GLOBAL_ONLY_KEYS].sort(), ['lang', 'marp', 'size', 'theme']);
-    assert.deepEqual([...keys.NO_CUSTOM_PROP_KEYS].sort(), ['build', 'debug', 'track']);
+    // `focusSteps` became an applied attribute on 2026-11-09: one slide walked live, not a parse-time copy
+    // (engineering/decisions/2026-11-09-steps-as-a-behavior.md).
+    assert.deepEqual([...keys.NO_CUSTOM_PROP_KEYS].sort(), ['build', 'debug', 'focusSteps', 'track']);
     assert.deepEqual([...keys.STRUCTURE_KEYS].sort(), ['pane', 'panes']);
-    assert.deepEqual([...keys.CHANNEL_KEYS].sort(), ['describe', 'say']);
+    assert.deepEqual([...keys.CHANNEL_KEYS].sort(), ['describe', 'reader', 'say']);
     assert.deepEqual([...keys.MARKER_NAMES], ['stress-slide']);
   });
 
@@ -67,7 +69,7 @@ describe('the vocabulary is derived from the meta manifest', () => {
 
   test('every plugin register is listed, and none shares a name with a field', () => {
     const owners = keys.REGISTERS.map((r) => r.key);
-    assert.deepEqual(owners.sort(), ['avatar', 'callout', 'icon', 'spark']);
+    assert.deepEqual(owners.sort(), ['avatar', 'callout', 'icon', 'image', 'spark', 'video']);
     for (const r of keys.REGISTERS) assert.ok(!keys.KNOWN_KEYS.has(r.key), `register ${r.key} collides with a field`);
   });
 });

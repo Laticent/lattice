@@ -19,6 +19,7 @@ const { pathToFileURL } = require('node:url');
 const { JSDOM } = require('jsdom');
 const now = require('../../../lib/export/html-player.js');
 const old = require('../../../tools/segno-legacy/html-player-inline.js');
+const { charReads } = require('../../helpers/work-count');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const photo = pathToFileURL(path.join(ROOT, 'lib/samples/photo-wide.jpg')).href;
@@ -143,9 +144,12 @@ describe('the CLI export reads CSS with cssRefSpans (Segno R4)', () => {
   });
 
   test('a long style reads in linear time', () => {
+    // Work, not milliseconds (HARD RULE #32): the characters the inliner reads, copies and searches, about 6 per
+    // character of CSS today. The document is parsed before the count starts, so jsdom's own parse is not in it.
     const big = `${`background-image:image-set("a.png" 1x),url(b.png);/*c*/`.repeat(4000)}`;
-    const t0 = performance.now();
-    bake(now.inlineDocAssets, `<div style='${big}'></div><style>.x{${big}}</style>`, { baseUrl: pathToFileURL(`${ROOT}/`).href });
-    assert.ok(performance.now() - t0 < 3000, `took ${Math.round(performance.now() - t0)} ms`);
+    const dom = new JSDOM(`<div style='${big}'></div><style>.x{${big}}</style>`);
+    const { reads, scanned } = charReads(() => now.inlineDocAssets(dom.window.document, { baseUrl: pathToFileURL(`${ROOT}/`).href }));
+    dom.window.close();
+    assert.ok(reads + scanned <= 32 * 2 * big.length, `read ${reads + scanned} characters for ${2 * big.length} of CSS`);
   });
 });

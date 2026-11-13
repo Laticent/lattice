@@ -60,7 +60,7 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 					</button>
 				</PopoverTrigger>
 			</Tip>
-			<PopoverContent align="end" className="w-[min(94vw,720px)] p-3">
+			<PopoverContent align="end" aria-label="Reshape slide: pick a look" className="w-[min(94vw,720px)] p-3">
 				<div className="mb-2 flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
 					<Shapes className="size-3 text-[var(--accent)]" />
 					Reshape <span className="text-[var(--text-heading)]">{component || 'slide'}</span> › pick a look

@@ -172,6 +172,8 @@ export default defineConfig({
 	// dev-only shim for exactly that shape — see its header for why `optimizeDeps.include`
 	// does not do the job.
 	vite: {
+		// The profiling build also keeps component names readable (no minification), so the report names subtrees.
+		...(process.env.LATTICE_REACT_PROFILE === '1' ? { build: { minify: false } } : {}),
 		server: { fs: { allow: ['..'] } },
 		// The preview server serves only the built `dist`, which is public; its CORS is the one-line `server.headers` above, so Vite's is off here.
 		preview: { cors: false },
@@ -186,7 +188,16 @@ export default defineConfig({
 		// alias docs/vitest.config.ts carries (its comment has the why).
 		// `dedupe`: the narration encoder (lib/core/narration-encode.mjs) imports the MP3 encoder by
 		// name from outside this project, and the site bundles this project's copy, as vitest does.
-		resolve: { alias: { '@laticent/ltt': path.resolve(import.meta.dirname, 'src/lib/ltt/index.ts') }, dedupe: ['@breezystack/lamejs'] },
+		// LATTICE_REACT_PROFILE=1 builds against React DOM's profiling build, so every fiber carries its render time
+		// in production. Measurement only (scripts/react-mount-profile.mjs); a normal build never sets it, and the alias
+		// and the unminified output above are both absent from it.
+		resolve: {
+			alias: [
+				{ find: '@laticent/ltt', replacement: path.resolve(import.meta.dirname, 'src/lib/ltt/index.ts') },
+				...(process.env.LATTICE_REACT_PROFILE === '1' ? [{ find: /^react-dom\/client$/, replacement: 'react-dom/profiling' }] : []),
+			],
+			dedupe: ['@breezystack/lamejs'],
+		},
 		// Module (ESM) workers, not the default IIFE: the PDF export worker
 		// (src/components/studio/export/pdf-export-worker.js) bundles jspdf, whose internal
 		// dynamic imports force a code-splitting worker build — which Rollup
@@ -352,6 +363,7 @@ export default defineConfig({
 						{ label: 'Status and labels cheat sheet', slug: 'guides/status/cheat-sheet' },
 						{ label: 'Sparks cheat sheet', slug: 'guides/inline/sparks-cheat-sheet' },
 						{ label: 'Avatars cheat sheet', slug: 'guides/inline/avatars-cheat-sheet' },
+						{ label: 'Privacy', slug: 'privacy' },
 					],
 				},
 				{

@@ -66,7 +66,7 @@
 
 /* ── Cells ──────────────────────────────────────────────────────────────────
  * One sequential ramp off --chart-cat-1-hue, in five stops. The kernel sets
- * `data-step` per cell and the stop rules below turn that into --mix: low →
+ * `data-ramp` per cell and the stop rules below turn that into --mix: low →
  * faint hue over the base, high → saturated. Low→high on the ramp. */
 :is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell {
   fill: color-mix(in oklab, var(--heatmap-pole) var(--mix), var(--heatmap-base));
@@ -123,7 +123,7 @@
 }
 
 /* ── The ramp's five stops ───────────────────────────────────────────────────
- * The kernel puts `data-step` on a cell and on its value; the theme carries what
+ * The kernel puts `data-ramp` on a cell and on its value; the theme carries what
  * each step LOOKS like. Two tokens per stop, and the split is the whole design:
  *
  *   --heatmap-stepN   how far along the ramp the fill sits. A plain number, and
@@ -145,14 +145,14 @@
  * guarantee gets generated into, or derives through lib/theme/derive.js.
  *
  * FIVE RULES, ONE PER STOP, because `attr()` cannot be used in a custom property
- * value in any shipped engine — `--mix: attr(data-step)` parses and resolves to
+ * value in any shipped engine — `--mix: attr(data-ramp)` parses and resolves to
  * nothing. Five is small enough that writing them out costs less than the
  * indirection would. */
-:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-step="1"] { --mix: var(--heatmap-step1, 18%); }
-:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-step="2"] { --mix: var(--heatmap-step2, 36.5%); }
-:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-step="3"] { --mix: var(--heatmap-step3, 55%); }
-:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-step="4"] { --mix: var(--heatmap-step4, 73.5%); }
-:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-step="5"] { --mix: var(--heatmap-step5, 92%); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-ramp="1"] { --mix: var(--heatmap-step1, 18%); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-ramp="2"] { --mix: var(--heatmap-step2, 36.5%); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-ramp="3"] { --mix: var(--heatmap-step3, 55%); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-ramp="4"] { --mix: var(--heatmap-step4, 73.5%); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell[data-ramp="5"] { --mix: var(--heatmap-step5, 92%); }
 
 /* The value printed INSIDE a cell. Its ink is chosen per STOP, not per canvas
  * and not per cell: the stop is the only thing that knows which fill is under
@@ -171,11 +171,11 @@
   font-weight: 600;
 }
 
-:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-step="1"] { fill: var(--heatmap-step1-ink, var(--text-body)); }
-:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-step="2"] { fill: var(--heatmap-step2-ink, var(--text-body)); }
-:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-step="3"] { fill: var(--heatmap-step3-ink, var(--text-body)); }
-:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-step="4"] { fill: var(--heatmap-step4-ink, var(--text-body)); }
-:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-step="5"] { fill: var(--heatmap-step5-ink, light-dark(#FFFFFF, #0A1628)); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-ramp="1"] { fill: var(--heatmap-step1-ink, var(--text-body)); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-ramp="2"] { fill: var(--heatmap-step2-ink, var(--text-body)); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-ramp="3"] { fill: var(--heatmap-step3-ink, var(--text-body)); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-ramp="4"] { fill: var(--heatmap-step4-ink, var(--text-body)); }
+:is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-value[data-ramp="5"] { fill: var(--heatmap-step5-ink, light-dark(#FFFFFF, #0A1628)); }
 
 /* ── Figure ─────────────────────────────────────────────────────────────────
  * The figure just centers the SVG in the chart body, like every other SVG

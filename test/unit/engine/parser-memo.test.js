@@ -238,7 +238,8 @@ test('parser memo: many DIFFERENT documents through ONE parser match cold render
 	// A deck with PANES builds one more parser per pane shape, by design (lib/core/panes.js:
 	// a pane is classified by its own box). Those decks run LAST, so the single-parser count
 	// below covers every other document, and they still take the warm-vs-cold drift check.
-	const PANE = /<!--\s*_?pane:|<!--\s*_class\s*:[^>]*\b(?:columns|rows)\b/;
+	// Either spelling: the directive comments, or a slide-metadata record (`<!-- {pane=list} -->`, `{layout=columns}`).
+	const PANE = /<!--\s*_?pane:|<!--\s*_class\s*:[^>]*\b(?:columns|rows)\b|<!--\s*(?:@meta)?\{[^>]*(?:\bpanes?\s*=|\b(?:layout|class)\s*=\s*"?(?:columns|rows)\b)/;
 	const bodies = [...all.filter(([, s]) => !PANE.test(s)), ...all.filter(([, s]) => PANE.test(s))];
 	const plain = all.filter(([, s]) => !PANE.test(s)).length;
 	const { engine: e, state } = countingEngine();

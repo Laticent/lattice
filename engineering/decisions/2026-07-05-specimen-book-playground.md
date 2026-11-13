@@ -153,7 +153,7 @@ the hashed asset folder, and `PlaygroundApp` fetches the index when the sheet fi
 (the `plansBase` pattern), then opens it through the same Explore path as a curated deck. A failed fetch shows
 "Gallery unavailable." The list sits inline in the sheet, not in a popover: the sheet is non-modal, and a portaled
 popover counts as an outside click and would dismiss it. Cost: +0.6 KB eager JS gz on the route
-(`docs/route-budget.d/2631-playground-examples-dropdown.md`).
+(`2631-playground-examples-dropdown` (folded into `docs/route-budget.history.md`)).
 
 **The curated decks fetch the same way (2026-10-14).** They rode inline in the route's `gallerySources` prop, so every
 visitor downloaded 16 decks whether or not they opened the sheet. `sync-playground-assets.mjs` now stages each one as

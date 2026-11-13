@@ -38,6 +38,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
+const { trackPageWork } = require('../../helpers/page-settle');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const TMP = path.join(ROOT, '.scratch', 'guards-trim-deliverables');
@@ -72,14 +73,14 @@ function renderDeck(deck, out, ...flags) {
 /** Open a written `.html` in real Chromium and report what the TRIM left in it. */
 async function trimStateOf(file) {
   const page = await browser.newPage();
+  const settled = await trackPageWork(page);
   await page.setViewport({ width: 1280, height: 720 });
   await page.goto('file://' + path.resolve(path.join(TMP, file)), { waitUntil: 'load' });
   // The fluid viewer's runtime measures on font settle and again on rAF; the plain
-  // sidecar's inline watcher does the same for the ring. Wait for both to settle
-  // rather than racing them — a flaky read here would be reported as "no trim",
-  // which is the flattering answer.
-  await page.evaluate(() => document.fonts.ready);
-  await page.evaluate(() => new Promise((r) => setTimeout(r, 2500)));
+  // sidecar's inline watcher does the same for the ring. Wait until neither has any
+  // work queued rather than racing them: a read taken early would be reported as
+  // "no trim", which is the flattering answer (HARD RULE #32, a signal, not 2.5 s).
+  await settled({ frames: 3 });
   try {
     return await page.evaluate(() => [...document.querySelectorAll('section[data-lattice-slide]')]
       .map((s, i) => ({

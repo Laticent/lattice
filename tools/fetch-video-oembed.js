@@ -84,8 +84,8 @@ function download(url, dest) {
 function videoUrlsFromDeck(src) {
   // The author's own `@video{…}` records, read from the deck's source, never from a bullet or a slide's text.
   const urls = [];
-  for (const m of src.matchAll(/`(@video\{[^`]*\})`/g)) {
-    const f = videoPlugin.read(m[1].slice('@video'.length), null, false, require('../lib/core/plugin-ctx.js').ctxFor('video'));
+  for (const m of src.matchAll(/`((?:@video|>)\{[^`]*\})`/g)) {
+    const f = videoPlugin.read(videoPlugin.peel(m[1]), null, false, require('../lib/core/plugin-ctx.js').ctxFor('video'));
     if (f) urls.push(f.provider.url);
   }
   return [...new Set(urls)];

@@ -55,6 +55,27 @@ async function servedFolder(dir) {
   return { url: (f) => base + f, map: (v) => v.split(prefix).join(base), close: () => server.close() };
 }
 
+/**
+ * Wait until every load the inserted content starts has been SEEN, a signal instead of a quiet period (HARD RULE #32).
+ * Two frames first: style, layout and paint have run on the new content, so every picture its markup or CSS asks for has
+ * been requested. Then one more picture, a file of its own, and its request: a page reports its requests in the order it
+ * makes them, so once this one is seen, every earlier one has been seen too.
+ */
+let beacons = 0;
+async function loadsSeen(page, served, dir) {
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const name = `beacon-${beacons++}.png`;
+  fs.writeFileSync(path.join(dir, name), PNG);
+  const seen = page.waitForRequest((r) => r.url().endsWith(`/${name}`), { timeout: 30000 });
+  await page.evaluate((src) => {
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = '';
+    document.body.appendChild(img);
+  }, served.url(name));
+  await seen;
+}
+
 function rng(seed) {
   let a = seed >>> 0;
   return () => {
@@ -185,14 +206,7 @@ test('every file:// picture a real Chromium loads from markup is one the inliner
     await page.evaluate((cs) => {
       document.body.innerHTML = cs.join('');
     }, cases.map(served.map));
-    for (let last = -1, stable = 0; stable < 6; ) {
-      await new Promise((r) => setTimeout(r, 250));
-      if (loaded.size === last) stable++;
-      else {
-        stable = 0;
-        last = loaded.size;
-      }
-    }
+    await loadsSeen(page, served, dir);
     const doc = new JSDOM(`<!doctype html><html><head></head><body>${cases.join('')}</body></html>`).window.document;
     const read = new Set();
     inlineDocAssets(doc, { confine: { allows(abs) { const m = /(u\d+)\.png$/.exec(abs); if (m) read.add(m[1]); return true; } } });
@@ -247,15 +261,7 @@ test('every file:// picture a real Chromium loads from CSS is one the inliner re
           }
         });
       }, [cases.map(servedCss.map), channel]);
-      // The corpus settles when no new request has arrived for 1.5 s.
-      for (let last = -1, stable = 0; stable < 6; ) {
-        await new Promise((r) => setTimeout(r, 250));
-        if (loaded.size === last) stable++;
-        else {
-          stable = 0;
-          last = loaded.size;
-        }
-      }
+      await loadsSeen(page, servedCss, dir);
       const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>');
       const doc = dom.window.document;
       cases.forEach((css, i) => {

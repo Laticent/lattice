@@ -161,9 +161,10 @@ who write `## Slide Title` get `--fs-h2` for free.
 | `section h5` | `--fs-h5` | Display font, weight 700 (= `--fs-body`). |
 | `section h6` | `--fs-h6` | Display font, weight 700 (= `--fs-meta`). |
 
-The eyebrow visual (mono uppercase 13-ish px) is unchanged — it's
-delivered by the `\`label\`` inline-code paragraph modifier in
-`base.modifiers.css`, not by an h-tag.
+The eyebrow is delivered by the `\`label\`` inline-code paragraph modifier in
+`base.modifiers.css`, not by an h-tag. Its voice — the heading face's italic, as written, at
+`--chrome-fs` × 1.45 and never under `--fs-meta`, half of `--fs-h1` on a bookend — comes from
+the `typography:` set (§ Type sets below).
 
 ## 4 — Anti-patterns
 
@@ -249,6 +250,7 @@ are documented in their component CSS.
   audit, migration plan, risk register.
 - `lib/base/base.tokens.css` — the canonical declarations.
 - `lib/base/base.elements.css` — h1–h6 wiring.
+- `lib/base/base.typography.css` — the `typography:` sets and the voice tokens (§ Type sets).
 - `lib/base/base.modifiers.css` — eyebrow / subtitle / key-insight
   visual treatments that use `--fs-meta` and `--fs-body`; also the
   `scale-l` / `scale-xl` / `scale-2xl` modifiers (§7).
@@ -326,6 +328,8 @@ emulator paths):
   enlarges the title and surrounding prose but *not* the diagram's
   internal text. If a diagram must read larger, size it at the Mermaid
   level (fewer nodes, a width/height directive), not via `--fs-scale`.
+  **Chart SVG text** (drawn in viewBox units) is sized by the chart family: it follows
+  `venue:` (§ Chart text follows the venue below), not a bare `scale-*` class.
 
 Three modifier steps set it (`lib/base/base.modifiers.css`):
 
@@ -482,7 +486,106 @@ message suggests a statement, big-number or divider slide at `hall`.
   1280px slide, 5.7 arcminutes of x-height at 8 screen-heights, above the ~5 floor;
 - the code lift (`--venue-compact-lift`, a factor on the body-compact role; 1 elsewhere);
 - `capacity-scale` warns on a slide past its budget for the room;
-- the fixed-size rule below applies, as it does to any scale.
+- the fixed-size rule below applies, as it does to any scale;
+- chart text grows with it (next section).
+
+### Chart text follows the venue (since 2026-11-10)
+
+A chart draws its labels in viewBox units inside an SVG fitted to its box. The venue grows every role around the
+chart, so the box gets shorter, and until 2026-11-10 the SVG scaled its labels down with it: a captioned line chart's
+category labels printed 14.1 px at laptop and 8.7 px at hall, about 2.5′ at the hall's back row
+(`followups.d/3098`, `engineering/decisions/2026-11-09-type-hierarchy-study.md` §10).
+
+**The target.** Chart labels (category names, axis numbers, data labels, the key) hold at least **8′ of x-height at
+the venue's back row**, the label figure above. With the model `arcminutes = 3438 × (0.5 × px ÷ 720) ÷ k`, the floor
+at a 1280 × 720 slide is:
+
+| Venue | Back row `k` | Floor (px) | Meta role (px) | Meta at the back row |
+|---|---|---|---|---|
+| `laptop` | 3 | 10.1 | 14.9 | 11.9′ |
+| `huddle` | 4.5 | 15.1 | 17.2 | 9.1′ |
+| `conference` | 6 | 20.1 | 22.4 | 8.9′ |
+| `hall` | 8 | 26.8 | 29.2 | 8.7′ |
+
+**The mechanism** (`lib/transformers/chart-text-venue.js`). The chart frame hands every kernel one factor, `ctx.textScale`.
+The kernel draws on a canvas that many times smaller in user units with its text the same size in them, so the
+labels print that many times larger in the same box. Every room a kernel reserves from its font size (the tick
+column, the category row, a key) is reserved at the larger size too, so the drawing lays out for its text instead of
+colliding: a crowded axis thins evenly, as it does on any narrow chart. The factor is
+`growth × box at laptop ÷ box at the venue`:
+
+- **growth** is how much larger chart text prints than at laptop: the meta role's own growth (step × label lift),
+  or what takes the smallest laptop chart label (13.1 px, a 7-unit axis number on a captioned chart) to the floor,
+  whichever is larger. Huddle 1.16, conference 1.54, hall 2.05.
+- **the box** is modeled from what the slide carries above and below the chart. Measured in Chromium on a 1280 px
+  slide with a running header, meta and footer (cuoio), one bar slide per variant, the chart body's height in px:
+
+  | | laptop | huddle | conference | hall |
+  |---|---|---|---|---|
+  | bare (one-line title) | 442 | 435 | 427 | 416 |
+  | an eyebrow takes | 23 | 25 | 30 | 37 |
+  | each extra title line | 45 | 51 | 57 | 64 |
+  | each subtitle line | 36 | 41 | 46 | 52 |
+  | a source line | 81 | 84 | 93 | 103 |
+
+  The bare box barely moves (0.94 at hall). A title that wraps, a subtitle and a source line are what cost the
+  chart its height, so the factor reads them off the slide (`chart-frame.js` `slideChrome`).
+- **the cap**: the factor stops at **2.5**, a landscape canvas no shorter than 72 units, the floor the family already
+  sets for a pane (`cartesian.js` `PANE_VIEW_MIN`). Past it the text reservations leave no plot: at 2.7 a bullet's
+  rows printed over each other and a waterfall flattened to a sliver. A slide that would need more is too full for
+  the room, and its labels print as large as a working layout allows.
+
+The canvas (`chartTextCanvas`, handed to kernels as `ctx.textCanvas`) gives up the height the venue takes
+(180 ÷ factor) and spans **80% of the chart box's width** in the same units, never less than the laptop chart's own
+width. At a venue the box is far wider than 16:9; a 16:9 canvas letterboxed into half of it, turned a column chart
+into cramped rows and cut its names. The other 20% is for what a kind draws beside its canvas (stacked-bar's key):
+at 90% that key made the width bind and left stacked-bar at 26.1 px at hall, under the floor. A waterfall draws
+nothing beside its plot and takes the whole box (`wide`), so a one-word step name keeps its slot. On a short plot
+the value axis prints every Nth tick label so they stay a line apart (`buildValueTicks`); the gridlines stay, and
+the guard below then steps the factor down, since a thinned label is a label lost. A Cartesian key (bar, stacked-bar,
+line, heatmap) keeps its laptop type size (`fontScale: ctx.textScale`): its type is a share of the canvas height, so
+without that it shrank as the canvas did (a grouped bar's key printed 18.7 → 14.6 px). A keyed chart (pie, map,
+radar) fits its key to the canvas (`svg-legend.js` `fitKeyToPane`), and at a venue its right rail may take the
+portrait key's wider label column so a label holds one line. **Laptop is exactly 1**: a laptop deck's charts are
+byte-identical.
+
+**The guard: the factor never costs a label** (`chart-frame.js`, `chart-text-venue.js` `keepsEveryLabel`). A larger
+type in a smaller canvas can cut a name to "…", thin an axis or make a key bind on width, and a name lost is wrong
+data. So at a venue the frame draws each chart twice, at factor 1 (the drawing it made before this change) and at the
+venue's factor, and keeps the venue drawing only if it has no more "…", no fewer `<text>` labels, no more label-drop
+records and no smaller unit in the modeled box. Otherwise it steps the factor down (75%, 50%, 25% of the way to 1) and
+falls back to factor 1. A finer ladder was tried and rejected: a step the modeled box passes can still bind on width in
+the real box (histogram at hall printed 19.9 px). The guard does not see overlaps; the regression test below does.
+
+**Where it applies.** Landscape 16:9 slides only. The box model is measured on a 1280-wide landscape slide, and on
+portrait, square and 4:3 slides the factor overlapped text and pushed it off the slide, so those keep factor 1 (today's
+drawing). So does a chart in a **pane** (its canvas divided by the factor cut category names), and so do bullet, slope,
+risk-matrix, tower and quadrant, whose layouts broke or whose key shrank on a venue canvas. Every kind still short of
+the floor is in `followups.d/3098-p1-chart-text-venue-remaining-kinds.md`.
+
+**Measured** on each kind's default gallery slide, landscape, the smallest chart text in px (before → after). No kind
+prints smaller than before at any venue or slide size, which `test/integration/components/chart-text-venue-regressions.test.js`
+pins for every slide of the factor-taking kinds' galleries:
+
+| Kind | laptop | huddle | conference | hall |
+|---|---|---|---|---|
+| bar | 17.4 | 17.1 → 20.4 | 14.1 → 26.7 | 13.0 → 32.5 |
+| funnel | 16.0 | 15.7 → 21.1 | 13.4 → 24.6 | 12.7 → 31.8 |
+| heatmap | 16.3 | 15.9 → 19.0 | 15.4 → 29.2 | 12.1 → 30.3 |
+| waterfall | 16.3 | 15.9 → 19.0 | 15.4 → 25.1 | 12.1 → 25.7 |
+| stacked-bar | 16.0 | 13.9 → 16.6 | 13.4 → 22.1 | 12.7 → 25.2 |
+| ep-curve | 14.3 | 13.9 → 16.8 | 13.4 → 22.5 | 12.7 → 26.4 |
+| line | 17.2 | 16.9 → 22.8 | 14.4 → 17.4 | 13.7 → 19.0 |
+| histogram | 16.0 | 13.9 → 16.8 | 13.4 → 20.4 | 12.7 → 17.4 |
+
+`test/integration/components/chart-text-venue.test.js` pins the floor at every venue for bar, funnel and heatmap.
+Waterfall, stacked-bar, ep-curve, line and histogram take the factor and grow, but the guard stops them short of the
+floor where the full factor would cut or drop a label (line's quarter names at conference, histogram's bin labels at
+hall). The HTML kinds (kanban, progress, timeline-list, journey, matrix-grid) already ride the role tokens.
+
+**What it cannot do.** A slide whose chart box is very short at a large venue (a two-line title AND a two-line
+subtitle at hall leave a pie about 210 px) cannot hold five key rows at the floor; the key prints as large as the box
+allows. That slide is too full for the room: cut the subtitle, as the `hall` budget advice says.
 
 ### The scale is a setting: a slide too full for it clips
 
@@ -619,6 +722,68 @@ heading. And if a slide clips at the scale you asked for, it has too
 much content for that magnitude: trim it to its budget at that scale or
 split it, the same as any overflow (§4). Choosing a smaller venue for the
 whole deck is also fine — but it is your choice; the engine never makes it.
+
+## Type sets — the faces and voices (`typography:`)
+
+The `--fs-*` tokens set **how big** each role is. The `typography:` register sets **which face
+speaks each role**: one curated set — `classic` (the default), `ledger`, `poster`, `festival` —
+bundles the heading and body faces, the eyebrow's voice and the chart's text voice. Author
+reference: `lib/base/base.registers.docs.md` § `typography:`. Record:
+`engineering/decisions/2026-11-09-type-voices.md` § Decided, and the nine rules each set keeps in
+`2026-11-09-type-hierarchy-study.md` §4.
+
+**Three voices.** Chrome (header, meta line, footer, page number) stays in mono capitals at
+`--chrome-fs`. The eyebrow is content: the heading face's italic, as written,
+`max(--fs-meta, --chrome-fs × 1.45)` on a content slide and `max(--fs-meta, --fs-h1 × 0.5)` on a
+title, dark divider or closing. The chart's ticks, category labels and keys take the body face with
+`tabular-nums lining-nums`; its data labels take `--chart-figure-face`, the heading face only
+when that face has tabular figures. The tokens (`--eyebrow-*`, `--chart-text-face`,
+`--chart-figure-face`) live in `lib/base/base.typography.css`, declared on `:root, section` so a
+set's re-pointed faces reach them.
+
+**Size factors follow the face (rule 5: hold the x-height).** A face with a different x-height from
+Outfit (0.48) or Playfair Display (0.52) would change what the reader sees at the same px, so each set
+face carries an `@font-face` `size-adjust` in the font manifest (`lib/fonts/text-faces.js`
+`sizeAdjust`): Inter 87%, Newsreader 100%, Fraunces 92%, Barlow Condensed 110%. The factor goes
+wherever the face goes — a heading, the body, a chart label, a blockquote set in the display face at
+body size — so no rule can pair a face with the other face's factor, and every `--fs-*` size is the
+same in every set. The display factors are capped by width as well as x-height, because a heading that
+wraps to a second line moves every box under it: Newsreader and Fraunces at 1.1× wrapped two headings of
+the canonical gallery (journey, logo-wall), and Barlow Condensed at 1.2× clipped a split cover at hall.
+The vector PDF, PPTX and ODP have no `size-adjust`, and the computed `font-size` does not carry it, so
+each reader multiplies the loaded face's factor into the run's size: `faceSizeAdjust` in
+`lib/core/pdf-compose/read-slide.mjs` (the PDF writer both hosts run) and in
+`docs/src/lib/calco/reader.ts` (PPTX, ODP), and `tools/type-voice-audit.mjs` measures sizes the same
+way. Without it the PDF drew Inter 15% too large at the positions the browser measured, and the words
+collided. Canvas `measureText` applies `size-adjust` itself, so Calco measures spacing at the computed
+size. Family names match case-insensitively, as the browser matches them. An author's own `@font-face`
+with a `size-adjust` is honored by all three. The standalone chart-SVG export
+(`tools/lib/chart-font-embed.js`) inlines the set faces with their factor.
+
+**Baselines follow the face too.** Newsreader's own line metrics (ascent 0.735, descent 0.265 em) put
+its baseline 0.13 em higher in a line than Outfit's or the mono's, so a row that aligns the faces on one
+baseline grew: list-tabular's six rows ran past the frame under `ledger`. The manifest gives it
+`ascent-override: 98%` and `descent-override: 26%` (`faceMetricsDecl`), Outfit's proportions. Engine and
+theme CSS set every line-height, so a line in one face keeps its height and only its baseline moves; a
+line that sets two faces on one baseline is where the height changes, which is the point. The PDF writer
+and Calco place a baseline from the browser's line metrics (the override), not the font file's, or
+Newsreader would land 0.12 em high in a PDF chart label.
+`test/unit/parsing/resolve-typography.test.js` holds every set face's baseline inside the default faces'
+range.
+
+**The factor rides on the family name.** The set faces are declared under their real names, so an
+author's `style:` that sets `font-family: Inter` gets the bundled Inter at 87%, the size that matches
+Outfit's x-height, not a system Inter at 100%.
+
+(An earlier cut put the factor on the `--fs-*` roles; about ten rules that set the display face at body
+size were then scaled by the body face's factor, and Inter at an unfactored role read 15% larger. The
+face-keyed factor removed both.)
+
+**Checking a set.** `node tools/type-voice-audit.mjs --theme <t> --mode <m> --typography <set>`
+prints every role's measured face, size and contrast and every content/chrome collision;
+`test/integration/type-voices/typography-sets.test.js` runs it over every palette theme × every
+set in both modes and fails on a zero-axis content/chrome pair, an inverted ink ladder or an AA
+miss.
 
 ## 8 — Measure (line length)
 

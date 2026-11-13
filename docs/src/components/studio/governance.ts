@@ -5,11 +5,12 @@
 // thin renderer over these stats + actions.
 //
 // Five categories, five different storage mechanisms:
-//   · Decks           localStorage, lattice-studio-* (studio-store.ts owns it)
+//   · Decks           localStorage, lattice-studio-* (studio-store.ts owns it), plus
+//                     IndexedDB for versions (checkpoint-store.ts) and chats (chat-store.ts)
 //   · Library assets  IndexedDB, lattice-workbench   (asset-store.js owns it)
-//   · OpenRouter       localStorage, lattice-db-or-*  (architect-model.js owns it;
-//                      reuses the existing disconnectOpenRouter — same action as
-//                      the AI tab's "Disconnect" button)
+//   · AI keys          localStorage, lattice-db-or-* and lattice-db-<provider>-key
+//                      (lib/openrouter-key.js owns them; disconnectAllProviders removes the
+//                      OpenRouter key and every direct provider key)
 //   · Downloaded models  Cache Storage — WebLLM / Transformers.js cache their model
 //                        weights there themselves; Lattice owns no key for it, so
 //                        this targets every Cache Storage entry that ISN'T ours
@@ -24,8 +25,10 @@
 import { deleteAsset, listAssets } from '@/components/studio/library/asset-store.js';
 import { clearAllSessions, crashReportStats } from '@/lib/crash-sentinel';
 import { clearClips, clipStats } from '@/playground/narration-store.js';
-import { disconnectOpenRouter } from './architect';
+import { disconnectAllProviders } from './api-key';
+import { chatsSettled, hydrateAllChats, lastChatClear } from './chat-store';
 import { checkpointsSettled, hydrateCheckpoints, lastCheckpointClear } from './checkpoint-store';
+import { type LocalStorageUse, localStorageUse } from './local-quota';
 import { formatBytes } from './reference-doc';
 import { clearAllDecks, deckContentStats } from './studio-store';
 
@@ -91,6 +94,9 @@ export type GovernanceStats = {
 	models: { count: number; bytes: number };
 	siteCache: { count: number; bytes: number };
 	narration: { count: number; bytes: number };
+	/** How full this browser's localStorage allowance is: deck text and settings share it, and a deck
+	 *  edit stops saving when it fills. The tab warns past `LOCAL_WARN_AT` (local-quota.ts). */
+	local: LocalStorageUse;
 	/** Sum of every category's bytes above — OpenRouter carries no size (it's a
 	 *  credential, not stored content), so it's the only one left out. */
 	totalBytes: number;
@@ -99,7 +105,11 @@ export type GovernanceStats = {
 /** One read of every category's stat line, for the Privacy & Data tab on open. */
 export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	// The Decks row counts checkpoints from the IndexedDB cache, so it must be filled first.
-	await hydrateCheckpoints();
+	// A failed read leaves the stats approximate (the decks this page opened), as they were before a
+	// failed whole-store read rejected; the backup is what must refuse to run without them.
+	await hydrateCheckpoints().catch(() => undefined);
+	// The same for chats (chat-store.ts): a failed read leaves the stat short, never blocked.
+	await hydrateAllChats().catch(() => undefined);
 	const [deck, assets, names, narration] = await Promise.all([
 		Promise.resolve(deckContentStats()),
 		listAssets().catch(() => []),
@@ -133,7 +143,7 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
 	const library = { count: assets.length, bytes: libraryBytes };
 	const models = { count: modelNames.length, bytes: modelBytes };
 	const siteCache = { count: siteCacheNames.length, bytes: siteCacheBytesTotal };
-	return { decks: deckWithCrash, library, models, siteCache, narration, totalBytes: deckWithCrash.bytes + library.bytes + models.bytes + siteCache.bytes + narration.bytes };
+	return { decks: deckWithCrash, library, models, siteCache, narration, local: localStorageUse(), totalBytes: deckWithCrash.bytes + library.bytes + models.bytes + siteCache.bytes + narration.bytes };
 }
 
 /** "Clear decks": the decks go, and so do the photos kept to a single deck, which would otherwise be
@@ -143,8 +153,9 @@ export async function clearDecksAndTheirPhotos(): Promise<void> {
 	// Every deck's undo history goes too, and the store's generation rises, so a flush already on its
 	// way (this page's own `pagehide` on the reload) cannot write a cleared history back (Filo §6.4).
 	const histories = import('./studio-filo-persist').then((m) => m.filoStore().clear());
-	// The checkpoint and undo-history clears run in IndexedDB; let them finish before the caller reloads.
+	// The checkpoint, chat and undo-history clears run in IndexedDB; let them finish before the caller reloads.
 	await checkpointsSettled();
+	await chatsSettled();
 	await histories;
 	try {
 		const { deleteDeckScopedMedia } = await import('./media-store');
@@ -226,6 +237,7 @@ export async function clearEverything(): Promise<ClearEverythingResult> {
 	// The undo histories too (Filo §6.4); their result counts toward "decks" below.
 	const historiesCleared = import('./studio-filo-persist').then((m) => m.filoStore().clear());
 	await checkpointsSettled();
+	await chatsSettled();
 	// Crash records carry deck titles, page URLs, the user agent and error stacks
 	// — "your data" by any reading, so the sweep has to reach them or the promise
 	// in this file's header ("must not leave that behind, or the privacy promise
@@ -234,15 +246,15 @@ export async function clearEverything(): Promise<ClearEverythingResult> {
 	clearAllSessions();
 	const tasks: [string, () => Promise<void>][] = [
 		['library', clearLibraryAssets],
-		['openrouter', disconnectOpenRouter],
+		['openrouter', disconnectAllProviders],
 		['models', clearDownloadedModels],
 		['cache', clearSiteCache],
 		['narration', clearNarrationAudio],
 		['retired', clearRetiredDrawingBoardData],
 	];
 	const results = await Promise.allSettled(tasks.map(([, fn]) => fn()));
-	// Decks are cleared synchronously except their checkpoints, which live in IndexedDB.
-	const decksCleared = (await lastCheckpointClear()) && (await historiesCleared);
+	// Decks are cleared synchronously except their checkpoints and chats, which live in IndexedDB.
+	const decksCleared = (await lastCheckpointClear()) && (await lastChatClear()) && (await historiesCleared);
 	const succeeded = decksCleared ? ['decks'] : [];
 	const failed: string[] = decksCleared ? [] : ['decks'];
 	for (const [i, r] of results.entries()) (r.status === 'fulfilled' ? succeeded : failed).push(tasks[i][0]);

@@ -4,12 +4,12 @@ import { createRequire } from 'node:module';
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 
 import { readFileSync } from 'node:fs';
-import { CompletionContext } from '@codemirror/autocomplete';
+import { CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 // The engine's lint vocabulary (CommonJS) — the value lists the editor completes against.
 import { buildVocab } from '../../../../lib/authoring/lint.js';
-import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS } from './editor-complete';
+import { altFromAssetName, FRONT_MATTER_KEYS, frontMatterKeyAt, inCollageSlide, inlineCodeCompletion, makeAssetCompletion, makeStudioCompletion, registerValueLists, VOCAB_VALUE_FIELDS, withLazyInlineCore } from './editor-complete';
 
 const COMPS = [
 	{ name: 'kpi', bucket: 'inventory', description: 'Key metrics' },
@@ -546,7 +546,7 @@ describe('inlineCodeCompletion — the named form, `@kind{…}` (2026-10-14-plug
 
 	it('`@` lists every kind with its open brace, and typing narrows it', () => {
 		// Table order: the first-party pill, then the plugin kinds in plugin order (sparks became one 2026-10-16).
-		expect(labels('Status `@')).toEqual(['@pill{', '@avatar{', '@icon{', '@check{', '@spark{', '@video{']);
+		expect(labels('Status `@')).toEqual(['@pill{', '@avatar{', '@icon{', '@image{', '@check{', '@spark{', '@video{']);
 		expect(labels('Status `@ic')).toEqual(['@icon{']);
 		expect(inlineCodeCompletion('Status `@zz', next)).toBeNull();
 		// Outside a code span `@` is prose (a mention, an email): no menu.
@@ -559,6 +559,44 @@ describe('inlineCodeCompletion — the named form, `@kind{…}` (2026-10-14-plug
 		expect(labels('`@icon{data')).toEqual(labels('`^{data'));
 		expect(labels('`@pill{S3, icon=buck')).toEqual(labels('`{S3, icon=buck'));
 		expect(labels('`@spark{')?.every((l) => l.startsWith('@spark{'))).toBe(true);
+	});
+});
+
+describe('withLazyInlineCore — a span typed before the lint core lands still opens its menu', () => {
+	// The editor imports the lint core lazily. Before this, a span typed before it arrived got null, and CodeMirror
+	// asks a source again only on the next keystroke, so `` `@ava `` then a pause opened no menu
+	// (docs/e2e/plugin-inline-ui.spec.ts, red on the nightly).
+	const req = createRequire(import.meta.url);
+	const core = req('../../../../lib/authoring/lint-core.js');
+	const at = (doc: string) => new CompletionContext(EditorState.create({ doc }), doc.length, false);
+	const build = () => {
+		let loaded: typeof core | null = null;
+		let loads = 0;
+		const studio = makeStudioCompletion([], [], [], { inlineNext: (span) => loaded?.inlineCodeCompletions(span) ?? null });
+		const source = withLazyInlineCore(studio, () => loaded !== null, async () => {
+			loads++;
+			loaded = core;
+		});
+		return { source, loads: () => loads };
+	};
+
+	it('inside a span, waits for the core and then answers', async () => {
+		const { source, loads } = build();
+		const got = source(at('Owner: `@ava'));
+		expect(got).toBeInstanceOf(Promise);
+		const result = (await got) as CompletionResult | null;
+		expect(result?.options.map((o) => o.label)).toEqual(['@avatar{']);
+		expect(loads()).toBe(1);
+		// Once the core is in, the source answers synchronously and never loads again.
+		const again = source(at('Owner: `@ava')) as CompletionResult | null;
+		expect(again?.options.map((o) => o.label)).toEqual(['@avatar{']);
+		expect(loads()).toBe(1);
+	});
+
+	it('outside a span it never waits on the core', () => {
+		const { source, loads } = build();
+		expect(source(at('Ping @ava'))).toBeNull();
+		expect(loads()).toBe(0);
 	});
 });
 
@@ -645,11 +683,42 @@ describe('makeAssetCompletion — Library photos', () => {
 		expect(await run('<!-- _class: collage -->\n\n---\n\n## Other slide\n\n- te')).toBeNull();
 	});
 
+	/** The longest input each regex (`/source/flags`) was run on while `fn` ran synchronously: the trace is lifted before `fn`'s promise settles, so a regex run after an await is not seen.
+	 *  `makeAssetCompletion` runs all of its regexes synchronously, and the IMAGE_REF witness below shows the trace is live. */
+	const regexInputs = async (fn: () => unknown): Promise<Map<string, number>> => {
+		const exec = RegExp.prototype.exec;
+		const longest = new Map<string, number>();
+		RegExp.prototype.exec = function (this: RegExp, s: string) {
+			const k = `/${this.source}/${this.flags}`;
+			longest.set(k, Math.max(longest.get(k) ?? 0, String(s).length));
+			return exec.call(this, s);
+		};
+		let out: unknown;
+		try {
+			out = fn();
+		} finally {
+			RegExp.prototype.exec = exec;
+		}
+		await out;
+		return longest;
+	};
+	const key = (re: RegExp) => `/${re.source}/${re.flags}`;
+
 	it('a huge line costs a bounded amount per keystroke', async () => {
+		// COUNTED, not timed (HARD RULE #32). The image-reference pattern backtracks: recheck 4.6.2 calls it polynomial
+		// (attack `'(![' × n`), and on a 250 KB line it cost seconds per keystroke. So the completion runs it on the end of
+		// the line only. Held here: the slow pattern never sees more than that window, and every pattern that reads the
+		// whole line is one recheck calls linear (`npm run regex:census -- --check`).
+		const WINDOW = 300;
+		const IMAGE_REF = key(/!\[[^\]\n]*\]\(([^)\s]*)$/);
+		const LINEAR = new Set([key(/^[ \t]*[-*][ \t]+([\w-]*)$/), key(/^asset:/i)]);
 		const doc = `${'![a]('.repeat(40_000)} `;
-		const t = performance.now();
-		await run(doc);
-		expect(performance.now() - t).toBeLessThan(250);
+		// The editor state is built outside the trace: it is CodeMirror's line split, not the keystroke.
+		const context = new CompletionContext(EditorState.create({ doc }), doc.length, true);
+		const longest = await regexInputs(() => photos(context));
+		expect(longest.has(IMAGE_REF), 'the path under test ran the image-reference pattern').toBe(true);
+		expect(longest.get(IMAGE_REF)).toBeLessThanOrEqual(WINDOW);
+		for (const [k, n] of longest) if (n > WINDOW) expect(LINEAR.has(k), `${k} ran on ${n} characters`).toBe(true);
 	});
 
 	it('an empty bullet opens no menu until Ctrl-Space, so Enter stays a newline', async () => {

@@ -21,6 +21,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const { closeQuietly } = require('../../helpers/jsdom-close');
+const { virtualClock } = require('../../helpers/runtime-boot');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 const RUNTIME = path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js');
 
@@ -32,15 +34,19 @@ async function bootFrame() {
   const w = dom.window;
   w.console.log = () => {};
   w.console.warn = () => {};
+  // The window's timers are a virtual clock (test/helpers/runtime-boot.js), so "booted" is the runtime's own queue
+  // running dry, and "the debounced pass" below is that pass's timer firing: no sleep decides either (HARD RULE #32).
+  const clock = virtualClock(w);
   w.eval(fs.readFileSync(RUNTIME, 'utf8'));
-  await new Promise((r) => setTimeout(r, 50));
+  await clock.settle();
+  w.clock = clock;
   return w;
 }
 
 // The next frame paints after the microtasks the write queued, so this is what it sees.
 const afterMicrotasks = async () => { await Promise.resolve(); await Promise.resolve(); };
 
-test('a stamped host swap is laid out before the next frame', { skip: !fs.existsSync(RUNTIME) && 'dist/ not built' }, async () => {
+test('a stamped host swap is laid out before the next frame', { skip: skipUnlessCI(!fs.existsSync(RUNTIME), 'dist/ not built') }, async () => {
   const w = await bootFrame();
   const lat = w.document.querySelector('.lattice');
   lat.setAttribute('data-lattice-swap', 'reflow');
@@ -52,14 +58,16 @@ test('a stamped host swap is laid out before the next frame', { skip: !fs.exists
   closeQuietly(w);
 });
 
-test('an unstamped write keeps the debounced schedule', { skip: !fs.existsSync(RUNTIME) && 'dist/ not built' }, async () => {
+test('an unstamped write keeps the debounced schedule', { skip: skipUnlessCI(!fs.existsSync(RUNTIME), 'dist/ not built') }, async () => {
   const w = await bootFrame();
   const lat = w.document.querySelector('.lattice');
   lat.innerHTML = '<section class="image"><h2>B</h2><p>b</p></section>';
   await afterMicrotasks();
   const s = lat.querySelector('section');
   assert.ok(!s.hasAttribute('data-lattice-slide'), 'no transform ran in the microtask');
-  await new Promise((r) => setTimeout(r, 300));
+  const before = w.clock.now();
+  await w.clock.settle();
   assert.ok(s.hasAttribute('data-lattice-slide'), 'the debounced pass still lays it out');
+  assert.ok(w.clock.now() > before, 'and it ran on a timer, after the write\'s microtasks');
   closeQuietly(w);
 });

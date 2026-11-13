@@ -24,7 +24,7 @@ Auto-numbered table of contents for the deck.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 
 
@@ -39,7 +39,7 @@ Auto-numbered table of contents for the deck.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 
 
@@ -54,7 +54,7 @@ Auto-numbered table of contents for the deck.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 
 
@@ -69,7 +69,7 @@ Auto-numbered table of contents for the deck.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 
 
@@ -84,7 +84,7 @@ Auto-numbered table of contents for the deck.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 
 
@@ -99,7 +99,7 @@ Auto-numbered table of contents for the deck.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 
 
@@ -114,7 +114,7 @@ Auto-numbered table of contents for the deck.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 
 
@@ -125,35 +125,7 @@ Auto-numbered table of contents for the deck.
 
 ## circles swaps the numbers for filled dots.
 
-1. The four marker styles share one anatomy
-2. Numbers are the default
-3. This variant swaps the marker
-4. Progress still tracks the current stop
-5. Five stops keep the demo honest
-
-
----
-
-<!-- _class: agenda rail progress-3 -->
-<!-- _footer: "Style · rail · agenda rail — Nodes on a vertical rail; active fills." -->
-
-## rail runs the progress down a side rail.
-
-1. The four marker styles share one anatomy
-2. Numbers are the default
-3. This variant swaps the marker
-4. Progress still tracks the current stop
-5. Five stops keep the demo honest
-
-
----
-
-<!-- _class: agenda cards progress-3 -->
-<!-- _footer: "Style · cards · agenda cards — Boxed stops; the current takes accent." -->
-
-## cards deals each stop its own card.
-
-1. The four marker styles share one anatomy
+1. The three marker styles share one anatomy
 2. Numbers are the default
 3. This variant swaps the marker
 4. Progress still tracks the current stop
@@ -167,7 +139,7 @@ Auto-numbered table of contents for the deck.
 
 ## checks ticks the stops already behind you.
 
-1. The four marker styles share one anatomy
+1. The three marker styles share one anatomy
 2. Numbers are the default
 3. This variant swaps the marker
 4. Progress still tracks the current stop
@@ -201,7 +173,7 @@ Auto-numbered table of contents for the deck.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 
 
@@ -216,7 +188,7 @@ Auto-numbered table of contents for the deck.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 
 
@@ -231,7 +203,7 @@ Auto-numbered table of contents for the deck.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 
 

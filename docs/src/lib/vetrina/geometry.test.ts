@@ -45,6 +45,11 @@ const frames = (n: number) =>
 		requestAnimationFrame(step);
 	});
 
+/** The register beat before a point()'s glide: `wait(reduced ? 80 : 480)` in stage.ts. */
+const REGISTER_MS = 480;
+/** One animation frame on the fake clock (vi fakes `requestAnimationFrame` at 60 fps). */
+const FRAME_MS = 16;
+
 const glowOf = () => document.querySelector<HTMLElement>('.vetrina-stage > div[style*="border-radius:14px"], .vetrina-stage > div[style*="border-radius: 14px"]');
 
 beforeEach(() => {
@@ -125,11 +130,30 @@ describe('a live cue tracks its target (#1400)', () => {
 });
 
 describe('a host rect source is a first-class target (the cross-frame seam)', () => {
+	// On vi's fake clock: the cue's register beat, its rAF glide and the glide's `performance.now()`
+	// all read it, so a test runs a whole cue to its end, or stops it a known frame into the glide,
+	// without sleeping on either.
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+	afterEach(() => {
+		// Torn down while the fake clock still owns its timers, then the real clock comes back.
+		active?.destroy();
+		active = null;
+		vi.useRealTimers();
+	});
+
+	/** Run a cue to its end by stepping the fake clock through every timer and frame it schedules. */
+	async function drive(p: Promise<void>): Promise<void> {
+		await vi.runAllTimersAsync();
+		return p;
+	}
+
 	it('points at a rect source that is not an element', async () => {
 		const stage = mount();
 		const { src } = movableTarget({ left: 800, top: 400, width: 40, height: 30 });
 		const cursor = document.querySelector<HTMLElement>('.vetrina-cursor');
-		await stage.point(src);
+		await drive(stage.point(src));
 		// aimAt clamps the offset into a large box; on a 40x30 target it lands at the center.
 		expect(Number.parseFloat(cursor?.style.left ?? 'NaN')).toBeCloseTo(820, 0);
 		expect(Number.parseFloat(cursor?.style.top ?? 'NaN')).toBeCloseTo(415, 0);
@@ -143,24 +167,22 @@ describe('a host rect source is a first-class target (the cross-frame seam)', ()
 	// an all-zero rect (it has no rect to give and must still satisfy `RectSource`), which read
 	// literally is the viewport corner — so the cursor flew to (0,0) instead of settling.
 	//
-	// Every case here lands the assertion AFTER the whole cue (a ~480ms register beat plus up to
-	// ~590ms of glide). An earlier version of this case asserted at ~50ms and ~110ms, inside the
-	// register beat: it read the cursor's untouched spawn position and passed with the `point()`
-	// call deleted outright.
-	const settled = () => new Promise<void>((res) => setTimeout(res, 1400));
+	// Every case here lands the assertion AFTER the whole cue (a 480ms register beat plus up to
+	// ~590ms of glide): it awaits the cue itself, on the fake clock. An earlier version of this
+	// case asserted at ~50ms and ~110ms, inside the register beat: it read the cursor's untouched
+	// spawn position and passed with the `point()` call deleted outright.
 
 	it('holds position when the target goes to an all-zero rect mid-cue', async () => {
 		const stage = mount();
 		const { src, moveTo } = movableTarget({ left: 700, top: 400, width: 40, height: 30 });
 		const cursor = document.querySelector<HTMLElement>('.vetrina-cursor');
-		await stage.point(src);
+		await drive(stage.point(src));
 		const landed = Number.parseFloat(cursor?.style.left ?? 'NaN');
 		expect(landed).toBeCloseTo(720, 0);
 
 		// The frame the host was aiming into is torn down; `frameRectSource` starts answering ZERO.
 		moveTo({ left: 0, top: 0, width: 0, height: 0 });
-		void stage.point(src);
-		await settled();
+		await drive(stage.point(src));
 		expect(Number.parseFloat(cursor?.style.left ?? 'NaN')).toBeCloseTo(landed, 0);
 	});
 
@@ -171,7 +193,7 @@ describe('a host rect source is a first-class target (the cross-frame seam)', ()
 		const stage = mount();
 		const { src } = movableTarget({ left: 400, top: 300, width: 0, height: 0 });
 		const cursor = document.querySelector<HTMLElement>('.vetrina-cursor');
-		await stage.point(src);
+		await drive(stage.point(src));
 		expect(Number.parseFloat(cursor?.style.left ?? 'NaN')).toBeCloseTo(400, 0);
 		expect(Number.parseFloat(cursor?.style.top ?? 'NaN')).toBeCloseTo(300, 0);
 	});
@@ -184,11 +206,10 @@ describe('a host rect source is a first-class target (the cross-frame seam)', ()
 		// One NaN used to write NaN into the cursor's own coordinates, after which every duration
 		// and every eased `t` was NaN, `t < 1` was false, and EVERY later cue resolved on frame
 		// one having moved nothing. The layer was dead for the rest of the run.
-		void stage.point(bad);
-		await settled();
+		await drive(stage.point(bad));
 		expect(Number.isFinite(Number.parseFloat(cursor?.style.left ?? 'NaN'))).toBe(true);
 
-		await stage.point(good);
+		await drive(stage.point(good));
 		expect(Number.parseFloat(cursor?.style.left ?? 'NaN')).toBeCloseTo(620, 0);
 	});
 
@@ -196,15 +217,17 @@ describe('a host rect source is a first-class target (the cross-frame seam)', ()
 		const stage = mount();
 		const { src } = movableTarget({ left: 900, top: 500, width: 40, height: 30 });
 		let settledFlag = false;
-		const p = stage.point(src).then(() => {
+		void stage.point(src).then(() => {
 			settledFlag = true;
 		});
 		// PAST the register beat, so the teardown lands while the rAF tween is actually running.
 		// Destroying during the `wait()` instead exits through `moveToEl`'s own destroyed guard,
 		// which was never the broken path — a teardown there settles either way.
-		await new Promise((res) => setTimeout(res, 620));
+		await vi.advanceTimersByTimeAsync(REGISTER_MS + 3 * FRAME_MS);
+		expect(settledFlag, 'the glide should still be in flight three frames in').toBe(false);
 		stage.destroy();
-		await Promise.race([p, new Promise((res) => setTimeout(res, 1200))]);
+		// The tween's next frame sees the teardown and settles.
+		await vi.advanceTimersByTimeAsync(FRAME_MS);
 		expect(settledFlag, 'point() never settled after destroy() — whatever awaited it is held forever').toBe(true);
 	});
 });

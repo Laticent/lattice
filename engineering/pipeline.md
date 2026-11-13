@@ -117,7 +117,7 @@ a different coverage tier, not a faster version of this one.
 notes, WebVTT captions, the fluid-box mobile viewer, the offline player, and
 more — it's grown considerably past a bare PDF exporter).
 
-Installed via npm, the same binary is `npx lattice`.
+Installed via npm, the same binary is `lattice`, or `lat` for short; with no install, `npx @laticent/lattice`.
 
 **Palette resolution** (highest wins): CLI positional/`--palette` flag →
 `LATTICE_PALETTE` env → the deck's own front-matter `theme:` → default
@@ -343,6 +343,24 @@ that keeps text or a raster image in it. That covers:
   `text-decoration-color` first, because Blink paints a `currentcolor` decoration with the text
   fill, and hiding the text by fill color used to erase the line with it (a rejected option's
   struck tag read as live; `test/integration/export/pdf-text-decoration.test.js`).
+- a list marker (a bullet or a number). It inherits its item's text fill, and Chromium ignores
+  `-webkit-text-fill-color` in a `::marker` rule (and in `::first-letter`/`::first-line`), so hiding
+  the item's words by fill used to take the marker of every drawn list item out of the PDF.
+  `hideDrawn` first applies that fill hide to everything, as before; then `markerPass` tries the
+  list items in one batch: it reads the item, its pseudo-elements and every descendant (every
+  property a change of color can reach, found once per document by `colorReach`), switches the item to `color: transparent` with its fill following (`::marker` honors
+  `color`, so a per-item rule gives the marker its paint back; descendants' colors and the item's
+  own painting box colors are pinned), reads them all again, and keeps the switch only if every
+  difference is an intended one (the item's own text color, the marker, its first line and letter
+  going transparent, colors that painted nothing before and after). Anything else puts the fill
+  hide back, and the rest are read again until a round finds no failure, so the
+  photo is never worse than before by construction: a case nobody listed costs that item its
+  marker, not its look. Styles only: a span around the words would change what structural
+  selectors (`li > code:first-child`) match. The camera copies each `<style>` element's TEXT, so
+  the per-item rules are written back into the element's text once at the end.
+  `LATTICE_PDF_REPORT` carries `markers: { tried, kept, refused }`, `refused` counting the first
+  difference that sent each other item back to the fill hide
+  (`test/integration/export/pdf-list-markers.test.js`, `docs/e2e/studio-pdf-list-markers.spec.ts`).
 
 Otherwise the photo is 1x: the background (finish, boxes, borders) is sharp on screen but soft at
 deep zoom or in print. `LATTICE_PDF_PHOTO_SCALE=2` doubles it, about 2x the file size. Every
@@ -432,6 +450,15 @@ back to Chrome, and says so (on stderr, even with `--quiet`), when the bundle is
 writer fails. The reasons and the
 measurements are in `engineering/decisions/2026-09-27-studio-export-one-engine.md`.
 
+**The capture page reads the deck's relative addresses from the deck folder.** The CLI writes the page
+it captures into the OUTPUT folder, so a deck's own `<script src="lib/x.js">` used to resolve there; with
+`-o` in another folder it named a missing file and printed `⚠ refused …: it resolves outside the deck
+folder` (the diagram gallery's vendored Mermaid did it). The request guard in `lattice.js` (`renderBody`,
+"LOCAL FILES stay inside the deck") now maps a refused subresource from "relative to the output page" to
+"relative to the deck" and serves it when the confiner allows that path, which is the file the author
+meant. The mapped path passes the same real-path check, and the exported HTML keeps the author's
+addresses as written. `test/integration/export/confine-cli.test.js` holds both arms.
+
 **SVG text takes its fill per character.** `read-slide.mjs` reads each character's fill from
 the element that holds its text node, and splits a run where the fill changes. It does not use
 the `<text>`'s own fill: Mermaid paints a sequence participant's name on the `<tspan>`
@@ -498,8 +525,8 @@ Studio ran html-to-image, which copies computed styles onto a clone and floors e
 pixels off by more than 8 levels, worst 21%) and the Studio's PNG set was 39 MB against 26 MB.
 
 `lib/core/slide-camera.mjs` is now the only camera. It runs in a page (the Studio's tab, the CLI's headless Chrome) and
-needs one thing from its host, `toDataUri(url)`, which turns a picture address into a `data:` URI: the Studio fetches
-`blob:` and same-origin URLs, the CLI reads confined local files (`lib/export/cli-camera.js`).
+needs one thing from its host, `toDataUri(url)`, which turns a picture or font address into a `data:` URI: the Studio fetches
+`blob:` and same-origin URLs, the CLI reads confined local files (`lib/export/cli-camera.js` `createCameraReader`).
 
 In the CLI the camera runs in an **isolated world**, a second JavaScript context over the same page (the one browser extensions
 use), because the page also runs the deck's own scripts. The deck's world cannot see the camera's globals, so a script that
@@ -577,6 +604,15 @@ hack worked around html-to-image's border-image bug.
 
 - **PDF:** the shared writer embeds every web font the deck draws with, cut to the characters used (HarfBuzz; the same code in
   both hosts). Both hosts' PDFs of a 52-slide deck carry the same 14 embedded faces and no system font.
+- **A deck's own fonts (#3095).** A `@font-face` in the deck's `style:` block or a `--css` sheet that names a file, such as
+  `url('fonts/x.woff2')`, loads in every format, not only HTML. The PDF writer reads it through `lib/export/pdf-asset-reader.js`;
+  the slide camera (PNG, image set, raster PDF, picture-mode office files, the PDF's photo layer) reads it through
+  `createCameraReader` in `lib/export/cli-camera.js`. Both read only inside the same roots, by real path: the deck's folder,
+  Lattice's install, and the folder of a stylesheet or palette the command line names (`lib/core/file-confine.js`). The camera
+  also checks the bytes are a font by magic number. A face it refuses (a file outside those roots, or any `http(s)` font, which is
+  never fetched, `--allow-remote` included) prints `⚠ a font could not be read for the export …` with the address and the reason,
+  and that text draws in the fallback face. Until #3095 the camera answered fonts with the player's picture-only reader, so a PNG
+  fell back silently except for a warning that called the font "a picture".
 - **PowerPoint and LibreOffice, picture mode:** no live text, so no fonts to embed; the type is in the picture.
 - **PowerPoint and LibreOffice, editable mode:** Calco embeds the deck's faces (`ppt/fonts/*.fntdata` in a `.pptx`, `Fonts/*.ttf`
   in an `.odp`). A face is left out when the host has no file for the family (a system font such as Arial) or its OS/2 `fsType`
@@ -584,7 +620,7 @@ hack worked around html-to-image's border-image bug.
   font file Lattice ships has an installable `fsType`.
 - **Emoji are self-hosted and embedded as a font.** Noto Color Emoji ships as 11 unicode-range woff2 slices
   (`lib/fonts/emoji-faces.js`, `assets/fonts/noto-color-emoji-*.woff2`, about 2 MB together) and leads every emoji fallback, so a
-  deck draws the same emoji on every machine. The `fonts:` line (`lib/core/font-policy.js`) says how much a file carries:
+  deck draws the same emoji on every machine. The `font-embedding:` line (`lib/core/font-policy.js`) says how much a file carries:
   `exact-emoji` (default) cuts the font to the deck's own emoji, about 2 KB each, `used-emoji` keeps the whole slices that hold them,
   `full-emoji` all 11, `system-emoji` none, in every format. An emoji a pseudo-element draws (`::before{content:"🎉"}`, or the escape `"\1F389"`) counts too: the Studio's picker and the camera read the computed `content` (`pseudoContentText`, `lib/core/slide-camera.mjs`), because `textContent` never holds it. In the CLI the slice picker runs before any page exists, so it reads the deck's HTML and the author's own CSS (the front matter's `style:`, and a `--css` stylesheet that is not the shipped one), and `slicesFor` reads a CSS escape as the emoji it spells. The shipped stylesheet stays out: its own escapes would pull two slices into every deck. A PDF or picture export under `system-emoji` draws with the drawing machine's own emoji font (the shared camera drops the emoji `@font-face`, `withoutFontFaces` in `lib/core/slide-camera.mjs`). The cut runs through a COLOR build of HarfBuzz's subsetter
   (`lib/fonts/subset-color.js` over `lib/fonts/hb/hb-subset-color.wasm`, rebuild recipe in the README beside it); the stock wasm
@@ -607,7 +643,7 @@ table says what each format does with each, and names the test that holds it. "P
 |---|---|---|---|
 | Check (`.lat-state`, `.state`, `li.state`) | Vector: rings, disc and mark path (`checkOf`). Photo when it is under a transform, an effect, a cover or a see-through group. `pdf-check-vectors.test.js` | Native shapes: the disc a box, the mark a freeform path. In a `.pptx`, a card that holds the mark (custom geometry) is written loose, in paint order, since Apple's Office importer drops custom geometry inside a group; an `.odp` keeps the card in its group. `calco-pseudo.test.js`, `shapes.test.js` | The page itself: CSS mask, any size |
 | Emoji | Real text: a Type 3 glyph that paints the emoji's picture, with a ToUnicode map, so it selects and searches (`emojiArt`, `embedEmoji`). `pdf-emoji-text.test.js` | Real text in its run, drawn by the reader's own emoji font. No emoji font is embedded: LibreOffice draws nothing for a COLR v1 face. `emoji-font-cut.test.js` | Real text in the embedded emoji font, cut to the deck's own emoji. `emoji-font-cut.test.js` |
-| Icon (`^{…}`, a pill's `icon=`) | Text: a glyph of the embedded Lattice Icons font, copying as the icon's label (`icon: font`, the default). Under `icon: svg` or `fonts: system-emoji`, vector paths. `icon-font-exports.test.js` | A native outline shape, drawn from the icon's paths (`iconSvgMarkOf`), always, so every app draws it; its `label=` is the shape's description. A drawing a shape cannot reproduce (a translucent or dashed stroke) stays an SVG picture with a PNG fallback (`svgOf`, `addSvgPictures`). Only the editable file switches; a picture-per-slide file draws the page. The line an inline icon sits in is split into one box per piece (a heading never), so no app's handling of character spacing can slide a word under it. A card holding an icon is written loose in a `.pptx` (Apple's Office importer drops custom geometry inside a group). | The page itself: the glyph, or the inline SVG |
+| Icon (`^{…}`, a pill's `icon=`) | Text: a glyph of the embedded Lattice Icons font, copying as the icon's label (`icon: font`, the default). Under `icon: svg` or `font-embedding: system-emoji`, vector paths. `icon-font-exports.test.js` | A native outline shape, drawn from the icon's paths (`iconSvgMarkOf`), always, so every app draws it; its `label=` is the shape's description. A drawing a shape cannot reproduce (a translucent or dashed stroke) stays an SVG picture with a PNG fallback (`svgOf`, `addSvgPictures`). Only the editable file switches; a picture-per-slide file draws the page. The line an inline icon sits in is split into one box per piece (a heading never), so no app's handling of character spacing can slide a word under it. A card holding an icon is written loose in a `.pptx` (Apple's Office importer drops custom geometry inside a group). | The page itself: the glyph, or the inline SVG |
 | Avatar | Vector: the tile, then the face, then the ring (`tileOf`). `pdf-small-drawings.test.js` | A group: the tile a native rounded shape, the face an SVG picture with a PNG fallback. `calco-svg-pictures.test.js` | The page itself |
 | Spark | Vector: the line or bars, and the end dot over them (`dotOf`). The dot stays in the photo, with its line, when something covers it. `pdf-small-drawings.test.js` | A group: its frame a native shape, the line and dot one SVG picture with a PNG fallback. `calco-svg-pictures.test.js` | The page itself |
 | Masked mark (an absolutely placed `::before`/`::after`, such as a recommended card's star) | Vector: the mask's path (`maskedMarkOf`). Photo when in flow, transformed, below its host, see-through or covered, named `mark-<reason>`. `pdf-small-drawings.test.js` | Native freeform path when the mask is one path centered in its box; picture otherwise. `calco-pseudo.test.js` | The page itself |
@@ -843,7 +879,7 @@ the glossary page silent because Present never shows it and checks the `closing:
 last authored slide. On
 the Q3 fixture all 16 narrated slides now say the same words on both paths (8 of 17 differed
 before, when the Studio stood its projection down for the extra section). What the two still
-cannot share: any OTHER surplus of rendered sections (an autosplit slide, `_focusSteps`) stands
+cannot share: any OTHER surplus of rendered sections (an autosplit slide) stands
 the Studio's projection down to the markdown flatten, while the CLI narrates each rendered page.
 A split `panes` slide is folded back onto its source slide by the Studio (`foldPaneSplits`) and
 narrated page by page by the CLI. `--player-mode light|dark|system` on the player export (and

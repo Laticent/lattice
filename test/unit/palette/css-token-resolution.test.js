@@ -36,6 +36,12 @@ const ROOT = path.resolve(__dirname, '..', '..', '..');
 // Tokens that are legitimate but defined outside our source tree —
 // set by Marp at render time, by the browser, by Mermaid SVGs, etc.
 const EXTERNAL_TOKEN_ALLOWLIST = new Set([
+  // The phone ladder's role sizes, in drawing units: chart-family.dispatch.js stamps them inline on each chart
+  // <svg data-chart-roles> it draws for a 1080-wide page (shared/chart-roles.js `stampRoles`), and the stylesheet
+  // reads them only under that attribute.
+  '--chart-fs-key', '--chart-fs-heading', '--chart-fs-direct', '--chart-fs-value', '--chart-fs-region',
+  '--chart-fs-callout', '--chart-fs-category', '--chart-fs-tick', '--chart-fs-title', '--chart-fs-note',
+  '--chart-fs-status', '--chart-fs-glyph',
   // Set by Marp Core / Marpit at render time on each <section>.
   '--marp-slide',
   // Set by Marp's emitted markup on `<marp-pre>` elements.

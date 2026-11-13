@@ -16,6 +16,8 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const { commentCloser, replaceClosedComments, closedComments } = require(path.join(ROOT, 'lib/core/closed-comments'));
+const { scanWork } = require(path.join(ROOT, 'test/helpers/work-count'));
+const { assertLinearRegexes } = require(path.join(ROOT, 'test/helpers/regex-trace'));
 
 // A small alphabet dense in the characters that decide a comment, so short strings hit
 // the edges: `<!-->`, `<!--->`, `--!>`, overlapping dashes, openers with no closer.
@@ -69,29 +71,87 @@ describe('unclosed comments stay linear through the whole render (HARD RULE #22)
   const latticeEngine = require(path.join(ROOT, 'lib/engine'));
   const engine = latticeEngine.createEngine();
 
-  test('each shape renders well under the quadratic cost', () => {
-    // Before, on one machine: ~17 s, ~148 s, ~8 s and ~17 s. After: ~0.4 s together. The bound
-    // sits between the two with room either side for a slow runner.
+  test('each shape renders in work linear in its length', () => {
+    // Before, on one machine: ~17 s, ~148 s, ~8 s and ~17 s. Counted, not timed (HARD RULE #32): each search the
+    // render makes covers some characters, and a rescan from every opener to the end of the text makes that total
+    // grow with the square. Today each render covers 70 to 116 times its length (the engine reads the source in many
+    // linear passes); without the html_inline guard the first and fourth shapes cover over 2,000 times theirs at
+    // a tenth of this size, and a closer search that restarts at every opener does the same to the second.
     const inputs = [
       'a <!--\n'.repeat(40000),              // 280 KB of `a <!--` lines — markdown-it html_inline
       `${'<!--'.repeat(62500)}\n`,           // one 250 KB line — scanTags, masthead, panes
       `${'<!-- '.repeat(50000)}\n-->\n`,     // openers, one closer at the end
       `${'a <!--\n'.repeat(40000)}---->`,      // a `-->` the comment arm cannot close on
     ];
-    const t = Date.now();
-    for (const src of inputs) engine.render(src);
-    assert.ok(Date.now() - t < 4000, `took ${Date.now() - t}ms`);
+    for (const src of inputs) {
+      const { scanned } = scanWork(() => engine.render(src));
+      assert.ok(scanned <= 200 * src.length, `${JSON.stringify(src.slice(0, 8))}…: ${scanned} chars scanned for ${src.length}`);
+    }
   });
 });
 
 describe('a layout skeleton full of unclosed comments stays linear (HARD RULE #22)', () => {
   const { findSkeletonHtml } = require(path.join(ROOT, 'lib/layout/gate.js'));
 
-  test('findSkeletonHtml reads 280 KB of `a <!--` lines fast', () => {
-    // A skeleton is model output. Before, on one machine: 1.7 s; after: ~2 ms.
-    const t = Date.now();
-    findSkeletonHtml('a <!--\n'.repeat(40000));
-    assert.ok(Date.now() - t < 500, `took ${Date.now() - t}ms`);
+  test('findSkeletonHtml reads a skeleton of unclosed comments, fences and autolinks with linear regexes only', () => {
+    // A skeleton is model output. The old `/<!--[\s\S]*?-->/g` tried every opener to the end of the text inside one
+    // match (1.7 s at 280 KB), and so did the fence, autolink and tag patterns beside it. No count sees work inside one
+    // regex match, so this asks the census instead of a clock (HARD RULE #32): every regex the scan runs must be one
+    // recheck calls linear (test/helpers/regex-trace.js).
+    const hostile = ['a <!--\n', '```\n', '~~~ x\n', '<a://<b://', '<x@', '<tag'].join('').repeat(200);
+    const { result } = assertLinearRegexes(() => findSkeletonHtml(hostile));
+    assert.ok(result.length > 0, 'the glued `<tag` lines are still reported');
+    assert.deepEqual(assertLinearRegexes(() => findSkeletonHtml('a <!--\n'.repeat(2000))).result, []);
+  });
+});
+
+describe('the skeleton readers answer as the regexes they replaced (seeded differential fuzz, seed 3045)', () => {
+  const { replaceFencedBlocks, replaceAutolinks, skeletonTags } = require(path.join(ROOT, 'lib/layout/gate.js'));
+  const { mulberry32 } = require(path.join(ROOT, 'test/helpers/regex-differential'));
+  // The old patterns (tests are outside the census, which reads lib/** only).
+  const OLD_FENCE = /^[ \t]*(```|~~~)[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gm;
+  const OLD_AUTOLINK = /<[a-z][a-z0-9+.-]*:\/\/[^>\s]*>|<[^\s@<>]+@[^\s@<>]+>/gi;
+  const OLD_TAG = /<\/?[a-zA-Z][\w-]*(?=[\s/>]|$)/g;
+  const FENCE_PIECES = ['```', '```', '~~~', '````', '`', '~', ' ', '\t', '\n', '\n', '\r', '\u2028', 'a', 'js'];
+  const LINK_PIECES = ['<', '<', '>', '>', 'http', 'A', 'z9', '+', '.', '-', '://', ':', '/', '@', ' ', '\n', '\t'];
+  const TAG_PIECES = ['<', '</', '<', 'a', 'B', '1', '-', '_', ' ', '/', '>', '\n', '!', '.'];
+  const draw = (rand, pieces) => {
+    let s = '';
+    const len = Math.floor(rand() * 15);
+    for (let j = 0; j < len; j++) s += pieces[Math.floor(rand() * pieces.length)];
+    return s;
+  };
+  const tag = (m) => `[${m}]`;
+  // The old pattern's output, built with an exec loop: `String#replace` with a pattern that touches `<` reads as an
+  // HTML sanitizer to CodeQL, and these are test oracles, never a sanitizer.
+  const oracle = (re, s, fn) => {
+    const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
+    let out = '';
+    let from = 0;
+    for (let m = g.exec(s); m; m = g.exec(s)) {
+      out += s.slice(from, m.index) + fn(m[0]);
+      from = m.index + m[0].length;
+      if (m[0] === '') g.lastIndex++;
+    }
+    return out + s.slice(from);
+  };
+
+  test('fences, autolinks and tags: 20,000 draws each, no input where old and new disagree', () => {
+    const rand = mulberry32(3045);
+    for (let i = 0; i < 20000; i++) {
+      const f = draw(rand, FENCE_PIECES);
+      assert.equal(replaceFencedBlocks(f, tag), oracle(OLD_FENCE, f, tag), `fence ${JSON.stringify(f)}`);
+      const l = draw(rand, LINK_PIECES);
+      assert.equal(replaceAutolinks(l, tag), oracle(OLD_AUTOLINK, l, tag), `autolink ${JSON.stringify(l)}`);
+      const t = draw(rand, TAG_PIECES);
+      assert.deepEqual([...skeletonTags(t)].map((m) => [m.index, m[0]]), [...t.matchAll(OLD_TAG)].map((m) => [m.index, m[0]]), `tag ${JSON.stringify(t)}`);
+    }
+  });
+
+  test('mutation arm: the guard above fails a scan that still runs any of the old patterns', () => {
+    assert.throws(() => assertLinearRegexes(() => OLD_FENCE.exec('x')), /polynomial|unknown|does not hold/);
+    assert.throws(() => assertLinearRegexes(() => OLD_AUTOLINK.exec('x')), /polynomial|unknown|does not hold/);
+    assert.throws(() => assertLinearRegexes(() => 'x'.match(OLD_TAG)), /polynomial|unknown|does not hold/);
   });
 });
 
@@ -99,10 +159,12 @@ describe('the boundary parser stays linear on unclosed comments (HARD RULE #22)'
   const { splitSourceToSections } = require(path.join(ROOT, 'lib/core/section-source-split.js'));
 
   test('splitSourceToSections — a full md.parse on the CLI export path — stays linear', () => {
-    // Three boundaryParser callers run the full `md.parse`. On markdown-it 14.1.1 with no guard,
-    // 273 KB of `a <!--` lines took 32.8 s here; with the guard, or on 14.3.3, well under a second.
-    const t = Date.now();
-    splitSourceToSections('a <!--\n'.repeat(40000));
-    assert.ok(Date.now() - t < 5000, `took ${Date.now() - t}ms`);
+    // This was a full `md.parse`: on markdown-it 14.1.1 with no guard, 273 KB of `a <!--` lines took 32.8 s. It
+    // now runs the deck model's own block pass (lib/core/deck-model.mjs), where `a <!--` never opens an HTML block,
+    // so no mutant of today's path reaches this input and the test is a sentinel: it reads 10 characters per
+    // character at 10,000 and at 40,000 lines. Counted, not timed (HARD RULE #32).
+    const src = 'a <!--\n'.repeat(40000);
+    const { scanned } = scanWork(() => splitSourceToSections(src));
+    assert.ok(scanned <= 30 * src.length, `${scanned} chars scanned for ${src.length}`);
   });
 });

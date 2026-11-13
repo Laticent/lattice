@@ -22,6 +22,7 @@ const { execFileSync } = require('node:child_process');
 const parse5 = require('parse5');
 const { scanHtml } = require('../../../lib/core/remote-ref.js');
 const { rng, gen, genForeign } = require('../../fixtures/html-ref-soups.js');
+const { charReads } = require('../../helpers/work-count');
 
 const ROOT = path.resolve(__dirname, '../../..');
 const BASE = 'https://studio.test/lattice/studio/';
@@ -253,11 +254,17 @@ describe('the export embeds pictures read by scanHtml and cssRefSpans (Segno R4)
   });
 
   test('floods stay linear: a long custom-property run before many url()s', async () => {
-    const t0 = performance.now();
-    await now(`<p style="${'--a:'.repeat(16_000)}} ${Array(30).fill('url(/a.png)').join(' ')}">x</p>`, { ...OPTS, fetchDataUri: embedAll });
-    await now(`<p style="${Array(8000).fill('background:url(/a.png)').join(' ')}">x</p>`, { ...OPTS, fetchDataUri: embedAll });
-    // The quadratic check this replaced took 64 s on the first input; both together take well under a second here.
-    assert.ok(performance.now() - t0 < 5000, `took ${Math.round(performance.now() - t0)} ms`);
+    // Work, not milliseconds (HARD RULE #32). The quadratic check this replaced took 64 s on the first input. Counted:
+    // the characters the reader touches before its first fetch, which is the scan and pass 1's walk of every
+    // reference (pass 3 repeats that walk over the same tags once the fetches are back). About 6 to 7 per character.
+    for (const html of [
+      `<p style="${'--a:'.repeat(16_000)}} ${Array(30).fill('url(/a.png)').join(' ')}">x</p>`,
+      `<p style="${Array(8000).fill('background:url(/a.png)').join(' ')}">x</p>`,
+    ]) {
+      const { result, reads, scanned } = charReads(() => now(html, { ...OPTS, fetchDataUri: embedAll }));
+      assert.ok((await result).count >= 1);
+      assert.ok(reads + scanned <= 32 * html.length, `${JSON.stringify(html.slice(0, 16))}…: read ${reads + scanned} characters for ${html.length}`);
+    }
   });
 
   test('the failing arm: the frozen regex walker disagrees with the spec parser', async (t) => {

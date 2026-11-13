@@ -76,7 +76,7 @@ about Form directly — the component already selected it.
   - `npm run new:slide -- <name>` — print a component's skeleton.
   - `npm run lint:deck -- <file>` — fast footgun check, no browser. `--strict`
     fails on warnings, `--json` is machine-readable.
-  - `npx lattice <deck>.md <out>.pdf` — render (extension picks the
+  - `npx @laticent/lattice <deck>.md <out>.pdf` — render (extension picks the
     format: `.pdf` / `.pptx` / `.png` / `.html`). In the cloud sandbox, export
     `CHROME_PATH` first if a render says "no browser."
   - `npm run preview` — visual iteration loop (auto-scopes from `git diff`), pair
@@ -122,7 +122,7 @@ about Form directly — the component already selected it.
 
 6. **Render** with the owned CLI and **look at it**:
    ```bash
-   npx lattice deck.md deck.pdf
+   npx @laticent/lattice deck.md deck.pdf
    ```
    Then `SendUserFile deck.pdf` (or `tools/rasterize-for-review.sh`) and review
    real slides — is each heading a claim, is any slide a wall of text, does the
@@ -175,7 +175,7 @@ shape):
 
 | Pattern | Write | Renders as |
 |---|---|---|
-| Eyebrow | a code-only paragraph **above** the `## ` | mono uppercase label |
+| Eyebrow | a code-only paragraph **above** the `## ` | the heading face's italic, as written (`typography:` sets the face) |
 | Subtitle | a code-only paragraph **below** the `## ` | italic framing line |
 | Metadata pill | trailing `` `code` `` on a list row | rounded status chip |
 | Key-insight | a trailing `> blockquote` on a card layout | accent takeaway bar |

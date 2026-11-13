@@ -110,6 +110,8 @@ describe('scanMetaSource ≡ the engine, over the committed corpus, for every ap
     }
     console.log(`# meta corpus: ${decks.length} decks · ${compared} compared · ${slides} slides · ${skipped} skipped · ${wrong.length} disagreements`);
     console.log(`# meta corpus: slides carrying each key, scan = engine: ${JSON.stringify(perKey)}`);
+    // 3 since 2026-11-09: examples/focus.md left the set when `_focusSteps` stopped copying its slide, and the
+    // mark-agreement fixture test/integration/invariants/mark-agreement/fixtures/split-headings.md joined it.
     assert.equal(skipped, 3, 'the boundary-divergence set should stay at the `split: headings` decks');
     assert.equal(paneSplit, 1, 'and the pane-split set at examples/image-pane-story.md');
     assert.ok(compared > 400, `expected 400+ comparable decks, compared ${compared}`);

@@ -35,7 +35,6 @@ const SANCTIONED = Object.freeze({
   'test/unit/cli/retired-cli-name.test.js': 'this test names what it keeps out',
   'test/unit/cli/cli.test.js': 'asserts the help never shows the old name',
   'test/unit/core/marp-bundle.test.js': 'asserts the Marp bundle README never names the old file',
-  'docs/route-budget.d/2601-cli-rename.md': 'the budget note for the rename itself; folded into the history on the next reset',
   'engineering/gotchas/lattice-internals.md': 'the gotcha that maps an old citation to the new file',
 });
 

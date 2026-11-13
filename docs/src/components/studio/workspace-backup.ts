@@ -24,6 +24,7 @@
 
 import { type ParsedBundle, packBundle, unpackBundle } from './asset-bundle';
 import { applyImportRenames } from './asset-rename';
+import { chatsSettled, hydrateAllChats } from './chat-store';
 import { checkpointsSettled, hydrateCheckpoints } from './checkpoint-store';
 import { listStudioComponents, saveStudioComponent, toMeta } from './component-library';
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
@@ -108,8 +109,9 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 	// or a backup taken mid-keystroke misses the newest edits (and a JUST-edited
 	// built-in would have no stored source at all and drop out entirely).
 	requestSourceFlush();
-	// Checkpoints load from IndexedDB after boot; a backup taken first must still carry them.
+	// Checkpoints and chats load from IndexedDB after boot; a backup taken first must still carry them.
 	await hydrateCheckpoints();
+	await hydrateAllChats();
 	const state = exportStudioState();
 	// Scenes come through the RAW reader, not `listStudioScenes`. That list drops any record whose
 	// spec no longer validates, and this function is what turns that drop into permanent data loss:
@@ -450,9 +452,11 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 		if (renames.length) state.sources = Object.fromEntries(Object.entries(state.sources).map(([id, src]) => [id, applyImportRenames(src, renames)]));
 	}
 
-	// Restore merges checkpoints only where this browser has none, so it must see the stored ones first.
+	// Restore merges checkpoints and chats only where this browser has none, so it must see the stored ones first.
 	await hydrateCheckpoints();
-	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, media: 0, mediaRenamed: 0, refused };
+	await hydrateAllChats();
+	const decks = importStudioState(state, now);
+	const summary: RestoreSummary = { ...decks, themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, media: 0, mediaRenamed: 0, refused: [...decks.refused, ...refused] };
 
 	if (parsed) {
 		for (const t of themes) {
@@ -525,7 +529,9 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	// the same name comes back under a new name, and the decks THIS restore wrote are rewritten to name it.
 	// Never throws into the caller: the decks are already written, and a photo lane that failed must be named, not
 	// turn a restore that worked into one that reports failure.
-	const photos = await restoreMedia(zip, now, { backupDeckIds: new Set((state.index ?? []).map((e) => e.id)), copies: summary.copies }).catch((e: unknown) => ({
+	const photos = await restoreMedia(zip, now, { // A deck this browser refused to store is not here: its photos would land on a deck of the same
+		// id that is not it, or on none, in a restore that already ran out of room.
+		backupDeckIds: new Set((state.index ?? []).map((e) => e.id).filter((id) => !summary.refusedIds.includes(id))), copies: summary.copies, refusedDeckIds: new Set(summary.refusedIds) }).catch((e: unknown) => ({
 		restored: 0,
 		shared: 0,
 		refused: [{ name: 'photos', why: `could not be restored (${String((e as Error)?.message || 'unknown error').slice(0, 80)})` }],
@@ -553,8 +559,9 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 		// Its saved versions too: restoring one must not bring back a name that now means another photo.
 		void mapCheckpointSources(id, (c) => renameAssetRefs(c, map));
 	}
-	// Checkpoint writes are asynchronous (IndexedDB), and the caller reloads the page after a
+	// Checkpoint and chat writes are asynchronous (IndexedDB), and the caller reloads the page after a
 	// restore: wait for them to land, or a large restore could be cut off by that reload.
 	await checkpointsSettled();
+	await chatsSettled();
 	return summary;
 }

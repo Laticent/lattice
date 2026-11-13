@@ -524,7 +524,8 @@ test.describe('add-slide gallery — metamorphic relations over the live-preview
 
 		// Any tile that HAS looks — the toggle's accessible name carries the variant count.
 		const toggle = page.getByRole('button', { name: /looks — \d+ variants?/ }).first();
-		if ((await toggle.count()) === 0) test.skip(true, 'no component in the first bands exposes variant looks');
+		// The first bands always hold a component with looks; if none shows its toggle, that is the regression (HARD RULE #33).
+		await expect(toggle, 'no component in the first bands exposes a variant-looks toggle').toBeVisible();
 		await toggle.scrollIntoViewIfNeeded();
 		await quiesced(page);
 		const beforeVisible = await visible(page);

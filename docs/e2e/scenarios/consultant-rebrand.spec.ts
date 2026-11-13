@@ -42,8 +42,12 @@ test('switching the palette re-themes every slide with no overflow', async ({ pa
 	expect(total).toBeGreaterThan(3); // the seeded deck is a real multi-component deck
 
 	// The accent token under the CURRENT palette — the re-theme must change it.
-	const accentBefore = await slideToken(page, '--accent');
-	expect(accentBefore).not.toBe('');
+	// Polled, not read once: the boot's second render patches the slide in place moments after the first paint
+	// (single-slide-render.ts, the document-load wait), and a read that lands on the swap comes back '' (see
+	// `slideToken`). Read once, that failed 2 of 22 loaded runs.
+	// The value is kept FROM the poll: a second, single read can land on the next swap too.
+	let accentBefore = '';
+	await expect.poll(async () => (accentBefore = await slideToken(page, '--accent')), { timeout: 15_000 }).not.toBe('');
 
 	// Re-brand: pick a different palette from the topbar. It must differ from the
 	// DEFAULT (cuoio since #1285) — the assertion below is that the resolved accent
@@ -53,8 +57,13 @@ test('switching the palette re-themes every slide with no overflow', async ({ pa
 	await expect.poll(() => readStorage(page, 'lattice-studio-palette')).toBe('burgundy');
 
 	// The cause propagated INTO the render: the resolved accent actually changed.
-	await expect.poll(() => slideToken(page, '--accent')).not.toBe(accentBefore);
-	const accentAfter = await slideToken(page, '--accent');
+	let accentAfter = '';
+	await expect
+		.poll(async () => {
+			accentAfter = await slideToken(page, '--accent');
+			return accentAfter !== '' && accentAfter !== accentBefore;
+		}, { message: 'the accent never changed with the palette' })
+		.toBe(true);
 
 	// Walk the whole deck: every slide re-themes (same resolved palette token) and
 	// none of them overflows under the new type/color ramp.

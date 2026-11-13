@@ -1,0 +1,5 @@
+studio: +19800
+home: +21300
+playground: +700
+getting-started: +100
+The slide-metadata record (`<!-- {layout=cards} -->`) is read by the one directive grammar, `lib/core/comment-directive.mjs`, which the Studio reads every deck through on its startup path (the drawer, the pane readers, the export). A record's body is Segno notation, so that chunk now carries Segno's `parse` (comment-directive +18,981, CI measured the Studio at +19,315 against main; home, which mounts the Studio island, pays the same, and meta-keys adds a few hundred bytes for the record field names). A second, smaller record parser for the browser would break the one-reader rule the record's design rests on. Given back first: the door imported Segno's main entry, which drags in the grammar compiler and code generator; it now takes `@laticent/segno/read` like every other `lib/` reader (CI measured studio +20,262 before that). The playground line is `meta-keys` +567 (the record field names) and `rolldown-runtime` +84, measured by CI after the rebase on main; getting-started is `rolldown-runtime` +84. Both rounded up for build noise.

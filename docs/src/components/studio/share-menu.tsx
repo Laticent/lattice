@@ -10,7 +10,6 @@ import type * as React from 'react';
 export const SHARE_HEADER = {
 	icon: <Link2 />,
 	title: (deckTitle: string) => `Share “${deckTitle}”`,
-	srDescription: 'Hand off the rendered deck or the Markdown source.',
 } as const;
 
 export type ShareRowId = 'live' | 'present' | 'pdf' | 'pptx' | 'odp' | 'images' | 'print' | 'html' | 'captions' | 'lattice' | 'md' | 'marp' | 'printsrc';

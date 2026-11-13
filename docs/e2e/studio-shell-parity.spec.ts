@@ -1,4 +1,4 @@
-import { ENGINE_GLOB } from './engine-glob';
+import { holdEngine } from './engine-glob';
 import { expect, test } from './studio-fixture';
 
 // SHELL ↔ APP CONTROL PARITY (#1438 follow-up).
@@ -57,7 +57,6 @@ type Control = { name: string; box: Box };
 // with it. A guard widened to fit the defect it is watching for reports only that the defect
 // has not grown.
 const TOL = 2;
-const ENGINE_HOLD_MS = 2500;
 
 /** Widths chosen at tier boundaries — that is where hand-copied gating breaks. */
 // Two cases carry `@smoke` so the SET comparison — the part that catches "someone added an
@@ -172,10 +171,7 @@ for (const c of CASES) {
 			[c.stop, c.toursOff ? '1' : ''] as const,
 		);
 		await page.setViewportSize({ width: c.w, height: c.h });
-		await page.route(ENGINE_GLOB, async (route) => {
-			await new Promise((r) => setTimeout(r, ENGINE_HOLD_MS));
-			await route.continue();
-		});
+		const engine = await holdEngine(page);
 		await page.goto('/studio/', { waitUntil: 'commit' });
 		await page.locator('#studio-ssr-shell .ssr-topbar').waitFor({ state: 'attached' });
 		// WEBFONTS NO LONGER SWAP IN, so this gate means something different than it used to.
@@ -193,7 +189,8 @@ for (const c of CASES) {
 		// the iPad report — the EDIT and PREVIEW sub-bars. The shell mirrors all five
 		// control-for-control.
 		//
-		// It still does not draw per-deck CONTENT: a slide count, the name of a reader view. But
+		// It still does not draw per-deck CONTENT: a slide count, the name of a reader view (the one
+		// exception, the status strip's deck caption, is outside the roots this spec compares). But
 		// "the shell must not draw the count" was for years also read as "so its width is a
 		// guess", and that reading is what this spec spent six px of tolerance hiding. The two
 		// unknowable slots now reserve a fixed width from a shared constant (`DECK_META_SLOT`,
@@ -214,6 +211,7 @@ for (const c of CASES) {
 		// A shell that already dismissed reports nothing and would pass every comparison
 		// vacuously — the whole spec rests on catching it up.
 		expect(shell.length, 'the shell was dismissed before it could be measured').toBeGreaterThan(0);
+		engine.release();
 
 		await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
 		await expect(page.locator('#studio-ssr-shell')).toHaveCount(0);

@@ -4,6 +4,8 @@
 // the docs build cannot import (CJS with its own require); logo-finish.test.ts pins every word and
 // its order to the engine's register, so the two cannot drift.
 
+import { axisLineValue, parseAxisLine } from './axis-line';
+
 export type LogoFinishAxis = 'placement' | 'color' | 'plate' | 'size' | 'scope';
 export type LogoFinishWords = Partial<Record<LogoFinishAxis, string>>;
 
@@ -22,18 +24,10 @@ export const LOGO_FINISH_AXIS_ORDER: readonly LogoFinishAxis[] = AXES.map((a) =>
 export const logoFinishWords = (axis: LogoFinishAxis): string[] => [...(AXES.find((a) => a.axis === axis)?.names ?? [])];
 
 /** The deck's current words, by axis: the first recognized word on each axis, as the kernel reads it. */
-export function parseLogoFinish(value: string): LogoFinishWords {
-	const out: LogoFinishWords = {};
-	for (const word of value.trim().toLowerCase().split(/[\s,[\]]+/).filter(Boolean)) {
-		const hit = AXES.find((a) => a.names.includes(word));
-		if (hit && !out[hit.axis]) out[hit.axis] = word;
-	}
-	return out;
-}
+export const parseLogoFinish = (value: string): LogoFinishWords => parseAxisLine(AXES, value);
 
 /** Words → the line's value, axis order, `''` when nothing is set (the caller then drops the key). */
-export const logoFinishValue = (words: LogoFinishWords): string =>
-	LOGO_FINISH_AXIS_ORDER.map((a) => words[a]).filter(Boolean).join(' ');
+export const logoFinishValue = (words: LogoFinishWords): string => axisLineValue(AXES, words);
 
 /** What a placement word hides — shown under the Position control so a vanished footer is never a surprise. */
 export const LOGO_PLACEMENT_HIDES: Record<string, string> = {

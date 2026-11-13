@@ -427,7 +427,7 @@ describe('stacked-bar kernel', () => {
     test('transformSection splices the figure in, and passes through when there is nothing to draw', () => {
       const section = `<h2>Mix</h2><ul>${ul(FY)}</ul><p>after</p>`;
       const out = transformSection(section, { classTokens: [], orientation: undefined });
-      assert.match(out, /<h2>Mix<\/h2><div class="stacked-bar-figure">/);
+      assert.match(out, /<h2>Mix<\/h2><div class="stacked-bar-figure"[ >]/);
       assert.match(out, /<p>after<\/p>$/);
       const empty = '<h2>Mix</h2><ul><li>nothing</li></ul>';
       assert.equal(transformSection(empty, { classTokens: [] }), empty);

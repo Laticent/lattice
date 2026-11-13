@@ -83,7 +83,9 @@ jobs:
           path: ~/.cache/puppeteer
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install color emoji font
-        run: sudo apt-get update && sudo apt-get install -y fonts-noto-color-emoji
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: fonts-noto-color-emoji
       # `npm ci` runs `prepare` (tools/prepare.js), which builds the uncommitted dist/ artifacts the
       # CLI renders with; overflow-nightly.yml relies on the same.
       - run: npm ci

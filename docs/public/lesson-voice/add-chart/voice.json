@@ -6,7 +6,7 @@
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 107424,
+	"bytes": 109008,
 	"lines": [
 		{
 			"key": "9875eb230b44",
@@ -396,76 +396,69 @@
 			}
 		},
 		{
-			"key": "eebb19a020ac",
-			"text": "The numbers are plain text in your slide. Change one and the bars follow.",
-			"file": "eebb19a020ac.mp3",
-			"bytes": 29088,
-			"speechMs": 4798,
+			"key": "22fac8172a02",
+			"text": "The numbers sit in the slide’s rows. Change one and the bars follow.",
+			"file": "22fac8172a02.mp3",
+			"bytes": 30672,
+			"speechMs": 5052,
 			"leadMs": 46,
 			"track": {
 				"cues": [
 					{
-						"display": "The numbers are plain text in your slide.",
+						"display": "The numbers sit in the slide’s rows.",
 						"words": [
 							{
 								"display": "The",
 								"spoken": "The",
 								"startMs": 0,
-								"endMs": 230,
+								"endMs": 242,
 								"charOffset": 0
 							},
 							{
 								"display": "numbers",
 								"spoken": "numbers",
-								"startMs": 230,
-								"endMs": 690,
+								"startMs": 242,
+								"endMs": 727,
 								"charOffset": 4
 							},
 							{
-								"display": "are",
-								"spoken": "are",
-								"startMs": 690,
-								"endMs": 920,
+								"display": "sit",
+								"spoken": "sit",
+								"startMs": 727,
+								"endMs": 969,
 								"charOffset": 12
-							},
-							{
-								"display": "plain",
-								"spoken": "plain",
-								"startMs": 920,
-								"endMs": 1150,
-								"charOffset": 16
-							},
-							{
-								"display": "text",
-								"spoken": "text",
-								"startMs": 1150,
-								"endMs": 1380,
-								"charOffset": 22
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 1380,
-								"endMs": 1611,
-								"charOffset": 27
+								"startMs": 969,
+								"endMs": 1211,
+								"charOffset": 16
 							},
 							{
-								"display": "your",
-								"spoken": "your",
-								"startMs": 1611,
-								"endMs": 1841,
-								"charOffset": 30
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1211,
+								"endMs": 1454,
+								"charOffset": 19
 							},
 							{
-								"display": "slide.",
-								"spoken": "slide.",
-								"startMs": 1841,
-								"endMs": 2104,
-								"charOffset": 35
+								"display": "slide’s",
+								"spoken": "slide’s",
+								"startMs": 1454,
+								"endMs": 1938,
+								"charOffset": 23
+							},
+							{
+								"display": "rows.",
+								"spoken": "rows.",
+								"startMs": 1938,
+								"endMs": 2216,
+								"charOffset": 31
 							}
 						],
 						"startMs": 0,
-						"endMs": 2536,
+						"endMs": 2671,
 						"charOffset": 0
 					},
 					{
@@ -474,52 +467,52 @@
 							{
 								"display": "Change",
 								"spoken": "Change",
-								"startMs": 2722,
-								"endMs": 2952,
-								"charOffset": 42
+								"startMs": 2866,
+								"endMs": 3108,
+								"charOffset": 37
 							},
 							{
 								"display": "one",
 								"spoken": "one",
-								"startMs": 2952,
-								"endMs": 3182,
-								"charOffset": 49
+								"startMs": 3108,
+								"endMs": 3350,
+								"charOffset": 44
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 3182,
-								"endMs": 3412,
-								"charOffset": 53
+								"startMs": 3350,
+								"endMs": 3593,
+								"charOffset": 48
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 3412,
-								"endMs": 3642,
-								"charOffset": 57
+								"startMs": 3593,
+								"endMs": 3835,
+								"charOffset": 52
 							},
 							{
 								"display": "bars",
 								"spoken": "bars",
-								"startMs": 3642,
-								"endMs": 3872,
-								"charOffset": 61
+								"startMs": 3835,
+								"endMs": 4077,
+								"charOffset": 56
 							},
 							{
 								"display": "follow.",
 								"spoken": "follow.",
-								"startMs": 3872,
-								"endMs": 4366,
-								"charOffset": 66
+								"startMs": 4077,
+								"endMs": 4597,
+								"charOffset": 61
 							}
 						],
-						"startMs": 2722,
-						"endMs": 4798,
-						"charOffset": 42
+						"startMs": 2866,
+						"endMs": 5052,
+						"charOffset": 37
 					}
 				],
-				"durationMs": 4798
+				"durationMs": 5052
 			}
 		}
 	]

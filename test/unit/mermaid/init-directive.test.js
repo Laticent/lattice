@@ -16,6 +16,8 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs     = require('fs');
 const path   = require('path');
+const { charReads } = require('../../helpers/work-count');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 const {
   readAuthorInit,
@@ -94,6 +96,13 @@ describe('mermaid init-directive: readAuthorInit', () => {
     assert.equal({}.theme, undefined, 'Object.prototype is clean');
   });
 
+  test('a theme pinned inside a diagram section is a pin (Mermaid 12 reads it first)', () => {
+    assert.equal(authorPinsTheme('%%{init: {"flowchart": {"theme": "forest"}}}%%\nflowchart TB'), true);
+    assert.equal(authorPinsTheme('%%{init: {"flowchart": {"theme": "base"}}}%%\nflowchart TB'), false, 'base is the engine\'s own theme');
+    assert.equal(authorPinsTheme('%%{init: {"flowchart": {"theme": "Forest"}}}%%\nflowchart TB'), false, 'an unresolvable name is not a pin');
+    assert.equal(authorPinsTheme('%%{init: {"flowchart": {"curve": "linear"}}}%%\nflowchart TB'), false);
+  });
+
   test('`constructor` and `prototype` payload keys are dropped too', () => {
     assert.deepEqual(readAuthorInit('%%{init: {"constructor": {"x": 1}, "theme": "base"}}%%').config,
       { theme: 'base' });
@@ -113,11 +122,12 @@ describe('mermaid init-directive: readAuthorInit', () => {
       'bare openers':      '%%{'.repeat(N),
       'openers + payload': `${'%%{init:'.repeat(N)}{"theme":"forest"}}%%`,
     };
+    // Work, not milliseconds (HARD RULE #32): every regex it runs is linear, and the walk touches each character a
+    // bounded number of times (1 to 6 today). A walk that searched for the terminator from every opener reads tens of
+    // thousands per character here.
     for (const [name, input] of Object.entries(hostile)) {
-      const started = Date.now();
-      readAuthorInit(input);
-      const elapsed = Date.now() - started;
-      assert.ok(elapsed < 1000, `${name}: expected a linear scan, took ${elapsed}ms`);
+      const { reads, scanned } = charReads(() => assertLinearRegexes(() => readAuthorInit(input)));
+      assert.ok(reads + scanned <= 16 * input.length, `${name}: expected a linear scan, read ${reads + scanned} characters for ${input.length}`);
     }
   });
 

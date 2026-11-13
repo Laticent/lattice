@@ -110,6 +110,17 @@
   display: block;
 }
 
+/* ON THE CHART FORM KERNEL (a phone page, `data-chart-form`) the drawing is laid out in its box: `fit` is the box's
+ * own shape, and `over` is a chart no form holds at its role sizes, drawn whole and taller on purpose. Both fill the
+ * body and the viewBox meets it, so an `over` drawing is scaled into its box (the owner's call, chart-form.md § 10)
+ * rather than overflowing it: the overflow rule above is for the fixed landscape canvas, whose oversize the engine
+ * reports. */
+.gantt-chart .gantt-svg[data-chart-form] {
+  height: 100%;
+  flex-shrink: 1;
+  min-height: 0;
+}
+
 /* ── Axis ─────────────────────────────────────────────────────────────────── */
 :is(section.gantt, figure.gantt) .gantt-tick {
   fill: var(--text-label);

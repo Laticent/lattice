@@ -26,7 +26,7 @@ import { VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
 import { THINKING } from './chat-status';
 import { boundTrace } from './chat-trace';
 import type { FitScope } from './draft-fit';
-import { describeModelError } from './model-error';
+import { describeModelError, MODEL_ERROR } from './model-error';
 import { boundedCatalog, priceRound, resolvePictureTokens } from './picture-tokens';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
 import type { ChatTrace } from './studio-store';
@@ -387,7 +387,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// as an empty reply. Say what happened instead.
 			const msg = String((e as { message?: string })?.message ?? e ?? '');
 			if (isToolRefusal(msg)) return null;
-			return { status: 'blocked', reply: describeModelError(msg) };
+			return { status: 'blocked', reply: describeModelError(msg, model.activeProvider?.()) };
 		}
 		else {
 			// A failure after a finished round. A status from OpenRouter (a 429 between rounds
@@ -395,7 +395,7 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// connection, with the error's own words when it was not the network.
 			reply = soFar();
 			const msg = String((e as { message?: string })?.message ?? e ?? '');
-			if (/OpenRouter error \d{3}/.test(msg)) notes.push(`This turn stopped partway. ${describeModelError(msg)}`);
+			if (MODEL_ERROR.test(msg)) notes.push(`This turn stopped partway. ${describeModelError(msg)}`);
 			else if (!msg || /fetch|network|load failed/i.test(msg)) notes.push('The model connection dropped partway through this turn.');
 			else notes.push(`This turn stopped partway with an error: ${msg.slice(0, 140)}`);
 		}
@@ -557,9 +557,11 @@ export function isToolRefusal(message: string): boolean {
 	// The status is anchored to the transport's prefix, and the refusal named by its own
 	// words: a context-length 400 mentions "tool input" in its token breakdown, and matching
 	// a bare "tool" sent it down the one-shot path, which overflowed too and said nothing.
-	if (!/^OpenRouter error (400|404)\b/.test(message)) return false;
+	if (!/^(?:OpenRouter|OpenAI|Anthropic|Gemini) error (400|404)\b/.test(message)) return false;
 	if (/context length|maximum context|too many tokens/i.test(message)) return false;
-	return /support tool|tool use|tool_choice|tool calling|requested parameters/i.test(message);
+	// OpenAI's reasoning models refuse function tools on /chat/completions outright: "Function tools
+	// with reasoning_effort are not supported for gpt-6.1-terra" (live check, 2026-11-08).
+	return /support tool|tool use|tool_choice|tool calling|requested parameters|function tools?\b[^.]*not supported/i.test(message);
 }
 
 // `describeModelError` moved to `./model-error` so the theme and component faculties in

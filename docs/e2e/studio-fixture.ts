@@ -506,10 +506,22 @@ export function addedNote(page: Page): Locator {
 
 /** Run one of the slide menu's actions on the current slide (components/studio/strip-actions), through the ⋯ beside it in whichever
  *  strip is on screen: the pills or the slide map. `id` is the item's `data-strip-action`. */
-export async function stripAction(page: Page, id: 'new-after' | 'new-before' | 'duplicate' | 'move-earlier' | 'move-later' | 'delete'): Promise<void> {
-	// A tap on the slide that is already current opens the menu too, so it may be open already; the ⋯ would close it.
-	if (!(await page.locator('[data-strip-menu-content]').isVisible())) await page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first().click();
-	await page.locator(`[data-strip-menu-content] [data-strip-action="${id}"]`).click();
+export async function stripAction(page: Page, id: 'new-after' | 'new-before' | 'duplicate' | 'move-before' | 'move-after' | 'hide' | 'delete'): Promise<void> {
+	await openStripMenu(page);
+	await page.locator(`[data-strip-menu-content][data-state="open"] [data-strip-action="${id}"]`).click();
+}
+
+/** Open the slide menu through the ⋯ of whichever strip is on screen, unless it is open already.
+ *  A tap on the slide that is already current opens the menu too, and the ⋯ would then close it. Read
+ *  the ⋯'s `aria-expanded`, not the menu's visibility: a menu playing its exit animation is still
+ *  visible, and a menu whose lazy chunk has not landed is not, so visibility misreads both (the
+ *  checker on #3150). */
+export async function openStripMenu(page: Page): Promise<void> {
+	const trigger = page.locator('[data-strip]').filter({ visible: true }).getByRole('button', { name: 'Slide actions' }).first();
+	await expect(trigger).toBeVisible();
+	if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
+	await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+	await expect(page.locator('[data-strip-menu-content][data-state="open"]')).toBeVisible();
 }
 
 /** What a strip action said, on the strip with its Undo (2026-10-27-slide-structure-strip.md §7), not in a toast. */
@@ -536,11 +548,16 @@ export async function gotoStudio(page: Page): Promise<void> {
 	// without this the 'Toggle Coach' / 'Toggle Chat' / 'Deck scope' launchers wouldn't exist.
 	// (2026-07-17-studio-persona-dial.md; the newcomer Read/Write surfaces get their
 	// own dedicated specs.) The runtime read is loadSettings().posture.
-	await page.addInitScript(() => {
+	// The `compose-default` project stores no mode, so the Studio opens in Compose as it ships (see `toSourceIfCompose`).
+	const storeSource = base.info().project.name !== COMPOSE_DEFAULT_PROJECT;
+	await page.addInitScript((source) => {
 		try {
 			const k = 'lattice-studio-settings';
 			const cur = JSON.parse(localStorage.getItem(k) || '{}');
-			localStorage.setItem(k, JSON.stringify({ ...cur, posture: 'craft' }));
+			// SOURCE, not the shipped Compose default (2026-11-10-compose-first.md): the editor helpers below type into the
+			// Markdown editor, and the suite was written against it. A spec that is about Compose clicks into it as
+			// before; `compose-first.spec.ts` pins the real default. An explicit `editMode` already stored wins.
+			localStorage.setItem(k, JSON.stringify({ ...(source ? { editMode: 'source' } : {}), ...cur, posture: 'craft' }));
 			// The settings panels open on the BASIC tier for a real first visit (a short list,
 			// no section strip). Specs address controls by section, so they get ADVANCED —
 			// the full panel they were written against. Basic's own contract is pinned in
@@ -550,7 +567,7 @@ export async function gotoStudio(page: Page): Promise<void> {
 		} catch {
 			/* storage unavailable — the app falls back to its default */
 		}
-	});
+	}, storeSource);
 	// On a desktop (fine-pointer) project, pressing Play starts the on-device voice's ~80 MB
 	// download in the background (the desktop default — voice-model.js › summonDefaultVoice).
 	// Refuse to construct its worker, so a spec never pulls kokoro-js and the model weights over
@@ -571,8 +588,74 @@ export async function gotoStudio(page: Page): Promise<void> {
 			}
 		};
 	});
+	// Record the selection each `selectionchange` delivered, so `caretSettled` can tell whether one is
+	// still on its way. Passive: it only reads the selection. It keeps the NODES, not a description of
+	// them: "Line one" and "Line two" are both 8 characters, so a name-and-length key read a caret moved
+	// between them as already delivered (the checker on #3150, compose-soft-break).
+	await page.addInitScript(() => {
+		type Caret = [Node | null, number, Node | null, number] | null;
+		const w = window as unknown as { __latticeDeliveredCaret?: Caret };
+		const snap = (): Caret => {
+			const s = document.getSelection();
+			return s ? [s.anchorNode, s.anchorOffset, s.focusNode, s.focusOffset] : null;
+		};
+		w.__latticeDeliveredCaret = snap();
+		document.addEventListener('selectionchange', () => {
+			w.__latticeDeliveredCaret = snap();
+		});
+	});
 	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
 	await waitForStudioPaint(page);
+}
+
+/**
+ * Wait until the page has DELIVERED the `selectionchange` for the caret's current place.
+ *
+ * ProseMirror (Compose) learns where a click or a native caret key put the caret ONLY from
+ * `selectionchange`, which Chromium fires as a queued task. Chromium runs input ahead of queued
+ * tasks, so a key pressed straight after a click or a native arrow can reach ProseMirror's keymap
+ * while its state still holds the OLD caret: measured in the cloud sandbox, a click landed in a fence
+ * at 460 ms, its `selectionchange` at 469 ms, and a Tab sent in between ran against the heading the
+ * caret had left, so Tab moved focus out of the editor. A human cannot type inside that gap; a test can.
+ *
+ * The signal: the selection the last delivered event saw is the selection now, the same nodes at the
+ * same offsets. A caret move that has not been delivered yet makes them differ until it is. Needs
+ * `gotoStudio`'s recorder. A press that moves nothing reads as settled at once, which is right.
+ */
+export async function caretSettled(page: Page): Promise<void> {
+	await expect
+		.poll(() =>
+			page.evaluate(() => {
+				const s = document.getSelection();
+				if (!s) return true;
+				const d = (window as unknown as { __latticeDeliveredCaret?: [Node | null, number, Node | null, number] | null }).__latticeDeliveredCaret;
+				return !!d && d[0] === s.anchorNode && d[1] === s.anchorOffset && d[2] === s.focusNode && d[3] === s.focusOffset;
+			}),
+		)
+		.toBe(true);
+}
+
+/**
+ * Wait until ProseMirror has run the check it schedules when the editor GAINS focus.
+ *
+ * prosemirror-view's `focus` handler starts a 20 ms timer; when it fires, if the selection ProseMirror last read
+ * differs from the DOM's, it writes its OWN selection back to the DOM. A key that moves the caret natively inside
+ * that window, before its `selectionchange` is read, is undone: the first ArrowRight after a click and Home left
+ * the caret at offset 0 in 1 of 24 bare runs (#3150; listeners slowed the test past 20 ms and hid it). No person
+ * presses a key within 20 ms of the click that focused the editor; a test does.
+ *
+ * The wait is an ORDER, not a guess at a duration: timers with the same delay run in the order they were started
+ * (HTML, "timer initialization steps"), so a 20 ms timer started after the focus runs after ProseMirror's.
+ * Call it after the click that focuses the editor, before native caret keys.
+ */
+export async function editorFocusSettled(page: Page): Promise<void> {
+	await page.evaluate(() => new Promise<void>((done) => setTimeout(done, 20))); // flaky-ok: runs after ProseMirror's 20 ms focus timer (same-delay timers fire in start order)
+}
+
+/** Press a key and wait until the caret move it caused (if any) has reached the page's listeners. */
+export async function pressSettled(page: Page, key: string): Promise<void> {
+	await page.keyboard.press(key);
+	await caretSettled(page);
 }
 
 /**
@@ -798,8 +881,24 @@ export async function openSection(page: Page, name: string): Promise<void> {
 
 /** Focus the CodeMirror editor (the `.cm-content` carries aria-label "Deck source"). */
 async function focusEditor(page: Page): Promise<void> {
+	await toSourceIfCompose(page);
 	await page.getByLabel('Deck source').click();
 }
+
+/**
+ * The `compose-default` project boots in Compose, the shipped default (playwright.config.ts), and the helpers here type
+ * Markdown: they open Source first when Compose is the mode on screen. Every other project stores Source, so this does
+ * nothing there.
+ */
+export async function toSourceIfCompose(page: Page): Promise<void> {
+	if (base.info().project.name !== COMPOSE_DEFAULT_PROJECT) return;
+	if (await page.getByLabel('Deck source').isVisible()) return;
+	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+	await expect(page.getByLabel('Deck source')).toBeVisible();
+}
+
+/** The project that runs a core set of Studio specs in the shipped default mode, Compose (playwright.config.ts). */
+export const COMPOSE_DEFAULT_PROJECT = 'compose-default';
 
 /** Move the caret to the end of the editor document and type an appended block. */
 export async function appendToEditor(page: Page, text: string): Promise<void> {
@@ -885,11 +984,108 @@ async function selectAllInEditor(page: Page): Promise<void> {
  * (list auto-continuation) would rewrite a multi-line deck typed key-by-key —
  * `---` separators land inside auto-continued bullets and slides merge.
  */
-export async function setEditorContent(page: Page, text: string): Promise<void> {
+export async function setEditorContent(page: Page, text: string, opts: { timeout?: number } = {}): Promise<void> {
 	await focusEditor(page);
 	await selectAllInEditor(page);
 	await page.keyboard.press('Delete');
+	// The select-all and the Delete are two events, and a source write that lands between them (a
+	// boot-time hydration, a mapped selection) collapses the selection, so the Delete removes one
+	// character and the deck below goes in at the caret, inside the old one (seen on webkit-phone at
+	// 4 workers: the welcome deck's first 13 lines, then the test deck, then the rest of the welcome
+	// deck). Wait for the signal that matters, an empty document, before inserting.
+	await expect
+		.poll(() => deckEditorLength(page), { message: 'setEditorContent: the Delete after select-all left text behind (a late write collapsed the selection)' })
+		.toBe(0);
 	await page.keyboard.insertText(text);
+	// And prove the result: a deck that is not exactly `text` fails here, at the helper, instead of
+	// as a confusing assertion three steps later in the spec (HARD RULE #33). The poll compares a
+	// fingerprint the page computes, not the text itself: a deck with inline phone photos is 14 MB,
+	// and copying it out of the browser on every poll took up to 10 s a read, so one slow read under
+	// CI load outlasted the poll (export-photo-size.spec.ts, studio-smoke on #3161). That cut the
+	// cost of a read to about 0.1 s, but not the wait: after a 14 MB insert the Studio holds the main
+	// thread for about 16 s, and no read answers until it lets go. A spec that loads a deck that heavy
+	// says so with `timeout`; every other deck keeps the 15 s default, so a mix still fails fast.
+	await expect
+		.poll(() => deckEditorFingerprint(page), { message: 'setEditorContent: the editor does not hold exactly the deck it was given', timeout: opts.timeout })
+		.toEqual(fingerprint(text));
+}
+
+/** How the deck check folds line breaks, on BOTH sides, so it asks "is this the deck?" and not "did each
+ *  engine type every line-break byte the same way?". They do not. `page.keyboard.insertText`, measured on
+ *  read-article-beacons.spec.ts's payloads:
+ *
+ *    typed   Chromium  WebKit  Firefox
+ *    \r\n    \n\n      \n\n    \n
+ *    \r      \n        \n      \n
+ *    \f      kept      kept    dropped
+ *
+ *  CodeMirror then stores every break as `\n`, and Editor.tsx strips a leading BOM. The fold deletes the
+ *  characters an engine may drop (`EDITOR_DROP`) and turns every run of `\r`/`\n` into one `\n`
+ *  (`EDITOR_BREAKS`), which matches every row above. What it does NOT check: a run's length, so a lost or
+ *  extra blank line passes. Two lines merged into one, a mixed deck and a truncated one all still fail. */
+export const EDITOR_DROP = /[\f\v\u0085\u2028\u2029]/g;
+export const EDITOR_BREAKS = /[\r\n]+/g;
+
+/** A deck's length and its 32-bit FNV-1a hash over UTF-16 code units, after a leading BOM is stripped and
+ *  line breaks are folded (`EDITOR_DROP`, `EDITOR_BREAKS`). `deckEditorFingerprint` runs the same fold and
+ *  loop inside the page; keep the two identical, or every `setEditorContent` fails. */
+export function fingerprint(raw: string): { length: number; hash: number } {
+	const text = (raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw).replace(EDITOR_DROP, '').replace(EDITOR_BREAKS, '\n');
+	let h = 0x811c9dc5;
+	for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+	return { length: text.length, hash: h >>> 0 };
+}
+
+/** The editor document's raw length, line breaks included: the empty check before an insert must not pass
+ *  with blank lines left behind, because a deck typed below them loses its front matter. */
+export function deckEditorLength(page: Page): Promise<number | null> {
+	return page.evaluate(() => {
+		const el = document.querySelector('[aria-label="Deck source"]');
+		if (!el) return null;
+		if (el instanceof HTMLTextAreaElement) return el.value.length;
+		// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle (as demo-mobile.spec.ts does).
+		const handle = el as any;
+		const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view ?? null;
+		return view ? view.state.doc.length : null;
+	});
+}
+
+/** The editor document's `fingerprint`, computed in the page so only two numbers cross the protocol. */
+export function deckEditorFingerprint(page: Page): Promise<{ length: number; hash: number } | null> {
+	return page.evaluate(([drop, breaks]) => {
+		const el = document.querySelector('[aria-label="Deck source"]');
+		if (!el) return null;
+		let text: string | null = null;
+		if (el instanceof HTMLTextAreaElement) text = el.value;
+		else {
+			// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle (as demo-mobile.spec.ts does).
+			const handle = el as any;
+			const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view ?? null;
+			text = view ? view.state.doc.toString() : null;
+		}
+		if (text === null) return null;
+		text = (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text).replace(new RegExp(drop, 'g'), '').replace(new RegExp(breaks, 'g'), '\n');
+		let h = 0x811c9dc5;
+		for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+		return { length: text.length, hash: h >>> 0 };
+	}, [EDITOR_DROP.source, EDITOR_BREAKS.source]);
+}
+
+/**
+ * The deck editor's WHOLE document. CodeMirror virtualizes long documents (the rendered text is
+ * only the visible lines), so read its state through the view the content node carries; the plain
+ * `<textarea>` fallback reports `value`. Null when the deck editor is not on the page.
+ */
+export function deckEditorText(page: Page): Promise<string | null> {
+	return page.evaluate(() => {
+		const el = document.querySelector('[aria-label="Deck source"]');
+		if (!el) return null;
+		if (el instanceof HTMLTextAreaElement) return el.value;
+		// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle (as demo-mobile.spec.ts does).
+		const handle = el as any;
+		const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view ?? null;
+		return view ? view.state.doc.toString() : null;
+	});
 }
 
 /** Below 700px the Studio shows one pane at a time (docs/src/lib/use-breakpoint.ts): the
@@ -1002,3 +1198,34 @@ export function checkpointLabels(page: Page): Promise<string[]> {
 
 export const test = base;
 export { expect };
+
+// ACCEPT THE MENU THE WAY CODEMIRROR WILL TAKE IT. `acceptCompletion` returns false, and leaves the key to
+// the next binding, in two windows: within `interactionDelay` (75 ms, CodeMirror's default, which the Studio
+// keeps) of the menu first opening, and while a source is still pending (the menu then carries
+// `cm-tooltip-autocomplete-disabled` but keeps its options and its `aria-selected`). The Enter then reaches
+// the Markdown keymap, which continues the list: `- te` became `- te` plus a new `- ` line, the failure four
+// unrelated PRs hit (followups.d/2649-p3), and progress-rail-controls.spec.ts hit it again. It happened
+// whenever the assertions before the Enter all passed on their first poll, which is a matter of when the
+// menu happened to appear. So the helper records
+// when the menu opened, from the page, and polls until it is older than the delay and enabled.
+const CM_INTERACTION_DELAY_MS = 75;
+
+export async function watchMenuOpen(page: Page) {
+	await page.evaluate(() => {
+		const w = window as unknown as { __cmMenuAt?: number };
+		w.__cmMenuAt = document.querySelector('.cm-tooltip-autocomplete') ? Date.now() : undefined;
+		new MutationObserver(() => {
+			const open = !!document.querySelector('.cm-tooltip-autocomplete');
+			if (open && w.__cmMenuAt === undefined) w.__cmMenuAt = Date.now();
+			if (!open) w.__cmMenuAt = undefined;
+		}).observe(document.body, { childList: true, subtree: true });
+	});
+}
+
+export async function acceptCompletion(page: Page) {
+	await expect(page.locator('.cm-tooltip-autocomplete')).not.toHaveClass(/cm-tooltip-autocomplete-disabled/);
+	await expect
+		.poll(() => page.evaluate(() => Date.now() - ((window as unknown as { __cmMenuAt?: number }).__cmMenuAt ?? Date.now())))
+		.toBeGreaterThan(CM_INTERACTION_DELAY_MS + 25);
+	await page.keyboard.press('Enter');
+}

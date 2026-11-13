@@ -65,7 +65,9 @@ jobs:
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install poppler-utils + ImageMagick + color emoji font
         # The same set as ci.yml's golden-diff job, so the bot blesses what PRs render.
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick fonts-noto-color-emoji
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: poppler-utils imagemagick fonts-noto-color-emoji
       - name: Allow ImageMagick PDF coder (for the drift montages)
         run: sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
       - run: npm ci
@@ -116,10 +118,11 @@ jobs:
             if [ -n "$OPEN" ]; then
               gh pr close "$BLESS_BRANCH" --comment "Closed by the Golden bless workflow: tonight no golden drifted on \`main\`, so this PR's PDFs are out of date."
             fi
-            # A golden that could not be rendered for the first time (golden-bless.mjs writes
-            # failed.txt) turns the night red, after the rest of the bless has landed.
+            # A golden that could not be rendered or re-blessed, or a showcase WebP that could not
+            # be refreshed (golden-bless.mjs writes failed.txt), turns the night red, after the
+            # rest of the bless has landed.
             if [ -s .scratch/golden-bless/failed.txt ]; then
-              echo "::error::golden-bless: $(wc -l < .scratch/golden-bless/failed.txt) golden(s) could not be rendered; see the verdict."
+              echo "::error::golden-bless: $(wc -l < .scratch/golden-bless/failed.txt) golden(s) or showcase WebP(s) could not be rendered or re-blessed; see the verdict."
               cat .scratch/golden-bless/failed.txt
               exit 1
             fi
@@ -169,10 +172,11 @@ jobs:
             gh pr comment "$BLESS_BRANCH" --body-file .scratch/golden-bless/verdict.md
           fi
 
-          # A golden that could not be rendered for the first time (golden-bless.mjs writes
-          # failed.txt) turns the night red, after the rest of the bless has landed.
+          # A golden that could not be rendered or re-blessed, or a showcase WebP that could not
+          # be refreshed (golden-bless.mjs writes failed.txt), turns the night red, after the
+          # rest of the bless has landed.
           if [ -s .scratch/golden-bless/failed.txt ]; then
-            echo "::error::golden-bless: $(wc -l < .scratch/golden-bless/failed.txt) golden(s) could not be rendered; see the verdict."
+            echo "::error::golden-bless: $(wc -l < .scratch/golden-bless/failed.txt) golden(s) or showcase WebP(s) could not be rendered or re-blessed; see the verdict."
             cat .scratch/golden-bless/failed.txt
             exit 1
           fi

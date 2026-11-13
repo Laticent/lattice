@@ -174,12 +174,12 @@ describe('wait-for — run mode', () => {
     assert.match(err, /distinctive-failure-line/);
   });
 
-  // The core property: a wait cannot outlive its deadline.
+  // The core property: a wait cannot outlive its deadline. 124 is timeout(1)'s own code for "the deadline fired and
+  // TERM stopped it": a `sleep 60` that ran to completion exits 0, and one that outran `run`'s 60 s guard has no status
+  // at all. So the code alone says the deadline stopped it, with no stopwatch (HARD RULE #32).
   test('kills a command that overruns the deadline, with timeout\'s 124', () => {
-    const started = Date.now();
     const { code } = run(['--job', jobName('slow'), '--timeout', '2', '--', 'sleep', '60']);
-    assert.equal(code, 124);
-    assert.ok(Date.now() - started < 30_000, 'must die at its deadline, not run to completion');
+    assert.equal(code, 124, 'must die at its deadline, not run to completion');
   });
 });
 
@@ -194,12 +194,12 @@ describe('wait-for — poll mode', () => {
   // returning false. Before each probe was individually bounded, an `--until
   // 'sleep 300'` against a 3s deadline ran for a full 2 minutes -- the very
   // unbounded wait this tool exists to prevent, reintroduced inside it.
+  // Signals, not a stopwatch (HARD RULE #32): the wait gives up with its own deadline message and exit 1. An unbounded
+  // probe would block for the full 300 s, and `run`'s 60 s guard would kill it with no status, so that fails here.
   test('kills a predicate that blocks, instead of sailing past the deadline', () => {
-    const started = Date.now();
-    const { code } = run(['--job', jobName('block'), '--timeout', '3', '--interval', '1', '--until', 'sleep 300']);
-    const elapsed = Date.now() - started;
-    assert.equal(code, 1);
-    assert.ok(elapsed < 20_000, `must stop near its 3s deadline, took ${elapsed}ms`);
+    const { code, err } = run(['--job', jobName('block'), '--timeout', '3', '--interval', '1', '--until', 'sleep 300']);
+    assert.equal(code, 1, `must stop at its 3 s deadline: ${err}`);
+    assert.match(err, /never became true within 3s/);
   });
 
   test('gives up at the deadline and blames the predicate, not the job', () => {
@@ -244,36 +244,43 @@ describe('wait-for — a signal actually stops the wait', () => {
   // foreground, so a TERM sat behind it. Measured before the fix -- TERM at
   // t=2s on `--until 'sleep 300'` left the process alive and the lock held 30s
   // later, and a large --timeout stretches that to the full deadline.
-  test('SIGTERM stops a POLL-mode wait too, not just run mode', () => {
+  // Signals, not a stopwatch (HARD RULE #32). The waiter must EXIT on the TERM, and its lock must go with it. The
+  // job and the probe both run 300 s, so a waiter that deferred the TERM behind them (the bug) is still alive when the
+  // 60 s hang guard fires; a waiter that honors it exits at once. The guard only turns a hang into a failure.
+  const exitsOnTerm = async (holder) => {
+    const exited = new Promise((resolve) => holder.once('exit', (code, signal) => resolve({ code, signal })));
+    let guard;
+    const hung = new Promise((resolve) => { guard = setTimeout(() => resolve('still running 60 s after the TERM'), 60_000); });
+    process.kill(holder.pid, 'SIGTERM');
+    const result = await Promise.race([exited, hung]);
+    clearTimeout(guard);
+    return result;
+  };
+
+  test('SIGTERM stops a POLL-mode wait too, not just run mode', async () => {
     const job = jobName('pollterm');
     const holder = spawn(SCRIPT,
-      ['--job', job, '--timeout', '120', '--interval', '1', '--until', 'sleep 300'],
+      ['--job', job, '--timeout', '600', '--interval', '1', '--until', 'sleep 300'],
       { cwd: REPO, stdio: 'ignore', detached: true });
     assert.ok(until(() => holds(job, holder.pid)), 'poll waiter never claimed the lock');
-
-    const started = Date.now();
-    process.kill(holder.pid, 'SIGTERM');
-    const stopped = until(() => !lockHeld(job), 15_000);
-    const elapsed = Date.now() - started;
-    reap(holder);
-
-    assert.ok(stopped, 'poll-mode wait ignored SIGTERM and kept its lock');
-    assert.ok(elapsed < 12_000, `should stop on the signal, took ${elapsed}ms`);
+    try {
+      assert.notEqual(await exitsOnTerm(holder), 'still running 60 s after the TERM', 'poll-mode wait ignored SIGTERM');
+      assert.ok(until(() => !lockHeld(job), 60_000), 'poll-mode wait exited on SIGTERM but its lock stayed held');
+    } finally {
+      reap(holder);
+    }
   });
 
-  test('SIGTERM stops it promptly and releases the lock', () => {
+  test('SIGTERM stops it promptly and releases the lock', async () => {
     const job = jobName('term');
-    const holder = spawnHolder(job, 20);
+    const holder = spawnHolder(job, 300);
     assert.ok(until(() => holds(job, holder.pid)), 'holder never claimed the lock');
-
-    const started = Date.now();
-    process.kill(holder.pid, 'SIGTERM');
-    const stopped = until(() => !lockHeld(job), 10_000);
-    const elapsed = Date.now() - started;
-    reap(holder);
-
-    assert.ok(stopped, 'lock was never released after SIGTERM');
-    assert.ok(elapsed < 8_000, `should stop on the signal, took ${elapsed}ms`);
+    try {
+      assert.notEqual(await exitsOnTerm(holder), 'still running 60 s after the TERM', 'run-mode wait ignored SIGTERM');
+      assert.ok(until(() => !lockHeld(job), 60_000), 'lock was never released after SIGTERM');
+    } finally {
+      reap(holder);
+    }
   });
 });
 
@@ -443,6 +450,8 @@ describe('wait-for — the lock is the kernel\'s, not ours', () => {
 // This does NOT verify macOS. It verifies the mechanism the macOS path uses.
 // The platform itself stays UNVERIFIED from a Linux sandbox (HARD RULE #23).
 for (const impl of ['flock', 'perl']) {
+  // ci-skip: stock macOS has no flock(1); the macOS suite (.github/platform-suites.json `wait-for-macos`) runs the perl
+  // lock instead, and the Linux unit job has flock, so it runs both.
   describe(`wait-for — the lock via ${impl}`, { skip: impl === 'flock' && !HAS_FLOCK && 'no flock(1) on this box (stock macOS)' }, () => {
     test('refuses a second waiter while the job is held', () => {
       const job = jobName(`impl-${impl}`);

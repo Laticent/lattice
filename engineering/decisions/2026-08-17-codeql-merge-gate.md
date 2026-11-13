@@ -6,8 +6,9 @@ summary: >
   merge and the only thing between a high-severity alert and `main` is a human
   noticing. #1699 made the CI beacon stop overclaiming, which is the mitigation,
   not the fix; the fix is an admin settings change only the repo owner can make,
-  and it carries a merge-queue interaction that has to be proven on one PR
-  before it is trusted.
+  and it carries a merge-queue interaction. Settled 2026-11-08: CodeQL never
+  runs on a merge-group ref, so the owner chose to require it on the PR only
+  (§Settled); the ruleset edit is still theirs.
 ---
 
 # Does CodeQL gate the merge queue? No — and the fix is not ours to apply
@@ -197,6 +198,51 @@ merging anything at all. So: make the change, put **one** small PR through the
 full path, and watch it reach `main`. If it stalls, revert the ruleset edit
 first and treat "how does code scanning report into a merge queue" as its own
 question — most likely the advanced-setup decision deliberately deferred above.
+
+## Settled 2026-11-08: default setup never runs on the merge group, so the gate goes on the PR only
+
+**The owner's decision (2026-11-08): require `CodeQL` on the pull request only, never in "Main
+Merge Queue".** The ruleset edit is still the owner's to make; this note records the choice and
+the evidence behind it.
+
+**What was measured.** Default-setup CodeQL runs with the internal `dynamic` event in two forms only:
+"PR …" on a pull request and "Push on main" after a merge. It never runs on a `gh-readonly-queue/…`
+ref. The clean test is a queue commit that was ejected, because it never reached `main`. Four
+such commits (`2acefe7c`, `ef6eddea`, `0ff62e36`, `4f4da229`) carry 13 check runs each and no
+CodeQL or `Analyze (…)` run. Merged queue commits do show `Analyze (…)` runs, but every one is
+"Push on main": on `644f177b` that run (42421710642) started 28 s after the queue's `ci` finished.
+The GitHub Advanced Security `CodeQL` check (app 57789) posts only on PR heads. Requiring it in
+"Main Merge Queue" would park every entry until the queue's check timeout (120 minutes at the time
+of the measurement), then eject it, so nothing would merge.
+
+Measured CodeQL run time: PR runs median 4.0 min (n=28, 2.5–11.3); Push on main median 20.0 min
+(n=12, 14.6–21.9).
+
+| Option | Buys | Costs and risks |
+|---|---|---|
+| (a) Advanced `codeql.yml` on `pull_request` + `merge_group`, with its job required | Real enforcement inside the queue | We own the query suite and its upgrades, which this note deferred. A full scan adds about 20 min to the queue's critical path. Unproven whether GHAS posts its `CodeQL` verdict on a merge-group ref or only the job's success. |
+| **(b) Require GHAS `CodeQL` on the PR only — CHOSEN** | Blocks a red alert before a PR can be queued, adds no queue time, keeps default setup | Code that only two PRs combine in the queue goes unscanned until Push on main, which still runs after merge. |
+| (c) No gate (the state before) | Zero cost | The human authorizing the merge is the only control; the evidence above shows that once worked and nearly failed. |
+
+**How to apply (b), for the owner: the code-scanning rule, NOT a required status check.** GitHub
+has a ruleset rule built for this, "Require code scanning results" (code scanning merge
+protection). GitHub's docs say it "will not apply to merge queue groups", and that it is not a
+status check, so it gates the pull request without ever waiting on a `gh-readonly-queue/…` ref
+(https://docs.github.com/en/code-security/code-scanning/managing-your-code-scanning-configuration/set-code-scanning-merge-protection).
+A required status check named `CodeQL` is the wrong tool: a branch's required checks are also
+expected on the merge group, which is the deadlock measured above.
+
+Steps: Settings → Rules → Rulesets → New ruleset → New branch ruleset. Name it (e.g. "Code
+scanning on PRs"), set Enforcement to Active, target the default branch, tick "Require code
+scanning results", add the tool `CodeQL` with Alerts "Errors" and Security alerts "High or
+higher", and create it. Leave "Main Merge Queue" as it is (`ci` only). Then watch one small PR
+through the full path: the PR should be blocked by a new high alert, and the queue should not
+wait on CodeQL.
+
+**Deferred by the owner, 2026-11-08:** not switched on yet, to avoid handling its fallout now.
+The setup and the expected fallout are in `followups.d/1928-p2-enable-codeql-pr-gate.md`.
+
+(a) stays open as its own decision, on the query suite's merits.
 
 ## If the owner declines — what stays true
 

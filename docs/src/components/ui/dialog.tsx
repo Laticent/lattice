@@ -31,6 +31,13 @@ function DialogClose({
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
+// THE OVERLAY LEAVES LAST. Radix portals the overlay and the box SEPARATELY, each kept mounted until its own exit
+// animation ends. The overlay's fade (150 ms) used to end before the box's zoom (`duration-200`), so a dialog opened
+// again inside that gap reused the box still on its way out and mounted a NEW overlay, appended to <body> after the
+// box: same z-index, later in the page, so the dimming sat ON the dialog and a click on its button closed it instead
+// (adding photos one after another, e2e/library-images-render.spec.ts). Exiting after the box keeps the order right in
+// every case: inside the gap both are reused, past it only the overlay is, and it is still the earlier node. Animations
+// on one document timeline end in the order of their end times, so this does not depend on the machine's speed.
 function DialogOverlay({
   className,
   ...props
@@ -39,7 +46,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+        "fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:fade-in-0",
         className
       )}
       {...props}
@@ -75,14 +82,26 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  alert = false,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  /** A confirmation whose text IS the question ("Delete everything? … It cannot be undone."):
+   *  `role="alertdialog"`, and its DialogDescription stays wired, so it is read when the dialog
+   *  opens. Only a button or two follow, so nothing is repeated at length. */
+  alert?: boolean
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
+        // NO DESCRIPTION ON THE DIALOG. On an iPhone, VoiceOver read a dialog's description again after every
+        // control inside it (owner, PR #3108: "Run a command or jump somewhere in the Studio" after each
+        // palette row). So a dialog is named, not described: a visible description stays on screen and is
+        // reached by swiping, but is not wired as the dialog's `aria-describedby`. A caller can still pass
+        // one; a confirmation (`alert`) keeps Radix's, because there the text IS the question.
+        // engineering/gotchas/studio-playground.md "A dialog's description is read after every control".
+        {...(alert ? { role: "alertdialog" } : { "aria-describedby": undefined })}
         data-slot="dialog-content"
         className={cn(
           // lx-ui carries the scoped reset (tailwind.css) into the Radix portal,
@@ -157,11 +176,8 @@ function DialogDescription({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
-  const persistentIds = usePersistentIds()
   return (
     <DialogPrimitive.Description
-      // Inside a PersistentSurface the dialog element is ours, so its label ids are too.
-      {...(persistentIds ? { id: persistentIds.descriptionId } : {})}
       data-slot="dialog-description"
       className={cn("text-sm text-muted-foreground", className)}
       {...props}

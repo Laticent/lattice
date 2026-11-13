@@ -19,7 +19,7 @@
 //   node scripts/perf-regression.mjs --report <dir> [--md out.md]   # measure-only, no gate
 //
 // Exit code: 0 = no regression (or report-only); 1 = at least one regression
-// (or a head score under the catastrophe floor). Other errors exit 2.
+// (or a head score that crossed the catastrophe floor). Other errors exit 2.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -29,7 +29,7 @@ import path from 'node:path';
 // floor, and a sub-noise wobble never trips.
 // A metric regresses when the head is worse than the base by MORE than BOTH its
 // tolerance (relative %, or absolute) AND its noise floor. `floor` (score only)
-// is an absolute catastrophe backstop independent of the delta.
+// is a catastrophe backstop that trips when head crosses it by more than the noise.
 //
 // THERE IS DELIBERATELY NO DETERMINISTIC CLASS HERE ANY MORE. `script-size` used to
 // be one, on the claim "bundle bytes; no runner/network noise", and it was not: it
@@ -48,7 +48,7 @@ const METRICS = {
 		higherIsBetter: true,
 		tolAbs: 0.05, // a drop > 0.05 from base is a regression
 		noiseAbs: 0.02, // ignore sub-0.02 wobble
-		floor: 0.5, // head below this is a regression regardless of delta
+		floor: 0.5, // base at or above, head below, by more than noiseAbs: a regression even inside tolAbs
 	},
 	'largest-contentful-paint': {
 		label: 'LCP',
@@ -161,17 +161,31 @@ function evaluate(metricId, base, head) {
 	const worseBy = cfg.higherIsBetter ? base - head : head - base;
 	if (worseBy <= 0) return { regressed: false }; // same or better — never a regression
 
-	// Catastrophe floor (score): head below the floor AND worse than base. Gated
-	// on `worseBy > 0` so a site parked below the floor doesn't file an issue
-	// every single night even on a no-op or improving day.
-	if (cfg.floor != null && head < cfg.floor) {
+	const noise = cfg.noiseAbs ?? 0;
+
+	// Catastrophe floor (score): trips only when head CROSSES it — base at or above the
+	// floor, head below it — by more than the noise band. A page that already sits under
+	// the floor (mobile /studio/ ~0.40, /playground/ ~0.45-0.50) used to file a regression
+	// for any drop at all, even 0.01, which is why issue #2085 was red most nights. A page
+	// parked below the floor still regresses through the ordinary tolerance check below.
+	// engineering/decisions/2026-11-08-docs-perf-nightly-diagnosis.md §2.
+	if (cfg.floor != null && base >= cfg.floor && head < cfg.floor && exceeds(worseBy, noise)) {
 		return { regressed: true, reason: `below floor ${cfg.floor}` };
 	}
 
-	const noise = cfg.noiseAbs ?? 0;
 	const tol = cfg.tolAbs != null ? cfg.tolAbs : (cfg.tolPct ?? 0) * Math.abs(base);
 	const threshold = Math.max(noise, tol);
-	return { regressed: worseBy > threshold, worseBy, threshold };
+	return { regressed: exceeds(worseBy, threshold), worseBy, threshold };
+}
+
+// "More than", with float noise taken out. Scores arrive rounded to two decimals, and
+// 0.5 - 0.48 is 0.020000000000000018 in JS: a bare `>` called that drop past a 0.02 band,
+// and 0.55 - 0.50 past a 0.05 tolerance while 0.45 - 0.40 (0.04999...) was not. A drop
+// exactly AT a band is inside it. The slack is far below any real metric step (0.01 score,
+// 1 ms, 0.001 CLS), so it changes no result except those edges.
+const EDGE = 1e-9;
+function exceeds(worseBy, band) {
+	return worseBy - band > EDGE;
 }
 
 function fmt(metricId, v) {

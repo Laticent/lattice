@@ -84,6 +84,7 @@ const HYDRATE_FILE = path.join(PLUGINS_DIR, 'hydrate.generated.js');
 const PASSES_FILE = path.join(PLUGINS_DIR, 'passes.generated.js');
 const STYLES_FILE = path.join(PLUGINS_DIR, 'styles.generated.js');
 const BAKE_FILE = path.join(PLUGINS_DIR, 'bake.generated.js');
+const SOURCE_FILE = path.join(PLUGINS_DIR, 'source.generated.js');
 const DRAWN_FILE = path.join(PLUGINS_DIR, 'drawn.generated.mjs');
 const DRAWN_LIBRARY_FILE = path.join(PLUGINS_DIR, 'drawn-library.generated.mjs');
 const DRAW_FRAME_LIBRARIES_FILE = path.join(PLUGINS_DIR, 'draw-frame-libraries.generated.mjs');
@@ -238,6 +239,10 @@ async function readExports(folder, name, manifest) {
   // its export and never imported by anything the engine or a browser loads.
   const bakePath = path.join(dir, `${name}.bake.js`);
   if (fs.existsSync(bakePath)) out.hasBake = typeof require(bakePath).bake === 'function';
+  // The source hook is ESM (the editor imports it as source); Node requires it synchronously, as it has no
+  // top-level await.
+  const sourcePath = path.join(dir, `${name}.source.mjs`);
+  if (fs.existsSync(sourcePath)) out.hasSource = typeof require(sourcePath).compileSource === 'function';
   // The dispatch (a plugin that offers an extension point) is read for its presence only: it loads
   // every filler, and the resolver's question is only whether the plugin's folder holds it.
   out.hasDispatch = fs.existsSync(path.join(dir, `${name}.dispatch.js`));
@@ -888,6 +893,23 @@ module.exports = { BAKERS };
 }
 
 /**
+ * The SOURCE HOOKS, in dependency order: what the engine runs over a deck's Markdown at entry, before admission and
+ * the parse (lib/engine/index.js `prepareSource`). Required eagerly: every render runs them, so every surface that
+ * renders bundles them. Only an embedded plugin may declare one (lib/plugins/resolve.js).
+ */
+function renderSource(ordered) {
+  const lines = ordered.filter((p) => p.manifest.contributes.source).map((p) => {
+    const m = p.manifest;
+    return `  Object.freeze({ name: ${JSON.stringify(m.name)}, compileSource: require('./${p.folder}/${m.name}.source.mjs').compileSource }),`;
+  });
+  return `${HEADER('The plugins\' SOURCE HOOKS, in dependency order: run over the deck at engine entry, before admission.')}
+const SOURCE_HOOKS = Object.freeze([${lines.length ? `\n${lines.join('\n')}\n` : ''}]);
+
+module.exports = { SOURCE_HOOKS };
+`;
+}
+
+/**
  * The plugins' stylesheets, in dependency order: what tools/build-css.js bundles into the plugin
  * slot of dist/lattice.css. Paths from the repo root, as build-css lists every other source.
  */
@@ -1051,6 +1073,9 @@ module.exports = { PLUGINS, COMPONENT_PLUGINS };
  * notes extractor and the editor read the same list instead of each keeping a copy.
  */
 function renderMeta(ordered) {
+  // The host's own registers (`finish`, `headline`, …) as record fields, each value with its class words
+  // (tools/lib/record-registers.js derives them from the resolvers, so the door reads data, not resolvers).
+  const { recordRegisters } = require('./lib/record-registers');
   const providers = ordered.filter((p) => p.manifest.contributes.meta);
   const fields = {};
   const markers = [];
@@ -1081,6 +1106,8 @@ export const META_MARKERS = ${freeze(markers)};
 export const META_COMMENTS = ${freeze(commentKeys)};
 
 export const META_REGISTERS = ${freeze(registers)};
+
+export const META_HOST_REGISTERS = ${freeze(recordRegisters().map(({ key, values }) => ({ key, values })))};
 `;
 }
 
@@ -1115,6 +1142,7 @@ async function build(opts = {}) {
       [PASSES_FILE, renderPasses(ordered)],
       [STYLES_FILE, renderStyles(ordered)],
       [BAKE_FILE, renderBake(ordered)],
+      [SOURCE_FILE, renderSource(ordered)],
       [DRAWN_FILE, renderDrawn(ordered)],
       [DRAWN_LIBRARY_FILE, renderDrawnLibrary(ordered)],
       [DRAW_FRAME_LIBRARIES_FILE, renderDrawFrameLibraries(ordered, exportsByName)],
@@ -1153,7 +1181,7 @@ async function main() {
     return;
   }
   for (const [file, text] of result.files) fs.writeFileSync(file, text);
-  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,drawn,drawn-library,draw-frame-libraries,draw-host-adapters,draw-shims,draw-kinds,draw-warm,extension-points,inline,services,dispatch,registers,data,data-probe,meta,detect,providers,lint}.generated.*\n`);
+  if (!silent) process.stdout.write(`plugin registry: ${result.count} plugin(s) → lib/plugins/{grammar,registry,blocks,hydrate,passes,styles,bake,source,drawn,drawn-library,draw-frame-libraries,draw-host-adapters,draw-shims,draw-kinds,draw-warm,extension-points,inline,services,dispatch,registers,data,data-probe,meta,detect,providers,lint}.generated.*\n`);
 }
 
 if (require.main === module) {

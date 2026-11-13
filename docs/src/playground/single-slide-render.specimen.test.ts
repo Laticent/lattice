@@ -175,7 +175,7 @@ describe('the specimen flag on the rendered frame (#1463)', () => {
 		const doc = await srcdocFor(undefined);
 		// Bare of the specimen flag. (`data-lattice-live-media` is on every on-screen frame: a loading
 		// picture paints there, lib/core/image-painting.js.)
-		expect(doc).toMatch(/^<!doctype html><html data-lattice-live-media>/);
+		expect(doc).toMatch(/^<!doctype html><html data-lattice-live-media data-lattice-preview>/);
 		expect(doc).not.toContain('data-lattice-specimen');
 	});
 

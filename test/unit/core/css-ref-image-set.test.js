@@ -8,6 +8,7 @@ const parser = require('../../../lib/core/css-ref.generated.js');
 const helpers = require('../../../lib/core/css-token-readers.js');
 
 const { imageSetBlock } = require('../../../lib/core/css-image-set-block.js');
+const { charReads } = require('../../helpers/work-count');
 const withFact = makeCssRefSpans(parser, helpers, { imageSet: imageSetBlock });
 const read = (css) => withFact(css).map((sp) => [sp.value, sp.imageSet]);
 
@@ -35,8 +36,12 @@ test('without the option the spans carry no imageSet field', () => {
 });
 
 test('a long run of functions reads in linear time', () => {
-  const css = 'a{b:image-set(type("t") "x"),calc(1px)}'.repeat(20000);
-  const t0 = performance.now();
-  withFact(css);
-  assert.ok(performance.now() - t0 < 2000, `took ${Math.round(performance.now() - t0)} ms`);
+  // Counted, not timed (HARD RULE #32). The reader, the generated parser and `imageSetBlock` are charCodeAt walkers, so
+  // the test counts every charCodeAt call. Linear reads each character about 2.8 times; a name check that reads from the
+  // start of the text instead of the skipped stretch (`k = 0` for `k = gap`) read 3,000 times per character here.
+  const css = 'a{b:image-set(type("t") "x"),calc(1px)}'.repeat(2000);
+  const { result, reads } = charReads(() => withFact(css));
+  assert.equal(result.length, 4000);
+  assert.ok(reads <= 6 * css.length, `${reads} character reads on ${css.length} characters`);
 });
+

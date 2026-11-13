@@ -1,7 +1,7 @@
 // THE SLIDE MENU itself: the ⋯ and the Radix menu it anchors (2026-10-27-slide-structure-strip.md §5). Loaded on
 // demand by `SlideMenuButton` in index.tsx, which is what the strips render.
 
-import { BetweenVerticalEnd, BetweenVerticalStart, MoreHorizontal } from 'lucide-react';
+import { BetweenVerticalEnd, BetweenVerticalStart, Eye, MoreHorizontal } from 'lucide-react';
 import * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -58,7 +58,10 @@ export function SlideMenuButton({ actions, at, className, inset }: { actions: St
 				align="start"
 				collisionPadding={8}
 				data-strip-menu-content=""
-				className="min-w-[13rem]"
+				// No exit animation, as the Insert menu (InsertControls.tsx): a closing menu stays mounted while it fades, and its
+				// press-outside watcher took the NEXT press on the ⋯ as outside and closed the menu that press had just opened.
+				// Traced on #3150: the ⋯ pressed 160 ms after a close opened the menu for 9 ms.
+				className="min-w-[13rem] data-[state=closed]:animate-none!"
 				// It closes on a pick, Escape, a press outside it, or a scroll the user starts, never because focus moved: a
 				// pick's editor focus can land a moment after the menu opens.
 				onFocusOutside={(e) => e.preventDefault()}
@@ -72,7 +75,8 @@ export function SlideMenuButton({ actions, at, className, inset }: { actions: St
 				}}
 			>
 				{items.map((it) => {
-					const Icon = icons[it.id];
+					// Hide slide draws the closed eye; on a hidden slide the item is Show slide and draws the open one.
+					const Icon = it.id === 'hide' && it.hidden ? Eye : icons[it.id];
 					return (
 					<React.Fragment key={it.id}>
 					{/* Delete sits apart, below a rule, as destructive items do in the Studio's other menus. */}

@@ -3,6 +3,9 @@
   "name": "wifi",
   "function": "statement",
   "bucket": "connect",
+  "align": {
+    "default": "middle"
+  },
   "form": "panel",
   "substance": "structure",
   "stage": "canvas",

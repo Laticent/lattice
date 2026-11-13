@@ -79,12 +79,44 @@ test(`a plugin's returned values: consent names them, clean ones land on the sli
 	// The Studio ships at three widths: the detail, which now carries the returns line, fits each one.
 	for (const [width, height] of [[820, 1180], [390, 844]]) {
 		await page.setViewportSize({ width, height });
-		// A narrower layout can mount its own strip, closed, while the wider one's stays in the DOM, hidden.
-		const shown = page.locator('[data-slot="code-packages-detail"]:visible');
-		if (!(await shown.count())) await page.locator('[data-slot="code-packages"]:visible').getByRole('button', { name: 'What it is' }).click();
-		await expect(shown).toContainText('status (one of ok, late)');
-		const box = await shown.boundingBox();
-		expect(box && box.x >= 0 && box.x + box.width <= width + 1, `the consent detail fits ${width}px`).toBe(true);
+		// A layout change remounts the strip, closed (the preview pane moves to another branch of the shell), and on
+		// WebKit the remount can land a few frames AFTER the resize: the old strip, still open, answered a count and a
+		// text check, then went away under `boundingBox`, which waited 15 s for a visible detail that no longer existed.
+		// So each read finds the strip the page shows NOW and measures its detail in the same task, read-only; when that
+		// strip is closed, a REAL click opens it (actionability checked, never an in-page `click()`), and the read waits
+		// for the click to land before it reads again, so a lagging render is never clicked twice.
+		const read = () =>
+			page.evaluate((w) => {
+				const shown = (el: Element) => (el as HTMLElement).offsetParent !== null;
+				const strips = [...document.querySelectorAll('[data-slot="code-packages"]')].filter(shown);
+				if (strips.length !== 1) return `${strips.length} strips shown`;
+				if (strips[0].querySelector('button[aria-expanded]')?.getAttribute('aria-expanded') !== 'true') return 'closed';
+				const detail = strips[0].querySelector('[data-slot="code-packages-detail"]');
+				if (!detail || !shown(detail)) return 'no detail shown';
+				if (!detail.textContent?.includes('status (one of ok, late)')) return 'the detail does not name the returns';
+				const b = detail.getBoundingClientRect();
+				return b.left >= 0 && b.right <= w + 1 ? 'fits' : `overflows: ${Math.round(b.left)}-${Math.round(b.right)} of ${w}`;
+			}, width);
+		const strip = page.locator('[data-slot="code-packages"]:visible');
+		await expect
+			.poll(
+				async () => {
+					const state = await read();
+					if (state !== 'closed') return state;
+					// A throw inside a poll callback is not retried (Playwright fails the whole poll), and the strip can
+					// remount again between the click and its check. So a click that does not land reports back and the
+					// poll reads afresh.
+					try {
+						await strip.getByRole('button', { name: 'What it is' }).click({ timeout: 5_000 });
+						await expect(strip.getByRole('button', { name: 'Hide details' })).toBeVisible({ timeout: 5_000 });
+						return 'clicked';
+					} catch {
+						return 'the click did not land';
+					}
+				},
+				{ message: `the consent detail fits ${width}px` },
+			)
+			.toBe('fits');
 		if (evidence) await page.screenshot({ path: `${evidence}/plugin-returns-consent-${width}.png` });
 	}
 	await page.setViewportSize({ width: 1440, height: 900 });

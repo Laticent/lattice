@@ -46,6 +46,10 @@ const EXPECTED_UNCOMMITTED = new Set([
   // Measured 2026-10-22 (touch a marker, run it alone, `find -newer`): its entire write set is
   // lib/core/callout-browser-bundle.generated.js, which .gitignore carries, the same contract as the dagre string.
   'build-callout-browser.js',
+  // Measured 2026-11-10 (touch a marker, run it alone, `find -newer`): its entire write set is dist/lattice-vscode-min.css,
+  // dist/lattice-vscode-bundle-min.css, dist/lattice-vscode-stub.css and dist/lattice-vscode-bundle-stub.css, all under the
+  // ignored dist/.
+  'build-marp-vscode-css.js',
   'build-css.js',
   'build-default-bundle.js',
   'build-runtime.js',

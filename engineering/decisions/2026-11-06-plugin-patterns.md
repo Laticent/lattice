@@ -303,3 +303,63 @@ without a word (HARD RULE #25 inversion lens). No committed deck but the demo ho
 means drawing after the engine, in the capture page, and the capture page does not run the runtime's Mermaid pass that
 themes each diagram for its slide's band: that is a redesign of the export's diagram path, recorded with its reason
 (followups.d/3052-p2-retire-mermaid-bake.md). Owner decision 2 stands; Mermaid has not left `bake` yet.
+
+## 10. Retiring `bake`: what it supplies, and the slices left (2026-11-06, branch `claude/plugin-patterns-d2-ghtybq`)
+
+**The trace.** Every CLI output reads ONE variable the bake produced. `bakeDeck` returns `preGlossaryMd`
+(lattice.js `const { source: preGlossaryMd … } = bakeDeck(…)`); `rawMd = appendAutoGlossary(preGlossaryMd)`; the engine
+renders `rawMd` into `htmlDoc`, which becomes `cleanDocHtml`, is written to `outHtml` and is loaded as the capture page.
+
+| Output | Reads | Leans on, from the bake | Runtime on its page? |
+|---|---|---|---|
+| PDF, PNG raster, PPTX/ODP | the capture page | the spliced SVG: its slide's band (light, dark, or print under `--print`), sankey collapse, `labelDiagramSvg`'s name, unique `lattice-mmd-N` ids | no (the runtime script is stripped; the page gets the host's hydrate script and the draw host) |
+| image set | the capture page | the same; `--image-mode print` turns the print band on | no |
+| image set, cross-scheme look | `REBAKES` (`ctx.state.rebake`) and `.mermaid-svg[data-mmd-idx]` | the index the bake stamps, `bakedBand(idx)`, `render(idx, { band, palette })` re-drawing one figure from the definitions the bake kept | no (a scratch page) |
+| image set, standalone SVGs | `REBAKES`' `figure` + `indexAttr` | `.mermaid-svg > svg` and its index | no |
+| `--html` | `outHtml` | the baked SVG IS the shipped bytes, written before any page loads | no |
+| `--player`, `--read` | the flattened capture page | `[data-lattice-figure] > svg` (the bake's open tag), `state.motionTagger` run on each copy | no |
+| `--fluid` | `toFluidViewer(cleanDocHtml)` | the baked SVG in the shipped bytes | **yes**, the runtime is inlined |
+| Marp bundle | nothing: it ships Mermaid and the runtime, and draws at view time | none | yes, at view time |
+| narration, `.vtt`, speech, glossary | the chart narrator reads a fence-intact source on purpose; `acronymSpokenMap`, `lexiconMap` and the glossary read `rawMd`, which holds the baked SVG's text | — | — |
+
+Two facts the follow-up note had wrong, corrected here: **there is no light/dark SVG pair** (`.mmd-light`/`.mmd-dark`
+survived only in two stale comments in lattice.js, rewritten here; each fence is drawn ONCE, in its own slide's band, and no output recolors a diagram at
+view time), and the "extract standalone svgs" step belongs to the image set, not to PPTX.
+
+**What a post-render draw has to supply** (each already exists in the PREVIEW's pass, `mermaid.hydrate.js`, which
+requires the same `shared/` modules the bake does): the slide's band, look and hand face read from the live section;
+portrait and per-pane reorientation; id isolation, sankey collapse and the figure's name; the overlong-label refusal and
+the per-diagram fallback; the motion roles; and a finish before every capture (the settle barrier). What the pass does
+NOT supply, and the slices must: the bake's figure markup (`.mermaid-svg`, `data-lattice-figure`, `data-mmd-idx`), which
+the player, the image-set look and `tools/check-diagram-labels.js` read; a re-draw of one figure in another band from
+Node (the image-set look); and `--html`'s bytes, which today exist before any page draws.
+
+**The slices.**
+
+1. **The locked page opens a module-loaded frame (done, this branch).** `lib/export/locked-figures.js` `openDrawPage`
+   serves Mermaid's ESM graph from its own origin: only the files the registry's integrity map names, each checked
+   against its SHA-256 before it is served (and again by the browser, through the import map); the frame's `failed`
+   reply is a failed open at once; the frame takes the export's size limit (`CLI_MAX_DRAW_CHARS`), as the inline frame
+   does. Evidence: test/integration/export/draw-frame.test.js `MODULES` draws a flowchart in the CLI's module frame
+   byte-identical to the inline (UMD) frame the same test file builds; a checker drew 14 diagram types there, each
+   loading its own lazy chunk, and saw a chunk left off the map refused. Equality with the PREVIEW's own module frame
+   (draw-host.ts `esmDocument`, sandboxed, with font folders) is **UNVERIFIED**: no test builds that document. No export bytes move: `hostDrawnKinds` still excludes a
+   module-loaded kind, so Mermaid still draws through its bake.
+2. **A capture-page driver for Mermaid's pass.** A bundle of the pass and its draw shim (`mermaid.draw-shim.mjs`)
+   driven by a small boot/run loop, with `window.__latticeExportDrawHost` standing where the preview's
+   `parent.__latticeDrawHost` stands; the export host finishes a Mermaid answer with `mermaid.draw-host.mjs` `finish` and
+   the diagram sanitizer (`draw.output: "svg-diagram"`), not the slide sanitizer it uses for function-plot today. The
+   readers of the bake's markup move onto the pass's (`.mermaid` beside the source `<pre>`), or the pass stamps the
+   same marker; `check-diagram-labels.js` moves with them.
+3. **`--html` and `--fluid` write the drawn page**, serialized after the settle barrier, instead of `cleanDocHtml`
+   written before any page loads; `--fluid` decides whether its runtime ships drawn figures or draws live.
+4. **The image-set look re-draws through the same host**: Node builds the look's theme with `buildDiagramTheme` and sends
+   one job per figure to the locked page; `REBAKES` goes.
+5. **Delete `bake`** (`mermaid.bake.js`, `host-bake.js`, `BAKE_SERVICES`, the schema's `bake`, `render.exec.bake`),
+   with the 43-deck PDF differential run on `main` and the branch in one sandbox, the speech/glossary maps checked for
+   the SVG text that leaves `rawMd`, and the owner's dark and light sign-off (Quality Bar: export bytes). Tier 3: the
+   adversarial trio on the shipped diff.
+
+Slices 2 to 5 move export bytes together (the figure's markup and its drawing page change at once), so they are one
+reviewable unit with one sign-off; slice 1 is the part that can bank alone. `followups.d/3052-p2-retire-mermaid-bake.md`
+carries them.

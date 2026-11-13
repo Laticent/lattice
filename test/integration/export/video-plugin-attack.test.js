@@ -22,6 +22,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
+const { trackPageWork } = require('../../helpers/page-settle');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-video-attack-'));
@@ -36,6 +37,8 @@ const RENDER = `function render(f){
     + "<p><code>@video{\\"https://youtu.be/AAAAAAAAAAA\\", poster=\\"https://${ATTACKER}/p.png\\"}</code></p>"
     + "<ul><li>https://youtu.be/BBBBBBBBBBB</li><li>https://${ATTACKER}/q.png <code>poster</code></li></ul>"
     + "<figure class=\\"video-embed\\" data-lattice-media=\\"video\\" data-lattice-media-url=\\"https://${ATTACKER}/f\\"><a class=\\"video-poster\\" href=\\"https://youtu.be/CCCCCCCCCCC\\" style=\\"background-image:url('https://${ATTACKER}/g.png')\\"></a></figure>"
+    + "<p><code>@image{https://${ATTACKER}/i.png, title=\\"x\\", frame=mat}</code></p>"
+    + "<p><code>&gt;{\\"https://youtu.be/DDDDDDDDDDD\\", poster=\\"https://${ATTACKER}/s.png\\"}</code></p>"
     + "<p><code>^{database}</code></p>";
 }
 export { render as default };`;
@@ -89,6 +92,7 @@ describe('a video slide and a zip plugin that writes addresses', () => {
     const puppeteer = require('puppeteer');
     browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
     page = await browser.newPage();
+    const settled = await trackPageWork(page);
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       requests.push(req.url());
@@ -96,7 +100,9 @@ describe('a video slide and a zip plugin that writes addresses', () => {
       else req.abort();
     });
     await page.goto(pathToFileURL(path.join(work, 'open.html')).href, { waitUntil: 'load' });
-    await new Promise((res) => setTimeout(res, 2500));
+    // Until the page has nothing queued and nothing loading: any script of ours that would build an address from the
+    // plugin's text has run, and any request it made has been logged.
+    await settled();
   });
   after(async () => { if (browser) await browser.close(); });
 
@@ -116,6 +122,11 @@ describe('a video slide and a zip plugin that writes addresses', () => {
   test('the plugin\'s `@video{…}` span stayed code, and nothing outside the plugin gained a second figure', async () => {
     const code = await page.$$eval('[data-lattice-plugin] code', (els) => els.map((e) => e.textContent));
     assert.ok(code.some((t) => t.startsWith('@video{')), 'the span is still literal code');
+    // Slice 3's two new address forms, written by the plugin, stay text: a picture record and the `>` clip.
+    assert.ok(code.some((t) => t.startsWith('@image{')), 'the picture record is still literal code');
+    assert.ok(code.some((t) => t.startsWith('>{')), 'the `>` clip is still literal code');
+    const pictures = await page.$$eval('[data-lattice-plugin] img, [data-lattice-plugin] .lattice-bg, figure[data-lattice-media="image"]', (els) => els.length);
+    assert.equal(pictures, 0, 'no picture was built from the plugin\'s text');
     const figures = await page.$$eval('figure[data-lattice-media="video"]', (els) => els.filter((e) => !e.closest('[data-lattice-plugin]')).length);
     assert.equal(figures, 1, 'one figure outside the plugin: the author\'s');
   });
@@ -131,8 +142,9 @@ describe('a video slide and a zip plugin that writes addresses', () => {
 
   test('CONTROL: the probe does see a request when the page makes one', async () => {
     const before = requests.length;
+    const seen = page.waitForRequest((r) => r.url().includes(`${ATTACKER}/control.png`), { timeout: 30000 }).catch(() => null);
     await page.evaluate((a) => { const i = new Image(); i.src = `https://${a}/control.png`; document.body.appendChild(i); }, ATTACKER);
-    await new Promise((res) => setTimeout(res, 500));
+    await seen;
     assert.ok(requests.slice(before).some((u) => u.includes(`${ATTACKER}/control.png`)), 'the log sees an image the page loads');
   });
 });

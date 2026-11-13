@@ -24,7 +24,7 @@ name: Overflow nightly (corpus clip ratchet)
 # basis. Both halves were wrong. A full green sweep is **279 decks in 5m21-5m31** on a
 # 4-vCPU box, and `--jobs 4` comes in at 5m22, so raising the worker count buys nothing.
 #
-# THE DEFAULT WORKER COUNT IS 2 HERE, NOT 3. `check-overflow-corpus.js:142` computes
+# THE DEFAULT WORKER COUNT IS 2 HERE, NOT 3. the `jobs` default in `check-overflow-corpus.js` `main()` computes
 # `min(4, max(1, cpus - 2))`, so 4 vCPUs give 2 workers and 2 vCPUs give 1. An earlier
 # revision of this header said "the box saturates at 3", which was read off the TOOL'S OWN
 # stale usage comment (`--jobs 6 # parallelism (default 3)`) rather than off the run — the
@@ -91,6 +91,11 @@ jobs:
     # comment asserted the reverse.
     # Raised 30 -> 45 on 2026-11-04 (owner call, D3 on #3034): the corpus grew from 279 to 493 decks and the sweep from
     # 14 to 29 min, so 5 of 15 nights were cancelled at 30 (engineering/decisions/2026-11-04-ci-flake-audit.md §5).
+    # The per-deck cost then tripled, from ~1.2 s to ~4.2 s, and the cause was not the corpus: since
+    # 268f0a3f9 (#2404) the CLI writes PDFs with the shared vector writer, ~3 s a deck, a PDF the
+    # sweep throws away; that is the bulk of the jump. The tool now renders with --chrome-pdf
+    # (#3081): measured 1703 s -> 643 s for 504 decks at 2 workers on a quiet 4-vCPU sandbox
+    # (908 s on a second run that shared the CPU with a test suite), same verdict on every deck.
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -101,7 +106,7 @@ jobs:
       # THE BROWSER, and the thing that is easy to get wrong here. `detectChromeExecutable()`
       # resolves `PUPPETEER_EXECUTABLE_PATH`, then `CHROME_PATH` if that file exists, then
       # puppeteer's own cache under `$HOME/.cache/puppeteer`, then `which
-      # google-chrome|chromium|...`. `check-overflow-corpus.js:145` reads `CHROME_PATH`
+      # google-chrome|chromium|...`. The `CHROME_PATH` guard in `check-overflow-corpus.js` `main()` reads it
       # too, but only to refuse to start without it.
       #
       # This comment used to say the emulator did NOT read `CHROME_PATH`, and it was
@@ -128,14 +133,16 @@ jobs:
         # color. No poppler or ImageMagick here: this gate reads the emulator's own
         # overflow report, never the PDF bytes and never a pixel — which is most of
         # why it costs 5 minutes and the regression gate costs 72.
-        run: sudo apt-get update && sudo apt-get install -y fonts-noto-color-emoji
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: fonts-noto-color-emoji
       - run: npm ci
       # `executablePath()` COMPUTES a path; it does not check the file is there. Measured: point
       # PUPPETEER_CACHE_DIR at an empty directory and it still returns a path and exits 0. That
       # matters because `detectChromeExecutable()` returns PUPPETEER_EXECUTABLE_PATH
       # unconditionally — setting it turns the cache scan and `which`
       # fallbacks into dead code. So a partial or stale cache restore would hand both variables a
-      # path to nothing, sail past the `check-overflow-corpus.js:145` guard (which only asks that
+      # path to nothing, sail past the `CHROME_PATH` guard in `check-overflow-corpus.js` `main()` (which only asks that
       # CHROME_PATH is non-empty), and fail all 279 renders. This step therefore fails HERE, where
       # the message says "browser missing", rather than 279 decks later where it reads as a corpus
       # finding. No `-e` subtlety: this step WANTS to die on failure, which is `bash -e`'s default.
@@ -169,14 +176,17 @@ jobs:
       # with the report text contradicting the title in the same issue body. The exact
       # mirror of the defect this discrimination exists to prevent.
       #
-      # AND THE EXIT CODE ALONE CANNOT DISCRIMINATE. `check-overflow-corpus.js:186,206`
-      # exits 1 for `regressions.length || errors.length` — so a browser that cannot launch
+      # AND THE EXIT CODE ALONE CANNOT DISCRIMINATE. `check-overflow-corpus.js` (the exits after `judge()`)
+      # exits 1 for `regressions || errors || unfloored` — so a browser that cannot launch
       # fails all 279 renders and exits 1, indistinguishable by code from a deck that
-      # genuinely clipped. Exit 2 is only the guard refusing to start (`:145`), a `--bless`
+      # genuinely clipped. Exit 2 is only the guard refusing to start (the `CHROME_PATH` guard), a `--bless`
       # misuse, or an uncaught throw. So the classification reads the REPORT, which prints
       # unambiguous markers for each: `failed to render` per deck, and `clip MORE slides
       # than the baseline` for the finding. Render errors win when both are present — a
       # ratchet verdict computed over decks that did not render is not a verdict.
+      # `have NO FLOOR in the baseline` (#2060) is a finding too: a deck no bless ever swept,
+      # named by the baseline's `swept` list. Without it here, the first night after any new
+      # deck lands would file as `unknown` — an overflow finding titled as a setup error.
       - name: Overflow corpus sweep (report-only)
         id: sweep
         env:
@@ -195,7 +205,7 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
             if grep -q 'failed to render' "$REPORT"; then
               echo "kind=broken" >> "$GITHUB_OUTPUT"
-            elif grep -q 'clip MORE slides than the baseline' "$REPORT"; then
+            elif grep -q -e 'clip MORE slides than the baseline' -e 'have NO FLOOR in the baseline' "$REPORT"; then
               echo "kind=finding" >> "$GITHUB_OUTPUT"
             else
               echo "kind=unknown" >> "$GITHUB_OUTPUT"
@@ -250,6 +260,9 @@ jobs:
                 echo "A slide that clips is a slide that ships cut off. Either trim the deck, or —"
                 echo "if the change is deliberate and the content is right — re-bless with"
                 echo "\`node tools/check-overflow-corpus.js --bless\` and justify the new floor in the PR."
+                echo ""
+                echo "If the report says a deck has NO FLOOR, no bless ever swept it: a clean one needs"
+                echo "only \`--bless <deck>\`; a clipping one needs its slides fixed first."
                 ;;
               broken)
                 echo "One or more decks FAILED TO RENDER on \`main@${{ github.sha }}\`, so the corpus"

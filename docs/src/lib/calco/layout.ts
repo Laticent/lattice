@@ -45,7 +45,8 @@ export function metricsFor(style: TextStyle, fonts: EmbeddedFont[], cache: Map<E
 	const face = faceFor(style, fonts);
 	if (!face) return FALLBACK;
 	if (!cache.has(face)) cache.set(face, readFontMetrics(face.bytes));
-	return cache.get(face) || FALLBACK;
+	const m = cache.get(face) || FALLBACK;
+	return style.lineMetrics ? { ...m, line: style.lineMetrics } : m;
 }
 
 /**
@@ -80,8 +81,11 @@ export function spacingMultiple(frame: TextFrame, metrics: FontMetrics, size: nu
  */
 export function placeFrame(frame: TextFrame, slideW: number, metrics: FontMetrics, size: number, spacing: 'exact' | 'proportional' = 'exact', capped = false): PlacedBox {
 	const { ascent, descent } = metrics;
-	// The browser's baseline: the glyph box splits ascent : descent.
-	const baseline = frame.y + (frame.firstLineHeight * ascent) / (ascent + descent);
+	// The browser's baseline: the glyph box splits ascent : descent, by the metrics the BROWSER used (a face's
+	// ascent-override / descent-override when it has them). The box below is then laid by the file's own metrics,
+	// the ones the office app reads.
+	const [boxAscent, boxDescent] = metrics.line || [ascent, descent];
+	const baseline = frame.y + (frame.firstLineHeight * boxAscent) / (boxAscent + boxDescent);
 	const y = spacing === 'proportional' ? baseline - spacingMultiple(frame, metrics, size) * (ascent + (metrics.lineGap || 0) / 2) * size : baseline - (frame.lineHeight - descent * size);
 	const maxSize = highest(frame.lines.flat().map((r) => r.style.size));
 	const room =

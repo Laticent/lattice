@@ -1,6 +1,6 @@
 import { ChevronDown, Columns2, Layers, LayoutGrid, Plus, Rows3 } from 'lucide-react';
 import * as React from 'react';
-import { DialogCloseButton, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { DialogCloseButton, DialogTitle } from '@/components/ui/dialog';
 import { PanelDock, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -161,11 +161,12 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 	const [expanded, setExpanded] = React.useState<string | null>(null); // component name whose looks are open
 	const searchRef = React.useRef<HTMLInputElement>(null);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
-	// Grid or list. Read from storage LAZILY (never during module init) so the server
-	// render and the first client render agree — `loadPickerView` touches localStorage,
-	// which does not exist during SSR.
-	const [view, setView] = React.useState<PickerView>('grid');
-	React.useEffect(() => setView(loadPickerView()), []);
+	// Grid or list, read in the state initializer (never during module init: `loadPickerView`
+	// touches localStorage, which does not exist during SSR). This used to be a mount effect so
+	// the server render and the first client render agreed, when the gallery mounted at boot. It
+	// now mounts on its first OPEN (StudioShell `useLatch`), never on the server, and an effect
+	// would draw one throwaway grid before a saved list view on that first open.
+	const [view, setView] = React.useState<PickerView>(() => (typeof localStorage === 'undefined' ? 'grid' : loadPickerView()));
 	const chooseView = React.useCallback((next: PickerView) => {
 		setView(next);
 		savePickerView(next);
@@ -434,7 +435,6 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 	);
 
 	const title = pane ? `${pane.where}: what it holds` : 'New slide';
-	const description = pane ? `Choose the component the ${pane.where.toLowerCase()} renders. Each one says whether it keeps the pane's text.` : `Search the slide gallery and add one as a new slide${placement ? `, ${placement}` : ''}.`;
 
 	// Grid ↔ list, in the header beside the dialog's close button — where a file browser
 	// puts it. Icon-only: the two glyphs are the convention, and the header is tight.
@@ -489,7 +489,7 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 			{[
 				compact ? (
 					<React.Fragment key="sheet-header">
-						<PanelHeader icon={pane ? <Columns2 /> : <Plus />} title={title} srDescription={description} />
+						<PanelHeader icon={pane ? <Columns2 /> : <Plus />} title={title} />
 						{/* The phone hides the footer that says where the pick lands, so it says it here (§5). */}
 						{placement && !pane && <p className="truncate px-4 pt-2 text-[12.5px] text-muted-foreground">Adds it {placement}</p>}
 					</React.Fragment>
@@ -500,7 +500,6 @@ function SlidePickerImpl({ open, onOpenChange, items, options, frontMatter, pale
 							<DialogTitle className="text-[15px]">{title}</DialogTitle>
 							{viewToggle}
 						</div>
-						<DialogDescription className="sr-only">{description}</DialogDescription>
 					</React.Fragment>
 				),
 				<React.Fragment key="body">{body}</React.Fragment>,

@@ -4,7 +4,7 @@
  *
  *   PDF   the font is embedded, an inline icon copies as its label (a pill's icon as nothing), and the glyphs land where
  *         `icon: svg` draws the <svg>: the same ink in the same place.
- *   system  under `fonts: system-emoji` no file carries the font and the page shows the <svg>: pixel for pixel the
+ *   system  under `font-embedding: system-emoji` no file carries the font and the page shows the <svg>: pixel for pixel the
  *         `icon: svg` page.
  *   PPTX / ODP  an editable file draws each icon as a native outline shape and no icon font travels. An icon's arcs
  *         become cubics that stay on the arc, and a card holding a custom shape is written loose, never grouped.
@@ -63,7 +63,7 @@ describe('icon-font-exports', () => {
 
 	const fontPdf = render('font', [], 'font.pdf');
 	const svgPdf = render('svg', ['icon: svg'], 'svg.pdf');
-	const systemPdf = render('system', ['fonts: system-emoji'], 'system.pdf');
+	const systemPdf = render('system', ['font-embedding: system-emoji'], 'system.pdf');
 
 	test('the PDF embeds the icon font and copies each icon as what a screen reader says', () => {
 		assert.match(fontsOf(fontPdf), /LatticeIcons/);
@@ -111,7 +111,7 @@ describe('icon-font-exports', () => {
 		assert.ok(Math.abs(ib.n / ia.n - 1) < 0.02, `ink ${(100 * ib.n / ia.n).toFixed(1)}% of the svg page`);
 	});
 
-	test('under `fonts: system-emoji` no icon font travels and the page is the `icon: svg` page', () => {
+	test('under `font-embedding: system-emoji` no icon font travels and the page is the `icon: svg` page', () => {
 		assert.doesNotMatch(fontsOf(systemPdf), /LatticeIcons/);
 		const a = pixels(svgPdf, 'svg2');
 		const b = pixels(systemPdf, 'sys');
@@ -285,7 +285,7 @@ describe('icon-font-exports', () => {
 		for (const f of faces) assert.ok(f[1].length * 0.75 < 4000, `a face is ${Math.round(f[1].length * 0.75)} bytes: not cut to the deck's icons`);
 	});
 
-	test('the HTML player and page show each icon\'s <svg> under `fonts: system-emoji`, and carry no icon font under `icon: svg`', async () => {
+	test('the HTML player and page show each icon\'s <svg> under `font-embedding: system-emoji`, and carry no icon font under `icon: svg`', async () => {
 		// The player writes an <html> of its own, so the switch must ride on the slides: an attribute on the page's root was
 		// lost there, and the player drew the glyph in no font at all.
 		const shown = async (file) => {
@@ -299,7 +299,7 @@ describe('icon-font-exports', () => {
 			return r;
 		};
 		for (const args of [['--player'], []]) {
-			const file = render('system', ['fonts: system-emoji'], `system${args.length ? '-player' : ''}.html`, args);
+			const file = render('system', ['font-embedding: system-emoji'], `system${args.length ? '-player' : ''}.html`, args);
 			const html = fs.readFileSync(file, 'utf8');
 			assert.doesNotMatch(html, /font-family:\s*'?Lattice Icons'?[^}]*base64/, `${args[0] || '.html'}: an icon face travelled under system`);
 			const r = await shown(file);

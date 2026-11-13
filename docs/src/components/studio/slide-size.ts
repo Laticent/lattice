@@ -25,6 +25,8 @@ export const SIZE_RATIO: Record<string, [number, number]> = {
 	reel: [9, 16],
 	mobile: [1080, 2340],
 	'mobile-landscape': [1560, 720],
+	card: [7, 4],
+	'card-iso': [17, 11],
 };
 
 // [16,9] is the engine's OWN default when a deck names no size (matches the app's
@@ -46,11 +48,24 @@ export function sizeFromSource(source: string): string {
 	// paginate, …), and such a deck would silently fall back to 16:9. With `/m`, `$` matches
 	// end-of-LINE. (The original wording blamed `setFrontMatter` pushing the last-edited key
 	// to the end; that writer is retired — #1256 — and the `/m` is no less required without it.)
-	const m = /^[ \t]*size[ \t]*:[ \t]*(.+?)[ \t]*$/m.exec(fm[1]);
+	// TOP-LEVEL and LAST, as the engine reads `size:` (#2050, #3050 D1).
+	const m = [...fm[1].matchAll(/^size[ \t]*:[ \t]*(.+?)[ \t]*$/gm)].pop();
 	return m ? m[1].replace(/^['"]|['"]$/g, '').trim() : '';
 }
 
 // The aspect ratio a deck source will render at (its chosen size, or the engine default).
 export function deckRatio(source: string): [number, number] {
 	return sizeRatio(sizeFromSource(source));
+}
+
+// How the preview's status strip names a ratio: "16 : 9", and "9 : 19.5" for the phone size,
+// whose engine token is 1080 wide.
+export function ratioText([w, h]: [number, number]): string {
+	return w === 1080 ? '9 : 19.5' : `${w} : ${h}`;
+}
+
+// The status strip's deck caption, "16 : 9 · 7 slides". One function for the app and the
+// pre-paint shell, so the shell's copy of the caption can never read differently from the app's.
+export function deckCaption(ratio: [number, number], slides: number): string {
+	return `${ratioText(ratio)} · ${slides} slide${slides === 1 ? '' : 's'}`;
 }

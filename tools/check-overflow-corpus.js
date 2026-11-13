@@ -28,18 +28,23 @@
  *
  *   node tools/check-overflow-corpus.js               # check against the baseline
  *   node tools/check-overflow-corpus.js --bless       # re-record it (say why in the PR)
- *   node tools/check-overflow-corpus.js --jobs 6      # parallelism (default 3)
- *   node tools/check-overflow-corpus.js --json
+ *   node tools/check-overflow-corpus.js --bless examples/new.md   # record just these decks' floors
+ *   node tools/check-overflow-corpus.js --jobs 6      # parallelism (default min(4, cpus-2))
+ *   node tools/check-overflow-corpus.js --json        # includes `clipped`, every deck's pages, for diffing two runs
+ *   node tools/check-overflow-corpus.js --writer shared   # render with the shared PDF writer (slow; parity checks only)
  *   node tools/check-overflow-corpus.js examples/foo.md …   # just these decks
  *
  * THE BASELINE RECORDS ITS OWN DENOMINATOR (`decksSwept`). Only CLIPPING decks are
  * listed, so a deck missing from the map is indistinguishable from a deck nobody
  * swept — and that is not hypothetical: seven component galleries authored after the
  * last full bless were read as clean for a week, because the file had last been
- * hand-edited to add one deck rather than re-blessed. A check whose corpus is larger
- * than the blessed one now says so.
+ * hand-edited to add one deck rather than re-blessed. A count could say THAT, never
+ * WHICH, so (#2060) the baseline also lists the decks by name (`swept`), and a deck
+ * outside that list has NO FLOOR and fails by name, clean or not. The verdict is the
+ * pure `judge()` in tools/lib/overflow-corpus-ratchet.js. Every run also prints its
+ * cost per deck (`⏱ sweep cost`), so a slowdown shows before the job ceiling does.
  *
- * Exit 0 when no deck exceeds its baseline; 1 when one does; 2 on a setup error.
+ * Exit 0 when no deck exceeds its baseline and none is unfloored; 1 otherwise; 2 on a setup error.
  * Needs CHROME_PATH (the SessionStart hook exports it).
  */
 
@@ -47,6 +52,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const { spawn } = require('node:child_process');
+const { judge, blessed, blessedSubset, staleNames, costLine } = require('./lib/overflow-corpus-ratchet');
+const { pool } = require('./lib/pool');
 
 const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice.js');
@@ -99,11 +106,28 @@ function corpus() {
   ])].sort();
 }
 
-/** Render one deck; return the pages the emulator reports as clipped. */
-function probe(deck) {
+/**
+ * Render one deck; return the pages the emulator reports as clipped.
+ *
+ * `--chrome-pdf` BY DEFAULT, because the sweep reads a console line and throws the PDF away.
+ * Since 268f0a3f9 (#2404, 2026-09-27) the CLI writes PDFs with the shared vector writer
+ * (lib/core/pdf-compose), which costs about 3 s a deck on its own: 4.6 s against 1.6 s with
+ * Chrome's printer for one gallery rendered alone on a 4-vCPU sandbox. It is the bulk of the
+ * nightly's 1.2 s to 4.2 s per-deck jump (not bisected; the corpus grew in the same weeks). The writer runs AFTER `measureOverflow()` in lattice.js and
+ * `CHROME_PDF` gates nothing else, so both writers print the same ⚠ OVERFLOW and ⚠ CONTENT
+ * CLIPPED lines; a full sweep in each, diffed with `--json`, agreed on every deck (#3081 P1).
+ * `--writer shared` renders the slow way, to re-prove that parity after a change near the writer.
+ *
+ * Not `.html`: a plain .html export skips the guards trim and the card-tag equalize pass, so it
+ * can report a verdict the PDF does not have. It measured only 11% faster than `--chrome-pdf`
+ * (572 s against 643 s for 504 decks), which does not pay for that risk (#3081 P2).
+ */
+function probe(deck, { sharedWriter = false } = {}) {
   return new Promise((resolve) => {
     const out = path.join(WORK, deck.replace(/[/\\]/g, '_').replace(/\.md$/, '') + '.pdf');
-    const child = spawn(process.execPath, [EMULATOR, path.join(ROOT, deck), out, '--size', 'deck'], { cwd: ROOT, env: process.env });
+    const args = [EMULATOR, path.join(ROOT, deck), out, '--size', 'deck'];
+    if (!sharedWriter) args.push('--chrome-pdf');
+    const child = spawn(process.execPath, args, { cwd: ROOT, env: process.env });
     let buf = '';
     const grab = (d) => { buf += d.toString(); };
     child.stdout.on('data', grab);
@@ -131,23 +155,23 @@ function probe(deck) {
   });
 }
 
-async function pool(items, n, fn) {
-  const results = new Array(items.length);
-  let i = 0;
-  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
-    while (i < items.length) { const k = i++; results[k] = await fn(items[k]); }
-  }));
-  return results;
-}
-
 async function main() {
   const argv = process.argv.slice(2);
   const flag = (f) => argv.includes(`--${f}`);
-  const val = (f, d) => { const i = argv.indexOf(`--${f}`); return i >= 0 && argv[i + 1] ? argv[i + 1] : d; };
+  // `--flag value` or `--flag=value`. The `=` form used to fall through to the default without a
+  // word, so `--writer=shared` ran the Chrome printer while the user believed it re-proved parity.
+  const val = (f, d) => {
+    const eq = argv.find((a) => a.startsWith(`--${f}=`));
+    if (eq) return eq.slice(f.length + 3) || d;
+    const i = argv.indexOf(`--${f}`);
+    return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : d;
+  };
   const bless = flag('bless');
   const json = flag('json');
   const jobs = Math.max(1, Math.min(Number(val('jobs', Math.min(4, Math.max(1, os.cpus().length - 2)))) || 3, 12));
-  const only = argv.filter((a) => !a.startsWith('--') && a !== val('jobs', null));
+  const writer = val('writer', 'chrome');
+  if (writer !== 'chrome' && writer !== 'shared') { console.error(`✗ --writer takes chrome or shared, not ${writer}.`); process.exit(2); }
+  const only = argv.filter((a) => !a.startsWith('--') && a !== val('jobs', null) && a !== val('writer', null));
 
   if (!process.env.CHROME_PATH) {
     console.error('✗ CHROME_PATH is not set — the SessionStart hook exports it.');
@@ -155,70 +179,78 @@ async function main() {
   }
   fs.mkdirSync(WORK, { recursive: true });
 
-  const decks = only.length ? only : corpus();
+  // Deck arguments are normalized to the repo-relative POSIX names the baseline keys on, so
+  // `./examples/foo.md` or an absolute path is judged against its floor, not read as NO FLOOR.
+  // A relative argument resolves against the repo root first (so the tool works from any folder,
+  // as it always has), and against the current folder only when the root has no such file.
+  const toDeck = (a) => {
+    const abs = path.isAbsolute(a) || !fs.existsSync(path.resolve(ROOT, a)) ? path.resolve(a) : path.resolve(ROOT, a);
+    return path.relative(ROOT, abs).split(path.sep).join('/');
+  };
+  const decks = only.length ? only.map(toDeck) : corpus();
   if (!json) console.error(`  sweeping ${decks.length} decks at ${jobs}× … (real renders; this takes a while)`);
-  const rows = await pool(decks, jobs, probe);
+  const t0 = performance.now();
+  const { results: rows } = await pool(decks, jobs, (d) => probe(d, { sharedWriter: writer === 'shared' }));
+  // COST PER DECK, printed every run (#2060). The nightly's wall clock tripled per deck in six weeks
+  // while the corpus grew 1.6x, and nothing said so until runs hit the job ceiling and measured nothing.
+  const cost = { decks: rows.length, seconds: (performance.now() - t0) / 1000, jobs, writer };
   // The per-run dir is ours alone, so it is safe to remove wholesale.
   try { fs.rmSync(WORK, { recursive: true, force: true }); } catch { /* best effort */ }
 
   const base = fs.existsSync(BASELINE) ? JSON.parse(fs.readFileSync(BASELINE, 'utf8')) : { decks: {} };
   const errors = rows.filter((r) => r.error);
-  const clipped = rows.filter((r) => !r.error && r.pages.length);
-
   if (bless) {
-    if (only.length) { console.error('✗ --bless re-records the WHOLE corpus; drop the deck arguments.'); process.exit(2); }
     if (errors.length) { console.error(`✗ refusing to bless: ${errors.length} deck(s) failed to render.`); for (const e of errors.slice(0, 5)) console.error(`  • ${e.deck}: ${e.error}`); process.exit(2); }
-    // THE DENOMINATOR IS RECORDED, and it was the hole. This file lists only the decks
-    // that CLIP, so a deck missing from the map reads as "clean" and cannot be told from
-    // one that was never looked at. Seven galleries authored after the last full bless
-    // therefore owed nothing at all, and a hand-edit that added a single deck's entry
-    // (fa181c9) left the other seven silently floorless for a week — `overflow:check` is
-    // on-demand, so nothing ran to say otherwise. Writing down how many decks the
-    // blessing sweep actually covered turns "which decks were looked at?" from
-    // unanswerable into one comparison, reported below.
-    const next = { $comment: 'Ratchet for tools/check-overflow-corpus.js — pages the export CLIPS, per deck. Lower is better; re-bless only with the PR that earns it. `decksSwept` is how many decks the blessing run covered: a deck absent from `decks` is clean ONLY if it was in that sweep.', totalSlides: clipped.reduce((n, r) => n + r.pages.length, 0), decksSwept: rows.length, decks: Object.fromEntries(clipped.map((r) => [r.deck, r.pages])) };
+    // THE DECKS ARE RECORDED BY NAME (#2060), not only counted. A count could say THAT some decks had
+    // no floor, never WHICH: fourteen sat unfloored and one of them was born clipping.
+    // With deck arguments, only those decks' floors are recorded (blessedSubset), which a legacy
+    // baseline cannot take: it has no `swept` list to merge into.
+    const next = only.length ? blessedSubset(base, rows) : blessed(rows);
+    if (!next) { console.error('✗ the baseline lists no `swept` decks, so it cannot take a partial bless; run --bless with no deck arguments once.'); process.exit(2); }
     fs.writeFileSync(BASELINE, JSON.stringify(next, null, 2) + '\n');
-    console.log(`✓ blessed — ${next.totalSlides} clipped slides across ${clipped.length} decks → ${path.relative(ROOT, BASELINE)}`);
+    console.log(`✓ blessed — ${next.totalSlides} clipped slides across ${Object.keys(next.decks).length} decks of ${next.decksSwept} → ${path.relative(ROOT, BASELINE)}`);
     process.exit(0);
   }
 
-  const regressions = [];
-  const improvements = [];
-  for (const r of rows) {
-    if (r.error) continue;
-    const was = base.decks?.[r.deck] || [];
-    const added = r.pages.filter((p) => !was.includes(p));
-    const gone = was.filter((p) => !r.pages.includes(p));
-    if (added.length) regressions.push({ deck: r.deck, added, now: r.pages, was });
-    else if (gone.length) improvements.push({ deck: r.deck, gone });
-  }
-  const total = clipped.reduce((n, r) => n + r.pages.length, 0);
+  const { regressions, improvements, unfloored, clipped, total, legacy } = judge(rows, base);
+  // A deck-subset run judges only the decks it was given, so `unfloored` there names exactly those.
 
   if (json) {
-    console.log(JSON.stringify({ ok: !regressions.length && !errors.length, total, swept: rows.length, baselineSwept: base.decksSwept ?? null, baseline: base.totalSlides ?? null, regressions, improvements, errors }, null, 2));
-    process.exit(regressions.length || errors.length ? 1 : 0);
+    console.log(JSON.stringify({ ok: !regressions.length && !errors.length && !unfloored.length, total, unfloored, cost: { ...cost, perDeck: cost.seconds / Math.max(1, cost.decks) }, swept: rows.length, baselineSwept: base.decksSwept ?? null, baseline: base.totalSlides ?? null, regressions, improvements, errors, clipped: Object.fromEntries(clipped.map((r) => [r.deck, r.pages])) }, null, 2));
+    process.exit(regressions.length || errors.length || unfloored.length ? 1 : 0);
   }
 
+  console.error(`  ${costLine(cost)}`);
+
   for (const e of errors) console.error(`  ! ${e.deck} failed to render: ${e.error}`);
-  // DID THE CORPUS GROW SINCE THE BASELINE WAS RECORDED? A deck absent from `decks` is
-  // indistinguishable from a deck nobody swept, so a baseline recorded against a smaller
-  // corpus silently grants every newer deck a floor of zero. Said out loud rather than
-  // implied, and never fatal on its own — the per-deck ratchet below still decides.
-  if (!only.length && Number.isFinite(base.decksSwept) && rows.length > base.decksSwept) {
-    console.error(`  ⓘ the baseline was recorded against ${base.decksSwept} decks; this sweep covered ` +
-      `${rows.length}. ${rows.length - base.decksSwept} deck(s) entered the corpus since, and a deck ` +
-      'absent from the baseline is read as CLEAN — re-bless so they carry a real floor.');
-  } else if (!only.length && !Number.isFinite(base.decksSwept)) {
-    console.error('  ⓘ the baseline records no `decksSwept`, so nothing can tell a deck that is clean ' +
-      'from one that was never swept. The next --bless writes it.');
+  // A LEGACY baseline (no `swept` list) cannot tell a clean deck from one no bless ever swept.
+  if (legacy) {
+    console.error('  ⓘ the baseline lists no `swept` decks, so a deck missing from it reads as CLEAN and ' +
+      'nothing can name the decks that have no floor. The next --bless writes the list.');
+  }
+  // NAMES THE CORPUS NO LONGER HOLDS (a deck deleted or renamed) stay in the baseline until a bless
+  // prunes them. Informational only: a stale name hides nothing, it just costs nothing to drop.
+  if (!only.length) {
+    const stale = staleNames(base, decks);
+    if (stale.length) console.error(`  ⓘ the baseline names ${stale.length} deck(s) the corpus no longer holds (${stale.slice(0, 5).join(', ')}${stale.length > 5 ? ', …' : ''}); the next full --bless drops them.`);
   }
   if (improvements.length) {
     console.log(`\n  ${improvements.length} deck(s) improved — bank them with --bless:`);
     for (const i of improvements.slice(0, 12)) console.log(`    ${i.deck}  (fixed p${i.gone.join(', p')})`);
   }
-  if (!regressions.length && !errors.length) {
+  if (!regressions.length && !errors.length && !unfloored.length) {
     console.log(`\n✓ overflow corpus — ${total} clipped slide(s) across ${clipped.length} deck(s) of ${rows.length} swept, none above baseline (${base.totalSlides ?? '?'}).`);
     process.exit(0);
+  }
+  if (unfloored.length) {
+    // `have NO FLOOR in the baseline` is a marker: overflow-nightly.yml greps for this exact phrase to
+    // file the run as a finding, and test/unit/tools/overflow-corpus-ratchet.test.js pins the pair.
+    console.error(`\n✗ ${unfloored.length} deck(s) have NO FLOOR in the baseline — no bless ever swept them, so the ratchet cannot vouch for them:\n`);
+    for (const d of unfloored) {
+      const r = rows.find((x) => x.deck === d);
+      console.error(`  • ${d}  ${r.pages.length ? `clips p${r.pages.join(', p')}` : 'clean today'} (no floor)`);
+    }
+    console.error('\nA clean one needs only `--bless <deck>`; a clipping one needs its slides fixed first.');
   }
   if (regressions.length) {
     console.error(`\n✗ ${regressions.length} deck(s) clip MORE slides than the baseline:\n`);

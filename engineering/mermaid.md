@@ -514,8 +514,9 @@ A fence in a PANE turns for the pane's box, not the slide's. The engine stamps e
 - the CLI bakes fences before the engine renders, so the Mermaid bake (`mermaid.bake.js`) asks the engine
   (`engine.paneOrientations`, the same carve and box `renderPane` uses). The answer carries
   each pane's SOURCE LINES, and a fence takes the orientation of the pane whose lines hold it.
-  A slide index would not do: `_focusSteps` renders one slide as several sections, and a first
-  cut that joined on slide index turned a wide pane's flowchart below one;
+  A slide index would not do: `_focusSteps` rendered one slide as several sections (until
+  2026-11-09, and `split: headings` still does), and a first cut that joined on slide index turned
+  a wide pane's flowchart below one;
 - the browser runtime (`fenceJob`) reads `data-orientation` off the fence's own `<lat-pane>`.
   The engine's stamp is the answer there too: the runtime re-stamps a SECTION from its
   measured shape (`stampOrientation`), never a pane, so a pane's fence does not follow a
@@ -635,11 +636,13 @@ repeating rules 2 and 3, so the two cannot drift.
 
 ### Which families the hand SHAPE reaches — measured, not assumed
 
-**SEVEN, not four.** This section said four (flowchart, state, class, ER) and named mindmap
+**EIGHT, not four.** This section said four (flowchart, state, class, ER) and named mindmap
 among the families that "ignore `look` entirely". Both were wrong: `mindmap` and
 `requirementDiagram` go through rough.js too, and Mermaid 11.17 moved `C4Context` across
 (re-measured 2026-11-06, when the vendored Mermaid went from 11.14.0 to 11.17.2; the class
-diagram's `aria-roledescription` also changed from `class` to `classDiagram`). Measured by rendering every
+diagram's `aria-roledescription` also changed from `class` to `classDiagram`). Mermaid 12
+moved `block` across (re-measured 2026-11-10, when the vendored Mermaid went from 11.17.2 to
+12.3.0). Measured by rendering every
 family twice, `look: 'handDrawn'` against the default, and counting rough nodes in the
 output — `test/integration/mermaid/diagram-look-support.test.js` pins the result so the
 list cannot rot again.
@@ -648,7 +651,7 @@ list cannot rot again.
 |---|---|
 | `flowchart` · `stateDiagram-v2` · `classDiagram` | `sequenceDiagram` · `gantt` · `pie` · `journey` |
 | `erDiagram` · **`mindmap`** · **`requirementDiagram`** | `timeline` · `quadrant` · `sankey` · `xychart` |
-| **`C4Context`** (since 11.17) | `block` · `packet` · `architecture` · `gitGraph` |
+| **`C4Context`** (since 11.17) · **`block`** (since 12) | `packet` · `architecture` · `gitGraph` |
 
 **C4 relationship labels (2026-11-06).** Mermaid's `drawRels` places a label at the line's
 midpoint plus half the label's own width and height, so labels drift into the target box or onto
@@ -1457,14 +1460,12 @@ Three structural answers, in the order they close the gap:
    sections — count and class, ~6,600 slides. None of the three defects was reachable
    by a test that only covers cases someone thought to write down; all three fail this.
 
-The one sanctioned divergence is `_focusSteps`, which EXPANDS one authored slide into
-several at render time. It is safe for the BAND because every expanded copy carries the
-class of the slide it was copied from, and it is safe for the COUNT now too: `focusSteps`
-used to group on `t.type === 'hr'` with no `level === 0` guard, unlike `splitOnHr`, so a
-focus slide containing a nested `---` (inside a blockquote or a list) rendered one section
-more than it should. Both grouping sites take the predicate from `lib/core/slide-rule.js`
-(#1387). The gate detects the divergence off the token stream, not a text scan — a decision record that merely *discusses* `_focusSteps` in
-prose must not be excused from the slide-count check.
+There is no sanctioned divergence any more. `_focusSteps` was one until 2026-11-09: it
+EXPANDED one authored slide into one section per step, and the gate excused a focus deck
+from the slide-count check. It is one slide now, walked live
+(`engineering/decisions/2026-11-09-steps-as-a-behavior.md`), so every deck is held to the
+count. (The `level === 0` slide-rule predicate it once lacked, #1387, lives on in
+`lib/core/slide-rule.js` for every remaining grouping site.)
 
 **What the gate structurally cannot see**, and is worth knowing before trusting it: it
 verifies `spans(md) ≡ render(md)`, while production needs

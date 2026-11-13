@@ -124,6 +124,28 @@ violations, not "this got worse".
   hybrid rules stated.
 - **Conflicts:** none. Nothing else writes these files.
 
+**Amended 2026-11-08 (#1845, PR #3080): one parallel pass checks and blesses.** No bless had
+reached `main` since 2026-10-17. The night ran out of time. The serial check took 125 of the
+job's 180 minutes (run 40914407337), and the bless then rendered every drifted golden a second
+time. A fixed cap of 40 first renders, taken alphabetically, then reached the same `examples/` decks
+every night while the bless PR waited, so the 28 chart galleries #2997 moved never got a PDF. The
+showcase step then exited 1 on those galleries and stopped the PR update. The bullet above
+describes the old flow. It now works like this:
+
+- **One render per golden.** `regression-gate.mjs --promote` keeps the fresh render of what drifted:
+  a deck, or one mood of a gallery. The mood that did not drift is never touched, so nothing has to
+  be put back. The check's render is byte-identical to `build-galleries.js` output (kpi, both moods,
+  measured), so promoting it costs a rename instead of a second render.
+- **One worker per core.** `--jobs auto` runs each gallery name or deck golden in its own process.
+  Measured in the 4-core sandbox on the gallery scope (94 galleries × 2 moods): **1,587 s serial,
+  637 s parallel**, and the two reports are identical row for row, down to each page's pixel count.
+- **First renders run against the clock, not a count.** Goldens with no PDF render one process per
+  core: galleries first, then exemplars, then the rest. No render starts after `BLESS_DEADLINE_MS`.
+- **Derived files never hold the goldens back.** A showcase WebP whose gallery PDF is not rendered
+  yet stays as it is until the PDF lands, for any gallery, not only the chart move. A showcase
+  problem, a drifted golden left unwritten and a golden the check could not judge all go to
+  `failed.txt`. The PR is updated and the night still goes red.
+
 ### 2.2 Pull requests: render, compare, do not commit
 
 `golden-diff` changes its candidate set from "goldens this PR changed" to "goldens this

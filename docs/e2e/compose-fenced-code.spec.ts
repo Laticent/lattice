@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { insertVia } from './compose-insert';
-import { expect, gotoStudio, persistedSource, test } from './studio-fixture';
+import { caretSettled, expect, gotoStudio, persistedSource, pressSettled, test } from './studio-fixture';
 
 // ── Fenced code in Compose, driven on the REAL Studio ──────────────────────────
 //
@@ -83,9 +83,12 @@ async function seedDeck(page: Page, source: string): Promise<void> {
 	await page.getByLabel('Deck source').click();
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.press('Backspace');
-	// `type` rather than `insertText`: the editor's own input handling (front-matter
-	// parse, lint, the persist debounce) is part of what we are seeding through.
-	await page.keyboard.type(source, { delay: 0 });
+	// `insertText`, one input event, NOT `type`. Typed key by key, "```js" opens the editor's fence-language completion
+	// (editor-complete.ts), and the Enter after it ACCEPTS the suggestion instead of breaking the line whenever the popup
+	// is up in time, which load decides: the fence became "```jsconst greeting…" and the chip read "jsconst" (1 run in 25
+	// at 4 workers). `insertText` still goes through the editor's own input handling (front-matter parse, lint, the
+	// persist debounce), which is what this seeds through; it just presses no keys a completion could claim.
+	await page.keyboard.insertText(source);
 	await expect.poll(() => deckSource(page)).toContain('```');
 }
 
@@ -176,8 +179,11 @@ test('Tab indents inside a fence instead of throwing focus out of the editor', a
 	await toCompose(page);
 
 	// Caret at the start of the fence body.
+	// Tab is a ProseMirror command, so it acts where ProseMirror's STATE says the caret is, which it
+	// learns from `selectionchange`: wait for the click's and the Home's to arrive first.
 	await page.locator('.cs-host pre.cs-code code').first().click({ position: { x: 2, y: 6 } });
-	await page.keyboard.press('Home');
+	await caretSettled(page);
+	await pressSettled(page, 'Home');
 	await page.keyboard.press('Tab');
 
 	await expect.poll(() => deckSource(page)).toContain('```js\n  const greeting');
@@ -210,7 +216,10 @@ test('Enter on a blank last line leaves the fence — the only exit a phone can 
 	// reading the live DOM selection — and re-places it until it holds.
 	await expect(async () => {
 		await code.click({ position: { x: 4, y: 6 } });
-		await page.keyboard.press('End');
+		await caretSettled(page);
+		// Enter is a ProseMirror command: it reads the caret from ProseMirror's state, which hears of
+		// the `End` only through `selectionchange` (see `caretSettled`).
+		await pressSettled(page, 'End');
 		const caret = await page.evaluate(() => {
 			const sel = document.getSelection();
 			const node = sel?.anchorNode;
@@ -345,6 +354,10 @@ test('@crosswidth the chip picker rides its block when the editor scrolls under 
 	await chip.click();
 	const pop = page.locator('[data-slot=popover-content]');
 	await expect(pop).toBeVisible();
+	// The popover opens with a slide-in and a zoom-in (`ui/popover.tsx`), and its box moves until they
+	// finish: a gap read mid-animation was -4 or -1 px, against 4 at rest, and failed the comparison
+	// below on a slow run. Measure the resting gap.
+	await pop.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished.catch(() => null))));
 
 	const gap = () =>
 		page.evaluate(() => {

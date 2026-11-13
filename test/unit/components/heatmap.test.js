@@ -204,11 +204,11 @@ describe('heatmap — the quantized ramp', () => {
 
   test('every cell and every value carries a step, and they agree', () => {
     const svg = buildHeatmap(parseHeatmapTable(GRID), {});
-    const cells = tagsOf(svg, 'rect').filter((t) => t.attrs.class === 'heatmap-cell' && /^\d+$/.test(t.attrs['data-step'] ?? '') && 'data-value' in t.attrs)
-      .map((t) => [t.raw, t.attrs['data-step'], t.attrs['data-value']]);
+    const cells = tagsOf(svg, 'rect').filter((t) => t.attrs.class === 'heatmap-cell' && /^\d+$/.test(t.attrs['data-ramp'] ?? '') && 'data-value' in t.attrs)
+      .map((t) => [t.raw, t.attrs['data-ramp'], t.attrs['data-value']]);
     assert.ok(cells.length > 0, 'no cells carried a step');
-    const values = tagsOf(svg, 'text').filter((t) => t.attrs.class === 'heatmap-value' && /^\d+$/.test(t.attrs['data-step'] ?? ''))
-      .map((t) => [t.raw, t.attrs['data-step']]);
+    const values = tagsOf(svg, 'text').filter((t) => t.attrs.class === 'heatmap-value' && /^\d+$/.test(t.attrs['data-ramp'] ?? ''))
+      .map((t) => [t.raw, t.attrs['data-ramp']]);
     assert.ok(values.length > 0, 'no printed value carried a step');
     for (const [, step] of [...cells, ...values]) {
       const n = Number(step);
@@ -244,9 +244,9 @@ describe('heatmap — the quantized ramp', () => {
     // exists to catch. Assert the PAIRING: rule N reads token N.
     for (let n = 1; n <= RAMP_STEPS; n += 1) {
       const cellRule = new RegExp(
-        `\\.heatmap-cell\\[data-step="${n}"\\][^{]*\\{[^}]*--mix:\\s*var\\(--heatmap-step${n}(?![\\w-])`);
+        `\\.heatmap-cell\\[data-ramp="${n}"\\][^{]*\\{[^}]*--mix:\\s*var\\(--heatmap-step${n}(?![\\w-])`);
       const valueRule = new RegExp(
-        `\\.heatmap-value\\[data-step="${n}"\\][^{]*\\{[^}]*fill:\\s*var\\(--heatmap-step${n}-ink(?![\\w-])`);
+        `\\.heatmap-value\\[data-ramp="${n}"\\][^{]*\\{[^}]*fill:\\s*var\\(--heatmap-step${n}-ink(?![\\w-])`);
       assert.match(css, cellRule, `step ${n}'s cell rule does not read --heatmap-step${n}`);
       assert.match(css, valueRule, `step ${n}'s value rule does not read --heatmap-step${n}-ink`);
     }
@@ -260,7 +260,7 @@ describe('heatmap — the quantized ramp', () => {
       const want = `var(--heatmap-step${n}, ${Number(even.toFixed(2))}%)`;
       assert.ok(css.includes(want), `step ${n}'s fallback should be ${want} — the evenly spaced position`);
     }
-    assert.ok(!css.includes(`data-step="${RAMP_STEPS + 1}"`),
+    assert.ok(!css.includes(`data-ramp="${RAMP_STEPS + 1}"`),
       `the stylesheet has a rule for step ${RAMP_STEPS + 1}, which the kernel never emits`);
     const gen = require('../../../tools/derive-chart-cat-ink.js');
     assert.equal(gen.RAMP_STEPS, RAMP_STEPS, 'the generator writes a different number of stops than the kernel emits');
@@ -444,7 +444,7 @@ describe('heatmap — capacity is reported, never silently dropped', () => {
 // The guard measures an ADVANCE; the slide paints a FACE. When those disagree the
 // whole grid goes at once, because every cell is the same width — so this is the
 // all-or-nothing arm, not a rounding one.
-// Four places assume `data-step` is an integer in 1..RAMP_STEPS: the stylesheet's
+// Four places assume `data-ramp` is an integer in 1..RAMP_STEPS: the stylesheet's
 // five rule pairs, the generator's five token pairs, the print band's remap, and
 // the tests. A step outside that range matches no rule, so `--mix` is never set,
 // `color-mix()` is invalid at computed-value time, and the cell paints the
@@ -569,12 +569,12 @@ describe('the band key', () => {
   });
 
   test('the swatch carries the cell CLASS, never a resolved fill (HARD RULE #3)', () => {
-    // A heatmap cell is painted by CSS color-mix on [data-step]. A fill baked in
+    // A heatmap cell is painted by CSS color-mix on [data-ramp]. A fill baked in
     // here would be a color in the kernel, and the key would stop matching the
     // grid the moment the palette changed.
     const swatch = parse(buildHeatmap(withBands([]), {})).querySelector('.chart-key-swatch');
     assert.ok(swatch.classList.contains('heatmap-cell'));
-    assert.match(swatch.getAttribute('data-step'), /^\d$/);
+    assert.match(swatch.getAttribute('data-ramp'), /^\d$/);
     assert.equal(swatch.getAttribute('fill'), null, 'the kernel must not resolve the ramp color');
   });
 
@@ -794,12 +794,10 @@ describe('findings from the checker pass — each one a regression arm', () => {
   });
 });
 
-describe('the portrait key is a centered wrapping band', () => {
-  // `roadmap` puts its status key under the grid with
-  // `flex-wrap:wrap; justify-content:center`, and its docblock calls bottom-center
-  // "the best-practice spot for a wide, full-width chart". A portrait heatmap is
-  // that situation, but SVG has no flex-wrap, so the key came out as a narrow
-  // five-row column with the width beside it unused.
+describe('the portrait key is a centered grid of aligned columns', () => {
+  // A key under a full-width chart runs in one to three aligned columns
+  // (legend-svg-key.js `gridLayout`). Before the grid, a portrait heatmap's key
+  // came out as a narrow five-row column with the width beside it unused.
   const band = () => {
     const model = parseHeatmapTable(grid(
       '| Jan | 100 | 62 | 48 |', '| Feb | 100 | 58 | 44 |', '| Mar | 100 | 71 | 59 |'));
@@ -821,35 +819,27 @@ describe('the portrait key is a centered wrapping band', () => {
     assert.ok(rows.some((r) => r.length > 1), 'at least one row must carry several entries');
   });
 
-  test('every row is centered in the box', () => {
+  test('the key block is centered in the box, its columns aligned', () => {
     const d = band();
     const viewW = Number(d.querySelector('svg').getAttribute('viewBox').split(' ')[2]);
     const fs = Number(d.querySelector('text.chart-key-label').getAttribute('font-size'));
-    // Pair each label with the swatch row it belongs to, by baseline. Reading the
-    // labels as one flat list crosses rows and measures a box that never existed.
-    const swatches = [...d.querySelectorAll('.chart-key-swatch')]
-      .map((r) => ({ x: Number(r.getAttribute('x')), y: Number(r.getAttribute('y')) }));
+    const sw = [...d.querySelectorAll('.chart-key-swatch')].map((r) => ({
+      x: Number(r.getAttribute('x')), y: Number(r.getAttribute('y')) }));
     const labels = [...d.querySelectorAll('text.chart-key-label tspan')]
-      .map((t) => ({ x: Number(t.getAttribute('x')), y: Number(t.getAttribute('y')), n: t.textContent.length }));
-    const bands = [...new Set(swatches.map((s) => s.y.toFixed(0)))];
-    for (const by of bands) {
-      const rowSw = swatches.filter((s) => s.y.toFixed(0) === by);
-      // A label's baseline sits BELOW its swatch top by about one font size.
-      // The window has to be directional: rows are only ~1.7x fs apart, so an
-      // absolute window also catches the previous row's labels and measures a
-      // box that spans two rows.
-      const rowLb = labels.filter((l) => l.y > Number(by) && l.y - Number(by) < fs * 1.6);
-      const left = Math.min(...rowSw.map((s) => s.x));
-      const last = rowLb.reduce((a, b) => (b.x > a.x ? b : a));
-      const right = last.x + last.n * fs * 0.6;
-      assert.ok(Math.abs(left - (viewW - right)) < viewW * 0.06,
-        `row at y=${by} off-center: ${left.toFixed(1)} left vs ${(viewW - right).toFixed(1)} right`);
-    }
+      .map((t) => Number(t.getAttribute('x')) + t.textContent.length * fs * 0.6);
+    const xs = [...new Set(sw.map((s) => s.x.toFixed(1)))];
+    const ys = new Set(sw.map((s) => s.y.toFixed(1)));
+    // One row when every entry fits in it; otherwise at most three aligned columns.
+    assert.ok(ys.size === 1 || xs.length <= 3, `${ys.size} rows over ${xs.length} column starts`);
+    const left = Math.min(...sw.map((s) => s.x));
+    const right = Math.max(...labels);
+    assert.ok(Math.abs(left - (viewW - right)) < viewW * 0.12,
+      `block off-center: ${left.toFixed(1)} left vs ${(viewW - right).toFixed(1)} right`);
   });
 
-  test('the band costs less height than the column it replaces', () => {
+  test('the grid costs less height than the column it replaces', () => {
     const vh = Number(band().querySelector('svg').getAttribute('viewBox').split(' ')[3]);
-    assert.ok(vh < 460, `portrait viewH ${vh} — the band should give the grid its height back`);
+    assert.ok(vh < 460, `portrait viewH ${vh} — the key grid should give the heatmap its height back`);
   });
 });
 

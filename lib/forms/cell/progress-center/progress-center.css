@@ -41,3 +41,80 @@ section.form .tile-progress {
   max-width: var(--footer-center-w);
   pointer-events: none;
 }
+/* A SECTION-LEVEL rail (a frame with no footer Cell, or `edge`) takes the band's own height, so its
+ * dots center on the line the footer text centers on rather than on the berth's bottom edge. Only
+ * there: a rail docked in the footer Cell is a band item (one cap tall), and a definite height on it grew the band
+ * from 24px to 64px and moved the page number 20px between slides with and without a rail. */
+section.form > .tile-progress { block-size: var(--footer-h, auto); }
+/* IN THE FOOTER CELL the rail is a ROW ITEM, not a positioned box: one cap of the footer's own type
+ * tall, its marks centered in it, standing on the baseline the footer text and the page number share
+ * (stage.css `.cell-footer`, which places it in its `rail` column, against the page number's fixed
+ * column). So every mark centers on the figures' middle, within a device pixel measured at 2x. The
+ * font is set here only so `1cap` is the footer's cap; the marks are sized in slide units. */
+section.form > .cell-footer > .tile-progress {
+  block-size: 1cap;
+  font-family: var(--font-label);
+  font-size: var(--chrome-fs);
+  line-height: 1;
+}
+
+/* ── PLACEMENT — the `progress-rail:` register (lib/core/resolve-progress-rail.js) ─────────────
+ * `right` is the default above and carries no rule. Every placement below sets `inset` through the
+ * same `--progress-inset` hook as the default, so a deck that moves the rail by hand still can.
+ */
+
+/* `center` — the middle of the footer band. NOT where a bottom-center LOGO sits: the brand wins
+ * that berth (`logo-finish:`, base.modifiers.css), and the rail falls back to `right` rather than
+ * drawing over the mark. Not under a bottom-right logo either: that logo hides the rail, so a centered
+ * grid would split the band around nothing; the `right` band with its logo reserve (stage.css) applies. */
+section.form.progress-rail-center:not(:is(.logo-bottom-center, .logo-bottom-right):has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) {
+  /* A GRID of three tracks, the rail IN the middle one: `1fr auto 1fr` keeps the outer tracks equal
+   * whatever they hold, so the rail sits on the band's exact center and holds still from slide to
+   * slide, and the words get everything left of the rail's TRUE width. An earlier cut centered an
+   * absolute rail and stopped the words short of the full ten-mark reserve (`--footer-center-w`, a
+   * third of the slide, since CSS cannot read the mark count): a four-section deck's footer was cut
+   * to an ellipsis it had room for, and the clip check flagged eleven slides of gallery-jargon. A
+   * flex row with `space-between` sent a lone page number to the left corner when the footer text
+   * was off; named tracks place each item whatever is missing. */
+  display: grid;
+  /* Five tracks, symmetric: an edge track as wide as a five-character page number (`123.4`; 0.7em a
+   * character of `--chrome-fs`, the number's own size, letter-spacing included) on BOTH sides, so
+   * `edge 1fr | rail | 1fr edge` still centers the rail exactly while the split counter (k-of-N)
+   * sits against the number in the fourth track, not against the rail, where two segmented bars
+   * read as one scale. The footer words span the first two tracks, so the edge track costs them
+   * nothing. */
+  grid-template-columns: var(--_pag-col) minmax(0, 1fr) auto minmax(0, 1fr) var(--_pag-col);
+  --_pag-col: var(--footer-pag-col);
+  /* One baseline, as the `right` band's grid (stage.css `.cell-footer`): the rail is one cap tall and stands on it. */
+  align-items: baseline;
+  column-gap: var(--footer-gap);
+}
+section.form.progress-rail-center:not(:is(.logo-bottom-center, .logo-bottom-right):has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > footer { grid-column: 1 / 3; grid-row: 1; }
+section.form.progress-rail-center:not(:is(.logo-bottom-center, .logo-bottom-right):has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-split-rail { grid-column: 4; grid-row: 1; justify-self: end; padding-inline-start: 0; }
+section.form.progress-rail-center:not(:is(.logo-bottom-center, .logo-bottom-right):has(> img.deck-logo)) > .cell-footer:has(> .tile-progress) > .lat-pagination { grid-column: 5; grid-row: 1; justify-self: end; padding-inline-start: 0; }
+/* The rail itself: a grid item in the middle track, not the absolute placement the default owns. */
+section.form.progress-rail-center:not(:is(.logo-bottom-center, .logo-bottom-right):has(> img.deck-logo)) > .cell-footer > .tile-progress {
+  grid-column: 3;
+  grid-row: 1;
+  padding-inline-start: 0;  /* the five-track grid keeps its own column-gap; the `right` band's item lead would off-center the rail */
+  position: static;
+  inset: auto;
+  max-width: none;
+}
+/* A section-level rail (a frame with no footer Cell) centers on the slide the same way. */
+section.form.progress-rail-center:not(:is(.logo-bottom-center, .logo-bottom-right):has(> img.deck-logo)) > .tile-progress {
+  inset: var(--progress-inset, auto auto var(--frame-inset-b) 50%);
+  translate: -50% 0;
+}
+
+/* `edge` — upright on the slide's right edge, at mid-height, centered in the frame's right inset
+ * where no content reaches. progress.transform.js places it at SECTION level for this, never in
+ * the footer Cell, so it is clear of the band entirely and has no width budget to share: the
+ * column runs vertically, and `--footer-center-w` does not apply. */
+section.form.progress-rail-edge > .tile-progress {
+  inset: var(--progress-inset, 50% calc(var(--frame-inset-r) / 2) auto auto);
+  translate: 50% -50%;
+  flex-direction: column;
+  max-width: none;
+  block-size: auto;
+}

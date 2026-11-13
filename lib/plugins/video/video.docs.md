@@ -7,8 +7,8 @@ A video as a static, PDF-safe poster that links to the clip, written in inline c
 ```
 
 The line draws a poster with a play badge and the provider's name, and the poster is a link to the clip. It is never a live
-iframe. The `video` slide class (`lib/components/imagery/video/video.docs.md`) lays the figure out: the default, `companion`,
-`gallery` and the `qr` variant. Design: `engineering/decisions/2026-10-16-media-plugins.md`.
+iframe. It draws on any slide. The `video` slide class (`lib/components/imagery/video/video.docs.md`) seats the clip beside its
+words: the default, `companion`, `gallery` and the `qr` variant. Design: `engineering/decisions/2026-10-16-media-plugins.md`.
 
 This is a **plugin** (`engineering/decisions/2026-09-27-plugin-system.md`). It is on by default, and a deck pays nothing for it
 until it writes a record.
@@ -17,7 +17,10 @@ until it writes a record.
 
 ```markdown
 `@video{ADDRESS, title="…", description="…", poster=…}`
+`>{ADDRESS, title="…"}`
 ```
+
+`>{…}` is the short form, the way `^{…}` is an icon's and `!{…}` an avatar's: the two spellings draw the same figure.
 
 | Word | Meaning |
 |---|---|
@@ -25,6 +28,16 @@ until it writes a record.
 | `title="…"` | The caption under the poster, and the poster's accessible name. |
 | `description="…"` | A longer line for narration and the notes. Not shown on the slide. |
 | `poster=…` | The picture behind the play badge: a path, a `sample:` or `asset:` name, or a web address. Without one the poster is a drawn stand-in. |
+| `sm` `md` `lg` | The poster's size, `md` by default: a nudge of about a fifth either way, never past the box the layout gives it. |
+| `frame=…` | `mat`, `keyline`, `float`, `device` or `corners`, written bare or as `frame=device`. None by default. |
+| `nimbus` `halo` `meridian` | A finish on the poster, the deck's own looks laid over the picture. A strength follows the name: `nimbus=40`, from `20` to `80` and `full`. |
+| `duotone` `grayscale` | A tone, at full strength unless the record says `duotone=60`. |
+| `show=…` | Which words the slide shows under the poster: `title` (the default for a clip), `all` (the description too) or `none`. Hidden words still reach a screen reader, the tooltip, the print notes and narration. |
+
+The frames, finishes, tones and sizes are the same ones a picture takes (`lib/plugins/image/image.docs.md`), so a clip matches
+the photos beside it. A deck sets them once with the `video:` register (`video: mat nimbus=40`), a slide with a class
+(`<!-- _class: video-keyline -->`), and a record's own word wins over both. One finish and one tone at a time: two finishes
+leave the record as code, and `lint:deck` says why.
 
 The record goes on a line of its own, with a blank line above and below it. In running text it stays code, and `lint:deck`
 says why (`video-not-alone`).
@@ -62,8 +75,7 @@ The slide class picks the layout; the record only names the clip.
 Posters are cropped to a 16:9 frame (`gallery` keeps the whole picture on its matte). TikTok and Instagram thumbnails are
 usually portrait, so expect a crop in `video` and `companion`, or a matte around the whole picture in `gallery`.
 
-A `@video` on a slide that is not a `video` slide has no layout and no poster picture, so it draws only as a plain text link with the caption under it. `lint:deck` says so
-(`video-slide-class`) and names the class to write.
+On any other slide the record is a figure in the slide's flow: the poster at about half the slide's width, the title under it.
 
 ## The address comes only from the record
 
@@ -90,7 +102,15 @@ link and no notice.
 - **PDF and print.** The poster is a clickable link, and the scannable code carries the address for paper.
 - **HTML.** The same figure, with the same link.
 - **Export to Marp.** A lone record becomes an ordinary Markdown link on its own line, recorded in the fidelity ledger. A record
-  Lattice cannot be sure of (inside a quote, a list or a fence) is left as code, so nothing is rewritten wrongly.
+  Lattice cannot be sure of (inside a quote, a list or a fence) is left as code, so nothing is rewritten wrongly. Where the
+  bundle's runtime runs, a record left as code, or one typed after export, draws the poster the way the kit does (below).
+- **A deck written in Marp (the copy-and-go kit, `dist/marp-kit`).** The record draws the same poster and, on a `video` slide,
+  the same card as in Lattice. Marp runs none of Lattice's rules, so the record reaches the runtime from your Markdown: marp-cli
+  runs the kit's `marp.config.cjs` engine, which reads the records as Marp parses them, and the VS Code preview reads the saved
+  file. Two consequences. In VS Code a record you have just typed draws when you save, not before. And a `@video{…}` that is on
+  the page but not in your Markdown as a record (raw HTML, or a plugin's output) stays code: the address always comes from
+  what you wrote (spec/LPM.md §10). The poster needs the runtime, so it draws in `marp --pdf`, in a `marp --html` file opened
+  beside the kit's scripts, and in the VS Code preview at the *Disable* security level; elsewhere the record shows as code.
 
 ## What the linter says
 
@@ -99,14 +119,13 @@ link and no notice.
 | `video-no-record` | A `video` slide with no record, which draws no clip. |
 | `video-not-alone` | A record in running text, or touching a line of text above or below it. |
 | `video-literal` | A record whose address is not one of the four providers. |
-| `video-slide-class` | A lone record on a slide that is not a `video` slide. |
 | `video-extra-record` | A second lone record on one `video` slide, which runs off the slide. |
 | `video-web-poster` | A `poster=` from another site, which the preview replaces with a placeholder. Save the poster beside the deck. |
 
 ## What stays literal
 
 A record in running text, in a code fence, in a quote's lazy continuation, or with an address the provider table does not own
-stays code. To show a record as text on purpose, put a backslash before the `@`: `` `\@video{"https://youtu.be/x"}` ``.
+stays code. To show a record as text on purpose, put a backslash before the `@` or the `>`: `` `\@video{"https://youtu.be/x"}` ``, `` `\>{"https://youtu.be/x"}` ``.
 
 ## Anti-patterns
 

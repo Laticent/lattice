@@ -358,9 +358,9 @@ Every one of them is a **switch**, and every switch is spelled the same way:
 
 | Element | Whole deck | One slide (`_class`) | On by default? |
 |---|---|---|---|
-| Running header | `header: "Acme — Q3"`, or `class: no-header` | `no-header` · `with-header` | no — appears once you give it text |
-| Running footer | `footer: "Confidential"`, or `class: no-footer` | `no-footer` · `with-footer` | no — appears once you give it text |
-| Page number | `paginate: false`, or `class: no-pagination` | `no-pagination` · `with-pagination` | yes — except title, divider and closing |
+| Running header | `header: "Acme — Q3"`, or `class: no-header` | `no-header` · `with-header` | once you give it text; not on a title |
+| Running footer | `footer: "Confidential"`, or `class: no-footer` | `no-footer` · `with-footer` | once you give it text, on every slide |
+| Page number | `paginate: false`, or `class: no-pagination` | `no-pagination` · `with-pagination` | yes — except title, divider, topic and closing |
 | Section rail | `class: no-progress` | `no-progress` · `with-progress` | on when the deck has dividers |
 | Logo | `logo: …`, or `class: no-logo` | `no-logo` · `with-logo` | on once you set `logo:` |
 
@@ -407,6 +407,32 @@ fields** (you type the running copy the band will read; clear the field to turn
 it off), while page numbers and the section rail are switches. The *This slide*
 drawer's Chrome section carries the per-slide overrides (Clean slide · Hide
 header · Hide footer · Hide page number · Hide rail).
+
+## Hide a slide
+
+A hidden slide stays in your deck and in the editor, but Present and every
+export leave it out: the PDF, PowerPoint, LibreOffice, images and the webpage.
+Use it for a backup slide, an appendix you may need for questions, or a draft
+you are not ready to show. Put `hide` at the top of the slide:
+
+```markdown
+<!-- hide -->
+## Backup: the full cost model
+```
+
+`<!-- _hide -->` and `<!-- _hide: true -->` mean the same thing, and
+`<!-- _hide: false -->` shows the slide again. Hiding is per slide: it never
+carries onto the slides after it.
+
+**Page numbers count only the slides your audience sees.** Hide slide 3 of 6
+and the PDF reads 1 to 5, with no gap. A hidden divider opens no section, so the
+section rail counts only the dividers that show.
+
+In the **Studio**, open a slide's menu (the ⋯ on its pill, a right-click, or a
+tap on the current slide) and choose **Hide Slide**. The slide keeps its place
+in the strip with an eye-off mark where its number was, and the preview bar
+shows a **Hidden** chip. Choose **Show Slide** from the same menu, or tap the
+chip, to bring it back. The command palette has both.
 
 ## Where to go next
 

@@ -1002,6 +1002,74 @@
    }
   },
   {
+   "name": "progress-rail: center",
+   "source": "---\nprogress-rail: center\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "progress-rail: edge bar",
+   "source": "---\nprogress-rail: edge bar\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "progress-rail: off",
+   "source": "---\nprogress-rail: off\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "progress-rail: (unknown)",
+   "source": "---\nprogress-rail: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-progress-rail",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "agenda: ledger",
+   "source": "---\nagenda: ledger\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "agenda: circles no-pages",
+   "source": "---\nagenda: circles no-pages\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "agenda: checks",
+   "source": "---\nagenda: checks\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "agenda: (unknown)",
+   "source": "---\nagenda: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-agenda",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
    "name": "corners: square",
    "source": "---\ncorners: square\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
@@ -1492,6 +1560,47 @@
     "findings": [
      {
       "rule": "unknown-delivery",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "typography: classic",
+   "source": "---\ntypography: classic\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "typography: ledger",
+   "source": "---\ntypography: ledger\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "typography: poster",
+   "source": "---\ntypography: poster\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "typography: festival",
+   "source": "---\ntypography: festival\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "typography: (unknown)",
+   "source": "---\ntypography: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-typography",
       "severity": "warning",
       "slide": 0
      }

@@ -36,6 +36,7 @@
  *   -  skill index           tools/skill-index.js (design/skills/index.json, README table, .claude/skills)
  *  13. capability index        tools/build-capabilities.js (dist/engineering/capabilities.md)
  *  13b. third-party licenses  tools/build-third-party-licenses.js (dist/THIRD-PARTY-LICENSES.txt)
+ *  13c. VS Code stylesheet    tools/build-marp-vscode-css.js (dist/lattice-vscode{,-bundle}-min.css + the engine stubs; packed by marp-core)
  *  14. marp kit               tools/build-marp-kit.js (dist/marp-kit; needs dist/ fresh)
  *  15. dist README            tools/build-dist-readme.js (indexes dist/; runs last)
  *
@@ -307,6 +308,10 @@ const STEPS = [
   // The verbatim MIT + OFL texts every Marp shipper copies (#1354). Reads assets/licenses/
   // only; it sits here because the kit below copies it.
   { label: 'third-party licenses (dist/THIRD-PARTY-LICENSES.txt)', script: 'build-third-party-licenses.js', uncommitted: true },
+  // The Lattice stylesheet as Marp for VS Code shapes it (packed by marp-core, a devDependency of this step only), linked by a
+  // Marp deck so the VS Code preview stops re-processing 1.1 MB of theme on every keystroke. Reads dist/lattice-min.css and
+  // dist/themes/, so after them; before the kit and the bundle, which ship it.
+  { label: 'VS Code-shaped stylesheet (dist/lattice-vscode-min.css)', script: 'build-marp-vscode-css.js', uncommitted: true },
   { label: 'marp kit (dist/marp-kit)', script: 'build-marp-kit.js', uncommitted: true },
   // Reads the docs-portal / forms / concepts output, so it must follow them.
   { label: 'agent kit (dist/agent-kit)', script: 'build-agent-kit.mjs', uncommitted: true },

@@ -38,16 +38,19 @@ import {
 	keyAction,
 	PRESENT_KEYMAP,
 	padInset,
+	stepEnter,
 	swipeAction,
 } from '../../../../../lib/core/present-transport.mjs';
 import { fontGateAgent, onFontsReady } from '../../../../../lib/core/preview-font-gate.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
+import { applyStepAt, stepsOfSection } from '../../../../../lib/core/step-state.mjs';
 import { drawnLibraryPreload } from '../../../../../lib/plugins/drawn-library.mjs';
 import { markupHasDrawnFence } from '../../../../../lib/plugins/drawn-probe.mjs';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { previewDiagramsAttr } from '../../../playground/deck-preview.js';
 import { slideBox } from '../../../playground/frame-css.js';
+import { PAGE_SCRIPT_NONCE } from '../../../playground/page-script-nonce.js';
 import { previewCspMeta } from '../../../playground/preview-csp.js';
 import { STAGE_CHROME_CSS } from './stage-chrome.js';
 
@@ -124,6 +127,11 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		`var createWheelGate=${createWheelGate.toString()}`,
 		`var createZoomGesture=${createZoomGesture.toString()}`,
 		`var PRESENT_KEYMAP=${JSON.stringify(PRESENT_KEYMAP)}`,
+		// The step painter (lib/core/step-state.mjs), so the Stage shows the console's step of a
+		// `_build` / `_focusSteps` slide, painted exactly as the console and the exported player paint it.
+		`var applyStepAt=${applyStepAt.toString()}`,
+		`var stepsOfSection=${stepsOfSection.toString()}`,
+		`var stepEnter=${stepEnter.toString()}`,
 	].join(';\n');
 	const padF = Number(pad.factor);
 	const padFl = Number(pad.floor || 0);
@@ -178,8 +186,11 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// stage's rounded-corner cards. The engine writes no section styles, so this never fights it.
 		'for(var k=0;k<s.length;k++){s[k].style.visibility=k===i?"":"hidden"}' +
 		'film.style.transform="scale("+sc+") translateY("+(-top)+"px)";}' +
-		'function show(n){cur=n|0;fit()}' +
-		'window.addEventListener("message",function(e){if(e.data&&e.data.pv!=null)show(e.data.pv)});' +
+		// `st` is the shown slide's step (null at rest); every other slide rests.
+		// `st` is the shown slide's step (null at rest), or the direction it was entered by ('next' / 'prev'), which
+		// resolves here against the slide's own walk; every other slide rests.
+		'function show(n,st){cur=n|0;var s=secs();for(var k=0;k<s.length;k++){var at=null;if(k===cur&&st!=null){if(st==="next"||st==="prev"||st==="jump"){var w=stepsOfSection(s[k]);at=w?stepEnter(w.kind,w.count,st):null}else at=typeof st==="number"?st:null}applyStepAt(s[k],at)}fit()}' +
+		'window.addEventListener("message",function(e){if(e.data&&e.data.pv!=null)show(e.data.pv,e.data.st==null?null:e.data.st)});' +
 		'window.addEventListener("resize",fit);window.addEventListener("orientationchange",fit);' +
 		'if(window.visualViewport){try{window.visualViewport.addEventListener("resize",fit)}catch(e){}}' +
 		// Re-fit when the stage resizes, and when the film's subtree repaints (the engine may
@@ -324,6 +335,10 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 			'<button id="latt-full" type="button" aria-label="Full screen" aria-pressed="false" class="latt-ctl-full">\u26f6</button>' +
 			'</div>'
 		: '';
+	// Every script this document writes carries the page's nonce, and its CSP refuses any script
+	// without it, so a `<script>` or inline handler that got past the sanitizer does not run
+	// (followups 3048-p10; the same seal the Studio preview has, single-slide-render.ts).
+	const n = ' nonce="' + PAGE_SCRIPT_NONCE + '"';
 	return (
 		// `<html lang>`, like the two sibling builders (deck-preview.js, share-export.ts). This
 		// one omitted it, so the Stage — the surface an AUDIENCE actually looks at — shipped a
@@ -335,10 +350,15 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// the Underpainting (lib/core/image-painting.js) rather than an empty panel.
 		// `data-lattice-chromeless`: the audience watches, nobody acts on the slide, so the runtime
 		// draws no reader chrome (a code block's copy buttons, lib/core/code-copy.mjs).
-		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(!!runtimeUrl && markupHasDrawnFence(html)) + ' data-lattice-live-media data-lattice-chromeless><head><meta charset="utf-8">' +
+		// `data-lattice-preview`: the runtime settles only the faces laid-out text uses
+		// (lib/runtime/index.js `isPreviewFonts`) instead of force-loading every declared face
+		// (28 files, the emoji subsets among them), which held the reveal below to its full font
+		// backstop. Every slide here is laid out (hidden by `visibility`, never `display:none`),
+		// so the faces of the slides ahead are still in flight before the audience reaches them.
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(!!runtimeUrl && markupHasDrawnFence(html)) + ' data-lattice-live-media data-lattice-chromeless data-lattice-preview><head><meta charset="utf-8">' +
 		// Remote-subresource containment, before any content (#1753). The Stage renders the
 		// same untrusted deck HTML the other preview frames do, so it takes the same policy.
-		previewCspMeta({ katexUrl, webOrigins, blocked: [...web.blocked, ...remoteRef.webRefsInCss(css)] }) +
+		previewCspMeta({ katexUrl, webOrigins, blocked: [...web.blocked, ...remoteRef.webRefsInCss(css)], scriptNonce: PAGE_SCRIPT_NONCE }) +
 		(standalone ? '<title>Stage</title>' : '') +
 		'<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">' +
 		(katexUrl ? '<link rel="stylesheet" href="' + katexUrl + '">' : '') +
@@ -426,9 +446,9 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		(standalone ? STAGE_CHROME_CSS : '') + '</style>' +
 		// The font gate, in <head> — same placement rule as the other two preview
 		// builders. See lib/core/preview-font-gate.mjs.
-		'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
+		'<scr' + 'ipt' + n + '>' + fontGateAgent() + '</scr' + 'ipt>' +
 		// The diagram library's fetch starts with the document, not after the runtime boots.
-		(runtimeUrl && markupHasDrawnFence(html) ? drawnLibraryPreload(runtimeUrl) : '') +
+		(runtimeUrl && markupHasDrawnFence(html) ? drawnLibraryPreload(runtimeUrl).replaceAll('<link rel="preload" as="script"', '<link rel="preload" as="script"' + n) : '') +
 		'</head><body>' +
 		a11yDefs + '<div id="latt-stage"><div id="latt-view"><div id="latt-fit"><div id="latt-film">' + html + '</div></div>' + controls + '</div>' + chrome + '</div>' +
 		// No diagram library tag: the runtime's plugin host loads Mermaid's (the plugin's
@@ -443,8 +463,8 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// on its first draw. Absent → a branching machine lays out on the grid, and the
 		// runtime says so on the console.
 		(dagreUrl && (html.indexOf('data-sc-model') !== -1 || html.indexOf('data-fc-model') !== -1)
-			? '<scr' + 'ipt src="' + dagreUrl + '"></scr' + 'ipt>' : '') +
-		'<scr' + 'ipt src="' + rt + '"></scr' + 'ipt>' +
+			? '<scr' + 'ipt' + n + ' src="' + dagreUrl + '"></scr' + 'ipt>' : '') +
+		'<scr' + 'ipt' + n + ' src="' + rt + '"></scr' + 'ipt>' +
 		// The reveal waits for this document's OWN faces, not just for one frame.
 		// `#latt-stage` is `visibility:hidden` until the line below flips it, so the
 		// fallback-metric solve already happens off-screen; the defect was that the
@@ -452,9 +472,9 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// preview: under `standalone` this document is the top-level window an
 		// AUDIENCE is watching, so the shift lands on a projector. Never holds
 		// forever — see lib/core/preview-font-gate.mjs.
-		'<scr' + 'ipt>function lattStageReveal(){requestAnimationFrame(function(){var st=document.getElementById("latt-stage");if(st)st.style.visibility="visible"})}' +
+		'<scr' + 'ipt' + n + '>function lattStageReveal(){requestAnimationFrame(function(){var st=document.getElementById("latt-stage");if(st)st.style.visibility="visible"})}' +
 		onFontsReady('lattStageReveal') + '</scr' + 'ipt>' +
-		'<scr' + 'ipt>' + FIT + '</scr' + 'ipt></body></html>'
+		'<scr' + 'ipt' + n + '>' + FIT + '</scr' + 'ipt></body></html>'
 	);
 }
 
@@ -592,7 +612,7 @@ function stageToken() {
  * gesture (popup-blocker-safe). The manager owns its own `message` listener
  * lifecycle and trusts only its held handle (`e.source`).
  */
-export function createStageController({ getDoc, getIndex, onChange, onLost, onPlaced, onNav = /** @type {((action: string) => void) | null} */ (null) }) {
+export function createStageController({ getDoc, getIndex, getStep = /** @type {(() => number|null|'next'|'prev'|'jump') | null} */ (null), onChange, onLost, onPlaced, onNav = /** @type {((action: string) => void) | null} */ (null) }) {
 	let stageWin = null;
 	/** Has THIS document announced itself? Reset on every (re)write, because a
 	 *  rewrite replaces the listener that answered last time. */
@@ -601,6 +621,20 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 	 *  an unrelated re-render doesn't tear down a live Stage and re-run the
 	 *  engine's boot for no change. */
 	let written = '';
+	/** Waiting for the FIRST deck document in this window (`whenDeckWritten`), resolved by `paint` or let go by `teardown`. */
+	let deckWaiters = /** @type {((ok: boolean) => void)[]} */ ([]);
+	const settleDeckWaiters = (ok) => {
+		const list = deckWaiters;
+		deckWaiters = [];
+		for (const done of list) done(ok);
+	};
+	/**
+	 * Resolves true once a DECK document (not the holding page) is in the window, false if the window goes first.
+	 * The fill waits on it: writing a document replaces `documentElement`, and fullscreen exits with it. The deck
+	 * used to be built when Present opened, so it was nearly always in before placement finished; it is built
+	 * when the Stage opens now (PresentOverlay `stageWanted`), so the fill has to wait for it.
+	 */
+	const whenDeckWritten = () => (written && written !== HOLDING ? Promise.resolve(true) : new Promise((done) => deckWaiters.push(done)));
 	/** Baked into every document this controller writes and echoed in that document's
 	 *  beats. Per CONTROLLER rather than per open, because the deck document is built
 	 *  asynchronously and often BEFORE the window exists — a per-open token could not be
@@ -699,14 +733,64 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 	//
 	// The REVERT is not delayed by any of this; `teardown()` has already run. Only the
 	// sentence waits.
-	const CLOSED_GRACE_MS = 600; // 12× the 50ms the flag actually took, for a slow machine
+	//
+	// THE GRACE IS NOT THE VERDICT. A navigation is announced on EVIDENCE: the window still open, holding a document
+	// that is not ours (or that we can no longer read, a foreign origin). A window that is still open on OUR document
+	// has not navigated anywhere; it is a hand-close whose flag has not flipped yet, and it is given until the hang
+	// guard to flip. The flag used to be given 600 ms and no more, and a loaded WebKit took longer: three e2e workers
+	// announced "Stage disconnected" for a window the presenter had just closed (stage-window.spec.ts, the hand-close
+	// cell, 1 run in 10; followups.d/3101-p4).
+	const CLOSED_GRACE_MS = 600; // the earliest a navigation is announced, so a quick re-open still cancels it
+	const CLOSED_HANG_MS = 10_000; // a window still open on our own document this long after its goodbye is reported
 	const CLOSED_STEP_MS = 50;
+	/** Does `w` show a document that is NOT ours: someone else's page, or one we may no longer read? `null` while
+	 *  there is no document to judge (the window between documents), which is no evidence either way. */
+	function navigatedAway(w) {
+		try {
+			const d = w.document;
+			if (!d) return null;
+			return !(d.getElementById('latt-stage') || d.getElementById('latt-holding'));
+		} catch {
+			return true; // cross-origin: the window is open and showing a page that is not ours
+		}
+	}
 	/**
 	 * Announce the loss unless the window turns out to have simply been closed.
 	 * @param {Window | null} w the handle teardown just let go of
 	 * @param {number} seq the ownership sequence at schedule time
 	 * @param {number} waited
 	 */
+	// A CLOSED WINDOW THE POLL FOUND BEFORE ITS GOODBYE. A hand-close posts its goodbye from the dying document and
+	// THEN the flag flips, but the two reach this window by different routes: on a loaded machine the 2 s poll can tick
+	// after the flag flipped and before the goodbye's `message` task ran. Announcing then told the presenter "Stage
+	// disconnected" about the window they had just closed (stage-window.spec.ts, the hand-close cell on WebKit, 2 runs
+	// in 160 under four workers). So the console reverts at once, as before, and the SENTENCE waits for a goodbye from
+	// that window: one arriving means a deliberate close, and nothing is said. None by the guard, and it is a
+	// disappearance nobody asked for, announced as before. Firefox sends no goodbye at all (§13), so there a hand-close
+	// is still announced, five seconds later.
+	const GOODBYE_GRACE_MS = 5_000;
+	let cancelGoodbye = /** @type {(() => void) | null} */ (null);
+	/** @param {Window | null} w @param {number} seq */
+	function awaitGoodbye(w, seq) {
+		const onBye = (/** @type {MessageEvent} */ e) => {
+			const d = e.data;
+			// The same origin rule as `onMsg`: a real Stage is written into `about:blank` and posts with OUR origin.
+			if (e.origin !== location.origin) return;
+			if (d && typeof d === 'object' && d.stage === 'closed' && (e.source === w || d.tok === token)) finish(false);
+		};
+		const timer = window.setTimeout(() => finish(true), GOODBYE_GRACE_MS);
+		const finish = (/** @type {boolean} */ announce) => {
+			window.clearTimeout(timer);
+			window.removeEventListener('message', onBye);
+			if (cancelGoodbye === stop) cancelGoodbye = null;
+			if (announce && seq === ownSeq) onLost?.('gone');
+		};
+		const stop = () => finish(false);
+		cancelGoodbye?.();
+		cancelGoodbye = stop;
+		window.addEventListener('message', onBye);
+	}
+
 	function announceUnlessClosed(w, seq, waited = 0) {
 		if (!w || seq !== ownSeq) return; // a new Stage came up — this answer is stale
 		try {
@@ -714,7 +798,7 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 		} catch {
 			return; // we cannot even ask any more; do not invent a failure
 		}
-		if (waited >= CLOSED_GRACE_MS) {
+		if ((waited >= CLOSED_GRACE_MS && navigatedAway(w) === true) || waited >= CLOSED_HANG_MS) {
 			onLost?.('navigated');
 			return;
 		}
@@ -741,6 +825,7 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 			// throwing write: `written === doc` made `write(doc)` a no-op forever after,
 			// so the room kept whatever was on screen and nothing could replace it.
 			written = doc;
+			if (doc !== HOLDING) settleDeckWaiters(true);
 		} catch {
 			written = '';
 			// Not a rewrite in flight any more: nothing will say `ready`, so the console must
@@ -748,8 +833,11 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 			onChange?.(null);
 		}
 	}
-	/** Post the current slide index. No-op until the Stage's fit says it is listening. */
-	function show(index) {
+	/**
+	 * Post the current slide index, and its step on a stepping slide. No-op until the Stage's fit says it is listening.
+	 * @param {number} index @param {number|null|'next'|'prev'|'jump'} [step]
+	 */
+	function show(index, step = null) {
 		if (!alive() || !ready) return;
 		try {
 			// TARGETED, never `'*'`. A wildcard kept posting the presenter's live slide
@@ -757,7 +845,7 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 			// foreign origin a running read of where in the deck the talk was. Measured:
 			// a targeted post still delivers to our own written document.
 			// `?? 0` not `|| 0` — slide index 0 is a legitimate value, not "missing".
-			stageWin.postMessage({ pv: index ?? 0 }, location.origin);
+			stageWin.postMessage({ pv: index ?? 0, st: step ?? null }, location.origin);
 		} catch {
 			/* gone */
 		}
@@ -792,7 +880,7 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 		if (d.stage === 'ready') {
 			if (!ours) return; // a `ready` is only meaningful from the handle we hold
 			ready = true;
-			show(getIndex?.() ?? 0);
+			show(getIndex?.() ?? 0, getStep?.() ?? null);
 			onChange?.(stageWin);
 		} else if (d.stage === 'nav') {
 			// THE STAGE DRIVES. A gesture made on the projected window arrives here as an
@@ -828,7 +916,10 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 	function teardown() {
 		ready = false;
 		written = '';
+		settleDeckWaiters(false);
 		ownSeq += 1;
+		// A goodbye still awaited belongs to a window already let go of; whatever comes next supersedes it.
+		cancelGoodbye?.();
 		// Cancel any classification still walking. It belongs to a window this controller has
 		// already let go of, and the beat path re-schedules a fresh one immediately after this
 		// returns when there is something new to classify.
@@ -929,14 +1020,17 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 			} catch {
 				navigated = false;
 			}
-			onLost?.(navigated ? 'navigated' : 'gone');
+			if (navigated) onLost?.('navigated');
+			else awaitGoodbye(w, ownSeq);
 		}, 2000);
 		autoPlaceStage(win)
 			.then(async (placed) => {
 				if (win !== stageWin || win.closed) return; // toggled off while we were asking
 				// Fullscreen AFTER the deck document is live, and only onto a screen we
-				// actually placed onto — see `fillExternalScreen`.
-				const full = placed ? await fillExternalScreen(win) : false;
+				// actually placed onto — see `fillExternalScreen` and `whenDeckWritten`.
+				const deck = placed ? await whenDeckWritten() : false;
+				if (win !== stageWin || win.closed) return;
+				const full = deck ? await fillExternalScreen(win) : false;
 				if (win !== stageWin) return;
 				onPlaced?.({ placed, full });
 			})

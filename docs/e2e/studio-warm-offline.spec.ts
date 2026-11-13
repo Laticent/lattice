@@ -17,6 +17,9 @@ test.use({ serviceWorkers: 'allow' });
 const chunk = (name: string) => new RegExp(`^/_astro/${name}\\.[\\w-]+\\.js$`);
 const KATEX = /^\/playground\/v\/[0-9a-f]+\/lattice-katex\.js$/;
 const MERMAID = /^\/playground\/v\/[0-9a-f]+\/mermaid\.min\.js$/;
+// A deck with math OUTSIDE code. The starter deck's only math sits in inline code, and since the Studio stopped reading
+// that as math (`sourceHasMathOutsideCode`), the warm-up rightly skips KaTeX for it, so the KaTeX case needs its own deck.
+const MATH_DECK = '# Offline math\n\nEuler: $e^{i\\pi} + 1 = 0$\n\n---\n\n## Second slide\n\n- one\n- two\n';
 
 async function cachedPaths(page: Page): Promise<string[]> {
 	return page.evaluate(async () => {
@@ -32,18 +35,20 @@ async function warmOnline(
 	page: Page,
 	origin: string,
 	names: Array<string | RegExp>,
-	{ fabricateUsed = false, diagramsUsed = false, saveData = false } = {},
+	{ fabricateUsed = false, diagramsUsed = false, saveData = false, mathDeck = false } = {},
 ): Promise<void> {
 	await page.addInitScript(
-		([used, diagrams, save]) => {
+		([used, diagrams, save, math, mathSource]) => {
 			try {
-				localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft' }));
+				localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft', editMode: 'source' }));
 				if (used) localStorage.setItem('lattice-studio-fabricate-used', '1');
 				if (diagrams) localStorage.setItem('lattice-studio-diagrams-used', '1');
+				// The starter deck's stored source (studio-store.ts SRC_PREFIX), as a JSON string.
+				if (math) localStorage.setItem('lattice-studio-src-welcome', JSON.stringify(mathSource));
 			} catch {}
 			if (save) Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
 		},
-		[fabricateUsed, diagramsUsed, saveData],
+		[fabricateUsed, diagramsUsed, saveData, mathDeck, MATH_DECK] as const,
 	);
 	await page.goto(`${origin}/studio/`, { waitUntil: 'domcontentloaded' });
 	await page.evaluate(() => navigator.serviceWorker.ready);
@@ -83,7 +88,7 @@ test('Present and the reading view open offline after a session that never opene
 	try {
 		// Each surface's whole on-demand path, not just its own chunk: Present's narration and the
 		// reading view import player-core and player-prune once open.
-		await warmOnline(page, origin, ['PresentOverlay', 'ReadArticle', 'narration-projection', 'player-core\\.generated', 'player-prune\\.generated', KATEX]);
+		await warmOnline(page, origin, ['PresentOverlay', 'ReadArticle', 'narration-projection', 'player-core\\.generated', 'player-prune\\.generated', KATEX], { mathDeck: true });
 		expect(hits.filter((p) => chunk('Fabricate').test(p)), 'Fabricate warmed for a browser that never opened it').toEqual([]);
 		expect(hits.filter((p) => MERMAID.test(p)), 'Mermaid warmed for a browser that never showed a diagram').toEqual([]);
 
@@ -99,8 +104,7 @@ test('Present and the reading view open offline after a session that never opene
 		await page.getByRole('button', { name: CHROME.readArticle }).click();
 		await expect(page.locator('article.st-read-article h1, article.st-read-article h2').first()).toBeVisible({ timeout: 30_000 });
 		await expect(page.getByText('This deck could not be turned into an article')).toHaveCount(0);
-		// The starter deck reads as math to the detector, so the article loaded the KaTeX provider,
-		// offline, from the copy the warm-up cached. Without it, math would fall back to source text.
+		// The deck has math, so the article loaded the KaTeX provider, offline, from the copy the warm-up cached. Without it, math would fall back to source text.
 		expect(await page.evaluate(() => (window as { __latticeKatexReady?: boolean }).__latticeKatexReady)).toBe(true);
 	} finally {
 		server.closeAllConnections();
@@ -129,7 +133,9 @@ test('Fabricate opens offline after a deploy-fresh session, for a browser that h
 // offline — draws from the Mermaid bundle the warm-up cached, because the browser has shown a
 // diagram before. Without the warm-up the fence stays source text. The starter deck on screen
 // during the online session has no diagram, so nothing but the warm-up can have fetched Mermaid.
-test('a diagram never rendered online draws offline, for a browser that has shown one before', async ({ page }) => {
+// Registered twice, as mermaid-cache-bindings.spec.ts is: `@gecko` runs on desktop Chromium AND Firefox, and
+// `@webkit-tablet` runs on WebKit only (desktop's grepInvert drops a WebKit-tagged title without `@crosswidth`).
+const diagramDrawsOffline = async ({ page }: { page: Page }) => {
 	test.setTimeout(180_000);
 	const { server, origin } = await serveDist();
 	try {
@@ -137,19 +143,28 @@ test('a diagram never rendered online draws offline, for a browser that has show
 		await goOffline(page, server);
 
 		const editor = page.locator('.cm-content').first();
-		await editor.click();
+		// focus(), not click(): offline on Gecko, Playwright's mouse input hangs once serve-dist's server is closed, even on
+		// the bare /offline/ page (the keyboard still works). studio-preview-sync.spec.ts covers the click online.
+		await editor.focus();
 		await page.keyboard.press('ControlOrMeta+a');
 		await page.keyboard.insertText('# Flow\n\n```mermaid\nflowchart LR\n  A[Draft] --> B[Review]\n```\n');
-		const preview = page.locator('[aria-label="Live deck preview"] iframe.live').contentFrame();
-		await expect(preview.locator('pre[data-lattice-hydrate="mermaid"][data-lattice-settle]').first(), 'the diagram did not render offline').toHaveAttribute('data-lattice-settle', 'rendered', {
-			timeout: 30_000,
-		});
-		await expect(preview.locator('svg').filter({ hasText: 'Review' }).first()).toBeAttached();
+		// Read the live frame through the page, not a contentFrame() locator: on Firefox the preview re-inserts its frame
+		// to keep the service worker (docs/src/lib/srcdoc-write.js), and Playwright's Firefox frame tree does not follow it.
+		const liveState = () =>
+			page.evaluate(() => {
+				const d = document.querySelector<HTMLIFrameElement>('[aria-label="Live deck preview"] iframe.live')?.contentDocument;
+				const fence = d?.querySelector('pre[data-lattice-hydrate="mermaid"][data-lattice-settle]');
+				const svg = !!d && [...d.querySelectorAll('svg')].some((s) => (s.textContent || '').includes('Review'));
+				return `${fence?.getAttribute('data-lattice-settle') ?? 'none'} svg=${svg}`;
+			});
+		await expect.poll(liveState, { timeout: 30_000, message: 'the diagram did not render offline' }).toBe('rendered svg=true');
 	} finally {
 		server.closeAllConnections();
 		server.close();
 	}
-});
+};
+test('a diagram never rendered online draws offline, for a browser that has shown one before @gecko', diagramDrawsOffline);
+test('a diagram never rendered online draws offline, for a browser that has shown one before (WebKit) @webkit-tablet', diagramDrawsOffline);
 
 test('under Save-Data the warm-up fetches the six panels but not Present or the reading view', async ({ page }) => {
 	test.setTimeout(180_000);

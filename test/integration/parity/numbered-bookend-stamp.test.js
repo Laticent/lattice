@@ -104,10 +104,13 @@ const EXPECTED = [
   // divider, so the `display: none` asserted on every stamped row below is doing work
   // rather than describing a deck that never had a header to begin with.
   { cls: 'divider', counter: null, header: 'block', footer: 'block' },
-  { cls: 'divider numbered', stamp: '01' },
+  // `02`, not `01`: EVERY divider advances the series, numbered or not (lib/core/section-index.js),
+  // so the plain control divider above is section 01 — the number the section rail lights and
+  // the divider's own marker prints (engineering/decisions/2026-11-06-section-rail-placement.md).
+  { cls: 'divider numbered', stamp: '02' },
   // `silent` settles into the four bands it turns off (lib/core/switches.mjs `settleSwitches`).
-  { cls: 'divider silent numbered no-header no-footer no-pagination no-progress', stamp: '02' },
-  { cls: 'divider light numbered', stamp: '03' },
+  { cls: 'divider silent numbered no-header no-footer no-pagination no-progress', stamp: '03', header: 'none', footer: 'none' },
+  { cls: 'divider light numbered', stamp: '04' },
   { cls: 'closing numbered', counter: null },
   // `silent` WITHOUT `numbered`: proves the chrome assertions above are reading the
   // modifier and not just `silent`, which suppresses header and footer on its own.
@@ -179,13 +182,15 @@ function assertStamps(rows, surface) {
       `"${want.stamp}"`,
       `${surface}: "${want.cls}" lost its stamp (computed content: ${row.content})`
     );
-    // The masthead owns the top band, so a numbered divider stands the header AND the
-    // footer down. Asserted as computed `display`, not class presence — and the deck
-    // declares both, so the plain-divider row above (which asserts `block` for each)
-    // proves this assertion is doing work rather than describing a deck that never had
-    // chrome to begin with.
-    assert.equal(row.header, 'none', `${surface}: "${want.cls}" still paints a running header under the masthead`);
-    assert.equal(row.footer, 'none', `${surface}: "${want.cls}" still paints a footer`);
+    // A numbered divider KEEPS the deck's header and footer, as every divider does: a band stays unless
+    // the slide already does its job, and the footer carries a deck's "Confidential"
+    // (engineering/decisions/2026-11-08-anchor-chrome.md). Until then the variant hid both. Asserted as
+    // computed `display`, not class presence; the `silent numbered` row asserts `none`, so this reads
+    // the variant and not a deck that never had chrome.
+    const header = want.header ?? 'block';
+    const footer = want.footer ?? 'block';
+    assert.equal(row.header, header, `${surface}: "${want.cls}" header is ${row.header}, want ${header}`);
+    assert.equal(row.footer, footer, `${surface}: "${want.cls}" footer is ${row.footer}, want ${footer}`);
   });
 }
 

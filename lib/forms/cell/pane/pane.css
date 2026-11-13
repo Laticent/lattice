@@ -140,8 +140,9 @@ section .lat-pane-head > * {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-/* A PANE'S TITLE IS A LABEL, set in the slide eyebrow's voice (the `p:has(> code:only-child)`
- * eyebrow rule in base.elements.css): the slide's `##` is the one headline, and each pane names
+/* A PANE'S TITLE IS A LABEL, set in the label voice (mono tracked capitals — the voice the slide
+ * eyebrow had before the `typography:` sets moved it to the heading face's italic,
+ * lib/base/base.typography.css). It stays a label: the slide's `##` is the one headline, and each pane names
  * what it holds, the way a column or a card is labeled. It reads as the layout's own furniture
  * rather than a second, smaller slide title competing with the first (owner ruling, design note
  * §2.5). Tracked capitals are for a short label, so lint nudges a long one (`pane-title`).
@@ -227,27 +228,30 @@ lat-pane > .cell-stage {
 /* `align:` — where a card row or list puts its spare height. base.tokens.css keys the tokens
  * on `section[data-align]`; a pane is not a section, so its own resolved value (stamped by
  * lib/core/panes.js embed) sets them here. The component rules reach the pane through their
- * twins and read `--align-v` / `--align-grow` from it as they would from a slide. */
+ * twins and read `--align-v` / `--align-grow` from it as they would from a slide. All four tokens are set,
+ * as base.tokens.css sets them: a stack that reads `--align-basis` (matrix-2x2's and verdict-grid's narrow
+ * form) or a grid that reads `--align-track` found it unset otherwise, and under `fill` a pane's cards
+ * never filled (#3060). */
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align="middle"],
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="middle"] { --align-v: center;       --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="middle"] { --align-v: center;       --align-grow: 0; --align-track: auto; --align-basis: auto; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align="fill"],
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="fill"] { --align-v: stretch;      --align-grow: 1; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="fill"] { --align-v: stretch;      --align-grow: 1; --align-track: 1fr; --align-basis: 0%; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align="top"],
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="top"] { --align-v: flex-start;   --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="top"] { --align-v: flex-start;   --align-grow: 0; --align-track: auto; --align-basis: auto; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align="bottom"],
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="bottom"] { --align-v: flex-end;     --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="bottom"] { --align-v: flex-end;     --align-grow: 0; --align-track: auto; --align-basis: auto; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align="spread"],
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="spread"] { --align-v: space-evenly; --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align="spread"] { --align-v: space-evenly; --align-grow: 0; --align-track: auto; --align-basis: auto; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align-coda="middle"]:has(> .cell-coda),
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="middle"]:has(> .cell-coda) { --align-v: center;       --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="middle"]:has(> .cell-coda) { --align-v: center;       --align-grow: 0; --align-track: auto; --align-basis: auto; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align-coda="fill"]:has(> .cell-coda),
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="fill"]:has(> .cell-coda) { --align-v: stretch;      --align-grow: 1; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="fill"]:has(> .cell-coda) { --align-v: stretch;      --align-grow: 1; --align-track: 1fr; --align-basis: 0%; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align-coda="top"]:has(> .cell-coda),
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="top"]:has(> .cell-coda) { --align-v: flex-start;   --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="top"]:has(> .cell-coda) { --align-v: flex-start;   --align-grow: 0; --align-track: auto; --align-basis: auto; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align-coda="bottom"]:has(> .cell-coda),
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="bottom"]:has(> .cell-coda) { --align-v: flex-end;     --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="bottom"]:has(> .cell-coda) { --align-v: flex-end;     --align-grow: 0; --align-track: auto; --align-basis: auto; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-align-coda="spread"]:has(> .cell-coda),
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="spread"]:has(> .cell-coda) { --align-v: space-evenly; --align-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-align-coda="spread"]:has(> .cell-coda) { --align-v: space-evenly; --align-grow: 0; --align-track: auto; --align-basis: auto; }
 /* A padded card that is `width: 100%` in content-box (a quote's blockquote) is as wide as its
  * box PLUS its padding. On a slide its max-width binds first and hides that; in a pane narrower
  * than the max-width it ran the card past the pane (98px over at 45%). In a pane the card's

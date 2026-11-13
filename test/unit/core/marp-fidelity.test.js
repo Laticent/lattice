@@ -106,6 +106,41 @@ describe('marp fidelity ledger — the classification is complete', () => {
     assert.deepEqual([...rows].filter((r) => !names.has(r)), [], 'these ledger rows outlived their plugin package');
   });
 
+  // EVERYTHING A PLUGIN LETS AN AUTHOR TYPE ON A SLIDE, not only a fence. The fence rule above missed the inline kinds: the
+  // video record shipped with a row only because its author wrote one by hand, and nothing forced the next inline plugin to.
+  //   · an inline kind the runtime may draw (no `address`) is covered by the runtime's inline mirror, which dispatches every
+  //     row of the generated inline table (`transformInlinePills`, the `inlinePills` row): the kind must be in that table;
+  //   · an `address` kind is one the mirror REFUSES (spec/LPM.md §10), so a Marp render does something else with it, and
+  //     the plugin carries its own `package` row saying what;
+  //   · a `syntax` rule or a `codeRenderer` runs inside the engine's markdown-it, which Marp never runs: its own row.
+  // Registers and styles are not slide syntax (a register is front matter, which `deckClassPropagate` covers as a class; a
+  // stylesheet ships in lattice.css on every route), so they are outside this rule, and so is a zip plugin's fence, whose row
+  // is `code-fences`.
+  test('every plugin that adds slide syntax (a fence, an inline kind, a syntax rule) says what a Marp render does with it', () => {
+    const dir = path.join(ROOT, 'lib', 'plugins');
+    const manifests = fs.readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !d.name.startsWith('_'))
+      .map((d) => JSON.parse(read(`lib/plugins/${d.name}/${d.name}.manifest.json`)));
+    const rows = new Set(allEntries().map((e) => e.package).filter(Boolean));
+    const { INLINE } = require('../../../lib/plugins/inline.generated.js');
+    const mirrored = new Set(INLINE.map((r) => `${r.plugin}/${r.name}`));
+    assert.equal(LEDGER.find((e) => e.plugin === 'inlinePills')?.coverage, 'mirrored', 'the inline mirror is the row every drawable inline kind rides on');
+    const missing = [];
+    let inlineKinds = 0;
+    for (const m of manifests) {
+      for (const [kind, spec] of Object.entries(m.contributes.inline || {})) {
+        inlineKinds++;
+        if (spec.address) { if (!rows.has(m.name)) missing.push(`${m.name}: the address kind \`${kind}\` (the runtime mirror refuses it) has no \`package\` row`); }
+        else if (!mirrored.has(`${m.name}/${kind}`)) missing.push(`${m.name}: the inline kind \`${kind}\` is not in the runtime's inline table`);
+      }
+      for (const role of ['syntax', 'codeRenderer']) {
+        if (m.contributes[role] && !rows.has(m.name)) missing.push(`${m.name}: its \`${role}\` runs only in the engine's markdown-it, and it has no \`package\` row`);
+      }
+    }
+    assert.ok(inlineKinds >= 5, `expected the inline plugins (guard against a vacuous pass); found ${inlineKinds} kinds`);
+    assert.deepEqual(missing, [], 'add a lib/export/marp-fidelity.js row saying what a Marp render gives the author');
+  });
+
   // The bundle ships Mermaid's library and the runtime draws it, so the README's degrade table must
   // never list it: a flip to `unmirrored` (or losing the hand row) would print "renders as a code
   // block" in every bundle README again, which is false.

@@ -16,6 +16,26 @@ const word = node('w', seq(letter, many(letter)));
 
 // Generated code, transpiled and loaded in-process the way codegen.test.ts does it.
 const esbuild = createRequire(import.meta.url)('esbuild') as typeof import('esbuild');
+
+// Work counts in place of stopwatches (HARD RULE #32, F1). The root's helpers are CommonJS.
+const { countReads } = createRequire(import.meta.url)('../../../../test/helpers/property-reads.js') as {
+  countReads: <T>(root: T, key: string, options?: { limit?: number | ((nodes: number) => number) }) => { value: T; reads: () => number; nodes: number };
+};
+const { charReads } = createRequire(import.meta.url)('../../../../test/helpers/work-count.js') as {
+  charReads: <T>(fn: () => T) => { result: T; scanned: number; reads: number };
+};
+/**
+ * Run `fn` on a copy of `spec` whose every expression counts its visits (a read of its tag `t`), with the number of
+ * distinct expressions beside it. A pass that visits each piece a bounded number of times reads about 16 per piece
+ * on every grammar below; a walk afresh per route, or a round per rule, reads thousands.
+ */
+const PER_PIECE = 50;
+function visits<T>(spec: GrammarSpec, fn: (s: GrammarSpec) => T): { result: T; visits: number; size: number } {
+  // Past the bound the count throws, so a walk gone exponential fails here instead of hanging the runner.
+  const c = countReads(spec, 't', { limit: (pieces) => PER_PIECE * pieces });
+  const result = fn(c.value);
+  return { result, visits: c.reads(), size: c.nodes };
+}
 type GenParse = (s: string) => { ok: boolean; tree?: { buf: Int32Array; top: number; kinds: string[] }; error?: { at: number; expected: string } };
 async function gen(spec: GrammarSpec): Promise<GenParse> {
   const mod = { exports: {} as { parse: GenParse } };
@@ -108,9 +128,8 @@ describe('greedy()', () => {
     // `doubling` is valid; `fanOut` is not LL(1) (every rule opens with x), but what it measures
     // is the cost of getting the answer, which the first version paid exponentially either way.
     for (const [rules, valid] of [[doubling, true], [fanOut, false]] as const) {
-      const t = performance.now();
-      const problems = lint({ start: 'r0', rules });
-      expect(performance.now() - t).toBeLessThan(2_000);
+      const { result: problems, visits: n, size } = visits({ start: 'r0', rules }, lint);
+      expect(n, `${n} visits for ${size} pieces`).toBeLessThan(PER_PIECE * size); // 2,410 for 158; 24,640 for 1,640
       if (valid) expect(problems).toEqual([]);
     }
   });
@@ -123,9 +142,8 @@ describe('greedy()', () => {
     const n = 3000;
     const rules: Record<string, ReturnType<typeof seq>> = { start: seq(ref('r0'), 'a') };
     for (let i = 0; i < n; i++) rules[`r${i}`] = i === n - 1 ? seq('x', greedy(many('a'))) : seq('x', ref(`r${i + 1}`));
-    const t = performance.now();
-    const problems = lint({ start: 'start', rules });
-    expect(performance.now() - t).toBeLessThan(2_000);
+    const { result: problems, visits: v, size } = visits({ start: 'start', rules }, lint);
+    expect(v, `${v} visits for ${size} pieces`).toBeLessThan(PER_PIECE * size); // 138,060 for 9,004
     expect(problems.join('\n')).toMatch(/start: seq\[1\] can never match/);
   });
 
@@ -295,10 +313,14 @@ describe('the guarantee, on a grammar that uses all three', () => {
     }
   });
 
-  /** Best-of-5 time for `make(n)` and `make(8n)`; a linear parser's ratio is about 8. */
+  /**
+   * The work `make(8n)` costs over the work `make(n)` costs; a linear parser's ratio is about 8. Work is what
+   * charReads counts (test/helpers/work-count.js): every character read, searched or copied, the same on any
+   * machine. It replaced a best-of-5 stopwatch ratio (HARD RULE #32, F1).
+   */
   function ratio(fn: (s: string) => unknown, make: (n: number) => string, n: number) {
-    const best = (s: string) => { fn(s); let t = Infinity; for (let r = 0; r < 5; r++) { const a = performance.now(); fn(s); t = Math.min(t, performance.now() - a); } return t; };
-    return best(make(8 * n)) / Math.max(best(make(n)), 0.05);
+    const work = (s: string) => { const w = charReads(() => fn(s)); return w.reads + w.scanned; };
+    return work(make(8 * n)) / Math.max(work(make(n)), 1);
   }
 
   /**
@@ -329,7 +351,7 @@ describe('the guarantee, on a grammar that uses all three', () => {
   ])('grows linearly: %s', async (_name, make) => {
     const p = await gen(doc);
     const g = compile(bare);
-    // 8x the input; a generous ceiling (3x the linear 8) so a noisy machine cannot fail a linear parser.
+    // 8x the input: every case measures 8.0, and a parser that rescans would read about 64x.
     expect(ratio((s) => g.parse(s), make, 20_000)).toBeLessThan(24);
     expect(ratio(p, make, 20_000)).toBeLessThan(24);
   });
@@ -378,11 +400,10 @@ describe('document-sized grammars lint in linear time, without overflowing the s
     return { start: 'r0', rules };
   };
 
-  it('a 4,000-rule chain whose FIRST sets grow lints in under a second', () => {
-    const spec = growing(4000);
-    const t = performance.now();
-    expect(lint(spec)).toEqual([]);
-    expect(performance.now() - t).toBeLessThan(1_000);
+  it('a 4,000-rule chain whose FIRST sets grow lints in one pass over its pieces', () => {
+    const { result, visits: v, size } = visits(growing(4000), lint);
+    expect(result).toEqual([]);
+    expect(v, `${v} visits for ${size} pieces`).toBeLessThan(PER_PIECE * size); // 195,966 for 11,998
   });
 
   it('builds the expected text only when a parse fails, and it says the same thing', () => {
@@ -395,9 +416,8 @@ describe('document-sized grammars lint in linear time, without overflowing the s
   it('a 4,000-rule left-recursive cycle is found without a search from every rule', () => {
     const rules: Record<string, ReturnType<typeof seq>> = {};
     for (let i = 0; i < 4000; i++) rules[`r${i}`] = seq(opt('x'), ref(`r${(i + 1) % 4000}`));
-    const t = performance.now();
-    const problems = lint({ start: 'r0', rules });
-    expect(performance.now() - t).toBeLessThan(1_000);
+    const { result: problems, visits: v, size } = visits({ start: 'r0', rules }, lint);
+    expect(v, `${v} visits for ${size} pieces`).toBeLessThan(PER_PIECE * size); // 252,002 for 16,000
     expect(problems.filter((p) => p.includes('left recursion')).length).toBe(4000);
   });
 

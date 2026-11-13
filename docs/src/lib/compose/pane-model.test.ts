@@ -65,7 +65,7 @@ describe('a `_pane` marker stays where the author wrote it', () => {
 	});
 	it('an untouched pane slide still round-trips byte for byte', () => {
 		const src = deck('## Intro', MARKED);
-		expect(typeInSlide(src, 0, '!').endsWith(MARKED.trimEnd())).toBe(true);
+		expect(typeInSlide(src, 0, '!').trimEnd().endsWith(MARKED.trimEnd())).toBe(true);
 	});
 	it('keeps a `_pane` line inside a code fence as code', () => {
 		const fenced = '## T\n\n```md\n<!-- _pane: bar -->\n```';
@@ -191,9 +191,18 @@ describe('the pane picker and the title field write what an author would', () =>
 		const state = stateOf(MARKED);
 		const tr = applyPaneChoice(state, 0, 1, { cls: 'big-number', starter: null });
 		const out = emitDeck(tr?.doc ?? state.doc, initBaseline(state.doc));
-		expect(out).toContain('<!-- _pane: big-number no-title -->\n\n### What changed');
+		// The marker keeps the comment form the slide is written in (#3136), and the spacing the author wrote: it sat right
+		// above its heading (#3128).
+		expect(out).toContain('<!-- _pane: big-number no-title -->\n### What changed');
 		expect(out).not.toContain('_pane: list');
 		expect(applyPaneChoice(state, 0, 0, { cls: 'bar', starter: null })).toBeNull(); // already bar
+	});
+	it('rewrites a record marker in place, keeping its other fields', () => {
+		const src = '<!-- _class: columns -->\n\n## T\n\n<!-- {pane=bar, note="Lead with the trend."} -->\n\n- A `4`\n\n<!-- {pane=list} -->\n\n### Notes\n\n- x';
+		const state = stateOf(src);
+		const tr = applyPaneChoice(state, 0, 0, { cls: 'kpi', starter: null });
+		const out = emitDeck(tr?.doc ?? state.doc, initBaseline(state.doc));
+		expect(out).toContain('<!-- {pane=kpi, note="Lead with the trend."} -->');
 	});
 	it('writes a marker right above the `###` of a pane that has none, leaving a pill above it where the engine renders it', () => {
 		const state = stateOf(OUTLINE);

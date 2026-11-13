@@ -82,10 +82,12 @@ describe('deck-class register — the export boundary', () => {
     assert.ok(!/class:/.test(out.split('---')[1]), 'no bare `class:` invites re-adding the refused token');
   });
 
-  test('a duplicate register collapses to one line — Lattice reads the first, js-yaml the last', () => {
+  test('a duplicate register collapses to one line carrying the LAST value — Lattice and js-yaml both read the last', () => {
+    // It used to keep the FIRST, matching a reader that took the first match. The owner ruled
+    // last-wins on #3050 (D1), which is also what js-yaml (Marp's parser) and the engine read.
     const out = withSanitizedDeckClass(deck(['marp: true', 'class: no-note', 'class: safe']));
     assert.equal((out.match(/^[ \t]*class:/gm) || []).length, 1);
-    assert.match(out, /class: no-note/, 'the FIRST wins, matching how Lattice reads it');
+    assert.match(out, /class: safe/, 'the LAST wins');
   });
 
   test('CRLF survives as a line terminator rather than becoming part of the value', () => {
@@ -167,42 +169,44 @@ describe('deck-class register — the export boundary', () => {
     assert.equal(withSanitizedDeckClass(src), src);
   });
 
-  test('an INDENTED `class:` IS the register to every reader, because it is to the engine', () => {
-    // The opposite of the `color-mode:` rule above, and not a preference:
-    // `parseFrontMatter` (lib/engine/directives.js) calls `line.trim()` before
-    // matching, so it STAMPS an indented `class:` onto every section. A reader that
-    // is stricter than the stamper does not "ignore a non-register" — it answers for
-    // a canvas the engine is not painting. This shipped once, in exactly the
-    // direction the change exists to prevent: ` class: print` rendered a
-    // `section.print` canvas while `deckPrintBand` said light, so the diagram baked
-    // LIGHT ink onto a print page.
-    //
-    // The engine is asserted alongside each case, so if `parseFrontMatter` ever
-    // tightens, this fails and names the divergence instead of silently drifting.
+  test('an INDENTED `class:` is NOT the register to any reader, because it is not to the engine', () => {
+    // This test used to assert the opposite, and said why: `parseFrontMatter`
+    // (lib/engine/directives.js) called `line.trim()` and STAMPED an indented `class:`, so a
+    // reader stricter than the stamper answered for a canvas the engine was not painting
+    // (` class: print` baked LIGHT ink onto a print page). It also said it would fail when the
+    // engine tightened. The engine now reads directives at column 0 (#2050), so every reader
+    // follows it — and the engine is still asserted alongside each case, so a future change on
+    // either side names the divergence instead of drifting.
     const { parseFrontMatter } = require('../../../lib/engine/directives');
-    for (const fm of [' class: print', 'class: print', 'foo:\n  class: print']) {
+    for (const fm of [' class: print', 'foo:\n  class: print']) {
       const src = `---\nmarp: true\n${fm}\n---\n\n## A\n`;
-      assert.equal(parseFrontMatter(src).directives.class, 'print', `engine reads ${JSON.stringify(fm)}`);
-      assert.equal(deckPrintBand(src), true, `the band must agree for ${JSON.stringify(fm)}`);
+      assert.equal(parseFrontMatter(src).directives.class, undefined, `engine reads ${JSON.stringify(fm)}`);
+      assert.equal(deckPrintBand(src), false, `the band must agree for ${JSON.stringify(fm)}`);
     }
-    // …and `color-mode:` still supersedes it, wherever the alias sits.
-    assert.equal(deckPrintBand('---\ncolor-mode: light\n class: print\n---\n\n## A\n'), false);
+    const top = '---\nmarp: true\nclass: print\n---\n\n## A\n';
+    assert.equal(parseFrontMatter(top).directives.class, 'print');
+    assert.equal(deckPrintBand(top), true);
+    // …and `color-mode:` still supersedes it.
+    assert.equal(deckPrintBand('---\ncolor-mode: light\nclass: print\n---\n\n## A\n'), false);
     // A deck naming no color axis at all is not a print deck.
     assert.equal(deckPrintBand('---\nclass: dark\n---\n\n## A\n'), false);
   });
 
-  test('KNOWN RESIDUAL: a duplicated `class:` resolves to the FIRST here and the LAST in the engine', () => {
-    // `frontMatterValue` returns the first match; `parseFrontMatter` overwrites, so
-    // the engine keeps the last. Pre-existing (`main`'s `deckPrintBand` read the
-    // same way) and NOT introduced here, but it is the remaining reader/stamper gap
-    // on this axis, so it is pinned rather than left to be rediscovered. Closing it
-    // means teaching the shared front-matter reader last-wins semantics, which
-    // changes every register at once — see the residual note in
-    // engineering/decisions/2026-08-05-deck-class-register-boundary.md.
+  test('a duplicated `class:` resolves to the LAST, in the engine, this reader and the export writer (#3050, D1)', () => {
+    // This was the KNOWN RESIDUAL: `frontMatterValue` took the first match while `parseFrontMatter`
+    // overwrote and kept the last, so `class: kpi` / `class: dark` rendered dark while this reader
+    // refused `kpi`. The owner ruled last-wins (the least astonishing reading, and js-yaml's), and
+    // `lint:deck` warns on the repeat (`duplicate-key`). All three now read the same line.
     const { parseFrontMatter } = require('../../../lib/engine/directives');
     const fm = 'class: kpi\nclass: dark';
     assert.equal(parseFrontMatter(`---\n${fm}\n---\n`).directives.class, 'dark', 'the engine takes the LAST');
-    assert.deepEqual(deckClassTokensFromFrontMatter(fm), [], 'this reader took the FIRST (`kpi`) and refused it as a component');
+    assert.deepEqual(deckClassTokensFromFrontMatter(fm), ['dark'], 'so does this reader');
+    // The export writer collapses the repeat into ONE line carrying the last value.
+    assert.equal(withSanitizedDeckClass(`---\n${fm}\n---\n\n## S\n`), '---\nclass: dark\n---\n\n## S\n');
+    // `class :` is the same key, to the engine and to every reader.
+    const spaced = 'class : dark';
+    assert.equal(parseFrontMatter(`---\n${spaced}\n---\n`).directives.class, 'dark');
+    assert.deepEqual(deckClassTokensFromFrontMatter(spaced), ['dark']);
   });
 
   test('a `class:` line inside a `style: |` body is CSS, so both readers see only the real one', () => {

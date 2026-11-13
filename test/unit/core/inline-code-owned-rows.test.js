@@ -22,6 +22,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
 const { LIST_ROW_OWNERS, ownsListRows } = require(path.join(ROOT, 'lib/core/resolve-inline-code.js'));
 const core = require(path.join(ROOT, 'lib/authoring/lint-core.js'));
+const { bootRuntime } = require('../../helpers/runtime-boot');
 
 const deck = (cls, body) => ['---', 'theme: indaco', '---', '', `<!-- _class: ${cls} -->`, '', body].join('\n');
 const render = (md) => new JSDOM(latticeEngine.createEngine().render(md).html).window.document;
@@ -77,10 +78,7 @@ test('runtime: the DOM mirror leaves an owned row\'s span as code', async () => 
       url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true,
     });
     dom.window.fetch = () => Promise.reject(new Error('no fetch'));
-    const el = dom.window.document.createElement('script');
-    el.textContent = fs.readFileSync(bundle, 'utf8');
-    dom.window.document.body.appendChild(el);
-    await new Promise((r) => setTimeout(r, 1000));
+    await bootRuntime(dom, { bundle: fs.readFileSync(bundle, 'utf8') });
     return dom.window.document;
   };
   const owned = await boot('flowchart');

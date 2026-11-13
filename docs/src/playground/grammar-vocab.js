@@ -11,9 +11,32 @@
 // Slide-scoped Marp directives authored as `<!-- _name: value -->`. `_class` is
 // completed with its full grammar elsewhere (component names + modifiers); it's
 // listed here too so the NAME completes before the colon is typed.
-import { COMPLETE_KEYS, enumValues } from '../../../lib/core/meta-keys.mjs';
+import { COMPLETE_KEYS, enumValues, HOST_REGISTERS, kebab, REGISTERS } from '../../../lib/core/meta-keys.mjs';
 
 export const DIRECTIVE_NAMES = COMPLETE_KEYS.map((k) => `_${k}`);
+
+// The fields a slide RECORD offers after `<!-- {` (record note §4.2, step 3), each with a short detail: the typed
+// class fields first, then the host's registers, the plugins' registers, the completable directive keys (kebab-case,
+// as a record writes them), the note channels and the pane structure. One list, derived: a register added to a
+// manifest is completable the day it lands.
+export const RECORD_FIELDS = [
+	...['layout', 'variant'].map((name) => ({ name, detail: 'class' })),
+	...HOST_REGISTERS.map((r) => ({ name: r.key, detail: 'register' })),
+	...REGISTERS.map((r) => ({ name: r.key, detail: `${r.plugin} register` })),
+	...COMPLETE_KEYS.filter((k) => k !== 'hide').map((k) => ({ name: kebab(k), detail: k === 'class' ? 'class words' : 'field' })),
+	...['note', 'reader', 'say', 'describe'].map((name) => ({ name, detail: 'note channel' })),
+	...['pane', 'panes'].map((name) => ({ name, detail: 'pane' })),
+	{ name: 'hide', detail: 'flag' },
+	{ name: 'carry', detail: 'flag' },
+];
+
+// The closed value sets a record field takes: every host register's values, every plugin register's axis words, and
+// the enum fields. `layout`, `variant` and `class` complete from the catalog instead (slide-context.js).
+export const RECORD_VALUES = Object.freeze({
+	...Object.fromEntries(HOST_REGISTERS.map((r) => [r.key, Object.keys(r.values)])),
+	...Object.fromEntries(REGISTERS.map((r) => [r.key, r.axes.flatMap((a) => a.names)])),
+	'focus-style': enumValues('focusStyle'),
+});
 
 // Value vocabulary for `_focusStyle:` — the focus treatment styles. MUST mirror
 // FOCUS_STYLES in lib/authoring/lint-core.js (asserted by the completion test,

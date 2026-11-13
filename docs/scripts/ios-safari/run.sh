@@ -4,7 +4,10 @@
 # preview probe against the built docs site; PROBE=photo runs the Studio's photo verdict probe (photo-probe.js) there; PROBE=focus-sync taps the Playground's editor on an iPad under a busy page
 # (focus-sync-probe.js); PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
 # page (it needs an http origin, not the site). PROBE=undo runs the Filo undo probe against the site, in both
-# simulators and then in the Mac's own Safari. PROBE=office opens each one-slide editable .pptx that
+# simulators and then in the Mac's own Safari. PROBE=chat-storage checks that chats move from localStorage to IndexedDB
+# across a reload, and measures the localStorage allowance (chat-storage-probe.js), against the site in both simulators. PROBE=font-cache checks that the Studio's warmed fonts are read from Safari's
+# cache, against font-cache-server.mjs on two ports (font-cache-probe.js). PROBE=present-memory imports a deck of eighteen phone
+# photos into the Studio, opens Present and steps it, reading the WebKit footprint (present-memory.mjs). PROBE=office opens each one-slide editable .pptx that
 # tools/office-quicklook.mjs cut in QLProbe, a test app around Apple's Quick Look viewer (what Preview in Files uses),
 # and captures the device screen (office-capture.mjs). Run from the repo root after `npm ci` and `npm run build` (the
 # platform-suites job does both).
@@ -80,7 +83,14 @@ else
   else
     (cd docs && npm ci && npm run build:e2e)
   fi
-  (cd docs && PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
+  if [ "$PROBE" = font-cache ]; then
+    # The font cache probe needs to count what reaches the server, on two origins, under GitHub Pages' cache header
+    # (font-cache-server.mjs): the control arm on $PORT, the warm arm on the next port.
+    # run.mjs reads the warm arm's origin from WARM_URL, which defaults to the next port.
+    (cd docs && node scripts/ios-safari/font-cache-server.mjs $PORT $((PORT + 1)) > "$OUT/preview.log" 2>&1) &
+  else
+    (cd docs && PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
+  fi
   server=$!
   ready="http://localhost:$PORT/studio/"
   [ "$PROBE" = focus-sync ] && ready="http://localhost:$PORT/playground/"
@@ -109,11 +119,6 @@ start_driver() {
 trap 'kill "$driver" "$server" 2>/dev/null || true; xcrun simctl shutdown all || true' EXIT
 start_driver
 
-runtime=$(xcrun simctl list runtimes --json | jq -r '[.runtimes[] | select(.platform == "iOS" and .isAvailable)]
-  | sort_by(.version | split(".") | map(tonumber)) | last | .identifier // empty')
-if [ -z "$runtime" ]; then echo 'no iOS Simulator runtime on this runner' >&2; exit 1; fi
-echo "runtime: $runtime"
-
 status=0
 # A device that failed before any probe ran (rc 3-5) is the infrastructure; one whose probe failed (rc 1) is a finding.
 probe_failed=0
@@ -123,6 +128,38 @@ families='iPad iPhone'
 [ "$PROBE" = focus-sync ] && families='iPad'
 # The office probe stands in for the owner's iPhone (Preview, opened from Files): the iPhone alone, to fit the job.
 [ "$PROBE" = office ] && families='iPhone'
+# The Present memory probe stands in for the owner's iPhone, where Present on a deck of photos reloaded the tab (#3148).
+[ "$PROBE" = present-memory ] && families='iPhone'
+# DEVICES picks the devices one job runs, from iPad, iPhone and Mac (the undo probe's desktop half), so a suite can run
+# each device as its own job: the three undo devices one after another took 25.4 min of a 30-min job and passed it
+# twice (flaky shape F4, engineering/decisions/2026-11-06-flaky-tests.md), each about 3 min of probe and the rest
+# simulator boots. Unset, a probe runs every device it runs today.
+run_mac=1
+if [ -n "${DEVICES:-}" ]; then
+  # A subset of the probe's own devices: focus-sync is iPad-only and office iPhone-only, and DEVICES cannot widen that.
+  allowed=" $families "
+  families=''
+  run_mac=0
+  for d in ${DEVICES//,/ }; do
+    case "$d" in
+      iPad|iPhone)
+        case "$allowed" in *" $d "*) families="$families $d" ;; *) echo "DEVICES: the $PROBE probe does not run on $d" >&2; exit 1 ;; esac ;;
+      Mac) run_mac=1 ;;
+      *) echo "DEVICES: unknown device '$d' (iPad, iPhone, Mac)" >&2; exit 1 ;;
+    esac
+  done
+  # A selection this probe runs nothing on must fail, not pass with nothing tested: only the undo probe has a Mac half.
+  if [ -z "${families// /}" ] && { [ "$PROBE" != undo ] || [ "$run_mac" = 0 ]; }; then
+    echo "DEVICES='$DEVICES' selects no device the $PROBE probe runs on" >&2
+    exit 1
+  fi
+fi
+if [ -n "${families// /}" ]; then
+  runtime=$(xcrun simctl list runtimes --json | jq -r '[.runtimes[] | select(.platform == "iOS" and .isAvailable)]
+    | sort_by(.version | split(".") | map(tonumber)) | last | .identifier // empty')
+  if [ -z "$runtime" ]; then echo 'no iOS Simulator runtime on this runner' >&2; exit 1; fi
+  echo "runtime: $runtime"
+fi
 # Devices still to run, this one included: the second-start budget below has to leave them their time.
 left=$(echo $families | wc -w)
 for family in $families; do
@@ -227,7 +264,7 @@ for family in $families; do
 done
 
 # The undo probe's desktop half: the runner's own Safari, through the same safaridriver.
-if [ "$PROBE" = undo ]; then
+if [ "$PROBE" = undo ] && [ "$run_mac" = 1 ]; then
   xcrun simctl shutdown all || true
   if ! PROBE=undo SIM_UDID=mac SIM_LABEL=macOS ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs; then
     status=1

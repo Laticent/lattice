@@ -262,6 +262,49 @@ describe('MapRail', () => {
 		expect(stops.length).toBe(1);
 	});
 
+	it('stamps the offset its plan on screen was asked for, only once that plan is committed', async () => {
+		// The tiers follow a scroll a frame later; `data-plan-at` is what a reader waits on before trusting `data-tier`
+		// (docs/e2e/studio-map-posters.spec.ts). The frame is held here, so the stale window is observable.
+		const frames: FrameRequestCallback[] = [];
+		const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => frames.push(cb));
+		try {
+			render(<MapRail {...props({ count: 500, focus: 0 })} />);
+			const scroller = document.querySelector('[data-map-rail] > div:last-child') as HTMLElement;
+			let top = 0;
+			Object.defineProperty(scroller, 'scrollTop', { configurable: true, get: () => top, set: (v) => { top = v; } });
+			expect(scroller.dataset.planAt).toBe('0');
+			const before = tiers();
+			act(() => {
+				top = 4000;
+				fireEvent.scroll(scroller);
+			});
+			// The scroll has happened, the frame has not: the tiers are the old position's, and the stamp says so.
+			expect(tiers()).toEqual(before);
+			expect(scroller.dataset.planAt).toBe('0');
+			// The frame runs outside act, as in a browser: React schedules the new plan instead of committing it at once.
+			// Until it commits, the stamp still names the old offset.
+			for (const f of frames.splice(0)) f(0);
+			expect(tiers()).toEqual(before);
+			expect(scroller.dataset.planAt).toBe('0');
+			await act(async () => {});
+			expect(scroller.dataset.planAt).toBe('4000');
+			expect(tiers()).not.toEqual(before);
+			// A scroll that keeps the same plan still moves the stamp, without a new plan.
+			const same = tiers();
+			act(() => {
+				top = 4001;
+				fireEvent.scroll(scroller);
+			});
+			act(() => {
+				for (const f of frames.splice(0)) f(0);
+			});
+			expect(tiers()).toEqual(same);
+			expect(scroller.dataset.planAt).toBe('4001');
+		} finally {
+			raf.mockRestore();
+		}
+	});
+
 	it('asks for enough live tiles to cover what is on screen, above the base budget', () => {
 		render(<MapRail {...props({ count: 100, live: (i) => <i data-live={i} />, liveBudget: 2 })} />);
 		// 600 px of rail at about 82 px a tile shows 8 tiles: a budget of 2 would leave six sketches in view.

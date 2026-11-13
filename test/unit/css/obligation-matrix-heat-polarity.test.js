@@ -34,6 +34,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { resolveChrome } = require('../../../tools/lib/resolve-chrome');
+const { skipWithoutChrome } = require('../../helpers/chrome');
 
 const ROOT = path.resolve(__dirname, '../../..');
 // The DEFAULT-theme bundle: `--pass` / `--fail` are theme tokens, and a themeless page reports
@@ -85,7 +86,7 @@ describe('obligation-matrix: .heat inverts the risk axis on the table AND on the
 
   for (const surface of Object.keys(SURFACES)) {
     test(`${surface}: the marks are colored at all, and pass is not fail`, async (t) => {
-      if (!exe) return t.skip('no Chromium — set CHROME_PATH');
+      { const why = skipWithoutChrome(exe); if (why) return t.skip(why); }
       const plain = await read(surface, '');
       assert.ok(plain.pass.color && plain.fail.color, `${surface}: a mark resolved no --state-color at all`);
       assert.notEqual(plain.pass.color, plain.fail.color, `${surface}: pass and fail resolved the same color`);
@@ -96,7 +97,7 @@ describe('obligation-matrix: .heat inverts the risk axis on the table AND on the
     // nothing, but the spans computed `display: inline` at 0x0 — a GDPR card that read Notice /
     // Consent / Retention / Breach / DSAR with nothing beside any of them.
     test(`${surface}: the mark is a laid-out disc, not a zero-area inline span`, async (t) => {
-      if (!exe) return t.skip('no Chromium — set CHROME_PATH');
+      { const why = skipWithoutChrome(exe); if (why) return t.skip(why); }
       const plain = await read(surface, '');
       for (const [k, v] of Object.entries(plain)) {
         assert.equal(v.display, 'inline-block', `${surface}: the ${k} mark computed display:${v.display}`);
@@ -105,7 +106,7 @@ describe('obligation-matrix: .heat inverts the risk axis on the table AND on the
     });
 
     test(`${surface}: .heat SWAPS pass and fail — not merely recolors them`, async (t) => {
-      if (!exe) return t.skip('no Chromium — set CHROME_PATH');
+      { const why = skipWithoutChrome(exe); if (why) return t.skip(why); }
       const plain = await read(surface, '');
       const heat = await read(surface, 'heat');
       assert.equal(heat.pass.color, plain.fail.color,
@@ -119,7 +120,7 @@ describe('obligation-matrix: .heat inverts the risk axis on the table AND on the
   // gets the split must read the same risk the landscape reader does. This is the assertion the
   // enrollment broke and the one a future `:is()` would break again — in either direction.
   test('the split card reports the same colors as the table it was cut from', async (t) => {
-    if (!exe) return t.skip('no Chromium — set CHROME_PATH');
+    { const why = skipWithoutChrome(exe); if (why) return t.skip(why); }
     for (const cls of ['', 'heat']) {
       const table = await read('table', cls);
       const card = await read('card', cls);

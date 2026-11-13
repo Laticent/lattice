@@ -30,7 +30,7 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 ### Common mistakes
 
 - **Writing a caption's pill as plain nested text instead of `{…}` in backticks.** Under a mark's nested caption list, plain text becomes the NAME line; only a `{…}` token in backticks (e.g. `` `{Series B}` ``) becomes the pill — writing the round label without backticks renders it as a second name line instead of a pill.
-- **Placing the eyebrow paragraph after the headline instead of before it.** The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, the masthead lift re-seats it as the italic, secondary-color subtitle instead of the intended mono kicker.
+- **Placing the eyebrow paragraph after the headline instead of before it.** The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, the masthead lift re-seats it as the italic, secondary-color subtitle instead of the intended eyebrow kicker.
 - **An SVG mark whose viewBox carries empty margin around the logo.** Equal weight is measured on the mark's box, not its ink, so the margin counts as mark and the logo draws smaller than its neighbors. Crop each SVG's `viewBox` to its ink.
 - **Packing more marks than the slide can hold at a readable size.** A wall that would fit only with marks too small to read keeps the equal-cell grid, and the export flags its overflow. Split the roster across two slides, or drop the captions.
 

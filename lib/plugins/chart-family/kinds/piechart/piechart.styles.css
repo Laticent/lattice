@@ -88,6 +88,21 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
   width: 100%;
   height: 100%;
 }
+/* A PHONE PAGE (portrait or square: the deck stamps `data-orientation`). The chart form kernel draws the pie and its
+   key on a canvas the shape of the chart body, so at hero and bleed too the drawing fills the body. The `38cqi` height
+   above is a landscape measure: on a 1080px-wide phone page it held the pie to 410px and printed its key at 3.5pt. */
+section.form.piechart:is(.claim-hero, .claim-bleed)[data-orientation] .chart-body {
+  container-type: size;
+}
+section.form.piechart:is(.claim-hero, .claim-bleed)[data-orientation] .piechart-figure {
+  display: contents;
+}
+section.form.piechart:is(.claim-hero, .claim-bleed)[data-orientation] .piechart-svg {
+  /* Container units, not %: at hero the chart body is a grid whose auto row gives a % height nothing to resolve. */
+  width: 100cqw;
+  height: 100cqh;
+  max-height: none;
+}
 :is(section.piechart, figure.chart-frame) .piechart-svg .wedge {
   /* Stroke color is the slot's --catN-ink (set per nth-child below); the
    * wedge fill is the same hue's --catN-fill. Pale fill + deep border on a

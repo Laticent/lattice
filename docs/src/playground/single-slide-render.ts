@@ -50,13 +50,20 @@ import { renderMarkdown } from '../lib/render-engine';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../lib/render-metrics';
 import { samplesBaseFor } from '../lib/samples-base';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
+import { writeSrcdoc } from '../lib/srcdoc-write.js';
 import { createThemeFetcher } from '../lib/theme-fetch';
 import { installCollageBridge } from '../playground/collage-host.js';
 import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/deck-preview.js';
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
+import { PAGE_SCRIPT_NONCE } from '../playground/page-script-nonce.js';
 import { previewCspMeta } from '../playground/preview-csp.js';
+
+// One nonce per page load for every preview frame this module writes (see srcdoc()); shared
+// with the Stage (page-script-nonce.js).
+const PREVIEW_SCRIPT_NONCE = PAGE_SCRIPT_NONCE;
+
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
 
@@ -230,7 +237,70 @@ export type SingleSlideOptions = {
 	 * and no other host sets this: an export must never capture a drawing still in flight.
 	 */
 	liveLayout?: boolean;
+	/**
+	 * BUILD-TIME ONLY: called with the parts of every full write, just before the frame's document is
+	 * built from them. `docs/scripts/bake-studio-newcomer.mjs` sets it to capture the Studio newcomer's
+	 * first write; no page sets it. See `adoptBake` and engineering/decisions/2026-11-08-studio-newcomer-bake.md.
+	 */
+	captureWrite?: (parts: BakedWrite) => void;
 };
+
+/** The inputs of one full write: everything `srcdoc()` builds the frame's document from. No nonce, no
+ *  blob URL and no origin: the renderer that adopts it stamps its own when it builds the document. */
+export type BakedWrite = { html: string; css: string; mode: 'light' | 'dark'; drawn: boolean; geom: Geom; extraCss: string };
+
+/**
+ * A build-time first write for one deck, and the host state the renderer keeps after making it
+ * (`docs/scripts/bake-studio-newcomer.mjs`). `adoptBake` writes it before the engine has loaded; the
+ * first real render then finds the frame already holding its document and patches it in place.
+ */
+export type NewcomerBake = {
+	v: 1;
+	/** Length and hash of the whole markdown the bake rendered, and the slide it showed. */
+	src: string;
+	slideIndex: number;
+	palette: string;
+	/** The renderer flags that shape the document's root element and runtime: they must match. */
+	flags: string;
+	runtimeUrl: string;
+	write: BakedWrite;
+	host: { frameSig: string; restyleSig: string; frameCss: { extraCss: string; themeCss: string }; shownSlide: { index: number; key: string | null } };
+};
+
+/**
+ * How long a render waits for a document still loading in the frame (an adopted bake, or an earlier render's full
+ * write) before it writes its own over it. The SAME budget as the reveal poll (300 ticks of 100 ms), which releases
+ * every waiter when it stops: the document never painted, its host left the page, or the renderer was disposed. A
+ * shorter bound cost time: measured with Chrome's CPU throttled 20x on a first visit, the 1.2 MB sheet parsed for more
+ * than 4 s, a 4 s bound gave up on it and wrote a second document, and the parse started over (the slide 8.7 to 8.8 s
+ * after the first write). Waiting: one write and 6.2 to 7.8 s; main, which writes three or four times: 7.7 to 8.3 s
+ * (engineering/decisions/2026-11-08-studio-newcomer-bake.md §7). A document still parsing is always closer to showing
+ * the slide than a fresh write of the same one.
+ */
+const DOC_LOAD_WAIT_MS = 30_000;
+
+/** The source key a bake is matched on: length and hash, the same pair the sheet cache keys on. */
+export function bakeSourceKey(markdown: string): string {
+	return `${markdown.length}:${hashString(markdown)}`;
+}
+
+/**
+ * `text` with every `<!-- … -->` cut out, an unclosed one to the end. A scan, not a regex replace: a one-pass
+ * `replace(/<!--[\s\S]*?-->/g, '')` can splice a new `<!--` together from the pieces it leaves (CodeQL
+ * js/incomplete-multi-character-sanitization). Only the agenda probe below uses it, and only to test for a list line.
+ */
+function withoutComments(text: string): string {
+	let out = '';
+	let at = 0;
+	for (;;) {
+		const open = text.indexOf('<!--', at);
+		if (open === -1) return out + text.slice(at);
+		out += text.slice(at, open);
+		const close = text.indexOf('-->', open + 4);
+		if (close === -1) return out;
+		at = close + 3;
+	}
+}
 
 /** Resolve `<html data-palette/-mode>` → the palette + mode to render with. */
 export function currentPaletteMode(paletteOverride?: string): { palette: string; mode: 'light' | 'dark' } {
@@ -251,13 +321,27 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRenderGen?: number; __latticeOwnerGen?: number; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void> };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticeShownSlide?: { index: number; key: string | null }; __latticePendingLoad?: boolean; __latticeRenderGen?: number; __latticeOwnerGen?: number; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void>; __latticeDocLoad?: Promise<void>; __latticeDocSettle?: () => void };
 // "Has the live iframe actually painted a slide yet?" — true once its document holds a
 // rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
 // unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
 // gate — WITHOUT depending on the `onload` event, which iOS Safari fires unreliably for
 // srcdoc (the on-device stuck-hidden blank). Best-effort: a cross-doc read can't actually
 // throw for a same-origin srcdoc, but guard anyway for teardown races.
+/**
+ * Build a frame's document; if building throws, put the not-yet-inserted frame into `host` before rethrowing. The live
+ * frame is written before it enters the page (lib/srcdoc-write.js), so without this a throw would leave `host` empty and the
+ * next render would mount a second frame and a second ResizeObserver.
+ */
+function docOrMount(fr: HTMLIFrameElement, host: HTMLElement, build: () => string): string {
+	try {
+		return build();
+	} catch (e) {
+		if (!fr.parentNode) host.appendChild(fr);
+		throw e;
+	}
+}
+
 function frameHasPainted(fr: HTMLIFrameElement): boolean {
 	try {
 		return !!fr.contentDocument?.querySelector('.lattice');
@@ -374,9 +458,9 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolea
 // indexes the ENGINE's sections. Those counts diverge for real, committed decks, and when they
 // do an index-based lookup silently paints a slide the author did not select — strictly worse
 // than the wrong page number this whole path exists to fix. Two confirmed causes:
-//   · a 1→N EXPANSION — `_focusSteps` clones one authored slide into a step per section
-//     (`examples/focus.md`: 11 authored → 14 sections), and `split: headings` divides one
-//     chunk at every heading (`examples/split-headings.md`: 1 → 7);
+//   · a 1→N EXPANSION — `split: headings` divides one chunk at every heading
+//     (`examples/split-headings.md`: 1 → 7). `_focusSteps` was the other until 2026-11-09, when
+//     it stopped cloning one slide per step (engineering/decisions/2026-11-09-steps-as-a-behavior.md);
 //   · SPLITTER DISAGREEMENT — RETIRED as a cause (2026-08-05, #1271). It used to be the second
 //     half of this list: the engine's `splitOnHr` breaks on ANY markdown-it `hr` (`***`, `___`,
 //     `- - -`, `--- `, `----`, an indented `---`) while the Studio matched only a bare
@@ -395,7 +479,7 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolea
 // checks out inline while `alignmentFailure` (lib/diagnostics) spelled the same three out again for
 // the fidelity overlay's compare — and the copies diverged within four days of being written: this
 // one let a MISSING `slideCount` through and narrowed on the index alone, which is precisely the
-// `_focusSteps` / `split: headings` case that shows the wrong slide. Every production caller
+// `split: headings` case that shows the wrong slide. Every production caller
 // (StudioShell, PresentOverlay, SlideOverview→slide-thumb) passes the count; only tests omitted it,
 // so the permissive branch protected nothing and hid a hole. Both now call `alignmentFailure`, and
 // no count means no narrowing.
@@ -504,16 +588,15 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		// a true number.
 		//
 		// What supplying a position DOES require is that the caller's slide indices mean the same
-		// thing the engine's sections do. Two plugins break that 1→N: `_focusSteps` clones one
-		// authored slide into one rendered slide per step, and `split: headings` starts a new
-		// slide at every `##`. Under either, "slide k" of the caller's list is not section k, so a
+		// thing the engine's sections do. One plugin breaks that 1→N: `split: headings` starts a
+		// new slide at every `##`, so "slide k" of the caller's list is not section k, and a
 		// supplied position would number the WRONG slide — worse than the bug it fixes. Those
 		// decks keep the whole-deck render, where the engine counts for itself and is right by
-		// construction. One committed deck (examples/focus.md) is in this class.
+		// construction. (`_focusSteps` was the other until 2026-11-09, when it stopped copying the
+		// slide: engineering/decisions/2026-11-09-steps-as-a-behavior.md.)
 		fact: 'slide expander (1→N)',
-		why: 'a plugin turns one authored slide into several rendered ones, so the caller\'s slide index no longer identifies a section and a supplied position would number the wrong slide',
+		why: '`split: headings` turns one authored slide into several rendered ones, so the caller\'s slide index no longer identifies a section and a supplied position would number the wrong slide',
 		probes: [
-			/<!--\s*_?focusSteps\s*:/, // one slide per step
 			/^\s*split\s*:\s*headings\b/m, // a new slide at every `##`
 		],
 	},
@@ -538,6 +621,23 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 		why: 'a `_class: divider` inside code makes the raw and code-stripped counts disagree, so a supplied section could paint the wrong rail',
 		probes: [],
 		test: (deck) => /<!--[^>]*\b_?class\s*:[^>]*\bdivider\b/.test(deck) && deckSectionFor(deck, 0) === undefined,
+	},
+	{
+		// An agenda with a heading and no list fills itself from EVERY divider in the deck, and a
+		// reprise gains `progress-k` from its place among them (lib/core/agenda-autofill.js); a slice
+		// sees neither. The test is a superset on purpose: a deck it wrongly matches pays one
+		// whole-deck render, while a deck it missed would preview an empty agenda.
+		fact: 'auto-filled agenda',
+		why: 'an agenda slide with no list is filled from the dividers across the whole deck, which a slice cannot see',
+		probes: [],
+		// The list test runs on the chunk with fenced code and comments taken out, so a `- ` line in a speaker note or a
+		// code sample does not read as the agenda's list (it did, and the preview showed an empty agenda).
+		test: (deck) =>
+			deck.split(/^\s*---\s*$/m).some((chunk) => {
+				if (!/<!--\s*_?class\s*:[^>]*\bagenda\b/.test(chunk)) return false;
+				const prose = withoutComments(chunk.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1[^\n]*$/gm, ''));
+				return !/^\s*(?:\d+[.)]|[-*+])\s/m.test(prose);
+			}),
 	},
 	{
 		fact: 'glossary: auto',
@@ -1068,6 +1168,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	const dagreUrl = opts.dagreUrl || '';
 	// Read here, not in renderInto: its own `opts` argument shadows this one.
 	const scaleImages = !!opts.scaleImages;
+	const captureWrite = opts.captureWrite;
+	// The flags that change the document a write builds, outside its body. A bake carries the ones it was
+	// made with, and only a renderer with the same ones may adopt it (adoptBake).
+	const flagsKey = `${specimen ? 'S' : ''}${chromeless ? 'C' : ''}${liveLayout ? 'L' : ''}${scaleImages ? 'I' : ''}`;
 	const themes = createThemeFetcher(themeBase);
 
 	// Teardown bookkeeping — everything THIS renderer instance creates that would
@@ -1214,6 +1318,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	// bug (see frame-css.js + index.astro srcdoc note). `geom` is the render's
 	// reported { width, height } (px).
 	function srcdoc(html: string, css: string, mode: 'light' | 'dark', drawn: boolean, geom: Geom, extraCss = ''): string {
+		// Every script this document carries is stamped with the page's nonce, and its CSP refuses
+		// any script without it: an inline handler or a `<script>` that got past the sanitizer does
+		// not run (lifecycle note §4; `scriptSources` in lib/core/subresource-csp.mjs).
+		const n = ' nonce="' + PREVIEW_SCRIPT_NONCE + '"';
 		// Strip script-bearing content before it enters this same-origin,
 		// un-sandboxed frame (#616 T-CONTENT) — the runtime/Mermaid scripts are
 		// appended separately below, so they're untouched.
@@ -1230,10 +1338,15 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// `data-lattice-live-media`: this frame is ON SCREEN, so a picture still loading shows the
 			// Underpainting (lib/core/image-painting.js). An export capture never sets it.
 			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + (chromeless ? ' data-lattice-chromeless' : '') + (liveLayout ? ' data-lattice-live-layout' : '') + previewDiagramsAttr(drawn && !!runtimeUrl) +
-			' data-lattice-live-media><head><meta charset="utf-8">' +
+			// `data-lattice-preview`: a person reads this frame, so the runtime settles only the faces its
+			// laid-out text uses and re-measures when a later one lands (lib/runtime/index.js
+			// `isPreviewFonts`). Without it the runtime force-loads every declared face (28 files, the
+			// emoji subsets among them), `fonts.ready` goes pending again, and the reveal below waits out
+			// its whole PREVIEW_FONT_GATE_MS backstop on a cold load: about 1.5 s on the phone profile.
+			' data-lattice-live-media data-lattice-preview><head><meta charset="utf-8">' +
 			// Remote-subresource containment, before any content (#1753). This frame takes its
 			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
-			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow, blocked: webBlocked }) +
+			previewCspMeta({ katexUrl: opts.katexUrl || '', webOrigins: webAllow, blocked: webBlocked, scriptNonce: PREVIEW_SCRIPT_NONCE }) +
 			// THREE elements in cascade order — frame box, then the engine sheet (shared across
 			// every frame that wants the same bytes), then the author's CSS. Each carries an id so
 			// the RESTYLE fast path below can update it in place without rewriting the srcdoc.
@@ -1246,10 +1359,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// agent at the end of <body> the poll read `undefined`, concluded "no gate",
 			// and revealed at 117ms against a settle at ~520ms. Correctly wired, and a
 			// no-op. See lib/core/preview-font-gate.mjs.
-			'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
+			'<scr' + 'ipt' + n + '>' + fontGateAgent() + '</scr' + 'ipt>' +
 			// The diagram library's fetch starts with the document, not after the runtime boots.
 			// A library whose kind the page's draw host offers is drawn in the host's own sandboxed frame, so the preview frame loads none.
-			(drawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl, window.__latticeDrawHost?.kinds) : '') +
+			// The preload carries the nonce too: under 'strict-dynamic' a script preload without it is refused.
+			(drawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl, window.__latticeDrawHost?.kinds).replaceAll('<link rel="preload" as="script"', '<link rel="preload" as="script"' + n) : '') +
 			'</head><body>' +
 			html;
 		// Read off the SANITIZED html above rather than taken as a caller flag the way
@@ -1262,15 +1376,174 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// pass reads `globalThis.__latticeDagre` synchronously on its first draw.
 		// A flowchart always needs it (`data-fc-model`, on every flowchart figure).
 		if ((html.indexOf('data-sc-model') !== -1 || html.indexOf('data-fc-model') !== -1) && dagreUrl) {
-			s += '<scr' + 'ipt src="' + dagreUrl + '"></scr' + 'ipt>';
+			s += '<scr' + 'ipt' + n + ' src="' + dagreUrl + '"></scr' + 'ipt>';
 		}
-		s += '<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt>';
+		s += '<scr' + 'ipt' + n + ' src="' + runtimeUrl + '"></scr' + 'ipt>';
 		// Preview-only link guard: an external link tap (a video poster, a contact/qr
 		// URL) must not navigate — and blank — this scaled srcdoc frame on iOS. Also
 		// carries the video-playback bridge (window.__videoPlay) for the Studio.
-		s += '<scr' + 'ipt>' + linkGuardAgent() + '</scr' + 'ipt>';
+		s += '<scr' + 'ipt' + n + '>' + linkGuardAgent() + '</scr' + 'ipt>';
 		s += '</body></html>';
 		return s;
+	}
+
+	/**
+	 * Create the host's `iframe.live`: hidden until its first document paints, sized to the slide's
+	 * intrinsic box, and re-fit on every host resize. Shared by the full write and `adoptBake`, so a
+	 * baked first document lives in exactly the frame a render would have made.
+	 */
+	function mountLiveFrame(host: HTMLElement, geom: Geom): HTMLIFrameElement {
+		// UNDO TRIPWIRE: on iOS, mounting this frame (and every `srcdoc` write below) empties WebKit's own
+		// undo list, so Safari's undo gestures stop reaching Filo until the Studio's undo doorbell re-arms
+		// it (docs/src/components/studio/undo-doorbell.ts). A new frame anywhere in the Studio does the same.
+		const fr = document.createElement('iframe');
+		fr.className = 'live';
+		fr.setAttribute('title', 'Live-rendered Lattice slide');
+		fr.setAttribute('scrolling', 'no');
+		fr.setAttribute('tabindex', '-1');
+		// Fixed intrinsic slide box, scaled to fit via a CSS transform set in
+		// scaleFrame. transform-origin top-left so the scaled box aligns to the
+		// host's corner (without it, scaling shrinks around center → offset).
+		fr.style.position = 'absolute';
+		fr.style.top = '0';
+		fr.style.left = '0';
+		fr.style.border = '0';
+		fr.style.width = geom.width + 'px';
+		fr.style.height = geom.height + 'px';
+		fr.style.transformOrigin = 'top left';
+		// Invisible until the FIRST srcdoc actually paints (revealed by scaleFrame's
+		// content gate). A freshly-appended iframe with no srcdoc is `about:blank`,
+		// which iOS Safari paints as an OPAQUE WHITE document ON TOP OF the element's
+		// CSS `background` — so a cold load flashed a white slide card. `opacity:0`
+		// makes the whole element (white content included) transparent, so the dark
+		// pane behind covers that window — AND, unlike `visibility`, opacity animates,
+		// so the reveal is a quick fade-in (transition below) instead of a hard pop.
+		fr.style.opacity = '0';
+		fr.style.transition = 'opacity 180ms ease-out';
+		// An opacity:0 element is still HIT-TESTABLE (unlike visibility:hidden, which the
+		// reveal used to be) — so while hidden the frame would intercept scroll/clicks meant
+		// for what's behind it (e.g. the landing hero preview) during the load window. Hold
+		// pointer-events off until scaleFrame reveals it (which clears this alongside opacity).
+		fr.style.pointerEvents = 'none';
+		// NOT appended here: the first write puts it in `host` after its `srcdoc` is set (writeSrcdoc's `parent`). Firefox
+		// gives a srcdoc document the service worker only when `srcdoc` was set before the frame entered the page, so an
+		// empty frame appended first would draw nothing offline (lib/srcdoc-write.js). Both callers write in the same task.
+		// The CONTENT-DRIVEN reveal poll is armed below, at the srcdoc-write site, so it
+		// covers EVERY full write (this first mount AND every subsequent edit) — not just
+		// the create branch. See the block after `fr.srcdoc = …` (#1163).
+		if (typeof ResizeObserver !== 'undefined') {
+			// The callback honors the module-level drag gate above; the host is
+			// registered so a resume can re-fit it once, authoritatively.
+			// Sweep dead hosts on each registration so no-drag sessions
+			// (where the resume-time prune never runs) stay bounded too.
+			for (const h of scaleTargets.keys()) if (!h.isConnected) scaleTargets.delete(h);
+			scaleTargets.set(host, () => scaleFrame(host));
+			// Keep the observer instance (was anonymous) so dispose() can
+			// disconnect it — and remember the host so dispose() can also drop
+			// its scaleTargets entry (the module-level root that leaks it).
+			const ro = new ResizeObserver(() => {
+				if (!scaleSuspended) scaleFrame(host);
+			});
+			ro.observe(host);
+			ownedObservers.add(ro);
+			ownedHosts.add(host);
+		}
+		return fr;
+	}
+
+	/**
+	 * Write a BUILD-TIME first document into `host` before the engine has loaded, and keep the state a
+	 * full write of it would have left, so the first real render patches it in place
+	 * (engineering/decisions/2026-11-08-studio-newcomer-bake.md, option A).
+	 *
+	 * The bake carries the write's PARTS, never a finished document: this renderer builds the document
+	 * with its own `srcdoc()`, so the frame gets this page load's script nonce, this origin's policy and
+	 * the shared sheet's blob, exactly as a write here would. Nothing in the bake can stand in for them.
+	 *
+	 * Adopts only when the bake describes the render about to happen: the same markdown and slide, the
+	 * palette and mode the page resolves, this renderer's flags and runtime, and a host with no frame
+	 * yet. Anything else answers `false` and the first render writes as it always has. A bake whose
+	 * signature turns out not to match the live render is still safe: the restyle path swaps its sheet
+	 * in place, and past that the full write replaces it (srcdoc over srcdoc adds no history entry).
+	 */
+	function adoptBake(host: HTMLElement, bake: NewcomerBake, want: { markdown: string; slideIndex?: number; paletteOverride?: string; modeOverride?: 'light' | 'dark' }): boolean {
+		// The outcome rides on the host as `data-lattice-bake`, so a test or a person in devtools can see
+		// whether this visit adopted the bake and, when it did not, which check refused it.
+		const refuse = (why: string) => {
+			host.setAttribute('data-lattice-bake', 'refused:' + why);
+			return false;
+		};
+		try {
+			if (disposed || !host.isConnected) return false;
+			if (host.querySelector('iframe.live')) return refuse('written');
+			if (!bake || bake.v !== 1 || !bake.write || !bake.host) return refuse('shape');
+			const { palette, mode: docMode } = currentPaletteMode(want.paletteOverride);
+			const mode = want.modeOverride ?? docMode;
+			if (bake.runtimeUrl !== runtimeUrl) return refuse('runtime');
+			if (bake.flags !== flagsKey) return refuse('flags');
+			if (bake.palette !== palette || bake.write.mode !== mode) return refuse('theme');
+			if (bake.slideIndex !== (want.slideIndex ?? -1)) return refuse('slide');
+			if (bake.src !== bakeSourceKey(want.markdown)) return refuse('source');
+			const liveHost = host as LiveHost;
+			const { write } = bake;
+			const geom = write.geom;
+			liveHost.__latticeGeom = geom;
+			// The bake is made with no web images allowed or blocked; a deck that had any is not baked.
+			webAllow = [];
+			webBlocked = [];
+			const fr = mountLiveFrame(host, geom);
+			let settle: () => void = () => {};
+			liveHost.__latticeDocLoad = new Promise<void>((resolve) => {
+				settle = resolve;
+			});
+			// Held on the host so a full write that replaces the bake (or a dispose) can release every render still
+			// waiting on it, instead of leaving each to wait out DOC_LOAD_WAIT_MS on a document that is gone.
+			liveHost.__latticeDocSettle = () => settle();
+			let loadRan = false;
+			const onLoad = () => {
+				if (loadRan) return;
+				loadRan = true;
+				liveHost.__latticePendingLoad = false;
+				scaleFrame(host);
+				applyDebug(fr, { force: null });
+				installVideoBridge(fr.contentWindow);
+				installCollageBridge(fr.contentWindow);
+				settle();
+			};
+			fr.onload = onLoad;
+			liveHost.__latticePendingLoad = true;
+			liveHost.__latticeShownSlide = bake.host.shownSlide;
+			// writeSrcdoc, not `fr.srcdoc =`: a rewrite keeps Firefox's service worker serving the frame (lib/srcdoc-write.js).
+			writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(write.html, write.css, mode, write.drawn, geom, write.extraCss)), host);
+			scaleFrame(host);
+			// The same content-driven reveal poll a full write arms, for the same reason: iOS drops srcdoc `onload`.
+			let ticks = 0;
+			const poll = setInterval(() => {
+				ticks++;
+				if (disposed || !host.isConnected || liveHost.__latticePendingLoad === false || ticks > 300) {
+					clearInterval(poll);
+					ownedIntervals.delete(poll);
+					if (liveHost.__latticeRevealPoll === poll) liveHost.__latticeRevealPoll = undefined;
+					// Release the waiters on EVERY exit, not only when the budget runs out: a host that left the page stops
+					// this poll, and a waiter left parked would sit out the whole wait (see the full write's poll).
+					settle();
+					return;
+				}
+				scaleFrame(host);
+				if (frameHasPainted(fr)) onLoad();
+			}, 100);
+			ownedIntervals.add(poll);
+			liveHost.__latticeRevealPoll = poll;
+			host.classList.add('is-live');
+			liveHost.__latticeFrameSig = bake.host.frameSig;
+			liveHost.__latticeFrameCss = bake.host.frameCss;
+			liveHost.__latticeRestyleSig = bake.host.restyleSig;
+			host.setAttribute('data-lattice-bake', 'adopted');
+			return true;
+		} catch (e) {
+			console.error('newcomer bake not adopted', e);
+			return refuse('error');
+		}
 	}
 
 	/** Scale the fixed-box iframe to fill its (16:9) host; driven by host width. */
@@ -1749,7 +2022,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					else if (opts.slideMarkdown) {
 						fellBackToSlice = true;
 						// The engine's sections do not correspond 1:1 to the caller's slides (a
-						// `_focusSteps` / `split: headings` expansion, or a separator the two splitters
+						// `split: headings` expansion, or a separator the two splitters
 						// disagree about), so an index cannot identify the shown slide. Re-render that
 						// slide ALONE: the right content, honestly numbered 1 of 1, which is exactly
 						// what this surface did before deck context existed. One extra engine call on
@@ -1789,7 +2062,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// the outline style — `# Title` then two `##`, no `---` anywhere — is ONE chunk to
 				// the caller and THREE sections to the engine. Refusing painted an error card over
 				// the most ordinary deck shape there is; `glossary: auto` (which appends a slide to
-				// every slice render) and `_focusSteps` did the same. Measured across the committed
+				// every slice render) and `_focusSteps` did the same until it stopped cloning (2026-11-09). Measured across the committed
 				// corpus that was 3 decks / 8 slides, and the corpus understates it because
 				// committed decks happen to use explicit separators.
 				//
@@ -1993,7 +2266,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 										]);
 										// THE SAME ALIGNMENT GUARD narrowToSlide enforces, and for the same reason: an
 										// index-based lookup into the deck's sections silently picks a slide the author
-										// did not select when a plugin expands 1→N (`_focusSteps`, `split: headings`).
+										// did not select when a plugin expands 1→N (`split: headings`; `_focusSteps` until 2026-11-09).
 										// Without it, on examples/focus.md — 11 authored slides, 14 engine sections —
 										// the panel quoted a `_focusSteps` clone of slide 10 and called it slide 11's
 										// full-deck render. Fail honestly instead of confidently comparing the wrong pair.
@@ -2127,6 +2400,34 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// <style>, so they are DELIBERATELY absent here — a change in any of them keeps the
 				// same geom+mermaid, hits the restyle path, and swaps the <style> instead of rewriting.
 				const restyleSig = `${geom.width}x${geom.height}|${drawn ? 'M' : ''}|W:${webSig}`;
+				// A DOCUMENT STILL LOADING IN THE FRAME: an adopted bake (adoptBake), or an earlier render's full write.
+				// When it was built for this frame box, Mermaid presence and web policy (the restyle sig), the patch or
+				// restyle path below can bring it up to date once it commits. So wait for that, bounded, instead of
+				// writing a second document over one that is about to show the same slide. Past the bound the write
+				// below replaces it, as any pending write is replaced. Without this wait a first Studio visit wrote the
+				// preview twice under load: a second render with the same signature started 8 to 21 ms after the first
+				// write, while it was still loading, found the patch guard closed, and wrote the whole document again
+				// (14 of 23 loaded runs; engineering/decisions/2026-11-08-studio-newcomer-bake.md §7).
+				// The wait releases no one and clears nothing. A document that loads resolves its own promise, for every
+				// waiter at once. A render that gives up on it goes on to write, and that write releases every render
+				// still waiting (the write site below). A render that stands down touches nothing: releasing the newer
+				// write's waiters there is what would let a third render write over a document about to commit.
+				// Re-wait, a bounded number of times, when a NEWER write replaced the document while this render waited
+				// (a render that gave up on a document that never painted): that document is now
+				// this render's best outcome, for the same reason the first one was.
+				for (let round = 0; round < 3; round++) {
+					const docLoad = (host as LiveHost).__latticeDocLoad;
+					if (!docLoad || !(host as LiveHost).__latticePendingLoad || (host as LiveHost).__latticeRestyleSig !== restyleSig) break;
+					// A newer render already owns the frame: stand down now, rather than park and hold the scheduler.
+					if (newerOwns()) return { ok: false, slides: 0, error: 'renderer disposed' };
+					let waited: ReturnType<typeof setTimeout> | undefined;
+					await Promise.race([docLoad, new Promise<void>((resolve) => { waited = setTimeout(resolve, DOC_LOAD_WAIT_MS); })]);
+					clearTimeout(waited);
+					// A newer render may have written while this one waited: it owns the frame now.
+					if (disposed || !host.isConnected || newerOwns()) return { ok: false, slides: 0, error: 'renderer disposed' };
+					// The same document: it loaded (patch it below) or the bound passed (write over it below).
+					if ((host as LiveHost).__latticeDocLoad === docLoad) break;
+				}
 				const live = host.querySelector<HTMLIFrameElement>('iframe.live');
 				// Skip the patch while a full-write srcdoc is still loading: its
 				// contentDocument is briefly the OUTGOING one (which still has `.lattice`),
@@ -2284,61 +2585,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// site below, the iOS paint path) and the browser `onload` (assigned near that write).
 				// Declared out here so both the (later) poll and the onload assignment can see it.
 				let onFrameLoad: (() => void) | null = null;
-				if (!fr) {
-					// UNDO TRIPWIRE: on iOS, mounting this frame (and every `srcdoc` write below) empties WebKit's own
-					// undo list, so Safari's undo gestures stop reaching Filo until the Studio's undo doorbell re-arms
-					// it (docs/src/components/studio/undo-doorbell.ts). A new frame anywhere in the Studio does the same.
-					fr = document.createElement('iframe');
-					fr.className = 'live';
-					fr.setAttribute('title', 'Live-rendered Lattice slide');
-					fr.setAttribute('scrolling', 'no');
-					fr.setAttribute('tabindex', '-1');
-					// Fixed intrinsic slide box, scaled to fit via a CSS transform set in
-					// scaleFrame. transform-origin top-left so the scaled box aligns to the
-					// host's corner (without it, scaling shrinks around center → offset).
-					fr.style.position = 'absolute';
-					fr.style.top = '0';
-					fr.style.left = '0';
-					fr.style.border = '0';
-					fr.style.width = geom.width + 'px';
-					fr.style.height = geom.height + 'px';
-					fr.style.transformOrigin = 'top left';
-					// Invisible until the FIRST srcdoc actually paints (revealed by scaleFrame's
-					// content gate). A freshly-appended iframe with no srcdoc is `about:blank`,
-					// which iOS Safari paints as an OPAQUE WHITE document ON TOP OF the element's
-					// CSS `background` — so a cold load flashed a white slide card. `opacity:0`
-					// makes the whole element (white content included) transparent, so the dark
-					// pane behind covers that window — AND, unlike `visibility`, opacity animates,
-					// so the reveal is a quick fade-in (transition below) instead of a hard pop.
-					fr.style.opacity = '0';
-					fr.style.transition = 'opacity 180ms ease-out';
-					// An opacity:0 element is still HIT-TESTABLE (unlike visibility:hidden, which the
-					// reveal used to be) — so while hidden the frame would intercept scroll/clicks meant
-					// for what's behind it (e.g. the landing hero preview) during the load window. Hold
-					// pointer-events off until scaleFrame reveals it (which clears this alongside opacity).
-					fr.style.pointerEvents = 'none';
-					host.appendChild(fr);
-					// The CONTENT-DRIVEN reveal poll is armed below, at the srcdoc-write site, so it
-					// covers EVERY full write (this first mount AND every subsequent edit) — not just
-					// the create branch. See the block after `fr.srcdoc = …` (#1163).
-					if (typeof ResizeObserver !== 'undefined') {
-						// The callback honors the module-level drag gate above; the host is
-						// registered so a resume can re-fit it once, authoritatively.
-						// Sweep dead hosts on each registration so no-drag sessions
-						// (where the resume-time prune never runs) stay bounded too.
-						for (const h of scaleTargets.keys()) if (!h.isConnected) scaleTargets.delete(h);
-						scaleTargets.set(host, () => scaleFrame(host));
-						// Keep the observer instance (was anonymous) so dispose() can
-						// disconnect it — and remember the host so dispose() can also drop
-						// its scaleTargets entry (the module-level root that leaks it).
-						const ro = new ResizeObserver(() => {
-							if (!scaleSuspended) scaleFrame(host);
-						});
-						ro.observe(host);
-						ownedObservers.add(ro);
-						ownedHosts.add(host);
-					}
-				}
+				if (!fr) fr = mountLiveFrame(host, geom);
 				// After the frame loads: fit it, then draw the layout debug overlay if the
 				// deck opted in (`data-debug`, stamped from `debug:` front matter). This
 				// single-slide path strictly FOLLOWS THE DECK (force:null) — it never reads
@@ -2354,6 +2601,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Run exactly once — via the browser's `onload` (normal) OR the reveal poll's paint
 				// detection (iOS, where onload is unreliable). The guard makes a double-trigger a no-op.
 				let loadRan = false;
+				// Resolves this write's published load (assigned at the write below); a no-op until then.
+				let settleWrite: () => void = () => {};
 				onFrameLoad = () => {
 					if (loadRan) return;
 					loadRan = true;
@@ -2361,8 +2610,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// reflow), then debug overlay + video bridge which are outside the
 					// measured fit. frameMs is the browser's own parse/layout of the
 					// srcdoc: from the end of our synchronous setup below to this load event.
-					// This srcdoc has committed — future same-sig renders may now patch it.
+					// This srcdoc has committed — future same-sig renders may now patch it, and a render waiting on it
+					// (the document-load wait above) may go ahead.
 					(host as LiveHost).__latticePendingLoad = false;
+					settleWrite();
 					const tFit = performance.now();
 					// onload, when it DOES fire, is just one more reveal trigger — scaleFrame
 					// fits and reveals via the content gate (frameHasPainted). The reveal poll
@@ -2444,7 +2695,18 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// back, and the return trip was stamped `in-place` (found by the trio's checker).
 				// The identity has to track the document, not the code path that wrote it.
 				stampShownSlide();
-				fr.srcdoc = srcdoc(out.html, out.css, mode, drawn, geom, extraCss);
+				// This write replaces any document still loading (an adopted bake, an earlier write): release every
+				// render waiting on it. Then publish THIS write's load, so a render that starts before it commits waits
+				// for it and patches, instead of writing the same document again (the wait above).
+				(host as LiveHost).__latticeDocSettle?.();
+				(host as LiveHost).__latticeDocLoad = new Promise<void>((resolve) => {
+					settleWrite = resolve;
+				});
+				(host as LiveHost).__latticeDocSettle = () => settleWrite();
+				captureWrite?.({ html: out.html, css: out.css, mode, drawn, geom, extraCss: extraCss || '' });
+				// writeSrcdoc, not `fr.srcdoc =`: on Firefox a srcdoc set on a frame already in the page loses the service worker, so offline the
+				// runtime, fonts and Mermaid fail to load after the first edit (lib/srcdoc-write.js).
+				writeSrcdoc(fr, docOrMount(fr, host, () => srcdoc(out.html, out.css, mode, drawn, geom, extraCss)), host);
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
 				sanitizeMs = lastSanitizeMs;
@@ -2481,6 +2743,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// every edit falls to a full realm-churning re-write. A frame that truly never paints
 					// simply stays on the safe write path (we never patch an unpainted doc).
 					if (disposed || !host.isConnected || (host as LiveHost).__latticePendingLoad === false || revealTicks > 300) {
+						// Release the waiters on EVERY exit. A frame that never painted: they write as before. A host that left
+						// the page (or a disposed renderer): they find it gone and stand down, instead of sitting out the whole
+						// wait. That mattered once the wait grew to the poll's budget: a host detached and put back while its
+						// document loads reloads the srcdoc, and on WebKit, whose srcdoc `onload` is unreliable, nothing else
+						// would release them (the checker's review of the 30 s bound). Once the document has loaded, this is a
+						// no-op: its promise is already settled.
+						settleWrite();
 						clearInterval(revealPoll);
 						ownedIntervals.delete(revealPoll);
 						if ((host as LiveHost).__latticeRevealPoll === revealPoll) (host as LiveHost).__latticeRevealPoll = undefined;
@@ -2628,6 +2897,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// realm per host rather than N, but this file's doctrine is to release every
 			// root it owns, and this is one.
 			(h as LiveHost).__latticeFontWake = undefined;
+			// An adopted bake this renderer wrote: release its waiters, so a later renderer on the same host (a StrictMode
+			// remount) does not wait on a load this renderer's cleared poll will never report.
+			(h as LiveHost).__latticeDocSettle?.();
+			(h as LiveHost).__latticeDocLoad = undefined;
+			(h as LiveHost).__latticeDocSettle = undefined;
 		}
 		ownedHosts.clear();
 		// Unsubscribe theme watchers via their own closures so the pending debounce
@@ -2650,7 +2924,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		ownedIntervals.clear();
 	}
 
-	return { renderInto, whenReady, onThemeChange, scaleFrame, ready, prefetchTheme, dispose };
+	return { renderInto, adoptBake, whenReady, onThemeChange, scaleFrame, ready, prefetchTheme, dispose };
 }
 
 export type SingleSlideRenderer = ReturnType<typeof createSingleSlideRenderer>;

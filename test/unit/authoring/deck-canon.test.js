@@ -40,7 +40,14 @@ describe('deck-canon', () => {
   test('RUBRIC has no stale entry (every id is a real rule or the verbose family)', () => {
     const emitted = new Set([...REVIEW_SRC.matchAll(RULE_LITERAL)].map((m) => m[1]));
     const ALLOW_NON_LITERAL = new Set(['verbose-*']); // computed-id family, not a literal
-    const stale = RUBRIC.map((r) => r.id).filter((id) => !emitted.has(id) && !ALLOW_NON_LITERAL.has(id));
+    // Lint-core rules the canon still TEACHES on purpose. `empty-section` moved from the review tier to a
+    // lint warning on 2026-11-08 (engineering/decisions/2026-11-08-anchor-chrome.md); the deck generator
+    // should still avoid two dividers in a row up front, so its trap stays in the rubric. Each entry must
+    // be a rule lint-core really emits (asserted below), so this list cannot hide a dead row.
+    const TAUGHT_LINT_RULES = new Set(['empty-section']);
+    const LINT_SRC = require('node:fs').readFileSync(require.resolve('../../../lib/authoring/lint-core.js'), 'utf8');
+    for (const id of TAUGHT_LINT_RULES) assert.ok(LINT_SRC.includes(`rule: '${id}'`), `lint-core no longer emits ${id}`);
+    const stale = RUBRIC.map((r) => r.id).filter((id) => !emitted.has(id) && !ALLOW_NON_LITERAL.has(id) && !TAUGHT_LINT_RULES.has(id));
     assert.deepEqual(stale, [], `RUBRIC has entries for no-longer-emitted rules: ${stale.join(', ')}`);
   });
 

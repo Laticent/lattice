@@ -9,6 +9,7 @@ import {
 	ttsPriceLabel,
 } from '@/components/studio/ai/tts-catalog.js';
 import { Badge } from '@/components/ui/badge';
+import { modelDisplayName } from '@/lib/model-name';
 import { cn } from '@/lib/utils';
 import type { OrVoiceModel } from './read-aloud';
 
@@ -50,7 +51,7 @@ export function TtsModelPicker({
 	);
 	const groups = React.useMemo(() => ttsModelGroups(models ?? [], view, query), [models, view, query]);
 
-	const summaryName = current ? shortName(current) : (selectedId || 'hexgrad/kokoro-82m (default, cheapest)');
+	const summaryName = current ? modelDisplayName({ id: current.id, name: current.name }) : selectedId ? modelDisplayName({ id: selectedId }) : 'Kokoro 82M (default, cheapest)';
 	const summaryMeta = current ? `${current.voices.length} voice${current.voices.length === 1 ? '' : 's'} · ${ttsPriceLabel(current)}` : '';
 
 	return (

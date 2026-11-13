@@ -5,7 +5,7 @@ recorded: 2026-11-06
 area: diagram
 severity: low
 swimlane: engineering/decisions/2026-11-06-plugin-patterns.md §9
-deferred: large — retiring `bake` means drawing Mermaid AFTER the engine renders, in the capture page through the draw frame; the capture page does not run the runtime's Mermaid pass, which is what themes each diagram for its slide's band, so the theming would move into the CLI's draw host — a redesign of the export's diagram path, not a slice. Owner decision 2 (retire `bake` once Mermaid leaves it) stands; Mermaid has not left it yet.
+deferred: large — slice 1 of 5 shipped (the CLI's locked page opens Mermaid's module-loaded frame, plugin-patterns.md §10). Slices 2 to 5 (a capture-page driver for Mermaid's pass, `--html`/`--fluid` written from the drawn page, the image-set look re-drawn through the host, then deleting `bake`) move export bytes together and need one owner sign-off; together they are a redesign of the export's diagram path, not a slice. Owner decision 2 (retire `bake` once Mermaid leaves it) stands.
 source: https://github.com/Laticent/lattice/pull/3052
 ---
 
@@ -15,6 +15,8 @@ why now   — D2 slice 3 moved Mermaid's bake onto the fences the engine parses 
             so the export draws every fence the engine parses; 43 Mermaid decks export identically apart from
             Mermaid's own random ids. The bake itself remains: it draws in a locked page and splices SVG into the
             SOURCE before the engine renders, which is the one contribution point that rewrites a deck's text.
+trace     — engineering/decisions/2026-11-06-plugin-patterns.md §10 has what the bake supplies each export, and the slices.
+            There is no light/dark SVG pair (an earlier note assumed one): each fence is drawn once, in its slide's band.
 where     — lib/plugins/mermaid/mermaid.bake.js, lib/plugins/host-bake.js, lib/export/locked-figures.js (the draw host
             slice 2 built for function-plot, which would take Mermaid's module-loaded frame), lattice.js's bake call.
 done when — a Mermaid fence is drawn after the engine renders, through the CLI's draw host, themed for its slide as the

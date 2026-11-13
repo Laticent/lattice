@@ -110,8 +110,9 @@ jobs:
       # device. Both are grep-scoped to their own tag, so this buys a second engine for a
       # handful of oracles, not a second full suite.
       - name: Install Playwright browsers (pinned to @playwright/test)
-        run: npx playwright install --with-deps chromium webkit firefox
-        working-directory: docs
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium webkit firefox
 
       # poppler-utils, for ONE spec: guards-trim-export.spec.ts reads the exported PDF's
       # text layer with `pdftotext` to hold the over-cut floor on the delivered artifact
@@ -121,7 +122,9 @@ jobs:
       # made this oracle cheap; the alternative was a pixel-signature harness. The root
       # integration tier already depends on poppler the same way (ci.yml, integration-nightly.yml).
       - name: Install poppler-utils (pdftotext, for the export text-layer oracle)
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: poppler-utils
 
       # playwright.config.ts's webServer builds (without the slow showcase:check)
       # then previews the production site, and the suite drives it across the
@@ -358,10 +361,8 @@ jobs:
       # baselines in `docs/e2e/visual.spec.ts-snapshots`, and blessing those turns the specs
       # green without fixing anything. So a green night means "the suite matches its
       # baselines", which is a different claim from "the regression is fixed", and the two
-      # are indistinguishable from inside the run. `retries: 1` in CI adds a second reason:
-      # a spec that fails and passes on retry reports `1 flaky` alongside the pass count and
-      # still exits 0 — and an intermittent failure is exactly what a rolling issue is most
-      # likely to be tracking, so it would open and close on alternate nights.
+      # are indistinguishable from inside the run. (CI used to retry a failing spec once,
+      # which hid flakes as `1 flaky`; retries are 0 since HARD RULE #34.)
       #
       # A first cut of this step called the suite ABSOLUTE and closed. Commenting is not a
       # consolation prize: the ratchet was never really "it does not close", it was "nothing
@@ -398,7 +399,7 @@ jobs:
           {
             echo "Measured green on \`main@${{ github.sha }}\`: the deterministic Studio E2E suite passed (${PASSED})."
             echo ""
-            echo "**Left open deliberately.** Part of this suite asserts screenshots against committed baselines, and CI retries a failing spec once — so a green night cannot distinguish a fix from a blessed baseline or a flaky spec that passed on its second try. Check which happened and close by hand; a recurrence appends here."
+            echo "**Left open deliberately.** Part of this suite asserts screenshots against committed baselines, so a green night cannot distinguish a fix from a blessed baseline. Check which happened and close by hand; a recurrence appends here."
             echo ""
             echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$GITHUB_WORKSPACE/stand-down.md"
@@ -446,12 +447,15 @@ jobs:
         working-directory: docs
 
       - name: Install Playwright browsers (pinned to @playwright/test)
-        run: npx playwright install --with-deps chromium webkit firefox
-        working-directory: docs
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium webkit firefox
 
       # web-images.spec.ts reads the exported PDF's text layer.
       - name: Install poppler-utils (pdftotext)
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: poppler-utils
 
       # Same shape as the `e2e` job's run step: keep the STEP green on a spec failure so the alarm
       # always runs, carry the verdict in an output, and time the step out below the job.
@@ -591,13 +595,51 @@ jobs:
       run:
         shell: bash
     steps:
-      # The image has Node and the browsers, not git: install it first so checkout makes a real
-      # clone (the docs build reads git history) rather than falling back to a tarball.
+      # checkout needs git to make a real clone (the docs build reads git history) rather than fall
+      # back to a tarball. The v1.56.1 image already ships git, so this step normally does nothing. If a
+      # later image drops it, its .deb comes from GitHub's cache, keyed on the image tag; only a miss
+      # reads a mirror, through the same mirror list as apt-setup.sh, three tries with apt's own three
+      # retries (owner call, 2026-11-11). Inline because the repo's apt-cached action is not on disk
+      # before checkout.
+      - name: Restore git's packages
+        uses: actions/cache@v4
+        with:
+          path: /root/apt-git-debs
+          key: apt-container-git-playwright-v1.56.1-noble-v1
       - name: Install git
-        run: apt-get update && apt-get install -y --no-install-recommends git
+        run: |
+          set -euo pipefail
+          if command -v git >/dev/null 2>&1; then echo "git is in the image: $(git --version)"; exit 0; fi
+          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' > /etc/apt/apt.conf.d/80-lattice-retries
+          # The mirror list from .github/actions/apt-cached/apt-setup.sh; keep the two in step.
+          printf '%s\tpriority:%s\n' http://mirrors.edge.kernel.org/ubuntu/ 1 http://archive.ubuntu.com/ubuntu/ 2 \
+            http://mirror.math.princeton.edu/pub/ubuntu/ 3 http://azure.archive.ubuntu.com/ubuntu/ 4 \
+            http://us.archive.ubuntu.com/ubuntu/ 5 http://security.ubuntu.com/ubuntu/ 6 > /etc/apt/apt-mirrors.txt
+          sed -i 's#^URIs: http://archive.ubuntu.com/ubuntu/\?$#URIs: mirror+file:/etc/apt/apt-mirrors.txt#' /etc/apt/sources.list.d/ubuntu.sources
+          dir=/root/apt-git-debs
+          if ! ls "$dir"/*.deb >/dev/null 2>&1; then
+            mkdir -p "$dir/partial"
+            for n in 1 2 3; do
+              apt-get update && apt-get install -y --no-install-recommends --download-only -o Dir::Cache::archives="$dir" git && break
+              [ "$n" = 3 ] && exit 1
+              sleep $((n * 10))
+            done
+            rm -rf "$dir/partial" "$dir/lock"
+          fi
+          # A cache built on another image may not fit this one: install from the mirror instead.
+          dpkg -i "$dir"/*.deb || { rm -rf "$dir"; apt-get install -y -f --no-install-recommends && apt-get install -y --no-install-recommends git; }
       - uses: actions/checkout@v4
       - name: Trust the workspace for git (the container runs as root on a runner-owned checkout)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      # The gh CLI, for the issue steps below (main only), from the same cache as every other package.
+      # Allowed to fail: the issue steps check for it, and the passing-run report already tolerated a
+      # missing gh.
+      - name: Install the gh CLI
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: gh
 
       - name: Install root deps (engine deps the docs build imports)
         run: npm ci
@@ -641,8 +683,8 @@ jobs:
           retention-days: 14
 
       # Its own rolling issue, in the `security` job's shape: the same exact-title lookup, and a
-      # comment (never a close) on a measured green night. The image has no gh CLI, so each step
-      # installs it from the Ubuntu archive.
+      # comment (never a close) on a measured green night. The image has no gh CLI; the "Install the
+      # gh CLI" step above installs it from the cache.
       - name: Open / append regression issue
         if: always() && (steps.webrtc.outputs.failed == 'true' || steps.webrtc.outcome != 'success') && github.ref == 'refs/heads/main'
         env:
@@ -650,7 +692,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          apt-get install -y --no-install-recommends gh >/dev/null
+          command -v gh >/dev/null || { echo '::error::the gh CLI did not install (step "Install the gh CLI"); no issue was filed'; exit 1; }
           TITLE='[studio-firefox-webrtc] Firefox live-session spec failing on main'
           REPORT="$GITHUB_WORKSPACE/firefox-webrtc-report.txt"
           BODY="$GITHUB_WORKSPACE/firefox-webrtc-body.md"
@@ -702,7 +744,7 @@ jobs:
             echo "No passing tests in the report — nothing was proved; leaving any open thread alone."
             exit 0
           fi
-          apt-get install -y --no-install-recommends gh >/dev/null || exit 0
+          command -v gh >/dev/null || exit 0 # installed by "Install the gh CLI"; a miss leaves the thread alone, as before
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
             --jq "[.[] | select(.title == \"$TITLE\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
@@ -759,8 +801,9 @@ jobs:
         working-directory: docs
 
       - name: Install Playwright browsers (pinned to @playwright/test)
-        run: npx playwright install --with-deps chromium
-        working-directory: docs
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium
 
       # Same shape as the `security` job's run step: keep the STEP green on a spec failure so the
       # alarm always runs, carry the verdict in an output, and time the step out below the job.
@@ -873,8 +916,9 @@ jobs:
   # drives the Architect against a LIVE OpenRouter model and asserts a real
   # productivity outcome (source changed + checkpoint saved). A separate job so
   # a paid-API flake can never redden the deterministic suite above. Gated on
-  # the OPEN_ROUTER_KEY secret — when it is unset the spec self-skips with a
-  # reason and this job stays green. Cost: three Haiku-tier completions over a
+  # the OPEN_ROUTER_KEY secret — when it is unset the job FAILS at its first step
+  # (#1931): a keyless run used to self-skip green, indistinguishable from a real
+  # one. The spec's own test.skip stays for local runs. Cost: three Haiku-tier completions over a
   # two-slide deck (~a cent a night); the Studio's own hard-stop budget cap is
   # armed by the spec as the runaway guard. The spec disables trace + video so
   # the key never reaches an uploaded artifact.
@@ -884,6 +928,18 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
+      # Fail loud, before any install, when the key is missing (#1931 criterion 2). A boolean
+      # over the secret never exposes its value and does not put the key in this step's env.
+      # The filing step below still runs (always(), and the run step's outcome is then
+      # `skipped`), so a lost key also files the rolling issue.
+      - name: Require the OpenRouter key
+        id: key
+        run: |
+          if [ '${{ secrets.OPEN_ROUTER_KEY != '' }}' != 'true' ]; then
+            echo "::error title=OPEN_ROUTER_KEY missing::the OPEN_ROUTER_KEY secret is not set; the live AI tier did not run."
+            echo "### Live AI tier NOT RUN: OPEN_ROUTER_KEY is not set" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -904,8 +960,9 @@ jobs:
         working-directory: docs
 
       - name: Install Playwright browser (pinned to @playwright/test)
-        run: npx playwright install --with-deps chromium
-        working-directory: docs
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium
 
       # Same shape as the `e2e` job's run step: `tee` the output to a report file, keep the
       # STEP green on a spec failure so the alarm below always gets to run, and carry the
@@ -957,6 +1014,9 @@ jobs:
         if: always() && (steps.ai.outputs.failed == 'true' || steps.ai.outcome != 'success') && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # A missing key fails the job BEFORE checkout, so there is no git repo for `gh` to read
+          # the repository from (the same failure line ~225 records); name it.
+          GH_REPO: ${{ github.repository }}
           OPEN_ROUTER_KEY: ${{ secrets.OPEN_ROUTER_KEY }}
         run: |
           set -euo pipefail
@@ -985,17 +1045,21 @@ jobs:
 
           {
             echo "The nightly live-AI Studio scenarios failed on \`main@${{ github.sha }}\` (step outcome: ${{ steps.ai.outcome }})."
+            if [ '${{ steps.key.outcome }}' = 'failure' ]; then
+              echo ""
+              echo "**Cause: the \`OPEN_ROUTER_KEY\` secret is not set.** Nothing ran; re-add the secret (issue #1931)."
+            fi
             echo ""
             echo "This tier drives a REAL OpenRouter model on our key, so triage it in this order:"
             echo "1. Is it a spec/product regression? The failing locator and its call log are below."
             echo "2. Is it the model or the API? A timeout waiting for a diff card, or a 4xx/5xx, points here."
-            echo "3. Is the key unset or out of budget? Then the run reports **skipped**, not failed — the tally below says which."
+            echo "3. Is the key out of budget? A 402/429 from OpenRouter points here. (An unset key fails the 'Require the OpenRouter key' step instead.)"
             echo ""
             echo "What failed (full report in the run's artifact):"
             echo ""
             echo '```'
-            # `skipped` is in the pattern deliberately: a keyless run self-skips and stays
-            # green, so if this alarm ever fires on a run whose tally is all-skipped, the
+            # `skipped` is in the pattern deliberately: a keyless run now fails before the
+            # specs, so if this alarm ever fires on a run whose tally is all-skipped, the
             # cause is the harness, not a spec.
             grep -E '^\s+[0-9]+\) |✘|webServer was not able to start|ERR_MODULE_NOT_FOUND|[0-9]+ (failed|passed|skipped)' \
               "$REPORT" 2>/dev/null | head -c 20000 || echo '(no test markers — the suite likely never started; see the tail below)'
@@ -1058,10 +1122,8 @@ jobs:
       # baselines in `docs/e2e/visual.spec.ts-snapshots`, and blessing those turns the specs
       # green without fixing anything. So a green night means "the suite matches its
       # baselines", which is a different claim from "the regression is fixed", and the two
-      # are indistinguishable from inside the run. `retries: 1` in CI adds a second reason:
-      # a spec that fails and passes on retry reports `1 flaky` alongside the pass count and
-      # still exits 0 — and an intermittent failure is exactly what a rolling issue is most
-      # likely to be tracking, so it would open and close on alternate nights.
+      # are indistinguishable from inside the run. (CI used to retry a failing spec once,
+      # which hid flakes as `1 flaky`; retries are 0 since HARD RULE #34.)
       #
       # A first cut of this step called the suite ABSOLUTE and closed. Commenting is not a
       # consolation prize: the ratchet was never really "it does not close", it was "nothing
@@ -1071,6 +1133,7 @@ jobs:
         if: always() && steps.ai.outcome == 'success' && steps.ai.outputs.failed == 'false' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -uo pipefail
           TITLE='[studio-e2e-ai] Live AI Studio scenarios failing on main'

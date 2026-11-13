@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { CHAT_COMPOSER_FIELD, CHAT_COMPOSER_ROW, CHAT_COMPOSER_TOOLS } from '../panel-shells';
 import { LiveAvatar } from './LiveAvatar';
 import { elapsed, type LiveActions, type LiveChatLine, type LiveNote, type LivePerson, type LiveView, liveColor, qualityLine, SLIDE_REF } from './live-model';
+import { LIVE_PRIVACY_HREF } from './privacy-link';
 
 // The Live panel — the collaboration PORTAL, not the workspace (§5.2 of
 // engineering/decisions/2026-10-06-studio-live-collaboration.md). It is narrow on purpose:
@@ -564,7 +565,7 @@ function SessionMenu({ view, actions, now }: { view: LiveView; actions: LiveActi
 				</DropdownMenuContent>
 			</DropdownMenu>
 			<Dialog open={confirming} onOpenChange={setConfirming}>
-				<DialogContent data-live-confirm>
+				<DialogContent alert data-live-confirm>
 					<DialogHeader>
 						<DialogTitle>{ending ? 'End the session for everyone?' : 'Leave the session?'}</DialogTitle>
 						<DialogDescription>
@@ -769,10 +770,10 @@ function StartCard({ actions, defaultName }: { actions: LiveActions; defaultName
 				Edit this deck together, live. Share a link; people knock, you let them in, and everyone sees the same deck, carets and slide.
 				<span className="mt-1.5 block">Up to 4 people. Edits go browser to browser.</span>
 			</div>
-			{/* Who sees an IP address (followups.d/2547-p2-live-privacy-note.md). A direct connection
-			    hands each browser the other's address, and the knock connects before the host admits. */}
+			{/* Who sees an IP address. A direct connection hands each browser the other's address, and the
+			    knock connects before the host admits. The link is the docs page that says it in full. */}
 			<p className="text-[11px] leading-relaxed text-muted-foreground" data-live-privacy-note>
-				Browsers connect directly, so anyone who uses your link sees your IP address, even before you let them in. So do the public servers that help browsers find each other, run by Google, Cloudflare and independent relay operators. They see your address, not your deck.
+				Browsers connect directly, so anyone who uses your link sees your IP address, even before you let them in. So do the public servers that help browsers find each other, run by Google, Cloudflare and independent relay operators. They see your address, not your deck.{' '}<a className="underline underline-offset-2 hover:text-foreground" href={LIVE_PRIVACY_HREF} target="_blank" rel="noopener noreferrer" data-live-privacy-link>Who sees what</a>
 			</p>
 			<label htmlFor="live-start-name" className="text-[11.5px] font-semibold text-foreground">Your name</label>
 			<Input

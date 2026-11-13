@@ -436,6 +436,19 @@ a security defect in the player JS lives **forever** in every file already sent.
     answer: it is the author's call, so the default stays notes-in (you present from the file), the
     Studio's webpage export keeps its "Strip speaker notes" switch, and the CLI keeps
     `--strip-notes`. A flip to strip-by-default was built on PR #3051 and reverted there.
+  - **2026-11-08 (#1833, option B): keep notes in by default, and SAY so at export.** The owner
+    re-read the question and chose: notes stay in, the Studio and the CLI keep their switch, and
+    every export that ships notes tells the author. The CLI warns once per file for the player,
+    the web page, the PDF and the PowerPoint/LibreOffice file (`warnShippedNotes` in `lattice.js`,
+    silent under `--strip-notes` and `--quiet`). The Studio's webpage options state that notes
+    ship, and its PowerPoint (editable text) and LibreOffice options gained the same "Strip speaker
+    notes" switch, which also turns "Re-openable" off, because that copy is the deck's own source.
+    The Studio's picture-per-slide PowerPoint writes no notes pane, so it offers no switch (the CLI's
+    picture `.pptx` does write notes, and warns). The web-page warning is decided after the viewer
+    step, from what landed in the `.html`: `--read` (no notes) is silent, a `--fluid` viewer beside a
+    pdf/pptx/png warns. No exported
+    byte changes by default. Tests: `test/integration/parity/speaker-notes.test.js` (the warning,
+    per format) and `docs/e2e/studio-office-notes.spec.ts` (the note in the artifact, or absent).
   - **P3d — speaker-notes sheet + strip-all-copies — SHIPPED (2026-07-08).** Notes ride by default: the
     emulator already materializes each note as a hidden `aside.lattice-notes` in the baked DOM, so the player's
     notes sheet READS that aside (no new copy) — a slide-up panel over the present stage, toggled by the ☰

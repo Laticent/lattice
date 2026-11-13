@@ -31,7 +31,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 
 ### Common mistakes
 
-- **Placing the citation paragraph BEFORE the heading instead of after it.** Immediately after the heading (the documented placement) the citation paragraph stays in the flow and gets the dedicated accent-mono citation styling. Before the heading, it's captured as the shared masthead eyebrow (mono-caps kicker) instead — a different, generic treatment. Keep it after the heading, matching the skeleton.
+- **Placing the citation paragraph BEFORE the heading instead of after it.** Immediately after the heading (the documented placement) the citation paragraph stays in the flow and gets the dedicated accent-mono citation styling. Before the heading, it's captured as the shared masthead eyebrow (the kicker above the heading) instead — a different, generic treatment. Keep it after the heading, matching the skeleton.
 
 ## When to use
 

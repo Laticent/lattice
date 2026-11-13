@@ -448,7 +448,12 @@ const pgData = {
 						// The bake was made where the site's origin is unknown, so its font-src says only 'self', which Firefox does
 						// not read as this origin in a srcdoc frame: name it here, as the live preview does (playground/preview-csp.js).
 						if (/^https?:$/.test(location.protocol)) html = html.replace("font-src 'self' data:", function (m) { return m + ' ' + location.origin; });
+						// Firefox gives a srcdoc frame the service worker only when srcdoc is set before the frame is in the page, so on a
+						// controlled page the (still empty) frame leaves the page for the write (docs/src/lib/srcdoc-write.js).
+						var sw = navigator.serviceWorker && navigator.serviceWorker.controller, home = frame.parentNode, next = frame.nextSibling;
+						if (sw && home) home.removeChild(frame);
 						frame.srcdoc = html;
+						if (sw && home && !frame.parentNode) home.insertBefore(frame, next && next.parentNode === home ? next : null);
 						requestAnimationFrame(check);
 					} else if (root.getAttribute('data-pg-bake') === 'loading') root.removeAttribute('data-pg-bake');
 				});

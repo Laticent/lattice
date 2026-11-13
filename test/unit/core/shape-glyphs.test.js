@@ -25,6 +25,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { scanWork } = require('../../helpers/work-count');
 
 const {
   SHAPE_GLYPHS,
@@ -179,10 +180,12 @@ describe('shape-glyphs — certainFencedLines marks only what the renderer draws
     assert.equal(F('<div>\n<pre>\n</pre>\n```\nx\n```'), '......');
   });
   test('stays linear on a run of unclosed openers', () => {
-    const text = Array.from({ length: 50000 }, (_, i) => (i % 2 ? '```js' : '~~~~')).join('\n');
-    const t = process.hrtime.bigint();
-    certainFencedLines(text);
-    assert.ok(Number(process.hrtime.bigint() - t) / 1e6 < 1000);
+    // Counted, not timed (HARD RULE #32). The walk searches each character less than once. One that, without `tail`,
+    // searches forward from every opener for its closer and skips an unclosed one searched 1,000 times per character.
+    const text = Array.from({ length: 10000 }, (_, i) => (i % 2 ? '```js' : '~~~~')).join('\n');
+    const { result, scanned } = scanWork(() => certainFencedLines(text));
+    assert.ok(scanned <= 3 * text.length, `${scanned} characters searched on ${text.length}`);
+    assert.equal(result.filter(Boolean).length, 3);
   });
 });
 

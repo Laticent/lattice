@@ -12,6 +12,13 @@ vi.mock('@/components/studio/library/asset-store.js', () => ({
 	deleteAsset: vi.fn(async () => {}),
 }));
 
+// Lets a test make the whole-store version read fail, as a dropped IndexedDB connection does.
+const versions = vi.hoisted(() => ({ fail: false }));
+vi.mock('./checkpoint-store', async (importOriginal) => {
+	const real = await importOriginal<typeof import('./checkpoint-store')>();
+	return { ...real, hydrateCheckpoints: () => (versions.fail ? Promise.reject(new DOMException('dropped', 'InvalidStateError')) : real.hydrateCheckpoints()) };
+});
+
 import { deleteAsset, listAssets } from '@/components/studio/library/asset-store.js';
 import { DECKS } from './decks';
 import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearSiteCache, fmtBytes, loadGovernanceStats, SITE_CACHE_PREFIX } from './governance';
@@ -62,11 +69,35 @@ afterEach(() => {
 });
 
 describe('governance — stats', () => {
+	it('still loads when the version read fails, counting the versions this page holds', async () => {
+		versions.fail = true;
+		try {
+			await expect(loadGovernanceStats()).resolves.toBeTruthy();
+		} finally {
+			versions.fail = false;
+		}
+	});
+
 	it('splits Cache Storage names into "downloaded models" (ours excluded) vs "cache" (ours only)', async () => {
 		stubCaches({ 'lattice-v1-pages': [], 'lattice-v1-assets': [], 'webllm/model-cache': [], 'transformers-cache': [] });
 		const stats = await loadGovernanceStats();
 		expect(stats.siteCache.count).toBe(2);
 		expect(stats.models.count).toBe(2);
+	});
+
+	it('reports how full the localStorage allowance is, and warns past 80% of it', async () => {
+		stubCaches({});
+		localStorage.clear();
+		expect((await loadGovernanceStats()).local.warn).toBe(false);
+		// One deck's text at 81% of the measured allowance (local-quota.ts).
+		localStorage.setItem('lattice-studio-src-big', 'x'.repeat(Math.ceil(5_242_272 * 0.81)));
+		try {
+			const { local } = await loadGovernanceStats();
+			expect(local.warn).toBe(true);
+			expect(Math.round(local.fraction * 100)).toBe(81);
+		} finally {
+			localStorage.removeItem('lattice-studio-src-big');
+		}
 	});
 
 	it('aggregates byte size across every entry in a cache bucket, from content-length', async () => {

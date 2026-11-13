@@ -215,7 +215,7 @@ describe('InsertControls — the inline objects', () => {
 			await open();
 			expect(item('Tag chip').textContent).toMatch(/chips plugin/);
 			expect(disabled('Odd chip')).toBe(true);
-			expect(item('Odd chip').textContent).toMatch(/Type it in Markdown/);
+			expect(item('Odd chip').textContent).toMatch(/Type it in Source/);
 			await user.click(item('Tag chip'));
 			expect(docToDeck(view.state.doc)).toContain('`@tag-chip{Tag chip}`');
 		} finally {
@@ -233,14 +233,14 @@ describe('InsertControls — what is unavailable, and why', () => {
 		expect(disabled('Pill')).toBe(false);
 	});
 
-	it('every item is unavailable on a locked slide, says the slide is edited in Markdown, and choosing one writes nothing', async () => {
+	it('every item is unavailable on a locked slide, says the slide is edited in Source, and choosing one writes nothing', async () => {
 		const { view, user, open } = setup(LOCKED, 'Has', { image: () => {}, link: () => {} });
 		await open();
 		const before = docToDeck(view.state.doc);
 		for (const name of ['Table', 'Code', 'Diagram', 'Equation', 'Plot', 'Image', 'Pill', 'Spark', 'Avatar', 'Icon', 'Check', 'Link']) {
 			expect(disabled(name), name).toBe(true);
 			expect(item(name).getAttribute('aria-disabled'), name).toBe('true');
-			expect(item(name).textContent, name).toMatch(/edited in Markdown/);
+			expect(item(name).textContent, name).toMatch(/edited in Source/);
 			// Choosing it by the keyboard (the item stays focusable so its reason can be heard) is declined, and the menu stays open.
 			item(name).focus();
 			await user.keyboard('{Enter}');

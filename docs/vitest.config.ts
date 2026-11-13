@@ -1,12 +1,41 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
+import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
+
+// Every docs/src/lib package (cadenza, segno, vetrina, … 17 of them) names its built, gitignored dist/ in
+// `main` and its TypeScript source under the `@laticent/source` export. The docs import them by directory
+// (`@/lib/vetrina`, `./segno`), and a directory import reads `main`, never `exports`, so the tests ran the
+// BUILT bundle: a test passed or failed on whether dist/ had been rebuilt, not on the code (HARD RULE #32;
+// with recorder.ts broken and dist/ stale, recorder.test.ts still passed). This sends any import that lands
+// on a src/lib/<pkg>/dist/ entry to the source file the package exports beside it, as the app reads it.
+function libSource(): Plugin {
+	const lib = fileURLToPath(new URL('./src/lib/', import.meta.url));
+	const bundle = /^(.*)[\\/]dist[\\/]([^\\/]+?)\.(?:c|m)?js$/;
+	return {
+		name: 'lattice-lib-source',
+		enforce: 'pre',
+		async resolveId(source, importer, options) {
+			const hit = await this.resolve(source, importer, { ...options, skipSelf: true });
+			const m = hit && !hit.external ? bundle.exec(hit.id) : null;
+			if (!m || dirname(m[1]) !== lib.replace(/[\\/]$/, '')) return null;
+			const exportsMap = JSON.parse(readFileSync(join(m[1], 'package.json'), 'utf8')).exports || {};
+			for (const entry of Object.values(exportsMap) as Record<string, unknown>[]) {
+				const targets = JSON.stringify(entry);
+				if (typeof entry?.['@laticent/source'] === 'string' && targets.includes(`./dist/${m[2]}.`)) return join(m[1], entry['@laticent/source'] as string);
+			}
+			return null;
+		},
+	};
+}
 
 // Vitest + React Testing Library harness for the docs site's React islands
 // (Phase 1+ of the shadcn migration). jsdom environment; `@` resolves to src/
 // to match the app's tsconfig path alias.
 export default defineConfig({
-	plugins: [react()],
+	plugins: [libSource(), react()],
 	resolve: {
 		alias: [
 			// The lint core loads from esm/lint.js beside the engine in the browser; Node has no engine

@@ -67,6 +67,15 @@ section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-ch
 section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-child):not(:where([data-prose])) > code {
   background:none; border:none; padding:0; color:inherit; font-family:inherit;
 }
+/* Where the base EYEBROW rule also matches (the update list follows the paragraph: the timeline,
+ * priority and cards variants), that rule now sets the eyebrow voice (italic, sentence case, a size
+ * step up — lib/base/base.typography.css). This label keeps the mono-caps voice it always had, so
+ * it says every axis the base rule would otherwise set; without it the label rendered mono with a
+ * synthetic slant at 1.45× and clipped regulatory-update.gallery.md page 5. */
+section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-child):not(:where([data-prose])):has(+ ol) > code,
+section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-child):not(:where([data-prose])):has(+ ul) > code {
+  font-size:var(--fs-meta); font-style:normal; font-weight:600; letter-spacing:0.18em; text-transform:uppercase;
+}
 section.regulatory-update.regulatory-update > .cell-stage > ol,
 section.regulatory-update.regulatory-update > .cell-stage > ul {
   list-style:none; padding:0; margin:0;

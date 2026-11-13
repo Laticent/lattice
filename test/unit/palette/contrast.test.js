@@ -227,6 +227,41 @@ describe('contrast', () => {
     }
   }
 
+  // ── Chrome on a dark bookend panel ──────────────────────────────────────
+  // Title, closing and divider slides paint --surface-inverse and declare color-scheme: dark
+  // (base.modifiers.css), so their header, footer and page number read the dark-scheme muted ink,
+  // or a theme's --on-inverse-muted when it sets one. That chrome is 15 px text and owes AA on the
+  // panel. Indaco's panel (#003D66) is the lightest in the repo and its dark muted ink measured
+  // 3.5:1 there before --on-inverse-muted existed (found by tools/type-voice-audit.mjs, 2026-11-09).
+  const themeNames = fs.readdirSync(path.join(__dirname, '..', '..', '..', 'themes'))
+    .filter((d) => fs.existsSync(path.join(__dirname, '..', '..', '..', 'themes', d, `${d}.css`)));
+  // The token alone is not what renders: the rule in base.modifiers.css points the three chrome inks at it. Without
+  // the rule the chrome reads --text-muted again, and the token test above would still pass.
+  test('contrast: the bookend rule points header, footer and page number at --on-inverse-muted', () => {
+    const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'base', 'base.modifiers.css'), 'utf8');
+    const at = css.indexOf('section:where(.title, .closing, .divider:not(.light)):not(.print) {');
+    assert.ok(at >= 0, 'the bookend chrome rule is missing from base.modifiers.css');
+    const body = css.slice(at, css.indexOf('}', at));
+    for (const v of ['header', 'footer', 'pagination']) {
+      assert.match(body, new RegExp(`--marp-slide-${v}-color:\\s*var\\(--on-inverse-muted,`), `--marp-slide-${v}-color`);
+    }
+  });
+  for (const name of themeNames) {
+    for (const mode of ['light', 'dark']) {
+      test(`contrast: ${name} (${mode}) bookend chrome clears AA on --surface-inverse`, () => {
+        const vars = loadPaletteWithImports(name, mode);
+        const dark = loadPaletteWithImports(name, 'dark');
+        const panel = vars['surface-inverse'];
+        const ink = vars['on-inverse-muted'] || dark['text-muted'];
+        // A theme written in oklch() or color-mix() would slip past a skip, so a non-hex pair fails and asks for a resolver.
+        assert.ok(panel && ink, `${name} (${mode}): no --surface-inverse or chrome ink to measure`);
+        assert.ok(/^#[0-9a-f]{6}$/i.test(panel) && /^#[0-9a-f]{6}$/i.test(ink), `${name} (${mode}): ${panel} / ${ink} is not a plain hex pair; resolve it before measuring`);
+        const ratio = contrastRatio(panel, ink);
+        assert.ok(ratio >= AA_THRESHOLD, `${name} (${mode}): bookend chrome ${ink} on --surface-inverse ${panel} = ${ratio.toFixed(2)}:1, under ${AA_THRESHOLD}:1`);
+      });
+    }
+  }
+
   // ── Print band — B&W-safe on white ──────────────────────────────────────
   // The universal --print-* band (base.tokens.css) is what a printed deck
   // resolves to (section.print). Every print text token must clear WCAG AA

@@ -5,6 +5,8 @@ summary: Model ids rot — OpenRouter retires/renames models and a pinned id the
 
 # Studio model liveness — stop pinning ids that rot
 
+> **Corrected 2026-11-07:** the Studio does not pass the Haiku alias; its default is the Sonnet `~latest` alias (`DEFAULT_OR_MODEL`). Since `2026-11-07-studio-model-spine.md` the OpenRouter self-heal reports the model that actually answered, so the reply and its cost name it.
+
 ## The problem
 
 OpenRouter model ids are not stable. A model is retired or renamed and the old

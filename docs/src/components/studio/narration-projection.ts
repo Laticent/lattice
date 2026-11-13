@@ -19,6 +19,7 @@
 
 import { currentPaletteMode, type SingleSlideOptions } from '@/playground/single-slide-render';
 import { withoutAutoGlossary } from '../../../../lib/core/glossary-auto.mjs';
+import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { splitSlides } from '../../lib/deck-lint';
 import { stripFrontMatter } from '../../lib/front-matter';
 import { paneSplitCounts } from './pane-pages';
@@ -86,14 +87,15 @@ export async function projectDeckScript(
 ): Promise<SlideScript[]> {
 	const { palette, mode: docMode } = currentPaletteMode(paletteOverride);
 	const mode = modeOverride ?? docMode;
-	const { html } = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss);
+	// `'live'`: the script is read off the markup's TEXT, and a photo's bytes are never part of it. Inline, an 18-photo
+	// deck sanitized a 32.8 MB document here every time Present opened (1.4 s of main thread, profiled).
+	const { html } = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss, 'scoped', 'live');
 	// paneSplitCounts (pane-pages.ts) reads the lint core synchronously.
 	await import('@/playground/authoring-door.js').then((door) => door.loadAuthoring());
 	const { splitSections } = (await loadDeckPreview()) as unknown as {
 		splitSections: (h: string) => string[];
 	};
-	const slides = splitSlides(stripFrontMatter(source));
-	const counts = paneSplitCounts(slides, source);
+	const { slides, counts } = shownPaneCounts(source);
 	// `glossary: auto` renders one or more sections the source does not contain, at the end. Drop it HERE, at
 	// the one producer Present and the narration bake both read, so every narrator gets a list indexed
 	// by authored slide and none of them stands its projection down for a slide nobody narrates. The
@@ -105,6 +107,17 @@ export async function projectDeckScript(
 	// page's masthead AS NARRATED to know exactly which words those are.
 	const mastheads = counts?.some((c) => c > 1) ? await projectMastheads(sections) : undefined;
 	return foldPaneSplits(scripts, source, mastheads);
+}
+
+/** The SHOWN slides and how many sections each renders as. `buildDeckRender` has already dropped the hidden slides
+ *  (engineering/decisions/2026-11-06-hidden-slides.md), and Present and the narration bake index this projection by
+ *  shown slide, so a hidden slide is counted by none of them (the second checker's finding: counting it stood the
+ *  glossary trim and the pane fold down). */
+function shownPaneCounts(source: string): { slides: string[]; counts: number[] | undefined } {
+	const all = splitSlides(stripFrontMatter(source));
+	const allCounts = paneSplitCounts(all, source);
+	const keep = all.map((md) => !slideSourceHidden(md));
+	return { slides: all.filter((_, i) => keep[i]), counts: allCounts?.filter((_, i) => keep[i]) };
 }
 
 /** Each section's MASTHEAD (its `.cell-masthead`: eyebrow, title, subtitle) narrated alone, through
@@ -136,11 +149,10 @@ async function projectMastheads(sectionHtmls: string[]): Promise<string[]> {
  * later page repeats; without it nothing is cut.
  *
  * Folds ONLY when the map accounts for the section count exactly; any other expansion
- * (`_focusSteps`, `split: headings`) leaves the scripts as they were, for the callers' own guard.
+ * (`split: headings`) leaves the scripts as they were, for the callers' own guard.
  */
 export function foldPaneSplits(scripts: SlideScript[], source: string, mastheads?: readonly string[]): SlideScript[] {
-	const slides = splitSlides(stripFrontMatter(source));
-	const counts = paneSplitCounts(slides, source);
+	const { counts } = shownPaneCounts(source);
 	if (!counts || counts.reduce((a, b) => a + b, 0) !== scripts.length) return scripts;
 	const out: SlideScript[] = [];
 	let at = 0;

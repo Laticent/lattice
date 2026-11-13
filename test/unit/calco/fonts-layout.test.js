@@ -63,6 +63,18 @@ describe('calco layout', () => {
     assert.equal(box.h, 47.6 * 2);
   });
 
+  test("a face with an ascent/descent override: the browser baseline comes from the override, the box from the file's metrics", () => {
+    // Newsreader in `typography: ledger`: file metrics 0.735 / 0.265, @font-face override 0.98 / 0.26. At 28px the
+    // browser's glyph box is 1.24 em = 34.72px with the baseline 0.98 em = 27.44px below its top. Read with the file's
+    // ratio the baseline lands at 34.72 × 0.735 = 25.5px, 0.07 em high.
+    const file = { ascent: 0.735, descent: 0.265 };
+    const f = frame([[{ text: 'x', style: style() }]], { y: 400, firstLineHeight: 34.72, lineHeight: 47.6 });
+    const box = placeFrame(f, 1280, { ...file, line: [0.98, 0.26] }, 28);
+    assert.ok(Math.abs(box.y - (400 + 27.44 - (47.6 - 0.265 * 28))) < 1e-9, `top ${box.y}`);
+    const legacy = placeFrame(f, 1280, file, 28);
+    assert.ok(box.y - legacy.y > 1.5, 'the override moves the baseline down by about 0.07 em');
+  });
+
   test('proportional spacing: the multiple is pitch over the natural line, and the box top is baseline minus multiple × ascent', () => {
     const { spacingMultiple } = require('@laticent/calco');
     const f = frame([[{ text: 'x', style: style() }], [{ text: 'y', style: style() }]], { y: 400, firstLineHeight: 35.28, lineHeight: 47.6 });

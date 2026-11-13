@@ -192,6 +192,13 @@ tables, images, video, `https:` frames and inline SVG. Anything else prints as
 text there, and the export says which —
 engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md § 11 and § 13.)
 
+**A `<section>` tag is the engine's, not yours.** Each slide IS a top-level `<section>`, so the
+engine renames a raw `<section>` or `</section>` to `<x-section>` / `</x-section>`
+(`lib/core/reserved-attrs.mjs`). Its content still shows, as an unstyled inline element; to group
+content, write a `<div class="…">`. Without the rename a stray `</section><section>` added a
+slide and renumbered every slide after it. A speaker note that mentions `<section>` still reads as
+you wrote it.
+
 **The export captures the page at the `load` event.** Everything the browser has
 painted by then is in your PDF. Lattice adds one explicit step past that — it
 promotes deferred media (`loading="lazy"`) to eager and waits for the pixels,

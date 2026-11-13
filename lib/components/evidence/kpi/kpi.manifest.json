@@ -90,7 +90,7 @@
     "eyebrow": {
       "selector": "p > code",
       "required": false,
-      "description": "Optional inline-code eyebrow above the heading — mono, tracked uppercase (e.g. `Financial · Q4 2026`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation)."
+      "description": "Optional inline-code eyebrow above the heading, set in the eyebrow voice: the heading face's italic, as written (e.g. `Financial · Q4 2026`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation)."
     },
     "kpis": {
       "selector": "ol > li",
@@ -193,7 +193,7 @@
     },
     {
       "mistake": "Eyebrow paragraph placed after the heading instead of before it, or written as plain/bold text instead of inline code.",
-      "fix": "The eyebrow is the section's first child — an inline-code-only paragraph before the `## heading` — keep it first and backtick-wrapped, or it won't get the mono/uppercase eyebrow treatment."
+      "fix": "The eyebrow is the section's first child — an inline-code-only paragraph before the `## heading` — keep it first and backtick-wrapped, or it won't get the eyebrow treatment."
     }
   ],
   "variantDecisionRule": [

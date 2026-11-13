@@ -106,7 +106,7 @@ function stampSizeDirectives(css) {
 // an equivalent selector list.
 const { distributeLeadingIs } = require('../lib/core/leading-is');
 const { typographyTokensCss } = require('../lib/typography/emit');
-const { TEXT_FACES } = require('../lib/fonts/text-faces');
+const { TEXT_FACES, faceMetricsDecl } = require('../lib/fonts/text-faces');
 const { EMOJI_FAMILY, EMOJI_SLICES, EMOJI_SRC_FORMAT } = require('../lib/fonts/emoji-faces');
 const { ICON_FAMILY, ICON_FACES } = require('../lib/fonts/icon-faces');
 const cssModules = require('./css-modules');
@@ -151,6 +151,9 @@ function buildThemes() {
 const HEAD_SOURCES = [
   'lib/_theme.css',
   'lib/base/base.tokens.css',
+  // The type voices and the `typography:` sets — right after the tokens they re-point, long
+  // before base.sketch.css (tail), so sketch's own type wins. See lib/base/base.typography.css.
+  'lib/base/base.typography.css',
   'lib/base/base.elements.css',
   'lib/integrations/markdown-it/scaffold.css',
 ];
@@ -235,6 +238,9 @@ const TAIL_SOURCES = [
   // container query on its own box. After base.variants so it composes on the table switches.
   'lib/base/base.table-reflow.css',
   'lib/base/base.card-reflow.css',
+  // The media plugins' shared display layer (frames, finishes, tones, sizes; lib/core/media-display.js), one sheet for
+  // `image` and `video` so a clip and the photo beside it cannot drift. After the components and the plugins' own styles.
+  'lib/base/base.media.css',
   ...FORMS_CELL_CSS_SOURCES,
   ...FORMS_TILE_CSS_SOURCES,
   // Accent finishes (`rule:` heading underline + `eyebrow:` kicker) — bundled AFTER the
@@ -379,9 +385,9 @@ function katexBaseCss() {
 // dist/fonts/<file>.woff2. Injected at the base.tokens.css cascade slot.
 function localFontFacesCss() {
   const faces = TEXT_FACES.map(
-    ({ family, weight, style, file }) =>
-      `@font-face{font-family:'${family}';font-style:${style};font-weight:${weight};` +
-      `font-display:swap;src:url('fonts/${file}.woff2') format('woff2');}`,
+    (face) =>
+      `@font-face{font-family:'${face.family}';font-style:${face.style};font-weight:${face.weight};` +
+      `font-display:swap;${faceMetricsDecl(face)}src:url('fonts/${face.file}.woff2') format('woff2');}`,
   );
   // Noto Color Emoji: 11 unicode-range slices, so a page fetches only the slices its emoji need.
   for (const { file, range } of EMOJI_SLICES) {

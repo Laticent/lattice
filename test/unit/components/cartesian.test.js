@@ -27,6 +27,9 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { assertLinearRegexes, traceRegexes } = require('../../helpers/regex-trace');
+const { scanWork } = require('../../helpers/work-count');
+const { isCurrency } = require('@laticent/segno/values');
 
 const C = require('../../../lib/plugins/chart-family/shared/cartesian');
 
@@ -379,8 +382,10 @@ describe('cartesian — the CSS mirror', () => {
     // on a rule. The ownership gates strip comments for the same reason.
     const marker = css.indexOf('CARTESIAN CHROME');
     assert.ok(marker > 0, 'the Cartesian chrome block is missing');
+    // It ends where the phone ladder's blocks begin (chart-roles.js), which are every kind's, not Cartesian chrome.
+    const end = css.indexOf('/* ── THE PHONE LADDER', marker);
     const block = css
-      .slice(css.indexOf('*/', marker) + 2)
+      .slice(css.indexOf('*/', marker) + 2, end > 0 ? end : undefined)
       .replace(/\/\*[\s\S]*?\*\//g, '');
     assert.ok(block.includes('.cart-grid'), 'the Cartesian chrome rules are missing');
     // Every chrome rule must lead with a `section`/`:is(section…)` head, or
@@ -991,12 +996,36 @@ describe('cartesian — money and decimal marks as a global client writes them',
 });
 
 describe('cartesian — parseAffix reads hostile input in linear time', () => {
-  test('a long whitespace run inside or around a number takes milliseconds', () => {
-    // The single regular expression parseAffix used to be split a whitespace run between `\s*`
-    // and `[^\d]*` every possible way: `1` + 50,000 spaces + `x` took 2.4 s, on main as well.
-    const t0 = performance.now();
-    for (const s of [`1${' '.repeat(50_000)}x`, `(${' '.repeat(50_000)}1`, `${'-'.repeat(50_000)}1`]) C.parseAffix(s);
-    assert.ok(performance.now() - t0 < 500, `${Math.round(performance.now() - t0)} ms`);
+  // The single regular expression parseAffix used to be split a whitespace run between `\s*`
+  // and `[^\d]*` every possible way: `1` + 50,000 spaces + `x` took 2.4 s. That backtracking
+  // happens inside one regex exec, so a count of work cannot see it and a stopwatch fails on a
+  // busy runner (HARD RULE #32, F1). So: every regex parseAffix runs must be one recheck calls
+  // linear, and the scan around them must cover each character a bounded number of times.
+  const HOSTILE = [`1${' '.repeat(50_000)}x`, `(${' '.repeat(50_000)}1`, `${'-'.repeat(50_000)}1`, `$ 1${' '.repeat(50_000)})`];
+  // segno builds its currency-token pattern at run time, so the census (lib/** literals) cannot hold it.
+  const CURRENCY_TOKEN = [...traceRegexes(() => isCurrency('$')).keys].find((k) => k.includes('USD|EUR'));
+  const allow = { [CURRENCY_TOKEN]: 'segno CURRENCY_TOKEN, an anchored alternation of fixed tokens: recheck 4.6.2 safe' };
+
+  test('a long whitespace run inside or around a number runs only linear regexes', () => {
+    assert.ok(CURRENCY_TOKEN, 'the currency-token pattern was not seen');
+    for (const s of HOSTILE) {
+      const { keys } = assertLinearRegexes(() => C.parseAffix(s), { allow });
+      assert.ok(keys.has('/\\d/'), 'the digit scan did not run');
+    }
+  });
+
+  test('the scan around those regexes covers each character at most twice (2.0 measured)', () => {
+    for (const s of HOSTILE) {
+      const { scanned } = scanWork(() => C.parseAffix(s));
+      assert.ok(scanned <= 3 * s.length, `${scanned} characters scanned for ${s.length}`);
+    }
+  });
+
+  test('the trace catches the pattern this replaced (failing arm)', () => {
+    // parseAffix before #2714, verbatim: `\s*\)$` and the one-regex body are both polynomial by recheck 4.6.2.
+    const old = (raw) => String(raw).trim().replace(/^\(\s*/, '').replace(/\s*\)$/, '').replace(/^[+\-\u2212]\s*/, '')
+      .match(/^([^\d\-+.]*)\s*-?[\d,.]+\s*([^\d]*)$/);
+    assert.throws(() => assertLinearRegexes(() => old('1 x'), { allow }), /does not hold|polynomial/);
   });
   test('a minus that does not touch the number is not a sign', () => {
     assert.equal(C.parseAffix('index - 1'), null);

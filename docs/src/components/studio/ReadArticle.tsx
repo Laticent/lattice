@@ -53,6 +53,12 @@ export const READ_ARTICLE_CSS = `
  grid-template-columns:[fig-start] minmax(0,1fr) [prose-start] min(var(--st-prose),100%) [prose-end] minmax(0,1fr) [fig-end];
  color:var(--text-body);font-size:17px;line-height:1.7}
 .st-read-article>*{grid-column:prose-start/prose-end;min-width:0}
+/* A plugin's drawing reaches the article whole, root and all (prose-projection projectGeneric). Contain its paint as
+   a slide does (lib/base/base.modifiers.css, the #lp-article rules): a position:fixed box it drew, or its scoped
+   stylesheet, would otherwise cover the Studio (the checker on PR 3110's f11014c). It scales to the column. */
+.st-read-article div[data-lattice-plugin]{contain:paint;max-width:100%}
+.st-read-article div[data-lattice-plugin] :is(svg,img){max-width:100%;height:auto}
+.st-read-article span[data-lattice-plugin][data-kind]{display:inline-block;unicode-bidi:isolate;contain:paint;max-width:100%;max-height:4em}
 /* The visual-layout placeholder note is a text card, so it stays in the prose column;
    real figures break out above it. */
 .st-read-article>.lp-figure:not(.lp-figure-note){grid-column:fig-start/fig-end;justify-self:center;width:100%;max-width:var(--st-fig-max)}
@@ -197,6 +203,13 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 		};
 	}, [options, source, palette, mode, extraTheme?.name, extraTheme?.css, extraCss]);
 
+	// ONE OBJECT PER ARTICLE, not one per render. React 19 re-applies `dangerouslySetInnerHTML` whenever the prop's
+	// object is a new one, whatever its `__html` holds, so an inline `{{ __html: html }}` rewrote the whole article on
+	// every re-render of this view: a resize across a breakpoint, or any shell update, threw away all 28 hydrated
+	// figures of the chart gallery and drew them again (found by studio-read-article-charts.spec.ts on webkit-phone,
+	// whose screenshot step then held a detached figure; followups.d/3087-p5).
+	const articleMarkup = React.useMemo(() => ({ __html: html }), [html]);
+
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			<style>{READ_ARTICLE_CSS}</style>
@@ -254,7 +267,7 @@ export function ReadArticle({ options, source, palette, mode, extraTheme, extraC
 					    Mermaid's node labels. Measured against `createSlideSanitizer`: the FIRST pass
 					    already removes both, and on the baked path the labels are native `<text>` by then
 					    (CLAUDE.md #22). */}
-					<article className="st-read-article px-6 py-8" dangerouslySetInnerHTML={{ __html: html }} />
+					<article className="st-read-article px-6 py-8" dangerouslySetInnerHTML={articleMarkup} />
 				</div>
 			)}
 		</div>

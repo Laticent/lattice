@@ -26,41 +26,37 @@ export const MAX_GOLDENS = 10;
 // " (#N)". The pattern matches the whole subject, so a body line or a longer subject
 // that merely starts the same way never counts.
 /**
- * How long one night spends re-blessing drifted goldens before it stops starting new ones. The job's
- * cap is 180 minutes; the check before this phase and the first renders after it need the rest.
- * Measured 2026-10-29 in the 4-core sandbox: a deck re-bless takes about 28 s and a gallery about 12 s,
- * so an hour is roughly 130-300 of them. With no budget, 378 drifted decks on 2026-10-28 ran the job
- * into its cap and it committed nothing; with it, a backlog clears over a few nights instead.
- */
-export const BLESS_BUDGET_MS = 60 * 60 * 1000;
-
-/**
  * The latest moment, in minutes after the golden-bless process starts, at which the night may start a
- * re-bless. The job's cap is 180 minutes and counts from the job start (setup takes about two); what
- * follows the re-blesses is the first render of up to 40 missing goldens, the showcase builds, the
- * artifact upload and the PR, so 20 minutes stay free. Measured on run 40914407337 (2026-10-29): the
- * check phase took 125 minutes, so an hour of re-blessing started at minute 125 ended past the cap and
- * the job was cancelled at item 259 of 369 with nothing committed. The budget alone cannot hold a cap
- * that the phase before it spends.
+ * first render of a golden that does not exist yet. The job's cap is 180 minutes and counts from the
+ * job start (setup takes about two); what follows the first renders is the showcase build, the artifact
+ * upload and the PR, so 20 minutes stay free. A render already running finishes; the rest wait for the
+ * next night. Measured on run 40914407337 (2026-10-29): the serial check took 125 minutes and a
+ * second, re-bless pass after it ran past the cap, which is why the check now runs one worker per core
+ * and promotes what drifted in the same pass (regression-gate.mjs --jobs auto --promote).
  */
 export const BLESS_DEADLINE_MS = 160 * 60 * 1000;
 
 /**
- * Run `runOne` on `items` in order until `budgetMs` has passed since the first started, or the clock
- * reaches `deadline` (an absolute time; none by default). An item already started always finishes; the
- * rest are returned as `left` for the next night. The first item starts whatever the budget, so a night
- * is never empty, but never past the deadline, which protects the job's cap. Pure apart from `runOne`
- * and `now`, so a test drives it with a fake clock.
+ * What tonight's check wrote, held against what it reported. The check (`regression-gate.mjs
+ * --promote`) writes a drifted golden's fresh render in place, so after it:
+ *   - `stray`: a PDF that changed but no row reports as drifted. The tool broke its own contract,
+ *     so the tree is not trusted; golden-bless puts these back and exits 3 before the PR step.
+ *   - `unblessed`: a drifted golden whose PDF did not change.
+ *   - `unchecked`: a golden the check could not judge (RENDER_ERROR, or a worker that died, which
+ *     the gate reports as RENDER_ERROR). NO_GOLDEN is not here: the first-render step owns it.
+ * `unblessed` and `unchecked` turn the night red through failed.txt AFTER the PR is updated. Without
+ * that, a night where every check failed wrote nothing, read as quiet, and closed the bless PR.
+ * @param {ReturnType<typeof goldenRows>} rows
+ * @param {string[]} changed repo-relative PDFs the working tree changed or added
  */
-export function runWithinBudget(items, runOne, { budgetMs = BLESS_BUDGET_MS, deadline = Number.POSITIVE_INFINITY, now = Date.now } = {}) {
-  const start = now();
-  const done = [];
-  for (let k = 0; k < items.length; k++) {
-    if (now() >= deadline || (k > 0 && now() - start >= budgetMs)) return { done, left: items.slice(k) };
-    runOne(items[k], k);
-    done.push(items[k]);
-  }
-  return { done, left: [] };
+export function writtenProblems(rows, changed) {
+  const drifted = new Set(rows.filter((r) => r.status === 'DRIFT').map((r) => r.golden));
+  const wrote = new Set(changed);
+  return {
+    stray: changed.filter((f) => !drifted.has(f)),
+    unblessed: [...drifted].filter((g) => !wrote.has(g)),
+    unchecked: rows.filter((r) => !['ok', 'DRIFT', 'NO_GOLDEN'].includes(r.status)).map((r) => r.golden),
+  };
 }
 
 export const BLESS_TITLE_PREFIX = 'chore(goldens): nightly bless of ';

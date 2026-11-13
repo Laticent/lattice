@@ -41,6 +41,33 @@ const SANCTIONED_SUBJECT_DECKS = Object.freeze([
     rule: 'web-image',
     why: 'its "clickable task" slides show Mermaid `click` links to a web page; the renderer counts a diagram address as a web reference, so the warning that says so is the point (security spine S2)',
   },
+  // `empty-section` (two dividers in a row) became a warning on 2026-11-08
+  // (engineering/decisions/2026-11-08-anchor-chrome.md). These decks stack dividers on purpose:
+  {
+    file: 'lib/components/anchor/divider/divider.gallery.md',
+    rule: 'empty-section',
+    why: 'the divider\'s own specimen gallery: it shows each variant back to back, so consecutive dividers are the point',
+  },
+  {
+    file: 'examples/divider-numbered.md',
+    rule: 'empty-section',
+    why: 'it shows a dark and a light numbered divider in a row continuing one count, so the two dividers side by side are the point',
+  },
+  {
+    file: 'examples/deck-logo-canvas.md',
+    rule: 'empty-section',
+    why: 'it shows the logo on a dark divider and on a `divider light` side by side, one canvas each, so the pair is the point',
+  },
+  {
+    file: 'test/integration/baseline-decks/gallery.md',
+    rule: 'empty-section',
+    why: 'a long-running baseline gallery (HARD RULE #8): its divider specimens sit together and its PDF page count is a baseline, so restructuring it is a separate graduation commit, not this rule\'s',
+  },
+  {
+    file: 'lib/components/legal/legal.gallery.md',
+    rule: 'empty-section',
+    why: 'a component specimen gallery: its `divider light` is the gallery\'s lede, not a section, and the gallery has no section rail to mislead',
+  },
 ]);
 
 /** Is this finding on `rel` (a repo-relative path) one its deck is sanctioned to carry? */

@@ -22,7 +22,7 @@
 	"render": "svg",
 	"renderNote": "One SVG because the grid is one scale: every cell's intensity is only readable against the same minimum and maximum, so the cells, the row names and the column heads have to be laid out and measured together. Split across two elements and a row name drifts from the row it names the moment the box changes shape.",
 	"kernel": {
-		"figureClass": "heatmap-figure",
+		"figureClass": "heatmap-figure", "form": true,
 		"marks": [
 			{
 				"class": "heatmap-cell",

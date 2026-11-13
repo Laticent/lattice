@@ -850,6 +850,11 @@ token-only gate is **superseded** by decision 12 below; decisions 6, 8 and 9 sta
     draws those). A pass that only restructures markup and reads no text into an address opts out
     with `readsText: false` on its registry entry (`inline-run`, 2026-10-21: it wraps a list label's
     words in a span, and without the opt-out it denied a plugin's span on 10 components' slides).
+    **Superseded 2026-11-09:** the shadow, `rebuilt-classes.js`, `GENERIC` and `readsText` are deleted. Every pass
+    that turns slide text into an address now reads through `maskPluginSubtrees` or skips
+    `[data-lattice-plugin]`, the door refuses an `<li>`/`<dd>`/`<dt>` that would leave its root once parsed, and
+    `checkSlideTextAddressReaders` holds the readers; so the door draws on every slide (`spec/LPM.md` §10,
+    `2026-10-16-media-plugins.md` §4.5). Do not rebuild the shadow.
 
 ## 10. Non-goals
 
@@ -1681,7 +1686,9 @@ the real Studio preview and in Share → PDF. What was built:
   (`lib/packages/code-door-fence.mjs`) and both doors call them: `planFencePlugins` (a fence name two
   plugins claim, a shipped plugin's fence, a malformed name, a highlight language, a name that is a
   hyphen-prefix of another's), `fenceCaptureNotes` (a long block, a slide a shipped pass rebuilds, a
-  raw `<section>`, the 400-fence allowance), `FENCE_OUTPUT_MAX` and `rebuiltFromAlternatives`. The
+  raw `<section>`, the 400-fence allowance), `FENCE_OUTPUT_MAX` and `rebuiltFromAlternatives` (the rebuilt-slide and
+  raw-`<section>` notes and `rebuiltFromAlternatives` were removed 2026-11-09 with the shadow; a span a chart flattened
+  into label text gets its own note instead). The
   Studio's door (`docs/src/lib/code-packages/door-run.ts`) calls the same `captureFences` /
   `substituteFences`, `doorFinishFence`, `fenceId` namespace and `pluginDigest` text as the CLI's.
   `test/fixtures/fence-door-parity.mjs` is one deck, one plugin and one list of checks that BOTH doors
@@ -1689,8 +1696,8 @@ the real Studio preview and in Share → PDF. What was built:
   engine and sanitizer), so a rule one door learns and the other does not fails one of them.
 - **Data the Studio cannot derive without the registry is generated.**
   `lib/packages/fence-door.generated.json` (built by `tools/build-packages-index.js`) holds the
-  `{ pass, classes }` list `rebuilt-classes.js` derives from the registry, and the fence names the
-  shipped plugins own. `test/unit/cli/fence-door-data.test.js` pins it to the live reads, class set by
+  fence names and inline kinds the shipped plugins own (until 2026-11-09 also the `{ pass, classes }` list
+  `rebuilt-classes.js` derived, removed with the shadow). `test/unit/cli/fence-door-data.test.js` pins it to the live reads, class set by
   class set, so a pass added tomorrow breaks the test until the file is rebuilt (and `build:check`
   fails on a stale file).
 - **Consent in the browser** is under `plugin/<name>` in the same storage key as component approvals,
@@ -1786,7 +1793,8 @@ proportions of the plugin's last DRAWN output (`aspectOfOutput`: the first `<svg
 reduced, 1 to 999), remembered in this browser by the code's digest (`lattice-plugin-aspects`, bounded at 200, never
 in a deck or a backup), override the declared `aspect`. `placeholderHint` reduces every value at import and again where the markup is made, so an attribute or a style never holds anything but a known placement, a `W/H` ratio or a size.
 Seen in the real Studio with five plugins (two chips, a wide and a default figure, a stage). A `stage` placeholder
-shows only on a slide the door draws on: a `diagram` slide is rebuilt by a shipped pass, so a fence there stays code.
+shows only on a slide the door draws on: a `diagram` slide is rebuilt by a shipped pass, so a fence there stays code
+(until 2026-11-09; the door now draws on every slide, `spec/LPM.md` §10).
 A `chip` is still a block (a fence is block syntax). **Amended 2026-10-14 (owner):** inline syntax such as `!{Ada Okafor}` is
 not a parser rule but an inline-code kind, and a zip plugin may now bring one, written `@kind{…}`, through this same door:
 `2026-10-14-plugin-inline-door.md`.

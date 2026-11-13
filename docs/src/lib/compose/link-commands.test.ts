@@ -131,7 +131,7 @@ describe('setLink', () => {
 		expect(linkBlocker(fence)).toMatch(/line of text/);
 		expect(run(fence, setLink('https://x.io')).ok).toBe(false);
 		const locked = stateAt(DECK, (b) => posOf(b, 'a link') + 1);
-		expect(linkBlocker(locked)).toMatch(/edited in Markdown/);
+		expect(linkBlocker(locked)).toMatch(/edited in Source/);
 		expect(run(locked, setLink('https://y.io')).ok).toBe(false);
 		expect(run(locked, removeLink()).ok).toBe(false);
 	});

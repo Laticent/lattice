@@ -1,7 +1,7 @@
 import { HighlightStyle } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
-import { editorChrome, editorChromeCoarse } from '../../lib/editor-chrome.js';
+import { activeLineTheme, activeLineVars, editorChrome, editorChromeCoarse } from '../../lib/editor-chrome.js';
 import { lintTheme, lintThemeCoarse, tooltipShell } from '../../lib/lint-theme.js';
 import { iconPreviewTheme } from './icon-preview';
 
@@ -40,10 +40,14 @@ const studioTheme = (focusRing: boolean) =>
 		// (Coarse-pointer rules — including the 16px `.cm-content` lift that keeps iOS
 		// from auto-zooming on focus — live in the `@media` block at the END of this
 		// object; see the note there for why the position is load-bearing.)
-		...editorChrome({ fontSize: '13px', padding: '14px 4px', lineHeight: '1.85', focusRing }),
-		// FOUR RULE GROUPS WERE DELETED HERE, all of them dead. This theme's surfaces
-		// install neither `highlightActiveLine()` nor `drawSelection()`, so `.cm-activeLine`,
-		// `.cm-activeLineGutter`, `.cm-cursor` and `.cm-selectionBackground` never render
+		...editorChrome({ fontSize: '13px', padding: '14px 4px', lineHeight: '1.85', focusRing, vars: activeLineVars }),
+		// The caret's line, as the Playground marks it (lib/editor-chrome.js `activeLineTheme`): the owner asked for it in the
+		// Studio, so the caret is found at a glance (2026-11-12). Editor.tsx installs `highlightActiveLine()` with it; the code
+		// fields that share this theme install neither, so the rules stay inert there.
+		...activeLineTheme,
+		// FOUR RULE GROUPS WERE DELETED HERE, all of them dead at the time (the active line is back, shared, above). This
+		// theme's surfaces installed neither `highlightActiveLine()` nor `drawSelection()`, so `.cm-activeLine`,
+		// `.cm-activeLineGutter`, `.cm-cursor` and `.cm-selectionBackground` never rendered
 		// on them — measured on the real Studio: zero elements of every one of those
 		// classes after a select-all. The selection rule was the worst of them: a third
 		// copy of the 18% accent wash, unreachable, and unpinned by

@@ -10,17 +10,43 @@ import { NO_RECORDS, takeLiveIntent } from './live-store';
 // only the Trystero transport swapped. These pin the second-round trio findings that live in the
 // controller rather than in Tavola (checker round 2, findings 2, 4 and 5; red-team round 2, 2).
 
-const net = vi.hoisted(() => ({ current: null as MemoryNetwork | null, joins: 0, leaves: [] as number[] }));
+const net = vi.hoisted(() => ({ current: null as MemoryNetwork | null, joins: 0, leaves: [] as string[], held: new Set<unknown>() }));
 vi.mock('@/lib/tavola/adapters/trystero', () => ({
 	trysteroTransport: (room: string, secret: string): Transport => {
 		const t = (net.current as MemoryNetwork).join(room, secret);
 		net.joins++;
 		return { ...t, selfId: t.selfId, leave: () => {
-			net.leaves.push(Date.now());
+			net.leaves.push(t.selfId);
 			return t.leave();
 		} };
 	},
 }));
+
+// The awareness gate holds a quick change for its rate limit and sends a burst of view writes at most every 200 ms,
+// each on a timer of its own. Those timers are counted in `net.held`, so a test can wait for the gate to let go
+// (`drain`) rather than sleep past its window and hope.
+vi.mock('@/lib/tavola/adapters/yjs', async (importOriginal) => {
+	const real = await importOriginal<typeof import('@/lib/tavola/adapters/yjs')>();
+	return {
+		...real,
+		yjsAwareness: (...[aw, o]: Parameters<typeof real.yjsAwareness>) =>
+			real.yjsAwareness(aw, {
+				...o,
+				setTimeout: (fn: () => void, ms: number) => {
+					const t = setTimeout(() => {
+						net.held.delete(t);
+						fn();
+					}, ms);
+					net.held.add(t);
+					return t;
+				},
+				clearTimeout: (t: unknown) => {
+					net.held.delete(t);
+					clearTimeout(t as ReturnType<typeof setTimeout>);
+				},
+			}),
+	};
+});
 
 // A short handoff grace, so the succession test runs in real time (the default is 20 s).
 vi.mock('@/lib/tavola', async (importOriginal) => {
@@ -52,14 +78,51 @@ async function settle(...ctls: Ctl[]) {
 	for (let i = 0; i < 60; i++) {
 		await net.current?.settle();
 		await Promise.all(ctls.map((c) => sessionOf(c)?.idle()));
-		await new Promise((r) => setTimeout(r, 5));
+		await new Promise((r) => setTimeout(r, 5)); // flaky-ok: the poll interval of a loop that waits for the network queue to empty, not a wait-then-check
 		if (net.current?.pending() === 0) return;
 	}
 }
 const until = async (ok: () => boolean, ...ctls: Ctl[]) => {
-	for (let i = 0; i < 100 && !ok(); i++) await settle(...ctls);
+	// The host defers two sends on purpose: a newcomer's welcome a beat (400 ms) after admission, and a `since` answer held
+	// to the end of its 2 s rate window. A poll made while one of them is still pending does not count against the budget,
+	// so the budget measures the code's own delivery, not whether 100 polls outlast a timer on this runner (docs-build
+	// 39552138611, 39698243903: the polls ran out first on a loaded runner).
+	// The awareness gate's held changes (`net.held`) are the same kind of wait: a timer the code set on purpose.
+	for (let polls = 0; polls < 100 && !ok(); ) {
+		const waiting = ctls.some((c) => c.hasDeferred()) || net.held.size > 0;
+		await settle(...ctls);
+		if (!waiting) polls++;
+	}
 	expect(ok()).toBe(true);
 };
+/** Run all the work already set in motion: the network's queue, each session's pending work, the host's deferred
+ *  sends and the awareness gate's held changes. A message that has not arrived after this was never sent, so a test
+ *  that says "nothing arrives" checks after `drain`, not after a sleep. */
+async function drain(...ctls: Ctl[]) {
+	await settle(...ctls);
+	await until(() => net.current?.pending() === 0 && net.held.size === 0 && !ctls.some((c) => c.hasDeferred()), ...ctls);
+}
+/** Wait for something the code does on a timer of its own that `until`'s poll budget does not know about. The
+ *  deadline only catches a hang: it is far past the product's own timer, sized for a loaded runner. */
+const eventually = (ok: () => boolean, ...ctls: Ctl[]) =>
+	vi.waitFor(
+		async () => {
+			await settle(...ctls);
+			expect(ok()).toBe(true);
+		},
+		{ timeout: 15_000, interval: 20 },
+	);
+/** Move the wall clock (`Date.now`) ahead by `ms`, for a window the code measures on it (a rate limit, a restart
+ *  window): the test steps past the window instead of sleeping through it. Undone after each test. */
+let clockOffset = 0;
+let clockSpy: { mockRestore(): void } | null = null;
+function clockAhead(ms: number) {
+	if (!clockSpy) {
+		const real = Date.now.bind(Date);
+		clockSpy = vi.spyOn(Date, 'now').mockImplementation(() => real() + clockOffset);
+	}
+	clockOffset += ms;
+}
 
 async function hostSession(over: Partial<LiveDeps> = {}) {
 	const sh = shell();
@@ -94,12 +157,16 @@ beforeEach(() => {
 	net.current = createMemoryNetwork();
 	net.joins = 0;
 	net.leaves = [];
+	net.held.clear();
 	sessionStorage.clear();
 	localStorage.clear();
 	Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.resolve() }, configurable: true });
 });
 afterEach(() => {
 	for (const c of made.splice(0)) c.dispose();
+	clockSpy?.mockRestore();
+	clockSpy = null;
+	clockOffset = 0;
 	followBus.reset();
 	location.hash = '';
 });
@@ -108,12 +175,14 @@ describe('LiveController (second-round trio)', () => {
 	it('End reaches the guest: the transport leaves a beat later, and the host gets only its own toast', async () => {
 		const { h, notes } = await hostSession();
 		const { g, notes: gNotes } = await guestOf(h, 'Amina');
-		const before = net.leaves.length;
+		// biome-ignore lint/suspicious/noExplicitAny: the host's transport id.
+		const hostPeer = (h as any).rt.session.getState().selfId as string;
 		h.actions.end();
-		expect(net.leaves.length).toBe(before);
+		expect(net.leaves).not.toContain(hostPeer);
 		await settle(h, g);
-		await new Promise((r) => setTimeout(r, 600));
-		expect(net.leaves.length).toBeGreaterThan(before);
+		// The host's session leaves on a timer of its own (500 ms), which needs no delivery: wait for that leave itself
+		// (the guest's own leave, on hearing the end, does not count).
+		await vi.waitFor(() => expect(net.leaves).toContain(hostPeer), { timeout: 15_000, interval: 10 });
 		expect(notes.filter((n) => n.includes('ended'))).toEqual(['Live session ended. The deck stays as it is.']);
 		await until(() => g.view().status === 'idle', g);
 		expect(gNotes).toContain('The host ended the session. Your copy of the deck stays.');
@@ -306,8 +375,10 @@ describe('LiveController (second-round trio)', () => {
 
 	it("a guest's session timer counts from the host's start, not from when it joined", async () => {
 		const { h } = await hostSession();
-		await new Promise((res) => setTimeout(res, 300));
+		// The guest joins five minutes later by the clock, so its own join time cannot pass for the host's start.
+		clockAhead(300_000);
 		const { g } = await guestOf(h, 'Amina');
+		expect(Date.now() - (h.view().startedAt ?? 0)).toBeGreaterThanOrEqual(300_000);
 		await until(() => g.view().startedAt === h.view().startedAt, h, g);
 	});
 
@@ -480,7 +551,9 @@ describe('LiveController (second-round trio)', () => {
 	it('a burst of "since" asks gets at most one answer now and one later', async () => {
 		const { h } = await hostSession();
 		const { g } = await guestOf(h, 'Amina');
-		await new Promise((res) => setTimeout(res, 2100));
+		// Let the newcomer's welcome go out, then step past the 2 s window the join's own ask opened.
+		await drain(h, g);
+		clockAhead(2100);
 		let answers = 0;
 		// biome-ignore lint/suspicious/noExplicitAny: count the host's replies.
 		const hp = h as any;
@@ -492,10 +565,9 @@ describe('LiveController (second-round trio)', () => {
 		// biome-ignore lint/suspicious/noExplicitAny: the guest floods asks.
 		const gp = g as any;
 		for (let n = 0; n < 10; n++) gp.post({ k: 'since', seq: 0 }, gp.hostId());
-		await settle(h, g);
-		await new Promise((res) => setTimeout(res, 2200));
-		await settle(h, g);
-		expect(answers).toBeLessThanOrEqual(2);
+		// The first ask is answered now; the rest wait for the window's end as one deferred answer. Wait it out.
+		await drain(h, g);
+		expect(answers).toBe(2);
 	});
 
 	it('the numbering floor moves at most once per member per admission', async () => {
@@ -791,7 +863,9 @@ describe('LiveController: the session look', () => {
 	it('a member that missed the tip gets the look with the lines it asks for', async () => {
 		const { h } = await hostSession({ theme: 'indaco', mode: 'dark' });
 		const { g } = await guestOf(h, 'Amina', { theme: 'cuoio' });
-		await until(() => lookOf(g) !== null, h, g);
+		// Past the host's welcome too: its tip carries the look, and landing after the look is forgotten below it would
+		// pass this test without the `since` answer carrying anything (it did, before the wait).
+		await until(() => lookOf(g) !== null && !h.hasDeferred(), h, g);
 		// biome-ignore lint/suspicious/noExplicitAny: forget the look, then ask the host for lines as a returning member does.
 		(g as any).look = null;
 		// biome-ignore lint/suspicious/noExplicitAny: as above.
@@ -845,8 +919,8 @@ describe('LiveController: Library records', () => {
 		(a as any).post({ k: 'records', themes: [acme], finishes: [linen], components: [] });
 		// biome-ignore lint/suspicious/noExplicitAny: the host itself sending a shipped name and a huge sheet.
 		(h as any).post({ k: 'records', themes: [{ name: 'indaco', css: ':root{}' }, { name: 'huge', css: 'x'.repeat(200 * 1024) }], finishes: [{ name: 'Bad Name!', recipe: {} }], components: ['ok-name', '<img>'] });
-		await settle(h, a, b);
-		await new Promise((r) => setTimeout(r, 50));
+		// The host's post went out after Amina's, so once its one valid name has landed, Amina's post has been handled.
+		await until(() => recordsOf(b).components.includes('ok-name'), h, a, b);
 		expect(recordsOf(b).themes).toEqual([]);
 		expect(recordsOf(b).finishes).toEqual([]);
 		expect(recordsOf(b).components).toEqual(['ok-name']);
@@ -1010,9 +1084,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 		await until(() => h.view().people.find((p) => p.name === 'Amina')?.doing === undefined, h, g);
 		// biome-ignore lint/suspicious/noExplicitAny: as above.
 		(g as any).rt.aw.setLocalStateField('doing', { panel: '<img src=x>', view: 'settings', presenting: 'yes' });
-		await settle(h, g);
-		await new Promise((r) => setTimeout(r, 150));
-		await settle(h, g);
+		await drain(h, g);
 		expect(h.view().people.find((p) => p.name === 'Amina')?.doing).toBeUndefined();
 	});
 
@@ -1054,7 +1126,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 		g.pointerSource.send({ slide: 0, x: 0.25, y: 0.5 });
 		await until(() => seen.at(-1)?.some((p) => p.name === 'Amina' && p.x === 0.25) ?? false, h, g);
 		// Out of the slide or malformed: dropped (sent well past the flood gate, so only the range check can drop it).
-		await new Promise((r) => setTimeout(r, 60));
+		clockAhead(60);
 		// biome-ignore lint/suspicious/noExplicitAny: a modified client posting a pointer off the slide.
 		(g as any).post({ k: 'ptr', s: 0, x: 4, y: -1 });
 		await settle(h, g);
@@ -1062,11 +1134,12 @@ describe('LiveController: activity, Follow and pointers', () => {
 		g.pointerSource.send(null);
 		await until(() => (seen.at(-1)?.length ?? 1) === 0, h, g);
 		g.actions.setShare({ pointer: false });
-		// Past the send throttle, so a pointer that went out would have arrived.
-		await new Promise((r) => setTimeout(r, 150));
+		// Past the send throttle, so a pointer that went out would go at once and have arrived.
+		clockAhead(150);
 		g.pointerSource.send({ slide: 0, x: 0.75, y: 0.5 });
-		await new Promise((r) => setTimeout(r, 150));
-		await settle(h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: no throttled pointer is waiting to go either.
+		expect((g as any).pointerLater).toBeNull();
+		await drain(h, g);
 		expect(seen.at(-1)).toEqual([]);
 		off();
 	});
@@ -1271,10 +1344,9 @@ describe('LiveController: activity, Follow and pointers', () => {
 		expect(seen.length).toBe(4);
 		place(null);
 		await settle(h, g);
-		// Past the gate's rate limit, so the end is seen before the next start; and the leader has been gone long enough
+		// Once the gate's held changes are through, the end is seen before the next start; and the leader has been gone long enough
 		// that a Present again is a new one, not a blip.
-		await new Promise((r) => setTimeout(r, 150));
-		await settle(h, g);
+		await drain(h, g);
 		// biome-ignore lint/suspicious/noExplicitAny: ages the leader's absence.
 		(g as any).presentGoneAt = Date.now() - 4000;
 		place(5);
@@ -1319,21 +1391,18 @@ describe('LiveController: activity, Follow and pointers', () => {
 		// A Present of our own is left alone.
 		g.update(deps('shared-deck', { presenting: true }));
 		place(1);
-		// Past the gate's rate limit, so the place has arrived while our own Present is still open.
-		await new Promise((r) => setTimeout(r, 150));
-		await settle(h, g);
+		// Once the gate's held changes are through, the place has arrived while our own Present is still open.
+		await drain(h, g);
 		expect(seen).toEqual([]);
 		g.update(deps('shared-deck', { presenting: false }));
 		// Closing our own Present while the leader still presents is not a request to open theirs.
 		place(2);
-		await new Promise((r) => setTimeout(r, 150));
-		await settle(h, g);
+		await drain(h, g);
 		expect(seen).toEqual([]);
 		// The leader's Present ends and, a while later, another starts; this person is typing: a Join, not an open.
 		lead.clear('present');
 		lead.flush();
-		await new Promise((r) => setTimeout(r, 150));
-		await settle(h, g);
+		await drain(h, g);
 		// biome-ignore lint/suspicious/noExplicitAny: ages the leader's absence.
 		(g as any).presentGoneAt = Date.now() - 4000;
 		// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
@@ -1359,13 +1428,13 @@ describe('LiveController: activity, Follow and pointers', () => {
 		push();
 		await until(() => atOf()?.at === 'in Setup · AI', h, g);
 		// Seen without a counter, so the first change is news.
-		await new Promise((r) => setTimeout(r, 150));
+		await drain(h, g);
 		lead.set('changed', { what: 'theme', n: 1 });
 		push();
 		await until(() => atOf()?.changed === 'changed Theme', h, g);
 		// The leader's focus reaches the screens of whoever follows, and ends with the follow.
 		g.actions.follow(hostId);
-		await new Promise((r) => setTimeout(r, 150));
+		await drain(h, g);
 		lead.set('focus', 'header');
 		push();
 		await until(() => followBus.getLeader()?.focus === 'header', h, g);
@@ -1374,7 +1443,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 		expect(followBus.getLeader()).toBeNull();
 		// A member who joins when a counter is already running sees history, not news.
 		const late = await guestOf(h, 'Bilal');
-		await new Promise((r) => setTimeout(r, 150));
+		await drain(h, late.g);
 		expect(late.g.view().people.find((p) => p.role === 'host')?.changed).toBeUndefined();
 	});
 
@@ -1473,8 +1542,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 			for (let i = 0; i < 4; i++) {
 				lead.set('focus', i % 2 ? 'header' : 'footer');
 				lead.flush();
-				await new Promise((r) => setTimeout(r, 120));
-				await settle(h, g);
+				await drain(h, g);
 			}
 			expect(applied).toEqual(['inspector:deck', 'section:brand']);
 			off();
@@ -1489,8 +1557,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 			// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
 			(g as any).rt.ytext.insert(0, 'x');
 			h.update(deps('host-deck', { slideCount: 6, activeSlide: 4 }));
-			await new Promise((r) => setTimeout(r, 200));
-			await settle(h, g);
+			await drain(h, g);
 			expect(asks).toEqual([]);
 			busy = false;
 			h.update(deps('host-deck', { slideCount: 6, activeSlide: 5 }));
@@ -1508,7 +1575,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 			lead.set('section', 'look');
 			lead.flush();
 			await until(() => applied.includes('section:look'), h, g);
-			await new Promise((r) => setTimeout(r, 150));
+			await drain(h, g);
 			lead.set('inspector', 'slide');
 			lead.flush();
 			await until(() => applied.includes('inspector:slide'), h, g);
@@ -1550,16 +1617,14 @@ describe('LiveController: activity, Follow and pointers', () => {
 			c.presentGoneAt = Date.now() - 1000;
 			lead.set('present', { idx: 2, page: 0, lens: 'full' });
 			lead.flush();
-			await new Promise((r) => setTimeout(r, 200));
-			await settle(h, g);
+			await drain(h, g);
 			expect(seen).toEqual([]);
 			// A close no render has reported yet: opened over 1.5 s ago, no longer open.
 			c.presentFollow = 'open';
 			c.presentOpenedAt = Date.now() - 2000;
 			lead.set('present', { idx: 3, page: 0, lens: 'full' });
 			lead.flush();
-			await new Promise((r) => setTimeout(r, 200));
-			await settle(h, g);
+			await drain(h, g);
 			expect(c.presentFollow).toBe('declined');
 			expect(seen).toEqual([]);
 			off();
@@ -1618,11 +1683,9 @@ describe('LiveController: activity, Follow and pointers', () => {
 			const guestId = h.view().people.find((p) => p.name === 'Amina')?.id as string;
 			g.actions.setShare({ slide: false });
 			followBus.setLocal('present', { idx: 7, page: 0, lens: 'full', hash: 'abc123' });
-			await new Promise((r) => setTimeout(r, 300));
-			await settle(h, g);
-			// The host holds a quick change for its rate limit's trailing timer: let that pass too.
-			await new Promise((r) => setTimeout(r, 150));
-			await settle(h, g);
+			// The guest's view write waits out its send window and the host holds a quick change for its rate limit's
+			// trailing timer: let both go.
+			await drain(h, g);
 			// biome-ignore lint/suspicious/noExplicitAny: reads the view the host kept for the guest.
 			expect((h as any).rt.view.of(guestId).get('present')).toBeUndefined();
 			g.actions.setShare({ slide: true });
@@ -1759,10 +1822,12 @@ describe('LiveController: activity, Follow and pointers', () => {
 			last = p;
 		});
 		g.actions.setShare({ slide: false });
-		await new Promise((r) => setTimeout(r, 150));
+		// Past the send throttle, so a pointer that went out would go at once and have arrived.
+		clockAhead(150);
 		g.pointerSource.send({ slide: 0, x: 0.5, y: 0.5 });
-		await new Promise((r) => setTimeout(r, 150));
-		await settle(h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: no throttled pointer is waiting to go either.
+		expect((g as any).pointerLater).toBeNull();
+		await drain(h, g);
 		expect(last).toEqual([]);
 		off();
 	});
@@ -1776,10 +1841,10 @@ describe('LiveController: activity, Follow and pointers', () => {
 			if (a) xs.push(a.x);
 		});
 		for (let i = 1; i <= 20; i++) g.pointerSource.send({ slide: 0, x: i / 100, y: 0.5 });
-		// The in-memory network delivers on settle: deliver the first now, the throttled last one later.
-		await settle(h, g);
-		await new Promise((r) => setTimeout(r, 200));
-		await settle(h, g);
+		// The first goes now and the last waits for the throttle's timer: wait for that timer to send it.
+		// biome-ignore lint/suspicious/noExplicitAny: the throttled pointer still waiting to go.
+		await eventually(() => (g as any).pointerLater === null, h, g);
+		await drain(h, g);
 		expect(xs.length).toBeLessThanOrEqual(3);
 		expect(xs.at(-1)).toBe(0.2);
 		off();
@@ -1835,6 +1900,24 @@ describe('LiveController: present together', () => {
 		await until(() => g.view().present?.idx === 3 && g.view().present?.page === 1, h, g);
 		h.actions.presentToEveryone(false);
 		await until(() => opened.includes('close') && g.view().present === null, h, g);
+	});
+
+	it('the step of a walk rides along: a member sees the presenter\'s reveal, and a step-only move still reaches them', async () => {
+		// engineering/decisions/2026-11-09-steps-as-a-behavior.md: a `_build` / `_focusSteps` slide is one slide walked
+		// live, so the step is part of WHERE the presenter is. Without it a member saw the slide at rest while the host
+		// revealed it item by item.
+		const { h } = await hostSession();
+		const { g } = await member(h, 'Amina');
+		h.actions.presentTransport({ idx: 2, page: 0, lens: 'full', step: 0 });
+		h.actions.presentToEveryone(true);
+		await until(() => g.view().present?.idx === 2 && g.view().present?.step === 0, h, g);
+		// Same slide, same page: only the step moves, and that alone is news.
+		h.actions.presentTransport({ idx: 2, page: 0, lens: 'full', step: 1 });
+		await until(() => g.view().present?.step === 1, h, g);
+		// Back to rest (a slide with no walk): the step is gone, not stale.
+		h.actions.presentTransport({ idx: 3, page: 0, lens: 'full' });
+		await until(() => g.view().present?.idx === 3, h, g);
+		expect(g.view().present?.step).toBeUndefined();
 	});
 
 	it('a member who is typing is asked to join instead of being moved', async () => {
@@ -1910,8 +1993,7 @@ describe('LiveController: present together', () => {
 		const { h } = await hostSession();
 		const { g, opened } = await member(h, 'Amina');
 		// Past the newcomer's welcome (a beat after admission), which would otherwise carry the start again.
-		await new Promise((r) => setTimeout(r, 3000));
-		await settle(h, g);
+		await drain(h, g);
 		h.actions.presentToEveryone(true);
 		h.actions.presentTransport({ idx: 2, page: 0, lens: 'full' });
 		await until(() => g.view().present?.idx === 2, h, g);
@@ -1921,8 +2003,8 @@ describe('LiveController: present together', () => {
 		h.actions.presentTransport({ idx: 2, page: 0, lens: 'full' });
 		await until(() => g.view().present === null, h, g);
 		// The first start lands inside the member's 2 s window and is dropped; the repeat, just past it, is not.
-		await new Promise((r) => setTimeout(r, 2500));
-		await until(() => g.view().present?.idx === 2, h, g);
+		// The repeat is the host's own timer (2.2 s), which `until`'s poll budget does not count: wait for it.
+		await eventually(() => g.view().present?.idx === 2, h, g);
 		expect(opened.filter((o) => o === 'open').length).toBe(2);
 	}, 20000);
 
@@ -2096,7 +2178,7 @@ describe('LiveController: present together', () => {
 			await until(() => g.view().present === null, h, g);
 			expect(await g.actions.askClip(HASH, 40)).toBeNull();
 			// A new run, after the restart window: the member holds nothing from the last one.
-			await new Promise((r) => setTimeout(r, 2300));
+			clockAhead(2300);
 			h.actions.presentToEveryone(true);
 			await until(() => g.view().present?.voice === true, h, g);
 			expect((await askFor(h, g, HASH, 40, 5000))?.bytes.length).toBe(400);
@@ -2183,7 +2265,9 @@ describe('LiveController: present together', () => {
 		expect(h.actions.tourForEveryone('first-look')).toBe('sent');
 		await until(() => opened.includes('tour first-look') && started.length === 1, h, g);
 		expect(h.actions.tourForEveryone('first-look')).toBe('wait');
-		await new Promise((r) => setTimeout(r, 900));
+		// Nothing is left to start it again: no tour is waiting on the host's timer.
+		// biome-ignore lint/suspicious/noExplicitAny: the host's pending tour start.
+		expect((h as any).tourLater).toBeNull();
 		expect(started.length).toBe(1);
 	});
 
@@ -2195,14 +2279,18 @@ describe('LiveController: present together', () => {
 		(a as any).post({ k: 'tour', id: 'first-look', at: 0 });
 		// biome-ignore lint/suspicious/noExplicitAny: the host sending an id that is not a shipped tour.
 		(h as any).post({ k: 'tour', id: 'javascript:alert(1)', at: 0 });
-		await settle(h, a, b);
-		await new Promise((r) => setTimeout(r, 50));
+		await drain(h, a, b);
+		// Neither started a tour, and neither is waiting to (a tour that got through would sit on Bo's timer).
+		// biome-ignore lint/suspicious/noExplicitAny: Bo's pending tour start.
+		expect((b as any).tourLater).toBeNull();
 		expect(opened.filter((o) => o.startsWith('tour'))).toEqual([]);
 		h.actions.tourForEveryone('first-look');
 		h.actions.tourForEveryone('first-look');
 		await until(() => opened.includes('tour first-look'), h, a, b);
-		await settle(h, a, b);
-		await new Promise((r) => setTimeout(r, 900));
+		await drain(h, a, b);
+		// No second start is waiting on Bo's timer.
+		// biome-ignore lint/suspicious/noExplicitAny: Bo's pending tour start.
+		expect((b as any).tourLater).toBeNull();
 		expect(opened.filter((o) => o.startsWith('tour')).length).toBe(1);
 	});
 });

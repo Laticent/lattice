@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { insertEntry, insertVia, openInsertMenu } from './compose-insert';
-import { expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
+import { caretSettled, expect, gotoStudio, persistedSource, pressSettled, setEditorContent, test } from './studio-fixture';
 
 /** The saved deck text. The store keeps it JSON-encoded, so decode it before comparing bytes. */
 async function savedDeck(page: Page): Promise<string> {
@@ -114,6 +114,13 @@ test.describe('compose spark editor', () => {
 				const pv = frame.contentDocument?.querySelector('.lat-spark .s-up, .lat-spark .s-line') as SVGElement | null;
 				return { compose: getComputedStyle(el).fill, preview: pv && frame.contentWindow ? frame.contentWindow.getComputedStyle(pv).fill : null };
 			});
+		// Compare the same slide: setting the deck in Source left the caret, and so the preview, on the LAST slide, and Compose
+		// now keeps that place (it used to jump everything to slide 1 as it mounted, which this test leaned on). Put the caret
+		// on slide 1, where the first drawing is, and wait for the preview to show it.
+		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
+		await caretSettled(page);
+		// The preview follows the caret a moment later: wait until it shows slide 1's spark (the two match), then compare.
+		await expect.poll(async () => { const f = await strokes(); return f.preview !== null && f.compose === f.preview; }).toBe(true);
 		const before = await strokes();
 		expect(before.compose).toBe(before.preview);
 		await page.getByRole('button', { name: 'Switch to dark mode' }).first().click();
@@ -128,9 +135,12 @@ test.describe('compose spark editor', () => {
 		await openDeckInCompose(page, DECK.replace('Nothing here yet.', 'Revenue grew `foo` fast.'));
 		const para = page.locator('.cs-slide').nth(1).locator('.cs-slide-content p').first();
 		await para.click();
-		await page.keyboard.press('Home');
+		// The insert door reads ProseMirror's caret, which hears of each browser caret move only through
+		// `selectionchange`: settle each move, or the door acts on a stale caret (`caretSettled`).
+		await caretSettled(page);
+		await pressSettled(page, 'Home');
 		// "Revenue gr|ew": the caret is mid-word.
-		for (let i = 0; i < 'Revenue gr'.length; i++) await page.keyboard.press('ArrowRight');
+		for (let i = 0; i < 'Revenue gr'.length; i++) await pressSettled(page, 'ArrowRight');
 		await insertVia(page, 'Spark');
 		await expect.poll(() => savedDeck(page)).toContain('Revenue grew `~{12 14 13 17 21}` `foo` fast.');
 		await editor(page).getByRole('button', { name: 'Done' }).click();
@@ -138,9 +148,10 @@ test.describe('compose spark editor', () => {
 		// A selection from "grew" into the middle of `foo` would split the author's code: it declines and writes nothing.
 		const before = await savedDeck(page);
 		await para.click();
-		await page.keyboard.press('Home');
+		await caretSettled(page);
+		await pressSettled(page, 'Home');
 		await page.keyboard.down('Shift');
-		for (let i = 0; i < 'Revenue grew  '.length + 2; i++) await page.keyboard.press('ArrowRight');
+		for (let i = 0; i < 'Revenue grew  '.length + 2; i++) await pressSettled(page, 'ArrowRight');
 		await page.keyboard.up('Shift');
 		// The menu says why, and nothing is written.
 		await openInsertMenu(page);

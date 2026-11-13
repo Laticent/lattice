@@ -69,6 +69,24 @@ describe('build-snippets', () => {
       ]);
     });
 
+    // VS Code reads a snippet body as a template: `$` starts a tab stop or a variable and `\\` escapes. Before 2026-11-10 six
+    // skeletons inserted wrong (`$410M` became tab stop 410, `$0` the final cursor, `$y$` an empty variable). Every `$` and
+    // `\\` is escaped now, so undoing VS Code's escaping gives back the manifest's skeleton exactly.
+    test('every snippet inserts its skeleton exactly: no bare `$`, and unescaping gives the skeleton back', () => {
+      const manifests = require('../../../lib/components').loadAll();
+      const snippets = buildSnippets(manifests);
+      for (const m of manifests) {
+        const { body, scope } = snippets[`lattice: ${m.name}`];
+        assert.equal(scope, 'markdown', `${m.name}: scoped to Markdown`);
+        for (const line of body) {
+          // A `$` is bare when an even number of backslashes stands before it.
+          assert.ok(!/(^|[^\\])(\\\\)*\$/.test(line), `${m.name}: bare $ in ${JSON.stringify(line)}`);
+        }
+        const inserted = body.map((l) => l.replace(/\\([\\$}])/g, '$1')).join('\n');
+        assert.equal(inserted, m.skeleton.replace(/\n$/, ''), `${m.name}: inserts its skeleton exactly`);
+      }
+    });
+
     test('description matches the manifest description', () => {
       const snippets = buildSnippets();
       for (const [key, snippet] of Object.entries(snippets)) {

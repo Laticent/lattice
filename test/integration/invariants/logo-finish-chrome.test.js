@@ -14,34 +14,22 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
+const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome');
 const puppeteer = require('puppeteer');
 const { renderHtml } = require('../../helpers/semantic-render');
-
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
-
 const slides = (...bodies) => bodies.join('\n\n---\n\n');
 const deck = (fm, body) => `---\nmarp: true\ntheme: indaco\nheader: "Running header"\nfooter: "Running footer"\npaginate: true\n${fm}\n---\n\n${body}\n`;
 
-// slide 1 carries the mark (title scope); slide 2 does not; slide 3 opts out; slide 4 is a title again
+// slide 1 carries the mark (title scope); slide 2 does not; slide 3 opts out; slide 4 is a title again.
+// The titles carry `with-header`: a title drops the running header by its manifest
+// (engineering/decisions/2026-11-08-anchor-chrome.md), so without it the cover's `header: false` would
+// hold whatever the logo did, and `no-logo` could never give the header back.
 const SCOPED = (placement) => deck(
   `logo: sample:logo-acme-mark.svg\nlogo-finish: ${placement} title\nfinish: atrium`,
   slides(
-    '<!-- _class: title -->\n\n# Cover',
+    '<!-- _class: title with-header -->\n\n# Cover',
     '## Plain slide\n\nBody copy.',
-    '<!-- _class: no-logo title -->\n\n# Cover without a mark',
+    '<!-- _class: no-logo title with-header -->\n\n# Cover without a mark',
     '<!-- _class: divider -->\n\n## Divider\n\nSubtitle.',
   ),
 );
@@ -49,7 +37,7 @@ const SCOPED = (placement) => deck(
 describe('logo-finish placement clears chrome only where the mark is (real render)', () => {
   const chrome = resolveChrome();
   if (!chrome) {
-    test('SKIPPED — no Chromium (CHROME_PATH / puppeteer cache) available', { skip: true }, () => {});
+    test('needs Chromium', { skip: skipWithoutChrome(chrome) }, () => assert.fail('no Chromium on this runner: install it (test/helpers/chrome.js)'));
     return;
   }
   let browser;

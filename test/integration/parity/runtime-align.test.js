@@ -32,6 +32,7 @@ const path = require('path');
 const fs = require('fs');
 const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'jsdom-close'));
 const { JSDOM } = require('jsdom');
+const { bootRuntime } = require('../../helpers/runtime-boot');
 const { resolveAlign } = require('../../../lib/core/resolve-align');
 const CATALOG = require('../../../lib/core/align-catalog.generated.js');
 const { ROOT, runEmulator } = require('../../helpers/render');
@@ -60,10 +61,9 @@ const boot = async (body, family) => {
     Object.defineProperty(dom.window.HTMLElement.prototype, prop, { configurable: true, get: () => v });
   }
   dom.window.fetch = () => Promise.resolve({ ok: true, text: () => Promise.resolve('') });
-  const el = dom.window.document.createElement('script');
-  el.textContent = RUNTIME_SRC;
-  dom.window.document.body.appendChild(el);
-  await new Promise((r) => setTimeout(r, 250));
+  // Returns once the runtime has nothing queued (HARD RULE #32). The step cap is raised: a deck of every governed
+  // component waits out the mermaid loader's 10 s poll, one animation frame at a time (about 625 callbacks).
+  await bootRuntime(dom, { bundle: RUNTIME_SRC, maxSteps: 2000 });
   return dom;
 };
 

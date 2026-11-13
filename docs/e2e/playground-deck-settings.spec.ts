@@ -175,3 +175,18 @@ for (const tag of ['@mobile', '@webkit-phone']) {
 		await expect(page.getByRole('listbox')).toHaveCount(1);
 	});
 }
+
+// A CLICK THAT DISMISSES THE SHEET KEEPS ITS FOCUS. Deck settings is non-modal: a click into the
+// editor closes it, and the editor must keep the caret. `SheetContent` returns focus to the
+// opener on close (ui/sheet.tsx), but only when nothing else has taken it; a first cut returned
+// it unconditionally and the next keystrokes went to the Deck settings button (found by review).
+// Desktop only: on a phone the sheet covers the editor, so there is nothing behind it to click.
+test('a click into the editor that closes Deck settings leaves the editor focused', async ({ page }) => {
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.cm-content')).toBeVisible();
+	await openDeckSettings(page);
+	await page.locator('.cm-content').click();
+	await expect(page.locator('[data-slot="sheet-content"]')).toHaveCount(0);
+	await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('.cm-editor'))).toBe(true);
+	await expect(page.locator('#pg-setup-trigger')).not.toBeFocused();
+});

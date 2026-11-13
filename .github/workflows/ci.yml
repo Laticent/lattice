@@ -22,6 +22,14 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege for every job's GITHUB_TOKEN (CodeQL actions/missing-workflow-permissions,
+# #1958). Without this block each job got the repo default. `pull-requests: read` is for
+# dorny/paths-filter, which lists a PR's files through the API. The two jobs that write
+# (golden-diff, ci) declare their own `permissions:`, which replaces this block for them.
+permissions:
+  contents: read
+  pull-requests: read
+
 # ── Every job carries a timeout-minutes ───────────────────────────────────────
 # GitHub's default is SIX HOURS, and before this only `studio-smoke` had a cap.
 # `npm ci` on node 24 wedges — FOUR times in the 26 hours to 2026-09-02T14:21Z,
@@ -320,6 +328,12 @@ jobs:
   unit:
     runs-on: ubuntu-24.04
     timeout-minutes: 20 # raised from 15 on 2026-11-03 (owner call, D2 on #2984): node 22 runs took 14m01s-14m25s on main and one PR run was canceled at 15m03s
+    # SHARDED TWO WAYS (owner call, 2026-11-10). Over the 60 runs of 2026-11-10 the one node 22 job took 14.4 min at
+    # the median, 16.6 at p90 and 16.9 at most against this 20-minute cap; half went over 15; one was cancelled at 20
+    # with every test passing (run 42873245269): a slow runner, setup 5 min, the suite 17% past its normal maximum.
+    # Raising the cap again would only move the cliff (flaky shape F4), so node 22 now runs the full suite in two legs,
+    # dealt by recorded seconds per file (`tools/shard-tests.js`, `test/unit/shard-weights.json`): about 3.3 min of
+    # setup each plus half the tests. The node 24 merge-queue leg runs its smoke subset once, as before.
     strategy:
       fail-fast: false
       matrix:
@@ -328,7 +342,11 @@ jobs:
         # and the npm ci wedges noted at the top of this file are all on this leg. The queue still runs both, so
         # nothing reaches main untested on 24; a 24-only break now ejects one queue group instead of redding a PR.
         node-version: ${{ fromJSON(github.event_name == 'merge_group' && '[22, 24]' || '[22]') }}
-    name: unit (node ${{ matrix.node-version }})
+        shard: [1, 2]
+        exclude:
+          - node-version: 24
+            shard: 2
+    name: unit (node ${{ matrix.node-version }}${{ matrix.node-version == 22 && format(', shard {0}/2', matrix.shard) || '' }})
     env:
       PUPPETEER_SKIP_DOWNLOAD: '1'
     steps:
@@ -337,6 +355,14 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
+      # zsh for test/unit/cli/completion.test.js, which drives a real interactive zsh through a pty: the runner image has
+      # none, so the test used to skip here and zsh completion was never tested in CI (owner call D3 A, 2026-11-12, #3151).
+      # Only the node 22 legs run the full suite; the node 24 smoke subset has no completion test.
+      - name: Install zsh (the completion tests drive a real zsh)
+        if: matrix.node-version == 22
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: zsh
       - run: npm ci
         timeout-minutes: 10 # an npm ci that never exits (run 40590390608 hung 14 min) fails here, not at the job cap
       # dist/ and the docs-site bundles are BUILT, not committed (.gitignore), so a
@@ -392,9 +418,11 @@ jobs:
       # bundle stale?" — a question with no meaning now that the bundle is built
       # rather than committed. The staleness it guarded against is gone at the
       # root: every job and the docs deploy build the bundle from current source.
-      - name: Unit tests (full suite)
+      - name: Unit tests (full suite, one shard)
         if: matrix.node-version == 22
-        run: npm test
+        env:
+          SHARD: ${{ matrix.shard }}/2
+        run: npm run test:unit:shard
       - name: Unit tests (engine + export smoke subset)
         if: matrix.node-version != 22
         # core/engine/parsing/transformers cover the render kernels;
@@ -489,32 +517,37 @@ jobs:
         with:
           path: ~/.cache/puppeteer
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - name: ISO week (for the marp-cli cache key)
-        id: week
-        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
-      - name: Cache marp-cli for npx
-        # Five integration files run the real marp-cli through `npx -y @marp-team/marp-cli@<MARP_CLI_RANGE>`
-        # (test/helpers/npx-lock.js), and without this every leg downloaded it and its whole dependency tree again.
-        # When the registry was slow the 90 s fetch probe timed out ("could not fetch marp-cli (exit null)"), and the
-        # suite's before-hook failure cancelled every test under it: 4 of 4 marp-bundle-author-script failures and 5 of
-        # 11 marp-admission failures in 999 PR runs (2026-10-18..28) were this, not a test.
-        # WHAT IT REMOVES, AND WHAT IT DOES NOT: a warm cache removes the tarball downloads and the unpack race; npx
-        # still asks the registry for the package's metadata on every call (npm 10's libnpmexec resolves the range
-        # online), so a registry that is down still fails the probe. A cache is scoped to the PR that saved it (this
-        # workflow has no push to main), so a PR's first run misses and its later pushes hit.
-        # The key holds the file with the range AND the ISO week: without the week a cached 4.x would satisfy the
-        # range forever, and a new marp-cli 4.x that breaks export-to-Marp would go unseen here.
+      - name: Cache the pinned marp-cli
+        # Five integration files render with the real marp-cli. They used to fetch it inside the test with
+        # `npx -y @marp-team/marp-cli@<a range>`, and npx asked the registry on every call, cache or not: a
+        # slow registry turned 22 integration runs red in 30 days ("did not finish before its parent and was
+        # cancelled"), a test failure that was never about the code (#3045). The tests now run an exact pin with a
+        # lockfile, `test/fixtures/marp-cli/`, through test/helpers/marp-cli.js, and nothing in a test reaches the
+        # network. The key is the lockfile, so a pin bump installs fresh and nothing else does.
+        id: marp-cli-cache
         uses: actions/cache@v4
         with:
-          path: ~/.npm/_npx
-          key: npx-marp-${{ runner.os }}-${{ hashFiles('lib/export/marp-bundle.js') }}-${{ steps.week.outputs.week }}
+          path: test/fixtures/marp-cli/node_modules
+          key: marp-cli-pin-${{ runner.os }}-${{ hashFiles('test/fixtures/marp-cli/package-lock.json') }}
+      - name: Install the pinned marp-cli
+        # Its own step, before any test: a registry outage is a red step with this name, not a cancelled suite.
+        # Scripts off, as the npx route ran it: nothing in marp-cli's tree needs one (puppeteer-core downloads no browser).
+        if: steps.marp-cli-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 5
+        run: npm ci --prefix test/fixtures/marp-cli --ignore-scripts --no-audit --no-fund
       - name: Install poppler-utils (pdfinfo) + color emoji font
         # fonts-noto-color-emoji: guarantees raw unicode emoji render in COLOR
         # in the headless-Chromium PDF renders (the owned paths emit emoji as
         # plain text, not twemoji <img>). The webfont @import in lattice.css is
         # a portable bonus, but Chromium honors an installed emoji font far more
         # reliably than an @font-face one. See engineering/gotchas.md.
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils fonts-noto-color-emoji
+        # The same list as golden-diff, golden-bless and integration-nightly, so the shards restore the entry those
+        # nightlies, and apt-cache-warm.yml every 30 minutes, save on main. A list of its own had no main job to warm it,
+        # so each new PR's four shards downloaded from the mirror (found by review on #3139). imagemagick comes along
+        # unused.
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: poppler-utils imagemagick fonts-noto-color-emoji
       - run: npm ci
         timeout-minutes: 10 # an npm ci that never exits (run 40590390608 hung 14 min) fails here, not at the job cap
       # dist/ and the docs-site bundles are BUILT, not committed (.gitignore), so a
@@ -654,7 +687,9 @@ jobs:
       - name: Install poppler-utils + ImageMagick + color emoji font
         # The emoji font for the same reason as the integration job: the renders must
         # match the ones that blessed the goldens.
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick fonts-noto-color-emoji
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: poppler-utils imagemagick fonts-noto-color-emoji
       - name: Allow ImageMagick PDF coder (for the montage PDF)
         run: sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
       - run: npm ci
@@ -931,7 +966,7 @@ jobs:
   # runs, but promote to blocking (move this into `ci`'s `needs`) only once the streak
   # is on record. Tracked in #800;
   # engineering/decisions/2026-07-06-e2e-chrome-selector-contract.md § Decision (4).
-  # `--retries=0` overrides the config's CI retry so a flake shows here, not hidden.
+  # `--retries=0` matches the config (retries are 0 everywhere since HARD RULE #34); kept so a local override cannot hide a flake here.
   studio-smoke:
     needs: changes
     # Pull requests only (2026-10-29). In the merge queue it is advisory too, so its result reaches no one: 2,408
@@ -1023,9 +1058,8 @@ jobs:
     # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
     # Playwright pin supports the new image.
     runs-on: ubuntu-24.04
-    # 25, not 12: `--with-deps` pulls about 70 apt packages, and on 2026-10-26 a slow Ubuntu
-    # mirror took that step from 34 s to over 10 min on two of three runs (PR #2910), so a
-    # cancel in the merge queue failed `ci` with every test passing. A normal run is ~3.5 min.
+    # 25 since PR #2910, when `--with-deps` met a slow Ubuntu mirror. The packages now come from GitHub's cache
+    # (the Install step below), so a normal run is ~3.5 min; the cap stays until runs on the cache show its spread.
     timeout-minutes: 25
     name: player no-JS (WebKit)
     steps:
@@ -1052,9 +1086,14 @@ jobs:
         working-directory: docs
         env:
           PUPPETEER_SKIP_DOWNLOAD: '1'
-      - name: Install Playwright WebKit (pinned to @playwright/test)
-        run: npx playwright install --with-deps webkit
-        working-directory: docs
+      # NO MIRROR IN THE TEST PATH (owner call on PR #3117's follow-up, 2026-11-10). `--with-deps` ran apt-get against
+      # Ubuntu's mirror on every run: over 17 runs the step took 36 s at the median, but 5 took over 2 min, 2 over 10,
+      # and one never finished inside the 25 minutes (flaky shape F6). The action installs WebKit and its packages from
+      # GitHub's cache, which the WebKit nightly warms on main.
+      - name: Install Playwright WebKit, from the cache
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: webkit
       - name: No-JS player tests in WebKit
         env:
           LATTICE_PLAYWRIGHT: ${{ github.workspace }}/docs/node_modules/playwright

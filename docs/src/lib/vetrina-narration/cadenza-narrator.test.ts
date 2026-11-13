@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
 import type { Stage as AudioStage } from '@/lib/suono';
 import { findCueWord, SILENT_NARRATOR } from '@/lib/vetrina';
@@ -154,6 +154,20 @@ describe('the port contract both narrators satisfy', () => {
  *  what this rung owes is the CONTRACT (unlock in the gesture, decode, play, re-anchor to the
  *  measured onset, resolve when the clip ends). The audio itself is Suono's to be right about,
  *  and the real-browser e2e drives the real stage. */
+/** One animation frame on the fake clock (vi fakes `requestAnimationFrame` at 60 fps). */
+const FRAME_MS = 16;
+
+/** The voiced rung's frame loop, its synthesize deadline and every wait below run on vi's fake
+ *  clock, so a test steps time instead of sleeping on it. */
+function fakeTimersPerTest() {
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+}
+
 function fakeAudio(overrides: Partial<AudioStage> = {}) {
 	const calls: string[] = [];
 	let clock = 0;
@@ -178,15 +192,21 @@ function fakeAudio(overrides: Partial<AudioStage> = {}) {
 		calls,
 		start: (onsetMs: number, durationMs: number) => onStart?.({ onsetMs, durationMs }),
 		finish: () => end?.(),
-		/** Move the audio clock and let the narrator's rAF loop read it. */
+		/** Resolve once the narrator has synthesized, decoded and handed the clip to play(): the
+		 *  moment `start` and `finish` reach a live clip. */
+		playing: () => vi.waitFor(() => expect(calls).toContain('play')),
+		/** Move the audio clock and step one frame on the fake clock, so the narrator's rAF loop
+		 *  reads it exactly once. */
 		seek: async (ms: number) => {
 			clock = ms;
-			await new Promise((r) => setTimeout(r, 25));
+			await vi.advanceTimersByTimeAsync(FRAME_MS);
 		},
 	};
 }
 
 describe('voicedNarrator — the rung that speaks', () => {
+	fakeTimersPerTest();
+
 	it('is VOICED, which is the flag the caption policy turns on', () => {
 		const { stage } = fakeAudio();
 		expect(voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) }).voiced).toBe(true);
@@ -205,7 +225,7 @@ describe('voicedNarrator — the rung that speaks', () => {
 	});
 
 	it('asks the CALLER for the bytes, and hands it the estimate to match', async () => {
-		const { stage, finish } = fakeAudio();
+		const { stage, finish, playing } = fakeAudio();
 		// A holder, not a bare `let`: the assignment is inside the callback and control-flow
 		// analysis cannot see across it, so a plain binding narrows to `null` at the assertion.
 		const asked: { text?: string; durationMs?: number } = {};
@@ -218,7 +238,7 @@ describe('voicedNarrator — the rung that speaks', () => {
 			},
 		});
 		const h = v.speak('Now click Publish.', { signal: new AbortController().signal });
-		await new Promise((r) => setTimeout(r, 10));
+		await playing();
 		finish();
 		await h.done;
 		expect(asked.text).toBe('Now click Publish.');
@@ -226,14 +246,17 @@ describe('voicedNarrator — the rung that speaks', () => {
 	});
 
 	it('resolves when the clip ends, not when the estimate does', async () => {
-		const { stage, finish } = fakeAudio();
+		const { stage, finish, playing } = fakeAudio();
 		const v = voicedNarrator({ audio: stage, synthesize: async () => new ArrayBuffer(8) });
 		let done = false;
 		const h = v.speak('Now click Publish.', { signal: new AbortController().signal });
 		h.done.then(() => {
 			done = true;
 		});
-		await new Promise((r) => setTimeout(r, 30));
+		await playing();
+		// A whole second past the estimate's own end: a narrator that resolved on the estimate
+		// would be done by now. Short of the 20 s synthesize deadline, which is not in play here.
+		await vi.advanceTimersByTimeAsync((v.plan?.('Now click Publish.')?.durationMs ?? 0) + 1000);
 		expect(done).toBe(false);
 		finish();
 		await h.done;
@@ -281,11 +304,15 @@ describe('voicedNarrator — the rung that speaks', () => {
 	it('a hung voice gives up and the beat continues, rather than blocking forever', async () => {
 		const { stage } = fakeAudio();
 		const v = voicedNarrator({ audio: stage, synthesizeTimeoutMs: 40, synthesize: () => new Promise(() => {}) });
-		await expect(v.speak('Now click Publish.', { signal: new AbortController().signal }).done).resolves.toBeUndefined();
+		const line = v.speak('Now click Publish.', { signal: new AbortController().signal }).done;
+		await vi.advanceTimersByTimeAsync(40);
+		await expect(line).resolves.toBeUndefined();
 	});
 });
 
 describe('voicedNarrator — the re-anchor onto the MEASURED clip', () => {
+	fakeTimersPerTest();
+
 	/**
 	 * Drive the REAL audio clock across a clip and record, for each word, the clock value at
 	 * which it became active.
@@ -297,7 +324,7 @@ describe('voicedNarrator — the re-anchor onto the MEASURED clip', () => {
 	 * recorded here.
 	 */
 	async function driveWords(text: string, measuredMs: number, steps: number) {
-		const { stage, start, finish, seek } = fakeAudio();
+		const { stage, start, finish, seek, playing } = fakeAudio();
 		const v = voicedNarrator({ audio: stage, syncLeadMs: 0, synthesize: async () => new ArrayBuffer(8) });
 		// Recorded by INDEX, not by text. A line repeats words — "the" appears in two of the three
 		// sentences below — so a text match finds the first occurrence and makes an in-order
@@ -310,7 +337,7 @@ describe('voicedNarrator — the re-anchor onto the MEASURED clip', () => {
 			},
 		});
 		let lastClock = 0;
-		await new Promise((r) => setTimeout(r, 10));
+		await playing();
 		start(0, measuredMs);
 		for (let i = 0; i <= steps; i++) {
 			lastClock = (measuredMs / steps) * i;

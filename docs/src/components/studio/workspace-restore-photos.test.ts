@@ -211,6 +211,31 @@ describe('a photo kept to a deck that came back as a COPY', () => {
 	});
 });
 
+describe('a deck this browser refused to store', () => {
+	it('does not bring its photos back, onto the local deck of the same id or anywhere else', async () => {
+		const blob = await backupFromA(async () => {
+			putDeck('deck-aaa', 'Plan', '# Plan (backup)\n\n![p](asset:priv)\n');
+			await saveMedia(photo('priv', X, 'deck-aaa'), 1);
+		});
+		putDeck('deck-aaa', 'Plan', '# Plan (edited here)\n'); // diverged: its copy is the write that is refused
+		const setItem = localStorage.setItem;
+		localStorage.setItem = (k: string, v: string) => {
+			if (k.startsWith('lattice-studio-src-')) throw new DOMException('full', 'QuotaExceededError');
+			setItem(k, v);
+		};
+		let s: Awaited<ReturnType<typeof restoreWorkspace>>;
+		try {
+			s = await restoreWorkspace(blob, T0 + 1);
+		} finally {
+			localStorage.setItem = setItem;
+		}
+		expect(s.copies['deck-aaa']).toBeUndefined();
+		expect(s.refused.some((r) => r.name === 'deck Plan')).toBe(true);
+		expect(s.refused.some((r) => r.name === 'photo priv' && /its deck could not be restored/.test(r.why)), 'the photo says why, truthfully').toBe(true);
+		expect(await listMedia()).toHaveLength(0);
+	});
+});
+
 describe('a deck-scoped photo for a deck the backup does not hold', () => {
 	it('is refused, even if a deck with that id exists on this device', async () => {
 		const blob = await backupFromA(async () => {

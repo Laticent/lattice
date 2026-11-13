@@ -20,9 +20,11 @@ import { defineConfig, devices } from '@playwright/test';
 // whose subject is resource ordering, first paint or a pre-hydration window has
 // to say WHICH build produced the `dist` it was measured against.
 //
-// Browser: Chromium from the sandbox at PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
-// (build 1194 ↔ @playwright/test 1.56.1). In CI, provision the pinned browser
-// explicitly (the version pin IS the browser pin). See the decision doc
+// Browser: Chromium build 1194 ↔ @playwright/test 1.56.1, at
+// PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers. The sandbox USED TO ship that build;
+// since 2026-11 it ships a newer one (1243), so `globalSetup` installs 1194 beside it
+// when it is missing (about 20 s). In CI, provision the pinned browser explicitly
+// (the version pin IS the browser pin). See the decision doc
 // §"Sandbox + CI browser provisioning".
 //
 // EVERY ENGINE RUNS HERE. Only Chromium is baked into the sandbox, so `globalSetup`
@@ -65,10 +67,10 @@ export default defineConfig({
 	},
 	fullyParallel: true,
 	forbidOnly: isCI,
-	// The E2E suite is nightly (not the PR critical path), so a single retry to
-	// absorb browser-launch jitter is acceptable; local runs get none so flake is
-	// visible immediately.
-	retries: isCI ? 1 : 0,
+	// No retries anywhere (HARD RULE #34): a retry turns a flaky test into a pass
+	// nobody sees. A test that fails once is fixed at its cause (#33). Held at 0 by
+	// checkPlaywrightRetries in tools/check-ownership.js.
+	retries: 0,
 	workers: isCI ? 2 : undefined,
 	reporter: isCI
 		? [['list'], ['html', { open: 'never' }], ['github']]
@@ -138,6 +140,17 @@ export default defineConfig({
 			name: 'desktop',
 			use: { viewport: { width: 1440, height: 900 } },
 			grepInvert: /@mobile|@player-parity|^(?!.*@crosswidth).*@webkit/,
+		},
+		// THE SHIPPED DEFAULT, COMPOSE (engineering/decisions/2026-11-10-compose-first.md §6). Every other project's fixture
+		// stores Source, because the helpers type Markdown, so the mode a new visitor lands in was covered only by the
+		// Compose specs. This one stores no mode: the core Studio specs (smoke, undo and Live, lessons, the pane sync) boot in
+		// Compose, and the helpers open Source only where they type Markdown (studio-fixture.ts `toSourceIfCompose`). Desktop
+		// size, nightly only: per-PR CI runs `--project=desktop`.
+		{
+			name: 'compose-default',
+			use: { viewport: { width: 1440, height: 900 } },
+			testMatch: /(smoke|filo-[a-z-]+|lessons|studio-pane-sync|compose-first|compose-fidelity)\.spec\.ts$/,
+			grepInvert: /@mobile|@player-parity|@perf|^(?!.*@crosswidth).*@webkit/,
 		},
 		// THE HOST-PARITY SPEC (e2e/player-host-parity.spec.ts). Both hosts must measure text the same
 		// way, and a hosted runner's two Chromium modes do not: the CLI's page (`headless: 'new'`) takes

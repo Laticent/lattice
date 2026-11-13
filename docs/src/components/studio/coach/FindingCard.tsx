@@ -1,5 +1,6 @@
 import { AlertTriangle, Check, Info, OctagonAlert, Sparkles, X } from 'lucide-react';
 import type * as React from 'react';
+import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { Finding } from '../architect';
 import { DiffCard } from '../diff-card';
@@ -70,9 +71,12 @@ export function FindingCard({
 						<SevIcon className="size-3.5" />
 					</span>
 					<span className="shrink-0 text-[11px] font-semibold text-[var(--text-heading)]">{deckLevel ? 'Deck' : `Slide ${finding.slide}`}</span>
-					<span className="min-w-0 flex-1 truncate font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground" title={finding.rule}>
-						{finding.rule}
-					</span>
+					{/* The full rule id on hover, for a truncated one. A Tip, not `title=`: a title became the
+					    row's screen-reader description and read the raw id aloud (#3108). The id is the span's
+					    own text, so the Tip adds no description (ui/tooltip.tsx `describedPart`). */}
+					<Tip label={finding.rule}>
+						<span className="min-w-0 flex-1 truncate font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">{finding.rule}</span>
+					</Tip>
 				</div>
 				{/* Row 2 — the message, full width. */}
 				<p className="mt-1 text-[12px] leading-snug text-foreground">{finding.message}</p>

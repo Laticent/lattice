@@ -552,6 +552,80 @@ slide and one pause, rather than until the first idle callback after mount. A us
 offline within those seconds, without opening a panel, gets the chunk-load card for the panels they never opened. That
 window was already about 1-3 s; it is now about 3-5 s longer.
 
+## Warming the fonts the first slide skipped (2026-11-08, #3076)
+
+Since #3074 the live preview frame waits only for the faces its visible slide uses. The rest arrived on the edit that
+first needed them: the first emoji, the first code block, `finish: sketch`, a new weight. Until then the text showed
+in a fallback face and swapped once.
+
+`studio-warm.ts` now ends its queue with one step per face the base sheet declares: 17 text faces, 3 icon faces and
+the 11 emoji slices, about 2.7 MB. KaTeX's 20 faces are left out, because the sheet carries them only once a deck has
+math. Each step runs `fetch(<themeBase>fonts/<file>.woff2, { priority: 'low' })` and reads the body to the end.
+`warmPanels` waits for one step to finish and yields to the idle scheduler before the next. The steps run after every
+other warm-up in the queue, behind the same gate (`afterFirstSlideAndPause`), and each also waits for
+`firstSlideShown` itself. Save-Data skips them all.
+
+**The cache match is the point, so it was checked in a real browser.** The URL is the one `theme-fetch.ts` writes into
+the frame's sheet, and a page `fetch` has the same mode (`cors`) and credentials (`same-origin`) as the srcdoc frame's
+font request. Chromium, a production-like HTTP/2 server (`serve-h2.mjs`, `max-age=600`), service worker blocked:
+
+| Arm | Frame font requests after adding an emoji, a code block and `finish: sketch` |
+|---|---|
+| After the warm-up (31 fetches done) | 7, all from the disk cache, 0 bytes over the network |
+| Same edit before the warm-up (control) | 10, all from the network |
+
+Across engines, counting the font requests that reach a plain HTTP/1.1 server (`max-age=600`) after the same edit:
+
+| Engine | After the warm-up | Before it (control) |
+|---|---|---|
+| Firefox (Playwright) | 0 | 9 |
+| WebKit (Playwright, Linux, persistent profile) | 0 | 11 |
+
+Run WebKit with a persistent profile (`launchPersistentContext`). In Playwright's default ephemeral context WebKit has
+no disk cache across preview documents: it re-requested even the faces its own frame had loaded at startup, 8 with the
+warm-up and 8 without, which is a property of that harness and not of the change. Safari on macOS and iOS was not
+reached; it is UNVERIFIED.
+
+**Each file waits for a quiet moment.** The first cut ran the font steps back to back once the queue reached them. A
+full e2e run then caught `demo-mobile.spec.ts` "the editor follows the typing on real WebKit too" failing: 1 of 3 runs
+passed on this change against 4 of 4 on `main`, and with only the warm-up's font fetches aborted it passed 3 of 3. The
+tour types through the source, not through key events, so the pause gate read it as an idle user, and the downloads
+landed mid-tour and starved its frames. A person typing after the queue starts would meet the same thing on a slow
+phone. Now every font step also awaits `first-slide.ts` › `whenQuiet`: 2 s with no pointer or key input and no source
+change (StudioShell marks each change with `noteActivity`). After the fix the WebKit case passed 3 of 3, and the whole
+`demo-mobile.spec.ts` file passed on `webkit-phone` and `mobile` twice over. The cache check above gave the same result
+on the fixed build.
+
+**With the service worker in control** (most visits after the first), the warm-up's fetches go through `sw.js`, which
+serves `/playground/v/<hash>/` cache-first and stores each response in its assets cache. The frame's later request is
+then answered from Cache Storage rather than the HTTP cache, and the 31 files (about 2.7 MB) stay on the device until a
+deploy renames the folder. That is a deliberate trade: the fonts also work offline. The worker's network fetch on a
+miss drops the page's `priority: 'low'` hint, so the idle, one-at-a-time queue is what keeps the download off the
+startup path.
+
+**Startup cost, measured.** `npm run perf:startup` on the phone profile, `main` and this change served side by side
+over HTTP/2, cold loads alternated:
+
+| | `main` | this change |
+|---|---|---|
+| Visible, median, round 1 (7 loads each) | 5.03 s (4.61-6.80) | 5.13 s (4.66-5.97) |
+| Visible, median, round 2 (7 loads each) | 4.87 s (4.72-5.58) | 4.88 s (4.58-6.06) |
+| Main thread busy in the 3 s after the slide, round 1 / round 2 | 0.91 s / 0.84 s | 0.95 s / 0.88 s |
+| Main thread busy in the 15 s after the slide (`AFTER_MS=15000`, 4 loads each) | 1.87 s (1.61-2.12) | 2.08 s (1.73-2.48) |
+
+Again on the build with the quiet gate (below), the same day, 7 loads each and then 4 with `AFTER_MS=15000`:
+
+| | `main` | this change, quiet gate |
+|---|---|---|
+| Visible, median | 5.40 s (5.20-6.52) | 5.15 s (4.92-5.87) |
+| Main thread busy in the 3 s after the slide | 1.09 s (0.99-1.42) | 1.20 s (0.92-1.45) |
+| Main thread busy in the 15 s after the slide | 1.87 s (1.83-2.05) | 2.01 s (1.81-2.13) |
+
+The first slide does not move, and the 3 s window cannot move: the queue starts only after 3 s without input. The
+15 s window holds the warm-up itself. It costs about 0.2 s of main-thread work, spread over idle callbacks, with
+overlapping ranges on four loads. The worst long task across all runs was 395 ms on this change and 372 ms on `main`;
+round 2 had 287 ms against 294 ms, so the difference is run-to-run noise. The download is the same as before #3074; it has moved off the startup path.
+
 ## Delivery
 
 One branch, one PR, one commit per split. Share + Workspace goes first, because it is the

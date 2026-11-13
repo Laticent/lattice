@@ -28,13 +28,19 @@ for (const vp of [
 		}
 		const search = page.getByRole('textbox', { name: 'Search library' });
 		await expect(search).toBeVisible();
-		const sizes = await search.evaluate((input) => {
-			const box = input.parentElement as HTMLElement;
-			const row = box.parentElement?.closest('.h-14') ?? box.parentElement;
-			const button = row?.querySelector('button[aria-label="Import files"]');
-			return { field: box.getBoundingClientRect().height, button: button?.getBoundingClientRect().height ?? -1, font: getComputedStyle(input).fontSize };
-		});
-		expect(sizes.button).toBeGreaterThan(0);
+		const measure = () =>
+			search.evaluate((input) => {
+				const box = input.parentElement as HTMLElement;
+				const row = box.parentElement?.closest('.h-14') ?? box.parentElement;
+				const button = row?.querySelector('button[aria-label="Import files"]');
+				return { row: row?.getBoundingClientRect().width ?? 0, field: box.getBoundingClientRect().height, button: button?.getBoundingClientRect().height ?? -1, font: getComputedStyle(input).fontSize };
+			});
+		// The signal: the header row has laid out with the Import button in it. The docked panel opens from zero width, and
+		// read the moment the field is visible the row was still 0px wide without the button in it (2 of 5 runs, every
+		// engine: "button 0"). Then the two heights are compared ONCE, so the 44-vs-32 mismatch this spec exists for
+		// still fails, where polling until they agree would not.
+		await expect.poll(async () => { const m = await measure(); return m.row > 0 && m.button > 0; }, { message: 'the Library header never laid out its Import button' }).toBe(true);
+		const sizes = await measure();
 		expect(Math.abs(sizes.field - sizes.button), `field ${sizes.field}px beside a ${sizes.button}px button (text ${sizes.font})`).toBeLessThanOrEqual(1);
 		await page.screenshot({ path: testInfo.outputPath('library-header.png') });
 	});

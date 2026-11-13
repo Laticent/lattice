@@ -38,6 +38,10 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 - **Keying a label set on the state NAME rather than the marker.** `[{shipped, Enacted}]` binds to nothing and the row is dropped. A key is the marker exactly as a cell spells it — `[x]`, `[-]`, `[!]`, `[?]`, `[ ]`, `[/]` — brackets included. The brackets are load-bearing: a bare space key collapses to empty under the parser's whitespace tidy and would take the `[ ]` row with it.
 - **Naming a state the grid does not carry.** A key row for a marker no cell uses would point at nothing, so it is dropped. `lint:deck` names the key when that happens — the rendered key is not the place to discover it.
 
+### Data shape
+
+- On a portrait, story or mobile page the roadmap is set as phase cards, and on a narrow slide (under about 70 characters a line) the cards stack full width at their natural height, each workstream on its own full-width row under the phase name. A square page keeps the table unless the deck asks for `horizons`.
+
 ## When to use
 
 - **Phased delivery across workstreams.** When the question is what each team ships in each phase. Workstreams down the side, phases across the top, deliverables in the cells — the whole plan reads in one glance.

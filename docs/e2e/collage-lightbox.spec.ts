@@ -84,6 +84,16 @@ async function openStudioDeck(page: Page, source: string = deck) {
 	await expect(slideTitle(page)).toHaveText('First slide', { timeout: 15_000 });
 	await page.setViewportSize(target);
 	await expect(livePreview(page).locator('.collage-tile')).toHaveCount(4, { timeout: 30_000 });
+	// Click only a frame a reader can see. A resize to a phone mounts a fresh preview frame, which holds itself hidden
+	// (opacity 0, no pointer events) until its fonts land and it reveals; under load that is seconds after its tiles are
+	// in the DOM, and `tapCollageAt` rightly ignores a tap on a hidden frame. Clicking before the reveal failed 3 of 24
+	// loaded runs per test on main (followups.d/3087-p4-mobile-load-only-flakes.md).
+	await expect
+		.poll(() => page.evaluate(() => {
+			const fr = document.querySelector('iframe.live') as HTMLIFrameElement | null;
+			return !!fr && fr.style.opacity === '1' && fr.style.pointerEvents !== 'none';
+		}), { timeout: 30_000, message: 'the live preview never revealed' })
+		.toBe(true);
 	// The resize re-fits the scaled frame; click only once its box has stopped moving.
 	let last = '';
 	await expect
@@ -222,6 +232,40 @@ test('@smoke the zoom cursor and the marker leave with the slide when the wheel 
 	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('zoom-in');
 	await page.mouse.wheel(0, 300);
 	await expect(slideTitle(page)).toHaveText('Second slide', { timeout: 15_000 });
+	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('');
+	await expect(livePreview(page).locator('.collage-tile[data-host-hover]')).toHaveCount(0);
+});
+
+// The same still mouse, with the race made certain. A slide change reaches the frame later than it reaches the Studio
+// when the preview's last render was slow: frame-scheduler.ts then holds the next one back by `heavyCoalesceMs` (120 ms),
+// so the hit-test the slide change asks for runs first, against the slide just left. That code kept `zoom-in`, and
+// nothing tested again: 1 run in 20 under load (#3045). Here a 20x CPU throttle makes the turn onto the second photo
+// slide a slow render, so the turn onto the text slide is held back on every run. The fix needs no timing: the render's
+// own `onRender` asks for the next hit-test.
+test('@smoke the zoom cursor leaves with the slide even when the render of the next slide is held back', async ({ page, browserName }) => {
+	test.skip(browserName !== 'chromium', 'the CPU throttle is a Chromium DevTools command');
+	const collage = ['- ![Tall portrait](sample:photo-tall.jpg)', '- ![Wide landscape](sample:photo-wide.jpg)', '- ![Square](sample:photo-square.jpg)', '- ![Panorama](sample:photo-pano.jpg)'];
+	const planDeck = ['---', 'marp: true', '---', '', '<!-- _class: collage -->', '', '## First slide', '', ...collage, '', '---', '', '<!-- _class: collage -->', '', '## Second slide', '', ...collage, '', '---', '', '## Third slide', '', 'Only words here.'].join('\n');
+	await openStudioDeck(page, planDeck);
+	const holderCursor = () =>
+		page.evaluate(() => {
+			for (let e = document.querySelector('iframe.live')?.parentElement ?? null; e; e = e.parentElement) if (e.style.cursor) return e.style.cursor;
+			return '';
+		});
+	const at = await photoAt(page, 1);
+	await page.mouse.move(at.x - 40, at.y - 40);
+	await page.mouse.move(at.x, at.y, { steps: 4 });
+	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('zoom-in');
+	// The keyboard turns the slides, so the mouse stays where it is and no wheel cooldown (present-transport.mjs
+	// `createWheelGate`, 480 ms) can swallow the second turn. Focus leaves the editor first, or PageDown scrolls it.
+	await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+	const cdp = await page.context().newCDPSession(page);
+	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 20 });
+	await page.keyboard.press('PageDown');
+	await expect(slideTitle(page)).toHaveText('Second slide', { timeout: 30_000 });
+	await page.keyboard.press('PageDown');
+	await expect(slideTitle(page)).toHaveText('Third slide', { timeout: 30_000 });
+	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
 	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('');
 	await expect(livePreview(page).locator('.collage-tile[data-host-hover]')).toHaveCount(0);
 });

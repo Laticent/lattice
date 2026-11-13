@@ -1,10 +1,9 @@
 import { Command as CommandPrimitive } from "cmdk"
 import { SearchIcon } from "lucide-react"
-import type * as React from "react"
+import * as React from "react"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -27,8 +26,7 @@ function Command({
 }
 
 function CommandDialog({
-  title = "Command Palette",
-  description = "Search for a command to run...",
+  title,
   children,
   className,
   style,
@@ -39,8 +37,12 @@ function CommandDialog({
   modal,
   ...commandProps
 }: React.ComponentProps<typeof Command> & {
-  title?: string
-  description?: string
+  /** Required, no default: a generic "Command Palette" is what a screen reader announced. Also names the
+   *  search field (cmdk's `label`) unless the caller passes its own. */
+  title: string
+  /** No description on purpose: the palette's NAME says what it is, and VoiceOver on an iPhone read a
+   *  palette's description again after every row's own (owner, #3108), so a dialog sentence here is noise.
+   *  `aria-describedby` is set to nothing, which also tells Radix the omission is deliberate. */
   className?: string
   /** DEVIATION from the shadcn base: forwarded to `DialogContent`. The Studio's
    *  palette needs a keyboard offset that cannot silently fail to generate as a
@@ -58,13 +60,14 @@ function CommandDialog({
         className={cn("overflow-hidden p-0", className)}
         style={style}
         showCloseButton={showCloseButton}
+        aria-describedby={undefined}
       >
         {/* Inside DialogContent so Radix resolves aria-labelledby/-describedby. */}
         <DialogHeader className="sr-only">
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <Command
+          label={title}
           className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5"
           {...commandProps}
         >
@@ -169,17 +172,29 @@ function CommandSeparator({
 
 function CommandItem({
   className,
+  description,
+  children,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Item>) {
+}: React.ComponentProps<typeof CommandPrimitive.Item> & {
+  /** What choosing this row does, read by a screen reader after the row's name. Without one, VoiceOver
+   *  fills the pause with its generic option hint. Carried by a hidden `role="note"` copy's `aria-label`,
+   *  not text, so it never joins the row's search value or a test's text match (ui/tooltip.tsx). */
+  description?: string
+}) {
+  const descId = React.useId()
   return (
     <CommandPrimitive.Item
       data-slot="command-item"
+      aria-describedby={description ? descId : undefined}
       className={cn(
         "relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
         className
       )}
       {...props}
-    />
+    >
+      {children}
+      {description ? <span id={descId} hidden role="note" aria-label={description} /> : null}
+    </CommandPrimitive.Item>
   )
 }
 

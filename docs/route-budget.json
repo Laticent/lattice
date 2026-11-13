@@ -5,58 +5,58 @@
     "studio": {
       "html": "studio/index.html",
       "eagerJsGz": {
-        "soft": 504833,
-        "hard": 576536
+        "soft": 571778,
+        "hard": 628956
       },
       "htmlRaw": {
         "soft": 226628,
         "hard": 249291
       },
       "engineJsGz": {
-        "soft": 707731,
-        "hard": 779016
+        "soft": 648151,
+        "hard": 712966
       },
       "chartKernelGz": {
         "soft": 82236,
         "hard": 90460
       },
       "lintCoreGz": {
-        "soft": 112808,
-        "hard": 152193
+        "soft": 152151,
+        "hard": 167366
       },
       "chartKernelsGz": {
         "soft": 231477,
-        "hard": 254625
+        "hard": 266913
       }
     },
     "playground": {
       "html": "playground/index.html",
       "eagerJsGz": {
-        "soft": 362145,
-        "hard": 398360
+        "soft": 377244,
+        "hard": 414968
       },
       "htmlRaw": {
         "soft": 471849,
         "hard": 519034
       },
       "engineJsGz": {
-        "soft": 707731,
-        "hard": 779016
+        "soft": 648151,
+        "hard": 712966
       }
     },
     "home": {
       "html": "index.html",
       "eagerJsGz": {
-        "soft": 264041,
-        "hard": 297040
+        "soft": 291531,
+        "hard": 320684
       },
       "htmlRaw": {
         "soft": 110840,
         "hard": 121924
       },
       "engineJsGz": {
-        "soft": 707731,
-        "hard": 779016
+        "soft": 648151,
+        "hard": 712966
       }
     },
     "components": {
@@ -70,23 +70,23 @@
         "hard": 659374
       },
       "engineJsGz": {
-        "soft": 707731,
-        "hard": 779016
+        "soft": 648151,
+        "hard": 712966
       }
     },
     "getting-started": {
       "html": "getting-started/index.html",
       "eagerJsGz": {
-        "soft": 150057,
-        "hard": 164503
+        "soft": 142643,
+        "hard": 156907
       },
       "htmlRaw": {
         "soft": 85352,
         "hard": 93887
       },
       "engineJsGz": {
-        "soft": 288314,
-        "hard": 322300
+        "soft": 310700,
+        "hard": 341770
       }
     }
   }

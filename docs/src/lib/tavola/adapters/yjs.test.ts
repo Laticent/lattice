@@ -58,9 +58,10 @@ describe('sanitizeAwarenessUpdate: bounds before the parse', () => {
 
 	it('a 4 MB message of 250,000 entries is refused at once (it used to cost 727 ms and 36 MB)', () => {
 		const flood = raw(Array.from({ length: 250_000 }, () => [7, 1, '{"slide":1}'] as [number, number, string]));
-		const t = performance.now();
-		expect(sanitizeAwarenessUpdate(flood, 'a', opts(amina, () => 'a'))).toBeNull();
-		expect(performance.now() - t).toBeLessThan(100);
+		// Refused before any entry is read: the roster is never asked about one (HARD RULE #32, F1: count work, not ms).
+		let asked = 0;
+		expect(sanitizeAwarenessUpdate(flood, 'a', opts(amina, () => { asked++; return 'a'; }))).toBeNull();
+		expect(asked).toBe(0);
 	});
 
 	it('keeps a client once, and only the client the roster binds to the sender', () => {

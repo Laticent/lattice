@@ -160,3 +160,38 @@ test('greetingPeriod survives being inlined into an empty scope, and still works
 	const inlined = inlineIntoEmptyScope(greetingPeriod, 'greetingPeriod');
 	assert.deepEqual([4, 12, 17, 3, Number.NaN].map(inlined), ['morning', 'afternoon', 'evening', 'evening', 'neutral']);
 });
+
+// The step cursor and painter (engineering/decisions/2026-11-09-steps-as-a-behavior.md) are inlined
+// into the player beside createTransport. The cursor reaches stepMove/stepEnter as ARGUMENTS, never
+// by closure, so each inlines alone and the transport still walks a stepping slide.
+test('the step kernels survive being inlined, and the transport walks steps with them', async () => {
+	const pt = await import('../../../lib/core/present-transport.mjs');
+	const ss = await import('../../../lib/core/step-state.mjs');
+	const stepMove = inlineIntoEmptyScope(pt.stepMove, 'stepMove');
+	const stepEnter = inlineIntoEmptyScope(pt.stepEnter, 'stepEnter');
+	const createTransport = inlineIntoEmptyScope(pt.createTransport, 'createTransport');
+	inlineIntoEmptyScope(ss.applyStepAt, 'applyStepAt');
+	const stepsOfSection = inlineIntoEmptyScope(ss.stepsOfSection, 'stepsOfSection');
+	assert.equal(stepsOfSection(null), null);
+	const walk = [null, { kind: 'focus', count: 2 }, { kind: 'build', count: 2 }];
+	const seen = [];
+	const t = createTransport({ count: 3, onShow: (i, s) => seen.push(`${i}:${s}`), stepsOf: (i) => walk[i], stepMove, stepEnter });
+	for (let k = 0; k < 6; k++) t.next();
+	assert.deepEqual(seen, ['1:1', '1:2', '2:0', '2:1', '2:2', '2:2']);
+});
+
+// The CLI's `--steps` sends expandStepPages and applyStepAt into the settled page as SOURCE (lattice.js), so both must
+// run from an empty scope, and the pair must still expand and paint (the inversion's pin, 2026-11-10).
+test('expandStepPages and applyStepAt survive being inlined, and still expand and paint a deck', async () => {
+	const { JSDOM } = require('jsdom');
+	const sp = await import('../../../lib/core/step-pages.mjs');
+	const ss = await import('../../../lib/core/step-state.mjs');
+	const expand = inlineIntoEmptyScope(sp.expandStepPages, 'expandStepPages');
+	const paint = inlineIntoEmptyScope(ss.applyStepAt, 'applyStepAt');
+	const doc = new JSDOM('<div class="lattice"><section data-lattice-slide="1"><h1>A</h1></section>' +
+		'<section data-lattice-slide="2" data-steps="2" data-step-kind="build"><ul><li data-step="1">x</li><li data-step="2">y</li></ul></section></div>').window.document;
+	assert.deepEqual(expand(doc.querySelector('.lattice'), paint), [1, 2]);
+	const pages = [...doc.querySelectorAll('.lattice > section')];
+	assert.deepEqual(pages.map((s) => s.getAttribute('data-step-page')), [null, '1', '2']);
+	assert.deepEqual(pages.slice(1).map((s) => [...s.querySelectorAll('li')].map((li) => (li.classList.contains('lat-built') ? 'v' : 'h')).join('')), ['vh', 'vv']);
+});

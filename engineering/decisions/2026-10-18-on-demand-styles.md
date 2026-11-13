@@ -361,8 +361,8 @@ Without the parameter the Playground registers the whole `lattice.css`, as it al
 whole on the evidence below; flipping it is one line (`loaderOn` in `docs/src/lib/playground-engine.ts`).
 
 **How it works.** `docs/src/lib/style-loader.ts` fetches `styles/needs.json` (the index) and a **floor**
-(the 13 always-needed modules plus the 47 that at least 70% of the 295 example decks need,
-`tools/style-needs-common.json`), starting in parallel with the engine bundle. The bridge
+(the 13 always-needed modules plus the ones at least 95% of the example decks need,
+`tools/style-needs-common.json`; 70% when this was written, raised on 2026-11-06, see below), starting in parallel with the engine bundle. The bridge
 (`playground-engine.ts renderInto`) renders, scans the rendered HTML (`lib/core/style-needs-scan.mjs`, one
 copy shared with the audit), fetches the modules still missing, re-registers the `lattice` base, and takes the
 new sheet by rendering again (the second render costs 200 to 500 ms on a heavy deck). An engine hook that
@@ -375,6 +375,15 @@ Past 55% of the sheet's bytes the loader answers "whole" and the host loads the 
 module, and a failed whole-sheet fetch all keep drawing with what is loaded; an idle backstop (4 s after the
 first render) fetches the whole sheet and makes it the base, so a module no scan could name heals, and a tab
 that outlives a deploy has a complete sheet in memory.
+
+**The common list's threshold went from 70% to 95% (2026-11-06, the owner's call on #3060).** At 70% the
+list sat at both of its test's limits: five ids stale against `main` (the most
+test/unit/tools/style-needs-common.test.js tolerates), and a fresh `--write` lifted the floor to 41% of
+the sheet, past the 40% cap. So every PR that edited one listed module's CSS turned `unit` red and
+re-hashed it by hand (#3060 did twice). At 95% the list regenerates to 44 modules with none stale, and
+the floor is under the cap. Five modules leave the floor (`component:title` 94%, `base:modifiers#rest~4`,
+`tail:masthead-bay`, `tail:masthead-lede` and `tail:base.accent-finish` at 92% of 342 decks), so most
+decks fetch those five after the first render instead of at start.
 
 **The shared slot.** The engine has ONE `lattice` slot and every consumer on the page renders against whatever
 is in it. `theme-fetch.ts` therefore tracks `baseMode` (`none | subset | full`) and a `baseVersion`: a consumer

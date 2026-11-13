@@ -302,21 +302,6 @@ theme: indaco
 
 ---
 
-<!-- _class: agenda cards -->
-
-## agenda cards
-
-- Alpha
-  - The first card carries one line.
-- Beta
-  - The second card carries one line.
-- Gamma
-  - The third card carries one line.
-- Delta
-  - The fourth card carries one line.
-
----
-
 <!-- _class: citation-card -->
 
 ## citation-card
@@ -450,6 +435,33 @@ function after() {
 - **Owns the launch**
   - Sets the date.
   - `Product`
+
+---
+
+<!-- _class: contact -->
+
+- Ada Slide `name`
+- Founder `title`
+- Laticent `org`
+- hello@laticent.io `email`
+
+---
+
+<!-- _class: wifi -->
+
+## wifi
+
+- Lattice-Demo `ssid`
+- specimen2026 `password`
+
+---
+
+<!-- _class: gift-card -->
+
+## gift-card
+
+- `https://example.test/gift#v1.ASNFZ4mrze8BI0VniavN7wEjRWeJq83vASNFZ4mrze8.mm_u` `link`
+- Scan to start `caption`
 
 ---
 

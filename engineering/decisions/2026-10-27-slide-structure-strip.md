@@ -109,10 +109,12 @@ behavior.
   picture sits centered and the caption keeps its number, name and `⋯` without anything laid over the slide). *(Owner's call, 2026-10-29, on the first build's separate `⋯` beside the pill: "they
   are not the same size and they are disjoint." The pill is now the list item around two sibling buttons, so the `⋯` is
   inside the pill without being a button inside a button. The same review named the moves Move left and Move right, as a
-  horizontal strip shows them; Google Slides and PowerPoint say up and down because their filmstrips are vertical. And it
+  horizontal strip shows them; Google Slides and PowerPoint say up and down because their filmstrips are vertical.
+  Amended 2026-11-06 by the owner: they are **Move before** and **Move after**, so every action in the menu speaks
+  one vocabulary, the deck's order, and none of it depends on which way a strip runs. See §5.1. And it
   gave each item its icon, the icon row's own, with Delete below a rule.)*
   right-click, Shift+F10 / the context-menu key, or tapping the current slide again. It holds New slide before,
-  Duplicate, Move left, Move right and Delete, each showing its shortcut. *(New slide after leads the menu, above New
+  Duplicate, Move before, Move after and Delete, each showing its shortcut. *(New slide after leads the menu, above New
   slide before: the owner's call, 2026-10-29, "usually people add slide after".)* Disabled items stay visible with a reason.
   - **Opening it makes that slide current** (Fuoco `go` with `grab:false, expand:false`), so the action's target is never
     ambiguous; strip centering is suppressed while it is open; it closes only on a scroll the user starts (wheel, touch,
@@ -161,6 +163,32 @@ A pointer pick returns focus to the editor (as today), so ⌫ never deletes a sl
 typing, and ⌘D in the editor stays CodeMirror's select-next. ⌥← is avoided because a lost focus would make Alt+← browser
 Back on Windows. The keys are shown in the menu and in one table under "?".
 
+### 5.1 Nomenclature (owner, 2026-11-06)
+
+One vocabulary for every slide action, in every surface that names one: the strip menu, the command palette, the
+"?" shortcut list, Undo's step label, the spoken announcement, and the code ids. **Position words are the deck's
+order, never a direction on screen**: a strip can run across a phone or down a sidebar, and "left" in one is "up"
+in the other. The deck's order is the same in all of them.
+
+| Action | Slide menu | Palette | Undo step | Code id | Never |
+|---|---|---|---|---|---|
+| Add a slide after this one | New Slide After | — | Insert … | `new-after` | Add below, + below |
+| Add a slide before this one | New Slide Before | New slide before this one… | Insert … | `new-before` | Add above |
+| Copy this slide in place | Duplicate | Duplicate slide | Duplicate slide | `duplicate` | Copy, Clone |
+| Swap with the slide before | Move Before | Move slide before | Move slide before | `move-before` | Move left, Move up, Move earlier |
+| Swap with the slide after | Move After | Move slide after | Move slide after | `move-after` | Move right, Move down, Move later |
+| Leave out of Present and every export | Hide Slide | Hide slide | Hide slide | `hide` | Skip, Exclude |
+| Put a hidden slide back | Show Slide | Show slide | Show slide | `hide` (toggle) | Unhide, Unskip |
+| Remove the slide | Delete | Delete slide | Delete slide | `delete` | Remove |
+
+**Case.** The slide menu's items are Title Case (the owner's call, 2026-11-06, on the phone screenshot of this menu).
+Everything else keeps the Studio's sentence case: the palette, the "?" shortcut list, Undo's step names, notes and the
+disabled-item reasons ("Already first").
+
+"Before" and "after" always name the slide's neighbor in the deck's order, so "Move before" reads as "move this
+slide before the one ahead of it". The authored form of Hide is the `hide` directive
+(`2026-11-06-hidden-slides.md`).
+
 ## 6. The seam: rendered slides and blocks of text
 
 Fuoco models it: a **unit** is one authored block, its **parts** the slides it renders as
@@ -178,7 +206,7 @@ slide (`SlideAt`, a block and a part). Each cuts only the boundaries it needs: a
 the slide starts and where the next one starts (and, for a move, around the neighbor it passes). Then the block op runs
 on a slide that is now a block of its own. A cut sits where the engine's own split puts the boundary, so a directive or
 an eyebrow above the heading stays with its slide. The strip, the add gallery, the Library and Fabricate inserts, and
-the door's Before all use them; Move earlier and later disable at the deck's first and last rendered slide, and the delete
+the door's Before all use them; Move before and Move after disable at the deck's first and last rendered slide, and the delete
 confirm names the one slide it takes. Pinned by a test that runs every op on every slide of `examples/split-headings.md`
 and of a two-block outline against a list model, read through the engine's own split (`splitSourceToSections`), and by
 a `slide-ops.spec.ts` e2e in the real Studio; both fail without the change. Compose's own add and delete still act on
@@ -202,7 +230,7 @@ history (`Editor.tsx:794`). So:
 **Built (item 6), on Filo.** The first build kept a slide history of its own beside the editor's undo. While this PR
 was in review, #2940 made Filo (`2026-10-27-filo-undo-history.md`) the Studio's one undo history, with a gate against
 any other stack, so the rebase onto it replaced that slide history rather than keeping two:
-- A strip op is a labeled step of Filo's history ("Delete slide", "Move slide later", "Insert “Market size”"), written
+- A strip op is a labeled step of Filo's history ("Delete slide", "Move slide after", "Insert “Market size”"), written
   through the commit path with origin `rail`. ⌘Z from anywhere, the strip included, walks back ops and typing in the
   order they happened, and Filo's reveal lands each undo on the slide it changed.
 - The strip's note keeps its Undo only while the op is the newest step: any later change to the deck takes it away,
@@ -331,7 +359,7 @@ outliner that carries the ids, and fails on the earlier code.)
 | Add gallery title | "New slide", the door's own name, so the two never disagree (#1654); item 15 adds the position |
 | Slide pills and slide map | Menu, drag, gap `+`, block brackets; full view only |
 | Compose slide bar | Keeps "+ below", relabeled "New slide after"; a `⋯` menu with the same actions; its delete goes through the one history |
-| Command palette | New slide before, Duplicate, Move left/right, Delete |
+| Command palette | New slide before, Duplicate, Move slide before/after, Hide slide / Show slide, Delete |
 | Present overview grid | Unchanged |
 
 **What else depends on the names.** The accessible name changes from "Add slide" to "New slide" on purpose, and every
@@ -387,7 +415,7 @@ Each is a file in `followups.d/2927-p<n>-…`.
    scroll on the strip, or its slide stopping being current; never on focus moving, because a pick's editor focus can
    land after the menu opens. The pill strip centers the current pill and its ⋯ as one and holds still while the menu
    is open. An empty deck's strip shows one "+ Add your first slide" tile that opens the gallery. The palette lists New
-   slide before, Duplicate, Move left and right and Delete, each only while it would act; a palette Delete in a
+   slide before, Duplicate, Move before and after and Delete, each only while it would act; a palette Delete in a
    shared Live session opens the menu's confirm. Pinned by `lib/strip-actions/model.test.ts` and
    `e2e/strip-menu.spec.ts` at 1440, 820 and 390, with mouse, touch and keyboard. The module's eager half is only `index.tsx` (the types, the hook and lazy wrappers): the
    menu (`menu.tsx`), every strip listener and the shortcuts (`gestures.ts`), drag (`drag.ts`) and the "?" list load on
@@ -399,7 +427,9 @@ Each is a file in `followups.d/2927-p<n>-…`.
    follows, and the ⋯ sits beside the pill, outside the roving set. `MapRail` always renders its focused tile, outside
    Veduta's window, and ignores a modified arrow. The strip's shortcuts (`stripShortcut` in `lib/strip-actions/model.ts`)
    fire only on focus that arrived by keyboard: `:focus-visible` cannot say so at keydown, since the key press itself
-   flips the browser's heuristic, so the strip remembers whether a pointer press came just before focus arrived. After
+   flips the browser's heuristic, so the strip remembers whether a pointer press came just before focus arrived. A key
+   pressed since that press settles it as keyboard (amended 2026-11-12: a click followed within 300ms by an arrow key
+   used to read as a pointer arrival, and the strip then ignored Mod+D; `strip-actions/gestures.ts`). After
    an action, focus returns to the strip's new current slide unless the action opened something that takes it (the
    gallery, the Live confirm). The shell's one `Announce` region says each result ("Duplicated. The copy is slide 3 of
    5. Undo available.", "Moved to position 4 of 5."), and the strip note is no longer a live region of its own. "?"

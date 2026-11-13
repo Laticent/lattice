@@ -11,7 +11,7 @@
   },
   "function": "anchor",
   "form": "bookend",
-  "chrome": { "pagination": false },
+  "chrome": { "pagination": false, "header": false },
   "coda": { "claims": ["trailing-paragraph"] },
   "substance": "prose",
   "tags": [
@@ -21,7 +21,7 @@
     "kickoff"
   ],
   "description": "Opening slide. Dark canvas, centered, no chrome.",
-  "purpose": "First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token). Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here.",
+  "purpose": "First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a \"Confidential\" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here.",
   "variants": [
     "spectrum"
   ],
@@ -42,7 +42,7 @@
       "description": "Optional plain-paragraph subtitle below the h1. Uncapped — title's subtitle is a single tagline, unlike closing's, which takes `--measure-bookend-lede`."
     }
   },
-  "skeleton": "<!-- _class: title -->\n<!-- _header: '' -->\n<!-- _footer: '' -->\n\n# Deck title goes here\n\n`Category · Date or audience`\n\nOne-line subtitle that frames the deck.\n",
+  "skeleton": "<!-- _class: title -->\n\n# Deck title goes here\n\n`Category · Date or audience`\n\nOne-line subtitle that frames the deck.\n",
   "anatomyBlock": "T1-title-bookend",
   "sample": "<!-- _class: title silent -->\n\n# The title slide opens on the dark canvas.\n\n`anchor · title · the deck's first breath`\n\nOne heading, an eyebrow, one line of context — centered, chrome-free, quickly gone.\n",
   "whenToUse": [
@@ -70,7 +70,7 @@
     },
     {
       "title": "Header or footer overrides",
-      "body": "Don't add back `_header:` or `_footer:` on a title slide. The dark canvas is meant to be uninterrupted; chrome belongs on body slides."
+      "body": "Don't blank the footer with `_footer: ''` on a title slide. The footer is the deck's standing note (a \"Confidential\", a copyright), and a cover is where a reader most expects it. Drop it on purpose with `no-footer`, or every band with `silent`."
     }
   ],
   "related": [
@@ -86,7 +86,7 @@
   "commonMistakes": [
     {
       "mistake": "Eyebrow written as bold or plain text instead of inline code, e.g. `**Category · Date**`.",
-      "fix": "Wrap the eyebrow paragraph in backticks. The eyebrow CSS matches `h1 + p:has(> code:only-child)`; without the code span the paragraph falls through to the general subtitle rule instead — it still renders styled, just as a second subtitle line, not the uppercase mono eyebrow lifted above the h1."
+      "fix": "Wrap the eyebrow paragraph in backticks. The eyebrow CSS matches `h1 + p:has(> code:only-child)`; without the code span the paragraph falls through to the general subtitle rule instead — it still renders styled, just as a second subtitle line, not the eyebrow lifted above the h1."
     },
     {
       "mistake": "The subtitle paragraph is authored before the eyebrow paragraph instead of after it.",

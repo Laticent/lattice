@@ -26,10 +26,11 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const C = require('../../../lib/cli/complete.js');
 const O = require('../../../lib/cli/options.js');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 const FLAG = /'(--?[A-Za-z][\w-]*)'/g;
 /** Flags parseArgs may still name itself: the retired ones it refuses with a pointer. */
-const PARSEARGS_OWN = new Set(['--strip-captions']);
+const PARSEARGS_OWN = new Set(['--strip-captions', '--fonts']);
 
 function between(src, start, end) {
   const from = src.indexOf(start);
@@ -52,6 +53,13 @@ const RENDER = new Set([...O.VALUE_OPTIONS, ...O.SWITCHES, ...O.EARLY_FLAGS].fla
 const PACKAGES = literals(between(read('lib/cli/packages.js'), 'function parse(argv)', 'return { flags, pos };'));
 const VIDEO = new Set([...read('lib/export/video-cli.mjs').matchAll(/a === '(--?[A-Za-z][\w-]*)'/g)].map((m) => m[1]));
 const PACKAGES_PREVS = [['packages'], ...C.PACKAGES_COMMANDS.map(([c]) => ['packages', c])];
+
+describe('drift: PARSEARGS_OWN holds no stale entry', () => {
+  test('names only flags parseArgs still refuses itself, so deleting a guard fails here too', () => {
+    const named = literals(PARSE_ARGS);
+    assert.deepEqual([...PARSEARGS_OWN].filter((f) => !named.has(f)), []);
+  });
+});
 
 describe('drift: Tab offers every option the CLI accepts', () => {
   test('the render command: every row of the options table', () => {
@@ -186,6 +194,14 @@ describe('values', () => {
     const ok = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), 'completion', 'bash'], { encoding: 'utf8' });
     assert.equal(ok.status, 0);
     assert.match(ok.stdout, /complete -F _lattice_complete lattice/);
+    // `lat` is the short bin (package.json). Each shell's script registers it beside `lattice`,
+    // or tab-complete silently does nothing for the command people type most.
+    assert.ok(require('../../../package.json').bin.lat, 'package.json ships the `lat` bin');
+    assert.match(C.script('bash'), /complete -F _lattice_complete lattice lat\n/);
+    assert.match(C.script('zsh'), /^#compdef lattice lat\n/);
+    assert.match(C.script('zsh'), /compdef _lattice lattice lat\n/);
+    assert.match(C.script('fish'), /complete -c lat -f -a/);
+    assert.match(C.script('powershell'), /-CommandName lattice, lat /);
     const bad = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), 'completion', 'cmd'], { encoding: 'utf8' });
     assert.equal(bad.status, 1);
     assert.match(bad.stderr, /pick one of bash, zsh, fish, powershell/);
@@ -301,7 +317,7 @@ for c in "\${COMPREPLY[@]}"; do printf '%s\\n' "$c"; done`;
     });
   }
 
-  test('PowerShell: through TabExpansion2', { skip: !has('pwsh') && 'pwsh is not installed' }, () => {
+  test('PowerShell: through TabExpansion2', { skip: skipUnlessCI(!has('pwsh'), 'pwsh is not installed') }, () => {
     const f = script('powershell');
     const lines = [
       'lattice --pa', 'lattice --palette=indaco', 'lattice --disable-plugin mermaid,m', 'lattice packages un',
@@ -425,7 +441,7 @@ describe('interactive shells, through a pty', () => {
   }
 
   for (const bin of shells('bash', 'COMPLETION_TEST_BASH')) {
-    test(`bash (${bin}), interactive`, { skip: !python && 'python3 is not installed' }, () => {
+    test(`bash (${bin}), interactive`, { skip: skipUnlessCI(!python, 'python3 is not installed') }, () => {
       const setup = [
         'set -o emacs',
         `source ${file('bash')}`,
@@ -437,11 +453,11 @@ describe('interactive shells, through a pty', () => {
       expectLines(drive([bin, '--norc', '--noprofile', '-i'], setup));
     });
   }
-  test('failing arm: with no script loaded, the same Tab leaves the line as typed', { skip: (!has('bash') && 'bash is not installed') || (!python && 'python3 is not installed') }, () => {
+  test('failing arm: with no script loaded, the same Tab leaves the line as typed', { skip: skipUnlessCI(!has('bash') || !python, 'bash or python3 is not installed') }, () => {
     assert.deepEqual(drive(['bash', '--norc', '--noprofile', '-i'], ['complete -r lattice 2>/dev/null; :'], CASES.slice(0, 2), false), ['lattice --pale', 'lattice --palette=cuoio-d']);
   });
   for (const bin of shells('fish', 'COMPLETION_TEST_FISH')) {
-    test(`fish (${bin}), interactive`, { skip: !python && 'python3 is not installed' }, () => {
+    test(`fish (${bin}), interactive`, { skip: skipUnlessCI(!python, 'python3 is not installed') }, () => {
       expectLines(drive([bin, '--no-config', '-i'], [
         'function fish_prompt; printf "READY> "; end',
         `source ${file('fish')}`,
@@ -454,7 +470,8 @@ describe('interactive shells, through a pty', () => {
   // hyphen-insensitive and substring matchers, menu select) and its own compinit. Opt-in, since
   // it needs a checkout: COMPLETION_TEST_OMZ=/path/to/ohmyzsh.
   const omz = process.env.COMPLETION_TEST_OMZ;
-  test('zsh under oh-my-zsh, interactive', { skip: (!omz && 'set COMPLETION_TEST_OMZ to an oh-my-zsh checkout') || (!has('zsh') && 'zsh is not installed') || (!python && 'python3 is not installed') }, () => {
+  // ci-skip: opt-in; no CI job sets COMPLETION_TEST_OMZ (an oh-my-zsh checkout), and the plain zsh test below runs in CI.
+  test('zsh under oh-my-zsh, interactive', { skip: (!omz && 'set COMPLETION_TEST_OMZ to an oh-my-zsh checkout') || skipUnlessCI(!has('zsh'), 'zsh is not installed') || skipUnlessCI(!python, 'python3 is not installed') }, () => {
     const got = drive(['zsh', '-f', '-i'], [
       `export ZSH=${omz} ZSH_THEME= DISABLE_AUTO_UPDATE=true ZSH_COMPDUMP=${path.join(dir, '.zcompdump')}`,
       'plugins=(git)',
@@ -467,7 +484,7 @@ describe('interactive shells, through a pty', () => {
     ]);
     expectLines(got);
   });
-  test('zsh, interactive', { skip: (!has('zsh') && 'zsh is not installed') || (!python && 'python3 is not installed') }, () => {
+  test('zsh, interactive', { skip: skipUnlessCI(!has('zsh') || !python, 'zsh or python3 is not installed') }, () => {
     const got = drive(['zsh', '-f', '-i'], [
       // zsh picks vi keys when $EDITOR or $VISUAL names vi (npm sets EDITOR); the driver uses emacs keys.
       'bindkey -e',

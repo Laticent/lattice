@@ -517,14 +517,36 @@ const DEFAULT_SCOPE_BARRIERS = new Set(['applet', 'caption', 'html', 'table', 't
 const TABLE_PARTS = new Set(['table', 'tbody', 'tfoot', 'thead', 'tr', 'td', 'th', 'caption', 'colgroup']);
 const TABLE_CONTENT = new Set(['caption', 'colgroup', 'col', 'tbody', 'tfoot', 'thead', 'td', 'th', 'tr', 'table', 'style', 'script', 'template', 'form', 'input']);
 
+/**
+ * How many open-element entries the walk's scans have visited, summed over every `walkStack` run.
+ * A test reads it to hold the walk linear by WORK DONE rather than by the clock (HARD RULE #32):
+ * see `stackVisitsFor`.
+ */
+let stackVisits = 0;
+
 function* walkStack(src: string): Generator<StackEvent> {
   const open: OpenElement[] = [];
-  const lastIndex = (name: string): number => { for (let i = open.length - 1; i >= 0; i -= 1) if (open[i].name === name) return i; return -1; };
+  // HOW MANY OF EACH NAME ARE OPEN. Every scan below looks for a name (or one of a few names) on
+  // the stack, and most of them find nothing: `lastIndex('select')` ran for EVERY tag, the
+  // paragraph close ran for every block start, the foreign break-out for every `<b>`, each a walk
+  // of the whole stack. `'<div>\n'` repeated 32k times is a 32k-deep stack, and the walk took 16 s
+  // (followups.d/3051-p9). A scan whose target is not open now does not run, so those inputs walk
+  // in linear time; `stackVisitsFor` holds the bound in the tests.
+  const counts = new Map<string, number>();
+  const isOpen = (name: string): boolean => (counts.get(name) ?? 0) > 0;
+  const anyOpen = (names: Iterable<string>): boolean => { for (const n of names) if (isOpen(n)) return true; return false; };
+  const track = (name: string, d: number): void => { counts.set(name, (counts.get(name) ?? 0) + d); };
+  const lastIndex = (name: string): number => {
+    if (!isOpen(name)) return -1;
+    for (let i = open.length - 1; i >= 0; i -= 1) { stackVisits += 1; if (open[i].name === name) return i; }
+    return -1;
+  };
   const closeEv = (e: OpenElement, end: number): StackEvent => ({ close: true, name: e.name, start: e.start, tagEnd: e.tagEnd, end });
   // Is something between `at` and the current node a scope barrier? Scanning stops at a foreign
   // root: what sits inside an `<svg>` is SVG, and an SVG element named `marquee` hides nothing.
   const outOfScope = (at: number): boolean => {
     for (let i = at + 1; i < open.length; i += 1) {
+      stackVisits += 1;
       if (FOREIGN_ROOTS.has(open[i].name)) return false;
       if (DEFAULT_SCOPE_BARRIERS.has(open[i].name)) return true;
     }
@@ -535,10 +557,12 @@ function* walkStack(src: string): Generator<StackEvent> {
   // with it, the paragraph took the table's end tag away and left the table open.
   const popTo = function* (len: number, end: number, fosterEnd = end): Generator<StackEvent> {
     const gone = open.splice(len);
+    for (const g of gone) track(g.name, -1);
     for (let i = gone.length - 1; i >= 0; i -= 1) if (gone[i].top) yield closeEv(gone[i], gone[i].fostered && i > 0 ? fosterEnd : end);
   };
   const push = function* (name: string, start: number, tagEnd: number, top: boolean, fostered = false): Generator<StackEvent> {
     open.push({ name, start, tagEnd, top, fostered });
+    track(name, 1);
     if (top) yield { open: true, name, start, tagEnd };
   };
   // `<template>` parses into a SEPARATE document fragment: nothing inside it is
@@ -561,12 +585,13 @@ function* walkStack(src: string): Generator<StackEvent> {
     // other tag is dropped.
     let sel = lastIndex('select');
     // A `<select>` inside SVG or MathML (outside an integration point) is a foreign element.
-    for (let i = sel - 1; sel !== -1 && i >= 0; i -= 1) {
+    for (let i = sel - 1; sel !== -1 && anyOpen(FOREIGN_ROOTS) && i >= 0; i -= 1) {
+      stackVisits += 1;
       if (INTEGRATION_POINTS.has(open[i].name)) break;
       if (FOREIGN_ROOTS.has(open[i].name)) { sel = -1; break; }
     }
     if (sel !== -1) {
-      const inTable = open.slice(0, sel).some((e) => e.name === 'table');
+      const inTable = isOpen('table') && open.slice(0, sel).some((e) => e.name === 'table');
       if (t.isClose) {
         if (t.name === 'select') { yield* popTo(sel, t.end, t.start); continue; }
         // "In select in table": a table part's END tag closes the select too, and is then read
@@ -596,7 +621,8 @@ function* walkStack(src: string): Generator<StackEvent> {
       if (t.name === 'p') {
         // `</p>` closes the paragraph in BUTTON scope; with none there it makes an empty one.
         let at = -1;
-        for (let i = open.length - 1; i >= 0; i -= 1) {
+        for (let i = open.length - 1; isOpen('p') && i >= 0; i -= 1) {
+          stackVisits += 1;
           if (open[i].name === 'p') { at = i; break; }
           if (BUTTON_SCOPE_BARRIERS.has(open[i].name)) break;
         }
@@ -616,7 +642,7 @@ function* walkStack(src: string): Generator<StackEvent> {
       // 2026-10-06). Table parts keep their own scope rules, which the walk does not model.
       if (SPECIAL_TAGS.has(t.name) && !TABLE_PARTS.has(t.name) && !FOREIGN_ROOTS.has(t.name) && outOfScope(at)) continue;
       // `</li>` looks in LIST ITEM scope: a list opened inside the item hides it too.
-      if (t.name === 'li' && open.slice(at + 1).some((e) => e.name === 'ul' || e.name === 'ol')) continue;
+      if (t.name === 'li' && (isOpen('ul') || isOpen('ol')) && open.slice(at + 1).some((e) => e.name === 'ul' || e.name === 'ol')) continue;
       // Which branch of the spec handles this end tag decides everything, and
       // getting it backwards flips the error rather than fixing it — the error
       // count roughly doubled, and in the opposite direction. A SPECIAL element's
@@ -639,7 +665,7 @@ function* walkStack(src: string): Generator<StackEvent> {
       // The adoption agency acts only on a formatting element IN SCOPE: a table, a cell, a
       // `<select>`… open above it hides it, and the end tag is ignored (`<b><table></b>` leaves
       // everything after it in the table). Adopting anyway lifted a heading out of a table.
-      if (open.slice(at + 1).some((e) => AAA_SCOPE_BARRIERS.has(e.name))) continue;
+      if (anyOpen(AAA_SCOPE_BARRIERS) && open.slice(at + 1).some((e) => AAA_SCOPE_BARRIERS.has(e.name))) continue;
       // `svg` and `math` are not "special" to the adoption agency (only their integration points
       // are), so the furthest block is the nearest special element above the formatting element
       // that is not one of them. With none, the end tag simply closes the formatting element and
@@ -657,7 +683,7 @@ function* walkStack(src: string): Generator<StackEvent> {
       // The adoption agency: the formatting element closes where the block begins, and the
       // block (with everything above it) moves to the formatting element's place.
       const fe = open[at], fb = open[block];
-      open.splice(at, block - at);
+      for (const g of open.splice(at, block - at)) track(g.name, -1);
       if (fe.top) {
         yield closeEv(fe, fb.start);
         fb.top = true;
@@ -670,8 +696,9 @@ function* walkStack(src: string): Generator<StackEvent> {
     // "in foreign content" start-tag rule). Not inside an integration point (`foreignObject`,
     // `desc`, `title`, MathML's text elements), where HTML is at home. Keeping it nested made
     // the split kernel miss a top-level verdict the DOM arm reads (the checker, 2026-10-05).
-    if (FOREIGN_BREAKOUT.has(t.name)) {
+    if (FOREIGN_BREAKOUT.has(t.name) && anyOpen(FOREIGN_ROOTS)) {
       for (let i = open.length - 1; i >= 0; i -= 1) {
+        stackVisits += 1;
         if (INTEGRATION_POINTS.has(open[i].name)) break;
         if (open[i].name === 'svg' || open[i].name === 'math') { yield* popTo(i, t.start); break; }
       }
@@ -683,7 +710,8 @@ function* walkStack(src: string): Generator<StackEvent> {
     // stack back to a table context"): `<table><p>C.<tr>` ends the paragraph at the row.
     if (TABLE_ONLY_TAGS.has(t.name)) {
       const ti = lastIndex('table');
-      const f = open.findIndex((e, i) => i > ti && e.fostered);
+      let f = -1;
+      for (let i = ti + 1; i < open.length; i += 1) { stackVisits += 1; if (open[i].fostered) { f = i; break; } }
       if (f !== -1) yield* popTo(f, t.start);
     }
     // `<div/>` does NOT close itself. XML self-closing syntax is honored only in
@@ -699,9 +727,10 @@ function* walkStack(src: string): Generator<StackEvent> {
     }
     // A sibling start tag closes the element it follows.
     const siblings = CLOSED_BY_SIBLING.get(t.name);
-    if (siblings) {
+    if (siblings && anyOpen(siblings)) {
       let at = -1;
       for (let i = open.length - 1; i >= 0; i -= 1) {
+        stackVisits += 1;
         if (siblings.includes(open[i].name)) { at = i; break; }
         if (SPECIAL_TAGS.has(open[i].name) && !siblings.includes(open[i].name)) break;
       }
@@ -714,8 +743,9 @@ function* walkStack(src: string): Generator<StackEvent> {
     }
     // A block element's start tag closes an open paragraph — searching down to
     // the nearest scope barrier, not just testing the current node.
-    if (P_CLOSING_TAGS.has(t.name)) {
+    if (P_CLOSING_TAGS.has(t.name) && isOpen('p')) {
       for (let i = open.length - 1; i >= 0; i -= 1) {
+        stackVisits += 1;
         if (open[i].name === 'p') { yield* popTo(i, t.start); break; }
         if (BUTTON_SCOPE_BARRIERS.has(open[i].name)) break;
       }
@@ -723,6 +753,17 @@ function* walkStack(src: string): Generator<StackEvent> {
     yield* push(t.name, t.start, t.end, open.length === 0);
   }
   yield* popTo(0, src.length);
+}
+
+/**
+ * The stack entries one full walk of `src` visits. For tests only: the walk is linear when this
+ * grows linearly with the input (tags-linear.test.ts).
+ */
+function stackVisitsFor(src: string): number {
+  const before = stackVisits;
+  const walk = walkStack(src);
+  while (!walk.next().done) { /* drain */ }
+  return stackVisits - before;
 }
 
 /**
@@ -759,6 +800,55 @@ function maskInert(html: unknown): string {
     out += src.slice(at, t.start) + ' '.repeat(t.end - t.start);
     at = t.end;
   }
+  return out + src.slice(at);
+}
+
+/**
+ * The attribute a plugin's root carries (lib/packages/code-door-fence.mjs `PLUGIN_ROOT_ATTR`). Matched as a WHOLE
+ * attribute name: `data-lattice-plugin-off` (the door's own placeholder) and `data-lattice-plugin-data` are not it.
+ */
+const PLUGIN_ROOT_RE = /[\s"'/]data-lattice-plugin(?=[\s=/>]|$)/i;
+
+/**
+ * Blank every PLUGIN subtree — an element carrying `data-lattice-plugin`, with everything inside it — preserving
+ * length, so offsets into the result still index the original string.
+ *
+ * THE RULE IT SERVES (spec/LPM.md §10, engineering/decisions/2026-10-16-media-plugins.md §4.5): an address the
+ * viewer loads or scans comes only from the author's own block, never from slide text and never from inside a
+ * plugin's output. A built-in pass that reads a slide's HTML for a link, a field or a picture reads it through this
+ * mask, so a plugin that writes `https://attacker.example/?d=…` onto the slide is never mistaken for the author.
+ *
+ * FAILS CLOSED: a plugin root with no matching close blanks to the end of the string, because the browser would
+ * nest everything after it inside the root. Tags are read through `scanTags`, so a `>` in a quoted value or a tag
+ * inside a comment cannot end or open one early.
+ */
+function maskPluginSubtrees(html: unknown): string {
+  const src = String(html ?? '');
+  if (!/data-lattice-plugin/i.test(src)) return src;
+  let out = '';
+  let at = 0;
+  let root: { name: string; start: number; depth: number } | null = null;
+  for (const t of scanTags(src)) {
+    if (t.kind !== 'tag') continue;
+    if (!root) {
+      if (t.isClose || !PLUGIN_ROOT_RE.test(src.slice(t.start, t.end))) continue;
+      if (t.selfClose || VOID_TAGS.has(t.name)) {
+        out += src.slice(at, t.start) + ' '.repeat(t.end - t.start);
+        at = t.end;
+        continue;
+      }
+      root = { name: t.name, start: t.start, depth: 1 };
+      continue;
+    }
+    if (t.name !== root.name || t.selfClose) continue;
+    root.depth += t.isClose ? -1 : 1;
+    if (root.depth === 0) {
+      out += src.slice(at, root.start) + ' '.repeat(t.end - root.start);
+      at = t.end;
+      root = null;
+    }
+  }
+  if (root) return out + src.slice(at, root.start) + ' '.repeat(src.length - root.start);
   return out + src.slice(at);
 }
 
@@ -859,8 +949,10 @@ export {
   findTopLevelTag,
   hasTopLevelTag,
   maskInert,
+  maskPluginSubtrees,
   readTopLevelH2Text,
   scanTags,
+  stackVisitsFor,
   stripScannedTags,
   topLevelElements,
 };

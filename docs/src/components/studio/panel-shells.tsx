@@ -1,4 +1,4 @@
-import { ArrowUp, Cloud, Cpu, FileBox, Paperclip, RotateCcw, Sparkles, Unlock, Upload, Wallet } from 'lucide-react';
+import { ArrowUp, Cloud, FileBox, KeyRound, Paperclip, RotateCcw, Sparkles, Unlock, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PanelBody, PanelDock, PanelHeader, PanelSearch, PanelSection, PanelSheet, SETTING_SCOPE } from '@/components/ui/panel';
@@ -7,6 +7,7 @@ import { SettingsTierSwitch } from '@/components/ui/settings-view';
 import { Textarea } from '@/components/ui/textarea';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import { hydrateChat } from './chat-store';
 import { SHARE_HEADER, SHARE_MENU, ShareRow } from './share-menu';
 import { loadChat } from './studio-store';
 
@@ -49,7 +50,7 @@ function Inert({ children, className = 'contents' }: { children: React.ReactNode
 export function ShareShell({ open, onOpenChange, deckTitle, children }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; children?: React.ReactNode }) {
 	return (
 		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md">
-			<PanelHeader icon={SHARE_HEADER.icon} title={SHARE_HEADER.title(deckTitle)} srDescription={SHARE_HEADER.srDescription} />
+			<PanelHeader icon={SHARE_HEADER.icon} title={SHARE_HEADER.title(deckTitle)} />
 			<PanelBody padded={false} className="space-y-6 p-5">
 				{children ?? (
 					<>
@@ -80,8 +81,6 @@ export const WORKSPACE_DEFAULT_TAB: WorkspaceTab = 'AI';
 export const WORKSPACE_HEADER = {
 	icon: <Cloud />,
 	title: 'Workspace',
-	srDescription:
-		'Your workspace setup — preferences and app install under General; the AI model, spend, and standing instructions under AI; where decks live, backup, storage, and deletion under Data.',
 } as const;
 
 /** A Workspace group heading, shared with `WorkspaceSheet.tsx`. */
@@ -92,6 +91,31 @@ export function WorkspaceGroupLabel({ icon, children }: { icon: React.ReactNode;
 			{children}
 		</h3>
 	);
+}
+
+/** What each selection feeds (2026-11-08-studio-ai-routes-ux.md), shown under its card. One copy,
+ *  shared by the loading frame and the real tab so the sheet does not move when it loads. */
+export const AI_USED_BY = {
+	chat: 'Chat, Refine, Theme, Finish, Drawing, Component, Coach fixes, slide alt text',
+	image: 'Library photo descriptions',
+	voice: 'Present, Read aloud, Narrated export',
+} as const;
+export const AI_MODELS_LEAD = 'What the Studio runs on. Change one, and every feature that uses it follows.';
+export const AI_CONNECTIONS_LEAD = 'Where the Studio can reach models. Connecting adds models; it changes what is in use only when nothing was set.';
+
+/** A section's one-line lead, under its heading. */
+export function WorkspaceLead({ children }: { children: React.ReactNode }) {
+	return <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">{children}</p>;
+}
+
+/** A selection's name above its card (Chat model, Image reader, Voice model). */
+export function WorkspaceSelectionLabel({ first, children }: { first?: boolean; children: React.ReactNode }) {
+	return <div className={`mb-1.5 text-[12px] font-semibold text-[var(--text-heading)] ${first ? '' : 'mt-4'}`}>{children}</div>;
+}
+
+/** The line under a selection card naming every feature that runs on it. */
+export function WorkspaceUsedBy({ children }: { children: React.ReactNode }) {
+	return <p className="mt-1.5 px-1 text-[11px] leading-snug text-muted-foreground">Used by {children}</p>;
 }
 
 /**
@@ -106,37 +130,31 @@ export function WorkspaceAiSection({ children }: { children: React.ReactNode }) 
 export function WorkspaceShell({ open, onOpenChange, children }: { open: boolean; onOpenChange: (v: boolean) => void; children?: React.ReactNode }) {
 	return (
 		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md">
-			<PanelHeader icon={WORKSPACE_HEADER.icon} title={WORKSPACE_HEADER.title} srDescription={WORKSPACE_HEADER.srDescription} />
+			<PanelHeader icon={WORKSPACE_HEADER.icon} title={WORKSPACE_HEADER.title} />
 			<PanelBody padded={false} className="p-5">
 				<Inert>
 					<PillTabs className="mb-4" ariaLabel="Workspace settings" value={WORKSPACE_DEFAULT_TAB} onValueChange={() => {}} tabs={WORKSPACE_TABS.map((t) => ({ value: t, label: t }))} />
 				</Inert>
 				{children ?? (
 					<>
-						{/* The AI tab, where the sheet opens. The headings and the tier switch's labels are
-						    fixed; which tier is active and what the account shows are not, so those are blocks. */}
+						{/* The AI tab, where the sheet opens, in the real tab's SHAPE: each section's heading and
+						    a card of the real card's fixed height (AiModelSections.tsx SelectionCard, 68px), so
+						    the sheet does not move when the real content arrives. */}
 						<Inert className="block">
-							<WorkspaceGroupLabel icon={<Sparkles />}>Model</WorkspaceGroupLabel>
-							<div className="flex gap-1 rounded-lg border border-border p-0.5">
-								{(
-									[
-										['Cloud', <Cloud key="c" className="size-3.5" />],
-										['On-device', <Cpu key="d" className="size-3.5" />],
-									] as const
-								).map(([label, icon]) => (
-									<span key={label} className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12.5px] font-semibold text-muted-foreground">
-										{icon}
-										{label}
-									</span>
-								))}
-							</div>
-							<Block className="mt-1.5 mb-3" w="72%" h={14} />
-							<Block className="rounded-xl" h={42} />
-							<Block className="mt-2" w="96%" />
-							<Block className="mt-1.5" w="90%" />
-							<Block className="mt-1.5" w="50%" />
+							<WorkspaceGroupLabel icon={<Sparkles />}>Models in use</WorkspaceGroupLabel>
+							<WorkspaceLead>{AI_MODELS_LEAD}</WorkspaceLead>
+							<WorkspaceSelectionLabel first>Chat model</WorkspaceSelectionLabel>
+							<Block className="rounded-xl" h={68} />
+							<WorkspaceUsedBy>{AI_USED_BY.chat}</WorkspaceUsedBy>
+							<WorkspaceSelectionLabel>Image reader</WorkspaceSelectionLabel>
+							<Block className="rounded-xl" h={68} />
+							<WorkspaceUsedBy>{AI_USED_BY.image}</WorkspaceUsedBy>
+							<WorkspaceSelectionLabel>Voice model</WorkspaceSelectionLabel>
+							<Block className="rounded-xl" h={68} />
+							<WorkspaceUsedBy>{AI_USED_BY.voice}</WorkspaceUsedBy>
 							<WorkspaceAiSection>
-								<WorkspaceGroupLabel icon={<Wallet />}>Spend</WorkspaceGroupLabel>
+								<WorkspaceGroupLabel icon={<KeyRound />}>Connections</WorkspaceGroupLabel>
+								<WorkspaceLead>{AI_CONNECTIONS_LEAD}</WorkspaceLead>
 								<Block className="rounded-xl" h={122} />
 							</WorkspaceAiSection>
 						</Inert>
@@ -189,7 +207,6 @@ export const sectionFilter = (s: LibrarySection): LibraryFilter => (s === 'files
 export const LIBRARY_HEADER = {
 	icon: <FileBox />,
 	title: 'Library',
-	srDescription: 'Saved themes, components, finishes, images, videos, files and plugins — search, filter, apply, or drop a file in.',
 	searchPlaceholder: 'Search themes, components, finishes, images, videos, files & plugins…',
 } as const;
 
@@ -206,7 +223,6 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 			<PanelHeader
 				icon={LIBRARY_HEADER.icon}
 				title={LIBRARY_HEADER.title}
-				srDescription={LIBRARY_HEADER.srDescription}
 				actions={
 					<Inert>
 						{phone ? null : search}
@@ -298,7 +314,18 @@ export function ChatEmptyCard({ aiReady, mode = 'review' }: { aiReady: boolean; 
 
 export function ChatShell({ title, aiReady, deckId, children }: { title?: string; aiReady: boolean; deckId: string; children?: React.ReactNode }) {
 	// The saved thread decides what the panel opens on: the first-run card, or the conversation.
-	const hasThread = React.useMemo(() => loadChat(deckId).length > 0, [deckId]);
+	// Start reading the deck's chat (chat-store.ts) while the panel's code loads, and re-check once it has.
+	const [hasThread, setHasThread] = React.useState(() => loadChat(deckId).length > 0);
+	React.useEffect(() => {
+		let live = true;
+		setHasThread(loadChat(deckId).length > 0);
+		void hydrateChat(deckId).then(() => {
+			if (live) setHasThread(loadChat(deckId).length > 0);
+		});
+		return () => {
+			live = false;
+		};
+	}, [deckId]);
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			{title && <div className="flex items-center justify-between gap-2 border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{title}</div>}

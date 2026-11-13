@@ -22,6 +22,8 @@ const failedIds = new Set<string>();
 let current: Record<string, string> = {};
 // name → description, for the photos that have one. The engine fills an EMPTY alt from it (`opts.assetAlts`).
 let currentAlts: Record<string, string> = {};
+// name → the photo's pixel size, read when it was added, so a figure's box is known before its bytes (media note §4.11).
+let currentSizes: Record<string, { w: number; h: number }> = {};
 // What the editor offers when you type an image reference: the visible photos, newest first.
 let choices: AssetChoice[] = [];
 let activeDeckId: string | null = null;
@@ -55,6 +57,7 @@ export async function refreshAssetUrls(): Promise<void> {
 	}
 	const next: Record<string, string> = {};
 	const nextAlts: Record<string, string> = {};
+	const nextSizes: Record<string, { w: number; h: number }> = {};
 	blobByName.clear();
 	// Photos only: a deck cannot show a video through `![](asset:x)` yet, so a video name resolves to the
 	// missing-image stand-in rather than a broken <img> (and is not offered by editor completion).
@@ -66,12 +69,14 @@ export async function refreshAssetUrls(): Promise<void> {
 			next[n] = urlFor(m);
 			blobByName.set(n, { id: m.id, blob: m.blob, mime: m.mime, alt: m.caption || undefined });
 			if (m.caption) nextAlts[n] = m.caption;
+			if (m.width && m.height) nextSizes[n] = { w: m.width, h: m.height };
 		}
 	}
 	// A description edit changes what a slide says, so it re-renders the slides like a changed photo does.
 	if (signature(next) !== signature(current) || signature(nextAlts) !== signature(currentAlts)) {
 		current = next;
 		currentAlts = nextAlts;
+		currentSizes = nextSizes;
 		rev++;
 		for (const cb of listeners) cb();
 	}
@@ -98,6 +103,20 @@ export async function ensureAssetAlts(): Promise<Record<string, string>> {
 	if (!loaded) loaded = refreshAssetUrls().catch(() => {});
 	await loaded;
 	return currentAlts;
+}
+
+/** The engine's `imageSize(url, ref)` for `asset:<name>` photos: keyed by the NAME the author wrote, so the preview's `blob:`
+ *  URL and an export's `data:` URI get the same answer. Null for any other reference. */
+export async function ensureAssetImageSize(): Promise<(url: string, ref?: string) => { w: number; h: number } | null> {
+	if (!loaded) loaded = refreshAssetUrls().catch(() => {});
+	await loaded;
+	const sizes = currentSizes;
+	return (_url, ref) => {
+		const raw = String(ref ?? '').trim();
+		if (!raw.startsWith('asset:')) return null;
+		const name = raw.slice(6);
+		return Object.hasOwn(sizes, name) ? sizes[name] : null;
+	};
 }
 
 /** A CSS-comment stamp that changes when the map does. It rides in the preview's extra CSS,
@@ -129,14 +148,28 @@ export function sourceUsesAssets(source: string): boolean {
 	return /\basset:[a-z0-9]/i.test(source);
 }
 
-/** A Blob as a `data:` URI. Reads the bytes and encodes in chunks, so it runs the same in a
- *  browser and in Node, and a multi-megabyte photo does not blow the argument limit of `btoa`. */
-async function blobToDataUri(blob: Blob, mime: string): Promise<string> {
+/** A Blob as a `data:` URI, with the record's own type in the header. The browser's `FileReader` does the
+ *  base64 natively, off this thread: the chunked `String.fromCharCode` + `btoa` it replaces held the main thread
+ *  ~50 ms per phone photo, 0.9 s for 18 of them on every first export or Present (profiled). Without a
+ *  `FileReader` (Node, a test) the chunked encoder runs instead; both are RFC 4648 base64 of the same bytes,
+ *  so the URI is the same string either way (media-urls.test.ts). */
+export async function blobToDataUri(blob: Blob, mime: string): Promise<string> {
+	// The record's own type, not the Blob's: a Blob that lost its type would otherwise ship as a mystery download.
+	const head = `data:${mime || blob.type || 'application/octet-stream'};base64,`;
+	if (typeof FileReader === 'function') {
+		const read = await new Promise<string>((resolve, reject) => {
+			const r = new FileReader();
+			r.onload = () => resolve(String(r.result));
+			r.onerror = () => reject(r.error ?? new Error('FileReader failed'));
+			r.readAsDataURL(blob);
+		});
+		// `readAsDataURL` writes the BLOB's type (or none) into its header; only the base64 after the comma is kept.
+		return head + read.slice(read.indexOf(',') + 1);
+	}
 	const bytes = new Uint8Array(await blob.arrayBuffer());
 	let bin = '';
 	for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-	// The record's own type, not the Blob's: a Blob that lost its type would otherwise ship as a mystery download.
-	return `data:${mime || blob.type || 'application/octet-stream'};base64,${btoa(bin)}`;
+	return head + btoa(bin);
 }
 
 /** The names a source writes as `asset:<name>`, lowercased and de-duplicated. The kernel
@@ -153,7 +186,9 @@ export function assetNamesIn(source: string): string[] {
 /**
  * The name → `data:` URI map an EXPORT renders with, for the photos `source` names and the open deck
  * may see. A `blob:` URL cannot be used here: it dies with the tab, so a saved file would ship a dead
- * link, and a capture frame (the PDF, PNG and PowerPoint cameras) is not allowed to fetch one. Only
+ * link. (A capture frame on its own can draw one: the camera reads a `blob:` picture's bytes itself,
+ * lib/core/slide-camera.mjs `toDataUri`, which is how the Architect's fit check and `render_slide` draw
+ * with the live map, share-export.ts `DeckPhotos`.) Only
  * the photos the deck names are read, and each is encoded once per session. A name the shelf does
  * not hold is left out, so the engine draws the missing-image stand-in for it.
  */
@@ -215,6 +250,7 @@ export function resetAssetUrlsForTests(): void {
 	failedIds.clear();
 	current = {};
 	currentAlts = {};
+	currentSizes = {};
 	choices = [];
 	activeDeckId = null;
 	rev = 0;

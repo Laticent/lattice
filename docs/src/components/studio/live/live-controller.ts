@@ -20,6 +20,7 @@ import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveClip, type Liv
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveFinish, type LiveHost, type LiveLook, type LiveRecords, type LiveTheme, NO_RECORDS, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
 import { WakeKeeper } from './live-wake';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
+import { rebase } from './text-rebase';
 
 // The Studio's side of a live session, loaded only when a session starts or a link is opened
 // (use-live-session.ts holds the tiny always-loaded half). It turns a Tavola session plus a Yjs
@@ -167,7 +168,7 @@ type Post =
 	| { k: 'typing' }
 	| { k: 'bye' }
 	/** host → all: presenting to everyone (`on`) and where (rendered slide `i`, page `p`, lens `l`), or stopped */
-	| { k: 'present'; on: boolean; i?: number; p?: number; l?: string; h?: string }
+	| { k: 'present'; on: boolean; i?: number; p?: number; l?: string; h?: string; s?: number }
 	/** Narration clips (§7.3). Member → host: the clip of the sentence whose text hashes to `h`. Host → that
 	 *  member: the clip (`d` base64 of compressed audio, `m` its type, `l` its lead-in) or, with no `d`, "not yet". */
 	| { k: 'cw'; h: string }
@@ -367,13 +368,13 @@ const PRESENT_START_WAIT_MS = 600;
 /** A host stepping fast sends its position at most this often (the last one always goes). */
 const PRESENT_EVERY_MS = 100;
 /** A transport as a host sent it, or null. */
-const cleanTransport = (p: { i?: unknown; p?: unknown; l?: unknown; h?: unknown; v?: unknown }): LiveTransport | null => {
+const cleanTransport = (p: { i?: unknown; p?: unknown; l?: unknown; h?: unknown; v?: unknown; s?: unknown }): LiveTransport | null => {
 	const ok = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 10_000;
 	if (!ok(p.i) || !ok(p.p) || typeof p.l !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(p.l)) return null;
-	return { idx: p.i, page: p.p, lens: p.l, ...(typeof p.h === 'string' && /^[0-9a-f]{1,8}$/.test(p.h) ? { hash: p.h } : {}), ...(p.v === 1 ? { voice: true } : {}) };
+	return { idx: p.i, page: p.p, lens: p.l, ...(typeof p.h === 'string' && /^[0-9a-f]{1,8}$/.test(p.h) ? { hash: p.h } : {}), ...(p.v === 1 ? { voice: true } : {}), ...(ok(p.s) ? { step: p.s } : {}) };
 };
 /** A transport as a `present` post carries it. */
-const transportPost = (t: LiveTransport) => ({ i: t.idx, p: t.page, l: t.lens, ...(t.hash ? { h: t.hash } : {}), ...(t.voice ? { v: 1 } : {}) });
+const transportPost = (t: LiveTransport) => ({ i: t.idx, p: t.page, l: t.lens, ...(t.hash ? { h: t.hash } : {}), ...(t.voice ? { v: 1 } : {}), ...(t.step !== undefined ? { s: t.step } : {}) });
 /** Narration clips a member holds for one presentation, and the most one clip may carry. A clip is mp3 at
  *  64 kbps, about 8 KB a second of speech, so these are a few minutes of talk and several times a
  *  sentence's real size. The size a clip may be for its text is `clipLimit`. */
@@ -462,43 +463,10 @@ type Runtime = {
 	release: (() => void) | null;
 };
 
-/**
- * The edit that turns `base` into `next`, located in `cur` (which may have moved on since `base`).
- * The changed span is found by the unchanged text on either side of it. When that text is gone the
- * edit is refused (null) rather than guessed: a guessed delete removes text the writer never saw, a
- * guessed replace doubles it, and a guessed insert lands mid-sentence in a co-author's line
- * (red-team round 2, finding 4).
- */
-export function rebase(base: string, next: string, cur: string): { from: number; to: number; insert: string } | null {
-	let p = 0;
-	const min = Math.min(base.length, next.length);
-	while (p < min && base.charCodeAt(p) === next.charCodeAt(p)) p++;
-	let s = 0;
-	while (s < min - p && base.charCodeAt(base.length - 1 - s) === next.charCodeAt(next.length - 1 - s)) s++;
-	const insert = next.slice(p, next.length - s);
-	const removed = base.slice(p, base.length - s);
-	if (cur === base) return { from: p, to: base.length - s, insert };
-	const ANCHOR = 24;
-	const before = base.slice(Math.max(0, p - ANCHOR), p);
-	const after = base.slice(base.length - s, base.length - s + ANCHOR);
-	const needle = before + removed + after;
-	if (needle.length === 0) return null;
-	let at = -1;
-	let best = Number.POSITIVE_INFINITY;
-	for (let i = cur.indexOf(needle); i !== -1; i = cur.indexOf(needle, i + 1)) {
-		const d = Math.abs(i - (p - before.length));
-		if (d < best) {
-			best = d;
-			at = i;
-		}
-	}
-	if (at === -1) return null;
-	const from = at + before.length;
-	return { from, to: from + removed.length, insert };
-}
-
 /** A y-codemirror caret position, kept only in the shape y-codemirror can read: one bad field there
  *  throws inside CodeMirror and turns off everyone's remote carets (red-team round 2, finding 5). */
+export { rebase };
+
 export function cleanRelPos(x: unknown): Record<string, unknown> | null {
 	if (!x || typeof x !== 'object') return null;
 	const p = x as Record<string, unknown>;
@@ -589,6 +557,22 @@ export class LiveController {
 	private prevSource: string;
 	private boundDeck: string | null = null;
 	private ticker: ReturnType<typeof setInterval> | null = null;
+	/** How many sends the host has deferred on purpose and not yet run: a newcomer's welcome a beat after admission, a
+	 *  `since` answer held to the end of its rate window. */
+	private deferred = 0;
+	/** Run `send` after `ms`, as setTimeout does, counted among the deferred sends until it has run. */
+	private later(send: () => void, ms: number): void {
+		this.deferred++;
+		setTimeout(() => {
+			this.deferred--;
+			send();
+		}, ms);
+	}
+	/** Whether a deferred send is still pending. Tests read it, so a poll made while the host waits on purpose is not
+	 *  counted as the code failing to deliver. */
+	hasDeferred(): boolean {
+		return this.deferred > 0;
+	}
 	/** Members whose link dropped and who have not come back, by name (a rejoin by token keeps it). */
 	private away = new Map<string, { name: string; color: LiveColor; role: SessionState['members'][number]['role']; timer: ReturnType<typeof setTimeout> }>();
 	/** Peers that said goodbye (Leave), so their departure is news at once. */
@@ -1133,7 +1117,7 @@ export class LiveController {
 							const to = m.id;
 							this.floorFrom.delete(to);
 							this.sinceAt.delete(to);
-							setTimeout(() => {
+							this.later(() => {
 								if (this.rt !== r) return;
 								// The records first: a look naming a shared theme is taken only once its record is here.
 								this.sendRecords(to);
@@ -2685,7 +2669,7 @@ export class LiveController {
 				if (wait > 0) {
 					if (!this.sinceLater.has(from)) {
 						this.sinceLater.add(from);
-						setTimeout(() => {
+						this.later(() => {
 							this.sinceLater.delete(from);
 							if (this.rt !== r || !r.session.getState().members.some((m) => m.id === from)) return;
 							this.sinceAt.set(from, Date.now());
@@ -2936,7 +2920,7 @@ export class LiveController {
 		presentTransport: (t: LiveTransport) => {
 			const clean = cleanTransport(transportPost(t));
 			if (!clean) return;
-			const same = clean.idx === this.transport.idx && clean.page === this.transport.page && clean.lens === this.transport.lens && clean.hash === this.transport.hash && clean.voice === this.transport.voice;
+			const same = clean.idx === this.transport.idx && clean.page === this.transport.page && clean.lens === this.transport.lens && clean.hash === this.transport.hash && clean.voice === this.transport.voice && clean.step === this.transport.step;
 			this.transport = clean;
 			if (!this.presentingToAll || !this.rt?.session.getState().isHost) return;
 			if (this.presentStartDue) this.sendPresentStart();

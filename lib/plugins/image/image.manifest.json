@@ -1,0 +1,108 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "image",
+  "api": 1,
+  "title": "Images",
+  "description": "A picture written as a record on a line of its own: `@image{sample:photo-wide.jpg, title=\"Q3 offsite\", frame=mat, nimbus}`, with Markdown's `![title](src \"description\")` as its alias. The record describes the picture (its title and description, a focus, a size, a frame, a finish and a tone, on the shared display layer); the slide places it: an `image` slide makes it the photo panel, a `bleed` slide its background, any other slide a figure in its flow. The address comes from the author's own record and nothing else, and Marp's alt-text keywords (`![bg left](x)`) are retired: `lint:deck --fix` rewrites them.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {
+        "ink": "line",
+        "d": "M28 24H100A12 12 0 0 1 112 36V92A12 12 0 0 1 100 104H28A12 12 0 0 1 16 92V36A12 12 0 0 1 28 24Z",
+        "width": 7
+      },
+      {
+        "ink": "line",
+        "d": "M18 90L48 60L70 82L84 70L110 94",
+        "width": 7
+      },
+      {
+        "ink": "accent",
+        "d": "M78 46A10 10 0 1 0 98 46A10 10 0 1 0 78 46Z",
+        "width": 7
+      }
+    ]
+  },
+  "contributes": {
+    "inline": {
+      "image": {
+        "named": true,
+        "address": true
+      }
+    },
+    "services": [
+      "marpMarkdown"
+    ],
+    "registers": {
+      "image": {
+        "axes": {
+          "size": [
+            "md",
+            "sm",
+            "lg"
+          ],
+          "frame": [
+            "unframed",
+            "mat",
+            "keyline",
+            "float",
+            "device",
+            "corners"
+          ],
+          "finish": [
+            "unfinished",
+            "nimbus",
+            "nimbus-20",
+            "nimbus-40",
+            "nimbus-60",
+            "nimbus-80",
+            "nimbus-full",
+            "halo",
+            "halo-20",
+            "halo-40",
+            "halo-60",
+            "halo-80",
+            "halo-full",
+            "meridian",
+            "meridian-20",
+            "meridian-40",
+            "meridian-60",
+            "meridian-80",
+            "meridian-full"
+          ],
+          "tone": [
+            "natural",
+            "duotone",
+            "duotone-20",
+            "duotone-40",
+            "duotone-60",
+            "duotone-80",
+            "duotone-full",
+            "grayscale",
+            "grayscale-20",
+            "grayscale-40",
+            "grayscale-60",
+            "grayscale-80",
+            "grayscale-full"
+          ]
+        }
+      }
+    },
+    "lint": [
+      "image-not-alone",
+      "image-extra-panel",
+      "image-web-source"
+    ],
+    "styles": true
+  },
+  "tokens": [
+    "--z-canvas"
+  ],
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "source"
+  }
+}

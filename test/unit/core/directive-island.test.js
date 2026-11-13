@@ -15,6 +15,7 @@ const { bodyModel } = require('../../../lib/core/deck-model.mjs');
 const { boundaryParser: md } = require('../../../lib/core/boundary-parser.mjs');
 const { readDirectiveComment } = require('../../../lib/core/comment-directive.mjs');
 const { DIRECTIVE_VOCAB } = require('../../../lib/core/meta-keys.mjs');
+const { scanWork } = require('../../helpers/work-count');
 
 const show = (d) => `${d.spot ? '_' : ''}${d.key}=${d.value}`;
 
@@ -66,7 +67,7 @@ describe('the grammar reads the engine\'s text, the finding quotes the author\'s
   const src = '> <!--\n> _class: kpi\n> -->\n';
   const [island] = directiveIslands(bodyModel(src));
   test('a quoted multi-line comment is a directive, as markdown-it\'s token content makes it', () => {
-    assert.deepEqual(readIsland(island).dir, { spot: true, key: 'class', value: 'kpi' });
+    assert.deepEqual(readIsland(island).dirs, [{ spot: true, key: 'class', value: 'kpi' }]);
     assert.deepEqual(scanned(src), engine(src));
   });
   test('the failing arm: the raw text, prefixes and all, is not one (the walk this replaced read it)', () => {
@@ -155,10 +156,12 @@ describe('the red team\'s shapes', () => {
 });
 
 test('hostile input: many unclosed openers, each ended by its list item, stay linear', () => {
+  // Counted, not timed (HARD RULE #32): about 9 times the text today. Each unclosed opener looks for its `-->` only
+  // up to the next island; looking to the end of the deck instead, or the parser searching for `-->` afresh at every
+  // opener, covers about 1,000 times the text at a tenth of this size.
   const t = '- <!-- open\n'.repeat(20000);
-  const t0 = performance.now();
-  scanMetaSource(t);
-  assert.ok(performance.now() - t0 < 1500, 'the island read was not linear');
+  const { scanned } = scanWork(() => scanMetaSource(t));
+  assert.ok(scanned <= 30 * t.length, `the island read was not linear: ${scanned} chars for ${t.length}`);
 });
 
 test('a lint rule about a directive\'s effect skips a folded one: the engine never reads it', () => {
@@ -170,4 +173,60 @@ test('a lint rule about a directive\'s effect skips a folded one: the engine nev
   assert.ok(!rules('# A\n\n<div>\n<!-- class: columns -->\n</div>\n\n---\n\n# B\n').includes('pane-layout'));
   assert.ok(rules('<!-- _debug: bogus -->\n\n# A\n').includes('unknown-debug-facet'));
   assert.ok(!rules('<div>\n<!-- _debug: bogus -->\n</div>\n\n# A\n').includes('unknown-debug-facet'));
+});
+
+describe('a record sets every field it names', () => {
+  // The Studio rail labeled `{layout=list-steps, footer="…"}` "text": the scan kept one field per comment, the last
+  // one it knew, so the footer resolved and the class did not.
+  test('class and footer from one record, each resolved on its slide', () => {
+    const src = '<!-- {layout=list-steps, footer="Q3"}\nnote: |\n  A note.\n-->\n\n## A\n\n---\n\n<!-- {pane=list, footer="P"} -->\n\n## B\n';
+    const [one, two] = scanMetaSource(src).slides;
+    assert.equal(one.resolved.get('class')?.value, 'list-steps');
+    assert.equal(one.resolved.get('footer')?.value, 'Q3');
+    assert.deepEqual(one.comments.filter((c) => c.kind === 'directive').map((c) => c.key), ['class', 'footer']);
+    assert.equal(two.resolved.get('footer')?.value, 'P');
+  });
+  test('an authored internal comment resolves nothing: the door blanks it as a forgery', () => {
+    const [island] = directiveIslands(bodyModel('<!-- lat-meta: {"carry":false,"d":{"class":"cards","footer":"F"}} -->\n'));
+    assert.deepEqual(readIsland(island).dirs, []);
+  });
+  test('a record\'s fields are marked, so a rule for the one-line form leaves them alone', () => {
+    const [one] = scanMetaSource('<!-- {layout=kpi, paginate=true} -->\n\n## A\n').slides;
+    assert.ok(one.comments.every((c) => c.record === true));
+    assert.equal(one.resolved.get('class').record, true);
+    const [two] = scanMetaSource('<!-- _class: kpi -->\n\n## A\n').slides;
+    assert.equal(two.resolved.get('class').record, undefined);
+  });
+});
+
+describe('readIsland: bareOpener reads in one pass', () => {
+  const { mulberry32 } = require('../../helpers/regex-differential');
+  const { assertLinearRegexes } = require('../../helpers/regex-trace');
+  // The regex bareOpener used to be, verbatim: polynomial by recheck 4.6.2, since its two `\s*` split a run of blank
+  // lines every way (about 19 s for a comment holding 200,000 of them).
+  const OLD = /^\s*\n\s*(?:\{[^}]*=|@meta\{)/;
+  const bare = (inner) => readIsland({ content: `<!--${inner}-->`, folded: false, level: 0, indent: '' }).bareOpener;
+
+  test('answers as the regex it replaced (seeded fuzz, seed 3045)', () => {
+    const rand = mulberry32(3045);
+    // 251 of the 20,000 draws are bare openers today.
+    const tokens = [' ', '\t', '\n', '\r', ' ', ' ', '{', '}', '=', '@meta{', '@', 'meta', 'a', 'x=1', ' '];
+    let opened = 0;
+    for (let i = 0; i < 20_000; i++) {
+      let inner = '';
+      const len = Math.floor(rand() * 12);
+      for (let k = 0; k < len; k++) inner += tokens[Math.floor(rand() * tokens.length)];
+      const want = OLD.test(inner);
+      if (want) opened++;
+      assert.equal(bare(inner), want, `seed 3045, draw ${i}: ${JSON.stringify(inner)}`);
+    }
+    assert.ok(opened > 100, `only ${opened} draws were bare openers: the fuzz did not reach the true branch`);
+  });
+
+  test('runs only regexes the census calls linear, on a comment of 200,000 blank lines', () => {
+    const inner = `${'\n'.repeat(200_000)}x`;
+    const { result } = assertLinearRegexes(() => bare(inner));
+    assert.equal(result, false);
+    assert.throws(() => assertLinearRegexes(() => OLD.test(inner.slice(0, 20))), /polynomial|does not hold/);
+  });
 });

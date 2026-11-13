@@ -40,6 +40,13 @@ Every visible word in the HTML part of the slide, grouped into paragraphs and br
 lines where the browser broke them, with the style it was drawn in: the font actually used,
 weight, slant, size, color, opacity, letter-spacing, `text-transform`, underline and strike.
 
+Translucent text is written as the solid color it appears as wherever one can be found: over a solid
+background exactly (`flatColor`), and in the ODP over a gradient, from the solid color under it
+(`nearColor`, an approximation). LibreOffice-based apps draw a translucent run badly: LibreOffice clips
+a letter-spaced one, and Collabora Online fills every letter of one as a solid block. The PPTX keeps
+the opacity over a gradient, which PowerPoint and Google Slides draw correctly. Over a picture both
+formats keep the opacity, since there is no solid color to blend over.
+
 It leaves in the picture what a text box cannot reproduce: SVG and MathML (a chart keeps its
 labels), `::before`/`::after` text, rotated or vertical text, gradient text, and any paragraph
 cut by a clip (an ellipsized line).
@@ -80,7 +87,7 @@ caps included) and asks your host for each one:
 - return `null` when you have no file for the face (a system font such as Arial): Calco leaves it out and `onSkip` hears `'unavailable'`;
 - throw, and `onSkip` hears `'failed'` with the error and the other faces still embed.
 
-A face whose license forbids embedding is left out too (`embeddingAllowed`, `'license'`). Lattice's own host reads its `fonts:` tiers through
+A face whose license forbids embedding is left out too (`embeddingAllowed`, `'license'`). Lattice's own host reads its `font-embedding:` tiers through
 `lib/core/office-export-policy.js` (`faceCut`); Calco never sees the words.
 
 **Emoji.** `splitEmojiRuns(deck, family)` splits each text run at its emoji, naming the emoji run's family (and marking it `style.emoji`, so a line's

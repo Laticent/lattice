@@ -373,6 +373,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 
 	const tokens = React.useMemo(() => getClassTokens(chunk), [chunk]);
 	const editable = React.useMemo(() => canEditClass(chunk), [chunk]);
+	const isRecord = React.useMemo(() => readClassDirective(chunk).record === true, [chunk]);
 	const has = (t: string) => tokens.includes(t);
 	const component = tokens[0] ?? '';
 	const entry = catalog.find((c) => c.name === component);
@@ -472,6 +473,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	slideRef.current = slideNumber;
 	const chunkRef = React.useRef(chunk);
 	chunkRef.current = chunk;
+	const sourceRef = React.useRef(source);
+	sourceRef.current = source;
 	const pickRef = React.useRef<typeof import('./card-ink-pick') | null>(null);
 	// Whether the read-ahead has landed for this slide: shown on the control, so a test (and a person
 	// watching) can tell the next thin step will be one edit.
@@ -495,7 +498,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 			for (const wait of [0, 700]) {
 				if (wait) await new Promise((r) => setTimeout(r, wait));
 				if (!live) return;
-				const rgb = await pick.readBehindCard(chunkRef.current, at);
+				const rgb = await pick.readBehindCard(chunkRef.current, at, sourceRef.current);
 				if (!live) return;
 				if (rgb) {
 					behindRef.current = { slide: at, rgb };
@@ -541,7 +544,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		onMutate((c) => setImageCard(c, 'backing', word));
 		void (async () => {
 			const mod = pick ?? (await import('./card-ink-pick'));
-			const rgb = behind ?? (await mod.readBehindCard(chunk, at));
+			const rgb = behind ?? (await mod.readBehindCard(chunk, at, source));
 			if (!rgb || slideRef.current !== at) return;
 			if (behindRef.current?.slide !== at) behindRef.current = { slide: at, rgb };
 			onMutate((c) => {
@@ -970,7 +973,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							{!editable && (
 								<SettingsBlock terms="hand authored class read only yaml" className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-[var(--accent-soft)] px-3 py-2 text-[12px] text-muted-foreground">
 									<Info className="mt-0.5 size-3.5 shrink-0 text-[var(--accent)]" />
-									This slide's <code className="font-mono">_class</code> is hand-authored in a form the editor won't rewrite ({readClassDirective(chunk).reason === 'array-form' ? 'a YAML array' : 'more than one _class comment'}), so the look/status controls are hidden. Edit it directly in the markdown.
+									This slide's <code className="font-mono">_class</code> is hand-authored in a form the editor won't rewrite ({{ 'array-form': 'a YAML array', record: 'a slide record', duplicate: 'more than one _class comment' }[readClassDirective(chunk).reason ?? 'duplicate']}), so the look/status controls are hidden. Edit it directly in the markdown.
 								</SettingsBlock>
 							)}
 						</div>
@@ -1241,15 +1244,15 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 				</SettingsFind>
 				</div>
 
-				{/* The emitted directive — teach the grammar. Inherited deck tokens ghosted. */}
+				{/* The emitted directive, in the form this slide is written in (a record or a `_class` comment) — teach the grammar. Inherited deck tokens ghosted. */}
 				<div className="border-t border-border bg-[color-mix(in_srgb,var(--accent-soft)_50%,var(--bg))] px-4 py-2.5">
 					<div className="font-mono text-[11px] leading-relaxed text-[var(--text-heading)]">
 						{tokens.length || inheritedGhost.length ? (
 							<>
-								<span className="text-muted-foreground">{'<!-- _class: '}</span>
+								<span className="text-muted-foreground">{isRecord ? '<!-- {class=' : '<!-- _class: '}</span>
 								{tokens.join(' ')}
 								{inheritedGhost.length > 0 && <span className="opacity-45"> {inheritedGhost.join(' ')}</span>}
-								<span className="text-muted-foreground">{' -->'}</span>
+								<span className="text-muted-foreground">{isRecord ? '} -->' : ' -->'}</span>
 							</>
 						) : <span className="text-muted-foreground">no class — bare markdown slide</span>}
 					</div>

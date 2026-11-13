@@ -1,6 +1,14 @@
 import JSZip from 'jszip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { sampleAssetNames, withRuntimeScriptsReport, withSampleAssets } from '../../../../../lib/export/marp-bundle.js';
+import {
+	sampleAssetNames,
+	VSCODE_ONLY_ASSETS,
+	VSCODE_STYLESHEET,
+	vscodeStubPath,
+	vscodeThemeStubs,
+	withRuntimeScriptsReport,
+	withSampleAssets,
+} from '../../../../../lib/export/marp-bundle.js';
 import { exportMarkdown, exportMarp, importedThemeNames } from './deck-export.js';
 
 // The Marp bundle's THEME and COMPONENT supply (2026-09-23-portable-packages.md §1, §4).
@@ -18,6 +26,10 @@ import { exportMarkdown, exportMarp, importedThemeNames } from './deck-export.js
 // shared bundle spec is covered where it lives.
 
 const SHIPPED: Record<string, string> = {
+	// The engine stylesheet the bundle ships as lattice.css (marp-bundle.js STATIC_ASSETS), staged under export/.
+	'lattice-min.css': '/* @theme lattice */\n/* @size 16:9 1280px 720px */\nsection{color:var(--fg)}',
+	'lattice-vscode-bundle-min.css': 'section{color:var(--fg)}',
+	'lattice-vscode-bundle-stub.css': '/* @theme lattice */\nsection{box-sizing:border-box}',
 	'indaco.css': "/* @theme indaco */\n@import 'lattice';\n:root{--accent:#006FA8}",
 	'indaco-dark.css': "/* @theme indaco-dark */\n@import 'indaco';",
 };
@@ -29,20 +41,41 @@ const SAMPLES: Record<string, string> = {
 
 let blobs: Blob[] = [];
 
+/** A 200 with the body, or a 404. Its blob is jsdom's own Blob, not undici's: JSZip reads one with jsdom's FileReader. */
+function served(body: string | undefined): Response {
+	if (!body) return new Response('', { status: 404 });
+	const res = new Response(body, { status: 200 });
+	res.blob = async () => new Blob([body]);
+	return res;
+}
+
 beforeEach(() => {
 	blobs = [];
 	(window as unknown as { LatticePlayground: unknown }).LatticePlayground = {
 		marp: {
 			bakeSplits: (s: string) => s,
+			bakeHidden: (s: string) => s,
 			stripPaneMarkers: (s: string) => s,
 			appendAutoGlossary: (s: string) => s,
+			fillAutoAgenda: (s: string) => s,
 			sampleAssetNames,
 			withSampleAssets,
-			withRuntimeScriptsReport: (s: string) => ({ markdown: s, removed: { scripts: 0, handlers: 0, urls: 0 } }),
+			// Identity, except that it writes the one choice this suite pins: whether the trailer links the VS Code stylesheet.
+			withRuntimeScriptsReport: (s: string, opts?: { vscodeLink?: boolean }) => ({
+				markdown: opts?.vscodeLink === false ? s : `${s}\n<link rel="stylesheet" href="${VSCODE_STYLESHEET}">`,
+				removed: { scripts: 0, handlers: 0, urls: 0 },
+			}),
 			marpScopableCss: (s: string) => s,
 			withoutEmojiFont: (s: string) => s,
 			fontAssetsFor: () => [],
-			STATIC_ASSETS: [],
+			STATIC_ASSETS: [
+				{ from: 'dist/lattice-min.css', to: 'lattice.css' },
+				{ from: 'dist/lattice-vscode-bundle-min.css', to: VSCODE_STYLESHEET },
+				{ from: 'dist/lattice-vscode-bundle-stub.css', to: '.vscode/themes/lattice.css' },
+			],
+			VSCODE_ONLY_ASSETS,
+			vscodeStubPath,
+			vscodeThemeStubs,
 			AGENT_ASSETS: [],
 			marpConfigCjs: () => 'module.exports = { options: { math: false } };',
 			packageJson: (name: string) => ({ name }),
@@ -56,7 +89,7 @@ beforeEach(() => {
 	vi.stubGlobal('fetch', vi.fn(async (url: string) => {
 		const file = String(url).split('/').pop() || '';
 		const body = String(url).includes('/samples/') ? SAMPLES[file] : SHIPPED[file];
-		return body ? new Response(body, { status: 200 }) : new Response('', { status: 404 });
+		return served(body);
 	}));
 	URL.createObjectURL = vi.fn((b: Blob) => {
 		blobs.push(b);
@@ -114,6 +147,18 @@ describe('exportMarp — the bundle carries a saved theme', () => {
 		expect(css).not.toMatch(/<\/style/i);
 	});
 
+	// The VS Code-shaped stylesheet is built from the SHIPPED palettes, so a bundle with a saved theme keeps the full themes in
+	// VS Code and does not link the stylesheet (it would re-apply the engine's rules after the theme's own).
+	it('registers the full themes with VS Code and links no VS Code stylesheet', async () => {
+		await exportMarp('---\ntheme: brand\n---\n\n# Hi', 'deck', 'brand', BASE, { includeAgent: false, extraTheme: SAVED });
+		const zip = await bundle();
+		const settings = JSON.parse((await zip.file('deck/.vscode/settings.json')?.async('string')) ?? '{}');
+		expect(settings.themes).toEqual(['lattice.css', 'themes/brand.css']);
+		expect(await zip.file('deck/deck.md')?.async('string')).not.toContain('lattice-vscode.css');
+		expect(zip.file('deck/lattice-vscode.css')).toBeNull();
+		expect(zip.file('deck/.vscode/themes/lattice.css')).toBeNull(); // the engine's built stub is not shipped either
+	});
+
 	it('still fetches a shipped theme, with its dark companion', async () => {
 		await exportMarp('# Hi', 'deck', 'indaco', BASE, { includeAgent: false });
 		const zip = await bundle();
@@ -124,6 +169,18 @@ describe('exportMarp — the bundle carries a saved theme', () => {
 	it('fails with the theme’s name when it can’t bundle it, and downloads nothing', async () => {
 		await expect(exportMarp('# Hi', 'deck', 'ghost', BASE, { includeAgent: false })).rejects.toThrow(/ghost/);
 		expect(blobs).toHaveLength(0);
+	});
+
+	it('registers directive-only stubs for a shipped theme, and the deck links the VS Code stylesheet', async () => {
+		await exportMarp('# Hi', 'deck', 'indaco', BASE, { includeAgent: false });
+		const zip = await bundle();
+		const settings = JSON.parse((await zip.file('deck/.vscode/settings.json')?.async('string')) ?? '{}');
+		expect(settings.themes).toEqual(['.vscode/themes/lattice.css', '.vscode/themes/indaco.css', '.vscode/themes/indaco-dark.css']);
+		expect(await zip.file('deck/.vscode/themes/indaco-dark.css')?.async('string')).toMatch(/@theme indaco-dark/);
+		// The engine's stub is the build's file (directives + pinned declarations), not one cut in the browser.
+		expect(await zip.file('deck/.vscode/themes/lattice.css')?.async('string')).toContain('box-sizing:border-box');
+		expect(await zip.file('deck/deck.md')?.async('string')).toContain('<link rel="stylesheet" href="lattice-vscode.css">');
+		expect(zip.file('deck/lattice-vscode.css')).not.toBeNull();
 	});
 
 	it('ignores a saved theme whose name isn’t the palette being exported', async () => {
@@ -238,7 +295,7 @@ describe('exportMarp — the bundle carries the deck\'s `sample:` pictures', () 
 				if (file === 'portrait-ada.svg') r.arrayBuffer = () => Promise.reject(new Error('reset'));
 				return r;
 			}
-			return SHIPPED[file] ? new Response(SHIPPED[file], { status: 200 }) : new Response('', { status: 404 });
+			return served(SHIPPED[file]);
 		});
 		await exportMarp(DECK, 'deck', 'indaco', BASE, { includeAgent: false });
 		const zip = await bundle();

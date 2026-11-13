@@ -1,12 +1,12 @@
 import {
-	ChevronDown, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, Play, Redo2, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Undo2,
+	ChevronDown, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, Play, Redo2, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Undo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
 import { Separator } from '@/components/ui/separator';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { ACTIVITY_RAIL_CLOSED, ActivityRail, BAR_RULE, BarIcon, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SlideNavigator } from './chrome-parts';
+import { ACTIVITY_RAIL_CLOSED, ActivityRail, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EDIT_MODES, EditModeToggle, EditorSkeleton, HOME_HREF, PostureDial, SlideNavigator } from './chrome-parts';
 import { ChatIcon, FeedbackIcon, PreviewIcon } from './icons';
 import { LatticeMark } from './LatticeMark';
 import { LENSES } from './lens-picker';
@@ -58,8 +58,9 @@ const TOUCH_FIRST = 'hidden [@media(hover:none)_and_(pointer:coarse)]:inline-fle
 function ActionBar() {
 	return (
 		<div role="presentation" className="ssr-actionbar flex shrink-0 items-stretch border-b border-border bg-card">
-			<BarIcon variant="bar" label="Markdown source" hint="Markdown source" caption="Source" onClick={NOOP}><FileText className="size-[17px]" /></BarIcon>
-			<BarIcon variant="bar" label="Compose — rich editor" hint="Compose — rich editor" caption="Compose" onClick={NOOP}><Sparkles className="size-[17px]" /></BarIcon>
+			{EDIT_MODES.map((m) => (
+				<BarIcon key={m.mode} variant="bar" brand={m.brand} label={m.name} hint={m.hint} caption={m.label} onClick={NOOP}><m.Icon className="size-[17px]" /></BarIcon>
+			))}
 			<BarIcon variant="bar" label="Preview" hint="Preview" caption="Preview" active onClick={NOOP}><PreviewIcon className="size-[17px]" /></BarIcon>
 			<span aria-hidden="true" className="my-2 w-px shrink-0 bg-border" />
 			<BarIcon variant="bar" label="Toggle Coach" hint="Coach — deterministic deck assessment" caption="Coach" onClick={NOOP}><Gauge className="size-[17px]" /></BarIcon>
@@ -317,7 +318,9 @@ export function StudioActivityRailSkeleton() {
  *     component. It is now always rendered and `disabled` when the slide offers no looks (the
  *     idiom `Fix all issues` beside it already used), which makes the row's shape constant for
  *     the app too — the toolbar no longer reshuffles as you arrow through the deck.
- *   · `Markdown`/`Compose` — `editMode` always boots `'markdown'`, so the lit segment is known.
+ *   · `Compose`/`Source` — the pane's title since 2026-11-10. The stored mode is unknowable at build time,
+ *     so both segments draw unlit and studio.astro lights Compose, or Source when its seed set `data-ssr-src`;
+ *     both editor skeletons are drawn and the same attribute hides the other (2026-11-10-compose-first.md).
  *   · `Collapse editor` — `splitUsable` is `!mobile && view === 'compose'`, and this band does
  *     not render on mobile or at Read at all (see studio.astro's `.ssr-editpane` gates).
  *
@@ -330,8 +333,8 @@ export function StudioActivityRailSkeleton() {
 export function StudioEditorPaneSkeleton() {
 	return (
 		<>
-			<div data-slot="edit-bar" className="flex shrink-0 items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-				Edit
+			<div data-slot="edit-bar" className="flex shrink-0 items-center gap-1 border-b border-border px-2.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+				<EditModeToggle mode={null} />
 				<span className="flex-1" />
 				{/* The label spans ride the app's own container queries (`@[36rem]` / `@[34rem]`),
 				    which resolve against the EDITOR PANE — so `.ssr-editpane` carries
@@ -344,13 +347,10 @@ export function StudioEditorPaneSkeleton() {
 				<Button variant="ghost" size="icon-sm" aria-label="Version history"><History className="size-[18px]" /></Button>
 				{/* Slide settings is `compact &&` in the app — on desktop the activity bar owns it. */}
 				<span className="ssr-slide-settings contents"><Button variant="ghost" size="icon-sm" aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></span>
-				<div className="ml-0.5 inline-flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
-					<button type="button" aria-label="Markdown source" className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-soft)] px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]"><FileText className="size-3" /><span className="hidden @[34rem]:inline">Markdown</span></button>
-					<button type="button" aria-label="Compose — rich editor" className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-muted-foreground"><Sparkles className="size-3" /><span className="hidden @[34rem]:inline">Compose</span></button>
-				</div>
 				<Button variant="ghost" size="icon-sm" aria-label="Collapse editor"><PanelLeftClose className="size-4" /></Button>
 			</div>
-			<EditorSkeleton />
+			<ComposeSkeleton className="ssr-body-compose" quiet />
+			<EditorSkeleton className="ssr-body-source" quiet />
 		</>
 	);
 }
@@ -368,6 +368,14 @@ export function StudioEditorPaneSkeleton() {
  * `2026-07-21-studio-preview-one-skeleton.md` retired the cached-last-slide replay for: a
  * second content surface that disagrees with the live one. Content gets a neutral bar inside
  * the real control's shape, so the STRUCTURE is honest and nothing asserts a value.
+ *
+ * ONE EXCEPTION, and it is conditional: the status strip's deck caption ("16 : 9 · 7 slides",
+ * StudioPreviewFooterSkeleton). On a phone it is the page's largest text, and leaving it to the
+ * app moved Lighthouse's largest paint to after hydration (mobile LCP 5 s to 14 s, issue #2085).
+ * The shell states it only when the pre-paint seed in studio.astro resolves the boot deck the way
+ * `loadBootDeck` does and finds an unedited built-in deck on a plain URL; any doubt shows this
+ * bar. The count is the app's own (`buildDeckIndex` at build time, pinned by
+ * deck-captions.test.ts). Everything else on this list stays undrawn.
  */
 function ContentBar({ className }: { className?: string }) {
 	return (
@@ -452,7 +460,7 @@ export function StudioPreviewBarSkeleton() {
 }
 
 /** The slide navigator + deck status strip below the preview — dropped at the Read stop. */
-export function StudioPreviewFooterSkeleton() {
+export function StudioPreviewFooterSkeleton({ caption }: { caption: string }) {
 	return (
 		<>
 			{/* The app's navigator row: `px-3 py-2`, then the slide pills, the current one followed by its
@@ -475,7 +483,17 @@ export function StudioPreviewFooterSkeleton() {
 			<div className="ssr-status flex shrink-0 items-center gap-3 border-t border-border px-4 py-1.5 font-mono text-[11px] text-muted-foreground">
 				<ContentBar className="w-24" />
 				<span className="flex-1" />
-				<ContentBar className="w-20" />
+				{/* The deck caption ("16 : 9 · 7 slides") IS drawn, unlike the rest of this row, because
+				    it is the page's largest text on a phone. Without it Lighthouse takes the app's copy,
+				    which paints only after hydration, as the largest paint: mobile LCP went from about
+				    5 s to 14 s when the header's Undo and Redo narrowed the deck title below it (issue
+				    #2085). It names the newcomer's deck at build time; the pre-paint seed in
+				    studio.astro swaps in the returning visitor's built-in deck, and falls back to the
+				    neutral bar for any deck it cannot be sure of (an edited or user deck, a URL with a
+				    query or hash), so the shell never states a count the app then corrects. The
+				    container query matches the app's: the caption hides on a pane under 20rem. */}
+				<span className="ssr-deck-caption hidden shrink-0 @[20rem]:inline">{caption}</span>
+				<ContentBar className="ssr-caption-bar w-20" />
 			</div>
 		</>
 	);

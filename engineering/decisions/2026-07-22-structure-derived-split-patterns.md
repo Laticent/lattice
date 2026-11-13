@@ -349,7 +349,7 @@ one: the map in `split-facts.js` is the source, and
 | **Anchor — never splits** | `closing` · `divider` · `title` · `topic` |
 | **viewBox graphic — container-responsive + legibility-floor→ring** | `bar` · `bullet` · `diagram` · `ep-curve` · `flowchart` *(JS-scaled; no-JS UNVERIFIED)* · `funnel` · `heatmap` · `histogram` · `hub-spoke` · `line` · `map` · `piechart` · `quadrant` · `radar` · `risk-matrix` · `scatter` · `scene` · `slope` · `stacked-bar` · `state-chart` *(JS-scaled; no-JS UNVERIFIED)* · `tower` · `waterfall` · `word-cloud` |
 | **Bitmap asset — responsive, no split** | `image` · `video` |
-| **Atomic — whole slide, overflow→ring** (single text units + shared-geometry grids that can't scale or split) | `big-number` · `collage` · `contact` · `gantt` · `logo-wall` *(by image)* · `matrix-grid` *(a positional grid — a row means nothing without every other row)* · `wifi` |
+| **Atomic — whole slide, overflow→ring** (single text units + shared-geometry grids that can't scale or split) | `big-number` · `collage` · `contact` · `gantt` · `gift-card` · `logo-wall` *(by image)* · `matrix-grid` *(a positional grid — a row means nothing without every other row)* · `wifi` |
 | **List → item · light** (1/slide; a light member is one bullet or tile) | `agenda` · `checklist` · `content` · `inventory` · `list` |
 | **List → item · heavy** (1/slide; a heavy member carries a title AND a body) | `actors` · `cards-grid` · `cards-stack` · `kpi` · `policy-recommendation` · `q-and-a` · `stats` *(tile — watch)* · `team-profile` |
 | **Record-shaped → 1 per slide** (glossary pivots via its table transform; the rest are `ol/ul>li` → list-item split) | `glossary` · `list-tabular` · `regulatory-update` · `statute-stack` |

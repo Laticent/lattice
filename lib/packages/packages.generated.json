@@ -3,10 +3,10 @@
   "format": 1,
   "counts": {
     "theme": 33,
-    "component": 79,
+    "component": 80,
     "finish": 9,
     "motion": 4,
-    "plugin": 15
+    "plugin": 16
   },
   "packages": [
     {
@@ -603,6 +603,19 @@
       "type": "component",
       "name": "gantt",
       "path": "lib/plugins/chart-family/kinds/gantt",
+      "roles": [
+        "docs.md",
+        "gallery.md",
+        "manifest.json",
+        "styles.css",
+        "transform.js"
+      ],
+      "code": true
+    },
+    {
+      "type": "component",
+      "name": "gift-card",
+      "path": "lib/components/connect/gift-card",
       "roles": [
         "docs.md",
         "gallery.md",
@@ -1488,6 +1501,22 @@
     },
     {
       "type": "plugin",
+      "name": "image",
+      "path": "lib/plugins/image",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "inline.js",
+        "lint.js",
+        "manifest.json",
+        "services.js",
+        "styles.css",
+        "syntax.mjs"
+      ],
+      "code": true
+    },
+    {
+      "type": "plugin",
       "name": "legend",
       "path": "lib/plugins/legend",
       "roles": [
@@ -1537,8 +1566,10 @@
       "roles": [
         "docs.md",
         "fixtures.md",
-        "manifest.json"
-      ]
+        "manifest.json",
+        "source.mjs"
+      ],
+      "code": true
     },
     {
       "type": "plugin",
@@ -1579,6 +1610,8 @@
         "inline.js",
         "lint.js",
         "manifest.json",
+        "services.js",
+        "styles.css",
         "syntax.mjs"
       ],
       "code": true

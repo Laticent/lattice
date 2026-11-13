@@ -135,6 +135,19 @@ describe('slideClass (fuzz)', () => {
 		expect(slideClass('## Title\n\n<!-- pane: list -->\n\n- a\n')).toBe('text'); // one marker carves nothing
 	});
 
+	// Every marker spelling is read by the one shared reader (lib/core/meta-door.mjs `parsePaneMarker`, record note §5.4.1).
+	it('names a panes slide `panes` in every marker spelling', () => {
+		const two = (a: string, b: string) => `## Title\n\n${a}\n\n- a\n\n${b}\n\n- b\n`;
+		expect(slideClass(two('<!-- _pane: list -->', '<!-- _pane: table no-title -->'))).toBe('panes');
+		expect(slideClass(two('<!-- {pane="list"} -->', '<!-- {pane="table no-title"} -->'))).toBe('panes');
+		expect(slideClass(two('<!-- @meta{pane="list"} -->', '<!-- @meta{pane="table"} -->'))).toBe('panes');
+		expect(slideClass(two('<!-- {footer=x, pane="list"} -->', '<!-- {pane="table", footer=y} -->'))).toBe('panes');
+		expect(slideClass(two('<!-- lat-meta: {"carry":false,"d":{"pane":"list"}} -->', '<!-- lat-meta: {"carry":false,"d":{"pane":"table"}} -->'))).toBe('panes');
+		expect(slideClass(two('<!-- _pane: list -->', '<!-- {pane="table"} -->'))).toBe('panes');
+		expect(slideClass('## Title\n\n<!-- {pane="list"} -->\n\n- a\n')).toBe('text');
+		expect(slideClass(two('<!-- {footer=x} -->', '<!-- {footer=y} -->'))).toBe('text');
+	});
+
 	it('reads the LAST class when a slide carries two — the one the engine applies', () => {
 		expect(slideClass('<!-- _class: kpi -->\n<!-- _class: quote -->\n\ntext\n')).toBe('quote');
 	});

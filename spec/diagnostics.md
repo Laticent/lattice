@@ -111,6 +111,8 @@ distinct, stable ID.
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
 | `unknown-class` | warning | ✓ | A `_class` token that is not a known component or modifier, or one that was renamed. Carries a did-you-mean. |
+| `agenda-empty` | warning | — | An `agenda` slide with no list, in a deck with fewer than two shown `divider` slides, so the engine has nothing to fill it from and it renders as a heading over an empty slide (`lib/core/agenda-autofill.js`). |
+| `agenda-retired-style` | warning | ✓ | An `agenda` slide naming the retired `rail` or `cards` style; it renders as the default ledger. The fix rewrites `rail` to `circles` and removes `cards`. |
 | `conflicting-variants` | warning | — | Two tokens on one slide from an axis that takes one value at a time (two variants, two finishes); only one wins. |
 | `block-unsupported` | warning | — | An editorial modifier (`insight-*`, `no-note`) on a layout that has nothing for it to act on. |
 | `list-modifier-inert` | warning | — | On a list slide, a counter modifier its register never reads: `numbered` without `takeaway`, or `lettered`/`roman`/`bullet` without `principles`. Also `principles` over `-` bullets (it numbers an ordered list only), and `takeaway` over a `1.` list without `numbered` (the numbers are hidden). |
@@ -145,12 +147,15 @@ distinct, stable ID.
 | `focus-spec` | warning | — | A malformed `_focus` directive; it silently does nothing at render. |
 | `focus-style` | warning | — | A `_focusStyle` value that is not `spotlight`, `ring`, `list-fill`, `blur` or `highlight`. |
 | `focus-steps` | warning | — | A `_focusSteps` step that is not a valid `_focus` spec (only the first bad step is reported). |
+| `focus-with-steps` | warning | — | A slide carries both a static `_focus` and a `_focusSteps` walk; the walk wins and the `_focus` is ignored. |
+| `one-stepping-directive` | error | — | A slide carries both `_build` and `_focusSteps` (a deck-wide `build:` counts; `_build: none` opts out). A slide takes one stepping directive (engineering/decisions/2026-11-09-steps-as-a-behavior.md §1). |
 | `unknown-map-region` | warning | — | A `map` list item whose lead name the basemap can't resolve. Carries a did-you-mean against the basemap vocabulary. |
 | `map-highlight-implied` | info | — | A `map highlight` slide whose values are labels (or absent), so the data already fills it by category and the class says nothing. |
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
 | `tag-budget` | warning | — | On `decision` and `compare-prose` (not `axis`), a card tag long enough to wrap, or a band label long enough to run past two lines, which grows every tag on the slide and pushes the cards down. |
 | `tag-alias` | info | — | `banner-tag`, the old name for `tag-band`. |
 | `bg-side-unread` | warning | — | A `![bg left]` / `![bg right]` (or a ratio) on a slide that is not `image`: only the image layout places a picture beside the text, so it fills the whole slide behind it instead. |
+| `empty-section` | warning | — | A divider straight after another divider, so the section before it holds no slide, its mark on the section rail never lights, and the first rail a reader sees can say `2 / 4`. |
 | `bg-ratio-unread` | warning | — | A ratio such as `![bg left:40%]` on an `image` slide: the ratio is not read, so the slide falls back to a full-bleed background and loses its panel. |
 | `label-set-above-body` | warning | — | A label list naming key entries, placed above the chart: there it names the axes instead of relabeling the key, or shows as text if it has more items than the chart has axes. |
 | `label-set-unbound` | warning | — | A bracketed label list that relabels nothing: on a component with no key, an entry that is not one of the component's key members, or a key named twice (the last wins). |
@@ -198,9 +203,12 @@ distinct, stable ID.
 | `unknown-inline-kind` | warning | ✓ | A named span `@name{…}` whose name no kind has: neither the host's, a shipped plugin's, nor a listed plugin's. It renders as code; the autofix takes the nearest kind name when one is close. |
 | `video-no-record` | error | — | A `video` slide with no `@video{…}` record, so it draws no clip. The address comes only from the author's own record, never from slide text. |
 | `video-not-alone` | warning | — | An `@video{…}` record inside running text. A video is a figure, so only a record on a line of its own is drawn; the span stays code. |
-| `video-slide-class` | warning | — | A lone `@video{…}` record on a slide that is not a `video` slide. The layout and the poster picture are both scoped to the `video` class, so the clip draws only as a plain text link; the finding names the class to write. |
 | `video-extra-record` | warning | — | A second lone `@video{…}` record on one `video` slide. The layouts seat one clip, so the extra record is drawn below the first and runs off the slide; move it to a slide of its own. |
 | `video-web-poster` | warning | — | A `poster=` on a drawn `@video{…}` record that loads from another site: the figure paints it as a background, which the preview replaces with a placeholder. |
+| `image-marp-keyword` | warning | ✓ | A Marp alt-text keyword line (`![bg left](x)`, `![bg](x)`): retired (media note §8 decision 2). The fix writes the `@image{…}` record and moves the placement to the slide: `left` becomes `mirror` on an `image` slide, and on any other slide the slide gains `bleed`. Keywords that were never drawn (a share, the filters) are named and dropped. |
+| `image-not-alone` | warning | — | An `@image{…}` record in running text: a picture is a figure, so only a record on a line of its own is drawn, and this one stays code. For a picture inside a sentence, write `![title](src)`. |
+| `image-extra-panel` | warning | — | A second photo on a slide that seats one (`image`, `bleed`): a second drawn `@image{…}` record, which becomes a panel over the first; or two or more `![title](src)` pictures on lines of their own and no other photo, so none of them is placed and all stay in the text (the placed-picture rule, `lib/core/placed-picture.mjs`). |
+| `image-web-source` | warning | — | A drawn `@image{…}` record whose address loads from another site: the preview shows a placeholder until the reader allows web pictures, and loading it tells that site who opened the deck. |
 | `spark-too-big` | warning | ✓ | A spark too tall or too wide for its line; the autofix resizes it. Reported by the Studio from a measured render (`sparkFitFindings`), not by `lintTextWith` or the CLI. |
 | `pill-shape-crowded` | warning | — | A shaped pill (`{X, circle}`) holding more than the shape can, so it stretches out of shape. |
 | `bracket-list-closed-early` | warning | — | An extra `]` that closes a bracketed list early, so it shows as plain text. |
@@ -228,19 +236,22 @@ distinct, stable ID.
 | `unknown-spectrum-trim` | warning | ✓ | A `spectrum-trim:` value the engine does not know; the accents stay plain. |
 | `unknown-rule` | warning | ✓ | A `rule:` value the engine does not know; headings keep the default underline. |
 | `unknown-inline-code` | warning | ✓ | An `inline-code:` value the engine does not know; pills and marks keep rendering. |
-| `unknown-fonts` | warning | — | A word in the deck's `fonts:` line that is not `exact`, `used`, `full` or `system` (alone or with an `-emoji` suffix); the exports ignore it. |
+| `unknown-font-embedding` | warning | — | A word in the deck's `font-embedding:` line that is not `exact`, `used`, `full` or `system` (alone or with an `-emoji` suffix); the exports ignore it. |
+| `fonts-renamed` | warning | ✓ | `fonts:`, the old spelling of `font-embedding:`. The exports no longer read it. The fix renames the key and keeps the words. When the deck also sets `font-embedding:` to a tier, it deletes the old line; when that line names no tier (empty, a comment, unknown words), there is no fix, because either edit would lose the words. |
 | `unknown-images` | warning | — | A word in the deck's `images:` line that is not `optimized`, `original` or a JPEG quality from 1 to 100; the exports ignore it. |
 | `unknown-eyebrow` | warning | ✓ | An `eyebrow:` value the engine does not know; eyebrows render as the bare label. |
 | `unknown-headline` | warning | ✓ | A `headline:` value the engine does not know; each layout keeps its own alignment. |
 | `unknown-corners` | warning | — | A `corners:` value the engine does not know; corners render square. |
 | `unknown-lift` | warning | ✓ | A `lift:` value the engine does not know; cards render flat. |
 | `unknown-venue` | warning | ✓ | A `venue:` value the engine does not know; the deck renders at the designed size. |
+| `typography-style-override` | warning | — | The deck's own `style:` re-points a face or voice token the `typography:` set owns (`--font-display`, `--font-body`, `--eyebrow-*`, `--chart-text-face`, `--chart-figure-face`), so the set's audit no longer covers the deck. |
 | `unknown-marks` | warning | ✓ | A `marks:` value the engine does not know (including the retired `off` and `etching`); the deck wears the default finish. |
 | `unknown-backdrop` | warning | ✓ | A `backdrop:` word that is neither a strength nor a mask, or a second word for an axis already set. |
 | `unknown-tag` | warning | ✓ | A `tag:` word the engine does not know, or a second word for an axis already set. |
 | `unknown-<axis register>` | warning | ✓ | A family: one ID per axis register (`unknown-align`, `unknown-spark`, and one per register a plugin declares, such as `unknown-icon`). An unknown word, or a second word for an axis already set. |
-| `unknown-<setting>` | warning | ✓ | A family: one ID per key whose value list the deck-settings table holds (`lib/core/deck-settings.js`, `generic: true`): `unknown-theme`, `unknown-size`, `unknown-motion`, `unknown-motion-style`, `unknown-motion-speed`, `unknown-player-motion`, `unknown-glossary`, `unknown-logo-finish` (an axis register: a word outside the vocabulary, or two words on one axis). A value the key's reader does not accept; the deck uses the default (for `theme:`, the command line refuses it). |
+| `unknown-<setting>` | warning | ✓ | A family: one ID per key whose value list the deck-settings table holds (`lib/core/deck-settings.js`, `generic: true`): `unknown-theme`, `unknown-size`, `unknown-motion`, `unknown-motion-style`, `unknown-motion-speed`, `unknown-player-motion`, `unknown-glossary`, `unknown-typography`, `unknown-logo-finish` (an axis register: a word outside the vocabulary, or two words on one axis). A value the key's reader does not accept; the deck uses the default (for `theme:`, the command line refuses it). |
 | `unknown-key` | warning | ✓ | A top-level front-matter key that no reader reads and no plugin declares; the deck ignores the whole line. Carries a did-you-mean. |
+| `duplicate-key` | warning | — | A top-level front-matter key written more than once (`key :` counts). The last line wins, as in the engine and in YAML; each earlier line is ignored. A render-target key (`fluid`, `player`, `present`, `read`) is read as a union instead, and the message says so. |
 | `unknown-treatment` | warning | ✓ | A `tint-*` or `mark-*` class token that `lib/base/base.treatments.css` does not paint. |
 | `treatment-placement` | warning | — | `tint-corner` or `tint-edge` without a placement it accepts (`at-tl` … for a corner, `at-top` … for an edge), so it paints nothing. |
 | `thin-card-no-ink` | warning | — | An `image spotlight` card under 60% opaque with no `ink-light` or `ink-dark` on the slide or the deck's `image-card:` line, so the theme's own ink is read against the photo and can vanish. Raise the backing or name an ink; the Studio's Card backing slider picks one from the photo. |
@@ -411,6 +422,8 @@ literal text and is never reported.
 | `meta-not-own-line` | error | — | A record inside a list item or blockquote. |
 | `meta-in-html-block` | error | — | A record directly under an HTML line with no blank line between, so both become one HTML block. |
 | `meta-block-in-container` | error | — | A multi-line record holding a blank line inside a list or blockquote, where the comment ends early. |
+| `meta-class-overridden` | warning | — | Two comments on one slide each set the slide's class (a `_class:` comment, a record's `layout`, `class` or register field); the last wins, so the earlier one's words are dropped. |
+| `meta-record` | error | — | A record the engine reads but cannot apply in full: an unknown field, a value outside its register, braces or a quote that never close, a deck-only key, a repeated field. The finding's token names the door's code (`meta-unknown-key`, `meta-field-value`, `unterminated-record`, …). |
 | `legacy-directive-comment` | warning | — | An old-form directive comment (`<!-- _class: x -->`). Off unless the host opts in (`metaCut`) until the engine stops reading the form. |
 
 > **Autofix is per-finding, not per-rule.** The ✓ marks rules that *can* offer a
@@ -497,9 +510,12 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
 
 ## 7. Change log
 
-- **Unreleased.** §3.11 adds five rules for slide-metadata comments: `meta-opener-bare`,
+- **Unreleased.** §3.1 adds `agenda-empty` and `agenda-retired-style`
+  (`engineering/decisions/2026-11-08-agenda-styles-and-autofill.md`).
+  §3.11 adds five rules for slide-metadata comments: `meta-opener-bare`,
   `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container` and
-  `legacy-directive-comment` (off by default).
+  `legacy-directive-comment` (off by default). It then adds `meta-record`, the door's own
+  findings on a record it reads, and `meta-class-overridden`.
 - **1.1 (2026-10-08).** The registry catches up with the reference
   implementation: 13 rows became 181: all 178 literal rule IDs plus three families, grouped by
   what they check (§3), and a test now pins the registry to the code. Two

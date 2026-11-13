@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { WakeKeeper } from './live-wake';
 
 /** A fake Screen Wake Lock: every request is kept, and resolves when the test says so. */
@@ -33,7 +33,6 @@ function fake() {
 	const doc = { visibilityState: 'visible', addEventListener: (_t: 'visibilitychange', cb: () => void) => listeners.add(cb), removeEventListener: (_t: 'visibilitychange', cb: () => void) => listeners.delete(cb) };
 	return { nav, doc, requests, sentinels, listeners };
 }
-const settle = () => new Promise((r) => setTimeout(r, 0));
 
 describe('WakeKeeper (screen wake lock)', () => {
 	it('asks once however many times it is told to keep, even before the first request is answered', async () => {
@@ -44,8 +43,7 @@ describe('WakeKeeper (screen wake lock)', () => {
 		k.keep(true);
 		expect(f.requests).toHaveLength(1);
 		f.requests[0].resolve();
-		await settle();
-		expect(k.state).toBe('held');
+		await vi.waitFor(() => expect(k.state).toBe('held'));
 		k.keep(true);
 		expect(f.requests).toHaveLength(1);
 	});
@@ -55,13 +53,11 @@ describe('WakeKeeper (screen wake lock)', () => {
 		k.keep(true);
 		k.keep(false);
 		f.requests[0].resolve();
-		await settle();
-		expect(f.requests[0].released).toBe(true);
+		await vi.waitFor(() => expect(f.requests[0].released).toBe(true));
 		expect(k.state).toBe('not held');
 		k.keep(true);
 		f.requests[1].resolve();
-		await settle();
-		expect(k.state).toBe('held');
+		await vi.waitFor(() => expect(k.state).toBe('held'));
 		k.keep(false);
 		expect(f.requests[1].released).toBe(true);
 	});
@@ -70,7 +66,7 @@ describe('WakeKeeper (screen wake lock)', () => {
 		const k = new WakeKeeper(f.nav, f.doc);
 		k.keep(true);
 		f.requests[0].resolve();
-		await settle();
+		await vi.waitFor(() => expect(k.state).toBe('held'));
 		f.sentinels[0].fire(); // the browser dropped it (the page was hidden)
 		expect(k.state).toBe('not held');
 		for (const cb of [...f.listeners]) cb();
@@ -82,10 +78,20 @@ describe('WakeKeeper (screen wake lock)', () => {
 		const k = new WakeKeeper({}, undefined);
 		k.keep(true);
 		expect(k.state).toBe('unsupported');
-		const refused = new WakeKeeper({ wakeLock: { request: () => Promise.reject(new Error('denied')) } }, undefined);
+		let asked = 0;
+		const request = () => {
+			asked++;
+			return Promise.reject(new Error('denied'));
+		};
+		const refused = new WakeKeeper({ wakeLock: { request } }, undefined);
 		refused.keep(true);
-		await settle();
+		expect(asked).toBe(1);
+		// Can ask again once the refusal is in: a keep while the first request is pending asks nothing, so this
+		// settles at exactly two requests.
+		await vi.waitFor(() => {
+			refused.keep(true);
+			expect(asked).toBe(2);
+		});
 		expect(refused.state).toBe('not held');
-		refused.keep(true); // can ask again after a refusal
 	});
 });

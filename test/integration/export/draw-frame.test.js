@@ -51,7 +51,6 @@ async function inPage(browser, html, job, opts = {}) {
         const frame = document.createElement('iframe');
         frame.setAttribute('sandbox', 'allow-scripts');
         frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1200px;height:900px;border:0;visibility:hidden';
-        const wait = (ms) => new Promise((r) => setTimeout(r, ms));
         const next = (pred, ms) =>
           new Promise((resolve) => {
             const t = setTimeout(() => resolve(null), ms);
@@ -84,10 +83,6 @@ async function inPage(browser, html, job, opts = {}) {
             out.replies.push(await got);
           }
         }
-        out.ran = await (async () => {
-          await wait(10);
-          return null;
-        })();
         frame.remove();
         return out;
       },
@@ -132,6 +127,30 @@ test('DRAW: Mermaid and function-plot come back as SVG; the plot is the CLI lock
     const cli = await locked.draw({ kind: 'function-plot', configB64: b64(cfg), configText: cfg, width: 600, height: 300, index: 0 });
     await locked.close();
     assert.equal(plot.replies[0].out, cli.out);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('MODULES: the CLI locked page opens Mermaid\'s module-loaded frame and draws what the inline frame draws, byte for byte', { timeout: TIMEOUT }, async () => {
+  const browser = await open();
+  try {
+    const job = { kind: 'mermaid', svgId: 'dg-0', definition: 'flowchart LR\n  A[Draft] --> B{Review}\n  B -->|ok| C[Ship]', config: { startOnLoad: false, theme: 'base', securityLevel: 'strict' } };
+    const preview = await inPage(browser, await frameHtml('mermaid'), [job]);
+    assert.equal(preview.ready, true);
+    // The locked page serves the ESM graph from its own origin (lib/export/locked-figures.js `esmDrawDocument`): the files
+    // the registry's integrity map names, each checked against its digest. The arm below proves the module build draws the
+    // inline build's figure; refusals (a file off the map, a tampered file) are not exercised here.
+    const locked = await openDrawPage(browser, 'mermaid');
+    try {
+      const cli = await locked.draw(job);
+      assert.equal(cli.error, undefined, String(cli.error));
+      assert.equal(cli.out, preview.replies[0].out, 'the module build draws the same figure as the inline build');
+      const bad = await locked.draw({ ...job, svgId: 'dg-1', definition: 'this is not a diagram ->>' });
+      assert.ok(bad.error, 'a definition Mermaid refuses is an error, not an empty drawing');
+    } finally {
+      await locked.close();
+    }
   } finally {
     await browser.close();
   }

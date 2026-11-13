@@ -12,6 +12,8 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const core = require('../../../lib/authoring/lint-core');
+const { scanWork, charReads } = require('../../helpers/work-count');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 const { splitTopLevel } = require('../../../lib/authoring/slide-split');
 const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
@@ -667,6 +669,21 @@ describe('lint-core: focus directive grammar (rule 11)', () => {
   test('malformed _focusSteps step is flagged', () => {
     assert.match(ruleFor(slide('<!-- _focusSteps: item 1 | rows 2 -->'), 'focus-steps').message, /not a focus axis/);
     assert.equal(ruleFor(slide('<!-- _focusSteps: item 1 | item 2 -->'), 'focus-steps'), undefined);
+  });
+  test('a static _focus on a stepping slide is flagged as ignored', () => {
+    assert.ok(ruleFor(slide('<!-- _focus: item 1 -->\n<!-- _focusSteps: item 1 | item 2 -->'), 'focus-with-steps'));
+    assert.equal(ruleFor(slide('<!-- _focus: item 1 -->'), 'focus-with-steps'), undefined);
+  });
+  test('a slide takes one stepping directive: _build with _focusSteps is an error', () => {
+    const both = ruleFor(slide('<!-- _build -->\n<!-- _focusSteps: item 1 | item 2 -->'), 'one-stepping-directive');
+    assert.ok(both);
+    assert.equal(both.severity, 'error');
+    assert.equal(ruleFor(slide('<!-- _focusSteps: item 1 | item 2 -->'), 'one-stepping-directive'), undefined);
+    assert.equal(ruleFor(slide('<!-- _build -->'), 'one-stepping-directive'), undefined);
+    assert.equal(ruleFor(slide('<!-- _build: none -->\n<!-- _focusSteps: item 1 | item 2 -->'), 'one-stepping-directive'), undefined);
+    // The bare spelling sets its own slide too (a slide-only key), and a deck-wide `build:` counts (red team #2).
+    assert.ok(ruleFor(slide('<!-- _build -->\n<!-- focusSteps: item 1 | item 2 -->'), 'one-stepping-directive'));
+    assert.ok(ruleFor(`---\ntheme: indaco\nbuild: rows\n---\n\n<!-- _class: cards-grid -->\n<!-- _focusSteps: item 1 | item 2 -->\n\n## Head\n\n- A\n  - a\n- B\n  - b\n`, 'one-stepping-directive'));
   });
 });
 
@@ -1337,10 +1354,14 @@ describe('lint-core: a bracketed list closed early (bracket-list-closed-early)',
   });
 
   test('linear on a long run of quotes and brackets', () => {
-    const span = `[${'"a"]'.repeat(20_000)}]`;
-    const start = process.hrtime.bigint();
-    core.findStrayBracketAfterQuote(`\`${span}\`\n`);
-    assert.ok(Number(process.hrtime.bigint() - start) / 1e6 < 500);
+    // Work, not milliseconds (HARD RULE #32, F1): every regex it runs is linear by the census, and the
+    // searches, copies and code-unit reads cover each character about 21 times (measured: 11 scanned, 10 read).
+    // On this input the walker returns at the first quote, so the work is segno's `parseBracketList` and the
+    // inline-span read; a search from every quote there (the mutation arm) covered 40,000 per character.
+    // The walker's own `t[i]` reads are invisible to the count (test/helpers/work-count.js says why).
+    const src = `\`[${'"a"]'.repeat(20_000)}]\`\n`;
+    const { scanned, reads } = charReads(() => assertLinearRegexes(() => core.findStrayBracketAfterQuote(src)));
+    assert.ok(scanned + reads <= 60 * src.length, `${scanned} scanned and ${reads} read for ${src.length}`);
   });
 });
 
@@ -2122,11 +2143,18 @@ describe("lint-core: the topic anchor's `_track` override", () => {
     // carrying a `|`, so a note plus one long whitespace-led line was enough: the
     // regex this replaces took 33 s on a 195 KB deck, on the Studio's main-thread
     // lint source. The scanner is linear; this arm is the standing proof.
+    //
+    // The defect was BACKTRACKING inside one regex exec, which no work count sees, and the whole lint still runs
+    // regexes the census does not call linear (the lint-core drain, followups.d/3045-p2-regex-recheck-gate.md), so
+    // this stays a hang guard sized as F4 sizes one (engineering/decisions/2026-11-06-flaky-tests.md). The work
+    // count beside it catches a rescan across calls: about 270 characters per input character today, most of
+    // it markdown-it's anchored tag test, which work-count.js says it overcounts.
     const src = `${FM}<!-- _class: topic -->\n\n## T\n\n<!-- note: revenue | margin -->\n${' '.repeat(200000)}x\n`;
     const started = Date.now();
-    core.lintTextWith(src, { names: new Set(['topic']), modifiers: new Set() });
+    const { scanned } = scanWork(() => core.lintTextWith(src, { names: new Set(['topic']), modifiers: new Set() }));
     const ms = Date.now() - started;
-    assert.ok(ms < 2000, `195 KB must not take ${ms}ms — the old regex took 33,000`);
+    assert.ok(ms < 2000, `195 KB must not take ${ms}ms — the old regex took 33,000`); // flaky-ok: hang guard (F4): 30-80 ms today with the work count's wrap (4 cores), 33 s with the old regex; 2,000 ms is 25x the one and 16x under the other; retires with the lint-core drain
+    assert.ok(scanned <= 1500 * src.length, `${scanned} characters scanned for ${src.length}`);
   });
 
   /* An EMPTY `_track` is a directive, not a non-directive — and the difference is a
@@ -2402,19 +2430,21 @@ describe('label-set-above-body — coaching, never refusal', () => {
   });
 
   test('comment blanking stays linear on untrusted input (HARD RULE #22)', () => {
-    // It went quadratic once: 280 KB of `a <!--` lines took 12 s. Linear, this is
-    // tens of milliseconds; the bound is generous so a slow runner cannot flake it,
-    // and still an order of magnitude under the quadratic shape.
-    const body = 'a <!--\n'.repeat(100000);
-    const deck = `<!-- _class: quadrant -->\n\n${body}\n## H\n\n- a\n  - b \`1, 2\`\n`;
-    const t = Date.now();
-    core.findQuadrantAxisIssues(deck);
-    const oneLine = `<!-- _class: quadrant -->\n\n${'<!--'.repeat(100000)}\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
-    core.findQuadrantAxisIssues(oneLine);
-    // Many CLOSED comments on one line — the shape the second quadratic path hid in.
-    const pairs = `<!-- _class: quadrant -->\n\n${'<!-- x -->'.repeat(100000)}\n\n## H\n\n- a\n  - b \`1, 2\`\n`;
-    core.findQuadrantAxisIssues(pairs);
-    assert.ok(Date.now() - t < 2000, `took ${Date.now() - t}ms`);
+    // It went quadratic once: 280 KB of `a <!--` lines took 12 s, re-searching for `-->` and re-walking
+    // the line at every skipped `<!--`. So count the work, not the clock (HARD RULE #32, F1): every regex
+    // the rule runs is linear by the census, and the scan covers each character 10 to 11 times (measured).
+    // The quadratic shape covers about n / 2 per character, tens of thousands here.
+    const tail = '\n## H\n\n- a\n  - b `1, 2`\n';
+    const decks = [
+      `<!-- _class: quadrant -->\n\n${'a <!--\n'.repeat(100000)}${tail}`,
+      `<!-- _class: quadrant -->\n\n${'<!--'.repeat(100000)}\n${tail}`,
+      // Many CLOSED comments on one line — the shape the second quadratic path hid in.
+      `<!-- _class: quadrant -->\n\n${'<!-- x -->'.repeat(100000)}\n${tail}`,
+    ];
+    for (const deck of decks) {
+      const { scanned } = scanWork(() => assertLinearRegexes(() => core.findQuadrantAxisIssues(deck)));
+      assert.ok(scanned <= 40 * deck.length, `${scanned} characters scanned for ${deck.length}`);
+    }
   });
 
   test('the whole lint stays linear on unclosed-comment input (HARD RULE #22)', () => {
@@ -2422,15 +2452,22 @@ describe('label-set-above-body — coaching, never refusal', () => {
     // `/<!--[\s\S]*?-->/g` (scanning to the end from every unclosed opener) and the
     // unterminated-comment rule re-ran a lookahead from every opener. Before the fix, on
     // one machine: 3.7 s, 2.6 s and ~5.6 s for these three inputs; after, ~0.5 s for all
-    // three together. The bound sits between the two with room either side.
+    // three together. A clock bound 4x over today was flaky by F1, so this counts work
+    // (HARD RULE #32): about 440 to 465 characters scanned per input character today, most
+    // of it markdown-it's anchored tag test (an overcount, test/helpers/work-count.js). A
+    // search from every opener to the end covers about n / 2 per character, 100,000 and up.
+    // The comment blanker the two rules share runs only census-linear regexes. What this
+    // cannot see is backtracking inside one exec; the census holds lint-core's literals.
     const inputs = [
       'a <!--\n'.repeat(40000),              // 280 KB of `a <!--` lines
       `${'<!-- '.repeat(50000)}\n-->\n`,     // 250 KB of openers, one closer at the end
       `${'<!--'.repeat(62500)}\n`,           // one 250 KB line of openers
     ];
-    const t = Date.now();
-    for (const src of inputs) core.lintTextWith(src, vocab);
-    assert.ok(Date.now() - t < 2500, `took ${Date.now() - t}ms`);
+    for (const src of inputs) {
+      const { scanned } = scanWork(() => core.lintTextWith(src, vocab));
+      assert.ok(scanned <= 1500 * src.length, `${scanned} characters scanned for ${src.length}`);
+      assertLinearRegexes(() => core.blankHiddenComments(src));
+    }
   });
 
   test('a key with more members than axes is not called the axis — it prints as text', () => {

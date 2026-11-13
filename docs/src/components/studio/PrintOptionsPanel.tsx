@@ -38,9 +38,11 @@ import { notify } from '@/lib/notify';
 import { authoring } from '@/playground/authoring-door.js';
 import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections } from '@/playground/deck-preview.js';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
+import { slideSourceHidden } from '../../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { splitSlides } from '../../lib/deck-lint';
 import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from '../../lib/front-matter';
-import { downloadBlob, downloadUrl, isIOSLike, namedFileUrl } from './download';
+import { writeSrcdoc } from '../../lib/srcdoc-write.js';
+import { downloadBlob, downloadUrl, isIOSLike, namedFileUrl, needsPdfToPrint } from './download';
 import { OffFencesNotice } from './OffFencesNotice';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
 import { buildDeckRender, type DeckRender, type ExtraTheme, withExportMarker } from './share-export';
@@ -193,7 +195,8 @@ function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialo
 	}
 	const entry: PrintFrame = { frame, doc, loaded: false };
 	frame.onload = () => { entry.loaded = true; printWhenReady(frame); };
-	frame.srcdoc = doc;
+	// writeSrcdoc: a kept frame is rewritten, and Firefox gives a rewritten frame no service worker (lib/srcdoc-write.js).
+	writeSrcdoc(frame, doc);
 	slot.current = entry;
 	if (!kept) document.body.appendChild(frame);
 	// Safety: if load never fires, release the caller's loading state.
@@ -262,9 +265,13 @@ export function PrintOptionsPanel({
 	// which change placement, not pixels. A paper/orientation flip re-ASSEMBLES these (cheap
 	// jsPDF geometry) with no re-rasterize; a color/source/theme change makes a new `render`
 	// object → the key misses → we rasterize once more. Cleared when the deck re-renders below.
-	const [imgCache, setImgCache] = React.useState<{ render: DeckRender; images: string[]; geom: { w: number; h: number }; pageFormat: string } | null>(null);
-	// Platform is stable per device; decide the print path once.
+	// Each slide's picture as its BYTES (PNG or JPEG), as the writer made it: no base64 copy held here.
+	const [imgCache, setImgCache] = React.useState<{ render: DeckRender; images: Uint8Array[]; geom: { w: number; h: number }; pageFormat: string } | null>(null);
+	// Platform is stable per device; decide the print path once. `pdfPrint`: this browser cannot be trusted to print the
+	// hidden print frame (it prints the Studio instead, one page), so Print builds the real PDF and opens THAT
+	// (download.js `needsPdfToPrint`; 2026-06-14-deck-print-styling.md). iOS is one of them, and keeps its own words.
 	const ios = React.useMemo(() => isIOSLike(), []);
+	const pdfPrint = React.useMemo(() => needsPdfToPrint(), []);
 
 	const mountedRef = React.useRef(true);
 	const activeRef = React.useRef(active);
@@ -391,7 +398,13 @@ export function PrintOptionsPanel({
 	// for almost every deck; where the engine renders a different number of pages than the
 	// markdown has slides, the cells keep one self-contained document each (below) so the
 	// preview never shows a different page from the one that prints.
-	const pooled = mdSlides.length === sections.length;
+	// A hidden slide (`<!-- hide -->`) never prints: `buildDeckRender` drops it from `sections` and names its position in
+	// `render.hidden`, so printed page k shows the k-th SHOWN markdown slide (engineering/decisions/2026-11-06-hidden-slides.md).
+	// Both are AUTHORED slides (`---` blocks), so the hidden ones come from the source, not from `render.hidden`, whose
+	// positions are rendered sections and differ in a heading-split deck (the checker's finding). A deck whose shown
+	// slides still do not match the printed pages is not pooled: each cell keeps its own document (below).
+	const shownIdx = React.useMemo(() => mdSlides.map((_, i) => i).filter((i) => !slideSourceHidden(mdSlides[i])), [mdSlides]);
+	const pooled = shownIdx.length === sections.length;
 	// ONE Mermaid flag for the whole deck, not per slide. The flag is part of a pooled frame's shape
 	// (preview-pool.tsx `shapeKey`), and a cell keeps its frame across flips, so a per-slide flag
 	// made every flip between a diagram slide and a plain one a full document rewrite (the checker
@@ -422,6 +435,12 @@ export function PrintOptionsPanel({
 			});
 		});
 	}, [render, sections, pageIdx, nup, pooled]);
+	// A new set of documents gets new frames: React would otherwise set `srcdoc` on the frame already in the page, and Firefox
+	// gives such a frame no service worker, so offline its fonts and runtime fail (lib/srcdoc-write.js). A frame React builds
+	// fresh gets `srcdoc` before it is inserted, which Firefox does control.
+	const docsGenRef = React.useRef(0);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the generation must change exactly when the documents do.
+	const docsGen = React.useMemo(() => ++docsGenRef.current, [previewDocs]);
 
 	const { paper, orientation, layout } = opts;
 	// Does the built PDF match the CURRENT settings? Drives the iOS button (build vs open).
@@ -575,7 +594,7 @@ export function PrintOptionsPanel({
 
 	const doPrint = React.useCallback(() => {
 		if (!render || building) return;
-		if (!ios) {
+		if (!pdfPrint) {
 			// Desktop, plain 1-up: print the vector deck via a hidden HTML iframe → reliable
 			// dialog, no PDF. The iframe still needs ~1-2s to load fonts + run FIT before the
 			// dialog opens, so show the spinner across that prep and clear it when handed off.
@@ -595,7 +614,8 @@ export function PrintOptionsPanel({
 				.finally(() => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
 			return;
 		}
-		// iOS, tap 2 — the PDF for these settings is already built: hand it to the OS in-gesture.
+		// A PDF-printing browser (iOS, Android, Firefox, a touch device), tap 2 — the PDF for these settings is already
+		// built: hand it to the OS in-gesture.
 		if (cachedForCurrent && builtPdf) { openPdfToPrint(builtPdf); return; }
 		// iOS, tap 1 — build the PDF in the FOREGROUND (no tab open → no freeze). When it
 		// lands, `cachedForCurrent` flips true and the button arms to "Open PDF" for tap 2.
@@ -604,13 +624,13 @@ export function PrintOptionsPanel({
 			.then(() => { if (mountedRef.current && activeRef.current) notify('PDF ready — tap “Open PDF” to print.'); })
 			.catch((e) => notify(messageForFailure(e, 'Could not build the PDF.')))
 			.finally(() => { if (mountedRef.current) { setBuilding(null); setStatus(''); } });
-	}, [render, building, ios, nup, handout, cachedForCurrent, builtPdf, printDoc, buildPdf, openPdfTab, openPdfToPrint]);
+	}, [render, building, pdfPrint, nup, handout, cachedForCurrent, builtPdf, printDoc, buildPdf, openPdfTab, openPdfToPrint]);
 
 	// A fresh render (no re-render in flight) is all either action needs to START — the PDF
 	// is built on click, not up front. Both drop the instant a color change begins.
 	const ready = !!render && !!sections.length && !rendering;
 	// iOS Print is a two-step affordance: build (tap 1) → open (tap 2, once armed).
-	const printReadyToOpen = ios && cachedForCurrent;
+	const printReadyToOpen = pdfPrint && cachedForCurrent;
 	const seg = <K extends keyof Opts>(k: K, v: Opts[K]) => () => setOpts((o) => ({ ...o, [k]: v }));
 
 	return (
@@ -647,7 +667,7 @@ export function PrintOptionsPanel({
 											className="pod-cell"
 											style={{ left: `${cr.left}%`, top: `${cr.top}%`, width: `${cr.width}%`, height: `${cr.height}%` }}
 										>
-											<PooledThumbFace options={options} sample={cellSrc} slideIndex={slideIdx} slideCount={mdSlides.length} slideMarkdown={fm + mdSlides[slideIdx]} drawn={deckDrawn} paletteOverride={palette} extraTheme={extraTheme} modeOverride={mode} extraCss={extraCss} className="pointer-events-none size-full" />
+											<PooledThumbFace options={options} sample={cellSrc} slideIndex={shownIdx[slideIdx]} slideCount={mdSlides.length} slideMarkdown={fm + mdSlides[shownIdx[slideIdx]]} drawn={deckDrawn} paletteOverride={palette} extraTheme={extraTheme} modeOverride={mode} extraCss={extraCss} className="pointer-events-none size-full" />
 										</div>
 									);
 								})}
@@ -656,7 +676,7 @@ export function PrintOptionsPanel({
 							const doc = previewDocs[k];
 							if (!doc) return null;
 							const slideIdx = pageIdx * nup + k;
-							return <iframe key={slideIdx} title={`Print preview slide ${slideIdx + 1}`} className="pod-frame" scrolling="no" srcDoc={doc} style={{ left: `${cr.left}%`, top: `${cr.top}%`, width: `${cr.width}%`, height: `${cr.height}%` }} />;
+							return <iframe key={`${slideIdx}:${docsGen}`} title={`Print preview slide ${slideIdx + 1}`} className="pod-frame" scrolling="no" srcDoc={doc} style={{ left: `${cr.left}%`, top: `${cr.top}%`, width: `${cr.width}%`, height: `${cr.height}%` }} />;
 						})}
 						{notesRect ? (
 							<div className="pod-notes" style={{ left: `${notesRect.left}%`, top: `${notesRect.top}%`, width: `${notesRect.width}%`, height: `${notesRect.height}%` }}>
@@ -703,7 +723,7 @@ export function PrintOptionsPanel({
 					{rendering || building === 'download' ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
 					{building === 'download' ? status || 'Building PDF…' : rendering ? 'Rendering…' : 'Download PDF'}
 				</button>
-				<p className="pod-plat"><span className="pod-dot">●</span> {ios ? 'On iPhone: tap Print to prepare, then Open — the share sheet opens; tap Print.' : 'Opens the print dialog on desktop.'}</p>
+				<p className="pod-plat"><span className="pod-dot">●</span> {ios ? 'On iPhone: tap Print to prepare, then Open — the share sheet opens; tap Print.' : pdfPrint ? 'Print prepares the PDF; then Open PDF to print it from there.' : 'Opens the print dialog on desktop.'}</p>
 			</div>
 		</div>
 	);

@@ -8,7 +8,7 @@
 // longer plays audio (the Suono consumer owns playback) either, so there is
 // nothing to drive an AudioContext here.
 
-const { test } = require('node:test');
+const { test, mock } = require('node:test');
 const assert = require('node:assert/strict');
 
 const url = require('node:url').pathToFileURL(
@@ -16,6 +16,30 @@ const url = require('node:url').pathToFileURL(
 ).href;
 
 async function load() { return import(url); }
+
+// ── Waiting on signals, not durations (HARD RULE #32, engineering/decisions/2026-11-06-flaky-tests.md) ──────────
+// This file slept 5 to 120 ms "to let a prefetch settle". Each wait is now one of two signals.
+
+/** Resolves once `rung.synth` has been called `n` times: the moment a request reached the rung. Install it first. */
+function synthCalls(rung, n = 1) {
+  const real = rung.synth.bind(rung);
+  let k = 0;
+  let hit;
+  const reached = new Promise((resolve) => { hit = resolve; });
+  rung.synth = (...args) => {
+    const out = real(...args);
+    if (++k === n) hit();
+    return out;
+  };
+  return reached;
+}
+
+/**
+ * One macrotask turn: every promise job already queued runs before it resolves. Every collaborator in these tests is
+ * an in-process mock with no timer between a call and its effect, so what a turn has run is fixed by the code's own
+ * chain of awaits, never by the clock or the machine's load. An absence check reads after one.
+ */
+const drained = () => new Promise((resolve) => setImmediate(resolve));
 
 // Red-team finding (2026-07-11): voice-model.js's PCM_ONLY_MODELS is a SECOND,
 // independently-hardcoded source of truth for "this model needs pcm, not mp3" —
@@ -178,8 +202,9 @@ test('warm(): prefetches into the cache so a later synthOne for the same sentenc
   const rung = MockRung({ name: 'openrouter-tts' }); // warm() only fires for openrouter-tts (Munger-inversion finding)
   const v = createVoiceModel({});
   v.__setRung(rung);
+  const prefetched = synthCalls(rung);
   v.warm(['Next slide sentence.']);
-  await new Promise((r) => setTimeout(r, 20)); // let the background prefetch settle
+  await prefetched; // the background prefetch reached the rung
   // The synth call must already have happened from warm() alone, BEFORE synthOne
   // ever runs — asserting only the count afterward wouldn't distinguish a real
   // prefetch from warm() doing nothing and synthOne synthesizing it fresh.
@@ -196,7 +221,7 @@ test('warm(): no-ops when the resolved rung is silent (nothing connected) — ne
   const v = createVoiceModel({ getOpenRouterKey: () => null });
   assert.equal(v.availability().rung, 'silent');
   v.warm(['Would-be next slide sentence.']); // best-effort — must not throw
-  await new Promise((r) => setTimeout(r, 20));
+  await drained(); // nor reject later, which node:test would report against this test
 });
 
 test('warm(): DOES prefetch on kokoro — the hazard is handled by that rung\'s scheduler, not by a ban', async () => {
@@ -210,8 +235,10 @@ test('warm(): DOES prefetch on kokoro — the hazard is handled by that rung\'s 
   const rung = MockRung({ name: 'kokoro' });
   const v = createVoiceModel({});
   v.__setRung(rung);
+  const prefetched = synthCalls(rung);
   v.warm(['Would-be next slide sentence.']);
-  await new Promise((r) => setTimeout(r, 30));
+  await prefetched;
+  await drained(); // and only the one
   assert.equal(rung.calls.length, 1, 'the sentence was prefetched');
 });
 
@@ -221,7 +248,7 @@ test('warm(): still no-ops for a rung that produces no cacheable blob (speechSyn
   const v = createVoiceModel({});
   v.__setRung(rung);
   v.warm(['Nothing to cache here.']);
-  await new Promise((r) => setTimeout(r, 20));
+  await drained(); // the warm above reached a MockRung in one turn, so a prefetch started here would show by now
   assert.deepEqual(rung.calls, []);
 });
 
@@ -241,7 +268,7 @@ test('serial queue: runs one job at a time, in order, when nothing is prioritize
   let peak = 0;
   const job = (n) => async () => {
     peak = Math.max(peak, ++live);
-    await new Promise((r) => setTimeout(r, 5));
+    await drained(); // yield, so a queue that let a second job start would show it in `peak`
     order.push(n);
     live--;
   };
@@ -319,14 +346,15 @@ test('warm traffic reaches the rung marked as prefetch, and a playback join prom
   const v = createVoiceModel({});
   v.__setRung(rung);
 
+  const prefetched = synthCalls(rung);
   v.warm(['Shared sentence.']);
-  await new Promise((r) => setTimeout(r, 20));
+  await prefetched;
   // Field-wise, not shape-wise: the priority object also carries the DROP channel (#1391),
   // and a deep-equal here would break every time that object learns something new.
   assert.equal(seen.warm, true, 'prefetch traffic is marked as prefetch');
 
   const playing = v.synthOne({ text: 'Shared sentence.' }); // JOINS the live warm request
-  await new Promise((r) => setTimeout(r, 20));
+  await drained();
   assert.equal(seen.warm, false, 'the joining playback caller promoted it in place');
   release();
   await playing;
@@ -374,14 +402,16 @@ function ScriptedRung(script, { name = 'openrouter-tts' } = {}) {
       const step = script[Math.min(i++, script.length - 1)];
       calls.push(text);
       aborts.push(signal);
-      if (step === 'error') throw new Error('429 rate limited');
+      // What a real 429 carries (voiceHttpError): a status the voice scheduler reads, and a Retry-After of 0 so the
+      // retry needs no clock.
+      if (step === 'error') throw Object.assign(new Error('429 rate limited'), { status: 429, retryAfter: '0' });
       if (step === 'hang') return new Promise(() => {}); // never settles — the timeout must win
       return { size: 128, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(128) };
     },
   };
 }
 
-test('fetchClip: retries ONCE after a fast failure, and the retry\'s bytes are returned', async () => {
+test('fetchClip: a rate-limited sentence is retried ONCE (the scheduler\'s `now` lane), and the retry\'s bytes are returned', async () => {
   const { createVoiceModel } = await load();
   const rung = ScriptedRung(['error', 'ok']);
   const v = createVoiceModel({});
@@ -472,13 +502,14 @@ test('fetchClip: a request the caller gave up on KEEPS RUNNING and still caches 
   v.__setRung(rung);
 
   const ctl = new AbortController();
+  const started = synthCalls(rung);
   const first = v.synthOne({ text: 'Slow but coming.', signal: ctl.signal });
-  await new Promise((r) => setTimeout(r, 10));
+  await started; // the request is in flight
   ctl.abort();
   assert.equal((await first).bytes, null, 'the caller gets nothing — it stopped waiting');
 
   release();
-  await new Promise((r) => setTimeout(r, 20));
+  await drained(); // the late reply lands in cache
   const second = await v.synthOne({ text: 'Slow but coming.' });
   assert.ok(second.bytes, 'the late arrival is served from cache');
   assert.equal(rung.calls.length, 1, 'and no second request was ever fired');
@@ -501,9 +532,11 @@ test('fetchClip: a concurrent call for the same sentence JOINS the live request,
   };
   const v = createVoiceModel({});
   v.__setRung(rung);
+  const started = synthCalls(rung);
   const a = v.synthOne({ text: 'Same words.' });
   const b = v.synthOne({ text: 'Same words.' });
-  await new Promise((r) => setTimeout(r, 10));
+  await started;
+  await drained(); // the second caller has had every turn it needs to fire a duplicate
   release();
   assert.ok((await a).bytes);
   assert.ok((await b).bytes);
@@ -533,26 +566,27 @@ test("fetchClip: the caller's abort ENDS THE WAIT without killing the request, a
       return new Promise((res) => { release = () => res({ size: 32, type: 'audio/mpeg', arrayBuffer: async () => new ArrayBuffer(32) }); });
     },
   };
-  // A patience far longer than this test's own timing, so a prompt return can only come from
-  // the abort — never from the deadline quietly expiring underneath it.
+  // A patience of 10 s, so a prompt return can only come from the abort. "Prompt" is a count of turns, not a
+  // stopwatch: the caller must settle within one macrotask turn of the abort, and no timer can fire in a turn, so
+  // the 10 s deadline cannot be what ended it (HARD RULE #32; this used to assert `elapsed < 1000`).
   const v = createVoiceModel({ waitMs: 10000, ceilingMs: 20000 });
   v.__setRung(rung);
   const ctl = new AbortController();
-  const startedAt = Date.now();
+  const started = synthCalls(rung);
   const p = v.synthOne({ text: 'Mid-flight barge-in.', signal: ctl.signal });
-  await new Promise((r) => setTimeout(r, 10));
+  await started;
   ctl.abort();
-  const res = await p;
-  const elapsed = Date.now() - startedAt;
+  const PENDING = Symbol('pending');
+  const res = await Promise.race([p, drained().then(() => PENDING)]);
 
+  assert.notEqual(res, PENDING, 'the abort ended the wait at once, not the 10 s patience');
   assert.equal(res.bytes, null, 'the caller that walked away gets nothing');
-  assert.ok(elapsed < 1000, `the abort ended the wait immediately (took ${elapsed}ms of a 10s patience)`);
   assert.equal(sawAbort, false, 'the REQUEST was not canceled — it is already paid for and still caches');
   assert.equal(rung.calls.length, 1, 'an abort is not a transient failure — it must not earn the retry');
 
   // And the self-healing half: the abandoned request still lands in cache for the next pass.
   release();
-  await new Promise((r) => setTimeout(r, 20));
+  await drained();
   const again = await v.synthOne({ text: 'Mid-flight barge-in.' });
   assert.ok(again.bytes, 'the late arrival is served from cache');
   assert.equal(rung.calls.length, 1, 'and no second request was ever fired');
@@ -630,16 +664,25 @@ test('latency: a JOINER records the request\'s age, not its own short wait', asy
   v.__setRung(rung);
   clearLatency(v.latencyKey());
 
-  const first = v.synthOne({ text: 'Warmed ahead.' });        // the real request starts here
-  await new Promise((r) => setTimeout(r, 120));
-  const joiner = v.synthOne({ text: 'Warmed ahead.' });        // playback catches up much later
-  await new Promise((r) => setTimeout(r, 10));
-  release();
-  await Promise.all([first, joiner]);
+  // The request's age is read from `Date.now()`, so the test owns that clock: 120 ms pass because the test says so,
+  // not because a sleep hoped they had (HARD RULE #32). Timers stay real; nothing here waits on one.
+  mock.timers.enable({ apis: ['Date'], now: 0 });
+  try {
+    const started = synthCalls(rung);
+    const first = v.synthOne({ text: 'Warmed ahead.' });        // the real request starts here
+    await started;
+    mock.timers.tick(120);
+    const joiner = v.synthOne({ text: 'Warmed ahead.' });        // playback catches up much later
+    await drained();
+    release();
+    await Promise.all([first, joiner]);
+  } finally {
+    mock.timers.reset();
+  }
 
   assert.equal(rung.calls.length, 1, 'one request served both');
   const stats = latencyStats(v.latencyKey());
-  assert.ok(stats.p95 >= 100, `the reservoir reflects the REQUEST's age, not the join (p95=${stats.p95})`);
+  assert.ok(stats.p95 >= 120, `the reservoir reflects the REQUEST's age (120 ms), not the join's 0 (p95=${stats.p95})`);
 }));
 
 // ── The desktop default: on-device Kokoro first ──────────────────────────────
@@ -712,7 +755,7 @@ test('desktop default: an injected test rung is never joined by a real download'
 // A scripted Worker answers the rung's `load` message the way kokoro-worker.js does, and a
 // scripted navigator.gpu stands in for the adapter probe. Plain node has neither.
 
-function withFakeGpuAndWorker({ adapter, adapterDelayMs = 0, failDevices = [] }, fn) {
+function withFakeGpuAndWorker({ adapter, adapterDelayMs = 0, failDevices = [], onProbe }, fn) {
   const posted = [];
   const realWorker = globalThis.Worker;
   const hadGpu = Object.getOwnPropertyDescriptor(globalThis.navigator, 'gpu');
@@ -727,7 +770,12 @@ function withFakeGpuAndWorker({ adapter, adapterDelayMs = 0, failDevices = [] },
   };
   Object.defineProperty(globalThis.navigator, 'gpu', {
     configurable: true,
-    value: { requestAdapter: () => (adapter === 'hang' ? new Promise(() => {}) : new Promise((r) => setTimeout(() => r(adapter), adapterDelayMs))) },
+    value: {
+      requestAdapter: () => {
+        onProbe?.();
+        return adapter === 'hang' ? new Promise(() => {}) : new Promise((r) => setTimeout(() => r(adapter), adapterDelayMs));
+      },
+    },
   });
   return Promise.resolve().then(() => fn(posted)).finally(() => {
     globalThis.Worker = realWorker;
@@ -750,14 +798,17 @@ test('on-device load: no adapter → the wasm build, never the ~330 MB WebGPU on
   assert.deepEqual(posted, ['load:wasm']);
 })));
 
-test('on-device load: a Cancel that lands during the adapter probe is honored', async () => withLocalStorage(() => withFakeGpuAndWorker({ adapter: {}, adapterDelayMs: 50 }, async (posted) => {
-  const { createVoiceModel } = await load();
+// The Cancel lands WHILE the probe is asked, by construction: it used to be a 10 ms timer racing a 50 ms probe, which
+// a loaded runner can reorder (HARD RULE #32).
+test('on-device load: a Cancel that lands during the adapter probe is honored', async () => {
   const ctl = new AbortController();
-  const p = createVoiceModel({}).loadKokoro(undefined, ctl.signal);
-  setTimeout(() => ctl.abort(), 10);
-  await assert.rejects(p, /aborted/);
-  assert.deepEqual(posted, [], 'nothing is sent to the worker after the Cancel');
-})));
+  return withLocalStorage(() => withFakeGpuAndWorker({ adapter: {}, onProbe: () => ctl.abort() }, async (posted) => {
+    const { createVoiceModel } = await load();
+    const p = createVoiceModel({}).loadKokoro(undefined, ctl.signal);
+    await assert.rejects(p, /aborted/);
+    assert.deepEqual(posted, [], 'nothing is sent to the worker after the Cancel');
+  }));
+});
 
 test('probeWebGPU: a probe that never answers, or a software fallback adapter, is "no GPU"', async () => {
   const spend = await load();

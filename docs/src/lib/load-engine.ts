@@ -75,12 +75,19 @@ export function ensureEngine(url: string): Promise<void> {
 		let attempts = 0;
 		const MAX_ATTEMPTS = 200; // ~10s at POLL_MS — bound the poll so a script that
 		// loads but never sets the global can't spin forever.
+		let t: ReturnType<typeof setInterval> | undefined;
 		const fail = (msg: string) => {
+			// Stop polling too: a poll left running after a load error rejected outlived it by ~10 s, and on timing out
+			// deleted the loader of a later retry (the twin of ensure-katex.ts's leak, PR #3070).
+			clearInterval(t);
 			loaders.delete(url); // allow a later call to retry
 			reject(new Error(msg));
 		};
 		const finish = () => {
 			if (window.LatticePlayground) {
+				// Stop polling here too: a poll left running after the load event resolved read `window` on its next
+				// tick, after a test environment had gone (an unhandled "window is not defined" that failed docs-build).
+				clearInterval(t);
 				resolve();
 				return true;
 			}
@@ -106,15 +113,9 @@ export function ensureEngine(url: string): Promise<void> {
 		}
 
 		if (finish()) return;
-		const t = setInterval(() => {
-			if (finish()) {
-				clearInterval(t);
-				return;
-			}
-			if (++attempts >= MAX_ATTEMPTS) {
-				clearInterval(t);
-				fail('lattice engine load timed out');
-			}
+		t = setInterval(() => {
+			if (finish()) return;
+			if (++attempts >= MAX_ATTEMPTS) fail('lattice engine load timed out');
 		}, POLL_MS);
 	});
 

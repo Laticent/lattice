@@ -441,11 +441,11 @@ export function isDirective(text: string): 'directive' | 'escaped' | null {
   let escaped = false;
   if (text.charCodeAt(0) === 0x5c /* \ */) { escaped = true; i = 1; }
   // A `{` is the common opener and needs no tag test; only another first character asks TAGS.
-  // The three tags are compared as char codes: `TAGS.includes(text[i])` cost about 15 ns on every
+  // The four tags are compared as char codes: `TAGS.includes(text[i])` cost about 15 ns on every
   // span that does not open with `{`, which is nearly all ordinary code. A test holds this to TAGS.
   const ch = text.charCodeAt(i);
   if (ch !== 0x7b /* { */) {
-    if (ch !== 0x7e /* ~ */ && ch !== 0x5e /* ^ */ && ch !== 0x21 /* ! */) return null;
+    if (ch !== 0x7e /* ~ */ && ch !== 0x5e /* ^ */ && ch !== 0x21 /* ! */ && ch !== 0x3e /* > */) return null;
     i++;
     if (text.charCodeAt(i) !== 0x7b /* { */) return null;
   }

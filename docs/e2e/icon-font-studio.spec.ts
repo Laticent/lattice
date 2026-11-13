@@ -9,7 +9,7 @@ import { expect, gotoStudio, livePreview, setEditorContent, shareExport, test } 
 // Icons as a font on the REAL Studio (engineering/decisions/2026-11-01-icon-font.md): the live preview draws each icon
 // as a Lattice Icons glyph (its `::before`, from `data-glyph`) in our font, not a fallback; Share → PDF embeds the face,
 // an editable PowerPoint draws the icon as a native shape, and Share → Webpage carries the face and draws the glyph in it.
-// Under `fonts: system-emoji` no export carries it, since no machine has our icons: the PDF draws each icon's <svg>, and
+// Under `font-embedding: system-emoji` no export carries it, since no machine has our icons: the PDF draws each icon's <svg>, and
 // so does the webpage. FALSIFIABLE: with the face not staged, no Lattice Icons face loads (a `document.fonts` entry,
 // not `fonts.check`, which says yes when no face of the family exists at all) and no export finds it to embed; with the
 // webpage's switch lost, its glyphs show in no font. Needs poppler.
@@ -84,9 +84,9 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		expect(shapes?.match(/<a:custGeom>/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
 	});
 
-	test(`under fonts: system-emoji the Studio's exports carry no icon font and draw the svg${tag}`, async ({ page }) => {
+	test(`under font-embedding: system-emoji the Studio's exports carry no icon font and draw the svg${tag}`, async ({ page }) => {
 		await gotoStudio(page);
-		await setEditorContent(page, `---\ntheme: indaco\nfonts: system-emoji\n---\n\n${BODY}`);
+		await setEditorContent(page, `---\ntheme: indaco\nfont-embedding: system-emoji\n---\n\n${BODY}`);
 		await expect(livePreview(page).locator('.lat-icon').first()).toBeVisible();
 		const pdf = await download(page, 'pdf');
 		expect(execFileSync('pdffonts', [pdf], { encoding: 'utf8' })).not.toMatch(/LatticeIcons/);
@@ -101,7 +101,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		expect(off / a.px.length, `${off} pixels differ from the icon: svg page`).toBeLessThan(0.001);
 	});
 
-	test(`Share → Webpage draws icons in the Lattice Icons face it carries, and its <svg> under fonts: system-emoji${tag}`, async ({ page, context }) => {
+	test(`Share → Webpage draws icons in the Lattice Icons face it carries, and its <svg> under font-embedding: system-emoji${tag}`, async ({ page, context }) => {
 		const open = async (file: string) => {
 			const p = await context.newPage();
 			await p.goto(pathToFileURL(file).href);
@@ -118,7 +118,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		await expect(font.p.locator('section .lat-icon-svg').first()).toBeHidden();
 		await font.p.close();
 
-		await setEditorContent(page, `---\ntheme: indaco\nfonts: system-emoji\n---\n\n${BODY}`);
+		await setEditorContent(page, `---\ntheme: indaco\nfont-embedding: system-emoji\n---\n\n${BODY}`);
 		const system = await open(await download(page, 'html'));
 		await expect(system.glyph).toBeHidden();
 		await expect(system.p.locator('section .lat-icon-svg').first()).toBeVisible();

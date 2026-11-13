@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import MarkdownIt from 'markdown-it';
 import { EditorState } from 'prosemirror-state';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { deckToDoc, docToDeck } from './deck-doc';
 import { latticeMarkdownParser, latticeMarkdownSerializer, roundTripSlideProse } from './deck-markdown';
 import { hasLossyConstruct, parseDeck } from './deck-source';
@@ -238,9 +238,14 @@ describe('what the fourth checker found', () => {
 	it('a long paragraph serializes in linear time', () => {
 		const kids: import('prosemirror-model').Node[] = [t('start')];
 		for (let i = 0; i < 2000; i++) kids.push(soft(), t(i % 2 ? `- item ${i}` : `line ${i}`));
-		const t0 = performance.now();
+		// The work is counted, not timed (HARD RULE #32, F1): the characters every markdown-it probe was handed. Each
+		// probe reads at most three lines; a probe of the whole paragraph per break (about 800 ms here) reads n / 2
+		// per break.
+		const parse = vi.spyOn(MarkdownIt.prototype, 'parse');
 		const md = write(para(kids));
-		expect(performance.now() - t0).toBeLessThan(400); // the whole-paragraph probe took ~800 ms here
+		const probed = parse.mock.calls.reduce((n, [src]) => n + String(src).length, 0);
+		parse.mockRestore();
+		expect(probed, `${probed} characters probed for ${md.length}`).toBeLessThan(10 * md.length); // 2.0x measured
 		expect(types(md)).toEqual(['paragraph']);
 	});
 });

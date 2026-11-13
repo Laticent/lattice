@@ -34,7 +34,7 @@ test('@crosswidth @webkit-phone leaving or ending the session asks first, and ac
 	await open(page);
 	await page.getByRole('button', { name: 'Session options' }).click();
 	await page.getByRole('menuitem', { name: /End session for everyone/ }).click();
-	await expect(page.getByRole('dialog')).toContainText('End the session for everyone?');
+	await expect(page.getByRole('alertdialog')).toContainText('End the session for everyone?');
 	expect((await calls(page)).filter((c) => c[0] === 'end')).toHaveLength(0);
 	await page.getByRole('button', { name: /^End session/ }).dblclick();
 	expect((await calls(page)).filter((c) => c[0] === 'end')).toHaveLength(1);
@@ -42,7 +42,7 @@ test('@crosswidth @webkit-phone leaving or ending the session asks first, and ac
 	await live(page, (l) => l.set({ isHost: false }));
 	await page.getByRole('button', { name: 'Session options' }).click();
 	await page.getByRole('menuitem', { name: /Leave session/ }).click();
-	await expect(page.getByRole('dialog')).toContainText('Leave the session?');
+	await expect(page.getByRole('alertdialog')).toContainText('Leave the session?');
 });
 
 test('@crosswidth @webkit-phone the person menu stays inside the screen and the page never scrolls sideways', async ({ page }) => {

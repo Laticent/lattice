@@ -178,7 +178,7 @@ test('@mobile a real tap mid-run takes over — stage detaches, the deck is kept
 // by CodeMirror after the frame that caused it, so the tail is legitimately a frame or two behind.
 // What a missing follow looks like is an offset that never closes.
 type TailSample = { off: number; scrollTop: number; overflow: number; rendered: boolean };
-type TailReport = { samples: number; worst: TailSample | null; maxOff: number; maxRun: number; chrome: number; vv: number; error?: string };
+type TailReport = { samples: number; edits: number; worst: TailSample | null; maxOff: number; maxRun: number; chrome: number; vv: number; error?: string };
 // SUSTAIN IS THE DISCRIMINATOR, NOT SLACK. What separates an engine's measure lag from a follow
 // that is broken is DURATION: the lag is a couple of frames and then the view catches up, while a
 // broken follow never closes. Measured on the shipped build, the longest run of frames over budget
@@ -235,7 +235,7 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 	await page.addInitScript(
 		([sustain, slackPx, typingMs]: [number, number, number]) => {
 			const w = window as unknown as { __tail: TailReport };
-			w.__tail = { samples: 0, worst: null, maxOff: 0, maxRun: 0, chrome: 0, vv: 0 };
+			w.__tail = { samples: 0, edits: 0, worst: null, maxOff: 0, maxRun: 0, chrome: 0, vv: 0 };
 			let run = 0;
 			let lastView: unknown = null;
 			let lastLen = -1;
@@ -263,6 +263,8 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 						if (len !== lastLen) {
 							lastLen = len;
 							lastChange = performance.now();
+							// An EDIT to a document taller than its pane: the work the guard below counts.
+							if (overflow > 60) w.__tail.edits++;
 						}
 					}
 					const typing = lastChange > 0 && performance.now() - lastChange < typingMs;
@@ -366,7 +368,12 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 	// typed into, reports a clean `null` and is otherwise indistinguishable from a pass.
 	expect(pageErrors, `the page threw: ${pageErrors.join(' | ')}`).toEqual([]);
 	expect(tail.error, 'the sampler threw inside the page, so it measured nothing').toBeUndefined();
-	expect(tail.samples, 'the editor was never both overflowing and being typed into — this proves nothing').toBeGreaterThan(TAIL_SUSTAIN * 10);
+	// Counted in EDITS, the work the tour did into an overflowing editor, and in enough frames to hold one sustained
+	// run. It used to require more than 200 FRAMES of typing, a count set by the frame rate: three loaded WebKit
+	// workers paint about a third as often, and a correct run that saw 77 to 86 edits in 104 to 114 frames failed here
+	// 4 times in 5 (followups.d/3087-p4, HARD RULE #32 shape F1). Unloaded it reads 326 to 339 frames.
+	expect(tail.edits, 'the editor was never both overflowing and being typed into — this proves nothing').toBeGreaterThan(TAIL_SUSTAIN * 2);
+	expect(tail.samples, 'too few frames sampled while typing to hold one sustained run').toBeGreaterThan(TAIL_SUSTAIN);
 	// GUARD THE RULER ITSELF. `--vt-chrome-bottom` is what turns this from "is the tail inside the
 	// editor" into "is the tail inside the VISIBLE part of it", and it is read with `|| 0` — so a
 	// regression that stopped the stage publishing would blind this oracle and restore the defect
@@ -399,7 +406,7 @@ async function expectTailFollows(page: import('@playwright/test').Page, slack: n
 	// Printed on a PASS too: the headroom this case actually has, so "it still passes" can be read
 	// as a number rather than taken on faith. `vv` is the visual-viewport divergence the run saw —
 	// 0 on every ordinary arm, and the whole subject of the `@vv` one.
-	console.log(`[tail] ${tail.samples} samples while typing, worst instantaneous offset ${tail.maxOff}px (slack ${slack}px), longest run over budget ${tail.maxRun} frames (of ${TAIL_SUSTAIN}), caption band ${tail.chrome}px, visual-viewport divergence ${tail.vv}px`);
+	console.log(`[tail] ${tail.edits} edits and ${tail.samples} samples while typing, worst instantaneous offset ${tail.maxOff}px (slack ${slack}px), longest run over budget ${tail.maxRun} frames (of ${TAIL_SUSTAIN}), caption band ${tail.chrome}px, visual-viewport divergence ${tail.vv}px`);
 }
 
 test('@mobile the editor follows the typing — the tail of the deck stays on screen', async ({ page }) => {
@@ -458,11 +465,12 @@ async function expectComposeTailFollows(page: import('@playwright/test').Page, s
 	await page.addInitScript(
 		([sustain, slackPx, typingMs]: [number, number, number]) => {
 			const w = window as unknown as { __tail: TailReport };
-			w.__tail = { samples: 0, worst: null, maxOff: 0, maxRun: 0, chrome: 0, vv: 0 };
+			w.__tail = { samples: 0, edits: 0, worst: null, maxOff: 0, maxRun: 0, chrome: 0, vv: 0 };
 			let run = 0;
 			let lastLen = -1;
 			let lastChange = 0;
 			let lastHost: unknown = null;
+			let lastPm: unknown = null;
 			const tick = () => {
 				try {
 					const host = document.querySelector('#studio-pane-editor .cs-host') as HTMLElement | null;
@@ -470,15 +478,24 @@ async function expectComposeTailFollows(page: import('@playwright/test').Page, s
 					const last = pm?.lastElementChild as HTMLElement | null;
 					const len = pm ? (pm.textContent ?? '').length : -1;
 					// A remount arrives holding the whole document — not a change, same as the
-					// CodeMirror sampler above.
-					if (host !== lastHost) {
+					// CodeMirror sampler above, which keys on the VIEW. So key on the view here too, not
+					// only on the host: the ProseMirror view mounts inside a host that is already there,
+					// and under load it lands after the sampler has seen the empty host. Counting that
+					// arrival (no editor, then the whole 1,252-character welcome deck) as typing measured
+					// an untouched 2,338px document at scrollTop 0, about 17 s before the tour typed
+					// anything: 8 of 24 loaded runs on main failed that way
+					// (followups.d/3087-p4-mobile-load-only-flakes.md).
+					if (host !== lastHost || pm !== lastPm) {
 						lastHost = host;
+						lastPm = pm;
 						lastLen = len;
 						lastChange = 0;
 						run = 0;
 					} else if (len !== lastLen) {
 						lastLen = len;
 						lastChange = performance.now();
+						// An EDIT to a document taller than its pane: the work the guard below counts.
+						if (host && host.scrollHeight - host.clientHeight > 60) w.__tail.edits++;
 					}
 					const typing = lastChange > 0 && performance.now() - lastChange < typingMs;
 					const overflow = host ? host.scrollHeight - host.clientHeight : 0;
@@ -523,13 +540,15 @@ async function expectComposeTailFollows(page: import('@playwright/test').Page, s
 	const tail = await page.evaluate(() => (window as unknown as { __tail: TailReport }).__tail);
 	expect(pageErrors, `the page threw: ${pageErrors.join(' | ')}`).toEqual([]);
 	expect(tail.error, 'the sampler threw inside the page, so it measured nothing').toBeUndefined();
-	expect(tail.samples, 'Compose was never both overflowing and being typed into — this proves nothing').toBeGreaterThan(TAIL_SUSTAIN * 5);
+	// Edits, not frames: see the editor sampler's guard above.
+	expect(tail.edits, 'Compose was never both overflowing and being typed into — this proves nothing').toBeGreaterThan(TAIL_SUSTAIN * 2);
+	expect(tail.samples, 'too few frames sampled while typing to hold one sustained run').toBeGreaterThan(TAIL_SUSTAIN);
 	expect(tail.chrome, 'the stage never published a chrome inset, so this measured a blind ruler').toBeGreaterThan(0);
 	expect(
 		tail.worst,
 		tail.worst ? `the tail was ${tail.worst.off}px off screen for ${TAIL_SUSTAIN}+ consecutive frames while typing (scrollTop ${tail.worst.scrollTop} of ${tail.worst.overflow})` : '',
 	).toBeNull();
-	console.log(`[compose-tail] ${tail.samples} samples while typing, worst instantaneous offset ${tail.maxOff}px (slack ${slack}px), longest run over budget ${tail.maxRun} frames (of ${TAIL_SUSTAIN}), caption band ${tail.chrome}px`);
+	console.log(`[compose-tail] ${tail.edits} edits and ${tail.samples} samples while typing, worst instantaneous offset ${tail.maxOff}px (slack ${slack}px), longest run over budget ${tail.maxRun} frames (of ${TAIL_SUSTAIN}), caption band ${tail.chrome}px`);
 }
 
 test('@mobile a tour started in COMPOSE mode follows its typing too', async ({ page }) => {

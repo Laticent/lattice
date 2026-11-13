@@ -79,7 +79,7 @@ scaffolders, …). This section calls out only the daily inner-loop:
 | `test:<scope>` | Scoped unit subset (`palette`/`mermaid`/`parsing`/`components`/`cli`/`engine`/`layout`/…) |
 | `test:integration` | The FULL integration tier (every suite) — what pre-push runs under `LATTICE_FULL_PUSH=1` |
 | `test:integration:pr` | The PR-blocking slice CI gates on: cross-path wiring (`parity/`) + export pipeline (`export/`) + per-component semantic invariants (`invariants/`). CI runs the same globs as four time-balanced shards via `test:integration:shard` (see *CI* below) |
-| `test:integration:nightly` | The render-regression slice that runs nightly on `main` (`integration-nightly.yml`): gallery/component/exemplar page-counts + mermaid + screenshot + the lint/engine equivalence checks (`lint-engine/`) |
+| `test:integration:nightly` | The render-regression slice that runs nightly on `main` (`integration-nightly.yml`): gallery/component/exemplar page-counts + mermaid + screenshot + the lint/engine equivalence checks (`lint-engine/`) + the type-set gate (`type-voices/`) |
 | `bench` | tinybench render benchmark — the owned engine over time (`-- --export` adds the rasterize tier, `-- --json` dumps machine-readable) |
 | `lint`, `lint:fix` | Biome check / Biome check --write (never `npx biome`) |
 | `lint:coverage`, `lint:coverage:bless` | Gate / re-record what Biome actually checks — see *Lint (Biome)* below |
@@ -170,6 +170,9 @@ test/integration/screenshot/  screenshot, svg-scaling              [nightly]
 test/integration/lint-engine/ lint-engine-equivalence: esm/lint.js  [nightly]
                               vs lib/authoring parity, and engine
                               isolation with a shared-parser control
+test/integration/type-voices/ typography-sets: every palette theme × [nightly]
+                              every `typography:` set, light and dark,
+                              through tools/type-voice-audit.mjs
 test/benchmark/               engine-bench.mjs (npm run bench) + *.test.js
                               scaling guards (npm run test:perf) — neither is
                               in npm test, and neither blocks CI
@@ -246,29 +249,66 @@ the PR critical path — their stale-committed-artifact half is already backstop
 at pre-commit, so a next-morning catch on `main` is cheap to revert. Rationale:
 `engineering/decisions/2026-06-27-integration-nightly-split.md`.
 
-**`marp-kit-render` is the one suite that reaches outside the repo.** It renders
-BOTH Marp hand-off artifacts — `dist/marp-kit` and a freshly exported
-Export-to-Marp bundle — through real marp-cli, fetched on demand with `npx` at
-the version range `lib/export/marp-bundle.js` exports. marp-cli is deliberately not
-a dependency (HARD RULE #1: Marp is an export target, not a render path), and it
-runs with `npm_config_ignore_scripts=true` since it executes registry content on
-the merge path, and `CHROME_NO_SANDBOX=1` because marp-cli turns the Chromium
-sandbox off for root and inside a container but NOT for a plain non-root VM —
-which is exactly what a GitHub runner is, so without it every render dies with
-"No usable sandbox!". `--browser-args` is not a marp-cli option and never was.
+**The Export-to-Marp suites run a pinned marp-cli, and no test reaches the network.**
+`marp-kit-render` renders BOTH Marp hand-off artifacts — `dist/marp-kit` and a freshly exported
+Export-to-Marp bundle — through real marp-cli, and four more files (`marp-admission`,
+`marp-video-link`, `marp-bundle-author-script`, `marp-bundle-shell-grammar`) render bundles with it.
+marp-cli is deliberately not a dependency (HARD RULE #1: Marp is an export target, not a render
+path): an exact pin with a lockfile lives in its own folder, `test/fixtures/marp-cli/`, and
+`test/helpers/marp-cli.js` runs its binary. The pin is the FLOOR of the Marp range Lattice
+supports (`MARP_SUPPORT`, `lib/export/marp-bundle.js`): marp-cli and, through an npm override,
+marp-core at the oldest versions the bundle and the kit say they work with, so a floor that moves
+without the pin fails every Marp suite. CI installs the pin in its own
+step before any test (`Install the pinned marp-cli`, cached on the lockfile); locally, run
+`npm ci --prefix test/fixtures/marp-cli --ignore-scripts` once. Before #3045 the suites fetched the
+range with `npx` inside the test, and a slow registry cancelled them 22 times in 30 days.
+`LATTICE_MARP_CLI=range` brings that route back on purpose, for a run that wants the newest
+release in the range (`MARP_SUPPORT.cli.range`), the range's other end; it needs the network, so it
+runs off the per-PR path: the integration nightly's "Export-to-Marp on the newest
+marp-cli in the range" arm runs the Marp files that way every night and files the rolling issue
+when a new release breaks the bundle.
 
-**The skip is local-only.** With no registry access it retries three times, then
-skips *off* CI with a printed reason — hard-failing a laptop with no network just
-teaches people to ignore the suite — and **throws on CI**. A gate that self-skips
-in CI is not a gate: `# skipped 14` in a several-hundred-line TAP stream is not a
-signal anyone reads, and the job goes green covering nothing.
+**The build runs marp-core, and nothing else does.** `@marp-team/marp-core` is a devDependency, pinned exactly (4.4.0), for
+one build step: `tools/build-marp-vscode-css.js` packs the engine and every palette the way Marp for VS Code's preview packs a
+registered theme, so the kit and an Export-to-Marp bundle can link that CSS and register directive-only stubs instead
+(`engineering/decisions/2026-11-10-marp-vscode-theme-stubs.md`). It is the preview's own code, run once at build time instead
+of on every keystroke. Nothing in `lib/` requires it, so HARD RULE #1 holds: Marp stays an export target. The parity test
+`test/integration/export/marp-vscode-css-parity.test.js` renders with it too, and skips when it is not installed.
+Four more devDependencies are aliases of older marp-core releases (`marp-core-4.0.1` … `marp-core-4.4.0`), each with its marpit
+pinned by `overrides`: the pairs Marp for VS Code 3.x bundles, whose own CSS differs (`VSCODE_CORES`; the decision note's
+"Every Marp for VS Code in the range"). Bump them only together with that table; `test/unit/tools/marp-vscode-cores.test.js`
+fails on a mismatch.
 
-Because the version range resolves fresh, the suite prints the resolved marp-cli
-version and repeats it in every failure message — without that a red gate cannot
-be triaged as "marp-cli moved" versus "we broke it." Renders are kept in
-`.scratch/marp-render/` (gitignored, reaped by `npm run clean:scratch`) and CI
-uploads them as an artifact on failure, because the defects this guards are the
-kind you see on page one of the PDF.
+**The regex census runs a pinned recheck, in its own folder, and the gate does not need it.**
+`checkRegexCensus` (`tools/check-ownership.js`, via `build:check`) holds every regex literal in
+`lib/**` to a complexity verdict in `tools/regex-census.json`, and each file's count of patterns
+that are not linear to the table's `backlog` (HARD RULE #32; the why is
+`engineering/decisions/2026-11-06-flaky-tests.md` §Backtracking). The gate only parses: it never runs
+recheck, so CI installs nothing for it. A new or changed literal fails it until the writer decides
+it, and the writer is the one place recheck runs: `npm ci --prefix tools/recheck --omit=optional
+--ignore-scripts` once (about 12 MB; the native binaries are optional and unused), then
+`npm run regex:census -- --write`. It refuses to raise a file's backlog; `--check '/…/'` prints
+recheck's verdict and attack string for one pattern, and `--verify` re-decides every entry. A drained
+pattern's test proves it with `test/helpers/regex-trace.js` (`assertLinearRegexes(fn)`: every regex
+the call ran is `safe` in the table, no clock) and `test/helpers/regex-differential.js` (a seeded fuzz
+of the old pattern against the new one).
+
+marp-cli runs with `CHROME_NO_SANDBOX=1` because it turns the Chromium sandbox off for root and
+inside a container but NOT for a plain non-root VM — which is exactly what a GitHub runner is, so
+without it every render dies with "No usable sandbox!". `--browser-args` is not a marp-cli option
+and never was.
+
+**The skip is local-only.** Without the pinned install it skips *off* CI with a printed reason
+(the install command) — hard-failing a laptop that has not installed it just teaches people to
+ignore the suite — and **throws on CI**. A gate that self-skips in CI is not a gate:
+`# skipped 14` in a several-hundred-line TAP stream is not a signal anyone reads, and the job
+goes green covering nothing.
+
+The suite prints the marp-cli version it ran and repeats it in every failure message, so a red
+gate on the range route can be triaged as "marp-cli moved" versus "we broke it." Renders are kept
+in `.scratch/marp-render/` (gitignored, reaped by `npm run clean:scratch`) and CI uploads them as
+an artifact on failure, because the defects this guards are the kind you see on page one of the
+PDF.
 
 The CI visual-correctness gate is the **per-component semantic-invariant suite**
 (`test/integration/invariants/component-invariants.test.js`): it renders each
@@ -327,6 +367,12 @@ which Windows reads as a `d:` URL scheme; and split a child's output on `/\r?\n/
 - `lint` — Biome on staged JS/JSON only
 - `affected-tests` — `tools/affected-tests.js` maps staged paths to
   scoped scripts; runs only what's affected. See *Affected tests* below.
+- `lint-deck` — `tools/lint-deck.js --strict` on staged decks.
+- `regex-census-recheck` — only when `tools/regex-census.json` is staged:
+  `node tools/regex-census.js --staged` re-decides, with recheck, each `safe` verdict the
+  staged table adds or changes against `HEAD` (the one verdict that lowers a backlog), and fails on any recheck answers
+  differently (HARD RULE #32; `build:check` trusts the verdicts it is shown). About
+  1 s per changed safe verdict; local only, no CI step re-runs it. Needs `npm ci --prefix tools/recheck --omit=optional --ignore-scripts`.
 
 **pre-push** (serial, fail-fast cheap-first):
 - `lint` — full tree
@@ -410,9 +456,16 @@ integration tests, not unit tests.
   config too (the US-English audit walks every `.md`). Node 22 on a pull request;
   Node 22 and 24 in the merge queue (`fail-fast: false`; the node 24 leg left the PR on
   2026-10-29, `decisions/2026-10-29-ci-job-tiers.md`), browser-free. `npm run build`, then
-  `npm run build:check:all`, then `npm test` on 22 (an engine subset on 24). The committed-artifact
-  freshness gate (`build:check`) lives in `lint`. Costs ~7.5 runner-minutes
-  a PR run (node 22, 457s, measured on PR #2554); the queue adds node 24 (260s).
+  `npm run build:check:all`, then the full suite on 22 (an engine subset on 24). The committed-artifact
+  freshness gate (`build:check`) lives in `lint`. **Node 22 runs as two legs** since 2026-11-10,
+  `unit (node 22, shard K/2)`: as one job it took 14.4 min at the median and 16.9 at most against its
+  20-minute cap, and a slow runner was cancelled at 20 with every test passing. Each leg runs
+  `npm run test:unit:shard` with `SHARD=K/2`, which `tools/shard-tests.js` deals from
+  `test/unit/shard-weights.json` exactly as the integration legs below; unset, it runs every file,
+  the same set as `npm test` (a test in `test/unit/tools/shard-tests.test.js` holds the two globs to one
+  file list, so no test can sit where CI skips it). Re-bless the weights the same way. Each leg pays
+  the ~3.3 min of install, build and `build:check:all` again: about 3.3 more runner-minutes a run, for
+  legs that finish in about 9 min.
 - **`integration`** — code changes only, `needs: changes` (it runs beside
   `unit`, not after it), single Node (22), **sharded across four runners**:
   check runs `integration (node 22, shard K/4)`, `fail-fast: false`.
@@ -564,6 +617,39 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   another process frees during the arm. The suite fails when the originals cost under 60 MB or the copies more than 60% of them;
   CI has read 86 to 117 MB against 17 to 34 MB. It was part of `ios-safari-studio` until it took that job to 27.6 of its 30
   minutes.
+  `ios-safari-present-memory` runs it with `PROBE=present-memory` (#3148, D1 on that PR), on the iPhone alone:
+  `present-memory.mjs` packs a `.lattice` with eighteen phone-photo-sized PNGs (24 MB; the owner's deck was 33 MB of `data:`
+  text and reloaded the tab on a real iPhone), `present-memory-probe.js` hands it to the Studio's own "Import deck…" input,
+  the page reloads so the deck comes back from the browser's store, and Present opens and steps six slides, each timed until
+  the next slide's heading shows and the photo it points at decodes. The footprint is read as `ios-safari-photo-memory` reads it, before
+  Present, after it opens and after the steps. A step whose photo does not decode, a reload, or more than
+  `PRESENT_MEMORY_CAP_MB` (300) fails it; the times are reported and never judged (HARD RULE #32: the first run read a
+  1,965 ms step that a 2 s limit would have passed by 35 ms). The production site runs as a second arm
+  (`PRESENT_BASELINE_URL`, time-boxed to 6 minutes) that is reported and never judged: the before until #3148 deployed,
+  the live site after it. The first run
+  (2026-11-12) read 795 MB on `main` and 124 MB on #3148, with no reload on either.
+  `PROBE=present-memory [BASELINE_URL=<url>] node docs/scripts/ios-safari/probe.selftest.mjs` runs the same steps in
+  Playwright's WebKit at iPhone size, without the footprint, so it proves the probe's steps, not the finding.
+  `ios-safari-font-cache` runs it with `PROBE=font-cache` (#3087, D2 A): does Safari read the Studio's warmed fonts
+  (`studio-warm.ts`, 31 faces, about 2.7 MB) from its HTTP cache? `run.sh` serves the built site with
+  `font-cache-server.mjs` instead of `preview:e2e`: GitHub Pages' `max-age=600` on every file, a 404 for `sw.js` (the
+  worker would re-fetch the frame's requests itself and answer from Cache Storage, a separate question), and a log of every
+  font request it answers. It serves two ports, one per arm, because a cache is keyed by origin and a simulator's Safari
+  cache cannot be cleared between arms, and the arms differ in one thing: the warm port sends `max-age=600` on the font
+  files, the control port `no-store`. On both, `font-cache-probe.js` waits until all 31 faces have been served, adds an
+  emoji, a code block and `finish: sketch`, and counts every font request after the edit: none on the warm arm, some on
+  the control arm, which proves the probe can see a miss. (A first cut told the frame's loads from the warm-up's fetches
+  by `Sec-Fetch-Dest`; in Mobile Safari 26.5 neither arm saw a request marked `font`, so it proved nothing.)
+  `PROBE=font-cache node docs/scripts/ios-safari/probe.selftest.mjs`, with the server running, does the same on
+  Playwright WebKit with a persistent profile: an ephemeral WebKit context keeps no disk cache across preview documents.
+  `ios-safari-chat-storage` runs it with `PROBE=chat-storage` (#3138), nightly and on dispatch only (`on_pull_request: false`):
+  `chat-storage-probe.js` plants two chat threads the way a build before #3138 saved them (`lattice-studio-chat-<deckId>`,
+  one on the open deck, one on a deck never opened), `run.mjs` reloads the page for real, and the probe then waits up to a
+  minute for the idle migration to empty localStorage of them and checks both arrive whole in IndexedDB
+  (`lattice-studio-chats`). Last, it fills localStorage until Safari refuses, with Latin-1 and then non-Latin-1 text, and
+  fails unless the allowance is within 3% of `local-quota.ts`' 5,242,272 characters and the non-Latin-1 one about half of it,
+  the arithmetic the fill warning rests on. `PROBE=chat-storage node docs/scripts/ios-safari/probe.selftest.mjs` proves it on
+  Playwright WebKit; against a build without the migration it fails on the move.
   `ios-safari-focus-sync` runs it with `PROBE=focus-sync` on an iPad Pro 13-inch alone (a phone is never wide enough for the
   Playground's two-pane layout, which starts above 820 px): `run.mjs` makes real WebDriver taps on editor lines (an element
   click; the harness found nothing else was needed) while `focus-sync-probe.js` keeps the page busy, and the suite fails when a tap
@@ -987,6 +1073,7 @@ cache). Flags: `--width`/`--height`, `--full` (full-page), `--wait <css>`
 | --- | --- |
 | Landing | `http://127.0.0.1:4321/` |
 | Studio | `…/studio/` |
+| Gift link landing (key in the fragment; build one with `lib/core/gift-link.mjs`) | `…/gift/#v1.…` |
 | Playground | `…/playground/` |
 | Components index | `…/components/` |
 | Libraries hub / a demo / its Learn page | `…/libraries/` · `…/libraries/suono/` · `…/libraries/suono/learn/` |
@@ -1108,7 +1195,7 @@ locally from `docs/`:
   job. A selector matching nothing is reported as a MISS under every one of the three, never
   as silence.
 - **`npm run perf`** (= `perf:collect` to `.perf/local` + a report) — measures
-  the current site, median-of-3, desktop (`lighthouserc.cjs`) + mobile
+  the current site, median-of-3 desktop (`lighthouserc.cjs`) + median-of-5 mobile
   (`lighthouserc.mobile.cjs`), and prints the numbers. **Report-only locally**
   (no base to diff against). The actual gate is the nightly:
   `.github/workflows/perf-nightly.yml` builds + measures `main@HEAD` vs the
@@ -1232,11 +1319,13 @@ gates and a rendered-DOM scan are complements, not alternatives.
 
 The pinned Chromium (build 1194 ↔ `@playwright/test` 1.56.1) belongs at
 `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`. Some sandbox images ship a different build
-there instead (seen 2026-10-27: only 1243), and the run then stops with "chromium is not
-installed … fix PLAYWRIGHT_BROWSERS_PATH". Install the pinned build with the docs
-package's own CLI, never a bare `npx playwright`, which can fetch another version:
-`cd docs && node node_modules/playwright/cli.js install chromium chromium-headless-shell`
-(about 30 s). `CHROME_PATH` is the *Puppeteer* cache and is irrelevant to Playwright.
+there instead (seen 2026-10-27 and again 2026-11-06: only 1243). The suite's `globalSetup`
+(`docs/scripts/e2e-ensure-browsers.mjs`) now installs the pinned build beside it when it is
+missing (about 20 s), with the docs package's own CLI; it used to refuse and stop the run with
+"fix PLAYWRIGHT_BROWSERS_PATH", so every project failed before its first test. By hand, for a
+tool outside the suite, use the same CLI, never a bare `npx playwright`, which can fetch another
+version: `cd docs && node node_modules/playwright/cli.js install chromium`. `CHROME_PATH` is the
+*Puppeteer* cache and is irrelevant to Playwright.
 
 **The `@visual` snapshot bless DOES run here** (corrected 2026-09-01). This
 section used to say it "genuinely can't run here (runner-specific AA)" and
@@ -1283,7 +1372,7 @@ number:
 **The shot's subject is a fixture, not the seeded deck** (2026-09-02). It used
 to be `DECKS[0]`, whose editor pane fills a third of the frame — so the welcome
 deck's copy was baked into all three PNGs, and one line of that copy is the live
-catalog count (`61 components / 14 themes`), held current by
+catalog count (then `61 components / 14 themes`), held current by
 `test/unit/playground/welcome-deck-counts.test.js`. Adding a component therefore
 turned three baselines red in a PR that never touched the Studio, and the only
 available answer was a re-bless — the one thing this section tells you not to do
@@ -1337,7 +1426,7 @@ proxy" — that is false and this is what it should have said; the correction is
 PR as comment 5387941880.
 
 **WebKit and Firefox install themselves.** Only Chromium is baked in
-(`/opt/pw-browsers/chromium-1194`). The `@webkit-phone`, `@webkit-tablet` and `gecko` projects
+(`/opt/pw-browsers`, and not always the pinned build: see above). The `@webkit-phone`, `@webkit-tablet` and `gecko` projects
 need WebKit or Firefox, and the suite's `globalSetup` installs whichever is missing after the
 site build and before the first test (UI mode selects every project, so it installs both) (`npx playwright install-deps` then `install`, into `PLAYWRIGHT_BROWSERS_PATH`; it
 never touches the Chromium pin). To install by hand, for a tool outside the suite:

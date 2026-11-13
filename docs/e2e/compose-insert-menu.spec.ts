@@ -94,7 +94,7 @@ test.describe('compose insert menu', () => {
 		await openInsertMenu(page);
 		for (const name of ['Table', 'Code', 'Diagram', 'Pill', 'Avatar'] as const) {
 			await expect(insertEntry(page, name), name).toHaveAttribute('data-disabled', '');
-			await expect(insertEntry(page, name), name).toContainText('edited in Markdown');
+			await expect(insertEntry(page, name), name).toContainText('edited in Source');
 		}
 	});
 });

@@ -1,5 +1,11 @@
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { plainText, removeTags, stripTags } from './text';
+
+// The root's work counter (test/helpers/work-count.js), CommonJS.
+const { charReads } = createRequire(import.meta.url)('../../../../test/helpers/work-count.js') as {
+  charReads: <T>(fn: () => T) => { result: T; scanned: number; reads: number };
+};
 
 describe('removeTags', () => {
   it('removes tags, to a fixed point', () => {
@@ -14,9 +20,12 @@ describe('removeTags', () => {
     expect(removeTags('x > y')).toBe('x > y');
   });
   it('is linear on many unclosed <', () => {
-    const t = performance.now();
-    expect(removeTags(`${'<'.repeat(200000)}x`)).toBe(`${'<'.repeat(200000)}x`);
-    expect(performance.now() - t).toBeLessThan(500);
+    // The work is counted, not timed (HARD RULE #32, F1): every character searched, sliced or read by code. Once no
+    // `>` remains, no later `<` can open a tag; a search for `>` from every `<` would read n / 2 per character.
+    const src = `${'<'.repeat(200000)}x`;
+    const w = charReads(() => removeTags(src));
+    expect(w.result).toBe(src);
+    expect(w.reads + w.scanned, `${w.reads + w.scanned} for ${src.length} characters`).toBeLessThan(8 * src.length); // 2.0x measured
   });
 });
 

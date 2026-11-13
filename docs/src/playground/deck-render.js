@@ -19,6 +19,7 @@ import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
 import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
 import { markupHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
+import { writeSrcdoc } from '../lib/srcdoc-write.js';
 import { windowFor } from '../lib/veduta/core.js';
 import { buildSrcdoc, docStyleText, SCAN_SHELL } from './deck-preview.js';
 import { paneComponentsSig } from './pane-sheet-sig.js';
@@ -558,6 +559,11 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 		// instead of at slide 1. Read only here, on the rare full write, never per keystroke —
 		// and never on a `fresh` write, which is a DIFFERENT deck and opens at its start.
 		anchor = fresh ? null : readAnchor(frame);
+		// A WRITE STILL IN FLIGHT has no reader's place to read: on Firefox (and once per page elsewhere) the frame is
+		// re-inserted for its write (lib/srcdoc-write.js), so until the new document commits it holds an empty
+		// about:blank. Keep the place that write was opened at, or a second write in that window would open at slide 1.
+		if (!anchor && !fresh && !current && st.writeId) anchor = st.writeAnchor ?? null;
+		st.writeAnchor = anchor;
 		// WRITE path (first render / theme·mode·size change / deck swap) — NOT the hot
 		// path. Sanitize the whole document so buildSrcdoc sees any inter/trailing
 		// content splitSections drops, keeping the written srcdoc byte-identical.
@@ -581,7 +587,8 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 		// `data-lattice-live-media`: the filmstrip is ON SCREEN, so a picture still loading shows the
 		// Underpainting (lib/core/image-painting.js). The export capture and Print build with
 		// `buildSrcdoc` directly and never set it.
-		frame.srcdoc = buildSrcdoc({ html: sanitizeSlideHtml(docHtml), css, mode, geom, ...opts, ...(deck ? { deck } : {}) }).replace('<html ', `<html data-lattice-write="${st.writeId}" data-lattice-live-media `);
+		// writeSrcdoc, not `frame.srcdoc =`: a rewrite keeps Firefox's service worker serving the frame offline (lib/srcdoc-write.js).
+		writeSrcdoc(frame, buildSrcdoc({ html: sanitizeSlideHtml(docHtml), css, mode, geom, ...opts, ...(deck ? { deck } : {}) }).replace('<html ', `<html data-lattice-write="${st.writeId}" data-lattice-live-media `));
 	}
 	st.frameSig = contentSig;
 	st.restyleSig = restyleSig;

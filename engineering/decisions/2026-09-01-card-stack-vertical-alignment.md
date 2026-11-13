@@ -1414,3 +1414,30 @@ exporter**, capstone included. (The fixture's coda slide clips in both, and iden
 `main`: four cards plus an insight is more than the stage holds, and the fixture is not in the
 overflow corpus.) **Not verified:** `size: story` (strip) beyond what the square and portrait
 renders imply, and the Marp VS Code webview.
+
+## Addendum 2026-11-08 · `contact` and `wifi` join
+
+§5 put `contact` and `wifi` out of scope because each is one card, not a row, and §13 left
+`contact` ungoverned because it is pinned to self-size for the overflow probe. The owner then
+asked why neither card sat in the middle of its slide or followed `cards:`, and approved opting
+both in. Being one card was never a reason to ignore the deck: a single card still has a place
+on the stage, and both sat at the top whatever the deck asked for (measured on `main`: 0px above
+the contact card and 151px below it; 0px above the wifi content and 150px below it).
+
+- **`contact`** is a centered stage block. Its stage reads `justify-content: var(--cards-align)`
+  (`safe center` under `center`, for the #1299 reason). The card's pin becomes
+  `flex: var(--cards-grow) 0 auto`, so it grows only under `stretch`, and `flex-shrink` stays 0,
+  so the overflow probe still sees an overstuffed card.
+- **`wifi`** has no card chrome; its grid is the card. Its rows were `auto 1fr`, and the `1fr`
+  row took the free height, so its `align-content: safe center` had nothing to move. The rows
+  are now `auto auto` and the grid reads `align-content: var(--cards-align)`. Its tall/strip arm
+  had hard-coded `safe start`; it reads the token too.
+- **A bug the centering exposed.** `wifi`'s fields are a `<dl>`, and its browser default 1em
+  margin was never reset. The bottom half was invisible space under the fields that put the
+  centered group 21px high (141/141 after, 130/150 before). The rule now resets `margin: 0` and
+  moves the top 1em into padding, so the heading-to-fields spacing is unchanged.
+
+Both declare `"default": "center"` at every family. Measured after the change, every value at
+wide, square and story places the content with equal space above and below, except `top`.
+Demo: `examples/qr-cards-alignment.md`.
+

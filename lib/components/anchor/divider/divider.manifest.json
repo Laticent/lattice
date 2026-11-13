@@ -37,7 +37,7 @@
       "description": "Optional section number or category label above the heading."
     }
   },
-  "skeleton": "<!-- _class: divider -->\n<!-- _header: '' -->\n<!-- _footer: '' -->\n\n`Section 01`\n\n## Section name\n",
+  "skeleton": "<!-- _class: divider -->\n\n`Section 01`\n\n## Section name\n",
   "anatomyBlock": "divider-bookend",
   "sample": "<!-- _class: divider silent -->\n\n`divider · Section 03`\n\n## A divider gives the deck a place to breathe.\n",
   "whenToUse": [
@@ -69,7 +69,7 @@
     },
     {
       "title": "Header or footer overrides",
-      "body": "Don't reinstate `_header:` or `_footer:` on a divider. The dark canvas is meant to be uninterrupted; chrome belongs on body slides."
+      "body": "Don't blank the header or footer with `_header: ''` / `_footer: ''` on a divider. A divider keeps the deck's running header and its footer, the standing note (a \"Confidential\", a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). Drop one on purpose with `no-header` / `no-footer`, or every band with `silent`."
     }
   ],
   "related": [
@@ -89,11 +89,11 @@
     },
     {
       "mistake": "Eyebrow paragraph placed AFTER the heading, copying the title/closing pattern.",
-      "fix": "Divider's eyebrow is the mirror image of title/closing's — it uses the BEFORE-heading rule (`p:has(> code:only-child):has(+ h2)`), not the after-heading one those two use. Keep it directly before `## Section name`; placed after, it still renders (via the separate after-heading rule) but as an italic secondary-color treatment, not the intended mono kicker."
+      "fix": "Divider's eyebrow is the mirror image of title/closing's — it uses the BEFORE-heading rule (`p:has(> code:only-child):has(+ h2)`), not the after-heading one those two use. Keep it directly before `## Section name`; placed after, it still renders (via the separate after-heading rule) but as an italic secondary-color treatment, not the intended eyebrow kicker."
     },
     {
       "mistake": "Reaching for `numbered` on a slide with no heading, or expecting it on a `title` / `closing`.",
-      "fix": "The mark rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-pagination` null it. No heading, no numeral — and the counter still advances, so the next divider reads one higher and the series silently skips. The heading is a required slot here anyway. `numbered` is a divider modifier only: a bookend is not a section, so `title` and `closing` do not take it. It also suppresses the header and footer, so a numbered divider cannot carry a `_footer:` caption. The mark's band is reserved, so a long heading can no longer climb into the numeral — it pins under the band with a constant 2.5cqi of clearance and grows downward instead, and far enough down the slide genuinely overflows and the export says so. `light` and `qr` need the band too: measured without it they collide at -15.2 and -85.3."
+      "fix": "The mark rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-pagination` null it. No heading, no numeral — and the counter still advances, so the next divider reads one higher and the series silently skips. The heading is a required slot here anyway. `numbered` is a divider modifier only: a bookend is not a section, so `title` and `closing` do not take it. Like every divider it keeps the deck's header and footer, so a `_footer:` caption reads there too. The mark's band is reserved, so a long heading can no longer climb into the numeral — it pins under the band with a constant 2.5cqi of clearance and grows downward instead, and far enough down the slide genuinely overflows and the export says so. `light` and `qr` need the band too: measured without it they collide at -15.2 and -85.3."
     }
   ],
   "variantDecisionRule": [

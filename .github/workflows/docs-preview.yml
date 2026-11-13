@@ -42,13 +42,23 @@ jobs:
     # skip cleanly rather than fail. Same-repo branches (claude/*, ci/*, …) run.
     if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
-      # Fail SAFE, not red: until CLOUDFLARE_API_TOKEN is added, skip the build
-      # and deploy so the check stays green (a no-op) rather than X-ing every PR.
+      # Skip, but SAY SO (#1931 criterion 2). Dependabot PRs never receive Actions
+      # secrets, so a missing token is routine there and must not red the PR; on any
+      # other same-repo PR a missing token means the secret was lost, and the warning
+      # annotation plus the run summary make that visible on the PR's checks page.
       # Secrets can't be read in an `if:`, but a boolean expression over one is
       # allowed and never exposes its value.
       - name: Check for Cloudflare token
         id: guard
-        run: echo "have=${{ secrets.CLOUDFLARE_API_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+        run: |
+          HAVE='${{ secrets.CLOUDFLARE_API_TOKEN != '' }}'
+          echo "have=$HAVE" >> "$GITHUB_OUTPUT"
+          if [ "$HAVE" != 'true' ]; then
+            MSG='CLOUDFLARE_API_TOKEN is not available to this run: no docs preview was built or deployed.'
+            echo "::warning title=Docs preview skipped::$MSG"
+            echo "### Docs preview skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "$MSG (Expected on Dependabot PRs; anywhere else the repo secret is missing.)" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - uses: actions/checkout@v4
         if: steps.guard.outputs.have == 'true'

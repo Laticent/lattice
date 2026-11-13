@@ -15,6 +15,10 @@ const { JSDOM } = require('jsdom');
 const { createEngine } = require('../../../lib/engine');
 const { refuseAuthorMarkup, refuseAuthorMarkupInSource, HOST_MARKERS, BAKE_WRITTEN } = require('../../../lib/plugins/author-markup.js');
 const { withRuntimeScripts } = require('../../../lib/export/marp-bundle.js');
+const { charReads } = require('../../helpers/work-count');
+const { assertLinearRegexes, normalKey } = require('../../helpers/regex-trace');
+// The source of author-markup.js's MARKER_NAME, rebuilt the way it is built, so the trace's `allow` names exactly it.
+const MARKER_NAME_SOURCE = `data-(lattice-(?:${HOST_MARKERS.map((m) => m.slice('data-lattice-'.length)).join('|')}))(?![a-z0-9_-])`;
 const { markPluginsOff } = require('../../../lib/plugins/mark-off.mjs');
 const { RUNTIME_DRAWN } = require('../../../lib/plugins/drawn.generated.mjs');
 const { EXCLUDE_MIRRORS_SHELL } = require('../../helpers/generated-mirrors.js');
@@ -145,13 +149,21 @@ describe('an author cannot write the host\'s figure markers', () => {
     assert.match(out, /data-lattice-hydrate="function-plot"/);
   });
   test('linear on hostile input (the shapes that were quadratic)', () => {
-    const t0 = process.hrtime.bigint();
-    refuseAuthorMarkup('<script '.repeat(40000), [['mermaid', 'mermaid']]);
-    refuseAuthorMarkup('<pre '.repeat(40000), [['mermaid', 'mermaid']]);
-    refuseAuthorMarkup(`<div data-lattice-x ${'<a '.repeat(20000)}`);
-    refuseAuthorMarkup(`<div ${'data-lattice-off=1 '.repeat(20000)}>`);
-    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-    assert.ok(ms < 500, `took ${ms.toFixed(0)} ms`);
+    // Work, not milliseconds (HARD RULE #32). Two checks: every regex the call runs is linear (tools/regex-census.json,
+    // or a reason below), and the searches read each character a bounded number of times (1 to 2 today).
+    const allow = {
+      [normalKey(MARKER_NAME_SOURCE, 'gi')]: 'built from HOST_MARKERS: `data-lattice-` then one of eleven fixed words and a one-character look-ahead, so each start position costs at most the longest word',
+      [normalKey('language-(mermaid)', 'gi')]: 'built from the off fences: a fixed word and a group of fixed, escaped words, so each start position costs at most the longest word',
+    };
+    for (const [input, offDrawn] of [
+      ['<script '.repeat(40000), [['mermaid', 'mermaid']]],
+      ['<pre '.repeat(40000), [['mermaid', 'mermaid']]],
+      [`<div data-lattice-x ${'<a '.repeat(20000)}`, []],
+      [`<div ${'data-lattice-off=1 '.repeat(20000)}>`, []],
+    ]) {
+      const { reads, scanned } = charReads(() => assertLinearRegexes(() => refuseAuthorMarkup(input, offDrawn), { allow }));
+      assert.ok(reads + scanned <= 8 * input.length, `${JSON.stringify(input.slice(0, 24))}…: read ${reads + scanned} characters for ${input.length}`);
+    }
   });
 });
 

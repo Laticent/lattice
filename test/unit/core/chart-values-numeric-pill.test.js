@@ -2,6 +2,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { NUMERIC_PILL, isValuePill } = require('../../../lib/core/chart-values.js');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 test('NUMERIC_PILL accepts a wholly numeric pill and refuses prose', () => {
   for (const t of ['12', '$1,200', '-$0.8M', '($5M)', '62%', '3 ‰', '41 TB', '+ 12 M ', '−4.2bn']) {
@@ -12,18 +13,18 @@ test('NUMERIC_PILL accepts a wholly numeric pill and refuses prose', () => {
   }
 });
 
-test('a failing match on 50,000 tabs takes milliseconds, not seconds', () => {
-  // The older pattern put two `\s*` runs either side of optional pieces, so the engine tried
-  // every split of the tab run: this input took about 3 s. Linear time runs it in well under 1 ms;
-  // the 200 ms ceiling only has to catch the quadratic shape, not time a machine.
-  const input = `1${'\t'.repeat(50_000)}x!`;
-  for (const [name, check] of [
-    ['NUMERIC_PILL', (s) => NUMERIC_PILL.test(s)],
-    ['isValuePill', (s) => isValuePill(s)],
-  ]) {
-    const start = process.hrtime.bigint();
-    assert.equal(check(input), false, name);
-    const ms = Number(process.hrtime.bigint() - start) / 1e6;
-    assert.ok(ms < 200, `${name} took ${ms.toFixed(1)} ms on the tab-run input`);
-  }
+test('a failing match on a long tab run does not hang', () => {
+  // The older pattern put a `\s*` run either side of an optional unit, so the engine tried every split of the tab run:
+  // quadratic, about 150 s on 250,000 tabs. Every regex these two calls run must be one recheck calls linear
+  // (test/helpers/regex-trace.js over tools/regex-census.json), which needs no clock (HARD RULE #32).
+  const input = `1${'\t'.repeat(2_000)}x!`;
+  // NUMERIC_PILL is composed from parts at load, so the census (literals only) cannot hold it.
+  const allow = { [String(NUMERIC_PILL)]: 'built at load from string parts; `npm run regex:census -- --check` (recheck 4.6.2): safe' };
+  assertLinearRegexes(
+    () => {
+      assert.equal(NUMERIC_PILL.test(input), false, 'NUMERIC_PILL');
+      assert.equal(isValuePill(input), false, 'isValuePill');
+    },
+    { allow },
+  );
 });

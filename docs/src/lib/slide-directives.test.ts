@@ -10,6 +10,7 @@ import {
 	fenceRanges,
 	getClassTokens,
 	isDirectiveBody,
+	isPaneMarkerBody,
 	readClassDirective,
 	setClassTokens,
 	setGroupToken,
@@ -79,6 +80,7 @@ describe('setClassTokens — span-surgical', () => {
 		expect(toggleToken(chunk, 'dark')).toBe('<!-- _class: kpi tint-corner at-tl my-local-thing dark -->\n\n# Hi');
 	});
 	it('inserts a directive when absent', () => {
+		// A slide with no record keeps the comment form: the form follows the slide until the cut (#3136).
 		expect(setClassTokens('# Bare slide\n\nbody', ['content', 'dark'])).toBe('<!-- _class: content dark -->\n\n# Bare slide\n\nbody');
 	});
 	it('removes a sole-directive comment when cleared to empty', () => {
@@ -153,5 +155,56 @@ describe('fence awareness', () => {
 		const out = tidyOutsideFences(withHardBreak);
 		expect(out).toContain('code   \n'); // trailing spaces + blank run inside fence kept
 		expect(out).toContain('# Hi\n\n```'); // blank run outside fence collapsed
+	});
+});
+
+// Every marker spelling is read by the one shared reader (lib/core/meta-door.mjs `parsePaneMarker`, record note
+// §5.4.1), so a record-form marker is structure, never the slide's speaker note.
+describe('isPaneMarkerBody', () => {
+	it('keeps the old spellings: `_pane:`, the one-component `pane:` alias and the `panes:` layout', () => {
+		expect(isPaneMarkerBody(' _pane: bar no-title ')).toBe(true);
+		expect(isPaneMarkerBody(' _pane: ')).toBe(true);
+		expect(isPaneMarkerBody(' pane: list ')).toBe(true);
+		expect(isPaneMarkerBody(' pane: list no-title ')).toBe(true);
+		expect(isPaneMarkerBody(' panes: 35/65 ')).toBe(true);
+	});
+	it('reads a record that names a pane or a layout: bare, `@meta`, mixed, wrapped', () => {
+		expect(isPaneMarkerBody(' {pane="bar no-title"} ')).toBe(true);
+		expect(isPaneMarkerBody(' @meta{panes="60/40 stack"} ')).toBe(true);
+		expect(isPaneMarkerBody(' {footer=x, pane="bar"} ')).toBe(true);
+		expect(isPaneMarkerBody(' {pane="bar",\n  footer=x} ')).toBe(true);
+	});
+	it('reads the engine-internal comment the door writes', () => {
+		expect(isPaneMarkerBody(' lat-meta: {"carry":false,"d":{"pane":"bar"}} ')).toBe(true);
+	});
+	it('leaves a note a note', () => {
+		expect(isPaneMarkerBody(' pane: check the numbers ')).toBe(false);
+		expect(isPaneMarkerBody(' _panes: 60/40 ')).toBe(false);
+		expect(isPaneMarkerBody(' _pane: a\nb ')).toBe(false);
+		expect(isPaneMarkerBody(' {layout=cards, footer="Q3"} ')).toBe(false);
+		expect(isPaneMarkerBody(' remember the pane="x" joke ')).toBe(false);
+	});
+});
+
+// A record slide edits as a directive slide does (record note step 3): the drawer writes INTO the record, keeping its
+// typed fields and every other item as the author wrote it.
+describe('the class drawer on a record slide', () => {
+	const slide = '<!-- {layout=cards, footer="Q3, final", finish=ledger} -->\n\n# Hi';
+	it('reads the record’s class and is editable', () => {
+		expect(getClassTokens(slide)).toEqual(['cards', 'finish', 'finish-ledger']);
+		expect(canEditClass(slide)).toBe(true);
+	});
+	it('a toggled modifier joins the record; a register word is written as its field', () => {
+		expect(toggleToken(slide, 'compact')).toBe('<!-- {layout=cards, footer="Q3, final", finish=ledger, class=compact} -->\n\n# Hi');
+		expect(toggleToken(slide, 'head-left')).toBe('<!-- {layout=cards, footer="Q3, final", finish=ledger, headline=left} -->\n\n# Hi');
+	});
+	it('removing a register word drops its field; swapping the layout keeps it typed', () => {
+		expect(setClassTokens(slide, ['cards'])).toBe('<!-- {layout=cards, footer="Q3, final"} -->\n\n# Hi');
+		expect(setGroupToken(slide, ['cards', 'kpi'], 'kpi')).toBe('<!-- {layout=kpi, footer="Q3, final", finish=ledger} -->\n\n# Hi');
+	});
+	it('a record that does not read is left as written; the class lands in a comment of its own', () => {
+		// It applies nothing, so the slide has no class to show; the linter names it (`meta-record`).
+		expect(canEditClass('<!-- {layout=cards, footer="open} -->\n\n# Hi')).toBe(true);
+		expect(setClassTokens('<!-- {layout=cards, footer="open} -->\n\n# Hi', ['kpi'])).toContain('<!-- _class: kpi -->');
 	});
 });

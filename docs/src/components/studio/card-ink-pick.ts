@@ -1,4 +1,7 @@
+import { boundaryParser } from '../../../../lib/core/boundary-parser.mjs';
 import { compositionOf, effectiveCard, inkOf, needsInk, pickCardInk, THIN_BACKING } from '../../../../lib/core/card-ink.mjs';
+import { placedPictureInSlide } from '../../../../lib/core/placed-picture.mjs';
+import { deckPlacingClasses } from '../../lib/deck-placing-classes';
 import { getClassTokens } from '../../lib/slide-directives';
 import { type Rgb, sampleBehindCard } from './card-ink-sampler';
 import { deckImageCardClasses, setImageCard } from './slide-provenance';
@@ -16,15 +19,10 @@ export type Ink = 'light' | 'dark';
 // Which composition a class list names (null when none is): the kernel's, pinned to the engine's by a test.
 export { compositionOf };
 
-/**
- * The destination of the slide's `![bg ...](dest "title")`, as written: `<a b.jpg>` with spaces, or a
- * bare one with balanced parentheses (`img/(1).jpg`). Null when there is no bg image, or when the
- * destination cannot be read (the caller then skips the photo check rather than guess).
- */
-export function photoRefOf(chunk: string): string | null {
-	const open = /!\[bg[^\]]*\]\(/.exec(chunk);
-	if (!open) return null;
-	const rest = chunk.slice(open.index + open[0].length);
+/** The destination right after an opening `](` at `from`, as written: `<a b.jpg>` with spaces, or a bare one with balanced
+ *  parentheses (`img/(1).jpg`). Null when it cannot be read. */
+function destinationAt(chunk: string, from: number): string | null {
+	const rest = chunk.slice(from);
 	if (rest.startsWith('<')) {
 		const end = rest.indexOf('>');
 		return end > 0 ? rest.slice(1, end) : null;
@@ -41,14 +39,66 @@ export function photoRefOf(chunk: string): string | null {
 	return null;
 }
 
+/** A record's address: its first value, quoted (`"a b.jpg"`, with `\"` and `\\` escapes) or bare (up to `,` or `}`). */
+function recordAddress(body: string): string | null {
+	const t = body.trimStart();
+	if (t.startsWith('"')) {
+		let out = '';
+		for (let i = 1; i < t.length; i++) {
+			if (t[i] === '\\' && i + 1 < t.length) out += t[++i];
+			else if (t[i] === '"') return out || null;
+			else out += t[i];
+		}
+		return null;
+	}
+	const end = t.search(/[,}]/);
+	return (end < 0 ? t : t.slice(0, end)).trim() || null;
+}
+
+/**
+ * The slide's photo, as written, and where its line starts: an old `![bg …](dest)`, a lone `@image{dest, …}` record, or, on a
+ * slide that places a picture (`image`, `bleed`), a lone `![title](dest)`, the record's shortcut since 2026-11-10. The engine
+ * draws all three as the slide's photo panel. Null when the slide has none, or its address cannot be read (the caller then
+ * skips the photo check rather than guess). `deck`: the classes the slide receives besides the `_class` in `chunk`: the deck's
+ * `class:` tokens (`deckPlacingClasses`), which the engine appends to the slide's own, so a deck-wide `bleed` places the picture
+ * here as it does there; a caller that blanked the chunk's comments passes the slide's own classes here too.
+ */
+export function photoAt(chunk: string, deck: readonly string[] = []): { ref: string; index: number } | null {
+	const bg = /!\[bg[^\]]*\]\(/.exec(chunk);
+	if (bg) {
+		const ref = destinationAt(chunk, bg.index + bg[0].length);
+		return ref ? { ref, index: bg.index } : null;
+	}
+	const rec = /^[ \t]*`@image\{([^`\n]*)\}`[ \t]*$/m.exec(chunk);
+	if (rec) {
+		const ref = recordAddress(rec[1]);
+		return ref ? { ref, index: rec.index } : null;
+	}
+	// The shortcut: whether a lone picture is the slide's photo is the engine's rule, asked of the one kernel every reader asks
+	// (lib/core/placed-picture.mjs). It names the picture's line, and the address is read there as written.
+	const placed = placedPictureInSlide(chunk, [...getClassTokens(chunk), ...deck], { md: boundaryParser });
+	if (!placed) return null;
+	const lineStart = placed.line <= 0 ? 0 : chunk.split('\n').slice(0, placed.line).join('\n').length + 1;
+	const open = chunk.indexOf('![', lineStart);
+	if (open < 0) return null;
+	const close = /^!\[[^\]\n]*\]\(/.exec(chunk.slice(open));
+	const ref = close ? destinationAt(chunk, open + close[0].length) : null;
+	return ref ? { ref, index: open } : null;
+}
+
+/** The slide's photo address as written (see `photoAt`), or null. */
+export function photoRefOf(chunk: string, source = ''): string | null {
+	return photoAt(chunk, source ? deckPlacingClasses(source) : [])?.ref ?? null;
+}
+
 /** The slide's own first heading as written in the source (`## A photo.`), for the preview identity check. */
 export function headingOf(chunk: string): string | null {
 	return /^#{1,6}[ \t]+(.+)$/m.exec(chunk)?.[1]?.trim() ?? null;
 }
 
 /** The colour behind this slide's card, or null when the preview cannot say. */
-export function readBehindCard(chunk: string, slideNumber: number): Promise<Rgb | null> {
-	return sampleBehindCard(slideNumber, headingOf(chunk), photoRefOf(chunk), getClassTokens(chunk));
+export function readBehindCard(chunk: string, slideNumber: number, source = ''): Promise<Rgb | null> {
+	return sampleBehindCard(slideNumber, headingOf(chunk), photoRefOf(chunk, source), getClassTokens(chunk));
 }
 
 /**

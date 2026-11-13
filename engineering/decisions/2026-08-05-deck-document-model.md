@@ -304,3 +304,16 @@ in place.** They were found by reading the diff, not by any gate. Two gaps behin
 
 Neither is claimed as fixed. Both are the honest reason this change's diff review mattered more
 than its test run.
+
+## Amendment (2026-11-06) — the engine's front-matter reader reads top-level keys only
+
+`parseFrontMatter` (`lib/engine/directives.js`) read every front-matter line through
+`line.trim()`, so a key nested under a block (`lenses:`, `acronyms:`) that shares a name with a
+`KNOWN_DIRECTIVES` entry became the deck's directive. A lens with id `footer` printed its
+registry in every slide footer, and a nested key after a real directive overwrote it (#2050).
+The reader now anchors the key at column 0, as `topLevelFrontMatterValue` already does.
+
+Measured before the change: 49 of the 2,355 committed Markdown files with front matter lose
+nested keys from the parsed map (acronym lists, catalog entries). None of the lost keys is a
+`KNOWN_DIRECTIVES` name, no top-level value changed, and the engine's HTML for all 49 is
+byte-identical before and after.

@@ -16,6 +16,8 @@ export type StudioCommandId =
 	| 'insert'
 	| 'insert-icon'
 	| 'focus'
+	| 'write-compose'
+	| 'write-source'
 	| 'fabricate'
 	| 'read-article'
 	| 'library'
@@ -31,8 +33,10 @@ export type StudioCommandId =
 	| 'slide-settings'
 	| 'slide-new-before'
 	| 'slide-duplicate'
-	| 'slide-move-earlier'
-	| 'slide-move-later'
+	| 'slide-move-before'
+	| 'slide-move-after'
+	| 'slide-hide'
+	| 'slide-show'
 	| 'slide-delete'
 	| 'shortcuts';
 
@@ -46,6 +50,45 @@ export type StudioCommand = {
 	/** Which palette group shows the row. `deck` rows sit with the deck switcher. */
 	group: 'actions' | 'deck';
 	run: () => void;
+};
+
+/**
+ * What each command does, in a line a screen reader reads after the row's name (the palette's
+ * `description`, ui/command.tsx). One per id, so a new command cannot ship without one: VoiceOver
+ * otherwise fills that pause with its generic option hint (owner, on an iPhone, PR #3108). Say what
+ * happens, never the label again.
+ */
+export const COMMAND_DESCRIPTIONS: Record<StudioCommandId, string> = {
+	present: 'Shows the deck full screen, one slide at a time, from this slide.',
+	'write-compose': 'Edits the deck as formatted text: headings, lists and objects, no markup.',
+	'write-source': 'Edits the deck as its Markdown, for full control. Remembered for next time.',
+	share: 'Opens sharing: a present link, the Markdown source, and every export format.',
+	'export-pdf': 'Opens sharing on the PDF step, ready to download this deck as a PDF.',
+	reshape: 'Opens reader views: a subset of this deck you approve for one kind of reader.',
+	insert: 'Opens the slide gallery to pick a layout for a new slide after this one.',
+	'insert-icon': 'Opens the icon grid; the icon you pick goes in at the cursor.',
+	focus: 'Hides every panel but the editor and the preview.',
+	fabricate: 'Opens the studio for making your own themes and components.',
+	'read-article': 'Shows the deck as one continuous article to read.',
+	library: 'Opens your saved themes, components, finishes and photos.',
+	workspace: 'Opens preferences, the AI model and key, and storage for the whole workspace.',
+	'watch-demo': 'Plays a guided tour that drives the Studio by itself while you watch.',
+	feedback: 'Opens a form that drafts a GitHub issue for you to review and send.',
+	'new-deck': 'Starts a blank deck and switches to it.',
+	'import-deck': 'Opens a file picker for a Lattice, Markdown, PowerPoint or PDF file.',
+	coach: 'Opens the Coach: scores for craft and style, and a fix for each finding.',
+	'fix-all': 'Applies every automatic fix the editor has found in this deck.',
+	'format-code': 'Runs the code formatter over every code block in this deck.',
+	'toggle-mode': 'Swaps the Studio between its light and dark appearance.',
+	'slide-settings': "Opens this slide's settings: its look, modifiers and speaker notes.",
+	'slide-new-before': 'Opens the slide gallery to add a slide in front of this one.',
+	'slide-duplicate': 'Adds a copy of this slide right after it.',
+	'slide-move-before': 'Swaps this slide with the one before it.',
+	'slide-move-after': 'Swaps this slide with the one after it.',
+	'slide-hide': 'Keeps this slide in the source but leaves it out when you present or export.',
+	'slide-show': 'Puts this hidden slide back into the presentation and exports.',
+	'slide-delete': 'Removes this slide from the deck, after a confirm while others are editing live. Undo brings it back.',
+	shortcuts: 'Lists every keyboard shortcut in the Studio.',
 };
 
 /** Run a command by id. Returns false when the Studio does not offer it right now (a command is

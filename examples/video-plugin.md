@@ -88,6 +88,16 @@ It accepts the spelling you copy from a browser bar.
 
 ---
 
+<!-- _class: content -->
+
+`New · the shared display layer`
+
+## A clip on any slide, framed like the photos.
+
+`>{"https://youtu.be/dQw4w9WgXcQ", title="The 90-second tour", poster=media/canoe.jpg, frame=device, nimbus=60, sm}`
+
+---
+
 <!-- _class: closing -->
 
 `Next`

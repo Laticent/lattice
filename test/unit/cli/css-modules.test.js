@@ -18,6 +18,7 @@ const csstree = require('css-tree');
 const { bundle, bundleModules, moduleFiles, MODULES_DIR, MODULES_MIN_DIR } = require('../../../tools/build-css');
 const { minifyCss } = require('../../../tools/minify-css');
 const { joinModules, splitRuns, sha256, MIN_RUN_BYTES } = require('../../../tools/css-modules');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 describe('css-modules', () => {
   const modules = bundleModules();
@@ -59,7 +60,7 @@ describe('css-modules', () => {
   });
 
   test('dist/styles/ on disk is what the build writes (skipped before the first build)', (t) => {
-    if (!fs.existsSync(MODULES_DIR)) return t.skip('dist/styles/ not built yet');
+    { const why = skipUnlessCI(!fs.existsSync(MODULES_DIR), 'dist/styles/ not built yet'); if (why) return t.skip(why); }
     const want = moduleFiles();
     assert.deepEqual(fs.readdirSync(MODULES_DIR).sort(), Object.keys(want).sort());
     for (const [name, text] of Object.entries(want)) {
@@ -92,7 +93,7 @@ describe('css-modules', () => {
     });
 
     test('dist/styles-min/ on disk is what the build writes (skipped before the first build)', (t) => {
-      if (!fs.existsSync(MODULES_MIN_DIR)) return t.skip('dist/styles-min/ not built yet');
+      { const why = skipUnlessCI(!fs.existsSync(MODULES_MIN_DIR), 'dist/styles-min/ not built yet'); if (why) return t.skip(why); }
       assert.deepEqual(fs.readdirSync(MODULES_MIN_DIR).sort(), Object.keys(min).sort());
       for (const [name, text] of Object.entries(min)) {
         assert.equal(fs.readFileSync(path.join(MODULES_MIN_DIR, name), 'utf8'), text, name);

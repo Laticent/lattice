@@ -1,0 +1,37 @@
+/* image.styles.css — THE IMAGE PLUGIN's own seat that no layout owns: `bleed`. On a slide that is not an `image` slide, the
+ * `bleed` class makes the slide's lone `@image{…}` record its background, behind its words
+ * (engineering/decisions/2026-10-16-media-plugins.md §4.7: the layout places; `bleed` is the placing word). The picture is the
+ * same `.lattice-bg` panel the `image` layout places, painted on the slide's canvas plane, cropped to fill it. Pair it with
+ * `dark` (or a light photo with light ink) so the words read. Everything else a picture looks like (frames, finishes, tones,
+ * sizes, the words) is the shared display layer's: lib/base/base.media.css. */
+
+section.bleed:not(.image):not(.collage) .lattice-bg[data-lattice-media="image"]:not([data-lattice-plugin] *) {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-canvas);
+  isolation: isolate;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  pointer-events: none;
+}
+
+/* Words over a photograph need a ground. On a `dark` bleed slide (light ink), a scrim darkens the top of the picture, where
+ * the heading sits, and fades out by the middle, as the `image statement` composition's scrim does for its title. A light-mode
+ * bleed slide (`light` or `color-light`: dark ink) gets the same ground the other way: a veil lightens the top, so dark words hold over a dark shape in
+ * a mid-tone photo. A slide picks one of the two from its photo when its author named neither (lib/core/bleed-ink.mjs). */
+section.bleed.dark:not(.image):not(.collage) .lattice-bg[data-lattice-media="image"]:not([data-lattice-plugin] *)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(180deg, rgb(4 8 16 / 0.72) 0%, rgb(4 8 16 / 0.45) 32%, rgb(4 8 16 / 0) 62%);
+  pointer-events: none;
+}
+
+section.bleed:is(.light, .color-light):not(.image):not(.collage) .lattice-bg[data-lattice-media="image"]:not([data-lattice-plugin] *)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(180deg, rgb(250 249 246 / 0.8) 0%, rgb(250 249 246 / 0.55) 32%, rgb(250 249 246 / 0) 62%);
+  pointer-events: none;
+}

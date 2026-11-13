@@ -48,8 +48,24 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // `script-src` hash moves with it. Both hosts produce the new SHA, so parity holds.
 // Re-blessed again 2026-10-26 on the merge of that change with the fonts policy (#2904): the Read view's
 // font stacks end in 'Noto Color Emoji' (101,890 -> +421 bytes of #1501 = 102,311). Both hosts agree.
-const GOLDEN_SHA = 'ec7e35990876d45f194ba2979a09d8910272cea55131be9519349bf457985406';
-const GOLDEN_BYTES = 102311;
+// Re-blessed 2026-11-09 for the step cursor (engineering/decisions/2026-11-09-steps-as-a-behavior.md): the player
+// inlines stepMove, stepEnter, applyStepAt and stepsOfSection and paints the step in render(), so the script grows
+// 3,882 bytes (102,311 -> 106,193) and the CSP `script-src` hash moves with it. The fixture has no stepping slide,
+// so the CSS prune keeps no step rules and no markup moved. Both hosts produce the new SHA, so parity holds.
+// Then +522 more (106,715) the same day for the red team's fixes: print rests every stepping slide, and the live
+// region names the step. Script only; both hosts agree.
+// Then +199 (106,914) for the owner's D2: a jump onto a build starts it at step 0 (`createTransport` gains `jumpStep`,
+// `stepEnter` gains its 'jump' arm) and narration moves with `go(i, true)`. Script only; both hosts agree.
+// Then +262 (107,176) for the adversarial pass on D1/D2 (2026-11-10): Play rests the shown slide first, so a build at
+// step 0 is never read aloud hidden, and `stepEnter` refuses an unknown direction. Script only; both hosts agree.
+// Re-blessed 2026-11-10 for the `typography:` sets (#3095): the player CSS gains one Read-view rule per type
+// set (`articleTypographyCss`) and the Read view's four font stacks read var(--font-display / --font-body)
+// with the old stacks as fallbacks — CSS only, +863 bytes (102,311 -> 103,174). Both hosts give the new SHA.
+// Rebased on the step cursor above: the same +863 bytes of CSS on its 107,176, so 108,039. Both hosts agree.
+// Re-blessed 2026-11-11 (the slide-metadata record, step 2, rebased on both above): the notes-hide rule also hides the
+// reader-note channel, `aside.lattice-notes,aside.lattice-reader{display:none!important}` (108,039 -> +21 bytes = 108,060). Both hosts agree.
+const GOLDEN_SHA = '3df7eed089be16e23540800a1a0b4d8c2e913b84ec96e8823b2d6e10f05c22d8';
+const GOLDEN_BYTES = 108060;
 
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 

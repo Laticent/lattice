@@ -10,6 +10,8 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const kernel = require('../../../lib/forms/cell/masthead/masthead.transform');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
+const { mulberry32 } = require('../../helpers/regex-differential');
 const adapter = require('../../../lib/transformers/masthead-lift');
 const chartFamily = require('../../../lib/transformers/chart-family');
 
@@ -102,6 +104,59 @@ describe('masthead-lift — HTML-string kernel', () => {
     const inner = '<h2>T</h2><p>Body.</p><footer>Confidential</footer>';
     const out = kernel.transformMastheadSection(inner, 'form');
     assert.match(out, /<div class="cell-stage"><p>Body\.<\/p><\/div><div class="cell-footer"><footer>Confidential<\/footer><\/div>$/);
+  });
+
+  test('a long whitespace run does not make the footer split quadratic', () => {
+    // `/(\s*<footer[^>]*>[\s\S]*?<\/footer>\s*)$/` tried `\s*` from every space of a run: 128 KB of spaces in a
+    // code block took 6.5 s (flagged by #3059). The backtracking is inside one regex exec, which scanWork cannot see,
+    // so this asks the census instead of a clock (HARD RULE #32): every regex the transform runs must be one recheck
+    // calls linear. The markup package (docs/src/lib/markup) is outside lib/**, so its two are named with recheck's
+    // verdict; the subtitle pattern carries a regex-ok proof on its line.
+    const allow = {
+      '/<(\\/?)([a-zA-Z][a-zA-Z0-9-]*)/y': '@laticent/markup scanTags head: recheck 4.6.2 safe',
+      '/[>"\']/g': '@laticent/markup scanTags attribute stop: recheck 4.6.2 safe',
+      '/^\\s*<p(?:\\s[^>]*)?>\\s*<code[^>]*>(?:(?!<\\/code>)[\\s\\S])*<\\/code>\\s*<\\/p>/':
+        'anchored, every piece deterministic; recheck cannot model the look-ahead (regex-ok in masthead.transform.js)',
+    };
+    for (const tail of ['', '<footer>F</footer>']) {
+      const inner = `<h2>T</h2><pre><code>${' '.repeat(5000)}x</code></pre>${'<a '.repeat(500)}${tail}`;
+      const { result: out } = assertLinearRegexes(() => kernel.transformMastheadSection(inner, 'form'), { allow });
+      assert.equal(out.includes('<div class="cell-footer"><footer>F</footer></div>'), tail !== '');
+    }
+  });
+
+  test('the footer-cell walk answers as the regex tokenizer it replaced (seeded fuzz, seed 3045)', () => {
+    // The old walk, verbatim but for its tokenizer (tests are outside the census, which reads lib/** only).
+    const { commentCloser } = require('../../../lib/core/closed-comments');
+    const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
+    const OLD = /<!--|<(\/?)([a-zA-Z][\w-]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+    const old = (html) => {
+      const re = new RegExp(OLD.source, 'g');
+      const commentEnd = commentCloser(html);
+      let depth = 0;
+      for (let m = re.exec(html); m; m = re.exec(html)) {
+        if (!m[2]) { const end = commentEnd(m.index); re.lastIndex = end < 0 ? m.index + 1 : end; continue; }
+        if (m[1]) { depth = Math.max(0, depth - 1); continue; }
+        const attrs = m[3] || '';
+        if (depth === 0) {
+          const cm = attrs.match(/\sclass\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+          if ((cm ? (cm[1] ?? cm[2] ?? cm[3] ?? '').split(/\s+/) : []).includes('cell-footer')) return true;
+        }
+        if (!VOID.has(m[2].toLowerCase()) && !/\/\s*$/.test(attrs)) depth++;
+      }
+      return false;
+    };
+    const PIECES = ['<div', '<br', '</div>', '<p', '</p>', '>', '>', ' class="cell-footer"', " class='cell-footer x'", ' class=cell-footer', '"', "'", '<', '<!--', '-->', ' ', '/', 'a', '<a-', '-'];
+    const rand = mulberry32(3045);
+    for (let i = 0; i < 30000; i++) {
+      let s = '';
+      const len = Math.floor(rand() * 13);
+      for (let j = 0; j < len; j++) s += PIECES[Math.floor(rand() * PIECES.length)];
+      assert.equal(kernel.__hasTopLevelFooterCellForTest(s), old(s), JSON.stringify(s));
+    }
+    // Mutation arm: the guard above fails a walk that still runs the old tokenizer.
+    // It was recheck `polynomial`; with its last copy gone from lib/** the census no longer holds it, and the trace refuses an unheld pattern too.
+    assert.throws(() => assertLinearRegexes(() => old('<div>')), /does not hold|polynomial/);
   });
 
   test('pagination becomes a real .lat-pagination span in the footer cell', () => {
@@ -681,4 +736,24 @@ describe('DOM mirror on a raw card section keeps header and footer out of the st
       assert.ok(viaDom.querySelector('.cell-footer > footer'));
     });
   }
+});
+
+describe("Marp's advanced background sections are not lifted (#3132)", () => {
+  // A `![bg]` on a non-image slide in an Export-to-Marp bundle makes Marp render the slide as three sections that share its
+  // classes; only `content` is the slide. Lifting the `background` one wrapped Marp's container in a stage cell, the figure
+  // came out 0px tall, and every full-bleed background in a Marp bundle drew nothing.
+  test('only the content section is lifted; the background and pseudo sections keep their children', () => {
+    const dom = new JSDOM(`<body>
+      <section class="content bleed form" data-marpit-advanced-background="background"><div data-marpit-advanced-background-container="true" data-marpit-advanced-background-direction="horizontal"><figure style="background-image:url(a.jpg)"></figure></div></section>
+      <section class="content bleed form" data-marpit-advanced-background="content"><h2>T</h2><p>Words.</p></section>
+      <section class="content bleed form" data-marpit-advanced-background="pseudo"></section>
+    </body>`);
+    const doc = dom.window.document;
+    adapter.applyToDom(doc);
+    const [bg, content, pseudo] = doc.querySelectorAll('section');
+    assert.ok(bg.querySelector(':scope > div[data-marpit-advanced-background-container] > figure'), 'Marp\'s container stays a direct child');
+    assert.equal(bg.querySelector('.cell-stage'), null);
+    assert.equal(pseudo.querySelector('.cell-stage'), null);
+    assert.ok(content.querySelector(':scope > .cell-masthead, :scope > .cell-stage'), 'the content section is still lifted');
+  });
 });

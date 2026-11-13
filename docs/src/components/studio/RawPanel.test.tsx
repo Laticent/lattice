@@ -63,7 +63,7 @@ describe('RawPanel — inline math', () => {
 		const { user } = setup('inline-math', 'x', vi.fn(() => false));
 		await user.type(screen.getByRole('textbox', { name: 'TeX' }), '2');
 		await user.keyboard('{Enter}');
-		expect(screen.getByRole('alert').textContent).toMatch(/Markdown/);
+		expect(screen.getByRole('alert').textContent).toMatch(/Source/);
 	});
 });
 
@@ -123,6 +123,6 @@ describe('RawPanel — footer', () => {
 		const onRemove = vi.fn(() => false);
 		render(<RawPanel kind="html" text="<div>a</div>" onEdit={() => true} onRemove={onRemove} onDone={() => {}} />);
 		fireEvent.click(screen.getByRole('button', { name: /Remove/ }));
-		expect(screen.getByRole('alert').textContent).toMatch(/Markdown/);
+		expect(screen.getByRole('alert').textContent).toMatch(/Source/);
 	});
 });

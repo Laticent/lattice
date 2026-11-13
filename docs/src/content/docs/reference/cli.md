@@ -17,6 +17,10 @@ The command is `lattice`; the package is `@laticent/lattice`. Every `npx lattice
 below runs the copy installed in your project. Outside one, write
 `npx @laticent/lattice`, because the unscoped `lattice` package on npm is unrelated.
 
+`lat` is the same command, shorter: `lat deck.md deck.pdf`. It exists once the package is
+installed (globally, or in your project's scripts). Never run it through `npx` outside a
+project: the unscoped `lat` package on npm is someone else's, just like `lattice`.
+
 ## Command shapes
 
 ```sh
@@ -88,9 +92,10 @@ instead.
 | `--orientation <o>` | `auto`, `landscape` or `portrait` for `--paper`. On its own, implies `--paper auto` |
 | `--embed-source` | Attach the deck's Markdown to the PDF. Includes speaker notes unless you add `--strip-notes` |
 | `--reopenable` | Carry the deck inside the `.pdf` or `.pptx` as a `.lattice`, so the Studio's **Import deck…** opens it for editing. The same payload as the Studio's "Re-openable in Lattice" switch. No comments; hidden slides and speaker notes ride along unless you add `--strip-notes` |
+| `--steps` | One page per step of every `_build` or `_focusSteps` slide, each lit or revealed at its step. Every page keeps its slide's page number, and speaker notes and alt text ride on each. Also applies to `.pptx`, `.odp` and images; a `.html` player walks the steps live instead. The Studio's "One page per step" switch |
 | `--chrome-pdf` | Print with Chrome's PDF printer instead of Lattice's writer |
 | `--keep-vector-images` | Keep SVG images as vectors. By default they become 2x PNG, because some viewers mishandle clipped SVG |
-| `--fonts WORDS` | How much of each typeface the file carries (this is not CSS; it never changes which font a slide asks for). `exact` cuts to the characters the deck shows, `used` (default for text) keeps the whole face as we ship it (the full Latin range) so edited text never hits a missing glyph, `full` keeps the whole face, `system` embeds nothing and lets the viewer's fonts draw the text. A word ending in `-emoji` sets the emoji font instead (default `exact`): `--fonts "used exact-emoji"`. Same words as the `fonts:` front-matter line. In a PDF, `system` embeds no font file, so words in the engine's faces stay in the page picture (not selectable). `system-emoji` applies in every format: a PDF or picture export draws its emoji with the computer that makes it (a machine with no emoji font draws boxes), while `exact-emoji`, `used-emoji` and `full-emoji` draw the same picture because no emoji font file rides in a PDF. In PowerPoint and LibreOffice files every tier but `system` embeds the whole face, and PowerPoint cannot use the emoji font, so emoji added there use that machine's own |
+| `--font-embedding WORDS` | How much of each typeface the file carries (this is not CSS; it never changes which font a slide asks for). `exact` cuts to the characters the deck shows, `used` (default for text) keeps the whole face as we ship it (the full Latin range) so edited text never hits a missing glyph, `full` keeps the whole face, `system` embeds nothing and lets the viewer's fonts draw the text. A word ending in `-emoji` sets the emoji font instead (default `exact`): `--font-embedding "used exact-emoji"`. Same words as the `font-embedding:` front-matter line. Replaces `--fonts`, which never shipped in a release and now stops with a message naming this flag. In a PDF, `system` embeds no font file, so words in the engine's faces stay in the page picture (not selectable). `system-emoji` applies in every format: a PDF or picture export draws its emoji with the computer that makes it (a machine with no emoji font draws boxes), while `exact-emoji`, `used-emoji` and `full-emoji` draw the same picture because no emoji font file rides in a PDF. In PowerPoint and LibreOffice files every tier but `system` embeds the whole face, and PowerPoint cannot use the emoji font, so emoji added there use that machine's own |
 | `--images WORDS` | Pictures in PDF, `--player`, PPTX and ODP. `optimized` (default) caps a large photo to 2560 px and re-encodes it as JPEG when that saves at least 10-30%; `original` embeds every file as added and keeps PPTX/ODP slides as lossless PNG. A number 1-100 sets the JPEG quality: `--images "optimized 90"`. Same words as the `images:` front-matter line |
 
 ## Office options
@@ -146,7 +151,7 @@ These apply to `.zip` output only.
 |---|---|
 | `--notes` | Also write the notes to `<output>.notes.txt`, one block per slide |
 | `--notes-icon` | Show a clickable note icon on each slide with a note. Notes are embedded but hidden by default |
-| `--strip-notes` | Remove speaker notes from every copy: the HTML, the PDF annotations and any embedded source. `<!-- describe: -->` text stays |
+| `--strip-notes` | Remove speaker notes from every copy: the HTML, the PDF annotations, the PowerPoint notes pane and any embedded source. `<!-- describe: -->` text stays. Without it, an export that keeps notes prints a warning saying so |
 | `--captions` | Also write WebVTT captions: `<output>.vtt` for the deck and `<output>.NN.vtt` per slide |
 | `--strip-say` | Remove the spoken lines you wrote (`<!-- say: -->` and the front-matter `say:` map), keeping the generated narration. Replaces the retired `--strip-captions` |
 

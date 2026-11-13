@@ -22,11 +22,17 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   last blessed at and render it. If it clips there too, the baseline is incomplete
   and the honest fix is a full `--bless`. If it does not, you have a real regression
   and blessing would bury it.
-- **The guard against a repeat:** the baseline now records `decksSwept`, the number
-  of decks the blessing run covered, and `overflow:check` reports when today's corpus
-  is larger — `ⓘ the baseline was recorded against N decks; this sweep covered M`.
-  That is the one fact that distinguishes "clean" from "never looked at", and the
-  file could not previously carry it.
+- **The guard against a repeat:** a `--bless` now records `swept`, the NAME of every
+  deck the blessing run covered (#2060). A count (`decksSwept`, the first guard) could
+  say THAT some decks had no floor, never WHICH, and it missed
+  `examples/position-marks.md`, which clipped three pages from the commit that created
+  it and surfaced on the first night that measured it as a regression against "clean".
+  Now a deck outside `swept` has **NO FLOOR** and `overflow:check` fails on it by name,
+  clean or not: `✗ N deck(s) have NO FLOOR in the baseline`. A clean one needs only
+  `--bless <deck>`, which records just that deck's floor (a subset bless is safe now,
+  because a deck it leaves out is still named); a clipping one needs its slides fixed
+  first. The verdict is the pure
+  `judge()` in `tools/lib/overflow-corpus-ratchet.js`, unit-tested without a browser.
 - **What those seven actually clip, and why it was blessed rather than fixed:** the
   per-component gallery composes each variant's `<!-- _footer: -->` as
   `label · name variant — summary`, where `summary` is the variant's full
@@ -509,3 +515,32 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   a real text layer, so `pdftotext` is the oracle.
 - **Where:** `engineering/decisions/2026-09-07-overflow-guards-trim.md` §11 (the frame) and
   §13 (the two exports, measured).
+
+## The overflow sweep costs ~3x per deck and nears its job timeout, with no deck added to explain it
+
+- **Symptom:** `npm run overflow:check` (and the overflow nightly) took about 1.2 s a deck
+  before 2026-09-27 and about 4.2 s after. The nightly reached 38-40 minutes of its 45 and
+  some runs were canceled at the limit, while the corpus grew only 1.6x.
+- **Cause:** 268f0a3f9 (#2404) made the shared vector PDF writer (`lib/core/pdf-compose`,
+  `composePdfInPage` in `lattice.js`) the CLI's default. It costs about 3 s a deck on its own.
+  The sweep reads only the console's `⚠ OVERFLOW` and `⚠ CONTENT CLIPPED` lines and deletes
+  the PDF, and `measureOverflow()` runs before the writer, so the writer changed the sweep's
+  time and never its verdict. It is the bulk of the jump, not bisected: the sandbox gap is
+  about 2.1 s a deck against the nightly's 3.0 s.
+- **Mitigation:** `probe()` in `tools/check-overflow-corpus.js` passes `--chrome-pdf`.
+  `CHROME_PDF` in `lattice.js` gates only the writer. Measured on a 4-vCPU sandbox, 504 decks
+  at 2 workers: shared writer 1703 s, Chrome's printer 643 s (908 s on a run that shared the
+  CPU with a test suite), `.html` 572 s, and all three
+  report the same 62 clipped slides on the same 23 decks (diffed by the `clipped` map in
+  `--json`). `--writer shared` re-runs the slow path to re-prove that parity. The `⏱ sweep
+  cost` line names the writer, so two runs on different writers are never compared.
+- **Don't switch the sweep to `.html`.** It is only 11% faster than `--chrome-pdf`, and a plain
+  `.html` export skips the guards trim and the card-tag equalize pass (`TRIM_REACHES_DELIVERABLE`
+  and `TAGS_REACH_DELIVERABLE` in `lattice.js`), so by construction it can report clipping the
+  PDF does not have. It agreed on the corpus today only because no slide needed a trim.
+- **On the runner:** the first scheduled nightly after the fix (run 81, 2026-11-09) swept 507
+  decks in 733 s, 1.45 s a deck, against the 1350 s headroom line.
+- **Triggered by:** any change that adds a per-deck cost after `measureOverflow()`. Watch the
+  `⏱ sweep cost` line.
+- **Removable when:** never. The sweep has no use for the PDF bytes.
+- **Commits:** 268f0a3f9 (cause); #3081 follow-up P1 (fix).

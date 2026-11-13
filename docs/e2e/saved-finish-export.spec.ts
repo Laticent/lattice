@@ -153,15 +153,20 @@ async function printSlideTwo(page: Page, context: BrowserContext, testInfo: Test
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: SHARE_EXPORTS.print.row }).click();
 	await dialog.getByRole('button', { name: 'Print', exact: true }).click();
-	const frame = page.locator('iframe[style*="-10000px"]').last();
+	const frame = page.locator('iframe[style*="-10000px"][style*="width: 1024px"]'); // the print frame, not the draw host's (1200px)
 	await expect(frame).toBeAttached({ timeout: 60_000 });
 	const srcdoc = (await frame.getAttribute('srcdoc')) as string;
 	expect(srcdoc, 'the offscreen print document').toBeTruthy();
 	// The print frame took focus to print, so an Escape must start from the sheet itself; the
 	// Print drawer is a sub-view, so it can take one Escape to leave it and one to close.
+	// Press only while the sheet is still open. Under load the sheet is often already closing (`data-state="closed"`,
+	// animating out) when the 1 s check runs out, and clicking a closing sheet's heading and pressing Escape again
+	// fought its close (2 of 22 loaded runs).
 	await expect(async () => {
-		await dialog.getByRole('heading').first().click();
-		await page.keyboard.press('Escape');
+		if ((await dialog.getAttribute('data-state')) !== 'closed') {
+			await dialog.getByRole('heading').first().click();
+			await page.keyboard.press('Escape');
+		}
 		await expect(dialog).toBeHidden({ timeout: 1_000 });
 	}).toPass({ timeout: 15_000 });
 

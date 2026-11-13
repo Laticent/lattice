@@ -298,7 +298,10 @@ test("the Studio's deck-wide diagram check draws through the frame and never loa
 	test.setTimeout(240_000);
 	const pageLibrary: string[] = [];
 	page.on('request', (r) => {
-		if (/mermaid\.min\.js/.test(r.url())) pageLibrary.push(r.url());
+		// LOADED AS CODE, not merely fetched. The Studio's idle warm-up `fetch()`es the diagram library once this browser has
+		// shown a diagram, so a later diagram met offline still draws (studio-warm.ts); that request executes nothing.
+		// Counting it failed this test whenever the warm-up started inside its window: 5 of 11 Firefox runs (followups.d/3087-p5).
+		if (/mermaid\.min\.js/.test(r.url()) && r.resourceType() === 'script') pageLibrary.push(r.url());
 	});
 	await gotoStudio(page);
 	const preview = livePreview(page);

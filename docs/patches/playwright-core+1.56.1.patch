@@ -1,0 +1,12 @@
+diff --git a/node_modules/playwright-core/lib/server/frames.js b/node_modules/playwright-core/lib/server/frames.js
+--- a/node_modules/playwright-core/lib/server/frames.js
++++ b/node_modules/playwright-core/lib/server/frames.js
+@@ -151,6 +151,8 @@
+   }
+   frameCommittedNewDocumentNavigation(frameId, url, name, documentId, initial) {
+     const frame = this._frames.get(frameId);
++    if (!frame)
++      return;
+     this.removeChildFramesRecursively(frame);
+     this.clearWebSockets(frame);
+     frame._url = url;

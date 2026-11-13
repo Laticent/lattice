@@ -40,7 +40,7 @@ skill. The others are authorable end-to-end from the file.
 | [`chart-component`](./chart-component.md) | Use when adding a new chart kind to the chart family: manifest, pure SVG kernel, palette-blind chart CSS and the contrast contract. | 5.9k |
 | [`component-showcase`](./component-showcase.md) | Use when writing the gallery slides that teach one component: word budgets per slide form, sized before you render. | 2.1k |
 | [`component`](./component.md) | Use when adding a new `_class:` layout to the catalog: manifest, palette-blind CSS, optional transform, generated docs. | 3.7k |
-| [`deck`](./deck.md) | Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist. | 3.2k |
+| [`deck`](./deck.md) | Use when writing a whole deck from a blank file: narrative arc, front matter, picking layouts, the 10/10 bar and the ship checklist. | 3.3k |
 | [`finish`](./finish.md) | Use when creating or choosing a finish: backdrop — the layered, palette-blind atmosphere painted behind slide content. | 3.8k |
 | [`lens`](./lens.md) | Use when defining a reader lens (Lente): an approved subset of a deck's slides, projected for another audience without editing it. | 4.7k |
 | [`speaker-notes`](./speaker-notes.md) | Use when writing speaker notes, say: lines, review comments or captions, or when reviewing a deck against the notes rubric. | 5.4k |
@@ -52,14 +52,14 @@ skill. The others are authorable end-to-end from the file.
 |---|---|---|
 | [`accessibility-review`](./accessibility-review.md) | Use when reviewing a deck for accessibility: contrast, alt text and describe: comments, reading order, color as the only signal, type size, captions and motion. | 3.4k |
 | [`chart-from-data`](./chart-from-data.md) | Use when the author has numbers (pasted rows, a CSV, a table) and needs the right chart on a slide: pick the kind from the question, author the data, write the claim. | 3.3k |
-| [`cli`](./cli.md) | Use when rendering, exporting, sharing or checking a finished deck from a terminal: PDF, PowerPoint, images, player, handouts. | 3.2k |
+| [`cli`](./cli.md) | Use when rendering, exporting, sharing or checking a finished deck from a terminal: PDF, PowerPoint, images, player, handouts. | 3.4k |
 | [`diagram`](./diagram.md) | Use when a slide needs a diagram: a Mermaid flowchart, sequence or state diagram, or a native flowchart; when it helps, size limits, theming and what breaks. | 3.0k |
 | [`edit-deck`](./edit-deck.md) | Use when editing or restructuring a deck that already exists: find its argument, reorder, split or merge slides, keep the author's voice and change only what was asked. | 3.3k |
 | [`fix-findings`](./fix-findings.md) | Use when turning lint, Coach or overflow findings into fixes: reading lint:deck output, the common rule ids and their fixes, and fitting a slide without shrinking type. | 3.5k |
 | [`import`](./import.md) | Use when bringing outside content into Lattice: pasted Markdown, a Marp deck, a PowerPoint or PDF, then cleaning the result into the house deck shape. | 3.1k |
 | [`math`](./math.md) | Use when a slide carries math: inline $x$ or a display equation, the math layout and its variants, legends for symbols, and when prose beats an equation. | 2.8k |
 | [`restyle-deck`](./restyle-deck.md) | Use when changing how a deck looks without changing what it says: theme, color mode, preset, finish, mode, registers, per-slide modifiers, or a better-fitting layout. | 3.2k |
-| [`studio`](./studio.md) | Use when working in Lattice Studio or answering how to: its panels, keyboard verbs, where decks are stored, and what the Studio chat can and cannot do. | 3.6k |
+| [`studio`](./studio.md) | Use when working in Lattice Studio or answering how to: its panels, keyboard verbs, where decks are stored, and what the Studio chat can and cannot do. | 3.7k |
 
 <!-- skill-index:end -->
 

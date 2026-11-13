@@ -37,7 +37,10 @@ module.exports = {
 				'http://localhost:4399/getting-started/',
 				'http://localhost:4399/studio/',
 			],
-			numberOfRuns: 3,
+			// 5, not 3: the nightly compares medians, and a median of 3 mobile /studio/ runs crossed
+			// the TBT threshold on about 11% of nights with no code change (issue #2085,
+			// engineering/decisions/2026-11-08-docs-perf-nightly-diagnosis.md §1). Desktop stays at 3.
+			numberOfRuns: 5,
 			settings: {
 				// No `preset` — formFactor + explicit screenEmulation + throttling
 				// define the mobile profile (Moto-G4-class CPU 4×, Slow-4G).

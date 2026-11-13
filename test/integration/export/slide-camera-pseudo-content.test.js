@@ -71,7 +71,7 @@ test('the CLI embeds the emoji slices that front-matter CSS draws, and none for 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pseudo-emoji-cli-'));
   try {
     const faces = (fm) => {
-      fs.writeFileSync(path.join(dir, 'd.md'), `---\ntheme: indaco\nfonts: used-emoji\n${fm}---\n\n# Launch day\n`);
+      fs.writeFileSync(path.join(dir, 'd.md'), `---\ntheme: indaco\nfont-embedding: used-emoji\n${fm}---\n\n# Launch day\n`);
       const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(dir, 'd.md'), path.join(dir, 'd.html')], { encoding: 'utf8', timeout: 120000 });
       assert.equal(r.status, 0, r.stderr);
       return (fs.readFileSync(path.join(dir, 'd.html'), 'utf8').match(/@font-face\{font-family:'Noto Color Emoji'/g) || []).length;

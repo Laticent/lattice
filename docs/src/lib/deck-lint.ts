@@ -4,7 +4,9 @@
 
 import { type LensRegistry, lensPairs } from '@/lib/lente';
 import { slideClassDirectives } from '../../../lib/core/class-directive-scan.mjs';
+import { parsePaneMarker } from '../../../lib/core/meta-door.mjs';
 import { separatorRanges } from '../../../lib/core/slide-boundaries.mjs';
+import { slideSourceHidden } from '../../../lib/diagnostics/slice-equivalence-core.mjs';
 
 // WHERE A SLIDE BEGINS — asked once, of the one module that knows.
 //
@@ -134,6 +136,16 @@ export function unknownComponents(src: string, known: Iterable<string>): string[
 	return usedComponents(src).filter((n) => !set.has(n));
 }
 
+/** How many lines of `src` are a pane marker alone on its line, in any spelling: `_pane:`, the `pane:` alias, a record
+ *  naming a pane. A record wrapped over several lines is not counted; the rail then labels the slide by its class. */
+function paneMarkerLines(src: string): number {
+	let n = 0;
+	// A cheap shape test before the reader: a whole one-line comment that mentions a pane. String checks, not a
+	// `<!--…-->` pattern: parsePaneMarker decides, and this only skips lines that cannot be a marker.
+	for (const line of src.split('\n')) if (line.startsWith('<!--') && line.endsWith('-->') && /pane/i.test(line) && parsePaneMarker(line)?.pane) n++;
+	return n;
+}
+
 /** The component label for a single slide — the class the ENGINE would apply to it, or
  *  `text` for a bare-Markdown slide. Drives the slide-navigator chips.
  *
@@ -146,8 +158,9 @@ export function slideClass(slideSrc: string): string {
 	const src = String(slideSrc ?? '');
 	const found = slideClassDirectives(src).filter((d) => d?.payload);
 	// A panes slide (lib/core/pane-spec.js) is two components, neither of them the slide's: its
-	// `_class` names a `columns` / `rows` layout, or it carries two pane markers.
-	const panes = (src.match(/^<!--\s*_?pane:[^<>\n]*-->$/gm) || []).length >= 2;
+	// `_class` names a `columns` / `rows` layout, or it carries two pane markers. A marker is one comment alone on its
+	// line, in any spelling (`_pane:`, a record `{pane="…"}`), read by lib/core/meta-door.mjs `parsePaneMarker`.
+	const panes = paneMarkerLines(src) >= 2;
 	if (found.length) {
 		const payload = found[found.length - 1].payload;
 		if (/(?:^|\s)(?:columns|rows)(?:\s|$)/.test(payload)) return 'panes';
@@ -191,7 +204,9 @@ export type PresentLens = string;
 export function presentationPairs(slides: string[], lens: PresentLens, registry?: LensRegistry): Array<{ slide: string; index: number }> {
 	const all = (Array.isArray(slides) ? slides : [])
 		.map((slide, index) => ({ slide, index })) // index = ORIGINAL author position (survives the lens filter)
-		.filter((p) => typeof p.slide === 'string');
+		// A slide the author HID (`<!-- hide -->`) is never presented, under any lens (engineering/decisions/
+		// 2026-11-06-hidden-slides.md). Filtered first, so a lens never brings one back.
+		.filter((p) => typeof p.slide === 'string' && !slideSourceHidden(p.slide));
 	if (lens === 'full' || all.length === 0) return all;
 	// Registry (tag-driven) lens → the library projects it deterministically from approved tags.
 	// HONEST projection: an empty lens returns an EMPTY set, NOT the whole deck — a fail-OPEN fallback
@@ -201,7 +216,7 @@ export function presentationPairs(slides: string[], lens: PresentLens, registry?
 	// reader path (PresentOverlay) gates through lensEligibility and renders an explicit "unavailable"
 	// state; the author preview shows the real (possibly empty) membership.
 	if (registry?.lenses.some((l) => l.id === lens && l.id !== 'full')) {
-		return lensPairs(slides, registry, lens);
+		return lensPairs(slides, registry, lens).filter((p) => !slideSourceHidden(p.slide));
 	}
 	return all; // unknown lens with no registry entry → safe fallback to the whole deck
 }

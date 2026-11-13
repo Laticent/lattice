@@ -1,0 +1,1 @@
+- The Export to Marp bundle's README now says that Marp for VS Code shows hidden slides in its preview and in its own Export Slide Deck… command, and that the *Marp:* tasks (and `npm run`) leave them out. It used to say both export routes give the same result.

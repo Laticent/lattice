@@ -14,6 +14,7 @@
 // THE class-directive reader, shared with the deck linter so completion and lint
 // agree by construction rather than by comment. See lib/core/class-directive-scan.mjs.
 import { classDirectiveAt } from '../../../lib/core/class-directive-scan.mjs';
+import { RECORD_FIELDS, RECORD_VALUES } from './grammar-vocab.js';
 
 const SLIDE_BREAK = /^---\s*$/;
 
@@ -64,6 +65,63 @@ export function classDirectiveCompletion(before) {
 	const prior = tail.slice(0, tail.length - partial.length).split(/\s+/).filter(Boolean);
 	if (prior.length === 0) return { kind: 'class', from, typed: partial };
 	return { kind: 'modifier', from, typed: partial, name: prior[0], present: prior.slice(1) };
+}
+
+// What to complete inside a slide RECORD (`<!-- {layout=cards, footer=Q3} -->`, record note step 3), given the line's
+// text before the cursor. Returns one of:
+//   { kind: 'field', from, typed, fields }                — a field name, after `{` or `, ` (`fields`: those already set)
+//   { kind: 'value', from, typed, name, prior, record }   — a value word after `name=` (`prior`: the value's earlier
+//                                                           words; `record`: the fields set so far, name → value)
+//   null                                                  — not inside a record's braces
+// A comma or brace inside a quoted value is the value's own; the braces must still be open at the cursor.
+export function recordCompletion(before) {
+	const m = before.match(/<!--\s*(?:@meta)?\{([^>]*)$/);
+	if (!m) return null;
+	// Inside an inline code span (an odd number of backticks before the comment) it is code, not a record.
+	if ((before.slice(0, m.index).match(/`/g) || []).length % 2 === 1) return null;
+	const inner = m[1];
+	const segs = [''];
+	let quoted = false;
+	let depth = 0;
+	for (let i = 0; i < inner.length; i++) {
+		const c = inner[i];
+		if (quoted) {
+			if (c === '\\') segs[segs.length - 1] += c + (inner[++i] ?? '');
+			else {
+				if (c === '"') quoted = false;
+				segs[segs.length - 1] += c;
+			}
+			continue;
+		}
+		if (c === '"') quoted = true;
+		else if (c === '{' || c === '[') depth++;
+		else if (c === '}' || c === ']') {
+			if (depth === 0) return null; // the record is closed before the cursor
+			depth--;
+		} else if (c === ',' && depth === 0) {
+			segs.push('');
+			continue;
+		}
+		segs[segs.length - 1] += c;
+	}
+	const record = {};
+	for (const seg of segs.slice(0, -1)) {
+		const eq = seg.indexOf('=');
+		const name = (eq < 0 ? seg : seg.slice(0, eq)).trim();
+		if (name) record[name] = eq < 0 ? '' : seg.slice(eq + 1).trim().replace(/^"|"$/g, '');
+	}
+	const last = segs[segs.length - 1];
+	const eq = last.indexOf('=');
+	if (eq < 0) {
+		const typed = last.trimStart();
+		if (!/^[a-z-]*$/.test(typed)) return null;
+		return { kind: 'field', from: before.length - typed.length, typed, fields: Object.keys(record) };
+	}
+	const name = last.slice(0, eq).trim();
+	const value = last.slice(eq + 1).replace(/^\s*"?/, '');
+	const typed = (value.match(/([\w-]*)$/) || ['', ''])[1];
+	const prior = value.slice(0, value.length - typed.length).split(/[\s,]+/).filter(Boolean);
+	return { kind: 'value', from: before.length - typed.length, typed, name, prior, record };
 }
 
 // Component-name completion options from the compact catalog (name + bucket).
@@ -174,7 +232,7 @@ export function slideBodyAfter(getLine, total, lineNo, { split = 'headings' } = 
 // when absent) — what slideBodyAfter needs to know where a slide ends.
 export function deckSplit(docText) {
 	const fm = String(docText || '').match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
-	const m = fm?.[1].match(/^split:[ \t]*["']?(\w+)/m);
+	const m = [...(fm?.[1] || '').matchAll(/^split[ \t]*:[ \t]*["']?(\w+)/gm)].pop(); // the last repeat wins (#3050, D1)
 	// Case-folded, as lib/core/resolve-split.js reads it.
 	return m ? m[1].toLowerCase() : 'headings';
 }
@@ -568,3 +626,30 @@ export function typeaheadContext(getLine, lineNo, before) {
 	}
 	return null;
 }
+
+// Completes inside a slide RECORD (`<!-- {layout=cards, footer=Q3} -->`): a field name after `{` or `, `, and a value
+// after `name=`: a component for `layout`, that component's variants for `variant`, the class grammar for `class`,
+// and a register's or enum field's own words for the rest. The record-side twin of the `_class:` source above, so a
+// record slide completes as a directive slide does (record note step 3).
+export function recordOptions(spot, catalog, vocab, extra = {}) {
+	if (!spot) return [];
+	if (spot.kind === 'field') {
+		const set = new Set(spot.fields);
+		return RECORD_FIELDS.filter((f) => !set.has(f.name) || f.name === 'note').map((f) => ({ label: f.name, type: 'property', detail: f.detail, apply: f.name === 'carry' || f.name === 'hide' ? f.name : `${f.name}=` }));
+	}
+	const layout = spot.record.layout || '';
+	if (spot.name === 'layout') return spot.prior.length ? [] : classOptions(catalog);
+	if (spot.name === 'variant') {
+		const comp = (catalog || []).find((c) => c.name === layout);
+		return (comp?.variants || []).flatMap((v) => String(v).split(/\s+/)).filter((v) => v && !spot.prior.includes(v)).map((v) => ({ label: v, type: 'modifier', detail: `${layout} variant` }));
+	}
+	if (spot.name === 'class' || spot.name === 'modifiers') {
+		const words = spot.prior;
+		const name = layout || words[0] || '';
+		if (spot.name === 'class' && !layout && !words.length) return classTokenResult({ kind: 'class', from: 0, typed: spot.typed }, catalog, vocab, extra).options;
+		return classTokenResult({ kind: 'modifier', from: 0, typed: spot.typed, name: name || 'content', present: layout ? words : words.slice(1) }, catalog, vocab, extra).options;
+	}
+	const values = RECORD_VALUES[spot.name];
+	return values ? values.filter((v) => !spot.prior.includes(v)).map((v) => ({ label: v, type: 'constant', detail: spot.name })) : [];
+}
+

@@ -23,7 +23,9 @@ test('standing instructions persist to localStorage as you type', async ({ page 
 
 test('the AI tab is honest about running with no model', async ({ page }) => {
 	await page.getByRole('tab', { name: 'AI' }).click();
-	await expect(page.getByText(/No tier active yet|connect a cloud model/)).toBeVisible();
+	// Nothing is set and nothing is connected: the chat model says so, and what to do (2026-11-08-studio-ai-routes-ux.md).
+	await expect(page.getByTestId('chat-model-card-state')).toHaveText('Not set');
+	await expect(page.getByTestId('chat-model-card')).toContainText('Connect a provider or choose on-device');
 });
 
 test('the General tab switches the placement-handle style and persists it', async ({ page }) => {

@@ -71,14 +71,17 @@ import { subresourceCspMeta } from '../../../lib/core/subresource-csp.mjs';
  *   deck (trio follow-up 11); see `subresourceCspPolicy`.
  * @param {Array<{origin: string}>} [opts.blocked] this render's refused web references, so a
  *   host whose subdomain the deck itself references keeps no wildcard; see `subresourceCspPolicy`.
+ * @param {string} [opts.scriptNonce] when given, the frame refuses every script that does not carry
+ *   this nonce (inline handlers included); every script the builder writes must carry it. See
+ *   `scriptSources` in lib/core/subresource-csp.mjs.
  * @returns {string}
  */
-export function previewCspMeta({ katexUrl = '', webOrigins = [], blocked = [] } = {}) {
+export function previewCspMeta({ katexUrl = '', webOrigins = [], blocked = [], scriptNonce = '' } = {}) {
 	// The site's own origin for fonts: the frame is `srcdoc`, and Firefox does not read its `'self'` as this origin, so
 	// it refused every face the site serves (the text faces fell back; Lattice Icons drew nothing). Same-origin only.
 	// Not in the build's jsdom bake (scripts/bake-newcomer-frame.mjs): its `location` is a stand-in no visitor shares, and a
 	// baked document must not name it.
 	const baking = typeof navigator !== 'undefined' && /\bjsdom\//.test(navigator.userAgent || '');
 	const self = !baking && typeof location !== 'undefined' && /^https?:$/.test(location.protocol) ? [location.origin] : [];
-	return subresourceCspMeta({ katexUrl, webOrigins, blocked, fontOrigins: self });
+	return subresourceCspMeta({ katexUrl, webOrigins, blocked, fontOrigins: self, scriptNonce });
 }

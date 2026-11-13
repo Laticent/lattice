@@ -77,7 +77,7 @@ section .lat-icon > .lat-icon-svg {
 }
 
 /* THE GLYPH. Each icon carries its <svg> and its Lattice Icons glyph; `icon: font` (the default) shows the glyph,
- * `icon: svg` the <svg>, and an export under `fonts: emoji: system` puts `icon-svg` on every slide (lib/fonts/icon-fallback.js), since
+ * `icon: svg` the <svg>, and an export under `font-embedding: system-emoji` puts `icon-svg` on every slide (lib/fonts/icon-fallback.js), since
  * no machine has our icons (engineering/decisions/2026-11-01-icon-font.md). The glyph takes the drawing's box: the
  * font's em IS the 24-unit grid, its top at the ascender, so a line-height-1 line of that font fills the box. Color is
  * the box's own (`color:var(--icon-line)`), as the <svg>'s stroke is; the line weight is the face (`--icon-weight`:

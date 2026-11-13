@@ -1,7 +1,8 @@
 The woff2 files in this directory (and in dist/fonts/) are licensed under the SIL Open Font License, Version 1.1.
 
 Noto Color Emoji      Copyright 2021 Google Inc. All Rights Reserved.
-The other faces (Playfair Display, Outfit, JetBrains Mono, Caveat, Shantell Sans) keep their own copyright
+The other faces (Playfair Display, Outfit, Newsreader, Fraunces, Barlow Condensed, Inter, JetBrains Mono,
+Caveat, Shantell Sans) keep their own copyright
 lines in the name table of each font file.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.

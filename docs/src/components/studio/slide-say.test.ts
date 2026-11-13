@@ -74,3 +74,25 @@ describe('slide-say', () => {
 		expect(src).toContain('_class: kpi');
 	});
 });
+
+// A record slide's note channels (record note step 3): each editor reads the record's field first and writes it there,
+// and none of them ever removes the record as if it were a note.
+describe('note channels on a record slide', () => {
+	const slide = '<!-- {layout=cards, say="The ask.", describe="Three cards"} -->\n\n# Hi\n\n<!-- Presenter aside -->';
+	it('say and describe read from the record; the plain comment stays the speaker note', () => {
+		expect(getSayLine(slide)).toBe('The ask.');
+		expect(getDescription(slide)).toBe('Three cards');
+		expect(getNote(slide)).toBe('Presenter aside');
+	});
+	it('each writes its own field in the record, and only that', () => {
+		expect(setSayLine(slide, 'Fund it.')).toBe('<!-- {layout=cards, say=Fund it., describe="Three cards"} -->\n\n# Hi\n\n<!-- Presenter aside -->');
+		expect(setDescription(slide, '')).toBe('<!-- {layout=cards, say="The ask."} -->\n\n# Hi\n\n<!-- Presenter aside -->');
+		// The speaker note is a plain comment here, so it stays one; the record survives the rewrite.
+		expect(setNote(slide, 'New aside')).toBe('<!-- {layout=cards, say="The ask.", describe="Three cards"} -->\n\n# Hi\n\n<!-- note: New aside -->');
+	});
+	it('a record note is edited in the record; a long one becomes a block', () => {
+		const rec = '<!-- {layout=cards, note="Open cold."} -->\n\n# Hi';
+		expect(getNote(rec)).toBe('Open cold.');
+		expect(setNote(rec, 'Line one\nLine two')).toBe('<!-- {layout=cards}\nnote: |\n  Line one\n  Line two\n-->\n\n# Hi');
+	});
+});

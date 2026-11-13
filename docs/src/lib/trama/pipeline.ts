@@ -349,14 +349,21 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     const lines: string[] = [];
     let top: number | null = null;
     let cur = '';
-    const re = /\S+/g;
+    let end = -1;
+    // A line may also break AFTER A HYPHEN inside a word, and the browser takes that break: a tile sized for
+    // `Counter-` over `signature` was painted with `Counter-signature` on one line, wider than the tile (a state chart
+    // on a square phone page). So a word is read in pieces that end at a hyphen, and a piece that follows the last one
+    // with no space between joins it with none.
+    const re = /\S+?(?:-(?=[^\s-])|(?=\s|$))/g;
     for (let m = re.exec(raw); m; m = re.exec(raw)) {
       range.setStart(node, m.index);
       range.setEnd(node, m.index + m[0].length);
       const rs = range.getClientRects();
       const t: number | null = rs.length ? Math.round(rs[0].top) : top;
-      if (top !== null && t !== null && Math.abs(t - top) > 2) { lines.push(cur); cur = m[0]; } else cur = cur ? `${cur} ${m[0]}` : m[0];
+      const glued = m.index === end;
+      if (top !== null && t !== null && Math.abs(t - top) > 2) { lines.push(cur); cur = m[0]; } else cur = cur ? `${cur}${glued ? '' : ' '}${m[0]}` : m[0];
       top = t;
+      end = m.index + m[0].length;
     }
     if (cur) lines.push(cur);
     return lines.length ? lines : [text];

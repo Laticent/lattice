@@ -26,9 +26,16 @@ describe('Tip', () => {
 		stubFocusVisible(false);
 		render(<Tip label="Settings — deck & slide"><button type="button">Settings</button></Tip>);
 		const button = screen.getByRole('button', { name: 'Settings' });
-		await act(async () => button.focus());
-		await act(async () => new Promise((r) => setTimeout(r, 20)));
-		expect(screen.queryByRole('tooltip')).toBeNull();
+		// Fake timers through the shut window: past the one-shot drop's reset and the 200 ms hover delay, so an open
+		// that arrived late on any timer would be on screen at the check.
+		vi.useFakeTimers();
+		try {
+			await act(async () => button.focus());
+			act(() => vi.advanceTimersByTime(500));
+			expect(screen.queryByRole('tooltip')).toBeNull();
+		} finally {
+			vi.useRealTimers();
+		}
 		// The drop is one-shot: a later keyboard focus is not swallowed.
 		await act(async () => button.blur());
 		vi.restoreAllMocks();

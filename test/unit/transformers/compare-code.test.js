@@ -10,6 +10,7 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const kernel = require('../../../lib/components/code/compare-code/compare-code.transform');
 const adapter = require('../../../lib/transformers/compare-code');
+const { skipWithoutChrome } = require('../../helpers/chrome');
 
 const EYE = '<p><code>eyebrow</code></p>';
 const H2 = '<h2>Heading</h2>';
@@ -120,7 +121,8 @@ describe('compare-code — the two-pane geometry, as the browser resolves it', (
   before(async () => { m = await measure(); });
 
   test('the two panes resolve to equal widths despite a long line on one side', async (t) => {
-    if (!m) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
+    const why = skipWithoutChrome(m);
+    if (why) return t.skip(why);
     const [a, b] = m.tracks;
     // Before the fix these measured 946.219 / 182.734 in a 1280px section: the long
     // line's min-content took the left track and the right pane became a sliver.
@@ -131,7 +133,8 @@ describe('compare-code — the two-pane geometry, as the browser resolves it', (
   });
 
   test('landscape code stays verbatim — it does not wrap', async (t) => {
-    if (!m) return t.skip('no Chromium — set CHROME_PATH');
+    const why = skipWithoutChrome(m);
+    if (why) return t.skip(why);
     // Wrapping was tried here and reversed. On a two-pane diff the reader pairs line
     // N left with line N right; wrapping is per-pane, so one long line offsets every
     // row below it across the gutter. It also drops trailing lines out of the

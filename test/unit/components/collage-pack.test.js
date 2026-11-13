@@ -95,22 +95,29 @@ test('hero holds the largest tile', () => {
   assert.equal(areas.indexOf(Math.max(...areas)), 3);
 });
 
-test('more than six photos is refused and returns the even grid, fast', () => {
-  const t0 = Date.now();
-  const res = packCollage(new Array(9).fill(1), { stageAspect: 1.41 });
+test('more than six photos is refused and returns the even grid without searching', () => {
+  const work = {};
+  const res = packCollage(new Array(9).fill(1), { stageAspect: 1.41, work });
   assert.equal(res.fallback, 'too-many');
-  assert.ok(Date.now() - t0 < 50);
+  assert.deepEqual(work, { arrangements: 0, scored: 0 });
   assert.equal(res.cols.length, 3);
   assert.equal(res.areas.length, 9);
 });
 
-test('six photos finish well inside a second; seven are refused, not searched', () => {
-  const t0 = Date.now();
-  packCollage(SHOES, { stageAspect: 1.41, gap: GAP });
-  assert.ok(Date.now() - t0 < 1500, `six photos took ${Date.now() - t0} ms`);
-  const t1 = Date.now();
-  packCollage([...SHOES, 1], { stageAspect: 1.41, gap: GAP });
-  assert.ok(Date.now() - t1 < 50);
+// The search is exponential in the photo count, so it is bounded by WORK, not by a clock (HARD RULE #32, F1):
+// six photos build 5,497 arrangements and score 519 today, and seven are refused before the search starts.
+// With mosaico's MAX_TREE_ITEMS raised to 7 (the failing arm), seven photos build 10,781 and score 1,862, which
+// both halves of this test catch. The count is deterministic, so the bound only needs room for a search change.
+test('six photos stay inside the search budget; seven are refused, not searched', () => {
+  const work = {};
+  assert.equal(packCollage(SHOES, { stageAspect: 1.41, gap: GAP, work }).fallback, false);
+  assert.ok(work.arrangements > 0 && work.arrangements <= 10_000, `six photos built ${work.arrangements} arrangements`);
+  assert.ok(work.scored <= work.arrangements);
+  const refused = {};
+  assert.equal(packCollage([...SHOES, 1], { stageAspect: 1.41, gap: GAP, work: refused }).fallback, 'too-many');
+  assert.deepEqual(refused, { arrangements: 0, scored: 0 });
+  // The count rides beside the result, never in it: the packed layout is the same with or without it.
+  assert.deepEqual(packCollage(SHOES, { stageAspect: 1.41, gap: GAP, work: {} }), packCollage(SHOES, { stageAspect: 1.41, gap: GAP }));
 });
 
 test('an unusable aspect becomes a 1:1 tile; nothing non-finite is emitted', () => {

@@ -281,14 +281,22 @@ describe('checkCodeRecede — a receded code line stays readable', () => {
     const errors = [];
     checkCodeRecede(errors);
     assert.deepEqual(errors, []);
-    assert.equal(CODE_RECEDE_FLOOR, 3);
+    // The AA text floor since 2026-11-10: a dimmed line is still text, and a slide with a focused line passes AA.
+    assert.equal(CODE_RECEDE_FLOOR, 4.5);
   });
 
   test('the spotlight-strength mix it replaced fails, naming palettes', () => {
     const errors = [];
     checkCodeRecede(errors, undefined, withRecede(24));
     assert.equal(errors.length, 1);
-    assert.match(errors[0], /receded code line under 3:1/);
+    assert.match(errors[0], /receded code line under 4\.5:1/);
+  });
+
+  test('the old 3:1 mix (55%) now fails: it left 48 palette-modes under AA', () => {
+    const errors = [];
+    checkCodeRecede(errors, undefined, withRecede(55));
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /^\d+ palette\(s\) leave a receded code line under 4\.5:1/);
   });
 
   test('a stylesheet without the token is an error, not a pass', () => {

@@ -1,4 +1,4 @@
-import { ENGINE_GLOB } from './engine-glob';
+import { holdEngine } from './engine-glob';
 import { expect, test } from './studio-fixture';
 
 // RESERVED SLOTS — the two places the pre-paint shell cannot know its content, and the
@@ -102,15 +102,13 @@ test('@smoke the shell and the app reserve the same slot, and the reservation ho
 	await page.setViewportSize(WIDE);
 	// Hold the engine so the shell is measurable before the island replaces it — the same
 	// device `studio-shell-parity` uses, for the same reason.
-	await page.route(ENGINE_GLOB, async (route) => {
-		await new Promise((r) => setTimeout(r, 2500));
-		await route.continue();
-	});
+	const engine = await holdEngine(page);
 	await page.goto('/studio/', { waitUntil: 'commit' });
 	await page.locator('#studio-ssr-shell .ssr-topbar').waitFor({ state: 'attached' });
 	await settle(page);
 	const shell = (await page.evaluate(READ_SLOTS('#studio-ssr-shell'))) as Slot[];
 	expect(shell.length, 'the shell was dismissed before its slots could be measured').toBeGreaterThan(0);
+	engine.release();
 
 	await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
 	await expect(page.locator('#studio-ssr-shell')).toHaveCount(0);

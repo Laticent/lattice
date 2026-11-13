@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { NewSlideButton } from './NewSlideButton';
 
@@ -29,23 +29,38 @@ describe('NewSlideButton — the Before | After split', () => {
 		expect(end).toBe(false); // preventDefault: no synthesized click lands on the pill coming back
 	});
 
-	it('a touch-opened split does not move focus; a mouse-opened one focuses After', async () => {
-		render(<NewSlideButton variant="fab" onChoose={() => {}} />);
-		const pill = screen.getByRole('button', { name: 'New slide' });
-		fireEvent.touchStart(pill);
-		fireEvent.click(pill, { detail: 1 });
-		expect(document.activeElement?.getAttribute('aria-label')).not.toBe('New slide after');
-		fireEvent.keyDown(screen.getByRole('button', { name: 'New slide after' }), { key: 'Escape' });
-		await new Promise((r) => setTimeout(r, 850)); // past the touch, so the next click is a mouse's
-		fireEvent.click(screen.getByRole('button', { name: 'New slide' }), { detail: 1 });
-		expect(document.activeElement?.getAttribute('aria-label')).toBe('New slide after');
+	it('a touch-opened split does not move focus; a mouse-opened one focuses After', () => {
+		// The pill tells a finger from a mouse by how long ago the last touch was (an 800 ms window read off `Date.now`),
+		// so the clock is fake and stepped past the window rather than slept through.
+		vi.useFakeTimers();
+		try {
+			render(<NewSlideButton variant="fab" onChoose={() => {}} />);
+			const pill = screen.getByRole('button', { name: 'New slide' });
+			fireEvent.touchStart(pill);
+			fireEvent.click(pill, { detail: 1 });
+			expect(document.activeElement?.getAttribute('aria-label')).not.toBe('New slide after');
+			fireEvent.keyDown(screen.getByRole('button', { name: 'New slide after' }), { key: 'Escape' });
+			act(() => vi.advanceTimersByTime(850)); // past the touch, so the next click is a mouse's
+			fireEvent.click(screen.getByRole('button', { name: 'New slide' }), { detail: 1 });
+			expect(document.activeElement?.getAttribute('aria-label')).toBe('New slide after');
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
-	it('the click that opened the split does not close it', async () => {
-		render(<NewSlideButton variant="fab" onChoose={() => {}} />);
-		screen.getByRole('button', { name: 'New slide' }).click();
-		await new Promise((r) => setTimeout(r, 20));
-		expect(screen.getByRole('button', { name: 'New slide after' })).toBeTruthy();
+	it('the click that opened the split does not close it', () => {
+		// In a browser React runs the split's effect while the opening click is still on its way up to the document, so
+		// that same click then reaches the document. jsdom flushes the effect only after the click has finished, so the
+		// test sends the rest of the click's journey itself: a click on the document, before any timer has run.
+		vi.useFakeTimers();
+		try {
+			render(<NewSlideButton variant="fab" onChoose={() => {}} />);
+			fireEvent.click(screen.getByRole('button', { name: 'New slide' }));
+			fireEvent.click(document.body);
+			expect(screen.getByRole('button', { name: 'New slide after' })).toBeTruthy();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('a confirmation is a message, not a button: a tap on it does nothing', () => {
@@ -71,19 +86,24 @@ describe('NewSlideButton — the Before | After split', () => {
 		expect(screen.getByRole('button', { name: 'New slide after' }).textContent).toBe('After this slide');
 	});
 
-	it('closes when focus moves outside, or a click lands outside', async () => {
-		render(
-			<>
-				<NewSlideButton variant="fab" onChoose={() => {}} />
-				<button type="button">elsewhere</button>
-			</>,
-		);
-		fireEvent.click(screen.getByRole('button', { name: 'New slide' }));
-		fireEvent.blur(screen.getByRole('button', { name: 'New slide after' }), { relatedTarget: screen.getByRole('button', { name: 'elsewhere' }) });
-		expect(screen.queryByRole('button', { name: 'New slide after' })).toBeNull();
-		fireEvent.click(screen.getByRole('button', { name: 'New slide' }));
-		await new Promise((r) => setTimeout(r, 20));
-		fireEvent.click(screen.getByRole('button', { name: 'elsewhere' }));
-		expect(screen.queryByRole('button', { name: 'New slide after' })).toBeNull();
+	it('closes when focus moves outside, or a click lands outside', () => {
+		vi.useFakeTimers();
+		try {
+			render(
+				<>
+					<NewSlideButton variant="fab" onChoose={() => {}} />
+					<button type="button">elsewhere</button>
+				</>,
+			);
+			fireEvent.click(screen.getByRole('button', { name: 'New slide' }));
+			fireEvent.blur(screen.getByRole('button', { name: 'New slide after' }), { relatedTarget: screen.getByRole('button', { name: 'elsewhere' }) });
+			expect(screen.queryByRole('button', { name: 'New slide after' })).toBeNull();
+			fireEvent.click(screen.getByRole('button', { name: 'New slide' }));
+			act(() => vi.runOnlyPendingTimers()); // the outside-click listener arms on the next tick
+			fireEvent.click(screen.getByRole('button', { name: 'elsewhere' }));
+			expect(screen.queryByRole('button', { name: 'New slide after' })).toBeNull();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

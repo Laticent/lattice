@@ -1,3 +1,4 @@
+import { tolerateRawtextClose } from '@laticent/markup';
 import MarkdownIt from 'markdown-it';
 import type { NodeSpec, Node as PMNode } from 'prosemirror-model';
 import { PLUGIN_GRAMMAR } from '../../../../lib/plugins/grammar.generated.mjs';
@@ -42,10 +43,13 @@ type State = any;
 /** markdown-it's own `html_block` rule. Its ruler entry is private API, so this reads it once and fails loudly if it is gone. */
 const htmlBlockRule: (state: State, start: number, end: number, silent: boolean) => boolean = (() => {
 	// biome-ignore lint/suspicious/noExplicitAny: `__rules__` is the ruler's documented-in-source internal list.
-	const rules = (new MarkdownIt('commonmark', { html: true }).block.ruler as any).__rules__ as { name: string; fn: (s: State, a: number, b: number, c: boolean) => boolean }[];
+	// With the engine's `</style >` close in front of it (#2052, lib/core/rawtext-close.mjs), so a raw block here ends
+	// where the engine's does rather than running on to the end of the slide's prose.
+	const rules = (tolerateRawtextClose(new MarkdownIt('commonmark', { html: true })).block.ruler as any).__rules__ as { name: string; fn: (s: State, a: number, b: number, c: boolean) => boolean }[];
 	const rule = rules.find((r) => r.name === 'html_block');
-	if (!rule) throw new Error('markdown-it has no html_block rule: raw-block.ts must be reworked');
-	return rule.fn;
+	const rawtext = rules.find((r) => r.name === 'rawtext_block');
+	if (!rule || !rawtext) throw new Error('markdown-it has no html_block rule: raw-block.ts must be reworked');
+	return (state, start, end, silent) => rawtext.fn(state, start, end, silent) || rule.fn(state, start, end, silent);
 })();
 
 /** Is this a top-level position a block may be modeled at (see the header)? */

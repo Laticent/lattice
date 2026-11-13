@@ -126,6 +126,12 @@ async function latticeStudioProbe() {
 		// The Studio has booted and rendered once. Not "the editor exists": a phone opens on the preview and mounts the
 		// editor only when its pane is shown, which setDeck does through latticeShowDeckEditor (#2911).
 		await until(() => window.__latticeRenderMetrics, 150000, "the Studio's first render (its render metrics)");
+		// THE NEWCOMER BAKE on Safari (single-slide-render.ts `adoptBake`, PR #3102). This page is a first visit (only the
+		// settings key is seeded), so the head fetched the bake and the editing preview answered it: `adopted`, or
+		// `refused:written` when the engine wrote first (a race, so a speed question, not a fault). Any other refusal means
+		// the bake no longer matches what Safari renders, which is a bug. The value is reported either way.
+		const bake = await until(() => document.querySelector('[aria-label="Live deck preview"]')?.getAttribute('data-lattice-bake'), 30000, 'the newcomer bake answered (data-lattice-bake)');
+		step('the newcomer bake was adopted, or lost only the race to the engine', bake === 'adopted' || bake === 'refused:written', bake);
 		const paths = [];
 		window.__latticeRenderMetrics.on((s) => paths.push(String(s.writePath)));
 
@@ -143,14 +149,29 @@ async function latticeStudioProbe() {
 		step('the edited heading is on screen', true, h1);
 		await check('after the patch');
 
-		// ANTI-VACUITY: the same frame, the same flag, a handler that SHOULD run.
+		// ANTI-VACUITY: the same frame, the same flag, a handler that SHOULD run. It is set as a
+		// PROPERTY, which the frame's script policy allows (the runtime sets its own handlers that
+		// way). An inline `onerror=` attribute is no longer such a control: the preview frame's
+		// `script-src 'nonce-…' 'strict-dynamic'` refuses it, which the next step checks
+		// (engineering/decisions/2026-11-06-studio-byok-key-lifecycle.md §4, "The second wall").
 		const doc = frameDoc();
 		const holder = doc.createElement('div');
-		holder.innerHTML = '<img src="x-probe-missing.png" onerror="top.__latticeProbeRan = 1">';
+		holder.innerHTML = '<img src="x-probe-inline.png" onerror="top.__latticeProbeInline = 1">';
+		const control = doc.createElement('img');
+		control.onerror = () => {
+			window.__latticeProbeRan = 1;
+		};
+		control.src = 'x-probe-missing.png';
+		holder.appendChild(control);
 		doc.body.appendChild(holder);
-		await until(() => window.__latticeProbeRan === 1, 10000, 'the detector control: an onerror written into the frame on purpose');
+		await until(() => window.__latticeProbeRan === 1, 10000, 'the detector control: an onerror set on purpose in the frame');
+		step('detector control: a handler set on purpose DOES run and is seen', true);
+		// Both images point at missing files and fail together; give the inline one's error the
+		// same window the payload checks above get, then read its flag.
+		await sleep(1500);
+		const inline = window.__latticeProbeInline ?? frame()?.contentWindow?.__latticeProbeInline;
+		step('the frame refuses an inline onerror= attribute (the script-src second wall)', inline === undefined, `__latticeProbeInline = ${inline}`);
 		holder.remove();
-		step('detector control: a handler written on purpose DOES run and is seen', true);
 		result.ok = true;
 	} catch (e) {
 		result.error = String(e?.message ?? e);

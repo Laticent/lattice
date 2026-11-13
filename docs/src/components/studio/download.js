@@ -103,6 +103,23 @@ export function isIOSLike(ua = nav()?.userAgent || '', platform = nav()?.platfor
 	return /iPad|iPhone|iPod/.test(ua) || (platform === 'MacIntel' && touchPoints > 1);
 }
 
+/**
+ * Can this browser NOT be trusted to print a hidden frame, so Print must build a real PDF and print THAT?
+ *
+ * The desktop Print path writes the deck into an off-screen frame and calls its `print()`. Where a browser instead hands
+ * the whole TOP document to the print sheet, the author gets one page: a picture of the Studio. Recorded, with device
+ * evidence, in engineering/decisions/2026-06-14-deck-print-styling.md (Firefox ran `print()` on the top document; every
+ * phone browser hands the whole page to the system sheet), and seen again on Android Firefox on 2026-11-12. The PDF path
+ * holds everywhere: its MediaBox carries the paper. So: iOS, Android, any Firefox, and any device whose main pointer is a
+ * finger. Desktop Chromium and desktop Safari keep the print dialog, which prints every page.
+ * @param {string} [ua] @param {string} [platform] @param {number} [touchPoints] @param {boolean} [coarse]  `(pointer: coarse)` matches
+ */
+export function needsPdfToPrint(ua = nav()?.userAgent || '', platform = nav()?.platform || '', touchPoints = nav()?.maxTouchPoints || 0, coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) {
+	if (isIOSLike(ua, platform, touchPoints)) return true;
+	if (/Android|Firefox\/|FxiOS/.test(ua)) return true;
+	return !!coarse;
+}
+
 /** Save an already-made URL (from `namedFileUrl`) as `filename`. The caller owns the URL.
  *  @param {string} url @param {string} filename */
 export function downloadUrl(url, filename) {

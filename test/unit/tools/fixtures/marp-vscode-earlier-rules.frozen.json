@@ -1,0 +1,48 @@
+{
+ "_stub": "/* @theme lattice */",
+ "4.0.1/3.1.2": [
+  "div#__marp-vscode > div > svg > foreignObject > section{width:1280px;height:720px;box-sizing:border-box;overflow:hidden;position:relative;scroll-snap-align:center center;-webkit-text-size-adjust:100%;text-size-adjust:100%}",
+  "div#__marp-vscode > div > svg > foreignObject > section::after{bottom:0;content:attr(data-marpit-pagination);padding:inherit;pointer-events:none;position:absolute;right:0}",
+  "div#__marp-vscode > div > svg > foreignObject > section:not([data-marpit-pagination])::after{display:none}",
+  "div#__marp-vscode > div > svg > foreignObject > section :is(h1, marp-h1){font-size:2em;margin:0.67em 0}",
+  "div#__marp-vscode > div > svg > foreignObject > section video::-webkit-media-controls{will-change:transform}",
+  "@page{size:1280px 720px;margin:0}",
+  "@media print{html, body{background-color:#fff;margin:0;page-break-inside:avoid;break-inside:avoid-page}div#__marp-vscode > div > svg > foreignObject > section{page-break-before:always;break-before:page}div#__marp-vscode > div > svg > foreignObject > section, div#__marp-vscode > div > svg > foreignObject > section *{-webkit-print-color-adjust:exact!important;animation-delay:0s!important;animation-duration:0s!important;color-adjust:exact!important;transition:none!important}div#__marp-vscode > div > svg[data-marpit-svg]{display:block;height:100vh;width:100vw}}",
+  "div#__marp-vscode > div > svg > foreignObject > :where(section){container-type:size}",
+  "div#__marp-vscode > div > svg > foreignObject > section img[data-marp-twemoji]{background:transparent;height:1em;margin:0 .05em 0 .1em;vertical-align:-.1em;width:1em}"
+ ],
+ "4.1.0/3.1.3": [
+  "div#__marp-vscode > div > svg > foreignObject > section{width:1280px;height:720px;box-sizing:border-box;overflow:hidden;position:relative;scroll-snap-align:center center;-webkit-text-size-adjust:100%;text-size-adjust:100%}",
+  "div#__marp-vscode > div > svg > foreignObject > section::after{bottom:0;content:attr(data-marpit-pagination);padding:inherit;pointer-events:none;position:absolute;right:0}",
+  "div#__marp-vscode > div > svg > foreignObject > section:not([data-marpit-pagination])::after{display:none}",
+  "div#__marp-vscode > div > svg > foreignObject > section :is(h1, marp-h1){font-size:2em;margin-block:0.67em}",
+  "div#__marp-vscode > div > svg > foreignObject > section video::-webkit-media-controls{will-change:transform}",
+  "@page{size:1280px 720px;margin:0}",
+  "@media print{html, body{background-color:#fff;margin:0;page-break-inside:avoid;break-inside:avoid-page}div#__marp-vscode > div > svg > foreignObject > section{page-break-before:always;break-before:page}div#__marp-vscode > div > svg > foreignObject > section, div#__marp-vscode > div > svg > foreignObject > section *{-webkit-print-color-adjust:exact!important;animation-delay:0s!important;animation-duration:0s!important;color-adjust:exact!important;print-color-adjust:exact!important;transition:none!important}div#__marp-vscode > div > svg[data-marpit-svg]{display:block;height:100vh;width:100vw}}",
+  "div#__marp-vscode > div > svg > foreignObject > :where(section){container-type:size}",
+  "div#__marp-vscode > div > svg > foreignObject > section img[data-marp-twemoji]{background:transparent;height:1em;margin:0 .05em 0 .1em;vertical-align:-.1em;width:1em}"
+ ],
+ "4.3.0/3.2.1": [
+  "div#__marp-vscode > div > svg > foreignObject > section{width:1280px;height:720px;box-sizing:border-box;overflow:hidden;position:relative;scroll-snap-align:center center;-webkit-text-size-adjust:100%;text-size-adjust:100%}",
+  "div#__marp-vscode > div > svg > foreignObject > section::after{bottom:0;content:attr(data-marpit-pagination);padding:inherit;pointer-events:none;position:absolute;right:0}",
+  "div#__marp-vscode > div > svg > foreignObject > section:not([data-marpit-pagination])::after{display:none}",
+  "div#__marp-vscode > div > svg > foreignObject > section :is(h1, marp-h1){font-size:2em;margin-block:0.67em}",
+  "div#__marp-vscode > div > svg > foreignObject > section video::-webkit-media-controls{will-change:transform}",
+  "@page{size:1280px 720px;margin:0}",
+  "@media print{html, body{background-color:#fff;margin:0;page-break-inside:avoid;break-inside:avoid-page}div#__marp-vscode > div > svg > foreignObject > section{page-break-before:always;break-before:page}div#__marp-vscode > div > svg > foreignObject > section, div#__marp-vscode > div > svg > foreignObject > section *{-webkit-print-color-adjust:exact!important;animation-delay:0s!important;animation-duration:0s!important;color-adjust:exact!important;print-color-adjust:exact!important;transition:none!important}div#__marp-vscode > div > svg[data-marpit-svg]{display:block;height:100vh;width:100vw}}",
+  "div#__marp-vscode > div > svg > foreignObject > :where(section){container-type:size}",
+  "div#__marp-vscode > div > svg > foreignObject > section img[data-marp-twemoji]{background:transparent;height:1em;margin:0 .05em 0 .1em;vertical-align:-.1em;width:1em}"
+ ],
+ "4.4.0/3.2.2": [
+  "div#__marp-vscode > div > svg > foreignObject > section{width:1280px;height:720px;box-sizing:border-box;overflow:hidden;position:relative;scroll-snap-align:center center;-webkit-text-size-adjust:100%;text-size-adjust:100%}",
+  "div#__marp-vscode > div > svg > foreignObject > section::after{bottom:0;content:attr(data-marpit-pagination);padding:inherit;pointer-events:none;position:absolute;right:0}",
+  "div#__marp-vscode > div > svg > foreignObject > section:not([data-marpit-pagination])::after{display:none}",
+  "div#__marp-vscode > div > svg > foreignObject > section :where(:is(h1, marp-h1)){font-size:2em;margin-block:0.67em}",
+  "div#__marp-vscode > div > svg > foreignObject > section section:where(:is(h1, marp-h1)){--marpit-root-font-size: 2em}",
+  "div#__marp-vscode > div > svg > foreignObject > section video::-webkit-media-controls{will-change:transform}",
+  "@page{size:1280px 720px;margin:0}",
+  "@media print{html, body{background-color:#fff;margin:0;page-break-inside:avoid;break-inside:avoid-page}div#__marp-vscode > div > svg > foreignObject > section{page-break-before:always;break-before:page}div#__marp-vscode > div > svg > foreignObject > section, div#__marp-vscode > div > svg > foreignObject > section *{-webkit-print-color-adjust:exact!important;animation-delay:0s!important;animation-duration:0s!important;color-adjust:exact!important;print-color-adjust:exact!important;transition:none!important}div#__marp-vscode > div > svg[data-marpit-svg]{display:block;height:100vh;width:100vw}}",
+  "div#__marp-vscode > div > svg > foreignObject > :where(section){container-type:size}",
+  "div#__marp-vscode > div > svg > foreignObject > section img[data-marp-twemoji]{background:transparent;height:1em;margin:0 .05em 0 .1em;vertical-align:-.1em;width:1em}"
+ ]
+}

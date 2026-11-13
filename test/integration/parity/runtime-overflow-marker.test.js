@@ -31,6 +31,7 @@ const fs = require('fs');
 const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'jsdom-close'));
 const { JSDOM } = require('jsdom');
 const { exportSettingsBlock } = require('../../../lib/core/export-settings');
+const { bootRuntime } = require('../../helpers/runtime-boot');
 
 const RUNTIME_SRC = fs.readFileSync(
   path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js'),
@@ -69,10 +70,10 @@ async function boot({ block = '', markup = SLIDE, specimen = false, overflowing 
     }
   }
   dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
-  const el = dom.window.document.createElement('script');
-  el.textContent = RUNTIME_SRC;
-  dom.window.document.body.appendChild(el);
-  await new Promise((r) => setTimeout(r, 300));
+  // A virtual clock (HARD RULE #32): boot returns once the runtime has nothing queued, and `dom.settle()` waits out
+  // whatever a later edit schedules (the observer's debounce, the sweep), so an absence check reads a FINISHED pass.
+  const clock = await bootRuntime(dom, { bundle: RUNTIME_SRC });
+  dom.settle = clock.settle;
   return dom;
 }
 
@@ -211,7 +212,7 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
     const s = document.querySelector('section[data-lattice-slide]');
     s.setAttribute('data-poke', '1');
     s.insertAdjacentHTML('beforeend', '<p>more content, arriving after boot</p>');
-    await new Promise((r) => setTimeout(r, 300));
+    await dom.settle();
     assert.equal(document.querySelectorAll('.overflow, .illegible').length, 0, 'no ring was drawn');
     assert.deepEqual(speakingTabs(document), [], 'no tab was drawn');
     closeQuietly(dom.window);
@@ -307,7 +308,7 @@ describe('the CALLER-level guarantees, which no kernel test can reach', () => {
     let n;
     while ((n = walker.nextNode())) if (n.nodeValue.trim()) node = n;
     node.nodeValue = 'word '.repeat(400); // characterData ONLY — no element added or removed
-    await new Promise((r) => setTimeout(r, 900));
+    await dom.settle();
     assert.equal(document.querySelectorAll('section.overflow').length, 1,
       'a characterData mutation is a DOM mutation and must schedule a sweep');
     closeQuietly(dom.window);

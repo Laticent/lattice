@@ -25,6 +25,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { frontMatterScalar, frontMatterValue, topLevelFrontMatterValue } = require('../../../lib/core/front-matter-key');
 const { parseFrontMatter } = require('../../../lib/engine/directives');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 /** The engine's own door, so a divergence between the two readers fails here. */
 const viaEngine = (line) => parseFrontMatter(`---\n${line}\n---\n\n# T`).directives;
@@ -205,16 +206,16 @@ describe('block-scalar header — linear on a long run of spaces', () => {
   // failing on a character `.` cannot cross, so the header test was quadratic: 1.9 s per read
   // at 40K spaces, ~50 s per render. 4x the input is ~4x the time when linear, ~16x when not.
   const fm = (n) => `style: | #${' '.repeat(n)}\u2028x\nlift: on\n`;
-  test('a header ending in U+2028 after 4x the spaces takes well under 16x the time', () => {
-    const once = (src) => { const t = process.hrtime.bigint(); frontMatterValue(src, 'lift'); return Number(process.hrtime.bigint() - t) / 1e6; };
-    // A distinct suffix per call, so the last-answer cache cannot serve a repeat.
-    const best = (n) => Math.min(...Array.from({ length: 5 }, (_, i) => once(fm(n) + `k${i}: v\n`)));
-    best(1000);
-    const small = best(10000);
-    const large = best(40000);
-    // A sub-millisecond read is timer noise, not the algorithm: the quadratic scan took ~1,900 ms at
-    // 40K, so the 5 ms floor still catches it ~380x over (it ejected #2953 at 0.05 vs 0.52 ms).
-    assert.ok(large < 5 || large < small * 10, `header scan must not square: ${small.toFixed(2)}ms at 10K, ${large.toFixed(2)}ms at 40K`);
+  test('a header ending in U+2028 after a long run of spaces reads in linear time', () => {
+    // In place of a ratio of two timings that ejected #2953, then a 5 s hang guard. Backtracking inside one regex has no
+    // count to read (the old pattern, on 200K spaces, was still going when killed at 60 s), so every regex the read runs
+    // must be one recheck calls linear (test/helpers/regex-trace.js over tools/regex-census.json): no clock (HARD RULE #32).
+    // The two key patterns are built from the key's name at run time, so the census (literals only) cannot hold them.
+    const allow = {
+      '/^lift[ \\t]*:/': 'built from the key name; `npm run regex:census -- --check` (recheck 4.6.2): safe',
+      '/^[ \\t]*lift[ \\t]*:[ \\t]*(.*)$/m': 'built from the key name; `npm run regex:census -- --check` (recheck 4.6.2): safe',
+    };
+    assertLinearRegexes(() => assert.equal(frontMatterValue(`${fm(2000)}k: v\n`, 'lift'), 'on', 'the hostile line is not a header, so the next line is a key'), { allow });
     assert.equal(frontMatterValue(fm(10), 'lift'), 'on', 'the hostile line is not a header, so the next line is a key');
   });
 

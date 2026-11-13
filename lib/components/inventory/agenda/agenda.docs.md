@@ -6,7 +6,7 @@
 
 **Tags** `agenda-setting` · `overview` · `onboarding` · `kickoff`
 
-Use as the second slide of any multi-section deck. Numbers are generated; authors just write the section titles. Five interchangeable styles — the default `ledger` (a contents page with optional page references), plus `circles`, `rail`, `cards`, and `checks` — all compose with the `progress-N` 'you are here' modifier.
+Use as the second slide of any multi-section deck. Numbers are generated; authors just write the section titles. Leave the list out and it fills itself: one item per `divider` slide, named by its heading, and an agenda repeated inside a section marks that section with `progress-N`. Three styles, each with its own job — the default `ledger` (a contents page with optional page references), `circles` (a track of stops) and `checks` (done, here, ahead) — all compose with the `progress-N` 'you are here' modifier.
 
 ## Agent contract
 
@@ -26,22 +26,22 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 ### Variant decision rule
 
 - **default (no modifier).** A contents page with optional page references — the plainest, most document-like agenda look.
-- **`circles`.** Section markers should read as a track of dots rather than numbers — a more visual, less document-like tone.
-- **`rail`.** The agenda should read as a vertical journey down a side rail rather than a flat numbered list.
-- **`cards`.** Each section deserves its own boxed card, with the current one taking the accent — a punchier, more graphic agenda.
+- **`circles`.** The agenda should read as a track of stops rather than a contents page — a more visual, presentation-room tone. Page references sit flush right, as on the ledger, without the dotted leader.
 - **`checks`.** The deck has forward momentum and past sections should visibly tick off as done, with an arrow marking the current one.
 
 ### Common mistakes
 
 - **Hand-typing the page number into the section title instead of a trailing inline-code page ref.** A page reference is a trailing `` `p.N` `` inline-code chip on the item line — text baked into the title itself doesn't get the right-aligned leader-dot treatment.
-- **Assuming `progress-N` alone changes which marker style (circles/rail/cards/checks) is used.** `progress-N` only marks which stop is current — it composes with a style variant but doesn't imply one; the default numbered `ledger` look still applies unless you also add `circles`/`rail`/`cards`/`checks`.
+- **Ending a hand-written line with inline code that belongs to the title.** A line's LAST inline code is its right column (a page reference, or a tag such as `` `once` ``); any other code stays inline in the title. So a hand-written `` Ship only after `npm test` `` puts `npm test` in the right column: end the line with a word, or add a page reference after the code. A filled agenda that prints page numbers handles this itself, since its page number comes after the heading's code; with page numbers off, a heading that ends in code puts that code in the right column too.
+- **Assuming `progress-N` alone changes which marker style (circles/checks) is used.** `progress-N` only marks which stop is current — it composes with a style variant but doesn't imply one; the default numbered `ledger` look still applies unless you also add `circles` or `checks`.
 
 ## When to use
 
 - **Second slide of the deck.** Right after the title, before the first section. Orients the audience and sets the cadence of what's coming.
 - **Three to six sections.** Sweet spot is four. Past six sections the list crowds and the audience stops counting. Roll up or split the deck.
+- **Let the dividers write it.** Write the agenda as a heading with no list and it fills itself: one numbered item per `divider` slide, named by the divider's heading (its closing period dropped), each with the page its section starts on. Placed inside a section, the same empty agenda also gets that section's `progress-N`. Front-matter `agenda:` sets the deck's style and turns the page numbers off (`agenda: circles no-pages`). Any list you write wins, so a hand-written agenda is never touched. With fewer than two dividers there is nothing to fill from, and `lint:deck` warns (`agenda-empty`).
 - **Reuse with progress variants.** Drop the same agenda between sections with `progress-N` to show how far through the deck the room is. Lightweight wayfinding.
-- **Pick a style, optionally with page refs.** The default `ledger` reads as a contents page; add `circles`, `rail`, `cards`, or `checks` to change the structure. On `ledger`, end an item with an inline-code page ref — e.g. `` `p.15` `` — to print a right-aligned page number with a leader; omit it for just number + title.
+- **Pick a style, optionally with page refs.** The default `ledger` reads as a contents page; add `circles` or `checks` to change the marker. On `ledger`, end an item with an inline-code page ref — e.g. `` `p.15` `` — to print a right-aligned page number with a leader; omit it for just number + title.
 
 ## When NOT to use
 
@@ -94,7 +94,7 @@ Stop 1 is current; the rest dim or wait.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 ```
 
@@ -111,7 +111,7 @@ Stop 2 is current; the rest dim or wait.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 ```
 
@@ -128,7 +128,7 @@ Stop 3 is current; the rest dim or wait.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 ```
 
@@ -145,7 +145,7 @@ Stop 4 is current; the rest dim or wait.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 ```
 
@@ -162,7 +162,7 @@ Stop 5 is current; the rest dim or wait.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 ```
 
@@ -179,7 +179,7 @@ Stop 6 is current; the rest dim or wait.
 2. Page references ride as inline code `p.5`
 3. Six stops is the soft ceiling `p.9`
 4. The progress variants mark the current stop `p.14`
-5. Markers come as circles, rail, cards, checks `p.18`
+5. Markers come as ledger, circles or checks `p.18`
 6. Past six stops, split the agenda `p.22`
 ```
 
@@ -192,39 +192,7 @@ Numbers become rings; current fills.
 
 ## circles swaps the numbers for filled dots.
 
-1. The four marker styles share one anatomy
-2. Numbers are the default
-3. This variant swaps the marker
-4. Progress still tracks the current stop
-5. Five stops keep the demo honest
-```
-
-### `rail` — Style · rail
-
-Nodes on a vertical rail; active fills.
-
-```markdown
-<!-- _class: agenda rail progress-3 -->
-
-## rail runs the progress down a side rail.
-
-1. The four marker styles share one anatomy
-2. Numbers are the default
-3. This variant swaps the marker
-4. Progress still tracks the current stop
-5. Five stops keep the demo honest
-```
-
-### `cards` — Style · cards
-
-Boxed stops; the current takes accent.
-
-```markdown
-<!-- _class: agenda cards progress-3 -->
-
-## cards deals each stop its own card.
-
-1. The four marker styles share one anatomy
+1. The three marker styles share one anatomy
 2. Numbers are the default
 3. This variant swaps the marker
 4. Progress still tracks the current stop
@@ -240,7 +208,7 @@ Done gets a tick, current an arrow.
 
 ## checks ticks the stops already behind you.
 
-1. The four marker styles share one anatomy
+1. The three marker styles share one anatomy
 2. Numbers are the default
 3. This variant swaps the marker
 4. Progress still tracks the current stop

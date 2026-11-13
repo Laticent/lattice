@@ -32,27 +32,14 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
+const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome');
 const puppeteer = require('puppeteer');
+const { trackPageWork } = require('../../helpers/page-settle');
 const { renderHtml } = require('../../helpers/semantic-render');
 const {
   CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, probeSectionOverflow,
   probeFigureLegibility, FIGURE_TEXT_FLOOR_RATIO,
 } = require('../../../lib/core/overflow-probe');
-
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
 
 function formDeck(sample) {
   return `---\nmarp: true\ntheme: indaco\n---\n\n${sample.trim()}\n`;
@@ -176,7 +163,7 @@ describe('chart overflow detection is preserved after the .viz-frame stage wrap'
   let browser;
 
   if (!chrome) {
-    test('SKIPPED — no Chromium available', { skip: true }, () => {});
+    test('needs Chromium', { skip: skipWithoutChrome(chrome) }, () => assert.fail('no Chromium on this runner: install it (test/helpers/chrome.js)'));
     return;
   }
   process.env.CHROME_PATH = chrome;
@@ -293,10 +280,10 @@ describe('chart overflow detection is preserved after the .viz-frame stage wrap'
     // unreported illegible slide for a reported broken one. This asserts the channel.
     const html = renderHtml(formDeck(ILLEGIBLE_INLINE), { key: 'chart-legibility-inline', timeout: 240000 });
     const page = await browser.newPage();
+    const settled = await trackPageWork(page);
     await page.setViewport({ width: 1280, height: 720 });
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
-    await page.evaluate(() => document.fonts.ready);
-    await new Promise((r) => setTimeout(r, 1200));
+    await settled({ frames: 3 }); // the runtime's passes, its fonts and a resize's observers are done
     const v = await page.$eval('section', probeFigureLegibility, FIGURE_TEXT_FLOOR_RATIO);
     const stamped = await page.$eval('section', (s) => {
       const box = s.querySelector('[data-fit-k]');

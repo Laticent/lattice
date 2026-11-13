@@ -17,6 +17,14 @@ import { expect, gotoStudio, livePreview, persistedSource, SHARE_EXPORTS, setEdi
 
 const EVIDENCE = process.env.ADMISSION_EVIDENCE || '';
 
+// The registered plugins a deck can leave off: every plugin manifest that is not `embedded`.
+const PLUGINS_DIR = new URL('../../lib/plugins/', import.meta.url).pathname;
+const NON_EMBEDDED_PLUGINS = fs
+	.readdirSync(PLUGINS_DIR)
+	.filter((name) => fs.existsSync(path.join(PLUGINS_DIR, name, `${name}.manifest.json`)))
+	.filter((name) => JSON.parse(fs.readFileSync(path.join(PLUGINS_DIR, name, `${name}.manifest.json`), 'utf8')).embedded !== true)
+	.sort();
+
 const DECK = (title: string) => `---
 color-mode: light
 ---
@@ -193,8 +201,13 @@ test('under defaults: [] the rail splits a `$$` block as the engine does; the Ma
 	const zipPath = await (await download).path();
 	const zip = await JSZip.loadAsync(fs.readFileSync(zipPath as string));
 	const md = await Object.values(zip.files).find((f) => /\.md$/.test(f.name) && !/README|AGENTS/i.test(f.name))!.async('string');
-	// Every registered plugin the deck did not load: `callout` (#2864) and `video` (#2874) joined the list after it was first written.
-	expect(md).toContain('"pluginsOff":["anima","avatars","callout","chart-family","code","function-plot","icons","legend","math","mermaid","sparks","video"]');
+	// Every registered plugin the deck did not load, read from the manifests rather than typed out: a
+	// typed list went stale three times (`callout` #2864, `video` #2874, `image` #3114). An `embedded`
+	// plugin (checks, meta, pills) is always on, so it is never off. `math` and `mermaid` are named
+	// as well, so an empty list on both sides cannot pass.
+	const off = JSON.parse(md.match(/"pluginsOff":(\[[^\]]*\])/)?.[1] ?? 'null');
+	expect(off).toEqual(NON_EMBEDDED_PLUGINS);
+	expect(off).toEqual(expect.arrayContaining(['math', 'mermaid']));
 	// Marp typesets math itself, so the bundle's own config turns it off for this deck.
 	const cfg = await Object.values(zip.files).find((f) => /marp\.config\.cjs$/.test(f.name))!.async('string');
 	expect(cfg).toContain('options: { math: false }');

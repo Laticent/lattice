@@ -4,6 +4,10 @@ theme: indaco
 paginate: true
 header: "Lattice · footer band"
 footer: "CONFIDENTIEL · Société Générale — ÜBERPRÜFUNG Q3 · do not distribute outside the Audit Committee · ÅÉÀÖ"
+# Dots by name, and on at any length: eleven sections would otherwise draw as a bar (progress.transform.js
+# AUTO_BAR_PAST) and this short deck would draw no rail at all (`railWanted`). This fixture exists to
+# measure the WIDEST rail, ten dots, against the berth reserved for it, so it asks for exactly that.
+progress-rail: dots on
 ---
 
 <!-- _class: divider -->
@@ -84,6 +88,33 @@ and a split page carries no band for this suite to measure.
 One body page per section, so every dot in the rail is reachable and the band is measured on a
 page that actually carries the full rail. Prose, not a list, deliberately: a list would split,
 and a split page carries no band for this suite to measure.
+
+---
+
+<!-- _class: content no-pagination -->
+
+## A railed body page with no page number.
+
+The band reserves the page number's column whether or not a number is drawn, so the rail on this
+page stands exactly where it stands on every numbered page (footer-band.test.js).
+
+---
+
+<!-- _class: content compact -->
+
+## A railed compact body page.
+
+`compact` redefines the spacing scale. The band's gaps are set in its own type instead, so the rail
+on this page stands exactly where it stands on every other page (footer-band.test.js).
+
+---
+
+<!-- _footer: "CONFIDENTIEL ![mark](sample:logo-acme-mark.svg) Société Générale — an inline image in the running footer" -->
+
+## A railed body page whose footer carries an image.
+
+A footer image is a glyph, one cap tall on the baseline, so the rail and the page number on this page
+stand exactly where they stand on every other page (footer-band.test.js).
 
 ---
 

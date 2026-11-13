@@ -17,6 +17,8 @@ export interface FontMetrics {
 	descent: number;
 	/** The extra leading the face asks for between lines (0 when it asks for none). */
 	lineGap?: number;
+	/** The browser's line metrics when an `@font-face` override differs from the file's (TextStyle `lineMetrics`). */
+	line?: [number, number];
 }
 
 /**

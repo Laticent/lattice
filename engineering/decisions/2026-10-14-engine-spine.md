@@ -106,7 +106,7 @@ Same build script, same sandbox; gzip level 6. `before` is `main` `82c7247`.
 
 The route budget was ratcheted to the "after" column in the same PR
 (`docs/route-budget.history.md`). The loaders add 457B to 1.2KB gz to the site shell of the four
-other routes; `docs/route-budget.d/engine-spine.md` declares it.
+other routes; `engine-spine` (folded into `docs/route-budget.history.md`) declares it.
 Equivalence: all 276 example and baseline decks render byte-identical HTML, preview splits and
 Marp bakes through the old IIFE, the ESM engine with every kernel, and the ESM engine loading
 kernels on demand. On the real built Studio, first paint lands before the lint core is requested,

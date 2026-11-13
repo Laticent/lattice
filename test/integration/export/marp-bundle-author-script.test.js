@@ -14,7 +14,7 @@
  * bundle's own config, and opened in Chromium: no flag may be set, the runtime must still load, and
  * the quoted code must still show.
  *
- * Local runs skip when marp-cli cannot be fetched; CI fails instead (marp-kit-render.test.js
+ * Local runs skip when the pinned marp-cli is not installed (test/helpers/marp-cli.js); CI fails instead (marp-kit-render.test.js
  * explains why a self-skipping gate is not a gate).
  */
 
@@ -23,10 +23,9 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
-const { npxSync } = require('../../helpers/npx-lock');
+const { marpCli } = require('../../helpers/marp-cli');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'export', 'marp-bundle.js'));
 const EXPORT_CLI = path.join(ROOT, 'tools', 'export-marp.js');
 const OUT = path.join(ROOT, '.scratch', 'marp-bundle-author-script');
 const TIMEOUT = 300000;
@@ -71,12 +70,36 @@ Quoted: \`<script>alert(1)</script>\` stays code.
 an unclosed block on the last slide
 `;
 
+/**
+ * Wait until a payload had its chance, on a signal rather than a sleep (HARD RULE #32). The page has loaded (an inline
+ * script, an `onerror`, a `srcdoc` frame all run before `load`); then a canary added AFTER the deck's own markup starts
+ * an animation and, given `beacon`, requests a `url()`. Its `animationstart` fires on a later frame than any animation
+ * the deck started, so a payload riding `onanimationstart` has had its frame. The beacon is the caller's to await.
+ */
+async function settle(p, beacon = '') {
+  await p.waitForFunction(() => document.readyState === 'complete');
+  await p.evaluate(async (url) => {
+    const style = document.createElement('style');
+    style.textContent = '@keyframes lattice-canary { from { opacity: 1 } to { opacity: 1 } }';
+    document.head.appendChild(style);
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;left:0;top:0;width:4px;height:4px;animation:lattice-canary 1ms${url ? `;background:url(${url})` : ''}`;
+    const started = new Promise((r) => el.addEventListener('animationstart', r, { once: true }));
+    document.body.appendChild(el);
+    await started;
+  }, beacon);
+}
+
+// The pinned, locked marp-cli (test/helpers/marp-cli.js): no registry fetch inside a test.
+const MARP = marpCli();
+
 function marp(args, cwd, timeout = TIMEOUT) {
-  const env = { ...process.env, npm_config_ignore_scripts: 'true', CHROME_NO_SANDBOX: '1' };
+  const env = { ...process.env, CHROME_NO_SANDBOX: '1' };
   if (!env.CHROME_PATH) {
     try { env.CHROME_PATH = require('puppeteer').executablePath(); } catch { /* marp-cli finds its own */ }
   }
-  return npxSync(['-y', `@marp-team/marp-cli@${MARP_CLI_RANGE}`, '--no-stdin', ...args], { cwd, encoding: 'utf8', env, timeout });
+  if (!MARP.ok) return { status: null, stdout: '', stderr: MARP.reason };
+  return MARP.run(['--no-stdin', ...args], { cwd, encoding: 'utf8', env, timeout });
 }
 
 // The markup a deck can leave open on its last slide that swallows the bundle's trailing lines: an
@@ -110,7 +133,7 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
   before(async () => {
     const probe = marp(['--version'], ROOT, 90000);
     if (probe.status !== 0) {
-      const reason = `could not fetch marp-cli (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
+      const reason = `no marp-cli to run (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
       if (process.env.CI) throw new Error(`[marp-bundle-author-script] ${reason}`);
       skip = reason;
       return;
@@ -130,7 +153,7 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
     // Not a hard wait: a surviving `<base>` re-points the runtime's tags and it never loads, which the
     // second test reports by name rather than as a setup timeout.
     await page.waitForFunction(() => document.documentElement.getAttribute('data-lattice-runtime') === 'loaded', { timeout: 30000 }).catch(() => {});
-    await new Promise((res) => setTimeout(res, 1000));
+    await settle(page);
     // The allowlist alone: the UNSTRIPPED deck, plus the trailing block the bundle appended.
     const bundled = fs.readFileSync(path.join(bundle, 'probe.md'), 'utf8');
     const tail = bundled.slice(bundled.indexOf('<!-- Lattice: ends any HTML block'));
@@ -141,7 +164,7 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
     rawPage = await browser.newPage();
     await rawPage.goto(require('node:url').pathToFileURL(path.join(bundle, 'raw.html')).href, { waitUntil: 'networkidle0' });
     await rawPage.waitForFunction(() => document.documentElement.getAttribute('data-lattice-runtime') === 'loaded', { timeout: 30000 }).catch(() => {});
-    await new Promise((res) => setTimeout(res, 1000));
+    await settle(rawPage);
     // The speaker notes, from the real marp-cli.
     const n = marp(['probe.md', '--config-file', 'marp.config.cjs', '--notes', '-o', 'notes.txt'], bundle);
     assert.equal(n.status, 0, `marp --notes failed:\n${n.stdout}\n${n.stderr}`);
@@ -284,22 +307,32 @@ And $E = mc^2$ is math.
 <style>@keyframes lattice-math-probe { from { opacity: 1 } to { opacity: 1 } }</style>
 `;
 
-  async function open(file) {
+  // The listener's canary requests resolve these instead of counting as hits.
+  const canaries = new Map();
+  async function open(file, arm) {
     const p = await browser.newPage();
     await p.goto(require('node:url').pathToFileURL(file).href, { waitUntil: 'networkidle0' });
-    await new Promise((res) => setTimeout(res, 1000));
+    const path_ = `/canary-${arm}`;
+    const heard = new Promise((r) => canaries.set(path_, r));
+    await settle(p, `http://127.0.0.1:${server.address().port}${path_}`);
+    // The canary's request was sent after every url() the deck's own first frames asked for.
+    await heard;
     return p;
   }
 
   before(async () => {
     const probe = marp(['--version'], ROOT, 90000);
     if (probe.status !== 0) {
-      const reason = `could not fetch marp-cli (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
+      const reason = `no marp-cli to run (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
       if (process.env.CI) throw new Error(`[marp-bundle-author-script] ${reason}`);
       skip = reason;
       return;
     }
-    server = require('node:http').createServer((req, res) => { hits.push(req.url); res.end(''); });
+    server = require('node:http').createServer((req, res) => {
+      if (canaries.has(req.url)) canaries.get(req.url)();
+      else hits.push(req.url);
+      res.end('');
+    });
     await new Promise((res) => server.listen(0, '127.0.0.1', res));
     const deck = mathDeck(server.address().port);
     const dir = path.join(OUT, 'math');
@@ -319,7 +352,7 @@ And $E = mc^2$ is math.
       arms[arm] = { html: fs.readFileSync(path.join(bundle, `${arm}.html`), 'utf8') };
     }
     browser = await require('puppeteer').launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-    for (const arm of Object.keys(arms)) arms[arm].page = await open(path.join(bundle, `${arm}.html`));
+    for (const arm of Object.keys(arms)) arms[arm].page = await open(path.join(bundle, `${arm}.html`), arm);
   });
 
   after(async () => {

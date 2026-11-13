@@ -18,16 +18,26 @@ A 59-slide answer to the question "have you considered writing things down"
 
 ---
 
-<!-- _class: agenda progress-2 -->
-<!-- _footer: "Agenda near top, section 2 pre-highlighted · agenda progress-2" -->
+<!-- _class: agenda -->
+<!-- _footer: "Agenda, one item per section · agenda" -->
 
 ## What this deck covers, in order
 
 1. Why This Exists — slide 3
-2. The Framework — slide 7
-3. The Evaluation — slide 23
-4. The Build — slide 33
-5. The Results — slide 48
+2. The Framework — slide 8
+3. The Evaluation and the Build — slide 23
+4. The Results — slide 47
+
+---
+
+<!-- _class: divider light -->
+<!-- _footer: "Section 1 opener, centered · divider light" -->
+
+`Section 01 · Why This Exists`
+
+## Before we score signals, we need to agree on what a signal is
+
+Three workshops in. The definition gets socialized in a fifth before anyone can use it.
 
 ---
 
@@ -82,22 +92,11 @@ Commoditized infrastructure, compressed release cycles, and rising switching cos
 ---
 
 <!-- _class: divider numbered -->
-<!-- _footer: "Section opener · divider numbered" -->
+<!-- _footer: "Section 2 opener · divider numbered" -->
 
-`Section 01 · The Framework`
+`Section 02 · The Framework`
 
 ## We built a four-component scoring system. Two of the four are used regularly
-
----
-
-<!-- _class: divider light -->
-<!-- _footer: "Centered orientation · divider light" -->
-
-`Signal Definition · Workshop 04`
-
-## Before we score signals, we need to agree on what a signal is
-
-Three workshops in. The definition gets socialized in a fifth before anyone can use it.
 
 ---
 
@@ -184,7 +183,7 @@ flowchart LR
 
 ## Scoring Model Deep Dive
 
-`Section 01 · Continued`
+`Section 02 · Continued`
 
 ### What the scoring model actually does
 
@@ -310,18 +309,18 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 <!-- _class: closing -->
 <!-- _footer: "Section close · closing" -->
 
-`Section 01 of 05 complete`
+`Section 02 of 04 complete`
 
 ## The framework is specified — the real question is build or buy
 
-`Section 02 weighs four tools against four criteria — defined by the team that built one. Disclosed in a footnote.`
+`Section 03 weighs four tools against four criteria — defined by the team that built one. Disclosed in a footnote.`
 
 ---
 
 <!-- _class: divider -->
 <!-- _footer: "Section opener · divider" -->
 
-`Section 02 · The Evaluation`
+`Section 03 · The Evaluation`
 
 ## We evaluated four tools. One of them was built by the evaluation team
 
@@ -746,7 +745,7 @@ for signal in calibrator.intake.unscored():
 <!-- _class: closing -->
 <!-- _footer: "Section close · closing" -->
 
-`Section 03 of 05 complete`
+`Section 03 of 04 complete`
 
 ## The framework is built. Twelve percent of eligible PMs use it
 
@@ -772,8 +771,8 @@ The pilot team measured what the pilot team built.
 
 ## Before the results, what you should have learned in the first 47 slides
 
-- Four components. Two used regularly. — see Section 01
-- The evaluation team recommended the tool the evaluation team built. — see Section 02
+- Four components. Two used regularly. — see Section 02
+- The evaluation team recommended the tool the evaluation team built. — see Section 03
 - Phase 01 shipped. Phase 03 in the roadmap since 2024. — see Section 03
 - Adoption is 12%. Target 90%. The gap is "cultural." — see this section
 - The calibration loop has run once. We call it "calibrated." — see this section

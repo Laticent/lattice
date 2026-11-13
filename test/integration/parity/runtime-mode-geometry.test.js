@@ -38,6 +38,7 @@ const fs = require('fs');
 const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'jsdom-close'));
 const { JSDOM } = require('jsdom');
 const { frontMatterBlock } = require('../../../lib/core/deck-front-matter');
+const { bootRuntime, virtualClock } = require('../../helpers/runtime-boot');
 const engine = require('../../../lib/transformers/chart-frame');
 const ganttKernel = require('../../../lib/plugins/chart-family/kinds/gantt/gantt.transform');
 
@@ -83,10 +84,7 @@ const runRuntime = async (fmLines) => {
   let fetchCalls = 0;
   window.fetch = () => { fetchCalls++; return Promise.reject(new TypeError('Failed to fetch')); };
 
-  const scriptEl = document.createElement('script');
-  scriptEl.textContent = RUNTIME_SRC;
-  document.body.appendChild(scriptEl);
-  await new Promise((r) => setTimeout(r, 300));
+  await bootRuntime(dom, { bundle: RUNTIME_SRC }); // returns once the runtime has nothing queued
 
   const section = document.querySelector('section.gantt');
   const result = {
@@ -131,25 +129,28 @@ const runRuntimeFetched = async (fmLines) => {
     });
   };
 
-  const scriptEl = document.createElement('script');
-  scriptEl.textContent = RUNTIME_SRC;
-  document.body.appendChild(scriptEl);
-
-  // SAMPLE THROUGHOUT, don't just read the end state. The backdrop defect this
+  // CHECK THROUGHOUT, don't just read the end state. The backdrop defect this
   // guards (#1673 F1) is a WINDOW, not a final condition: the MutationObserver's
   // 150ms debounce brings another pass round and repairs it, so a single read at
-  // 300ms sees a correct document and the test passes with the fix reverted.
-  // (Confirmed: it did.) Poll instead, and report the worst moment seen.
+  // the end sees a correct document and the test passes with the fix reverted.
+  // (Confirmed: it did.) The virtual clock calls `onStep` at every resting point
+  // between the runtime's callbacks — every state a frame could paint — where a
+  // 10 ms poll on the real clock saw only the states its ticks happened to hit.
   const section = document.querySelector('section.gantt');
   const hasBackdrop = () => section.querySelectorAll(':scope > .backdrop').length;
   const wantsBackdrop = () => section.className.split(/\s+/).includes('finish');
   let backdropGap = false;
-  for (let t = 0; t < 30; t++) {
-    await new Promise((r) => setTimeout(r, 10));
-    // Only meaningful once the chart exists and the finish register has landed —
-    // before that there is nothing to have lost.
+  // Only meaningful once the chart exists and the finish register has landed —
+  // before that there is nothing to have lost.
+  const onStep = () => {
     if (section.querySelector('svg') && wantsBackdrop() && !hasBackdrop()) backdropGap = true;
-  }
+  };
+  const { settle } = virtualClock(window);
+  const scriptEl = document.createElement('script');
+  scriptEl.textContent = RUNTIME_SRC;
+  document.body.appendChild(scriptEl);
+  onStep(); // the synchronous first pass
+  await settle({ onStep });
 
   const result = {
     fetchCalls,
@@ -203,10 +204,7 @@ const countTransformPasses = async (fmLines, baked) => {
       text: () => Promise.resolve(src),
     }));
 
-  const scriptEl = document.createElement('script');
-  scriptEl.textContent = INSTRUMENTED;
-  document.body.appendChild(scriptEl);
-  await new Promise((r) => setTimeout(r, 400));
+  await bootRuntime(dom, { bundle: INSTRUMENTED }); // returns once the runtime has nothing queued
   const passes = window.__passes || 0;
   const ticks = document.querySelectorAll('text.gantt-tick').length;
   closeQuietly(window);

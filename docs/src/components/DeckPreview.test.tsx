@@ -38,6 +38,15 @@ vi.mock('@/playground/single-slide-render', () => ({
 
 const opts = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 
+// Run every timer, animation frame and microtask the next `ms` of FAKE time would fire. The
+// absence checks below ("no second render yet") use it instead of a real sleep: under fake
+// timers the window is exact, so the check passes or fails on the scheduler's code alone
+// (HARD RULE #32). Call `vi.useFakeTimers()` BEFORE the change that would schedule work.
+const advance = (ms: number) =>
+	act(async () => {
+		await vi.advanceTimersByTimeAsync(ms);
+	});
+
 // Reset call history AND the implementation each test — the adaptive-backoff test
 // swaps in a 'write'-regime return value, so a plain mockClear would leak it forward.
 beforeEach(() => {
@@ -65,10 +74,16 @@ describe('DeckPreview — theme threading', () => {
 		const { rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} paletteOverride="ocean" extraTheme={theme} aria-label="p" />);
 		await waitFor(() => expect(renderInto).toHaveBeenCalled());
 		const before = renderInto.mock.calls.length;
-		// A fresh wrapper object with the SAME name + css content must not re-render.
-		rerender(<DeckPreview options={opts} sample="# A" drawn={false} paletteOverride="ocean" extraTheme={{ name: 'ocean', css: '/* @theme ocean */ v1' }} aria-label="p" />);
-		await new Promise((r) => setTimeout(r, 50));
-		expect(renderInto.mock.calls.length).toBe(before);
+		vi.useFakeTimers();
+		try {
+			// A fresh wrapper object with the SAME name + css content must not re-render. Past every
+			// path a render could take: the eager flush, a frame, the 120 ms heavy-coalesce timer.
+			rerender(<DeckPreview options={opts} sample="# A" drawn={false} paletteOverride="ocean" extraTheme={{ name: 'ocean', css: '/* @theme ocean */ v1' }} aria-label="p" />);
+			await advance(500);
+			expect(renderInto.mock.calls.length).toBe(before);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('forwards deckId to the renderer, inside the slide-context opts', async () => {
@@ -130,38 +145,55 @@ describe('DeckPreview — frame-aligned render (per-keystroke coalescing)', () =
 					release = () => res({ ok: true, slides: 1, error: null });
 				}),
 		);
-		const { rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} coalesce aria-label="p" />);
-		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(1));
+		vi.useFakeTimers();
+		try {
+			const { rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} coalesce aria-label="p" />);
+			await advance(0);
+			expect(renderInto).toHaveBeenCalledTimes(1);
 
-		// Edit while the first render is still resolving → must NOT start a 2nd render.
-		rerender(<DeckPreview options={opts} sample="# AB" drawn={false} coalesce aria-label="p" />);
-		await new Promise((r) => setTimeout(r, 40)); // give a frame a chance to fire
-		expect(renderInto).toHaveBeenCalledTimes(1);
+			// Edit while the first render is still resolving → must NOT start a 2nd render, however
+			// many frames pass (the 4000 ms watchdog that unwedges a hung render is out of range).
+			rerender(<DeckPreview options={opts} sample="# AB" drawn={false} coalesce aria-label="p" />);
+			await advance(500);
+			expect(renderInto).toHaveBeenCalledTimes(1);
 
-		// Release the in-flight render → the pending change now paints the latest text.
-		release();
-		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(2));
-		expect(renderInto.mock.calls.at(-1)?.[1]).toBe('# AB');
+			// Release the in-flight render → the pending change now paints the latest text. The 500 ms
+			// hang is past the 50 ms wall-clock backstop, so the scheduler treats it as heavy and
+			// paints on its 120 ms coalesce timer rather than the next frame.
+			release();
+			await advance(200);
+			expect(renderInto).toHaveBeenCalledTimes(2);
+			expect(renderInto.mock.calls.at(-1)?.[1]).toBe('# AB');
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('a HEAVY (full-write) host coalesces on a trailing timer, not every frame — no drag strobe', async () => {
 		// A full-write host (FinishStudio slider / Fabricate theme / LayoutStudio CSS)
 		// changes the render sig every edit → renderInto reports writePath 'write'.
 		renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null, writePath: 'write' }));
-		const { rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} coalesce aria-label="p" />);
-		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(1)); // first paint (a write)
+		vi.useFakeTimers();
+		try {
+			const { rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} coalesce aria-label="p" />);
+			await advance(0);
+			expect(renderInto).toHaveBeenCalledTimes(1); // first paint (a write)
 
-		// A drag-like burst of writes. After the first write the loop knows the host is
-		// heavy, so it coalesces on the ~120ms timer instead of firing next frame.
-		rerender(<DeckPreview options={opts} sample="# AB" drawn={false} coalesce aria-label="p" />);
-		rerender(<DeckPreview options={opts} sample="# ABC" drawn={false} coalesce aria-label="p" />);
-		// A frame has passed (~40ms) — a PATCH host would have rendered by now; the heavy
-		// host is still coalescing, so no second iframe rewrite yet (no strobe).
-		await new Promise((r) => setTimeout(r, 40));
-		expect(renderInto).toHaveBeenCalledTimes(1);
-		// After the coalesce window: exactly one more render, carrying the latest text.
-		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(2));
-		expect(renderInto.mock.calls.at(-1)?.[1]).toBe('# ABC');
+			// A drag-like burst of writes. After the first write the loop knows the host is
+			// heavy, so it coalesces on the 120 ms timer instead of firing next frame.
+			rerender(<DeckPreview options={opts} sample="# AB" drawn={false} coalesce aria-label="p" />);
+			rerender(<DeckPreview options={opts} sample="# ABC" drawn={false} coalesce aria-label="p" />);
+			// Several frames have passed — a PATCH host would have rendered by now; the heavy
+			// host is still coalescing, so no second iframe rewrite yet (no strobe).
+			await advance(100);
+			expect(renderInto).toHaveBeenCalledTimes(1);
+			// After the coalesce window: exactly one more render, carrying the latest text.
+			await advance(40);
+			expect(renderInto).toHaveBeenCalledTimes(2);
+			expect(renderInto.mock.calls.at(-1)?.[1]).toBe('# ABC');
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('without `coalesce` (default) every change renders eagerly — static hosts keep their behavior', async () => {
@@ -221,7 +253,9 @@ describe('DeckPreview — first-render handoff (opacity reveal)', () => {
 		fr.className = 'live';
 		fr.style.opacity = '0';
 		figure.appendChild(fr);
-		await new Promise((r) => setTimeout(r, 20));
+		// The watcher is a MutationObserver, whose callback is a microtask queued by the append
+		// above: any later await runs it first, so one act() turn is the whole window.
+		await act(async () => {});
 		expect(onFirstRender).not.toHaveBeenCalled();
 		expect(container.querySelector('.nacre-loader.is-done')).toBeNull();
 
@@ -233,7 +267,7 @@ describe('DeckPreview — first-render handoff (opacity reveal)', () => {
 		// A later opacity churn must NOT re-fire onFirstRender (once-guarded).
 		fr.style.opacity = '0';
 		fr.style.opacity = '1';
-		await new Promise((r) => setTimeout(r, 20));
+		await act(async () => {}); // the observer's microtask, as above
 		expect(onFirstRender).toHaveBeenCalledTimes(1);
 	});
 
@@ -301,9 +335,11 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		// A mobile pane swap / unmount returns this sentinel — the reconnected host re-renders, so
 		// it must NOT read as a failure (which would flash a spurious Retry during a normal swap).
 		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: 'renderer disposed' }));
-		const { container } = render(<DeckPreview options={opts} sample="# A" drawn={false} aria-label="p" />);
-		await waitFor(() => expect(renderInto).toHaveBeenCalled());
-		await new Promise((r) => setTimeout(r, 30));
+		// `onRender` fires after the component has read the status and set (or not set) the failure
+		// flag, so waiting on it is waiting on the decision itself.
+		const onRender = vi.fn();
+		const { container } = render(<DeckPreview options={opts} sample="# A" drawn={false} onRender={onRender} aria-label="p" />);
+		await waitFor(() => expect(onRender).toHaveBeenCalled());
 		expect(container.querySelector('.nacre-failed')).toBeNull();
 	});
 
@@ -387,20 +423,26 @@ describe('DeckPreview — followWhenParked', () => {
 		expect(renderInto.mock.calls[0]?.[7]?.slideIndex).toBe(1);
 
 		// An edit on the same slide stays deferred: the parked host is not redrawn per keystroke.
-		rerender(deck(1, '# A edited'));
-		await act(async () => {
-			await new Promise((r) => setTimeout(r, 60));
-		});
-		expect(renderInto).toHaveBeenCalledTimes(1);
+		vi.useFakeTimers();
+		try {
+			rerender(deck(1, '# A edited'));
+			await advance(500);
+			expect(renderInto).toHaveBeenCalledTimes(1);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 	it('a parked host that does not follow never draws on a slide change', async () => {
 		const plain = (n: number) => <DeckPreview options={opts} sample="# A" slideIndex={n} slideCount={3} slideMarkdown="# A" deckId="d" drawn={false} active={false} aria-label="p" />;
-		const { rerender } = render(plain(0));
-		rerender(plain(1));
-		await act(async () => {
-			await new Promise((r) => setTimeout(r, 60));
-		});
-		expect(renderInto).not.toHaveBeenCalled();
+		vi.useFakeTimers();
+		try {
+			const { rerender } = render(plain(0));
+			rerender(plain(1));
+			await advance(500);
+			expect(renderInto).not.toHaveBeenCalled();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
 

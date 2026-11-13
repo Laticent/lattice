@@ -124,10 +124,11 @@ function generate(tool) {
   assert.equal(r.status, 0, `${tool} failed:\n${r.stderr}`);
 }
 
-/** Re-read the scratch projection catalog, bypassing the ESM module cache. */
+/** Re-read the scratch projection catalog, bypassing the ESM module cache: each read gets its own query. */
+let catalogReads = 0;
 async function readProjectionCatalog() {
   const file = path.join(SCRATCH, 'lib', 'core', 'projection-catalog.generated.mjs');
-  return import(`${require('node:url').pathToFileURL(file).href}?v=${Date.now()}${Math.random()}`);
+  return import(`${require('node:url').pathToFileURL(file).href}?v=${++catalogReads}`);
 }
 
 test('a chart added by folder-drop alone', async (t) => {

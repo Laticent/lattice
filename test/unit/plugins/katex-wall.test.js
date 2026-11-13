@@ -114,27 +114,62 @@ test('WALL: nothing of the host is reachable from inside', () => {
   assert.throws(() => wall._insideWall('import("fs")'), /./);
 });
 
+// The wall's time limit reads `Date.now()` in QuickJS's interrupt handler. The test owns that clock (HARD RULE #32): it
+// advances one millisecond per read, so the limit is reached after TIME_LIMIT_MS reads on any machine, and the test
+// asserts WHERE the wall stopped (the fake clock at the throw), not how long the run took.
+const FAKE_CLOCK = `function onFakeClock(fn) {
+  const now = Date.now;
+  let t = now();
+  const start = t;
+  Date.now = () => ++t;
+  try { fn(); return { message: null, at: t - start }; }
+  catch (e) { return { message: String(e && e.message), at: t - start }; }
+  finally { Date.now = now; }
+}`;
+const onFakeClock = new Function(`${FAKE_CLOCK}; return onFakeClock;`)();
+
+// A wall whose limit never fires spins forever INSIDE a synchronous call, where no timer of this process can run (the
+// test's own `timeout` included). So the cases that only the time limit can stop run in a child process, and the
+// child's kill deadline is the hang guard: it turns a hang into a failure, and passing never depends on it.
+function stoppedInChild(cases) {
+  const script = `const wall = require(${JSON.stringify(path.join(ROOT, 'lib/plugins/host-katex-wall.js'))});
+${FAKE_CLOCK}
+const out = [];
+for (const code of ${JSON.stringify(cases)}) {
+  const r = onFakeClock(() => wall._insideWall(code));
+  r.after = /class="katex"/.test(wall.renderToString('x^2', { throwOnError: false }));
+  out.push(r);
+}
+process.stdout.write(JSON.stringify(out));`;
+  const r = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', timeout: 120_000 });
+  assert.equal(r.signal, null, `the wall did not stop: the child was killed at its hang guard (${r.signal})`);
+  assert.equal(r.status, 0, r.stderr);
+  return JSON.parse(r.stdout);
+}
+
 test('LIMITS: a runaway loop, unbounded memory and runaway recursion stop inside, and the next formula still typesets', () => {
   const after = () => assert.match(wall.renderToString('x^2', { throwOnError: false }), /class="katex"/);
-  let t = Date.now();
-  assert.throws(() => wall._insideWall('for (;;) {}'), /interrupted/);
-  assert.ok(Date.now() - t < wall.TIME_LIMIT_MS + 3000, `the loop ran ${Date.now() - t} ms`);
-  after();
+  // Reading a result runs no code inside: a hostile getter or toJSON is still held to the time limit.
+  const loop = 'for (;;) {}';
+  const hostile = ['throw { get message() { for (;;) {} } }', 'var e = new Error("x"); Object.defineProperty(e, "message", { get() { for (;;) {} } }); throw e;', '({ toJSON() { for (;;) {} } })'];
+  const [ran, ...held] = stoppedInChild([loop, ...hostile]);
+  assert.match(String(ran.message), /interrupted/, loop);
+  // Stopped by the deadline (not before it), within a few hundred handler calls of it.
+  assert.ok(ran.at > wall.TIME_LIMIT_MS && ran.at < wall.TIME_LIMIT_MS + 1000, `the loop stopped at ${ran.at} fake ms`);
+  assert.ok(ran.after, 'the next formula typesets after the loop');
+  hostile.forEach((code, i) => {
+    assert.ok(held[i].message, `${code}: the wall returned instead of failing`);
+    assert.ok(held[i].after, `${code}: the next formula typesets`);
+  });
+  // Memory: the WebAssembly memory's maximum stops it, long before the time limit could (the fake clock says so).
   for (const grow of ['var a = []; for (;;) a.push(new ArrayBuffer(1024 * 1024));', 'var a = []; for (var i = 0; ; i++) a.push("x".repeat(1 << 20) + i);', '"x".repeat(2 ** 29).length']) {
-    t = Date.now();
-    assert.throws(() => wall._insideWall(grow), /out of memory/, grow);
-    assert.ok(Date.now() - t < 5000, `${grow} took ${Date.now() - t} ms to stop`);
+    const { message, at } = onFakeClock(() => wall._insideWall(grow));
+    assert.match(String(message), /out of memory/, grow);
+    assert.ok(at < wall.TIME_LIMIT_MS, `${grow}: the memory limit stopped it at ${at} fake ms, under the time limit`);
     after();
   }
   assert.throws(() => wall._insideWall('function f() { return f() + 1; } f();'), /stack overflow/);
   after();
-  // Reading a result runs no code inside: a hostile getter or toJSON is still held to the time limit.
-  for (const hostile of ['throw { get message() { for (;;) {} } }', 'var e = new Error("x"); Object.defineProperty(e, "message", { get() { for (;;) {} } }); throw e;', '({ toJSON() { for (;;) {} } })']) {
-    t = Date.now();
-    assert.throws(() => wall._insideWall(hostile), /./, hostile);
-    assert.ok(Date.now() - t < wall.TIME_LIMIT_MS + 3000, `${hostile} held the host ${Date.now() - t} ms`);
-    after();
-  }
 });
 
 test('CHECK: refuses what KaTeX never emits; a refused result FAILS CLOSED', () => {

@@ -1,0 +1,1 @@
+- The footer band gives its text back the room #3095 took on slides without a section rail. Empty rail and split-counter columns no longer reserve a gap, and the page-number column holds a fixed width only when a rail stands against it. Ten example decks whose footers ended in "…" now print them in full, and the rail still holds still.

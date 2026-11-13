@@ -1373,6 +1373,20 @@ section.marks-vivid, figure.marks-vivid, .marks-vivid {
    * same distance from the slide edge under every `spectrum-edge:` (check:edge-shift). Top also
    * adds back the room the default bar always took, so no default deck moves. */
   --_pag-gap:           calc(3.25 * var(--_sec-1cqi, 1cqi)); /* the page number's own width + a hair: what the progress rail clears (stage.css) */
+  /* THE PAGE-NUMBER COLUMN of the footer band: six characters of the chrome face (`104.12`, a split
+   * run's page in a long deck; about 0.66em each with the footer's tracking). On a slide with a visible
+   * rail it is reserved whether or not a number is drawn, so the rail beside it never moves; without a
+   * rail it is a minimum that grows for a longer number (stage.css `.cell-footer`, progress-center.css,
+   * and a divider's marker, which ends where the rail does). Five characters (3.5em) let `104.12` run
+   * 7px past the band's edge (the checker's probe, 2026-11-08).
+   * engineering/decisions/2026-11-08-anchor-chrome.md § The page-number column. */
+  --footer-pag-col:     calc(var(--chrome-fs) * 4);
+  /* THE FOOTER BAND'S GAP: each mark's lead in the band (split counter, rail, page number, as padding, so an
+   * absent mark costs nothing) and from a divider's marker to the page number's column.
+   * Set in the band's own type, not `--sp-md`: `compact` redefines the spacing scale, so a `compact`
+   * slide's rail sat 6px (hd) to 24px (portrait) off every other slide's and off the divider marker's
+   * line. The chrome face is the same size on every slide of a deck. */
+  --footer-gap:         calc(var(--chrome-fs) * 1.6);
   /* What to add to an absolute offset measured from the padding box so it lands the same distance from
    * the SLIDE edge under every `spectrum-edge:` (check:edge-shift). Top clears the room the default bar
    * always took; the other three reach the slide edge, so a stamp or a mark may sit over a side bar. */

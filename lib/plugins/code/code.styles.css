@@ -146,10 +146,9 @@ section :where(pre).lat-code .ln[data-diff="del"] .lat-diff-mark { color: var(--
 /* focus= (and a slide's `_focus: line` on a code block) : a receded line drops its syntax colors to
  * one quiet color, `--code-text` mixed toward the panel, instead of the spotlight's opacity. Opacity
  * multiplies down roles that are already quiet: at the spotlight's 0.24 a receded comment measured
- * 1.23:1 on its panel, and plain code 1.53:1, which reads as blank. The mix is held at 3:1 or better
- * on every panel by checkCodeRecede (tools/check-ownership.js), well under the 4.5:1 the focused
- * lines keep, and the lost color is itself the cue that a line is context. The selector outranks
- * base.focus.css's opacity rule, and the span rule outranks each `section .hljs-*` role. */
+ * 1.23:1 on its panel, and plain code 1.53:1, which reads as blank. The mix is held at the AA text floor,
+ * 4.5:1, on every panel by checkCodeRecede (tools/check-ownership.js): a dimmed line is still text. The
+ * selector outranks base.focus.css's opacity rule, and the span rule outranks each `section .hljs-*` role. */
 section[data-focus-style="spotlight"] pre .ln.lat-recede,
 pre[data-focus-style="spotlight"] .ln.lat-recede {
   opacity: 1;
@@ -159,7 +158,48 @@ section[data-focus-style="spotlight"] pre .ln.lat-recede span,
 section[data-focus-style="spotlight"] pre .ln.lat-recede::before,
 pre[data-focus-style="spotlight"] .ln.lat-recede span,
 pre[data-focus-style="spotlight"] .ln.lat-recede::before { color: inherit; }
-section { --code-recede: 55%; }
+section { --code-recede: 70%; }
+/* The focused lines carry a cue of their own: ONE outline around each run of adjacent focused lines, in the same mix,
+ * so it clears 4.5:1 on the panel too (checkCodeRecede). An outline and not a fill: the lines' syntax colors sit just
+ * above 4.5:1 on the bare panel, and any band behind them pulled some under AA (measured 2026-11-10: a 4% band left 90
+ * color pairs short), so every glyph stays on the panel it was checked against.
+ *
+ * One box per RUN, not per line: `focus=4-6` boxed each line on its own, and the stacked boxes overlapped with a
+ * doubled seam (the card grader, on examples/code-plugin.md). Each focused line draws the run's sides on an `::after`
+ * that takes no layout room; the first line of a run draws the top edge and the last the bottom. A sibling combinator
+ * skips the newline text between lines, so `+ .ln` is the next line. The box sits 3px outside the text, which keeps
+ * it off the first glyph and inside the panel's padding. */
+section[data-focus-style="spotlight"] pre .ln.lat-focus,
+pre[data-focus-style="spotlight"] .ln.lat-focus {
+  display: inline-block;
+  min-width: 100%;
+  position: relative;
+}
+section[data-focus-style="spotlight"] pre .ln.lat-focus::after,
+pre[data-focus-style="spotlight"] .ln.lat-focus::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 1.5px solid color-mix(in srgb, var(--code-text) var(--code-recede), var(--code-bg));
+  border-radius: 4px;
+  pointer-events: none;
+}
+/* a line with a focused line above it: no top edge, and its sides meet the line above */
+section[data-focus-style="spotlight"] pre .ln.lat-focus + .ln.lat-focus::after,
+pre[data-focus-style="spotlight"] .ln.lat-focus + .ln.lat-focus::after {
+  top: -1px;
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+/* a line with a focused line below it: no bottom edge */
+section[data-focus-style="spotlight"] pre .ln.lat-focus:has(+ .ln.lat-focus)::after,
+pre[data-focus-style="spotlight"] .ln.lat-focus:has(+ .ln.lat-focus)::after {
+  bottom: 0;
+  border-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
 
 /* indent= : a tab draws as wide as the block's indent, `tab` as four columns, rather than CSS's
  * initial eight, which on a slide spends a third of a portrait panel on one level of nesting. A block

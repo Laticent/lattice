@@ -1,0 +1,135 @@
+name: Model guard nightly (provider model lists)
+
+# NIGHTLY check of every model id the Studio names (docs/src/lib/models.config.json) against each
+# provider's LIVE list, so a retired model is caught overnight and not by an author mid-deck.
+# Providers retire ids with little notice (Gemini TTS especially); the fix is a one-line PR to the
+# config. tools/check-model-ids.mjs does the work; its header is the long form.
+# Decision: engineering/decisions/2026-11-09-model-guard-rails.md.
+#
+# FREE: listing models spends nothing. OpenRouter's lists are public; Gemini, Anthropic and OpenAI
+# each need a repo secret (GEMINI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY), and a list whose
+# secret is unset SKIPS itself and says so in the summary. A billing or quota answer PASSES that
+# list's connection (the keys may run without funds). Never our own OpenRouter key (HARD RULE #24).
+#
+# Same shape as modulepreload-coverage-nightly.yml: report-only, opens or appends ONE rolling issue,
+# and closes it on a measured green night (the check is absolute: this config against today's lists).
+
+on:
+  schedule:
+    - cron: '19 6 * * *' # daily 06:19 UTC, after perf (05:37)
+  workflow_dispatch:
+    inputs:
+      retire:
+        description: 'Dry run: an id to add as a deliberately missing OpenRouter default (e.g. openrouter-guard/not-a-model). Proves the check fails and shows the issue it would file.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  issues: write # open / append / close the rolling model-guard issue
+
+concurrency:
+  group: model-guard-nightly
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No install: the checker imports only the config, its loader and the error classifier.
+      - name: Check every configured model id against the live lists
+        id: check
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          RETIRE: ${{ inputs.retire }}
+        run: |
+          set -uo pipefail
+          LOG="$GITHUB_WORKSPACE/model-guard.log"
+          ARGS=(--md "$GITHUB_WORKSPACE/model-guard.md")
+          [ -n "${RETIRE:-}" ] && ARGS+=(--retire "$RETIRE")
+          if node tools/check-model-ids.mjs "${ARGS[@]}" 2>&1 | tee "$LOG"; then
+            echo "gone=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "gone=true" >> "$GITHUB_OUTPUT"
+          fi
+          # HOW MANY IDS WERE ACTUALLY CHECKED. `gone=false` is also what a run that reached no list
+          # produces, and this job may CLOSE its issue, so a zero count must never stand it down.
+          CHECKED=$(grep -oE '^checked=[0-9]+' "$LOG" | tail -n 1 | cut -d= -f2 || true)
+          echo "checked=${CHECKED:-0}" >> "$GITHUB_OUTPUT"
+          # LISTS THAT ANSWERED "OUT OF FUNDS" were not measured tonight. A gone id on one of them
+          # would read as recovered, so the stand-down refuses a night with any. An unset secret is
+          # the same every night and cannot hide a recovery. Missing → 1 (refuse), never 0.
+          BILLING=$(grep -oE 'billing=[0-9]+' "$LOG" | tail -n 1 | cut -d= -f2 || true)
+          echo "billing=${BILLING:-1}" >> "$GITHUB_OUTPUT"
+
+      - name: Job summary
+        if: always()
+        run: cat "$GITHUB_WORKSPACE/model-guard.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      # A dispatch with a dry-run id files nothing; the Job summary above already holds the issue
+      # body it would file. This step only states the verdict the dry run exists to prove.
+      - name: Dry-run verdict
+        if: always() && inputs.retire != ''
+        run: |
+          echo "### Dry run: nothing filed. The body above is what a real night would file." >> "$GITHUB_STEP_SUMMARY"
+          echo "Gone: ${{ steps.check.outputs.gone }} (expected true)." >> "$GITHUB_STEP_SUMMARY"
+
+      # `always() &&`: an `if:` with no status function is skipped when an earlier step failed, after
+      # `check` has already recorded `gone` (test/unit/tools/nightly-alarm-contract.test.js).
+      - name: Open / append model-guard issue
+        if: always() && steps.check.outputs.gone == 'true' && inputs.retire == '' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          MARKER='[model-guard]'
+          BODY="$GITHUB_WORKSPACE/model-guard.md"
+          {
+            echo ""
+            echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} · commit \`${{ github.sha }}\`._"
+          } >> "$BODY"
+          # Find the rolling issue by its title MARKER, client-side (`--search "in:title …"` tokenizes
+          # the brackets away and matches human issues; modulepreload-coverage-nightly.yml has the long form).
+          # THE STAND-DOWN STEP BELOW MUST USE THE IDENTICAL LOOKUP.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
+            gh issue comment "$ISSUE" --body-file "$BODY"
+            echo "Appended to issue #$ISSUE"
+          else
+            gh issue create \
+              --title "$MARKER a model id the Studio names is gone, or a provider's list could not be read" \
+              --label "area:website" --label "type:infra" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi
+
+      # STAND THE ALARM DOWN when every checked id is live again. `outcome == 'success' && output ==
+      # 'false'`, never `!= 'true'` (empty in every state where nothing was measured), and never on a
+      # run that checked zero ids. Absolute, so a measured green closes the thread outright.
+      - name: Stand down the model-guard issue when every id is live
+        if: always() && steps.check.outcome == 'success' && steps.check.outputs.gone == 'false' && steps.check.outputs.checked != '0' && steps.check.outputs.billing == '0' && github.ref == 'refs/heads/main' && inputs.retire == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          MARKER='[model-guard]'
+          # The IDENTICAL lookup the filing step above uses.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
+          {
+            echo "Recovered: every model id in \`docs/src/lib/models.config.json\` that a reachable list could check is live on \`main@${{ github.sha }}\`. Closing; a newly retired id opens a fresh thread."
+            echo ""
+            echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$GITHUB_WORKSPACE/stand-down.md"
+          gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
+          gh issue close "$ISSUE" --reason completed || true

@@ -21,6 +21,7 @@ const { slideClassSpans } = require('../../../lib/core/slide-class-spans');
 const { splitTopLevel } = require('../../../lib/authoring/slide-split');
 const { resolveSplitMode } = require('../../../lib/core/resolve-split');
 const scan = require('../../../lib/core/class-directive-scan.mjs');
+const { scanWork } = require('../../helpers/work-count');
 
 const { slideClassDirectives, classDirectiveAt } = scan;
 
@@ -227,7 +228,8 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
         }
       }
     }
-    assert.equal(skipped, 2, 'the boundary-divergence set should stay at the two `split: headings` decks');
+    // 3 since 2026-11-09: test/integration/invariants/mark-agreement/fixtures/split-headings.md joined the corpus.
+    assert.equal(skipped, 3, 'the boundary-divergence set should stay at the three `split: headings` decks');
     assert.equal(paneSplit, 1, 'and the pane-split set at examples/image-pane-story.md');
     assert.ok(compared > 200, `expected 200+ comparable decks, compared ${compared}`);
     // Print the live figures so the PR/ADR/CHANGELOG numbers can be re-read off a
@@ -495,18 +497,17 @@ function closeSearchCost(fn) {
 }
 
 describe('cost — this runs on every keystroke', () => {
-  test('a full-deck scan is well under a frame', () => {
-    // The measurement behind lib/core/class-directive-scan.mjs's "why a line scan
-    // and not the token stream". Deliberately generous (a 60fps frame is 16.7ms):
-    // what matters is the ORDER of the cost, not a wall-clock number this sandbox
-    // could hold stable under load.
+  test('a full-deck scan is linear work on the deck', () => {
+    // The measurement behind lib/core/class-directive-scan.mjs's "why a line scan and not the token stream". What
+    // matters is the ORDER of the cost, so the test counts it (HARD RULE #32): the characters every string search and
+    // regex covers, about 6 times the deck. Reading the deck off the engine's full token stream covers about 400
+    // times it; speed per keystroke belongs to `npm run bench` (HARD RULE #19).
     const src = fs.readFileSync(path.join(ROOT, 'examples/gallery-jargon.md'), 'utf8');
     const lines = src.split('\n').length;
     assert.ok(lines > 500, `expected a substantial deck, got ${lines} lines`);
-    const t0 = performance.now();
-    for (let i = 0; i < 20; i++) slideClassDirectives(src);
-    const per = (performance.now() - t0) / 20;
-    assert.ok(per < 16, `${per.toFixed(2)}ms per scan over ${lines} lines — too slow for a keystroke`);
+    const { result, scanned } = scanWork(() => slideClassDirectives(src));
+    assert.ok(result.length > 0);
+    assert.ok(scanned <= 15 * src.length, `the scan covered ${scanned} characters of a ${src.length}-character deck`);
   });
 
   test('an UNTERMINATED `<!--` stays linear — the adversarial half of the same cost', () => {

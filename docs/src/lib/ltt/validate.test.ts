@@ -1,9 +1,18 @@
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
 import schema from './ltt.schema.json';
 import { validateTrack } from './track';
 import type { Ltt, LttSlideSegment, LttStretchSegment } from './types';
 import { normalizeMatch, validateLtt } from './validate';
+
+// A hang guard without a clock (HARD RULE #32, F1/F4): test/helpers/regex-trace.js records every regex a call runs and
+// fails on one recheck does not call linear. This one lives in docs/src, outside tools/regex-census.json's lib/**, so
+// it is named with recheck's own verdict (`npm run regex:census -- --check`); any other pattern fails the trace.
+const { assertLinearRegexes } = createRequire(import.meta.url)('../../../../test/helpers/regex-trace.js') as {
+	assertLinearRegexes: <T>(fn: () => T, opts?: { allow?: Record<string, string> }) => { result: T; keys: Set<string> };
+};
+const LETTER_OR_DIGIT = { '/[\\p{L}\\p{N}]/u': 'recheck 4.6.2 (automaton): safe; docs/src, outside the lib/** census' };
 
 // These tests break files on purpose — delete a required key, add a forbidden one, set a field to
 // the wrong type — which no honest type allows. One alias names that, instead of `any` scattered.
@@ -175,10 +184,11 @@ describe('validateLtt survives hostile input (red team, PR #2347)', () => {
 		}
 	});
 
-	it('normalizeMatch is linear: a 40k-character punctuation run takes milliseconds, not a second', () => {
-		const t = performance.now();
-		expect(normalizeMatch(`a${'!'.repeat(40000)}a`)).toBe(`a${'!'.repeat(40000)}a`);
-		expect(performance.now() - t).toBeLessThan(250);
+	it('normalizeMatch is linear: a 40k-character punctuation run runs no backtracking regex', () => {
+		// The old `/[^\p{L}\p{N}]+$/u` restarted at every position of the run (20 s on a 121 KB file). The scan from
+		// each end tests one character at a time, and the trace holds it to that one pattern.
+		const { keys } = assertLinearRegexes(() => expect(normalizeMatch(`a${'!'.repeat(40000)}a`)).toBe(`a${'!'.repeat(40000)}a`), { allow: LETTER_OR_DIGIT });
+		expect([...keys]).toEqual(Object.keys(LETTER_OR_DIGIT));
 	});
 
 	it('quotes a hostile word short, so a report cannot run to megabytes', () => {

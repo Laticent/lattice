@@ -41,7 +41,7 @@ export async function load(id: string): Promise<User> {
 | `title=` | A file name or caption bar at the top of the panel. A long path wraps inside the bar rather than running off the panel | `title=src/load.ts`, `title="a, b.ts"` |
 | `numbers` | Line numbers. They are drawn, never part of the text, so copying the code copies only the code | `numbers` |
 | `start=` | The first line number | `numbers, start=120` |
-| `focus=` | Lines at full strength; the rest recede. Same grammar as `_focus: line` | `focus=3-5 9` |
+| `focus=` | Lines at full strength inside an outline; the rest recede to one quiet color that still reads at 4.5:1 (AA). Same grammar as `_focus: line` | `focus=3-5 9` |
 | `mark=` | Lines tinted, nothing dimmed | `mark=4` |
 | `diff` | A leading `+`, `-` or space marks each line added, removed or unchanged; the rest is highlighted in the fence's language | ```` ```ts ```` with `diff` |
 | `wrap` | Long lines wrap inside the panel, and the continuation hangs two columns in (with numbers, under the line's own text) | `wrap` |

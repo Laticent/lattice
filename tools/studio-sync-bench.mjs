@@ -54,7 +54,9 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH 
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
 await page.addInitScript(() => {
-  try { localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft' })); } catch {}
+  // Source first, whatever the default: the deck goes in through the Markdown editor, and a compose run switches after
+  // (the Studio opens in Compose since 2026-11-10; a build before that ignores the key and opens in Source anyway).
+  try { localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft', editMode: 'source' })); } catch {}
   const now = () => performance.now();
   window.__k = []; window.__f = []; window.__ev = []; window.__lt = [];
   document.addEventListener('keydown', (e) => window.__k.push({ t: now(), key: e.key }), true);
