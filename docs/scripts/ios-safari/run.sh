@@ -119,7 +119,7 @@ start_driver() {
 # Run a command for at most $1 seconds: macOS ships no `timeout`, and perl's alarm survives the exec.
 bounded() { local secs=$1; shift; perl -e 'alarm shift @ARGV; exec @ARGV or die "exec: $!"' "$secs" "$@"; }
 # The most a Safari launch may take before the device counts as stuck (seconds); see the launch below.
-LAUNCH_LIMIT=${LAUNCH_LIMIT:-1}
+LAUNCH_LIMIT=${LAUNCH_LIMIT:-480}
 trap 'kill "$driver" "$server" 2>/dev/null || true; xcrun simctl shutdown all || true' EXIT
 start_driver
 
