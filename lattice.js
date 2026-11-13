@@ -1450,12 +1450,22 @@ if (OUT_FORMAT === 'lattice') {
   const { photosToCarry, writeSync } = require('./lib/export/lattice-input.js');
   const limits = require('./lib/packages/limits.js');
   const named = new Set(classTokens(mdRaw));
-  const packages = [];
-  if (installedTheme) packages.push({ type: 'theme', name: paletteName, dir: installedTheme.dir });
+  // A copy loses nothing: from a `.lattice`, EVERY package the input held goes back out as its exact files (finishes,
+  // plugins, scenes, a component the deck does not name), whether or not this deck uses it. Then, as for a `.md`,
+  // the installed theme and components the deck uses that the file did not already carry.
+  const packages = (LATTICE_INPUT?.packages ?? []).map((p) => ({ type: p.type, name: p.name, dir: path.join(LATTICE_INPUT.store, p.type, p.name) }));
+  const carried = new Set(packages.map((p) => `${p.type}/${p.name}`));
+  const add = (type, name, dir) => {
+    if (carried.has(`${type}/${name}`)) return;
+    carried.add(`${type}/${name}`);
+    packages.push({ type, name, dir });
+  };
+  if (installedTheme) add('theme', paletteName, installedTheme.dir);
   for (const p of packagesHome.listInstalledIn(PACKAGES_ROOTS).filter((x) => x.type === 'component' && x.ok && named.has(x.name))) {
+    if (carried.has(`component/${p.name}`)) continue;
     const why = refusePackage(p.pkg, { forRender: true });
     if (why) console.error(`warning: the component ${p.name} is refused and not carried: ${why}`);
-    else packages.push({ type: 'component', name: p.name, dir: p.dir });
+    else add('component', p.name, p.dir);
   }
   const carry = photosToCarry({ fromLattice: LATTICE_INPUT, assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'), names: new Set(assetRefs(mdRaw).map((r) => r.name)), maxBytes: limits.MAX_LATTICE_MEDIA_BYTES });
   const plural = (k) => `${k} photo${k === 1 ? '' : 's'}`;

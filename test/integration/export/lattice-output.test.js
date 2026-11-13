@@ -81,6 +81,21 @@ for (const [label, bin] of CLIS) {
       assert.deepEqual(fs.readdirSync(home), [], 'nothing is written to the user home');
     });
 
+    test('a .lattice copy loses no package: one the deck does not use, and a finish, come back byte for byte', { timeout: TIMEOUT }, async () => {
+      const dir = tmp('keep');
+      const spare = { 'probe-spare.manifest.json': JSON.stringify({ name: 'probe-spare', type: 'component', format: 1 }), 'probe-spare.styles.css': 'section.probe-spare { outline: 1px solid var(--accent); } /* é → ✓ */\n', 'probe-spare.gallery.md': '<!-- _class: probe-spare -->\n\n## Spare\n' };
+      const finish = { 'probe-finish.manifest.json': JSON.stringify({ name: 'probe-finish', type: 'finish', format: 1 }), 'probe-finish.recipe.json': JSON.stringify({ layers: [{ kind: 'grain', amount: 0.3 }] }, null, 2) };
+      const input = await studioLattice(dir, { packages: [{ type: 'component', name: 'probe-spare', files: spare }, { type: 'finish', name: 'probe-finish', files: finish }] });
+      const out = path.join(dir, 'out.lattice');
+      const r = cli([input, out], tmp('home'), NO_BROWSER);
+      assert.equal(r.status, 0, r.stderr);
+      const [a, b] = await Promise.all([JSZip.loadAsync(fs.readFileSync(input)), JSZip.loadAsync(fs.readFileSync(out))]);
+      const pkgs = (z) => Object.keys(z.files).filter((p) => p.startsWith('packages/') && !z.files[p].dir).sort();
+      assert.deepEqual(pkgs(b), pkgs(a), 'the same package files');
+      assert.equal(pkgs(a).length, 5);
+      for (const p of pkgs(a)) assert.deepEqual(Buffer.from(await b.file(p).async('uint8array')), Buffer.from(await a.file(p).async('uint8array')), `${p} is byte-identical`);
+    });
+
     test('a .lattice output starts no browser and runs no package code: an unapproved code package is carried', { timeout: TIMEOUT }, async () => {
       const dir = tmp('nocode');
       const code = { 'ticker.manifest.json': JSON.stringify({ name: 'ticker', type: 'component', format: 1, facts: 1 }), 'ticker.styles.css': 'section.ticker h2 { color: red; }\n', 'ticker.gallery.md': '<!-- _class: ticker -->\n\n## T\n', 'ticker.transform.js': 'function t(s) { return s.html; }\nexport { t as default };\n' };

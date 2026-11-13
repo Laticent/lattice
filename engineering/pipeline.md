@@ -58,7 +58,7 @@ refused at once. It used to be parsed as Markdown and fail after a 60 s navigati
 resolved, before any HTML, engine pass, code door or browser: a `.lattice` is the deck, not a
 render, so an unapproved code package rides in it as its files and is never run. The writer is the
 Studio's (`buildLatticeZip`), run in the same child (`writeSync`). From a `.lattice` input the deck,
-its title and its review comments go back out as they came. Which photos it carries is one
+its title, its review comments and every package it carried (used or not: a finish, a plugin, a component the deck does not name) go back out as they came. From a `.md`, the installed theme and components the deck uses go. Which photos it carries is one
 function, `photosToCarry` in `lib/export/lattice-input.js`. Photos from a `.lattice` input pass
 through as their bytes, because the Studio scrubbed them at intake. Photos from `assets/` are
 withheld and counted until a shared metadata scrubber exists (owner, 2026-11-13). `--reopenable`
