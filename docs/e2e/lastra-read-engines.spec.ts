@@ -57,6 +57,10 @@ async function cases(l: Lastra): Promise<Array<{ name: string; mime: string; byt
 		{ name: 'jpeg FF D8 then 00', mime: 'image/jpeg', bytes: new Uint8Array([0xff, 0xd8, 0x00, ...jpg.subarray(2)]) },
 		{ name: 'png', mime: 'image/png', bytes: png },
 		{ name: 'png eXIf 6', mime: 'image/png', bytes: afterIhdr(chunk('eXIf', tiff(6))) },
+		{ name: 'png eXIf 1 then 6', mime: 'image/png', bytes: afterIhdr([...chunk('eXIf', tiff(1)), ...chunk('eXIf', tiff(6))]) },
+		{ name: 'png eXIf 6 then 1', mime: 'image/png', bytes: afterIhdr([...chunk('eXIf', tiff(6)), ...chunk('eXIf', tiff(1))]) },
+		// After the pixels: the encoder's file ends in a 12-byte IEND chunk.
+		{ name: 'png eXIf 6 after IDAT', mime: 'image/png', bytes: new Uint8Array([...png.subarray(0, png.length - 12), ...chunk('eXIf', tiff(6)), ...png.subarray(png.length - 12)]) },
 		{ name: 'png bad signature tail', mime: 'image/png', bytes: new Uint8Array([...png.subarray(0, 4), 0, 0, 0, 0, ...png.subarray(8)]) },
 		{ name: 'png chunk before IHDR', mime: 'image/png', bytes: new Uint8Array([...png.subarray(0, 8), ...chunk('tEXt', ascii('k\0v')), ...png.subarray(8)]) },
 		{ name: 'webp exif 6', mime: 'image/webp', bytes: b64(WEBP_EXIF_6) },
@@ -76,6 +80,7 @@ const ENGINE_SPLITS: Record<string, Record<string, string>> = {
 	webkit: {
 		'jpeg exif without the tag, then 6': '32x64', // WebKit reads on past a first Exif block with no tag
 		'png eXIf 6': '64x32', // WebKit does not apply a PNG's eXIf
+		'png eXIf 6 then 1': '64x32', // nor the first of two
 	},
 	firefox: {
 		'jpeg xmp then exif 6': '64x32', // Firefox reads only the first APP1
