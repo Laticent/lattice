@@ -2150,40 +2150,29 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// §11 memory so a slide does not re-split as the author types. Only a slide the
 					// structural split cuts can need it; the module loads on the first such slide. A failed
 					// load, or a frame that cannot be measured, keeps today's split.
-					// A slide that does not take the measured split calls off the host's pending pause
-					// measurement for the slide shown before it (once the lazy module has loaded).
-					if (!r.changed) measuredSplitModule?.cancelPendingMeasure(host);
-					if (r.changed) {
-						const ms = await import('../lib/measured-split').catch((e) => {
-							console.warn('lattice: the measured split could not load, so this slide keeps the structural split', e);
-							return null;
+					// A slide the structural split does not cut calls off the host's pending pause measurement
+					// for the slide shown before it, once the lazy module has loaded; `previewPlan` (§17) does
+					// both, and builds the layout key, the frame size and the callbacks from these raw values.
+					const ms = r.changed
+						? await import('../lib/measured-split').catch((e) => (console.warn('lattice: the measured split did not load; keeping the structural split', e), null))
+						: measuredSplitModule;
+					if (ms) {
+						measuredSplitModule = ms;
+						const measured = await ms.previewPlan({
+							host,
+							opts,
+							changed: r.changed,
+							out,
+							pg: PG,
+							first: splitOpts.firstSlide,
+							mode,
+							drawn,
+							extraCss,
+							doc: srcdoc,
+							alive: () => !disposed && host.isConnected,
 						});
 						if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
-						if (ms) measuredSplitModule = ms;
-						if (ms) {
-							const key = `${opts.deckId ?? ''}:${opts.slideIndex}`;
-							// Decline, reuse, redraw while typing, or measure: measured-split.ts `previewPlan` (§17), lazy.
-							// The layout tag: stepping to another page of the same slide re-renders it, and the plan made
-							// for this exact text, box, mode and stylesheets (by HASH, as `memoKey` keys them, so an edit
-							// that keeps a sheet's length still measures again) and rendered number is reused.
-							const measured = await ms.previewPlan({
-								host,
-								key,
-								source: slideSource,
-								layoutTag: `${out.width}x${out.height}|${mode}|${drawn ? 1 : 0}|${hashString(out.css)}|${hashString(extraCss ?? '')}|${splitOpts.firstSlide}`,
-								// The whole slide as rendered now: a pause measurement runs after this render has narrowed
-								// `out.html` to the one page it shows.
-								html: out.html,
-								split: (html, plan) => (PG.splitForPreview as NonNullable<typeof PG.splitForPreview>)(html, slideSource, out.width, out.height, { ...splitOpts, plan }),
-								verdictConfig: PG.fitVerdictConfig?.(),
-								buildDoc: (html) => srcdoc(html, out.css, mode, drawn, { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H }, extraCss),
-								width: out.width || DEFAULT_W,
-								height: out.height || DEFAULT_H,
-								alive: () => !disposed && host.isConnected,
-							});
-							if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
-							if (measured) r = measured;
-						}
+						if (measured) r = measured;
 					}
 					canSplit = r.applies === true;
 					if (r.changed) {

@@ -16,6 +16,8 @@
 import { pack } from '@laticent/fluido';
 import fitMeasure from '../../../lib/core/fit-measure.js';
 import resolveGuards from '../../../lib/core/resolve-guards.js';
+import { hashString } from '../playground/deck-preview.js';
+import { DEFAULT_H, DEFAULT_W } from '../playground/frame-css.js';
 
 const { fitPacks } = resolveGuards;
 
@@ -379,35 +381,58 @@ export async function studioPlan<S extends object>(o: {
 /**
  * The Studio preview's whole measured-split step for one slide (single-slide-render.ts): decline
  * a slide the split does not measure, then reuse, redraw or measure through `studioPlan`. It lives
- * here, in the lazy module, so the preview's start-up bundle carries only the call. `layoutTag`
- * names the box, mode and stylesheets the plan is good for; null keeps today's split.
+ * here, in the lazy module, and takes the renderer's own values RAW, so the preview's start-up
+ * bundle carries only the call: the layout key, the frame size and the split and frame callbacks
+ * are all built here. `out` is read once, on entry, because the renderer narrows `out.html` to the
+ * one page it shows before a pause measurement runs. Null keeps today's split.
  */
 export async function previewPlan(o: {
 	host: HTMLElement;
-	key: string;
-	source: string;
-	layoutTag: string;
-	html: string;
-	split: MeasuredSplitInput['split'];
-	buildDoc: MeasuredSplitInput['buildDoc'];
-	verdictConfig: unknown;
-	width: number;
-	height: number;
+	/** The renderer's options: the deck id and slide index key the memory, `slideMarkdown` is the source. */
+	opts: { deckId?: string; slideIndex?: number; slideMarkdown?: string };
+	/** Did the structural split cut this slide? A slide it does not cut never takes the measured split. */
+	changed: unknown;
+	/** The render this slide came from: its whole HTML, stylesheet and box. */
+	out: { html: string; css: string; width?: number; height?: number };
+	/** The engine bridge: its structural split (which also cuts by a plan) and its verdict config. */
+	pg: { splitForPreview?: (html: string, source: string, w?: number, h?: number, opts?: object) => SplitResult; fitVerdictConfig?: () => unknown };
+	/** The shown slide's rendered number, so a run's stamps read as the PDF's do. */
+	first: number;
+	mode: string;
+	drawn: boolean;
+	extraCss?: string;
+	/** The renderer's frame document builder (its `srcdoc`). */
+	doc: (html: string, css: string, mode: never, drawn: boolean, geom: { width: number; height: number }, extraCss?: string) => string;
 	alive: () => boolean;
 }): Promise<Planned<SplitResult> | null> {
-	if (!measuredSplitWanted(o.source)) {
-		cancelPendingMeasure(o.host);
+	const { host, opts, out, pg, first, mode, drawn, extraCss = '', alive } = o;
+	const key = `${opts.deckId ?? ''}:${opts.slideIndex}`;
+	const source = opts.slideMarkdown ?? '';
+	const split = pg.splitForPreview;
+	if (!alive()) return null;
+	if (!o.changed || !split || !measuredSplitWanted(source)) {
+		cancelPendingMeasure(host);
 		return null;
 	}
+	const { html, css } = out;
+	const width = out.width || DEFAULT_W;
+	const height = out.height || DEFAULT_H;
+	const cut: MeasuredSplitInput['split'] = (h, plan) => split(h, source, out.width, out.height, { firstSlide: first, plan });
+	const buildDoc = (h: string) => o.doc(h, css, mode as never, drawn, { width, height }, extraCss);
+	// The plan made for this exact text, box, mode and stylesheets (by HASH, as the renderer's
+	// `memoKey` keys them, so an edit that keeps a sheet's length still measures again) and
+	// rendered number is reused when the author steps to another page of the same slide.
+	const layout = layoutKey(key, source, `${out.width}x${out.height}|${mode}|${drawn ? 1 : 0}|${hashString(css)}|${hashString(extraCss)}|${first}`);
+	const verdictConfig = pg.fitVerdictConfig?.();
 	return studioPlan({
-		host: o.host,
-		key: o.key,
-		source: o.source,
-		layout: layoutKey(o.key, o.source, o.layoutTag),
-		split: (plan) => o.split(o.html, plan),
-		alive: o.alive,
+		host,
+		key,
+		source,
+		layout,
+		split: (plan) => cut(html, plan),
+		alive,
 		measure: (isCanceled) =>
-			measuredSplitInFrame({ ...o, memory: fitMemoryFor(o.key, o.source), cancelled: () => !o.alive() || isCanceled() }).catch((e) => {
+			measuredSplitInFrame({ html, split: cut, buildDoc, verdictConfig, width, height, memory: fitMemoryFor(key, source), cancelled: () => !alive() || isCanceled() }).catch((e) => {
 				// A measurement the preview called off (a newer keystroke, another slide) is not a failure.
 				if (!isCanceledMeasure(e)) console.warn('lattice: the measured split failed, so this slide keeps the structural split', e);
 				return null;
