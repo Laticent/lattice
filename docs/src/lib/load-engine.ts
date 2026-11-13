@@ -58,7 +58,10 @@ export function ensureEngine(url: string): Promise<void> {
 	const existing = loaders.get(url);
 	if (existing) return existing;
 	const src = scriptSrc(url);
-	if (src === null) return Promise.reject(new Error(`lattice engine URL refused: ${url}`));
+	// The inline test is the barrier CodeQL js/xss-through-dom reads at both sinks (import() below
+	// and script.src); scriptSrc already guarantees it but the query does not follow it through the
+	// helper. It dominates both, so neither loads a URL carrying an HTML metacharacter.
+	if (src === null || /[<>"'`\\\s]/.test(src)) return Promise.reject(new Error(`lattice engine URL refused: ${url}`));
 
 	const base = engineBaseFor(url);
 	if (base && url.endsWith(ENGINE_ENTRY)) {

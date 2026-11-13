@@ -103,7 +103,10 @@ function injectGrammar(url: string): Promise<boolean> {
 	const existing = loaders.get(url);
 	if (existing) return existing;
 	const src = scriptSrc(url);
-	if (src === null) return Promise.resolve(false); // not a URL this page loads: the fence stays plain
+	// scriptSrc already guarantees this; the inline test is the barrier CodeQL js/xss-through-dom
+	// reads at the sink (it does not follow the guard through scriptSrc). A URL with an HTML
+	// metacharacter, a backslash or whitespace never loads — the fence just stays plain.
+	if (src === null || /[<>"'`\\\s]/.test(src)) return Promise.resolve(false);
 
 	const p = new Promise<boolean>((resolve) => {
 		let settled = false;

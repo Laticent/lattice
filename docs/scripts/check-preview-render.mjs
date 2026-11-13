@@ -52,8 +52,11 @@ function serve() {
 			if (!path.extname(u)) u += '/index.html';
 			// Confine the resolved path to DIST so a `..` in the request cannot read outside it
 			// (js/path-injection, #1958 §3, §7). This is a local CI render server, but the fix is free.
-			const full = confinedPath(DIST, u);
-			if (full === null) {
+			// The path.relative guard is written inline, at the sink, because CodeQL reads the barrier
+			// there rather than through confined-path.mjs (which carries the same check, under test).
+			const full = path.join(DIST, u);
+			const rel = path.relative(DIST, full);
+			if (confinedPath(DIST, u) === null || rel.startsWith('..') || path.isAbsolute(rel)) {
 				res.writeHead(403);
 				res.end();
 				return;

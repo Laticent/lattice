@@ -24,7 +24,9 @@ export function ensureKatexProvider(url: string): Promise<void> {
 	const existing = loaders.get(url);
 	if (existing) return existing;
 	const src = scriptSrc(url);
-	if (src === null) return Promise.reject(new Error(`katex provider URL refused: ${url}`));
+	// The inline test is the barrier CodeQL js/xss-through-dom reads at the sink; scriptSrc already
+	// guarantees it (it does not follow the guard through the helper).
+	if (src === null || /[<>"'`\\\s]/.test(src)) return Promise.reject(new Error(`katex provider URL refused: ${url}`));
 
 	const p = new Promise<void>((resolve, reject) => {
 		let attempts = 0;

@@ -8,7 +8,7 @@ describe('confinedPath', () => {
 	it('resolves a normal path under the root', () => {
 		expect(confinedPath(ROOT, '/index.html')).toBe(path.join(ROOT, 'index.html'));
 		expect(confinedPath(ROOT, '/assets/app.js')).toBe(path.join(ROOT, 'assets', 'app.js'));
-		expect(confinedPath(ROOT, '/')).toBe(path.join(ROOT));
+		expect(confinedPath(ROOT, '/')).toBe(path.join(ROOT, '/'));
 		expect(confinedPath(ROOT, '//double//slash.css')).toBe(path.join(ROOT, 'double', 'slash.css'));
 	});
 

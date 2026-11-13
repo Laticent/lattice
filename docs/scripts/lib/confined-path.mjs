@@ -2,8 +2,9 @@
 //
 // The two local render servers (check-overflow, check-preview-render) serve dist/ to a headless
 // browser. Joining `req.url` straight onto the root let a `..` walk read any file (CodeQL
-// js/path-injection, #1958 §3, §7). This resolves the path and confirms it stays inside the root,
-// so a traversal attempt 404/403s instead of leaking.
+// js/path-injection, #1958 §3, §7). The servers carry the `path.relative(...).startsWith('..')`
+// barrier inline at the sink, because the query reads it there; this is the same predicate, under
+// test, so the check and its proof stay in one place.
 
 import path from 'node:path';
 
@@ -13,8 +14,7 @@ import path from 'node:path';
  * @returns {string | null}  the absolute file path inside `root`, or null if it escapes
  */
 export function confinedPath(root, urlPath) {
-	const base = path.resolve(root);
-	// Treat the URL path as relative to the root, whatever leading slashes it carries.
-	const full = path.resolve(base, `.${path.posix.sep}${urlPath}`);
-	return full === base || full.startsWith(base + path.sep) ? full : null;
+	const full = path.join(root, urlPath);
+	const rel = path.relative(root, full);
+	return rel.startsWith('..') || path.isAbsolute(rel) ? null : full;
 }
