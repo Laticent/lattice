@@ -37,22 +37,33 @@ output file.
 **The input is a deck or a `.lattice`, judged by its bytes.** A zip is a `.lattice`
 project file from the Studio. `lib/export/lattice-input.js` opens it with the Studio's own
 reader (`lib/packages/lattice-read.mjs`) in a short child process, because JSZip reads
-asynchronously and the CLI is synchronous up to its render. It unpacks the file into a private
-temporary folder shaped like a deck: `deck.md`, `assets/<name>.<ext>` for each photo the deck
-names, and a one-run package store. The rest of the run then takes the same path as a `.md` deck.
-The store holds the file's packages, plus links to the installed ones the file does not replace.
-A file package wins over an installed one with the same name, and nothing is written to
-`~/.lattice`. A code package in the file still needs consent: `lattice packages trust`, or
-`--trust` for that render (`lib/cli/code-door.js` `grantForThisRun`, never written to the trust
-store). Any other binary input, such as a PDF or a picture, is refused at once. It used to be
-parsed as Markdown and fail after a 60 s navigation timeout.
+asynchronously and the CLI is synchronous up to its render. The child is that file by its path in
+the package (`ENTRY`), never `__filename`: inside the bundle (dist/lattice.js) `__filename` is the
+CLI itself, and a `.lattice` input once started the CLI again, forever. The child exits if its
+parent dies, is bounded by a timeout, and hands its result back in a file in the private folder.
+It unpacks the file into that private temporary folder, shaped like a deck: `deck.md`,
+`assets/<name>.<ext>` holding each photo the deck names ONCE (an old name, an alias, answers
+through the `asset:` map, never as a copy, and the bytes written are counted against
+`MAX_LATTICE_MEDIA_BYTES`), and a package store holding the file's packages. The rest of the run
+takes the same path as a `.md` deck. Packages are looked up in the file's store first and the
+user's installed store after (`PACKAGES_ROOTS`, `home.js` `findInstalledIn` / `listInstalledIn`):
+a file package wins over an installed one with the same name, the installed ones still work, and
+nothing is linked, copied or written to `~/.lattice`. A code package in the file still needs
+consent: `lattice packages trust`, or `--trust` for that render (`lib/cli/code-door.js`
+`grantForThisRun`, never written to the trust store). The private folder is removed at exit,
+including after SIGINT, SIGTERM or SIGHUP. Any other binary input, such as a PDF or a picture, is
+refused at once. It used to be parsed as Markdown and fail after a 60 s navigation timeout.
 
-**A `.lattice` output** (`lattice deck.md deck.lattice`) is written with no browser, by the writer
-`--reopenable` uses (`reopenableLattice` in `lattice.js`, `buildLatticeZip`). Which photos it
-carries is one function, `photosToCarry` in `lib/export/lattice-input.js`. Photos from a `.lattice`
-input pass through as their bytes, because the Studio scrubbed them at intake. Photos from
-`assets/` are withheld and counted until a shared metadata scrubber exists (owner, 2026-11-13).
-`--reopenable` uses the same function at the embedded cap (`MAX_EMBEDDED_MEDIA_BYTES`).
+**A `.lattice` output** (`lattice deck.md deck.lattice`) is written right after the theme is
+resolved, before any HTML, engine pass, code door or browser: a `.lattice` is the deck, not a
+render, so an unapproved code package rides in it as its files and is never run. The writer is the
+Studio's (`buildLatticeZip`), run in the same child (`writeSync`). From a `.lattice` input the deck,
+its title and its review comments go back out as they came. Which photos it carries is one
+function, `photosToCarry` in `lib/export/lattice-input.js`. Photos from a `.lattice` input pass
+through as their bytes, because the Studio scrubbed them at intake. Photos from `assets/` are
+withheld and counted until a shared metadata scrubber exists (owner, 2026-11-13). `--reopenable`
+uses the same function at the embedded cap (`MAX_EMBEDDED_MEDIA_BYTES`). `--strip-notes` and
+`--strip-say` are refused for a `.lattice` output, which is the deck as written, to edit.
 
 **That list is closed** — an extension not on it is a usage error. It used to fall
 through to the PDF path, which wrote PDF bytes under whatever name was asked for:

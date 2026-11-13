@@ -14,6 +14,8 @@
 // transaction does not). A clash is REFUSED, never resolved by overwriting.
 import { ASSET_STORE, openDB, reqAsPromise } from '@/components/studio/library/asset-db.js';
 import { deleteAsset } from '@/components/studio/library/asset-store.js';
+// A DEFAULT import: a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import limits from '../../../../lib/packages/limits.js';
 import { cleanCaption } from './agent-assets';
 
 export type MediaKind = 'image' | 'video';
@@ -67,8 +69,8 @@ export type MediaRecord = {
 };
 
 /** The most old names one photo keeps. A rename that would pass it is refused: dropping one would turn the decks
- *  that still write it into placeholders without a word. */
-export const MAX_ALIASES = 20;
+ *  that still write it into placeholders without a word. Shared with the `.lattice` reader (lib/packages/limits.js). */
+export const MAX_ALIASES: number = limits.MAX_PHOTO_ALIASES;
 
 /** Every name a deck may write for this record: its own and its aliases. */
 export const namesOf = (m: Pick<MediaRecord, 'name' | 'aliases'>): string[] => [m.name, ...(m.aliases ?? [])];
