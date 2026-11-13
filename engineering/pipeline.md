@@ -373,7 +373,11 @@ before, then runs **the same code as the Studio's Export to PDF** inside that pa
    (`lib/core/slide-camera.mjs`, § 4a2), and only the bytes of a picture come from the host.
 4. **Write** (`write-pdf.mjs`, pdf-lib): the photo, then images at their original bytes, then
    chart shapes as vectors, then every word as real text, tagged (Document › H1…/P/LI/Figure)
-   with the title and `/Lang`.
+   with the title and `/Lang`. A picture stored turned (a JPEG's EXIF orientation 2 to 8, wherever
+   its block sits, or a PNG's `eXIf`, which Chromium applies) is embedded at its own bytes and drawn
+   through the same turn (`turnMatrix`), so it lands upright as the browser painted it; an element
+   with `image-orientation: none` is drawn as stored. Until PR #3183 a turned picture stayed in the
+   photo, which cost a whole-slide picture for each one.
 
 Anything the writer cannot reproduce exactly stays in the photo, which is taken at 2x on a slide
 that keeps text or a raster image in it. That covers:

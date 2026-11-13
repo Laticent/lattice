@@ -783,7 +783,7 @@ describe('export-formats', () => {
     assert.ok(!pdfImageRows(out).some((row) => /\bimage\s+4\s+4\b/.test(row)), 'no 4x4 image stream reaches the PDF');
   });
 
-  test('a JPEG stored rotated (EXIF Orientation 6) stays in the photo, where it is upright', { timeout: TIMEOUT }, () => {
+  test('a JPEG stored rotated (EXIF Orientation 6) is drawn upright from its own bytes', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     // The same sample twice: once as shipped (Orientation 6), once with its Exif segment removed.
     // Only the rotated copy may stay in the photo; the plain one is embedded at its own bytes. One image
@@ -811,13 +811,14 @@ describe('export-formats', () => {
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
-    assert.equal(rep.refusedImages.rotated, 1, `the rotated copy stays in the photo: ${JSON.stringify(rep)}`);
-    assert.equal(rep.images, 1, `the plain copy is embedded natively: ${JSON.stringify(rep)}`);
+    assert.equal(rep.turnedImages, 1, `the rotated copy is drawn through its turn: ${JSON.stringify(rep)}`);
+    assert.equal(rep.images, 2, `both copies are embedded at their own bytes, none in the photo: ${JSON.stringify(rep)}`);
+    assert.equal(rep.refusedImages.rotated, undefined);
   });
 
-  test('a PNG turned by its eXIf chunk, and a JPEG whose Exif sits after its frame header, stay in the photo', { timeout: TIMEOUT }, () => {
-    // Chromium paints both turned (the engines' probe in docs/src/lib/lastra/read.test.ts); the PDF would draw the stored
-    // pixels, a PNG stretched across the turned box. Only the plain PNG may be embedded at its own bytes.
+  test('a PNG turned by its eXIf chunk, and a JPEG whose Exif sits after its frame header, are drawn through their turn', { timeout: TIMEOUT }, () => {
+    // Chromium paints both turned (the engines' probe in docs/src/lib/lastra/read.test.ts); the PDF draws a file's stored
+    // pixels, so the writer draws each through its turn (write-pdf.mjs `turnMatrix`) instead of leaving it in the photo.
     const dir = tmpDir();
     const zlib = require('node:zlib');
     const chunk = (type, data) => {
@@ -856,8 +857,77 @@ describe('export-formats', () => {
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
-    assert.equal(rep.refusedImages.rotated, 2, `both turned pictures stay in the photo: ${JSON.stringify(rep)}`);
-    assert.equal(rep.images, 1, `the plain PNG is embedded natively: ${JSON.stringify(rep)}`);
+    assert.equal(rep.turnedImages, 2, `both turned pictures are drawn through their turn: ${JSON.stringify(rep)}`);
+    assert.equal(rep.images, 3, `all three are embedded at their own bytes: ${JSON.stringify(rep)}`);
+  });
+
+  test('a picture in each of the eight EXIF orientations lands upright and unmirrored in the PDF, drawn from its own bytes', { timeout: TIMEOUT }, () => {
+    // Each PNG stores its pixels turned the inverse of its eXIf orientation, so all eight SHOW the same picture: red top
+    // left, green top right, blue bottom left, yellow bottom right. The PDF is rasterized and each color's center found.
+    const dir = tmpDir();
+    const zlib = require('node:zlib');
+    const chunk = (type, data) => {
+      const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+      const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+      const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(body));
+      return Buffer.concat([len, body, crc]);
+    };
+    const COLORS = { red: [230, 30, 30], green: [30, 200, 30], blue: [30, 30, 230], yellow: [230, 230, 30] };
+    const shown = (dx, dy) => (dy < 0.5 ? (dx < 0.5 ? COLORS.red : COLORS.green) : dx < 0.5 ? COLORS.blue : COLORS.yellow);
+    // Where a stored pixel (sx, sy in 0..1, y down) shows, for each EXIF orientation.
+    const SHOW = {
+      1: (x, y) => [x, y], 2: (x, y) => [1 - x, y], 3: (x, y) => [1 - x, 1 - y], 4: (x, y) => [x, 1 - y],
+      5: (x, y) => [y, x], 6: (x, y) => [1 - y, x], 7: (x, y) => [1 - y, 1 - x], 8: (x, y) => [y, 1 - x],
+    };
+    const DW = 50; const DH = 30; // the shown size
+    const slides = [];
+    for (let o = 1; o <= 8; o++) {
+      const [W, H] = o >= 5 ? [DH, DW] : [DW, DH];
+      const rows = Buffer.alloc((W * 3 + 1) * H);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) rows.set(shown(...SHOW[o]((x + 0.5) / W, (y + 0.5) / H)), y * (W * 3 + 1) + 1 + x * 3);
+      const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(H, 4); ihdr[8] = 8; ihdr[9] = 2;
+      const tiff = Buffer.from([0x4d, 0x4d, 0, 42, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, o, 0, 0, 0, 0, 0, 0]);
+      const extra = o === 1 ? [] : [chunk('eXIf', tiff)];
+      fs.writeFileSync(path.join(dir, `t${o}.png`), Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 13, 10, 26, 10]), chunk('IHDR', ihdr), ...extra, chunk('IDAT', zlib.deflateSync(rows)), chunk('IEND', Buffer.alloc(0))]));
+      slides.push(`## O${o}`, '', `<img src="t${o}.png" style="width:500px;height:300px">`);
+      if (o < 8) slides.push('', '---', '');
+    }
+    const src = path.join(dir, 'turns.md');
+    fs.writeFileSync(src, ['---', 'html: true', 'paginate: false', '---', '', ...slides].join('\n'));
+    const out = path.join(dir, 'turns.pdf');
+    const report = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
+    assert.equal(rep.images, 8, `every picture is embedded at its own bytes: ${JSON.stringify(rep)}`);
+    assert.equal(rep.turnedImages, 7, `seven are drawn through a turn: ${JSON.stringify(rep)}`);
+    execFileSync('pdftoppm', ['-r', '36', out, path.join(dir, 'p')]);
+    const pages = fs.readdirSync(dir).filter((f) => /^p-\d+\.ppm$/.test(f)).sort();
+    assert.equal(pages.length, 8);
+    pages.forEach((f, i) => {
+      // A binary PPM: "P6", width, height, max value, then RGB triplets.
+      const buf = fs.readFileSync(path.join(dir, f));
+      const head = buf.toString('latin1', 0, 64).match(/^P6\s+(\d+)\s+(\d+)\s+(\d+)\s/);
+      const [w, h] = [Number(head[1]), Number(head[2])];
+      const px = buf.subarray(head[0].length);
+      const sums = Object.fromEntries(Object.keys(COLORS).map((k) => [k, { x: 0, y: 0, n: 0 }]));
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const at = (y * w + x) * 3;
+        for (const [k, c] of Object.entries(COLORS)) {
+          if (Math.abs(px[at] - c[0]) + Math.abs(px[at + 1] - c[1]) + Math.abs(px[at + 2] - c[2]) < 60) { sums[k].x += x; sums[k].y += y; sums[k].n++; }
+        }
+      }
+      const c = Object.fromEntries(Object.entries(sums).map(([k, v]) => [k, v.n ? { x: v.x / v.n, y: v.y / v.n, n: v.n } : null]));
+      for (const k of Object.keys(COLORS)) assert.ok(c[k]?.n > 20, `orientation ${i + 1}: ${k} is on the page (${JSON.stringify(c)})`);
+      const where = JSON.stringify(c);
+      assert.ok(c.red.x < c.green.x && c.blue.x < c.yellow.x, `orientation ${i + 1}: left is left, not mirrored: ${where}`);
+      assert.ok(c.red.y < c.blue.y && c.green.y < c.yellow.y, `orientation ${i + 1}: top is top, not flipped: ${where}`);
+      // A quarter turn drawn into the wrong box would squash the picture: the four quadrants stay the same size.
+      const ns = Object.values(c).map((v) => v.n);
+      assert.ok(Math.max(...ns) / Math.min(...ns) < 1.3, `orientation ${i + 1}: the quadrants are even: ${where}`);
+    });
   });
 
   test('--chrome-pdf prints with Chrome: the finish stays vector drawing, nothing is photographed', { timeout: TIMEOUT }, () => {

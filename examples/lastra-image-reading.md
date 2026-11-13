@@ -36,7 +36,7 @@ Its turn sits after the frame header, where every engine still reads it. The lay
 
 `@image{media/mug-exif-after-frame.jpg, title="The red mug", sm}`
 
-The PDF writer keeps a turned picture in the slide's photo, which the browser painted upright, instead of embedding its stored pixels.
+The PDF writer embeds the file once and draws it through its turn, so it lands upright without a whole-slide photo.
 
 ---
 
@@ -60,7 +60,7 @@ The picture is stored a quarter turn round. Chromium and Firefox apply its rotat
 
 `@image{media/canoe-turned.png, title="A canoe on a still lake", sm}`
 
-The writer used to embed the PNG's stored pixels into the box the browser had turned. It now stays in the slide's photo.
+The writer used to embed the PNG's stored pixels into the box the browser had turned. It now draws them through the turn.
 
 ---
 
