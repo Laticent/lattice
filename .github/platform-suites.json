@@ -96,7 +96,7 @@
       "why": "The code door reads the OS sandbox layer before it runs a stranger's code, and an npm plugin runs only where it reads `on` (threat-model note §6 decisions 7 and 13). macOS (sandbox_check) and Windows (chrome://sandbox) are read differently from Linux, and only a real runner of each starts Chromium's sandbox to be read. The npm admission test then runs the real door there: an npm plugin draws exactly when the measured layer admits it."
     },
     {
-      "name": "ios-safari-studio",
+      "name": "ios-safari-studio-ipad",
       "os": [
         "macos-26"
       ],
@@ -114,8 +114,32 @@
         "lib/core/inline-run.js",
         "lib/transformers/inline-run.js"
       ],
-      "run": "bash docs/scripts/ios-safari/run.sh",
-      "why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires. Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device.",
+      "run": "DEVICES=iPad bash docs/scripts/ios-safari/run.sh",
+      "why": "Real Mobile Safari, in an iPad iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires. Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device. One device per job: the iPad and the iPhone back to back took 21 to 27 of the job's 30 minutes on main and were canceled at 30 on slower runners with every check passed (runs 43278314890, 43285290891; flaky shape F4), most of it two simulator boots in series, so each device now has the whole limit, as the undo suites do.",
+      "on_pull_request": false,
+      "docs_site": true
+    },
+    {
+      "name": "ios-safari-studio-iphone",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/run.sh",
+        "docs/scripts/ios-safari/run.mjs",
+        "docs/scripts/ios-safari/studio-probe.js",
+        "docs/scripts/ios-safari/panes-probe.js",
+        "docs/scripts/ios-safari/show-editor.js",
+        "docs/scripts/ios-safari/seed-settings.js",
+        "docs/src/playground/single-slide-render.ts",
+        "lib/core/pane-css.js",
+        "docs/src/lib/sanitize-slide-html.js",
+        "lib/core/sanitize-slide-html.mjs",
+        "lib/core/inline-run.js",
+        "lib/transformers/inline-run.js"
+      ],
+      "run": "DEVICES=iPhone bash docs/scripts/ios-safari/run.sh",
+      "why": "Real Mobile Safari, in an iPhone iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires. Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device. One device per job: the iPad and the iPhone back to back took 21 to 27 of the job's 30 minutes on main and were canceled at 30 on slower runners with every check passed (runs 43278314890, 43285290891; flaky shape F4), most of it two simulator boots in series, so each device now has the whole limit, as the undo suites do.",
       "on_pull_request": false,
       "docs_site": true
     },
