@@ -445,6 +445,35 @@ test('a Coach fix on the first slide keeps the preview on that slide', async ({ 
 	await expect(label).toContainText('Slide 1 / 2');
 });
 
+// A photo that arrives late is still measured, however late. The read used to give up on the photo after 4 s and was never
+// tried again for that slide, so on a cold iPad simulator (the ios-safari-photo nightly at 985dfba) slide 2 never got its
+// finding. Hold the photo for the Coach's read at the network, jump the page's clock far past any deadline with it still
+// held (advanced, not waited for: HARD RULE #32), then let it through: the finding must land.
+test('a photo that arrives after a long wait is still measured, and the Coach shows its finding', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.clock.install();
+	let release!: () => void;
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	let readAsked = false;
+	await page.route('**/samples/photo-wide.svg', async (route) => {
+		// The preview frame's own loads go through; the Studio page's load of the photo is the Coach's read.
+		if (route.request().frame() === page.mainFrame()) {
+			readAsked = true;
+			await held;
+		}
+		await route.continue();
+	});
+	await gotoStudio(page);
+	await typeDeck(page, DARK_PHOTO_DECK);
+	await expect.poll(() => readAsked, { timeout: 20_000 }).toBe(true);
+	await page.clock.fastForward(60_000);
+	release();
+	await openCoach(page);
+	await expect(page.getByText(/^The text on this photo reads at [\d.]+:1 \(needs 4\.5:1\)/).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 });
+});
+
 // A tooltip opened BEFORE the slide on screen is measured must not go on disagreeing with the Coach while it stays open: when
 // the measured verdict lands, it takes the Coach's words and button in place. Every photo read is slowed from the first
 // script, so the tooltip opens first.

@@ -12,7 +12,6 @@ import { coverSourceRect, meanRgb } from '../../../../lib/core/card-ink.mjs';
 
 /** The canvas the region is averaged on; small, because only the mean color is used. */
 const SAMPLE_PX = 24;
-const LOAD_MS = 4000;
 
 export type Rgb = number[];
 
@@ -25,19 +24,20 @@ export function previewDocument(): Document | null {
 	}
 }
 
+/**
+ * The photo once the browser has it, or null when it fails to load. No deadline of our own: the photo verdict reads a slide
+ * ONCE (coach/photo-contrast-watch.ts), so a read that gave up on a photo still arriving left the slide unmeasured until the
+ * next edit. A 4 s deadline did exactly that on a cold iPad simulator (the nightly at 985dfba): slide 2's photo took longer,
+ * the read returned null, and the Coach never showed the finding. The load's own `load` / `error` is the signal. Every
+ * caller already drops an answer for a slide it has left (`live`, `slideRef`); the editor tooltip says "Checking the
+ * photo…" until the photo is in, then its fix (thin-card-fix.ts), and "Could not read this photo" only on an error.
+ */
 function loadPhoto(url: string): Promise<HTMLImageElement | null> {
 	return new Promise((resolve) => {
 		const img = new Image();
 		img.crossOrigin = 'anonymous';
-		const timer = setTimeout(() => resolve(null), LOAD_MS);
-		img.onload = () => {
-			clearTimeout(timer);
-			resolve(img);
-		};
-		img.onerror = () => {
-			clearTimeout(timer);
-			resolve(null);
-		};
+		img.onload = () => resolve(img);
+		img.onerror = () => resolve(null);
 		img.src = url;
 	});
 }
