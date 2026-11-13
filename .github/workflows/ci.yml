@@ -819,19 +819,6 @@ jobs:
               await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
             }
 
-  # ── Docs site build (+ overflow guard) — docs (or engine) changes only ──
-  # The deploy workflow (docs.yml) only builds on push to main, so PRs got no
-  # docs-build validation. This builds the Astro site (same `npm run build` the
-  # deploy uses) so a docs/engine change that breaks the site fails the PR.
-  #
-  # The horizontal-overflow guard runs HERE, reusing this one build, instead of
-  # in a separate workflow that rebuilt the whole Astro site a second time (the
-  # old docs-overflow.yml). check-overflow.mjs serves the prebuilt docs/dist —
-  # it doesn't rebuild — so it just needs a Chrome. It stays ADVISORY via
-  # continue-on-error (not a merge blocker until promoted); a real overflow
-  # still surfaces as a failed (red ✗) step in the job's log. See
-  # engineering/decisions/2026-06-17-workflow-efficiency-review.md §D and
-  # engineering/decisions/2026-06-15-docs-perf-gating-policy.md.
   # ── Docs tests — the docs Vitest suite, beside docs-build ───────────────
   # Split out of docs-build on the owner's call (2026-11-12, D1 A, PR #3157): the suite was
   # docs-build's longest step (6.5-9.3 min of a 9.7-14.3 min job on CI), so running it
@@ -871,6 +858,19 @@ jobs:
         run: npm test -- --maxWorkers=4
         working-directory: docs
 
+  # ── Docs site build (+ overflow guard) — docs (or engine) changes only ──
+  # The deploy workflow (docs.yml) only builds on push to main, so PRs got no
+  # docs-build validation. This builds the Astro site (same `npm run build` the
+  # deploy uses) so a docs/engine change that breaks the site fails the PR.
+  #
+  # The horizontal-overflow guard runs HERE, reusing this one build, instead of
+  # in a separate workflow that rebuilt the whole Astro site a second time (the
+  # old docs-overflow.yml). check-overflow.mjs serves the prebuilt docs/dist —
+  # it doesn't rebuild — so it just needs a Chrome. It stays ADVISORY via
+  # continue-on-error (not a merge blocker until promoted); a real overflow
+  # still surfaces as a failed (red ✗) step in the job's log. See
+  # engineering/decisions/2026-06-17-workflow-efficiency-review.md §D and
+  # engineering/decisions/2026-06-15-docs-perf-gating-policy.md.
   docs-build:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
