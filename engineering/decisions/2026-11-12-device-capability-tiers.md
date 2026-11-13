@@ -181,6 +181,35 @@ ceiling is the owner's call, so the slice splits the work instead:
   visit paints the right tier from the first frame. If the owner raises the Studio's HTML ceiling, a pre-paint WebGL read
   can close the first-visit gap.
 
+### 3.4 The GPU rank and the boot probe, as built (2026-11-13)
+
+Both feed `classify()` through `startDeviceTier` (`lib/device-tier.ts`), which now takes three late measurements, the CPU
+probe, the GPU rank and the boot probe, and applies again as each lands. Each only adds evidence. A drop from FULL to
+LITE after the first paint shows a toast ("Lattice switched to Lite mode to stay smooth." plus the reason); a `?tier=` pin
+is never dropped or toasted.
+
+- **GPU rank** (`docs/src/lib/gpu-rank.ts`). detect-gpu 5.0.70 gets the renderer string we already read, so it makes no
+  second WebGL context, except for Safari's masked "Apple GPU", which it reads itself to tell Apple chips apart.
+  BENCHMARK and BLOCKLISTED give the tier; FALLBACK (a GPU the 2025-02 tables do not know) and no WebGL give null, and
+  null never lowers the tier.
+- **Self-hosted tables** (`docs/src/lib/gpu-rank-tables.ts`). `import.meta.glob(…, { query: '?url' })` copies the 12
+  tables into the build as hashed assets; detect-gpu's `loadBenchmarks` fetches the one its vendor needs from our
+  origin. The library and its loader are a lazy chunk that loads only when there is a renderer and no Save-Data.
+  `e2e/gpu-rank.spec.ts` stubs the renderer (an NVIDIA chip on Chromium, "Apple GPU" on WebKit), waits for the table
+  request, checks its origin and the panel's "GPU rank" row, and checks that nothing goes to unpkg. With WebGL off, the
+  library does not load at all.
+- **Boot probe** (`docs/src/lib/boot-probe.ts`). It sums the blocking time of long tasks (each task's time past 50 ms)
+  that start in the first 10 s after navigation, buffered from navigation start, and calls the boot slow at 2 s or more.
+  Measured on the Studio (Chromium 153, sandbox, 3 runs each): 461 to 606 ms at CPU x1, 3.3 to 3.6 s at x4, about 5.0 s
+  at x6. Driven on the built Studio, the System panel lists "Lattice fell behind while starting up." at x6 and not at
+  x1. Safari and Firefox have no long-task API, so the probe answers null there.
+- **System panel.** It merges the app's GPU rank and boot result into its own reading and follows later changes, so the
+  "GPU rank" row (§5.1) and the boot reason appear once they are measured.
+- **Not verified here.** The toast needs a FULL device that boots slowly; the sandbox is LITE before the probe runs (a
+  software renderer). Unit tests drive it with injected results. A real GPU's rank from the real tables is
+  **UNVERIFIED** until the macOS and Windows runners run the System panel.
+
+
 ## 4. What LITE changes
 
 Ordered by how much each saves on a weak machine.
@@ -294,7 +323,7 @@ A sixth overlay on the existing `DiagnosticPanel` chassis, toggled under Workspa
 and the status rules (green / amber / red, gray for a value the browser does not report) live in that pure module
 under unit tests. The panel shows a short graphics name (`SwiftShader (software)`) and the copied report keeps the
 full renderer string. The speed test runs only on a click, because it pauses the page for about 140 ms (§3.2). The
-"GPU rank" row appears once `detect-gpu` is wired (slice 1b). Until slice 5, the panel shows the tier the device
+"GPU rank" row appears once `detect-gpu` has ranked the GPU (§3.4). Until slice 5, the panel shows the tier the device
 WOULD get; nothing in the app acts on it yet.
 
 **Bytes.** The first cut mounted the panel as its own eager island and CI's route budget failed it (home eager JS

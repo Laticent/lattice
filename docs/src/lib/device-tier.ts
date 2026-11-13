@@ -11,7 +11,9 @@
 // Every browser dependency (storage, the clock, the worker) is passed in, so the tests drive it with fakes
 // and never read the runner's machine or clock (HARD RULE #32).
 
+import { browserLongTasks, watchBoot } from './boot-probe';
 import { browserEnv, classify, type DeviceSignals, type Profile, pinnedTier, readSignals, type Tier } from './device-profile';
+import { rankGpu } from './gpu-rank';
 
 /** Where the decided tier is saved for the next page load's pre-paint read. The inline boot script reads this key. */
 export const TIER_KEY = 'lattice-device-tier';
@@ -57,6 +59,12 @@ export interface TierDeps {
 	now: () => number;
 	/** Run the probe off the main thread and resolve its score, or null when it cannot run. */
 	probe: () => Promise<number | null>;
+	/** detect-gpu's tier 0-3 for this renderer, or null when it cannot rank it (gpu-rank.ts). Omitted: never ranked. */
+	gpu?: (renderer: string | null) => Promise<number | null>;
+	/** Whether the boot fell behind (boot-probe.ts): true, false, or null when this browser cannot tell. Omitted: never asked. */
+	boot?: () => Promise<boolean | null>;
+	/** Told when a measurement drops this visit from FULL to LITE after it was first shown, so the page can say so. */
+	onDrop?: (s: TierState) => void;
 }
 
 export interface TierState {
@@ -127,30 +135,62 @@ function apply(deps: TierDeps, signals: DeviceSignals, pinned: Tier | null, inte
 }
 
 /**
- * Decide the tier for this visit. Resolves once the tier from the synchronous signals is applied; the probe,
- * when it has to run, applies again when its score lands (the returned `probed` promise).
+ * Decide the tier for this visit. Resolves once the tier from the synchronous signals is applied. Three measurements land
+ * later and each applies again: the CPU probe when it has to run (the returned `probed` promise), the GPU rank and the boot
+ * probe (`settled` waits for all three). Each only ADDS evidence, so after the first paint a measurement can lower the tier
+ * but never raise it, with one exception kept from slice 1b: while the CPU score is pending the page shows the lower of the
+ * saved and the signal tier, and the score, once it lands, decides. A drop from FULL to LITE after the first paint calls
+ * `onDrop` (the toast).
  */
-export function startDeviceTier(deps: TierDeps): { state: TierState; probed: Promise<TierState> } {
+export function startDeviceTier(deps: TierDeps): { state: TierState; probed: Promise<TierState>; settled: Promise<TierState> } {
 	const pinned = pinnedTier(deps.win.location.search);
-	const signals = readSignals(browserEnv(deps.win));
+	let signals = readSignals(browserEnv(deps.win));
 	const cached = deps.store ? readCachedCpu(deps.store, deps.now()) : null;
 	if (cached !== null) signals.cpuScore = cached;
-	if (cached !== null) {
-		const done = apply(deps, signals, pinned);
-		return { state: done, probed: Promise.resolve(done) };
-	}
-	const first = apply(deps, signals, pinned, { saved: readSavedTier(deps.store) });
-	const probed = deps
-		.probe()
-		// A probe that cannot run brings no new evidence, so the interim tier stays and nothing is saved: the saved tier
-		// keeps whatever the last real measurement decided.
-		.then((score) => {
-			if (score === null) return state ?? first;
-			if (deps.store) writeCachedCpu(deps.store, score, deps.now());
-			return apply(deps, { ...signals, cpuScore: score }, pinned);
+	let cpuPending = cached === null;
+	const saved = readSavedTier(deps.store);
+	const reapply = (): TierState => {
+		const before = state?.tier;
+		const next = apply(deps, signals, pinned, cpuPending ? { saved } : null);
+		if (before === 'full' && next.tier === 'lite' && !pinned) {
+			try {
+				deps.onDrop?.(next);
+			} catch {}
+		}
+		return next;
+	};
+	state = null;
+	const first = reapply();
+	const probed = cpuPending
+		? deps
+				.probe()
+				// A probe that cannot run brings no new evidence, so the interim tier stays and nothing is saved: the saved tier
+				// keeps whatever the last real measurement decided.
+				.then((score) => {
+					if (score === null) return state ?? first;
+					if (deps.store) writeCachedCpu(deps.store, score, deps.now());
+					cpuPending = false;
+					signals = { ...signals, cpuScore: score };
+					return reapply();
+				})
+				.catch(() => state ?? first)
+		: Promise.resolve(first);
+	const ranked = (deps.gpu ? deps.gpu(signals.renderer) : Promise.resolve(null))
+		.then((tier) => {
+			if (tier === null) return;
+			signals = { ...signals, gpuTier: tier };
+			reapply();
 		})
-		.catch(() => state ?? first);
-	return { state: first, probed };
+		.catch(() => {});
+	const booted = (deps.boot ? deps.boot() : Promise.resolve(null))
+		.then((slow) => {
+			if (slow !== true) return;
+			signals = { ...signals, bootProbeSlow: true };
+			reapply();
+		})
+		.catch(() => {});
+	const settled = Promise.all([probed, ranked, booted]).then(() => state ?? first);
+	return { state: first, probed, settled };
 }
 
 /** The slice of `document` the visibility guard reads. */
@@ -208,13 +248,22 @@ export function browserTierDeps(win: Window & typeof globalThis): TierDeps {
 	} catch {
 		store = null;
 	}
+	const allowed = () => probeAllowed(win.navigator as Navigator & { connection?: { saveData?: boolean } });
 	return {
 		win,
 		store,
 		now: () => Date.now(),
 		probe: () => {
-			if (!probeAllowed(win.navigator as Navigator & { connection?: { saveData?: boolean } })) return Promise.resolve(null);
+			if (!allowed()) return Promise.resolve(null);
 			return probeWhileVisible(win.document, runWorkerProbe(win));
+		},
+		// The GPU rank fetches one 2-14 KB table from our own origin; Save-Data skips it like the CPU probe, and the GPU stays
+		// ranked by our own software-renderer test alone. With no WebGL there is nothing to rank, so not even the library loads.
+		gpu: (renderer) => (renderer !== null && allowed() ? import('./gpu-rank-tables').then(async (m) => rankGpu(renderer, await m.browserGpuRankDeps())) : Promise.resolve(null)),
+		boot: () => watchBoot({ observe: browserLongTasks(win), now: () => win.performance.now(), setTimeout: (fn, ms) => win.setTimeout(fn, ms) }),
+		onDrop: (s) => {
+			const why = s.profile.reasons.find((r) => r.kind !== 'feature')?.text ?? '';
+			void import('./notify').then(({ notify }) => notify(`Lattice switched to Lite mode to stay smooth. ${why}`.trim())).catch(() => {});
 		},
 	};
 }

@@ -217,6 +217,65 @@ function fakeDoc(hidden = false) {
 	};
 }
 
+describe('startDeviceTier — the GPU rank and the boot probe', () => {
+	/** A FULL machine with a fresh fast CPU score, so only the measurement under test can move the tier. */
+	const fast = () => fakeStore({ [CPU_KEY]: JSON.stringify({ score: 200, at: NOON - 1000 }) });
+
+	it('a slow boot drops FULL to LITE with one weak reason, saves it, and says so once', async () => {
+		const { win, attrs } = fakeWin();
+		const store = fast();
+		const drops: string[] = [];
+		let boot: (v: boolean | null) => void = () => {};
+		const { state, settled } = startDeviceTier(deps({ win, store, boot: () => new Promise((r) => (boot = r)), onDrop: (s) => drops.push(s.tier) }));
+		expect(state.tier).toBe('full');
+		boot(true);
+		const after = await settled;
+		expect(after.tier).toBe('lite');
+		expect(after.profile.reasons.map((r) => r.code)).toEqual(['weak:boot']);
+		expect(attrs['data-device-tier']).toBe('lite');
+		expect(store.data.get(TIER_KEY)).toBe('lite');
+		expect(drops).toEqual(['lite']);
+	});
+
+	it('a fast boot, or one it cannot measure, changes nothing', async () => {
+		for (const result of [false, null]) {
+			const { win } = fakeWin();
+			const drops: string[] = [];
+			const { settled } = startDeviceTier(deps({ win, store: fast(), boot: () => Promise.resolve(result), onDrop: (s) => drops.push(s.tier) }));
+			expect((await settled).tier).toBe('full');
+			expect(drops).toEqual([]);
+		}
+	});
+
+	it('a GPU rank of 1 makes LITE; a rank of 0 for a real chip is a floor, so it declines only with a second floor', async () => {
+		const { win } = fakeWin();
+		const one = startDeviceTier(deps({ win, store: fast(), gpu: () => Promise.resolve(1) }));
+		expect((await one.settled).profile.reasons.map((r) => r.code)).toEqual(['weak:gpu']);
+		const zero = startDeviceTier(deps({ win: fakeWin().win, store: fast(), gpu: () => Promise.resolve(0) }));
+		const z = await zero.settled;
+		expect(z.tier).toBe('lite');
+		expect(z.profile.reasons.map((r) => r.code)).toEqual(['floor:gpu']);
+	});
+
+	it('hands the GPU rank the renderer it read, and a pin is never dropped or toasted', async () => {
+		const { win, attrs } = fakeWin({ search: '?tier=full' });
+		const seen: (string | null)[] = [];
+		const drops: string[] = [];
+		const { settled } = startDeviceTier(deps({ win, store: fast(), gpu: (r) => (seen.push(r), Promise.resolve(1)), boot: () => Promise.resolve(true), onDrop: (s) => drops.push(s.tier) }));
+		const after = await settled;
+		expect(seen).toEqual(['ANGLE (NVIDIA, NVIDIA GeForce RTX 3060)']);
+		expect(after.tier).toBe('full');
+		expect(attrs['data-device-tier']).toBe('full');
+		expect(drops).toEqual([]);
+	});
+
+	it('a failing GPU rank or boot probe leaves the tier as it was', async () => {
+		const { win } = fakeWin();
+		const { settled } = startDeviceTier(deps({ win, store: fast(), gpu: () => Promise.reject(new Error('x')), boot: () => Promise.reject(new Error('y')) }));
+		expect((await settled).tier).toBe('full');
+	});
+});
+
 describe('probeWhileVisible', () => {
 	it('a visible page runs the probe and keeps its score, and leaves no listener behind', async () => {
 		const d = fakeDoc(false);

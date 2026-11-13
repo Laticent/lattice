@@ -86,6 +86,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "codemirror": "^6.0.2",
+    "detect-gpu": "5.0.70",
     "dompurify": "^3.4.17",
     "fuse.js": "^7.4.2",
     "harfbuzzjs": "^0.10.3",
