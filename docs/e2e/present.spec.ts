@@ -25,6 +25,44 @@ test('present navigates through slides and exits on Escape', async ({ page }) =>
 	await expect(dialog).toBeHidden();
 });
 
+// A render of Present that lands WHILE a key is still being delivered must not lose that key. The overlay used to
+// re-subscribe its window keydown listener whenever the handler's deps changed, and a listener earlier on the window
+// (the shell's own) can set state that React renders in the microtask right after it returns: the swap then happens in
+// the middle of the window's listener list, the old listener is skipped as removed and the new one is not on the list,
+// so the Escape did nothing and Present stayed open over the Studio (studio-warm-offline.spec.ts, 5 of 130 runs under load).
+// This stages the same order on purpose: a listener registered before Present's turns the Escape into a `g`, which
+// opens the overview (an input of Present's key handler) mid-dispatch. The Escape behind it has to reach Present, which
+// closes the overview with it.
+test('an Escape still reaches Present when a render re-wires its keys mid-delivery', async ({ page }) => {
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	await page.keyboard.press('Escape');
+	await expect(dialog).toBeHidden();
+	await page.evaluate(() => {
+		const w = window as unknown as { __sawOverview?: boolean };
+		w.__sawOverview = false;
+		new MutationObserver(() => {
+			if (document.querySelector('[role="dialog"][aria-label="Slide overview"]')) w.__sawOverview = true;
+		}).observe(document.body, { childList: true, subtree: true });
+		let armed = true;
+		window.addEventListener('keydown', (e) => {
+			if (!armed || e.key !== 'Escape') return;
+			armed = false;
+			queueMicrotask(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g' })));
+		});
+	});
+	// Re-opening subscribes Present's listener again, after the one above.
+	await page.getByRole('button', { name: 'Present', exact: true }).click();
+	await expect(dialog.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
+	await page.keyboard.press('Escape');
+	// The `g` opened the overview inside the Escape's delivery; the Escape then closed it.
+	await expect.poll(() => page.evaluate(() => (window as unknown as { __sawOverview?: boolean }).__sawOverview)).toBe(true);
+	await expect(page.getByRole('dialog', { name: 'Slide overview' })).toBeHidden();
+	await expect(dialog).toBeVisible();
+	// And the next Escape leaves Present.
+	await page.keyboard.press('Escape');
+	await expect(dialog).toBeHidden();
+});
+
 test('an untagged deck has no reader-view switcher in Present (heuristics retired)', async ({ page }) => {
 	// The old author-blind exec/onepager heuristics are retired: a deck with no `lenses:` registry has
 	// nothing to switch to, so Present shows a static "Full deck" label — not a dropdown. (Building +

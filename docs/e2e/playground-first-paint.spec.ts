@@ -1,4 +1,5 @@
 import { PG_SPLIT_BUCKET, PG_SPLIT_KEY, PG_SPLIT_MIN, PG_SPLIT_PANEL_IDS, PG_SPLIT_RAIL, PG_SPLIT_SNAP_MIDPOINT } from '../src/components/playground/pg-split';
+import { holdEngine } from './engine-glob';
 import { expect, test } from './studio-fixture';
 
 // ── The Playground must not ASSEMBLE IN VIEW (#1563) ──────────────────────────────────
@@ -51,6 +52,28 @@ const TRACKED = ['bar', 'editorPane', 'previewPane', 'slide'] as const;
 
 /** Install the per-frame sampler. Records a new entry only when an element's rounded rect
  *  CHANGES, so the length of each log is the number of distinct geometries that were shown. */
+/**
+ * The end of the live hand-off, as signals, before this file reads "and then nothing moved" off its frame log.
+ *
+ * These checks used to dwell 1500 ms after the hand-off (a measurement window, #1589). What can still move the slide
+ * then is named in PlaygroundApp.tsx (`markLiveWhenSlidesVisible`): `.is-live` goes on once the frame is fitted and on
+ * the slide the chrome names, starts the 0.2 s cross-fade, and the instant-shell is torn down, with `data-pg-shell`
+ * taken off `<html>`, only when that fade has finished. So wait for (1) the shell to be gone, (2) the preview's faces to
+ * have settled (a face landing late re-fits), (3) every finite animation on the page to have finished, and (4) two
+ * more frames, so the per-frame sampler has read the state all of that left. A geometry that was going to arrive has
+ * then arrived and been logged (HARD RULE #32).
+ */
+async function handOffSettled(page: import('@playwright/test').Page) {
+	await expect(page.locator('html'), 'the instant-shell was never torn down').not.toHaveAttribute('data-pg-shell', /.*/, { timeout: 30_000 });
+	await page.evaluate(async () => {
+		const frame = document.querySelector('#preview') as HTMLIFrameElement | null;
+		await frame?.contentDocument?.fonts.ready;
+		const finite = (a: Animation) => a.effect?.getComputedTiming().endTime !== Number.POSITIVE_INFINITY;
+		await Promise.all(document.getAnimations().filter(finite).map((a) => a.finished.catch(() => undefined)));
+		await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+	});
+}
+
 async function sampleFrames(page: import('@playwright/test').Page, ms = 12_000) {
 	await page.addInitScript((durationMs) => {
 		const log: Record<string, { t: number; rect: [number, number, number, number] | null }[]> = {};
@@ -242,7 +265,7 @@ test('@smoke a reload paints one geometry per element — nothing assembles in v
 	// Sample past the live hand-off: the engine bundle lands ~3s in under 6x throttle, and
 	// the cached-slide → filmstrip swap is the last thing that moves.
 	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
-	await page.waitForTimeout(1500);
+	await handOffSettled(page);
 
 	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
 
@@ -419,7 +442,7 @@ test('a share below a pane minimum at a narrower window is clamped BEFORE paint,
 	await sampleFrames(page);
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
-	await page.waitForTimeout(1500);
+	await handOffSettled(page);
 
 	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
 	assertOneGeometry(log, ['editorPane', 'previewPane']);
@@ -481,7 +504,7 @@ test('a share below the snap midpoint is NOT clamped — the seed lets the rail 
 	// NOT `.pg-preview-wrap.is-live` — a collapsed pane hides `.pg-pane-inner`, so the wrap this
 	// file usually waits on never becomes visible. The pane reaching its rail IS the settle.
 	await expect(page.locator('#pg-split-preview')).toHaveJSProperty('offsetWidth', PG_SPLIT_RAIL, { timeout: 30_000 });
-	await page.waitForTimeout(1500);
+	await handOffSettled(page);
 
 	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
 	const seen = distinct(log.previewPane ?? []);
@@ -521,7 +544,7 @@ test('an Explore reload paints one geometry per element too', async ({ page }) =
 	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
 	await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/\d+ \/ \d+/, { timeout: 30_000 });
-	await page.waitForTimeout(1500);
+	await handOffSettled(page);
 
 	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
 	// The editor pane does not exist in Explore (the layout removes it), so it is not tracked.
@@ -543,6 +566,63 @@ test('an Explore reload paints one geometry per element too', async ({ page }) =
 	).toBeGreaterThan(0);
 });
 
+// A LAND IN FLIGHT AT THE REVEAL. A plain reload opens the walk on slide 1, where the frame already sits at the land's
+// position (measured: scrollY 16 before and after both lands), so the reveal's wait for the land
+// (`markLiveWhenSlidesVisible`'s `!landPendingRef.current`) changes no geometry there and the test above cannot fail on
+// it. A reader who steps BEFORE the slides render is the boot that has a land to make: the walk names slide 2 while the
+// frame opens on slide 1. The engine is held so the step lands in that window every run (`holdEngine`), then let
+// through. A slide geometry cannot judge this one: the instant shell paints slide 1 and the reader's step moves it
+// either way. What the guard decides is whether a land is behind `.is-live`, so that is read at that instant, from a
+// MutationObserver: the land state the app publishes (`data-pg-land`, `data-pg-lands`) and the frame's scroll.
+// DETERMINISTIC either way the race goes: a land finishes no sooner than two frames after the slides reveal (it scrolls
+// on a revealed, stable frame, then verifies two frames later), and an unguarded reveal fires on the first revealed
+// frame, so without the guard `.is-live` always meets a land still pending, or none finished yet. Reading only the
+// scroll caught it 2 runs in 3, because a land can scroll before it is done.
+test('a reader who steps before the slides render sees the frame go live already on that slide', async ({ page }) => {
+	await seedRealSession(page);
+	const engine = await holdEngine(page);
+	engine.release();
+	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/^1 \/ \d+/, { timeout: 30_000 });
+
+	engine.hold();
+	await page.addInitScript(() => {
+		const w = window as unknown as { __atLive?: { land: string; lands: number; scroll: number } };
+		new MutationObserver((list) => {
+			for (const m of list) {
+				const el = m.target as HTMLElement;
+				if (!w.__atLive && el.classList?.contains('pg-preview-wrap') && el.classList.contains('is-live')) {
+					const root = document.documentElement.dataset;
+					w.__atLive = {
+						land: root.pgLand ?? 'none',
+						lands: Number(root.pgLands || 0),
+						scroll: (document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow?.scrollY ?? -1,
+					};
+				}
+			}
+		}).observe(document, { subtree: true, attributes: true, attributeFilter: ['class'] });
+	});
+	await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
+	const next = page.locator('#pg-walk .pg-walk-step.next');
+	await expect(next, 'the walk could not be stepped before the slides rendered').toBeEnabled({ timeout: 30_000 });
+	await expect(page.locator('.pg-preview-wrap.is-live'), 'the preview went live with the engine held').toHaveCount(0);
+	await next.click();
+	await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/^2 \//);
+	engine.release();
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+	await handOffSettled(page);
+
+	const at = await page.evaluate(() => ({
+		live: (window as unknown as { __atLive?: { land: string; lands: number; scroll: number } }).__atLive,
+		landed: (document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow?.scrollY ?? -1,
+	}));
+	expect(at.landed, 'the land never left slide 1, so this measured nothing').toBeGreaterThan(100);
+	expect(at.live, 'the reveal was never seen').toBeTruthy();
+	expect([at.live?.land, (at.live?.lands ?? 0) > 0], 'the frame went live with no finished land behind it').toEqual(['done', true]);
+	expect(at.live?.scroll, 'the frame went live before the land put it on the slide the walk names').toBe(at.landed);
+});
+
 // …and again on the phone, which is the other reference condition in the card and the one
 // where the band is worth the most: 109px of an 844px viewport, 13%.
 test.describe('on a phone', () => {
@@ -560,7 +640,7 @@ test.describe('on a phone', () => {
 		await page.goto('/playground/?view=read', { waitUntil: 'domcontentloaded' });
 		await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
 		await expect(page.locator('#pg-walk .pg-walk-pos')).toHaveText(/\d+ \/ \d+/, { timeout: 30_000 });
-		await page.waitForTimeout(1500);
+		await handOffSettled(page);
 
 		const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
 		assertOneGeometry(log, ['previewPane', 'walkBar']);
@@ -623,7 +703,7 @@ test('a plan fetch that 404s leaves an inert bar, not a dead band', async ({ pag
 	// guessing an interval long enough for it to have been. (`[data-sonner-toast]`, not
 	// `.pg-toast` — the surface's toasts are sonner's and carry no such class.)
 	await expect(page.locator('[data-sonner-toast]')).toContainText(/out of date/i, { timeout: 30_000 });
-	await page.waitForTimeout(1500);
+	await handOffSettled(page);
 
 	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
 	assertOneGeometry(log, ['previewPane', 'walkBar']);
@@ -714,9 +794,9 @@ test('a snapshot survives a COLLAPSED capture and still replays exactly when the
 	});
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
-	// One dwell, and it is the measurement window rather than a settle: the shell hands off to
-	// the live filmstrip over a 0.2s cross-fade, and the comparison below is between the two.
-	await page.waitForTimeout(1500);
+	// The shell hands off to the live filmstrip over a 0.2s cross-fade, and the comparison below is
+	// between the two: read it once the hand-off has finished.
+	await handOffSettled(page);
 
 	const shell = (await page.evaluate(() => (window as unknown as { __shell: { shell: number[]; wrap: number[] }[] }).__shell))[0];
 	expect(shell, 'the replay never painted, so nothing was checked for the oversize this case is about').toBeTruthy();

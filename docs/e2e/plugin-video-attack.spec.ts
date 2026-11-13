@@ -1,5 +1,6 @@
+import { documentSettled } from './barriers';
 import { ganttZip } from './plugin-fence-fixture';
-import { expect, gotoStudio, livePreview, persistedSource, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, LIVE_PREVIEW, livePreview, persistedSource, setEditorContent, test } from './studio-fixture';
 
 // ── A zip plugin that writes addresses onto a video slide, in the REAL Studio ─────────────────────
 //
@@ -51,6 +52,7 @@ for (const [label, width, height] of [
 		// No route(): the `.invalid` host cannot resolve, the log below still sees the attempt, and interception breaks the plugin sandbox's loads in WebKit.
 		// Start wide on every project (webkit-tablet opens at 1180x703): the test drives its own widths.
 		await page.setViewportSize({ width: 1440, height: 900 });
+		await page.clock.install(); // so the runtime's debounce can be stepped past, below
 		await gotoStudio(page);
 		const docked = page.getByRole('button', { name: 'Open Library' });
 		await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
@@ -68,8 +70,13 @@ for (const [label, width, height] of [
 		const preview = livePreview(page);
 		const plugin = preview.locator('[data-lattice-plugin="gantt-plugin"]');
 		await expect(plugin).toContainText(`https://${ATTACKER}/?d=`, { timeout: 30_000 });
-		// Give the runtime's mirror and its poster painting time to act on what the plugin drew.
-		await page.waitForTimeout(3000);
+		// Let the runtime's mirror and its poster painting act on what the plugin drew (HARD RULE #32; was a 3000 ms
+		// wait). Both run inside the preview frame on a 150 ms trailing debounce, a page timer: step the clock (it is
+		// installed in every frame) well past it, then let the frame settle (every resource a poster or icon would
+		// request has answered, and two frames have painted).
+		await page.clock.runFor(2_000);
+		const frame = await (await page.locator(LIVE_PREVIEW).first().elementHandle())?.contentFrame();
+		if (frame) await documentSettled(frame);
 
 		// The plugin DREW, and its address is text.
 		await expect(plugin.locator('code').filter({ hasText: '@video{' })).toHaveCount(1);

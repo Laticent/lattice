@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildDeckIndex } from '@/lib/deck-outline';
 import { partStart, unitAt } from '@/lib/fuoco';
 import { boundaryParser as md } from '../../../lib/core/boundary-parser.js';
+import { splitSlideChunks } from '../../../lib/core/slide-boundaries.mjs';
 import { presentationIndices, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './deck-lint';
 import { stripFrontMatter } from './front-matter';
 
@@ -47,17 +48,39 @@ const bodyArb = fc.stringMatching(/^[\p{L}\p{N} .,!?#*]{0,40}$/u).filter((b) => 
 // covered — it is just covered with the right expectation.
 const SEP = '\n\n---\n\n';
 
+// Every property here runs on a FIXED seed (HARD RULE #32): the same 100 inputs on every run, so a red run is
+// the code, not the draw. fast-check prints the seed and the counterexample on a failure; to explore other
+// inputs locally, set LATTICE_FC_SEED. An unseeded run drew "___" once in CI (PR #3157) and failed on an
+// invariant the splitter does not promise; that input is now a fixed case below.
+const FC = { seed: Number(process.env.LATTICE_FC_SEED ?? 20_261_112) };
+
 describe('splitSlides (fuzz)', () => {
-	it('never throws and yields trimmed, non-empty chunks for ANY input', () => {
+	// An EMPTY chunk is a slide (a trailing or doubled separator renders a blank one), so the property does not
+	// ask for non-empty chunks. For ANY string it never throws and every chunk is trimmed.
+	it('never throws and yields trimmed chunks, for ANY input', () => {
 		fc.assert(
 			fc.property(fc.string(), (s) => {
 				const out = splitSlides(s);
 				expect(Array.isArray(out)).toBe(true);
-				for (const chunk of out) {
-					expect(chunk.length).toBeGreaterThan(0);
-					expect(chunk).toBe(chunk.trim());
-				}
+				for (const chunk of out) expect(chunk).toBe(chunk.trim());
 			}),
+			FC,
+		);
+	});
+
+	// fc.string() draws no newline, so it never makes a separator. This property builds decks from separators,
+	// headings, prose and blank lines, and holds splitSlides to the engine's own kernel (splitSlideChunks, the
+	// split the renderer uses): the same slides, blank ones included, with only a blank FIRST chunk dropped.
+	it('splits a deck of separators, headings and prose exactly as the engine kernel does', () => {
+		const piece = fc.constantFrom('---', '___', '***', '- - -', '# A', '## B', 'prose', '- item', '');
+		fc.assert(
+			fc.property(fc.array(piece, { maxLength: 10 }), (pieces) => {
+				const body = pieces.join('\n\n');
+				// One documented difference: an empty body is no slides here (`splitSlides('')` is []), one empty chunk there.
+				const kernel = body.trim() ? splitSlideChunks(body).chunks.map((c: string) => c.trim()) : [];
+				expect(splitSlides(body)).toEqual(kernel);
+			}),
+			FC,
 		);
 	});
 
@@ -67,7 +90,17 @@ describe('splitSlides (fuzz)', () => {
 				const src = bodies.join(SEP);
 				expect(splitSlides(src)).toHaveLength(bodies.length);
 			}),
+			FC,
 		);
+	});
+
+	it('a body that is only a separator is ONE blank slide, as the engine renders it', () => {
+		// The engine drops the blank chunk before the break and renders the one after it (lib/engine/slides.js
+		// `splitOnHr`; checked: `render("___")` emits one <section>). Every thematic-break spelling counts.
+		for (const sep of ['___', '---', '***', '- - -']) expect(splitSlides(sep), sep).toEqual(['']);
+		// Two separators are two blank slides: the blank chunk before the first is dropped, the other two are not.
+		expect(splitSlides('___\n\n___')).toEqual(['', '']);
+		expect(splitSlides('# A\n\n---\n')).toEqual(['# A', '']);
 	});
 
 	it('handles undefined/empty without throwing', () => {
@@ -91,6 +124,7 @@ describe('unknownComponents (fuzz)', () => {
 					expect(KNOWN.includes(f)).toBe(false);
 				}
 			}),
+			FC,
 		);
 	});
 
@@ -100,6 +134,7 @@ describe('unknownComponents (fuzz)', () => {
 				const src = names.map((n) => `<!-- _class: ${n} -->`).join('\n---\n');
 				expect(unknownComponents(src, KNOWN)).toEqual([]);
 			}),
+			FC,
 		);
 	});
 
@@ -108,6 +143,7 @@ describe('unknownComponents (fuzz)', () => {
 			fc.property(fc.string(), (s) => {
 				expect(() => unknownComponents(s, KNOWN)).not.toThrow();
 			}),
+			FC,
 		);
 	});
 });
@@ -118,6 +154,7 @@ describe('slideClass (fuzz)', () => {
 			fc.property(nameArb, bodyArb, (name, body) => {
 				expect(slideClass(`<!-- _class: ${name} -->\n${body}`)).toBe(name);
 			}),
+			FC,
 		);
 		// Bare-Markdown slide (no _class) and degenerate inputs fall back to `text`.
 		expect(slideClass('## Just a heading\n\nSome prose.')).toBe('text');
@@ -187,6 +224,7 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 					expect(slideIndexAt(src, start)).toBe(i);
 				}
 			}),
+			FC,
 		);
 	});
 
@@ -199,6 +237,7 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 				expect(here).toBeLessThanOrEqual(slideIndexAt(src, src.length));
 				expect(here).toBeGreaterThanOrEqual(0);
 			}),
+			FC,
 		);
 	});
 
@@ -245,6 +284,7 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 					expect(slideIndexAt(src, start)).toBe(i);
 				}
 			}),
+			FC,
 		);
 	});
 
@@ -371,6 +411,7 @@ describe('presentationSet (reader lenses)', () => {
 				expect(presentationSet(slides, 'full')).toEqual(slides);
 				expect(presentationSet(slides, 'brief')).toEqual(slides); // no registry → safe full-deck fallback
 			}),
+			FC,
 		);
 	});
 

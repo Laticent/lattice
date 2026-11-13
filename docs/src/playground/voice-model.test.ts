@@ -606,8 +606,12 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     });
     model.setRungPref('off'); // pickRung() resolves to the silent rung regardless of the injected mock
     model.warm(['Would-be next slide sentence.']);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(calls).toEqual([]);
+    // A WITNESS, not a sleep (HARD RULE #32): the same model back on the injected rung warms another sentence through
+    // the same queue. Once the witness has reached synth, a call the silent warm had queued would have reached it first.
+    model.setRungPref(null);
+    model.warm(['Witness.']);
+    await vi.waitFor(() => expect(calls).toContain('Witness.'));
+    expect(calls).toEqual(['Witness.']);
   });
 
   // Kokoro was excluded from prefetch because its synthesis is serial on one worker, so a
@@ -628,8 +632,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
       },
     });
     model.warm(['Would-be next slide sentence.']);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(calls).toEqual(['Would-be next slide sentence.']);
+    await vi.waitFor(() => expect(calls).toEqual(['Would-be next slide sentence.']));
   });
 
   it('marks prefetch traffic as prefetch, so a serial rung can order it behind playback', async () => {
@@ -644,7 +647,7 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
       },
     });
     model.warm(['Prefetched.']);
-    await new Promise((r) => setTimeout(r, 20));
+    await vi.waitFor(() => expect(seen).toBeDefined());
     // Field-wise, not shape-wise: the priority object also carries the DROP channel (#1391),
     // and a whole-object compare would break every time it learns something new.
     expect(seen?.warm).toBe(true);
@@ -718,10 +721,14 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
 
     ctl.abort();
     mock.resolve('One.'); // frees a slot the queued 'Four.' would otherwise take
-    await new Promise((r) => setTimeout(r, 20)); // let any (incorrect) refill happen
-    expect(started).toEqual(['One.', 'Two.', 'Three.']); // 'Four.' never started — the pump stopped once aborted
+    // A WITNESS queued behind 'Four.' by a live caller: the freed slot goes to the first live item, so the witness
+    // starts only if the pump skipped 'Four.'. A pump that ignored the abort starts 'Four.' and the witness waits.
+    model.warm(['Witness.']);
+    await vi.waitFor(() => expect(started).toContain('Witness.'));
+    expect(started).toEqual(['One.', 'Two.', 'Three.', 'Witness.']); // 'Four.' never started — the pump stopped once aborted
     mock.resolve('Two.');
     mock.resolve('Three.');
+    mock.resolve('Witness.');
   });
 
   it("a joiner's own in-flight request is unaffected when a DIFFERENT caller's warm() signal aborts", async () => {
@@ -737,8 +744,9 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     model.warm(['Shared sentence.'], { signal: ctlA.signal }); // caller A fires the real request
     await vi.waitFor(() => expect(calls).toEqual(['Shared sentence.']));
 
-    const bytesP = model.synthOne({ text: 'Shared sentence.' }); // caller B joins A's in-flight entry
-    await new Promise((r) => setTimeout(r, 10));
+    // Caller B joins A's in-flight entry. synthOne joins before its first await, so the join has happened by the
+    // time the call returns: nothing to wait for.
+    const bytesP = model.synthOne({ text: 'Shared sentence.' });
 
     ctlA.abort(); // A walks away — must NOT cancel B's shared request
     mock.resolve('Shared sentence.');
@@ -756,11 +764,14 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     const bytesP = model.synthOne({ text: 'Shared sentence.' });
     await vi.waitFor(() => expect(calls).toEqual(['Shared sentence.']));
 
-    model.warm(['Shared sentence.']); // must join synthOne's in-flight request, not fire a second one
-    await new Promise((r) => setTimeout(r, 20));
-    expect(calls).toEqual(['Shared sentence.']);
+    // Must join synthOne's in-flight request, not fire a second one. The witness rides the same warm() call, one
+    // place behind it in the queue, so once the witness reaches synth a duplicate would already have.
+    model.warm(['Shared sentence.', 'Witness.']);
+    await vi.waitFor(() => expect(calls).toContain('Witness.'));
+    expect(calls).toEqual(['Shared sentence.', 'Witness.']);
 
     mock.resolve('Shared sentence.');
+    mock.resolve('Witness.');
     await bytesP;
   });
 
@@ -774,11 +785,14 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
     await vi.waitFor(() => expect(calls).toEqual(['Upcoming sentence.']));
 
     const bytesP = model.synthOne({ text: 'Upcoming sentence.' });
-    await new Promise((r) => setTimeout(r, 20));
-    expect(calls).toEqual(['Upcoming sentence.']); // still one call — synthOne joined warm()'s in-flight promise
+    // A witness synthOne for another sentence, called next, takes the path a duplicate would have taken.
+    const witnessP = model.synthOne({ text: 'Witness.' });
+    await vi.waitFor(() => expect(calls).toContain('Witness.'));
+    expect(calls).toEqual(['Upcoming sentence.', 'Witness.']); // still one call for the sentence — synthOne joined warm()'s in-flight promise
 
     mock.resolve('Upcoming sentence.');
-    await bytesP;
+    mock.resolve('Witness.');
+    await Promise.all([bytesP, witnessP]);
   });
 
   it('is a no-op for an empty sentence list', async () => {
@@ -793,8 +807,9 @@ describe('warm() — background prefetch across a slide boundary (autoplay warm-
       },
     });
     model.warm([]);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(calls).toEqual([]);
+    model.warm(['Witness.']); // the witness: once its synth runs, anything the empty warm queued would have run first
+    await vi.waitFor(() => expect(calls).toContain('Witness.'));
+    expect(calls).toEqual(['Witness.']);
   });
 });
 

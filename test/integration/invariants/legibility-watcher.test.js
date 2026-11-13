@@ -28,6 +28,7 @@ const os = require('os');
 const puppeteer = require('puppeteer');
 const { spawnSync } = require('child_process');
 const { ROOT } = require('../../helpers/render');
+const { trackPageWork } = require('../../helpers/page-settle');
 
 /** Best-effort Chromium path — mirrors split-envelope-css.test.js. */
 function resolveChrome() {
@@ -81,8 +82,9 @@ describe('type-floor watcher — the live runtime, on the real bundle', () => {
   const read = async (file) => {
     const page = await browser.newPage();
     await page.setViewport({ width: 1200, height: 900 });
-    await page.goto('file://' + file, { waitUntil: 'networkidle0' });
-    await new Promise((r) => setTimeout(r, 2500));
+    const settled = await trackPageWork(page);
+    await page.goto('file://' + file, { waitUntil: 'load' });
+    await settled({ frames: 3, images: true }); // the watcher's passes, the fonts and the pictures are done
     const out = await page.evaluate(() => [...document.querySelectorAll('section')].map((s) => {
       const tab = s.querySelector(':scope > .marker-rail > .illegible-tab');
       return {
@@ -149,8 +151,9 @@ describe('type-floor watcher — the live runtime, on the real bundle', () => {
     for (const [w, h] of [[390, 844], [820, 1180], [1440, 900]]) {
       const page = await browser.newPage();
       await page.setViewport({ width: w, height: h });
-      await page.goto('file://' + html, { waitUntil: 'networkidle0' });
-      await new Promise((r) => setTimeout(r, 2500));
+      const settled = await trackPageWork(page);
+      await page.goto('file://' + html, { waitUntil: 'load' });
+      await settled({ frames: 3, images: true }); // the watcher's passes, the fonts and the pictures are done
       const n = await page.evaluate(() => ({
         rings: document.querySelectorAll('section.illegible').length,
         // COUNTED BY WHAT A READER CAN SEE, not by how many elements exist. The

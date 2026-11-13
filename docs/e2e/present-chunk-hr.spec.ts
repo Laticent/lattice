@@ -1,3 +1,4 @@
+import { documentSettled } from './barriers';
 import { expect, gotoStudio, railButtons, setEditorContent, test } from './studio-fixture';
 
 // #1551 — a preview frame holds ONE slide, or says why it cannot.
@@ -83,8 +84,13 @@ test('a preview frame never stacks two slides, and says so when it cannot show o
 		if (i > 0) {
 			await dialog.getByRole('button', { name: 'Next slide' }).click();
 		}
-		// Give the render (and, on slide 1, the refusal) time to settle.
-		await page.waitForTimeout(1500);
+		// The render (and, on slide 1, the narrowing) has landed: the counter names this slide, the presented frame
+		// has painted a section (a frame's sections arrive in ONE write, so a second one would be in by now), and that
+		// frame has settled. Was a 1500 ms wait (HARD RULE #32).
+		await expect(dialog.getByText(`${i + 1} / ${total}`, { exact: true })).toBeVisible();
+		await expect(page.frameLocator('[aria-label="Presented slide"] iframe.live').locator('section').first()).toBeVisible();
+		const presented = await (await page.locator('[aria-label="Presented slide"] iframe.live').elementHandle())?.contentFrame();
+		if (presented) await documentSettled(presented);
 
 		// THE INVARIANT, and the whole point: a frame holds ONE slide. Before the fix
 		// slide 1 put two here and the second never painted. The guard now narrows to

@@ -109,7 +109,7 @@ same tap flow and got the single ink, so the device differs. Two causes fit, and
 
 - **A per-read cap of 1.2 s.** `pickedInk` raced each read against 1.2 s, a leftover from when the read ran inside the lint pass. On a device where
   loading or decoding the photo takes longer, every attempt timed out and the tooltip ended on both. The read now runs inside the tooltip, so the
-  cap protects nothing and is gone; the sampler keeps its own 4 s load timeout. An e2e slows every image `onload` by 3.5 s (a network delay would
+  cap protects nothing and is gone; the sampler kept its own 4 s load timeout (gone too, 2026-11-13, below). An e2e slows every image `onload` by 3.5 s (a network delay would
   not work: the preview already loaded the photo, so the read is a memory-cache hit) and fails with the cap put back.
 - **A tap that opens the tooltip before its caret move lands.** A slide judged "not on screen" now keeps checking for 1.2 s before offering both,
   and the slide on screen waits up to 6 s, showing "Reading the photo…" once the read takes longer than 0.4 s. Not reproduced in emulation.
@@ -391,3 +391,22 @@ theme's text color. In a light deck that is a dark navy, and a render showed the
 dark scrim (follow-up from #2932). `image.styles.css` now gives a statement's `li` the paragraph's `--_card-body-ink` and
 shadow, and nothing else: its size and width stay as they were. With the row paired to the scrim like the paragraph,
 `inkTargets` in `photo-verdict.ts` reads `li` on a statement again, and the strongest scrim is an upper bound for it too.
+
+## Found on the iPad simulator: the sampler's own 4 s cap (2026-11-13)
+
+The `ios-safari-photo` nightly at 985dfba failed its iPad leg: "timed out after 30000 ms waiting for the Coach photo finding on
+slide 2", while slide 1 and the iPhone leg passed. The screenshot shows slide 2 on screen and the Coach holding lint's
+`thin-card-no-ink`, but no measured finding. Slide 1's photo is an inline `data:` PNG; slide 2's is `sample:photo-wide.svg`, a
+fetch. `loadPhoto` (`card-ink-sampler.ts`) gave up on a photo after 4 s and returned null, and the watch
+(`coach/photo-contrast-watch.ts`) reads a slide once, so the slide stayed unmeasured until the next edit, though the photo
+arrived a moment later. On Playwright WebKit at the iPad's 1032 px, holding that photo's response 5 s reproduced the exact
+message 2 of 2 times; 2.5 s and no delay passed. The earlier e2e slowed `onload` by 2.5 and 3.5 s, both under the cap, which
+is why it passed.
+
+- **Fixed: no deadline on the photo load.** The image's own `load` or `error` decides. Every caller already drops an answer
+  for a slide it has left, and the editor tooltip says "Checking the photo…" until the photo is in. With the fix, the same
+  harness passes with the photo held 5 s and 12 s, and `photo-contrast-coach.spec.ts` holds the read's photo at the network,
+  fast-forwards the page clock a minute, then releases it and expects the finding (red with the cap put back).
+- **Not changed:** the watch still reads a slide once. A read that runs before the preview has drawn the slide also returns
+  null and is not tried again; it is not what failed here and was not reproduced.
+

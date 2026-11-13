@@ -12,6 +12,7 @@
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -44,7 +45,7 @@ theme: indaco
 
 const pngSize = (buf) => [buf.readUInt32BE(16), buf.readUInt32BE(20)];
 
-test('a deck script that predefines LatticePdfCompose does not replace the CLI camera', { skip: !fs.existsSync(BUNDLE) && 'needs npm run build' }, () => {
+test('a deck script that predefines LatticePdfCompose does not replace the CLI camera', { skip: skipUnlessCI(!fs.existsSync(BUNDLE), 'needs npm run build') }, () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cam-isolation-'));
   try {
     fs.copyFileSync(path.join(ROOT, 'lib/samples/photo-wide.jpg'), path.join(dir, 'photo.jpg'));
@@ -58,7 +59,7 @@ test('a deck script that predefines LatticePdfCompose does not replace the CLI c
   }
 });
 
-test('the camera\'s read hook and globals are absent from the deck\'s world', { skip: !fs.existsSync(BUNDLE) && 'needs npm run build' }, async () => {
+test('the camera\'s read hook and globals are absent from the deck\'s world', { skip: skipUnlessCI(!fs.existsSync(BUNDLE), 'needs npm run build') }, async () => {
   const puppeteer = require('puppeteer');
   const { createCliCamera } = require('../../../lib/export/cli-camera.js');
   const launch = { headless: 'new', args: ['--no-sandbox'] };

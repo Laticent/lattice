@@ -79,8 +79,7 @@ describe('createSingleSlideRenderer().dispose()', () => {
 
 		// Let the async continuation run up to the (now-hung) engine render, so the
 		// dispose lands genuinely mid-render — the exact tab-flip race the latch fixes.
-		await new Promise((res) => setTimeout(res, 0));
-		expect(renderStarted).toBe(true);
+		await vi.waitFor(() => expect(renderStarted).toBe(true));
 
 		r.dispose(); // unmount lands while renderMarkdown is in flight
 		release({ html: '<section></section>', css: '' }); // the render now settles

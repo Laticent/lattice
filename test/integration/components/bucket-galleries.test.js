@@ -43,6 +43,7 @@ describe('bucket-galleries', () => {
     const manifests = groups[bucket] || [];
     const authored = isBucketGalleryAuthored(bucket);
 
+    // ci-skip: a property of the tree (the galleryAuthored marker), the same on every machine, so CI takes it exactly when a laptop does.
     test(
       `${bucket}: source .md matches manifests`,
       {
@@ -69,6 +70,7 @@ describe('bucket-galleries', () => {
     );
 
     for (const theme of ['light', 'dark']) {
+      // ci-skip: a property of the tree (the galleryAuthored marker), the same on every machine, so CI takes it exactly when a laptop does.
       test(
         `${bucket}: ${theme} PDF page count = members + 1 (title slide)`,
         {
@@ -89,6 +91,8 @@ describe('bucket-galleries', () => {
           // excused, and only then, so a correct PDF is still asserted.
           const pending = pendingBless(pdfPath, [path.join('lib', 'components', bucket)]);
           if (!fs.existsSync(pdfPath) && pending) {
+            // ci-skip: PRs no longer commit PDFs; a PDF the nightly bless has not rendered yet is pending on every machine,
+            // and the bless commit is the one that runs this check against it.
             t.skip(`${bucket}.gallery.${theme}.pdf: ${pending}`);
             return;
           }
@@ -101,6 +105,7 @@ describe('bucket-galleries', () => {
           const expectedPages = 1 + componentsWithSample;
           const actual = pageCount(pdfPath);
           if (actual !== expectedPages && pending) {
+            // ci-skip: the same pending bless as above; only a check that WOULD fail is excused.
             t.skip(`${bucket}.gallery.${theme}.pdf has ${actual} pages, ${expectedPages} expected: ${pending}`);
             return;
           }

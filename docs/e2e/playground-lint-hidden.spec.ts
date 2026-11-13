@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { requestsFlushed, schedulerDrained } from './barriers';
 
 /**
  * The Playground editor does not lint while it is hidden (`docs/src/playground/editor.js`, lever A of
@@ -27,16 +28,27 @@ test.beforeEach(async ({ page }) => {
 	);
 });
 
+/**
+ * The linter's first run is 350 ms after the editor mounts. Instead of sleeping several times that (HARD RULE #32), the
+ * page runs on Playwright's clock: step it 3 s, so that timer (and anything it re-arms) has fired; let React render
+ * what it set; and flush the request log, so a lint-core request the timer started has been seen.
+ */
+async function pastTheLinterDelay(page: import('@playwright/test').Page) {
+	await page.clock.runFor(3_000);
+	await schedulerDrained(page);
+	await requestsFlushed(page);
+}
+
 test('@crosswidth Explore never loads the lint core; Edit loads it and lints', async ({ page }) => {
 	const lintLoads: string[] = [];
 	page.on('request', (r) => {
 		if (LINT_CORE.test(r.url())) lintLoads.push(r.url());
 	});
+	await page.clock.install();
 	await page.goto('/playground/?c=kpi&view=read', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('body')).toHaveAttribute('data-view', 'read');
 	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/, { timeout: 90_000 });
-	// The linter's first run is 350 ms after the editor mounts; give it several times that.
-	await page.waitForTimeout(3_000);
+	await pastTheLinterDelay(page);
 	expect(lintLoads, 'the lint core loaded while the editor was hidden').toEqual([]);
 	await expect(page.locator('.cm-lintRange')).toHaveCount(0);
 
@@ -75,6 +87,7 @@ test('@crosswidth showing a hidden editor lints it with no edit', async ({ page 
 	page.on('request', (r) => {
 		if (LINT_CORE.test(r.url())) lintLoads.push(r.url());
 	});
+	await page.clock.install();
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	// A hidden editor is built only once a reader shows up (EditorHost), so give it one.
 	// The listener arrives with hydration, so keep the pointer moving until the editor is built.
@@ -87,7 +100,7 @@ test('@crosswidth showing a hidden editor lints it with no edit', async ({ page 
 			return page.locator('.cm-content').count();
 		}, { timeout: 40_000 })
 		.toBeGreaterThan(0);
-	await page.waitForTimeout(3_000);
+	await pastTheLinterDelay(page);
 	expect(lintLoads, 'the lint core loaded while the editor was hidden').toEqual([]);
 	await page.evaluate(() => document.getElementById('e2e-hide-editor')?.remove());
 	await expect(page.locator('.cm-lintRange').first()).toBeVisible({ timeout: 30_000 });

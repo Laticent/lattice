@@ -1,3 +1,4 @@
+import { layoutSettled } from './barriers';
 import { markersSettled, paintedMarkers } from './marker-chrome';
 import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 
@@ -13,6 +14,9 @@ import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 // climbing. It asserts against a ceiling with headroom rather than an exact count — the pool's
 // own ceiling follows what is on screen, so the number legitimately differs by viewport.
 const CEILING = 48;
+// The pool releases a slot RELEASE_GRACE after its tile leaves the band (preview-pool.tsx). That is a page timer, so the
+// waits in this file are steps of the page's clock past it, not sleeps (HARD RULE #32).
+const RELEASE_GRACE = 600;
 
 /** Live engine preview documents currently mounted in the page. */
 const liveFrames = (page: import('@playwright/test').Page) => page.evaluate(() => document.querySelectorAll('iframe.live').length);
@@ -21,6 +25,7 @@ test('@crosswidth the add-slide gallery holds its live-preview count flat across
 	// Three flick-scroll traversals of a 61-tile grid plus a search pass — comfortably past the
 	// 60s suite default. Explicit rather than `test.slow()`, which would triple it.
 	test.setTimeout(120_000);
+	await page.clock.install(); // flows at the real pace until a step below moves it
 	await gotoStudio(page);
 	// The cross-width open (drawer route on a phone) is `openAddSlide` in the fixture now —
 	// it grew out of this spec's local helper when #1654 unified the launcher names and made
@@ -63,15 +68,21 @@ test('@crosswidth the add-slide gallery holds its live-preview count flat across
 
 	let browsePeak = 0;
 	for (let pass = 0; pass < 3; pass++) {
+		// Between traversals the recycler drains: step the clock past the release grace, so every slot a passed tile
+		// held is released, then let the pool's re-render land.
 		browsePeak = Math.max(browsePeak, await flick(true));
-		await page.waitForTimeout(400);
+		await page.clock.runFor(RELEASE_GRACE + 200);
+		await layoutSettled(page);
 		browsePeak = Math.max(browsePeak, await flick(false));
-		await page.waitForTimeout(400);
+		await page.clock.runFor(RELEASE_GRACE + 200);
+		await layoutSettled(page);
 	}
 	// Settle, then read the steady state — the property the fix actually claims is that the count
 	// PLATEAUS, and unlike the ceiling that claim is scale-free (it holds at any viewport, so it
-	// does not quietly become a desktop-only assertion).
-	await page.waitForTimeout(2500);
+	// does not quietly become a desktop-only assertion). Settled means: every release the grace was
+	// holding back has fired (the clock steps well past it) and the pool has re-rendered.
+	await page.clock.runFor(RELEASE_GRACE * 4);
+	await layoutSettled(page);
 	const settled = await liveFrames(page);
 	expect(browsePeak, `live preview documents peaked at ${browsePeak} across three flick-scrolls`).toBeLessThanOrEqual(CEILING);
 	expect(settled, `after three full traversals the grid settled at ${settled} live documents`).toBeLessThanOrEqual(CEILING);
@@ -89,7 +100,11 @@ test('@crosswidth the add-slide gallery holds its live-preview count flat across
 	let searchPeak = 0;
 	for (let y = 0; y <= searchHeight; y += 250) {
 		await scroller.evaluate((el, top) => el.scrollTo({ top }), y);
-		await page.waitForTimeout(180);
+		// The observer reports the new band, the pool mounts it (layoutSettled), and 180 ms of the page's clock pass,
+		// the step the stepped scroll always had: inside the 600 ms grace, so a passed tile still holds its slot
+		// while the next one mounts, which is the overlap the peak exists to see.
+		await layoutSettled(page);
+		await page.clock.runFor(180);
 		searchPeak = Math.max(searchPeak, await liveFrames(page));
 	}
 	expect(searchPeak, `live preview documents peaked at ${searchPeak} while scrolling search results`).toBeLessThanOrEqual(CEILING);
@@ -110,6 +125,7 @@ test('@crosswidth the add-slide gallery holds its live-preview count flat across
 // neither wrote nor can fix.
 test('@crosswidth no add-slide gallery tile paints an authoring alarm', async ({ page }, testInfo) => {
 	test.setTimeout(120_000);
+	await page.clock.install(); // markersSettled steps it past the watcher's debounce
 	await gotoStudio(page);
 	await openAddSlide(page, testInfo.project.name === 'mobile');
 
@@ -117,7 +133,8 @@ test('@crosswidth no add-slide gallery tile paints an authoring alarm', async ({
 	const height = await scroller.evaluate((el) => el.scrollHeight);
 	for (let y = 0; y <= height; y += 250) {
 		await scroller.evaluate((el, top) => el.scrollTo({ top }), y);
-		await page.waitForTimeout(160);
+		// Each band has mounted and painted before the next scroll (was a 160 ms tick, HARD RULE #32).
+		await layoutSettled(page);
 	}
 	// The watcher re-measures once webfonts land, so a too-early read can miss a mark —
 	// `markersSettled` waits for the fonts AND for the re-measure to change nothing, rather

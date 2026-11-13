@@ -3,6 +3,7 @@ import { inflateSync } from 'node:zlib';
 import type { Browser, Page } from '@playwright/test';
 import JSZip from 'jszip';
 import { PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib';
+import { confirmPhotoFormat } from './photo-format';
 import { CHROME, expect, gotoStudio, setEditorContent, shareExport, test } from './studio-fixture';
 
 // A Library photo has to survive every way a deck LEAVES the browser, because `asset:<name>` means
@@ -35,22 +36,8 @@ async function addPhoto(page: Page, name: string) {
 		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
-		// The format dialog asks how to store them; the probes take its default.
-		for (let i = 0; i < 200; i++) {
-			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
-			if (b) {
-				// These probes are PNGs that must stay byte-exact, so they ask for the original.
-				const keep = document.querySelector('[role="dialog"] [role="radio"][aria-label="Keep original"]') as HTMLButtonElement | null;
-				if (keep) {
-					keep.click();
-					await new Promise((r) => setTimeout(r, 150));
-				}
-				b.click();
-				break;
-			}
-			await new Promise((r) => setTimeout(r, 50));
-		}
 	}, name);
+	await confirmPhotoFormat(page, 'Keep original');
 }
 
 

@@ -1,3 +1,4 @@
+import { FRAME_MS, pauseFrames, stepFrame, stepFramesUntil } from './frame-clock';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 // THE BETWEEN-SLIDE BEAT, on the real Present overlay.
@@ -21,6 +22,14 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 // fires on the autoplay chain regardless of rung, so a captions-only deck exercises it exactly
 // as a narrated one does (HARD RULE #24 keeps our key off this path; HARD RULE #23 is why this
 // is an e2e spec and not another unit test).
+//
+// EVERY TEST HERE RUNS ON A FAKE CLOCK, stepped one frame at a time from Play (frame-clock.ts). A beat is a timer and
+// a hold is a span of frames, so the old real-clock polls (every 60 ms, with a stopwatch round them) passed or failed
+// on runner load (HARD RULE #32). On the fake clock, "the instant the slide advances" is a frame the test steps onto,
+// "4.5 s with nothing happening" is 4.5 s of virtual time in which the beat's timer had every chance to fire, and a
+// hold's length is a count of frames.
+const CAP_FRAMES = (ms: number) => Math.ceil(ms / FRAME_MS);
+
 test.describe('Present — the between-slide beat', () => {
 	test.beforeEach(async ({ page }) => {
 		// A long, deliberate beat so the hold is a window a test can observe rather than a race.
@@ -33,6 +42,7 @@ test.describe('Present — the between-slide beat', () => {
 				/* storage unavailable — the app falls back to its defaults */
 			}
 		});
+		await page.clock.install();
 		await gotoStudio(page);
 	});
 
@@ -47,21 +57,17 @@ test.describe('Present — the between-slide beat', () => {
 		const position = async () => (await counter.textContent())?.trim() ?? '';
 
 		const first = await position();
+		await pauseFrames(page);
 		await transport.click(); // the ONE Play: narrate this slide AND chain
 
 		// Sample the control AT THE INSTANT the slide advances — no auto-retrying matcher.
 		// `toHaveAccessibleName` would poll for up to 15s and simply wait out the 4s hold, which
 		// is why the first version of this test passed against the unfixed build. The hold is a
 		// window; catching a defect inside it means reading the value, once, while it is open.
-		let labelAtAdvance: string | null = null;
-		const deadline = Date.now() + 45_000;
-		while (Date.now() < deadline) {
-			if ((await position()) !== first) {
-				labelAtAdvance = await label();
-				break;
-			}
-			await page.waitForTimeout(60); // the POLL INTERVAL of this hand-rolled loop, not a settle
-		}
+		// Stepping frame by frame, the first frame after the advance is the one read.
+		const frames = await stepFramesUntil(page, async () => (await position()) !== first, CAP_FRAMES(45_000));
+		expect(frames, 'the deck never advanced inside 45 s of virtual time').toBeLessThan(CAP_FRAMES(45_000));
+		const labelAtAdvance = await label();
 
 		// THE ASSERTION. Measured against the unfixed build, the control read "Play the
 		// presentation" from the advance until the beat expired ~3.7s later, at every transition.
@@ -78,12 +84,12 @@ test.describe('Present — the between-slide beat', () => {
 			.poll(label, { timeout: 2_000, message: 'a tap during the beat pauses the deck' })
 			.toBe('Play the presentation');
 		const held = await position();
-		// KEPT DELIBERATELY (#1526). The pass condition here is that NOTHING happens: no surviving
-		// timer resumes playback and the deck does not advance. There is no signal to poll for the
-		// absence of an event — a poll would be satisfied by the already-correct state the instant
-		// it ran, and never observe the barge-in it exists to catch. The interval must outlast the
-		// 4000ms beat the tap interrupted (set in beforeEach), so it is a budget, not a guess.
-		await page.waitForTimeout(4500);
+		// The pass condition here is that NOTHING happens: no surviving timer resumes playback and
+		// the deck does not advance. A poll would be satisfied by the already-correct state the
+		// instant it ran. So the clock is stepped past the 4000 ms beat the tap interrupted (set in
+		// beforeEach): a timer that survived the tap has then fired, on every runner, and its
+		// barge-in is on the page when the state is read.
+		for (let i = 0; i < CAP_FRAMES(4_500); i++) await stepFrame(page);
 		expect(await label(), 'no timer survived the tap to resume playback').toBe('Play the presentation');
 		expect(await position(), 'and the deck did not advance past the slide it was paused on').toBe(held);
 	});
@@ -138,6 +144,7 @@ test.describe('Present — the between-slide beat', () => {
 		expect(atRest.slice(1).some((s) => s.playhead), 'and no other slide does').toBe(false);
 		expect(new Set(atRest.slice(1).map((s) => s.track)).size, 'every other segment shares one resting track').toBe(1);
 
+		await pauseFrames(page);
 		await dialog.getByRole('button', { name: 'Play the presentation' }).click();
 
 		// Two different things, and only ONE of them is pollable.
@@ -150,13 +157,13 @@ test.describe('Present — the between-slide beat', () => {
 		// that starts and then STALLS, which is the reported #1352 symptom, passes. Verified:
 		// with an in-page break pinning the width 500ms after first paint, sampling `early` at
 		// first-paint PASSES (early=1.39px, pinned=1.61px) and dwelling first FAILS, correctly.
-		// So dwell across the original window before measuring. This sleep is a MEASUREMENT
-		// WINDOW, not a settle — shortening it is what breaks the test.
+		// So dwell across the original window before measuring: 1.5 s of virtual time, a
+		// MEASUREMENT WINDOW, not a settle — shortening it is what breaks the test.
 		const progressPx = async () => (await segments())[0].progress;
-		await expect.poll(progressPx, { timeout: 1_500 }).toBeGreaterThan(0);
-		await page.waitForTimeout(1_500);
+		await stepFramesUntil(page, async () => (await progressPx()) > 0, CAP_FRAMES(1_500));
+		for (let i = 0; i < CAP_FRAMES(1_500); i++) await stepFrame(page);
 		const early = await progressPx();
-		await expect.poll(progressPx, { timeout: 3_000 }).toBeGreaterThan(early);
+		await stepFramesUntil(page, async () => (await progressPx()) > early, CAP_FRAMES(3_000));
 		const later = await progressPx();
 
 		expect(early, 'the progress fill appeared once playback started').toBeGreaterThan(0);
@@ -184,6 +191,7 @@ test.describe('Present — a deck carries its own pace', () => {
 				/* storage unavailable — the app falls back to its defaults */
 			}
 		});
+		await page.clock.install();
 		await gotoStudio(page);
 		await setEditorContent(
 			page,
@@ -202,19 +210,16 @@ test.describe('Present — a deck carries its own pace', () => {
 		await expect.poll(position).toBe('1 / 2');
 
 		const first = await position();
+		await pauseFrames(page);
 		await dialog.getByRole('button', { name: 'Play the presentation' }).click();
 
 		// Time the hold on ARRIVAL at slide 2, read off the dialog's own published beat state
 		// (`data-beat="hold"`) rather than inferred from a control's label — the transport
-		// deliberately keeps reading Pause through a hold, which is the #1352 fix.
-		const advanced = Date.now() + 60_000;
-		while (Date.now() < advanced && (await position()) === first) await page.waitForTimeout(60); // poll interval
+		// deliberately keeps reading Pause through a hold, which is the #1352 fix. The hold's
+		// length is the number of frames stepped while it lasts.
+		await stepFramesUntil(page, async () => (await position()) !== first, CAP_FRAMES(60_000));
 		expect(await position(), 'the deck never advanced to the second slide').not.toBe(first);
-
-		const start = Date.now();
-		const holdEnd = Date.now() + 20_000;
-		while (Date.now() < holdEnd && (await dialog.getAttribute('data-beat')) === 'hold') await page.waitForTimeout(60); // poll interval
-		const held = Date.now() - start;
+		const held = (await stepFramesUntil(page, async () => (await dialog.getAttribute('data-beat')) !== 'hold', CAP_FRAMES(20_000))) * FRAME_MS;
 
 		// `deliberate` is ~2.2s and `brisk` ~0.8s. Anything under 1.5s means the workspace preset
 		// won and the deck's declaration was thrown away the moment it left its author's machine —
@@ -229,6 +234,7 @@ test.describe('Present — a deck carries its own pace', () => {
 // 700 ms) before it advances, and publishes that hold as `data-beat="hold"`, like the arrival beat.
 test.describe('Present — the beat before the next slide', () => {
 	test('every handoff holds the finished slide before the next one appears', async ({ page }) => {
+		await page.clock.install();
 		await gotoStudio(page);
 		await setEditorContent(
 			page,
@@ -263,12 +269,16 @@ test.describe('Present — the beat before the next slide', () => {
 			};
 			requestAnimationFrame(tick);
 		});
+		await pauseFrames(page);
 		await dialog.getByRole('button', { name: 'Play the presentation' }).click();
-		await expect.poll(position, { timeout: 60_000 }).toBe('3 / 3');
+		await stepFramesUntil(page, async () => (await position()) === '3 / 3', CAP_FRAMES(60_000), 10);
+		expect(await position()).toBe('3 / 3');
+		// The sampler is a frame callback: it sees the flip React just committed on the NEXT frame.
+		await stepFrame(page);
 		const flips = await page.evaluate(() => (window as unknown as { __flips: { hold: boolean; heldMs: number }[] }).__flips);
 		expect(flips.length).toBe(2);
 		for (const f of flips) {
-			// brisk's leave beat is 400 ms; a frame of slack for the rAF sampling.
+			// brisk's leave beat is 400 ms; a frame of slack for the rAF sampling (virtual frames, on the fake clock).
 			expect(f.hold, 'the deck was holding the finished slide when it advanced').toBe(true);
 			expect(f.heldMs, `the finished slide held ${f.heldMs} ms before the next appeared`).toBeGreaterThanOrEqual(380);
 		}

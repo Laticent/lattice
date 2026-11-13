@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { pauseFrames } from './frame-clock';
 
 // The /segno grammar playground, driven through its hostile grammars in all three engines.
 //
@@ -146,6 +147,8 @@ function table(project: string, width: number, rows: Row[]): string {
 for (const tag of [' @gecko', ' @webkit-tablet']) {
 	for (const width of WIDTHS) {
 		test(`the /segno playground answers every hostile grammar at ${width}px${tag}`, async ({ page }, testInfo) => {
+			// On Playwright's clock (flowing at the real pace until step 13 stops it), so step 13's cadence is exact.
+			await page.clock.install();
 			test.setTimeout(240_000);
 			await page.setViewportSize({ width, height: HEIGHT[width] });
 			const pageErrors: string[] = [];
@@ -284,21 +287,53 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 				await test.step('13 typing during a runaway still stops it', async () => {
 					await input.fill(LONG_TEXT);
 					await arm(page, STOPPED);
+					// THE CADENCE IS THE INPUT, so it runs on the page's clock (HARD RULE #32): stopped here, then moved
+					// exactly 250 ms per keystroke. The build's 1.5 s budget is a page timer, so it fires at 1.5 s of
+					// that clock however slow the runner is; the old loop slept 250 ms of real time, and WebKit's round
+					// trips stretched each turn, so as few as 2 keys could span the budget.
+					await pauseFrames(page);
+					// Record each request the page posts to its worker. The budget's timer starts at the post, not at the
+					// first input: the post waits for the worker's previous reply, which arrives in real time while this
+					// loop moves the paused clock, so "ms since the input" carried runner load (2,250 under load).
+					await page.evaluate(() => {
+						const w = window as unknown as { __posts: number[]; __post?: Worker['postMessage'] };
+						w.__posts = [];
+						w.__post = Worker.prototype.postMessage;
+						Worker.prototype.postMessage = function (this: Worker, ...args: Parameters<Worker['postMessage']>) {
+							w.__posts.push(performance.now());
+							return (w.__post as Worker['postMessage']).apply(this, args);
+						} as Worker['postMessage'];
+					});
 					await code.fill(runaway);
 					let keys = 0;
-					const deadline = Date.now() + 10_000;
-					while (Date.now() < deadline && !STOPPED.test((await verdict.textContent()) ?? '')) {
+					// 40 keystrokes is 10 s of the page's clock, far past the 1.5 s budget.
+					for (let i = 0; i < 40 && !STOPPED.test((await verdict.textContent()) ?? ''); i++) {
 						// `y`, the runaway's own leaf: the caret can sit anywhere after fill() (Gecko puts it
 						// first), and any other key there makes the text fail at once instead of running away.
 						await input.press('y');
 						keys += 1;
-						await page.waitForTimeout(250);
+						await page.clock.runFor(250);
 					}
+					await page.clock.resume();
 					const { ms } = await landed(page, 1_000);
-					// WebKit's evaluate round trips stretch each loop past 250 ms, so 2 keys can span the 1.5 s.
-					expect(keys).toBeGreaterThan(1);
+					// The runaway's request is the last one posted before the stop (keystrokes queue behind it, unposted).
+					// On the page's clock its timer fires exactly 1.5 s after that post, so the stop is the budget to the
+					// millisecond, whatever the runner's load. A stop that keystrokes kept pushing back would land later.
+					const sincePost = await page.evaluate(() => {
+						const w = window as unknown as { __posts: number[]; __post: Worker['postMessage']; __segno: { t1: number } };
+						Worker.prototype.postMessage = w.__post;
+						const posts = w.__posts.filter((t) => t <= w.__segno.t1);
+						const post = posts.at(-1);
+						return post === undefined ? null : { since: w.__segno.t1 - post, posts: posts.length };
+					});
+					expect(keys).toBeGreaterThan(4);
 					expect(ms).toBeGreaterThan(1_400);
-					expect(ms).toBeLessThan(4_000);
+					expect(sincePost?.since, 'the stop is not 1.5 s after the runaway request was posted').toBe(1_500);
+					// AND THE KEYSTROKES WAITED. While a request is in flight a keystroke's parse queues, unposted (`post()`), so
+					// the whole step posts twice: the compile, then the runaway parse (measured on webkit-tablet and gecko). A
+					// page that posted, and so re-armed the budget, on every keystroke would stop 1.5 s after the 40th post and
+					// pass the check above; it fails this one. A count, not a time, so load cannot move it.
+					expect(sincePost?.posts, 'typing posted to the busy worker and pushed the stop back').toBeLessThanOrEqual(3);
 					record({ step: 13, what: 'typing every 250 ms during a runaway', result: `stopped after ${keys} keystrokes`, ms });
 				});
 

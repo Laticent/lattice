@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import type { Page } from '@playwright/test';
 import JSZip from 'jszip';
+import { confirmPhotoFormat } from './photo-format';
 import { CHROME, expect, gotoStudio, openSection, setEditorContent, test, toastText } from './studio-fixture';
 
 // A Library photo has to SURVIVE: a backup carries it, a restore puts it back where it was, the storage
@@ -47,24 +48,10 @@ async function addPhoto(page: Page, name: string, o: { w?: number; h?: number; n
 			const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
 			input.files = dt.files;
 			input.dispatchEvent(new Event('change', { bubbles: true }));
-			// The format dialog asks how to store them; the probes take its default.
-			for (let i = 0; i < 200; i++) {
-				const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
-				if (b) {
-					// These probes are PNGs that must stay byte-exact, so they ask for the original.
-					const keep = document.querySelector('[role="dialog"] [role="radio"][aria-label="Keep original"]') as HTMLButtonElement | null;
-					if (keep) {
-					keep.click();
-					await new Promise((r) => setTimeout(r, 150));
-				}
-					b.click();
-					break;
-				}
-				await new Promise((r) => setTimeout(r, 50));
-			}
 		},
 		{ fileName: name, w: o.w ?? 320, h: o.h ?? 180, noise: o.noise ?? false },
 	);
+	await confirmPhotoFormat(page, 'Keep original');
 }
 
 async function openLibraryImages(page: Page) {

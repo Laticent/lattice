@@ -44,6 +44,7 @@ describe('component-galleries', () => {
     const skipFormula = enriched && !m.galleryAuthored ? false :
       (!enriched ? 'not yet migrated (no enriched prose fields)' :
        'gallery is hand-authored (manifest.galleryAuthored: true)');
+    // ci-skip: a property of the tree (the manifest's enriched fields and galleryAuthored), the same on every machine.
     test(
       `${m.name}: light gallery page count matches manifest formula`,
       { timeout: 180000, skip: skipFormula },
@@ -67,6 +68,7 @@ describe('component-galleries', () => {
     // (dark is a finish modifier, not a structural change); if it
     // doesn't, a transform is silently dropping a slide under the dark
     // variant. The PDF itself is committed via Phase 2.
+    // ci-skip: a property of the tree (the manifest's enriched fields and galleryAuthored), the same on every machine.
     test(
       `${m.name}: dark gallery page count matches light`,
       { timeout: 180000, skip: enriched ? false : 'not yet migrated (no enriched prose fields)' },
@@ -83,6 +85,7 @@ describe('component-galleries', () => {
         // has none until the nightly bless renders them.
         const pending = pendingBless(lightPdfPath, [targetPaths(m).gallery]);
         if (pending && !(fs.existsSync(lightPdfPath) && fs.existsSync(darkPdfPath))) {
+          // ci-skip: PRs no longer commit PDFs; a gallery the nightly bless has not rendered yet is pending on every machine.
           t.skip(`${m.name}: ${pending}`);
           return;
         }

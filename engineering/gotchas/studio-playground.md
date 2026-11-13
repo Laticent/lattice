@@ -1913,6 +1913,28 @@ never turn "passed in headless" into "works on iOS."
 - **Mitigation** — `PresentOverlay.tsx` attaches the listener in `useLayoutEffect`, inside the commit that shows the
   dialog. A surface whose keys must work the instant it appears binds them in a layout effect.
 
+## Escape does nothing while Present is open, under load, and the next click times out on Present's toolbar
+
+- **Symptom** — Present is open and settled, Escape is pressed and Present stays open for good; the next click in the
+  Studio fails with "Present dialog subtree intercepts pointer events". `e2e/studio-warm-offline.spec.ts` (the
+  "every on-demand Studio surface" sweep) failed 5 of 130 runs under load (2 to 4 workers, with the unit suite or
+  another e2e run beside it). It reads like a
+  closing dialog that still takes hits, but Present has no exit fade: it was never closed.
+- **Cause** — Present's key effect subscribed its handler itself, so a change to any of its deps (`NAV`,
+  `overviewOpen`, …) swapped the `window` listener. The shell's own `window` keydown listener comes first in the list
+  and sets state; React renders that in the microtask after the listener returns, still inside the same dispatch. If
+  that render changes a dep, the old listener is skipped as removed, and the new one was not on the list when dispatch
+  reached the window. Chromium runs neither (measured; Firefox happened to run the old one in the same experiment),
+  so the key is lost.
+- **Mitigation** — `PresentOverlay.tsx` subscribes one listener per open (`[open]`), which calls `keyRef.current`; the
+  deps-driven layout effect only re-points the ref. `e2e/present.spec.ts` "an Escape still reaches Present when a
+  render re-wires its keys mid-delivery" stages the order: a listener ahead of Present's turns the Escape into a `g`
+  in a microtask.
+- **Triggered by** — any `window`/`document` key or pointer listener whose effect lists changing deps; the listener
+  must be stable while the surface is up, and read changing state through a ref.
+- **Removable when** — never; it is how event dispatch works.
+- **Commits** — the flaky-e2e PR for followups 3159-p6 and 3159-p7.
+
 ## A dialog opened again right after it closed sits under its own dimming
 
 - **Symptom** — the photo-format dialog (or any `DialogContent` / `SheetContent`) opens dimmed; a click on its button lands on the overlay and closes it. Seen adding photos one after another; an in-page `button.click()` in `e2e/library-images-render.spec.ts` had hidden it, a real Playwright click timed out with "dialog-overlay intercepts pointer events".
@@ -1930,3 +1952,110 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — a new async step between boot and the first Explore; a new condition in `reusableFrame`.
 - **Removable when** — never; they are ordering rules.
 - **Commits** — the flaky-e2e touch PR of 2026-11-12.
+
+## On a loaded machine, a quick Explore and back leaves the Playground preview covered for seconds
+
+- **Symptom** — Explore, Edit, Explore a frame or two apart, wide layout: the preview stays covered (`.pg-preview-wrap`
+  without `is-live`) well after Explore's slide has landed. Shown on desktop and webkit-tablet by the spec's "never
+  holds Explore's reveal for Edit's realign" (red 4 of 17 without the fix). The gecko flake of "a quick Explore and
+  back, 0 frames apart … (wide)" (1 in 20 on main at 22c3dc7) looks the same but is NOT shown to be this. It never
+  reproduced afterwards: 342 gecko runs at 4 workers under heavy CPU load, on current main and on 22c3dc7's
+  PlaygroundApp, all green, so its followup was closed. If it goes red again, read `data-hold` on the wrapper at the
+  moment it fails: it names the hold the reveal was waiting on.
+- **Cause** — the reveal waits for every hold to lift, and the realign hold is Edit's (the preview follows the
+  editor's caret first). The Edit in between set it, and its settle loop starts two frames after that switch, so after
+  the next one; in Explore the sync's realign usually cannot be paid (the editor pane is hidden), so the loop asked for
+  all 60 of its frames before giving up: about a second idle, more on a loaded machine. It is rare on gecko: 1 of 60
+  instrumented runs under load held on it (1031 ms), and 0 of 40 in a later round.
+- **Mitigation** — `PlaygroundApp.tsx`: entering Explore clears `realignPendingRef`, and `realignSeqRef` ties each settle
+  loop to the switch that started it, so an overtaken loop stops on its next frame. `playground-sync.ts` `enterExplore()`
+  drops the sync's owed realign too, so no frame load in Explore pays it by scrolling the preview to the editor's slide
+  mid-landing; `leaveExplore` owes it again on the way back. The reveal publishes what it waits for as `data-hold`
+  on the wrapper; the spec's "never holds Explore's reveal for Edit's realign" asserts on it. Without the fix that case
+  went red in 4 of 17 runs across desktop and webkit-tablet; with it, nothing can set the hold in Explore.
+- **Triggered by** — a new hold on the reveal, or a new async step a switch starts and a later switch can overtake.
+- **Removable when** — never; holds that belong to one view have to be dropped by the switch that leaves it.
+- **Commits** — the flaky-e2e PR for followups 3159-p6 and 3159-p7.
+
+## An e2e key pressed in a fresh Stage window is lost, 1 run in 12 under load
+
+- **Symptom** — `docs/e2e/stage-window.spec.ts` opens the Stage, sees the deck painted, presses ArrowRight twice, and
+  the console reads "2 / 7" instead of "3 / 7". It passes alone and fails about 1 run in 12 under four workers.
+- **Cause** — the Stage document carries the deck's markup BEFORE the multi-megabyte runtime script and the handshake
+  script after it. The deck paints as soon as the markup parses, but the key, wheel and touch handlers arrive with the
+  second script. A key pressed in that gap reaches no handler. "The deck is visible" is not "the Stage is listening".
+- **Fix** — wait for the Stage's script to finish, seen from the Stage itself. Its last act sets the counter from the
+  placeholder `1 / 1` to the deck's real count (`stage-window.js` `count()`), after the key handler and the link guard
+  are installed, so `#latt-count` reading `1 / <total>` is the signal. `openStage` in the spec waits for it (#3155 and
+  this census reached the same gap; the counter is the wait that shipped).
+
+## An e2e that dispatches one `dragover` loses the drop sign before it can measure it
+
+- **Symptom** — `deck-drop-import.spec.ts`'s sign-fits test reads the drop sign's box as `null`, 1 run in 3 under four
+  workers. The screenshot shows no sign.
+- **Cause** — the sign has a dead-man timer: `deck-drop.ts` (`quiet`) hides it 1000 ms after the last `dragover`. A real
+  drag sends `dragover` continuously, so the timer never fires. A test sends ONE and then measures and screenshots, which
+  takes longer than a second on a loaded runner.
+- **Fix** — stop the page clock (`page.clock.install()` with no `runFor`) while the synthetic drag is held. The timer
+  cannot fire, which is the state a real drag keeps it in. Do not "dispatch dragover in a loop": that is a sleep with
+  extra steps.
+- **Related** — while the Studio is presenting, a drop reaches no handler at all, so a test of that case asserts the
+  sign never shows rather than waiting for an import that cannot start.
+
+## A product change does not reach the e2e build, though `npm run build:e2e` ran
+
+- **Symptom** — you edit `docs/src/lib/cadenza/cadence.ts` (or `vetrina/stage.ts`), rebuild the docs site, and the
+  built Studio behaves exactly as before. A mutation meant to turn a test red leaves it green.
+- **Cause** — `@/lib/cadenza` and `@/lib/vetrina` are directory imports of packages with their own `package.json`, and
+  Vite resolves a directory import through its `module` field: `dist/index.mjs`, not the `.ts` source. The site
+  build does not rebuild those `dist/` files.
+- **Fix** — rebuild the package first (`npm run vetrina-lib:build`, or the package's own build script), then
+  `npm run build:e2e`. For a quick arm, mutate the package's `dist/` file directly and restore it. Importing a file
+  by path (`@/lib/vetrina/index.js`) reaches the source; a bare directory does not.
+
+## A MutationObserver test of "no writes" passes on code that writes every frame
+
+- **Symptom** — a test watches an element's `style` attribute through 200 scroll frames and counts 0 mutations. Delete
+  the compare-before-write the test guards, and it still counts 0.
+- **Cause** — the handler re-seats onto the same box and writes the SAME values. Setting a style property to its
+  current value does not change the attribute, so the observer records nothing. The test could not see the work it
+  claimed to bound.
+- **Fix** — count the work at its source. Vetrina's scroll handler publishes `data-vt-scroll-seats` on its layer, one
+  per re-seat it performs, and `vetrina-cursor-caption.spec.ts` counts that: 200 in 200 frames with the compare
+  removed, 0 with it.
+
+## An e2e that installs `page.clock` never sees a settle that waits on two frames
+
+- **Symptom** — `studio-dock-sizing`'s restore check reads no toast about 1 run in 18. The product shows it every time
+  by hand.
+- **Cause** — `page.clock.install()` fakes `requestAnimationFrame` as well as timers. The restore marks itself done
+  inside a double-`requestAnimationFrame` settle, and on a faked clock those frames run only when the test steps the
+  clock far enough, in an order the test does not control. Stepping by a timer's length is not stepping by frames.
+- **Fix** — install the page clock only when the test needs to own a long timer, and then step it one frame at a time
+  (`frame-clock.ts`). Where the test needs only "after the next task", wait in the page for a `setTimeout(0)` after
+  `layoutSettled`, then `schedulerDrained`: real frames, no faked clock.
+
+## An e2e click on a header control opens nothing, about 1 run in 20 under load
+
+- **Symptom** — `trigger.click()` on the site header's Theme select succeeds, then the option it should reveal never
+  appears and the next click times out.
+- **Cause** — Astro server-renders the header, so the trigger is on screen and accepts a click before React hydrates
+  the island. A click in that window has no handler behind it.
+- **Fix** — wait for hydration before the first click: Astro removes the island's `ssr` attribute when it finishes, so
+  poll for `astro-island[component-url*="NavActions"]:not([ssr])` (as `site-chrome-first-paint.spec.ts` does).
+
+## An e2e that waits for "every animation to finish" never returns in the Studio
+
+- **Symptom** — `page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)))` hangs until the test
+  times out, on every engine, with nothing on screen moving. `e2e/chat-photos.spec.ts:516` (the phone composer) failed
+  this way on desktop, mobile and webkit-phone from #3128 on.
+- **Cause** — the Studio runs an animation that never ends by design: the editor's drawn caret
+  (`.lx-ghost-caret-cm` / `.lx-ghost-caret`, `lx-caret-blink … infinite` in `styles/tailwind.css`) blinks for as long
+  as the editor lacks focus, which is whenever a sheet or dialog has it. Its `finished` promise never settles.
+- **Mitigation** — wait on the animations of the element that is moving, not the document's:
+  `el.closest('[role="dialog"]').getAnimations({ subtree: true })`, as `chat-photos.spec.ts` now does, or
+  `locator.evaluate((el) => el.getAnimations())` (`compose-fenced-code.spec.ts`, `library-image-metadata.spec.ts`).
+  A count of RUNNING animations that skips infinite ones (`plugin-address-attack.spec.ts`) also works.
+- **Triggered by** — any new looping animation (a caret, a spinner, a pulse) on a page a spec waits on.
+- **Removable when** — never; a blinking caret is correct, and the wait was the wrong signal.
+- **Commits** — fix(e2e) chat-photos composer wait, 2026-11-13.

@@ -1,3 +1,4 @@
+import { layoutSettled } from './barriers';
 import { currentSlide, expect, gotoStudio, LIVE_PREVIEW, railButtons, setEditorContent, slideCount, test, typeInEditor } from './studio-fixture';
 
 // Preview navigation + reader lenses. The outer "Slide N / M" label and the rail
@@ -495,7 +496,9 @@ test('@parity resizing the pane while zoomed never blanks the slide', async ({ p
 	expect(vp).not.toBeNull();
 	if (!vp) return;
 	await page.setViewportSize({ width: vp.width, height: Math.round(vp.height * 0.55) });
-	await page.waitForTimeout(400);
+	// The resize has run its course: the ResizeObserver's report, the re-bound or the remount it causes, and the
+	// layout after that (layoutSettled). Was a 400 ms wait (HARD RULE #32).
+	await layoutSettled(page);
 
 	// TWO outcomes are correct here, and which one a project gets depends on whether
 	// the new geometry crosses a layout branch: either the slide is STILL ZOOMED (the

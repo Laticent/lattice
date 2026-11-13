@@ -1,5 +1,7 @@
 import http from 'node:http';
 import { createRequire } from 'node:module';
+import { documentSettled } from './barriers';
+import { witnessLanded } from './net-witness';
 import { CHROME, expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
 // ── The Reading view loads nothing from the web the reader did not allow (HARD RULE #22) ─────
@@ -62,10 +64,14 @@ const readingViewRefusesTheWeb = async ({ page }: { page: import('@playwright/te
 		await expect(notice).toHaveAttribute('data-state', 'blocked', { timeout: 30_000 });
 		hits.length = 0;
 
-		// 1. BLOCKED. An absence: no signal marks a request that must not happen, so the article
-		// gets a fixed window to make one (SANCTIONED_E2E_SLEEPS, tools/check-ownership.js).
+		// 1. BLOCKED. An absence, so it waits on barriers rather than a window (HARD RULE #32): the
+		// article has projected every slide (the last payload's heading is in it; both blockWebImages
+		// passes run on the HTML before it is inserted), every resource it started has answered, and
+		// a witness (the same kinds of request from a fresh page) has landed on a second listener.
 		await openArticle();
-		await page.waitForTimeout(3_000);
+		await expect(page.locator('article.st-read-article')).toContainText(payloads[payloads.length - 1].name, { timeout: 60_000 });
+		await documentSettled(page, 'article.st-read-article');
+		await witnessLanded(page.context(), { udp: false });
 		const blocked = [...new Set(hits)].sort();
 		expect(blocked, `the Reading view fetched with nothing allowed: ${blocked.join(', ')}`).toEqual([]);
 
@@ -137,8 +143,10 @@ const diagramLinkNavigatesOnClick = async ({ page }: { page: import('@playwright
 		await expect(article).toBeVisible({ timeout: 60_000 });
 		const link = article.locator('svg a').first();
 		await expect(link, 'the Reading view drew no anchor for the click link').toBeAttached({ timeout: 60_000 });
-		// An absence again: a drawn link must not fetch its address (SANCTIONED_E2E_SLEEPS).
-		await page.waitForTimeout(3_000);
+		// An absence again: a drawn link must not fetch its address. Same barriers: the article has
+		// settled, and a witness has landed.
+		await documentSettled(page, 'article.st-read-article');
+		await witnessLanded(page.context(), { udp: false });
 		expect(hits, 'the diagram link was requested before anyone clicked it').toEqual([]);
 
 		const studioUrl = page.url();

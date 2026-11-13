@@ -6,6 +6,17 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-13 — the owner raised two ceilings by hand, for PR 2988: Studio htmlRaw to 246.0 KB, getting-started engineJsGz to 342.0 KB
+
+Owner OK 2026-11-13 in the PR 2988 session: "Rework #3066", chosen over giving the bytes back first (finding why getting-started loads the split code, about half a day or more) and over closing #3066 for a fresh PR. An earlier raise this PR carried, the shared engine to 766.0 KB, is dropped: `main`'s later reset gave that metric room.
+
+CI's preview of PR 2988 at 0d7d6cf, merged onto `main` at f4c2346, measured the Studio page's HTML at 244.7 KB against 243.4 KB, and the getting-started engine at 339.7 KB against 333.8 KB. A preview of a test-only PR on the same `main` (#3153) read 243.0 KB and 329.4 KB, so PR 2988 adds about 1.7 KB of Studio HTML (its venue and Align pickers) and about 10.3 KB to the engine getting-started loads: the handheld venue resolver, the `align:` register, the measured split, cover lift and run placement, and the passage split. Each ceiling sits about 1.3 KB and 2.3 KB over the measurement. Soft targets are unchanged.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | htmlRaw | 226628 | 226628 | +0 | 251904 |
+| getting-started | engineJsGz | 310700 | 310700 | +0 | 350208 |
+
 ### 2026-11-12 — the owner raised one ceiling by 1KB, for the fonts a deck paints in
 
 PR #3131: the adversarial trio found the phone kernel measured chart text in Outfit while the ledger, poster and festival type sets paint it in Inter (about 10% wider on a label, up to 4x on a glyph) and the sketch finish in the hand face, so names could overprint on a phone. The measurement table gains Inter at 600 and 700 (text-advance.generated.js), and the phone path measures in the slide's body face (chart-phone.js `bodyFaceOf`). Measured 260.0KB against the 259.7KB ceiling set below. The owner raised chartKernelsGz's ceiling by 1KB (1,024 bytes) on 2026-11-12, to cover the Inter rows (+0.5KB) and the trio's other fixes in one raise; the soft target is unchanged. Set by hand, for the same reason as the entries below.

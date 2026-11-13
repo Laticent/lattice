@@ -10,7 +10,7 @@
 
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { __evictionsSettled, __resetForTests, clearClips, clipSizes, clipStats, DEFAULT_BUDGET_BYTES, getBudgetBytes, getClip, putClip, readyKeys, setBudgetBytes } from './narration-store.js';
+import { __evictionsSettled, __resetForTests, __touchesSettled, clearClips, clipSizes, clipStats, DEFAULT_BUDGET_BYTES, getBudgetBytes, getClip, putClip, readyKeys, setBudgetBytes } from './narration-store.js';
 
 /** A blob-like in the same duck-typed shape voice-model.js's rungs return. */
 function fakeBlob(bytes: number, type = 'audio/mpeg') {
@@ -93,11 +93,13 @@ describe('narration-store', () => {
 
 		it('a read counts as recent use, so a hot entry outlives a colder older one', async () => {
 			setBudgetBytes(2500);
-			await putClip('cold', fakeBlob(1000));
+			// `hot` goes in FIRST, so it is the older of the two and only the read's recency bump can save it. Written the
+			// other way round, `hot` was already the newer entry and the test passed with touch() deleted.
 			await putClip('hot', fakeBlob(1000));
+			await putClip('cold', fakeBlob(1000));
 			await getClip('hot'); // touch() bumps `at`
-			// touch() is fire-and-forget; let its write land before the eviction walk reads it.
-			await new Promise((r) => setTimeout(r, 20));
+			// touch() is fire-and-forget; join its write before the eviction walk reads it.
+			await __touchesSettled();
 			await putClip('new', fakeBlob(1000));
 			expect(await getClip('cold')).toBeNull();
 			expect(await getClip('hot')).not.toBeNull();

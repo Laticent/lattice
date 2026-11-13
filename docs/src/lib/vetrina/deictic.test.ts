@@ -69,7 +69,29 @@ function inkWeight(strength: 'quiet' | 'notable'): number {
 	return h;
 }
 
+// Every test runs on a fake clock (HARD RULE #32): a stroke's sweep, hold and withdrawal run on
+// requestAnimationFrame, setTimeout and performance.now, which the fake clock owns, and on the real
+// clock this file spent 20 s waiting for them. `played` steps the clock one frame at a time until the
+// awaited call settles, so each assertion reads the state at about the moment it did on the real
+// clock, never a later one.
+const FRAME_MS = 16;
+async function played<T>(run: Promise<T>): Promise<T> {
+	let settled = false;
+	run.then(
+		() => {
+			settled = true;
+		},
+		() => {
+			settled = true;
+		},
+	);
+	// 2,000 frames is 32 s of stage time: far past any stroke here, so only a hang reaches it.
+	for (let i = 0; i < 2000 && !settled; i++) await vi.advanceTimersByTimeAsync(FRAME_MS);
+	return await run;
+}
+
 beforeEach(() => {
+	vi.useFakeTimers();
 	if (!Element.prototype.animate) {
 		Element.prototype.animate = vi.fn(() => ({ cancel() {}, finish() {} })) as unknown as typeof Element.prototype.animate;
 	}
@@ -78,6 +100,7 @@ afterEach(() => {
 	active?.destroy();
 	active = null;
 	document.body.innerHTML = '';
+	vi.useRealTimers();
 });
 
 /** `still` by default: the cue still happens, the sweeps collapse, so a spec runs in ms rather
@@ -155,7 +178,7 @@ describe('underline — "this line"', () => {
 	it('draws the stroke in the descender gap and rests past the block, not on it', async () => {
 		const stage = mount();
 		const t = target({ left: 300, top: 200, width: 400, height: 24 });
-		await stage.gesture('underline', t.src, undefined, { clearance: POINTER / 2 + 5 });
+		await played(stage.gesture('underline', t.src, undefined, { clearance: POINTER / 2 + 5 }));
 		const [stroke] = ink('underline');
 		expect(stroke, 'no underline was drawn').toBeTruthy();
 		expect(px(stroke, 'left')).toBe(300);
@@ -171,7 +194,7 @@ describe('underline — "this line"', () => {
 		// the sentence it is naming and run the full column width.
 		const stage = mount();
 		const t = target({ left: 300, top: 200, width: 400, height: 90 }, [{ left: 300, top: 200, width: 250, height: 24 }]);
-		await stage.gesture('underline', t.src, undefined, { clearance: 19 });
+		await played(stage.gesture('underline', t.src, undefined, { clearance: 19 }));
 		const [stroke] = ink('underline');
 		expect(px(stroke, 'width')).toBe(250);
 		expect(px(stroke, 'top')).toBeLessThan(240); // under the LINE, not under the block
@@ -181,13 +204,13 @@ describe('underline — "this line"', () => {
 		const stage = mount();
 		const t = target({ left: 300, top: 200, width: 400, height: 24 });
 		const run = stage.gesture('underline', t.src, undefined, { clearance: 19 });
-		await frames(2);
+		await played(frames(2));
 		t.moveTo({ left: 120, top: 640 });
-		await frames(3);
+		await played(frames(3));
 		const [stroke] = ink('underline');
 		expect(px(stroke, 'left')).toBe(120);
 		expect(px(stroke, 'top')).toBeGreaterThan(640);
-		await run;
+		await played(run);
 	});
 
 	it('takes the ink away when the cue is aborted', async () => {
@@ -195,10 +218,10 @@ describe('underline — "this line"', () => {
 		const t = target({ left: 300, top: 200, width: 400, height: 24 });
 		const ctl = new AbortController();
 		const run = stage.gesture('underline', t.src, ctl.signal, { clearance: 19 });
-		await frames(2);
+		await played(frames(2));
 		expect(ink('underline')).toHaveLength(1);
 		ctl.abort();
-		await expect(run).rejects.toThrow();
+		await expect(played(run)).rejects.toThrow();
 		expect(ink('underline'), 'the underline outlived the cue that drew it').toHaveLength(0);
 	});
 });
@@ -211,7 +234,7 @@ describe('wash — "these words"', () => {
 			{ left: 300, top: 228, width: 400, height: 24 },
 		];
 		const t = target({ left: 300, top: 200, width: 400, height: 52 }, lines);
-		await stage.gesture('wash', t.src, undefined, { clearance: 19 });
+		await played(stage.gesture('wash', t.src, undefined, { clearance: 19 }));
 		const bands = ink('wash');
 		expect(bands).toHaveLength(2);
 		expect(px(bands[0], 'left')).toBe(500);
@@ -222,7 +245,7 @@ describe('wash — "these words"', () => {
 	it('falls back to the bounding box for a host with no per-line resolution', async () => {
 		const stage = mount();
 		const t = target({ left: 300, top: 200, width: 400, height: 24 }); // no getClientRects
-		await stage.gesture('wash', t.src, undefined, { clearance: 19 });
+		await played(stage.gesture('wash', t.src, undefined, { clearance: 19 }));
 		const bands = ink('wash');
 		expect(bands).toHaveLength(1);
 		expect(px(bands[0], 'width')).toBe(400);
@@ -237,7 +260,7 @@ describe('wash — "these words"', () => {
 			{ left: 0, top: 0, width: 0, height: 0 },
 			{ left: 300, top: 200, width: 400, height: 24 },
 		]);
-		await stage.gesture('wash', t.src, undefined, { clearance: 19 });
+		await played(stage.gesture('wash', t.src, undefined, { clearance: 19 }));
 		const bands = ink('wash');
 		expect(bands, 'a zero-area rect was painted as a band').toHaveLength(1);
 		expect(px(bands[0], 'left')).toBe(300);
@@ -250,13 +273,13 @@ describe('wash — "these words"', () => {
 			{ left: 300, top: 228, width: 400, height: 24 },
 		]);
 		const run = stage.gesture('wash', t.src, undefined, { clearance: 19 });
-		await frames(2);
+		await played(frames(2));
 		t.setLines([{ left: 300, top: 200, width: 600, height: 24 }]); // reflowed to one line
-		await frames(3);
+		await played(frames(3));
 		const bands = ink('wash');
 		expect(px(bands[0], 'width')).toBe(600);
 		expect(px(bands[1], 'width'), 'a band stayed painted where the words no longer are').toBe(0);
-		await run;
+		await played(run);
 	});
 });
 
@@ -264,7 +287,7 @@ describe('bracket — "this whole block"', () => {
 	it('outlines OUTSIDE the block and rests in the margin beside it', async () => {
 		const stage = mount();
 		const t = target({ left: 300, top: 200, width: 400, height: 180 });
-		await stage.gesture('bracket', t.src, undefined, { clearance: POINTER / 2 + 5 });
+		await played(stage.gesture('bracket', t.src, undefined, { clearance: POINTER / 2 + 5 }));
 		const [outline] = ink('bracket');
 		expect(px(outline, 'left')).toBeLessThan(300);
 		expect(px(outline, 'width')).toBeGreaterThan(400);
@@ -278,7 +301,7 @@ describe('tap — "this one"', () => {
 	it('ripples on the target and rests off its corner', async () => {
 		const stage = mount();
 		const t = target({ left: 300, top: 200, width: 60, height: 22 });
-		await stage.gesture('tap', t.src, undefined, { clearance: POINTER / 2 + 5 });
+		await played(stage.gesture('tap', t.src, undefined, { clearance: POINTER / 2 + 5 }));
 		expect(ink('tap').length).toBeGreaterThan(0);
 		const p = cursorAt();
 		expect(p.x).toBeGreaterThan(360);
@@ -310,9 +333,9 @@ describe('the stroke is always stroked, then withdrawn', () => {
 		for (let i = 0; i < 1200 && !settled; i++) {
 			const p = cursorAt();
 			if (Number.isFinite(p.x)) reached = Math.max(reached, p.x);
-			await frames(1);
+			await played(frames(1));
 		}
-		await run;
+		await played(run);
 		// It got to the END of the line it was drawing under. Without the sweep the furthest right
 		// the cursor ever reaches is the line's START, 300px back.
 		expect(reached).toBeGreaterThan(box.left + box.width - 20);
@@ -358,9 +381,9 @@ describe('an explicit `rest` is where the stroke ENDS, not somewhere it withdraw
 			for (let i = 0; i < 1200 && !settled; i++) {
 				const p = cursorAt();
 				if (Number.isFinite(p.x)) far = Math.max(far, p.x);
-				await frames(1);
+				await played(frames(1));
 			}
-			await run;
+			await played(run);
 			expect(cursorAt().x).toBeCloseTo(restAt.x, 0);
 			// It never went to the default. `underline`/`wash` legitimately sweep TO the line's right
 			// edge, so their bound is that edge plus a few pixels of hand — the default sits a whole
@@ -377,28 +400,28 @@ describe('circle — the ring, and the tours that already use it', () => {
 		const stage = mount();
 		const t = target({ left: 300, top: 200, width: 400, height: 180 });
 		const run = stage.gesture('circle', t.src);
-		await frames(2);
+		await played(frames(2));
 		const [ring] = ink('circle');
 		expect([px(ring, 'left'), px(ring, 'top'), px(ring, 'width'), px(ring, 'height')]).toEqual([300, 200, 400, 180]);
-		await run;
+		await played(run);
 	});
 
 	it('with clearance, draws the ring around a small target instead of over it', async () => {
 		const stage = mount();
 		const t = target({ left: 300, top: 200, width: 60, height: 40 });
 		const run = stage.gesture('circle', t.src, undefined, { clearance: POINTER / 2 + 5 });
-		await frames(2);
+		await played(frames(2));
 		const [ring] = ink('circle');
 		expect(px(ring, 'left')).toBeLessThan(300);
 		expect(px(ring, 'width')).toBeGreaterThan(60);
-		await run;
+		await played(run);
 	});
 
 	it('honors an explicit rest, which is how a host makes the orbit ending deterministic', async () => {
 		const stage = mount();
 		const t = target({ left: 300, top: 200, width: 60, height: 40 });
 		const where = target({ left: 900, top: 500, width: 2, height: 2 });
-		await stage.gesture('circle', t.src, undefined, { clearance: 19, rest: where.src });
+		await played(stage.gesture('circle', t.src, undefined, { clearance: 19, rest: where.src }));
 		expect(cursorAt()).toEqual({ x: 901, y: 501 });
 	});
 });
@@ -420,9 +443,9 @@ describe('teardown and the reduced tier — the two ways `circle` used to leak',
 				settled = 'rejected';
 			},
 		);
-		await frames(3);
+		await played(frames(3));
 		stage.destroy();
-		await frames(3);
+		await played(frames(3));
 		await Promise.resolve();
 		expect(settled, 'the caller is still waiting on a stage that no longer exists').toBe('resolved');
 	});
@@ -437,11 +460,11 @@ describe('teardown and the reduced tier — the two ways `circle` used to leak',
 		const t = target({ left: 300, top: 200, width: 200, height: 120 });
 		const ctl = new AbortController();
 		const run = active.gesture('circle', t.src, ctl.signal).catch(() => {});
-		await frames(2);
+		await played(frames(2));
 		expect(ink('circle')).toHaveLength(1);
 		ctl.abort();
-		await run;
-		await frames(2);
+		await played(run);
+		await played(frames(2));
 		expect(ink('circle'), 'the ring outlived the cue that drew it').toHaveLength(0);
 	});
 
@@ -455,9 +478,9 @@ describe('teardown and the reduced tier — the two ways `circle` used to leak',
 		// so the tween resolves on frame one having moved nothing, forever.
 		const stage = mount('full');
 		const a = target({ left: 300, top: 200, width: 400, height: 24 });
-		await stage.gesture('underline', a.src, undefined, { clearance: Number.NaN });
+		await played(stage.gesture('underline', a.src, undefined, { clearance: Number.NaN }));
 		const b = target({ left: 800, top: 500, width: 300, height: 24 });
-		await stage.gesture('underline', b.src, undefined, { clearance: 19 });
+		await played(stage.gesture('underline', b.src, undefined, { clearance: 19 }));
 		const p = cursorAt();
 		expect(Number.isFinite(p.x), 'the cursor coordinates are NaN — every later gesture is a no-op').toBe(true);
 		expect(p.x).toBeGreaterThan(800);
@@ -468,7 +491,7 @@ describe('the shapes of "gone", and the shapes of "no"', () => {
 	it('is a no-op — never a throw — for a target that resolves to nothing', async () => {
 		const stage = mount();
 		for (const kind of ['underline', 'wash', 'bracket', 'tap'] as const) {
-			await expect(stage.gesture(kind, () => null)).resolves.toBeUndefined();
+			await expect(played(stage.gesture(kind, () => null))).resolves.toBeUndefined();
 			expect(ink(kind)).toHaveLength(0);
 		}
 	});
@@ -476,7 +499,7 @@ describe('the shapes of "gone", and the shapes of "no"', () => {
 	it('draws nothing for a zero-area target — that is "nowhere", not the viewport corner', async () => {
 		const stage = mount();
 		const gone: RectSource = { getBoundingClientRect: () => rect({ left: 0, top: 0, width: 0, height: 0 }) };
-		await stage.gesture('underline', gone, undefined, { clearance: 19 });
+		await played(stage.gesture('underline', gone, undefined, { clearance: 19 }));
 		expect(ink('underline')).toHaveLength(0);
 	});
 
@@ -485,7 +508,7 @@ describe('the shapes of "gone", and the shapes of "no"', () => {
 		document.body.appendChild(root);
 		active = createStage({ root, onExit: () => {}, theme: resolveTheme({ motion: 'still', cues: { underline: false } }) });
 		const t = target({ left: 300, top: 200, width: 400, height: 24 });
-		await active.gesture('underline', t.src, undefined, { clearance: 19 });
+		await played(active.gesture('underline', t.src, undefined, { clearance: 19 }));
 		expect(ink('underline')).toHaveLength(0);
 	});
 });
@@ -497,7 +520,7 @@ describe('the motion policy', () => {
 		const stage = mount('legible');
 		const box = { left: 300, top: 200, width: 400, height: 24 };
 		const t = target(box);
-		await stage.gesture('underline', t.src, undefined, { clearance: 19 });
+		await played(stage.gesture('underline', t.src, undefined, { clearance: 19 }));
 		expect(ink('underline'), 'legible dropped the cue — but knowing where to look is content').toHaveLength(1);
 		// EXACTLY the rest the sweep would have reached, not merely "somewhere that is not on the
 		// text". A teleport that stops at the stroke's START also clears the box, so asserting
@@ -514,7 +537,7 @@ describe('the motion policy', () => {
 			const p = cursorAt();
 			if (Number.isFinite(p.x)) path.push(Math.round(p.x));
 		}, 30);
-		await run;
+		await played(run);
 		window.clearInterval(watch);
 		// AFTER THE TURN, and that is the whole design of this oracle.
 		//

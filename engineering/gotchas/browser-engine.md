@@ -382,3 +382,48 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   unset); `engineering/decisions/2026-11-03-pictures-at-drawn-size.md` has the measurements. A unit test cannot
   catch it: Node is V8.
 - **Removable when:** never for code that runs in a browser; JSC's backtracking limit is a design choice.
+## A second `--disable-features` switch silently re-enables everything the first one disabled
+
+- **Symptom:** a code package that should draw reports "did not draw this slide: it did not load: code sandbox:
+  Timed out after waiting 30000ms", on about one render in two under CPU load and now and then on an idle
+  machine. Only when the CLI runs as root (the cloud sandbox), and only with the OS sandbox on.
+- **Cause:** Chromium honors only the LAST `--disable-features` (and `--enable-features`) on its command line.
+  `launchAsUser` in `lib/core/os-sandbox.js` builds its arguments by hand, puppeteer's `defaultArgs()` then
+  `SANDBOX_LAUNCH_ARGS`, so our `--disable-features=Prerender2,…` replaced puppeteer's
+  `--disable-features=…,IsolateSandboxedIframes`. With that feature back on, the package's
+  `<iframe sandbox="allow-scripts">` runs in a process of its own, and puppeteer 23.11 loses the frame's context
+  when the iframe's target attaches before puppeteer has recorded the frame: its `Page.frameAttached` handler
+  awaits a promise before it records the frame, and `ws` delivers several messages from one socket read with no
+  turn between them, which happens more often under load. Every `frame.evaluate` then waits 30 s for a context
+  that lives on another session. `puppeteer.launch` merges the switches itself, so the non-root path was fine.
+- **Fix:** `mergeFeatureSwitches` in `lib/core/os-sandbox.js` folds every copy into one switch each.
+  Measured with the real launch: the iframe ran out of process on 10 of 10 opens before and 0 of 10 after, and
+  `frame.evaluate` hung on 24 of 60 opens under a 12-thread CPU burn before and 0 of 60 after. puppeteer 25.17
+  does not lose the context either (0 of 40), but that bump changes the bundled Chrome, so it waits for the owner.
+- **Triggered by:** `test/integration/export/code-package-door.test.js` (approved package "must have drawn") and
+  the npm-plugin and plugin-fence integration files, which run in the same sandbox;
+  `test/unit/core/os-sandbox-feature-switches.test.js` holds the merge.
+- **Removable when:** never: any hand-built Chromium command line has to merge its feature switches.
+
+## Chromium 153 serializes `background-position: right 10px bottom 5px` as `calc(100% - 10px) calc(100% - 5px)`
+
+- **Symptom:** the contrast probe (`tools/check-slide-contrast.js` `PROBE`) reads a gradient tile placed with
+  the four-value keyword form as absent: white behind text Chromium paints on black.
+  `test/integration/invariants/contrast-probe-gradient.test.js` "a 4-value position, inside the tile" fails on
+  the sandbox's Chrome 153 and passes on CI's puppeteer Chrome 131.
+- **Cause:** the computed `background-position` shorthand keeps the keywords on 131 and writes `calc()` on 153.
+  The probe parsed the shorthand's keywords and skipped any `calc(`.
+- **Fix:** read the longhands `background-position-x` / `-y`, which are a percent, a length or a `calc()` of the
+  two on both builds, and sum the terms.
+- **Removable when:** never; read a longhand, not a shorthand's serialization, whenever a build can rewrite it.
+
+## `setContent(…, { waitUntil: 'networkidle0' })` times out on a document that fetches nothing
+
+- **Symptom:** "Navigation timeout of 30000 ms exceeded" from a page built with `setContent`: every run of
+  `test/integration/parity/viz-black-render.test.js` on Chromium 153 (the Reading-view page, the second `setContent`
+  on one page), and `web-ref-beacon` under load (sixty host pages at once).
+- **Cause:** `networkidle0` is a quiet period, 500 ms with no connection, so it is a duration that load can stretch,
+  and on Chromium 153 a second `setContent` on the same page never reported network idle at all.
+- **Fix:** a document with only inline content waits for `load`; one that does fetch waits on the thing it fetches
+  (`test/helpers/page-settle.js`, `test/helpers/request-log.js`).
+- **Removable when:** never; `networkidle0` stays a duration.

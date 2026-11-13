@@ -2,6 +2,7 @@ import dgram from 'node:dgram';
 import http from 'node:http';
 import JSZip from 'jszip';
 import { WORKER_NETWORK } from '../../lib/core/code-shape.mjs';
+import { witnessLanded } from './net-witness';
 import { expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
 // ── A code package runs in the Studio only after consent, and reaches nothing (contract note §9) ──
@@ -106,7 +107,8 @@ test(`a code package runs in the Studio only after consent, sandboxed, and reach
 		udp.on('message', () => udpHits.push('udp'));
 		await new Promise<void>((r) => udp.bind(0, '127.0.0.1', () => r()));
 		const udpPort = udp.address().port;
-		const settle = () => page.waitForTimeout(2500);
+		// Every absence check below waits for the witness, not a fixed 2500 ms (net-witness.ts).
+		const settle = () => witnessLanded(page.context(), { udp: browserName !== 'firefox' });
 
 		try {
 			await gotoStudio(page);
@@ -238,7 +240,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			await setEditorContent(page, '<!-- _class: tally -->\n\n## Three wins\n\n- 3\n');
 			const preview = livePreview(page);
 			await expect(preview.locator('h2')).toContainText('Three wins', { timeout: 30_000 });
-			await page.waitForTimeout(2500);
+			await witnessLanded(page.context(), { udp: false });
 			await expect(page.locator('[data-slot="code-packages"]')).toHaveCount(0);
 			expect(await page.evaluate(() => (window as unknown as { __sandboxes: number }).__sandboxes), 'a sandbox frame opened for a refused package').toBe(0);
 			expect(hits, `the refused package reached the server: ${hits.join(', ')}`).toEqual([]);
@@ -305,7 +307,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			await expect(preview.locator('section.dateline.dateline-drawn.content')).toHaveCount(1);
 			const evidence = process.env.LATTICE_EVIDENCE_DIR;
 			if (evidence) await preview.locator('section').first().screenshot({ path: `${evidence}/code-package-facts.png` });
-			await page.waitForTimeout(2500);
+			await witnessLanded(page.context(), { udp: false });
 			expect(hits, `the facts package reached the server: ${hits.join(', ')}`).toEqual([]);
 		} finally {
 			server.closeAllConnections();

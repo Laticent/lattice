@@ -72,7 +72,7 @@ section{width:1280px;height:720px;position:relative;background:#fff;color:#123;i
 </section></body></html>`;
 
 // A highlighted card (`_focusStyle: highlight` on an item): its edge is an outline pulled in by its own width over
-// a 1px border, as base.focus.css draws it. Chromium rounds the width to 2px and keeps the -2.3px offset.
+// a 1px border, as base.focus.css draws it. How Chromium rounds the width and the offset depends on its build.
 const CARD = `<!doctype html><html><head><style>
 body{margin:0;font-family:sans-serif}
 section{width:1280px;height:720px;position:relative;background:#fff;color:#123;isolation:isolate}
@@ -188,7 +188,14 @@ describe('calco: a focused column keeps its text above its picture', () => {
     const card = slide.shapes.find((s) => s.kind === 'box' && s.fill?.color === '#d8e6f1');
     assert.ok(card, 'the focused card is a box');
     assert.equal(card.stroke?.color, '#006fa8', 'its edge is the outline color, not the gray border');
-    assert.ok(card.stroke.width > 2 && card.stroke.width < 2.5, `the stroke is the outline band (${card.stroke?.width})`);
+    // The band the browser itself paints, read from the same page: Chromium 131 rounds the width to 2px and keeps
+    // the -2.3125px offset (a 2.3125px band); Chromium 153 snaps both to 2px. A constant pinned one build's rounding.
+    const band = await tab.$eval('li.f', (el) => {
+      const cs = getComputedStyle(el);
+      return { width: parseFloat(cs.outlineWidth), depth: -parseFloat(cs.outlineOffset), border: parseFloat(cs.borderTopWidth) };
+    });
+    assert.ok(band.width > band.border, `the outline is wider than the gray border it replaces (${JSON.stringify(band)})`);
+    assert.equal(card.stroke.width, Math.max(band.width, band.depth), `the stroke is the outline band (${card.stroke?.width}, browser ${JSON.stringify(band)})`);
     const text = (f) => f.lines.flat().map((r) => r.text).join('');
     const fi = slide.frames.findIndex((f) => text(f) === 'Signal Intake');
     const labelled = card.text === fi;

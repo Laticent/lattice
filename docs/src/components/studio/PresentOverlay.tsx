@@ -2256,6 +2256,18 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// thread), so for that gap Present was on screen and Escape did nothing: lenses-landing.spec.ts lost 2 of 20 closes
 	// with the unit suite running beside it. On a FIRST open the shell's loading handler covers the gap; on every later
 	// open Present is already mounted and nothing did.
+	//
+	// ONE LISTENER PER OPEN, and it reads the handler through a ref. This effect used to subscribe `onKey` itself, so a
+	// change to any of its deps (`NAV` follows the slide) took the listener off the window and put a new one on. Between
+	// events that is harmless; inside one it loses the key. The shell's own window keydown listener, registered before
+	// this one, sets state, and React flushes that render in the microtask that runs as soon as the listener returns.
+	// When the render changes a dep here, the swap happens while the window is still working through its listeners for
+	// the same event: the old one is skipped as removed and the new one was not on the list when dispatch reached the
+	// window, so neither runs (measured in Chromium). An Escape was lost that way and Present stayed open over the
+	// Studio: 5 of 130 runs under load in studio-warm-offline.spec.ts, the dialog still mounted 8 s after the press, and its
+	// toolbar row took the next click. Now the subscription changes only with `open`, and a render mid-dispatch just
+	// points the ref at the newest handler before the event reaches it.
+	const keyRef = React.useRef<(e: KeyboardEvent) => void>(() => {});
 	React.useLayoutEffect(() => {
 		if (!open) return;
 		const onKey = (e: KeyboardEvent) => {
@@ -2351,9 +2363,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				NAV[act]();
 			}
 		};
+		keyRef.current = onKey;
+	}, [open, onClose, NAV, overviewOpen, wake, canFull, toggleFull, notesPill, openStage]);
+	React.useLayoutEffect(() => {
+		if (!open) return;
+		const onKey = (e: KeyboardEvent) => keyRef.current(e);
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
-	}, [open, onClose, NAV, overviewOpen, wake, canFull, toggleFull, notesPill, openStage]);
+	}, [open]);
 	// Close the sorter whenever Present closes, so re-opening starts on the slide.
 	React.useEffect(() => {
 		if (!open) setOverviewOpen(false);

@@ -646,7 +646,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Symptom:** `studio-smoke` is red while `ci` is green, or the reverse. On a markdown-only PR
   one e2e test fails.
 - **Cause:** `studio-smoke` is advisory by design. The `ci` job's `needs` are `changes`, `lint`,
-  `unit`, `integration`, `docs-build` and `player-webkit`, and `.github/workflows/ci.yml`
+  `unit`, `integration`, `docs-build`, `docs-test` and `player-webkit`, and `.github/workflows/ci.yml`
   (around lines 975-982) says `golden-diff` and `studio-smoke` are "intentionally ABSENT" from
   them: they run and report, and they do not gate. It promotes into `needs` only after a nightly
   green streak (#800).
@@ -890,3 +890,15 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   concurrent runs race on.
 - **Fix:** a gate a test feeds fixtures to takes its root (`checkOpenRouterBudget(errors, root)`,
   `checkVoiceSampleAssets(errors, samplesDir)`), and the test passes a `mkdtemp` tree. Never write a probe under the repo.
+
+## A test is red in the cloud sandbox and green on CI: two different Chromes
+
+- **Symptom:** an integration test fails every time in the sandbox and passes on CI, with no flake.
+- **Cause:** CI's integration job uses puppeteer's pinned Chrome (131.0.6778.204, from `~/.cache/puppeteer`).
+  The sandbox exports `CHROME_PATH` and `PUPPETEER_EXECUTABLE_PATH` as `/usr/bin/google-chrome`, Chrome for
+  Testing 153. Two builds round and serialize differently: 153 snaps outline widths and offsets to whole pixels
+  (`calco-focus-column`), and writes keyword background positions as `calc()` (`contrast-probe-gradient`).
+- **Fix:** a test asserts what the browser itself reports, read from the same page, never one build's rounding
+  as a constant. To run a file on CI's build: `npx puppeteer browsers install chrome@131.0.6778.204`, then set
+  both `CHROME_PATH` and `PUPPETEER_EXECUTABLE_PATH` to the path it prints (a test may read either).
+- **Removable when:** the sandbox and CI pin the same Chrome.

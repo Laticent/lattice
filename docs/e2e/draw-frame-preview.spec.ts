@@ -220,27 +220,39 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 test('a Studio export draws Mermaid itself, never through the preview draw frame @smoke', async ({ page, browserName }) => {
 	test.skip(browserName !== 'chromium', 'the export path is the same code on every engine; one engine is enough to pin that the frame is not used');
 	test.setTimeout(240_000);
+	// Every draw the host takes leaves a mark. Tag each one with WHO asked, from the call stack at the mark: the preview
+	// frame's runtime (lattice-runtime.js) or the Studio's deck-wide diagram check (the mermaid-parse chunk, 3 s after
+	// the deck settles). Anything else is the export. This replaces a wait for the draws to go quiet (a 3.5 s sleep
+	// inside a poll, HARD RULE #32): a background draw that lands during the export is now named, not miscounted.
+	await page.addInitScript(() => {
+		const w = window as unknown as { __draws: string[] };
+		w.__draws = [];
+		const mark = performance.mark.bind(performance);
+		performance.mark = ((name: string, options?: PerformanceMarkOptions) => {
+			if (name === 'lattice-draw:draw-called') {
+				const limit = Error.stackTraceLimit;
+				Error.stackTraceLimit = 100;
+				const stack = new Error().stack ?? '';
+				Error.stackTraceLimit = limit;
+				w.__draws.push(/lattice-runtime/.test(stack) ? 'preview' : /mermaid-parse/.test(stack) ? 'check' : `other: ${stack.split('\n').slice(1, 6).join(' | ')}`);
+			}
+			return mark(name, options);
+		}) as typeof performance.mark;
+	});
+	const draws = () => page.evaluate(() => (window as unknown as { __draws: string[] }).__draws);
 	await gotoStudio(page);
 	const preview = livePreview(page);
 	await setEditorContent(page, FLOW_DECK);
 	await expect(preview.locator('svg[id^="lattice-mmd-"]').first()).toBeAttached({ timeout: 90_000 });
-	// Every draw the host takes leaves a mark. The preview's draw and the deck-wide check's draw (3 s after the deck settles) both come first, so wait for both before clearing: any mark after that comes from the export.
-	const marks = () => page.evaluate(() => performance.getEntriesByName('lattice-draw:draw-called').length);
-	// Settled: at least the preview's and the check's draw are in, and the count has not moved for a full check interval.
-	await expect
-		.poll(async () => {
-			const before = await marks();
-			await new Promise((r) => setTimeout(r, 3500));
-			return before >= 2 && before === (await marks());
-		}, { timeout: 60_000 })
-		.toBe(true);
-	await page.evaluate(() => performance.clearMarks('lattice-draw:draw-called'));
+	// Positive control: the tagging sees the preview's own draw, so an empty "other" list below is not a blind spot.
+	await expect.poll(draws, { timeout: 30_000 }).toContain('preview');
+	expect((await draws()).filter((d) => d.startsWith('other')), 'a draw before the export came from an unknown caller').toEqual([]);
 	await page.getByRole('button', { name: 'Share', exact: true }).first().click();
 	await page.getByRole('dialog').getByRole('button', { name: /^PDF/ }).first().click();
 	const download = page.waitForEvent('download', { timeout: 200_000 });
 	await page.getByRole('dialog').getByRole('button', { name: /^Download PDF/ }).click();
 	await download;
-	expect(await page.evaluate(() => performance.getEntriesByName('lattice-draw:draw-called').length), 'the export asked the draw host to draw').toBe(0);
+	expect((await draws()).filter((d) => d.startsWith('other')), 'the export asked the draw host to draw').toEqual([]);
 });
 
 test('when the Mermaid frame cannot load its modules, the host says so at once and the next preview draws in the page @smoke', async ({ page, browserName }) => {

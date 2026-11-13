@@ -571,6 +571,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const clearEditorEchoes = React.useCallback(() => {
 		editorEchoesRef.current = [];
 	}, []);
+	// Read by the iOS undo probe at a miss (followups.d/3040-p3): an undo Filo took whose text never reached the editor.
+	// Filo's text, the shell's `source` and the editor's trailing emissions tell which of the two writers put it back.
+	// Nothing in the app reads it.
+	React.useEffect(() => {
+		(window as { __latticeFiloProbe?: () => unknown }).__latticeFiloProbe = () => ({
+			filo: filo.active?.text ?? null,
+			source: sourceRef.current,
+			echoes: editorEchoesRef.current.length,
+			echoNewest: editorEchoesRef.current.at(-1) ?? null,
+		});
+	}, [filo]);
 	/** A `source` the editor has already moved past: one of its own emissions, not the newest. */
 	const isStaleEditorEcho = React.useCallback((text: string) => {
 		const e = editorEchoesRef.current;
@@ -3348,6 +3359,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// says where a drop is someone else's).
 	const deckDrop = useDeckFileDrop(importDeckFile, (message) => notify(message), { enabled: !presentOpen });
 	function importDeckFile(file: File) {
+		// Counted on `<html data-deck-imports>`, started not finished: deck-drop-import.spec.ts reads it right after a
+		// drop the shell must REFUSE, because the refusal is decided synchronously in `onDrop` and an import that
+		// wrongly started would otherwise only show once its read had finished (HARD RULE #32). Nothing in the app reads it.
+		document.documentElement.dataset.deckImports = String(Number(document.documentElement.dataset.deckImports ?? 0) + 1);
 		// ONE reader for every format — `.lattice`, `.md`, `.html`, and a PDF or PowerPoint
 		// exported "Re-openable in Lattice". It sniffs the bytes, so the name is only a hint.
 		import('./deck-import')

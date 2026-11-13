@@ -86,71 +86,33 @@ export async function paintedMarkers(): Promise<PaintedMarkers> {
 }
 
 /**
- * Wait until every live preview frame's authoring alarms have stopped moving.
+ * Wait until every live preview frame's authoring alarms are final.
  *
- * THE REPLACEMENT for the fixed `waitForTimeout(4500)` three specs used to carry,
- * each with the same comment: "the watcher re-measures once webfonts land, so a
- * too-early read can miss a ring" (#1526).
+ * THE REPLACEMENT for the fixed `waitForTimeout(4500)` three specs used to carry, each with the same comment: "the
+ * watcher re-measures once webfonts land, so a too-early read can miss a ring" (#1526).
  *
- * That comment names a real hazard and the wrong fix. The hazard is a SEQUENCE —
- * webfonts land, the watcher re-measures on a debounce, and only then is the
- * marker set final — so the honest condition has to cover both steps, and this
- * waits for each in turn rather than guessing an interval that covers both:
+ * The hazard is a SEQUENCE — webfonts land, the watcher re-measures on a debounce, and only then is the marker set
+ * final — so this waits for each step in turn, on its own signal (HARD RULE #32):
  *
- *   1. every frame's own `document.fonts.ready`, which is the actual font signal
- *      (the slide faces are vendored same-origin, so it resolves in-frame);
- *   2. then the aggregate marker signature read twice with a frame between, until
- *      two consecutive reads agree — the watcher's debounce having fired and
- *      changed nothing is what "settled" means here.
+ *   1. every frame's own `document.fonts.ready`, which is the actual font signal (the slide faces are vendored
+ *      same-origin, so it resolves in-frame);
+ *   2. the watcher's re-measure: a trailing debounce, which is a page timer inside each frame. The CALLER installs
+ *      Playwright's clock before the page loads (`page.clock.install()`), and this steps that clock well past every
+ *      debounce the runtime arms, in every frame at once, so the re-measure has run;
+ *   3. two frames in each preview, so what it wrote has been laid out.
  *
- * `fonts.ready` ALONE would be the wrong condition and worse than the sleep it
- * replaces: it resolves BEFORE the re-measure it is supposed to be waiting for,
- * so it would read the marker set one debounce too early — reliably green, and
- * blind to exactly the late ring these specs exist to catch.
- *
- * BOUNDED, AND THE BOUND IS THE POINT. 40 tries x 120ms caps the waiting at 4.8s —
- * just over the 4500ms sleep this replaces — so the worst case is no worse than
- * what it replaces while the common case (two agreeing reads) settles in a few
- * hundred milliseconds. That matters here because the gallery grid can hold dozens
- * of live frames and each read costs a cross-frame round trip; a generous bound
- * would have made the pathological case SLOWER than the sleep, which is the trap
- * #1526 warns about.
- *
- * It returns rather than throwing on exhaustion, deliberately: the caller's own
- * assertion is what should fail, with its own message, rather than this helper
- * turning a real finding into an opaque timeout.
+ * `fonts.ready` ALONE would be the wrong condition: it resolves BEFORE the re-measure it is supposed to be waiting for.
+ * An earlier version stepped 120 ms at a time until two consecutive reads agreed, which is a sample of quiet, not the
+ * re-measure itself.
  */
-export async function markersSettled(
-	page: import('@playwright/test').Page,
-	frameSelector = 'iframe.live',
-	{ tries = 40, stepMs = 120 } = {},
-): Promise<void> {
+export async function markersSettled(page: import('@playwright/test').Page, frameSelector = 'iframe.live'): Promise<void> {
 	const n = await page.locator(frameSelector).count();
-	for (let i = 0; i < n; i += 1) {
-		await page
-			.frameLocator(`${frameSelector} >> nth=${i}`)
-			.locator('body')
-			.evaluate((b) => b.ownerDocument.fonts.ready)
-			.catch(() => {}); // a frame that went away mid-sweep is not this helper's failure
+	const frames = () => Array.from({ length: n }, (_, i) => page.frameLocator(`${frameSelector} >> nth=${i}`).locator('body'));
+	for (const body of frames()) {
+		await body.evaluate((b) => b.ownerDocument.fonts.ready).catch(() => {}); // a frame that went away mid-sweep is not this helper's failure
 	}
-	const read = async () => {
-		const out: string[] = [];
-		const count = await page.locator(frameSelector).count();
-		for (let i = 0; i < count; i += 1) {
-			const m = await page
-				.frameLocator(`${frameSelector} >> nth=${i}`)
-				.locator('body')
-				.evaluate(paintedMarkers)
-				.catch(() => null);
-			out.push(m ? `${m.rings}/${m.tabs}/${m.culprits}/${m.level}` : '-');
-		}
-		return out.join('|');
-	};
-	let prev = await read();
-	for (let i = 0; i < tries; i += 1) {
-		await page.waitForTimeout(stepMs);
-		const next = await read();
-		if (next === prev) return;
-		prev = next;
+	await page.clock.runFor(3_000);
+	for (const body of frames()) {
+		await body.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))).catch(() => {});
 	}
 }

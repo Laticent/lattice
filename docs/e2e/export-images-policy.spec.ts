@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { Browser, Page } from '@playwright/test';
 import { PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib';
+import { confirmPhotoFormat } from './photo-format';
 import { CHROME, expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 // The picture policy (lib/core/image-policy.js) on the REAL Studio: the Share → PDF panel's "Pictures"
@@ -42,21 +43,8 @@ async function addBigPhoto(page: Page, name: string) {
 		const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
 		input.files = dt.files;
 		input.dispatchEvent(new Event('change', { bubbles: true }));
-		for (let i = 0; i < 200; i++) {
-			const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
-			if (b) {
-				// The probe must stay the PNG it is: ask the Library for the original.
-				const keep = document.querySelector('[role="dialog"] [role="radio"][aria-label="Keep original"]') as HTMLButtonElement | null;
-				if (keep) {
-					keep.click();
-					await new Promise((r) => setTimeout(r, 150));
-				}
-				b.click();
-				break;
-			}
-			await new Promise((r) => setTimeout(r, 50));
-		}
 	}, name);
+	await confirmPhotoFormat(page, 'Keep original');
 }
 
 /** The largest image stream on page 1: its filter and byte length. */

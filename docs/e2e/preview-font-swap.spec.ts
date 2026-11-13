@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { PREVIEW_FONT_GATE_MS } from '../../lib/core/preview-font-gate.mjs';
+import { routeHolds } from './route-hold';
 
 // ── THE PREVIEW FRAME MUST NOT RE-SOLVE ITS LAYOUT ON THE FONT SWAP ───────────────
 //
@@ -144,27 +145,21 @@ function sampler(durationMs: number) {
  *  it must outlast the OBSERVE window below on a loaded box. */
 const SAMPLE_MS = 12_000;
 
-// The ABSENCE window is the literal `1500` in `measure` below, deliberately not a
-// named constant: `checkE2ESleeps` censuses the ARGUMENT TEXT, so a named one shows
-// up in the gate (and in SANCTIONED_E2E_SLEEPS) as an opaque identifier rather than
-// as the duration a reviewer has to judge.
-
 /** Drive the real Playground with the deck above and return what each preview
- *  document showed. `faces` chooses the arm: a modeled link, an outright block, or
- *  a request that never answers. */
-async function measure(
-	page: import('@playwright/test').Page,
-	faces: { mode: 'delay' | 'block' | 'hang'; delayMs?: number },
-): Promise<DocSamples[]> {
+ *  document showed. `faces` chooses the arm: a slow link (the faces are held back
+ *  until the preview has painted, so they ALWAYS arrive after a fallback layout was
+ *  possible), a fast one (no hold), an outright block, or a request that never answers. */
+async function measure(page: import('@playwright/test').Page, faces: { mode: 'slow' | 'fast' | 'block' | 'hang' }): Promise<DocSamples[]> {
 	const samples: { docId: string; t?: number; sig?: string; painted?: boolean }[] = [];
 	await page.exposeBinding('__geom', (_src, entry) => {
 		samples.push(entry as { docId: string; t?: number; sig?: string; painted?: boolean });
 	});
 
+	const faceFetches = routeHolds();
 	await page.route(/\.woff2(\?|$)/, async (route) => {
 		if (faces.mode === 'hang') return new Promise<void>(() => {});
 		if (faces.mode === 'block') return route.abort();
-		await new Promise((r) => setTimeout(r, faces.delayMs ?? 400));
+		if (faces.mode === 'slow') await faceFetches.hold();
 		return route.continue();
 	});
 	await page.route(/fonts\.googleapis|fonts\.gstatic/, (route) => route.fulfill({ contentType: 'text/css', body: '' }));
@@ -183,6 +178,12 @@ async function measure(
 	);
 
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	if (faces.mode === 'slow') {
+		// The slow link, made exact: a preview document has painted its content (hidden or not) before a single face
+		// arrives. A fixed 400 ms delay only hoped for that order (HARD RULE #32).
+		await expect.poll(() => samples.some((e) => e.painted), { timeout: 25_000, message: 'no preview document ever painted' }).toBe(true);
+		faceFetches.releaseAll();
+	}
 
 	// POLL the real signal — the preview has shown at least one layout AND the
 	// document's own gate reports its faces settled. The gate always resolves (it
@@ -206,11 +207,24 @@ async function measure(
 		)
 		.toBe(true);
 
-	// …then OBSERVE. This one is a fixed wait on purpose and it is the only one:
-	// the claim is that NOTHING more happens, which by construction has no signal
-	// to poll — a poll goes green on its first tick, before the second layout it
-	// exists to catch could have been painted.
-	await page.waitForTimeout(1500);
+	// …then the BARRIER. The claim is that NOTHING more happens, and a poll of that goes
+	// green on its first tick. What would make a second layout is a face landing after the
+	// reveal, so wait until every face each preview document asked for has settled
+	// (`document.fonts.ready`: loaded or failed), then two more frames, so the sampler's
+	// tick has read the geometry those faces produce. A swap that was going to happen has
+	// then happened and been sampled. On the hung arm no face can ever land, so there is
+	// nothing to wait for but the frames.
+	for (const f of page.frames()) {
+		if (f === page.mainFrame() || !f.url().includes('srcdoc')) continue;
+		try {
+			await f.evaluate(async (waitForFaces) => {
+				if (waitForFaces) await document.fonts.ready;
+				await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+			}, faces.mode !== 'hang');
+		} catch {
+			/* a document torn down mid-read was replaced; its samples are already in */
+		}
+	}
 
 	const byDoc = new Map<string, typeof samples>();
 	for (const s of samples) {
@@ -231,7 +245,7 @@ async function measure(
 }
 
 test('the preview frame shows ONE layout, not a fallback solve and then a webfont one', async ({ page }) => {
-	const docs = await measure(page, { mode: 'delay', delayMs: 400 });
+	const docs = await measure(page, { mode: 'slow' });
 
 	expect(docs.length, 'no preview document ever became visible — the reveal gate is stuck').toBeGreaterThan(0);
 	for (const doc of docs) {
@@ -276,7 +290,7 @@ test('@smoke the two font solves genuinely differ, so a clean run is not vacuous
 	// Falsifiability, in the shape `test/integration/invariants/jank-sweep.test.js`
 	// uses: a geometry rig that quietly stops being able to see a shift reports
 	// "clean" for the same reason an unplugged smoke alarm reports no fire.
-	const withFaces = await measure(page, { mode: 'delay', delayMs: 0 });
+	const withFaces = await measure(page, { mode: 'fast' });
 	const context = page.context();
 	const second = await context.newPage();
 	const withoutFaces = await measure(second, { mode: 'block' });

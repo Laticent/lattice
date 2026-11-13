@@ -684,6 +684,7 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
   let xBrowser;
   let xPage;
   const cases = [];
+  const measuredRows = [];
 
   before(async () => {
     const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
@@ -910,18 +911,45 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
         + `on it is measuring a shape the selector never sees:\n  ${mismatched.join('\n  ')}`,
     );
 
-    await xPage.setContent(
-      `<style>${theme}\n${bundle}</style><article class="lattice">` +
-        cases
-          .map(
-            ({ cls, child, attr }, i) =>
-              `<section id="x${i}" class="${cls} finish finish-atrium"${attr ? ` ${attr}` : ''}>` +
-              `<div class="backdrop"></div>${child}` +
-              `<span id="y${i}" style="background-color:var(--fin-canvas);display:block;width:4px;height:4px"></span></section>`,
-          )
-          .join('') +
-        '</article>',
-    );
+    // THE CROSS IS MEASURED IN CHUNKS, NOT IN ONE 60k-SECTION PAGE. One `setContent` of
+    // the whole cross is one CDP call whose cost grows with the cross: about 45 s on an
+    // idle 4-core sandbox, and past puppeteer's 180 s protocol timeout under a 12-thread
+    // CPU burn, which failed this hook (HARD RULE #32, shape F4 — shrink the work, never
+    // raise the deadline). Chunking is exact, not an approximation: every row is its own
+    // `<section>` under one `<article>`, and no rule in the bundle selects a section by
+    // its siblings or position (no `section:first-child`, `:nth-*`, `+ section` or
+    // `~ section`), so a row resolves the same whether it has 50 neighbors or 60,000.
+    const ids = cases.map(({ cls, child, attr }) =>
+      `${cls}${attr ? ` {${attr}}` : ''}${child ? ` [${shapeLabel(child)}]` : ''}`);
+    const CHUNK = 2000;
+    for (let start = 0; start < cases.length; start += CHUNK) {
+      const slice = cases.slice(start, start + CHUNK);
+      await xPage.setContent(
+        `<style>${theme}\n${bundle}</style><article class="lattice">` +
+          slice
+            .map(
+              ({ cls, child, attr }, j) =>
+                `<section id="x${j}" class="${cls} finish finish-atrium"${attr ? ` ${attr}` : ''}>` +
+                `<div class="backdrop"></div>${child}` +
+                `<span id="y${j}" style="background-color:var(--fin-canvas);display:block;width:4px;height:4px"></span></section>`,
+            )
+            .join('') +
+          '</article>',
+      );
+      const got = await xPage.evaluate(
+        (cs) =>
+          cs.map((cls, j) => ({
+            cls,
+            surface: getComputedStyle(document.getElementById(`x${j}`)).backgroundColor,
+            canvas: getComputedStyle(document.getElementById(`y${j}`)).backgroundColor,
+          })),
+        ids.slice(start, start + CHUNK),
+      );
+      measuredRows.push(...got);
+    }
+    // The two probe tests below append their own sections; give them the same stylesheet
+    // and an empty article to append to.
+    await xPage.setContent(`<style>${theme}\n${bundle}</style><article class="lattice"></article>`);
   });
 
   after(async () => {
@@ -935,17 +963,8 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     // `topic[data-split-role="cover"]` are two cascade outcomes and a failure must name
     // which. Appended only when present, so the shape-only ids keep the spelling the
     // anti-vacuity check below looks them up by.
-    const ids = cases.map(({ cls, child, attr }) =>
-      `${cls}${attr ? ` {${attr}}` : ''}${child ? ` [${shapeLabel(child)}]` : ''}`);
-    const rows = await xPage.evaluate(
-      (cs) =>
-        cs.map((cls, i) => ({
-          cls,
-          surface: getComputedStyle(document.getElementById(`x${i}`)).backgroundColor,
-          canvas: getComputedStyle(document.getElementById(`y${i}`)).backgroundColor,
-        })),
-      ids,
-    );
+    // Measured in the hook, chunk by chunk; the row's `cls` is its full identity.
+    const rows = measuredRows;
     assert.equal(rows.length, cases.length, 'every case rendered');
     // NOTHING IS PINNED ANY MORE (#2294 closed the two families #2293 left). The predicate
     // that used to stand here exempted the five accent covers outside `dark` and
@@ -1098,12 +1117,7 @@ describe('--fin-canvas follows the painted surface across every modifier the bun
     // inspected by the one assertion standing between a vacuous pass and a green gate.
     // The attribute joins it for the same reason, and both are appended only when present
     // so the shape-only spellings this lookup uses stay exact.
-    const ids = cases.map(({ cls, child, attr }) =>
-      `${cls}${attr ? ` {${attr}}` : ''}${child ? ` [${shapeLabel(child)}]` : ''}`);
-    const rows = await xPage.evaluate(
-      (cs) => cs.map((cls, i) => ({ cls, canvas: getComputedStyle(document.getElementById(`y${i}`)).backgroundColor })),
-      ids,
-    );
+    const rows = measuredRows;
     const wrong = [];
     for (const [frame, token] of Object.entries(EXPECT)) {
       // `topic` is asserted on the TRACKED shape specifically: that is what the engine

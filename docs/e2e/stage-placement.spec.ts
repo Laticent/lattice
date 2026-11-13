@@ -118,6 +118,15 @@ async function withTopology(page: import('@playwright/test').Page, topo: Topolog
 }
 
 /** Open Present, then the Stage, and hand back the popup plus what placement was asked. */
+/**
+ * The placement attempt (`autoPlaceStage` and the fullscreen after it) has run to the end, moved or not: the Stage
+ * controller publishes `<html data-stage-placement="settled">` in the chain's `finally`. "The Stage was never moved"
+ * and "never fullscreened" are read after it, instead of after a 1200 ms sleep (HARD RULE #32).
+ */
+async function placementSettled(page: import('@playwright/test').Page) {
+	await expect(page.locator('html'), 'the Stage placement never settled').toHaveAttribute('data-stage-placement', 'settled');
+}
+
 async function openStage(page: import('@playwright/test').Page, context: import('@playwright/test').BrowserContext) {
 	await gotoStudio(page);
 	await slideCount(page);
@@ -169,7 +178,7 @@ test('@webkit-tablet the Stage opens and drives where Window Management does not
 // sandbox HAS, so no stubbing is needed to drive it.
 test('@gecko on one screen the Stage never takes the display from the console', async ({ page, context }) => {
 	const { stage, dialog } = await openStage(page, context);
-	await page.waitForTimeout(1200); // the placement attempt is async; give it room to be wrong
+	await placementSettled(page);
 	expect(await stage.evaluate(() => !!document.fullscreenElement), 'the Stage covered the console').toBe(false);
 	// The console is still usable, which is the thing the guard protects.
 	await page.keyboard.press('ArrowRight');
@@ -285,7 +294,7 @@ test('the console\'s own screen is never chosen, however it is flagged', async (
 test('one screen is never treated as a projector', async ({ page, context }) => {
 	await withTopology(page, { mode: 'screens', screens: [INTERNAL] });
 	const { stage, dialog } = await openStage(page, context);
-	await page.waitForTimeout(1200);
+	await placementSettled(page);
 	const calls = await placement(page);
 	expect(calls.filter((c) => c.fn !== 'requestFullscreen'), 'a single-screen laptop had its Stage moved').toEqual([]);
 	expect(
@@ -305,7 +314,7 @@ test('a refused Window Management permission degrades, and never throws', async 
 	page.on('pageerror', (e) => errors.push(String(e)));
 	await withTopology(page, { mode: 'denied' });
 	const { stage, dialog } = await openStage(page, context);
-	await page.waitForTimeout(1200);
+	await placementSettled(page);
 	expect(await placement(page), 'a denied permission still moved or filled the Stage').toEqual([]);
 	expect(await stage.evaluate(() => !!document.fullscreenElement)).toBe(false);
 	await page.keyboard.press('ArrowRight');
