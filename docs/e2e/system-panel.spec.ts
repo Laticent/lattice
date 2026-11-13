@@ -3,7 +3,7 @@ import { expect, test } from './studio-fixture';
 
 // The System diagnostic panel (docs/src/components/site/SystemOverlay*.tsx) on the real Studio, on every
 // engine and width: Chromium at desktop and mobile (@crosswidth) and at tablet width from the desktop
-// project, real WebKit on a phone and a tablet box, and Gecko. Design:
+// project, Playwright's WebKit engine with a phone and a tablet profile (not a real device), and Gecko. Design:
 // engineering/decisions/2026-11-12-device-capability-tiers.md §5.
 //
 // HARD RULE #32: the runner's own hardware never decides a result. The CI browser draws in software, so

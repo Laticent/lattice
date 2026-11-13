@@ -85,6 +85,14 @@ describe('classify', () => {
 		expect(classify(strong({ renderer: null, gpuTier: 0, cores: 2 })).tier).toBe('lite');
 	});
 
+	// detect-gpu blocklists SwiftShader and llvmpipe as tier 0; a VM drawing in software is slow, not broken.
+	it('a software renderer that detect-gpu ranks 0 stays weak, so a 2-core VM is Lite, not declined', () => {
+		const sw = 'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)';
+		const p = classify(strong({ renderer: sw, gpuTier: 0, cores: 2 }));
+		expect(p.tier).toBe('lite');
+		expect(p.reasons.map((r) => r.code)).toEqual(['weak:gpu', 'floor:cores']);
+	});
+
 	it('a real chip that detect-gpu ranks 0 is a floor', () => {
 		expect(codes(strong({ gpuTier: 0, cores: 2 }))).toEqual(['floor:gpu', 'floor:cores']);
 	});
@@ -118,6 +126,7 @@ describe('isSoftwareRenderer', () => {
 		['ANGLE (Microsoft, Microsoft Basic Render Driver Direct3D11 vs_5_0 ps_5_0)', true],
 		['ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)', false],
 		['Apple GPU', false],
+		['Apple Software Renderer', true],
 	])('%s → %s', (renderer, expected) => {
 		expect(isSoftwareRenderer(renderer)).toBe(expected);
 	});
@@ -135,6 +144,8 @@ describe('shortRenderer', () => {
 		['ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)', 'Apple M2'],
 		['ANGLE (Intel, Intel(R) UHD Graphics 620 (0x00005917) Direct3D11 vs_5_0 ps_5_0, D3D11)', 'Intel(R) UHD Graphics 620'],
 		['Apple GPU', 'Apple GPU'],
+		['ANGLE (Microsoft, Microsoft Basic Render Driver Direct3D11 vs_5_0 ps_5_0)', 'Microsoft Basic Render Driver'],
+		['Apple Software Renderer', 'Apple Software Renderer'],
 	])('%s → %s', (renderer, expected) => {
 		expect(shortRenderer(renderer)).toBe(expected);
 	});
@@ -182,6 +193,18 @@ describe('readSignals', () => {
 		expect(s.cores).toBeNull();
 	});
 
+	// WebKit clamps the count; a WKWebView (an in-app browser, the macOS desktop app) has no Safari/ token, and
+	// every iOS browser is WebKit. Chromium carries AppleWebKit/ too, and is kept.
+	it.each([
+		['macOS WKWebView', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)', null],
+		['iOS Facebook in-app', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/480.0]', null],
+		['Chrome on iOS', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/131.0 Mobile/15E148 Safari/604.1', null],
+		['Chrome on Android', 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Mobile Safari/537.36', 2],
+		['Edge on Windows', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36 Edg/131.0', 2],
+	])('cores on %s', (_name, userAgent, expected) => {
+		expect(readSignals(env({ nav: { hardwareConcurrency: 2, userAgent } })).cores).toBe(expected);
+	});
+
 	it("Safari's clamped core count is discarded; Chrome's is kept", () => {
 		const safari = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
 		expect(readSignals(env({ nav: { hardwareConcurrency: 4, userAgent: safari } })).cores).toBeNull();
@@ -226,6 +249,11 @@ describe('runCpuProbe', () => {
 		const slow = runCpuProbe({ now: clock.now, unit: () => clock.spend(4), windowMs: 20 });
 		expect(fast.score).toBe(20);
 		expect(slow.score).toBe(5);
+	});
+
+	it('asking for zero windows still runs one, so the score always exists', () => {
+		const clock = fakeClock(1);
+		expect(runCpuProbe({ now: clock.now, unit: () => {}, windows: 0, windowMs: 20 })).toEqual({ counts: [19], score: 19 });
 	});
 
 	it('the median ignores one cold window', () => {

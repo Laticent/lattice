@@ -167,7 +167,7 @@ export function DiagnosticPanel({ posKey, label, onClose, closeLabel, id, testId
 
 	// OPAQUE, with no backdrop blur. WebKit does not apply `backdrop-filter` to an iframe beneath it, so a
 	// 95% panel over the Studio's slide frame let the slide's text show through sharp and readable (found
-	// on real WebKit, iPhone 15 Pro, 2026-11-13; device-capability-tiers.md §5.1). An opaque panel reads the
+	// on Playwright's WebKit with the iPhone 15 Pro profile, 2026-11-13, not a real iPhone; device-capability-tiers.md §5.1). An opaque panel reads the
 	// same on every engine, and drops a per-frame backdrop filter.
 	const panel = (
 		<div

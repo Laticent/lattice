@@ -78,7 +78,7 @@ export const FLOOR_CPU_SCORE = 20;
 /** Two FLOOR signals must agree before hardware declines (§3: one guess never turns a user away). */
 export const FLOOR_SIGNALS_TO_DECLINE = 2;
 
-const SOFTWARE_RENDERER = /swiftshader|llvmpipe|softpipe|microsoft basic render|software rasterizer|mesa offscreen/i;
+const SOFTWARE_RENDERER = /swiftshader|llvmpipe|softpipe|microsoft basic render driver|apple software renderer|software rasterizer|mesa offscreen/i;
 
 /**
  * A renderer string short enough to read in a panel: the software rasterizer's own name, or ANGLE's
@@ -86,7 +86,14 @@ const SOFTWARE_RENDERER = /swiftshader|llvmpipe|softpipe|microsoft basic render|
  */
 export function shortRenderer(renderer: string): string {
 	const sw = renderer.match(SOFTWARE_RENDERER);
-	if (sw) return { swiftshader: 'SwiftShader', llvmpipe: 'llvmpipe', softpipe: 'softpipe' }[sw[0].toLowerCase()] ?? sw[0];
+	if (sw) {
+		const names: Record<string, string> = {
+			swiftshader: 'SwiftShader',
+			llvmpipe: 'llvmpipe',
+			softpipe: 'softpipe',
+		};
+		return names[sw[0].toLowerCase()] ?? sw[0];
+	}
 	const angle = renderer.match(/^ANGLE \([^,]+,\s*(.+?)(?:\s+Direct3D|\s+\(0x|,|\)$)/);
 	const name = (angle ? angle[1] : renderer).replace(/^ANGLE Metal Renderer:\s*/, '').trim();
 	return name.length > 40 ? `${name.slice(0, 39)}…` : name;
@@ -121,10 +128,11 @@ export function classify(signals: DeviceSignals, opts: { override?: TierOverride
 	// No WebGL is WEAK, never a floor: headless Firefox has none, and a person can turn WebGL off for
 	// privacy, so its absence does not prove a missing GPU (measured 2026-11-13, decision note §2). For the
 	// same reason detect-gpu's tier 0, which it also returns when it cannot make a WebGL context, counts as a
-	// floor only when a context exists and the chip it names ranks that low.
+	// floor only when a context exists and the chip it names ranks that low. A SOFTWARE renderer stays weak too,
+	// even though detect-gpu blocklists it as tier 0: a VM drawing in software is slow, not broken (§3.1).
 	hw(
 		'gpu',
-		renderer !== null && gpuTier !== null && gpuTier <= FLOOR_GPU_TIER,
+		renderer !== null && !isSoftwareRenderer(renderer) && gpuTier !== null && gpuTier <= FLOOR_GPU_TIER,
 		renderer === null || isSoftwareRenderer(renderer) || (gpuTier !== null && gpuTier <= LITE_GPU_TIER),
 		'The graphics chip is too slow for Lattice.',
 		renderer === null
@@ -187,7 +195,8 @@ export interface ProbeOptions {
 /** Units of work per window, for each window, and the median (the first window runs cold, so not the mean). */
 export function runCpuProbe({ now, unit = probeUnit, windows = 7, windowMs = 20 }: ProbeOptions): { counts: number[]; score: number } {
 	const counts: number[] = [];
-	for (let w = 0; w < windows; w++) {
+	// At least one window, so the median always exists.
+	for (let w = 0; w < Math.max(1, windows); w++) {
 		const t0 = now();
 		let n = 0;
 		while (now() - t0 < windowMs) {
@@ -211,9 +220,14 @@ export interface BrowserEnv {
 	webglRenderer: () => string | null;
 }
 
-/** Safari clamps `hardwareConcurrency` for privacy, so its number is not evidence of a weak CPU. */
-function isSafari(ua: string | undefined): boolean {
-	return !!ua && /Safari\//.test(ua) && !/Chrome\/|Chromium\/|Edg\//.test(ua);
+/**
+ * WebKit clamps `hardwareConcurrency` for privacy, so its number is not evidence of a weak CPU. Match the
+ * ENGINE, not the Safari brand: a WKWebView (iOS in-app browsers, the macOS desktop app this repo will ship)
+ * carries `AppleWebKit/` with no `Safari/` token, and every iOS browser, Chrome's `CriOS` included, is WebKit.
+ * Chromium-based browsers carry `AppleWebKit/` too, so `Chrome/`, `Chromium/` and `Edg/` rule them out.
+ */
+function webkitClampsCores(ua: string | undefined): boolean {
+	return !!ua && /AppleWebKit\//.test(ua) && !/Chrome\/|Chromium\/|Edg\//.test(ua);
 }
 
 /** The synchronous signals: features, GPU, memory, cores. The CPU probe and detect-gpu fill in later. */
@@ -231,7 +245,7 @@ export function readSignals(env: BrowserEnv): DeviceSignals {
 		renderer: env.webglRenderer(),
 		gpuTier: null,
 		memoryGB: typeof memory === 'number' && memory > 0 ? memory : null,
-		cores: typeof cores === 'number' && cores > 0 && !isSafari(env.navigator.userAgent) ? cores : null,
+		cores: typeof cores === 'number' && cores > 0 && !webkitClampsCores(env.navigator.userAgent) ? cores : null,
 		cpuScore: null,
 		bootProbeSlow: false,
 	};

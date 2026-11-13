@@ -123,7 +123,7 @@ only add a less reliable second answer. The System panel shows the UA-derived na
 
 | Signal | Weak (counts toward LITE) | Floor (counts toward decline) |
 |---|---|---|
-| GPU | software renderer, or `detect-gpu` tier 1 | no WebGL at all, or `detect-gpu` tier 0 |
+| GPU | no WebGL, a software renderer, or `detect-gpu` tier 1 | `detect-gpu` tier 0 for a real (not software) chip that has a WebGL context |
 | Memory (Chromium only) | ≤ 4 GB | ≤ 1 GB |
 | Cores (not Safari) | ≤ 4 | ≤ 2 |
 | Micro-benchmark | below the LITE cut-off | below the floor cut-off (calibrated in slice 1) |
@@ -204,7 +204,7 @@ carries an extra island tag. Local production build after the fix: home eager JS
 every route under its ceiling; with the panel off the Studio requests no `SystemOverlayPanel` chunk, and `?system`
 requests exactly one.
 
-**Opaque panel (2026-11-13).** On real WebKit (iPhone 15 Pro profile) the slide's text read through every diagnostic
+**Opaque panel (2026-11-13).** On Playwright WebKit with the iPhone 15 Pro profile (Linux, not a real iPhone) the slide's text read through every diagnostic
 panel: the shared chassis (`diagnostic-overlay.tsx`) was `bg-popover/95` with `backdrop-blur-sm`, and WebKit does
 not apply a backdrop filter to an iframe beneath it, so the 5% of slide that showed through stayed sharp. The
 Storage overlay had the same bleed on `main`. The chassis is now opaque with no backdrop filter, on all six overlays;

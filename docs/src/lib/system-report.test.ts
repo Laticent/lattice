@@ -60,6 +60,15 @@ describe('reportRows', () => {
 		expect(row(rows, 'Web Workers')[0]).toMatchObject({ value: 'Supported', status: 'ok' });
 	});
 
+	it('a pinned Unsupported never sits next to a green reassurance: detection reads in gray', () => {
+		const s = signals();
+		const rows = reportRows(input(s, { profile: { ...classify(s), tier: 'unsupported' }, pinned: 'unsupported' }));
+		expect(row(rows, 'Why')).toEqual([
+			{ section: 'Tier', label: 'Why', value: 'Pinned for testing. Detection says Full.', status: 'unknown' },
+			{ section: 'Tier', label: 'Why', value: 'Nothing on this device holds Lattice back.', status: 'unknown' },
+		]);
+	});
+
 	it('a pinned tier says so, so a test screenshot is never mistaken for detection', () => {
 		const s = signals();
 		const rows = reportRows(input(s, { profile: { ...classify(s), tier: 'lite' }, pinned: 'lite' }));

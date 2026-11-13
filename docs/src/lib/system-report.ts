@@ -75,8 +75,11 @@ export function reportRows(input: ReportInput): ReportRow[] {
 	if (input.pinned) tierValue += ' (pinned by ?tier=)';
 	else if (profile.tier !== profile.detected) tierValue += ` (detected: ${TIER_LABEL[profile.detected]})`;
 	rows.push({ section: 'Tier', label: 'Tier', value: tierValue, status: tierStatus(profile.tier) });
-	if (profile.reasons.length === 0) rows.push({ section: 'Tier', label: 'Why', value: 'Nothing on this device holds Lattice back.', status: 'ok' });
-	for (const r of profile.reasons) rows.push({ section: 'Tier', label: 'Why', value: r.text, status: r.kind === 'weak' ? 'warn' : 'bad' });
+	// Pinned, the tier is the URL's, not the device's: say so, and show what detection found in gray, so a pinned
+	// "Unsupported" never sits next to a green "nothing holds Lattice back".
+	if (input.pinned) rows.push({ section: 'Tier', label: 'Why', value: `Pinned for testing. Detection says ${TIER_LABEL[profile.detected]}.`, status: 'unknown' });
+	if (profile.reasons.length === 0) rows.push({ section: 'Tier', label: 'Why', value: 'Nothing on this device holds Lattice back.', status: input.pinned ? 'unknown' : 'ok' });
+	for (const r of profile.reasons) rows.push({ section: 'Tier', label: 'Why', value: r.text, status: input.pinned ? 'unknown' : r.kind === 'weak' ? 'warn' : 'bad' });
 
 	rows.push({ section: 'Device', label: 'Browser', value: input.browser, status: 'unknown' });
 	rows.push({
