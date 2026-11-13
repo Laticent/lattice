@@ -127,12 +127,7 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 	});
 
 	it('reading the slide\'s photo reference: spaces, angle brackets, parentheses, titles, modifiers', () => {
-		const on = (line: string) => `<!-- _class: image -->
-
-## T
-
-${line}
-`;
+		const on = (line: string) => `<!-- _class: image -->\n\n## T\n\n${line}\n`;
 		expect(photoRefOf(on('![A](<a b.jpg>)'))).toBe('a b.jpg');
 		expect(photoRefOf(on('![A](img/(1).jpg)'))).toBe('img/(1).jpg');
 		// A title ends the address, and an unclosed one reads as nothing. A bare space inside the address is not a picture to
