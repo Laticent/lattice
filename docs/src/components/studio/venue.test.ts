@@ -37,7 +37,7 @@ describe('venue — the Studio table matches the engine', () => {
 		expect(smallerVenue('huddle')?.value).toBe('laptop');
 		expect(smallerVenue('laptop')).toBeNull();
 		expect(smallerVenue(null)).toBeNull();
-		// A square deck defaults to phone (x1.5, the hall step): the step down skips hall, also x1.5.
+		// A square deck defaults to phone (x1.4): the step down is conference (x1.3).
 		expect(smallerVenue(null, 'square')?.value).toBe('conference');
 		expect(smallerVenue('laptop', 'square')?.value).toBe('tablet');
 		// A story at hall (x1.22) steps to conference (x1.17); at its phone default, to tablet.

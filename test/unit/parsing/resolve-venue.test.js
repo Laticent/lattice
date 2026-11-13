@@ -33,7 +33,7 @@ test('the default follows the shape: laptop on a wide deck, phone on a social on
   assert.equal(effectiveVenue('', 'square'), 'phone');
   assert.equal(effectiveVenue('stadium', 'tall'), 'phone');
   assert.equal(effectiveVenue('venue-hall', 'tall'), 'hall');
-  assert.equal(venueScale('', 'square'), 1.5);
+  assert.equal(venueScale('', 'square'), 1.4);
   assert.equal(venueScale('hall', 'story'), 1.5, 'an unknown family reads as wide');
 });
 
@@ -115,7 +115,7 @@ test('every venue rule precedes scale-*, so a slide\'s own scale-* wins', () => 
 
 test('lint reads a venue at the smallest measured rung at or above its step, by shape', () => {
   assert.equal(venueRung('hall', 'wide'), '2xl');
-  assert.equal(venueRung('', 'square'), '2xl', 'square phone is x1.5, the hall rung');
+  assert.equal(venueRung('', 'square'), '2xl', 'square phone is x1.4, so it reads the hall rung (x1.5), the smallest measured at or above it');
   assert.equal(venueRung('tablet', 'square'), '1');
   assert.equal(venueRung('huddle', 'tall'), 'l');
   assert.equal(venueRung('hall', 'tall'), 'xl', 'x1.22 reads the x1.3 budgets, never the x1.15 ones');

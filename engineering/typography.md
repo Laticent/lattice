@@ -431,13 +431,19 @@ few characters a line to read. Two changes follow, and they are the only way typ
   |---|---|---|---|
   | meta (labels, chips, eyebrows) | 13pt | 13.1 | 13.1–13.3 |
   | body-compact (code, support lines, keys) | 15pt | 15.0 | 14.9–15.2 |
-  | body | 17pt | 16.5–17.1 | 17.1–17.3 |
+  | body | 17pt | 15.4 square, 17.1 tall | 17.1–17.3 |
   | chrome (footer, page number) | about 12.5pt | 12.6–12.7 | 12.5–13.0 |
 
   A portrait slide on a tablet, limited by the tablet's width rather than its height, reads
   larger (body 21.4pt). Larger targets (19 / 17 / 15pt) were built and measured first: across
   the galleries at the phone venue they clipped 90 to 236 more slides per shape even when split
   by measurement, so these were chosen. The lifts are in `base.modifiers.css` beside the steps.
+- **A square slide at phone is x1.4, body about 15.4pt** (owner, 2026-11-13). x1.5 (16.5pt) clipped
+  291 square slides in a real export that fit at laptop, x1.4 166 and x1.3 85; the owner chose x1.4
+  plus splitting prose at its paragraphs and code at its lines. The meta, compact and chrome lifts
+  rose with it (1.16 / 1.14 / 1.13), so labels stay at 13pt and support lines at 15pt; only body
+  steps down. Lint still reads the hall rung, the smallest measured at or above x1.4.
+  `engineering/decisions/2026-10-28-fit-everywhere-model.md` §23.
 
 The table is `VENUE_SCALE_BY_FAMILY` in `lib/core/resolve-venue.js`, applied in
 `base.modifiers.css` off the section's `data-family` stamp, so the default follows the box a

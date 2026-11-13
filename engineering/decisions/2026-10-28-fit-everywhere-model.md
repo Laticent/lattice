@@ -1270,3 +1270,34 @@ phone slide is shortest of. Adding `square` to the Frame's `slicing`: it stacks 
 `mermaid-tilde-fences`) give the lede 29% to 40% of the band beside a long meta. That is the same
 `auto` bay on `main`, untouched by this PR's venues; it is logged in
 `followups.d/2988-p3-masthead-lede-floor-wide.md`.
+
+## 23. The square phone step is x1.4, and prose splits at its seams (owner, 2026-11-13)
+
+**The measurement.** The real-export diff (§22) found what §21's harness under-counted: at the
+phone default, **291 square slides, 28 portrait and 16 story** overflow in the CLI export and fit at
+`venue: laptop`. Most are prose that no strategy split: `content` paragraphs (80), code (69) and
+title slides (30), then about 150 spread over other components. The square step decides most of
+it, measured with everything else held:
+
+| Square phone step | Body on a 390pt phone | Square slides that clip only at phone |
+|---|---|---|
+| x1.5 (§18) | 16.5pt | 291 |
+| x1.4 | 15.4pt | 166 |
+| x1.3 | 14.3pt | 85 |
+
+Of the flagged prose, 71 of 80 `content` slides hold two or more paragraphs or items, and 53 of 69
+code blocks run six lines or more, so a split between blocks, or between code lines, would clear
+most of what any step leaves.
+
+**The rulings.** The owner chose **x1.4 plus splitting at the seams**: a `content` slide splits
+between its paragraphs and items, a code block between its lines, and the rest are fixed one
+component at a time. At x1.4 the meta, compact and chrome lifts rise to 1.16 / 1.14 / 1.13, so
+labels stay at 13pt and support lines at 15pt and only body steps down (`base.modifiers.css`,
+`VENUE_SCALE_BY_FAMILY`). For `redline`, whose sample clause is one 60-word sentence, the owner
+allowed **a cut inside a sentence at a clause break** (a semicolon, or a comma before *and*, *or*,
+*but*), never mid-clause, with the deletion marks kept whole. This amends §20's "never inside a
+sentence" for redline only.
+
+Rejected: x1.3 (the fewest splits, but the furthest from the 17pt reading target); keeping x1.5
+and splitting all 291 (title slides never split and would need a ruling of their own); keeping
+prose at `laptop` the way charts do (type would jump between slides of one deck).

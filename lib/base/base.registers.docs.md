@@ -898,15 +898,15 @@ differently, so each shape has its own row (`VENUE_SCALE_BY_FAMILY` in
 | Shape (`size:`) | phone | tablet | laptop | huddle | conference | hall |
 |---|---|---|---|---|---|---|
 | 16:9, 4K, standard | 1x | 1x | **1x** | 1.15x | 1.3x | 1.5x |
-| square | **1.5x** | 0.75x | 1x | 1.15x | 1.3x | 1.5x |
+| square | **1.4x** | 0.75x | 1x | 1.15x | 1.3x | 1.5x |
 | portrait, story | **1x** | 0.6x | 1x | 1.1x | 1.17x | 1.22x |
 | mobile | **1x** | 0.72x | 1x | 1.1x | 1.17x | 1.22x |
 
 Bold is the default when `venue:` is omitted. Why each row is what it is:
 
 - **A square post at the old default read at about 11pt on a phone**, the size of a caption.
-  `phone` sets it at 1.5x, about 16pt on a 390pt-wide phone, close to the phone's own 17pt
-  reading size.
+  `phone` sets it at 1.4x, about 15.4pt on a 390pt-wide phone. 1.5x read at 16.5pt, closer to
+  the phone's own 17pt, but clipped 291 square slides that fit at laptop, against 166 at 1.4x.
 - **A tall slide's designed size already reads at 17pt on a phone**, so `phone` is 1x there.
 - **The rooms rise less on a tall slide.** At 1.5x a story at hall held about 28 characters a
   line, too few to read; 1.22x keeps about 35.

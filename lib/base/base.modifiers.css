@@ -1453,8 +1453,9 @@ section.venue-hall       { --fs-scale: 1.5;  --venue-meta-lift: 1.3;  --venue-co
  *    different fractions of body (square 0.73, tall 0.64), so each handheld venue keeps its step and
  *    sets the meta, compact and chrome lifts the rooms already use. Measured per shape at x1
  *    (.scratch/charts/typepoints.js) and solved for the targets:
- *      square  phone x1.5 (body 16.5pt, the measured hall rung kept so every budget stays exact)
- *              meta lift 1.08, compact 1.06, chrome 1.05; tablet x0.75, lifts 1.04 / 1.03 / 1.03
+ *      square  phone x1.4 (body 15.4pt; owner 2026-11-13, from x1.5, fit-everywhere-model.md §23)
+ *              meta lift 1.16, compact 1.14, chrome 1.13, which keep meta at 13pt and the compact
+ *              role at 15pt; tablet x0.75, lifts 1.04 / 1.03 / 1.03
  *      tall    phone x1, tablet x0.6     meta lift 1.2, compact 1.03, chrome 1.15
  *      strip   phone x1, tablet x0.72    meta lift 1.2, compact 1.03, chrome 1.15
  *    The larger targets (19 / 17 / 15pt) were built and measured first: across the galleries at the
@@ -1471,7 +1472,7 @@ section.venue-hall       { --fs-scale: 1.5;  --venue-meta-lift: 1.3;  --venue-co
  *    them read at phone size is its own change (2026-10-30-chart-reflow-narrow-boxes.md). Until it
  *    lands a chart renders as it did before handheld venues, and the chart text kernel already
  *    reads an unstamped slide as laptop (venueOfTokens). A `venue:` the author writes still applies. */
-section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet, .chart-frame) { --fs-scale: 1.5; --venue-meta-lift: 1.08; --venue-compact-lift: 1.06; --venue-chrome-cut: 1.05; }
+section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet, .chart-frame) { --fs-scale: 1.4; --venue-meta-lift: 1.16; --venue-compact-lift: 1.14; --venue-chrome-cut: 1.13; }
 section:where([data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet, .chart-frame) { --venue-meta-lift: 1.2; --venue-compact-lift: 1.03; --venue-chrome-cut: 1.15; }
 section.venue-tablet:where([data-family="square"]) { --fs-scale: 0.75; --venue-meta-lift: 1.04; --venue-compact-lift: 1.03; --venue-chrome-cut: 1.03; }
 section.venue-huddle:where([data-family="tall"], [data-family="strip"])     { --fs-scale: 1.1; }

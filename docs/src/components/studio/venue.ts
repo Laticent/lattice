@@ -32,7 +32,7 @@ const WHO: Record<VenueName, { label: string; who: string }> = {
 /** The type step each venue renders at, by the deck's shape family — the engine's table. */
 export const VENUE_SCALE_BY_FAMILY: Record<Family, Record<VenueName, number>> = {
 	wide: { laptop: 1, huddle: 1.15, conference: 1.3, hall: 1.5, phone: 1, tablet: 1 },
-	square: { laptop: 1, huddle: 1.15, conference: 1.3, hall: 1.5, phone: 1.5, tablet: 0.75 },
+	square: { laptop: 1, huddle: 1.15, conference: 1.3, hall: 1.5, phone: 1.4, tablet: 0.75 },
 	tall: { laptop: 1, huddle: 1.1, conference: 1.17, hall: 1.22, phone: 1, tablet: 0.6 },
 	strip: { laptop: 1, huddle: 1.1, conference: 1.17, hall: 1.22, phone: 1, tablet: 0.72 },
 };
@@ -78,8 +78,8 @@ export function venueOption(name: VenueName | null, family: Family = 'wide'): Ve
 }
 
 /** The next smaller step down from this venue (or the shape's default when none is named), or null
- *  when nothing smaller is on offer. Venues at the same step are skipped: a square deck's phone and
- *  hall are both x1.5, so the step down from either is conference. */
+ *  when nothing smaller is on offer. Venues at the same step are skipped. A square deck's phone (x1.4)
+ *  and hall (x1.5) both step down to conference (x1.3). */
 export function smallerVenue(name: VenueName | null, family: Family = 'wide'): VenueOption | null {
 	const at = VENUE_SCALE_BY_FAMILY[family][name ?? defaultVenue(family)];
 	const below = venueOptionsFor(family).filter((v) => v.scale < at);
