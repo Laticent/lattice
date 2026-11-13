@@ -601,8 +601,8 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   ignores embedded fonts and drew grouped icon shapes as specks: `decisions/2026-11-01-icon-font.md` § 3.6). It also renders rewritten
   variants of the same file (icons ungrouped, icons in their own group), so one run compares ways of writing a slide. The PNGs land in
   the run's `platform-suite-office-quicklook-macos-26` artifact.
-- **iOS Safari:** `ios-safari-studio` (`docs/scripts/ios-safari/run.sh`) is the one place CI reaches real Mobile Safari. It builds and
-  serves the docs, boots a fresh iPad and then iPhone iOS Simulator, writes the remote-automation defaults inside each, reboots it,
+- **iOS Safari:** `ios-safari-studio-ipad` and `ios-safari-studio-iphone` (`docs/scripts/ios-safari/run.sh`, one device per job through
+  `DEVICES`) are the one place CI reaches real Mobile Safari. Each builds and serves the docs, boots a fresh iPad or iPhone iOS Simulator, writes the remote-automation defaults inside it, reboots it,,
   launches Safari, and drives it through `safaridriver` (plain WebDriver over `fetch` in `run.mjs`; Playwright cannot drive iOS).
   The page-side check is `studio-probe.js`, the same assertions as `studio-preview-inert-payloads.spec.ts` plus a detector control
   that must fire. `ios-safari-photo` runs the same recipe with `PROBE=photo`: `photo-probe.js` checks that the photo verdict's

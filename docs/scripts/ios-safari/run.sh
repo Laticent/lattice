@@ -203,8 +203,8 @@ for family in $families; do
   # The second start must not cost the job its 30-minute limit (.github/workflows/platform-suites.yml), which would cancel
   # it and lose the devices still to come. So it runs only if one more cycle of this device, and every device after it,
   # each at what this device's first start just cost, still ends by SUITE_DEADLINE seconds of this script (default 1560:
-  # the job's 1800, less about 180 before the Suite step and a minute's margin). In the Studio suite (a docs build plus a
-  # 12-minute iPhone on a slow runner) that usually means no second start for the iPad; jpeg and focus-sync have room.
+  # the job's 1800, less about 180 before the Suite step and a minute's margin). The Studio suites run one device per job
+  # (DEVICES), so each has room for its second start, as jpeg and focus-sync do.
   # The first start makes 2 session attempts, not 3, to leave the second one its time.
   rc=3
   why=''
