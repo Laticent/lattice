@@ -1,0 +1,66 @@
+# SCRATCH, never merges: reproduce the node-24 `npm ci` wedge and capture what holds the process.
+name: npm ci wedge probe
+on:
+  pull_request:
+    paths: ['.github/workflows/zz-npm-ci-wedge-probe.yml', '.github/wedge-probe/**']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        slot: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: npm ci x3, capture a wedge
+        shell: bash
+        run: |
+          set -u
+          cp .github/wedge-probe/handles.js /tmp/handles.js
+          export NODE_OPTIONS="--require /tmp/handles.js"
+          R=/tmp/wedge; mkdir -p $R
+          desc() { echo $1; for c in $(pgrep -P $1); do desc $c; done; }
+          for i in 1 2 3; do
+            d=$R/run-$i; mkdir -p $d; export WEDGE_DUMP_DIR=$d
+            start=$(date +%s)
+            npm ci > $d/out.log 2>&1 &
+            pid=$!; hung=0
+            while kill -0 $pid 2>/dev/null; do
+              sleep 2
+              if [ $(( $(date +%s) - start )) -ge 200 ]; then
+                hung=1
+                ps -eLo pid,ppid,tid,etimes,stat,wchan:32,args --forest > $d/ps.txt
+                for p in $(desc $pid); do
+                  echo "== pid $p $(cat /proc/$p/cmdline | tr '\0' ' ')" >> $d/proc.txt
+                  for t in /proc/$p/task/*; do echo "-- tid ${t##*/} $(cat $t/comm) wchan=$(cat $t/wchan) state=$(awk '{print $3}' $t/stat)" >> $d/proc.txt; sudo cat $t/stack >> $d/proc.txt 2>&1; done
+                  ls -l /proc/$p/fd >> $d/proc.txt 2>&1
+                  sudo cat /proc/$p/fdinfo/1 /proc/$p/fdinfo/2 >> $d/proc.txt 2>&1
+                  kill -USR2 $p 2>/dev/null
+                done
+                sleep 3
+                sudo lsof -p $pid > $d/lsof.txt 2>&1
+                cat /proc/net/tcp /proc/net/tcp6 > $d/tcp.txt
+                ls -t ~/.npm/_logs/*-debug-0.log | head -1 | xargs -I{} cp {} $d/npm-debug.log
+                for p in $(desc $pid); do kill -9 $p 2>/dev/null; done
+                break
+              fi
+            done
+            wait $pid; rc=$?
+            echo "slot ${{ matrix.slot }} run $i rc=$rc secs=$(( $(date +%s) - start )) hung=$hung" | tee -a $R/summary.txt
+            ls -t ~/.npm/_logs/*-debug-0.log | head -1 | xargs -I{} cp {} $d/npm-debug-final.log
+          done
+          if grep -q "hung=1" $R/summary.txt; then echo "::warning::WEDGE in slot ${{ matrix.slot }}"; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wedge-${{ matrix.slot }}
+          path: /tmp/wedge
