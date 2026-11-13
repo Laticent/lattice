@@ -1233,3 +1233,16 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   Shipped toward it: the slide-text address gate (#3110), slice 3 with the shared display layer, video on any slide and the
   `>` sigil (#3114), and one placed-picture rule for every reader (#3132). Still owed before GA: the deck-wide `--fix`
   sweep off `![bg]`, then the engine stops reading the keywords (`followups.d/3126-p2-deck-sweep-then-engine-break.md`).
+- 2026-11-13: **the deck sweep, non-gallery decks** (branch `claude/funny-dijkstra-n64iog`; followups.d/3126-p2 step 1). Meta
+  step 5 is on `main` (#3136), so the sweep ran. `lint:deck --fix` (lib/plugins/image/shared/image-migrate.js) now writes
+  Markdown's picture, `![description](src)`, rather than a record, and moves the placement to the slide as before: on an
+  `image` or `bleed` slide the shortcut is the record's own path, so it draws the same photo, and the author keeps the line they
+  know. The old description becomes the name, as Compose's Placement control does; one starting with `bg` becomes `Image: …`.
+  17 example decks had `![bg]`; 16 are swept (`bg-split-ratio`, the demo of a `![bg left:40%]` share the engine never read, is deleted: with the
+  keyword gone it has no subject); every swept photo got a name for a screen reader (`![bg]` never had one, and the shortcut's empty
+  alt made that visible to `image-no-alt`). Measured same-machine, `main`'s text against the swept text, PNG per slide: 15
+  decks pixel-identical; `bg-on-any-slide` differs on its three background slides, which gain `bleed`'s scrim under the heading
+  (the class the migration adds by design). Rendering `marp-export-fidelity` found the bundled CLI reading two files relative
+  to `dist/` (lib/export/locked-figures.js, lib/core/policy-page-script.js), so a PNG export of a deck with a locked figure
+  failed on `main`; both read from the package root now, and test/unit/cli/cli-bundle.test.js checks every relative read in
+  the bundle (red on the old code).

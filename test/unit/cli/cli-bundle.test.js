@@ -80,3 +80,18 @@ test('--version still reports the package version from the bundle', () => {
     );
   }
 });
+
+// The bundle runs from dist/, so a file read that names its target RELATIVE to the source file's own folder
+// (`require.resolve('../core/x.mjs')`, `path.join(__dirname, 'x.js')`) points outside the package or at nothing.
+// A PNG export of a deck with a locked figure died on exactly that ("Cannot find module
+// '../core/sanitize-slide-html.mjs'"); such reads go through the package root (lib/core/pkg-root.js).
+test('every relative file read in the bundle resolves from dist/', () => {
+  const bundle = fs.readFileSync(BUNDLE, 'utf8');
+  const dist = path.dirname(BUNDLE);
+  const reads = [
+    ...[...bundle.matchAll(/require\.resolve\("(\.{1,2}\/[^"]+)"/g)].map((m) => m[1]),
+    ...[...bundle.matchAll(/\bpath\d*\.join\(__dirname,\s*"([^"]+\.[cm]?js)"\)/g)].map((m) => m[1]),
+  ];
+  const missing = [...new Set(reads)].filter((rel) => !fs.existsSync(path.join(dist, rel)));
+  assert.deepEqual(missing, [], `dist/lattice.js reads these relative to dist/, where they do not exist: ${missing.join(', ')}`);
+});

@@ -16,9 +16,9 @@ The CLI now draws `![bg]` the way the Studio always has
 
 ---
 
-<!-- _class: content dark -->
+<!-- _class: content dark bleed -->
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 `Full-bleed background`
 
@@ -28,9 +28,9 @@ The CLI now draws `![bg]` the way the Studio always has
 
 ---
 
-<!-- _class: content dark -->
+<!-- _class: content dark bleed -->
 
-![bg](sample:photo-pano.jpg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.jpg)
 
 `Any picture`
 
@@ -46,13 +46,13 @@ The CLI now draws `![bg]` the way the Studio always has
 
 `![bg right](…)` on an `image` slide sets the picture next to the words. On any other slide, `lint:deck` now warns that `right` does nothing.
 
-![bg right](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 ---
 
-<!-- _class: content dark -->
+<!-- _class: content dark bleed -->
 
-![bg](sample:photo-wide.jpg)
+![A figure by a lake under a low sun](sample:photo-wide.jpg)
 
 `Same in every export`
 

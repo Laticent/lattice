@@ -33,7 +33,7 @@ The drawn box keeps the slide's layout, and its address stays in the file for wh
 
 The `image` layout reads a `![bg](…)` as its panel. From the web, the panel shows the placeholder's hatch in the deck's own colors instead of a blank.
 
-![bg](https://images.example.com/offsite/lake.jpg)
+![A lake](https://images.example.com/offsite/lake.jpg)
 
 ---
 

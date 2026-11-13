@@ -61,16 +61,25 @@ describe('the slide places the picture', () => {
   });
 });
 
-describe('Marp\'s keywords to a record (§8 decision 2)', () => {
+describe('Marp\'s keywords to Markdown\'s picture, the record\'s shortcut (§8 decision 2)', () => {
   test('placement moves to the slide, and what was never drawn is named', () => {
-    assert.deepEqual(migrateBgLine('![bg left:40% blur:10px](sample:photo-wide.svg)', ['image']), { record: '`@image{sample:photo-wide.svg}`', addClass: 'mirror', dropped: [':40%', 'blur:10px'] });
-    assert.deepEqual(migrateBgLine('![bg](p.jpg "The lake")', ['content', 'dark']), { record: '`@image{p.jpg, description="The lake"}`', addClass: 'bleed', dropped: [] });
+    assert.deepEqual(migrateBgLine('![bg left:40% blur:10px](sample:photo-wide.svg)', ['image']), { record: '![](sample:photo-wide.svg)', addClass: 'mirror', dropped: [':40%', 'blur:10px'] });
+    assert.deepEqual(migrateBgLine('![bg](p.jpg "The lake")', ['content', 'dark']), { record: '![The lake](p.jpg)', addClass: 'bleed', dropped: [] });
     assert.equal(migrateBgLine('![bg right](p.jpg)', ['image']).addClass, null);
     assert.equal(migrateBgLine('Some text ![bg](p.jpg)', ['image']), null, 'only a line that is one directive');
   });
 
-  test('an address Segno cannot read bare is quoted', () => {
-    assert.equal(migrateBgLine('![bg](my%20photo,v2.jpg)', ['image']).record, '`@image{"my%20photo,v2.jpg"}`');
+  test('the description becomes the name, escaped, and never reads as the keyword again', () => {
+    assert.equal(migrateBgLine('![bg](p.jpg "A [draft] a\\b")', ['image']).record, '![A \\[draft\\] a\\\\b](p.jpg)');
+    assert.equal(migrateBgLine('![bg](p.jpg "bg of the lake")', ['image']).record, '![Image: bg of the lake](p.jpg)');
+    assert.equal(migrateBgLine('  ![bg](p.jpg "a `b` c")', ['image']).record, '  ![a `b` c](p.jpg)', 'a backtick is safe in a name');
+  });
+
+  test('the migrated line is the slide\'s placed picture, as the record was', () => {
+    for (const cls of ['image', 'image mirror', 'content dark bleed']) {
+      const out = html(deck(cls, migrateBgLine('![bg](p.jpg "The lake")', cls.split(' ')).record));
+      assert.match(out, /class="lattice-bg/, cls);
+    }
   });
 
   test('the class line gains the word once', () => {
@@ -141,7 +150,6 @@ describe('the trio\'s findings on slice 3 stay fixed', () => {
 
   test('the migration refuses to rewrite what it would change, and never edits a second directive', () => {
     assert.ok(migrateBgLine('![bg](x&#39;a.jpg)', ['image']).unsafe);
-    assert.ok(migrateBgLine('![bg](a.jpg "a `b` c")', ['image']).unsafe);
     assert.equal(migrateBgLine('    ![bg](a.jpg)', ['content']), null, 'an indented code block');
     assert.equal(classLineWith('<!-- _class: content --><!-- _paginate: false -->', 'bleed'), null);
   });

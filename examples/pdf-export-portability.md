@@ -36,7 +36,7 @@ The deck stays vector — selectable text, embedded fonts, crisp at any zoom. On
 
 On iOS, this full-bleed SVG used to draw only a top band over bare canvas. It now exports as a 2× raster twin — a plain image XObject every viewer supports.
 
-![bg](sample:photo-pano.svg)
+![A lone figure on a wide shore at dusk](sample:photo-pano.svg)
 
 <!-- The spotlight cover placement emits shading-pattern / transparency-group constructs in the vector PDF. Quartz partially renders them; poppler is fine — which is why CI never caught it. -->
 
@@ -49,7 +49,7 @@ On iOS, this full-bleed SVG used to draw only a top band over bare canvas. It no
 
 The tall photo column vanished outright in Quartz viewers. Same fix: the SVG is rasterized at export time, at twice its placement size, aspect intact.
 
-![bg](sample:photo-tall.svg)
+![A figure before violet hills and a pale sun](sample:photo-tall.svg)
 
 <!-- One raster twin per unique SVG, sized to 2x its largest placement — the resolution the #681 on-device fix proved out. Layout is unaffected because the twin keeps the intrinsic aspect ratio. -->
 
