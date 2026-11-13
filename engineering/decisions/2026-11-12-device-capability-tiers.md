@@ -58,6 +58,25 @@ colors and CSS nesting all supported. Two consequences:
    the screenshots. The tier must be pinnable (`?tier=full`, and a Playwright init script that pins it), and the tests
    must cover each tier on purpose, not by accident of the runner.
 
+**Measured on the other engines (2026-11-13, the System panel on the built Studio):**
+
+| Engine | Graphics reads | Memory | Cores | Tier the panel showed |
+|---|---|---|---|---|
+| Playwright WebKit 26.0 (Linux, iPhone 15 Pro profile and a 1180 × 820 box) | `Apple GPU` | not reported | discarded as clamped (Safari UA) | Full |
+| Playwright Firefox 142 (headless, 1440 × 900) | no WebGL context at all | not reported | 4 | Lite (no WebGL counts as one floor signal; 4 cores is weak) |
+| Playwright Chromium (from §2's first probe) | `SwiftShader` | reported on a secure page | 4 | Lite |
+
+Three consequences for the slices still to build:
+
+1. **WebKit always names its renderer `Apple GPU`**, even this Linux build with no GPU at all, so on WebKit the
+   software-renderer test sees nothing. Harmless on a real Apple device, which always has a GPU; on WebKit the
+   tier rests on the CPU probe and the boot probe.
+2. **"No WebGL" is not proof of no GPU.** Headless Firefox has none, and a real Firefox user can turn WebGL off for
+   privacy. As built, that is a floor signal, so such a user on a machine reporting ≤ 2 cores would be DECLINED.
+   Before slice 5 ships a decline, "no WebGL" must count only as weak (LITE), never as a floor, unless WebGPU or the
+   CPU probe agrees.
+3. The memory and core columns of §2 are now measured on all three engines, not only taken from vendor docs.
+
 ## 3. The model: three tiers, decided once, before first paint
 
 | Tier | Who | What they get |
@@ -184,6 +203,12 @@ loads on the first switch-on. The gate shares the Storage overlay's island (`Sit
 carries an extra island tag. Local production build after the fix: home eager JS 311.2 KB, Studio HTML 243.2 KB,
 every route under its ceiling; with the panel off the Studio requests no `SystemOverlayPanel` chunk, and `?system`
 requests exactly one.
+
+**Opaque panel (2026-11-13).** On real WebKit (iPhone 15 Pro profile) the slide's text read through every diagnostic
+panel: the shared chassis (`diagnostic-overlay.tsx`) was `bg-popover/95` with `backdrop-blur-sm`, and WebKit does
+not apply a backdrop filter to an iframe beneath it, so the 5% of slide that showed through stayed sharp. The
+Storage overlay had the same bleed on `main`. The chassis is now opaque with no backdrop filter, on all six overlays;
+`system-panel.spec.ts` asserts the computed background is an alpha-free `rgb()`.
 
 Driven on the real Studio (`npm run dev`, Playwright Chromium 153, 390 and 1440 px): the sandbox reads as Lite
 (software renderer, 4 cores), "Run speed test" turned "Not run yet" into "248 units", "Copy report" put the full report
