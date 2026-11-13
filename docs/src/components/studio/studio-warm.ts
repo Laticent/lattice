@@ -1,3 +1,4 @@
+import { browserTierDeps, startDeviceTier } from '@/lib/device-tier';
 import typographyCore from '../../../../lib/core/resolve-typography.js';
 import emojiFacesCore from '../../../../lib/fonts/emoji-faces.js';
 import iconFacesCore from '../../../../lib/fonts/icon-faces.js';
@@ -137,7 +138,17 @@ export type WarmUpInputs = {
 };
 
 /** Start the warm-up. Returns a cancel function. */
+/** Decide the device tier for this visit, after the first slide (device-capability-tiers.md, slice 1b). It rides this
+ * chunk because the chunk already arrives after the first slide, so the profile code adds no startup bytes; the CPU probe
+ * runs in a worker, at most once a day. A failure leaves the tier the page's inline boot script applied. */
+function startTier(): void {
+	try {
+		startDeviceTier(browserTierDeps(window));
+	} catch {}
+}
+
 export function startStudioWarmUp({ warmPanels, katexUrl, diagramRuntimeUrl, fabricateUsed, themeBase = null, firstSlide = Promise.resolve(), quiet = () => Promise.resolve() }: WarmUpInputs): () => void {
+	startTier();
 	const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
 	if (katexUrl) katexWarm ??= warmable(() => fetch(katexUrl));
 	// Every runtime-drawn plugin's library (Mermaid's today), beside the runtime — the files the
