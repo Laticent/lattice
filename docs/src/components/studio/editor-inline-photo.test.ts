@@ -1,7 +1,8 @@
-// @vitest-environment node
+// @vitest-environment jsdom
 import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
-import { CHIP_MIN_PAYLOAD, longPayloads, payloadSize, photoChips } from './editor-inline-photo';
+import { CHIP_MIN_PAYLOAD, inlinePhotoEditing, LARGE_INSERT, longPayloads, payloadSize, photoChips } from './editor-inline-photo';
 
 // The photo chip is a state field (editor-inline-photo.ts says why): it must cover each long payload, follow an edit
 // elsewhere, re-read the line an edit touches, and go when the payload goes.
@@ -53,5 +54,33 @@ describe('photoChips', () => {
 
 	it('a deck with no photo has no chip', () => {
 		expect(chips(stateOf('# T\n\n![a](data:image/png;base64,QUJD)\n'))).toEqual([]);
+	});
+});
+
+describe('largeInsert', () => {
+	const fire = (view: EditorView, data: string, cancelable: boolean) => {
+		const e = new InputEvent('beforeinput', { inputType: 'insertText', data, cancelable, bubbles: true });
+		view.contentDOM.dispatchEvent(e);
+		return e;
+	};
+	const mount = () => new EditorView({ doc: '# T\n', extensions: [inlinePhotoEditing], parent: document.body });
+
+	it('applies a large typed insertion itself, as one transaction, and cancels the browser\'s', () => {
+		const view = mount();
+		view.dispatch({ selection: { anchor: view.state.doc.length } });
+		const text = `![bg](${photo(LARGE_INSERT)})`;
+		const e = fire(view, text, true);
+		expect(e.defaultPrevented).toBe(true);
+		expect(view.state.doc.toString()).toBe(`# T\n${text}`);
+		view.destroy();
+	});
+
+	it('leaves a short insertion, and one that cannot be cancelled, to the browser', () => {
+		const view = mount();
+		expect(fire(view, 'x', true).defaultPrevented).toBe(false);
+		const big = fire(view, photo(LARGE_INSERT), false);
+		expect(big.defaultPrevented).toBe(false);
+		expect(view.state.doc.toString()).toBe('# T\n');
+		view.destroy();
 	});
 });

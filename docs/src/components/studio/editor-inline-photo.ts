@@ -112,9 +112,14 @@ function insertLarge(view: EditorView, text: string): void {
 	view.dispatch(view.state.replaceSelection(text), { userEvent: 'input.type', scrollIntoView: true });
 }
 
+// Android's Chrome ignores a cancelled `beforeinput` (CodeMirror's own handler says so): applying the text here as well
+// would put it in twice, so there, and wherever the event cannot be cancelled, the browser's own path stays.
+const IGNORES_CANCEL = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
+
 const largeInsert = EditorView.domEventHandlers({
 	beforeinput(e: InputEvent, view: EditorView) {
 		if (e.inputType !== 'insertText' || !e.data || e.data.length < LARGE_INSERT || view.composing || isReadOnly(view.state)) return false;
+		if (!e.cancelable || IGNORES_CANCEL) return false;
 		e.preventDefault();
 		insertLarge(view, e.data);
 		return true;
