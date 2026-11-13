@@ -5,7 +5,7 @@ import { CHROME, expect, gotoStudio, openInspectorTab, openSection, persistedSou
 // per-slide Image tab in Slide settings on an image slide. Asserted on the persisted source,
 // which is what the engine reads. Modeled on card-tag-register.spec.ts.
 
-const SLIDE = '<!-- _class: image spotlight -->\n\n## A photo.\n\nThe words.\n\n![bg](sample:photo-wide.svg)\n';
+const SLIDE = '<!-- _class: image spotlight -->\n\n## A photo.\n\nThe words.\n\n![A lake](sample:photo-wide.svg)\n';
 const DECK = `---\ntitle: Photos\n---\n\n${SLIDE}`;
 
 test.beforeEach(async ({ page }) => {
@@ -106,7 +106,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 	// leaves a base64 `data:image/svg+xml` bg line as text (main does too), so an SVG here never reaches a slide.
 	test(`slide settings: a pale photo picks dark ink${tag}`, async ({ page }) => {
 		const pale = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAKCAIAAAAy3EnLAAAAFElEQVR4nGP48vEFSYhhVMPQ1AAAAS3AMBzA3vYAAAAASUVORK5CYII=';
-		await setEditorContent(page, `---\ntitle: Photos\n---\n\n${SLIDE.replace('![bg](sample:photo-wide.svg)', `![bg](${pale})`)}`);
+		await setEditorContent(page, `---\ntitle: Photos\n---\n\n${SLIDE.replace('![A lake](sample:photo-wide.svg)', `![A lake](${pale})`)}`);
 		await openSlideImageTab(page);
 		await inkReady(page);
 		await slider(page, 'Slide card backing').fill('35');

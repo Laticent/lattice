@@ -59,20 +59,16 @@ function recordAddress(body: string): string | null {
 }
 
 /**
- * The slide's photo, as written, and where its line starts: an old `![bg …](dest)`, a lone `@image{dest, …}` record, or, on a
- * slide that places a picture (`image`, `bleed`), a lone `![title](dest)`, the record's shortcut since 2026-11-10. The engine
- * draws all three as the slide's photo panel. Null when the slide has none, or its address cannot be read (the caller then
+ * The slide's photo, as written, and where its line starts: a lone `@image{dest, …}` record, or, on a slide that places a
+ * picture (`image`, `bleed`), a lone `![title](dest)`, the record's shortcut since 2026-11-10. The engine draws both as the
+ * slide's photo panel; a Marp `![bg …](dest)` is an ordinary picture to it since the engine break (2026-11-13), so it is no
+ * photo here either. Null when the slide has none, or its address cannot be read (the caller then
  * skips the photo check rather than guess). `placing`: what the slide inherits from the whole deck (lib/slide-carried.ts
  * `slidePlacingAt` / `slidePlacingOf`): the classes the engine resolves for it (its own or the carried `class:`, plus the
  * deck's), and whether a carried background is already its photo. A bare class list is the classes the slide receives
  * besides the `_class` in `chunk` (the deck's `class:` tokens), for a caller with no deck in hand.
  */
 export function photoAt(chunk: string, placing: SlidePlacing | readonly string[] = []): { ref: string; index: number } | null {
-	const bg = /!\[bg[^\]]*\]\(/.exec(chunk);
-	if (bg) {
-		const ref = destinationAt(chunk, bg.index + bg[0].length);
-		return ref ? { ref, index: bg.index } : null;
-	}
 	const rec = /^[ \t]*`@image\{([^`\n]*)\}`[ \t]*$/m.exec(chunk);
 	if (rec) {
 		const ref = recordAddress(rec[1]);

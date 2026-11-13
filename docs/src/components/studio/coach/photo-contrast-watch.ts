@@ -26,7 +26,11 @@ export function usePhotoContrast(
 	context: object,
 ): { verdict: PhotoVerdict | null; fresh: boolean; findings: PhotoFinding[]; settled: boolean } {
 	const [state, setState] = React.useState<{ key: object | null; slide: number; verdict: PhotoVerdict | null }>({ key: null, slide: -1, verdict: null });
-	const photo = React.useMemo(() => /!\[bg[^\]]*\]\(/.test(chunk), [chunk]);
+	// Any picture or record may be the slide's photo; the reader decides which one the engine places (card-ink-pick.ts
+	// `photoAt`, with what the slide inherits from the deck) and returns null when none is. Arming on `![bg]` alone left the
+	// shortcut's photo, `![title](src)` on an `image` or `bleed` slide, unchecked.
+	const photo = React.useMemo(() => /!\[[^\]
+]*\]\(|`@image\{/.test(chunk), [chunk]);
 	// Derived in render, so it flips the moment the slide changes: `settled` means the read for THIS slide, in THIS context, has
 	// finished (or there is no photo to read). An OBJECT, new whenever the slide, its text or the context is: it used to be
 	// the string `${slideIndex}|${context}|${chunk}`, built on every render and compared three times, which on a slide that

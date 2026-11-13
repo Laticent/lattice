@@ -230,10 +230,14 @@ describe('nothing re-parses a serialization we produced', () => {
    * A regression test that is not attached to the code it guards is decoration. This one
    * renders markdown through the real engine and reads the real `<section>`, so the only way
    * to make it pass is for the second pass to genuinely continue the first. */
-  test('the real engine: a hostile footer beside a `![bg]` image stays one declaration', () => {
+  // Written for a `![bg]` image, whose pass wrote the slide's style a SECOND time on top of the directive applier's. The engine
+  // stopped reading `![bg]` on 2026-11-13, so one writer is left; what this still holds, on real engine output, is that a
+  // hostile footer beside a slide background (a `backgroundImage` directive) ends as one quoted declaration. The re-parse
+  // itself is held by 'a second pass continues the first instead of re-reading the attribute', below, on `styleFor` directly.
+  test('the real engine: a hostile footer beside a slide background stays one declaration', () => {
     const engine = require('../../../lib/engine');
     const { html } = engine.render(
-      '<!-- _footer: Acme;position:fixed;--z-canvas:9;x -->\n\n# Quarterly Review\n\n![bg](photo.png)\n',
+      '<!-- _footer: Acme;position:fixed;--z-canvas:9;x -->\n<!-- _backgroundImage: url(photo.png) -->\n\n# Quarterly Review\n',
     );
     const attr = /<section[^>]*\sstyle="([^"]*)"/.exec(html)?.[1];
     assert.ok(attr, 'the slide section must carry a style attribute');
@@ -246,8 +250,8 @@ describe('nothing re-parses a serialization we produced', () => {
     const decls = declarationsIn(css);
     assert.deepEqual(
       decls,
-      ['--footer', '--paginate', '--background-image', 'background-image', 'background-position',
-       'background-repeat', 'background-size'],
+      ['--footer', '--background-image', 'background-image', 'background-position', 'background-repeat',
+       'background-size', '--paginate'],
       `the background pass re-parsed the directive pass's output: ${css}`,
     );
     assert.ok(!decls.includes('position'), '`position:fixed` was injected');

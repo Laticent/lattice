@@ -31,7 +31,7 @@ The drawn box keeps the slide's layout, and its address stays in the file for wh
 
 ## A background from the web becomes the same hatch.
 
-The `image` layout reads a `![bg](…)` as its panel. From the web, the panel shows the placeholder's hatch in the deck's own colors instead of a blank.
+The `image` layout places the slide's one picture as its panel. From the web, the panel shows the placeholder's hatch in the deck's own colors instead of a blank.
 
 ![A lake](https://images.example.com/offsite/lake.jpg)
 

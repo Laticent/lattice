@@ -76,7 +76,7 @@
       "description": "Optional caption or body text."
     }
   },
-  "skeleton": "<!-- _class: image -->\n\n## Text leads; the image earns its place.\n\nSwap the bg image below for your own asset — any aspect. The layout reads its shape and resolves the composition for you (a floated card, a full-height column, a full-bleed cover). Name a composition (`image spotlight`, `image gallery`, …) only to override.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n",
+  "skeleton": "<!-- _class: image -->\n\n## Text leads; the image earns its place.\n\nSwap the picture below for your own photo, and name it — any aspect. The layout reads its shape and resolves the composition for you (a floated card, a full-height column, a full-bleed cover). Name a composition (`image spotlight`, `image gallery`, …) only to override.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n",
   "anatomyBlock": "image-canvas",
   "sample": "<!-- _class: image -->\n\n## The image layout reads the asset’s shape.\n\nTwo-thirds of trials that reach the first generated report convert to paid; the ones that stall at workspace setup almost never do. Hand the layout any photo — it resolves the composition from the asset's shape.\n\n![A figure by a lake under a low sun](sample:photo-wide.svg)\n",
   "whenToUse": [

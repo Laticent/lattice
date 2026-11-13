@@ -358,7 +358,7 @@ describe('export-formats', () => {
 
   // ── PDF portability: SVG-image rasterization, --raster, --embed-source ────
 
-  // A 2-slide deck exercising both SVG image channels: a `![bg]` (CSS
+  // A 2-slide deck exercising both SVG image channels: an `image` slide's placed photo (CSS
   // background-image on .lattice-bg) and an inline `![](…)` <img> — plus a
   // speaker note and a marker string for the --embed-source round-trip.
   const SOURCE_MARKER = 'LATTICE-EMBED-SOURCE-MARKER-7f3a';
@@ -372,7 +372,7 @@ describe('export-formats', () => {
     fs.writeFileSync(src, [
       '---', 'paginate: true', '---', '',
       '<!-- _class: image -->', '',
-      '![bg](photo.svg)', '',
+      '![A photo](photo.svg)', '',
       '# SVG background', '',
       `<!-- ${NOTE_MARKER} -->`, '',
       '---', '',

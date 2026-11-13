@@ -60,12 +60,12 @@ describe('sample: — grammar and resolver', () => {
 describe('sample: — every engine path that paints a picture', () => {
   const render = (md) => engine.render(md, 'indaco', { samplesUrl: S }).html;
 
-  test('an image slide background', () => {
-    assert.match(render('<!-- _class: image -->\n\n## T\n\n![bg](sample:photo-wide.svg)\n'), new RegExp(`url\\('${S}photo-wide\\.svg'\\)`));
+  test('an image slide\'s photo panel', () => {
+    assert.match(render('<!-- _class: image -->\n\n## T\n\n![Lake](sample:photo-wide.svg)\n'), new RegExp(`url\\('${S}photo-wide\\.svg'\\)`));
   });
 
-  test('a section background on any other slide', () => {
-    assert.match(render('## T\n\n![bg](sample:photo-pano.svg)\n'), new RegExp(`${S}photo-pano\\.svg`));
+  test('a bleed slide\'s background', () => {
+    assert.match(render('<!-- _class: content bleed -->\n\n## T\n\n![Shore](sample:photo-pano.svg)\n'), new RegExp(`url\\('${S}photo-pano\\.svg'\\)`));
   });
 
   test('a prose image', () => {

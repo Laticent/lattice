@@ -180,13 +180,12 @@ describe('lattice-engine: contract', () => {
     assert.doesNotMatch(html, /<strong><strong>/);
   });
 
-  test('consumes `![bg]` into the section background (0 <img>, cover/contain)', () => {
-    const cover = makeEngine().render('# A\n\n![bg](pic.svg)\n', 'lattice').html;
-    assert.doesNotMatch(cover, /<img/);
-    assert.match(cover, /background-image:url\(&quot;pic\.svg&quot;\)/);
-    assert.match(cover, /background-size:cover/);
-    const fit = makeEngine().render('# A\n\n![bg fit](pic.svg)\n', 'lattice').html;
-    assert.match(fit, /background-size:contain/);
+  test('a Marp `![bg]` is an ordinary picture since the engine break (2026-11-13), never the section background', () => {
+    for (const md of ['# A\n\n![bg](pic.svg)\n', '# A\n\n![bg fit](pic.svg)\n']) {
+      const html = makeEngine().render(md, 'lattice').html;
+      assert.match(html, /<img src="pic\.svg" alt="bg[^"]*"/);
+      assert.doesNotMatch(html, /background-image:url/);
+    }
   });
 
   test('rebases relative inline <img> srcs against opts.baseUrl (preview), no-op without it (export)', () => {

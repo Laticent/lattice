@@ -60,7 +60,7 @@ The tall photo column vanished outright in Quartz viewers. Same fix: the SVG is 
 ## What the exporter now does by default
 
 - Rasterizes SVG images
-  - Every `![bg](photo.svg)` and inline `![](photo.svg)` becomes a 2× PNG twin in the PDF — text and layout stay vector.
+  - Every placed photo and inline `![](photo.svg)` becomes a 2× PNG twin in the PDF — text and layout stay vector.
 - Keeps real vectors vector
   - Mermaid diagrams, charts, and logo marks are inline SVG: they print through the page's own paint path and stay selectable-crisp.
 - Leaves you an out

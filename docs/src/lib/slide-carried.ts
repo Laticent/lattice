@@ -34,8 +34,13 @@ export function slidePlacingAt(source: string, offset: number): SlidePlacing | n
 	let i = -1;
 	for (let k = 0; k < ranges.length && ranges[k].from <= at; k++) i = k;
 	if (i < 0) return null;
-	const slides = ranges.map((r) => body.slice(r.from, r.to));
-	const carried = slidesCarried(text.slice(0, head), slides.slice(0, i + 1), boundaryParser)[i];
+	// Only a slide holding a comment can carry anything, so only those are copied out: a deck of pasted phone photos is many
+	// megabytes, and this runs on the Studio's main thread on every slide change.
+	const slides = ranges.slice(0, i + 1).map((r) => {
+		const c = body.indexOf('<!--', r.from);
+		return c >= 0 && c < r.to ? body.slice(r.from, r.to) : '';
+	});
+	const carried = slidesCarried(text.slice(0, head), slides, boundaryParser)[i];
 	const own = getClassTokens(slides[i]);
 	return { classes: [...(own.length ? own : (carried.carriedClass ?? [])), ...deckPlacingClasses(text)], backgroundImage: carried.backgroundImage };
 }

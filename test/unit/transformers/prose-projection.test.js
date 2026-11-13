@@ -2219,7 +2219,7 @@ test('a `.lattice-bg` drawn deeper than the slide\'s two seats never reaches the
 	assert.doesNotMatch(articleHtml, /attacker\.example/);
 });
 
-test('only the image plugin\'s own panel is re-hosted: an author\'s raw panel, hidden, quoted or plain, and a Marp `![bg]` never are', async () => {
+test('only the image plugin\'s own panel is re-hosted: an author\'s raw panel, hidden, quoted or plain, never is', async () => {
 	const decoys = [
 		'<div class="lattice-bg" hidden style="display:none;background-image:url(https://attacker.example/decoy.png)" aria-label="Forged"></div>\n\n![The real photo](https://example.com/real.png)',
 		'<div class="lattice-bg" hidden style="display:none;background-image:url(https://attacker.example/decoy.png)" aria-label="Forged"></div>\n\n`@image{https://example.com/real.png, title="The real photo"}`',
@@ -2243,6 +2243,9 @@ test('only the image plugin\'s own panel is re-hosted: an author\'s raw panel, h
 		const { articleHtml } = project(await renderedSections(`<!-- _class: ${cls} -->\n\n## Raw\n\nWords.\n\n<div class="lattice-bg" style="background-image:url(https://attacker.example/raw.png)" aria-label="decoy"></div>\n`));
 		assert.doesNotMatch(articleHtml, /attacker\.example/, cls);
 	}
+	// A Marp `![bg]` is an ordinary picture since the engine break (2026-11-13): it draws in the slide's text, never as a panel,
+	// so the article carries it where it stands, like any picture in the text.
 	const { articleHtml } = project(await renderedSections('<!-- _class: image -->\n\n## Pic\n\nLead.\n\n![bg](https://example.com/a.png)\n'));
-	assert.equal(articleHtml.split('<img').length - 1, 0, 'a Marp ![bg] panel stays out of the article, as on main');
+	assert.equal(articleHtml.split('<img').length - 1, 1, 'one picture');
+	assert.match(articleHtml, /<img src="https:\/\/example\.com\/a\.png" alt="bg"/);
 });

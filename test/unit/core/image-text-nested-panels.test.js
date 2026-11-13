@@ -3,9 +3,11 @@
  *
  * `wrapImageText` (lib/core/bg-image.js) moves each `.lattice-bg` panel to section level and folds the rest of the slide into
  * `.image-text`. It used to collect every `<div class="lattice-bg…` with a regex, so an author's raw panel inside a quote, a
- * list item or a plugin's drawing was lifted too and drew as the slide's photo. Now only a panel at section level, or inside
- * nothing but a paragraph (where the engine writes a `![bg]` that sits in prose), is lifted. The DOM mirror
- * (`wrapImageTextToDom`) moves only direct children, and these tests hold both paths to the same answer.
+ * list item or a plugin's drawing was lifted too and drew as the slide's photo. Now only a panel at section level, or the
+ * image plugin's own panel (a record, or Markdown's picture as its shortcut), is lifted. The DOM mirror
+ * (`wrapImageTextToDom`) moves only direct children, and these tests hold both paths to the same answer. Marp's `![bg]`,
+ * whose panel the engine used to hoist out of a quote, a list item or a heading, is not read since 2026-11-13; those cases
+ * left with it.
  *
  * Every deck here is rendered by the real engine (`engine.render`), the HTML the CLI, the Studio and the Playground draw.
  */
@@ -19,7 +21,8 @@ const e = engine.createEngine();
 const firstSection = (html) => html.match(/<section\b[\s\S]*?<\/section>/)[0];
 const render = (body) => firstSection(e.render(`---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## Title\n\n${body}\n`).html);
 const RAW = `<div class="lattice-bg" style="background-image:url('https://x.test/quoted.jpg')"></div>`;
-const PHOTO = '![bg right](https://x.test/photo.jpg)';
+// The slide's photo as a record: the shortcut stands down on a slide that already holds a raw `.lattice-bg` (lib/core/placed-picture.mjs rule 5).
+const PHOTO = '`@image{https://x.test/photo.jpg, title="Photo"}`';
 
 /** The section's direct children, by tag and first class, read in a DOM. */
 function children(sectionHtml) {
@@ -51,22 +54,9 @@ describe('wrapImageText lifts only the slide\'s own panels', () => {
     assert.ok(section.querySelector('.image-text [data-lattice-plugin] .lattice-bg'));
   });
 
-  test('a `![bg]` written inside a paragraph of the slide\'s own text is still the slide\'s photo', () => {
-    const section = children(render(`Some words\n${PHOTO}\n\nMore words.`));
-    assert.equal(section.querySelectorAll(':scope > .lattice-bg').length, 1, 'the photo is lifted out of its paragraph');
-    assert.equal(section.querySelectorAll('.image-text .lattice-bg').length, 0, 'and nothing is left in the text panel');
-  });
-
-  // Every place markdown lets a `![bg]` or a record sit is the slide's photo all the same: the engine hoists a `![bg]` panel to
-  // slide level, and the image plugin's own panel carries a marker an author cannot write. Each of these lost its photo when
-  // the lift first became "top level or a paragraph" (the checker on followups.d/3126-p1).
+  // A record is the slide's photo wherever markdown lets it sit: the image plugin's own panel carries a marker an author cannot
+  // write. Each of these lost its photo when the lift first became "top level or a paragraph" (the checker on followups.d/3126-p1).
   for (const [name, body] of [
-    ['a `![bg]` in a quote', `> ${PHOTO}`],
-    ['a `![bg]` in a list item', `- ${PHOTO}`],
-    ['a `![bg]` in a table cell', `| ${PHOTO} | x |\n|---|---|`],
-    ['a `![bg]` in emphasis', `*hi ${PHOTO}*`],
-    ['a `![bg]` typed on the line after a list (lazy continuation)', `- a\n- b\n${PHOTO}`],
-    ['a `![bg]` typed on the line after a quote (lazy continuation)', `> A quote\n${PHOTO}`],
     ['a record alone in a quote', '> `@image{https://x.test/photo.jpg, title="Photo"}`'],
     ['a record alone in a list item', '- `@image{https://x.test/photo.jpg, title="Photo"}`'],
   ]) {
@@ -78,20 +68,10 @@ describe('wrapImageText lifts only the slide\'s own panels', () => {
     });
   }
 
-  // A heading opens its own slide when headings split the deck, so these two are their slide's first heading.
-  for (const [name, slide] of [['a `![bg]` in a heading', `## Title ${PHOTO}\n\nWords.`], ['a `![bg]` under a setext heading', `Title ${PHOTO}\n===\n\nWords.`]]) {
-    test(`${name} is still the slide's photo`, () => {
-      const section = children(firstSection(e.render(`---\ntheme: indaco\n---\n\n<!-- _class: image -->\n${slide}\n`).html));
-      const panels = [...section.querySelectorAll('.lattice-bg')];
-      assert.equal(panels.length, 1, 'one panel');
-      assert.equal(panels[0].parentElement, section, 'at section level');
-    });
-  }
-
   // A slide the pane carve splits keeps its pictures where they stood, as on main: a hoisted panel landed in the pane host
   // beside the panes as an unstyled box that took height (the card grader on #3132 measured the list pane 16px off).
   test('a pane slide hoists no panel into its host', () => {
-    const html = e.render('---\ntheme: indaco\n---\n\n<!-- _class: image -->\n\n## Image slide\n\n<!-- _pane: content -->\n> ![bg](https://x.test/a.jpg)\n\n<!-- _pane: list -->\n- a point\n![bg](https://x.test/b.jpg)\n').html;
+    const html = e.render('---\ntheme: indaco\n---\n\n<!-- _class: image -->\n\n## Image slide\n\n<!-- _pane: content -->\n![A](https://x.test/a.jpg)\n\n<!-- _pane: list -->\n- a point\n![B](https://x.test/b.jpg)\n').html;
     const section = children(firstSection(html));
     assert.ok(section.classList.contains('lat-pane-host'), 'the slide is a pane host');
     assert.equal(section.querySelectorAll(':scope > .cell-stage > .lattice-bg, :scope > .lattice-bg').length, 0, 'no panel beside the panes');

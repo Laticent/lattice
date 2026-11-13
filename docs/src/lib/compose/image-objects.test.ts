@@ -5,7 +5,7 @@ import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { deckSchema, deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
 import { recordOnFilo } from './filo-harness.test-util';
-import { assetNameOf, bgKeywords, bgSideOf, canPlaceOn, descriptionAsAlt, editImage, imageSourceKind, insertImage, insertImageBlocker, placeImage, placementAt, placementOf, removeImage, tokensWithPlacement, withBgSide } from './image-objects';
+import { assetNameOf, bgKeywords, canPlaceOn, descriptionAsAlt, editImage, imageSourceKind, insertImage, insertImageBlocker, placeImage, placementAt, placementOf, removeImage, tokensWithPlacement } from './image-objects';
 import { type InlineKernels, inlineObjectsPlugin, type OpenObject, openObject, openObjectEditor } from './inline-objects';
 
 const kernels = createRequire(import.meta.url)('../../../../lib/authoring/inline-editors.js') as InlineKernels;
@@ -83,22 +83,6 @@ describe('the background directive in an alt text', () => {
 		expect(bgKeywords('A harbor at dawn')).toBeNull();
 		expect(bgKeywords('bgfoo')).toBeNull();
 	});
-
-	it('reads the side the way the engine does', () => {
-		expect(bgSideOf('bg')).toBe('full');
-		expect(bgSideOf('bg left')).toBe('left');
-		expect(bgSideOf('bg right:40%')).toBe('right');
-		expect(bgSideOf('bg fit')).toBe('full');
-	});
-
-	it('changes the side word and keeps every other word, with its share', () => {
-		expect(withBgSide('bg', 'left')).toBe('bg left');
-		expect(withBgSide('bg right:40% blur', 'left')).toBe('bg left:40% blur');
-		expect(withBgSide('bg blur right', 'full')).toBe('bg blur');
-		expect(withBgSide('bg right:40%', 'full')).toBe('bg');
-		expect(withBgSide('bg blur', 'right')).toBe('bg right blur');
-		expect(withBgSide('A harbor', 'left')).toBeNull();
-	});
 });
 
 describe('editing an image', () => {
@@ -161,13 +145,6 @@ describe('editing an image', () => {
 		editImage(view, harbor.pos, { alt: 'two\nlines' });
 		expect(docToDeck(view.state.doc)).toContain('![two lines](asset:harbor)');
 		expect(docToDeck(view.state.doc)).not.toMatch(/two\nlines/);
-	});
-
-	it('changes only the side of a background and keeps its other words', () => {
-		const view = mount(DECK);
-		const bg = images(view)[1];
-		expect(editImage(view, bg.pos, { alt: withBgSide(bg.alt ?? '', 'left') as string })).toBe(true);
-		expect(docToDeck(view.state.doc)).toContain('![bg left:40% blur](asset:forest)');
 	});
 
 	it('does nothing to a locked slide', () => {
@@ -411,7 +388,8 @@ describe('placing a picture writes the SLIDE\'s class, never `![bg]` (owner, 202
 	it('an old `![bg …]` picture loses its keywords when placed, and its description becomes its name', () => {
 		const view = mount(one('content', '![bg right:40% blur](asset:forest "A forest")'));
 		const [pic] = images(view);
-		expect(placementAt(view.state, pic.pos).placement).toBe('right');
+		// The engine draws it as an ordinary picture since the break (2026-11-13), so the badge says so; Placement still moves it.
+		expect(placementAt(view.state, pic.pos)).toEqual({ placement: 'none', canPlace: true });
 		expect(placeImage(view, pic.pos, 'right')).toBe(true);
 		const out = docToDeck(view.state.doc);
 		expect(out).toContain('<!-- _class: image -->');

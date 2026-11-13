@@ -59,7 +59,7 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 
 ## Text leads; the image earns its place.
 
-Swap the bg image below for your own asset — any aspect. The layout reads its shape and resolves the composition for you (a floated card, a full-height column, a full-bleed cover). Name a composition (`image spotlight`, `image gallery`, …) only to override.
+Swap the picture below for your own photo, and name it — any aspect. The layout reads its shape and resolves the composition for you (a floated card, a full-height column, a full-bleed cover). Name a composition (`image spotlight`, `image gallery`, …) only to override.
 
 ![A figure by a lake under a low sun](sample:photo-wide.svg)
 ```

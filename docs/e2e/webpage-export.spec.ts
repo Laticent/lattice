@@ -401,7 +401,7 @@ test('the Studio webpage export keeps an author <section> inside its slide, and 
 });
 
 // PICTURES BY URL (followup 2358-p2). The player's policy is `img-src data:`, so a picture it
-// shows has to be IN the file. The Studio used to embed nothing, and a `![bg]` panel, an `<img>`
+// shows has to be IN the file. The Studio used to embed nothing, and a photo panel, an `<img>`
 // and a video poster from the site's own origin all came out blank while the preview showed
 // them. Now each is fetched from this origin and embedded; a picture it could not fetch, and one
 // from another site (never fetched at export time), are named in the completion toast.
@@ -412,7 +412,9 @@ test('the Studio webpage export embeds same-origin pictures and reports the rest
 		'theme: indaco',
 		'---',
 		'',
-		'![bg left](/showcase/roadmap.light.webp)',
+		'<!-- _class: image mirror -->',
+		'',
+		'![The roadmap](/showcase/roadmap.light.webp)',
 		'',
 		'# A same-origin background',
 		'',
@@ -441,9 +443,8 @@ test('the Studio webpage export embeds same-origin pictures and reports the rest
 	await viewer.goto(`file://${file}`, { waitUntil: 'networkidle' });
 	const got = await viewer.evaluate(() => {
 		const slides = [...document.querySelectorAll('section[data-lattice-slide]')] as HTMLElement[];
-		// The Studio's engine draws `![bg left]` on the slide itself (web mode); the CLI's split
-		// panel is `.lattice-bg`. Read whichever carries the picture.
-		const bg = (slides[0]?.querySelector('.lattice-bg') as HTMLElement | null) ?? slides[0] ?? null;
+		// The `image mirror` slide's photo is its `.lattice-bg` panel.
+		const bg = slides[0]?.querySelector('.lattice-bg') as HTMLElement | null;
 		const imgs = [...(slides[1]?.querySelectorAll('img') ?? [])] as HTMLImageElement[];
 		const poster = slides[2]?.querySelector('a.video-poster') as HTMLElement | null;
 		const thumb = document.querySelector('#lp-article .lp-video-thumb') as HTMLElement | null;
@@ -461,7 +462,7 @@ test('the Studio webpage export embeds same-origin pictures and reports the rest
 		};
 	});
 	await viewer.close();
-	expect(got.bg, 'the ![bg] panel carries its picture').toMatch(/^url\("data:image\/webp;base64,/);
+	expect(got.bg, 'the photo panel carries its picture').toMatch(/^url\("data:image\/webp;base64,/);
 	expect(got.icon, 'the <img> is embedded and decodes').toEqual({ src: 'data:image/png;base64,', loaded: true });
 	expect(got.poster, 'the video poster is embedded').toMatch(/^url\("data:image\/webp;base64,/);
 	expect(got.thumb, 'Read · Article keeps the embedded poster').toMatch(/^url\("?data:image\/webp;base64,/);

@@ -90,6 +90,68 @@ describe('Marp\'s keywords to Markdown\'s picture, the record\'s shortcut (§8 d
 
 });
 
+describe('every `![bg]` the engine no longer reads is named, and `--fix` only rewrites what keeps the photo (the trio on the engine break)', () => {
+  const { fixAllDetailed } = require('../../../lib/authoring/lint-core.js');
+  const vocab = buildVocab();
+  const keyword = (md) => (lintText(md, vocab).findings || lintText(md, vocab)).filter((f) => f.rule === 'image-marp-keyword');
+  const fixed = (md) => fixAllDetailed(md, vocab).text;
+
+  test('a `![bg]` anywhere markdown reads a picture is named, not only one at the start of a line', () => {
+    for (const body of ['Intro ![bg](x.jpg) text', '- ![bg](x.jpg)', '> ![bg left](x.jpg)', '![ bg](x.jpg)', '| ![bg](x.jpg) | y |\n|---|---|', '## ![bg](x.jpg) Seven', '![BG right](x.jpg)']) {
+      const f = keyword(deck('content', body));
+      assert.equal(f.length, 1, body);
+      assert.ok(f[0].line.includes('x.jpg'), `${body}: the finding names the line`);
+    }
+  });
+
+  test('a `![bg]` in prose keeps the slide\'s real photo out of its panel, and the lint says why', () => {
+    const md = deck('image', '![The lake](sample:photo-wide.svg)\n\nSee the map ![bg](logo.svg) here.');
+    assert.doesNotMatch(html(md), /class="lattice-bg /, 'rule 5: the kernel declines the photo');
+    assert.equal(keyword(md).length, 1, 'and the lint names the `![bg]` that caused it');
+  });
+
+  test('two `![bg]` on one slide: named, never rewritten into two pictures that place neither', () => {
+    for (const body of ['![bg](a.jpg)\n![bg](b.jpg)', '![bg](a.jpg)\n\n![bg](b.jpg)']) {
+      const md = deck('content', body);
+      assert.ok(keyword(md).length >= 2, body);
+      assert.equal(fixed(md), md, `${body}: no machine fix`);
+    }
+  });
+
+  test('a `![bg]` sharing its paragraph with text, or beside another lone picture, is not rewritten', () => {
+    for (const [cls, body] of [['image', '![bg right](x.jpg)\nA caption on the next line.'], ['image', '![bg right](photo.jpg)\n\n![Acme](logo.png)'], ['content', '![bg](photo.jpg)\n\n![Chart](chart.png)']]) {
+      const md = deck(cls, body);
+      assert.equal(keyword(md).length, 1, body);
+      assert.equal(fixed(md), md, `${body}: no machine fix`);
+    }
+  });
+
+  test('the plain case still rewrites, and the result is the slide\'s photo', () => {
+    const md = deck('content dark', '![bg](photo.jpg "The lake")');
+    const out = fixed(md);
+    assert.match(out, /<!-- _class: content dark bleed -->/);
+    assert.match(out, /^!\[The lake\]\(photo\.jpg\)$/m);
+    assert.match(html(out), /class="lattice-bg /);
+    assert.equal(keyword(out).length, 0);
+  });
+
+  test('a pasted phone photo (a multi-megabyte `data:` address) is placed, and its address comes back byte for byte', () => {
+    const { placedPictureInSlide } = require('../../../lib/core/placed-picture.js');
+    const { boundaryParser } = require('../../../lib/core/boundary-parser.js');
+    const big = `data:image/jpeg;base64,${'AbC+/9'.repeat(100_000)}==`;
+    const small = 'data:image/png;base64,AAAA';
+    for (const src of [big, small]) {
+      const pic = placedPictureInSlide(deck('image', `![Phone photo](${src})`), ['image'], { md: boundaryParser });
+      assert.equal(pic?.src, src, src.slice(0, 30));
+    }
+  });
+
+  test('a Library photo described "BG …" is the author\'s words, so it is still placed', () => {
+    const out = engine.render('<!-- _class: image -->\n\n# Team\n\n![](asset:team)\n', undefined, { assetUrls: { team: 'https://x.example/t.jpg' }, assetAlts: { team: 'BG team at the offsite' } }).html;
+    assert.match(out, /class="lattice-bg /);
+  });
+});
+
 describe('Export-to-Marp writes Marp\'s own spelling', () => {
   const ctx = ctxFor('image');
   test('a panel or a background becomes `![bg]`, a flow figure a plain image', () => {

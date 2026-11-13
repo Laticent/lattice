@@ -2260,10 +2260,9 @@ const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/engine/structural-split').
 // `:root` arms written onto the slides too, where the flat deck sheet declares the palette's tokens;
 // otherwise a `style: ":root{--accent:…}"` override lands on <html> alone and every slide shadows it.
 
-// `![bg …]` half-canvas image handling — the engine draws an `image` slide's `![bg]` as the panel itself
-// (lib/engine/background-image.js; any other slide's `![bg]` is the section background) + wrapImageText (HTML post-pass) to reproduce the
-// lattice-bg/image-text panel, since lib/engine matches marp WEB mode (which
-// collapses bg left/right to a full-bleed background). See engineSlides().
+// The `image` layout's panel structure — the engine draws a placed photo as the `.lattice-bg` panel (the image record and its
+// Markdown shortcut; Marp's `![bg]` is not read since 2026-11-13) + wrapImageText (HTML post-pass) to fold the prose into
+// `.image-text` beside it. See engineSlides().
 const bgImage            = require('./lib/core/bg-image');
 const imageDimensions    = require('./lib/core/image-dimensions');
 const collageStamp       = require('./lib/transformers/collage-stamp');
@@ -2349,8 +2348,8 @@ function engineSlides(deckSource = rawMd) {
     cssIsDefault ? { name: 'lattice', css: layoutCss } : layoutCss,
     ...paletteChain.map((n, i) => ({ name: n, css: readFileOrDie(paletteFiles[i], `palette '${n}'`) })),
   ]);
-  // The engine draws `![bg side](url)` on `image` slides as the lattice-bg panel (CSS background), on its own
-  // tokens (lib/engine/background-image.js); it resolves deck-relative URLs against `baseUrl` below.
+  // The engine draws a slide's placed photo as the lattice-bg panel (CSS background) and resolves deck-relative URLs
+  // against `baseUrl` below.
   // The deck's directory (as a file:// URL with a trailing slash) resolves
   // deck-relative asset URLs to absolute file:// URLs so they render regardless of
   // the output directory (the path-bug fix —

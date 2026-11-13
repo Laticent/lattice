@@ -105,7 +105,7 @@ describe('deck-class visibility — the resolved class list, not the `_class:` p
     // the halves swapped: the component is the slide's, the deck contributes the
     // `statement` variant, and only the resolved list carries both. `data-class`
     // still holds `image` alone, so a transform reading it builds no scrim.
-    const body = '![bg](x.png)\n\n## Head\n\nProse here.\n';
+    const body = '![X](x.png)\n\n## Head\n\nProse here.\n';
     const [slide] = sections(deck(['class: statement'], `<!-- _class: image -->\n\n${body}`));
     assert.match(slide.tag, /data-class="image"/, 'the raw payload is missing the deck token');
     assert.ok(slide.cls.includes('statement'), 'sanity: the deck token resolved onto the slide');

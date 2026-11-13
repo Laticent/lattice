@@ -133,7 +133,7 @@ One sentence of context.
 
 <!-- _class: image -->
 
-![bg](sample:photo-wide.jpg)
+![A lake](sample:photo-wide.jpg)
 
 ---
 
