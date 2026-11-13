@@ -19,15 +19,28 @@ import { tiffOrientation } from './read.js';
 const cleanU32be = (b: Uint8Array, i: number) => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
 const cleanU32le = (b: Uint8Array, i: number) => (b[i] | (b[i + 1] << 8) | (b[i + 2] << 16) | (b[i + 3] << 24)) >>> 0;
 const chunkTag = (b: Uint8Array, i: number) => String.fromCharCode(b[i], b[i + 1], b[i + 2], b[i + 3]);
+const CLEAN_ICC_SIGNATURE = Array.from('ICC_PROFILE', (c) => c.charCodeAt(0));
 
-function joinBytes(parts: Uint8Array[]): Uint8Array {
-	const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
-	let at = 0;
-	for (const p of parts) {
-		out.set(p, at);
-		at += p.length;
+/** The cleaned file, written as it is read. One buffer, not a list of kept blocks: a file of millions of tiny
+ *  kept blocks (ICC segments, IDAT chunks) would otherwise cost an object each and run out of memory. */
+class CleanWriter {
+	buf: Uint8Array;
+	at = 0;
+	constructor(size: number) {
+		this.buf = new Uint8Array(Math.max(64, size));
 	}
-	return out;
+	put(p: ArrayLike<number>): void {
+		if (this.at + p.length > this.buf.length) {
+			const next = new Uint8Array(Math.max(this.buf.length * 2, this.at + p.length));
+			next.set(this.buf.subarray(0, this.at));
+			this.buf = next;
+		}
+		this.buf.set(p, this.at);
+		this.at += p.length;
+	}
+	done(): Uint8Array {
+		return this.buf.slice(0, this.at);
+	}
 }
 
 /** A TIFF block holding ONLY the Orientation tag: no location, no date, no camera. A browser that applies a
@@ -55,7 +68,8 @@ const PNG_KEEP = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND', 'tRNS', 'gAMA', 'cHRM'
  *  rotation (browsers differ on whether they apply it, so it must stay). Null when it is not a PNG or is cut short. */
 export function cleanPng(b: Uint8Array): Uint8Array | null {
 	if (b.length < 20 || b[0] !== 0x89 || chunkTag(b, 1) !== 'PNG\r') return null;
-	const parts: Uint8Array[] = [b.subarray(0, 8)];
+	const out = new CleanWriter(b.length + 64);
+	out.put(b.subarray(0, 8));
 	let i = 8;
 	let sawEnd = false;
 	// Only the FIRST eXIf ahead of the pixels can turn the picture (read.ts readPng, and the engines' probe).
@@ -70,16 +84,16 @@ export function cleanPng(b: Uint8Array): Uint8Array | null {
 		if (type === 'eXIf' && !exifSeen && !pixelsSeen) {
 			exifSeen = true;
 			const o = tiffOrientation(b.subarray(i + 8, i + 8 + len));
-			if (o !== 1) parts.push(pngOrientationChunk(o));
+			if (o !== 1) out.put(pngOrientationChunk(o));
 		}
-		if (PNG_KEEP.has(type)) parts.push(b.subarray(i, end));
+		if (PNG_KEEP.has(type)) out.put(b.subarray(i, end));
 		i = end;
 		if (type === 'IEND') {
 			sawEnd = true;
 			break;
 		}
 	}
-	return sawEnd ? joinBytes(parts) : null;
+	return sawEnd ? out.done() : null;
 }
 
 // WebP chunks a picture needs. `EXIF`, `XMP ` and every other chunk are dropped. An animation frame (`ANMF`) is
@@ -87,8 +101,15 @@ export function cleanPng(b: Uint8Array): Uint8Array | null {
 const WEBP_KEEP = new Set(['VP8 ', 'VP8L', 'VP8X', 'ALPH', 'ANIM', 'ANMF', 'ICCP']);
 const WEBP_FRAME_KEEP = new Set(['VP8 ', 'VP8L', 'ALPH']);
 
-function webpChunks(b: Uint8Array, from: number, to: number, keep: Set<string>, nested: boolean): Uint8Array[] | null {
-	const parts: Uint8Array[] = [];
+/** What the chunk walk wrote: whether a picture was among it, an orientation-only EXIF chunk, and where VP8X is. */
+interface WebpWalk {
+	picture: boolean;
+	exif: boolean;
+	vp8x: number;
+}
+
+function webpChunks(b: Uint8Array, from: number, to: number, keep: Set<string>, nested: boolean, out: CleanWriter): WebpWalk | null {
+	const walk: WebpWalk = { picture: false, exif: false, vp8x: -1 };
 	let i = from;
 	while (i + 8 <= to) {
 		const len = cleanU32le(b, i + 4);
@@ -106,29 +127,36 @@ function webpChunks(b: Uint8Array, from: number, to: number, keep: Set<string>, 
 				chunk.set([0x45, 0x58, 0x49, 0x46]);
 				new DataView(chunk.buffer).setUint32(4, body.length, true);
 				chunk.set(body, 8);
-				parts.push(chunk);
+				out.put(chunk);
+				walk.exif = true;
 			}
 		}
 		if (keep.has(type)) {
-			const chunk = new Uint8Array(8 + len + (len & 1));
-			chunk.set(b.subarray(i, Math.min(end, i + 8 + len)));
-			if (type === 'VP8X' && chunk.length >= 9) chunk[8] &= ~0b1100; // EXIF and XMP flags off
+			if (!nested && (type === 'VP8 ' || type === 'VP8L' || type === 'ANMF')) walk.picture = true;
 			if (type === 'ANMF' && !nested) {
-				// 16 bytes of frame header, then the frame's own chunks.
+				// 16 bytes of frame header, then the frame's own chunks, then the frame's size written back.
 				if (len < 16) return null;
-				const inner = webpChunks(b, i + 8 + 16, i + 8 + len, WEBP_FRAME_KEEP, true);
-				if (!inner) return null;
-				const body = joinBytes([b.subarray(i + 8, i + 8 + 16), ...inner]);
-				const frame = new Uint8Array(8 + body.length + (body.length & 1));
-				frame.set(b.subarray(i, i + 4));
-				new DataView(frame.buffer).setUint32(4, body.length, true);
-				frame.set(body, 8);
-				parts.push(frame);
-			} else parts.push(chunk);
+				const head = out.at;
+				out.put(b.subarray(i, i + 8));
+				out.put(b.subarray(i + 8, i + 8 + 16));
+				if (!webpChunks(b, i + 8 + 16, i + 8 + len, WEBP_FRAME_KEEP, true, out)) return null;
+				const size = out.at - head - 8;
+				new DataView(out.buf.buffer, out.buf.byteOffset).setUint32(head + 4, size, true);
+				if (size & 1) out.put([0]);
+			} else {
+				const at = out.at;
+				out.put(b.subarray(i, Math.min(end, i + 8 + len)));
+				const padded = 8 + len + (len & 1);
+				if (out.at - at < padded) out.put(new Uint8Array(padded - (out.at - at)));
+				if (type === 'VP8X' && padded >= 9) {
+					out.buf[at + 8] &= ~0b1100; // EXIF and XMP flags off
+					if (!nested && walk.vp8x < 0) walk.vp8x = at;
+				}
+			}
 		}
 		i = end;
 	}
-	return parts;
+	return walk;
 }
 
 /** WebP: copy the keep-listed chunks, filter inside animation frames, clear the EXIF/XMP flags in `VP8X`, rewrite the RIFF size. */
@@ -138,21 +166,16 @@ export function cleanWebp(b: Uint8Array): Uint8Array | null {
 	// A file shorter than its own header says is cut short (one byte of slack: an unpadded odd last chunk).
 	if (declared > b.length + 1) return null;
 	const riffEnd = Math.min(b.length, declared);
-	const parts = webpChunks(b, 12, riffEnd, WEBP_KEEP, false);
+	const out = new CleanWriter(b.length + 64);
+	out.put(b.subarray(0, 12));
+	const walk = webpChunks(b, 12, riffEnd, WEBP_KEEP, false, out);
 	// And a WebP with no picture in it is not one.
-	if (!parts?.some((p) => ['VP8 ', 'VP8L', 'ANMF'].includes(chunkTag(p, 0)))) return null;
+	if (!walk?.picture) return null;
 	// The VP8X EXIF flag stays on only when an orientation-only EXIF chunk was kept.
-	if (parts.some((p) => chunkTag(p, 0) === 'EXIF')) {
-		const x = parts.find((p) => chunkTag(p, 0) === 'VP8X');
-		if (x) x[8] |= 0b1000;
-	}
-	const body = joinBytes(parts);
-	const out = new Uint8Array(12 + body.length);
-	out.set(b.subarray(0, 4), 0);
-	new DataView(out.buffer).setUint32(4, 4 + body.length, true);
-	out.set(b.subarray(8, 12), 8);
-	out.set(body, 12);
-	return out;
+	if (walk.exif && walk.vp8x >= 0) out.buf[walk.vp8x + 8] |= 0b1000;
+	const file = out.done();
+	new DataView(file.buffer).setUint32(4, file.length - 8, true);
+	return file;
 }
 
 /** GIF: keep the picture, the frame timing, the color profile and the loop count; drop comments, plain-text
@@ -167,7 +190,8 @@ export function cleanGif(b: Uint8Array): Uint8Array | null {
 	};
 	let i = 13 + (b[10] & 0x80 ? 3 * 2 ** ((b[10] & 7) + 1) : 0);
 	if (i > b.length) return null;
-	const parts: Uint8Array[] = [b.subarray(0, i)];
+	const out = new CleanWriter(b.length + 64);
+	out.put(b.subarray(0, i));
 	let frames = 0;
 	while (i < b.length) {
 		const kind = b[i];
@@ -177,16 +201,16 @@ export function cleanGif(b: Uint8Array): Uint8Array | null {
 			const end = skipSubBlocks(i + 2);
 			if (end > b.length) return null;
 			const stop = end;
-			if (label === 0xf9) parts.push(b.subarray(i, stop)); // graphic control: frame delay, disposal, transparency
+			if (label === 0xf9) out.put(b.subarray(i, stop)); // graphic control: frame delay, disposal, transparency
 			else if (label === 0xff && b[i + 2] === 11) {
 				const id = String.fromCharCode(...b.subarray(i + 3, i + 14));
 				// The loop count is one 3-byte data block; an ICC profile is its own extension. Anything else goes.
 				if (id === 'NETSCAPE2.0' || id === 'ANIMEXTS1.0') {
 					// Only the first data block (sub-block id 1 plus the 16-bit loop count) is kept; more blocks after it are not a loop count.
 					const loop = b[i + 14] === 3 && i + 18 <= b.length ? b.subarray(i + 14, i + 18) : new Uint8Array([3, 1, 0, 0]);
-					parts.push(new Uint8Array([0x21, 0xff, 11, ...b.subarray(i + 3, i + 14), ...loop, 0]));
+					out.put([0x21, 0xff, 11, ...b.subarray(i + 3, i + 14), ...loop, 0]);
 				}
-				else if (id === 'ICCRGBG1012') parts.push(b.subarray(i, stop));
+				else if (id === 'ICCRGBG1012') out.put(b.subarray(i, stop));
 			}
 			i = end;
 			continue;
@@ -197,7 +221,7 @@ export function cleanGif(b: Uint8Array): Uint8Array | null {
 			let j = i + 10 + (flags & 0x80 ? 3 * 2 ** ((flags & 7) + 1) : 0) + 1; // + LZW minimum code size
 			j = skipSubBlocks(j);
 			if (j > b.length) return null; // the frame's data must end in its own terminator
-			parts.push(b.subarray(i, j));
+			out.put(b.subarray(i, j));
 			frames++;
 			i = j;
 			continue;
@@ -205,8 +229,8 @@ export function cleanGif(b: Uint8Array): Uint8Array | null {
 		return null;
 	}
 	if (!frames) return null;
-	parts.push(new Uint8Array([0x3b]));
-	return joinBytes(parts);
+	out.put([0x3b]);
+	return out.done();
 }
 
 /** JPEG: walk every segment through to the end-of-image marker, keeping JFIF (APP0), an ICC color profile (APP2
@@ -216,13 +240,18 @@ export function cleanGif(b: Uint8Array): Uint8Array | null {
  *  and each can carry its own location. Null when the file is not a JPEG or is cut short before its end marker. */
 export function cleanJpeg(b: Uint8Array): Uint8Array | null {
 	if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8) return null;
-	const parts: Uint8Array[] = [b.subarray(0, 2)];
+	const out = new CleanWriter(b.length + 64);
+	out.put(b.subarray(0, 2));
 	let i = 2;
 	// The turn a browser applies comes from the FIRST APP1 that opens with `Exif\0\0` before the first scan, and only
 	// from it (read.ts readJpeg, and the engines' probe in read.test.ts). Later Exif blocks are dropped like the rest.
 	let exifSeen = false;
 	let scanSeen = false;
-	const isIcc = (at: number, len: number) => len >= 14 && chunkTag(b, at + 4).slice(0, 4) === 'ICC_' && String.fromCharCode(...b.subarray(at + 4, at + 15)) === 'ICC_PROFILE';
+	const isIcc = (at: number, len: number) => {
+		if (len < 14) return false;
+		for (let k = 0; k < 11; k++) if (b[at + 4 + k] !== CLEAN_ICC_SIGNATURE[k]) return false;
+		return true;
+	};
 	while (i + 2 <= b.length) {
 		if (b[i] !== 0xff) return null;
 		const marker = b[i + 1];
@@ -231,11 +260,11 @@ export function cleanJpeg(b: Uint8Array): Uint8Array | null {
 			continue;
 		}
 		if (marker === 0xd9) {
-			parts.push(b.subarray(i, i + 2));
-			return joinBytes(parts);
+			out.put(b.subarray(i, i + 2));
+			return out.done();
 		}
 		if (marker === 0x00 || (marker >= 0xd0 && marker <= 0xd8) || marker === 0x01) {
-			parts.push(b.subarray(i, i + 2)); // standalone markers carry no length
+			out.put(b.subarray(i, i + 2)); // standalone markers carry no length
 			i += 2;
 			continue;
 		}
@@ -253,12 +282,12 @@ export function cleanJpeg(b: Uint8Array): Uint8Array | null {
 				if (o !== 1) {
 					const tiff = orientationOnlyTiff(o);
 					const body = new Uint8Array([0x45, 0x78, 0x69, 0x66, 0, 0, ...tiff]);
-					parts.push(new Uint8Array([0xff, 0xe1, (body.length + 2) >> 8, (body.length + 2) & 255, ...body]));
+					out.put([0xff, 0xe1, (body.length + 2) >> 8, (body.length + 2) & 255, ...body]);
 				}
 			}
 		} else if (marker === 0xe2) keep = isIcc(i, len);
 		else if ((marker >= 0xe3 && marker <= 0xef) || marker === 0xfe) keep = false;
-		if (keep) parts.push(seg);
+		if (keep) out.put(seg);
 		i += 2 + len;
 		if (marker === 0xda) {
 			scanSeen = true;
@@ -266,7 +295,7 @@ export function cleanJpeg(b: Uint8Array): Uint8Array | null {
 			const start = i;
 			while (i + 1 < b.length && !(b[i] === 0xff && b[i + 1] !== 0x00 && !(b[i + 1] >= 0xd0 && b[i + 1] <= 0xd7))) i++;
 			if (i + 1 >= b.length) return null;
-			parts.push(b.subarray(start, i));
+			out.put(b.subarray(start, i));
 		}
 	}
 	return null;
