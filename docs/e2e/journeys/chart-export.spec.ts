@@ -64,6 +64,7 @@ async function exportMatchesScreen({ page }: { page: Page }) {
 	};
 	// Every slide as the reader sees it in the live preview (it shows the active slide).
 	const live: Float64Array[] = [];
+	const livePng: Uint8Array[] = [];
 	for (let i = 0; i < SLIDES; i++) {
 		await railButtons(page).nth(i).click();
 		const sec = page.frameLocator(LIVE_PREVIEW).locator('.lattice section').first();
@@ -83,7 +84,8 @@ async function exportMatchesScreen({ page }: { page: Page }) {
 				return settled;
 			}, { intervals: [250] })
 			.toBe(true);
-		live.push(shrink(new Uint8Array(await sec.screenshot({ animations: 'disabled' }))));
+		livePng.push(new Uint8Array(await sec.screenshot({ animations: 'disabled' })));
+		live.push(shrink(livePng[i]));
 	}
 
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
@@ -94,10 +96,12 @@ async function exportMatchesScreen({ page }: { page: Page }) {
 	const zip = await (await import('jszip')).default.loadAsync(fs.readFileSync(await (await download).path()));
 	const slidePng = (n: number) => Object.keys(zip.files).find((f) => new RegExp(`/slides/[^/]*-0*${n}\\.png$`).test(f));
 	const exported: Float64Array[] = [];
+	const exportedPng: Uint8Array[] = [];
 	for (let n = 1; n <= SLIDES; n++) {
 		const name = slidePng(n);
 		expect(name, `slide ${n} is in the image set`).toBeTruthy();
-		exported.push(shrink(await zip.files[name as string].async('uint8array')));
+		exportedPng.push(await zip.files[name as string].async('uint8array'));
+		exported.push(shrink(exportedPng[n - 1]));
 	}
 	const report: string[] = [];
 	for (let i = 0; i < SLIDES; i++) {
@@ -106,6 +110,11 @@ async function exportMatchesScreen({ page }: { page: Page }) {
 		report.push(`slide ${i + 1}: ${own.toFixed(2)} from itself, ${nearestOther.toFixed(2)} from the nearest other slide`);
 		// The picture is the slide on screen. At 160x90 this catches a chart drawn black, unpainted or missing (the old
 		// bake's failure); it is too coarse to see a lost label or a font size, which it does not claim to.
+		// A miss explains itself: both pictures of the slide go into the report, so a failure is never just a number.
+		if (own >= 6 || nearestOther <= own * 2) {
+			await test.info().attach(`slide-${i + 1}-on-screen.png`, { body: Buffer.from(livePng[i]), contentType: 'image/png' });
+			await test.info().attach(`slide-${i + 1}-exported.png`, { body: Buffer.from(exportedPng[i]), contentType: 'image/png' });
+		}
 		expect(own, report.join('\n')).toBeLessThan(6);
 		// And the comparison can tell slides apart, so a pass above means something: the oracle's own arm.
 		expect(nearestOther, report.join('\n')).toBeGreaterThan(own * 2);
