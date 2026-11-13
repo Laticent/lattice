@@ -126,7 +126,7 @@ describe('PersistentSurface', () => {
 				fireEvent.click(screen.getByText('done'));
 				await waitFor(() => expect(dialog()?.hasAttribute('data-hidden')).toBe(true));
 				if (fine) await waitFor(() => expect(document.activeElement, 'a mouse gets its caret back').toBe(editor));
-				else expect(document.activeElement, 'a touch close focuses the control that opened the sheet, not the editor').toBe(screen.getByText('gallery'));
+				else await waitFor(() => expect(document.activeElement, 'a touch close focuses the control that opened the sheet, not the editor').toBe(screen.getByText('gallery')));
 				unmount();
 			} finally {
 				window.matchMedia = real;
