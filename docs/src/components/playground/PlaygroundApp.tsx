@@ -3096,8 +3096,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			if (!band) return false;
 			const inset = Math.max(0, (win.innerHeight - band.height) / 2);
 			const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-			win.scrollTo({ top: Math.max(0, band.top - inset), behavior: opts.instant || reduce ? 'auto' : 'smooth' });
-			return true;
+			// Clamped to where the document can scroll, so the sync can tell "arrived" from "still on its way" (see `show`).
+			const se = frame.contentDocument?.scrollingElement;
+			const want = Math.max(0, band.top - inset);
+			const top = se?.scrollHeight ? Math.min(want, Math.max(0, se.scrollHeight - se.clientHeight)) : want;
+			win.scrollTo({ top, behavior: opts.instant || reduce ? 'auto' : 'smooth' });
+			return top;
 		},
 		[gotoIndex, mountAroundIndex],
 	);

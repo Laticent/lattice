@@ -335,6 +335,22 @@ skip a section whose size did not change since the last pass.
 The same branch cached the PDF camera's font-face filtering per document (`lib/core/slide-camera.mjs`). The export rows
 above include it, and it moved nothing either.
 
+## 9. Follow-up, 2026-11-13: a view built while `source` trails
+
+§2's change commits typing as a React transition, so the shell's `source` can trail the editor. The editor's
+value sync already refused a trailing echo (`isStaleEcho`). The view BUILD did not. A layout switch (1440 px to phone
+width, two panes to one) remounts the editor. Under load that can happen while `source` still holds an older text: the
+empty document after a select-all Delete, or the deck from before the typing. The new view seeded itself from that
+text and restated it to the focus hub (`hub.update(…, { by: 'sync' })`). That moved the hub back, so the caret's slide
+dropped to slide 1 and the live preview followed it there for good. Measured on WebKit at phone size
+(`logo-wall-revisit.spec.ts`, four workers): 3 runs in 16 left the preview on "Before the wall." with the editor
+holding the whole deck and its caret on line 1.
+
+The editor now takes `latestValue`, the shell's `sourceRef`, which every writer sets before its render. A new view seeds
+from it. The value sync also skips any `value` that differs from it: the render carrying the newest text follows. A
+real write sets both together, so it still lands. `editor-value-echo.test.tsx` "a view built while `value` trails"
+fails on the old build path. After the fix: 0 runs in 16 at the same load.
+
 ## What was not measured
 
 - A real phone, Safari or Firefox. The 4x profile is emulated Chromium, so every 4x number is UNVERIFIED on a

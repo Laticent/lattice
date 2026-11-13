@@ -102,6 +102,12 @@ test('a logo wall paints once, packed, and a revisit stamps with no fetch @cross
 	// The cache lives in the frame, so it holds only while the Studio patches slides in place: a swap
 	// would void it, and must fail here rather than pass on an empty log.
 	expect(await previewFrame(page)).toBe(frame);
-	expect((await painted(frame)).filter((s) => s !== 'none')).toEqual(['packed']);
+	// The recorder samples on the frame's own animation frames, and `toBeVisible` reads the DOM, so on a loaded box
+	// the log can trail the wall by a tick: measured on WebKit at four workers, 1 run in 16 read an empty log here.
+	// Wait for the recorder to have seen the wall at all, then hold the WHOLE log to it: a first paint of any other
+	// state is still in the log and still fails.
+	const walls = async () => (await painted(frame)).filter((s) => s !== 'none');
+	await expect.poll(async () => (await walls()).length, { message: 'the recorder never saw the wall it was shown' }).toBeGreaterThan(0);
+	expect(await walls()).toEqual(['packed']);
 	expect(fetched.length - before).toBe(0);
 });

@@ -1,6 +1,8 @@
 import { act, render } from '@testing-library/react';
 import * as React from 'react';
 import { describe, expect, it } from 'vitest';
+import { deckOutliner } from '@/lib/deck-outline';
+import { createFocusHub } from '@/lib/fuoco';
 import { Editor } from './Editor';
 
 // THE VALUE-SYNC MUST NOT ECHO ITS OWN TEXT BACK OUT.
@@ -122,5 +124,27 @@ describe('the editor value-sync', () => {
 		expect(sel.from <= sel.to, 'the mapped range is inverted').toBe(true);
 		expect(() => act(() => view.dispatch(view.state.replaceSelection('X')))).not.toThrow();
 		expect(view.state.doc.toString()).toBe(next.replace('zzz', 'zzzX'));
+	});
+	// A VIEW BUILT WHILE `value` TRAILS. A layout switch (wide to phone) remounts the editor, and under load it can
+	// do that while the shell's transition still carries an older text: the Delete of a select-all, or the deck before
+	// the typing began. The view used to seed itself from that `value` and restate it to the hub, which moved the hub,
+	// the caret's slide and the preview BACK (logo-wall-revisit.spec.ts on WebKit, 3 runs in 16 under load).
+	it('a view built while `value` trails starts from the newest text, and keeps the hub on it', () => {
+		const hub = createFocusHub({ outliner: deckOutliner, scheduler: { frame: (cb) => cb(), idle: (cb) => cb() } });
+		hub.update(DECK, { by: 'markdown' });
+		const latest = () => DECK;
+		const { container, rerender } = render(<Editor value="" latestValue={latest} onChange={() => {}} focusHub={hub} knownComponents={KNOWN} docKey="a" />);
+		const view = viewOf(container.querySelector('.cm-content'));
+		expect(view.state.doc.toString(), 'the view was seeded from the trailing value').toBe(DECK);
+		expect(hub.outline()?.source, 'the build restated a trailing text to the hub').toBe(DECK);
+		// The trailing renders that are still in flight commit next; neither may roll the view back.
+		rerender(<Editor value="" latestValue={latest} onChange={() => {}} focusHub={hub} knownComponents={KNOWN} docKey="a" />);
+		rerender(<Editor value="# Welcome" latestValue={latest} onChange={() => {}} focusHub={hub} knownComponents={KNOWN} docKey="a" />);
+		expect(view.state.doc.toString(), 'a trailing render rolled the view back').toBe(DECK);
+		// …and the render that carries the newest text is a no-op, while a real write after it still lands.
+		rerender(<Editor value={DECK} latestValue={latest} onChange={() => {}} focusHub={hub} knownComponents={KNOWN} docKey="a" />);
+		const W = `${DECK}\n\n---\n\n# Three`;
+		rerender(<Editor value={W} latestValue={() => W} onChange={() => {}} focusHub={hub} knownComponents={KNOWN} docKey="a" />);
+		expect(view.state.doc.toString(), 'a real write was refused').toBe(W);
 	});
 });
