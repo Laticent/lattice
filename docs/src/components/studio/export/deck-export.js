@@ -62,6 +62,7 @@ import { bakedFigureOpenTag } from '../../../../../lib/plugins/mermaid/shared/ba
 import initDirectiveCore from '../../../../../lib/plugins/mermaid/shared/init-directive.js';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
+import { writeSrcdoc } from '../../../lib/srcdoc-write.js';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
@@ -591,7 +592,10 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 	const frame = document.createElement('iframe');
 	frame.title = 'Export render';
 	frame.style.cssText = `width:${gw}px;height:${gh}px;border:0;`;
-	host.appendChild(frame);
+	// The frame goes into the page only once its `srcdoc` is set (`writeSrcdoc` below). Firefox hands a srcdoc document
+	// the page's service worker only in that order, and an offline export needs the worker for the runtime, the theme's
+	// fonts and Mermaid. Appending the frame empty worked only while nothing awaited between the append and the write
+	// (engineering/decisions/2026-11-12-gecko-srcdoc-rewrite-controller.md §4).
 	document.body.appendChild(host);
 	const dispose = () => host.remove();
 	try {
@@ -638,7 +642,7 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		// stalls on a slow/failed face), leaving the mobile progress card stuck with
 		// no error and no Retry. A slightly-early capture is safe: sectionsOf →
 		// ensureFontsLoaded re-waits afterward with the embedded data-URI faces.
-		await withTimeout(new Promise((res) => { frame.addEventListener('load', () => res(), { once: true }); frame.srcdoc = frameDoc; }), 10000);
+		await withTimeout(new Promise((res) => { frame.addEventListener('load', () => res(), { once: true }); writeSrcdoc(frame, frameDoc, host); }), 10000);
 		const win = frame.contentWindow;
 		const doc = frame.contentDocument;
 		if (!doc) throw new Error('Could not prepare the export render.');
