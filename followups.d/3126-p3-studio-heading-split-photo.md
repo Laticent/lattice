@@ -1,29 +1,27 @@
 ---
 origin: 3126
 priority: P3
-recorded: 2026-11-11
+recorded: 2026-11-13
 area: website
 severity: low
 swimlane: engineering/decisions/2026-10-16-media-plugins.md §9
-deferred: large — the Studio hands every reader one slide's text (the class drawer, the photo checks, Compose); resolving a slide's classes and carried background from the whole deck for all of them is a Studio-wide change. #3132 narrows the gap (photoAt now reads the deck's class:) and does not widen it
+deferred: large — the Studio's photo readers address a slide by its `---` unit (the photo check, the ink fix and SlideContext all key on the unit index), and a heading part has no unit of its own; placing per part means re-keying all three on the deck index's parts
 source: https://github.com/Laticent/lattice/pull/3126
 ---
 
-# The Studio's picture readers cannot see what a slide inherits from the slides before it
+# On a `split: headings` deck, the Studio's photo readers see one slide where the engine draws two
 
-why now   — `photoAt` (docs/src/components/studio/card-ink-pick.ts) now asks the placed-picture kernel
-            (lib/core/placed-picture.mjs) with the slide's own `_class` and the deck's `class:`. A running
-            `<!-- class: image -->` written on an earlier slide is out of its sight, because the Studio hands it one
-            slide's text. On such a slide the engine places a lone picture and the photo-contrast check stays silent.
-            The same holds for a `backgroundImage` from the front matter or a running `<!-- backgroundImage: … -->`
-            (Compose and `photoAt` both: the engine and the export treat it as the slide's photo, the Studio places the
-            picture), and for a `split: headings` deck, where Compose and `photoAt` see one `---` slide holding two
-            pictures and place neither while the engine places one per heading slide. The shared table marks the
-            first two `carried` and `carriedBackground`, and the vitest parity skips them by name.
-where     — `photoAt` / `photoRefOf` and their callers (thin-card-fix.ts, photo-verdict.ts, photo-ink-read.ts,
-            SlideContext.tsx), which hold the whole deck source and could resolve the slide's class from it.
-done when — the Studio's readers receive the slide's resolved classes and its carried background (a deck-level
-            reader the Studio owns, from the whole source and the engine's slide boundaries), and every `carried` and
-            `carriedBackground` case in test/fixtures/placed-picture-cases.json runs in the vitest parity with no skip.
-evidence  — the five named skips in docs/src/lib/compose/placed-picture-parity.test.ts.
-verify    — `cd docs && npx vitest run src/lib/compose/placed-picture-parity.test.ts` with no skip.
+why now   — The carried class and background are done (lib/core/slide-carried.mjs, docs/src/lib/slide-carried.ts; every case
+            in test/fixtures/placed-picture-cases.json runs in the Studio parity with no skip). One shape is left: on a deck that
+            splits on headings (the engine's default), a `---` slide with two headings is two engine slides. If each part
+            holds one lone picture, the engine places one per part, while Compose and `photoAt` read the `---` slide, see two
+            lone pictures and place neither, so the photo-contrast check stays silent there.
+where     — `photoAt` / `photoRefOf` (docs/src/components/studio/card-ink-pick.ts) and their callers (thin-card-fix.ts,
+            photo-verdict.ts, photo-ink-read.ts, SlideContext.tsx); Compose's `placementAt`
+            (docs/src/lib/compose/image-objects.ts). The deck index (docs/src/lib/deck-outline/deck-outline.ts) already holds
+            the parts (`headingSplitPoints`, the engine's own split).
+done when — a `split: headings` case with one lone picture per heading part is a row of the shared table, and the engine, the
+            export, Compose and `photoAt` all place both pictures.
+evidence  — the new row green in test/unit/plugins/image-address.test.js and docs/src/lib/compose/placed-picture-parity.test.ts,
+            with a failing arm on today's readers.
+verify    — `cd docs && npx vitest run src/lib/compose/placed-picture-parity.test.ts`; self-review with the gates.

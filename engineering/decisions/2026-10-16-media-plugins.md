@@ -1246,3 +1246,14 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   to `dist/` (lib/export/locked-figures.js, lib/core/policy-page-script.js), so a PNG export of a deck with a locked figure
   failed on `main`; both read from the package root now, and test/unit/cli/cli-bundle.test.js checks every relative read in
   the bundle (red on the old code).
+- 2026-11-13: **the Studio sees what a slide inherits** (followups.d/3126-p3, the carried class and background). The carry walk
+  Export-to-Marp ran inline moved into one ESM kernel, lib/core/slide-carried.mjs: handed the front matter and each slide's text
+  in order (cut on the engine's boundaries by the caller), it returns each slide's carried `class:` and whether a carried
+  `backgroundImage` is already its photo (the slide's own `_backgroundImage` replaces it). The export hands it
+  `slideClassSpans`; the Studio hands it its deck units (docs/src/lib/slide-carried.ts `slidePlacingAt` / `slidePlacingOf`),
+  which `photoAt` and through it the photo checks, the ink fix and SlideContext now read. Compose reads the same carries from its
+  document (`carriedBackgroundPlaces` beside `carriedClassBefore`, image-objects.ts). The five named skips in
+  docs/src/lib/compose/placed-picture-parity.test.ts are gone and the `carried`/`carriedBackground` flags left the table, which
+  gains two rows (an own `_backgroundImage: none` under a carried one; a class carried two slides). Failing arms: Compose's
+  change reverted, and `photoAt` without the carried background, each turn two cases red. Left: a `split: headings` part is not a
+  Studio unit, followups.d/3126-p3-studio-heading-split-photo.md.

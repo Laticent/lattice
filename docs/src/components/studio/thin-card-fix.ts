@@ -6,6 +6,7 @@ import { unitAt } from '@/lib/fuoco/outline';
 import { slideRanges, splitSlides } from '../../lib/deck-lint';
 import { deckPlacingClasses } from '../../lib/deck-placing-classes';
 import { stripFrontMatter } from '../../lib/front-matter';
+import { slidePlacingAt } from '../../lib/slide-carried';
 import { canEditClass, getClassTokens } from '../../lib/slide-directives';
 import { photoAt } from './card-ink-pick';
 import { replaceSlide } from './deck-ops';
@@ -222,9 +223,9 @@ export function photoDiagnostic(doc: Text, m: NonNullable<MeasuredPhoto>, measur
 		.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' '))
 		.replace(/^([ \t]*)(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1\2[ \t]*$/gm, (m) => m.replace(/[^\n]/g, ' '));
 	// The photo's line: an old `![bg]`, a record, or the record's shortcut on a placing slide (card-ink-pick.ts `photoAt`).
-	// The comments were blanked above, which takes the slide's `_class` with them: its classes are read from the slide as written.
-	const own = getClassTokens(text.slice(at, at + (r.to - r.from)));
-	const photo = photoAt(slideText, [...own, ...deckPlacingClasses(text)]);
+	// The comments were blanked above, which takes the slide's `_class` with them: what the slide inherits is read from the deck
+	// as written (lib/slide-carried.ts), its carried class and background included.
+	const photo = photoAt(slideText, slidePlacingAt(text, at) ?? [...getClassTokens(text.slice(at, at + (r.to - r.from))), ...deckPlacingClasses(text)]);
 	if (!photo) return null;
 	const line = doc.lineAt(at + photo.index);
 	const message = m.verdict.message;

@@ -8,3 +8,8 @@
   `examples/bg-split-ratio.md`, which showed a `![bg left:40%]` share being ignored, is removed.
 - Exporting a deck with a locked figure (a drawing the CLI captures in its own page) to PNG or PDF no longer fails with
   `Cannot find module '../core/sanitize-slide-html.mjs'`: the bundled CLI read two files relative to `dist/`.
+- The Studio's photo checks and Compose now see what a slide inherits from the slides before it. A running
+  `<!-- class: image -->` set on an earlier slide, and a `backgroundImage` from the front matter or an earlier slide, change
+  which picture is a slide's photo; the Studio read one slide's text, so its photo-contrast check stayed silent on such a
+  slide, and Compose's Placement badge called a picture placed that the engine drew in the text. Both read the whole deck now,
+  through the walk Export-to-Marp uses (lib/core/slide-carried.mjs).

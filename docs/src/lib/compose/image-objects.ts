@@ -19,7 +19,8 @@ import type { EditorView } from 'prosemirror-view';
 // THE placed-picture rule (lib/core/placed-picture.mjs): whether a picture is the slide's photo is the engine's decision, and
 // Compose asks the same function the engine does rather than spelling it out (followups.d/3126-p2-one-placed-picture-rule.md).
 import { boundaryParser } from '../../../../lib/core/boundary-parser.mjs';
-import { placedPictureInSlide } from '../../../../lib/core/placed-picture.mjs';
+import { topLevelFrontMatterValue } from '../../../../lib/core/front-matter-key.js';
+import { backgroundDirectiveOf, backgroundImagePlaces, placedPictureInSlide } from '../../../../lib/core/placed-picture.mjs';
 // The component names (the stage catalog's keys, as reserved-names.ts reads them): a slide's LAYOUT is its first class word
 // that names a component, so a modifier-only slide (`_class: dark`) is a content slide (inversion, F7).
 import STAGE_CATALOG from '../../../../lib/forms/cell/masthead/stage-catalog.generated.js';
@@ -249,6 +250,27 @@ function carriedClassBefore(state: EditorState, slideIndex: number): string[] | 
 	return carried;
 }
 
+/**
+ * Whether a background image CARRIED to this slide is already its photo, so no picture on it is placed: the front matter's
+ * `backgroundImage:` and a running `<!-- backgroundImage: … -->` on this slide or an earlier one carry forward, and the slide's
+ * own `<!-- _backgroundImage: … -->` replaces them for that slide (the engine's directive overlay; the kernel reads that one from
+ * the slide's own text). The Studio's text readers ask the same question of lib/core/slide-placing-context.js.
+ */
+function carriedBackgroundPlaces(state: EditorState, slideIndex: number): boolean {
+	const own = ((state.doc.child(slideIndex)?.attrs.directives as string[] | null) ?? []).some((d) => backgroundDirectiveOf(d)?.spot);
+	if (own) return false;
+	let carried: string | null = topLevelFrontMatterValue(String(state.doc.attrs.frontMatter ?? ''), 'backgroundImage');
+	for (let i = 0; i <= slideIndex && i < state.doc.childCount; i++) {
+		state.doc.child(i).descendants((n) => {
+			if (n.type.name !== 'comment') return true;
+			const dir = backgroundDirectiveOf(String(n.attrs.text ?? ''));
+			if (dir && !dir.spot) carried = dir.value;
+			return false;
+		});
+	}
+	return backgroundImagePlaces(carried);
+}
+
 /** The kernel's answer for one slide under these classes, kept per slide node (nodes are immutable, so an edit makes a new one):
  *  the ordinal of its placed picture among its pictures, or -1. */
 const placedBySlide = new WeakMap<PMNode, Map<string, number>>();
@@ -320,13 +342,16 @@ export function placementAt(state: EditorState, pos: number): { placement: Place
 	const deck = deckClassWords(frontMatter);
 	// A slide with no class of its own takes the carried one, as the engine does: the badge then says what the slide draws.
 	const carried = carriedClassBefore(state, $at.index(0));
-	const inherited = deck.length > 0 || carried !== null;
+	// A background carried from the front matter or an earlier slide is the slide's photo: nothing on it is placed, and only
+	// the comment that carries it can change that.
+	const carriedBackground = carriedBackgroundPlaces(state, $at.index(0));
+	const inherited = deck.length > 0 || carried !== null || carriedBackground;
 	const effective = own.length ? own : (carried ?? []);
 	// The classes the engine resolves for the slide: its own (or the carried one), plus the deck's without its component names.
 	const classes = [...effective, ...deckPlacingClasses(frontMatter)];
 	const alt = (node.attrs.alt as string | null) ?? '';
 	// An old `![bg …]` picture is placed by its keywords until it is placed again; a plain one only when the engine places it.
-	const placement = bgKeywords(alt) !== null ? bgSideOf(alt) : isPlacedPicture(state, pos, classes) ? placementOf(classes) : 'none';
+	const placement = bgKeywords(alt) !== null ? bgSideOf(alt) : !carriedBackground && isPlacedPicture(state, pos, classes) ? placementOf(classes) : 'none';
 	// It may be placed when the engine WOULD place it once the slide places a picture: the same rule, asked of the slide as an
 	// `image` slide (an old `![bg …]` alt loses its keywords when it is placed, so it is asked as the plain picture it becomes).
 	const placeable = bgKeywords(alt) !== null ? placeableBgPicture(state, pos, tokensWithPlacement(classes, 'right')) : isPlacedPicture(state, pos, tokensWithPlacement(classes, 'right'));
