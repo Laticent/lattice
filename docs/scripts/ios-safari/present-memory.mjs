@@ -75,7 +75,7 @@ export function photoPng(size, seed) {
 /** The deck: one photo slide per picture, each heading `Photo N.`, the photo as the slide's background. */
 export function presentDeckSource(n = PRESENT_PHOTOS) {
 	const slides = [`---\ntitle: ${PRESENT_TITLE}\n---\n\n# ${PRESENT_TITLE}.\n\nEighteen phone photos, presented.`];
-	for (let i = 1; i <= n; i++) slides.push(`## Photo ${i}.\n\n![bg](asset:probe-photo-${i})`);
+	for (let i = 1; i <= n; i++) slides.push(`<!-- _class: content bleed -->\n\n## Photo ${i}.\n\n![Probe photo ${i}](asset:probe-photo-${i})`);
 	return slides.join('\n\n---\n\n');
 }
 
