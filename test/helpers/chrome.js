@@ -35,11 +35,9 @@ function resolveChrome() {
       if (fs.existsSync(bin)) return bin;
     }
   }
-  // Last resort: puppeteer's own resolver. It throws when nothing is installed.
-  try {
-    const p = require('puppeteer').executablePath();
-    if (p && fs.existsSync(p)) return p;
-  } catch { /* no browser */ }
+  // No call to puppeteer's own resolver here: from puppeteer 24 on `executablePath()` returns a
+  // Promise, and this resolver has to stay synchronous for `describe(…, { skip })`. The cache scan
+  // above is where that resolver looks by default.
   return undefined;
 }
 
