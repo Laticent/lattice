@@ -16,8 +16,6 @@
 import { pack } from '@laticent/fluido';
 import fitMeasure from '../../../lib/core/fit-measure.js';
 import resolveGuards from '../../../lib/core/resolve-guards.js';
-import { hashString } from '../playground/deck-preview.js';
-import { DEFAULT_H, DEFAULT_W } from '../playground/frame-css.js';
 
 const { fitPacks } = resolveGuards;
 
@@ -401,11 +399,14 @@ export async function previewPlan(o: {
 	mode: string;
 	drawn: boolean;
 	extraCss?: string;
+	/** The renderer's string hash and default slide box. Passed in, not imported: `site/lib` must not import `site/playground`. */
+	hash: (s: string) => number;
+	box: [number, number];
 	/** The renderer's frame document builder (its `srcdoc`). */
 	doc: (html: string, css: string, mode: never, drawn: boolean, geom: { width: number; height: number }, extraCss?: string) => string;
 	alive: () => boolean;
 }): Promise<Planned<SplitResult> | null> {
-	const { host, opts, out, pg, first, mode, drawn, extraCss = '', alive } = o;
+	const { host, opts, out, pg, first, mode, drawn, extraCss = '', alive, hash, box } = o;
 	const key = `${opts.deckId ?? ''}:${opts.slideIndex}`;
 	const source = opts.slideMarkdown ?? '';
 	const split = pg.splitForPreview;
@@ -415,14 +416,14 @@ export async function previewPlan(o: {
 		return null;
 	}
 	const { html, css } = out;
-	const width = out.width || DEFAULT_W;
-	const height = out.height || DEFAULT_H;
+	const width = out.width || box[0];
+	const height = out.height || box[1];
 	const cut: MeasuredSplitInput['split'] = (h, plan) => split(h, source, out.width, out.height, { firstSlide: first, plan });
 	const buildDoc = (h: string) => o.doc(h, css, mode as never, drawn, { width, height }, extraCss);
 	// The plan made for this exact text, box, mode and stylesheets (by HASH, as the renderer's
-	// `memoKey` keys them, so an edit that keeps a sheet's length still measures again) and
+	// `memoKey` keys them, with its hash, so an edit that keeps a sheet's length still measures again) and
 	// rendered number is reused when the author steps to another page of the same slide.
-	const layout = layoutKey(key, source, `${out.width}x${out.height}|${mode}|${drawn ? 1 : 0}|${hashString(css)}|${hashString(extraCss)}|${first}`);
+	const layout = layoutKey(key, source, `${out.width}x${out.height}|${mode}|${drawn ? 1 : 0}|${hash(css)}|${hash(extraCss)}|${first}`);
 	const verdictConfig = pg.fitVerdictConfig?.();
 	return studioPlan({
 		host,

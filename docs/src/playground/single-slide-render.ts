@@ -2168,6 +2168,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							mode,
 							drawn,
 							extraCss,
+							hash: hashString,
+							box: [DEFAULT_W, DEFAULT_H],
 							doc: srcdoc,
 							alive: () => !disposed && host.isConnected,
 						});
