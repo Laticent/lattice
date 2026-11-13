@@ -99,79 +99,111 @@ format
 is lossless. Hostile inputs (truncated, oversized dimensions, a Huffman table that never terminates, a
 decompression bomb) must refuse with a typed error inside a pixel and time budget, never hang.
 
-### Measured (2026-11-13, slices 3 and 4: `docs/src/lib/lastra/decode`)
+### Measured (2026-11-13, slices 3 and 4: `docs/src/lib/lastra/decode`, after the trio's review)
 
-**The corpus is ours.** `tools/lastra-corpus/generate.py` draws every picture from one seed
-(gradients, grain, hard edges, bitmap-font text), so no third-party photo is in it and §8's licensing
-question does not arise for the decoders. 41 JPEGs and 53 PNGs, 890 KB, committed with
-`fixtures/expected.json`; `--check` regenerates in memory and diffs (it did: zero differences). The
-tests read only committed files.
+**The corpus is ours.** `tools/lastra-corpus/generate.py` draws every picture from one seed (gradients,
+grain, hard edges, bitmap-font text) and builds its own Display P3 and Adobe RGB ICC profiles
+(`icc.py`), so no third-party photo or profile is in it and §8's licensing question does not arise for
+the decoders. 66 JPEGs and 70 PNGs, 1.06 MB, committed with `fixtures/expected.json`; `--check`
+regenerates in memory and diffs (zero differences). The tests read only committed files.
 
-**The oracle, and the floor.** PNG: the tool writes each file with its own encoder (every color type
-and depth, Adam7, every filter, Paeth on noise, tRNS, a short palette, split IDAT, ancillary chunks),
-so the expected pixels are the ground truth it was given; Pillow decodes every file back to those
-samples, which proves the encoder. JPEG: Pillow's decode (libjpeg-turbo 3.1.4.1), recorded as a
-SHA-256 of the RGBA. lastra transcribes libjpeg-turbo's defaults (the `jidctint.c` integer IDCT, the
-`jdsample.c` fancy upsampling, the `jdcolor.c` tables), and the measurement is an exact match on all 41:
+**The oracle, and the floor.** PNG: the tool's own encoder writes each file, so the expected pixels are
+the ground truth it was given; Pillow decodes every file back to those samples, which proves the
+encoder. JPEG: Pillow's decode (libjpeg-turbo 3.1.4.1), as a SHA-256 of the RGBA; for the three files cut
+with no EOI, Pillow's decode of the same bytes with EOI appended (libjpeg reads the end of a file as
+EOI; Pillow refuses cut files); for the two whose coefficients pass 16 bits, libjpeg-turbo's C build
+(Pillow with `JSIMD_FORCENONE=1`; the generator asserts the C and SIMD decodes differ on them). The floor
+is an exact match on every file, measured:
 
-| JPEG mode (files) | vs Pillow: max diff, mean, PSNR |
+| JPEG fixtures (count) | vs oracle |
 |---|---|
-| baseline 4:4:4, 4:2:2, 4:2:0 at 1x1, 7x13, 64x48, 257x193, 1001x667 (12) | 0, 0, infinite |
-| progressive 4:4:4, 4:2:2, 4:2:0, 4:4:0, at 1x1, 7x13, 64x48, 257x193, 1001x667 (8) | 0, 0, infinite |
-| baseline 4:4:0, 4:1:1 and a 2x2/2x1/2x1 split, written by ImageMagick (5) | 0, 0, infinite |
-| quality 30 and 95 (baseline and progressive), optimized tables, restarts every MCU, every 5 MCUs, every row (8) | 0, 0, infinite |
-| grayscale (4); Adobe RGB, CMYK, YCCK (3); no DHT, so the Annex K tables (1) | 0, 0, infinite |
+| baseline 4:4:4, 4:2:2, 4:2:0 at 1x1, 7x13, 64x48, 257x193, 1001x667 (12); progressive incl. 4:4:0 (8) | identical |
+| 4:4:0, 4:1:1, 2x2/2x1/2x1 (5); quality 30/95, optimized tables, three restart spacings (8) | identical |
+| grayscale (4); Adobe RGB, CMYK, YCCK (3); no DHT (1) | identical |
+| phone-shaped: Display P3, Adobe RGB, EXIF orientation 6, MPF two pictures, Ultra HDR gain map, a profile over two APP2 segments (6) | identical pixels; `icc` byte-identical to Pillow's |
+| damaged: an RST dropped, doubled, two behind, one ahead, four ahead; junk before an RST; a short interval; bad Huffman codes; EOI mid-scan (9) | identical |
+| progressive missing its last scans, so libjpeg's block smoothing applies (5); cut with no EOI (3); quantization past 16 bits (2) | identical |
 
-So the per-file floor is an exact match (the test compares hashes). A looser floor would let an
-off-by-one in a rounding constant through: the failing arms show a one-unit change to the IDCT's
-final rounding turns 18 of the 41 files red, and one to the last column of 4:2:0 upsampling turns 2
-red (the 64x48 files exist because an odd width crops that column away and no odd-sized fixture
-could see it).
+**Damaged-file parity, the review's sets.** The checker's and red team's 951 damaged and partial JPEGs
+(corrupt entropy bytes, restart damage, partial progressive files, redefined tables, marker mixes),
+before and after this batch:
 
-**The browsers** (`tools/lastra-corpus/browser-compare.mjs`: `createImageBitmap` with
-`colorSpaceConversion: 'none'` and `premultiplyAlpha: 'none'`, then `getImageData`; PNG compares only
-pixels lastra decodes as opaque, because a canvas stores premultiplied color):
+| | reviewed (839861c6) | now |
+|---|---:|---:|
+| differ from libjpeg-turbo's C build | 97 | **0** |
+| differ from Pillow (its SIMD build) | 183 | 93 |
 
-| Engine (Playwright, Linux) | JPEG (41 files, 2.54 MP) | PNG (53 files) |
+All 93 that still differ from the SIMD build are files where a block's IDCT leaves 16 bits or the
+range-limit window (instrumented; 2 of 735 matching files also touch it without changing a pixel):
+there the SIMD code saturates in 16-bit lanes where the C code wraps. Browsers ship the SIMD code too, so
+on such files lastra matches the C reference and not the browsers. No real encoder writes one. (The red
+team's 40 PNG edge files differ from Pillow on 9, all tRNS cases: Pillow's PNG decoder is its own;
+lastra follows libpng, and the browser table below pins that against the engines.)
+
+**The browsers** (`tools/lastra-corpus/browser-compare.mjs --assert`, Playwright's Chromium 141,
+Firefox 142, WebKit 26 on Linux; colorSpaceConversion `none`; alpha compared on every pixel, color on
+opaque ones):
+
+| Fixtures | Chromium | Firefox | WebKit |
+|---|---|---|---|
+| valid JPEG (all modes, phone files) | identical | identical | identical, except files with an ICC profile, which WebKit color-manages even under `none` |
+| damaged JPEG (9) | identical | identical | identical |
+| smoothed partial progressive (5) | identical | identical | 4 differ by at most 14 levels (PSNR 40 to 69 dB) |
+| cut with no EOI (3) | refuses all three | scan-boundary cut identical; the other two differ | shows nothing |
+| quantization past 16 bits (2) | differ (SIMD) | differ (SIMD) | differ (SIMD) |
+| PNG, 1 to 8 bits, every tRNS case, extra data past the image | identical, except a palette index past PLTE (a palette color, lastra black) and a tRNS longer than the palette or of the wrong length (applied, lastra ignores it, as libpng) | identical | identical |
+| PNG, 16 bits | identical | rounds instead of the high byte: max 1, PSNR 53.7 to 56.3 dB | identical |
+
+lastra's PNG policy is libpng's (Firefox and WebKit decode with it), pinned by the 12 `edge-*` fixtures.
+
+**What a browser displays for a tagged file** (default color management, reported, not asserted):
+Chromium's display differs from lastra's as-stored pixels by a mean CIE76 delta E of 5.2 (largest 14.2)
+on the Display P3 JPEG, 6.9 (17.5) on Adobe RGB, 5.5 (18.3) on the P3 `iCCP` and `cICP` PNGs and 20.9
+(36.5) on a PNG with `gAMA` 1.0; WebKit the same; headless Firefox applies no profile. An `sRGB` + `gAMA` +
+`cHRM` PNG displays as stored everywhere. `icc` and `tags` let a host send such a file to a
+color-managed decoder. Every engine turns a picture by its EXIF orientation even under
+`imageOrientation: 'none'`; the comparison turns lastra's pixels with `applyOrientation` first and they
+then match.
+
+**Work bounds, before and after** (the red team's files; Node 22, one run each, peak RSS of the process):
+
+| Attack | reviewed: time, RSS, steps | now: time, RSS, steps, outcome |
 |---|---|---|
-| Chromium 141 | identical | identical, except a palette index past PLTE: Chromium paints a palette color, lastra opaque black (libpng's choice) |
-| Firefox 142 | identical | identical, except 16-bit samples: Firefox rounds to 8 bits, lastra keeps the high byte (libpng `strip_16`, Chromium, WebKit, Pillow). Max 1, PSNR 53.7 to 56.3 dB on the 10 files |
-| WebKit 26 | identical | identical |
+| SOF with no scan, 10000 x 10000 (95 B) | 0.9 s, 529 MB, 11,253; decoded gray | 1 ms, 46 MB, 4; `corrupt` |
+| SOF and empty scans, 10000 x 10000 | 2.5 s, 816 MB, 15,003 | 1 ms, 46 MB, 4; `corrupt` |
+| every legal empty scan, DRI 1, 1 component, 896 scans (9 KB) | 25.1 s, 539 MB, 2.8 billion | 55 ms, 47 MB, 1,513; `too-large` (scan cap) |
+| the same, 4 components, 3,584 scans (36 KB) | 91.7 s, 837 MB, 11.2 billion | 14 ms, 48 MB, 1,513; `too-large` |
+| end-of-band-run scans, 100 / 882 scans | 3.4 s / 19.3 s, 531 MB, 156 M / 1.38 billion | 1.1 s / 1.2 s, 57 MB, 50 M; `too-large` (visit cap) |
+| 128 MB of unused DHT tables | 18.7 s, 201 MB, 2,063 steps | 0.2 s, 183 MB, 7.46 M steps |
+| PNG 10000 x 10000 RGBA16, valid zero bomb (778 KB) | 3.5 s, 1,227 MB | 5.1 s, 462 MB (rows unfiltered as they inflate) |
 
-Chromium, Firefox and Linux WebKit all decode JPEG through libjpeg-turbo, which is why the first point
-of §4 holds: one decoder, one answer, and it is already theirs. Safari on Apple platforms decodes
-through ImageIO and was not reachable here (UNVERIFIED); the iOS Simulator suite is the place to
-measure it. `--assert` pins these ceilings.
+The meter now counts per block and per 64 pixels, so steps track work (the DHT file's 2,063 steps for
+18.7 s was the gap). The fuzz holds every case under a limit proven from the loops and under twice the
+highest steps per unit of declared work measured over 40,600 cases (JPEG 5.13, PNG 0.59); a change that
+multiplies the work per block by 10 fails it (failing arm recorded).
 
-**Hostile input.** 38 hand-written refusal and bound tests (21 PNG, 17 JPEG), plus seeded fuzzing: 600 mutated JPEGs and
-600 mutated PNGs per run (seed 20261113, printed; half the PNG cases re-encode mutated scanlines or
-header fields with valid CRCs so they reach the inflate and the filters). Every case must decode
-inside `maxPixels` or throw `LastraError`, under a work budget proven from the loop bounds and
-counted in steps. Default run, JPEG: 249 decode, 147 truncated, 107 bad-marker, 93 corrupt, 4
-unsupported; PNG: 55 decode, 208 truncated, 136 corrupt, 130 bad-marker, 43 crc, 25 unsupported, 3
-too-large. A deeper run, seed 1, 20,000 cases each: no other exception, no budget overrun (most steps
-8,544 for a JPEG, 62 for a PNG). Two rules make the bound provable and are stricter than libjpeg,
-which warns and goes on: a progressive scan that resends a coefficient out of sequence is refused
-(each coefficient gets one first pass and at most 13 refinements), and so is a component in two
-sequential scans. A file missing only EOI is refused as `truncated`, as Pillow refuses it.
+**Fuzz.** Seed 20261113, 600 mutated JPEGs and 600 PNGs per run, 52 batches plus two summary tests that
+compute their own cases. Default run: JPEG 275 decode, 110 truncated, 104 bad-marker, 108 corrupt, 2
+unsupported, 1 too-large; PNG 82 decode, 167 truncated, 151 corrupt, 128 bad-marker, 43 crc, 28
+unsupported, 1 too-large. Seed 1, 20,000 each: no other exception, no limit passed.
 
-**CMYK: decoded, not refused.** Four-component files decode as Adobe-inverted CMYK
-(`R = K - K x C / 255`, Pillow's `cmyk2rgb` rounding) and YCCK through libjpeg's `ycck_cmyk_convert`
-first; both match Pillow exactly and Chromium, Firefox and WebKit exactly. No ICC profile is applied,
-for CMYK or anything else: a CMYK file with an embedded profile will look different in a
-color-managed viewer. Refusing would have sent such files back to the browser path slice 5 removes.
-
-**Speed** (`tools/lastra-corpus/bench.mjs`, 4000 x 3000, median of 5, the 4-core sandbox):
+**Speed** (`tools/lastra-corpus/bench.mjs --browsers`, 4000 x 3000, median of 5, 4-core sandbox,
+after the batch; the async decode yields to the event loop between slices):
 
 | File | Node 22 | Chromium 141 | Firefox 142 | WebKit 26 |
 |---|---|---|---|---|
-| JPEG baseline 4:2:0 q85, 1.65 MB | 353 ms | 373 ms (platform 187) | 409 ms (163) | 584 ms (403) |
-| JPEG progressive 4:2:0 q85, 1.65 MB | 522 ms | 646 ms (328) | 629 ms (253) | 935 ms (515) |
-| PNG RGB 8-bit, 24.4 MB | 821 ms | 717 ms (504) | 1450 ms (361) | 819 ms (1095) |
+| JPEG baseline 4:2:0 q85, 1.65 MB | 360 ms | 426 ms (platform 258) | 416 ms (160) | 403 ms (357) |
+| JPEG progressive 4:2:0 q85, 1.65 MB | 525 ms | 616 ms (344) | 632 ms (251) | 538 ms (555) |
+| PNG RGB 8-bit, 24.4 MB | 981 ms | 777 ms (365) | 1574 ms (403) | 780 ms (864) |
 
-"Platform" is `createImageBitmap` plus `getImageData`. Pillow's SIMD libjpeg-turbo decodes the same
-two JPEGs in 68 ms and 97 ms, so lastra is about 5x a native SIMD decoder and 1.4 to 2.5x a browser's
-decode-and-read. §8's phone question stays open: these are desktop engines on x64.
+"Platform" is `createImageBitmap` plus `getImageData`. Back to back on one machine, the batch costs a
+baseline 12 MP decode about 7% (269 to 288 ms) and a progressive one 6% (384 to 408 ms), for the work
+caps and the 64-bit IDCT arithmetic. Pillow's SIMD libjpeg-turbo decodes the same JPEGs in 68 and 97 ms.
+§8's phone question stays open: these are desktop engines on x64.
+
+**What stays open.** Matching the SIMD builds on overflowing files would mean emulating each SIMD
+variant's 16-bit saturation (x86 and ARM differ in their code); not done. Safari's ImageIO is not
+reachable here (UNVERIFIED). Firefox and WebKit decode cut files their own way.
 
 ## 5. Slices
 
