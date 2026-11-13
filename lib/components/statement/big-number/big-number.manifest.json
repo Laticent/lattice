@@ -27,7 +27,7 @@
     "metric",
     "pitch"
   ],
-  "description": "Single oversized number as the focal claim.",
+  "description": "Single oversized number as the focal claim (stale-arm probe).",
   "purpose": "Use to make one metric land. The number should be the headline — supporting text is one short caption. The whole slide is the chart.",
   "slots": {
     "eyebrow": {
