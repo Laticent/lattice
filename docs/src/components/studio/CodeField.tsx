@@ -23,6 +23,9 @@ import { codeFieldTheme, studioHighlight } from './editor-theme';
 
 const LANGS = { css, markdown, json } as const;
 
+// How many of its own emitted texts the field remembers while waiting for the parent's re-renders to catch up.
+const MAX_ECHOES = 64;
+
 export function CodeField({
 	value,
 	onChange,
@@ -54,6 +57,8 @@ export function CodeField({
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
+	// The texts this field has emitted through `onChange` that the parent has not yet echoed back as `value`.
+	const emittedRef = React.useRef<string[]>([]);
 	onChangeRef.current = onChange;
 	// Keep the latest completion source reachable from the construct-once editor.
 	const completionRef = React.useRef(completion);
@@ -96,7 +101,12 @@ export function CodeField({
 						EditorState.readOnly.of(readOnly),
 						EditorView.editable.of(!readOnly),
 						EditorView.updateListener.of((u) => {
-							if (u.docChanged) onChangeRef.current(u.state.doc.toString());
+							if (!u.docChanged) return;
+							const next = u.state.doc.toString();
+							// Remember what we told the parent, so its later re-render with that text is known as an echo.
+							emittedRef.current.push(next);
+							if (emittedRef.current.length > MAX_ECHOES) emittedRef.current.shift();
+							onChangeRef.current(next);
 						}),
 					],
 				}),
@@ -111,10 +121,23 @@ export function CodeField({
 		};
 	}, [language, readOnly]);
 
-	// External value changes (e.g. a starter reseed) → replace doc in place.
+	// External value changes (e.g. a starter reseed) → replace doc in place. But a `value` this field itself emitted
+	// earlier is an ECHO, not a change: the parent re-renders with each edit after the fact, so during fast typing the
+	// prop arrives a keystroke or more behind the document. Replacing the document with it erased the newest
+	// characters (measured on Firefox, typing at full speed into the Theme CSS field: 4 of 5 runs lost a letter).
+	// The deck editor guards the same race with its `isStaleEcho`.
 	React.useEffect(() => {
 		const v = viewRef.current;
-		if (v && value !== v.state.doc.toString()) {
+		if (!v) return;
+		const doc = v.state.doc.toString();
+		const echo = emittedRef.current.indexOf(value);
+		if (echo !== -1) {
+			// Everything up to that echo has now come back; later emissions may still be on their way.
+			emittedRef.current.splice(0, echo + 1);
+			return;
+		}
+		if (value !== doc) {
+			emittedRef.current = [];
 			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value } });
 		}
 	}, [value]);

@@ -193,3 +193,21 @@ test('the Theme CSS field completes CSS properties and the token names @crosswid
 	await page.keyboard.type('ent); font-size: var(--fs-b');
 	await expect(menu(page).getByRole('option', { name: /^--fs-body\b/ }).first()).toBeVisible();
 });
+
+// Found while driving the test above on Firefox: typing at full speed into the Theme CSS field lost letters, with or
+// without completion (`main` lost one in 4 of 5 runs). CodeField replaced its document with the parent's re-render of
+// an OLDER text it had emitted itself; it now knows its own echoes (CodeField.tsx). Typed at Playwright's full speed on
+// purpose: that is the race, and what the test asserts is the text, not a time.
+test('typing fast into a CSS field loses no characters @crosswidth @gecko', async ({ page }) => {
+	await gotoStudioPage(page);
+	await page.getByRole('button', { name: 'Workspace launcher' }).click();
+	await page.getByRole('menuitem', { name: 'Fabricate' }).click();
+	await page.getByRole('button', { name: 'CSS', exact: true }).click();
+	const field = page.locator('.cm-content[aria-label="Theme CSS"]');
+	await field.click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.press('Enter');
+	const css = 'x { color: var(--accent); font-size: var(--fs-body); background: var(--bg-alt); }';
+	await page.keyboard.type(css);
+	await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('.cm-content[aria-label="Theme CSS"] .cm-line')].at(-1)?.textContent)).toBe(css);
+});
