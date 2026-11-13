@@ -515,6 +515,28 @@ real PDF and counts ink inside each box. After editing `read-slide.mjs`, run
 
 ## 4a1. Pictures: one policy for PDF, player, Studio and CLI
 
+**No photo leaves with its metadata (2026-11-13).** Every export that carries a picture's own file
+runs it through the image library's cleaner first, `@laticent/lastra` `cleanerFor`, the function
+the Studio's Library intake and the `.lattice` writer use. It drops EXIF (a phone's location
+among it), XMP, IPTC, text chunks and comments and keeps the pixels, transparency, animation and an
+orientation-only EXIF block. The three paths that carry a source file:
+
+| Export | Where | A file the cleaner refuses |
+|---|---|---|
+| PDF (both hosts) | `lib/core/pdf-compose/compose.mjs`, once per distinct address, before the image policy | stays in the slide's photo (pixels only), counted as `refusedImages.uncleanable` |
+| Player (`--player`, the Studio's Webpage) | `lib/export/player-images.mjs` `cleanDocImages`, from `assemblePlayer`, whatever `images:` says: every `data:` picture in `src`, `srcset`, `poster`, SVG `href`, `style` and `<style>`, once per distinct picture | the drawn stand-in, named in the report |
+| `npm run export:marp` | `tools/export-marp.js` `localizeOne` | not copied, named on stderr |
+
+PNG, PPTX, ODP (picture and editable: Calco crops canvas pixels) and the image set carry rasters,
+never a source file, and are unchanged. Measured on the repo's own pictures (`lib/samples`,
+`examples`, `assets`, the fixtures, `docs/public`): 64 of 69 come out byte-identical, so their
+exports do too; the four that change (`examples/media/canoe.jpg` and `mug.jpg`, each losing a
+222-224 byte EXIF block, and two test fixtures) decode to the same pixels before and after (PIL,
+which decodes JPEG with libjpeg), and one damaged fixture is refused. Rendered before and after with
+the CLI, `gallery.md`, `data-viz-gallery.md` and a 50-slide photo deck are byte-identical as PDF and
+as player; `examples/image-plugin.md`, which shows canoe and mug, changes by -227 bytes (PDF) and
+-3600 (player), and its nine pages rasterize identically.
+
 Before 2026-10-25 the PDF and the HTML player embedded every picture at the bytes the author added
 (a 2.5 MB PNG screenshot stayed 2.5 MB, and the player held each `<img>` twice), while the PPTX and ODP
 wrote slide pictures and already chose JPEG for photographs. One 52-slide deck of 21 PNG screenshots

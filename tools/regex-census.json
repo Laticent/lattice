@@ -2850,6 +2850,7 @@
     "/data-lattice-pagination=\"1\"/": "safe",
     "/data-mark|data-anima-role|data-scene-spec/": "safe",
     "/data-sc-model=\"[^\"]*[,{]&quot;callouts&quot;:\\[/": "safe",
+    "/data:(image\\/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)/gi": "safe",
     "/detached Frame|Target closed|Session closed|Execution context was destroyed|Protocol error|timed out|Navigating frame was detached|Connection closed/i": "safe",
     "/did not finish within|was stopped|not loaded/": "safe",
     "/div\\.mermaidTooltip\\s*\\{([^}]*)\\}/": "polynomial",
