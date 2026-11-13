@@ -9,13 +9,15 @@ import { EditorView, keymap, lineNumbers } from '@codemirror/view';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { completionKeys } from '@/playground/completion-keys.js';
+import { cssTokenCompletion } from './css-token-complete';
 import { codeFieldTheme, studioHighlight } from './editor-theme';
 
 // A small, single-purpose CodeMirror 6 field — syntax highlighting + line numbers
 // for the Component studio's CSS and skeleton inputs. WRAP, DON'T REINVENT: it
 // shares the deck Editor's visual theme (editor-theme.ts) and the same
 // construct-once + textarea-fallback pattern, but carries none of the deck
-// editor's lint/autocomplete/slide-nav machinery (wrong tool for a CSS box).
+// editor's lint/slide-nav machinery (wrong tool for a CSS box). Completion is the language's own, plus the token
+// names in a CSS field (css-token-complete.ts) and any source the caller passes, with the shared completion keys.
 // Degrades to a <textarea> when CodeMirror can't construct (jsdom), so it never
 // breaks a test — the fallback keeps the same aria-label + onChange contract.
 
@@ -79,7 +81,12 @@ export function CodeField({
 						lineNumbers(),
 						history(),
 						keymap.of([...defaultKeymap, ...historyKeymap]),
-						autocompletion({ override: [(ctx) => completionRef.current?.(ctx) ?? null], defaultKeymap: false }),
+						// No `override`: an override REPLACES the language's own sources, which left every CSS field with no
+						// completion at all. The caller's source and, for CSS, the token source are added as language data, so
+						// they run beside CodeMirror's own (CSS properties and values, the variables the file declares).
+						autocompletion({ defaultKeymap: false }),
+						EditorState.languageData.of(() => [{ autocomplete: (ctx: CompletionContext) => completionRef.current?.(ctx) ?? null }]),
+						...(language === 'css' ? [EditorState.languageData.of(() => [{ autocomplete: cssTokenCompletion }])] : []),
 						completionKeys(),
 						LANGS[language](),
 						syntaxHighlighting(studioHighlight),

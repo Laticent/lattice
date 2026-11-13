@@ -263,12 +263,9 @@ const REQUIRED_THEME_TOKENS = Object.freeze([
 // any ad-hoc name. `--fs-scale` is the cqi scale base the 12 derive from. A new
 // `--fs-*` DECLARATION outside this set is the regression this gate blocks;
 // adding a 13th role token is a deliberate act that updates this list + the doc.
-const CANONICAL_FS_TOKENS = Object.freeze(new Set([
-  '--fs-meta', '--fs-body-compact', '--fs-body', '--fs-message', '--fs-emphasis',
-  '--fs-h1', '--fs-h2', '--fs-h3', '--fs-h4', '--fs-h5', '--fs-h6',
-  '--fs-hero',
-  '--fs-scale',
-]));
+// The list lives in lib/core/type-tokens.js, with each token's role, so the Studio's CSS completion
+// offers exactly the names this gate accepts.
+const CANONICAL_FS_TOKENS = require('../lib/core/type-tokens.js').TYPE_TOKEN_NAMES;
 
 // ── Selector parsing (paren-aware) ────────────────────────────────────────
 

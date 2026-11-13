@@ -170,3 +170,26 @@ test('a slide directive completes its values, and <!-- offers the note channels 
 	await acceptCompletion(page);
 	await expect(editorText(page)).toContainText('<!-- say: ');
 });
+
+// Slice 4: the CSS fields. CodeField used to replace the CSS language's own completion with nothing; now both run, with
+// the token names inside `var(`.
+test('the Theme CSS field completes CSS properties and the token names @crosswidth @gecko', async ({ page }) => {
+	await gotoStudioPage(page);
+	await page.getByRole('button', { name: 'Workspace launcher' }).click();
+	await page.getByRole('menuitem', { name: 'Fabricate' }).click();
+	await page.getByRole('button', { name: 'CSS', exact: true }).click();
+	const field = page.locator('.cm-content[aria-label="Theme CSS"]');
+	await expect(field).toBeVisible();
+	await field.click();
+	await page.keyboard.press('ControlOrMeta+End');
+	await page.keyboard.press('Enter');
+	await page.keyboard.type('section { backgr');
+	// CodeMirror's own CSS completion: a property name.
+	await expect(menu(page).getByRole('option', { name: /^background-color/ })).toBeVisible();
+	await page.keyboard.press('Escape');
+	await page.keyboard.type('ound-color: var(--acc');
+	await expect(menu(page).getByRole('option', { name: /^--accent\b/ }).first()).toBeVisible();
+	await page.keyboard.press('Escape');
+	await page.keyboard.type('ent); font-size: var(--fs-b');
+	await expect(menu(page).getByRole('option', { name: /^--fs-body\b/ }).first()).toBeVisible();
+});
