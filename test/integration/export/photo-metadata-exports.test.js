@@ -133,12 +133,24 @@ for (const [label, bin] of CLIS) {
       assert.equal(r.status, 0, r.stderr);
       const text = fs.readFileSync(html, 'utf8');
       // The deck's own source rides in the player verbatim (an owner decision); the rendered slides are what is checked.
-      const rendered = text.replace(/<script[^>]*id="lattice-doc"[^>]*>[\s\S]*?<\/script>/gi, '');
+      const rendered = withoutEnvelope(text);
       const pictures = bakedPictures(rendered);
       assert.ok(pictures.filter((b) => b.equals(CLEAN_JPEG)).length >= 3, 'both raw addresses and the SVG carry the cleaned JPEG');
       for (const b of pictures) for (const s of SECRETS) assert.ok(!b.includes(s), `${s} is not in a baked picture`);
     });
   });
+}
+
+/**
+ * The player's text without its `lattice-doc` envelope (the deck's source, carried verbatim): cut at the envelope's
+ * id and the end tag after it. A test helper over our own output, not a sanitizer.
+ */
+function withoutEnvelope(text) {
+  const id = text.indexOf('id="lattice-doc"');
+  if (id < 0) return text;
+  const from = text.lastIndexOf('<script', id);
+  const to = text.indexOf('</script>', id);
+  return to < 0 ? text.slice(0, from) : text.slice(0, from) + text.slice(to + '</script>'.length);
 }
 
 test('Marp bundle: the cleaned file is copied, a refused one is left out and named', { timeout: TIMEOUT }, () => {
