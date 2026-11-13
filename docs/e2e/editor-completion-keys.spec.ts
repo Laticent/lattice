@@ -49,6 +49,29 @@ test('Ctrl-Space where nothing completes says so, and the note goes on the next 
 	await expect(editorText(page)).toContainText('Some prose.');
 });
 
+test('while the component catalog is still loading, an empty Ctrl-Space says so, then the components arrive @crosswidth @gecko', async ({ page }) => {
+	// Hold the catalog until the test lets it go: the editor shows before the catalog lands (StudioShell fetches it).
+	let release: () => void = () => {};
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	await page.route('**/component-catalog.json', async (route) => {
+		await held;
+		await route.continue();
+	});
+	await gotoStudio(page);
+	await setEditorContent(page, '---\ntitle: Loading\n---\n\n<!-- _class: ');
+	await page.keyboard.press('Control+Space');
+	await expect(hint(page)).toHaveText('Loading suggestions…');
+	release();
+	await page.keyboard.press('Escape');
+	// The catalog lands; the same key at the same spot now offers the components.
+	await expect(async () => {
+		await page.keyboard.press('Control+Space');
+		await expect(menu(page).getByRole('option', { name: /^cards-grid/ })).toBeVisible({ timeout: 2000 });
+	}).toPass();
+});
+
 test('Ctrl-Space where a source answers but nothing matches the word also says so @crosswidth @webkit-phone @gecko', async ({ page }) => {
 	await gotoStudio(page);
 	// The front-matter key source answers at column 0, and `zzz` filters every key out: CodeMirror shows no menu.

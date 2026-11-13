@@ -3,7 +3,7 @@ import { autocompletion, type CompletionContext, type CompletionResult, completi
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { acceptWithTab, closeAndForget, completionKeys, emptyHintAt, startCompletionOrSayNone } from './completion-keys.js';
+import { acceptWithTab, closeAndForget, completionKeys, completionLoading, EMPTY_HINT_TEXT, emptyHintAt, LOADING_HINT_TEXT, startCompletionOrSayNone } from './completion-keys.js';
 
 // The "No suggestions here" note (completion-keys.js), driven through a real EditorView and a source this test
 // controls, so the order of ask, answer and Escape is the test's, not the clock's. The keys themselves are driven in
@@ -14,10 +14,10 @@ afterEach(() => {
 	view = null;
 });
 
-function editor(doc: string, source: (ctx: CompletionContext) => CompletionResult | null | Promise<CompletionResult | null>) {
+function editor(doc: string, source: (ctx: CompletionContext) => CompletionResult | null | Promise<CompletionResult | null>, loading = false) {
 	view = new EditorView({
 		parent: document.body,
-		state: EditorState.create({ doc, selection: { anchor: doc.length }, extensions: [autocompletion({ override: [source], defaultKeymap: false }), completionKeys()] }),
+		state: EditorState.create({ doc, selection: { anchor: doc.length }, extensions: [autocompletion({ override: [source], defaultKeymap: false }), completionKeys(), completionLoading.of(loading)] }),
 	});
 	return view;
 }
@@ -74,5 +74,19 @@ describe('Tab', () => {
 		await vi.waitFor(() => expect(completionStatus(v.state)).toBe('active'));
 		// At once, inside the interaction delay: CodeMirror's accept declines, and the shown menu still keeps the Tab.
 		expect(acceptWithTab(v)).toBe(true);
+	});
+});
+
+describe('while the vocabulary loads', () => {
+	const noteText = () => document.querySelector('.cm-completion-empty')?.textContent;
+	it('an empty ask says the suggestions are loading, not that there are none', async () => {
+		const v = editor('<!-- _class: ', () => null, true);
+		startCompletionOrSayNone(v);
+		await vi.waitFor(() => expect(noteText()).toBe(LOADING_HINT_TEXT));
+	});
+	it('once loaded, an empty ask says there are none', async () => {
+		const v = editor('prose', () => null, false);
+		startCompletionOrSayNone(v);
+		await vi.waitFor(() => expect(noteText()).toBe(EMPTY_HINT_TEXT));
 	});
 });

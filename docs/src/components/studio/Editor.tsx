@@ -16,7 +16,7 @@ import { partAt, unitAt } from '@/lib/fuoco/outline';
 import { notify } from '@/lib/notify';
 import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
-import { completionKeys } from '@/playground/completion-keys.js';
+import { completionKeys, completionLoading as completionLoadingFacet } from '@/playground/completion-keys.js';
 import { lintCoreNow, loadLintCore, studioVocabSets } from './deck-lint';
 import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists, studioCompletionSources, withLazyInlineCore } from './editor-complete';
 import { largeInsert } from './editor-large-insert';
@@ -459,6 +459,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	completionAssets?: () => Promise<AssetChoice[]>;
 	/** The names of Lattice's sample art (`sample:<name>`), offered inside an image reference beside the Library's photos. */
 	completionSamples?: () => Promise<string[]>;
+	/** True while the component catalog is still loading: an empty Ctrl-Space then says "Loading suggestions…". */
+	completionLoading?: boolean;
 	/** `finish:` front-matter VALUE vocabulary — built-in presets (bare) + saved
 	 *  finishes (prefixed `finish-<slug>`). Drives both the value completion AND the
 	 *  inline `unknown-finish` lint (a valid value is exactly what's offered). */
@@ -530,7 +532,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  browser's own Studio write (a strip op) reaching the editor through the session. Either only maps the caret. */
 	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string; isPeer?: (tr: Transaction) => boolean } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionSamples, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, caretColumn, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionSamples, completionLoading = false, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, caretColumn, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const pendingCaretRef = React.useRef<{ text: string; offset: number } | null>(null);
@@ -647,6 +649,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 		// The completion keys (Ctrl-Space, Option-Esc on macOS, Tab to accept) and the "No suggestions here" note, shared
 		// with CodeField and the Playground (completion-keys.js).
 		completionKeys(),
+		completionLoadingFacet.of(completionLoading),
 		// Hover a front-matter key for what it does, its values and its default: the same row of
 		// the engine's table (lib/core/deck-settings.js) that the completion menu and the
 		// reference page print. In this compartment so a vocab change reaches it too.
@@ -1260,10 +1263,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 
 	// Reconfigure the completion when its vocabulary changes (a saved finish appears,
 	// a local component is added) — so it offers the fresh set without a remount.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: compsKey/finishKey/classKey/paletteKey/modifierKey/registersKey are the stable content-proxies (completionVocab is set once, after its fetch); buildAutocomplete reads the live props.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: compsKey/finishKey/classKey/paletteKey/modifierKey/registersKey are the stable content-proxies (completionVocab is set once, after its fetch; completionLoading flips once, when the catalog lands); buildAutocomplete reads the live props.
 	React.useEffect(() => {
 		viewRef.current?.dispatch({ effects: acComp.current.reconfigure(buildAutocomplete()) });
-	}, [compsKey, finishKey, classKey, paletteKey, modifierKey, registersKey, completionVocab]);
+	}, [compsKey, finishKey, classKey, paletteKey, modifierKey, registersKey, completionVocab, completionLoading]);
 
 	// Reconfigure the linter when the vocab set changes, so a freshly-saved finish
 	// stops being flagged `unknown-finish` inline (the Architect panel already reacts).

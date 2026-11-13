@@ -15,12 +15,20 @@
 // only one.
 
 import { acceptCompletion, closeCompletion, completionKeymap, completionStatus, currentCompletions, startCompletion } from '@codemirror/autocomplete';
-import { Prec, StateEffect, StateField } from '@codemirror/state';
+import { Facet, Prec, StateEffect, StateField } from '@codemirror/state';
 import { EditorView, keymap, showTooltip, ViewPlugin } from '@codemirror/view';
 
 /** How long the "No suggestions here" note stays, in ms. */
 export const EMPTY_HINT_MS = 1600;
 export const EMPTY_HINT_TEXT = 'No suggestions here';
+export const LOADING_HINT_TEXT = 'Loading suggestions…';
+
+/**
+ * True while an editor's vocabulary is still on its way (the Studio's component catalog loads after the editor shows).
+ * An ask that finds nothing then says "Loading suggestions…", not "No suggestions here": seconds later the same spot
+ * has suggestions, and the note must not say otherwise.
+ */
+export const completionLoading = Facet.define({ combine: (values) => values.some(Boolean) });
 
 const setEmptyHint = StateEffect.define();
 
@@ -40,12 +48,12 @@ const emptyHintField = StateField.define({
 				: {
 						pos,
 						above: false,
-						create: () => {
+						create: (view) => {
 							const dom = document.createElement('div');
 							dom.className = 'cm-completion-empty';
 							// A status, so a screen reader says it too.
 							dom.setAttribute('role', 'status');
-							dom.textContent = EMPTY_HINT_TEXT;
+							dom.textContent = view.state.facet(completionLoading) ? LOADING_HINT_TEXT : EMPTY_HINT_TEXT;
 							return { dom };
 						},
 					},
