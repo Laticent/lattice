@@ -28,9 +28,7 @@
  */
 
 const fs = require('node:fs');
-const path = require('node:path');
 
-const ROOT = path.join(__dirname, '..');
 const core = require('../lib/authoring/lint-core');
 const { buildVocab } = require('../lib/authoring/lint');
 const { splitTopLevel } = require('../lib/authoring/slide-split');
