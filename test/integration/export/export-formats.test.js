@@ -736,8 +736,8 @@ describe('export-formats', () => {
 
   test('an image is embedded at its own bytes unless something paints over it — on any slide', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
-    // A 4x4 opaque blue PNG.
-    fs.writeFileSync(path.join(dir, 'blue.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEklEQVR4nGNgYPiPhEAcTAEAAHEgD/GQJqEAAAAASUVORK5CYII=', 'base64'));
+    // A 4x4 opaque blue PNG, well formed (every CRC and the zlib checksum right), so the export's metadata cleaner keeps it.
+    fs.writeFileSync(path.join(dir, 'blue.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGNgYPiPhIjiAACOsw/xs6MvMwAAAABJRU5ErkJggg==', 'base64'));
     const src = path.join(dir, 'images.md');
     fs.writeFileSync(src, [
       '---', 'html: true', 'paginate: false', '---', '',
@@ -762,6 +762,25 @@ describe('export-formats', () => {
     const rows = pdfImageRows(out);
     assert.ok(rows.some((row) => /\bimage\s+4\s+4\b/.test(row)), `the original 4x4 PNG is embedded:\n${rows.join('\n')}`);
     assert.ok(rows.some((row) => /^\s*2\s.*\bimage\s+2560\s+1440\b/.test(row)), `slide 2's photo is 2x:\n${rows.join('\n')}`);
+  });
+
+  test('a damaged PNG a browser still draws stays in the photo, never embedded unchecked', { timeout: TIMEOUT }, () => {
+    const dir = tmpDir();
+    // A 4x4 PNG with a wrong IDAT CRC, a wrong zlib checksum and a cut IEND. Chromium draws it; lastra's cleaner
+    // refuses it, so the PDF keeps its pixels in the slide's photo instead of shipping bytes nobody checked.
+    fs.writeFileSync(path.join(dir, 'damaged.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEklEQVR4nGNgYPiPhEAcTAEAAHEgD/GQJqEAAAAASUVORK5CYII=', 'base64'));
+    const src = path.join(dir, 'damaged.md');
+    fs.writeFileSync(src, ['---', 'html: true', 'paginate: false', '---', '', '## Damaged image', '', '<img src="damaged.png" style="width:200px;height:200px">', ''].join('\n'));
+    const out = path.join(dir, 'damaged.pdf');
+    const report = path.join(dir, 'report.json');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
+    assert.equal(rep.images, 0, 'the damaged PNG is not embedded');
+    assert.equal(rep.refusedImages.uncleanable, 1, 'it is refused as uncleanable, once');
+    assert.ok(!pdfImageRows(out).some((row) => /\bimage\s+4\s+4\b/.test(row)), 'no 4x4 image stream reaches the PDF');
   });
 
   test('a JPEG stored rotated (EXIF Orientation 6) stays in the photo, where it is upright', { timeout: TIMEOUT }, () => {
