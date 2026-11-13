@@ -272,7 +272,7 @@ describe('the rendered index over the example decks', () => {
 
 	// The failing arm for the whole corpus: the same decks read WITHOUT the clone counts must show
 	// disagreements, or the zero below proves nothing about the counting.
-	it('shows the focus-step and pane clones as unexplained when the counts are left out', () => {
+	it('shows the pane clones as unexplained when the counts are left out, and a focus walk as none', () => {
 		const bad = new Set<string>();
 		for (const size of ['', 'portrait']) {
 			for (const [name, src] of decks) {
@@ -281,7 +281,8 @@ describe('the rendered index over the example decks', () => {
 				if (ix.unexplainedPages.length || ix.unexplainedParts.length) bad.add(name);
 			}
 		}
-		expect(bad.has('examples/focus.md')).toBe(true);
+		// A `_focusSteps` slide is one slide since 2026-11-09 (engineering/decisions/2026-11-09-steps-as-a-behavior.md).
+		expect(bad.has('examples/focus.md')).toBe(false);
 		expect(bad.has('examples/panes.md')).toBe(true);
 	}, 240_000);
 
@@ -308,7 +309,7 @@ describe('the rendered index over the example decks', () => {
 			expect(bad).toEqual([]);
 			// At portrait and square the property means something only if decks really split.
 			if (size) expect(splitDecks).toBeGreaterThan(10);
-			// …and that clones are exercised at all: `_focusSteps` makes them at every size.
+			// …and that clones are exercised at all (pane slides make them; `_focusSteps` no longer does).
 			expect(cloneDecks).toBeGreaterThan(0);
 		}, 240_000);
 	}

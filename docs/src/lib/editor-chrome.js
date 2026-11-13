@@ -226,3 +226,22 @@ export const editorChromeCoarse = {
 	// contenteditable because these scoped themes out-specify it.
 	'.cm-content': { fontSize: '16px' },
 };
+
+/**
+ * THE ACTIVE LINE, shared by the Playground and the Studio's Markdown editor (2026-11-10-compose-first.md §4: the owner
+ * asked for it in the Studio, "so I don't have to search for the caret"). One copy, so the two cannot drift. The band is a
+ * 12% accent wash and the gutter cell a 22% one; both stand down while a selection is up, because the band stacked under
+ * the selection wash fails AA (27.84% composite: `--text-body` reads 3.96:1 on cuoio/light; the reasoning is the
+ * Playground's, in playground/editor.js). Pair with `highlightActiveLine()`, `highlightActiveLineGutter()` and the
+ * `cm-has-selection` editor attribute.
+ */
+export const activeLineVars = {
+	'--cm-active-line': 'color-mix(in srgb, var(--accent) 12%, transparent)',
+	'--cm-active-gutter': 'color-mix(in srgb, var(--accent) 22%, transparent)',
+};
+export const activeLineTheme = {
+	'.cm-activeLine': { backgroundColor: 'var(--cm-active-line)' },
+	'.cm-activeLineGutter': { backgroundColor: 'var(--cm-active-gutter)', color: 'var(--accent)' },
+	'&.cm-has-selection .cm-activeLine': { backgroundColor: 'transparent' },
+	'&.cm-has-selection .cm-activeLineGutter': { backgroundColor: 'transparent' },
+};

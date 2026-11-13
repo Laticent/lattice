@@ -126,6 +126,12 @@ async function latticeStudioProbe() {
 		// The Studio has booted and rendered once. Not "the editor exists": a phone opens on the preview and mounts the
 		// editor only when its pane is shown, which setDeck does through latticeShowDeckEditor (#2911).
 		await until(() => window.__latticeRenderMetrics, 150000, "the Studio's first render (its render metrics)");
+		// THE NEWCOMER BAKE on Safari (single-slide-render.ts `adoptBake`, PR #3102). This page is a first visit (only the
+		// settings key is seeded), so the head fetched the bake and the editing preview answered it: `adopted`, or
+		// `refused:written` when the engine wrote first (a race, so a speed question, not a fault). Any other refusal means
+		// the bake no longer matches what Safari renders, which is a bug. The value is reported either way.
+		const bake = await until(() => document.querySelector('[aria-label="Live deck preview"]')?.getAttribute('data-lattice-bake'), 30000, 'the newcomer bake answered (data-lattice-bake)');
+		step('the newcomer bake was adopted, or lost only the race to the engine', bake === 'adopted' || bake === 'refused:written', bake);
 		const paths = [];
 		window.__latticeRenderMetrics.on((s) => paths.push(String(s.writePath)));
 

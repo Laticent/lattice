@@ -407,3 +407,22 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Removable when:** Never — `$` is a meaningful CSS operator (ends-
   with attribute match) and a meaningful KaTeX delimiter; extractor
   must treat HTML blocks injected before math extraction as opaque.
+
+## Offline, a Studio diagram settles `error` though the warm-up cached `mermaid.min.js`
+
+- **Symptom** — offline, a Mermaid fence typed into the Studio shows "Mermaid error" (`data-lattice-settle="error"`)
+  for a browser that has shown a diagram before, so the warm-up DID cache `mermaid.min.js`. Online it draws.
+  `e2e/studio-warm-offline.spec.ts` (the "never rendered online" case) went red on the nightly.
+- **Cause** — the preview draws Mermaid in the page's sandboxed draw frame, not in the page. Offline that path cannot
+  work: the frame has an opaque origin, so the service worker never serves its module graph (`frames/mermaid/*.mjs`),
+  and the draw host's own lazy chunks (`preview-draw-host-impl`, the kind's host half) may never have been fetched.
+  The design falls back to the page's own library once the host stops offering the kind, but a failed chunk import
+  was not counted as "unavailable", and the fallback only applied from the next preview frame, so the diagram on
+  screen stayed an error.
+- **Mitigation** — `docs/src/lib/preview-draw-host.ts` and `preview-draw-host-impl.ts` reject with `drawUnavailable`
+  (and mark the kind down) when the host's own code cannot load. `lib/plugins/mermaid/mermaid.hydrate.js` puts a
+  fence whose draw came back `drawUnavailable` from a now-stale stand-in back to `pending` and schedules a pass, which
+  loads the page's library: the diagram draws in this preview. A refused diagram, or one while the stand-in is still
+  offered, is still an error, so a pass cannot loop. `test/unit/runtime/diagram-queue.test.js` pins all three.
+- **Triggered by** — any change to the draw host's failure paths or to the render queue's catch.
+- **Removable when** — the draw frame's modules are reachable offline.

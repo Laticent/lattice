@@ -35,3 +35,25 @@ test('a symlink out of the deck is refused, a host-qualified file address does n
     fs.rmSync(base, { recursive: true, force: true });
   }
 });
+
+// A deck's relative `<script src>` resolved against the OUTPUT folder, where the capture page is written, so
+// `-o` elsewhere named a file that does not exist and printed "refused …: it resolves outside the deck folder"
+// (followups.d/3051-p8; the diagram gallery's vendored Mermaid did it). The capture page now reads the address
+// from the deck folder, and a file the confiner refuses from there is still refused.
+test('a deck-relative script loads when the output is in another folder; one that leaves the deck is still refused', () => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'confine-rel-'));
+  try {
+    const deck = path.join(base, 'deck', 'talks');
+    const out = path.join(base, 'out', 'nested', 'deeper');
+    for (const d of [deck, path.join(deck, 'lib'), path.join(base, 'outside'), out]) fs.mkdirSync(d, { recursive: true });
+    fs.writeFileSync(path.join(base, 'outside', 'secret.js'), 'window.__secret = 1;\n');
+    fs.writeFileSync(path.join(deck, 'lib', 'ok.js'), 'window.__ok = 1;\n');
+    fs.writeFileSync(path.join(deck, 'd.md'), '---\ntheme: indaco\n---\n# T\n\n<script src="lib/ok.js"></script>\n<script src="../../outside/secret.js"></script>\n');
+    const r = run([path.join(deck, 'd.md'), path.join(out, 'o.png')]);
+    assert.equal(r.status, 0, why(r));
+    assert.doesNotMatch(r.stderr, /ok\.js/, 'the deck\'s own script was refused');
+    assert.match(r.stderr, /refused file:\/\/\/.*secret\.js/, 'a script outside the deck must still be refused');
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+});

@@ -40,6 +40,28 @@ progress  — 2026-10-23, PR #2877 (engineering/decisions/2026-10-23-studio-boot
             2026-10-27, PR #2921: lever A built, CDN median TBT 1,686 -> 1,532 ms, score 45 on both (note §11). Lever D
             measured as a no-go: Suspense boundaries gave no gain locally. The real hydration cost is two single calls, the
             picker's search index (now built on first search, about -180 ms blocking at 4x) and the editor mount (2921-p1) (§12).
+            2026-11-08 (engineering/decisions/2026-11-08-docs-perf-nightly-diagnosis.md): mobile Studio LCP had gone back up,
+            4.7-5.3 s -> 13.6-14.2 s at #2940 (the phone header's Undo/Redo shrank the shell's deck title, so the app's
+            late status caption became the largest paint). The pre-paint shell now draws that caption: LCP median
+            14.1 s -> 5.6 s, score 0.38 -> 0.41, 7 interleaved local runs per arm. TBT (~1.5 s) and FCP are unchanged and
+            are still what this item is about.
+            2026-11-08, later (engineering/decisions/2026-11-08-studio-phone-editor-after-pause.md): blocking time
+            attributed (React hydration ~930 ms scripting, the preview runtime ~305 ms in one task, unattributed ~620 ms;
+            FCP is mostly Lantern counting ~145 modulepreloaded requests). One lever tried and NOT shipped: building the
+            phone's hidden editor after a 3 s pause took ~240 ms of React work out of Lighthouse's window, but TBT moved
+            -27 ms (noise), an Edit tap 1.5 s after the slide went 213 -> 733 ms, and Coach's Fix all did nothing until the
+            editor mounted. Next by size: React hydration (profile what mounts before the slide), then the runtime split.
+            2026-11-09 (engineering/decisions/2026-11-09-studio-react-mount-profile.md): React hydration profiled with
+            a React profiling build (docs/scripts/react-mount-profile.mjs). React is ~0.9 s of the 4.0 s busy before the
+            slide; half its render phase is StudioShell's own body (~270 ms, with a boot deck list indexing every saved
+            deck), and ~110 ms more is first-call compilation (a production trace: V8 compile is ~145 ms of
+            the hydration task and ~1.04 s before the slide). Off-screen mounts ~70 ms, tooltip wrappers
+            ~25-40 ms, a forced layout ~45 ms (likely moved, not saved). Five levers ranked in the note's §4, none
+            built; each needs its own A/B.
+            2026-11-09, later: levers 1 and 2 built and measured (the same note §5-§7). Closed surfaces now mount on
+            first open: −47 to −66 ms of render before the slide, profiled. The deck list no longer parses every saved
+            deck at boot: −140 ms of CPU before the slide for an author with sixteen saved decks, nothing measurable on
+            a first visit (most of the profiled 32 ms was the open deck's own first parse). Levers 3-5 remain.
 decided   — 2026-10-26 (owner, PR #2913, Q1): Lighthouse 90 is NOT the goal for the Studio or the Playground. The Studio's bar stays first slide
             at or below the 2026-09-22 build (met); the Playground's bar is Lighthouse mobile 60 or better (44-57 on the CDN today); 90 stays the aim
             for the home page only, where TBT is the remaining gap. The React-free first paint is not planned. The lint gate (2913-p1) is still next.

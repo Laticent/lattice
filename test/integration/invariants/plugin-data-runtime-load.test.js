@@ -16,6 +16,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const { ROOT } = require('../../helpers/render');
+const { trackPageWork } = require('../../helpers/page-settle');
 const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome');
 
 const chrome = resolveChrome();
@@ -40,20 +41,21 @@ async function probe({ sibling, off = null }) {
       + '<section id="1"><p>Rows land in <code>^{database}</code>.</p></section>'
       + `<script src="lattice-runtime.js"></script>${settings}</body></html>`);
     const page = await browser.newPage();
+    const settled = await trackPageWork(page);
     const requests = [];
     const warnings = [];
     page.on('request', (r) => { if (r.url().includes('lattice-plugin-icons')) requests.push(r.url()); });
     page.on('console', (m) => { if (/^warn/.test(m.type())) warnings.push(m.text()); });
     try {
       await page.goto(`file://${path.join(dir, 'index.html')}`, { waitUntil: 'load' });
-      await new Promise((r) => setTimeout(r, sibling ? 1500 : 1000));
+      await settled(); // the runtime's pass ran, and the sibling script loaded or failed
       // More spans after the first draw: the pass draws them from the data it has, fetching nothing.
       await page.evaluate(() => {
         const p = document.createElement('p');
         p.innerHTML = '<code>^{server}</code> <code>^{cloud}</code>';
         document.querySelector('section').appendChild(p);
       });
-      await new Promise((r) => setTimeout(r, 800));
+      await settled({ frames: 3 }); // the observer's pass over the new spans ran
       const state = await page.evaluate(() => ({
         drawn: [...document.querySelectorAll('section .lat-icon')].map((e) => e.getAttribute('data-icon')),
         code: [...document.querySelectorAll('section code')].map((c) => ({ text: c.textContent, off: c.getAttribute('data-lattice-off') })),

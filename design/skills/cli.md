@@ -60,8 +60,9 @@ is not done.
 
 | What | Where |
 |---|---|
-| The command | `npx lattice` — the `bin` of `@laticent/lattice` (`npm install @laticent/lattice`) |
-| Its full option list | `npx lattice --help all` (`--help` alone is one screen) |
+| The command | `npx @laticent/lattice` — the `bin` of `@laticent/lattice` (`npm install @laticent/lattice`) |
+| Its short alias | `lat`, once installed (`lat deck.md deck.pdf`). npm's unscoped `lat` package is someone else's, so in a folder without Lattice never run it through npx. |
+| Its full option list | `npx @laticent/lattice --help all` (`--help` alone is one screen) |
 | Package store | `$LATTICE_HOME/packages`, else `~/.lattice/packages` |
 | The linter (clone only) | `npm run lint:deck -- <deck.md>` |
 | Layout skeletons (clone only) | `node tools/new-slide.js <layout>` · `--list` |
@@ -71,9 +72,10 @@ is not done.
 Node 22.13 or newer. `npm install` downloads the Chromium the render uses. If a
 render says it cannot find a browser, set `CHROME_PATH`.
 
-`npx lattice` runs the copy installed in the current project (or the clone). With no
-install, write `npx @laticent/lattice` instead: the unscoped `lattice` package on npm is
-an unrelated package, and a bare `npx lattice` in an empty folder downloads it and fails.
+`npx @laticent/lattice` runs the copy installed in the current project, and with no install
+it downloads ours from npm. **Always write the scoped name.** The unscoped `lattice` package on
+npm belongs to an unrelated publisher, so a bare-name run outside a Lattice project (via npx)
+downloads and runs someone else's code. In a clone of this repository, run `node lattice.js`.
 
 ## Recipe
 
@@ -84,7 +86,7 @@ an unrelated package, and a bare `npx lattice` in an empty folder downloads it a
 2. **Pick the output from what the recipient will do with it.** Use the table in
    the 10/10 bar. When nobody said, render a `.pdf`.
 3. **Pick the palette.** The deck's `theme:` applies unless you override it with
-   `-p <name>`. Check a name with `npx lattice packages list --type theme`.
+   `-p <name>`. Check a name with `npx @laticent/lattice packages list --type theme`.
 4. **Render.** Copy the matching line from the contract below.
 5. **Read the whole terminal output.** Treat each of these as a failure even when
    the exit code is 0:
@@ -104,77 +106,77 @@ an unrelated package, and a bare `npx lattice` in an empty folder downloads it a
 
 ```sh
 # Everyday
-npx lattice deck.md deck.pdf                        # vector PDF
-npx lattice deck.md deck.pdf cuoio                  # same, in another palette
-npx lattice deck.md -o deck.pdf -p cuoio            # same, with named flags
-npx lattice deck.md deck.pptx                       # PowerPoint, one image per slide
-npx lattice deck.md deck.png                        # deck.001.png, deck.002.png, …
-npx lattice deck.md talk.pdf --present              # opens full screen
+npx @laticent/lattice deck.md deck.pdf                        # vector PDF
+npx @laticent/lattice deck.md deck.pdf cuoio                  # same, in another palette
+npx @laticent/lattice deck.md -o deck.pdf -p cuoio            # same, with named flags
+npx @laticent/lattice deck.md deck.pptx                       # PowerPoint, one image per slide
+npx @laticent/lattice deck.md deck.png                        # deck.001.png, deck.002.png, …
+npx @laticent/lattice deck.md talk.pdf --present              # opens full screen
 
 # Print
-npx lattice deck.md handout.pdf --print             # ink on white, textured series
-npx lattice deck.md handout.pdf --print --paper a4  # fit to paper (letter|legal|a4|auto)
+npx @laticent/lattice deck.md handout.pdf --print             # ink on white, textured series
+npx @laticent/lattice deck.md handout.pdf --print --paper a4  # fit to paper (letter|legal|a4|auto)
 
 # Share
-npx lattice deck.md deck.html --player --strip-notes    # one offline file, three views
-npx lattice deck.md deck.html --player --no-player-motion
-npx lattice deck.md article.html --read                 # the deck as a web article
-npx lattice deck.md deck.html --fluid                   # phone-friendly viewer
-npx lattice deck.md deck.pdf --embed-source --strip-notes
-npx lattice deck.md deck.pptx --reopenable --strip-notes  # the Studio's Import deck reopens it
+npx @laticent/lattice deck.md deck.html --player --strip-notes    # one offline file, three views
+npx @laticent/lattice deck.md deck.html --player --no-player-motion
+npx @laticent/lattice deck.md article.html --read                 # the deck as a web article
+npx @laticent/lattice deck.md deck.html --fluid                   # phone-friendly viewer
+npx @laticent/lattice deck.md deck.pdf --embed-source --strip-notes
+npx @laticent/lattice deck.md deck.pptx --reopenable --strip-notes  # the Studio's Import deck reopens it
 
 # Images
-npx lattice deck.md slides.zip                                  # PNG + thumbnails + chart SVGs
-npx lattice deck.md slides.zip --image-format webp --image-size 1x
-npx lattice deck.md slides.zip --image-format jpeg --image-quality 80 --no-svg
-npx lattice deck.md slides.zip --image-mode dark --svg-background print
+npx @laticent/lattice deck.md slides.zip                                  # PNG + thumbnails + chart SVGs
+npx @laticent/lattice deck.md slides.zip --image-format webp --image-size 1x
+npx @laticent/lattice deck.md slides.zip --image-format jpeg --image-quality 80 --no-svg
+npx @laticent/lattice deck.md slides.zip --image-mode dark --svg-background print
 
 # Notes and captions
-npx lattice deck.md deck.pdf --notes                # + deck.notes.txt
-npx lattice deck.md deck.pdf --notes-icon           # visible note icons
-npx lattice deck.md deck.pdf --captions             # + deck.vtt and deck.NN.vtt
+npx @laticent/lattice deck.md deck.pdf --notes                # + deck.notes.txt
+npx @laticent/lattice deck.md deck.pdf --notes-icon           # visible note icons
+npx @laticent/lattice deck.md deck.pdf --captions             # + deck.vtt and deck.NN.vtt
 
 # Checking
-npx lattice deck.md proof.pdf --overflow-marker author
+npx @laticent/lattice deck.md proof.pdf --overflow-marker author
 npm run lint:deck -- deck.md
 npm run lint:deck -- --json deck.md                 # for a script or an agent
 npm run lint:deck -- --fix deck.md                  # apply automatic fixes in place
 
 # Many decks, or many palettes
-for f in decks/*.md; do npx lattice "$f" "out/$(basename "${f%.md}").pdf" -q || echo "FAILED: $f"; done
-for p in indaco cuoio ardesia; do npx lattice deck.md "out/deck-$p.pdf" -p "$p" -q; done
+for f in decks/*.md; do npx @laticent/lattice "$f" "out/$(basename "${f%.md}").pdf" -q || echo "FAILED: $f"; done
+for p in indaco cuoio ardesia; do npx @laticent/lattice deck.md "out/deck-$p.pdf" -p "$p" -q; done
 
 # Packages made in the Studio
-npx lattice packages check brand.zip
-npx lattice packages add brand.zip
-npx lattice packages list --type theme
-npx lattice packages export theme/brand -o brand.zip
-npx lattice packages remove theme/brand
-npx lattice packages trust component/org-chart
-npx lattice packages fetch --trust                     # the npm plugins lattice-plugins.json lists, pinned by SHA-256
-npx lattice deck.md deck.pdf --packages ./team-packages
-npx lattice packages new plugin demo-plot              # scaffold lib/plugins/demo-plot/ (a checkout)
+npx @laticent/lattice packages check brand.zip
+npx @laticent/lattice packages add brand.zip
+npx @laticent/lattice packages list --type theme
+npx @laticent/lattice packages export theme/brand -o brand.zip
+npx @laticent/lattice packages remove theme/brand
+npx @laticent/lattice packages trust component/org-chart
+npx @laticent/lattice packages fetch --trust                     # the npm plugins lattice-plugins.json lists, pinned by SHA-256
+npx @laticent/lattice deck.md deck.pdf --packages ./team-packages
+npx @laticent/lattice packages new plugin demo-plot              # scaffold lib/plugins/demo-plot/ (a checkout)
 
 # Pretty-print the code blocks (Prettier, ruff, sql-formatter; optional deps)
-npx lattice fmt deck.md
-npx lattice fmt deck.md --check                        # exit 1 if a block would change
+npx @laticent/lattice fmt deck.md
+npx @laticent/lattice fmt deck.md --check                        # exit 1 if a block would change
 
 # Narrated video and voiced player (optional voice install, once:
 #   npm i --no-save kokoro-js@1.2.1 @breezystack/lamejs@1.2.7)
-npx lattice video deck.md talk.mp4                           # voiced on-device, + talk.vtt
-npx lattice video deck.md phone.mp4 --size mobile-landscape --mode dark
-npx lattice video studio-export.html talk.mp4                # a narrated Studio export
-npx lattice deck.md deck.html --player --narrate --strip-notes
+npx @laticent/lattice video deck.md talk.mp4                           # voiced on-device, + talk.vtt
+npx @laticent/lattice video deck.md phone.mp4 --size mobile-landscape --mode dark
+npx @laticent/lattice video studio-export.html talk.mp4                # a narrated Studio export
+npx @laticent/lattice deck.md deck.html --player --narrate --strip-notes
 
 # Another canvas, or a fixed player mode
-npx lattice deck.md square.pdf --size square
-npx lattice deck.md deck.html --player --player-mode dark
+npx @laticent/lattice deck.md square.pdf --size square
+npx @laticent/lattice deck.md deck.html --player --player-mode dark
 
 # Viewer trouble
-npx lattice deck.md deck.pdf --raster               # image pages, maximum compatibility
-npx lattice deck.md deck.pdf --chrome-pdf           # Chrome's printer instead of Lattice's
-npx lattice deck.md deck.pdf --keep-vector-images
-LATTICE_RENDER_WATCHDOG_MS=300000 npx lattice big.md big.pdf
+npx @laticent/lattice deck.md deck.pdf --raster               # image pages, maximum compatibility
+npx @laticent/lattice deck.md deck.pdf --chrome-pdf           # Chrome's printer instead of Lattice's
+npx @laticent/lattice deck.md deck.pdf --keep-vector-images
+LATTICE_RENDER_WATCHDOG_MS=300000 npx @laticent/lattice big.md big.pdf
 ```
 
 Palette precedence, highest first: the command line (`-p` or the positional
@@ -186,16 +188,16 @@ palette), then `LATTICE_PALETTE`, then the deck's `theme:`, then `indaco`.
 
 ```sh
 npm run lint:deck -- q3-review.md
-npx lattice q3-review.md q3-review.pdf --strip-notes
+npx @laticent/lattice q3-review.md q3-review.pdf --strip-notes
 ```
 
-The lint is clean, the render prints no warning, and the PDF has selectable text
+The lint is clean, the render log is free of warnings, and the PDF has selectable text
 and no notes.
 
 **Bad** — the same request:
 
 ```sh
-npx lattice q3-review.md q3-review.pdf --raster --embed-source
+npx @laticent/lattice q3-review.md q3-review.pdf --raster --embed-source
 ```
 
 The text is no longer selectable, for no reason anyone gave. The Markdown source
@@ -204,10 +206,10 @@ rides inside the PDF with every speaker note in it. And nothing was checked.
 **Good** — images for a web page:
 
 ```sh
-npx lattice deck.md slides.zip --image-format webp --image-size 1x --no-svg
+npx @laticent/lattice deck.md slides.zip --image-format webp --image-size 1x --no-svg
 ```
 
-**Bad** — `npx lattice deck.md slides.webp`. It is refused, because a loose
+**Bad** — `npx @laticent/lattice deck.md slides.webp`. It is refused, because a loose
 `.webp` is not a format. The `.zip` route above is the one that exists.
 
 ## Ship checklist
@@ -238,7 +240,7 @@ npx lattice deck.md slides.zip --image-format webp --image-size 1x --no-svg
 
 ## Canonical sources
 
-- `npx lattice --help all` — the command's own list, printed from the code that
+- `npx @laticent/lattice --help all` — the command's own list, printed from the code that
   parses it. When this skill and the help disagree, the help wins.
 - The docs site: **Using the command line** (`/guides/cli/`) and **CLI
   reference** (`/reference/cli/`).

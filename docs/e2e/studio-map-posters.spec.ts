@@ -50,6 +50,22 @@ async function focusFirst(page: Page) {
 	await page.locator(`${RAIL} button[data-unit="0"]`).click();
 	await expect(page.locator(`${RAIL} button[data-unit="0"]`)).toHaveAttribute('aria-current', 'true');
 }
+// The rail's tiers follow a scroll a frame later (scroll → requestAnimationFrame → plan → commit). Wait until the plan on
+// screen is the one asked for at the rail's current offset (`data-plan-at`, map-rail/MapRail.tsx), so a read of
+// `data-tier` after a scroll is this position's, not the last one's. Without it the walk below read the previous stop's
+// live tiles, all already captured, and moved on before the tile going live here was captured (a sketch after the jump,
+// about 1 run in 40 under load, #3045).
+const railSettled = (page: Page) =>
+	expect
+		.poll(() =>
+			page.evaluate(() => {
+				const sc = document.querySelector<HTMLElement>('[data-map-rail] .overflow-y-scroll, [data-map-rail] .overflow-x-scroll');
+				if (!sc) return false;
+				const at = sc.classList.contains('overflow-x-scroll') ? sc.scrollLeft : sc.scrollTop;
+				return sc.dataset.planAt === String(Math.round(at));
+			}),
+		)
+		.toBe(true);
 const captures = (page: Page) => page.evaluate(() => performance.getEntriesByName('lattice-poster-capture').map((e) => ({ start: e.startTime, ms: e.duration, kept: (e as PerformanceMeasure).detail?.kept === true })));
 
 async function postersPastTheCap(page: Page) {
@@ -62,6 +78,7 @@ async function postersPastTheCap(page: Page) {
 	const { view: height, full: walk } = await railLength(page);
 	for (let y = 0; y < walk; y += Math.round(height / 3)) {
 		await scrollRail(page, y);
+		await railSettled(page);
 		// The stop is done when every live tile on screen has been captured: its poster then sits under its frame.
 		await expect
 			.poll(() => page.evaluate(() => [...document.querySelectorAll('[data-map-rail] button[data-tier="live"]')].every((b) => b.querySelector('img'))), { timeout: 15_000 })
@@ -70,9 +87,18 @@ async function postersPastTheCap(page: Page) {
 	await expect.poll(async () => (await captures(page)).filter((c) => c.kept).length, { timeout: 30_000 }).toBeGreaterThan(6);
 	// A fast jump back to the top: the tiles there are past the live cap of 3, and were captured on the way down.
 	await scrollRail(page, 0);
+	await railSettled(page);
 	await expect.poll(() => page.locator(`${RAIL} button[data-tier="poster"] img`).count(), { message: 'no tile past the live cap showed a poster' }).toBeGreaterThan(2);
-	// Every poster on screen is a decoded picture, not a broken or empty image.
-	expect(await page.evaluate(() => [...document.querySelectorAll<HTMLImageElement>('[data-map-rail] button[data-tier="poster"] img')].every((i) => i.complete && i.naturalWidth > 0))).toBe(true);
+	// And no tile past the cap is a sketch: each was live at some stop of the walk, so each was captured.
+	expect(
+		await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-map-rail] button[data-tier="poster"]')].filter((b) => !b.querySelector('img')).map((b) => Number(b.dataset.unit))),
+		'tiles past the live cap still showing a sketch after the walk',
+	).toEqual([]);
+	// Every poster on screen is a decoded picture, not a broken or empty image. Polled, not read once: a poster that has
+	// just come on screen is still decoding (`complete` false), while a broken one never gets a width (#3045).
+	await expect
+		.poll(() => page.evaluate(() => [...document.querySelectorAll<HTMLImageElement>('[data-map-rail] button[data-tier="poster"] img')].every((i) => i.complete && i.naturalWidth > 0)))
+		.toBe(true);
 	const live = await page.locator(`${RAIL} button[data-tier="live"]`).count();
 	expect(live).toBeLessThanOrEqual(3);
 
@@ -157,6 +183,7 @@ async function postersShowTheirSlide(page: Page) {
 	// The slow pass: each stop waits until its live tiles have been captured.
 	for (let y = 0; y < full; y += Math.round(height / 3)) {
 		await scrollRail(page, y);
+		await railSettled(page);
 		await expect
 			.poll(() => page.evaluate(() => [...document.querySelectorAll('[data-map-rail] button[data-tier="live"]')].every((b) => b.querySelector('img'))), { timeout: 20_000 })
 			.toBe(true);
@@ -188,6 +215,7 @@ async function postersShowTheirSlide(page: Page) {
 		.toBe(true);
 	for (const y of [0, full / 3, (2 * full) / 3, full]) {
 		await scrollRail(page, Math.round(y));
+		await railSettled(page);
 		await expect.poll(() => page.locator(`${RAIL} button[data-unit] img`).count()).toBeGreaterThan(0);
 		await sample();
 	}

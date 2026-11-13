@@ -70,6 +70,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const puppeteer = require('puppeteer');
 const { ROOT, runEmulator } = require('../../helpers/render');
+const { trackPageWork } = require('../../helpers/page-settle');
 const { PROBE } = require('../../../tools/check-slide-contrast.js');
 
 /**
@@ -250,8 +251,12 @@ const EXEMPT_TIER_FLOOR = {
     // already measured 342 against the old 343, so the ceiling moves by 11. No real text
     // was re-pointed at the tier; the count is the same with and without the SVG-ground
     // change in tools/check-slide-contrast.js.
-    'gallery @ indaco': 354,
-    'gallery @ indaco-dark': 354,
+    // 340 since #3098, a SHRINK: indaco's header, footer and page number on the navy title,
+    // divider and closing panels read 3.50:1 in this tier and now read 4.58:1 through
+    // --on-inverse-muted, so they left the exempt tier for the measured one and pass there
+    // (-14). Lowered as the gate instructs, so the floor holds.
+    'gallery @ indaco': 340,
+    'gallery @ indaco-dark': 340,
     // 184 until the kanban de-emphasis stopped being an opacity wash. One `.kanban-size`
     // token ("M"/"L"/"XL") returned to the tier: the wash had been shifting its COMPOSITED
     // value off `--text-muted`, so a run authored in the exempt tier was being measured as
@@ -261,10 +266,12 @@ const EXEMPT_TIER_FLOOR = {
     // split-panel slides took the new field-aware numeral ink, which moves those runs OUT
     // of the exempt tier and into the measured one. Lowered as the gate instructed, so the
     // new floor holds.
-    'gallery-jargon @ indaco': 181,
+    // 164 since #3098: the same bookend chrome leaving the tier as above (-17).
+    'gallery-jargon @ indaco': 164,
     // The spectrum deck's exempt tier, pinned like the rest so it cannot grow quietly.
     // 27 until #2206 — one sovereign-frame page number entering measurement, as above.
-    'seq-ramp @ indaco': 28,
+    // 25 since #3098: the same bookend chrome leaving the tier (-3).
+    'seq-ramp @ indaco': 25,
   },
 };
 
@@ -315,8 +322,9 @@ describe('slide contrast — the rendered galleries, against written-down exclus
       assert.ok(fs.existsSync(html), `no HTML sidecar for ${s.id} at ${html}`);
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
-      await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
-      await new Promise((r) => setTimeout(r, 400));
+      const settled = await trackPageWork(page);
+      await page.goto(`file://${html}`, { waitUntil: 'load' });
+      await settled({ frames: 3, images: true }); // the runtime's passes, its fonts and its pictures are done
       measured.push({ surface: s.id, rows: await page.evaluate(PROBE) });
       await page.close();
     }

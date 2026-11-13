@@ -79,13 +79,16 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { bakeSplits, bakeHidden, stripPaneMarkers } = require('../lib/core/bake-splits');
 const { liftImageBgImages } = require('../lib/core/bg-image-lift');
+const { recordsToComments } = require('../lib/core/meta-door.mjs');
+const { withMarpDirectivesOnly } = require('../lib/export/marp-directives.js');
 const { sampleName } = require('../lib/core/remote-ref');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
+const { fillAutoAgenda } = require('../lib/core/agenda-autofill');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
 const { formatRefusedHtml } = require('../lib/export/marp-bundle-html');
 const {
-  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson,
-  safeName, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
+  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, withImageRecordsAsMarp, packageJson,
+  safeName, vscodeSettings, vscodeThemeStubs, vscodeStubPath, vscodeExtensions, vscodeTasks, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
   mapImageRefs, mapFrontMatterLogo,
 } = require('../lib/export/marp-bundle');
 const { withSlideOnlySpotted } = require('../lib/core/marp-slide-only');
@@ -136,7 +139,7 @@ function paletteClosure(palette) {
 function readTheme(src) {
   const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
   if (!m) return null;
-  const t = m[1].match(/^\s*theme:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  const t = [...m[1].matchAll(/^theme[ \t]*:[ \t]*["']?([A-Za-z0-9_-]+)["']?[ \t]*$/gm)].pop(); // the last repeat wins (#3050, D1)
   return t ? t[1].trim() : null;
 }
 
@@ -260,6 +263,47 @@ function printOverflowPolicy(marker, source, deckPath) {
     + `\`npx lattice "${deckPath}" /tmp/check.pdf\` — it prints the clipped pages.`);
 }
 
+/**
+ * The bundle's Markdown with each `bleed` slide's ink baked in (lib/export/marp-bleed-ink.js decides what qualifies and writes
+ * it; lib/core/bleed-ink.mjs picks the ink). The photos are the bundle's own files, confined to `dest`; their heading bands are
+ * read in a headless Chromium by tools/bleed-ink-sampler.cjs, run only when a slide qualifies. Anything that fails leaves the
+ * Markdown as it was: the slide keeps the ink its author gave it.
+ */
+function withBundledBleedInk(markdown, dest, fm) {
+  const { bleedInkSlides, withBleedInk, keyOf } = require('../lib/export/marp-bleed-ink.js');
+  const { bleedSampleRect, bleedBandFor, bleedInkOfPixels } = require('../lib/core/bleed-ink.js');
+  const slides = bleedInkSlides(markdown);
+  if (!slides.length) return markdown;
+  const { readDimensions } = require('../lib/core/image-dimensions.js');
+  const { sizeFor } = require('../lib/core/sizes');
+  const size = /^size[ \t]*:[ \t]*["']?([\w:/.-]+)/m.exec(fm || '')?.[1];
+  const geom = sizeFor(size);
+  const types = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif', '.svg': 'image/svg+xml' };
+  const root = fs.realpathSync(dest);
+  const jobs = [];
+  const seen = new Set();
+  // One job per band and photo: a centered layout reads the middle of the photo, the rest its top.
+  for (const s of slides) {
+    const key = keyOf(s.classes, s.url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    let real;
+    try { real = fs.realpathSync(path.resolve(dest, decodeURI(s.url))); } catch { continue; }
+    if (!real.startsWith(root + path.sep)) continue;
+    const mime = types[path.extname(real).toLowerCase()];
+    const dims = mime ? readDimensions(real) : null;
+    const rect = dims ? bleedSampleRect(dims.w, dims.h, parseFloat(geom.width), parseFloat(geom.height), bleedBandFor(s.classes)) : null;
+    if (rect) jobs.push({ key, file: real, mime, rect, w: 32, h: Math.max(1, Math.round((32 * rect.h) / rect.w)) });
+  }
+  if (!jobs.length) return markdown;
+  // Bounded: a browser that will not start costs the export at most this, and the slides keep their author's ink.
+  const run = require('node:child_process').spawnSync(process.execPath, [path.join(__dirname, 'bleed-ink-sampler.cjs')], { input: JSON.stringify(jobs), encoding: 'utf8', timeout: 45000 });
+  let pixels = {};
+  try { pixels = JSON.parse(run.stdout || '{}'); } catch { pixels = {}; }
+  const inkByKey = new Map(jobs.map((j) => [j.key, pixels[j.key] ? bleedInkOfPixels(pixels[j.key]) : null]));
+  return withBleedInk(markdown, inkByKey);
+}
+
 function main(argv) {
   // The agent kit (AGENTS.md + the component catalog) ships by DEFAULT so a
   // recipient's AI agent can extend the deck; `--no-agent` produces a lean,
@@ -365,7 +409,22 @@ function main(argv) {
   //    the emitted `.md` renders identically on any Marp tool and stays editable.
   //    Without the glossary bake the exported deck silently lost the generated
   //    Glossary slide while the slide before it still announced it (#1256).
-  const glossed = appendAutoGlossary(src);
+  //    An empty agenda's fill (lib/core/agenda-autofill.js) is baked too: Marp would draw the
+  //    heading and no list. It edits a slide in place, so it can run before or after the glossary.
+  //    Slide-metadata records go back to directive comments first, before anything reads a class or a pane marker:
+  //    Marp reads only comments, and an uncompiled record would be one of its speaker notes (record note §7).
+  // The image plugin's records next, in Marp's spelling, so localization copies their pictures and the lift below makes a
+  // panel record the layout's panel (lib/export/marp-bundle.js `withImageRecordsAsMarp`).
+  // The passes run in the shared order (lib/export/marp-directives.mjs `MARP_PASSES`), each on the one before.
+  // A record field that cannot reach Marp whole (a value holding `-->`) stops the export: never a silent truncation (§7).
+  const recordReport = [];
+  const compiled = recordsToComments(src, recordReport);
+  const unsafe = recordReport.filter((d) => d.code === 'meta-comment-unsafe');
+  if (unsafe.length) die(unsafe.map((d) => `${deckPath}:${d.line}: ${d.message}`).join('\n'));
+  for (const d of recordReport) console.warn(`  ⚠ ${deckPath}:${d.line}: ${d.message}`);
+  const imaged = withImageRecordsAsMarp(compiled, admission.off);
+  const agendaFilled = fillAutoAgenda(imaged);
+  const glossed = appendAutoGlossary(agendaFilled);
   const glossedFm = glossed.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const deckDir = path.dirname(path.resolve(deckPath));
   const copied = new Map(); // one dedupe map across body + front-matter refs
@@ -391,7 +450,9 @@ function main(argv) {
   //    emitted `.md` renders identically on any Marp tool and stays editable.
   //    Then the pane markers go (`stripPaneMarkers`): Marp cannot carve a pane, and it would
   //    read every marker as a speaker note, so a panes slide exports as its panes, stacked.
-  const baked = bakeHidden(stripPaneMarkers(bakeSplits((glossedFm ? glossedFm[0] : '') + withImagePanels)));
+  const split = bakeSplits((glossedFm ? glossedFm[0] : '') + withImagePanels);
+  const unpaned = stripPaneMarkers(split);
+  const baked = bakeHidden(unpaned);
   const fmMatch = baked.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
   const localizedFm = fmMatch ? localizeFrontMatter(fmMatch[0], deckDir, dest, copied) : '';
   const bakedBody = fmMatch ? baked.slice(fmMatch[0].length) : baked;
@@ -402,11 +463,19 @@ function main(argv) {
   // client-side when the deck is opened as HTML in a browser.
   // Lattice scopes a plain `<!-- header: H -->` (and `footer:`) to its own slide; Marp carries it onto
   // every later slide. Writing it as `_header:` makes Marp read the deck Lattice renders (lib/core/marp-slide-only.mjs).
-  const bundled = withRuntimeScriptsReport(withSlideOnlySpotted(fm + bakedBody), {
+  // Marp shows a comment of Lattice-only directives (`_focusSteps`, `_build`, `_track`) as a speaker note, so those go.
+  const marpOnly = withMarpDirectivesOnly(fm + bakedBody);
+  if (marpOnly.dropped.length) {
+    const keys = [...new Set(marpOnly.dropped)];
+    console.warn(`  left out ${marpOnly.dropped.length} comment(s) of settings Marp cannot use (${keys.join(', ')}): Marp would show them as speaker notes. Your source .md keeps them.`);
+  }
+  const bundled = withRuntimeScriptsReport(withSlideOnlySpotted(marpOnly.markdown), {
     overflowMarker: marker,
     pluginsOff: admission.off,
   });
-  fs.writeFileSync(path.join(dest, `${file}.md`), bundled.markdown);
+  // A `bleed` slide's ink, decided from the photo this bundle carries and written into its `_class`: the bundle's runtime
+  // cannot read a local picture's pixels over `file://` (lib/export/marp-bleed-ink.js).
+  fs.writeFileSync(path.join(dest, `${file}.md`), withBundledBleedInk(bundled.markdown, dest, fm));
   // The bundle drops the deck's own executable HTML (lib/core/live-author-html.js), so say what
   // went: an author whose widget script vanished deserves to hear why.
   const { removed } = bundled;
@@ -447,7 +516,8 @@ function main(argv) {
   for (const { from, to } of STATIC_ASSETS) {
     const abs = path.join(ROOT, from);
     if (!fs.existsSync(abs)) continue;
-    if (to.endsWith('.css')) copyCssInto(abs, path.join(dest, to));
+    // Only the engine goes through the Marp-scoping copy: the VS Code-shaped stylesheet is already Marp's own output.
+    if (to === 'lattice.css') copyCssInto(abs, path.join(dest, to));
     else copyInto(abs, path.join(dest, to));
   }
 
@@ -471,10 +541,16 @@ function main(argv) {
   fs.writeFileSync(path.join(dest, 'marp.config.cjs'), marpConfigCjs());
   fs.writeFileSync(path.join(dest, 'package.json'), JSON.stringify(packageJson(name), null, 2) + '\n');
   fs.mkdirSync(path.join(dest, '.vscode'), { recursive: true });
-  fs.writeFileSync(path.join(dest, '.vscode', 'settings.json'), vscodeSettings(themesList));
+  // VS Code registers directive-only stubs (.vscode/themes/), the styling comes from the linked lattice-vscode.css; marp-cli
+  // (marp.config.cjs) keeps the full files.
+  // The palettes' stubs are cut here; the engine's (VSCODE_ENGINE_STUB) was copied with the static assets.
+  const stubs = vscodeThemeStubs(themesList.map((p) => ({ path: p, css: fs.readFileSync(path.join(dest, p), 'utf8') })));
+  fs.mkdirSync(path.join(dest, '.vscode', 'themes'), { recursive: true });
+  for (const st of stubs) fs.writeFileSync(path.join(dest, st.path), st.css);
+  fs.writeFileSync(path.join(dest, '.vscode', 'settings.json'), vscodeSettings(themesList.map(vscodeStubPath)));
   fs.writeFileSync(path.join(dest, '.vscode', 'extensions.json'), vscodeExtensions());
   fs.writeFileSync(path.join(dest, '.vscode', 'tasks.json'), vscodeTasks());
-  fs.writeFileSync(path.join(dest, 'README.md'), readme({ name, palette, themes: themesList, agent: includeAgent, overflowMarker: marker }));
+  fs.writeFileSync(path.join(dest, 'README.md'), readme({ name, palette, themes: themesList, agent: includeAgent, overflowMarker: marker, vscodeStubs: true }));
 
   // 6) the agent kit (default on): a bundle-tailored AGENTS.md at the root +
   //    the component catalog under agent/, so a recipient's AI agent can extend

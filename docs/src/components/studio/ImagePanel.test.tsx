@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Placement } from '@/lib/compose/image-objects';
 import { ImagePanel } from './ImagePanel';
 
 // The picker reads the Library's database; this panel's contract is what it writes after a pick.
@@ -20,13 +21,13 @@ vi.mock('./PhotoPicker', () => ({
 
 afterEach(cleanup);
 
-function setup(fields: { src: string; alt: string | null }, onEdit = vi.fn(() => true)) {
+function setup(fields: { src: string; alt: string | null }, onEdit = vi.fn(() => true), placement?: { value: Placement; canPlace: boolean }, onPlace = vi.fn((_p: Placement) => true)) {
 	const onRemove = vi.fn(() => true);
 	const onDone = vi.fn();
 	const holdOpen = vi.fn();
 	const user = userEvent.setup();
-	render(<ImagePanel fields={fields} onEdit={onEdit} onRemove={onRemove} onDone={onDone} holdOpen={holdOpen} />);
-	return { user, onEdit, onRemove, onDone, holdOpen };
+	render(<ImagePanel fields={fields} onEdit={onEdit} onRemove={onRemove} onDone={onDone} holdOpen={holdOpen} placement={placement} onPlace={onPlace} />);
+	return { user, onEdit, onRemove, onDone, holdOpen, onPlace };
 }
 
 describe('ImagePanel — a picture', () => {
@@ -85,19 +86,30 @@ describe('ImagePanel — Replace photo', () => {
 });
 
 describe('ImagePanel — a background', () => {
-	it('shows the placement instead of a description, with the side pressed', () => {
-		setup({ src: 'asset:forest', alt: 'bg right:40% blur' });
+	it('shows the placement the slide gives, with the side pressed, and no description for a `bg` picture', () => {
+		setup({ src: 'asset:forest', alt: 'bg right:40% blur' }, undefined, { value: 'right', canPlace: true });
 		expect(screen.queryByRole('textbox', { name: 'Description' })).toBeNull();
 		expect(screen.getByRole('radio', { name: 'Placement: Right side' }).getAttribute('aria-checked')).toBe('true');
-		expect(screen.getAllByRole('radio', { name: /^Placement:/ })).toHaveLength(3);
+		expect(screen.getAllByRole('radio', { name: /^Placement:/ })).toHaveLength(4);
 	});
 
-	it('writes only the side word, and keeps the share and every other word', async () => {
-		const { user, onEdit } = setup({ src: 'asset:forest', alt: 'bg right:40% blur' });
+	it('a pick goes to the slide (onPlace), never into the picture\'s words', async () => {
+		const { user, onEdit, onPlace } = setup({ src: 'asset:forest', alt: 'bg right:40% blur' }, undefined, { value: 'right', canPlace: true });
 		await user.click(screen.getByRole('radio', { name: 'Placement: Left side' }));
-		expect(onEdit).toHaveBeenLastCalledWith({ alt: 'bg left:40% blur' });
+		expect(onPlace).toHaveBeenLastCalledWith('left');
+		await user.click(screen.getByRole('radio', { name: 'Placement: In the text' }));
+		expect(onPlace).toHaveBeenLastCalledWith('none');
+		expect(onEdit).not.toHaveBeenCalled();
+	});
+
+	it('a placement the slide cannot take is refused out loud, and a slide that cannot place shows no control', async () => {
+		const { user } = setup({ src: 'asset:forest', alt: 'A forest' }, undefined, { value: 'none', canPlace: true }, vi.fn(() => false));
 		await user.click(screen.getByRole('radio', { name: 'Placement: Full slide' }));
-		expect(onEdit).toHaveBeenLastCalledWith({ alt: 'bg blur' });
+		expect(screen.getByRole('alert').textContent).toMatch(/Edit this slide in Source/);
+		cleanup();
+		setup({ src: 'asset:forest', alt: 'A forest' }, undefined, { value: 'none', canPlace: false });
+		expect(screen.queryByRole('radio', { name: /^Placement:/ })).toBeNull();
+		expect(screen.getByRole('textbox', { name: 'Description' })).toBeTruthy();
 	});
 
 	it('replacing the photo never touches the directive', async () => {
@@ -137,6 +149,6 @@ describe('ImagePanel — the footer', () => {
 		const { user } = setup({ src: 'asset:harbor', alt: 'x' }, vi.fn(() => false));
 		const input = screen.getByRole('textbox', { name: 'Description' });
 		await user.type(input, 'y{Enter}');
-		expect(screen.getByRole('alert').textContent).toMatch(/in Markdown/);
+		expect(screen.getByRole('alert').textContent).toMatch(/in Source/);
 	});
 });

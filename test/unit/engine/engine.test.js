@@ -77,7 +77,9 @@ describe('lattice-engine: contract', () => {
     // layout (#1292) — `dark` is a modifier, not a layout, and a slide is never
     // layout-less. Slide B named `title`, a real component.
     assert.equal(secs[0].cls, 'content dark form marks-muted marks-pigment');
-    assert.equal(secs[1].cls, 'dark marks-muted marks-pigment title');
+    // The title's manifest drops the running header (`chrome.header: false`), stamped as the band's own
+    // switch (lib/core/component-chrome.js).
+    assert.equal(secs[1].cls, 'dark marks-muted marks-pigment no-header title');
   });
 
   test('per-slide color mode wins over the deck-wide one (light slide in a dark deck)', () => {

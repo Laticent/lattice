@@ -1,0 +1,8 @@
+{
+  "name": "lattice-recheck-pin",
+  "private": true,
+  "description": "The regex complexity checker behind tools/regex-census.js. Pinned and locked in its own folder so the root npm ci does not carry it; see tools/regex-census.js.",
+  "dependencies": {
+    "recheck": "4.6.2"
+  }
+}

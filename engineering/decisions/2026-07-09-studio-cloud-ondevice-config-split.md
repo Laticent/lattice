@@ -5,6 +5,8 @@ summary: The Workspace AI tab treated cloud and on-device generation as one conf
 
 # Studio AI config — segment cloud from on-device; ship TTS settings
 
+> **Partly superseded 2026-11-07** by `2026-11-07-studio-model-spine.md`: the voice no longer sits under the chat's Cloud / On-device view switch (that switch is gone); Workspace › AI is Chat model, Voice model, Providers & keys. Separate cloud and on-device standing instructions, and live voice rosters, stand.
+
 ## The problem
 
 Raised directly: "the current structure of our ai setup doesn't segment on-device

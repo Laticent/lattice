@@ -36,3 +36,23 @@ test('renaming a deck updates the switcher title', async ({ page }) => {
 	await expect(toastText(page)).toContainText('Renamed to');
 	await expect(page.getByRole('button', { name: /Renamed E2E Deck/ })).toBeVisible();
 });
+
+// The switcher counts a saved deck's slides when it OPENS (studio-store `deckMetaFor`), not when the
+// list loads at boot (engineering/decisions/2026-11-09-studio-react-mount-profile.md §4 lever 2). Both
+// rows must still read right: the active deck's from the live editor, the other deck's from storage.
+test('the switcher labels the active deck and a saved deck with their slide counts', async ({ page }) => {
+	await gotoStudio(page);
+	const first = (await deckSwitcher(page).textContent()) ?? '';
+	const firstCount = /(\d+ slides?)$/.exec(first.trim())?.[1];
+	expect(firstCount, `no slide count in the switcher button: "${first}"`).toBeTruthy();
+	const firstTitle = first.trim().slice(0, -(firstCount as string).length).trim();
+
+	await deckSwitcher(page).click();
+	await page.getByRole('menuitem', { name: 'New deck' }).click();
+	await expect(toastText(page)).toContainText('New deck created');
+
+	await page.locator('header').getByRole('button', { name: /Untitled deck/ }).first().click();
+	const rows = page.getByRole('menuitem');
+	await expect(rows.filter({ hasText: 'Untitled deck' }).first()).toContainText('1 slide');
+	await expect(rows.filter({ hasText: firstTitle }).first()).toContainText(firstCount as string);
+});

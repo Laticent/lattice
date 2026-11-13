@@ -1,6 +1,7 @@
 // chatComplete on the cloud tier, end to end through the real wiring (prompt, loop, tools,
 // fold, finalize) with a scripted backend standing in for OpenRouter. No network.
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { selectChat } from '../../lib/model-selection.js';
 import { architectModel, chatComplete, requestFindingFix } from './architect';
 
 type Opts = { messages: { role: string }[]; tools?: unknown[]; toolChoice?: string; onToolCalls?: (c: unknown[]) => void; onToolStart?: (n: string) => void; onToken?: (t: string) => void };
@@ -89,22 +90,11 @@ describe('chatComplete — activity labels (the status line is never blank)', ()
 	});
 });
 
-describe('the transport self-heal', () => {
-	it('treats a model that cannot take tools as LIVE, so the chat falls back on the author’s own model', async () => {
-		const { isDeadModelError } = await import('./ai/architect-model.js');
-		const toolless = '{"error":{"message":"No endpoints found that support tool use. Try disabling \\"x\\".","code":404}}';
-		expect(isDeadModelError(404, toolless)).toBe(false);
-		// A genuinely retired id still self-heals on a request without tools; the chat names it instead.
-		expect(isDeadModelError(404, '{"error":{"message":"No endpoints found for some/retired-model."}}')).toBe(true);
-		expect(isDeadModelError(400, 'some/x is not a valid model ID')).toBe(true);
-	});
-});
-
 describe('the transport never swaps the model on a tools request', () => {
 	it('a "no endpoints" 404 on a tools request reaches the caller, with no retry on the default model', async () => {
 		const { createArchitectModel } = await import('./ai/architect-model.js');
 		localStorage.setItem('lattice-db-or-key', 'test-key');
-		localStorage.setItem('lattice-db-or-model', 'some/model-without-tool-choice');
+		selectChat({ provider: 'openrouter', model: 'some/model-without-tool-choice' });
 		const sent: string[] = [];
 		const realFetch = globalThis.fetch;
 		globalThis.fetch = (async (_url: string, init: { body: string }) => {
@@ -118,7 +108,7 @@ describe('the transport never swaps the model on a tools request', () => {
 		} finally {
 			globalThis.fetch = realFetch;
 			localStorage.removeItem('lattice-db-or-key');
-			localStorage.removeItem('lattice-db-or-model');
+			selectChat({ provider: 'openrouter', model: '' });
 		}
 	});
 });
@@ -140,12 +130,18 @@ describe('a failed request says why, instead of an empty reply', () => {
 		const { isToolRefusal, describeModelError } = await import('./chat-agent');
 		expect(isToolRefusal('OpenRouter error 404: No endpoints found that support tool use.')).toBe(true);
 		expect(isToolRefusal('OpenRouter error 404: No endpoints found that can handle the requested parameters.')).toBe(true);
+		expect(isToolRefusal('OpenAI error 400: {"error":{"message":"Function tools with reasoning_effort are not supported for gpt-6.1-terra in /v1/chat/completions."}}')).toBe(true);
 		expect(isToolRefusal('OpenRouter error 401: User not found')).toBe(false);
 		expect(isToolRefusal('OpenRouter error 404: No endpoints found for some/retired-model.')).toBe(false);
 		expect(describeModelError('OpenRouter error 401: User not found')).toMatch(/reconnect in Workspace/);
+		// Billing under other statuses: Anthropic 400, OpenAI 429. The key works; never "rejected" or "pick another model".
+		expect(describeModelError('Anthropic error 400: {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}}')).toMatch(/Anthropic account is out of credits or quota — add billing in Anthropic's settings/);
+		expect(describeModelError('OpenAI error 429: {"error":{"message":"You exceeded your current quota, please check your plan and billing details.","code":"insufficient_quota"}}')).toMatch(/OpenAI account is out of credits or quota/);
 		expect(describeModelError('OpenRouter error 401: {"error":{"message":"User not found.","code":401}}')).toContain('(OpenRouter said: User not found.)');
 		expect(describeModelError('OpenRouter error 404: No endpoints found for x/y')).toMatch(/pick another model/);
 		expect(describeModelError('TypeError: Load failed')).toMatch(/never reached OpenRouter/);
+		// A dropped connection names no provider; the route the turn ran on does (live check, 2026-11-08).
+		expect(describeModelError('TypeError: Failed to fetch', 'gemini')).toMatch(/never reached Gemini/);
 	});
 });
 
@@ -250,9 +246,54 @@ describe('checker pass: failures name their cause', () => {
 		m.openRouterModelPrice = () => ({ promptPerM: 3, completionPerM: 15 });
 		try {
 			await chatComplete([{ role: 'user', content: 'Tighten slide 2' }], DECK, undefined, { signal: ctl.signal });
-			await new Promise((r) => setTimeout(r, 0));
-			expect(looked).toEqual(['gen-2']);
-			expect(spend.readSpend().session).toBeGreaterThan(before);
+			// The reconcile runs after the Stop returns: wait for its result, not for a tick that happens to cover it.
+			await vi.waitFor(() => {
+				expect(looked).toEqual(['gen-2']);
+				// Round 1's own reported cost (0.001) plus round 2 at its EXACT cost (0.002), not its estimate: the reconcile
+				// replaced the estimate. Only "it went up" passed with the correction dropped or its sign flipped.
+				expect(spend.readSpend().session - before).toBeCloseTo(0.003, 9);
+			});
+		} finally {
+			m.openRouterGenerationCost = orig.cost;
+			m.openRouterModelPrice = orig.price;
+		}
+	});
+
+	it('a Stop on the one-shot path is priced at the exact generation cost, not its estimate', async () => {
+		// A model that refuses tools falls to the one-shot path (architect.ts). Stopped mid-stream there, the turn is
+		// booked at an estimate, then the generation id's exact cost replaces it: the twin of the agent path above.
+		const spend = await import('./ai/spend.js');
+		const before = spend.readSpend().session;
+		const m = (await architectModel()) as unknown as Hooks & { openRouterGenerationCost?: (id: string) => Promise<number>; openRouterModelPrice?: () => unknown };
+		const looked: string[] = [];
+		const ctl = new AbortController();
+		m.__setBackend({
+			name: 'openrouter',
+			async embed() {
+				return null;
+			},
+			async complete(o: Opts & { onGenerationId?: (id: string) => void }) {
+				if (o.tools?.length) throw new Error('OpenRouter error 404: No endpoints found that support tool use');
+				o.onGenerationId?.('gen-1');
+				o.onToken?.('Slide two could lead with the hire');
+				ctl.abort();
+				const e = new Error('aborted');
+				e.name = 'AbortError';
+				throw e;
+			},
+		});
+		const orig = { cost: m.openRouterGenerationCost, price: m.openRouterModelPrice };
+		m.openRouterGenerationCost = async (id: string) => {
+			looked.push(id);
+			return 0.002;
+		};
+		m.openRouterModelPrice = () => ({ promptPerM: 3, completionPerM: 15 });
+		try {
+			await chatComplete([{ role: 'user', content: 'Tighten slide 2' }], DECK, undefined, { signal: ctl.signal });
+			await vi.waitFor(() => {
+				expect(looked).toEqual(['gen-1']);
+				expect(spend.readSpend().session - before).toBeCloseTo(0.002, 9);
+			});
 		} finally {
 			m.openRouterGenerationCost = orig.cost;
 			m.openRouterModelPrice = orig.price;
@@ -313,7 +354,7 @@ describe('chatComplete — photos', () => {
 describe('requestFindingFix — the cache marker follows the vendor', () => {
 	const finding = { slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' };
 	const marked = (messages: { content: unknown }[]) => JSON.stringify(messages).includes('cache_control');
-	afterEach(() => localStorage.removeItem('lattice-db-or-model'));
+	afterEach(() => selectChat({ provider: 'openrouter', model: '' }));
 
 	// A Google marker made Gemini cost more on every model measured (or-cache.js), and the switch that could turn it off is
 	// disabled for Google, so the Coach's Fix must not send one either.
@@ -324,7 +365,7 @@ describe('requestFindingFix — the cache marker follows the vendor', () => {
 		['openai/gpt-5', false],
 	] as const) {
 		it(`${expected ? 'marks' : 'does not mark'} the static system part for ${modelId}`, async () => {
-			localStorage.setItem('lattice-db-or-model', modelId);
+			selectChat({ provider: 'openrouter', model: modelId });
 			let seen: { content: unknown }[] = [];
 			await withBackend(async (o) => {
 				seen = (o as unknown as { messages: { content: unknown }[] }).messages;

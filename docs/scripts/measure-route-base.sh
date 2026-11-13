@@ -56,7 +56,13 @@ for d in . docs; do
 done
 
 start=$SECONDS
-(cd "$WT" && npm run build >/dev/null 2>&1) || { warn "root build failed on $BASE"; exit 0; }
+# Only the built-not-committed half: the committed half is in the worktree already. A base
+# from before that script existed gets the full build.
+if (cd "$WT" && node -e 'process.exit(require("./package.json").scripts["build:uncommitted"] ? 0 : 1)'); then
+	(cd "$WT" && npm run build:uncommitted >/dev/null 2>&1) || { warn "root build failed on $BASE"; exit 0; }
+else
+	(cd "$WT" && npm run build >/dev/null 2>&1) || { warn "root build failed on $BASE"; exit 0; }
+fi
 # The base's own chain, so inject-modulepreload writes the hints the gate counts. Its own
 # route-budget check, the last link, may fail without harm, so the exit code is ignored.
 # But an EARLIER link failing leaves a dist with no preload hints, which measures far

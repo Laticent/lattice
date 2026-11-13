@@ -1,0 +1,4 @@
+---
+group: Lint & audit
+---
+The regex census (`tools/regex-census.js`, HARD RULE #32): every regex literal in lib/** has a complexity verdict from the `recheck` automaton in `tools/regex-census.json`, and `checkRegexCensus` in `build:check` holds lib/** to it (the gate itself needs no recheck). Without a flag it reports the backlog of slow patterns by folder and file. `--write` decides each new literal, drops stale verdicts and lowers the backlog, and refuses to raise a file's count (`--raise` overrides it, with the reason in the PR). `--check '/…/'` prints one pattern's verdict and attack string; `--verify` re-decides every entry (minutes). recheck is pinned in its own folder: `npm ci --prefix tools/recheck --omit=optional --ignore-scripts` once. `--jobs N`, `--progress <file>` (resume an interrupted run).

@@ -38,8 +38,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const latticeEngine = require('../../../lib/engine');
-const { boundaryParser, FRONT_MATTER } = require('../../../lib/core/boundary-parser');
-const { readDirectiveComment } = require('../../../lib/core/comment-directive');
 const { resolveDiagramBand } = require('../../../lib/core/diagram-band');
 const { slideClassSpans } = require('../../../lib/core/slide-class-spans');
 const { splitSections } = require('@laticent/markup');
@@ -93,26 +91,9 @@ const DECKS = corpus()
   .map((file) => ({ file, src: fs.readFileSync(file, 'utf8') }))
   .filter(({ src }) => /^---\r?\n[\s\S]*?\r?\n---/.test(src));
 
-/**
- * `_focusSteps` EXPANDS one authored slide into several at render time, so a focus
- * deck legitimately renders more sections than the source has slides. That is the
- * one sanctioned divergence, and it is safe for the band question because every
- * expanded copy carries the class of the slide it was copied from
- * (`focusSteps` in lib/integrations/markdown-it/plugins.js clones the whole token
- * group, `_class` comment included).
- *
- * Detected off the TOKEN STREAM, not a text scan. A text scan is the technique this
- * whole gate exists to eliminate, and it misfires here for the same reason it
- * misfires there: a decision record that DISCUSSES `_focusSteps` in prose would be
- * silently excused from the slide-count check.
- */
-const FOCUS_STEPS = { known: new Set(['focusSteps']), flags: new Set() };
-function expandsAtRender(src) {
-  const body = src.replace(FRONT_MATTER, '');
-  return boundaryParser.parse(body, {}).some(
-    (t) => t.type === 'html_block' && readDirectiveComment(t.content, FOCUS_STEPS),
-  );
-}
+// No exemption: until 2026-11-09 a `_focusSteps` deck rendered one section per step and was
+// excused from the slide-count check. It renders one slide now
+// (engineering/decisions/2026-11-09-steps-as-a-behavior.md), so every deck is held to the count.
 
 describe('slideClassSpans ≡ the engine, over the committed corpus', () => {
   test('the corpus is actually there (a walk that finds nothing proves nothing)', () => {
@@ -122,7 +103,6 @@ describe('slideClassSpans ≡ the engine, over the committed corpus', () => {
   test('every deck reconstructs the same NUMBER of slides the engine renders', () => {
     const wrong = [];
     for (const { file, src } of DECKS) {
-      if (expandsAtRender(src)) continue;
       const classes = sectionClasses(file, src);
       if (!classes) continue;
       const rendered = classes.length;

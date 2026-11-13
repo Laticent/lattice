@@ -10,8 +10,10 @@ function snapOf(doc: string, text: string, edits = 1) {
 	return toSnapshot(h);
 }
 
+// Each IndexedDB backend gets a fresh factory and a name of its own from a counter: no random draw, so a run replays exactly.
+let dbSeq = 0;
 const backends: Array<[string, () => Backend]> = [
-	['IndexedDB', () => idbBackend(`filo-test-${Math.random()}`, new IDBFactory())],
+	['IndexedDB', () => idbBackend(`filo-test-${++dbSeq}`, new IDBFactory())],
 	['memory', () => memoryBackend()],
 ];
 

@@ -5,7 +5,7 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDrawHost, type DrawJob, type DrawLibrary } from './draw-host';
 
 const ROOT = path.join(__dirname, '../../../..');
@@ -49,6 +49,9 @@ function rig(opts: { fetchText?: (url: string) => Promise<string>; autoReady?: b
 	return { host, frames };
 }
 
+/** Wait until frame `i` is open and has been sent `n` draws: the host's own signal, where the test used to sleep and hope. */
+const sent = (frames: Fake[], i: number, n: number) => vi.waitFor(() => expect(frames[i]?.posted.length ?? 0).toBe(n), { timeout: 10_000, interval: 1 });
+
 const opened: Array<() => void> = [];
 afterEach(() => {
 	for (const close of opened.splice(0)) close();
@@ -73,7 +76,7 @@ describe('the draw host', () => {
 		opened.push(host.close);
 		await expect(host.draw(JOB)).rejects.toThrow('offline');
 		const drawn = host.draw(JOB);
-		await new Promise((r) => setTimeout(r, 20));
+		await sent(frames, 0, 1);
 		frames[0].reply({ t: 'result', id: 1, out: '<svg/>' });
 		await expect(drawn).resolves.toBe('<svg/>');
 		expect(calls).toBe(2);
@@ -83,13 +86,13 @@ describe('the draw host', () => {
 		const { host, frames } = rig();
 		opened.push(host.close);
 		const a = host.draw(JOB);
-		await new Promise((r) => setTimeout(r, 20));
+		await sent(frames, 0, 1);
 		expect(frames).toHaveLength(1);
 		expect(frames[0].posted[0]).toMatchObject({ t: 'draw', id: 1, kind: 'function-plot', width: 600 });
 		frames[0].reply({ t: 'result', id: 1, out: '<svg id="a"/>' });
 		await expect(a).resolves.toBe('<svg id="a"/>');
 		const b = host.draw(JOB);
-		await new Promise((r) => setTimeout(r, 10));
+		await sent(frames, 0, 2);
 		expect(frames).toHaveLength(1);
 		frames[0].reply({ t: 'result', id: 2, out: '<svg id="b"/>' });
 		await expect(b).resolves.toBe('<svg id="b"/>');
@@ -99,7 +102,7 @@ describe('the draw host', () => {
 		const { host, frames } = rig();
 		opened.push(host.close);
 		const a = host.draw(JOB, 300);
-		await new Promise((r) => setTimeout(r, 20));
+		await sent(frames, 0, 1);
 		window.dispatchEvent(Object.assign(new Event('message'), { source: window, data: { t: 'result', id: 1, out: '<svg id="forged"/>' } }));
 		frames[0].reply({ t: 'result', id: 99, out: '<svg id="wrong-id"/>' });
 		frames[0].reply({ nonsense: true });
@@ -111,7 +114,7 @@ describe('the draw host', () => {
 		const { host, frames } = rig();
 		opened.push(host.close);
 		const a = host.draw(JOB);
-		await new Promise((r) => setTimeout(r, 20));
+		await sent(frames, 0, 1);
 		frames[0].reply({ t: 'result', id: 1, error: 'functionplot error: bad config' });
 		await expect(a).rejects.toThrow('functionplot error: bad config');
 	});
@@ -122,7 +125,7 @@ describe('the draw host', () => {
 		await expect(host.draw(JOB, 40)).rejects.toThrow(/did not finish within 40 ms/);
 		expect(frames[0].removed).toBe(true);
 		const next = host.draw(JOB);
-		await new Promise((r) => setTimeout(r, 30));
+		await sent(frames, 1, 1);
 		expect(frames).toHaveLength(2);
 		frames[1].reply({ t: 'result', id: 1, out: '<svg/>' });
 		await expect(next).resolves.toBe('<svg/>');
@@ -135,7 +138,7 @@ describe('the draw host', () => {
 		expect(frames).toHaveLength(1);
 		expect(frames[0].posted).toHaveLength(0);
 		const a = host.draw(JOB);
-		await new Promise((r) => setTimeout(r, 0));
+		await sent(frames, 0, 1);
 		expect(frames).toHaveLength(1);
 		expect(frames[0].posted[0]).toMatchObject({ t: 'draw', id: 1 });
 		frames[0].reply({ t: 'result', id: 1, out: '<svg/>' });
@@ -153,7 +156,7 @@ describe('the draw host', () => {
 		opened.push(host.close);
 		await expect(host.warm('function-plot')).rejects.toThrow('offline');
 		const a = host.draw(JOB);
-		await new Promise((r) => setTimeout(r, 20));
+		await sent(frames, 0, 1);
 		frames[0].reply({ t: 'result', id: 1, out: '<svg/>' });
 		await expect(a).resolves.toBe('<svg/>');
 	});
@@ -161,12 +164,11 @@ describe('the draw host', () => {
 	it('draws nothing once closed, and stops its frames', async () => {
 		const { host, frames } = rig();
 		const a = host.draw(JOB);
-		await new Promise((r) => setTimeout(r, 20));
+		await sent(frames, 0, 1);
 		frames[0].reply({ t: 'result', id: 1, out: '<svg/>' });
 		await a;
 		host.close();
-		await new Promise((r) => setTimeout(r, 10));
-		expect(frames[0].removed).toBe(true);
+		await vi.waitFor(() => expect(frames[0].removed).toBe(true), { timeout: 10_000, interval: 1 });
 		await expect(host.draw(JOB)).rejects.toThrow(/closed/);
 	});
 
@@ -177,7 +179,7 @@ describe('the draw host', () => {
 		const { host, frames } = rig({ autoReady: false });
 		opened.push(host.close);
 		const drawing = host.draw(JOB).catch((e) => e);
-		await new Promise((r) => setTimeout(r, 10));
+		await vi.waitFor(() => expect(frames).toHaveLength(1), { timeout: 10_000, interval: 1 });
 		frames[0].reply({ t: 'failed' });
 		expect(await drawing).toMatchObject({ drawUnavailable: true });
 	});
@@ -186,15 +188,16 @@ describe('the draw host', () => {
 		const { host, frames } = rig();
 		opened.push(host.close);
 		const first = host.draw(JOB, 5_000);
-		await new Promise((r) => setTimeout(r, 10));
+		await sent(frames, 0, 1);
 		const queued = host.draw(JOB, 5_000);
-		await new Promise((r) => setTimeout(r, 10));
+		// The queued draw's chain is microtasks only (its frame is already open), so one macrotask turn drains it; it posts nothing to wait on.
+		await new Promise((r) => setTimeout(r, 0)); // flaky-ok: a 0 ms turn, not a duration: it drains a microtask-only chain with no exposed signal, and the outcome holds either way
 		// The first draw's frame reports a module that could not load: it is closed, and the queued draw (never sent) goes to a new frame.
 		frames[0].reply({ t: 'result', id: 1, error: 'Failed to fetch dynamically imported module: x', loadFailed: true });
 		const failure = await first.catch((e) => e);
 		expect(failure.message).toMatch(/dynamically imported/);
 		expect(failure.drawUnavailable).toBe(true);
-		await new Promise((r) => setTimeout(r, 20));
+		await sent(frames, 1, 1);
 		expect(frames[0].removed).toBe(true);
 		expect(frames.length).toBe(2);
 		frames[1].reply({ t: 'result', id: 1, out: '<svg/>' });
@@ -209,14 +212,14 @@ describe('the draw host', () => {
 		opened.push(host.close);
 		const face = { family: 'Brand Sans', weight: '400', style: 'normal', data: 'data:font/woff2;base64,AAAA' };
 		const first = host.draw({ kind: 'sparkline', fonts: [face] });
-		await new Promise((r) => setTimeout(r, 20));
+		await sent(frames, 0, 1);
 		expect(frames).toHaveLength(1);
 		expect((frames[0].frame as { srcdoc: string }).srcdoc).toContain('function draw(m, env)');
 		expect(frames[0].posted[0].fonts).toEqual([face]);
 		frames[0].reply({ t: 'result', id: 1, out: 'a' });
 		await expect(first).resolves.toBe('a');
 		const second = host.draw({ kind: 'sparkline', fonts: [face, { ...face, family: 'Other' }] });
-		await new Promise((r) => setTimeout(r, 20));
+		await sent(frames, 0, 2);
 		expect(frames[0].posted[1].fonts).toEqual([{ ...face, family: 'Other' }]);
 		frames[0].reply({ t: 'result', id: 2, out: 'b' });
 		await expect(second).resolves.toBe('b');

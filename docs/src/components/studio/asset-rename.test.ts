@@ -122,3 +122,11 @@ describe('renameAssetAcrossDecks', () => {
 		expect(renameAssetAcrossDecks(decks, 'component', 'scorecard', 'scoreboard').hits).toBe(2);
 	});
 });
+
+describe('a rename reaches a slide record (meta record step 3)', () => {
+	it('renames a component named in a record', () => {
+		const out = renameAssetInSource('---\ntitle: T\n---\n\n<!-- {layout=scorecard, footer="Q3"} -->\n\n## A\n', 'component', 'scorecard', 'kpi-card');
+		expect(out.source).toContain('kpi-card');
+		expect(out.source).not.toContain('scorecard');
+	});
+});

@@ -185,7 +185,11 @@ describe('handDrawnSeed is pinned on BOTH looks, not just handDrawn', () => {
   // rewriting itself, which is what lets a byte oracle watch the diagram path at all.
   test('the classic config states the seed', () => {
     const cfg = engineInitConfig({ primaryColor: '#fff' }, { look: 'classic' });
-    assert.equal(cfg.look, undefined, 'a classic render still emits no `look` key');
+    // STATED since Mermaid 12, whose per-diagram default look is `neo`: an unstated look
+    // no longer means classic (init-directive.js, the note at `look`).
+    assert.equal(cfg.look, 'classic', 'a classic render states `look: classic`');
+    assert.equal(cfg.layout, 'dagre', 'and `layout: dagre`, which Mermaid 12 no longer defaults to');
+    assert.equal(cfg.mindmap?.layout, 'cose-bilkent', 'and the mindmap keeps its radial layout under that dagre');
     assert.ok(Number.isInteger(cfg.handDrawnSeed), 'and it must still carry a seed');
     assert.notEqual(cfg.handDrawnSeed, 0, 'rough.js reads a falsy seed as Math.random()');
   });

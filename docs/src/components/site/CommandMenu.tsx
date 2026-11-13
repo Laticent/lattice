@@ -63,6 +63,18 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
  * Open state + the ⌘K / `/` shortcut are owned by <NavActions>, which also
  * renders the trigger button — this component is purely the dialog body.
  */
+/** Decode HTML entities in plain text (a Pagefind excerpt), as a string transform: no DOM, so no markup sink. */
+const NAMED_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0' };
+export function decodeEntities(text: string): string {
+	return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code: string) => {
+		if (code[0] === '#') {
+			const n = code[1] === 'x' || code[1] === 'X' ? Number.parseInt(code.slice(2), 16) : Number.parseInt(code.slice(1), 10);
+			return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : whole;
+		}
+		return NAMED_ENTITIES[code.toLowerCase()] ?? whole;
+	});
+}
+
 export function CommandMenu({
 	open,
 	onOpenChange,
@@ -162,7 +174,9 @@ export function CommandMenu({
 						id,
 						url: d.url,
 						title: d.meta?.title ?? d.url,
-						excerpt: (d.excerpt ?? '').replace(/<\/?mark>/g, ''),
+						// The excerpt is shown AND spoken (it is the row's description), so decode its entities:
+						// a raw `&#39;` would be read aloud.
+						excerpt: decodeEntities((d.excerpt ?? '').replace(/<\/?mark>/g, '')),
 					})),
 				);
 			} catch {
@@ -193,6 +207,7 @@ export function CommandMenu({
 			// opposite, so it "cycles" rather than "toggles"); on a deck surface it is
 			// still the two-stop pin, and must not advertise a stop it won't reach.
 			label: deckSurface ? 'Toggle light dark color mode appearance' : 'Cycle color mode system light dark appearance',
+			description: deckSurface ? 'Switches between light and dark.' : 'Steps through following your system, light, and dark.',
 			node: (
 				<>
 					<Sun className="dark:hidden" />
@@ -205,6 +220,7 @@ export function CommandMenu({
 		{
 			key: 'github',
 			label: 'GitHub repository source code',
+			description: "Opens Lattice's source code on GitHub.",
 			node: (
 				<>
 					<GithubIcon className="size-4" />
@@ -246,7 +262,6 @@ export function CommandMenu({
 			open={open}
 			onOpenChange={onOpenChange}
 			title="Command palette"
-			description="Search the docs, jump to any page, or switch the theme."
 			// Pagefind results are already query-ranked; we filter the static rows
 			// ourselves so they coexist with doc hits under one input.
 			shouldFilter={false}
@@ -263,7 +278,7 @@ export function CommandMenu({
 							{navRows.map((l) => {
 								const Icon = ICONS[l.label] ?? ArrowRight;
 								return (
-									<CommandItem key={l.href} value={`go-${l.label}`} onSelect={() => go(l.href)}>
+									<CommandItem key={l.href} value={`go-${l.label}`} description={l.desc || `Opens the ${l.label} page.`} onSelect={() => go(l.href)}>
 										<Icon />
 										<span className="flex min-w-0 flex-col">
 											<span className="flex items-center gap-1.5 truncate">
@@ -274,7 +289,8 @@ export function CommandMenu({
 													</Badge>
 												)}
 											</span>
-											{l.desc && <span className="truncate text-xs text-muted-foreground">{l.desc}</span>}
+											{/* aria-hidden: read once, as the row's description, not run into its name. */}
+											{l.desc && <span aria-hidden="true" className="truncate text-xs text-muted-foreground">{l.desc}</span>}
 										</span>
 									</CommandItem>
 								);
@@ -284,7 +300,7 @@ export function CommandMenu({
 					lessonRows.length > 0 && studioHref != null && (
 						<CommandGroup heading="Learn in the Studio" key="learn">
 							{lessonRows.map((l) => (
-								<CommandItem key={l.id} value={`lesson-${l.id}`} data-lesson={l.id} onSelect={() => go(`${studioHref}${studioHref.includes('?') ? '&' : '?'}lesson=${l.id}`)}>
+								<CommandItem key={l.id} value={`lesson-${l.id}`} data-lesson={l.id} description="Opens the Studio and walks you through it, step by step." onSelect={() => go(`${studioHref}${studioHref.includes('?') ? '&' : '?'}lesson=${l.id}`)}>
 									<GraduationCap />
 									{l.question}
 								</CommandItem>
@@ -294,11 +310,11 @@ export function CommandMenu({
 					docs.length > 0 && (
 						<CommandGroup heading="Documentation" key="docs">
 							{docs.map((d) => (
-								<CommandItem key={d.id} value={`doc-${d.id}`} onSelect={() => go(d.url)}>
+								<CommandItem key={d.id} value={`doc-${d.id}`} description={d.excerpt || 'Opens this documentation page.'} onSelect={() => go(d.url)}>
 									<BookOpen />
 									<span className="flex min-w-0 flex-col">
 										<span className="truncate">{d.title}</span>
-										{d.excerpt && <span className="truncate text-xs text-muted-foreground">{d.excerpt}</span>}
+										{d.excerpt && <span aria-hidden="true" className="truncate text-xs text-muted-foreground">{d.excerpt}</span>}
 									</span>
 								</CommandItem>
 							))}
@@ -307,13 +323,13 @@ export function CommandMenu({
 					brandRows.length + a11yRows.length > 0 && (
 						<CommandGroup heading="Theme" key="theme">
 							{brandRows.map((p) => (
-								<CommandItem key={p} value={`palette-${p}`} onSelect={() => applyPalette(p)}>
+								<CommandItem key={p} value={`palette-${p}`} description="Restyles the site and its slides with this palette." onSelect={() => applyPalette(p)}>
 									<Palette />
 									{paletteLabel(p)}
 								</CommandItem>
 							))}
 							{a11yRows.map((p) => (
-								<CommandItem key={p} value={`palette-${p}`} onSelect={() => applyPalette(p)}>
+								<CommandItem key={p} value={`palette-${p}`} description="Restyles the site and its slides with this palette, built to read without relying on color." onSelect={() => applyPalette(p)}>
 									<Palette />
 									{paletteLabel(p)}
 									<CommandShortcut>color-blind safe</CommandShortcut>
@@ -323,7 +339,7 @@ export function CommandMenu({
 					),
 					showWalkthrough && playgroundHref != null && (
 						<CommandGroup heading="Playground" key="walk">
-							<CommandItem value="start-walkthrough" onSelect={() => go(`${playgroundHref}${playgroundHref.includes('?') ? '&' : '?'}view=read`)}>
+							<CommandItem value="start-walkthrough" description="Opens the Playground and walks through every component, one by one." onSelect={() => go(`${playgroundHref}${playgroundHref.includes('?') ? '&' : '?'}view=read`)}>
 								<Play />
 								Start walkthrough
 							</CommandItem>
@@ -332,7 +348,7 @@ export function CommandMenu({
 					apprRows.length > 0 && (
 						<CommandGroup heading="Appearance" key="appr">
 							{apprRows.map((a) => (
-								<CommandItem key={a.key} value={a.key} onSelect={a.onSelect}>
+								<CommandItem key={a.key} value={a.key} description={a.description} onSelect={a.onSelect}>
 									{a.node}
 								</CommandItem>
 							))}

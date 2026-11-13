@@ -31,7 +31,7 @@ Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the 
 
 - **The clip is still a bare bullet, with `caption` and `poster` bullets beside it.** The bullet form is gone: the address comes only from your own `@video{…}` record, never from slide text. `lint:deck --fix` rewrites the bullets into the record (`video-bullet`).
 - **Writing a second `@video{…}` expecting a second clip or a contact-sheet grid.** The layout seats one clip; the first record on the slide is the one it lays out, and the second is drawn below it and runs off the slide. `lint:deck` says so (`video-extra-record`); give each clip its own slide.
-- **Writing `@video{…}` on a slide that is not a `video` slide.** The layout and the poster picture belong to this class, so any other slide draws the clip only as a plain text link. `lint:deck` says so (`video-slide-class`); add `<!-- _class: video -->`.
+- **Reaching for the `video` slide just to show a clip inside other content.** A `@video{…}` record draws its poster on any slide, with the same frames, finishes and sizes as a picture. Use the `video` slide when the clip IS the slide: it seats the clip beside its heading and adds the `qr` code.
 - **The address holds `=` or `,` unquoted (`@video{https://youtu.be/x?t=90}`).** Quote it: `@video{"https://youtu.be/x?t=90"}`. Segno names the fix.
 
 ## When to use
@@ -99,6 +99,20 @@ The full 90-second tour — scan to open it on your phone.
 
 `@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Scan to watch", poster="sample:video-poster.svg"}`
 ```
+
+## Media inside
+
+The `video` slide seats one clip beside its heading (`companion`), under it (the default) or on a matte (`gallery`), and on a `qr` slide adds a code of the watch address beside it. The clip keeps its own size, frame, finish and tone. A `@video{…}` record sits in the layout's flow and sizes itself.
+
+| Setting | Here |
+|---|---|
+| size (`sm` `md` `lg`) | the record's word, inside the box the layout gives it |
+| frame | the record's word |
+| finish | the record's word |
+| tone | the record's word |
+| `show=` (the words on the slide) | `show=title` unless the record says otherwise |
+
+The words themselves (the address, `title`, `description`) are always the author's: a layout may hide or restyle them, never change them. Hidden words still reach a screen reader, the tooltip, the print notes and narration. Design: `engineering/decisions/2026-10-16-media-plugins.md` §4.7.
 
 ## Universal modifiers
 

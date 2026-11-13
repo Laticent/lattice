@@ -107,9 +107,11 @@ describe('the previews\' draw host', () => {
 		vi.resetModules();
 		const { installPreviewDrawHost, warmPreviewDrawHost } = await import('./preview-draw-host');
 		installPreviewDrawHost(win);
-		warmPreviewDrawHost('function-plot', win);
+		// The kind it does not draw is asked first: both wait on the same lazy module, in order, so once the
+		// function-plot warm-up reaches the host, the math one has already been turned away.
 		warmPreviewDrawHost('math', win);
-		await new Promise((r) => setTimeout(r, 50));
+		warmPreviewDrawHost('function-plot', win);
+		await vi.waitFor(() => expect(calls.warm).toBeGreaterThan(0), { timeout: 10_000, interval: 1 });
 		expect(calls.warm).toBe(1);
 		// No host on the page (an export, or a surface that offers none): warming does nothing and throws nothing.
 		expect(() => warmPreviewDrawHost('function-plot', {} as Window)).not.toThrow();

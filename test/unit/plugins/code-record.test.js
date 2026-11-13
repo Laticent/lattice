@@ -149,8 +149,8 @@ describe('a record and the slide directives share one line model', () => {
 
   test('`_build: lines` steps the record\'s line spans', () => {
     const html = pre(render(`<!-- _build: lines -->\n\n# A\n\n\`@code{numbers}\`\n${FENCE}`));
-    assert.match(html, /<span class="ln" data-n="1" data-build-step="1">/);
-    assert.match(html, /<span class="ln" data-n="4" data-build-step="4">/);
+    assert.match(html, /<span class="ln" data-n="1" data-build-step="1" data-step="1">/);
+    assert.match(html, /<span class="ln" data-n="4" data-build-step="4" data-step="4">/);
   });
 });
 
@@ -193,9 +193,19 @@ describe('lint rule 12c and formatting', () => {
     assert.deepEqual(rules('# A\n\n<!-- note --!>\n`@code{numbers}`\n```ts\nx\n```\n'), [], 'a comment closed with --!> ends its block');
   });
   test('an absurd line range is reported, not expanded', () => {
-    const t0 = Date.now();
-    const found = rules('# A\n\n`@code{focus=1-20000000}`\n```ts\nx\n```\n');
-    assert.ok(Date.now() - t0 < 1000, 'returns at once');
+    // Work, not milliseconds (HARD RULE #32): count the line numbers put in a Set while the deck lints. A reader that
+    // expanded the range would add 20 million; refused at Segno's MAX_INDEX_SPAN, it adds none of them.
+    const S = Set.prototype;
+    const add = S.add;
+    let adds = 0;
+    S.add = function (v) { adds++; return add.call(this, v); };
+    let found;
+    try {
+      found = rules('# A\n\n`@code{focus=1-20000000}`\n```ts\nx\n```\n');
+    } finally {
+      S.add = add;
+    }
+    assert.ok(adds < 10_000, `the lint added ${adds} values to a Set`);
     assert.deepEqual(found.map((f) => f.rule), ['code-record']);
   });
 });

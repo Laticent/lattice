@@ -2,7 +2,7 @@
  "//": "Hand-labeled corpus: does each component have a row of equal sibling cards (what a deck's cards: governs)? `labels` are true or false and are what the render tier's card-row trigger is scored against. `candidates` look like card rows by eye (2026-10-17 review) but declare no `cards`: each waits on an owner ruling on what the cards register means for it, so it is scored as neither positive nor negative and does not gate `component.cards-declared`. Move a candidate to `labels` (true) in the same change that adopts `cards`. A new component needs a label or a candidate entry here (component.card-row-labeled). Decision note: engineering/decisions/2026-10-15-conformance-harness.md section 13.5.",
  "labels": {
   "actors": true,
-  "agenda": true,
+  "agenda": false,
   "bar": false,
   "big-number": false,
   "bullet": false,
@@ -24,6 +24,7 @@
   "flowchart": false,
   "funnel": false,
   "gantt": false,
+  "gift-card": false,
   "glossary": false,
   "heatmap": false,
   "histogram": false,

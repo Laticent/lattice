@@ -56,6 +56,14 @@ describe('a panes slide — its markers are structure, not the note', () => {
 		expect(getNote(out)).toBe('say the total');
 		expect(setNote(out, '')).toContain('<!-- pane: table -->');
 	});
+	it('a record-form marker is structure too, alone or mixed with other fields', () => {
+		const REC = '## Title\n\n<!-- @meta{panes="35/65"} -->\n<!-- {pane="list"} -->\n\n- a\n\n<!-- {footer=x, pane="table"} -->\n\n| a |\n|---|\n| 1 |';
+		expect(getNote(REC)).toBe('');
+		const out = setNote(REC, 'say the total');
+		expect(out).toContain('<!-- {pane="list"} -->');
+		expect(out).toContain('<!-- {footer=x, pane="table"} -->');
+		expect(getNote(out)).toBe('say the total');
+	});
 });
 
 describe('a tooling comment is not the note', () => {

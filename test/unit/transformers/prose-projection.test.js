@@ -1778,7 +1778,7 @@ test("video: a poster becomes the card's thumbnail tile and the author's caption
 
 test('video card: a non-http poster or link is dropped, and a quote cannot leave the attribute', () => {
 	const card = (href, style) => project(sections(
-		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2><figure class="video-embed" data-lattice-media="video"><a class="video-poster" href="${href}" style="${style}"><span class="video-provider">Watch on X</span></a></figure></div></section>`,
+		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2><figure class="video-embed lat-media" data-lattice-media="video"><a class="video-poster" href="${href}" style="${style}"><span class="video-provider">Watch on X</span></a></figure></div></section>`,
 	)).articleHtml;
 	assert.doesNotMatch(card('javascript:alert(1)', ''), /lp-video/, 'a javascript: link projects no card');
 	assert.doesNotMatch(card('https://ok.example/v', "background-image:url('javascript:alert(1)')"), /lp-video-thumb/, 'a javascript: poster projects no thumbnail');
@@ -1795,7 +1795,7 @@ test('video card: a figure inside a plugin\'s drawing, or one without the plugin
 	const stage = (inner) => project(sections(
 		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2>${inner}</div></section>`,
 	)).articleHtml;
-	const fig = '<figure class="video-embed" data-lattice-media="video"><a class="video-poster" href="https://attacker.example/?d=secret"><span class="video-provider">Watch on X</span></a></figure>';
+	const fig = '<figure class="video-embed lat-media" data-lattice-media="video"><a class="video-poster" href="https://attacker.example/?d=secret"><span class="video-provider">Watch on X</span></a></figure>';
 	assert.doesNotMatch(stage(`<div data-lattice-plugin="x">${fig}</div>`), /lp-video/, 'a plugin\'s drawing is hostile text: no card is BUILT from it');
 	assert.doesNotMatch(stage(fig.replace(' data-lattice-media="video"', '')), /lp-video/, 'a figure the video plugin did not stamp is not read');
 	assert.match(stage(fig), /lp-video/, 'control: the plugin\'s own figure still projects');
@@ -1806,7 +1806,7 @@ test('video card: a figure inside a plugin\'s drawing, or one without the plugin
 // alone dropped it and the article lost the picture the slide showed (followup 2358-p2).
 test('video card: an embedded data:image poster keeps its thumbnail; other data: types do not', () => {
 	const card = (style) => project(sections(
-		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2><figure class="video-embed" data-lattice-media="video"><a class="video-poster" href="https://ok.example/v" style="${style}"><span class="video-provider">Watch on X</span></a></figure></div></section>`,
+		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2><figure class="video-embed lat-media" data-lattice-media="video"><a class="video-poster" href="https://ok.example/v" style="${style}"><span class="video-provider">Watch on X</span></a></figure></div></section>`,
 	)).articleHtml;
 	assert.match(card("background-image:url('data:image/jpeg;base64,/9j/AA==')"), /<span class="lp-video-thumb" style="background-image:url\('data:image\/jpeg;base64,\/9j\/AA=='\)"/);
 	assert.doesNotMatch(card("background-image:url('data:text/html;base64,PHA+')"), /lp-video-thumb/, 'a non-image data: URI projects no thumbnail');
@@ -2083,4 +2083,166 @@ test('obligation-matrix: a label set renames the spoken answer as it renames the
 	// Without `pills` the cells are bare checks, and they speak the renamed word too.
 	const [plain] = renderSpeech(md.replace(' pills', ''));
 	assert.match(plain, /GDPR — Notice: in force; Consent: partial\./);
+});
+
+test('a plugin\'s drawing reaches the article whole, root included: its text is never the author\'s (spec/LPM.md §10)', () => {
+	// PR #3110's attack spec (Share → Webpage): lifting the plugin's <ul> alone dropped `[data-lattice-plugin]`, so the
+	// article held the plugin's bullets as if the author had written them.
+	const secs = sections(
+		`<section data-lattice-slide class="closing qr form"><div class="cell-stage">
+			<div class="masthead-lede"><h2>Thank you</h2></div>
+			<ul><li>https://example.com/author</li></ul>
+			<div data-lattice-plugin="gp"><ul><li>https://attacker.example/leak</li></ul><p>note</p></div>
+			<p>Words with <span data-lattice-plugin="tag" data-kind="tag">x</span> inside.</p>
+		</div></section>`,
+	);
+	const { articleHtml } = project(secs);
+	const roots = articleHtml.match(/<div data-lattice-plugin="gp">[\s\S]*?<\/div>/g) || [];
+	assert.equal(roots.length, 1, 'the root once, not once per block inside it');
+	assert.match(roots[0], /<li>https:\/\/attacker\.example\/leak<\/li>[\s\S]*<p>note<\/p>/);
+	assert.doesNotMatch(articleHtml.replace(roots[0], ''), /attacker\.example/, 'and nowhere outside it');
+	assert.match(articleHtml, /<li>https:\/\/example\.com\/author<\/li>/, 'the author\'s own bullet is still there');
+	assert.match(articleHtml, /<span data-lattice-plugin="tag" data-kind="tag">x<\/span>/, 'a span keeps its root inside the author\'s paragraph');
+});
+
+test('a plugin span inside the author\'s heading rides with it: not a second block (the checker on #3110 f11014c)', () => {
+	const secs = sections('<section data-lattice-slide class="content"><h2>Title <span data-lattice-plugin="i" data-kind="ic"><svg viewBox="0 0 1 1"></svg>WORD</span></h2><p>body</p></section>');
+	const { articleHtml } = project(secs);
+	assert.equal((articleHtml.match(/WORD/g) || []).length, 1, articleHtml);
+	assert.doesNotMatch(articleHtml, /^\s*<span data-lattice-plugin/m, 'never a top-level block');
+});
+
+test('a plugin root nested in another is copied once, as part of the outer one', () => {
+	const secs = sections(`<section data-lattice-slide class="content form"><div class="cell-stage">
+		<div data-lattice-plugin="outer"><div data-lattice-plugin="inner"><p>INNER</p></div><p>OUTER</p></div></div></section>`);
+	const { articleHtml } = project(secs);
+	assert.equal((articleHtml.match(/INNER/g) || []).length, 1, articleHtml);
+	assert.equal((articleHtml.match(/data-lattice-plugin="outer"/g) || []).length, 1);
+});
+
+test('the copy drops what the walk drops elsewhere (chrome, asides), keeps an aria-hidden drawing, and keeps a plugin paragraph equal to the eyebrow', () => {
+	const secs = sections(`<section data-lattice-slide class="content form"><div class="cell-stage">
+		<p><code>Q3</code></p><div data-lattice-plugin="gp"><p>Q3</p><svg aria-hidden="true" viewBox="0 0 2 1"><rect width="2" height="1"></rect></svg><aside>ASIDE</aside><p>SHOWN</p></div></div></section>`);
+	const { articleHtml } = project(secs);
+	const root = /<div data-lattice-plugin="gp">[\s\S]*?<\/div>/.exec(articleHtml)?.[0] ?? '';
+	assert.match(root, /SHOWN/);
+	assert.doesNotMatch(root, /ASIDE/, 'an aside is chrome, in a plugin as anywhere');
+	assert.match(root, /<svg aria-hidden="true"/, 'a decorative svg the plugin hid from the accessibility tree is still its picture');
+	assert.match(root, /<p>Q3<\/p>/, 'the plugin\'s own paragraph is not the author\'s eyebrow');
+});
+
+test('on a MEDIA slide too, a plugin\'s aria-hidden drawing stays: the copy strips chrome, not the media walk\'s hidden selector', () => {
+	const secs = sections(`<section data-lattice-slide class="image form"><div class="cell-stage">
+		<p><img src="data:image/png;base64,iVBORw0KGgo=" alt="Chart"></p>
+		<div data-lattice-plugin="gp"><svg aria-hidden="true" viewBox="0 0 2 1"><rect width="2" height="1"></rect></svg><p>SHOWN</p></div></div></section>`);
+	const { articleHtml } = project(secs);
+	const root = /<div data-lattice-plugin="gp">[\s\S]*?<\/div>/.exec(articleHtml)?.[0] ?? '';
+	assert.match(root, /SHOWN/);
+	assert.match(root, /<svg aria-hidden="true"/, root);
+});
+
+test("a plugin placeholder reads as a sentence, not its name run into its caption (followups.d/2651-p1)", () => {
+	const ph = '<div data-lattice-plugin-off="gantt-plugin" data-placement="figure" role="note"><span class="lattice-plugin-mark" aria-hidden="true"></span><span class="lattice-plugin-words"><strong>gantt-plugin</strong><span>Plugin block · not in this deck\'s plugins: list</span></span></div>';
+	const chip = '<span data-lattice-plugin-off="chip-plugin" data-placement="chip" data-inline data-size="sm" role="note" title="x" aria-label="x"><span class="lattice-plugin-mark" aria-hidden="true"></span></span>';
+	const secs = sections(
+		`<section data-lattice-slide class="content form"><div class="cell-stage"><div class="masthead-lede"><h2>Plan</h2></div><p>Before.</p>${ph}</div></section>`,
+		`<section data-lattice-slide class="content form"><div class="cell-stage"><div class="masthead-lede"><h2>Tags</h2></div><ul><li>Plan<ul><li>Bars ${chip} here.${ph}</li></ul></li></ul></div></section>`,
+	);
+	const before = secs.map((s) => s.outerHTML);
+	const { articleHtml } = project(secs);
+	assert.doesNotMatch(articleHtml, /gantt-pluginPlugin|Plugin block/, 'the caption is not run into the name');
+	assert.match(articleHtml, /<p class="lp-visual-note">The plugin <code>gantt-plugin<\/code> draws here once this deck's plugins:(?:\u00a0|&nbsp;)list names it\.<\/p>/);
+	assert.match(articleHtml, /Bars <span class="lp-visual-note"><code>chip-plugin<\/code><\/span> here\./, 'an inline placeholder stays in its sentence');
+	assert.deepEqual(secs.map((s) => s.outerHTML), before, 'the caller’s slides are not changed');
+	// Listed but not approved in this browser (`data-reason="unapproved"`): the sentence says what is missing.
+	const [unapproved] = sections(`<section data-lattice-slide class="content form"><div class="cell-stage"><div class="masthead-lede"><h2>Plan</h2></div>${ph.replace('data-placement', 'data-reason="unapproved" data-placement')}</div></section>`);
+	assert.match(project([unapproved]).articleHtml, /<p class="lp-visual-note">The plugin <code>gantt-plugin<\/code> draws here once its code is approved in this browser\.<\/p>/);
+});
+
+test('a plugin placeholder: the narration says what the article says, wherever it stands (followups.d/2651-p1, the checker)', () => {
+	const ph = (reason = '') => `<div data-lattice-plugin-off="gantt-plugin"${reason} data-placement="figure" role="note"><span class="lattice-plugin-mark" aria-hidden="true"></span><span class="lattice-plugin-words"><strong>gantt-plugin</strong><span>Plugin block · not in this deck's plugins: list</span></span></div>`;
+	const chip = '<span data-lattice-plugin-off="chip-plugin" data-placement="chip" data-inline data-size="sm" role="note" title="x" aria-label="x"><span class="lattice-plugin-mark" aria-hidden="true"></span></span>';
+	const slide = (body, h = 'Plan') => `<section data-lattice-slide class="content form"><div class="cell-stage"><div class="masthead-lede"><h2>${h}</h2></div>${body}</div></section>`;
+	const secs = sections(
+		slide(`<p>Before.</p>${ph()}`),
+		slide(`<ul><li>Card<ul><li>Bars. ${ph()}</li></ul></li></ul>`),
+		slide(`<table><tr><th>Item</th></tr><tr><td>${ph()}</td></tr></table>`),
+		slide(`<p>Body.</p>`, `Plan ${chip} now`),
+		slide(`<p>Before.</p>${ph(' data-reason="unapproved"')}`),
+	);
+	const speech = speak(secs);
+	// Directly in the stage, in a card's list and in a table cell: the sentence, never the caption run-on, never silence.
+	for (const [i, t] of speech.slice(0, 3).entries()) {
+		assert.match(t, /The plugin gantt-plugin draws here once this deck's plugins:\s?list names it\./, `slide ${i + 1}: ${t}`);
+		assert.doesNotMatch(t, /Plugin block/, `slide ${i + 1}`);
+	}
+	assert.match(speech[4], /The plugin gantt-plugin draws here once its code is approved in this browser\./);
+	// A chip in a heading names the plugin in the article's heading, its table of contents and the spoken title alike.
+	const { articleHtml, toc } = project(secs);
+	assert.equal(toc[3].text.replace(/\s+/g, ' '), 'Plan chip-plugin now');
+	assert.match(speech[3], /^Plan chip-plugin now\./);
+	// A block stands in the article's note figure, as a visual layout's note does, so both hosts give it its box and spacing.
+	assert.match(articleHtml, /<figure class="lp-figure lp-figure-note"><p class="lp-visual-note">The plugin <code>gantt-plugin<\/code>/);
+});
+
+test('a placed photo reaches the article: the shortcut, the record and `![bg]` on an image slide, and a bleed background', async () => {
+	for (const pic of ['![A lake](https://example.com/a.png)', '`@image{https://example.com/a.png, title="A lake"}`']) {
+		const { articleHtml } = project(await renderedSections(`<!-- _class: image -->\n\n## Pic\n\nThe lead.\n\n${pic}\n\nAfter.\n`));
+		assert.equal(articleHtml.split('<img').length - 1, 1, pic);
+		assert.ok(articleHtml.indexOf('The lead.') < articleHtml.indexOf('<figure') && articleHtml.indexOf('</figure>') < articleHtml.indexOf('After.'), pic);
+	}
+	const { articleHtml } = project(await renderedSections('<!-- _class: content bleed -->\n\n## Over\n\nWords.\n\n![A lake](https://example.com/a.png)\n'));
+	assert.match(articleHtml, /<figure class="lp-figure"><img src="https:\/\/example\.com\/a\.png" alt="A lake">/);
+});
+
+test('a video slide on a bleed background keeps its own video card', async () => {
+	const { articleHtml } = project(await renderedSections('<!-- _class: video bleed -->\n\n## Clip\n\n`@video{"https://youtu.be/dQw4w9WgXcQ", title="Tour"}`\n\n![A lake](https://example.com/a.png)\n'));
+	assert.match(articleHtml, /<figure class="lp-video">/);
+});
+
+test('a `.lattice-bg` a plugin draws never reaches the article: only the slide\'s own panel is re-hosted', () => {
+	const secs = sections(
+		'<section data-lattice-slide class="content"><div class="cell-stage"><h2>Plugin</h2><p>Words.</p>'
+			+ '<div data-lattice-plugin="evil"><div class="lattice-bg" data-lattice-media="image" style="background-image:url(\'https://attacker.example/x.png\')"></div></div></div></section>',
+	);
+	const { articleHtml } = project(secs);
+	assert.doesNotMatch(articleHtml, /attacker\.example/);
+	assert.equal(articleHtml.split('<img').length - 1, 0);
+});
+
+test('a `.lattice-bg` drawn deeper than the slide\'s two seats never reaches the article', () => {
+	const secs = sections(
+		'<section data-lattice-slide class="content bleed"><div class="cell-stage"><h2>Deep</h2><p>Words.</p>'
+			+ '<blockquote><div class="lattice-bg" data-lattice-media="image" style="background-image:url(\'https://attacker.example/y.png\')"></div></blockquote></div></section>',
+	);
+	const { articleHtml } = project(secs);
+	assert.doesNotMatch(articleHtml, /attacker\.example/);
+});
+
+test('only the image plugin\'s own panel is re-hosted: an author\'s raw panel, hidden, quoted or plain, and a Marp `![bg]` never are', async () => {
+	const decoys = [
+		'<div class="lattice-bg" hidden style="display:none;background-image:url(https://attacker.example/decoy.png)" aria-label="Forged"></div>\n\n![The real photo](https://example.com/real.png)',
+		'<div class="lattice-bg" hidden style="display:none;background-image:url(https://attacker.example/decoy.png)" aria-label="Forged"></div>\n\n`@image{https://example.com/real.png, title="The real photo"}`',
+	];
+	// A panel QUOTED by the author is the quote's content, not the slide's photo: the `image` slide leaves it in its quote
+	// (followups.d/3126-p1), and the article carries it as the author's quoted HTML, exactly as it does on a `content` slide. What
+	// must never happen is that it becomes the article's picture: the one re-hosted `<img>` is the real photo.
+	{
+		const quoted = '> quoted <div class="lattice-bg" data-lattice-media="image" style="background-image:url(https://attacker.example/nested.png)" aria-label="Forged"></div>\n\n![The real photo](https://example.com/real.png)';
+		const { articleHtml } = project(await renderedSections(`<!-- _class: image -->\n\n## Pic\n\nLead.\n\n${quoted}\n`));
+		assert.match(articleHtml, /<img src="https:\/\/example\.com\/real\.png" alt="The real photo">/);
+		assert.equal(articleHtml.split('<img').length - 1, 1, 'one re-hosted picture, the real one');
+		assert.doesNotMatch(articleHtml, /data-lattice-media/, 'the forged marker never survives into the article');
+	}
+	for (const decoy of decoys) {
+		const { articleHtml } = project(await renderedSections(`<!-- _class: image -->\n\n## Pic\n\nLead.\n\n${decoy}\n`));
+		assert.doesNotMatch(articleHtml, /attacker\.example|Forged/, decoy);
+		assert.match(articleHtml, /<img src="https:\/\/example\.com\/real\.png" alt="The real photo">/, decoy);
+	}
+	for (const cls of ['text', 'content bleed']) {
+		const { articleHtml } = project(await renderedSections(`<!-- _class: ${cls} -->\n\n## Raw\n\nWords.\n\n<div class="lattice-bg" style="background-image:url(https://attacker.example/raw.png)" aria-label="decoy"></div>\n`));
+		assert.doesNotMatch(articleHtml, /attacker\.example/, cls);
+	}
+	const { articleHtml } = project(await renderedSections('<!-- _class: image -->\n\n## Pic\n\nLead.\n\n![bg](https://example.com/a.png)\n'));
+	assert.equal(articleHtml.split('<img').length - 1, 0, 'a Marp ![bg] panel stays out of the article, as on main');
 });

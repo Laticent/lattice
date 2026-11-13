@@ -149,7 +149,9 @@ for (const surface of SURFACES) {
 			await preview.locator('.mermaidTooltip').evaluateAll((els) => {
 				for (const el of els) el.textContent = '';
 			});
-			const node = preview.locator('.mermaid > svg g.node[title]');
+			// The node by its class, not its `title`: in a preview with a draw host the shim's binder moves the
+			// title into `data-lattice-tip` when it binds (lib/plugins/mermaid/mermaid.draw-shim.mjs `tooltipBinder`).
+			const node = preview.locator('.mermaid > svg g.node.clickable');
 			if (surface.pointer === 'real') await node.hover();
 			else await node.dispatchEvent('mouseover');
 			return (await preview.locator('.mermaidTooltip').first().textContent()) || '';

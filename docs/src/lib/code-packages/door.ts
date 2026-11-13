@@ -22,9 +22,10 @@
 // running half is door-run.ts, loaded only once a render meets a code package, so a Studio with no
 // code package never downloads the kernel, the sanitizer or the runner.
 
-import { pluginConsentText, pluginReturnFields, returnsRefusal } from '../../../../lib/core/code-shape.mjs';
+import { CONSENT_ACCEPTED, CONSENT_VERSION, pluginConsentText, pluginReturnFields, returnsRefusal } from '../../../../lib/core/code-shape.mjs';
 import { commentBodies, readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
 import { deckPluginList } from '../../../../lib/core/deck-plugins.mjs';
+import { parsePaneMarker } from '../../../../lib/core/meta-door.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { ASPECT_RE, planFencePlugins, scopePluginCss } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
@@ -48,6 +49,8 @@ export type StudioPlugin = {
 	fence: string;
 	code: string;
 	sha256: string;
+	/** Every digest an approval of it may hold, one per consent text version the doors accept, `sha256` first (`pluginDigests`). */
+	accepts?: string[];
 	bytes: number;
 	/** The manifest's `placeholder` hint (placement, aspect, size), reduced by `placeholderHint`. */
 	placeholder?: { placement?: string; aspect?: string; size?: string };
@@ -81,8 +84,8 @@ export async function codeDigest(code: string): Promise<string> {
  * `pluginConsentText`, from the renderer's bytes as they are held here. The two share the text's shape
  * (head, code, tail), so a change to what the digest covers changes both.
  */
-export async function pluginDigest(code: string, fence: string, kinds: readonly (string | { name: string; slot?: unknown })[] = [], returns: ReturnType<typeof pluginReturnFields> = []): Promise<string> {
-	const [head, tail] = pluginConsentText('\u0001', fence, [...kinds] as Parameters<typeof pluginConsentText>[2], returns).split('\u0001');
+export async function pluginDigest(code: string, fence: string, kinds: readonly (string | { name: string; slot?: unknown })[] = [], returns: ReturnType<typeof pluginReturnFields> = [], version: number = CONSENT_VERSION): Promise<string> {
+	const [head, tail] = pluginConsentText('\u0001', fence, [...kinds] as Parameters<typeof pluginConsentText>[2], returns, version).split('\u0001');
 	const enc = new TextEncoder();
 	const parts = [enc.encode(head), enc.encode(code), enc.encode(tail)];
 	const all = new Uint8Array(parts.reduce((n, a) => n + a.length, 0));
@@ -92,6 +95,15 @@ export async function pluginDigest(code: string, fence: string, kinds: readonly 
 		at += a.length;
 	}
 	return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', all)), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Every digest an approval of this plugin may hold, the current consent text version's first: `lib/packages/trust.js
+ * pluginDigests`. An approval recorded under an earlier version (code-shape.mjs `CONSENT_ACCEPTED`) still matches.
+ */
+export async function pluginDigests(code: string, fence: string, kinds: readonly (string | { name: string; slot?: unknown })[] = [], returns: ReturnType<typeof pluginReturnFields> = []): Promise<string[]> {
+	const versions = [CONSENT_VERSION, ...CONSENT_ACCEPTED.filter((v: number) => v !== CONSENT_VERSION)];
+	return Promise.all(versions.map((v) => pluginDigest(code, fence, kinds, returns, v)));
 }
 
 /** A plugin's approval is under `plugin/<name>`, so it shares no key with a component of the same name. */
@@ -127,8 +139,9 @@ export function approveCodePackage(p: Pick<StudioCodePackage, 'name' | 'sha256'>
 }
 
 /** Has the user approved exactly this plugin code, with this fence, in this browser? */
-export function isPluginApproved(p: Pick<StudioPlugin, 'name' | 'sha256'>): boolean {
-	return readApprovals()[pluginKey(p.name)]?.sha256 === p.sha256;
+export function isPluginApproved(p: Pick<StudioPlugin, 'name' | 'sha256' | 'accepts'>): boolean {
+	const held = readApprovals()[pluginKey(p.name)]?.sha256;
+	return !!held && (p.accepts ?? [p.sha256]).includes(held);
 }
 
 /** Record the user's yes for this plugin's code and fence, in this browser. Changed code, or a changed fence, asks again. */
@@ -182,12 +195,14 @@ export async function setPlugins(list: { name: string; fence: string; code: stri
 		// plugin's load: its renderer's data is then refused at render time, with an alert (the inversion lens).
 		const declared = p.returns === undefined || returnsRefusal({ contributes: { returns: p.returns } }) ? undefined : p.returns;
 		const returns = pluginReturnFields({ contributes: { returns: declared } });
+		const accepts = await pluginDigests(p.code, p.fence ?? '', kinds.map((k) => ({ name: k.name, ...(k.slot ? { slot: k.slot } : {}) })), returns);
 		next.set(p.name, {
 			kind: 'plugin',
 			name: p.name,
 			fence: p.fence ?? '',
 			code: p.code,
-			sha256: await pluginDigest(p.code, p.fence ?? '', kinds.map((k) => ({ name: k.name, ...(k.slot ? { slot: k.slot } : {}) })), returns),
+			sha256: accepts[0],
+			accepts,
 			bytes: new TextEncoder().encode(p.code).length,
 			...(p.placeholder ? { placeholder: p.placeholder } : {}),
 			...(kinds.length ? { kinds } : {}),
@@ -265,16 +280,21 @@ export function unapprovedIn(source: string): (StudioCodePackage | StudioPlugin)
 	// A directive inside a fenced code block is quoted text, not a class the engine applies.
 	const text = source.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$/gm, '');
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
-	const deckClass = fm && /^[ \t]*class[ \t]*:[ \t]*(.+?)[ \t]*$/im.exec(fm[1]);
-	if (deckClass) add(deckClass[1]);
+	// Every top-level `class:` line: the engine applies the LAST of a repeat (#3050, D1), and naming a package from a
+	// dead line too only widens the notice, where missing the live one hides it.
+	if (fm) for (const deckClass of fm[1].matchAll(/^class[ \t]*:[ \t]*(.+?)[ \t]*$/gim)) add(deckClass[1]);
 	// `pane:` too: a package in a pane runs through the same slot (the inversion lens found a pane
 	// slide whose note pointed at a notice that never came).
-	// `_class:` / `class:` go through the shared directive grammar; a `pane:` marker is pane grammar
-	// (design note 2026-10-17-meta-record.md §5.4) and stays a local read of the text after its colon.
+	// `_class:` / `class:` go through the shared directive grammar; a pane marker, in any spelling (`_pane:`, the
+	// `pane:` alias, a record `{pane="…"}`), through the shared pane reader (lib/core/meta-door.mjs `parsePaneMarker`,
+	// record note §5.4.1). Every word of the pane's value counts: a superset, as the class read is.
 	for (const inner of commentBodies(text)) {
 		const dir = readDirectiveComment(`<!--${inner}-->`, CLASS_VOCAB);
 		if (dir) add(dir.value);
-		else if (/^pane\s*:/.test(inner)) add(inner.slice(inner.indexOf(':') + 1));
+		else {
+			const pane = parsePaneMarker(`<!--${inner}-->`)?.pane;
+			if (pane) add(pane.value);
+		}
 	}
 	return [...[...packages.values()].filter((p) => tokens.has(p.name) && !isApproved(p)), ...pluginsWanted];
 }

@@ -25,3 +25,13 @@ source: https://github.com/Laticent/lattice/pull/2959
        evidence  — the run link.
        verify    — tier 1 checker, because it touches CI.
 ```
+
+2026-11-12 (#3150) — the container job no longer starts at all: Playwright's image `v1.56.1-noble` ships Node
+v22.20.0, and Astro now refuses it ("Node.js v22.20.0 is not supported by Astro! ... >=22.23.4"), so the web server
+exits and `firefox-webrtc` fails before any test. Red on `main`'s nightly (run 43017679054) and on both #3150
+dispatches (43166338789, 43181352130). The fix is a CI change, so it is the owner's: a `setup-node` step to 22.23.4+
+inside the job, a newer Playwright image, or this follow-up's move to the bare runner.
+
+2026-11-13 — the Node half is fixed: the owner picked D1 A on PR #3164's decision card, so `firefox-webrtc` now takes Node 22
+through `actions/setup-node`, like every other job in the workflow, and checks it is at least Astro's 22.23.4. The image
+tag stays the browser pin. This follow-up's own item, moving the job to the bare runner, is unchanged.

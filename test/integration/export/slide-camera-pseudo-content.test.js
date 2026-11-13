@@ -10,6 +10,7 @@
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -18,7 +19,7 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 const BUNDLE = path.join(ROOT, 'dist', 'lattice-pdf-compose-min.js');
 const { EMOJI_SLICES, slicesFor } = require('../../../lib/fonts/emoji-faces.js');
 
-test('a ::before emoji keeps its slice, and content:" body " stays text', { skip: !fs.existsSync(BUNDLE) && 'needs npm run build' }, async () => {
+test('a ::before emoji keeps its slice, and content:" body " stays text', { skip: skipUnlessCI(!fs.existsSync(BUNDLE), 'needs npm run build') }, async () => {
   const puppeteer = require('puppeteer');
   const fontsDir = path.join(ROOT, 'assets', 'fonts');
   const faces = EMOJI_SLICES.map(
@@ -71,7 +72,7 @@ test('the CLI embeds the emoji slices that front-matter CSS draws, and none for 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pseudo-emoji-cli-'));
   try {
     const faces = (fm) => {
-      fs.writeFileSync(path.join(dir, 'd.md'), `---\ntheme: indaco\nfonts: used-emoji\n${fm}---\n\n# Launch day\n`);
+      fs.writeFileSync(path.join(dir, 'd.md'), `---\ntheme: indaco\nfont-embedding: used-emoji\n${fm}---\n\n# Launch day\n`);
       const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(dir, 'd.md'), path.join(dir, 'd.html')], { encoding: 'utf8', timeout: 120000 });
       assert.equal(r.status, 0, r.stderr);
       return (fs.readFileSync(path.join(dir, 'd.html'), 'utf8').match(/@font-face\{font-family:'Noto Color Emoji'/g) || []).length;

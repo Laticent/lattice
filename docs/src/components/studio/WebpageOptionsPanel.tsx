@@ -190,7 +190,7 @@ export function WebpageOptionsPanel({
 								<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
 									{stripNotes
 										? 'Speaker-note text is removed from every copy — the DOM and the re-import source. (The file still embeds the deck’s editable Markdown for re-opening here, so this removes notes, not everything.)'
-										: 'Speaker notes ride into the player’s Present-mode notes sheet. Turn on to remove them from the shared file.'}
+										: 'Your speaker notes ship in this file: anyone who opens it can read them in Present view. Turn on to remove them.'}
 								</span>
 							</span>
 						</span>

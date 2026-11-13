@@ -29,7 +29,7 @@
   "struck-elevation": {
     "refused": 3,
     "shapes": 159,
-    "pictures": 3,
+    "pictures": 2,
     "reasons": {
       "paint:shadow": 1,
       "paint:overflow-clipped": 1,
@@ -56,13 +56,13 @@
   },
   "backdrop-register": {
     "refused": 0,
-    "shapes": 12,
+    "shapes": 7,
     "pictures": 0,
     "reasons": {}
   },
   "state-marks": {
     "refused": 23,
-    "shapes": 237,
+    "shapes": 243,
     "pictures": 24,
     "reasons": {
       "pseudo:mask-effect-or-clip": 23

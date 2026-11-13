@@ -253,6 +253,9 @@ untrusted plugins. The red team's brief includes the phrasing-content sanitizer 
 - **Decided (owner, 2026-10-14): the zip half of `inline` is PROVISIONAL, outside LPM 1.0's freeze.** It freezes once
   #2686's reader settles how a record reads (it decides `fields`) and the shadowing on rebuilt layouts is decided
   (`followups.d/2687-p4-…`, `2687-p5-…`). The built-in `@kind{…}` form is not provisional.
+  **2687-p4 resolved 2026-11-09:** the shadow is gone, not kept. Every built-in reader masks plugin output
+  (`spec/LPM.md` §10, `checkSlideTextAddressReaders`), so a zip plugin's spans and fences draw on the layouts a shipped
+  pass rebuilds. `contact` and `wifi` keep only their card, which drops any code block, a plugin's included.
 - **Decided (owner, 2026-10-14): no declarative "template" tier.** The inversion lens proposed kinds drawn from a
   manifest template with no code. Rejected: a plugin is live code that acts on change (an avatar redraws when its
   traits change), and a template is a fill-in that cannot. The trust model stays as built: once the author approves
@@ -338,3 +341,37 @@ The trio (red team, inversion, checker) read the commits; what each found and wh
   schema (`plugin.schema.json`), `spec/LPM.md` §3.3, §10 and §12, and this note now say what was built. Its two larger
   points, freezing and a declarative tier, went to the owner (§10: provisional; no template tier); shadowing on rebuilt layouts and the
   versioning of the consent text are followups that block phase G.
+
+**2026-11-09 — the #2687 followups that were still open (PR #2725, rebased onto 756c1fff).**
+- **What `fields` holds** (`2687-p5`). `spec/LPM.md` §3.3.1 lists the value per field type, pinned through both builds
+  of `@laticent/segno/read` (`test/unit/cli/inline-fields-contract.test.js`); both doors take `compileSlot` from Segno
+  since #3038. Rebased onto #3038, the test caught the move it was written for: `{>a}` read as the text `">a"` and is
+  now a description no record slot takes, so `@kind{> …}` is not drawn. Two #2686 changes are still planned (phase 4's
+  old spellings, the thin space); the rule "a span that reads keeps its `fields`" applies from the freeze on.
+- **A versioned consent text** (`2687-p6`). `CONSENT_VERSION` 1 is the text byte for byte (four digests pinned, one with
+  a `returns` segment); trust.js `trustOf` takes every accepted version's digest, so the CLI's checks, its kept pins and
+  the Studio accept an approval under any of them.
+- **The placeholder in grid cells and the Reading view** (`2651-p1`). All three placements fit a `cards-grid` card and a
+  `columns` pane at 1440, 820 and 390; the Reading view says it in a sentence (`withPlaceholderNotes`), for both of the
+  placeholder's states (not listed, or listed and not approved); the caption no longer ends on a bare `plugins:`.
+- **Dropped from the October version:** the fence style filter (`fenceStyle`). #2910 contains a fence drawing's paint and
+  strips the top-layer attributes, and main records the decision that a fence keeps its renderer's styles because a
+  block drawing has real uses for positioning (base.modifiers.css). A filter would reverse that, and would be a second
+  hand-written CSS declaration parser after #2871 and #3033 moved to one tokenizer per language. The e2e flake fixes were
+  superseded on main.
+- **The rebuilt-layout shadow** (`2687-p4`) was decided by the owner (a listed plugin draws on every slide type) and
+  built in #3110 with the slide-text address check. **Compose's panel for a kind's slot** (`2687-p8`) had already shipped
+  on 2026-10-22 under `2846-p4` (`PluginKindPanel.tsx`, `kernels.record`, `e2e/compose-plugin-kind.spec.ts`); this line
+  said "still open" until step 4 below.
+
+**2026-11-10 — step 4, Compose, closed.** What §4.5 asked for and 2026-10-22 had not built: **a kind without a slot gets
+a text field.** `pluginKindEntries` dropped every slot-less kind, so its spans stayed plain code. Now each installed kind
+is an entry (`slot` optional); a slot-less span is an object whose panel holds its record, the text between the braces,
+as one line, and a change writes `@kind{…}` whole. Insert starts one as `@kind{}`. Compose takes the door's own test of
+a whole call: `recordIsWhole` and the span pattern moved out of `code-door-fence.mjs` into `lib/core/named-span.mjs`
+(`namedCall`), which both import, so Compose owns, and writes, only a span the door would claim (`@k{a} and {b}` and an
+unclosed quote are refused, and the deck keeps the last good record; the panel says which rule the record broke).
+Proved in the real Studio by `e2e/compose-plugin-kind.spec.ts` in Chromium at 1440 and 390, WebKit at 1180 and Gecko,
+with a screenshot at 820. The spec's install helper had been leaving every project at 1440, so its phone run never ran
+at phone width; it restores the project's own size now.
+

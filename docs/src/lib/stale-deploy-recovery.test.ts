@@ -52,8 +52,11 @@ function fakeWindow(
 		if (parsed) observe?.([{ addedNodes: [el] }]);
 		onError?.({ target: el });
 	};
-	const settle = () => new Promise((r) => setTimeout(r, 0));
-	return { win, fetch, store, fail, settle };
+	// For a "nothing happens" check: the recovery's whole chain is promises on a fake fetch that answers at once (no timer), so one
+	// macrotask turn drains it, and nothing it would do is left pending. A swap is awaited on its own signal (`swapped`).
+	const settle = () => new Promise((r) => setTimeout(r, 0)); // flaky-ok: a 0 ms turn, not a duration: it drains a promise-only chain with no exposed end, for absence checks
+	const swapped = () => vi.waitFor(() => expect(win.location.replace).toHaveBeenCalled(), { timeout: 10_000, interval: 1 });
+	return { win, fetch, store, fail, settle, swapped };
 }
 
 const FRESH_PAGE = '<link rel="modulepreload" href="/_astro/StudioIsland.NEWHASH2.js">';
@@ -63,8 +66,7 @@ describe('installStaleDeployRecovery', () => {
 		const f = fakeWindow({ freshHtml: FRESH_PAGE });
 		installStaleDeployRecovery(f.win as unknown as Window, { island: 'StudioIsland' });
 		f.fail('LINK', 'href', STALE_CHUNK);
-		await f.settle();
-		await f.settle();
+		await f.swapped();
 		expect(f.fetch).toHaveBeenCalledTimes(2);
 		expect(f.fetch.mock.calls[0][1]).toMatchObject({ cache: 'no-store' });
 		expect(f.fetch.mock.calls[1]).toEqual(['/studio/', expect.objectContaining({ cache: 'reload' })]);
@@ -77,7 +79,6 @@ describe('installStaleDeployRecovery', () => {
 		const f = fakeWindow({ freshHtml: `<link rel="modulepreload" href="${STALE_CHUNK}">` });
 		installStaleDeployRecovery(f.win as unknown as Window, { island: 'StudioIsland' });
 		f.fail('SCRIPT', 'src', STALE_CHUNK);
-		await f.settle();
 		await f.settle();
 		expect(f.fetch).toHaveBeenCalledOnce();
 		expect(f.win.location.replace).not.toHaveBeenCalled();
@@ -129,8 +130,7 @@ describe('installStaleDeployRecovery', () => {
 		f.store.set('lattice:stale-deploy-swap:/playground//_astro/PlaygroundIsland.OLD.js', String(Date.now()));
 		installStaleDeployRecovery(f.win as unknown as Window, { island: 'StudioIsland' });
 		f.fail('LINK', 'href', STALE_CHUNK);
-		await f.settle();
-		await f.settle();
+		await f.swapped();
 		expect(f.win.location.replace).toHaveBeenCalledOnce();
 	});
 
@@ -152,8 +152,7 @@ describe('installStaleDeployRecovery', () => {
 		const f = fakeWindow({ freshHtml: FRESH_PAGE });
 		new Function('window', `(${installStaleDeployRecovery.toString()})(window, {"island":"StudioIsland"});`)(f.win);
 		f.fail('LINK', 'href', STALE_CHUNK);
-		await f.settle();
-		await f.settle();
+		await f.swapped();
 		expect(f.win.location.replace).toHaveBeenCalledOnce();
 	});
 });

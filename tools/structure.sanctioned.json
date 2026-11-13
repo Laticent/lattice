@@ -2,6 +2,7 @@
   "note": "The exact imports each sanction in tools/structure.js (SANCTIONED_PLUGIN_REACH, SANCTIONED_PLUGIN_ENTRY) admits, one `file -> file` per line. Debt that may only shrink: `node tools/structure.js --prune-sanctions` removes lines that no longer match; a new line is a hand edit with its reason in the PR. Emptied by #3009.",
   "edges": {
     "lib/plugins/chart-family -> lib/core": [
+      "lib/plugins/chart-family/chart-family.dispatch.js -> lib/core/render-ids.js",
       "lib/plugins/chart-family/kinds/bar/bar.transform.js -> lib/core/chart-rows.js",
       "lib/plugins/chart-family/kinds/bullet/bullet.transform.js -> lib/core/bullet-facts.js",
       "lib/plugins/chart-family/kinds/bullet/bullet.transform.js -> lib/core/chart-rows.js",

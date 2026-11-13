@@ -1,0 +1,11 @@
+{
+  "name": "lattice-marp-cli-pin",
+  "private": true,
+  "description": "The marp-cli the Marp integration tests render with: the FLOOR of the range Lattice supports (MARP_SUPPORT in lib/export/marp-bundle.js), marp-cli and marp-core both. Pinned and locked so a test never fetches it; see test/helpers/marp-cli.js. The newest release in the range runs nightly (LATTICE_MARP_CLI=range).",
+  "dependencies": {
+    "@marp-team/marp-cli": "4.0.0"
+  },
+  "overrides": {
+    "@marp-team/marp-core": "4.0.0"
+  }
+}

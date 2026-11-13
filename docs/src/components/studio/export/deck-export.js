@@ -51,6 +51,8 @@ import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { captureSlideCanvas, pseudoContentText } from '../../../../../lib/core/slide-camera.mjs';
+import { expandStepPages } from '../../../../../lib/core/step-pages.mjs';
+import { applyStepAt } from '../../../../../lib/core/step-state.mjs';
 import { everySlideHidden } from '../../../../../lib/diagnostics/slice-equivalence-core.mjs';
 // A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
 // only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
@@ -234,6 +236,44 @@ export async function importedThemeNames(css) {
 		.map((i) => i.target.toLowerCase());
 }
 
+const PHOTO_TYPES = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml', avif: 'image/avif' };
+
+/** The photo reader and pixel sampler `bakeBleedInk` asks for, over the bundle's own zip (its `assets/` files). */
+function bleedInkHost(dir, source) {
+	const size = /^size[ \t]*:[ \t]*["']?([\w:/.-]+)/m.exec(String(source || ''))?.[1] || '';
+	const ratio = /^(\d+):(\d+)$/.exec(size);
+	const draw = (src) => new Promise((resolve) => {
+		const img = new Image();
+		img.onload = () => resolve(img);
+		img.onerror = () => resolve(null);
+		img.src = src;
+	});
+	return {
+		slideW: ratio ? Number(ratio[1]) : 16,
+		slideH: ratio ? Number(ratio[2]) : 9,
+		readPhoto: async (url) => {
+			const mime = PHOTO_TYPES[String(url).split('.').pop().toLowerCase()];
+			const file = mime ? dir.file(decodeURI(url)) : null;
+			if (!file) return null;
+			// Measured from a `data:` URL, the same form the sampler draws: no `blob:` URL is made here (download.test.ts).
+			const base64 = await file.async('base64');
+			const img = await draw(`data:${mime};base64,${base64}`);
+			return img ? { bytes: await file.async('uint8array'), mime, width: img.naturalWidth, height: img.naturalHeight } : null;
+		},
+		samplePixels: async (dataUri, rect, w, h) => {
+			const img = await draw(dataUri);
+			if (!img) return null;
+			const canvas = document.createElement('canvas');
+			canvas.width = w;
+			canvas.height = h;
+			const ctx = canvas.getContext('2d');
+			if (!ctx) return null;
+			ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h, 0, 0, w, h);
+			return ctx.getImageData(0, 0, w, h).data;
+		},
+	};
+}
+
 // Export to Marp — the SAME self-contained bundle as `npm run export:marp`,
 // assembled in the browser: bake the slide splits into literal `---`, fetch the
 // staged static assets (minified stylesheet / runtime / mermaid) + the
@@ -266,9 +306,11 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// `marp` is the eager door a test stubs; the engine itself loads the bundle builder on demand.
 	const marp = PG?.marp ?? (await PG?.loadMarp?.());
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, bakeHidden, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
+	const { bakeSplits, bakeHidden, stripPaneMarkers, appendAutoGlossary, fillAutoAgenda, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeThemeStubs, vscodeStubPath, VSCODE_ONLY_ASSETS, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
 	// An engine bundle from before hidden slides has no `bakeHidden`: the export still runs, as it did then.
 	const bakeHiddenOrSame = typeof bakeHidden === 'function' ? bakeHidden : (src) => src;
+	// The agenda fill (lib/core/agenda-autofill.js) is newer than some cached bundles, as `bakeHidden` once was.
+	const fillAutoAgendaOrSame = typeof fillAutoAgenda === 'function' ? fillAutoAgenda : (src) => src;
 	// Every slide hidden (after `glossary: auto` appends its shown slides): the bundle would render nothing, as every
 	// other export refuses to.
 	if (everySlideHidden(appendAutoGlossary(source))) throw new Error('Every slide in this deck is hidden, so there is nothing to export. Show at least one slide.');
@@ -287,6 +329,17 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// rather than name a path the bundle lacks.
 	// The URL is derived like `exportBase` below, the same rule as samplesBaseFor in
 	// samples-base.ts: a `.ts` import would break the node tests that load this file.
+	// Slide-metadata records go back to directive comments FIRST, before anything reads a class or a pane marker: Marp reads
+	// only comments, an uncompiled record is one of its speaker notes (record note §7), and the image plugin's rewrite below
+	// places a picture by the slide's `_class:`. On demand: the engine ships on every route. The passes run in the order
+	// both producers share (lib/export/marp-directives.mjs `MARP_PASSES`). A record field that cannot reach Marp whole (a
+	// value holding `-->`) is left out, never truncated, and said in the export's report (`recordWarnings`).
+	const { recordsToComments } = await import('../../../../../lib/core/meta-door.mjs');
+	const recordReport = [];
+	source = recordsToComments(source, recordReport);
+	// The image plugin's records next, in Marp's spelling, so their pictures are staged below and a panel record is lifted
+	// (lib/export/marp-bundle.js `withImageRecordsAsMarp`). A cached bundle from before the image plugin has none to rewrite.
+	if (typeof marp.withImageRecordsAsMarp === 'function') source = marp.withImageRecordsAsMarp(source, pluginsOff);
 	const samplePaths = new Map();
 	const samplesBase = themeBase.replace(/themes\/$/, 'samples/');
 	await Promise.all(sampleAssetNames(source).map(async (sample) => {
@@ -335,15 +388,39 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// every later slide, so it is written as `_header:` first. Imported here, on demand, and not from the engine: the
 	// engine ships on every route and the rewrite put one over its ceiling (lib/core/marp-slide-only.mjs).
 	const { withSlideOnlySpotted } = await import('../../../../../lib/core/marp-slide-only.mjs');
+	// A saved library theme is not one the VS Code-shaped stylesheet was built from, so that bundle registers the full themes
+	// with VS Code and must not link the stylesheet too (it would apply the engine's rules again, after the theme's own).
+	const chosen = (palette || 'indaco').toLowerCase();
+	const saved = extraTheme?.css && String(extraTheme.name || '').toLowerCase() === chosen ? extraTheme : null;
+	const { withMarpDirectivesOnly } = await import('../../../../../lib/export/marp-directives.mjs');
+	// One pass per line, in the shared order. The lift runs on the UNSPLIT body, before the split bake, as the CLI's does:
+	// run last (as it was), an image slide with two headings had its `_class` and its `![bg]` in different parts, and Marp's
+	// own background took the photo (record note §7).
+	const embedded = embedComponentsInMarkdown(localized, components);
+	const agendaFilled = fillAutoAgendaOrSame(embedded);
+	const glossed = appendAutoGlossary(agendaFilled);
+	const lifted = liftImageBgImages(glossed, undefined);
+	const split = bakeSplits(lifted);
+	// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
+	// carve a pane and would read each marker as a speaker note.
+	const unpaned = stripPaneMarkers(split);
+	const shown = bakeHiddenOrSame(unpaned);
+	// Marp shows a comment of Lattice-only directives (`_focusSteps`, `_build`, `_track`) as a speaker note, so those go.
+	const marpOnlyReport = withMarpDirectivesOnly(shown);
+	const marpOnly = marpOnlyReport.markdown;
 	const bundled = withRuntimeScriptsReport(
-			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
-			// carve a pane and would read each marker as a speaker note.
-			withSlideOnlySpotted(liftImageBgImages(bakeHiddenOrSame(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(localized, components))))), undefined)),
+			withSlideOnlySpotted(marpOnly),
 			// `pluginsOff` — the plugins the Studio's admission left off for this deck: Marp renders the
 			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
-			{ localAssets: false, bundledAssets: [...samplePaths.values()], overflowMarker, pluginsOff },
+			{ localAssets: false, bundledAssets: [...samplePaths.values()], overflowMarker, pluginsOff, vscodeLink: !saved },
 		);
-	dir.file(`${slug}.md`, bundled.markdown);
+	// A `bleed` slide's ink, decided from the photo this bundle carries and written into its `_class`: the recipient opens the
+	// deck over `file://`, where its runtime may not read a local picture's pixels (lib/export/marp-bleed-ink.js). The photos are
+	// this zip's own files; a canvas reads them here, where they are same-origin bytes.
+	const markdown = typeof marp.bakeBleedInk === 'function' && typeof document !== 'undefined'
+		? await marp.bakeBleedInk(bundled.markdown, bleedInkHost(dir, source))
+		: bundled.markdown;
+	dir.file(`${slug}.md`, markdown);
 
 	// palette CSS (+ dark), fetched from the staged theme dir — or, for a SAVED
 	// library theme, written from its own CSS, since the site has no file for it.
@@ -352,8 +429,6 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// indaco without a word (2026-09-23-portable-packages.md §1). A theme we can't
 	// bundle now fails the export with its name.
 	const exportBase = themeBase.replace(/themes\/$/, 'export/');
-	const chosen = (palette || 'indaco').toLowerCase();
-	const saved = extraTheme?.css && String(extraTheme.name || '').toLowerCase() === chosen ? extraTheme : null;
 	const bundledThemes = [];
 	{
 		// Bundle the palette, its -dark companion, AND the transitive theme-name
@@ -404,6 +479,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// same faces without a second list to keep in sync.
 	let bundledCssText = '';
 	await Promise.all(STATIC_ASSETS.map(async ({ from, to }) => {
+		if (saved && VSCODE_ONLY_ASSETS.includes(to)) return; // this bundle registers the full themes (above)
 		const r = await fetch(exportBase + baseName(from)).catch(() => null);
 		if (!r?.ok) return;
 		if (to === 'lattice.css') {
@@ -450,14 +526,25 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// Marp's own math typesetter is always off: the deck's math is already typeset (marp-bundle-math.js).
 	dir.file('marp.config.cjs', marpConfigCjs());
 	dir.file('package.json', `${JSON.stringify(packageJson(slug), null, 2)}\n`);
-	dir.file('.vscode/settings.json', vscodeSettings(themesList));
+	// VS Code registers directive-only stubs (.vscode/themes/) and takes its styling from the linked lattice-vscode.css, which is
+	// built from the SHIPPED palettes. A saved theme is not one of them, so a bundle carrying one registers the full files, as
+	// before: correct, without the faster preview.
+	let vscodeThemes = themesList;
+	if (!saved) {
+		// A file the fetch above could not get is not in the zip, and gets no stub either.
+		const texts = await Promise.all(themesList.filter((p) => dir.file(p)).map(async (p) => ({ path: p, css: await dir.file(p).async('string') })));
+		// The palettes' stubs are cut here; the engine's (VSCODE_ENGINE_STUB) came with the static assets.
+		for (const st of vscodeThemeStubs(texts)) dir.file(st.path, st.css);
+		vscodeThemes = themesList.map(vscodeStubPath);
+	}
+	dir.file('.vscode/settings.json', vscodeSettings(vscodeThemes));
 	dir.file('.vscode/extensions.json', vscodeExtensions());
 	dir.file('.vscode/tasks.json', vscodeTasks());
-	dir.file('README.md', readme({ name: slug, palette: chosen, themes: themesList, agent: agentOk }));
+	dir.file('README.md', readme({ name: slug, palette: chosen, themes: themesList, agent: agentOk, vscodeStubs: !saved }));
 
 	const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 	download(blob, `${slug}.zip`);
-	return { ...bundled.removed, escaped: bundled.escaped, refused: bundled.refused, math: bundled.math };
+	return { ...bundled.removed, escaped: bundled.escaped, refused: bundled.refused, math: bundled.math, recordWarnings: recordReport.map((d) => `line ${d.line}: ${d.message}`), droppedKeys: [...new Set(marpOnlyReport.dropped)] };
 }
 
 // ── Dedicated capture host ─────────────────────────────────────────────────────
@@ -493,9 +580,10 @@ function withTimeout(p, ms) {
 // — in the .pdf, the .pptx, the .png set and the shared player, all seven exports
 // below. Not a blank chart; a plausible wrong one, in bytes handed to someone
 // else.
-async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker, framePadding, playerBake }, { releaseDiagrams = true } = {}) {
+async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker, framePadding, playerBake, steps }, { releaseDiagrams = true } = {}) {
 	const gw = geom?.w || 1280;
 	const gh = geom?.h || 720;
+	let stepCounts = null;
 	const host = document.createElement('div');
 	host.setAttribute('aria-hidden', 'true');
 	host.dataset.latticeExport = 'capture';
@@ -588,11 +676,39 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 			try { draw(); } catch (_e) { /* the harness tiles stay up */ }
 		}
 		if (win?.__latticeFit) win.__latticeFit();
+		// "One page per step" (the CLI's `--steps`): every `_build` / `_focusSteps` slide becomes one page per step,
+		// each painted at its step and keeping its slide's page number. Expanded HERE, after the deck settled, with the
+		// same kernel the CLI runs (lib/core/step-pages.mjs, HARD RULE #1), so every lane below photographs the pages. The
+		// runtime in this frame stops re-running once the copies exist (lib/runtime/index.js `stepPagesExpanded`).
+		// The counts let a lane stretch what it keys per slide (comments, alt text, notes) across a slide's pages.
+		if (steps) stepCounts = expandStepPages(doc.querySelector('.lattice') || doc, applyStepAt);
 	} catch (e) {
 		dispose();
 		throw e;
 	}
-	return { frame, dispose };
+	return { frame, dispose, stepCounts };
+}
+
+/**
+ * Stretch a per-slide list across the step pages `createCaptureFrame` made: entry i repeats once per page of slide i,
+ * or, with `firstOnly`, rides on the slide's first page and its other pages get `blank`. A list that does not line up
+ * with the slides comes back as it was, so a lane that already guards its own length keeps that guard.
+ *
+ * @template T
+ * @param {T[] | null | undefined} list one entry per slide
+ * @param {number[] | null | undefined} counts pages per slide, from `createCaptureFrame`
+ * @param {{ firstOnly?: boolean, blank?: T | null }} [opts]
+ * @returns {(T | null)[] | null | undefined}
+ */
+export function stretchByStepPages(list, counts, { firstOnly = false, blank = null } = {}) {
+	if (!Array.isArray(list) || !Array.isArray(counts) || counts.every((n) => n === 1)) return list;
+	if (list.length !== counts.length) return list;
+	const out = [];
+	counts.forEach((n, i) => {
+		out.push(list[i]);
+		for (let k = 1; k < n; k++) out.push(firstOnly ? blank : list[i]);
+	});
+	return out;
 }
 
 // Bounded wait for runtime-drawn figures (a Mermaid diagram, a function plot) to finish in
@@ -777,7 +893,7 @@ export function emptySlidesOf(html, only, slideCount, splitSections) {
  * the loss passes a parity check unnoticed.
  *
  * @param {string} html the engine's rendered deck HTML
- * @returns {Promise<{note: string|null, description: string|null, say: string|null}[]>}
+ * @returns {Promise<{note: string|null, description: string|null, say: string|null, reader: string|null}[]>}
  */
 async function slideChannelRecord(html) {
 	const { notesCore, splitSectionsCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
@@ -1076,7 +1192,7 @@ async function sectionsOf(frame, fonts, { iconShapes = false } = {}) {
 	const sections = doc.querySelectorAll('.lattice>section');
 	if (!sections.length) throw new Error('Nothing to export yet.');
 	// First, so the font sheet below counts only the glyphs a slide still draws (glyphTextOf skips an icon-svg slide).
-	// `fonts: system-emoji`: the camera leaves the emoji font out of every picture it draws (lib/core/slide-camera.mjs), as the command line does.
+	// `font-embedding: system-emoji`: the camera leaves the emoji font out of every picture it draws (lib/core/slide-camera.mjs), as the command line does.
 	// Icons too: no machine has our icon font, so under `system` the page shows each icon's <svg> instead (lib/plugins/icons/icons.styles.css;
 	// engineering/decisions/2026-11-01-icon-font.md § 3.4), as the command line does.
 	// The Studio scopes the engine's CSS to each slide (`:root` becomes `article.lattice > :where(section)`), so the switch
@@ -1876,6 +1992,30 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 // wired parameter rots: the next caller wanting JPEG bytes in an alpha-capable container
 // would read this signature, pass 'png', and silently get a square corner. The kernel's
 // fail-safe default would mask that rather than catch it.
+/**
+ * Photograph one slide now, and start writing its picture in the picture pool. Resolves once the slide is photographed,
+ * with `encoded`, the picture's bytes (PNG or JPEG) still being written, so the caller can photograph the next slide meanwhile.
+ * The same shot and the same writer as `rasterizeSectionToDataUrl`: the canvas is finished when the camera returns it (it
+ * reads a pixel back to make WebKit run the draw), so writing it after the capture fixups are undone changes nothing.
+ */
+async function shootThenEncode(section, fontEmbedCSS, pageFormat, cornerTarget, log) {
+	let canvas;
+	try {
+		canvas = await withCaptureFixups(section, (_w, _h, pixelRatio) => shootSection(section, pixelRatio, fontEmbedCSS, log, 'export'), undefined, cornerTarget);
+	} catch (e) {
+		throw captureError(e);
+	}
+	// BYTES, not a `data:` URL. The writer hands back bytes and jsPDF takes bytes; a base64 string between them was built
+	// here and decoded again there, a third larger in memory for every slide the print panel keeps (2026-11-11-deferred-asset-bytes.md §10).
+	const write = sharedPictureEncoder().encode(canvas, pageFormat === 'jpeg' ? { type: 'jpeg', quality: 95 } : { type: 'png' });
+	const encoded = write.catch((e) => {
+		throw captureError(e);
+	});
+	// Never an unhandled rejection while it waits its turn: the caller awaits it, and that is where a failure surfaces.
+	encoded.catch(() => {});
+	return { encoded };
+}
+
 async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, cornerTarget, log) {
 	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS, cornerTarget, log);
 	return withCaptureFixups(section, async (_w, _h, pixelRatio) => {
@@ -1946,6 +2086,23 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 		await recordUnreachableAssets(sections, log);
 		const { w, h } = slideGeom(sections[0]);
 		const images = [];
+		// Every image here goes to `assembleSheetPdf`, whose jsPDF step per page runs in a pool (pdf-image-pool.js). Started as
+		// each slide is photographed, it runs while this thread photographs the next one.
+		const pngPool = pageFormat === 'png' ? await import('./pdf-image-pool.js') : null;
+		pngPool?.startPngSet();
+		// PHOTOGRAPH THE NEXT SLIDE WHILE THE LAST ONE ENCODES. A slide's picture is written in the picture pool, off this
+		// thread, and this loop used to wait for it before photographing the next slide: 17 s of a 60 s, 50-slide print in
+		// Chromium and 21 s of 82 s in WebKit, measured on the owner's deck (2026-11-11-deferred-asset-bytes.md §8). Now at
+		// most ENCODE_WINDOW pictures wait at once, so a phone holds a few canvases (14.7 MB each at 2560 x 1440), not a
+		// deck's worth. The same pixels go to the same writer, so every image, and the file, is the same.
+		const ENCODE_WINDOW = 3;
+		const waiting = [];
+		const settleOldest = async () => {
+			const { index, encoded } = waiting.shift();
+			images[index] = await encoded;
+			// `'SLOW'`: what `addImage` resolves to on the sheet's `compress: true` document.
+			pngPool?.startPng(images[index], 'SLOW');
+		};
 		for (let i = 0; i < sections.length; i++) {
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
 			// The corner target is `'pdf'`, NOT `pageFormat`. Those are different axes and this
@@ -1956,11 +2113,13 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 			// straight to `assembleSheetPdf`. Passing 'png' here would keep the rounded corner
 			// and composite its transparency onto the page, which is the pale-notch artifact the
 			// capability rule exists to prevent. lib/core/corner-export-capability.mjs.
-			images.push(await rasterizeSectionToDataUrl(sections[i], fontEmbedCSS, pageFormat, 'pdf', log));
+			waiting.push({ index: i, encoded: (await shootThenEncode(sections[i], fontEmbedCSS, pageFormat, 'pdf', log)).encoded });
+			if (waiting.length >= ENCODE_WINDOW) await settleOldest();
 			// Yield a macrotask between slides so the progress line paints (see the note
-			// in buildPdfBlobOnMainThread) — the per-slide clone + PNG-deflate is synchronous.
+			// in buildPdfBlobOnMainThread) — the per-slide clone is synchronous.
 			await new Promise((r) => setTimeout(r));
 		}
+		while (waiting.length) await settleOldest();
 		return { images, geom: { w, h }, pageFormat };
 	} finally {
 		dispose();
@@ -2001,6 +2160,26 @@ export async function assembleSheetPdf(images, geom, name, meta, opts) {
 	// pageW=1344px → 1008pt = 14in.
 	const pdf = new jsPDF({ orientation, unit: 'px', format: [pageW, pageH], compress: true, hotfixes: ['px_scaling'] });
 	pdf.setProperties(pdfProps(name, meta, images.length));
+	// jsPDF's PNG step for every page, run side by side in the pool before the pages are placed (pdf-image-pool.js): the
+	// same function on the same bytes, so the same file, without 51 s of it on this thread for a 50-slide deck. `'SLOW'` is
+	// what `addImage` resolves to on a `compress: true` document. A JPEG sheet needs no step: jsPDF stores a JPEG as it is.
+	const { preparePngs, installPreparedPngs } = await import('./pdf-image-pool.js');
+	const prepared = pageFormat === 'png' ? await preparePngs(images, 'SLOW') : [];
+	const hook = installPreparedPngs(pdf, 'SLOW');
+	// EVERY PICTURE IS NAMED BY ALL OF ITS BYTES. jsPDF reuses an earlier image whose name matches, and with no name it makes
+	// one up: for a string, a hash of the whole string; for BYTES, a 32-bit hash of only the FIRST HALF. A PNG or JPEG is
+	// written top row first, so two slides that differ only near the bottom (a page number, a bullet revealed low) shared a
+	// name, and one slide printed on the other's page, silently (the checker, PR #3148). A SHA-256 of the whole picture keeps
+	// what the name is for, one image for truly identical slides, and never merges two that differ.
+	const names = await Promise.all(images.map((img) => (img instanceof Uint8Array ? pictureName(img) : undefined)));
+	const place = (idx, x, y, w, h) => {
+		hook.next(prepared[idx]);
+		try {
+			pdf.addImage(images[idx], pageFormat === 'jpeg' ? 'JPEG' : 'PNG', x, y, w, h, names[idx]);
+		} finally {
+			hook.done();
+		}
+	};
 	const pages = handout ? images.length : Math.ceil(images.length / nup) || 1;
 	for (let p = 0; p < pages; p++) {
 		if (p > 0) pdf.addPage([pageW, pageH], orientation);
@@ -2010,7 +2189,7 @@ export async function assembleSheetPdf(images, geom, name, meta, opts) {
 		pdf.rect(0, 0, pageW, pageH, 'F');
 		if (handout) {
 			if (onStatus) onStatus('Placing slide ' + (p + 1) + ' of ' + images.length + '…', { current: p, total: images.length });
-			pdf.addImage(images[p], pageFormat === 'jpeg' ? 'JPEG' : 'PNG', regions.slide.x, regions.slide.y, regions.slide.w, regions.slide.h);
+			place(p, regions.slide.x, regions.slide.y, regions.slide.w, regions.slide.h);
 			drawHandoutNotes(pdf, regions.notes, notes[p]);
 		} else {
 			for (let k = 0; k < nup; k++) {
@@ -2018,7 +2197,7 @@ export async function assembleSheetPdf(images, geom, name, meta, opts) {
 				if (idx >= images.length) break;
 				if (onStatus) onStatus('Placing slide ' + (idx + 1) + ' of ' + images.length + '…', { current: idx, total: images.length });
 				const cell = cells[k];
-				pdf.addImage(images[idx], pageFormat === 'jpeg' ? 'JPEG' : 'PNG', cell.x, cell.y, cell.w, cell.h);
+				place(idx, cell.x, cell.y, cell.w, cell.h);
 			}
 		}
 		// Yield a macrotask between pages — LOAD-BEARING for the re-place path. A
@@ -2031,6 +2210,23 @@ export async function assembleSheetPdf(images, geom, name, meta, opts) {
 		await new Promise((r) => setTimeout(r));
 	}
 	return pdf.output('blob');
+}
+
+/** A picture's name for jsPDF: a SHA-256 of all of its bytes (`assembleSheetPdf`). Without Web Crypto (an insecure page), two
+ *  independent 32-bit hashes of every byte plus the length: no two different slides a deck can hold share it. */
+async function pictureName(bytes) {
+	const subtle = globalThis.crypto?.subtle;
+	if (subtle) {
+		const d = new Uint8Array(await subtle.digest('SHA-256', bytes));
+		return `p${Array.from(d, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+	}
+	let a = 0x811c9dc5;
+	let b = 0x01000193;
+	for (let i = 0; i < bytes.length; i++) {
+		a = Math.imul(a ^ bytes[i], 0x01000193) >>> 0;
+		b = (Math.imul(b, 31) + bytes[i]) >>> 0;
+	}
+	return `p${bytes.length}-${a.toString(16)}-${b.toString(16)}`;
 }
 
 // Draw a slide's speaker notes into the handout's notes band: a hairline rule at the top,
@@ -2072,7 +2268,7 @@ function drawHandoutNotes(pdf, region, note) {
 async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
 	// Per-page comment sticky notes (opt-in via the export panel); absent → none.
-	const annotations = opts?.annotations || null;
+	let annotations = opts?.annotations || null;
 	// Print `sheet` mode → the rasterize → assemble split. A one-shot renderPdfBlob
 	// rasterizes then assembles in one go; the Print drawer instead calls the two halves
 	// directly so it can CACHE the images across a paper/orientation change.
@@ -2081,10 +2277,12 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 		const { images, geom, pageFormat: fmt } = await rasterizeDeckImages(render, onStatus, { ...opts, imageFailures: log });
 		return assembleSheetPdf(images, geom, name, meta, { sheet, pageFormat: fmt });
 	}
-	const { frame, dispose } = await createCaptureFrame(render);
+	const { frame, dispose, stepCounts } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 		await recordUnreachableAssets(sections, log);
+		// A comment sticks to its slide's first step page, once, not to every page of the walk.
+		if (annotations && stepCounts) annotations = stretchByStepPages(annotations, stepCounts, { firstOnly: true, blank: [] });
 		// THE SHARED WRITER first: the same code as the CLI's PDF (lib/core/pdf-compose) —
 		// real text, vector charts and original images over one photo per slide. The
 		// image-per-page lanes below stay as the fallback, so a deck is never lost to it.
@@ -2121,10 +2319,10 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
  *     where `sweepWebRefsForCapture` already replaces it;
  *   · document properties and comment sticky notes, as the photo lanes write them.
  */
-/** The deck's `fonts:` line (lib/core/font-policy.js) with the panel's choice on top, read the way the CLI reads it. */
+/** The deck's `font-embedding:` line (lib/core/font-policy.js) with the panel's choice on top, read the way the CLI reads it. */
 export function deckFontSetting(source) {
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
-	return applyFontsOverride(fontPolicyCore.parseFontsSetting(frontMatterKeyCore.frontMatterValue(fm, 'fonts')));
+	return applyFontsOverride(fontPolicyCore.parseFontsSetting(frontMatterKeyCore.frontMatterValue(fm, 'font-embedding')));
 }
 
 /** The deck's `images:` line (lib/core/image-policy.js), read the way the CLI reads them, so both hosts choose alike. */
@@ -2421,9 +2619,11 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	const log = createImageFailureLog();
 	// Lift the `describe:` channel from the ENGINE render, before the capture frame
 	// sanitizes it away — see the altText note in the slide loop below.
-	const describeRecord = await slideChannelRecord(render.html);
-	const { frame, dispose } = await createCaptureFrame(render);
+	let describeRecord = await slideChannelRecord(render.html);
+	const { frame, dispose, stepCounts } = await createCaptureFrame(render);
 	try {
+	// Every step page of a slide is that slide, so it carries the slide's description.
+	if (stepCounts) describeRecord = stretchByStepPages(describeRecord, stepCounts);
 	const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 	await recordUnreachableAssets(sections, log);
 	// The record and the rasterized sections come from two different splits of the same
@@ -2534,8 +2734,20 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 	// Notes and descriptions come from the ENGINE render, before the capture frame
 	// sanitizes the comments they live in away (see exportPptx).
 	const record = await slideChannelRecord(render.html);
-	const { frame, dispose } = await createCaptureFrame(render);
+	// "Strip speaker notes" (the CLI's --strip-notes): the notes pane stays empty. The
+	// descriptions are alt text, not private, so they still ride (#1833).
+	if (opts?.stripNotes) for (const r of record) if (r) r.note = null;
+	// The notes field PowerPoint and Impress carry: the speaker note, then the reader note labeled `Reader:` (D8,
+	// lib/authoring/notes-core.js `withReaderNotes`, the CLI's same join). The reader note survives the strip above.
+	const { notesCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
+	const officeNotes = (r) => (r ? notesCore.withReaderNotes([r.note], [r.reader ?? null])[0] : null);
+	const { frame, dispose, stepCounts } = await createCaptureFrame(render);
 	try {
+		// Every step page carries its slide's notes and description, as the CLI's `--steps` does.
+		if (stepCounts) {
+			const stretched = stretchByStepPages(record, stepCounts);
+			record.splice(0, record.length, ...stretched);
+		}
 		// Only the editable file has text boxes for a glyph to ride in; a picture-per-slide file draws the page as it is.
 		const iconShapes = officeIconsCore.iconsAsShapes({ format, editable });
 		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts, { iconShapes });
@@ -2603,7 +2815,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 				},
 			};
 			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', pictures: officePicturePolicy(images), onWarn: (m) => console.warn(`[deck-export] ${m}`) });
-			slides = captured.slides.map((sl, i) => ({ ...sl, notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null }));
+			slides = captured.slides.map((sl, i) => ({ ...sl, notes: officeNotes(record[i]), description: (record[i]?.description || '').trim() || null }));
 			backgrounds = captured.backgrounds;
 		} else {
 			for (let i = 0; i < sections.length; i++) {
@@ -2623,7 +2835,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 				} catch (e) {
 					throw captureError(e);
 				}
-				slides.push({ image: shot, frames: [], shapes: [], notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null });
+				slides.push({ image: shot, frames: [], shapes: [], notes: officeNotes(record[i]), description: (record[i]?.description || '').trim() || null });
 				await new Promise((r) => setTimeout(r));
 			}
 		}
@@ -2635,7 +2847,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 			const { calcoFontHost } = await import('./calco-font-host.js');
 			// A face left out is reported with the export, not dropped: the reader's office suite will use its own font for that text.
 			const skippedFonts = new Map();
-			// The `fonts:` policy for text, as the command line's editable export reads it (lib/export/office-export.js): `exact` cuts a face to the
+			// The `font-embedding:` policy for text, as the command line's editable export reads it (lib/export/office-export.js): `exact` cuts a face to the
 			// characters the deck draws in it, `used` and `full` keep the whole face, `system` embeds nothing. Emoji are not embedded: see there.
 			deck.fonts = await calco.prepareFonts(deck, await calcoFontHost(fontPolicyCore.resolveFontPolicy(opts?.fonts).text), (face, why) => {
 				// Named with its slant: "Outfit italic" is missing, not Outfit, which embeds fine.

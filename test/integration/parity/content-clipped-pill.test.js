@@ -26,10 +26,11 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const puppeteer = require('puppeteer');
+const { trackPageWork } = require('../../helpers/page-settle');
 const { execFileSync } = require('node:child_process');
 
 // Rendered by invoking the emulator DIRECTLY rather than through
@@ -53,19 +54,6 @@ function renderAt(markdown, key, level) {
   if (!fs.existsSync(html)) throw new Error(`emulator produced no HTML sidecar for ${key}`);
   return html;
 }
-
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
-
 const deck = (body) => `---\nmarp: true\ntheme: indaco\n---\n\n${body.trim()}\n`;
 // The same deck with an ordinary, over-long running footer — the shape that made the
 // reader pill paint an opaque capsule across the confidentiality line it was reporting.
@@ -115,7 +103,7 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   let browser;
 
   if (!chrome) {
-    test('SKIPPED — no Chromium available', { skip: true }, () => {});
+    test('needs Chromium', { skip: skipWithoutChrome(chrome) }, () => assert.fail('no Chromium on this runner: install it (test/helpers/chrome.js)'));
     return;
   }
   process.env.CHROME_PATH = chrome;
@@ -130,11 +118,11 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   async function inspect(body, key, level) {
     const html = renderAt(deck(body), key, level);
     const page = await browser.newPage();
+    const settled = await trackPageWork(page);
     await page.setViewport({ width: 1280, height: 720 });
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
-    // The export's inline watcher settles on fonts, so give it a beat before reading.
-    await page.evaluate(() => document.fonts.ready);
-    await new Promise((r) => setTimeout(r, 1200));
+    // The export's inline watcher settles on fonts and then marks; read once it has nothing left queued.
+    await settled({ frames: 3 }); // the runtime's passes, its fonts and a resize's observers are done
     const v = await page.$eval('section', (s) => {
       const tab = s.querySelector(':scope > .marker-rail > .overflow-tab');
       return {
@@ -163,10 +151,10 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   async function inspectFooter(body, key, level) {
     const html = renderAt(deckWithFooter(body), key, level);
     const page = await browser.newPage();
+    const settled = await trackPageWork(page);
     await page.setViewport({ width: 1280, height: 720 });
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
-    await page.evaluate(() => document.fonts.ready);
-    await new Promise((r) => setTimeout(r, 1200));
+    await settled({ frames: 3 }); // the runtime's passes, its fonts and a resize's observers are done
     const v = await page.$eval('section', (s) => {
       const tab = s.querySelector(':scope > .marker-rail > .overflow-tab');
       const ft = s.querySelector('.cell-footer > footer, :scope > footer');
@@ -369,10 +357,10 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   async function corners(cls, key, build = deck) {
     const html = renderAt(build(CORNER(cls)), key, 'author');
     const page = await browser.newPage();
+    const settled = await trackPageWork(page);
     await page.setViewport({ width: 1280, height: 720 });
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
-    await page.evaluate(() => document.fonts.ready);
-    await new Promise((r) => setTimeout(r, 1200));
+    await settled({ frames: 3 }); // the runtime's passes, its fonts and a resize's observers are done
     const v = await page.$eval('section', (s) => {
       // NULL for a box that does not PAINT, not a zero-rect. `getBoundingClientRect()` on
       // a `display: none` element is all zeros, and an object of zeros is TRUTHY — so
@@ -527,10 +515,10 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
       const fm = `---\nmarp: true\ntheme: indaco\n${size ? `size: ${size}\n` : ''}footer: "${FOOTER_TEXT}"\n---\n\n`;
       const html = renderAt(fm + ELLIPSIS.trim() + '\n', `preset-${name}`);
       const page = await browser.newPage();
+      const settled = await trackPageWork(page);
       await page.setViewport({ width: vw, height: vh });
       await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
-      await page.evaluate(() => document.fonts.ready);
-      await new Promise((r) => setTimeout(r, 1200));
+      await settled({ frames: 3 }); // the runtime's passes, its fonts and a resize's observers are done
       const v = await page.$eval('section', (s) => {
         const R = (e) => {
           if (!e) return null;
@@ -647,10 +635,10 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
     // stamps the class, which is a different register's concern and has its own tests.
     const html = renderAt(deck(CORNER('content')), 'berth-square-fixme', 'author');
     const page = await browser.newPage();
+    const settled = await trackPageWork(page);
     await page.setViewport({ width: 1280, height: 720 });
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0' });
-    await page.evaluate(() => document.fonts.ready);
-    await new Promise((r) => setTimeout(r, 1200));
+    await settled({ frames: 3 }); // the runtime's passes, its fonts and a resize's observers are done
     const v = await page.$eval('section', (s) => {
       s.classList.add('fit-marked');
       const e = s.querySelector(':scope > .fixme-tab');

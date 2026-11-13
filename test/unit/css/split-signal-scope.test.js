@@ -72,6 +72,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { resolveChrome } = require('../../../tools/lib/resolve-chrome');
+const { skipWithoutChrome } = require('../../helpers/chrome');
 
 const ROOT = path.resolve(__dirname, '../../..');
 // The DEFAULT-theme bundle, not the bare one:  is
@@ -179,7 +180,7 @@ describe('the split signal reads as chrome on every page a split emitted', () =>
 
   for (const [i, shape] of PAGES.entries()) {
     test(`${shape.name} — the signal is chrome, not body text`, async (t) => {
-      if (!exe) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
+      { const why = skipWithoutChrome(exe); if (why) return t.skip(why); }
       const got = await page.evaluate((id) => {
         const el = document.getElementById(id);
         const cs = getComputedStyle(el);
@@ -240,7 +241,7 @@ describe('the split signal reads as chrome on every page a split emitted', () =>
   }
 
   test("a label past the pill's width ellipsises INSIDE the column, never outside it", async (t) => {
-    if (!exe) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
+    { const why = skipWithoutChrome(exe); if (why) return t.skip(why); }
     const got = await page.evaluate(() => {
       const el = document.getElementById('siglong');
       const lbl = el.querySelector('.lat-split-label');

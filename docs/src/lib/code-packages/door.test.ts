@@ -24,6 +24,16 @@ describe('which packages a deck needs approved', () => {
 		expect(unapprovedIn('<!-- _class: other -->')).toEqual([]);
 	});
 
+	// Every pane marker spelling is read by the shared reader (lib/core/meta-door.mjs `parsePaneMarker`, record note
+	// §5.4.1). The canonical `_pane:` form was missed by the old `^pane:` read, so a package used only there was not offered.
+	it('reads a package named in a pane marker of any spelling', () => {
+		for (const m of ['<!-- _pane: tally -->', '<!-- _pane: tally no-title -->', '<!-- pane: tally -->', '<!-- {pane="tally"} -->', '<!-- @meta{pane="tally"} -->', '<!-- {footer=x, pane="tally no-title"} -->']) {
+			expect(unapprovedIn(`## host\n\n${m}\n\n- 3`).map((p) => p.name), m).toEqual(['tally']);
+		}
+		expect(unapprovedIn('## host\n\n<!-- {pane="other"} -->\n\n- 3')).toEqual([]);
+		expect(unapprovedIn('## host\n\n```md\n<!-- _pane: tally -->\n```\n')).toEqual([]);
+	});
+
 	it('an approval is for exactly this code, in this browser, and can be withdrawn', async () => {
 		const sha256 = await codeDigest(CODE);
 		expect(isApproved({ name: 'tally', sha256 })).toBe(false);

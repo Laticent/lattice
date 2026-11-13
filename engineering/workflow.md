@@ -941,9 +941,11 @@ That is a change to what the automation produces, not to how it reports, and it 
 decision.
 
 The sharpest instance, worth naming because a reader will otherwise assume it is covered: in
-`perf-nightly::watch`, `Build + collect — base` is `continue-on-error`, so when it dies `compare`
-runs head-only, scores nothing, and writes `regressed=false`. Filing needs `'true'` and does not
-fire; the stand-down correctly declines on `basecollect`'s outcome; the job concludes **success**.
+`perf-nightly::watch`, `Build — base` is `continue-on-error` and the alternated collect skips any
+base run that fails, so when the base arm dies `compare` runs head-only, scores nothing, and writes
+`regressed=false`. Filing needs `'true'` and does not fire; the stand-down correctly declines on
+`basebuild`'s outcome and `base_ok`, which the compare step carries from the collect (true only when
+every form factor got a base run); the job concludes **success**.
 Nothing filed, nothing commented, nothing red — a green nothing. The contract test now requires
 every `continue-on-error` step that runs BEFORE the measurement to be outcome-guarded by the
 stand-down, so that state can never be read as health; it still cannot make the job speak.

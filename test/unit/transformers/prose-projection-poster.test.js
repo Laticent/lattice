@@ -13,6 +13,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { legacyPosterInStyle } = require('../../../tools/segno-legacy/poster-in-style.js');
 const remoteRef = require('../../../lib/core/remote-ref.js');
+const { charReads } = require('../../helpers/work-count');
 
 const ROOT = path.join(__dirname, '../../..');
 let posterInStyle;
@@ -82,24 +83,33 @@ describe('the narrator reads a video poster with cssRefSpans (Segno R4)', () => 
     assert.ok(wrong.length >= 9, `the regex was wrong on only ${wrong.length} cases`);
   });
 
-  test('floods read in well under a second', () => {
+  // Work, not milliseconds (HARD RULE #32): the walker reads each character a few times (3 to 5 today), counted as every
+  // charCodeAt, every copied slice and every string search. A reader that goes back over the text per escape or per
+  // span reads thousands per character on these inputs.
+  const PER_CHAR = 16;
+  const work = (style) => {
+    const { result, reads, scanned } = charReads(() => posterInStyle(style));
+    return { result, perChar: (reads + scanned) / style.length };
+  };
+
+  test('floods read each character a bounded number of times', () => {
     // A run of hex escapes in a bad url: the url-token check once took seconds on ten of them.
     for (const tail of ['"x)', "'x)"]) {
-      const t0 = Date.now();
-      assert.equal(posterInStyle(`background-image:url(${'\\aaaaaa'.repeat(2000)}${tail}`), '');
-      assert.ok(Date.now() - t0 < 1000, `escapes, ${Date.now() - t0} ms`);
+      const { result, perChar } = work(`background-image:url(${'\\aaaaaa'.repeat(2000)}${tail}`);
+      assert.equal(result, '');
+      assert.ok(perChar <= PER_CHAR, `escapes ${JSON.stringify(tail)}: ${perChar.toFixed(1)} reads per character`);
     }
     // Many declarations: each is read once, not once per span.
     const many = Array.from({ length: 32_000 }, (_, i) => `background:url(a${i}.png)`).join(';');
-    const t1 = Date.now();
-    assert.equal(posterInStyle(many), 'a31999.png');
-    assert.ok(Date.now() - t1 < 1000, `declarations, ${Date.now() - t1} ms`);
+    const { result, perChar } = work(many);
+    assert.equal(result, 'a31999.png');
+    assert.ok(perChar <= PER_CHAR, `declarations: ${perChar.toFixed(1)} reads per character`);
   });
 
-  test('a 64 KB style reads in well under a second', () => {
+  test('a 64 KB style reads each character a bounded number of times', () => {
     const style = `${'color:red;'.repeat(3000)}background-image:url(${'a'.repeat(30_000)}.jpg)`;
-    const t0 = Date.now();
-    assert.equal(posterInStyle(style), `${'a'.repeat(30_000)}.jpg`);
-    assert.ok(Date.now() - t0 < 1000, `${Date.now() - t0} ms`);
+    const { result, perChar } = work(style);
+    assert.equal(result, `${'a'.repeat(30_000)}.jpg`);
+    assert.ok(perChar <= PER_CHAR, `${perChar.toFixed(1)} reads per character`);
   });
 });

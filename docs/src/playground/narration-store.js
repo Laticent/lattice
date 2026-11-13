@@ -241,10 +241,13 @@ export async function getClip(key) {
   }
 }
 
+/** Every recency bump still in flight, joined by `__touchesSettled` (a test seam). */
+let touchChain = Promise.resolve();
+
 /** Bump an entry's recency. Best-effort and unawaited by `getClip` — a failed touch
  *  only makes the LRU slightly less accurate, which is never worth a stall. */
 function touch(key) {
-  openDB()
+  const done = openDB()
     .then((db) =>
       write(db, (_clips, meta) => {
         const r = meta.get(key);
@@ -257,6 +260,7 @@ function touch(key) {
     .catch(() => {
       /* best-effort */
     });
+  touchChain = touchChain.then(() => done);
 }
 
 /**
@@ -502,6 +506,7 @@ export function __resetForTests() {
   dbPromise = null;
   budgetBytes = DEFAULT_BUDGET_BYTES;
   evictChain = Promise.resolve();
+  touchChain = Promise.resolve();
   storedBytes = null;
   writesSinceScan = 0;
   quotaCapBytes = Infinity;
@@ -512,4 +517,10 @@ export function __resetForTests() {
  *  post-eviction store has to join the chain rather than guess at a timeout. */
 export function __evictionsSettled() {
   return evictChain;
+}
+
+/** Test seam: resolve once every recency bump `getClip` fired has committed. `touch` is unawaited by design (a read
+ *  on the playback path must never wait on a write), so a test that depends on the bump joins this chain. */
+export function __touchesSettled() {
+  return touchChain;
 }

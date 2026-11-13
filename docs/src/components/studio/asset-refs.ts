@@ -107,10 +107,14 @@ export function renameAssetRefsOutsideCode(source: string, from: string, to: str
 			// A table row is several inline tokens (one per cell) over the same lines, so they share one group, in order.
 			const key = `${a}:${b}`;
 			const group = groups.get(key) ?? { first: a, last: b, flags: [] };
+			// The spans come out sorted and apart, and the matches in order, so one pointer walks both: a `some` per match
+			// rescanned the spans from the start and made a line of many refs and backticks quadratic (followups.d 3045).
 			const spans = codeSpanRanges(t.content);
+			let sp = 0;
 			for (const m of t.content.matchAll(refPattern())) {
 				const at = m.index ?? 0;
-				group.flags.push(!spans.some(([s, e]) => at >= s && at < e));
+				while (sp < spans.length && spans[sp][1] <= at) sp++;
+				group.flags.push(!(sp < spans.length && at >= spans[sp][0]));
 			}
 			groups.set(key, group);
 			for (let l = a; l < b; l++) kind[l] = 'group';

@@ -52,8 +52,9 @@ describe('engine.paneOrientations — the CLI\'s answer before it bakes a fence'
   });
 
   test('keyed on source lines, so slides the engine adds or text that looks like a marker cannot shift it', () => {
-    // The checker's cases. A `_focusSteps` slide renders three sections from one, and a join on
-    // slide index gave the wide pane below it the tall pane's orientation; a `<!-- pane: -->`
+    // The checker's cases. A `_focusSteps` slide rendered three sections from one (until 2026-11-09;
+    // it is one slide now, and the case stays as a guard), and a join on slide index gave the wide
+    // pane below it the tall pane's orientation; a `<!-- pane: -->`
     // quoted in a code sample or a list item is no marker to the carve, and a marker count read it.
     const focus = ['---', 'theme: indaco', '---', '', '<!-- _focusSteps: a | b | c -->', '', '## Steps', '', '- a', '- b', '- c', '',
       '---', '', '## Tall.', '', '<!-- panes: 35/65 -->', '<!-- pane: list -->', '', '- x', '', '<!-- pane: list -->', '', '- y', '',

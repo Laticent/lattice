@@ -4,18 +4,20 @@ import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
 import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
-import { Annotation, ChangeSet, Compartment, EditorState, type Extension, StateEffect, Transaction } from '@codemirror/state';
-import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, lineNumbers, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
+import { Annotation, ChangeSet, EditorSelection as CmSelection, Compartment, EditorState, type Extension, StateEffect, Transaction } from '@codemirror/state';
+import { closeHoverTooltips, EditorView, hasHoverTooltips, highlightActiveLine, highlightActiveLineGutter, hoverTooltip, keymap, layer, lineNumbers, RectangleMarker, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
-import { buildVocabSets, externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
+import { type CarriedColumn, lineOffsetIn, plainColumnOfCarried, plainLine, rawColumnFor } from '@/lib/deck-outline/caret-line';
+import { externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/lib/editor-diagnostics.js';
 import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
 import type { Focus, FocusHub } from '@/lib/fuoco/hub';
 import { partAt, unitAt } from '@/lib/fuoco/outline';
 import { notify } from '@/lib/notify';
 import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
-import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists } from './editor-complete';
+import { lintCoreNow, loadLintCore, studioVocabSets } from './deck-lint';
+import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists, withLazyInlineCore } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { firstSlideShown } from './first-slide';
 import { iconPreviewOption } from './icon-preview';
@@ -29,19 +31,9 @@ let keepInkTooltip: ((tr: Transaction, from: number, to: number) => boolean | nu
 
 
 
-// The shared authoring linter (lib/authoring/lint-core via the browser bundle),
-// lazily imported the first time the editor validates — surfaces that never lint
-// don't pull the bundle. Module-scoped cache so every editor instance shares it.
-// biome-ignore lint/suspicious/noExplicitAny: the bundled CJS lint kernel.
-let lintCoreMod: any = null;
-function loadLintCore() {
-	return import('@/playground/authoring-door.js').then((door) => door.loadAuthoring())
-		.then((m) => {
-			lintCoreMod = m.lintCore;
-			return lintCoreMod;
-		})
-		.catch(() => null);
-}
+// The shared authoring linter (lib/authoring/lint-core via the browser bundle), lazily
+// imported the first time the editor validates — surfaces that never lint don't pull the
+// bundle. The loader and its cache live in deck-lint.ts, shared with Compose's lint pass.
 
 // A small, self-contained CodeMirror 6 markdown editor for the Studio prototype.
 // WRAP, DON'T REINVENT — but this is a fresh, bus-free wrapper (the playground's
@@ -248,7 +240,129 @@ function isAuthorEdit(u: { transactions: readonly { isUserEvent(e: string): bool
 }
 
 export type EditorSelection = { empty: boolean; text: string; from: number; to: number };
+
+/**
+ * Where `caret` sits on screen: its own coordinates when its line is drawn, else the start of its line block (a line outside
+ * CodeMirror's drawn viewport has no coordinates; its block is an estimate). A long wrapped line can be taller than the
+ * pane, so the line block alone put the caret below it (the checker's catch).
+ */
+function caretBox(view: EditorView, caret: number): { top: number; bottom: number } {
+	const at = Math.min(caret, view.state.doc.length);
+	const c = view.coordsAtPos(at);
+	if (c) return { top: c.top, bottom: c.bottom };
+	const block = view.lineBlockAt(at);
+	const top = view.documentTop + block.top;
+	return { top, bottom: top + Math.min(block.height, 24) };
+}
+
+/** The framing in progress on a view: what cancels it when the author takes over, or a newer framing replaces it. */
+const FRAMING = new WeakMap<EditorView, { caret: number; cancel: () => void }>();
+
+/** Stop the framing on `v`, if any: its keyboard listener, its hidden-pane observer and its remaining checks. */
+function stopFraming(v: EditorView): void {
+	FRAMING.get(v)?.cancel();
+	FRAMING.delete(v);
+}
+
+/**
+ * Over the next `tries` layouts, scroll `caret` into the visible part of the pane whenever the measured heights leave it
+ * outside. Only while this framing is current and the caret has not moved: once the author scrolls, taps or types, the view
+ * is theirs (the checker: a keyboard resize yanked the view back to an old caret after the author had scrolled away).
+ */
+function keepCaretInView(v: EditorView, caret: number, tries: number): void {
+	const mine = () => FRAMING.get(v)?.caret === caret && v.state.selection.main.head === Math.min(caret, v.state.doc.length);
+	v.requestMeasure({
+		read: () => null,
+		// Never a dispatch or a scroll inside the measure cycle (CodeMirror refuses it): the next frame, measured there, after
+		// CodeMirror's own scroll has landed.
+		write: (_x, view) => {
+			requestAnimationFrame(() => {
+				if (!view.dom.isConnected || !mine()) return;
+				const box = view.scrollDOM.getBoundingClientRect();
+				const bottom = visibleBottom(view);
+				const c = caretBox(view, caret);
+				if (c.top < box.top || c.bottom > bottom) {
+					// By hand, to sit in the space above the keyboard: CodeMirror's 'nearest' knows the pane, not the keyboard over it.
+					const room = bottom - box.top;
+					view.scrollDOM.scrollTop = Math.max(0, view.scrollDOM.scrollTop + c.top - box.top - Math.max(8, (room - (c.bottom - c.top)) / 2));
+				}
+				if (tries > 1) keepCaretInView(view, caret, tries - 1);
+			});
+		},
+	});
+}
+
+/**
+ * Where the editor's visible area ends on screen: the pane's bottom, or the top of an on-screen keyboard over it. An iPad's
+ * keyboard covers the lower half of the pane without shrinking it, so a caret framed in the pane's full height sat under
+ * the keyboard (owner, iPad, 2026-11-12). `visualViewport` is the part of the page the keyboard leaves.
+ */
+function visibleBottom(v: EditorView): number {
+	const box = v.scrollDOM.getBoundingClientRect();
+	const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+	return vv ? Math.min(box.bottom, vv.offsetTop + vv.height) : box.bottom;
+}
+
+/**
+ * FRAME THE SLIDE, AS COMPOSE DOES. Scrolling the caret's line to the top of the pane hid the slide above it (its heading,
+ * its eyebrow), so a switch from Compose, which shows the whole slide, landed on a line with no context (owner, iPad,
+ * 2026-11-12). The slide's first editable line goes at the top (studio-jargon-alignment.spec.ts's contract for a rail pick)
+ * when the slide down to the caret fits the visible part of the pane; when it does not, the caret goes in the middle.
+ */
+function frameSlide(v: EditorView, from: number, caret: number) {
+	stopFraming(v);
+	const cleanups: Array<() => void> = [];
+	const cancel = () => {
+		for (const c of cleanups.splice(0)) c();
+	};
+	FRAMING.set(v, { caret, cancel });
+	// The author taking over ends the framing: a scroll, a tap or a key in the editor.
+	const takeOver = () => {
+		if (FRAMING.get(v)?.caret === caret) stopFraming(v);
+	};
+	for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const) {
+		v.scrollDOM.addEventListener(type, takeOver, { passive: true, once: true });
+		cleanups.push(() => v.scrollDOM.removeEventListener(type, takeOver));
+	}
+	// The keyboard rises AFTER focus (on a tablet, a moment after this frame): when it does, the caret is checked again
+	// against the space it leaves. For a few seconds only, and only until the author takes over.
+	const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+	if (vv) {
+		const onResize = () => keepCaretInView(v, caret, 2);
+		vv.addEventListener('resize', onResize);
+		cleanups.push(() => vv.removeEventListener('resize', onResize));
+	}
+	const timer = setTimeout(takeOver, 3000);
+	cleanups.push(() => clearTimeout(timer));
+	const full = v.scrollDOM.clientHeight;
+	// A pane with no height yet (a phone's hidden pane) cannot be measured: frame the slide the first time it gets one, and
+	// meanwhile put the caret's line at the top. Framed while hidden, the heights were all estimates, and the caret drifted
+	// below the pane once the phone drew its wrapped lines (studio-pane-sync's phone case). The observer goes with the framing.
+	if (!full) {
+		if (typeof ResizeObserver !== 'undefined') {
+			const ro = new ResizeObserver(() => {
+				if (!v.scrollDOM.clientHeight || !v.dom.isConnected) return;
+				const at = Math.min(caret, v.state.doc.length);
+				const current = FRAMING.get(v)?.caret === caret && v.state.selection.main.head === at;
+				stopFraming(v);
+				if (current) v.dispatch({ effects: frameSlide(v, Math.min(from, at), at) });
+			});
+			ro.observe(v.scrollDOM);
+			cleanups.push(() => ro.disconnect());
+		}
+		return EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 });
+	}
+	// The heights are estimates until the lines are drawn (a phone wraps long lines taller than estimated: a caret line
+	// estimated at 1076 px measured 2262 px), so the check repeats over the next few layouts.
+	keepCaretInView(v, caret, 4);
+	const room = Math.max(0, visibleBottom(v) - v.scrollDOM.getBoundingClientRect().top);
+	const span = v.lineBlockAt(caret).bottom - v.lineBlockAt(from).top;
+	return span + 16 <= room ? EditorView.scrollIntoView(from, { y: 'start', yMargin: 8 }) : EditorView.scrollIntoView(caret, { y: 'center' });
+}
+
 export type EditorHandle = {
+	/** The caret's column as Source sees it: a raw column in its Markdown line, which the other editor converts. */
+	caretColumn: () => CarriedColumn;
 	fixAll: () => void;
 	/** Pretty-print every code block a formatter reads, except `format=off`, as one undoable edit
 	 *  (lib/authoring/code-format/). Resolves with what changed and what was left alone, or null
@@ -300,6 +414,21 @@ export type EditorHandle = {
 	placeCaret: (text: string, offset: number) => void;
 };
 
+/** A drawn caret where the caret is, while the editor does not have focus: on a phone the real caret only shows with the
+ *  keyboard up, so after a switch from the preview the author could not see where they were (owner, 2026-11-11). A LAYER,
+ *  CodeMirror's own place for a drawn cursor, outside the content DOM, so focusing never changes the text under a click.
+ *  The class is `lx-ghost-caret-cm` (styles/tailwind.css); a tap puts the real caret wherever the author taps. */
+const ghostCaret = layer({
+	above: true,
+	class: 'lx-ghost-caret-layer',
+	markers(view) {
+		const sel = view.state.selection.main;
+		if (view.hasFocus || !sel.empty) return [];
+		return RectangleMarker.forRange(view, 'lx-ghost-caret-cm', sel);
+	},
+	update: (u) => u.focusChanged || u.selectionSet || u.docChanged || u.geometryChanged || u.viewportChanged,
+});
+
 export const Editor = React.forwardRef<EditorHandle, {
 	value: string;
 	/** Every change to the document, with what changed when the editor knows it (an author's edit
@@ -337,6 +466,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  reveals the slide whenever another pane navigates. It is the editor's only sync channel:
 	 *  no slide index or caret text leaves it any other way. */
 	focusHub?: FocusHub | null;
+	/** Read once when a view is built: true when the author switched INTO this editor and it should take the keyboard
+	 *  (a real keyboard, or a phone switching straight from Compose). Otherwise it shows a drawn caret, not the keyboard. */
+	focusOnMount?: () => boolean;
+	/** The caret's column (in the line's plain form, caret-line.ts) carried from the editor the author left, or null. */
+	caretColumn?: () => CarriedColumn;
 	/** Fired when the selection emptiness changes — gates the Refine control. */
 	onSelectionChange?: (hasSelection: boolean) => void;
 	/** True for a `value` this editor emitted and has since typed past. The Studio commits typing as a React
@@ -377,7 +511,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  browser's own Studio write (a strip op) reaching the editor through the session. Either only maps the caret. */
 	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string; isPeer?: (tr: Transaction) => boolean } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, caretColumn, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const pendingCaretRef = React.useRef<{ text: string; offset: number } | null>(null);
@@ -396,6 +530,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// A sync that produced DIFFERENT text (a leading BOM the filter stripped) still goes out.
 	const syncedValueRef = React.useRef<string | null>(null);
 	const hubRef = React.useRef(focusHub);
+	const focusOnMountRef = React.useRef(focusOnMount);
+	focusOnMountRef.current = focusOnMount;
+	const caretColumnRef = React.useRef(caretColumn);
+	caretColumnRef.current = caretColumn;
 	hubRef.current = focusHub;
 	const isStaleEchoRef = React.useRef(isStaleEcho);
 	isStaleEchoRef.current = isStaleEcho;
@@ -453,23 +591,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: extraNamesKey / finishKey / paletteKey are the stable content-proxies; depending on the arrays themselves would rebuild every render. pluginsVersion moves when the shared plugin vocabulary does.
 	const vocabSets = React.useMemo(() => {
 		if (!useRealLint) return null;
-		const sets = buildVocabSets(lintVocab);
-		// Union your saved local components into the known names so lint-core treats
-		// them as first-class, not unknown. (Built-in `names` stays authoritative.)
-		for (const n of extraComponentNames || []) sets.names.add(n);
-		// Fold the finish VALUE vocabulary (built-ins + saved, already prefixed) into
-		// the finish register so `finish: <value>` isn't flagged `unknown-finish`
-		// inline — matching the Architect panel. Also accept the bare slug of a
-		// prefixed saved value (`finish-shu` → `shu`) so a deck authored before the
-		// prefix convention doesn't false-warn.
-		if (completionFinishValues.length) {
-			const extra = completionFinishValues.flatMap((v) => (v.startsWith('finish-') ? [v, v.slice('finish-'.length)] : [v]));
-			sets.finishNames = [...(sets.finishNames || []), ...extra];
-		}
-		// The same for `theme:`: a palette the author saved is a theme this deck can name, so
-		// `unknown-theme` must not flag it. The lint vocab carries only the shipped ones.
-		if (completionPalettes.length) sets.themeNames = [...(sets.themeNames || []), ...completionPalettes];
-		return sets;
+		// One builder for both editors' passes (deck-lint.ts): saved components, finishes and palettes are known names.
+		return studioVocabSets(lintVocab, { names: extraComponentNames, finishValues: completionFinishValues, palettes: completionPalettes });
 	}, [lintVocab, useRealLint, extraNamesKey, finishKey, paletteKey, pluginsVersion]);
 
 	// The completion + lint extensions live in Compartments so they can be RECONFIGURED
@@ -483,16 +606,17 @@ export const Editor = React.forwardRef<EditorHandle, {
 	assetsRef.current = completionAssets;
 	const lintComp = React.useRef(new Compartment());
 	// What may come next in a spark or pill, from the lint core once it has loaded (read at
-	// completion time, so the menu works the moment the core arrives, without a reconfigure).
+	// completion time, so no reconfigure is needed). A span typed before the core arrived waits
+	// for it (`withLazyInlineCore`), so the menu opens the moment it lands.
 	// The `@` menu also lists the zip plugins' kinds the Studio holds (2026-10-14-plugin-inline-door.md).
-	const inlineNext = (span: string): InlineNext | null => lintCoreMod?.inlineCodeCompletions?.(span, externalInlineKinds()) ?? null;
+	const inlineNext = (span: string): InlineNext | null => lintCoreNow()?.inlineCodeCompletions?.(span, externalInlineKinds()) ?? null;
 	// The latest measured sparks, read by the lint pass; a new measurement re-runs it.
 	const measuredRef = React.useRef(measuredSparks);
 	measuredRef.current = measuredSparks;
 	const measuredPhotoRef = React.useRef(measuredPhoto);
 	measuredPhotoRef.current = measuredPhoto;
 	const buildAutocomplete = () => [
-		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), makeAssetCompletion(() => assetsRef.current?.() ?? [])], activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption] }),
+		autocompletion({ override: [withLazyInlineCore(makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), () => lintCoreNow() !== null, loadLintCore), makeAssetCompletion(() => assetsRef.current?.() ?? [])], activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption] }),
 		// Hover a front-matter key for what it does, its values and its default: the same row of
 		// the engine's table (lib/core/deck-settings.js) that the completion menu and the
 		// reference page print. In this compartment so a vocab change reaches it too.
@@ -552,8 +676,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 					}
 					// The first pass waits for the first slide: the lint core is 256 KB of code the slide does not need, and
 					// it ran before the slide on a phone (Studio performance audit, PR #2868). Later passes find it cached.
-					if (!lintCoreMod) await firstSlideShown;
-					const core = lintCoreMod || (await loadLintCore());
+					if (!lintCoreNow()) await firstSlideShown;
+					const core = lintCoreNow() || (await loadLintCore());
 					if (stale()) return NEVER_LINT;
 					if (!core) {
 						reportLint(view, null); // the kernel never arrived — no answer, which is not "clean"
@@ -676,10 +800,33 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// A preview pick selects the element's source span.
 			v.dispatch({ selection: { anchor: f.anchor, head: f.head }, effects: EditorView.scrollIntoView(f.anchor, { y: 'center' }) });
 		} else {
-			const caret = Math.min(deckEditableOffset(ix, f.unitIndex, f.part), v.state.doc.length);
-			v.dispatch({ selection: { anchor: caret }, effects: EditorView.scrollIntoView(caret, { y: 'start', yMargin: 8 }) });
+			// A focus Compose reported carries its caret block's text: land on that line of the slide rather than its first,
+			// so a switch from Compose keeps the caret's line (caret-line.ts; the first line when it cannot tell).
+			const unit = ix.units[f.unitIndex];
+			// The hub's source offset is this editor's own caret only while the line there is still the focus's line: a
+			// navigation keeps `head` while Compose then reports another line of the same slide (the trio's checker), and
+			// putting the old offset back lost the line and the column Compose carried.
+			const headOk = f.head !== null && (!f.line || plainLine(v.state.doc.lineAt(Math.min(f.head, v.state.doc.length)).text) === plainLine(f.line));
+			// A focus with a line and no usable offset: Compose's report, or a restore after a reload.
+			let onLine = !headOk && f.line && unit ? lineOffsetIn(ix.source, unit.from, unit.end, f.line) : -1;
+			// And the column on it, when one was carried: the same plain character, past the line's Markdown markers.
+			// A column Source carried itself, on this very line, goes back exactly: through the plain form a caret after
+			// `**bold**` came back inside the closing `**` (the trio's red team).
+			const carried = onLine >= 0 ? caretColumnRef.current?.() : null;
+			if (onLine >= 0 && carried) {
+				const end = ix.source.indexOf('\n', onLine);
+				const text = ix.source.slice(onLine, end < 0 ? undefined : end);
+				const col = carried.raw === text ? Math.min(carried.col, text.length) : plainColumnOfCarried(carried);
+				if (col !== null && col > 0) onLine += carried.raw === text ? col : rawColumnFor(text, col);
+			}
+			// The hub still holding THIS editor's own caret (an exact source offset, carried through edits since): put it back
+			// exactly. A Compose that took the keyboard and has not moved yet reports nothing, so this is the common case.
+			const caret = Math.min(headOk && f.head !== null ? f.head : onLine >= 0 ? onLine : deckEditableOffset(ix, f.unitIndex, f.part), v.state.doc.length);
+			v.dispatch({ selection: { anchor: caret }, effects: frameSlide(v, Math.min(deckEditableOffset(ix, f.unitIndex, f.part), caret), caret) });
 		}
-		if (f.grab) v.focus();
+		// The boot restore's focus lands once this lazy editor arrives, about a second after load: only while nothing else has
+		// the keyboard (the author may already be typing in search or chat; the trio's inversion).
+		if (f.grab && (f.origin !== 'restore' || !document.activeElement || document.activeElement === document.body)) v.focus();
 	}, []);
 	// Navigation from every other pane. `frame` lane: a held key that crosses three slides in one
 	// frame reveals once, the last.
@@ -696,6 +843,13 @@ export const Editor = React.forwardRef<EditorHandle, {
 	}, [focusHub, revealFocus]);
 
 	React.useImperativeHandle(ref, () => ({
+		caretColumn() {
+			const v = viewRef.current;
+			if (!v) return null;
+			const head = v.state.selection.main.head;
+			const line = v.state.doc.lineAt(head);
+			return { col: head - line.from, raw: line.text };
+		},
 		formatCode() {
 			const v = viewRef.current;
 			return v ? formatInto(v, true) : Promise.resolve(null);
@@ -706,7 +860,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// Real lint: apply every autofixable lint-core finding in one undoable pass.
 			if (useRealLint && vocabSets && known.size > 0) {
 				(async () => {
-					const core = lintCoreMod || (await loadLintCore());
+					const core = lintCoreNow() || (await loadLintCore());
 					if (!core) return;
 					// The fix driver is a chunk of its own, fetched on the first press (lint-core `loadFixDriver`).
 					await core.loadFixDriver();
@@ -849,6 +1003,11 @@ export const Editor = React.forwardRef<EditorHandle, {
 					doc: collab ? collab.seed() : stripBom(value),
 					extensions: [
 						lineNumbers(),
+						// The caret's line, marked as the Playground marks it (owner, 2026-11-12), and standing down while a selection
+						// is up (the AA reason is lib/editor-chrome.js `activeLineTheme`'s).
+						highlightActiveLine(),
+						highlightActiveLineGutter(),
+						EditorView.editorAttributes.compute(['selection'], (state): Record<string, string> => (state.selection.ranges.some((r) => !r.empty) ? { class: 'cm-has-selection' } : {})),
 						noLeadingBom,
 						...(collab ? [collab.extension, EditorState.readOnly.of(collab.readOnly), EditorView.editable.of(!collab.readOnly)] : []),
 						keymap.of([...defaultKeymap, ...completionKeymap]),
@@ -913,12 +1072,17 @@ export const Editor = React.forwardRef<EditorHandle, {
 								return false;
 							},
 						}),
+						ghostCaret,
 						EditorView.updateListener.of((u) => {
 							const hub = hubRef.current;
 							// The value-sync pushing the SHELL's text in is not an author move: the hub
 							// already has that text from the shell, and the caret it leaves is the editor's
 							// own mapping, not a place the author chose.
 							const fromSync = u.transactions.some((tr) => tr.annotation(fromValueSync));
+							// The author acted (a click, a select-all, typing): a reveal still parked for text this view
+							// did not hold yet is stale, and landing it later would move the caret out from under them
+							// (a select-all collapsed to a slide's start, and the next Delete removed one character).
+							if (pendingRevealRef.current && u.transactions.some((tr) => tr.annotation(Transaction.userEvent) !== undefined)) pendingRevealRef.current = null;
 							if (u.docChanged) {
 								// CANONICAL ON THE WAY OUT — see the `noLeadingBom` note above. A document seeded
 								// before the filter landed can still hold a leading BOM, and `source` is what the
@@ -1011,7 +1175,12 @@ export const Editor = React.forwardRef<EditorHandle, {
 			const hub = hubRef.current;
 			revRef.current = hub ? hub.update(stripBom(view.state.doc.toString()), { by: 'sync' }) : undefined;
 			const f = hub?.get();
-			if (f && f.unitIndex >= 0) revealFocus(view, f, true);
+			// Taking the keyboard, or carrying a line or an offset: put the caret where it belongs even on the slide the view
+			// opened on (slide 1), whose offset 0 is inside the front-matter fence (the trio's checker). Otherwise a view on the
+			// focused slide stays put, as before.
+			const take = !!focusOnMountRef.current?.();
+			if (f && f.unitIndex >= 0) revealFocus(view, f, !take && !f.line && f.head === null);
+			if (take) view.focus();
 		} catch {
 			setFailed(true);
 		}
@@ -1104,8 +1273,20 @@ export const Editor = React.forwardRef<EditorHandle, {
 		syncedValueRef.current = value;
 		if (localized) {
 			const change = { from, to: toOld, insert };
-			const mappedHead = ChangeSet.of(change, old.length).mapPos(v.state.selection.main.head, 1);
-			v.dispatch({ changes: change, selection: { anchor: mappedHead }, annotations: fromValueSync.of(true) });
+			// Map the WHOLE selection, not just its head: a select-all, or any range the author holds,
+			// keeps both ends through a write elsewhere. Mapping only the head collapsed it to a caret,
+			// so a Delete pressed next removed one character instead of the selection. The bias (1)
+			// keeps a caret sitting at the write's start after the inserted text, as before.
+			// A range strictly inside the replaced span maps its two ends to opposite sides of the insert
+			// (CodeMirror keeps a range from growing), which leaves it inverted and makes the next edit
+			// throw; such a range has nothing left to hold, so it becomes a caret at its far end, which
+			// is where the old head-only mapping put it.
+			const mapped = v.state.selection.map(ChangeSet.of(change, old.length), 1);
+			const selection = CmSelection.create(
+				mapped.ranges.map((r) => (r.from > r.to ? CmSelection.cursor(Math.max(r.anchor, r.head)) : r)),
+				mapped.mainIndex,
+			);
+			v.dispatch({ changes: change, selection, annotations: fromValueSync.of(true) });
 		} else {
 			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value }, selection: { anchor: 0 }, annotations: fromValueSync.of(true) });
 		}

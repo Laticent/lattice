@@ -479,24 +479,51 @@
 :is(section.kanban, figure.kanban).tinted .kanban-lane { color: var(--text-muted); }
 :is(section.kanban, figure.kanban).tinted .kanban-lane::before { display: none; }
 
-/* ── Family RESTRUCTURE (tall + strip, ≤0.9): the side-by-side board becomes
- * a vertical stack — each lane is now a full-width band, and its cards flow as a
- * wrapping row so the width is used instead of running off the bottom. Keyed on
- * the deck's `data-family` stamp; landscape (side-by-side board) untouched. See
- * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-board {
-  flex-direction: column;
-  height: 100%;
-  justify-content: space-evenly;
+/* ── A NARROW SLIDE: the lanes stack ──────────────────────────────────────────────────────────────────────────
+ * Below about 70 characters a line (34em at the slide's body size, the text-room threshold of #2988) lanes side by
+ * side are too narrow, so the board turns to a column: each lane takes the full width, its name over its cards, and
+ * every card runs the full width at its natural height. Keyed on the room the slide has, not on the page's shape: a
+ * phone, story or 4:5 page measures 20.7em and a square page 32.1em, a 16:9 slide 53.9em. Where the pages break is
+ * not this file's call; the split (lib/core/carousel.js `kanban-lanes`, or a deck's measured `fit: pack`) decides.
+ * This replaces the 2026-06-19 reflow (2026-06-19-chart-adaptive-sizing.md), which spread the lanes over the stage
+ * and wrapped each lane's cards into a row of 14cqi cards. */
+@container lattice (width < 34em) {
+  section.kanban .kanban-board {
+    flex-direction: column;
+    align-items: stretch;
+    /* Stacked lanes are bands under one heading, not columns side by side: the medium step parts them. */
+    gap: var(--sp-md);
+  }
+  /* A lane fills the board's width by stretching, border box included. `inline-size: 100%` set its content box to the
+   * board's width and added a tinted lane's padding and border on top, so the lane and its cards ran past the page's
+   * right edge (the clip `main` had on every split page of `kanban tinted`). */
+  section.kanban .kanban-column {
+    flex: none;
+    align-self: stretch;
+    inline-size: auto;
+    min-inline-size: 0;
+    box-sizing: border-box;
+  }
+  section.kanban .kanban-cards {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+  section.kanban .kanban-card {
+    flex: none;
+    inline-size: auto;
+    max-inline-size: none;
+    /* A card's text keeps half its own size clear of the lane's edge bar. The small step alone set it there, and a
+     * `compact` deck's small step put the title against the bar (on `main` too). */
+    padding-inline: max(var(--sp-sm), 0.5em);
+    /* The card keeps its rows: the title on its own line, the label and status chips on the row under it, every card
+     * the same shape (the owner's call, 2026-11-12). Chips set beside a title when it left room gave one board two card
+     * shapes, chips under one title and crowded beside the next. */
+  }
+  /* Never clamped here: a name sets whole, on as many lines as it needs (kanban.transform.js counts them). */
+  section.kanban .kanban-title-text {
+    -webkit-line-clamp: none;
+    line-clamp: none;
+  }
 }
-section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-cards { flex-direction: row; flex-wrap: wrap; }
-section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-card { flex: 1 1 14cqi; min-width: 0; }
-
-/* Auto-split lane slides (carousel.js kanban-lanes): one lane has the WHOLE slide, so its
- * cards stack as a full-width column instead of wrapping into a cramped row (which clipped
- * the titles). More specific than the all-lanes reflow above, so it wins for split bodies. */
-section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-board { justify-content: flex-start; }
-section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-column { width: 100%; }
-section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-cards { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
-section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-card { flex: 0 0 auto; width: 100%; max-width: none; }
 

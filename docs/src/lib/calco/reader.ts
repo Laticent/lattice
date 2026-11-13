@@ -152,7 +152,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		if (!ctx) return 0;
 		// A generic family is a keyword: quoted, it names a font nobody has.
 		const fam = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-\w+)$/.test(s.family) ? s.family : `"${s.family}"`;
-		ctx.font = `${s.italic ? 'italic ' : ''}${s.weight} ${s.size}px ${fam}`;
+		// Canvas applies the face's `size-adjust` itself, and `s.size` already carries it (faceSizeAdjust below),
+		// so measure at the computed size or the factor counts twice.
+		ctx.font = `${s.italic ? 'italic ' : ''}${s.weight} ${s.size / faceSizeAdjust(s.family, s.weight, s.italic)}px ${fam}`;
 		return ctx.measureText(text).width + s.letterSpacing * text.length;
 	};
 
@@ -170,6 +172,36 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		}
 		return false;
 	};
+	// A face's `size-adjust` (an @font-face descriptor) scales the glyphs the browser draws without changing the
+	// computed font-size. An office file has no such descriptor, so the run takes the factor in its size: the
+	// Lattice type sets carry theirs on the face (lib/fonts/text-faces.js `sizeAdjust`), and an author's own
+	// @font-face with one is honored the same way. The loaded FontFace nearest in weight and style answers.
+	const descriptorCache = new Map<string, { k: number; line?: [number, number] }>();
+	const pctOf = (v: unknown): number => (typeof v === 'string' && v.endsWith('%') ? Number.parseFloat(v) / 100 : Number.NaN);
+	const faceDescriptors = (family: string, weight: number, italic: boolean): { k: number; line?: [number, number] } => {
+		const want = family.toLowerCase();
+		const key = `${want}|${weight}|${italic}`;
+		const hit = descriptorCache.get(key);
+		if (hit) return hit;
+		let best: { d: number; k: number; line?: [number, number] } | null = null;
+		doc.fonts.forEach((f) => {
+			// The browser matches family names case-insensitively, so `font-family: inter` draws the adjusted face.
+			if (f.status !== 'loaded' || f.family.replace(/^["']|["']$/g, '').toLowerCase() !== want) return;
+			const w = Number.parseFloat(String(f.weight)) || 400;
+			const d = Math.abs(w - weight) + ((f.style === 'italic') !== italic ? 1000 : 0);
+			if (best && d >= best.d) return;
+			const face = f as FontFace & { sizeAdjust?: string; ascentOverride?: string; descentOverride?: string };
+			const k = pctOf(String(face.sizeAdjust || '100%'));
+			const asc = pctOf(String(face.ascentOverride || 'normal'));
+			const desc = pctOf(String(face.descentOverride || 'normal'));
+			best = { d, k: Number.isFinite(k) && k > 0 ? k : 1, ...(Number.isFinite(asc) && Number.isFinite(desc) ? { line: [asc, desc] as [number, number] } : {}) };
+		});
+		const found = best as { d: number; k: number; line?: [number, number] } | null;
+		const out = found ? { k: found.k, ...(found.line ? { line: found.line } : {}) } : { k: 1 };
+		descriptorCache.set(key, out);
+		return out;
+	};
+	const faceSizeAdjust = (family: string, weight: number, italic: boolean): number => faceDescriptors(family, weight, italic).k;
 	const usedFamily = (stack: string): string => {
 		const hit = familyCache.get(stack);
 		if (hit) return hit;
@@ -239,7 +271,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// `overGradient`: a gradient layer counts as its background color. Only letter-spaced
 	// text asks for that, because LibreOffice clips letter-spaced text drawn with opacity
 	// (its last letters vanish), so a near color beats a lost word. A url() image never does.
-	const flatten = (el: Element, c: { r: number; g: number; b: number; a: number }, overGradient = false, approx = false): string | undefined => {
+	const flatten = (el: Element, c: { r: number; g: number; b: number; a: number }, overGradient = false, approx = false, strict = false): string | undefined => {
 		for (let p: Element | null = el; p; p = p.parentElement) {
 			const cs = win.getComputedStyle(p);
 			const image = cs.backgroundImage && cs.backgroundImage !== 'none' ? cs.backgroundImage : '';
@@ -247,6 +279,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const stands = approx && p === section && !/url\(/i.test(image);
 			if (image && !stands && (!overGradient || /url\(/i.test(image))) return undefined;
 			const bg = parseColor(cs.backgroundColor);
+			// `strict` (the ODP's near color): a gradient with no solid color of its own under it IS what shows behind
+			// the text, so the color further up says nothing about it (a dark gradient panel on a light slide).
+			if (strict && image && (!bg || bg.a === 0)) return undefined;
 			if (!bg || bg.a === 0) {
 				if (p === section || (image && !stands)) return undefined;
 				continue;
@@ -257,7 +292,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			// photo (`url()`) below still refuses, as it does everywhere else.
 			if (bg.a < 1) {
 				if (!overGradient || !p.parentElement) return undefined;
-				const below = flatten(p.parentElement, { r: bg.r, g: bg.g, b: bg.b, a: bg.a }, overGradient, approx);
+				const below = flatten(p.parentElement, { r: bg.r, g: bg.g, b: bg.b, a: bg.a }, overGradient, approx, strict);
 				const base = below && parseColor(below);
 				if (!base) return undefined;
 				return hex({ r: c.r * c.a + base.r * (1 - c.a), g: c.g * c.a + base.g * (1 - c.a), b: c.b * c.a + base.b * (1 - c.a) });
@@ -371,11 +406,14 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		if (alpha < 0.02) return;
 		const spaced = cs.letterSpacing !== 'normal' && Number.parseFloat(cs.letterSpacing) !== 0;
 		const flat = alpha < 1 ? flatten(el, { ...c, a: alpha }, spaced) : undefined;
+		const family = usedFamily(cs.fontFamily);
+		const weight = Number(cs.fontWeight) || 400;
+		const italic = cs.fontStyle !== 'normal';
 		const style: TextStyle = {
-			family: usedFamily(cs.fontFamily),
-			weight: Number(cs.fontWeight) || 400,
-			italic: cs.fontStyle !== 'normal',
-			size: Number.parseFloat(cs.fontSize) || 16,
+			family,
+			weight,
+			italic,
+			size: (Number.parseFloat(cs.fontSize) || 16) * faceSizeAdjust(family, weight, italic),
 			color: hex(c),
 			alpha,
 			letterSpacing: cs.letterSpacing === 'normal' ? 0 : Number.parseFloat(cs.letterSpacing) || 0,
@@ -388,7 +426,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		};
 		const caps = cs.fontVariantCaps || '';
 		if (caps === 'small-caps' || caps === 'all-small-caps' || /small-caps/.test(cs.fontVariant || '')) style.smallCaps = true;
+		// The line metrics the browser laid the run out with, when its face overrides the file's (types.ts `lineMetrics`).
+		const line = faceDescriptors(family, weight, italic).line;
+		if (line) style.lineMetrics = line;
 		if (flat) style.flatColor = flat;
+		else if (alpha < 1) {
+			// Over a gradient: the solid color under it stands in (types.ts `nearColor`), for the ODP writer only.
+			const near = flatten(el, { ...c, a: alpha }, true, false, true);
+			if (near) style.nearColor = near;
+		}
 		// An inline chip behind these words (a code span, a mark) is a highlight on the words, not a shape.
 		if (options?.shapes && options.highlight !== false) {
 			for (let chip: Element | null = el; chip && chip !== section; chip = chip.parentElement) {

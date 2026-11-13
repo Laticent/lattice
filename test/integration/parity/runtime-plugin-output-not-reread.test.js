@@ -13,6 +13,7 @@ const path = require('path');
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
 const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'jsdom-close'));
+const { bootRuntime } = require('../../helpers/runtime-boot');
 
 const RUNTIME_SRC = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js'), 'utf8');
 
@@ -25,10 +26,7 @@ test('a pill in the author\'s text draws; the same text inside a plugin figure s
   );
   const { document } = dom.window;
   dom.window.fetch = () => Promise.resolve({ ok: false, text: () => Promise.resolve('') });
-  const s = document.createElement('script');
-  s.textContent = RUNTIME_SRC;
-  document.body.appendChild(s);
-  await new Promise((r) => setTimeout(r, 400));
+  await bootRuntime(dom, { bundle: RUNTIME_SRC }); // returns once the runtime has nothing queued
   const outside = document.querySelector('section p:not([data-lattice-plugin] p)');
   assert.equal(outside.querySelector('code'), null, 'control: the author\'s {LIVE} became a pill, so the mirror ran');
   const inside = document.querySelector('[data-lattice-plugin] code');

@@ -137,10 +137,7 @@ async function renderRuntime(markup, frontMatter, pluginData = []) {
       pluginData.map((n) => [n, require(path.join(ROOT, `lib/plugins/${n}/${n}.data.generated.js`))]),
     );
   }
-  const el = dom.window.document.createElement('script');
-  el.textContent = fs.readFileSync(RUNTIME_BUNDLE, 'utf8');
-  dom.window.document.body.appendChild(el);
-  await new Promise((r) => setTimeout(r, 300));
+  await bootRuntime(dom, { bundle: fs.readFileSync(RUNTIME_BUNDLE, 'utf8') });
   return dom.window.document;
 }
 
@@ -174,6 +171,7 @@ const marked = (sel) => (doc) =>
 
 /** The component tokens on a section — the answer a component-resolution row claims. */
 const COMPONENT_NAMES = new Set(require(path.join(ROOT, 'lib/core/resolve-component')).COMPONENT_NAMES);
+const { bootRuntime } = require('../../helpers/runtime-boot');
 
 /**
  * One entry per `mirrored` ledger row that can be compared today.

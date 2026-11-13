@@ -664,7 +664,44 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   parses every committed test file and holds its fixed sleeps, stopwatch assertions and `Math.random()` calls exactly to
   `tools/flaky-test-baseline.json`, so the backlog can only shrink; `// flaky-ok: <why>` marks a line that is right as it
   is. A `docs/e2e` `waitForTimeout` stays with `checkE2ESleeps`. The other shapes are discipline.
-  `followups.d/3045-p1-flaky-test-audit.md` drives the baseline to empty, then sets Playwright's CI `retries` to 0.)*
+  `followups.d/3045-p1-flaky-test-audit.md` drives the baseline to empty. Playwright's `retries` is 0, held by #34.)*
+
+- **#33 — A red or flaky test is fixed at its root by the session that meets it.** Never retried, re-run until green,
+  waited out with a longer timeout, deleted, or filed as a follow-up: for tests, #18's off-path exit is closed. "Red on
+  `main` too" proves you did not cause it, not that someone else will fix it. Fix it on its own branch from `main` (#17,
+  #8) before your own merge ask. You meet a red test by running it, or by starting the first session after a red nightly
+  or platform-suite run. Switching one off (`skip`, `fixme`, deleting it) needs `// disabled: tried …; evidence <run URL,
+  trace or #N>; re-enable when …` right above it (in the commit message for a deletion). A missing tool is installed,
+  never skipped (#23). Re-running a job the runner lost before any test reported is not a retry; re-running a red test
+  is. `.only` never lands.
+
+  | You meet | Not this | This |
+  |---|---|---|
+  | green only on `retry #1` | "CI is green" | It is flaky: `--repeat-each=10` until it fails, then fix the race |
+  | red on `main` too | "not my PR", a `followups.d/` note | Fix it now, on its own branch from `main` |
+  | red only under load, or on one engine | a longer timeout, skipping the engine it fails on | Find what it waits on, or the engine difference, and fix that |
+  | Chromium or `pdftoppm` missing | `{ skip: true }`, `test.skip(true, …)` | Install it; `skipUnlessCI(…)` / `skipWithoutChrome(…)` skip on a laptop, fail in CI |
+  | no cause after a real investigation | delete it, or leave it red | `test.fixme` with the three-part `// disabled:` reason |
+
+  *(partly gated — `checkFlakyTests` counts `disabled-test` and `focused-test` at budget 0, never baselined (the reason
+  reads in order, its evidence a URL, a file or `#N`), and a node-test `env-skip` that bypasses `skipUnlessCI` /
+  `skipWithoutChrome` or a `// ci-skip:` note, baselined. Ownership is discipline.
+  `engineering/decisions/2026-11-06-flaky-tests.md` §HARD RULES #33 and #34.)*
+
+- **#34 — A test proves it can fail, and that it holds under load, before it lands.** Every new test, and every test whose
+  assertion or wait changed, carries in the PR body: a **failing arm** (break the product or revert the fix, watch it go
+  red, restore byte for byte); **repeat green alone** (`--repeat-each=10` on one project for e2e, five runs for a unit
+  file); and **green under load** (`--workers=4 --repeat-each=5`, same project). A rename or a selector-only edit owes
+  only the failing arm. Playwright's `retries` is 0: a retry turns a flaky test into a pass nobody sees.
+
+  | You write | Best practice |
+  |---|---|
+  | `await page.waitForTimeout(500)` | `await expect(locator).toHaveText(…)`, `page.waitForResponse(…)`, `expect.poll(…)` |
+  | `assert(ms < 200)` | count the work (`scanWork`, `test/helpers/work-count.js`); speed goes to `npm run bench` |
+  | a fix with no red run | a mutation that turns the test red, then restored |
+
+  The other shapes and their fixes are #32's note. *(partly gated — `checkPlaywrightRetries` holds `retries: 0`; the
+  evidence is discipline.)*
 
 ---
 

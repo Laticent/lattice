@@ -12,8 +12,6 @@ source: https://github.com/Laticent/lattice/pull/2899
 
 why now   — found while running the preview specs for #2899 on a fresh `build:e2e`. Neither deck has a list item or
             uses the Studio patch path, and #2899 changes neither surface; these specs run nightly, not per PR.
-            - `playground-kpi-pill.spec.ts` (burgundy light, indaco dark, carbone light): the pill ground computes
-              to `color(srgb … / 0.1)`, and the spec requires an opaque ground.
             - `preview-remote-subresource.spec.ts`: 2 `repeating-linear-gradient` placeholders where it expects 1,
               likely the spec trailing #2871's new remote-reference tokenizer (now both spans are caught).
 where     — docs/e2e/playground-kpi-pill.spec.ts, docs/e2e/preview-remote-subresource.spec.ts and the code each pins.
@@ -21,3 +19,7 @@ done when — each spec is green on `main`, by fixing the defect it found or by 
             change made stale, with the reason recorded.
 evidence  — the two specs passing on `desktop`.
 verify    — cd docs && npx playwright test e2e/playground-kpi-pill.spec.ts e2e/preview-remote-subresource.spec.ts --project=desktop
+
+2026-11-12 — playground-kpi-pill.spec.ts fixed on branch claude/flaky-e2e-render: it wrote pills as bare backticks the
+pills plugin no longer reads (so it measured an inline-code chip), and it pinned #1846's tint recipe, which the
+status-mark decision replaced; it now pins the status mark. preview-remote-subresource.spec.ts is what is left here.

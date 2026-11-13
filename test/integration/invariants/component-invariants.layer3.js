@@ -358,6 +358,15 @@ const LAYER3 = {
     'renders the readable credential rows':
       present('.qr-fields .qr-row', 2, 'wifi did not render credential rows'),
   },
+  'gift-card': {
+    'renders a scannable QR tile':
+      present('.qr-card .qr-tile svg[role="img"]', 1, 'gift-card did not render a QR tile'),
+    // The link carries a working key: it goes into the QR only, never onto the card as text.
+    'never prints the gift link as text': async (page, assert, SLIDE) => {
+      const text = await page.$eval(SLIDE, (s) => s.innerText);
+      assert.ok(!/gift#v1/.test(text), 'gift-card printed its gift link as visible text');
+    },
+  },
   contact: {
     'renders a scannable QR tile':
       present('.qr-card .qr-tile svg[role="img"]', 1, 'contact did not render a QR tile'),
@@ -369,6 +378,6 @@ const LAYER3 = {
 // Components whose authored slot markup is consumed by a transform — layer 1's
 // "slot selector resolves" is meaningless for them, so it's skipped and the
 // rendered contract above stands in.
-const TRANSFORM = new Set([...CHARTS, 'glossary', 'compare-code', 'wifi', 'contact']);
+const TRANSFORM = new Set([...CHARTS, 'glossary', 'compare-code', 'wifi', 'contact', 'gift-card']);
 
 module.exports = { LAYER3, TRANSFORM };

@@ -173,6 +173,14 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 	if (!veduta.current) veduta.current = createVeduta();
 	const [viewCross, setViewCross] = React.useState(0);
 	const [plan, setPlan] = React.useState<Plan>(EMPTY);
+	// `data-plan-at` on the scroller: the offset the plan ON SCREEN was asked for. A scroll reaches the tiers a frame
+	// later (onScroll → requestAnimationFrame → refresh → setPlan → React commit), so a reader of `data-tier` right after
+	// setting `scrollTop` sees the previous position's tiers. A test that waits on a tier waits on this first
+	// (docs/e2e/studio-map-posters.spec.ts: its walk moved on before a tile that was about to go live was captured; #3045).
+	// Written to the DOM, not to state, so a scroll that keeps the same plan does not re-render the rail.
+	const askedSig = React.useRef<string | null>(null); // null until a plan has been asked for
+	const shownSig = React.useRef('');
+	const askedAt = React.useRef(0);
 	const keyNav = React.useRef(false);
 	const keyNavTimer = React.useRef(0);
 	React.useEffect(() => () => window.clearTimeout(keyNavTimer.current), []);
@@ -196,6 +204,9 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 	const refresh = React.useCallback(() => {
 		const el = scrollerRef.current;
 		if (!el || !count || viewCross <= 0) {
+			// No plan to stand behind: an empty rail claims no offset.
+			askedSig.current = null;
+			if (el) delete el.dataset.planAt;
 			setPlan((p) => (p.sig === '' ? p : EMPTY));
 			return;
 		}
@@ -219,6 +230,9 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 			},
 		});
 		const sig = intent.mapUnits.map((i) => `${i}${intent.tiers.map.get(i)}`).join(',');
+		askedAt.current = pos;
+		if (sig === askedSig.current && sig === shownSig.current) el.dataset.planAt = String(Math.round(pos));
+		askedSig.current = sig;
 		setPlan((p) => (p.sig === sig ? p : { units: intent.mapUnits, tiers: intent.tiers.map, sig }));
 	}, [count, focus, geo.pitch, liveBudget, liveOn, posterOn, posterBudget, stageOn, stageCost, vertical, viewCross]);
 
@@ -302,6 +316,12 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 			refreshRef.current();
 		}
 	}, [plan, liveMounted, liveCap]);
+
+	React.useLayoutEffect(() => {
+		shownSig.current = plan.sig;
+		const el = scrollerRef.current;
+		if (el && askedSig.current !== null && plan.sig === askedSig.current) el.dataset.planAt = String(Math.round(askedAt.current));
+	}, [plan]);
 
 	const onWindowRef = React.useRef(onWindow);
 	onWindowRef.current = onWindow;

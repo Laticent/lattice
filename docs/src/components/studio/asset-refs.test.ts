@@ -1,9 +1,20 @@
 // @vitest-environment node
+import { createRequire } from 'node:module';
 import MarkdownIt from 'markdown-it';
 import { describe, expect, it } from 'vitest';
 import { codeSpanRanges, decksUsingOutsideCode, renameAssetRefsOutsideCode, usesAssetOutsideCode } from './asset-refs';
 
 const R = (s: string) => renameAssetRefsOutsideCode(s, 'hero', 'cover');
+
+// The root's work counter (test/helpers/work-count.js), CommonJS: the characters every search, regex, `charCodeAt` and
+// copy covered, and the length of every array an Array search walked. COUNTED, not timed (HARD RULE #32).
+const { charReads } = createRequire(import.meta.url)('../../../../test/helpers/work-count.js') as {
+	charReads: <T>(fn: () => T) => { result: T; scanned: number; reads: number };
+};
+const work = (fn: () => unknown) => {
+	const r = charReads(fn);
+	return r.scanned + r.reads;
+};
 
 // THE ORACLE. The renderer decides what is a reference: markdown-it, configured as the engine configures it (lib/engine/index.js).
 // For a deck, every image the renderer shows from `asset:hero` must come back from the rewrite pointing at `asset:cover`, and every
@@ -150,22 +161,53 @@ describe('inline code spans', () => {
 });
 
 describe('hostile and very large decks', () => {
-	it('survives a block of a hundred and fifty thousand lines with no blank line, in reasonable time', () => {
-		const deck = `${'| a | b |\n'.repeat(150_000)}![](asset:hero)\n`;
-		const start = performance.now();
-		const out = R(deck);
+	// The parse and the rewrite cover about 16 characters per character of this deck today, markdown-it's own scans
+	// included (it charges a failed anchored regex the rest of the text, so the count runs high, never low).
+	const PER_CHAR = 40;
+	const table = (rows: number) => `${'| a | b |\n'.repeat(rows)}![](asset:hero)\n`;
+
+	it('survives a block of a hundred and fifty thousand lines with no blank line, in linear work', () => {
+		const deck = table(150_000);
+		let out = '';
+		const w = work(() => {
+			out = R(deck);
+		});
 		expect(out.endsWith('![](asset:cover)\n')).toBe(true);
-		expect(performance.now() - start).toBeLessThan(8000);
+		expect(w, `${w} for ${deck.length} characters`).toBeLessThan(PER_CHAR * deck.length);
 	});
 
-	it('handles pathological backtick and fence patterns in time proportional to their size', () => {
-		const N = 80_000;
-		const cases = ['`a``b```c````d'.repeat(Math.floor(N / 14)), '- ```\n'.repeat(N / 6), '<pre'.repeat(N / 4), '![](asset:hero) `'.repeat(N / 17), '\n\n    x'.repeat(N / 8), '`'.repeat(N)];
-		for (const c of cases) {
-			const start = performance.now();
-			R(c);
-			decksUsingOutsideCode('hero', [c]);
-			expect(performance.now() - start, c.slice(0, 16)).toBeLessThan(4000);
+	it('a real table of many rows, one group per row, in linear work', () => {
+		// The case above is ONE paragraph (no `|---|` row, so markdown-it makes no table). Here the delimiter row makes
+		// every row its own group, which is where a per-line search of the groups (the shape `byFirstLine` replaced)
+		// would go n². N rows and 4N rows: linear work grows about 4x, that search about 16x. A ratio of two COUNTS.
+		const rows = (n: number) => `| a | b |\n|---|---|\n${'| ![](asset:hero) | x |\n'.repeat(n)}`;
+		const cost = (n: number) => {
+			const deck = rows(n);
+			let out = '';
+			const w = work(() => {
+				out = R(deck);
+			});
+			expect(out.split('asset:cover').length - 1).toBe(n);
+			return w;
+		};
+		expect(cost(8_000) / cost(2_000)).toBeLessThan(6);
+	});
+
+	it('handles pathological backtick and fence patterns in work proportional to their size', () => {
+		// Each shape at N and at 4N: linear work grows about 4x, a quadratic about 16x. The ratio of two COUNTS, not of two timings.
+		// The ref-and-backtick line (`![](asset:hero) \``) was the quadratic one until the span lookup became a moving pointer.
+		const shapes: [string, string][] = [['`a``b```c````d', 'nested runs'], ['- ```\n', 'list fences'], ['<pre', 'open pre'], ['![](asset:hero) `', 'refs between backticks'], ['\n\n    x', 'indented code'], ['`', 'one long run']];
+		const cost = (unit: string, n: number) => {
+			const c = unit.repeat(Math.floor(n / unit.length));
+			return work(() => {
+				R(c);
+				decksUsingOutsideCode('hero', [c]);
+			});
+		};
+		for (const [unit, name] of shapes) {
+			const small = cost(unit, 20_000);
+			const big = cost(unit, 80_000);
+			expect(big / small, name).toBeLessThan(6);
 		}
 	});
 });

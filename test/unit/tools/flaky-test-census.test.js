@@ -13,7 +13,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const own = require('../../../tools/check-ownership.js');
 
-const { flakyTestHits, flakyTestTree, flakyTestFindings, checkFlakyTests } = own;
+const { flakyTestHits, flakyTestTree, flakyTestFindings, checkFlakyTests, playwrightRetriesFindings, checkPlaywrightRetries } = own;
 
 const SLEEP = `await page.${'waitFor'}${'Timeout'}(500);`;
 const HAND_SLEEP = `await new Promise((r) => ${'set'}${'Timeout'}(r, 250));`;
@@ -83,6 +83,13 @@ describe('flaky-test census (HARD RULE #32)', () => {
     assert.deepEqual(flakyTestHits(fn), {});
   });
 
+  test('a flaky-ok mark is read on its own line after a string holding U+2028 or U+2029', () => {
+    // TypeScript breaks lines at both; reading the mark from split('\n') once looked two lines off and ignored it.
+    const src = `const s = '\u2028\u2029';\n${HELPER_SLEEP} // flaky-ok: the tick of a polling loop`;
+    assert.deepEqual(flakyTestHits(src), {});
+    assert.deepEqual(flakyTestHits(src.replace(' // flaky-ok: the tick of a polling loop', '')), { 'fixed-sleep': 1 });
+  });
+
   test('a bare flaky-ok, with no reason, still counts', () => {
     assert.deepEqual(flakyTestHits(`${HELPER_SLEEP} // flaky-ok:`), { 'fixed-sleep': 1 });
   });
@@ -128,9 +135,111 @@ describe('flaky-test census (HARD RULE #32)', () => {
     assert.match(flakyTestFindings({}, { 'test/gone.test.js': { 'fixed-sleep': 2 } }).join('\n'), /stale flaky-test baseline: test\/gone\.test\.js holds 0 fixed-sleep/);
   });
 
+  // HARD RULE #33. Built from parts so this file does not switch itself off.
+  const SKIP_LIT = `test('x', { ${'skip'}: true }, () => {});`;
+  const SKIP_WHY = `test('x', { ${'skip'}: 'flaky on CI' }, () => {});`;
+  const SKIP_FN = `test.${'skip'}('x', () => {});`;
+  const FIXME = `test('x', async () => { test.${'fixme'}(); });`;
+  const DESC_SKIP = `describe.${'skip'}('x', () => {});`;
+  const ONLY = `test.${'only'}('x', () => {});`;
+  const ONLY_OPT = `test('x', { ${'only'}: true }, () => {});`;
+  const REASON = '// disabled: tried 40 runs alone and under load, a trace of each red; evidence trace-17.zip, the browser drops the event 1 in 30 (#3150); re-enable when the upstream fix lands\n';
+  const CI_SKIP = '// ci-skip: the macOS platform suite runs it; Linux CI has no flock(1)\n';
+
+  test('a literal skip, fixme or todo is a disabled test; .only is a focused one', () => {
+    for (const src of [SKIP_LIT, SKIP_WHY, SKIP_FN, FIXME, DESC_SKIP, `test.${'skip'}(true, 'pdftoppm is not installed');`, `it.${'todo'}('x', () => {});`, `test.describe.${'fixme'}('x', () => {});`]) {
+      assert.deepEqual(flakyTestHits(src), { 'disabled-test': 1 }, src);
+    }
+    assert.deepEqual(flakyTestHits(ONLY), { 'focused-test': 1 });
+    assert.deepEqual(flakyTestHits(ONLY_OPT), { 'focused-test': 1 });
+    assert.deepEqual(flakyTestHits(`test.describe.${'only'}('x', () => {});`, 'docs/e2e/a.spec.ts'), { 'focused-test': 1 });
+    for (const src of [`test.${'todo'}('later');`, `it.${'skip'}('x');`, `const T = 'x'; test.${'skip'}(T, () => {});`, `test('x', async () => { test.${'fail'}(); });`, `test('x', { '${'skip'}': true }, () => {});`, `test('x', { ${'skip'}: 1 }, () => {});`, `test('x', { ${'skip'}: !0 }, () => {});`]) {
+      assert.deepEqual(flakyTestHits(src), { 'disabled-test': 1 }, src);
+    }
+    assert.deepEqual(flakyTestHits(`test('x', { '${'only'}': true }, () => {});`), { 'focused-test': 1 });
+  });
+
+  test('a flaky-ok mark excuses neither a disabled nor a focused test', () => {
+    assert.deepEqual(flakyTestHits(`${ONLY} // flaky-ok: debugging`), { 'focused-test': 1 });
+    assert.deepEqual(flakyTestHits(`${SKIP_LIT} // flaky-ok: because`), { 'disabled-test': 1 });
+  });
+
+  test('the fast path reads a file whose only hit has a space before the paren or the colon', () => {
+    const { root, base } = scratch({ 'test/a.test.js': `test('x', { ${'skip'} : true }, () => {});\ntest.${'only'} ('y', () => {});` }, {});
+    assert.deepEqual(flakyTestTree(root), { 'test/a.test.js': { 'disabled-test': 1, 'focused-test': 1 } });
+    void base;
+  });
+
+  test('env-skip: a machine-dependent skip in a node test must go through a helper that fails under CI', () => {
+    assert.deepEqual(flakyTestHits(`test('x', { ${'skip'}: !fs.existsSync(B) && 'not built' }, () => {});`), { 'env-skip': 1 });
+    assert.deepEqual(flakyTestHits(`test('x', (t) => { if (!exe) return t.${'skip'}('no Chromium'); });`), { 'env-skip': 1 });
+    assert.deepEqual(flakyTestHits(`test('x', { ${'skip'}: skipUnlessCI(!built, 'not built') }, () => {});`), {});
+    assert.deepEqual(flakyTestHits(`test('x', (t) => { const why = skipUnlessCI(!exe, 'no exe'); if (why) return t.${'skip'}(why); });`), {});
+    assert.deepEqual(flakyTestHits(`test('x', { ${'skip'}: false }, () => {});`), {});
+    assert.deepEqual(flakyTestHits(`${CI_SKIP}test('x', { ${'skip'}: !HAS_FLOCK && 'no flock' }, () => {});`), {});
+    assert.deepEqual(flakyTestHits(`test.${'skip'}(browserName !== 'webkit', 'WebKit only');`, 'docs/e2e/a.spec.ts'), {}, 'an e2e project scope is not an env-skip');
+  });
+
+  test('a skip that depends on a value is a scoped test, not a disabled one', () => {
+    assert.deepEqual(flakyTestHits(`test('x', { ${'skip'}: skipWithoutChrome(chrome) }, () => {});`), {});
+    assert.deepEqual(flakyTestHits(`test.${'skip'}(browserName !== 'webkit', 'WebKit only');`, 'docs/e2e/a.spec.ts'), {});
+    assert.deepEqual(flakyTestHits(`test.${'skip'}(({ browserName }) => browserName === 'firefox', 'no WebRTC');`, 'docs/e2e/a.spec.ts'), {});
+    assert.deepEqual(flakyTestHits(`const r = { ${'skip'}: true }; page.${'skip'}('x', 1);`), {});
+  });
+
+  test('a disabled test passes only with all three parts of the reason, in the comment right above it', () => {
+    assert.deepEqual(flakyTestHits(REASON + SKIP_LIT), {});
+    assert.deepEqual(flakyTestHits(`test('y', async () => {\n  ${REASON}  test.${'fixme'}();\n});`), {});
+    assert.deepEqual(flakyTestHits(`// disabled: flaky\n${SKIP_LIT}`), { 'disabled-test': 1 }, 'a reason with no tried / evidence / re-enable is not one');
+    assert.deepEqual(flakyTestHits(`// disabled: tried stuff; evidence flaky; re-enable later\n${SKIP_LIT}`), { 'disabled-test': 1 }, 'evidence must point at a URL, a file or #N');
+    assert.deepEqual(flakyTestHits(`${REASON}const a = 1;\n${SKIP_LIT}`), { 'disabled-test': 1 }, 'the reason belongs to the statement it sits on');
+    assert.deepEqual(flakyTestHits(REASON + ONLY), { 'focused-test': 1 }, 'no reason excuses a focused test');
+    assert.deepEqual(flakyTestHits(`// re-enable when disabled: evidence #1 tried\n${SKIP_LIT}`), { 'disabled-test': 1 }, 'the three parts read in order');
+    assert.deepEqual(flakyTestHits(REASON + 'await ' + SKIP_LIT), {}, 'the reason belongs to the whole statement');
+    assert.deepEqual(flakyTestHits(`switch (k) { case 1:\n${REASON}${SKIP_LIT} }`), {}, 'a reason inside a case clause');
+  });
+
+  test('failing arm: a disabled or focused test fails the build, and the baseline cannot hold one', () => {
+    const { root, base } = scratch({ 'test/a.test.js': SKIP_LIT, 'test/b.test.js': ONLY }, { 'test/a.test.js': { 'disabled-test': 1 } });
+    const errors = [];
+    checkFlakyTests(errors, root, base);
+    assert.equal(errors.length, 3, errors.join('\n'));
+    assert.match(errors.join('\n'), /never baselined/);
+    assert.match(errors.join('\n'), /disabled test in test\/a\.test\.js/);
+    assert.match(errors.join('\n'), /focused test in test\/b\.test\.js/);
+  });
+
+  test('Playwright never retries (HARD RULE #34)', () => {
+    const errors = [];
+    checkPlaywrightRetries(errors);
+    assert.deepEqual(errors, [], 'docs/playwright.config.ts holds retries: 0');
+    assert.deepEqual(playwrightRetriesFindings('export default { retries: 0 };'), []);
+  });
+
+  test('failing arm: a CI retry, any retry, or a missing retries line fails', () => {
+    assert.equal(playwrightRetriesFindings('export default { retries: isCI ? 1 : 0 };').length, 1);
+    assert.equal(playwrightRetriesFindings('export default { retries: 2 };').length, 1);
+    assert.equal(playwrightRetriesFindings('export default { projects: [{ name: "a", retries: 1 }], retries: 0 };').length, 1, 'a project may not retry either');
+    assert.match(playwrightRetriesFindings('export default { workers: 2 };')[0], /sets no `retries`/);
+    assert.equal(playwrightRetriesFindings("test.describe.configure({ retries: 2 });", 'docs/e2e/a.spec.ts', { optional: true }).length, 1, 'a spec may not retry');
+    assert.deepEqual(playwrightRetriesFindings("test('a', () => {});", 'docs/e2e/a.spec.ts', { optional: true }), []);
+  });
+
+  test('failing arm: a retry in a spec under a docs/e2e subfolder is found', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'retries-'));
+    fs.mkdirSync(path.join(root, 'e2e', 'journeys'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'playwright.config.ts'), 'export default { retries: 0 };');
+    fs.writeFileSync(path.join(root, 'e2e', 'journeys', 'a.spec.ts'), 'test.describe.configure({ retries: 2 });');
+    const errors = [];
+    checkPlaywrightRetries(errors, path.join(root, 'playwright.config.ts'));
+    assert.equal(errors.length, 1, errors.join('\n'));
+    assert.match(errors[0], /journeys/);
+  });
+
   test('build:check runs the census', () => {
     const src = fs.readFileSync(path.join(__dirname, '../../../tools/check-ownership.js'), 'utf8');
     const run = src.slice(src.indexOf('function run('));
     assert.match(run.slice(0, run.indexOf('\n}\n')), /checkFlakyTests\(errors\)/);
+    assert.match(run.slice(0, run.indexOf('\n}\n')), /checkPlaywrightRetries\(errors\)/);
   });
 });

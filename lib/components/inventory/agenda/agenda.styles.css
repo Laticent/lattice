@@ -2,15 +2,18 @@
  * See lib/components/inventory/agenda/agenda.manifest.json for the contract.
  *
  * ── STYLE VARIANTS ─────────────────────────────────────────────────────
- * The agenda has five interchangeable visual styles. The DEFAULT (no style
- * class) is `ledger`: a contents page with hand-leadered rows + optional
- * page references. Four opt-in styles swap the structure:
- *   - `circles`  — each section number sits in a drawn ring
- *   - `rail`     — numbered nodes threaded on a vertical journey line
- *   - `cards`    — each section is a boxed row
+ * The agenda has three styles, each with a job the others cannot do
+ * (engineering/decisions/2026-11-08-agenda-styles-and-autofill.md). The
+ * DEFAULT (no style class) is `ledger`: a contents page with hand-leadered
+ * rows + optional page references. Two opt-in styles swap the marker:
+ *   - `circles`  — each section number sits in a drawn ring: a track of
+ *                  stops rather than a contents page
  *   - `checks`   — checkbox rows; with `progress-N`, past items get a tick,
  *                  the current one an arrow, future ones an empty box
- * All five are palette-blind (every color is a token) and compose with the
+ * `rail` and `cards` were retired on 2026-11-08: a slide that still names
+ * one renders as the ledger (the :not() chains below no longer exclude
+ * them), and `lint:deck` says so (`agenda-retired-style`).
+ * All three are palette-blind (every color is a token) and compose with the
  * `progress-N` "you are here" modifier and the universal modifiers
  * (`dark`, `compact`, …). The `sketch` finish (lib/base/base.sketch.css)
  * re-skins them by hand — it swaps the --ag-* mark SHAPES and wobbles the
@@ -77,7 +80,7 @@ section.agenda ol > li {
  * the active row re-points it to --accent.
  *
  * Emphasis on the current row never rested on alpha anyway: it is bold, indented, and
- * carries an accent arrow / filled ring / accent card fill. */
+ * carries an accent arrow / filled ring / arrow box. */
 section.agenda[class*="progress-"] ol > li {
   color: var(--text-secondary);
   --ag-marker-ink: var(--text-secondary);
@@ -86,20 +89,28 @@ section.agenda[class*="progress-"] ol > li {
 /* ── DEFAULT: LEDGER ─────────────────────────────────────────────────────
  * Contents page. Number · title · dotted leader · optional page ref (a
  * trailing inline `code`, e.g. `p.15`). Active row gets an arrow + accent
- * solid rule. Scoped with :not() so a style class (circles/rail/cards/
- * checks) fully replaces it rather than inheriting the leader/arrow. Plain
+ * solid rule. Scoped with :not() so a style class (circles/checks)
+ * fully replaces it rather than inheriting the leader/arrow. Plain
  * :not() (no :has) is Marp-Chromium-safe — see engineering/gotchas.md. */
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks) ol { gap: var(--sp-sm); }
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks) ol > li {
+section.agenda:not(.circles):not(.checks) ol { gap: var(--sp-sm); }
+section.agenda:not(.circles):not(.checks) ol > li {
   display: flex; align-items: baseline; gap: var(--sp-md);
   position: relative; padding-bottom: var(--sp-sm); padding-right: var(--sp-xs);
 }
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks) ol > li::before {
+section.agenda:not(.circles):not(.checks) ol > li::before {
   content: counter(agenda-counter, decimal-leading-zero);
   font-family: var(--font-label); font-weight: 700; letter-spacing: 0.06em;
   color: var(--ag-marker-ink); font-size: var(--fs-body);
 }
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks) ol > li code {
+/* The right column (a line's LAST inline `code`: a page reference `p.15` or a tag `once`) is the same on every
+   style: it GROWS to fill the row and right-aligns its text, so it sits flush right in the label face. The render
+   pass (progress.transform.js, both arms) wraps the title in `.agenda-title` and marks the right column
+   `.agenda-page`, so inline code INSIDE a title stays an ordinary inline pill beside its words. */
+/* WITHOUT THE RENDER PASS (an Export-to-Marp bundle in a preview that runs no script, or a loose list whose line
+   is a <p>) there is no `.agenda-title`/`.agenda-page` row, so the original CSS-only rule still holds: every code
+   in that line takes the right-column face. A row the pass built uses only its `code.agenda-page`. */
+section.agenda ol > li:not(:has(> .agenda-title)) code,
+section.agenda ol > li code.agenda-page {
   /* page ref right-anchors by GROWING to fill the row and right-aligning its text, rather
      than an auto inline-start margin (which sat outside the flex box). The text's right edge
      still lands on the li's right-padding edge — pixel-identical, fully measurable. */
@@ -109,26 +120,26 @@ section.agenda:not(.circles):not(.rail):not(.cards):not(.checks) ol > li code {
   font-family: var(--font-label); font-weight: 600; letter-spacing: 0.03em;
   color: var(--text-secondary); font-size: var(--fs-body-compact);
 }
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks) ol > li::after {
+section.agenda:not(.circles):not(.checks) ol > li::after {
   content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
   background-color: var(--ag-outline);
   -webkit-mask: var(--ag-dots) repeat-x left center / 12px 4px;
   mask: var(--ag-dots) repeat-x left center / 12px 4px;
 }
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-1 ol > li:nth-child(1),
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-2 ol > li:nth-child(2),
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-3 ol > li:nth-child(3),
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-4 ol > li:nth-child(4),
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-5 ol > li:nth-child(5),
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 ol > li:nth-child(6) {
+section.agenda:not(.circles):not(.checks).progress-1 ol > li:nth-child(1),
+section.agenda:not(.circles):not(.checks).progress-2 ol > li:nth-child(2),
+section.agenda:not(.circles):not(.checks).progress-3 ol > li:nth-child(3),
+section.agenda:not(.circles):not(.checks).progress-4 ol > li:nth-child(4),
+section.agenda:not(.circles):not(.checks).progress-5 ol > li:nth-child(5),
+section.agenda:not(.circles):not(.checks).progress-6 ol > li:nth-child(6) {
   color: var(--text-heading); --ag-marker-ink: var(--accent); font-weight: 700; padding-left: var(--sp-xl);
 }
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-1 ol > li:nth-child(1)::before,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-2 ol > li:nth-child(2)::before,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-3 ol > li:nth-child(3)::before,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-4 ol > li:nth-child(4)::before,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-5 ol > li:nth-child(5)::before,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 ol > li:nth-child(6)::before {
+section.agenda:not(.circles):not(.checks).progress-1 ol > li:nth-child(1)::before,
+section.agenda:not(.circles):not(.checks).progress-2 ol > li:nth-child(2)::before,
+section.agenda:not(.circles):not(.checks).progress-3 ol > li:nth-child(3)::before,
+section.agenda:not(.circles):not(.checks).progress-4 ol > li:nth-child(4)::before,
+section.agenda:not(.circles):not(.checks).progress-5 ol > li:nth-child(5)::before,
+section.agenda:not(.circles):not(.checks).progress-6 ol > li:nth-child(6)::before {
   /* sp-2xs trailing inset folded INTO the box (width + left-anchored mask) instead of an
      outside gap. The 1.4em arrow stays put at the left, the extra width is the gap to the
      title — fully measurable, nothing sits outside the box. */
@@ -137,18 +148,24 @@ section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 ol >
   -webkit-mask: var(--ag-arrow) no-repeat left center / 1.4em auto;
   mask: var(--ag-arrow) no-repeat left center / 1.4em auto;
 }
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-1 ol > li:nth-child(1) code,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-2 ol > li:nth-child(2) code,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-3 ol > li:nth-child(3) code,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-4 ol > li:nth-child(4) code,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-5 ol > li:nth-child(5) code,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 ol > li:nth-child(6) code { color: var(--accent); }
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-1 ol > li:nth-child(1)::after,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-2 ol > li:nth-child(2)::after,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-3 ol > li:nth-child(3)::after,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-4 ol > li:nth-child(4)::after,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-5 ol > li:nth-child(5)::after,
-section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 ol > li:nth-child(6)::after {
+section.agenda.progress-1 ol > li:nth-child(1):not(:has(> .agenda-title)) code,
+section.agenda.progress-1 ol > li:nth-child(1) code.agenda-page,
+section.agenda.progress-2 ol > li:nth-child(2):not(:has(> .agenda-title)) code,
+section.agenda.progress-2 ol > li:nth-child(2) code.agenda-page,
+section.agenda.progress-3 ol > li:nth-child(3):not(:has(> .agenda-title)) code,
+section.agenda.progress-3 ol > li:nth-child(3) code.agenda-page,
+section.agenda.progress-4 ol > li:nth-child(4):not(:has(> .agenda-title)) code,
+section.agenda.progress-4 ol > li:nth-child(4) code.agenda-page,
+section.agenda.progress-5 ol > li:nth-child(5):not(:has(> .agenda-title)) code,
+section.agenda.progress-5 ol > li:nth-child(5) code.agenda-page,
+section.agenda.progress-6 ol > li:nth-child(6):not(:has(> .agenda-title)) code,
+section.agenda.progress-6 ol > li:nth-child(6) code.agenda-page { color: var(--accent); }
+section.agenda:not(.circles):not(.checks).progress-1 ol > li:nth-child(1)::after,
+section.agenda:not(.circles):not(.checks).progress-2 ol > li:nth-child(2)::after,
+section.agenda:not(.circles):not(.checks).progress-3 ol > li:nth-child(3)::after,
+section.agenda:not(.circles):not(.checks).progress-4 ol > li:nth-child(4)::after,
+section.agenda:not(.circles):not(.checks).progress-5 ol > li:nth-child(5)::after,
+section.agenda:not(.circles):not(.checks).progress-6 ol > li:nth-child(6)::after {
   background-color: var(--accent); -webkit-mask: none; mask: none; height: 2px;
 }
 
@@ -157,7 +174,7 @@ section.agenda:not(.circles):not(.rail):not(.cards):not(.checks).progress-6 ol >
 section.agenda.circles ol { gap: var(--sp-sm); }
 section.agenda.circles ol > li {
   /* flex mirror of `grid-template-columns:auto 1fr` — the ring marker (::before) then the
-   * title fills the rest; a trailing page-ref `code` right-anchors via the universal pill. */
+   * title fills the rest; a trailing page-ref `code` right-anchors (the shared page-reference rule above). */
   display: flex; column-gap: var(--sp-md); align-items: center;
   padding: 0; position: static;
 }
@@ -185,80 +202,6 @@ section.agenda.circles.progress-6 ol > li:nth-child(6)::before {
   background: var(--accent); color: var(--on-accent); border-color: var(--accent);
 }
 
-/* ── rail ────────────────────────────────────────────────────────────────
- * Numbered nodes threaded on a vertical journey line. */
-section.agenda.rail ol { gap: 0; position: relative; }
-section.agenda.rail ol::before {
-  content: ""; position: absolute; left: 1.7em; top: 1.7em; bottom: 1.7em;
-  width: 2px; transform: translateX(-50%); background: var(--ag-outline);
-}
-section.agenda.rail ol > li {
-  /* flex mirror of `grid-template-columns:3.4em 1fr`: the node ring sits in a 3.4em gutter
-   * (centered on the journey line at 1.7em), then the title fills the rest. The ring's
-   * (3.4-2.2)/2 = 0.6em side insets ride here — padding-left for the leading gutter (ring
-   * center lands on 1.7em) and a +0.6em bump on the column-gap for the trailing one —
-   * rather than as margins on the ring, whose background+border can't be padded. */
-  display: flex; align-items: center; column-gap: calc(var(--sp-md) + 0.6em);
-  padding: var(--sp-xs) 0 var(--sp-xs) 0.6em; position: static;
-}
-section.agenda.rail ol > li::before {
-  /* the 2.2em ring sits flush at the gutter inset (li padding-left); see the li note. */
-  content: counter(agenda-counter); flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
-  width: 2.2em; height: 2.2em; position: relative; z-index: 1; margin: 0; letter-spacing: normal;
-  background: var(--bg); border: 2px solid var(--ag-outline); border-radius: 50%;
-  font-family: var(--font-label); font-weight: 700; font-size: var(--fs-body); line-height: 1;
-  color: var(--ag-marker-ink); -webkit-mask: none; mask: none;
-}
-section.agenda.rail ol > li::after { content: none; }
-section.agenda.rail.progress-1 ol > li:nth-child(1),
-section.agenda.rail.progress-2 ol > li:nth-child(2),
-section.agenda.rail.progress-3 ol > li:nth-child(3),
-section.agenda.rail.progress-4 ol > li:nth-child(4),
-section.agenda.rail.progress-5 ol > li:nth-child(5),
-section.agenda.rail.progress-6 ol > li:nth-child(6) { color: var(--text-heading); --ag-marker-ink: var(--accent); font-weight: 700; padding-left: 0; }
-section.agenda.rail.progress-1 ol > li:nth-child(1)::before,
-section.agenda.rail.progress-2 ol > li:nth-child(2)::before,
-section.agenda.rail.progress-3 ol > li:nth-child(3)::before,
-section.agenda.rail.progress-4 ol > li:nth-child(4)::before,
-section.agenda.rail.progress-5 ol > li:nth-child(5)::before,
-section.agenda.rail.progress-6 ol > li:nth-child(6)::before {
-  content: counter(agenda-counter); margin: 0;
-  background: var(--accent); color: var(--on-accent); border-color: var(--accent); transform: scale(1.18);
-}
-
-/* ── cards ───────────────────────────────────────────────────────────────
- * Each section a boxed row; active card fills with the accent wash. */
-section.agenda.cards ol { gap: var(--sp-sm); }
-/* ── `cards:` register (#2317) ── the stage is a COLUMN that centers the boxed rows, so the
- * register reads there as `justify-content`: the manifest's `center` is what it always did
- * (plain `center`, as before — unlike inventory and citation-card, agenda never used `safe`),
- * `top` seats the rows under the headline rule, and under `stretch` the list and its rows grow
- * (`--cards-grow`). */
-section.agenda.cards > .cell-stage { justify-content: var(--cards-align); }
-section.agenda.cards > .cell-stage > ol { flex-grow: var(--cards-grow); }
-section.agenda.cards > .cell-stage > ol > li { flex-grow: var(--cards-grow); }
-section.agenda.cards ol > li {
-  /* flex mirror of `grid-template-columns:auto 1fr` (number marker | title). */
-  display: flex; column-gap: var(--sp-md); align-items: baseline;
-  padding: var(--sp-sm) var(--sp-md); position: static;
-  border: 1.5px solid var(--ag-outline); border-radius: 10px; background: var(--bg-alt);
-}
-section.agenda.cards ol > li::before {
-  content: counter(agenda-counter, decimal-leading-zero); margin: 0;
-  font-family: var(--font-label); font-weight: 700; letter-spacing: 0.04em;
-  color: var(--ag-marker-ink); font-size: var(--fs-body); -webkit-mask: none; mask: none; width: auto; height: auto; border: none;
-}
-section.agenda.cards ol > li::after { content: none; }
-section.agenda.cards.progress-1 ol > li:nth-child(1),
-section.agenda.cards.progress-2 ol > li:nth-child(2),
-section.agenda.cards.progress-3 ol > li:nth-child(3),
-section.agenda.cards.progress-4 ol > li:nth-child(4),
-section.agenda.cards.progress-5 ol > li:nth-child(5),
-section.agenda.cards.progress-6 ol > li:nth-child(6) {
-  color: var(--text-heading); --ag-marker-ink: var(--accent); font-weight: 700; padding-left: var(--sp-md);
-  background: var(--accent-soft); border-color: var(--accent);
-}
-
 /* ── checks ──────────────────────────────────────────────────────────────
  * Checkbox rows. With progress-N: past = tick, current = arrow box,
  * future = empty box. Without progress, a plain row of empty boxes. */
@@ -267,6 +210,9 @@ section.agenda.checks ol > li {
   /* flex mirror of `grid-template-columns:auto 1fr` (checkbox marker | title). */
   display: flex; column-gap: var(--sp-md); align-items: center;
   padding: 0; position: relative;
+  /* The circles row's height (its 2.4em ring), so the three styles keep one row rhythm: at its
+   * own 1.5em box the list sat a third shorter than the same agenda drawn as circles. */
+  min-height: 2.4em;
 }
 section.agenda.checks ol > li::before {
   content: ""; width: 1.5em; height: 1.5em; margin: 0;
@@ -309,6 +255,10 @@ section.agenda.checks.progress-6 ol > li:nth-child(6)::after {
   background-color: var(--on-accent);
   -webkit-mask: var(--ag-arrow) no-repeat center / contain; mask: var(--ag-arrow) no-repeat center / contain;
 }
+
+/* circles + checks: the same right inset the ledger row carries, so a page reference ends at the same edge. */
+section.agenda.circles ol > li,
+section.agenda.checks ol > li { padding-inline-end: var(--sp-xs); }
 
 /* ── A LONE ROW ON A SPLIT PAGE sits in the page's optical center ──────────────────
    One structural element per page makes the row page-tall, and the shared lone-member

@@ -1,5 +1,12 @@
 import { CHROME, expect, gotoStudio, openArchitect, openChat, persistedSource, setEditorContent, test } from './studio-fixture';
 
+// The notice a turn gets when no chat model is chosen: a fresh profile's state, and every case here. Since the model
+// spine (#3079) the notice names the selection's state (`offlineNotice` in ArchitectChat.tsx, case `unset`) instead of
+// the old catch-all "Connect a model in Workspace → AI and I can answer and edit your deck.", which these tests still
+// waited for: four reds, and the absence check below passed against a wording that could no longer appear. The cases
+// here are about WHERE the notice goes, so the wording lives in one place.
+const NO_MODEL_NOTICE = /Choose a chat model in Workspace → AI/;
+
 // The Coach and Chat panels. They are SEPARATE panels now (own toolbar icon, own
 // drawer) — the Coach score card is deterministic (no model); Chat degrades honestly
 // offline instead of fabricating a reply.
@@ -61,8 +68,8 @@ test.describe('Coach and Chat panels', () => {
 		await expect(page.getByText('Tighten slide two.')).toBeVisible();
 		// …and the reply is the honest degradation — an ephemeral notice, distinct from the
 		// empty-thread placeholder, so this can only pass if the send path ran (never a
-		// fabricated edit). "…Workspace → AI and I can answer…" is the notice wording.
-		await expect(page.getByText(/Workspace → AI and I can answer/)).toBeVisible();
+		// fabricated edit). It points to Workspace → AI, where a model is chosen.
+		await expect(page.getByText(NO_MODEL_NOTICE)).toBeVisible();
 	});
 
 	// A deck with NO `<!-- _class: -->` anywhere — an imported .md, or a starter whose class
@@ -202,12 +209,12 @@ test('a turn ending offline paints on the deck that asked, not the one on screen
 	// The notice belongs to deck-1. Assert the WAIT resolved first (Stop is gone, so the
 	// turn ended) — otherwise "no notice yet" is indistinguishable from "no notice ever".
 	await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeVisible();
-	await expect(page.getByText(/and I can answer and edit your deck/), "deck-1's notice is showing in deck-2's transcript").toHaveCount(0);
+	await expect(page.getByText(NO_MODEL_NOTICE), "deck-1's notice is showing in deck-2's transcript").toHaveCount(0);
 	await expect(page.getByRole('dialog').filter({ hasText: 'Workspace' }), 'the Workspace sheet opened over a deck whose author asked for nothing').toHaveCount(0);
 
 	// Not swallowed, though — waiting on the deck that asked.
 	await goToDeck(DECK_ONE);
-	await expect(page.getByText(/and I can answer and edit your deck/), 'the deck that asked was never told why nothing came back').toBeVisible();
+	await expect(page.getByText(NO_MODEL_NOTICE), 'the deck that asked was never told why nothing came back').toBeVisible();
 });
 
 // ── And it is still there when the PANEL comes back, not just the deck (#1813 follow-on) ──
@@ -257,7 +264,7 @@ test('a turn that fails while the panel is CLOSED is waiting when it reopens (#1
 	// with nothing after it, and no explanation anywhere in the app.
 	await page.getByRole('button', { name: CHROME.chat }).click();
 	await expect(page.getByText('Tighten slide two.')).toBeVisible();
-	await expect(page.getByText(/and I can answer and edit your deck/), 'the turn failed while the panel was shut and said nothing, anywhere').toBeVisible();
+	await expect(page.getByText(NO_MODEL_NOTICE), 'the turn failed while the panel was shut and said nothing, anywhere').toBeVisible();
 
 	// ONLY NOW the absence check. Asserted straight after `release()` it resolved ~7ms in,
 	// against an outcome that was not observable for ~88ms — an absence assertion evaluated
@@ -303,6 +310,6 @@ test('a turn that fails after the panel closes AND reopens is not lost (#1813)',
 	release();
 
 	// It has to arrive at the panel that is ALREADY OPEN — nothing will sample for it.
-	await expect(page.getByText(/and I can answer and edit your deck/), 'the notice was parked but never reached the panel that was already open').toBeVisible();
+	await expect(page.getByText(NO_MODEL_NOTICE), 'the notice was parked but never reached the panel that was already open').toBeVisible();
 	await expect(page.getByRole('dialog').filter({ hasText: 'Workspace' })).toHaveCount(0);
 });

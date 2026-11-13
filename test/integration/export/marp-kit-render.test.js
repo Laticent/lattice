@@ -56,30 +56,32 @@
  * booting a 354MB editor is not something to hang on the export tier.
  *
  * marp-cli is NOT a dependency of this project and is not becoming one — Marp is
- * an export TARGET, not a render path (HARD RULE #1). It is fetched on demand at
- * the SAME version range the export bundle pins, imported from
- * `lib/export/marp-bundle.js` rather than restated, so the gate and the artifacts it
- * gates cannot ask for different tools.
+ * an export TARGET, not a render path (HARD RULE #1). The tests run an exact pin
+ * kept in its own folder, `test/fixtures/marp-cli/`, with a lockfile, and
+ * `test/helpers/marp-cli.js` refuses a pin other than the floor `MARP_SUPPORT` states
+ * in `lib/export/marp-bundle.js`, the oldest marp-cli and marp-core both artifacts
+ * say they work with, so the gate and the artifacts it gates cannot disagree.
  *
- * Slow tier: fetches marp-cli, then spawns Chromium four times (~19s warm).
+ * Slow tier: spawns marp-cli and Chromium four times (~19s warm).
  */
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync, execFileSync } = require('node:child_process');
-const { npxSync } = require('../../helpers/npx-lock');
+const { marpCli } = require('../../helpers/marp-cli');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'export', 'marp-bundle.js'));
 const { pageCount } = require(path.join(ROOT, 'test', 'helpers', 'pdf.js'));
 
 const DECK = 'Sample-Deck.md';
 const KIT = path.join(ROOT, 'dist', 'marp-kit');
 const SOURCE_DECK = path.join(ROOT, 'kit', DECK);
 const EXPORT_CLI = path.join(ROOT, 'tools', 'export-marp.js');
-const MARP_PKG = `@marp-team/marp-cli@${MARP_CLI_RANGE}`;
+/** The pinned, locked marp-cli (test/helpers/marp-cli.js): no registry fetch inside a test. */
+const MARP = marpCli();
 const TIMEOUT = 300000;
 
 /**
@@ -126,11 +128,8 @@ const DIAGRAM_PAGE_TEXT = 'Marp parses';
 /** Every marp-cli invocation: the browser Chromium needs, and where to find it. */
 function marpEnv() {
 	const env = { ...process.env };
-	// This fetches and RUNS registry content on the PR critical path, so it runs it
-	// with lifecycle scripts off. Verified end to end on a cold cache: the version
-	// probe and a full 13-page PDF render both work with this set. It does not make
-	// an unpinned range reproducible — see ensureMarp() — it just stops an install
-	// hook from executing in a job with the repo checked out.
+	// Only the `LATTICE_MARP_CLI=range` route fetches from the registry; it runs what it fetches with
+	// lifecycle scripts off, so no install hook executes in a job with the repo checked out.
 	env.npm_config_ignore_scripts = 'true';
 	// CHROME_NO_SANDBOX is marp-cli's OWN documented lever, and on a GitHub
 	// Actions runner it is required. Its launcher enables the Chromium sandbox
@@ -177,7 +176,8 @@ function marpEnv() {
  * marp-cli does not read.
  */
 function runMarp(args, cwd, timeout = TIMEOUT) {
-	return npxSync(['-y', MARP_PKG, ...args], {
+	if (!MARP.ok) return { status: null, stdout: '', stderr: MARP.reason };
+	return MARP.run(args, {
 		cwd,
 		encoding: 'utf8',
 		env: marpEnv(),
@@ -185,50 +185,40 @@ function runMarp(args, cwd, timeout = TIMEOUT) {
 	});
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
 /**
- * Can marp-cli be fetched? Memoized — both fixtures ask, it should cost one probe.
+ * Is marp-cli there to run? Memoized — both fixtures ask, it should cost one probe.
  *
  * THE SKIP IS LOCAL-ONLY, AND THAT IS THE WHOLE DESIGN. A gate that hard-fails on
- * a laptop with no network trains people to ignore it; a gate that SKIPS in CI is
- * not a gate at all, it is a decoration that reports green. `# skipped 6` at the
- * end of a several-hundred-line TAP stream is not a signal anyone reads. So:
- * retry, then skip off-CI and **throw on CI**.
+ * a laptop that has not installed the pin trains people to ignore it; a gate that
+ * SKIPS in CI is not a gate at all, it is a decoration that reports green.
+ * `# skipped 6` at the end of a several-hundred-line TAP stream is not a signal
+ * anyone reads. So: skip off-CI and **throw on CI**.
  *
- * The resolved version is captured and reported in every failure message. Without
- * it a red gate cannot be triaged as "marp-cli moved under us" versus "we broke
- * it" — `MARP_CLI_RANGE` is a RANGE, deliberately (it is what the kit's README
- * tells recipients to run, so gating an exact pin would gate something nobody
- * uses), which means the tool genuinely can move on a PR that changed nothing.
+ * One probe, no retry. The tool is a locked install that CI puts in place in its
+ * own step before any test runs, so nothing here reaches the network and there is
+ * nothing to retry. The old route fetched a RANGE with npx inside this hook, and
+ * its three tries with a sleep between them turned a registry stall into a hook
+ * that outlived its parent: 22 red integration runs in 30 days (#3045).
+ *
+ * The version is still captured and reported in every failure message, so a red
+ * gate on the `LATTICE_MARP_CLI=range` route (the newest release in
+ * `MARP_SUPPORT.cli.range`) can be told apart from "we broke it".
  */
 let preflight = null;
-async function ensureMarp() {
+function ensureMarp() {
 	if (preflight) return preflight;
-	let last = null;
-	for (let attempt = 1; attempt <= 3; attempt++) {
-		// A SHORT per-attempt budget, not the hook's whole 300s. Three attempts
-		// against a silently-dropping network (SYN timeouts — the realistic CI
-		// failure, not the fast ECONNREFUSED that is easy to test) must still fit
-		// inside `before()`, or the diagnosis below is replaced by an opaque hook
-		// timeout.
-		const probe = runMarp(['--version'], ROOT, 60000);
-		if (probe.status === 0) {
-			preflight = { ok: true, version: String(probe.stdout || '').trim() };
-			return preflight;
-		}
-		last = probe;
-		if (attempt < 3) await sleep(2000 * attempt);
+	const probe = runMarp(['--version'], ROOT, 60000);
+	if (probe.status === 0) {
+		preflight = { ok: true, version: String(probe.stdout || '').trim() };
+		return preflight;
 	}
-	const reason =
-		`could not fetch ${MARP_PKG} after 3 attempts (exit ${last.status ?? 'timeout/ENOENT'}). ` +
-		`stderr: ${String(last.stderr || '').trim().slice(0, 400)}`;
+	const reason = `could not run ${MARP.ok ? MARP.label : 'marp-cli'} (exit ${probe.status ?? 'timeout/ENOENT'}). stderr: ${String(probe.stderr || '').trim().slice(0, 400)}`;
 	// On CI a missing tool is a FAILED gate, not an absent one.
 	if (process.env.CI) {
 		throw new Error(
 			`[marp-kit-render] ${reason}\n` +
 				'Refusing to skip on CI — a gate that self-skips is a gate that reports green ' +
-				'while covering nothing. Fix the registry access or remove the suite deliberately.',
+				'while covering nothing. Fix the install step or remove the suite deliberately.',
 		);
 	}
 	process.stderr.write(`\n[marp-kit-render] SKIPPED (not CI): ${reason}\n\n`);
@@ -287,7 +277,7 @@ for (const fixture of FIXTURES) {
 		const pageErrors = [];
 
 		before(async () => {
-			const pre = await ensureMarp();
+			const pre = ensureMarp();
 			if (!pre.ok) {
 				skipReason = pre.reason;
 				return;
@@ -354,7 +344,8 @@ for (const fixture of FIXTURES) {
 		 * last-page text probe catches even if the count assertion were ever loosened.
 		 */
 		test('one PDF page per slide, and the last page is a real slide', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 
 			const sections = await page.evaluate(() => document.querySelectorAll('section').length);
 			const pages = pageCount(pdf); // test/helpers/pdf.js — guards a missing file + an unparseable pdfinfo
@@ -401,7 +392,8 @@ for (const fixture of FIXTURES) {
 		 * look here.
 		 */
 		test('the Mermaid tooltip is PINNED, not removed — the blank-page root cause', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 
 			const tips = await page.evaluate(() =>
 				[...document.querySelectorAll('body > .mermaidTooltip')].map((el) => ({
@@ -432,7 +424,8 @@ for (const fixture of FIXTURES) {
 		 * inlined stylesheet. Finding the ELEMENTS, with real widths, is the proof.
 		 */
 		test('the split-panel transform ran — the runtime executed on a Marp-rendered DOM', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 
 			const panels = await page.evaluate(() => {
 				const l = document.querySelector('.panel-left');
@@ -453,7 +446,8 @@ for (const fixture of FIXTURES) {
 		 * while building slide 9's chart satisfies all of them.
 		 */
 		test('the runtime threw no uncaught exception anywhere in the deck', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 			assert.deepEqual(pageErrors, [], `lattice-runtime raised uncaught errors on a Marp-rendered deck:\n${pageErrors.join('\n')}`);
 		});
 
@@ -465,7 +459,8 @@ for (const fixture of FIXTURES) {
 		 * in the form its target ships, has a real box, and sits INSIDE its slide.
 		 */
 		test('the display equation is typeset and laid out inside the math slide', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 
 			if (fixture.slug === 'bundle') {
 				assert.equal(await page.evaluate(() => document.querySelectorAll('mjx-container').length), 0, 'Marp\'s MathJax typeset nothing in the bundle');
@@ -559,7 +554,8 @@ for (const fixture of FIXTURES) {
 		 * front matter whether or not any CSS resolved.
 		 */
 		test('both stylesheets registered — the deck is styled, not silently bare', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 
 			const styling = await page.evaluate(() => {
 				const cs = getComputedStyle(document.querySelector('section'));
@@ -599,7 +595,8 @@ for (const fixture of FIXTURES) {
 		 * the resolved face. It read like coverage and was a tautology.
 		 */
 		test('the bundled faces load — losing them falls back to system serif silently', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 
 			const fonts = await page.evaluate(() => ({
 				declared: document.fonts.size,

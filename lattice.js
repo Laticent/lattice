@@ -335,6 +335,12 @@ OPTIONS
                           Studio's "Re-openable in Lattice" switch. Comments never
                           ride along. Hidden slides DO, and so do speaker notes
                           unless you add --strip-notes. PDF and PPTX only.
+      --font-embedding <words>
+                          How much of each typeface the file embeds: exact |
+                          used (default for text) | full | system; add -emoji for
+                          the emoji font (default exact-emoji), e.g.
+                          "used exact-emoji". Wins over the deck's
+                          font-embedding: line, class by class.
       --overflow-marker <author|reader|off>
                           Who a clipped slide's marker speaks to in the exported
                           artifact. A slide with more content than fits is CLIPPED
@@ -348,6 +354,11 @@ OPTIONS
                           checked fits. LATTICE_OVERFLOW_MARKER sets a standing
                           default ('off' is per-render only). The overflow warning
                           on stderr is printed at every level.
+      --steps             Print a stepping slide (_build, _focusSteps) once per step:
+                          a build reveals one more unit a page, a focus walk lights
+                          the next target. Every page keeps its slide's page number.
+                          PDF, PowerPoint and images; without it, the slide prints
+                          once, at rest. Present walks the steps either way.
       --chrome-pdf        Write the PDF with Chrome's own printer (page.pdf) instead
                           of Lattice's writer. By default the PDF is composed by the
                           same code as the Studio's Export to PDF: each slide's
@@ -541,6 +552,14 @@ if (process.argv[2] === 'fmt') {
   process.exit(r.status ?? 1);
 }
 
+// `lattice migrate meta <deck.md>` — directive comments rewritten as slide records (lib/cli/migrate-meta.mjs,
+// engineering/decisions/2026-10-17-meta-record.md §9 step 5). Dispatched as a child for the same reason as `packages`.
+if (process.argv[2] === 'migrate') {
+  const r = require('node:child_process').spawnSync(process.execPath, [path.join(PKG_ROOT, 'lib/cli/migrate-meta.mjs'), ...process.argv.slice(3)], { stdio: 'inherit' });
+  if (r.error) console.error(`error: ${r.error.message}`);
+  process.exit(r.status ?? 1);
+}
+
 // `--help` / `-h` is one screen; `--help all` (`-h all`, `--help=all`, any case) is the full
 // reference. A help flag anywhere asks for help, as it always has; `--help=<anything>` counts too,
 // so `--help=` or a mistyped value prints the short help rather than "unknown option".
@@ -582,6 +601,12 @@ function parseArgs(argv) {
     // strip, and "unknown option" does not tell them which flag gives it to them now.
     if (a === '--strip-captions') {
       console.error('error: --strip-captions is retired — use --strip-say (the author\'s spoken lines are `say:` now).');
+      process.exit(1);
+    }
+    // Renamed 2026-11-09 before any release shipped it: `--fonts` read as choosing fonts, and it only decides what an
+    // export embeds. Named here for the same reason as --strip-captions above.
+    if (a === '--fonts' || a.startsWith('--fonts=')) {
+      console.error('error: --fonts was renamed — use --font-embedding (same words: exact, used, full or system).');
       process.exit(1);
     }
     // --flag=value form
@@ -831,6 +856,8 @@ const EMBED_SOURCE = !!flags['embed-source'];
 const REOPENABLE = !!flags.reopenable;
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
 const CHROME_PDF = !!flags['chrome-pdf'];
+// The page-per-step export (engineering/decisions/2026-11-09-steps-as-a-behavior.md §4; the owner's D1).
+const STEP_PAGES = !!flags.steps;
 // JPEG quality of the shared writer's background photo (lib/core/pdf-compose).
 // Chrome's fast PNG encoder for that photo: same pixels, ~3x the bytes on a flat slide, ~2.5x quicker.
 // On under `node --test` (it marks every process a test starts with NODE_TEST_CONTEXT) so the
@@ -1412,15 +1439,29 @@ const KATEX_FAMILIES = katexFamilies(katexCssAbsPath);
 // 60-70 ms per render walking 845 KB of base64 to recover five names — against the ~21 ms per
 // navigation this whole change saves. Measured, and it made a 1-navigation export a net LOSS.
 // (Second HARD RULE #25 checker; see the PR's ## Performance section.)
-const embeddedFaceCss = fontFaceCss(PKG_ROOT);
-const EMBEDDED_FAMILIES = emittedFamilies(PKG_ROOT);
+// ONLY THE FACES THIS DECK CAN DRAW. The `typography:` sets' faces (Newsreader, Fraunces, Barlow
+// Condensed, Inter; lib/core/resolve-typography.js) are about 0.55 MB of base64 that a deck naming no
+// set never uses, so they join the block only when the deck's set (a preset's included) or a
+// slide's own `typography-*` class asks for them. Every other face is inlined as before.
+const DECK_FONT_FAMILIES = (() => {
+  const typo = require('./lib/core/resolve-typography.js');
+  const fm = (md.match(/^---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '';
+  const used = typo.setFamiliesFor(require('./lib/core/front-matter-key.js').frontMatterName(fm, 'typography') || '', md);
+  const all = [...new Set(require('./lib/fonts/text-faces.js').TEXT_FACES.map((f) => f.family))];
+  return all.filter((f) => !typo.SET_ONLY_FAMILIES.includes(f) || used.includes(f));
+})();
+const embeddedFaceCss = fontFaceCss(PKG_ROOT, { families: DECK_FONT_FAMILIES });
+const EMBEDDED_FAMILIES = emittedFamilies(PKG_ROOT, { families: DECK_FONT_FAMILIES });
 // A family is COVERED when this document supplies it another way: the engine's own
 // faces via the base64 block, KaTeX's via its inlined sheet on a math deck. On a deck
 // without math nothing supplies KaTeX's faces — and nothing asks for one, since no
 // element carries a KaTeX family without KaTeX markup.
 // Lattice Icons too: the page carries its faces as data whenever a slide draws a glyph (`iconFaceCss` below), and under
-// `fonts: emoji: system` it shows the <svg>, so the sheet's relative-url copy is never the one that should load.
-const COVERED_FAMILIES = [...EMBEDDED_FAMILIES, ...KATEX_FAMILIES, require('./lib/fonts/icon-faces.js').ICON_FAMILY];
+// `font-embedding: system-emoji` it shows the <svg>, so the sheet's relative-url copy is never the one that should load.
+// The type sets' faces count as covered whether or not this deck uses them: the ones it uses are in
+// the base64 block, and the rest must not stay in the inlined sheet, whose relative `fonts/…` urls
+// the export would try (and refuse) to read from the deck's folder on every render.
+const COVERED_FAMILIES = [...EMBEDDED_FAMILIES, ...require('./lib/core/resolve-typography.js').SET_ONLY_FAMILIES, ...KATEX_FAMILIES, require('./lib/fonts/icon-faces.js').ICON_FAMILY];
 const inlinedFaces = dropCoveredSheetFaces(layoutCSSLinked, {
   covered: COVERED_FAMILIES,
   // SECOND-OPINION EVERY SPAN WITH css-tree — but only for a sheet we have not already
@@ -1498,7 +1539,10 @@ const CLI_THEMES = cliThemeStore(deckSheetLayout, paletteChain.map((n, i) => ({
 // `\r?\n` on both sides, and the value pattern tolerates the comment and the `.` that lint has
 // always allowed. Strictly a superset of what these matched before: no LF deck changes.
 const FRONT_MATTER_RE   = /^---\r?\n[\s\S]*?\r?\n---/;
-const SIZE_DIRECTIVE_RE = /^\s*size:\s*["']?([\w:/.-]+)["']?\s*(?:#.*)?$/m;
+// TOP-LEVEL and LAST, as the engine reads `size:` (#2050 column 0; #3050 D1 last repeat wins; `size :` counts).
+// Used through `sizeDirective`, which returns the `[whole, name]` pair the `.match` callers used to get.
+const SIZE_DIRECTIVE_RE = /^size[ \t]*:[ \t]*["']?([\w:/.-]+)["']?[ \t]*(?:#.*)?$/gm;
+const sizeDirective = (text) => [...String(text || '').matchAll(SIZE_DIRECTIVE_RE)].pop() || null;
 
 // ── Fail fast on an unknown `size:` directive (#502) ──────────────────────
 // A typo'd size name (`size: storyy`) otherwise resolves SILENTLY to the hd
@@ -1517,7 +1561,7 @@ const SIZE_DIRECTIVE_RE = /^\s*size:\s*["']?([\w:/.-]+)["']?\s*(?:#.*)?$/m;
 const { SIZES, isRegisteredSize } = require('./lib/core/sizes');
 const _mdFmMatch  = md.match(FRONT_MATTER_RE);
 const _mdFm       = _mdFmMatch ? _mdFmMatch[0] : '';
-const explicitSize = (_mdFm.match(SIZE_DIRECTIVE_RE) || [])[1];
+const explicitSize = (sizeDirective(_mdFm) || [])[1];
 if (explicitSize && !isRegisteredSize(explicitSize)) {
   console.error(`error: unknown size: ${explicitSize}`);
   console.error(`available sizes: ${Object.keys(SIZES).sort().join(', ')}`);
@@ -1816,7 +1860,7 @@ function refuseUnapprovedCode(pkgs) {
 function withInstalledPlugins(source) {
   const { refusePackage } = require('./lib/cli/package-gate.js');
   const { activePluginNames } = require('./lib/packages/code-door-fence.mjs');
-  const { codeDigest, readTrust, trustOf } = require('./lib/packages/trust.js');
+  const { acceptedDigests, readTrust, trustOf } = require('./lib/packages/trust.js');
   const PLUGIN_NAMES = require('./lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
   const installed = [];
   for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'plugin' && x.ok)) {
@@ -1843,7 +1887,7 @@ function withInstalledPlugins(source) {
     if (written.length) console.error(`warning: the installed plugin ${p.name} draws ${written.map((k) => `\`@${k.name}{…}\``).join(', ')} spans, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
   }
   const { pluginReturnFields } = require('./lib/core/code-shape.mjs');
-  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], css: p.pkg.roles['styles.css'] ? String(p.pkg.files[p.pkg.roles['styles.css']]) : '', layer: trustOf(approvals, 'plugin', p.name, codeDigest(p.pkg))?.layer ?? null })), ...npm];
+  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], css: p.pkg.roles['styles.css'] ? String(p.pkg.files[p.pkg.roles['styles.css']]) : '', layer: trustOf(approvals, 'plugin', p.name, acceptedDigests(p.pkg))?.layer ?? null })), ...npm];
 }
 
 /**
@@ -1968,7 +2012,7 @@ const bakeServices = {
   quiet: QUIET,
   print: WANT_PRINT,
   paletteUsesTexture: PALETTE_USES_TEXTURE,
-  orientation: orientationFor(resolveSize(((mdForBake.match(FRONT_MATTER_RE) || [''])[0].match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd')).name,
+  orientation: orientationFor(resolveSize((sizeDirective((mdForBake.match(FRONT_MATTER_RE) || [''])[0]) || [])[1] || 'hd')).name,
   paneOrientations: (src) => require('./lib/engine').paneOrientations(src),
   browser: { path: CHROME_EXEC, args: OFFLINE_ARGS },
   readToken: readScopeToken,
@@ -2006,9 +2050,9 @@ function sizeNote(file) {
 }
 const IMAGE_SETTING = require('./lib/core/image-policy.js').mergeImagesSettings(frontMatterValue(fm, 'images'), flags.images);
 // The PDF's slide-photo layer takes the same JPEG quality as every other picture; the env var still overrides it.
-// What the exports carry of each typeface (lib/core/font-policy.js): the flag wins over the deck's `fonts:` line,
+// What the exports carry of each typeface (lib/core/font-policy.js): the flag wins over the deck's `font-embedding:` line,
 // class by class (`used exact-emoji`). Both hosts read the same key.
-const FONT_SETTING = require('./lib/core/font-policy.js').mergeFontsSettings(frontMatterValue(fm, 'fonts'), flags.fonts);
+const FONT_SETTING = require('./lib/core/font-policy.js').mergeFontsSettings(frontMatterValue(fm, 'font-embedding'), flags['font-embedding']);
 const FONT_POLICY = require('./lib/core/font-policy.js').resolveFontPolicy(FONT_SETTING);
 const PDF_PHOTO_QUALITY = Math.min(100, Math.max(50, Number(process.env.LATTICE_PDF_PHOTO_QUALITY) || require('./lib/core/image-policy.js').resolveImagePolicy(IMAGE_SETTING).quality));
 require('./lib/export/slide-picture').setPictureSetting(IMAGE_SETTING);
@@ -2173,7 +2217,7 @@ const PAGINATOR_CAROUSEL_NAMES  = CAROUSEL_NAMES.filter((n) => !WIDTH_REDUCING_S
 // scaffold bakes into `@page`. It reads the engine's size REGISTRY
 // (lib/core/sizes.js) — the stylesheets are not consulted, so no sheet is passed.
 // (resolveSize required above, before the plugins' bakes.)
-const deckSizeName   = (fm.match(SIZE_DIRECTIVE_RE) || [])[1] || 'hd';
+const deckSizeName   = (sizeDirective(fm) || [])[1] || 'hd';
 const _geom          = resolveSize(deckSizeName);
 const slideW         = parseFloat(_geom.width);
 const slideH         = parseFloat(_geom.height);
@@ -2315,6 +2359,11 @@ function engineSlides(deckSource = rawMd) {
   // `sample:<name>` images resolve into the package's one sample-art folder, wherever the
   // deck sits (lib/core/bg-image.js resolveAssetUrl; lib/samples/README.md).
   const samplesUrl = pathToFileURL(path.join(PKG_ROOT, 'lib', 'samples') + path.sep).href;
+  // A media figure's box before its picture loads: the header's size, for a local file (lib/core/image-dimensions.js).
+  const imageSize = (url) => {
+    const file = imageDimensions.urlToLocalPath(String(url));
+    return file ? imageDimensions.readDimensions(file) : null;
+  };
   // `asset:<name>` names a picture in `assets/` beside the deck (lib/export/deck-assets.js). The CLI owns every
   // `asset:` reference, so a name the folder lacks draws the missing-picture stand-in, not a dead address.
   const deckAssets = require('./lib/export/deck-assets.js').buildAssetUrls(path.dirname(path.resolve(mdFile)), DECK_CONFINE);
@@ -2328,7 +2377,7 @@ function engineSlides(deckSource = rawMd) {
   let rendered;
   if (DECK_CODE_PACKAGES.length || DECK_PLUGINS.length) {
     const { renderWithCodePackages } = require('./lib/cli/code-door.js');
-    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, assetUrls, baseUrl: deckBaseUrl }), {
+    const r = renderWithCodePackages((hook, more) => engine.render(deckMd, paletteName, { codePackages: hook, ...more, samplesUrl, assetUrls, baseUrl: deckBaseUrl, imageSize }), {
       packages: DECK_CODE_PACKAGES,
       plugins: DECK_PLUGINS,
       executablePath: CHROME_EXEC,
@@ -2344,7 +2393,7 @@ function engineSlides(deckSource = rawMd) {
     const drew = new Set((r.claimed || []).filter((n) => n.startsWith('plugin/')).map((n) => n.slice('plugin/'.length)));
     DECK_PLUGIN_CSS = DECK_PLUGINS.filter((p) => drew.has(p.name) && p.css).map((p) => scopePluginCss(p.name, p.css)).join('\n');
   } else {
-    rendered = engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl });
+    rendered = engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl, imageSize });
   }
   // logo-wall marks ride as CSS `mask` in the preview; for the PDF we swap each
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in
@@ -2614,6 +2663,17 @@ const slideNotes = notesCore.extractSlideNotes(slides);
 // Belt and braces: pass 2 already renders a note-free deck, so this is a second, independent
 // guarantee that no materialized copy carries note text even if a note ever survived the scrub.
 const materializedNotes = STRIP_NOTES ? slideNotes.map(() => null) : slideNotes;
+// Every export that keeps speaker notes SAYS so, and names the switch (#1833, the owner's
+// option B, 2026-11-08). Notes stay in by default — you present your own file from any
+// machine — but the copy you send someone carries them too: the player's notes panel, the
+// PDF's annotations, PowerPoint's notes pane. The default is right; silence was wrong.
+// Counts the MATERIALIZED array, so under --strip-notes there is nothing to say. Gated by
+// --quiet like the format's own summary line it follows.
+function warnShippedNotes(what) {
+  const n = materializedNotes.filter(Boolean).length;
+  if (QUIET || !n) return;
+  console.warn(`  ⚠ ${n} ${n === 1 ? 'slide ships' : 'slides ship'} speaker notes in this ${what} — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
+}
 const slideDescriptions = notesCore.extractSlideDescriptions(slides);
 // Per-slide inline `<!-- say: … -->` read-as text (Layer 1, §16) — the highest-precedence
 // narration source. Extracted from the rendered slides (index-aligned) exactly as notes are. A
@@ -2625,17 +2685,27 @@ const slideDescriptions = notesCore.extractSlideDescriptions(slides);
 // slide falls back to the generated projection. The explicit `inlineForMerge` / `fmForMerge`
 // clearing further down stays as belt and braces, the same way `materializedNotes` does.
 const slideSayLines = notesCore.extractSlideSayLines(slides);
+// Per-slide READER notes (a record's `reader` field, engineering/decisions/2026-10-17-meta-record.md §4.4): text for
+// whoever opens the exported file, not for the presenter. D8: PPTX and PDF carry it in the notes channel as a labeled
+// `Reader:` paragraph after the speaker note (`exportedNotes`); the player keeps it a separate channel. A reader note is
+// meant to ship, so `--strip-notes` (the PRESENTER's channel) keeps it: that flag removes what is private.
+const slideReaderNotes = notesCore.extractSlideReaderNotes(slides);
+const exportedNotes = notesCore.withReaderNotes(materializedNotes, slideReaderNotes);
 const slidesWithNotes = slides.map((sec, i) => {
   const stripped = notesCore.stripCommentNodes(sec);
   const note = materializedNotes[i];
   const description = slideDescriptions[i];
-  if (!note && !description) return stripped;
+  const reader = slideReaderNotes[i];
+  if (!note && !description && !reader) return stripped;
   let inject = '';
   let sectionAttr = '';
   // Speaker note: a `hidden` aside — out of layout/print AND out of the a11y tree
   // (it is spoken by the presenter, not read by a screen reader). `--strip-notes`
   // omits it so the shared player's DOM carries no speaker text.
   if (note) inject += `<aside class="lattice-notes" hidden data-slide="${i + 1}">${escapeHtml(note)}</aside>`;
+  // Reader note: its own `hidden` aside, never folded into the speaker note, so the player can show it to a reader
+  // and keep it off the presenter's view (D8).
+  if (reader) inject += `<aside class="lattice-reader" hidden data-slide="${i + 1}">${escapeHtml(reader)}</aside>`;
   // Accessible description: a visually-hidden but AT-EXPOSED element (sr-only, NOT
   // `hidden`), referenced by `aria-describedby` on the section. It is the slide's
   // text alternative for a screen-reader user; sr-only keeps it off the rasterized
@@ -2852,9 +2922,9 @@ const katexFacesCss = katexFaces ? sanitizeStyleText(katexFaces) : '';
 // (`h1::before{content:"🎉"}`, or the escape `"\1F389"`, which `slicesFor` also reads): the front matter's `style:` and a
 // stylesheet the command line names. The shipped sheet stays out: its own escapes would pull slices into every deck.
 const deckText = `${highlightedSlides.join('\n')}\n${frontMatterValue(fm, 'title') || ''}\n${exportGlobalCss(fm, '')}${layoutIsShipped ? '' : `\n${layoutCSSLinked}`}`;
-// `fonts: system-emoji` leaves the emoji font out of every format: a `.html` then lets the viewer's own emoji draw, and a PDF, PowerPoint or
+// `font-embedding: system-emoji` leaves the emoji font out of every format: a `.html` then lets the viewer's own emoji draw, and a PDF, PowerPoint or
 // image set draws its pictures with this computer's emoji font (the Studio's camera does the same, lib/core/slide-camera.mjs).
-// `fonts: system` for TEXT means the FILE carries none of the engine's text faces: a `.html` leaves them out, while a picture format still
+// `font-embedding: system` for TEXT means the FILE carries none of the engine's text faces: a `.html` leaves them out, while a picture format still
 // draws its words in them (the layout was measured in those faces) and embeds no font file (the PDF writer skips them, lib/core/pdf-compose/compose.mjs).
 const FILE_IS_HTML = OUT_FORMAT === 'html';
 const emojiCss = FONT_POLICY.emoji === 'system' ? '' : emojiFaceCss(PKG_ROOT, deckText, { all: FONT_POLICY.emoji === 'full' });
@@ -2873,7 +2943,7 @@ const OFFICE_ICON_SHAPES = require('./lib/core/office-icons.js').iconsAsShapes({
 const deckSlidesHtml = iconsAsSvg ? drawIconsAsSvg(slidesWithMeta2) : slidesWithMeta2;
 const iconCss = drawsIconGlyphs(deckSlidesHtml) ? iconFaceCss(PKG_ROOT) : '';
 const extraFontCss = katexFacesCss + emojiCss + iconCss;
-// `fonts: system` in a `.html`: the engine's text faces stay out of the file and the viewer's own fonts draw the text.
+// `font-embedding: system` in a `.html`: the engine's text faces stay out of the file and the viewer's own fonts draw the text.
 const textFonts = FONT_POLICY.text === 'system' && FILE_IS_HTML ? '' : embeddedFonts;
 const docFonts = !extraFontCss
   ? textFonts
@@ -3351,8 +3421,16 @@ function toFluidViewer(cleanHtml) {
   // JS is unchanged. (See HTML spec, script-data states.)
   const runtimeJs = fs.readFileSync(runtimePath, 'utf8')
     .replace(/<(?=!--|\/?script)/gi, '\\x3C');
+  // NO FLASH OF THE EXPORTED CHART (base.fluid-view.css § the charts-pending mark): on a box that is not
+  // landscape the runtime will redraw the charts, so hold them hidden until its first pass. The runtime is
+  // inlined at the end of the body and the browser paints before it runs; only the head acts early enough.
+  // No script, no mark: the charts show as exported.
+  const pendingCharts = `${ENGINE_SCRIPT_OPEN}(function(){var r=document.documentElement;`
+    + `if(innerWidth/innerHeight<1.5){r.setAttribute('data-lattice-charts-pending','');`
+    + `setTimeout(function(){r.removeAttribute('data-lattice-charts-pending')},3000);}})();</script>`;
   return cleanHtml
     .replace(/<html\b/i, '<html data-lattice-fluid-capable')
+    .replace(/<\/head>/i, () => `${pendingCharts}</head>`)
     // Function replacement (not a string) so `$&`/`$1`/`$$` inside the minified
     // runtime are inserted literally, not interpreted as replace patterns.
     .replace(/<\/body>/i, () => `${ENGINE_SCRIPT_OPEN}\n${runtimeJs}\n</script>\n</body>`);
@@ -3474,7 +3552,62 @@ async function renderExport({ hardened }) {
   }
 }
 
+/** Content types for a deck file the capture page reads from the deck folder (see `deckRelativeFile` in `renderBody`). */
+const CAPTURE_TYPES = {
+  '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+  '.webp': 'image/webp', '.avif': 'image/avif', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf',
+};
+
+/**
+ * A `bleed` slide's ink, from its photo (lib/export/bleed-ink-stamp.js, deciding by lib/core/bleed-ink.mjs). Run before the
+ * capture page loads, because the export page carries no runtime: the photo is read through the deck's confiner and drawn as a
+ * `data:` image in a scratch page, so its pixels are readable, and the winning ink's class is written into the document.
+ */
+async function stampBleedInkForExport(browser, g, html) {
+  if (!/\bbleed\b/.test(html)) return html;
+  const { stampBleedInk } = require('./lib/export/bleed-ink-stamp.js');
+  let scratch = null;
+  try {
+    return await stampBleedInk(html, {
+      slideW: parseFloat(_geom.width),
+      slideH: parseFloat(_geom.height),
+      readPhoto: (url) => {
+        const local = imageDimensions.urlToLocalPath(String(url));
+        if (!local) return null; // a web address: the export is offline
+        let real;
+        try { real = fs.realpathSync(path.resolve(local)); } catch { return null; }
+        if (!DECK_CONFINE.allows(real)) return null;
+        const mime = CAPTURE_TYPES[path.extname(real).toLowerCase()];
+        const dims = mime?.startsWith('image/') ? imageDimensions.readDimensions(real) : null;
+        return dims ? { bytes: fs.readFileSync(real), mime, width: dims.w, height: dims.h } : null;
+      },
+      samplePixels: async (dataUri, rect, w, h) => {
+        scratch ??= await g(() => browser.newPage(), 'bleed-ink scratch page');
+        return g(() => scratch.evaluate(async (src, r, cw, ch) => {
+          const img = new Image();
+          img.src = src;
+          try { await img.decode(); } catch { return null; }
+          const canvas = document.createElement('canvas');
+          canvas.width = cw;
+          canvas.height = ch;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, cw, ch);
+          return Array.from(ctx.getImageData(0, 0, cw, ch).data);
+        }, dataUri, rect, w, h), 'sample a bleed photo');
+      },
+    });
+  } catch {
+    return html; // the slide keeps the ink its author gave it
+  } finally {
+    if (scratch) await scratch.close().catch(() => {});
+  }
+}
+
 async function renderBody(browser, g, closeBrowser) {
+  // A `bleed` slide's ink, decided from its photo before the page loads (stampBleedInkForExport, above).
+  cleanDocHtml = await stampBleedInkForExport(browser, g, cleanDocHtml);
+  fs.writeFileSync(outHtml, cleanDocHtml);
   // THE CLI'S DRAW HOST: one locked page per host-drawn plugin, opened WHILE the capture page loads, so a figure's draw
   // pays almost nothing for its setup (lib/export/locked-figures.js `openExportDrawHost`). A page that cannot open is
   // reported once, and its figures export showing their source.
@@ -3500,6 +3633,21 @@ async function renderBody(browser, g, closeBrowser) {
     const isOutputPage = (url) => { try { const local = localPathOfFileUrl(url); return local !== null && fs.realpathSync(local) === outHtmlReal; } catch { return false; } };
     const standIn = decodeURIComponent(WEB_IMAGE_PLACEHOLDER.slice(WEB_IMAGE_PLACEHOLDER.indexOf(',') + 1));
     const refused = new Set();
+    // `url`, read as the deck folder would read it: the path from the output page's folder, taken from the deck's
+    // folder instead. A file the confiner allows and that exists, or null.
+    const outDir = path.dirname(path.resolve(outHtml));
+    // A deck read from stdin (`-`) has the current folder as its folder, as DECK_CONFINE has it.
+    const deckDir = mdFile && mdFile !== '-' ? path.dirname(path.resolve(mdFile)) : process.cwd();
+    // The REAL path is resolved once, checked, and is what gets read, so a symlink swapped in after
+    // the check cannot change which file is served (the checker's race on the first cut).
+    const deckRelativeFile = (url) => {
+      try {
+        const local = localPathOfFileUrl(url);
+        if (local === null || deckDir === outDir) return null;
+        const real = fs.realpathSync(path.resolve(deckDir, path.relative(outDir, local)));
+        return confine.allows(real) && fs.statSync(real).isFile() ? real : null;
+      } catch { return null; }
+    };
     await g(() => page.setRequestInterception(true), 'confine local files');
     page.on('request', (req) => {
       if (req.isInterceptResolutionHandled()) return;
@@ -3510,6 +3658,18 @@ async function renderBody(browser, g, closeBrowser) {
         return;
       }
       if (!/^file:/i.test(url) || confine.allows(url) || (req.isNavigationRequest() && isOutputPage(url))) { req.continue(); return; }
+      // THE DECK'S OWN RELATIVE ADDRESSES, read where the deck reads them. The capture page is the output HTML, written
+      // into the OUTPUT folder, so a deck's `<script src="../vendor/x.js">` resolved against that folder: with `-o`
+      // elsewhere it named a file that does not exist and was refused here, with a warning that named it
+      // (followups.d/3051-p8). The same address read from the deck folder is the file the author meant, so a refused
+      // subresource is mapped from "relative to the output page" to "relative to the deck" and served when the confiner
+      // allows THAT path. Nothing new is reachable: the mapped path passes the same check. The deliverable is untouched
+      // (its addresses stay as the author wrote them); only the capture page reads the deck's file.
+      const fromDeck = req.isNavigationRequest() ? null : deckRelativeFile(url);
+      if (fromDeck) {
+        req.respond({ status: 200, contentType: CAPTURE_TYPES[path.extname(fromDeck).toLowerCase()] || 'application/octet-stream', body: fs.readFileSync(fromDeck) });
+        return;
+      }
       if (!refused.has(url)) {
         refused.add(url);
         console.error(`  ⚠ refused ${url.slice(0, 200)}: it resolves outside the deck folder`);
@@ -4474,6 +4634,31 @@ async function renderBody(browser, g, closeBrowser) {
   // `omitBackground` below. A square deck must stay BYTE-IDENTICAL: it stamps no token
   // today, and asking for an alpha channel it has no hole to put in would rewrite every
   // existing PNG export for nothing.
+  // THE PAGE-PER-STEP EXPORT (--steps). Here, on the SETTLED page: every mark (page number, rail, divider k/N,
+  // agenda references) is already drawn, so the copies carry their slide's marks and no count sees them (S3). The
+  // painter (lib/core/step-state.mjs, every Present surface's) and the expansion (lib/core/step-pages.mjs), inlined. The
+  // HTML string is expanded by the same rule into `pagedDocHtml`, for the PDF note annotations only (see below).
+  // A .html export walks the steps live in Present, so it is left whole.
+  let STEP_COUNTS = null;
+  // The expanded document, for the readers that count PRINTED pages (the PDF's note annotations). Every other reader
+  // keeps `cleanDocHtml`, one section per slide: the --fluid sidecar, captions and narration describe the deck a person
+  // presents, where a stepping slide is one slide that Present walks (the inversion, 2026-11-10: reassigning
+  // `cleanDocHtml` shipped the copies in the sidecar and bound say: lines to step pages).
+  let pagedDocHtml = null;
+  if (STEP_PAGES && OUT_FORMAT === 'html' && !QUIET) console.log('  Steps: --steps adds nothing to a .html export; Present walks the steps live');
+  if (STEP_PAGES && OUT_FORMAT !== 'html') {
+    const { expandStepPages } = await import('./lib/core/step-pages.mjs');
+    const { applyStepAt } = await import('./lib/core/step-state.mjs');
+    STEP_COUNTS = await g(() => page.evaluate(`(${expandStepPages.toString()})(document, ${applyStepAt.toString()})`), 'expand step pages');
+    const extra = (STEP_COUNTS || []).reduce((a, n) => a + n - 1, 0);
+    if (extra) pagedDocHtml = require('./lib/core/step-rescope').expandStepPagesHtml(cleanDocHtml);
+    if (!QUIET) console.log(extra ? `  Steps: ${extra} step page${extra === 1 ? '' : 's'} added (--steps)` : '  Steps: no slide in this deck walks in steps; --steps adds nothing');
+  }
+  // A list keyed by top-level slide (descriptions) follows the expansion: each step page carries its slide's entry. Only
+  // when the list is one entry per slide; otherwise it is left as it was. Notes go per PRINTED page from the expanded
+  // document instead (`notesPerRenderedPage(pagedDocHtml)`, as the PDF does), which also holds on a split deck, where
+  // the per-slide list and the pages differ in length (the inversion, 2026-11-10).
+  const byStepPages = (list) => (STEP_COUNTS && Array.isArray(list) && list.length === STEP_COUNTS.length ? list.flatMap((v, i) => Array(STEP_COUNTS[i]).fill(v)) : list);
   const roundedSlides = await g(() => page.evaluate((squareNow) => {
     const hit = document.querySelectorAll('section.corners-rounded');
     if (squareNow) for (const s of hit) s.classList.remove('corners-rounded');
@@ -4545,7 +4730,7 @@ async function renderBody(browser, g, closeBrowser) {
     // Bind notes to the RENDERED pages, not the authored slides — a split run has more
     // of the former than the latter, and the length guard inside would otherwise drop
     // every annotation in the deck (see notesPerRenderedPage).
-    const pageNotes = notesPerRenderedPage(cleanDocHtml, materializedNotes);
+    const pageNotes = notesPerRenderedPage(pagedDocHtml || cleanDocHtml, exportedNotes, { reader: true });
     let finalBytes = await embedNotesInPdf(pdfBytes, pageNotes);
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
@@ -4560,7 +4745,8 @@ async function renderBody(browser, g, closeBrowser) {
       if (REOPENABLE) tags.push('re-openable in Lattice');
       console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}${sizeNote(outFile)}`);
     }
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
+    warnShippedNotes('PDF');
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, exportedNotes);
   } else if (OUT_FORMAT === 'pdf') {
     // Image-per-page PDF. Two triggers land here:
     //   · --raster: one FULL-BLEED slide image per slide-sized page (max-compat sharing).
@@ -4583,7 +4769,7 @@ async function renderBody(browser, g, closeBrowser) {
     }
     await closeBrowser();
     let finalBytes = await assembleRasterPdf(jpegBuffers, paperSheet);
-    finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(cleanDocHtml, materializedNotes));
+    finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(pagedDocHtml || cleanDocHtml, exportedNotes, { reader: true }));
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
     finalBytes = await embedLatticeInPdf(finalBytes);
@@ -4606,10 +4792,11 @@ async function renderBody(browser, g, closeBrowser) {
       if (REOPENABLE) tags.push('re-openable in Lattice');
       console.log(`PDF: ${outFile} (${tags.join(', ')})${sizeNote(outFile)}`);
     }
+    warnShippedNotes('PDF');
     // materializedNotes, NOT slideNotes — the same rule the vector-PDF path above and the
     // HTML path below already follow. `--raster` / `--paper` land here instead, so handing
     // this sidecar the unstripped array shipped the notes the flag exists to remove.
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, exportedNotes);
   } else if (OUT_FORMAT === 'imageset') {
     // IMAGE SET (.zip): one raster per slide in the chosen format, opt-in thumbnails,
     // and opt-in standalone chart/diagram SVGs — packed via the SHARED image-set kernel
@@ -4971,7 +5158,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (noteCount) tags.push(`${noteCount} slide${noteCount === 1 ? '' : 's'} with speaker notes`);
       console.log(`HTML: ${outFile} (${tags.join(', ')})`);
     }
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, exportedNotes);
   } else {
     // PNG / PPTX / ODP: rasterize one image per slide from the SAME rendered page.
     // Each `section[data-lattice-slide]` is exactly slideW×slideH (fixed-page),
@@ -4997,7 +5184,7 @@ async function renderBody(browser, g, closeBrowser) {
         height: slideH,
         // materializedNotes, NOT slideNotes — under `--strip-notes` the former is all-null, and
         // both suites show the notes to anyone who opens the file (#1837).
-      }, materializedNotes, slideDescriptions, PKG_ROOT,
+      }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, exportedNotes, { reader: true }) : byStepPages(exportedNotes)), byStepPages(slideDescriptions), PKG_ROOT,
       // `--reopenable` rides in the editable .pptx exactly as in the picture one.
       REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate(), fonts: FONT_POLICY } : { fonts: FONT_POLICY });
       if (!QUIET) {
@@ -5005,6 +5192,7 @@ async function renderBody(browser, g, closeBrowser) {
         const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.pictures ? `, ${res.pictures} picture${res.pictures === 1 ? '' : 's'}` : ''}${res.wholePictures ? `, ${res.wholePictures} slide${res.wholePictures === 1 ? '' : 's'} as one whole-slide picture` : ''}${res.backgrounds ? `, ${res.backgrounds} shared background${res.backgrounds === 1 ? '' : 's'}${res.unshared ? ` (${res.unshared} slide${res.unshared === 1 ? '' : 's'} keep${res.unshared === 1 ? 's' : ''} its own picture)` : ''}` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''}${approximatedNote(res.approximated)})` : '';
         const reopen = REOPENABLE && OUT_FORMAT === 'pptx' ? ' (re-openable in Lattice)' : '';
         console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}${sizeNote(outFile)}`);
+        warnShippedNotes(kind === 'ODP' ? 'presentation' : 'PowerPoint file');
       }
     } else {
       const pngBuffers = [];
@@ -5038,8 +5226,9 @@ async function renderBody(browser, g, closeBrowser) {
           // the one format whose native viewer puts the author's private text in front of the
           // recipient by default. This call site was the last one still reading the unstripped
           // array (#1837).
-        }, materializedNotes, slideDescriptions, REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
+        }, (pagedDocHtml ? notesPerRenderedPage(pagedDocHtml, exportedNotes, { reader: true }) : byStepPages(exportedNotes)), byStepPages(slideDescriptions), REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
         if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}${REOPENABLE ? ' (re-openable in Lattice)' : ''}${sizeNote(outFile)}`);
+        warnShippedNotes('PowerPoint file');
       }
     }
   }
@@ -5053,7 +5242,7 @@ async function renderBody(browser, g, closeBrowser) {
   let playerNarration;
   if (PLAYER && NARRATE) {
     try {
-      const pages = notesPerRenderedPage(cleanDocHtml, materializedNotes).length;
+      const pages = notesPerRenderedPage(cleanDocHtml, exportedNotes, { reader: true }).length;
       const { readAlong, slideTexts, emphasis, refs, inputs } = await resolveReadAlong(pages, slideSayLines, captionScript);
       if (!readAlong.slides.length) throw new Error('the deck has nothing to narrate (no say lines and no slide prose to project)');
       const { KOKORO, loadKokoro, voiceDeck } = await import('./lib/export/narrate-kokoro.mjs');
@@ -5272,10 +5461,7 @@ async function renderBody(browser, g, closeBrowser) {
         // So the export says what it is about to disclose, and names the flag. Counts the
         // MATERIALIZED array, so under `--strip-notes` there is nothing to warn about and
         // this stays silent (#1833).
-        const shippedNotes = materializedNotes.filter(Boolean).length;
-        if (shippedNotes) {
-          console.warn(`  ⚠ ${shippedNotes} slide${shippedNotes > 1 ? 's' : ''} ship speaker notes in this player — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
-        }
+        warnShippedNotes('player');
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
         if (webEmbed?.count) console.log(`  embedded ${webEmbed.count} web picture(s) (--allow-remote), ${(webEmbed.bytes / 1024).toFixed(0)} KB`);
         if (webEmbed?.missing.length) console.warn(`  honesty: ${webEmbed.missing.length} web picture(s) could not be embedded and show as placeholders — ${webEmbed.missing.slice(0, 2).map((m) => `${m.url} (${m.reason})`).join('; ')}`);
@@ -5353,6 +5539,16 @@ async function renderBody(browser, g, closeBrowser) {
       // Never silent: the operator asked for an article and is getting the slide stack.
       console.warn(`  warning: no reading article could be projected; ${outHtml} is the clean render.`);
     }
+  }
+  // The web-page notes warning is decided HERE, from what actually landed at `outHtml`, not up
+  // where the plain render is written: the player (which warns for itself), the reading article
+  // (which carries no notes) and the `--fluid` viewer (which does, even beside a pdf/pptx/png)
+  // all rewrite that file after that point, and a player whose assembly failed leaves the plain
+  // render behind (#1833). The `--keep-html` sidecar of a pdf/pptx/png is a tooling copy, not a
+  // deliverable, and is not counted.
+  if (!playerOwnsOutHtml && (OUT_FORMAT === 'html' || (FLUID_VIEW && FLUID_BEATS_READ)) && fs.existsSync(outHtml)
+    && /<aside class="lattice-notes"/.test(fs.readFileSync(outHtml, 'utf8'))) {
+    warnShippedNotes('web page');
   }
   // ── The LIVE document's remote-subresource policy ────────────────────────────────────
   // Whatever HTML this run leaves at `outHtml` is a document someone OPENS — the `.html`
@@ -5799,8 +5995,8 @@ async function applyFontPolicyToHtml(file) {
       throw e;
     }
   }
-  // The `fonts:` policy on every finished `.html` that is not a sealed player (lib/core/font-policy.js): the plain page, `--read` and
-  // `--fluid`. The emoji slices are cut to the deck's own emoji, `fonts: system` drops the engine's faces, `fonts: exact` cuts the text
+  // The `font-embedding:` policy on every finished `.html` that is not a sealed player (lib/core/font-policy.js): the plain page, `--read` and
+  // `--fluid`. The emoji slices are cut to the deck's own emoji, `font-embedding: system` drops the engine's faces, `font-embedding: exact` cuts the text
   // faces. The player cuts inside its own assembly, where its policy hashes are written, so it is left alone here.
   if (OUT_FORMAT === 'html' && !PLAYER) await applyFontPolicyToHtml(outFile);
   // Only here, on a fully successful render: the raster has been captured from the sidecar
@@ -5837,13 +6033,14 @@ async function applyFontPolicyToHtml(file) {
  * array when the document has no recognizable sections, so a deck that never split is
  * byte-identical either way.
  */
-function notesPerRenderedPage(docHtml, authored) {
+function notesPerRenderedPage(docHtml, authored, opts = {}) {
   const at = String(docHtml || '').search(/<section\b[^>]*\bdata-lattice-slide=/);
   if (at < 0) return authored;
   try {
     const parts = splitSections(docHtml.slice(at))
       .filter((p) => p.type === 'section');
-    return parts.length ? notesCore.notesPerRenderedPage(parts) : authored;
+    // `opts.reader`: each page's reader note joins its speaker note, labeled (`exportedNotes` is the same join, per slide).
+    return parts.length ? notesCore.notesPerRenderedPage(parts, opts) : authored;
   } catch { return authored; }
 }
 
@@ -6112,6 +6309,9 @@ html,body{background:var(--bg,#fff)}
  font-family:'Outfit',system-ui,sans-serif;font-size:17px;line-height:1.7}
 #lat-read>*{grid-column:prose-start/prose-end;min-width:0}
 #lat-read>.lp-figure:not(.lp-figure-note){grid-column:fig-start/fig-end;justify-self:center;width:100%;max-width:1100px}
+#lat-read div[data-lattice-plugin]{contain:paint;max-width:100%}
+#lat-read div[data-lattice-plugin] :is(svg,img){max-width:100%;height:auto}
+#lat-read span[data-lattice-plugin][data-kind]{display:inline-block;unicode-bidi:isolate;contain:paint;max-width:100%;max-height:4em}
 #lat-read h1{font-size:2rem;line-height:1.15;color:var(--text-heading,#0d0d0d);padding:1.3em 0 .35em}
 #lat-read h1:first-child{padding-top:0}
 #lat-read h2{font-size:1.4rem;line-height:1.2;color:var(--text-heading,#111);padding:1.6em 0 .35em}

@@ -5,6 +5,12 @@ summary: A `fonts:` line (and `--fonts` flag, and a Studio control) says how muc
 
 # One `fonts:` setting for every export (2026-10-26)
 
+> **Renamed 2026-11-09 (owner): the key is now `font-embedding:`, and the flag `--font-embedding`.** `fonts:` read as
+> choosing fonts, and it would sit beside the coming `typography:` key, which does choose them. This key only decides how
+> much of each typeface an export embeds. The rename landed before any release shipped `fonts:`, so there is no alias;
+> `lint:deck` flags a leftover `fonts:` line (`fonts-renamed`), because the Studio offered it from 2026-11-05. The
+> words are unchanged. The rest of this note keeps the old name as it was written.
+
 ## The answer first
 
 An export carries as much of each typeface as the author asks for, and one kernel (`lib/core/font-policy.js`) decides it for every host.

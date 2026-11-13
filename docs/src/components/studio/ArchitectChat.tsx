@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { frontMatterBlock, getFrontMatter } from '../../lib/front-matter';
-import { applyProposedEditsChecked, type ChatGrounding, type ChatTurn, chatComplete, type DiffRow, listStudioModels, useArchitectStatus } from './architect';
+import { applyProposedEditsChecked, type ChatGrounding, type ChatReadiness, type ChatTurn, chatComplete, type DiffRow, listStudioModels, useArchitectStatus } from './architect';
 import { ChatActivityRow } from './ChatActivityRow';
 import { ChatAttach } from './ChatAttach';
 import { ChatCodeBlock } from './ChatCodeBlock';
@@ -26,6 +26,7 @@ import { type ChatSegment, renderMessageSegments, renderMessageSegmentsStreaming
 import { photoNote, videoNote, videoRefusal } from './chat-photo-parts';
 import { addChatPhotos, addChatVideo, discardChatVideo, MAX_CHAT_PHOTOS, photoDataUrl, videoDataUrl } from './chat-photos';
 import { THINKING } from './chat-status';
+import { chatLoaded, hydrateChat } from './chat-store';
 import { DiffCard } from './diff-card';
 import { classifyMedia, LIBRARY_MEDIA_ACCEPT } from './media-import';
 import type { MediaRecord } from './media-store';
@@ -214,6 +215,25 @@ function CompactedDivider({ info }: { info: NonNullable<ChatMessage['compacted']
 
 type ChatNotice = { deck: string; kind: 'offline' | 'blocked' | 'error'; text: string };
 
+const PROVIDER_LABEL: Record<string, string> = { openrouter: 'OpenRouter', openai: 'OpenAI', gemini: 'Gemini', anthropic: 'Anthropic' };
+/** The notice for a turn the selected model could not answer. It names the selection's state and never a substitute. */
+export function offlineNotice(r?: ChatReadiness): string {
+	switch (r?.state) {
+		case 'warming':
+			return r.source === 'device' ? 'Your on-device model is still loading. Send again in a moment.' : 'Your API key is still opening. Send again in a moment.';
+		case 'needs-key':
+			return `Connect a model in Workspace → AI: your chat model (${PROVIDER_LABEL[r.provider] ?? r.provider}) needs a key, or pick another model.`;
+		case 'unavailable':
+			return 'Your on-device model is not loaded in this browser. Load it in Workspace → AI, or pick another model.';
+		case 'unset':
+			return 'Choose a chat model in Workspace → AI: connect OpenRouter or a key, or pick a free on-device model.';
+		case 'retired':
+			return `Your chat model was retired and ${PROVIDER_LABEL[r.provider] ?? r.provider} has no newer version of it. Choose another in Workspace → AI.`;
+		default:
+			return 'Connect a model in Workspace → AI and I can answer and edit your deck.';
+	}
+}
+
 // A FAILURE NOTICE HAS TO OUTLIVE THE PANEL, NOT JUST THE RENDER.
 //
 // `notice` was component state, so closing Chat mid-turn destroyed it — and because the
@@ -298,6 +318,17 @@ export function __clearPendingNotices() {
 
 export function ArchitectChat({ title, costSlot, deckId, source, aiReady, grounding, onApply, onAutoApply, liveSession, onCreateDeck, onConnect, onManageDocs, onBusyChange, onShareTurn }: { title?: string; costSlot?: HTMLElement | null; deckId: string; source: string; aiReady: boolean; grounding?: ChatGrounding; onApply: (next: string) => void; /** Auto's apply: saves the History checkpoint FIRST and resolves false (applying nothing) when it cannot, or when the deck moved meanwhile. Absent → Auto behaves as Review. */ onAutoApply?: (next: string) => Promise<boolean>; /** A live session is open: Auto behaves as Review, so no AI edit reaches the room without a press. */ liveSession?: boolean; /** Create and open a deck the author confirmed from a chat card; returns its id, or null when it was not created. */ onCreateDeck?: (title: string, markdown: string) => string | null; onConnect: () => void; onManageDocs?: () => void; /** Live: whether a turn is in flight, so the room can see "asking the AI" (never what is asked). */ onBusyChange?: (busy: boolean) => void; /** Live: share one finished turn with the session as a card. Absent outside a session. */ onShareTurn?: ((turn: { ask: string; answer: string }) => void) | null }) {
 	const [messages, setMessages] = React.useState<ChatMessage[]>(() => loadChat(deckId));
+	// The deck whose stored thread `messages` was loaded from (chat-store.ts reads IndexedDB after the
+	// first render). Until it is this deck, nothing is saved and nothing is sent: the thread on screen
+	// may be a stand-in, and saving it would replace the stored conversation.
+	const [loadedFor, setLoadedFor] = React.useState<string | null>(() => (chatLoaded(deckId) ? deckId : null));
+	const ready = loadedFor === deckId;
+	// The thread exactly as it was loaded, so showing it is not mistaken for a change to save.
+	const loadedRef = React.useRef<ChatMessage[] | null>(ready ? messages : null);
+	// The deck each LOADED list (a deck's stored thread or its stand-in) belongs to. A fast A → B → A
+	// switch renders A with B's stand-in still in `messages` while A is already loaded: the owner is
+	// what stops that list being saved over A. Lists the author's own actions build are not in it.
+	const ownerRef = React.useRef(new WeakMap<ChatMessage[], string>());
 	const [input, setInput] = React.useState<string>(() => loadChatDraft(deckId));
 	const [busy, setBusy] = React.useState(false);
 	// Live (2026-10-20 note §5.3): only that a turn is in flight leaves this panel, and only when the shell asks.
@@ -437,7 +468,31 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			// and commits to its originating deck (the survival contract). Only Stop aborts.
 		};
 	}, []);
-	React.useEffect(() => setMessages(loadChat(deckId)), [deckId]);
+	React.useEffect(() => {
+		let live = true;
+		const adopt = () => {
+			if (!live) return;
+			const loaded = loadChat(deckId);
+			ownerRef.current.set(loaded, deckId);
+			loadedRef.current = loaded;
+			setMessages(loaded);
+			setLoadedFor(deckId);
+		};
+		if (chatLoaded(deckId)) adopt();
+		else {
+			// This deck's stand-in until its read lands (its legacy thread, or none), never the previous
+			// deck's conversation. Shown only: `ready` stays false, so nothing saves or sends.
+			loadedRef.current = null;
+			const standIn = loadChat(deckId);
+			ownerRef.current.set(standIn, deckId);
+			setMessages(standIn);
+			setLoadedFor(null);
+			void hydrateChat(deckId).then(adopt);
+		}
+		return () => {
+			live = false;
+		};
+	}, [deckId]);
 	React.useEffect(() => setInput(loadChatDraft(deckId)), [deckId]);
 	// Photos picked for the next message belong to the deck they were picked on (they are saved to its
 	// shelf); carrying them to another deck sent pixels the new deck cannot name.
@@ -460,10 +515,11 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		[],
 	);
 	React.useEffect(() => {
-		saveChat(deckId, messages);
+		const owner = ownerRef.current.get(messages);
+		if (ready && messages !== loadedRef.current && (owner === undefined || owner === deckId)) void saveChat(deckId, messages);
 		stickRef.current = true;
 		scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight });
-	}, [deckId, messages]);
+	}, [deckId, messages, ready]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: a turn starting or ending is the intentional scroll trigger.
 	React.useEffect(() => {
 		stickRef.current = true;
@@ -491,7 +547,18 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		// The mode this turn was SENT in: switching mid-turn changes the next turn, not this one.
 		const sendMode = mode;
 		const sendSource = source;
-		const commit = (next: ChatMessage[]) => {
+		// The reply joins the thread as it is NOW, not as it was at Send: Apply and Discard stay usable while a
+		// reply streams in (Send clears Undo compaction, and compaction waits), and each saves at once, so the store
+		// holds what the author did meanwhile.
+		// Committing `[...history, reply]` put an applied edit back to unapplied (a second Apply edited the deck
+		// twice) and brought a discarded one back. The store's thread is used only while it still ends with the
+		// message this turn answers; otherwise (the deck was evicted or rewritten elsewhere) the turn's own thread.
+		const commitReply = (reply: ChatMessage) => {
+			const asked = history.at(-1);
+			const current = chatLoaded(sendDeckId) ? loadChat(sendDeckId) : null;
+			const tail = current?.at(-1);
+			const base = current && asked && tail && tail.role === asked.role && tail.content === asked.content ? current : history;
+			const next = [...base, reply];
 			saveChat(sendDeckId, next);
 			if (mountedRef.current && deckIdRef.current === sendDeckId) setMessages(next);
 		};
@@ -552,7 +619,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			};
 			const out = await chatComplete(turns, source, refDoc.docs, { onToken, onActivity, onReasoning, signal: controller.signal, mode: sendMode, constrainFacts: factsLocked, grounding: groundingRef.current, ...(seen.length ? { photos: seen } : {}), ...(clips.length ? { videos: clips } : {}) });
 			if (out.status === 'offline') {
-				raiseTurnNotice(sendDeckId, turnSeq, 'offline', 'Connect a model in Workspace → AI and I can answer and edit your deck.');
+				raiseTurnNotice(sendDeckId, turnSeq, 'offline', offlineNotice(out.readiness));
 				// THE NOTICE IS DECK STATE; THIS IS AN ACTION ON THE SHELL — and the shell has
 				// no deck of its own to be right about. A notice can sit and wait for the author
 				// to come back; popping the Workspace sheet happens NOW, over whatever they are
@@ -589,7 +656,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 						notify('Edit applied (Auto) — restore from History to undo.');
 					} else reply.autoHeld = outcome?.refusals[0] ? `part of it could not be applied: ${outcome.refusals[0]}` : 'the undo point could not be saved, or the deck moved';
 				}
-				commit([...history, reply]);
+				commitReply(reply);
 			}
 		} catch {
 			raiseTurnNotice(sendDeckId, turnSeq, 'error', 'Something went wrong reaching the model — try again.');
@@ -626,7 +693,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	const compact = async () => {
 		const split = splitForCompaction(messages);
-		if (!split || busy || compacting) return;
+		if (!split || busy || compacting || !ready) return;
 		const sendDeckId = deckId;
 		const before = messages;
 		setCompacting(true);
@@ -669,7 +736,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 		const text = input.trim();
 		if (compacting) return;
 		// A photo alone is a message: the model is told what was attached either way.
-		if ((!text && !pendingPhotos.length && !pendingVideos.length) || busy || addingPhotos) return;
+		if ((!text && !pendingPhotos.length && !pendingVideos.length) || busy || addingPhotos || !ready) return;
 		const sendDeckId = deckId;
 		setUndoCompact(null);
 		const photos = pendingPhotos;
@@ -834,7 +901,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	const stop = () => abortRef.current?.abort();
 
 	const regenerate = () => {
-		if (busy || compacting) return;
+		if (busy || compacting || !ready) return;
 		// Re-send the thread up to and including the last user turn (drop a trailing
 		// assistant reply so the model answers fresh).
 		let end = messages.length;
@@ -844,7 +911,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 	};
 
 	const applyProposal = (idx: number) => {
-		if (compacting) return;
+		if (compacting || !ready) return;
 		const m = messages[idx];
 		if (!m?.proposed?.length) return;
 		// Re-apply against the CURRENT deck (not a stale snapshot) — edits to OTHER slides
@@ -869,12 +936,12 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 			notify(`Applied ${outcome.applied} of ${outcome.applied + outcome.refusals.length} edits — restore from History to undo.`);
 		} else notify('Edit applied — restore from History to undo.');
 	};
-	const discardProposal = (idx: number) => !compacting && setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, proposed: undefined } : x)));
+	const discardProposal = (idx: number) => !compacting && ready && setMessages((cur) => cur.map((x, i) => (i === idx ? { ...x, proposed: undefined } : x)));
 	// THE CONFIRM FOR AN ACT. Only this press creates the deck; the model queued it and cannot press
 	// it. The conversation follows the author to the new deck: it is saved under the new deck's id
 	// before the shell switches, so the next turn continues the same thread there.
 	const answerAction = (idx: number, yes: boolean) => {
-		if (busy || compacting) return;
+		if (busy || compacting || !ready) return;
 		const m = messages[idx];
 		if (!m?.action || m.action.state) return;
 		// Once answered the card keeps only what it shows: the Markdown is dropped, so a thread does
@@ -904,7 +971,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 
 	// One element, two destinations (this panel's own header row, or a host header's actions
 	// slot via a portal) — built once so the two can't drift.
-	const costReadout = <ChatCost source={source} grounding={grounding} docs={refDoc.docs} primed={primed} explicitCache={explicitCache} deckId={deckId} messages={messages} compact={{ run: compact, busy: compacting || busy, undo: canUndoCompact ? undoCompaction : null }} />;
+	const costReadout = <ChatCost onManageModels={onConnect} source={source} grounding={grounding} docs={refDoc.docs} primed={primed} explicitCache={explicitCache} deckId={deckId} messages={messages} compact={{ run: compact, busy: compacting || busy, undo: canUndoCompact ? undoCompaction : null }} />;
 
 	// WHAT IS ON SCREEN, as opposed to what is in flight. The buffer belongs to the deck that
 	// asked for it; on any other deck this panel shows that deck's transcript and nothing of
@@ -1011,7 +1078,8 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 				{shownNotice && (
 					<div className={cn('flex items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-relaxed', shownNotice.kind === 'blocked' ? 'border-[var(--warn,#9a6a00)]/40 text-[var(--warn,#9a6a00)]' : 'border-border text-muted-foreground')}>
 						<TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
-						<span>{shownNotice.text}</span>
+						{/* min-w-0 + break-words: a provider's message can carry a long URL, which ran past the box. */}
+						<span className="min-w-0 break-words [overflow-wrap:anywhere]">{shownNotice.text}</span>
 					</div>
 				)}
 				</PreviewPool>
@@ -1101,7 +1169,7 @@ export function ArchitectChat({ title, costSlot, deckId, source, aiReady, ground
 							<Square className="size-3.5" />
 						</button>
 					) : (
-						<button type="button" onClick={send} disabled={(!input.trim() && !pendingPhotos.length && !pendingVideos.length) || addingPhotos} aria-label="Send" className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40">
+						<button type="button" onClick={send} disabled={(!input.trim() && !pendingPhotos.length && !pendingVideos.length) || addingPhotos || !ready} aria-label="Send" className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground disabled:opacity-40">
 							<ArrowUp className="size-4" />
 						</button>
 					)}

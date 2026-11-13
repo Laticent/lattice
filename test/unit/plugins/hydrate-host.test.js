@@ -15,6 +15,7 @@ const { fromBase64 } = require('../../../lib/core/base64-utf8');
 const { installHydrateHost, releaseFigure, PENDING_FIGURES } = require('../../../lib/plugins/host-browser.mjs');
 const { HYDRATORS } = require('../../../lib/plugins/hydrate.generated.js');
 const { usedHydrators, hydrateScript, settleBarrierScript, settleBudget } = require('../../../lib/plugins/hydrate-script.js');
+const { virtualClock } = require('../../helpers/runtime-boot');
 
 const PLOT = '```functionplot\n{ "data": [{ "fn": "x^2" }], "yAxis": { "label": "x²" } }\n```\n';
 const BAD = '```functionplot\n{ not json\n```\n';
@@ -109,27 +110,39 @@ for (const [surface, install] of Object.entries(SURFACES)) {
 describe('plugin host — asynchronous hydrate and its budget', () => {
   // Built from text so it carries no closure: the serialized surface re-creates it from its own
   // source, which is the self-containment rule every real hydrate obeys (a closure over `ms` here
-  // failed on that surface alone — the rule, demonstrated).
+  // failed on that surface alone — the rule, demonstrated). It arms its draw on the PAGE's timer, as a
+  // real hydrate does, so the test's virtual clock (test/helpers/runtime-boot.js) orders the draw against
+  // the host's budget timer on every machine: no sleep decides which fires first (HARD RULE #32).
   const slow = (ms) => [{
     name: 'function-plot', budgetMs: 60, payload: null,
-    hydrate: new Function('el', `return new Promise((r) => setTimeout(() => { el.textContent = 'DRAWN'; r(); }, ${ms}));`),
+    hydrate: new Function('el', `var w = el.ownerDocument.defaultView; return new Promise((r) => w.setTimeout(() => { el.textContent = 'DRAWN'; r(); }, ${ms}));`),
   }];
   for (const [surface, install] of Object.entries(SURFACES)) {
     test(`${surface}: a hydrate inside its budget settles rendered; one past it is closed and its late draw discarded`, async () => {
       const fast = page(PLOT);
+      const fastClock = virtualClock(fast);
       install(fast, slow(10))();
       assert.equal(state(placeholder(fast)), 'hydrating', 'hydrating — in markup, so captures keep waiting — while the hydrate runs');
       assert.ok(fast.document.querySelector(PENDING_FIGURES), 'a capture still waits on a hydrating figure');
-      await new Promise((r) => setTimeout(r, 40));
+      await fastClock.settle();
       assert.equal(state(placeholder(fast)), 'rendered');
+      assert.match(placeholder(fast).textContent, /DRAWN/);
 
       const late = page(PLOT);
+      const lateClock = virtualClock(late);
       install(late, slow(150))();
-      await new Promise((r) => setTimeout(r, 100));
       const el = placeholder(late);
-      assert.ok(el.hasAttribute('data-lattice-final'), 'closed at the budget');
+      let closedAt = null;
+      let drawnAt = null;
+      await lateClock.settle({
+        onStep: () => {
+          if (closedAt === null && el.hasAttribute('data-lattice-final')) closedAt = lateClock.now();
+          if (drawnAt === null && lateClock.now() >= 150) drawnAt = lateClock.now();
+        },
+      });
+      assert.equal(closedAt, 60, 'closed at the budget, before the draw');
+      assert.equal(drawnAt, 150, 'the late draw did run');
       assert.equal(state(el), 'unavailable');
-      await new Promise((r) => setTimeout(r, 100));
       assert.doesNotMatch(el.textContent, /DRAWN/, 'the late draw is discarded');
       assert.match(el.textContent, /"fn": "x\^2"/);
     });
@@ -145,9 +158,12 @@ describe('the settle barrier (every CLI capture evaluates it)', () => {
   });
   test('waits for a pending figure, and closes what is still pending at the budget', async () => {
     const win = page(PLOT);
-    const started = Date.now();
-    assert.equal(await win.eval(settleBarrierScript(80)), 1);
-    assert.ok(Date.now() - started >= 70, 'it waited out the budget');
+    // The page's own clock and timers are virtual, so "waited out the budget" is the time the barrier saw pass.
+    const clock = virtualClock(win);
+    const closed = win.eval(settleBarrierScript(80));
+    await clock.settle();
+    assert.equal(await closed, 1);
+    assert.ok(clock.now() >= 80, `it waited out the budget: the barrier closed at ${clock.now()} ms of page time`);
     const el = placeholder(win);
     assert.ok(el.hasAttribute('data-lattice-final'));
     assert.match(el.textContent, /"label": "x²"/);
@@ -423,7 +439,9 @@ describe('the host and a runtime-drawn figure', () => {
 
 describe('plugin host — a page that offers a draw host (the Studio and Playground previews; owner decisions 14 and 15, D1 A)', () => {
   const withHost = (win, drawHost) => installHydrateHost(win, HYDRATORS, { fromBase64, releaseFigure, baseUrl: 'https://example.test/rt/lattice-runtime.js', drawHost }).run;
-  const flush = () => new Promise((r) => setTimeout(r, 0));
+  // Every step of a draw-host job is a promise job (the stand-in draws resolve at once), and one macrotask turn runs them
+  // all: a signal, not a duration.
+  const flush = () => new Promise((r) => setImmediate(r));
 
   test('the figure goes out as a job, the answer lands as markup, and the library is never loaded into the page', async () => {
     const win = page(PLOT);

@@ -67,6 +67,7 @@ const ROUTES = [
 	'/',
 	'/features/',
 	'/comparison/',
+	'/gift/',
 	'/components/',
 	'/components/anchor/title/',
 	'/getting-started/',
@@ -161,20 +162,10 @@ const AXE_RUN_OPTIONS = {
  * matches something, so a stale sanction fails rather than rots.
  */
 const SANCTIONED: Sanction[] = [
-	{
-		rule: 'scrollable-region-focusable',
-		match: (t) => t.includes('.cm-scroller'),
-		label: 'CodeMirror scroller (Studio editor)',
-		// MEASURED false positive, not a waiver. axe's `focusable-content` check asks
-		// whether a child is TABBABLE, and reads `element.tabIndex` to decide. Chrome
-		// reports `tabIndex === -1` for a `contenteditable` div even though it is fully
-		// in the tab order — so CodeMirror's `.cm-content` looks unreachable to the rule
-		// and is not. Driven in a real browser on `/studio/`: Tab reaches `.cm-content`
-		// in 18 presses from the top of the page, and 60 ArrowDowns then scroll
-		// `.cm-scroller` from 0 to 658px. Both halves of the rule's intent are met.
-		// Absent at 390 — the phone shell does not mount the editor pane.
-		widths: [1440, 820],
-	},
+	// The CodeMirror scroller sanction (`scrollable-region-focusable`, `.cm-scroller`) was retired on 2026-11-11: the
+	// Studio opens in Compose since PR #3128 (2026-11-10-compose-first.md), so a first visit mounts no CodeMirror and
+	// the sanction went stale. Compose's own scroller passes the rule. If Source becomes the default again, the
+	// measured false positive and its evidence are in that PR's diff of this file.
 	{
 		rule: 'landmark-unique',
 		match: (t) => t.includes('expressive-code'),

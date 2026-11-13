@@ -69,10 +69,12 @@ import { CLIP_ORIGIN } from './clip-origin';
  *  against a real Chromium, and a new spec case needs the same measurement, not a guess here. */
 const COMMENT_SHAPE = /^<!--(?!>|->)(?:(?!--!?>)[\s\S])*-->$/;
 
-/** A `_`-prefixed DIRECTIVE, which a comment node must never carry. See `readCommentText`. */
-const DIRECTIVE_SHAPED = /^<!--\s*_[A-Za-z]/;
-/** A `_pane` marker in its one admitted shape: lowercase words only (lib/core/pane-spec.js). */
-const PANE_MARKER_SHAPE = /^<!--[ \t]*_pane:(?:[ \t]+[a-z][a-z0-9-]*){0,8}[ \t]*-->$/;
+/** A `_`-prefixed DIRECTIVE, or a slide-metadata RECORD (`<!-- {…} -->`, `<!-- @meta{…} -->`), which sets the same
+ *  attributes: a comment node must never carry either. See `readCommentText`. */
+const DIRECTIVE_SHAPED = /^<!--\s*(?:_[A-Za-z]|\{|@meta\{)/i;
+/** A pane marker in its one admitted shape, `_pane:` or the record `{pane=…}`: lowercase words only
+ *  (lib/core/pane-spec.js), so neither can carry a value such as a URL. */
+const PANE_MARKER_SHAPE = /^<!--[ \t]*(?:_pane:(?:[ \t]+[a-z][a-z0-9-]*){0,8}|\{pane=("?)[a-z][a-z0-9-]*(?:[ \t]+[a-z][a-z0-9-]*){0,8}\1\})[ \t]*-->$/;
 
 /** Whether a string is exactly one inert HTML comment (see COMMENT_SHAPE). */
 export function isWellFormedComment(text: string): boolean {
@@ -106,7 +108,10 @@ export function isWellFormedComment(text: string): boolean {
  *  paste degrades to plain text — the pre-node behavior, and therefore never a regression. */
 export function readCommentText(raw: string | null, origin?: string | null): { text: string } | false {
 	if (!raw || origin !== CLIP_ORIGIN) return false;
-	if (raw.length > 8192 || (DIRECTIVE_SHAPED.test(raw) && !PANE_MARKER_SHAPE.test(raw)) || !isWellFormedComment(raw)) return false;
+	// A directive in its bare spelling (`<!-- class: dark -->`, `<!-- backgroundImage: url(…) -->`) sets attributes too,
+	// on this slide and every later one, so it is refused like the `_` spelling (red team, 2026-11-11).
+	const bare = raw.startsWith('<!--') && raw.endsWith('-->') && isDirectiveBody(raw.slice(4, -3));
+	if (raw.length > 8192 || ((DIRECTIVE_SHAPED.test(raw) || bare) && !PANE_MARKER_SHAPE.test(raw)) || !isWellFormedComment(raw)) return false;
 	return { text: raw };
 }
 

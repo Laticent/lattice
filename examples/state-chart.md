@@ -144,7 +144,7 @@ How a draft moves from author to archive.
 
 ---
 
-<!-- _class: divider light -->
+<!-- _class: content -->
 
 ## Why a native state chart.
 

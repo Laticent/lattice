@@ -115,7 +115,7 @@ export function selectedLink(state: EditorState): LinkRange | null {
  */
 export function linkBlocker(state: EditorState): string | null {
 	const { $from, $to } = state.selection;
-	if ($from.depth >= 1 && $from.node(1)?.attrs.locked) return 'This slide is edited in Markdown, so a link cannot be changed here.';
+	if ($from.depth >= 1 && $from.node(1)?.attrs.locked) return 'This slide is edited in Source, so a link cannot be changed here.';
 	if (!$from.parent.inlineContent || $from.parent.type.spec.code) return 'Put the cursor in a line of text to add a link.';
 	if (!$from.sameParent($to)) return 'Select text on one line to make it a link.';
 	return null;

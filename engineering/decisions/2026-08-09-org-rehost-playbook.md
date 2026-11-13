@@ -41,16 +41,19 @@ runs a week before a single PR, and `ci.yml` alone contains 21
 retired the moment you press Transfer, and "just transfer it back" is not a
 rollback.** Take the snapshot in Phase 0 instead; that is the actual safety net.
 
-**2. Losing a secret is silent, not loud.** Three automations fail *green*:
+**2. Losing a secret was silent, not loud.** Three automations failed *green*
+when this note was written:
 
-- `docs-preview.yml:45-51` — explicit comment: *"Fail SAFE, not red: until
-  `CLOUDFLARE_API_TOKEN` is added, skip the build and deploy so the check stays
-  green."* Lose that token and previews just stop appearing.
-- `studio-e2e-nightly.yml` — the AI tier self-skips green without
-  `OPEN_ROUTER_KEY`, and it is the one nightly with no failure-issue reporter.
-- `ci.yml:287,336` — golden-diff publish and comment are `continue-on-error`.
+- `docs-preview.yml` skipped the build and deploy with no message when
+  `CLOUDFLARE_API_TOKEN` was missing. **Since 2026-11-08 (#1931)** it still skips,
+  because Dependabot PRs never get secrets, but posts a `Docs preview skipped`
+  warning and a run-summary line.
+- `studio-e2e-nightly.yml` — the AI tier self-skipped green without
+  `OPEN_ROUTER_KEY`. **Since 2026-11-08 (#1931)** its first step fails the job when
+  the key is missing, and its filing step opens the rolling issue with that cause.
+- `ci.yml` — golden-diff publish and comment are `continue-on-error`.
 
-Only `AUTOMATION_PAT` fails loudly. **So re-paste every secret after the move
+`AUTOMATION_PAT` fails loudly, and now so does `OPEN_ROUTER_KEY`. **So re-paste every secret after the move
 whether or not it looks like it survived** — ten minutes, and it removes the
 doc's only unverifiable premise.
 
@@ -63,15 +66,18 @@ sequence below is written to defeat that.
 
 ## What this repo actually runs on
 
-### Secrets — five; storage location is INFERRED, not verified
+### Secrets — five; presence OBSERVED after the rehost (2026-11-08), storage location still unverified
 
-| Secret | Consumed by | Failure mode if lost |
-|---|---|---|
-| `AUTOMATION_PAT` | `release.yml:86`, `sync-backlog.yml:83` | **loud** — job reds |
-| `CLOUDFLARE_API_TOKEN` | `docs-preview.yml:51,90` | **silent — green** |
-| `OPEN_ROUTER_KEY` | `studio-e2e-nightly.yml:115` | **silent — green** |
-| `NPM_TOKEN` | `release-publish.yml:107` | not set yet |
-| `GITHUB_TOKEN` | ~14 workflows (7 explicit, plus `github-script` defaults) | automatic |
+A run proves a secret is present to that workflow, not whether it is a repo secret or one
+inherited from the org.
+
+| Secret | Consumed by | Failure mode if lost | Observed working |
+|---|---|---|---|
+| `AUTOMATION_PAT` | `release.yml`, `sync-backlog.yml`, `golden-bless.yml` | **loud** — job reds | run 33310263995 (2026-08-30): the backlog sync PR opened |
+| `CLOUDFLARE_API_TOKEN` | `docs-preview.yml` | warning — the check stays green, the skip is shown (#1931) | run 42429639898 (2026-11-08): deploy step succeeded, preview `https://9d17c141.lattice-docs-5ji.pages.dev` |
+| `OPEN_ROUTER_KEY` | `studio-e2e-nightly.yml` job `e2e-ai` | **loud** — job reds and files the rolling issue (#1931) | run 42367602567 (2026-11-07): "3 passed (52.2s)" against the live model; a keyless run printed "3 skipped" |
+| `NPM_TOKEN` | `release-publish.yml` | not set yet — the npm publish is skipped with a notice | — |
+| `GITHUB_TOKEN` | ~14 workflows | automatic; `ci.yml` and `docs.yml` declare `contents: read` at the top (#1958) | — |
 
 GitHub's docs confirm secrets *"remain associated after the transfer"* — but
 that is about **repository** secrets. **Nothing available from this sandbox can

@@ -16,6 +16,7 @@ const { JSDOM } = require('jsdom');
 const remoteRef = require('../../../lib/core/remote-ref.js');
 const { galleryRemoteRefs } = require('../../../lib/cli/gallery-gate.js');
 const { webRefBeacons, asHtml } = require('../../fixtures/web-ref-beacons.js');
+const { charReads } = require('../../helpers/work-count');
 
 const { blockWebCss, blockWebImages, verifyWithParser, remoteCssRefs, cssRefSpans, decodeEntities } = remoteRef;
 const BASE = 'https://evil.example';
@@ -344,14 +345,14 @@ describe('the scanner reads hostile markup in linear time', () => {
   const shapes = { 'unclosed quote in a tag name': '<style"', 'unclosed mermaid hosts': '<div class="mermaid" ', 'unclosed style attributes': '<p style="', 'quote in an unquoted value': "<img alt=a'b " };
   for (const [name, unit] of Object.entries(shapes)) {
     test(name, () => {
-      const time = (n) => {
-        const t = process.hrtime.bigint();
-        blockWebImages(unit.repeat(n), [], { DOMParser: null });
-        return Number(process.hrtime.bigint() - t) / 1e6;
-      };
-      time(2000);
-      const big = time(20000);
-      assert.ok(big < 500, `${big.toFixed(0)} ms for 20,000 repetitions`);
+      // Counted, not timed (HARD RULE #32). Linear reads each character at most about twice. A reader that resumes
+      // after the `<` of a tag with no `>` (instead of stopping, as the tokenizer does at the end of the text) reads
+      // the rest once per tag: 380 to 1,500 times per character here.
+      const html = unit.repeat(2000);
+      const { result, reads, scanned } = charReads(() => blockWebImages(html, [], { DOMParser: null }));
+      assert.deepEqual(result.blocked, []);
+      assert.ok(reads <= 4 * html.length, `${reads} character reads on ${html.length} characters`);
+      assert.ok(scanned <= 4 * html.length, `${scanned} characters searched on ${html.length}`);
     });
   }
 });
@@ -395,3 +396,4 @@ test("decodeEntities: every ASCII punctuation reference decodes as the HTML pars
   const odd = '&LPAR;&lpar &amp &constructor;';
   assert.equal(decodeEntities(odd), parsed(odd));
 });
+

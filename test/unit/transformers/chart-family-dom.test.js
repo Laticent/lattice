@@ -181,7 +181,7 @@ describe('chart-family.applyToDom', () => {
       'only the slice with a sublist gets a detail template');
   });
 
-  test('piechart: portrait section → legend-below (diagram offset by a non-zero dx, taller viewBox)', () => {
+  test('piechart: portrait section → legend-below (the key under the disc, taller viewBox)', () => {
     // The preview/export parity guard for §9: applyToDom is the runtime/preview
     // path, and it must read data-orientation and emit the SAME portrait
     // composition the export path bakes (the §7 runtime-ordering footgun). A
@@ -211,8 +211,11 @@ describe('chart-family.applyToDom', () => {
     const diagramG = (svg) => svg.querySelector('g[transform]');
     assert.match(diagramG(land).getAttribute('transform'), /^translate\(0 /,
       'landscape diagram group at translate(0 …)');
-    const pdx = +diagramG(port).getAttribute('transform').match(/translate\(([\d.]+) /)[1];
-    assert.ok(pdx > 0, `portrait diagram group is centered (dx=${pdx})`);
+    // Portrait puts the key UNDER the disc. (Its diagram offset is 0 when the disc is the widest
+    // thing in the unit, as it is for a key of three one-letter names laid out in one row.)
+    const keyTop = Math.min(...[...port.querySelectorAll('.chart-key-swatch')].map((r) => +r.getAttribute('y')));
+    const pdy = +diagramG(port).getAttribute('transform').match(/translate\([\d.]+ ([\d.]+)\)/)[1];
+    assert.ok(keyTop > pdy + 150, `portrait key sits under the disc (key y=${keyTop})`);
   });
 
   test('radar: builds polygons with per-series colors from the chart spectrum (--catN-hue)', () => {

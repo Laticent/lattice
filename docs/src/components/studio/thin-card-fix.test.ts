@@ -32,6 +32,12 @@ describe('photoDiagnostic', () => {
 		const d = photoDiagnostic(doc, { slideIndex: 0, verdict }, () => null);
 		expect(d && doc.sliceString(d.from, d.to)).toBe('![bg](sample:photo-wide.svg)');
 	});
+	it('underlines the shortcut picture an `image` slide places, though its class sits in a comment the reader blanks', () => {
+		const deck = '---\ntitle: T\n---\n\n<!-- _class: image statement card-clear -->\n\n## One\n\n![A lake](sample:photo-wide.svg)\n';
+		const doc = Text.of(deck.split('\n'));
+		const d = photoDiagnostic(doc, { slideIndex: 0, verdict }, () => null);
+		expect(d && doc.sliceString(d.from, d.to)).toBe('![A lake](sample:photo-wide.svg)');
+	});
 	it('draws nothing when the text reads', () => {
 		const doc = Text.of(DECK.split('\n'));
 		expect(photoDiagnostic(doc, { slideIndex: 0, verdict: { ...verdict, low: false } }, () => null)).toBeNull();

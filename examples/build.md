@@ -67,8 +67,8 @@ You don't split the content across slides — you sequence it in place. One gram
 
 ```js
 function reveal(step) {
-  const units = section.querySelectorAll('[data-build-step]');
-  for (const u of units) u.classList.toggle('lat-built', +u.dataset.buildStep <= step);
+  const units = section.querySelectorAll('[data-step]');
+  for (const u of units) u.classList.toggle('lat-built', +u.dataset.step <= step);
 }
 ```
 
@@ -80,4 +80,4 @@ function reveal(step) {
 
 `Beamer overlays, not PowerPoint.`
 
-The engine only tags the steppable units; the reveal is pure CSS. With no player driving it — and in every PDF — the slide simply shows whole. The live walk-through is the enhancement, never the artifact.
+The engine only tags the steppable units; the reveal is pure CSS. Present walks it a click at a time; in every PDF the slide simply shows whole. The live walk-through is the enhancement, never the artifact.

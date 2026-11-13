@@ -483,7 +483,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  to about:blank and then silently declines to rebind for the rest of the session. */
 	const boundFrameDocRef = React.useRef<Document | null>(null);
 	const bindDeckInputRef = React.useRef<() => void>(() => {});
-	const startWalkRef = React.useRef<(name: string, step: string | null) => Promise<boolean>>(async () => false);
+	const startWalkRef = React.useRef<(name: string, step: string | null, opts?: { warm?: boolean }) => Promise<boolean>>(async () => false);
 	// Mobile error reveal: ≤560px hides .pg-status, so the badge expands it inline.
 	const [errorOpen, setErrorOpen] = React.useState(false);
 	// The variant-sync discriminator: the last seen `_class` token line. The
@@ -618,6 +618,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			}, SHELL_FADE_MS + 60);
 		};
 		const check = () => {
+			// A frame taken out of the page (the app unmounted) ends the poll: going live then would strip a bake flag the
+			// next mount may own and arm a teardown timer the unmount has already run past.
+			if (!frame.isConnected) return;
 			let ready = false;
 			try {
 				const win = frame.contentWindow;
@@ -957,6 +960,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// Explore renders the walk deck; Edit renders the draft. Ref-read so the
 			// render loop sees a mode/walk change the moment it commits.
 			const src = viewRef.current === 'read' && exploreSourceRef.current != null ? exploreSourceRef.current : getSource();
+			// The walk THIS render was made for, when Explore asked for it. Only such a render may spend Explore's target
+			// (below). A render started in Edit and resolving after the switch, or one the frame scheduler started after
+			// the switch but before the warm-up walk landed, has no walk to aim the target at: it was spent on nothing and
+			// Explore opened on slide 1 (playground-tab-switch.spec.ts, the warm-up cell, 1 to 2 runs in 10 on WebKit).
+			const walkForRead = viewRef.current === 'read' ? walkRef.current : null;
 			// THE NEWCOMER BAKE (playground.astro): the page may have loaded the document this very
 			// render would write. The first render adopts it — takes over the render state baked
 			// into it — and renders as an ordinary patch against that, so a current bake changes
@@ -1017,7 +1025,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// Explore was opened from Edit: open it on the slide the caret is in, once the render says which page that
 				// is. The target is spent by the first render of Explore, whatever kind of walk it shows.
 				const openOn = exploreFlatRef.current;
-				if (openOn >= 0 && viewRef.current === 'read') {
+				const targetWaits = openOn >= 0 && viewRef.current === 'read';
+				if (targetWaits && walkForRead !== null && walkRef.current !== null) {
 					exploreFlatRef.current = -1;
 					void (async () => {
 						try {
@@ -1044,7 +1053,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 							openOnPendingRef.current = false;
 						}
 					})();
-				} else openOnPendingRef.current = false;
+				} else if (!targetWaits) openOnPendingRef.current = false;
 				// A render that lands after the reader has gone back to Edit must not leave Explore's target behind.
 				if (viewRef.current !== 'read') exploreFlatRef.current = -1;
 				// Go live only once the slides are actually revealed — NOT at srcdoc-set —
@@ -1660,6 +1669,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// Bumped by EVERY pick that replaces the explored deck (curated deck, example, component), so a
 	// slow example fetch that resolves after a later pick cannot replace what the reader chose next.
 	const deckPickSeqRef = React.useRef(0);
+	/** The walk warming up behind the editor at boot, while its plan is on the wire (null once it lands). */
+	const warmWalkRef = React.useRef<Promise<boolean> | null>(null);
+	/** Counts the switches to Explore that wait on that warm-up, so only the newest one lands. */
+	const warmWaitRef = React.useRef(0);
 	// A curated deck and an example are both static files under `galleriesBase`, fetched when chosen
 	// (`loadDeck`, below); the route's props carry only their id, label and slide count.
 
@@ -2003,9 +2016,19 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	/** Enter (or move) the component walk. `step` is a stable plan kind (or null →
 	 * title; 'LAST' → the closing slide, for walking backwards across components). */
 	const startWalk = React.useCallback(
-		async (name: string, step: string | null): Promise<boolean> => {
-			deckPickSeqRef.current++;
+		async (
+			name: string,
+			step: string | null,
+			{ warm = false, keepEditedDraft = false }: { warm?: boolean; keepEditedDraft?: boolean } = {},
+		): Promise<boolean> => {
+			const seq = ++deckPickSeqRef.current;
 			const plan = await fetchPlan(name);
+			// A LATER PICK WINS. Every route that replaces the explored deck bumps the counter, this walk included, so a
+			// plan that lands after a newer walk or deck pick (a gallery, another component) must not take the deck back.
+			// The one that mattered: the warm-up walk the Edit boot starts behind the editor, landing after the reader had
+			// entered Explore, rendered the component's gallery over the reader's draft (chart-detail-reveal.spec.ts at
+			// 390px, red under load).
+			if (seq !== deckPickSeqRef.current) return false;
 			if (!plan) {
 				// The designed 404 path: the staged tree was rewritten by a deploy while
 				// this tab sat open — never a dead Next button. (Silent when the walk is
@@ -2017,26 +2040,44 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				}
 				return false;
 			}
-			const at = step === 'LAST' ? { index: plan.slides.length - 1, notice: null } : resolvePlanStep(plan, step);
-			setWalkNotice(at.notice);
-			setWalk({ kind: 'plan', plan, index: at.index });
-			walkRef.current = { kind: 'plan', plan, index: at.index };
+			const planSource = plan.slides.map((s) => s.md).join('\n\n---\n\n');
 			setReaderComponent(name);
 			try {
 				localStorage.setItem(COMPONENT_KEY, name);
 			} catch {
 				/* private mode */
 			}
-			exploreSourceRef.current = plan.slides.map((s) => s.md).join('\n\n---\n\n');
+			// EXPLORE ENTERED BEFORE ANY WALK HAD LANDED shows what the editor holds when it is not the plan, the same
+			// answer `setViewMode` gives once a walk exists (its save-back). Without this the answer to one click on
+			// Explore depended on how fast a plan fetch was: the draft, or the component's gallery.
+			const edited = keepEditedDraft ? getSource() : null;
+			if (edited != null && lf(edited) !== lf(planSource)) {
+				const w: Walk = { kind: 'deck', label: 'draft', index: 0, count: 0 };
+				setWalkNotice(null);
+				setWalk(w);
+				walkRef.current = w;
+				exploreSourceRef.current = edited;
+				if (viewRef.current === 'read') freshRender();
+				return true;
+			}
+			const at = step === 'LAST' ? { index: plan.slides.length - 1, notice: null } : resolvePlanStep(plan, step);
+			setWalkNotice(at.notice);
+			setWalk({ kind: 'plan', plan, index: at.index });
+			walkRef.current = { kind: 'plan', plan, index: at.index };
+			exploreSourceRef.current = planSource;
 			// Warming up behind the editor (tour targets need #pg-walk mounted):
-			// no render — Edit still shows the draft; entering Explore renders.
-			if (viewRef.current === 'read') freshRender();
+			// no render — Edit still shows the draft; entering Explore renders. A warm-up NEVER renders, even when the
+			// reader has entered Explore while its plan was on the wire: Explore shows what the editor holds, and
+			// writing the component's gallery here replaced the reader's own deck a moment after the tab opened on it
+			// (e2e/playground-tab-switch.spec.ts, "a warm-up that lands after the switch"). The switch waits for the
+			// warm-up and lands Explore itself (`setViewMode`).
+			if (viewRef.current === 'read' && !warm) freshRender();
 			// Prefetch the continuation so "Next component" never stalls.
 			const next = adjacentComponent(walkOrder, name, 1);
 			if (next) void fetchPlan(next);
 			return true;
 		},
-		[fetchPlan, freshRender, walkOrder],
+		[fetchPlan, freshRender, walkOrder, getSource],
 	);
 	startWalkRef.current = startWalk;
 	const stepWalk = React.useCallback(
@@ -2084,14 +2125,20 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  gallery) is not a deck the frame was ever asked to hold. Then switching Edit and Explore needs no rewrite. */
 	const reusableFrame = React.useCallback((source: string | null | undefined, walkKind: 'plan' | 'deck') => {
 		const shown = lastRenderedSourceRef.current;
-		if (walkKind !== 'deck' || source == null || shown == null || lf(source) !== lf(shown)) return false;
+		// THE EDITOR'S OWN DRAFT, A KEYSTROKE AHEAD. Typing renders on the frame scheduler, and a render records its text
+		// only when it resolves, so a switch made right after the last keystroke compared the draft with the text one
+		// key behind it, read "another deck" and rewrote the whole preview: a reload and a blank, the switch test's
+		// replaced document (4 runs in 16 on WebKit). A frame whose last render was the draft in Edit still holds the
+		// draft; a patch brings in what the pending keystrokes changed.
+		const draftShown = shown != null && shown === lastRenderedEditSrcRef.current && source != null && lf(source) === lf(getSource());
+		if (walkKind !== 'deck' || source == null || shown == null || (lf(source) !== lf(shown) && !draftShown)) return false;
 		// …and the document in the frame is the LAST write, fully loaded: `lastRenderedSourceRef` is set when a render
 		// resolves, which is before its document loads, and a switch in that window would patch a document that is
 		// about to be replaced.
 		const doc = frameRef.current?.contentDocument;
 		const wrote = (previewStateRef.current as { writeId?: number }).writeId;
 		return !!doc && doc.readyState === 'complete' && doc.documentElement.getAttribute('data-lattice-write') === String(wrote ?? '');
-	}, []);
+	}, [getSource]);
 	/** Flip the surface. Entering Explore walks the remembered component; leaving
 	 * re-renders the untouched draft. Read mode never wrote it (invariant). */
 	const setViewMode = React.useCallback(
@@ -2144,34 +2191,50 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// `deck` walk is the shape for this — it learns its count from the render, the
 				// Step list correctly has nothing to offer, and the URL sync drops params that
 				// no longer describe the screen.
-				if (changing && exploreSourceRef.current != null) {
-					// COMPARED AFTER NORMALIZING LINE ENDINGS. CodeMirror stores a document
-					// with its own line separator, so a source that arrived with CRLF comes
-					// back as LF and raw equality reports an edit nobody made — silently
-					// dropping a plan walk and stripping `?c=`/`?s=`. Everything reaching this
-					// ref is LF today, so this is a latent trap rather than a live defect;
-					// it is closed here because the next ingest that is not (a paste, a
-					// fetched deck) would open it with no message and nothing to grep for.
-					// Found by an independent checker.
-					const edited = getSource();
-					if (lf(edited) !== lf(exploreSourceRef.current)) {
-						exploreSourceRef.current = edited;
-						const w: Walk = { kind: 'deck', label: 'draft', index: 0, count: 0 };
-						setWalk(w);
-						walkRef.current = w;
-						setWalkNotice(null);
+				const land = (repoint: boolean) => {
+					if (repoint && exploreSourceRef.current != null) {
+						// COMPARED AFTER NORMALIZING LINE ENDINGS. CodeMirror stores a document
+						// with its own line separator, so a source that arrived with CRLF comes
+						// back as LF and raw equality reports an edit nobody made — silently
+						// dropping a plan walk and stripping `?c=`/`?s=`. Everything reaching this
+						// ref is LF today, so this is a latent trap rather than a live defect;
+						// it is closed here because the next ingest that is not (a paste, a
+						// fetched deck) would open it with no message and nothing to grep for.
+						// Found by an independent checker.
+						const edited = getSource();
+						if (lf(edited) !== lf(exploreSourceRef.current)) {
+							exploreSourceRef.current = edited;
+							const w: Walk = { kind: 'deck', label: 'draft', index: 0, count: 0 };
+							setWalk(w);
+							walkRef.current = w;
+							setWalkNotice(null);
+						}
 					}
-				}
+					// THE DOCUMENT THE FRAME HOLDS IS ALREADY THIS DECK when the text is unchanged: patch it instead of
+					// rewriting it (a rewrite is a blank, a reload and a fit; the patch is a re-fit and a landing).
+					if (walkRef.current) {
+						if (reusableFrame(exploreSourceRef.current, walkRef.current.kind)) void render(false);
+						else freshRender();
+					} else void startWalk(readerComponent, null, { keepEditedDraft: true });
+				};
 				// Reveal the preview pane SYNCHRONOUSLY before the render measures the
 				// iframe (the mobile 0-width FIT trap — same ordering as applyDeck).
 				setPane('preview');
 				document.body.setAttribute('data-pane', 'preview');
-				// THE DOCUMENT THE FRAME HOLDS IS ALREADY THIS DECK when the text is unchanged: patch it instead of
-				// rewriting it (a rewrite is a blank, a reload and a fit; the patch is a re-fit and a landing).
-				if (walkRef.current) {
-					if (reusableFrame(exploreSourceRef.current, walkRef.current.kind)) void render(false);
-					else freshRender();
-				} else void startWalk(readerComponent, null);
+				// THE WARM-UP IS STILL ON THE WIRE (the walk the page starts behind the editor, below): wait for it, then land
+				// exactly as if it had arrived first. Starting a second walk here showed the component's gallery instead of
+				// the reader's own deck, and the warm-up landing after the switch did the same with a reload.
+				const warming = warmWalkRef.current;
+				if (changing && !walkRef.current && warming) {
+					// A pick made meanwhile (a gallery, a component) owns the screen; it moves the pick sequence. Only the
+					// newest waiting switch lands, so Explore, Edit, Explore during one warm-up renders once, not twice. (Its
+					// own counter: moving the pick sequence here would supersede the warm-up's walk itself.)
+					const pick = deckPickSeqRef.current;
+					const wait = ++warmWaitRef.current;
+					void warming.then(() => {
+						if (viewRef.current === 'read' && deckPickSeqRef.current === pick && warmWaitRef.current === wait) land(true);
+					});
+				} else land(changing);
 			} else {
 				// Entering Edit: open the current deck's markdown in the editor. Flipping
 				// back to Explore renders whatever you changed. (Whole-deck edit; Explore
@@ -2359,8 +2422,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			void startWalkRef.current(target, url.s);
 		} else if (exploreAvailable) {
 			// Warm the walk behind the editor so the Explore chrome (and the tour's
-			// read-mode targets) exist before the first mode flip.
-			void startWalkRef.current(target, url.s);
+			// read-mode targets) exist before the first mode flip. Kept while it is on the wire, so a switch to Explore
+			// that beats it waits for it (`setViewMode`).
+			const warming = startWalkRef.current(target, url.s, { warm: true }).finally(() => {
+				if (warmWalkRef.current === warming) warmWalkRef.current = null;
+			});
+			warmWalkRef.current = warming;
 		}
 		if (v === 'edit' && url.c && url.v && !hasHandoff) {
 			// ?c&view=edit&v=<variant> — a guarded SEED link: route it through the

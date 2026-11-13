@@ -42,6 +42,7 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = 4321;
 const BASE_URL = `http://localhost:${PORT}`;
 const isCI = !!process.env.CI;
+const RECORD = process.env.E2E_RECORD !== 'off';
 
 export default defineConfig({
 	testDir: './e2e',
@@ -67,10 +68,10 @@ export default defineConfig({
 	},
 	fullyParallel: true,
 	forbidOnly: isCI,
-	// The E2E suite is nightly (not the PR critical path), so a single retry to
-	// absorb browser-launch jitter is acceptable; local runs get none so flake is
-	// visible immediately.
-	retries: isCI ? 1 : 0,
+	// No retries anywhere (HARD RULE #34): a retry turns a flaky test into a pass
+	// nobody sees. A test that fails once is fixed at its cause (#33). Held at 0 by
+	// checkPlaywrightRetries in tools/check-ownership.js.
+	retries: 0,
 	workers: isCI ? 2 : undefined,
 	reporter: isCI
 		? [['list'], ['html', { open: 'never' }], ['github']]
@@ -78,8 +79,13 @@ export default defineConfig({
 	outputDir: 'test-results',
 	use: {
 		baseURL: BASE_URL,
-		trace: 'on',
-		video: 'on',
+		// Every test records a trace and a video, so a nightly failure carries both. E2E_RECORD=off turns both
+		// off: the per-PR `studio-smoke` job sets it, because recording is about a third of that job's time
+		// (measured on 4 cores, 2 workers, the 155 @smoke tests: 11.9 min recorded, 8.2 min not, the same 155
+		// pass) and the job sat at its 20-minute cap. A failure there still keeps its screenshot and error
+		// context; re-run the one test locally (recording is on by default) for its trace.
+		trace: RECORD ? 'on' : 'off',
+		video: RECORD ? 'on' : 'off',
 		screenshot: 'only-on-failure',
 		actionTimeout: 15_000,
 		navigationTimeout: 40_000,
@@ -140,6 +146,17 @@ export default defineConfig({
 			name: 'desktop',
 			use: { viewport: { width: 1440, height: 900 } },
 			grepInvert: /@mobile|@player-parity|^(?!.*@crosswidth).*@webkit/,
+		},
+		// THE SHIPPED DEFAULT, COMPOSE (engineering/decisions/2026-11-10-compose-first.md §6). Every other project's fixture
+		// stores Source, because the helpers type Markdown, so the mode a new visitor lands in was covered only by the
+		// Compose specs. This one stores no mode: the core Studio specs (smoke, undo and Live, lessons, the pane sync) boot in
+		// Compose, and the helpers open Source only where they type Markdown (studio-fixture.ts `toSourceIfCompose`). Desktop
+		// size, nightly only: per-PR CI runs `--project=desktop`.
+		{
+			name: 'compose-default',
+			use: { viewport: { width: 1440, height: 900 } },
+			testMatch: /(smoke|filo-[a-z-]+|lessons|studio-pane-sync|compose-first|compose-fidelity)\.spec\.ts$/,
+			grepInvert: /@mobile|@player-parity|@perf|^(?!.*@crosswidth).*@webkit/,
 		},
 		// THE HOST-PARITY SPEC (e2e/player-host-parity.spec.ts). Both hosts must measure text the same
 		// way, and a hosted runner's two Chromium modes do not: the CLI's page (`headless: 'new'`) takes

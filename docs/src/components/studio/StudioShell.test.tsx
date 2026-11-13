@@ -44,7 +44,8 @@ function seedReturningUser() {
 	]));
 	// lensDefaults:false so these manual-add / approval flows (written before workspace inheritance) start
 	// from an EMPTY reader-view slate — the inherited-starters behavior gets its own block below.
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture: 'craft', lensDefaults: false }));
+	// Source: the suite drives the Markdown editor (the shipped default is Compose, 2026-11-10-compose-first.md).
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture: 'craft', lensDefaults: false, editMode: 'source' }));
 }
 
 // The live preview loads the real engine by polling `window.LatticePlayground`
@@ -84,6 +85,20 @@ const shareSpies = vi.hoisted(() => ({
 	})),
 }));
 vi.mock('./share-export', () => shareSpies);
+
+// The quiet gate's source signal (#3076): a source change must count as activity, or a tour's typing (which sends no key
+// events) reads as idle and the font warm-up lands mid-tour. A pass-through spy, so every other test runs the real gate.
+const firstSlideSpies = vi.hoisted(() => ({ noteActivity: vi.fn() }));
+vi.mock('./first-slide', async (importOriginal) => {
+	const real = await importOriginal<typeof import('./first-slide')>();
+	return {
+		...real,
+		noteActivity: (...args: Parameters<typeof real.noteActivity>) => {
+			firstSlideSpies.noteActivity(...args);
+			real.noteActivity(...args);
+		},
+	};
+});
 
 const options = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 
@@ -130,10 +145,10 @@ describe('StudioShell — smoke', () => {
 		expect(screen.getByText('Q3 Board Review')).toBeInTheDocument();
 		// The Coach is its own panel now (its header names it), not a tab in "Architect".
 		expect(screen.getByText('Deck read')).toBeInTheDocument();
-		// 'Edit' / 'Preview' appear in the pane header AND its collapse rail (rails
-		// are ALWAYS rendered, visibility-gated by the split's 0px track) — assert
-		// the panes are present, not that the label is unique.
-		expect(screen.getAllByText('Edit').length).toBeGreaterThan(0);
+		// The editor pane names its mode ('Source' here, the seeded one) in the header toggle AND its collapse
+		// rail (rails are ALWAYS rendered, visibility-gated by the split's 0px track) — assert the panes are
+		// present, not that the label is unique. 'Preview' likewise.
+		expect(screen.getAllByText('Source').length).toBeGreaterThan(0);
 		expect(screen.getAllByText('Preview').length).toBeGreaterThan(0);
 		// Present is a verb (button), not a persistent tab.
 		expect(screen.getByRole('button', { name: 'Present' })).toBeInTheDocument();
@@ -148,7 +163,7 @@ describe('StudioShell — smoke', () => {
 // the surface and the Read→Write step they cover are unchanged.
 const seedPosture = (posture: 'read' | 'write' | 'craft') => {
 	localStorage.clear();
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture }));
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture, editMode: 'source' }));
 };
 
 describe('StudioShell — the posture dial (persona experiences)', () => {
@@ -157,7 +172,9 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		render(<StudioShell options={options} />);
 		// Write, not Read: no "Edit this slide" overlay to dismiss before you can work.
 		expect(screen.queryByRole('button', { name: 'Edit this slide' })).not.toBeInTheDocument();
-		expect(screen.getAllByText('Edit').length).toBeGreaterThan(0);
+		// The editor pane is on screen, and a first visit writes in Compose (2026-11-10-compose-first.md).
+		expect(screen.getByRole('group', { name: 'Writing mode' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Compose — rich editor' })).toHaveAttribute('aria-pressed', 'true');
 		// Still the calm middle — Craft's activity-bar launcher stays hidden.
 		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
 		// The boot stop is persisted once (R1).
@@ -600,20 +617,20 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		await user.click(screen.getByRole('button', { name: 'Workspace settings' }));
 		await waitForPanels();
 		const sheet = within(await screen.findByRole('dialog', { name: /Workspace/ }));
-		// Default tab = AI: the Model section leads with a Generation switch (Cloud /
-		// On-device) that picks the active tier. With no model in the test env, nothing is
-		// active yet, and the Cloud pane offers a one-click Connect affordance.
-		expect(sheet.getByText('Model')).toBeInTheDocument();
-		expect(sheet.getByRole('tab', { name: 'On-device' })).toBeInTheDocument();
-		expect(sheet.getByText(/No tier active yet/)).toBeInTheDocument();
-		expect(sheet.getByRole('button', { name: /Connect OpenRouter/ })).toBeInTheDocument();
+		// Default tab = AI: Chat model, Voice model, Providers & keys (model spine). With no key in
+		// the test env, the chat selection (OpenRouter, the default) reads "needs a key", actionable
+		// in place, and Providers & keys offers the one-click sign-in.
+		expect(sheet.getByText('Chat model')).toBeInTheDocument();
+		expect(sheet.getByText('Voice model')).toBeInTheDocument();
+		expect(within(await sheet.findByTestId('chat-model-card')).getByText('Connect a provider or choose on-device')).toBeInTheDocument();
+		expect(sheet.getByRole('button', { name: /Sign in with OpenRouter/ })).toBeInTheDocument();
 		// The Spend section (same tab) shows real (zero) session spend, not a fabricated
 		// figure. With no model connected there's no authoritative account line — only the
 		// honest live session tally ($0.00) plus a prompt to connect for the balance. (The
 		// old broken local "all-time $0.00" card is gone — that was the bug G6 fixed.)
 		expect(await sheet.findByText(/No model connected/)).toBeInTheDocument();
 		expect(sheet.getByText('This session')).toBeInTheDocument();
-		expect(sheet.getByText(/Connect OpenRouter .* to see your real balance/)).toBeInTheDocument();
+		expect(sheet.getByText(/Add a key in Providers & keys below to see your real balance/)).toBeInTheDocument();
 		// The Instructions section (same tab) — the textarea persists to localStorage.
 		const ta = await sheet.findByRole('textbox', { name: 'Standing instructions' });
 		await user.clear(ta);
@@ -713,6 +730,14 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
 		await user.click(await screen.findByText('FY26 Product Strategy'));
 		expect(screen.getByRole('button', { name: /FY26 Product Strategy/ })).toBeInTheDocument();
+	});
+
+	it('counts a source change as activity for the quiet gate, which holds the font warm-up', async () => {
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: /Q3 Board Review/ }));
+		const before = firstSlideSpies.noteActivity.mock.calls.length;
+		await user.click(await screen.findByText('FY26 Product Strategy'));
+		await waitFor(() => expect(firstSlideSpies.noteActivity.mock.calls.length).toBeGreaterThan(before));
 	});
 
 	it('shows a live, deck-reactive Architect scorecard', async () => {

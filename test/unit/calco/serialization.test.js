@@ -10,6 +10,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const calco = require('@laticent/calco');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 const DIST = path.join(__dirname, '../../../docs/src/lib/calco/dist/index.cjs');
 
@@ -41,7 +42,8 @@ describe('calco — serialization', () => {
 
   test('the published CLI bundle carries Calco inline, not as a runtime require', (t) => {
     const bundle = path.join(__dirname, '../../../dist/lattice.js');
-    if (!fs.existsSync(bundle)) return t.skip('dist/lattice.js not built');
+    const why = skipUnlessCI(!fs.existsSync(bundle), 'dist/lattice.js not built');
+    if (why) return t.skip(why);
     const src = fs.readFileSync(bundle, 'utf8');
     // Substring checks: a regex assertion would print the whole 16 MB bundle on failure.
     assert.ok(!/require\(["']@laticent\/calco["']\)/.test(src), 'the bundle requires @laticent/calco at runtime');

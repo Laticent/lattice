@@ -216,7 +216,7 @@ directive, `@video{… poster=…}`, raw `<img src>`, a Mermaid label (the rende
 front-matter `header:` (the engine reads the last, lint the first); an address at the site's own origin, which the
 Studio loads and lint still warns on. A unit test pins the agreement on a seeded
 deck with the chrome cases. `lintCoreGz` +776 B (126,438 to 127,214 against a 127,248 ceiling, the gate's own hash
-fixing), declared in `docs/route-budget.d/security-spine-web-image.md`; that leaves S2 34 B, so S2 needs the ceiling
+fixing), declared in `security-spine-web-image` (folded into `docs/route-budget.history.md`); that leaves S2 34 B, so S2 needs the ceiling
 raise D5 allows. `lint:deck --all` takes 7.8 s over 491 files with the rule.
 
 ## S2, as built (2026-11-04)

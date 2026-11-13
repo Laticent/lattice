@@ -386,12 +386,25 @@ describe('budgets on untrusted input', () => {
     const m = parse(chain);
     assert.equal(m.edges.length, 5999);
   });
-  test('a 2,500-target fan-out stays fast', () => {
+  test('a 2,500-target fan-out stays within the near-duplicate budget', () => {
     const fan = `- A -> ${Array.from({ length: 2500 }, (_, i) => `Zq${i * 104729}`).join(' & ')}`;
-    const t = process.hrtime.bigint();
-    parse(fan);
-    const ms = Number(process.hrtime.bigint() - t) / 1e6;
-    assert.ok(ms < 1500, `took ${ms.toFixed(0)} ms`);
+    // Counted, not timed (HARD RULE #32). Each near-duplicate comparison lowercases the new name once (`nameKey`), so
+    // the lowercase calls count the comparisons. Without NEAR_DUP_BUDGET every new target is compared with every
+    // earlier one: 2.8 million calls and 4.9 s here. With it, about 27,000.
+    const real = String.prototype.toLowerCase;
+    let calls = 0;
+    String.prototype.toLowerCase = function () {
+      calls++;
+      return real.call(this);
+    };
+    let m;
+    try {
+      m = parse(fan);
+    } finally {
+      String.prototype.toLowerCase = real;
+    }
+    assert.equal(m.edges.length, 2500);
+    assert.ok(calls <= 50_000, `${calls} lowercase calls`);
   });
 });
 

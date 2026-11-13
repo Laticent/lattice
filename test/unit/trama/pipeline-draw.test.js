@@ -12,6 +12,12 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const { installGraphPass } = require('@laticent/trama');
+const { virtualClock } = require('../../helpers/runtime-boot');
+
+// Every window here runs on a virtual clock (HARD RULE #32, F2): the pipeline's own timers (the 2 s font
+// deadline, its 100 ms re-check, the 300 ms pause before a live settle) and the Worker stand-ins' 5 ms answers
+// fire when a test advances time, in order, never on the machine's. `advance(ms)` is the virtual form of the
+// sleep each test used to take, so the durations below are the ones the tests always read.
 
 // The stand-in chart. Its one label is set at the declared type floor, and the drawing is
 // 400 + 60 x floor units wide in a 1000-unit port, so the floor it needs solves
@@ -38,6 +44,7 @@ const adapter = () => ({
 function setup({ fonts, base = 400, perPx = 60 } = {}) {
   const dom = new JSDOM('<!doctype html><body><div class="g-figure" data-g-model="1"><div class="g-box"><div class="g-harness"></div><svg><title>Chart</title></svg></div></div></body>', { runScripts: 'outside-only' });
   const w = dom.window;
+  const clock = virtualClock(w);
   const fig = w.document.querySelector('.g-figure');
   fig.getBoundingClientRect = () => ({ left: 0, top: 0, right: 1000, bottom: 1000, width: 1000, height: 1000 });
   w.__latticeDagre = { layout() {} };
@@ -52,7 +59,7 @@ function setup({ fonts, base = 400, perPx = 60 } = {}) {
   });
   const pass = w.eval(`(${installGraphPass.toString()})`);
   const run = () => pass(w.document, kernel, adapter);
-  return { w, fig, log, run, drawn: () => fig.getAttribute('data-g-drawn') === '1' };
+  return { w, fig, log, run, clock, drawn: () => fig.getAttribute('data-g-drawn') === '1' };
 }
 
 /** A FontFaceSet stand-in: `loading` until `land()`, with a `ready` that settles then. */
@@ -63,7 +70,8 @@ function fontSet() {
   set.land = () => { set.status = 'loaded'; settle(set); };
   return set;
 }
-const tick = () => new Promise((r) => setTimeout(r, 0));
+/** Run what a resolved promise queued, and any timer due now: one turn, with no time passing. */
+const tick = (t) => t.clock.advance(0);
 
 describe('trama pipeline — it draws once, in the page\'s own fonts', () => {
   test('no layout while the faces load; one draw when they land', async () => {
@@ -74,7 +82,7 @@ describe('trama pipeline — it draws once, in the page\'s own fonts', () => {
     assert.equal(t.log.layouts.length, 0, 'nothing laid out in fallback fonts');
     assert.equal(t.drawn(), false, 'the harness shows meanwhile');
     fonts.land();
-    await tick();
+    await tick(t);
     assert.equal(t.drawn(), true);
     const n = t.log.layouts.length;
     t.run();
@@ -90,11 +98,11 @@ describe('trama pipeline — it draws once, in the page\'s own fonts', () => {
     const second = new Promise((r) => { settleSecond = r; });
     fonts.ready = second;
     settleFirst(fonts);
-    await tick();
+    await tick(t);
     assert.equal(t.log.layouts.length, 0, 'still loading: nothing laid out');
     fonts.status = 'loaded';
     settleSecond(fonts);
-    await tick();
+    await tick(t);
     assert.equal(t.drawn(), true, 'drawn when the second round ends');
   });
 
@@ -109,10 +117,10 @@ describe('trama pipeline — it draws once, in the page\'s own fonts', () => {
     fonts.ready = { then(res, rej) { if (++thens > 5000) fonts.status = 'loaded'; return Promise.resolve(fonts).then(res, rej); } };
     const t = setup({ fonts });
     t.run();
-    await new Promise((r) => setTimeout(r, 350));
+    await t.clock.advance(350);
     assert.ok(thens < 20, `ready followed ${thens} times in 350 ms; it must be re-checked from a timer`);
     fonts.status = 'loaded';
-    await new Promise((r) => setTimeout(r, 150));
+    await t.clock.advance(150);
     assert.equal(t.drawn(), true, 'drawn once the face lands');
   });
 
@@ -120,13 +128,13 @@ describe('trama pipeline — it draws once, in the page\'s own fonts', () => {
     const fonts = fontSet();
     const t = setup({ fonts });
     t.run();
-    await new Promise((r) => setTimeout(r, 1900));
-    assert.equal(t.drawn(), false, 'still waiting inside the deadline');
-    await new Promise((r) => setTimeout(r, 200));
+    await t.clock.advance(1999);
+    assert.equal(t.drawn(), false, 'still waiting 1 ms inside the deadline');
+    await t.clock.advance(1);
     assert.equal(t.drawn(), true, 'drawn at 2 s, in whatever fonts there are');
     const n = t.log.layouts.length;
     fonts.land();
-    await tick();
+    await tick(t);
     assert.ok(t.log.layouts.length > n, 'and drawn again once the faces land');
   });
 
@@ -222,6 +230,7 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
   function setupLive(isLive) {
     const dom = new JSDOM('<!doctype html><head><script src="https://x.test/lattice-dagre.js"></script></head><body><section><div class="g-figure" data-g-model="1"><div class="g-box"><div class="g-harness"></div><svg><title>Chart</title></svg></div></div></section></body>', { runScripts: 'outside-only' });
     const w = dom.window;
+    const clock = virtualClock(w);
     const fig = w.document.querySelector('.g-figure');
     fig.getBoundingClientRect = () => ({ left: 0, top: 0, right: 1000, bottom: 1000, width: 1000, height: 1000 });
     w.__latticeDagre = { layout() {} };
@@ -233,16 +242,15 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
       constructor() { this.n = ++log.workers; }
       postMessage(d) {
         log.posts.push({ floor: d.sizes.a.w, via: this.n });
-        setTimeout(() => this.onmessage({ data: { id: d.id, geo: kernel().layout(d.model, d.sizes) } }), 5);
+        w.setTimeout(() => this.onmessage({ data: { id: d.id, geo: kernel().layout(d.model, d.sizes) } }), 5);
       }
       terminate() {}
     };
     const pass = w.eval(`(${installGraphPass.toString()})`);
     const run = () => pass(w.document, kernel, live, { live: isLive });
     new w.MutationObserver(() => log.paints.push(fig.querySelector('svg').innerHTML)).observe(fig.querySelector('svg'), { childList: true, subtree: true });
-    return { fig, log, run, svg: () => fig.querySelector('svg').innerHTML };
+    return { fig, log, run, clock, svg: () => fig.querySelector('svg').innerHTML };
   }
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   test('the settle fits from a cold start on the search worker, paints only its last round, and ends as a fresh page', async () => {
     const fresh = setupLive(false);
@@ -251,10 +259,10 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
     t.run();
     t.fig.setAttribute('data-rev', '1');
     t.run();
-    await sleep(100);
+    await t.clock.advance(100);
     const n = t.log.posts.length;
     const p = t.log.paints.length;
-    await sleep(600);
+    await t.clock.advance(600);
     const settle = t.log.posts.slice(n);
     assert.ok(settle.length >= 2, `the settle ran its fit rounds: ${JSON.stringify(settle)}`);
     assert.equal(settle[0].floor, 11, 'it starts cold, at the declared floor');
@@ -270,6 +278,7 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
   function setupNoWorker(rev, perPx = 90) {
     const dom = new JSDOM('<!doctype html><body><section><div class="g-figure" data-g-model="1"><div class="g-box"><div class="g-harness"></div><svg><title>Chart</title></svg></div></div></section></body>', { runScripts: 'outside-only' });
     const w = dom.window;
+    const clock = virtualClock(w);
     const fig = w.document.querySelector('.g-figure');
     if (rev) fig.setAttribute('data-rev', rev);
     fig.getBoundingClientRect = () => ({ left: 0, top: 0, right: 1000, bottom: 1000, width: 1000, height: 1000 });
@@ -287,7 +296,7 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
     const kernel = () => ({ layout(_m, sizes) { log.layouts.push(sizes.a.w); return { width: sizes.a.base + perPx * sizes.a.w, height: 10, dir: 'lr', nodes: {}, routes: [] }; } });
     const pass = w.eval(`(${installGraphPass.toString()})`);
     const run = () => pass(w.document, kernel, ad, { live: true });
-    return { fig, log, run, svg: () => fig.querySelector('svg').innerHTML };
+    return { fig, log, run, clock, svg: () => fig.querySelector('svg').innerHTML };
   }
 
   test('with no worker, a live redraw settles from a cold fit after the pause, and ends as a fresh page', async () => {
@@ -300,7 +309,7 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
     const warm = t.svg();
     const n = t.log.layouts.length;
     assert.notEqual(warm, fresh.svg(), 'the warm start must stop elsewhere, or this test proves nothing');
-    await sleep(450);
+    await t.clock.advance(450);
     assert.equal(t.log.layouts[n], 11, 'the settle starts cold, at the declared floor');
     assert.equal(t.svg(), fresh.svg());
   });
@@ -310,11 +319,11 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
     t.run();
     t.fig.setAttribute('data-rev', '1');
     t.run();
-    await sleep(100);
+    await t.clock.advance(100);
     t.fig.setAttribute('data-g-model', '2');
     t.run();
     const n = t.log.layouts.length;
-    await sleep(450);
+    await t.clock.advance(450);
     assert.match(t.svg(), />a2</);
     assert.equal(t.log.layouts.length, n, 'another chart at this position fits cold at once, and nothing settles after it');
   });
@@ -328,7 +337,7 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
     // The stage collapses inside the pause (a narrow reflow): width, no height.
     Object.defineProperty(t.fig, 'clientWidth', { value: 1000, configurable: true });
     Object.defineProperty(t.fig, 'clientHeight', { value: 0, configurable: true });
-    await sleep(450);
+    await t.clock.advance(450);
     assert.equal(t.log.layouts.length, n, 'a layout into a zero-height stage tries every candidate for nothing');
   });
 
@@ -339,7 +348,7 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
     t.fig.setAttribute('data-rev', '1');
     t.run();
     const n = t.log.layouts.length;
-    await sleep(450);
+    await t.clock.advance(450);
     assert.equal(t.log.layouts.length, n);
   });
 
@@ -350,6 +359,7 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
   test('a live redraw reads the signature after each post, none for a mid-chain paint, and the floor once', async () => {
     const dom = new JSDOM('<!doctype html><head><script src="https://x.test/lattice-dagre.js"></script></head><body><section><div class="g-figure" data-g-model="1"><div class="g-port"><div class="g-box"><div class="g-harness"></div><svg><title>Chart</title></svg></div></div></div></section></body>', { runScripts: 'outside-only' });
     const w = dom.window;
+    const clock = virtualClock(w);
     const fig = w.document.querySelector('.g-figure');
     // A port of its own inside the figure, as both shipping adapters have (.sc-canvas, .fc-canvas).
     const port = w.document.querySelector('.g-port');
@@ -364,7 +374,7 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
       constructor() { this.n = ++workers; }
       postMessage(d) {
         events.push(this.n === 1 ? 'post' : 'settle-post');
-        setTimeout(() => this.onmessage({ data: { id: d.id, geo: kernel().layout(d.model, d.sizes) } }), 5);
+        w.setTimeout(() => this.onmessage({ data: { id: d.id, geo: kernel().layout(d.model, d.sizes) } }), 5);
       }
       terminate() {}
     };
@@ -389,7 +399,7 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
     fig.setAttribute('data-rev', '1');
     events.length = 0;
     pass(w.document, kernel, ad, { live: true });
-    await sleep(100);
+    await clock.advance(100);
     const keyEvents = events.filter((e) => e !== 'settle-post');
     const posts = keyEvents.filter((e) => e === 'post').length;
     assert.ok(posts >= 2, `the redraw must take more than one round, or this test proves nothing: ${keyEvents}`);
@@ -423,9 +433,9 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
     t.run();
     t.fig.setAttribute('data-rev', '1');
     t.run();
-    await sleep(100);
+    await t.clock.advance(100);
     t.fig.style.setProperty('--chart-text-min', '24px');
-    await sleep(600);
+    await t.clock.advance(600);
     assert.notEqual(fresh.svg(), '', 'the fresh page drew');
     assert.equal(t.svg(), fresh.svg());
   });
@@ -438,7 +448,7 @@ describe('trama pipeline — live: the drawing at rest is the one a fresh page d
     t.fig.setAttribute('data-g-model', '2');
     t.run();
     assert.match(t.svg(), />a2</);
-    await sleep(700);
+    await t.clock.advance(700);
     assert.match(t.svg(), />a2</, 'the stale chain for chart 1 was dropped');
   });
 });

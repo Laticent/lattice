@@ -14,7 +14,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { skipWithoutChrome } = require('../../helpers/chrome.js');
+const { skipWithoutChrome, skipUnlessCI } = require('../../helpers/chrome.js');
 
 /** Run `fn` with exactly these env vars set and every other relevant one cleared. */
 function withEnv(vars, fn) {
@@ -59,5 +59,27 @@ describe('skipWithoutChrome', () => {
     const answer = withEnv({}, () => skipWithoutChrome(undefined));
     assert.equal(typeof answer, 'string');
     assert.match(answer, /no Chromium/);
+  });
+});
+
+describe('flag values that mean "unset" (HARD RULE #33)', () => {
+  test('CI=false and CI=0 are a developer machine: a missing browser skips', () => {
+    for (const v of ['false', '0', '']) assert.match(withEnv({ CI: v }, () => skipWithoutChrome(undefined)), /no Chromium/, `CI=${v}`);
+  });
+
+  test('PUPPETEER_SKIP_DOWNLOAD=0 does not turn a CI job render-free: a missing browser fails', () => {
+    assert.equal(withEnv({ CI: 'true', PUPPETEER_SKIP_DOWNLOAD: '0' }, () => skipWithoutChrome(undefined)), false);
+  });
+});
+
+describe('skipUnlessCI', () => {
+  test('nothing missing: the test runs everywhere', () => {
+    assert.equal(withEnv({}, () => skipUnlessCI(false, 'dist/ not built')), false);
+    assert.equal(withEnv({ CI: 'true' }, () => skipUnlessCI(false, 'dist/ not built')), false);
+  });
+
+  test('missing on a laptop is a SKIP with the reason; missing in CI is a FAILURE', () => {
+    assert.equal(withEnv({}, () => skipUnlessCI(true, 'dist/ not built')), 'dist/ not built');
+    assert.equal(withEnv({ CI: 'true' }, () => skipUnlessCI(true, 'dist/ not built')), false);
   });
 });

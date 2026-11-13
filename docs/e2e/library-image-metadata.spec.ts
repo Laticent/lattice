@@ -562,13 +562,13 @@ test('@smoke Suggest says plainly when the model cannot read images, and when no
 	await expect(dialog.getByLabel('Description', { exact: true })).toHaveValue('');
 });
 
-test('@smoke Suggest with no model connected points to Setup and sends nothing', async ({ page }) => {
+test('@smoke Suggest with no model connected points to Workspace › AI and sends nothing', async ({ page }) => {
 	test.slow();
 	const seen = await mockOpenRouter(page, { key: false, vision: true });
 	await gotoStudio(page);
 	const dialog = await openPhotoDialog(page, 'no-key');
 	await dialog.getByRole('button', { name: 'Suggest a name and description' }).click();
-	await expect(dialog.getByText(/Connect your OpenRouter account in Setup/)).toBeVisible({ timeout: 30_000 });
+	await expect(dialog.getByText(/Set an image reader in Workspace › AI/)).toBeVisible({ timeout: 30_000 });
 	expect(seen.bodies, 'no photo left the browser').toHaveLength(0);
 });
 
@@ -624,21 +624,21 @@ test('@smoke "Use new name" says so when the browser has no room, and rewrites n
 	// A second deck becomes the open one; deck A is then a stored deck that still writes the old name.
 	await page.locator('header').getByRole('button', { name: /slides?$|Untitled deck|Markdown for the boardroom/ }).first().click();
 	await page.getByRole('menuitem', { name: 'New deck' }).click();
-	const craft = page.locator('header').getByText('Craft', { exact: true });
-	if (await craft.isVisible().catch(() => false)) await craft.click();
-
-	// The Library button TOGGLES the panel, and "New deck" and the Craft switch re-render the shell
-	// after their clicks return. A one-shot `isVisible()` read mid-re-render chose wrong on a CI
-	// runner (#2739: the tab was never found, twice) while passing every local run, so open it until
-	// the tab is really there. A Library that cannot open still fails here, after 15 s.
+	// The Library button TOGGLES the panel, and "New deck" and the Craft switch re-render the shell after their clicks
+	// return. A one-shot `isVisible()` read mid-re-render chose wrong on a CI runner (#2739: the tab was never found,
+	// twice), and a retry loop that clicked until the tab showed only hid it (#3045). So wait for each switch to land on
+	// its own signal, then read the button's own state, `aria-pressed`, and press it only when it is off.
+	await expect(page.getByRole('button', { name: /Untitled deck/ })).toBeVisible();
+	const craft = page.locator('header').getByRole('button', { name: /^Craft — every panel/ });
+	if ((await craft.getAttribute('aria-pressed')) !== 'true') await craft.click();
+	await expect(craft).toHaveAttribute('aria-pressed', 'true');
+	const library = page.getByRole('button', { name: CHROME.library });
+	if ((await library.getAttribute('aria-pressed')) !== 'true') await library.click();
+	await expect(library).toHaveAttribute('aria-pressed', 'true');
 	const mediaPill = page.getByRole('tab', { name: 'Media', exact: true });
-	await expect(async () => {
-		if (!(await mediaPill.isVisible())) await page.getByRole('button', { name: CHROME.library }).click();
-		await expect(mediaPill).toBeVisible({ timeout: 2_000 });
-		await mediaPill.click({ timeout: 2_000 });
-		await page.getByRole('button', { name: 'Filter' }).click();
-		await page.getByRole('menuitemradio', { name: 'Images' }).click();
-	}).toPass({ timeout: 15_000 });
+	await mediaPill.click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 	await page.locator('[data-media-card="full-disk"]').getByRole('button', { name: 'Details for full-disk' }).click();
 	const first = page.locator('[data-media-detail="full-disk"]');
 	await first.getByLabel('Name', { exact: true }).fill('roomy');
@@ -712,34 +712,38 @@ test('@smoke Suggest says plainly when the chosen image model cannot read images
 	await gotoStudio(page);
 	const dialog = await openPhotoDialog(page, 'blind-model');
 	await dialog.getByRole('button', { name: 'Suggest a name and description' }).click();
-	await expect(dialog.getByText(/image model you picked can't read images/)).toBeVisible({ timeout: 30_000 });
+	await expect(dialog.getByText(/image reader can't read images/)).toBeVisible({ timeout: 30_000 });
 });
 
-test('@smoke Workspace → Model has an Image model picker (vision models only, the latest Sonnet by default) and a Look closer dial', async ({ page }) => {
+test('@smoke Workspace › AI has an Image reader: same as chat by default, a model of its own lists only vision models, and a look dial', async ({ page }) => {
 	test.slow();
 	await mockOpenRouter(page, { key: true, vision: true });
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.workspaceSettings, exact: true }).first().click();
-	const panel = page.locator('[data-image-model-settings]');
-	await panel.scrollIntoViewIfNeeded();
-	await expect(panel.getByText('Latest Claude Sonnet')).toBeVisible({ timeout: 30_000 });
-	await expect(panel.getByRole('button', { name: 'Careful' })).toHaveAttribute('aria-pressed', 'true');
+	await page.getByRole('tab', { name: 'AI' }).click();
+	const card = page.getByTestId('image-reader-card');
+	await card.scrollIntoViewIfNeeded();
+	await expect(card.getByTestId('image-reader-card-name')).toHaveText(/^Same as chat · /, { timeout: 30_000 });
 
-	await panel.getByRole('button', { name: 'Thorough' }).click();
-	await expect(panel.getByRole('button', { name: 'Thorough' })).toHaveAttribute('aria-pressed', 'true');
-	await expect(panel).toContainText('the model thinks before it answers');
+	await card.getByRole('button', { name: /Change/ }).click();
+	await expect(page.getByRole('button', { name: 'Careful' })).toHaveAttribute('aria-pressed', 'true');
+	await page.getByRole('button', { name: 'Thorough' }).click();
+	await expect(page.getByRole('button', { name: 'Thorough' })).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByText(/the model thinks before it answers/)).toBeVisible();
 
-	await panel.getByRole('button', { name: /Latest Claude Sonnet/ }).click();
-	await expect(panel.getByText('GPT-5', { exact: true })).toBeVisible({ timeout: 30_000 });
-	await expect(panel.getByText('Chat', { exact: true }), 'a model that cannot read pictures is not offered').toHaveCount(0);
-	await panel.getByText('GPT-5', { exact: true }).click();
+	await page.getByRole('radio', { name: 'A model of its own' }).click();
+	await page.getByRole('tablist', { name: 'Model lens' }).getByRole('tab', { name: 'All' }).click();
+	await expect(page.getByText('GPT-5', { exact: true })).toBeVisible({ timeout: 30_000 });
+	await expect(page.locator('[data-image-reader]').getByText('Chat', { exact: true }), 'a model that cannot read pictures is not offered').toHaveCount(0);
+	await page.getByText('GPT-5', { exact: true }).click();
 
-	const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}'));
-	expect(saved).toMatchObject({ imageModel: 'openai/gpt-5', imageLook: 'thorough' });
-	await panel.getByRole('button', { name: /GPT-5/ }).click();
-	await panel.getByRole('button', { name: 'Use the latest Claude Sonnet again' }).click();
-	expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').imageModel)).toBe('~anthropic/claude-sonnet-latest');
+	expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-image-selection') ?? '{}'))).toMatchObject({ mode: 'own', provider: 'openrouter', model: 'openai/gpt-5' });
+	expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').imageLook)).toBe('thorough');
+	await expect(card.getByTestId('image-reader-card-name')).toHaveText(/GPT-5/);
+	await page.getByRole('radio', { name: 'Same as chat model' }).click();
+	await expect(card.getByTestId('image-reader-card-name')).toHaveText(/^Same as chat · /);
+	expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lattice-studio-image-selection') ?? '{}').mode)).toBe('same');
 });
 
 test('@smoke @mobile @webkit-phone on a phone the dialog does not pan sideways, the date field is short, and the picture survives a save', async ({ page }) => {

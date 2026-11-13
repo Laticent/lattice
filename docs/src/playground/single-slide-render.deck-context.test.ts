@@ -17,6 +17,7 @@
 // that guard is load-bearing on decks that ship in this repo).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadFramesOnWrite } from '@/test/frame-load';
 
 vi.mock('../lib/render-engine', () => ({ renderMarkdown: vi.fn() }));
 vi.mock('../lib/theme-fetch', () => ({
@@ -54,7 +55,10 @@ function mockRender(html: string) {
 	(renderMarkdown as unknown as ReturnType<typeof vi.fn>).mockImplementation(async () => ({ html, css: '' }));
 }
 
+// Each render waits for the previous write's frame to load; jsdom loads none (src/test/frame-load.ts).
+let restoreFrames: () => void = () => {};
 beforeEach(() => {
+	restoreFrames = loadFramesOnWrite();
 	class RO {
 		observe = vi.fn();
 		unobserve = vi.fn();
@@ -72,6 +76,7 @@ beforeEach(() => {
 	mockRender(DECK);
 });
 afterEach(() => {
+	restoreFrames();
 	(window as unknown as { LatticePlayground?: unknown }).LatticePlayground = undefined;
 	document.body.innerHTML = '';
 });
@@ -174,7 +179,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 
 	it('FAILS CLOSED on a slide-count mismatch — falls back to the shown slide, not a wrong one', async () => {
 		// The critical case. `slideIndex` indexes the CALLER's authored slides; narrowing indexes the
-		// ENGINE's sections. On a `_focusSteps` / `split: headings` deck those differ, and picking by
+		// ENGINE's sections. On a `split: headings` deck those differ, and picking by
 		// index would paint a slide the author did not select. The caller passes the count it believes
 		// plus the shown slide alone; on disagreement we render that slide — right content, 1 of 1.
 		const r = createSingleSlideRenderer(opts);
@@ -261,7 +266,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 	it('REFUSES to narrow without a slide count — the copy that used to allow it was the hole', async () => {
 		// The alignment invariant had two copies: this path's inline checks and `alignmentFailure`
 		// in lib/diagnostics. They diverged within four days — this one let a MISSING `slideCount`
-		// through and narrowed on the index alone, which is exactly the `_focusSteps` /
+		// through and narrowed on the index alone, which is exactly the
 		// `split: headings` case where "slide k" is not section k and the preview paints the WRONG
 		// slide. Every production caller (StudioShell, PresentOverlay, SlideOverview) passes the
 		// count, so the permissive branch protected nothing. One copy now, and it fails closed.
@@ -355,6 +360,29 @@ describe('deck-context gate (needsDeckContext)', () => {
 		expect(seen[0]).toBe(deck); // the gate chose the deck; a later fallback is the guard's business
 	});
 
+	it('renders the DECK for an empty agenda — it fills from every divider, which a slice cannot see', async () => {
+		// lib/core/agenda-autofill.js: an agenda with a heading and no list lists the deck's divider headings.
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const seen = recordRenders();
+		const deck = '<!-- _class: agenda -->\n\n## Agenda\n\n---\n\n<!-- _class: divider -->\n\n## One\n\n---\n\n<!-- _class: divider -->\n\n## Two';
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 0, slideCount: 3, slideMarkdown: 'THE SLICE' });
+		expect(seen[0]).toBe(deck);
+	});
+
+	it('keeps the SLICE for a hand-written agenda, and an empty one whose only list line is in a note still takes the DECK', async () => {
+		const r = createSingleSlideRenderer(opts);
+		const written = '<!-- _class: agenda -->\n\n## Agenda\n\n1. Mine\n2. Ours\n\n---\n\nbody';
+		let seen = recordRenders();
+		await r.renderInto(mountHost(), written, false, undefined, undefined, undefined, undefined, { slideIndex: 0, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen).toEqual(['THE SLICE']);
+		// A `- ` line inside a speaker note or a fence is not the agenda's list (the checker's miss, 2026-11-08).
+		const noted = '<!-- _class: agenda -->\n\n## Agenda\n\n<!--\n- remember to fill\n-->\n\n---\n\nbody';
+		seen = recordRenders();
+		await r.renderInto(mountHost(), noted, false, undefined, undefined, undefined, undefined, { slideIndex: 0, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen[0]).toBe(noted);
+	});
+
 	it('renders the SLICE for a divider deck — the SECTION position is supplied too', async () => {
 		// The rail and the watermark glyph both derived their section by walking every section,
 		// which is why a divider deck re-parsed in full on every keystroke (63ms on a 40-slide
@@ -367,7 +395,7 @@ describe('deck-context gate (needsDeckContext)', () => {
 		const deck = '<!-- _class: divider -->\n\n# Part One\n\n---\n\nbody';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(mock.mock.calls[0][1]).toBe('THE SLICE');
-		expect(mock.mock.calls[0][3]?.page?.deckSection).toEqual({ index: 1, total: 1 });
+		expect(mock.mock.calls[0][3]?.page?.deckSection).toMatchObject({ index: 1, total: 1 });
 	});
 
 	it('a SPOT pagination class also takes the slice path — same reasoning', async () => {
@@ -381,13 +409,23 @@ describe('deck-context gate (needsDeckContext)', () => {
 
 	it('a 1→N EXPANDER keeps the whole-deck render — a supplied index would name the wrong slide', async () => {
 		// The one thing supplying a position genuinely requires: that the caller's slide index
-		// identifies a section. `_focusSteps` clones one authored slide into several, so it does not.
+		// identifies a section. `split: headings` divides one authored slide at every `##`, so it does not.
 		const r = createSingleSlideRenderer(opts);
 		const host = mountHost();
 		const seen = recordRenders();
-		const deck = '<!-- _focusSteps: a | b | c -->\n\nbody\n\n---\n\nmore';
+		const deck = '---\nsplit: headings\n---\n\n## A\n\nbody\n\n## B\n\nmore';
 		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
 		expect(seen[0]).toBe(deck);
+	});
+
+	it('a `_focusSteps` slide is NOT an expander any more: it keeps the cheap slice path', async () => {
+		// One slide walked live since 2026-11-09 (engineering/decisions/2026-11-09-steps-as-a-behavior.md).
+		const r = createSingleSlideRenderer(opts);
+		const host = mountHost();
+		const seen = recordRenders();
+		const deck = '<!-- _focusSteps: item 1 | item 2 -->\n\n- a\n- b\n\n---\n\nmore';
+		await r.renderInto(host, deck, false, undefined, undefined, undefined, undefined, { slideIndex: 1, slideCount: 2, slideMarkdown: 'THE SLICE' });
+		expect(seen).toEqual(['THE SLICE']);
 	});
 
 	it('`paginate: false` does NOT trigger a deck render', async () => {
@@ -518,6 +556,7 @@ describe('deck-derived fact registry', () => {
 	it('the registry holds exactly the expected facts — deleting one FAILS here', () => {
 		expect(DECK_DERIVED_FACTS.map((f) => f.fact).sort()).toEqual([
 			'ambiguous divider count',
+			'auto-filled agenda',
 			'glossary: auto',
 			'running-global directive',
 			'slide expander (1→N)',
@@ -646,13 +685,13 @@ describe('supplied SECTION position (the progress rail)', () => {
 	const TWO_SECTIONS = '<!-- _class: divider -->\n\n# One\n\n---\n\nbody\n\n---\n\n<!-- _class: divider -->\n\n# Two\n\n---\n\nmore';
 
 	it('counts the dividers at or before the shown slide — where the walk would have arrived', async () => {
-		expect((await pageSent(TWO_SECTIONS, 1, 4))?.deckSection).toEqual({ index: 1, total: 2 });
-		expect((await pageSent(TWO_SECTIONS, 3, 4))?.deckSection).toEqual({ index: 2, total: 2 });
+		expect((await pageSent(TWO_SECTIONS, 1, 4))?.deckSection).toMatchObject({ index: 1, total: 2 });
+		expect((await pageSent(TWO_SECTIONS, 3, 4))?.deckSection).toMatchObject({ index: 2, total: 2 });
 	});
 
 	it('a slide BEFORE the first divider is in section 0 — no rail, as in the full deck', async () => {
 		const deck = 'intro\n\n---\n\n<!-- _class: divider -->\n\n# One\n\n---\n\nbody';
-		expect((await pageSent(deck, 0, 3))?.deckSection).toEqual({ index: 0, total: 1 });
+		expect((await pageSent(deck, 0, 3))?.deckSection).toMatchObject({ index: 0, total: 1 });
 	});
 
 	it('omits it entirely for a deck with no dividers', async () => {
@@ -706,7 +745,7 @@ describe('an ambiguous divider count falls back to the deck render', () => {
 	it('still takes the SLICE for an unambiguous divider deck — the optimization survives', async () => {
 		const out = await rendered(REAL);
 		expect(out.source).toBe('THE SLICE');
-		expect(out.page?.deckSection).toEqual({ index: 1, total: 1 });
+		expect(out.page?.deckSection).toMatchObject({ index: 1, total: 1 });
 	});
 });
 
@@ -759,7 +798,7 @@ describe('the ambiguity guard is narrow enough to keep the win', () => {
 		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n```mermaid\n---\ntitle: x\n---\nflowchart LR\n  A --> B\n```\n\n---\n\n<!-- _class: form -->\n\nbody';
 		const out = await sectionFor(deck, 2);
 		expect(out.source).toBe('THE SLICE'); // still the cheap path
-		expect(out.deckSection).toEqual({ index: 1, total: 1 });
+		expect(out.deckSection).toMatchObject({ index: 1, total: 1 });
 	});
 
 	it('counts the class value by TOKEN, as the tiles do — `divider-lite` is not a divider', async () => {
@@ -767,6 +806,6 @@ describe('the ambiguity guard is narrow enough to keep the win', () => {
 		// `divider-lite` and `section-divider`, so the counter disagreed with the consumer it
 		// stands in for.
 		const deck = '<!-- _class: divider -->\n\n# One\n\n---\n\n<!-- _class: divider-lite -->\n\nbody\n\n---\n\n<!-- _class: form -->\n\ntail';
-		expect((await sectionFor(deck, 2)).deckSection).toEqual({ index: 1, total: 1 });
+		expect((await sectionFor(deck, 2)).deckSection).toMatchObject({ index: 1, total: 1 });
 	});
 });

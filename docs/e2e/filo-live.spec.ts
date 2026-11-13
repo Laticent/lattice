@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
 import { savedDeck } from './compose-insert';
 import { localRelay } from './live-relay';
-import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, setEditorContent, test, toSourceIfCompose } from './studio-fixture';
 
 const DECK = ['<!-- _class: content -->\n\n# Live deck\n\nBody one.', '<!-- _class: content -->\n\n# Two\n\nBody two.', '<!-- _class: content -->\n\n# Three\n\nBody three.'].join('\n\n---\n\n');
 
@@ -251,6 +251,8 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		// Then the guest edits, so the guest's change is the NEWEST in the deck: an undo that took
 		// anyone's newest change would take this one. One insert, one transaction, so the undo
 		// manager's 500 ms capture window cannot split it on a slow runner.
+		// The Markdown editor's undo is what this case is about: in the `compose-default` project, open Source first.
+		await toSourceIfCompose(guest);
 		await guest.locator('.cm-content').first().click();
 		await guest.keyboard.press('ControlOrMeta+End');
 		await guest.keyboard.insertText('\nGuest line.');
@@ -268,6 +270,72 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		await guest.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 		await undoChord(guest);
 		await bothHold(pair, (s) => s === DECK, "the guest's undo did not restore the deck");
+	});
+
+		// A co-editor's change reaches a Compose that has the caret at once: it used to be held until blur, and the author's
+		// next keystroke superseded it, so both sides lost the other person's words (the trio's red team and inversion).
+		test("a guest typing in Compose keeps the host's edit that arrived meanwhile", async ({ browser }, info) => {
+		const pair = await liveSession(await sessionBrowser(browser), info);
+		const { host, guest } = pair;
+		await openCompose(host);
+		await openCompose(guest);
+		await caretInCompose(guest, 0);
+		await caretInCompose(host, 2);
+		await host.keyboard.insertText(' HOSTFIRST');
+		await bothHold(pair, (s) => s.includes('Body three. HOSTFIRST'), 'the host edit crossed');
+		await guest.keyboard.insertText(' GUESTNEXT');
+		await bothHold(pair, (s) => s.includes('HOSTFIRST') && s.includes('GUESTNEXT'), "the guest's typing dropped the host's edit");
+		await expect(guest.locator('.cs-host .cs-slide').nth(2), "the guest's Compose shows the host's edit").toContainText('HOSTFIRST');
+	});
+
+	// The same, while the guest is mid-composition with an IME (Japanese, Chinese, Korean input): Compose cannot rebuild its
+	// document then, so it holds the host's change, and the composed text used to replace it when the composition ended.
+	// Chromium only: the composition is driven through CDP (`Input.imeSetComposition`), which WebKit and Gecko do not offer.
+	test("a guest composing with an IME in Compose keeps the host's edit that arrived meanwhile", async ({ browser, browserName }, info) => {
+		test.skip(browserName !== 'chromium', 'IME composition is driven through the Chrome DevTools Protocol');
+		const pair = await liveSession(await sessionBrowser(browser), info);
+		const { host, guest } = pair;
+		await openCompose(host);
+		await openCompose(guest);
+		await caretInCompose(guest, 0);
+		await caretInCompose(host, 2);
+		const ime = await guest.context().newCDPSession(guest);
+		await ime.send('Input.imeSetComposition', { text: 'に', selectionStart: 1, selectionEnd: 1 });
+		await expect(guest.locator('.cs-host .cs-slide').first(), 'the composition is on the page').toContainText('に');
+		await host.keyboard.insertText(' HOSTMID');
+		await expect.poll(() => host.evaluate(() => document.querySelector('.cs-host')?.textContent ?? ''), { message: 'the host edit landed' }).toContain('HOSTMID');
+		// The guest's session copy has the host's words while the composition is still open; then it commits.
+		await ime.send('Input.imeSetComposition', { text: 'にほ', selectionStart: 2, selectionEnd: 2 });
+		await ime.send('Input.insertText', { text: 'にほん' });
+		await bothHold(pair, (s) => s.includes('Body three. HOSTMID') && s.includes('にほん'), "the guest's composition dropped the host's edit");
+		await expect(guest.locator('.cs-host .cs-slide').nth(2), "the guest's Compose shows the host's edit").toContainText('HOSTMID');
+		await expect(guest.locator('.cs-host .cs-slide').first(), "the guest's Compose keeps the composed text").toContainText('にほん');
+	});
+
+	// When the two edits overlap, the merge cannot be placed, and Compose refuses the author's change the way the session
+	// refuses one (live-controller.ts): the co-editor's change stays on both sides, and the author is told. Before, the
+	// author's text won and the co-editor's change was erased without a word. Here the guest's composition reaches the
+	// session, the host then replaces that whole paragraph, and the guest's IME turns its character into another: an edit
+	// to text the host has already replaced.
+	test('an IME edit Compose cannot place on a co-editor\'s change is refused with a notice, and theirs stays', async ({ browser, browserName }, info) => {
+		test.skip(browserName !== 'chromium', 'IME composition is driven through the Chrome DevTools Protocol');
+		const pair = await liveSession(await sessionBrowser(browser), info);
+		const { host, guest } = pair;
+		await openCompose(host);
+		await openCompose(guest);
+		await caretInCompose(guest, 0);
+		const ime = await guest.context().newCDPSession(guest);
+		await ime.send('Input.imeSetComposition', { text: 'に', selectionStart: 1, selectionEnd: 1 });
+		await bothHold(pair, (s) => s.includes('Body one.に'), "the guest's composing character crossed");
+		await caretInCompose(host, 0);
+		await host.keyboard.press('Shift+Home');
+		await host.keyboard.insertText('Gone');
+		await bothHold(pair, (s) => s.includes('# Live deck\n\nGone') && !s.includes('Body one'), 'the host replaced the paragraph');
+		await ime.send('Input.imeSetComposition', { text: 'ニ', selectionStart: 1, selectionEnd: 1 });
+		await ime.send('Input.insertText', { text: 'ニ' });
+		await expect(guest.getByText('Someone edited that part at the same moment', { exact: false }).first(), 'the guest is told').toBeVisible({ timeout: 20_000 });
+		await bothHold(pair, (s) => s.includes('# Live deck\n\nGone') && !s.includes('ニ') && !s.includes('Body one'), "the host's change did not survive the refused edit");
+		await expect(guest.locator('.cs-host .cs-slide').first(), "the guest's Compose shows the host's change").toContainText('Gone');
 	});
 
 		test("Compose's pill undoes each person's own edit, and only theirs", async ({ browser }, info) => {

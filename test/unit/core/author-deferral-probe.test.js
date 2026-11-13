@@ -24,7 +24,7 @@
  * other.
  */
 
-const { describe, test } = require('node:test');
+const { describe, test, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   ENGINE_SCRIPT_ATTR,
@@ -100,6 +100,8 @@ function makeWindow() {
 
 /** Install the probe with `window`/`document` bound to the fakes, and hand back a driver. */
 async function withProbe(run) {
+  // The fake window below delegates to Node's timers, so mocking those puts the whole probe on a virtual clock.
+  mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
   const { win, doc, disarm } = makeWindow();
   const prevWindow = globalThis.window;
   const prevDoc = activeDoc;
@@ -121,6 +123,7 @@ async function withProbe(run) {
     });
   } finally {
     disarm();
+    mock.timers.reset();
     globalThis.window = prevWindow;
     activeDoc = prevDoc;
   }
@@ -129,8 +132,12 @@ async function withProbe(run) {
 /** Stands in for the DOMException a real `send()` throws on a bad state. */
 class DOMExceptionLike extends Error {}
 
-/** Let the real event loop run for `ms`, so tracked callbacks actually fire. */
-const tick = (ms) => new Promise((r) => setTimeout(r, ms));
+/**
+ * Advance the mocked clock by `ms`, so every tracked callback due by then fires, in order, before this returns.
+ * Virtual time, not a sleep: a 1 ms timer has fired after `tick(30)` on any machine (HARD RULE #32). The trailing await
+ * lets a promise the callbacks settled run its handlers too.
+ */
+const tick = async (ms) => { mock.timers.tick(ms); await Promise.resolve(); };
 
 // `track()` reads `document.currentScript` at CALL time, which can be long after the test
 // that scheduled the work returned. A per-test `globalThis.document` that the next test's

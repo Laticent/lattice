@@ -9,6 +9,8 @@ const assert = require('node:assert/strict');
 const { admitPlugins, activePlugins, withoutEmbedded, DEFAULT_PLUGINS } = require('../../../lib/plugins/host-grammar.mjs');
 const { deckPluginList, writeDeckPlugins, deckClassTokens } = require('../../../lib/core/deck-plugins.mjs');
 const { createEngine } = require('../../../lib/engine');
+const { charReads } = require('../../helpers/work-count');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 const { bakeDeck } = require('../../../lib/plugins/host-bake.js');
 
 // The plugins a deck loads BY A ROUTE: less `meta`, which is embedded like `pills` (its own tests are below).
@@ -96,22 +98,28 @@ describe('the plugins: register — every YAML spelling, and no orphaned lines (
   });
 
   it('stays linear on hostile input (each shape was quadratic or cubic in the first cut)', () => {
-    const time = (fn, input) => {
-      const t = performance.now();
-      fn(input);
-      return performance.now() - t;
+    // Work, not milliseconds (HARD RULE #32). The first cut took 5,099 / 1,289 / 20,800 ms on these. Two checks: every
+    // regex each reader runs is linear by tools/regex-census.json, and the reader touches each character a bounded
+    // number of times (2 to 11 today; the blank-line flood is the 11, a `split` and a trim per line).
+    const work = (fn, input) => {
+      const { reads, scanned } = charReads(() => assertLinearRegexes(() => fn(input)));
+      return (reads + scanned) / input.length;
     };
-    const budget = 250; // ms; the first cut took 5,099 / 1,289 / 20,800 ms on these
-    assert.ok(time(deckPluginList, `---\nplugins:\n${'\n'.repeat(40000)}  - x\n---\n`) < budget, 'blank lines in a block sequence');
-    assert.ok(time(deckPluginList, `---\nplugins:\n  - a${' '.repeat(80000)}b\n---\n`) < budget, 'a long run of spaces in an item');
-    assert.ok(time(deckClassTokens, `<!-- class: ${' '.repeat(4000)}x\n`) < budget, 'an unclosed class directive');
-    assert.ok(time(deckClassTokens, `<!-- class:${' '.repeat(50)}`.repeat(400)) < budget, 'many unclosed class directives');
+    for (const [fn, input, what] of [
+      [deckPluginList, `---\nplugins:\n${'\n'.repeat(40000)}  - x\n---\n`, 'blank lines in a block sequence'],
+      [deckPluginList, `---\nplugins:\n  - a${' '.repeat(80000)}b\n---\n`, 'a long run of spaces in an item'],
+      [deckClassTokens, `<!-- class: ${' '.repeat(4000)}x\n`, 'an unclosed class directive'],
+      [deckClassTokens, `<!-- class:${' '.repeat(50)}`.repeat(400), 'many unclosed class directives'],
+    ]) {
+      const perChar = work(fn, input);
+      assert.ok(perChar <= 32, `${what}: ${perChar.toFixed(1)} reads per character`);
+    }
   });
 });
 
 describe('admitPlugins — the three routes', () => {
   it('the default set is every shipped plugin, and a deck that lists nothing loads all of it', () => {
-    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'avatars', 'callout', 'chart-family', 'checks', 'code', 'function-plot', 'icons', 'legend', 'math', 'mermaid', 'meta', 'pills', 'sparks', 'video']);
+    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'avatars', 'callout', 'chart-family', 'checks', 'code', 'function-plot', 'icons', 'image', 'legend', 'math', 'mermaid', 'meta', 'pills', 'sparks', 'video']);
     const a = admitPlugins('# Hi\n');
     assert.deepEqual(a.off, []);
     assert.deepEqual(a.active.map((g) => g.name).sort(), [...DEFAULT_PLUGINS].sort());
@@ -138,7 +146,7 @@ describe('admitPlugins — the three routes', () => {
 
   it('the usage probe admits nothing: a deck that USES a plugin it never loads keeps it off', () => {
     const a = admitPlugins('# Hi\n\n```mermaid\ngraph LR; A-->B\n```\n', { defaults: [] });
-    assert.deepEqual(a.off, ['anima', 'avatars', 'callout', 'chart-family', 'code', 'function-plot', 'icons', 'legend', 'math', 'mermaid', 'sparks', 'video']);
+    assert.deepEqual(a.off, ['anima', 'avatars', 'callout', 'chart-family', 'code', 'function-plot', 'icons', 'image', 'legend', 'math', 'mermaid', 'sparks', 'video']);
   });
 
   it('a loaded plugin loads what it requires, transitively; optional loads nothing', () => {

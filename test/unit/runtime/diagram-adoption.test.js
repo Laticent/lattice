@@ -88,14 +88,15 @@ function liftAdoption(dom, { mermaid = { render() {}, initialize() {} } } = {}) 
 // and the PASS's `onMutations` replays the cache, adopts, then restores stripped diagrams. Both are read here.
 const RUNTIME_INDEX_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'), 'utf8');
 function observerCallbackSrc() {
-  const at = RUNTIME_INDEX_SRC.indexOf('try { entry.pass.onMutations(records); }');
+  const at = RUNTIME_INDEX_SRC.indexOf("try { entry.pass.onMutations(records, vscodeRewrite ? { hostRewrite: 'vscode' } : {}); }");
   // To the end of the callback, not a fixed length: a comment or a call added inside it must
   // not push a later call out of the slice this reads.
   const end = at === -1 ? -1 : RUNTIME_INDEX_SRC.indexOf('.observe(', at);
   if (end === -1) return null;
   // And the pass's half must still replay first, then adopt, then put back any diagram another
   // script stripped (`restoreStrippedDiagrams`, which reads only what the first two left behind).
-  if (!/function onMutations\(records\) \{\n {4}replayCachedFences\(\);\n {4}adoptOutgoingDiagrams\(records\);\n {4}restoreStrippedDiagrams\(records\);\n {2}\}/.test(RUNTIME_SRC)) return null;
+  // A VS Code re-render also holds its edited diagrams (`holdEditedDiagrams`), after the adoption and before the restore.
+  if (!/function onMutations\(records, burst = \{\}\) \{\n {4}replayCachedFences\(\);\n {4}adoptOutgoingDiagrams\(records\);\n {4}if \(burst\.hostRewrite === 'vscode'\) holdEditedDiagrams\(records\);\n {4}restoreStrippedDiagrams\(records\);\n {2}\}/.test(RUNTIME_SRC)) return null;
   return RUNTIME_INDEX_SRC.slice(at, end);
 }
 

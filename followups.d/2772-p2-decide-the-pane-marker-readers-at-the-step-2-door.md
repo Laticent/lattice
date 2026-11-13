@@ -6,26 +6,24 @@ area: engine
 severity: low
 swimlane: engineering/decisions/2026-10-17-meta-record.md
 source: https://github.com/Laticent/lattice/pull/2772
+deferred: off-path — neither gap reaches an author today: `meta` is embedded, so it is always among the resolved plugins, and `--meta-cut` is the cut's own switch (step 6)
 ---
 
-# Step 2 owes: move the six `door` readers, and three small gaps the census does not cover.
+# Two lint gaps step 1 left, for the steps that reach them.
 
-The reader decision is made (design §5.4.1): all six pane marker readers move at the door, and the census marks them `door`.
-Building it is step 2 work, not done here. When the door lands, the census must show no `door` row.
+Step 2 built the door and moved every pane marker reader onto `parsePaneMarker` (the census prints `0 wait for the door`).
+Of the three gaps step 1 left, step 2 closed the one an author could hit: `meta-not-own-line` now reports a record
+indented under a list item (the scan reads its nesting from the deck model). Two stay:
 
-The other pane readers are traced in design §5.4.2: six carry their own regex and move to `parsePaneMarker`, and the rest follow `pane-spec`.
-
-Three smaller gaps from step 1 stay open:
-
-- `meta-not-own-line` misses a record indented under a list item.
-- `HOST_REGISTERS` lost the meta field names, so `checkMetaClaims` is the only guard when `meta` is among the plugins resolved.
-- `tools/lint-deck.js` has no `--meta-cut` flag for `legacy-directive-comment`.
+- ~~`checkMetaClaims` guards only when `meta` is among the plugins resolved~~: closed by step 3, which reads the generated
+  `meta` vocabulary too.
+- `tools/lint-deck.js` has no `--meta-cut` flag for `legacy-directive-comment`: step 6, which turns the rule on.
 
 ```text
-  P2 · [no ticket] Build `parsePaneMarker` and the door, move the six `door` readers and the six regex readers in §5.4.2, close the three gaps.
-       why now   — each is a place the typed record would be invisible to.
-       where     — design §5.4.1; test/unit/core/meta-readers-census.test.js
-       done when — the census prints `0 wait for the door`.
-       evidence  — the census test output.
-       verify    — tier 2: shared kernel, exported bytes.
+  P2 · [no ticket] Close the two step-1 lint gaps left after step 2.
+       why now   — a plugin harness and the cut each need their guard.
+       where     — lib/plugins/resolve.js; tools/lint-deck.js; design §9 step 6
+       done when — each gap has a failing-then-passing test.
+       evidence  — the tests.
+       verify    — tier 1: lint rules, no export bytes.
 ```

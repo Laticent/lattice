@@ -23,8 +23,11 @@
   },
   "embedded": true,
   "contributes": {
+    "source": true,
     "diagnostics": {
-      "meta/url-scheme": "A URL-typed field (a background image, the deck logo) named a scheme outside the allowlist and was dropped."
+      "meta/url-scheme": "A URL-typed field (a background image, the deck logo) named a scheme outside the allowlist and was dropped.",
+      "meta/record": "A slide-metadata record (`<!-- {…} -->`) did not read, or set a field it may not (a deck-only key, an unknown field, a value of the wrong kind); the field, or the whole record, was dropped and nothing else changed.",
+      "meta/forged": "A comment written in the engine's internal form (`lat-meta`, `lat-pane`, `lat-panes`) was ignored: only the engine writes those."
     },
     "meta": {
       "fields": {
@@ -47,7 +50,7 @@
         "logo": { "type": "url", "describe": "The deck logo. Consumed by the deck-logo plugin, never a section attribute." },
         "focus": { "type": "text", "applied": true, "complete": true, "describe": "An ordinal target to highlight (`row 4`, `item 3`, `line 3-4`). Design: engineering/decisions/2026-06-16-focus-highlighting.md." },
         "focusStyle": { "type": "enum", "values": ["spotlight", "blur", "ring", "list-fill", "highlight"], "applied": true, "complete": true, "describe": "How the focus target is shown." },
-        "focusSteps": { "type": "steps", "complete": true, "describe": "A pipe-separated walk that expands one slide into one slide per step. Consumed before the slide is built, so it is known (stripped from the body) but never applied as a section attribute." },
+        "focusSteps": { "type": "steps", "scope": "slide", "applied": true, "customProp": false, "complete": true, "describe": "A pipe-separated walk of focus targets (`row 1 | row 2`), walked live on ONE slide: each step lights what the same `_focus` would. Stamped as `data-focus-steps`; the focus resolver tags each unit with its step and Present walks them. Still formats show the slide at rest. Design: engineering/decisions/2026-11-09-steps-as-a-behavior.md. Code reads it, so no `--focus-steps` property." },
         "build": { "type": "text", "bare": true, "applied": true, "customProp": false, "describe": "Progressive disclosure: an axis and grouping, or bare for the default (`_build`, `_build: rows`, `_build: none`). Design: engineering/decisions/2026-06-16-narrative-step-spec.md. Code reads `data-build`, so no `--build` property." },
         "debug": { "type": "text", "bare": true, "applied": true, "customProp": false, "describe": "Layout debug overlay, in the previewers only: `data-debug` is stripped from exports. A profile keyword (`on`, `off`, `all`) or a list of facets. Design: engineering/decisions/2026-07-01-debug-bounding-boxes.md." },
         "lens": { "type": "words", "bare": true, "describe": "Reader-lens membership (`<!-- _lens: brief ask -->`). Known so it is stripped from the body and never leaks into shared HTML; never a section attribute, because @laticent/lente reads it from the source. Design: engineering/decisions/2026-07-13-lente-reader-lenses.md." },
@@ -58,6 +61,7 @@
         "pane": { "kind": "structure", "describe": "Where a pane begins, naming its component (`<!-- _pane: list no-title -->`, or the `pane:` alias). Read by the pane carve (lib/core/panes.js) before directives are applied." },
         "panes": { "kind": "structure", "describe": "A slide's pane layout (`<!-- panes: 60/40 stack -->`). Read by the pane carve." },
         "say": { "kind": "channel", "describe": "The slide's read-as text, the highest-precedence narration source. A separate channel from the speaker note; lowercase only." },
+        "reader": { "kind": "channel", "describe": "The slide's reader note: text for whoever opens the exported file, not for the presenter. PPTX and PDF carry it as a labeled `Reader:` paragraph after the speaker note; the HTML player's read view shows it under the slide. Written as a record's `reader` field (`<!-- {reader=\"…\"} -->`, or a `reader: |` block); lowercase only. Design: engineering/decisions/2026-10-17-meta-record.md §4.4." },
         "describe": { "kind": "channel", "describe": "The slide's accessible description (WCAG 1.1.1), an objective equivalent of what the slide shows. A separate channel from the speaker note." }
       }
     }

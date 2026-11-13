@@ -398,7 +398,7 @@ fix lands once, not per surface (see
   a lone slice also loses inherited running-global directives (a mid-deck
   `<!-- class: … -->`; `header` and `footer` no longer carry, and a `paginate` comment is ignored) and the deck-scoped progress rail. Narrowing is skipped
   whenever the engine's section count disagrees with `slideCount` — a
-  `_focusSteps` or `split: headings` deck expands one authored slide into several,
+  `split: headings` deck expands one authored slide into several,
   and picking by index there would paint the WRONG slide — in which case the
   shown slide is re-rendered alone and honestly numbered 1 of 1. See
   `docs/src/playground/single-slide-render.alignment.test.ts` and the "A live preview

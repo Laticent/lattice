@@ -46,9 +46,10 @@ export async function injectOpenRouter(page: Page, key: string): Promise<void> {
 			window.localStorage.setItem('lattice-db-or-key', k);
 			window.localStorage.setItem('lattice-db-budget-cap', cap);
 			window.localStorage.setItem('lattice-db-budget-mode', 'stop');
-			// Pin the model as a DELIBERATE pick (the same key the Workspace picker
-			// writes), so this tier's spend can't be moved by a change to the app default.
-			window.localStorage.setItem('lattice-db-or-model', model);
+			// Pin the model as a DELIBERATE pick (the chat selection record the Workspace
+			// picker writes, lib/model-selection.js), so this tier's spend can't be moved by
+			// a change to the app default.
+			window.localStorage.setItem('lattice-studio-chat-selection', JSON.stringify({ v: 1, source: 'cloud', provider: 'openrouter', model, last: { openrouter: model } }));
 		},
 		[key, BUDGET_CAP_USD, CHEAP_MODEL],
 	);

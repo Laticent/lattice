@@ -23,7 +23,9 @@
 //
 // Keys are read and written only through lib/openrouter-key.js (§3), sealed at rest (§9).
 
+import { chatModelFor, selectChat } from '../../../lib/model-selection.js';
 import { noteProviderStatus, providerKeyRejected, readProviderKey, writeProviderKey } from '../../../lib/openrouter-key.js';
+import { CURATED, curatedDefault } from '../../../lib/provider-registry.js';
 import { readCachingEnabled } from './spend.js';
 
 /** Per provider: where its bill is and how to reach it. How a key looks lives with the tab (api-key.ts). */
@@ -54,20 +56,6 @@ export const PROVIDERS = Object.freeze({
 const ANTHROPIC_VERSION = '2023-06-01';
 // Anthropic requires a max_tokens; this is the ceiling when the caller sets none.
 const ANTHROPIC_DEFAULT_MAX = 8192;
-const MODEL_LS = (p) => `lattice-db-${p}-model`;
-
-function readLS(k) {
-	try {
-		return localStorage.getItem(k);
-	} catch {
-		return null;
-	}
-}
-function writeLS(k, v) {
-	try {
-		v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v);
-	} catch {}
-}
 
 /** The request headers `provider` needs for `key`. */
 export function providerHeaders(provider, key) {
@@ -140,24 +128,51 @@ const EVERYDAY = { openai: /^gpt-\d/, gemini: /flash(?!.*(lite|image))/, anthrop
 // Whole dash-separated words only: a bare `mini` would match inside "gemini" and drop every Gemini model.
 const SIDE_TIERS = /(^|-)(pro|nano|lite|preview|exp|experimental|codex|mini|haiku|luna|opus|image|audio)(-|$)/i;
 
+/** The version numbers in a model id, `gemini-3.8-flash` → [3, 8]; none → []. */
+function versionOf(id) {
+	const m = /(\d+(?:\.\d+)*)/.exec(String(id || ''));
+	return m ? m[1].split('.').map(Number) : [];
+}
+/** Positive when version `a` is higher than `b`, part by part; a missing part counts as 0. */
+function compareVersions(a, b) {
+	for (let i = 0; i < Math.max(a.length, b.length); i++) {
+		const d = (a[i] ?? 0) - (b[i] ?? 0);
+		if (d) return d;
+	}
+	return 0;
+}
+
 /**
  * The default model when the author has not picked one, from the provider's own list. Derived,
  * not hard-coded, because model ids move faster than this file would be edited. In order:
- *   1. the newest priced model at $10 or less per million output tokens, outside the side tiers
- *      (pro, mini, lite, preview, opus…);
+ *   1. among priced models at $10 or less per million output tokens outside the side tiers (pro,
+ *      mini, lite, preview, opus…): the registry's curated family first (provider-registry.js),
+ *      then the provider's everyday family, then the newest;
  *   2. else the CHEAPEST priced model outside the side tiers, then the cheapest priced at all:
  *      a fallback never moves the author UP in price (inversion pass, 2026-11-06);
- *   3. else, with no prices at all, the newest model of the provider's everyday family
+ *   3. else, with no prices at all, the curated family, then the newest of the everyday family
  *      (Sonnet, Flash, GPT), then the first listed.
  */
 export function pickDefaultModel(models, provider) {
+	const families = CURATED.chat[provider];
 	const ok = models.filter((m) => m.promptPerM != null && m.completionPerM != null);
 	const main = ok.filter((m) => !SIDE_TIERS.test(m.id));
-	const newest = (list) => [...list].sort((a, b) => (b.created ?? 0) - (a.created ?? 0))[0];
-	const cheapest = (list) => [...list].sort((a, b) => a.completionPerM - b.completionPerM || (b.created ?? 0) - (a.created ?? 0))[0];
-	const pick = newest(main.filter((m) => m.completionPerM <= 10)) ?? cheapest(main) ?? cheapest(ok);
-	if (pick) return pick.id;
+	// "Newest" by creation date, then by the version in the id. Gemini's list carries NO dates, so
+	// by date alone every model tied and the first listed won: `gemini-2.5-flash`, which Gemini now
+	// refuses to new users with a 404 while naming `gemini-3.8-flash` (live run, 2026-11-08, 3058-p1).
+	const newer = (a, b) => (b.created ?? 0) - (a.created ?? 0) || compareVersions(versionOf(b.id), versionOf(a.id));
+	const newest = (list) => [...list].sort(newer)[0];
+	const cheapest = (list) => [...list].sort((a, b) => a.completionPerM - b.completionPerM || newer(a, b))[0];
 	const family = EVERYDAY[provider];
+	const affordable = main.filter((m) => m.completionPerM <= 10);
+	// The registry's curated family is a PREFERENCE inside the price rule, never above it. Then the
+	// provider's everyday family (Flash, GPT, Sonnet): the highest version in the list can be a model a
+	// plain key cannot use. `gemini-4-argon` sat above `gemini-3.8-flash` and answered 429 "exceeded
+	// your current quota" on a key that lists it (live run, 2026-11-08, 3058-p1).
+	const pick = curatedDefault(affordable, families) ?? (newest(affordable.filter((m) => family?.test(m.id))) ?? newest(affordable) ?? cheapest(main) ?? cheapest(ok))?.id;
+	if (pick) return pick;
+	const curatedBare = curatedDefault(models.filter((m) => !SIDE_TIERS.test(m.id)), families);
+	if (curatedBare) return curatedBare;
 	return (family && newest(models.filter((m) => family.test(m.id) && !SIDE_TIERS.test(m.id)))?.id) ?? models[0]?.id ?? null;
 }
 
@@ -286,10 +301,11 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 			return providerKeyRejected(provider);
 		},
 		getModel() {
-			return readLS(MODEL_LS(provider)) || (models ? pickDefaultModel(models, provider) : null) || '';
+			// The chat selection's model for this provider (lib/model-selection.js), else the derived default.
+			return chatModelFor(provider) || (models ? pickDefaultModel(models, provider) : null) || '';
 		},
 		setModel(id) {
-			writeLS(MODEL_LS(provider), id || null);
+			selectChat({ provider, model: id || '' });
 		},
 		keySettingsUrl() {
 			return P.billingUrl;
@@ -381,7 +397,7 @@ export function directBackend(provider, { catalog, catalogNow, defaultMaxTokens 
 			if (!key) throw new Error(`${P.label} not connected`);
 			// A per-call override is an OpenRouter catalog id (`vendor/model`, e.g. the Library's photo
 			// model). It names nothing on this provider, so the author's model here answers instead.
-			let model = opts.model && !opts.model.includes('/') ? opts.model : this.getModel();
+			let model = opts.model && !opts.model.includes('/') ? opts.model : opts.pinnedModel || this.getModel();
 			if (!model) {
 				await this.listModels().catch(() => {});
 				model = this.getModel();

@@ -121,7 +121,7 @@ export function PhotoPicker({ open, onOpenChange, onPick, onOpenLibrary }: { ope
 
 	return (
 		<PanelSheet open={open} onOpenChange={onOpenChange} width="md">
-			<PanelHeader icon={<Images />} title="Choose a photo" srDescription="The photos in your Library. Pick one to put it on the slide." />
+			<PanelHeader icon={<Images />} title="Choose a photo" />
 			{phone || !photos?.length ? null : (
 				<div className="flex items-center gap-2 border-b border-border px-4 py-2">
 					{search}

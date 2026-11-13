@@ -48,7 +48,7 @@ export function displayTextFor(original: string, tex: string): string | null {
 export function rawBlockProblem(kind: RawKind, text: string): string | null {
 	if (isRawBlockText(kind, text)) return null;
 	if (kind === 'math') return 'A math block needs TeX between the $$ lines, and a line of only dashes cannot sit inside it.';
-	if (/\n[ \t]*(?:\n|$)/.test(text)) return 'A blank line ends an HTML block. Take the blank line out, or edit this slide in Markdown.';
+	if (/\n[ \t]*(?:\n|$)/.test(text)) return 'A blank line ends an HTML block. Take the blank line out, or edit this slide in Source.';
 	return 'This HTML block starts with a tag and cannot hold a line of only dashes or a directive comment.';
 }
 

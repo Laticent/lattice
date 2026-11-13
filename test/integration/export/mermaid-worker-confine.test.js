@@ -8,6 +8,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { spawnSync } = require('node:child_process');
+const { trackConnections } = require('../../helpers/request-log.js');
 
 const ROOT = path.join(__dirname, '../../..');
 // The HOST's locked page runs Mermaid's page role (lib/plugins/host-page-worker.js, mermaid.page.js); a job names both.
@@ -94,6 +95,7 @@ test('a diagram that names a web picture reaches no listener from the locked pag
     res.writeHead(200, { 'content-type': 'image/svg+xml' });
     res.end('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>');
   });
+  const log = trackConnections(server);
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const at = `http://127.0.0.1:${server.address().port}`;
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'mmd-locked-'));
@@ -109,7 +111,8 @@ test('a diagram that names a web picture reaches no listener from the locked pag
     // the stand-in before the worker sees it, lib/core/remote-ref.js); what matters here is where the request went.
     const out = JSON.parse(fs.readFileSync(outFile, 'utf8'));
     assert.ok(['on', 'off', 'unmeasured'].includes(out.layer), `the worker reports the OS layer it ran at: ${out.layer}`);
-    await new Promise((res) => setTimeout(res, 500));
+    // The worker has exited, so the log is complete once every connection it made has been read: a signal, not a sleep.
+    await log.drained();
     assert.deepEqual(hits, [], 'the locked page reached the listener');
     // The control: the same address from an ordinary page.
     const puppeteer = require('puppeteer');

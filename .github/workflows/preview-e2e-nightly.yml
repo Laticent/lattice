@@ -44,6 +44,17 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             docs/package-lock.json
+      # setup-chrome has no cache of its own and pulls a full Chrome each run; cache its install folder (owner call,
+      # 2026-11-11: cache everything CI downloads). The key changes every ISO week, unlike ci.yml's fixed one: this
+      # job measures in Chrome, so a cached build must not outlive a stable release by more than a week.
+      - name: Chrome cache week
+        id: chrome-week
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+      - name: Cache setup-chrome download
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/setup-chrome
+          key: setup-chrome-${{ runner.os }}-stable-${{ steps.chrome-week.outputs.week }}
       - uses: browser-actions/setup-chrome@v1
         id: chrome
         with:

@@ -2,18 +2,22 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { writeFrontMatterLine } from '../../lib/front-matter';
 import { DECKS, deckSource } from './decks';
 import { addComment, listComments } from './slide-comments';
+import type { SourceWriteError } from './studio-store';
 import {
 	clearAllDecks,
 	createDeck,
 	DECKS_CLEARED_EVENT,
 	deckContentStats,
 	deckLabels,
+	deckMetaFor,
+	deckSourceFor,
 	deleteDeck,
 	exportStudioState,
 	hasStoredPosture,
 	headingText,
 	importStudioState,
 	loadActiveDeck,
+	loadBootCaret,
 	loadBootDeck,
 	loadBootSlide,
 	loadChat,
@@ -26,6 +30,7 @@ import {
 	loadSource,
 	metaFor,
 	ON_DEVICE_INSTRUCTIONS_MAX,
+	onSourceWriteError,
 	resolveTitle,
 	retitleSource,
 	type StudioSettings,
@@ -50,7 +55,26 @@ describe('studio-store — deck index', () => {
 	it('seeds the list from the built-in decks on first run', () => {
 		const list = loadDeckList();
 		expect(list.map((d) => d.id)).toEqual(DECKS.map((d) => d.id));
-		expect(list[0].meta).toMatch(/\d+ slides?/);
+		// No slide-count label on the rows: counting rendered slides parses every deck, and a boot
+		// loads this list five times. The switcher asks `deckMetaFor` when it opens instead.
+		expect(list.every((d) => !('meta' in d))).toBe(true);
+		expect(deckMetaFor(list[0].id)).toBe(metaFor(deckSource(DECKS[0])));
+	});
+
+	it('deckSourceFor is the text deckSource(d) gave, without splitting a list row', () => {
+		// Every built-in deck, unedited: the canonical text, byte for byte what joining the split gave.
+		for (const d of loadDeckList()) expect(deckSourceFor(d), d.id).toBe(deckSource({ ...d, slides: [...d.slides] }));
+		// An edited deck: its stored source wins.
+		const d = createDeck('Stored');
+		saveSource(d.id, '# Edited');
+		expect(deckSourceFor(d)).toBe('# Edited');
+	});
+
+	it('deckMetaFor counts the stored source, so an edited deck reads its new count', () => {
+		const d = createDeck('Counted', '# One\n\n---\n\n# Two');
+		expect(deckMetaFor(d.id)).toBe('2 slides');
+		saveSource(d.id, '# One\n\n---\n\n# Two\n\n---\n\n# Three');
+		expect(deckMetaFor(d.id)).toBe('3 slides');
 	});
 
 	it('createDeck appends a persisted, editable deck', () => {
@@ -104,6 +128,82 @@ describe('studio-store — deck index', () => {
 });
 
 describe('studio-store — per-deck source', () => {
+	// A full quota used to be swallowed here, so the author's edits were lost without a word
+	// (engineering/decisions/2026-11-11-studio-storage-pointer-records.md §3).
+	it('a refused save says so, keeps the stored text, and names the error', () => {
+		const id = DECKS[0].id;
+		expect(saveSource(id, '# Kept')).toBe(true);
+		const heard: SourceWriteError[] = [];
+		const off = onSourceWriteError((e) => heard.push(e));
+		const setItem = Storage.prototype.setItem;
+		Storage.prototype.setItem = () => {
+			throw new DOMException('full', 'QuotaExceededError');
+		};
+		let ok: boolean;
+		try {
+			ok = saveSource(id, '# Lost');
+		} finally {
+			Storage.prototype.setItem = setItem;
+			off();
+		}
+		expect(ok).toBe(false);
+		expect(heard.map((e) => [e.deckId, (e.error as DOMException).name])).toEqual([[id, 'QuotaExceededError']]);
+		expect(loadSource(id)).toBe('# Kept');
+		expect(loadDeckList().find((d) => d.id === id)?.title, 'the list still names the stored text').toBe('Kept');
+	});
+
+	it('a backup deck this browser will not store is named as not restored, not counted as added', () => {
+		const mine = createDeck('Mine').id;
+		saveSource(mine, '# Mine');
+		const snap = exportStudioState();
+		localStorage.clear();
+		const setItem = Storage.prototype.setItem;
+		Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+			if (key.startsWith('lattice-studio-src-')) throw new DOMException('full', 'QuotaExceededError');
+			return setItem.call(this, key, value);
+		};
+		let summary: ReturnType<typeof importStudioState>;
+		try {
+			summary = importStudioState(snap, 1000);
+		} finally {
+			Storage.prototype.setItem = setItem;
+		}
+		expect(summary.written).not.toContain(mine);
+		expect(summary.refused.map((r) => r.name)).toContain('deck Mine');
+		expect(loadDeckList().some((d) => d.id === mine), 'no empty deck listed in its place').toBe(false);
+	});
+
+	it('a refused in-place restore of a built-in, or of a diverged copy, writes nothing for that deck', () => {
+		const builtin = DECKS[0].id;
+		const mine = createDeck('Mine').id;
+		saveSource(mine, '# Mine here');
+		const snap = exportStudioState();
+		const backup = {
+			...snap,
+			sources: { ...snap.sources, [builtin]: '# Built-in from the backup', [mine]: '# Mine in the backup' },
+			chats: { [builtin]: [{ role: 'user' as const, content: 'hi' }], [mine]: [{ role: 'user' as const, content: 'hi' }] },
+		};
+		localStorage.removeItem(`lattice-studio-src-${builtin}`);
+		const setItem = Storage.prototype.setItem;
+		Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+			if (key.startsWith('lattice-studio-src-')) throw new DOMException('full', 'QuotaExceededError');
+			return setItem.call(this, key, value);
+		};
+		let summary: ReturnType<typeof importStudioState>;
+		try {
+			summary = importStudioState(backup, 1000);
+		} finally {
+			Storage.prototype.setItem = setItem;
+		}
+		expect(summary.refusedIds.sort()).toEqual([builtin, mine].sort());
+		expect(summary.written).toEqual([]);
+		expect(summary.copies).toEqual({});
+		expect(loadSource(builtin), 'the built-in stays unedited').toBeNull();
+		expect(loadSource(mine)).toBe('# Mine here');
+		expect(loadChat(builtin), 'no history for a refused deck').toEqual([]);
+		expect(loadDeckList().filter((d) => d.title.endsWith('(restored)')), 'no restored copy listed').toEqual([]);
+	});
+
 	it('round-trips edited source and overrides the canonical', () => {
 		const id = DECKS[0].id;
 		expect(loadSource(id)).toBeNull();
@@ -340,12 +440,13 @@ describe('studio-store — the `title:` front-matter override (shelf name ≠ co
 			expect(rename(src)).toBe(src.replace('title: Old', 'title: "New Name"'));
 		});
 
-		it('rewrites only the FIRST `title:`, and leaves a duplicate key alone', () => {
-			// getFrontMatter reads the first; the writer must target that same line rather than
-			// collapsing the block (which silently deleted the author's second key).
+		it('rewrites only the LAST `title:` (the one that counts), and leaves the dead duplicate alone', () => {
+			// A repeated key reads as its last line everywhere (#3050, D1), so getFrontMatter reads the last and the
+			// writer targets that same line, rather than collapsing the block (which silently deleted a key). It used
+			// to rewrite the first, when the reader read the first; `lint:deck` now flags the dead one (`duplicate-key`).
 			const src = '---\ntitle: First\nsize: wide\ntitle: Second\n---\n\n# Cover\n';
 			const out = rename(src);
-			expect(out).toBe('---\ntitle: "New Name"\nsize: wide\ntitle: Second\n---\n\n# Cover\n');
+			expect(out).toBe('---\ntitle: First\nsize: wide\ntitle: "New Name"\n---\n\n# Cover\n');
 		});
 
 		it('does NOT strip a leading `#` on the front-matter path — the scalar is literal', () => {
@@ -782,6 +883,12 @@ describe('studio-store — Privacy & Data (clearAllDecks / deckContentStats)', (
 		expect(deckContentStats().count).toBe(DECKS.length);
 	});
 
+	it('clearAllDecks keeps the chat model choice, which shares the chat key prefix but is a preference', () => {
+		localStorage.setItem('lattice-studio-chat-selection', '{"v":1,"source":"device"}');
+		clearAllDecks();
+		expect(localStorage.getItem('lattice-studio-chat-selection')).toBe('{"v":1,"source":"device"}');
+	});
+
 	it('clearAllDecks leaves settings and standing instructions untouched (data, not preferences)', () => {
 		saveSettings({ headerFooter: true });
 		saveInstructions('Board voice.');
@@ -845,6 +952,11 @@ describe('studio-store — last-active deck (boot where you left off)', () => {
 		expect(loadActiveDeck()).toBeNull();
 		saveActiveDeck('q3-board', 3);
 		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 3 });
+		// The caret's line rides along, so a reload lands the caret on it; a save without one drops it.
+		saveActiveDeck('q3-board', 3, '## Revenue grew');
+		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 3, line: '## Revenue grew' });
+		saveActiveDeck('q3-board', 4);
+		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 4 });
 		saveActiveDeck('q3-board', -5);
 		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 0 });
 	});
@@ -867,6 +979,21 @@ describe('studio-store — last-active deck (boot where you left off)', () => {
 		const d = createDeck('Working deck');
 		saveActiveDeck(d.id, 1);
 		expect(loadBootDeck().id).toBe(d.id);
+	});
+
+	it('loadBootCaret gives back the caret line and column saved with the boot deck', () => {
+		expect(loadBootCaret()).toEqual({ line: '', col: null });
+		// A Compose caret: the column is plain, so it carries no raw line.
+		saveActiveDeck('q3-board', 2, 'Revenue grew', { col: 4 });
+		expect(loadBootCaret()).toEqual({ line: 'Revenue grew', col: { col: 4 } });
+		// A Source caret: the column counts in the Markdown line, which comes back as `raw`.
+		saveActiveDeck('q3-board', 2, '## Revenue grew', { col: 7, raw: '## Revenue grew' });
+		expect(loadBootCaret()).toEqual({ line: '## Revenue grew', col: { col: 7, raw: '## Revenue grew' } });
+		// No line, no column; and a pointer at a deck that is not booting gives nothing back.
+		saveActiveDeck('q3-board', 2, undefined, { col: 7 });
+		expect(loadBootCaret()).toEqual({ line: '', col: null });
+		saveActiveDeck('does-not-exist', 2, 'Revenue grew', { col: 4 });
+		expect(loadBootCaret()).toEqual({ line: '', col: null });
 	});
 
 	it('a dangling pointer (deck no longer in the list) falls back to the first deck + slide 0', () => {

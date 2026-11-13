@@ -140,8 +140,9 @@ section .lat-pane-head > * {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-/* A PANE'S TITLE IS A LABEL, set in the slide eyebrow's voice (the `p:has(> code:only-child)`
- * eyebrow rule in base.elements.css): the slide's `##` is the one headline, and each pane names
+/* A PANE'S TITLE IS A LABEL, set in the label voice (mono tracked capitals — the voice the slide
+ * eyebrow had before the `typography:` sets moved it to the heading face's italic,
+ * lib/base/base.typography.css). It stays a label: the slide's `##` is the one headline, and each pane names
  * what it holds, the way a column or a card is labeled. It reads as the layout's own furniture
  * rather than a second, smaller slide title competing with the first (owner ruling, design note
  * §2.5). Tracked capitals are for a short label, so lint nudges a long one (`pane-title`).
@@ -226,24 +227,27 @@ lat-pane > .cell-stage {
 }
 /* `cards:` — where a card row or list puts its spare height. base.tokens.css keys the tokens
  * on `section[data-cards]`; a pane is not a section, so its own resolved value (stamped by
- * lib/core/panes.js embed) sets them here. The component rules reach the pane through their
+ * lib/core/panes.js embed) sets them here: all four, as base.tokens.css does. These rules used to
+ * set only the align and the grow, so a stack that reads `--cards-basis` (matrix-2x2's and
+ * verdict-grid's narrow form) or a grid that reads `--cards-track` found it unset (the host section
+ * carries no register), the declaration was invalid, and under `stretch` a pane's cards never filled. The component rules reach the pane through their
  * twins and read `--cards-align` / `--cards-grow` from it as they would from a slide. */
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="center"],
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="center"] { --cards-align: center;       --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="center"] { --cards-align: center;       --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="stretch"],
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="stretch"] { --cards-align: stretch;      --cards-grow: 1; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="stretch"] { --cards-align: stretch;      --cards-grow: 1; --cards-track: 1fr; --cards-basis: 0%; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="top"],
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="top"] { --cards-align: flex-start;   --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="top"] { --cards-align: flex-start;   --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards="spread"],
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="spread"] { --cards-align: space-evenly; --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards="spread"] { --cards-align: space-evenly; --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="center"]:has(> .cell-coda),
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="center"]:has(> .cell-coda) { --cards-align: center;       --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="center"]:has(> .cell-coda) { --cards-align: center;       --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="stretch"]:has(> .cell-coda),
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch;      --cards-grow: 1; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch;      --cards-grow: 1; --cards-track: 1fr; --cards-basis: 0%; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="top"]:has(> .cell-coda),
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="top"]:has(> .cell-coda) { --cards-align: flex-start;   --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="top"]:has(> .cell-coda) { --cards-align: flex-start;   --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-cards-coda="spread"]:has(> .cell-coda),
-section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="spread"]:has(> .cell-coda) { --cards-align: space-evenly; --cards-grow: 0; }
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[data-cards-coda="spread"]:has(> .cell-coda) { --cards-align: space-evenly; --cards-grow: 0; --cards-track: auto; --cards-basis: auto; }
 /* A padded card that is `width: 100%` in content-box (a quote's blockquote) is as wide as its
  * box PLUS its padding. On a slide its max-width binds first and hides that; in a pane narrower
  * than the max-width it ran the card past the pane (98px over at 45%). In a pane the card's

@@ -55,6 +55,9 @@ This directly answers item #4 ("absolute thresholds rot").
 The base is **measured fresh each run** by building the ~24h-ago `main` commit
 and the current `main` **back-to-back on the same runner**, then diffing the
 medians. Measuring both on one runner cancels *systematic* hardware differences.
+*(Amended 2026-11-08: the two builds are now served at once and measured
+alternately per URL, so drift DURING the job cancels too, and both arms use
+head's Lighthouse configs. `2026-11-08-docs-perf-nightly-diagnosis.md` §2.)*
 
 - **Why not B-committed (a `perf-baseline.json`):** it removes rot too and is
   cheaper at runtime, but it adds an **update ritual** (someone must `--update`
@@ -114,6 +117,10 @@ Two metric classes:
   relative/absolute tolerance AND an absolute noise floor, so a sub-noise wobble
   never trips. Score also has an absolute **catastrophe floor** (head < 0.5 trips
   regardless of delta) — the backstop that still catches a total break.
+  *Amended 2026-11-08:* the floor now trips only on a CROSSING (base at or above 0.5,
+  head below it, by more than the 0.02 noise band). A page that already sits under it
+  regresses through the 0.05 tolerance alone. See
+  `2026-11-08-docs-perf-nightly-diagnosis.md` §2.
 
 These floors are a **first guess**. Issue #327 §3 shows single-run CI spreads
 already near them (mobile LCP 3000→3338 ≈ 340ms; CLS 0→0.17). Median-of-3 damps

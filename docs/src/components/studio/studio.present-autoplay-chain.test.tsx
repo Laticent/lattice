@@ -15,7 +15,8 @@ import { PresentOverlay } from './PresentOverlay';
 // autoplay rides the reader clock either way), with the between-slide beat overridden to 0
 // so the test measures the chain rather than the pace.
 
-vi.mock('@/components/DeckPreview', () => ({ default: () => <div data-testid="dp" /> }));
+// The preview records the step Present asks it to paint, so a cell can read where a slide was landed.
+vi.mock('@/components/DeckPreview', () => ({ default: (p: { step?: unknown }) => <div data-testid="dp" data-step={JSON.stringify(p.step ?? null)} /> }));
 vi.mock('@/playground/voice-model.js', () => ({
 	createVoiceModel: () => ({ synthOne: async () => ({ rung: 'silent', bytes: null, key: 'k' }), speakThis() {}, stop() {}, pause() {}, resume() {}, rung: () => 'silent', warm: () => {} }),
 }));
@@ -79,4 +80,16 @@ describe('Present — the auto-advance chain (#1394)', () => {
 		expect(screen.getByRole('button', { name: 'Play the presentation' })).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Pause' })).not.toBeInTheDocument();
 	}, 20_000);
+	it('lands a build slide AT REST when autoplay reaches it, every point shown while it is read (D2 does not apply)', async () => {
+		const user = userEvent.setup();
+		// Narration is per slide and never walks steps. A build entered by autoplay must show its points while they are
+		// spoken, as the exported player's `go(i, true)` does; a jump would start it hidden (step 0) for its whole read.
+		const build = '<!-- _build -->\n\n## Built\n\n- First\n- Second\n\n<!-- say: Two points. -->';
+		const slides = [slide('One', 'First words.'), build, slide('Three', 'Last words.')];
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} />);
+		await user.click(screen.getByRole('button', { name: 'Play the presentation' }));
+		await waitFor(() => expect(screen.getByText('2 / 3')).toBeInTheDocument(), { timeout: 10_000 });
+		// null is rest: no step asked, so the build shows whole.
+		for (const dp of screen.getAllByTestId('dp')) expect(dp.getAttribute('data-step')).toBe('null');
+	}, 30_000);
 });

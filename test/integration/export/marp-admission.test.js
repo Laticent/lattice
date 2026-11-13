@@ -8,19 +8,20 @@
  * with `--default-plugins=none --disable-plugin=chart-family`, `marp` from the registry with the bundle's own config, then the page in Chromium — and,
  * as the control, the same deck on the default set, where the diagram and the chart draw.
  *
- * Local runs skip when marp-cli cannot be fetched; CI fails instead (marp-kit-render.test.js
+ * Local runs skip when the pinned marp-cli is not installed (test/helpers/marp-cli.js); CI fails instead (marp-kit-render.test.js
  * explains why a self-skipping gate is not a gate).
  */
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
-const { npxSync } = require('../../helpers/npx-lock');
+const { marpCli } = require('../../helpers/marp-cli');
+const { trackPageWork } = require('../../helpers/page-settle');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const { MARP_CLI_RANGE } = require(path.join(ROOT, 'lib', 'export', 'marp-bundle.js'));
 const EXPORT_CLI = path.join(ROOT, 'tools', 'export-marp.js');
 const OUT_ROOT = path.join(ROOT, '.scratch', 'marp-admission');
 const TIMEOUT = 300000;
@@ -70,12 +71,16 @@ footer: "<b class=\\"ff\\" data-lattice\\x2dsettle=\\"pending\\">f</b>"
 Inline <span class="inline" data-lattice-off="math" data-lattice-final>x</span> too.
 `;
 
+// The pinned, locked marp-cli (test/helpers/marp-cli.js): no registry fetch inside a test.
+const MARP = marpCli();
+
 function marp(args, cwd, timeout = TIMEOUT) {
-  const env = { ...process.env, npm_config_ignore_scripts: 'true', CHROME_NO_SANDBOX: '1' };
+  const env = { ...process.env, CHROME_NO_SANDBOX: '1' };
   if (!env.CHROME_PATH) {
     try { env.CHROME_PATH = require('puppeteer').executablePath(); } catch { /* marp-cli finds its own */ }
   }
-  return npxSync(['-y', `@marp-team/marp-cli@${MARP_CLI_RANGE}`, ...args], { cwd, encoding: 'utf8', env, timeout });
+  if (!MARP.ok) return { status: null, stdout: '', stderr: MARP.reason };
+  return MARP.run([...args], { cwd, encoding: 'utf8', env, timeout });
 }
 
 describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli, real Chromium', () => {
@@ -86,7 +91,7 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
   before(async () => {
     const probe = marp(['--version'], ROOT, 90000);
     if (probe.status !== 0) {
-      const reason = `could not fetch marp-cli (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
+      const reason = `no marp-cli to run (exit ${probe.status}): ${String(probe.stderr || '').slice(0, 300)}`;
       if (process.env.CI) throw new Error(`[marp-admission] ${reason}`);
       skip = reason;
       return;
@@ -113,10 +118,12 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
       const m = marp(['admission.md', '--config-file', 'marp.config.cjs', '--allow-local-files', '-o', 'out.html'], bundle);
       assert.equal(m.status, 0, `marp failed:\n${m.stdout}\n${m.stderr}`);
       const page = await browser.newPage();
+      const settled = await trackPageWork(page);
       await page.goto(require('node:url').pathToFileURL(path.join(bundle, 'out.html')).href, { waitUntil: 'networkidle0' });
       await page.waitForFunction(() => document.documentElement.getAttribute('data-lattice-runtime') === 'loaded', { timeout: 30000 });
-      // Two frames after boot, and past the runtime's mutation debounce, for any pass to act.
-      await new Promise((r) => setTimeout(r, 1500));
+      // Until the runtime has nothing queued (its mutation debounce, a plugin's library, a font) and nothing is loading:
+      // every pass has had its turn, so an arm that asserts a figure is ABSENT is not reading the page too early.
+      await settled();
       pages[arm] = { page, md: fs.readFileSync(path.join(bundle, 'admission.md'), 'utf8') };
     }
   });
@@ -126,7 +133,8 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
   });
 
   test('the default set: no pluginsOff, the diagram draws and the chart builds', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const { page, md } = pages.default;
     assert.ok(!md.includes('pluginsOff'), 'a default-set bundle carries no pluginsOff');
     await page.waitForFunction(() => document.querySelector('[data-lattice-figure] svg') !== null, { timeout: 30000 });
@@ -138,9 +146,10 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
   // The bar slide's class would load the chart family even on an empty default set (filling its slot
   // is requiring it), so the chart arm switches the family off outright, as a host can.
   test('--default-plugins=none --disable-plugin=chart-family: the fence stays source, the chart its list', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const { page, md } = pages.none;
-    assert.match(md, /"pluginsOff":\["anima","avatars","callout","chart-family","code","function-plot","icons","legend","math","mermaid","sparks","video"\]/);
+    assert.match(md, /"pluginsOff":\["anima","avatars","callout","chart-family","code","function-plot","icons","image","legend","math","mermaid","sparks","video"\]/);
     assert.equal(await page.$$eval(':is(pre,marp-pre)[data-lattice-off="mermaid"]', (e) => e.length), 1, 'the mermaid <pre> is marked');
     assert.equal(await page.$$eval('[data-lattice-figure]', (e) => e.length), 0, 'no diagram drawn');
     assert.match(await page.$eval('[data-lattice-off="mermaid"] code', (e) => e.textContent), /flowchart LR/);
@@ -166,7 +175,8 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
   // The forged markers are renamed in the bundle's BYTES, so Marp's page never carries them and the
   // runtime has nothing to hydrate; the raw block stays code with Mermaid off, as the engine keeps it.
   test('an author\'s raw HTML cannot forge a figure, a marker, or draw a fence the deck left off', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const { page, md } = pages.forged;
     assert.match(md, /"pluginsOff":\["mermaid"\]/);
     assert.match(md, /<div class="forged" data-author-lattice-hydrate="function-plot"/);

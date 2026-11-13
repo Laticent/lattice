@@ -21,3 +21,8 @@ done when — each drift is attributed to an intended change and the oracle re-b
             call).
 evidence  — `npm run split:golden:check` exit 0
 verify    — npm run split:golden:check
+progress  — 2026-11-12 (flaky tests, unit tier): measured again. `main` d7b9e31: 292 drifts across 81 decks (one more
+            deck, gift-card, is not in the record). The bless commit 92b727fe itself, checked out with TODAY's
+            node_modules and workspace packages, reports 285: so most of the drift follows the `@laticent/*` packages
+            and dependencies, not lib/ commits, and a bisect needs each commit's own `npm ci` and package build. Not a
+            flaky test, so not re-blessed in the unit-tier PR. Same work as 3050-p1 (merge the two when it is done).

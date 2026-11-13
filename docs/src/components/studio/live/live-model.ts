@@ -140,7 +140,8 @@ export type LiveView = {
 
 /** Where the presenter is in Present (§7.2): the rendered slide in their lens, the page of a split slide,
  *  and the lens. Every member renders the same deck, so the same index is the same slide. */
-export type LiveTransport = { idx: number; page: number; lens: string; hash?: string; voice?: boolean };
+/** `step` is the shown slide's step of a `_build` / `_focusSteps` walk (2026-11-09-steps-as-a-behavior.md); absent at rest. */
+export type LiveTransport = { idx: number; page: number; lens: string; hash?: string; voice?: boolean; step?: number };
 /** One narration sentence as it travels: compressed audio and its type. */
 export type LiveClip = { bytes: Uint8Array; mime: string; lead?: number };
 export type LivePresent = LiveTransport & { by: string };

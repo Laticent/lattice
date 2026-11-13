@@ -64,7 +64,9 @@ jobs:
         # ImageMagick (`identify` / `compare` / `convert`) is what tools/pixel-check.js
         # shells out to, so the `regress` step below dies on its first page comparison
         # without it — same install ci.yml's golden-diff job does.
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick fonts-noto-color-emoji
+        uses: ./.github/actions/apt-cached
+        with:
+          packages: poppler-utils imagemagick fonts-noto-color-emoji
       - run: npm ci
 
       # WebKit and Firefox for the npm-plugin export check (test/integration/export-nightly/). The
@@ -78,8 +80,9 @@ jobs:
         env:
           PUPPETEER_SKIP_DOWNLOAD: '1'
       - name: Install Playwright WebKit and Firefox (pinned to @playwright/test)
-        run: npx playwright install --with-deps webkit firefox
-        working-directory: docs
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: webkit firefox
 
       # The suite exits non-zero on a render regression. Capture the verdict into
       # an output and keep the job green so the report + issue steps always run and
@@ -92,6 +95,25 @@ jobs:
           REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
           export LATTICE_PLAYWRIGHT="$GITHUB_WORKSPACE/docs/node_modules/playwright"
           if npm run --silent test:integration:nightly 2>&1 | tee "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # THE NEWEST marp-cli IN THE RANGE. Lattice supports a range of Marp versions, held at both
+      # ends (MARP_SUPPORT in lib/export/marp-bundle.js): per-PR CI renders the Marp suites on the
+      # FLOOR, an exact pin with a lockfile (test/fixtures/marp-cli), so no PR test reaches the
+      # registry. This arm is the other end: the same files on the newest release in the range
+      # (LATTICE_MARP_CLI=range, npx with install scripts off), which is what a fresh install gets.
+      # A red night means a new release breaks the bundle or the kit: fix it, or narrow the range.
+      - name: Export-to-Marp on the newest marp-cli in the range
+        id: marprange
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          echo '' >> "$REPORT"
+          echo '--- marp-cli range (LATTICE_MARP_CLI=range) ---' >> "$REPORT"
+          if LATTICE_MARP_CLI=range node --test test/integration/export/marp-*.test.js 2>&1 | tee -a "$REPORT"; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
           else
             echo "failed=true" >> "$GITHUB_OUTPUT"
@@ -622,7 +644,7 @@ jobs:
         # cancelled run. Found by test/unit/tools/nightly-alarm-contract.test.js's filing-step
         # arm, added 2026-09-05 — the FIFTH instance of this bug in the family and the first not
         # found by a human reading the file.
-        if: always() && (steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.examples.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.finishreach.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.narrated.outputs.failed == 'true' || steps.regress.outputs.failed == 'true' || steps.conformance.outputs.failed == 'true')
+        if: always() && (steps.run.outputs.failed == 'true' || steps.marprange.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.examples.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.finishreach.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.narrated.outputs.failed == 'true' || steps.regress.outputs.failed == 'true' || steps.conformance.outputs.failed == 'true')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -733,6 +755,7 @@ jobs:
         if: >-
           always() && github.ref == 'refs/heads/main'
           && steps.run.outcome == 'success' && steps.run.outputs.failed == 'false'
+          && steps.marprange.outcome == 'success' && steps.marprange.outputs.failed == 'false'
           && steps.families.outcome == 'success' && steps.families.outputs.failed == 'false'
           && steps.contrast.outcome == 'success' && steps.contrast.outputs.failed == 'false'
           && steps.examples.outcome == 'success' && steps.examples.outputs.failed == 'false'

@@ -399,7 +399,7 @@ describe('marks.generated.css', () => {
     assert.ok(!pigment.some((r) => /heatmap-cell/.test(r.sel)), 'no pigment rule for a heatmap cell');
     assert.ok(!pigment.some((r) => /heatmap-value/.test(r.sel)), 'no pigment rule for a heatmap value');
     for (const f of ['etch', 'tone']) {
-      assert.ok(serving(f).some((r) => /\.heatmap-value\[data-step="1"\]/.test(r.sel)), `${f} still moves the values`);
+      assert.ok(serving(f).some((r) => /\.heatmap-value\[data-ramp="1"\]/.test(r.sel)), `${f} still moves the values`);
       assert.ok(serving(f).some((r) => /\.heatmap-cell/.test(r.sel)), `${f} still moves the cells`);
     }
   });

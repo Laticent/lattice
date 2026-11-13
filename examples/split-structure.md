@@ -78,8 +78,8 @@ _A chart splits when the splitter can reach its seam. On a tall deck journey sta
 
 ## Enrollment across the catalog
 
-- **Enrolled** — 31 of 61 components split, three of which could not before
-- **Whole** — the other 30 ring on overflow, each for a reason recorded in the kernel
+- **Enrolled** — 37 of 80 components split
+- **Whole** — the other 43 ring on overflow, each for a reason recorded in the kernel
 - **Packed** — none, at any count, on any component
 - **Pointed** — every run carries a forward pointer; four components did before
 

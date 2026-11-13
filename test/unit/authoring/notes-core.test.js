@@ -13,6 +13,34 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const core = require('../../../lib/authoring/notes-core');
+const { charReads } = require('../../helpers/work-count');
+const { assertLinearRegexes, normalKey } = require('../../helpers/regex-trace');
+
+// Work, not milliseconds (HARD RULE #32). A malformed-input guard here makes two checks: every regex the call runs is
+// linear (tools/regex-census.json, or a reason below for one built at run time or taken from markdown-it), and the
+// call touches each character a bounded number of times (charCodeAt, copies and string searches, counted). Each bound
+// sits about twice above today's count, and the quadratic shapes these guards were written for read thousands per
+// character at these sizes.
+const LINEAR_ALLOW = {
+  [normalKey('\\r\\n?|\\n', 'g')]: "markdown-it's line-ending normalizer: a fixed one- or two-character match at each position",
+  [normalKey('^<(script|pre|style|textarea)(?=(\\s|>|$))', 'i')]: "markdown-it's HTML block start: anchored, a fixed word and a one-character look-ahead",
+  [normalKey('-->', '')]: "markdown-it's HTML block end: a literal",
+  [normalKey('^<\\/?(?:' + core.HTML_BLOCK_NAMES + ')(?=\\s|\\/?>|$)', 'i')]: 'anchored at the line start: one of a fixed list of names and a one-character look-ahead',
+};
+// notes-core builds its own tag pattern per call, around a nonce it picks (`zq<n>lcn`): a literal, digits and a letter.
+const allowFor = (keys) => {
+  const allow = { ...LINEAR_ALLOW };
+  for (const k of keys) if (/^\/<!--zq\d+lcn\(\\d\+\)e\/g$/.test(k)) allow[k] = 'a literal nonce, a run of digits and a letter: linear';
+  return allow;
+};
+function linearWork(fn, length, perChar, what) {
+  const { traceRegexes } = require('../../helpers/regex-trace');
+  const { keys } = traceRegexes(fn);
+  const { result, reads, scanned } = charReads(() => assertLinearRegexes(fn, { allow: allowFor(keys) }).result);
+  const per = (reads + scanned) / length;
+  assert.ok(per <= perChar, `${what}: ${per.toFixed(1)} reads per character, over ${perChar}`);
+  return result;
+}
 const { splitSections: splitSectionsCore } = require('@laticent/markup');
 
 const sec = (inner) => `<section data-lattice-slide="1">${inner}</section>`;
@@ -184,7 +212,7 @@ describe('notes-core: isLatticePragma', () => {
       path.join(__dirname, '..', '..', '..', 'docs', 'src', 'lib', 'front-matter.ts'),
       'utf8',
     );
-    const m = src.match(/parseFinishOverride[\s\S]*?blocks\.find\(\(\[k\]\) => k === '([^']+)'\)/);
+    const m = src.match(/parseFinishOverride[\s\S]*?blocks\.(?:find|filter)\(\(\[k\]\) => k === '([^']+)'\)/); // `filter(…).pop()` since #3050 D1 (the last block wins)
     assert.ok(m, 'parseFinishOverride no longer looks a block key up this way — re-derive the matcher');
     assert.equal(
       core.isLatticePragma(`${m[1]}:`), true,
@@ -293,18 +321,11 @@ describe('notes-core: stripCommentNodes', () => {
 
 describe('notes-core: malformed input is linear (no ReDoS)', () => {
   test('an unterminated <!-- with a long run resolves quickly to null', () => {
-    // The old `<!--+\s*([\s\S]*?)\s*--+>` pattern was quadratic here (a 5k run
-    // hung >30s). The linear pattern finishes in milliseconds. node:test has no
-    // per-test timeout, so we assert wall-time directly — with a generous bound
-    // that still separates linear (ms) from the quadratic blow-up (tens of
-    // seconds) by orders of magnitude, but won't flake under concurrent CI/hook
-    // CPU load the way a sub-second bound did.
+    // The old `<!--+\s*([\s\S]*?)\s*--+>` pattern was quadratic here (a 5k run hung >30s), and its successor
+    // COMMENT_SOURCE is still polynomial to recheck; the comments are read by CommentScan now.
     const html = `<section><!-- ${' '.repeat(200000)}no close`;
-    const t = Date.now();
-    const note = core.notesFromHtml(html);
-    const elapsed = Date.now() - t;
+    const note = linearWork(() => core.notesFromHtml(html), html.length, 8, 'an unterminated comment');
     assert.equal(note, null, 'an unterminated comment is not a note');
-    assert.ok(elapsed < 5000, `extraction took ${elapsed}ms — expected linear (the quadratic bug hung >30s)`);
   });
 
   test('a front matter ending in a long CRLF run strips its captions block quickly', () => {
@@ -316,11 +337,8 @@ describe('notes-core: malformed input is linear (no ReDoS)', () => {
     // arm tested a long run of SPACES instead, which is only the polynomial half and would have
     // passed at these sizes on the exponential bug.
     const src = `---\ntheme: x\nsay:\n  1: a\n${'\r\n'.repeat(100000)}---\n\n# S\n`;
-    const t = Date.now();
-    const out = core.stripSayFromSource(src);
-    const elapsed = Date.now() - t;
+    const out = linearWork(() => core.stripSayFromSource(src), src.length, 24, 'a CRLF run');
     assert.doesNotMatch(out, /1: a/, 'the caption still goes');
-    assert.ok(elapsed < 5000, `strip took ${elapsed}ms — expected linear (the regex form took 1.6s on 24 pairs)`);
   });
 
   test('a front matter ending in a long whitespace run strips its captions block quickly', () => {
@@ -333,11 +351,8 @@ describe('notes-core: malformed input is linear (no ReDoS)', () => {
     // malformed deck. `stripSayFrontMatter` trims the line ARRAY instead, which is linear.
     // Same generous bound and the same reason as the arm above.
     const src = `---\ntheme: x\nsay:\n  1: a\n${' '.repeat(200000)}\n---\n\n# S\n`;
-    const t = Date.now();
-    const out = core.stripSayFromSource(src);
-    const elapsed = Date.now() - t;
+    const out = linearWork(() => core.stripSayFromSource(src), src.length, 24, 'a whitespace run');
     assert.doesNotMatch(out, /1: a/, 'the caption still goes');
-    assert.ok(elapsed < 5000, `strip took ${elapsed}ms — expected linear (the quadratic form took 10s at 80k)`);
   });
 });
 
@@ -512,11 +527,11 @@ describe('notes-core: say channel (say:)', () => {
 
     test('reads note, description and say line per slide', () => {
       const rec = core.slideNoteRecord([
-        '<section><h1>A</h1><!-- A note. --><!-- describe: A chart. --><!-- say: Read aloud. --></section>',
+        '<section><h1>A</h1><!-- A note. --><!-- describe: A chart. --><!-- say: Read aloud. --><!-- reader: For you. --></section>',
         '<section><h1>B</h1></section>',
       ]);
-      assert.deepEqual(rec[0], { note: 'A note.', noteBodies: ['A note.'], description: 'A chart.', say: 'Read aloud.' });
-      assert.deepEqual(rec[1], { note: null, noteBodies: [], description: null, say: null });
+      assert.deepEqual(rec[0], { note: 'A note.', noteBodies: ['A note.'], description: 'A chart.', say: 'Read aloud.', reader: 'For you.' });
+      assert.deepEqual(rec[1], { note: null, noteBodies: [], description: null, say: null, reader: null });
     });
 
     // The privacy contract behind `noteBodies`. `note` JOINS a slide's notes with a blank
@@ -981,10 +996,10 @@ describe('notes-core: say channel (say:)', () => {
     });
 
     test('runs of unclosed openers and long look-alike tags stay fast', () => {
-      const t0 = process.hrtime.bigint();
-      core.stripNotesFromSource(`x ${'<!-- '.repeat(30_000)}`, new Set(['a']));
-      core.maskCodeRegions(`zq0lcn${'x'.repeat(100_000)}\n\n<!-- a -->\n`);
-      assert.ok(Number(process.hrtime.bigint() - t0) / 1e6 < 2_000);
+      const openers = `x ${'<!-- '.repeat(30_000)}`;
+      linearWork(() => core.stripNotesFromSource(openers, new Set(['a'])), openers.length, 150, 'a run of unclosed openers');
+      const lookalike = `zq0lcn${'x'.repeat(100_000)}\n\n<!-- a -->\n`;
+      linearWork(() => core.maskCodeRegions(lookalike), lookalike.length, 64, 'a look-alike tag');
     });
 
     test('no live note is masked, over generated documents with containers', () => {
@@ -1056,9 +1071,8 @@ describe('notes-core: say channel (say:)', () => {
     });
 
     test('a long line of attribute-ish text is read in linear time', () => {
-      const t0 = process.hrtime.bigint();
-      core.maskCodeRegions(`<a${' b'.repeat(100_000)}${' '.repeat(100_000)}\n\n`);
-      assert.ok(Number(process.hrtime.bigint() - t0) / 1e6 < 500);
+      const line = `<a${' b'.repeat(100_000)}${' '.repeat(100_000)}\n\n`;
+      linearWork(() => core.maskCodeRegions(line), line.length, 64, 'a long attribute-ish line');
     });
   });
 

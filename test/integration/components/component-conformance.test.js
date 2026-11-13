@@ -69,6 +69,7 @@ describe('component conformance, render tier (report-only)', () => {
 
   after(async () => { if (browser) await browser.close(); });
 
+  // ci-skip: an opt-in mode, not a missing tool. integration-nightly.yml runs this file with CONFORMANCE_RENDER=1.
   describe('reach — the harness is not blind (§6.3 rule 5)', { skip: !MATRIX && 'set CONFORMANCE_RENDER=1 to run the matrix' }, () => {
     test('every component has a slide of its own, and no slide lacks a gallery header', () => {
       const empty = summary.components.filter((c) => c.slides === 0).map((c) => c.name);
@@ -160,6 +161,7 @@ describe('component conformance, render tier (report-only)', () => {
     });
   });
 
+  // ci-skip: an opt-in mode, not a missing tool. integration-nightly.yml runs this file with CONFORMANCE_RENDER=1.
   describe('report — findings are printed, never failed on', { skip: !MATRIX && 'set CONFORMANCE_RENDER=1 to run the matrix' }, () => {
     test('the report was written', () => {
       assert.ok(fs.existsSync(REPORT));

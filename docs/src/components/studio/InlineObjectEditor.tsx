@@ -17,7 +17,7 @@ import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
-import { editImage, isImage, removeImage } from '@/lib/compose/image-objects';
+import { editImage, isImage, placeImage, placementAt, removeImage } from '@/lib/compose/image-objects';
 import { closeObjectEditor, editObject, editObjectAsText, type InlineKernels, kindOf, leaveObject, type OpenObject } from '@/lib/compose/inline-objects';
 import { editInlineMath, editRawBlock, type RawObjectKind, rawObjectKind, removeRaw } from '@/lib/compose/raw-objects';
 import { hasFinePointer, useIsPhone } from '@/lib/use-breakpoint';
@@ -46,7 +46,6 @@ export interface ObjectPanelProps {
 
 interface PanelEntry {
 	title: string;
-	describe: string;
 	Panel: (props: ObjectPanelProps) => React.JSX.Element;
 }
 
@@ -54,32 +53,26 @@ interface PanelEntry {
 const PANELS: Record<string, PanelEntry> = {
 	pill: {
 		title: 'Edit pill',
-		describe: "Change this pill's label, shape, color and size.",
 		Panel: (p) => <PillPanel {...(p as unknown as React.ComponentProps<typeof PillPanel>)} />,
 	},
 	spark: {
 		title: 'Edit spark',
-		describe: "Change this spark's numbers, chart type, color, size and marks.",
 		Panel: (p) => <SparkPanel {...(p as unknown as React.ComponentProps<typeof SparkPanel>)} />,
 	},
 	avatar: {
 		title: 'Edit avatar',
-		describe: "Change this avatar's name, tile, size, shape and face.",
 		Panel: (p) => <AvatarPanel {...(p as unknown as React.ComponentProps<typeof AvatarPanel>)} />,
 	},
 	icon: {
 		title: 'Edit icon',
-		describe: "Change this icon's shape, color, size, frame and look.",
 		Panel: (p) => <IconPanel {...(p as unknown as React.ComponentProps<typeof IconPanel>)} />,
 	},
 	check: {
 		title: 'Edit check',
-		describe: "Change this check's answer and its label.",
 		Panel: (p) => <PluginKindPanel {...(p as unknown as React.ComponentProps<typeof PluginKindPanel>)} />,
 	},
 	plugin: {
 		title: 'Edit plugin object',
-		describe: "Change this plugin object's fields.",
 		Panel: (p) => <PluginKindPanel {...(p as unknown as React.ComponentProps<typeof PluginKindPanel>)} />,
 	},
 };
@@ -87,7 +80,6 @@ const PANELS: Record<string, PanelEntry> = {
 /** The image's entry: its panel is not an inline object's, so the host renders it itself (the `image` branch below). */
 const IMAGE_ENTRY: PanelEntry = {
 	title: 'Edit image',
-	describe: "Change this image's photo, description and placement.",
 	Panel: () => <></>,
 };
 
@@ -96,9 +88,9 @@ const KIND_ICON: Record<string, React.ReactNode> = { pill: <Tag />, spark: <Char
 
 /** The entry for a math span, a math block and a block of HTML: their panel is `RawPanel`, which the host renders itself. */
 const RAW_ENTRY: Record<RawObjectKind, PanelEntry> = {
-	'inline-math': { title: 'Edit math', describe: "Change this math's TeX and see it drawn.", Panel: () => <></> },
-	math: { title: 'Edit math block', describe: "Change this math block's TeX and see it drawn.", Panel: () => <></> },
-	html: { title: 'Edit HTML block', describe: "Change this block's HTML.", Panel: () => <></> },
+	'inline-math': { title: 'Edit math', Panel: () => <></> },
+	math: { title: 'Edit math block', Panel: () => <></> },
+	html: { title: 'Edit HTML block', Panel: () => <></> },
 };
 
 /** A virtual anchor that finds the object's place in the page again on every measurement. */
@@ -211,6 +203,11 @@ export function InlineObjectEditorHost({
 				onDone={close}
 				holdOpen={holdOpen}
 				onOpenLibrary={onOpenLibrary}
+				placement={(() => {
+					const at = placementAt(view.state, openRef.current.pos);
+					return { value: at.placement, canPlace: at.canPlace };
+				})()}
+				onPlace={(p) => placeImage(view, openRef.current.pos, p)}
 			/>
 		) : owner ? (
 			<entry.Panel fields={owner.fields} src={open.src} kernels={kernels} slotColors={slotColors} onEdit={onEdit as ObjectPanelProps['onEdit']} onEditAsText={onEditAsText} onDone={close} holdOpen={holdOpen} />
@@ -220,7 +217,7 @@ export function InlineObjectEditorHost({
 	if (phone) {
 		return (
 			<PanelSheet open onOpenChange={(o) => !o && !held.current && close()} width="md">
-				<PanelHeader icon={KIND_ICON[kindId]} title={entry.title} srDescription={entry.describe} />
+				<PanelHeader icon={KIND_ICON[kindId]} title={entry.title} />
 				<PanelBody>{panel}</PanelBody>
 			</PanelSheet>
 		);

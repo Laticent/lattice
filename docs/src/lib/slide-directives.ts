@@ -8,9 +8,10 @@
 // never splits-mutates-rejoins the deck, never normalizes, and never edits inside a
 // fenced code block. See engineering/decisions/2026-07-03-slide-context-editor.md §5.
 
-import { readMetaField, writeMeta } from '../../../lib/core/meta-edit.mjs';
+import { parsePaneMarker } from '../../../lib/core/meta-door.mjs';
+import { readMetaField, readRecordChannel, writeMeta, writeRecordChannel } from '../../../lib/core/meta-edit.mjs';
 import { KNOWN_KEYS } from '../../../lib/core/meta-keys.mjs';
-import { commentBlocks as sharedCommentBlocks, comments as sharedComments, directiveKey as sharedDirectiveKey, fenceRanges as sharedFenceRanges } from '../../../lib/core/meta-record.mjs';
+import { isRecordBody, commentBlocks as sharedCommentBlocks, comments as sharedComments, directiveKey as sharedDirectiveKey, fenceRanges as sharedFenceRanges } from '../../../lib/core/meta-record.mjs';
 
 // The directive KEYS the engine recognizes as scoped/global directives (a comment whose first
 // `key:` is one of these is a DIRECTIVE, not a speaker note). They come from the shared vocabulary
@@ -47,17 +48,21 @@ export function isSayBody(body: string): boolean {
 	return /^say\s*:/.test(String(body).trim()); // lowercase only — see notes-core SAY_MATCHER
 }
 
-/** True when the comment body is a PANES marker — `_pane: list` (or its `pane:` alias) or the
- *  `panes: 35/65` layout line
- *  (lib/core/pane-spec.js `parseMarker` / `PANES_RE`). Structure, not a speaker note: read as one, the
- *  presenter's notes showed "panes: 35/65", and setting a note on the slide stripped every marker
- *  and turned the panes slide back into one component. Not in DIRECTIVE_KEYS, which is the
- *  engine's directive list; the carve reads these before directives are applied. */
+/** True when the comment body is a PANES marker or layout, in any spelling: `_pane: list`, its `pane:` alias,
+ *  the `panes: 35/65` layout line, or a record that names either (`{pane="bar"}`, `@meta{panes="60/40"}`, mixed
+ *  with other fields or not). Read by the one shared reader, lib/core/meta-door.mjs `parsePaneMarker`. Structure, not
+ *  a speaker note: read as one, the presenter's notes showed "panes: 35/65", and setting a note on the slide stripped
+ *  every marker and turned the panes slide back into one component. Not in DIRECTIVE_KEYS, which is the engine's
+ *  directive list; the carve reads these before directives are applied. */
 export function isPaneMarkerBody(body: string): boolean {
 	const t = String(body).trim();
+	if (/[\n<>]/.test(t) && !isRecordBody(t)) return false; // a one-line marker, as before; a record may wrap
+	const p = parsePaneMarker(`<!-- ${t} -->`);
+	if (!p) return false;
+	if (p.panes !== null) return true;
 	// The alias is one component (plus `no-title`), as lib/core/pane-spec.js `parseMarker` reads it:
 	// `pane: check the numbers` is a speaker note.
-	return /^_pane:[^<>\n]*$/.test(t) || /^pane:\s*[a-z][\w-]*(?:\s+no-title)*$/.test(t) || /^panes:[^<>\n]*$/.test(t);
+	return !p.pane?.legacy || /^[a-z][\w-]*(?:\s+no-title)*$/.test(p.pane.value);
 }
 
 // ── Fence awareness ──────────────────────────────────────────────────────────
@@ -65,6 +70,9 @@ export function isPaneMarkerBody(body: string): boolean {
 // The old splitter (lint.ts) and note transform were fence-blind, so a mermaid
 // block's `---` front matter split the slide and a `code` slide showing a `_class`
 // comment got its example edited. We mask fenced regions before any scan.
+
+/** Is this comment body record-shaped (`{…}` / `@meta{…}` on the opener line)? A record is never a speaker note. */
+export { isRecordBody };
 
 /** Char ranges `[start, end)` covered by fenced code blocks (``` / ~~~); see lib/core/meta-record.mjs. */
 // The cast: TS infers the untyped `.mjs` kernel's ranges as `number[][]`; each is a `[start, end)` pair.
@@ -109,7 +117,9 @@ export type ClassDirective = {
 	 *  duplicate `_class` comment) — the drawer goes read-only ("edit in markdown"). */
 	editable: boolean;
 	/** Why editable is false, for the UI hint. */
-	reason?: 'array-form' | 'duplicate';
+	reason?: 'array-form' | 'duplicate' | 'record';
+	/** The class comes from a record (`<!-- {layout=cards} -->`), edited in it (lib/core/meta-edit.mjs). */
+	record?: boolean;
 	/** Absolute [start, end) of the token VALUE to splice (present + editable only). */
 	valueSpan?: [number, number];
 	/** Absolute [start, end) of the whole comment, for removal. */
@@ -122,10 +132,12 @@ export type ClassDirective = {
 export function readClassDirective(chunk: string): ClassDirective {
 	const f = readMetaField(chunk, 'class');
 	if (!f.present || !f.editable) {
-		return f.present
-			? { tokens: [], present: true, editable: false, reason: f.reason }
-			: { tokens: [], present: false, editable: true };
+		// A record that does not read shows its class (what the slide renders with) but is not rewritten: the linter
+		// names it (`meta-record`). A record that reads is edited in place, below.
+		const tokens = f.reason === 'record' ? f.value.split(/\s+/).filter(Boolean) : [];
+		return f.present ? { tokens, present: true, editable: false, reason: f.reason } : { tokens: [], present: false, editable: true };
 	}
+	if (f.record) return { tokens: f.value.split(/\s+/).filter(Boolean), present: true, editable: true, record: true, commentSpan: f.commentSpan };
 	return {
 		tokens: f.value.split(/\s+/).filter(Boolean),
 		present: true,
@@ -135,6 +147,13 @@ export function readClassDirective(chunk: string): ClassDirective {
 		soleDirective: f.soleDirective,
 	};
 }
+
+/** A note channel the slide's record carries (`{say="…"}`), or null: the note editors read the record first. */
+export const recordChannel = (chunk: string, name: 'note' | 'reader' | 'say' | 'describe'): string | null => readRecordChannel(chunk, name);
+
+/** Set a note channel in the record that carries it, or null when none does (the caller writes its comment). */
+export const setRecordChannel = (chunk: string, name: 'note' | 'reader' | 'say' | 'describe', value: string): string | null =>
+	writeRecordChannel(chunk, name, value);
 
 /** The slide's `_class` tokens (first directive), or []. */
 export function getClassTokens(chunk: string): string[] {
@@ -151,7 +170,9 @@ export function canEditClass(chunk: string): boolean {
  *   • present + editable → splice the value range, touching nothing else;
  *   • empty tokens + sole-directive comment → remove the whole comment (+ a blank line);
  *   • empty tokens + compound comment → drop just the `_class:` line;
- *   • absent + non-empty → prepend `<!-- _class: … -->` as the chunk's first line;
+ *   • from a record → edited in the record, its typed fields kept where they can be (lib/core/meta-edit.mjs);
+ *   • absent + non-empty → joins the slide's record if it has one, else prepends `<!-- _class: … -->` (the form
+ *     follows the slide: a deck written in comments stays readable in Marp until the cut);
  *   • not editable → returned unchanged (caller gates on canEditClass()).
  * Tokens are written verbatim in the given order — the caller preserves unknown /
  * hand-authored tokens by reading getClassTokens() first and mutating that array.

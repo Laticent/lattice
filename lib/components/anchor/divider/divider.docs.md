@@ -29,8 +29,8 @@ Marks the start of a major section. Use sparingly — every divider is a context
 ### Common mistakes
 
 - **Eyebrow written as plain text instead of inline code, e.g. plain `Section 01` instead of a backtick-wrapped one.** Divider's eyebrow uses the shared before-heading rule `p:has(> code:only-child):has(+ h2)` (base.modifiers.css) — wrap it in backticks; without the code span it's just a plain paragraph with no eyebrow treatment at all.
-- **Eyebrow paragraph placed AFTER the heading, copying the title/closing pattern.** Divider's eyebrow is the mirror image of title/closing's — it uses the BEFORE-heading rule (`p:has(> code:only-child):has(+ h2)`), not the after-heading one those two use. Keep it directly before `## Section name`; placed after, it still renders (via the separate after-heading rule) but as an italic secondary-color treatment, not the intended mono kicker.
-- **Reaching for `numbered` on a slide with no heading, or expecting it on a `title` / `closing`.** The mark rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-pagination` null it. No heading, no numeral — and the counter still advances, so the next divider reads one higher and the series silently skips. The heading is a required slot here anyway. `numbered` is a divider modifier only: a bookend is not a section, so `title` and `closing` do not take it. It also suppresses the header and footer, so a numbered divider cannot carry a `_footer:` caption. The mark's band is reserved, so a long heading can no longer climb into the numeral — it pins under the band with a constant 2.5cqi of clearance and grows downward instead, and far enough down the slide genuinely overflows and the export says so. `light` and `qr` need the band too: measured without it they collide at -15.2 and -85.3.
+- **Eyebrow paragraph placed AFTER the heading, copying the title/closing pattern.** Divider's eyebrow is the mirror image of title/closing's — it uses the BEFORE-heading rule (`p:has(> code:only-child):has(+ h2)`), not the after-heading one those two use. Keep it directly before `## Section name`; placed after, it still renders (via the separate after-heading rule) but as an italic secondary-color treatment, not the intended eyebrow kicker.
+- **Reaching for `numbered` on a slide with no heading, or expecting it on a `title` / `closing`.** The mark rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-pagination` null it. No heading, no numeral — and the counter still advances, so the next divider reads one higher and the series silently skips. The heading is a required slot here anyway. `numbered` is a divider modifier only: a bookend is not a section, so `title` and `closing` do not take it. Like every divider it keeps the deck's header and footer, so a `_footer:` caption reads there too. The mark's band is reserved, so a long heading can no longer climb into the numeral — it pins under the band with a constant 2.5cqi of clearance and grows downward instead, and far enough down the slide genuinely overflows and the export says so. `light` and `qr` need the band too: measured without it they collide at -15.2 and -85.3.
 
 ## When to use
 
@@ -43,14 +43,12 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 - **More than five per deck.** Each divider is a hard context switch. Too many dilutes the signal and slows the audience. Group related content under fewer sections instead.
 - **Section title that doesn't earn a section.** If the next 3-4 slides aren't a coherent unit, the `light` variant (bright canvas, centered) is the right tool. Reserve the dark divider for genuine section starts.
-- **Header or footer overrides.** Don't reinstate `_header:` or `_footer:` on a divider. The dark canvas is meant to be uninterrupted; chrome belongs on body slides.
+- **Header or footer overrides.** Don't blank the header or footer with `_header: ''` / `_footer: ''` on a divider. A divider keeps the deck's running header and its footer, the standing note (a "Confidential", a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). Drop one on purpose with `no-header` / `no-footer`, or every band with `silent`.
 
 ## Authoring
 
 ```markdown
 <!-- _class: divider -->
-<!-- _header: '' -->
-<!-- _footer: '' -->
 
 `Section 01`
 

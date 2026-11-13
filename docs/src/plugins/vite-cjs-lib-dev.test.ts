@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { inlineSiblingLeaves } from './vite-cjs-lib-dev.mjs';
+import viteCjsLibDev, { hoistEsmSiblings, inlineSiblingLeaves } from './vite-cjs-lib-dev.mjs';
 
 /**
  * ROT-GUARD for `vite-cjs-lib-dev.mjs`: a browser source in `docs/src` takes a CommonJS file
@@ -72,8 +72,9 @@ describe('docs/src imports CommonJS lib/ files by default import only', () => {
 			for (const m of src.matchAll(IMPORT)) {
 				const target = path.resolve(path.dirname(file), m[2]);
 				if (!target.startsWith(LIB) || !target.endsWith('.js') || !fs.existsSync(target) || !isCjs(target)) continue;
-				// The shim inlines a module whose every require is a require-free sibling leaf; nothing wider.
-				const body = fs.readFileSync(target, 'utf8');
+				// The shim inlines a module whose every require is a require-free sibling leaf or an ESM sibling; nothing wider.
+				// It also hoists a require of an ESM sibling (`./x.mjs`) to an import, so judge what is left after that.
+				const body = hoistEsmSiblings(fs.readFileSync(target, 'utf8')).body;
 				if (/\brequire\s*\(/.test(body) && inlineSiblingLeaves(body, path.dirname(target)) === null) offenders.push(`${path.relative(REPO, file)} -> ${m[2]}`);
 			}
 		}
@@ -99,5 +100,19 @@ describe('inlineSiblingLeaves', () => {
 		expect(inlineSiblingLeaves("const a = require('./bg-image');\nmodule.exports = { a };", dir)).toBeNull(); // sibling has its own requires
 		expect(inlineSiblingLeaves("const a = require('./does-not-exist');\nmodule.exports = { a };", dir)).toBeNull();
 		expect(inlineSiblingLeaves("const a = require('fs');\nmodule.exports = { a };", dir)).toBeNull();
+	});
+});
+
+describe('hoistEsmSiblings', () => {
+	it('turns a require of an ESM sibling into a hoisted namespace import, and leaves CJS requires alone', () => {
+		const { imports, body } = hoistEsmSiblings("const { parsePaneMarker } = require('./meta-door.mjs');\nconst f = require('./fence-opener');\nmodule.exports = {};");
+		expect(imports).toBe("import * as __latticeEsm0 from './meta-door.mjs';");
+		expect(body).toContain('const { parsePaneMarker } = __latticeEsm0;');
+		expect(body).toContain("require('./fence-opener')");
+	});
+	it('serves lib/core/pane-spec.js, which reads the pane-marker reader from an ESM sibling, instead of refusing it', () => {
+		const out = viteCjsLibDev(REPO).load(path.join(REPO, 'lib', 'core', 'pane-spec.js'));
+		expect(out).toMatch(/^import \* as __latticeEsm0 from '\.\/meta-door\.mjs';/);
+		expect(out).not.toMatch(/\brequire\s*\(/);
 	});
 });

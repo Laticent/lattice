@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readOpenRouterKey } from '@/lib/openrouter-key.js';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
+import { selectChat } from '../../lib/model-selection.js';
 import { saveOpenRouterKey } from './api-key';
 import { agentTurnUsd, applyDeckEdit, applyProposedEditsChecked, architectModel, architectSpend, buildChatSystem, CANON_TOKENS_EST, CHAT_MAX_TOKENS, CHAT_OUTPUT_EST, chatSystemTokens, cloudBudgetBlock, deckSystem, estimateUsd, estTokens, generateComponent, generateFinish, generateTheme, loadArchitectAuthoring, loadChatAgent, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
@@ -678,7 +679,7 @@ describe('chat output ceiling vs. the priced expectation', () => {
 // using. This pins the fallback to the module default and to what the copy promises.
 describe('the Studio\'s default cloud model', () => {
 	it('falls back to the Sonnet ~latest alias — matching what the picker tells the author', async () => {
-		localStorage.removeItem('lattice-db-or-model'); // no deliberate pick
+		selectChat({ provider: 'openrouter', model: '' }); // no deliberate pick
 		const m = await architectModel();
 		expect(m?.openRouterModel()).toBe('~anthropic/claude-sonnet-latest');
 	});
@@ -995,7 +996,7 @@ describe('generateFinish — a real JSON reply survives the adapter', () => {
 	});
 });
 
-// Workspace → AI → API key: a PASTED OpenRouter key is checked with /auth/key before it is stored,
+// Workspace → AI → API key: a PASTED OpenRouter key is checked with /api/v1/key before it is stored,
 // so a typo or a revoked key is refused at the door instead of on the first paid request.
 describe('saveOpenRouterKey — a pasted key is checked before it is stored', () => {
 	const KEY = 'lattice-db-or-key';
@@ -1030,7 +1031,7 @@ describe('saveOpenRouterKey — a pasted key is checked before it is stored', ()
 		expect(out.ok).toBe(false);
 		if (!out.ok) expect(out.note).toMatch(/Could not reach OpenRouter/);
 	});
-	it('a 200 stores the cleaned key, asked of /auth/key with that key, and clears a stale rejected mark', async () => {
+	it('a 200 stores the cleaned key, asked of /api/v1/key with that key, and clears a stale rejected mark', async () => {
 		localStorage.setItem(KEY, 'sk-or-v1-old');
 		localStorage.setItem(REJECTED, '1');
 		const fetchSpy = answering(200);
@@ -1041,8 +1042,35 @@ describe('saveOpenRouterKey — a pasted key is checked before it is stored', ()
 		expect(readOpenRouterKey()).toBe('sk-or-v1-good');
 		expect(localStorage.getItem(KEY)).not.toBe('sk-or-v1-good'); // never in clear
 		expect(localStorage.getItem(REJECTED)).toBeNull();
-		const check = fetchSpy.mock.calls.find(([url]) => String(url).includes('/auth/key'));
-		expect(check, 'the key was checked with /auth/key').toBeTruthy();
+		const check = fetchSpy.mock.calls.find(([url]) => /\/api\/v1\/key$/.test(String(url)));
+		expect(check, 'the key was checked with /api/v1/key').toBeTruthy();
 		expect(new Headers(check?.[1]?.headers).get('Authorization')).toBe('Bearer sk-or-v1-good');
+	});
+	// "Have a gift link?" (2026-11-06-gift-link-cli.md §6). A fake key, never issued by OpenRouter.
+	const GIFT_KEY = `sk-or-v1-${'0123456789abcdef'.repeat(4)}`;
+	it('a whole gift link is read by the shared codec, checked, and stored as its key', async () => {
+		const { encodeGiftLink } = await import('../../../../lib/core/gift-link.mjs');
+		const link = await encodeGiftLink(GIFT_KEY, 'https://example.test/lattice');
+		const fetchSpy = answering(200);
+		vi.stubGlobal('fetch', fetchSpy);
+		const out = await saveOpenRouterKey(`${link.slice(0, 40)}\n${link.slice(40)}`);
+		expect(out.ok).toBe(true);
+		expect(readOpenRouterKey()).toBe(GIFT_KEY);
+		const check = fetchSpy.mock.calls.find(([url]) => /\/api\/v1\/key$/.test(String(url)));
+		expect(new Headers(check?.[1]?.headers).get('Authorization')).toBe(`Bearer ${GIFT_KEY}`);
+	});
+	it('a damaged gift link is refused in words, without a request; a locked one points at the /gift page', async () => {
+		const { encodeGiftToken } = await import('../../../../lib/core/gift-link.mjs');
+		const fetchSpy = vi.fn();
+		vi.stubGlobal('fetch', fetchSpy);
+		const token = await encodeGiftToken(GIFT_KEY);
+		const damaged = await saveOpenRouterKey(`https://example.test/gift#${token.slice(0, 10)}Z${token.slice(11)}`);
+		expect(damaged.ok).toBe(false);
+		if (!damaged.ok) expect(damaged.note).toMatch(/damaged/);
+		const locked = await saveOpenRouterKey(`#${await encodeGiftToken(GIFT_KEY, { pin: '2468', salt: [9, 9, 9, 9, 9, 9, 9, 9] })}`);
+		expect(locked.ok).toBe(false);
+		if (!locked.ok) expect(locked.note).toMatch(/locked with a PIN/);
+		expect(fetchSpy).not.toHaveBeenCalled();
+		expect(localStorage.getItem(KEY)).toBeNull();
 	});
 });

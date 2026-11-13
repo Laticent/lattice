@@ -82,13 +82,19 @@ describe('TapAway', () => {
 				</Select>
 			);
 		}
-		render(<Toggling />);
-		await act(() => new Promise((r) => setTimeout(r, 20)));
-		act(() => {
-			fireEvent.pointerDown(layer() as Element);
-		});
-		expect(calls).toEqual([false]);
-		expect(screen.queryByRole('listbox')).toBeNull();
+		// Fake timers, so "a tick after opening" is a step the test takes, not a stretch it sleeps through.
+		vi.useFakeTimers();
+		try {
+			render(<Toggling />);
+			act(() => vi.runOnlyPendingTimers()); // Radix's outside listener is armed now
+			act(() => {
+				fireEvent.pointerDown(layer() as Element);
+			});
+			expect(calls).toEqual([false]);
+			expect(screen.queryByRole('listbox')).toBeNull();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('stands the click guard down when the gesture ends without a click, so the next tap gets through', () => {

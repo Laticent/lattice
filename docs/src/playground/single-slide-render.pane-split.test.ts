@@ -8,6 +8,7 @@
 // is under test is the narrowing, the page pick, the page report, and the supplied position.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadFramesOnWrite } from '@/test/frame-load';
 
 vi.mock('../lib/render-engine', () => ({ renderMarkdown: vi.fn() }));
 vi.mock('../lib/theme-fetch', () => ({
@@ -30,7 +31,10 @@ const ALONE = `<article class="lattice">\n${section(1, 2, 'Pane A')}\n${section(
 // A deck that needs the whole-deck render (a running global), so narrowing is exercised.
 const DECK_SCOPED = '<!-- header: Q3 -->\n\nbody';
 
+// Each render waits for the previous write's frame to load; jsdom loads none (src/test/frame-load.ts).
+let restoreFrames: () => void = () => {};
 beforeEach(() => {
+	restoreFrames = loadFramesOnWrite();
 	class RO {
 		observe = vi.fn();
 		unobserve = vi.fn();
@@ -44,6 +48,7 @@ beforeEach(() => {
 	mock().mockImplementation(async (_pg: unknown, md: string) => ({ html: md === 'ALONE' ? ALONE : DECK4, css: '' }));
 });
 afterEach(() => {
+	restoreFrames();
 	(window as unknown as { LatticePlayground?: unknown }).LatticePlayground = undefined;
 	document.body.innerHTML = '';
 });

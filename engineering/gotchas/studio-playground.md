@@ -1807,3 +1807,126 @@ never turn "passed in headless" into "works on iOS."
   completion list is open or an IME is composing, and backs off after 3 rings that did not take. Two limits it does not fix: after a wipe, one gesture undo reaches Filo (the
   bell's step then sits on WebKit's redo list, and re-ringing would empty it; several edits with the caret moved between them still make one step on iOS,
   measured in `followups.d/3040-p5`), and a ring closes iOS's caret callout. `engineering/decisions/2026-11-04-ci-flake-audit.md` §3 has the runs.
+
+## Closing a sheet leaves focus on the page body
+
+- **Symptom** — Escape on the phone's ⋯ menu, or any sheet opened from a plain button, closes it and `document.activeElement` is `<body>`. A keyboard or screen-reader user starts over from the top of the page.
+- **Cause** — a modal Radix `Dialog` returns focus on close only to its `DialogTrigger` (`context.triggerRef`). Most of our sheets open from a button that is not a `SheetTrigger`, so the ref is empty and focus goes nowhere.
+- **Mitigation** — `SheetContent` (`docs/src/components/ui/sheet.tsx`) records the focused element in `onOpenAutoFocus` and refocuses it in `onCloseAutoFocus`, but only when focus is unclaimed (on `<body>` or inside the closing sheet), the `PersistentSurface` rule. Without that guard a click into the editor that dismissed the non-modal Playground Deck settings sheet sent the next keystrokes to the Deck settings button. A caller that calls `preventDefault()` in its own `onCloseAutoFocus` still decides. `e2e/studio-mount-on-open.spec.ts` (the drawer) and `e2e/playground-deck-settings.spec.ts` (the click into the editor) cover both halves.
+- **Triggered by** — any new sheet opened from a plain button; any change to `SheetContent`'s focus handlers.
+- **Removable when** — Radix returns focus to the previously focused element for trigger-less modal dialogs.
+- **Commits** — the docs-perf PR of 2026-11-09 (`engineering/decisions/2026-11-09-studio-react-mount-profile.md` §5).
+
+## The instant shell's slide box is a few px narrower than the app's when the box is bound by height
+
+- **Symptom** — `e2e/studio-instant-shell.spec.ts` fails "slide box width" by 3-4px at a collapsed editor (1440x900) or a landscape pane (844x390), and passes everywhere the box is bound by width. The "preview footer" band passes, at exactly its 2px tolerance.
+- **Cause** — the shell places the box from frozen band heights in `PREVIEW_CHROME` (`docs/src/components/studio/preview-rect.ts`). `footerWrite` was a measured 81.6 (navigator 51 + status 30.6); the navigator row slimmed to 49 and the constant stayed. A 2px-taller footer shortens the box's height by 2px, which a height-bound box turns into 3-4px of width. A width-bound box never shows it, and the band comparison sat on its tolerance edge.
+- **Mitigation** — the navigator strip is ONE element at every stop, so `footerRead` and the write navigator are the same `NAVIGATOR_H`, and `footerWrite` is derived as `NAVIGATOR_H + STATUS_H`. Re-measure with the band heights, not the box: the box only disagrees in the height-bound cases.
+- **Triggered by** — any change to the navigator row's padding, border or control height (`StudioShell.tsx`, the `border-t … py-2` strip row), or to the status strip.
+- **Removable when** — the shell measures its bands instead of modeling them.
+- **Commits** — the flaky-e2e Studio-shell PR of 2026-11-12 (followups 2959-p4, 2982-p3, 3045-p3).
+
+## A caret key pressed while Compose repaints is undone
+
+- **Symptom** — in Compose, an arrow key moves the caret and a moment later the caret is back where it was; nothing selected, nothing typed. Rare by hand, and a Compose e2e caret walk ends one step short now and then under load. Logged in-page: the browser caret went from offset 0 to 1, then the next `selectionchange` found it at 0 again while ProseMirror's state never moved.
+- **Cause** — ProseMirror learns of a native caret move from `selectionchange`, a queued task. A transaction dispatched before that event is read is built on the OLD selection, and `updateState` writes that selection back to the DOM. Compose dispatches from a timer (the code-highlight poll, every 400ms for up to 12s after a deck opens) and from a loader (the inline-object pass when the pill kernels arrive), so either can land in the gap.
+- **Mitigation** — `takePendingSelection` (`docs/src/lib/compose/pending-selection.ts`) calls `domObserver.flush()`, which reads a DOM selection ProseMirror has not taken in yet (and still honors a read it deferred on purpose, on Android, IE and Safari composition), before any transaction no key or click started. Call it before a new timer-, effect- or loader-driven `view.dispatch`. The test-side races of the same family (ProseMirror's focus-handler and mouseup timers that write the selection back after a click) are handled in `docs/e2e/studio-fixture.ts` by #3150.
+- **Triggered by** — a new `view.dispatch` from a timer, an effect or a load callback in `ComposeView.tsx` or `lib/compose/*`.
+- **Removable when** — prosemirror-view reads a pending DOM selection before applying a programmatic transaction.
+- **Commits** — the flaky-e2e Studio-shell PR of 2026-11-12.
+
+## The slide strip ignores its shortcuts right after a click
+
+- **Symptom** — click a slide in the strip, arrow to the next one, press Mod+D: nothing is duplicated, though the same keys work a moment later. `strip-keyboard.spec.ts` failed every run on a quick machine and passed with a 400ms pause.
+- **Cause** — the strip honors shortcuts only on focus that arrived by keyboard, and judged that as "more than 300ms after the last pointer press" (`strip-actions/gestures.ts`). Focus that an arrow key moved within 300ms of a click counted as a pointer arrival.
+- **Mitigation** — a keydown since the last pointer press marks focus as keyboard-arrived outright (`keyedAt >= pressedAt`); the 300ms window now classifies only focus that arrives with no key in between.
+- **Triggered by** — a change to how the strip classifies focus.
+- **Removable when** — `:focus-visible` can be read at keydown without the key press itself flipping it.
+- **Commits** — the flaky-e2e Studio-shell PR of 2026-11-12.
+
+## A deck typed into the Source editor loses the newline after a fence's language
+
+- **Symptom** — an e2e spec that seeds a deck with `page.keyboard.type` gets "```jsconst greeting…" in the saved source, and the Compose chip reads `jsconst`. Only under load (1 run in 25 at 4 workers); alone it passes every time.
+- **Cause** — the Source editor offers a fenced-block language completion right after an opening ``` (`docs/src/components/studio/editor-complete.ts`). Typed key by key, "```js" opens it, and the Enter that should break the line ACCEPTS the suggestion whenever the popup is up in time. A person sees the popup; a test does not.
+- **Mitigation** — seed a deck with `page.keyboard.insertText` (or the fixture's `setEditorContent`), one input event that still runs the editor's own handling and presses no key a completion can claim. Type key by key only when the keystrokes are the subject.
+- **Triggered by** — a new spec that types Markdown with a fence, a list or a front-matter key into Source.
+- **Removable when** — never; the completion is the product working.
+- **Commits** — the flaky-e2e Studio-shell PR of 2026-11-12 (`compose-fenced-code.spec.ts`).
+
+## A screen reader's description changes with how the button was reached
+
+- **Symptom** — VoiceOver reads a control's name, then a description that differs by route: a keyboard Tab hears the tooltip hint, a swipe on an iPhone hears nothing, and some buttons say their own name twice ("Share… Share"). Found by the owner on a real iPhone (PR #3108).
+- **Cause** — Radix points a tooltip trigger's `aria-describedby` at the tooltip only while it is OPEN, and `Tip` opens only on keyboard focus. A child's own `aria-describedby`, even `undefined`, overrides the trigger's through Radix's Slot, which is how every `BarIcon` lost its hint. A native `title=` becomes the description whenever it is not the name, so `title={finding.rule}` made every Coach row read a rule id.
+- **Mitigation** — `Tip` (`docs/src/components/ui/tooltip.tsx`) describes its trigger from mount by `describedPart(hint, name)`: nothing when the hint repeats the name, the rest when it opens with the name and a separator. The copy lives in one hidden `#lx-tip-descriptions` container at the end of `<body>`, written by the trigger's ref, never as a sibling of the trigger: a hidden sibling still counts for `:last-child`, which `space-y-*` uses. The copy carries the hint in its `aria-label` and has no text, because a text copy was found by `getByText` and broke two unit tests with a duplicate match. A caller that needs another describer passes `alsoDescribedBy` to the `Tip`, not `aria-describedby` to the child. Use `Tip`, not `title=`, for a hint on a control. `e2e/studio-descriptions.spec.ts` reads Chromium's computed accessibility tree and fails on a description that repeats or opens with the name, a raw kebab-case id, or an unnamed dialog.
+- **Command palettes too** — a cmdk row with no description gets VoiceOver's generic option hint after its name. Pass `CommandItem`'s `description` (`ui/command.tsx`, same hidden `aria-label` copy); a Studio command takes its line from `COMMAND_DESCRIPTIONS` (`studio-commands.ts`), typed per id. A row's visible second line goes in `description` with the line itself `aria-hidden`, or it runs into the name. A cmdk `<Command>` needs a `label`: its input is named by `aria-labelledby`, which outranks an `aria-label`.
+- **Triggered by** — a new `title=` on a control, a hint that restates its button's label, an `aria-describedby` on a `Tip`'s child, or a new palette row.
+- **Removable when** — Radix describes a closed tooltip trigger.
+- **Commits** — the docs-perf PR of 2026-11-09 (#3108).
+
+## A dialog's description is read after every control inside it
+
+- **Symptom** — on an iPhone, VoiceOver reads each control in a sheet or dialog, its own description, and then the dialog's description again: "Run a command or jump somewhere in the Studio" after every command palette row (owner, PR #3108).
+- **Cause** — observed on device, not traced to a line of WebKit: the dialog's `aria-describedby` (Radix wires one to every `DialogDescription`/`SheetDescription`) is repeated for the controls inside it. A row's own `aria-describedby` reaches VoiceOver as its "description" custom content (WebKit `AccessibilityObject::extendedDescription`); where the dialog's comes from was not found in source.
+- **Mitigation** — a dialog is NAMED, not described. `SheetContent` and `DialogContent` (`docs/src/components/ui/{sheet,dialog}.tsx`) set `aria-describedby={undefined}` before the caller's props, so a visible description stays on screen and is reached by swiping but is not wired to the dialog; `PersistentSurface` sets none; `PanelHeader` has no `srDescription`, and the hidden description copies are gone (Studio drawer, slide gallery, the Playground's two sheets, and the site's metric sheet, which also said its visible text twice). A destructive confirm passes `alert` to `DialogContent` (`role="alertdialog"`, description kept): its text is the question and only its buttons follow. Delete everything and End or leave a live session use it; an independent review caught that the first cut unlinked both warnings. `e2e/studio-descriptions.spec.ts` fails on a described `dialog` (on main's build it flags Chat, Coach, Menu, Send feedback, Settings, Share, Version history and Workspace).
+- **Triggered by** — passing `aria-describedby` to a sheet or dialog, or wiring a description some other way.
+- **Removable when** — VoiceOver stops repeating a container's description, verified on a device.
+- **Commits** — PR #3108.
+
+## A Compose e2e spec types on the wrong line, misses a pill, or reads an element that is not drawn yet, only under load
+
+- **Symptom** — a Compose spec passes alone and fails about one run in four to ten under the full suite: typed text lands on the line the caret left (`Line four` before `Line three`), a counted ArrowRight walk ends on text instead of a pill (`.ProseMirror-selectednode` count 0), or `getComputedStyle` gets `null` right after the deck opens. Seen on `compose-soft-break.spec.ts`, `compose-pill-editor.spec.ts` and `compose-spark-editor.spec.ts`, on `main` and PR branches alike.
+- **Cause** — the spec acted before the state it needed existed (F3 in `engineering/decisions/2026-11-06-flaky-tests.md`). ProseMirror learns where a click, a DOM `setBaseAndExtent` or a native arrow put the caret only from `selectionchange`, a queued task, so a key sent before it lands at the old caret. And for 20 ms after the editor GAINS focus, ProseMirror's `focus` handler may write its own selection back to the DOM: a native caret key pressed in that window, before its `selectionchange` is read, is undone (the first ArrowRight after a click and Home was lost in 6 of 24 runs without a wait, 0 of 24 with one; no person types that fast after a click). And the pills, sparks and preview are drawn on their own schedules after the deck opens.
+- **Fix** — wait for the signal, then act: `caretSettled(page)` after any click or `setBaseAndExtent` that a key press follows, and `pressSettled` for native caret keys (`docs/e2e/studio-fixture.ts`; it compares the caret's NODES, because two lines of equal length at the same offset read alike to any description of them); `editorFocusSettled` after the click that focuses the editor and before native caret keys (a 20 ms timer started after the focus runs after ProseMirror's: same-delay timers run in start order); check the caret after each press (`walkOntoFirstPill` in `compose-pill-editor.spec.ts`); poll until the element exists before reading it; and read a menu's state from its trigger's `aria-expanded` (`openStripMenu`), never from its visibility, which an exit animation or a lazy chunk misreports. A Radix menu that fades out stays mounted, and its press-outside watcher can close the next menu a press opens: give such a menu `data-[state=closed]:animate-none!` (the strip menu and the Insert menu do). Never a retry or a sleep (HARD RULE #32).
+- **Triggered by** — any e2e spec that types or presses keys in Compose, or reads a drawn inline object.
+- **Removable when** — never: it is how a test talks to an editor that hears the caret asynchronously.
+- **Commits** — PR #3150, `claude/compose-e2e-flakes` (seven tests in four spec files; measured before and after in the PR).
+
+## Typing `` `@ava `` in the Studio editor opens no menu, then a later keystroke does
+
+- **Symptom** — the `@` kind menu, or `@check{y`'s answers, does not open for the first span typed after the Studio
+  loads; typing one more character opens it. `e2e/plugin-inline-ui.spec.ts` :139 and :173 failed 11 of 12 runs.
+- **Cause** — inside an inline span the completion comes from the lint core, which the editor imports lazily. Before
+  it lands the source returns `null`, and CodeMirror asks a source again only on the next keystroke.
+- **Mitigation** — `withLazyInlineCore` (`docs/src/components/studio/editor-complete.ts`) waits for the core when a
+  span found nothing and the core is not in, then asks once more, so the menu opens the moment it lands.
+- **Triggered by** — a new completion that reads a lazily loaded module.
+
+## Explore at a narrow width shows the component gallery instead of your draft
+
+- **Symptom** — on the Playground, entering Explore (the eye button) soon after load shows a component's gallery (the
+  first is `actors`) instead of the draft; a moment later the same click shows the draft.
+  `e2e/chart-detail-reveal.spec.ts:269` failed at 390px under load.
+- **Cause** — the Edit boot warms the component walk behind the editor with a plan fetch. Entering Explore before it
+  landed started a walk of the gallery and ignored the draft, and the warm-up walk landing later rendered the gallery
+  too: `startWalk` bumped `deckPickSeqRef` but never checked it after its `await`.
+- **Mitigation** — `startWalk` (`docs/src/components/playground/PlaygroundApp.tsx`) drops a plan that a later pick
+  superseded, and a walk started by entering Explore keeps an edited draft, as `setViewMode`'s save-back does once a
+  walk exists. `PlaygroundApp.test.tsx` holds the plan fetch to pin it.
+
+## Escape right after Present opens does nothing (a second or later open)
+
+- **Symptom** — Present is on screen with its counter, Escape is pressed and Present stays open; a second Escape works.
+  `e2e/lenses-landing.spec.ts:33` lost 2 of 20 closes with the unit suite running beside it.
+- **Cause** — the overlay attached its `window` `keydown` listener in a passive `useEffect`, which runs after paint and
+  which React may defer to a later task. On the first open the shell's loading-Escape handler covers that gap; on
+  later opens Present is already mounted and nothing did.
+- **Mitigation** — `PresentOverlay.tsx` attaches the listener in `useLayoutEffect`, inside the commit that shows the
+  dialog. A surface whose keys must work the instant it appears binds them in a layout effect.
+
+## A dialog opened again right after it closed sits under its own dimming
+
+- **Symptom** — the photo-format dialog (or any `DialogContent` / `SheetContent`) opens dimmed; a click on its button lands on the overlay and closes it. Seen adding photos one after another; an in-page `button.click()` in `e2e/library-images-render.spec.ts` had hidden it, a real Playwright click timed out with "dialog-overlay intercepts pointer events".
+- **Cause** — Radix portals the overlay and the box separately, each kept mounted until its own exit animation ends. The overlay's fade (150 ms) ended before the box's zoom (200 ms) or slide (300 ms); a reopen in that gap reused the box and mounted a NEW overlay, appended to `<body>` after it at the same z-index.
+- **Mitigation** — the overlays exit last: `data-[state=closed]:duration-300` in `ui/dialog.tsx`, `duration-[400ms]` in `ui/sheet.tsx`. Animations on one timeline end in order of their end times, so the order holds on any machine.
+- **Triggered by** — changing a dialog or sheet's exit duration; a new overlay/content pair.
+- **Removable when** — Radix renders a dialog's overlay and content in one portal.
+- **Commits** — the flaky-e2e touch PR of 2026-11-12.
+
+## The Playground's Explore tab shows a component gallery, or reloads the preview, instead of the deck being edited
+
+- **Symptom** — a phone reader edits, taps Explore, sees their slide, and a moment later the preview is rewritten: with the `actors` gallery, or with their own deck from the top after a blank. `e2e/playground-tab-switch.spec.ts` read a replaced document on WebKit (3 to 4 runs in 16).
+- **Cause** — two races on the switch. (1) The walk warmed up behind the editor at boot fetches a component plan; landing after the switch, it set Explore's source to the plan and called `freshRender`. (2) `reusableFrame` compared the draft with the text of the last render that had RESOLVED, one keystroke behind, read "another deck" and rewrote the frame.
+- **Mitigation** — `PlaygroundApp.tsx`: the warm-up runs with `{ warm: true }` and never renders; a switch that beats it waits for it (`warmWalkRef`) and then lands as if it had arrived first. The superseded-plan check and the kept draft are the entry "Explore at a narrow width" above (#3152), and the two compose: `startWalk` takes `{ warm, keepEditedDraft }`. `reusableFrame` treats a frame whose last render was the draft in Edit as still holding the draft. The spec's "a walk that warms up behind the editor" holds the plan fetch past the switch to make race (1) certain.
+- **Triggered by** — a new async step between boot and the first Explore; a new condition in `reusableFrame`.
+- **Removable when** — never; they are ordering rules.
+- **Commits** — the flaky-e2e touch PR of 2026-11-12.

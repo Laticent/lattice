@@ -502,3 +502,46 @@ describe('Architect chat — a refused Apply speaks on a deck that has had no tu
 		expect(screen.getByText(REFUSAL)).toBeTruthy();
 	});
 });
+
+// A reply lands into the thread as it is WHEN it lands, not as it was when Send was pressed. Apply and Discard
+// stay clickable while a reply streams in; the reply used to commit `[...history, reply]`, the thread from the
+// moment of Send, which put an applied edit back to unapplied (a second Apply then edits the deck twice) and
+// brought a discarded one back.
+describe('Architect chat — what the author did while a reply streamed in survives it', () => {
+	const PROPOSAL = [{ label: 'Slide 1', slide: 1, action: 'replace', raw: { action: 'replace', slide: 1, body: '# One, tighter' }, before: '# One', after: '# One, tighter', diff: [{ type: 'add', text: '# One, tighter' }] }];
+	const seed = () =>
+		saveChat('deck-1', [
+			{ role: 'user', content: 'tighten slide one' },
+			{ role: 'assistant', content: 'Here is a diff.', proposed: PROPOSAL },
+		]);
+
+	it('an edit applied mid-reply stays applied after the reply lands', async () => {
+		const user = userEvent.setup();
+		seed();
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredTurn(REPLY);
+		await sendOnce(user, 'and slide two?');
+		await user.click(screen.getByRole('button', { name: 'Apply' }));
+		expect(screen.getByText('Applied')).toBeTruthy();
+		await turn.release();
+		await flushFrames();
+		expect(screen.getByText(REPLY)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Apply' }), 'the reply put the applied edit back to unapplied').toBeNull();
+		const stored = loadChat('deck-1');
+		expect(stored.find((m) => m.content === 'Here is a diff.')?.applied).toBe(true);
+		expect(stored.at(-1)?.content).toBe(REPLY);
+	});
+
+	it('an edit discarded mid-reply stays discarded after the reply lands', async () => {
+		const user = userEvent.setup();
+		seed();
+		render(<ArchitectChat {...props} deckId="deck-1" />);
+		const turn = deferredTurn(REPLY);
+		await sendOnce(user, 'and slide two?');
+		await user.click(screen.getByRole('button', { name: 'Discard' }));
+		await turn.release();
+		await flushFrames();
+		expect(screen.queryByRole('button', { name: 'Apply' }), 'the reply brought the discarded edit back').toBeNull();
+		expect(loadChat('deck-1').find((m) => m.content === 'Here is a diff.')?.proposed).toBeUndefined();
+	});
+});

@@ -12,7 +12,8 @@
 // key — and assert the wrong render is never served. Without the confirmation every case here
 // fails by showing deck B the slide it rendered for deck A.
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadFramesOnWrite } from '@/test/frame-load';
 
 vi.mock('../lib/render-engine', () => ({ renderMarkdown: vi.fn() }));
 vi.mock('../lib/theme-fetch', () => ({
@@ -48,7 +49,10 @@ const htmlFor = (src: string) =>
 		.map((s, i) => `<section class="form" id="${i + 1}"><div class="cell-stage"><h1>${titleOf(s)}</h1></div></section>`)
 		.join('')}</article>`;
 
+// Each render waits for the previous write's frame to load; jsdom loads none (src/test/frame-load.ts).
+let restoreFrames: () => void = () => {};
 beforeEach(() => {
+	restoreFrames = loadFramesOnWrite();
 	class RO {
 		observe = vi.fn();
 		unobserve = vi.fn();
@@ -93,6 +97,8 @@ function fakeLiveDocument(host: HTMLElement): Document {
 	(host as HTMLElement & { __latticePendingLoad?: boolean }).__latticePendingLoad = false;
 	return doc;
 }
+
+afterEach(() => restoreFrames());
 
 describe('render caches — a colliding key does not serve another deck', () => {
 	it('the decks really do collide, so these tests test something', () => {

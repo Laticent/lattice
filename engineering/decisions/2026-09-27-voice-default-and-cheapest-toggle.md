@@ -5,6 +5,8 @@ summary: The Studio's voice defaults, re-decided on measured bills. Hosted Kokor
 
 # Voice defaults and the cheapest-voice switch
 
+> **Partly superseded 2026-11-07** by `2026-11-07-studio-model-spine.md`: the implicit desktop on-device default and "picking any cloud model disables on-device" are gone; the voice is a stored selection the author chooses. Hosted Kokoro as the cloud default and the cheapest-voice switch (the meaning of "no voice model chosen") stand.
+
 ## The ask
 
 The owner asked for three things (2026-09-27):

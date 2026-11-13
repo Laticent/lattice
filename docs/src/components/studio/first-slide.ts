@@ -67,6 +67,36 @@ export function afterFirstSlideAndPause(fn: () => void, quietMs = 3000): () => v
 	};
 }
 
+// THE QUIET GATE for work that must not land while someone is working — or while a tour types for them. Input
+// (pointer, key) and source edits (StudioShell calls `noteActivity` on every change, so a tour's programmatic typing
+// counts too) mark activity; `whenQuiet` resolves once none has happened for `quietMs`. The font warm-up (#3076) waits
+// on it before each file: measured on WebKit, the warm-up landing mid-tour starved the tour's frames (the
+// `demo-mobile.spec.ts` follow-the-typing case went from 4/4 to 1/3 passing). Re-armed with a timer, never polled.
+let lastActivity = Number.NEGATIVE_INFINITY;
+let watchingInput = false;
+
+/** Mark user (or tour) activity now. */
+export function noteActivity(): void {
+	lastActivity = performance.now();
+}
+
+/** Resolves once there has been no input and no source edit for `quietMs`. */
+export function whenQuiet(quietMs = 2000): Promise<void> {
+	if (!watchingInput && typeof window !== 'undefined') {
+		watchingInput = true;
+		window.addEventListener('pointerdown', noteActivity, { capture: true, passive: true });
+		window.addEventListener('keydown', noteActivity, { capture: true });
+	}
+	return new Promise<void>((resolve) => {
+		const check = () => {
+			const idle = performance.now() - lastActivity;
+			if (idle >= quietMs) resolve();
+			else window.setTimeout(check, quietMs - idle);
+		};
+		check();
+	});
+}
+
 /**
  * React hook over the gate: false until the first slide is on screen (or the backstop passes), then true for good.
  * A surface the first slide does not need uses it to mount after the slide instead of beside it.

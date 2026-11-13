@@ -43,6 +43,29 @@ test('meta-not-own-line: a record in a list item or a blockquote', () => {
   assert.match(f.fix, /outside the list or quote/);
 });
 
+test('a record is never machine-fixed as if it were a one-line directive comment', () => {
+  // `--fix` used to delete the whole record line for its `paginate` field, and the layout with it.
+  const src = deck('<!-- {layout=kpi, paginate=true} -->\n\n# One');
+  const f = core.lintTextWith(src, VOCAB).filter((x) => x.rule === 'paginate-comment-retired');
+  assert.equal(f.length, 1);
+  assert.equal(f[0].autofixable, undefined);
+  assert.match(f[0].message, /record's `paginate` field/);
+  assert.match(f[0].fix, /record/);
+  // With the cut's rule on, the record (the target form) is not "the old directive comment".
+  assert.deepEqual(rules(deck('<!-- {layout=kpi, footer="Q3"} -->\n\n# One'), { metaCut: true }), []);
+  assert.deepEqual(rules(deck('<!-- _class: kpi -->\n\n# One'), { metaCut: true }), ['1:legacy-directive-comment']);
+});
+
+test('a record in an HTML block inside a list item is reported once', () => {
+  assert.deepEqual(rules(deck('# One\n\n- point\n  <div>\n  <!-- {layout=kpi} -->')), ['1:meta-not-own-line']);
+});
+
+test('meta-not-own-line: a record indented under a list item, with no marker on its own line', () => {
+  // The engine reads it as part of the list item (an inert internal comment): the lint is the only word the author gets.
+  assert.deepEqual(rules(deck('# One\n\n- point\n  <!-- {layout=kpi} -->\n- more')), ['1:meta-not-own-line']);
+  assert.deepEqual(rules(deck('# One\n\n1. point\n\n   <!-- {layout=kpi} -->')), ['1:meta-not-own-line']);
+});
+
 test('meta-not-own-line near misses: the record on its own line after a list, and a record in a fence', () => {
   assert.deepEqual(rules(deck('# One\n\n- item\n\n<!-- {layout=kpi} -->')), []);
   assert.deepEqual(rules(deck('# One\n\n```md\n- <!-- {layout=kpi} -->\n<!--\n{layout=kpi}\n-->\n```')), []);
@@ -87,8 +110,8 @@ test('legacy-directive-comment is silent by default and fires with metaCut: true
   assert.equal(f.severity, 'warning');
   assert.match(f.message, /`_class:`/);
   assert.match(f.message, /planned cut/);
-  assert.match(f.fix, /becomes a record/);
-  assert.equal(f.autofixable, undefined, 'no machine fix before a record is readable (step 2)');
+  assert.match(f.fix, /lattice migrate meta/);
+  assert.equal(f.autofixable, undefined, 'the whole-deck codemod is the fix until the cut adds a per-finding one (step 6)');
 });
 
 test('legacy-directive-comment near misses with metaCut: a speaker note, a marker, a fenced example', () => {
@@ -128,4 +151,26 @@ test('meta-in-html-block: CommonMark block types 1, 3, 5 fold the record; a lone
 
 test('meta-opener-bare: a wrapped record under a bare opener is still caught', () => {
   assert.deepEqual(rules(deck('<!--\n{\nlayout=content\n} -->\n# A')), ['1:meta-opener-bare']);
+});
+
+// Step 3: what the door drops from a record it reads, and two class setters on one slide (the inversion's repro).
+test('meta-record names what the door drops; meta-class-overridden names the class a later comment replaces', () => {
+  const found = findMetaCommentIssues(deck('<!-- {layout=kpi, bogus=1} -->\n\n# A', '<!-- {layout=kpi\n-->\n\n# B'));
+  assert.deepEqual(found.map((f) => [f.slide, f.rule, f.classToken]), [[1, 'meta-record', 'meta-unknown-key'], [2, 'meta-record', 'unterminated-record']]);
+  const over = findMetaCommentIssues(deck('<!-- _class: kpi -->\n<!-- {headline=left} -->\n\n# A'));
+  assert.deepEqual(over.map((f) => [f.slide, f.rule]), [[1, 'meta-class-overridden']]);
+  assert.match(over[0].message, /`kpi` is dropped/);
+  // A record sharing its line with text or another comment is not read; the door's diagnostics are not reported for it.
+  assert.deepEqual(findMetaCommentIssues(deck('<!-- {layout=kpi, footer=x} --> trailing\n\n# A')).filter((f) => f.rule === 'meta-record'), []);
+  // A repeated register field is reported (it would write both words).
+  assert.deepEqual(findMetaCommentIssues(deck('<!-- {headline=left, headline=center} -->\n\n# A')).map((f) => f.classToken), ['meta-repeated-key']);
+  // One comment carrying every word is the fix, and is clean.
+  assert.deepEqual(findMetaCommentIssues(deck('<!-- {layout=kpi, headline=left} -->\n\n# A')), []);
+  // A running global `class:` and a spot `_class:` are two scopes, not a collision.
+  assert.deepEqual(findMetaCommentIssues(deck('<!-- class: kpi -->\n<!-- _class: kpi dark -->\n\n# A')), []);
+});
+
+test('a record holding a marker is still read, and a field set in two records of one slide is named (#3136, the red team)', () => {
+  const f = findMetaCommentIssues(deck('<!-- {stress-slide, footr=Q3} -->\n\n# One', '<!-- {footer=Q3} -->\n<!-- {footer=Q4} -->\n\n# Two'));
+  assert.deepEqual(f.map((x) => `${x.slide}:${x.rule}:${x.classToken}`), ['1:meta-record:meta-unknown-key', '2:meta-record:meta-repeated-key']);
 });

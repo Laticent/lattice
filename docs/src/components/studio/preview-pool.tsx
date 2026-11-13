@@ -718,7 +718,7 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 						const job = {
 							run: async () => {
 								// The capture code is its own chunk: every pool host loads this file, and only the slide map captures.
-								const { captureSlot, slotShows } = await import('./pool-capture');
+								const { captureSlot, slotShows, SCROLLED } = await import('./pool-capture');
 								// Still this tile with these props, and the frame itself shows them: true before the capture and after it.
 								const same = () => {
 									const now = slotsRef.current[index];
@@ -727,12 +727,22 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 								// A full write still loading is waited for (a few times), never captured.
 								if (!same() && tries++ < 8 && slotsRef.current[index]?.tileId === tileId && slotsRef.current[index]?.props === props) {
 									window.setTimeout(() => {
+										if (!alive.current) return resolve(null);
 										captureQueue.current.push(job);
 										drainCaptures();
 									}, 250);
 									return;
 								}
-								resolve(same() ? await captureSlot(slotEls.current.get(index), same) : null);
+								const got = same() ? await captureSlot(slotEls.current.get(index), same, () => Date.now() - lastScroll.current >= CAPTURE_QUIET_MS) : null;
+								// The reader scrolled while the capture code loaded: back to the front of the queue, which waits
+								// for the scroller to be quiet again before it runs anything.
+								if (got === SCROLLED) {
+									// A pool that is gone drains nothing: answer now, or the caller waits for good.
+									if (!alive.current) return resolve(null);
+									captureQueue.current.unshift(job);
+									return;
+								}
+								resolve(got);
 							},
 							cancel: () => resolve(null),
 						};

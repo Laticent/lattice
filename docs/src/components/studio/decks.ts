@@ -8,7 +8,6 @@
 export type StudioDeck = {
 	id: string;
 	title: string;
-	meta: string;
 	/** Per-slide source; joined with `\n\n---\n\n` for the engine. */
 	slides: string[];
 };
@@ -24,7 +23,6 @@ export const DECKS: StudioDeck[] = [
 		// declared title must BE that heading — it is only the seed/fallback for the
 		// index, and a drift test (studio-store.test.ts) fails if the two ever disagree.
 		title: 'Markdown for the boardroom',
-		meta: '7 slides',
 		slides: [
 			`<!-- _class: title -->\n\n# Markdown for the boardroom\n\n\`Lattice · A guided tour\`\n\nWrite plain text. Ship a deck with the taste built in.`,
 			`<!-- _class: big-number -->\n\n\`The whole idea\`\n\n- 0\n  - boxes to drag — you write Markdown, the engine designs the slide.`,
@@ -33,7 +31,7 @@ export const DECKS: StudioDeck[] = [
 			// shipped 61, and the landing page now points visitors straight at this
 			// deck, so a stale number here is a stale number on the conversion path.
 			// If that test fails, update the number here; don't relax the test.
-			`<!-- _class: stats -->\n\n\`What's in the box\`\n\n## Everything you need to ship, already designed.\n\n1. 79\n   - components\n2. 14\n   - themes\n3. 4\n   - export formats\n4. 1\n   - source file`,
+			`<!-- _class: stats -->\n\n\`What's in the box\`\n\n## Everything you need to ship, already designed.\n\n1. 80\n   - components\n2. 14\n   - themes\n3. 4\n   - export formats\n4. 1\n   - source file`,
 			`<!-- _class: cards-grid -->\n\n## Four moves to the boardroom.\n\n- Write.\n  - Plain Markdown: headings, lists, tables, even \`$math$\`.\n- Choose a component.\n  - One directive, and the engine composes the slide.\n- Render anywhere.\n  - One source: PDF, PowerPoint, HTML or PNG.\n- Restyle in a click.\n  - Swap the theme, and every slide re-skins at once.`,
 			`<!-- _class: split-compare -->\n\n\`Why Lattice\`\n\n## Drag-the-box tools vs. a deck that is already designed.\n\nBoth put pixels on a slide. Only one keeps its taste when the content changes.\n\n- Slide editors\n  - You place every box by hand\n  - Restyling means touching every slide\n  - Consistency depends on who edited last\n- Lattice\n  - You write; the engine composes\n  - One theme restyles every slide\n  - The design system holds the line\n\n> Write the substance; the engine handles the finish.`,
 			`<!-- _class: list-steps timeline -->\n\n## From keystroke to boardroom, in one pass.\n\n1. Write\n   - *Author the deck as plain Markdown in any editor.*\n2. Render\n   - *The engine lays out every slide in your theme.*\n3. Ship\n   - *Export to PDF, PowerPoint, HTML, or PNG — same source.*`,
@@ -43,7 +41,6 @@ export const DECKS: StudioDeck[] = [
 	{
 		id: 'q3-board',
 		title: 'Q3 Board Review',
-		meta: '6 slides',
 		slides: [
 			`<!-- _class: title -->\n\n# Q3 Board Review\n\n\`Board · Q3 2026\`\n\nSteady growth, disciplined spend.`,
 			`<!-- _class: agenda -->\n\n## What this review covers.\n\n1. The quarter in four numbers\n2. What customers told us\n3. How the funnel converted\n4. Where we invest next`,
@@ -56,7 +53,6 @@ export const DECKS: StudioDeck[] = [
 	{
 		id: 'product-strategy',
 		title: 'FY26 Product Strategy',
-		meta: '5 slides',
 		slides: [
 			`<!-- _class: title -->\n\n# FY26 Product Strategy\n\n\`Product · FY26\`\n\nThree bets, one platform.`,
 			`<!-- _class: agenda -->\n\n## The plan in four moves.\n\n1. Where the leverage is\n2. The three bets\n3. What we stop doing\n4. The one metric that matters`,

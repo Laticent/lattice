@@ -81,12 +81,13 @@ describe('render worker: behavior', { skip: skipWithoutChrome(CHROME) }, () => {
     assert.match(out.results[0].svg, /^<svg/);
   });
 
-  test('the two registrations have their EFFECT, not just their call site', () => {
+  test('zenuml and elk have their EFFECT, not just a call site', () => {
     // The drift gate above reads source text; this renders. Both are needed: text catches
     // a registration mermaid-cli ADDS that the worker never picks up, and only a render
-    // catches one that is present but inert. Each assertion below was checked against a
-    // worker with the registration removed — the first goes ok:false, the second collapses
-    // to byte-identical dagre output.
+    // catches one that is present but inert. The zenuml assertion was checked against a
+    // worker with its registration removed (it goes ok:false). Elk needs no registration
+    // since Mermaid 12, which carries it; the second assertion still pins that a deck's
+    // `layout: elk` reaches an elk drawing, against the engine's stated `layout: dagre`.
     const cfg = engineInitConfig({ fontFamily: '"Outfit", sans-serif', fontSize: '14px' });
     const FLOW_4 = 'flowchart TB\n  A["Alpha"] --> B["Beta"]\n  A --> C["Gamma"]\n  B --> D["Delta"]\n  C --> D';
     const out = runWorker([
@@ -96,13 +97,26 @@ describe('render worker: behavior', { skip: skipWithoutChrome(CHROME) }, () => {
     ]);
     assert.equal(out.results[0].ok, true,
       `registerExternalDiagrams is inert — zenuml did not render: ${out.results[0].error}`);
-    // ELK's silent failure mode is the dangerous one: an unregistered layout loader does
-    // not error, it renders as dagre and looks perfectly fine. The only observable is that
-    // the two layouts stop differing.
+    // ELK's silent failure mode is the dangerous one: a missing layout loader does not
+    // error, it renders as dagre and looks perfectly fine. The only observable is that the
+    // two layouts stop differing.
     assert.equal(out.results[1].ok && out.results[2].ok, true, 'both flowcharts must render');
     const body = (svg) => svg.split('</style>').pop();
     assert.notEqual(body(out.results[2].svg), body(out.results[1].svg),
-      'registerLayoutLoaders is inert — `layout: elk` produced byte-identical dagre output');
+      '`layout: elk` produced byte-identical dagre output — the elk loader is missing from the page');
+  });
+
+  test('a swimlane keeps its lanes under the engine\'s layout: dagre', () => {
+    // Mermaid 12's swimlane section defaults to `layout: swimlane`, and the engine's top-level
+    // `layout: dagre` beat that default, stacking the lanes into one tall dagre tree (viewBox
+    // 177x268 where the lanes draw 391x139). The red-team pass on the 12 bump; the engine now
+    // states `swimlane.layout`. Lanes run side by side, so the drawing is wider than tall.
+    const cfg = engineInitConfig({ fontFamily: '"Outfit", sans-serif', fontSize: '14px' });
+    const SW = 'swimlane-beta TB\n  subgraph L1[Lane 1]\n    A[Start]\n  end\n  subgraph L2[Lane 2]\n    B[End]\n  end\n  A-->B';
+    const out = runWorker([{ definition: SW, config: cfg }]);
+    assert.equal(out.results[0].ok, true, `the swimlane did not render: ${out.results[0].error}`);
+    const [, , w, h] = /viewBox="([-\d.]+) ([-\d.]+) ([\d.]+) ([\d.]+)"/.exec(out.results[0].svg).slice(1).map(Number);
+    assert.ok(w > h, `the lanes collapsed into a tree: viewBox ${w}x${h}`);
   });
 
   test('config does not leak between diagrams in the shared page', () => {

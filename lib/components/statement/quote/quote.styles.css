@@ -21,7 +21,9 @@ section.quote blockquote {
 section.quote blockquote::before { content:'\201C'; font-family:var(--font-display); font-size:var(--fs-h1); color:var(--text-muted); line-height:0.8; display:block; padding-bottom:var(--sp-xs); }
 section.quote blockquote::after  { content:'\201D'; font-family:var(--font-display); font-size:var(--fs-h1); color:var(--text-muted); line-height:0.8; display:block; text-align:right; padding-top:var(--sp-xs); }
 section.quote blockquote p { font-family:var(--font-display); font-size:var(--fs-message); font-style:italic; color:var(--text-heading); line-height:var(--lh-snug); margin:0; text-align:center; }
-section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-meta); line-height:var(--lh-snug); color:var(--text-secondary); text-align:center; }
+/* The credit in tracked capitals: in the body sans at meta size it matched the chart labels
+ * and the footer's case, and capitals are the axis that sets it apart (type-hierarchy-study §8, §10). */
+section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-meta); line-height:var(--lh-snug); letter-spacing:0.1em; text-transform:uppercase; color:var(--text-secondary); text-align:center; }
 
 /* ── bare — no card, no quotation-mark glyphs: a plain display-scale
  * statement (a hook / cold-open line), not a sourced quotation. Keeps the

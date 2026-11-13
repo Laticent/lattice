@@ -36,7 +36,7 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 
 ### Common mistakes
 
-- **Writing plain image syntax `![alt](path)` instead of Marp background syntax `![bg](path)`.** The `image` slot renders the asset as a CSS background on `.lattice-bg` (no `<img>`) — without `bg` in the alt text the picture never becomes the section's background, and no composition can resolve around it.
+- **Giving the photo a second lone picture, or putting Marp's side keywords in its alt (`![bg left](path)`).** The photo is the slide's ONE lone picture: `![A name](path "A longer description")` alone on its line, or `@image{path, title="…"}`. The slide places it on its panel, and `mirror` moves it to the left. A second lone picture, or a `![bg]` or record already on the slide, keeps the other picture in the text, and an `http:` address is not placed (use `https:`). `![bg]` still renders until the deck sweep moves it to the slide's class.
 - **Naming a composition class (`image spotlight`, `image gallery`, …) reflexively instead of leaving it unset.** The composition RESOLVES from the photo's own aspect ratio plus the deck orientation — an explicit class always wins over the resolver, so naming one out of habit can force a crop (e.g. `spotlight`'s full-bleed cover) that the auto-picked `clean`/`split` composition would have avoided.
 - **Adding a card control (`at-*`, `card-*`, `ink-*`) to a `clean`, `split` or `gallery` slide.** Those compositions set the text beside the photo, not over it, so there is no card to move. The card controls act only on `spotlight` and `statement` — name one of those first: `image spotlight at-tr card-sm`.
 
@@ -431,6 +431,20 @@ In a deck that sets `image-card: bottom band`, this slide keeps the floating car
 
 ![bg](sample:photo-wide.svg)
 ```
+
+## Media inside
+
+The `image` slide makes its one picture the photo panel and picks the composition from the photo's shape (`mirror` puts it on the left). A finish, a tone and `focus=` apply to the panel; it has no frame and no size of its own, because the panel runs to the composition's edges. A `@image{…}` record becomes the layout's picture panel.
+
+| Setting | Here |
+|---|---|
+| size (`sm` `md` `lg`) | decided by the layout; the record's word is ignored |
+| frame | decided by the layout; the record's word is ignored |
+| finish | the record's word |
+| tone | the record's word |
+| `show=` (the words on the slide) | `show=none`, whatever the record says |
+
+The words themselves (the address, `title`, `description`) are always the author's: a layout may hide or restyle them, never change them. Hidden words still reach a screen reader, the tooltip, the print notes and narration. Design: `engineering/decisions/2026-10-16-media-plugins.md` §4.7.
 
 ## Universal modifiers
 

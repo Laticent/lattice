@@ -122,6 +122,17 @@ describe('cli', { concurrency: true }, () => {
     assert.doesNotMatch(r.stderr, /at .+\.js:\d+/, 'stderr should not contain a stack trace');
   });
 
+  // Renamed 2026-11-09 before any release shipped it. Named like --strip-captions above, so a script
+  // still passing it learns the new flag instead of reading a bare "unknown option".
+  test('lattice: renamed --fonts exits 1 and names --font-embedding, in both forms', async () => {
+    for (const args of [['--fonts', 'system'], ['--fonts=system']]) {
+      const r = await run(EMULATOR, ['deck.md', 'out.html', ...args]);
+      assert.equal(r.status, 1);
+      assert.match(r.stderr, /--fonts was renamed — use --font-embedding/);
+      assert.doesNotMatch(r.stderr, /at .+\.js:\d+/, 'stderr should not contain a stack trace');
+    }
+  });
+
   test('lattice: --palette without value exits 1', async () => {
     const r = await run(EMULATOR, ['deck.md', 'out.pdf', '--palette']);
     assert.equal(r.status, 1);

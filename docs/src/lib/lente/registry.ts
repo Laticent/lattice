@@ -9,9 +9,25 @@ import { FULL_LENS_ID, type LensBase, type LensDef, type LensKind, type LensRegi
 
 // Capture greedily and trim in code — a `\s*(.+?)\s*$` shape backtracks polynomially on trailing
 // whitespace (CodeQL js/polynomial-redos); a single greedy group does not.
-const DEFAULT_SCALAR_RE = /^\s*lens-default:(.*)$/;
-const DEFAULTS_OFF_RE = /^\s*lens-defaults:\s*off\s*$/;
-const HEADER_RE = /^\s*lenses:\s*$/;
+const DEFAULT_SCALAR_RE = /^([ \t]*)lens-default[ \t]*:(.*)$/;
+const DEFAULTS_RE = /^([ \t]*)lens-defaults[ \t]*:(.*)$/;
+const DEFAULTS_OFF_RE = /^\s*lens-defaults[ \t]*:\s*off\s*$/;
+const HEADER_RE = /^([ \t]*)lenses[ \t]*:\s*$/;
+
+/** The line of a repeated key that counts, as Lattice reads every front-matter key (Lattice #3050, D1): the
+ *  LAST column-0 match, and only when the key is nowhere at column 0, the first indented one. `re`'s group 1
+ *  is the indent. Returns the line's index, or -1. */
+function pickLine(lines: string[], re: RegExp): number {
+	let top = -1;
+	let first = -1;
+	for (let i = 0; i < lines.length; i++) {
+		const m = re.exec(lines[i]);
+		if (!m) continue;
+		if (first < 0) first = i;
+		if (m[1] === '') top = i;
+	}
+	return top >= 0 ? top : first;
+}
 const CHILD_RE = /^(\s+)([A-Za-z0-9_-]+):\s*\{(.*)\}\s*$/;
 const INDENTED_RE = /^\s+\S/;
 
@@ -89,10 +105,11 @@ function parseInlineMap(id: string, body: string): ParsedEntry {
 /** Read every `id: { … }` child under the `lenses:` header. Returns entries in document order. */
 function parseEntries(lines: string[]): ParsedEntry[] {
 	const entries: ParsedEntry[] = [];
-	let inBlock = false;
-	for (const line of lines) {
-		if (HEADER_RE.test(line)) { inBlock = true; continue; }
-		if (!inBlock) continue;
+	// The LAST `lenses:` header is the block: a repeated key reads as its last block, as the engine and
+	// js-yaml read it (Lattice #3050, D1).
+	const header = pickLine(lines, HEADER_RE);
+	if (header < 0) return entries;
+	for (const line of lines.slice(header + 1)) {
 		if (!INDENTED_RE.test(line)) { if (line.trim() === '') continue; break; } // block ends at first non-indented, non-blank line
 		const m = CHILD_RE.exec(line);
 		if (m) entries.push(parseInlineMap(m[2], m[3]));
@@ -130,9 +147,12 @@ const FULL_DEF: LensDef = { id: FULL_LENS_ID, label: 'Full deck', base: 'all' };
  *  present at index 0 and can never be dropped. */
 export function parseLensRegistry(frontMatter: string, workspace?: WorkspaceLensConfig): LensRegistry {
 	const lines = String(frontMatter ?? '').split(/\r?\n/);
-	const defaultsOff = lines.some((l) => DEFAULTS_OFF_RE.test(l));
-	const defaultLine = lines.map((l) => DEFAULT_SCALAR_RE.exec(l)).find(Boolean);
-	const deckDefault = defaultLine ? stripQuotes(defaultLine[1].trim()) : undefined;
+	// The line that counts, not any line: `lens-defaults: off` then `lens-defaults: on` keeps the defaults (#3050, D1).
+	const offAt = pickLine(lines, DEFAULTS_RE);
+	const defaultsOff = offAt >= 0 && DEFAULTS_OFF_RE.test(lines[offAt]);
+	const defaultAt = pickLine(lines, DEFAULT_SCALAR_RE);
+	const defaultLine = defaultAt >= 0 ? DEFAULT_SCALAR_RE.exec(lines[defaultAt]) : null;
+	const deckDefault = defaultLine ? stripQuotes(defaultLine[2].trim()) : undefined;
 
 	// Merge order preserved via a Map keyed by id; workspace first, then per-deck overrides. `full` is
 	// implicit + un-removable (prepended below), so a workspace that mis-defines an `id: full` lens is

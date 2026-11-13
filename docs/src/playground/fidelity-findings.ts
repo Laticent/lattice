@@ -30,7 +30,7 @@ export type FidelityReport = {
 	/** Names of the DECK_DERIVED_FACTS that forced the whole-deck render. Empty on the slice path. */
 	facts: string[];
 	/** The deck position handed to the engine, when one was trusted enough to supply. */
-	page?: { offset: number; total?: number; deckSection?: { index: number; total: number } };
+	page?: { offset: number; total?: number; deckSection?: { index: number; total: number; slides?: number } };
 	/** Present but untrusted position — the render fell back to an honest "1 of 1". */
 	positionWithheld?: boolean;
 	at: number;

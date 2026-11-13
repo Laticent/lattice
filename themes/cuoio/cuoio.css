@@ -102,7 +102,11 @@
   /* ── Ink ramp ──────────────────────────────────────────────────────── */
   --text-display: #FAF7F2;      /* on dark surfaces — 16.19:1 on bg-dark         */
   --text-heading: light-dark(var(--brand-canvas), var(--scheme-dark-text-heading)); /* 16.19:1 / 17.58:1 */
-  --text-body:    light-dark(#6B5D4F, var(--scheme-dark-text-body));   /* 5.95:1 / 11.02:1 AA  */
+  /* LIFTED 2026-11-09 (type hierarchy study §9): body, secondary and muted sat at 5.95, 5.05 and
+   * 5.07:1, one ink to the eye, so nothing but the face told a bullet from the footer. Body and
+   * secondary moved in OKLCH lightness only (hue and chroma held) to 8.5 and 6.5:1, a 1.3x step
+   * at each rung down to muted, which did not move (the chrome's ink stays where it was). */
+  --text-body:    light-dark(#544639, var(--scheme-dark-text-body));   /* 8.50:1 (7.80 on bg-alt) / 11.02:1 AA */
   /* ACCENT-HUED, which it had stopped being. --text-label is emphasis: design/theming.md
    * calls it "accent-hued labels / kickers", and on palettes with chroma to spare it is
    * separated from body by HUE rather than by a lightness step. cuoio had neither. The
@@ -112,7 +116,7 @@
    * 0.122. Both arms are the accent now (C 0.094 / 0.122), which clears AA on --bg and
    * --bg-alt on both canvases without repair. */
   --text-label:   light-dark(var(--brand-accent), var(--scheme-dark-text-label));  /* 5.47:1 / 7.05:1 AA */
-  --text-secondary: light-dark(#75685C, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — AA on bg + bg-alt both sides */
+  --text-secondary: light-dark(#64574C, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — 6.53:1 (6.00 on bg-alt) */
   --text-muted:   light-dark(#766854, var(--scheme-dark-text-muted));      /* de-emphasized TEXT — AA on --bg and --bg-alt (#1715) */
   --muted-mark:   light-dark(#92856F, var(--scheme-dark-muted-mark));   /* de-emphasized DECORATION — rules, hairlines, empty/skipped marks, glyph washes. 3:1 graphical, no text floor (#1715) */
 
@@ -267,7 +271,7 @@
   --scheme-dark-text-body:    #D6C4A8;  /* warm tan — 11.02:1 on dark-bg AAA     */
   --scheme-dark-text-muted:   #A69882;
   --scheme-dark-muted-mark:   #A69882;
-  --scheme-dark-text-secondary: #AB9C85;
+  --scheme-dark-text-secondary: #BCAC95;  /* 8.47:1 on dark-bg, 7.80 on dark bg-alt; lifted from #AB9C85, which sat 1.05x above muted */
   --scheme-dark-text-label:   #C8A040;  /* saddle gold (= --accent) — 7.05:1 AA   */
   --scheme-dark-text-display: #FAF7F2;
 }
@@ -477,9 +481,9 @@
    * is a light-dark() pair. Do not hand-edit: `npm run build` regenerates over it.
    * Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
   --heatmap-step1: 18%;
-  --heatmap-step1-ink: light-dark(#5F5143, #D6C4A8);
+  --heatmap-step1-ink: light-dark(#544639, #D6C4A8);
   --heatmap-step2: 36.5%;
-  --heatmap-step2-ink: light-dark(#4C3E31, #DCCAAD);
+  --heatmap-step2-ink: light-dark(#4C3E32, #DCCAAD);
   --heatmap-step3: 55%;
   --heatmap-step3-ink: light-dark(#36291D, #FFF9EE);
   --heatmap-step4: 73.5%;

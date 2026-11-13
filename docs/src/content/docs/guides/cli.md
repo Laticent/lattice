@@ -43,6 +43,10 @@ install it globally with `npm install -g @laticent/lattice` and type `lattice`):
 the unscoped `lattice` package on npm belongs to someone else, so a bare
 `npx lattice` in an empty folder downloads that package instead.
 
+Installed, the command also answers to `lat`, for less typing: `lat deck.md deck.pdf`.
+The same caution applies, since `lat` on npm is someone else's package too. Type `lat`
+after an install, never `npx lat` in a folder without Lattice.
+
 To check it works, ask for the version:
 
 ```sh
@@ -326,7 +330,11 @@ A plain HTML comment on a slide is that slide's speaker note:
 <!-- Open with the one number that matters. -->
 ```
 
-Notes ride inside every PDF, hidden. Three switches change that:
+Notes stay in by default, so you can present your own file from any computer.
+They ride inside every PDF (hidden), the PowerPoint notes pane, and the web page
+and player. Anyone you send the file to can read them, so every export that
+keeps notes says so on the console and names `--strip-notes`. Three switches
+change what ships:
 
 ```sh
 # Write the notes to deck.notes.txt as well

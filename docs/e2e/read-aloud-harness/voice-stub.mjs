@@ -36,7 +36,7 @@ export function createVoiceModel() {
     },
     speakThis: async () => {}, rung: () => 'openrouter-tts', unlock(){}, warm(){}, stop(){}, pause(){}, resume(){},
     availability: () => ({ rung:'openrouter-tts', openRouterReady:true, kokoroReady:false, kokoroCached:false, kokoroSupported:false, webgpu:false, speechAllowed:false }),
-    orModel:()=>'m', orVoice:()=>(globalThis.__VOICE ?? 'v'), kokoroVoice:()=>'kv', speedPref:()=>1, audioTimeMs:()=>0, audioState:()=>'none', outputLatencyMs:()=>0,
+    orModel:()=>'m', orVoice:()=>(globalThis.__VOICE ?? 'v'), kokoroVoice:()=>'kv', voiceForRung:(n)=>(n==='kokoro'?'kv':(globalThis.__VOICE ?? 'v')), modelForRung:()=>'m', speedPref:()=>1, audioTimeMs:()=>0, audioState:()=>'none', outputLatencyMs:()=>0,
     setOrVoice(){},setOrModel(){},setKokoroVoice(){},setSpeed(){}, previewVoice: async()=>({ok:true}), loadKokoro: async()=>false, probeKokoroCache: async()=>false, kokoroSupported:()=>false };
 }
 export function listOpenRouterVoiceModels(){ return Promise.resolve([]); }

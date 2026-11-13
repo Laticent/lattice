@@ -6,7 +6,7 @@
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 616320,
+	"bytes": 722304,
 	"lines": [
 		{
 			"key": "5c17444a73e0",
@@ -289,6 +289,260 @@
 					}
 				],
 				"durationMs": 5357
+			}
+		},
+		{
+			"key": "abdf327ae7f7",
+			"text": "This is where you write, the way you would in any document. Type a hash and a space to make a heading. Each line across the page starts a new slide.",
+			"file": "abdf327ae7f7.mp3",
+			"bytes": 55152,
+			"speechMs": 9124,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "This is where you write, the way you would in any document.",
+						"words": [
+							{
+								"display": "This",
+								"spoken": "This",
+								"startMs": 0,
+								"endMs": 204,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 204,
+								"endMs": 407,
+								"charOffset": 5
+							},
+							{
+								"display": "where",
+								"spoken": "where",
+								"startMs": 407,
+								"endMs": 611,
+								"charOffset": 8
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 611,
+								"endMs": 815,
+								"charOffset": 14
+							},
+							{
+								"display": "write,",
+								"spoken": "write,",
+								"startMs": 815,
+								"endMs": 1048,
+								"charOffset": 18
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1247,
+								"endMs": 1450,
+								"charOffset": 25
+							},
+							{
+								"display": "way",
+								"spoken": "way",
+								"startMs": 1450,
+								"endMs": 1654,
+								"charOffset": 29
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 1654,
+								"endMs": 1858,
+								"charOffset": 33
+							},
+							{
+								"display": "would",
+								"spoken": "would",
+								"startMs": 1858,
+								"endMs": 2061,
+								"charOffset": 37
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 2061,
+								"endMs": 2265,
+								"charOffset": 43
+							},
+							{
+								"display": "any",
+								"spoken": "any",
+								"startMs": 2265,
+								"endMs": 2672,
+								"charOffset": 46
+							},
+							{
+								"display": "document.",
+								"spoken": "document.",
+								"startMs": 2672,
+								"endMs": 3313,
+								"charOffset": 50
+							}
+						],
+						"startMs": 0,
+						"endMs": 3695,
+						"charOffset": 0
+					},
+					{
+						"display": "Type a hash and a space to make a heading.",
+						"words": [
+							{
+								"display": "Type",
+								"spoken": "Type",
+								"startMs": 3859,
+								"endMs": 4063,
+								"charOffset": 60
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 4063,
+								"endMs": 4266,
+								"charOffset": 65
+							},
+							{
+								"display": "hash",
+								"spoken": "hash",
+								"startMs": 4266,
+								"endMs": 4470,
+								"charOffset": 67
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 4470,
+								"endMs": 4674,
+								"charOffset": 72
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 4674,
+								"endMs": 4877,
+								"charOffset": 76
+							},
+							{
+								"display": "space",
+								"spoken": "space",
+								"startMs": 4877,
+								"endMs": 5081,
+								"charOffset": 78
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 5081,
+								"endMs": 5285,
+								"charOffset": 84
+							},
+							{
+								"display": "make",
+								"spoken": "make",
+								"startMs": 5285,
+								"endMs": 5488,
+								"charOffset": 87
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 5488,
+								"endMs": 5692,
+								"charOffset": 92
+							},
+							{
+								"display": "heading.",
+								"spoken": "heading.",
+								"startMs": 5692,
+								"endMs": 6129,
+								"charOffset": 94
+							}
+						],
+						"startMs": 3859,
+						"endMs": 6511,
+						"charOffset": 60
+					},
+					{
+						"display": "Each line across the page starts a new slide.",
+						"words": [
+							{
+								"display": "Each",
+								"spoken": "Each",
+								"startMs": 6675,
+								"endMs": 6879,
+								"charOffset": 103
+							},
+							{
+								"display": "line",
+								"spoken": "line",
+								"startMs": 6879,
+								"endMs": 7083,
+								"charOffset": 108
+							},
+							{
+								"display": "across",
+								"spoken": "across",
+								"startMs": 7083,
+								"endMs": 7490,
+								"charOffset": 113
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 7490,
+								"endMs": 7694,
+								"charOffset": 120
+							},
+							{
+								"display": "page",
+								"spoken": "page",
+								"startMs": 7694,
+								"endMs": 7897,
+								"charOffset": 124
+							},
+							{
+								"display": "starts",
+								"spoken": "starts",
+								"startMs": 7897,
+								"endMs": 8101,
+								"charOffset": 129
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 8101,
+								"endMs": 8304,
+								"charOffset": 136
+							},
+							{
+								"display": "new",
+								"spoken": "new",
+								"startMs": 8304,
+								"endMs": 8508,
+								"charOffset": 138
+							},
+							{
+								"display": "slide.",
+								"spoken": "slide.",
+								"startMs": 8508,
+								"endMs": 8742,
+								"charOffset": 142
+							}
+						],
+						"startMs": 6675,
+						"endMs": 9124,
+						"charOffset": 103
+					}
+				],
+				"durationMs": 9124
 			}
 		},
 		{
@@ -1031,6 +1285,197 @@
 					}
 				],
 				"durationMs": 9572
+			}
+		},
+		{
+			"key": "e7e7448d4f29",
+			"text": "Want the Markdown itself? Source shows the same deck as plain text, for full control. Switch between the two whenever you like.",
+			"file": "e7e7448d4f29.mp3",
+			"bytes": 50832,
+			"speechMs": 8410,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Want the Markdown itself?",
+						"words": [
+							{
+								"display": "Want",
+								"spoken": "Want",
+								"startMs": 0,
+								"endMs": 229,
+								"charOffset": 0
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 229,
+								"endMs": 457,
+								"charOffset": 5
+							},
+							{
+								"display": "Markdown",
+								"spoken": "Markdown",
+								"startMs": 457,
+								"endMs": 914,
+								"charOffset": 9
+							},
+							{
+								"display": "itself?",
+								"spoken": "itself?",
+								"startMs": 914,
+								"endMs": 1404,
+								"charOffset": 18
+							}
+						],
+						"startMs": 0,
+						"endMs": 1834,
+						"charOffset": 0
+					},
+					{
+						"display": "Source shows the same deck as plain text, for full control.",
+						"words": [
+							{
+								"display": "Source",
+								"spoken": "Source",
+								"startMs": 2018,
+								"endMs": 2246,
+								"charOffset": 26
+							},
+							{
+								"display": "shows",
+								"spoken": "shows",
+								"startMs": 2246,
+								"endMs": 2475,
+								"charOffset": 33
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2475,
+								"endMs": 2703,
+								"charOffset": 39
+							},
+							{
+								"display": "same",
+								"spoken": "same",
+								"startMs": 2703,
+								"endMs": 2932,
+								"charOffset": 43
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 2932,
+								"endMs": 3160,
+								"charOffset": 48
+							},
+							{
+								"display": "as",
+								"spoken": "as",
+								"startMs": 3160,
+								"endMs": 3389,
+								"charOffset": 53
+							},
+							{
+								"display": "plain",
+								"spoken": "plain",
+								"startMs": 3389,
+								"endMs": 3617,
+								"charOffset": 56
+							},
+							{
+								"display": "text,",
+								"spoken": "text,",
+								"startMs": 3617,
+								"endMs": 3879,
+								"charOffset": 62
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 4102,
+								"endMs": 4330,
+								"charOffset": 68
+							},
+							{
+								"display": "full",
+								"spoken": "full",
+								"startMs": 4330,
+								"endMs": 4559,
+								"charOffset": 72
+							},
+							{
+								"display": "control.",
+								"spoken": "control.",
+								"startMs": 4559,
+								"endMs": 5049,
+								"charOffset": 77
+							}
+						],
+						"startMs": 2018,
+						"endMs": 5478,
+						"charOffset": 26
+					},
+					{
+						"display": "Switch between the two whenever you like.",
+						"words": [
+							{
+								"display": "Switch",
+								"spoken": "Switch",
+								"startMs": 5662,
+								"endMs": 5891,
+								"charOffset": 86
+							},
+							{
+								"display": "between",
+								"spoken": "between",
+								"startMs": 5891,
+								"endMs": 6348,
+								"charOffset": 93
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 6348,
+								"endMs": 6576,
+								"charOffset": 101
+							},
+							{
+								"display": "two",
+								"spoken": "two",
+								"startMs": 6576,
+								"endMs": 6805,
+								"charOffset": 105
+							},
+							{
+								"display": "whenever",
+								"spoken": "whenever",
+								"startMs": 6805,
+								"endMs": 7490,
+								"charOffset": 109
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 7490,
+								"endMs": 7719,
+								"charOffset": 118
+							},
+							{
+								"display": "like.",
+								"spoken": "like.",
+								"startMs": 7719,
+								"endMs": 7981,
+								"charOffset": 122
+							}
+						],
+						"startMs": 5662,
+						"endMs": 8410,
+						"charOffset": 86
+					}
+				],
+				"durationMs": 8410
 			}
 		},
 		{

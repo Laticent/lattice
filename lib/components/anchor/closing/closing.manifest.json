@@ -20,7 +20,7 @@
     "board-deck"
   ],
   "description": "Final slide. Dark canvas mirror of title.",
-  "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals \"we're done.\" Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out.",
+  "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Drops the page number and keeps the deck's header and footer, by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md) — the dark canvas signals \"we're done.\" Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out.",
   "variants": [
     "qr",
     "index",
@@ -43,7 +43,7 @@
       "description": "Optional supporting line. Capped at `--measure-bookend-lede` (26em ≈ 56 characters) — a reading measure, so a two-clause sign-off holds together instead of running the frame's ~90 characters. A trailing list's rows take the same measure."
     }
   },
-  "skeleton": "<!-- _class: closing -->\n<!-- _header: '' -->\n<!-- _footer: '' -->\n\n## Closing takeaway or call to action\n\n`Optional eyebrow`\n",
+  "skeleton": "<!-- _class: closing -->\n\n## Closing takeaway or call to action\n\n`Optional eyebrow`\n",
   "anatomyBlock": "closing-bookend",
   "sample": "<!-- _class: closing silent -->\n\n## The closing mirrors the title — dark canvas, one last claim.\n\n`anchor · closing`\n",
   "whenToUse": [
@@ -67,7 +67,7 @@
     },
     {
       "title": "Header or footer overrides",
-      "body": "Don't reinstate `_header:` or `_footer:` on the closing. The dark canvas is the \"we're done\" signal; chrome breaks it. Use the `silent` modifier to suppress all three in one token."
+      "body": "Don't blank the footer with `_footer: ''` on the closing: it is the deck's standing note (a \"Confidential\", a copyright), and the last slide is often the one left on screen. Drop it on purpose with `no-footer`, or every band with `silent`."
     },
     {
       "title": "Mid-deck closing",
@@ -91,7 +91,7 @@
   "commonMistakes": [
     {
       "mistake": "Eyebrow written as bold or plain text instead of inline code.",
-      "fix": "The eyebrow match is `h2 + p:has(> code:only-child)` — wrap it in backticks immediately after the heading; without the code span it falls through to the general italic subtitle rule instead of the uppercase mono eyebrow lifted above the heading."
+      "fix": "The eyebrow match is `h2 + p:has(> code:only-child)` — wrap it in backticks immediately after the heading; without the code span it falls through to the general italic subtitle rule instead of the eyebrow lifted above the heading."
     },
     {
       "mistake": "The subtitle paragraph is authored before the eyebrow paragraph instead of after it.",

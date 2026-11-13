@@ -44,6 +44,7 @@ const ratchet = require('./lib/fit-harness/ratchet');
 const { fitSources } = require('./lib/fit-harness/sources');
 const chains = require('./lib/fit-harness/chains');
 const { spawn } = require('node:child_process');
+const { pool } = require('./lib/pool');
 const { EDITS, slidesOf } = require('./lib/fit-harness/perturb.js');
 const { PAGE_SRC } = require('./lib/fit-harness/page.js');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, FRAME_TOLERANCE } = require('../lib/core/overflow-probe');
@@ -140,11 +141,6 @@ function run(cmd, args) {
     p.stderr.on('data', (d) => { err += d; });
     p.on('close', (code) => resolve({ code, err }));
   });
-}
-async function pool(items, n, fn) {
-  const queue = [...items];
-  const workers = Array.from({ length: n }, async () => { while (queue.length) await fn(queue.shift()); });
-  await Promise.all(workers);
 }
 
 /** Leaves of the source not found on any page, counted as a multiset of exact strings. */

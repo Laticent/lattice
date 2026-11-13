@@ -68,7 +68,7 @@ export function iconInsertion(before: string, name: string, after = ''): CaretEd
 		const closed = /^[a-z0-9-]*\}/i.test(after);
 		return { back: partial[1].length, text: closed ? name : `${name}}` };
 	}
-	// The innermost `{` left open since the span began, and not a spark's `~{` or an icon's own `^{`.
+	// The innermost `{` left open since the span began, and not a tagged record's (`~{`, `^{`, `!{`, a video's `>{`).
 	let depth = 0;
 	let open = -1;
 	for (let i = before.length - 1; i > codeStart; i--) {
@@ -82,7 +82,7 @@ export function iconInsertion(before: string, name: string, after = ''): CaretEd
 			depth--;
 		}
 	}
-	if (inCode && open > codeStart && !/[~^!]$/.test(before.slice(0, open))) {
+	if (inCode && open > codeStart && !/[~^!>]$/.test(before.slice(0, open))) {
 		const inside = before.slice(open + 1);
 		// `{` → nothing; `{S3, ` → nothing; `{S3,` → a space; `{S3` → a comma and a space.
 		const sep = !inside.trim() || /,\s+$/.test(inside) ? '' : /,$/.test(inside) ? ' ' : ', ';

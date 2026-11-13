@@ -222,7 +222,9 @@ export async function projectDeckArticle(
 	// `styles: 'flat'` — this view shows slide content OUTSIDE a slide, which is the flat
 	// mode's whole definition (2026-09-24-one-style-delivery-spine.md §4.1). `render.css` stays
 	// the scoped shape for the diagram bake's capture frame.
-	const built = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss, 'flat');
+	// `'live'`: the Reading view is this tab's own page, so its photos load from the Studio's `blob:` URLs, as the
+	// preview's do, instead of a 32.8 MB `data:` document for 18 phone photos.
+	const built = await buildDeckRender(options, source, palette, mode, extraTheme, extraCss, 'flat', 'live');
 	// WEB IMAGES (trio follow-up 11). This view renders in the Studio's OWN page, which carries no
 	// content-security policy, so the deck's web images, web `url()`s and web fonts would load here
 	// whatever the reader chose (`fonts: true`: no `font-src` refuses a font here either). Rewritten three times: the render before the bake, the flat CSS the page

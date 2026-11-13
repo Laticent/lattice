@@ -161,6 +161,154 @@ theme: indaco
 		assert.ok(hits.length > 0, 'the probe cannot see a beacon even when one fires, so every arm above is vacuous');
 	});
 
+	// MEDIA-SRC AND CONNECT-SRC, counted at a real socket (#2024). The arms above drive `img-src`
+	// only. Under `--allow-remote` the export keeps a deck's raw `<video>`/`<audio>`/`<source>`
+	// addresses, and its live `.html` carries the shared policy ALONE — no `default-src` behind it,
+	// unlike the plain export's load lock (lib/core/export-load-lock.js) — so `media-src` and
+	// `connect-src` in lib/core/subresource-csp.mjs are the only thing between the deck and the
+	// network. The deck's own `<script>` stays live in that file by design (theme-css note § 10),
+	// so it can issue every connect-src fetch an attacker would reach for.
+	//
+	// NO SLEEP, in either direction (HARD RULE #32). The contained arm waits for one
+	// `securitypolicyviolation` per vector, which the browser fires instead of sending the request,
+	// so once all have fired every listed vector has been refused and its zero count is final (a request
+	// outside the list could still be in flight, so the violations are the proof, the zero backs them). The control
+	// waits for the server to see every path. The server listens on port 0 and counts TCP
+	// connections, so a request the HTTP parser never reaches still counts.
+	const MEDIA_VECTORS = ['/video.mp4', '/audio.mp3', '/source.mp4'];
+	const CONNECT_VECTORS = ['/fetch', '/xhr', '/ws', '/sse', '/beacon'];
+
+	async function withSocketServer(fn) {
+		const seen = [];
+		let connections = 0;
+		const waiters = [];
+		const note = (p) => { seen.push(p); for (const w of waiters) w(); };
+		const server = http.createServer((req, res) => { note(req.url); res.writeHead(204); res.end(); });
+		server.on('connection', () => { connections++; });
+		server.on('upgrade', (req, sock) => { note(req.url); sock.destroy(); });
+		await new Promise((res) => server.listen(0, '127.0.0.1', res));
+		const { port } = server.address();
+		const counts = {
+			get connections() { return connections; },
+			seen,
+			reset() { connections = 0; seen.length = 0; },
+			/** Resolve once every path has arrived; a hang guard turns a missing one into a named failure. */
+			waitFor(paths) {
+				const done = () => paths.every((p) => seen.includes(p));
+				if (done()) return Promise.resolve();
+				let guard;
+				return Promise.race([
+					new Promise((res) => waiters.push(() => { if (done()) res(); })),
+					new Promise((_, rej) => { guard = setTimeout(() => rej(new Error(`the server saw ${JSON.stringify(seen)}, not all of ${JSON.stringify(paths)}`)), 30000); }),
+				]).finally(() => clearTimeout(guard));
+			},
+		};
+		try {
+			return await fn(port, counts);
+		} finally {
+			server.closeAllConnections();
+			await new Promise((res) => server.close(res));
+		}
+	}
+
+	/** Export a deck carrying every media and connect vector aimed at `port`, under --allow-remote. */
+	async function exportVectors(port, name) {
+		const at = `http://127.0.0.1:${port}`;
+		const deck = path.join(dir, `${name}.md`);
+		fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\n---\n\n# Media and connect\n\n`
+			+ `<video src="${at}/video.mp4" preload="auto"></video>\n`
+			+ `<audio src="${at}/audio.mp3" preload="auto"></audio>\n`
+			+ `<video preload="auto"><source src="${at}/source.mp4" type="video/mp4"></video>\n\n`
+			+ '<script>\n'
+			+ `try { fetch('${at}/fetch').catch(() => {}); } catch {}\n`
+			+ `try { const x = new XMLHttpRequest(); x.open('GET', '${at}/xhr'); x.onerror = () => {}; x.send(); } catch {}\n`
+			+ `try { const w = new WebSocket('ws://127.0.0.1:${port}/ws'); w.onerror = () => {}; } catch {}\n`
+			+ `try { const e = new EventSource('${at}/sse'); e.onerror = () => e.close(); } catch {}\n`
+			+ `try { navigator.sendBeacon('${at}/beacon', 'x'); } catch {}\n`
+			+ '</script>\n');
+		const out = path.join(dir, `${name}.html`);
+		// `spawn`, not `spawnSync`: under --allow-remote the export's own Chromium may load these
+		// addresses from the server in THIS process, which a blocked event loop could never answer.
+		const r = await new Promise((res, rej) => {
+			const child = spawn(process.execPath, [EMULATOR, deck, out, '--quiet', '--allow-remote'], { cwd: ROOT, env: { ...process.env } });
+			let stderr = '';
+			child.stderr.on('data', (b) => { stderr += b; });
+			child.on('error', rej);
+			child.on('close', (status) => res({ status, stderr }));
+		});
+		assert.equal(r.status, 0, `emulator failed for ${name}: ${r.stderr}`);
+		return out;
+	}
+
+	/** Open a file:// artifact, recording every CSP violation from the first byte the page parses. */
+	async function openWithViolations(file) {
+		const page = await browser.newPage();
+		await page.evaluateOnNewDocument(() => {
+			window.__cspv = [];
+			document.addEventListener('securitypolicyviolation', (e) => {
+				window.__cspv.push({ directive: e.effectiveDirective, uri: e.blockedURI });
+			}, true);
+		});
+		await page.goto(pathToFileURL(file).href, { waitUntil: 'load' });
+		return page;
+	}
+
+	test('media-src and connect-src refuse every vector a deck can aim from a live export', { timeout: TIMEOUT }, async () => {
+		await withSocketServer(async (port, counts) => {
+			const file = await exportVectors(port, 'vectors');
+			const policy = /<meta http-equiv="Content-Security-Policy" content="([^"]*)"/i.exec(fs.readFileSync(file, 'utf8'))?.[1] || '';
+			assert.doesNotMatch(policy, /default-src/, 'guard: this export is expected to carry the shared policy alone, so nothing else backs media-src and connect-src');
+			counts.reset(); // what the export's own render fetched is the raster arms' business
+			const page = await openWithViolations(file);
+			try {
+				// The payload guard: every vector is still in the DOM, so a refusal is the policy's and
+				// not a rewrite that removed the address.
+				const payload = await page.evaluate((p) => ({
+					media: document.querySelectorAll(`video[src*=":${p}/"], audio[src*=":${p}/"], source[src*=":${p}/"]`).length,
+					script: [...document.scripts].some((s) => s.textContent.includes(`:${p}/beacon`)),
+				}), port);
+				assert.deepEqual(payload, { media: 3, script: true }, 'the vectors are not in the exported DOM, so this arm proves nothing');
+				const expected = [...MEDIA_VECTORS, ...CONNECT_VECTORS];
+				await page.waitForFunction((paths) => paths.every((p) => window.__cspv.some((v) => v.uri.endsWith(p))), { timeout: 30000 }, expected)
+					.catch(async () => {
+						assert.fail(`not every vector raised a violation: ${JSON.stringify(await page.evaluate(() => window.__cspv))}; the server saw ${JSON.stringify(counts.seen)}`);
+					});
+				const byDirective = await page.evaluate(() => window.__cspv.map((v) => {
+					// `blockedURI` is `inline` / `eval` for a non-URL violation; keep it raw instead of throwing.
+					let where = v.uri;
+					try {
+						where = new URL(v.uri).pathname;
+					} catch {}
+					return `${v.directive} ${where}`;
+				}).sort());
+				for (const p of MEDIA_VECTORS) assert.ok(byDirective.includes(`media-src ${p}`), `${p} was not refused by media-src: ${byDirective}`);
+				for (const p of CONNECT_VECTORS) assert.ok(byDirective.includes(`connect-src ${p}`), `${p} was not refused by connect-src: ${byDirective}`);
+			} finally {
+				await page.close();
+			}
+			assert.equal(counts.connections, 0, `the live export reached the server: ${JSON.stringify(counts.seen)}`);
+		});
+	});
+
+	test('CONTROL — with the policy removed, every media and connect vector reaches the server', { timeout: TIMEOUT }, async () => {
+		await withSocketServer(async (port, counts) => {
+			const file = await exportVectors(port, 'vectors-control');
+			const html = fs.readFileSync(file, 'utf8');
+			const without = html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/i, '');
+			assert.notEqual(without, html, 'guard: the shipped artifact carries a policy to remove');
+			const stripped = path.join(dir, 'vectors-nocsp.html');
+			fs.writeFileSync(stripped, without);
+			counts.reset();
+			const page = await openWithViolations(stripped);
+			try {
+				await counts.waitFor([...MEDIA_VECTORS, ...CONNECT_VECTORS]);
+			} finally {
+				await page.close();
+			}
+			assert.ok(counts.connections > 0, 'paths arrived without a counted connection, so the zero above is vacuous');
+		});
+	});
+
 	// THE PLACEHOLDER (trio follow-up 11). By default the export swaps each web image for the
 	// drawn stand-in, keeps its address in `data-lattice-web-src`, rewrites a web background to
 	// the hatch, and says once on stderr what was left out and how to load it. `--allow-remote`
@@ -304,12 +452,12 @@ theme: indaco
 			const page = await offline.newPage();
 			await page.setContent(
 				'<img src="https://img-probe.lattice-e2e.invalid/a.png"><img src="http://10.9.9.9/b.png">'
-				+ '<script>fetch("https://fetch-probe.lattice-e2e.invalid/").catch(() => {});</script>',
+				+ '<script>fetch("https://fetch-probe.lattice-e2e.invalid/").catch(() => {}).finally(() => { window.__fetchSettled = true; });</script>',
 				{ waitUntil: 'domcontentloaded' },
 			);
-			await page.waitForFunction(() => [...document.images].every((i) => i.complete), { timeout: 20000 }).catch(() => {});
-			// A request the listener accepted is written at once; give a late one a moment to land.
-			await new Promise((r) => setTimeout(r, 1000));
+			// Every request has finished, refused or answered, and the listener records a request before it answers it,
+			// so nothing is left to land.
+			await page.waitForFunction(() => window.__fetchSettled === true && [...document.images].every((i) => i.complete), { timeout: 20000 }).catch(() => {});
 		} finally {
 			await offline.close();
 			listener.close();

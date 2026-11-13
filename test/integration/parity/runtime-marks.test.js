@@ -27,6 +27,7 @@ const fs = require('fs');
 const { closeQuietly } = require(path.join(__dirname, '..', '..', 'helpers', 'jsdom-close'));
 const { JSDOM } = require('jsdom');
 const { frontMatterBlock } = require('../../../lib/core/deck-front-matter');
+const { virtualClock } = require('../../helpers/runtime-boot');
 
 const RUNTIME_SRC = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js'), 'utf8');
 
@@ -35,7 +36,7 @@ const section = (cls = '') => `<section${cls ? ` class="${cls}"` : ''}><h2>Title
 const finishes = (el) => [...el.classList].filter((c) => /^marks-(pigment|etch|tone)$/.test(c));
 
 /** Boot the real runtime in jsdom over `body`; `fetchImpl` answers (or refuses) the `.md` fetch. */
-async function boot({ body, url = 'file:///tmp/deck.html', fetchImpl, settleMs = 300 }) {
+async function boot({ body, url = 'file:///tmp/deck.html', fetchImpl }) {
   const dom = new JSDOM(`<!DOCTYPE html><html><head></head><body>${body}</body></html>`, {
     url, runScripts: 'dangerously', pretendToBeVisual: true,
   });
@@ -52,11 +53,14 @@ async function boot({ body, url = 'file:///tmp/deck.html', fetchImpl, settleMs =
     }
   });
   observer.observe(window.document, { attributes: true, subtree: true, attributeFilter: ['class'] });
+  // A virtual clock (HARD RULE #32): boot returns once the runtime has nothing queued, and `settle()` waits out what a
+  // later edit or a late fetch schedules.
+  const { settle } = virtualClock(window);
   const script = window.document.createElement('script');
   script.textContent = RUNTIME_SRC;
   window.document.body.appendChild(script);
-  await new Promise((r) => setTimeout(r, settleMs));
-  return { window, document: window.document, calls, seen: () => [...new Set(seen)] };
+  await settle();
+  return { window, document: window.document, calls, settle, seen: () => [...new Set(seen)] };
 }
 
 describe('runtime chart finish — every section wears one', () => {
@@ -116,13 +120,18 @@ describe('runtime chart finish — every section wears one', () => {
   });
 
   test('the fetch fallback waits for the deck: a `tone` deck is never seen wearing `pigment`', async () => {
-    const { window, document, calls, seen } = await boot({
+    // The source arrives only when the test hands it over, after the runtime has run everything it can without it: the
+    // widest window for a default to be worn early, where a fixed 80 ms latency raced the runtime's own timers.
+    let answer;
+    const { window, document, calls, seen, settle } = await boot({
       body: `${section('bar')}${section('bar')}`,
       url: 'https://example.test/deck.html',
-      fetchImpl: () => new Promise((resolve) => setTimeout(() => resolve({ ok: true, text: () => Promise.resolve(deckSource(['marks: tone'])) }), 80)),
-      settleMs: 500,
+      fetchImpl: () => new Promise((resolve) => { answer = resolve; }),
     });
     assert.equal(calls.fetch, 1, 'one fetch of the source');
+    assert.deepEqual(seen(), [], `a section wore ${seen().join(', ')} before the deck arrived`);
+    answer({ ok: true, text: () => Promise.resolve(deckSource(['marks: tone'])) });
+    await settle();
     for (const s of document.querySelectorAll('section')) assert.deepEqual(finishes(s), ['marks-tone']);
     assert.deepEqual(seen(), ['marks-tone', 'marks-muted'], `a section wore ${seen().join(', ')} on the way`);
     for (const s of document.querySelectorAll('section')) assert.ok(s.classList.contains('marks-muted'), 'and the default intensity');
@@ -144,11 +153,11 @@ describe('runtime chart finish — every section wears one', () => {
 
   test('a live-edit that replaces the body gets the finish back from cache, with no second fetch', async () => {
     const baked = frontMatterBlock(deckSource(['marks: etch']));
-    const { window, document, calls } = await boot({ body: `${section('bar')}${baked}` });
+    const { window, document, calls, settle } = await boot({ body: `${section('bar')}${baked}` });
     assert.deepEqual(finishes(document.querySelector('section')), ['marks-etch']);
     document.body.innerHTML = `${section('bar')}${section('bar')}`;
     assert.deepEqual(finishes(document.querySelector('section')), [], 'sanity: the wipe removed the stamp');
-    await new Promise((r) => setTimeout(r, 450));
+    await settle();
     for (const s of document.querySelectorAll('section')) assert.deepEqual(finishes(s), ['marks-etch']);
     assert.equal(calls.fetch, 0, 'no fetch, before or after the wipe');
     closeQuietly(window);

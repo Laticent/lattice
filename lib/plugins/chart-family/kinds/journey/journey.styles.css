@@ -218,8 +218,10 @@ section.journey .journey-actor-dot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.45cqi;
-  height: 1.45cqi;
+  /* Never smaller than its own initial: on a phone page the type ladder sets the initial at its 11pt role
+   * (36.8px), and a 1.45cqi disc (15.7px) printed it spilling past the disc's edge. Landscape keeps 1.45cqi. */
+  width: max(1.45cqi, 1.45em);
+  height: max(1.45cqi, 1.45em);
   border-radius: 50%;
   background: var(--actor-color);
   color: var(--on-accent, var(--on-dark-primary));
@@ -232,6 +234,9 @@ section.journey .journey-actor-dot {
 section.journey .journey-actor-dot[data-label-len="2"] {
   font-size: 0.7cqi; /* cqi-ok: 2-char actor initials fit inside a fixed 1.45cqi disc */
   letter-spacing: 0;
+  /* Two initials need a wider disc once the ladder sets them at 11pt. */
+  width: max(1.45cqi, 1.75em);
+  height: max(1.45cqi, 1.75em);
 }
 section.journey .journey-actor-name {
   font-weight: 500;
@@ -375,6 +380,14 @@ section.journey .journey-legend {
 }
 section.journey .journey-mood-legend {
   padding-top: var(--sp-sm);   /* breathing room between the two key rows (padding, not margin) */
+}
+/* A narrow slide (under about 70 characters a line, #2988's text-room threshold): the actor chips part by the small
+ * step. At their 11pt-and-up roles four actors measure 831px on a square page, and the 2xl step (89px) wrapped them
+ * onto two rows, which pushed the mood scale under the page's edge (journey.gallery.md's stress test at square). */
+@container lattice (width < 34em) {
+  section.journey .journey-legend {
+    column-gap: var(--sp-sm);
+  }
 }
 
 /* ── Section ribbon ─────────────────────────────────────────────────── */
@@ -859,8 +872,8 @@ section.journey.weighted .journey-task-actors {
 
 
 /* ════════════════════════════════════════════════════════════════════════════
- * VERTICAL BOARD (portrait) — the journey rotated 90°. Emitted by
- * journey.transform.js only on a portrait deck (`.journey-board[data-orient="vertical"]`), so
+ * VERTICAL BOARD (portrait and square) — the journey rotated 90°. Emitted by
+ * journey.transform.js only on a portrait or square deck (`.journey-board[data-orient="vertical"]`), so
  * this whole block self-gates: landscape never sees it. Stages stack down the
  * page; each task is a row; mood reads along the cross-axis. §10 (journey).
  * ════════════════════════════════════════════════════════════════════════════ */
@@ -1156,4 +1169,28 @@ section.journey .journey-board:has(.journey-callouts) .journey-legend {
 }
 section.journey .journey-board:has(.journey-callouts) .journey-mood-legend {
   padding-top: var(--sp-xs);
+}
+
+/* ── A PHONE: the whole vertical board on one screen (the --fluid viewer, a screen at most 40em wide) ──
+ * A portrait deck SPLITS a journey a stage per page (`lat-split-native` above); the fluid viewer shows
+ * one slide per screen and redraws the board vertical for a phone (lib/runtime/chart-redraw.js), so every
+ * stage shares one 844px screen. There each stage shared the height in proportion to its tasks while each
+ * row held a 7cqi minimum, so a twelve-task board overflowed its stages and the rows rode up over the
+ * stage bands (the owner: "the journey is simply broken"). Here the board is content-sized like a split
+ * page, with compact rows: no minimum, tighter gaps. Only the fluid viewer on a phone reaches it. */
+@media (max-width: 40em) {
+  section.journey:where(:root[data-lattice-view="fluid"] *) .journey-board[data-orient="vertical"] {
+    justify-content: center;
+  }
+  section.journey:where(:root[data-lattice-view="fluid"] *) :is(.journey-vstack, .journey-vstage, .journey-vrows) {
+    flex: 0 0 auto;
+  }
+  section.journey:where(:root[data-lattice-view="fluid"] *) .journey-vstack { gap: var(--sp-sm); }
+  section.journey:where(:root[data-lattice-view="fluid"] *) .journey-vstage { gap: var(--sp-2xs); }
+  section.journey:where(:root[data-lattice-view="fluid"] *) .journey-vrows { gap: var(--sp-2xs); }
+  section.journey:where(:root[data-lattice-view="fluid"] *) .journey-vstage-name { padding: var(--sp-2xs) var(--sp-sm); }
+  section.journey:where(:root[data-lattice-view="fluid"] *) .journey-vtask {
+    min-height: 0;
+    padding: var(--sp-2xs) var(--sp-sm);
+  }
 }

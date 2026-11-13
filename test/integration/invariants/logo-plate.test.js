@@ -9,24 +9,9 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
+const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome');
 const puppeteer = require('puppeteer');
 const { renderHtml } = require('../../helpers/semantic-render');
-
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
-
 const deck = (words) => `---
 marp: true
 theme: indaco
@@ -57,7 +42,7 @@ Body.
 describe('the deck logo plate is opt-in (real render)', () => {
   const chrome = resolveChrome();
   if (!chrome) {
-    test('SKIPPED — no Chromium (CHROME_PATH / puppeteer cache) available', { skip: true }, () => {});
+    test('needs Chromium', { skip: skipWithoutChrome(chrome) }, () => assert.fail('no Chromium on this runner: install it (test/helpers/chrome.js)'));
     return;
   }
   let browser;

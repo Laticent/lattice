@@ -107,17 +107,17 @@ export function RawPanel({ kind, text, onEdit, onRemove, onDone }: RawPanelProps
 		if (kind === 'inline-math') {
 			const why = inlineTexProblem(value);
 			if (why) return setRefused(why);
-			return setRefused(onEdit(value) ? null : 'This math cannot be written here. Edit this slide in Markdown.');
+			return setRefused(onEdit(value) ? null : 'This math cannot be written here. Edit this slide in Source.');
 		}
 		if (kind === 'math') {
 			const next = displayTextFor(text, value);
 			const why = next ? rawBlockProblem('math', next) : 'A math block needs TeX, and cannot hold a $$ inside it.';
 			if (why || !next) return setRefused(why);
-			return setRefused(onEdit(next) ? null : 'This math cannot be written here. Edit this slide in Markdown.');
+			return setRefused(onEdit(next) ? null : 'This math cannot be written here. Edit this slide in Source.');
 		}
 		const why = rawBlockProblem('html', value);
 		if (why) return setRefused(why);
-		setRefused(onEdit(value) ? null : 'This HTML cannot be written here. Edit this slide in Markdown.');
+		setRefused(onEdit(value) ? null : 'This HTML cannot be written here. Edit this slide in Source.');
 	};
 
 	commitRef.current = commit;
@@ -178,7 +178,7 @@ export function RawPanel({ kind, text, onEdit, onRemove, onDone }: RawPanelProps
 				) : null}
 			</div>
 			<PanelFooter onDone={onDone}>
-				<Button type="button" variant="ghost" size="sm" onClick={() => !onRemove() && setRefused('This cannot be removed here. Edit this slide in Markdown.')}>
+				<Button type="button" variant="ghost" size="sm" onClick={() => !onRemove() && setRefused('This cannot be removed here. Edit this slide in Source.')}>
 					<Trash2 aria-hidden /> Remove
 				</Button>
 			</PanelFooter>

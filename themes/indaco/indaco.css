@@ -215,6 +215,11 @@
   --scheme-dark-text-secondary: #96A8B9;
   --scheme-dark-text-label:   #A0B8D0;
   --scheme-dark-text-display: #FFFFFF;
+  /* Chrome (header, footer, page number) on the title / closing / divider panel, which paints
+   * --surface-inverse (#003D66), not the dark canvas above. --scheme-dark-text-muted lands at 3.50:1
+   * there; this is the same ink lifted in OKLCH lightness only (+0.07, hue and chroma held), the first
+   * step that clears AA: 4.58:1 on #003D66. It is read nowhere else (base.modifiers.css). */
+  --on-inverse-muted:         #91A7C2;
 }
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────

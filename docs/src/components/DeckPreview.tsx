@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { ANIMA_HOST_SEL, type DeckMotion, hasAnimatableChart, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts, watchDiagramDrawn } from '@/playground/anima-host-sel';
 import {
 	createSingleSlideRenderer,
+	type NewcomerBake,
 	type SingleSlideOptions,
 	type SingleSlideRenderer,
 } from '@/playground/single-slide-render';
@@ -18,6 +19,7 @@ import {
 // bundling task (tracked in 2026-07-21-studio-preview-reframe-in-place.md), not an import-site move.
 import '@/styles/nacre-loader.css';
 import type { SparkFitReport } from '@/lib/spark-fit';
+import { applyStepAt, stepEnter, stepsOfSection } from '../../../lib/core/step-state.mjs';
 
 /** Read the three deck-level motion front-matter keys into a resolved `DeckMotion`. */
 function deckMotionOf(src: string): DeckMotion {
@@ -51,8 +53,8 @@ export type DeckPreviewProps = {
 	 *
 	 * Pass `slideCount` and `slideMarkdown` WITH it — they are not optional extras. The
 	 * index only identifies a slide while the engine's section count matches the caller's
-	 * slide count, and it does not for every deck (`_focusSteps` and `split: headings`
-	 * expand one authored slide into several). Without them a mismatch paints the WRONG
+	 * slide count, and it does not for every deck (`split: headings` expands one authored
+	 * slide into several). Without them a mismatch paints the WRONG
 	 * SLIDE; with them it falls back to `slideMarkdown` — the right slide, numbered 1 of 1.
 	 */
 	slideIndex?: number;
@@ -169,6 +171,18 @@ export type DeckPreviewProps = {
 	 */
 	onRender?: () => void;
 	/**
+	 * The step of a stepping slide (`_build`, `_focusSteps`) to show
+	 * (engineering/decisions/2026-11-09-steps-as-a-behavior.md). A number is that step; `null` or
+	 * absent is the slide AT REST, the way every still shows it; `{ enter }` is "the step a slide
+	 * entered by next/prev starts on", resolved here once the slide's walk is known, so the frame
+	 * never paints the rest state first. Painted with lib/core/step-state.mjs `applyStepAt`, the
+	 * same painter the exported player inlines. A slide with no steps ignores it.
+	 */
+	step?: number | null | { enter: 'next' | 'prev' | 'jump' };
+	/** Reports the shown slide's walk after each paint: its kind and step count, and the step now
+	 *  shown (`null` at rest). `null` for a slide that does not step. Present's cursor reads it. */
+	onSteps?: (report: { slide: number | null; kind: string; count: number; at: number | null } | null) => void;
+	/**
 	 * Reports whether the shown slide CLIPS — the live runtime's overflow ring (`section.overflow`
 	 * in the frame) — each time that changes, and `false` when this host unmounts. Read from the
 	 * class the runtime already toggles, never measured here. The Studio shows its clip notice and
@@ -184,6 +198,12 @@ export type DeckPreviewProps = {
 	 * landing/showcase hosts render a known static sample with no meaningful load gap.
 	 */
 	loader?: boolean;
+	/**
+	 * A build-time first write to show before the engine has loaded (the Studio newcomer bake,
+	 * studio/newcomer-bake.ts). Written once, when it resolves, if the renderer has not written yet
+	 * and the bake still matches this host's render (single-slide-render.ts `adoptBake`).
+	 */
+	bake?: Promise<NewcomerBake | null> | null;
 	/**
 	 * Mount the parent-hosted chart mark-detail reveal over this preview (hover a chart mark to
 	 * reveal its authored detail). Opt-in — ONLY the Studio's primary editing preview wants it; a
@@ -239,9 +259,12 @@ export function DeckPreview({
 	role,
 	onFirstRender,
 	onRender,
+	step,
+	onSteps,
 	onOverflow,
 	onSparkFit,
 	loader = false,
+	bake = null,
 	chartDetail = false,
 	specimen = false,
 	chromeless = false,
@@ -277,6 +300,11 @@ export function DeckPreview({
 	// The slide and deck the render in flight was ISSUED for. Renders on a host never overlap, so the
 	// status that comes back belongs to these, not to whatever the props say by the time it lands.
 	const issuedRef = React.useRef<{ slide: number; deck: string } | null>(null);
+	// The slide the frame HOLDS, set once a render lands (`issuedRef` is set when one is asked for).
+	const landedSlideRef = React.useRef<number | null>(null);
+	// The document a full WRITE is replacing. A write sets `srcdoc` and returns before the frame navigates, so until
+	// `load` the frame still holds the old document, and painting it would report the old slide's walk as the new one's.
+	const staleDocRef = React.useRef<Document | null>(null);
 	// A split PANES slide takes its page from `panePage`, which the host derives from the caret, so
 	// the caret text itself need not re-render it.
 	const splitCaret = splitPage && !((paneCounts?.[slideIndex ?? -1] ?? 1) > 1) ? caretText : undefined;
@@ -323,6 +351,12 @@ export function DeckPreview({
 	// enters the render closure's dependency list.
 	const onRenderRef = React.useRef(onRender);
 	onRenderRef.current = onRender;
+	const stepRef = React.useRef(step);
+	stepRef.current = step;
+	const slideIndexRef = React.useRef(slideIndex);
+	slideIndexRef.current = slideIndex;
+	const onStepsRef = React.useRef(onSteps);
+	onStepsRef.current = onSteps;
 	// The clip report (onOverflow). One MutationObserver on the frame's document, re-attached when a
 	// full write swaps that document; it reads `section.overflow`, the runtime's own verdict.
 	const onOverflowRef = React.useRef(onOverflow);
@@ -432,6 +466,29 @@ export function DeckPreview({
 		mo.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
 		return () => mo.disconnect();
 	}, [loader, onFirstRender]);
+
+	// THE NEWCOMER BAKE (prop `bake`). Written the moment it resolves, which is usually before the engine
+	// has evaluated: the renderer builds the frame's document from the bake's parts and keeps the state a
+	// full write would have left, so the first real render patches it. Read through a ref so the props it
+	// is matched against are the ones current when it lands, and never a dependency that re-arms it.
+	const adoptPropsRef = React.useRef({ sample, slideIndex, paletteOverride, modeOverride });
+	adoptPropsRef.current = { sample, slideIndex, paletteOverride, modeOverride };
+	React.useEffect(() => {
+		if (!bake) return;
+		let live = true;
+		bake.then(
+			(b) => {
+				const host = stageRef.current;
+				if (!live || !b || !host) return;
+				const p = adoptPropsRef.current;
+				engineRef.current?.adoptBake(host, b, { markdown: p.sample, slideIndex: p.slideIndex, paletteOverride: p.paletteOverride, modeOverride: p.modeOverride });
+			},
+			() => {},
+		);
+		return () => {
+			live = false;
+		};
+	}, [bake]);
 
 	// Anti-stuck FLOOR — reveal-VERIFYING. The reveal-watcher above is the primary handoff; this is
 	// its safety net for ONE failure: the frame IS good but the MutationObserver missed the opacity
@@ -643,10 +700,27 @@ export function DeckPreview({
 	// `load` after the new slide has parsed — the reliable "its DOM is ready" signal, since
 	// rebinding at render-resolve (srcdoc merely SET) can race the parse. Guarded to bind
 	// once per host; if the frame is already parsed when we bind, sync straight away.
+	// Paint the asked step on every stepping slide in the frame, and report the walk. Idempotent, so it
+	// runs after each render, on the frame's `load` (a srcdoc rewrite), and when `step` changes.
+	const paintStep = React.useCallback(() => {
+		const doc = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument;
+		if (!doc || doc === staleDocRef.current) return;
+		// Only the slide the host asked for: a step move made while the next slide's render is still in
+		// flight would otherwise paint (and report the walk of) the slide being left.
+		const shown = landedSlideRef.current;
+		if (slideIndexRef.current !== undefined && shown !== slideIndexRef.current) return;
+		const secs = [...doc.querySelectorAll<HTMLElement>('section[data-step-kind]')];
+		const info = secs.length ? stepsOfSection(secs[0]) : null;
+		const asked = stepRef.current;
+		const at = !info || asked == null ? null : typeof asked === 'number' ? Math.max(0, Math.min(info.count, asked)) : stepEnter(info.kind, info.count, asked.enter);
+		for (const sec of secs) applyStepAt(sec, at);
+		onStepsRef.current?.(info ? { slide: shown, kind: info.kind, count: info.count, at } : null);
+	}, []);
 	const bindAnima = React.useCallback(() => {
 		const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
 		if (!fr || animaBoundRef.current) return;
 		animaBoundRef.current = true;
+		fr.addEventListener('load', paintStep);
 		fr.addEventListener('load', syncAnima);
 		// The runtime draws a Mermaid diagram AFTER the render this host syncs on, so a deck whose only
 		// animatable figure is a diagram reads as motion-free at sync time and never loads the host.
@@ -655,7 +729,13 @@ export function DeckPreview({
 		// circuits to rebind(), which is a no-op diff for an already-mounted diagram.)
 		watchDiagramDrawn(fr, syncAnima);
 		if (fr.contentDocument?.readyState === 'complete') syncAnima();
-	}, [syncAnima]);
+	}, [syncAnima, paintStep]);
+	// A step move repaints the frame in place: no render, the slide is already there.
+	const stepKey = step == null ? 'rest' : typeof step === 'number' ? String(step) : `enter:${step.enter}`;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `stepKey` is the trigger; `paintStep` reads the step through its ref.
+	React.useEffect(() => {
+		paintStep();
+	}, [stepKey, paintStep]);
 
 	// FRAME-ALIGNED RENDER LOOP — driven by the SHARED scheduler (@/lib/frame-scheduler),
 	// the same kernel the Playground filmstrip uses. A change schedules ONE render on the
@@ -702,6 +782,7 @@ export function DeckPreview({
 		// full WRITES, already heavy via writePath. So it can't push a real ~2ms patch past
 		// the 50ms line.
 		await engineRef.current?.whenReady();
+		const docBefore = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument ?? null;
 		const status = await renderRef.current();
 		// #1164 — surface a definitive render FAILURE on a non-loader host (a loader host owns its
 		// own spinning affordance, unchanged here). `ok:false` is the engine/theme error signal; the
@@ -736,6 +817,14 @@ export function DeckPreview({
 		// attach the load listener once; `syncAnima` covers the in-place patch path (no `load`).
 		bindAnima();
 		syncAnima();
+		if (status) {
+			landedSlideRef.current = issuedRef.current ? issuedRef.current.slide : null;
+			// A full write whose frame still holds the document from BEFORE this render has not navigated yet: it paints
+			// on the frame's `load` instead (bound in bindAnima). A write that already swapped the document paints now.
+			const docNow = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument ?? null;
+			staleDocRef.current = status.writePath === 'write' && docNow && docNow === docBefore ? docNow : null;
+			paintStep();
+		}
 		// Re-pin the chart-detail layer over THIS render's chart. A no-op unless the `chartDetail` opt-in
 		// mounted it; it lazily binds on the first call once the frame exists. Pinned mode (not hoverAny):
 		// the Studio preview box is pointer-events:none (a swipe surface), so hover can't reach the iframe

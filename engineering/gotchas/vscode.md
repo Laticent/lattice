@@ -347,6 +347,30 @@ CI-contract decision, not one to take on the way past.
 - **Commits:** #1256 (export-only, incomplete) → #1259 follow-up (build-time,
   every shipped stylesheet); engine-side fix predates both (the `--map-base` bug).
 
+## A slide is right in Marp for VS Code 3.6 and off in 3.0–3.5 (or the reverse)
+
+- **Symptom:** The kit's VS Code preview looks right on one Marp for VS Code
+  release and slightly off on another: a heading's margin, a font size, a box
+  a few dozen pixels out of place. marp-cli renders are fine.
+- **Cause:** Each release bundles its own marp-core and marpit, and Marp's own
+  CSS (its scaffold and resets) is not the same in all of them. marpit before
+  3.2.2 writes its `h1` reset as `section :is(h1, marp-h1)`; 3.2.2 writes
+  `:where(…)`, one type selector weaker. The linked stylesheet's rules are one
+  type selector weaker than a registered theme's (so an author's CSS keeps
+  winning), so a rule that tied the old reset lost to it: the title slide's
+  paragraphs moved 43 px on 3.0.0–3.5.1.
+- **Mitigation:** `tools/build-marp-vscode-css.js` checks ties against Marp's
+  earlier rules under every bundled pair (`VSCODE_CORES`, exact aliases with
+  their marpit pinned by `overrides`), and the parity test runs under each.
+  When a new Marp for VS Code release bundles a pair the table does not list,
+  add a row and its alias. To check a release by hand, install its `.vsix`
+  from Open VSX into its own `--extensions-dir` and compare the preview with
+  the setup before (full themes registered, no link):
+  `engineering/decisions/2026-11-10-marp-vscode-theme-stubs.md`.
+- **Harness note:** the preview's script security (Strict / Disable) is saved
+  per WORKSPACE FOLDER. A fresh folder starts Strict, the runtime never runs,
+  and every probe reports "not ready": reuse a folder whose security you set.
+
 ## Custom `logo:` front-matter directive shows nothing in marp-vscode preview
 
 - **Symptom:** A deck with `logo: ./acme-logo.svg` in front matter
@@ -442,3 +466,32 @@ CI-contract decision, not one to take on the way past.
   (`engineering/decisions/2026-08-17-gotchas-topic-refile.md`). This stub exists so the
   VS Code section of the symptom index still names it, which was the one thing that
   decision gave up.
+
+## Typing is slow in the VS Code preview, and diagrams blink
+
+**Symptom:** about a second between a keystroke and the preview changing, the preview stuttering while you type, a diagram or a
+chart flashing empty on every keystroke.
+
+**Two causes, measured in VS Code 1.145.2 with Marp for VS Code 3.6.1** (a real editor under xvfb, keystrokes applied through
+the extension API, every frame in the preview sampled; 2026-11-10):
+
+1. **The theme, on every keystroke.** Marp re-processes every registered theme on each render: our 1.1 MB `lattice-min.css`
+   costs 700–1,200 ms per render in marp-core (its default theme: ~100 ms), and the 1.5 MB of scoped CSS it emits is shipped to
+   the preview again. With the same deck on Marp's default theme a keystroke reaches the preview in ~550 ms; with ours,
+   ~1,330 ms (p50). Fixed: the kit and an Export-to-Marp bundle register directive-only theme stubs with VS Code and the deck
+   links a stylesheet packed at build time (p50 ~1.0 s → ~0.3 s, slides pixel-identical), see
+   engineering/decisions/2026-11-10-marp-vscode-theme-stubs.md. **If the preview is plain but a marp-cli export is styled**,
+   the deck lost its `<link rel="stylesheet" …>` line (the kit's `lattice-vscode-min.css`, a bundle's `lattice-vscode.css`):
+   put it back above the scripts. A bundle carrying a Studio library theme registers the full themes and stays slow.
+2. **The runtime redid every slide.** The preview diffs Marp's raw HTML into the page, which takes every laid-out slide back to
+   raw, and the runtime waited for its 150 ms debounce while Mermaid's cache missed: fixed, see
+   engineering/decisions/2026-09-05-diagram-fence-flash.md §10. Typing INSIDE a diagram's source left its slot empty for a
+   render on every keystroke; the runtime now holds the previous drawing (§10.1).
+
+**VS Code's built-in Mermaid script removes every `.mermaid > svg` on every preview update** (`mermaid-markdown-features`,
+`go()` on `vscode.markdown.updateContent`). Lattice's drawings sit in `.mermaid` boxes, so it strips them all; the runtime puts a
+finished drawing back from its cache and a held one back as it is (`restoreStrippedDiagrams`). If a diagram vanishes in the VS
+Code preview and nothing in Lattice removed it, look there first.
+
+**Not the cause:** VS Code's built-in `mermaid-markdown-features` (disabling it changed nothing measurable), and an idle preview
+(zero mutations in 5 s at rest).

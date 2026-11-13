@@ -16,6 +16,7 @@ const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const latticeEngine = require(path.join(ROOT, 'lib/engine'));
+const { bootRuntime } = require('../../helpers/runtime-boot');
 
 const RESTORES = [
   ['with-spectrum', 'spectrum-solid'],
@@ -65,10 +66,7 @@ test('the runtime evicts the deck token on a restore token\'s axis too', async (
     { url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true },
   );
   dom.window.fetch = () => Promise.reject(new Error('baked: no fetch expected'));
-  const el = dom.window.document.createElement('script');
-  el.textContent = bundle;
-  dom.window.document.body.appendChild(el);
-  await new Promise((r) => setTimeout(r, 1000));
+  await bootRuntime(dom, { bundle });
   const slides = [...dom.window.document.querySelectorAll('section')].map((s) => [...s.classList]);
   for (const [, deck] of RESTORES) assert.ok(slides[0].includes(deck), `control: slide 1 missing '${deck}'; got [${slides[0].join(', ')}]`);
   RESTORES.forEach(([own, deck], i) => {

@@ -97,6 +97,9 @@ const PARTS = [
   { part: 'lib/playground', layer: 6, match: 'lib/playground/' },
   { part: 'lib/runtime', layer: 6, match: 'lib/runtime/' },
   { part: 'lattice.js', layer: 7, match: (f) => f === 'lattice.js' },
+  // The Marp kit's VS Code extension and its packager (kit/vscode): reads the catalog to list the layouts,
+  // and is read only by tools/build-marp-kit.js. Not in the npm package: the extension loads `vscode`.
+  { part: 'kit/vscode', layer: 7, match: 'kit/vscode/' },
   // The docs site. The bundles in docs/src/playground/*.generated.* are lib/ compiled for the
   // browser: built, never scanned, and the site's way into the engine.
   { part: 'site/bundles', layer: 9, match: (f) => /^docs\/src\/playground\/.*\.generated\./.test(f) },
@@ -227,7 +230,7 @@ const HOST_API_CEILING = 14;
  * a core file its second consumer just lowers it), so a file that left cannot quietly come back.
  * `npm run structure` lists them.
  */
-const CORE_SINGLE_CONSUMER_CEILING = 41;
+const CORE_SINGLE_CONSUMER_CEILING = 38;
 /**
  * The grammar compiler. A lib/core file this script imports, and nothing outside tools/ imports, is a grammar
  * source, compiled into a `*.generated.js` parser that sits beside it and that core's own reader imports.

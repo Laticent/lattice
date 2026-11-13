@@ -170,16 +170,19 @@ section p:has(> code:only-child):not(:where([data-prose])):has(+ h5) > code,
 section p:has(> code:only-child):not(:where([data-prose])):has(+ ul) > code,
 section p:has(> code:only-child):not(:where([data-prose])):has(+ ol) > code,
 section p:has(> code:only-child):not(:where([data-prose])):has(+ pre) > code {
-  font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  font-weight: 600;
-  /* Pin upright: the before-heading eyebrow is the mono-caps kicker, never the
-   * italic after-heading subtitle. Without this it inherits the host paragraph's
-   * font-style, so a component that italicises its `> p` (e.g. stats' framing
-   * line) leaked italic onto the eyebrow. */
-  font-style: normal;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  /* THE EYEBROW IS CONTENT, so it speaks in the content's type, not the chrome's: the heading
+   * face's italic, in the author's case, a size step above the mono-caps header and meta line
+   * it shares a corner with (type-hierarchy-study §4 rules 2–4). Every value is a voice token
+   * (lib/base/base.typography.css), so a `typography:` set or `mode: sketch` re-points it in one
+   * place. The size follows the chrome by `--eyebrow-scale` and never drops under the meta role,
+   * which keeps the venue's label lift at hall. The style is set, never inherited, so a
+   * component that italicizes its `> p` (stats' framing line) cannot change it. */
+  font-family: var(--eyebrow-face);
+  font-size: max(var(--fs-meta), calc(var(--chrome-fs) * var(--eyebrow-scale)));
+  font-weight: var(--eyebrow-weight);
+  font-style: var(--eyebrow-style);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: var(--eyebrow-case);
   color: var(--text-secondary);
   background: none;
   border: none;
@@ -191,6 +194,15 @@ section.title   p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > c
 section.title   p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code,
 section.divider p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
 section.divider p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { color: var(--on-dark-secondary); }
+/* A bookend's eyebrow scales with its heading (rule 7: half the heading), so it is not stranded
+ * at label size above display type. title and closing say the same in their own after-heading
+ * eyebrow rules; divider.light is a content-size heading and keeps the content size. */
+section.title p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section.title p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code,
+section.closing p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section.closing p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code,
+section.divider:not(.light) p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
+section.divider:not(.light) p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { font-size: max(var(--fs-meta), calc(var(--fs-h1) * var(--eyebrow-anchor-scale))); }
 /* divider.light bright-canvas variant — reset eyebrow ink off the dark-canvas color. */
 section.divider.light p:has(> code:only-child):not(:where([data-prose])):has(+ h1) > code,
 section.divider.light p:has(> code:only-child):not(:where([data-prose])):has(+ h2) > code { color: var(--text-secondary); }
@@ -591,6 +603,26 @@ section span[data-lattice-plugin][data-kind] {
   max-width:100%;
   max-height:4em;
 }
+/* The same containment in the READING view (`#lp-article`, the webpage export's and the player's article), which holds a
+ * plugin's drawing whole, root and all (prose-projection `projectGeneric`), outside any `section`. Without it, a plugin's
+ * scoped stylesheet or a `position:fixed` box it drew covered the whole article (the checker on PR 3110's f11014c). The
+ * reading column is narrower than a slide, so a drawing scales to it instead of being clipped. The Studio's Read view
+ * (`.st-read-article`) runs in its own document and carries the same rules (docs/src/components/studio/ReadArticle.tsx). */
+#lp-article div[data-lattice-plugin] {
+  contain:paint;
+  max-width:100%;
+}
+#lp-article div[data-lattice-plugin] :is(svg, img) {
+  max-width:100%;
+  height:auto;
+}
+#lp-article span[data-lattice-plugin][data-kind] {
+  display:inline-block;
+  unicode-bidi:isolate;
+  contain:paint;
+  max-width:100%;
+  max-height:4em;
+}
 /* An INLINE kind's chip (`@kind{…}` of an unlisted plugin, 2026-10-14-plugin-inline-door.md): a `<span>` that stands
  * where a word stood, so it sits in the line, on the text's baseline, and takes no more room than the size it asked for. */
 section span[data-lattice-plugin-off][data-inline] {
@@ -670,15 +702,41 @@ section header {
   z-index: var(--z-chrome);
   position:absolute; top:var(--frame-inset-t); left:var(--frame-inset-l); right:var(--frame-inset-r);
   font-family:var(--font-label); font-size:var(--chrome-fs); font-weight:500;
-  letter-spacing:0.10em; text-transform:uppercase; text-align:left;
+  /* ONE CHROME VOICE with the meta line across the top band (meta.css): weight 500, 0.08em, muted
+   * (owner's call, 2026-11-08, engineering/decisions/2026-11-08-anchor-chrome.md § The top band). */
+  letter-spacing:0.08em; text-transform:uppercase; text-align:left;
   color:var(--marp-slide-header-color, var(--text-muted));
 }
 section footer {
   z-index: var(--z-chrome);
   position:absolute; bottom:var(--frame-inset-b); left:var(--frame-inset-l); right:calc(var(--frame-page-reserve) - var(--_bar-r, 0px));
   font-family:var(--font-label); font-size:var(--chrome-fs); font-weight:500;
-  line-height:1; letter-spacing:0.06em; text-align:left;
+  /* The footer band's box (stage.css `> footer`: 1.45 in 1.6em), as a MINIMUM so a long footer still
+   * wraps upward from the band: one baseline for the footer on every frame, content or sovereign. */
+  line-height:1.45; min-block-size:1.6em; letter-spacing:0.06em; text-align:left;
   color:var(--marp-slide-footer-color, var(--text-muted));
+}
+/* AN IMAGE IN THE FOOTER IS A GLYPH, cap-tall on the baseline. `footer: "Confidential ![](logo.svg)"` drew
+ * the logo at its own size: on a sovereign frame (a divider) it stood a hundred pixels above the band,
+ * and in the footer Cell's 1.6em box it was clipped along with the words after it. One cap of the
+ * footer's own type sits inside every line box the band uses (line height 1 or 1.45), so it can neither
+ * move the shared baseline nor grow the band, and the page number and the rail beside it hold still
+ * (engineering/decisions/2026-11-08-anchor-chrome.md; footer-band.test.js). */
+/* `img:not(.emoji):not(.deck-logo)` to out-rank the slide image rule above (`section img:not(.emoji)
+ * :not(.deck-logo)`, (0,2,2)), which makes every image a rounded, cover-cropped BLOCK: in the footer that
+ * broke the line in three and cropped the mark. */
+/* A superscript or subscript (`Acme<sup>®</sup>`) raises its own line box and, with it, the line: zero
+ * line height keeps the mark raised and the band's baseline where every other slide's is. */
+section footer :is(sup, sub) { line-height: 0; }
+section footer img:not(.emoji):not(.deck-logo),
+section footer svg {
+  display: inline-block;
+  block-size: 1cap;
+  inline-size: auto;
+  max-height: none;
+  border-radius: 0;
+  object-fit: contain;
+  vertical-align: baseline;
 }
 
 
@@ -1234,6 +1292,28 @@ section.divider:not(.light):not(.print) {
    * dark, means there is one predicate rather than two copies free to drift. */
   --deck-logo-filter: var(--deck-logo-filter-inverse);
   --deck-logo-opacity: var(--deck-logo-opacity-inverse);
+}
+/* CHROME ON THE DARK PANEL takes the panel's muted ink, when the theme names one. The bands read the
+ * Marp chrome colors, which base.tokens.css maps to `--text-muted`, and on these panels that resolves
+ * to the theme's dark-scheme muted ink, tuned for its dark CANVAS. Every theme but one paints the panel
+ * near-black, so the two agree. Indaco paints it brand navy (#003D66, the lightest --surface-inverse in
+ * the repo), where its dark muted ink measured 3.5:1, under AA for 15 px text (found by
+ * tools/type-voice-audit.mjs, 2026-11-09). Lifting that ink everywhere was measured and rejected: the
+ * first passing value sits 1.01:1 from the theme's secondary ink, so muted and secondary would merge on
+ * every dark surface. So a theme may name `--on-inverse-muted`, read only here, and a theme that names
+ * nothing renders exactly as before (the fallback is the mapping base.tokens.css already makes). The
+ * print block above remaps the same three tokens the same way; `.print` is excluded here as there.
+ * Gated by test/unit/palette/contrast.test.js ("bookend chrome clears AA"), every theme, both modes.
+ *
+ * SPECIFICITY (0,1,1), ON PURPOSE: the panel predicate sits in `:where()`, so the rule weighs exactly
+ * what an author's `section.my-class { --marp-slide-footer-color: … }` weighs, and the author's style,
+ * which loads later, wins. Written with `:is()` like the block above it weighed (0,2,1) and took an
+ * author's chrome color away on every bookend slide in every theme (found by the checker, 2026-11-09).
+ * It still beats the (0,0,1) `section` mapping in base.tokens.css, which is all it has to beat. */
+section:where(.title, .closing, .divider:not(.light)):not(.print) {
+  --marp-slide-header-color: var(--on-inverse-muted, var(--text-muted));
+  --marp-slide-footer-color: var(--on-inverse-muted, var(--text-muted));
+  --marp-slide-pagination-color: var(--on-inverse-muted, var(--text-muted));
 }
 
 
@@ -2087,18 +2167,11 @@ section.compare-prose.mirror > .cell-stage > :is(ul, ol) {
  * no second counter, so a deck that mixes the two still counts 01, 02, 03 straight
  * through. */
 
-/* The masthead owns the top band, so the running header and the footer both stand
- * down. `> header` and `> footer` reach the legacy frame; the Form migration wrapped
- * the footer in a `.cell-footer` and left the header a direct child
- * (lib/forms/cell/stage/stage.css), so the footer needs both forms. The `.cell-footer`
- * arm is DEFENSIVE, not exercised: `divider` renders on the legacy frame today, so no
- * such DOM exists — it is here so a future Form migration does not silently restore the
- * footer. The PAGE NUMBER is
- * deliberately untouched — it lives bottom-right, nowhere near this, and it is the one
- * piece of chrome a section start still benefits from. */
-section.divider.numbered > header,
-section.divider.numbered > footer,
-section.divider.numbered > .cell-footer > footer { display: none; }
+/* A numbered divider keeps the deck's running header and footer, as every divider does
+ * (engineering/decisions/2026-11-08-anchor-chrome.md: a band stays unless the slide already
+ * does its job). The numeral sits below the header's band, so the two do not meet; the
+ * variant hid both until 2026-11-08, which dropped a deck's "Confidential" on exactly the
+ * slides that open its sections. */
 
 /* THE BAND IS RESERVED, so the copy cannot reach the mark.
  *
@@ -2855,8 +2928,10 @@ section.lattice-exporting .fit-culprit { outline: none !important; }
  *
  * Placement, size and color are the `logo-finish:` register's words, stamped as classes on the
  * SECTION (lib/core/resolve-logo-finish.js), so a section-level rule can read them — the stand-down
- * of the header, footer and page number below does. The one custom property set on the img itself
- * is `--logo-scale` (by the `logo-sm` / `logo-lg` rules); only the img reads it.
+ * of the header, footer and page number below does. The mark's box is two section-level tokens,
+ * `--deck-logo-w` (its width, from `--logo-scale`, which `logo-sm` / `logo-lg` set on the section) and
+ * `--logo-plate-pad` (the plate's padding, `logo-plate` only), so the footer band can reserve exactly the
+ * mark's width under a bottom-right logo (stage.css) without restating either number.
  * ──────────────────────────────────────────────────────────────────── */
 /* The INVERSE-CANVAS pair, defined ONCE. Every rule that declares a dark canvas points its
  * `--deck-logo-filter` here rather than repeating the values, so the two dark-canvas
@@ -2923,7 +2998,7 @@ img.deck-logo {
    * the mark with section classes (below) — a placement word, a size word. */
   top: var(--frame-inset-t);
   right: var(--frame-inset-r);
-  width: calc(6.25cqi * var(--logo-scale, 1));
+  width: var(--deck-logo-w);
   height: calc(4cqi * var(--logo-scale, 1));
   object-fit: contain;
   pointer-events: none;
@@ -2962,8 +3037,13 @@ section.logo-top-center img.deck-logo { right: auto; left: calc(50% + (var(--_ba
 section.logo-bottom-left img.deck-logo { top: auto; bottom: var(--frame-inset-b); right: auto; left: var(--frame-inset-l); }
 section.logo-bottom-center img.deck-logo { top: auto; bottom: var(--frame-inset-b); right: auto; left: calc(50% + (var(--_bar-r, 0px) - var(--_bar-l, 0px)) / 2); transform: translateX(-50%); }
 section.logo-bottom-right img.deck-logo { top: auto; bottom: var(--frame-inset-b); }
-section.logo-sm img.deck-logo { --logo-scale: 0.75; }
-section.logo-lg img.deck-logo { --logo-scale: 1.5; }
+/* The size words and the mark's width live on the SECTION, so a sibling (the footer band's logo reserve,
+ * stage.css) reads the same numbers the mark does. `cqi` resolves where the token is used; the section is
+ * the only size container, so the mark and the band read the same box. */
+section { --deck-logo-w: calc(6.25cqi * var(--logo-scale, 1)); }
+section.logo-sm { --logo-scale: 0.75; }
+section.logo-lg { --logo-scale: 1.5; }
+section.logo-plate { --logo-plate-pad: 0.4cqi; }
 
 /* COLOR. A role or a closed blend sets `--logo-tint`; the slide's `<svg class="deck-logo-tint">`
  * (injected beside the mark) reads it as `color`, and its filter floods that color through the
@@ -2986,7 +3066,8 @@ svg.deck-logo-tint { position: absolute; color: var(--logo-tint); }
  *   top-*           → the running header and the meta tile
  *   bottom-left,
  *   bottom-center   → the footer text (it spans the whole bottom edge)
- *   bottom-right    → the page number and the progress rail (the footer keeps its text)
+ *   bottom-right    → the page number and the progress rail, and a divider's section marker, which
+ *                     stands where the rail does (the footer keeps its text)
  * Only an EXPLICIT word does this, and only on a slide that HAS the mark (`:has(> img.deck-logo)`):
  * the deck's words ride every section, so keying on the class alone hid the chrome on slides the
  * `title` scope skipped, on `no-logo` slides, and on a deck with no `logo:` at all. A deck without a
@@ -2997,7 +3078,7 @@ section:is(.logo-top-left, .logo-top-center, .logo-top-right):has(> img.deck-log
 section.form:is(.logo-top-left, .logo-top-center, .logo-top-right):has(> img.deck-logo) .tile-meta,
 section:is(.logo-bottom-left, .logo-bottom-center):has(> img.deck-logo) > footer,
 section.form:is(.logo-bottom-left, .logo-bottom-center):has(> img.deck-logo) > .cell-footer > footer,
-section.logo-bottom-right:has(> img.deck-logo) :is(.lat-pagination, .tile-progress) {
+section.logo-bottom-right:has(> img.deck-logo) :is(.lat-pagination, .tile-progress, .divider-marker) {
   display: none;
 }
 section.logo-bottom-right.logo-bottom-right:has(> img.deck-logo)::after { content: none; }
@@ -3021,7 +3102,7 @@ section.logo-plate img.deck-logo {
   background: color-mix(in srgb, var(--bg-alt) 70%, transparent);
   backdrop-filter: blur(0.4cqi);
   border-radius: 0.6cqi;
-  padding: 0.4cqi;
+  padding: var(--logo-plate-pad);
   box-sizing: content-box;
 }
 
@@ -3238,13 +3319,15 @@ section:has(> .lat-split-rail > .seg-count) { --_split-rail-w: 3.5em; }
    present the split rail parks LEFT of the reserved berth, and the three wayfinding marks read
    as one right-grouped cluster: [ split k-of-N ] [ section rail ] [ page number ]. The `claim-*`
    Frames that HIDE the section rail are excluded — a hidden rail reserves nothing, and the
-   split rail must not drift left to dodge a mark that isn't drawn. */
-section:not(.claim-quiet):not(.claim-hero):not(.claim-bleed):has(.tile-progress) {
+   split rail must not drift left to dodge a mark that isn't drawn.
+   A `progress-rail: center` or `edge` rail is not in that berth either, so it reserves nothing.
+   (lib/core/resolve-progress-rail.js) */
+section:not(.claim-quiet):not(.claim-hero):not(.claim-bleed):not(.progress-rail-center):not(.progress-rail-edge):has(.tile-progress) {
   --_split-rail-right: calc(var(--footer-pag-reserve, 4cqi) + var(--footer-center-w, 30cqi) + var(--_sec-1cqi, 1cqi) * 1.5);
 }
 /* Docked in the footer Cell (auto-split.js `applyRails`, mirroring how the progress Tile docks
    the section rail): de-absolute so the footer row lays the marks out in flow —
-   footer text · section rail · k-of-N · page number. Same rule shape as
+   footer text · k-of-N · section rail · page number, each in its own column of the band's grid. Same rule shape as
    `section.form > .cell-footer > .tile-progress` in the stage Cell. */
 section.form > .cell-footer > .lat-split-rail {
   position: static; inset: auto;
@@ -3278,7 +3361,6 @@ section[data-split-role="cover"] > .cell-footer > footer {
   position: static;
   inset: auto;
   display: block;
-  flex: 1 1 auto;
   min-width: 0;
   max-width: none;
   white-space: nowrap;

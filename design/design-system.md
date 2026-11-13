@@ -21,7 +21,7 @@ map on one page — see `design/concepts.md`.
 ## 1. The problem this solves
 
 Lattice grew organically from a small palette and a handful of card
-layouts into 61 components, ~18 modifiers, five native chart engines, one
+layouts into 80 components, ~18 modifiers, five native chart engines, one
 external diagram pipeline (Mermaid), three rendering paths, and 14
 palettes. Each addition was internally consistent; collectively they
 had no shared vocabulary.
@@ -125,7 +125,7 @@ backdrops), each its own front-matter key, palette-blind, defaulting to today's 
 | **Spectrum trim** | `spectrum-trim:` | how much the structural accents carry the spectrum (`off`/`restrained`/`on`) — off = quiet accent-tint hairline by default |
 | **Corners** | `corners:` | whether the slide's own surface is square or rounded (`square`/`rounded`) — square is the default; the engine sets how round, and clips with `clip-path` so the brand bar follows |
 | **Heading rule** | `rule:` | the heading underline (`auto`/`full`/`short`/`accent`/`none`) |
-| **Eyebrow** | `eyebrow:` | the mono-caps kicker decoration (`plain`/`dot`/`bar`/`arrow`/`underline`) |
+| **Eyebrow** | `eyebrow:` | the kicker's mark (`plain`/`dot`/`bar`/`arrow`/`underline`); its face comes from `typography:` |
 | **Headline alignment** | `headline:` | the framing-text cluster's horizontal alignment (`auto`/`left`/`center`/`right`) — `auto` keeps each component's own default; `left`/`center`/`right` pin the whole cluster, even on a layout whose default is the other way |
 
 The accent registers are documented for authors in `lib/base/base.registers.docs.md`; design in
@@ -198,8 +198,8 @@ buckets plus six substance- or domain-defined buckets (`chart`,
 sharing a renderer kernel or domain vocabulary, and `layout`, the host
 components' bucket and function. The `function` field on
 every manifest is unchanged; the disk grouping is reflected in an optional
-`bucket` field. For 35 of the 61 components `bucket === function`; for
-the other 26 the bucket diverges to keep maintenance localized. See §9.
+`bucket` field. For 39 of the 80 components `bucket === function` (measured 2026-11-11
+from `dist/docs/components.json`); for the other 41 the bucket diverges to keep maintenance localized. See §9.
 
 ---
 
@@ -641,10 +641,19 @@ prints `name — description` per row.
 
 ### For the editor
 
-Generated `.vscode/lattice.code-snippets`. Typing `lattice-cards-grid`
-in any `.md` file → autocomplete suggests the snippet → tab inserts
-the full skeleton with placeholder slots. The snippet file is
-generated from the same manifests; never hand-edited.
+Generated `.vscode/lattice.code-snippets` (`tools/build-snippets.js`), one completion per layout,
+scoped to Markdown. In a `.md` file, type `lattice-` and press Ctrl+Space (VS Code does not pop
+suggestions up on its own in Markdown, so prose is never interrupted): every layout is listed with
+its one-line description, and picking one inserts its skeleton exactly as the manifest writes it.
+The skeleton's `{…}` are Lattice's pill syntax, not tab stops, and its `$` and `\` are escaped so
+VS Code inserts them as written. The same file ships in the copy-and-go Marp kit and in every
+Export-to-Marp bundle (`.vscode/lattice.code-snippets`). Generated from the manifests; never
+hand-edited.
+
+Layout NAMES complete as you type inside `<!-- _class: ` through a small VS Code extension,
+`lattice-layouts.vsix`, which the Marp kit ships and the bundle's README links to. Its completion
+provider answers only inside a class directive, so prose never opens a menu
+(`kit/vscode/`, `engineering/decisions/2026-11-11-vscode-layout-completions.md`).
 
 ### For the browser (future)
 

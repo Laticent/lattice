@@ -45,6 +45,8 @@ const EXPECTED_CANVAS = [
   'contact', 'diagram', 'bar', 'bullet', 'funnel', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'tower', 'risk-matrix', 'histogram', 'ep-curve', 'gantt', 'heatmap', 'hub-spoke', 'journey', 'kanban', 'map', 'matrix-grid', 'piechart',
   'progress', 'quadrant', 'radar', 'roadmap', 'state-chart', 'timeline-list',
   'video', 'wifi', 'word-cloud', 'flowchart',
+  // `gift-card` (2026-11): the QR-card shape of wifi, so a strict canvas like it.
+  'gift-card',
   // `collage` (2026-10): a packed photo grid that sizes itself to the cell it is given, so a
   // canvas. Not strict: the masthead lifts around it and the grid is the body.
   'collage',
@@ -103,7 +105,7 @@ describe('stage-catalog — the single stage-cell classification', () => {
     // sizes; the sovereign arms and `lib/forms/frame/math/` are deleted, so there is no
     // second shape left for the flag to disagree with.
     // video (PR 5) closed the known gap this test used to pin (see below).
-    const EXPECTED_STRICT = ['contact', 'diagram', 'math', 'video', 'wifi'];
+    const EXPECTED_STRICT = ['contact', 'diagram', 'gift-card', 'math', 'video', 'wifi'];
     assert.deepEqual([...conformanceCatalog].sort(), EXPECTED_STRICT, 'conformance-catalog drifted from EXPECTED_STRICT');
     // The baked array must equal the manifest source of truth.
     const fromManifests = loadAll().filter((m) => m.conformance === 'strict').map((m) => m.name).sort();

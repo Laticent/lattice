@@ -12,6 +12,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 
@@ -59,12 +60,15 @@ describe('the registry is one table, and every row is whole', () => {
 			const src = p.id.toString();
 			assert.ok(!src.includes('.*'), `${p.key}: no unbounded wildcard`);
 		}
-		// A long, hostile query cannot make extraction superlinear.
-		const long = `https://www.youtube.com/watch?${'&'.repeat(200000)}v=aqz-KE-bpKQ`;
-		const t0 = process.hrtime.bigint();
-		assert.equal(detectProvider(long).id, 'aqz-KE-bpKQ');
-		const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-		assert.ok(ms < 500, `extraction took ${ms.toFixed(1)}ms on a 200k-char query`);
+		// A long, hostile query still yields its id.
+		assert.equal(detectProvider(`https://www.youtube.com/watch?${'&'.repeat(400000)}v=aqz-KE-bpKQ`).id, 'aqz-KE-bpKQ');
+		// Backtracking lives inside one regex match, where no count reaches it. A query with no id is where a wildcard
+		// extractor fails at every start (`.*[?&]v=` took 8 s at 80k, growing with the square). So every regex the
+		// detection runs must be one recheck calls linear (test/helpers/regex-trace.js): no clock (HARD RULE #32).
+		const noId = `https://www.youtube.com/watch?${'&'.repeat(2000)}x=1`;
+		// The id patterns come from the plugin manifest at run time, so the census (literals only) cannot hold them.
+		const allow = { '/^\\/(?:shorts|embed|live|v)\\/([\\w-]{11})$/': 'the video manifest\'s path pattern; `npm run regex:census -- --check` (recheck 4.6.2): safe' };
+		assertLinearRegexes(() => assert.equal(detectProvider(noId).id, ''), { allow });
 	});
 
 	test('each row carries the full descriptor, with the right types', () => {

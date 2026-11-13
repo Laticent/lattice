@@ -24,10 +24,10 @@
 //
 // GREEN = the committed golden still matches a fresh render (the author blessed
 // correctly). RED = unblessed drift — CSS/source changed but a deck's committed
-// PDF is stale. The nightly bless bot (tools/golden-bless.mjs) runs this gate and
-// re-blesses what drifted; pull requests no longer commit PDFs (goldens step 3).
-// `--bless` (delegating to build-galleries.js / build-bucket-galleries.js) is what
-// the bot calls, and works by hand for a local look.
+// PDF is stale. The nightly bless bot (tools/golden-bless.mjs) runs this gate with
+// `--jobs auto --promote`, which checks every golden and keeps the fresh render of what
+// drifted; pull requests no longer commit PDFs (goldens step 3). `--bless` (delegating to
+// build-galleries.js / build-bucket-galleries.js for galleries) is for a local look.
 //
 // Sibling render paths (HARD RULE 1): lattice.js (this gate's render,
 // via lib/engine) and dist/lattice-runtime.js (vscode preview / published HTML).
@@ -52,12 +52,19 @@
 // 35-minute sweep that silently banked unrelated example-PDF drift into your commit. The
 // deck bless is opt-in. (The CHECK default stays `all`.)
 //   node tools/regression-gate.mjs --json               # machine-readable report
+//   node tools/regression-gate.mjs --jobs auto          # one worker per core (default 1)
+//   node tools/regression-gate.mjs --promote            # check, and keep the fresh render of
+//                                                       # every golden that drifted (the nightly bless)
+//
+// `--jobs N` runs each gallery or deck golden in its own child process, N at a time. Each
+// render launches its own browser, so the units are independent; measured 2026-11-08 in the
+// 4-core sandbox, four gallery checks took 13 s side by side against 29 s one after another.
 //
 // Exit code is non-zero if any target drifts past tolerance, so it can gate.
 // Failure artifacts (before │ after │ overlay montage PDFs) land in
 // .scratch/regression/.
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
@@ -79,6 +86,7 @@ import { deckGoldenPdfs } from './lib/golden-set.mjs';
 
 const require = createRequire(import.meta.url);
 const { pixelDiff, montageTriptych, pngsToPdf } = require('./pixel-check.js');
+const { defaultJobs, pool } = require('./lib/pool.js');
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, '.scratch', 'regression');
@@ -91,8 +99,8 @@ const OUT = join(ROOT, '.scratch', 'regression');
 // FUZZ = '3%' (≈ channel delta 8 / 255, the engine-parity threshold), now in lib/golden-render.mjs.
 // FAIL_FRACTION = 0.0005 (0.05% of the page, ≈ 260 px at 72dpi 960×540), now in lib/golden-render.mjs.
 // THE COROLLARY NOBODY HAD WRITTEN DOWN: a real, intended change SMALLER than the
-// floor leaves its goldens stale, and `--bless` will not promote them — the branch
-// below is `if (opts.bless && drifted.length)`, so a sub-floor render is produced and
+// floor leaves its goldens stale, and neither `--bless` nor `--promote` will promote them —
+// the branch below is `if (opts.promote && drifted.length)`, so a sub-floor render is produced and
 // discarded. There is no flag to force it, deliberately.
 //
 // That is not hypothetical. #1821 re-pointed one small mark (a hollow state ring) at a
@@ -218,7 +226,7 @@ function renderFreshDeck(md) {
 // bit-identical across machine classes.
 // failFractionForDeck is imported from lib/golden-render.mjs.
 
-// `bless: true` re-blesses ONLY what actually drifted, by promoting the fresh render
+// `promote: true` re-blesses ONLY what actually drifted, by promoting the fresh render
 // this run already produced onto the golden. Two reasons it works that way rather than
 // re-rendering the whole scope:
 //
@@ -261,7 +269,7 @@ function runDeckGolden(md, opts = {}) {
     );
     // Promote BEFORE cleanup — `outPdf` is one of the paths cleanup removes. pixelDiff has
     // already rasterized both sides into its own tmpDir, so the montage still builds.
-    if (opts.bless && drifted.length) {
+    if (opts.promote && drifted.length) {
       renameSync(outPdf, golden);
       result.blessed = true;
     }
@@ -310,7 +318,12 @@ function bless(only) {
 }
 
 // ── Per-gallery run ───────────────────────────────────────────────────────────
-function runGallery(galleryMd) {
+// `promote: true` does for a gallery what it does for a deck: a mood that drifted keeps this
+// run's fresh render as its golden, and a mood that did not is left alone. The fresh render
+// is byte-identical to what build-galleries / build-bucket-galleries would write (the same
+// emulator call; PDF timestamps are pinned by lib/core/pdf-timestamps.js), so promoting it
+// costs a rename where a re-bless cost a second render of both moods.
+function runGallery(galleryMd, opts = {}) {
   const name = deckName(galleryMd);
   const failFraction = failFractionFor(galleryMd);
   const result = { deck: relative(ROOT, galleryMd), name, themes: {}, fail: false };
@@ -330,15 +343,26 @@ function runGallery(galleryMd) {
       result.fail = true;
       continue;
     }
-    const diff = pixelDiff(golden, outPdf, `regr-${name}-${theme}`, { fuzz: FUZZ });
-    // The fresh render lived in the gallery's own dir (for asset resolution);
-    // remove it now that it's rasterized into pixelDiff's tmpDir.
-    cleanup.forEach((p) => { try { rmSync(p, { force: true }); } catch { /* ignore */ } });
-    // A page fails if its over-fuzz pixel count exceeds FAIL_FRACTION, OR if the
-    // page count itself changed (pixels === -1 sentinel from pixelDiff).
-    const drifted = diff.perPage.filter(
-      (p) => p.pixels === -1 || (p.total ? p.pixels / p.total > failFraction : p.pixels > 0),
-    );
+    // The fresh render lived in the gallery's own dir (for asset resolution); it is removed
+    // once rasterized into pixelDiff's tmpDir, or promoted onto the golden first. `finally`,
+    // as in runDeckGolden, so a throw cannot strand a `.regr-*.pdf` beside a committed gallery.
+    let diff;
+    let drifted;
+    let promoted = false;
+    try {
+      diff = pixelDiff(golden, outPdf, `regr-${name}-${theme}`, { fuzz: FUZZ });
+      // A page fails if its over-fuzz pixel count exceeds FAIL_FRACTION, OR if the
+      // page count itself changed (pixels === -1 sentinel from pixelDiff).
+      drifted = diff.perPage.filter(
+        (p) => p.pixels === -1 || (p.total ? p.pixels / p.total > failFraction : p.pixels > 0),
+      );
+      if (opts.promote && drifted.length) {
+        renameSync(outPdf, golden);
+        promoted = true;
+      }
+    } finally {
+      cleanup.forEach((p) => { try { rmSync(p, { force: true }); } catch { /* ignore */ } });
+    }
     const worst = diff.perPage.reduce((m, p) => Math.max(m, p.total ? p.pixels / p.total : (p.pixels > 0 ? 1 : 0)), 0);
     const themeResult = {
       status: drifted.length ? 'DRIFT' : 'ok',
@@ -348,9 +372,14 @@ function runGallery(galleryMd) {
       golden: relative(ROOT, golden),
       tmpDir: diff.tmpDir, // pixelDiff's rasterized old-/new-/diff- PNGs (montage source)
     };
+    if (promoted) themeResult.blessed = true;
     if (drifted.length) result.fail = true;
     result.themes[theme] = themeResult;
   }
+  // BLESSED, as for a deck, means this run resolved every mood that failed. A gallery with one
+  // mood promoted and the other missing its golden is still a failure.
+  const failing = Object.values(result.themes).filter((t) => t.status !== 'ok');
+  if (failing.length && failing.every((t) => t.blessed)) result.blessed = true;
   return result;
 }
 
@@ -371,13 +400,110 @@ function buildMontage(name, theme, themeResult) {
   return pngsToPdf(montages, join(OUT, `${name}.${theme}.drift.pdf`));
 }
 
+// ── One unit of the run ───────────────────────────────────────────────────────
+// A gallery's check with its drift montages attached.
+function checkGallery(galleryMd, opts) {
+  const r = runGallery(galleryMd, opts);
+  for (const theme of THEMES) {
+    const tr = r.themes[theme];
+    if (tr?.status === 'DRIFT') {
+      const artifact = buildMontage(r.name, theme, tr);
+      if (artifact) tr.artifact = relative(ROOT, artifact);
+    }
+  }
+  return r;
+}
+
+// A deck golden's check with its drift montage attached.
+function checkDeck(md, opts) {
+  const r = runDeckGolden(md, opts);
+  const tr = r.themes.golden;
+  if (tr?.status === 'DRIFT') {
+    const artifact = buildMontage(r.name.replace(/[/\\]/g, '_'), 'golden', tr);
+    if (artifact) tr.artifact = relative(ROOT, artifact);
+  }
+  // Drop pixelDiff's rasterized PNGs once the montage has been built from them. It
+  // never cleans its own tmpDir, which was survivable at 75 galleries and is not at
+  // 185 decks: a few sweeps left 502 directories and 1.3GB under /tmp, and the next
+  // run of the SAME deck went from 7.7s to ~3 minutes. Measured, after chasing it as
+  // a regression in this tool. A DRIFTED deck keeps its directory — the report points
+  // reviewers at those PNGs.
+  if (tr?.status !== 'DRIFT' && tr?.tmpDir) {
+    try { rmSync(tr.tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    tr.tmpDir = undefined;
+  }
+  return r;
+}
+
+// The same unit in a child process of this script, for --jobs. The child writes its rows as
+// JSON on stdout. A child that dies without a report becomes a RENDER_ERROR row for each of
+// its sources, so a crash is a failure in the report and never a silently missing golden.
+function runUnitInChild(u, { promote }) {
+  const argv = [fileURLToPath(import.meta.url), '--scope', u.scope, '--only', u.only, '--unit', ...(promote ? ['--promote'] : [])];
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, argv, { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    let err = '';
+    child.stdout.on('data', (d) => { out += d; });
+    child.stderr.on('data', (d) => { err += d; });
+    const failed = (why) => u.mds.map((md) => {
+      const gallery = u.scope === 'galleries';
+      const themes = Object.fromEntries((gallery ? THEMES : ['golden']).map((k) => [k, { status: 'RENDER_ERROR', error: why }]));
+      return { deck: relative(ROOT, md), name: gallery ? deckName(md) : goldenDeckName(md), ...(gallery ? {} : { scope: 'deck' }), themes, fail: true };
+    });
+    child.on('error', (e) => resolve(failed(String(e.message || e))));
+    child.on('close', (code) => {
+      try {
+        if (code !== 0 && code !== 1) throw new Error(`exited ${code}`);
+        resolve(JSON.parse(out).report);
+      } catch (e) {
+        resolve(failed(`worker ${u.scope} ${u.only}: ${e.message}: ${err.trim().split('\n').slice(-2).join(' | ')}`));
+      }
+    });
+  });
+}
+
+// One line per gallery or deck in the human-readable run.
+function printRow(r) {
+  if (r.scope === 'deck') {
+    const tr = r.themes.golden;
+    const s = tr?.status === 'ok' ? 'ok'
+      : tr?.status === 'DRIFT'
+        ? `${r.blessed ? 'BLESSED' : 'DRIFT'}(${tr.drifted.length}pg, worst ${(tr.worstFraction * 100).toFixed(2)}%)`
+        : (tr?.status ?? '?');
+    process.stdout.write(`${r.fail && !r.blessed ? '✗' : '✓'} ${r.name.padEnd(46)} ${s}\n`);
+    return;
+  }
+  const parts = THEMES.map((t) => {
+    const tr = r.themes[t];
+    if (!tr) return `${t}:?`;
+    if (tr.status === 'ok') return `${t}:ok`;
+    if (tr.status === 'DRIFT') return `${t}:${tr.blessed ? 'BLESSED' : 'DRIFT'}(${tr.drifted.length}pg, worst ${(tr.worstFraction * 100).toFixed(2)}%)`;
+    return `${t}:${tr.status}`;
+  });
+  process.stdout.write(`${r.fail && !r.blessed ? '✗' : '✓'} ${r.name.padEnd(20)} ${parts.join('  ')}\n`);
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const json = args.includes('--json');
   const blessMode = args.includes('--bless');
   const onlyIdx = args.indexOf('--only');
   const only = onlyIdx >= 0 ? args[onlyIdx + 1] : null;
+  // --promote: a CHECK that also keeps the fresh render of whatever drifted (see runGallery). The
+  // nightly bless runs it over the whole corpus, so one render per golden both checks and blesses.
+  const promote = args.includes('--promote');
+  // --unit: run as one worker of a parallel parent (below). It leaves OUT and report.json alone,
+  // because the parent owns them and sibling workers write into OUT at the same time.
+  const unit = args.includes('--unit');
+  const jobsIdx = args.indexOf('--jobs');
+  const jobsArg = jobsIdx >= 0 ? args[jobsIdx + 1] : '1';
+  const jobs = jobsArg === 'auto' ? defaultJobs() : Number(jobsArg);
+  if (!Number.isInteger(jobs) || jobs < 1) {
+    process.stderr.write(`error: --jobs must be a whole number of at least 1, or auto (got "${jobsArg}")\n`);
+    return 2;
+  }
 
   // SCOPE defaults to `all`, and that is deliberate. This gate's whole subject is that
   // the set of watched artifacts must equal the set of committed ones (#1279, #1379);
@@ -424,7 +550,7 @@ function main() {
   //     their goldens outright. Unchanged from before this scope existed. Once blessed
   //     there is nothing left to compare, so they drop out of the run below — otherwise
   //     `--bless` would re-render all 150 and then diff them against themselves.
-  //   · DECK GOLDENS fall THROUGH into the comparison with `bless: true`, so only the
+  //   · DECK GOLDENS fall THROUGH into the comparison with `promote: true`, so only the
   //     ones that actually drifted are rewritten. Blindly re-rendering the scope would
   //     rewrite every file blessed on a different machine — Skia's rasterization is not
   //     bit-identical across hosts — to land a handful of real changes.
@@ -464,67 +590,33 @@ function main() {
     if (!goldens.length) return 0;
   }
 
-  rmSync(OUT, { recursive: true, force: true });
+  if (!unit) rmSync(OUT, { recursive: true, force: true });
   mkdirSync(OUT, { recursive: true });
 
-  const report = [];
-  let anyFail = false;
-  for (const galleryMd of decks) {
-    const r = runGallery(galleryMd);
-    // Attach drift montages.
-    for (const theme of THEMES) {
-      const tr = r.themes[theme];
-      if (tr?.status === 'DRIFT') {
-        const artifact = buildMontage(r.name, theme, tr);
-        if (artifact) tr.artifact = relative(ROOT, artifact);
-      }
-    }
-    report.push(r);
-    if (r.fail) anyFail = true;
-    if (!json) {
-      const parts = THEMES.map((t) => {
-        const tr = r.themes[t];
-        if (!tr) return `${t}:?`;
-        if (tr.status === 'ok') return `${t}:ok`;
-        if (tr.status === 'DRIFT') return `${t}:DRIFT(${tr.drifted.length}pg, worst ${(tr.worstFraction * 100).toFixed(2)}%)`;
-        return `${t}:${tr.status}`;
-      });
-      process.stdout.write(`${r.fail ? '✗' : '✓'} ${r.name.padEnd(20)} ${parts.join('  ')}\n`);
-    }
+  // One unit per gallery NAME (a bucket and a component can share one: `code`, `math`, …, and
+  // `--only` runs both) and one per deck golden. With --jobs above 1, each unit is a child
+  // process of this script, so renders and pixel diffs run side by side; with 1, in this process.
+  const units = [
+    ...[...new Set(decks.map(deckName))].map((name) => ({ scope: 'galleries', only: name, mds: decks.filter((d) => deckName(d) === name) })),
+    ...goldens.map((md) => ({ scope: 'decks', only: goldenDeckName(md), mds: [md] })),
+  ];
+  const runUnit = (u) => (u.scope === 'galleries' ? u.mds.map((md) => checkGallery(md, { promote })) : u.mds.map((md) => checkDeck(md, { promote: promote || blessMode })));
+  const parallel = jobs > 1 && units.length > 1;
+  const { results } = await pool(units, jobs, async (u) => {
+    const rows = parallel ? await runUnitInChild(u, { promote: promote || blessMode }) : runUnit(u);
+    if (!json && !unit) for (const r of rows) printRow(r);
+    return rows;
+  });
+  const report = results.flat();
+  // A BLESSED golden is not a failure — the drift was resolved by this very run, so
+  // reporting it red (and telling the reader to "re-bless") would be a lie about what
+  // just happened, and would give `--bless` a non-zero exit on success.
+  const anyFail = report.some((r) => r.fail && !r.blessed);
+  if (unit) {
+    process.stdout.write(`${JSON.stringify({ report })}\n`);
+    return anyFail ? 1 : 0;
   }
 
-  for (const md of goldens) {
-    const r = runDeckGolden(md, { bless: blessMode });
-    const tr = r.themes.golden;
-    if (tr?.status === 'DRIFT') {
-      const artifact = buildMontage(r.name.replace(/[/\\]/g, '_'), 'golden', tr);
-      if (artifact) tr.artifact = relative(ROOT, artifact);
-    }
-    // Drop pixelDiff's rasterized PNGs once the montage has been built from them. It
-    // never cleans its own tmpDir, which was survivable at 75 galleries and is not at
-    // 185 decks: a few sweeps left 502 directories and 1.3GB under /tmp, and the next
-    // run of the SAME deck went from 7.7s to ~3 minutes. Measured, after chasing it as
-    // a regression in this tool. A DRIFTED deck keeps its directory — the report points
-    // reviewers at those PNGs.
-    if (tr?.status !== 'DRIFT' && tr?.tmpDir) {
-      try { rmSync(tr.tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
-      tr.tmpDir = undefined;
-    }
-    report.push(r);
-    // A BLESSED golden is not a failure — the drift was resolved by this very run, so
-    // reporting it red (and telling the reader to "re-bless") would be a lie about what
-    // just happened, and would give `--bless` a non-zero exit on success.
-    if (r.fail && !r.blessed) anyFail = true;
-    if (!json) {
-      const s = tr?.status === 'ok' ? 'ok'
-        : tr?.status === 'DRIFT'
-          ? `${r.blessed ? 'BLESSED' : 'DRIFT'}(${tr.drifted.length}pg, worst ${(tr.worstFraction * 100).toFixed(2)}%)`
-          : (tr?.status ?? '?');
-      process.stdout.write(`${r.fail && !r.blessed ? '✗' : '✓'} ${r.name.padEnd(46)} ${s}\n`);
-    }
-  }
-
-  mkdirSync(OUT, { recursive: true });
   writeFileSync(join(OUT, 'report.json'), JSON.stringify(report, null, 2));
   if (json) {
     process.stdout.write(JSON.stringify({ ok: !anyFail, fuzz: FUZZ, failFraction: FAIL_FRACTION, failFractionMermaid: FAIL_FRACTION_MERMAID, report }, null, 2) + '\n');
@@ -546,4 +638,4 @@ function main() {
 
 // exitCode, not process.exit(): stdout to a pipe is written asynchronously, and exiting at
 // once cut a --json report of the whole corpus off at 146,176 bytes (golden-bless.mjs).
-process.exitCode = main();
+process.exitCode = await main();

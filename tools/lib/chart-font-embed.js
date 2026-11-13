@@ -15,6 +15,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const { TEXT_FACES, faceKey, faceMetricsDecl } = require('../../lib/fonts/text-faces.js');
+
 const FONT_DIR = path.join(__dirname, '..', '..', 'docs', 'src', 'playground', 'fonts');
 
 // One entry per engine face — mirrors docs/src/playground/font-embed.js FACES,
@@ -37,7 +39,29 @@ const FACES = [
   { family: 'Shantell Sans', weight: 400, style: 'normal', file: 'shantell-sans-400.woff2' },
   { family: 'Shantell Sans', weight: 500, style: 'normal', file: 'shantell-sans-500.woff2' },
   { family: 'Shantell Sans', weight: 700, style: 'normal', file: 'shantell-sans-700.woff2' },
+  // The `typography:` set faces (lib/core/resolve-typography.js). Their `size-adjust` comes from the one
+  // manifest, lib/fonts/text-faces.js, so a chart in Inter draws at the size the slide drew it.
+  { family: 'Newsreader', weight: 400, style: 'normal', file: 'newsreader-400.woff2' },
+  { family: 'Newsreader', weight: 700, style: 'normal', file: 'newsreader-700.woff2' },
+  { family: 'Newsreader', weight: 400, style: 'italic', file: 'newsreader-400-italic.woff2' },
+  { family: 'Newsreader', weight: 700, style: 'italic', file: 'newsreader-700-italic.woff2' },
+  { family: 'Fraunces', weight: 400, style: 'normal', file: 'fraunces-400.woff2' },
+  { family: 'Fraunces', weight: 700, style: 'normal', file: 'fraunces-700.woff2' },
+  { family: 'Fraunces', weight: 400, style: 'italic', file: 'fraunces-400-italic.woff2' },
+  { family: 'Fraunces', weight: 700, style: 'italic', file: 'fraunces-700-italic.woff2' },
+  { family: 'Barlow Condensed', weight: 400, style: 'normal', file: 'barlow-condensed-400.woff2' },
+  { family: 'Barlow Condensed', weight: 600, style: 'normal', file: 'barlow-condensed-600.woff2' },
+  { family: 'Barlow Condensed', weight: 700, style: 'normal', file: 'barlow-condensed-700.woff2' },
+  { family: 'Barlow Condensed', weight: 400, style: 'italic', file: 'barlow-condensed-400-italic.woff2' },
+  { family: 'Barlow Condensed', weight: 700, style: 'italic', file: 'barlow-condensed-700-italic.woff2' },
+  { family: 'Inter', weight: 300, style: 'normal', file: 'inter-300.woff2' },
+  { family: 'Inter', weight: 400, style: 'normal', file: 'inter-400.woff2' },
+  { family: 'Inter', weight: 500, style: 'normal', file: 'inter-500.woff2' },
+  { family: 'Inter', weight: 600, style: 'normal', file: 'inter-600.woff2' },
+  { family: 'Inter', weight: 700, style: 'normal', file: 'inter-700.woff2' },
 ];
+
+const MANIFEST_FACE = new Map(TEXT_FACES.map((f) => [faceKey(f.family, f.weight, f.style), f]));
 
 function faceDataUri(file) {
   const buf = fs.readFileSync(path.join(FONT_DIR, file));
@@ -51,6 +75,7 @@ function faceRule(face, src) {
     `font-style:${face.style};` +
     `font-weight:${face.weight};` +
     'font-display:swap;' +
+    faceMetricsDecl(MANIFEST_FACE.get(faceKey(face.family, face.weight, face.style))) +
     `src:url(${src}) format('woff2')` +
     '}'
   );

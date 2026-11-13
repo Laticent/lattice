@@ -108,176 +108,101 @@ const panel = () =>
 		/>,
 	);
 
+// THE NARRATOR IS THE VOICE MODEL (engineering/decisions/2026-11-08-studio-ai-routes-ux.md §3).
+// The panel used to carry its own narrator picker (a cloud/device toggle, a model and a voice), a
+// second place that decided "which voice" beside Workspace › AI. It now names the author's voice
+// selection and says where to change it; the catalog is read only for the price.
 describe('when the voice catalog cannot be reached', () => {
-	it('says the CATALOG is unreachable — never that the model has no voices', async () => {
+	it('says the PRICE is unknown, never that the model publishes none, and never renders NaN', async () => {
 		listTtsCatalog.mockResolvedValue({ models: [], reachable: false });
 		panel();
-		await waitFor(() => expect(screen.getByText(/Couldn't reach the voice catalog/i)).toBeTruthy());
-		// The old copy blamed the model. It must not come back.
-		expect(screen.queryByText(/hasn't published a voice list/i)).toBeNull();
+		await screen.findByText(/To synthesize/i);
+		await waitFor(() => expect(document.body.textContent ?? '').toMatch(/cost unknown until the catalog is reachable/i));
+		const bill = document.body.textContent ?? '';
+		expect(bill).not.toMatch(/NaN/);
+		expect(bill).not.toMatch(/this model publishes no price/i);
+		expect(bill, 'the old copy blamed the model').not.toMatch(/hasn't published a voice list/i);
 	});
 
-	it('names the voice the export will actually bake with, so the author knows it still works', async () => {
-		// The load-bearing half: the bake reads the saved prefs, not the catalog, so this state
-		// is a degraded PICKER, not a broken export. Saying otherwise would send an author off
-		// to fix a connection they do not need.
+	it('still names the voice the export will bake with: the catalog is not where it comes from', async () => {
 		listTtsCatalog.mockResolvedValue({ models: [], reachable: false });
 		panel();
-		// Scoped to the fallback line: the model id also appears in the model picker's own
-		// summary, so an unscoped query matches twice and proves nothing about THIS copy.
-		const line = await screen.findByText(/Couldn't reach the voice catalog/i);
-		const within = (line.textContent ?? '').replace(/\s+/g, ' ');
-		// ORDER MATTERS, and asserting `toContain` on each name separately does not check it: a
-		// version that printed "your saved voice — hexgrad/kokoro-82m on af_heart" passed that
-		// way, which is the voice and the model swapped — a garbled sentence about the one thing
-		// the author needs to read correctly. Pin the phrase.
-		expect(within).toMatch(/saved voice — af_heart on hexgrad\/kokoro-82m/);
+		const line = (await screen.findByText(/Narrated by your voice model/i)).textContent ?? '';
+		expect(line.replace(/\s+/g, ' ')).toMatch(/Heart · Kokoro 82M · OpenRouter/);
 	});
 
-	it('does NOT show the unreachable copy while the catalog is still in flight', async () => {
-		// `null` (in flight) and `[]` (resolved empty) are different answers, and flashing
-		// "couldn't reach the catalog" during a slow fetch would be its own small lie.
+	it('does NOT say the cost is unknown while the catalog is still in flight', async () => {
 		let release: (v: unknown) => void = () => {};
 		listTtsCatalog.mockReturnValue(new Promise((r) => { release = r; }));
 		panel();
-		await waitFor(() => expect(screen.getByLabelText('Include narration audio')).toBeTruthy());
-		expect(screen.queryByText(/Couldn't reach the voice catalog/i)).toBeNull();
+		await screen.findByText(/To synthesize/i);
+		expect(screen.queryByText(/cost unknown/i)).toBeNull();
 		release({ models: [], reachable: false });
-		await waitFor(() => expect(screen.getByText(/Couldn't reach the voice catalog/i)).toBeTruthy());
+		await waitFor(() => expect(document.body.textContent ?? '').toMatch(/cost unknown until the catalog is reachable/i));
 	});
 });
 
-describe('when the catalog IS reachable', () => {
-	it('offers the real picker rather than the fallback line', async () => {
-		listTtsCatalog.mockResolvedValue({ models: [{ id: 'hexgrad/kokoro-82m', name: 'Kokoro', promptPerM: 0.62, completionPerM: null, voices: ['af_heart', 'am_michael'] }], reachable: true });
-		panel();
-		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
-		expect(screen.queryByText(/Couldn't reach the voice catalog/i)).toBeNull();
-	});
-});
-
-// The defect this shape exists to prevent, pinned so it cannot come back by someone
-// "simplifying" reachability into an emptiness check.
 describe('when the catalog is REACHABLE but genuinely lists nothing', () => {
 	it('does NOT claim the catalog was unreachable', async () => {
-		// A live answer with no speech models is empty for a real reason. Saying "couldn't reach
-		// the voice catalog" about a catalog we reached is the same lie, one layer down — and an
-		// `Array.isArray(models) && !models.length` guard cannot tell the two apart.
+		// A live answer with no speech models is empty for a real reason; an emptiness check
+		// cannot tell it from an unreachable catalog, so reachability is its own answer.
 		listTtsCatalog.mockResolvedValue({ models: [], reachable: true });
 		panel();
-		await waitFor(() => expect(screen.getByLabelText('Include narration audio')).toBeTruthy());
-		expect(screen.queryByText(/Couldn't reach the voice catalog/i)).toBeNull();
+		await screen.findByText(/To synthesize/i);
+		expect(screen.queryByText(/cost unknown/i)).toBeNull();
 	});
 });
 
-describe('the bill, which no assertion here used to look at', () => {
-	it('never renders NaN, and never calls an unreachable catalog a model without a price', async () => {
-		// Both halves caught by the checker: an invalid fixture rendered "about NaN" unnoticed,
-		// and the price line — fed by the same empty catalog as the roster — said "this model
-		// publishes no price" while sitting directly above a button that spends money.
-		listTtsCatalog.mockResolvedValue({ models: [], reachable: false });
-		panel();
-		await screen.findByText(/Couldn't reach the voice catalog/i);
-		const bill = document.body.textContent ?? '';
-		expect(bill).not.toMatch(/NaN/);
-		expect(bill).toMatch(/cost unknown until the catalog is reachable/i);
-		expect(bill).not.toMatch(/this model publishes no price/i);
-	});
-});
-
-// #1462 item 2. The on-device rung was reachable ONLY through `cloudReady === false`, so an
-// author who HAD a key and had rehearsed the whole deck on-device was measured against the
-// cloud voice, quoted for 100% of a deck already on their disk, and told by this panel that
-// they could "pick the voice you rehearsed in, to pay nothing". They could not: the pickers
-// were fed the OpenRouter catalog only. The panel gave advice the panel made impossible, and
-// the consequence was money.
-describe('choosing the narrator when BOTH a cloud key and an on-device voice exist', () => {
+describe('the narrator follows the voice selection', () => {
 	const DEVICE = { rung: 'kokoro' as const, model: 'hexgrad/kokoro-82m', voice: 'af_sky', speed: 1 };
-
+	const GEMINI = { rung: 'gemini' as const, model: 'gemini-3.8-flash-lite-tts', voice: 'Kore', speed: 1 };
 	beforeEach(() => {
 		listTtsCatalog.mockResolvedValue({ models: [{ id: 'hexgrad/kokoro-82m', name: 'Kokoro', promptPerM: 0.62, completionPerM: null, voices: ['af_heart'] }], reachable: true });
-		voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: true, kokoroCached: true, kokoroSupported: true, webgpu: true, speechAllowed: false });
 	});
 
-	it('offers the on-device narrator even though a cloud voice IS connected', async () => {
-		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+	it('has no narrator picker of its own, and says where the voice is chosen', async () => {
 		panel();
-		const pick = await screen.findByRole('button', { name: /This device/i });
-		expect(pick).toBeTruthy();
-		expect(screen.getByRole('button', { name: /Cloud voice/i })).toBeTruthy();
+		const line = await screen.findByText(/Narrated by your voice model/i);
+		expect(line.textContent).toMatch(/Change it in Workspace › AI/);
+		expect(screen.queryByLabelText('Narration voice')).toBeNull();
+		expect(screen.queryByRole('button', { name: /Cloud voice|This device/i })).toBeNull();
 	});
 
-	it('defaults to the cloud voice, so a deck still ships sounding like the rehearsal', async () => {
-		onDeviceBakeVoice.mockResolvedValue(DEVICE);
-		panel();
-		const cloud = await screen.findByRole('button', { name: /Cloud voice/i });
-		expect(cloud.getAttribute('aria-pressed')).toBe('true');
-		expect(screen.getByRole('button', { name: /This device/i }).getAttribute('aria-pressed')).toBe('false');
-	});
-
-	it('WRITES the identity the bake will use — not just the one the panel measures', async () => {
-		// The defect this pins cost real money and shipped past three panel tests. The pick used
-		// to live in component state and feed only the pre-flight, so an author who turned audio
-		// on (defaulting to cloud) and then chose "This device" was measured against the device
-		// voice, told "nothing is billed", and then baked with the CLOUD voice — the whole deck
-		// synthesized and charged. Quoted $0, billed in full.
-		//
-		// The tests that missed it passed `onChange={() => {}}` with a constant `value`, so they
-		// could only ever see the measurement. THIS asserts the emitted choice.
-		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+	it('WRITES the selected identity, the one the bake reads, not just the one it shows', async () => {
+		defaultBakeVoice.mockResolvedValue(DEVICE);
+		voiceAvailability.mockResolvedValue({ rung: 'kokoro', openRouterReady: true, kokoroReady: true, kokoroCached: true, kokoroSupported: true, webgpu: true, speechAllowed: false });
 		const emitted = statefulPanel();
-		const btn = await screen.findByRole('button', { name: /This device/i });
-		await act(async () => { btn.click(); });
-		const last = emitted[emitted.length - 1];
-		expect(last, 'the pick must reach the caller at all').toBeTruthy();
-		expect(last.voice.rung, 'and it must carry the on-device identity the bake reads').toBe('kokoro');
-		expect(last.voice.voice).toBe('af_sky');
+		await waitFor(() => expect(emitted.at(-1)?.voice).toEqual(DEVICE));
+		await waitFor(() => expect((document.body.textContent ?? '').replace(/\s+/g, ' ')).toMatch(/Sky · Kokoro · This device\. Nothing leaves this machine and nothing is billed/));
 	});
 
-	it('switching back to the cloud restores the author\'s own model and voice', async () => {
-		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+	it('re-reads the selection when it changes while the panel is open', async () => {
+		voiceAvailability.mockResolvedValue({ rung: 'kokoro', openRouterReady: true, kokoroReady: true, kokoroCached: true, kokoroSupported: true, webgpu: true, speechAllowed: false });
 		const emitted = statefulPanel();
-		// Resolve the buttons OUTSIDE act() — a findBy* poll inside it does not see the async
-		// availability effect flush, and the node identity is stable across the re-measure.
-		const device = await screen.findByRole('button', { name: /This device/i });
-		const cloud = await screen.findByRole('button', { name: /Cloud voice/i });
-		await act(async () => { device.click(); });
-		await act(async () => { cloud.click(); });
-		const last = emitted[emitted.length - 1];
-		expect(last.voice.rung, 'back to the cloud identity').not.toBe('kokoro');
-		expect(last.voice.model, 'and the author\'s own model survived the detour').toBe(VOICE.model);
-		expect(last.voice.voice).toBe(VOICE.voice);
+		await screen.findByText(/Narrated by your voice model/i);
+		defaultBakeVoice.mockResolvedValue(DEVICE);
+		await act(async () => { window.dispatchEvent(new Event('db-voice-changed')); });
+		await waitFor(() => expect(emitted.at(-1)?.voice.rung).toBe('kokoro'));
 	});
 
-	it('picking it names the rehearsed voice and promises no bill', async () => {
-		onDeviceBakeVoice.mockResolvedValue(DEVICE);
-		statefulPanel();
-		const btn = await screen.findByRole('button', { name: /This device/i });
-		await act(async () => { btn.click(); });
-		await waitFor(() => expect(screen.getByRole('button', { name: /This device/i }).getAttribute('aria-pressed')).toBe('true'));
-		const copy = (document.body.textContent ?? '').replace(/\s+/g, ' ');
-		expect(copy, 'the voice actually rehearsed in, not the cloud one').toMatch(/af_sky/);
-		expect(copy).toMatch(/nothing is billed/i);
+	it('narrates on a Gemini key when that is the voice model', async () => {
+		defaultBakeVoice.mockResolvedValue(GEMINI);
+		voiceAvailability.mockResolvedValue({ rung: 'gemini-tts', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: false, webgpu: false, speechAllowed: false, readiness: { state: 'ready', source: 'cloud', provider: 'gemini', voice: 'Kore', model: 'gemini-3.8-flash-lite-tts' } });
+		const emitted = statefulPanel();
+		await waitFor(() => expect(emitted.at(-1)?.voice).toEqual(GEMINI));
+		expect(((await screen.findByText(/Narrated by your voice model/i)).textContent ?? '').replace(/\s+/g, ' ')).toMatch(/Kore · .* · your Gemini key/);
+		expect((screen.getByLabelText('Include narration audio') as HTMLButtonElement).disabled).toBe(false);
 	});
 
-	it('does not offer the choice when the model is on disk but not LOADED', async () => {
-		// `kokoroReady`, not `kokoroReady || kokoroCached`. "Cached" means the weights are on
-		// disk; the offer promises a voice that answers NOW, and a cached-but-unloaded model has
-		// to be fetched into memory and warmed first. Offering it there is a button that appears
-		// to cost nothing and then stalls the export on a load the panel never mentioned.
-		onDeviceBakeVoice.mockResolvedValue(DEVICE);
-		voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: true, kokoroSupported: true, webgpu: true, speechAllowed: false });
-		panel();
-		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
-		expect(screen.queryByRole('button', { name: /This device/i })).toBeNull();
-	});
-
-	it('does not offer the choice when there is no on-device voice at all', async () => {
-		onDeviceBakeVoice.mockResolvedValue(null);
-		voiceAvailability.mockResolvedValue({ rung: 'openrouter-tts', openRouterReady: true, kokoroReady: false, kokoroCached: false, kokoroSupported: false, webgpu: false, speechAllowed: false });
-		panel();
-		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
-		expect(screen.queryByRole('button', { name: /This device/i })).toBeNull();
+	it('cannot turn audio on while the on-device voice is on disk but not LOADED', async () => {
+		// `kokoroReady`, not `kokoroReady || kokoroCached`: a cached-but-unloaded model is a bake
+		// `synthBakeClip` refuses, so the switch must not promise it.
+		defaultBakeVoice.mockResolvedValue(DEVICE);
+		voiceAvailability.mockResolvedValue({ rung: 'silent', openRouterReady: true, kokoroReady: false, kokoroCached: true, kokoroSupported: true, webgpu: true, speechAllowed: false });
+		statefulPanel({ captions: false, audio: false, voice: VOICE, allowPartial: false });
+		await waitFor(() => expect(voiceAvailability).toHaveBeenCalled());
+		await waitFor(() => expect((screen.getByLabelText('Include narration audio') as HTMLButtonElement).disabled).toBe(true));
+		expect(document.body.textContent ?? '').toMatch(/Your voice model cannot speak right now/);
 	});
 });
 
@@ -441,7 +366,7 @@ describe('when the chosen voice does not speak the deck’s language', () => {
 
 	it('stays quiet when the voice and the deck agree', async () => {
 		panelWithLang('en'); // af_heart IS US English
-		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
+		await screen.findByText(/Narrated by your voice model/i);
 		expect(screen.queryByText(/This deck declares lang/i)).toBeNull();
 	});
 
@@ -449,7 +374,7 @@ describe('when the chosen voice does not speak the deck’s language', () => {
 		// The "unset, as before" half — the half a regression would break silently, because a
 		// warning on every deck that never said anything about language is worse than none.
 		panel(); // the default fixture carries no `lang:`
-		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
+		await screen.findByText(/Narrated by your voice model/i);
 		expect(screen.queryByText(/This deck declares lang/i)).toBeNull();
 	});
 
@@ -457,14 +382,14 @@ describe('when the chosen voice does not speak the deck’s language', () => {
 		// `en-GB` against a US English voice is a narrower claim than either side is making;
 		// warning there would train the author to dismiss the warning that matters.
 		panelWithLang('en-GB');
-		await waitFor(() => expect(screen.getByLabelText('Narration voice')).toBeTruthy());
+		await screen.findByText(/Narrated by your voice model/i);
 		expect(screen.queryByText(/This deck declares lang/i)).toBeNull();
 	});
 
-	it('warns even when the catalog is unreachable — that branch renders no picker but still bakes a voice', async () => {
+	it('warns even when the catalog is unreachable — the bake still uses that voice', async () => {
 		listTtsCatalog.mockResolvedValue({ models: [], reachable: false });
 		panelWithLang('es');
-		await waitFor(() => expect(screen.getByText(/Couldn't reach the voice catalog/i)).toBeTruthy());
+		await waitFor(() => expect(document.body.textContent ?? '').toMatch(/cost unknown until the catalog is reachable/i));
 		expect(warningNodes().visible, 'READABLE, not just announced').toHaveLength(1);
 	});
 });
@@ -488,6 +413,7 @@ describe('the on-device narrator with no cloud key', () => {
 	beforeEach(() => {
 		listTtsCatalog.mockResolvedValue({ models: [], reachable: false });
 		onDeviceBakeVoice.mockResolvedValue(DEVICE);
+		defaultBakeVoice.mockResolvedValue(DEVICE); // the voice model is Kokoro on this device
 	});
 
 	it('offers audio once the voice finishes loading WHILE the panel is open, and selects it', async () => {
@@ -504,7 +430,7 @@ describe('the on-device narrator with no cloud key', () => {
 		await act(async () => { (screen.getByLabelText('Include narration audio') as HTMLButtonElement).click(); });
 		const last = emitted[emitted.length - 1];
 		expect(last.audio).toBe(true);
-		expect(last.voice.rung, 'turning audio on writes the only narrator that can speak').toBe('kokoro');
+		expect(last.voice.rung, 'the narrator is the voice selection, Kokoro').toBe('kokoro');
 		expect(last.voice.voice).toBe('af_sky');
 	});
 
@@ -516,7 +442,7 @@ describe('the on-device narrator with no cloud key', () => {
 		await act(async () => { (audio as HTMLButtonElement).click(); });
 		await screen.findByText(/To synthesize/i);
 		const copy = (document.body.textContent ?? '').replace(/\s+/g, ' ');
-		expect(copy, 'the narrator is named even with the picker hidden').toMatch(/Narrated by the on-device voice you rehearse with — af_sky/);
+		expect(copy, 'the narrator is named').toMatch(/Narrated by your voice model, Sky · Kokoro · This device/);
 		expect(copy).toMatch(/4 sentences · free, on this device/);
 		expect(copy, 'a cloud price line under a free voice').not.toMatch(/publishes no price|cost unknown/i);
 		expect(copy, 'a cloud bill under a free voice').not.toMatch(/bills the whole deck/i);
@@ -547,7 +473,7 @@ describe('availability dropping under a switch that is on', () => {
 		// The key disconnects elsewhere; architect-model emits this.
 		voiceAvailability.mockResolvedValue({ rung: 'silent', openRouterReady: false, kokoroReady: false, kokoroCached: false, kokoroSupported: true, webgpu: false, speechAllowed: false });
 		await act(async () => { window.dispatchEvent(new Event('db-model-changed')); });
-		await waitFor(() => expect(document.body.textContent ?? '').toMatch(/Connect a cloud voice in the Workspace/));
+		await waitFor(() => expect(document.body.textContent ?? '').toMatch(/Your voice model cannot speak right now/));
 		const audio = screen.getByLabelText('Include narration audio') as HTMLButtonElement;
 		expect(audio.disabled, 'a checked switch the author cannot turn off').toBe(false);
 		await act(async () => { audio.click(); });

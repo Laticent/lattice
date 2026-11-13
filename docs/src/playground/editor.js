@@ -24,7 +24,7 @@ import { linter, lintGutter, lintKeymap } from '@codemirror/lint';
 import { Compartment, EditorSelection, EditorState, StateEffect, Transaction } from '@codemirror/state';
 import { EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, scrollPastEnd } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
-import { editorChrome, editorChromeCoarse } from '../lib/editor-chrome.js';
+import { activeLineTheme, activeLineVars, editorChrome, editorChromeCoarse } from '../lib/editor-chrome.js';
 import { buildVocabSets, deckPluginsOffFor, findingsToDiagnostics } from '../lib/editor-diagnostics.js';
 import { lintTheme, lintThemeCoarse, tooltipShell } from '../lib/lint-theme.js';
 import { latticeAutocomplete } from './complete.js';
@@ -282,8 +282,7 @@ const latticeTheme = EditorView.theme({
 			// exactly the active line's 5.03. Solid for matched, DASHED for unmatched,
 			// because on the a11y palettes the two tokens land 1.40-1.52:1 apart and hue
 			// alone cannot separate the states.
-			'--cm-active-line': 'color-mix(in srgb, var(--accent) 12%, transparent)',
-			'--cm-active-gutter': 'color-mix(in srgb, var(--accent) 22%, transparent)',
+			...activeLineVars,
 			// The slide the preview is showing: a faint wash over its lines, and a bar in the gutter.
 			'--cm-band': 'color-mix(in srgb, var(--accent) 7%, transparent)',
 			'--cm-band-edge': 'color-mix(in srgb, var(--accent) 38%, transparent)',
@@ -320,23 +319,11 @@ const latticeTheme = EditorView.theme({
 	// zero such elements on the real Studio). Sharing it would have moved a dead
 	// rule into the shared module and invited someone to "reconcile" this 12% with
 	// the 5% the Studio carried but never painted.
-	'.cm-activeLine': { backgroundColor: 'var(--cm-active-line)' },
-	'.cm-activeLineGutter': { backgroundColor: 'var(--cm-active-gutter)', color: 'var(--accent)' },
-	// THE ACTIVE LINE STANDS DOWN WHILE A SELECTION IS UP, and this is a contrast fix
-	// rather than a preference. `highlightActiveLine()` decorates the line at every
-	// range's HEAD whether or not that range is empty (@codemirror/view's `getDeco`
-	// has no `r.empty` check), so a selection that covers the caret's line lands on
-	// TWO stacked accent washes — 12% + 18% composites to 27.84%. Measured on
-	// cuoio/light, the site's default palette and mode: `--text-body` reads 3.96:1
-	// there, under AA, while the same selection over bare `--bg` reads 4.61.
-	//
-	// The band's job is "here is your caret". A selection says that already, and more
-	// precisely — so dropping it while one is up costs nothing and is what makes the
-	// 4.5 floor this editor's specs assert actually TRUE on the surface rather than
-	// only in the arithmetic. `--cm-active-line` itself is untouched: the band is
-	// exactly as visible as before whenever there is no selection.
-	'&.cm-has-selection .cm-activeLine': { backgroundColor: 'transparent' },
-	'&.cm-has-selection .cm-activeLineGutter': { backgroundColor: 'transparent' },
+	// The active line and its stand-down while a selection is up: the shared module's (lib/editor-chrome.js
+	// `activeLineTheme`), which the Studio's Markdown editor now installs too. Why it stands down: a selection over the
+	// caret's line stacked TWO accent washes, 12% + 18% composites to 27.84%, and `--text-body` reads 3.96:1 there on
+	// cuoio/light, under AA, against 4.61 over bare `--bg`. A selection already says "here is your caret".
+	...activeLineTheme,
 	// NO SELECTION RULE HERE, ON PURPOSE — and no `drawSelection()` either.
 	//
 	// This editor used to install `drawSelection()`, which replaces the browser's

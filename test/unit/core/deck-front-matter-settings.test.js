@@ -10,6 +10,7 @@ const { readFrontMatterBlock } = require('../../../lib/core/deck-front-matter');
 const { keyGroups, mergeFrontMatter, settingsBlock, readSettingsBlock } = require('../../../lib/core/settings-block');
 const { foldSettingsBlock } = require('../../../lib/core/settings-block-fold');
 const { MARP_FRONT_MATTER_KEYS, splitFrontMatter, withBundleFrontMatter } = require('../../../lib/export/bundle-front-matter');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
 
 const FM = [
   'marp: true', 'theme: indaco', '# the deck look', 'color-mode: dark', 'class: no-progress',
@@ -127,15 +128,25 @@ test('lint reads a bundle deck\'s settings block as front matter, and reports a 
 // of tabs (measured 2.2 s on 40 000). The fold, the block writer and the reader all trim with the
 // built-ins now; a hostile deck must stay linear.
 test('a long run of tabs or spaces cannot make the fold, the writer or the reader slow', () => {
-  const tabs = `${'\t'.repeat(60000)}x`;
-  const spaces = `${' '.repeat(60000)}x`;
-  const t0 = Date.now();
-  foldSettingsBlock(`---\na: 1\n---\n<script type="application/lattice-settings">\n${tabs}\n</script>\n`);
-  foldSettingsBlock(`---\na: 1\n---\n${' \t\r\n'.repeat(30000)}`);
-  settingsBlock(spaces);
-  withBundleFrontMatter(`---\nmeta: ${spaces}\n---\n`);
-  readSettingsBlock(new JSDOM(`<script type="application/lattice-settings">${spaces}</script>`).window.document);
-  assert.ok(Date.now() - t0 < 1500, `took ${Date.now() - t0} ms`);
+  // The trailing-whitespace regexes backtracked inside one match, where no count reaches it: the fold's old
+  // `/[ \t\r]+$/` took 11 s at 100k, and the writer's and reader's `/\s+$/` 15 s, both growing with the square. So
+  // every regex the four trims run must be one recheck calls linear (test/helpers/regex-trace.js over
+  // tools/regex-census.json): no clock (HARD RULE #32). The reader gets a one-node stand-in for a document.
+  const n = 2000;
+  const tabs = `${'\t'.repeat(n)}x`;
+  const spaces = `${' '.repeat(n)}x`;
+  const fold = `---\na: 1\n---\n<script type="application/lattice-settings">\n${tabs}\n</script>\n`;
+  const bundle = `---\nmeta: ${spaces}\n---\n`;
+  const node = { textContent: `\n${spaces}${' '.repeat(n)}`, closest: () => null, remove() {} };
+  const doc = { querySelector: () => null, querySelectorAll: () => [node] };
+  const { result: out } = assertLinearRegexes(() => [foldSettingsBlock(fold), settingsBlock(spaces), withBundleFrontMatter(bundle), readSettingsBlock(doc)]);
+  assert.equal(out[3], spaces);
+  assert.match(out[1], /x\n<\/script>/);
+  // The same reads through a real parsed document, and a fold of many short lines, give the same answers.
+  const short = `${' '.repeat(60000)}x`;
+  assert.equal(readSettingsBlock(new JSDOM(`<script type="application/lattice-settings">${short}</script>`).window.document), short);
+  const lines = `---\na: 1\n---\n${' \t\r\n'.repeat(30000)}`;
+  assert.equal(foldSettingsBlock(lines), lines);
 });
 
 test('the fold reads the same open tag the writer writes (it keeps its own copy to stay out of the merge module)', () => {

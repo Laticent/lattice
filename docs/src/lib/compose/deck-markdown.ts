@@ -124,6 +124,11 @@ function withTightDefault(spec: NodeSpec): NodeSpec {
 	return { ...spec, attrs: { ...spec.attrs, tight: { default: true } } };
 }
 
+function withAttr(spec: NodeSpec, name: string, fallback: string): NodeSpec {
+	return { ...spec, attrs: { ...spec.attrs, [name]: { default: fallback } } };
+}
+
+
 // IMAGES ARE A PASTE AND SERIALIZER SURFACE (HARD RULE #22's threat model, found by the red team on the Compose images slice).
 // prosemirror-markdown's `image` takes `src`, `alt` and `title` raw from pasted HTML, and its serializer escapes only parentheses
 // and a quote, never a line break. A pasted `<img alt="a&#10;&#10;---&#10;&#10;b">` therefore wrote a slide boundary into the deck, and a
@@ -192,13 +197,18 @@ export const proseSchema = new Schema({
 		// deck writes. prosemirror-markdown's default is loose, so a list typed into a chart row's
 		// `>` description came back with a blank `>` line between its items (#2690). A list parsed
 		// from Markdown still takes the tightness it was written with.
-		.update('bullet_list', withTightDefault(mdSchema.spec.nodes.get('bullet_list') as NodeSpec))
-		.update('ordered_list', withTightDefault(mdSchema.spec.nodes.get('ordered_list') as NodeSpec))
+		// `bullet` and `delim`: the list marker as written (`*`, `+`, `-`; `.`, `)`), so an edited list keeps it. A list
+		// made in Compose has none and writes `-` and `.`, as before (2026-11-10-compose-first.md §6).
+		.update('bullet_list', withAttr(withTightDefault(mdSchema.spec.nodes.get('bullet_list') as NodeSpec), 'bullet', ''))
+		.update('ordered_list', withAttr(withTightDefault(mdSchema.spec.nodes.get('ordered_list') as NodeSpec), 'delim', ''))
 		.append(composeTableNodes)
 		.addToEnd('comment', commentNodeSpec)
 		.addToEnd('inline_object', inlineObjectSpec)
 		.addToEnd('raw_block', rawBlockSpec)
 		.addToEnd('inline_math', mathInlineSpec),
+	// The emphasis spelling (`_em_` or `*em*`) is NOT a mark attr: an attr is part of a mark's identity, so a run toggled
+	// next to an existing one stayed a separate mark and the two were written `*foo**bar*` (the checker's catch). The edited
+	// line gets the author's `_` back from its original line instead (deck-doc.ts `respell`).
 	marks: mdSchema.spec.marks,
 });
 
@@ -219,6 +229,11 @@ function alignAttrs(token: any) {
 /** The Lattice markdown parser — Lattice slide prose → ProseMirror document. */
 export const latticeMarkdownParser = new MarkdownParser(proseSchema, tableTokenizer, {
 	...defaultMarkdownParser.tokens,
+	// The markers as written (see `withAttr` / `withMarkup` above).
+	// biome-ignore lint/suspicious/noExplicitAny: prosemirror-markdown's token specs are loosely typed upstream.
+	bullet_list: { block: 'bullet_list', getAttrs: (tok: any, tokens: any, i: number) => ({ ...(defaultMarkdownParser.tokens.bullet_list as any).getAttrs(tok, tokens, i), bullet: tok.markup || '' }) },
+	// biome-ignore lint/suspicious/noExplicitAny: as above.
+	ordered_list: { block: 'ordered_list', getAttrs: (tok: any, tokens: any, i: number) => ({ ...(defaultMarkdownParser.tokens.ordered_list as any).getAttrs(tok, tokens, i), delim: tok.markup || '' }) },
 	// `markup` is the opening run exactly as written — `~~~`, ```` ``` ````, ```` ```` ````.
 	fence: { block: 'code_block', getAttrs: (tok) => ({ params: tok.info || '', marker: tok.markup || '' }), noCloseToken: true },
 	table: { block: 'table' },
@@ -518,8 +533,14 @@ const latticeNodes = {
 	},
 	ordered_list(state: SerializerState, node: PMNode) {
 		tightAfterParagraph(state, node);
-		// biome-ignore lint/suspicious/noExplicitAny: prosemirror-markdown's node serializers are loosely typed upstream.
-		(defaultMarkdownSerializer.nodes.ordered_list as any)(state, node);
+		const delim = (node.attrs.delim as string) === ')' ? ')' : '.';
+		// The upstream serializer, with the delimiter the list was written with.
+		const start = Number(node.attrs.order ?? 1);
+		const maxW = String(start + node.childCount - 1).length;
+		state.renderList(node, ' '.repeat(maxW + 2), (i: number) => {
+			const n = String(start + i);
+			return `${' '.repeat(maxW - n.length)}${n}${delim} `;
+		});
 	},
 	// A quote INSIDE a tight list item (a chart row's `>` description) follows the item's text with
 	// no blank line: a blank there makes the whole list loose, so every row renders as a paragraph,
@@ -618,4 +639,27 @@ export function serializeSlideProse(doc: PMNode): string {
 /** parse → serialize, the round-trip the whole engine's fidelity rests on. */
 export function roundTripSlideProse(md: string): string {
 	return serializeSlideProse(parseSlideProse(md));
+}
+
+/**
+ * Where each top-level block of `md` sits: `[from, to)` of its text, trailing blank lines left out, in the order
+ * `parseSlideProse` builds its blocks. Read from the same tokenizer's block map, so block i here is block i of the parsed
+ * document; null when a top-level token carries no line map and the two cannot be lined up. The faithful write-back
+ * (deck-doc.ts `faithfulProse`) uses it to keep an unedited block's bytes.
+ */
+export function topLevelSpans(md: string): Array<{ from: number; to: number }> | null {
+	const tokens = tableTokenizer.parse(md, {});
+	const lineStart: number[] = [0];
+	for (let i = 0; i < md.length; i++) if (md[i] === '\n') lineStart.push(i + 1);
+	const offsetOfLine = (n: number) => (n < lineStart.length ? lineStart[n] : md.length);
+	const spans: Array<{ from: number; to: number }> = [];
+	for (const t of tokens) {
+		if (t.level !== 0 || t.nesting === -1) continue;
+		if (!t.map) return null;
+		const from = offsetOfLine(t.map[0]);
+		let to = offsetOfLine(t.map[1]);
+		while (to > from && /\s/.test(md[to - 1])) to--;
+		spans.push({ from, to });
+	}
+	return spans;
 }

@@ -27,6 +27,19 @@ export interface TextStyle {
 	 */
 	flatColor?: string;
 	/**
+	 * The color the text appears as over the solid color under a GRADIENT behind it, as `#rrggbb`, when there is no
+	 * `flatColor`: an approximation (the gradient is not matched). The ODP writer prefers it to a translucent color,
+	 * because LibreOffice-based apps draw translucent text badly: Collabora Online fills each letter as a solid block
+	 * (seen 2026-11-10 on a dark divider's eyebrow), and LibreOffice clips a letter-spaced run. Absent over a picture.
+	 */
+	nearColor?: string;
+	/**
+	 * `[ascent, descent]` in em: the line metrics the browser laid the run out with, when its face's `@font-face`
+	 * overrides the file's (`ascent-override` / `descent-override`; Newsreader in `typography: ledger`). Only the
+	 * estimate of where the browser put the baseline uses them; the office app lays out with the file's own metrics.
+	 */
+	lineMetrics?: [number, number];
+	/**
 	 * A solid color behind the run, as `#rrggbb`: an inline chip (a code span, a mark) drawn as a text highlight, so
 	 * it moves with its words and wraps with them. The chip's translucent tint is blended over what is behind it.
 	 * The chip's corners, border and padding are not carried.

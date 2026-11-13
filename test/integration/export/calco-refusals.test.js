@@ -24,6 +24,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const puppeteer = require('puppeteer');
 const { readSlide } = require('@laticent/calco');
+const { trackPageWork } = require('../../helpers/page-settle');
 
 const ROOT = path.join(__dirname, '../../..');
 const BUDGET = path.join(__dirname, 'calco-refusals.budget.json');
@@ -55,9 +56,12 @@ describe('calco refusal budget', () => {
       const html = path.join(tmp, `${deck.replace('@', '-')}.html`);
       execFileSync('node', [path.join(ROOT, 'lattice.js'), md, html], { cwd: ROOT, stdio: 'ignore' });
       const page = await browser.newPage();
+      const settled = await trackPageWork(page);
       await page.setViewport({ width: 1280, height: 720 });
       await page.goto(`file://${html}`, { waitUntil: 'load' });
-      await new Promise((r) => setTimeout(r, 1500));
+      // Until the fonts have loaded and the page has nothing queued (the overflow watcher's re-measure): the layout read
+      // below is the one the export ships.
+      await settled();
       let refused = 0;
       let shapes = 0;
       let pictures = 0;
@@ -81,6 +85,7 @@ describe('calco refusal budget', () => {
 
   for (const deck of DECKS) {
     test(`${deck}: no more refusals or pictures than the budget, and no fewer shapes`, (t) => {
+      // ci-skip: an opt-in mode. No workflow sets CALCO_REFUSALS_BLESS; a person sets it to re-bless the budget file.
       if (BLESS) return t.skip('blessing');
       const budget = JSON.parse(fs.readFileSync(BUDGET, 'utf8'))[deck];
       assert.ok(budget, `no budget for ${deck}: bless it`);

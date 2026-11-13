@@ -196,10 +196,23 @@ async function selectAll(page: import('@playwright/test').Page) {
 	await page.keyboard.press('ControlOrMeta+a');
 }
 
+/** The Studio opens in Compose since 2026-11-10; these checks are about its Markdown editor, so store Source first. */
+async function storeSourceMode(page: import('@playwright/test').Page): Promise<void> {
+	await page.addInitScript(() => {
+		try {
+			const cur = JSON.parse(localStorage.getItem('lattice-studio-settings') || '{}');
+			localStorage.setItem('lattice-studio-settings', JSON.stringify({ ...cur, editMode: 'source' }));
+		} catch {
+			/* storage unavailable */
+		}
+	});
+}
+
 /**
  * Open a surface, put a selection up, and read what does not move with the palette.
  */
 async function openSurface(page: import('@playwright/test').Page, url: string): Promise<Structure> {
+	await storeSourceMode(page);
 	await page.goto(url, { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('.cm-content').first()).toBeVisible({ timeout: 40_000 });
 	await awaitStableBox(page);
@@ -456,6 +469,7 @@ const CHROME_SURFACES = [
 ] as const;
 
 test("every editor kills CodeMirror's dotted default, and only a full-pane editor rings", async ({ page }) => {
+	await storeSourceMode(page);
 	for (const s of CHROME_SURFACES) {
 		await page.goto(s.url, { waitUntil: 'domcontentloaded' });
 		// `open` comes FIRST: on the Specimen the editor does not exist until the Edit

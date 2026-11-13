@@ -1,8 +1,22 @@
 // @vitest-environment node
 // The reader gets files built byte by byte, the way a camera, an editor and a hostile stranger would write
 // them. A mock of the parser would agree with whatever it does, so every input here is real container bytes.
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { readFileMeta } from './media-exif';
+
+// The root's work counter (test/helpers/work-count.js), CommonJS. The XMP reader is a hand walker over `indexOf`,
+// `startsWith` and `slice`, so `charReads` sees all of its work: COUNTED, not timed (HARD RULE #32).
+const { charReads } = createRequire(import.meta.url)('../../../../test/helpers/work-count.js') as {
+	charReads: <T>(fn: () => T) => { result: T; scanned: number; reads: number };
+};
+/** A bound a few times over what the XMP reader costs per byte today (16 to 18), and far under a rescan's n / 2. */
+const XMP_WORK_PER_BYTE = 40;
+/** The characters every search, regex, `charCodeAt` and copy covered while `fn` ran. */
+const work = (fn: () => unknown) => {
+	const r = charReads(fn);
+	return r.scanned + r.reads;
+};
 
 const enc = new TextEncoder();
 const bytes = (...parts: (number[] | Uint8Array | string)[]): Uint8Array => {
@@ -259,10 +273,9 @@ describe('hostile and broken files', () => {
 
 	it('does not run away on a huge XMP packet or a pathological one', () => {
 		const big = `<dc:description>${'<rdf:li>'.repeat(40000)}</dc:description>`;
-		const start = Date.now();
-		readFileMeta(jpeg(jpegXmp(big)));
-		readFileMeta(jpeg(seg(0xe1, bytes('http://ns.adobe.com/xap/1.0/\0', `<dc:description ${'a="'.repeat(30000)}`))));
-		expect(Date.now() - start).toBeLessThan(2000);
+		const files = [jpeg(jpegXmp(big)), jpeg(seg(0xe1, bytes('http://ns.adobe.com/xap/1.0/\0', `<dc:description ${'a="'.repeat(30000)}`)))];
+		// About 3 and 4 per byte today; a reader that rescanned from every `<rdf:li>` or `a="` would cost billions.
+		for (const f of files) expect(work(() => readFileMeta(f))).toBeLessThan(XMP_WORK_PER_BYTE * f.length);
 	});
 
 	it('never puts markup or a script into a value as anything but text', () => {
@@ -273,27 +286,38 @@ describe('hostile and broken files', () => {
 
 describe('XMP is read in linear time', () => {
 	// The checker's inputs: each of these took seconds to minutes with the first regex-based reader.
-	const timed = (file: Uint8Array) => {
-		const start = performance.now();
-		readFileMeta(file);
-		return performance.now() - start;
+	// COUNTED, not timed (HARD RULE #32). Nine property lookups each walk the packet about twice, so the reader covers
+	// 16 to 18 characters per byte of file today, whatever the input's shape. A rescan from every opener covers n / 2.
+	const linear = (file: Uint8Array, label = '') => {
+		const w = work(() => readFileMeta(file));
+		expect(w, `${label}: ${w} for ${file.length} bytes`).toBeLessThan(XMP_WORK_PER_BYTE * file.length);
 	};
 	const MAX = 262_144;
 	const packetOf = (inner: string) => bytes('http://ns.adobe.com/xap/1.0/\0', inner);
 
 	it('does not slow down on a run of "<" with no ">"', () => {
 		const inner = `<dc:description>${'<'.repeat(60_000)}</dc:description>`;
-		expect(timed(jpeg(seg(0xe1, packetOf(inner))))).toBeLessThan(300);
+		linear(jpeg(seg(0xe1, packetOf(inner))));
 		// The same packet four times in one PNG, at the size the reader accepts.
 		const big = `<dc:description>${'<'.repeat(MAX - 50)}</dc:description>`;
-		expect(timed(png(itxtXmp(big), itxtXmp(big), itxtXmp(big), itxtXmp(big)))).toBeLessThan(1500);
+		linear(png(itxtXmp(big), itxtXmp(big), itxtXmp(big), itxtXmp(big)));
 	});
 
 	it('does not slow down on repeated unterminated openings, attributes or CDATA', () => {
 		for (const piece of ['<dc:description a', '<![CDATA[', '<dc:description>', '<rdf:li>', 'dc:title ', 'dc:description  ', '<!--']) {
 			const inner = piece.repeat(Math.floor((MAX - 100) / piece.length));
-			expect(timed(png(itxtXmp(inner), itxtXmp(inner), itxtXmp(inner), itxtXmp(inner))), piece).toBeLessThan(1500);
+			linear(png(itxtXmp(inner), itxtXmp(inner), itxtXmp(inner), itxtXmp(inner)), piece);
 		}
+	});
+
+	it('failing arm: a reader that searches on from every unclosed "<" is caught by the count', () => {
+		// The shape the first reader had: from each opener, look to the end for its `>`.
+		const rescan = (s: string) => {
+			for (let i = s.indexOf('<'); i !== -1; i = s.indexOf('<', i + 1)) s.indexOf('>', i);
+		};
+		const inner = `<dc:description>${'<'.repeat(60_000)}</dc:description>`;
+		const file = jpeg(seg(0xe1, packetOf(inner)));
+		expect(work(() => rescan(inner))).toBeGreaterThan(XMP_WORK_PER_BYTE * file.length);
 	});
 
 	it('still reads the value after an unrelated element that looks a little like it', () => {

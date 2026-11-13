@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import { allowCaptureWebOrigins, assembleSheetPdf, backgroundImageUrls, bakeDeckSections, computedUrlSpans, createImageFailureLog, missingImageReason, rasterizeDeckImages, recordUnreachableAssets, recordUnreachableImages, refusedWebAddress, unhideMeasuringLists, valueWithoutWebUrls, waitForDiagrams, waitForMeasuring } from './deck-export.js';
 
@@ -132,14 +132,34 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		d.body.innerHTML = html;
 		return d;
 	}
+	// The poll runs on a VIRTUAL clock (HARD RULE #32): fake timers drive both its sleeps and
+	// its `Date.now()` budget, so a cell asks "had it returned by virtual time T?", never "how
+	// many real milliseconds did it take?". A loaded machine cannot move a virtual timer, and a
+	// draw scheduled at T lands at T relative to every poll.
+	const BUDGET = 600;
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+	/** Run every timer the wait schedules (and any draw a cell scheduled) to the end, then hand back its answer. */
+	async function settle<T>(wait: Promise<T>): Promise<T> {
+		await vi.runAllTimersAsync();
+		return wait;
+	}
 	// Did it return WITHIN its own budget, or only once the budget ran out? Always
 	// AWAITS the call rather than racing it, so no poll timer outlives the test — a
 	// dangling one surfaces as an after-teardown error and fails the whole file.
-	const BUDGET = 600;
 	async function returned(doc: Document): Promise<'early' | 'at-budget'> {
-		const started = Date.now();
-		await waitForDiagrams(doc, BUDGET);
-		return Date.now() - started < BUDGET * 0.5 ? 'early' : 'at-budget';
+		let done = false;
+		const wait = waitForDiagrams(doc, BUDGET).then(() => {
+			done = true;
+		});
+		await vi.advanceTimersByTimeAsync(BUDGET * 0.5 - 1);
+		const early = done;
+		await settle(wait);
+		return early ? 'early' : 'at-budget';
 	}
 
 	// ```functionplot placeholders stream in the same way now: the runtime loads function-plot.js
@@ -152,7 +172,7 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 	it('waits for an un-drawn function plot, and releases it to its config at the budget', async () => {
 		expect(await returned(frag(plot()))).toBe('at-budget');
 		const doc2 = frag(plot());
-		expect(await waitForDiagrams(doc2, BUDGET)).toBe(1);
+		expect(await settle(waitForDiagrams(doc2, BUDGET))).toBe(1);
 		const div = doc2.querySelector('.functionplot');
 		expect(div?.getAttribute('data-lattice-settle')).toBe('unavailable');
 		// Final, so a late library load cannot draw over what the capture decided to bake.
@@ -169,7 +189,7 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 
 	it('leaves a stranded function plot alone when the caller will wait again', async () => {
 		const doc = frag(plot());
-		expect(await waitForDiagrams(doc, BUDGET, { release: false })).toBe(1);
+		expect(await settle(waitForDiagrams(doc, BUDGET, { release: false }))).toBe(1);
 		expect(doc.querySelector('.functionplot')?.getAttribute('data-lattice-settle')).toBe('pending');
 	});
 
@@ -186,7 +206,7 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		// their own source instead — the same state `releaseUnrenderableFences` writes when
 		// Mermaid never arrives, applied at the export's own give-up point.
 		const doc = frag(fenceAt('pending'));
-		const released = await waitForDiagrams(doc, BUDGET);
+		const released = await settle(waitForDiagrams(doc, BUDGET));
 		expect(released).toBe(1);
 		expect(doc.querySelector('pre')?.getAttribute('data-lattice-settle')).toBe('unavailable');
 	});
@@ -196,7 +216,7 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		// <pre> has none: its content already is the author's highlighted source, and replacing
 		// it would blank the very thing the release exists to show.
 		const doc = frag(fenceAt('pending', '', '<span class="hljs-keyword">flowchart</span> LR'));
-		await waitForDiagrams(doc, BUDGET);
+		await settle(waitForDiagrams(doc, BUDGET));
 		const code = doc.querySelector('pre > code');
 		expect(code?.textContent).toBe('flowchart LR');
 		expect(code?.querySelector('.hljs-keyword')).not.toBeNull();
@@ -210,7 +230,7 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		// capture takes the blank this release exists to prevent, and it does it intermittently
 		// — which is the worst shape for a defect in a downloaded file.
 		const doc = frag(fenceAt('pending'));
-		await waitForDiagrams(doc, BUDGET);
+		await settle(waitForDiagrams(doc, BUDGET));
 		const pre = doc.querySelector('pre');
 		expect(pre?.getAttribute('data-lattice-settle')).toBe('unavailable');
 		expect(pre?.hasAttribute('data-lattice-final')).toBe(true);
@@ -224,7 +244,7 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		// and strands a diagram that was still going to draw. Waiting is idempotent; releasing
 		// is not, so only the last wait before the capture may release.
 		const doc = frag(fenceAt('pending'));
-		const stranded = await waitForDiagrams(doc, BUDGET, { release: false });
+		const stranded = await settle(waitForDiagrams(doc, BUDGET, { release: false }));
 		const pre = doc.querySelector('pre');
 		// It still REPORTS what is blanking — the caller needs the count — but it has changed
 		// nothing, so a later wait can still catch the fence.
@@ -239,12 +259,12 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		// as the drawing it became.
 		const doc = frag(fenceAt('pending'));
 		const pre = doc.querySelector('pre');
-		await waitForDiagrams(doc, BUDGET, { release: false });
+		await settle(waitForDiagrams(doc, BUDGET, { release: false }));
 		pre?.setAttribute('data-lattice-settle', 'rendered');
 		const box = pre?.nextElementSibling as HTMLElement | null;
 		if (box) box.innerHTML = '<svg></svg>';
 		// The second, longer wait sees a settled fence and releases nothing.
-		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
+		expect(await settle(waitForDiagrams(doc, BUDGET))).toBe(0);
 		expect(pre?.getAttribute('data-lattice-settle')).toBe('rendered');
 		expect(pre?.hasAttribute('data-lattice-final')).toBe(false);
 	});
@@ -262,7 +282,7 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 			const box = pre?.nextElementSibling as HTMLElement | null;
 			if (box) box.innerHTML = '<svg></svg>';
 		}, BUDGET - 50);
-		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
+		expect(await settle(waitForDiagrams(doc, BUDGET))).toBe(0);
 		expect(pre?.getAttribute('data-lattice-settle')).toBe('rendered');
 		expect(pre?.hasAttribute('data-lattice-final')).toBe(false);
 	});
@@ -277,7 +297,7 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		// to lose.
 		const doc = frag('<pre><code class="language-mermaid">flowchart LR\n A --> B</code></pre>');
 		expect(await returned(doc)).toBe('early');
-		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
+		expect(await settle(waitForDiagrams(doc, BUDGET))).toBe(0);
 		expect(doc.querySelector('pre')?.hasAttribute('data-lattice-settle')).toBe(false);
 	});
 
@@ -289,7 +309,7 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 			const box = pre?.nextElementSibling as HTMLElement | null;
 			if (box) box.innerHTML = '<svg></svg>';
 		}, 150);
-		expect(await waitForDiagrams(doc, BUDGET)).toBe(0);
+		expect(await settle(waitForDiagrams(doc, BUDGET))).toBe(0);
 		expect(pre?.getAttribute('data-lattice-settle')).toBe('rendered');
 	});
 
@@ -301,7 +321,7 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 				fenceAt('hydrating', 'd', 'w') +
 				plot('pending', 'id="e"'),
 		);
-		expect(await waitForDiagrams(doc, BUDGET)).toBe(3);
+		expect(await settle(waitForDiagrams(doc, BUDGET))).toBe(3);
 		expect(doc.querySelector('#a')?.getAttribute('data-lattice-settle')).toBe('rendered');
 		expect(doc.querySelector('#b')?.getAttribute('data-lattice-settle')).toBe('unavailable');
 		expect(doc.querySelector('#c')?.getAttribute('data-lattice-settle')).toBe('error');
@@ -315,11 +335,15 @@ describe('waitForDiagrams — wait for the runtime, not just for boxes that exis
 		// tripled — 4000 to 12000 in the capture frame — with every cell in this file green,
 		// because the only timing assertion had 3.3x of slack. This one has 0.5x.
 		const doc = frag(fenceAt('pending'));
-		const started = Date.now();
-		await waitForDiagrams(doc, BUDGET);
-		const waited = Date.now() - started;
-		expect(waited).toBeGreaterThanOrEqual(BUDGET);
-		expect(waited).toBeLessThan(BUDGET * 1.5);
+		let done = false;
+		const wait = waitForDiagrams(doc, BUDGET).then(() => {
+			done = true;
+		});
+		await vi.advanceTimersByTimeAsync(BUDGET - 1);
+		expect(done, 'still waiting 1 ms before the budget').toBe(false);
+		await vi.advanceTimersByTimeAsync(BUDGET * 0.5);
+		expect(done, 'given up by half a budget past it').toBe(true);
+		await wait;
 	});
 
 	it('waits on exactly the plugin host\'s barrier — the selector the CLI capture waits on too', async () => {

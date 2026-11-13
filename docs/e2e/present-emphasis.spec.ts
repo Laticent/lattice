@@ -12,10 +12,14 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 // `data-state="now"`, so cue boundaries are directly observable rather than inferred from text.
 //
 // THE ORACLE IS A DIFFERENTIAL, not an absolute. The same deck is driven twice and differs only by
-// `**`, so sentence lengths, pace and startup jitter cancel; what remains is the hold. Measured
-// twice while writing this, the step was +253 ms and +250 ms against a drifting baseline of 110 ms
-// and 60 ms — the baseline moves run to run, the STEP does not, which is why the assertion is on
-// the step and carries a wide band rather than pinning 250.
+// `**`, so sentence lengths and pace cancel; what remains is the hold.
+//
+// ON A VIRTUAL CLOCK (HARD RULE #32, shape F1). The onsets used to be read off the wall clock while the
+// overlay played in real time, so a loaded runner moved them: the step read +253 and +250 ms on a quiet
+// machine, and the cell failed under parallel load (followups.d/3101-p4). Now Playwright's clock is paused
+// before Play and the overlay's own timers, frames and `performance.now()` run on time this test advances,
+// so every onset is where the reader's clock put it, whatever the machine is doing. The step is then the
+// hold itself, to within one sampling tick.
 const DECK = (claim: string) => `---
 marp: true
 theme: indaco
@@ -30,7 +34,19 @@ theme: indaco
 Cost discipline held through the period. ${claim} and that single number moved the year. Pipeline coverage sits below target. Guidance is unchanged for now.
 `;
 
-/** Onset (ms from play) of each caption cue, driving the real overlay. */
+/** How often the in-page sampler reads the live cue, in virtual ms: the resolution of every onset. */
+const TICK = 10;
+/** How far the drive runs the paused clock. */
+const RUN = 27_000;
+
+/**
+ * Where Playwright's clock stands, so the next pause can be set ahead of it. A pause can only move time forward, and
+ * after a run and a resume the clock is ahead of the page's own first reading by the run plus the real time since
+ * the resume, so the page's `Date.now()` alone was sometimes behind it ("Cannot fast-forward to the past").
+ */
+const clockMark = { at: 0, resumedAt: 0 };
+
+/** Onset (virtual ms from play) of each caption cue, driving the real overlay on a paused clock. */
 async function cueOnsets(page: import('@playwright/test').Page, md: string): Promise<number[]> {
 	await gotoStudio(page);
 	await setEditorContent(page, md);
@@ -42,40 +58,59 @@ async function cueOnsets(page: import('@playwright/test').Page, md: string): Pro
 	if ((await cc.getAttribute('aria-pressed')) !== 'true') await cc.click();
 	await page.keyboard.press('ArrowRight'); // onto the content slide
 	await expect(dialog.getByText('2 / 2')).toBeVisible(); // the nav landed — a state wait, not a sleep
+	// From here time moves only when the test moves it.
+	const pageNow = await page.evaluate(() => Date.now());
+	const pauseAt = Math.max(pageNow, clockMark.at + (Date.now() - clockMark.resumedAt)) + 1_000;
+	await page.clock.pauseAt(pauseAt);
 	await page.getByRole('button', { name: 'Play the presentation' }).click();
 	await expect(dialog.getByRole('button', { name: /Pause/ })).toBeVisible();
-	// The caption band is built from the reader's track, which exists only once playback starts.
-	await expect(dialog.locator('[data-cue]').first()).toBeVisible();
-	return page.evaluate(async () => {
-		const marks: number[] = [];
+	// The sampler runs on the paused clock too, so it samples virtual time at a fixed TICK.
+	const marks = page.evaluate((tick) => {
+		const out: number[] = [];
 		const t0 = performance.now();
 		let last = -1;
-		await new Promise<void>((done) => {
+		return new Promise<number[]>((done) => {
 			const id = setInterval(() => {
 				const el = document.querySelector('[data-cue][data-state="now"]');
 				const ci = el ? Number(el.getAttribute('data-cue')) : -1;
-				if (ci >= 0 && ci !== last) { marks[ci] = Math.round(performance.now() - t0); last = ci; }
-				// stop as soon as the cue AFTER the emphasized one has started, or at the deadline
-				if (marks.length > 4 || performance.now() - t0 > 26000) { clearInterval(id); done(); }
-			}, 10);
+				if (ci >= 0 && ci !== last) {
+					out[ci] = Math.round(performance.now() - t0);
+					last = ci;
+				}
+				// stop once the cue AFTER the emphasized one has started, or when the narration is over
+				if (out.length > 4 || performance.now() - t0 > 26_000) {
+					clearInterval(id);
+					done(out);
+				}
+			}, tick);
 		});
-		return marks;
-	});
+	}, TICK);
+	await page.clock.runFor(RUN);
+	const out = await marks;
+	// Time flows again for whatever the test does next (the second drive loads the Studio afresh).
+	clockMark.at = pauseAt + RUN;
+	clockMark.resumedAt = Date.now();
+	await page.clock.resume();
+	return out;
 }
 
 test('an emphasized passage holds a beat on the real Present overlay', async ({ page }) => {
+	// Installed before the first load, so every timer the overlay makes is on this clock; it flows as real time
+	// until `cueOnsets` pauses it.
+	await page.clock.install();
 	const plain = await cueOnsets(page, DECK('Retention reached 118 percent'));
 	const bold = await cueOnsets(page, DECK('**Retention reached 118 percent**'));
 	expect(plain.length).toBeGreaterThan(3);
 	expect(bold.length).toBeGreaterThan(3);
 
 	// Cue 2 carries the claim; the hold lands in the gap AFTER it, so it shows at cue 3's onset.
-	const before = bold[2] - plain[2]; // baseline drift, no hold yet
-	const after = bold[3] - plain[3]; // baseline drift + the hold
+	const before = bold[2] - plain[2]; // what the `**` costs before the hold (nothing, or a tick)
+	const after = bold[3] - plain[3]; // that, plus the hold
 	const step = after - before;
-	expect(step, `cue onsets plain=${JSON.stringify(plain)} bold=${JSON.stringify(bold)}`).toBeGreaterThan(150);
-	expect(step).toBeLessThan(400);
+	// Within a sampling tick either side of the hold the cadence kernel names (cadence.ts `EMPHASIS_HOLD_MS`, 250 ms
+	// for an emphasis of weight 2). Virtual time, so the band is the sampler's resolution, not the machine's.
+	expect(Math.abs(step - 250), `cue onsets plain=${JSON.stringify(plain)} bold=${JSON.stringify(bold)}`).toBeLessThanOrEqual(2 * TICK); // flaky-ok: virtual ms on Playwright's paused clock, which only the test advances; machine load cannot move it
 
 	// And it holds ONCE: cue 4 inherits the same offset rather than paying a second time.
-	expect(Math.abs(bold[4] - plain[4] - after)).toBeLessThan(120);
+	expect(Math.abs(bold[4] - plain[4] - after)).toBeLessThanOrEqual(2 * TICK); // flaky-ok: virtual ms on Playwright's paused clock, which only the test advances; machine load cannot move it
 });

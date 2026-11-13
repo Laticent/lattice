@@ -47,7 +47,7 @@ const fenceStarter = (tag: string) => LATTICE_FENCES.find((f) => f.tag === tag)?
 /** The blocker for a block that needs a place to sit: not locked, not in a table cell. */
 function blockBlocker(view: EditorView, what: string): string | null {
 	const { $from } = view.state.selection;
-	if ($from.node(1)?.attrs.locked) return `This slide is edited in Markdown, so ${what} cannot be added here.`;
+	if ($from.node(1)?.attrs.locked) return `This slide is edited in Source, so ${what} cannot be added here.`;
 	return null;
 }
 
@@ -173,7 +173,7 @@ export function InsertControls({
 			...installedPluginKinds().map((entry): Entry => {
 				const title = entry.title ?? entry.name;
 				const plan = pluginInsertPlan(entry);
-				const blocker = () => insertBlocker(view.state, kernels, literal, plan.noun) ?? (kernels && !pluginStarter(entry, kernels) ? `Compose cannot start a ${plan.noun} from its fields. Type it in Markdown.` : null);
+				const blocker = () => insertBlocker(view.state, kernels, literal, plan.noun) ?? (kernels && !pluginStarter(entry, kernels) ? `Compose cannot start a ${plan.noun} from its fields. Type it in Source.` : null);
 				return {
 					id: `plugin:${entry.plugin}:${entry.name}`,
 					group: 'Inline',

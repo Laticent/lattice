@@ -3,7 +3,10 @@
  * real Studio (PROBE=studio, the default), photo-probe.js in the real Studio (PROBE=photo), the photo memory arms of photo-memory.mjs
  * on pages of their own (PROBE=photo-memory), jpeg-probe.js, the shared JPEG encoder
  * against Safari's own (PROBE=jpeg), focus-sync-probe.js, real taps on the Playground's editor under a busy page
- * (PROBE=focus-sync), or undo-probe.js, the Filo undo checks across a reload (PROBE=undo). SIM_UDID=mac drives the
+ * (PROBE=focus-sync), undo-probe.js, the Filo undo checks across a reload (PROBE=undo), or font-cache-probe.js, whether
+ * the Studio's warmed fonts are read from Safari's cache (PROBE=font-cache, against font-cache-server.mjs), or chat-storage-probe.js,
+ * chats moving from localStorage to IndexedDB across a reload and the localStorage allowance (PROBE=chat-storage), or what Present costs
+ * on a deck of phone photos (PROBE=present-memory, present-memory.mjs and present-memory-probe.js). SIM_UDID=mac drives the
  * Mac's own Safari instead (the undo probe's desktop half: the WebKit undo command, and a real ⌘Z key).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
  *
@@ -102,7 +105,7 @@ try {
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	// The script limit must outlast a probe's own cold-start waits (150 s each since 2026-11-04, D3 on #3034) plus its steps.
 	await wd('POST', `/session/${id}/timeouts`, { script: 360000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : PROBE === 'photo' ? await runPhotoProbe(id) : PROBE === 'undo' ? await runUndoProbe(id) : PROBE === 'chat-storage' ? await runChatStorageProbe(id) : PROBE === 'photo-memory' ? await runPhotoMemoryProbe(id) : PROBE === 'present-memory' ? await runPresentMemoryProbe(id) : PROBE === 'font-cache' ? await runFontCacheProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -120,10 +123,15 @@ try {
 process.exit(ok ? 0 : 1);
 
 
-/** Load a fresh Studio (settings seeded on its own origin first) and run one page-side probe in it. */
-async function studioPage(id, file, fn) {
+/**
+ * Load a fresh Studio (settings seeded on its own origin first) and run one page-side probe in it. `seed: false` clears the
+ * stored settings instead, so the Studio opens as it does for a new visitor (compose-probe.js): the session keeps
+ * localStorage from the probes before it, and those stored Source.
+ */
+async function studioPage(id, file, fn, { seed = true } = {}) {
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
-	await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+	const settings = seed ? fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8') : "try { localStorage.removeItem('lattice-studio-settings'); } catch {}";
+	await wd('POST', `/session/${id}/execute/sync`, { script: settings, args: [] });
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
 	const probe = withEditorHelper(fs.readFileSync(path.join(here, file), 'utf8'));
 	return wd('POST', `/session/${id}/execute/async`, {
@@ -133,8 +141,8 @@ async function studioPage(id, file, fn) {
 }
 
 /**
- * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), then the pane-swap probe (panes-probe.js, #2916),
- * each on a fresh page. One result: every step, each named for its probe, and a pass only when both pass. The photo suite
+ * The Studio suite (PROBE=studio): the preview payload probe (studio-probe.js), the pane-swap probe (panes-probe.js, #2916),
+ * the sheet focus probe (sheet-focus-probe.js, #3108) and the first-visit Compose probe (compose-probe.js), each on a fresh page. One result: every step, each named for its probe, and a pass only when both pass. The photo suite
  * (PROBE=photo): the photo verdict probe, photo-probe.js. Each is its own platform suite with its own paths, so a sanitizer change
  * does not pay for the photo check and a Coach change does run it; together they used to make one job that ran out of its 30 minutes
  * on a slow runner. The photo memory arms (PROBE=photo-memory, #2998) are a suite of their own for the same reason: inside this
@@ -143,14 +151,78 @@ async function studioPage(id, file, fn) {
 async function runStudioProbe(id) {
 	const preview = await studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
 	const panes = await studioPage(id, 'panes-probe.js', 'latticePanesProbe');
+	// Focus back on the opener after a sheet closes (ui/sheet.tsx, #3108), in real Mobile Safari.
+	const focus = await studioPage(id, 'sheet-focus-probe.js', 'latticeSheetFocusProbe');
+	// A first visit, with nothing stored: Compose is the default and its slide toolbar holds still (compose-probe.js).
+	const compose = await studioPage(id, 'compose-probe.js', 'latticeComposeProbe', { seed: false });
+	// Then a real touch tap on a Compose paragraph, on that page: the probe above places its caret through the Selection API,
+	// which never shows the keyboard or runs Safari's own tap-to-focus path.
+	const tap = compose.ok ? await composeTouchTap(id) : { ok: false, steps: [], error: 'skipped: the Compose probe failed' };
 	const named = (label, r) => (r.steps || []).map((s) => ({ ...s, name: `${label} · ${s.name}` }));
 	return {
-		ok: !!preview.ok && !!panes.ok,
-		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`].filter(Boolean).join('; ') || undefined,
+		ok: !!preview.ok && !!panes.ok && !!focus.ok && !!compose.ok && !!tap.ok,
+		error: [preview.error && `preview: ${preview.error}`, panes.error && `panes: ${panes.error}`, focus.error && `sheet focus: ${focus.error}`, compose.error && `compose: ${compose.error}`, tap.error && `compose tap: ${tap.error}`].filter(Boolean).join('; ') || undefined,
 		ua: panes.ua ?? preview.ua,
 		width: panes.width ?? preview.width,
-		steps: [...named('preview', preview), ...named('panes', panes)],
+		steps: [...named('preview', preview), ...named('panes', panes), ...named('sheet focus', focus), ...named('compose', compose), ...named('compose tap', tap)],
 	};
+}
+
+/**
+ * A WebDriver touch tap on a Compose paragraph, as a finger does it: the caret lands in that paragraph, the editor has the
+ * focus, and the paragraph carries the caret-line mark (`cs-active-line`). Also records whether the software keyboard came
+ * up (the visual viewport shrinks), as a detail: a simulator with a hardware keyboard attached does not show it.
+ */
+async function composeTouchTap(id) {
+	const run = (script) => wd('POST', `/session/${id}/execute/sync`, { script, args: [] });
+	const steps = [];
+	const step = (name, pass, detail = '') => steps.push({ name, pass: !!pass, detail: String(detail) });
+	try {
+		const target = await run(`
+			document.activeElement?.blur?.(); getSelection()?.removeAllRanges();
+			const ps = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8);
+			const p = ps[1] || ps[0];
+			if (!p) return null;
+			window.__touchIndex = ps.indexOf(p);
+			p.scrollIntoView({ block: 'center' });
+			return { text: p.textContent.slice(0, 40), vv: visualViewport ? visualViewport.height : innerHeight };`);
+		if (!target) return { ok: false, steps, error: 'no Compose paragraph to tap' };
+		const at = await run(`const r = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8)[window.__touchIndex].getBoundingClientRect(); return { x: Math.round(r.left + Math.min(r.width / 2, 40)), y: Math.round(r.top + r.height / 2) };`);
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		// NO HOLD between down and up. A tap has none, and the simulator can stretch a hold: with an 80 ms pause here, a slow
+		// iPad simulator (run 43266767594, the one whose session had already timed out once) read the tap as a long press and
+		// selected the word under the finger, so the paragraph held a range, not a caret, and correctly got no caret-line mark.
+		const tapStart = Date.now();
+		await wd('POST', `/session/${id}/actions`, {
+			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, x: at.x, y: at.y }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }],
+		});
+		const tapMs = Date.now() - tapStart;
+		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
+		const seen = await wd('POST', `/session/${id}/execute/async`, {
+			args: [],
+			script: `const done = arguments[arguments.length - 1];
+				const t0 = performance.now();
+				const read = () => {
+					const p = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8)[window.__touchIndex];
+					const sel = getSelection();
+					const node = sel && sel.anchorNode;
+					const inP = !!(p && node && p.contains(node));
+					const focused = !!(document.activeElement && document.activeElement.closest('.ProseMirror'));
+					const marked = !!(p && p.classList.contains('cs-active-line'));
+					const caret = !!(sel && sel.isCollapsed);
+					if ((inP && caret && focused && marked) || performance.now() - t0 > 4000) done({ inP, caret, picked: sel ? String(sel).slice(0, 40) : '', focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className });
+					else requestAnimationFrame(read);
+				};
+				read();`,
+		});
+		step('a touch tap puts the caret in the tapped paragraph', seen.inP && seen.caret, `"${target.text}" at ${at.x},${at.y}, gesture ${tapMs} ms${seen.caret ? '' : `, but it SELECTED "${seen.picked}" (read as a long press)`}`);
+		step('the editor has the focus after the tap', seen.focused, `active: ${seen.active}`);
+		step('the tapped paragraph carries the caret-line mark', seen.marked);
+		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);
+		return { ok: steps.every((x) => x.pass), steps };
+	} catch (e) {
+		return { ok: false, steps, error: String(e.message || e) };
+	}
 }
 
 /** The photo memory suite (PROBE=photo-memory): the two arms below, on pages of their own (no docs build). */
@@ -238,6 +310,117 @@ async function runPhotoProbe(id) {
 }
 
 /**
+ * The Present memory probe (PROBE=present-memory, PR #3148): a deck of eighteen phone-photo-sized pictures (present-memory.mjs,
+ * 24 MB, about the owner's 33 MB of `data:` text) imported through "Import deck…", the page reloaded so the deck comes back
+ * from the browser's store, then Present opened and stepped six slides. Each step is timed until the next slide's heading
+ * AND photo are painted (present-memory-probe.js). The simulator's WebKit footprint is read on the Mac before Present
+ * opens, after it opens and after the steps (photo-memory.mjs).
+ *
+ * Two arms when PRESENT_BASELINE_URL is set (the suite sets the production site): this build, which must pass, and the
+ * baseline, which is only reported and has a time budget. Before #3148 merged, that baseline was the before; after it, it
+ * is the last deploy, so a nightly compares `main` with what is live. The verdict is
+ * present-memory.mjs `presentChecks`: work, not time (HARD RULE #32). PRESENT_MEMORY_CAP_MB defaults to 300: the first run
+ * (2026-11-12, run 43238984976) read 124 MB on this change and 795 MB on `main`. A simulator has no memory limit, so this is
+ * the cost an iPhone would weigh, not the reload itself.
+ */
+async function runPresentMemoryProbe(id) {
+	const { buildPresentDeck, PRESENT_TITLE, presentChecks } = await import('./present-memory.mjs');
+	const { simulatorWebContentMB, growthMB } = await import('./photo-memory.mjs');
+	const CAP_MB = Number(process.env.PRESENT_MEMORY_CAP_MB || 300);
+	const deck = await buildPresentDeck();
+	const b64 = Buffer.from(deck.bytes).toString('base64');
+	const PIECE = 4_000_000;
+	const pieces = Math.ceil(b64.length / PIECE);
+	const source = fs.readFileSync(path.join(here, 'present-memory-probe.js'), 'utf8');
+	const call = (expr) => wd('POST', `/session/${id}/execute/async`, { script: `${source}\nconst done = arguments[arguments.length - 1];\nPromise.resolve().then(() => ${expr}).then(done, (e) => done({ error: String(e) }));`, args: [] });
+	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+	const mac = UDID === 'mac';
+	const readMB = async () => (mac ? new Map() : simulatorWebContentMB());
+	const failIf = (r, what) => {
+		if (r?.error) throw new Error(`${what}: ${r.error}`);
+		return r;
+	};
+	const arm = async (name, base) => {
+		const out = { arm: name, base };
+		try {
+			await wd('POST', `/session/${id}/url`, { url: `${base}/` });
+			await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+			await wd('POST', `/session/${id}/url`, { url: `${base}/studio/` });
+			for (let i = 0; i < pieces; i++) failIf(await call(`latticePresentReceive(${JSON.stringify(b64.slice(i * PIECE, (i + 1) * PIECE))}, ${i}, ${pieces})`), 'sending the deck');
+			const imported = failIf(await call(`latticePresentImport(${JSON.stringify(PRESENT_TITLE)}, ${deck.slides})`), 'importing the deck');
+			out.importMs = imported.importMs;
+			out.ua = imported.ua;
+			out.width = imported.width;
+			// A fresh page: the deck comes back from the browser's store, and nothing the import held is still in memory.
+			await wd('POST', `/session/${id}/url`, { url: `${base}/studio/` });
+			failIf(await call('latticePresentReady()'), 'the deck after the reload');
+			// Settle times, not waits for a signal: memory has no "settled" event. runPhotoMemory reads the same way, and the
+			// margin is wide (102-124 MB read against the 300 MB cap), so a slow runner shifts a reading, not the verdict.
+			await sleep(8000);
+			const m0 = await readMB();
+			const opened = failIf(await call('latticePresentOpen()'), 'opening Present');
+			out.openMs = opened.openMs;
+			out.slides = opened.total;
+			await sleep(3000);
+			const m1 = await readMB();
+			const stepped = failIf(await call('latticePresentStep(6)'), 'stepping through Present');
+			out.stepsMs = stepped.steps.map((s) => s.ms);
+			out.photos = stepped.steps.every((s) => s.photo);
+			out.schemes = [...new Set(stepped.steps.map((s) => s.scheme))].join('/');
+			await sleep(3000);
+			const m2 = await readMB();
+			out.alive = (await call('latticePresentAlive()'))?.mark === opened.mark;
+			const open = growthMB(m0, m1);
+			const all = growthMB(m0, m2);
+			out.baseMB = all.baseMB;
+			out.openGrewMB = open.grew;
+			out.grewMB = all.grew;
+			out.freedMB = all.freed;
+		} catch (e) {
+			out.error = String(e.message || e).slice(0, 300);
+		}
+		console.log(`${LABEL}: present arm ${name}: ${out.error ? `ERROR ${out.error}` : `opened in ${out.openMs} ms, steps ${out.stepsMs.join('/')} ms, ${out.grewMB} MB above ${out.baseMB} MB (Present alone ${out.openGrewMB} MB), photos ${out.schemes}, ${out.alive ? 'no reload' : 'THE PAGE RELOADED'}`}`);
+		return out;
+	};
+	const arms = [await arm('this build', BASE)];
+	const baseline = process.env.PRESENT_BASELINE_URL;
+	// The baseline is reported, never judged, so a slow production Studio must not spend the job's 30 minutes: past its
+	// budget it is recorded as over budget and the job ends (process.exit below drops the call still in flight).
+	const BASELINE_BUDGET_MS = Number(process.env.PRESENT_BASELINE_BUDGET_MS || 6 * 60_000);
+	if (baseline) arms.push(await Promise.race([arm('baseline', baseline.replace(/\/$/, '')), sleep(BASELINE_BUDGET_MS).then(() => ({ arm: 'baseline', error: `over its ${BASELINE_BUDGET_MS / 1000} s budget` }))]));
+	const a = arms[0];
+	const steps = presentChecks(a, { slides: deck.slides, capMB: CAP_MB, memory: !mac });
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: a.ua, width: a.width, deckBytes: deck.bytes.length, arms, steps };
+}
+
+/**
+ * The font cache probe (font-cache-probe.js, PROBE=font-cache): the control arm on STUDIO_URL, where font-cache-server.mjs
+ * refuses the warm-up, then the warm arm on WARM_URL, each a fresh Studio on its own origin so each starts with a cold
+ * cache. Both arms must pass: the control proves the probe can see a miss, the warm arm is the finding.
+ */
+async function runFontCacheProbe(id) {
+	const source = withEditorHelper(fs.readFileSync(path.join(here, 'font-cache-probe.js'), 'utf8'));
+	const steps = [];
+	let last = null;
+	for (const [arm, origin] of [
+		['control', BASE],
+		['warm', process.env.WARM_URL || 'http://localhost:4322'],
+	]) {
+		await wd('POST', `/session/${id}/url`, { url: `${origin}/` });
+		await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
+		await wd('POST', `/session/${id}/url`, { url: `${origin}/studio/` });
+		last = await wd('POST', `/session/${id}/execute/async`, {
+			script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeFontCacheProbe(${JSON.stringify(arm)}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+			args: [],
+		});
+		steps.push(...(last.steps || []).map((s) => ({ ...s, name: `${arm} · ${s.name}` })));
+	}
+	const failed = steps.filter((s) => !s.pass);
+	return { ok: failed.length === 0, error: failed.map((s) => s.name).join('; ') || undefined, ua: last?.ua, width: last?.width, steps };
+}
+
+/**
  * The undo probe (undo-probe.js): the edit half in a fresh Studio, a real reload through WebDriver, then the after-reload
  * half. On the Mac it then presses a real ⌘Z (a WebDriver key action, which Safari delivers as a keydown) if the text is
  * still unchanged, since a Mac's keyboard needs no on-screen button.
@@ -280,6 +463,24 @@ async function runUndoProbe(id) {
 		error = ok ? undefined : [steps.filter((s) => !s.pass).map((s) => s.name).join('; '), pass ? '' : 'the ⌘Z key did not undo after the reload'].filter(Boolean).join('; ');
 	}
 	return { ok, error, ua: second.ua ?? first.ua, width: first.width, steps };
+}
+
+/**
+ * The chat storage probe (chat-storage-probe.js): plant the threads an earlier build left in localStorage in a booted
+ * Studio, reload for real, then check they moved to IndexedDB and measure the localStorage allowance
+ * (engineering/decisions/2026-11-11-studio-storage-pointer-records.md §11).
+ */
+async function runChatStorageProbe(id) {
+	const source = fs.readFileSync(path.join(here, 'chat-storage-probe.js'), 'utf8');
+	const first = await studioPage(id, 'chat-storage-probe.js', 'latticeChatStorageProbe');
+	if (!first.ok) return first;
+	await wd('POST', `/session/${id}/refresh`, {});
+	const second = await wd('POST', `/session/${id}/execute/async`, {
+		script: `${source}\nconst done = arguments[arguments.length - 1];\nlatticeChatStorageAfterReload(${JSON.stringify(first.seed)}).then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+		args: [],
+	});
+	const steps = [...first.steps, ...(second.steps || []).map((s) => ({ ...s, name: `after reload · ${s.name}` }))];
+	return { ok: !!second.ok, error: second.error, ua: second.ua ?? first.ua, width: first.width, steps };
 }
 
 /**

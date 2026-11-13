@@ -4911,6 +4911,21 @@ const SANCTIONED_FALLBACK_READS = [
       'a category tint (#2305), where an accent bar is accent on accent. The fallback IS the ' +
       'intended value for the common case, so a theme omitting it is correct rather than degraded.',
   },
+  {
+    token: 'on-inverse-muted',
+    fallback: 'text-muted',
+    why:
+      'a per-theme OVERRIDE, not a required slot. The header, footer and page number on a dark ' +
+      'bookend panel (title, closing, divider; base.modifiers.css) read it before --text-muted, ' +
+      'which on those panels resolves to the theme\'s dark-scheme muted ink. That ink is the ' +
+      'right chrome ink wherever the panel is near-black, which is every theme but indaco; indaco ' +
+      'paints brand navy and names its own lift. The fallback carries the SAME contract the read ' +
+      'needs, and that is gated rather than asserted: test/unit/palette/contrast.test.js pins the ' +
+      'bookend rule that reads this token, and holds the chrome ink it names (this token, else ' +
+      '--text-muted in the dark scheme) to 4.5:1 on ' +
+      '--surface-inverse for every theme in both modes, so a theme that omits the token while its ' +
+      'muted ink fails on its panel turns that test red (found 2026-11-09 by tools/type-voice-audit.mjs).',
+  },
 ];
 
 /**
@@ -5818,6 +5833,33 @@ const SANCTIONED_MARK_IDENTITY = [
   // matrix-grid's filled cell, named by its own label ("Junior") — written here rather than in the
   // component because both render paths (markdown-it and the live DOM) build cells through it.
   ['core/matrix-grid-cells.js', true, false],
+  // The fluid viewer's chart READERS (lib/runtime/chart-readers/, one per kind) READ a chart's labels and
+  // values back off its exported marks, so lib/runtime/chart-redraw.js can redraw it with the kernel. A
+  // reader names the attributes only to read them; the marks the redraw puts into the page are the
+  // kernel's, rebuilt from the exported ones, so no reader authors an identity of its own. (journey and
+  // roadmap read their source from text and do not name either attribute.)
+  // The redraw's check-before-trust (`said`) READS each mark's label and value to compare a pane chart's
+  // redrawn data with its exported data; it writes neither.
+  ['runtime/chart-redraw.js', true, true],
+  ['runtime/chart-readers/gantt.js', true, false],
+  ['runtime/chart-readers/histogram.js', true, true],
+  ['runtime/chart-readers/quadrant.js', true, false],
+  ['runtime/chart-readers/radar.js', true, false],
+  ['runtime/chart-readers/risk-matrix.js', true, false],
+  ['runtime/chart-readers/scatter.js', true, false],
+  ['runtime/chart-readers/word-cloud.js', true, false],
+  ['runtime/chart-readers/bar.js', true, true],
+  ['runtime/chart-readers/bullet.js', true, true],
+  ['runtime/chart-readers/ep-curve.js', true, true],
+  ['runtime/chart-readers/funnel.js', true, true],
+  ['runtime/chart-readers/heatmap.js', false, true],
+  ['runtime/chart-readers/hub-spoke.js', true, true],
+  ['runtime/chart-readers/line.js', true, true],
+  ['runtime/chart-readers/map.js', true, true],
+  ['runtime/chart-readers/piechart.js', true, true],
+  ['runtime/chart-readers/slope.js', true, false],
+  ['runtime/chart-readers/tower.js', true, true],
+  ['runtime/chart-readers/waterfall.js', true, true],
 ];
 
 /**
@@ -6068,6 +6110,56 @@ const RUNTIME_MARKUP_EXTRA_FILES = [
 ];
 const SANCTIONED_RUNTIME_MARKUP_SINKS = [
   {
+    file: 'lib/plugins/video/shared/video-marp-dom.js',
+    sink: 'tpl.innerHTML',
+    count: 1,
+    provenance:
+      'OURS — the video plugin\'s own figure (`figureHtml`, lib/plugins/video/video.inline.js, the markup the engine draws), parsed into ' +
+      'a DETACHED <template> and put in the place of a lone `@video{…}` span on a Marp render. Its input is a record that came from the ' +
+      'deck\'s MARKDOWN (marp-cli\'s config engine, lib/plugins/video/shared/video-marp-engine.js, or the saved deck file in the VS Code ' +
+      'preview), never from the page: a span is drawn only when its text is a record the Markdown holds, outside `[data-lattice-plugin]` ' +
+      '(spec/LPM.md §10). `read` parses it with Segno and matches the PARSED host against the provider table; `figureHtml` escapes every ' +
+      'author string (`esc`/`escAttr`) and writes the address only as the provider row\'s own watch URL. Pinned by ' +
+      'test/unit/plugins/video-marp-records.test.js and test/integration/export/marp-kit-video.test.js.',
+  },
+  {
+    file: 'lib/runtime/video-card.js',
+    sink: 'section.innerHTML',
+    count: 1,
+    provenance:
+      'OURS — `composeVideoCard`: the `video` layout\'s own composer (`renderSection`, video.transform.js, the engine\'s HTML-pass call) ' +
+      're-run over a Marp slide that just gained a figure, so the card is built the way the engine builds it. The figure is NOT in the ' +
+      'string: it is swapped for a placeholder that carries no author text (only the provider watch URL, percent-encoded by the URL ' +
+      'parser), and the drawn figure node is moved back in after, so a browser that leaves `<` raw in a serialized attribute cannot turn ' +
+      'a record\'s title into markup (red team, 2026-11-10; pinned by test/unit/plugins/video-marp-records.test.js "a title that would ' +
+      'end the figure early stays text", which yields two live <img> with the old re-serializing compose). The rest of the string is ' +
+      'the slide\'s own markup as the host wrote it, which the composer only regroups; it finds the figure through `maskPluginSubtrees`.',
+  },
+  {
+    file: 'lib/runtime/index.js',
+    sink: 'tpl.innerHTML',
+    count: 1,
+    provenance:
+      'THE HOST\'S OWN MARKUP, put back: `restoreRawRecordSlides` re-inserts a VS Code preview slide exactly as the preview wrote it ' +
+      '(its `outerHTML`, taken before any runtime write, `rememberRawRecordSlides`) when the saved deck\'s `@video` records arrive after ' +
+      'the slide was laid out, so the card is composed over the host\'s markup as on every other path. Only a slide holding a `@video{` ' +
+      'span, only in that preview (its <meta> in <head>), only when the runtime has since stamped it. Nothing is added to the markup; ' +
+      'it is the same string the host already put in this document.',
+  },
+  {
+    file: 'lib/runtime/chart-redraw.js',
+    sink: 'tpl.innerHTML',
+    count: 1,
+    provenance:
+      'OURS — the chart family\'s own kernel output (lib/transformers/chart-frame.js `transformChartSection`, the call the engine made ' +
+      'at export), parsed into a DETACHED <template> and moved into the chart body. Its input is a source list REBUILT from the exported ' +
+      'chart\'s marks: every value read off the page is a decoded string (an attribute via `dataset`, a key label\'s text), and each is ' +
+      'escaped (`esc`) before it enters the list, so a label such as `<img onerror>` reaches the kernel as text and leaves it as text. A ' +
+      'mark\'s note is never re-serialized: the exported <template class="chart-detail"> NODE is moved into the new drawing. Runs only in ' +
+      'the --fluid viewer, on charts it snapshotted at boot. Pinned by test/unit/runtime/chart-redraw.test.js "a forged label redraws as ' +
+      'text, not markup" (engineering/decisions/2026-11-03-responsive-tables.md §"Charts redraw on demand").',
+  },
+  {
     file: 'docs/src/lib/trama/pipeline.ts',
     sink: 'svg.innerHTML',
     count: 1,
@@ -6140,8 +6232,8 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
     count: 2,
     provenance:
       'THIRD PARTY (1 of 2) — the SVG mermaid.render() returns, written into `#container` of the CLI ' +
-      "bake's OWN headless Chromium page: mermaid-cli's render page (the plugin's copy, vendor/mermaid-cli/" +
-      "index.html: its bundle, with KaTeX and FontAwesome faces) plus the Mermaid library, " +
+      "bake's OWN headless Chromium page: mermaid-cli's render page (the plugin's copy, vendor/render-page/" +
+      "index.html, with the FontAwesome stylesheet mmdc 12 links) plus the Mermaid library, " +
       'given one diagram definition and an init config of ' +
       'palette-derived theme variables, so it can read the drawn SVG back out. It never runs in the ' +
       'preview frame or any document a reader opens; the SVG it reads out reaches the deck as the ' +
@@ -6176,6 +6268,68 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
       'and can never become one — an unrecognized id selects nothing rather than being echoed.',
   },
 ];
+
+// ─── D11: the host writes every provider attribute (record note §5.7, step 3) ───────────────
+// A data provider (a plugin, the `meta` record) DECLARES typed fields; the HOST validates each value and writes the
+// `data-*` attribute itself, so no provider can emit an attribute the host did not check
+// (engineering/decisions/2026-10-17-meta-record.md §5.7, D11). Two shapes break that, and this gate finds both:
+//
+//   1. A COMPUTED attribute name: `attrSet(`data-${key}`, …)` / `setAttribute('data-' + key, …)` anywhere under lib/.
+//      A name built from data is a door for any key a record or a plugin can name. The one sanctioned writer is the
+//      host's apply step; each entry carries its justification, and an entry with no writer left fails as stale.
+//   2. A PLUGIN writing a slide-metadata attribute by name (`setAttribute('data-footer', …)`, `attrSet('data-focus',
+//      …)`): the field belongs to `meta`, and only the host's apply step writes it. Budget 0, no allowlist. (A plugin
+//      writing such a name into its OWN markup string, as the code block's `data-focus-style` on its `<pre>`, is not an
+//      attribute write on the slide and is not matched.)
+const SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS = [
+  {
+    file: 'lib/engine/slides.js',
+    why: 'THE host apply step (`lattice_directives_apply`): writes `data-<key>` for each APPLIED_DIRECTIVES key only, ' +
+      'after the internal reader validated every value by type (lib/core/meta-internal.mjs `readInternal`).',
+  },
+];
+// A computed name in every write shape the review found passing (#3136): a call (`attrSet`, `setAttribute`, `attrJoin`,
+// `toggleAttribute`, `setAttributeNS(ns, …)`), markdown-it's `attrPush([name, v])`, and `dataset[name] = v`.
+const COMPUTED_DATA_ATTR = /\b(?:(?:attrSet|setAttribute|attrJoin|toggleAttribute)\(\s*|setAttributeNS\(\s*[^,()]+,\s*|attrPush\(\s*\[\s*)(?:`data-\$\{|['"]data-['"]\s*\+)|\bdataset\[\s*(?![\s'"`])[^\]]+\]\s*=(?!=)/g;
+
+/** Problems for one source file's text: computed writers outside the allowlist, and a plugin's literal meta writes. */
+function providerAttributeProblems(rel, code, metaAttrs, sanctioned) {
+  const out = [];
+  const lineOf = (i) => code.slice(0, i).split('\n').length;
+  for (const m of code.matchAll(COMPUTED_DATA_ATTR)) {
+    if (!sanctioned.has(rel)) out.push(`D11 (record note §5.7): ${rel}:${lineOf(m.index)} writes a data-* attribute whose NAME is computed; only the host's apply step may (SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS, with its justification)`);
+  }
+  if (rel.startsWith('lib/plugins/')) {
+    const literal = new RegExp(`\\b(?:(?:attrSet|setAttribute|attrJoin|toggleAttribute)\\(\\s*|setAttributeNS\\(\\s*[^,()]+,\\s*|attrPush\\(\\s*\\[\\s*)['"\`]data-(${metaAttrs.join('|')})['"\`]`, 'g');
+    for (const m of code.matchAll(literal)) out.push(`D11 (record note §5.7): plugin file ${rel}:${lineOf(m.index)} writes \`data-${m[1]}\`, a slide-metadata attribute; declare the field and let the host's apply step write it`);
+    // `el.dataset.focusStyle = v` / `el.dataset['focus-style'] = v` is the same attribute (#3136).
+    const camel = new Map(metaAttrs.map((a) => [a.replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase()), a]));
+    for (const m of code.matchAll(/\bdataset(?:\.([A-Za-z]\w*)|\[\s*['"`]([\w-]+)['"`]\s*\])\s*=(?!=)/g)) {
+      const attr = m[1] ? camel.get(m[1]) : metaAttrs.includes(m[2]) ? m[2] : camel.get(m[2]);
+      if (attr) out.push(`D11 (record note §5.7): plugin file ${rel}:${lineOf(m.index)} writes \`data-${attr}\` through \`dataset\`, a slide-metadata attribute; declare the field and let the host's apply step write it`);
+    }
+  }
+  return out;
+}
+
+/** @param {string[]} errors  @param {{root?: string, sanctioned?: Array<{file: string}>}} [opts] (tests) */
+function checkProviderAttributeWriters(errors, opts = {}) {
+  const root = opts.root || ROOT;
+  const entries = opts.sanctioned || SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS;
+  const sanctioned = new Set(entries.map((e) => e.file));
+  const { APPLIED_KEYS, kebab } = require('../lib/core/meta-keys.mjs');
+  const metaAttrs = [...APPLIED_KEYS].map(kebab);
+  const used = new Set();
+  for (const file of listSourceFiles(path.join(root, 'lib'))) {
+    const rel = relPosix(root, file);
+    if (!/\.[cm]?js$/.test(rel) || /\.generated\.[cm]?js$/.test(rel) || /\.test\.[cm]?js$/.test(rel)) continue;
+    const code = stripCodeComments(fs.readFileSync(file, 'utf8'));
+    if (sanctioned.has(rel) && COMPUTED_DATA_ATTR.test(code)) used.add(rel);
+    COMPUTED_DATA_ATTR.lastIndex = 0;
+    for (const p of providerAttributeProblems(rel, code, metaAttrs, sanctioned)) errors.push(p);
+  }
+  for (const e of entries) if (!used.has(e.file)) errors.push(`D11: SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS names ${e.file}, which no longer writes a computed data-* attribute; remove the stale entry`);
+}
 
 function listSourceFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
@@ -6236,14 +6390,6 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'green on its first tick. The wait is signal-first (the lint core response), then 1500ms for evaluation '
        + 'and the dispatch. The control arm with the generation guard disabled fails this line 6 of 6 on WebKit '
        + 'tablet and Gecko, so the assertion can see what it says is absent.',
-  },
-  {
-    file: 'docs/e2e/restyle-overlap.spec.ts', ms: 1500, count: 1,
-    why: 'ABSENCE ASSERTION: after the held-back theme file of the OLDER render has finished loading, that render '
-       + 'must change nothing (#2916: it used to take the frame back from the newer one). A stale render that '
-       + 'stands down leaves no signal, and a poll of "still the newer palette" goes green on its first tick. '
-       + 'The wait is signal-first (the slow request finishing), then 1500ms for parse, engine and sheet swap. '
-       + 'The control arm with the guard removed fails this very line on Chromium, so the assertion can see what it says is absent.',
   },
   {
     file: 'docs/e2e/playground-lint-hidden.spec.ts', ms: 3000, count: 2,
@@ -7410,12 +7556,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
   },
   {
     file: 'lib/engine/index.js',
-    count: 3,
-    why: 'render(), geometry() AND paneOrientations() — the engine\'s three public doors. All '
-       + 'three parse front matter, so all must agree; #1357 measured the divergence when only '
-       + 'render() normalized. paneOrientations (the CLI asks it where each pane\'s Mermaid fence '
-       + 'lays out) folds the same way so its sections line up with render()\'s. The count is '
-       + 'pinned because a door added later would inherit the old bug silently.',
+    count: 1,
+    why: 'prepareSource — the ONE preamble render(), geometry(), paneOrientations() and the _tokens() '
+       + 'seam all call, so every door parses front matter alike (#1357 measured the divergence when '
+       + 'only render() normalized) and runs the source hooks (a door that skipped them would leave '
+       + 'slide-metadata records inert there). One fold, not one per door: a door added later calls '
+       + 'prepareSource or reads the deck wrongly, and test/unit/engine/source-doors.test.js drives every door.',
   },
   {
     file: 'lattice.js',
@@ -7470,6 +7616,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
     why: 'formatDeck — `lattice fmt` reads an author\'s deck, folds CRLF to LF and strips the BOM so '
        + 'the planner reads it as the engine does, then puts both back on write: a formatter must not '
        + 'rewrite a file\'s line endings, only its code blocks.',
+  },
+  {
+    file: 'lib/cli/migrate-meta.mjs',
+    why: 'migrateDeckText — `lattice migrate meta` reads an author\'s deck, folds CRLF to LF and strips the BOM so '
+       + 'the migration kernel reads it as the engine does (it refuses anything else), then puts both back on write: '
+       + 'a codemod must not rewrite a file\'s line endings, only its directive comments.',
   },
   {
     file: 'tools/export-marp.js',
@@ -7555,6 +7707,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
  * question ("is this a boundary?") instead of a blanket exemption. Stale entries fail.
  */
 const SANCTIONED_EOL_NON_BOUNDARIES = [
+  {
+    file: 'lib/core/meta-edit.mjs',
+    why: 'folds a line break inside ONE FIELD VALUE the Studio hands the structured edit (a note typed in a textarea), '
+       + 'so a note channel becomes a `key: |` block and any other field a single line: a raw CR would end the record\'s '
+       + 'value and drop every field in it. It reads no markdown source and writes only that value.',
+  },
   {
     file: 'tools/skill-index.js',
     why: 'reads only the repo-committed `design/skills/*.md` files, which `.gitattributes` keeps LF, to '
@@ -8690,6 +8848,369 @@ function checkRuntimeMarkupSinks(errors, sanctions = SANCTIONED_RUNTIME_MARKUP_S
   }
 }
 
+/**
+ * `checkSlideTextAddressReaders` — the slide-text address rule (spec/LPM.md §10; engineering/decisions/2026-10-16-media-plugins.md §4.5).
+ *
+ * THE RULE. An address the viewer loads or scans (an image, a poster, a mask, a link, a QR code) comes only from the
+ * author's own block: a markdown-it token, an `@kind{…}` record, an element the engine stamped. Never from slide TEXT —
+ * `textContent`, a walk over `<li>`s, a regex over a section's HTML, the runtime's DOM mirror — and never from inside
+ * `[data-lattice-plugin]`, where a plugin's output lands as text. A plugin with no network of its own could otherwise
+ * write `https://attacker.example/?d=<the slide's text>` as a bullet and have one of OUR passes publish it.
+ *
+ * WHAT IT FINDS. A source file that both READS slide text (one of `SLIDE_TEXT_READ_KINDS`, or a regex literal hunting
+ * for `href=`, `src=`, `<a`, `<img` or `url(`) and WRITES an address (one of `SLIDE_TEXT_SINK_KINDS`). The co-occurrence
+ * is a census, not a data-flow proof: a file that does both is where a text→address path can live, so it is written
+ * down. Each entry in `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS` states its reason and its GUARD:
+ *   · `masks` — the file reads rendered slide text through `maskPluginSubtrees(` or skips
+ *     `closest('[data-lattice-plugin]')`;
+ *   · `none`  — the reason says why no plugin text can reach the address (an export reader of a finished document, the
+ *     consent gate that REFUSES addresses, a resolver that maps an address already on the page and never invents one).
+ * The entry pins the file's read KINDS, its address writes COUNTED per kind, and its guard calls COUNTED. Counts, not
+ * yes/no, because the files that matter are large: `lib/runtime/index.js` holds two guards and three `.src =` writes, so
+ * a file-wide "has a guard" or "writes a property" let a deleted guard or a new `img.src = li.textContent` through (the
+ * checker on this gate, 2026-11-09). A stale entry fails, and so do a duplicate and an empty reason. The reason is checked
+ * for PRESENCE only: no gate can tell a true reason from a plausible one, which is what review is for.
+ *
+ * ITS ENVELOPE, stated so it is not trusted past its worth: a read and a sink in DIFFERENT files joined by an import
+ * (the QR kernels: `contact.transform.js` reaches text only through `qr-card.js` `parseFields`, which is sanctioned
+ * and masks), a sink spelled through a variable (`el[attr] = v`), a guard that sits in the file but not on the path
+ * that reads, and a reader outside the scanned roots. Above all it cannot see the PARSER: a mask or a `closest()` holds
+ * only while the plugin's output stays inside its root once the browser parses the page, which the door enforces
+ * (`doorFinishFence` refuses an `<li>`, `<dd>` or `<dt>` outside its own list, 2026-11-09). The roots are `lib/`
+ * (vendored copies skipped, as every census here does) and the Studio host files that run over a slide
+ * (`docs/src/playground/*-host.js`). The rest of `docs/src` is the Studio's own UI; its exporter
+ * (`docs/src/components/studio/export/deck-export.js`) walks rendered slides but reuses addresses already on the page
+ * (read by hand on 2026-11-09, not held by this gate). Comments are stripped first (`stripCodeComments`).
+ *
+ * @param {string[]} errors
+ * @param {Array} [sanctions]  injectable, so a probe needs no committed entry
+ * @param {string} [root]      injectable, so a probe lives in a temp tree
+ */
+const SLIDE_TEXT_READ_KINDS = Object.freeze({
+  // A read of a live element's text, not an assignment to it (`+=` and `=` are writes; `==` is a read).
+  'text': /\.(?:textContent|innerText|nodeValue|wholeText)\b(?!\s*\+?=(?!=))|\b(?:firstChild|lastChild|previousSibling|nextSibling)\.data\b(?!\s*\+?=(?!=))/,
+  // A read of serialized markup: the runtime's DOM halves hand `sec.innerHTML` to the HTML kernels.
+  'html': /\.(?:innerHTML|outerHTML)\b(?!\s*\+?=(?!=))/,
+  // A walk over list items, as a string scan (`'<li'`, `/<li\b/`) or a selector (`'li'`, `querySelectorAll('ul > li')`).
+  'li': /<li(?![a-z-])|['"`]li['"`]|querySelectorAll\(\s*['"`][^'"`]*\bli\b/,
+});
+// A regex over markup that looks for an address (`href=`, `src=`, `<a`, `<img`, `url(`): read from the file's REGEX
+// LITERALS (`regexLiterals`, the regex census's own tokenizer), so a string that merely mentions `href=` is not one.
+const SLIDE_TEXT_REGEX_READ = /href\s*=|src\s*=|<a\\b|<a\[|<a\s|<img|url\\\(/i;
+const SLIDE_TEXT_SINK_KINDS = Object.freeze({
+  'qr': /\bqrSvg\s*\(/,
+  'property': /\.(?:src|href|srcset|poster)\s*=(?!=)/,
+  'set-attribute': /setAttribute\(\s*['"`](?:src|href|srcset|poster|xlink:href)['"`]/,
+  // Not `data-src=`: a `data-*` attribute loads nothing.
+  'attribute-template': /(?<![\w-])(?:src|href|srcset|poster)=["'][^"'\n]*\$\{|(?<![\w-])(?:src|href|srcset|poster)=["']\s*['"`]\s*\+/,
+  'css-url': /url\(\s*['"]?\$\{|url\(\s*['"]?\s*['"`]\s*\+/,
+});
+// A QR encoder reached as `encode(` counts only in a file that imports one (`./qr`, `qr-card`), so TextEncoder's
+// `encode` elsewhere is not a sink.
+const SLIDE_TEXT_QR_ENCODE = /\bencode\s*\(/;
+const SLIDE_TEXT_QR_IMPORT = /require\(\s*['"][^'"]*(?:\/qr|qr-card)['"]\s*\)|from\s+['"][^'"]*(?:\/qr|qr-card)['"]/;
+// A guard may name the root's tag (`div[data-lattice-plugin]`, `span[data-lattice-plugin]`): still the plugin's root.
+const SLIDE_TEXT_GUARD = /\bmaskPluginSubtrees\s*\(|closest\(\s*['"`](?:div|span)?\[data-lattice-plugin\]['"`]\s*\)/;
+
+const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
+  {
+    file: 'lib/components/connect/_qr-card/qr-card.js',
+    reads: ['li'],
+    sinks: { 'qr': 1 },
+    guards: 1,
+    guard: 'masks',
+    why:
+      '`parseFields` turns a `contact`/`wifi` slide\'s field bullets into a vCard or WIFI: payload, on the engine\'s HTML pass and again on the runtime\'s DOM pass (which hands it the live section\'s innerHTML, plugin output included). It reads them through `maskPluginSubtrees`, so a plugin\'s bullet is never a field. Pinned by test/unit/transformers/plugin-address-mask.test.js.',
+  },
+  {
+    file: 'lib/components/connect/_qr-card/qr-general.transform.js',
+    reads: ['li', 'regex'],
+    sinks: { 'qr': 1 },
+    guards: 1,
+    guard: 'masks',
+    why:
+      'The `qr` variant encodes the slide\'s link bullet. `renderSection` reads the bullets through `maskPluginSubtrees` (length-preserving, so its splice offsets still index the slide), on both the HTML pass and the runtime\'s DOM pass, so a plugin\'s link is never the payload. Pinned by test/unit/transformers/plugin-address-mask.test.js and the shared fence-door fixture.',
+  },
+  {
+    file: 'lib/components/imagery/collage/collage.transform.js',
+    reads: ['html', 'li', 'regex'],
+    sinks: { 'set-attribute': 1 },
+    guards: 1,
+    guard: 'masks',
+    why:
+      'The DOM half pins each photo\'s resolved `img.src` into its attribute before re-serializing the slide; it skips any `<img>` inside `[data-lattice-plugin]`. The rebuild itself only regroups the slide\'s own top-level list, and the address it carries is one the page already loads: it invents none.',
+  },
+  {
+    file: 'lib/components/imagery/video/video.transform.js',
+    reads: ['li'],
+    sinks: { 'qr': 1 },
+    guards: 1,
+    guard: 'masks',
+    why:
+      'The QR comes only from the figure the `video` plugin stamped from the author\'s `@video{…}` record (`data-lattice-media-url`, re-validated through `detectProvider`). `takeFigure` finds that figure through `maskPluginSubtrees`, so a figure inside plugin output is never the slide\'s, whatever pass order delivers it. The `<li` read only drops an emptied bullet. (The poster is the plugin\'s, resolved at parse time from the record, since 2026-11-10.)',
+  },
+  {
+    file: 'lib/components/inventory/team-profile/team-profile.transform.js',
+    reads: ['html', 'li', 'regex'],
+    sinks: { 'attribute-template': 1, 'set-attribute': 1 },
+    guards: 1,
+    guard: 'masks',
+    why:
+      'The roster rebuild re-emits each person\'s existing `<img src>` (an address the page already loads) from the stage\'s DIRECT-child lists only, so a plugin\'s list inside its root is never a roster. The DOM half\'s pin loop skips an `<img>` inside `[data-lattice-plugin]`.',
+  },
+  {
+    file: 'lib/core/bg-image.js',
+    reads: ['regex', 'text'],
+    sinks: { 'css-url': 2 },
+    guards: 0,
+    guard: 'none',
+    why:
+      'The `text` read is `wrapImageText`\'s empty-fold check, which only decides whether to wrap. The `url()` writes are `liftBgImages` (the author\'s `![bg]` markdown, rewritten in the SOURCE before the render) and `resolveInlineImageSrcs`, which maps an address already in the page to the same file and never invents one. The door drops any address a plugin invents (lib/core/door-attr.mjs `doorFilterAttr`) before this pass sees the page.',
+  },
+  {
+    file: 'lib/core/css-scan.js',
+    reads: ['regex'],
+    sinks: { 'css-url': 1 },
+    guards: 0,
+    guard: 'none',
+    why:
+      'The safety scanner for untrusted CSS (`findCssExfil`): its regexes FIND remote `url()`s in order to refuse them, and its one `url(${…})` is the text of the warning it prints. It writes no address anywhere.',
+  },
+  {
+    file: 'lib/core/pdf-compose/read-slide.mjs',
+    reads: ['regex', 'text'],
+    sinks: { 'property': 1 },
+    guards: 0,
+    guard: 'none',
+    why:
+      'The PDF composer reads the FINISHED page to lay its text out as PDF glyphs; its one address write (`naturalSizeOf`, `im.src = url`) measures a background image the page already loaded, under the CLI\'s offline Chromium (lib/core/offline-chromium.js). It builds no address from text.',
+  },
+  {
+    file: 'lib/core/remote-ref.js',
+    reads: ['html', 'text'],
+    sinks: { 'attribute-template': 2 },
+    guards: 0,
+    guard: 'none',
+    why:
+      '`blockWebImages` is the web-image consent gate: it REFUSES addresses. Its attribute writes are the drawn placeholder (`WEB_IMAGE_PLACEHOLDER`) and the `data-lattice-web-src` record of the address it took away; its text reads rewrite a refused `url()` inside a `<style>`. It runs last over the whole page, plugin output included, which is the point: a plugin\'s own picture cannot load without the reader\'s consent.',
+  },
+  {
+    file: 'lib/core/slide-camera.mjs',
+    reads: ['text'],
+    sinks: { 'css-url': 2, 'property': 2, 'set-attribute': 3 },
+    guards: 0,
+    guard: 'none',
+    why:
+      'The slide camera rasterizes a clone of a finished slide: it absolutizes addresses the slide ALREADY loads (an `<img src>`, a `url()` in a `<style>`, whose `textContent` is the text it reads) and inlines a live canvas as a data: URL. It reads no slide text into an address and invents none.',
+  },
+  {
+    file: 'lib/export/html-player.js',
+    reads: ['regex'],
+    sinks: { 'css-url': 2 },
+    guards: 0,
+    guard: 'none',
+    why:
+      'The player\'s Node adapter rewrites `url()`s the exported document already holds (a deck-relative asset to its baked `data:` URI). It maps an address to the same file\'s bytes and invents none; plugin output reaches it only after the door dropped every address a plugin invented (`doorFilterAttr`).',
+  },
+  {
+    file: 'lib/export/marp-bundle.js',
+    reads: ['regex'],
+    sinks: { 'attribute-template': 2 },
+    guards: 0,
+    guard: 'none',
+    why:
+      'Export-to-Marp writes the bundle\'s own fixed runtime `<script src>` list (`RUNTIME_SCRIPT_SRCS`, constants in this file) and, since 2026-11-10, one fixed `<link rel="stylesheet" href>` to its own VS Code-shaped stylesheet (`VSCODE_LINK` from the constant `VSCODE_STYLESHEET`, engineering/decisions/2026-11-10-marp-vscode-theme-stubs.md); its regexes read the deck\'s markdown SOURCE, not a rendered slide. No plugin runs in that path, and neither address comes from page text.',
+  },
+  {
+    file: 'lib/export/player-assets.mjs',
+    reads: ['regex'],
+    sinks: { 'css-url': 1 },
+    guards: 0,
+    guard: 'none',
+    why:
+      'Deduplicates `data:` URIs the player already baked into one CSS custom property per picture (`--name:url(data:…)`). The address is a data URI already on the page; nothing is read from text and nothing reaches the network.',
+  },
+  {
+    file: 'lib/export/player-core.mjs',
+    reads: ['html', 'li', 'regex', 'text'],
+    sinks: { 'attribute-template': 2, 'property': 1, 'set-attribute': 2 },
+    guards: 0,
+    guard: 'none',
+    why:
+      'The exported player\'s writes are: a narration clip from the deck\'s own audio manifest (`a.src = clip.a`); the consent banner\'s links and its loader, which take only `data-lattice-web-src` values that `blockWebImages` recorded and only for origins the author declared (a plugin cannot write a `data-lattice-*` attribute it was not handed, `doorFilterAttr`); and the outline\'s `#id` links. Its text reads build labels. The player\'s CSP (`img-src data:`/`blob:`) holds the rest.',
+  },
+  {
+    file: 'lib/export/player-images.mjs',
+    reads: ['regex'],
+    sinks: { 'set-attribute': 1 },
+    guards: 0,
+    guard: 'none',
+    why:
+      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text.',
+  },
+  {
+    file: 'lib/integrations/markdown-it/plugins.js',
+    reads: ['regex'],
+    sinks: { 'attribute-template': 1 },
+    guards: 0,
+    guard: 'none',
+    why:
+      'The one address it writes is the deck logo\'s `<img src>`, read from the author\'s front-matter `logo:` key (the author\'s own block) and escaped (`safeSrc`). Its regexes read markdown-it tokens and the author\'s markup, never plugin output, which lands later in the registry\'s last slot.',
+  },
+  {
+    file: 'lib/runtime/index.js',
+    reads: ['html', 'li', 'text'],
+    sinks: { 'property': 3 },
+    guards: 3,
+    guard: 'masks',
+    why:
+      'The runtime\'s one address write loads OUR plugin-data script beside the runtime (a fixed first-party file, `new URL(p.file, src)`); slide text only decides WHETHER it loads, and the probe skips any `<code>` inside `[data-lattice-plugin]`, so a plugin\'s text decides nothing. The inline-pill mirror (`transformInlinePills`) skips plugin output and never dispatches an address-bearing kind. The `html` read is `rememberRawRecordSlides` keeping a VS Code record slide\'s markup as the host wrote it, to put back when the saved deck\'s records arrive late; it skips plugin subtrees (the third guard), reads no address, and writes none: every address a Marp video draws comes from a record the deck\'s MARKDOWN holds (lib/plugins/video/shared/video-marp-dom.js, spec/LPM.md §10).',
+  },
+  {
+    file: 'lib/transformers/logo-marks.js',
+    reads: ['html', 'regex'],
+    sinks: { 'css-url': 2 },
+    guards: 1,
+    guard: 'masks',
+    why:
+      'A `logo-wall` mark re-emits an existing `<img src>` (an address the page already loads) as `--logo-mask:url(…)`. The DOM half skips an `<img>` inside `[data-lattice-plugin]`; the HTML half runs before the door draws (the door is the registry\'s last slot).',
+  },
+  {
+    file: 'lib/transformers/prose-projection.mjs',
+    reads: ['html', 'li', 'regex', 'text'],
+    sinks: { 'attribute-template': 1, 'css-url': 4, 'set-attribute': 1 },
+    guards: 7,
+    guard: 'masks',
+    why:
+      'The Reading view projects a slide into prose. Its text reads build labels and captions; its addresses are the video card\'s poster and link, taken only from the `video` plugin\'s own figure and never one inside `[data-lattice-plugin]` (`videoCard`), and a placed photo\'s `<img src>` (`withPanelPicture`, added 2026-11-10): the address the IMAGE PLUGIN wrote, from the author\'s own record or its `![…](…)` shortcut, into an `image` or `bleed` slide\'s `.lattice-bg` panel style. Only a panel carrying the plugin\'s `data-lattice-media="image"` marker is read; author HTML cannot forge it (`author-markup.js` renames it `data-author-…`) and a plugin\'s fence is handed no classes. Only the panel\'s two seats (a direct child of the section, or of its `.cell-stage`) are read, and a hidden panel is skipped, so an author\'s raw `.lattice-bg`, a Marp `![bg]` panel and anything inside `[data-lattice-plugin]` are never re-hosted (red team, 2026-11-10; pinned by three prose-projection tests). The address is read with the sanctioned CSS reader (`posterInStyle`) and written back only through `safePosterUrl` or as a page-made `blob:http(s)://` URL. Its `url(#…)` rewrites only suffix in-page ids. A plugin\'s drawing is copied whole with its `[data-lattice-plugin]` root (`projectGeneric`), so the article never holds plugin text as the author\'s. Narration speaks a media figure\'s words from its `data-lattice-*` attributes, never one inside `[data-lattice-plugin]` (`speakGeneric`).',
+  },
+];
+
+/**
+ * Every scanned file that holds at least one read and one sink: its read KINDS, its sink COUNTS (per kind), and how many
+ * guard calls it makes. Sinks and guards are COUNTED because a kind or a yes/no is file-wide: a file with two guards could
+ * lose one, and a file with one `img.src =` could gain a second, and a kind-level pin would certify both (the checker on
+ * this gate, 2026-11-09). Reads are kinds only: a thousand-line runtime reads text everywhere, and counting those would
+ * fail the build on every label change while saying nothing about addresses.
+ * @returns {Map<string, {reads: string[], sinks: Record<string, number>, guards: number}>}
+ */
+function slideTextAddressCensus(root = ROOT) {
+  const files = [];
+  listSourceFiles(path.join(root, 'lib'), files);
+  const pg = path.join(root, 'docs', 'src', 'playground');
+  if (fs.existsSync(pg)) for (const f of fs.readdirSync(pg)) if (/-host\.[cm]?js$/.test(f)) files.push(path.join(pg, f));
+  const count = (code, re) => (code.match(new RegExp(re.source, `${re.flags.replace('g', '')}g`)) || []).length;
+  const out = new Map();
+  for (const file of files) {
+    const rel = relPosix(root, file);
+    if (!/\.[cm]?[jt]s$/.test(rel) || /\.generated\.[cm]?js$/.test(rel) || /\.test\.[cm]?[jt]s$/.test(rel) || /\.d\.ts$/.test(rel)) continue;
+    const code = stripCodeComments(fs.readFileSync(file, 'utf8'));
+    const sinks = {};
+    for (const [k, re] of Object.entries(SLIDE_TEXT_SINK_KINDS)) {
+      const n = count(code, re);
+      if (n) sinks[k] = n;
+    }
+    if (!sinks.qr && SLIDE_TEXT_QR_IMPORT.test(code)) {
+      const n = count(code, SLIDE_TEXT_QR_ENCODE);
+      if (n) sinks.qr = n;
+    }
+    if (!Object.keys(sinks).length) continue;
+    const reads = Object.keys(SLIDE_TEXT_READ_KINDS).filter((k) => SLIDE_TEXT_READ_KINDS[k].test(code));
+    if (regexLiterals(code, rel).some((r) => SLIDE_TEXT_REGEX_READ.test(r.key))) reads.push('regex');
+    if (!reads.length) continue;
+    out.set(rel, { reads: reads.sort(), sinks, guards: count(code, SLIDE_TEXT_GUARD) });
+  }
+  return out;
+}
+
+/**
+ * ONE WAY TO HIDE A TITLE (engineering/decisions/2026-10-16-media-plugins.md §4.11, decision 19). A layout that hosts a media
+ * figure decides how it is shown through the plugin's `show=` default for itself (its manifest's `media` field) and the custom
+ * properties the shared layer exposes on the figure (`--lat-media-w`, `--lat-media-title-size`, …), never with CSS of its own
+ * reaching INTO the figure: a host that hid `.lat-media-title` with `display: none` would leave a screen reader labeling the
+ * picture by words the room cannot see, and two hosts would style one figure two ways. So component CSS that selects one of the
+ * shared layer's parts (`.lat-media-frame`, `-pic`, `-caption`, `-title`, `-desc`, `-tone`, `-finish`) is held to a budget of
+ * zero plus `SANCTIONED_MEDIA_REACH_INS`, each with its reason; a stale entry fails. Setting a property on the figure itself
+ * (`section.video .video-embed { --lat-media-w: 46cqi }`) is the sanctioned interface and is not a reach-in.
+ * @param {string[]} errors
+ * @param {Array<{file: string, why: string}>} [sanctions]
+ * @param {string} [root]
+ */
+const MEDIA_PART = /\.lat-media-(?:frame|pic|caption|title|desc|tone|finish)\b/;
+const SANCTIONED_MEDIA_REACH_INS = [];
+function checkMediaReachIns(errors, sanctions = SANCTIONED_MEDIA_REACH_INS, root = ROOT) {
+  const dir = path.join(root, 'lib', 'components');
+  const files = [];
+  const walk = (d) => {
+    if (!fs.existsSync(d)) return;
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.css')) files.push(p);
+    }
+  };
+  walk(dir);
+  const found = new Map();
+  for (const f of files) {
+    const css = fs.readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const hits = [...css.matchAll(/([^{}]+)\{/g)].map((m) => m[1].trim()).filter((sel) => MEDIA_PART.test(sel));
+    if (hits.length) found.set(path.relative(root, f).split(path.sep).join('/'), hits);
+  }
+  const sanctioned = new Set(sanctions.map((x) => x.file));
+  for (const [file, hits] of found) {
+    if (!sanctioned.has(file)) errors.push(`${file} reaches into a media figure (${hits.slice(0, 2).join(' | ')}): a host sets the plugin's \`show=\` default in its manifest's \`media\` field, or a property the shared layer exposes on the figure (lib/base/base.media.css), never a rule of its own on the figure's parts. If it is provably the only answer, add a SANCTIONED_MEDIA_REACH_INS entry with its reason.`);
+  }
+  for (const x of sanctions) {
+    if (!found.has(x.file)) errors.push(`stale SANCTIONED_MEDIA_REACH_INS entry: ${x.file} no longer reaches into a media figure; remove it.`);
+    if (!x.why || !String(x.why).trim()) errors.push(`SANCTIONED_MEDIA_REACH_INS entry ${x.file} has no reason.`);
+  }
+}
+
+function checkSlideTextAddressReaders(errors, sanctions = SANCTIONED_SLIDE_TEXT_ADDRESS_READERS, root = ROOT) {
+  const found = slideTextAddressCensus(root);
+  const declared = new Map();
+  const sinkText = (sinks) => Object.keys(sinks).sort().map((k) => `${k}×${sinks[k]}`).join('+');
+  for (const s of sanctions) {
+    if (declared.has(s.file)) {
+      errors.push(`SANCTIONED_SLIDE_TEXT_ADDRESS_READERS has a duplicate entry for ${s.file}: one silently shadows the other. Merge them.`);
+      continue;
+    }
+    declared.set(s.file, s);
+    if (s.guard !== 'masks' && s.guard !== 'none') errors.push(`SANCTIONED_SLIDE_TEXT_ADDRESS_READERS: ${s.file} has guard ${JSON.stringify(s.guard)}; it is 'masks' or 'none'.`);
+    // Presence only: no gate can tell a true reason from a plausible one. Review reads it (HARD RULE #22 posture).
+    if (typeof s.why !== 'string' || !s.why.trim()) errors.push(`SANCTIONED_SLIDE_TEXT_ADDRESS_READERS: ${s.file} needs its justification in \`why\` (HARD RULE #22 posture: an entry goes in WITH its reason).`);
+    if (s.guard === 'masks' && !(s.guards > 0)) errors.push(`SANCTIONED_SLIDE_TEXT_ADDRESS_READERS: ${s.file} is guard 'masks' and must pin how many guard calls it makes (\`guards\`, at least 1).`);
+  }
+  for (const [rel, hit] of found) {
+    const entry = declared.get(rel);
+    const sig = `reads ${hit.reads.join('+')}, writes ${sinkText(hit.sinks)}`;
+    if (!entry) {
+      errors.push(
+        `${rel} reads slide text and writes an address (${sig}), and is not in SANCTIONED_SLIDE_TEXT_ADDRESS_READERS ` +
+        `(spec/LPM.md §10). An address the viewer loads or scans comes only from the author's own block, never from a ` +
+        `plugin's output. Read the address from the markdown token or the element the engine stamped; if the file must ` +
+        `read rendered text, read it through \`maskPluginSubtrees\` (HTML) or skip \`closest('[data-lattice-plugin]')\` ` +
+        `(DOM), and add an entry with guard 'masks', its counts and its reason.`,
+      );
+      continue;
+    }
+    const want = `reads ${[...(entry.reads || [])].sort().join('+')}, writes ${sinkText(entry.sinks || {})}`;
+    if (want !== sig) {
+      errors.push(`${rel} now ${sig}; SANCTIONED_SLIDE_TEXT_ADDRESS_READERS declares it ${want}. A new read kind or a new address write is a new path from text to an address: justify it in the entry, or remove it.`);
+    }
+    if ((entry.guards ?? 0) !== hit.guards) {
+      errors.push(
+        `${rel} makes ${hit.guards} guard call(s) (maskPluginSubtrees( / closest('[data-lattice-plugin]')); ` +
+        `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS pins ${entry.guards ?? 0}. A REMOVED guard means a plugin's output would be read ` +
+        `as an address (spec/LPM.md §10); an added one is fine: raise the count.`,
+      );
+    }
+  }
+  for (const [rel] of declared) {
+    if (!found.has(rel)) errors.push(`SANCTIONED_SLIDE_TEXT_ADDRESS_READERS has a stale entry: ${rel} no longer reads slide text and writes an address. Remove it so the list keeps describing the tree.`);
+  }
+}
+
 // HARD RULE #22, part 2 — the returning-visitor SNAPSHOT is a SECOND untrusted-HTML path,
 // but a MAIN-DOCUMENT one the srcdoc-builder check above can't see: the Studio caches the
 // last rendered slide's HTML in localStorage and `studio.astro`'s pre-paint replay injects
@@ -8842,7 +9363,6 @@ const SPINE_SHAPES = {
 // fetch; OWN ASSETS means it reads Lattice's own font, data: or runtime references.
 const SANCTIONED_SPINE_READERS = Object.freeze([
   // ── Readers of text the engine wrote ──
-  { file: 'lib/components/imagery/video/video.transform.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: rewrites the `background-image:url(\'…\')` the video kernel itself wrote on the poster figure.' },
   { file: 'lib/core/accessibility-textures.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: finds the `url(#latt-…)` fragment references the texture pass writes; a fragment never fetches.' },
   { file: 'lib/core/bg-image.js', shape: 'url-reader', count: 1, why: 'ENGINE-WRITTEN: resolves a `sample:` named-scheme url() in the engine\'s own background style to the sample folder; it never reads a web address.' },
   { file: 'lib/core/bg-image.js', shape: 'attr-reader', count: 1, why: 'ENGINE-WRITTEN: `IMG_SRC_RE` rebases a RELATIVE `<img src>` markdown-it wrote (double-quoted) onto the preview\'s base URL; a web, absolute or data: address is left as it is, for the scanner to judge.' },
@@ -8871,15 +9391,15 @@ const SANCTIONED_SPINE_READERS = Object.freeze([
   { file: 'docs/src/lib/anima/schema.ts', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: an animation color holding `url(` or `image(` is refused outright.' },
   { file: 'docs/src/lib/vetrina/theme.ts', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: a walkthrough theme value holding `url(`, `image(` or `expression(` is refused outright.' },
   { file: 'lib/core/url-scheme.js', shape: 'url-reader', count: 1, why: 'FAILS CLOSED (2026-11-05): `cssUrlVerdict` refuses any value with a backslash before its pattern reads it, so an escaped `u\\72l(` or scheme is refused by the reader itself, whatever its caller checks. Kept off `cssRefSpans` because url-scheme.js is dependency-free (the engine, the runtime and the linter load it) and the engine does not carry the CSS parser (+5.1 KB gzip on every route). test/unit/core/url-scheme.test.js.' },
-  { file: 'lib/engine/slides.js', shape: 'url-reader', count: 3, why: 'FAILS CLOSED: `realDeclValueIsSafe` admits a `backgroundImage` directive only in three plain url() shapes; anything else is dropped with a diagnostic.' },
+  { file: 'lib/core/decl-value-safe.js', shape: 'url-reader', count: 3, why: 'FAILS CLOSED: `realDeclValueIsSafe` (moved out of lib/engine/slides.js so the placed-picture rule shares it) admits a `backgroundImage` directive only in three plain url() shapes; anything else is dropped with a diagnostic.' },
   { file: 'lib/core/css-scan.js', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: the theme gate classifies an `@import` target as a theme name, a data: url or `other`, and refuses `other`; its address reads are the shared reader (P2).' },
   { file: 'lib/engine/css.js', shape: 'url-reader', count: 1, why: 'FAILS CLOSED: theme assembly drops every `@import` but `lattice` from a registered theme.' },
   // ── Lattice's own assets ──
   { file: 'lib/core/css-url.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: the runtime\'s first-url() reader for the engine\'s own picture styles (data: and relative), a linear scan written for WebKit (2026-11-03-pictures-at-drawn-size.md); it decides a size, not a fetch.' },
   { file: 'lib/export/katex-inline.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: inlines KaTeX\'s own `fonts/*.woff2` in its own stylesheet.' },
   { file: 'lib/export/marp-bundle.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: rewrites Lattice\'s own `fonts/…` paths in the bundled stylesheet.' },
-  { file: 'lib/export/marp-bundle.js', shape: 'attr-reader', count: 1, why: 'OWN ASSETS: strips Lattice\'s own runtime `<script src>` tags from the Marp bundle.' },
-  { file: 'lib/export/marp-bundle-html.js', shape: 'attr-reader', count: 1, why: 'OWN ASSETS: matches Lattice\'s own runtime `<script src>` lines, to strip them.' },
+  { file: 'lib/export/marp-bundle.js', shape: 'attr-reader', count: 2, why: 'OWN ASSETS: strips Lattice\'s own runtime `<script src>` tags from the Marp bundle, and (2026-11-10) the one `<link rel="stylesheet" href>` to its own VS Code stylesheet, matched against the exact list of its own file names (`lattice-vscode.css`, the kit\'s `lattice-vscode-min.css`).' },
+  { file: 'lib/export/marp-bundle-html.js', shape: 'attr-reader', count: 2, why: 'OWN ASSETS: matches Lattice\'s own runtime `<script src>` lines, and the one `<link rel="stylesheet">` to the bundle\'s own VS Code-shaped stylesheet (2026-11-10), each against an exact list of the bundle\'s own file names, to let them through.' },
   { file: 'lib/export/player-assets.mjs', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `data:` urls in the player\'s own CSS, to deduplicate them.' },
   { file: 'lib/export/player-fonts.js', shape: 'url-reader', count: 1, why: 'OWN ASSETS: reads the player\'s own `data:font/woff2` faces.' },
   { file: 'lib/export/player-images.mjs', shape: 'url-reader', count: 1, why: 'OWN ASSETS: finds `data:image` urls in the player\'s own CSS, to deduplicate them.' },
@@ -8984,6 +9504,13 @@ function checkSecuritySpineCensus(errors, sanctions = SANCTIONED_SPINE_READERS, 
 //                       function the same file built from one: `const ratio = best(poisoned) / best(clean)` where
 //                       `poisoned` times a call is caught.
 //   unseeded-random F5  `Math.random()`.
+//   disabled-test   HARD RULE #33. A test switched off by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
+//                       `test.skip(true, 'why')`, a bare `test.fixme()`, `describe.skip`, `.todo`. Budget 0, never baselined; the one
+//                       exemption is a comment block right above the call reading `// disabled: tried …; evidence <URL, file or
+//                       #N>; re-enable when …`. A skip that
+//                       depends on a value (`test.skip(browserName !== 'webkit', …)`, `{ skip: skipWithoutChrome(chrome) }`) is a
+//                       scoped test and is not counted.
+//   focused-test    HARD RULE #33. `.only` (or `{ only: true }`), which drops every other test in its file. Budget 0, no exemption.
 //
 // PARSED with TypeScript, as checkE2ESleeps is, so a comment or a string never counts and a named duration
 // (`setTimeout(r, SETTLE_MS)`) does. A line that is right as it is says so: `// flaky-ok: <why>` on the line (a deadline
@@ -9003,15 +9530,20 @@ const FLAKY_TEST_FILE = (rel) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(rel) || /
 const FLAKY_TEST_SKIP = /(?:^|\/)(?:node_modules|dist|fixtures?)\//;
 const FLAKY_OK = /\/\/\s*flaky-ok:\s*\S/;
 const SLEEP_HELPERS = new Set(['sleep', 'delay', 'wait', 'pause']);
-const FLAKY_TRIGGER = /setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime/;
+const FLAKY_TRIGGER = /\.\s*(?:skip|fixme|todo|only|fail)\s*\(|\b(?:skip|todo|only)['"]?\s*:|setTimeout|waitForTimeout|\b(?:sleep|delay|wait|pause)\(|Math\.random|performance\.now|Date\.now|hrtime/;
 
 /** The shape counts of one test file's source. `rel` decides whether `waitForTimeout` is this census's (outside docs/e2e). */
 function flakyTestHits(text, rel = 'test/x.test.js') {
   const ts = require('typescript');
   const kind = /\.tsx$/.test(rel) ? ts.ScriptKind.TSX : /\.[cm]?ts$/.test(rel) ? ts.ScriptKind.TS : /\.jsx$/.test(rel) ? ts.ScriptKind.JSX : ts.ScriptKind.JS;
   const sf = ts.createSourceFile(rel, String(text), ts.ScriptTarget.Latest, true, kind);
-  const lines = String(text).split('\n');
-  const okAt = (node) => FLAKY_OK.test(lines[sf.getLineAndCharacterOfPosition(node.getStart(sf)).line] || '');
+  // The `flaky-ok` line, cut from TypeScript's own line starts: it also breaks lines at U+2028 and U+2029, so a
+  // `split('\n')` index would read a line or two off after a string holding one, and ignore every mark below it.
+  const starts = sf.getLineStarts();
+  const okAt = (node) => {
+    const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line;
+    return FLAKY_OK.test(sf.text.slice(starts[line], starts[line + 1] ?? sf.text.length));
+  };
   const each = (node, fn) => { fn(node); node.forEachChild((c) => each(c, fn)); };
   const calleeName = (call) => {
     const e = call.expression;
@@ -9127,6 +9659,80 @@ function flakyTestHits(text, rel = 'test/x.test.js') {
       if (n.arguments.some((a) => touchesClock(a))) add('clock-assert', n);
     }
   });
+
+  // HARD RULE #33: a test is never switched off without a load-bearing reason, and never focused. These shapes are counted
+  // with their own adder: a `// flaky-ok:` mark (a #32 exemption for a timing line) does not excuse them.
+  //   disabled-test  switched off on every machine by a literal: `{ skip: true }`, `{ skip: 'why' }`, `test.skip('title', fn)`,
+  //                  `test.todo('later')`, Playwright's `test.skip(true, 'why')` and `test.fail()`, a bare `test.fixme()`. The one
+  //                  exemption is the comment block right above the statement, in order: `// disabled: tried …; evidence <a URL,
+  //                  a file or #N>; re-enable when …`. The gate reads the literal; a condition moved into the first argument
+  //                  (`test.skip(!tool, …)`) is a scoped test, and whether its condition can fire in CI is env-skip's question.
+  //   focused-test   `.only` or `{ only: true }`. No exemption.
+  //   env-skip       (node tests, not docs/e2e) a skip whose value depends on the machine — `{ skip: !fs.existsSync(B) && 'not
+  //                  built' }`, `return t.skip('no Chromium')` — that does not go through a helper which FAILS under CI
+  //                  (`skipWithoutChrome`, `skipUnlessCI` in test/helpers/chrome.js). `node --test` reports a skip as a pass, so
+  //                  a CI runner missing the tool turns the suite green. Exempt with `// ci-skip: <which CI job runs it, or why
+  //                  CI never takes this branch>` right above the statement. Baselined, so the backlog can only shrink.
+  const RUNNERS = /^(?:test|it|describe|suite|test\.describe(?:\.parallel|\.serial)?)$/;
+  const SKIP_HELPERS = /^(?:skipWithoutChrome|skipUnlessCI)$/;
+  const isLiteral = (a) => a && (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a) || ts.isTemplateExpression(a));
+  const bump = (shape) => { out[shape] = (out[shape] || 0) + 1; };
+  const notesAbove = (node) => {
+    let st = node;
+    while (st.parent && !ts.isSourceFile(st.parent) && !ts.isBlock(st.parent) && !ts.isModuleBlock(st.parent) && !ts.isCaseClause(st.parent) && !ts.isDefaultClause(st.parent)) st = st.parent;
+    return (ts.getLeadingCommentRanges(sf.text, st.getFullStart()) || []).map((r) => sf.text.slice(r.pos, r.end)).join('\n');
+  };
+  // In order, and the evidence must point at something a reviewer can open: a URL, a file (trace.zip, a log) or #N.
+  const REASON = /disabled:\s*tried\b[\s\S]+?\bevidence\b[^;]*?(?:https?:\/\/|\.(?:zip|log|txt|png|webm)\b|#\d+)[\s\S]*?\bre-?enable when\b\s*\S/i;
+  const justified = (node) => REASON.test(notesAbove(node));
+  const ciSkipOk = (node) => /\bci-skip:\s*\S/.test(notesAbove(node));
+  const viaHelper = (v) => {
+    if (!v) return false;
+    if (ts.isCallExpression(v) && ts.isIdentifier(v.expression) && SKIP_HELPERS.test(v.expression.text)) return true;
+    if (ts.isIdentifier(v)) { const d = resolve(v); return !!d && viaHelper(d); }
+    if (ts.isParenthesizedExpression(v)) return viaHelper(v.expression);
+    return false;
+  };
+  const isTrue = (v) => v && (v.kind === ts.SyntaxKind.TrueKeyword || (ts.isNumericLiteral(v) && Number(v.text) !== 0) || (ts.isPrefixUnaryExpression(v) && v.operator === ts.SyntaxKind.ExclamationToken && ts.isNumericLiteral(v.operand) && Number(v.operand.text) === 0));
+  const isFalse = (v) => v && (v.kind === ts.SyntaxKind.FalseKeyword || v.kind === ts.SyntaxKind.NullKeyword || v.kind === ts.SyntaxKind.UndefinedKeyword || (ts.isIdentifier(v) && v.text === 'undefined') || ((ts.isStringLiteral(v) || ts.isNoSubstitutionTemplateLiteral(v)) && v.text === ''));
+  const keyName = (p) => (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name) ? p.name.text : '');
+  each(sf, (n) => {
+    if (!ts.isCallExpression(n)) return;
+    const e = n.expression;
+    if (ts.isPropertyAccessExpression(e) && RUNNERS.test(e.expression.getText(sf))) {
+      const m = e.name.text;
+      if (m === 'only') { bump('focused-test'); return; }
+      if (!/^(?:skip|fixme|todo|fail)$/.test(m)) return;
+      const [a0, a1] = n.arguments;
+      // On every machine: no argument, a true first argument, a title (`test.todo('later')`, `test.skip('title', fn)`), or a
+      // title held in a name followed by the test body. Playwright's conditional form, `test.skip(cond, 'why')`, is a
+      // scoped test: its second argument is a string, never a function.
+      const always = !a0 || isTrue(a0) || isLiteral(a0) || (a1 && ts.isFunctionLike(a1));
+      if (always && !justified(n)) bump('disabled-test');
+    } else if (ts.isIdentifier(e) && RUNNERS.test(e.text)) {
+      for (const a of n.arguments) {
+        if (!ts.isObjectLiteralExpression(a)) continue;
+        for (const p of a.properties) {
+          if (!ts.isPropertyAssignment(p)) continue;
+          const k = keyName(p);
+          const v = p.initializer;
+          const literal = isTrue(v) || ((ts.isStringLiteral(v) || ts.isNoSubstitutionTemplateLiteral(v)) && v.text !== '');
+          if (k === 'only' && literal) bump('focused-test');
+          else if ((k === 'skip' || k === 'todo') && literal) { if (!justified(n)) bump('disabled-test'); }
+          else if ((k === 'skip' || k === 'todo') && !inE2E && !isFalse(v) && !viaHelper(v) && !ciSkipOk(n)) bump('env-skip');
+        }
+      }
+    } else if (!inE2E && ts.isPropertyAccessExpression(e) && ts.isIdentifier(e.expression) && !RUNNERS.test(e.expression.text) && /^(?:skip|todo)$/.test(e.name.text)) {
+      // node's test context: `t.skip('reason')`, `return ctx.skip(why)`. Inside a test body, it is decided at run time, so
+      // only a helper-built reason (`const why = skipUnlessCI(…); if (why) return t.skip(why)`) or a ci-skip note passes.
+      // Only the test's own context: the first parameter of the nearest function passed to test()/it()/describe().
+      let f = n.parent;
+      while (f && !ts.isFunctionLike(f)) f = f.parent;
+      const p0 = f && f.parameters && f.parameters[0];
+      const isCtx = p0 && ts.isIdentifier(p0.name) && p0.name.text === e.expression.text && f.parent && ts.isCallExpression(f.parent) && ts.isIdentifier(f.parent.expression) && RUNNERS.test(f.parent.expression.text);
+      if (isCtx && !viaHelper(n.arguments[0]) && !ciSkipOk(n)) bump('env-skip');
+    }
+  });
   return out;
 }
 
@@ -9159,6 +9765,21 @@ function flakyTestFindings(tree, baseline) {
     for (const shape of new Set([...Object.keys(got), ...Object.keys(want)])) {
       const g = got[shape] || 0;
       const w = want[shape] || 0;
+      if (shape === 'disabled-test' || shape === 'focused-test') {
+        // Budget 0, never baselined: a backlog of switched-off tests is exactly what HARD RULE #33 forbids.
+        if (w) errors.push(`tools/flaky-test-baseline.json lists ${w} ${shape} for ${file}; that shape is never baselined (HARD RULE #33). Delete the entry.`);
+        if (g && shape === 'focused-test') {
+          errors.push(`focused test in ${file}: ${g} \`.only\` (HARD RULE #33) — Playwright drops every other test in its file, and node runs it alone under --test-only. Remove the \`.only\`.`);
+        } else if (g) {
+          errors.push(
+            `disabled test in ${file}: ${g} switched off with no load-bearing reason (HARD RULE #33) — fix the failure at its root ` +
+            `instead. Disabling is the last resort for a cause that could not be found, and the comment block right above the ` +
+            `call must read \`// disabled: tried <what you tried>; evidence <a run URL, a trace file or #N>; re-enable when <condition>\`. A ` +
+            `missing browser or tool is installed, not skipped: use skipWithoutChrome (test/helpers/chrome.js), which fails in CI.`,
+          );
+        }
+        continue;
+      }
       if (g > w) {
         errors.push(
           `flaky test shape in ${file}: ${g} ${shape} where the baseline allows ${w} (HARD RULE #32) — a test passes or fails on ` +
@@ -9172,6 +9793,52 @@ function flakyTestFindings(tree, baseline) {
     }
   }
   return errors;
+}
+
+/**
+ * HARD RULE #34: Playwright never retries. A retry turns a flaky test into a pass nobody sees, so `retries` in
+ * docs/playwright.config.ts must be the literal 0 (not `isCI ? 1 : 0`). A `--retries` flag on the command line is
+ * reviewed in the workflow; this holds the default every run inherits.
+ */
+function playwrightRetriesFindings(text, rel = 'docs/playwright.config.ts', { optional = false } = {}) {
+  const ts = require('typescript');
+  const sf = ts.createSourceFile(rel, String(text), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const found = [];
+  const each = (n) => {
+    if (ts.isPropertyAssignment(n) && (ts.isIdentifier(n.name) || ts.isStringLiteral(n.name)) && n.name.text === 'retries') found.push(n.initializer);
+    n.forEachChild(each);
+  };
+  each(sf);
+  if (!found.length && optional) return [];
+  if (!found.length) return [`${rel} sets no \`retries\`; Playwright's default is 0 today, but state \`retries: 0\` so the rule is visible (HARD RULE #34).`];
+  return found
+    .filter((v) => !(ts.isNumericLiteral(v) && Number(v.text) === 0))
+    .map((v) => `${rel}: \`retries: ${v.getText(sf)}\` — Playwright must never retry (HARD RULE #34): a retry turns a flaky test into a pass nobody sees. Set it to 0 and fix the flake at its cause (#33).`);
+}
+
+function checkPlaywrightRetries(errors, file = path.join(ROOT, 'docs', 'playwright.config.ts')) {
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch (e) {
+    errors.push(`could not read ${path.relative(ROOT, file)} (${e.message}) to check its retries (HARD RULE #34).`);
+    return;
+  }
+  errors.push(...playwrightRetriesFindings(text, path.relative(ROOT, file)));
+  // A spec can override it: `test.describe.configure({ retries: 2 })`. Every docs/e2e file is held to 0 too.
+  const e2e = path.join(path.dirname(file), 'e2e');
+  let names = [];
+  try {
+    // Recursive: docs/e2e/journeys/ and docs/e2e/scenarios/ hold specs too.
+    names = fs.readdirSync(e2e, { recursive: true }).map(String).filter((n) => /\.[cm]?[jt]s$/.test(n) && !/(?:^|[\\/])node_modules[\\/]/.test(n));
+  } catch {
+    return;
+  }
+  for (const n of names) {
+    const src = fs.readFileSync(path.join(e2e, n), 'utf8');
+    if (!/\bretries\b/.test(src)) continue;
+    errors.push(...playwrightRetriesFindings(src, path.relative(ROOT, path.join(e2e, n)), { optional: true }));
+  }
 }
 
 function checkFlakyTests(errors, root = ROOT, baselineFile = FLAKY_TEST_BASELINE_FILE) {
@@ -9191,6 +9858,148 @@ function checkFlakyTests(errors, root = ROOT, baselineFile = FLAKY_TEST_BASELINE
     return;
   }
   errors.push(...flakyTestFindings(tree, baseline));
+}
+
+// ── Regex census: every regex literal in lib/** has a complexity verdict (HARD RULE #32, owner D1 on #3092) ──
+// A regex that backtracks super-linearly hangs on a hostile input, and the only test that catches it without the checker is a
+// wall-clock bound: an F4 test by design (engineering/decisions/2026-11-06-flaky-tests.md). So the verdict comes from the
+// automaton instead: `recheck` (exact pin, tools/recheck/, its own folder so the root `npm ci` does not carry it) decides
+// each pattern's complexity, and tools/regex-census.json keeps the answer keyed on the literal's text (`/source/flags`), so
+// only a new or changed literal is ever checked again. This gate needs no recheck: it parses lib/** with TypeScript and holds
+//   1. every literal to a verdict in the table (a new literal fails until `npm run regex:census -- --write` decides it), and
+//      every verdict to a literal (a stale one fails);
+//   2. each file's count of literals whose verdict is not `safe` EXACTLY to the table's `backlog`, so the backlog only
+//      shrinks: a copied slow pattern fails even though its verdict is cached, and a drained one must lower the count.
+// A literal that is slow in principle but right as it is (its input is bounded by construction) says so on its line:
+// `// regex-ok: <why>` in a comment (not a string), the reason required. tools/regex-census.js writes the table; it
+// refuses a new literal recheck does not call linear, and a raised backlog.
+// Known limits: only literals are read (a `new RegExp(string)` is not); a verdict typed by hand is trusted here, and
+// `npm run regex:census -- --verify` re-decides every entry; a file that drops one slow literal and gains another keeps
+// its count, so the gate passes it and only the writer stops the new one; vendored code (`/vendor/`) is out of scope.
+const REGEX_CENSUS_FILE = path.join(ROOT, 'tools', 'regex-census.json');
+const REGEX_CENSUS_SOURCE = (rel) => rel.startsWith('lib/') && /\.(?:[cm]?[jt]sx?)$/.test(rel) && !/\/vendor\//.test(rel) && !/\.d\.[cm]?ts$/.test(rel);
+const REGEX_OK = /\/\/\s*regex-ok:\s*\S/;
+
+/** The regex literals of one source file: [{ key: '/source/flags', line, ok }]. `ok` is a `// regex-ok: <why>` on its line. */
+function regexLiterals(text, rel = 'lib/x.js') {
+  const ts = require('typescript');
+  const kind = /\.tsx$/.test(rel) ? ts.ScriptKind.TSX : /\.[cm]?ts$/.test(rel) ? ts.ScriptKind.TS : /\.jsx$/.test(rel) ? ts.ScriptKind.JSX : ts.ScriptKind.JS;
+  const sf = ts.createSourceFile(rel, String(text), ts.ScriptTarget.Latest, true, kind);
+  const starts = sf.getLineStarts();
+  const lineText = (i) => sf.text.slice(starts[i], i + 1 < starts.length ? starts[i + 1] : sf.text.length);
+  const found = [];
+  // Where text is data, not code: a `// regex-ok` inside a string, a template or a regex is not a comment.
+  const quoted = [];
+  const DATA = new Set([ts.SyntaxKind.StringLiteral, ts.SyntaxKind.NoSubstitutionTemplateLiteral, ts.SyntaxKind.TemplateHead, ts.SyntaxKind.TemplateMiddle, ts.SyntaxKind.TemplateTail, ts.SyntaxKind.RegularExpressionLiteral]);
+  const walk = (n) => {
+    if (DATA.has(n.kind)) quoted.push([n.getStart(sf), n.getEnd()]);
+    if (n.kind === ts.SyntaxKind.RegularExpressionLiteral) found.push({ key: n.getText(sf), line: sf.getLineAndCharacterOfPosition(n.getStart(sf)).line });
+    n.forEachChild(walk);
+  };
+  walk(sf);
+  const okLine = (line) => {
+    const m = REGEX_OK.exec(lineText(line));
+    if (!m) return false;
+    const at = starts[line] + m.index;
+    return !quoted.some(([a, b]) => at >= a && at < b);
+  };
+  return found.map((f) => ({ key: f.key, line: f.line + 1, ok: okLine(f.line) }));
+}
+
+/** Every committed lib/** source file's regex literals: { 'lib/x.js': [{ key, line, ok }] }. Throws when git cannot list the tree. */
+function regexLiteralTree(root = ROOT) {
+  const files = execFileSync('git', ['ls-files', '-z', 'lib'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] }).split('\0').filter(Boolean);
+  const tree = {};
+  for (const rel of files) {
+    if (!REGEX_CENSUS_SOURCE(rel)) continue;
+    let text;
+    try {
+      text = fs.readFileSync(path.join(root, rel), 'utf8');
+    } catch {
+      continue;
+    }
+    if (!text.includes('/')) continue;
+    const lits = regexLiterals(text, rel);
+    if (lits.length) tree[rel] = lits;
+  }
+  return tree;
+}
+
+/** A verdict entry's verdict word: the table stores 'safe' / 'polynomial' / 'exponential' as a string, an undecided one as { verdict: 'unknown', why }. */
+const regexVerdictOf = (v) => (typeof v === 'string' ? v : v?.verdict);
+
+/** Each file's count of literals that are not `safe` and carry no `regex-ok`: { 'lib/x.js': n }, files with 0 left out. */
+function regexBacklog(tree, verdicts) {
+  const backlog = {};
+  for (const [file, lits] of Object.entries(tree)) {
+    const n = lits.filter((l) => !l.ok && verdicts[l.key] !== undefined && regexVerdictOf(verdicts[l.key]) !== 'safe').length;
+    if (n) backlog[file] = n;
+  }
+  return backlog;
+}
+
+/** The census's verdict: every literal decided, every verdict live, each file's backlog held exactly. */
+function regexCensusFindings(tree, table) {
+  const errors = [];
+  const verdicts = table.verdicts || {};
+  const want = table.backlog || {};
+  const live = new Set();
+  const missing = [];
+  for (const [file, lits] of Object.entries(tree)) {
+    for (const l of lits) {
+      live.add(l.key);
+      if (verdicts[l.key] === undefined) missing.push(`${file}:${l.line} ${l.key}`);
+      else {
+        const v = verdicts[l.key];
+        const word = regexVerdictOf(v);
+        if (!['safe', 'polynomial', 'exponential', 'unknown'].includes(word)) errors.push(`tools/regex-census.json: the verdict for ${l.key} is ${JSON.stringify(v)}; it must be safe, polynomial, exponential or { "verdict": "unknown", "why": "<reason>" }.`);
+        else if (word === 'unknown' && !(v && typeof v.why === 'string' && v.why.trim())) errors.push(`tools/regex-census.json: ${l.key} is undecided and carries no \`why\`. An undecidable pattern says why in writing.`);
+      }
+    }
+  }
+  if (missing.length) {
+    errors.push(
+      `${missing.length} regex literal(s) in lib/** have no complexity verdict in tools/regex-census.json (HARD RULE #32): ${missing.slice(0, 5).join('; ')}${missing.length > 5 ? '; …' : ''}. ` +
+      'Run `npm ci --prefix tools/recheck && npm run regex:census -- --write`: recheck decides each new pattern, and the writer refuses a new one it does not call linear.',
+    );
+  }
+  const stale = Object.keys(verdicts).filter((k) => !live.has(k));
+  if (stale.length) errors.push(`stale regex verdicts: ${stale.length} entr${stale.length === 1 ? 'y names a literal' : 'ies name literals'} no longer in lib/** (${stale.slice(0, 3).join(' ')}${stale.length > 3 ? ' …' : ''}). Run \`npm run regex:census -- --write\` to drop them.`);
+  if (missing.length) return errors; // the backlog is not meaningful until every literal is decided
+  const got = regexBacklog(tree, verdicts);
+  for (const file of [...new Set([...Object.keys(got), ...Object.keys(want)])].sort()) {
+    const g = got[file] || 0;
+    const w = want[file] || 0;
+    if (g > w) {
+      const slow = tree[file].filter((l) => !l.ok && regexVerdictOf(verdicts[l.key]) !== 'safe').map((l) => `:${l.line} ${l.key}`);
+      errors.push(
+        `slow regex in ${file}: ${g} literal(s) recheck does not call safe where the backlog allows ${w} (HARD RULE #32) — ${slow.slice(0, 3).join(', ')}${slow.length > 3 ? ', …' : ''}. ` +
+        'A super-linear pattern hangs on a hostile input. Rewrite it so recheck calls it safe (anchor it, make the alternatives disjoint), or, when its input is bounded ' +
+        'by construction, say so on its line with // regex-ok: <why>. Raise the backlog in tools/regex-census.json only with the reason in the PR.',
+      );
+    } else if (g < w) {
+      errors.push(`stale regex backlog: ${file} holds ${g} slow literal(s), tools/regex-census.json says ${w}. Lower it (npm run regex:census -- --write) so the backlog stays honest.`);
+    }
+  }
+  return errors;
+}
+
+function checkRegexCensus(errors, root = ROOT, tableFile = REGEX_CENSUS_FILE) {
+  let table;
+  try {
+    table = JSON.parse(fs.readFileSync(tableFile, 'utf8'));
+  } catch (e) {
+    errors.push(`regex census ${path.relative(ROOT, tableFile)} could not be read (${e.message}) (HARD RULE #32).`);
+    return;
+  }
+  let tree;
+  try {
+    tree = regexLiteralTree(root);
+  } catch (e) {
+    errors.push(`the regex census could not list the committed lib/** files (${String(e.message).split('\n')[0]}) (HARD RULE #32). It needs git; do not edit the table to match.`);
+    return;
+  }
+  errors.push(...regexCensusFindings(tree, table));
 }
 
 // ── Media source rows: a census (media note §4.11, "A contributed source or provider row cannot widen trust") ──
@@ -9287,6 +10096,177 @@ function checkRunnerPins(errors, workflowDir = path.join(ROOT, '.github', 'workf
   }
 }
 
+// ── No workflow reads Ubuntu's package mirror directly (owner call on #3139, 2026-11-11) ──
+// On 2026-11-11 a DNS failure on azure.archive.ubuntu.com failed the integration and golden-diff jobs of five PRs for over
+// two hours before a test ran. #3139 moved every package install onto `.github/actions/apt-cached` (packages from GitHub's
+// cache, a measured mirror list, three retries) and every browser onto `.github/actions/playwright-browsers`. A new step that
+// calls `apt-get install` or `playwright install --with-deps` itself reads the mirror on every run and brings the outage
+// back, so this gate fails on one. The two actions are where apt belongs; they live under .github/actions, which this
+// does not scan. A line that has to call apt in a workflow goes in SANCTIONED_RAW_APT with its file, its exact count of
+// such lines and why; the gate fails on a count that no longer matches, so the list cannot rot.
+// A package tool, its options (an option may carry a separate value: `-o Acquire::Retries=3`), then a subcommand that reads
+// the mirror; or Playwright installing system packages (`install-deps`, or `install … --with-deps`, any version pin).
+const RAW_APT =
+  /\b(?:apt-get|apt-fast|aptitude|apt|nala)\s+(?:-\S+\s+(?:[^-\s]\S*\s+)?)*?(?:install|reinstall|update|download|upgrade|dist-upgrade|full-upgrade)\b|\bplaywright(?:@\S+)?\s+install-deps\b|\bplaywright(?:@\S+)?\s+install\b[^\n]*--with-deps\b/;
+const SANCTIONED_RAW_APT = [
+  {
+    file: 'studio-e2e-nightly.yml',
+    count: 2,
+    why: 'The firefox-webrtc job runs in the Playwright container and installs git before checkout, so .github/actions is not on disk yet. The step skips when the image ships git, reads apt-setup.sh\'s mirror list and retries, and installs from its own cache (#3139).',
+  },
+];
+
+// The text the gate matches, one entry per logical line: a shell line continued with `\` is joined to the next (and keeps
+// the first line's number); a `#` comment is cut only outside quotes; a step's `name:` and the words an `echo`/`printf`
+// prints are prose, not commands. Not covered: a folded `>` scalar that splits the tool and its subcommand across lines,
+// and a command held in a variable (`$APT install`); review is the backstop for those.
+function rawAptLines(src) {
+  const out = [];
+  const lines = src.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const start = i + 1;
+    let text = stripShellComment(lines[i]);
+    while (/\\\s*$/.test(text) && i + 1 < lines.length) text = `${text.replace(/\\\s*$/, ' ')}${stripShellComment(lines[++i])}`;
+    if (/^\s*(?:-\s+)?name:/.test(text)) continue;
+    text = text.replace(/\b(?:echo|printf)\s+(?:-\S+\s+)*(?:\s*(?:"[^"]*"|'[^']*'))+/g, '');
+    out.push({ line: start, text });
+  }
+  return out;
+}
+
+function stripShellComment(line) {
+  let quote = '';
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote) {
+      if (c === quote) quote = '';
+    } else if (c === '"' || c === "'") {
+      quote = c;
+    } else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) {
+      return line.slice(0, i);
+    }
+  }
+  return line;
+}
+
+function checkRawAptInWorkflows(errors, workflowDir = path.join(ROOT, '.github', 'workflows'), sanctions = SANCTIONED_RAW_APT) {
+  let files = [];
+  try {
+    files = fs.readdirSync(workflowDir).filter((f) => /\.ya?ml$/.test(f));
+  } catch {
+    return;
+  }
+  const allowed = new Map(sanctions.map((s) => [s.file, s.count]));
+  for (const f of files) {
+    const hits = [];
+    for (const { line, text } of rawAptLines(fs.readFileSync(path.join(workflowDir, f), 'utf8'))) {
+      if (RAW_APT.test(text)) hits.push(line);
+    }
+    const want = allowed.get(f) ?? 0;
+    if (hits.length > want) {
+      const where = hits.map((n) => `.github/workflows/${f}:${n}`).join(', ');
+      errors.push(
+        `${where}: a workflow step calls apt or \`playwright install --with-deps\` itself, which reads Ubuntu's package mirror on every run (the 2026-11-11 outage, engineering/gotchas/ci.md). ` +
+          'Install packages with `uses: ./.github/actions/apt-cached` and browsers with `./.github/actions/playwright-browsers`. ' +
+          (want ? `This file is sanctioned for ${want} such line(s) and has ${hits.length}.` : 'If the line is prose rather than a command, reword it; if a step truly cannot use the actions, add the file to SANCTIONED_RAW_APT in tools/check-ownership.js with its count and why.'),
+      );
+    } else if (hits.length < want) {
+      errors.push(`stale SANCTIONED_RAW_APT entry in tools/check-ownership.js — .github/workflows/${f} is sanctioned for ${want} raw apt line(s) but has ${hits.length}. Lower the count, or remove the entry at 0.`);
+    }
+  }
+  for (const s of sanctions) {
+    if (!files.includes(s.file)) errors.push(`stale SANCTIONED_RAW_APT entry in tools/check-ownership.js — .github/workflows/${s.file} no longer exists. Remove the entry.`);
+  }
+}
+
+// ── The apt cache warmer covers every cached call in CI, and nothing else (followups.d 3139-p1, 2026-11-12) ──
+// GitHub scopes caches by branch, and ci.yml runs only on pull requests and the merge queue, so a PR restores an apt or
+// Playwright entry only if a run on `main` saved one. apt-cache-warm.yml saves one for every call, from a matrix row per
+// distinct call. A row is only as good as its match with the call: the key hashes the runner image, the container image
+// and the sorted package (or browser) list, so a list that differs by one package warms nothing. This reads every
+// `uses: ./.github/actions/apt-cached` and `./playwright-browsers` step in the other workflows, reduces each to that key
+// identity, and fails on a call with no row (a PR would read the mirror) or a row with no call (a stale row). A call whose
+// runner, container, list or working-directory is an expression cannot be matched, and fails with a request to make it a
+// literal. Playwright calls also match on the folder that pins Playwright: the version is in their key.
+const APT_WARMER = 'apt-cache-warm.yml';
+function aptCacheCalls(doc) {
+  const calls = [];
+  for (const [jobId, job] of Object.entries(doc?.jobs || {})) {
+    const container = typeof job.container === 'string' ? job.container : job.container?.image || '';
+    for (const step of job.steps || []) {
+      const uses = String(step?.uses || '').replace(/\/+$/, '');
+      const kind = uses === './.github/actions/apt-cached' ? 'apt' : uses === './.github/actions/playwright-browsers' ? 'browsers' : '';
+      if (!kind) continue;
+      const list = String((kind === 'apt' ? step.with?.packages : step.with?.browsers) ?? '');
+      const dir = kind === 'browsers' ? String(step.with?.['working-directory'] ?? 'docs') : '';
+      const runsOn = job['runs-on'];
+      // A label list (or a one-label array) is the runner's identity. A runner-group object is not a literal this can
+      // match, so it is spelled as an expression and fails below with the request to name the runner.
+      const EXPR = '$' + '{{';
+      const runner = Array.isArray(runsOn) ? runsOn.join(',') : runsOn && typeof runsOn === 'object' ? `${EXPR} runner group }}` : String(runsOn ?? '');
+      calls.push({ job: jobId, kind, runsOn: runner, container: String(container), list, dir });
+    }
+  }
+  return calls;
+}
+const aptCallId = (c) => [c.kind, c.runsOn, c.container || '-', c.list.split(/\s+/).filter(Boolean).sort().join(' '), c.dir || '-'].join(' | ');
+
+function checkAptCacheWarmer(errors, workflowDir = path.join(ROOT, '.github', 'workflows')) {
+  const YAML = require('yaml');
+  let files = [];
+  try {
+    files = fs.readdirSync(workflowDir).filter((f) => /\.ya?ml$/.test(f));
+  } catch {
+    return;
+  }
+  if (!files.includes(APT_WARMER)) {
+    errors.push(`.github/workflows/${APT_WARMER} is missing: it keeps every apt and Playwright cache entry warm on main, and without it a PR whose list no nightly shares reads Ubuntu's mirror (engineering/gotchas/ci.md).`);
+    return;
+  }
+  const wanted = new Map();
+  for (const f of files) {
+    if (f === APT_WARMER) continue;
+    for (const c of aptCacheCalls(YAML.parse(fs.readFileSync(path.join(workflowDir, f), 'utf8')))) {
+      const where = `.github/workflows/${f} job ${c.job}`;
+      if ([c.runsOn, c.container, c.list, c.dir].some((v) => v.includes('${{'))) {
+        errors.push(`${where}: an ${c.kind === 'apt' ? 'apt-cached' : 'playwright-browsers'} call whose runner, container, list or working-directory is an expression, so ${APT_WARMER} cannot warm its cache entry. Spell it as a literal.`);
+        continue;
+      }
+      if (!wanted.has(aptCallId(c))) wanted.set(aptCallId(c), where);
+    }
+  }
+  const warmer = YAML.parse(fs.readFileSync(path.join(workflowDir, APT_WARMER), 'utf8'));
+  const rows = new Set();
+  for (const [jobId, job] of Object.entries(warmer?.jobs || {})) {
+    const runsInContainer = Boolean(job.container);
+    for (const row of job.strategy?.matrix?.include || []) {
+      // A row's container only reaches the key if its job runs in one, and a container job's row must name its image.
+      if (Boolean(row.container) !== runsInContainer) {
+        errors.push(`.github/workflows/${APT_WARMER} job ${jobId}: a row ${row.container ? 'names a container but the job runs on the host' : 'names no container but the job runs in one'}, so it warms a different key from the call it matches. Move the row to the job that matches.`);
+      }
+      const kind = row.browsers !== undefined ? 'browsers' : 'apt';
+      const id = aptCallId({
+        kind,
+        runsOn: String(row['runs-on'] ?? ''),
+        container: String(row.container ?? ''),
+        list: String((kind === 'apt' ? row.packages : row.browsers) ?? ''),
+        dir: kind === 'browsers' ? String(row.lockfile ?? '') : '',
+      });
+      if (rows.has(id)) errors.push(`duplicate row in .github/workflows/${APT_WARMER} job ${jobId}: [${id}] is already warmed. Remove one.`);
+      rows.add(id);
+      if (!wanted.has(id)) errors.push(`stale row in .github/workflows/${APT_WARMER} job ${jobId}: no workflow makes the call [${id}] it warms. Remove the row.`);
+    }
+  }
+  for (const [id, where] of wanted) {
+    if (!rows.has(id)) {
+      errors.push(
+        `${where}: no row in .github/workflows/${APT_WARMER} warms this call's cache entry [${id}], so a pull request misses and reads Ubuntu's mirror. ` +
+          'Add a matrix row with the same runs-on, container, list and (Playwright) lockfile folder.',
+      );
+    }
+  }
+}
+
 function checkPlatformSuites(errors, registryPath = path.join(ROOT, '.github', 'platform-suites.json'), root = ROOT) {
   let registry;
   try {
@@ -9370,13 +10350,16 @@ const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']
 // opt-in (OPENROUTER_ALLOW_SPEND=1), prints its planned call count first, --limit and --cap bound it; ~$1.4 for the whole catalog.
 // tools/record-lesson-voice.mjs: records the first-run tour's Gemini voice (14 short lines, ~1.5k characters, pennies); opt-in
 // (OPENROUTER_ALLOW_SPEND=1), prints its plan first, --limit bounds it. The lesson folders it also records use local Kokoro, no key.
-const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/record-lesson-voice.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs'];
+// tools/tts-bench.mjs: S0 of 2026-11-11-voice-synthesis-spine.md. Measures TTS latency, the 429
+// onset by concurrency and packed-request cuts; on demand, opt-in, prints its spend and refuses a
+// plan above --max-usd (owner-approved small run, 2026-11-11).
+const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/record-lesson-voice.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs', 'tools/tts-bench.mjs'];
 
-// Workflows allowed to spend the key: sanctioned, budgeted, self-skipping when the secret is
-// unset, and — critically — OFF the PR/commit critical path (nightly schedule / workflow_dispatch,
+// Workflows allowed to spend the key: sanctioned, budgeted, skipping or failing VISIBLY when the
+// secret is unset (#1931: a silent green skip looks like a real run), and — critically — OFF the PR/commit critical path (nightly schedule / workflow_dispatch,
 // never pull_request/push/merge_group, which fire constantly). This is the CI home for live E2E.
 const SANCTIONED_OPENROUTER_WORKFLOWS = [
-  '.github/workflows/studio-e2e-nightly.yml', // nightly Studio live-AI E2E — ~1c/night, self-skips without the secret (#696)
+  '.github/workflows/studio-e2e-nightly.yml', // nightly Studio live-AI E2E — ~1c/night, fails loud without the secret (#696, #1931)
 ];
 
 // docs/ CODE files, incl. `.astro` — whose build-time frontmatter runs at build and inlines
@@ -9400,12 +10383,14 @@ function listDocsCodeFiles(dir, out = []) {
   return out;
 }
 
-function checkOpenRouterBudget(errors) {
+// `root` defaults to the repo; the gate's own test passes a temporary tree, so its probe files never sit in the live
+// checkout where a concurrent walk of docs/ (another test process, a build) reads a file that vanishes (HARD RULE #32, F7).
+function checkOpenRouterBudget(errors, root = ROOT) {
   // Invariant 1 — no exposure to the deployed site (incl. `.astro` build-time frontmatter).
-  for (const file of listDocsCodeFiles(path.join(ROOT, 'docs'))) {
+  for (const file of listDocsCodeFiles(path.join(root, 'docs'))) {
     if (OPENROUTER_KEY_NAME.test(fs.readFileSync(file, 'utf8'))) {
       errors.push(
-        `${relPosix(ROOT, file)} references OPEN_ROUTER_KEY — our server-side key must NEVER ` +
+        `${relPosix(root, file)} references OPEN_ROUTER_KEY — our server-side key must NEVER ` +
         `reach the site (HARD RULE #24). The deployed docs are a static bundle; the Playground uses ` +
         `the USER's own OpenRouter key via OAuth. A reference here leaks our key into the bundle and ` +
         `spends our budget on the live site. Keep the site bring-your-own-key.`,
@@ -9418,8 +10403,8 @@ function checkOpenRouterBudget(errors) {
   // (`page.route('**/openrouter.ai/**', …)`) or drives the Playground on the USER's own / a test
   // key. Only a COMMITTED test that reads OUR key (and would then run in CI) is the budget hole.
   // (The bare name also catches bracket/destructure reads.)
-  for (const file of listSourceFiles(path.join(ROOT, 'test'))) {
-    const rel = relPosix(ROOT, file);
+  for (const file of listSourceFiles(path.join(root, 'test'))) {
+    const rel = relPosix(root, file);
     if (OPENROUTER_SCAN_EXEMPT.has(rel)) continue;
     if (OPENROUTER_KEY_NAME.test(fs.readFileSync(file, 'utf8'))) {
       errors.push(
@@ -9431,10 +10416,10 @@ function checkOpenRouterBudget(errors) {
     }
   }
   // Invariant 2b — a workflow may spend the key ONLY if it's sanctioned AND runs off the
-  // PR/commit critical path (nightly schedule / workflow_dispatch, budgeted, self-skipping when
-  // the secret is unset). pull_request/push/merge_group fire constantly = the budget hole a
+  // PR/commit critical path (nightly schedule / workflow_dispatch, budgeted, skipping or failing
+  // visibly when the secret is unset). pull_request/push/merge_group fire constantly = the budget hole a
   // sanction can't bless. See engineering/decisions/2026-06-13-gate-strategy-change-detection.md.
-  const wfDir = path.join(ROOT, '.github', 'workflows');
+  const wfDir = path.join(root, '.github', 'workflows');
   const seenWf = new Set();
   if (fs.existsSync(wfDir)) {
     for (const f of fs.readdirSync(wfDir)) {
@@ -9450,7 +10435,7 @@ function checkOpenRouterBudget(errors) {
           `${rel} references OPEN_ROUTER_KEY (HARD RULE #24) — a workflow may spend our budget only if ` +
           `it is a sanctioned, budgeted, nightly/dispatch live tier. Add it to ` +
           `SANCTIONED_OPENROUTER_WORKFLOWS in tools/check-ownership.js with justification, keep it OFF ` +
-          `pull_request/push, and have it self-skip when the secret is unset.`,
+          `pull_request/push, and have it skip or fail visibly when the secret is unset.`,
         );
       } else if (onPrPath) {
         errors.push(
@@ -9471,7 +10456,7 @@ function checkOpenRouterBudget(errors) {
     }
   }
   // Invariant 2c — no `test`-family npm script invokes a spender.
-  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   for (const [name, cmd] of Object.entries(pkg.scripts || {})) {
     if (name.startsWith('test') && /component-gen-eval|OPEN_ROUTER_KEY/.test(cmd)) {
       errors.push(
@@ -9482,7 +10467,7 @@ function checkOpenRouterBudget(errors) {
   }
   // Anti-rot: every sanctioned spender must still exist.
   for (const rel of SANCTIONED_OPENROUTER_SPENDERS) {
-    if (!fs.existsSync(path.join(ROOT, rel))) {
+    if (!fs.existsSync(path.join(root, rel))) {
       errors.push(
         `stale OpenRouter sanction in tools/check-ownership.js — ${rel} no longer exists (HARD RULE #24). ` +
         `Remove the SANCTIONED_OPENROUTER_SPENDERS entry.`,
@@ -9503,16 +10488,18 @@ function checkOpenRouterBudget(errors) {
 const VOICE_CATALOG_PATH = path.join(ROOT, 'docs', 'src', 'playground', 'tts-voice-catalog.json');
 const VOICE_SAMPLES_DIR = path.join(ROOT, 'docs', 'public', 'voice-samples');
 
-function checkVoiceSampleAssets(errors) {
-  if (!fs.existsSync(VOICE_SAMPLES_DIR)) return; // not generated in this checkout — fine, it's opt-in tooling
+// `samplesDir` defaults to docs/public/voice-samples; the gate's tests pass a temporary folder, so they never move the
+// real, paid-for samples aside while another process reads them (HARD RULE #32, F7).
+function checkVoiceSampleAssets(errors, samplesDir = VOICE_SAMPLES_DIR) {
+  if (!fs.existsSync(samplesDir)) return; // not generated in this checkout — fine, it's opt-in tooling
   const catalog = JSON.parse(fs.readFileSync(VOICE_CATALOG_PATH, 'utf8'));
   const engines = catalog.engines || {};
-  const seenDirs = fs.readdirSync(VOICE_SAMPLES_DIR, { withFileTypes: true })
+  const seenDirs = fs.readdirSync(samplesDir, { withFileTypes: true })
     .filter((e) => e.isDirectory())
     .map((e) => e.name);
 
   for (const [slug, def] of Object.entries(engines)) {
-    const dir = path.join(VOICE_SAMPLES_DIR, slug);
+    const dir = path.join(samplesDir, slug);
     if (!def.requiresAsset) {
       if (seenDirs.includes(slug)) {
         errors.push(
@@ -10800,6 +11787,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
   collage: 'figural — photos, not prose (the description paragraph is covered by the universal body budget)',
   // connect — QR cards; fields are credentials/identity values (ssid, email), not prose.
   wifi: 'connect — Wi-Fi credentials, not prose',
+  'gift-card': 'connect — a printed gift card: a link encoded as a QR, a PIN and one line, not prose',
   contact: 'connect — vCard identity fields, not prose',
   // data grids — [x]/checkmark cells / feature matrices; word-counting mis-fires.
   'obligation-matrix': 'data grid — [x] cells, not prose',
@@ -11442,10 +12430,12 @@ function checkSyntaxContrast(errors, themesDir = THEMES_DIR) {
  * `--code-bg` by `--code-recede` (lib/plugins/code/code.styles.css). The spotlight's opacity used to
  * do this and left a receded comment at 1.23:1, which reads as blank. This holds the mix at
  * CODE_RECEDE_FLOOR on every palette's panel, in both modes, reading the percentage from the
- * stylesheet itself so the two cannot drift. 3:1 is the floor for context, not reading text: the
- * focused lines keep the 4.5:1 checkSyntaxContrast holds.
+ * stylesheet itself so the two cannot drift. The floor is the AA text floor (CAT_TEXT_FLOOR, 4.5:1) since
+ * 2026-11-10, at the owner's request that a slide with a focused line pass AA: a receded line is still text a
+ * reader may read. It was 3:1 while color was the only focus cue; the focused line now carries an outline in
+ * this same mix, so the dimmed lines can be fully readable and the outline clears 4.5:1 too.
  */
-const CODE_RECEDE_FLOOR = 3;
+const CODE_RECEDE_FLOOR = CAT_TEXT_FLOOR;
 function checkCodeRecede(errors, themesDir = THEMES_DIR, cssFile = path.join(ROOT, 'lib', 'plugins', 'code', 'code.styles.css')) {
   const css = fs.readFileSync(cssFile, 'utf8');
   const m = /--code-recede:\s*(\d+(?:\.\d+)?)%/.exec(css);
@@ -13673,7 +14663,7 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   { token: 'footerleft-inset', why: 'footer-left cell: per-deck placement knob, defaults inline.' },
   { token: 'footerleft-w', why: 'footer-left cell: per-deck width knob, defaults inline.' },
   { token: 'pagination-inset', why: 'pagination-right cell: per-deck placement knob, defaults inline.' },
-  { token: 'progress-inset', why: 'progress-center cell: per-deck placement knob, defaults inline.' },
+  { token: 'progress-inset', why: 'progress-center cell: per-deck placement knob, defaults inline — read by every `progress-rail:` placement, so a hand-placed rail still wins.' },
   { token: 'horizon-count', why: 'roadmap horizons: a per-deck column count, defaults inline.' },
   { token: 'qr-ink', why: 'connect/_qr-card: the QR module color, set per deck so a card can match a brand.' },
   { token: 'qr-paper', why: 'connect/_qr-card: the QR quiet-zone color, set per deck alongside --qr-ink.' },
@@ -14334,6 +15324,49 @@ function checkFontMetricsPin(errors, opts = {}) {
   }
 }
 
+// ── The chart text table's font pin (chart form kernel) ───────────────────────
+//
+// lib/plugins/chart-family/shared/text-advance.generated.js is the per-glyph advance table the chart form kernel lays
+// every phone-page chart out with (engineering/decisions/2026-11-10-chart-form.md § 8, § 10). Like GLYPH_UPPER above,
+// it is a measurement of specific woff2 bytes, so it pins them: every face row names each copy of its woff2 with a
+// sha256, and this fails when a pinned copy moves, a row has no pin, or a pin names a row the table dropped. The remedy
+// is `npm run fonts:measure:advances`, which re-measures in Chromium and rewrites the table with its pins.
+function checkTextAdvancePin(errors, opts = {}) {
+  const {
+    root = ROOT,
+    table = require('../lib/plugins/chart-family/shared/text-advance.generated.js'),
+    pins = require('./text-advance.pins.json'),
+  } = opts;
+  const rows = Object.keys(table.FACES || {});
+  const FIX = 'Re-measure with `npm run fonts:measure:advances` (real Chromium, the shipped faces) and commit the table it writes; do NOT edit a sha256 by hand.';
+  if (!rows.length) {
+    errors.push('chart text table pin verified nothing: text-advance.generated.js has no face rows. ' + FIX);
+    return;
+  }
+  for (const row of rows) {
+    const pin = pins[row];
+    if (!pin || !Array.isArray(pin.sources) || !pin.sources.length) {
+      errors.push(`chart text table row "${row}" pins no woff2 (text-advance.pins.json): its advances are tied to no bytes. ${FIX}`);
+      continue;
+    }
+    for (const src of pin.sources) {
+      const abs = path.join(root, src.file);
+      if (!fs.existsSync(abs)) {
+        errors.push(`chart text table row "${row}" pins \`${src.file}\`, which is not on disk. ${FIX}`);
+        continue;
+      }
+      const actual = crypto.createHash('sha256').update(fs.readFileSync(abs)).digest('hex');
+      if (actual !== src.sha256) {
+        errors.push(`font drift: \`${src.file}\` (${pin.family}, chart text row "${row}") no longer matches the bytes the chart ` +
+          `form kernel's text table was measured from.\n      pinned ${src.sha256}\n      actual ${actual}\n    ${FIX}`);
+      }
+    }
+  }
+  for (const row of Object.keys(pins)) {
+    if (!rows.includes(row)) errors.push(`stale chart text table pin "${row}": text-advance.pins.json pins a row the table does not hold. ${FIX}`);
+  }
+}
+
 // ── Dangling token reads in docs-site chrome (#1688) ───────────────────────────
 //
 // A `var(--X)` whose `--X` is declared NOWHERE is not a theming bug you can see
@@ -14882,14 +15915,20 @@ function run() {
   checkLineEndingBoundaries(errors);
   checkPreviewHtmlSinks(errors);
   checkRuntimeMarkupSinks(errors);
+  checkSlideTextAddressReaders(errors);
+  checkMediaReachIns(errors);
   checkPluginPurity(errors);
   checkPluginMigration(errors);
   checkSnapshotHtmlSinks(errors);
   checkMediaSourceCensus(errors);
   checkSecuritySpineCensus(errors);
   checkFlakyTests(errors);
+  checkPlaywrightRetries(errors);
+  checkRegexCensus(errors);
   checkPlatformSuites(errors);
   checkRunnerPins(errors);
+  checkRawAptInWorkflows(errors);
+  checkAptCacheWarmer(errors);
   checkOpenRouterBudget(errors);
   checkE2ESleeps(errors);
   checkVoiceSampleAssets(errors);
@@ -14923,6 +15962,7 @@ function run() {
   checkCatContrast(errors);
   checkSkillFreshness(errors);
   checkAgentModelPinning(errors);
+  checkProviderAttributeWriters(errors);
   checkSplitOracle(manifests, errors);
   checkCommittedPdfs(errors);
   checkNulBytes(errors);
@@ -14935,6 +15975,7 @@ function run() {
   checkAnimaColorVocabulary(errors);
   checkSyntaxInkContrast(errors);
   checkFontMetricsPin(errors);
+  checkTextAdvancePin(errors);
   checkFallbackContracts(errors);
   checkPhantomTokenReads(errors);
   checkSyntaxSeparation(errors);
@@ -15044,6 +16085,7 @@ module.exports = {
   lockNodeName,
   OPTIONAL_PEER_LOCKFILES,
   checkFontMetricsPin,
+  checkTextAdvancePin,
   checkFallbackContracts,
   ledgerContractProblems,
   fallbackHops,
@@ -15139,9 +16181,21 @@ module.exports = {
   checkDocumentStyleSinks,
   checkCssTreeRewrapSinks,
   checkRuntimeMarkupSinks,
+  checkSlideTextAddressReaders,
+  checkMediaReachIns,
+  slideTextAddressCensus,
   checkSecuritySpineCensus,
   checkFlakyTests,
+  checkRegexCensus,
+  regexLiterals,
+  regexLiteralTree,
+  regexBacklog,
+  regexCensusFindings,
+  regexVerdictOf,
+  REGEX_CENSUS_FILE,
   flakyTestHits,
+  playwrightRetriesFindings,
+  checkPlaywrightRetries,
   flakyTestTree,
   flakyTestFindings,
   spineCensusHits,
@@ -15163,6 +16217,9 @@ module.exports = {
   SANCTIONED_MEDIA_SOURCES,
   checkPlatformSuites,
   checkRunnerPins,
+  checkRawAptInWorkflows,
+  checkAptCacheWarmer,
+  SANCTIONED_RAW_APT,
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,
   SNAPSHOT_WRITE_MARKER,
@@ -15182,6 +16239,7 @@ module.exports = {
   listFilesByExt,
   SANCTIONED_PREVIEW_BUILDERS,
   SANCTIONED_RUNTIME_MARKUP_SINKS,
+  SANCTIONED_SLIDE_TEXT_ADDRESS_READERS,
   PREVIEW_BUILDER_MARKER,
   SANITIZE_CALL,
   STYLE_SINK_MARKER,
@@ -15230,6 +16288,9 @@ module.exports = {
   checkSkillFreshness,
   skillFreshnessAssertions,
   checkAgentModelPinning,
+  checkProviderAttributeWriters,
+  providerAttributeProblems,
+  SANCTIONED_PROVIDER_ATTRIBUTE_WRITERS,
   declaredModel,
   agentCallPins,
   listWorkflowFiles,

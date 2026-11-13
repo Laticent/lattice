@@ -59,5 +59,9 @@ test('the Markdown editor keeps the blank slide and the pills stay in step with 
 	await expect(page.getByText('Slide 3 / 3', { exact: true })).toBeVisible();
 	await railButtons(page).nth(1).click();
 	await expect(page.getByText('Slide 2 / 3', { exact: true })).toBeVisible();
-	expect(await units(page)).toBe(3);
+	// The store saves the source a moment after the editor has it (the save is debounced), so read it once it holds
+	// this deck: a one-shot read here found no saved source at all on a quick run (0 units, the nightly of 2026-11-11).
+	// Waiting on the deck's own text is the signal; a dropped blank slide still reads 2 and fails.
+	await expect.poll(() => activeSource(page), { message: 'the Studio never saved the deck' }).toContain('Third body.');
+	expect(await units(page), 'the blank slide was dropped from the source').toBe(3);
 });

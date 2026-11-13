@@ -1,0 +1,2 @@
+- verdict-grid's one-column form (a tall deck, a narrow pane, a phone) follows the `cards:` register: `center` places a centered band, `top` a top band and `stretch` fills, where every card used to fill the stage whatever the register. A lone card on its own portrait page still fills it.
+- A pane's `cards:` register now sets all four of its tokens, so `cards-stretch` fills a pane's one-column matrix-2x2 or verdict-grid, which it never did.

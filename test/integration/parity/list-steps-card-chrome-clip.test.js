@@ -33,25 +33,10 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
+const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome');
 const puppeteer = require('puppeteer');
 const { renderHtml } = require('../../helpers/semantic-render');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, probeSectionOverflow } = require('../../../lib/core/overflow-probe');
-
-function resolveChrome() {
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
-  for (const root of [path.join(os.homedir(), '.cache', 'puppeteer', 'chrome'), '/root/.cache/puppeteer/chrome']) {
-    if (!fs.existsSync(root)) continue;
-    for (const build of fs.readdirSync(root).filter((d) => d.startsWith('linux-')).sort().reverse()) {
-      const bin = path.join(root, build, 'chrome-linux64', 'chrome');
-      if (fs.existsSync(bin)) return bin;
-    }
-  }
-  return undefined;
-}
-
 // `size:` is omitted on purpose — hd (1280x720) is the default and the shortest
 // landscape stage, which is where the shear was reported.
 function deck(sample) {
@@ -103,7 +88,7 @@ describe('a dense list-steps strip keeps its card chrome inside the stage clip',
   let browser;
 
   if (!chrome) {
-    test('SKIPPED — no Chromium available', { skip: true }, () => {});
+    test('needs Chromium', { skip: skipWithoutChrome(chrome) }, () => assert.fail('no Chromium on this runner: install it (test/helpers/chrome.js)'));
     return;
   }
   process.env.CHROME_PATH = chrome;

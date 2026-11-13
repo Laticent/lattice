@@ -1,5 +1,5 @@
 import { Annotation, type Transaction } from '@codemirror/state';
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { deckOutliner } from '@/lib/deck-outline';
@@ -158,6 +158,25 @@ describe('the editor reveals what other panes ask for', () => {
 		const now = viewOf(container.querySelector('.cm-content'));
 		expect(now.state.doc.toString()).toBe(next);
 		expect(now.state.selection.main.head).toBe(next.indexOf('# Four'));
+	});
+
+	it('an author move drops a reveal still parked for text the editor did not hold yet', () => {
+		const { hub, drain } = testHub();
+		hub.update(DECK);
+		const next = `${DECK}\n---\n\n# Four\n\ndelta\n`;
+		const known: string[] = [];
+		const { container, rerender } = render(<Editor value={DECK} onChange={() => {}} focusHub={hub} knownComponents={known} />);
+		const view = viewOf(container.querySelector('.cm-content'));
+		hub.go('shell', { unitIndex: 3 }, { after: next });
+		hub.update(next);
+		drain();
+		// The author selects everything before the new text arrives (the e2e helper's select-all).
+		act(() => view.dispatch({ selection: { anchor: 0, head: view.state.doc.length }, userEvent: 'select' }));
+		rerender(<Editor value={next} onChange={() => {}} focusHub={hub} knownComponents={known} />);
+		drain();
+		const now = viewOf(container.querySelector('.cm-content'));
+		expect(now.state.doc.toString()).toBe(next);
+		expect(now.state.selection.main.empty, 'the parked reveal collapsed the author\'s selection to a slide start').toBe(false);
 	});
 
 	it('the value-sync’s own caret is not reported as the author’s', () => {

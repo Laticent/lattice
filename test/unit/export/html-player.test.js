@@ -1213,7 +1213,7 @@ test('the player ships the Marp-equivalent chrome CSS (pagination + notes hide +
 	// for every host, CLI included, instead of leaving the CLI's copy as the only one.
 	const { html } = await buildPlayerHtml({ docHtml, source, now: 0 });
 	assert.match(html, /section\[data-lattice-pagination\]::after\{content:attr\(data-lattice-pagination\)\}/, 'page numbers render even when the host docHtml carries no pagination CSS of its own');
-	assert.match(html, /aside\.lattice-notes\{display:none!important\}/, 'speaker-note asides stay hidden regardless of host docHtml');
+	assert.match(html, /aside\.lattice-notes,aside\.lattice-reader\{display:none!important\}/, 'speaker-note and reader-note asides stay hidden regardless of host docHtml');
 	assert.match(html, /\.lattice-description\{position:absolute!important/, 'the accessible description is sr-only, never a visible extra paragraph on the slide');
 });
 
@@ -1730,7 +1730,21 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// Re-blessed 2026-10-26 (#2904) on top of that: the Read view's font stacks (Outfit and Playfair) end in
 	// 'Noto Color Emoji', so an emoji in the article draws from the embedded font like the slides do. Seven stacks
 	// in the player CSS moved; nothing else.
-	assert.equal(sha, 'db5ca48f826216584dad6b6d423ec6330ebbe6eb76ce9bba4454b08f487df2b5', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed 2026-11-09 for the step cursor (engineering/decisions/2026-11-09-steps-as-a-behavior.md): the
+	// player inlines `stepMove`, `stepEnter`, `applyStepAt` and `stepsOfSection`, hands the first two to
+	// createTransport, and paints the step in render(). Script only; the golden deck has no stepping slide, so
+	// no markup, CSS or block order moved, and the CSP `script-src` sha256 moves with the script. Same day, after the red
+	// team: `beforeprint` / `afterprint` rest every stepping slide for print (S1), and the live region names the step.
+	// Script only again. Then the owner's D2: a jump onto a build starts it at step 0 (`jumpStep`, the 'jump' arm of
+	// `stepEnter`), and narration moves with `go(i, true)`. Script only. Then the adversarial pass on D1/D2: Play rests
+	// the shown slide first, and `stepEnter` refuses an unknown direction. Script only.
+	// Re-blessed 2026-11-10 (#3095, `typography:`): the Read view's four hard-coded font stacks read
+	// var(--font-display) / var(--font-body) with the old stacks as fallbacks, and the player CSS gains
+	// one rule per type set (`articleTypographyCss`), so the article follows the deck's set. CSS only. Rebased on
+	// the step cursor above, so the sha covers both.
+	// Re-blessed 2026-11-11 (the meta record, step 2, rebased on both above): the notes-hide rule also hides the new
+	// reader-note channel, `aside.lattice-notes,aside.lattice-reader{display:none!important}`. One CSS rule moved.
+	assert.equal(sha, '418b5f43dab3b3b1b68ed76c18ee305d8acc228880d913280228e9ce2af58422', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

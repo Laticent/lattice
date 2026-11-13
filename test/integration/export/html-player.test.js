@@ -203,7 +203,9 @@ describe('html-player export — Present fits the viewport (P3c)', () => {
 		const page = await browser.newPage();
 		await page.setViewport({ width: w, height: h, deviceScaleFactor: 1, isMobile: w < 800, hasTouch: w < 800 });
 		await page.goto(file, { waitUntil: 'networkidle0' });
-		await new Promise((r) => setTimeout(r, 400)); // let the fit timeouts settle
+		// The signal the rect follows: the player's fit() has published the Present scale, and the fonts are in.
+		await page.waitForFunction(() => document.fonts.status === 'loaded' && !!document.querySelector('.lp-frame.lp-active')
+			&& getComputedStyle(document.documentElement).getPropertyValue('--lp-fit-present').trim() !== '');
 		const rect = await page.evaluate(() => {
 			// The active slide's FRAME wrapper is what present toggles visible (the section
 			// inside keeps its own JS-driven transform:scale) — see player-core.mjs .lp-frame.
@@ -664,7 +666,11 @@ describe('html-player export — nothing shipped depends on light-dark()', () =>
 			await page.goto(require('node:url').pathToFileURL(file).href, { waitUntil: 'networkidle0' });
 			if (toggle) {
 				await page.click('#lp-mode');
-				await new Promise((res) => setTimeout(res, 250));
+				// The toggle has flipped the scheme attribute and the card has no transition still running.
+				await page.waitForFunction(() => {
+					const el = document.querySelector('.kanban-card');
+					return document.documentElement.getAttribute('data-lp-scheme') === 'dark' && (!el || el.getAnimations().length === 0);
+				});
 			}
 			// Only the COLOR components are compared. The lengths are `cqi`, so they track the
 			// container the card happens to sit in, and the two exports lay out independently —
@@ -878,12 +884,15 @@ describe('html-player export — a slide link opens a new tab, the deck stays', 
 		// Never reach the network: the assertion is WHERE the navigation happens, not the page.
 		page.on('request', (req) => (req.url().startsWith('file:') ? req.continue() : req.respond({ status: 200, contentType: 'text/html', body: '' })));
 		await page.goto(file, { waitUntil: 'load' });
-		await new Promise((r) => setTimeout(r, 400));
+		await page.waitForSelector('.lp-frame.lp-active a.video-poster', { visible: true });
+		// Registered after the player's own handler, so it reads whether that handler kept the click from navigating.
+		await page.evaluate(() => addEventListener('click', (e) => { window.__linkClick = { prevented: e.defaultPrevented }; }));
 		const opened = new Promise((resolve) => browser.once('targetcreated', (t) => resolve(t.url())));
 		await page.click('.lp-frame.lp-active a.video-poster');
 		const second = await Promise.race([opened, new Promise((r) => setTimeout(() => r(null), 4000))]);
-		await new Promise((r) => setTimeout(r, 300));
 		assert.equal(second, WATCH, 'the clip opened in a new tab');
+		// The positive signal that this tab will not navigate later: the click's default action was cancelled.
+		assert.deepEqual(await page.evaluate(() => window.__linkClick), { prevented: true }, 'the player cancelled the click\'s own navigation');
 		assert.equal(page.url(), file, 'the player tab still shows the deck');
 		assert.equal(await page.$$eval('.lp-frame.lp-active section', (s) => s.length), 1);
 		await page.close();

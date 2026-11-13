@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { charReads } = require('../../helpers/work-count');
+const { assertLinearRegexes } = require('../../helpers/regex-trace');
+const { mulberry32 } = require('../../helpers/regex-differential');
 
 // ESM module under test — dynamic import from this CJS test (mirrors glossary-auto.test.js).
 let core;
@@ -16,6 +19,14 @@ test.before(async () => {
 // them, which is what made breaking the repair a 0.0-point event. Both surfaces now supply the
 // position and hide the same two residuals, so re-ADDING an entry silently re-blinds a surface to
 // something that ships. That is the regression these pin.
+
+/** The section POSITION only; the deck length (`slides`) is pinned on its own test below. */
+const posOf = (p) => (p ? { index: p.index, total: p.total } : p);
+
+test('deckSectionFor hands over the deck length, which the section rail\'s slide floor reads', () => {
+  const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# b\n\n---\n\n<!-- _class: divider -->\n# C\n\n---\n\n# d';
+  assert.equal(core.deckSectionFor(deck, 2).slides, 4);
+});
 
 test('splitSlides treats a `---` inside a fence as a rule, not a boundary', () => {
   const body = ['# One', '', '```', '---', '```', '', '---', '', '# Two'].join('\n');
@@ -150,8 +161,8 @@ test('positionIsTrustworthy refuses when the caller counts a different number of
   assert.equal(core.positionIsTrustworthy('# One\n\n---\n\n# Two', 3), false);
 });
 
-test('positionIsTrustworthy refuses a `_focusSteps` deck — one slide becomes one per step', () => {
-  assert.equal(core.positionIsTrustworthy('<!-- _focusSteps: 3 -->\n# One', 1), false);
+test('positionIsTrustworthy trusts a `_focusSteps` deck — one slide stays one slide (2026-11-09)', () => {
+  assert.equal(core.positionIsTrustworthy('<!-- _focusSteps: item 1 | item 2 -->\n# One', 1), true);
 });
 
 test('positionIsTrustworthy refuses every hr form the `\\n---\\n` splitter cannot see', () => {
@@ -220,10 +231,10 @@ test('deckSectionFor is undefined for a deck with no dividers — no rail to sup
 
 test('deckSectionFor counts dividers at or before the shown slide', () => {
   const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# a1\n\n---\n\n<!-- _class: divider -->\n# B\n\n---\n\n# b1';
-  assert.deepEqual(core.deckSectionFor(deck, 0), { index: 1, total: 2 });
-  assert.deepEqual(core.deckSectionFor(deck, 1), { index: 1, total: 2 });
-  assert.deepEqual(core.deckSectionFor(deck, 2), { index: 2, total: 2 });
-  assert.deepEqual(core.deckSectionFor(deck, 3), { index: 2, total: 2 });
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 0)), { index: 1, total: 2 });
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 1)), { index: 1, total: 2 });
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 2)), { index: 2, total: 2 });
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 3)), { index: 2, total: 2 });
 });
 
 // THE DUPLICATE THIS PINS. `renderInto` asks for the deck's divider sections TWICE per render,
@@ -314,22 +325,22 @@ test('a code span that becomes a thematic break when blanked cannot shift the se
   ].join('\n');
   // Four caller slides: the two `---`x`` lines are NOT boundaries, so they sit inside slide 1.
   assert.equal(core.splitSlides(deck).length, 4, 'the fixture must have 4 raw chunks, or it proves nothing');
-  assert.deepEqual(core.deckSectionFor(deck, 0), { index: 1, total: 2 });
-  assert.deepEqual(core.deckSectionFor(deck, 1), { index: 1, total: 2 });
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 0)), { index: 1, total: 2 });
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 1)), { index: 1, total: 2 });
   // These two are the regression: they read slots 4 and 5 of a 6-slot blanked array and reported 1.
-  assert.deepEqual(core.deckSectionFor(deck, 2), { index: 2, total: 2 }, 'slide 2 is in the SECOND divider section');
-  assert.deepEqual(core.deckSectionFor(deck, 3), { index: 2, total: 2 }, 'slide 3 is in the SECOND divider section');
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 2)), { index: 2, total: 2 }, 'slide 2 is in the SECOND divider section');
+  assert.deepEqual(posOf(core.deckSectionFor(deck, 3)), { index: 2, total: 2 }, 'slide 3 is in the SECOND divider section');
 });
 
 test('deckSectionFor token-tests the class, exactly as the tiles do', () => {
   // `divider-lite` and `section-divider` are not `divider`; a substring match would count them.
   assert.equal(core.deckSectionFor('<!-- _class: divider-lite -->\n# A\n\n---\n\n# B', 1), undefined);
-  assert.deepEqual(core.deckSectionFor('<!-- _class: cover divider -->\n# A\n\n---\n\n# B', 1), { index: 1, total: 1 });
+  assert.deepEqual(posOf(core.deckSectionFor('<!-- _class: cover divider -->\n# A\n\n---\n\n# B', 1)), { index: 1, total: 1 });
 });
 
 test('supplyablePosition composes the three fields, or hands over nothing', () => {
   const deck = '<!-- _class: divider -->\n# A\n\n---\n\n# a1';
-  assert.deepEqual(core.supplyablePosition(deck, 1, 2), { offset: 1, total: 2, deckSection: { index: 1, total: 1 } });
+  assert.deepEqual(core.supplyablePosition(deck, 1, 2), { offset: 1, total: 2, deckSection: { index: 1, total: 1, slides: 2 } });
   assert.equal(core.supplyablePosition(deck, undefined, 2), undefined);
   assert.equal(core.supplyablePosition(deck, -1, 2), undefined);
   assert.equal(core.supplyablePosition(deck, 1, 5), undefined, 'an untrusted count supplies nothing at all');
@@ -553,13 +564,31 @@ test('a wording difference suppresses the raw-markup fallback', () => {
 test('the section parsers do not backtrack exponentially (js/redos)', () => {
   // CodeQL flagged both quote-aware patterns high: with a `[^>]` catch-all a quote is matchable by
   // BOTH the quoted branch and the catch-all, so a run of `""` decomposes exponentially many ways.
-  // The catch-all is now `[^>"']`, leaving exactly one parse. This input hangs the ambiguous form.
-  const evil = `<section ${'""'.repeat(600)}`;
-  const t0 = process.hrtime.bigint();
-  core.sectionText(evil);
-  core.diffSections(evil, `${evil}x`);
-  const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-  assert.ok(ms < 500, `parsing took ${ms.toFixed(1)}ms — the alternatives are ambiguous again`);
+  // The catch-all is now `[^>"']`, leaving exactly one parse. The tag strip went further: recheck still called its
+  // pattern polynomial (a run of `<` with no `>`), so sectionText reads tags without a regex (stripTags).
+  // Work, not milliseconds (HARD RULE #32): every regex these run is linear by tools/regex-census.json, and each
+  // character is touched a bounded number of times.
+  for (const evil of [`<section ${'""'.repeat(50_000)}`, '<'.repeat(100_000), `<section ${"'".repeat(100_000)}`]) {
+    const { reads, scanned } = charReads(() => assertLinearRegexes(() => {
+      core.sectionText(evil);
+      core.diffSections(evil, `${evil}x`);
+    }));
+    assert.ok(reads + scanned <= 64 * evil.length, `${JSON.stringify(evil.slice(0, 12))}…: ${reads + scanned} characters for ${evil.length}`);
+  }
+});
+
+test('sectionText strips exactly the tags the old quote-aware regex stripped (seeded differential fuzz)', () => {
+  // The regex sectionText used before stripTags, kept here as the oracle.
+  const OLD = /<(?:"[^"]*"|'[^']*'|[^>"'])*>/g;
+  const oldText = (h) => h.replace(OLD, ' ').replace(/\s+/g, ' ').trim();
+  const SEED = 3045;
+  const rand = mulberry32(SEED);
+  const ALPHABET = ['<', '<', '>', '>', '"', '"', "'", "'", 'a', ' ', '=', '/', '\n'];
+  for (let i = 0; i < 40_000; i++) {
+    let h = '';
+    for (let j = Math.floor(rand() * 25); j > 0; j--) h += ALPHABET[Math.floor(rand() * ALPHABET.length)];
+    assert.equal(core.sectionText(h), oldText(h), `differs on ${JSON.stringify(h)} (seed ${SEED})`);
+  }
 });
 
 // ── The cause buckets, split ─────────────────────────────────────────────────
@@ -787,4 +816,38 @@ test('supplyablePosition refuses a panes deck without a map, and offsets through
   assert.equal(core.supplyablePosition(deck, 2, 3, [1, 2]), undefined, 'a map of the wrong length is no map');
   // One marker is not a panes slide: nothing to refuse.
   assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- pane: list -->\n\n- a', 2), true);
+});
+
+// The pane markers are read in every spelling by the one shared reader (lib/core/meta-door.mjs `parsePaneMarker`,
+// record note §5.4.1): a record-form panes deck refuses without a map exactly as a `_pane:` deck does.
+test('positionIsTrustworthy refuses a panes deck in every marker spelling, and a record that names a pane layout', () => {
+  const two = (a, b) => `A\n\n---\n\n## T\n\n${a}\n\n- a\n\n${b}\n\n- b`;
+  const spellings = {
+    _pane: ['<!-- _pane: list -->', '<!-- _pane: table no-title -->'],
+    alias: ['<!-- pane: list -->', '<!-- pane: table -->'],
+    record: ['<!-- {pane="list"} -->', '<!-- {pane="table no-title"} -->'],
+    meta: ['<!-- @meta{pane="list"} -->', '<!-- @meta{pane="table"} -->'],
+    mixed: ['<!-- {footer=x, pane="list"} -->', '<!-- {pane="table", footer=y} -->'],
+    internal: ['<!-- lat-meta: {"carry":false,"d":{"pane":"list"}} -->', '<!-- lat-meta: {"carry":false,"d":{"pane":"table"}} -->'],
+    'old and new together': ['<!-- _pane: list -->', '<!-- {pane="table"} -->'],
+  };
+  for (const [name, [a, b]] of Object.entries(spellings)) {
+    assert.equal(core.positionIsTrustworthy(two(a, b), 2), false, `${name}: two markers refuse`);
+    assert.equal(core.positionIsTrustworthy(two(a, b), 2, [1, 2]), true, `${name}: the map lets it through`);
+    assert.equal(core.positionIsTrustworthy(`A\n\n---\n\n${a}\n\n- a`, 2), true, `${name}: one marker is not a panes slide`);
+  }
+  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- {layout="columns ratio-60-40"} -->\n\n### L\n\n### R', 2), false);
+  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- _class: rows -->\n\n### L\n\n### R', 2), false);
+  // A record that names no pane and no pane layout is an ordinary slide.
+  assert.equal(core.positionIsTrustworthy('A\n\n---\n\n<!-- {layout=cards, footer="Q3"} -->\n\n- a', 2), true);
+});
+
+test('needsPaneMap: a deck whose panes are written as records needs the map, as one written in comments does', () => {
+  // The sweep (tools/slice-equivalence.mjs) asked its own `_pane:` regex, so a records deck went unmapped and every
+  // slide was refused a position it could have had.
+  const two = (m) => `---\ntheme: indaco\n---\n\n<!-- _class: columns -->\n\n${m('list')}\n### A\n\n- a\n\n${m('list')}\n### B\n\n- b\n`;
+  assert.equal(core.needsPaneMap(two((p) => `<!-- _pane: ${p} -->`)), true);
+  assert.equal(core.needsPaneMap(two((p) => `<!-- {pane=${p}} -->`)), true);
+  assert.equal(core.needsPaneMap('<!-- {layout=columns} -->\n\n## A\n'), true);
+  assert.equal(core.needsPaneMap('---\ntheme: indaco\n---\n\n<!-- {layout=cards} -->\n\n## A\n'), false);
 });

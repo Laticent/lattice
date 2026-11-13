@@ -184,7 +184,10 @@ describe('the slide\'s real shape settles what its orientation name cannot', () 
     const { chartBoxAspect } = require('../../../lib/plugins/chart-family/kinds/heatmap/heatmap.transform');
     assert.equal(chartBoxAspect(16 / 9), 2.72);
     assert.equal(chartBoxAspect(0.8), 1.09);
-    assert.equal(chartBoxAspect(0.3), 0.67);
+    assert.equal(chartBoxAspect(0.5625), 0.67);
+    // 9:19.5 (mobile), measured 2026-11-09; anything taller clamps to it.
+    assert.equal(chartBoxAspect(9 / 19.5), 0.51);
+    assert.equal(chartBoxAspect(0.3), 0.51);
     assert.equal(chartBoxAspect(3), 2.72);
     const mid = chartBoxAspect(1.15);
     assert.ok(mid > 1.26 && mid < 1.74, String(mid));

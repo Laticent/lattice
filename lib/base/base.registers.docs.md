@@ -74,18 +74,18 @@ Not a per-slide register — it has no `_class:` form. Contract:
 
 ## The `preset:` front-matter register (a named look)
 
-`preset:` is **one word that sets up to eleven registers**: the backdrop (`finish:`), headline
+`preset:` is **one word that sets up to twelve registers**: the backdrop (`finish:`), headline
 alignment, the brand bar and its placement, the card rail and its placement, structural trim,
-the heading rule, the eyebrow, card lift and corners. Each of those still works on its own —
+the heading rule, the eyebrow, card lift, corners and the type set (`typography:`). Each of those still works on its own —
 **an explicit key always wins over the preset** — so a preset is a starting point and the keys
 are its overrides.
 
 | `preset:` value | Sets | Look |
 |---|---|---|
 | `classic` | *(nothing — every register at its default)* | The house default, named. **The default** (omit the key). |
-| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `spectrum-trim: restrained` · `lift: on` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards. |
-| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `spectrum-card: auto` · `spectrum-trim: on` · `rule: accent` · `eyebrow: dot` · `lift: on` | Centered, the accent everywhere, corner marks — set the theme accent to a client's color to white-label. |
-| `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` | Left-aligned, no bar, no rule, rounded corners. |
+| `editorial` | `finish: ledger` · `headline: left` · `rule: short` · `eyebrow: bar` · `spectrum-trim: restrained` · `lift: on` · `typography: ledger` | Left-aligned, a ruled backdrop with a rail down the left edge, a short rule, lifted cards, Newsreader over Inter. |
+| `brand` | `finish: strata` · `headline: center` · `spectrum: solid` · `spectrum-card: auto` · `spectrum-trim: on` · `rule: accent` · `eyebrow: dot` · `lift: on` · `typography: poster` | Centered, the accent everywhere, corner marks, Barlow Condensed over Inter — set the theme accent to a client's color to white-label. |
+| `minimal` | `headline: left` · `spectrum: off` · `rule: none` · `corners: rounded` | Left-aligned, no bar, no rule, rounded corners. Classic type until its own Inter-only set ships. |
 
 Each preset differs on **every** slide, the title slide included. That is why alignment and
 the backdrop are in the family: a title slide shows no bar and no heading rule, so a preset
@@ -103,7 +103,7 @@ A preset has **no class token and no CSS of its own**. It resolves in the front-
 every render path shares (`frontMatterValue` in `lib/core/front-matter-key.js`): when a key in
 the family is absent — or written empty — the reader answers with the preset's value, and
 `preset:` itself is read top-level only. So `preset: editorial` renders exactly as if the deck
-had written its six keys, per-slide `_class:` overrides work unchanged (`no-finish` keeps a
+had written its seven keys, per-slide `_class:` overrides work unchanged (`no-finish` keeps a
 slide clean), and the CLI, the export and the Studio agree by construction. A preset
 deliberately leaves alone `theme:` (the palette), `mode:`, `claim:`, `cards:`, `stamp:` /
 `tone:` and every content key. An unknown name is flagged by the linter (`unknown-preset`) and
@@ -678,7 +678,8 @@ same class from inside a header as from inside the body.
 
 ## The `eyebrow:` front-matter register (kicker decoration)
 
-`eyebrow:` decorates the mono-caps **eyebrow** kicker (the code-only line above a heading —
+`eyebrow:` decorates the **eyebrow** kicker (the code-only line above a heading, set in the
+type set's eyebrow voice — see [`typography:`](#the-typography-front-matter-register-the-type-set) —
 see *Eyebrow labels* in [`base.docs.md`](base.docs.md)). Sibling register (`lib/core/resolve-eyebrow.js`), propagated to
 every section, overridable per slide; a typo is caught as `unknown-eyebrow`. Palette-blind;
 defaults to the bare label. Leading marks space with `gap` (never `margin`), so they measure
@@ -686,7 +687,7 @@ cleanly.
 
 | `eyebrow:` value | Token | Effect |
 |---|---|---|
-| `plain` | *(none)*; per slide `eyebrow-plain` | The bare mono-caps label. **The default** (omit the key). |
+| `plain` | *(none)*; per slide `eyebrow-plain` | The bare label. **The default** (omit the key). |
 | `dot` | `eyebrow-dot` | A small filled `--accent` disc before the label. |
 | `bar` | `eyebrow-bar` | A short vertical `--accent` tick before the label. |
 | `arrow` | `eyebrow-arrow` | A leading chevron (`›`) in the accent color. |
@@ -702,8 +703,10 @@ kicker. Measured harmless across shipped decks (over a thousand spans across bot
 
 Pick **one** eyebrow treatment deck-wide so every kicker reads as one family — mixing marks
 per slide reads as a ransom note. Together `spectrum:` / `rule:` / `eyebrow:` are the Finish
-axis's **accent** sub-family (marks on chrome), distinct from `finish:` (backdrops behind
-content).
+axis's **accent** sub-family (accent marks on the heading block), distinct from `finish:`
+(backdrops behind content). The eyebrow itself is content, not chrome
+(`engineering/decisions/2026-11-09-type-voices.md`): `eyebrow:` picks its mark, and the
+`typography:` set picks its face.
 
 ## The `headline:` front-matter register (framing-text alignment)
 
@@ -817,6 +820,59 @@ padding. Ruled tables (`glossary`, `list-tabular`) and full-height rails (`split
 left panel) never lift, even when `lift` is on. Toggle it from the **Deck Setting** drawer
 (a **Card lift** switch alongside Auto-glossary / Page numbers) or by hand in the front
 matter. See `engineering/decisions/2026-07-12-struck-elevation.md`.
+
+## The `typography:` front-matter register (the type set)
+
+`typography:` picks **one curated type set**: the heading and body faces, the eyebrow's voice and
+the chart's text voice, chosen together. There is no free font knob on purpose: a type study
+measured 54 free combinations of face, chrome voice and eyebrow, and 30 of them merged content
+into chrome or broke the hierarchy, so the choices stay inside audited sets
+(`engineering/decisions/2026-11-09-type-hierarchy-study.md`).
+
+| `typography:` value | Token | Heading + body | Chart data labels | Suits |
+|---|---|---|---|---|
+| `classic` | *(none)* | Playfair Display + Outfit | Outfit (Playfair has no tabular figures) | **The default** (omit the key); corporate, team |
+| `ledger` | `typography-ledger` | Newsreader + Inter | Newsreader | reports, government, academic |
+| `poster` | `typography-poster` | Barlow Condensed + Inter | Inter (Barlow's figures align only through `tnum`, which PPTX and ODP drop) | launches, sales, brand |
+| `festival` | `typography-festival` | Fraunces + Inter | Inter (Fraunces has no tabular figures) | culture, nonprofit, donor decks |
+
+What every set shares:
+
+- **Chrome stays mono capitals.** The header, meta line, footer and page number keep their
+  voice, so they read as the frame.
+- **The eyebrow is content.** It speaks in the heading face's italic, as written, a step larger
+  than the chrome (and never smaller than the label role), so it belongs to the heading and
+  reads apart from the header beside it. On a title, dark divider or closing it is half the
+  heading's size. `eyebrow:` still picks its mark.
+- **The chart speaks the body face** for ticks, category labels and keys, with aligned figures;
+  the source line stays in the chrome's voice.
+- **The quote credit is set in tracked capitals.**
+- **Size holds when the face changes.** Each set face carries its own size factor
+  (`size-adjust`): Inter 87%, so it reads at Outfit's x-height; Barlow Condensed 110%, Newsreader
+  100%, Fraunces 92% (capped by width, so a heading that fits today does not wrap). The factor follows
+  the face wherever it is drawn, and the PPTX and ODP exports carry it in each text run's size.
+
+```yaml
+---
+theme: indaco
+typography: ledger
+---
+```
+
+A preset carries a set — `editorial` → `ledger`, `brand` → `poster` — and an explicit
+`typography:` wins. `mode: sketch` owns its own hand type and wins over any set. The faces ship
+in `dist/fonts/` like every engine face: a browser fetches a set's faces only when a slide draws them, and an
+export inlines only the faces of the sets the deck names (`lattice.js` filters by the deck),
+and the PDF embeds only the glyphs it uses. In the Studio: **Look → Typography**.
+
+`unknown-typography` catches a typo; a `type:` key is answered with "did you mean
+`typography:`?" (there is no alias — `type:` is a content-type key in Hugo and other site
+generators); `typography-style-override` warns when a deck's own `style:` re-points a face or
+voice token the set owns (`--font-display`, `--font-body`, `--eyebrow-*`, `--chart-*-face`),
+because the set's audit no longer covers it. A per-slide `_class: typography-<set>` overrides
+the deck's set (`typography-classic` returns one slide to the default faces), but a deck should speak in one. The CSS is `lib/base/base.typography.css`; the
+resolver is `lib/core/resolve-typography.js`; `test/integration/type-voices/` holds every
+palette theme × every set, light and dark, to the study's rules.
 
 ## The `venue:` front-matter register (where the deck is seen)
 
@@ -1029,8 +1085,9 @@ shape:
 | **Grid** | `align-content: var(--cards-align)` on the grid; auto rows size to their cards | `compare-code` (its pair of panels; both stay equal height), `split-compare`, `regulatory-update cards`, `split-panel proof` (its rows are `var(--cards-track)`: `1fr` under `stretch`, `auto` otherwise) |
 | **Two-by-two** | as a row, but each cell is exactly half the list under `stretch` and its content otherwise (`min-height`/`max-height` keyed on `--cards-grow`); `q-and-a grid` draws its dividing cross only under `stretch` | `matrix-2x2`, `q-and-a grid` |
 | **Flex column** | `justify-content: var(--cards-align)`; each card grows only under `stretch` (`--cards-grow`). Where the old column shared the stage equally (`flex: 1`), the card is `flex: var(--cards-grow) 1 var(--cards-basis)` — equal shares under `stretch`, content height otherwise, still giving way on a full stage (the default `cards-stack` at wide, `decision` and `matrix-2x2` at tall/strip); where its cards were already content height, only `flex-grow` switches | the `code` panel, the default `cards-stack`, `split-panel`'s evidence list, `regulatory-update`, and `decision`/`pricing`/`matrix-2x2`/`statute-stack`/`q-and-a grid` at the frames where they stack |
-| **Centered stage block** | the stage's `justify-content` (`safe center` for `center` where the component already used `safe`); the list grows under `stretch` | `inventory cards`, `agenda cards`, `citation-card` (default form) |
+| **Centered stage block** | the stage's `justify-content` (`safe center` for `center` where the component already used `safe`); the list grows under `stretch` | `inventory cards`, `citation-card` (default form), `contact` (its one card; `stretch` grows it to the stage) |
 | **One-column grid with a ceiling** | `align-content`, rows `minmax(min-content, <ceiling>)`, `--cards-grow` lifts the ceiling | `list` (every register) |
+| **One self-placed grid** | `align-content: var(--cards-align)` on a grid whose rows size to their content; with no card chrome, `stretch` reads like `center` | `wifi` (its QR, heading and fields) |
 
 `--cards-grow`, `--cards-basis` and `--cards-track` are set by the same eight `[data-cards]`
 rules in `base.tokens.css` as `--cards-align`, so they can never disagree with it.
@@ -1042,7 +1099,7 @@ options, inside the panel); `split-panel` spreads its evidence list and stretche
 `capstone`; and `cards-grid`, `list`, `cards-stack` and `statute-stack` spread at the frames
 where they stack into one column, which is what they did before. A component stretches above a
 key-insight coda cell (`withCoda: stretch`) except those that already centered there on `main`
-(`team-profile`, `inventory`, `agenda`, `citation-card`, which declare no `withCoda`). The coda
+(`team-profile`, `inventory`, `citation-card`, which declare no `withCoda`). The coda
 arm only fires where a `.cell-coda` forms: `split-compare`, `split-panel`, `inventory` and
 `citation-card` keep their blockquote inside the stage, so their slides never have one. A row never shrinks below its text: a slide with more than the stage holds overflows
 where the overflow check reports it.
@@ -1381,7 +1438,7 @@ Record, with the per-format measurements on both exporters:
 | `--sketch-ink` | The ink the boxes are drawn in (defaults to `--text-heading`); a theme override seam. |
 | `--sketch-font-display` / `--sketch-font-body` | The hand fonts; swap either to re-flavor the whole finish in one line. |
 | `--pill-font` | Re-pointed at the hand body face under `sketch` so label chips/badges read hand-drawn; override per theme to restore a clean label font. |
-| `--font-label` | The label voice (eyebrows, table headers, stat sub-labels, header/footer, pagination); defaults to `--font-mono`, re-pointed at the hand sans under `sketch`. |
+| `--font-label` | The label voice (table headers, stat sub-labels, header/footer, pagination — not the eyebrow, which takes `--eyebrow-face`); defaults to `--font-mono`, re-pointed at the hand sans under `sketch`. |
 | `--rough-ink-stroke` | **Enrollment.** A structure with a non-empty value gets its lines drawn in rough.js, in this color. Set it (and `--rough-ink-width`) to opt a new structure in. |
 | `--rough-ink-width` | Stroke weight for that structure's ink, in px. The frame is drawn a little heavier than the rules it encloses. |
 | `--rough-ink-cols` | Set to `1` to also ink a table's COLUMN boundaries. Off by default, and nothing ships it on — no table component rules columns, and inking them unasked turns a comparison table into a spreadsheet. |
@@ -1408,6 +1465,100 @@ exports all carry the ink. See
 card text, but cannot reach inside a chart's SVG geometry — wedges, bars,
 and lines keep their own marks. Hand-drawn chart *marks* are a deferred
 follow-up.
+
+## The section rail — `progress-rail:`
+
+The section rail is the small row of marks that says which section of the deck a slide is in:
+one mark per `divider`, the current one lit. `progress-rail:` places and styles it on ONE line, up
+to one word per axis — the `logo-finish:` shape (`lib/core/resolve-progress-rail.js`), completed word
+by word in the Studio editor and set from the Deck Inspector (**Chrome → Section rail**).
+
+```yaml
+progress-rail: edge bar
+```
+
+| Axis | Words (default first) | What it does |
+|---|---|---|
+| placement | `right` · `center` · `edge` | `right` sits beside the page number's column, a fixed width the band reserves on every slide, so the rail never moves. `center` sits on the slide's center line in the footer band. `edge` stands the rail upright in the right margin, at mid-height, clear of the footer. |
+| style | `dots` · `bar` | `dots` stretches the current dot into a pill. `bar` draws one thin segment per section and fills the current one. Past eight sections the rail draws as a bar unless the deck names `dots`. |
+| show | `on` · `off` | `off` hides the rail, the divider markers and the agenda legend. `on` draws them in a deck below the default floor (see below). |
+
+Per slide, a word on one axis replaces the deck's word on that axis only:
+`<!-- _class: progress-rail-edge -->` moves one slide's rail and `progress-rail-on` brings it back on a
+deck that said `off`. The older switch still works beside the key: `no-progress` hides one slide's
+rail, `with-progress` shows it over `no-progress`, `silent` and `progress-rail: off`, and a deck-wide
+`class: no-progress` reads as off in the Inspector.
+
+**When it draws, and where** (`lib/forms/tile/progress/progress.transform.js`; the reasoning is
+`engineering/decisions/2026-11-06-section-rail-placement.md`):
+
+- **Only in a deck with 3 or more sections and 15 or more slides**, by default. Two sections is
+  "first half, second half", which the page number already says, and a short deck is held in the head.
+  `progress-rail: on` lowers the floor to two sections and any length. One section never draws.
+- **Only on content slides inside a section.** Title, closing, topic, full-bleed layouts and the
+  slides before the first divider carry no rail.
+- **Each divider draws its own marker instead**: the section's place in figures (`2/4`) and the same
+  marks, a little larger, this section lit, **where the rail will be**: the bottom-right corner by
+  default, the center of the footer band under `center`, upright on the right edge under `edge`. So the
+  divider teaches both what the marks mean and where to look for them. A divider carries no page
+  number, so the marker takes that corner; the deck's footer stays and ends in an ellipsis before the
+  marker. A hidden divider draws no marker and no numeral.
+- **An agenda whose item count equals the deck's section count is a legend**: each item ends with the
+  rail as it will look in that section. A different count draws nothing.
+- **A topic slide with no eyebrow of its own names its section**: `02 · <the divider's heading>`, in figures so it reads the same in any language, and only where the rail would draw (two or more sections, not switched off).
+
+**The lit mark is ink, not accent.** The rail marks the current section in the heading's own ink,
+the same tone cue the topic track uses for its current topic, so the two scales read as one idea.
+`--accent` is not used because it merges into `--border` on onyx, concrete, a11y-base and
+a11y-achromatopsia (`topic.styles.css` § the lit item).
+
+**One section number.** Every divider counts, `light` included, and a `divider numbered` prints the
+same number the rail lights. `npm run lint:deck` warns `empty-section` when a divider follows a
+divider directly, because the first section then holds no slide, its mark never lights, and the first
+rail a reader sees says `2/4`.
+
+**`center` costs footer width.** The rail never yields in the footer band, and the author's
+footer words do (`engineering/decisions/2026-07-27-footer-band-allocation.md`). With the rail on
+the center line, the footer words get the band's left half, up to the rail's own width; a line
+longer than that ends in an ellipsis. The rail holds the exact center on every slide. On a wide
+canvas that half fits the gallery decks' longest footers; on a portrait or square canvas the type
+is larger and the band narrower, so even a short one is cut (`Acme Holdings · Q3 board review`, at
+1080 × 1350). Use `right` there, or a very short footer.
+`right` and `edge` do not pay this. With a bottom-center logo, the rail falls back to `right`.
+
+## The agenda — `agenda:`
+
+`agenda:` sets how the deck's agendas look, and whether an agenda the engine fills from the dividers shows
+page numbers. One line, up to one word per axis, the `progress-rail:` shape (`lib/core/resolve-agenda.js`),
+completed word by word in the Studio editor and set from the Deck Inspector (**Look → Agenda**).
+
+```yaml
+agenda: circles no-pages
+```
+
+| Axis | Words (default first) | What it does |
+|---|---|---|
+| style | `ledger` · `circles` · `checks` | Every agenda that names no style of its own draws in this one. `ledger` is a contents page, `circles` a track of stops, `checks` done, here and ahead. |
+| pages | `pages` · `no-pages` | Whether an agenda the engine FILLED shows each section's page number, flush right. |
+
+**An agenda with no list fills itself** (`lib/core/agenda-autofill.js`): one numbered item per shown
+`divider`, its heading without the closing period, and inside section k it also gets `progress-k`. With the
+pages axis on, each item ends with the page its section starts on: the divider's place among the shown
+slides. A divider draws no number of its own, but it is counted; a hidden slide is not; a split's extra
+pages are numbered `4.2` and move nothing after them. A deck with `paginate: false` prints no page numbers
+on its agenda either, and neither does an agenda whose lines no longer name the sections in order (reordered or
+renamed after the fill): a page number shows only beside the section it belongs to.
+
+**An agenda you write is yours.** Its list and its page references are never changed. The style axis still
+reaches it, as a theme would; give the slide its own word to opt out. The setting is written onto each agenda's own
+`_class` line, so an agenda named by a running `<!-- class: agenda -->` (no underscore) is filled but takes neither
+the deck's style nor page numbers: a word written there would carry to every later slide.
+
+Per slide: `_class: agenda circles` or `agenda checks` sets one agenda's style, `agenda agenda-ledger`
+keeps the ledger in a deck that chose another, and `agenda-no-pages` drops one filled agenda's page
+numbers. Unlike the other axis registers, this one is applied to the agenda slides alone, at the source,
+rather than stamped on every slide: a deck-wide page-number word would reach the agendas an author wrote.
+The decision: `engineering/decisions/2026-11-08-agenda-styles-and-autofill.md`.
 
 ## The `delivery:` front-matter register (how the narrated Guide gestures)
 

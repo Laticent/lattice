@@ -46,17 +46,26 @@ const COMPRESSIBLE = /\.(?:html|css|js|mjs|json|svg|webmanifest)$/;
  *                     `max-age`, HTML gets `no-cache`. A preload is reusable, so this is the
  *                     only setting under which "is the preload working" is a question about
  *                     the SITE rather than about this file.
+ *   'pages'           what GitHub Pages sends for every file, the deploy this site runs on:
+ *                     `max-age=600`. For a check about what Safari keeps between documents
+ *                     (docs/scripts/ios-safari/font-cache-server.mjs), the production header is
+ *                     the honest one: `immutable` would let a browser skip a revalidation the
+ *                     real site makes it do.
  *
  * Getting this wrong reads as a product defect: under 'none' the Studio's two preloaded faces
  * are fetched twice and resolve ~700ms later than the preload landed, which looks exactly like
  * an ineffective preload and is in fact the host refusing to let it work.
  *
- * @param {{ latency: number, kbps: number, dist: string, cache?: 'none'|'real' }} opts
+ * `port` listens on a fixed loopback port instead of an ephemeral one. `onRequest` sees every
+ * request first and answers it itself by returning true (a probe's own endpoint, a request log).
+ *
+ * @param {{ latency: number, kbps: number, dist: string, cache?: 'none'|'real'|'pages', port?: number, host?: string|null, onRequest?: (req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => boolean }} opts
  * @returns {Promise<{ server: import('node:http').Server, port: number }>}
  */
-export function serveModeled({ latency, kbps, dist, cache = 'none' }) {
+export function serveModeled({ latency, kbps, dist, cache = 'none', port = 0, host = '127.0.0.1', onRequest }) {
 	const bps = (kbps * 1000) / 8;
 	const server = http.createServer(async (req, res) => {
+		if (onRequest?.(req, res)) return;
 		// `normalize` before joining: a `..` in the request path must not escape DIST.
 		const rel = normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^(\.\.[/\\])+/, '');
 		let file = join(dist, rel);
@@ -76,7 +85,7 @@ export function serveModeled({ latency, kbps, dist, cache = 'none' }) {
 		const out = gzip ? zlib.gzipSync(body) : body;
 		// Hashed build assets are content-addressed, so `immutable` is what a real host sends
 		// for them; HTML must revalidate or a deploy never reaches anyone.
-		const cc = cache === 'real' ? (/\.html$/.test(file) ? 'no-cache' : 'public, max-age=31536000, immutable') : 'no-store';
+		const cc = cache === 'pages' ? 'max-age=600' : cache === 'real' ? (/\.html$/.test(file) ? 'no-cache' : 'public, max-age=31536000, immutable') : 'no-store';
 		const headers = { 'content-type': TYPES[extname(file)] || 'application/octet-stream', 'cache-control': cc };
 		if (gzip) headers['content-encoding'] = 'gzip';
 		setTimeout(() => {
@@ -93,5 +102,6 @@ export function serveModeled({ latency, kbps, dist, cache = 'none' }) {
 			tick();
 		}, latency);
 	});
-	return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve({ server, port: server.address().port })));
+	// `host: null` listens on every interface (both stacks): an iOS Simulator's Safari may reach `localhost` over IPv6.
+	return new Promise((resolve) => (host ? server.listen(port, host, () => resolve({ server, port: server.address().port })) : server.listen(port, () => resolve({ server, port: server.address().port }))));
 }

@@ -136,6 +136,75 @@ describe('openrouter-key — encrypted at rest', () => {
 		expect(await loadOpenRouterKey()).toBeNull();
 		expect(localStorage.getItem(KEY)).toBeNull();
 	});
+	it('a stored sealing key whose read answers nothing keeps the key: transient, never gone (3079-p2)', async () => {
+		writeOpenRouterKey(SECRET);
+		await openRouterKeySettled();
+		const envelope = localStorage.getItem(KEY);
+		__resetOpenRouterKeyForTests();
+		// WebKit can answer a `get` of a stored CryptoKey with nothing. Model that: the entry is there
+		// (`count` sees it), but `get` answers undefined.
+		const store = globalThis.IDBObjectStore.prototype;
+		const get = store.get;
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const spy = vi.spyOn(store, 'get').mockImplementation(function (this: IDBObjectStore) {
+			return get.call(this, 'no-such-entry');
+		});
+		try {
+			expect(await loadOpenRouterKey()).toBeNull(); // not open yet
+			expect(localStorage.getItem(KEY)).toBe(envelope); // and NOT removed
+			expect(warn.mock.calls.flat().join(' ')).toMatch(/\[lattice-key\] the sealing key is stored but its read answered nothing/);
+		} finally {
+			spy.mockRestore();
+			warn.mockRestore();
+		}
+		// The read recovers: the next load opens the same key.
+		__resetOpenRouterKeyForTests();
+		expect(await loadOpenRouterKey()).toBe(SECRET);
+	});
+	it('a write whose first sealing-key read answered nothing still stores the key (another tab won the add)', async () => {
+		// The guard above is for READS only: on the write path, add → ConstraintError → re-read the
+		// winner already recovers, and a throw there would drop the new key (checker, 3079-p2).
+		writeOpenRouterKey('sk-or-v1-first-race-1234');
+		await openRouterKeySettled();
+		__resetOpenRouterKeyForTests();
+		const store = globalThis.IDBObjectStore.prototype;
+		const get = store.get;
+		let first = true;
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const spy = vi.spyOn(store, 'get').mockImplementation(function (this: IDBObjectStore, k: IDBValidKey | IDBKeyRange) {
+			if (first) {
+				first = false;
+				return get.call(this, 'no-such-entry');
+			}
+			return get.call(this, k);
+		});
+		try {
+			writeOpenRouterKey(SECRET);
+			await openRouterKeySettled();
+			expect(localStorage.getItem(KEY)).not.toBeNull();
+		} finally {
+			spy.mockRestore();
+			warn.mockRestore();
+		}
+		__resetOpenRouterKeyForTests();
+		expect(await loadOpenRouterKey()).toBe(SECRET);
+	});
+	it('removing a key that can never open says why on the console', async () => {
+		writeOpenRouterKey(SECRET);
+		await openRouterKeySettled();
+		await new Promise<void>((r) => {
+			const del = indexedDB.deleteDatabase('lattice-secrets');
+			del.onsuccess = del.onerror = del.onblocked = () => r();
+		});
+		__resetOpenRouterKeyForTests();
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			expect(await loadOpenRouterKey()).toBeNull();
+			expect(warn.mock.calls.flat().join(' ')).toMatch(/\[lattice-key\] removed the stored openrouter entry: no sealing key is stored/);
+		} finally {
+			warn.mockRestore();
+		}
+	});
 	it('the sealing key cannot be exported', async () => {
 		writeOpenRouterKey(SECRET);
 		await openRouterKeySettled();
@@ -237,5 +306,32 @@ describe('openrouter-key — encrypted at rest, under races and faults', () => {
 		expect(await loadOpenRouterKey()).toBeNull(); // this load could not open it…
 		expect(localStorage.getItem(KEY)).toBe(envelope); // …and did not delete it
 		expect(await loadOpenRouterKey()).toBe('sk-or-v1-GOOD-cccc'); // the next one does
+	});
+	it('after a transient failure the slot retries by itself and announces the key, with nobody reading it', async () => {
+		writeOpenRouterKey('sk-or-v1-GOOD-dddd');
+		await openRouterKeySettled();
+		__resetOpenRouterKeyForTests();
+		const open = indexedDB.open.bind(indexedDB);
+		let fail = true;
+		vi.spyOn(indexedDB, 'open').mockImplementation((...a) => {
+			if (!fail) return open(...a);
+			const req = {} as IDBOpenDBRequest & { error: Error };
+			queueMicrotask(() => {
+				Object.assign(req, { error: new Error('UnknownError') });
+				req.onerror?.(new Event('error'));
+			});
+			return req;
+		});
+		const announced = new Promise<void>((resolve) => window.addEventListener('db-model-changed', () => resolve(), { once: true }));
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+		try {
+			expect(await loadOpenRouterKey()).toBeNull();
+			fail = false; // the store recovers; nothing reads the key
+			await vi.advanceTimersByTimeAsync(1000);
+		} finally {
+			vi.useRealTimers();
+		}
+		await announced;
+		expect(readOpenRouterKey()).toBe('sk-or-v1-GOOD-dddd');
 	});
 });

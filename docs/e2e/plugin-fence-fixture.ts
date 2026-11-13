@@ -1,12 +1,15 @@
 import JSZip from 'jszip';
 
 /** A zip plugin that owns the ```gantt fence, around the renderer text it is given. */
-export async function ganttZip(code: string, name = 'gantt-plugin'): Promise<Buffer> {
+/** `styles`: the plugin's own `<name>.styles.css`, scoped to its root by the door (code-door-fence.mjs `scopePluginCss`). */
+/** `placeholder`: the fence's `placeholder` hint (placement, aspect, size), when a spec needs one. */
+export async function ganttZip(code: string, name = 'gantt-plugin', styles?: string, placeholder?: { placement?: string; aspect?: string; size?: string }): Promise<Buffer> {
 	const zip = new JSZip();
-	zip.file(`${name}/${name}.manifest.json`, JSON.stringify({ name, type: 'plugin', format: 1, api: 1, title: 'Gantt (zip)', description: 'Draws a ```gantt fence as bars.', contributes: { fences: { gantt: { body: 'text' } } } }));
+	zip.file(`${name}/${name}.manifest.json`, JSON.stringify({ name, type: 'plugin', format: 1, api: 1, title: 'Gantt (zip)', description: 'Draws a ```gantt fence as bars.', contributes: { fences: { gantt: { body: 'text', ...(placeholder ? { placeholder } : {}) } } } }));
 	zip.file(`${name}/${name}.docs.md`, '# Gantt plugin\n');
 	zip.file(`${name}/${name}.fixtures.md`, '```gantt\nDesign 2\nBuild 4\n```\n');
 	zip.file(`${name}/${name}.render.js`, code);
+	if (styles) zip.file(`${name}/${name}.styles.css`, styles);
 	return zip.generateAsync({ type: 'nodebuffer' });
 }
 
@@ -23,9 +26,10 @@ export { render as default };
 `;
 
 /** A zip plugin of INLINE kinds only (2026-10-14-plugin-inline-door.md): `@tag-chip{Label, hot}`, read by its declared slot. */
-export async function chipZip(code: string = CHIP_RENDERER, name = 'chip-plugin'): Promise<Buffer> {
+/** `extra`: more inline kinds beside `tag-chip`, e.g. one that declares no slot. */
+export async function chipZip(code: string = CHIP_RENDERER, name = 'chip-plugin', extra: Record<string, object> = {}): Promise<Buffer> {
 	const zip = new JSZip();
-	const inline = { 'tag-chip': { title: 'Tag chip', slot: { label: 'a tag chip', positional: [{ name: 'label', type: 'text' }], params: { tone: { type: 'oneOf', values: ['hot', 'cold'] } } }, placeholder: { size: 'sm' } } };
+	const inline = { ...extra, 'tag-chip': { title: 'Tag chip', slot: { label: 'a tag chip', positional: [{ name: 'label', type: 'text' }], params: { tone: { type: 'oneOf', values: ['hot', 'cold'] } } }, placeholder: { size: 'sm' } } };
 	zip.file(`${name}/${name}.manifest.json`, JSON.stringify({ name, type: 'plugin', format: 1, api: 1, title: 'Tag chips (zip)', description: 'Draws `@tag-chip{…}` as a small tag.', contributes: { inline } }));
 	zip.file(`${name}/${name}.docs.md`, '# Tag chips\n');
 	zip.file(`${name}/${name}.fixtures.md`, '- `@tag-chip{Launch, hot}`\n');

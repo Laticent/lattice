@@ -9,6 +9,7 @@
 // has to respect. Between soft and hard it only WARNS, which is what keeps routine PRs
 // off the one ledger line every Studio PR used to edit.
 
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
@@ -39,6 +40,18 @@ const require = createRequire(import.meta.url);
 const SLACK_PCT = 0.05;
 const budget = { eagerJsGz: { soft: 660_000, hard: 700_000 }, htmlRaw: { soft: 192_000, hard: 200_000 } };
 const ev = (actual) => evaluateRoute('studio', actual, budget, SLACK_PCT);
+
+
+/**
+ * `chars` characters that gzip cannot shrink, the same on every run (HARD RULE #32: no unseeded randomness): SHA-256
+ * digests of `seed:0`, `seed:1`, …, in base64, so each character carries six bits. `Math.random()` gave the same
+ * incompressible text a different way each run.
+ */
+const incompressible = (seed, chars) => {
+	let out = '';
+	for (let i = 0; out.length < chars; i++) out += createHash('sha256').update(`${seed}:${i}`).digest('base64').replace(/[+/=]/g, '');
+	return out.slice(0, chars);
+};
 
 describe('evaluateRoute', () => {
 	it('passes silently at or under the soft target', () => {
@@ -193,7 +206,7 @@ describe('the lazy metrics', () => {
 			put(`${esm}/chart-small.js`, 'import"./chunk-core.js";export const k=1;');
 			put(`${esm}/chart-big.js`, 'import"./chunk-core.js";import"./chunk-big.js";export const k=2;');
 			// Random, so gzip cannot shrink it: chart-big stays the largest when chart-small grows.
-			put(`${esm}/chunk-big.js`, `export const big=${JSON.stringify(Array.from({ length: 40 }, () => Math.random().toString(36).slice(2)).join(''))};`);
+			put(`${esm}/chunk-big.js`, `export const big=${JSON.stringify(incompressible('chunk-big', 440))};`);
 		}
 		return dist;
 	}
@@ -227,7 +240,7 @@ describe('the lazy metrics', () => {
 		const ledger = { chartKernelGz: { soft: before.chartKernelGz, hard: ceilingFor(before.chartKernelGz) }, chartKernelsGz: { soft: before.chartKernelsGz, hard: ceilingFor(before.chartKernelsGz) } };
 		fs.writeFileSync(path.join(dist, `${esm}/chart-small.js`), 'import"./chunk-core.js";import"./chunk-grow.js";export const k=1;');
 		// Incompressible and well past 10% of the union, so a zlib change cannot move the verdict.
-		fs.writeFileSync(path.join(dist, `${esm}/chunk-grow.js`), `export const g=${JSON.stringify(Array.from({ length: 20 }, () => Math.random().toString(36).slice(2)).join(''))};`);
+		fs.writeFileSync(path.join(dist, `${esm}/chunk-grow.js`), `export const g=${JSON.stringify(incompressible('chunk-grow', 220))};`);
 		const after = measure(LAZY_BUDGET_ROUTE, 'studio/index.html', dist);
 		expect(after.chartKernel).toBe('chart-big.js');
 		expect(after.chartKernelGz).toBe(before.chartKernelGz);
@@ -386,7 +399,7 @@ describe('the hashes an engine change moves', () => {
 
 	it('still sees a real change beside them', () => {
 		const a = measure('home', 'studio/index.html', route(A));
-		const noise = Array.from({ length: 30 }, () => Math.random().toString(36).slice(2)).join('');
+		const noise = incompressible('noise', 330);
 		const b = measure('home', 'studio/index.html', route({ ...B, extra: `;const n="${noise}"` }));
 		expect(b.eagerJsGz - a.eagerJsGz).toBeGreaterThan(100);
 	});

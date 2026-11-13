@@ -785,10 +785,14 @@ describe('regions, short months and cohort columns read without an acronyms: blo
 
 describe('the short-month context check stays linear on hostile punctuation', () => {
 	it('reads a 50,000-character run of "!" beside a month in well under a second', () => {
+		// A hang guard sized by F4 (HARD RULE #32), not a count: the token reader's `/[.,!?;:…]+$/` is polynomial by
+		// recheck, so the regex trace cannot pass the path, and backtracking inside one exec has no count.
 		const t0 = performance.now();
 		expect(toSpokenText(`Jan${'!'.repeat(50000)} 2026`)).toContain('Jan');
 		expect(toSpokenText(`Jan 2026 Feb${'!'.repeat(50000)}`)).toContain('January');
-		expect(performance.now() - t0).toBeLessThan(1000);
+		// A run that does NOT end the word is the shape a `/[…]+$/` probe retries from every character of.
+		expect(toSpokenText(`Jan${'!'.repeat(50000)}x 2026`)).toContain('Jan');
+		expect(performance.now() - t0).toBeLessThan(100); // flaky-ok: F4 hang guard: 3.2 ms today, 3,337 ms with trailingPunct put back as `/[.,;:!?…]+$/`; the bound is 31x today and 33x under that
 	});
 });
 
@@ -809,10 +813,13 @@ describe('a European amount is said as the number it shows', () => {
 	});
 	it('reads a hostile run of punctuation after a number in linear time', () => {
 		// CodeQL flagged the first draft's `/[.,;:!?…]+$/` on this path: polynomial on a run of `!`.
+		// A hang guard sized by F4 (HARD RULE #32), not a count: toSpoken's `/[.,!?;:…]+$/` still runs on this path and
+		// is polynomial by recheck, so the regex trace cannot pass it, and backtracking inside one exec has no count.
 		const t0 = performance.now();
 		toSpokenText(`5${'!'.repeat(100_000)} €`);
 		toSpokenText(`5 Mio${'!'.repeat(100_000)} €`);
-		expect(performance.now() - t0).toBeLessThan(500);
+		toSpokenText(`5 Mio${'!'.repeat(100_000)}x €`); // a run that does not end the word: the shape a `/[…]+$/` probe retries
+		expect(performance.now() - t0).toBeLessThan(250); // flaky-ok: F4 hang guard: 9.3 ms today, 27,974 ms with trailingPunct put back as `/[.,;:!?…]+$/`; the bound is 27x today and 112x under that
 	});
 	it('leaves the same words alone when no number comes before them', () => {
 		expect(toSpokenText('Mio is a name.')).toBe('Mio is a name.');

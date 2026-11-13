@@ -2,6 +2,7 @@ import { DOMSerializer, Fragment, type Node as PMNode } from 'prosemirror-model'
 import { type EditorState, NodeSelection, Plugin, TextSelection, type Transaction } from 'prosemirror-state';
 // DEFAULT imports: both are CommonJS leaves (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import paneCatalog from '../../../../lib/authoring/pane-lint.generated.js';
+import { setCommentField } from '../../../../lib/core/meta-edit.mjs';
 import paneSpec from '../../../../lib/core/pane-spec.js';
 import { normalizeSourceText } from '../normalize-source-text';
 import { parseSlideProse } from './deck-markdown';
@@ -130,8 +131,10 @@ export function paneChoices(direction: PaneDirection, share: number): string[] {
 /** The `_pane` marker an author writes for `cls`, keeping the pane's own `no-title`. A component's
  *  modifiers belong to that component, so they are dropped when the component changes. */
 export function paneMarkerText(cls: string, mods: string[] = []): string {
+	// The comment form `<!-- _pane: … -->` (the form follows the slide until the cut, record note §5.4.1); every read
+	// takes each spelling.
 	const words = [cls, ...mods.filter((w) => w === 'no-title')];
-	return `<!-- _pane: ${words.join(' ')} -->`;
+	return setCommentField('', 'pane', words.join(' '));
 }
 
 /** What a pane's place in the layout is called, for the Studio user who never sees the syntax. */
@@ -315,7 +318,10 @@ export function applyPaneChoice(state: EditorState, slidePos: number, index: num
 	}
 	if (!sameMarker) {
 		const words = [choice.cls, ...modifiers, ...pane.mods.filter((w) => w === 'no-title')];
-		const marker = state.schema.nodes.comment.create({ text: `<!-- _pane: ${words.join(' ')} -->` });
+		// A new marker is `<!-- _pane: … -->`; one that is already a record is edited in its record and keeps its other
+		// fields (a `note`, say). Record note §5.4.1.
+		const old = pane.marker !== null ? String(at.slide.child(pane.marker).attrs.text ?? '') : '';
+		const marker = state.schema.nodes.comment.create({ text: setCommentField(old, 'pane', words.join(' ')) });
 		if (pane.marker !== null) {
 			const pos = childPos(at.slide, at.start, pane.marker);
 			tr.replaceWith(pos, pos + at.slide.child(pane.marker).nodeSize, marker);
@@ -388,7 +394,8 @@ export function paneMarkerGuard(onRefuse?: (reason: string) => void) {
 		},
 		appendTransaction(_trs, old, state) {
 			const sel = state.selection;
-			if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment' || !/^<!--\s*_pane\s*:/.test(String(sel.node.attrs.text))) return null;
+			// A marker in any spelling: pane-spec `parseMarker` reads through lib/core/meta-door.mjs `parsePaneMarker`.
+			if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment' || !paneSpec.parseMarker(String(sel.node.attrs.text))) return null;
 			// On in the direction of travel: ArrowUp onto a marker carries on up, or a keyboard user
 			// could never arrow from the second pane into the first.
 			const up = sel.from < old.selection.from;

@@ -2,7 +2,8 @@
 // the adapter routing the cloud tier to the provider the author chose. Every request is mocked.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __resetOpenRouterKeyForTests, openRouterKeySettled, readActiveProvider, readProviderKey, writeActiveProvider, writeProviderKey } from '../../../lib/openrouter-key.js';
+import { readChatSelection, selectChat } from '../../../lib/model-selection.js';
+import { __resetOpenRouterKeyForTests, openRouterKeySettled, readProviderKey, writeProviderKey } from '../../../lib/openrouter-key.js';
 import { createArchitectModel } from './architect-model.js';
 import { catalogIdsFor, directBackend, estimateCost, pickDefaultModel, priceRow, toAnthropicBody, usablePrice } from './direct-providers.js';
 
@@ -73,6 +74,24 @@ describe('pricing from the OpenRouter catalog', () => {
 		// "gemini" contains "mini": the side-tier filter must not drop every Gemini model.
 		expect(pickDefaultModel([{ id: 'gemini-9-flash', promptPerM: 1, completionPerM: 4, created: 1 }, { id: 'gemini-9-pro', promptPerM: 2, completionPerM: 9, created: 2 }], 'gemini')).toBe('gemini-9-flash');
 		expect(pickDefaultModel([{ id: 'gemini-9-pro' }, { id: 'gemini-9-flash' }, { id: 'gemini-9-flash-lite' }], 'gemini')).toBe('gemini-9-flash');
+	});
+	it('a list with no dates (Gemini) picks the highest version, not the first listed', () => {
+		// Gemini's /models carries no `created`; it lists a retired gemini-2.5-flash first, and a live
+		// run on 2026-11-08 got a 404 ("no longer available to new users") from defaulting to it.
+		const listed = [
+			{ id: 'gemini-2.5-flash', promptPerM: 0.3, completionPerM: 2.5 },
+			{ id: 'gemini-2.5-pro', promptPerM: 1.25, completionPerM: 10 },
+			{ id: 'gemini-3.5-flash', promptPerM: 0.3, completionPerM: 2.5 },
+			{ id: 'gemini-3.8-flash', promptPerM: 0.3, completionPerM: 2.5 },
+			{ id: 'gemini-3.10-flash-lite', promptPerM: 0.1, completionPerM: 0.4 },
+			// The highest version, but outside the everyday family: a plain key got 429 on it.
+			{ id: 'gemini-4-argon', promptPerM: 0.5, completionPerM: 4 },
+		];
+		expect(pickDefaultModel(listed, 'gemini')).toBe('gemini-3.8-flash');
+		// Unpriced, the everyday family follows the same order.
+		expect(pickDefaultModel(listed.map(({ id }) => ({ id })), 'gemini')).toBe('gemini-3.8-flash');
+		// A creation date still wins over the version when the provider gives one.
+		expect(pickDefaultModel([{ id: 'gpt-9', promptPerM: 1, completionPerM: 5, created: 1 }, { id: 'gpt-8', promptPerM: 1, completionPerM: 5, created: 2 }], 'openai')).toBe('gpt-8');
 	});
 });
 
@@ -218,21 +237,22 @@ describe('the transports', () => {
 });
 
 describe('the adapter routes the cloud tier to the chosen provider', () => {
-	it('saveProviderKey makes the provider active; removing it returns to OpenRouter', async () => {
+	it('saveProviderKey fills a Not-set selection with its provider; removing the key leaves the selection reading needs-key', async () => {
 		vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: [] })));
-		const m = createArchitectModel({ explicitTierWins: true });
+		const m = createArchitectModel({});
 		expect(m.availability().provider).toBe('openrouter');
 		expect(m.availability().openRouterReady).toBe(false);
 		m.saveProviderKey('anthropic', 'sk-ant-test-key-0000000000');
 		await openRouterKeySettled();
-		expect(readActiveProvider()).toBe('anthropic');
+		expect(readChatSelection()).toMatchObject({ source: 'cloud', provider: 'anthropic' });
 		expect(m.availability()).toMatchObject({ provider: 'anthropic', openRouterReady: true, generation: 'openrouter' });
 		expect(m.openRouterKeySettingsUrl()).toMatch(/console\.anthropic\.com/);
 		expect(m.providersWithKeys()).toEqual(['anthropic']);
 		m.removeProviderKey('anthropic');
 		await openRouterKeySettled();
 		expect(readProviderKey('anthropic')).toBeNull();
-		expect(m.availability().provider).toBe('openrouter');
+		// Never substituted: the selection stays Anthropic and says it needs a key.
+		expect(m.availability()).toMatchObject({ provider: 'anthropic', generation: 'floor', readiness: { state: 'needs-key', provider: 'anthropic' } });
 	});
 
 	it('the stored direct key is sealed, never in clear', async () => {
@@ -252,7 +272,6 @@ describe('the adapter routes the cloud tier to the chosen provider', () => {
 		m.disconnectAllProviders();
 		await openRouterKeySettled();
 		expect(m.providersWithKeys()).toEqual([]);
-		expect(readActiveProvider()).toBe('openrouter');
 	});
 });
 
@@ -288,12 +307,12 @@ describe('red-team and checker findings (BYOK phase 2)', () => {
 		const m = createArchitectModel({});
 		m.saveProviderKey('openrouter', 'sk-or-v1-test');
 		await openRouterKeySettled();
-		writeActiveProvider('anthropic'); // chosen, but no key readable yet
-		expect(m.availability()).toMatchObject({ provider: 'anthropic', openRouterReady: false });
+		selectChat({ provider: 'anthropic' }); // chosen, but no key readable yet
+		expect(m.availability()).toMatchObject({ provider: 'anthropic', openRouterReady: false, generation: 'floor' });
 	});
 
-	it('a stored provider name that is not a provider reads as OpenRouter', () => {
+	it('a stored provider name that is not a provider is no pick: Not set without a key', () => {
 		localStorage.setItem('lattice-db-provider', 'constructor');
-		expect(readActiveProvider()).toBe('openrouter');
+		expect(readChatSelection().provider).toBe('');
 	});
 });

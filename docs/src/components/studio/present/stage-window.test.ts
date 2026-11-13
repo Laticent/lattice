@@ -15,6 +15,19 @@ describe('stage-window — buildStageDoc', () => {
 		expect(doc).toContain('e.data.pv');
 		expect(doc).toContain('background:#111');
 	});
+	it('seals the stage with a nonce script-src, and stamps every script it writes (3048-p10)', () => {
+		// A drawn fence and a state-chart model, so the preload and the dagre tag are written too.
+		const html = '<pre><code class="language-mermaid">flowchart LR</code></pre><div data-sc-model="{}"></div>';
+		const doc = buildStageDoc({ html, width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js', dagreUrl: '/dagre.js', standalone: true });
+		const nonce = /script-src 'nonce-([^']+)'/.exec(doc)?.[1];
+		expect(nonce, 'the policy names a nonce').toBeTruthy();
+		const scripts = doc.match(/<script\b[^>]*>/gi) ?? [];
+		expect(scripts.length).toBeGreaterThanOrEqual(5);
+		for (const tag of scripts) expect(tag, tag).toContain(`nonce="${nonce}"`);
+		for (const tag of doc.match(/<link\b[^>]*\bas="script"[^>]*>/gi) ?? []) expect(tag, tag).toContain(`nonce="${nonce}"`);
+		// A script the sanitizer missed would carry no nonce: the deck's markup never sees it.
+		expect(buildStageDoc({ html: '<i>x</i>', width: 1, height: 1, bg: '#000', css: '', runtimeUrl: '/r.js' })).toContain(`'nonce-${nonce}'`);
+	});
 	it('omits the katex tag when not supplied, and never writes a Mermaid tag', () => {
 		// A deck with no diagram must not pull a multi-hundred-KB script into the room's window —
 		// and now no deck does from here: the Mermaid plugin's library is loaded by the runtime's
@@ -293,13 +306,13 @@ describe('stage-window — createStageController', () => {
 
 		// The Stage announces itself → the current index goes over, and the console adopts it.
 		postFromStage({ stage: 'ready' }, win);
-		expect(win.postMessage).toHaveBeenCalledWith({ pv: 2 }, location.origin);
+		expect(win.postMessage).toHaveBeenCalledWith({ pv: 2, st: null }, location.origin);
 		expect(onChange).toHaveBeenLastCalledWith(win);
 
 		// Navigation relays one way only: console → Stage.
 		win.postMessage.mockClear();
 		ctl.show(3);
-		expect(win.postMessage).toHaveBeenCalledWith({ pv: 3 }, location.origin);
+		expect(win.postMessage).toHaveBeenCalledWith({ pv: 3, st: null }, location.origin);
 
 		// A message from a FOREIGN source is ignored (the handle check is the trust).
 		onChange.mockClear();
@@ -367,7 +380,7 @@ describe('stage-window — createStageController', () => {
 		expect(win.postMessage).not.toHaveBeenCalled();
 		postFromStage({ stage: 'ready' }, win);
 		expect(onChange).toHaveBeenLastCalledWith(win);
-		expect(win.postMessage).toHaveBeenCalledWith({ pv: 0 }, location.origin);
+		expect(win.postMessage).toHaveBeenCalledWith({ pv: 0, st: null }, location.origin);
 	});
 
 	it('a rewrite that THROWS lets go for real, so the console does not hold a presenter view up', () => {
@@ -385,6 +398,43 @@ describe('stage-window — createStageController', () => {
 		});
 		ctl.write('<stage-v2/>');
 		expect(onChange.mock.calls.slice(-2)).toEqual([[null, true], [null]]);
+	});
+
+	it('stays silent for a hand-close whose `closed` flag flips LATE, past the navigation grace', async () => {
+		// A loaded machine: the goodbye beat lands, the window still shows OUR document, and `closed` takes 1.5 s to flip.
+		// That is a hand-close, not a navigation (nothing else is in the window), so it stays silent. With a fixed 600 ms
+		// verdict it was announced as "Stage disconnected" (e2e stage-window.spec.ts, the hand-close cell on WebKit).
+		vi.useFakeTimers();
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+		postFromStage({ stage: 'closed' }, win);
+		await vi.advanceTimersByTimeAsync(1500);
+		expect(onLost, 'still our document, so not a navigation: the flag is only late').not.toHaveBeenCalled();
+		win.closed = true;
+		await vi.advanceTimersByTimeAsync(12_000);
+		expect(onLost).not.toHaveBeenCalled();
+		expect(vi.getTimerCount(), 'the classification stopped once the window closed').toBe(0);
+	});
+
+	it('still reports a window left open on our own document long after its goodbye', async () => {
+		// The hang guard: no flag, no other page, ten seconds on. Something is wrong with that window, and the presenter
+		// is told rather than left guessing.
+		vi.useFakeTimers();
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+		postFromStage({ stage: 'closed' }, win);
+		await vi.advanceTimersByTimeAsync(9_000);
+		expect(onLost).not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(2_000);
+		expect(onLost).toHaveBeenCalledWith('navigated');
 	});
 
 	it('stays silent when WE closed the Stage — and when the PRESENTER closed the window', async () => {
@@ -449,10 +499,32 @@ describe('stage-window — createStageController', () => {
 
 		win.closed = true; // gone, and it never said so
 		await vi.advanceTimersByTimeAsync(2500);
+		// The console lets go at once; the sentence waits for a goodbye that may still be on its way.
+		expect(ctl.isOpen()).toBe(false);
+		expect(onLost, 'announced before a late goodbye could arrive').not.toHaveBeenCalled();
+		await vi.advanceTimersByTimeAsync(5000);
 		expect(onLost).toHaveBeenCalledTimes(1);
 		expect(onLost, 'a beatless disappearance is a death, not a navigation').toHaveBeenCalledWith('gone');
-		expect(ctl.isOpen()).toBe(false);
+		expect(vi.getTimerCount() <= 1, 'only the next liveness interval, if any, may remain').toBe(true);
 		vi.useRealTimers();
+	});
+
+	it('stays silent when the poll finds a hand-closed window BEFORE its goodbye lands', async () => {
+		// A loaded machine: the flag flipped and the 2 s poll ticked before the goodbye's message task ran. The goodbye
+		// arriving after the poll is still a deliberate close (e2e stage-window.spec.ts, the hand-close cell on WebKit).
+		vi.useFakeTimers();
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onLost = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost, onPlaced: vi.fn() });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+		win.closed = true;
+		await vi.advanceTimersByTimeAsync(2100); // the poll has torn down
+		expect(ctl.isOpen()).toBe(false);
+		postFromStage({ stage: 'closed', tok: ctl.token }, win); // the goodbye, late
+		await vi.advanceTimersByTimeAsync(10_000);
+		expect(onLost, 'a goodbye after the poll is still a deliberate close').not.toHaveBeenCalled();
 	});
 
 	it('cancels a classification still walking, rather than leaving it to time out', async () => {
@@ -719,5 +791,18 @@ describe('stage-window — the document declares its language', () => {
 
 	it('falls back to en for a value that sanitizes to nothing', () => {
 		expect(buildStageDoc({ ...base, lang: '"><<>>' })).toContain('<html lang="en"');
+	});
+});
+
+// The runtime settles fonts two ways (lib/runtime/index.js `isPreviewFonts`): a document marked
+// `data-lattice-preview` waits for the faces its laid-out text uses; anything else force-loads every
+// declared face, which re-pends `document.fonts.ready` and holds the Stage's reveal to the font gate's
+// full backstop (lib/core/preview-font-gate.mjs).
+describe('stage-window — the runtime settles only the faces the stage lays out', () => {
+	const base = { html: '<i>x</i>', width: 100, height: 100, bg: '#000', css: '', runtimeUrl: '/r.js' };
+
+	it('marks the document as a preview, embedded and standalone', () => {
+		expect(buildStageDoc(base)).toMatch(/<html[^>]*\sdata-lattice-preview[\s>]/);
+		expect(buildStageDoc({ ...base, standalone: true })).toMatch(/<html[^>]*\sdata-lattice-preview[\s>]/);
 	});
 });

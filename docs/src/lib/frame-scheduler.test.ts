@@ -1,7 +1,16 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFrameScheduler } from './frame-scheduler';
 
-const tick = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// Every wait below is fake time stepped forward, so a frame, the coalesce timer, the watchdog and the
+// wall-clock backstop all land on the scheduler's own constants, whatever the machine's load. Faking
+// `performance` too makes the backstop's "took longer than heavyRenderMs" a reading of the fake clock.
+beforeEach(() => {
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance'] });
+});
+afterEach(() => {
+	vi.useRealTimers();
+});
+const tick = (ms: number) => vi.advanceTimersByTimeAsync(ms);
 
 describe('createFrameScheduler', () => {
 	it('renders once on the next frame, coalescing a burst into a single render', async () => {

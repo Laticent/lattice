@@ -22,9 +22,11 @@
 import { Mark, type Node as PMNode, type ResolvedPos } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
+import { namedCall } from '../../../../lib/core/named-span.mjs';
 import { deckSchema } from './deck-doc';
 import { closeFiloGroup, isFiloHistory } from './filo-history';
 import { isObjectSource } from './inline-object';
+import { takePendingSelection } from './pending-selection';
 import { PILL_SCOPE } from './pill-sheet';
 import type { PluginKindEntry } from './plugin-kind-entries';
 
@@ -265,12 +267,15 @@ export type PluginKindEdit = Record<string, string | number | boolean | null>;
 export interface PluginKindFields {
 	readonly entry: PluginKindEntry;
 	readonly written: Readonly<Record<string, unknown>>;
+	/** A kind with no slot: its record between the braces, as written (`Launch, hot` for `@k{Launch, hot}`). The panel edits it as one line. */
+	readonly record?: string;
 }
+
+/** The edit a slot-less kind takes: the whole record between its braces. A kind with a slot has named parameters instead, so the key cannot collide. */
+export const RECORD_EDIT = 'record';
 
 /** The names the engine already owns (an in-tree kind and its alias): a zip plugin cannot take one, so a span with this name is never a plugin's. */
 const IN_TREE_KINDS = new Set(['pill', 'spark', 'icon', 'avatar', 'check']);
-
-const NAMED_SPAN = /^@([a-z][a-z0-9-]*)(\{[^\n\r]*\})$/;
 
 let pluginKindProvider: () => readonly PluginKindEntry[] = () => [];
 
@@ -279,22 +284,42 @@ export function setPluginKindProvider(fn: () => readonly PluginKindEntry[]): voi
 	pluginKindProvider = fn;
 }
 
-/** The generic kind: a `@kind{…}` span the host cannot draw (the plugin's code runs only in the preview's sandbox), edited from the kind's declared slot. */
+/** The installed kind a whole `@kind{…}` call names, and its record (braces kept). The door's own rule (`namedCall`), so Compose owns only spans the door would draw. */
+function installedCall(src: string): { entry: PluginKindEntry; record: string } | null {
+	const call = namedCall(src);
+	if (!call || IN_TREE_KINDS.has(call.kind)) return null;
+	const entry = pluginKindProvider().find((e) => e.name === call.kind);
+	return entry ? { entry, record: call.record } : null;
+}
+
+/**
+ * The generic kind: a `@kind{…}` span the host cannot draw (the plugin's code runs only in the preview's sandbox). A kind that
+ * declares a slot is edited from it, parameter by parameter; a kind that declares none is edited as its record, one line of text
+ * (2026-10-14-plugin-inline-door.md §4.5).
+ */
 export const pluginKind: ObjectKind<PluginKindFields, PluginKindEdit> = {
 	id: 'plugin',
 	read: (src, k) => {
-		const m = NAMED_SPAN.exec(src);
-		const entry = m && !IN_TREE_KINDS.has(m[1]) ? pluginKindProvider().find((e) => e.name === m[1]) : undefined;
-		const written = entry && m ? k.record?.read(entry.slot, `${entry.plugin}.inline.${entry.name}`, m[2]) : null;
-		return entry && written ? { entry, written } : null;
+		const c = installedCall(src);
+		if (!c) return null;
+		if (!c.entry.slot) return { entry: c.entry, written: {}, record: c.record.slice(1, -1) };
+		const written = k.record?.read(c.entry.slot, `${c.entry.plugin}.inline.${c.entry.name}`, c.record);
+		return written ? { entry: c.entry, written } : null;
 	},
 	// The plugin's code is not run here, so there is no drawing: the object shows its source, still one tappable thing.
 	draw: () => null,
 	edit: (src, edit, k) => {
-		const m = NAMED_SPAN.exec(src);
-		const entry = m ? pluginKindProvider().find((e) => e.name === m[1]) : undefined;
-		const out = entry && m ? k.record?.edit(entry.slot, `${entry.plugin}.inline.${entry.name}`, m[2], edit) : null;
-		return out ? `@${entry?.name}${out}` : null;
+		const c = installedCall(src);
+		if (!c) return null;
+		if (!c.entry.slot) {
+			const body = edit[RECORD_EDIT];
+			if (typeof body !== 'string' || Object.keys(edit).length !== 1) return null;
+			// The new span must still be one whole call of this kind, or nothing is written (never a guess).
+			const out = `@${c.entry.name}{${body.trim()}}`;
+			return namedCall(out)?.kind === c.entry.name ? out : null;
+		}
+		const out = k.record?.edit(c.entry.slot, `${c.entry.plugin}.inline.${c.entry.name}`, c.record, edit);
+		return out ? `@${c.entry.name}${out}` : null;
 	},
 	name: (f) => `Edit ${f.entry.title ?? f.entry.name}`,
 };
@@ -652,6 +677,9 @@ export function isSilentPass(tr: Transaction): boolean {
  * (the caller re-points its emit baseline at the new slide nodes). Returns whether anything changed.
  */
 export function normalizeDeck(view: EditorView, kernels: InlineKernels, deckLiteral: boolean): boolean {
+	// Run when the kernels load or a deck is resynced, never from a key: read a caret move ProseMirror has not taken in
+	// yet, or the pass writes the old caret back over it (pending-selection.ts).
+	takePendingSelection(view);
 	const tr = normalizeObjects(view.state, kernels, deckLiteral, { sparing: false });
 	if (!tr) return false;
 	view.dispatch(tr.setMeta('addToHistory', false).setMeta(objectsKey, { silent: true } satisfies ObjectsMeta));
@@ -706,7 +734,7 @@ export function editObjectAsText(view: EditorView, pos: number): boolean {
 export function insertBlocker(state: EditorState, kernels: InlineKernels | null, deckLiteral: boolean, noun = 'pill'): string | null {
 	if (!kernels) return `The ${noun} editor is still loading.`;
 	const { $from, $to, empty } = state.selection;
-	if ($from.node(1)?.attrs.locked) return `This slide is edited in Markdown, so ${noun}s cannot be added here.`;
+	if ($from.node(1)?.attrs.locked) return `This slide is edited in Source, so ${noun}s cannot be added here.`;
 	if (deckLiteral || (($from.node(1)?.attrs.directives as string[]) || []).some((d) => d.includes(kernels.INLINE_CODE_LITERAL))) return `${noun[0].toUpperCase()}${noun.slice(1)}s are turned off here (inline-code: literal).`;
 	if (!$from.parent.inlineContent || $from.parent.type.spec.code || !$from.sameParent($to) || !$from.parent.canReplaceWith($from.index(), $to.index(), objectType())) return `Put the cursor in plain text on one line to insert a ${noun}.`;
 	// Inside the author's own code span the new object would split it in two.
@@ -754,6 +782,8 @@ export const installedPluginKinds = (): readonly PluginKindEntry[] => pluginKind
  * first value, or when the result does not read back as the kind: Insert then says it cannot start one.
  */
 export function pluginStarter(entry: PluginKindEntry, kernels: InlineKernels): string | null {
+	// A kind with no slot starts empty: its panel opens on the record, and the author types it.
+	if (!entry.slot) return pluginKind.read(`@${entry.name}{}`, kernels) ? `@${entry.name}{}` : null;
 	const values: string[] = [];
 	for (const p of entry.slot.positional ?? []) {
 		const t = (typeof p.type === 'string' ? { type: p.type } : p.type) as { type?: string; values?: readonly string[] } | null;

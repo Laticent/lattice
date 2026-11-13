@@ -1,0 +1,4 @@
+studio: +3300
+home: +1300
+playground: +700
+The Studio's drawer and note editors now edit a slide-metadata record in place (record note step 3), so the structured edit in `lib/core/meta-edit.mjs` grew by the record writer (the class-field mapping, the field and channel edits) and rides in the chunk Vite names `tts-voice-catalog` (+1,955 gzip bytes, CI-measured against main). The host's registers became record fields, so `meta-keys` carries their value table (+625), and the door in `comment-directive`'s chunk gained the record-parts reader and its memo (+542). Home mounts the Studio island and pays the last two; the playground pays `meta-keys`. Given back first: the editor no longer imports the migration module for one helper (`recordValue` moved to `lib/core/meta-internal.mjs`); that measured as no change, so the remainder is the feature. Each line rounded up for build noise.

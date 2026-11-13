@@ -6,7 +6,7 @@ reference: lib/plugins/
 tests: test/unit/plugins/conformance.test.js
 -->
 
-**Version:** 0.10-draft · **Status:** Draft · **Date:** 2026-11-02 · **Host API:** `api: 1`
+**Version:** 0.13-draft · **Status:** Draft · **Date:** 2026-11-10 · **Host API:** `api: 1`
 
 A **plugin** teaches Lattice something that works on any slide — a syntax (`$…$`), a fenced block
 (` ```functionplot `), the browser code that draws it and the CSS that paints it — as one folder
@@ -51,6 +51,8 @@ lib/plugins/<name>/
   <name>.hydrate.js       optional  the browser half: hydrate(el, ctx), or createPass(ctx) (§4.3)
   <name>.bake.js          optional  the CLI half: bake(source, ctx), Node-side (§4.5)
   <name>.highlight.js     optional  a highlight.js grammar for its code fences (§4.6)
+  <name>.source.mjs       optional  IN-TREE, EMBEDDED ONLY: the source hook, compileSource(source, ctx), a
+                                    pure transform of the deck the engine runs at entry, before admission (§3.3)
   <name>.dispatch.js      optional  IN-TREE ONLY: the module that calls an extension point's
                                     fillers, present exactly when the plugin offers one (§3.3).
                                     The build wires it into lib/plugins/dispatch.generated.js, the
@@ -216,12 +218,53 @@ lib/plugins/mark-off.mjs), so a `language-<fence>-source` block is marked too.
 | `meta` | a DATA PROVIDER for the slide-metadata vocabulary (design note 2026-10-17-meta-record.md §5.0): `{ fields: { <key>: { type, values?, scope?, bare?, local?, applied?, customProp?, complete?, describe? } }, markers?: [<name>…], comments?: { <key>: { kind: "structure" \| "channel" } } }`. It renders nothing; the build freezes it into `lib/plugins/meta.generated.mjs`, and every reader of a slide comment derives its key lists from there. A plugin that contributes it must be **embedded** (§3.1a: the host drops it from any `disabled` list and admits it whatever the default set says), at most one plugin may, and no `registers` key may repeat a field. **In-tree only** (§10). Additive: it changes no api 1 plugin | — (no role module) |
 | `returns` | `{ fields: { <field>: { type, values?, min?, max? } } }` — values a renderer may hand back besides its drawing. `type` is `word` (one of `values`), `number` (inside `min`/`max`), `flag`, `text` (control and bidi characters removed, no markup, 256 characters at most) or `markdown` (emphasis, lists, tables, code and quotes; no HTML, link, image or fence; 2,000 at most). At most 16 fields, named `[a-z][a-z0-9-]{0,31}` with no `--` and no trailing hyphen. The HOST writes each value as `data-returned-<plugin>--<field>` on the slide's own `<section>`, and fills `${field}` in the drawing's visible text (never inside a tag, comment, `<style>` or `<script>`; a markdown value as the host's own bare-tag HTML); a value its field does not admit disables the plugin for the render, with an alert (§4.2). Pinned into consent. No URL and no CSS-valued type | — (the renderer returns it) |
 | `diagnostics` | `{ "<name>/<id>": "message" }` — every ID reported on the plugin's behalf. A renderer reports through `ctx.report(id, detail)` (§5.1), which records a declared ID and throws on an undeclared one; the host itself reports `<name>/deprecated-alias` (a deprecated fence alias was used) | — |
+| `source` | `true` — a SOURCE HOOK: a pure transform of the deck's Markdown the engine runs at each public door (render, geometry, the pane probe), before plugin admission, the background-image lift, the pane gate and the parse, returning `{ source, diagnostics }` with every line where it was (same line count). The hook takes what it needs through `ctx` (the shared slide-metadata reader, the fence scan) and imports nothing outside its folder; its diagnostics join the render's as `<plugin>/…`. A plugin that declares it must be **embedded** (it runs on every deck, before the host knows which plugins the deck loads). **In-tree only** (§10: a zip plugin may not carry it). The `meta` plugin's door is the one hook (design note 2026-10-17-meta-record.md §5.1). Additive: it changes no api 1 plugin | `source.mjs` exporting `compileSource(source, ctx)` |
 | `codeRenderer` | `true` — the plugin renders every fenced block no plugin claims. At most one plugin | `render.js` exporting `codeRenderer`: `{ highlighter, render(token, ctx, base, info) }`, where `base(highlight)` runs markdown-it's own fence rule with that callback (null for plain text) and `info` is `{ name, drawn, record }` |
 | `services` | IN-TREE ONLY. Names of functions other code calls through the host (`ctx.service(plugin, name)`, `lib/core/plugin-services.js`), never by importing the plugin; with the plugin off the caller gets null | `services.js` exporting `services`, a factory `(ctx) => ({ <name>: fn })` with exactly these keys |
 | `lint` | IN-TREE ONLY. The lint rule ids the plugin reports (HARD RULE #7); a finding whose rule is not listed is refused | `lint.js` exporting `lint`, a factory `(ctx) => (deck) => findings`: pure and synchronous, run by `lib/authoring/lint-core.js` through `lib/plugins/lint.generated.js` |
 | `providers` | IN-TREE ONLY. Media providers as DATA (hosts, how an id is read from the parsed URL, link templates). The host owns the one matcher (`lib/core/video-providers.mjs`), reached as `ctx.provider(url)` | — (data) |
 | `registers` | IN-TREE ONLY. Front-matter registers as DATA, keyed by register key and class prefix (`icon:` → `icon-bare`). The host's register factory (`lib/core/register-factory.js`) builds each one | — (data) |
 | `data` | IN-TREE ONLY. `true`: plain data the plugin reads through `ctx.data()` / `ctx.dataPending()`, never by `require`, loaded lazily so a deck that does not use the plugin never loads it | `data.generated.js` |
+
+### 3.3.1 `fields` — what a zip inline kind is handed
+
+A zip kind that declares a `slot` is handed, as `fields`, the value the host's record reader
+(Segno, `@laticent/segno/read`) reads the span's record to, through a JSON round trip: plain
+data, never a function or a class, and only the slot's declared field names (no spellings, no
+tag). A kind with no `slot` is handed `fields: null`, and a span whose record does not read is
+not drawn. Under `api: 1` each declared field holds:
+
+| Field type | `fields` holds | Example |
+|---|---|---|
+| `text` | the text with its ends trimmed (spaces and no-break spaces; inner spacing kept) | `{Big  deal , 3}` → `"Big  deal"` |
+| `number` | `{ value, signed, unit }`: the number with its magnitude (`K` `M` `B` `T`) applied; whether the author wrote a sign or parentheses (`(5)` is −5, signed); and the unit, `"%"`, `"‰"`, one to six ASCII letters (`"kg"`, `"x"`, `"bp"`), or `""`. A currency sign is dropped | `12K` → `{ "value": 12000, "signed": false, "unit": "" }` |
+| `time` | `{ kind: "date", day }` (days since 1970-01-01), `{ kind: "q", year, idx }` (quarter, `idx` 0–3) or `{ kind: "m", year, idx }` (month, `idx` 0–11); `year` is `null` when the author wrote none (`Q3`, `Jan`) | `2026 Q1` → `{ "kind": "q", "year": 2026, "idx": 0 }` |
+| `id` | the id without its `#` | `#ana` → `"ana"` |
+| `oneOf` | the canonical value, whichever alias was typed | `warm` → `"hot"` |
+| `flag` | `true` when present | `done` → `true` |
+| `indexed` | the index, an integer | `c3` → `3` |
+| `list` | an array of the item type's values | `[a, b]` → `["a", "b"]` |
+| `range` | `{ from, to }`, each end in its item type's shape | `2026 Q1..2026 Q3` → `{ "from": {…}, "to": {…} }` |
+| `record` | an object of its own fields, by these same rules | `{4}` → `{ "x": { "value": 4, … } }` |
+
+`named: true` on a type changes how it may be written, not the value. An optional field the
+author left out is ABSENT, never `null`. Every row is pinned by
+`test/unit/cli/inline-fields-contract.test.js`, which reads each span through both readers the
+two doors use (the CLI's CommonJS build and the Studio's ESM one).
+
+A record that opens with `>` (`@kind{> a note}`) is a Segno DESCRIPTION, which stands alone and
+which no record slot takes, so such a span does not read and is not drawn (since #3038; before it,
+`{>a}` read as the text `">a"`).
+
+**This shape is PROVISIONAL with the rest of the zip half of `inline`** (§12), because #2686's
+record reader (2026-10-14-chart-authoring-uniform-model.md §5, §10) still plans two changes to what
+some spans read to: spellings the old-form branch reads are retired in its phase 4 (a dot-grouped
+`1.234.567` among them), and a thin space joins the whitespace a text's ends are trimmed of (today
+`{Q3\u2009, 3}` reads the label `"Q3\u2009"`). Each lands as a `**Breaking:**` entry in §12 and a
+change to the test's rows, not silently. From the freeze on, a reader change keeps one rule: **a span
+that reads keeps the `fields` it reads to; a change may only make a span that did not read, read.**
+The test holds that rule for the spans it lists, which is the reason to add a row whenever a new
+spelling matters to a plugin.
 
 ### 3.4 `payload`, `tokens`, `render`
 
@@ -509,6 +552,7 @@ plugin, when:
   plugin that is not embedded;
 - a `registers` key or class prefix collides with one the host or another plugin owns;
 - `meta` comes from a plugin that is not embedded, or from more than one plugin;
+- `source` is declared by a plugin that is not embedded, or `source.mjs` and the declaration disagree;
 - `dispatch.js` exists without an extension point, or an extension point has no `dispatch.js`;
 - a declared contribution has no module export, or a module exports one the manifest does not
   declare (syntax renderers, fence renderers, `hydrate` or `createPass`, `highlight`, `styles.css`,
@@ -560,10 +604,47 @@ leaves its fences as code blocks.
 | Channel | May carry |
 |---|---|
 | In-tree (`lib/plugins/`) | every contribution |
-| Zip — the Studio Library, `lattice packages add` (later phase) | `styles`, `diagnostics` and `returns` (data `contributes`), and the top-level `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence and its kinds with their slots, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload`, `meta`, `extensionPoints`, or the in-tree-only `services`, `lint`, `providers`, `registers`, `data`, `codeRenderer`, `draw` and `hostApi` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
+| Zip — the Studio Library, `lattice packages add` (later phase) | `styles`, `diagnostics` and `returns` (data `contributes`), and the top-level `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence, its kinds with their slots and its declared return fields, in a versioned text both doors accept every listed version of, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload`, `meta`, `extensionPoints`, or the in-tree-only `services`, `lint`, `providers`, `registers`, `data`, `codeRenderer`, `draw` and `hostApi` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
 | npm, by an explicit list (later phase) | every contribution, after the license grant |
 
 An embedded or essential plugin's name is reserved.
+
+**The address rule, on every channel.** A plugin's output reaches the slide as text, and the host never turns that
+text into an address. An address the viewer loads or scans (an image, a poster, a mask, a link, a QR code) comes
+only from the author's own content: a markdown-it token, an `@kind{…}` record, an element the engine stamped, or
+the author's own bullets (a `contact` field, a `qr` link). It never comes from inside `[data-lattice-plugin]`. Three
+mechanisms hold it:
+
+- **The readers.** A built-in pass that reads rendered slide text (`textContent`, a walk over `<li>`s, a regex over
+  a section's HTML) and writes an address reads through `maskPluginSubtrees` (`@laticent/markup`: it blanks plugin
+  subtrees and keeps offsets) or skips `closest('[data-lattice-plugin]')`. The QR, video and runtime readers do so
+  on the engine's HTML pass and the runtime's DOM pass alike. Three HTML halves (`logo-marks`, `team-profile`,
+  `collage`) rely instead on the door being the registry's LAST pass, which a test pins: no shipped HTML pass sees a
+  plugin's output. `checkSlideTextAddressReaders` (`tools/check-ownership.js`, via `build:check`) lists every
+  reader in `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS` with its reason, its address writes and its guard calls,
+  COUNTED. It fails on a new reader, a deleted guard, a new write and a stale entry. It is a census of files, not a
+  data-flow proof: its stated envelope is in the gate's header.
+- **The box.** A mask or a `closest()` holds only while the output stays inside its root once the browser parses
+  the page. The door refuses an `<li>` outside `ul`/`ol`/`menu` and a `<dd>`/`<dt>` outside `dl`
+  (`doorFinishFence`, `lib/core/door-attr.mjs`): their start tags close the nearest open item, walking past the
+  root `<div>`, so a plugin fence the author wrote in a bullet would otherwise land its item in the author's list.
+  Its PAINT stays in the box too, wherever the box lands: `contain:paint` on the root, in a slide
+  (`section div[data-lattice-plugin]`) and in every reading host, which copies a plugin's drawing whole: the player's and
+  webpage's article (`#lp-article`), the CLI's `--read` (`#lat-read`) and the Studio's Read view (`.st-read-article`). A
+  `position:fixed` box or the plugin's own stylesheet cannot cover the page, and a wide drawing scales to the column.
+- **The door's addresses.** It drops any address a plugin invents (`doorFilterAttr`), keeping only addresses the
+  slide already held, `data:` URLs and `#fragments`.
+
+So the door draws a plugin's fences on every slide, including the ones a shipped pass rebuilds. A span draws
+wherever the layout keeps it as markup; a layout that turns a label into text (a chart's SVG label) shows the span
+as written, and the door says so in a warning. `contact` and `wifi` keep only their card, which drops any code
+block, a plugin's included. A plugin that needs an address of its own (an in-tree `image` or `video`) reads it from
+its own record at render time and is never added to the sanctioned list: if the gate flags it, the code is wrong. On a Marp
+render, which has no token path, the record still comes from the author's Markdown, by one of two channels: marp-cli's config
+engine reads it from the tokens and writes it into a data block, and the VS Code preview reads the saved deck file. The runtime
+draws a lone span only when its exact text is one of those records, outside `[data-lattice-plugin]`, at most as many times as the
+Markdown holds it, and builds the figure from the record, not from the page (`lib/plugins/video/shared/video-marp-dom.js`).
+Rationale and the attack: `engineering/decisions/2026-10-16-media-plugins.md` §4.5.
 
 ## 11. Creating one
 
@@ -579,6 +660,30 @@ highlight.js language or alias, and at most 64 characters.
 
 ## 12. Changes
 
+- **0.13-draft, the source hook (2026-11-10).** §3.3 gains `source`: an embedded, in-tree plugin's pure transform of the
+  deck at engine entry, before admission, keeping every line where it was, with its tools handed in through `ctx`. It is
+  what lets the `meta` plugin compile slide-metadata records (`<!-- {layout=cards} -->`) to the engine's internal
+  comment before anything else reads the deck (design note 2026-10-17-meta-record.md §5.0, §5.1). Additive under
+  `api: 1`; a zip plugin's contribution allowlist does not include it, so plugin consent is unchanged.
+
+- **0.12-draft, a versioned consent text (2026-11-09).** §10's consent digest is over a text with a
+  version (`lib/core/code-shape.mjs` `CONSENT_VERSION`, `CONSENT_ACCEPTED`). Version 1 is the text
+  as it shipped, byte for byte; both doors accept an approval held under any accepted version, kept
+  pins included, so a later format change does not void approvals users hold. An approval covers
+  what its own version pinned: a later version that pins more protects an older approval only once
+  the older version leaves `CONSENT_ACCEPTED`.
+- **0.12-draft, what `fields` holds (2026-11-09).** §3.3.1 documents the value a zip inline kind
+  is handed per field type under `api: 1`, pins it with a test across both doors' readers (both
+  take `compileSlot` from Segno since #3038), records that a `{> …}` record is a description no
+  slot takes, names the two changes #2686's reader still plans, and states the rule a reader
+  change keeps from the freeze on. The zip half of `inline` stays provisional until that reader
+  lands.
+- **0.11-draft, the address rule (2026-11-09).** §10 states the rule every channel shares: an address the viewer
+  loads or scans comes only from the author's own content, never from inside `[data-lattice-plugin]`. Three things
+  hold it: the readers (`checkSlideTextAddressReaders`), the box (the door refuses a list item outside its own list),
+  and the door's addresses. The door no longer keeps a plugin off the slides a shipped pass rebuilds
+  (`lib/transformers/rebuilt-classes.js` is deleted): its fences draw on every slide, and its spans wherever the layout
+  keeps them as markup. No field changes; still `api: 1`.
 - **0.10-draft, the contract as it stands (2026-11-02).** No field changes meaning; the text catches up
   with the Hollywood contract (`engineering/decisions/2026-11-01-plugin-contract-hollywood.md` §9),
   still `api: 1`. §2 lists every role file (`inline`, `services`, `lint`, `page`, the three `draw`

@@ -13,6 +13,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const path   = require('path');
 const fs     = require('fs');
 const os     = require('os');
@@ -153,7 +154,8 @@ describe('export-formats', () => {
   // import (woff2-encoder) so that `--editable` died on "decompress is not a function".
   test('the published CLI bundle writes an editable .odp too', { timeout: TIMEOUT }, async (t) => {
     const bundle = path.join(ROOT, 'dist', 'lattice.js');
-    if (!fs.existsSync(bundle)) return t.skip('dist/lattice.js not built');
+    const why = skipUnlessCI(!fs.existsSync(bundle), 'dist/lattice.js not built');
+    if (why) return t.skip(why);
     const out = path.join(tmpDir(), 'deck.odp');
     const r = spawnSync(process.execPath, [bundle, FIXTURE, out, '--quiet', '--editable'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
     assert.equal(r.status, 0, `bundled CLI failed: ${r.stderr}`);
@@ -432,8 +434,9 @@ describe('export-formats', () => {
   }
 
   // Page 1 rendered to grayscale at 20 dpi: the mean of a corner region, 0 (black) to 255.
+  let cornerRuns = 0;
   function cornerMean(pdf, dir, { right = true, top = true } = {}) {
-    const base = path.join(dir, `corner-${Math.random().toString(36).slice(2)}`);
+    const base = path.join(dir, `corner-${++cornerRuns}x`); // a counter (and an end mark), so each raster has its own name
     execFileSync('pdftoppm', ['-gray', '-r', '20', '-f', '1', '-l', '1', pdf, base]);
     const file = fs.readdirSync(dir).map((f) => path.join(dir, f)).find((f) => f.startsWith(base) && f.endsWith('.pgm'));
     const buf = fs.readFileSync(file);

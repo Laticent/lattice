@@ -67,6 +67,9 @@ const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/checks.md', 'the demo deck for the embedded checks plugin: the `[x]` shortcuts and the `@check{…}` full form beside them, inline and in a pill (HARD RULE #9)'],
   ['examples/plugin-sandbox-tour.md', 'the demo deck for every plugin in the Studio and Playground, inline ones included: an icon, an avatar, a spark and a pill on one slide, so typing near them can be tried (HARD RULE #9)'],
   ['examples/checkbox-semantics.md', 'the demo deck showing an inline `[ ]` mark draws the same ring as a pricing row or a state-cells cell (HARD RULE #9)'],
+  ['examples/image-plugin.md', 'the demo deck for the image plugin and the shared display layer: its last slide shows a clip as a `>{…}` record beside the pictures (HARD RULE #9)'],
+  ['examples/video-plugin.md', 'the demo deck for the video plugin: its new slide writes the clip as a `>{…}` record, the short form (HARD RULE #9)'],
+  ['examples/bleed-auto-ink.md', 'the demo deck for a bleed slide\'s automatic ink: one slide writes its photo as an `@image{…}` record, to show the record reads its photo as the `![…](…)` shortcut does (HARD RULE #9)'],
 ]);
 
 /**
@@ -102,6 +105,7 @@ const USES_A_COMPONENT_PILL = new Map([
   ['lib/plugins/chart-family/kinds/roadmap/roadmap.gallery.md', 'roadmap: a `{Q2 2026}` pill on each phase header'],
   ['lib/components/chart/chart.gallery.md', 'the chart family gallery: its roadmap slide carries a `{date}` pill on each phase header'],
   ['examples/chart-family-coverage.md', 'a roadmap slide: a `{date}` pill on each phase header'],
+  ['examples/fluid-chart-redraw.md', 'a roadmap slide: a `{date}` pill on each phase header'],
   ['examples/data-viz-gallery.md', 'a roadmap slide: a `{date}` pill on each phase header'],
   ['examples/read-article-chart-paints.md', 'a roadmap slide: a `{date}` pill on each phase header'],
   ['examples/venue-marker-boxes.md', 'a roadmap slide: a `{date}` pill on each phase header'],
@@ -133,6 +137,7 @@ const USES_A_COMPONENT_PILL = new Map([
   ['lib/components/imagery/imagery.gallery.md', 'the imagery family gallery: its video slide names the clip with a `@video{…}` record'],
   ['examples/actors-dense-roster.md', 'actors: a `{name}` pill ends each responsibility row'],
   ['examples/chart-finishes-continuation.md', 'roadmap slides: a `{date}` pill on each phase header'],
+  ['examples/chart-phone-responsive.md', 'a roadmap slide: a `{date}` pill on each phase header'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);
 

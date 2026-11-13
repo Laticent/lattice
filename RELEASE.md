@@ -80,10 +80,14 @@ And install it the way a user will, in an empty directory, before the
 first publish of any new dependency shape:
 
 ```sh
-npm pack --pack-destination /tmp/p && for l in segno trama cadenza calco ltt mosaico fluido squadra markup; do npm pack -w @laticent/$l --pack-destination /tmp/p; done
+npm pack --pack-destination /tmp/p && npm pack --workspaces --pack-destination /tmp/p
 mkdir /tmp/room && cd /tmp/room && npm init -y && PUPPETEER_SKIP_DOWNLOAD=1 npm i /tmp/p/*.tgz
-npx lattice deck.md deck.pdf
+npx @laticent/lattice deck.md deck.pdf   # also: npx lat deck.md deck.pdf (the short bin)
 ```
+
+`--workspaces` packs every `@laticent/*` workspace, so a new dependency can't be left out.
+A hand-kept list here missed `@laticent/segno-markdown`, and the install then failed with a
+404 for a package that wasn't published yet (found 2026-11-11, PR #3142).
 
 ## Versioning
 

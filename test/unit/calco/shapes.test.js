@@ -13,6 +13,7 @@ const JSZip = require('jszip');
 const PptxGenJS = require('pptxgenjs');
 const { drawOrder, groupShapes, labelInsets, placePictures, shapeGeometry, writeOdp, writePptx } = require('@laticent/calco');
 const { ONE_PX_JPEG, ONE_PX_PNG, style, frame } = require('./_fixtures');
+const { scanWork } = require('../../helpers/work-count');
 
 const card = { kind: 'box', x: 100, y: 100, w: 300, h: 160, radii: [10, 10, 10, 10], fill: { color: '#f2f5fa', alpha: 1 }, stroke: { color: '#898e95', alpha: 1, width: 1 }, group: 0 };
 const accent = { kind: 'line', side: 'bottom', x: 110, y: 258.5, w: 280, h: 0, stroke: { color: '#2e608a', alpha: 1, width: 3 }, wrap: [10, 10], group: 0 };
@@ -144,9 +145,11 @@ describe('calco shapes — pptx', () => {
     assert.match(out, /<p:grpSp>.*name="A".*name="B".*<\/p:grpSp><p:pic\/><p:grpSp>.*name="C".*<\/p:grpSp>.*name="Free"/);
     // Many opening tags and no close: CodeQL's polynomial case for a regex over runs.
     const hostile = `calco-group-${'<p:sp>'.repeat(50000)}`;
-    const t = Date.now();
-    assert.equal(groupShapes(hostile), hostile);
-    assert.ok(Date.now() - t < 500, `took ${Date.now() - t} ms`);
+    // Work, not milliseconds (HARD RULE #32): one pass reads each character a few times. A scan that looks for the
+    // close from every opener reads about n / 12 characters per character here and fails.
+    const { result, scanned } = scanWork(() => groupShapes(hostile));
+    assert.equal(result, hostile);
+    assert.ok(scanned <= 8 * hostile.length, `the scan read ${scanned} characters for ${hostile.length}`);
   });
 
   test('groupShapes nests a pill\'s shapes as a group inside the card\'s group', () => {

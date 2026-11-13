@@ -107,6 +107,8 @@ afterEach(() => {
 // test stands on its own, in any order (#1324).
 async function setup() {
 	const user = userEvent.setup();
+	// These drive the stubbed Markdown editor, so open in Source (Compose is the default, 2026-11-10-compose-first.md).
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ editMode: 'source' }));
 	render(<StudioShell options={options} />);
 	// Explicit budget: this waits on Vite transforming the stub Editor module, ~0.4s idle but
 	// measured past the 1000ms `asyncUtilTimeout` default under CPU contention (#1806).

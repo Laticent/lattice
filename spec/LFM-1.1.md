@@ -131,11 +131,13 @@ specify them, and `split:` and `preset:` have none.
 | `spark:` | up to one word per axis: frame (`framed` `bare`), look (`pigment` `etch` `tone`), corners (`square` `rounded`) | The deck's default for inline sparks (§3.6). | `unknown-spark` |
 | `icon:` | up to one word per axis: frame (`framed` `bare`), look (`pigment` `etch` `tone`), corners (`square` `rounded`), draw (`font` `svg`) | The deck's default for inline icons (§3.6). `draw` says how an icon is drawn: a glyph of the Lattice Icons font (`font`, the default) or its drawing (`svg`); both look the same, and a renderer that has no icon font may draw `svg` for both. | `unknown-icon` |
 | `avatar:` | up to one word per axis: shape (`circle` `rounded` `square`), frame (`framed` `bare`) | The deck's default for avatars. | `unknown-avatar` |
+| `video:` | up to one word per axis: size (`md` `sm` `lg`), frame (`unframed` `mat` `keyline` `float` `device` `corners`), finish (`unfinished` `nimbus` `nimbus-20` `nimbus-40` `nimbus-60` `nimbus-80` `nimbus-full` `halo` `halo-20` `halo-40` `halo-60` `halo-80` `halo-full` `meridian` `meridian-20` `meridian-40` `meridian-60` `meridian-80` `meridian-full`), tone (`natural` `duotone` `duotone-20` `duotone-40` `duotone-60` `duotone-80` `duotone-full` `grayscale` `grayscale-20` `grayscale-40` `grayscale-60` `grayscale-80` `grayscale-full`) | The deck's default for video posters (the media display layer). A finish or tone word may carry its strength after a hyphen, or after an equals sign as a record writes it (nimbus=40). A slide's class or a record's own word overrides it. | `unknown-video` |
 | `inline-code:` | `rich` · `literal` | Whether the inline notation (§3.6) runs. `literal` leaves every single-backtick span as code. | `unknown-inline-code` |
 | `claim:` | `framed` · `quiet` · `hero` · `bleed` | The treatment of a slide's lead claim. | `unknown-claim` |
 | `color-mode:` | `light` · `dark` · `system` · `inherited` · `print` | Which palette the deck renders in. | `unknown-color-mode` |
 | `fit:` | `heal` · `report` · `trim` | What the renderer may do to make a slide fit: repair, only report, or cut. A renderer SHOULD accept the older key `guards:`, whose values map `loose` to `heal` and `strict` to `trim`; `fit:` wins when both are set. | `unknown-fit` |
 | `venue:` | `laptop` · `huddle` · `conference` · `hall` | Where the deck is seen, which sets its type scale. | `unknown-venue` |
+| `typography:` | `classic` · `ledger` · `poster` · `festival` | The curated type set: heading and body faces, the eyebrow and the chart text. A preset may carry one; this key wins. | `unknown-typography` |
 
 **Settings** carry a value that is not one word from a list.
 
@@ -143,6 +145,8 @@ specify them, and `split:` and `preset:` have none.
 |---|---|---|---|
 | `logo:` | a path or URL | The deck's logo on every slide. | — |
 | `logo-finish:` | up to one word per axis: a placement (`top-right` `top-left` `top-center` `bottom-left` `bottom-center` `bottom-right`), a color (`auto` `accent` `ink` `muted` `canvas` `inverse` `brand` `accent-ink` `accent-canvas` `ink-canvas`), a plate (`no-plate` `plate`), a size (`md` `sm` `lg`), a scope (`all` `title`) | How the logo looks and where it sits. A placement word hides the header, footer or page number in that band. | `unknown-logo-finish` |
+| `progress-rail:` | up to one word per axis: a placement (`right` `center` `edge`), a style (`dots` `bar`), a show (`on` `off`) | Where the section rail sits and how it looks. By default it draws in a deck of 3+ sections and 15+ slides; `on` lowers that to 2 sections, `off` hides it. | `unknown-progress-rail` |
+| `agenda:` | up to one word per axis: a style (`ledger` `circles` `checks`), a pages (`pages` `no-pages`) | How every agenda that names no style of its own looks, and whether an agenda filled from the dividers shows each section's page number. An agenda the author wrote keeps its own list and page numbers. | `unknown-agenda` |
 | `plugins:` | a list of plugin names | The plugins the deck needs loaded. It only adds: a renderer that loads more by default still does. | `unknown-plugin` |
 
 **Delivery** keys change no rendered pixel. They tell a self-presenting player how to
@@ -580,6 +584,7 @@ LFM 1.1 deliberately does **not**:
 | 1.1-draft | 2026-10-16 | §2.3 adds the four registers the reference implementation read but the table omitted: `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` and the avatars plugin's `avatar:`. An L2 tool SHOULD report an unknown top-level key as `unknown-key`. Additive. The table is now checked against `lib/core/deck-settings.js`, so a register the engine reads cannot go missing from it again. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-10-15-conformance-harness.md` §9 phase 1. |
 | 1.1-draft | 2026-10-20 | §2.3: `header` and `footer` in a slide comment apply to that slide only, in either spelling; only front matter sets them for every slide. `paginate` is front matter only, on by default, and a slide comment for it has no effect (classes decide, audit §11s). A change to a normative meaning that departs from Marpit, landed before ratification (§7); the engine's changelog carries the `Breaking:` line. Owner ruling: `engineering/decisions/2026-10-16-preview-as-library-audit.md` §11r. |
 | 1.1-draft | 2026-10-29 | The header line no longer says nothing in 1.0 changes meaning. It names what 1.1 changes from 1.0: the `header`/`footer` and `paginate` keys (§2.3), which 1.0 left to Marpit, and the heading split (§2.2), which 1.0 left optional. Editorial: it states what the 2026-10-08 and 2026-10-20 rows already landed. |
+| 1.1-draft | 2026-11-10 | §2.3 adds `video:`, the video plugin's register for the media display layer (size, frame, finish, tone). A word may carry its strength the record's way (`nimbus=40`), read as the hyphen word. Additive. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-10-16-media-plugins.md` §4.7. |
 
 ## Appendix A — A worked example (informative)
 

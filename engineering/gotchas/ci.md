@@ -646,7 +646,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Symptom:** `studio-smoke` is red while `ci` is green, or the reverse. On a markdown-only PR
   one e2e test fails.
 - **Cause:** `studio-smoke` is advisory by design. The `ci` job's `needs` are `changes`, `lint`,
-  `unit`, `integration`, `docs-build` and `player-webkit`, and `.github/workflows/ci.yml`
+  `unit`, `integration`, `docs-build`, `docs-test` and `player-webkit`, and `.github/workflows/ci.yml`
   (around lines 975-982) says `golden-diff` and `studio-smoke` are "intentionally ABSENT" from
   them: they run and report, and they do not gate. It promotes into `needs` only after a nightly
   green streak (#800).
@@ -700,6 +700,44 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Triggered by:** a jsdom window with `pretendToBeVisual` that runs the runtime and is closed
   after the runtime's observer is live.
 - **Removable when:** jsdom clears its animation-frame interval on `close()`.
+- **Not only an escaped error:** a test process that dies prints the same line. An out-of-heap
+  crash (`FATAL ERROR: … JavaScript heap out of memory`) and a `SIGKILL` both show as a bare
+  `'test failed'` under the dot reporter, which drops the child's stderr. Re-run with
+  `--test-reporter=spec` to see which.
+
+## A jsdom walk over many documents keeps them all, by two different holds
+
+- **Symptom:** a test that parses many documents in jsdom grows its live heap with every one,
+  though it keeps no reference to them. `test/unit/core/prose-binding.test.js` held ~2.0 GB live
+  after a full mark-compact by its last deck, and died as a bare `'test failed'` when its heap
+  limit was lower (`--max-old-space-size=1500` reproduces it in about a minute).
+- **Cause:** two holds, measured over the gate's first 150 decks (live heap after `gc()`):
+
+  | windows | between decks | live heap |
+  |---|---|---|
+  | one, for the whole walk | nothing / a `setImmediate` | 715 MB / 715 MB |
+  | one per deck, closed | nothing | 858 MB |
+  | one per deck, closed | a `setImmediate` | 98 MB |
+
+  **The first hold** is a listener leak in the selector engine. jsdom 29.1.1 gives each document a
+  `DOMSelector` from `@asamuzakjp/dom-selector` 7.1.1 the first time it is queried
+  (`querySelectorAll`, `matches`, `closest`). Its `Finder` constructor (`src/js/finder.js`,
+  `_registerEventListeners`) adds 9 capture listeners (focus, keyboard, mouse) to the shared
+  window. Nothing ever removes them, so the window holds every queried document. Measured on one
+  window with 300 large documents: parsing alone frees them all; querying each one adds 2,700
+  listeners and keeps 1,966 MB live; the same queries with `addEventListener` stubbed out free
+  them all again. Found together with the session fixing flaky tests on another machine, whose
+  heap snapshot showed the same 2.1 GB retained.
+
+  **The second hold:** a dropped window, closed or not, stays alive until the event loop takes a
+  macrotask turn (~0.9 MB each, with what it parsed). A microtask `await` is not a turn, and
+  node:test runs synchronous tests back to back without one. Why the window waits for a turn is
+  not pinned down: jsdom 29 makes no `WeakRef` on this path.
+- **Fix:** a window per unit of work, closed with it, and a macrotask turn after each:
+  `afterEach(() => new Promise((resolve) => setImmediate(resolve)))` when each unit is its own test.
+- **Triggered by:** hundreds of jsdom documents in one test file.
+- **Removable when:** dom-selector removes its listeners (or jsdom stops sharing the window) for
+  the first hold; jsdom frees a closed window at once for the second.
 
 ## The root-install jobs fail with `Cannot find module 'yjs'` (or `lib0`, `y-protocols`) from a Tavola adapter
 
@@ -725,6 +763,25 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **How to tell it from a real failure:** the job log stops at `npx playwright install` and the Playwright report artifact is empty. A real test failure prints the failing spec.
 - **Triggered by:** GitHub moving the `ubuntu-latest` label.
 - **Removable when:** never, as a rule: since 2026-11-05 every runner is pinned to a named image (`checkRunnerPins`). Move to a newer image in its own PR, once the Playwright pin (and the pinned browser builds the goldens and `@visual` baselines depend on) supports it.
+
+## `player no-JS (WebKit)` or an iOS undo job is cancelled at its limit with no test failed
+
+- **Symptom:** `player no-JS (WebKit)` is cancelled at 25 minutes inside its install step, the log a stream of `Get:` and `Ign:` lines from `azure.archive.ubuntu.com`. Or an `ios-safari-undo` job is cancelled at 30 minutes after one or two devices passed. Either way no test failed, and a re-run often goes green, which is what makes it look harmless.
+- **Cause:** two deadlines that depended on something the test did not control (`engineering/decisions/2026-11-06-flaky-tests.md`). The WebKit job ran `playwright install --with-deps webkit`, which apt-installed about 180 packages from Ubuntu's mirror on every run (F6): over 17 runs on 2026-11-10 the step took 36 s at the median, but 5 took over 2 min, 2 over 10, and one never finished. The undo suite ran an iPad, an iPhone and the Mac's Safari one after another in one 30-minute job (F4): a passing run took 25.4 min, about 3 min of probe per device and the rest simulator boots.
+- **Fix:** WebKit and its packages come from GitHub's cache through `.github/actions/playwright-browsers` (`browsers: webkit`; it was `playwright-webkit` until 2026-11-11, when every browser and apt install moved onto the cache, see the next entry), which `apt-cache-warm.yml` and the WebKit nightly (`webkit-baselines-nightly.yml`) warm on `main`; Ubuntu's mirror is read only on a cache miss. The key carries the runner image's version and falls back to the previous image's entry; when those packages no longer fit the newer image (several pin each other's exact versions), `.github/actions/apt-cached/apt-cached.sh` repairs from the mirror with a `::warning::` and the cache saved under the new image's key fits. A warning on every run means the repair is not reaching the cache: delete the caches whose key starts `playwright-<ImageOS>-<arch>-<version>-webkit-` and let the nightly rebuild them. The undo suite is three suites, `ios-safari-undo-ipad`, `-iphone` and `-mac` (`DEVICES` in `docs/scripts/ios-safari/run.sh`), each with the whole job limit.
+- **How to tell it from a real failure:** the log stops before any test output. Do not re-run it until green (HARD RULE #32): find which external fetch or which device ran long.
+- **Triggered by:** a slow mirror, or a slow simulator boot on a hosted Mac.
+- **Removable when:** the install no longer touches the network at all (a runner image with the packages baked in).
+
+## Every integration shard fails in `apt-get install poppler-utils` with `Temporary failure resolving 'azure.archive.ubuntu.com'`
+
+- **Symptom:** all four `integration (node 22, shard N/4)` jobs go red within a few minutes of each other, before any test runs. The log ends `E: Unable to fetch some archives` with `Temporary failure resolving 'azure.archive.ubuntu.com'`, exit 100. On 2026-11-11 it hit PR #3136 twice, about 35 minutes apart.
+- **Cause:** DNS for Ubuntu's Azure-backed mirror names (`azure.archive.ubuntu.com`, `us.archive.ubuntu.com`) failed about half the time that day, from GitHub's runners and from an unrelated network alike. The step ran `sudo apt-get update && sudo apt-get install -y poppler-utils …` against Ubuntu's mirror on every run, with no cache and apt's defaults (no retries). The runner image reads its mirrors from a short list (`mirror+file:/etc/apt/apt-mirrors.txt`), and a DNS failure on the first one failed the step.
+- **Fix:** every apt install in CI goes through `.github/actions/apt-cached`, and every Playwright browser through `.github/actions/playwright-browsers`: the `.deb` files come from GitHub's cache, keyed on the runner image and the package list, and the mirror is read only on a miss or a repair. Before any mirror call, `apt-cached/apt-setup.sh` writes a longer mirror list, in a measured order (`mirrors.edge.kernel.org`, `archive`, Princeton, then the Azure-backed `azure.archive` and `us.archive`, then `security`: on 2026-11-11 the two Azure-backed names failed DNS about half the time from a network unrelated to GitHub's, the others at most once in 20) and `Acquire::Retries "3"` with 30 s timeouts, and the script tries each mirror call three times (owner call, 2026-11-11). apt's timeouts bound one fetch, not a call, so on 2026-11-12 an `apt-get update` whose connection kept trickling sat 24 minutes in InRelease fetches until the job was cancelled (run 43162229732; three integration shards of #3144 did the same). Since then `apt-get update` and the package download each run under a hard 150 s deadline (`APT_DEADLINE`), each retry first rotates the mirror list (`apt-setup.sh N`; `security.ubuntu.com` stays last) so a stalling mirror is not first for every try, and the install itself runs apart from the network, from the downloaded `.deb` files only (`--no-download`), so a deadline never kills dpkg mid-configure. Worst case a mirror call now gives up in about 17 minutes (three tries of two 150 s phases, 15 s each to kill, 30 s of waits) and fails with its own message, instead of running silently until the job is cancelled. Those numbers came from a sandbox behind a proxy: `apt-mirror-probe.yml` times every listed mirror from a GitHub runner every four hours (`tools/apt-mirror-probe.mjs`: DNS lookup, first byte, download speed) and ranks the past week of runs in its summary, which is what the order should follow. Every download is computed against dpkg's package list as it was before the job's first install, so an entry holds what the runner image lacks whatever ran earlier in the job; a failed run leaves no folder for the cache to save. GitHub scopes caches by branch and `ci.yml` runs only on pull requests and the merge queue, so nothing a PR saves reaches the next PR: `apt-cache-warm.yml` runs every distinct call on `main` every 30 minutes (one matrix row each, a hit costs seconds), so a new list or a new runner image has an entry on `main` within the half hour. Not every six hours, because the repository's caches sit at GitHub's 10 GB limit and GitHub evicts the least recently used past it: on 2026-11-12 the warmer's `cache usage` job measured 10.25 GB in 54 entries with the least recently used entry last touched 84 minutes earlier, so an entry restored less often than that is evicted. Per-PR `puppeteer-*` entries were the largest share (2.77 GB in 12 entries; followups.d 3145-p2). The Playwright container job's image already ships `git`; if a later image does not, an inline step (before checkout) installs it from its own cache, through the same mirror list and retries.
+- **How to tell it from a real failure:** the log stops in the install step, before `npm ci`. With the cache warm, a mirror outage now shows only as a `::warning::` on a cache miss or a repair.
+- **Kept fixed by:** `checkRawAptInWorkflows` in `tools/check-ownership.js` (via `build:check`) fails on an `apt-get`, `apt`, `aptitude`, `apt-fast` or `nala` install, update or download (options and `\`-continued lines included), `playwright install-deps`, or `playwright install --with-deps` in `.github/workflows/`, so a new step that reads the mirror in any of the usual ways fails the build (step names and `echo`/`printf` text are prose and pass; a folded `>` scalar or a command held in a variable is not caught, and review is the backstop); the one inline install that must (the container job's `git`, before checkout) is in `SANCTIONED_RAW_APT` with its exact line count. `checkAptCacheWarmer`, in the same file, reads every `apt-cached` and `playwright-browsers` call in the other workflows and fails when one has no row in `apt-cache-warm.yml` (match on runner, container, sorted list and, for Playwright, the folder that pins its version) or a row matches no call. Each `apt-cached` call also writes one line to its job's summary: the cache answered **hit** (this image's entry), **fallback** (the last image's entry, restored through the restore key) or **miss**, and what the mirror had to supply. The same `repair` line on run after run is an entry that no longer fits: delete the caches whose key starts with that line's folder name. `apt-cache-warm.yml` turns that into a red run: both actions expose the answer as step outputs (`key`, `cache`, `repaired`), and a warmer job whose entry restored as an exact **hit** and still repaired fails, naming the key to delete. One run is proof, because actions/cache never saves over an exact hit, so that entry repairs in every job that restores it until the runner image moves. A repair after a **fallback** or a **miss** passes: it is how a new image gets its entry, and the next warmer run shows a clean hit. To clear it, delete every entry whose key starts with the folder name (the `base` output), not just the one key: the restore key would fall back to the older entry that seeded the misfit, and the next save would repeat it. Three more ways the warmer could pass while wrong are checks too. A warmer job that did not hit saves its entry itself and then looks it up by its exact key (`lookup-only`, and its `cache-hit` output, which a longer key that only starts with this one does not set), waiting a minute and looking once more in case another job holds the key while it uploads; so a save that fails is red in the same run instead of a fallback and repair on the next one. The action's post step then archives the set again and is refused the taken key ("Failed to save: Unable to reserve cache"), which is expected. The container row fails unless its image ships `git`, because `studio-e2e-nightly.yml`'s firefox-webrtc job installs git first when it is missing, and that changes the dpkg package list a container key hashes. And `apt-cached.sh` waits out another process holding dpkg's lock (three tries, then it fails) instead of reading the lock as a set that does not fit. The warmer's `cache usage` job prints what every cache in the repository weighs against GitHub's default 10 GB (a repository can set its own, and the figure can lag the newest saves), and warns past 8 GB, because past the limit GitHub evicts the least recently used entries.
+- **Triggered by:** a DNS or network failure between the runner and Ubuntu's mirrors.
+- **Removable when:** the runner image carries the packages (then the cache step finds them installed and downloads nothing).
 
 ## `studio-smoke` red on "the pre-paint replay never ran"
 
@@ -761,3 +818,87 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   nothing: since 2026-11-04 the `alert` job files no issue for it, and `platform-suites-supervisor.yml` re-runs the job once.
   `npm run evidence` no longer lists a suite for dispatch when the PR run already starts it.
 - **Record:** `engineering/decisions/2026-11-04-ci-flake-audit.md` §5 and §6 (D2, decided A).
+
+## A spec on `serveDist` draws no diagram, even online
+
+- **Symptom** — a spec that serves the built site with `docs/e2e/serve-dist.ts` (the PWA and offline specs) sees a
+  Mermaid fence settle `error`, and the console says "Access to script at …/frames/mermaid/… from origin 'null' has
+  been blocked by CORS policy".
+- **Cause** — the sandboxed draw frame has origin `null` and imports Mermaid's module graph from `frames/`, which needs
+  `Access-Control-Allow-Origin: *`. GitHub Pages sends it on everything, and `preview-e2e.mjs` and `serve-h2.mjs` match
+  it; `serve-dist.ts` did not, so no test on it could draw a diagram.
+- **Fix** — `serve-dist.ts` sends the header (2026-11-12). A new static server for tests sends it too.
+
+## A spec with its own `http` server hangs at its test timeout after every step passed
+
+- **Symptom** — the trace's last step passes, nothing more is recorded, and the test dies at its test timeout
+  (`read-article-beacons.spec.ts`, 2 of 10 runs under load, at 300 s).
+- **Cause** — `server.close()` in the `finally` waits for every open connection to end, and the browser keeps its
+  keep-alive connections to the loopback server open.
+- **Fix** — call `server.closeAllConnections()` before `close()`, as `studio-warm-offline.spec.ts` does.
+
+## A Chromium-backed test file reads green in CI when the runner has no browser
+
+- **Symptom:** A render-backed `node --test` file passes in CI, and nothing in the log says it never rendered a slide.
+- **Cause:** The file resolved Chromium itself and, finding none, declared
+  `test('SKIPPED — no Chromium available', { skip: true }, () => {})` and returned. `node --test` counts a skipped test
+  as passing and reports nothing at the file level, so a runner that lost its browser turns the whole suite green. Twelve
+  integration files did this until 2026-11-12.
+- **Fix:** Resolve with `resolveChrome` and gate with `skipWithoutChrome` from `test/helpers/chrome.js`: it skips on a
+  laptop with no browser and returns `false` under `CI`, so the test runs and fails loudly in any job that expects a
+  browser. For any other tool or build output, `skipUnlessCI(missing, reason)` does the same. `checkFlakyTests` counts a
+  literal `{ skip: true }` as a `disabled-test` and a machine-dependent skip that bypasses both helpers as an `env-skip`
+  (HARD RULE #33); the second is baselined, so its count can only fall.
+
+## An e2e that counts something in the preview frame, then measures it, fails with "Frame was detached" on WebKit
+
+- **Symptom** — `locator.evaluateAll: Frame was detached` (or "Execution context was destroyed") right after a `toHaveCount` through `livePreview(page)` passed, usually after a `setViewportSize`; 1 run in 18 alone on `webkit-phone`, more under load (`plugin-placeholder-cells.spec.ts`, `library-images-render.spec.ts`).
+- **Cause** — a resize mounts a fresh preview frame, hidden until it reveals, and the old one goes away. The count found the old frame and the measurement the gap between them; a `:visible` locator re-resolves the same way (`plugin-returns.spec.ts`: a strip remounted closed after the check).
+- **Mitigation** — read and measure in ONE `page.evaluate` that finds the frame from the parent (`document.querySelector(LIVE_PREVIEW)`), returns null until that frame is revealed (`style.opacity === '1'`) and holds what the test needs, and poll it. Never split "is it there" and "how big is it" across two calls through a frame locator.
+- **Triggered by** — any e2e that resizes, then measures inside the preview.
+- **Removable when** — never.
+- **Commits** — the flaky-e2e touch PR of 2026-11-12.
+
+## A hang guard on a synchronous call never fires, and the test runner hangs instead of failing
+
+- **Symptom:** a test guards against a hang with node:test's `{ timeout }`, a `Promise.race` against a timer, or a
+  stopwatch assertion after the call. When the code under test does hang (a QuickJS loop the wall's limit no longer
+  stops, a `readFileSync` on a FIFO with no writer), the test neither passes nor fails: the runner sits at 100% CPU or
+  blocked, and CI fails only at its job limit with no test named.
+- **Cause:** every one of those guards is a timer or an assertion that runs AFTER the call returns, and a synchronous
+  call that never returns blocks the event loop, so no timer of that process can fire. node:test's own `timeout` is a
+  timer too. Seen 2026-11-12 on `test/unit/plugins/katex-wall.test.js`: with the wall's interrupt handler removed
+  before a result is read, a hostile getter spun for minutes under a 120 s test `timeout`.
+- **How to tell:** the hanging call is synchronous (WebAssembly, `fs.*Sync`, a regex `exec`, a tight loop) and the
+  process shows one core pinned or a blocked read.
+- **Fix:** run the call that might hang in a child process (`spawnSync(process.execPath, ['-e', script], { timeout })`)
+  and assert `signal === null`: the kernel kills the child at the deadline whatever its event loop is doing, so a hang
+  becomes a clean failure. The deadline is a hang guard, sized far above the normal cost, and passing never depends on
+  it (HARD RULE #32, F4). Assert on what the child reports (an error message, a count of reads, where a fake clock
+  stopped), never on how long it ran. `katex-wall`'s LIMITS test and `npm-plugin-loader`'s FIFO test are the pattern.
+- **Cost of not knowing this:** a guard that reads as protection and catches nothing; the rewrite's own failing arm is
+  how this one was found.
+
+## A gate test fails with ENOENT on a file nobody committed (`__or_probe__.astro`)
+
+- **Symptom:** under load, or with two suites running at once, a test that walks a real folder (here
+  `checkAudioPlaybackBoundary` over `docs/src`) throws `ENOENT: no such file or directory, open
+  '…/docs/src/pages/__or_probe__.astro'`. Seen 2026-11-12 in the unit-tier load sweep, never on an idle run.
+- **Cause:** another test wrote a probe file INTO the live checkout and deleted it in `finally`. A concurrent walk listed
+  the probe, then read it after it was gone (HARD RULE #32, F7). The voice-sample tests did the same with a worse
+  failure: they renamed the real, paid-for `docs/public/voice-samples` aside to a fixed `.test-backup` name, which two
+  concurrent runs race on.
+- **Fix:** a gate a test feeds fixtures to takes its root (`checkOpenRouterBudget(errors, root)`,
+  `checkVoiceSampleAssets(errors, samplesDir)`), and the test passes a `mkdtemp` tree. Never write a probe under the repo.
+
+## A test is red in the cloud sandbox and green on CI: two different Chromes
+
+- **Symptom:** an integration test fails every time in the sandbox and passes on CI, with no flake.
+- **Cause:** CI's integration job uses puppeteer's pinned Chrome (131.0.6778.204, from `~/.cache/puppeteer`).
+  The sandbox exports `CHROME_PATH` and `PUPPETEER_EXECUTABLE_PATH` as `/usr/bin/google-chrome`, Chrome for
+  Testing 153. Two builds round and serialize differently: 153 snaps outline widths and offsets to whole pixels
+  (`calco-focus-column`), and writes keyword background positions as `calc()` (`contrast-probe-gradient`).
+- **Fix:** a test asserts what the browser itself reports, read from the same page, never one build's rounding
+  as a constant. To run a file on CI's build: `npx puppeteer browsers install chrome@131.0.6778.204`, then set
+  both `CHROME_PATH` and `PUPPETEER_EXECUTABLE_PATH` to the path it prints (a test may read either).
+- **Removable when:** the sandbox and CI pin the same Chrome.

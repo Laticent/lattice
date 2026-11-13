@@ -384,7 +384,10 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
     assert.notEqual(r.display, 'none', 'the source is shown');
     assert.match(r.text, new RegExp(SENTINEL));
     assert.ok(r.gaveUpLines.some((l) => /plugin host could not load its library/.test(l)), r.gaveUpLines.join(' | '));
-    assert.ok(r.settledMs < 2000, `settled in ${r.settledMs}ms, want < 2000ms`);
+    // FAST is pinned by ORDER and by WHICH arm gave up, not by a stopwatch (HARD RULE #32): the deadline arms
+    // name their wait ("after …ms", "… frames elapsed") and must not be the ones that fired. A `settledMs < 2000`
+    // bound stood here and failed at 2351ms on a loaded box with the release itself correct.
+    assert.ok(!r.gaveUpLines.some((l) => /window\.mermaid after \d+ms|\d+ frames elapsed/.test(l)), `a deadline arm gave up: ${r.gaveUpLines.join(' | ')}`);
     // …and BEFORE `load`: the runtime inserts the payload's script while the document is still
     // loading, so its failure lands before `load` fires — as the old parser-inserted tag's did.
     // This is what the print path (PrintOptionsPanel.tsx) relies on.
@@ -483,7 +486,11 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
     // three cells above stay green.
     const r = await readFence({ mermaid: false });
     assert.equal(r.settled, true);
-    assert.ok(r.settledMs < 2000,
-      `the give-up must not wait out the deadline — settled in ${r.settledMs}ms, want < 2000ms`);
+    // Which arm gave up, not how long it took (HARD RULE #32): delete the synchronous arm and the deadline arm
+    // fires instead, naming its wait. A `settledMs < 2000` stopwatch stood here.
+    assert.ok(r.gaveUpLines.some((l) => /naming mermaid has had its turn/.test(l)),
+      `the synchronous arm must be the one that gave up: ${r.gaveUpLines.join(' | ')}`);
+    assert.ok(!r.gaveUpLines.some((l) => /window\.mermaid after \d+ms|\d+ frames elapsed/.test(l)), `a deadline arm gave up: ${r.gaveUpLines.join(' | ')}`);
+    assert.equal(r.stateAtLoad, 'unavailable', 'the fence was already handed back when `load` fired');
   });
 });

@@ -5,6 +5,15 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const t = require('../../../lib/transformers/logo-marks');
+const measureKit = require('../../../lib/core/measure-kit');
+
+// The signal a wall's measurement is over (HARD RULE #32). Every step of a measurement here is a promise job (the stub
+// fetch answers at once), and one macrotask turn runs them all; then the document's measure-kit registry must hold no run.
+// A wall that only finished at its cap is still measuring here, so it fails instead of passing late.
+const measured = async (document) => {
+  await new Promise((r) => setImmediate(r));
+  assert.equal(measureKit.registryOf(document).runs.size, 0, 'every run finished on its own, not at the cap');
+};
 
 const wrap = (cls, inner) => `<section id="1" class="${cls}">${inner}</section>`;
 
@@ -69,7 +78,7 @@ describe('logo-marks — the live stamp packs the same lists the CLI stamp does'
   const live = async (html) => {
     const { document } = new JSDOM(`<body>${html}</body>`).window;
     t.applyToDom(document);
-    await new Promise((r) => setTimeout(r, 50));
+    await measured(document);
     return document.querySelector('.cell-stage > ul').getAttribute('data-logo-wall');
   };
   const cli = (html) => /<ul[^>]*data-logo-wall="([^"]*)"/.exec(stampWall(html))?.[1] ?? null;
@@ -120,7 +129,7 @@ describe('logo-marks — a wall seen before stamps at once', () => {
     document.body.innerHTML = wall(['acme', 'crest', 'dot']);
     t.applyToDom(document);
     assert.equal(stampOf(document), 'measuring', 'the first visit waits for the fetches');
-    await new Promise((r) => setTimeout(r, 20));
+    await measured(document);
     assert.equal(stampOf(document), 'packed');
     assert.equal(calls.length, 3);
     // The Studio swaps the slide in place: a fresh wall with the same marks.
@@ -135,10 +144,10 @@ describe('logo-marks — a wall seen before stamps at once', () => {
     const { document } = dom.window;
     document.body.innerHTML = wall(['late']);
     t.applyToDom(document);
-    await new Promise((r) => setTimeout(r, 20));
+    await measured(document);
     document.body.innerHTML = wall(['late']);
     t.applyToDom(document);
-    await new Promise((r) => setTimeout(r, 20));
+    await measured(document);
     assert.equal(calls.filter((u) => u.endsWith('/late.svg')).length, 2);
   });
 
@@ -148,7 +157,7 @@ describe('logo-marks — a wall seen before stamps at once', () => {
     for (let visit = 0; visit < 2; visit++) {
       document.body.innerHTML = wall(['gone']);
       t.applyToDom(document);
-      await new Promise((r) => setTimeout(r, 20));
+      await measured(document);
     }
     assert.equal(calls.filter((u) => u.endsWith('/gone.svg')).length, 2);
   });

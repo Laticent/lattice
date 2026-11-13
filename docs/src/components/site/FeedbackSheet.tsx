@@ -94,7 +94,6 @@ export function FeedbackSheet({
 			<PanelHeader
 				icon={<MessageSquareHeart />}
 				title="Send feedback"
-				srDescription="You'll finish this on GitHub — we'll have it filled in for you, and you can look it over before it posts."
 			/>
 			<PanelBody className="space-y-5">
 					{/* The lede the header used to carry. It belongs above the form it describes,

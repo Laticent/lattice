@@ -1,0 +1,220 @@
+{
+ "$comment": "The cases every reader of 'is this picture the slide's placed photo?' must answer alike. The rule is one kernel, lib/core/placed-picture.mjs; its readers are the engine and Export-to-Marp (test/unit/plugins/image-address.test.js), Compose's badge and the Studio's photo finder `photoAt` (docs/src/lib/compose/placed-picture-parity.test.ts), and the image lint. `addr` is the picture in question; `placed` is the engine's answer, which the others must match. `crowded`: the image lint's `image-extra-panel` flags this picture (several lone pictures and no other photo, so none is placed); every other case it leaves alone. `carried`: the answer depends on a `<!-- class: … -->` from an earlier slide, which `photoAt` cannot see (it reads one slide's text). `carriedBackground`: it depends on a `backgroundImage` from the front matter or an earlier slide, which neither Studio reader is handed yet (followups.d/3126-p3-studio-carried-class.md). PR #3126, followups.d/3126-p2-one-placed-picture-rule.md.",
+ "cases": [
+  {
+   "name": "a lone picture between blank lines",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a picture right under the heading, no blank line",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a picture right under the class comment",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a picture on a bleed slide",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: content bleed -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "the left side (image mirror)",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image mirror -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a `![bg]` photo beside it: it stays in the text",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![bg right](https://x.test/photo.jpg)\n\n![Logo](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a bleed `![bg]` beside it",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: content bleed -->\n## T\n\n![bg](https://x.test/photo.jpg)\n\n![Chart](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a record beside it",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n`@image{https://x.test/photo.jpg, title=\"Photo\"}`\n\n![Logo](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a keyword alt in capitals",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![BG right](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "an http address the record refuses",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](http://x.test/p.jpg)\n",
+   "addr": "http://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a picture inside a paragraph of text",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\nWords before\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "two lone pictures",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![A](https://x.test/p.jpg)\n\n![B](https://x.test/q.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false,
+   "crowded": true
+  },
+  {
+   "name": "a content slide",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: content -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a modifier-only slide",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: dark -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a collage",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: collage bleed -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a picture in a list item",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n- ![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a picture in a quote",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n> ![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a carried class from the slide before",
+   "md": "---\ntheme: indaco\n---\n\n<!-- class: image -->\n\n## One\n\n---\n\n## Two\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true,
+   "carried": true
+  },
+  {
+   "name": "a deck-wide `class: bleed`",
+   "md": "---\ntheme: indaco\nclass: bleed\n---\n\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a bracketed deck-wide `class: [bleed]`, which the engine keeps literal",
+   "md": "---\ntheme: indaco\nclass: [bleed]\n---\n\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "two lone pictures on a bleed slide",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: content bleed -->\n## T\n\n![A](https://x.test/p.jpg)\n\n![B](https://x.test/q.jpg)\n",
+   "addr": "https://x.test/q.jpg",
+   "placed": false,
+   "crowded": true
+  },
+  {
+   "name": "a background color is not a photo",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n<!-- _backgroundColor: navy -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a background image directive is the slide's photo",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n<!-- _backgroundImage: url(https://x.test/bg.jpg) -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a deck-wide `class: collage` is a component name the engine drops",
+   "md": "---\ntheme: indaco\nclass: collage\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a deck-wide `class: bleed` with a slide of its own class",
+   "md": "---\ntheme: indaco\nclass: bleed\n---\n\n<!-- _class: content dark -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a picture under a heading in a list's second paragraph stays in the list",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n- item\n\n  ![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false
+  },
+  {
+   "name": "a spot `_backgroundImage: none` is no photo",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n<!-- _backgroundImage: none -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a `backgroundImage` the style sink refuses is no photo",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n<!-- _backgroundImage: url(https://x.test/bg.jpg);color:red -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a front-matter `backgroundImage` is every slide's photo",
+   "md": "---\ntheme: indaco\nbackgroundImage: url(https://x.test/bg.jpg)\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false,
+   "carriedBackground": true
+  },
+  {
+   "name": "a running `backgroundImage` from the slide before",
+   "md": "---\ntheme: indaco\n---\n\n<!-- backgroundImage: url(https://x.test/bg.jpg) -->\n## One\n\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": false,
+   "carriedBackground": true
+  },
+  {
+   "name": "a running `backgroundImage` cancelled by the slide's own `none`",
+   "md": "---\ntheme: indaco\n---\n\n<!-- backgroundImage: url(https://x.test/bg.jpg) -->\n## One\n\n---\n\n<!-- _backgroundImage: none -->\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a title with parentheses",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg \"Dawn (east)\")\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a picture right under a setext heading",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\nT\n===\n![Lake](https://x.test/p.jpg)\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a picture followed directly by a list",
+   "md": "---\ntheme: indaco\n---\n\n<!-- _class: image -->\n## T\n\n![Lake](https://x.test/p.jpg)\n- a point\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  },
+  {
+   "name": "a deck with CRLF line endings",
+   "md": "---\r\ntheme: indaco\r\n---\r\n\r\n<!-- _class: image -->\r\n## T\r\n\r\n![Lake](https://x.test/p.jpg)\r\n",
+   "addr": "https://x.test/p.jpg",
+   "placed": true
+  }
+ ]
+}

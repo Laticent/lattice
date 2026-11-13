@@ -6,7 +6,9 @@ import { SEL } from './lessons/lesson-kit';
 import StudioShell from './StudioShell';
 
 // The Studio's panels load on first open; load them up front so no test races a shell.
-beforeAll(loadStudioPanels);
+// An explicit budget over vitest's 10 s hook default: this is the file's first cold import of all six panel chunks, and
+// under load (three copies of this file at once on 4 cores) it ran past 10 s once in 21 runs. A hang still fails, at 30 s.
+beforeAll(loadStudioPanels, 30_000);
 
 // Stub the live preview (its engine poller leaks a post-teardown timer in jsdom).
 // The stub also SURFACES `deckId`, because that string is what the preview's diagram-hold
@@ -50,7 +52,7 @@ beforeEach(() => {
 		{ id: 'q3-board', title: 'Q3 Board Review', builtin: true },
 		{ id: 'product-strategy', title: 'FY26 Product Strategy', builtin: true },
 	]));
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true }));
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true, editMode: 'source' }));
 	// These specs drive individual controls by section, so they get the ADVANCED tier (the
 	// full panel). The Basic tier's own contract is in StudioShell.test.tsx.
 	localStorage.setItem('lattice-studio-settings-tier', JSON.stringify('advanced'));
@@ -342,6 +344,15 @@ describe('Studio — every top-bar control responds', () => {
 		await waitFor(() => expect(document.querySelector('.cm-lintRange')).toBeTruthy(), { timeout: 6000 });
 	});
 
+	/** The 0-based slide the editor's caret is in: the `---` lines before it, less the front matter's two. Built for this
+	 *  file's sample deck, which has no code fence or setext heading; a `---` inside either would count as a slide break. */
+	// biome-ignore lint/suspicious/noExplicitAny: the CodeMirror view, reached through its DOM handle.
+	const caretSlide = (v: any): number => {
+		const doc: string = v.state.doc.toString();
+		const rules = (doc.slice(0, v.state.selection.main.head).match(/^---[ \t]*$/gm) ?? []).length;
+		return doc.startsWith('---') ? Math.max(0, rules - 2) : rules;
+	};
+
 	// The strip's slide menu (components/studio/strip-actions), from the ⋯ beside the current slide: the icon row it replaced is gone
 	// (2026-10-27-slide-structure-strip.md §12 item 11).
 	const stripAction = async (user: ReturnType<typeof userEvent.setup>, name: RegExp) => {
@@ -409,6 +420,11 @@ describe('Studio — every top-bar control responds', () => {
 		const original: string = view().state.doc.toString();
 		const rail = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button[data-unit]') ?? [];
 		await user.click(rail()[1] as HTMLElement);
+		// The pick moves the focus hub at once, but the editor moves its caret only on the hub's next frame (its `frame`
+		// lane). Typing before that lands in slide 1, which pulls the focus back there and unmounts the ⋯ beside slide 2
+		// mid-click: the menu never opens. Under load the frame runs late, and this test failed so (followups.d 3124).
+		// So wait for the caret to reach slide 2 (HARD RULE #32: a signal, not a duration).
+		await waitFor(() => expect(caretSlide(view())).toBe(1), { timeout: 5000 });
 		// Type inside slide 2, then delete slide 2.
 		const v = view();
 		const at = v.state.doc.toString().indexOf('\n---', v.state.selection.main.head);
@@ -479,30 +495,28 @@ describe('Studio — every top-bar control responds', () => {
 		expect(railCount()).toBe(start + 2);
 		// The current slide's pill, looked up each time: an undo re-renders the strip.
 		const rail = () => document.querySelector('nav[aria-label="Slide navigator"] button[data-unit][aria-current="true"]') as HTMLElement;
-		const ask = (inputType = 'historyUndo') => {
+		// Each event carries the creation time the test gives it: the Shell judges a pair by `timeStamp` alone, so the
+		// times are written down rather than produced by busy-waiting and sleeping on the machine's clock. They start
+		// past any real event this test already sent.
+		const t0 = new Event('probe').timeStamp + 10_000;
+		const ask = (at: number, inputType = 'historyUndo') => {
 			const e = new InputEvent('beforeinput', { inputType, cancelable: true, bubbles: true });
+			Object.defineProperty(e, 'timeStamp', { value: t0 + at });
 			rail().dispatchEvent(e);
 			return e.defaultPrevented;
 		};
-		// The pair, with a render's worth of work between them in one task (a real menu click lets React render
-		// between the two events): still one request. A 16 ms window takes two steps here.
-		const t0 = Date.now();
-		const first = ask();
-		while (Date.now() - t0 < 25) {
-			// busy: the second event is created 25 ms after the first
-		}
-		const second = ask();
+		// The pair, with a render's worth of work between them (a real menu click lets React render between the two
+		// events): created 25 ms apart, still one request. A 16 ms window takes two steps here.
+		expect([ask(0), ask(25)]).toEqual([true, true]);
+		await waitFor(() => expect(railCount(), 'the pair took back one step').toBe(start + 1));
 		// Redo 60 ms after the Undo, faster than most people: a request of its own, so it runs. A 100 ms window
 		// drops it.
-		await new Promise((r) => setTimeout(r, Math.max(0, 60 - (Date.now() - t0))));
-		expect([first, second, ask('historyRedo')]).toEqual([true, true, true]);
+		expect(ask(60, 'historyRedo')).toBe(true);
 		await waitFor(() => expect(railCount()).toBe(start + 2));
-		// And two more Undos, each its own request.
-		await new Promise((r) => setTimeout(r, 60));
-		expect(ask()).toBe(true);
+		// And two more Undos, 60 ms apart, each its own request.
+		expect(ask(120)).toBe(true);
 		await waitFor(() => expect(railCount()).toBe(start + 1));
-		await new Promise((r) => setTimeout(r, 60));
-		expect(ask()).toBe(true);
+		expect(ask(180)).toBe(true);
 		await waitFor(() => expect(railCount()).toBe(start));
 	});
 
@@ -608,7 +622,8 @@ describe('Studio — every top-bar control responds', () => {
 		expect(await screen.findByPlaceholderText(/Search or run a command/i)).toBeInTheDocument();
 		expect(screen.queryByRole('dialog', { name: /Studio commands/i })).toBeNull();
 		await user.click(within(await screen.findByRole('listbox')).getByText(/Fabricate/));
-		expect(await screen.findByPlaceholderText(/Describe a look/i)).toBeInTheDocument();
+		// The same cold Fabricate import `openFabricate` waits out, so its budget: the 1000 ms default ran out once under load.
+		expect(await screen.findByPlaceholderText(/Describe a look/i, undefined, { timeout: 15000 })).toBeInTheDocument();
 		// Re-open and pick a theme command.
 		await user.keyboard('{Meta>}k{/Meta}');
 		await user.click(within(await screen.findByRole('listbox')).getByText('cuoio'));
@@ -664,7 +679,7 @@ describe('Studio — Architect + editor controls respond', () => {
 		// The user turn is in the thread…
 		expect(await screen.findByText('Tighten slide 1')).toBeInTheDocument();
 		// …and with no model connected the assistant degrades honestly (no fake edit).
-		expect(await screen.findByText(/Connect a model in Workspace/i, undefined, { timeout: 6000 })).toBeInTheDocument();
+		expect(await screen.findByText(/Choose a chat model in Workspace/i, undefined, { timeout: 6000 })).toBeInTheDocument();
 	});
 
 	it('the deterministic Coach chips work with no model connected', async () => {
@@ -982,20 +997,21 @@ describe('Studio — Inspector controls respond', () => {
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/header:/);
 	});
 
-	it('the Section-rail switch stamps and clears the deck-wide no-progress class', async () => {
+	it('the Section-rail switch writes and clears `progress-rail: off`', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await clickSection(user, 'Chrome');
 		const sw = await screen.findByRole('switch', { name: 'Section rail' });
-		// Rail is ON by default (no class token) — so the switch reads checked.
+		// Rail is ON by default (no `progress-rail:` line) — so the switch reads checked.
 		expect(sw).toBeChecked();
-		// Turning it OFF stamps `class: no-progress` deck-wide.
+		// Turning it OFF writes the `off` word on the rail's one line (lib/core/resolve-progress-rail.js).
 		await user.click(sw);
 		expect(sw).not.toBeChecked();
-		expect(screen.getByLabelText('Deck source').textContent).toMatch(/class:\s*no-progress/);
-		// Turning it back ON clears the token (and the now-empty class key).
-		await user.click(screen.getByRole('switch', { name: 'Section rail' }));
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/progress-rail:\s*off/);
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/no-progress/);
+		// Turning it back ON drops the word, and with it the now-empty key.
+		await user.click(screen.getByRole('switch', { name: 'Section rail' }));
+		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/progress-rail/);
 	});
 
 	it('the Size control writes a `size` directive to the source', async () => {
@@ -1069,14 +1085,13 @@ describe('Studio — Inspector controls respond', () => {
 		expectFrontMatterIntact('Header');
 	});
 
-	it('the Section-rail switch (a class-token write) preserves the rest of the block', async () => {
-		// `mergeClassTokens` / `removeClassTokens` route through the same writer now — the card
-		// scoped `class:` in with the 23 named directives, since it is the same flat scalar.
+	it('the Section-rail switch (a register write) preserves the rest of the block', async () => {
+		// It writes `progress-rail:` through the same lossless line writer as every register.
 		const user = await setup();
 		await pasteRichDeck(user);
 		await clickSection(user, 'Chrome');
 		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
-		expect(screen.getByLabelText('Deck source').textContent).toContain('class: no-progress');
+		expect(screen.getByLabelText('Deck source').textContent).toContain('progress-rail: off');
 		expectFrontMatterIntact('Section rail');
 	});
 
@@ -1290,12 +1305,13 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 
 	it('the Default slide class field never shows or eats the Section rail token', async () => {
 		const user = await setup();
-		// Turn the rail OFF first — that stamps `no-progress` into the same `class:` key
-		// this field writes. A naive text field would show the token, and any edit would
-		// silently flip a control in another tab.
+		// A deck that still says `class: no-progress` — how the rail toggle used to write it. A naive
+		// text field would show the token, and an edit would silently flip a control in another tab.
+		await user.click(screen.getByLabelText('Deck source'));
+		await user.paste('---\nclass: no-progress\n---\n\n# Deck\n');
 		await openDeckTab(user, 'Chrome');
-		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
-		await waitFor(() => expect(source()).toMatch(/class: no-progress/));
+		// The old spelling still reads as OFF.
+		expect(await screen.findByRole('switch', { name: 'Section rail' })).not.toBeChecked();
 
 		await clickSection(user, 'General');
 		const field = await screen.findByRole('textbox', { name: 'Default slide class' });
@@ -1303,10 +1319,16 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await user.click(field);
 		await user.type(field, 'no-note');
 		await user.tab();
-		// Both survive: the author's modifier AND the rail token the toggle owns. The
-		// value is YAML-quoted because it contains a space — every reader unquotes it
-		// (deckClassTokensFromFrontMatter parses both spellings to the same two tokens).
+		// Both survive: the author's modifier AND the rail token. The value is YAML-quoted because it
+		// contains a space — every reader unquotes it.
 		await waitFor(() => expect(source()).toMatch(/class: "?no-note no-progress"?/));
+
+		// Flipping the rail back on clears the old spelling, and writes nothing: on is the default.
+		await clickSection(user, 'Chrome');
+		await user.click(await screen.findByRole('switch', { name: 'Section rail' }));
+		await waitFor(() => expect(source()).not.toMatch(/no-progress/));
+		expect(source()).toMatch(/class: no-note/);
+		expect(source()).not.toMatch(/progress-rail/);
 	});
 
 	it('Pace writes the `pace:` register and clears at the default', async () => {

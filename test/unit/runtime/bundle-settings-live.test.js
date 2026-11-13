@@ -17,9 +17,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
 const { closeQuietly } = require('../../helpers/jsdom-close');
+const { virtualClock } = require('../../helpers/runtime-boot');
+const { skipUnlessCI } = require('../../helpers/chrome');
 
 const RUNTIME = path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js');
-const skip = !fs.existsSync(RUNTIME) && 'dist/ not built';
+const skip = skipUnlessCI(!fs.existsSync(RUNTIME), 'dist/ not built');
 
 // A deck the way Marp renders a bundle: the settings block lands inside slide 1, and a slide's own
 // `_class` REPLACED any deck class Marp knew about (so Marp stamped nothing on those slides).
@@ -32,8 +34,15 @@ const slides = (settings) => [
   '<section class="divider"><h1>Part two</h1></section>',
   '<section class="content"><h1>Later</h1><p>p</p></section>',
 ].join('');
-const block = (yaml) => `<script type="application/lattice-settings">\n${yaml}\n</script>`;
+// Every settings block also says `progress-rail: on`: seven slides in two sections is below the
+// rail's default floor (progress.transform.js `railWanted`), and these tests are about how a deck's
+// settings reach the slides, not about the floor. Deck-level, as an author writes it.
+const block = (yaml) => `<script type="application/lattice-settings">\nprogress-rail: on\n${yaml}\n</script>`;
 
+// The window's timers are a virtual clock (test/helpers/runtime-boot.js), so no sleep decides whether a pass has run
+// (HARD RULE #32). A Marp render boots until the runtime's queue runs dry (`settle`). The VS Code preview never runs dry:
+// it re-reads the saved deck on a 1 s interval, so those tests move the clock by a stated amount instead (`advance`),
+// which fires every timer due in that window, in order, and none after it.
 async function boot(bodyHtml, { head = '', fetchImpl, url } = {}) {
   const dom = new JSDOM(`<!doctype html><html><head>${head}</head><body>${bodyHtml}</body></html>`,
     { runScripts: 'outside-only', pretendToBeVisual: true, ...(url ? { url } : {}) });
@@ -41,8 +50,11 @@ async function boot(bodyHtml, { head = '', fetchImpl, url } = {}) {
   w.console.log = () => {};
   w.console.warn = () => {};
   if (fetchImpl) w.fetch = fetchImpl;
+  const clock = virtualClock(w);
+  w.clock = clock;
   w.eval(fs.readFileSync(RUNTIME, 'utf8'));
-  await new Promise((r) => setTimeout(r, 120));
+  if (head.includes('vscode-markdown-preview-data')) await clock.advance(120);
+  else await clock.settle();
   return w;
 }
 
@@ -68,24 +80,24 @@ test('a host that re-renders with a CHANGED settings block is followed (Marp for
   assert.deepEqual(rails(w), ['Plain:-', 'Own class:-', 'Opted back in:rail', 'Later:-']);
   // The author deletes the line; the host writes the whole deck again.
   w.document.querySelector('.lattice').innerHTML = slides(block('split: rule'));
-  await new Promise((r) => setTimeout(r, 400));
+  await w.clock.settle();
   assert.deepEqual(rails(w), ['Plain:rail', 'Own class:rail', 'Opted back in:rail', 'Later:rail']);
   closeQuietly(w);
 });
 
 test('VS Code preview: a class typed at the TOP lands once saved, and leaves again once saved', { skip }, async () => {
-  let saved = '---\nmarp: true\ntheme: indaco\nclass: no-progress\n---\n# T\n';
+  let saved = '---\nmarp: true\ntheme: indaco\nprogress-rail: on\nclass: no-progress\n---\n# T\n';
   const fetchImpl = async () => ({ ok: true, text: async () => saved });
   // The two things VS Code's Markdown preview writes that the runtime keys on.
   const head = '<base href="https://file+.vscode-resource.vscode-cdn.net/ws/deck.md">'
     + '<meta id="vscode-markdown-preview-data" data-settings="{}">';
   const w = await boot(`<article class="lattice">${slides(block('split: rule'))}</article>`, { head, fetchImpl });
-  await new Promise((r) => setTimeout(r, 200));
+  await w.clock.advance(200);
   assert.deepEqual(rails(w), ['Plain:-', 'Own class:-', 'Opted back in:rail', 'Later:-'],
     'the saved top class reaches the slides Marp\'s `_class` rule would have skipped');
   // Saved WITHOUT the line. VS Code does not re-render on a save, so the watcher has to see it.
-  saved = '---\nmarp: true\ntheme: indaco\n---\n# T\n';
-  await new Promise((r) => setTimeout(r, 1400));
+  saved = '---\nmarp: true\ntheme: indaco\nprogress-rail: on\n---\n# T\n';
+  await w.clock.advance(1400);
   assert.deepEqual(rails(w), ['Plain:rail', 'Own class:rail', 'Opted back in:rail', 'Later:rail']);
   // Only the runtime's OWN token is taken back: the slide's class list is otherwise intact.
   assert.ok(w.document.querySelectorAll('section')[3].classList.contains('content'));
@@ -97,12 +109,12 @@ test('VS Code preview: a class typed at the TOP lands once saved, and leaves aga
 // token as the slide's own `_class`. The runtime must then never take the author's token back.
 // (Found by the maker-checker pass: the provenance records outlived the patch.)
 test('VS Code preview: a token the slide wrote itself survives the deck dropping the same token', { skip }, async () => {
-  let saved = '---\nmarp: true\nclass: no-progress\n---\n# T\n';
+  let saved = '---\nmarp: true\nprogress-rail: on\nclass: no-progress\n---\n# T\n';
   const fetchImpl = async () => ({ ok: true, text: async () => saved });
   const head = '<base href="https://file+.vscode-resource.vscode-cdn.net/ws/deck.md">'
     + '<meta id="vscode-markdown-preview-data" data-settings="{}">';
   const w = await boot(`<article class="lattice">${slides(block('split: rule'))}</article>`, { head, fetchImpl });
-  await new Promise((r) => setTimeout(r, 300));
+  await w.clock.advance(300);
   const plain = w.document.querySelectorAll('section')[2];
   assert.ok(plain.classList.contains('no-progress'), 'the deck stamped it');
   // The author adds `<!-- _class: no-progress -->` to this slide; the host patches the element in
@@ -111,10 +123,10 @@ test('VS Code preview: a token the slide wrote itself survives the deck dropping
   for (const a of [...plain.attributes]) plain.removeAttribute(a.name);
   plain.setAttribute('class', 'no-progress');
   w.document.querySelector('section').insertAdjacentHTML('afterbegin', block('split: rule'));
-  await new Promise((r) => setTimeout(r, 500));
+  await w.clock.advance(500);
   // Then removes `class:` from the top and saves.
-  saved = '---\nmarp: true\n---\n# T\n';
-  await new Promise((r) => setTimeout(r, 1500));
+  saved = '---\nmarp: true\nprogress-rail: on\n---\n# T\n';
+  await w.clock.advance(1500);
   assert.ok(plain.classList.contains('no-progress'), 'the slide\'s own token is kept');
   assert.equal(plain.querySelector('.tile-progress'), null, 'and the slide still opts out of the rail');
   assert.ok(w.document.querySelectorAll('section')[3].querySelector('.tile-progress'), 'while a slide that relied on the deck gets it back');
@@ -194,13 +206,15 @@ test('in the VS Code preview the deck\'s paginate: comes from the SAVED file, so
   // whose switch was removed after export kept the export's baked "off" (found by re-driving real VS Code).
   const saved = '---\nmarp: true\npaginate: true\n---\n<script type="application/lattice-settings">\nclass: lead\n</script>\n\n# T\n';
   const svg = (inner) => `<svg data-marpit-svg="" viewBox="0 0 1280 720"><foreignObject width="1280" height="720">${inner}</foreignObject></svg>`;
-  const body = `<div id="vscode-markdown-preview-data"></div><div class="marpit">${[
+  // The preview's marker as VS Code writes it: a <meta> in <head> (measured, VS Code 1.145.2), the only form the runtime reads.
+  const head = '<meta id="vscode-markdown-preview-data" data-settings="{}">';
+  const body = `<div class="marpit">${[
     svg(`<section class="title">${block('class: lead')}<h1>T</h1></section>`),
     svg('<section class="content"><h1>Was off</h1></section>'),
   ].join('')}</div>`;
   const fetchImpl = () => Promise.resolve({ ok: true, text: () => Promise.resolve(saved) });
-  const w = await boot(body, { fetchImpl, url: 'file:///work/deck.md' });
-  await new Promise((r) => setTimeout(r, 200));
+  const w = await boot(body, { head, fetchImpl, url: 'file:///work/deck.md' });
+  await w.clock.advance(200);
   const num = (i) => w.document.querySelectorAll('svg[data-marpit-svg]')[i].querySelector('section').getAttribute('data-marpit-pagination');
   assert.equal(num(1), '2', 'the content slide is numbered from the saved file\'s paginate: true');
   assert.equal(num(0), null, 'the title slide stays unnumbered');

@@ -32,7 +32,7 @@ export async function measureDraftFit(options: SingleSlideOptions, draft: string
 		timer = setTimeout(() => res(undefined), DRAFT_FIT_TIMEOUT_MS);
 	});
 	try {
-		const run = buildDeckRender(options, draft, palette, mode, extra, extraCss).then((r) => measureDeckFit(r, scope) as Promise<SlideFit[] | null>);
+		const run = buildDeckRender(options, draft, palette, mode, extra, extraCss, 'scoped', 'live').then((r) => measureDeckFit(r, scope) as Promise<SlideFit[] | null>);
 		const out = await Promise.race([run, late]);
 		return out ?? undefined;
 	} catch {
@@ -51,7 +51,7 @@ export async function renderDraftSlide(options: SingleSlideOptions, draft: strin
 		timer = setTimeout(() => res(null), DRAFT_FIT_TIMEOUT_MS);
 	});
 	try {
-		const run = buildDeckRender(options, draft, palette, mode, extra, extraCss).then((r) => rasterizeSlidePreview(r, slide - 1) as Promise<{ url: string | null; sections: number }>);
+		const run = buildDeckRender(options, draft, palette, mode, extra, extraCss, 'scoped', 'live').then((r) => rasterizeSlidePreview(r, slide - 1) as Promise<{ url: string | null; sections: number }>);
 		return await Promise.race([run, late]);
 	} catch {
 		return null;

@@ -16,14 +16,14 @@ const K = radialLayoutKernel();
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
 describe('trama radial — the build under test', () => {
-  test('dist/ is newer than every Trama source, so these tests run the code on disk', () => {
+  test('dist/ matches a fresh build of the Trama sources, so these tests run the code on disk', () => {
     // Engine callers load the BUILT dist/, which is not committed. After an edit to a .ts
     // file without `npm run trama-lib:build`, every test here would run the old kernel and
-    // could pass.
-    const dir = path.join(__dirname, '../../../docs/src/lib/trama');
-    const built = fs.statSync(path.join(dir, 'dist/index.cjs')).mtimeMs;
-    const stale = fs.readdirSync(dir).filter((f) => f.endsWith('.ts') && fs.statSync(path.join(dir, f)).mtimeMs > built);
-    assert.deepEqual(stale, [], 'run `npm run trama-lib:build`: dist/ is older than these sources');
+    // could pass. Compare CONTENT, not mtimes: the builder leaves an identical dist/ untouched,
+    // so a checkout that only touches a .ts file would read as stale forever (F8).
+    const { spawnSync } = require('node:child_process');
+    const r = spawnSync(process.execPath, [path.join(__dirname, '../../../tools/build-trama-lib.js'), '--check'], { encoding: 'utf8' });
+    assert.equal(r.status, 0, `run \`npm run trama-lib:build\`: dist/ differs from these sources\n${r.stdout}${r.stderr}`);
   });
 });
 

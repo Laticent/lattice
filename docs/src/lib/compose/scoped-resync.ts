@@ -12,16 +12,23 @@
 import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorState, Transaction } from 'prosemirror-state';
 import { splitSlides } from '../deck-lint';
-import { deckToDoc, type EmitBaseline } from './deck-doc';
+import { deckFrame, deckToDoc, type EmitBaseline, SEP, slideSep } from './deck-doc';
 import { normalizeSource, parseDeck } from './deck-source';
 
-const SEP = '\n\n---\n\n';
-
-/** The deck source the baseline emits: front matter, then each slide's bytes joined by SEP. */
-export function baselineSource(fm: string, raws: readonly string[]): string {
-	const body = raws.join(SEP);
-	return fm ? fm + body : body;
+/** The deck source the baseline emits: front matter, then each slide's bytes joined by SEP. Without a doc, the canonical
+ *  spelling; with one, each slide's own separator and the bytes before and after the slides (deck-doc.ts `deckFrame`). */
+export function baselineSource(fm: string, raws: readonly string[], doc?: PMNode): string {
+	if (!doc) {
+		const body = raws.join(SEP);
+		return fm ? fm + body : body;
+	}
+	let body = (doc.attrs.head as string) || '';
+	for (let i = 0; i < raws.length; i++) body += slideSep(doc, i) + raws[i];
+	return fm + body + ((doc.attrs.tail as string) || '');
 }
+
+/** What a scoped resync knows about the new deck's spelling around its slides; null keeps the doc's own. */
+type Frame = { head: string; tail: string; seps: string[] } | null;
 
 export type ScopedResync = {
 	tr: Transaction;
@@ -44,14 +51,19 @@ export function scopedResync(state: EditorState, baseline: EmitBaseline, next: s
 	for (let i = 0; i < doc.childCount; i++) if (baseline.nodes[i] !== doc.child(i)) return null;
 
 	const { fm, slides } = parseDeck(next);
-	return resyncToRaws(state, baseline, fm, slides.length ? slides.map((s) => s.raw) : ['']);
+	const raws = slides.length ? slides.map((s) => s.raw) : [''];
+	return resyncToRaws(state, baseline, fm, raws, slides.length ? deckFrame(next, raws) : { head: '', tail: '', seps: [''] });
 }
 
 /** The shared core: move the doc to `nextRaws` (and `fm`), touching only the changed run. */
-function resyncToRaws(state: EditorState, baseline: EmitBaseline, fm: string, nextRaws: string[]): ScopedResync | null {
+function resyncToRaws(state: EditorState, baseline: EmitBaseline, fm: string, nextRaws: string[], frame: Frame): ScopedResync | null {
 	const doc = state.doc;
 	const oldRaws = baseline.raws;
 	const oldFm = (doc.attrs.frontMatter as string) || '';
+	const oldHead = (doc.attrs.head as string) || '';
+	const oldTail = (doc.attrs.tail as string) || '';
+	const head0 = frame ? frame.head : oldHead;
+	const tail0 = frame ? frame.tail : oldTail;
 
 	let head = 0;
 	while (head < oldRaws.length && head < nextRaws.length && oldRaws[head] === nextRaws[head]) head++;
@@ -59,14 +71,28 @@ function resyncToRaws(state: EditorState, baseline: EmitBaseline, fm: string, ne
 	while (tail < oldRaws.length - head && tail < nextRaws.length - head && oldRaws[oldRaws.length - 1 - tail] === nextRaws[nextRaws.length - 1 - tail]) tail++;
 	const removed = oldRaws.length - head - tail;
 	const added = nextRaws.length - head - tail;
-	if (removed === 0 && added === 0 && fm === oldFm) return null;
+	// A slide kept as it is keeps its separator too: a change to only the spelling around kept slides is the full
+	// resync's to make (it rebuilds every `sep`), not this one's.
+	if (frame) {
+		for (let i = 1; i < head; i++) if ((frame.seps[i] || SEP) !== slideSep(doc, i)) return null;
+		for (let k = 0; k < tail; k++) {
+			const o = oldRaws.length - 1 - k;
+			const n = nextRaws.length - 1 - k;
+			// Compare with the slide's OWN `sep`: a slide that moved off the front (o = 0) keeps the '' it had there, which
+			// writes the canonical separator wherever it lands (the checker's catch).
+			if (n > 0 && o >= head + removed && n >= head + added && (frame.seps[n] || SEP) !== ((doc.child(o).attrs.sep as string) || SEP)) return null;
+		}
+	}
+	if (removed === 0 && added === 0 && fm === oldFm && head0 === oldHead && tail0 === oldTail) return null;
 
 	let nodes: PMNode[] = [];
 	if (added > 0) {
 		const parsed = deckToDoc(nextRaws.slice(head, head + added).join(SEP));
 		if (parsed.childCount !== added) return null; // a chunk that re-splits differently: full resync
-		parsed.forEach((n) => {
-			nodes.push(n);
+		parsed.forEach((n, _o, k) => {
+			// Each new slide behind the separator the new text wrote before it.
+			const sep = frame ? frame.seps[head + k] || '' : '';
+			nodes.push(sep === ((n.attrs.sep as string) || '') ? n : n.type.create({ ...n.attrs, sep }, n.content, n.marks));
 		});
 	}
 
@@ -78,6 +104,8 @@ function resyncToRaws(state: EditorState, baseline: EmitBaseline, fm: string, ne
 	const tr = state.tr;
 	if (removed || added) tr.replaceWith(from, to, nodes);
 	if (fm !== oldFm) tr.setDocAttribute('frontMatter', fm);
+	if (head0 !== oldHead) tr.setDocAttribute('head', head0);
+	if (tail0 !== oldTail) tr.setDocAttribute('tail', tail0);
 	nodes = [];
 	return {
 		tr,
@@ -125,24 +153,27 @@ export function scopedResyncPatch(state: EditorState, baseline: EmitBaseline, pa
 	const fm = (doc.attrs.frontMatter as string) || '';
 	const raws = baseline.raws;
 	const whole = () => {
-		const src = baselineSource(fm, raws);
+		const src = baselineSource(fm, raws, doc);
 		return scopedResync(state, baseline, src.slice(0, patch.from) + patch.insert + src.slice(patch.to));
 	};
-	if (patch.from < fm.length) return whole();
-	// Slide i occupies [start[i], start[i] + raws[i].length); separators sit between.
+	const headLen = ((doc.attrs.head as string) || '').length;
+	if (patch.from < fm.length + headLen) return whole();
+	// Slide i occupies [start[i], start[i] + raws[i].length); its own separator sits before it.
 	const start: number[] = [];
-	let o = fm.length;
-	for (const r of raws) {
+	let o = fm.length + headLen;
+	raws.forEach((r, i) => {
+		o += slideSep(doc, i).length;
 		start.push(o);
-		o += r.length + SEP.length;
-	}
+		o += r.length;
+	});
 	let first = 0;
 	while (first + 1 < raws.length && start[first + 1] <= patch.from) first++;
 	let last = first;
 	while (last + 1 < raws.length && start[last] + raws[last].length < patch.to) last++;
 	const regionStart = start[first];
 	const regionEnd = start[last] + raws[last].length;
-	const region = baselineSource('', raws.slice(first, last + 1));
+	let region = raws[first];
+	for (let i = first + 1; i <= last; i++) region += slideSep(doc, i) + raws[i];
 	if (patch.to > regionEnd) return whole(); // cannot happen with the run chosen above; a guard, not a path
 	const edited = normalizeSource(region.slice(0, patch.from - regionStart) + patch.insert + region.slice(patch.to - regionStart));
 	// Split as the whole deck would: a run that does not open the deck must not have a blank
@@ -154,5 +185,15 @@ export function scopedResyncPatch(state: EditorState, baseline: EmitBaseline, pa
 		const probe = splitSlides(`${mid[mid.length - 1] ?? 'x'}${SEP}${raws[last + 1]}`);
 		if (probe.length !== 2 || probe[1] !== raws[last + 1]) return whole();
 	}
-	return resyncToRaws(state, baseline, fm, [...raws.slice(0, first), ...mid, ...raws.slice(last + 1)]);
+	// The separators the edited run now holds, read the way the run was split; the slides around it keep theirs.
+	const runFrame = deckFrame(first === 0 ? edited : `x${SEP}${edited}`, first === 0 ? mid : ['x', ...mid]);
+	const midSeps = first === 0 ? runFrame.seps : runFrame.seps.slice(1);
+	if (runFrame.head || runFrame.tail) return whole();
+	const seps: string[] = [];
+	for (let i = 0; i < first; i++) seps.push(slideSep(doc, i));
+	mid.forEach((_m, k) => {
+		seps.push(k === 0 ? slideSep(doc, first) : midSeps[k]);
+	});
+	for (let i = last + 1; i < raws.length; i++) seps.push(slideSep(doc, i));
+	return resyncToRaws(state, baseline, fm, [...raws.slice(0, first), ...mid, ...raws.slice(last + 1)], { head: (doc.attrs.head as string) || '', tail: (doc.attrs.tail as string) || '', seps });
 }
