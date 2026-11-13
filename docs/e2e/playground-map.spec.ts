@@ -119,13 +119,23 @@ test('@crosswidth first, last, previous and next move the one focus both ways', 
 test('@crosswidth scrolling the preview moves the rail to the slide that fills it', async ({ page }) => {
 	await openExplore(page);
 	await mapOn(page);
-	await page.evaluate(() => {
-		const f = document.getElementById('preview') as HTMLIFrameElement;
-		(f.contentWindow as Window).scrollTo({ top: (f.contentWindow as Window).scrollY + 3 * (f.contentWindow as Window).innerHeight, behavior: 'auto' });
-	});
-	await expect.poll(async () => Number(await current(page))).toBeGreaterThan(0);
-	const pos = Number((await walkPos(page)).split('/')[0]);
-	expect(Number(await current(page)) + 1).toBe(pos);
+	// THE READER'S SCROLL, a wheel over the preview, not a script writing `scrollY`. Opening the map resizes the pane,
+	// and the Playground re-lands the walk after a resize; a wheel outranks that land (`driveAtRef`, PlaygroundApp.tsx),
+	// a bare `scrollTo` carries no input and is put back by it. Measured with the page stalled 250ms in every 500, 2
+	// runs in 6 scrolled while the land was pending and ended on slide 1 with the rail at 0: the same failure the full
+	// suite showed under load.
+	await page.locator('#preview').hover();
+	const pane = await page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement).contentWindow?.innerHeight ?? 0);
+	await page.mouse.wheel(0, 3 * pane);
+	// The rail moved off the first slide, and it and the walk bar name the same slide once both have caught up: read
+	// together, in one poll, so a pair that falls back to slide 1 does not pass.
+	await expect
+		.poll(async () => {
+			const rail = Number(await current(page));
+			const bar = Number((await walkPos(page)).split('/')[0]);
+			return rail > 0 && rail + 1 === bar ? 'agree' : `rail ${rail + 1}, bar ${bar}`;
+		})
+		.toBe('agree');
 });
 
 const SIX = `---\ntheme: indaco\n---\n\n${Array.from({ length: 6 }, (_, i) => `# Slide ${i + 1}\n\nBody ${i + 1}.`).join('\n\n---\n\n')}\n`;
