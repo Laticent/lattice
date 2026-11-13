@@ -272,6 +272,8 @@ corpus, never the owner's).
    (held back in the CLI `.lattice` PR for exactly this).
 3. **PNG decode, measure and crop.** The three `bleed` ink hosts and the card-ink samplers move onto one read; the
    inks they pick must not change on the galleries, the image plugin's demo deck and both photo decks.
+   *Status (PR #3183): PNG decode shipped. Measure, crop and the ink hosts' move are
+   `followups.d/3183-p7-lastra-measure-crop-ink-hosts.md`.*
 4. **JPEG decode**, behind the trio.
 5. **Hosts adopt decode, where it is provably equal.** Not a swap: lastra decodes an untagged or sRGB-tagged
    JPEG or PNG, and the host keeps its own color-managed decode for anything else (a non-sRGB ICC profile, CMYK
@@ -296,6 +298,7 @@ corpus, never the owner's).
    This slice changes picture bytes, so it owes the owner's export sign-off.
 6. **Tone.** Grayscale and duotone on pixels, held to the browser's blend layers by a pixel-difference
    ceiling in Chromium, WebKit and Firefox. Nothing uses it until D2 lifts toned photos.
+   *Status (PR #3183): not built, `followups.d/3183-p8-lastra-tone.md`; it lands with the covered-photo lift.*
 
 Then D1 to D3 from the export-size investigation build on it.
 
