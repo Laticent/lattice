@@ -1,4 +1,4 @@
-// FROZEN REFERENCE — lib/authoring/lint-core.js as this branch carries it (frozen from commit b60f0ab87), for the
+// FROZEN REFERENCE — lib/authoring/lint-core.js as this branch carries it (frozen from commit 4d9ae33b5), for the
 // lint-core rewrite (engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §6). Test-only:
 // tools/squadra-reference-diff.js runs it beside the new `deck` ruleset and compares what each reports. Its requires
 // point at the live lib/ modules; only lint-core itself is frozen, because it is the file the rewrite deletes. Never
@@ -302,7 +302,7 @@ const { parseInlineSet, labelSetFor, labelSetNames, axisSetFor } = require('../.
 // The axis grammar: one tokenizer, and the one reading of what a member's parts
 // mean, both shared with the quadrant transform so this rule and the render
 // agree about which parts were honored.
-const { parseFlowchart, outlineFromMarkdown } = require('../../../lib/core/flowchart-grammar');
+const { parseFlowchart, outlineFromMarkdown, SHAPES: FLOWCHART_SHAPES, STATUS_WORDS: FLOWCHART_STATUS_WORDS, HEADS: FLOWCHART_HEADS, PATTERNS: FLOWCHART_PATTERNS, SLOT_COUNT: FLOWCHART_SLOT_COUNT } = require('../../../lib/core/flowchart-grammar');
 // hub-spoke's pill grammar, channel rule and every lint it owns (HARD RULE #7): the ONE
 // reading of a hub-spoke slide, shared with its kernel and its narrator.
 const hubSpoke = require('../../../lib/core/hub-spoke-model');
@@ -813,40 +813,9 @@ function withoutCodeBlocks(text) {
     .replace(/`[^`\n]*`/g, ' ');                      // inline code span
 }
 
-// Rule 14e — a `![bg …]` keyword that does nothing (followups.d/2728-p3, decisions/
-// 2026-10-16-player-as-library-audit.md §11.6). A plain `![bg](x)` on any slide is the slide's
-// full-bleed background, in the CLI and the Studio alike (lib/engine/background-image.js), so it
-// is not flagged. Two spellings silently do something else:
-//   · `left` / `right` (or a ratio) on a slide that is not `image`: only the image layout places a
-//     picture beside the text, so the picture fills the whole slide behind it instead;
-//   · a ratio such as `left:40%` on an `image` slide: the panel is kept on the side named, but the image
-//     layout resolves its own share, so the declared ratio is not read.
-const BG_LINE_RE = /^[ \t]*!\[bg([^\]\n]*)\]\(([^)\n]+)\)/gm;
-// Only a slide's own class counts: the deck-class register refuses `image` in front matter.
-function findBgKeywordIssues(source) {
-  const text = String(source || '');
-  const out = [];
-  const fm = fmChunks(text);
-  const directives = slideClassDirectives(text);
-  splitTopLevel(text).forEach((chunk, idx) => {
-    if (idx < fm) return;
-    const isImage = (directives[idx]?.payload || '').split(/\s+/).includes('image');
-    for (const m of withoutCodeBlocks(chunk).matchAll(BG_LINE_RE)) {
-      const words = m[1].trim();
-      const ratio = /:\s*\d/.test(words);
-      const side = /\b(?:left|right)\b/.exec(words)?.[0];
-      if (isImage ? !ratio : !(side || ratio)) continue;
-      const plain = `\`![bg${side ? ` ${side}` : ''}](…)\``;
-      const at = { slide: idx - fm + 1, severity: 'warning', line: m[0].trim() };
-      out.push(
-        isImage
-          ? { ...at, rule: 'bg-ratio-unread', message: `\`![bg ${words}]\` keeps its panel at the layout's own share: the ratio is not read.`, fix: `Write ${plain}.` }
-          : { ...at, rule: 'bg-side-unread', message: `\`![bg ${words}]\` fills the whole slide: only \`image\` puts a picture beside the text.`, fix: `Add \`<!-- _class: image -->\`${ratio ? ` and write ${plain}` : ''}.` },
-      );
-    }
-  });
-  return out;
-}
+// Rule 14e — RETIRED 2026-11-13 with the engine break: `bg-side-unread` and `bg-ratio-unread` described what the engine
+// drew for a `![bg …]` keyword, and it draws none now. Every such line is the image plugin's `image-marp-keyword`, whose fix
+// moves the placement to the slide (lib/plugins/image/image.lint.js).
 
 /**
  * `empty-section` — a divider straight after a divider. The first one opens a section that holds no
@@ -3636,6 +3605,28 @@ const INLINE_INFO = {
 // What each named kind is, in the `@` menu: a word an author can choose by.
 const KIND_INFO = { pill: 'a labeled chip', spark: 'a word-sized chart', icon: 'a drawn icon', avatar: 'a drawn portrait', video: 'a video poster', check: 'one of six answers · or [x]' };
 
+/**
+ * What the editors complete on a `flowchart` slide (docs/src/playground/context-sources.js `flowchartSource`), from
+ * the grammar kernel's own tables, so a shape or status added there completes with no editor change. Here, beside
+ * `inlineCodeCompletions`, because the editors already load this core lazily: importing the grammar on its own would
+ * split its dependencies into a chunk every page loads (the route budget). Pure.
+ * @param {string} slideMarkdown the slide's list (the rows a name can come from), or '' for the span words alone
+ * @returns {{ names: string[], spanWords: {label: string, axis: string}[] }}
+ */
+function flowchartCompletions(slideMarkdown) {
+  const { items } = outlineFromMarkdown(String(slideMarkdown || ''));
+  const model = parseFlowchart(items);
+  const names = [...new Set([...(model.shapes || []), ...(model.groups || [])].map((s) => s.name).filter(Boolean))];
+  const word = (axis) => (label) => ({ label, axis });
+  const spanWords = [
+    ...FLOWCHART_SHAPES.map(word('outline')),
+    ...Array.from({ length: FLOWCHART_SLOT_COUNT }, (_, i) => `c${i + 1}`).map(word('color')),
+    ...FLOWCHART_STATUS_WORDS.map(word('status')),
+    ...[...FLOWCHART_PATTERNS, ...FLOWCHART_HEADS, 'loose'].map(word('line')),
+  ];
+  return { names, spanWords };
+}
+
 function inlineCodeCompletions(span, external = []) {
   const raw = String(span || '');
   // A kind NAME after `@` (`@`, `@ic`): every kind the deck can call, the host's and its plugins', each with its
@@ -5341,7 +5332,7 @@ function lintChunksWith(source, vocab) {
       if (bgSyntax) {
         findings.push({ slide: sn, rule: 'collage-bg', severity: 'warning', classToken: 'collage', line: m[0],
           message: 'a `collage` lists inline photos, but this slide uses `![bg](…)` background syntax',
-          fix: 'Write one photo per bullet, as `- ![Alt text](photo.jpg)`. `![bg]` belongs to `image`.' });
+          fix: 'Write one photo per bullet, as `- ![Alt text](photo.jpg)`. Marp\'s `![bg]` keyword is retired: it draws an ordinary picture.' });
       }
       if (noAlt) {
         findings.push({ slide: sn, rule: 'collage-alt', severity: 'warning', classToken: 'collage', line: m[0],
@@ -6247,9 +6238,6 @@ function lintChunksWith(source, vocab) {
   // Rule 14f — record comments in a position no step reads, and (with `metaCut`) the old
   // directive form (findMetaCommentIssues).
   findings.push(...findMetaCommentIssues(source, vocab));
-
-  // Rule 14e — a `![bg …]` keyword that does nothing on its slide (findBgKeywordIssues).
-  findings.push(...findBgKeywordIssues(source));
 
   // Rule 14b — `caption:` / `captions:` are RETIRED for `say:`. An error for rule 13's reason:
   // the engine ignores the old key, so the slide silently speaks something else.
@@ -7810,10 +7798,9 @@ function findWebImages(source) {
     chunkOf[i] = c;
   }
   const findings = [];
-  const warn = (img, n, where, bg = false) => {
+  const warn = (img, n, where) => {
     const origin = webOrigin(img.attrGet('src') || '');
     if (!origin) return;
-    const what = /^bg(?:\s|$)/.test(img.content) ? 'background' : 'image';
     findings.push({
       // A front-matter line is slide 0, as every other deck-level finding (the editor places it on the line itself).
       slide: chunkOf[n] < fm ? 0 : chunkOf[n] - fm + 1,
@@ -7821,11 +7808,10 @@ function findWebImages(source) {
       severity: 'warning',
       line: (lines[n] ?? '').trim(),
       ...(chunkOf[n] >= fm ? { chunkLine: n - chunkStart[chunkOf[n]] } : {}),
-      message: `This ${what}${where} loads from another site (${origin}): the preview shows a placeholder until the reader loads it, the CLI export leaves it out without \`--allow-remote\`, and loading it tells that site who opened the deck.`,
+      message: `This image${where} loads from another site (${origin}): the preview shows a placeholder until the reader loads it, the CLI export leaves it out without \`--allow-remote\`, and loading it tells that site who opened the deck.`,
       fix: 'Save the picture beside the deck and link it by a relative path.',
       // The exact address, as every security finding carries it (S2's differential compares addresses, not sites).
       address: String(img.attrGet('src') || '').trim(),
-      ...(bg ? { bg } : {}),
     });
   };
   // The engine reads a directive comment with its whole vocabulary (lib/engine/slides.js); for these two keys the
@@ -7872,14 +7858,12 @@ function findWebImages(source) {
     images.forEach((img, k) => {
       const end = Math.min(map[1], lines.length);
       const n = at.length === images.length ? at[k] : lineWith(map[0], end, img.attrGet('src') || '![');
-      if (chunkOf[n] >= fm) warn(img, n, '', /^bg(?:\s|$)/.test(img.content));
+      if (chunkOf[n] >= fm) warn(img, n, '');
     });
   }
-  // Of several `![bg]` on one slide the engine draws only the last (lib/engine/background-image.js), so only it loads
-  // and only it is reported.
-  const lastBg = new Map();
-  findings.forEach((f, i) => { if (f.bg) lastBg.set(f.slide, i); });
-  return findings.filter((f, i) => !f.bg || lastBg.get(f.slide) === i).map(({ bg, ...f }) => f);
+  // Every picture loads: a Marp `![bg]` is an ordinary `<img>` since the engine break (2026-11-13), where only a slide's last
+  // one used to be drawn, so each is reported.
+  return findings;
 }
 
 /**
@@ -10748,6 +10732,7 @@ module.exports = {
   findLegendSpans,
   findMixedSpellings,
   inlineCodeCompletions,
+  flowchartCompletions,
   sparkFitFindings,
   findTagBudgetIssues,
   tagLineBudget,
@@ -10761,7 +10746,6 @@ module.exports = {
   findRetiredFormKey,
   findRetiredFormTokens,
   findUnsupportedPaginateValues,
-  findBgKeywordIssues,
   findEmptySections,
   findMetaCommentIssues,
   findUnknownFinish,
