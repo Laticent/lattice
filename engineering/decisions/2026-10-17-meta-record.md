@@ -726,6 +726,11 @@ byte for byte.
   `exemplars/`): a comment deck migrated the way the tool migrates it, and a record deck written back as comments
   (`recordsToComments(…, { legacy: true })`), so it keeps proving something once the corpus is records.
 
+**Scope, 2026-11-09 (owner).** Steps 2 to 6 ship before GA: the cut is breaking, and before GA a codemod covers our own
+decks. Step 7 (spec 2.0) may follow GA. As of 2026-11-13, steps 2 to 4 and step 5's tool are on `main` (#3115, #3133,
+#3136); the sweep and the cut are tracked in `followups.d/2772-p1-meta-step-5-codemod.md` and
+`followups.d/2772-p1-meta-step-6-the-cut.md`, which hold their order and D3.
+
 Steps 1 to 5 ship with authored comments still read, so every commit is green. **Step 1 delivers the reader, registry,
 completion and structured edit with no syntax change**, and steps 2 to 7 are a syntax layer over a single door.
 
