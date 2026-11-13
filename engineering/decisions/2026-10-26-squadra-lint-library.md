@@ -193,10 +193,10 @@ in M1a reads YAML, so it moves to M1b, where `lattice-deck`'s front-matter islan
 and directive islands (P3). As of 2026-10-28, `main` has the pipeline's census harness (P0) and native-run code
 generation (G6), not `deckModel`. M1a does not need the pipeline and can start now.
 
-**Still waiting (2026-10-29).** `main` at `09d6b11` has no `deckModel`, and the one open Segno PR (#2980) does not
-build it, so M1b did not start. The reference YAML language waits with it: its first reader is the front-matter
-island, which is pipeline P3. What the swimlane could do without the pipeline it did: no lint rule reports a fenced
-line, and "Fix all" names every fix it refused (design §15.4).
+**Superseded (2026-11-13): no rule-by-rule migration.** P2 and the P3 directive island landed on 2026-11-05, and the
+first M1b slice (PR #3194, closed unmerged) moved two rules behind an adapter. The owner rejected that seam: Lattice is
+pre-GA, so Squadra replaces lint-core outright, in one PR, with the front-matter island built inside it. The plan is
+`2026-11-13-squadra-replaces-lint-core.md`; it supersedes this section from M1b onward and `design.md` §15.3–§15.5.
 
 ## 7. Proving it is generic
 
