@@ -518,8 +518,14 @@ test.describe('the composer on a phone', () => {
 		await seed(page, true, true);
 		await gotoStudio(page);
 		await openChatAtWidth(page, 390);
-		// The phone's sheet slides in: measure once its animation has finished.
-		await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null))));
+		// The phone's sheet slides in: measure once ITS animations have finished. Only the sheet's: the page also runs
+		// animations that never finish (the editor's drawn caret blinks for as long as the editor lacks focus, #3128), and a
+		// wait on every animation in the document never resolves.
+		await page.getByLabel('Message the Architect').evaluate((el) => {
+			const sheet = el.closest('[role="dialog"]');
+			if (!sheet) throw new Error('the chat field is not inside its sheet');
+			return Promise.all(sheet.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => null)));
+		});
 		const field = await page.getByLabel('Message the Architect').boundingBox();
 		const device = await page.getByTestId('chat-attach-device').boundingBox();
 		const library = await libraryButton(page).boundingBox();
