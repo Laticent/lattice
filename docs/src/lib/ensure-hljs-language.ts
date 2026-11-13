@@ -103,10 +103,19 @@ function injectGrammar(url: string): Promise<boolean> {
 	const existing = loaders.get(url);
 	if (existing) return existing;
 	const src = scriptSrc(url);
-	// scriptSrc already guarantees this; the inline test is the barrier CodeQL js/xss-through-dom
-	// reads at the sink (it does not follow the guard through scriptSrc). A URL with an HTML
-	// metacharacter, a backslash or whitespace never loads — the fence just stays plain.
-	if (src === null || /[<>"'`\\\s]/.test(src)) return Promise.resolve(false);
+	if (src === null) return Promise.resolve(false);
+	// The grammar lives beside the engine, so its URL is same-origin. Resolve it and refuse anything
+	// off-origin INLINE here, then inject the resolved href — the origin comparison is the barrier
+	// CodeQL js/xss-through-dom reads at the sink (a check behind scriptSrc is not), and it stops a
+	// DOM-read URL ever pointing the <script> off this page's origin. A bad one leaves the fence plain.
+	let safeSrc: string;
+	try {
+		const resolved = new URL(src, window.location.href);
+		if (resolved.origin !== window.location.origin) return Promise.resolve(false);
+		safeSrc = resolved.href;
+	} catch {
+		return Promise.resolve(false);
+	}
 
 	const p = new Promise<boolean>((resolve) => {
 		let settled = false;
@@ -136,7 +145,7 @@ function injectGrammar(url: string): Promise<boolean> {
 		timer = setTimeout(() => done(false), LOAD_TIMEOUT_MS);
 
 		const s = document.createElement('script');
-		s.src = src;
+		s.src = safeSrc;
 		s.async = true;
 		s.setAttribute('data-lattice-hljs', '');
 		s.addEventListener('load', () => done(true));

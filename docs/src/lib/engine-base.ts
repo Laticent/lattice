@@ -75,7 +75,6 @@ export function scriptSrc(url: string): string | null {
 		return null;
 	}
 }
-
 /** For tests: forget the recorded URL. */
 export function resetEngineBase(): void {
 	recorded = null;

@@ -58,15 +58,24 @@ export function ensureEngine(url: string): Promise<void> {
 	const existing = loaders.get(url);
 	if (existing) return existing;
 	const src = scriptSrc(url);
-	// The inline test is the barrier CodeQL js/xss-through-dom reads at both sinks (import() below
-	// and script.src); scriptSrc already guarantees it but the query does not follow it through the
-	// helper. It dominates both, so neither loads a URL carrying an HTML metacharacter.
-	if (src === null || /[<>"'`\\\s]/.test(src)) return Promise.reject(new Error(`lattice engine URL refused: ${url}`));
+	if (src === null) return Promise.reject(new Error(`lattice engine URL refused: ${url}`));
+	// The engine is same-origin. Resolve the URL and refuse anything off-origin INLINE here, then feed
+	// the resolved href to BOTH sinks below (import() and script.src) — the origin comparison is the
+	// barrier CodeQL js/xss-through-dom reads at each sink; a check behind scriptSrc is not. It
+	// dominates both, so neither loads a URL off this page's origin.
+	let safeSrc: string;
+	try {
+		const resolved = new URL(src, window.location.href);
+		if (resolved.origin !== window.location.origin) return Promise.reject(new Error(`lattice engine URL refused: ${url}`));
+		safeSrc = resolved.href;
+	} catch {
+		return Promise.reject(new Error(`lattice engine URL refused: ${url}`));
+	}
 
 	const base = engineBaseFor(url);
 	if (base && url.endsWith(ENGINE_ENTRY)) {
 		void preloadEntry(base, 'engine.js');
-		const m = import(/* @vite-ignore */ src).then(() => {
+		const m = import(/* @vite-ignore */ safeSrc).then(() => {
 			if (!window.LatticePlayground) throw new Error(`lattice engine loaded but did not register: ${url}`);
 		});
 		// A failed import() is cached by the browser for the page's lifetime, so a retry would replay
@@ -105,7 +114,7 @@ export function ensureEngine(url: string): Promise<void> {
 		const already = document.querySelector<HTMLScriptElement>(`script[data-lattice-engine][src="${cssEscape(url)}"]`);
 		if (!already) {
 			const s = document.createElement('script');
-			s.src = src;
+			s.src = safeSrc;
 			s.defer = true;
 			s.setAttribute('data-lattice-engine', '');
 			// onload covers the not-yet-cached case; the poll below covers the

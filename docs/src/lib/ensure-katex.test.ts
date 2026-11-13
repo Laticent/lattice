@@ -1,3 +1,4 @@
+// @vitest-environment-options { "url": "https://example.test/" }
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { deriveKatexProviderUrl, ensureKatexProvider, katexProviderUrlFor } from './ensure-katex';
 

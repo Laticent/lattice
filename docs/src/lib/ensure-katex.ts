@@ -24,9 +24,18 @@ export function ensureKatexProvider(url: string): Promise<void> {
 	const existing = loaders.get(url);
 	if (existing) return existing;
 	const src = scriptSrc(url);
-	// The inline test is the barrier CodeQL js/xss-through-dom reads at the sink; scriptSrc already
-	// guarantees it (it does not follow the guard through the helper).
-	if (src === null || /[<>"'`\\\s]/.test(src)) return Promise.reject(new Error(`katex provider URL refused: ${url}`));
+	if (src === null) return Promise.reject(new Error(`katex provider URL refused: ${url}`));
+	// The provider lives beside the engine, so its URL is same-origin. Resolve it and refuse anything
+	// off-origin INLINE here, then inject the resolved href — the origin comparison is the barrier
+	// CodeQL js/xss-through-dom reads at the sink (a check behind scriptSrc is not).
+	let safeSrc: string;
+	try {
+		const resolved = new URL(src, window.location.href);
+		if (resolved.origin !== window.location.origin) return Promise.reject(new Error(`katex provider URL refused: ${url}`));
+		safeSrc = resolved.href;
+	} catch {
+		return Promise.reject(new Error(`katex provider URL refused: ${url}`));
+	}
 
 	const p = new Promise<void>((resolve, reject) => {
 		let attempts = 0;
@@ -52,7 +61,7 @@ export function ensureKatexProvider(url: string): Promise<void> {
 		const already = document.querySelector<HTMLScriptElement>(`script[data-lattice-katex-provider][src="${cssEscape(url)}"]`);
 		if (!already) {
 			const s = document.createElement('script');
-			s.src = src;
+			s.src = safeSrc;
 			s.defer = true;
 			s.setAttribute('data-lattice-katex-provider', '');
 			s.addEventListener('load', () => finish());

@@ -1,3 +1,4 @@
+// @vitest-environment-options { "url": "https://example.test/" }
 /**
  * The on-demand grammar loader.
  *
