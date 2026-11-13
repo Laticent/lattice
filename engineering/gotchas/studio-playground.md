@@ -1956,13 +1956,15 @@ never turn "passed in headless" into "works on iOS."
 ## On a loaded machine, a quick Explore and back leaves the Playground preview covered for seconds
 
 - **Symptom** — Explore, Edit, Explore a frame or two apart, wide layout: the preview stays covered (`.pg-preview-wrap`
-  without `is-live`) well after Explore's slide has landed. `e2e/playground-tab-switch.spec.ts` "a quick Explore and
-  back, 0 frames apart … (wide)" missed its 4 s on gecko, 1 run in 20 at 4 workers on main.
+  without `is-live`) well after Explore's slide has landed. Shown on desktop and webkit-tablet by the spec's "never
+  holds Explore's reveal for Edit's realign" (red 4 of 17 without the fix). The gecko flake of "a quick Explore and
+  back, 0 frames apart … (wide)" (1 in 20 on main) looks the same but is NOT shown to be this: it never reproduced
+  here, and `followups.d/3159-p7-gecko-quick-explore-not-live.md` keeps it open.
 - **Cause** — the reveal waits for every hold to lift, and the realign hold is Edit's (the preview follows the
   editor's caret first). The Edit in between set it, and its settle loop starts two frames after that switch, so after
   the next one; in Explore the sync's realign usually cannot be paid (the editor pane is hidden), so the loop asked for
-  all 60 of its frames before giving up. On a loaded Firefox, 60 frames is several seconds. The slowest of 60 passing
-  gecko runs under load waited 1031 ms with `realign` the only hold left.
+  all 60 of its frames before giving up: about a second idle, more on a loaded machine. It is rare on gecko: 1 of 60
+  instrumented runs under load held on it (1031 ms), and 0 of 40 in a later round.
 - **Mitigation** — `PlaygroundApp.tsx`: entering Explore clears `realignPendingRef`, and `realignSeqRef` ties each settle
   loop to the switch that started it, so an overtaken loop stops on its next frame. `playground-sync.ts` `enterExplore()`
   drops the sync's owed realign too, so no frame load in Explore pays it by scrolling the preview to the editor's slide
