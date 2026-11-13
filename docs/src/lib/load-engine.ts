@@ -26,7 +26,7 @@
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 
-import { ENGINE_ENTRY, engineBaseFor, recordEngineUrl, scriptSrc } from './engine-base';
+import { ENGINE_ENTRY, engineBaseFor, recordEngineUrl, scriptSrc, scriptTagFor } from './engine-base';
 import { preloadEntry } from './ensure-charts';
 import { installPreviewDrawHost } from './preview-draw-host';
 
@@ -111,7 +111,7 @@ export function ensureEngine(url: string): Promise<void> {
 		// If a matching <script> was already injected (e.g. a legacy eager tag,
 		// or a prior call on a different URL string), don't add a second one —
 		// just poll for the global.
-		const already = document.querySelector<HTMLScriptElement>(`script[data-lattice-engine][src="${cssEscape(url)}"]`);
+		const already = scriptTagFor('data-lattice-engine', safeSrc);
 		if (!already) {
 			const s = document.createElement('script');
 			s.src = safeSrc;
@@ -135,10 +135,4 @@ export function ensureEngine(url: string): Promise<void> {
 
 	loaders.set(url, p);
 	return p;
-}
-
-// Minimal attribute-selector escape for the URL (which can contain `?`/`.`/`=`
-// from the cache-buster). Avoids depending on CSS.escape's spotty support.
-function cssEscape(value: string): string {
-	return value.replace(/["\\]/g, '\\$&');
 }

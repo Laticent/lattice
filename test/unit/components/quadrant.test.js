@@ -608,8 +608,11 @@ describe('quadrant', () => {
     const inner = '<p><code>Effort 0–10 → Reach 0–100</code></p><h2>X</h2>' + UL_FOUR;
     const { html } = transformChartSection(inner, 'quadrant');
     assert.match(html, /class="chart-eyebrow"/);
-    const axisX = textEls(html, 'quadrant-axis-name--x');
-    assert.ok(!axisX.some((tag) => elementInner(html, tag).includes('Effort')), 'the x axis name does not say "Effort"');
+    // The eyebrow keeps "Effort", and none of the chart's own <text> (axis names, labels) does: the
+    // arrow text is not read as an axis list. Both halves can fail, so neither passes on an empty set.
+    const texts = tagsOf(html, 'text');
+    assert.ok(texts.length > 0 && html.includes('Effort'), 'the chart drew text and the eyebrow kept "Effort"');
+    assert.ok(!texts.some((tag) => elementInner(html, tag).includes('Effort')), 'no chart <text> names an axis "Effort"');
   });
 });
 

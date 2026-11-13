@@ -6,7 +6,7 @@
 // a separate on-demand bundle at all.
 //
 // Idempotent: a module-level singleton keyed by URL, same as ensureEngine.
-import { engineBase, engineBaseFor, scriptSrc } from './engine-base';
+import { engineBase, engineBaseFor, scriptSrc, scriptTagFor } from './engine-base';
 
 const loaders = new Map<string, Promise<void>>();
 const POLL_MS = 50;
@@ -58,7 +58,7 @@ export function ensureKatexProvider(url: string): Promise<void> {
 			return false;
 		};
 
-		const already = document.querySelector<HTMLScriptElement>(`script[data-lattice-katex-provider][src="${cssEscape(url)}"]`);
+		const already = scriptTagFor('data-lattice-katex-provider', safeSrc);
 		if (!already) {
 			const s = document.createElement('script');
 			s.src = safeSrc;
@@ -102,9 +102,4 @@ export function katexProviderUrlFor(engineUrl: string): string | null {
 export function deriveKatexProviderUrl(): string | null {
 	const base = engineBase();
 	return base === null ? null : `${base}lattice-katex.js`;
-}
-
-// Minimal attribute-selector escape for the URL (mirrors load-engine.ts).
-function cssEscape(value: string): string {
-	return value.replace(/["\\]/g, '\\$&');
 }

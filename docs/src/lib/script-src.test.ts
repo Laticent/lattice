@@ -8,6 +8,7 @@ import { engineBase, recordEngineUrl, resetEngineBase, scriptSrc } from './engin
 import { __resetHljsLoaderCaches, ensureFenceLanguages } from './ensure-hljs-language';
 import { ensureKatexProvider } from './ensure-katex';
 import { ensureEngine } from './load-engine';
+import { injectPrefetch } from './prefetch-engine';
 
 const REFUSED = [
 	'javascript:alert(1)//lattice-playground.js',
@@ -81,5 +82,44 @@ describe('the loaders inject nothing for a refused URL', () => {
 		};
 		await expect(ensureFenceLanguages('x', 'javascript:alert(1)//')).resolves.toEqual([]);
 		expect(document.querySelectorAll('script').length).toBe(0);
+	});
+});
+
+// The loaders inject the RESOLVED href (the same-origin barrier), so a dedup that compared the
+// caller's raw string missed a tag injected from a relative URL: a second <script> on retry and a
+// redundant prefetch link. These ran red before `scriptTagFor` compared resolved URLs.
+describe('dedup compares resolved URLs', () => {
+	const REL = '/playground/v/dedup/lattice-playground.js';
+
+	it('ensureEngine retried after a failed load from a relative URL adds no second <script>', async () => {
+		const first = ensureEngine(REL);
+		const tag = document.querySelector<HTMLScriptElement>('script[data-lattice-engine]');
+		expect(tag?.src).toBe(new URL(REL, window.location.href).href);
+		tag?.dispatchEvent(new Event('error'));
+		await expect(first).rejects.toThrow(/failed to load/);
+		const retry = ensureEngine(REL);
+		expect(document.querySelectorAll('script[data-lattice-engine]').length).toBe(1);
+		window.LatticePlayground = {} as typeof window.LatticePlayground;
+		await expect(retry).resolves.toBeUndefined();
+	});
+
+	it('ensureKatexProvider retried from a relative URL adds no second <script>', async () => {
+		const url = '/playground/v/dedup/lattice-katex.js';
+		const first = ensureKatexProvider(url);
+		document.querySelector('script[data-lattice-katex-provider]')?.dispatchEvent(new Event('error'));
+		await expect(first).rejects.toThrow(/failed to load/);
+		const retry = ensureKatexProvider(url);
+		expect(document.querySelectorAll('script[data-lattice-katex-provider]').length).toBe(1);
+		window.__latticeKatexReady = true;
+		await expect(retry).resolves.toBeUndefined();
+	});
+
+	it('injectPrefetch skips a URL whose <script> is already in, however the URL is spelled', () => {
+		const s = document.createElement('script');
+		s.setAttribute('data-lattice-engine', '');
+		s.src = new URL(REL, window.location.href).href;
+		document.head.appendChild(s);
+		injectPrefetch(REL);
+		expect(document.querySelectorAll('link[rel="prefetch"]').length).toBe(0);
 	});
 });

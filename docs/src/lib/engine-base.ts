@@ -59,11 +59,11 @@ export function sameOriginAsset(base: string, rel: string): URL | null {
  *
  * The three script loaders (`ensureEngine`, `ensureKatexProvider`, the fence-grammar injector) take
  * their URL from the page: a `data-*` attribute or the engine's own `<script src>`, both written at
- * build time. CodeQL's js/xss-through-dom follows that DOM text into `script.src` (#1958 §2, §7). The
- * text is ours, but the sink is a script load, so the loaders now refuse what no build writes: a
- * quote, an angle bracket, a backtick, a backslash or whitespace, and any scheme but `http:` or
- * `https:` (`javascript:`, `data:` and `blob:` included). A URL that passes comes back unchanged, so
- * the `src` attribute and the loaders' `[src="…"]` lookups still compare equal.
+ * build time (#1958 §2). This is their first gate: it refuses what no build writes (a quote, an angle
+ * bracket, a backtick, a backslash or whitespace, and any scheme but `http:`/`https:`) and returns a
+ * passing URL unchanged. It is NOT the barrier that clears CodeQL js/xss-through-dom: each loader then
+ * resolves the URL against the page, refuses it off-origin INLINE at the sink, and injects the resolved
+ * href, so the loaders' dedup looks tags up with `scriptTagFor`, which compares resolved URLs.
  */
 export function scriptSrc(url: string): string | null {
 	if (typeof url !== 'string' || url === '' || /[<>"'`\\\s]/.test(url)) return null;
@@ -75,6 +75,23 @@ export function scriptSrc(url: string): string | null {
 		return null;
 	}
 }
+/**
+ * The `<script>` carrying `marker` whose src is `url` once both are resolved against this page, or
+ * null. The loaders set `script.src` to the RESOLVED href (the same-origin barrier), so a dedup that
+ * compared the caller's raw string missed a tag injected from a relative URL and added a second one.
+ * Comparing the `src` PROPERTY (always resolved) against the resolved `url` matches either spelling.
+ */
+export function scriptTagFor(marker: string, url: string): HTMLScriptElement | null {
+	let href: string;
+	try {
+		href = new URL(url, document.baseURI).href;
+	} catch {
+		return null;
+	}
+	for (const s of document.querySelectorAll<HTMLScriptElement>(`script[${marker}]`)) if (s.src === href) return s;
+	return null;
+}
+
 /** For tests: forget the recorded URL. */
 export function resetEngineBase(): void {
 	recorded = null;

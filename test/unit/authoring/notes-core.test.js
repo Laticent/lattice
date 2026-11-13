@@ -1040,6 +1040,21 @@ describe('notes-core: say channel (say:)', () => {
     // Ending a block too EARLY is the leak direction, which the `liveCommentOpeners` backstop also
     // catches; ending it too LATE leaves the fence unmasked, so `--strip-notes` deletes a comment out of
     // a code sample. Dropping the case fold or one closer turns this red.
+    // A `<!X` declaration (type 4) opens on ANY ASCII letter in markdown-it 14 (`<![A-Za-z]`). The probe
+    // test above cannot see the case: its comment line holds a `>`, which ends a type-4 block either way.
+    // Here the fence comes before any `>`, so markdown-it reads the fence lines as raw HTML while a mask
+    // that only knew `<![A-Z]` would open a fence on a lowercase declaration and hide what is inside.
+    test('a lowercase <!x declaration opens an HTML block, as markdown-it reads it', async () => {
+      const { default: MarkdownIt } = await import('markdown-it');
+      const md = new MarkdownIt({ html: true });
+      for (const open of ['<!a', '<!doctype html', '<!DOCTYPE html', '<!x y']) {
+        const src = `${open}\n\`\`\`\nSECRETCODE --\n\`\`\`\n> \n`;
+        const inFence = md.parse(src, {}).some((t) => t.type === 'fence' && t.content.includes('SECRETCODE'));
+        const masked = !core.maskCodeRegions(src).includes('SECRETCODE');
+        assert.equal(masked, inFence, `${JSON.stringify(open)}: markdown-it ${inFence ? 'fences' : 'keeps as raw HTML'} the line`);
+      }
+    });
+
     test('the HTML block end tests agree with markdown-it, opener by probe', async () => {
       const { default: MarkdownIt } = await import('markdown-it');
       const md = new MarkdownIt({ html: true });

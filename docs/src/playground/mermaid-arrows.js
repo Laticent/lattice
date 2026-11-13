@@ -7,7 +7,7 @@
 // `-->` but miss `--!>` (#1958 §2, §7). They are not filters. Each family is still an ORDERED
 // alternation anchored at the start, which is exactly "try each branch in order and take the first
 // that matches". The branches are split so that no single pattern holds both brackets, and the
-// flowchart's leading `[<ox]` is a character test. mermaid-arrows.test.ts pins every family to the
+// flowchart's leading `[<ox]` is a character test. test/unit/playground/mermaid-arrows.test.js pins every family to the
 // lengths the old single regexes gave.
 
 const ER = /^[|}][|o](?:--|\.\.)[|o][|{]/;

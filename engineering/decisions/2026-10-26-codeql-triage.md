@@ -141,13 +141,27 @@ so the fix survives a reviewer who cannot see the dashboard either:
   openers × 28 probes with markdown-it and holds the mask to its answer, so the rule still cannot
   end a block earlier than markdown-it does (the leak direction). The `<!X` declaration start
   follows markdown-it 14's `[A-Za-z]`.
-- **Playground script-URL loaders (§2), js/xss-through-dom.** `ensureEngine`, `ensureKatexProvider`
-  and the fence-grammar injector now pass their URL through `scriptSrc` (docs/src/lib/engine-base.ts),
-  which refuses a quote, angle bracket, backtick, backslash, whitespace, or any scheme but
-  `http:`/`https:`, before it reaches `script.src` or `import()`. A passing URL returns unchanged, so
-  the `[src="…"]` dedup lookups still match. `specimen.js` builds its Playground route from the site
-  base instead of reading `data.playgroundUrl` off the `#specimen-data` island. Arms:
-  `docs/src/lib/script-src.test.ts`, `test/unit/playground/specimen-navigation.test.js`.
+- **Playground script-URL loaders (§2), js/xss-through-dom.** The source is the engine `<script>`'s
+  own `src` attribute, read by `engineBase()`. Two gates sit in front of `script.src` and `import()` in
+  `ensureEngine`, `ensureKatexProvider` and the fence-grammar injector. First `scriptSrc`
+  (docs/src/lib/engine-base.ts) refuses a quote, angle bracket, backtick, backslash, whitespace, or any
+  scheme but `http:`/`https:`. Then, **inline at the sink**, each loader resolves the URL against the
+  page and refuses it unless `resolved.origin === window.location.origin`, and injects the resolved
+  href. That origin comparison is what clears the alert: PR #3187's first two pushes put a character
+  check behind the helper and then inline, and CodeQL still traced the DOM string to the sink both
+  times. The engine and its assets are same-origin on every real page, so nothing legitimate is refused.
+  Because the injected `src` is now the resolved href, the dedup lookups compare resolved URLs
+  (`scriptTagFor`) in the two loaders and in `injectPrefetch`; comparing the caller's raw string missed
+  a tag injected from a relative URL and added a second `<script>` on retry. `specimen.js` builds its
+  Playground route from the site base instead of reading `data.playgroundUrl` off the
+  `#specimen-data` island. Arms: `docs/src/lib/script-src.test.ts`,
+  `test/unit/playground/specimen-navigation.test.js`.
+
+  **Known limit for the desktop app.** `scriptSrc` accepts only `http:` and `https:`, and the inline
+  check accepts only the page's origin. A Tauri webview serves the docs from a custom scheme
+  (`tauri://localhost`, or `http://tauri.localhost` on Windows), and a `file:` page has an opaque
+  origin, so a relative asset URL resolves to that scheme and is refused. Revisit both checks when the
+  desktop app loads the engine: the fix is to allow the page's own scheme, not to drop the origin test.
 - **Playground directive scanners (§2), js/bad-tag-filter.** The editor's four Mermaid arrow families
   (each held both `<` and `>`) moved to `docs/src/playground/mermaid-arrows.js`, split so no single
   pattern holds both brackets; `slide-context.js`'s `/^\s*<!--.*-->\s*$/` line test became
