@@ -483,7 +483,24 @@ async function runCompletionProbe(id) {
 		wd('POST', `/session/${id}/actions`, {
 			actions: [{ type: 'key', id: 'kb', actions: [...mods.map((m) => ({ type: 'keyDown', value: m })), { type: 'keyDown', value: key }, { type: 'keyUp', value: key }, ...mods.reverse().map((m) => ({ type: 'keyUp', value: m }))] }],
 		});
-	const type = (text) => wd('POST', `/session/${id}/actions`, { actions: [{ type: 'key', id: 'kb', actions: [...text].flatMap((c) => [{ type: 'keyDown', value: c }, { type: 'keyUp', value: c }]) }] });
+	const elementId = async (css) => {
+		const el = await wd('POST', `/session/${id}/element`, { using: 'css selector', value: css });
+		return el['element-6066-11e4-a52e-4f735466cecf'] || el.ELEMENT;
+	};
+	// On the Mac, key actions type; on iOS they reach the page as keydowns without text input, so the editor gets the
+	// letters through WebDriver's send-keys to its content element, which iOS Safari delivers as typing.
+	const type = async (text) => {
+		if (MAC) return wd('POST', `/session/${id}/actions`, { actions: [{ type: 'key', id: 'kb', actions: [...text].flatMap((c) => [{ type: 'keyDown', value: c }, { type: 'keyUp', value: c }]) }] });
+		return wd('POST', `/session/${id}/element/${await elementId('.cm-content')}/value`, { text });
+	};
+	// A pick: on the Mac a mouse click on the row; on iOS a touch pointer press and release at the row's centre, as a finger.
+	const pick = async (css) => {
+		const eid = await elementId(css);
+		if (MAC) return wd('POST', `/session/${id}/element/${eid}/click`, {});
+		return wd('POST', `/session/${id}/actions`, {
+			actions: [{ type: 'pointer', id: 'finger', parameters: { pointerType: 'touch' }, actions: [{ type: 'pointerMove', duration: 0, origin: { 'element-6066-11e4-a52e-4f735466cecf': eid }, x: 0, y: 0 }, { type: 'pointerDown', button: 0 }, { type: 'pause', duration: 80 }, { type: 'pointerUp', button: 0 }] }],
+		});
+	};
 	const until = async (pred, ms = 8000) => {
 		const t0 = Date.now();
 		for (;;) {
@@ -530,13 +547,9 @@ async function runCompletionProbe(id) {
 
 	await set(`${FM}<!-- _class: `);
 	await keys([CTRL], ' ');
-	st = await until((x) => x.labels.includes('cards-grid'));
+	await until((x) => x.labels.includes('cards-grid'));
 	const marked = await page("latticeCompletionMark('cards-grid')");
-	if (marked) {
-		const el = await wd('POST', `/session/${id}/element`, { using: 'css selector', value: '[data-probe-pick]' });
-		const eid = el['element-6066-11e4-a52e-4f735466cecf'] || el.ELEMENT;
-		await wd('POST', `/session/${id}/element/${eid}/click`, {});
-	}
+	if (marked) await pick('[data-probe-pick]');
 	st = await until((x) => x.doc.includes('<!-- _class: cards-grid'));
 	step(`a ${MAC ? 'click' : 'tap'} on a menu row picks it`, marked && st.doc.includes('<!-- _class: cards-grid'), st);
 
