@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: An audit of autocomplete in the Studio's editors, driven in the real Studio. Ctrl-Space works in the page on both platforms, but it opens nothing in 17 of 37 spots tested, and on macOS the OS takes Ctrl-Space before the browser sees it. The Studio's deck editor runs its own completer, which lacks 8 sources the Playground editor already has (directive names, Mermaid keywords, slot skeletons, map regions, focus/split/size values). The CSS editors pass an empty `override`, which switches off CodeMirror's built-in CSS completion and offers no `var(--token)`. The plan is five slices: one shared completer, a reliable trigger, closing the body gaps, token-aware CSS, then polish.
+summary: An audit of autocomplete in the Studio's editors, driven in the real Studio. Ctrl-Space works in the page on both platforms, but it opens nothing in 17 of 37 spots tested, and on macOS the OS takes Ctrl-Space before the browser sees it. The Studio's deck editor runs its own completer, which lacks 7 sources the Playground editor already has (directive names, Mermaid keywords, slot skeletons, map regions, focus values, nested backdrop axes). The CSS editors pass an empty `override`, which switches off CodeMirror's built-in CSS completion and offers no `var(--token)`. The plan is five slices: one shared completer, a reliable trigger, closing the body gaps, token-aware CSS, then polish.
 ---
 
 # Studio autocomplete: what completes, what does not, and the plan
@@ -28,7 +28,7 @@ its keymap, and in the real Studio Ctrl-Space opened the menu on Chromium with b
 
 **"Features that should complete, don't."** The Studio's deck editor (`editor-complete.ts`, `makeStudioCompletion`)
 was written separately from the Playground's completer (`playground/complete.js`, `latticeAutocomplete`). Both read the
-same kernel (`slide-context.js`), but each one wires up a different set of sources. The Studio is missing eight sources
+same kernel (`slide-context.js`), but each one wires up a different set of sources. The Studio is missing seven sources
 the Playground already ships, and the CSS editors have no completion at all.
 
 ## 2. How this was measured
@@ -69,8 +69,7 @@ matrix below is the record.
 | The empty body of a classed slide → the component's slot skeleton | `skeletonSource` |
 | A `map` slide's body → region names | `dataSources` (`map-complete.js`) |
 | `_focus:` / `_focusSteps:` axis and style | `focusAxisSource`, `focusStyleValuePosition` |
-| `split:` and `size:` values | `splitValuePosition`, `sizeValuePosition` |
-| Nested `backdrop:` map axes | `backdropAxisSource` |
+| Nested `backdrop:` map axes (today the Studio offers the top-level front-matter keys there instead) | `backdropAxisSource` |
 
 ### 4.2 Deck editor — nobody completes it yet
 
@@ -101,7 +100,7 @@ matrix below is the record.
 `CodeField.tsx` installs `autocompletion({ override: [(ctx) => completionRef.current?.(ctx) ?? null] })`. An
 `override` replaces the sources the language provides, so when a caller passes no `completion` prop, the field has no
 completion at all, including CodeMirror's own CSS property and value completion. That covers the Theme CSS editor
-(`Fabricate.tsx`), Component CSS and skeleton (`LayoutStudio.tsx`) and the Craft lab (`CraftLab.tsx`). Only the
+(`Fabricate.tsx`), Component CSS and skeleton (`LayoutStudio.tsx`) and the Craft lab (`docs/src/components/craft/CraftLab.tsx`). Only the
 manifest JSON editor passes a source (`manifestJsonCompletion`, schema-driven). This finding comes from reading the code
 and CodeMirror's `override` contract; the CSS panes were not driven in a browser.
 
@@ -153,7 +152,7 @@ evidence, since the menu has to fit on a phone.
 
 Settled by the owner on 2026-11-13:
 
-1. **One completer, shared by the Studio and the Playground** (slice 1), not a copy of the eight missing sources.
+1. **One completer, shared by the Studio and the Playground** (slice 1), not a copy of the seven missing sources.
 2. **Tab accepts a completion while the menu is open.** With no menu open, Tab keeps moving focus.
 3. **Ctrl-Space on a blank body line opens a short "insert" list.** It never opens while the author types prose.
 4. **The trigger keys are each platform's usual ones**, from this table:
