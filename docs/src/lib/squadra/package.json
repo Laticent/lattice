@@ -41,6 +41,17 @@
         "default": "./dist/driver.cjs"
       }
     },
+    "./markdown": {
+      "@laticent/source": "./markdown.ts",
+      "import": {
+        "types": "./dist/markdown.d.ts",
+        "default": "./dist/markdown.mjs"
+      },
+      "require": {
+        "types": "./dist/markdown.d.ts",
+        "default": "./dist/markdown.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
