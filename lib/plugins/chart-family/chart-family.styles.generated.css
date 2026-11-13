@@ -740,7 +740,7 @@ figure.marks-pigment :where(:is(.gantt-bar, .gantt-milestone, .gantt-bar-label, 
 section.marks-pigment.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])),
 figure.marks-pigment.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])) {
   border-left: calc(var(--chart-hairline) * 5) solid var(--chart-cat-1-hue) !important;
-  padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 4) !important;
+  padding-left: calc(max(var(--sp-sm), 0.5em) - var(--chart-hairline) * 4) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1170,7 +1170,7 @@ section.marks-etch.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([
 figure.marks-etch.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])) {
   background: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 8%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 19%, var(--bg))) !important;
   border-left: calc(var(--chart-hairline) * 3) solid var(--chart-cat-1-ink) !important;
-  padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 2) !important;
+  padding-left: calc(max(var(--sp-sm), 0.5em) - var(--chart-hairline) * 2) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1660,7 +1660,7 @@ section.marks-tone.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([
 figure.marks-tone.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])) {
   background: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 8%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 12%, var(--bg))) !important;
   border-left: calc(var(--chart-hairline) * 3) solid var(--chart-cat-1-ink) !important;
-  padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 2) !important;
+  padding-left: calc(max(var(--sp-sm), 0.5em) - var(--chart-hairline) * 2) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {

@@ -1892,3 +1892,523 @@ section.chart-frame[data-lattice-slide]:is(.radar, .map, .quadrant, .word-cloud,
   stroke-width: var(--chart-edge-strong);
 }
 
+/* ── THE PHONE LADDER: one face for chart text on a 1080-wide page ─────────────────────────────
+ * A page at portrait, square, story or mobile is read on a phone (shared/chart-roles.js). There a chart
+ * set its ticks, keys and eyebrows in the label face (monospaced in several themes) and its values in the
+ * display face (a serif), so one chart printed three faces. Inside the chart's own body on these pages the
+ * two faces resolve to the body face; the slide's title and eyebrow sit outside the body and keep theirs.
+ * The drawn kinds take every text size from `--chart-fs-*`; the HTML kinds (roadmap, kanban, journey …)
+ * keep the deck's own type steps, one type size per deck (engineering/typography.md §7). Landscape is
+ * untouched.
+ * Every phone rule here adds `:where(:not(lat-pane))` to its family test, so it reads a PAGE family: a pane on a wide slide
+ * carries its own `data-family` (lib/core/panes.js), and lib/core/pane-css.js twins every `section.<kind>` rule onto
+ * it, so a bare family test sized a 35% progress pane's labels at a phone page's 11pt of the whole 1920px slide
+ * (panes-row-labels.md p4, clipped). A pane only ever sits on a wide slide (a phone deck splits its panes), and the
+ * dispatch already leaves a pane out (`ctx.paneView`); `:not(lat-pane)` adds no specificity inside `:where`. It is a clause of its own, beside
+ * the house `:where([data-family=…])`, because tools/check-family-tiers.js `descopeFamily` strips that form and
+ * family-conformance.test.js bans a family test inside `:is()`. */
+/* The deck's display face, kept before the remap: the word cloud's words are drawn sizes, not text roles, and keep
+ * the display face they were measured in (word-cloud.transform.js THE PHONE LADDER'S SPECIAL CASE). */
+/* Keyed on `.chart-frame` (every chart's slide, and the Read·Article figure that re-hosts one), never on the bare
+ * section: a rule with no class is needed by every deck, so the on-demand style loader (tools/style-needs.js) would
+ * ship this whole sheet to a deck with no chart (docs/e2e/playground-style-loader.spec.ts). */
+:is(section, figure).chart-frame[data-family]:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) {
+  --_chart-display-face: var(--font-display);
+}
+:is(section, figure)[data-family]:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body {
+  --font-label: var(--font-body);
+  --font-display: var(--font-body);
+}
+:is(section, figure)[data-family]:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .wc-word {
+  font-family: var(--_chart-display-face);
+}
+:is(section, figure)[data-family]:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg :is(text, tspan) {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* ── THE PHONE LADDER: one style per ROLE ─────────────────────────────────────────────────────────
+ * Every text a chart prints plays one role (shared/chart-text-roles.js, from the role audit of all 28 kinds,
+ * engineering/decisions/2026-11-03-responsive-tables.md § 32), and on a page read on a phone each role has ONE
+ * size, weight, ink and case in every chart. Sizes: a drawn kind reads `--chart-fs-<role>` (drawing units, stamped
+ * on each <svg data-chart-roles> by chart-family.dispatch.js); the HTML kinds, and the drawn kinds already sized in
+ * cqi (flowchart, state-chart), read `--chart-role-<role>` (cqi of the slide, below); an item keeps the deck body.
+ * Written from the role map, and test/unit/plugins/chart-roles.test.js fails when the two disagree. Landscape is untouched.
+ * On `.chart-frame`, as the display-face rule above is, so a deck with no chart never loads this sheet. */
+section.chart-frame:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) {
+  --chart-role-key: calc(4.025 * var(--_sec-1cqi, 1cqi));
+  --chart-role-heading: calc(4.025 * var(--_sec-1cqi, 1cqi));
+  --chart-role-direct: calc(3.715 * var(--_sec-1cqi, 1cqi));
+  --chart-role-value: calc(3.715 * var(--_sec-1cqi, 1cqi));
+  --chart-role-region: calc(3.715 * var(--_sec-1cqi, 1cqi));
+  --chart-role-callout: calc(3.715 * var(--_sec-1cqi, 1cqi));
+  --chart-role-category: calc(3.406 * var(--_sec-1cqi, 1cqi));
+  --chart-role-tick: calc(3.406 * var(--_sec-1cqi, 1cqi));
+  --chart-role-title: calc(3.406 * var(--_sec-1cqi, 1cqi));
+  --chart-role-note: calc(3.406 * var(--_sec-1cqi, 1cqi));
+  --chart-role-status: calc(3.406 * var(--_sec-1cqi, 1cqi));
+  --chart-role-glyph: calc(3.406 * var(--_sec-1cqi, 1cqi));
+}
+/* The graph kinds fit their drawing to the box and lift `--chart-text-min` by 1/k as they shrink it (Trama,
+ * docs/src/lib/trama/pipeline.ts THE TYPE FLOOR): on a phone page that floor is the ladder's 11pt (36.78px of a
+ * 1080 page), so a fitted graph never prints a role under it. */
+section:is(.flowchart, .state-chart):where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) {
+  --chart-text-min: 36.78px;
+}
+/* key */
+section.bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-label,
+section.gantt:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .gantt-legend-label,
+section.heatmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-label,
+section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-label,
+section.map:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-label,
+section.piechart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-label,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-label,
+section.radar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-label,
+section.risk-matrix:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .risk-key-label,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-label,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-label,
+section.word-cloud:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .wc-key-edge,
+section.word-cloud:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .wc-key-label {
+  font-weight: 400;
+  fill: var(--text-body);
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* key */
+section.flowchart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .fc-key-label,
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-actor-name,
+section.matrix-grid:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .matrix-grid-key-label,
+section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .roadmap-legend-label,
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .fc-key-label {
+  font-weight: 400;
+  color: var(--text-body);
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* key */
+section.map:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-value,
+section.piechart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-value,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-value,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-value {
+  font-weight: 600;
+  fill: var(--text-heading);
+  text-transform: none;
+  letter-spacing: 0;
+}
+section.bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-label,
+section.gantt:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .gantt-legend-label,
+section.heatmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-label,
+section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-label,
+section.map:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-label,
+section.map:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-value,
+section.piechart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-label,
+section.piechart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-value,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-label,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-value,
+section.radar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-label,
+section.risk-matrix:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .risk-key-label,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-label,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-value,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-label,
+section.word-cloud:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .wc-key-edge,
+section.word-cloud:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .wc-key-label {
+  font-size: var(--chart-fs-key);
+}
+section.flowchart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .fc-key-label:not(text, tspan),
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .fc-key-label:not(text, tspan) {
+  font-size: max(var(--chart-text-min), var(--chart-role-key));
+}
+/* callout */
+section.flowchart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .graph-callout,
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .graph-callout {
+  font-size: max(var(--chart-text-min), var(--chart-role-callout));
+}
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-actor-name,
+section.matrix-grid:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .matrix-grid-key-label,
+section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .roadmap-legend-label {
+  font-size: var(--chart-role-key);
+}
+/* heading */
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-vstage-name,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .kanban-column-header,
+section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .horizon-title,
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .timeline-title {
+  font-weight: 600;
+  color: var(--text-heading);
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* heading */
+section.map:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-head,
+section.radar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .radar-mini-label,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-key-head {
+  font-weight: 600;
+  fill: var(--text-heading);
+  text-transform: none;
+  letter-spacing: 0;
+}
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-vstage-name,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .kanban-column-header,
+section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .horizon-title,
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .timeline-title {
+  font-size: var(--chart-role-heading);
+}
+section.map:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-head,
+section.radar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .radar-mini-label,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .chart-key-head {
+  font-size: var(--chart-fs-heading);
+}
+/* direct */
+section.ep-curve:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-series,
+section.flowchart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .fc-name,
+section.gantt:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .gantt-bar-label,
+section.gantt:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .gantt-mlabel,
+section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .hub-spoke-hub-name,
+section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .hub-spoke-name,
+section.line:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-series,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .quadrant-bubble-label,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .quadrant-dot-label,
+section.scatter:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-series,
+section.slope:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-series,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-series,
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-label,
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-label-t,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .tower-name {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+section.ep-curve:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-series,
+section.gantt:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .gantt-bar-label,
+section.gantt:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .gantt-mlabel,
+section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .hub-spoke-hub-name,
+section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .hub-spoke-name,
+section.line:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-series,
+section.scatter:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-series,
+section.slope:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-series,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-series,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .tower-name {
+  font-size: var(--chart-fs-direct);
+}
+section.flowchart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .fc-name:not(text, tspan),
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-label-t:not(text, tspan),
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-label:not(text, tspan) {
+  font-size: max(var(--chart-text-min), var(--chart-role-direct));
+}
+/* value */
+section.bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-value,
+section.bullet:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-value,
+section.ep-curve:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-value,
+section.funnel:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .funnel-value,
+section.heatmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .heatmap-value,
+section.histogram:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-value,
+section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .hub-spoke-hub-value,
+section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .hub-spoke-value,
+section.line:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-value,
+section.progress:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .progress-pct,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .quadrant-bubble-value,
+section.slope:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-value,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-value,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .tower-open-value,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .tower-share-value,
+section.waterfall:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .waterfall-delta,
+section.waterfall:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .waterfall-total-value {
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+section.bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-value,
+section.bullet:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-value,
+section.ep-curve:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-value,
+section.funnel:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .funnel-value,
+section.heatmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .heatmap-value,
+section.histogram:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-value,
+section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .hub-spoke-hub-value,
+section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .hub-spoke-value,
+section.line:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-value,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .quadrant-bubble-value,
+section.slope:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-value,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-value,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .tower-open-value,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .tower-share-value,
+section.waterfall:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .waterfall-delta,
+section.waterfall:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .waterfall-total-value {
+  font-size: var(--chart-fs-value);
+}
+section.progress:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .progress-pct {
+  font-size: var(--chart-role-value);
+}
+/* region */
+section.flowchart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .fc-group-title,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .quadrant-cohort-label,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .quadrant-label,
+section.radar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .radar-sector-label {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+section.flowchart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .fc-group-title:not(text, tspan) {
+  font-size: max(var(--chart-text-min), var(--chart-role-region));
+}
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .quadrant-cohort-label,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .quadrant-label,
+section.radar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .radar-sector-label {
+  font-size: var(--chart-fs-region);
+}
+/* category */
+section.bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-cat,
+section.bullet:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-cat,
+section.funnel:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .funnel-label,
+section.gantt:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .gantt-lane-label,
+section.heatmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-cat,
+section.heatmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .heatmap-col-label,
+section.line:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-cat,
+section.radar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .radar-axis-label,
+section.risk-matrix:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .risk-tick,
+section.slope:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-axis-title,
+section.slope:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-cat,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-cat,
+section.waterfall:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-cat {
+  font-weight: 400;
+  fill: var(--text-body);
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* category */
+section.matrix-grid:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body td,
+section.matrix-grid:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body th,
+section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .row-label {
+  font-weight: 400;
+  color: var(--text-body);
+  text-transform: none;
+  letter-spacing: 0;
+}
+section.bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-cat,
+section.bullet:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-cat,
+section.funnel:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .funnel-label,
+section.gantt:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .gantt-lane-label,
+section.heatmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-cat,
+section.heatmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .heatmap-col-label,
+section.line:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-cat,
+section.radar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .radar-axis-label,
+section.risk-matrix:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .risk-tick,
+section.slope:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-axis-title,
+section.slope:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-cat,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-cat,
+section.waterfall:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-cat {
+  font-size: var(--chart-fs-category);
+}
+section.matrix-grid:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body td,
+section.matrix-grid:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body th,
+section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .row-label {
+  font-size: var(--chart-role-category);
+}
+/* tick */
+section.bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-tick,
+section.bullet:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-tick,
+section.ep-curve:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-tick,
+section.gantt:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .gantt-tick,
+section.histogram:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-tick,
+section.line:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-tick,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .quadrant-tick,
+section.radar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .radar-tick,
+section.scatter:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-tick,
+section.slope:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-tick,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-tick,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .tower-edge,
+section.waterfall:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-tick {
+  font-weight: 400;
+  fill: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* tick */
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-mood-key-label {
+  font-weight: 400;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+section.bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-tick,
+section.bullet:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-tick,
+section.ep-curve:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-tick,
+section.gantt:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .gantt-tick,
+section.histogram:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-tick,
+section.line:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-tick,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .quadrant-tick,
+section.radar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .radar-tick,
+section.scatter:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-tick,
+section.slope:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-tick,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-tick,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .tower-edge,
+section.waterfall:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-tick {
+  font-size: var(--chart-fs-tick);
+}
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-mood-key-label {
+  font-size: var(--chart-role-tick);
+}
+/* title */
+section.ep-curve:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-axis-title,
+section.histogram:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-axis-title,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .quadrant-axis-name,
+section.risk-matrix:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .risk-axis,
+section.scatter:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-axis-title,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cart-axis-title {
+  font-weight: 600;
+  fill: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+/* title */
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-mood-key,
+section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .horizon-eyebrow {
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+section.ep-curve:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-axis-title,
+section.histogram:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-axis-title,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .quadrant-axis-name,
+section.risk-matrix:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .risk-axis,
+section.scatter:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-axis-title,
+section.stacked-bar:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .cart-axis-title {
+  font-size: var(--chart-fs-title);
+}
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-mood-key,
+section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .horizon-eyebrow {
+  font-size: var(--chart-role-title);
+}
+/* note */
+section.bullet:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .bullet-plan,
+section.flowchart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .fc-edge-label,
+section.funnel:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .funnel-conv,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .quadrant-target-badge,
+section.scatter:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .scatter-size-value,
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-edge-label,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .tower-note,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .tower-retained {
+  font-weight: 400;
+  fill: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+section.bullet:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .bullet-plan,
+section.funnel:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .funnel-conv,
+section.quadrant:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .quadrant-target-badge,
+section.scatter:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .scatter-size-value,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .tower-note,
+section.tower:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .tower-retained {
+  font-size: var(--chart-fs-note);
+}
+section.flowchart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .fc-edge-label:not(text, tspan),
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-edge-label:not(text, tspan) {
+  font-size: max(var(--chart-text-min), var(--chart-role-note));
+}
+/* status */
+section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .hub-spoke-status,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-status,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .kanban-lane,
+section.matrix-grid:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cell,
+section.progress:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-status,
+section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .lat-pill,
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-chip-event,
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-status,
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .timeline-pill {
+  font-weight: 600;
+  text-transform: none;
+}
+section.hub-spoke:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .hub-spoke-status {
+  font-size: var(--chart-fs-status);
+}
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-status,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .kanban-lane,
+section.matrix-grid:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .cell,
+section.progress:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-status,
+section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .lat-pill,
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .chart-status,
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .timeline-pill {
+  font-size: var(--chart-role-status);
+}
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-chip-event:not(text, tspan) {
+  font-size: max(var(--chart-text-min), var(--chart-role-status));
+}
+/* glyph */
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-actor-dot,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .kanban-size,
+section.risk-matrix:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .risk-key-number,
+section.risk-matrix:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .risk-number,
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-chip-to,
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-index,
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-index-t {
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-actor-dot,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .kanban-size {
+  font-size: var(--chart-role-glyph);
+}
+section.risk-matrix:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .risk-key-number,
+section.risk-matrix:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body svg[data-chart-roles] .risk-number {
+  font-size: var(--chart-fs-glyph);
+}
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-chip-to:not(text, tspan),
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-index-t:not(text, tspan),
+section.state-chart:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .state-index:not(text, tspan) {
+  font-size: max(var(--chart-text-min), var(--chart-role-glyph));
+}
+/* item */
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-desc,
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-task-label,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .kanban-title-text,
+section.progress:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .progress-label,
+section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .row-text,
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .timeline-body {
+  font-weight: 400;
+  color: var(--text-body);
+  text-transform: none;
+  letter-spacing: 0;
+}
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-desc,
+section.journey:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .journey-task-label,
+section.kanban:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .kanban-title-text,
+section.progress:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .progress-label,
+section.roadmap:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .row-text,
+section.timeline-list:where([data-family="tall"], [data-family="square"], [data-family="strip"]):where(:not(lat-pane)) .chart-body .timeline-body {
+  /* The deck's body size, floored at the ladder's smallest size (11pt, the category role's): a square page's body runs
+   * smaller (30.2px, 9pt, on a kanban card title) than a tall one's (47px). `--chart-text-min` is the family's lower
+   * on-screen floor (18px at square), not the phone page's 11pt. */
+  font-size: max(var(--chart-role-category), var(--fs-body));
+}
+
+/* ── Graph notes on a phone page (flowchart / state-chart transforms, callout-place.js `notesHtml`): the notes read
+ * as a numbered list under the drawing, at the key's size, so the fit that shrinks the drawing never shrinks them.
+ * The drawing keeps only each note's marker on its node. Padding and gap, never margin. ──────────────── */
+:is(section.flowchart, section.state-chart) .graph-callouts {
+  flex: none;
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: center;
+  gap: var(--sp-xs) var(--sp-lg);
+  width: 100%;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+:is(section.flowchart, section.state-chart) .graph-callout {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-xs);
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  color: var(--text-body);
+}
+:is(section.flowchart, section.state-chart) .graph-callout-marker {
+  flex: none;
+}
+:is(section.flowchart, section.state-chart) .graph-callout-detail {
+  color: var(--text-secondary, var(--text-body));
+}
+:is(section.flowchart, section.state-chart) .graph-callout-detail::before {
+  content: ' · ';
+}

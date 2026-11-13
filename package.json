@@ -268,6 +268,7 @@
     "fonts:check": "node tools/check-fonts.js",
     "icons:font": "node tools/build-icon-font.js",
     "fonts:measure": "node tools/measure-glyph-advances.js",
+    "fonts:measure:advances": "node tools/measure-text-advances.js",
     "build:galleries": "node tools/build-galleries.js",
     "build:galleries:check": "node tools/build-galleries.js --check",
     "build:bucket-galleries": "node tools/build-bucket-galleries.js",

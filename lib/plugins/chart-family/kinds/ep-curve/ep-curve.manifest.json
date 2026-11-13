@@ -17,7 +17,7 @@
   ],
   "renderNote": "The curves, their points, the return-period and loss axes and the curve names are one `<svg>`. The return period runs across on a log scale, so 1-in-10, 1-in-100 and 1-in-1,000 are evenly spaced, and the loss climbs a linear axis from zero.",
   "kernel": {
-    "figureClass": "ep-curve-figure",
+    "figureClass": "ep-curve-figure", "form": true,
     "marks": [
       {
         "class": "ep-path",

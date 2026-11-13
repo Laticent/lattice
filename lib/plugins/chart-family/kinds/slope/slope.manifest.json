@@ -11,6 +11,7 @@
   "renderNote": "Lines, endpoint dots, entity names, both values, the leader lines and the two column headers are one `<svg>`. A slopegraph is a geometric claim — a change in ranking IS a crossing — so every element has to sit in one coordinate system rather than be assembled from boxes that happen to line up, and the de-collision pass that keeps two close names apart needs every label's box in those same units.",
   "kernel": {
     "figureClass": "slope-figure",
+    "form": true,
     "marks": [
       {
         "class": "slope-line",

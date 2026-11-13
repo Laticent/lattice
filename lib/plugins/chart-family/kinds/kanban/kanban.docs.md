@@ -37,6 +37,10 @@ Use for status snapshots: what's in each lane (todo/doing/done or similar). Each
 - **Placing the status pill on the card's title line instead of its nested lane-label bullet.** Size badges (S/M/L/XL) trail the card TITLE; the status pill trails the nested lane-label bullet one level deeper (`- platform \`at-risk\``) — a status pill on the title line instead just becomes an unrecognized trailing code left in the title.
 - **Reaching for `flat` to remove the card shadows.** A kanban card's shadow is INTRINSIC — the component is cards on a board, so the separation is part of its identity and is drawn directly rather than through the `--elevation-card` register that `lift`/`flat` switch. `<!-- _class: kanban flat -->` still shows card shadows. To flatten a board, use `keyline`, which rules the lanes apart with hairlines instead.
 
+### Data shape
+
+- On a narrow slide (under about 70 characters a line: every phone, story, 4:5 and square page) the lanes stack, each lane's name over its cards, and every card runs the full width at its natural height: its title, then its label and status on the row under it.
+
 ## When to use
 
 - **Status snapshot by stage.** When the audience needs to see what is in each lane right now — backlog, in progress, review, done. The board reads as the current state of the work, not its history or schedule.

@@ -15324,6 +15324,49 @@ function checkFontMetricsPin(errors, opts = {}) {
   }
 }
 
+// ── The chart text table's font pin (chart form kernel) ───────────────────────
+//
+// lib/plugins/chart-family/shared/text-advance.generated.js is the per-glyph advance table the chart form kernel lays
+// every phone-page chart out with (engineering/decisions/2026-11-10-chart-form.md § 8, § 10). Like GLYPH_UPPER above,
+// it is a measurement of specific woff2 bytes, so it pins them: every face row names each copy of its woff2 with a
+// sha256, and this fails when a pinned copy moves, a row has no pin, or a pin names a row the table dropped. The remedy
+// is `npm run fonts:measure:advances`, which re-measures in Chromium and rewrites the table with its pins.
+function checkTextAdvancePin(errors, opts = {}) {
+  const {
+    root = ROOT,
+    table = require('../lib/plugins/chart-family/shared/text-advance.generated.js'),
+    pins = require('./text-advance.pins.json'),
+  } = opts;
+  const rows = Object.keys(table.FACES || {});
+  const FIX = 'Re-measure with `npm run fonts:measure:advances` (real Chromium, the shipped faces) and commit the table it writes; do NOT edit a sha256 by hand.';
+  if (!rows.length) {
+    errors.push('chart text table pin verified nothing: text-advance.generated.js has no face rows. ' + FIX);
+    return;
+  }
+  for (const row of rows) {
+    const pin = pins[row];
+    if (!pin || !Array.isArray(pin.sources) || !pin.sources.length) {
+      errors.push(`chart text table row "${row}" pins no woff2 (text-advance.pins.json): its advances are tied to no bytes. ${FIX}`);
+      continue;
+    }
+    for (const src of pin.sources) {
+      const abs = path.join(root, src.file);
+      if (!fs.existsSync(abs)) {
+        errors.push(`chart text table row "${row}" pins \`${src.file}\`, which is not on disk. ${FIX}`);
+        continue;
+      }
+      const actual = crypto.createHash('sha256').update(fs.readFileSync(abs)).digest('hex');
+      if (actual !== src.sha256) {
+        errors.push(`font drift: \`${src.file}\` (${pin.family}, chart text row "${row}") no longer matches the bytes the chart ` +
+          `form kernel's text table was measured from.\n      pinned ${src.sha256}\n      actual ${actual}\n    ${FIX}`);
+      }
+    }
+  }
+  for (const row of Object.keys(pins)) {
+    if (!rows.includes(row)) errors.push(`stale chart text table pin "${row}": text-advance.pins.json pins a row the table does not hold. ${FIX}`);
+  }
+}
+
 // ── Dangling token reads in docs-site chrome (#1688) ───────────────────────────
 //
 // A `var(--X)` whose `--X` is declared NOWHERE is not a theming bug you can see
@@ -15932,6 +15975,7 @@ function run() {
   checkAnimaColorVocabulary(errors);
   checkSyntaxInkContrast(errors);
   checkFontMetricsPin(errors);
+  checkTextAdvancePin(errors);
   checkFallbackContracts(errors);
   checkPhantomTokenReads(errors);
   checkSyntaxSeparation(errors);
@@ -16041,6 +16085,7 @@ module.exports = {
   lockNodeName,
   OPTIONAL_PEER_LOCKFILES,
   checkFontMetricsPin,
+  checkTextAdvancePin,
   checkFallbackContracts,
   ledgerContractProblems,
   fallbackHops,

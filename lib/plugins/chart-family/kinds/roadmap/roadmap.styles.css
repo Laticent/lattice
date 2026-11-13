@@ -688,192 +688,192 @@
  * NOT MATCH on a square deck — the query measures the section's CONTENT box
  * (972 x 909.23 once the asymmetric padding is removed, aspect 1.069), not the
  * 1.00 deck box, so the whole square branch was inert. That was #1218, and it
- * is now fixed at the root: family rules select the `data-family` stamp the
- * engine derives from the deck geometry, so this rule uses the same mechanism
- * as every other one in the file.
+ * was fixed by #1218 with the `data-family` stamp. A WIDTH query has no such
+ * trap (the content box is as wide as the deck's text measure), so this rule now
+ * asks the same text-room question as the cards below: under 34em, a square page
+ * at 32.1em and a portrait page at 20.7em.
  *
  * The class is DOUBLED to hold (0,3,1) — the weight the retired
- * `:is([data-orientation=…])` form carried. `:where()` is zero-specificity, so
- * without the doubling this would drop to (0,2,1) and lose to the `.horizons`
+ * `:is([data-orientation=…])` form carried. Without the doubling this would
+ * drop to (0,2,1) and lose to the `.horizons`
  * legend rule above it (also (0,3,1), and earlier in source order).
  *
  * Landscape keeps the generous separation: it has the height, and the key
  * should read as detached from the grid. See #1209. */
-section.roadmap.roadmap:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .roadmap-legend {
-  padding-top: var(--sp-sm);
-  gap: var(--sp-2xs) var(--sp-lg);
-  /* Chrome step, not the content step. At portrait `--fs-body-compact` renders
-   * ~39px, which takes four status chips past the 877px row and WRAPS the key
-   * to two lines — 144.7px of legend under an already-tight grid. A status key
-   * is chrome (`--fs-meta`'s stated role: pills, micro-captions, labels), so
-   * this is the more correct token here as well as the shorter one. */
-  font-size: var(--fs-meta);
+@container lattice (width < 34em) {
+  section.roadmap.roadmap .roadmap-legend {
+    padding-top: var(--sp-sm);
+    /* The small step between chips, not the large one. At their 13pt role four status chips measure 876px at
+     * square; with the large step they wrapped onto two rows, 167px of key that put the table 17px past the stage
+     * (`roadmap-label-sets.md` p2), and the medium step still missed one row by 3px. The small step holds them on
+     * one row (943 of 972px). */
+    gap: var(--sp-2xs) var(--sp-sm);
+    /* Chrome step, not the content step. At portrait `--fs-body-compact` renders
+     * ~39px, which takes four status chips past the 877px row and WRAPS the key
+     * to two lines — 144.7px of legend under an already-tight grid. A status key
+     * is chrome (`--fs-meta`'s stated role: pills, micro-captions, labels), so
+     * this is the more correct token here as well as the shorter one. */
+    font-size: var(--fs-meta);
+  }
 }
 
 /* ── Box-local portrait (placed AFTER the base horizon rules so it wins on
  * source order at equal specificity) ────────────────────────────────────────
- * A wide table letterboxes, so on a tall box the kernel auto-selects horizons
- * (roadmap.transform.js) and the phase cards STACK into a single column down the
- * page, filling the height. The header collapses to one row (eyebrow · title)
- * and the workstream rows tighten so a 3–4 phase roadmap fits without overflow.
- * Keyed on the deck's `data-family` stamp; landscape (N-across) untouched.
- * ≤0.9 = tall+strip. 2026-06-19-chart-adaptive-sizing.md §10. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizons {
-  /* ONE column is right; the TYPE inside it was the problem. Measured, a
-   * 4-workstream card came out 382.4px with its rows already collapsed to one
-   * line (54px each), so three of them made 1194.5px of grid inside an 835.6px
-   * stage — 284px cut, silently, at `.cell-stage`'s `overflow: clip`.
+ * A wide table letterboxes, so on a portrait page the kernel auto-selects horizons
+ * (roadmap.transform.js). Below about 70 characters a line (34em at the slide's
+ * body size, the text-room threshold of #2988) the phase cards STACK into one
+ * full-width column, each at its natural height, each workstream on its own
+ * full-width row. Keyed on the room the slide has, not the page's shape: a phone,
+ * story or 4:5 page measures 20.7em, a square page 32.1em, a 16:9 slide 53.9em
+ * (N-across, untouched). 2026-06-19-chart-adaptive-sizing.md §10. */
+@container lattice (width < 34em) {
+  section.roadmap.horizons .horizons {
+    /* ONE column is right; the TYPE inside it was the problem. Measured, a
+     * 4-workstream card came out 382.4px with its rows already collapsed to one
+     * line (54px each), so three of them made 1194.5px of grid inside an 835.6px
+     * stage — 284px cut, silently, at `.cell-stage`'s `overflow: clip`.
+     *
+     * More columns was tried and is WORSE, not better: `auto-fit`/`minmax` gives
+     * 2 columns of 426.8px at portrait, and the narrower card wraps the
+     * one-line workstream rows, taking cards to 694.6px for a 1424px grid. A
+     * card's height is set by whether its rows wrap, so narrowing the column
+     * fights the very thing that makes it short.
+     *
+     * What actually binds is that card text rides `--canvas-scale` (~1.95 at
+     * portrait) while the card does not: the rows render at 46.98px. Stepping
+     * the card body down the ROLE scale (HARD RULE #4 — `--fs-*`, never a raw
+     * length) buys the height back without touching the column count. See
+     * #1209, and #1213 for the general defect this is one instance of. */
+    grid-template-columns: 1fr;
+    gap: var(--sp-sm);
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  /* FILL A SPLIT PAGE — without blinding the probe that triggers the split.
    *
-   * More columns was tried and is WORSE, not better: `auto-fit`/`minmax` gives
-   * 2 columns of 426.8px at portrait, and the narrower card wraps the
-   * one-line workstream rows, taking cards to 694.6px for a 1424px grid. A
-   * card's height is set by whether its rows wrap, so narrowing the column
-   * fights the very thing that makes it short.
+   * Once `roadmap-horizons` paginates, a page can hold one card and the stage is
+   * mostly empty: measured, a 314.8px card in an 835.6px stage. The height is
+   * held by the `.viz-frame` pin —
+   * `section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap) >
+   * .cell-stage > .chart-body { flex: 0 0 auto }` (chart-family.styles.css).
    *
-   * What actually binds is that card text rides `--canvas-scale` (~1.95 at
-   * portrait) while the card does not: the rows render at 46.98px. Stepping
-   * the card body down the ROLE scale (HARD RULE #4 — `--fs-*`, never a raw
-   * length) buys the height back without touching the column count. See
-   * #1209, and #1213 for the general defect this is one instance of. */
-  grid-template-columns: 1fr;
-  gap: var(--sp-sm);
-  flex: 1 1 auto;
-  min-height: 0;
-}
-/* FILL A SPLIT PAGE — without blinding the probe that triggers the split.
- *
- * Once `roadmap-horizons` paginates, a page can hold one card and the stage is
- * mostly empty: measured, a 314.8px card in an 835.6px stage. The height is
- * held by the `.viz-frame` pin —
- * `section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap) >
- * .cell-stage > .chart-body { flex: 0 0 auto }` (chart-family.styles.css).
- *
- * The obvious move — flip the body to `flex: 1 1 0` so it fills — is WRONG,
- * and measuring the frame says why. `.chart-body` is `overflow: hidden`, so
- * content never spills THROUGH it into the stage. The probe fires because the
- * pin gives the body its NATURAL height, so an overstuffed chart makes the
- * BODY itself exceed the stage (`stage.scrollHeight > clientHeight`). Set
- * `flex: 1 1 0` and the body is exactly stage height, its overflow clipped
- * inside it, and `overflow-probe.js` goes blind.
- *
- * WHAT BLINDING IT COSTS CHANGED WITH #2016, and this comment said the old thing
- * until 2026-09-02: it used to read "would silently disable this component's own
- * pagination", which was true while the probe WAS the split trigger. Since #2016
- * the split fires on STRUCTURE (`auto-split.js` — "fit has NOT stopped being
- * measured, it has stopped being a TRIGGER"), so a blinded probe no longer stops
- * roadmap paginating. It costs the two things that still read it: the export's
- * overflow ring, and the `overflow:check` corpus ratchet. Still worth preventing —
- * a silent clip is exactly what this whole rule is about — but do not reason about
- * a change here on the belief that pagination depends on it.
- *
- * So keep natural growth and add a FLOOR. `min-height: 100%` makes the body at
- * least the stage's height when content is smaller (the split case → it
- * fills), while `flex: 0 0 auto` still lets it grow PAST the stage when
- * content is larger (the overstuffed case → the probe still fires, and the page
- * rings). One property, both behaviors, no pin to fight.
- *
- * Both directions are covered, but MIND WHICH ONE ACTUALLY RUNS. `check:chart-fit`
- * renders the split pages and is the sharpest check here — and it is wired to NO CI
- * job (`grep -rn chart-fit .github/` is empty), so it only ever runs when somebody
- * types it. The guard that runs unattended is `overflow:check` via
- * `overflow-nightly.yml`: a regression of this rule pushes the corpus from 7 clipped
- * slides to 12, because `examples/portrait-roadmap.md` clips five pages. The carousel
- * suite asserts an overstuffed roadmap still divides. See #1209.
- *
- * THE FLOOR IS `flex-grow`, NOT `min-height: 100%` — changed 2026-09-02, and the
- * difference is a sibling. #2016 made the split's forward-pointer signal
- * (`.lat-split-rel`) universal: a component that declares no `capacity.relationship`
- * now defaults to `sequence` instead of being skipped, and `injectTrailing` seats
- * that signal INSIDE `.cell-stage` (split-envelope.js — the coda seat is only for a
- * coda cell). Every roadmap body page but the last gained a 62.2px sibling, above a
- * 13.2px `row-gap`, in a stage this rule had floored at exactly 100%. Measured:
- * 801.25 + 13.16 + 62.2 = 876.6 in an 801px stage — the signal painted 75.4px past
- * the clip on `[portrait]` and on five pages of `examples/portrait-roadmap.md`.
- *
- * `min-height: 100%` cannot be right once the stage holds two children: it asks for
- * the WHOLE stage regardless of what else is in it. Subtracting a guessed band
- * (`calc(100% - 75px)`) would be worse — the signal wraps to two lines in a narrow
- * box, as its own `text-wrap: balance` comment records, so the band is not a
- * constant.
- *
- * `flex: 1 0 auto` says the same thing declaratively and lets the layout measure it:
- *   - grow 1  — take the FREE space, i.e. whatever the signal did not, so an
- *               under-full split page still fills (what #1209 asked for);
- *   - shrink 0 — never compress, so an overstuffed body still exceeds the stage and
- *               `overflow-probe.js` still sees `scrollHeight > clientHeight`. This is
- *               the half the comment above is about, and it is why `flex: 1 1 0` and
- *               `flex: 1 1 auto` are both still wrong: either one shrinks to fit and
- *               blinds the probe.
- * Grow distributes only free space, so a wrapped two-line signal is accommodated
- * without this rule knowing its height. */
-section.chart-frame.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) > .cell-stage > .chart-body {
-  flex: 1 0 auto;
-}
-/* With the body floored, these can finally hand the height down: `1fr` rows
- * stretch the cards that remain on the page, and the card's own rows spread
- * into it instead of bunching under the header. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizons {
-  grid-auto-rows: 1fr;
-}
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-card {
-  height: 100%;
-  min-height: 0;
-}
-/* TWO COLUMNS, not one tall stack. A split page gives one phase the whole
- * card, and a single column of four short `LABEL · value` rows used barely
- * half the width while running the card's full height — a lot of empty right
- * margin next to a lot of vertical travel. Two columns read as the table this
- * component is, halve the vertical run, and use the width the split just
- * bought. 4 workstreams lay out 2x2, 3 lay out 2+1; `minmax(0, 1fr)` keeps a
- * long workstream name from forcing a track wider than its half. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  /* Distributed, not clumped. `center` left the rows as a tight block marooned
-   * in a tall card; space-evenly with TWO-LINE cells spreads them without the
-   * canyon the one-line cells produced. */
-  align-content: space-evenly;
-  height: 100%;
-  gap: var(--sp-lg) var(--sp-lg);
-}
-/* The row's height is set by `.row-text`, which carries the glyphs — setting
- * font-size on the <li> does nothing, because both spans declare their own. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .row-text { font-size: var(--fs-body); }
-/* Chrome tightens hard at portrait. Every `--sp-*` rides `--canvas-scale`
- * (~1.95 here) just like the type does, so card padding, the head rule's
- * clearance and the inter-row gaps are all ~2x their landscape selves — and
- * three cards multiply that. Trimming a step off each is where the remaining
- * height comes from, without pushing any text below the role scale. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-card {
-  padding: var(--sp-xs) var(--sp-sm);
-  gap: var(--sp-2xs); /* portrait head→rows spacing (was head margin-bottom:var(--sp-xs)) */
-}
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-head {
-  flex-direction: row;
-  align-items: baseline;
-  gap: var(--sp-sm);
-  padding-bottom: var(--sp-2xs);
-}
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-title { font-size: var(--fs-body); }
-/* The phase pill is the least readable thing on a split page. `0.859375cqi`
- * resolves to ~8.4px at portrait, so the #1213 floor is what is actually
- * drawing it — at 11px, legible but not readable on a 1080-wide page where the
- * body text around it is ~33px. Portrait has fewer inline units, so the
- * coefficient has to grow to hold the same optical size: 1.7cqi lands near
- * 16.5px here, and the floor still catches anything narrower. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-head > .lat-pill {
-  --lat-pill-size: max(var(--chart-text-min), calc(1.7cqi * var(--roadmap-pill-scale)));
-}
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows { gap: var(--sp-2xs); }
-/* Each workstream row collapses to ONE line (LABEL · value) — halves the card
- * body so 4+ phases stack without overflow. */
-/* Label OVER value, not beside it. The inline `LABEL · value` row was a
- * one-column compromise; in a half-width track the label eats the line and the
- * value wraps mid-phrase ("Signal / taxonomy"). Stacked, each cell is two tidy
- * lines and nothing breaks. This is the base cell shape — the ≤0.9 override
- * that forced a row is simply gone now that two columns supply the width. */
-section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows > li {
-  align-items: start;
+   * The obvious move — flip the body to `flex: 1 1 0` so it fills — is WRONG,
+   * and measuring the frame says why. `.chart-body` is `overflow: hidden`, so
+   * content never spills THROUGH it into the stage. The probe fires because the
+   * pin gives the body its NATURAL height, so an overstuffed chart makes the
+   * BODY itself exceed the stage (`stage.scrollHeight > clientHeight`). Set
+   * `flex: 1 1 0` and the body is exactly stage height, its overflow clipped
+   * inside it, and `overflow-probe.js` goes blind.
+   *
+   * WHAT BLINDING IT COSTS CHANGED WITH #2016, and this comment said the old thing
+   * until 2026-09-02: it used to read "would silently disable this component's own
+   * pagination", which was true while the probe WAS the split trigger. Since #2016
+   * the split fires on STRUCTURE (`auto-split.js` — "fit has NOT stopped being
+   * measured, it has stopped being a TRIGGER"), so a blinded probe no longer stops
+   * roadmap paginating. It costs the two things that still read it: the export's
+   * overflow ring, and the `overflow:check` corpus ratchet. Still worth preventing —
+   * a silent clip is exactly what this whole rule is about — but do not reason about
+   * a change here on the belief that pagination depends on it.
+   *
+   * So keep natural growth and add a FLOOR. `min-height: 100%` makes the body at
+   * least the stage's height when content is smaller (the split case → it
+   * fills), while `flex: 0 0 auto` still lets it grow PAST the stage when
+   * content is larger (the overstuffed case → the probe still fires, and the page
+   * rings). One property, both behaviors, no pin to fight.
+   *
+   * Both directions are covered, but MIND WHICH ONE ACTUALLY RUNS. `check:chart-fit`
+   * renders the split pages and is the sharpest check here — and it is wired to NO CI
+   * job (`grep -rn chart-fit .github/` is empty), so it only ever runs when somebody
+   * types it. The guard that runs unattended is `overflow:check` via
+   * `overflow-nightly.yml`: a regression of this rule pushes the corpus from 7 clipped
+   * slides to 12, because `examples/portrait-roadmap.md` clips five pages. The carousel
+   * suite asserts an overstuffed roadmap still divides. See #1209.
+   *
+   * THE FLOOR IS `flex-grow`, NOT `min-height: 100%` — changed 2026-09-02, and the
+   * difference is a sibling. #2016 made the split's forward-pointer signal
+   * (`.lat-split-rel`) universal: a component that declares no `capacity.relationship`
+   * now defaults to `sequence` instead of being skipped, and `injectTrailing` seats
+   * that signal INSIDE `.cell-stage` (split-envelope.js — the coda seat is only for a
+   * coda cell). Every roadmap body page but the last gained a 62.2px sibling, above a
+   * 13.2px `row-gap`, in a stage this rule had floored at exactly 100%. Measured:
+   * 801.25 + 13.16 + 62.2 = 876.6 in an 801px stage — the signal painted 75.4px past
+   * the clip on `[portrait]` and on five pages of `examples/portrait-roadmap.md`.
+   *
+   * `min-height: 100%` cannot be right once the stage holds two children: it asks for
+   * the WHOLE stage regardless of what else is in it. Subtracting a guessed band
+   * (`calc(100% - 75px)`) would be worse — the signal wraps to two lines in a narrow
+   * box, as its own `text-wrap: balance` comment records, so the band is not a
+   * constant.
+   *
+   * `flex: 1 0 auto` says the same thing declaratively and lets the layout measure it:
+   *   - grow 1  — take the FREE space, i.e. whatever the signal did not, so an
+   *               under-full split page still fills (what #1209 asked for);
+   *   - shrink 0 — never compress, so an overstuffed body still exceeds the stage and
+   *               `overflow-probe.js` still sees `scrollHeight > clientHeight`. This is
+   *               the half the comment above is about, and it is why `flex: 1 1 0` and
+   *               `flex: 1 1 auto` are both still wrong: either one shrinks to fit and
+   *               blinds the probe.
+   * Grow distributes only free space, so a wrapped two-line signal is accommodated
+   * without this rule knowing its height. */
+  section.chart-frame.roadmap.horizons > .cell-stage > .chart-body {
+    /* Natural height (2026-11-11): a page now holds as many phase cards as fit (roadmap.transform.js), so the body takes
+     * what its cards need and the stage centers it, and a card is never stretched to fill a page of its own. */
+    flex: 0 0 auto;
+  }
+  /* With the body floored, these can finally hand the height down: `1fr` rows
+   * stretch the cards that remain on the page, and the card's own rows spread
+   * into it instead of bunching under the header. */
+  section.roadmap.horizons .horizons {
+    grid-auto-rows: auto;
+  }
+  /* ONE ROW A WORKSTREAM, full width (the owner's call, 2026-11-11). Each workstream runs the card's width, its name
+   * over its value, and the rows stack at their natural height from the top of the card: a long value wraps across
+   * the whole card instead of half of it, and nothing is spread to fill a stretched card. The two columns this replaced
+   * (#2016) were for a card that filled its page; a stacked card takes only the height its rows need. */
+  section.roadmap.horizons .horizon-rows {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+  }
+  /* The row's height is set by `.row-text`, which carries the glyphs — setting
+   * font-size on the <li> does nothing, because both spans declare their own. */
+  section.roadmap.horizons .row-text { font-size: var(--fs-body); }
+  /* Chrome tightens hard at portrait. Every `--sp-*` rides `--canvas-scale`
+   * (~1.95 here) just like the type does, so card padding, the head rule's
+   * clearance and the inter-row gaps are all ~2x their landscape selves — and
+   * three cards multiply that. Trimming a step off each is where the remaining
+   * height comes from, without pushing any text below the role scale. */
+  section.roadmap.horizons .horizon-card {
+    padding: var(--sp-xs) var(--sp-sm);
+    gap: var(--sp-2xs); /* portrait head→rows spacing (was head margin-bottom:var(--sp-xs)) */
+  }
+  section.roadmap.horizons .horizon-head {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--sp-sm);
+    padding-bottom: var(--sp-2xs);
+  }
+  section.roadmap.horizons .horizon-title { font-size: var(--fs-body); }
+  /* The phase pill is the least readable thing on a split page. `0.859375cqi`
+   * resolves to ~8.4px at portrait, so the #1213 floor is what is actually
+   * drawing it — at 11px, legible but not readable on a 1080-wide page where the
+   * body text around it is ~33px. Portrait has fewer inline units, so the
+   * coefficient has to grow to hold the same optical size: 1.7cqi lands near
+   * 16.5px here, and the floor still catches anything narrower. */
+  section.roadmap.horizons .horizon-head > .lat-pill {
+    --lat-pill-size: max(var(--chart-text-min), calc(1.7cqi * var(--roadmap-pill-scale)));
+  }
+  section.roadmap.horizons .horizon-rows { gap: var(--sp-2xs); }
+  /* Each workstream row collapses to ONE line (LABEL · value) — halves the card
+   * body so 4+ phases stack without overflow. */
+  /* Label OVER value, not beside it. The inline `LABEL · value` row was a
+   * one-column compromise; in a half-width track the label eats the line and the
+   * value wraps mid-phrase ("Signal / taxonomy"). Stacked, each cell is two tidy
+   * lines and nothing breaks. This is the base cell shape, kept now that each
+   * workstream has the card's full width. */
+  section.roadmap.horizons .horizon-rows > li {
+    align-items: start;
+  }
 }
 
 

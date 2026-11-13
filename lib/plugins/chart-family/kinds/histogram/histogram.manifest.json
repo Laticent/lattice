@@ -17,7 +17,7 @@
   ],
   "renderNote": "The bands, their values, the edge ticks and the axis captions are one `<svg>`. A band is as wide as its range on the x axis and as tall as its value per unit of range, so its area is its value; bands of one width draw exactly as a gapless bar chart would.",
   "kernel": {
-    "figureClass": "histogram-figure",
+    "figureClass": "histogram-figure", "form": true,
     "marks": [
       {
         "class": "histogram-band",
