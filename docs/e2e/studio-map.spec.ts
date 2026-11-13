@@ -215,6 +215,42 @@ test('the arrow keys walk the rail slide by slide and keyboard focus stays on it
 	await label(page, `Slide ${total} / ${total}`);
 });
 
+/**
+ * Wait until the pool has framed every live tile inside its observer's band, so the count read next is the map's whole
+ * first fill and not part of it.
+ *
+ * "At least one frame" was the wait here, and the pool fills over more than one pass: the tile just past the strip's
+ * edge gets its frame a pass later. Measured at 1180x703 on WebKit, 5 frames at the read and the 6th 1.1 s later, every
+ * run; at 1440x900 on Chromium, 6 then 7 in about half the runs. A close that came first left that frame to the reopen,
+ * which then read as a reopen making a document. In every one of those runs the frame was added before the first close.
+ *
+ * The band is the one `PooledThumbFace` observes (preview-pool.tsx): the rail's own horizontal scroller, which is the
+ * observer's root (`scrollParent`), grown by its 150px `rootMargin`. A tile within 8px of that edge is left out, so a
+ * sub-pixel disagreement with the observer cannot hold the wait open. Live tiles there sit 60px or more from it.
+ */
+async function poolFilled(page: Page) {
+	await expect
+		.poll(
+			() =>
+				page.evaluate(() => {
+					const band = 150 - 8;
+					const tiles = [...document.querySelectorAll('[data-map-rail] button[data-tier="live"]')];
+					// The observer's root: the nearest scrolling ancestor of a tile, as `scrollParent` finds it.
+					let root: Element | null = tiles[0]?.parentElement ?? null;
+					while (root && !/(auto|scroll|overlay)/.test(getComputedStyle(root).overflowX + getComputedStyle(root).overflowY)) root = root.parentElement;
+					const box = root ? root.getBoundingClientRect() : { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
+					const due = tiles.filter((b) => {
+						const r = b.getBoundingClientRect();
+						return r.width > 0 && r.right > box.left - band && r.left < box.right + band && r.bottom > box.top - band && r.top < box.bottom + band;
+					}).length;
+					const frames = document.querySelectorAll('[data-map-rail] iframe').length;
+					return frames >= due ? 'filled' : `${frames} frames for ${due} live tiles in the band`;
+				}),
+			{ message: 'the pool never framed every live tile in its band' },
+		)
+		.toBe('filled');
+}
+
 // On WebKit a destroyed frame is never given back, so the same check runs there too (desktop drops a webkit-only title).
 async function reusesFrames(page: Page) {
 	await gotoStudio(page);
@@ -227,6 +263,7 @@ async function reusesFrames(page: Page) {
 	await mapOn(page);
 	await expect.poll(() => page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeGreaterThan(0);
 	await expect.poll(() => page.evaluate(() => document.querySelectorAll('[data-map-rail] iframe').length)).toBeGreaterThan(0);
+	await poolFilled(page);
 	const first = await page.evaluate(() => (window as unknown as { __frames: number }).__frames);
 	for (let i = 0; i < 3; i++) {
 		await page.getByRole('button', { name: 'Slide map' }).click();
