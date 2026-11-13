@@ -211,6 +211,18 @@ describe('fill (rule 1)', () => {
 		expect(fillUnset({ connected: [], kokoro: true })).toEqual([{ kind: 'voice', provider: 'kokoro' }]);
 		expect(isSet(readChatSelection())).toBe(false);
 	});
+	it('on a LITE desktop fills voice with the cloud, never Kokoro (device-capability-tiers §4.2)', () => {
+		// A desktop: a fine pointer, so only the tier stands between it and Kokoro.
+		vi.stubGlobal('matchMedia', (q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {} }));
+		document.documentElement.setAttribute('data-device-tier', 'lite');
+		try {
+			expect(fillUnset({ connected: ['openrouter'] })).toContainEqual({ kind: 'voice', provider: 'openrouter' });
+			expect(readVoiceSelection()).toMatchObject({ provider: 'openrouter' });
+		} finally {
+			document.documentElement.removeAttribute('data-device-tier');
+			vi.unstubAllGlobals();
+		}
+	});
 	it('never touches a set selection, whatever its state', () => {
 		selectChat({ provider: 'gemini', model: 'gemini-3.8-flash' });
 		expect(fillUnset({ connected: ['openrouter'], kokoro: false })).toEqual([{ kind: 'voice', provider: 'openrouter' }]);

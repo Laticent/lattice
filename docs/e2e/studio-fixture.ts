@@ -541,7 +541,8 @@ export const appToast = toastText;
  * On mobile/tablet the editor lives behind the Edit pane, so we do NOT gate on it
  * here.
  */
-export async function gotoStudio(page: Page): Promise<void> {
+/** `query`: a search string for the Studio URL (`?tier=lite`), for a spec that pins the device tier. */
+export async function gotoStudio(page: Page, { query = '' }: { query?: string } = {}): Promise<void> {
 	// Seed the Craft posture BEFORE the island hydrates, so the full surface (the
 	// left activity bar + docked Architect/Inspector) is present — most specs drive
 	// it. The shipped default is the calm Write stop, which has no activity bar, so
@@ -604,7 +605,7 @@ export async function gotoStudio(page: Page): Promise<void> {
 			w.__latticeDeliveredCaret = snap();
 		});
 	});
-	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
+	await page.goto(`/studio/${query}`, { waitUntil: 'domcontentloaded' });
 	await waitForStudioPaint(page);
 }
 

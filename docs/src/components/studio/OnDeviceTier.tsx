@@ -1,6 +1,7 @@
 import { Check, Cpu, Download, Loader2 } from 'lucide-react';
 import * as React from 'react';
 import { Announce } from '@/lib/announce';
+import { isLiteDevice } from '@/lib/device-lite.js';
 import { notify } from '@/lib/notify';
 import { cn } from '@/lib/utils';
 import { type ArchitectStatus, loadUniversalModel, setStudioTier, summonWebLLM, type TierProgress } from './architect';
@@ -43,6 +44,8 @@ export function OnDeviceTier({ status }: { status: ArchitectStatus }) {
 		if (tier === 'prompt-api' && status.promptApi !== 'available' && status.promptApi !== 'unknown')
 			return 'Not available in this browser — try Chrome or Edge, or the universal tier below.';
 		if (tier === 'webllm' && !status.webgpu) return 'Needs WebGPU (a desktop browser with a GPU).';
+		// LITE (device-capability-tiers §4): a 350 MB to 1 GB download on a machine that cannot hold it. The built-in model downloads nothing.
+		if (tier !== 'prompt-api' && isLiteDevice()) return 'Off in Lite mode: this device is too slow or short of memory for a downloaded model.';
 		return null;
 	};
 

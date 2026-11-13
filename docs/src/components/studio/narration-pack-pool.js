@@ -3,12 +3,15 @@
 // The machinery is docs/src/lib/worker-pool.js, the same pool the export's pictures use. A browser without module workers,
 // and a worker that fails or goes silent, fall back to `packClip` on the main thread: the export is slower there, never
 // lost, and the bytes are the same.
+import { isLiteDevice, LITE } from '../../lib/device-lite.js';
 import { createSharedPool, createWorkerPool } from '../../lib/worker-pool.js';
 import { packClip } from './narration-pack.js';
 
 /** One worker per spare core, at most 4. A clip packs in ~0.1 s, and #1511 measured that 2-4 workers bring a
- *  300-sentence deck from ~32 s of blocked main thread to well under 10 s of background work. */
-export function packPoolSize(cores = globalThis.navigator?.hardwareConcurrency || 2) {
+ *  300-sentence deck from ~32 s of blocked main thread to well under 10 s of background work. A LITE device gets one
+ *  (device-capability-tiers §4): each worker carries its own encoder heap, and the clips pack to the same bytes. */
+export function packPoolSize(cores = globalThis.navigator?.hardwareConcurrency || 2, lite = isLiteDevice()) {
+	if (lite) return LITE.workers;
 	return Math.max(1, Math.min(4, cores - 1));
 }
 

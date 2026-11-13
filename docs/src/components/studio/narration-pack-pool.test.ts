@@ -97,3 +97,11 @@ describe('createNarrationPacker', () => {
 		packer.dispose();
 	});
 });
+
+describe('packPoolSize and the device tier', () => {
+	it('one worker per spare core, at most 4, on FULL; one on LITE whatever the cores (device-capability-tiers §4)', async () => {
+		const { packPoolSize } = await import('./narration-pack-pool.js');
+		expect([2, 4, 8, 16].map((c) => packPoolSize(c, false))).toEqual([1, 3, 4, 4]);
+		expect([2, 4, 8, 16].map((c) => packPoolSize(c, true))).toEqual([1, 1, 1, 1]);
+	});
+});

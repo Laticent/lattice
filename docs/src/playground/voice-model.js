@@ -25,6 +25,7 @@
 // must not use the `@/…` alias or import a TypeScript module.
 
 import { wavBlob } from '../../../lib/core/speech-pcm.mjs';
+import { isLiteDevice } from '../lib/device-lite.js';
 import { healTarget } from '../lib/model-family.js';
 // CDN entrypoint for the in-browser engine (no npm dep; loaded on demand the
 // first time the user summons the local voice). Mirrors architect-model.js.
@@ -1211,7 +1212,10 @@ export function createVoiceModel({ getOpenRouterKey, getSettings, fetchImpl, all
   // onnxruntime load is the unreliable, memory-heavy path on Safari/iOS, so we
   // don't offer it there — mobile uses the cloud voice. A coarse pointer (no mouse)
   // is the proxy for phone/tablet; the cloud voice works on every device.
-  const kokoroSupported = () => !coarsePointer();
+  // Not on a phone (above), and not on a LITE device (device-capability-tiers §4): an 80-330 MB model on a machine that
+  // cannot hold it. Hosted voices only there. model-selection.js `canRunKokoro` applies the same rule, so a LITE desktop is
+  // never filled with Kokoro, and the Settings drawer (TtsSettings) says why when it was picked before.
+  const kokoroSupported = () => !coarsePointer() && !isLiteDevice();
 
   // One Kokoro load at a time. The rung's load() is not re-entrant — a second call rewires
   // its onLoaded/onLoadErr callbacks and strands the first caller's promise — and there are

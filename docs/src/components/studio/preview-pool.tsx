@@ -1,5 +1,6 @@
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
+import { isLiteDevice, LITE } from '@/lib/device-lite.js';
 import { slideFrameStyle } from '@/lib/slide-frame';
 import { cn } from '@/lib/utils';
 import type { SingleSlideOptions } from '@/playground/single-slide-render';
@@ -289,6 +290,16 @@ export const BASE_SLOTS = 10;
 export const HARD_MAX_SLOTS = 28;
 
 /**
+ * A LITE device (device-capability-tiers §4) holds fewer frames: a floor of 6 and a ceiling of 12, where each frame is a
+ * whole document in memory. 12 still covers the biggest grid measured above (12 tiles at 1920x1200), so the "never cap
+ * what is on screen" invariant holds there; a bigger grid on a LITE device starves its least-recently-seen tiles, which
+ * is the trade LITE makes. A host's own lower numbers win. PURE.
+ */
+export function tierSlotCaps(baseSlots: number, maxSlots: number, lite: boolean): { baseSlots: number; maxSlots: number } {
+	return lite ? { baseSlots: Math.min(baseSlots, LITE.baseSlots), maxSlots: Math.min(maxSlots, LITE.maxSlots) } : { baseSlots, maxSlots };
+}
+
+/**
  * What a pool tells its host after it mounts and after every pass. `capacity` is the most frames it will
  * ever hold (its `maxSlots`, at most HARD_MAX_SLOTS): a host that asks for more live tiles than this gets
  * the rest blank, so it should ask for no more. `slots` is how many frames it retains now, which is its
@@ -343,7 +354,11 @@ function parkedProps(p: PooledPreviewProps): PooledPreviewProps {
  * `onSettle` receives a `PoolReport`: the slide map (map-rail/MapRail.tsx) passes its `capacity` to
  * Veduta's `settle` as the live cap, so the core never asks this pool for more live tiles than it holds.
  */
-export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSlots = HARD_MAX_SLOTS, onSettle }: { children: React.ReactNode; className?: string; baseSlots?: number; maxSlots?: number; onSettle?: (report: PoolReport) => void }) {
+export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SLOTS, maxSlots: hostMax = HARD_MAX_SLOTS, onSettle }: { children: React.ReactNode; className?: string; baseSlots?: number; maxSlots?: number; onSettle?: (report: PoolReport) => void }) {
+	// Read at render. The tier can change once mid-session (decided after the first slide): the effect below re-renders the
+	// pool and runs a pass when it does, and the pass gives back the free frames above a lowered ceiling.
+	const [, setTierTick] = React.useState(0);
+	const { baseSlots, maxSlots } = tierSlotCaps(hostBase, hostMax, isLiteDevice());
 	// Read by the assignment pass, which outlives a render: a ref, so a changed prop reaches it.
 	const baseSlotsRef = React.useRef(baseSlots);
 	baseSlotsRef.current = baseSlots;
@@ -601,6 +616,10 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 				slot.freeSince = null;
 				slot.parked = false;
 			}
+			// A LOWERED CEILING (the device tier dropped to LITE mid-session) gives back the free frames above it. Only from the
+			// END, because a slot's place in the list is its React identity; a held slot there is trimmed by a later pass, once its
+			// tile leaves, since the cap above already keeps `want` within the ceiling.
+			while (next.length > ceilingRef.current && next[next.length - 1].tileId === null) next.pop();
 			setSlots(next);
 			// A tile held only by its grace window loses its slot when the window ends — but only if a
 			// pass runs then, and when a whole surface closes nothing else would arm one: every slot
@@ -675,6 +694,16 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 			else go();
 		}, Math.max(0, CAPTURE_QUIET_MS - still));
 	}, []);
+	// Follow the device tier: when `html[data-device-tier]` changes, re-render (new caps) and run a pass (trim to them).
+	React.useEffect(() => {
+		if (typeof MutationObserver === 'undefined') return;
+		const mo = new MutationObserver(() => {
+			setTierTick((n) => n + 1);
+			schedule();
+		});
+		mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-device-tier'] });
+		return () => mo.disconnect();
+	}, [schedule]);
 	React.useEffect(() => {
 		const wrapper = layerRef.current?.parentElement;
 		const scroller = wrapper ? scrollParent(wrapper) : null;

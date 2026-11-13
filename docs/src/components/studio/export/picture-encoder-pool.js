@@ -5,10 +5,13 @@
 // browser without module workers or OffscreenCanvas, and a worker that fails, fall back to `encodeCanvas` on the main
 // thread: the export is slower there, never lost, and the same bytes.
 import { encodeCanvas } from '../../../../../lib/core/canvas-encode.mjs';
+import { isLiteDevice, LITE } from '../../../lib/device-lite.js';
 import { createSharedPool, createWorkerPool } from '../../../lib/worker-pool.js';
 
-/** How many encodes may be in flight: one worker each, at most 2 (a third buys little and costs another 33 MB bitmap). */
-export function poolSize(cores = globalThis.navigator?.hardwareConcurrency || 2) {
+/** How many encodes may be in flight: one worker each, at most 2 (a third buys little and costs another 33 MB bitmap). A LITE
+ *  device gets one: memory is what it lacks, and the bytes are the same either way (device-capability-tiers §4). */
+export function poolSize(cores = globalThis.navigator?.hardwareConcurrency || 2, lite = isLiteDevice()) {
+	if (lite) return LITE.workers;
 	return Math.max(1, Math.min(2, cores - 1));
 }
 

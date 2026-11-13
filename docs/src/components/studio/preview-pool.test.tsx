@@ -34,7 +34,7 @@ vi.mock('@/components/DeckPreview', async () => {
 });
 
 import { slotShows } from './pool-capture';
-import { APPLY_MS, BASE_SLOTS, FRAME_BLEED, HARD_MAX_SLOTS, PARK_MS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE } from './preview-pool';
+import { APPLY_MS, BASE_SLOTS, FRAME_BLEED, HARD_MAX_SLOTS, PARK_MS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE, tierSlotCaps } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
@@ -369,6 +369,55 @@ describe('PreviewPool — which tiles hold a frame', () => {
 		settle();
 		expect(reports[reports.length - 1].slots).toBe(5);
 		unmount();
+	});
+
+	it('on a LITE device reports the LITE ceiling, and FULL again once the tier is FULL', () => {
+		const root = document.documentElement;
+		root.setAttribute('data-device-tier', 'lite');
+		try {
+			const reports: PoolReport[] = [];
+			const { unmount } = render(<Grid n={1} onSettle={(r) => reports.push(r)} />);
+			expect(reports[0].capacity).toBe(12);
+			unmount();
+			root.setAttribute('data-device-tier', 'full');
+			const full: PoolReport[] = [];
+			const again = render(<Grid n={1} onSettle={(r) => full.push(r)} />);
+			expect(full[0].capacity).toBe(HARD_MAX_SLOTS);
+			again.unmount();
+		} finally {
+			root.removeAttribute('data-device-tier');
+		}
+	});
+
+	it('a drop to LITE mid-session lowers the ceiling and gives back the free frames above it', async () => {
+		const root = document.documentElement;
+		root.setAttribute('data-device-tier', 'full');
+		try {
+			const reports: PoolReport[] = [];
+			const { container, unmount } = render(<Grid n={20} onSettle={(r) => reports.push(r)} />);
+			for (let i = 0; i < 20; i++) {
+				onScreen(face(container, i));
+				intersect(face(container, i), true);
+			}
+			settle();
+			expect(reports[reports.length - 1].slots).toBe(20);
+			// The observer reports on a microtask: let it run inside act.
+			await act(async () => {
+				root.setAttribute('data-device-tier', 'lite');
+				await Promise.resolve();
+			});
+			settle();
+			expect(reports[reports.length - 1].capacity).toBe(12);
+			expect(reports[reports.length - 1].held).toBe(12);
+			// Once nothing holds a frame, every frame above the LITE ceiling goes.
+			for (let i = 0; i < 20; i++) intersect(face(container, i), false);
+			vi.advanceTimersByTime(RELEASE_GRACE + APPLY_MS * 2);
+			settle();
+			expect(reports[reports.length - 1].slots).toBe(12);
+			unmount();
+		} finally {
+			root.removeAttribute('data-device-tier');
+		}
 	});
 
 	it('never reports a capacity above the hard ceiling', () => {
@@ -890,5 +939,15 @@ describe('slotShows, the frame-side check before a poster capture', () => {
 	});
 	it('is false with no slide in the frame', () => {
 		expect(slotShows(slot({}, false), props)).toBe(false);
+	});
+});
+
+describe('tierSlotCaps — the device tier', () => {
+	it('keeps the host numbers on FULL', () => {
+		expect(tierSlotCaps(BASE_SLOTS, HARD_MAX_SLOTS, false)).toEqual({ baseSlots: 10, maxSlots: 28 });
+	});
+	it('holds a LITE device to 6 to 12 frames, and a host asking for fewer keeps its own (device-capability-tiers §4)', () => {
+		expect(tierSlotCaps(BASE_SLOTS, HARD_MAX_SLOTS, true)).toEqual({ baseSlots: 6, maxSlots: 12 });
+		expect(tierSlotCaps(4, 8, true)).toEqual({ baseSlots: 4, maxSlots: 8 });
 	});
 });

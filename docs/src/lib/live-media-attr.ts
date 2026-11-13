@@ -7,6 +7,8 @@
 // software renderer composites nothing per frame. Both values opt in: the runtime asks first whether the attribute is there.
 // Read once per full frame write; a tier decided mid-session reaches the next write, not a frame already up.
 
+// The LITE read is inlined, not device-lite.js: this module rides the slide builder, which is eager on the home page, and
+// importing device-lite.js split it into a chunk of its own there (the home route's startup-JavaScript ceiling).
 export function liveMediaAttr(doc: { documentElement?: { getAttribute(name: string): string | null } | null } | undefined = globalThis.document): string {
 	try {
 		return doc?.documentElement?.getAttribute('data-device-tier') === 'lite' ? ' data-lattice-live-media="still"' : ' data-lattice-live-media';

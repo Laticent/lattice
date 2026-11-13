@@ -234,6 +234,44 @@ markup, the hand-off and the tests that drive them are the same in both tiers.
   tiers are in the PR.
 
 
+### 4.2 Slice 4, as built (2026-11-13): LITE resources
+
+`docs/src/lib/device-lite.js` reads `html[data-device-tier]` at the moment of use (`isLiteDevice`) and holds §4's
+numbers (`LITE`). It is plain JS because Node-run unit tests import the export pools directly. Each site takes the tier
+as an argument with that read as the default, so its tests pass the tier in and never read the runner's machine.
+
+| Site | FULL | LITE | Where |
+|---|---|---|---|
+| Picture encoders (every export) | cores − 1, at most 2 | 1 | `poolSize` in `picture-encoder-pool.js` |
+| Narration packers | cores − 1, at most 4 | 1 | `packPoolSize` in `narration-pack-pool.js` |
+| PDF and PowerPoint photo lanes | 2 slides queued on the worker | 1 | `exportInFlight` in `device-lite.js`, read by `deck-export.js` |
+| Preview iframe pool | floor 10, ceiling 28 | floor 6, ceiling 12 (a host's lower numbers win) | `tierSlotCaps` in `preview-pool.tsx` |
+| Idle prefetch | Compose, Present, reading view, KaTeX, diagrams, Fabricate, fonts | the clip notice and Hide/Show only | `startStudioWarmUp` in `studio-warm.ts` |
+| On-device voice (Kokoro) | offered on a desktop | unsupported, as on a phone; never filled as the default voice; hosted voices only | `kokoroSupported` in `voice-model.js`, `canRunKokoro` in `model-selection.js` |
+| On-device chat (WebLLM, Transformers.js) | offered | shown, disabled, with the reason | `OnDeviceTier.tsx` |
+
+- **Shown, not hidden.** §4 said "hidden" for the local models. The chat models stay listed and disabled with
+  "Off in Lite mode", so a person sees why and can switch the tier in the setting slice 5 adds. The browser's built-in
+  model downloads nothing and stays available.
+- **The preview ceiling of 12** still covers the biggest grid measured (12 tiles at 1920×1200), so tiles on screen keep
+  their frames there. A bigger grid on a LITE device starves its least-recently-seen tiles; that is the trade. A pool
+  watches the attribute, so a drop to LITE mid-session re-renders it and its next pass gives back the free frames above
+  12, from the end of its list (a slot's place is its React identity), as tiles leave.
+- **A voice picked before.** The independent review found that `canRunKokoro`, which fills an unset voice, still said
+  yes on a LITE desktop, so read-aloud got a Kokoro voice it could not run. It now says no, and a Kokoro voice picked on an
+  earlier FULL visit reads as unavailable with "On-device voice is off in Lite mode" in the voice settings, never a
+  silent fallback to another voice (the model spine's rule).
+- **A running pool keeps its size.** The shared export pools end 10 s after their last job, so the next export after a
+  mid-session drop to LITE starts at the LITE size.
+- **Same bytes.** Fewer workers and a shorter queue change when work runs, not what it writes: the PDF worker writes
+  slides in index order, and each picture's bytes come from the same writer. `e2e/export-tier-bytes.spec.ts` exports
+  one deck from `?tier=full` and `?tier=lite`, through the default writer and the photo lane, and compares the files
+  byte for byte with only the clock-stamped dates and file ID masked. The PowerPoint is compared too: every zip entry by
+  its uncompressed CRC and size, except `docProps/core.xml`, which holds the export dates.
+- **No speed claim.** On FULL nothing changes; on LITE the work is slower by design and uses less memory. So HARD RULE
+  #19's bench does not apply, and no path is claimed faster.
+
+
 ## 5. The System diagnostic panel
 
 A sixth overlay on the existing `DiagnosticPanel` chassis, toggled under Workspace settings → Diagnostics as
