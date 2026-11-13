@@ -459,10 +459,11 @@ export function makeStudioCompletion(
  * the two never apply to the same spot). `loadAssets` reads the shelf on demand, so the editor pays nothing
  * until the first image reference is typed.
  *   - Inside the `(…)` of any markdown image (`![alt](`, `![bg](`, a collage's list item): `asset:<name>` for
- *     each photo this deck can see. A reference already written as a URL (`https:`, `sample:`) is left alone.
+ *     each photo this deck can see, and `sample:<name>` for Lattice's sample art (`loadSamples`, when given). A
+ *     reference already written as a URL (`https:`) is left alone.
  *   - On a collage slide, a bare list item is a photo: each whole `![Alt](asset:name)` line, alt text selected.
  */
-export function makeAssetCompletion(loadAssets: () => Promise<AssetChoice[]> | AssetChoice[]) {
+export function makeAssetCompletion(loadAssets: () => Promise<AssetChoice[]> | AssetChoice[], loadSamples?: () => Promise<string[]> | string[]) {
 	const photoOption = (a: AssetChoice, kind: 'ref' | 'line'): Completion => {
 		const detail = `${a.width}×${a.height}${a.scope === 'library' ? '' : ' · this deck'}`;
 		if (kind === 'ref') return { label: `asset:${a.name}`, type: 'constant', detail, info: a.sourceName };
@@ -488,9 +489,18 @@ export function makeAssetCompletion(loadAssets: () => Promise<AssetChoice[]> | A
 		// (`https:`, `sample:`) is left alone: the typed prefix must be a prefix of `asset:`, or `asset:` plus a name.
 		// Only the end of the line is read: a 250 KB line of `![a](` repeats would otherwise cost seconds per keystroke.
 		const ref = /!\[[^\]\n]*\]\(([^)\s]*)$/.exec(before.slice(-300));
-		if (ref && ('asset:'.startsWith(ref[1].toLowerCase()) || /^asset:/i.test(ref[1]))) {
+		const typed = ref ? ref[1].toLowerCase() : '';
+		const wantsAssets = !!ref && ('asset:'.startsWith(typed) || typed.startsWith('asset:'));
+		// Lattice's sample art (`sample:<name>`, lib/samples/), so an image reference completes even with an empty Library.
+		const wantsSamples = !!ref && !!loadSamples && ('sample:'.startsWith(typed) || typed.startsWith('sample:'));
+		if (ref && (wantsAssets || wantsSamples)) {
 			const from = context.pos - ref[1].length;
-			return Promise.resolve(loadAssets()).then((list) => (list.length ? { from, options: list.map((a) => photoOption(a, 'ref')), validFor: /^[\w:.-]*$/ } : null)).catch(() => null);
+			const assets = wantsAssets ? Promise.resolve(loadAssets()).catch(() => [] as AssetChoice[]) : Promise.resolve([] as AssetChoice[]);
+			const samples = wantsSamples && loadSamples ? Promise.resolve(loadSamples()).catch(() => [] as string[]) : Promise.resolve([] as string[]);
+			return Promise.all([assets, samples]).then(([list, names]) => {
+				const options = [...list.map((a) => photoOption(a, 'ref')), ...names.map((n): Completion => ({ label: `sample:${n}`, type: 'constant', detail: 'sample art' }))];
+				return options.length ? { from, options, validFor: /^[\w:.-]*$/ } : null;
+			});
 		}
 		// A bare list item on a collage slide is a photo: offer each whole line. Only once something is typed (or on
 		// Ctrl-Space), so an Enter on an empty bullet stays a newline.

@@ -457,6 +457,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	/** Reads the Library photos the open deck may name, for `asset:` completion. Called on the first image
 	 *  reference typed, never at start-up. */
 	completionAssets?: () => Promise<AssetChoice[]>;
+	/** The names of Lattice's sample art (`sample:<name>`), offered inside an image reference beside the Library's photos. */
+	completionSamples?: () => Promise<string[]>;
 	/** `finish:` front-matter VALUE vocabulary — built-in presets (bare) + saved
 	 *  finishes (prefixed `finish-<slug>`). Drives both the value completion AND the
 	 *  inline `unknown-finish` lint (a valid value is exactly what's offered). */
@@ -528,7 +530,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  browser's own Studio write (a strip op) reaching the editor through the session. Either only maps the caret. */
 	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string; isPeer?: (tr: Transaction) => boolean } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, caretColumn, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionSamples, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, focusOnMount, caretColumn, onSelectionChange, isStaleEcho, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const pendingCaretRef = React.useRef<{ text: string; offset: number } | null>(null);
@@ -627,6 +629,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// Read at completion time, so a new callback never rebuilds the editor.
 	const assetsRef = React.useRef(completionAssets);
 	assetsRef.current = completionAssets;
+	const samplesRef = React.useRef(completionSamples);
+	samplesRef.current = completionSamples;
 	const lintComp = React.useRef(new Compartment());
 	// What may come next in a spark or pill, from the lint core once it has loaded (read at
 	// completion time, so no reconfigure is needed). A span typed before the core arrived waits
@@ -639,7 +643,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const measuredPhotoRef = React.useRef(measuredPhoto);
 	measuredPhotoRef.current = measuredPhoto;
 	const buildAutocomplete = () => [
-		autocompletion({ override: studioCompletionSources(withLazyInlineCore(makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), () => lintCoreNow() !== null, loadLintCore), makeAssetCompletion(() => assetsRef.current?.() ?? []), completionComponents, completionRegisters), activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption], defaultKeymap: false }),
+		autocompletion({ override: studioCompletionSources(withLazyInlineCore(makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), () => lintCoreNow() !== null, loadLintCore), makeAssetCompletion(() => assetsRef.current?.() ?? [], () => samplesRef.current?.() ?? []), completionComponents, completionRegisters), activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption], defaultKeymap: false }),
 		// The completion keys (Ctrl-Space, Option-Esc on macOS, Tab to accept) and the "No suggestions here" note, shared
 		// with CodeField and the Playground (completion-keys.js).
 		completionKeys(),

@@ -71,14 +71,16 @@ test('Tab accepts a suggestion, and picking a key opens its values @crosswidth @
 
 test('a front-matter key already set is not offered again @crosswidth @gecko', async ({ page }) => {
 	await gotoStudio(page);
-	await setEditorContent(page, '---\ntheme: indaco\ntitle: Keys\n');
-	await appendToEditor(page, 'th');
-	await expect(menu(page).getByRole('option', { name: /^title/ })).toHaveCount(0);
+	await setEditorContent(page, '---\ntheme: indaco\n');
+	await appendToEditor(page, 't');
+	// The menu is open (the other `t…` keys are offered) before the absence is read, so the check cannot pass early.
+	await expect(menu(page).getByRole('option', { name: /^title/ })).toBeVisible();
 	await expect(menu(page).getByRole('option', { name: /^theme/ })).toHaveCount(0);
 	await page.keyboard.press('Escape');
 	await setEditorContent(page, '---\ntitle: Keys\n');
-	await appendToEditor(page, 'th');
+	await appendToEditor(page, 't');
 	await expect(menu(page).getByRole('option', { name: /^theme/ })).toBeVisible();
+	await expect(menu(page).getByRole('option', { name: /^title/ })).toHaveCount(0);
 });
 
 test('the editor completes what the Playground does: directive names, a nested backdrop map, map regions @crosswidth @webkit-tablet @gecko', async ({ page }) => {
@@ -108,13 +110,15 @@ test.describe('on a Mac', () => {
 	});
 	test('Option-Esc opens suggestions, and so does Ctrl-Space @gecko', async ({ page }) => {
 		await gotoStudio(page);
-		await setEditorContent(page, '---\ntheme: ');
+		// A bare `_class:` position opens nothing by itself (an Enter there must stay a newline), so only the key can
+		// open this menu.
+		await setEditorContent(page, '---\ntitle: Mac\n---\n\n<!-- _class: ');
 		await page.keyboard.press('Alt+Escape');
-		await expect(menu(page).getByRole('option', { name: /^indaco/ })).toBeVisible();
+		await expect(menu(page).getByRole('option', { name: /^cards-grid/ })).toBeVisible();
 		await page.keyboard.press('Escape');
 		await expect(menu(page)).toHaveCount(0);
 		await page.keyboard.press('Control+Space');
-		await expect(menu(page).getByRole('option', { name: /^indaco/ })).toBeVisible();
+		await expect(menu(page).getByRole('option', { name: /^cards-grid/ })).toBeVisible();
 	});
 });
 
@@ -169,6 +173,16 @@ test('a slide directive completes its values, and <!-- offers the note channels 
 	await expect(menu(page).getByRole('option', { name: /^say/ })).toBeVisible();
 	await acceptCompletion(page);
 	await expect(editorText(page)).toContainText('<!-- say: ');
+});
+
+test('an image reference completes Lattice’s sample art, from the list the site serves @crosswidth @gecko', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, '---\ntitle: Pics\n---\n\n# Team\n\n');
+	await watchMenuOpen(page);
+	await appendToEditor(page, '![Team](sample:photo-w');
+	await expect(menu(page).getByRole('option', { name: /^sample:photo-wide\.jpg/ })).toBeVisible();
+	await acceptCompletion(page);
+	await expect(editorText(page)).toContainText('![Team](sample:photo-wide.jpg');
 });
 
 // Slice 4: the CSS fields. CodeField used to replace the CSS language's own completion with nothing; now both run, with

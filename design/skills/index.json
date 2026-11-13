@@ -152,7 +152,7 @@
       "description": "Use when working in Lattice Studio or answering how to: its panels, keyboard verbs, where decks are stored, and what the Studio chat can and cannot do.",
       "kind": "operate",
       "studio": true,
-      "tokens": 3685
+      "tokens": 3841
     },
     {
       "name": "theme",

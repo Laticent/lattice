@@ -1,11 +1,11 @@
 ---
-status: proposed
-summary: An audit of autocomplete in the Studio's editors, driven in the real Studio. Ctrl-Space works in the page on both platforms, but it opens nothing in 17 of 37 spots tested, and on macOS the OS takes Ctrl-Space before the browser sees it. The Studio's deck editor runs its own completer, which lacks 7 sources the Playground editor already has (directive names, Mermaid keywords, slot skeletons, map regions, focus values, nested backdrop axes). The CSS editors pass an empty `override`, which switches off CodeMirror's built-in CSS completion and offers no `var(--token)`. The plan is five slices: one shared completer, a reliable trigger, closing the body gaps, token-aware CSS, then polish.
+status: shipped
+summary: An audit of autocomplete in the Studio's editors, driven in the real Studio, and the fixes that shipped with it. Ctrl-Space worked in the page but opened nothing in 17 of 37 spots tested, and on macOS the OS takes it before the browser sees it (measured on a macOS 26 runner with the stock shortcut on; Option-Esc reached the page every time). The Studio's deck editor runs its own completer, which lacks 7 sources the Playground editor already has (directive names, Mermaid keywords, slot skeletons, map regions, focus values, nested backdrop axes). The CSS editors pass an empty `override`, which switches off CodeMirror's built-in CSS completion and offers no `var(--token)`. The plan was five slices; §7 records what shipped, the evidence, and what was deliberately not built.
 ---
 
 # Studio autocomplete: what completes, what does not, and the plan
 
-**Date:** 2026-11-13 · **Status:** proposed (decisions settled; no code yet) · **Scope:** every CodeMirror editor in the Studio (the deck source
+**Date:** 2026-11-13 · **Status:** shipped (slices 1–4 and the slice 5 width pass; §7) · **Scope:** every CodeMirror editor in the Studio (the deck source
 editor, `CodeField` in the theme, component, finish and manifest panes). The Playground editor is in scope only as the
 source of code the Studio should share.
 
@@ -23,8 +23,8 @@ its keymap, and in the real Studio Ctrl-Space opened the menu on Chromium with b
    key, not a missing feature.
 2. **On macOS, the OS takes Ctrl-Space first.** It is the default "Select the previous input source" shortcut, so the
    browser never sees the key. CodeMirror's Mac alternatives (Alt-\`, Alt-i) are not shown anywhere in the Studio: the
-   `?` shortcut sheet does not list completion. (UNVERIFIED on a real Mac from this sandbox; this is the macOS default
-   and the most likely cause on that platform.)
+   `?` shortcut sheet does not list completion. Measured on a real macOS 26 runner (§7.2): with the stock input-source
+   shortcut on, a real Ctrl-Space reached the page 0 times in 4 and switched the input source each time.
 
 **"Features that should complete, don't."** The Studio's deck editor (`editor-complete.ts`, `makeStudioCompletion`)
 was written separately from the Playground's completer (`playground/complete.js`, `latticeAutocomplete`). Both read the
@@ -165,3 +165,44 @@ Settled by the owner on 2026-11-13:
 
 So: Ctrl-Space on every platform, plus Option-Esc on macOS, the key Mac text fields already use for completion.
 CodeMirror's own Alt-\` and Alt-i stay bound. All of them go in the `?` shortcut sheet.
+
+## 7. What shipped, and the evidence
+
+One PR, one commit per slice. Every new or changed test was seen red (the product broken or the fix reverted, then
+restored), green 10 times in a row alone, and green under load (`--workers=4 --repeat-each=5`), on Chromium and Firefox.
+
+### 7.1 The slices
+
+| Slice | What landed | Where |
+|---|---|---|
+| 1 | Both editors build their source list from one module; the map completer loads only on a map slide; the front-matter key source no longer fires on an indented line (it offered deck keys inside `backdrop:`) | `docs/src/playground/context-sources.js`, `editor-complete.ts` `studioCompletionSources`, `complete.js` `playgroundCompletionSources` |
+| 2 | Ctrl-Space everywhere, Option-Esc on macOS (Option-\` and Option-i kept), Tab accepts while the menu is open, "No suggestions here" when an asked-for menu is empty, a picked key opens its values, set keys are not offered again, an Editor section in the `?` list | `docs/src/playground/completion-keys.js`, `strip-actions/shortcuts.tsx` |
+| 3 | Directive values (`<!-- _paginate: `), the note-channel and pane keys after `<!-- `, TeX commands inside math, a flowchart's names, arrows and span words (closes `followups.d/2385`), the Ctrl-Space insert list on a blank line, `sample:` art inside an image reference, fence languages from the plugin registry (drops `chart`, which the engine renders as plain code) | `context-sources.js`, `tex-commands.js`, `grammar-vocab.js` `FENCE_LANGUAGES` / `COMMENT_KEYS`, `makeAssetCompletion`, `sync-playground-assets.mjs` (`samples/index.json`) |
+| 4 | CodeField keeps CodeMirror's CSS completion (the old `override` replaced it with nothing) and completes token names inside `var(`: the palette contract by role and the type scale, whose list moved from the ownership gate to `lib/core/type-tokens.js` so the gate and the editor read one list | `CodeField.tsx`, `css-token-complete.ts`, `lib/core/type-tokens.js` |
+| found | CodeField dropped letters typed quickly: it wrote the parent's late echo of its own text over the newest letters (Firefox at full speed: 4 runs in 5 on `main`). It now recognizes its echoes | `CodeField.tsx` `emittedRef`; `engineering/gotchas/studio-playground.md` |
+
+### 7.2 macOS, measured
+
+A one-off probe ran on GitHub's `macos-26` runner (dispatched on this branch only, then removed): headed Chromium on the
+built Studio, keys posted through the OS (CGEvent at the HID tap, and System Events), and per key whether the page saw a
+keydown, whether the menu opened, and the keyboard input source before and after. The runner image ships the
+input-source shortcuts OFF (symbolic hotkeys 60 and 61, `enabled = 0`); the probe turned them back on, as a new Mac
+ships them, for its second pass.
+
+| Key, through the OS | Shortcut off (runner image) | Shortcut on (a new Mac) |
+|---|---|---|
+| Ctrl-Space | reached the page, menu opened | **never reached the page** (0 of 4); the input source switched each time |
+| Option-Esc | reached the page, menu opened | reached the page and opened the menu, 4 of 4 |
+
+The first keys of each pass were dropped whatever they were (the plain-letter controls included), so only the later
+rows, where both keys ran back to back under the same conditions, are read. Runs: Actions runs 43380691273 (first try,
+no focus), 43384956399 (shortcut off) and 43387275107 (shortcut on), probe source at commit `65d40c7f`.
+
+### 7.3 Not built, on purpose
+
+- **A color swatch beside a color token.** Component CSS is palette-blind (HARD RULE #3): a token has no one value to
+  show until a theme supplies it, and the Theme CSS field already shows the value on the line that declares it.
+- **A rendered thumbnail in the component details panel.** It costs a render per highlighted row, and the panel's
+  one-line description already names what the component is for; the insert palette is where components are seen.
+- **Recently-used ranking.** Kernel order and catalog usage (`modifierUsage`) already rank the menus; a per-person
+  history would need storage the Studio does not otherwise keep for the editor.

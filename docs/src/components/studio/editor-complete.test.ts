@@ -898,3 +898,26 @@ describe('front-matter keys already set', () => {
 		expect(labels(complete(doc, '---\nthem'.length))).toContain('theme');
 	});
 });
+
+// Slice 3's empty-Library gap: an image reference completes Lattice's sample art (`sample:<name>`) beside the photos.
+describe('makeAssetCompletion: sample art', () => {
+	const samples = makeAssetCompletion(() => [], () => ['photo-wide.jpg', 'logo-acme.svg']);
+	const at = async (doc: string) => {
+		const got = await samples(new CompletionContext(EditorState.create({ doc }), doc.length, false));
+		return got ? got.options.map((o) => o.label) : [];
+	};
+	it('offers the samples inside an image reference, even with no Library photos', async () => {
+		expect(await at('![Team](')).toEqual(['sample:photo-wide.jpg', 'sample:logo-acme.svg']);
+		expect(await at('![Team](sam')).toEqual(['sample:photo-wide.jpg', 'sample:logo-acme.svg']);
+		expect(await at('![Team](sample:ph')).toEqual(['sample:photo-wide.jpg', 'sample:logo-acme.svg']);
+	});
+	it('stays out of a reference that is neither (a URL, an asset)', async () => {
+		expect(await at('![Team](https:')).toEqual([]);
+		expect(await at('![Team](as')).toEqual([]);
+	});
+	it('an editor without the sample list offers none', async () => {
+		const none = makeAssetCompletion(() => []);
+		const got = await none(new CompletionContext(EditorState.create({ doc: '![a](' }), 5, false));
+		expect(got).toBeNull();
+	});
+});
