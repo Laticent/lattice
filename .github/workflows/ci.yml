@@ -48,8 +48,16 @@ permissions:
 # WHAT THE 15m CAP ON `unit` DOES AND DOES NOT BUY — say it plainly, because the
 # obvious reading is wrong: it catches THREE of those four. The 664s wedge finishes
 # inside the cap and would still tie up a runner for 11 minutes. A cap is a ceiling
-# on the worst case, not a detector for the failure mode; the wedge itself is
-# unfixed and untracked here.
+# on the worst case, not a detector for the failure mode.
+#
+# THE WEDGE'S CAUSE, found 2026-11-13: a deadlock in node 24's process.exit(), not
+# in npm and not in this repo. npm prints its whole summary, calls process.exit(),
+# and the exit joins V8's worker threads while one of them is parked mid-compile
+# (Maglev), waiting for a garbage collection that only the joining main thread
+# could run (nodejs/node#64274; fix proposed in #66171, unreleased). The `unit`
+# job's install now runs npm itself with `--single-threaded`, which removes the
+# background compile; see that step, and engineering/gotchas/ci.md "npm ci on
+# node 24 prints everything, then never exits" for the stacks and the counts.
 #
 # THE DISTRIBUTION, and how to reproduce it. Every job across the last 100 completed
 # `ci.yml` runs (`pull_request` + `merge_group`), sampled 2026-09-02T12:17Z:
@@ -362,7 +370,15 @@ jobs:
         uses: ./.github/actions/apt-cached
         with:
           packages: zsh
-      - run: npm ci
+      # npm's own process runs with V8's background tasks off (`--single-threaded`). On node 24 a plain `npm ci` can
+      # finish its work and then never exit: npm calls process.exit(), the exit joins V8's worker threads, and a worker
+      # parked mid-compile waits for a garbage collection only the joining main thread could run (nodejs/node#64274,
+      # fix proposed in #66171, in no release yet). With no background compile there is nothing to park. The flag
+      # cannot go in NODE_OPTIONS (node refuses it there), so npm-cli.js is run directly; npm's children, the
+      # `prepare` build among them, run as before. The cause, the stacks and the counts are in
+      # engineering/gotchas/ci.md, "npm ci on node 24 prints everything, then never exits".
+      - name: npm ci (npm itself single-threaded, against the node 24 exit deadlock)
+        run: node --single-threaded "$(dirname "$(readlink -f "$(command -v npm)")")/npm-cli.js" ci
         timeout-minutes: 10 # an npm ci that never exits (run 40590390608 hung 14 min) fails here, not at the job cap
       # dist/ and the docs-site bundles are BUILT, not committed (.gitignore), so a
       # checkout does not have them and everything below that loads the engine
