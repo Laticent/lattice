@@ -120,24 +120,6 @@ start_driver() {
 bounded() { local secs=$1; shift; perl -e 'alarm shift @ARGV; exec @ARGV or die "exec: $!"' "$secs" "$@"; }
 # The most a Safari launch may take before the device counts as stuck (seconds); see the launch below.
 LAUNCH_LIMIT=${LAUNCH_LIMIT:-480}
-# The settings safaridriver needs inside the simulator, as domain:key.
-PREF_KEYS='com.apple.webinspectord:RemoteInspectorEnabled com.apple.webinspectord:RemoteAutomationEnabled
-  com.apple.webinspectord:WIRRemoteAutomationEnabled com.apple.mobilesafari:WebKitDeveloperExtrasEnabledPreferenceKey
-  com.apple.mobilesafari:WebInspectorEnabled com.apple.mobilesafari:RemoteAutomationEnabled
-  com.apple.mobilesafari:WebKitRemoteAutomationEnabled'
-# After a boot: are the settings in force? If the ones written before the first boot did not survive it, write them
-# inside the device and reboot it, as this script always did. Says which path it took, so a run shows whether it saved
-# the boot.
-ensure_prefs() {
-  local id=$1
-  if [ "$(xcrun simctl spawn "$id" defaults read com.apple.webinspectord RemoteAutomationEnabled 2>/dev/null)" = 1 ]; then
-    echo "settings in force after one boot"
-    return 0
-  fi
-  echo "settings missing after boot: writing them inside the device and rebooting it"
-  for key in $PREF_KEYS; do xcrun simctl spawn "$id" defaults write "${key%%:*}" "${key#*:}" -bool true; done
-  xcrun simctl shutdown "$id" && xcrun simctl boot "$id" && xcrun simctl bootstatus "$id" -b
-}
 trap 'kill "$driver" "$server" 2>/dev/null || true; xcrun simctl shutdown all || true' EXIT
 start_driver
 
@@ -195,17 +177,24 @@ for family in $families; do
   xcrun simctl shutdown all || true
   udid=$(xcrun simctl create "lattice-$family" "$device_type" "$runtime")
   echo "$family: $device_type ($udid)"
-  # ONE BOOT, NOT TWO. The remote-automation settings are read at boot, so this used to boot the new device, write
-  # them inside it and boot it again. A boot cost 1 to 7 minutes on the macOS runners, and two of them pushed a single
-  # device job to 27.7 of its 30 minutes (run 43355906725). They are written into the device's own preference files
-  # before its first boot instead; `ensure_prefs` checks them after the boot and falls back to the old write and reboot
-  # when they did not survive it, so a wrong guess about the first boot costs the time saved, never the run.
-  prefs="$HOME/Library/Developer/CoreSimulator/Devices/$udid/data/Library/Preferences"
-  mkdir -p "$prefs"
-  for key in $PREF_KEYS; do defaults write "$prefs/${key%%:*}" "${key#*:}" -bool true; done
+  xcrun simctl boot "$udid"
+  xcrun simctl bootstatus "$udid" -b
+  # Written inside the booted device, then booted again below. Writing them into its preference files before the first
+  # boot was tried to save that boot; the first boot did not keep them on either device (run 43361835881).
+  for key in \
+    com.apple.webinspectord:RemoteInspectorEnabled \
+    com.apple.webinspectord:RemoteAutomationEnabled \
+    com.apple.webinspectord:WIRRemoteAutomationEnabled \
+    com.apple.mobilesafari:WebKitDeveloperExtrasEnabledPreferenceKey \
+    com.apple.mobilesafari:WebInspectorEnabled \
+    com.apple.mobilesafari:RemoteAutomationEnabled \
+    com.apple.mobilesafari:WebKitRemoteAutomationEnabled; do
+    xcrun simctl spawn "$udid" defaults write "${key%%:*}" "${key#*:}" -bool true
+  done
   # The office probe shows each file in QLProbe and captures the screen: no WebDriver session, no Safari
   # (docs/scripts/ios-safari/office-capture.mjs says why).
   if [ "$PROBE" = office ]; then
+    xcrun simctl shutdown "$udid" || true
     xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b
     SIM_UDID="$udid" SIM_LABEL="$family" OFFICE_INDEX="$ROOT/platform-suite-artifacts/office-quicklook/index.json" \
       APP_DIR="$app" ARTIFACT_DIR="$OUT" node docs/scripts/ios-safari/office-capture.mjs || { status=1; probe_failed=1; }
@@ -256,7 +245,7 @@ for family in $families; do
     fi
     xcrun simctl shutdown "$udid" || true
     t0=$SECONDS
-    if ! { xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b && ensure_prefs "$udid"; }; then
+    if ! { xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b; }; then
       rc=5; why='the simulator did not boot'; continue
     fi
     echo "$family: boot took $((SECONDS - t0)) s"
@@ -264,7 +253,7 @@ for family in $families; do
     # canceled it (run 43355906725). It now fails here, so run.sh ends it as "no probe ran" and the supervisor
     # (.github/workflows/platform-suites-supervisor.yml) re-runs the job on a fresh runner, instead of the limit
     # canceling it as a finding. LAUNCH_LIMIT is generous on purpose until the logged launch times say how far it can
-    # come down: the slowest boot-and-launch seen took 219 s, and how much of that was the launch is not yet measured.
+    # come down: boot plus launch took 45 s and 52 s on runs 43361835881 and 219 s on the slowest runner seen.
     t0=$SECONDS
     if ! bounded "$LAUNCH_LIMIT" xcrun simctl launch "$udid" com.apple.mobilesafari; then
       rc=5; why="Safari did not launch within $LAUNCH_LIMIT s"; continue
