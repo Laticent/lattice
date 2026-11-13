@@ -66,6 +66,11 @@ colors and CSS nesting all supported. Two consequences:
 | Playwright Firefox 142 (headless, 1440 × 900) | no WebGL context at all | not reported | 4 | Lite (no WebGL counts as one floor signal; 4 cores is weak) |
 | Playwright Chromium (from §2's first probe) | `SwiftShader` | reported on a secure page | 4 | Lite |
 
+**On a real iPhone (2026-11-13, the owner, Safari 26.4, the PR's preview deploy):** the System panel read Full;
+graphics `Apple GPU`; memory, cores and network not reported; storage 23.5 MB used of 38.4 GB; speed test 392 units.
+That confirms the WebKit row above on the real device, and gives the first real-device point for the CPU cut-offs:
+a current iPhone scores 392 against the provisional LITE cut-off of 60 (the cloud sandbox scored about 250).
+
 Three consequences for the slices still to build:
 
 1. **WebKit always names its renderer `Apple GPU`**, even this Linux build with no GPU at all, so on WebKit the
