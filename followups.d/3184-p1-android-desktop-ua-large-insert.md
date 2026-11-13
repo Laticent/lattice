@@ -11,8 +11,8 @@ deferred: blocked — needs a real Android device in Chrome's "Desktop site" mod
 # Android Chrome's "Desktop site" mode may defeat the large-insert guard, so a 64K+ typed insert could land twice
 
 why now   — `takesInsert` (docs/src/components/studio/editor-large-insert.ts) steps aside on Android's Chrome because it
-            ignores a cancelled `beforeinput`: applying the insertion in the editor as well would put the text in twice. The
-            guard recognises Android by the user agent, and Chrome's "Desktop site" setting sends a desktop user agent with
+            ignores a canceled `beforeinput`: applying the insertion in the editor as well would put the text in twice. The
+            guard recognizes Android by the user agent, and Chrome's "Desktop site" setting sends a desktop user agent with
             no "Android" token. On that setting, a typed, dictated or dropped insertion of 64K characters or more could be
             applied by the editor AND by the browser. Raised by the #3184 session; plausible, not reproduced.
 where     — docs/src/components/studio/editor-large-insert.ts (`takesInsert`, the user-agent check); its unit tests.
