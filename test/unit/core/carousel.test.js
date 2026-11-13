@@ -792,6 +792,44 @@ describe('core: carousel — code-cards (code: by block, then by line-run)', () 
     assert.deepEqual(seen, lines.map((_, i) => i));
   });
 
+  // A MEASURED plan sets the runs (fit-everywhere-model.md §23): on a phone every line wraps, so the
+  // plan's line count a page, read from the lines' measured heights, replaces the count of 12.
+  test('a measured plan sets the line runs, every line once, in order', () => {
+    const lines = Array.from({ length: 7 }, (_, i) => `const a${i} = ${i};`);
+    const body = bodies(carouselize(cdTag, wrap(pre(...lines)), { ...recipe, plan: [3, 4] }));
+    assert.deepEqual(body.map((p) => (p.match(/const a\d+ = /g) || []).length), [3, 4]);
+    const seen = body.flatMap((p) => [...p.matchAll(/const a(\d+) = /g)].map((m) => Number(m[1])));
+    assert.deepEqual(seen, lines.map((_, i) => i));
+  });
+
+  test('one planned page with a heading → a cover and one body page', () => {
+    const lines = Array.from({ length: 5 }, (_, i) => `const a${i} = ${i};`);
+    const parts = carouselize(cdTag, wrap(pre(...lines)), { ...recipe, plan: [5] });
+    assert.equal(parts.length, 2, 'the heading on a cover, the whole block on the page after it');
+    assert.match(parts[0], /data-split-role="cover"/);
+    assert.equal((bodies(parts)[0].match(/const a\d+ = /g) || []).length, 5);
+  });
+
+  test('a plan that does not place every line is refused: the count decides (inside it, whole)', () => {
+    const lines = Array.from({ length: 7 }, (_, i) => `const a${i} = ${i};`);
+    assert.equal(carouselize(cdTag, wrap(pre(...lines)), { ...recipe, plan: [3, 3] }), null);
+  });
+
+  test('a numbered block\'s empty first and last lines are blank: the plan still places every line', () => {
+    const ln = (n, t) => `<span class="ln" data-n="${n}">${t}</span>`;
+    const body = [ln(1, ''), ...Array.from({ length: 6 }, (_, i) => ln(i + 2, `const a${i} = ${i};`)), ln(8, '')].join('\n');
+    const parts = carouselize(cdTag, `${mast}<div class="cell-stage"><pre><code class="language-js">${body}\n</code></pre></div>`, { ...recipe, plan: [3, 3] });
+    assert.ok(parts, 'a plan of 3 + 3 for the six written lines was refused');
+    assert.deepEqual(bodies(parts).map((p) => (p.match(/const a\d+ = /g) || []).length), [3, 3]);
+  });
+
+  test('no page opens its block with a blank line', () => {
+    const lines = Array.from({ length: 27 }, (_, i) => `const a${i} = ${i};`);
+    for (const p of bodies(carouselize(cdTag, wrap(pre(...lines)), recipe))) {
+      assert.match(p, /<code class="language-js">const a\d+ = /, 'a newline right after <code> renders as a blank first line');
+    }
+  });
+
   // THE ARM THIS KERNEL EXISTS FOR. Highlighted code is HTML and a span can legitimately cross a
   // newline — a block comment, a template literal, a multi-line string. Cutting the string at a
   // `\n` would leave one page with an unclosed `<span>` and the next starting inside a tag that

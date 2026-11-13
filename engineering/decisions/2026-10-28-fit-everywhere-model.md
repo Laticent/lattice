@@ -1301,3 +1301,16 @@ sentence" for redline only.
 Rejected: x1.3 (the fewest splits, but the furthest from the 17pt reading target); keeping x1.5
 and splitting all 291 (title slides never split and would need a ruling of their own); keeping
 prose at `laptop` the way charts do (type would jump between slides of one deck).
+
+**Code, built.** A `code` slide whose single block overflows reads its lines as the measured split's
+members (`codeOf` in lib/core/fit-measure.js): each line a Range from its start to its newline, measured
+as a passage's sentences are, so a wrapped line counts every row. `splitCodeCards` (lib/core/carousel.js)
+follows the plan's line counts when they place every line once, and takes a one-page plan when the
+slide has a heading (the heading on a cover, the block on the page after it). Both sides drop blank
+lines at the block's ends by their text, so a numbered or diff block's empty `<span class="ln">` lines
+count the same on both. The maker-checker review found two defects before the commit: a range ending at
+the next text node's start counted the next line's first row (highlighted code, `[39, 20, 0]` for three
+one-row lines), and markup-blank edge lines made the counts disagree, so the plan was refused. A `code`
+slide with several blocks still splits one block a page, and a block that overflows its own page is
+not cut again.
+
