@@ -43,6 +43,18 @@ const FRONT_MATTER = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/;
  * (front matter excluded), matching how every other Studio surface addresses a slide.
  * Pure — no DOM, no network — so the extraction half is testable headless.
  */
+const FENCE_LINE = /^[ \t]{0,3}(`+|~+)[ \t]*$/;
+
+/**
+ * Whether `line` closes a fence opened by `opener` (a run of backticks or tildes): a bare run of the same character, at
+ * least as long, indented at most three spaces (CommonMark). A fixed pattern and two comparisons, not a RegExp built from
+ * the opener.
+ */
+function closesFence(line: string, opener: string): boolean {
+	const m = FENCE_LINE.exec(line);
+	return !!m && m[1][0] === opener[0] && m[1].length >= opener.length;
+}
+
 export function extractDiagrams(source: string): Diagram[] {
 	const src = String(source || '');
 	const chunks = splitTopLevel(src);
@@ -58,7 +70,7 @@ export function extractDiagrams(source: string): Diagram[] {
 		let outer = null;
 		for (let k = 0; k < lines.length; k++) {
 			if (outer) {
-				if (new RegExp(`^[ \\t]{0,3}[${outer[0]}]{${outer.length},}[ \\t]*$`).test(lines[k])) outer = null;
+				if (closesFence(lines[k], outer)) outer = null;
 				continue;
 			}
 			// An OPENER whose info-string is `mermaid`. The closer must be the same marker,
@@ -71,9 +83,8 @@ export function extractDiagrams(source: string): Diagram[] {
 				continue;
 			}
 			const fence = open[1];
-			const closes = new RegExp(`^[ \\t]{0,3}[${fence[0]}]{${fence.length},}[ \\t]*$`);
 			let end = k + 1;
-			while (end < lines.length && !closes.test(lines[end])) end++;
+			while (end < lines.length && !closesFence(lines[end], fence)) end++;
 			const code = lines.slice(k + 1, end).join('\n').trim();
 			if (code) out.push({ slide: i + 1, code });
 			k = end;
