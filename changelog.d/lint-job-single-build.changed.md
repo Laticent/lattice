@@ -1,0 +1,1 @@
+- **CI:** the `lint` job no longer runs a separate "Bootstrap the built-not-committed artifacts" step. Its `npm ci` already builds them (the root `prepare` script runs the same `build.js --only-uncommitted`), so the step built them twice, 48 s a PR. `build:check` still flags a stale committed artifact.

@@ -129,6 +129,13 @@ describe('thin spotlight card: when the backing slider should pick an ink', () =
 	it('reading the slide\'s photo reference: spaces, angle brackets, parentheses, titles, modifiers', () => {
 		expect(photoRefOf('![bg](<a b.jpg>)')).toBe('a b.jpg');
 		expect(photoRefOf('![bg](img/(1).jpg)')).toBe('img/(1).jpg');
+		// A title ends the address, a space inside parentheses does not, and an unclosed one reads as nothing.
+		expect(photoRefOf('![bg](a.jpg "Title")')).toBe('a.jpg');
+		expect(photoRefOf('![bg](img/(a b).jpg)')).toBe('img/(a b).jpg');
+		expect(photoRefOf('![bg](img/(1.jpg')).toBeNull();
+		// A phone photo inline: megabytes of base64 read whole.
+		const photo = `data:image/jpeg;base64,${'QUJD'.repeat(500_000)}`;
+		expect(photoRefOf(`## Hi\n\n![bg](${photo})\n`)).toBe(photo);
 		expect(photoRefOf('![bg](a.jpg "A title")')).toBe('a.jpg');
 		expect(photoRefOf('![bg left:40%](sample:photo-wide.svg)')).toBe('sample:photo-wide.svg');
 		expect(photoRefOf('![bg](https://cdn.test/a.jpg?w=1600&q=80)')).toBe('https://cdn.test/a.jpg?w=1600&q=80');

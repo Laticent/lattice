@@ -2044,6 +2044,85 @@ never turn "passed in headless" into "works on iOS."
 - **Fix** — wait for hydration before the first click: Astro removes the island's `ssr` attribute when it finishes, so
   poll for `astro-island[component-url*="NavActions"]:not([ssr])` (as `site-chrome-first-paint.spec.ts` does).
 
+## A deck with phone photos freezes the Studio for many seconds, and a test's click times out at "scrolling into view"
+
+- **Symptom** — after a deck with a few phone photos (each a multi-megabyte `data:` URI) lands in the editor, Firefox's
+  main thread blocks for 10 to 30 s at a time. A Playwright `click` then fails at "scrolling into view if needed" after its
+  15 s action budget, though the button is visible, enabled and stable. `export-photo-size.spec.ts` on `gecko` failed this
+  way on every run on `main` in November 2026 (followups 3040-p1 read it as a slow slide rail).
+- **Cause** — two per-edit costs that scale with the deck's SIZE, run for every slide on every render. The slide-metadata
+  memo (`lib/core/meta-memo.mjs`) flat-copied each slide's text into its key through `JSON.parse(JSON.stringify(…))`. A
+  photo slide is about 5 MB, past the memo's 2,000,000-character cap, so every read missed, copied 5 MB, and evicted every
+  other slide; the next write evicted the copy. And `splitSlideChunks` (`lib/core/slide-boundaries.mjs`) re-split and
+  re-joined the whole 16 MB text on each of its 35 calls per edit (the linter's rules, the editor, the outline).
+- **How to tell** — record a Gecko profile: launch Firefox with `MOZ_PROFILER_STARTUP=1`,
+  `MOZ_PROFILER_STARTUP_FEATURES=js,stackwalk` and `MOZ_PROFILER_SHUTDOWN=<file>` (Playwright `launchOptions.env`), then
+  count samples per JS function on the `Web Content` process's `GeckoMain` thread. On Chromium, a CDP `Profiler.start`
+  around the edit shows the same functions.
+- **Fix, part 1** — the memo neither stores nor looks up a key longer than its cap (it could never hit), and
+  `splitSlideChunks` keeps its last answer beside the boundary memo entry it was cut from. Counted in
+  `test/unit/core/meta-memo.test.js`, `slide-boundaries.test.js` and the bench's `memoDatasets` row: copies per keystroke
+  15,000,391 to 61, cuts 35 to 1. That took the worst stall from 28.7 s to 11.2 s.
+- **Fix, part 2: readers stop walking a photo's base64** — no reader of a deck needs a payload's bytes, and every one
+  walked them: lint-core, review-core, the engine's `render`, the preview's HTML and CSS scanners, the source checks one
+  preview render makes, a photo address reader that tested a regex per character. Two remedies, chosen by what the reader
+  decides:
+  - **Readers that only describe the deck skip the payload** through one kernel, `lib/core/payload-elision.js`, and put
+    it back in what they return: lint-core, review-core, the engine's `render`, the Studio's source checks and the
+    editor's fold. A payload is narrow (a `data:` URI's run where a URL value opens, `](` `url(` `=`, with no `=` but its
+    padding, not ending in `/`, followed by a character that ends a URL), because a looser run can hide syntax: inside a
+    tag `/` ends an attribute name, so `data:a/b;base64,AAAA…/src="https://…"` carries a real `src`. The engine, lint and
+    review skip even less (`lib/core/image-line-payloads.js`, each with its own block parser): only a line that is one
+    markdown image AND that markdown-it's own
+    block pass (`lib/core/boundary-parser.mjs`, the engine's block grammar with every plugin block rule) reads as a
+    paragraph by itself, outside the front matter; never in a deck holding `$$`, never on the code door's passes; and
+    it renders the whole text if a stand-in does not come out whole or reaches an output field that is not a string. A
+    line scan for fences and math was tried first, and an independent checker broke it three times (a stray `$$` let
+    KaTeX draw the marker as glyphs; an info-string line paired as a closer; a nested-list fence went unseen): ask the
+    parser, never re-derive its grammar. The block pass costs about 80 ms on a 16 MB deck and reads no inline text; lint and review each pay one in the
+    lint worker (lint plus review on three photos: 93-97 ms, against 48-49 ms when they skipped every payload). A stand-in is the payload's own first
+    960 characters, then a marker, so a rule that quotes a line cut short quotes the author's characters.
+  - **The web-image blocker skips nothing**: it decides what a page may fetch. It reads every character, fast: the
+    entity decoder and the CSS string reader copy runs instead of characters (`lib/core/web-ref-readers.js`,
+    `css-token-readers.js`), which took a photo slide from 1.2 s to 0.1 s in Node.
+  Both were found by the checker; `test/unit/core/payload-elision*.test.js` compare each skipping reader with skipping on
+  and off on the same input and pin the checker's attacks.
+- **Fix, part 3: the rest of the per-edit cost** — the editor's lint and the Coach's assessment run in one worker
+  (`docs/src/components/studio/lint/`), sharing a pass when their vocabularies agree; the Reshape picker builds its tiles
+  only while open; the photo verdict's key is an object, not a string holding the slide; the editor turns its document
+  into a string once per version. On the spec's deck in Firefox, the longest stall is now about 0.8 s after the paste,
+  about 0.5 s after a keystroke in text, and about 1.5 s after a keystroke on a photo's own line, which is no longer one
+  image and is read whole (WebKit: 0.6, 0.5 and 0.9 s).
+- **Measuring it** — `insertText` is the wrong way to put a deck of megabytes into the editor: it types the text into the
+  editor's DOM as one composition, and the browser lays all of it out before CodeMirror reads it (8 s on Firefox, 287 s
+  on WebKit). Paste it instead (`pasteIntoEditor` in `docs/e2e/studio-fixture.ts`), as an author does. Two more traps: a
+  memo or hook dependency keyed by a string that CONTAINS the slide (`${index}|${chunk}`) makes Firefox flatten and
+  compare megabytes on every render; and `npm run build:e2e`'s log still holds the last run's `EXIT` line while a new
+  build runs, so delete it before waiting on it.
+
+## A workspace restore says "Workspace restored" but a reference doc never comes back
+
+- **Symptom** — the restore toast reads "Workspace restored · 1 deck", and the Library has none of the backup's PDFs.
+  `workspace-backup-size.spec.ts`'s 67 MiB case found zero of ten.
+- **Cause** — the restore refuses a reference-doc row whose `dataUrl` is not decodable base64 or is longer than a 5 MiB PDF
+  encodes to (`workspace-backup.ts`, the reference-doc lane), and names it in the toast's "Not restored" list. A test that
+  builds its PDF by repeating the base64 of a block puts the block's `==` padding in the middle of the string, which no
+  decoder accepts, and runs past the cap.
+- **Fix** — encode the whole byte buffer once (`Buffer.toString('base64')`), and have the test assert the toast has no
+  "Not restored" line, so a refused row is named instead of counted as missing later.
+
+## A restore test misses the "Workspace restored" toast, though the restore worked
+
+- **Symptom** — under load, `expect(toast).toContainText('Workspace restored…')` times out, and the failure screenshot
+  shows a freshly loaded Studio with no toast and no Workspace sheet. 1 of 15 loaded runs of
+  `workspace-backup-size.spec.ts` on 2026-11-12.
+- **Cause** — a successful restore shows its toast for 1.1 s and then reloads the page (`WorkspaceSheet.tsx`,
+  `setTimeout(() => location.reload(), 1100)`). A poll on a loaded runner can miss that window, and a
+  `waitForEvent('load')` armed after the toast can miss the reload as well.
+- **Fix** — record toasts from inside the page into `sessionStorage`, which survives the reload, and arm the wait for the
+  reload's navigation before the restore starts (`recordToasts` and `restoreAndReload` in that spec). Read the toast from
+  the record afterwards; never poll a toast that a reload is about to take away.
+
 ## An e2e that waits for "every animation to finish" never returns in the Studio
 
 - **Symptom** — `page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)))` hangs until the test

@@ -23,6 +23,7 @@
 // module in a Node/SSR context — the lazy import keeps construction Node-safe.
 
 import { unclosedSectionAt } from '@laticent/markup';
+import { analysisText } from '@/lib/payload-elision';
 import { paneComponentsSig } from '@/playground/pane-sheet-sig.js';
 import { withoutAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
@@ -1805,13 +1806,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// silently redefine the number (a 40× jump that reads as a content explosion, not as a
 		// changed denominator). Report the SHOWN slide's bytes; `slideMarkdown` is that slide.
 		const shownBytes = opts?.slideMarkdown?.length ?? markdown.length;
+		// The deck as its READERS scan it: a phone photo's base64 is a short stand-in, so the checks below (math, the shown
+		// slide's position, the deck-derived facts) ask what the deck says without walking megabytes of picture
+		// (src/lib/payload-elision.ts). Lines and slides stay where they are. The render itself takes `markdown`.
+		const scan = analysisText(markdown);
 		// KaTeX's 20 faces are stripped from the registered theme until a source actually
 		// contains math (2026-08-17 loading audit §9.6). Gate on the engine's detector with code
 		// skipped (`sourceHasMathOutsideCode`): math inside a code span or fence never renders, and
 		// counting it loaded the faces and re-registered lattice.css before the welcome deck's first
 		// slide (Studio performance audit, PR #2868). AWAIT it as part of themeReady so the first
 		// math slide already has its faces — no fallback-font flash.
-		const katexReady = sourceHasMathOutsideCode(markdown) ? themes.ensureKatexFaces() : Promise.resolve();
+		const katexReady = sourceHasMathOutsideCode(scan) ? themes.ensureKatexFaces() : Promise.resolve();
 		const themeReady = extra
 			? themes.ensureBase().then(() => {
 					// ALWAYS (re-)register — addThemes overwrites by name, so an edited
@@ -1838,7 +1843,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// nothing. A caller that passes `slideIndex` without `slideMarkdown` has no slice to
 				// fall back to, so it keeps the deck render and the narrowing it asked for.
 				const canDivert = typeof opts?.slideIndex === 'number' && !!opts.slideMarkdown;
-				const wantsContext = typeof opts?.slideIndex === 'number' && (!canDivert || needsDeckContext(markdown));
+				const wantsContext = typeof opts?.slideIndex === 'number' && (!canDivert || needsDeckContext(scan));
 				const renderSource = wantsContext || !canDivert ? markdown : (opts?.slideMarkdown as string);
 				// SUPPLIED DECK POSITION for the slice path. When we render the shown slide alone,
 				// the engine would number it "1 of 1" — so hand it the position the caller already
@@ -1885,7 +1890,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				const renderedBase = run?.renderedBase ?? opts?.slideIndex ?? 0;
 				const renderedTotal = run ? run.renderedTotal : opts?.slideCount;
 				const panePage = run?.panePage ?? 0;
-				const slicePage = renderSource !== markdown ? supplyablePosition(markdown, opts?.slideIndex, opts?.slideCount, paneCounts) : undefined;
+				const slicePage = renderSource !== markdown ? supplyablePosition(scan, opts?.slideIndex, opts?.slideCount, paneCounts) : undefined;
 				// `sample:<name>` images resolve into the staged lib/samples/ copy (./samples-base.ts),
 				// and a bare relative ref resolves against the same folder. Hoisted out of the try
 				// below so the deck-context fallback render can reuse it.
@@ -1985,7 +1990,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// the same gate makes the "math" chip mean precisely "this render
 						// triggered a KaTeX load"; stripping code here would hide math whose cost
 						// the engine still paid (e.g. a `$…$` inside a code fence).
-						s.math = sourceHasMath(markdown);
+						s.math = sourceHasMath(scan);
 						s.overflow = 0;
 					}
 				} catch (e) {
@@ -2240,7 +2245,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					recordFidelity({
 						slideIndex,
 						path: painted,
-						facts: painted === 'whole-deck' ? deckDerivedFactsFor(markdown) : [],
+						facts: painted === 'whole-deck' ? deckDerivedFactsFor(scan) : [],
 						page: painted === 'slice' ? slicePage : undefined,
 						// A slice with NO supplied position numbered itself 1 of 1 — honest, but not the
 						// deck's truth. Reported on the fallback slice too, which supplies nothing at all.
@@ -2254,7 +2259,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 										// all is what separates "the fail-closed guard refused" from every other
 										// residual, and inferring that from the rendered "1 of 1" pagination
 										// mis-attributes a supplied-but-wrong position to a guard that is working.
-										const comparePage = supplyablePosition(markdown, slideIndex, slideCount, paneCounts);
+										const comparePage = supplyablePosition(scan, slideIndex, slideCount, paneCounts);
 										const [sliceOut, deckOut] = await Promise.all([
 											// The COUNTERFACTUAL fast route, rendered the way the fast route would
 											// really render it — including the position it would really supply. Passing

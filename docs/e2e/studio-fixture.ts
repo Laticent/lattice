@@ -984,7 +984,7 @@ async function selectAllInEditor(page: Page): Promise<void> {
  * (list auto-continuation) would rewrite a multi-line deck typed key-by-key —
  * `---` separators land inside auto-continued bullets and slides merge.
  */
-export async function setEditorContent(page: Page, text: string, opts: { timeout?: number } = {}): Promise<void> {
+export async function setEditorContent(page: Page, text: string): Promise<void> {
 	await focusEditor(page);
 	await selectAllInEditor(page);
 	await page.keyboard.press('Delete');
@@ -1001,12 +1001,10 @@ export async function setEditorContent(page: Page, text: string, opts: { timeout
 	// as a confusing assertion three steps later in the spec (HARD RULE #33). The poll compares a
 	// fingerprint the page computes, not the text itself: a deck with inline phone photos is 14 MB,
 	// and copying it out of the browser on every poll took up to 10 s a read, so one slow read under
-	// CI load outlasted the poll (export-photo-size.spec.ts, studio-smoke on #3161). That cut the
-	// cost of a read to about 0.1 s, but not the wait: after a 14 MB insert the Studio holds the main
-	// thread for about 16 s, and no read answers until it lets go. A spec that loads a deck that heavy
-	// says so with `timeout`; every other deck keeps the 15 s default, so a mix still fails fast.
+	// CI load outlasted the poll (export-photo-size.spec.ts, studio-smoke on #3161). The Studio's own
+	// freeze on a deck that heavy was fixed at its cause in #3153, so every deck uses the 15 s default.
 	await expect
-		.poll(() => deckEditorFingerprint(page), { message: 'setEditorContent: the editor does not hold exactly the deck it was given', timeout: opts.timeout })
+		.poll(() => deckEditorFingerprint(page), { message: 'setEditorContent: the editor does not hold exactly the deck it was given' })
 		.toEqual(fingerprint(text));
 }
 
@@ -1086,6 +1084,28 @@ export function deckEditorText(page: Page): Promise<string | null> {
 		const view = handle.cmTile?.root?.view ?? handle.cmView?.rootView?.view ?? null;
 		return view ? view.state.doc.toString() : null;
 	});
+}
+
+/**
+ * Replace the editor document with `text` the way an author does with a big deck: copy it, select all, paste. For a deck of
+ * megabytes, `setEditorContent`'s `insertText` is the wrong door: it types the text as one composition into the editor's
+ * DOM, and the browser lays all of it out before CodeMirror reads it back. Measured on a deck of three phone photos (16 MB):
+ * 287 s of that on WebKit and 8 s on Firefox, against 8.6 s for the whole paste-and-settle on WebKit. A paste reaches
+ * CodeMirror as clipboard data and never enters the DOM. Chromium needs the clipboard permission; Firefox and WebKit let
+ * a page in a secure context write it.
+ */
+export async function pasteIntoEditor(page: Page, text: string, opts: { timeout?: number } = {}): Promise<void> {
+	if (page.context().browser()?.browserType().name() === 'chromium') await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+	await page.evaluate((t) => navigator.clipboard.writeText(t), text);
+	await focusEditor(page);
+	await selectAllInEditor(page);
+	await page.keyboard.press('ControlOrMeta+v');
+	// Prove the paste, as setEditorContent proves its insert: a paste that lost the selection or dropped its data fails
+	// here, naming the helper, instead of as a missing slide later. The fingerprint is computed in the page (two numbers
+	// cross the protocol, not the deck).
+	await expect
+		.poll(() => deckEditorFingerprint(page), { message: 'pasteIntoEditor: the editor does not hold exactly the deck it was given', timeout: opts.timeout })
+		.toEqual(fingerprint(text));
 }
 
 /** Below 700px the Studio shows one pane at a time (docs/src/lib/use-breakpoint.ts): the

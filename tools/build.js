@@ -427,7 +427,7 @@ async function main(argv) {
   // on a tree that has never been built it fails on the absence of the very files
   // this script exists to produce.
   //
-  // CI uses it as a bootstrap: `build:uncommitted` then `build:check`. That order
+  // CI uses it as a bootstrap: `npm ci` (whose `prepare` runs it) then `build:check`. That order
   // matters and is the whole point — building EVERYTHING first would rewrite the
   // committed artifacts too, so the freshness check after it would compare fresh
   // against fresh and pass vacuously. Generating only the uncommitted half gives
