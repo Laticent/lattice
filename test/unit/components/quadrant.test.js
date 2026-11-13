@@ -57,32 +57,40 @@ const ADV = 0.6;
 // test/unit/transformers/svg-label.test.js.
 const { upperAdvance } = require('../../../lib/plugins/chart-family/shared/svg-label');
 
+/** Every `<text>` carrying `className` in its class LIST, as svg-tags records. */
+function textEls(html, className) {
+  return tagsOf(html, 'text').filter((tag) => String(tag.attrs.class || '').split(/\s+/).includes(className));
+}
+
+/** The `<tspan>` lines of one `<text>` tag: `{ x, y, text }`, in document order. */
+function tspanLines(html, tag) {
+  return tagsOf(elementInner(html, tag), 'tspan').map((t) => ({
+    x: +t.attrs.x,
+    y: +t.attrs.y,
+    text: elementInner(elementInner(html, tag), t),
+  }));
+}
+
 /**
  * Rebuild the boxes a `<text class="…">` set actually paints, honoring both
  * `text-anchor` (horizontal extent) and `dominant-baseline` (vertical extent).
  * Measuring every label as if it sat on an alphabetic baseline at a start
  * anchor is precisely the bug this area had twice.
+ *
+ * Reads the SVG through svg-tags (one linear pass, CodeQL js/polynomial-redos),
+ * not a scraping regex: the earlier `<text\b([^>]*)>([\s\S]*?)<\/text>` had two
+ * unbounded runs and backtracked, which the query flagged (#1958 §3, §7).
  */
-const TEXT_EL_RE = /<text\b([^>]*)>([\s\S]*?)<\/text>/g;
-
 function textBoxes(html, className, fontSize, hand = false) {
   const upper = /quadrant-label/.test(className);
   // Tracking follows the rule the class actually matches, as cornerSpec does.
   const tracking = /--magic/.test(className) ? 0.08 : /--zone/.test(className) ? 0.06 : 0.04;
   const advOf = upper ? (s) => upperAdvance(s, { hand, tracking }) : () => ADV;
-  // Match every <text>, then filter on its class LIST. Testing the class inside
-  // the element pattern would need two unbounded runs around a literal
-  // (`[^"]*\bfoo\b[^"]*`), which backtracks polynomially — CodeQL flags it, and
-  // rightly: splitting the attribute out is both linear and easier to read.
-  const wanted = (attrs) => ((attrs.match(/class="([^"]*)"/) || [])[1] || '')
-    .split(/\s+/).includes(className);
-  return [...html.matchAll(TEXT_EL_RE)].filter((m) => wanted(m[1])).map((m) => {
-    const attrs = m[1];
-    const baseline = (attrs.match(/dominant-baseline="([\w-]+)"/) || [])[1] || 'auto';
-    const anchor = (attrs.match(/text-anchor="(\w+)"/) || [])[1] || 'start';
+  return textEls(html, className).map((tag) => {
+    const baseline = tag.attrs['dominant-baseline'] || 'auto';
+    const anchor = tag.attrs['text-anchor'] || 'start';
     const [above, below] = BASELINE_EXTENT[baseline] || BASELINE_EXTENT.auto;
-    const lines = [...m[2].matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)"(?: dominant-baseline="[a-z]+")?>([^<]*)</g)]
-      .map((t) => ({ x: +t[1], y: +t[2], text: t[3] }));
+    const lines = tspanLines(html, tag);
     // Widest by PAINTED width, not character count — with a per-string advance
     // the two disagree, and it is the painted one that collides.
     const widest = lines.reduce((w, l) => Math.max(w, l.text.length * advOf(l.text)), 0) * fontSize;
@@ -97,29 +105,9 @@ function textBoxes(html, className, fontSize, hand = false) {
   });
 }
 
-/**
- * The `<tspan>` texts of every `<text>` carrying `className`, in document order.
- *
- * Reuses TEXT_EL_RE and filters on the class LIST in code rather than baking the
- * class into the pattern — the same reason spelled out on `textBoxes` above, and
- * the reason CodeQL flags the baked form: `<text class="foo"[^>]*>([\s\S]*?)`
- * backtracks polynomially over a document with many such tags.
- *
- * The tspan pattern is the file's existing one, anchored on the literal `x="`
- * and `y="` the emitter always writes. An earlier cut of this helper used
- * `<tspan[^>]*>` and a comment claiming that ending at `<` rather than a
- * `</tspan>` literal kept it linear. It does not: the UNBOUNDED `[^>]*` run is
- * what backtracks, and CodeQL flagged it again. Bounded classes, no unbounded
- * run, is the property that matters.
- */
-const TSPAN_RE = /<tspan x="([-\d.]+)" y="([-\d.]+)"(?: dominant-baseline="[a-z]+")?>([^<]*)</g;
-
+/** The `<tspan>` texts of every `<text>` carrying `className`, in document order. */
 function labelLines(html, className) {
-  const wanted = (attrs) => ((attrs.match(/class="([^"]*)"/) || [])[1] || '')
-    .split(/\s+/).includes(className);
-  return [...html.matchAll(TEXT_EL_RE)]
-    .filter((m) => wanted(m[1]))
-    .map((m) => [...m[2].matchAll(TSPAN_RE)].map((t) => t[3]));
+  return textEls(html, className).map((tag) => tspanLines(html, tag).map((l) => l.text));
 }
 
 // ── Fixtures ───────────────────────────────────────────────────────────
@@ -466,7 +454,8 @@ test('buildQuadrant: default labels four quadrant corners', () => {
   // Reading-order check: top-left is data-cell="0" with "Strategic Bets"
   // The label text now lives in a <tspan> (labels wrap), so the corner name
   // sits one element deeper than the flat <text> this used to match.
-  assert.match(out, /data-cell="0"[^>]*>(?:<tspan[^>]*>)?[^<]*Strategic Bets/);
+  const cell0 = tagsOf(out, 'text').find((t) => t.attrs['data-cell'] === '0');
+  assert.ok(cell0 && elementInner(out, cell0).includes('Strategic Bets'), 'data-cell="0" carries "Strategic Bets"');
 });
 
 test('buildQuadrant: bubble — √-scaled bubbles + size pill', () => {
@@ -619,7 +608,8 @@ describe('quadrant', () => {
     const inner = '<p><code>Effort 0–10 → Reach 0–100</code></p><h2>X</h2>' + UL_FOUR;
     const { html } = transformChartSection(inner, 'quadrant');
     assert.match(html, /class="chart-eyebrow"/);
-    assert.doesNotMatch(html, /quadrant-axis-name--x[^>]*>(?:<[^>]+>)*Effort/);
+    const axisX = textEls(html, 'quadrant-axis-name--x');
+    assert.ok(!axisX.some((tag) => elementInner(html, tag).includes('Effort')), 'the x axis name does not say "Effort"');
   });
 });
 
@@ -742,7 +732,7 @@ describe('quadrant — per-item detail (interactive reveal substrate)', () => {
 
   test('the detail sublist does not leak into the dot label', () => {
     const html = build('default');
-    assert.doesNotMatch(html, /<text[^>]*>Owner: Platform</);
+    assert.ok(!tagsOf(html, 'text').some((tag) => elementInner(html, tag).includes('Owner: Platform')), 'no <text> carries "Owner: Platform"');
   });
 });
 
@@ -776,13 +766,11 @@ test('buildQuadrant: a de-collided label never overlaps a plotted dot', () => {
   // means honoring its dominant-baseline. Measuring every label as if it sat on
   // an alphabetic baseline is exactly the bug this whole area had: the box you
   // check is then not the box that gets painted.
-  const labels = tagsOf(out, 'text').filter((t) => t.attrs.class === 'quadrant-dot-label').map((t) => [null, elementInner(out, t)]).map((m, i) => {
-    const head = out.split('<text class="quadrant-dot-label"')[i + 1] ?? '';
-    const baseline = (head.match(/dominant-baseline="(\w+)"/) || [])[1] || 'auto';
-    const anchor = (head.match(/text-anchor="(\w+)"/) || [])[1] || 'start';
+  const labels = tagsOf(out, 'text').filter((t) => t.attrs.class === 'quadrant-dot-label').map((t) => {
+    const baseline = t.attrs['dominant-baseline'] || 'auto';
+    const anchor = t.attrs['text-anchor'] || 'start';
     const [above, below] = BASELINE_EXTENT[baseline] || BASELINE_EXTENT.auto;
-    const lines = [...m[1].matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)"(?: dominant-baseline="[a-z]+")?>([^<]*)</g)]
-      .map((t) => ({ x: +t[1], y: +t[2], text: t[3] }));
+    const lines = tspanLines(out, t);
     const widest = lines.reduce((w, l) => Math.max(w, l.text.length), 0) * FS_ITEM * 0.6;
     // Horizontal extent follows the ANCHOR, exactly as the emitter computes it —
     // a side-placed label is start/end anchored, not centered.
