@@ -1,10 +1,11 @@
 // The three script loaders take their URL from the page (a data attribute, or the engine's own
 // `<script src>`), and CodeQL's js/xss-through-dom follows that text into `script.src` (#1958 §7).
-// `scriptSrc` is the guard each one now passes the URL through. These tests pin the guard itself and
-// prove each loader injects NOTHING for a URL it refuses: before #1958 §7, all three appended a
+// Each loader now carries the barrier inline at the sink: a URL with a markup character or
+// whitespace, an empty one, or one off this page's origin or scheme is refused. These tests prove each
+// loader injects NOTHING for a refused URL: before #1958 §7, all three appended a
 // `<script src="javascript:…">` for the first row.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { engineBase, recordEngineUrl, resetEngineBase, scriptSrc } from './engine-base';
+import { recordEngineUrl, resetEngineBase } from './engine-base';
 import { __resetHljsLoaderCaches, ensureFenceLanguages } from './ensure-hljs-language';
 import { ensureKatexProvider } from './ensure-katex';
 import { ensureEngine } from './load-engine';
@@ -15,6 +16,10 @@ const REFUSED = [
 	'JavaScript:alert(1)',
 	'data:text/javascript,alert(1)',
 	'blob:https://example.test/abc',
+	// Same origin as the test page (http://localhost:3000), so only the scheme check refuses it.
+	'blob:http://localhost:3000/abc',
+	// Same scheme as the test page, another origin, so only the origin check refuses it.
+	'http://evil.test/playground/v/x/lattice-playground.js',
 	'/playground/v/x/"><img src=x onerror=alert(1)>/lattice-playground.js',
 	"/playground/v/x'/lattice-playground.js",
 	'/playground/v/x /lattice-playground.js',
@@ -31,23 +36,6 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-describe('scriptSrc', () => {
-	it('passes the URLs a build writes, unchanged', () => {
-		for (const url of [
-			'/playground/v/abc123/lattice-playground.js',
-			'playground/v/abc123/engine.js',
-			'https://example.test/playground/v/abc123/hljs/powershell.js',
-			'http://localhost:4321/playground/v/abc123/lattice-katex.js?x=1#y',
-		]) {
-			expect(scriptSrc(url), url).toBe(url);
-		}
-	});
-
-	it('refuses another scheme, markup characters and whitespace', () => {
-		for (const url of REFUSED) expect(scriptSrc(url), url).toBeNull();
-	});
-});
-
 describe('the loaders inject nothing for a refused URL', () => {
 	it('ensureEngine rejects and appends no script', async () => {
 		for (const url of REFUSED) {
@@ -56,9 +44,22 @@ describe('the loaders inject nothing for a refused URL', () => {
 		}
 	});
 
-	it('ensureEngine records no asset directory from a refused URL', () => {
+	it('a refused engine URL that gets recorded still loads nothing', async () => {
+		// recordEngineUrl only notes the asset directory; the loaders that read it guard at their own sink.
 		recordEngineUrl('javascript:alert(1)//lattice-playground.js');
-		expect(engineBase()).toBeNull();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(JSON.stringify({ languages: { dockerfile: { file: 'dockerfile.js' } }, aliases: {} }), { status: 200 })),
+		);
+		window.LatticePlayground = {
+			render: (() => ({ html: '', css: '' })) as never,
+			addThemes: () => {},
+			hasTheme: () => true,
+			missingLanguages: () => ['dockerfile'],
+			drainLanguages: () => [],
+		};
+		await expect(ensureFenceLanguages('x')).resolves.toEqual([]);
+		expect(document.querySelectorAll('script').length).toBe(0);
 	});
 
 	it('ensureKatexProvider rejects and appends no script', async () => {
@@ -80,8 +81,12 @@ describe('the loaders inject nothing for a refused URL', () => {
 			missingLanguages: () => ['dockerfile'],
 			drainLanguages: () => [],
 		};
-		await expect(ensureFenceLanguages('x', 'javascript:alert(1)//')).resolves.toEqual([]);
-		expect(document.querySelectorAll('script').length).toBe(0);
+		// The first base fails the scheme check; the second shares the page's scheme and fails only on origin.
+		for (const base of ['javascript:alert(1)//', 'http://evil.test/playground/v/x/hljs/']) {
+			__resetHljsLoaderCaches();
+			await expect(ensureFenceLanguages('x', base), base).resolves.toEqual([]);
+			expect(document.querySelectorAll('script').length, base).toBe(0);
+		}
 	});
 });
 

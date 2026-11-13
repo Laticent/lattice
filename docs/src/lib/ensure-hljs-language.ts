@@ -17,7 +17,7 @@
 // missing (`missingLanguages`) and performs the registration (`drainLanguages`);
 // this module answers only HOW to fetch, because the asset base, the content hash
 // and the service worker are the host's business and not the engine's.
-import { engineBase, engineBaseFor, scriptSrc } from './engine-base';
+import { engineBase, engineBaseFor } from './engine-base';
 
 /**
  * How long any single fetch here may hold up a render, in ms.
@@ -102,20 +102,19 @@ async function loadManifest(base: string): Promise<Manifest | null> {
 function injectGrammar(url: string): Promise<boolean> {
 	const existing = loaders.get(url);
 	if (existing) return existing;
-	const src = scriptSrc(url);
-	if (src === null) return Promise.resolve(false);
-	// The grammar lives beside the engine, so its URL is same-origin. Resolve it and refuse anything
-	// off-origin INLINE here, then inject the resolved href — the origin comparison is the barrier
-	// CodeQL js/xss-through-dom reads at the sink (a check behind scriptSrc is not), and it stops a
-	// DOM-read URL ever pointing the <script> off this page's origin. A bad one leaves the fence plain.
-	let safeSrc: string;
+	// A grammar lives beside the engine, so it is same-origin; a refused one leaves the fence plain. The barrier is INLINE at the sink because CodeQL js/xss-through-dom reads it here and
+	// not through a helper: an empty URL, or one holding a quote, angle bracket, backtick, backslash or
+	// whitespace, is refused; the rest is resolved and refused unless it shares this page's origin AND
+	// scheme (which also turns away `javascript:`, `data:` and a same-origin `blob:`). Only the resolved
+	// href reaches the sink.
+	let resolved: URL | null = null;
 	try {
-		const resolved = new URL(src, window.location.href);
-		if (resolved.origin !== window.location.origin) return Promise.resolve(false);
-		safeSrc = resolved.href;
+		if (url && !/[<>"'`\\\s]/.test(url)) resolved = new URL(url, window.location.href);
 	} catch {
-		return Promise.resolve(false);
+		// an unparseable URL is refused just below
 	}
+	if (resolved === null || resolved.origin !== window.location.origin || resolved.protocol !== window.location.protocol) return Promise.resolve(false);
+	const safeSrc = resolved.href;
 
 	const p = new Promise<boolean>((resolve) => {
 		let settled = false;

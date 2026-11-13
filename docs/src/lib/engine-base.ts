@@ -28,7 +28,6 @@ export function engineBaseFor(engineUrl: string): string | null {
 
 /** Record the engine URL a page is loading. Called by `ensureEngine`. */
 export function recordEngineUrl(engineUrl: string): void {
-	if (scriptSrc(engineUrl) === null) return; // a URL the loaders refuse names no asset directory either
 	recorded = engineBaseFor(engineUrl) ?? recorded;
 }
 
@@ -54,27 +53,6 @@ export function sameOriginAsset(base: string, rel: string): URL | null {
 	}
 }
 
-/**
- * The URL to put in an injected `<script src>`, or null when it is not one this page should load.
- *
- * The three script loaders (`ensureEngine`, `ensureKatexProvider`, the fence-grammar injector) take
- * their URL from the page: a `data-*` attribute or the engine's own `<script src>`, both written at
- * build time (#1958 §2). This is their first gate: it refuses what no build writes (a quote, an angle
- * bracket, a backtick, a backslash or whitespace, and any scheme but `http:`/`https:`) and returns a
- * passing URL unchanged. It is NOT the barrier that clears CodeQL js/xss-through-dom: each loader then
- * resolves the URL against the page, refuses it off-origin INLINE at the sink, and injects the resolved
- * href, so the loaders' dedup looks tags up with `scriptTagFor`, which compares resolved URLs.
- */
-export function scriptSrc(url: string): string | null {
-	if (typeof url !== 'string' || url === '' || /[<>"'`\\\s]/.test(url)) return null;
-	try {
-		const base = typeof window === 'undefined' ? 'http://localhost/' : window.location.href;
-		const { protocol } = new URL(url, base);
-		return protocol === 'https:' || protocol === 'http:' ? url : null;
-	} catch {
-		return null;
-	}
-}
 /**
  * The `<script>` carrying `marker` whose src is `url` once both are resolved against this page, or
  * null. The loaders set `script.src` to the RESOLVED href (the same-origin barrier), so a dedup that

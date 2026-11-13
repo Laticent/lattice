@@ -26,7 +26,7 @@
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 
-import { ENGINE_ENTRY, engineBaseFor, recordEngineUrl, scriptSrc, scriptTagFor } from './engine-base';
+import { ENGINE_ENTRY, engineBaseFor, recordEngineUrl, scriptTagFor } from './engine-base';
 import { preloadEntry } from './ensure-charts';
 import { installPreviewDrawHost } from './preview-draw-host';
 
@@ -57,20 +57,19 @@ export function ensureEngine(url: string): Promise<void> {
 
 	const existing = loaders.get(url);
 	if (existing) return existing;
-	const src = scriptSrc(url);
-	if (src === null) return Promise.reject(new Error(`lattice engine URL refused: ${url}`));
-	// The engine is same-origin. Resolve the URL and refuse anything off-origin INLINE here, then feed
-	// the resolved href to BOTH sinks below (import() and script.src) — the origin comparison is the
-	// barrier CodeQL js/xss-through-dom reads at each sink; a check behind scriptSrc is not. It
-	// dominates both, so neither loads a URL off this page's origin.
-	let safeSrc: string;
+	// The engine is same-origin. The barrier is INLINE at the sink because CodeQL js/xss-through-dom reads it here and
+	// not through a helper: an empty URL, or one holding a quote, angle bracket, backtick, backslash or
+	// whitespace, is refused; the rest is resolved and refused unless it shares this page's origin AND
+	// scheme (which also turns away `javascript:`, `data:` and a same-origin `blob:`). Only the resolved
+	// href reaches the sink.
+	let resolved: URL | null = null;
 	try {
-		const resolved = new URL(src, window.location.href);
-		if (resolved.origin !== window.location.origin) return Promise.reject(new Error(`lattice engine URL refused: ${url}`));
-		safeSrc = resolved.href;
+		if (url && !/[<>"'`\\\s]/.test(url)) resolved = new URL(url, window.location.href);
 	} catch {
-		return Promise.reject(new Error(`lattice engine URL refused: ${url}`));
+		// an unparseable URL is refused just below
 	}
+	if (resolved === null || resolved.origin !== window.location.origin || resolved.protocol !== window.location.protocol) return Promise.reject(new Error(`lattice engine URL refused: ${url}`));
+	const safeSrc = resolved.href;
 
 	const base = engineBaseFor(url);
 	if (base && url.endsWith(ENGINE_ENTRY)) {
