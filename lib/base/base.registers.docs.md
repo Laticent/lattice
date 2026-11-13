@@ -887,7 +887,7 @@ a shared screen; `phone` and `tablet` are for a deck read in a hand, such as a s
 | `huddle` | `venue-huddle` | 4–6 people around a TV | 1.15x | 1.15x |
 | `conference` | `venue-conference` | 10–30 people | 1.3x | about 1.5x (header, footer, page number 1.1x) |
 | `hall` | `venue-hall` | 50–2,000 people | 1.5x | about 1.95x (header, footer, page number 1.3x) |
-| `phone` | `venue-phone` | Read in a hand: a feed, a story. The default on a square, portrait, story or mobile deck. | see below | 1x |
+| `phone` | `venue-phone` | Read in a hand: a feed, a story. The default on a square, portrait, story or mobile deck, except on a chart slide, which keeps `laptop` until charts reflow for a phone. | see below | 1x |
 | `tablet` | `venue-tablet` | A tablet held upright | see below | 1x |
 
 **The shape sets each venue's step.** The rooms are measured for a 16:9 slide on a screen

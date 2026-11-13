@@ -13,7 +13,7 @@ const path = require('node:path');
 
 const {
   VENUE_NAMES, VENUE_TOKENS, VENUE_SCALE, VENUE_SCALE_BY_FAMILY, defaultVenue, effectiveVenue, venueScale, venueRung,
-  venueClass, venueClassFromSource, isKnownVenue, isVenueToken,
+  venueClass, venueClassFromSource, isKnownVenue, isVenueToken, venueOfTokens,
 } = require('../../../lib/core/resolve-venue');
 const lint = require('../../../lib/authoring/lint-core');
 
@@ -58,7 +58,7 @@ test('the CSS gives every venue on every shape the step VENUE_SCALE_BY_FAMILY na
   // The room ladder, as on a wide deck.
   for (const v of ['huddle', 'conference', 'hall']) assert.equal(decl(`section.venue-${v}`), VENUE_SCALE[v], v);
   // Square: the default rule (no venue named) is phone; tablet steps down; the rooms keep the ladder.
-  assert.equal(decl('section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet)'), VENUE_SCALE_BY_FAMILY.square.phone);
+  assert.equal(decl('section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet, .chart-frame)'), VENUE_SCALE_BY_FAMILY.square.phone);
   assert.equal(decl('section.venue-tablet:where([data-family="square"])'), VENUE_SCALE_BY_FAMILY.square.tablet);
   for (const v of ['huddle', 'conference', 'hall']) assert.equal(VENUE_SCALE_BY_FAMILY.square[v], VENUE_SCALE[v], `square ${v}`);
   // Tall and strip: the rooms rise less, phone is the designed size, tablet steps down by shape.
@@ -70,6 +70,16 @@ test('the CSS gives every venue on every shape the step VENUE_SCALE_BY_FAMILY na
   assert.equal(decl('section.venue-tablet:where([data-family="tall"])'), VENUE_SCALE_BY_FAMILY.tall.tablet);
   assert.equal(decl('section.venue-tablet:where([data-family="strip"])'), VENUE_SCALE_BY_FAMILY.strip.tablet);
   for (const f of ['tall', 'strip']) assert.equal(VENUE_SCALE_BY_FAMILY[f].phone, 1);
+});
+
+// Charts keep laptop until the chart reflow lands (owner, 2026-11-13): no handheld default rule may reach a chart
+// section, or 40 chart slides that fit at laptop clip at phone. The chart text kernel reads an unstamped slide as
+// laptop (venueOfTokens), so the CSS and the kernel agree.
+test('the handheld default skips a chart section', () => {
+  const defaults = [...css.matchAll(/section:where\(\[data-family="(?:square|tall)"\](?:, \[data-family="strip"\])?\):not\(([^)]*)\)\s*\{/g)];
+  assert.equal(defaults.length, 2, 'the square default and the tall/strip default');
+  for (const m of defaults) assert.ok(m[1].split(',').map((t) => t.trim()).includes('.chart-frame'), `default rule leaves out .chart-frame: ${m[0]}`);
+  assert.equal(venueOfTokens(['roadmap', 'chart-frame']), 'laptop');
 });
 
 test('no tall or strip room venue leaves fewer than about 35 characters a line', () => {

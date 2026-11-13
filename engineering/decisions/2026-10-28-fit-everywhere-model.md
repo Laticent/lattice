@@ -1192,3 +1192,31 @@ specimen alone, and the quote gallery to its stress specimen alone. The redline 
 its sample clause is one 60-word sentence (with its deletions, 772px against 711px of room), and the
 ruling does not allow a cut inside a sentence. A stress specimen (`<!-- stress-slide -->`) rings by
 design and is never split.
+
+## 21. Phone against laptop, slide by slide: what this PR must fix, and three rulings (owner, 2026-11-13)
+
+The fit harness ran every gallery and example at square, portrait and story, once at the phone
+venue and once at `laptop` (`node tools/fit-harness.js --venues phone|laptop --edits none`, the
+`packed-fit` arm, which is the measured split this PR ships). A slide that clips at phone but fits at
+laptop clips **because** this PR made phone the default, so it is this PR's to fix (HARD RULE #18).
+111 slides did: 94 at square, 10 at portrait, 7 at story. 56 more clip at both venues and were
+already broken on `main`; 12 that clip at laptop fit at phone.
+
+Of the 111, 40 are charts (matrix-grid 15, roadmap 9, kanban 6, state-chart 5, histogram 3,
+flowchart and timeline-list 1 each), 13 are split-panel, 7 are `closing index`, and about 51 spread
+over redline, authority-chain, logo-wall, code, legal and others. The owner ruled, in one round:
+
+- **Charts keep `laptop`.** A chart section (`chart-frame`) takes no handheld default
+  (`base.modifiers.css`, pinned by `test/unit/parsing/resolve-venue.test.js`), so those 40 slides
+  render exactly as on `main`. The chart text kernel already read an unstamped slide as laptop
+  (`venueOfTokens`), so the stylesheet and the kernel now agree. Charts move to phone in their own
+  change, together with the narrow-box reflow (`2026-10-30-chart-reflow-narrow-boxes.md` §2C, §2E,
+  §4). A `venue:` the author writes still applies to a chart. Lint is unchanged: roadmap is the only
+  chart kind with a venue capacity row, and its hard cap (5 columns) equals the phone row.
+- **`closing index` splits.** Only the `index` variant (a see-also list) may split, into a cover
+  and its rows; a one-line closing still never splits. This amends the §0c placement of `closing`.
+- **split-panel's lede gets its own page.** When a split-panel's cover still overflows after the
+  cover lift (§19), the lede moves to a page of its own between the cover and the points, chosen by
+  the measured split so the page is in the split's HTML (and so in every surface's page count).
+
+The owner's bar for the merge ask is HIGH or VERY HIGH, with no slide this PR breaks left behind.

@@ -1465,9 +1465,14 @@ section.venue-hall       { --fs-scale: 1.5;  --venue-meta-lift: 1.3;  --venue-co
  *  - wide: phone and tablet are the designed size (a 16:9 deck is not read in a hand).
  * The family part sits in :where(), so each rule weighs what `section.scale-l` weighs, and the
  * `scale-*` rungs declared after them still win, as they do over the rooms. Venue is the ONLY
- * thing that changes a text size: no rule elsewhere steps a role up or down for a narrow box. */
-section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet) { --fs-scale: 1.5; --venue-meta-lift: 1.08; --venue-compact-lift: 1.06; --venue-chrome-cut: 1.05; }
-section:where([data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet) { --venue-meta-lift: 1.2; --venue-compact-lift: 1.03; --venue-chrome-cut: 1.15; }
+ * thing that changes a text size: no rule elsewhere steps a role up or down for a narrow box.
+ *  - CHARTS KEEP LAPTOP (owner, 2026-11-13). A chart section (`chart-frame`) takes no handheld
+ *    default: at phone 40 chart slides clipped that fit at laptop, and the chart reflow that lets
+ *    them read at phone size is its own change (2026-10-30-chart-reflow-narrow-boxes.md). Until it
+ *    lands a chart renders as it did before handheld venues, and the chart text kernel already
+ *    reads an unstamped slide as laptop (venueOfTokens). A `venue:` the author writes still applies. */
+section:where([data-family="square"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet, .chart-frame) { --fs-scale: 1.5; --venue-meta-lift: 1.08; --venue-compact-lift: 1.06; --venue-chrome-cut: 1.05; }
+section:where([data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .venue-tablet, .chart-frame) { --venue-meta-lift: 1.2; --venue-compact-lift: 1.03; --venue-chrome-cut: 1.15; }
 section.venue-tablet:where([data-family="square"]) { --fs-scale: 0.75; --venue-meta-lift: 1.04; --venue-compact-lift: 1.03; --venue-chrome-cut: 1.03; }
 section.venue-huddle:where([data-family="tall"], [data-family="strip"])     { --fs-scale: 1.1; }
 section.venue-conference:where([data-family="tall"], [data-family="strip"]) { --fs-scale: 1.17; }

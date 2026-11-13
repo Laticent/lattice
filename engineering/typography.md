@@ -379,7 +379,8 @@ venue: conference   # laptop · huddle · conference · hall · phone · tablet
 ```
 
 The default is `laptop` on a 16:9 deck and `phone` on a square, portrait, story or mobile
-one; see "Handheld venues, and the shape sets the step" below.
+one, except a chart slide, which keeps `laptop` (below); see "Handheld venues, and the shape
+sets the step" below.
 
 | `venue:` | Who is watching | Back row, in screen-heights | Type step | Label lift | Code lift | Body x-height at the back row |
 |---|---|---|---|---|---|---|
@@ -410,6 +411,9 @@ So a square post at the old default read at caption size, and a tall slide at ha
 few characters a line to read. Two changes follow, and they are the only way type size moves:
 
 - **`phone` and `tablet` venues**, and `phone` is the default for square, tall and strip decks.
+  A chart slide (`chart-frame`) is the exception and keeps `laptop` (owner, 2026-11-13): at phone,
+  40 chart slides that fit at laptop clipped, and charts move to phone with their narrow-box reflow
+  (`engineering/decisions/2026-10-30-chart-reflow-narrow-boxes.md`).
   On a square deck `phone` is x1.5 (about 16pt on a phone; it is also the measured hall rung,
   so every capacity budget measured there applies exactly). On a tall or strip deck it is x1,
   the designed size, which already reads at 17pt. `tablet` steps down (x0.75 square, x0.6
