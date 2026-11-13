@@ -253,7 +253,9 @@ for family in $families; do
     # canceled it (run 43355906725). It now fails here, so run.sh ends it as "no probe ran" and the supervisor
     # (.github/workflows/platform-suites-supervisor.yml) re-runs the job on a fresh runner, instead of the limit
     # canceling it as a finding. LAUNCH_LIMIT is generous on purpose until the logged launch times say how far it can
-    # come down: boot plus launch took 45 s and 52 s on runs 43361835881 and 219 s on the slowest runner seen.
+    # come down: the launch alone took 156 s and 252 s on run 43370280534, the slowest measured. The boot is not
+    # bounded the same way: one first boot took 432 s on a slow runner (run 43355906725) and none has hung, so a limit
+    # there would be a guess.
     t0=$SECONDS
     if ! bounded "$LAUNCH_LIMIT" xcrun simctl launch "$udid" com.apple.mobilesafari; then
       rc=5; why="Safari did not launch within $LAUNCH_LIMIT s"; continue
