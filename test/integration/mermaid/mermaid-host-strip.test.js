@@ -51,9 +51,11 @@ const withDeckPage = (fn) => withRuntimeDeckPage(DECK, 2, fn);
 /** Strip the way the host does, then read the page back after the runtime has had its turn. */
 async function stripAndRead(page) {
   await page.evaluate(HOST_STRIP);
-  // The restore runs in the mutation microtask; the fallback re-render in the debounced pass.
-  // A second later is past both.
-  await new Promise((r) => { setTimeout(r, 1000); });
+  // The restore runs in the mutation microtask; the fallback re-render in the debounced pass. Wait for both diagrams
+  // to be drawn again, a signal and not a duration (HARD RULE #32); a restore that never comes falls through at the
+  // deadline to the assertions, which say what the page holds.
+  await page.waitForFunction(() => document.querySelectorAll('.mermaid > svg').length === 2
+    && document.querySelectorAll('pre[data-lattice-settle="rendered"]').length === 2, { timeout: 30000 }).catch(() => {});
   return page.evaluate(() => ({
     svgs: document.querySelectorAll('.mermaid > svg').length,
     states: [...document.querySelectorAll('pre[data-lattice-settle]')].map((p) => p.getAttribute('data-lattice-settle')),

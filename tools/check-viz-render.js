@@ -133,6 +133,9 @@ async function collectBlacks() {
   const { composeCss } = require('../lib/engine/css.js');
   const baseLatticeCss = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
 
+  // Every page here is one inline document that fetches nothing, so `load` is the signal it is ready (HARD RULE #32).
+  // `networkidle0` was a 500 ms quiet period, and on Chromium 153 a second setContent on the same page never reported
+  // network idle at all: the Reading-view page timed out at 30 s every run.
   const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
   const blacks = [];
   const dimText = [];
@@ -152,7 +155,7 @@ async function collectBlacks() {
             `<!doctype html><html><head><style>:root{color-scheme:${scheme}}` +
             `${css}\n.lattice>section{width:1280px;height:720px}</style></head>` +
             `<body><article class="lattice" data-scheme="${scheme}">${out.html}</article></body></html>`;
-          await page.setContent(doc, { waitUntil: 'networkidle0' });
+          await page.setContent(doc, { waitUntil: 'load' });
           const found = await page.evaluate((TRANSPARENT_ARR, PAINTABLE_ARR, scheme) => {
             const transparent = new Set(TRANSPARENT_ARR);
             const paintable = new Set(PAINTABLE_ARR);
@@ -470,7 +473,7 @@ async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEM
               // `data-lp-view=read-article` is what shows `#lp-doc`: `playerCss()` hides it in
             // every other view, and a hidden copy measures zero and would compare nothing.
             `<body data-lp-view="read-article"><div id="vr-slides">${slidesHtml}</div><div id="lp-doc"><article id="lp-article">${articleHtml}</article></div></body></html>`,
-            { waitUntil: 'networkidle0' },
+            { waitUntil: 'load' },
           );
           const flatRef = await page.evaluate(paintsIn, '#vr-slides', [...PAINTABLE_TAGS], STAMP);
           const flatCopy = await page.evaluate(paintsIn, '#lp-article', [...PAINTABLE_TAGS], STAMP);
@@ -499,7 +502,7 @@ async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEM
           const readingCss = `${rehostContainerCss('.st-read-article')}\n${!readingSheet ? '' : scopeReHostedCss(flat, (b) => usedBases.has(b), { root: '.st-read-article', within: '.lp-figure', colorScheme: scheme }).css}`;
           await reading.setContent(
             `<!doctype html><html><head><style>${readingCss}\n.st-read-article{display:block;width:1100px}\n${extraReadingCss}</style></head>${articleDoc}</html>`,
-            { waitUntil: 'networkidle0' },
+            { waitUntil: 'load' },
           );
           const readingCopy = await reading.evaluate(paintsIn, '.st-read-article', [...PAINTABLE_TAGS], STAMP);
           const readingCmp = compareCopies('reading', scheme, flatRef, readingCopy);
@@ -517,7 +520,7 @@ async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEM
           await live.setContent(
             `<!doctype html><html><head><style>:root{color-scheme:${scheme}}${scoped}\n.lattice>section{width:1280px;height:720px}</style></head>` +
               `<body><article class="lattice">${slidesHtml}</article></body></html>`,
-            { waitUntil: 'networkidle0' },
+            { waitUntil: 'load' },
           );
           await live.addScriptTag({ content: `(function(){var module={exports:{}};${bakeSrc}\nwindow.__vrBake=module.exports;})();` });
           const bakeRef = await live.evaluate(paintsIn, '.lattice', [...PAINTABLE_TAGS], STAMP);
@@ -550,7 +553,7 @@ async function collectCopies({ flatPack = true, themes = THEMES, schemes = SCHEM
           await live.close();
           const bare = await browser.newPage();
           await bare.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: scheme }]);
-          await bare.setContent(`<!doctype html><html><head><style>:root{color-scheme:${scheme}}</style></head><body><div id="vr-baked">${baked.join('\n')}</div></body></html>`, { waitUntil: 'networkidle0' });
+          await bare.setContent(`<!doctype html><html><head><style>:root{color-scheme:${scheme}}</style></head><body><div id="vr-baked">${baked.join('\n')}</div></body></html>`, { waitUntil: 'load' });
           const bakedCopy = await bare.evaluate(paintsIn, '#vr-baked', [...PAINTABLE_TAGS], STAMP);
           // A baked clone is an SVG only: compare SVG paints, not the slide's HTML around it.
           const bakedCmp = compareCopies('baked', scheme, bakeRef, bakedCopy);

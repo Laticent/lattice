@@ -151,12 +151,17 @@ test('the guard holds "nothing smaller" in a box TALLER than modeled, not only a
   assert.ok(!keepsEveryLabel(base, wide, at), 'a candidate that loses anywhere up to the bare box is refused');
 });
 
-test('a slide that is not landscape 16:9 keeps today\'s drawing at every venue', () => {
+test('a slide that is not landscape 16:9 takes no venue factor: its chart text prints at the same size at every venue', () => {
   const slide = ['<!-- _class: bar -->', '', '## Growth is concentrated in two regions.', '',
     '- North America `$4.2M`', '- EMEA `$3.1M`', '- APAC `$1.8M`', ''];
-  for (const size of ['portrait', 'square', 'standard']) {
-    const deck = (venue) => ['---', 'theme: indaco', `size: ${size}`, venue ? `venue: ${venue}` : '', '---', '', ...slide].join('\n');
-    const vb = (html) => html.match(/class="cart-svg bar-svg" viewBox="([^"]+)"/)[1];
-    assert.equal(vb(engine.render(deck('hall')).html), vb(engine.render(deck(null)).html), size);
+  const deck = (size, venue) => ['---', 'theme: indaco', `size: ${size}`, venue ? `venue: ${venue}` : '', '---', '', ...slide].join('\n');
+  // A 4:3 slide keeps today's drawing.
+  const vb = (html) => html.match(/class="cart-svg bar-svg" viewBox="([^"]+)"/)[1];
+  assert.equal(vb(engine.render(deck('standard', 'hall')).html), vb(engine.render(deck('standard', null)).html), 'standard');
+  // A phone page draws on the chart form kernel, whose box is shorter at a venue (the title and eyebrow above it grow,
+  // chart-family.dispatch.js `formBoxPx`): the canvas gets shorter, and every role prints at the same size.
+  const roles = (html) => html.match(/class="cart-svg bar-svg"[^>]*style="([^"]+)"|style="([^"]+)"[^>]*class="cart-svg bar-svg"/).slice(1).find(Boolean);
+  for (const size of ['portrait', 'square']) {
+    assert.equal(roles(engine.render(deck(size, 'hall')).html), roles(engine.render(deck(size, null)).html), size);
   }
 });

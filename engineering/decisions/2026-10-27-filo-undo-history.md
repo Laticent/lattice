@@ -703,9 +703,13 @@ chip that points at an off-screen change reads layout on the next frame. What is
 ProseMirror re-rendering the slide it replaced: 8-16 ms in Chromium and Firefox and 50-240 ms in
 WebKit per undo, against 6-24 ms and 17-28 ms for an ordinary keystroke on the same deck. That is
 Compose's render cost on a deck this size, which typing pays too; it is recorded as a follow-up,
-not budgeted here. The e2e holds the median of the history work to 16 ms and its worst to 50: with
-a second engine running beside it, WebKit's single samples reached 34 ms, so a worst-case 16 ms bar
-would fail on runner load rather than on the code.
+not budgeted here. The e2e first held the median of the history work to 16 ms and its worst to 50;
+that bar failed on runner load (19 ms in Firefox beside other engines, 2026-11-12), so it now holds
+the WORK instead (HARD RULE #32): each undo or redo replaces exactly one slide node, leaves no
+`filo:compose-resync` mark (the full rebuild), and its split and parse read under a sixteenth of the
+deck (`scanned` on `ScopedResync`, measured 1,363 and 1,861 of 134,372 characters; the whole-source
+path reads all of it). The milliseconds are logged by the e2e and recorded by `npm run bench`'s
+Compose row, which gates on the same characters read.
 
 The tests that pinned "one undo step" with prosemirror-history (inline objects, images, raw
 blocks, the pane pick) now pin it on a Filo history through `filo-harness.test-util.ts`, which

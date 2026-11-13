@@ -1,3 +1,4 @@
+import { FRAME_MS, pauseFrames, stepFramesUntil } from './frame-clock';
 import { expect, gotoStudio, openInspectorTab, test } from './studio-fixture';
 
 // ONE status pill, not a pile.
@@ -22,23 +23,23 @@ function deckSwitcher(page: import('@playwright/test').Page) {
 }
 
 test('three confirmations inside one dwell leave a single pill', async ({ page }) => {
+	// The count below is only meaningful while all three messages are still within the 2600 ms dwell — past it they
+	// would have expired on their own and a count of 1 would prove nothing. So the page's clock is STOPPED for the
+	// clicks (frame-clock.ts): no dwell timer can run, on any runner, however slow. This used to time the clicks with a
+	// stopwatch and fail a box too slow to land three in 2.6 s (HARD RULE #32, F1).
+	await page.clock.install();
 	await gotoStudio(page);
+	await pauseFrames(page);
 
 	// "New deck" raises a confirmation on every click. Three of them, back to back
 	// through the real menu — the exact shape that used to stack.
-	const started = Date.now();
 	for (let i = 0; i < 3; i++) {
 		await deckSwitcher(page).click();
 		await page.getByRole('menuitem', { name: 'New deck' }).click();
 	}
-	const elapsed = Date.now() - started;
-
-	// The assertion below is only meaningful while all three messages are still
-	// within the 2600ms dwell — past it they would have expired on their own and a
-	// count of 1 would prove nothing. So the window is asserted, not assumed: a box
-	// too slow to land three clicks in time fails here and says why, rather than
-	// passing for the wrong reason.
-	expect(elapsed, 'three confirmations must land inside the pill dwell').toBeLessThan(2600);
+	// Sonner publishes a toast a macrotask late, on the stopped clock: step frames until it renders, a second of virtual
+	// time at most, well inside the dwell.
+	await stepFramesUntil(page, () => pills(page).first().isVisible(), Math.ceil(1000 / FRAME_MS));
 
 	// Wait for the pill to RENDER, then count in one shot. A retrying `toHaveCount`
 	// would keep polling while the stack drained and report the count it settled on

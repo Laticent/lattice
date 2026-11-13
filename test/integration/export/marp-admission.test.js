@@ -14,6 +14,7 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
@@ -132,7 +133,8 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
   });
 
   test('the default set: no pluginsOff, the diagram draws and the chart builds', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const { page, md } = pages.default;
     assert.ok(!md.includes('pluginsOff'), 'a default-set bundle carries no pluginsOff');
     await page.waitForFunction(() => document.querySelector('[data-lattice-figure] svg') !== null, { timeout: 30000 });
@@ -144,7 +146,8 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
   // The bar slide's class would load the chart family even on an empty default set (filling its slot
   // is requiring it), so the chart arm switches the family off outright, as a host can.
   test('--default-plugins=none --disable-plugin=chart-family: the fence stays source, the chart its list', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const { page, md } = pages.none;
     assert.match(md, /"pluginsOff":\["anima","avatars","callout","chart-family","code","function-plot","icons","image","legend","math","mermaid","sparks","video"\]/);
     assert.equal(await page.$$eval(':is(pre,marp-pre)[data-lattice-off="mermaid"]', (e) => e.length), 1, 'the mermaid <pre> is marked');
@@ -172,7 +175,8 @@ describe('Export-to-Marp follows the deck\'s plugin admission — real marp-cli,
   // The forged markers are renamed in the bundle's BYTES, so Marp's page never carries them and the
   // runtime has nothing to hydrate; the raw block stays code with Mermaid off, as the engine keeps it.
   test('an author\'s raw HTML cannot forge a figure, a marker, or draw a fence the deck left off', async (t) => {
-    if (skip) return t.skip(skip);
+    const why = skipUnlessCI(Boolean(skip), skip);
+    if (why) return t.skip(why);
     const { page, md } = pages.forged;
     assert.match(md, /"pluginsOff":\["mermaid"\]/);
     assert.match(md, /<div class="forged" data-author-lattice-hydrate="function-plot"/);

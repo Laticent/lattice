@@ -51,6 +51,23 @@ afterEach(() => {
 	document.body.innerHTML = '';
 });
 
+/** Run one lesson, or one beat, on a fake clock and step the clock to its end. A beat really waits:
+ *  the user's seven-second turn (TURN_MS), a settle's poll of up to four seconds. On the real clock
+ *  this file spent 53 s sleeping (HARD RULE #32); here the same code runs, the same waits elapse in
+ *  order, and the assertions read the same log. vetrina's `wait` and `waitFor` keep time with
+ *  setTimeout and performance.now, which the fake clock owns. */
+async function onFakeClock<T>(run: () => Promise<T>): Promise<T> {
+	vi.useFakeTimers();
+	try {
+		const done = run();
+		done.catch(() => {}); // a rejection is re-thrown by the await below, after the clock has run
+		await vi.runAllTimersAsync();
+		return await done;
+	} finally {
+		vi.useRealTimers();
+	}
+}
+
 describe('the lesson catalog', () => {
 	it('has unique kebab ids, a question, and search words for every lesson', () => {
 		expect(new Set(LESSONS.map((l) => l.id)).size).toBe(LESSONS.length);
@@ -80,7 +97,7 @@ describe('a "your turn" beat', () => {
 	it('moves on without acting when the user presses the control', async () => {
 		onScreen({ 'data-demo': 'share' });
 		const { log, ctx } = harness('acts');
-		const who = await yourTurn(ctx, { say: 'Click Share.', target: '[data-demo="share"]', perform: (a) => a.run('share') });
+		const who = await onFakeClock(() => yourTurn(ctx, { say: 'Click Share.', target: '[data-demo="share"]', perform: (a) => a.run('share') }));
 		expect(who).toBe('user');
 		expect(log).not.toContain('run:share');
 	});
@@ -88,7 +105,7 @@ describe('a "your turn" beat', () => {
 	it('does the step itself, and says so, when the user waits', async () => {
 		onScreen({ 'data-demo': 'share' });
 		const { log, ctx } = harness('waits');
-		const who = await yourTurn(ctx, { say: 'Click Share.', target: '[data-demo="share"]', perform: (a) => a.run('share') });
+		const who = await onFakeClock(() => yourTurn(ctx, { say: 'Click Share.', target: '[data-demo="share"]', perform: (a) => a.run('share') }));
 		expect(who).toBe('lesson');
 		expect(log).toContain(`say:${TAKEOVER_LINE}`);
 		expect(log).toContain('run:share');
@@ -97,14 +114,14 @@ describe('a "your turn" beat', () => {
 	it('never takes a step that has no perform — the download stays the user’s', async () => {
 		onScreen({ 'data-demo': 'pdf-download' });
 		const { log, ctx } = harness('waits');
-		const who = await yourTurn(ctx, { say: 'Click Download PDF.', target: '[data-demo="pdf-download"]' });
+		const who = await onFakeClock(() => yourTurn(ctx, { say: 'Click Download PDF.', target: '[data-demo="pdf-download"]' }));
 		expect(who).toBe('nobody');
 		expect(log).not.toContain(`say:${TAKEOVER_LINE}`);
 	});
 
 	it('performs without waiting when the control is not on screen at this width', async () => {
 		const { log, ctx } = harness('acts');
-		const who = await yourTurn(ctx, { say: 'Click the palette icon.', target: '[data-demo="theme"]', perform: (a) => a.setPalette('carbone'), missing: 'I’ll switch one for you.' });
+		const who = await onFakeClock(() => yourTurn(ctx, { say: 'Click the palette icon.', target: '[data-demo="theme"]', perform: (a) => a.setPalette('carbone'), missing: 'I’ll switch one for you.' }));
 		expect(who).toBe('lesson');
 		expect(ctx.awaitUser).not.toHaveBeenCalled();
 		expect(log).toContain('say:I’ll switch one for you.');
@@ -117,7 +134,7 @@ describe('a "your turn" beat whose control is missing', () => {
 		// Performing under the beat's own "Click X" line would edit the deck while telling the user it
 		// was their turn — what "Write a slide" did at the Read stop before this rule.
 		const { log, ctx } = harness('waits');
-		const who = await yourTurn(ctx, { say: 'Click at the end of your text.', target: '#nowhere', perform: (a) => a.appendSlide('# x') });
+		const who = await onFakeClock(() => yourTurn(ctx, { say: 'Click at the end of your text.', target: '#nowhere', perform: (a) => a.appendSlide('# x') }));
 		expect(who).toBe('nobody');
 		expect(log).not.toContain('append');
 	});
@@ -176,7 +193,7 @@ describe('Building and Polish lessons check that their control can act before po
 	it('"Fix all" with nothing to fix says so and changes nothing', async () => {
 		const build = await loadLesson('fix-all');
 		const { log, ctx } = harness('waits');
-		await build?.(env({ can: (id) => id !== 'fix-all' }))(ctx);
+		await onFakeClock(async () => build?.(env({ can: (id) => id !== 'fix-all' }))(ctx));
 		expect(log).toContain(`say:${LESSON_LINES['fix-all'].nothing}`);
 		expect(log.some((l) => l.startsWith('run:'))).toBe(false);
 	});
@@ -184,7 +201,7 @@ describe('Building and Polish lessons check that their control can act before po
 	it('"Reshape" on a phone explains where it lives and changes nothing', async () => {
 		const build = await loadLesson('reshape');
 		const { log, ctx } = harness('waits');
-		await build?.(env({ mobile: true }))(ctx);
+		await onFakeClock(async () => build?.(env({ mobile: true }))(ctx));
 		expect(log).toContain(`say:${LESSON_LINES.reshape.phone}`);
 		expect(log.some((l) => l === 'press' || l.startsWith('run:'))).toBe(false);
 	});
@@ -194,7 +211,7 @@ describe('Building and Polish lessons check that their control can act before po
 		el.disabled = true;
 		const build = await loadLesson('reshape');
 		const { log, ctx } = harness('waits');
-		await build?.(env())(ctx);
+		await onFakeClock(async () => build?.(env())(ctx));
 		expect(log).toContain(`say:${LESSON_LINES.reshape.unavailable}`);
 		expect(log).not.toContain('press');
 	});
@@ -215,7 +232,7 @@ describe('Building and Polish lessons check that their control can act before po
 			log.push(`type:${text}`);
 			onScreen({ 'aria-label': 'Insert bar — a chart' });
 		};
-		await build?.(env())(ctx);
+		await onFakeClock(async () => build?.(env())(ctx));
 		expect(log).toContain('run:insert');
 		expect(log).toContain('type:chart');
 		expect(log.filter((l) => l === 'press')).toHaveLength(1);
@@ -224,7 +241,7 @@ describe('Building and Polish lessons check that their control can act before po
 	it('"Fix all" with its button off screen says where it is and applies nothing', async () => {
 		const build = await loadLesson('fix-all');
 		const { log, ctx } = harness('waits');
-		await build?.(env())(ctx);
+		await onFakeClock(async () => build?.(env())(ctx));
 		expect(log).toContain(`say:${LESSON_LINES['fix-all'].missing}`);
 		expect(log.some((l) => l.startsWith('run:'))).toBe(false);
 	});
@@ -234,7 +251,7 @@ describe('Building and Polish lessons check that their control can act before po
 		onScreen({ 'aria-label': 'Toggle Coach' });
 		const build = await loadLesson('coach');
 		const { log, ctx } = harness('waits');
-		await build?.(env())(ctx);
+		await onFakeClock(async () => build?.(env())(ctx));
 		expect(log).not.toContain(`say:${LESSON_LINES.coach.click}`);
 		expect(log.some((l) => l.startsWith('run:'))).toBe(false);
 		expect(log).toContain(`say:${LESSON_LINES.coach.list}`);

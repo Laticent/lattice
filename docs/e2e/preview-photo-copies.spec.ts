@@ -137,11 +137,12 @@ test('a prose photo switches to its copy without moving @crosswidth @webkit-tabl
 					twin.alt = 'twin';
 					twin.src = orig;
 					// Measured once the original has loaded: Firefox settles decode() on a 3200px image before
-					// that, and a still-loading <img> lays out as its alt text.
+					// that, and a still-loading <img> lays out as its alt text. An <img> with a source always
+					// fires one of the two, and a frame torn down mid-wait rejects this evaluate (caught below),
+					// so the wait needs no timer of its own.
 					await new Promise((ok) => {
 						twin.onload = twin.onerror = ok;
 						img.after(twin);
-						setTimeout(ok, 15_000);
 					});
 					if (!twin.naturalWidth) return null;
 					const a = img.getBoundingClientRect();

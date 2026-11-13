@@ -516,7 +516,25 @@ run), 29m11s and 11m04s — every one of them `unit (node 24)`, every one ending
 hours is the exposure an uncancelled wedge would reach, not a bill the repo has paid.
 Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 per leg (raised 25 -> 45 on
 2026-10-05, cut to 25 with the four-way shard on 2026-10-09; `ci.yml` has both) · `golden-diff` 25 ·
-`docs-build` 20 · `studio-smoke` 15 · `player-webkit` 12 · `ci` 5.
+`docs-build` 20 · `studio-smoke` 15 · `player-webkit` 12 · `ci` 5 (`docs-test`, added 2026-11-12, is 20). `studio-smoke` was raised to
+20 on 2026-10-22 (#2822).
+
+**When a job nears its cap, cut its time; do not raise the cap** (owner, 2026-11-12). By
+2026-11-12 `studio-smoke` (19m34s passing) and `docs-build` (14.5-16 min, one run canceled at
+20m07s) were both there. The cuts were: `studio-smoke` stopped recording a trace and a video per
+test (`E2E_RECORD=off`; a third of its time); the docs Vitest suite moved out of `docs-build` into
+its own required job, `docs-test`, beside it (owner's call, D1 A), on 4 workers instead of 3; both jobs dropped a root build step that repeated the one `npm ci` already runs
+(the root `prepare` script builds the built-not-committed half); and the route-budget base build
+runs `build:uncommitted` instead of the full build (the committed half is in the checkout, and
+`lint`'s `build:check` holds it to its generators): the base measurement 70 s against 150 s. The
+horizontal-overflow guard opens its four widths at once (106 s to 62 s, the same 40 states), and the
+docs tests that slept on the real clock (lessons, caption-rhythm, reveal, deictic, live-controller:
+185 s) run on a fake one. live-controller's harness shows the pattern for a test that mixes timers with
+real async work: it counts in-flight WebCrypto calls and setImmediate tasks and moves the fake clock only
+when none is pending, because a fake clock that outruns real work reorders events under load (a first
+attempt without that wait failed 3 of 10 loaded runs). Running the route-budget base build in the background beside Vitest was tried and
+reverted: free on a 4-core sandbox (+12 s), it slowed CI's Vitest from 8m41s to 11m36s, because
+the runner's 4 vCPUs do not behave like 4 idle cores.
 
 **A cap is a ceiling, not a detector — and it does not catch every wedge.** 15m on
 `unit` catches three of those four; the 11m04s one finishes underneath it and still
@@ -1498,8 +1516,15 @@ presence, or location**:
 4. Update **both** tiers — unit **and** e2e — and run `npm run test:e2e:smoke`
    (or the touched specs). State in the PR whether the e2e suite was actually run.
 
-The `@smoke`-tagged subset is a stable, fast (~1 min incl. build) chrome sanity
-net. It runs on every docs-touching PR via the **`studio-smoke`** job in
+The `@smoke`-tagged subset is the chrome sanity net: 155 tests on the desktop
+project, about 8 minutes on 4 cores with 2 workers, plus the site build. **On CI
+it records no trace and no video** (`E2E_RECORD=off`, set only on that job):
+recording was about a third of its time (11.9 min recorded, 8.2 min not, same
+155 passing) and the job was hitting its 20-minute cap. A smoke failure still
+uploads its screenshot and error context; for the trace, re-run the failed spec
+locally, where recording is on by default (`npx playwright test <spec>
+--project=desktop`), or read it from the nightly, which records everything.
+It runs on every docs-touching PR via the **`studio-smoke`** job in
 `ci.yml` — but **advisory**: it sits outside the required `ci` gate (like
 `golden-diff`), so a red reports fast but doesn't block merge or jam the queue.
 Promotion to merge-**blocking** (move `studio-smoke` into `ci`'s `needs`) waits

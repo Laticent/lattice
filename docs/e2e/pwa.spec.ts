@@ -127,19 +127,24 @@ test('content-hashed assets are served cache-first; non-hashed stay stale-while-
 		// Wait for the reload to settle first so a still-in-flight populate fetch can't be
 		// mistaken for a revalidation.
 		await page.waitForLoadState('networkidle');
-		for (const p of [paths.versioned as string, paths.astro as string]) {
-			const before = hits.filter((h) => h === p).length;
-			await page.evaluate((u) => fetch(u).then((r) => r.text()), p);
-			await page.waitForTimeout(600); // give any (wrongly) fired revalidation time to land
-			expect(hits.filter((h) => h === p).length, `${p} should serve cache-first (no server hit)`).toBe(before);
-		}
+		const assets = [paths.versioned as string, paths.astro as string];
+		const before = assets.map((p) => hits.filter((h) => h === p).length);
+		for (const p of assets) await page.evaluate((u) => fetch(u).then((r) => r.text()), p);
 
 		// CONTROL — SWR: the manifest is same-origin and NOT versioned, so fetching it
-		// fires a background revalidation that DOES reach the server. Proves the zero above
+		// fires a background revalidation that DOES reach the server. Proves the zero below
 		// is real cache-first behavior, not a dead counter / HTTP-cache artifact.
+		//
+		// It is also the WITNESS for that zero (HARD RULE #32; it replaces a 600 ms wait per asset): the service
+		// worker handles fetches in order, and a revalidation it (wrongly) started for an asset would start inside
+		// that asset's fetch event, which finished before the manifest was even asked for. So once the manifest's
+		// revalidation has reached the server, an asset's would have too.
 		const mBefore = hits.filter((h) => h === '/site.webmanifest').length;
 		await page.evaluate(() => fetch('/site.webmanifest').then((r) => r.text()));
 		await expect.poll(() => hits.filter((h) => h === '/site.webmanifest').length, { timeout: 5000 }).toBeGreaterThan(mBefore);
+		assets.forEach((p, i) => {
+			expect(hits.filter((h) => h === p).length, `${p} should serve cache-first (no server hit)`).toBe(before[i]);
+		});
 	} finally {
 		server.closeAllConnections();
 		server.close();

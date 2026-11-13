@@ -93,6 +93,7 @@ const os = require('node:os');
 const puppeteer = require('puppeteer');
 const { spawnSync } = require('node:child_process');
 const { ROOT } = require('../../helpers/render');
+const { trackPageWork } = require('../../helpers/page-settle');
 
 // The axe bundle, evaluated as SOURCE rather than injected via addScriptTag: the player
 // ships a strict CSP, and a `<script src>` is blocked there. `page.evaluate(src)` runs in
@@ -189,8 +190,9 @@ describe('axe — the WCAG rule set, on every shipped shell (G10)', () => {
     test(`${shell} has no accessibility violations`, { timeout: 900000 }, async () => {
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 720 });
-      await page.goto(`file://${shells[shell]}`, { waitUntil: 'networkidle0' });
-      await new Promise((r) => setTimeout(r, 1500)); // let the runtime settle (fit, watchers)
+      const settled = await trackPageWork(page);
+      await page.goto(`file://${shells[shell]}`, { waitUntil: 'load' });
+      await settled({ frames: 3, images: true }); // the runtime's passes (fit, watchers), its fonts and pictures are done
       await page.evaluate(AXE_SRC);
       const { violations, incomplete } = await page.evaluate(async (opts) => {
         const shape = (v) => ({

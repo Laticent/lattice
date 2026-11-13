@@ -37,3 +37,9 @@ artifact. Nothing is left to close; delete this file (and its pair) after the 11
 reported "no regression": every row inside tolerance, mobile `/playground/` 0.48 → 0.49 and `/studio/` 0.37 → 0.45
 under the 0.5 floor, neither tripped. No `[perf-nightly]` issue was opened on 11-08 or 11-09. Nights 2-7 (11-10 to
 11-15) are still to read; the file stays until the 11-15 run.
+
+2026-11-12 — nights 2 and 3 of 7 read. 11-10 (run 42827175167, head `467a0b57`) filed #3121 with two rows, and
+neither is a noise filing: mobile `/studio/` score 0.45 → 0.38 is a 0.07 drop past the 0.05 tolerance (the floor did
+not trip: base was already under it), and mobile `/` TBT 891 → 1153 ms is past max(100 ms, 20 %). That is the
+"a drop past it still files one" half of the done-when. 11-11 (run 43024500526) reported green and commented on #3121.
+Nights 4-7 (11-12 to 11-15) are still to read.

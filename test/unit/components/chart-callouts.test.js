@@ -12,6 +12,8 @@
  */
 
 const { test, describe } = require('node:test');
+const { ptPx } = require('../../../lib/plugins/chart-family/shared/chart-roles');
+const { chartBoxAspect } = require('../../../lib/plugins/chart-family/shared/chart-box');
 const assert = require('node:assert/strict');
 const MarkdownIt = require('markdown-it');
 const { JSDOM } = require('jsdom');
@@ -153,7 +155,15 @@ for (const c of CHARTS) {
     });
 
     test('the notes sit under the figure at every shape, as a group the figure grows to hold (a pie may also take them beside it)', () => {
-      const height = (html) => Number(doc(html).querySelector('svg').getAttribute('viewBox').split(/\s+/)[3]);
+      // On a page read on a phone (the 9:16 shape) the drawing's units are scaled to the role ladder
+      // (chart-roles.js), and a chart with notes solves to a different scale than one without, so heights compare
+      // in PAGE px: the viewBox height times the px one unit prints at (the stamped 13pt key size against its pt).
+      const height = (html) => {
+        const svg = doc(html).querySelector('svg');
+        const h = Number(svg.getAttribute('viewBox').split(/\s+/)[3]);
+        const key = /--chart-fs-key:([\d.]+)px/.exec(svg.getAttribute('style') || '');
+        return key ? (h * ptPx(13)) / Number(key[1]) : h;
+      };
       for (const shape of [{ orientation: undefined, aspect: undefined }, { orientation: 'portrait', aspect: 0.56 }]) {
         // On a tall slide a chart whose notes outgrow the box's shape takes the fixed canvas (chart-frame.js
         // `keepsTallShape`), so the notes are compared with the bare chart on that same canvas.
@@ -161,6 +171,14 @@ for (const c of CHARTS) {
         const bareTall = height(render(c, '', shape).html);
         const bare = c.cls === 'tower' ? bareTall : Math.min(bareTall, height(render(c, '', { ...shape, fixedCanvas: true }).html));
         if (c.cls.startsWith('pie')) continue;
+        // ON THE LADDER the drawing is fitted to the chart box (chart-family.dispatch.js): a chart with room under it
+        // grows into that room to hold its notes, and one that already fills the box gives them its plot's height.
+        // Either way the noted figure prints inside the box (972px wide, the box's shape tall).
+        if (shape.aspect && /data-chart-roles/.test(render(c, '', shape).html)) {
+          const box = 972 / chartBoxAspect(shape.aspect);
+          assert.ok(noted <= Math.max(bare, box) * 1.02, `${c.cls} at ${shape.aspect}: ${noted.toFixed(0)}px fits the ${box.toFixed(0)}px box (bare ${bare.toFixed(0)}px)`);
+          continue;
+        }
         // A portrait tower keeps the BOX's shape (cartesian.js fitViewToBox): its bands give up the notes'
         // height, so the drawing does not grow taller and shrink every label to fit. Its notes still sit
         // under the figure, which the placement tests pin; here, the drawing is no taller than the bare one.

@@ -36,6 +36,10 @@ export type ScopedResync = {
 	first: number;
 	removed: number;
 	added: number;
+	/** Characters of deck source the split and the parse read to build this transaction. The cost follows
+	 *  it: the patch-driven path reads the slides the patch overlaps, the whole-source path the whole
+	 *  deck. Tests and the bench's Compose row count it instead of timing the apply. */
+	scanned: number;
 	/** Advance the baseline to the doc this transaction produces. Call after it is applied. */
 	commit: (doc: PMNode) => void;
 };
@@ -52,11 +56,11 @@ export function scopedResync(state: EditorState, baseline: EmitBaseline, next: s
 
 	const { fm, slides } = parseDeck(next);
 	const raws = slides.length ? slides.map((s) => s.raw) : [''];
-	return resyncToRaws(state, baseline, fm, raws, slides.length ? deckFrame(next, raws) : { head: '', tail: '', seps: [''] });
+	return resyncToRaws(state, baseline, fm, raws, slides.length ? deckFrame(next, raws) : { head: '', tail: '', seps: [''] }, next.length);
 }
 
 /** The shared core: move the doc to `nextRaws` (and `fm`), touching only the changed run. */
-function resyncToRaws(state: EditorState, baseline: EmitBaseline, fm: string, nextRaws: string[], frame: Frame): ScopedResync | null {
+function resyncToRaws(state: EditorState, baseline: EmitBaseline, fm: string, nextRaws: string[], frame: Frame, split: number): ScopedResync | null {
 	const doc = state.doc;
 	const oldRaws = baseline.raws;
 	const oldFm = (doc.attrs.frontMatter as string) || '';
@@ -86,8 +90,11 @@ function resyncToRaws(state: EditorState, baseline: EmitBaseline, fm: string, ne
 	if (removed === 0 && added === 0 && fm === oldFm && head0 === oldHead && tail0 === oldTail) return null;
 
 	let nodes: PMNode[] = [];
+	let scanned = split;
 	if (added > 0) {
-		const parsed = deckToDoc(nextRaws.slice(head, head + added).join(SEP));
+		const chunk = nextRaws.slice(head, head + added).join(SEP);
+		scanned += chunk.length;
+		const parsed = deckToDoc(chunk);
 		if (parsed.childCount !== added) return null; // a chunk that re-splits differently: full resync
 		parsed.forEach((n, _o, k) => {
 			// Each new slide behind the separator the new text wrote before it.
@@ -112,6 +119,7 @@ function resyncToRaws(state: EditorState, baseline: EmitBaseline, fm: string, ne
 		first: head,
 		removed,
 		added,
+		scanned,
 		commit: (newDoc) => {
 			const ns: PMNode[] = [];
 			newDoc.forEach((n) => {
@@ -180,9 +188,12 @@ export function scopedResyncPatch(state: EditorState, baseline: EmitBaseline, pa
 	// first chunk dropped, so it is split behind a sentinel slide.
 	const split = first === 0 ? splitSlides(edited) : splitSlides(`x${SEP}${edited}`).slice(1);
 	const mid = split.length || first > 0 || last < raws.length - 1 ? split : [''];
+	let read = edited.length;
 	// The run must still end at the next slide's separator.
 	if (last + 1 < raws.length) {
-		const probe = splitSlides(`${mid[mid.length - 1] ?? 'x'}${SEP}${raws[last + 1]}`);
+		const probeSrc = `${mid[mid.length - 1] ?? 'x'}${SEP}${raws[last + 1]}`;
+		read += probeSrc.length;
+		const probe = splitSlides(probeSrc);
 		if (probe.length !== 2 || probe[1] !== raws[last + 1]) return whole();
 	}
 	// The separators the edited run now holds, read the way the run was split; the slides around it keep theirs.
@@ -195,5 +206,5 @@ export function scopedResyncPatch(state: EditorState, baseline: EmitBaseline, pa
 		seps.push(k === 0 ? slideSep(doc, first) : midSeps[k]);
 	});
 	for (let i = last + 1; i < raws.length; i++) seps.push(slideSep(doc, i));
-	return resyncToRaws(state, baseline, fm, [...raws.slice(0, first), ...mid, ...raws.slice(last + 1)], { head: (doc.attrs.head as string) || '', tail: (doc.attrs.tail as string) || '', seps });
+	return resyncToRaws(state, baseline, fm, [...raws.slice(0, first), ...mid, ...raws.slice(last + 1)], { head: (doc.attrs.head as string) || '', tail: (doc.attrs.tail as string) || '', seps }, read);
 }

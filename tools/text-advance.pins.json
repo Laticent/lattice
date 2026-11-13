@@ -1,0 +1,67 @@
+{
+  "clean-600": {
+    "family": "Outfit",
+    "sources": [
+      {
+        "file": "assets/fonts/outfit-600.woff2",
+        "sha256": "6c18d579fd87c3776be068b762cbc83fde3acb543d49eabd3ade842eb987e887"
+      },
+      {
+        "file": "docs/src/playground/fonts/outfit-600.woff2",
+        "sha256": "6c18d579fd87c3776be068b762cbc83fde3acb543d49eabd3ade842eb987e887"
+      }
+    ]
+  },
+  "clean-700": {
+    "family": "Outfit",
+    "sources": [
+      {
+        "file": "assets/fonts/outfit-700.woff2",
+        "sha256": "5d5e3734089a74707292ce8a3e186def34cd63e33879f9ac3689a8d8da9d0706"
+      },
+      {
+        "file": "docs/src/playground/fonts/outfit-700.woff2",
+        "sha256": "5d5e3734089a74707292ce8a3e186def34cd63e33879f9ac3689a8d8da9d0706"
+      }
+    ]
+  },
+  "hand-700": {
+    "family": "Shantell Sans",
+    "sources": [
+      {
+        "file": "assets/fonts/shantell-700.woff2",
+        "sha256": "f7e25716f7da1d461996fa14050e92b6b7b9f271e7ef3d0d8b67872fc7aa7112"
+      },
+      {
+        "file": "docs/src/playground/fonts/shantell-sans-700.woff2",
+        "sha256": "f7e25716f7da1d461996fa14050e92b6b7b9f271e7ef3d0d8b67872fc7aa7112"
+      }
+    ]
+  },
+  "inter-600": {
+    "family": "Inter",
+    "sources": [
+      {
+        "file": "assets/fonts/inter-600.woff2",
+        "sha256": "f9a06e79cd3a2a20951c0f0e28f66dd0e6d3fda73911d640a2125c8fcb78f21a"
+      },
+      {
+        "file": "docs/src/playground/fonts/inter-600.woff2",
+        "sha256": "f9a06e79cd3a2a20951c0f0e28f66dd0e6d3fda73911d640a2125c8fcb78f21a"
+      }
+    ]
+  },
+  "inter-700": {
+    "family": "Inter",
+    "sources": [
+      {
+        "file": "assets/fonts/inter-700.woff2",
+        "sha256": "6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491"
+      },
+      {
+        "file": "docs/src/playground/fonts/inter-700.woff2",
+        "sha256": "6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491"
+      }
+    ]
+  }
+}

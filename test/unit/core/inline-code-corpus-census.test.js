@@ -137,6 +137,7 @@ const USES_A_COMPONENT_PILL = new Map([
   ['lib/components/imagery/imagery.gallery.md', 'the imagery family gallery: its video slide names the clip with a `@video{…}` record'],
   ['examples/actors-dense-roster.md', 'actors: a `{name}` pill ends each responsibility row'],
   ['examples/chart-finishes-continuation.md', 'roadmap slides: a `{date}` pill on each phase header'],
+  ['examples/chart-phone-responsive.md', 'a roadmap slide: a `{date}` pill on each phase header'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);
 

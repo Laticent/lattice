@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { schedulerDrained } from './barriers';
 import { expect, gotoStudio, openDeckSettingsAt, openSection, test } from './studio-fixture';
 
 // A TAP THAT ENDS THE TYPING LANDS WHERE THE FINGER IS (followup 2547-p2).
@@ -19,6 +20,26 @@ test.use({ hasTouch: true });
 /** Tap the centre of a control's box, the way a finger does: no scroll-into-view, no actionability wait. */
 async function tapAt(page: Page, box: { x: number; y: number; width: number; height: number }) {
 	await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+}
+
+/**
+ * A tap always ends in a `click` SOMEWHERE (on the control, or on whatever slid under the finger), so the click is the
+ * signal that the tap has landed. Arm before the tap; the returned wait resolves once that click has been dispatched and
+ * React has rendered what it set. The defeated-hold arms read "not selected / no list" after it, not after 500 ms
+ * (HARD RULE #32).
+ */
+async function armTapLanded(page: Page) {
+	await page.evaluate(() => {
+		const w = window as unknown as { __clicks?: number };
+		w.__clicks = 0;
+		window.addEventListener('click', () => {
+			w.__clicks = (w.__clicks ?? 0) + 1;
+		});
+	});
+	return async () => {
+		await expect.poll(() => page.evaluate(() => (window as unknown as { __clicks?: number }).__clicks ?? 0), { message: 'the tap never produced a click' }).toBeGreaterThan(0);
+		await schedulerDrained(page);
+	};
 }
 
 /** Strip the hold as soon as it is set: the sheet behaves as it did before the fix. */
@@ -47,10 +68,11 @@ for (const held of [true, false]) {
 		const tab = sheet.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: 'Design', exact: true });
 		const box = await tab.boundingBox();
 		if (!box) throw new Error('no Design tab');
+		const landed = await armTapLanded(page);
 		await tapAt(page, box);
 		if (held) await expect(tab).toHaveAttribute('aria-selected', 'true');
 		else {
-			await page.waitForTimeout(500);
+			await landed();
 			await expect(tab).toHaveAttribute('aria-selected', 'false');
 		}
 		await page.screenshot({ path: test.info().outputPath('after-tap.png') });
@@ -67,6 +89,7 @@ for (const held of [true, false]) {
 		const language = page.getByRole('combobox', { name: 'Choose deck language' });
 		const box = await language.boundingBox();
 		if (!box) throw new Error('no Language select');
+		const landed = await armTapLanded(page);
 		await tapAt(page, box);
 		if (held) {
 			await expect(page.getByRole('listbox')).toBeVisible();
@@ -76,7 +99,7 @@ for (const held of [true, false]) {
 			await expect(name).toHaveValue('Quarterly review');
 			return;
 		} else {
-			await page.waitForTimeout(500);
+			await landed();
 			await expect(page.getByRole('listbox')).toHaveCount(0);
 		}
 		await page.screenshot({ path: test.info().outputPath('after-tap.png') });

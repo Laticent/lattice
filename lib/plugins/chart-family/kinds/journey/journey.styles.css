@@ -218,8 +218,10 @@ section.journey .journey-actor-dot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.45cqi;
-  height: 1.45cqi;
+  /* Never smaller than its own initial: on a phone page the type ladder sets the initial at its 11pt role
+   * (36.8px), and a 1.45cqi disc (15.7px) printed it spilling past the disc's edge. Landscape keeps 1.45cqi. */
+  width: max(1.45cqi, 1.45em);
+  height: max(1.45cqi, 1.45em);
   border-radius: 50%;
   background: var(--actor-color);
   color: var(--on-accent, var(--on-dark-primary));
@@ -232,6 +234,9 @@ section.journey .journey-actor-dot {
 section.journey .journey-actor-dot[data-label-len="2"] {
   font-size: 0.7cqi; /* cqi-ok: 2-char actor initials fit inside a fixed 1.45cqi disc */
   letter-spacing: 0;
+  /* Two initials need a wider disc once the ladder sets them at 11pt. */
+  width: max(1.45cqi, 1.75em);
+  height: max(1.45cqi, 1.75em);
 }
 section.journey .journey-actor-name {
   font-weight: 500;
@@ -375,6 +380,14 @@ section.journey .journey-legend {
 }
 section.journey .journey-mood-legend {
   padding-top: var(--sp-sm);   /* breathing room between the two key rows (padding, not margin) */
+}
+/* A narrow slide (under about 70 characters a line, #2988's text-room threshold): the actor chips part by the small
+ * step. At their 11pt-and-up roles four actors measure 831px on a square page, and the 2xl step (89px) wrapped them
+ * onto two rows, which pushed the mood scale under the page's edge (journey.gallery.md's stress test at square). */
+@container lattice (width < 34em) {
+  section.journey .journey-legend {
+    column-gap: var(--sp-sm);
+  }
 }
 
 /* ── Section ribbon ─────────────────────────────────────────────────── */
@@ -859,8 +872,8 @@ section.journey.weighted .journey-task-actors {
 
 
 /* ════════════════════════════════════════════════════════════════════════════
- * VERTICAL BOARD (portrait) — the journey rotated 90°. Emitted by
- * journey.transform.js only on a portrait deck (`.journey-board[data-orient="vertical"]`), so
+ * VERTICAL BOARD (portrait and square) — the journey rotated 90°. Emitted by
+ * journey.transform.js only on a portrait or square deck (`.journey-board[data-orient="vertical"]`), so
  * this whole block self-gates: landscape never sees it. Stages stack down the
  * page; each task is a row; mood reads along the cross-axis. §10 (journey).
  * ════════════════════════════════════════════════════════════════════════════ */

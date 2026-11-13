@@ -104,18 +104,27 @@ test.afterAll(async () => {
 
 type RA = { playing: boolean; rung: string | null; cue: number; word: number; progress: number; cues: number; finished: number; mode: 'audio' | 'silent' | null };
 const ra = (page: import('@playwright/test').Page) => page.evaluate(() => (window as unknown as { __RA: () => RA }).__RA());
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/**
+ * Wait for the page to paint `n` animation frames. The hook's highlight tick is a requestAnimationFrame loop, so
+ * "the cue did not move across 24 frames" means the tick had 24 chances to move it and did not. Frames, not
+ * milliseconds: a loaded box paints them slower, which only makes the absence check stricter.
+ */
+const frames = (page: import('@playwright/test').Page, n: number) =>
+	page.evaluate((count) => new Promise<void>((done) => {
+		let left = count;
+		const step = () => (--left <= 0 ? done() : requestAnimationFrame(step));
+		requestAnimationFrame(step);
+	}), n);
 
 async function open(page: import('@playwright/test').Page, fail = false) {
 	await page.addInitScript((f) => { (globalThis as unknown as { __FAIL: boolean }).__FAIL = f; }, fail);
 	await page.goto(baseURL);
 	await page.waitForFunction(() => typeof (window as unknown as { __RA?: unknown }).__RA === 'function');
 }
-/** Poll until `pred(state)` or timeout; returns the last state. */
+/** Poll until `pred(state)` holds and return THAT state; fails with the last state seen if it never does. */
 async function until(page: import('@playwright/test').Page, pred: (s: RA) => boolean, timeoutMs = 9000): Promise<RA> {
-	const t0 = Date.now();
 	let s = await ra(page);
-	while (!pred(s) && Date.now() - t0 < timeoutMs) { await sleep(80); s = await ra(page); }
+	await expect.poll(async () => pred((s = await ra(page))), { timeout: timeoutMs, message: `read-aloud state never matched; last: ${JSON.stringify(s)}` }).toBe(true);
 	return s;
 }
 
@@ -141,7 +150,7 @@ test('read-aloud: pause halts the highlight, resume RE-ARMS and reads to the end
 	await page.click('#pause');
 	const a = await ra(page);
 	expect(a.playing).toBe(false);
-	await sleep(400);
+	await frames(page, 24); // a running clock moves the cue inside one clip (~13 frames); 24 is two clips' worth
 	const b = await ra(page);
 	expect(b.cue).toBe(a.cue); // frozen — the clock is paused while stopped
 	expect(b.word).toBe(a.word);
@@ -152,7 +161,7 @@ test('read-aloud: pause halts the highlight, resume RE-ARMS and reads to the end
 	// A SECOND pause/resume cycle mid-read — the paused offset must accrue, not reset (multi-cycle).
 	await page.click('#pause');
 	const c = await ra(page);
-	await sleep(300);
+	await frames(page, 24);
 	expect((await ra(page)).cue).toBe(c.cue); // frozen again
 	await page.click('#play');
 	// …and it still reaches the end exactly once (no double-fire from a stale re-armed run).
@@ -224,9 +233,12 @@ test('read-aloud: pause → MUTE (while paused) → play stays SILENT (no audibl
 	await page.click('#pause');
 	expect((await ra(page)).playing).toBe(false);
 	await page.click('#mute'); // mute WHILE PAUSED (the RAF probe is frozen while paused, so assert after resume)
+	const paused = await ra(page);
 	await page.click('#play'); // resume — must come back on the silent estimate, NOT re-engage clocked audio
-	await sleep(700); // let the tick run a few frames
-	expect((await ra(page)).mode).toBe('silent'); // an audible resume would have flipped mode back to 'audio'
+	// The signal that the resumed tick has run: it moved the highlight past where the pause froze it. An audible
+	// resume flips the mode on its first tick, long before the estimate reaches the next sentence.
+	const resumed = await until(page, (s) => s.playing && s.cue > paused.cue);
+	expect(resumed.mode).toBe('silent'); // an audible resume would have flipped mode back to 'audio'
 	expect((await until(page, (s) => s.finished >= 1)).finished).toBe(1);
 });
 

@@ -755,6 +755,20 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		}
 	}
 	/**
+	 * Publish where the classification stands on `<html data-stage-loss>`: `classifying` while it walks, then
+	 * `closed` (the presenter closed it: say nothing), `navigated` (say so), `gone` (the liveness poll's window
+	 * vanished with no goodbye: say so), `cancelled` (a later beat or a new Stage took over) or `unreadable`. The e2e spec that holds "a hand-close says nothing" waits for an end state instead
+	 * of sleeping past the grace window (HARD RULE #32). Nothing in the app reads it.
+	 * @param {string} state
+	 */
+	const publishLoss = (state) => {
+		try {
+			document.documentElement.dataset.stageLoss = state;
+		} catch {
+			/* no document */
+		}
+	};
+	/**
 	 * Announce the loss unless the window turns out to have simply been closed.
 	 * @param {Window | null} w the handle teardown just let go of
 	 * @param {number} seq the ownership sequence at schedule time
@@ -776,32 +790,46 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 			const d = e.data;
 			// The same origin rule as `onMsg`: a real Stage is written into `about:blank` and posts with OUR origin.
 			if (e.origin !== location.origin) return;
-			if (d && typeof d === 'object' && d.stage === 'closed' && (e.source === w || d.tok === token)) finish(false);
+			if (d && typeof d === 'object' && d.stage === 'closed' && (e.source === w || d.tok === token)) finish(false, 'closed');
 		};
-		const timer = window.setTimeout(() => finish(true), GOODBYE_GRACE_MS);
-		const finish = (/** @type {boolean} */ announce) => {
+		const timer = window.setTimeout(() => finish(true, 'gone'), GOODBYE_GRACE_MS);
+		/** `outcome` is published on `<html data-stage-loss>` like the classification's, so a spec waiting for
+		 *  "the loss has been decided" also sees the poll's path end (a goodbye, silence, or a newer Stage). */
+		const finish = (/** @type {boolean} */ announce, /** @type {string} */ outcome) => {
 			window.clearTimeout(timer);
 			window.removeEventListener('message', onBye);
 			if (cancelGoodbye === stop) cancelGoodbye = null;
-			if (announce && seq === ownSeq) onLost?.('gone');
+			const current = seq === ownSeq;
+			publishLoss(current ? outcome : 'cancelled');
+			if (announce && current) onLost?.('gone');
 		};
-		const stop = () => finish(false);
+		const stop = () => finish(false, 'cancelled');
 		cancelGoodbye?.();
 		cancelGoodbye = stop;
 		window.addEventListener('message', onBye);
 	}
 
 	function announceUnlessClosed(w, seq, waited = 0) {
-		if (!w || seq !== ownSeq) return; // a new Stage came up — this answer is stale
+		if (!w) return;
+		if (seq !== ownSeq) {
+			publishLoss('cancelled'); // a new Stage came up — this answer is stale
+			return;
+		}
 		try {
-			if (w.closed) return; // deliberate: the presenter closed the window themselves
+			if (w.closed) {
+				publishLoss('closed');
+				return; // deliberate: the presenter closed the window themselves
+			}
 		} catch {
+			publishLoss('unreadable');
 			return; // we cannot even ask any more; do not invent a failure
 		}
 		if ((waited >= CLOSED_GRACE_MS && navigatedAway(w) === true) || waited >= CLOSED_HANG_MS) {
+			publishLoss('navigated');
 			onLost?.('navigated');
 			return;
 		}
+		publishLoss('classifying');
 		lossTimer = window.setTimeout(() => {
 			lossTimer = 0;
 			announceUnlessClosed(w, seq, waited + CLOSED_STEP_MS);
@@ -926,6 +954,7 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 		if (lossTimer) {
 			window.clearTimeout(lossTimer);
 			lossTimer = 0;
+			publishLoss('cancelled');
 		}
 		if (pollId) {
 			window.clearInterval(pollId);
@@ -1023,6 +1052,11 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 			if (navigated) onLost?.('navigated');
 			else awaitGoodbye(w, ownSeq);
 		}, 2000);
+		try {
+			delete document.documentElement.dataset.stagePlacement;
+		} catch {
+			/* no document */
+		}
 		autoPlaceStage(win)
 			.then(async (placed) => {
 				if (win !== stageWin || win.closed) return; // toggled off while we were asking
@@ -1034,7 +1068,17 @@ export function createStageController({ getDoc, getIndex, getStep = /** @type {(
 				if (win !== stageWin) return;
 				onPlaced?.({ placed, full });
 			})
-			.catch(() => {});
+			.catch(() => {})
+			// Published on `<html data-stage-placement="settled">` once the whole chain has run, moved or not:
+			// stage-placement.spec.ts reads "the Stage was never moved / fullscreened" after it instead of
+			// sleeping 1200 ms (HARD RULE #32). Cleared when a Stage opens. Nothing in the app reads it.
+			.finally(() => {
+				try {
+					document.documentElement.dataset.stagePlacement = 'settled';
+				} catch {
+					/* no document */
+				}
+			});
 		const doc = getDoc?.();
 		if (doc) paint(doc);
 	}

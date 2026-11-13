@@ -693,10 +693,12 @@ export function normalizeDeck(view: EditorView, kernels: InlineKernels, deckLite
  * said that. False means nothing was written: the node is gone, the kernel declined (it would rather
  * leave a source alone than guess), or the structural guard refused the transaction.
  */
-export function editObject(view: EditorView, pos: number, edit: unknown, kernels: InlineKernels): boolean {
+export function editObject(view: EditorView, pos: number, edit: unknown, kernels: InlineKernels, expect?: string): boolean {
 	const node = view.state.doc.nodeAt(pos);
 	if (node?.type !== objectType()) return false;
 	const src = node.attrs.src as string;
+	// The object the editor is open on, by its source: a pick never lands on a neighbor (#3150-p1).
+	if (expect !== undefined && src !== expect) return false;
 	const owner = kindOf(src, kernels);
 	if (!owner) return false;
 	const out = owner.kind.edit(src, edit, kernels);

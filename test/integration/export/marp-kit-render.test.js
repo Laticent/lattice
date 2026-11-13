@@ -67,6 +67,7 @@
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { skipUnlessCI } = require('../../helpers/chrome');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawnSync, execFileSync } = require('node:child_process');
@@ -343,7 +344,8 @@ for (const fixture of FIXTURES) {
 		 * last-page text probe catches even if the count assertion were ever loosened.
 		 */
 		test('one PDF page per slide, and the last page is a real slide', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 
 			const sections = await page.evaluate(() => document.querySelectorAll('section').length);
 			const pages = pageCount(pdf); // test/helpers/pdf.js — guards a missing file + an unparseable pdfinfo
@@ -390,7 +392,8 @@ for (const fixture of FIXTURES) {
 		 * look here.
 		 */
 		test('the Mermaid tooltip is PINNED, not removed — the blank-page root cause', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 
 			const tips = await page.evaluate(() =>
 				[...document.querySelectorAll('body > .mermaidTooltip')].map((el) => ({
@@ -421,7 +424,8 @@ for (const fixture of FIXTURES) {
 		 * inlined stylesheet. Finding the ELEMENTS, with real widths, is the proof.
 		 */
 		test('the split-panel transform ran — the runtime executed on a Marp-rendered DOM', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 
 			const panels = await page.evaluate(() => {
 				const l = document.querySelector('.panel-left');
@@ -442,7 +446,8 @@ for (const fixture of FIXTURES) {
 		 * while building slide 9's chart satisfies all of them.
 		 */
 		test('the runtime threw no uncaught exception anywhere in the deck', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 			assert.deepEqual(pageErrors, [], `lattice-runtime raised uncaught errors on a Marp-rendered deck:\n${pageErrors.join('\n')}`);
 		});
 
@@ -454,7 +459,8 @@ for (const fixture of FIXTURES) {
 		 * in the form its target ships, has a real box, and sits INSIDE its slide.
 		 */
 		test('the display equation is typeset and laid out inside the math slide', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 
 			if (fixture.slug === 'bundle') {
 				assert.equal(await page.evaluate(() => document.querySelectorAll('mjx-container').length), 0, 'Marp\'s MathJax typeset nothing in the bundle');
@@ -548,7 +554,8 @@ for (const fixture of FIXTURES) {
 		 * front matter whether or not any CSS resolved.
 		 */
 		test('both stylesheets registered — the deck is styled, not silently bare', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 
 			const styling = await page.evaluate(() => {
 				const cs = getComputedStyle(document.querySelector('section'));
@@ -588,7 +595,8 @@ for (const fixture of FIXTURES) {
 		 * the resolved face. It read like coverage and was a tautology.
 		 */
 		test('the bundled faces load — losing them falls back to system serif silently', { timeout: TIMEOUT }, async (t) => {
-			if (skipReason) return t.skip(skipReason);
+			const why = skipUnlessCI(Boolean(skipReason), skipReason);
+			if (why) return t.skip(why);
 
 			const fonts = await page.evaluate(() => ({
 				declared: document.fonts.size,

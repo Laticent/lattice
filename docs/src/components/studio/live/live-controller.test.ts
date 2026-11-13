@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryNetwork, type MemoryNetwork } from '@/lib/tavola/memory';
 import type { Transport } from '@/lib/tavola/types';
 import { followBus } from './follow-bus';
@@ -74,11 +74,100 @@ const shell = () => {
 };
 // biome-ignore lint/suspicious/noExplicitAny: tests reach the private runtime to wait on its session.
 const sessionOf = (c: Ctl) => (c as any).rt?.session as { idle(): Promise<void> } | undefined;
+// THE CLOCK IS FAKE (HARD RULE #32). The controller, Tavola and the awareness gate pace themselves on
+// setTimeout, setInterval and Date: a 400 ms welcome, a 2 s rate window, a 200 ms gate, a 300 ms handoff
+// grace. On the real clock this file slept through every one of them (45 s, 85% of it asleep), and
+// whether a poll budget outlasted a timer depended on the runner. Here those timers run on Vitest's fake
+// clock, which only `tick` moves, so the same timers fire in the same order with no real wait.
+// setImmediate and microtasks stay real on purpose: WebCrypto (signing and checking a hello) runs on the
+// platform's own threads and fake-indexeddb on setImmediate, both on real time. So the clock moves only when
+// that work is QUIET: `tick` first waits real turns until no WebCrypto call and no setImmediate task is in
+// flight (both counted below, not stubbed: the signatures are real), then moves the clock, then waits again.
+// The fake clock never runs ahead of real work, so the order of events is the same on a loaded runner as on
+// an idle one.
+const FAKED = ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] as const;
+/** The real setTimeout, taken before any test fakes it: a late poll's pause (see `until`). */
+const realSleep = ((real) => (ms: number) => new Promise<void>((r) => real(r, ms)))(globalThis.setTimeout);
+/** After its budget, a wait polls up to LATE_POLLS more times, each after a real LATE_PAUSE_MS (see `until`). */
+const LATE_POLLS = 100;
+const LATE_PAUSE_MS = 20;
+const realImmediate = globalThis.setImmediate;
+const realClearImmediate = globalThis.clearImmediate;
+/** setImmediate tasks counted in `inFlight` and not yet run, so a cleared one is uncounted too. */
+const pendingImmediates = new Set<unknown>();
+const realTurn = () => new Promise<void>((r) => realImmediate(r));
+let inFlight = 0;
+const SUBTLE = ['digest', 'generateKey', 'exportKey', 'importKey', 'sign', 'verify', 'encrypt', 'decrypt', 'deriveKey', 'deriveBits', 'wrapKey', 'unwrapKey'] as const;
+const subtleReal = new Map<string, (...a: unknown[]) => Promise<unknown>>();
+function countRealWork() {
+	const subtle = globalThis.crypto.subtle as unknown as Record<string, (...a: unknown[]) => Promise<unknown>>;
+	for (const name of SUBTLE) {
+		const real = subtle[name];
+		if (typeof real !== 'function' || subtleReal.has(name)) continue;
+		subtleReal.set(name, real);
+		Object.defineProperty(subtle, name, {
+			configurable: true,
+			value: (...a: unknown[]) => {
+				inFlight++;
+				return real.apply(subtle, a).finally(() => inFlight--);
+			},
+		});
+	}
+	globalThis.setImmediate = ((fn: (...a: unknown[]) => void, ...a: unknown[]) => {
+		inFlight++;
+		const handle = realImmediate(() => {
+			pendingImmediates.delete(handle);
+			inFlight--;
+			fn(...a);
+		});
+		pendingImmediates.add(handle);
+		return handle;
+	}) as typeof setImmediate;
+	globalThis.clearImmediate = ((handle: unknown) => {
+		if (pendingImmediates.delete(handle)) inFlight--;
+		realClearImmediate(handle as Parameters<typeof clearImmediate>[0]);
+	}) as typeof clearImmediate;
+}
+function stopCounting() {
+	const subtle = globalThis.crypto.subtle as unknown as Record<string, unknown>;
+	for (const name of subtleReal.keys()) delete subtle[name];
+	subtleReal.clear();
+	globalThis.setImmediate = realImmediate;
+	globalThis.clearImmediate = realClearImmediate;
+	pendingImmediates.clear();
+	inFlight = 0;
+}
+/** Real turns until no counted work is in flight. Capped at 2 s of real time, so a count that leaks reports
+ *  through the test's own assertion rather than hanging it. */
+async function quiet() {
+	const cap = performance.now() + 2000;
+	do await realTurn();
+	while (inFlight > 0 && performance.now() < cap);
+}
+async function tick(ms: number) {
+	await quiet();
+	await vi.advanceTimersByTimeAsync(ms);
+	await quiet();
+}
+/** Await work that itself waits on the clock (the network's idle turns), moving the clock while it waits. */
+async function pumped<T>(work: Promise<T>): Promise<T> {
+	let done = false;
+	work.then(
+		() => {
+			done = true;
+		},
+		() => {
+			done = true;
+		},
+	);
+	while (!done) await tick(2);
+	return work;
+}
 async function settle(...ctls: Ctl[]) {
 	for (let i = 0; i < 60; i++) {
-		await net.current?.settle();
-		await Promise.all(ctls.map((c) => sessionOf(c)?.idle()));
-		await new Promise((r) => setTimeout(r, 5)); // flaky-ok: the poll interval of a loop that waits for the network queue to empty, not a wait-then-check
+		await pumped(Promise.resolve(net.current?.settle()));
+		await pumped(Promise.all(ctls.map((c) => sessionOf(c)?.idle())));
+		await tick(5); // the poll interval of a loop that waits for the network queue to empty, on the fake clock
 		if (net.current?.pending() === 0) return;
 	}
 }
@@ -88,8 +177,16 @@ const until = async (ok: () => boolean, ...ctls: Ctl[]) => {
 	// so the budget measures the code's own delivery, not whether 100 polls outlast a timer on this runner (docs-build
 	// 39552138611, 39698243903: the polls ran out first on a loaded runner).
 	// The awareness gate's held changes (`net.held`) are the same kind of wait: a timer the code set on purpose.
-	for (let polls = 0; polls < 100 && !ok(); ) {
+	// On the fake clock a poll costs almost no real time, and some of the work (signing and checking a hello) runs on
+	// the platform's own threads, on real time. So past its budget a wait gets LATE_POLLS more, each after a real
+	// pause: 2 s of real time for that work, while the fake clock moves only what those polls move (about 1.3 s), so a
+	// timer the code made far longer still fails here. A passing wait returns the moment `ok` holds and never pauses.
+	for (let polls = 0, late = 0; !ok() && late < LATE_POLLS; ) {
 		const waiting = ctls.some((c) => c.hasDeferred()) || net.held.size > 0;
+		if (polls >= 100) {
+			late++;
+			await realSleep(LATE_PAUSE_MS); // flaky-ok: not a wait-then-check; real time for the platform's threads, only after the budget
+		}
 		await settle(...ctls);
 		if (!waiting) polls++;
 	}
@@ -104,14 +201,20 @@ async function drain(...ctls: Ctl[]) {
 }
 /** Wait for something the code does on a timer of its own that `until`'s poll budget does not know about. The
  *  deadline only catches a hang: it is far past the product's own timer, sized for a loaded runner. */
-const eventually = (ok: () => boolean, ...ctls: Ctl[]) =>
-	vi.waitFor(
-		async () => {
-			await settle(...ctls);
-			expect(ok()).toBe(true);
-		},
-		{ timeout: 15_000, interval: 20 },
-	);
+const eventually = async (ok: () => boolean, ...ctls: Ctl[]) => {
+	// 15 s of fake time, far past every timer the code sets, so only a hang reaches it; then LATE_POLLS late polls,
+	// as in `until`.
+	for (let t = 0, late = 0; t < 15_000 || late < LATE_POLLS; t += 20) {
+		if (t >= 15_000) {
+			late++;
+			await realSleep(LATE_PAUSE_MS); // flaky-ok: as in `until`
+		}
+		await settle(...ctls);
+		if (ok()) break;
+		await tick(20);
+	}
+	expect(ok()).toBe(true);
+};
 /** Move the wall clock (`Date.now`) ahead by `ms`, for a window the code measures on it (a rate limit, a restart
  *  window): the test steps past the window instead of sleeping through it. Undone after each test. */
 let clockOffset = 0;
@@ -153,7 +256,17 @@ async function guestOf(h: Ctl, name: string, over: Partial<LiveDeps> = {}) {
 	return { g, notes: sh.notes };
 }
 
+// A member's records pass the theme gate, whose checker the Studio loads on first use (a dynamic import:
+// real file reads, not the clock). Load it once here, on the real clock, so a test's poll budget measures
+// the controller's delivery, not the module loader.
+beforeAll(async () => {
+	const { refuseImportedTheme } = await import('../import-gate');
+	await refuseImportedTheme(':root{--accent:#123456}', 'warm-up');
+	countRealWork();
+});
+afterAll(stopCounting);
 beforeEach(() => {
+	vi.useFakeTimers({ toFake: [...FAKED] });
 	net.current = createMemoryNetwork();
 	net.joins = 0;
 	net.leaves = [];
@@ -169,6 +282,7 @@ afterEach(() => {
 	clockOffset = 0;
 	followBus.reset();
 	location.hash = '';
+	vi.useRealTimers();
 });
 
 describe('LiveController (second-round trio)', () => {
@@ -182,7 +296,7 @@ describe('LiveController (second-round trio)', () => {
 		await settle(h, g);
 		// The host's session leaves on a timer of its own (500 ms), which needs no delivery: wait for that leave itself
 		// (the guest's own leave, on hearing the end, does not count).
-		await vi.waitFor(() => expect(net.leaves).toContain(hostPeer), { timeout: 15_000, interval: 10 });
+		await eventually(() => net.leaves.includes(hostPeer));
 		expect(notes.filter((n) => n.includes('ended'))).toEqual(['Live session ended. The deck stays as it is.']);
 		await until(() => g.view().status === 'idle', g);
 		expect(gNotes).toContain('The host ended the session. Your copy of the deck stays.');
@@ -726,14 +840,9 @@ describe('what you share (2026-10-12)', () => {
 	it('with your slide hidden, Bring everyone is said once and then taken back, so a late joiner never carries it', async () => {
 		const { h } = await hostSession();
 		h.actions.setShare({ slide: false });
-		vi.useFakeTimers({ toFake: ['setTimeout'] });
-		try {
-			h.actions.bringEveryone();
-			expect(awOf(h).getLocalState()).toHaveProperty('summon');
-			vi.advanceTimersByTime(6001);
-		} finally {
-			vi.useRealTimers();
-		}
+		h.actions.bringEveryone();
+		expect(awOf(h).getLocalState()).toHaveProperty('summon');
+		vi.advanceTimersByTime(6001);
 		expect(awOf(h).getLocalState()).not.toHaveProperty('summon');
 		expect(awOf(h).getLocalState()).toHaveProperty('slideHidden', true);
 	});

@@ -1004,6 +1004,75 @@ unit `meet` fits into the box; their keys are on the spine, their diagrams are n
 still per kind (each kind's stylesheet sets its labels in its canvas's units); the spine holds them
 steady by holding the canvas width, not by owning them.
 
+## Chart text reads one size per role on a phone (§ 32)
+
+The owner posts decks as PDFs on LinkedIn and reads them on an iPhone, where a 1080-wide page shows about 323pt
+wide. Measured there (2026-11-10), chart text printed at 5 to 7pt: ticks, category names and values were set in each
+chart's own drawing units, and the drawing was scaled down to its box. Only the pie's key reached 12.6pt.
+
+### § 32 — the role ladder
+
+- **Every text a chart prints plays one ROLE**, from an audit of all 28 kinds
+  (`lib/plugins/chart-family/shared/chart-text-roles.js`, class by class). On a page read on a phone each role has
+  one size, weight, ink and case in every chart. The sizes, in phone pt (`chart-roles.js` `ROLE_PT`):
+
+  | Role | pt | What it is |
+  |---|---|---|
+  | key, heading | 13 | a key entry and its value; a heading inside a chart (a kanban column) |
+  | direct, value, region, callout | 12 | a name on the drawing; a number that is the data; an area's name; a note |
+  | category, tick, title, note, status, glyph | 11 | an axis name; a scale number; an axis title; secondary text; a status word; a numeral in a marker |
+  | item (HTML kinds) | deck body | a roadmap or kanban item reads like the slide's body |
+
+  The owner picked this ladder from a bake-off of three steps on their phone, then raised the floor from 10pt to
+  11pt. A one-size spike (every label at one size) broke layouts and was dropped.
+- **Where it runs.** Only on a whole-slide chart on a 1080-wide page (portrait, square, story, mobile). Landscape
+  slides and charts in panes draw exactly as before: `roleU(role, fallback)` returns the kind's own size there.
+- **How a drawn chart reaches pt.** `chart-family.dispatch.js` `run` draws the chart once to learn how many page px
+  one drawing unit prints at, then solves for the scale at which the drawing, with its text at role size, fits the box.
+  Bigger text makes a bigger drawing and a smaller scale, so the scale is a fixed point. Repeating the draw crept
+  toward it and stopped 3 to 25% short (a 13pt key printed at 12.6pt), so the dispatch uses a secant solve. The box
+  height allows for a subtitle, a caption and a title that wraps, measured in Chromium at mobile. The sizes reach the
+  stylesheet as `--chart-fs-<role>` on the chart's `<svg data-chart-roles>`, so the layout and the paint agree.
+- **HTML kinds** (roadmap, kanban, journey, progress, timeline-list, matrix-grid) read the same ladder as cqi tokens,
+  `--chart-role-<role>`. The **graph kinds** (flowchart, state-chart) fit their drawing in the browser and lift
+  `--chart-text-min` by 1/k as they shrink it (Trama). On a phone page that floor is 11pt, so a fitted graph never
+  prints under it. A sparse graph that scales up to fill its box prints larger, up to 15pt.
+- **One face.** Inside the chart body on these pages, the label face and the display face resolve to the body face,
+  with tabular figures. A chart had printed in three faces (monospaced ticks, serif values, sans names). The word
+  cloud keeps its display face.
+- **Widths grow with their text.** A lane or column tuned to a label size (a scatter label lane, a slope gutter, a
+  line's right cap) scales by the same factor as the role it holds (`roleScale`). A key's label column stops at the
+  box's width and wraps, because a column measured in ems outgrew the box at 13pt and then set the drawing's width.
+- **Layouts that were tuned to the old text sizes follow the new ones.** Rendering the galleries at mobile and 4:5
+  (the LinkedIn feed shape) against `main` found charts whose labels now crossed marks or each other, or were dropped.
+  On the ladder:
+  - the canvas is the shape of the measured box at every 1080-wide size, with no portrait floor (`viewFor`): at 4:5
+    the 300-unit floor made the drawing height-bound, and its lanes too narrow for the role sizes;
+  - an axis's gutters and the offsets of its title grow with its text (`cartesian.js` `axisScale`), so an axis title
+    no longer prints over the ticks or off the drawing (histogram, ep-curve, scatter);
+  - a category label the spacing would cull drops to a second, staggered row instead (`buildCategoryLabels`); the
+    waterfall staggers its names, and the risk-matrix its likelihood words, when one is wider than its column;
+  - the funnel's side columns widen with their text, and the gap between bands holds the conversion figure;
+  - the risk-matrix lays its grid out in the box's units (cells fill the width, rows take the height left), and it
+    redraws once with notes, because a layout that grows with its own text has no scale for the solve to settle on;
+  - the quadrant places its names at the size they print (12pt, then 11pt before it drops one), and its plane takes
+    the box's shape;
+  - radar small multiples run in two columns, not three, and a risk-matrix cell holds its markers at full size: three
+    markers in one cell had shrunk to 6pt.
+- **The word cloud is its own case**, because a word's size is its data. Weights 1 to 5 take five steps, 11, 15, 20,
+  28 and 40pt, scaled together to the largest set that places every word (2x down to 1x). A word never shrinks under
+  its step. A leader wider than the box takes the box's width rather than being dropped. The pack box takes the chart
+  box's shape, capped at 1.1 times its width so a sparse cloud does not stretch into a column. The key is at the 13pt
+  key role, and the cloud shows at most 25 words; the rest are reported through `data-label-drops`.
+- **The audit is a test.** `test/unit/plugins/chart-roles.test.js` fails when a class's style rule and the role map
+  disagree, when a cqi token drifts from `ROLE_PT`, or when a role drops under 11pt.
+
+Measured at mobile across the 28 chart galleries (Chromium, the text's printed size in phone pt): 115 of 128 texts
+print at their role size within 0.6pt. Of the other 13, nine print above it: sparse flowcharts and state charts
+scale up (up to 15pt), and scatter's text sits up to 0.7pt over (its box estimate errs short). Four, in the inline
+state chart, print at the 11pt floor where their role asks 12pt, because that variant's fit shrinks its rows to the
+floor. No chart text prints under 11pt.
+
 ## What comes next
 
 Recorded as `followups.d/3021-p*.md`, in the order the owner agreed (2026-11-03):

@@ -1,3 +1,4 @@
+import { routeHolds } from './route-hold';
 import { expect, gotoStudio, openChatAtWidth, test } from './studio-fixture';
 
 
@@ -21,7 +22,6 @@ const MODELS = [
 
 const sse = (frames: unknown[]) => `${frames.map((f) => `data: ${JSON.stringify(f)}\n\n`).join('')}data: [DONE]\n\n`;
 const usage = { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20, cost: 0.02 };
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 for (const [w, h] of [
 	[1440, 900],
@@ -42,6 +42,7 @@ for (const [w, h] of [
 	});
 	let round = 0;
 	const models: string[] = [];
+	const holds = routeHolds();
 	await page.route('https://openrouter.ai/**', async (route) => {
 		const url = route.request().url();
 		if (!url.includes('/chat/completions')) {
@@ -50,7 +51,7 @@ for (const [w, h] of [
 		}
 		models.push(route.request().postDataJSON().model);
 		round++;
-		await wait(1800);
+		await holds.hold();
 		const frames =
 			round === 1
 				? [
@@ -72,12 +73,16 @@ for (const [w, h] of [
 
 	// Round one is held open: the line says so before a single token has arrived.
 	const status = page.getByTestId('chat-live-status');
+	await holds.held();
 	await expect(status).toHaveText('Thinking…');
 	// Prose and a tool call arrive; round two is then held open. The line is checked at the two
 	// moments the report was about — while round one is held and again before the reply commits.
 	// (A fulfilled mock cannot stream, so this does not prove every instant in between.)
+	await holds.release();
 	await expect(page.getByText("I'll read the slides first.")).toBeVisible({ timeout: 15_000 });
+	await holds.held();
 	await expect(status).toBeVisible();
+	holds.releaseAll();
 	await expect(page.getByText('My score: 9.5 out of 10.')).toBeVisible({ timeout: 30_000 });
 	await expect(status).toHaveCount(0);
 
@@ -103,7 +108,10 @@ for (const [w, h] of [
 	await expect(page.getByText('Ask a question')).toBeVisible();
 	await expect(page.getByText('Make an edit')).toBeVisible();
 	await page.getByRole('tab', { name: 'All' }).click();
-	await page.getByRole('radio', { name: /Gemini 3 Flash/ }).check();
+	// `click`, not `check`: picking a model closes the picker, and `check` re-reads the radio's state after its click.
+	// Under load the picker had already unmounted it, so `check` retried against a radio that no longer exists until its
+	// timeout (1 run in 10 at --workers=4). The two lines below assert what the pick must do.
+	await page.getByRole('radio', { name: /Gemini 3 Flash/ }).click();
 	await expect(page.getByLabel('Search OpenRouter models')).toHaveCount(0);
 	await expect(chip).toContainText('Gemini 3 Flash');
 	await page.screenshot({ path: test.info().outputPath(`chat-polish-chip-${w}.png`) });

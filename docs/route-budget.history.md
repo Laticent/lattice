@@ -6,6 +6,57 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-12 — the owner raised one ceiling by 1KB, for the fonts a deck paints in
+
+PR #3131: the adversarial trio found the phone kernel measured chart text in Outfit while the ledger, poster and festival type sets paint it in Inter (about 10% wider on a label, up to 4x on a glyph) and the sketch finish in the hand face, so names could overprint on a phone. The measurement table gains Inter at 600 and 700 (text-advance.generated.js), and the phone path measures in the slide's body face (chart-phone.js `bodyFaceOf`). Measured 260.0KB against the 259.7KB ceiling set below. The owner raised chartKernelsGz's ceiling by 1KB (1,024 bytes) on 2026-11-12, to cover the Inter rows (+0.5KB) and the trio's other fixes in one raise; the soft target is unchanged. Set by hand, for the same reason as the entries below.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelsGz | 231477 | 231477 | +0 | 266913 |
+
+### 2026-11-12 — the owner raised one ceiling by 1KB, for timelines and graph notes
+
+PR #3131: a timeline too tall for a phone page is drawn whole and scaled, from an estimate of the stacked spine's height (timeline-list.transform.js `tlHeight`, `tlScale`), and notes on a flowchart or state chart read as a list under the drawing on a phone page. The timeline's estimate is about 1.1KB of the union of every chart kernel's closure; 0.3KB was given back by sharing one table of the phone page's spacing steps between the four stacked-height estimates (chart-phone.js `phoneSteps`). Measured 259.4KB against the 258.7KB ceiling set above. The owner raised chartKernelsGz's ceiling by 1KB (1,024 bytes) on 2026-11-12 (decision D1 on the PR); the soft target is unchanged. Set by hand, for the same reason as the entries below.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelsGz | 231477 | 231477 | +0 | 265889 |
+
+### 2026-11-11 — the owner raised one ceiling by 3KB, for kanban and roadmap
+
+PR #3131: on a phone-shaped page kanban and roadmap now stack their lanes and phase cards full width, and cut a board between whole lanes only when it does not fit, from an estimate of each lane's height (the owner's call, amending 2026-09-01-autosplit-splits-on-structure.md for these two kinds). Kanban's layout code measured 257.1KB of the union of every chart kernel's closure against the 255.7KB ceiling set above. The owner raised chartKernelsGz's ceiling by 3KB (3,072 bytes) on 2026-11-11 to cover kanban and roadmap together; roadmap's measured cost is recorded when it lands. The soft target is unchanged. Set by hand, for the same reason as the entries below.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelsGz | 231477 | 231477 | +0 | 264865 |
+
+### 2026-11-11 — the owner raised one ceiling by 1KB, for gantt
+
+PR #3131: moving gantt onto the chart form kernel (lane names above their bars, captions placed whole, a key that wraps) costs about 1.8KB of the union of every chart kernel's closure, measured 255.6KB against the 254.7KB ceiling set above. The owner raised chartKernelsGz's ceiling by 1KB (1,024 bytes) on 2026-11-11 and asked to be asked again for each later kind that needs more; the soft target is unchanged. Set by hand, for the same reason as the entry below.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelsGz | 231477 | 231477 | +0 | 261793 |
+
+### 2026-11-11 — the owner raised one ceiling by 6KB
+
+PR #3131: the chart form kernel's layout code (chart-form.js, chart-phone.js, the glyph-width table and the per-kind forms) is about 20KB of the union of every chart kernel's closure, measured 253.7KB against a 248.7KB ceiling after the phone sizing code moved out of the startup engine (getting-started's engineJsGz was past its own ceiling). The owner raised chartKernelsGz's ceiling by 6KB (6,144 bytes) on 2026-11-11, after seeing that the same PR gave back 218KB on every engine route; the soft target is unchanged. Set by hand because `route-budget:rebaseline --raise --ceiling` would put the ceiling 10% over a new soft target (about 30KB), more than was agreed.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelsGz | 231477 | 231477 | +0 | 260769 |
+
+### 2026-11-11 — measured on the built tree at 2aeda14
+
+PR #3131: the docs preview runtime leaves the chart kernels out (a preview receives charts the engine already drew); engineJsGz falls about 218KB
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | engineJsGz | 775332 | 648151 | -127181 | 712966 |
+| playground | engineJsGz | 775332 | 648151 | -127181 | 712966 |
+| home | engineJsGz | 775332 | 648151 | -127181 | 712966 |
+| components | engineJsGz | 775332 | 648151 | -127181 | 712966 |
+
 ### 2026-11-07 — measured on the built tree at 433499cf
 
 Owner-approved reset (PR #3056): main's engine bundle sat 3,684 B gz under its ceiling and #3056's section rail (both render arms, the topic section eyebrow and the progress-rail register) adds 3,634 B, so a few dozen bytes past it once #3050 landed. The owner chose a tool reset of engineJsGz over a hand raise or trimming the feature. Soft targets reset to today's main; ceilings back to 10% above.

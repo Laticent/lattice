@@ -304,6 +304,17 @@ describe('the open editor', () => {
 		expect(openObject(view.state)).toMatchObject({ pos: first.pos, src: '{SHIPPED, c9, lg}', id });
 	});
 
+	it('never writes to a neighbor: a pick names the source it was opened on (#3150-p1)', () => {
+		const view = mount(DECK);
+		const [first, second] = objects(view.state.doc);
+		openObjectEditor(view, first.pos);
+		const before = view.state.doc;
+		// The editor's position went stale and now points at the next object: the source it expects does not match.
+		expect(editObject(view, second.pos, { size: 'lg' }, kernels, first.src)).toBe(false);
+		expect(view.state.doc).toBe(before);
+		expect(editObject(view, first.pos, { size: 'lg' }, kernels, first.src)).toBe(true);
+	});
+
 	it('writes nothing the kernel declines, and nothing when the object already says it', () => {
 		const view = mount(DECK);
 		const [first] = objects(view.state.doc);

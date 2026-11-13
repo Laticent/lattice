@@ -1,3 +1,4 @@
+import { layoutSettled, schedulerDrained, timersDrained } from './barriers';
 import { CHROME, expect, gotoStudio, openChat, openInspector, test } from './studio-fixture';
 
 // The Studio's docked panels share one size contract (studio/dock-layout.ts,
@@ -126,7 +127,16 @@ test('desktop: a reload restores the person\'s editor collapse without re-showin
 	await expect.poll(toasted).toBe(true); // their own collapse still says so
 	await page.reload();
 	await expect.poll(async () => (await widths(page))['studio-editor']).toBeLessThan(60);
-	await page.waitForTimeout(4000);
+	// The restore has landed. A toast for it would come from the collapse the restore looks like: a ResizeObserver
+	// reports it after the frame's layout (layoutSettled), Sonner publishes on a zero-delay timer and flushes it to the
+	// DOM synchronously (sonner's Toaster subscriber), so a zero-delay timer queued after that runs after any publish,
+	// and the MutationObserver above has seen the toast by then (it accumulates, so the toast's short life cannot hide
+	// it). Was a 4000 ms wait (HARD RULE #32). NOT on the page clock: a faked requestAnimationFrame runs the restore's
+	// two-frame settle off the real frames, the restore then reads as the person's own collapse, and the toast shows
+	// (9 runs in 165 when this test installed the clock).
+	await layoutSettled(page);
+	await timersDrained(page);
+	await schedulerDrained(page);
 	expect(await toasted()).toBe(false);
 	expect(await page.evaluate(() => sessionStorage.getItem('lattice-docs-split-studio-collapsed'))).toBe('a');
 });

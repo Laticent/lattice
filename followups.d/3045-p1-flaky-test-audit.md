@@ -144,6 +144,18 @@ progress  — 2026-11-06: `test/unit/core` is done (59 hits, 34 files; the basel
             Same PR: test/unit's `env-skip` sites (#3144's census and rule) at zero outside components and
             trama: 33 in 15 files through `skipUnlessCI` / `skipWithoutChrome`, two `ci-skip` notes (oh-my-zsh opt-in;
             flock on macOS, run by `wait-for-macos`).
+            2026-11-12 (`docs/e2e` census): every `docs/e2e` hit outside the files other sessions own is done, 39
+            hits in 24 files, and `SANCTIONED_E2E_SLEEPS` went from 106 calls in 36 files to one call owned
+            elsewhere (`workspace-backup-size`, #3153; #3155 removed `restyle-overlap`'s). With #3155 the `docs/e2e`
+            baseline is empty, and the whole baseline is 4 hits in 3 files (40 in 26 on `main` at merge time). One
+            `flaky-ok` was added, on `timersDrained`, a zero-delay-timer ordering barrier, and no test was disabled. Each
+            rewrite waits on a product signal (six helpers in `docs/e2e`,
+            listed in the decision note's tools), and each was shown failing on a broken product line where an arm
+            could be built. Found and fixed: vetrina's scroll-cost test counted style mutations, which
+            cannot see a same-value write, so it passed with the compare removed (it now counts re-seats);
+            `filo-compose`'s 16 ms undo budget is now a work count (one slide replaced, a sixteenth of the deck read)
+            with the time in `npm run bench`. Left in `docs/e2e` for the session that owns it: `workspace-backup-size`'s
+            one sanctioned wait (#3153).
 done when — `tools/flaky-test-baseline.json` holds no files; every remaining clock or sleep line carries a `flaky-ok`
             reason; and the F3-F9 sweep's findings are fixed. (The retries half is done: PR #3144 set
             `docs/playwright.config.ts` to `retries: 0` on the owner's 2026-11-12 order, held by `checkPlaywrightRetries`,

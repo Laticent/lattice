@@ -228,9 +228,8 @@ describe('createChartInteract — pinned re-pin on frame reveal', () => {
 
     ci.handleKey(new KeyboardEvent('keydown', { key: '2' })); // number-key reveal, no pointer
     expect(pop.classList.contains('show')).toBe(true);
-    // placePop → computePosition resolves on a microtask; give it a beat, then assert it WAS placed.
-    await new Promise((r) => setTimeout(r, 0));
-    expect(pop.style.left).not.toBe('');
+    // placePop → computePosition resolves asynchronously; wait for the placement itself, not a beat.
+    await vi.waitFor(() => expect(pop.style.left).not.toBe(''));
     expect(pop.style.top).not.toBe('');
     ci.destroy();
   });

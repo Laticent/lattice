@@ -1,4 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
+import { confirmPhotoFormat } from './photo-format';
 import { gotoStudio, persistedSource, setEditorContent } from './studio-fixture';
 
 /**
@@ -86,16 +87,8 @@ export async function addLibraryPhoto(page: Page, fileName: string, color: strin
 			const input = document.querySelector('input[type="file"][accept*="image"]') as HTMLInputElement;
 			input.files = dt.files;
 			input.dispatchEvent(new Event('change', { bubbles: true }));
-			// The format dialog asks how to store them; the probes take its default.
-			for (let i = 0; i < 200; i++) {
-				const b = [...document.querySelectorAll('[role="dialog"] button')].find((x) => x.textContent?.trim().startsWith('Add photo')) as HTMLButtonElement | undefined;
-				if (b) {
-					b.click();
-					break;
-				}
-				await new Promise((r) => setTimeout(r, 50));
-			}
 		},
 		{ fileName, color },
 	);
+	await confirmPhotoFormat(page);
 }

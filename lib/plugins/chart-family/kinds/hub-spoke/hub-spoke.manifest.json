@@ -25,7 +25,7 @@
   "render": "svg",
   "renderNote": "The hub, the satellites, the connectors, the arrowheads, the halos, the labels and the group key are all one `<svg>`. Connectors are filled bands rather than strokes, so a flow class can step their width without a finish or an export flattening it, and the key band sits inside the same viewBox so a swatch can never drift from the satellites it names.",
   "kernel": {
-    "figureClass": "hub-spoke-figure",
+    "figureClass": "hub-spoke-figure", "form": true,
     "marks": [
       {
         "class": "hub-spoke-node",

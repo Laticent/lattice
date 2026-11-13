@@ -19,7 +19,7 @@
   ],
   "renderNote": "Bars, milestones, the date axis and every caption are one `<svg>`. A bar's start and length are positions on a shared time axis, so axis and bars must be solved together; CSS boxes would re-derive the same scale per row and drift.",
   "kernel": {
-    "figureClass": "gantt-chart",
+    "figureClass": "gantt-chart", "form": true,
     "marks": [
       {
         "class": "gantt-bar",

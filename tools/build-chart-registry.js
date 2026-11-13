@@ -135,6 +135,8 @@ function build() {
     .map((m) => ({
       name: m.name,
       figureClass: m.kernel.figureClass,
+      form: m.kernel.form === true,
+      formHero: m.kernel.formHero === true,
       variants: effectiveVariants(m),
       dir: componentDir(m, COMPONENTS_DIR),
     })));
@@ -203,11 +205,21 @@ function build() {
   }
   lines.push('};');
   lines.push('');
+  lines.push('// The kinds placed by the chart form kernel (a manifest\'s `kernel.form: true`): on a phone page each draws once,');
+  lines.push('// on a canvas the shape of its box (lib/plugins/chart-family/shared/chart-form.js).');
+  lines.push(`const FORM_KINDS = new Set(${JSON.stringify(charts.filter((c) => c.form).map((c) => c.name))});`);
+  lines.push('');
   lines.push('// The plugin that offers the slot. Switched off for a render, the family passes every chart');
   lines.push('// section through as authored and marks it `data-lattice-off` with this name.');
   lines.push(`const PLUGIN = ${JSON.stringify(SLOT.plugin)};`);
   lines.push('');
-  lines.push('module.exports = { LAYOUTS, FIGURE_CLASSES, KERNELS, PLUGIN };');
+  lines.push('// The kinds that take the full-bleed hero body at claim-hero / claim-bleed (a manifest\'s `kernel.formHero: true`).');
+  lines.push(`const FORM_HERO_KINDS = new Set(${JSON.stringify(charts.filter((c) => c.formHero).map((c) => c.name))});`);
+  lines.push('');
+  lines.push('// How a chart draws on a phone page (./chart-phone.js): with the kernels, never at startup. The docs site\'s ESM');
+  lines.push('// engine gets it from the first chart entry it loads (tools/build-playground.js `lazyChartRegistryPlugin`).');
+  lines.push("const PHONE = require('./chart-phone');");
+  lines.push('module.exports = { LAYOUTS, FIGURE_CLASSES, KERNELS, FORM_KINDS, FORM_HERO_KINDS, PLUGIN, PHONE };');
   return lines.join('\n') + '\n';
 }
 

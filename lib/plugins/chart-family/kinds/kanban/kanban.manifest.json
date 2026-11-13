@@ -64,7 +64,7 @@
   },
   "split": {
     "strategy": "kanban-lanes",
-    "note": "In a portrait box the side-by-side lanes can't fit, so each LANE gets its own slide — the chart-header repeats and the board re-emits holding one .kanban-column, giving that lane the whole slide for its cards. Needs >=2 lanes; a single lane taller than the slide rings (card-level pagination is a future pass). lib/core/carousel.js kanban-lanes; 2026-06-25-retire-landscape-locks-portrait-everything.md."
+    "note": "In a portrait box the side-by-side lanes can't fit, so each LANE gets its own slide — the chart-header repeats and the board re-emits holding one .kanban-column, giving that lane the whole slide for its cards. Needs >=2 lanes; a single lane taller than the slide rings (card-level pagination is a future pass). lib/core/carousel.js kanban-lanes; 2026-06-25-retire-landscape-locks-portrait-everything.md. A board whose stacked lanes fit a phone page stays whole (kanban.transform.js marks it data-kanban-fits; the owner's call, 2026-11-12)."
   },
   "tags": [
     "swimlane",
@@ -123,6 +123,9 @@
       "sample": "<!-- _class: kanban tinted -->\n\n`kanban tinted`\n\n## tinted colors each lane's wash.\n\n- Backlog\n  - Lane wash `S`\n- In progress\n  - Color coded `M`\n- Done\n  - Reads faster `L`\n"
     }
   },
+  "dataShapeGuidance": [
+    "On a narrow slide (under about 70 characters a line: every phone, story, 4:5 and square page) the lanes stack, each lane's name over its cards, and every card runs the full width at its natural height: its title, then its label and status on the row under it."
+  ],
   "whenToUse": [
     {
       "title": "Status snapshot by stage",

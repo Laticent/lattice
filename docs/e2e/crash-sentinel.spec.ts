@@ -366,9 +366,14 @@ test('an error logged to the console lands in the live record', async ({ page })
  * a real console without consent.
  */
 test('records nothing until the workspace switch is on, on WebKit @webkit-phone', async ({ page }) => {
+	// On Playwright's clock, so the console write throttle can be stepped past instead of slept through (HARD RULE #32).
+	await page.clock.install();
 	await gotoStudio(page); // deliberately WITHOUT allowRecording
 	await page.evaluate(() => console.error('this must not be recorded', new Error('nor this stack')));
-	await page.waitForTimeout(1_500); // longer than the console write throttle
+	// No patch installed itself into the real console: the recorder records by wrapping `console.error`.
+	expect(await page.evaluate(() => /\[native code\]/.test(Function.prototype.toString.call(console.error))), 'console.error was patched with recording off').toBe(true);
+	// …and a write the throttle could be holding has had its chance to land: the clock steps past the throttle.
+	await page.clock.runFor(1_500);
 
 	const state = await page.evaluate(() => ({
 		records: Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')).length,
@@ -417,9 +422,14 @@ test('a clean session is never reported as a crash', async ({ page }) => {
  * being claimed is that nothing installs itself into a REAL console.
  */
 test('records nothing until the workspace switch is on', async ({ page }) => {
+	// On Playwright's clock, so the console write throttle can be stepped past instead of slept through (HARD RULE #32).
+	await page.clock.install();
 	await gotoStudio(page); // deliberately WITHOUT allowRecording
 	await page.evaluate(() => console.error('this must not be recorded', new Error('nor this stack')));
-	await page.waitForTimeout(1_500); // longer than the console write throttle
+	// No patch installed itself into the real console: the recorder records by wrapping `console.error`.
+	expect(await page.evaluate(() => /\[native code\]/.test(Function.prototype.toString.call(console.error))), 'console.error was patched with recording off').toBe(true);
+	// …and a write the throttle could be holding has had its chance to land: the clock steps past the throttle.
+	await page.clock.runFor(1_500);
 
 	const state = await page.evaluate(() => ({
 		records: Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-session-')).length,
@@ -510,11 +520,12 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 	// exercises the heartbeat catch-up path and leaves `onResume`'s uncovered.
 	// Stated in the decision doc rather than implied away.
 	await cdp.send('Emulation.setScriptExecutionDisabled', { value: true });
-	await page.waitForTimeout(2_000);
 
-	// The wipe lands while the page is stopped. `page.waitForTimeout` above is
-	// runner-side and safe against a stopped document; `page.evaluate` is not, so
-	// every read of the page's own state waits until after the resume below.
+	// The wipe lands while the page is stopped: the page stays stopped until the resume below, so the
+	// wipe below is inside that window by construction. (A 2000 ms wait stood here; the catch-up path
+	// compares wipe MARKS, not times, so its length bought nothing, and the skip below reads whether
+	// the page heard the wipe.) `page.evaluate` is not safe against a stopped document, so every read
+	// of the page's own state waits until after the resume.
 	const other = await context.newPage();
 	await allowRecording(other); // the second tab records too — it is the one that must seal
 	await gotoStudio(other);

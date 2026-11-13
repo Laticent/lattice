@@ -6376,153 +6376,6 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
-    file: 'docs/e2e/editor-lint-stale-pass.spec.ts', ms: 2000, count: 1,
-    why: 'ORDERING WAIT with no signal (PR #3040): after inline validation goes off, @codemirror/lint runs the NEWER '
-       + 'pass on its own 750ms timer, and with validation off that pass answers "nothing", which changes nothing '
-       + 'on the page to poll. The race under test is the OLDER pass landing after it, so the held lint core is '
-       + 'released only once that timer has had time to fire. Without the wait the older pass lands first and is '
-       + 'overwritten, and the spec passed vacuously against a guard-less build (measured).',
-  },
-  {
-    file: 'docs/e2e/editor-lint-stale-pass.spec.ts', ms: 1500, count: 1,
-    why: 'ABSENCE ASSERTION (PR #3040): once the held lint core has loaded, the stale pass must put back NO '
-       + 'underline. There is no signal for a diagnostic that must not appear, and a poll of a zero count goes '
-       + 'green on its first tick. The wait is signal-first (the lint core response), then 1500ms for evaluation '
-       + 'and the dispatch. The control arm with the generation guard disabled fails this line 6 of 6 on WebKit '
-       + 'tablet and Gecko, so the assertion can see what it says is absent.',
-  },
-  {
-    file: 'docs/e2e/playground-lint-hidden.spec.ts', ms: 3000, count: 2,
-    why: 'TWO ABSENCE ASSERTIONS: while the Playground editor is hidden (Explore, or a style that hides it '
-       + 'before first paint), the page must NOT request the lint core `esm/lint.js` (followup 2913-p1). There '
-       + 'is no signal for a request that must not happen; a poll of the empty list goes green on its first '
-       + 'tick. 3000ms is several times the linter\'s 350ms delay after the editor mounts; each test\'s POSITIVE '
-       + 'arm (showing the editor) then sees the request or the underline, so the list can see what it says is absent.',
-  },
-  {
-    file: 'docs/e2e/playground-editor-deferred.spec.ts', ms: 3000, count: 1,
-    why: 'ABSENCE ASSERTION: an Explore load must build NO CodeMirror view while the editor is hidden (followup '
-       + '2921-p1). There is no signal for a view that must not appear; a poll of a zero count goes green on its '
-       + 'first tick. 3000ms is longer than the idle build the first sign of a reader would trigger, and the '
-       + 'spec\'s other tests build the view on the switch to Edit and on a pointer move, so the count can rise.',
-  },
-  {
-    file: 'docs/e2e/playground-editor-deferred.spec.ts', ms: 1500, count: 1,
-    why: 'ABSENCE ASSERTION, the quiet period before the pointer move in the warm-up test: no view yet, then a '
-       + 'pointer move must build one. The positive arm (the poll that moves the pointer until `.cm-editor` '
-       + 'appears) is what proves the count can rise (followup 2921-p1).',
-  },
-  {
-    file: 'docs/e2e/phone-sheet-tap-after-typing.spec.ts', ms: 500, count: 2,
-    why: 'TWO ABSENCE ASSERTIONS, the arms that prove the spec can fail: with the tap hold stripped, a tap '
-       + 'after typing must NOT select the Library tab and must NOT open the Language list (followup 2547-p2). '
-       + 'There is no signal for a selection or a listbox that must not appear; a poll goes green on its first '
-       + 'tick. 500ms outlasts a tap\'s click and the Select\'s open; the same file\'s POSITIVE arms (hold '
-       + 'on, same tap) see the selection and the list, so the assertion can see what it says is absent.',
-  },
-  {
-    file: 'docs/e2e/studio-dock-sizing.spec.ts', ms: 4000, count: 1,
-    why: 'ONE ABSENCE ASSERTION: a reload that restores the person\'s stored editor collapse must NOT '
-       + 'show the "Editor collapsed." toast (the restore used to be read as a fresh collapse). There '
-       + 'is no signal for a toast that must not appear. 4000ms outlasts the restore\'s two-rAF settle '
-       + 'and the toast\'s ~1.5s life; the same test\'s POSITIVE arm (their own collapse sets the same '
-       + 'MutationObserver flag) proves the observer can see it, and the test fails without the fix.',
-  },
-  {
-    file: 'docs/e2e/read-article-beacons.spec.ts', ms: 3000, count: 2,
-    why: 'TWO ABSENCE ASSERTIONS on a loopback server\'s request log. (1) The Studio\'s Reading view, with '
-       + 'nothing allowed, must fetch NONE of the deck\'s web references (HARD RULE #22). There is no signal '
-       + 'for a request that must not happen; a poll of the empty log goes green on its first tick. 3000ms '
-       + 'covers the article\'s projection, its two blockWebImages passes and any fetch it would wrongly '
-       + 'start; the same test\'s CONTROL arm (after "Load images", the server sees the control image) '
-       + 'proves the log can see a fetch. (2) A drawn Mermaid `click … href` link must not request its '
-       + 'address before a click (followups 2909-p5): the same 3000ms, and the click that follows proves '
-       + 'the log sees that address.',
-  },
-  {
-    file: 'docs/e2e/studio-player-consent.spec.ts', ms: 1500, count: 2,
-    why: 'TWO ABSENCE ASSERTIONS on a loopback server\'s request log: a player file opened with a declared '
-       + 'consent origin must fetch NOTHING before the reader presses "Load pictures", and nothing at all '
-       + 'with scripting off. There is no signal for a request that must not happen; a poll of the empty '
-       + 'log goes green on its first tick. 1500ms covers the player\'s boot, its placeholder pass and '
-       + 'any fetch it would wrongly start; the same test\'s POSITIVE arm (after the click, the server '
-       + 'sees the request and the image decodes) proves the log can see a fetch.',
-  },
-  {
-    file: 'docs/e2e/collage-lightbox-present.spec.ts', ms: 400, count: 3,
-    why: 'THREE ABSENCE ASSERTIONS: with the collage lightbox open, a digit must NOT also mark a chart '
-       + 'point behind it (#2648 P1). Present\'s window listener would open the chart-detail card on '
-       + 'the same keydown if the lightbox\'s capture-phase swallow failed, and there is no signal '
-       + 'for a card that must not open; a poll of the unchanged DOM goes green on its first tick. '
-       + '400ms covers the key dispatch, the chart-detail reveal and the popover mount; the same '
-       + 'file\'s POSITIVE arm shows that card mounts inside 1s once Escape closes the lightbox.',
-  },
-  {
-    file: 'docs/e2e/collage-lightbox-present.spec.ts', ms: 600, count: 1,
-    why: 'AN ABSENCE ASSERTION: a click on a photo inside Present opens no lightbox, because the slide '
-       + 'card is pointer-events-none (PresentOverlay.tsx). There is no signal for an open that must '
-       + 'not happen. 600ms covers the click dispatch and the 400ms open glide the other arms wait '
-       + 'out, so a lightbox that was going to open would already be mounted.',
-  },
-  {
-    file: 'docs/e2e/collage-player-engines.spec.ts', ms: 600, count: 2,
-    why: 'TWO ABSENCE ASSERTIONS in Firefox and WebKit (#2648 P2): with the exported player\'s collage '
-       + 'lightbox open, a wheel flick must NOT also turn the slide behind it. The player\'s window '
-       + 'listener turns a slide inside the same event dispatch, but a leak past the lightbox\'s '
-       + 'stopPropagation has no signal of its own; a poll of the unchanged index goes green on its '
-       + 'first tick. 600ms outlasts the player\'s 350ms wheel cooldown, so a leaked event would have '
-       + 'fired and the index moved. The same file\'s control arm (a wheel on the closed deck turns '
-       + 'the slide) and its closed-again arm prove the listener is live in that engine.',
-  },
-  {
-    file: 'docs/e2e/deck-drop-import.spec.ts', ms: 1000, count: 3,
-    why: 'THREE ABSENCE ASSERTIONS: a PDF dropped on the code editor, on the compose editor and '
-       + 'while presenting must import NOTHING and leave the tab on the Studio. There is no signal '
-       + 'for an import that must not happen; a poll of the unchanged source goes green on its first '
-       + 'tick, before the lazy deck-import chunk could even load. 1000ms covers that chunk, the PDF '
-       + 'read and the debounced source save that a wrong import would cause; the same file\'s '
-       + 'POSITIVE arms show those all land inside it (a real import there is polled, and passes).',
-  },
-  {
-    file: 'docs/e2e/segno-playground.spec.ts', ms: 250, count: 1,
-    why: 'THE CADENCE IS THE INPUT, not a wait for an outcome: step 13 reproduces #2573\'s finding 3, '
-       + 'where every keystroke re-armed the 1.5 s build timer and typing kept a runaway build alive '
-       + '(6.5 s). The spec types one character every 250 ms during the runaway and asserts the timer '
-       + 'still stops it inside 4 s; a keystroke polled on a signal would not be the user typing.',
-  },
-  {
-    file: 'docs/e2e/print-preview-documents.spec.ts', ms: 1500, count: 1,
-    why: 'AN ABSENCE ASSERTION: the Share sheet keeps the Print drawer mounted but FROZEN while '
-       + 'closed, and the claim is that editing the deck then re-renders nothing in it. A '
-       + 'MutationObserver on the hidden drawer counts its DOM changes; a re-render would flip the '
-       + 'Print button to "Rendering…" and back, and there is no signal for a render that must not '
-       + 'start, so a poll of 0 goes green on its first tick. 1500ms covers the editor\'s change '
-       + 'debounce plus a deck render of the 12-slide probe. The count is first polled to 0 with no '
-       + 'fixed wait, so the window measures the edit alone.',
-  },
-  {
-    file: 'docs/e2e/code-packages.spec.ts', ms: 2500, count: 4,
-    why: 'FOUR ABSENCE ASSERTIONS, and they are the claim the spec exists to prove: a hostile code '
-       + 'package (unapproved, then approved), a package that reads only `slide.facts` and tries '
-       + 'to send them out (contract note §11), and a package holding a dynamic import() that the '
-       + 'Library import refuses, so that no sandbox frame opens for it (contract note §10), send NOTHING to a loopback HTTP server or a UDP '
-       + 'socket (contract note 2026-09-24 §9). There is no signal for a request that must not '
-       + 'arrive; a poll of an empty log goes green on its first tick. 2500ms covers the package\'s '
-       + 'own load-time and per-slide attempts (fetch, WebSocket, WebRTC ICE gathering, which is '
-       + 'the slowest) after the slide has visibly rendered; the same file\'s CONTROLS then show '
-       + 'the page reaching both listeners within a bounded poll.',
-  },
-  {
-    file: 'docs/e2e/plugin-fence.spec.ts', ms: 2500, count: 3,
-    why: 'THREE ABSENCE ASSERTIONS, the claim the spec exists to prove (plugin-system §9 decisions 10 to 14): '
-       + 'a hostile zip plugin (listed but unapproved, then approved, then run again by Share to PDF) sends '
-       + 'NOTHING to a loopback HTTP server or a UDP socket. There is no signal for a request that must not '
-       + 'arrive; a poll of an empty log goes green on its first tick. 2500ms is the same window '
-       + 'code-packages.spec.ts holds, covering the renderer\'s load-time and per-fence attempts (fetch, '
-       + 'WebSocket, WebRTC ICE gathering, the slowest) after the fence has visibly drawn; the same test\'s '
-       + 'CONTROLS then show the page reaching both listeners within a bounded poll.',
-  },
-  {
     file: 'docs/e2e/workspace-backup-size.spec.ts', ms: 2000, count: 1,
     why: 'ONE ABSENCE ASSERTION: when a workspace restore skipped something, the "Not restored" '
        + 'list must survive the reload and then NOT go away on its own, because it is how the user '
@@ -6531,360 +6384,6 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'its first tick, before an ordinary notice\'s 2600ms default duration would have closed '
        + 'it. 2000ms is most of that duration and the notice is then asserted visible. The loop '
        + 'runs it twice (an object flood and a scalar flood), ~4s of the file per project.',
-  },
-  {
-    file: 'docs/e2e/preview-font-swap.spec.ts', ms: 1500, count: 1,
-    why: 'ONE ABSENCE ASSERTION, and it is the whole point of the spec: after the preview has '
-       + 'revealed a layout and the document reports its faces settled, NO SECOND layout may '
-       + 'appear. There is no signal for a thing that must not happen — a poll goes green on '
-       + 'its first tick, before the font-swap re-solve it exists to catch could have been '
-       + 'painted, which is the exact shape of the defect (the re-solve landed 320ms after the '
-       + 'reveal). Everything else in the spec IS polled: the arrival of a first sample and the '
-       + 'in-frame `__latticeFontsSettled` flag are one bounded `expect.poll`, so this wait '
-       + 'covers only the tail. 1500ms is ~4.7x the measured swap window and is deliberately '
-       + 'NOT read from the gate bound: a regression that raised that bound must still fail '
-       + 'here rather than move the goalposts with itself. COUNT 1 is the syntactic site, '
-       + 'which is what this gate censuses; `measure()` is called four times across the '
-       + 'three tests, so the wait EXECUTES 4x for ~6s of the file\'s runtime. That is the '
-       + 'price of the absence assertion being made once per arm, and it is stated here so '
-       + 'the entry is not read as "this file sleeps for 1.5 seconds".',
-  },
-  {
-    file: 'docs/e2e/stage-placement.spec.ts', ms: 1200, count: 3,
-    why: 'ABSENCE ASSERTIONS on an ASYNC path. `autoPlaceStage` runs off the open gesture as a '
-       + 'promise chain, so "the Stage was never moved" and "the Stage was never fullscreened" '
-       + 'have no signal to poll — a poll goes green on its first tick, before the placement it '
-       + 'is meant to catch could have been attempted. All three are the cases where the correct '
-       + 'behavior is that NOTHING happens: a single screen (which must never take the display '
-       + 'from the console the presenter drives), a refused Window Management permission, and an '
-       + 'engine with no Window Management at all. Everything pollable around them already is — '
-       + 'the popup via `context.waitForEvent(\'page\')`, the deck paint via `not.toBeEmpty()`, '
-       + 'the slide index via `toBeVisible`, and every case where placement SHOULD happen is an '
-       + '`expect.poll` on the recorded call rather than a wait.',
-  },
-  {
-    file: 'docs/e2e/stage-window.spec.ts', ms: 400, count: 5,
-    why: 'ABSENCE ASSERTIONS, four of them, all the same "and then nothing happened" shape. (1) The '
-       + 'ECHO: the Stage and the console both drive the deck now, and the relay that carries a Stage '
-       + 'gesture to the console invites a move posted out, applied, and posted back as a second move '
-       + '— so the cell presses once and asserts the counter is STILL on the same slide. (2) The LINK '
-       + 'GUARD, once per shape: a click on a deck link inside the projected copy used to strand the '
-       + 'console and hand a foreign origin `window.opener` on the origin holding the user\'s API key, '
-       + 'and the assertion is that the URL did NOT change — measured across all three shapes that '
-       + 'survive the sanitizer, because the first selector caught only the plain anchor and a real '
-       + 'click on an SVG `xlink:href` navigated. (3) The PINCH and the trackpad `ctrl`+wheel: both '
-       + 'were read as swipes and turned the deck (#1294 again), and the fix is that they now do '
-       + 'NOTHING, which is again an absence. None has a signal to poll — a poll goes green on its '
-       + 'first tick, before the navigation or the extra advance it is meant to catch could commit. '
-       + '(5) The REWRITE FLICKER: a site palette change is announced and the presenter view must '
-       + 'not blink off while the Stage document is rebuilt — the assertion is a 16ms SAMPLER over '
-       + 'that window reading zero, so the wait is what gives the sampler a window to sample. '
-       + 'Everything pollable around them already is: the popup via `context.waitForEvent(\'page\')`, '
-       + 'the deck paint via `not.toBeEmpty()`, every slide ARRIVAL via `toBeVisible`, and the pill '
-       + 'state via `toHaveAttribute`.',
-  },
-  {
-    file: 'docs/e2e/stage-window.spec.ts', ms: 3000, count: 1,
-    why: 'ABSENCE ASSERTION over an ACCUMULATOR, which is what makes this length safe rather '
-       + 'than merely long. A Stage the presenter closes by hand must revert the console and say '
-       + 'NOTHING — a notice for an act you just performed is the one people learn to dismiss '
-       + 'unread, which costs the case it exists for (2026-08-24-stage-console-split.md §13). The '
-       + 'wait outlives the TWO deadlines the notice could arrive on: the loss classification '
-       + 'samples `window.closed` for up to 600ms (a hand-closed window still reports '
-       + '`closed === false` when its own unload beat lands, measured), and the liveness poll '
-       + 'fires every 2000ms. There is no signal to poll for a thing that must never happen. '
-       + 'THE TRAP THIS ENTRY ORIGINALLY WALKED INTO, recorded because the number looks like a '
-       + 'derivation either way: the first draft read `toHaveCount(0)` on the toaster at the end '
-       + 'of the wait, and `notify` is `toast(msg, {duration: 2600})` with a 200ms unmount — so '
-       + 'the toast it forbids is GONE FROM THE DOM by ~2800ms and the read could not see it. '
-       + 'Two deadlines were derived and a third clock (how long the notice lives) decided '
-       + 'whether the assertion had anything to look at, which made LENGTHENING the wait the '
-       + 'thing that broke it. The cell now installs a MutationObserver BEFORE the close and '
-       + 'accumulates every toast text that appears, so an auto-dismissal cannot hide one and the '
-       + 'wait can be as long as the deadlines require. Its POSITIVE CONTROL is inside the same '
-       + 'cell — it re-opens the Stage, navigates it away, and awaits the same log filling — so a '
-       + 'Studio whose toaster never rendered cannot satisfy it. Verified by mutation: the cell '
-       + 'now fails on its OWN assertion, where before it failed on the control.',
-  },
-  // ── #1246, the post-sanitize injection suite ─────────────────────────────────
-  // Both are the canonical "and then nothing happened" shape this allowlist exists for:
-  // the assertion is that a payload did NOT execute and did NOT reach the network, and an
-  // absence has no signal to poll — a poll would go green on its first tick, before the
-  // payload it is meant to catch had any chance to fire. Everything POLLABLE in these
-  // specs already is: the diagram's own `data-lattice-settle` settle stamp and the rendered
-  // label are awaited with `expect`, so the wait covers only the gap between "the payload
-  // is in the live DOM" and "we conclude it did nothing".
-  {
-    file: 'docs/e2e/mermaid-post-sanitize.spec.ts', ms: 1500, count: 1,
-    why: 'ABSENCE ASSERTION. The script-vector table injects a payload into a rendered node label '
-       + 'and then asserts `top.__pwned` is still undefined and no request left the frame. The '
-       + 'render itself is polled (data-lattice-settle + the label element); this is the settle '
-       + 'window for an execution that must never come. COUNT SEMANTICS, stated because this gate '
-       + 'counts TEXT matches and its docblock says counts are of WAITS: this single occurrence '
-       + 'sits inside a `for (const v of SCRIPT_VECTORS)` loop and therefore executes once per '
-       + 'vector — NINE times, ~13.5s of the suite. A table-driven loop is the same shape as the '
-       + 'helper-hiding-N-waits case that gate was written for; the `via` mechanism only covers '
-       + 'named helpers, so it is written down here instead.',
-  },
-  {
-    file: 'docs/e2e/mermaid-post-sanitize.spec.ts', ms: 1000, count: 1,
-    why: 'ABSENCE ASSERTION, post-interaction. After clicking a node whose `click` directive '
-       + 'carries a javascript: URL, the assertion is that no navigation and no request followed. '
-       + 'A click has no completion signal when the correct outcome is that nothing happens.',
-  },
-  // ── judged in #1618 ──────────────────────────────────────────────────────────
-  // The 12000ms entry is RETIRED. Its justification claimed a poll "would go green
-  // without ever waking the frozen tab" and that 12s "outlasts several 5s
-  // heartbeats" — the first was a rationalization (the DRIVE signal, how many ticks
-  // the woken page has run, is perfectly pollable even though the ASSERTION is an
-  // absence) and the second was wrong arithmetic (12s is two beats, not several).
-  // The spec now polls the page's own tick counter and then asserts.
-  {
-    file: 'docs/e2e/crash-sentinel.spec.ts', ms: 1500, count: 2,
-    why: 'JUDGED KEEP (crash recording made opt-in). The expected outcome IS "nothing changes": '
-       + 'with the Workspace switch off, a console.error must produce no session record and no tab '
-       + 'mirror, and there is nothing to poll for a write that must never happen — the recorder is '
-       + 'not running, so it has no heartbeat, no listener and no counter to observe. The length is '
-       + 'DERIVED rather than guessed: the only timer that could turn a console error into a write '
-       + 'is the CONSOLE_PERSIST_MS throttle (1000ms in lib/crash-sentinel.ts), so the wait clears '
-       + 'it with margin. If that constant moves, this must move with it. TWO of them: the same '
-       + 'assertion runs once on Chromium and once as a tagged @webkit-phone twin, because the tag '
-       + 'system is per-project and exclusive and this is a privacy control on the engine the '
-       + 'original report came from.',
-  },
-  {
-    file: 'docs/e2e/crash-sentinel.spec.ts', ms: 2000, count: 1,
-    why: 'JUDGED KEEP (#1618, re-judged when the crash toast was retired). The one that remains '
-       + 'is the window during which the page is STOPPED and the other tab wipes: the stopped '
-       + 'page by definition runs nothing to poll, and the length only has to exceed the wipe, '
-       + 'which is a single synchronous storage write. The clean-session wait went with the '
-       + 'toast — "an ordinary visit raises no crash report" is now asserted on the Workspace '
-       + 'row, which is durable state and can simply be awaited. The 3000ms entry that once '
-       + 'stood here is retired with the freeze-observation window it measured — the skip '
-       + 'predicate reads whether the page HEARD the wipe rather than counting ticks.',
-  },
-  // ── judged in #1564 ──────────────────────────────────────────────────────────
-  {
-    file: 'docs/e2e/back-gesture.spec.ts', ms: 650, count: 23, via: 'settle',
-    why: 'PARTLY JUDGED (#1564). Spans drawer-paints -> drawer-REGISTERS the history entry a '
-       + 'following goBack() pops. Genuinely unpollable at a door transition (Menu -> Themes '
-       + 'pushes nothing: history.length holds and __latticeOverlayBack is already true) and at '
-       + 'the post-reload adopt. The remaining call sites are NOT individually judged — most look '
-       + 'like dead time before an auto-retrying assertion; a few precede a synchronous '
-       + 'history.length read or an absence assertion and are load-bearing. See the comment at '
-       + 'the declaration. Reducing this count is the next slice in that file.',
-  },
-  {
-    file: 'docs/e2e/back-gesture.spec.ts', ms: 1200, count: 1,
-    why: 'JUDGED KEEP (#1564). The regression is the MENU COMING BACK after the child closes, so '
-       + 'the pass is "and then nothing else happened" — a poll for count===0 fires at the first '
-       + 'zero (~410-460ms measured) and never sees a later re-open. Two known limits, recorded '
-       + 'at the call site: it samples ONCE at t=1200ms, and the interval was calibrated on a '
-       + 'build where the bug does not exist. A MutationObserver record-then-assert-empty would '
-       + 'be strictly stronger and is the intended fix.',
-  },
-  {
-    file: 'docs/e2e/present-beat.spec.ts', ms: 60, count: 3,
-    why: 'NOT A SETTLE (#1564). These are the poll INTERVALS of hand-rolled sampling loops that '
-       + 'read a value at the instant a slide advances. An auto-retrying matcher would wait out '
-       + 'the 4s hold under test, which is exactly how the first version of that spec passed '
-       + 'against the unfixed build. Removing them removes the loop.',
-  },
-  {
-    file: 'docs/e2e/present-beat.spec.ts', ms: 1500, count: 1,
-    why: 'MEASUREMENT WINDOW (#1564), not a settle. "The fill advances with the clock" is a RATE, '
-       + 'and for a rate the SAMPLE POINT carries the power, not the bound. Sampling the baseline '
-       + 'at the first non-zero value (0.047px at ~110ms) let one sub-pixel tick satisfy the '
-       + 'assertion, so a fill that started then STALLED passed. Shortening this dwell is what '
-       + 'breaks the test.',
-  },
-  {
-    file: 'docs/e2e/present-beat.spec.ts', ms: 4500, count: 1,
-    why: 'JUDGED KEEP (#1564). Asserts no surviving timer resumed playback across the beat the '
-       + 'tap interrupted — an absence, which no poll expresses. A BUDGET derived from a '
-       + 'configured constant (lattice-present-slide-beat = 4000, set in the beforeEach), not a '
-       + 'guess.',
-  },
-
-  // ── INHERITED, NOT JUDGED — the backlog #1526 still owes ─────────────────────
-  // Seeded when this gate landed so the tree is honest about what nobody has examined.
-  // Each is a claim only that the sleep EXISTS, never that it is correct. Replacing one
-  // with a named signal, or judging it and rewriting this `why`, is the work.
-  {
-    file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 160, count: 1,
-    why: 'JUDGED KEEP (#1526). The step interval of a hand-rolled STEPPED scroll that samples the '
-       + 'marker state as it goes - a sampler\'s tick, not a settle before an assertion. The file\'s '
-       + 'own header explains why this loop is stepped rather than flicked: a stepped scroll hands '
-       + 'the IntersectionObserver a clean idle window per step, which is what this test wants and '
-       + 'the sibling flick test deliberately does not.',
-  },
-  {
-    file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 180, count: 1,
-    why: 'JUDGED KEEP (#1526). Same shape as the 160ms above - the tick of the stepped scroll that '
-       + 'samples `liveFrames` across the SEARCH results, taking the peak. Polling would defeat '
-       + 'it: the value being sampled is the quantity under test, so a matcher that waits for it '
-       + 'to satisfy the ceiling can only ever confirm its own premise.',
-  },
-  {
-    file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 400, count: 2,
-    why: 'JUDGED KEEP (#1526). Between flick-scroll traversals, to let the preview recycler drain '
-       + 'before the next pass starts. There is nothing honest to poll: the only observable is the '
-       + 'live-frame count, and that is the quantity the test measures - waiting for it to reach a '
-       + 'value would manufacture the result. Deliberately short, and outside the measured window.',
-  },
-  {
-    file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 2500, count: 1,
-    why: 'JUDGED KEEP (#1526). A PLATEAU read, which is an absence assertion wearing a number: the '
-       + 'claim the fix makes is that the live-preview count STOPS CLIMBING, so the test stops '
-       + 'driving the grid, waits, and reads the steady state. Polling cannot ask that - '
-       + '`expect.poll(...).toBeLessThanOrEqual(CEILING)` is satisfied by the first sample and '
-       + 'never sees a count still on its way up. The pair\'s other half, after the Present click, '
-       + 'WAS pollable and is now `expect(dialog).toBeVisible()`.',
-  },
-  {
-    file: 'docs/e2e/present-guide.spec.ts', ms: 120, count: 1,
-    why: 'JUDGED KEEP (#1526). The tick of a hand-rolled sampling loop that collects DISTINCT '
-       + 'cursor positions over time - the assertion is that the Guide cursor came to rest on two '
-       + 'different places, which is a property of a sequence, not of a state. An auto-retrying '
-       + 'matcher reads one state and cannot accumulate.',
-  },
-  {
-    file: 'docs/e2e/present-guide.spec.ts', ms: 5000, count: 1,
-    why: 'JUDGED KEEP (#1526). An ABSENCE held deliberately across a known timer: having hidden '
-       + 'the Guide cursor, the test asserts the REAL pointer was not also taken away, and holds '
-       + 'past the idle timer that would otherwise hide it. The test\'s own comment states the '
-       + 'intent - \'so this cannot pass by simply being sampled too early\' - which is exactly what '
-       + 'a poll would reintroduce.',
-  },
-  {
-    file: 'docs/e2e/preview-nav.spec.ts', ms: 400, count: 1,
-    why: 'JUDGED KEEP (#1526). After a viewport resize, where TWO outcomes are correct and which '
-       + 'one a project gets depends on whether the new geometry crosses a layout branch - the '
-       + 'slide stays zoomed, or the holder remounts and zoom resets to fit. There is no single '
-       + 'condition to poll for, and polling for either one turns a deliberate both-are-valid '
-       + 'assertion into a race the test would silently pick a winner in.',
-  },
-  {
-    file: 'docs/e2e/pwa.spec.ts', ms: 600, count: 1,
-    why: 'JUDGED KEEP (#1526). An ABSENCE: after fetching a cached immutable asset, the assertion '
-       + 'is that the server saw NO new hit, and the wait is there to give a wrongly-fired '
-       + 'revalidation time to land and be counted. A poll goes green on its first tick, before '
-       + 'the request it is meant to catch could have reached the server - it would assert the '
-       + 'opposite of what it reads.',
-  },
-  {
-    file: 'docs/e2e/reader-alarms.spec.ts', ms: 3000, count: 1,
-    why: 'JUDGED KEEP (#1526). ONE shared settle for a DEBOUNCED watcher across every frame on the '
-       + 'page, after deliberately injecting illegible type into each. The per-frame alternative '
-       + 'is what the comment rules out on budget grounds, and the sibling assertions this control '
-       + 'protects are `toBe(0)` absences - so the value being waited on is \'the watcher has had '
-       + 'its chance and stayed quiet\', which cannot be polled. The FONT-gated wait that used to '
-       + 'sit beside it was a different shape and is now `markersSettled`.',
-  },
-  {
-    file: 'docs/e2e/marker-chrome.ts', ms: 'stepMs', count: 1,
-    why: 'JUDGED KEEP (#1526) — a POLL INTERVAL, and the one this sweep added. `markersSettled` '
-       + 'is the shared replacement for the fixed 4500ms wait three specs used to carry before a '
-       + 'font-gated marker read; this is the step of its bounded '
-       + 'read-until-two-consecutive-reads-agree loop (40 tries), the same shape as '
-       + 'studio-header-fit\'s SETTLE_STEP_MS below. Removing the waits it replaced is what '
-       + 'earns this one: three fixed bets on a loaded box became one bounded poll on the actual '
-       + 'signal.',
-  },
-  {
-    file: 'docs/e2e/studio-header-fit.spec.ts', ms: 'SETTLE_STEP_MS', count: 2,
-    why: 'JUDGED KEEP (#1526), and the entry it replaces guessed right. It is the step of a '
-       + 'bounded read-until-two-consecutive-reads-agree poll (`readHeaderSettled`, SETTLE_TRIES = '
-       + '40) - a poll INTERVAL, which this list has never counted as a settle. Its invisibility '
-       + 'to every earlier census is a property of the argument being a named constant, not of the '
-       + 'wait. COUNT RAISED 1 -> 2 (#2072): `spareAtSettled` is the second poll and the same '
-       + 'shape - two consecutive `spareAt` reads must agree before the header fit floor is '
-       + 'asserted. It is not a fixed bet on a loaded box; it replaces one. Measured: one run in '
-       + 'five returned -1 (row already over) from reading mid-reflow while its three neighbors '
-       + 'all returned 56, and a fit guard that reports "this row does not fit" because it '
-       + 'measured too early is worse than no guard. The alternative was a fixed sleep, which is '
-       + 'what this list exists to stop.',
-  },
-  {
-    file: 'docs/e2e/studio-jargon-alignment.spec.ts', ms: 50, count: 1,
-    why: 'JUDGED KEEP (#1523). Deliberate after that PR: the rail click preceding it has already '
-       + 'put the preview on the slide under test, so the assertion is true BEFORE the click '
-       + 'being tested does anything. A poll passes instantly against that stale-but-correct '
-       + 'state and never observes the click.',
-  },
-  {
-    file: 'docs/e2e/studio-jargon-alignment.spec.ts', ms: 100, count: 1,
-    why: 'JUDGED KEEP (#1523). Same class as the 50ms above — "no change" is the pass, which a '
-       + 'poll cannot distinguish from "not yet changed".',
-  },
-  {
-    file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 500, count: 1,
-    why: 'JUDGED KEEP (#1526). QUIESCENCE BEFORE A COUNTER IS ZEROED. This harness measures '
-       + 'preview renders per interaction under 4x CPU throttling; `reset(page)` zeroes the '
-       + 'counters on the next line, so any render still in flight from the caret positioning '
-       + 'would be attributed to the typing run and inflate the sample. The obvious poll - waiting '
-       + 'for the render counter to hold still - reads the very instrument being calibrated.',
-  },
-  {
-    file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 700, count: 2,
-    why: 'JUDGED KEEP (#1526). The PACING of the measurement itself, twice: once per rail click '
-       + 'across the navigation run, once per keystroke across the typing run. The interval is '
-       + 'part of what is being measured - renders per interaction at a realistic cadence under 4x '
-       + 'CPU throttling - so replacing it with a condition changes the number the harness reports '
-       + 'rather than making it arrive sooner.',
-  },
-  {
-    file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 800, count: 1,
-    why: 'JUDGED KEEP (#1526). Same class as the 500ms above - settling after showing the last '
-       + 'slide, before the caret is seated and the counters are zeroed. The comment beside it '
-       + 'records what an uncontrolled caret costs: the run reads as zero renders, which looks '
-       + 'like a finding rather than a broken harness.',
-  },
-  // Arrived from main while this PR was open — the ratchet caught them, which is the point.
-  {
-    file: 'docs/e2e/math-compare-webkit.spec.ts', ms: 400, count: 1,
-    why: 'JUDGED KEEP (#1526). A MEASUREMENT WINDOW after a signal that has ALREADY been awaited - '
-       + '`document.fonts.ready` is on the line above. The ghost this spec hunts is a column- '
-       + 'BALANCE artifact that moves with text metrics, so it can appear on the re-layout that '
-       + 'follows the font swap rather than on the swap itself. Same shape as the playground- '
-       + 'first-paint entries, and judged the same way.',
-  },
-  {
-    file: 'docs/e2e/playground-first-paint.spec.ts', ms: 1500, count: 7,
-    why: 'MEASUREMENT WINDOW (#1589/#1588/#1590), not a settle. Every one of these follows a '
-       + 'signal that has ALREADY been awaited (`.pg-preview-wrap.is-live`, the walk position, '
-       + 'the 404 toast) and then keeps the per-frame sampler running for a beat, because what '
-       + 'this file asserts is "and then nothing moved". Polling cannot express that: an '
-       + 'auto-retrying matcher fires at the first frame that satisfies it and never sees the '
-       + 'second geometry arriving after. The bound is the 0.2s shell-to-filmstrip cross-fade '
-       + 'plus room for a late correction pass; shortening it is what stops these cases '
-       + 'catching the defect they were written for. Three were inherited from #1581 and were '
-       + 'UNJUDGED; they are judged now and the four added here are the same shape.',
-  },
-  {
-    file: 'docs/e2e/present-chunk-hr.spec.ts', ms: 1500, count: 1,
-    why: 'JUDGED KEEP (#1526). The loop covers two slides and the invariant is that a frame holds '
-       + 'ONE section - on slide 1 that is the REFUSAL path, where the correct behavior is that '
-       + 'the second section never paints. `expect.poll(...).toBe(1)` is satisfied the instant the '
-       + 'first section lands and would never observe a second arriving after it, which is the '
-       + 'exact defect this test was written for.',
-  },
-  {
-    file: 'docs/e2e/site-chrome-first-paint.spec.ts', ms: 1500, count: 1,
-    why: 'MEASUREMENT WINDOW (#1592), not a settle. Hydration itself is polled — Astro removes '
-       + 'the `ssr` attribute from `<astro-island>` when the component mounts, so the case asks '
-       + 'for that instead of guessing an interval. This dwell is what follows it: the defect '
-       + 'was a CORRECTION PASS, so the sampler has to keep running for a beat after the moment '
-       + 'that pass would have fired, and "no second value appeared" is an absence no poll '
-       + 'expresses.',
-  },
-  {
-    file: 'docs/e2e/plugin-video-attack.spec.ts', ms: 3000, count: 1,
-    why: 'ONE ABSENCE ASSERTION: a zip plugin\'s drawing on a video slide must NOT be turned into a poster, link, icon or request by '
-       + 'the runtime\'s mirror or its poster painting. There is no signal for a pass that must not act; the runtime re-runs on a '
-       + '150 ms trailing debounce after the plugin\'s output lands, and 3000 ms covers several such runs. The same test\'s CONTROL '
-       + '(the page itself requests the same host and the log must see it) proves the probe can see a request, and its POSITIVE '
-       + 'arms (the plugin drew, the author\'s own figure is whole) prove the page was settled enough to act.',
   },
 ];
 
@@ -15324,6 +14823,49 @@ function checkFontMetricsPin(errors, opts = {}) {
   }
 }
 
+// ── The chart text table's font pin (chart form kernel) ───────────────────────
+//
+// lib/plugins/chart-family/shared/text-advance.generated.js is the per-glyph advance table the chart form kernel lays
+// every phone-page chart out with (engineering/decisions/2026-11-10-chart-form.md § 8, § 10). Like GLYPH_UPPER above,
+// it is a measurement of specific woff2 bytes, so it pins them: every face row names each copy of its woff2 with a
+// sha256, and this fails when a pinned copy moves, a row has no pin, or a pin names a row the table dropped. The remedy
+// is `npm run fonts:measure:advances`, which re-measures in Chromium and rewrites the table with its pins.
+function checkTextAdvancePin(errors, opts = {}) {
+  const {
+    root = ROOT,
+    table = require('../lib/plugins/chart-family/shared/text-advance.generated.js'),
+    pins = require('./text-advance.pins.json'),
+  } = opts;
+  const rows = Object.keys(table.FACES || {});
+  const FIX = 'Re-measure with `npm run fonts:measure:advances` (real Chromium, the shipped faces) and commit the table it writes; do NOT edit a sha256 by hand.';
+  if (!rows.length) {
+    errors.push('chart text table pin verified nothing: text-advance.generated.js has no face rows. ' + FIX);
+    return;
+  }
+  for (const row of rows) {
+    const pin = pins[row];
+    if (!pin || !Array.isArray(pin.sources) || !pin.sources.length) {
+      errors.push(`chart text table row "${row}" pins no woff2 (text-advance.pins.json): its advances are tied to no bytes. ${FIX}`);
+      continue;
+    }
+    for (const src of pin.sources) {
+      const abs = path.join(root, src.file);
+      if (!fs.existsSync(abs)) {
+        errors.push(`chart text table row "${row}" pins \`${src.file}\`, which is not on disk. ${FIX}`);
+        continue;
+      }
+      const actual = crypto.createHash('sha256').update(fs.readFileSync(abs)).digest('hex');
+      if (actual !== src.sha256) {
+        errors.push(`font drift: \`${src.file}\` (${pin.family}, chart text row "${row}") no longer matches the bytes the chart ` +
+          `form kernel's text table was measured from.\n      pinned ${src.sha256}\n      actual ${actual}\n    ${FIX}`);
+      }
+    }
+  }
+  for (const row of Object.keys(pins)) {
+    if (!rows.includes(row)) errors.push(`stale chart text table pin "${row}": text-advance.pins.json pins a row the table does not hold. ${FIX}`);
+  }
+}
+
 // ── Dangling token reads in docs-site chrome (#1688) ───────────────────────────
 //
 // A `var(--X)` whose `--X` is declared NOWHERE is not a theming bug you can see
@@ -15932,6 +15474,7 @@ function run() {
   checkAnimaColorVocabulary(errors);
   checkSyntaxInkContrast(errors);
   checkFontMetricsPin(errors);
+  checkTextAdvancePin(errors);
   checkFallbackContracts(errors);
   checkPhantomTokenReads(errors);
   checkSyntaxSeparation(errors);
@@ -16041,6 +15584,7 @@ module.exports = {
   lockNodeName,
   OPTIONAL_PEER_LOCKFILES,
   checkFontMetricsPin,
+  checkTextAdvancePin,
   checkFallbackContracts,
   ledgerContractProblems,
   fallbackHops,

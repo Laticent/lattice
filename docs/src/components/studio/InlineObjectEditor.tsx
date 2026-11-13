@@ -18,7 +18,7 @@ import * as React from 'react';
 import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { editImage, isImage, placeImage, placementAt, removeImage } from '@/lib/compose/image-objects';
-import { closeObjectEditor, editObject, editObjectAsText, type InlineKernels, kindOf, leaveObject, type OpenObject } from '@/lib/compose/inline-objects';
+import { closeObjectEditor, editObject, editObjectAsText, type InlineKernels, kindOf, leaveObject, type OpenObject, openObject } from '@/lib/compose/inline-objects';
 import { editInlineMath, editRawBlock, type RawObjectKind, rawObjectKind, removeRaw } from '@/lib/compose/raw-objects';
 import { hasFinePointer, useIsPhone } from '@/lib/use-breakpoint';
 import { AvatarPanel } from './AvatarPanel';
@@ -143,13 +143,20 @@ export function InlineObjectEditorHost({
 		}
 	}, [entry, onClose, view]);
 
+	// Where the open object is NOW: the plugin's position when it still holds this editor's object (its id), else the last
+	// render's. The anchor and the placement read it too, so neither points at the neighbor a moved position lands on.
+	const livePos = React.useCallback((): number => {
+		const o = openObject(view.state);
+		return o && o.id === openRef.current.id ? o.pos : openRef.current.pos;
+	}, [view]);
 	const anchorRef = React.useRef<Anchor>({
 		getBoundingClientRect: () => {
 			// The object's live element: ProseMirror hands back the node view's DOM for a position.
 			try {
-				const el = view.nodeDOM(openRef.current.pos);
+				const pos = livePos();
+				const el = view.nodeDOM(pos);
 				if (el instanceof HTMLElement && el.isConnected) return el.getBoundingClientRect();
-				const c = view.coordsAtPos(Math.min(openRef.current.pos, view.state.doc.content.size));
+				const c = view.coordsAtPos(Math.min(pos, view.state.doc.content.size));
 				return new DOMRect(c.left, c.top, Math.max(1, c.right - c.left), c.bottom - c.top);
 			} catch {
 				return new DOMRect(0, 0, 0, 0);
@@ -166,12 +173,27 @@ export function InlineObjectEditorHost({
 		if (hasFinePointer()) view.focus();
 	}, [onClose, view]);
 
-	const onEdit = React.useCallback((edit: unknown) => editObject(view, openRef.current.pos, edit, kernels), [view, kernels]);
+	// WHERE A WRITE GOES is read from the plugin at the moment of the pick, not from `openRef`, which is the open object as of
+	// the last render: a transaction that moved positions before React re-rendered left `openRef.current.pos` on the NEXT
+	// object, and a Size pick on a spark wrote `lg` to the pill beside it (compose-spark-phone.spec.ts:25, #3150-p1). The
+	// live open object must be the one this editor opened (its id); otherwise nothing is written.
+	const live = React.useCallback((): OpenObject | null => {
+		const o = openObject(view.state);
+		return o && o.id === openRef.current.id ? o : null;
+	}, [view]);
+	const onEdit = React.useCallback(
+		(edit: unknown) => {
+			const o = live();
+			return o ? editObject(view, o.pos, edit, kernels, o.src) : false;
+		},
+		[view, kernels, live],
+	);
 
 	const onEditAsText = React.useCallback(() => {
 		onClose();
-		editObjectAsText(view, openRef.current.pos);
-	}, [onClose, view]);
+		const o = live();
+		if (o) editObjectAsText(view, o.pos);
+	}, [onClose, view, live]);
 
 	if (!entry || (!owner && !image && !rawKind)) return null;
 	const panel =
@@ -179,9 +201,13 @@ export function InlineObjectEditorHost({
 			<RawPanel
 				kind={rawKind}
 				text={open.src}
-				onEdit={(text) => (rawKind === 'inline-math' ? editInlineMath(view, openRef.current.pos, text) : editRawBlock(view, openRef.current.pos, text))}
+				onEdit={(text) => {
+					const o = live();
+					return o ? (rawKind === 'inline-math' ? editInlineMath(view, o.pos, text) : editRawBlock(view, o.pos, text)) : false;
+				}}
 				onRemove={() => {
-					const removed = removeRaw(view, openRef.current.pos);
+					const o = live();
+					const removed = o ? removeRaw(view, o.pos) : false;
 					if (!removed) return false;
 					onClose();
 					if (hasFinePointer()) view.focus();
@@ -192,9 +218,13 @@ export function InlineObjectEditorHost({
 		) : image && imageNode ? (
 			<ImagePanel
 				fields={{ src: imageNode.attrs.src as string, alt: (imageNode.attrs.alt as string | null) ?? null }}
-				onEdit={(edit) => editImage(view, openRef.current.pos, edit)}
+				onEdit={(edit) => {
+					const o = live();
+					return o ? editImage(view, o.pos, edit) : false;
+				}}
 				onRemove={() => {
-					const removed = removeImage(view, openRef.current.pos);
+					const o = live();
+					const removed = o ? removeImage(view, o.pos) : false;
 					if (!removed) return false;
 					onClose();
 					if (hasFinePointer()) view.focus();
@@ -204,10 +234,13 @@ export function InlineObjectEditorHost({
 				holdOpen={holdOpen}
 				onOpenLibrary={onOpenLibrary}
 				placement={(() => {
-					const at = placementAt(view.state, openRef.current.pos);
+					const at = placementAt(view.state, livePos());
 					return { value: at.placement, canPlace: at.canPlace };
 				})()}
-				onPlace={(p) => placeImage(view, openRef.current.pos, p)}
+				onPlace={(p) => {
+					const o = live();
+					return o ? placeImage(view, o.pos, p) : false;
+				}}
 			/>
 		) : owner ? (
 			<entry.Panel fields={owner.fields} src={open.src} kernels={kernels} slotColors={slotColors} onEdit={onEdit as ObjectPanelProps['onEdit']} onEditAsText={onEditAsText} onDone={close} holdOpen={holdOpen} />

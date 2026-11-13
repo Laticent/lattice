@@ -20,6 +20,11 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { evaluate } = require('../../../tools/check-viz-render.js');
+const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');
+
+// A runner with no Chromium skips on a laptop and FAILS under CI (skipWithoutChrome): an early `return` used to read
+// as a pass there, so a CI job without a browser reported this guard green without running it.
+const SKIP = skipWithoutChrome(resolveChrome());
 
 // It also runs the COPY-PARITY pass: every chart shown outside its slide — FLAT
 // (the exported player's Read · Article) and BAKED (a stylesheet-free SVG, the
@@ -28,12 +33,9 @@ const { evaluate } = require('../../../tools/check-viz-render.js');
 // the flat copy black; this pass fails on that shape (309 distinct losses measured
 // with the old slide-scoped pack). See
 // engineering/decisions/2026-09-24-one-style-delivery-spine.md.
-test('no unsanctioned black SVG paint on the scoped path, and no lost paint in a flat or baked copy', async () => {
+test('no unsanctioned black SVG paint on the scoped path, and no lost paint in a flat or baked copy', { skip: SKIP }, async () => {
   const { skipped, regressions, stale, compared, unpaired, unjustified } = await evaluate();
-  if (skipped) {
-    console.error('viz-black-render: SKIPPED — no Chromium; the scoped-render guard did not run.');
-    return; // not a pass claim — the skip is logged
-  }
+  assert.ok(!skipped, 'no Chromium: the scoped-render guard did not run');
 
   // A copy pass that paired nothing would report nothing — a broken harness, not a
   // clean surface. The first draft of the pass hid the whole article exactly that way.
@@ -73,7 +75,7 @@ test('no unsanctioned black SVG paint on the scoped path, and no lost paint in a
 // THE ARMS — proof the copy pass FAILS on each shape it guards. A gate that has never
 // been seen to fail is a claim, not a gate. Each arm runs one theme and one scheme (the
 // shapes are theme-independent), and the three run side by side.
-test('the copy pass fails on the #2344, blind-copy, #2210 and sheetless-Reading-view shapes', async () => {
+test('the copy pass fails on the #2344, blind-copy, #2210 and sheetless-Reading-view shapes', { skip: SKIP }, async () => {
   const { collectCopies, uniqueByKey } = require('../../../tools/check-viz-render.js');
   const cheap = { themes: ['indaco'], schemes: ['light'] };
   const [scopedPack, hidden, unfrozen, sheetless] = await Promise.all([
@@ -86,10 +88,7 @@ test('the copy pass fails on the #2344, blind-copy, #2210 and sheetless-Reading-
     // The Studio Reading view as it shipped before step 3: no deck sheet at all.
     collectCopies({ ...cheap, readingSheet: false }),
   ]);
-  if (scopedPack.skipped) {
-    console.error('viz-black-render arms: SKIPPED — no Chromium.');
-    return;
-  }
+  assert.ok(!scopedPack.skipped, 'no Chromium: the arms did not run');
   const count = (r, mode, property) => uniqueByKey(r.lost).filter((f) => f.mode === mode && f.property === property).length;
   // The clean run sanctions no chart fill, drawn or baked loss in any mode (its only copy
   // sanctions are two title-slide prose inks in the reading pass), so each arm must show
