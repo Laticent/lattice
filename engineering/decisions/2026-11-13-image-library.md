@@ -99,12 +99,12 @@ format
 is lossless. Hostile inputs (truncated, oversized dimensions, a Huffman table that never terminates, a
 decompression bomb) must refuse with a typed error inside a pixel and time budget, never hang.
 
-### Measured (2026-11-13, slices 3 and 4: `docs/src/lib/lastra/decode`, after the trio's review and its second round)
+### Measured (2026-11-13, slices 3 and 4: `docs/src/lib/lastra/decode`, after the trio's review and two more rounds)
 
 **The corpus is ours.** `tools/lastra-corpus/generate.py` draws every picture from one seed (gradients,
 grain, hard edges, bitmap-font text) and builds its own Display P3 and Adobe RGB ICC profiles
 (`icc.py`), so no third-party photo or profile is in it and §8's licensing question does not arise for
-the decoders. 70 JPEGs, 72 PNGs and 83 zlib streams, 1.56 MB, committed with `fixtures/expected.json`;
+the decoders. 70 JPEGs, 72 PNGs and 108 zlib streams, 1.49 MB, committed with `fixtures/expected.json`;
 `--check` regenerates in memory and diffs (zero differences). The four `jpegtran-*` files are written by
 the stock `jpegtran -scans` (libjpeg-turbo 2.1), not by lastra's generator. The tests read only committed files.
 
@@ -131,10 +131,15 @@ is an exact match on every file, measured:
 bad Adler-32, Node decoded, Chromium decoded only small streams, and Firefox and WebKit refused, because a
 stream that errors discards the output it had queued. lastra's own inflate stops at the size the header
 implies and never reads the checksum, so its verdict is one answer everywhere. Up to that point it is
-held to Python's zlib byte for byte on 83 streams (56 whole, 15 with a bad checksum, 9 cut, 3 refused),
-and a seeded 2,000-case damage fuzz holds it to Node's zlib: identical output when zlib accepts, a prefix
-of zlib's output when either refuses. Node, 24.4 MB 12 MP PNG: 981 ms with the platform inflate, about
-1,170 ms with lastra's.
+held to zlib on 108 streams (58 whole, 16 with a bad checksum, 9 cut, 25 refused): the same bytes, and on
+a refusal the same reason and exactly the same output, because before it refuses lastra hands out what it
+inflated, as zlib does. The oracle calls libz's `inflate()` through ctypes, since Python's zlib module
+drops a call's output when it raises (feeding it a byte at a time lost up to a byte at the error). 25 of
+the streams are built by hand, one per documented refusal at its exact edge (a distance one past the
+start, a code over-full by one at length 15, a repeat one past the end, HLIT 287, fixed distance codes 30
+and 31, the missing code of a one-code table with no input after it). A seeded 2,000-case damage fuzz
+holds it to Node's zlib besides. Node, 24.4 MB 12 MP PNG: 981 ms with the platform inflate, about 1.2 s
+with lastra's.
 
 **Damaged-file parity, the review's sets.** The checker's and red team's 951 damaged and partial JPEGs
 (corrupt entropy bytes, restart damage, partial progressive files, redefined tables, marker mixes),
@@ -210,48 +215,91 @@ each, sync decode, peak RSS of the process:
 | every legal empty scan, 896 / 3,584 scans | `too-large` (scan cap) | `corrupt` in under 1 ms: the scans name a Huffman table never defined, which libjpeg refuses in a progressive frame |
 | 128 MB of unused DHT tables | 0.2 s | 0.17 s |
 
-An abort 1 s into the worst case ends the async decode 0.4 ms after the signal fires. The longest stretch
-without a yield is 8 to 12 ms for the 12 MP benchmarks (the speed runs below): upsampling, block smoothing,
-color conversion, the CRC (1 MB slices) and the inflate (32 KB flushes) all yield now. The
-`MessageChannel` fallback, used where neither `scheduler.yield` nor `setImmediate` exists, opens and
-closes a channel per turn; Node always has `setImmediate`, so no unit test reaches it.
+An abort 1 s into the worst case ends the async decode 0.4 ms after the signal fires. (This round said
+the longest stretch without a yield was 8 to 12 ms; the third round's probe found a 120 ms one it missed,
+below.) The `MessageChannel` fallback, used where neither `scheduler.yield` nor `setImmediate` exists,
+opens and closes a channel per turn; Node always has `setImmediate`, so no unit test reaches it.
 
 A file cut inside any marker segment, a scan header included, is now `truncated`, and so is one that
 ends before any scan is whole; a file that ends in scan data or between segments after a whole scan
 decodes. A cut baseline file is therefore always refused. One rule for both kinds, pinned by a test
 that cuts a baseline and a progressive file at about 100 points each and inside every later scan header.
 
+**The third round.** The red team found four shapes that every cap allowed, and the checker found seven
+documented inflate refusals no test pinned. Node 22, one run each, async decode, worst stall the longest
+gap a 1 ms timer saw, peak RSS of the process (the 255 MB files are themselves 255 MB of it); load average
+9 to 17 on the shared sandbox:
+
+| Attack | second round | third round |
+|---|---|---|
+| 255 MB of 18-byte APP2 ICC chunks before a 1x1 JPEG (R3-1) | 10.2 s in one stall, 2,646 MB, the abort honored only at the end (red team: Node out of heap) | 0.36 s, worst stall 6 ms, 578 MB; decoded, profile dropped at the second chunk |
+| 255 MB of empty COM segments (R3-1) | 1.45 s in one stall | 1.58 s, worst stall 7 ms |
+| `cleanJpeg` on the ICC file (the same shape in the cleaner) | 24.2 s, 2,274 MB | 1.1 to 2.3 s, 838 MB (input plus output) |
+| 500 one-coefficient AC scans of one-bit EOB0 blocks, 10000 x 10000, 93 MB (R3-3) | 19.1 s, decoded (red team: 23 s) | 4.7 to 7.3 s, `too-large` (work cap); an abort at 1 s lands 0.3 ms later |
+| 20 MB of minimal dynamic deflate blocks in IDAT (R3-2) | 16.0 s, the abort at 2 s ignored | 5.6 s, worst stall 20 ms; decoded |
+| 200 MB of the same (R3-2) | 124 s (red team) | 54.4 s, worst stall 10 ms; an abort at 1 s lands 0.5 ms later |
+| 20 MB of empty fixed / stored blocks | 1.18 s / 0.77 s, stalls 76 ms | 0.37 s / 0.24 s, stalls 6 to 9 ms |
+| a 20 MB iCCP of empty dynamic blocks (R3-2) | 15.2 s, the profile inflated in one call | 67 ms: over 4 MB compressed, dropped unread |
+
+What changed. JPEG: an ICC chunk set keeps at most 255 views and breaks at the first duplicate, second
+count or sequence out of range (libjpeg drops the profile there too); the marker walk yields every 2^14
+markers and every 1 MB of stray bytes; a decoded block costs at least 8 coefficients a scan, so 128
+one-coefficient scans of a whole image are the most the cap allows. That refuses a legal file with more
+than 128 one-coefficient scans; libjpeg's default progression sends 10, and the four `jpegtran` fixtures
+still decode with the 2^26 floor set to 0. Inflate: a block's three Huffman tables are rebuilt in place
+(the second round built three typed arrays a block), a table build is charged for the symbols it walks,
+and the inflate yields every 2^14 steps of work as well as every 32 KB of output; the fixed distance code
+has its 32 symbols, so 30 and 31 are refused at once, as zlib refuses them, instead of a bit-by-bit
+search that ended `truncated`, and the canonical decode stops at the code's longest length. PNG: only the
+first iCCP is read, a compressed profile over 4 MB is dropped unread, and the iCCP inflate yields like the
+image data. The cleaners write kept blocks into one buffer instead of a list of views. Bounded is not
+cheap: the README tells a host to give every decode of untrusted bytes a deadline through its signal.
+
+**Yields, measured honestly.** The second round reported 8 to 12 ms as the longest stretch without a
+yield; it timed the gaps a `setImmediate` loop saw on the bench's own PNG, which writes one large IDAT.
+A probe that times the decoder's own slices (a `scheduler.yield` stand-in, now what `bench.mjs` uses)
+found a 120 to 151 ms first slice on a Pillow PNG: Pillow writes 64 KB IDAT chunks, and the CRC yielded
+only inside a chunk over 1 MB, so 24 MB was checked in one stretch. The CRC now yields every 512 KB
+counted across chunks, and every JPEG slice is halved (2^15 steps of scan data, 8 block rows of IDCT and
+smoothing, 32 rows of upsampling and color), about 5 ms of work on an idle core. On this shared sandbox
+(load average 9 to 15) the longest slice of a 12 MP decode still measured 7 to 50 ms, a different slice
+each run: garbage collection and the other processes set the long end, not a loop that never yields.
+
 The meter now counts per block and per 64 pixels, so steps track work (the DHT file's 2,063 steps for
 18.7 s was the gap). The fuzz holds every case under a limit proven from the loops and under twice the
-highest steps per unit of declared work measured over 40,600 cases (JPEG 15.59, PNG 0.87, after the
-second round counts one step per 8 coefficients of a block's band); a change that multiplies the work
-per block by 10 fails it (failing arm recorded).
+highest steps per unit of declared work measured, rounded up: JPEG 15.59, PNG 2.26 over seeds 20261113, 1
+and 2 at 10,000 cases each (PNG rose from 0.87 when a Huffman table build began to cost what it walks: the
+fixed tables are 126 steps, most of a tiny PNG's count). A change that multiplies the work per block by 10
+fails it (failing arm recorded).
 
 **Fuzz.** Seed 20261113, 600 mutated JPEGs and 600 PNGs per run, 52 batches plus two summary tests that
-compute their own cases. Default run, after the second round: JPEG 260 decode, 109 truncated, 106 bad-marker, 123
+compute their own cases. Default run, after the second round and unchanged by the third: JPEG 260 decode, 109 truncated, 106 bad-marker, 123
 corrupt, 1 unsupported, 1 too-large; PNG 94 decode, 168 truncated, 136 corrupt, 133 bad-marker, 40 crc,
 27 unsupported, 2 too-large. A run under 600 cases reports an outcome it never reached instead of
-failing. Seed 1, 20,000 each: no other exception, no limit passed.
+failing. Seed 1, 20,000 each (second round), and seeds 20261113, 1 and 2, 10,000 each (third): no other
+exception, no limit passed.
 
-**Speed** (`tools/lastra-corpus/bench.mjs --browsers`, 4000 x 3000, median of 5, 4-core sandbox shared
-with other sessions (load average 3 to 7), after the second round; two runs, the spread between them in
-the notes below):
+**Speed** (`tools/lastra-corpus/bench.mjs --browsers`, 4000 x 3000, each run the median of 5 decodes;
+three runs on the 4-core sandbox shared with other sessions, load average 10 to 13; the table holds the
+median of the three, the platform's own decode in brackets):
 
 | File | Node 22 | Chromium 141 | Firefox 142 | WebKit 26 |
 |---|---|---|---|---|
-| JPEG baseline 4:2:0 q85, 1.65 MB | 387 ms | 414 ms (platform 203) | 440 ms (161) | 416 ms (192) |
-| JPEG progressive 4:2:0 q85, 1.65 MB | 545 ms | 615 ms (291) | 688 ms (237) | 695 ms (289) |
-| PNG RGB 8-bit, 24.4 MB | 1,237 ms | 1,295 ms (372) | 2,124 ms (366) | 1,857 ms (722) |
+| JPEG baseline 4:2:0 q85, 1.65 MB | 421 ms | 423 ms (300) | 467 ms (165) | 500 ms (441) |
+| JPEG progressive 4:2:0 q85, 1.65 MB | 642 ms | 631 ms (453) | 612 ms (267) | 644 ms (460) |
+| PNG RGB 8-bit, 24.4 MB | 1,346 ms | 1,322 ms (524) | 2,341 ms (444) | 2,041 ms (1,049) |
 
-"Platform" is `createImageBitmap` plus `getImageData`. lastra takes about 2 to 3 times as long as the
-engine's own decode for JPEG in all three engines, and for this PNG about 2.6 times (WebKit) to 5.8 times
-(Firefox). The first round's table showed WebKit's own JPEG decode at 357 and 555 ms, which made lastra
-look even with it; this run measured 192 and 289 ms, and the other run 209 and 296 ms, so that parity
-was a slow WebKit run, not a property of lastra. The in-tree inflate costs PNG about a quarter in Node
-(981 ms with `DecompressionStream`, 1,221 to 1,237 ms now). The two runs differed by up to 11% per cell.
-The longest stretch without a yield was 8 to 12 ms in Node across both runs, with one outlier of 17 ms
-on the progressive file while the load average was 7. Pillow's SIMD libjpeg-turbo decodes the same JPEGs
-in 68 and 97 ms. §8's phone question stays open: these are desktop engines on x64.
+"Platform" is `createImageBitmap` plus `getImageData`. On the medians lastra takes 1.1 to 2.8 times as
+long as the engine's own decode for JPEG (closest in WebKit and Chromium, furthest in Firefox) and 1.9
+(WebKit) to 5.3 (Firefox) times for this PNG; single runs ranged 1.1 to 2.9 for JPEG and 1.9 to 6.0 for
+PNG. The engines' own decodes move more than lastra does between runs and sessions: WebKit's baseline
+JPEG measured 192 to 209 ms in the second round and 412 to 448 ms here, Chromium's 203 then 289 to 320 ms,
+so a ratio from one run is a reading of that run, not a property of lastra (the first round's "even with
+WebKit" was the same effect the other way). The in-tree inflate costs PNG about a quarter in Node
+(981 ms with `DecompressionStream`). The longest slice between two of the decoder's own yields, timed by
+`bench.mjs` through a `scheduler.yield` stand-in, was 9 to 50 ms across the nine Node decodes, a
+different file and slice each run. Pillow's SIMD libjpeg-turbo decodes the same JPEGs in 68 and 97 ms.
+§8's phone question stays open: these are desktop engines on x64.
 
 **What stays open.** Matching the SIMD builds on overflowing files would mean emulating each SIMD
 variant's 16-bit saturation (x86 and ARM differ in their code); not done. Safari's ImageIO is not
@@ -400,7 +448,9 @@ the slice that needs an SVG size from bytes.
   the code, not the comparison: the CLI bundle and the Studio's player core both read lastra's CommonJS build, which
   stays inside its own closure, so its names cannot reach the rest of the bundle (structural). A CommonJS build is not
   tree-shaken, so the player core carries the parts of lastra it does not call; the decoders' own subpath,
-  `@laticent/lastra/decode`, keeps them out of it. Lastra's private helpers also carry distinctive
+  `@laticent/lastra/decode`, keeps them out of it: with the decoders in the root the player core was 276,309 bytes
+  gzipped and `dist/lattice.js` 8,328,720; with the split, 256,177 and 8,261,447, and neither holds a decoder.
+  Lastra's private helpers also carry distinctive
   names (index.ts says why). Checked by counting renamed identifiers in the
   CLI and player-core bundles before and after: none outside lastra's own code.
 - The golden JPEG hash (`jpeg.test.ts`) did not move.
