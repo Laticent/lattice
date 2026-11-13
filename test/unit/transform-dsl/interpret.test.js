@@ -68,7 +68,7 @@ describe('transform-dsl — DOM interpreter', () => {
   });
 
   test('section scoping — a rule never touches another component\'s sections', () => {
-    const dom = new JSDOM('<body>' + SAMPLE_HTML.replace('split-panel', 'split-panel') + '<section class="cards"><p><code>x</code></p><h2>Other</h2></section></body>');
+    const dom = new JSDOM('<body>' + SAMPLE_HTML + '<section class="cards"><p><code>x</code></p><h2>Other</h2></section></body>');
     const root = dom.window.document.body;
     applyRulesToDom(root, RULES, { component: COMPONENT });
     assert.equal(root.querySelector('section.cards .panel-left'), null, 'cards section untouched');

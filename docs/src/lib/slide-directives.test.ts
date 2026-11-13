@@ -94,7 +94,7 @@ describe('setClassTokens — span-surgical', () => {
 	it('never lets a token close the comment early', () => {
 		const out = setClassTokens('# Hi', ['kpi--></script>']);
 		expect(out).not.toContain('--></script>'); // the value can't terminate the comment
-		expect(out.match(/-->/g)?.length).toBe(1); // only the real terminator remains
+		expect(out.split('-->').length - 1).toBe(1); // only the real terminator remains — counted by split, not a `-->` regex (js/bad-tag-filter, #1958 §3, §7)
 	});
 	it('is a no-op on a non-editable shape', () => {
 		const dup = '<!-- _class: kpi -->\n\n# Hi\n\n<!-- _class: title -->';

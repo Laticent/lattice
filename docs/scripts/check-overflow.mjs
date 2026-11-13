@@ -23,6 +23,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer-core';
+import { confinedPath } from './lib/confined-path.mjs';
 
 const DIST = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 const PORT = 4396;
@@ -105,7 +106,15 @@ function serve() {
 			let u = decodeURIComponent(req.url.split('?')[0]).replace(/^\/lattice/, '');
 			if (u.endsWith('/')) u += 'index.html';
 			if (!path.extname(u)) u += '/index.html';
-			fs.readFile(path.join(DIST, u), (e, d) => {
+			// Confine the resolved path to DIST so a `..` in the request cannot read outside it
+			// (js/path-injection, #1958 §3, §7). This is a local CI render server, but the fix is free.
+			const full = confinedPath(DIST, u);
+			if (full === null) {
+				res.writeHead(403);
+				res.end();
+				return;
+			}
+			fs.readFile(full, (e, d) => {
 				if (e) {
 					res.writeHead(404);
 					res.end();
