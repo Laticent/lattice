@@ -351,6 +351,18 @@
       "on_pull_request": false,
       "run": "node tools/office-quicklook.mjs --custgeom-only examples/inline-icons.md test/integration/baseline-decks/gallery.md && PROBE=office bash docs/scripts/ios-safari/run.sh",
       "why": "iPhone Preview opens a .pptx with Apple's own Office importer, which draws it unlike PowerPoint, LibreOffice or Google Slides (it ignores embedded fonts, and collapsed every icon shape inside a group to a speck). macOS Quick Look uses the same importer; Linux has nothing that does. Renders each slide to a PNG under platform-suite-artifacts/office-quicklook/, as exported and as rewritten variants, so the comparison is seen without a phone."
+    },
+    {
+      "name": "mac-completion-keys",
+      "os": [
+        "macos-26"
+      ],
+      "paths": [
+        "docs/scripts/mac-keys/**"
+      ],
+      "run": "bash docs/scripts/mac-keys/run.sh",
+      "why": "One-off probe for the autocomplete audit (#3174): posts Ctrl-Space, Option-Esc, Option-` and Option-i through the macOS event system, where the OS input-source shortcut sees them first, and records whether the Studio editor's completion menu opens. Browser automation skips the OS layer, so only a Mac shows this. Removed before merge.",
+      "on_pull_request": false
     }
   ]
 }
