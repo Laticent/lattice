@@ -11,9 +11,12 @@ import { editsEngine } from './engine.js';
 import { fix } from './fix.js';
 import { type Example, parseFixtures } from './fixtures.js';
 import { inInert, parseSource, runRules } from './lint.js';
-import { type CompiledRule, type Dispatch, factOf, makeRuleset, type Ruleset } from './ruleset.js';
-import { matches, parseSelector, SelectorError, selectorKinds } from './select.js';
-import type { AnyEngine, AnyLanguage, CodeRule, Node, Problem, RuleManifest, RulesetInput, Severity, Span, VerifiedStamp } from './types.js';
+import { compileCode, isManifest, RESERVED, stampRule } from './register.js';
+import { type CompiledRule, makeRuleset, type Ruleset } from './ruleset.js';
+import { matches } from './select.js';
+import type { AnyEngine, AnyLanguage, Node, Problem, RulesetInput, Span } from './types.js';
+
+export { digestRuleset, ruleDigest, stampRule, stampRuleset } from './register.js';
 
 const BRAND: unique symbol = Symbol.for('@laticent/squadra/RulesetError');
 
@@ -31,9 +34,6 @@ export class RulesetError extends Error {
 	}
 }
 
-const SEVERITIES = new Set<Severity>(['error', 'warning', 'suggestion', 'info']);
-const RESERVED = new Set(['__proto__', 'constructor', 'prototype']);
-const DEFAULT_FINDINGS = 1000;
 
 /** Compile and verify a ruleset. Strict (the default) throws a RulesetError listing every problem. */
 export function compileRuleset(input: RulesetInput): Ruleset {
@@ -45,10 +45,6 @@ export function compileRuleset(input: RulesetInput): Ruleset {
 /** The same list of problems, without throwing (like Segno's lint). */
 export function checkRuleset(input: RulesetInput): Problem[] {
 	return build(input).problems;
-}
-
-function isManifest(r: CodeRule | RuleManifest): r is RuleManifest {
-	return (r as RuleManifest).format !== undefined;
 }
 
 function build(input: RulesetInput): { ruleset: Ruleset; problems: Problem[] } {
@@ -100,51 +96,6 @@ function build(input: RulesetInput): { ruleset: Ruleset; problems: Problem[] } {
 	// reports it, as every refusal is (design §4).
 	const refusals = problems.filter((p) => !p.rule || refused.has(p.rule));
 	return { ruleset: makeRuleset({ ...base, rules: kept, refused: refusals }), problems };
-}
-
-function compileCode(r: CodeRule, input: RulesetInput, languages: Map<string, AnyLanguage>, problems: Problem[]): CompiledRule | null {
-	const id = r.id;
-	const p = (code: string, message: string, at?: string) => problems.push({ rule: id, code, message, ...(at ? { at } : {}) });
-	if (typeof id !== 'string' || !id.startsWith(`${input.name}/`) || !/^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/.test(id)) {
-		p('bad-id', `a rule id is '${input.name}/<lower-case-name>'`);
-	}
-	if (!SEVERITIES.has(r.severity)) p('bad-rule', `severity '${String(r.severity)}' is not error, warning, suggestion or info`);
-	if (typeof r.summary !== 'string' || !r.summary.trim()) p('bad-rule', 'a rule needs a one-line summary');
-	if (!r.visit && !r.check) p('bad-rule', 'a code rule needs `visit` or `check`');
-	const lang = languages.get(r.language);
-	if (!lang) p('unknown-language', `no language '${r.language}' in the ruleset`);
-	const budget = r.budget ?? input.defaults?.budget;
-	if (!budget) p('no-budget', 'the rule declares no budget and the ruleset sets no default');
-	else if (!(budget.ops > 0) || (budget.findings !== undefined && !(budget.findings > 0))) p('no-budget', 'a budget needs positive `ops` (and `findings`, if set)');
-	for (const name of [...(r.reads?.facts ?? []), ...(r.reads?.vocab ?? [])]) if (RESERVED.has(name)) p('reserved-name', `'${name}' is a reserved name`);
-	for (const name of r.reads?.vocab ?? []) if (!RESERVED.has(name) && !(input.vocab && Object.hasOwn(input.vocab, name))) p('unknown-vocab', `the rule reads the vocabulary '${name}', which the ruleset does not supply`);
-	if (lang) for (const name of r.reads?.facts ?? []) if (!RESERVED.has(name) && !factOf(lang, name)) p('unknown-fact', `the rule reads the fact '${name}', which ${lang.id} does not supply`);
-	for (const ch of r.changes ?? []) {
-		if (!['slide-count', 'front-matter', 'inert'].includes(ch.kind) || !ch.reason?.trim()) p('bad-rule', `a declared shape change needs a kind (slide-count, front-matter, inert) and a reason`);
-	}
-	const visits: Dispatch[] = [];
-	for (const [selector, handler] of Object.entries(r.visit ?? {})) {
-		try {
-			const list = parseSelector(selector);
-			if (lang) for (const k of selectorKinds(list)) if (!lang.kinds.includes(k)) p('unknown-kind', `the selector names '${k}', which ${lang.id} does not publish`, `visit['${selector}']`);
-			visits.push({ list, handler });
-		} catch (e) {
-			if (e instanceof SelectorError) p('bad-selector', e.message, `visit['${selector}'] at ${e.position}`);
-			else throw e;
-		}
-	}
-	if (!lang || !budget) return null;
-	return {
-		id,
-		rule: r,
-		severity: r.severity,
-		budget: { ops: budget.ops, findings: budget.findings ?? DEFAULT_FINDINGS },
-		visits,
-		facts: new Set(r.reads?.facts ?? []),
-		vocab: new Set(r.reads?.vocab ?? []),
-		inert: r.inert === 'include',
-		changes: new Set((r.changes ?? []).map((c) => c.kind)),
-	};
 }
 
 type Base = Pick<Ruleset, 'name' | 'version' | 'languages' | 'engines' | 'vocab' | 'order' | 'trust'>;
@@ -265,53 +216,3 @@ function clip(s: string): string {
 	return s.length > 120 ? `${s.slice(0, 117)}...` : s;
 }
 
-// ── The verified stamp (design §8.2) ────────────────────────────────────────
-//
-// A build computes a stamp per rule; a host that passes it skips the example run for every rule
-// whose stamp still matches. The hash covers the rule (its functions by their source text), its
-// fixtures, the vocabulary it reads and its language's id and version. It cannot see modules a
-// code rule imports: the build that writes the stamp must re-stamp when those change, which a
-// stamp built from the bundled module does.
-
-/** A stamp for every code rule in the input. */
-export function stampRuleset(input: RulesetInput): VerifiedStamp {
-	const out: Record<string, string> = {};
-	for (const r of input.rules) {
-		if (isManifest(r)) continue;
-		const s = stampRule(input, r);
-		if (s) out[r.id] = s;
-	}
-	return out;
-}
-
-/** The rule's stamp, or '' when its source cannot be read (a bound or native function prints as
- *  `[native code]`, so two different rules would share a stamp): such a rule is never skipped. */
-export function stampRule(input: RulesetInput, r: CodeRule): string {
-	let opaque = false;
-	const body = JSON.stringify(r, (_k, v) => {
-		if (typeof v !== 'function') return v;
-		const src = String(v);
-		if (/\[native code\]\s*\}$/.test(src)) opaque = true;
-		return `fn:${src}`;
-	});
-	if (opaque) return '';
-	const lang = input.languages.find((l) => l.id === r.language);
-	const vocab = (r.reads?.vocab ?? []).map((v) => `${v}=${(input.vocab?.[v] ?? []).join('\u0001')}`).join('\u0002');
-	// What the example run depends on beyond the rule: the budget it runs under and every engine its
-	// fixes may lower through.
-	const budget = JSON.stringify(r.budget ?? input.defaults?.budget ?? null);
-	const engines = (input.engines ?? []).map((e) => `${e.id}:${String(e.toEdits)}`).join('\u0001');
-	return hash([body, input.examples?.[r.examples] ?? '', vocab, lang ? `${lang.id}@${lang.version}` : '', budget, engines].join('\u0003'));
-}
-
-/** Two 32-bit FNV-1a hashes with different seeds: 16 hex digits, enough to tell edits apart. */
-function hash(s: string): string {
-	let a = 0x811c9dc5;
-	let b = 0x01000193 ^ 0x5bd1e995;
-	for (let i = 0; i < s.length; i++) {
-		const c = s.charCodeAt(i);
-		a = Math.imul(a ^ c, 0x01000193);
-		b = Math.imul(b ^ c, 0x01000193) ^ (b >>> 15);
-	}
-	return (a >>> 0).toString(16).padStart(8, '0') + (b >>> 0).toString(16).padStart(8, '0');
-}

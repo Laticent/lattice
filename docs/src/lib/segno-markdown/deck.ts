@@ -175,7 +175,11 @@ function lineAt(bMarks: Int32Array, lines: number, offset: number): number {
 	return lo;
 }
 
+/** The open tokens `containers` lists. */
+const CONTAINER_OPENS: ReadonlySet<number> = new Set([KIND.bullet_list_open, KIND.ordered_list_open, KIND.list_item_open, KIND.blockquote_open, KIND.table_open, KIND.tr_open]);
+
 /** A deck read once: the S0 text, the front-matter split and the block tape of the body, slide by slide. */
+
 export class DeckModel {
 	/** The source as given. */
 	readonly source: string;
@@ -198,7 +202,7 @@ export class DeckModel {
 	private _blocks?: BlockTape;
 	private _boundaries?: Int32Array;
 	private _slides?: Slide[];
-	private _ranges?: { directives?: BlockRange[]; html?: BlockRange[]; fences?: BlockRange[]; plugins?: BlockRange[]; leaves?: BlockRange[] };
+	private _ranges?: { directives?: BlockRange[]; html?: BlockRange[]; fences?: BlockRange[]; plugins?: BlockRange[]; leaves?: BlockRange[]; containers?: BlockRange[] };
 
 	constructor(source: string, text: string, bodyStart: number, lines: number, segs: readonly Segment[], options: DeckModelOptions, flat?: BlockTape) {
 		this.source = source;
@@ -312,7 +316,7 @@ export class DeckModel {
 	 * One kind of range, collected on its first read: a reader of the comment blocks does not pay for building every
 	 * leaf, which is most of the tape (on the gallery, the four together cost about five times the comments alone).
 	 */
-	private ranges(which: 'directives' | 'html' | 'fences' | 'plugins' | 'leaves'): BlockRange[] {
+	private ranges(which: 'directives' | 'html' | 'fences' | 'plugins' | 'leaves' | 'containers'): BlockRange[] {
 		this._ranges ??= {};
 		const hit = this._ranges[which];
 		if (hit) return hit;
@@ -345,6 +349,8 @@ export class DeckModel {
 					}
 				} else if (kind > coreKinds) {
 					if (which === 'plugins') type = kinds[kind];
+				} else if (which === 'containers' && CONTAINER_OPENS.has(kind)) {
+					type = kinds[kind].replace(/_open$/, '');
 				}
 				if (type !== null) out.push({ type, fromLine: l0 + dl, toLine: tape[at + T_L1] + dl, level, slide, token: this.segTok[slide] + j });
 			}
@@ -376,6 +382,15 @@ export class DeckModel {
 	/** Every leaf with a line range: the inline text of a paragraph or heading (S2 reads these). */
 	get leaves(): readonly BlockRange[] {
 		return this.ranges('leaves');
+	}
+
+	/**
+	 * Every container's open token with its line range: `bullet_list`, `ordered_list`, `list_item`, `blockquote`,
+	 * `table` and its rows (`tr`), outermost first where two open on one line. The blocks inside one have a deeper
+	 * `level`. A table cell has no line range of its own (markdown-it maps none), so a row is the finest table unit.
+	 */
+	get containers(): readonly BlockRange[] {
+		return this.ranges('containers');
 	}
 
 	/** Offset in `body` where a body line starts (`body.length` past the last line). */

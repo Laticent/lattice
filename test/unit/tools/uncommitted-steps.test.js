@@ -147,6 +147,9 @@ const EXPECTED_PR_OWNED = new Set([
   // docs/src/components/studio/guide-handles.generated.ts, which git tracks — the Guide
   // imports it as an ordinary module, so a missing file is a docs build error.
   'build-guide-handles.js', // docs/src/components/studio
+  // Measured 2026-11-13: its whole write set is lib/authoring/rules/verified.generated.json, which git tracks — the
+  // browser's Squadra runtime loads a deck rule only against the digest it holds.
+  'build-squadra-stamps.js', // lib/authoring/rules
   'skill-index.js', // design/skills/index.json + README table + .claude/skills/lattice-*
   'build-chart-registry.js', // lib/plugins/chart-family/shared/chart-registry.generated.js
   'build-marks-css.js', // lib/plugins/chart-family/chart-family.styles.generated.css

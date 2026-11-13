@@ -3,7 +3,8 @@
  * Build the Squadra library's consumable dist/ — the ESM + CJS entry and type declarations that
  * let ROOT CJS `require('@laticent/squadra')` and a plain Node-ESM or bundler consumer
  * `import` it, from `.` (the whole library), `./driver` (the fix path alone) or `./markdown`
- * (the reference Markdown language)
+ * (the reference Markdown language) or `./runtime` (the browser entry,
+ * no compiler)
  * (engineering/decisions/2026-10-26-squadra-lint-library/design.md §2.1).
  *   docs/src/lib/squadra/*.ts  →  dist/index.{mjs,cjs} + dist/*.d.ts
  * Squadra has no dependencies, so there is nothing to keep external.
@@ -19,5 +20,6 @@ defineLibraryBuild({
   name: 'squadra',
   // `./driver` is the fix path without the rule compiler, for a browser bundle (driver.ts).
   // `./markdown` is the reference Markdown language over a host's deck model (markdown.ts).
-  entries: [{ entry: 'index.ts', out: 'index' }, { entry: 'driver.ts', out: 'driver' }, { entry: 'markdown.ts', out: 'markdown' }],
+  // `./runtime` lints and fixes with rules the build verified, and carries no compiler (runtime.ts).
+  entries: [{ entry: 'index.ts', out: 'index' }, { entry: 'driver.ts', out: 'driver' }, { entry: 'markdown.ts', out: 'markdown' }, { entry: 'runtime.ts', out: 'runtime' }],
 }).run();

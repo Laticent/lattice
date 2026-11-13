@@ -44,6 +44,65 @@ describe('markdown language', () => {
 		expect(text.slice(head.from, head.to)).toBe('# B');
 	});
 
+	it('nests blocks inside lists, items, quotes and tables, each container spanning its own text', () => {
+		const text = '- a\n  > q\n- b\n\n| h |\n|---|\n| v |\n';
+		const { tree } = md.parse(src(text));
+		const slide = (tree as MarkdownTree).slideNodes[0];
+		const shape = (n: Node): unknown => (n.kids.length ? [n.kind, n.kids.map(shape)] : n.kind);
+		expect(slide.kids.map(shape)).toEqual([
+			['list', [['item', ['paragraph', ['quote', ['paragraph']]]], ['item', ['paragraph']]]],
+			['table', ['row', 'row']],
+		]);
+		const [list, table] = slide.kids;
+		expect(text.slice(list.from, list.to)).toBe('- a\n  > q\n- b');
+		expect(list.attrs?.ordered).toBe(false);
+		expect(text.slice(table.from, table.to)).toBe('| h |\n|---|\n| v |');
+	});
+
+	it('flattens the blocks under the slide for a model that lists no containers', () => {
+		const flat = markdownLanguage({
+			model: (text) => {
+				const m = deckModel(text, { parser });
+				const { bodyStart, slides, directives, html, fences, plugins, leaves } = m;
+				return { text: m.text, bodyStart, slides, directives, html, fences, plugins, leaves, lineStart: (l: number) => m.lineStart(l), lineEnd: (l: number) => m.lineEnd(l) };
+			},
+		});
+		const { tree } = flat.parse(src('- a\n- b\n'));
+		expect(kinds((tree as MarkdownTree).slideNodes[0])).toEqual(['paragraph', 'paragraph']);
+	});
+
+	it('lets a rule select a paragraph by its container', () => {
+		const rule: CodeRule = {
+			id: 'md/item-bang',
+			language: 'markdown',
+			severity: 'info',
+			summary: 'A list item that shouts.',
+			examples: 'x.md',
+			budget: { ops: 1000 },
+			visit: {
+				'item > paragraph'(node, ctx) {
+					if (ctx.text(node).endsWith('!')) ctx.report({ span: node, message: 'shouts' });
+				},
+			},
+		};
+		// Spans are line-granular: the paragraph's span takes in its item's `- `. A quote holding a list holds an item too.
+		const bad = '````md bad\n⟦- a!⟧\n````\n';
+		expect(() => compileRuleset({ name: 'md', version: '1', languages: [md], rules: [rule], examples: { 'x.md': `${bad}${'````'}md good\n- a\n\n> - b!\n${'````'}\n` } })).toThrow(/good-fired/);
+		const rs = compileRuleset({ name: 'md', version: '1', languages: [md], rules: [rule], examples: { 'x.md': `${bad}${'````'}md good\n- a\n\nb!\n${'````'}\n` } });
+		expect(lint(rs, [src('a!\n\n1. b!\n   - c!\n')]).findings.map((f) => f.start.line)).toEqual([3, 4]);
+	});
+
+	it('never starts a span between the two characters of a CRLF, even on an empty line', () => {
+		const text = '# A\r\n\r\n---\r\n\r\n# B\r\n';
+		const { tree } = md.parse(src(text));
+		for (const s of (tree as MarkdownTree).slideNodes) {
+			expect(text[s.from - 1]).not.toBe('\r');
+			expect(text[s.to - 1]).not.toBe('\r');
+		}
+		const second = (tree as MarkdownTree).slideNodes[1];
+		expect(text.slice(second.from, second.to)).toBe('\r\n# B');
+	});
+
 	it('locates a span by slide, and front matter as slide 0', () => {
 		const text = '---\nk: v\n---\n# One\n\n---\n\n# Two\n';
 		const { tree } = md.parse(src(text));

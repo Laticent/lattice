@@ -11,10 +11,16 @@
 // top-level thematic breaks, with the `break` between them. Inside a slide, every block the model
 // records as a range: `paragraph`, `heading` and `cell` (the inline text of a paragraph, a heading or
 // a table cell), `fence`, `code-block`, `comment` (an HTML comment block), `html-block`, and
-// `plugin-block` (a block a host's parser rule claimed, its token type in `attrs.type`). They sit flat under their
-// slide in document order, with `attrs.level` saying how deep in lists and quotes each one is.
-// Containers (lists, items, quotes, tables) are not nodes yet: the model's range views do not
-// expose them, and no migrated rule reads them. They join when one does.
+// `plugin-block` (a block a host's parser rule claimed, its token type in `attrs.type`). When the model
+// lists its containers (`containers`), they are nodes too and the blocks nest inside them: `list`
+// (`attrs.ordered`) → `item`, `quote`, and `table` → `row`. Every block keeps `attrs.level`, its
+// depth in markdown-it's token stream. A model without `containers` gives the blocks flat under their
+// slide, in document order.
+//
+// SPANS ARE LINE-GRANULAR. The model records line ranges, so a block's span runs from the start of
+// its first line to the end of its last: a paragraph in a list item takes in the `- ` before it, and a
+// table row is the finest table unit (markdown-it maps no cell). Finer spans come from the S2 and S3
+// passes that read inside a line.
 //
 // OFFSETS. Every span indexes `Source.text`. Design §5.7 asks the host to hand over S0 text (no
 // BOM, LF line ends); when a host does not, this language maps the model's offsets back onto the
@@ -65,6 +71,8 @@ export interface MarkdownModel {
 	readonly plugins: readonly MarkdownRange[];
 	/** The inline text of paragraphs, headings and table cells. */
 	readonly leaves: readonly MarkdownRange[];
+	/** The line ranges of lists, items, quotes, tables and rows (`bullet_list`, `ordered_list`, `list_item`, `blockquote`, `table`, `tr`). Optional. */
+	readonly containers?: readonly MarkdownRange[];
 	/** Offset in the body where a body line starts, and where it ends (its `\n`). */
 	lineStart(line: number): number;
 	lineEnd(line: number): number;
@@ -100,13 +108,48 @@ const BLOCK_KIND: Readonly<Record<string, string>> = {
 	code_block: 'code-block',
 	html_block: 'html-block',
 };
-const KINDS = ['deck', 'front-matter', 'slide', 'break', 'paragraph', 'heading', 'cell', 'fence', 'code-block', 'comment', 'html-block', 'plugin-block'];
+const CONTAINER_KIND: Readonly<Record<string, string>> = {
+	bullet_list: 'list',
+	ordered_list: 'list',
+	list_item: 'item',
+	blockquote: 'quote',
+	table: 'table',
+	tr: 'row',
+};
+const KINDS = ['deck', 'front-matter', 'slide', 'break', 'paragraph', 'heading', 'cell', 'fence', 'code-block', 'comment', 'html-block', 'plugin-block', 'list', 'item', 'quote', 'table', 'row'];
+
+/** A node under construction: its kids are filled in by `nest`. */
+type Open = Node & { kids: Node[]; readonly container: boolean; readonly level: number };
+
+/**
+ * Nest a slide's blocks inside its containers. A node goes under the innermost container that holds
+ * its span and sits shallower in the token stream; the sort puts a container before what it holds
+ * when both start on one line (wider first, then shallower).
+ */
+function nest(nodes: Open[]): Node[] {
+	nodes.sort((a, b) => a.from - b.from || b.to - a.to || a.level - b.level);
+	const top: Node[] = [];
+	const stack: Open[] = [];
+	for (const n of nodes) {
+		while (stack.length) {
+			const p = stack[stack.length - 1];
+			if (p.from <= n.from && n.to <= p.to && p.level < n.level) break;
+			stack.pop();
+		}
+		(stack.length ? stack[stack.length - 1].kids : top).push(n);
+		if (n.container) stack.push(n);
+	}
+	return top;
+}
 
 /**
  * Model offsets back onto the text the host handed over. S0 strips a leading BOM and folds `\r\n`
  * to `\n` (a lone `\r` becomes `\n` in place, which moves nothing). `removed` lists, in model
- * offsets, where a source character was dropped; a span's start maps past a dropped `\r` and its
- * end stops before one, so a line's span never takes in its `\r`.
+ * offsets, where a source character was dropped. A model offset that sits at a dropped `\r` (the
+ * `\n` of a `\r\n`, which is where an empty line starts and a line ends) maps BEFORE the `\r`, for
+ * a span's start and end alike: a line's span never takes in its `\r`, and no span starts between
+ * the two characters of a `\r\n`, where an insert would split the line end. The BOM is dropped at
+ * offset 0 and maps past, so no span starts before it.
  */
 function offsetMap(source: string, folded: string): (offset: number, end?: boolean) => number {
 	if (source === folded) return (o) => o;
@@ -123,12 +166,13 @@ function offsetMap(source: string, folded: string): (offset: number, end?: boole
 			i++;
 		}
 	}
-	return (offset, end = false) => {
-		let lo = 0;
+	const bom = source.charCodeAt(0) === 0xfeff ? 1 : 0;
+	return (offset) => {
+		let lo = bom;
 		let hi = removed.length;
 		while (lo < hi) {
 			const mid = (lo + hi) >> 1;
-			if (end ? removed[mid] < offset : removed[mid] <= offset) lo = mid + 1;
+			if (removed[mid] < offset) lo = mid + 1;
 			else hi = mid;
 		}
 		return offset + lo;
@@ -147,14 +191,22 @@ export function markdownLanguage(opts: MarkdownLanguageOptions): Language<Markdo
 			const base = model.bodyStart;
 			const lineFrom = (line: number) => at(base + model.lineStart(line));
 			const lineTo = (line: number) => at(base + model.lineEnd(line), true);
-			const rangeNode = (kind: string, r: MarkdownRange, attrs: Record<string, string | number> = {}): Node => ({
-				kind,
-				from: lineFrom(r.fromLine),
-				to: r.toLine > r.fromLine ? lineTo(r.toLine - 1) : lineFrom(r.fromLine),
-				kids: [],
-				attrs: { level: r.level, ...attrs },
-			});
-			const perSlide: Node[][] = model.slides.map(() => []);
+			const rangeNode = (kind: string, r: MarkdownRange, attrs: Record<string, string | number | boolean> = {}, container = false): Open => {
+				let last = r.toLine - 1;
+				// A range can take in the blank lines that end it (markdown-it's map does for a list, and for a comment block
+				// its container ends); the span stops at the block's text, so it stays inside its container's.
+				while (last > r.fromLine && !model.text.slice(base + model.lineStart(last), base + model.lineEnd(last)).trim()) last--;
+				return {
+					kind,
+					from: lineFrom(r.fromLine),
+					to: r.toLine > r.fromLine ? lineTo(last) : lineFrom(r.fromLine),
+					kids: [],
+					attrs: { level: r.level, ...attrs },
+					container,
+					level: r.level,
+				};
+			};
+			const perSlide: Open[][] = model.slides.map(() => []);
 			const inertSpans: Span[] = [];
 			for (const r of model.fences) {
 				const n = rangeNode(BLOCK_KIND[r.type] ?? 'fence', r, r.type === 'fence' && model.fenceInfo ? { info: model.fenceInfo(r) } : {});
@@ -165,6 +217,10 @@ export function markdownLanguage(opts: MarkdownLanguageOptions): Language<Markdo
 			for (const r of model.html) perSlide[r.slide]?.push(rangeNode('html-block', r));
 			for (const r of model.plugins) perSlide[r.slide]?.push(rangeNode('plugin-block', r, { type: r.type }));
 			for (const r of model.leaves) perSlide[r.slide]?.push(rangeNode(BLOCK_KIND[r.type] ?? 'paragraph', r));
+			for (const r of model.containers ?? []) {
+				const kind = CONTAINER_KIND[r.type];
+				if (kind) perSlide[r.slide]?.push(rangeNode(kind, r, kind === 'list' ? { ordered: r.type === 'ordered_list' } : {}, true));
+			}
 			inertSpans.sort((a, b) => a.from - b.from);
 
 			const kids: Node[] = [];
@@ -175,8 +231,7 @@ export function markdownLanguage(opts: MarkdownLanguageOptions): Language<Markdo
 				if (s.sepLine >= 0) kids.push({ kind: 'break', from: lineFrom(s.sepLine), to: lineTo(s.sepLine), kids: [] });
 				const from = lineFrom(s.fromLine);
 				const to = s.toLine > s.fromLine ? lineTo(s.toLine - 1) : from;
-				const blocks = perSlide[index].sort((a, b) => a.from - b.from || a.to - b.to);
-				const node: Node = { kind: 'slide', from, to, kids: blocks, attrs: { index } };
+				const node: Node = { kind: 'slide', from, to, kids: nest(perSlide[index]), attrs: { index } };
 				slideNodes.push(node);
 				kids.push(node);
 			});

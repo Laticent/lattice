@@ -15,8 +15,8 @@ why now   — The owner chose a clean rewrite over the rule-by-rule strangler (P
             rule becomes a Squadra rule on lattice-deck's tree, every consumer reads Squadra findings, one fix path,
             build-time verification, and the front-matter island built inside the rewrite.
 where     — The plan and its order of work: engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §7. Branch
-            claude/squadra-lint-library-m1b-ox5i70. The parts of #3194 that carry over (§4) are on the closed PR's
-            head, 4d350d66 (refs/pull/3194/head).
+            claude/squadra-lint-foundation-vccdly (steps 1 and 2 done; step 3, the front-matter island, is next).
+            The parts of #3194 that carry over (§4) are on the closed PR's head, 4d350d66 (refs/pull/3194/head).
 done when — §8 of the plan: lint-core.js is gone, the reference diff is 0 or explained, every consumer reads Squadra
             findings, the Studio surfaces are verified on the built Studio, lintCoreGz is measured, and the owner has
             signed off dark and light export renders.

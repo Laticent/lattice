@@ -10,7 +10,7 @@ summary: >
 
 # Squadra replaces lint-core, in one PR (2026-11-13)
 
-Status: in progress; decided by the owner on 2026-11-13, nothing built yet. Supersedes the migration plan of `2026-10-26-squadra-lint-library.md` §6 (M1b onward) and
+Status: in progress; decided by the owner on 2026-11-13. Step 2, the foundation, is built (§10). Supersedes the migration plan of `2026-10-26-squadra-lint-library.md` §6 (M1b onward) and
 its `design.md` §15.3–§15.5 (rule-by-rule migration, the bridge, the legacy-shape adapter). The library's own design
 (`design.md` §1–§14) stands.
 
@@ -66,7 +66,7 @@ Every rule reads nodes; no rule re-parses text. Kinds:
 | `rendered-slide` | `heading-split-core` | under a slide that splits on headings |
 | `directive` | the directive island | `attrs.key`, `attrs.spot`, `attrs.value`; `parts.key`, `parts.value`; `attrs.folded` |
 | `note` | a comment that is not a directive | the speaker note's text span |
-| `heading`, `paragraph`, `list` → `item`, `quote`, `table` → `cell`, `fence`, `code-block`, `html-block`, `plugin-block` | S1 | containers become real nodes (the reference language adds them; the S1 tape has them) |
+| `heading`, `paragraph`, `list` → `item`, `quote`, `table` → `row`, `fence`, `code-block`, `html-block`, `plugin-block` | S1 | containers become real nodes (the reference language adds them; the S1 tape has them). A row, not a cell: markdown-it maps no cell to a line (§10) |
 | `segno-span`, `fence-record`, `chart-row` | the S3 inline islands | their bound records in `attrs` |
 
 Inert: fences, indented code, and notes. One definition of where front matter ends: the island's, read by the engine,
@@ -168,3 +168,74 @@ Estimated 6–10 sessions (an estimate from #3194's pace: one session built a la
 
 - Rule ids become `deck/<name>` in the Diagnostic Protocol too (one name everywhere), not the bare `<name>`.
 - `review-core.js` (the review rules) and the ownership checks are out of scope here; they move in M2/M3 as planned.
+
+## 10. Step 2 landed: the foundation (2026-11-13)
+
+Built on `claude/squadra-lint-foundation-vccdly`, on top of steps 1 and the carried language (the owner handed the
+branch over with its session finished). No rule has moved and no consumer reads Squadra yet, so nothing a deck author
+sees changes.
+
+**The runtime entry.** `@laticent/squadra/runtime` (`runtime.ts`) loads a ruleset with `loadRuleset`, which keeps a
+rule only when its digest matches the one the build wrote, and reports every other rule as `squadra/rule-refused`
+with the code `not-verified`. Registration (a rule's own declaration checks) moved out of `compile.ts` into
+`register.ts`, so the runtime shares it without the fixtures parser or the example runner. Built and minified, the
+runtime bundle is 10.7 KB gzipped against 14.6 KB for the whole library and 7.8 KB for `./driver`
+(`runtime.test.ts`, which also asserts the compiler's refusal codes are absent from it).
+
+**Two records, not one stamp.** §3.4 planned one stamp the browser rechecks. That cannot work: the stamp hashes a
+rule's function source, and a bundler rewrites function text, so a browser cannot recompute what Node wrote. The
+build therefore writes two records per rule to `lib/authoring/rules/verified.generated.json`: the DIGEST (the rule's
+declaration, the vocabulary it reads, the language version and engine ids, all of which a bundler leaves alone), which
+the runtime checks; and the full STAMP (function source and fixtures too), which only `build:check` reads. An edit
+inside a rule's function keeps its digest and changes its stamp, so `build:check` goes red until the build re-verifies
+it. `tools/build-squadra-stamps.js` is the step; it runs in `npm run build` after the stage catalog.
+
+**`lattice-deck`'s tree** (`lib/authoring/squadra/lattice-deck.js`) is the engine's deck model
+(`lib/core/deck-model.mjs`, front matter split as the engine splits it) read through the reference language, plus the
+directive island. Containers are real nodes: the Segno deck model gained `containers` (lists, items, quotes, tables
+and rows, held to markdown-it's `token.map` in `deck.test.ts`), and the reference language nests every block in its
+innermost container. A comment block is a `comment` with a `directive` per field the engine's grammar reads
+(`readIsland`), each with `key`/`value` parts where the authored text names them, or a `note`, which is inert. A
+comment the engine folds into another block (`authoredComments`) is a `comment` with `attrs.folded`, under that block.
+Facts: `slide.number`, `slide.directives` and `slide.classes`, resolved as `lib/core/meta-scan.mjs` resolves them;
+front-matter globals join with step 3.
+
+What the tree does not have yet, on purpose: `fm-key` (step 3); `rendered-slide`; the S3 inline islands
+(`segno-span`, `fence-record`, `chart-row`), which join with the families that read them; and the deck facts that read
+front matter (`deck.family`, `deck.size`, `deck.plugins`, `deck.mode`, `deck.settings`), which come with the island.
+Spans are line-granular: a block runs from its first line's start to its last line's end, so a paragraph in an item
+takes in the `- `. A rule that needs finer spans reads the S2/S3 islands.
+
+**The Lattice entry** (`lib/authoring/squadra/index.js`): `lintDeck(source, opts)` returns Squadra findings and
+`fixDeck(source, opts)` returns the fix driver's result, both on the `deck` ruleset (`lib/authoring/rules/index.js`,
+empty until step 4) loaded through the runtime. The vocab bridge (`lib/authoring/squadra/vocab.js`) carries lint's
+string-list vocabularies as sorted arrays; the structured ones (capacity, pane specs, exclusive axes) cross with the
+families that read them.
+
+**The frozen reference and its diff.** `tools/squadra/reference/lint-core.js` is lint-core at the fork (`8e68a196`),
+its requires pointed back at the live `lib/` modules. `npm run squadra:reference-diff` runs it and `lintDeck` over the
+three corpora (`tools/squadra/corpus.js`, carried from #3194) and holds each migrated rule to it on rule, severity,
+slide, message and the TEXT of the line a finding starts on (lint-core names its line by text, so line numbers would
+make false differences on repeated lines; a lint-core finding it cannot place matches on the other four and is counted
+as unlocated). A difference passes only when fixed or explained in `tools/squadra/reference/explained.json`, one entry
+per kind of difference (`lint` or `fix`, a pattern, the reason), and an entry that explains nothing fails the run.
+`--fix` adds the Fix-all diff, attributing each differing source to the rules whose findings changed under either fix.
+With no rule migrated it reports every lint-core rule as not yet migrated and passes. Only lint-core is frozen: its
+requires reach the live `lib/` modules, so step 3's island changes what the reference reports, and each family's commit
+says so where it matters.
+
+**Review.** The maker-checker pass found a red unit test (the new build step was unclassified), four holes in the diff
+tool (a fix difference no rule owned passed; per-rule explanations switched a rule off; line numbers mismatched on
+repeated lines; a fix-only difference could not be explained), a folded comment whose note greyed out the paragraph
+after it, and a key part found inside another field's value. All are fixed and pinned in
+test/unit/authoring/squadra-lattice-deck.test.js, with a CRLF span start that could split a line end
+(markdown.test.ts) and a RegExp field both hashes missed.
+
+**Carried into step 4, from the same review.**
+- Notes are inert, and `<!-- _clas: kpi -->` is a note. A rule that reports or fixes a misspelled directive reads with
+  `inert: 'include'` and declares `changes: inert`.
+- A digest hashes the vocabulary lists a rule reads, so in the browser a rule loads only when the Studio's vocabulary
+  handoff carries those lists exactly as `buildVocab()` builds them. The consumers step must hand the entry that
+  vocabulary, or the rule is refused (visibly, as `squadra/rule-refused`).
+- The stamps step runs after the stage catalog; a vocabulary input generated later in the build would leave the stamps
+  one build stale. Moot while the ruleset is empty; checked when the first rule reads a generated table.
