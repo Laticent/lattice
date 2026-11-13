@@ -17,6 +17,7 @@ import { cheapestVoiceEnabled, DEFAULT_BITRATE_KBPS, lookaheadPref, MAX_PARALLEL
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
 import { onReadAloudOverlayEnabledChange, READALOUD_OVERLAY_AVAILABLE, readAloudOverlayEnabled, setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 import { onStorageOverlayEnabledChange, STORAGE_OVERLAY_AVAILABLE, setStorageOverlayEnabled, storageOverlayEnabled } from '@/playground/storage-overlay-prefs';
+import { onSystemOverlayEnabledChange, SYSTEM_OVERLAY_AVAILABLE, setSystemOverlayEnabled, systemOverlayEnabled } from '@/playground/system-overlay-prefs';
 import { onToursEnabledChange, setToursEnabled, toursEnabled } from '@/playground/tour-prefs.js';
 import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_AVAILABLE, viewportDebugEnabled } from '@/playground/viewport-debug-prefs';
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
@@ -282,6 +283,12 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 	React.useEffect(() => {
 		setStorageOverlay(storageOverlayEnabled());
 		return onStorageOverlayEnabledChange(setStorageOverlay);
+	}, []);
+	// System panel — same shared-pref pattern; `?system` and the panel's close button write the same flag.
+	const [systemOverlay, setSystemOverlay] = React.useState(false);
+	React.useEffect(() => {
+		setSystemOverlay(systemOverlayEnabled());
+		return onSystemOverlayEnabledChange(setSystemOverlay);
 	}, []);
 	// Bump on open so the live status (incl. the authoritative account spend) re-fetches.
 	const [pulse, setPulse] = React.useState(0);
@@ -818,6 +825,15 @@ export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenCh
 											<span className="min-w-0">
 												<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Storage overlay</span>
 												<span className="block text-[11px] text-muted-foreground">A live readout of the client-side state that accumulates in a normal profile but not in private browsing: storage-quota usage, your localStorage footprint by category (decks, checkpoints, chats, snapshots), the service-worker cache entry counts, and the O(n) boot scan cost that slows reloads as it fills. Drag to reposition; also via <code>?storage</code>.</span>
+											</span>
+										</label>
+									)}
+									{SYSTEM_OVERLAY_AVAILABLE && (
+										<label htmlFor="ws-system-overlay" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+											<Switch id="ws-system-overlay" aria-label="System panel" checked={systemOverlay} onCheckedChange={(next) => { setSystemOverlay(next); setSystemOverlayEnabled(next); notify(next ? 'System panel on — what Lattice sees of this device.' : 'System panel off.'); }} />
+											<span className="min-w-0">
+												<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">System panel</span>
+												<span className="block text-[11px] text-muted-foreground">What Lattice sees of this device: browser, graphics, memory, CPU cores, storage and network, the tier it runs in (Full or Lite) and why, a speed test, and a report you can copy into a bug report. Drag to reposition; also via <code>?system</code>.</span>
 											</span>
 										</label>
 									)}

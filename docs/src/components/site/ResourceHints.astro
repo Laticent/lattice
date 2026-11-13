@@ -11,6 +11,7 @@
 import FontPreloads from './FontPreloads.astro';
 import PerfOverlay from './PerfOverlay.astro';
 import StorageOverlay from './StorageOverlay.astro';
+import SystemOverlay from './SystemOverlay.astro';
 import PwaHead from './PwaHead.astro';
 ---
 
@@ -25,3 +26,6 @@ import PwaHead from './PwaHead.astro';
 
 {/* Live client-storage accumulation overlay, gated behind ?storage. */}
 <StorageOverlay />
+
+{/* What Lattice sees of this device and the tier it chose, gated behind ?system. */}
+<SystemOverlay />

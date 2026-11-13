@@ -168,6 +168,19 @@ A sixth overlay on the existing `DiagnosticPanel` chassis, toggled under Workspa
 - **Feature checklist:** each required feature, pass or fail.
 - **Copy report** button: the whole panel as text, for a bug report.
 
+### 5.1 As built (2026-11-13, slice 2)
+
+`docs/src/components/site/SystemOverlay.tsx` draws the rows that `docs/src/lib/system-report.ts` builds; the wording
+and the status rules (green / amber / red, gray for a value the browser does not report) live in that pure module
+under unit tests. The panel shows a short graphics name (`SwiftShader (software)`) and the copied report keeps the
+full renderer string. The speed test runs only on a click, because it pauses the page for about 140 ms (§3.2). The
+"GPU rank" row appears once `detect-gpu` is wired (slice 1b). Until slice 5, the panel shows the tier the device
+WOULD get; nothing in the app acts on it yet.
+
+Driven on the real Studio (`npm run dev`, Playwright Chromium 153, 390 and 1440 px): the sandbox reads as Lite
+(software renderer, 4 cores), "Run speed test" turned "Not run yet" into "248 units", "Copy report" put the full report
+on the clipboard, and both buttons stay on screen at 390 × 844.
+
 ## 6. The decline screen
 
 Full page, in the site's own chrome, no app behind it. It says what failed and what to do, without apology

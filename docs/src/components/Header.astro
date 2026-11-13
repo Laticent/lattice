@@ -19,6 +19,7 @@ import SiteHeader from './site/SiteHeader.astro';
 import EngineWarm from './site/EngineWarm.astro';
 import PerfOverlay from './site/PerfOverlay.astro';
 import StorageOverlay from './site/StorageOverlay.astro';
+import SystemOverlay from './site/SystemOverlay.astro';
 
 // Same derivation the component portal uses: the palette names ARE the
 // data-palette keys in the generated token file (indaco first → default).
@@ -38,3 +39,4 @@ const palettes = [...new Set([...tokensCss.matchAll(/data-palette="([^"]+)"/g)].
 
 {/* Live client-storage accumulation overlay on the docs zone, gated behind ?storage. */}
 <StorageOverlay />
+<SystemOverlay />

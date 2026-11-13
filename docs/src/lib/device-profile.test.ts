@@ -12,6 +12,7 @@ import {
 	REQUIRED_FEATURES,
 	readSignals,
 	runCpuProbe,
+	shortRenderer,
 } from './device-profile';
 
 const ALL_FEATURES = Object.fromEntries(REQUIRED_FEATURES.map((f) => [f, true])) as DeviceSignals['features'];
@@ -106,6 +107,23 @@ describe('isSoftwareRenderer', () => {
 
 	it('no WebGL is not a software renderer (it is the floor case, handled by classify)', () => {
 		expect(isSoftwareRenderer(null)).toBe(false);
+	});
+});
+
+describe('shortRenderer', () => {
+	it.each([
+		['ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)', 'SwiftShader'],
+		['llvmpipe (LLVM 15.0.7, 256 bits)', 'llvmpipe'],
+		['ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)', 'NVIDIA GeForce RTX 3060'],
+		['ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)', 'Apple M2'],
+		['ANGLE (Intel, Intel(R) UHD Graphics 620 (0x00005917) Direct3D11 vs_5_0 ps_5_0, D3D11)', 'Intel(R) UHD Graphics 620'],
+		['Apple GPU', 'Apple GPU'],
+	])('%s → %s', (renderer, expected) => {
+		expect(shortRenderer(renderer)).toBe(expected);
+	});
+
+	it('cuts an unknown long name at 40 characters', () => {
+		expect(shortRenderer('x'.repeat(60))).toBe(`${'x'.repeat(39)}…`);
 	});
 });
 

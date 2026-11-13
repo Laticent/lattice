@@ -80,6 +80,18 @@ export const FLOOR_SIGNALS_TO_DECLINE = 2;
 
 const SOFTWARE_RENDERER = /swiftshader|llvmpipe|softpipe|microsoft basic render|software rasterizer|mesa offscreen/i;
 
+/**
+ * A renderer string short enough to read in a panel: the software rasterizer's own name, or ANGLE's
+ * device field without the driver noise. The full string stays in the copied report.
+ */
+export function shortRenderer(renderer: string): string {
+	const sw = renderer.match(SOFTWARE_RENDERER);
+	if (sw) return { swiftshader: 'SwiftShader', llvmpipe: 'llvmpipe', softpipe: 'softpipe' }[sw[0].toLowerCase()] ?? sw[0];
+	const angle = renderer.match(/^ANGLE \([^,]+,\s*(.+?)(?:\s+Direct3D|\s+\(0x|,|\)$)/);
+	const name = (angle ? angle[1] : renderer).replace(/^ANGLE Metal Renderer:\s*/, '').trim();
+	return name.length > 40 ? `${name.slice(0, 39)}…` : name;
+}
+
 /** True when the WebGL renderer string names a software rasterizer, i.e. there is no real GPU. */
 export function isSoftwareRenderer(renderer: string | null): boolean {
 	return renderer !== null && SOFTWARE_RENDERER.test(renderer);
@@ -111,7 +123,7 @@ export function classify(signals: DeviceSignals, opts: { override?: TierOverride
 		renderer === null || (gpuTier !== null && gpuTier <= FLOOR_GPU_TIER),
 		isSoftwareRenderer(renderer) || (gpuTier !== null && gpuTier <= LITE_GPU_TIER),
 		renderer === null ? 'This browser has no WebGL, so it has no usable graphics.' : 'The graphics chip is too slow for Lattice.',
-		isSoftwareRenderer(renderer) ? `The browser draws in software (${renderer}), with no graphics chip.` : 'The graphics chip is slow.',
+		isSoftwareRenderer(renderer) ? `The browser draws in software (${shortRenderer(renderer ?? '')}), with no graphics chip.` : 'The graphics chip is slow.',
 	);
 	if (memoryGB !== null) hw('memory', memoryGB <= FLOOR_MEMORY_GB, memoryGB <= LITE_MEMORY_GB, `This device reports ${memoryGB} GB of memory.`, `This device reports ${memoryGB} GB of memory.`);
 	if (cores !== null) hw('cores', cores <= FLOOR_CORES, cores <= LITE_CORES, `This device reports ${cores} CPU cores.`, `This device reports ${cores} CPU cores.`);
