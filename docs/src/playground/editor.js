@@ -30,6 +30,7 @@ import { lintTheme, lintThemeCoarse, tooltipShell } from '../lib/lint-theme.js';
 import { latticeAutocomplete } from './complete.js';
 import { readFrontMatter } from './deck-config.js';
 import { MERMAID_KEYWORDS } from './grammar-vocab.js';
+import { ARROW_FAMILIES, ARROW_PREV } from './mermaid-arrows.js';
 import { typeaheadContext } from './slide-context.js';
 
 // Proactive "type-ahead" trigger — which grammar context kinds auto-open the
@@ -73,15 +74,9 @@ const KW_DECLARE = new RegExp(`^(?:${MERMAID_KEYWORDS.declare.join('|')})(?![\\w
 const KW_FLOW =
 	/^(?:activate|alt|and|as|autonumber|deactivate|else|end(?:[ \t]+note)?|loop|opt|par|participant|rect|state|note[ \t]+(?:over|(?:left|right)[ \t]+of))(?![\w$-])/i;
 const ANNOTATION = /^(?:<<(?:abstract|choice|enumeration|fork|interface|join|service)>>|\[\[(?:choice|fork|join)\]\])/i;
-// Arrow families (Prism's four `arrow` patterns), anchored; prev-char guard
+// Arrow families (Prism's four `arrow` patterns) live in mermaid-arrows.js, each a
+// function from the rest of the line to the arrow's length; the prev-char guard is
 // applied separately so the leading negated class isn't consumed.
-const ARROWS = [
-	/^[|}][|o](?:--|\.\.)[|o][|{]/, // ER
-	/^(?:[<ox](?:==+|--+|-\.*-)[>ox]?|(?:==+|--+|-\.*-)[>ox]|===+|---+|-\.+-)/, // flowchart
-	/^(?:--?(?:>>|[x>)])|(?:<<|[x<(])--?(?!-))/, // sequence
-	/^(?:[*o]--|--[*o]|<\|?(?:--|\.\.)|(?:--|\.\.)\|?>|--|\.\.)/, // class
-];
-const ARROW_PREV = [/[{}|o.-]/, /[<>ox.=-]/, /[<>()x-]/, /[<>|*o.-]/];
 
 const mermaidParser = {
 	startState: () => ({ lineStart: true }),
@@ -110,9 +105,13 @@ const mermaidParser = {
 		// arrows — try each family, honoring Prism's prev-char guard. Run before
 		// the node-id matcher so a bare id (e.g. `A`) can't swallow the dashes of
 		// `A-->B`; the id matcher below also refuses to eat `--` runs.
-		for (let i = 0; i < ARROWS.length; i++) {
+		for (let i = 0; i < ARROW_FAMILIES.length; i++) {
 			if (prev && ARROW_PREV[i].test(prev)) continue;
-			if (stream.match(ARROWS[i])) return emit('operator');
+			const n = ARROW_FAMILIES[i](stream.string.slice(stream.pos));
+			if (n) {
+				stream.pos += n;
+				return emit('operator');
+			}
 		}
 
 		// |edge label|

@@ -180,6 +180,39 @@ describe('slideBodyEmpty — gate for skeleton insertion (surface C)', () => {
 	});
 });
 
+// isCommentLine replaced the regex `^\s*<!--.*-->\s*$` (CodeQL js/bad-tag-filter, #1958 §7). Each
+// expectation is what that regex answered; the two agreed on all 111,111,291 strings of up to eight
+// characters over `<!-> a`, LF, LS, NBSP and TAB. The `--!>` row is the shape the query names: a
+// line classifier must NOT widen to accept it, or a slide with that line would count as empty.
+describe('isCommentLine — the directive-line test behind surface C', () => {
+	const LS = String.fromCharCode(0x2028);
+	const NBSP = String.fromCharCode(0xa0);
+	const IDEO = String.fromCharCode(0x3000);
+	const ZWSP = String.fromCharCode(0x200b);
+	const rows = [
+		['<!---->', true],
+		['  <!-- _class: kpi -->  ', true],
+		['<!-- {layout=cards} -->', true],
+		[`${NBSP}<!-- x -->${IDEO}`, true],
+		['\n<!-- x -->\n', true],
+		['<!-- a --!>', false],
+		['<!--->', false],
+		['<!-->', false],
+		[`<!-- a${LS}b -->`, false],
+		[`${ZWSP}<!-- x -->`, false],
+		['<!-- x --> y', false],
+	];
+	test('answers as the old regex did', async () => {
+		const { isCommentLine } = await load();
+		for (const [text, want] of rows) assert.equal(isCommentLine(text), want, JSON.stringify(text));
+	});
+	test('a `--!>` line is slide content, not a directive line', async () => {
+		const { slideBodyEmpty } = await load();
+		const lines = ['<!-- _class: kpi -->', '<!-- note --!>'];
+		assert.equal(slideBodyEmpty(getter(lines), lines.length, 1), false);
+	});
+});
+
 describe('skeletonBody — strips the directive block (surface C)', () => {
 	test('drops leading comment + blank lines, keeps the slot scaffold', async () => {
 		const { skeletonBody } = await load();
