@@ -2024,8 +2024,8 @@ never turn "passed in headless" into "works on iOS."
     it back in what they return: lint-core, review-core, the engine's `render`, the Studio's source checks and the
     editor's fold. A payload is narrow (a `data:` URI's run where a URL value opens, `](` `url(` `=`, with no `=` but its
     padding, not ending in `/`, followed by a character that ends a URL), because a looser run can hide syntax: inside a
-    tag `/` ends an attribute name, so `data:a/b;base64,AAAA…/src="https://…"` carries a real `src`. The engine skips
-    even less (`lib/engine/image-line-payloads.js`): only a line that is one markdown image AND that markdown-it's own
+    tag `/` ends an attribute name, so `data:a/b;base64,AAAA…/src="https://…"` carries a real `src`. The engine, lint and
+    review skip even less (`lib/core/image-line-payloads.js`, each with its own block parser): only a line that is one markdown image AND that markdown-it's own
     block pass (`lib/core/boundary-parser.mjs`, the engine's block grammar with every plugin block rule) reads as a
     paragraph by itself, outside the front matter; never in a deck holding `$$`, never on the code door's passes; and
     it renders the whole text if a stand-in does not come out whole or reaches an output field that is not a string. A

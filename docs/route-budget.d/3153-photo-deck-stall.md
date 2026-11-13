@@ -15,7 +15,7 @@ web-image blocker copies runs instead of characters (remote-ref, +42). Firefox's
 28.7 s to about 0.8 s. Home mounts the Studio island and pays single-slide-render; the playground pays remote-ref and
 slide-boundaries.
 
-Given back first: the engine-only image-line rule left the kernel for lib/engine/image-line-payloads.js (single-slide-render
+Given back first: the image-line rule left the kernel for a module of its own, now lib/core/image-line-payloads.js (single-slide-render
 +1,021 to +756), and putting lint findings back moved beside lint-core (lib/authoring/elided-findings.js). CI measured
 studio +1,421, home +1,147 and playground +83 against main before that give-back; a local build against main measured
 studio +708 and home +434 after it, with a chunk split CI did not show. Each line is CI's figure less the 265 bytes given

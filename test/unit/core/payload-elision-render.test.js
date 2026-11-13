@@ -10,7 +10,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const elision = require('../../../lib/core/payload-elision.js');
-const { imageLineRanges } = require('../../../lib/engine/image-line-payloads.js');
+const { boundaryParser, FRONT_MATTER } = require('../../../lib/core/boundary-parser.mjs');
+const imageLineRanges = (text) => require('../../../lib/core/image-line-payloads.js').imageLineRanges(text, boundaryParser, FRONT_MATTER);
 
 const realElide = elision.elidePayloads;
 let skipping = true;

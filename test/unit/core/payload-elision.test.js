@@ -5,7 +5,8 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const elision = require('../../../lib/core/payload-elision.js');
-const { imageLineRanges } = require('../../../lib/engine/image-line-payloads.js');
+const { boundaryParser, FRONT_MATTER } = require('../../../lib/core/boundary-parser.mjs');
+const imageLineRanges = (text) => require('../../../lib/core/image-line-payloads.js').imageLineRanges(text, boundaryParser, FRONT_MATTER);
 
 const realElide = elision.elidePayloads;
 let skipping = true;
@@ -58,6 +59,9 @@ const deck = (p) =>
 		`<!-- note about ![x](data:image/png;base64,${p})`,
 	].join('\n');
 
+// A deck whose photos are each a line of their own: the shape the rules skip.
+const photoDeck = (p) => ['# Photos', ...[1, 2, 3].map((k) => `## Photo ${k}\n\n![bg](data:image/jpeg;base64,${p})`)].join('\n\n---\n\n');
+
 describe('payload elision: lint-core', () => {
 	test('every finding is the one the whole text gives', () => {
 		const { on, off } = bothWays(() => core.lintTextWith(deck(LONG), vocab));
@@ -68,11 +72,15 @@ describe('payload elision: lint-core', () => {
 		assert.ok(!JSON.stringify(on).includes('LatticeElided'), 'a stand-in, or part of one, leaked into a finding');
 	});
 
-	test('the rules are handed the stand-in, not the payload', () => {
+	test('the rules are handed the stand-in for a photo on a line of its own, and the whole text of every other form', () => {
 		const before = readStats.lintChars;
-		core.lintTextWith(deck(LONG), vocab);
+		core.lintTextWith(photoDeck(LONG), vocab);
 		const read = readStats.lintChars - before;
-		assert.ok(read < deck(LONG).length / 3, `the rules read ${read} characters of a ${deck(LONG).length}-character deck`);
+		assert.ok(read < photoDeck(LONG).length / 3, `the rules read ${read} characters of a ${photoDeck(LONG).length}-character photo deck`);
+		// The mixed deck's inline, tag and comment payloads are read whole (a rule may measure that text).
+		const mixed = readStats.lintChars;
+		core.lintTextWith(deck(LONG), vocab);
+		assert.ok(readStats.lintChars - mixed > deck(LONG).length - LONG.length, 'only the one photo line was skipped');
 	});
 
 	test('a quick fix on a payload line edits the real line and keeps the photo', () => {
@@ -94,8 +102,8 @@ describe('payload elision: lint-core', () => {
 describe('payload elision: review-core', () => {
 	test('same findings as the whole text, and the rules read the stand-in', () => {
 		const before = readStats.reviewChars;
-		review.reviewText(deck(LONG), {});
-		assert.ok(readStats.reviewChars - before < deck(LONG).length / 3);
+		review.reviewText(photoDeck(LONG), {});
+		assert.ok(readStats.reviewChars - before < photoDeck(LONG).length / 3);
 		const { on, off } = bothWays(() => review.reviewText(deck(LONG), {}));
 		assert.deepEqual(on, off);
 	});

@@ -314,6 +314,7 @@ const BOUNDARY_PARSER_CJS = path.join(ROOT, 'lib', 'core', 'boundary-parser.js')
 const LINT_PARSER_IMPORTERS = new Set([
   path.join(ROOT, 'lib', 'authoring', 'lint-core.js'),
   path.join(ROOT, 'lib', 'authoring', 'notes-core.js'), // liveCommentOpeners parses to find live notes (#2012)
+  path.join(ROOT, 'lib', 'authoring', 'review-core.js'), // the photo-skip rule reads lines with the lint's parser (#3153)
   path.join(ROOT, 'lib', 'core', 'slide-boundaries.mjs'),
   // The deck model reads the plugin admission (the enabled rules, `boundaryRulesGeneration`) from the
   // boundary parser it imports; slide-boundaries reaches it, so it must read the lint's copy, as slide-boundaries does.
