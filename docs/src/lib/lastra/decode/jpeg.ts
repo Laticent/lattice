@@ -16,9 +16,10 @@
  *
  * Where it departs from libjpeg, on purpose:
  * - bounded work. At most MAX_SCANS scans per frame (libjpeg-turbo's own fuzzer sets its scan limit to the
- *   same 500) and at most COEF_WORK_PER_BLOCK coefficients decoded per block over all scans (a legal
- *   progression needs at most 896; COEF_WORK_FLOOR for small images); past either, `too-large`. libjpeg
- *   has neither limit by default. End-of-band runs of a first AC pass are skipped in one step.
+ *   same 500) and at most COEF_WORK_PER_BLOCK coefficients decoded over all scans per block of the frame,
+ *   shared by its components (a block costs at least 8 a scan; COEF_WORK_FLOOR for small images); past
+ *   either, `too-large`. libjpeg has neither limit by default. End-of-band runs over blocks with nothing to
+ *   do are skipped in a tight loop.
  * - a component in two sequential scans is refused (`corrupt`); libjpeg errors on it in a single-scan
  *   file and overwrites in place in a multi-scan one.
  * - a file cut short decodes only when it ends in scan data or between segments after at least one scan
@@ -81,6 +82,14 @@ export const MAX_SCANS = 500;
  * sends 10 scans (6 for gray). Blocks inside an end-of-band run of a first AC pass, and blocks with
  * nothing to refine inside a refinement's run, are skipped and cost nothing. Images under 2^16 blocks get
  * the floor COEF_WORK_FLOOR instead, so small replayed files are not refused for being small.
+ *
+ * The cap is per block of the frame divided by its component count: the work of a frame, summed over its
+ * components, may not pass 1024 times its blocks over the components. For one component that is 1024 a
+ * block; for four, four components times 125 one-coefficient scans each (red team R4-1) would otherwise
+ * stay under a per-block cap while doing four times the work of the one-component worst case. The
+ * components share the budget: libjpeg's default progression costs 208 a luma block and 142 a chroma
+ * block, 48% of it at 4:4:4 and 54% at 4:2:0; the 97-scan `jpegtran` 4:4:4 fixture costs about 75%. A
+ * legal multi-component file that sends many narrow bands and refines most of them is refused.
  */
 export const COEF_WORK_PER_BLOCK = 1024;
 const COEF_WORK_MIN_BAND = 8;
@@ -533,7 +542,7 @@ function* readJpegScan(b: Uint8Array, at: number, end: number, s: State, f: Fram
   const c0 = comps[0];
   const total = single ? c0.bw * c0.bh : f.mcusX * f.mcusY;
   const perMcu = single ? 1 : blocksPerMcu;
-  const cap = Math.max(COEF_WORK_PER_BLOCK * f.blocks, COEF_WORK_FLOOR);
+  const cap = Math.max((COEF_WORK_PER_BLOCK * f.blocks) / f.comps.length, COEF_WORK_FLOOR);
   const band = !f.progressive ? 64 : ss === 0 ? 1 : se - ss + 1;
   // A decoded block costs its band, and never less than 8: reading even a one-bit end-of-band code is a
   // block visit, and 500 scans of one-coefficient bands would otherwise pass every cap.
@@ -593,7 +602,7 @@ function* readJpegScan(b: Uint8Array, at: number, end: number, s: State, f: Fram
       }
     }
     f.work += mcuWork;
-    if (f.work > cap) throw new LastraError('too-large', `more than ${COEF_WORK_PER_BLOCK} coefficients decoded per block`);
+    if (f.work > cap) throw new LastraError('too-large', `more than ${COEF_WORK_PER_BLOCK} coefficients decoded per block of the frame, shared by its ${f.comps.length} component(s)`);
     meter.steps += mcuSteps;
     if (meter.steps > stepLimit) tickWork(meter, 0); // throws the work-limit refusal
     if (single) {

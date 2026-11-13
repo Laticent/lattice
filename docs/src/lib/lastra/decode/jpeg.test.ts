@@ -517,4 +517,32 @@ describe('decodeJpeg on files of many tiny segments, and scans under every other
     expect(message).toContain('too-large');
     expect(message).toContain('coefficients decoded per block');
   });
+
+  test('the components share the budget: four components of 32 one-coefficient scans each decode, a 129th scan is refused', () => {
+    // red team R4-1: four components x 125 one-coefficient scans stayed under a per-block cap (1000 of 1024
+    // a block) and ran 18.8 s at 100 MP, four times the one-component worst case. The cap is per block of
+    // the frame over its components, so four 2048 x 2048 components share what one would get.
+    const w = 2048;
+    const data = new Uint8Array((w / 8) ** 2 / 8); // zero bits: an EOB0 per block
+    const comps: [number, number, number][] = [1, 2, 3, 4].map((id) => [id, 0x11, 0]);
+    const file = (scans: number) => {
+      const parts: Uint8Array[] = [bytesOf(SOI, dqtAll(), dhtOne(1, 0, 0x00), sofSeg(0xc2, w, w, comps))];
+      for (let i = 0; i < scans; i++) {
+        const k = 1 + ((i >> 2) % 63);
+        parts.push(bytesOf(sosSeg([1 + (i & 3)], k, k, 0, 13)), data);
+      }
+      parts.push(Uint8Array.from(EOI));
+      return concat(...parts);
+    };
+    expect(COEF_WORK_PER_BLOCK * (w / 8) ** 2).toBe(COEF_WORK_FLOOR);
+    expect(decodeJpegSync(file(128), { maxPixels: w * w }).width).toBe(w);
+    let message = '';
+    try {
+      decodeJpegSync(file(129), { maxPixels: w * w });
+    } catch (e) {
+      message = String(e);
+    }
+    expect(message).toContain('too-large');
+    expect(message).toContain('coefficients decoded per block');
+  });
 });
