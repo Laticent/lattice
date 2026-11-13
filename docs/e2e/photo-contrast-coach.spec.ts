@@ -475,17 +475,20 @@ test('a photo that arrives after a long wait is still measured, and the Coach sh
 });
 
 // A tooltip opened BEFORE the slide on screen is measured must not go on disagreeing with the Coach while it stays open: when
-// the measured verdict lands, it takes the Coach's words and button in place. Every photo read is slowed from the first
-// script, so the tooltip opens first.
+// the measured verdict lands, it takes the Coach's words and button in place. The Coach's read of the photo is held at the
+// network until the tooltip is open, so the tooltip opens first by construction. A fixed head start (every photo load
+// slowed 2.5 s) raced the lint, which runs in a worker since PR #3153: on a loaded runner the lint could land after the
+// measurement, and the tooltip opened on the Coach's words already (HARD RULE #32: wait for a signal, not a duration).
 test('a tooltip opened before the measurement takes the Coach words when it lands', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
-	await page.addInitScript(() => {
-		Object.defineProperty(HTMLImageElement.prototype, 'onload', {
-			configurable: true,
-			set(fn: (e: Event) => void) {
-				this.addEventListener('load', (e: Event) => setTimeout(() => fn.call(this, e), 2500));
-			},
-		});
+	let release!: () => void;
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	await page.route('**/samples/photo-wide.svg', async (route) => {
+		// The preview frame's own loads go through; the Studio page's load of the photo is the Coach's read.
+		if (route.request().frame() === page.mainFrame()) await held;
+		await route.continue();
 	});
 	await gotoStudio(page);
 	await typeDeck(page, BODY_DECK);
@@ -496,6 +499,7 @@ test('a tooltip opened before the measurement takes the Coach words when it land
 	await page.evaluate(() => {
 		(window as unknown as { __tip: Element | null }).__tip = document.querySelector('.cm-tooltip-lint');
 	});
+	release();
 	await expect(tip).toContainText(/The text on this photo reads at/, { timeout: 20_000 });
 	expect(await page.evaluate(() => (window as unknown as { __tip: Element | null }).__tip === document.querySelector('.cm-tooltip-lint')), 'the tooltip was replaced, not upgraded in place').toBe(true);
 	// The measured sentence the tooltip took: "The text on this photo reads at N:1 (needs 4.5:1)."
