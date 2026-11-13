@@ -20,12 +20,10 @@ test.describe.configure({ timeout: 600_000 });
 const PHOTO_SLIDE_MAX = 168_000;
 const FILE_MAX = 560_000;
 const PHOTOS = 3;
-// The deck is 16 MB of text (three phone photos as data URIs). Every wait below is for a SIGNAL; this is only the ceiling
-// on each. Since the Studio skips a photo's base64 in its readers and lints in a worker (PR #3153), each signal comes in
-// seconds on every engine (measured: the whole test 34 s on Firefox, 46 s on WebKit, 54 s on Chromium), so the ceiling is
-// a tenth of the test's slot: a loaded runner is slower and still green, and a pass that reads the whole deck again fails
-// here, naming the step, before it eats the slot.
-const DECK_WORK_MS = 60_000;
+// The deck is 16 MB of text (three phone photos as data URIs). Every wait below is for a SIGNAL, on the default expect
+// timeout: since the Studio skips a photo's base64 in its readers and lints in a worker (PR #3153), each signal comes in
+// 2 to 4 s on every engine, so a pass that reads the whole deck again fails here, naming the step. A longer timeout is
+// not a fix for a slow signal (HARD RULE #33).
 
 // `@gecko` runs on Chromium desktop and Firefox, `@webkit-tablet` on real WebKit (export-images-policy.spec.ts).
 const onEveryEngine = (title: string, body: (fixtures: { page: Page }) => Promise<void>) => {
@@ -140,11 +138,11 @@ onEveryEngine('@smoke a phone-photo deck exports small, distinct slide pictures 
 		'<!-- _class: title -->\n\n# Phone photos\n\nExport size',
 		...photos.map((p, i) => `<!-- _class: image -->\n\n\`Photo ${i + 1}\`\n\n## A phone photo beside its caption\n\nThe caption sits beside the photo.\n\n![bg](${p})`),
 	].join('\n\n---\n\n');
-	await pasteIntoEditor(page, deck, { timeout: DECK_WORK_MS });
-	await expect(railButtons(page)).toHaveCount(PHOTOS + 1, { timeout: DECK_WORK_MS });
+	await pasteIntoEditor(page, deck);
+	await expect(railButtons(page)).toHaveCount(PHOTOS + 1);
 
 	// The Studio found the photo and measured its shape. Before the fix WebKit never did, for any photo over half a megabyte.
-	await expect(livePreview(page).locator('section.image').first()).toHaveAttribute('data-img-bucket', 'wide', { timeout: DECK_WORK_MS });
+	await expect(livePreview(page).locator('section.image').first()).toHaveAttribute('data-img-bucket', 'wide');
 
 	// Wait for the Studio to finish THIS deck before driving Share: a click sent while the Studio still works on a new deck
 	// can spend its 15 s action budget at "scrolling into view", which is how this test failed on every gecko run while the
@@ -152,8 +150,8 @@ onEveryEngine('@smoke a phone-photo deck exports small, distinct slide pictures 
 	// phone photos freezes the Studio"). Each pass stamps the length of the text it answered for, so the wait is for these
 	// two answers, not for a guessed time.
 	const chars = String(deck.length);
-	await expect(page.getByLabel('Deck source').locator('xpath=ancestor::*[contains(@class,"cm-editor")][1]'), 'the editor linted this deck').toHaveAttribute('data-linted-chars', chars, { timeout: DECK_WORK_MS });
-	await expect(page.locator('[data-studio-root]'), 'the Coach assessed this deck').toHaveAttribute('data-assessed-chars', chars, { timeout: DECK_WORK_MS });
+	await expect(page.getByLabel('Deck source').locator('xpath=ancestor::*[contains(@class,"cm-editor")][1]'), 'the editor linted this deck').toHaveAttribute('data-linted-chars', chars);
+	await expect(page.locator('[data-studio-root]'), 'the Coach assessed this deck').toHaveAttribute('data-assessed-chars', chars);
 
 	for (const [format, pick, download, prefix] of [
 		['PowerPoint', /^PowerPoint/, /^Download PowerPoint/, 'ppt/media/'],
