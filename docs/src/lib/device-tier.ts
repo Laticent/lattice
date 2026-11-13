@@ -153,6 +153,52 @@ export function startDeviceTier(deps: TierDeps): { state: TierState; probed: Pro
 	return { state: first, probed };
 }
 
+/** The slice of `document` the visibility guard reads. */
+export interface VisibilityDoc {
+	readonly hidden: boolean;
+	addEventListener(type: 'visibilitychange', fn: () => void): void;
+	removeEventListener(type: 'visibilitychange', fn: () => void): void;
+}
+
+/**
+ * Run the probe only while the page is visible, and throw its score away if the page is hidden at ANY point during the
+ * run. A background tab is throttled, so its score would read the machine as slow and that low score would be saved for
+ * a day. A page hidden at the start waits until it is shown. (Raised by the card grader, 2026-11-13.)
+ */
+export function probeWhileVisible(doc: VisibilityDoc, run: () => Promise<number | null>): Promise<number | null> {
+	const start = (): Promise<number | null> => {
+		let hiddenDuring = false;
+		const onChange = () => {
+			if (doc.hidden) hiddenDuring = true;
+		};
+		doc.addEventListener('visibilitychange', onChange);
+		return run().then(
+			(score) => {
+				doc.removeEventListener('visibilitychange', onChange);
+				return hiddenDuring ? null : score;
+			},
+			() => {
+				doc.removeEventListener('visibilitychange', onChange);
+				return null;
+			},
+		);
+	};
+	if (!doc.hidden) return start();
+	return new Promise((resolve) => {
+		const onShow = () => {
+			if (doc.hidden) return;
+			doc.removeEventListener('visibilitychange', onShow);
+			resolve(start());
+		};
+		doc.addEventListener('visibilitychange', onShow);
+	});
+}
+
+/** Save-Data asks the page to spend nothing it does not need: no probe, so the CPU stays unknown, and unknown never lowers the tier. */
+export function probeAllowed(nav: { connection?: { saveData?: boolean } }): boolean {
+	return nav.connection?.saveData !== true;
+}
+
 /** The real dependencies: localStorage (when it can be read), the wall clock, and the probe in a module worker. */
 export function browserTierDeps(win: Window & typeof globalThis): TierDeps {
 	let store: KeyStore | null = null;
@@ -166,7 +212,16 @@ export function browserTierDeps(win: Window & typeof globalThis): TierDeps {
 		win,
 		store,
 		now: () => Date.now(),
-		probe: () =>
+		probe: () => {
+			if (!probeAllowed(win.navigator as Navigator & { connection?: { saveData?: boolean } })) return Promise.resolve(null);
+			return probeWhileVisible(win.document, runWorkerProbe(win));
+		},
+	};
+}
+
+/** The probe in a module worker, or null when the worker cannot start, errors, or never answers. */
+function runWorkerProbe(win: Window & typeof globalThis): () => Promise<number | null> {
+	return () =>
 			new Promise<number | null>((resolve) => {
 				let worker: Worker;
 				try {
@@ -191,6 +246,5 @@ export function browserTierDeps(win: Window & typeof globalThis): TierDeps {
 					worker.terminate();
 					resolve(null);
 				};
-			}),
-	};
+			});
 }

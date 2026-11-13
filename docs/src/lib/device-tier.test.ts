@@ -3,7 +3,7 @@
 // cores, HARD RULE #32 F8), a fake store, a fixed clock, and a probe the test resolves by hand.
 
 import { describe, expect, it } from 'vitest';
-import { CPU_KEY, CPU_MAX_AGE_MS, decide, readCachedCpu, startDeviceTier, TIER_KEY, type TierDeps, writeCachedCpu } from './device-tier';
+import { CPU_KEY, CPU_MAX_AGE_MS, decide, probeAllowed, probeWhileVisible, readCachedCpu, startDeviceTier, TIER_KEY, type TierDeps, type VisibilityDoc, writeCachedCpu } from './device-tier';
 
 const NOON = Date.UTC(2026, 10, 13, 12, 0, 0);
 
@@ -196,5 +196,71 @@ describe('startDeviceTier', () => {
 		startDeviceTier(deps({ win, store: null, probe: p.probe }));
 		expect(attrs['data-device-tier']).toBe('full');
 		expect(p.calls()).toBe(1);
+	});
+});
+
+/** A document whose visibility the test flips by hand, firing `visibilitychange` like the browser. */
+function fakeDoc(hidden = false) {
+	const fns = new Set<() => void>();
+	const doc = {
+		hidden,
+		addEventListener: (_t: 'visibilitychange', fn: () => void) => fns.add(fn),
+		removeEventListener: (_t: 'visibilitychange', fn: () => void) => fns.delete(fn),
+	};
+	return {
+		doc: doc as VisibilityDoc,
+		set(h: boolean) {
+			doc.hidden = h;
+			for (const fn of [...fns]) fn();
+		},
+		listeners: () => fns.size,
+	};
+}
+
+describe('probeWhileVisible', () => {
+	it('a visible page runs the probe and keeps its score, and leaves no listener behind', async () => {
+		const d = fakeDoc(false);
+		const p = manualProbe();
+		const out = probeWhileVisible(d.doc, p.probe);
+		expect(p.calls()).toBe(1);
+		p.settle(200);
+		expect(await out).toBe(200);
+		expect(d.listeners()).toBe(0);
+	});
+
+	// A background tab is throttled: its score would read the machine as slow and be saved for a day.
+	it('a page hidden at any point during the run throws the score away, even if shown again before it ends', async () => {
+		const d = fakeDoc(false);
+		const p = manualProbe();
+		const out = probeWhileVisible(d.doc, p.probe);
+		d.set(true);
+		d.set(false);
+		p.settle(12);
+		expect(await out).toBeNull();
+	});
+
+	it('a page hidden at the start waits until it is shown, then runs', async () => {
+		const d = fakeDoc(true);
+		const p = manualProbe();
+		const out = probeWhileVisible(d.doc, p.probe);
+		expect(p.calls()).toBe(0);
+		d.set(false);
+		expect(p.calls()).toBe(1);
+		p.settle(150);
+		expect(await out).toBe(150);
+	});
+
+	it('a probe that rejects resolves null and leaves no listener behind', async () => {
+		const d = fakeDoc(false);
+		expect(await probeWhileVisible(d.doc, () => Promise.reject(new Error('worker died')))).toBeNull();
+		expect(d.listeners()).toBe(0);
+	});
+});
+
+describe('probeAllowed', () => {
+	it('Save-Data skips the probe: nothing downloaded, the CPU stays unknown', () => {
+		expect(probeAllowed({ connection: { saveData: true } })).toBe(false);
+		expect(probeAllowed({ connection: { saveData: false } })).toBe(true);
+		expect(probeAllowed({})).toBe(true);
 	});
 });

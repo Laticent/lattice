@@ -171,6 +171,12 @@ ceiling is the owner's call, so the slice splits the work instead:
   attribute, and saves the tier for the next visit. A pin is shown but never saved. The CPU probe runs in a module
   worker (`cpu-probe.worker.ts`) at most once a day; its score is cached in `lattice-device-cpu`, and the System panel
   reads the same cached score.
+- **When the probe does not run.** Under Save-Data there is no probe at all: the worker's chunk is never fetched,
+  the CPU stays unknown, and unknown never lowers the tier. In a hidden tab the probe waits until the page is shown,
+  and a run during which the page was hidden at ANY point is thrown away, because a throttled background tab would
+  read the machine as slow and that low score would be saved for a day (raised by the card grader, 2026-11-13). Until
+  the probe answers, the page shows the lower of the saved tier and the tier the other signals give, and saves nothing
+  (found by the independent review): a device LITE only by its CPU never flashes or saves FULL while re-measuring.
 - **The cost:** a device's FIRST visit paints FULL until the tier is decided, then switches if it is LITE. Every later
   visit paints the right tier from the first frame. If the owner raises the Studio's HTML ceiling, a pre-paint WebGL read
   can close the first-visit gap.
