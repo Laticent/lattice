@@ -282,13 +282,13 @@
         "macos-26"
       ],
       "paths": [
-        "lib/core/jpeg-encode.mjs",
+        "docs/src/lib/lastra/jpeg.ts",
         "docs/scripts/ios-safari/run.sh",
         "docs/scripts/ios-safari/run.mjs",
         "docs/scripts/ios-safari/jpeg-probe.js"
       ],
       "run": "PROBE=jpeg bash docs/scripts/ios-safari/run.sh",
-      "why": "Every export JPEG goes through the shared encoder (lib/core/jpeg-encode.mjs) because the platforms' own encoders differ: a picture PowerPoint was 43.3 MB from an iPhone where Chromium wrote 12.5 MB. Linux WebKit uses libjpeg-turbo, like Chromium, so it cannot show what Apple's encoder writes. This runs the encoder in real Mobile Safari (iPad and iPhone iOS Simulators): its bytes must equal Node's and its luma stay above 38 dB; the step summary records Safari's own size and color sampling beside ours for a slide-sized synthetic photograph and four committed screenshots. A simulator runs on the Mac's CPU, so its timings are not a phone's.",
+      "why": "Every export JPEG goes through the shared encoder (docs/src/lib/lastra/jpeg.ts, `@laticent/lastra`) because the platforms' own encoders differ: a picture PowerPoint was 43.3 MB from an iPhone where Chromium wrote 12.5 MB. Linux WebKit uses libjpeg-turbo, like Chromium, so it cannot show what Apple's encoder writes. This runs the encoder in real Mobile Safari (iPad and iPhone iOS Simulators): its bytes must equal Node's and its luma stay above 38 dB; the step summary records Safari's own size and color sampling beside ours for a slide-sized synthetic photograph and four committed screenshots. A simulator runs on the Mac's CPU, so its timings are not a phone's.",
       "on_pull_request": false
     },
     {

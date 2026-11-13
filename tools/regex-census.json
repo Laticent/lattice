@@ -659,7 +659,6 @@
       "verdict": "unknown",
       "why": "recheck cannot model it: look-ahead assertion"
     },
-    "/<(?:\\?xml|svg)/i": "safe",
     "/<(?:img|image)\\b(?:\"[^\"]*\"|'[^']*'|[^'\">])*>/gi": "polynomial",
     "/<(?:polygon|rect|path|circle|ellipse|line|polyline|g|text)\\b[^>]*\\sdata-anima-role=/": "polynomial",
     "/<(?:p|ul|ol|div|table|blockquote|pre)\\b/i": "safe",

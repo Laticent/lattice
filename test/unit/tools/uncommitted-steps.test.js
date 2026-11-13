@@ -94,6 +94,8 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-filo-lib.js',
   // Its whole write set is docs/src/lib/mosaico/dist/, covered by docs/.gitignore's `dist/`.
   'build-mosaico-lib.js',
+  // Its whole write set is docs/src/lib/lastra/dist/, covered by docs/.gitignore's `dist/`.
+  'build-lastra-lib.js',
   // Its whole write set is docs/src/lib/fluido/dist/, covered by docs/.gitignore's `dist/`.
   'build-fluido-lib.js',
   // Its whole write set is docs/src/lib/squadra/dist/, covered by docs/.gitignore's `dist/`.

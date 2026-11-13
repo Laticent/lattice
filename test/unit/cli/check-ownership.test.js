@@ -100,6 +100,7 @@ const {
   checkSegnoMarkdownBoundary,
   checkFiloCommitPath,
   checkMosaicoBoundary,
+  checkLastraBoundary,
   checkFluidoBoundary,
   checkSquadraBoundary,
   checkTavolaBoundary,
@@ -2196,6 +2197,39 @@ describe('check-ownership', () => {
         assert.equal(run({ 'index.ts': src }).length, 1, `not caught: ${src}`);
       }
       assert.deepEqual(run({ 'pack.test.ts': "import { it } from 'vitest';" }), []);
+    });
+  });
+
+  // Lastra: the image library is bytes in, bytes out, so nothing escapes the folder either (2026-11-13-image-library.md).
+  describe('Lastra import-boundary gate', () => {
+    const run = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lastra-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
+        const errors = [];
+        checkLastraBoundary(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkLastraBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('relative imports pass; anything outside the folder is caught', () => {
+      assert.deepEqual(run({ 'index.ts': "export { readImage } from './read.js';\nimport type { Pixels } from './resize.js';" }), []);
+      for (const src of [
+        "import { inflateSync } from 'node:zlib';",
+        "import sharp from 'sharp';",
+        "import policy from '../../../../lib/core/image-policy.js';",
+        "const { exifOrientation } = require('../../../../lib/core/image-dimensions.js');",
+        "const m = await import('../mosaico/index.js');",
+      ]) {
+        assert.equal(run({ 'index.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      assert.deepEqual(run({ 'read.test.ts': "import { readFileSync } from 'node:fs';" }), [], 'a test may use the runner and node:');
     });
   });
 

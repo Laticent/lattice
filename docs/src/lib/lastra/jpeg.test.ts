@@ -1,14 +1,14 @@
-// The shared JPEG encoder (lib/core/jpeg-encode.mjs). Node has no JPEG decoder, so these pin the file's structure,
-// its determinism and its streaming; the round trip through real decoders (Chromium, Firefox, WebKit) and the
-// same-bytes-on-every-engine check are docs/e2e/jpeg-encode-engines.spec.ts, which compares against GOLDEN below.
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { createHash } = require('node:crypto');
-
-const load = () => import('../../../lib/core/jpeg-encode.mjs');
+// @vitest-environment node
+// The shared JPEG encoder (jpeg.ts). Node has no JPEG decoder, so these pin the file's structure, its determinism and
+// its streaming; the round trip through real decoders (Chromium, Firefox, WebKit) and the same-bytes-on-every-engine
+// check are Lattice's docs/e2e/jpeg-encode-engines.spec.ts, which compares against GOLDEN below.
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { test } from 'vitest';
+import { createJpegEncoder, encodeJpeg } from './jpeg.js';
 
 /** A picture with flat areas, gradients, hard edges, noise and some transparency; the e2e spec draws the same one. */
-function synthetic(w, h, { alpha = true } = {}) {
+function synthetic(w: number, h: number, { alpha = true } = {}) {
   const px = new Uint8ClampedArray(w * h * 4);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -23,18 +23,17 @@ function synthetic(w, h, { alpha = true } = {}) {
   return px;
 }
 
-const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const sha = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 
 // The bytes the encoder writes for synthetic(301, 157) at quality 90. A change here changes every export's JPEGs:
 // update it on purpose, and the e2e spec's copy with it.
 const GOLDEN = { width: 301, height: 157, quality: 90, sha256: 'c58daad69614db3208e19a5f8fcd8fb61eec1cc601fdc373bd4e4d12bd926f00' };
 
-test('writes a baseline JFIF: SOI, APP0, two DQT, SOF0 4:2:0, DHT, SOS ... EOI', async () => {
-  const { encodeJpeg } = await load();
+test('writes a baseline JFIF: SOI, APP0, two DQT, SOF0 4:2:0, DHT, SOS ... EOI', () => {
   const jpg = encodeJpeg(synthetic(37, 21), 37, 21, 90);
   assert.deepEqual([...jpg.subarray(0, 2)], [0xff, 0xd8]);
   assert.deepEqual([...jpg.subarray(-2)], [0xff, 0xd9]);
-  const markers = [];
+  const markers: number[] = [];
   for (let i = 2; i < jpg.length; ) {
     assert.equal(jpg[i], 0xff, `marker expected at ${i}`);
     const m = jpg[i + 1];
@@ -53,9 +52,8 @@ test('writes a baseline JFIF: SOI, APP0, two DQT, SOF0 4:2:0, DHT, SOS ... EOI',
   for (let i = 0; i < scan.length; i++) if (scan[i] === 0xff) assert.equal(scan[i + 1], 0, `unstuffed 0xFF at ${i}`);
 });
 
-test('the quantization tables are libjpeg’s at the same quality', async () => {
-  const { encodeJpeg } = await load();
-  const dqt = (q) => {
+test('the quantization tables are libjpeg’s at the same quality', () => {
+  const dqt = (q: number) => {
     const jpg = encodeJpeg(synthetic(8, 8), 8, 8, q);
     const i = jpg.indexOf(0xdb, 2) + 3;
     return { y: [...jpg.subarray(i + 1, i + 65)], c: [...jpg.subarray(i + 66, i + 130)] };
@@ -67,8 +65,7 @@ test('the quantization tables are libjpeg’s at the same quality', async () => 
   assert.ok(dqt(1).y.every((v) => v >= 1 && v <= 255) && dqt(100).y.every((v) => v === 1));
 });
 
-test('the same pixels give the same bytes however the rows arrive', async () => {
-  const { createJpegEncoder, encodeJpeg } = await load();
+test('the same pixels give the same bytes however the rows arrive', () => {
   const W = 53;
   const H = 47;
   const px = synthetic(W, H);
@@ -84,15 +81,13 @@ test('the same pixels give the same bytes however the rows arrive', async () => 
   }
 });
 
-test('transparent pixels land on white, and an opaque white pixel is the same file', async () => {
-  const { encodeJpeg } = await load();
+test('transparent pixels land on white, and an opaque white pixel is the same file', () => {
   const clear = new Uint8ClampedArray(16 * 16 * 4); // all zero: black, fully transparent
   const white = new Uint8ClampedArray(16 * 16 * 4).fill(255);
   assert.equal(sha(encodeJpeg(clear, 16, 16, 90)), sha(encodeJpeg(white, 16, 16, 90)));
 });
 
-test('odd sizes encode, and quality trades size the right way', async () => {
-  const { encodeJpeg } = await load();
+test('odd sizes encode, and quality trades size the right way', () => {
   for (const [w, h] of [[1, 1], [17, 1], [1, 17], [15, 15], [16, 16], [17, 33]]) {
     const jpg = encodeJpeg(synthetic(w, h), w, h, 90);
     assert.deepEqual([...jpg.subarray(-2)], [0xff, 0xd9], `${w}x${h}`);
@@ -102,11 +97,10 @@ test('odd sizes encode, and quality trades size the right way', async () => {
   for (let i = 1; i < sizes.length; i++) assert.ok(sizes[i] > sizes[i - 1], `sizes rise with quality: ${sizes}`);
 });
 
-test('it refuses what it cannot write', async () => {
-  const { createJpegEncoder } = await load();
+test('it refuses what it cannot write', () => {
   assert.throws(() => createJpegEncoder({ width: 0, height: 4, quality: 90 }), RangeError);
   assert.throws(() => createJpegEncoder({ width: 4, height: 4, quality: Number.NaN }), TypeError);
-  assert.throws(() => createJpegEncoder({ width: 4, height: 4, quality: null }), TypeError, 'null is not quality 1');
+  assert.throws(() => createJpegEncoder({ width: 4, height: 4, quality: null as unknown as number }), TypeError, 'null is not quality 1');
   assert.throws(() => createJpegEncoder({ width: 65501, height: 1, quality: 90 }), RangeError, 'past what decoders read');
   const enc = createJpegEncoder({ width: 4, height: 4, quality: 90 });
   assert.throws(() => enc.addRows(new Uint8Array(4 * 4 * 5), 5), RangeError, 'more rows than the height');
@@ -114,18 +108,17 @@ test('it refuses what it cannot write', async () => {
   assert.throws(() => enc.finish(), RangeError, 'finished early');
 });
 
-test('createJpegEncoder works from its own source text, as chrome-recode.js sends it into a page', async () => {
-  const { createJpegEncoder, encodeJpeg } = await load();
+test('createJpegEncoder works from its own source text, as Lattice\'s chrome-recode.js sends it into a page', () => {
+  // An indirect eval runs in the global scope, with nothing of this module in reach: the source must stand alone.
   // biome-ignore lint/security/noGlobalEval: the point of the test is that the source stands alone.
-  const fromText = (0, eval)(`(${createJpegEncoder.toString()})`);
+  const fromText = globalThis.eval(`(${createJpegEncoder.toString()})`);
   const px = synthetic(40, 30);
   const enc = fromText({ width: 40, height: 30, quality: 90 });
   enc.addRows(px, 30);
   assert.equal(sha(enc.finish()), sha(encodeJpeg(px, 40, 30, 90)));
 });
 
-test('golden bytes: the file every engine must write for the reference picture', async () => {
-  const { encodeJpeg } = await load();
+test('golden bytes: the file every engine must write for the reference picture', () => {
   const { width, height, quality, sha256 } = GOLDEN;
   assert.equal(sha(encodeJpeg(synthetic(width, height), width, height, quality)), sha256);
 });

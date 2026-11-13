@@ -1,27 +1,38 @@
 /**
- * lib/core/jpeg-encode.mjs — the one JPEG encoder every export uses, in every host.
+ * jpeg — the one JPEG encoder: the same file from the same pixels in Chromium, WebKit, Firefox and Node.
  *
  * WHY OUR OWN. `canvas.toBlob('image/jpeg', q)` hands the pixels to the platform's encoder, and the platforms disagree:
- * Firefox keeps full-resolution color and writes a third more than ours on the Yearn deck's pictures at the same quality,
+ * Firefox keeps full-resolution color and writes a third more than this encoder on the same pictures at the same quality,
  * and the same 52-slide picture PowerPoint came out 12.5 MB from Chromium and 43.3 MB from an iPhone, whose Safari writes
- * 1.5 to 2.2 times our bytes at the same quality (docs/scripts/ios-safari/jpeg-probe.js, in an iOS Simulator). The export spine
- * shared the CODE that decided what to write and still left the bytes to whatever browser it ran in. This writes the
- * same file from the same pixels in Chromium, WebKit, Firefox and Node (docs/e2e/jpeg-encode-engines.spec.ts).
+ * 1.5 to 2.2 times these bytes at the same quality. Lattice's docs/e2e/jpeg-encode-engines.spec.ts holds every engine to
+ * the golden hash in jpeg.test.ts.
  *
  * WHAT IT WRITES. Baseline JFIF: 4:2:0 chroma (the 2×2 average), the libjpeg quality scaling of the Annex K tables,
- * Huffman tables built for each picture (as libjpeg's optimize_coding), the AAN float DCT with its constants written out (no `Math.cos`, so no engine's
- * transcendental rounding can reach the bytes). Pixels with alpha are composited onto white here, so a caller never
- * paints a second, white-backed copy of the picture first.
+ * Huffman tables built for each picture (as libjpeg's optimize_coding), the AAN float DCT with its constants written out
+ * (no `Math.cos`, so no engine's transcendental rounding can reach the bytes). Pixels with alpha are composited onto
+ * white here, so a caller never paints a second, white-backed copy of the picture first.
  *
  * MEMORY. `createJpegEncoder` takes rows as they come and holds one 16-row band of samples. What grows is the scan's
  * symbol log, kept until the picture's own Huffman tables can be built from it (4 bytes a symbol), and then the output.
- * Measured for a 2560 × 1440 slide at quality 90: about 3 MB of log for a photo-heavy Yearn slide, and 20 MB for pure
- * noise at quality 95 (the worst case; the slide's own pixels are 14.7 MB). `encodeJpegCanvas` reads a canvas a band at a time through a one-band scratch canvas, the way
- * `encodePng` (canvas-encode.mjs) does.
+ * Measured for a 2560 × 1440 slide at quality 90: about 3 MB of log for a photo-heavy slide, and 20 MB for pure noise at
+ * quality 95 (the worst case; the slide's own pixels are 14.7 MB).
  *
- * `createJpegEncoder` uses nothing outside its own body, so a host can send its source into a page as text
- * (lib/export/chrome-recode.js does), and `encodeJpegCanvas` does the same when handed the factory. Keep it that way.
+ * SELF-CONTAINED. `createJpegEncoder` uses nothing outside its own body, so a host can send its source into a page as
+ * text (Lattice's lib/export/chrome-recode.js does). jpeg.test.ts rebuilds it from `toString()` alone. Keep it that way.
  */
+
+/** `quality` is 1 to 100, the libjpeg scale. */
+export interface JpegOptions {
+	width: number;
+	height: number;
+	quality: number;
+}
+
+/** A streaming encoder: `addRows` takes `rows` rows of RGBA, `width * 4` bytes each, top to bottom; `finish` returns the file once all `height` rows are in. */
+export interface JpegEncoder {
+	addRows(rgba: ArrayLike<number>, rows: number): void;
+	finish(): Uint8Array;
+}
 
 /**
  * A streaming baseline JPEG encoder.
@@ -30,7 +41,7 @@
  *   `addRows` takes `rows` rows of RGBA, `width * 4` bytes each, top to bottom; `finish` returns the file once all
  *   `height` rows are in.
  */
-export function createJpegEncoder({ width, height, quality }) {
+export function createJpegEncoder({ width, height, quality }: JpegOptions): JpegEncoder {
 	const W = width | 0;
 	const H = height | 0;
 	// 65500, not the format's 65535: libjpeg (and every decoder built on it) refuses anything larger.
@@ -45,12 +56,12 @@ export function createJpegEncoder({ width, height, quality }) {
 	const CHROMA = [17, 18, 24, 47, 99, 99, 99, 99, 18, 21, 26, 66, 99, 99, 99, 99, 24, 26, 56, 99, 99, 99, 99, 99, 47, 66, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99];
 	// libjpeg's jpeg_quality_scaling + jpeg_add_quant_table (force_baseline).
 	const scale = q < 50 ? Math.floor(5000 / q) : 200 - q * 2;
-	const quant = (base) => base.map((v) => Math.min(255, Math.max(1, Math.floor((v * scale + 50) / 100))));
+	const quant = (base: number[]) => base.map((v) => Math.min(255, Math.max(1, Math.floor((v * scale + 50) / 100))));
 	const qY = quant(LUMA);
 	const qC = quant(CHROMA);
 	// The AAN DCT leaves coefficient (u, v) scaled by 8 * s[u] * s[v]; the divisor folds that in.
 	const S = [1.0, 1.387039845, 1.306562965, 1.175875602, 1.0, 0.785694958, 0.5411961, 0.275899379];
-	const divisors = (table) => {
+	const divisors = (table: number[]) => {
 		const d = new Float64Array(64);
 		for (let i = 0; i < 64; i++) d[i] = 1 / (table[i] * S[i >> 3] * S[i & 7] * 8);
 		return d;
@@ -60,7 +71,7 @@ export function createJpegEncoder({ width, height, quality }) {
 
 	// Huffman tables built for this picture (libjpeg's jpeg_gen_optimal_table, Annex K.2): `freq` counts each symbol's uses;
 	// the result is the code count for each length 1..16 and the symbols in code order. Integer-only, so deterministic.
-	const optimalTable = (counts) => {
+	const optimalTable = (counts: Int32Array) => {
 		const freq = Int32Array.from(counts);
 		freq[256] = 1; // a reserved symbol, so no real code is all ones
 		const codesize = new Int32Array(257);
@@ -102,12 +113,12 @@ export function createJpegEncoder({ width, height, quality }) {
 		let longest = 16;
 		while (count[longest] === 0) longest--;
 		count[longest]--; // drop the reserved symbol
-		const vals = [];
+		const vals: number[] = [];
 		for (let len = 1; len <= 32; len++) for (let sym = 0; sym < 256; sym++) if (codesize[sym] === len) vals.push(sym);
 		return { counts: Array.from(count.subarray(1, 17)), vals };
 	};
 	// Canonical codes (Annex C): code[symbol] and size[symbol].
-	const codesOf = ({ counts, vals }) => {
+	const codesOf = ({ counts, vals }: { counts: number[]; vals: number[] }) => {
 		const code = new Uint16Array(256);
 		const size = new Uint8Array(256);
 		let c = 0;
@@ -124,7 +135,7 @@ export function createJpegEncoder({ width, height, quality }) {
 
 	// ── Output ────────────────────────────────────────────────────────────────────────────────────────────
 	// Filled pieces are kept as a list and joined once, so a growing file is never copied as it grows.
-	const pieces = [];
+	const pieces: Uint8Array[] = [];
 	let buf = new Uint8Array(1 << 16);
 	let at = 0;
 	const flush = () => {
@@ -132,20 +143,20 @@ export function createJpegEncoder({ width, height, quality }) {
 		buf = new Uint8Array(buf.length);
 		at = 0;
 	};
-	const byte = (b) => {
+	const byte = (b: number) => {
 		if (at === buf.length) flush();
 		buf[at++] = b;
 	};
-	const word = (w) => {
+	const word = (w: number) => {
 		byte(w >> 8);
 		byte(w & 0xff);
 	};
-	const bytes = (list) => {
+	const bytes = (list: ArrayLike<number>) => {
 		for (let i = 0; i < list.length; i++) byte(list[i]);
 	};
 	let bitBuf = 0;
 	let bitCnt = 0;
-	const bits = (value, len) => {
+	const bits = (value: number, len: number) => {
 		bitBuf = (bitBuf << len) | value;
 		bitCnt += len;
 		while (bitCnt >= 8) {
@@ -176,13 +187,13 @@ export function createJpegEncoder({ width, height, quality }) {
 	bytes([3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]);
 	// ── Blocks ────────────────────────────────────────────────────────────────────────────────────────────
 	// libjpeg's literal cos(pi/4), as jfdctflt.c writes it. Not Math.SQRT1_2: the last digits differ, and they reach every
-	// exported JPEG's bytes (the golden hash in test/unit/core/jpeg-encode.test.js would change).
+	// exported JPEG's bytes (the golden hash in jpeg.test.ts would change).
 	// biome-ignore lint/suspicious/noApproximativeNumericConstant: the literal is the specification, see above.
 	const C4 = 0.707106781;
 	const block = new Float64Array(64);
 	const coef = new Int32Array(64);
 	/** Forward DCT (AAN, as libjpeg's jfdctflt.c) in place on `block`, then quantize into `coef`. */
-	const fdctQuant = (div) => {
+	const fdctQuant = (div: Float64Array) => {
 		const d = block;
 		for (let p = 0; p < 64; p += 8) {
 			const t0 = d[p] + d[p + 7], t7 = d[p] - d[p + 7];
@@ -250,10 +261,10 @@ export function createJpegEncoder({ width, height, quality }) {
 	// them. Tables: 0 luma DC, 1 luma AC, 2 chroma DC, 3 chroma AC. One entry is table (2 bits), symbol (8), extra-bit count
 	// (6) and extra bits (16): 4 bytes a symbol, six to nine times the finished file.
 	const freq = [new Int32Array(257), new Int32Array(257), new Int32Array(257), new Int32Array(257)];
-	const logs = [];
+	const logs: Uint32Array[] = [];
 	let log = new Uint32Array(1 << 16);
 	let li = 0;
-	const put = (t, sym, n, v) => {
+	const put = (t: number, sym: number, n: number, v: number) => {
 		freq[t][sym]++;
 		if (li === log.length) {
 			logs.push(log);
@@ -263,7 +274,7 @@ export function createJpegEncoder({ width, height, quality }) {
 		log[li++] = ((t << 30) | (sym << 22) | (n << 16) | v) >>> 0;
 	};
 	/** Log `coef` (natural order) after DC prediction from `pred` with tables `t` (DC) and `t + 1` (AC); returns this block's DC. */
-	const encodeBlock = (pred, t) => {
+	const encodeBlock = (pred: number, t: number) => {
 		const diff = coef[0] - pred;
 		// A value's size category, then its bits (a negative value as its one's complement).
 		const dn = diff === 0 ? 0 : 32 - Math.clz32(diff < 0 ? -diff : diff);
@@ -343,7 +354,7 @@ export function createJpegEncoder({ width, height, quality }) {
 	let done = false;
 
 	return {
-		addRows(rgba, rows) {
+		addRows(rgba: ArrayLike<number>, rows: number) {
 			if (done) throw new Error('jpeg: addRows after finish');
 			if (rows < 0 || rowsIn + rows > H) throw new RangeError(`jpeg: ${rowsIn + rows} rows for a ${H}-row image`);
 			if (rgba.length < rows * W * 4) throw new RangeError('jpeg: fewer pixels than rows * width * 4');
@@ -419,34 +430,8 @@ export function createJpegEncoder({ width, height, quality }) {
 }
 
 /** JPEG bytes for a whole RGBA buffer (`width * height * 4`). */
-export function encodeJpeg(rgba, width, height, quality) {
+export function encodeJpeg(rgba: ArrayLike<number>, width: number, height: number, quality: number): Uint8Array {
 	const enc = createJpegEncoder({ width, height, quality });
 	enc.addRows(rgba, height);
-	return enc.finish();
-}
-
-/**
- * JPEG bytes for a canvas (DOM or Offscreen), read a band at a time; transparency lands on white.
- * @param {HTMLCanvasElement|OffscreenCanvas} canvas
- * @param {{ quality: number }} opts  quality 1 to 100
- * @param {typeof createJpegEncoder} [make]  the encoder factory. A host sending this function into a page as source text
- *   passes the factory it sent alongside, and then this body uses nothing outside itself either.
- */
-export function encodeJpegCanvas(canvas, { quality }, make = createJpegEncoder) {
-	const { width: W, height: H } = canvas;
-	// Read 64 rows at a time (four 16-row bands) through a scratch canvas that tall, not from `canvas` itself: many readbacks
-	// of one canvas make the browser move it to the CPU (the same reason encodePng does it).
-	const rowsPer = Math.min(64, H);
-	const scratch = typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(W, rowsPer) : canvas.ownerDocument.createElement('canvas');
-	scratch.width = W;
-	scratch.height = rowsPer;
-	const sg = scratch.getContext('2d', { willReadFrequently: true });
-	const enc = make({ width: W, height: H, quality });
-	for (let y0 = 0; y0 < H; y0 += rowsPer) {
-		const rows = Math.min(rowsPer, H - y0);
-		sg.clearRect(0, 0, W, rows);
-		sg.drawImage(canvas, 0, y0, W, rows, 0, 0, W, rows);
-		enc.addRows(sg.getImageData(0, 0, W, rows).data, rows);
-	}
 	return enc.finish();
 }

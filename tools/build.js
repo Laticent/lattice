@@ -108,6 +108,10 @@ const STEPS = [
   // early because the collage transform requires `@laticent/mosaico` at load time, so any step
   // that loads the component transforms (the runtime, the CLI, the docs-site cores) needs its dist/.
   { label: 'Mosaico library dist (ESM + CJS + .d.ts)', script: 'build-mosaico-lib.js', uncommitted: true },
+  // Lastra, the image library (2026-11-13-image-library.md). FOREGROUND and early for the same reason: the image
+  // layout's shape (lib/core/image-dimensions.js, which the transformer registry loads) requires `@laticent/lastra`,
+  // and the PDF writer, player-core and CLI bundles inline it through the export spine.
+  { label: 'Lastra library dist (ESM + CJS + .d.ts)', script: 'build-lastra-lib.js', uncommitted: true },
   // Fluido, the fit-policy core (2026-10-27-fluid-layout-library.md). FOREGROUND and early for the
   // same reason: the split kernels require `@laticent/fluido` at load time.
   { label: 'Fluido library dist (ESM + CJS + .d.ts)', script: 'build-fluido-lib.js', uncommitted: true },
@@ -479,6 +483,8 @@ async function main(argv) {
     // The guard loads the transformer registry, whose collage transform requires
     // `@laticent/mosaico` (2026-10-16-mosaico-layout-library.md).
     'docs/src/lib/mosaico/dist/index.cjs',
+    // …and the image layout's shape reads picture headers through `@laticent/lastra` (2026-11-13-image-library.md).
+    'docs/src/lib/lastra/dist/index.cjs',
     // …and the split kernels require `@laticent/fluido` (2026-10-27-fluid-layout-library.md).
     'docs/src/lib/fluido/dist/index.cjs',
     // …and lint-core's fix path requires `@laticent/squadra/driver` (2026-10-26-squadra-lint-library.md).

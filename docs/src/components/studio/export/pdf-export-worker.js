@@ -41,7 +41,7 @@
 // interleave their awaits and embed pages out of order.
 
 import { PDFDocument, PDFHexString, PDFName, PDFRawStream } from 'pdf-lib';
-import { encodeJpegCanvas } from '../../../../../lib/core/jpeg-encode.mjs';
+import { encodeJpegCanvas } from '../../../../../lib/core/canvas-encode.mjs';
 import { stickyNotePlacements } from '../../../playground/pdf-sticky-notes.js';
 import { deflate, imageDict, PX_TO_PT, packPredictorRows, pageContentOps } from './pdf-image-stream.js';
 import { createFontSet, registerTextFont, textFontName, textLayerOps } from './pdf-text-layer.js';
@@ -62,7 +62,7 @@ let scratch = null;
 /** Encode one drawn scratch canvas into the bytes a PDF image XObject carries. */
 async function encode(canvas, ctx) {
 	if (jpeg) {
-		// The shared JPEG writer (lib/core/jpeg-encode.mjs), not the canvas's own: the same bytes in every browser. Its
+		// The shared JPEG writer (lib/core/canvas-encode.mjs `encodeJpegCanvas`, lastra's encoder), not the canvas's own: the same bytes in every browser. Its
 		// baseline DCT stream is one a PDF carries verbatim, so nothing decodes or re-encodes it on the way in.
 		return encodeJpegCanvas(canvas, { quality: 95 });
 	}

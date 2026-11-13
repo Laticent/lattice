@@ -12,6 +12,7 @@
 // `saveMedia` checks both kinds and both scopes inside the same transaction as the write
 // (the reasoning in `asset-store.js` `putAsset` applies: a React snapshot goes stale, a
 // transaction does not). A clash is REFUSED, never resolved by overwriting.
+import { IMAGE_MIME, imageFormat } from '@laticent/lastra';
 import { ASSET_STORE, openDB, reqAsPromise } from '@/components/studio/library/asset-db.js';
 import { deleteAsset } from '@/components/studio/library/asset-store.js';
 // A DEFAULT import: a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
@@ -106,17 +107,13 @@ export function mediaNameFromFile(fileName: string, kind: MediaKind): string {
 	return NAME_OK.test(slug) ? slug : kind;
 }
 
-/** What the leading bytes say a file is, for the five types the Library stores. Null for anything else
- *  (HEIC and SVG included: the importer handles those by the type the browser reports). A file's own
- *  `type` comes from its extension, so a JPEG renamed `.png` claims to be a PNG; the bytes do not lie. */
+/** What the leading bytes say a file is, for the five types the Library stores (the image library's one
+ *  magic-number read, `@laticent/lastra` `imageFormat`). Null for anything else (HEIC and SVG included: the
+ *  importer handles those by the type the browser reports). A file's own `type` comes from its extension, so a
+ *  JPEG renamed `.png` claims to be a PNG; the bytes do not lie. */
 export function sniffImageMime(b: Uint8Array): string | null {
-	const at = (i: number, s: string) => s.split('').every((ch, k) => b[i + k] === ch.charCodeAt(0));
-	if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
-	if (b[0] === 0x89 && at(1, 'PNG') && b[4] === 0x0d && b[5] === 0x0a && b[6] === 0x1a && b[7] === 0x0a) return 'image/png';
-	if (at(0, 'GIF87a') || at(0, 'GIF89a')) return 'image/gif';
-	if (at(0, 'RIFF') && at(8, 'WEBP')) return 'image/webp';
-	if (at(4, 'ftyp') && (at(8, 'avif') || at(8, 'avis'))) return 'image/avif';
-	return null;
+	const format = imageFormat(b);
+	return format && format !== 'svg' ? IMAGE_MIME[format] : null;
 }
 
 /** Does this MIME type name an ISO box file (MP4 or QuickTime), the kind `video-scrub.ts` can clean? WebM is not one. */

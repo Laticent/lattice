@@ -10347,6 +10347,22 @@ function checkMosaicoBoundary(errors, dir = MOSAICO_DIR) {
   });
 }
 
+// ── Lastra (docs/src/lib/lastra) — the image library ─────────────────────────
+// Lastra is bytes in, bytes out: the same header reader, cleaners, resize and writers run on the CLI, in the
+// browser and in a worker, so it has NO dependencies, not even `node:`. Decoding with a canvas, reading a file
+// and the `images:` words belong to Lattice, which calls it (engineering/decisions/2026-11-13-image-library.md §3).
+const LASTRA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'lastra');
+function checkLastraBoundary(errors, dir = LASTRA_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Lastra folder. @laticent/lastra is pure and dependency-free so ` +
+      `it runs the same on the CLI, in the browser and in a worker: every import must resolve inside ` +
+      `docs/src/lib/lastra/ (engineering/decisions/2026-11-13-image-library.md §3).`,
+  });
+}
+
 // ── One paginator (Fluid) ────────────────────────────────────────────────────────────────────
 // A module that STAMPS a split page's role or run (a template, a concatenation or a literal
 // `data-split-role="cover"`, `setAttribute` / markdown-it `attrSet`, a `dataset` write) is composing
@@ -15441,6 +15457,7 @@ function run() {
   checkSegnoMarkdownBoundary(errors);
   checkFiloCommitPath(errors);
   checkMosaicoBoundary(errors);
+  checkLastraBoundary(errors);
   checkFluidoBoundary(errors);
   checkSquadraBoundary(errors);
   checkPaginationOwners(errors);
@@ -15520,6 +15537,7 @@ module.exports = {
   checkFiloCommitPath,
   SANCTIONED_UNDO_STACKS,
   checkMosaicoBoundary,
+  checkLastraBoundary,
   checkFluidoBoundary,
   checkSquadraBoundary,
   checkPaginationOwners,

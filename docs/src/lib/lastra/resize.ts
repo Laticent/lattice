@@ -1,4 +1,4 @@
-// LANCZOS-3 DOWNSCALE — the one resize the slide camera trusts for a photograph.
+// resize — Lanczos-3, the one downscale Lattice's slide camera trusts for a photograph.
 //
 // A browser's canvas scales with a bilinear filter, or mipmaps and a cubic at `imageSmoothingQuality = 'high'`, and the
 // camera's first shrink (halving steps, each a 2x2 average, then one bilinear step) kept 35 to 47% of the fine detail a
@@ -13,20 +13,30 @@
 // Pure: RGBA bytes in, RGBA bytes out, no DOM. Colors are weighted by alpha, so a transparent pixel lends no color to its
 // neighbors (no dark halo at a transparent edge).
 
-const A = 3;
+/** RGBA bytes, 4 a pixel, row after row. */
+export type Pixels = Uint8ClampedArray | Uint8Array;
+/** Returns source rows `y` to `y + n - 1`: `n * width * 4` RGBA bytes. */
+export type RowReader = (y: number, n: number) => Pixels;
+/** One output index: the first source index it reads and the normalized weights of the source pixels from there. */
+export interface LanczosTap {
+	first: number;
+	w: Float32Array;
+}
 
-function sinc(x) {
+const LANCZOS_LOBES = 3;
+
+function lanczosSinc(x: number): number {
 	if (x === 0) return 1;
 	const p = Math.PI * x;
 	return Math.sin(p) / p;
 }
 
 /** For each output index, the first source index and the normalized weights of the source pixels it reads. */
-export function lanczosWeights(srcLen, dstLen) {
+export function lanczosWeights(srcLen: number, dstLen: number): LanczosTap[] {
 	const scale = srcLen / dstLen;
 	const stretch = Math.max(1, scale);
-	const support = A * stretch;
-	const out = new Array(dstLen);
+	const support = LANCZOS_LOBES * stretch;
+	const out: LanczosTap[] = new Array(dstLen);
 	for (let i = 0; i < dstLen; i++) {
 		const center = (i + 0.5) * scale;
 		const first = Math.max(0, Math.floor(center - support));
@@ -35,7 +45,7 @@ export function lanczosWeights(srcLen, dstLen) {
 		let sum = 0;
 		for (let j = first; j <= last; j++) {
 			const x = (j + 0.5 - center) / stretch;
-			const v = Math.abs(x) < A ? sinc(x) * sinc(x / A) : 0;
+			const v = Math.abs(x) < LANCZOS_LOBES ? lanczosSinc(x) * lanczosSinc(x / LANCZOS_LOBES) : 0;
 			w[j - first] = v;
 			sum += v;
 		}
@@ -54,16 +64,16 @@ export function lanczosWeights(srcLen, dstLen) {
  * @param {number} [strip]  rows per read, for a reader
  * @returns {Uint8ClampedArray}  RGBA, `dw * dh * 4` bytes
  */
-export function lanczosResize(src, sw, sh, dw, dh, strip = 64) {
-	const readRows = typeof src === 'function' ? src : (y, n) => src.subarray(y * sw * 4, (y + n) * sw * 4);
+export function lanczosResize(src: Pixels | RowReader, sw: number, sh: number, dw: number, dh: number, strip = 64): Uint8ClampedArray {
+	const readRows: RowReader = typeof src === 'function' ? src : (y, n) => src.subarray(y * sw * 4, (y + n) * sw * 4);
 	const hx = lanczosWeights(sw, dw);
 	const vy = lanczosWeights(sh, dh);
 	// Resized-across source rows, premultiplied, by source row index; dropped once no later output row reads them.
-	const rows = new Map();
-	let block = null;
+	const rows = new Map<number, Float32Array>();
+	let block: Pixels | null = null;
 	let blockY = 0;
 	let blockN = 0;
-	const across = (y) => {
+	const across = (y: number): Float32Array => {
 		let row = rows.get(y);
 		if (row) return row;
 		if (!block || y < blockY || y >= blockY + blockN) {
