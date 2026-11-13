@@ -196,7 +196,8 @@ for (const [label, bin] of CLIS) {
       assert.equal(zip.file('media/junk.jpg'), null, 'the refused file is not carried');
       const rows = JSON.parse(await zip.file('media.json').async('string'));
       assert.deepEqual(rows.map((x) => [x.name, x.mime, x.bytes, x.width, x.height, x.original, x.sourceName, x.file]), [
-        ['gps', 'image/jpeg', jpeg.length, 64, 40, true, 'gps.jpg', 'gps.jpg'],
+        // Orientation 6 is a quarter turn: the row holds the DISPLAY size, as the Studio records it.
+        ['gps', 'image/jpeg', jpeg.length, 40, 64, true, 'gps.jpg', 'gps.jpg'],
         ['note', 'image/png', png.length, 32, 20, true, 'note.png', 'note.png'],
       ], "the Library's row for a photo kept as it was added");
       assert.ok(zip.file('packages/theme/probe-brand/probe-brand.css'), 'the installed theme travels');
@@ -205,6 +206,46 @@ for (const [label, bin] of CLIS) {
       const elsewhere = cli([out, html], tmp('empty-home'));
       assert.equal(elsewhere.status, 0, elsewhere.stderr);
       assert.match(fs.readFileSync(html, 'utf8'), /--accent:\s*#2d4ed8/i);
+    });
+
+    test("a link in assets/ that points outside the deck's folder is not packed, and is named", { timeout: TIMEOUT }, async () => {
+      const dir = tmp('link');
+      const outside = tmp('outside');
+      fs.copyFileSync(path.join(FIXTURES, 'gps.jpg'), path.join(outside, 'private-home.jpg'));
+      fs.mkdirSync(path.join(dir, 'deck', 'assets'), { recursive: true });
+      fs.symlinkSync(path.join(outside, 'private-home.jpg'), path.join(dir, 'deck', 'assets', 'logo.jpg'));
+      fs.writeFileSync(path.join(dir, 'deck', 'deck.md'), '---\ntheme: indaco\n---\n\n## Logo\n\n![](asset:logo)\n');
+      const out = path.join(dir, 'deck.lattice');
+      const r = cli([path.join(dir, 'deck', 'deck.md'), out], tmp('home'), NO_BROWSER);
+      assert.equal(r.status, 0, r.stderr);
+      assert.match(r.stderr, /the photo logo is left out of the \.lattice: it points outside the deck's folder \(a link\), so it is not read/);
+      const zip = await JSZip.loadAsync(fs.readFileSync(out));
+      assert.equal(zip.file('media/logo.jpg'), null, 'the linked file is not carried');
+      assert.equal(zip.file('media.json'), null);
+    });
+
+    test('a hand-built .lattice carrying a camera original is cleaned on the way out; a Studio-clean photo comes out byte for byte', { timeout: TIMEOUT }, async () => {
+      const dir = tmp('raw-in');
+      const raw = fs.readFileSync(path.join(FIXTURES, 'gps.jpg'));
+      const clean = Buffer.from(require('@laticent/lastra').cleanJpeg(new Uint8Array(raw)));
+      const row = (name, bytes) => ({ name, kind: 'image', scope: 'library', mime: 'image/jpeg', bytes: bytes.length, width: 40, height: 64, sourceName: `${name}.jpg`, original: true, addedAt: 0, file: `${name}.jpg` });
+      const input = path.join(dir, 'in.lattice');
+      fs.writeFileSync(input, await reopenable.buildLatticeZip(JSZip, { source: '---\ntheme: indaco\n---\n\n## Two\n\n![](asset:raw)\n\n![](asset:clean)\n', title: 'T', media: { index: JSON.stringify([row('raw', raw), row('clean', clean)]), files: { 'media/raw.jpg': new Uint8Array(raw), 'media/clean.jpg': new Uint8Array(clean) } } }));
+      const out = path.join(dir, 'out.lattice');
+      const r = cli([input, out], tmp('home'), NO_BROWSER);
+      assert.equal(r.status, 0, r.stderr);
+      const zip = await JSZip.loadAsync(fs.readFileSync(out));
+      const rawOut = Buffer.from(await zip.file('media/raw.jpg').async('uint8array'));
+      assert.deepEqual(exifTags(raw).includes(0x8825), true, 'the input carries a GPS block');
+      assert.deepEqual(exifTags(rawOut), [0x0112], 'the copy carries it without');
+      assert.deepEqual(Buffer.from(await zip.file('media/clean.jpg').async('uint8array')), clean, 'a photo that was already clean is unchanged');
+      const rows = JSON.parse(await zip.file('media.json').async('string'));
+      assert.equal(rows.find((x) => x.name === 'raw').bytes, rawOut.length, 'the row says the size of what is carried');
+      // And a render of the same file embeds the cleaned photo, not the camera's.
+      const pdf = path.join(dir, 'raw.pdf');
+      const rendered = cli([input, pdf], tmp('home'));
+      assert.equal(rendered.status, 0, rendered.stderr);
+      assert.ok(!fs.readFileSync(pdf).includes('ProbeCam'), 'the camera name does not reach the PDF');
     });
 
     test('--reopenable carries a cleaned assets/ photo inside the PDF', { timeout: TIMEOUT }, async () => {

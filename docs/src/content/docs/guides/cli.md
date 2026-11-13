@@ -357,12 +357,15 @@ npx lattice deck.md deck.lattice
 npx lattice deck.lattice copy.lattice
 ```
 
-Photos that came in a `.lattice` go back out exactly as they were. Photos from an
+Photos that came in a `.lattice` go through the same cleaner on the way in, so a
+photo the Studio made comes back out exactly as it was, and a camera original
+someone packed by hand loses its location. Photos from an
 `assets/` folder go the way the Studio keeps an original when you add it to the
 Library: a photo straight from a camera can record where it was taken, so that and
 the rest of its metadata (camera, text, comments) are removed, and the pixels,
 transparency and rotation stay. A photo the CLI cannot clean, such as a HEIC, an
-AVIF or a damaged file, is left out and named with the reason; add it to the
+AVIF, a damaged file, or a link that points outside the deck's folder, is left
+out and named with the reason; add it to the
 Studio's Library instead, which converts it. `--reopenable` follows the same rule
 for the copy it puts inside a PDF or PowerPoint, up to 32 MB of photos.
 

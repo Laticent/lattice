@@ -61,12 +61,16 @@ code package rides in it as its files and is never run. The writer is the Studio
 title, its review comments and every package it carried (used or not: a finish, a plugin, a
 component the deck does not name) go back out as they came. From a `.md`, the installed theme and
 components the deck uses go. Which photos it carries is one function, `photosToCarry` in
-`lib/export/lattice-input.js`: photos from a `.lattice` input pass through as their bytes (only
-the ones the deck names, as in the Studio), because the Studio scrubbed them at intake; photos
+`lib/export/lattice-input.js`: photos from a `.lattice` input go through lastra's `cleanerFor` when the file is unpacked
+(`unpack`; a `.lattice` is a file from anyone, and one built by hand can carry a camera original),
+so a render, a copy and `--reopenable` all carry the cleaned bytes, and a photo the Studio wrote
+comes out byte for byte (only the ones the deck names, as in the Studio); photos
 from `assets/` are cleaned as the Studio's "Keep original" intake stores one
 (`cleanAssetPhoto`: `@laticent/lastra` `cleanerFor` cuts EXIF, XMP, text chunks and comments and
 keeps the pixels and an orientation-only EXIF block), with the Library's row (`original: true`,
-width and height from lastra's `readImage`). Where the Studio would re-encode instead (HEIC, AVIF,
+the DISPLAY width and height, lastra's `displaySize`, as the Studio records them). The packer
+reads only what the render may read: the render's own confiner (`DECK_CONFINE`, real paths), so
+a link in `assets/` that points outside the deck's folder is refused and named. Where the Studio would re-encode instead (HEIC, AVIF,
 SVG, or a file the cleaner cannot parse), the CLI, with no encoder for that, leaves the photo out
 and names it with the reason. Both kinds are held to the byte cap and MAX_LATTICE_PHOTOS, and the
 ones past it are named. `--reopenable` uses the same function at the embedded cap
