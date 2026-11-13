@@ -41,9 +41,27 @@
  * `reuseExistingServer` is on outside CI, adopted it and tested a build from another
  * worktree entirely. Measured, not hypothetical.
  */
+import http from 'node:http';
 import { preview } from 'astro';
 
-const PORT = Number(process.env.PREVIEW_PORT || 4321);
+const OUTER = Number(process.env.PREVIEW_PORT || 4321);
+// RAISE-LOOP ARM ONLY (PR #3171, never merged): astro serves on OUTER+1000 and this proxy on OUTER holds the slide-2 sample
+// photo 6 s, past the old 4 s read cap, and passes everything else straight through.
+const PORT = OUTER + 1000;
+http
+	.createServer((req, res) => {
+		const go = () => {
+			const up = http.request({ host: '127.0.0.1', port: PORT, path: req.url, method: req.method, headers: req.headers }, (r) => {
+				res.writeHead(r.statusCode || 502, r.headers);
+				r.pipe(res);
+			});
+			up.on('error', () => res.destroy());
+			req.pipe(up);
+		};
+		if ((req.url || '').includes('photo-wide.svg')) setTimeout(go, 6000);
+		else go();
+	})
+	.listen(OUTER);
 
 // `strictPort` so a busy port is an ERROR rather than a silent slide to 4322: this
 // server exists to answer the one URL `playwright.config.ts` waits on, and drifting
