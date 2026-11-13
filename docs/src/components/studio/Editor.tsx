@@ -18,6 +18,7 @@ import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { lintCoreNow, loadLintCore, studioVocabSets } from './deck-lint';
 import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists, withLazyInlineCore } from './editor-complete';
+import { largeInsert } from './editor-large-insert';
 import { payloadFold } from './editor-payload-fold';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { firstSlideShown } from './first-slide';
@@ -1102,6 +1103,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 						EditorView.lineWrapping,
 						// An inline picture's bytes show as a chip with its size, so the editor never lays out megabytes of base64.
 						payloadFold(),
+						// A large typed insertion (an IME commit, a drop, dictation) is applied as one transaction, as a paste is.
+						largeInsert(),
 						EditorView.contentAttributes.of({ 'aria-label': 'Deck source' }),
 						// FORMAT ON LEAVING THE EDITOR, for the blocks that ask (`@code{format}`, or the
 						// deck's `code: format`). The Studio autosaves on every keystroke, so leaving the
