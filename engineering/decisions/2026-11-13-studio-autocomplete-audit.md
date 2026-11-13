@@ -5,7 +5,7 @@ summary: An audit of autocomplete in the Studio's editors, driven in the real St
 
 # Studio autocomplete: what completes, what does not, and the plan
 
-**Date:** 2026-11-13 · **Status:** proposed · **Scope:** every CodeMirror editor in the Studio (the deck source
+**Date:** 2026-11-13 · **Status:** proposed (decisions settled; no code yet) · **Scope:** every CodeMirror editor in the Studio (the deck source
 editor, `CodeField` in the theme, component, finish and manifest panes). The Playground editor is in scope only as the
 source of code the Studio should share.
 
@@ -122,9 +122,8 @@ once, and it stops the drift: a source added for one editor reaches the other (H
 
 ### Slice 2 — A trigger that always works and always answers
 
-- Add a second binding that macOS does not take, and list both in the `?` shortcut sheet. The recommendation is
-  **Alt-Escape**, the native macOS text-completion key, so a Mac author has a key that works without changing a
-  system setting. Ctrl-Space stays.
+- Add Option-Esc on macOS, the native Mac text-completion key, so a Mac author has a key that works without changing
+  a system setting. Ctrl-Space stays on every platform. List both in the `?` shortcut sheet (§6).
 - When Ctrl-Space finds no source, show a small "No suggestions here" hint for about a second, so the key never looks
   broken.
 - Tab accepts an open completion (only while the menu is open, so Tab still moves focus otherwise).
@@ -157,8 +156,7 @@ Settled by the owner on 2026-11-13:
 1. **One completer, shared by the Studio and the Playground** (slice 1), not a copy of the eight missing sources.
 2. **Tab accepts a completion while the menu is open.** With no menu open, Tab keeps moving focus.
 3. **Ctrl-Space on a blank body line opens a short "insert" list.** It never opens while the author types prose.
-
-Still open: **the second trigger on macOS.** The usual keys, by platform:
+4. **The trigger keys are each platform's usual ones**, from this table:
 
 | Platform | Usual key | What else uses it |
 |---|---|---|
@@ -166,5 +164,5 @@ Still open: **the second trigger on macOS.** The usual keys, by platform:
 | Linux | Ctrl-Space (VS Code, JetBrains, Eclipse) | fcitx switches input method on Ctrl-Space by default |
 | macOS | Ctrl-Space in code editors; Option-Esc in native Mac text fields | macOS "Select the previous input source" is Ctrl-Space by default |
 
-The recommendation is Ctrl-Space on every platform, plus Option-Esc on macOS, the key Mac text fields already use
-for completion. CodeMirror's own Alt-\` and Alt-i stay bound. All of them go in the `?` shortcut sheet.
+So: Ctrl-Space on every platform, plus Option-Esc on macOS, the key Mac text fields already use for completion.
+CodeMirror's own Alt-\` and Alt-i stay bound. All of them go in the `?` shortcut sheet.
