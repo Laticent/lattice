@@ -40,6 +40,9 @@ async function checkPanel(page: Page): Promise<void> {
 	const panel = page.locator(PANEL);
 	await expect(panel).toBeVisible();
 	await expect(panel).toHaveCount(1);
+	// Opaque: WebKit does not blur an iframe under a translucent panel, so the slide's text read through a
+	// 95% background. Every engine reports an opaque color as rgb(), a translucent one with an alpha.
+	expect(await panel.evaluate((e) => getComputedStyle(e).backgroundColor)).toMatch(/^rgb\(\d+, \d+, \d+\)$/);
 
 	// Pinned: the exact tier, labeled as pinned so a screenshot is never mistaken for detection.
 	await expect(rowValue(page, 'Tier')).toHaveText('Full (pinned by ?tier=)');

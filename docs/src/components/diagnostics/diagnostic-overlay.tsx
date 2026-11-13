@@ -165,6 +165,10 @@ export function DiagnosticPanel({ posKey, label, onClose, closeLabel, id, testId
 			? { left: 'max(8px, env(safe-area-inset-left))', top: 'max(8px, env(safe-area-inset-top))' }
 			: { left: 'max(8px, env(safe-area-inset-left))', bottom: 'max(8px, env(safe-area-inset-bottom))' };
 
+	// OPAQUE, with no backdrop blur. WebKit does not apply `backdrop-filter` to an iframe beneath it, so a
+	// 95% panel over the Studio's slide frame let the slide's text show through sharp and readable (found
+	// on real WebKit, iPhone 15 Pro, 2026-11-13; device-capability-tiers.md §5.1). An opaque panel reads the
+	// same on every engine, and drops a per-frame backdrop filter.
 	const panel = (
 		<div
 			ref={ref}
@@ -172,7 +176,7 @@ export function DiagnosticPanel({ posKey, label, onClose, closeLabel, id, testId
 			data-testid={testId}
 			role="status"
 			aria-live={ariaLive}
-			className={cn('lx-ui fixed z-[2147483646] select-none rounded-xl border border-border bg-popover/95 px-2.5 pt-2 pb-2.5 text-[12px] leading-[1.4] text-popover-foreground shadow-lg backdrop-blur-sm', panelClassName)}
+			className={cn('lx-ui fixed z-[2147483646] select-none rounded-xl border border-border bg-popover px-2.5 pt-2 pb-2.5 text-[12px] leading-[1.4] text-popover-foreground shadow-lg', panelClassName)}
 			style={style}
 		>
 			{/* `dp-grip` is the stable DRAG-HANDLE contract hook (paired with `.dp-close`) — tests
