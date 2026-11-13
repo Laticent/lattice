@@ -690,6 +690,56 @@ const PLUGIN_HOST = Object.freeze({ disabled: PLUGINS_DISABLED, ...(PLUGINS_DEFA
 // Resolve mdFile + outFile + cssFile + paletteArg from positionals, with
 // named flags overriding. Positional shape:
 //   [source.md] [output.pdf | custom.css] [output.pdf | palette] [palette]
+//
+// A `.lattice` project file (the Studio's own format) is unpacked first, by the Studio's own reader, into a private
+// folder shaped like a deck this CLI renders: `deck.md`, its photos in `assets/` as their original bytes, and a
+// one-run package store (lib/export/lattice-input.js). The input is judged by its BYTES: a zip is a `.lattice`
+// whatever it is called, and other binary bytes are refused here, never parsed as Markdown (they used to run into
+// a 60 s navigation timeout).
+const LATTICE_INPUT = (() => {
+  const input = positional[0];
+  if (!input || input === '-') return null;
+  const { sniffInput, unpackSync } = require('./lib/export/lattice-input.js');
+  const kind = sniffInput(input);
+  if (kind === 'binary') {
+    console.error(`error: ${input} is not a Markdown deck or a .lattice project file`);
+    process.exit(1);
+  }
+  if (kind !== 'zip') return null;
+  let out;
+  try {
+    out = unpackSync(input, { installedRoot: require('./lib/packages/home.js').packagesRoot({ flag: flags.packages }) });
+  } catch (e) {
+    console.error(`error: ${input}: ${e.message}`);
+    process.exit(1);
+  }
+  const { printableLine } = require('./lib/cli/package-gate.js');
+  if (!flags.quiet) {
+    if (out.photos.length) console.log(`  photos: ${out.photos.length} from the .lattice, as the Library stored them`);
+    if (out.packages.length) console.log(printableLine(`  packages: ${out.packages.map((p) => `${p.type} ${p.name}`).join(', ')} (from the .lattice, used for this render only)`));
+  }
+  for (const s of out.shadowed) console.error(printableLine(`note: the .lattice carries the ${s.type} ${s.name}, so its copy is used instead of the installed one`));
+  for (const r of out.refused) console.error(printableLine(`warning: the .lattice photo ${r.name} is not used: ${r.why}`));
+  // `--trust`: the code packages THIS file carries run for this render, at the digests they have now. Nothing is
+  // written to the trust store, and an installed code package still needs `lattice packages trust`.
+  if (flags.trust) {
+    const { findInstalled } = require('./lib/packages/home.js');
+    const { acceptedDigests } = require('./lib/packages/trust.js');
+    const { grantForThisRun } = require('./lib/cli/code-door.js');
+    for (const p of out.packages) {
+      const found = (p.type === 'component' || p.type === 'plugin') && findInstalled(out.store, p.type, p.name);
+      const digests = found ? acceptedDigests(found.pkg) : [];
+      if (!digests.length || !(found.pkg.code || found.pkg.roles?.['render.js'])) continue;
+      grantForThisRun(p.type, p.name, digests);
+      if (!flags.quiet) console.log(printableLine(`  --trust: the code in the ${p.type} ${p.name} runs for this render only`));
+    }
+  }
+  // The rest of the run reads the unpacked deck, and finds packages in the one-run store.
+  positional[0] = out.deck;
+  flags.packages = out.store;
+  return { file: input, ...out };
+})();
+if (flags.trust && !LATTICE_INPUT) console.warn('note: --trust runs the code packages a .lattice input carries; this input is not a .lattice, so it is ignored');
 const mdFile = positional[0];
 // Where a render may read local files: the deck's folder and Lattice's own install, judged by REAL path, so a
 // symlink in the deck folder and a typed `file:///etc/x` are refused (lib/core/file-confine.js; media note §4.11).

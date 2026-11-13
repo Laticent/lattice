@@ -322,6 +322,31 @@ npx lattice deck.md deck.pdf --reopenable --strip-notes
 npx lattice deck.md deck.pptx --reopenable
 ```
 
+### Render a Lattice project from the Studio
+
+A `.lattice` file renders like a deck. Pass it where the `.md` would go:
+
+```sh
+npx lattice deck.lattice deck.pdf
+npx lattice deck.lattice deck.pptx
+```
+
+The CLI reads the file with the same checks the Studio uses when you open one.
+The photos the deck names come from the file as the Library stored them, so
+`asset:` pictures draw without an `assets/` folder. The export then treats them
+like any other picture, so `--images original` keeps them exactly as stored.
+
+The saved themes, components and other packages the file carries are used for
+this render only. Nothing is installed into `~/.lattice`. A package the file
+carries wins over an installed one of the same name, and the CLI says so. A
+component that runs code still needs your approval: approve it at its exact
+code with `lattice packages trust`, or add `--trust` to run the code the file
+carries for this one render.
+
+```sh
+npx lattice deck.lattice deck.pdf --trust
+```
+
 ## Speaker notes and captions
 
 A plain HTML comment on a slide is that slide's speaker note:

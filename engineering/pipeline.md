@@ -34,6 +34,19 @@ byproduct is named `<out>.lattice-<pid>-<random>.html`, never `<out>.html`: a si
 to different formats (`d.pdf` and `d.pptx`) cannot race on one file. With `.html` the sidecar **is** the
 output file.
 
+**The input is a deck or a `.lattice`, judged by its bytes.** A zip is a `.lattice`
+project file from the Studio. `lib/export/lattice-input.js` opens it with the Studio's own
+reader (`lib/packages/lattice-read.mjs`) in a short child process, because JSZip reads
+asynchronously and the CLI is synchronous up to its render. It unpacks the file into a private
+temporary folder shaped like a deck: `deck.md`, `assets/<name>.<ext>` for each photo the deck
+names, and a one-run package store. The rest of the run then takes the same path as a `.md` deck.
+The store holds the file's packages, plus links to the installed ones the file does not replace.
+A file package wins over an installed one with the same name, and nothing is written to
+`~/.lattice`. A code package in the file still needs consent: `lattice packages trust`, or
+`--trust` for that render (`lib/cli/code-door.js` `grantForThisRun`, never written to the trust
+store). Any other binary input, such as a PDF or a picture, is refused at once. It used to be
+parsed as Markdown and fail after a 60 s navigation timeout.
+
 **That list is closed** — an extension not on it is a usage error. It used to fall
 through to the PDF path, which wrote PDF bytes under whatever name was asked for:
 `lattice deck.md out.webp` exited 0 and left a file `file(1)` reads as *"PDF
