@@ -727,11 +727,9 @@ byte for byte.
   (`recordsToComments(…, { legacy: true })`), so it keeps proving something once the corpus is records.
 
 **Scope, 2026-11-09 (owner).** Steps 2 to 6 ship before GA: the cut is breaking, and before GA a codemod covers our own
-decks. Step 7 (spec 2.0) may follow GA. The owner confirmed the hard cut again for this scope ("we are not GA, so we don't
-need to be backward compatible"), with `legacy-directive-comment` as a warning and its fix the only safety net. As of
-2026-11-13, steps 2 to 5's tool are on `main` (#3115, #3133, #3136); still owed before GA are the deck-wide sweep
-(`followups.d/2772-p1-meta-step-5-codemod.md`) and the cut (`followups.d/2772-p1-meta-step-6-the-cut.md`). The order across
-both notes: this codemod's sweep, then the image sweep and its engine break (`2026-10-16-media-plugins.md` §9), then the cut.
+decks. Step 7 (spec 2.0) may follow GA. As of 2026-11-13, steps 2 to 4 and step 5's tool are on `main` (#3115, #3133,
+#3136); the sweep and the cut are tracked in `followups.d/2772-p1-meta-step-5-codemod.md` and
+`followups.d/2772-p1-meta-step-6-the-cut.md`, which hold their order and D3.
 
 Steps 1 to 5 ship with authored comments still read, so every commit is green. **Step 1 delivers the reader, registry,
 completion and structured edit with no syntax change**, and steps 2 to 7 are a syntax layer over a single door.
