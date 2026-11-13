@@ -177,7 +177,7 @@ restored), green 10 times in a row alone, and green under load (`--workers=4 --r
 |---|---|---|
 | 1 | Both editors build their source list from one module; the map completer loads only on a map slide; the front-matter key source no longer fires on an indented line (it offered deck keys inside `backdrop:`) | `docs/src/playground/context-sources.js`, `editor-complete.ts` `studioCompletionSources`, `complete.js` `playgroundCompletionSources` |
 | 2 | Ctrl-Space everywhere, Option-Esc on macOS (Option-\` and Option-i kept), Tab accepts while the menu is open, "No suggestions here" when an asked-for menu is empty, a picked key opens its values, set keys are not offered again, an Editor section in the `?` list | `docs/src/playground/completion-keys.js`, `strip-actions/shortcuts.tsx` |
-| 3 | Directive values (`<!-- _paginate: `), the note-channel and pane keys after `<!-- `, TeX commands inside math, a flowchart's names, arrows and span words (closes `followups.d/2385`), the Ctrl-Space insert list on a blank line, `sample:` art inside an image reference, fence languages from the plugin registry (drops `chart`, which the engine renders as plain code) | `context-sources.js`, `tex-commands.js`, `grammar-vocab.js` `FENCE_LANGUAGES` / `COMMENT_KEYS`, `makeAssetCompletion`, `sync-playground-assets.mjs` (`samples/index.json`) |
+| 3 | Directive values (`<!-- _paginate: `), the note-channel and pane keys after `<!-- `, TeX commands inside math, a flowchart's names, arrows and span words (closes `followups.d/2385`), the Ctrl-Space insert list on a blank line, `sample:` art inside an image reference, fence languages from the plugin registry (drops `chart`, which the engine renders as plain code) | `context-sources.js`, `tex-commands.js`, `grammar-vocab.js` `loadFenceLanguages` / `COMMENT_KEYS`, `lib/authoring/lint-core.js` `flowchartCompletions`, `makeAssetCompletion`, `sync-playground-assets.mjs` (`samples/index.json`) |
 | 4 | CodeField keeps CodeMirror's CSS completion (the old `override` replaced it with nothing) and completes token names inside `var(`: the palette contract by role and the type scale, whose list moved from the ownership gate to `lib/core/type-tokens.js` so the gate and the editor read one list | `CodeField.tsx`, `css-token-complete.ts`, `lib/core/type-tokens.js` |
 | found | CodeField dropped letters typed quickly: it wrote the parent's late echo of its own text over the newest letters (Firefox at full speed: 4 runs in 5 on `main`). It now recognizes its echoes | `CodeField.tsx` `emittedRef`; `engineering/gotchas/studio-playground.md` |
 
@@ -214,7 +214,16 @@ The first keys of each pass were dropped whatever they were (the plain-letter co
 rows, where both keys ran back to back under the same conditions, are read. Runs: Actions runs 43380691273 (first try,
 no focus), 43384956399 (shortcut off) and 43387275107 (shortcut on), probe source at commit `65d40c7f`.
 
-### 7.4 Not built, on purpose
+### 7.4 Start-up cost
+
+The first full build put the Studio, Playground and home routes over budget (+985 / +807 / +784 bytes of gzipped
+start-up JavaScript, home 0.2 KB past its ceiling): the plugin fence registry and the flowchart grammar, imported for
+completion, pulled their dependencies into a new shared chunk that every page loads. Both now load on first use: fence
+languages through one shared source, and the flowchart words through the lint core (`flowchartCompletions`), which both
+editors already load on demand. With the TeX list also deferred, the growth is +126 / +32 / +6 bytes, declared in
+`docs/route-budget.d/3174-studio-autocomplete.md`.
+
+### 7.5 Not built, on purpose
 
 - **A color swatch beside a color token.** Component CSS is palette-blind (HARD RULE #3): a token has no one value to
   show until a theme supplies it, and the Theme CSS field already shows the value on the line that declares it.
