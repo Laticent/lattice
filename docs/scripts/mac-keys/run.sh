@@ -17,3 +17,14 @@ for _ in $(seq 1 120); do curl -sf http://localhost:4321/studio/ >/dev/null && b
 curl -sf http://localhost:4321/studio/ >/dev/null
 cp docs/scripts/mac-keys/probe.mjs docs/mac-keys-probe.mjs
 (cd docs && KEYS_BIN="$OUT/keys" OUT="$OUT" STUDIO_URL=http://localhost:4321/studio/ node mac-keys-probe.mjs)
+# Turn the input-source shortcuts back on (the runner image ships them off; a new Mac ships them on: Ctrl-Space and
+# Ctrl-Option-Space), apply them to the running session, then run the probe with the stock arms.
+for id in 60 61; do
+  mods=262144; [ "$id" = 61 ] && mods=786432
+  defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add "$id" \
+    "<dict><key>enabled</key><true/><key>value</key><dict><key>parameters</key><array><integer>32</integer><integer>49</integer><integer>$mods</integer></array><key>type</key><string>standard</string></dict></dict>"
+done
+/System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u || echo 'activateSettings failed'
+echo '--- symbolic hotkeys 60/61 after turning them on'
+defaults read com.apple.symbolichotkeys AppleSymbolicHotKeys | grep -A3 -E '^ +6[01] = '
+(cd docs && STOCK_HOTKEYS=1 KEYS_BIN="$OUT/keys" OUT="$OUT/stock" STUDIO_URL=http://localhost:4321/studio/ node mac-keys-probe.mjs)

@@ -68,6 +68,18 @@ const se = (code, mods) => async () => {
 };
 
 await arm('control: Playwright Ctrl+Space (synthetic)', async () => page.keyboard.press('Control+Space'));
+// Warm-up: the first OS keys after the window comes forward can be dropped (seen on the first two runs), so send a
+// plain key through System Events until the page sees one, at most ten times, and record how many it took.
+results.warmup = 0;
+for (let i = 1; i <= 10 && !results.warmup; i++) {
+	await setup();
+	keys('activate');
+	await page.waitForTimeout(500); // one-off probe: the window manager offers no signal to wait on
+	execFileSync('osascript', ['-e', 'tell application "System Events" to key code 0']);
+	await page.waitForTimeout(300);
+	if ((await page.evaluate(() => window.__keys.length)) > 0) results.warmup = i;
+}
+console.log(`warm-up: the page saw an OS key on try ${results.warmup || 'never'}`);
 await arm('control: OS plain a', os(0, 'none'));
 await arm('control: System Events plain a', se(0, 'none'));
 results.sourcesDefault = keys('sources');
@@ -85,6 +97,17 @@ await arm('OS Ctrl-Space, two input sources', os(49, 'ctrl'));
 await arm('OS Option-Esc, two input sources', os(53, 'alt'));
 await arm('System Events Ctrl-Space, two input sources', se(49, 'ctrl'));
 await arm('System Events Option-Esc, two input sources', se(53, 'alt'));
+
+// A stock Mac: the runner image turns macOS's input-source shortcuts off (symbolic hotkeys 60 and 61, `enabled = 0`).
+// run.sh's STOCK_HOTKEYS step turns them back on, as a new Mac ships, before this second pass.
+if (process.env.STOCK_HOTKEYS === '1') {
+	results.stock = true;
+	await arm('STOCK: System Events Ctrl-Space, two input sources', se(49, 'ctrl'));
+	await arm('STOCK: System Events Option-Esc, two input sources', se(53, 'alt'));
+	await arm('STOCK: OS Ctrl-Space, two input sources', os(49, 'ctrl'));
+	await arm('STOCK: OS Option-Esc, two input sources', os(53, 'alt'));
+	await arm('STOCK: System Events Ctrl-Space again', se(49, 'ctrl'));
+}
 
 fs.mkdirSync(OUT, { recursive: true });
 fs.writeFileSync(`${OUT}/mac-completion-keys.json`, JSON.stringify(results, null, 2));
