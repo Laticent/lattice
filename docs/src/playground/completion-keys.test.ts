@@ -40,7 +40,7 @@ describe('the "No suggestions here" note', () => {
 		startCompletionOrSayNone(v);
 		await vi.waitFor(() => expect(completionStatus(v.state)).toBe('active'));
 		// The answer is in and the menu is up; one more task turn is when a note would have been dispatched.
-		await new Promise((r) => setTimeout(r, 0));
+		await new Promise((r) => setTimeout(r, 0)); // flaky-ok: one task turn, the boundary the note is dispatched on, not a duration
 		expect(emptyHintAt(v.state)).toBeNull();
 	});
 
@@ -52,7 +52,7 @@ describe('the "No suggestions here" note', () => {
 		closeAndForget(v);
 		answer(null);
 		await vi.waitFor(() => expect(completionStatus(v.state)).toBeNull());
-		await new Promise((r) => setTimeout(r, 0));
+		await new Promise((r) => setTimeout(r, 0)); // flaky-ok: one task turn, the boundary the note is dispatched on, not a duration
 		expect(emptyHintAt(v.state)).toBeNull();
 	});
 
