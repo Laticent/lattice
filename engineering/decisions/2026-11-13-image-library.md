@@ -99,13 +99,14 @@ format
 is lossless. Hostile inputs (truncated, oversized dimensions, a Huffman table that never terminates, a
 decompression bomb) must refuse with a typed error inside a pixel and time budget, never hang.
 
-### Measured (2026-11-13, slices 3 and 4: `docs/src/lib/lastra/decode`, after the trio's review)
+### Measured (2026-11-13, slices 3 and 4: `docs/src/lib/lastra/decode`, after the trio's review and its second round)
 
 **The corpus is ours.** `tools/lastra-corpus/generate.py` draws every picture from one seed (gradients,
 grain, hard edges, bitmap-font text) and builds its own Display P3 and Adobe RGB ICC profiles
 (`icc.py`), so no third-party photo or profile is in it and §8's licensing question does not arise for
-the decoders. 66 JPEGs and 70 PNGs, 1.06 MB, committed with `fixtures/expected.json`; `--check`
-regenerates in memory and diffs (zero differences). The tests read only committed files.
+the decoders. 70 JPEGs, 72 PNGs and 83 zlib streams, 1.56 MB, committed with `fixtures/expected.json`;
+`--check` regenerates in memory and diffs (zero differences). The four `jpegtran-*` files are written by
+the stock `jpegtran -scans` (libjpeg-turbo 2.1), not by lastra's generator. The tests read only committed files.
 
 **The oracle, and the floor.** PNG: the tool's own encoder writes each file, so the expected pixels are
 the ground truth it was given; Pillow decodes every file back to those samples, which proves the
@@ -123,6 +124,17 @@ is an exact match on every file, measured:
 | phone-shaped: Display P3, Adobe RGB, EXIF orientation 6, MPF two pictures, Ultra HDR gain map, a profile over two APP2 segments (6) | identical pixels; `icc` byte-identical to Pillow's |
 | damaged: an RST dropped, doubled, two behind, one ahead, four ahead; junk before an RST; a short interval; bad Huffman codes; EOI mid-scan (9) | identical |
 | progressive missing its last scans, so libjpeg's block smoothing applies (5); cut with no EOI (3); quantization past 16 bits (2) | identical |
+| `jpegtran -scans` scripts of 64, 65, 69 and 97 scans: one coefficient per scan, refined bands, a 4:4:4 file in pairs (4) | identical |
+
+**PNG's inflate is in-tree** (`inflate.ts`, RFC 1950/1951). The first decoder used the platform's
+`DecompressionStream`, and on the same bytes the engines disagreed: with trailing data or a missing or
+bad Adler-32, Node decoded, Chromium decoded only small streams, and Firefox and WebKit refused, because a
+stream that errors discards the output it had queued. lastra's own inflate stops at the size the header
+implies and never reads the checksum, so its verdict is one answer everywhere. Up to that point it is
+held to Python's zlib byte for byte on 83 streams (56 whole, 15 with a bad checksum, 9 cut, 3 refused),
+and a seeded 2,000-case damage fuzz holds it to Node's zlib: identical output when zlib accepts, a prefix
+of zlib's output when either refuses. Node, 24.4 MB 12 MP PNG: 981 ms with the platform inflate, about
+1,170 ms with lastra's.
 
 **Damaged-file parity, the review's sets.** The checker's and red team's 951 damaged and partial JPEGs
 (corrupt entropy bytes, restart damage, partial progressive files, redefined tables, marker mixes),
@@ -146,15 +158,18 @@ opaque ones):
 
 | Fixtures | Chromium | Firefox | WebKit |
 |---|---|---|---|
-| valid JPEG (all modes, phone files) | identical | identical | identical, except files with an ICC profile, which WebKit color-manages even under `none` |
+| lastra itself, bundled and run inside the engine, vs lastra in Node (142 fixtures) | identical on all | identical on all | identical on all |
+| valid JPEG (all modes, phone files, the `jpegtran` files) | identical | identical | identical, except files with an ICC profile, which WebKit color-manages even under `none` |
 | damaged JPEG (9) | identical | identical | identical |
 | smoothed partial progressive (5) | identical | identical | 4 differ by at most 14 levels (PSNR 40 to 69 dB) |
 | cut with no EOI (3) | refuses all three | scan-boundary cut identical; the other two differ | shows nothing |
 | quantization past 16 bits (2) | differ (SIMD) | differ (SIMD) | differ (SIMD) |
 | PNG, 1 to 8 bits, every tRNS case, extra data past the image | identical, except a palette index past PLTE (a palette color, lastra black) and a tRNS longer than the palette or of the wrong length (applied, lastra ignores it, as libpng) | identical | identical |
 | PNG, 16 bits | identical | rounds instead of the high byte: max 1, PSNR 53.7 to 56.3 dB | identical |
+| PNG, zlib stream with a bad Adler-32 / none | identical / refuses | drops the last 9 of 63 pixels / refuses | drops rows of both |
 
-lastra's PNG policy is libpng's (Firefox and WebKit decode with it), pinned by the 12 `edge-*` fixtures.
+lastra's PNG policy is libpng's (Firefox and WebKit decode with it), pinned by the 14 `edge-*` fixtures,
+except on the Adler-32, where the engines split and lastra takes Chromium's answer (it never reads it).
 
 **What a browser displays for a tagged file** (default color management, reported, not asserted):
 Chromium's display differs from lastra's as-stored pixels by a mean CIE76 delta E of 5.2 (largest 14.2)
@@ -165,7 +180,8 @@ color-managed decoder. Every engine turns a picture by its EXIF orientation even
 `imageOrientation: 'none'`; the comparison turns lastra's pixels with `applyOrientation` first and they
 then match.
 
-**Work bounds, before and after** (the red team's files; Node 22, one run each, peak RSS of the process):
+**Work bounds, before and after the first round** (the red team's files; Node 22, one run each, peak RSS
+of the process):
 
 | Attack | reviewed: time, RSS, steps | now: time, RSS, steps, outcome |
 |---|---|---|
@@ -177,29 +193,65 @@ then match.
 | 128 MB of unused DHT tables | 18.7 s, 201 MB, 2,063 steps | 0.2 s, 183 MB, 7.46 M steps |
 | PNG 10000 x 10000 RGBA16, valid zero bomb (778 KB) | 3.5 s, 1,227 MB | 5.1 s, 462 MB (rows unfiltered as they inflate) |
 
+**The second round.** The first round's cap of 32 visits per block refused legal files: `jpegtran -scans`
+writes up to 100 scans, and a legal progression can visit a block up to 896 times. The cap is now what
+libjpeg-turbo's fuzzer uses, 500 scans, plus at most 1,024 coefficients decoded per block over all scans
+(2^26 in all below 2^16 blocks). First-pass end-of-band runs and refinement runs over blocks with no
+nonzero coefficient are skipped in a tight loop, so an empty pass costs almost nothing. Node 22, one run
+each, sync decode, peak RSS of the process:
+
+| Attack | first round | second round |
+|---|---|---|
+| 20 million zero-length IDAT chunks, 255 MB | Node aborts: heap out of memory | `too-large` (more than 2^20 chunks) in 38 ms, 1,048,577 steps, 316 MB (the file itself) |
+| end-of-band-run scans, 100 | 3.2 s, `too-large` | 1.25 s, decoded (a legal file now) |
+| end-of-band-run scans, 882 | 12.2 s | 2.2 s, `too-large` (scan cap) |
+| 10000 x 10000, 40 full-band refinements over zero blocks | 6.9 s, decoded | 0.87 s, decoded |
+| 10000 x 10000, coefficient 1 set in every block, 20 refinements each reading a bit per block (4.7 MB): the worst case found at 100 MP | 7.2 s, 836 MB, decoded | 4.6 s, 353 MB, `too-large` (work cap) |
+| every legal empty scan, 896 / 3,584 scans | `too-large` (scan cap) | `corrupt` in under 1 ms: the scans name a Huffman table never defined, which libjpeg refuses in a progressive frame |
+| 128 MB of unused DHT tables | 0.2 s | 0.17 s |
+
+An abort 1 s into the worst case ends the async decode 0.4 ms after the signal fires. The longest stretch
+without a yield is 8 to 12 ms for the 12 MP benchmarks (the speed runs below): upsampling, block smoothing,
+color conversion, the CRC (1 MB slices) and the inflate (32 KB flushes) all yield now. The
+`MessageChannel` fallback, used where neither `scheduler.yield` nor `setImmediate` exists, opens and
+closes a channel per turn; Node always has `setImmediate`, so no unit test reaches it.
+
+A file cut inside any marker segment, a scan header included, is now `truncated`, and so is one that
+ends before any scan is whole; a file that ends in scan data or between segments after a whole scan
+decodes. A cut baseline file is therefore always refused. One rule for both kinds, pinned by a test
+that cuts a baseline and a progressive file at about 100 points each and inside every later scan header.
+
 The meter now counts per block and per 64 pixels, so steps track work (the DHT file's 2,063 steps for
 18.7 s was the gap). The fuzz holds every case under a limit proven from the loops and under twice the
-highest steps per unit of declared work measured over 40,600 cases (JPEG 5.13, PNG 0.59); a change that
-multiplies the work per block by 10 fails it (failing arm recorded).
+highest steps per unit of declared work measured over 40,600 cases (JPEG 15.59, PNG 0.87, after the
+second round counts one step per 8 coefficients of a block's band); a change that multiplies the work
+per block by 10 fails it (failing arm recorded).
 
 **Fuzz.** Seed 20261113, 600 mutated JPEGs and 600 PNGs per run, 52 batches plus two summary tests that
-compute their own cases. Default run: JPEG 275 decode, 110 truncated, 104 bad-marker, 108 corrupt, 2
-unsupported, 1 too-large; PNG 82 decode, 167 truncated, 151 corrupt, 128 bad-marker, 43 crc, 28
-unsupported, 1 too-large. Seed 1, 20,000 each: no other exception, no limit passed.
+compute their own cases. Default run, after the second round: JPEG 260 decode, 109 truncated, 106 bad-marker, 123
+corrupt, 1 unsupported, 1 too-large; PNG 94 decode, 168 truncated, 136 corrupt, 133 bad-marker, 40 crc,
+27 unsupported, 2 too-large. A run under 600 cases reports an outcome it never reached instead of
+failing. Seed 1, 20,000 each: no other exception, no limit passed.
 
-**Speed** (`tools/lastra-corpus/bench.mjs --browsers`, 4000 x 3000, median of 5, 4-core sandbox,
-after the batch; the async decode yields to the event loop between slices):
+**Speed** (`tools/lastra-corpus/bench.mjs --browsers`, 4000 x 3000, median of 5, 4-core sandbox shared
+with other sessions (load average 3 to 7), after the second round; two runs, the spread between them in
+the notes below):
 
 | File | Node 22 | Chromium 141 | Firefox 142 | WebKit 26 |
 |---|---|---|---|---|
-| JPEG baseline 4:2:0 q85, 1.65 MB | 360 ms | 426 ms (platform 258) | 416 ms (160) | 403 ms (357) |
-| JPEG progressive 4:2:0 q85, 1.65 MB | 525 ms | 616 ms (344) | 632 ms (251) | 538 ms (555) |
-| PNG RGB 8-bit, 24.4 MB | 981 ms | 777 ms (365) | 1574 ms (403) | 780 ms (864) |
+| JPEG baseline 4:2:0 q85, 1.65 MB | 387 ms | 414 ms (platform 203) | 440 ms (161) | 416 ms (192) |
+| JPEG progressive 4:2:0 q85, 1.65 MB | 545 ms | 615 ms (291) | 688 ms (237) | 695 ms (289) |
+| PNG RGB 8-bit, 24.4 MB | 1,237 ms | 1,295 ms (372) | 2,124 ms (366) | 1,857 ms (722) |
 
-"Platform" is `createImageBitmap` plus `getImageData`. Back to back on one machine, the batch costs a
-baseline 12 MP decode about 7% (269 to 288 ms) and a progressive one 6% (384 to 408 ms), for the work
-caps and the 64-bit IDCT arithmetic. Pillow's SIMD libjpeg-turbo decodes the same JPEGs in 68 and 97 ms.
-§8's phone question stays open: these are desktop engines on x64.
+"Platform" is `createImageBitmap` plus `getImageData`. lastra takes about 2 to 3 times as long as the
+engine's own decode for JPEG in all three engines, and for this PNG about 2.6 times (WebKit) to 5.8 times
+(Firefox). The first round's table showed WebKit's own JPEG decode at 357 and 555 ms, which made lastra
+look even with it; this run measured 192 and 289 ms, and the other run 209 and 296 ms, so that parity
+was a slow WebKit run, not a property of lastra. The in-tree inflate costs PNG about a quarter in Node
+(981 ms with `DecompressionStream`, 1,221 to 1,237 ms now). The two runs differed by up to 11% per cell.
+The longest stretch without a yield was 8 to 12 ms in Node across both runs, with one outlier of 17 ms
+on the progressive file while the load average was 7. Pillow's SIMD libjpeg-turbo decodes the same JPEGs
+in 68 and 97 ms. §8's phone question stays open: these are desktop engines on x64.
 
 **What stays open.** Matching the SIMD builds on overflowing files would mean emulating each SIMD
 variant's 16-bit saturation (x86 and ARM differ in their code); not done. Safari's ImageIO is not

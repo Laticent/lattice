@@ -20,6 +20,8 @@ answers live now, and each disagreement is a test row settled by what Chromium, 
 | `createJpegEncoder({ width, height, quality })` · `encodeJpeg(rgba, w, h, q)` | Baseline JFIF, 4:2:0, libjpeg's quality tables, Huffman tables built per picture. The same bytes on every engine. Takes rows as they come; transparency lands on white. `createJpegEncoder` uses nothing outside its own body, so a host can send its source into a page as text |
 | `encodePng(width, height, readRows, { fast? })` | A PNG with a per-row adaptive filter and the platform's `CompressionStream` deflate: RGB when every pixel is opaque, RGBA otherwise. Reads `PNG_BAND` rows at a time |
 | `rgbPngIdat(png)` | An 8-bit RGB, non-interlaced PNG's concatenated IDAT bytes, which a PDF carries under `/FlateDecode` with `/Predictor 15`; null for any other PNG |
+| `decodeJpeg(bytes, opts?)` · `decodePng(bytes, opts?)` (and `…Sync`) | RGBA pixels, `{ width, height, data, icc, … }`, in pure JavaScript, the same answer in every engine: JPEG identical to libjpeg-turbo's C code on every file measured, PNG lossless through lastra's own inflate. Pixel, byte and work limits, an abort signal, and one error type, `LastraError`, with a `code`. See [`decode/README.md`](decode/README.md) |
+| `applyOrientation(image, orientation)` | A decoded image turned upright by its EXIF orientation, 1 to 8 |
 | `planRecode(info, byteLength, thresholds)` · `acceptRecode(original, recoded, plan, thresholds)` | Whether a PNG or JPEG is worth re-encoding as a JPEG (its size, its turn, how tight it already is), and whether the result is small enough to keep. Every number is the caller's |
 
 ```js
@@ -34,8 +36,8 @@ const clean = cleanerFor(info.mime)?.(bytes); // the same picture, its GPS and c
 of each format thousands of times from a printed seed and holds the reader to a valid header or null, and each
 cleaner to null or a file of the same format that cleans to itself, with no throw.
 
-**Not here yet.** Decoding (PNG, then JPEG), the region mean, the `cover`/`contain` crop and the grayscale and
-duotone tones are later slices of the design. Until then a host decodes with its own platform (a canvas).
+**Not here yet.** The region mean, the `cover`/`contain` crop and the grayscale and duotone tones are later slices
+of the design.
 
 Design: [`engineering/decisions/2026-11-13-image-library.md`](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-11-13-image-library.md).
 

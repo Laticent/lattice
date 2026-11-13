@@ -1,3 +1,7 @@
+> **Note from lastra, not part of the license text below:** this is libjpeg-turbo 3.1.0's `LICENSE.md`,
+> copied unaltered. The IJG README it links to as `README.ijg` sits beside it as
+> [`README.ijg.txt`](README.ijg.txt) (renamed only so this repository's text-file gate classifies it).
+
 libjpeg-turbo Licenses
 ======================
 
