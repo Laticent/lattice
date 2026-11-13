@@ -10,6 +10,8 @@
  *   REFUSED  a file the cleaner cannot parse is never shipped as it is: the PDF keeps it in the slide's photo (pixels
  *            only), the player shows the drawn stand-in and names it
  *   MARP     `npm run export:marp` copies the cleaned file into the bundle, and leaves out (naming it) one it refuses
+ *   FORMS    a `data:image/…` address in any letter case or with parameters (`;name=x.jpg`), and a JPEG inside an SVG
+ *            (the player bakes the SVG; the Marp bundle copies it), are cleaned the same way
  *
  * Each runs on the source CLI and on the shipped bin. Slow tier: four CLI renders per CLI, one Marp export.
  */
@@ -55,6 +57,35 @@ function deckDir() {
   return dir;
 }
 
+/** Every picture a player carries, decoded (base64 or percent-encoded), the pictures inside an SVG included. */
+function bakedPictures(text, depth = 0) {
+  const out = [];
+  for (const m of text.matchAll(/data:image\/[^,]*,/gi)) {
+    const open = text[m.index - 1];
+    const rest = text.slice(m.index + m[0].length);
+    const body = rest.slice(0, open === '"' || open === "'" ? rest.indexOf(open) : rest.search(/[\s"'<>)]|$/));
+    const bytes = /;base64/i.test(m[0]) ? Buffer.from(decodeURIComponent(body).replace(/\s+/g, ''), 'base64') : Buffer.from(unescape(body), 'latin1');
+    out.push(bytes);
+    if (depth < 4 && bytes.includes('<svg')) out.push(...bakedPictures(bytes.toString('utf8'), depth + 1));
+  }
+  return out;
+}
+const B64 = JPEG.toString('base64');
+/** An author's SVG carrying the dirty JPEG. */
+const SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><image href="data:image/jpeg;base64,${B64}" width="320" height="200"/></svg>`;
+
+/** A deck that writes its pictures as raw `data:` addresses a browser draws, and one SVG carrying a JPEG. */
+function formsDir() {
+  const dir = tmp('forms');
+  fs.mkdirSync(path.join(dir, 'assets'));
+  fs.writeFileSync(path.join(dir, 'assets', 'vec.svg'), SVG);
+  fs.writeFileSync(
+    path.join(dir, 'deck.md'),
+    `---\ntheme: indaco\n---\n\n## Params\n\n<img src="data:image/jpeg;name=x.jpg;base64,${B64}">\n\n---\n\n## Upper\n\n<img src="DATA:IMAGE/JPEG;BASE64,${B64}">\n\n---\n\n## SVG\n\n![v](assets/vec.svg)\n`,
+  );
+  return dir;
+}
+
 test('the fixtures carry what the exports must not', () => {
   for (const s of ['SECRET_CAMERA_MAKE', 'SECRET_JPEG_COMMENT']) assert.ok(JPEG.includes(s), s);
   assert.ok(PNG.includes('secret-place'));
@@ -94,6 +125,19 @@ for (const [label, bin] of CLIS) {
       }
       assert.match(`${r.stdout}\n${r.stderr}`, /its metadata cannot be removed; not embedded/);
     });
+
+    test('player: a data: address with parameters or in upper case, and a JPEG inside an SVG, are cleaned', { timeout: TIMEOUT }, () => {
+      const dir = formsDir();
+      const html = path.join(dir, 'deck.html');
+      const r = cli([path.join(dir, 'deck.md'), html, '--player', '--images', 'original']);
+      assert.equal(r.status, 0, r.stderr);
+      const text = fs.readFileSync(html, 'utf8');
+      // The deck's own source rides in the player verbatim (an owner decision); the rendered slides are what is checked.
+      const rendered = text.replace(/<script[^>]*id="lattice-doc"[^>]*>[\s\S]*?<\/script>/gi, '');
+      const pictures = bakedPictures(rendered);
+      assert.ok(pictures.filter((b) => b.equals(CLEAN_JPEG)).length >= 3, 'both raw addresses and the SVG carry the cleaned JPEG');
+      for (const b of pictures) for (const s of SECRETS) assert.ok(!b.includes(s), `${s} is not in a baked picture`);
+    });
   });
 }
 
@@ -109,4 +153,13 @@ test('Marp bundle: the cleaned file is copied, a refused one is left out and nam
   assert.ok(fs.readFileSync(path.join(assets, 'note.png')).equals(CLEAN_PNG), 'the PNG is the cleaned file');
   assert.equal(fs.existsSync(path.join(assets, 'junk.jpg')), false, 'the refused file is not copied');
   assert.match(r.stderr, /junk\.jpg is not copied: it does not read as a whole JPEG file, so its metadata cannot be removed/);
+});
+
+test('Marp bundle: an SVG is copied with the JPEG inside it cleaned, and is otherwise the same file', { timeout: TIMEOUT }, () => {
+  const dir = formsDir();
+  const out = path.join(tmp('marp'), 'bundle');
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'export-marp.js'), path.join(dir, 'deck.md'), out], { encoding: 'utf8', timeout: TIMEOUT, cwd: ROOT });
+  assert.equal(r.status, 0, r.stderr);
+  const svg = fs.readFileSync(path.join(out, 'deck', 'assets', 'vec.svg'), 'utf8');
+  assert.equal(svg, SVG.replace(B64, CLEAN_JPEG.toString('base64')));
 });

@@ -190,6 +190,13 @@ function localizeOne(url, deckDir, destDir, copied) {
       return null;
     }
     bytes = Buffer.from(cleaned);
+  } else if (format === 'svg') {
+    // An SVG can carry pictures of its own (`<image href="data:image/jpeg;base64,…">`): each is cleaned by the player's
+    // rule (lib/export/player-images.mjs `cleanSvgText`), and the SVG is otherwise copied byte for byte.
+    const { cleanSvgText } = require('../lib/export/player-images.mjs');
+    const svg = cleanSvgText(raw.toString('utf8'));
+    for (const why of svg.refused) console.warn(`  ⚠ asset: ${path.relative(process.cwd(), abs)}: ${why}`);
+    if (svg.cleaned || svg.refused.length) bytes = Buffer.from(svg.text, 'utf8');
   }
   fs.writeFileSync(path.join(assetsDir, base), bytes);
   const rel = `assets/${base}`;

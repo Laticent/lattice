@@ -524,8 +524,23 @@ orientation-only EXIF block. The three paths that carry a source file:
 | Export | Where | A file the cleaner refuses |
 |---|---|---|
 | PDF (both hosts) | `lib/core/pdf-compose/compose.mjs`, once per distinct address, before the image policy | stays in the slide's photo (pixels only), counted as `refusedImages.uncleanable` |
-| Player (`--player`, the Studio's Webpage) | `lib/export/player-images.mjs` `cleanDocImages`, from `assemblePlayer`, whatever `images:` says: every `data:` picture in `src`, `srcset`, `poster`, SVG `href`, `style` and `<style>`, once per distinct picture | the drawn stand-in, named in the report |
-| `npm run export:marp` | `tools/export-marp.js` `localizeOne` | not copied, named on stderr |
+| Player (`--player`, the Studio's Webpage) | `lib/export/player-images.mjs` `cleanDocImages`, from `assemblePlayer`, whatever `images:` says: every `data:image/…` picture in `src`, `srcset`, `poster`, SVG `href`, `style` and `<style>`, once per distinct picture, and every picture inside a baked SVG | the drawn stand-in, named in the report |
+| `npm run export:marp` | `tools/export-marp.js` `localizeOne`; an SVG is copied with the pictures inside it cleaned (`cleanSvgText`) and is otherwise the same file | not copied, named on stderr |
+
+**Which `data:` pictures the player reads.** Any address a browser draws: any letter case
+(`DATA:IMAGE/JPEG`), any parameters (`;name=x.jpg`), a base64 body wrapped across lines, or a
+percent-encoded body. The decoded bytes decide what the picture is (lastra `imageFormat`), never the
+address's type, so `image/jpg` and a JPEG labelled `image/png` are cleaned as JPEGs. An SVG is read
+for the pictures inside it (four levels deep at most), each cleaned by the same rule; the SVG is
+re-encoded only when one of them changed, and still goes through the player's SVG sanitizing after.
+A picture that does not decode, or whose type the cleaner does not read (AVIF), becomes the stand-in.
+
+**Not cleaned, by owner decision (2026-11-13): the deck's own source.** A `data:` picture written in
+the Markdown rides verbatim wherever the source does: the player's `lattice-doc` envelope, a
+`.lattice` file's `deck.md`, `--embed-source`, and the Marp bundle's `deck.md`. The same holds for an
+address the renderer declines to draw (markdown-it accepts only `data:image/(gif|png|jpeg|webp)`
+links, so `![a](data:image/jpg;…)` stays as text on the slide): the bytes are the author's text, not
+a picture. The plain `.html` export (no `--player`) inlines no picture, so it has no pass of its own.
 
 PNG, PPTX, ODP (picture and editable: Calco crops canvas pixels) and the image set carry rasters,
 never a source file, and are unchanged. Measured on the repo's own pictures (`lib/samples`,
