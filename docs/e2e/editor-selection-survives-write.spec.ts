@@ -49,6 +49,7 @@ test('a range held in Source survives a Slide settings write above it, and one D
 	// the Source pane back, as an author would, and check the range is still held after the switch.
 	if (isPhone(page)) {
 		await page.keyboard.press('Escape');
+		await expect(page.getByRole('switch', { name: 'Compact spacing' }).filter({ visible: true }), 'Escape left the settings sheet open').toHaveCount(0);
 		await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
 		await expect(page.getByLabel('Deck source')).toBeVisible();
 		expect(await selectedText(page), 'switching back to Source dropped the held range').toBe(RANGE);
