@@ -43,8 +43,19 @@ const modules = new Map<string, Promise<FormatModule | null>>();
 function loadModule(dir: string): Promise<FormatModule | null> {
 	const existing = modules.get(dir);
 	if (existing) return existing;
+	// The formatter lives beside the engine, so it is same-origin. The same barrier as the script loaders,
+	// INLINE at this import() sink (#1958 §7.1): a directory holding a markup character or whitespace, or
+	// one that resolves off this page's origin or scheme, never reaches import(). `dir` comes from the
+	// recorded engine base or a caller, so this is the last line before code from it runs.
+	let resolved: URL | null = null;
+	try {
+		if (dir && !/[<>"'`\\\s]/.test(dir)) resolved = new URL(`${dir}browser.mjs`, window.location.href);
+	} catch {
+		// an unparseable directory is refused just below
+	}
+	if (resolved === null || resolved.origin !== window.location.origin || resolved.protocol !== window.location.protocol) return Promise.resolve(null);
 	const p = Promise.race([
-		import(/* @vite-ignore */ `${dir}browser.mjs`) as Promise<FormatModule>,
+		import(/* @vite-ignore */ resolved.href) as Promise<FormatModule>,
 		new Promise<null>((resolve) => setTimeout(() => resolve(null), LOAD_TIMEOUT_MS)),
 	])
 		.catch(() => null)

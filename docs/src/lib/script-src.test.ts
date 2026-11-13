@@ -5,7 +5,8 @@
 // loader injects NOTHING for a refused URL: before #1958 §7, all three appended a
 // `<script src="javascript:…">` for the first row.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { recordEngineUrl, resetEngineBase } from './engine-base';
+import { engineBase, recordEngineUrl, resetEngineBase } from './engine-base';
+import { __resetCodeFormatCache, formatCode } from './ensure-code-format';
 import { __resetHljsLoaderCaches, ensureFenceLanguages } from './ensure-hljs-language';
 import { ensureKatexProvider } from './ensure-katex';
 import { ensureEngine } from './load-engine';
@@ -126,5 +127,40 @@ describe('dedup compares resolved URLs', () => {
 		document.head.appendChild(s);
 		injectPrefetch(REL);
 		expect(document.querySelectorAll('link[rel="prefetch"]').length).toBe(0);
+	});
+});
+
+// The recorded engine base feeds loaders that do not take a URL of their own: the code formatter builds
+// `${engineBase()}fmt/browser.mjs` and import()s it. ensureEngine used to record the URL BEFORE its
+// barrier, so a refused `data:` URL overwrote a good base and the formatter executed it.
+describe('a refused engine URL never reaches the recorded base or the formatter', () => {
+	const PWN = 'data:text/javascript,globalThis.__latticePwned=1;export const formatMarkdown=1//';
+	afterEach(() => {
+		delete (globalThis as { __latticePwned?: number }).__latticePwned;
+		__resetCodeFormatCache();
+	});
+
+	it('ensureEngine records only a URL that passed its barrier', async () => {
+		window.LatticePlayground = {} as typeof window.LatticePlayground;
+		await ensureEngine('/playground/v/good/lattice-playground.js');
+		const good = engineBase();
+		expect(good).toBe(new URL('/playground/v/good/', window.location.href).href);
+		await expect(ensureEngine(`${PWN}lattice-playground.js`)).rejects.toThrow(/refused/);
+		expect(engineBase()).toBe(good);
+	});
+
+	it('an already-loaded engine still rejects a refused URL', async () => {
+		window.LatticePlayground = {} as typeof window.LatticePlayground;
+		await expect(ensureEngine('javascript:alert(1)//lattice-playground.js')).rejects.toThrow(/refused/);
+	});
+
+	it('formatCode never imports from a refused base, recorded or passed in', async () => {
+		window.LatticePlayground = {} as typeof window.LatticePlayground;
+		await ensureEngine(`${PWN}lattice-playground.js`).catch(() => {});
+		const fromRecorded = await formatCode('```js\nx\n```\n', { all: true });
+		const fromArg = await formatCode('```js\nx\n```\n', { all: true, base: PWN });
+		expect((globalThis as { __latticePwned?: number }).__latticePwned).toBeUndefined();
+		expect(fromRecorded.failed).toBeTruthy();
+		expect(fromArg.failed).toBeTruthy();
 	});
 });

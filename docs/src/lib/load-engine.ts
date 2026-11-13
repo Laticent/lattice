@@ -50,13 +50,6 @@ const POLL_MS = 50;
  */
 export function ensureEngine(url: string): Promise<void> {
 	if (typeof window === 'undefined') return Promise.resolve();
-	recordEngineUrl(url);
-	// Every surface that shows a preview loads the engine here, so this is where the page offers its frames a draw host.
-	installPreviewDrawHost();
-	if (window.LatticePlayground) return Promise.resolve();
-
-	const existing = loaders.get(url);
-	if (existing) return existing;
 	// The engine is same-origin. The barrier is INLINE at the sink because CodeQL js/xss-through-dom reads it here and
 	// not through a helper: an empty URL, or one holding a quote, angle bracket, backtick, backslash or
 	// whitespace, is refused; the rest is resolved and refused unless it shares this page's origin AND
@@ -70,6 +63,15 @@ export function ensureEngine(url: string): Promise<void> {
 	}
 	if (resolved === null || resolved.origin !== window.location.origin || resolved.protocol !== window.location.protocol) return Promise.reject(new Error(`lattice engine URL refused: ${url}`));
 	const safeSrc = resolved.href;
+	// Record only a URL that passed the barrier: the asset directory it names feeds other loaders (the code
+	// formatter's import() among them), so a refused URL recorded first would overwrite a good base.
+	recordEngineUrl(safeSrc);
+	// Every surface that shows a preview loads the engine here, so this is where the page offers its frames a draw host.
+	installPreviewDrawHost();
+	if (window.LatticePlayground) return Promise.resolve();
+
+	const existing = loaders.get(url);
+	if (existing) return existing;
 
 	const base = engineBaseFor(url);
 	if (base && url.endsWith(ENGINE_ENTRY)) {

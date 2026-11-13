@@ -152,6 +152,11 @@ so the fix survives a reviewer who cannot see the dashboard either:
   and its assets are same-origin on every real page, so nothing legitimate is refused. A separate
   `scriptSrc` helper ran first until the home route crossed its hard byte ceiling; its scheme check
   duplicated the origin-and-scheme comparison, so it went and its character check moved inline.
+  **The recorded engine base is a sink too.** `ensureEngine` records the engine's asset directory, and
+  loaders that take no URL of their own build on it: the code formatter `import()`s
+  `${engineBase()}fmt/browser.mjs`. `ensureEngine` records only AFTER its barrier, so a refused URL
+  cannot overwrite a good base, and the formatter's `loadModule` carries the same barrier inline at its
+  own `import()`. (An earlier push recorded first; a refused `data:` URL then ran as the formatter.)
   Because the injected `src` is now the resolved href, the dedup lookups compare resolved URLs
   (`scriptTagFor`) in the two loaders and in `injectPrefetch`; comparing the caller's raw string missed
   a tag injected from a relative URL and added a second `<script>` on retry. `specimen.js` builds its
@@ -165,7 +170,10 @@ so the fix survives a reviewer who cannot see the dashboard either:
   read `"null"`). So on such a page relative assets load, but the origin half of the barrier
   degrades: any URL of the same scheme passes, `file:///anything.js` included. Before the desktop app
   loads the engine, compare against its real asset base (or `http://tauri.localhost` on Windows, a real
-  origin) instead of relying on `location.origin`.
+  origin) instead of relying on `location.origin`. A guard that refuses outright on an opaque-origin page
+  (`window.location.origin === 'null'`) was written and tested, then left out: it cost the home route
+  55 gzip bytes and left 9 under its hard ceiling. The risk is latent while the site is served over
+  https and the desktop app does not exist; add the guard when the desktop app loads the engine.
 - **Playground directive scanners (§2), js/bad-tag-filter.** The editor's four Mermaid arrow families
   (each held both `<` and `>`) moved to `docs/src/playground/mermaid-arrows.js`, split so no single
   pattern holds both brackets; `slide-context.js`'s `/^\s*<!--.*-->\s*$/` line test became
