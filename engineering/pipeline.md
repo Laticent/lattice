@@ -47,6 +47,13 @@ A file package wins over an installed one with the same name, and nothing is wri
 store). Any other binary input, such as a PDF or a picture, is refused at once. It used to be
 parsed as Markdown and fail after a 60 s navigation timeout.
 
+**A `.lattice` output** (`lattice deck.md deck.lattice`) is written with no browser, by the writer
+`--reopenable` uses (`reopenableLattice` in `lattice.js`, `buildLatticeZip`). Which photos it
+carries is one function, `photosToCarry` in `lib/export/lattice-input.js`. Photos from a `.lattice`
+input pass through as their bytes, because the Studio scrubbed them at intake. Photos from
+`assets/` are withheld and counted until a shared metadata scrubber exists (owner, 2026-11-13).
+`--reopenable` uses the same function at the embedded cap (`MAX_EMBEDDED_MEDIA_BYTES`).
+
 **That list is closed** — an extension not on it is a usage error. It used to fall
 through to the PDF path, which wrote PDF bytes under whatever name was asked for:
 `lattice deck.md out.webp` exited 0 and left a file `file(1)` reads as *"PDF

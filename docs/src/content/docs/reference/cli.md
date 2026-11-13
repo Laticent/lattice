@@ -55,6 +55,7 @@ it.
 | `.png` | One PNG per slide, named `<output>.001.png`, `<output>.002.png`, … |
 | `.zip` | An image set: one image per slide, plus thumbnails and chart SVGs. See [Image set](#image-set) |
 | `.html` | The rendered HTML as the deliverable, with no PDF. See [HTML output](#html-output) |
+| `.lattice` | A project file the Studio opens: the deck, the installed theme and components it uses, and its photos. Written without a render. Photos from a `.lattice` input are carried as they are; photos from an `assets/` folder are left out for now, because the CLI cannot yet remove a camera original's location data |
 | no extension | A PDF, plus the HTML sidecar as the deliverable |
 
 For a `.pdf`, `.pptx`, `.odp`, `.png` or `.zip`, the render captures from an
@@ -96,7 +97,7 @@ instead.
 | `--paper <size>` | Fit each slide onto `auto`, `letter`, `legal` or `a4` paper with a 9 mm margin. Text is not selectable |
 | `--orientation <o>` | `auto`, `landscape` or `portrait` for `--paper`. On its own, implies `--paper auto` |
 | `--embed-source` | Attach the deck's Markdown to the PDF. Includes speaker notes unless you add `--strip-notes` |
-| `--reopenable` | Carry the deck inside the `.pdf` or `.pptx` as a `.lattice`, so the Studio's **Import deck…** opens it for editing. The same payload as the Studio's "Re-openable in Lattice" switch. No comments; hidden slides and speaker notes ride along unless you add `--strip-notes` |
+| `--reopenable` | Carry the deck inside the `.pdf` or `.pptx` as a `.lattice`, so the Studio's **Import deck…** opens it for editing. The same payload as the Studio's "Re-openable in Lattice" switch. No comments; hidden slides and speaker notes ride along unless you add `--strip-notes`. Photos ride along the way a `.lattice` output carries them, up to 32 MB |
 | `--steps` | One page per step of every `_build` or `_focusSteps` slide, each lit or revealed at its step. Every page keeps its slide's page number, and speaker notes and alt text ride on each. Also applies to `.pptx`, `.odp` and images; a `.html` player walks the steps live instead. The Studio's "One page per step" switch |
 | `--chrome-pdf` | Print with Chrome's PDF printer instead of Lattice's writer |
 | `--keep-vector-images` | Keep SVG images as vectors. By default they become 2x PNG, because some viewers mishandle clipped SVG |

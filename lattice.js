@@ -487,6 +487,7 @@ USAGE
     deck.odp    LibreOffice Impress   (--editable for real text boxes)
     deck.png    one PNG per slide     (deck.001.png, deck.002.png, …)
     deck.html   the rendered deck     (--player for a self-contained player)
+    deck.lattice  a project file the Studio opens (the input can be a .lattice too)
 
 COMMON OPTIONS
   -p, --palette NAME   Color palette, e.g. indaco, cuoio, onyx (default: the deck's theme:)
@@ -992,6 +993,8 @@ const OUT_FORMATS = Object.freeze({
   '.png': 'png',
   '.zip': 'imageset',
   '.html': 'html',
+  // The deck as a project file the Studio opens (lib/core/reopenable.js), written with no render.
+  '.lattice': 'lattice',
 });
 // The lossy image formats the image-set encoder DOES speak — just not as a loose
 // per-slide output. A caller who typed one meant "one image per slide in this format",
@@ -2129,7 +2132,7 @@ if (OUT_FORMAT === 'html') {
 // `--reopenable` has a home in exactly two formats. Named for every other one rather than
 // dropped silently: an author who asked for an editable file and got a plain one would only
 // find out from the person they sent it to.
-if (REOPENABLE && OUT_FORMAT !== 'pdf' && OUT_FORMAT !== 'pptx') {
+if (REOPENABLE && OUT_FORMAT !== 'pdf' && OUT_FORMAT !== 'pptx' && OUT_FORMAT !== 'lattice') {
   console.warn(`  ⚠ --reopenable embeds the deck in a .pdf or .pptx — ignoring for this output.${OUT_FORMAT === 'html' ? ' Use --player, which embeds the source for lossless re-import.' : ''}`);
 }
 // `-p` (or LATTICE_PALETTE) themes THIS render without editing the deck, and the `.lattice`
@@ -3491,7 +3494,7 @@ fs.writeFileSync(outHtml, cleanDocHtml);
 // Skipped when the HTML *is* the deliverable: this fires BEFORE the auto-split pass
 // rewrites the file, so its count is the pre-split one. The `.html` branch logs the
 // final rendered-page count instead, and one line beats two disagreeing ones.
-if (!QUIET && OUT_FORMAT !== 'html') console.log(`HTML: ${slides.length} slides → ${outHtml}`);
+if (!QUIET && OUT_FORMAT !== 'html' && OUT_FORMAT !== 'lattice') console.log(`HTML: ${slides.length} slides → ${outHtml}`);
 
 // ── PDF via Puppeteer ─────────────────────────────────────────────────────────
 // Locate puppeteer in either: a local node_modules (preferred), the project
@@ -6034,6 +6037,12 @@ async function applyFontPolicyToHtml(file) {
 // and non-zero. This turns a transient, environmental Chrome failure into a
 // few-seconds-then-retry instead of a multi-minute hang to the outer timeout (#502).
 (async () => {
+  // A `.lattice` is the deck itself, not a render of it: no browser. One turn of the loop first, so this file
+  // has finished loading (the writer's memo is declared below this driver).
+  if (OUT_FORMAT === 'lattice') {
+    await null;
+    return writeLatticeProject();
+  }
   try {
     await renderExport({ hardened: false });
   } catch (e) {
@@ -6258,24 +6267,54 @@ function attachableSource(src) {
 //     import gates them exactly as it gates a `.lattice` from the Studio.
 //   · CLOCK — pinned like every PDF date (SOURCE_DATE_EPOCH, else the epoch), so a re-render of
 //     an unchanged deck writes the same payload bytes.
-let reopenableMemo = null;
+//   · PHOTOS — what `photosToCarry` (lib/export/lattice-input.js) allows: the photos a `.lattice` input carried,
+//     as their bytes, up to `maxMediaBytes`. A photo from `assets/` is left out until the CLI can remove a camera
+//     original's location data, and the run says how many. The same function writes `lattice deck.md deck.lattice`
+//     (MAX_LATTICE_MEDIA_BYTES) and the copy inside a re-openable PDF or PowerPoint (MAX_EMBEDDED_MEDIA_BYTES).
+const reopenableMemo = new Map();
 function reopenableDate() {
   return new Date(resolveEpoch() * 1000);
 }
-function reopenableLattice() {
-  if (reopenableMemo) return reopenableMemo;
+function reopenablePhotos(maxMediaBytes) {
+  const { photosToCarry } = require('./lib/export/lattice-input.js');
+  const { assetRefs } = require('./lib/export/deck-assets.js');
+  const carry = photosToCarry({
+    fromLattice: LATTICE_INPUT,
+    assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'),
+    names: new Set(assetRefs(mdRaw).map((r) => r.name)),
+    maxBytes: maxMediaBytes,
+  });
+  const n = (k) => `${k} photo${k === 1 ? '' : 's'}`;
+  if (carry.withheld.length && !QUIET) console.log(`  ${n(carry.withheld.length)} from assets/ left out: a camera original can carry where it was taken, and the CLI cannot remove that yet`);
+  if (carry.omitted.length) console.warn(`  ⚠ ${n(carry.omitted.length)} left out to stay under ${Math.floor(maxMediaBytes / 1_048_576)} MB of photos: ${carry.omitted.join(', ')}`);
+  return carry;
+}
+function reopenableLattice(maxMediaBytes = require('./lib/packages/limits.js').MAX_EMBEDDED_MEDIA_BYTES) {
+  if (reopenableMemo.has(maxMediaBytes)) return reopenableMemo.get(maxMediaBytes);
   const packages = [];
   if (installedTheme) packages.push({ type: 'theme', name: paletteName, files: packagesHome.readFolder(installedTheme.dir) });
   for (const p of REOPENABLE_COMPONENTS) packages.push({ type: 'component', name: p.name, files: packagesHome.readFolder(p.dir) });
+  const carry = reopenablePhotos(maxMediaBytes);
   const { buildLatticeZip } = require('./lib/core/reopenable');
-  return (reopenableMemo = buildLatticeZip(require('jszip'), {
+  const built = buildLatticeZip(require('jszip'), {
     source: attachableSource(mdRaw),
     title: deckTitle,
     comments: [],
     now: reopenableDate().getTime(),
     packages,
+    ...(carry.media ? { media: carry.media } : {}),
     date: reopenableDate(),
-  }));
+  }).then((bytes) => Object.assign(bytes, { photoCount: carry.included.length }));
+  reopenableMemo.set(maxMediaBytes, built);
+  return built;
+}
+
+// `lattice deck.md deck.lattice` (or a `.lattice` in): the project file alone, with no browser and no render. It is
+// the payload `--reopenable` embeds, at the larger photo cap a `.lattice` of its own carries.
+async function writeLatticeProject() {
+  const bytes = await reopenableLattice(require('./lib/packages/limits.js').MAX_LATTICE_MEDIA_BYTES);
+  fs.writeFileSync(outFile, bytes);
+  if (!QUIET) console.log(`Lattice project: ${outFile} (${bytes.photoCount} photo${bytes.photoCount === 1 ? '' : 's'}) · ${(bytes.length / 1_048_576).toFixed(1)} MB`);
 }
 
 // Attach the `.lattice` to the finished PDF. NOT forgiving, unlike the two passes around it:

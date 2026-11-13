@@ -347,6 +347,21 @@ carries for this one render.
 npx lattice deck.lattice deck.pdf --trust
 ```
 
+The CLI also writes one. Name the output `.lattice` and you get the project file
+without a render: the deck, the installed theme and components it uses, and its
+photos.
+
+```sh
+npx lattice deck.md deck.lattice
+npx lattice deck.lattice copy.lattice
+```
+
+Photos that came in a `.lattice` go back out exactly as they were. Photos from an
+`assets/` folder are left out for now, and the CLI says how many: a photo straight
+from a camera can record where it was taken, and the CLI cannot remove that yet.
+The Studio removes it when you add the photo to the Library. `--reopenable`
+follows the same rule for the copy it puts inside a PDF or PowerPoint.
+
 ## Speaker notes and captions
 
 A plain HTML comment on a slide is that slide's speaker note:
