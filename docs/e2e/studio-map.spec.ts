@@ -226,7 +226,18 @@ async function reusesFrames(page: Page) {
 	});
 	await mapOn(page);
 	await expect.poll(() => page.locator(`${RAIL} button[data-tier="live"]`).count()).toBeGreaterThan(0);
-	await expect.poll(() => page.evaluate(() => document.querySelectorAll('[data-map-rail] iframe').length)).toBeGreaterThan(0);
+	// The baseline is the pool once every slot it holds has its frame in the page, not the first frame. The pool assigns
+	// its slots in one pass and writes `data-pool="held/wanted"` on its layer; the frame elements mount after it (5, then
+	// the 6th about 0.75 s later on webkit-tablet). A count read before the last one mounted was one short, and the toggles
+	// below "created" the frame that was still on its way.
+	await expect
+		.poll(() =>
+			page.evaluate(() => {
+				const [held, want] = (document.querySelector('[data-map-rail] [data-pool]')?.getAttribute('data-pool') ?? '0/-1').split('/').map(Number);
+				return want > 0 && held === want && document.querySelectorAll('[data-map-rail] iframe').length >= held;
+			}),
+		)
+		.toBe(true);
 	const first = await page.evaluate(() => (window as unknown as { __frames: number }).__frames);
 	for (let i = 0; i < 3; i++) {
 		await page.getByRole('button', { name: 'Slide map' }).click();

@@ -615,7 +615,11 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSl
 			// due time: re-arming at now+PARK_MS on every pass meant a pool whose passes came faster than
 			// that (a scrolling grid) never parked anything.
 			armPark(next);
-			onSettleRef.current?.({ capacity: ceilingRef.current, slots: next.length, held: next.filter((x) => x.tileId !== null).length });
+			const heldCount = next.filter((x) => x.tileId !== null).length;
+			// What this pass wanted framed and what it holds, on the layer: the pool has settled when they match. A test that
+			// counts the frames a host creates reads this instead of guessing when the last one has arrived (studio-map.spec.ts).
+			if (layerRef.current) layerRef.current.dataset.pool = `${heldCount}/${want.length}`;
+			onSettleRef.current?.({ capacity: ceilingRef.current, slots: next.length, held: heldCount });
 		}, wait);
 	}, [rectOf, armPark]);
 
