@@ -1958,8 +1958,10 @@ never turn "passed in headless" into "works on iOS."
 - **Symptom** — Explore, Edit, Explore a frame or two apart, wide layout: the preview stays covered (`.pg-preview-wrap`
   without `is-live`) well after Explore's slide has landed. Shown on desktop and webkit-tablet by the spec's "never
   holds Explore's reveal for Edit's realign" (red 4 of 17 without the fix). The gecko flake of "a quick Explore and
-  back, 0 frames apart … (wide)" (1 in 20 on main) looks the same but is NOT shown to be this: it never reproduced
-  here, and `followups.d/3159-p7-gecko-quick-explore-not-live.md` keeps it open.
+  back, 0 frames apart … (wide)" (1 in 20 on main at 22c3dc7) looks the same but is NOT shown to be this. It never
+  reproduced afterwards: 342 gecko runs at 4 workers under heavy CPU load, on current main and on 22c3dc7's
+  PlaygroundApp, all green, so its followup was closed. If it goes red again, read `data-hold` on the wrapper at the
+  moment it fails: it names the hold the reveal was waiting on.
 - **Cause** — the reveal waits for every hold to lift, and the realign hold is Edit's (the preview follows the
   editor's caret first). The Edit in between set it, and its settle loop starts two frames after that switch, so after
   the next one; in Explore the sync's realign usually cannot be paid (the editor pane is hidden), so the loop asked for
