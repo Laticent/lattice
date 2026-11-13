@@ -234,7 +234,7 @@ gap a 1 ms timer saw, peak RSS of the process (the 255 MB files are themselves 2
 |---|---|---|
 | 255 MB of 18-byte APP2 ICC chunks before a 1x1 JPEG (R3-1) | 10.2 s in one stall, 2,646 MB, the abort honored only at the end (red team: Node out of heap) | 0.36 s, worst stall 6 ms, 578 MB; decoded, profile dropped at the second chunk |
 | 255 MB of empty COM segments (R3-1) | 1.45 s in one stall | 1.58 s, worst stall 7 ms |
-| `cleanJpeg` on the ICC file (the same shape in the cleaner) | 24.2 s, 2,274 MB | 1.1 to 2.3 s, 838 MB (input plus output) |
+| `cleanJpeg` on the ICC file (the same shape in the cleaner) | 24.2 s, 2,274 MB | 1.1 to 2.3 s, 838 MB, the 255 MB file kept whole (about 3.1 times the input: the input, a buffer sized from it and a copy of the result; the fourth round corrects "input plus output") |
 | 500 one-coefficient AC scans of one-bit EOB0 blocks, 10000 x 10000, 93 MB (R3-3) | 19.1 s, decoded (red team: 23 s) | 4.7 to 7.3 s, `too-large` (work cap); an abort at 1 s lands 0.3 ms later |
 | 20 MB of minimal dynamic deflate blocks in IDAT (R3-2) | 16.0 s, the abort at 2 s ignored | 5.6 s, worst stall 20 ms; decoded |
 | 200 MB of the same (R3-2) | 124 s (red team) | 54.4 s, worst stall 10 ms; an abort at 1 s lands 0.5 ms later |
@@ -254,6 +254,33 @@ search that ended `truncated`, and the canonical decode stops at the code's long
 first iCCP is read, a compressed profile over 4 MB is dropped unread, and the iCCP inflate yields like the
 image data. The cleaners write kept blocks into one buffer instead of a list of views. Bounded is not
 cheap: the README tells a host to give every decode of untrusted bytes a deadline through its signal.
+
+**The fourth round.** Node 22, load average under 4:
+
+| Attack | third round | fourth round |
+|---|---|---|
+| four components x 125 one-coefficient scans, 10000 x 10000, 93 MB (R4-1) | 18.8 s, decoded | 4.0 s, `too-large`: a frame's components share the budget of 1,024 per block over the component count |
+| `cleanJpeg` on 255 MB of ICC chunks (R4-2) | 1.19 s, 255 MB out (every chunk kept), peak RSS 838 MB | 1.6 s sync, 350 B out (the set breaks at the second chunk, as in the decoder), peak RSS 580 MB |
+| `cleanPng` on 255 MB of empty IDAT chunks (R4-2) | 2.45 s in one stall, peak RSS 838 MB | 4.35 s sync (two passes), peak RSS 577 MB; `cleanAsync`: 5.0 s, worst stall 31 ms |
+
+The cap: one-component files are unchanged; for several components, libjpeg's default progression costs
+48% of the budget at 4:4:4 and 54% at 4:2:0, and the 97-scan `jpegtran` 4:4:4 fixture about 75%. All 97
+JPEGs of the corpus and the red team's legit and capped sets decode to the same RGBA as before, with the
+2^26 floor and with it set to 0.
+
+The cleaners count, then write: the first pass adds up the result's exact size (and decides a JPEG's ICC
+set the way the decoder does), the second writes it into a buffer of that size. Peak memory is the input
+plus the result (about 2 times the input when nothing is dropped, against about 3.1 before); the time
+doubles on a file where the walk is the work. A JPEG keeps its ICC chunks only as one whole set; a PNG its
+first `iCCP`, a WebP its first `ICCP`, a GIF its first loop and ICC extensions. `cleanAsync` runs the same
+walk and yields every 1 MB or 2^14 blocks. The Studio's photo import and backup restore use it (the
+Studio's eager JS measured 619,304 gzip bytes before and after, built locally); the CLI keeps
+the synchronous form in its own process, where no page waits, for files under 50 MB (about a second at
+worst).
+
+On the deflate stream of empty dynamic blocks, native zlib (Node's `inflateSync`) takes 18.5 s for 200 MB
+and 1.95 s for 20 MB; lastra takes 54 s and 5.2 s, about 2.8 times as long. The README's deadline advice
+names it.
 
 **Yields, measured honestly.** The second round reported 8 to 12 ms as the longest stretch without a
 yield; it timed the gaps a `setImmediate` loop saw on the bench's own PNG, which writes one large IDAT.

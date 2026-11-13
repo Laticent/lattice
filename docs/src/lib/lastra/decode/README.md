@@ -37,7 +37,7 @@ package root exports.
 | Format | Decodes | Refuses (`code`) |
 |---|---|---|
 | PNG | color types 0, 2, 3, 4, 6 at every legal bit depth (1, 2, 4, 8, 16); `PLTE` + `tRNS`; gray and RGB `tRNS` keys; Adam7; IDAT split into any number of chunks (empty ones skipped); APNG's default image | no signature, a malformed chunk header, chunks out of order (`bad-marker`); the file or the zlib stream ends before the image is complete (`truncated`); a bad CRC on IHDR, PLTE, IDAT or IEND (`crc`); an impossible header, a bad filter byte, a zlib stream zlib itself would refuse, for zlib's reason (`corrupt`); an unknown critical chunk, interlace method 2 (`unsupported`); more than 2^20 chunks (`too-large`) |
-| JPEG | baseline, extended and progressive Huffman frames (SOF0, SOF1, SOF2); spectral selection and successive approximation; restart intervals; 1, 3 or 4 components; any whole-number chroma sampling (4:4:4, 4:2:2, 4:2:0, 4:4:0, 4:1:1, ...) at any size; Adobe APP14 RGB, YCbCr, CMYK and YCCK; a sequential frame with no `DHT` (Motion-JPEG) through the Annex K tables; the primary picture of an MPF or Ultra HDR file | arithmetic coding, lossless, hierarchical, 12-bit, a height set by DNL, 2 or more than 4 components, a fractional sampling ratio (`unsupported`); a file cut short (see below) (`truncated`); a malformed or misplaced segment (`bad-marker`); a Huffman table a scan names that is over-full or never defined, a component in two sequential scans, a frame with no scan, a progressive DC sum past 32 bits (`corrupt`); more than 500 scans, or more than 1,024 coefficients decoded per block over all scans, a block counting at least 8 a scan (`too-large`) |
+| JPEG | baseline, extended and progressive Huffman frames (SOF0, SOF1, SOF2); spectral selection and successive approximation; restart intervals; 1, 3 or 4 components; any whole-number chroma sampling (4:4:4, 4:2:2, 4:2:0, 4:4:0, 4:1:1, ...) at any size; Adobe APP14 RGB, YCbCr, CMYK and YCCK; a sequential frame with no `DHT` (Motion-JPEG) through the Annex K tables; the primary picture of an MPF or Ultra HDR file | arithmetic coding, lossless, hierarchical, 12-bit, a height set by DNL, 2 or more than 4 components, a fractional sampling ratio (`unsupported`); a file cut short (see below) (`truncated`); a malformed or misplaced segment (`bad-marker`); a Huffman table a scan names that is over-full or never defined, a component in two sequential scans, a frame with no scan, a progressive DC sum past 32 bits (`corrupt`); more than 500 scans, or more than 1,024 coefficients decoded over all scans per block of the frame, shared by its components, a block counting at least 8 a scan (`too-large`) |
 
 ### Which pixels
 
@@ -86,9 +86,10 @@ package root exports.
   allocated. JPEG allocates its coefficients at the first scan and PNG its pixels at the first row, so a
   header with nothing behind it costs no memory.
 - JPEG work is bounded per frame: at most 500 scans (libjpeg-turbo's fuzzer uses the same limit) and at
-  most 1,024 coefficients decoded per block over all scans, a block costing its band and never less than
-  8 (a progression in bands of 8 or more needs at most 994; one coefficient per scan costs 512, so more
-  than 128 one-coefficient scans are refused, legal or not; images under 2^16 blocks get 2^26 in all).
+  most 1,024 coefficients decoded over all scans per block of the frame, shared by its components, a block
+  costing its band and never less than 8 (one coefficient per scan costs 512, so more than 128
+  one-coefficient scans of a whole-image component are refused, legal or not; libjpeg's default progression
+  uses about half the budget; images under 2^16 blocks get 2^26 in all).
   End-of-band runs over blocks with nothing to refine are skipped in a tight loop, and a scan whose data
   ran out at a marker no restart can accept stops at once. Segments keep nothing per segment: an ICC
   chunk set holds at most 255 views and breaks at the first duplicate, and the marker walk yields every
@@ -97,11 +98,12 @@ package root exports.
   inflate stops at the size the header implies, so a decompression bomb costs one window of output; it
   rebuilds a block's Huffman tables in place, and yields on work as well as on output, so a stream of
   empty blocks yields too.
-- **Bounded is not cheap.** The worst files measured cost seconds before they are refused or decoded: 4.7
-  to 7.3 s for 500 one-coefficient scans at 100 MP (refused), and about 2.8 s per 10 MB for a stream of
-  empty dynamic deflate blocks (a 255 MB file stays under `maxBytes` and takes about a minute). Each one
-  yields and stops at its signal, so a host that decodes untrusted bytes gives the decode a deadline, as
-  in the example above.
+- **Bounded is not cheap.** The worst files measured cost seconds before they are refused or decoded: 4.0
+  to 7.3 s for 500 one-coefficient scans at 100 MP, in one component or spread over four (refused), and
+  about 2.7 s per 10 MB for a stream of empty dynamic deflate blocks (decoded: 54 s for 200 MB). On that
+  stream lastra's inflate takes about 2.8 times as long as native zlib, which itself needs 18.5 s for the
+  200 MB; a 255 MB file stays under `maxBytes`. Each one yields and stops at its signal within a
+  millisecond, so a host that decodes untrusted bytes gives the decode a deadline, as in the example above.
 - `opts.meter` (`{ steps, limit? }`) counts work: a step per segment, table, decoded block plus one per 8
   coefficients of its band, restart, IDCT block, 64 output pixels, PNG chunk, scanline, deflate block, 4 KB
   inflated, and per 16 entries of a Huffman table built.
