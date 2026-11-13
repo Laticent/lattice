@@ -1,0 +1,10802 @@
+// FROZEN REFERENCE — lib/authoring/lint-core.js as this branch carries it (frozen from commit 4d9ae33b5), for the
+// lint-core rewrite (engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §6). Test-only:
+// tools/squadra-reference-diff.js runs it beside the new `deck` ruleset and compares what each reports. Its requires
+// point at the live lib/ modules; only lint-core itself is frozen, because it is the file the rewrite deletes. Never
+// edit it to make a diff pass: re-freeze with tools/squadra/freeze-reference.js when the branch takes main's
+// lint-core. It is deleted when the rewrite merges.
+/**
+ * Pure, dependency-free lint core — the SINGLE SOURCE of the deck-authoring
+ * footgun checks, shared by:
+ *   - the Node linter (lib/authoring/lint.js → tools/lint-deck.js, the CLI),
+ *   - lib/components/index.js's validate() (which re-exports the constants +
+ *     detectors from here), and
+ *   - the browser (the Drawing Board's Architect panel).
+ *
+ * It has NO `fs` and NO `require` of lib/components, so it bundles cleanly for
+ * the browser. The name/modifier VOCABULARY (which component names + modifier
+ * tokens exist) is data, not logic, so it is injected: the Node linter builds it
+ * from the live manifests; the browser passes a vocab precomputed at
+ * docs-build time. `lintTextWith(source, vocab)` is the shared engine both call.
+ */
+
+const { splitTopLevel, separatorLines } = require('../../../lib/authoring/slide-split');
+const { elidePayloads, readStats } = require('../../../lib/core/payload-elision.js');
+const { restoreFindings } = require('../../../lib/authoring/elided-findings.js');
+const { imageLineRanges } = require('../../../lib/core/image-line-payloads.js');
+// The plugins' lint roles, run over the deck view below (findPluginLint).
+const { PLUGIN_LINT } = require('../../../lib/plugins/lint.generated.js');
+const { ctxFor: pluginCtxFor } = require('../../../lib/core/plugin-ctx.js');
+// The list shapes and their detectors live below the linter and the catalog (lib/core/list-shapes.js).
+const {
+  CARD_STYLE_LAYOUTS,
+  STATEMENT_OL_LAYOUTS,
+  LEDGER_OL_LAYOUTS,
+  SPLIT_SLOT_LAYOUTS,
+  NUMBER_SLOT_LAYOUTS,
+  findInlineTitleBodyLine,
+  findOrderedInlineTitleBodyLine,
+  findBoldOrderedStatement,
+  findSplitBodylessItem,
+  countPrimaryCollection,
+} = require('../../../lib/core/list-shapes');
+const { headingSplitPoints } = require('../../../lib/core/heading-split-core');
+const { EXPORT_SETTINGS_TYPE } = require('../../../lib/core/export-settings');
+const { REGISTER_SWITCHES, registerToken } = require('../../../lib/core/switches');
+const { RETIRED_SWITCHES, retiredSwitch } = require('../../../lib/authoring/switches-retired.mjs');
+const { foldSettingsBlock, settingsBlockAt } = require('../../../lib/core/settings-block-fold');
+const { readLegend, legendBody, spanKind, gridTarget, targetText, calloutsOff, CALLOUT_READERS, MAX_ANCHORED, LAYOUTS: LEGEND_LAYOUTS } = require('../../../lib/core/legend');
+const { legendMessage } = require('../../../lib/authoring/legend-messages');
+// THE deck-wide `class:` register's own refusal rule — the same call the engine's
+// propagation kernel makes, so a warning and a render can never disagree about
+// which token was dropped. Pure and fs-free (HARD RULE #7): it reads the generated
+// stage catalog, which is data, and the shared front-matter reader.
+const { deckClassRefusalsFromFrontMatter, deckClassTokensFromFrontMatter } = require('../../../lib/core/deck-class-register');
+const { fitClassFromFrontMatter, fitLevel, isGuardsToken } = require('../../../lib/core/resolve-guards');
+// Per-element word counts, the same reader the density suggestions use, so the
+// scale-capacity rule measures an element the way the calibration rig built it.
+const { elementWordCounts, elementWordEntries } = require('../../../lib/authoring/prose-budgets');
+const { proseWords } = require('../../../lib/authoring/venue-prose');
+// MODE TOKENS are a THIRD `_class:` vocabulary, beside components and modifiers, and the
+// linter has to know all three or it flags a working directive. `_class: boardroom` opts
+// one slide out of a `mode: sketch` deck and `_class: sketch` opts one in on a plain deck
+// — the engine reads exactly this (`resolveDiagramLook` / `resolveDiagramHandType`,
+// lib/core/diagram-look.js, rule 2). No deck had used one as a directive until the #1674
+// demo, so the gap sat unnoticed: they were only ever mentioned in prose.
+//
+// MODE_TOKENS, NOT MODE_NAMES. `resolve-mode.js` keeps "TWO VOCABULARIES … apart on
+// purpose": MODE_NAMES is what a front-matter `mode:` accepts (`sketch-clean`), while
+// MODE_TOKENS is what lands in a class list (`sketch-clean-body`). Using the former here
+// blessed `_class: sketch-clean` — a dead directive no CSS rule matches — and still
+// rejected `_class: sketch-clean-body`, the real token `mode: sketch-clean` stamps. The
+// first cut of this fix did exactly that; the adversarial trio's checker caught it.
+const { MODE_TOKENS, modeClassesFromSource } = require('../../../lib/core/resolve-mode');
+// The three RENDER-TARGET front-matter keys and their on/off vocabulary, read from the
+// kernel that the EXPORT also reads (lib/core/render-target-keys.js). Pure and fs-free
+// (HARD RULE #7); shared rather than re-typed so a warning and a render cannot disagree
+// about which values count as "on".
+const {
+  RENDER_TARGET_KEY_NAMES,
+  ON_WORDS,
+  OFF_WORDS,
+  renderTargetKeyState,
+  indentedKeyLines,
+} = require('../../../lib/core/render-target-keys');
+const { frontMatterValue, withoutBlockScalarBodies } = require('../../../lib/core/front-matter-key');
+const { DECK_SETTINGS, withPluginRegisters, settingValues } = require('../../../lib/core/deck-settings');
+const { TINTS, MARKS, PLACEMENT_REQUIRED, TINT_PLACEMENTS } = require('../../../lib/base/treatments');
+
+/**
+ * The accent registers' per-slide axes, built from the value lists the vocab already carries
+ * (`spectrumNames`, `ruleNames`, …) rather than shipped again as `exclusiveAxes`, which the
+ * Studio page inlines into its HTML. A restore token (`with-spectrum`, `rule-auto`, …) draws
+ * nothing of its own, so beside a rival from its axis it always loses, and the author's
+ * restore silently fails; the conflicting-variants rule names the clash.
+ */
+// [axis label, vocab key, front-matter key, class prefix]. A value's class comes from the switch
+// spine (`registerToken`): an off/on word stamps the switch (`spectrum: on` → `with-spectrum`).
+const ACCENT_AXES = [
+  ['spectrum style', 'spectrumNames', 'spectrum', 'spectrum-'],
+  ['spectrum edge', 'spectrumEdgeNames', 'spectrum-edge', 'spectrum-edge-'],
+  ['spectrum card edge', 'spectrumCardEdgeNames', 'spectrum-card-edge', 'spectrum-card-edge-'],
+  ['rule', 'ruleNames', 'rule', 'rule-'],
+  ['eyebrow', 'eyebrowNames', 'eyebrow', 'eyebrow-'],
+  ['headline', 'headlineNames', 'headline', 'head-'],
+];
+function accentAxes(vocab) {
+  const out = {};
+  for (const [axis, key, register, prefix] of ACCENT_AXES) {
+    const names = vocab[key];
+    const list = names ? [...names] : [];
+    if (!list.length) continue;
+    const members = list.map((n) => registerToken(register, n, prefix));
+    // A switch's two tokens sit on its setting's axis even when no value word names them
+    // (`with-heading-rule` restores `rule: auto`; `with-spectrum-edge` the top bar).
+    const sw = REGISTER_SWITCHES[register];
+    if (sw) for (const t of [`no-${sw.name}`, `with-${sw.name}`]) if (!members.includes(t)) members.push(t);
+    out[axis] = members;
+  }
+  return out;
+}
+const { PLUGIN_REGISTERS: SHIPPED_PLUGIN_REGISTERS } = require('../../../lib/plugins/registers.generated.js');
+// The deck's `plugins:` import list, read by the plugin host's own reader (lib/core/deck-plugins.mjs
+// — pure, library-free ESM).
+const { deckPluginList, isPluginName } = require('../../../lib/core/deck-plugins.mjs');
+// Names only, from the straight-line block installer the bundle already carries — the full
+// grammar would pull every plugin's rules into the authoring core (docs/route-budget.json).
+const { PLUGIN_NAMES, PLUGIN_FENCES } = require('../../../lib/plugins/blocks.generated.mjs');
+const { topLevelFrontMatterValue, lastFrontMatterMatch, frontMatterScalar, frontMatterName } = require('../../../lib/core/front-matter-key');
+
+// THE class-directive reader — shared with the editor's autocomplete, and it reads
+// BOTH forms (the spot `<!-- _class: … -->` and the running global `<!-- class: … -->`)
+// off whole-line comments only. The regex this replaces saw the spot form alone, so
+// on a deck using the global form every slide from the directive onward was linted
+// against a class it does not have — and, the real directive being invisible, whatever
+// `_class:` the PROSE happened to quote took its place. See
+// lib/core/class-directive-scan.mjs.
+//
+// THAT SCANNER IS NOW A VIEW over `scanMetaSource` (lib/core/meta-record.mjs, the one reader
+// of slide-comment metadata; engineering/decisions/2026-10-17-meta-record.md §5.2), and this
+// file asks it directly: for the class view, the per-slide comments the newer rules read, and
+// the `stress-slide` marker. Already in this module's graph through class-directive-scan.mjs,
+// so it adds no bytes to the docs route.
+const { scanMetaSource, hasMarker, directiveKey } = require('../../../lib/core/meta-scan.mjs');
+// NOT lib/core/agenda-autofill.js: that kernel reads the ENGINE's boundary parser, and the lint core must reach
+// only its own copy (tools/build-playground.js `assertLintParserIsolated`). `agendaLintPlan` below reads the
+// same facts through the lint's readers, pinned to the kernel by test/unit/core/agenda-autofill.test.js.
+const { hideOfComment } = require('../../../lib/core/hide-directive.mjs');
+const { paginateOn, slidePaginates } = require('../../../lib/core/pagination.js');
+const { cardTagClassesFromFrontMatter } = require('../../../lib/core/resolve-card-tag');
+const { parseImagesSetting } = require('../../../lib/core/image-policy');
+const { parseFontsSetting } = require('../../../lib/core/font-policy');
+const { imageCardClassesFromFrontMatter } = require('../../../lib/core/resolve-image-card');
+const { compositionOf, needsInk, effectiveCard, backingPercent: cardBackingPercent, THIN_BACKING } = require('../../../lib/core/card-ink-policy.mjs');
+
+// ONE SCAN PER SOURCE, not one per rule. About twenty rules each asked for the class directives
+// of the same source, and every ask re-walked it and re-ran the boundary parser. A one-entry memo
+// keyed on the source string is exact: the scan is a pure function of that string, and the next
+// lint (a keystroke, an `applyAllFixes` round) is a different string and misses. Callers only
+// read the results; nothing here mutates them.
+let metaScanMemo = { source: null, scan: null, classes: null };
+function metaScan(source) {
+  const s = String(source ?? '');
+  if (metaScanMemo.source !== s) metaScanMemo = { source: s, scan: scanMetaSource(s), classes: null };
+  return metaScanMemo;
+}
+
+/**
+ * The class directive in force on every chunk of `source`, indexed as `splitTopLevel(source)`
+ * indexes its chunks. The SAME view as `slideClassDirectives` in lib/core/class-directive-scan.mjs
+ * (that module maps `scanMetaSource(source)` exactly this way), built from the memoized scan, plus
+ * `spot`: whether the winning comment is the `_class` (this slide only) form.
+ * @returns {{payload: string, text: string, line: number, spot: boolean}[]}
+ */
+function slideClassDirectives(source) {
+  const memo = metaScan(source);
+  if (!memo.classes) {
+    memo.classes = memo.scan.slides.map(({ resolved }) => {
+      const e = resolved.get('class');
+      return e ? { payload: e.value, text: e.text, line: e.line, spot: e.spot } : { payload: '', text: '', line: 0, spot: false };
+    });
+  }
+  return memo.classes;
+}
+
+
+/**
+ * The comments on chunk `idx` of `source`, in order: the ones the engine reads, and the ones it folds into another
+ * block, marked `folded` (lib/core/directive-island.mjs `authoredComments`). A rule about a directive's effect skips
+ * the folded ones; a rule about why a comment is not read is what they are listed for.
+ */
+function slideMetaComments(source, idx) {
+  return metaScan(source).scan.slides[idx]?.comments || [];
+}
+
+/** The directive in force for `key` on chunk `idx` of `source` (spot over running global), or null. */
+function slideMetaEntry(source, idx, key) {
+  return metaScan(source).scan.slides[idx]?.resolved.get(key) || null;
+}
+
+/**
+ * The SPOT `_focus` / `_focusStyle` / `_focusSteps` directive the engine applies on chunk `idx`,
+ * shaped as the regex match it replaced (`[0]` the comment, `[1]` the value), or null. A running
+ * global (`focus:` without the `_`) is not linted here, as it never was.
+ */
+function spotFocus(source, idx, key) {
+  const e = slideMetaEntry(source, idx, key);
+  return e?.spot && e.value ? [e.text, e.value] : null;
+}
+// The ENGINE's own directive reader (lib/engine/slides.js calls this one), so the
+// linter cannot disagree with it about what counts as a chrome or background directive. Already in this
+// module's graph through the scanner above, so it adds no bytes to the docs route.
+const { readDirectiveComment } = require('../../../lib/core/comment-directive.mjs');
+const { readRecord } = require('../../../lib/core/meta-door.mjs');
+// `/<!--[\s\S]*?-->/g` in linear time — the regex is quadratic on an unclosed `<!--`.
+const { replaceClosedComments } = require('../../../lib/core/closed-comments');
+// The panes contract — shared with the carve (lib/core/panes.js), so the two cannot disagree.
+const { splitPaneMarkdown, scanPanes, parseLayout, specOf, arrangePanes, paneBudgetLimit, classLayout, mayHavePanes, paneHeadText, paneInsights, headedBudget, chromeBudget, isPillLine, ownsHeadings, LABEL_SEP, RATIO_WORD_RE, LAYOUTS: PANE_LAYOUTS } = require('../../../lib/core/pane-spec');
+// Every built-in component's pane fit and budget, for a vocab that does not carry them (the
+// Studio's). Generated by tools/build-stage-catalog.js from the same `paneVocab` buildVocab uses.
+const PANE_LINT = require('../../../lib/authoring/pane-lint.generated.js');
+// The carve's own answer to which blockquotes a pane keeps (lib/core/panes.js, in the engine's chunks).
+const { paneClaims } = require('../../../lib/core/panes');
+const { findShapeGlyphs, stripFencedCode, fencedLines, stripCertainFences, shapeGlyphAdvice } = require('../../../lib/core/shape-glyphs.js');
+// The pill decoder itself (HARD RULE #1), so the crowded-shape rule reads a span exactly
+// the way the engine will render it: escapes, reserved markers and modifier order included.
+const pillModule = require('../../../lib/plugins/pills/pills.inline.js');
+// The pills kernel reaches the icons plugin through its ctx (lib/core/plugin-ctx.js), so every read here passes one.
+const PILL_CTX = require('../../../lib/core/plugin-ctx.js').ctxFor('pills');
+const pillKernel = Object.freeze({
+  ...pillModule,
+  resolve: (text, _off, probe) => pillModule.resolve(text, PILL_CTX, probe),
+  diagnose: (text, _off, explain) => pillModule.diagnose(text, PILL_CTX, explain),
+  iconProblem: (text) => pillModule.iconProblem(text, PILL_CTX),
+  iconSpelling: (text) => pillModule.iconSpelling(text, PILL_CTX),
+  reservedLabel: (text) => pillModule.reservedLabel(text, PILL_CTX),
+  nextWords: (text) => pillModule.nextWords(text, PILL_CTX),
+});
+const { KINDS: INLINE_KINDS, NAMED_ONLY_KINDS, canonicalText, NAMED_KINDS } = require('../../../lib/core/inline-code-directives.js');
+const { resolve: resolveInlinePill, diagnose: diagnosePill } = pillKernel;
+// The spark kernel's own reason for refusing a span, and its vocabulary (HARD RULE #1).
+const sparkKernel = require('../../../lib/plugins/sparks/sparks.inline.js');
+// The check's full form, `@check{…}` (the embedded checks plugin): its autocomplete offers the six answers, then `label=`.
+const checkKernel = require('../../../lib/plugins/checks/checks.inline.js').create(require('../../../lib/core/plugin-ctx.js').ctxFor('checks'));
+const { MARKER_CLASS } = require('../../../lib/core/checks-registry.js');
+const {
+  parse: segnoParse, consistency: segnoConsistency, parseBracketList, readIndexList,
+} = require('@laticent/segno/read');
+const { malformedNumber } = require('@laticent/segno/values');
+const { markerSpelling: waterfallMarkerSpelling } = require('../../../lib/core/waterfall-markers');
+const { diagnose: diagnoseSpark } = sparkKernel;
+// The engine-configured BLOCK parser (the one slide-boundaries already bundles), so the
+// crowded-pill rule judges indented code and raw HTML blocks exactly as the engine does.
+const { boundaryParser, boundaryRulesGeneration, normalizeSource, OPAQUE_BLOCK_TOKENS, FRONT_MATTER: BOUNDARY_FRONT_MATTER } = require('../../../lib/core/boundary-parser');
+// The renderer's own answer to "which site does this address load from?" (null for a relative path, `data:`,
+// `blob:`, `sample:` and a local `file:`), so the `web-image` rule warns on exactly the images the render blocks
+// (security spine, 2026-11-03-security-findings-spine.md §3). From the address table, not remote-ref.js: the table is
+// in the engine's closure already, and the scanner would add its two readers (+16.5 KB gzip measured) to lint.
+const { webOrigin, urlAsParsed } = require('../../../lib/core/media-sources');
+// Security spine S2: the shared readers (scanHtml, cssRefSpans, the entity decoder, the Mermaid reading) and the policy
+// table, which the renderer (remote-ref.js `blockWebImages`, the slide sanitizer) reads too. Neither consumer calls the
+// other; they agree because they ask the same questions of the same facts.
+const WEB_READERS = require('../../../lib/core/web-ref-readers.js').makeWebRefReaders({
+  isRemoteUrl: require('../../../lib/core/media-sources').isRemoteRef,
+  ...require('../../../lib/core/css-token-readers.js'),
+  makeCssRefSpans: require('../../../lib/core/css-ref-reader.js').makeCssRefSpans,
+  cssParser: require('../../../lib/core/css-ref.generated.js'),
+  makeScanHtml: require('../../../lib/core/html-ref-reader.js').makeScanHtml,
+  rawTextEnd: require('../../../lib/core/html-ref-reader.js').rawTextEnd,
+  htmlParser: require('../../../lib/core/html-ref.generated.js'),
+});
+const POLICY = require('../../../lib/core/content-policy.js');
+const META_KEYS = require('../../../lib/core/meta-keys.js');
+// The front matter the way each consumer reads it: the engine's directives, and the CLI export's `style:`.
+const { parseFrontMatter } = require('../../../lib/engine/directives.js');
+const { readGlobalStyle } = require('../../../lib/core/front-matter-style.js');
+/** The directives the engine writes into a slide's `style` as a custom property, less the chrome (S1 reads it). */
+const STYLE_DIRECTIVE_KEYS = new Set([...META_KEYS.APPLIED_KEYS].filter((k) => !META_KEYS.NO_CUSTOM_PROP_KEYS.has(k) && !['paginate', 'theme', 'header', 'footer', 'class'].includes(k)));
+const CHART_ROWS = require('../../../lib/core/chart-rows');
+const CHART_VALUES = require('../../../lib/core/chart-values');
+const CELL_NOTE = require('../../../lib/core/cell-note');
+const { ownedRecordSites } = require('../../../lib/core/chart-sites');
+// The SOVEREIGN Frames, DERIVED — never a hand-written list. `lib/components/
+// manifest.schema.json` carries a standing warning not to re-derive this set by hand
+// because the prose copy has already drifted twice; a rule that COACHES an author
+// toward a sovereign component is the last place that should happen, since an omitted
+// Frame is an answer the author is told does not exist. The generated stage catalog is
+// a plain object built from the same `exemptFromChrome:true` manifests the engine reads
+// (tools/build-stage-catalog.js) and is fs-free, so it keeps HARD RULE #7 intact.
+const STAGE_CATALOG = require('../../../lib/forms/cell/masthead/stage-catalog.generated.js');
+const SOVEREIGN_COMPONENTS = Object.keys(STAGE_CATALOG)
+  .filter((k) => STAGE_CATALOG[k] === 'sovereign').sort();
+/** `\`a\`, \`b\` or \`c\`` — the sovereign components, for a `fix:` string. */
+function sovereignList() {
+  const t = SOVEREIGN_COMPONENTS.map((n) => `\`${n}\``);
+  return t.length > 1 ? `${t.slice(0, -1).join(', ')} or ${t[t.length - 1]}` : (t[0] || '');
+}
+
+// WHICH optional editorial blocks a layout actually renders (#1651). Pure and
+// fs-free like this module (HARD RULE #7). Read from its owner so a lint warning
+// and a render can never disagree about whether a blockquote becomes a callout.
+const { supportsBlock, readsInsightLabel } = require('../../../lib/core/authoring-blocks');
+const { parseInlineSet, labelSetFor, labelSetNames, axisSetFor } = require('../../../lib/core/label-set');
+// The axis grammar: one tokenizer, and the one reading of what a member's parts
+// mean, both shared with the quadrant transform so this rule and the render
+// agree about which parts were honored.
+const { parseFlowchart, outlineFromMarkdown, SHAPES: FLOWCHART_SHAPES, STATUS_WORDS: FLOWCHART_STATUS_WORDS, HEADS: FLOWCHART_HEADS, PATTERNS: FLOWCHART_PATTERNS, SLOT_COUNT: FLOWCHART_SLOT_COUNT } = require('../../../lib/core/flowchart-grammar');
+// hub-spoke's pill grammar, channel rule and every lint it owns (HARD RULE #7): the ONE
+// reading of a hub-spoke slide, shared with its kernel and its narrator.
+const hubSpoke = require('../../../lib/core/hub-spoke-model');
+const { readAxisMember, readTimeAxisMember } = require('../../../lib/core/axis-member');
+const HISTOGRAM = require('../../../lib/core/histogram-model');
+const EP_MODEL = require('../../../lib/core/ep-curve-model');
+const { readGanttPill } = require('../../../lib/core/gantt-pill');
+const { CHART_STATUS } = require('../../../lib/core/chart-status');
+const { ownedRowDepth, ownsFirstListOnly } = require('../../../lib/core/resolve-inline-code');
+const { componentReads } = require('../../../lib/core/segno-slots.js');
+// The fence walk + the shell script/session distinction, from the kernel the engine
+// and the preview loader also read (pure and fs-free, HARD RULE #7). Shared rather
+// than re-typed here so the linter and the highlighter cannot disagree about which
+// tag a fence carries.
+const { scanFences, shellFenceFindings } = require('../../../lib/core/fence-languages');
+const codeRecord = require('../../../lib/plugins/code/shared/record.js');
+// How many columns of code each slide shows before it cuts a line (measured, tools/measure-code-columns.js).
+const PANE_COLUMNS = require('../../../lib/authoring/code-pane-columns.js');
+const { adapterFor: formatterFor } = require('../../../lib/authoring/code-format/languages.js');
+
+// The `_track` grammar, from the kernel both render arms read (pure, fs-free —
+// HARD RULE #7). Shared rather than re-typed so the linter and the engine cannot
+// disagree about what the author wrote.
+const { parseTrackSpec, MIN_TRACK_LABELS } = require('../../../lib/core/track-spec');
+
+// Focus & highlighting directives (engineering/decisions/2026-06-16-focus-
+// highlighting.md). Linted for grammar — a known axis and a well-formed ordinal
+// target — so a typo (`rows 4`, `line abc`, `_focusStyle: glow`) is caught
+// before render rather than silently no-op'ing.
+//
+// READ THROUGH THE SHARED READER (`spotFocus` below), not three regexes of its own. The regexes
+// this replaced matched the FIRST `_focus…:` anywhere in the slide's text, a fenced example and
+// a mid-sentence quote included, while the engine applies the LAST spot directive on a slide and
+// reads only a comment that opens its line.
+const FOCUS_AXES = new Set(['item', 'row', 'col', 'cell', 'line', 'mark', 'series']);
+const FOCUS_STYLES = new Set(['spotlight', 'ring', 'list-fill', 'blur', 'highlight']);
+
+// The `topic` anchor's sibling-track override. `_track` names the scale outright
+// when the DERIVED one (every topic slide's own `<h2>`) is not what the author
+// wants. Both failures below are SILENT on a rendered slide — a band that never
+// draws, or one with no column lit — so they are caught here instead.
+//
+// The grammar is read through the kernel both render arms use (HARD RULE #7): a
+// linter that re-implemented the split would eventually disagree with the engine
+// about what the author wrote, which is the whole failure this directive replaced.
+/**
+ * The `_track` the ENGINE will apply on one chunk — the last one in its channel, or null.
+ *
+ * READ OFF THE DECK MODEL, which ends ten rounds of the opposite design. This rule
+ * used to keep its own line model of CommonMark (a fence regex, a markup test, a
+ * table lookahead, an indent test) and, because each hand-written model was
+ * falsified by the next fuzz against `render()`, it aimed to be a SUBSET of the
+ * engine: it declined every line it could not model, and the cost was silence
+ * (true warnings from 5,988 to 2,532 against the committed cross). The comments now
+ * come from `scanMetaSource`, whose block pass is markdown-it's own rules held token
+ * for token (Segno P3), so "which comment is a directive" is the engine's answer and
+ * there is nothing to decline. The generated fuzz in the test file still holds the
+ * rule to `render()`, now in both directions.
+ */
+// TWO CHANNELS, because the engine has two. `lib/engine/slides.js` merges
+// `{ ...runningGlobal, ...slideLocal }`, so a SPOT `_track` on this slide beats a
+// bare deck-wide `track:` WHATEVER THE LINE ORDER — "last one wins" is true only
+// within a channel. Modelling one channel got two things wrong: an empty bare
+// `track:` cleared a spot answer it cannot reach (a real warning lost), and the
+// deck-wide finding fired on a slide whose own spot directive already overrode it
+// (a warning whose text was false in both halves).
+//
+// A DIRECTIVE WITH AN EMPTY VALUE CLEARS ITS OWN CHANNEL, it does not fail to be one.
+// `<!-- _track: -->` parses to a real directive whose value is `''`; the engine
+// applies it, it SUPERSEDES every `_track` above it, and the slide then draws no
+// authored track at all — so any warning about an earlier directive is false.
+// Testing `?.value` instead of "is this a directive" promoted the earlier one,
+// which is the exact failure the voiding below exists to prevent, arriving through
+// a different door.
+const keep = (line, dir) => (dir.value ? { line, spot: dir.spot, value: dir.value } : null);
+
+function liveTrackDirective(source, idx) {
+  // THE DECK MODEL'S ANSWER (Segno P3, engineering/decisions/2026-10-22-segno-deck-pipeline.md §P3 islands): the
+  // comments of this chunk that the engine reads a directive from, which is markdown-it's own block structure. The
+  // line pass this replaced approximated that structure and declined (`blind`) wherever it could not model it: a
+  // fence or a tag above, a container prefix, a table header below. Each decline was the safe direction for a
+  // subset rule; with the engine's answer in hand there is nothing left to decline, and a folded comment (one the
+  // engine reads as part of another block) resolves nothing.
+  let spot = null;
+  let spotSeen = false;   // a spot directive appeared, even if it cleared
+  let global = null;
+  for (const c of slideMetaComments(source, idx)) {
+    if (c.kind !== 'directive' || c.folded || c.key !== 'track') continue;
+    // The comment's LAST line, as the finding has always quoted it.
+    const line = c.raw.slice(c.raw.lastIndexOf('\n') + 1).trim();
+    if (c.spot) { spot = keep(line, c); spotSeen = true; } else global = keep(line, c);
+  }
+  // The engine's own precedence, and the subtlety is `spotSeen`. The merge is
+  // `{ ...runningGlobal, ...slideLocal }`, so an EMPTY spot directive does not
+  // merely clear its own channel — it writes `''` into the slide's map, which the
+  // engine then skips, MASKING the deck-wide value too. "No spot directive" and
+  // "a spot directive that cleared" are different answers.
+  return spotSeen ? spot : global;
+}
+
+// A top-level markdown bullet — the RETIRED override shape. On a `topic` slide an
+// authored `<ul>` used to BE the track; it is ordinary content now, so a deck
+// written against the old contract renders its list plus a derived track below it.
+// Warn and coach rather than refuse (HARD RULE #29's posture): the fix is one line.
+const TOP_LEVEL_BULLET = /^[-*+][ \t]+\S.*$/m;
+
+// What the RENDERER will draw as BODY: no fenced code, and no HTML comment. A
+// bullet list inside `<!-- … -->` is a speaker note — markdown-it never emits it
+// as a list, so warning that "it renders as content" was false twice over, and
+// the fix told the author to delete prose the reader never sees. `maskInert`
+// blanks comments (and RAWTEXT) while preserving offsets, so the reported line
+// still reads true.
+//
+// NOT for reading a DIRECTIVE: a directive IS a comment, so this view blanks it.
+// That is the mistake this pair of helpers exists to keep apart — masking the
+// comments out of rule 12's input silently switched the whole rule off.
+//
+// LOCAL, not `maskInert` from docs/src/lib/markup/tags.ts, and the reason is bytes
+// on a route rather than taste: this module is bundled into the docs Studio's
+// EAGER path, so importing that kernel shipped its whole HTML tokenizer there —
+// measured +13,467 bytes raw / +1,571 gz on `studio`, enough to blow the route
+// budget. The jobs are not the same one anyway. `maskInert` blanks inert spans in
+// RENDERED HTML (comments, `<script>`, `<style>` RAWTEXT); this blanks comments in
+// MARKDOWN SOURCE, which is the shape every other text-view helper in this file
+// already takes (`stripFencedCode`, `withoutCodeBlocks`, `withoutCodeCommentMarkers`).
+// Newlines survive so a reported line still reads true, and an UNTERMINATED `<!--`
+// is deliberately left alone — `findUnterminatedComment` is the rule that owns it.
+// An UNTERMINATED `<!--` runs to the end, because that is what a browser does with
+// it: measured, a `topic` slide whose note opens a comment and never closes it
+// renders NO `<ul>` at all, and the rule still told the author to "delete the
+// list" — two findings on one slide contradicting each other, since
+// `findUnterminatedComment` had already named the real problem.
+const withoutHtmlComments = (text) =>
+  String(text).replace(/<!--[\s\S]*?-->|<!--[\s\S]*$/g, (m) => m.replace(/[^\n]/g, ' '));
+
+const renderedBody = (slide) => withoutHtmlComments(stripFencedCode(slide));
+
+
+
+// Returns an error string if `spec` (one `_focus` target list) is malformed,
+// else null. `cell R,C` pairs are pulled out first (comma is the general target
+// separator), then each remaining `<axis> <ordinal>` is checked.
+function focusSpecError(spec) {
+  if (!spec?.trim()) return 'empty target';
+  const rest = spec.replace(/\bcell\s+\d+\s*,\s*\d+/gi, '');
+  if (/\bcell\b/i.test(rest)) return 'cell needs "R,C" (e.g. cell 4,5)';
+  for (const part of rest.split(',').map((s) => s.trim()).filter(Boolean)) {
+    const m = /^([a-z]+)\s+(.+)$/i.exec(part);
+    if (!m) return `'${part}' is not "<axis> <ordinal>"`;
+    const axis = m[1].toLowerCase();
+    if (!FOCUS_AXES.has(axis)) return `'${axis}' is not a focus axis (item, row, col, cell, line, mark, series)`;
+    if (!/^\d+(-\d+)?( +\d+(-\d+)?)*$/.test(m[2].trim())) return `'${m[2].trim()}' is not an ordinal or range`;
+  }
+  return null;
+}
+
+// Modifier token families recognized by prefix — the decoration / position /
+// state vocabularies whose fragments (`at-tl`, `tint-corner`, `mark-orbit`,
+// `with-period`, `no-footer`, `tone-pass`, `no-treatment`, `checks-tonal`,
+// `finish` / `finish-atrium` / `no-finish`) are too many to enumerate and not
+// author-misspellable in a way worth flagging. (The deck-wide `finish:` register
+// that maps these classes is linted separately via finishNames.) `backdrop` is
+// retained as a recognized prefix for the back-compat `no-backdrop` opt-out.
+const MODIFIER_PREFIXES = ['tint-', 'mark-', 'with-', 'at-', 'no-', 'tone-', 'treatment-', 'checks-', 'fill-', 'finish', 'backdrop'];
+
+// Deprecated `image` modifiers retained as back-compat aliases of the adaptive
+// compositions (full→spotlight, contain/museum→gallery — see
+// lib/core/image-aspect.js LEGACY_ALIASES). They still render, so a deck using
+// them stays valid (and lint-clean) even though they're no longer featured
+// `variants`. See engineering/decisions/2026-06-19-adaptive-image.md.
+const DEPRECATED_CLASSES = Object.freeze(new Set(['full', 'contain', 'museum']));
+
+// RETIRED tokens that the generic `unknown-class` must stay quiet about. `no-form` owns a
+// dedicated rule; a bare `form` is inert, so nothing reports it (2026-10-06). Not "deprecated" (the set above means "still renders, still valid"):
+// these render as nothing and the author does have to edit. The point is that
+// `retired-form-token` already says so, in the author's terms and with the real fix —
+// while `unknown-class` told the same author to "check the spelling", which is advice
+// toward a token that is spelled perfectly and is never coming back. Two warnings on one
+// token, one of them misleading, is worse than one. (`no-form` never doubled: it matches
+// the `no-` modifier prefix and was already recognized.)
+const RETIRED_WITH_OWN_RULE = Object.freeze(new Set(['form', 'no-form']));
+
+// RENAMED components — old token -> new token. NOT an alias: these no longer
+// render, and the deck is genuinely broken until the author edits it. The map
+// exists so the `unknown-class` warning can NAME the replacement, because the
+// fuzzy suggester cannot: it scores edit distance, and `compare-table` -> `table`
+// is 8 apart, so a deliberate rename is exactly the case it is worst at. This
+// repo renames by hard break with a migration table (see the `bg-*` and
+// split-panel precedents), which makes this warning the one line a user acts on.
+// Retire an entry once the old name has been gone long enough to stop appearing.
+// Each entry names what the author loses by leaving the old token in place.
+const RENAMED_CLASSES = Object.freeze(new Map([
+  // Retired 2026-10-22 with the `chart-finish: off` value (the register is now `marks:`). A chart finish is always on (like `icon:` and
+  // `spark:`), so there is nothing to opt a slide out of; the deck's finish lands on the slide.
+  ['chart-finish-off', {
+    to: 'marks-pigment',
+    message: "'chart-finish-off' was retired: a chart finish is always on, so the slide wears the deck's finish and this class does nothing.",
+    loses: 'There is no unfinished paint to return to. `marks-pigment` asks for the default; `-etch` and `-tone` for the others.',
+  }],
+  // RENAMED BUT HONORED (#2887): the `chart-finish:` register is now `marks:`, because it sets every mark on the slide,
+  // not only charts. Unlike the entries around them these still render (lib/core/resolve-marks.js
+  // `currentMarksToken`), so they are info, under their own rule.
+  ...['pigment', 'etch', 'tone', 'muted', 'vivid'].map((w) => [`chart-finish-${w}`, {
+    to: `marks-${w}`,
+    honored: true,
+    message: `'chart-finish-${w}' is the old spelling of 'marks-${w}'; it still works.`,
+  }]),
+  // Renamed 2026-10-20 to pair with `with-pagination`. The engine no longer reads the old name, so a
+  // deck that kept it silently gains a page number on that slide.
+  ['no-paginate', {
+    to: 'no-pagination',
+    loses: 'The slide shows its page number again: the engine reads only the new name.',
+  }],
+  ['compare-table', {
+    to: 'table',
+    loses: 'The table keeps the house treatment, but loses the first-column row-label emphasis (the one change you SEE), plus its row capacity, autosplit, portrait card reshape and focus axes.',
+  }],
+  // Absorbed into `list` on 2026-09-25 — `takeaway numbered` stacks a nested gloss
+  // under a bold lead, the same row list-criteria drew, at a fixed counter size.
+  ['list-criteria', {
+    to: 'list takeaway numbered',
+    loses: 'The list keeps plain numbers, but loses its zero-padded accent counters, its ruled rows and the bold lead over each nested gloss line.',
+  }],
+  // THE SWITCH RENAME (2026-11-04, a hard rename): every on/off is `no-X` / `with-X`
+  // (lib/core/switches.mjs). The engine reads only the new names, and the fix rewrites the token in place.
+  ...Object.entries(RETIRED_SWITCHES).map(([from, to]) => [from, {
+    to,
+    autofix: true,
+    // A switch's old name does nothing on its own; the slide still renders its layout. The generic
+    // "renders as a plain slide" message is about a renamed COMPONENT and was false here (red team).
+    message: `'${from}' was renamed to '${to}', and the old name now does nothing.`,
+    loses: 'Every switch is spelled `no-X` (off) / `with-X` (back on for one slide) now.',
+  }]),
+]));
+
+/**
+ * The kind of a slide's FIRST top-level list — 'ol' for `1.`/`1)`, 'ul' for `-`/`*`/`+`,
+ * null when the slide has none. Fenced code is skipped. Used by `list-modifier-inert`.
+ */
+function topLevelListKind(slide) {
+  // A fence closes only on a run of the SAME character at least as long as the one that
+  // opened it (CommonMark), so a ```` fence may quote a ``` line without ending.
+  let fence = null;
+  for (const line of String(slide || '').split(/\r?\n/)) {
+    const f = line.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (f) {
+      if (!fence) { fence = f[1]; continue; }
+      if (f[1][0] === fence[0] && f[1].length >= fence.length && !line.slice(f.index + f[0].length).trim()) { fence = null; continue; }
+    }
+    if (fence) continue;
+    // Up to three spaces of indent is still a top-level list; four is a code block.
+    if (/^ {0,3}\d+[.)]\s/.test(line)) return 'ol';
+    if (/^ {0,3}[-*+]\s/.test(line)) return 'ul';
+  }
+  return null;
+}
+
+// Orientation-lock lint RETIRED 2026-06-25. The retire-landscape-locks program gave every
+// layout a portrait form (`table` → card-per-row, compare-code → cover-code, redline →
+// collapse+block-split, kanban → lane-per-slide), so no layout declares
+// orientation:["landscape"] and the orientation-mismatch deck warning had nothing left to
+// guard. Per the Fit Spine's earn-its-keep axiom (delete dormant mechanisms, don't park
+// them), the LANDSCAPE_ONLY_LAYOUTS / PORTRAIT_ONLY_LAYOUTS / AUTOSPLIT_ADAPTS lists, their
+// lint rule, and the sync test are removed. The manifest `orientation` contract is still
+// validated at build time by checkAdaptDeclarations (tools/check-ownership.js), so a future
+// lock can't land unnoticed. See engineering/decisions/2026-06-25-retire-landscape-locks-portrait-everything.md.
+// THE size registry, read from its owner. This module is pure and browser-safe
+// (HARD RULE #7) and lib/core/sizes.js is too, so the linter now derives the
+// deck's canvas from the SAME table the renderer resolves against — no injection,
+// no fallback, no drift.
+//
+// It used to hold a hand-copied name→family table here, because the registry
+// lived in a CSS comment that an fs-free module could not read, and its own note
+// called that copy "a LAST RESORT, not the source of truth" (the #1218 drift
+// class). Moving the registry into a module deleted the copy rather than
+// documenting it. See engineering/decisions/2026-08-16-size-registry-ownership.md.
+const { sizeFor, SIZES } = require('../../../lib/core/sizes');
+
+/**
+ * The `size:` FRONT-MATTER directive's raw value, or undefined.
+ *
+ * Scoped to the leading `---` block, exactly as the emulator scopes its own
+ * extraction (lattice.js: "so a `size:` in prose / a code block can't
+ * trip it"). A whole-source scan reads a YAML sample inside a fenced block as
+ * the deck's size — and since this now drives per-family CAPACITY budgets, not
+ * just one autosplit warning, that would retune every threshold in the deck off
+ * a code listing.
+ */
+function deckSizeName(source) {
+  const fm = source.match(/^---\r?\n[\s\S]*?\r?\n---/)?.[0];
+  if (!fm) return undefined;
+  // The LAST `size:` wins, as it does in the engine's front-matter read: a deck that writes the
+  // key twice renders at the second, and a lint (or the Studio's pane map) reading the first
+  // would plan for a size the deck is not.
+  const all = [...fm.matchAll(/^size[ \t]*:[ \t]*["']?([\w:/.-]+)/gm)];
+  return all.length ? all[all.length - 1][1] : undefined;
+}
+
+/**
+ * The adaptive family a deck renders into ('wide'|'square'|'tall'|'strip').
+ * Derived from the deck's resolved geometry — the same registry the renderer
+ * resolves against, classified by the same boundaries the engine and runtime
+ * stamp with (lib/adaptive/families.js). An unregistered `size:` resolves to the
+ * hd default, hence 'wide'; `lint:deck` reports the unknown name separately.
+ */
+/** True when the deck renders on a 16:9 stage (the default, with no `size:`). */
+function isSixteenNine(source) {
+  const name = deckSizeName(source);
+  if (!name) return true;
+  const { width, height } = sizeFor(name);
+  const a = parseFloat(width) / parseFloat(height);
+  return Number.isFinite(a) && Math.abs(a - 16 / 9) < 0.02;
+}
+
+function deckFamily(source) {
+  const name = deckSizeName(source);
+  if (!name) return 'wide';
+  const { width, height } = sizeFor(name);
+  const w = parseFloat(width);
+  const h = parseFloat(height);
+  if (!Number.isFinite(w) || !Number.isFinite(h) || h <= 0) return 'wide';
+  const a = w / h;
+  // Mirrors FAMILIES in lib/adaptive/families.js (min exclusive, max inclusive).
+  if (a > 1.05) return 'wide';
+  if (a > 0.9) return 'square';
+  if (a > 0.5) return 'tall';
+  return 'strip';
+}
+
+/**
+ * The px a line budget widens by on this deck. The budgets are measured at `size: 4k` (a 2160-high
+ * slide) with the overflow probe's FRAME_TOLERANCE of 12 layout px included, but the probe forgives
+ * 12 LAYOUT px at every size, which on the default 720-high deck is 36 px of a 2160 slide. Without
+ * this a slide within the tolerance read as clipped (examples/retire-automatic-scale-fit.md, 1% over
+ * its budget and whole in the export).
+ */
+function lineSlack(source) {
+  const h = parseFloat(sizeFor(deckSizeName(source)).height);
+  return h > 0 ? 12 * (2160 / h - 1) : 0;
+}
+
+/**
+ * `autosplit:` is a RETIRED directive (2026-07-29). Splitting is intrinsic: a deck is
+ * authored once and presented at many sizes, so its page count is a function of the
+ * content and the box, never an authoring switch. See
+ * engineering/decisions/2026-07-29-autosplit-is-not-a-toggle.md.
+ *
+ * A retired directive is flagged rather than ignored, because silence reads as "this
+ * still works": a deck carrying `autosplit: off` would otherwise look like it had
+ * opted out while the engine paginated it anyway. `off` at a size that splits is therefore
+ * the ERROR case — it asks for something the engine no longer offers. `on`, and `off` at a
+ * landscape size (where nothing splits), are a `suggestion`: the only cost is a stale line.
+ *
+ * BOTH messages are family-aware, because the claim "this deck paginates anyway" is only
+ * true where the SPLIT move runs. At `wide` it does not (lattice.js
+ * `AUTOSPLIT_APPLIES`), so telling a landscape author their `autosplit: off` is overridden
+ * asserts the opposite of what the engine will do — the lie-to-the-author defect this rule
+ * exists to prevent, in the rule itself. Caught by the adversarial checker on #1234.
+ */
+const AUTOSPLIT_DIRECTIVE = /^\s*autosplit:\s*(\S+)\s*$/im;
+
+function findRetiredAutosplitDirective(source) {
+  // `\r?\n` on both sides: a CRLF deck has front matter like any other, and a reader that
+  // silently sees none reports "no directive here" for a deck that carries one.
+  const fmMatch = String(source || '').match(/^---\r?\n[\s\S]*?\r?\n---/);
+  if (!fmMatch) return [];
+  const hit = fmMatch[0].match(AUTOSPLIT_DIRECTIVE);
+  if (!hit) return [];
+  const off = /^(off|false|no)$/i.test(hit[1]);
+  const paginates = deckFamily(source) !== 'wide';
+  return [{
+    slide: 1,
+    rule: 'autosplit-retired',
+    // `off` is an error only where the engine splits anyway; at a landscape size nothing
+    // splits, so the line is merely stale and the finding is a suggestion (2026-10-06).
+    severity: off && paginates ? 'error' : 'suggestion',
+    classToken: 'autosplit',
+    line: hit[0].trim(),
+    // Family-aware: at a landscape size nothing splits, so neither message may claim it does.
+    message: off && paginates
+      ? '`autosplit: off` no longer works; slides that don\'t fit still split into more pages.'
+      : off
+        ? '`autosplit: off` no longer does anything.'
+        : paginates
+          ? '`autosplit:` no longer does anything; slides that don\'t fit split automatically.'
+          : '`autosplit:` no longer does anything.',
+    fix: off && paginates
+      ? 'Delete the line. To keep one slide whole, add `<!-- stress-slide -->` to that slide.'
+      : 'Delete the line.',
+  }];
+}
+
+/**
+ * `caption:` / `captions:` are RETIRED as the spoken-line keys (2026-09-28); the key is now
+ * `say:`. "Caption" meant four things across the product — the line a slide speaks, the line
+ * the engine generates, the on-screen text band, and the label under a figure — so it now
+ * means only VISIBLE text. See engineering/decisions/2026-09-28-say-not-caption.md.
+ *
+ * An ERROR, not a warning, and for the retired-autosplit reason: the engine no longer reads
+ * the old key, so a stale `<!-- caption: … -->` would silently lose its line and the slide
+ * would speak its generated narration instead. Worse, an unrecognized comment is a SPEAKER
+ * NOTE, so the old line would surface in the presenter's notes. Nothing else tells the author.
+ * Fenced and inline code are skipped (`withoutCodeCommentMarkers`), so a deck documenting the
+ * old syntax is not flagged for quoting it.
+ */
+// The comment shape is the engine's (`<!--+ … --+!?>`, notes-core `COMMENT_SOURCE`), so `<!--- caption: --->`
+// and the abrupt `--!>` close are found too. The key is matched in any case, as the engine
+// matched it before the retirement; `retiredSeverity` below decides what each case costs.
+const RETIRED_CAPTION_COMMENT = /<!-{2,}\s*(caption)\s*:[\s\S]*?-{2,}!?>/gi;
+const RETIRED_CAPTIONS_KEY = /^captions[ \t]*:.*$/m;
+
+// Every slide comment `re` matches, outside code, as `make(match)` findings. The `line` is the
+// line that carries the key, so a multi-line `<!--\ncaption: …` names the key, not `<!--`.
+function commentKeyFindings(text, re, make) {
+  const out = [];
+  const fm = fmChunks(text);
+  splitTopLevel(text).forEach((chunk, idx) => {
+    if (idx < fm) return;
+    for (const m of withoutCodeCommentMarkers(chunk).matchAll(re)) {
+      const lines = m[0].split('\n');
+      const line = (lines.find((l) => /(caption|say)\s*:/i.test(l)) || lines[0]).trim().slice(0, 80);
+      out.push({ slide: Math.max(1, idx - fm + 1), line, ...make(m) });
+    }
+  });
+  return out;
+}
+
+function findRetiredCaptionKeys(source) {
+  const text = String(source == null ? '' : source);
+  const key = text.match(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---/)?.[0].match(RETIRED_CAPTIONS_KEY);
+  const findings = key ? [{
+    slide: 1, rule: 'caption-key-retired', severity: 'error', classToken: 'captions', line: key[0].trim().slice(0, 80),
+    message: '`captions:` was renamed `say:`; this line is ignored, so these slides speak generated narration.',
+    fix: 'Rename it to `say:`.',
+  }] : [];
+  // LOWERCASE is the key as the docs taught it: an ERROR. A capitalized `Caption:` was spoken
+  // too before the retirement, but it is also how a presenter opens a real private note
+  // ("Caption: fix the typo"), so an error there would leave no way out but rewording.
+  return findings.concat(commentKeyFindings(text, RETIRED_CAPTION_COMMENT, (m) => {
+    const lower = m[1] === 'caption';
+    return {
+      rule: 'caption-key-retired', severity: lower ? 'error' : 'warning', classToken: 'caption',
+      message: '`caption:` is retired; this comment is now a speaker note.',
+      fix: lower ? 'Rename it to `<!-- say: … -->`.' : 'To speak it, use `<!-- say: … -->`.',
+    };
+  }));
+}
+
+/**
+ * `Say:` / `SAY:` — a capitalized spoken-line key, which the engine reads as a speaker NOTE.
+ *
+ * The `say:` key is lowercase only (notes-core `SAY_MATCHER`), because the channel is PUBLIC
+ * and "Say: thank the ops team" is how a presenter might open a PRIVATE note. Matching it would
+ * publish the note into the `.vtt` and the audio of a shared deck. So the capitalized form stays a
+ * note, which is the safe default, and this WARNING tells the author which one they wrote: it
+ * never blocks, because a note that starts "Say:" is a perfectly good note.
+ */
+const CAPITALIZED_SAY_COMMENT = /<!-{2,}\s*(?!say\s*:)[Ss][Aa][Yy]\s*:[\s\S]*?-{2,}!?>/g;
+
+function findCapitalizedSayKey(source) {
+  return commentKeyFindings(String(source == null ? '' : source), CAPITALIZED_SAY_COMMENT, () => ({
+    rule: 'say-key-case', severity: 'warning', classToken: 'say',
+    message: 'Only lowercase `say:` is spoken; this comment is a speaker note.',
+    fix: 'To speak it, use `<!-- say: … -->`.',
+  }));
+}
+
+/**
+ * `paginate: skip` / `paginate: hold` are Marp values Lattice does NOT implement, and it
+ * downgrades them to `false` in silence.
+ *
+ * The engine's model is that every slide HAS a page number — the counter advances on every
+ * section — and only whether the number is DISPLAYED is per-slide (`lib/engine/slides.js`:
+ * a slide whose number is switched off is still counted, so the next one reads its true position, which a
+ * parity sweep once caught rendering as "1" instead of "2"). Marp's two extra values break
+ * that model deliberately: `skip` removes the slide from the count entirely, and `hold`
+ * shows a number without advancing it. Lattice implements neither — `truthy()` rejects all
+ * three of `false`/`skip`/`hold` identically, so each just hides the badge while the slide
+ * keeps its place in the numbering.
+ *
+ * For `false` that IS the intent. For `skip` and `hold` the author asked for a renumbering
+ * they will not get, and the deck still renders — so nothing tells them. Hence a rule: this
+ * is the "silence reads as it works" case the retired-autosplit rule above exists for.
+ *
+ * `suggestion`, not `error`: the rendered result is a legitimate one (the badge is hidden,
+ * which is most of what either value implies), so the deck is not broken — it just does not
+ * renumber. Both spot (`_paginate`) and global forms are flagged, in front matter and in
+ * directive comments, since the engine treats them the same way — but ONLY in those two
+ * places: prose that merely mentions the value, and any form of code block, are left alone.
+ */
+// ANCHORED to the two places a directive can actually live: a `<!-- … -->` comment, or a
+// front-matter line. The first cut used a bare `^` alternation under /m, which matches ANY
+// line start — so a slide whose PROSE says "paginate: skip is not supported" tripped its own
+// rule, as did an indented code block. Verified by an inversion review; the anchor is what
+// makes the "only fires on real directives" claim true rather than aspirational.
+//
+// Front matter only: a `paginate` COMMENT is retired outright (`findRetiredPaginateComments`).
+const PAGINATE_UNSUPPORTED_FM_RE = /^[ \t]*(paginate)[ \t]*:[ \t]*(skip|hold)\b/im;
+
+// Blank every form of code the engine renders literally, so a sample in the docs — including
+// THIS rule's own documentation — is never read as a directive. Backtick fences were the only
+// form the first cut stripped; tilde fences and indented blocks both slipped through.
+function withoutCodeBlocks(text) {
+  return String(text)
+    .replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, '')   // ``` fence
+    .replace(/^[ \t]*~~~[\s\S]*?^[ \t]*~~~/gm, '')   // ~~~ fence
+    .replace(/^(?: {4}|\t)[^\n]*$/gm, '')             // indented code block
+    .replace(/`[^`\n]*`/g, ' ');                      // inline code span
+}
+
+// Rule 14e — RETIRED 2026-11-13 with the engine break: `bg-side-unread` and `bg-ratio-unread` described what the engine
+// drew for a `![bg …]` keyword, and it draws none now. Every such line is the image plugin's `image-marp-keyword`, whose fix
+// moves the placement to the slide (lib/plugins/image/image.lint.js).
+
+/**
+ * `empty-section` — a divider straight after a divider. The first one opens a section that holds no
+ * slide, so its mark on the section rail never lights on any slide, and the reader's first rail can
+ * say `2 / 4` (progress.transform.js counts every divider, `light` and `numbered` included). A
+ * WARNING since 2026-11-08 (the owner's call, engineering/decisions/2026-11-08-anchor-chrome.md): it
+ * was a review-tier suggestion, which `lint:deck --all` skips, and the gallery that shipped two
+ * dividers in a row is how it was found. Warns, never blocks: a deliberate `divider light`
+ * sub-heading straight after its section's divider still renders.
+ */
+function findEmptySections(source) {
+  const text = String(source || '');
+  const out = [];
+  const fm = fmChunks(text);
+  const directives = slideClassDirectives(text);
+  let prevDivider = false;
+  splitTopLevel(text).forEach((chunk, idx) => {
+    if (idx < fm || !chunk.trim()) return;
+    const tokens = (directives[idx]?.payload || '').split(/\s+/).filter(Boolean);
+    const isDivider = tokens.includes('divider');
+    if (isDivider && prevDivider) {
+      out.push({
+        slide: idx - fm + 1, rule: 'empty-section', severity: 'warning', classToken: tokens[0] || 'divider',
+        line: (directives[idx]?.text || '').trim(),
+        message: 'two dividers in a row: the first section holds no slide, so its rail mark never lights',
+        fix: 'Add a slide to the first section, or merge the two dividers.',
+      });
+    }
+    prevDivider = isDivider;
+  });
+  return out;
+}
+
+function findUnsupportedPaginateValues(source) {
+  const text = String(source || '');
+  const out = [];
+  const fm = fmChunks(text);
+  // FRONT MATTER only. A `paginate` COMMENT is retired outright (`findRetiredPaginateComments`, below), so the
+  // `skip` / `hold` question now lives only where `paginate:` still means something: the deck's own setting.
+  splitTopLevel(text).forEach((chunk, idx) => {
+    if (idx >= fm) return;
+    const m = withoutCodeBlocks(chunk).match(PAGINATE_UNSUPPORTED_FM_RE);
+    if (!m) return;
+    const value = m[2].toLowerCase();
+    out.push({
+      slide: 1,
+      rule: 'paginate-unsupported-value',
+      severity: 'suggestion',
+      classToken: 'paginate',
+      line: m[0].trim(),
+      message: value === 'skip'
+        ? '`paginate: skip` is Marp\'s; Lattice reads it as `false` and numbers no slide.'
+        : '`paginate: hold` is Marp\'s; Lattice reads it as `false` and numbers no slide.',
+      fix: 'Write `paginate: false` to number nothing, or leave it out: page numbers are on by default.',
+    });
+  });
+  return out;
+}
+
+/**
+ * A `paginate:` or `_paginate:` COMMENT on a slide does nothing (the owner's ruling, 2026-10-20; lib/engine/slides.js).
+ * Front matter `paginate:` numbers the deck and is on by default; a slide opts out with the `no-pagination` class and
+ * back in with `with-pagination`; a component opts its slides out in its manifest (`chrome.pagination: false`, read
+ * from lib/packages/chrome.generated.js). So the comment is reported, with what to write instead.
+ *
+ * The fix DELETES the line, and only where the slide already shows what the comment asked for (judged by the engine's
+ * rule, lib/core/pagination.js, against the deck's own `paginate:`), and only when that line occurs once on the slide,
+ * so a copy quoted in a code sample is never the one deleted. Anywhere else the author adds `no-pagination` or
+ * `with-pagination` to the slide's `_class:`; writing a second `_class:` line instead would replace the slide's
+ * component, so the fix does not.
+ */
+function findRetiredPaginateComments(source) {
+  const text = String(source || '');
+  const out = [];
+  const fm = fmChunks(text);
+  const fmBlock = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  const deckOn = paginateOn(fmBlock ? topLevelFrontMatterValue(fmBlock[1], 'paginate') : '');
+  const classes = slideClassDirectives(text);
+  // The deck's `class:` is on every slide too (the engine reads it the same way, lib/engine/slides.js).
+  const deckTokens = fmBlock ? deckClassTokensFromFrontMatter(fmBlock[1]) : [];
+  splitTopLevel(text).forEach((chunk, idx) => {
+    if (idx < fm) return;
+    const toks = [...deckTokens, ...(classes[idx]?.payload || '').split(/\s+/).filter(Boolean)];
+    // What the slide shows today, and what it would show with the deck forcing a number: a bookend shows none
+    // unless `with-pagination` says so, which is the line an author who wrote `_paginate: true` there meant.
+    const shows = slidePaginates(toks, deckOn);
+    const optsOut = !slidePaginates(toks, true);
+    for (const c of slideMetaComments(text, idx)) {
+      if (c.kind !== 'directive' || c.key !== 'paginate') continue;
+      const on = paginateOn(c.value);
+      const key = c.spot ? '_paginate' : 'paginate';
+      const line = c.raw.trim();
+      // The fix deletes the first line in the slide with this text, so a copy quoted in a code sample on the same
+      // slide would be deleted instead. Only a line that occurs once is safe to fix by machine.
+      // A record's `paginate` field shares its line with the record's other fields, so deleting the line is no fix.
+      const once = !c.record && chunk.split(/\r?\n/).filter((l) => l.trim() === line).length === 1;
+      const meant = on === shows;
+      const fix = meant
+        ? `${c.record ? 'Remove the `paginate` field from the record' : 'Delete it'}: ${on ? 'this slide is numbered already.' : 'this slide already shows no page number.'}`
+        : c.record
+          ? `Add \`${on ? 'with-pagination' : 'no-pagination'}\` to the record's \`modifiers\` field, then remove its \`paginate\` field.`
+          : on
+            ? (toks.length ? 'Add `with-pagination` to this slide\'s `_class:`, then delete this line.' : 'Replace it with `<!-- _class: content with-pagination -->`.')
+            : (toks.length ? 'Add `no-pagination` to this slide\'s `_class:`, then delete this line.' : 'Replace it with `<!-- _class: content no-pagination -->`.');
+      out.push({
+        slide: idx - fm + 1,
+        rule: 'paginate-comment-retired',
+        severity: 'warning',
+        line,
+        message: `${c.record ? `A record's \`paginate\` field` : `\`<!-- ${key}: … -->\``} does nothing: a slide's page number is set by class, not by a comment.${on && optsOut && !meant ? ' This component drops its number unless the slide says `with-pagination`.' : ''}`,
+        fix,
+        ...(meant && once ? { autofixable: true } : {}),
+      });
+    }
+  });
+  return out;
+}
+
+// Rule 14f — slide-metadata comments the engine will never read
+// (engineering/decisions/2026-10-17-meta-record.md §5.3, §5.5, §9 step 1).
+//
+// A RECORD comment opens with `{` or `@meta{` (`<!-- {layout=content} -->`). No step reads one yet
+// (the door is step 2), so these four rules fire on a record in a position NO step will read, which
+// is where an author or a tool would otherwise lose it in silence once records work. They read the
+// comments the shared reader reports (`scanMetaSource`: the deck model's comment blocks, plus the comments it
+// folds into another block, marked `folded`; fences and indented code are never comments), so a record quoted in a
+// fence is literal text and never a finding.
+//
+// THE FIFTH, `legacy-directive-comment`, coaches the old `<!-- _class: x -->` form toward the record.
+// The engine reads that form until the cut (step 6), so the rule is OFF unless the vocab carries
+// `metaCut: true` (`lint:deck --meta-cut`). Its fix names `lattice migrate meta` (step 5), which rewrites a whole deck
+// through the tested kernel; a per-finding machine fix is the cut's (step 6).
+//
+// `meta-in-html-block` is a LINE-SHAPE test, not a CommonMark parse, and has a residual: it looks
+// only at the line directly above the record. A record further down an HTML block that opened
+// lines earlier (`<div>`, a text line, then the record, no blank line) is folded into that block
+// too and is not reported; nor is an HTML block opened behind a list marker (`- <figure>`), which `meta-not-own-line`
+// reports instead because the record is then inside the list. (A record indented under a list item, `- point` then two
+// spaces and the record, is `meta-not-own-line` too: the scan reads its nesting from the deck model, not the line.)
+// CommonMark HTML block starts (§4.6) that a record directly below would be folded into. Types 1, 3, 4, 5
+// (`<pre`, `<script`, `<style`, `<textarea`, `<?`, `<!X`, `<![CDATA[`) and 6 (a block-level tag name opens the
+// line) can start anywhere. Type 7, a line that is ONE complete tag and nothing else (`<img src="x">`), cannot
+// interrupt a paragraph, so it counts only when the line above it is blank. An INLINE tag with text on its
+// line (`<span>Revenue</span> grew`) opens no block, and a comment may interrupt the paragraph it sits in.
+const HTML_BLOCK_TAGS = 'address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul';
+const HTML_BLOCK_ANY = new RegExp(`^ {0,3}(?:</?(?:${HTML_BLOCK_TAGS})(?:[\\s/>]|$)|<(?:pre|script|style|textarea)(?:[\\s>]|$)|<\\?|<![A-Za-z]|<!\\[CDATA\\[)`, 'i');
+const HTML_BLOCK_TYPE7 = /^ {0,3}(?:<[A-Za-z][A-Za-z0-9-]*(?:\s+[A-Za-z_:][\w:.-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*\/?>|<\/[A-Za-z][A-Za-z0-9-]*\s*>)\s*$/;
+const META_RECORD_FIX = {
+  'meta-unknown-key': 'Use a record field (`layout`, `variant`, `footer`, `finish`, …); the editor completes them after `<!-- {`.',
+  'meta-field-value': 'Use one of the values the message lists.',
+  'unterminated-record': 'Close the record\'s braces (and any quote) before `-->`.',
+  'meta-newline-in-quote': 'Keep a quoted value on one line; put long text in a `key: |` block.',
+  'meta-record-syntax': 'Write the record as `{key=value, key="quoted value"}`.',
+  'meta-deck-only': 'Set it in front matter, for the whole deck.',
+  'meta-comment-unsafe': 'Remove the `-->` from the field, or move the text into `note`.',
+  'meta-field-type': 'Give the field one value, not a list or a record.',
+  'meta-block-line': 'Write each line after the record as `key: value` or `key: |`.',
+  'meta-repeated-key': 'Keep one; the last one wins.',
+};
+function findMetaCommentIssues(source, vocab) {
+  const out = [];
+  const memo = metaScan(source);
+  const lines = normalizeSource(memo.source).split('\n');
+  const fm = fmChunks(memo.source);
+  const metaCut = vocab?.metaCut === true;
+  const readLines = new Set();
+  memo.scan.slides.forEach(({ comments }, idx) => {
+    if (idx < fm) return;
+    const slide = idx - fm + 1;
+    // `meta-class-overridden`: two comments on one slide that each set the slide's class (a `_class:` comment, a
+    // record's `layout`, `class` or a register field such as `headline`). The class is ONE value and the last one wins,
+    // so the earlier comment's words are dropped whole: `<!-- _class: stats -->` then `<!-- {headline=left} -->` renders
+    // the default layout. Each loser is named, with the words it loses (the inversion on step 3).
+    const classSetters = comments.filter((c) => c.kind === 'directive' && c.key === 'class' && c.spot && !c.folded);
+    for (const c of classSetters.slice(0, -1)) {
+      const winner = classSetters[classSetters.length - 1];
+      if (winner.line === c.line) continue;
+      out.push({
+        slide, rule: 'meta-class-overridden', severity: 'warning', line: (lines[c.line - 1] ?? c.raw).trim(),
+        message: `This comment sets the slide's class to \`${c.value}\`, and the comment on line ${winner.line} sets it again: the class is one value, so \`${c.value}\` is dropped.`,
+        fix: 'Set the class in one place: put every word (or field) in the last comment, and remove this one.',
+      });
+    }
+    // A field other than the class set by two records the engine reads on one slide (§4.3: "a repeated key is a lint
+    // error; the engine's behavior stays last-wins"). The door sees one record at a time, so it names a repeat inside
+    // one record only; this names a repeat across them (#3136, the red team). The class has its own rule above.
+    const firstSet = new Map();
+    for (const c of comments) {
+      if (c.kind !== 'directive' || !c.record || c.key === 'class' || c.folded || c.prefixed || c.nested) continue;
+      const first = firstSet.get(c.key);
+      if (first === undefined) firstSet.set(c.key, c.line);
+      else if (first !== c.line) {
+        out.push({
+          slide, rule: 'meta-record', severity: 'error', classToken: 'meta-repeated-key', line: (lines[c.line - 1] ?? c.raw).trim(),
+          message: `\`${c.key}\` is already set by the record on line ${first}; the last one wins.`,
+          fix: META_RECORD_FIX['meta-repeated-key'],
+        });
+      }
+    }
+    for (const c of comments) {
+      const line = (lines[c.line - 1] ?? c.raw).trim();
+      // `meta-record`: what the door itself reports on a record it reads (an unknown field, a value outside its
+      // register, braces that never close, a deck-only key). The door drops what it reports, so the author would
+      // otherwise lose it in silence. One record lists one entry per field it sets: read it once, by its line. A
+      // record the engine never reads (in a list, a quote, an HTML block, behind a bare opener) gets the position
+      // rule below instead, never both.
+      // Only a record that is ONE whole comment on its own lines is read by the door (§5.3); one sharing its line with text
+      // or another comment applies nothing, and the door's diagnostics would name the wrong cause (the checker on step 3).
+      const whole = String(c.raw).trim();
+      const ownLines = whole.startsWith('<!--') && whole.endsWith('-->') && !whole.slice(0, -3).includes('-->') && !whole.slice(4).includes('<!--');
+      // A record that holds a marker (`{stress-slide, footr=Q3}`) is listed as the marker: it is still a record (#3136).
+      const markerRecord = c.kind === 'marker' && /^<!--\s*(?:\{|@meta\{)/.test(whole);
+      if ((c.kind === 'record' || c.record || markerRecord) && ownLines && !c.prefixed && !c.nested && !c.folded && !c.bareOpener && !readLines.has(c.line)) {
+        readLines.add(c.line);
+        const body = whole.slice(4, -3);
+        for (const d of readRecord(body)?.diagnostics ?? []) {
+          out.push({
+            slide, rule: 'meta-record', severity: 'error', classToken: d.code, line,
+            message: `${d.message.charAt(0).toUpperCase()}${d.message.slice(1)}${d.code === 'meta-repeated-key' ? '.' : '. The engine skips it.'}`,
+            fix: META_RECORD_FIX[d.code] ?? 'Correct the field, or remove it.',
+          });
+        }
+      }
+      if (c.kind === 'directive') {
+        // A folded directive is one the engine never reads (it sits inside another block): nothing to migrate.
+        // A record's field is the target form, not the old one.
+        if (!metaCut || c.folded || c.record) continue;
+        const written = `${c.spot ? '_' : ''}${c.key}`;
+        out.push({
+          slide, rule: 'legacy-directive-comment', severity: 'warning', classToken: written, line,
+          message: `\`${written}:\` is the old directive comment; the engine stops reading this form at the planned cut to record comments.`,
+          fix: 'Rewrite it as a record (`<!-- {…} -->`): `lattice migrate meta <deck.md>` rewrites every one in the deck, on the same lines.',
+        });
+        continue;
+      }
+      if (c.kind !== 'record') continue;
+      if (c.bareOpener) {
+        out.push({
+          slide, rule: 'meta-opener-bare', severity: 'error', line,
+          message: 'This comment is not a record: its `{` is on the line after `<!--`, so it is a speaker note and sets nothing.',
+          fix: 'Put the record on the opener\'s line: `<!-- {…} -->`.',
+        });
+      }
+      // `nested` covers a record indented under a list item, which has no marker on its own line to see.
+      if (c.prefixed || c.nested) {
+        out.push({
+          slide, rule: 'meta-not-own-line', severity: 'error', line,
+          message: 'A record inside a list item or blockquote is never read.',
+          fix: 'Move the record to its own line, outside the list or quote.',
+        });
+        // markdown-it ends the comment where the container does, so a blank line inside one shows
+        // the rest as text, and an unterminated `<!--` can swallow the next slide (§5.5).
+        if (c.endLine > c.line && c.raw.split('\n').slice(1).some((l) => l.trim() === '')) {
+          out.push({
+            slide, rule: 'meta-block-in-container', severity: 'error', line,
+            message: 'This record holds a blank line inside a list or blockquote: the comment ends at the blank line, and the rest of it shows on the slide.',
+            fix: 'Remove the blank lines, or move the comment out of the list or quote.',
+          });
+        }
+      }
+      const above = c.line > 1 ? lines[c.line - 2] : '';
+      const twoAbove = c.line > 2 ? lines[c.line - 3] : '';
+      // Inside a list or quote, `meta-not-own-line` has already said it: one finding, not two.
+      if (!(c.prefixed || c.nested) && (HTML_BLOCK_ANY.test(above) || (HTML_BLOCK_TYPE7.test(above) && twoAbove.trim() === '')) && !/^ {0,3}<!--/.test(above)) {
+        out.push({
+          slide, rule: 'meta-in-html-block', severity: 'error', line,
+          message: 'This record sits directly under an HTML line, so markdown-it folds both into one HTML block and the record is never read.',
+          fix: 'Leave a blank line before the record.',
+        });
+      }
+    }
+  });
+  return out;
+}
+
+// An HTML comment opened and never closed. The parser runs it to EOF, so everything after
+// it disappears from the rendered deck — but the more dangerous consequence is on EXPORT:
+// the note extractor's comment matcher requires a terminator, so an unterminated comment
+// yields NO note body, `--strip-notes` finds nothing to remove, and the text ships verbatim
+// in the shared file's embedded source. An author who typed `<!--` and meant to hide
+// something gets the opposite of what they asked for, silently.
+//
+// Deliberately a LINT finding rather than a scrub: making the strip match to EOF would
+// delete the rest of the deck from the author's own source, which is worse than the leak
+// it fixes. The author has to see it and close the comment.
+//
+// The regex this replaced, `/<!--(?![\s\S]*?--!?>)/`, re-ran its lookahead to the next
+// closer from EVERY `<!--`, so 250 KB of `<!-- ` with one `-->` at the end took 2.6 s
+// (followups.d/2328-p4). The answer only depends on the LAST closer: every `<!--` that
+// starts before it can reach it, and the first one that starts after it is the match.
+function firstUnterminatedComment(text) {
+  const lastClose = Math.max(text.lastIndexOf('-->'), text.lastIndexOf('--!>'));
+  // A closer counts only if it starts at or past the opener's own four characters.
+  return text.indexOf('<!--', Math.max(0, lastClose - 3));
+}
+
+// Neutralize comment MARKERS inside code regions, instead of deleting the lines they sit on.
+//
+// `withoutCodeBlocks` also strips every line indented four spaces or more, as an indented
+// code block. That is right for the rules it was written for and WRONG here: a hanging-indent
+// speaker note —
+//
+//     <!-- Talk track:
+//          open with the number, then the ask.
+//          Keep it under two minutes. -->
+//
+// — loses the line carrying its terminator, so a perfectly well-formed comment reads as
+// unterminated and the author gets an ERROR telling them their notes will ship when they
+// asked to strip them. A false alarm about a privacy failure is the worst kind: the rational
+// response is to stop trusting the strip.
+//
+// Fenced blocks and inline spans still have their markers removed, since showing sample
+// markup is exactly what they are for. Indented code is deliberately left alone: an indented
+// block containing an UNCLOSED `<!--` would still be flagged, which is a far rarer shape than
+// an indented comment and is resolved by fencing it — a false negative here would cost a
+// silent leak, so the trade is made in the direction of the cheaper miss.
+function withoutCodeCommentMarkers(text) {
+  // BLANKED TO SPACES, not deleted. Deleting a multi-character marker in one pass can
+  // RECONSTITUTE it from the text either side — `<!<!----` loses the inner `<!--` and the
+  // remaining halves close up into a fresh `<!--` — so a code fence could still hand this
+  // rule a marker it thought it had removed, and the author would get a false "your notes
+  // will ship" error. Spaces cannot combine into a marker, so one pass is sufficient, and
+  // keeping the length preserves the offsets the finding's line extraction relies on.
+  const blank = (m) => m.replace(/<!--|--!?>/g, (s) => ' '.repeat(s.length));
+  return String(text)
+    .replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, blank)
+    .replace(/^[ \t]*~~~[\s\S]*?^[ \t]*~~~/gm, blank)
+    .replace(/`[^`\n]*`/g, blank);
+}
+
+/**
+ * Find an HTML comment that is never closed.
+ * @param {string} source raw deck source
+ * @returns {object[]} findings
+ */
+function findUnterminatedComment(source) {
+  const findings = [];
+  const text = String(source == null ? '' : source);
+  // `splitTopLevel` emits the front matter as its own leading chunks, so a raw `idx + 1`
+  // reports every slide number two too high on any deck with front matter — i.e. every
+  // Lattice deck. An author told "slide 4 leaks your notes" about a clean slide 4 will not
+  // find it. Same `idx - fm + 1` convention every other rule in this file uses.
+  const fm = fmChunks(text);
+  splitTopLevel(text).forEach((chunk, idx) => {
+    // Code regions legitimately contain `<!--` as sample text — but see the helper: their
+    // markers are neutralized rather than their LINES deleted, because deleting indented
+    // lines eats the terminator of an ordinary hanging-indent comment.
+    const body = withoutCodeCommentMarkers(chunk);
+    const at = firstUnterminatedComment(body);
+    if (at < 0) return;
+    const line = (body.slice(at).split('\n')[0] || '<!--').trim();
+    findings.push({
+      slide: Math.max(1, idx - fm + 1),
+      rule: 'unterminated-comment',
+      severity: 'error',
+      classToken: 'comment',
+      line: line.slice(0, 80),
+      message:
+        'This `<!--` comment is never closed: everything after it disappears, and its text ships inside any export that includes the deck\'s source, even with notes stripped.',
+      fix: 'Add `-->` where the comment should end.',
+    });
+  });
+  return findings;
+}
+
+/**
+ * The first line a list-shape detector flags OUTSIDE code fences, and its index in the slide's
+ * chunk. Fenced code is a quoted example, not a list: a fenced `- **Title.** body` is
+ * documentation, and its "fix" would rewrite the example. The index goes on the finding as
+ * `chunkLine`, so `applyFix` (and the Squadra bridge's span) start at this line, not at an
+ * identical fenced copy above it. `stripFencedCode` keeps line numbers.
+ */
+function liveOffense(slide, ...finders) {
+  const live = stripFencedCode(slide);
+  for (const find of finders) {
+    const line = find(live);
+    if (line) return { line, chunkLine: live.split('\n').indexOf(line) };
+  }
+  return null;
+}
+
+/**
+ * Detect the big-number hero authored as a HEADING instead of the required
+ * first list item. big-number's `number` slot is `ul > li:first-child`; an
+ * author who writes the number as a `#`/`##` heading (the intuitive move)
+ * leaves that required slot empty and the hero renders blank. True when the
+ * slide has a heading but NO top-level list item — the signature of that
+ * mistake. A big-number with a list item (hero present) or with neither
+ * (an empty stub, a different problem) is left alone. Pure; shared detector.
+ */
+function findBigNumberHeroInHeading(slide) {
+  if (!slide) return false;
+  // Strip fenced code first so a `#` comment INSIDE a code block isn't misread as
+  // a heading (mirrors countPrimaryCollection, which strips code before counting).
+  const body = slide.replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, '');
+  const hasHeading = /^#{1,6}\s+\S/m.test(body);
+  if (!hasHeading) return false;
+  return countPrimaryCollection(slide, 'item') === 0;
+}
+
+
+/**
+ * The character budget one fenced code line has before the pane CLIPS it, per
+ * layout and per box. Only the layouts that DO NOT WRAP appear here: a wrapping
+ * pane turns a long line into extra rows, which is a fit question the capacity
+ * rules already own, not a silent truncation.
+ *
+ * WHY THIS IS A TABLE OF MEASUREMENTS. The pane is `overflow: hidden` and the
+ * code is `white-space: pre`, so a too-long line is cut mid-token with no
+ * scrollbar, no ellipsis, and no build-time complaint — the export simply ships
+ * a slide that says something other than the source does. Nothing else in the
+ * pipeline can see it: the overflow probe measures HEIGHT, and a clipped line
+ * costs none. So the budget has to come from geometry, and geometry has to be
+ * measured in the engine that does the clipping.
+ *
+ * MEASURED, in this repo's Chromium, against a real emulator render of a probe
+ * deck — the same measurement the guard test re-runs, so it is reproducible on
+ * demand rather than folklore. Per box, the `pre` CONTENT box divided by the
+ * advance width of `--font-mono`. Both `code` and `compare-code` read at
+ * `--fs-body-compact`: code keeps one step below the reading size because a code
+ * line cannot wrap (engineering/decisions/2026-09-29-one-reading-size-per-venue.md),
+ * and `compare-code` moved up to it from `--fs-meta` on 2026-09-29.
+ *
+ *   box      layout      @size       pre content   font-size    advance    fits
+ *   wide     compare-code hd           516.000px   17.920px   10.7438px      48
+ *   wide     compare-code 4K           (the hd box at 3x)                      48  ← the budget
+ *   wide     code         hd          1104.000px   17.920px   10.7438px     102
+ *   square   code         square       905.175px   25.920px   15.5439px      58
+ *   tall     code         portrait     893.025px   39.960px   23.9720px      37
+ *   tall     code         reel         883.305px   39.960px   23.9720px      36  ← the budget
+ *   strip    code         mobile       879.255px   39.960px   23.9720px      36
+ *
+ * The advance is 0.5997 of the font size — JetBrains Mono's fixed pitch — so any
+ * of these recomputes as `floor(contentPx / (fontSizePx * 0.6))`. `--font-mono`,
+ * `--fs-meta` and `--fs-body-compact` are base tokens (lib/base/base.tokens.css),
+ * NOT theme-owned, so one table covers every theme.
+ *
+ * WITHIN A FAMILY, THE TIGHTEST @size SETS THE NUMBER — and that is load-bearing
+ * now in a way it was not before. The padding tokens are container-relative, so
+ * the content box moves a few px across the @sizes that share a family. At
+ * `--fs-meta` the `tall` pair measured 893.025px and 883.305px and BOTH floored
+ * to 49, so one number was free. At `--fs-body-compact` the columns are ~33%
+ * wider at portrait and the same 9.7px gap now straddles a boundary: portrait
+ * fits 37, reel fits 36. The table carries **36**, because a budget that is
+ * generous by one column is exactly the silent truncation this rule exists to
+ * catch — a 37-column line on a `size: reel` deck would pass and ship clipped.
+ * Any future re-measurement must re-check every @size in a family, not one.
+ *
+ * WHY compare-code IS `wide`-ONLY. At square/tall/strip its panes stack to ONE
+ * column and switch to `pre-wrap` (compare-code.styles.css "Family reflow"), so
+ * a long line wraps instead of clipping. `code` never wraps in any box, which is
+ * why it carries all four. Landscape compare-code also cannot escape into the
+ * wrapping carousel split: `splitDoc` is gated on `AUTOSPLIT_APPLIES`
+ * (lattice.js), which is false at `wide`.
+ *
+ * The numbers are pinned by a behavioral guard that re-measures them in a real
+ * browser (test/unit/components/code-line-width.test.js), so they cannot rot
+ * silently if the padding, the type scale, or the mono font changes. That test
+ * also asserts the SCOPE — that every layout listed here still fails to wrap,
+ * and every one omitted still does — so the table cannot drift out of step with
+ * the stylesheet in either direction.
+ */
+/**
+ * The designed-size budget per layout and family: the table's narrowest canvas in each family, with
+ * no stage or scale class (tools/measure-code-columns.js measures every cell). Kept as its own
+ * export because the docs and the fix text name these numbers; `codePaneColumns` is what judges.
+ */
+const CODE_LINE_BUDGET = (() => {
+  const familyMin = (row) => {
+    const out = {};
+    PANE_COLUMNS.CANVASES.forEach((canvas, i) => {
+      const f = PANE_COLUMNS.FAMILY[canvas];
+      if (row[i] != null) out[f] = Math.min(out[f] ?? Infinity, row[i]);
+    });
+    return Object.freeze(out);
+  };
+  return Object.freeze({
+    'compare-code': familyMin(PANE_COLUMNS.COLUMNS.compare['||']),
+    code: familyMin(PANE_COLUMNS.COLUMNS.pane['||']),
+    content: familyMin(PANE_COLUMNS.COLUMNS.pane['||']),
+  });
+})();
+
+/** A stage class → the stage the table measured (`claim-bleed` lays out as `claim-hero`). */
+const CODE_STAGES = Object.freeze({ 'claim-hero': 'claim-hero', 'claim-bleed': 'claim-hero', 'claim-quiet': 'claim-quiet', compact: 'compact' });
+
+/** The table group a code panel is measured in: the layout, then an alignment class that shrink-wraps it. */
+function codeGroupFor(layout, tokens) {
+  if (layout === 'compare-code') return 'compare';
+  if (tokens.some((t) => t === 'align-center' || t === 'stats')) return 'centered';
+  if (tokens.some((t) => t === 'align-left' || t === 'align-right')) return 'sided';
+  return 'pane';
+}
+
+/**
+ * How many columns of code the slide shows before it cuts a line, or null where the panel wraps.
+ * `tokens` are the slide's classes with the deck's (a front-matter `venue:` arrives as `venue-*`).
+ * The LARGEST venue and the largest spot scale win, as base.modifiers.css declares them ascending;
+ * a spot scale beside a venue replaces the venue's size, which the table measured rather than
+ * assumed. `scaled: false` reads the designed size: no venue, no spot scale. An unregistered canvas
+ * reads its family's narrowest. Two stage classes (pathological) read the tighter.
+ */
+function codePaneColumns(group, tokens, canvas, family, { scaled = true } = {}) {
+  const largest = (prefix) => tokens.filter((t) => t.startsWith(prefix) && FONT_SCALE_KEYS[t])
+    .sort((x, y) => FONT_SCALE_VALUE[FONT_SCALE_KEYS[x]] - FONT_SCALE_VALUE[FONT_SCALE_KEYS[y]]).pop() || '';
+  const venue = scaled ? largest('venue-') : '';
+  const spot = scaled ? largest('scale-') : '';
+  const stages = [...new Set(tokens.map((t) => CODE_STAGES[t]).filter(Boolean))];
+  const at = PANE_COLUMNS.CANVASES.indexOf(canvas);
+  let best = null;
+  for (const stage of stages.length ? stages : ['']) {
+    const row = PANE_COLUMNS.COLUMNS[group]?.[`${stage}|${venue}|${spot}`];
+    if (!row) continue;
+    const cells = at >= 0 ? [row[at]] : row.filter((_, i) => PANE_COLUMNS.FAMILY[PANE_COLUMNS.CANVASES[i]] === family);
+    for (const v of cells) if (v != null && (best == null || v < best)) best = v;
+  }
+  return best;
+}
+
+/**
+ * Modifiers that resize the STAGE, and so move the code pane out from under the measured LINE rows
+ * `capacity-scale` reads (`CODE_LINES_AT_SCALE`, measured on a bare stage): that rule stays silent
+ * on a slide carrying any of them rather than judging it against a pane height that is not its own.
+ * The WIDTH is measured per stage (lib/authoring/code-pane-columns.js), so the column checks judge
+ * these slides like any other.
+ */
+const STAGE_RESIZING_MODIFIERS = new Set(['claim-hero', 'claim-bleed', 'compact']);
+
+/**
+ * THE PROJECTION FONT SCALE — what a component holds when `scale-l` / `scale-xl` /
+ * `scale-2xl` (typography.md §7) raises every readable size and leaves the box alone.
+ *
+ * The engine renders every slide at the size the author chose and never shrinks one to
+ * fit (owner ruling 2026-09-27, which retired the automatic step of #2378/#2390). So a
+ * slide past these numbers clips, and the `capacity-scale` rule below says so before
+ * they render. The design record is engineering/decisions/2026-09-25-font-scale-fit.md.
+ *
+ * WHY A MEASURED TABLE AND NOT A FORMULA. Prose needs about s² of its designed height
+ * (taller glyphs, fewer per line), a one-line item about s, and a card grid something
+ * in between, so no single divisor holds. Both obvious ones were checked against the
+ * rig and both are unsafe: `floor(ceiling / s)` over-promises on 7 of 26 components
+ * (agenda at xl: 4, measured 3) and `floor(ceiling / s²)` still over-promises on
+ * glossary and team-profile, whose layouts change shape at a scale.
+ *
+ * SHAPE. `component → { <words per element>: [designed, l, xl, 2xl] }` — the ELEMENT
+ * COUNT at which the component last fits at `wide`, measured at two element lengths: 6 words
+ * (a label) and the component's own `density.soft` (the length authors are told to
+ * write). The rule reads the smallest length at or above the slide's longest element,
+ * so four one-line cards are judged as labels and not as paragraphs — judging them at
+ * `density.soft` warned on `examples/font-scale.md`'s 2xl grid, which renders whole.
+ * Past `density.soft` it reads the soft column, which can only under-warn; the
+ * emulator's SCALE line still names every page the engine stepped.
+ *
+ * `wide` ONLY. At square / tall / strip a slide past one member is split onto pages
+ * of one (lib/core/auto-split.js), so a count budget says nothing there.
+ *
+ * The numbers live in each component manifest's `venueCapacity` (one row per venue and
+ * element length), which tools/build-stage-catalog.js bakes into venue-capacity.generated.js.
+ * RE-DERIVE with the rig, not by hand, and write the result into the manifest — the numbers
+ * are the first overflowing count minus one, the same basis as `capacity`
+ * (2026-07-28-capacity-basis.md):
+ *
+ *   node tools/calibrate-capacity.js --all --family wide --scale xl --words 6
+ *   node tools/calibrate-capacity.js --all --family wide --scale xl --words soft
+ *
+ * (and `--scale l`, `--scale 2xl`, and no `--scale` for the designed-size column). The
+ * designed-size column is there so the rule can tell a slide that will render SMALLER
+ * from one that clips even at 1x — several declared `hard` values sit above what the rig
+ * measures at the designed size (authority-chain, kpi, pricing, q-and-a,
+ * regulatory-update, team-profile), and promising those slides a fit would be false.
+ * A component whose manifest says `venueCapacity.none` has no row, so the rule says nothing
+ * about it.
+ */
+// A `venue:` stamps a `venue-*` class that asks for the same rung (lib/core/resolve-venue.js,
+// pinned by test/unit/parsing/resolve-venue.test.js). Declared first in base.modifiers.css, so
+// a `scale-*` beside it wins in CSS — and `fontScaleKey` taking the LARGEST key agrees
+// except when an author scales a venue slide DOWN by hand, which the budget then overstates.
+const FONT_SCALE_KEYS = Object.freeze({
+  'scale-l': 'l', 'scale-xl': 'xl', 'scale-2xl': '2xl',
+  'venue-huddle': 'l', 'venue-conference': 'xl', 'venue-hall': '2xl',
+});
+/** The `venue-*` class a front-matter `venue:` stamps, or null (laptop / absent / unknown). */
+function venueClassFromFrontMatter(fmText) {
+  const m = lastFrontMatterMatch(String(fmText || ''), /^\s*venue:\s*["']?([A-Za-z0-9_-]+)["']?\s*(?:#.*)?$/m);
+  const t = m ? `venue-${m[1].toLowerCase()}` : null;
+  return t && FONT_SCALE_KEYS[t] ? t : null;
+}
+const FONT_SCALE_VALUE = Object.freeze({ l: 1.15, xl: 1.3, '2xl': 1.5 });
+const FONT_SCALE_ORDER = Object.freeze(['1', 'l', 'xl', '2xl']);
+// Components `capacity-scale` judges at the designed size by their measured laptop row, because
+// the row is the shape an author writes. Each was checked against a render: the row fits and one
+// more clips (list-tabular 6, glossary 9, premise 6 at 14 words, timeline-list 9 at 6 words).
+const LAPTOP_JUDGED = new Set(['list-tabular', 'glossary', 'premise', 'timeline-list']);
+// [designed size, scale-l, scale-xl, scale-2xl] — the venue rungs laptop, huddle, conference, hall.
+// The numbers live in each component's manifest (`venueCapacity`), and tools/build-stage-catalog.js
+// bakes them into venue-capacity.generated.js so this core stays require-free of the manifests and
+// the Studio's live lint reads the same table. A component with no row — its manifest says `none` —
+// gets no finding. A row on a component with no `capacity` block is inert here (the rule runs
+// inside the capacity loop) and serves the docs and the pick list.
+const VENUE_CAPACITY = require('../../../lib/authoring/venue-capacity.generated.js');
+const { fenceOpener } = require('../../../lib/core/fence-opener');
+const SCALE_CAPACITY = VENUE_CAPACITY.items;
+
+/**
+ * How many lines a `code` pane holds at each scale, `wide`, under a one-line heading —
+ * the same calibration shape as the table above. At the designed size that is 15; the
+ * code docs' "fourteen" carries an eyebrow above the heading, which costs one line.
+ *
+ * THE CODE ANSWER. Code keeps scaling and the line cap scales with it, rather than code
+ * holding its designed size. `code` is set in `--fs-body-compact`, the second-smallest
+ * role on the slide; exempting it would leave the densest, least forgiving text in the
+ * room as the one thing the projection scale does not reach. A block past its cap is
+ * cut at the pane's edge, and this budget is how `lint:deck` says so first. Width scales too, and
+ * by more than the scale (a venue adds the code lift, `--venue-compact-lift`): the columns are
+ * MEASURED per venue and spot scale (lib/authoring/code-pane-columns.js), not divided out.
+ *
+ *   node tools/calibrate-capacity.js code --family wide --scale xl --max 16 [--eyebrow]
+ */
+// [designed size, scale-l, scale-xl, scale-2xl], as FONT_SCALE_ORDER, from the `code` manifest's
+// `venueCapacity.lines`. An eyebrow above the heading costs the pane one to two lines, so it is
+// measured rather than subtracted. Null only if that manifest stops carrying the row, which a
+// unit test pins against.
+const CODE_LINES_AT_SCALE = VENUE_CAPACITY.code;
+
+/** `(i) → lines` the slide's `##` heading wraps to at rung `i` (the shared row frame's heading
+ * geometry, in the display face), or null when the slide has no `##` heading outside a fence: an
+ * `#` heading is another size, and the code rows were measured under `##`. */
+function codeHeadingLines(slide, literal = false) {
+  // A fence closes only on its own marker, at least as long (a ``` inside a ~~~ fence is content).
+  let fence = null;
+  for (const l of String(slide || '').split('\n')) {
+    const f = l.match(/^\s*(`{3,}|~{3,})/);
+    if (f) {
+      if (!fence) fence = f[1];
+      // A closer carries no info string (CommonMark): ```js inside a ``` fence is content.
+      else if (f[1][0] === fence[0] && f[1].length >= fence.length && !l.trim().slice(f[1].length).trim()) fence = null;
+    } else if (!fence && /^#{1,6}\s/.test(l)) {
+      if (!/^##\s/.test(l)) return null;
+      const text = lineText(l.slice(3).split('<!--')[0].trim(), GLYPH_DISPLAY, literal);
+      const frame = VENUE_CAPACITY.rowFrame;
+      return frame ? (i) => wrapLines(text, frame.heading[i][0], GLYPH_DISPLAY) : null;
+    }
+  }
+  return null;
+}
+
+/** Does the slide carry an eyebrow — a paragraph that is one inline code span, above the
+ * first heading? The same test as chart-narration.js `eyebrowBeforeHeading`, inlined
+ * because that module is 5k lines the browser lint bundle has no other use for. */
+function hasEyebrow(slide) {
+  const at = String(slide || '').search(/^#{1,6}\s/m);
+  const head = at >= 0 ? String(slide).slice(0, at) : String(slide || '');
+  return /^`[^`]+`\s*$/m.test(head);
+}
+
+/** The deck's projection scale on a slide — the LARGEST scale token present, because
+ * base.modifiers.css declares them in ascending order and the later rule wins. */
+function fontScaleKey(tokens) {
+  let best = null;
+  for (const t of tokens) {
+    const k = FONT_SCALE_KEYS[t];
+    if (k && (!best || FONT_SCALE_VALUE[k] > FONT_SCALE_VALUE[best])) best = k;
+  }
+  return best;
+}
+
+/** The measured element-count ceiling for `comp` at scale `key`, for elements of up to
+ * `words` words; null when the table does not cover it. */
+/**
+ * A word map's count at `words` per element and rung `i`, INTERPOLATED between the measured
+ * lengths (floored, so it errs toward the smaller count) and clamped to the ends. Reading the
+ * next measured length up instead judged a 10-word item as a 14-word one, which named slides
+ * that render whole (the talk's `list` slides, #2361 P2).
+ */
+function wordMapAt(map, words, i) {
+  const lengths = Object.keys(map).map(Number).sort((a, b) => a - b);
+  if (words <= lengths[0]) return map[lengths[0]][i];
+  const hi = lengths.find((l) => l >= words);
+  if (hi == null) return map[lengths[lengths.length - 1]][i];
+  const lo = lengths[lengths.indexOf(hi) - 1];
+  const a = map[lo][i];
+  const b = map[hi][i];
+  if (a == null || b == null) return null;
+  return Math.floor(a + ((b - a) * (words - lo)) / (hi - lo));
+}
+
+/**
+ * Does the slide end in a CALLOUT — a `> …` blockquote outside code fences and HTML comments (the
+ * key-insight block, lib/core/authoring-blocks.js)? Any blockquote line counts: a layout that
+ * claims its blockquote (a `quote` slide) has no venue row, so it never reaches this question.
+ */
+function endsWithCallout(slide) {
+  // One line scan (like `codeFences`), not regexes over the slide: a lazy `[\s\S]*?` with a
+  // backreference rescans to the end for every unclosed fence opener, and stripping `<!-- … -->`
+  // with a replace is the incomplete multi-character sanitization CodeQL rightly flags. The scan
+  // tracks comments and fences as states instead, so nothing is rewritten.
+  let fence = null;
+  let comment = false;
+  for (const raw of String(slide || '').split('\n')) {
+    let line = raw.replace(/\r$/, '');
+    if (comment) {
+      const end = line.indexOf('-->');
+      if (end < 0) continue;
+      comment = false;
+      line = line.slice(end + 3);
+    }
+    if (fence) {
+      const f = line.match(/^[ \t]*(`{3,}|~{3,})/);
+      if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+      continue;
+    }
+    const f = line.match(/^[ \t]*(`{3,}|~{3,})/);
+    if (f) { fence = f[1]; continue; }
+    const open = line.indexOf('<!--');
+    if (open >= 0) {
+      // Walk every comment on the line; the last one may stay open onto the next lines.
+      let at = open;
+      while (at >= 0) {
+        const close = line.indexOf('-->', at + 4);
+        if (close < 0) { comment = true; break; }
+        at = line.indexOf('<!--', close + 3);
+      }
+      if (/^\s*$/.test(line.slice(0, open))) continue;
+    }
+    if (/^[ \t]{0,3}>[ \t]?\S/.test(line)) return true;
+  }
+  return false;
+}
+
+// Components whose element is a term over ONE prose line that wraps, so its characters decide the
+// rows it takes. Characters for every component cost three catches on the five scored decks (cycle,
+// table, timeline-list: a title over a body, whose break is not one line's), and removed four false
+// warnings, so the length is read this way only here.
+const CHAR_JUDGED = new Set(['glossary', 'list-tabular']);
+// The rig's glossary and list-tabular elements (tools/lib/calibrate-core.js BUILDERS, in its FILLER)
+// run 6.75 to 6.88 characters a word, each word's space included, at every measured length.
+const RIG_CHARS_A_WORD = 6.8;
+/**
+ * The longest element on a slide as a word length the rows can read. For a CHAR_JUDGED component,
+ * its prose characters (each word and its space, the same words `elementWordCounts` counts) over
+ * the rig's characters a word, floored to a whole word: a count row is measured at a WORD length,
+ * but what wraps is characters. The talk's 15-word glossary definitions are shorter than the rig's
+ * 13-word one, and the word row read seven that fit at huddle as four (#2361 P2, "length in
+ * characters, not words"). Floored, not interpolated: the rows step at a wrap (list-tabular holds 5
+ * at huddle with an eyebrow at 13 words and 3 at 14), and a line drawn across the step warned on
+ * two talk slides at 13.2 and 13.5 that render whole. Elsewhere, the word count.
+ */
+function elementLength(slide, axis, comp) {
+  if (!CHAR_JUDGED.has(comp)) return Math.max(0, ...elementWordCounts(slide, axis));
+  let best = 0;
+  for (const { text } of elementWordEntries(slide, axis)) {
+    // A code span is a mono pill: each glyph 1.18 of the body face's average advance and the pill's
+    // padding 0.78 (measured, Amendment (7); `lineText`). Read as prose, `inline-pills` slide 7,
+    // mostly spans, came out shorter than the row it clips at hall. A universal pill
+    // (`{LABEL}:shape:color`) shows only its label, so only the label counts (the same deck's slide
+    // 5, priced as code, read long and warned on a slide that fits).
+    let spans = 0;
+    // A link shows its text and an HTML tag shows nothing, so neither URL nor tag is counted.
+    // An autolink `<https://…>` shows its URL; only a real tag (a letter after `<`) shows nothing,
+    // so `x<5 and y>3` keeps its words.
+    const shown = String(text).replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/<((?:https?|mailto):[^>\s]*)>/g, '$1').replace(/<\/?[A-Za-z][^>]*>/g, ' ');
+    const plain = shown.replace(/`([^`]*)`/g, (_, c) => {
+      const pill = c.match(/^\{([^}]*)\}(?::[\w-]+)*$/);
+      spans += (pill ? pill[1] : c).length * 1.18 + 0.78 + 1;
+      return ' ';
+    });
+    const prose = plain.replace(/^[ \t]*([-*]|\d+\.)\s+/gm, ' ').replace(/[#>*_[\]()|·–—]/g, ' ').trim().split(/\s+/).filter(Boolean);
+    const chars = prose.reduce((a, w) => a + w.length + 1, 0) + spans;
+    best = Math.max(best, Math.floor(chars / RIG_CHARS_A_WORD));
+  }
+  return best;
+}
+
+/**
+ * What component `comp` holds at rung `key` with `words` per element, on a slide carrying
+ * `tokens`. The row is the bare component's unless the slide carries a variant with its own
+ * measured row (`list takeaway` holds far more than bare `list`). A slide that ends in a CALLOUT
+ * (`callout`: a trailing `> …` blockquote — the KEY INSIGHT block, whatever `insight-*` class
+ * relabels it; lib/core/authoring-blocks.js) pays the callout's measured cost at each rung: the
+ * bare row minus the callout row, at the callout row's word length — the height a bare row never
+ * saw (#2361 P2: 13 of the 14 slides lint missed at conference carried one). Returns the row's
+ * `label` ("list takeaway", "list-steps with its callout") so a message names what it measured,
+ * and `measuredTo`, the longest length measured, so a longer element is not quoted as measured.
+ */
+function scaleCapacityFor(comp, key, words, tokens = [], callout = false, eyebrow = false, strict = false) {
+  const bare = SCALE_CAPACITY[comp];
+  if (!bare) return null;
+  // An EYEBROW costs what the bare row minus the eyebrow row says, at the slide's own length, where
+  // the component measured one (`--eyebrow`): every count row is measured without one, and every
+  // list-tabular slide lint missed on the talk carried one (#2361 P2). On a `strict` deck (a 4k
+  // deck, where the export forgives 12 px of 2160 rather than 36) the row measured there, where
+  // there is one: glossary's six one-line terms clip at conference on a 4k deck and fit on a
+  // 720-high one (Amendment (9)).
+  const eb = eyebrow ? (strict && VENUE_CAPACITY.eyebrowStrict?.[comp]) || VENUE_CAPACITY.eyebrow?.[comp] : null;
+  const ebCost = (i) => {
+    if (!eb) return 0;
+    const a = wordMapAt(bare, words, i);
+    const b = wordMapAt(eb, words, i);
+    return a == null || b == null ? 0 : Math.max(0, a - b);
+  };
+  // Two measured variants on one slide (`list-tabular fixed compact`): the one that holds fewer at
+  // this rung and length, whichever order they are written in.
+  const vTok = tokens.filter((t) => VENUE_CAPACITY.variants?.[`${comp} ${t}`])
+    .map((t) => [t, wordMapAt(VENUE_CAPACITY.variants[`${comp} ${t}`], words, FONT_SCALE_ORDER.indexOf(key)) ?? Infinity])
+    .sort((a, b) => a[1] - b[1])[0]?.[0];
+  const map = vTok ? VENUE_CAPACITY.variants[`${comp} ${vTok}`] : bare;
+  // A variant measured WITH its callout is read directly; otherwise the callout's cost comes
+  // from the bare component's pair of rows.
+  const vIns = callout && vTok ? VENUE_CAPACITY.insightVariants?.[`${comp} ${vTok}`] : null;
+  if (vIns) {
+    const at = (i) => {
+      const v = wordMapAt(vIns, words, i);
+      return v == null ? null : Math.max(1, v - ebCost(i));
+    };
+    const v = at(FONT_SCALE_ORDER.indexOf(key));
+    if (v == null) return null;
+    return { ceiling: Math.max(1, v), designed: at(0), words, at, label: `${comp} ${vTok} with its callout${eb ? ' and eyebrow' : ''}`, measuredTo: Math.max(...Object.keys(vIns).map(Number)) };
+  }
+  // A callout under an eyebrow reads the row measured with both, where there is one: the two
+  // costs do not add (list-tabular at huddle holds 4 with both, and the sum of the two said 3).
+  const both = callout && eb ? VENUE_CAPACITY.insightEyebrow?.[comp] : null;
+  const ins = both || (callout ? VENUE_CAPACITY.insight?.[comp] : null);
+  const insLen = ins ? Math.max(...Object.keys(ins).map(Number)) : 0;
+  const at = (i) => {
+    const v = wordMapAt(map, words, i);
+    if (v == null) return null;
+    if (!ins) return eb ? Math.max(1, v - ebCost(i)) : v;
+    const bareAt = wordMapAt(bare, insLen, i);
+    const cost = bareAt == null || ins[insLen][i] == null ? 0 : Math.max(0, bareAt - ins[insLen][i]);
+    return Math.max(1, v - cost - (both ? 0 : ebCost(i)));
+  };
+  const v = at(FONT_SCALE_ORDER.indexOf(key));
+  if (v == null) return null;
+  const measuredTo = Math.max(...Object.keys(map).map(Number));
+  const label = `${comp}${vTok ? ` ${vTok}` : ''}${ins ? ' with its callout' : ''}${eb ? `${ins ? ' and' : ' with its'} eyebrow` : ''}`;
+  return { ceiling: v, designed: at(0), words, at, label, measuredTo };
+}
+
+// Each printable ASCII glyph's advance in Outfit, the body face, as a share of the face's average
+// advance on the rig's English sample, in twentieths offset by 40: `2` is a space's 0.5, `?` a
+// lowercase `e`'s 1.25, `U` a `W`'s 2.25. Measured one glyph at a time by canvas in the rendered
+// font, so the table carries no kerning (`wrapLines` takes that back out). A glyph past ASCII counts
+// 1; `lineText` maps the common ones (dashes, curly quotes, the ellipsis) to their ASCII width.
+const GLYPH_WIDTH = '24;FCGG366?A5=5:F8AADAB@AB54AAA?KHEHJCBLI4?GBOIMDNEBEHHUHGC8:8=?5CC?CA:CA23?2PABCC;<9@@K?@=757A';
+// The same for Playfair Display, the face of every heading and of a `proof` panel's opening question:
+// Outfit's widths gave a capstone heading four lines where the render set three
+// (system-design-foundations slide 224 at hall, Amendment (7)).
+const GLYPH_DISPLAY = '258CAHP166=A4=48D9?>?<A<A@55CDC>OEFGJDBHK98GCQHKDKGBEFESFCC686?C5?B>B>8@C65B6PCABB=<8C>K@?=737E';
+
+/** A slide's text as it wraps: link text kept, emphasis marks dropped. An inline `code` span is a
+ * pill set in the mono face: measured in a card at conference, a glyph (a space too) is 1.18 of
+ * Outfit's average advance and the pill's padding 0.78, and the pill does not break at its spaces.
+ * So for a weighed wrap it becomes one word of `u` (1.2) per glyph and a `t` (0.85). Priced as
+ * Outfit, a code-heavy card read 6% under the column it overflowed (examples/font-scale.md slide
+ * 10, Amendment (7)). */
+// The engine's own inline dispatch rows (lib/core/inline-code-directives.js), so lint prices a span
+// as a pill or an icon exactly when the render draws one (#1).
+const PILL_ROW = INLINE_KINDS.find((k) => k.name === 'pill');
+const ICON_ROW = INLINE_KINDS.find((k) => k.name === 'icon');
+function lineText(s, weigh, literal = false) {
+  // An inline ICON (`^{bucket, c4}`, the icons plugin) draws one word-sized glyph, about an `m`; a
+  // PILL (`{S3, icon=bucket, c4}`) shows its label, its icon if it names one, and its padding, and
+  // does not break inside. Priced as their source in the mono face, three pills read as two lines
+  // where the render sets one (`inline-icons` slide 3, Amendment (10)). Only a span the engine's
+  // own rows resolve: `{ id, name }`, `{"a": 1}` or a retired `{X}:tag` render as mono code, and on
+  // an `inline-code: literal` deck every span does (the second checker, Amendment (10)).
+  const t = s.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/`([^`]*)`/g, (span, c) => {
+    if (literal) return span;
+    if (c[0] === '^' && ICON_ROW?.resolve(c)) return 'm';
+    const pill = c[0] === '{' && PILL_ROW?.resolve(c);
+    return pill ? `${String(pill.value || '').replace(/\s+/g, 'i')}${pill.icon ? 'm' : ''}tt` : span;
+  });
+  if (!weigh) return t.replace(/[*_`]/g, '');
+  // The common glyphs past ASCII, as the ASCII glyph of the same width in both faces: an em dash or
+  // an ellipsis is an `m` (1.97), an en dash an `n`, a curly quote its straight one.
+  return t.replace(/`([^`]*)`/g, (_, c) => `${c.replace(/./g, 'u')}t`).replace(/[—…]/g, 'm').replace(/–/g, 'n').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[*_`]/g, '');
+}
+
+/** Lines a greedy word wrap of `text` takes at `c` characters a line. A word longer than a line
+ * takes as many lines as it fills: the browser breaks a code span that long (examples/font-scale.md
+ * slide 10, `<!-- _class: … -->` in a card). Flat, every character counts one — the
+ * rig's measured average advance makes that right on nearly every shipped panel line. With `weigh`
+ * (`true` for GLYPH_WIDTH, or a face's table), each glyph counts its own width: a narrow card column holds 23 average characters,
+ * and "When the agent knows" breaks before `knows` there while "better, let it propose a" does not
+ * (Amendment (7)). */
+function wrapLines(text, c, weigh) {
+  const table = weigh === true ? GLYPH_WIDTH : weigh;
+  // A table sums its glyphs one at a time, with no kerning, so it reads the rig's kerned sample long
+  // (188.5 units for 187 characters in Outfit, 188.1 in Playfair): the line widens by that share.
+  if (table) c *= (table === GLYPH_DISPLAY ? 188.1 : 188.5) / 187;
+  let n = 0;
+  let x = c;
+  for (const w of text.split(/\s+/)) {
+    if (!w) continue;
+    let len = w.length;
+    if (weigh) {
+      len = 0;
+      for (const ch of w) len += (table.charCodeAt(ch.charCodeAt(0) - 32) - 40) / 20 || 1;
+    }
+    if (x + (weigh ? 0.5 : 1) + len > c) {
+      // A word longer than a line breaks across as many as it fills, as a long code span does.
+      n += Math.ceil(len / c);
+      x = len - (Math.ceil(len / c) - 1) * c;
+    } else x += (weigh ? 0.5 : 1) + len;
+  }
+  return n;
+}
+
+/**
+ * Does a claim panel's text overflow its column at rung `i`? The row is the component's
+ * `venueCapacity.panel` line geometry (the LAST register the slide carries, so `proof capstone`
+ * reads capstone): the eyebrow, the heading (the first `#` line outside a code fence), a `proof`
+ * lede's opening `*question*` (set as its own block) and the rest of the lede (the paragraph under
+ * the heading, image lines skipped) are each wrapped at their characters a line and summed at their
+ * line heights against the column's budget. Word counts could not separate the shipped slides;
+ * line counts separate every one (2026-09-25-font-scale-fit.md, Amendment (6)). Returns the line
+ * counts, whether they overflow and by how much, or null when the geometry does not describe the
+ * slide — the same shape `rowsAt` returns, so one finding reports both.
+ */
+function panelOver(comp, tokens, slide, i, slack = 0, literal = false) {
+  const P = VENUE_CAPACITY.panel || {};
+  // The LAST matching register wins: the manifest lists `bare, proof, capstone` and
+  // build-stage-catalog keeps that order, so `proof capstone` reads capstone (capstone implies
+  // proof, lib/core/split-panels.js). Reordering the manifest's `lines` changes this.
+  const reg = Object.keys(P).filter((k) => k.startsWith(`${comp} `) && tokens.includes(k.slice(comp.length + 1))).pop();
+  const row = reg ? P[reg] : !tokens.some((t) => (VENUE_CAPACITY.panelNot?.[comp] || []).includes(t)) && P[comp];
+  if (!row) return null;
+  let fence = false;
+  const lines = [];
+  for (const l of String(slide).split('\n')) {
+    if (/^\s*(`{3,}|~{3,})/.test(l)) fence = !fence;
+    else if (!fence) lines.push(l);
+  }
+  const h = lines.findIndex((l) => /^#{1,3}\s/.test(l));
+  if (h < 0) return null;
+  let lede = '';
+  for (const raw of lines.slice(h + 1)) {
+    const l = raw.trim();
+    if (!l) {
+      if (lede) break;
+      continue;
+    }
+    if (/^!\[[^\]]*\]\([^)]*\)$/.test(l)) continue;
+    if (/^([-*+]\s|\d+[.)]|>|<!--|#|\|)/.test(l)) break;
+    lede += ` ${l}`;
+  }
+  const q = row.question && lede.match(/^ ([*_])([^*_]+)\1(?!\1)/);
+  const parts = {
+    eyebrow: lines.slice(0, h).find((l) => /^`[^`]+`\s*$/.test(l)),
+    heading: lines[h].replace(/^#+/, ''),
+    question: q?.[2],
+    lede: q ? lede.slice(q[0].length) : lede,
+  };
+  // A `proof` budget folds in the opening question's gap; a slide with no question has it back,
+  // which is the bare register's budget (the two differ by that gap alone, Amendment (6)).
+  const { budget } = row.question && !parts.question && P[comp] ? P[comp] : row;
+  const at = (r) => {
+    let used = 0;
+    const n = {};
+    for (const [role, text] of Object.entries(parts)) {
+      const face = role === 'eyebrow' ? false : role === 'lede' ? GLYPH_WIDTH : GLYPH_DISPLAY;
+      const plain = text && lineText(text, face, literal);
+      if (plain && row[role]) used += (n[role] = wrapLines(plain, row[role][r][0], face)) * row[role][r][1];
+    }
+    return { used, n, over: used > budget[r] + slack };
+  };
+  const got = at(i);
+  return { ...got, label: reg || comp, pct: Math.ceil((100 * got.used) / budget[i]) - 100 };
+}
+
+/**
+ * A list or card slide judged by LINES, when its component has `venueCapacity.rows` and the slide's
+ * variant tokens name a measured register: `(i) → { over, used, lines, pct }` at rung `i`, or null
+ * (the count row keeps the slide). The slide's eyebrow, heading, items (each a title over its nested
+ * body items) and trailing callout are wrapped at each role's characters a line and summed at its
+ * line heights, a row of items as tall as its tallest, plus the measured cost of each row, eyebrow
+ * and callout, against the slide's budget. A word count could not see that a title over a body takes
+ * two lines whatever its length (2026-09-25-font-scale-fit.md, Amendment (7)). Anything else under
+ * the heading (a paragraph, a table, a fence, a deeper list) is a slide the geometry does not
+ * describe, so it returns null.
+ */
+function rowsAt(comp, tokens, slide, slack = 0) {
+  const R = VENUE_CAPACITY.rows?.[comp];
+  // Only a token known to leave the geometry alone may ride along: the component, its variants
+  // (a register, or none measured, below), the callout label, the room and the color scheme. Any
+  // other modifier may change padding, borders or the face (`with-spectrum-card`, `sketch`), so the
+  // slide keeps its count row rather than being read as the bare register.
+  if (!R || tokens.some((t) => t !== comp && !R.of.includes(t) && !/^(insight|venue|scale|fit)-|^(dark|light)$/.test(t))) return null;
+  const on = R.of.filter((v) => tokens.includes(v)).join(' ');
+  // A register measured the same as another is baked as that one's key (build-stage-catalog.js).
+  const reg = typeof R.regs[on] === 'string' ? R.regs[R.regs[on]] : R.regs[on];
+  if (!reg) return null;
+  let comment = false;
+  let h = null;
+  let eyebrow = '';
+  let callout = '';
+  let ordered = false;
+  // A NOTE: one paragraph between the list and the callout (compare-prose `:is(ul, ol) + p`).
+  let note = '';
+  let blank = false;
+  const items = [];
+  for (const raw of String(slide).split('\n')) {
+    const l = raw.replace(/\r$/, '');
+    // A comment ends at `-->` or at `--!>`, which HTML also accepts (CodeQL's bad-filter rule).
+    if (comment || l.trimStart().startsWith('<!--')) {
+      comment = !l.includes('-->') && !l.includes('--!>');
+      continue;
+    }
+    if (!l.trim()) {
+      blank = true;
+      continue;
+    }
+    const wasBlank = blank;
+    blank = false;
+    if (h == null) {
+      // The rows measure an `##` heading; any other level is another size.
+      if (/^##\s/.test(l)) h = l.slice(3).split('<!--')[0];
+      else if (/^`[^`]+`\s*$/.test(l)) eyebrow = l;
+      else return null;
+      continue;
+    }
+    const top = l.match(/^([-*+]|\d+[.)])\s+(.*)/);
+    const sub = l.match(/^ {2,4}(?:[-*+]|\d+[.)])\s+(.*)/);
+    const q = l.match(/^>\s?(.*)/);
+    if (q) callout += ` ${q[1]}`;
+    else if (callout) return null;
+    // After a note only its own lines may follow (a second paragraph, or more items, is not one).
+    else if (note) {
+      if (wasBlank || top || sub) return null;
+      note += ` ${l.trim()}`;
+    } else if (top) {
+      if (!items.length) ordered = /\d/.test(top[1]);
+      items.push([top[2]]);
+    }
+    else if (sub && items.length) items[items.length - 1].push(sub[1]);
+    else if (/^\s{2,}\S/.test(l) && items.length && !/^\s*(?:[-*+]|\d+[.)])\s/.test(l)) items[items.length - 1].push(`${items[items.length - 1].pop()} ${l.trim()}`);
+    // A paragraph after the list, past a blank line (without one it is the item's lazy continuation).
+    else if (items.length && wasBlank && !/^(\s|#|\||!\[|<|`{3}|~{3})/.test(l)) note = l.trim();
+    else return null;
+  }
+  if (h == null || !items.length) return null;
+  // `ul`: measured unordered only (cycle styles only `ul > li`; compare-prose writes `1.` in `axis`).
+  if (ordered && reg.ul) return null;
+  // An ordered list reads its own geometry where the register draws an ordinal (`ordered`).
+  const shape = items.some((it) => it.length > 1) ? 'nested' : 'flat';
+  // `ordered` carries only what differs from the unordered shape (build-stage-catalog.js).
+  const g = ordered && reg.ordered?.[shape] ? { ...reg[shape], ...reg.ordered[shape] } : reg[shape];
+  // `tag`: the item's lead is a corner tag, placed absolutely in the one tag line the card reserves
+  // (compare-prose, base.card-tag.css), so it costs no height and stores no geometry (Amendment (9)).
+  const lead = reg.tag ? null : g?.title;
+  if (!(lead || (reg.tag && g?.body))) return null;
+  // A note is judged only where its geometry was measured.
+  if (note && !g.note) return null;
+  // A register measured with `compact` carries what differs in its own frame (the modifier tightens
+  // the masthead and the callout too); build-stage-catalog.js bakes only those fields.
+  const F = reg.frame ? { ...(R.frame || VENUE_CAPACITY.rowFrame), ...reg.frame } : R.frame || VENUE_CAPACITY.rowFrame;
+  // One row of every item (`cols: 0`, list-steps): a role's characters are listed per item count
+  // from two, and a longer row is not described.
+  const cols = reg.cols || items.length;
+  if (!reg.cols && !((lead || g.body)[0][0][items.length - 2] > 0)) return null;
+  return (i) => {
+    // A one-row register lists an item role's characters per count; the frame's roles are one number.
+    const face = (row) => (row === F.eyebrow ? false : row === F.heading ? GLYPH_DISPLAY : GLYPH_WIDTH);
+    const wrap = (text, row, w = 1) => wrapLines(lineText(text, face(row)), (row[i][0][items.length - 2] || row[i][0]) * w, face(row)) * row[i][1];
+    let used = wrap(h, F.heading);
+    // A px value the same at every rung is baked as one number.
+    const px = (v) => v[i] ?? v;
+    if (eyebrow) used += px(F.eyebrowAt) + wrap(eyebrow, F.eyebrow);
+    if (callout) used += px(F.calloutAt) + wrap(callout, F.callout);
+    if (note) used += px(g.noteAt) + wrap(note, g.note);
+    for (let k = 0; k < items.length; k += cols) {
+      // A lone last card spans the row where the component says so (`span`), so it wraps wider.
+      const w = k + 1 === items.length && reg.span ? reg.span : 1;
+      used += px(g.row) + Math.max(...items.slice(k, k + cols).map(([t, ...b]) => (lead ? wrap(t, lead, w) : 0) + b.reduce((a, x) => a + wrap(x, g.body || lead, w), 0)));
+    }
+    // A one-row budget may be one per item count, from two (a badge that wraps at five steps).
+    const budget = [px(g.budget)].flat()[items.length - 2] ?? px(g.budget);
+    return { over: used > budget + slack, pct: Math.ceil((100 * used) / budget) - 100, label: on ? `${comp} ${on}` : comp };
+  };
+}
+
+/**
+ * A split-panel slide's POINTS COLUMN judged by lines, when the slide's variant tokens name a
+ * register with `venueCapacity.points`: `(i) → { over, pct, label }` at rung `i`, or null (the count
+ * row keeps the slide). The column holds what the claim panel does not: the points (each a title
+ * over its nested body lines), and on a `watermark` slide a `###` sub-heading and the paragraph
+ * under it (lib/core/split-panels.js routes them right). Each role is wrapped at its characters a
+ * line and summed at its line height. A flex column adds a point's measured cost per point and the
+ * sub-heading's and paragraph's block costs; a `proof` grid (`eq`) is as tall as its tallest row,
+ * the signal on one row and the cards paired on the next, each row an equal `1fr` share
+ * (2026-09-25-font-scale-fit.md, Amendment (10)). Anything else in the column (a table, a fence,
+ * a quote, a second paragraph, a third list level) is a slide the geometry does not describe.
+ */
+function pointsAt(comp, tokens, slide, slack = 0) {
+  const P = VENUE_CAPACITY.points?.[comp];
+  // Only a token known to leave the geometry alone may ride along: a register, a `cat-N` hue, the
+  // callout label, the room and the color scheme.
+  if (!P || tokens.some((t) => t !== comp && !P.of.includes(t) && !/^(insight|venue|scale|fit)-|^(dark|light|cat-\d)$/.test(t))) return null;
+  const on = P.of.filter((v) => tokens.includes(v) && !/^cat-/.test(v)).join(' ');
+  const reg = typeof P.regs[on] === 'string' ? P.regs[P.regs[on]] : P.regs[on];
+  if (!reg) return null;
+  const right = comp === 'split-panel' && /(^| )watermark( |$)/.test(on);
+  let comment = false;
+  let h = false;
+  // The claim panel takes the first paragraph under the heading, up to the first `###` (its lede);
+  // a `watermark` slide's panel takes none. 'open' until a paragraph starts it, then 'in', 'done'.
+  let lede = right ? 'done' : 'open';
+  let sub = '';
+  let para = '';
+  let ordered = false;
+  let blank = false;
+  const items = [];
+  for (const raw of String(slide).split('\n')) {
+    const l = raw.replace(/\r$/, '');
+    if (comment || l.trimStart().startsWith('<!--')) {
+      comment = !l.includes('-->') && !l.includes('--!>');
+      continue;
+    }
+    if (/^\s*(`{3}|~{3})/.test(l)) return null;
+    if (!l.trim()) {
+      blank = true;
+      continue;
+    }
+    const wasBlank = blank;
+    blank = false;
+    // The claim panel's own lines: the eyebrow (a code-only line), a `#####` kicker and the `##`
+    // heading. Only an h2 moves left (applyPanel); an h1 stays in the column, a slide not described.
+    if (/^`[^`]+`\s*$/.test(l) || /^##\s/.test(l) || (right && /^#####\s/.test(l))) {
+      if (items.length) return null;
+      if (/^##\s/.test(l)) h = true;
+      continue;
+    }
+    if (!h) return null;
+    const top = l.match(/^([-*+]|\d+[.)])\s+(.*)/);
+    const nest = l.match(/^ {2,4}(?:[-*+]|\d+[.)])\s+(.*)/);
+    if (top) {
+      if (!items.length) ordered = /\d/.test(top[1]);
+      items.push([top[2]]);
+    } else if (nest && items.length) items[items.length - 1].push(nest[1]);
+    else if (/^\s{2,}\S/.test(l) && items.length && !/^\s*(?:[-*+]|\d+[.)])\s/.test(l)) items[items.length - 1].push(`${items[items.length - 1].pop()} ${l.trim()}`);
+    else if (items.length) return null;
+    else if (/^###\s/.test(l) && !sub && !para) {
+      sub = l.slice(4);
+      lede = 'done';
+    } else if (/^(#|\||!\[|<|>)/.test(l)) return null;
+    else if (lede === 'open' || (lede === 'in' && !wasBlank)) lede = 'in';
+    else {
+      lede = 'done';
+      // One paragraph in the column; a second is a slide the geometry does not describe.
+      if (para && wasBlank) return null;
+      para += ` ${l.trim()}`;
+    }
+  }
+  if (!items.length || (ordered && reg.ul)) return null;
+  const g = ordered && reg.ordered ? { ...reg, ...reg.ordered } : reg;
+  if ((sub && !g.sub) || (para && !g.para)) return null;
+  // A `mirror` slide pads its column's leading `###` past a running header
+  // (split-panel.styles.css `.mirror:has(> header) .panel-right > h3:first-child`, 147 to 207 px),
+  // and whether a slide renders a header is the engine's directive walk to decide, not lint's. Six
+  // checker rounds each found a shape a lint-side header reader got wrong, so such a slide keeps its
+  // count row, as on `main` (Amendment (10)).
+  if (sub && tokens.includes('mirror')) return null;
+  // A grid register is measured at its documented three points.
+  if (reg.grid && items.length !== 3) return null;
+  return (i) => {
+    const px = (v) => v[i] ?? v;
+    const face = (role) => ({ f: false, d: GLYPH_DISPLAY }[reg.faces?.[role]] ?? GLYPH_WIDTH);
+    const wrap = (text, role) => wrapLines(lineText(text, face(role)), g[role][i][0], face(role)) * g[role][i][1];
+    const tall = ([t, ...b], k) => {
+      const pre = reg.grid && !k ? '0' : '';
+      return wrap(t, `title${pre}`) + b.reduce((a, x) => a + wrap(x, `body${pre}`), 0);
+    };
+    let used;
+    if (reg.eq) used = Math.max(tall(items[0], 0), ...items.slice(1).map((it) => tall(it, 1)));
+    else {
+      used = items.reduce((a, it, k) => a + tall(it, k) + px(g.row), 0);
+      if (sub) used += px(g.subAt) + wrap(sub, 'sub');
+      if (para) used += px(g.paraAt) + wrap(para, 'para');
+    }
+    const budget = px(g.budget);
+    return { over: used > budget + slack, pct: Math.ceil((100 * used) / budget) - 100, label: on ? `${comp} ${on}` : comp };
+  };
+}
+
+/** CSS's initial `tab-size`: what a tab takes in a block whose record sets no `indent=`. A block
+ *  that sets one draws a tab that wide (code.styles.css `data-indent`, record.js `tabColumns`). */
+const CODE_TAB_SIZE = 8;
+
+/**
+ * Unicode East Asian WIDE and FULLWIDTH ranges — the characters that occupy TWO
+ * mono columns rather than one. CJK ideographs, kana, Hangul, the fullwidth
+ * ASCII forms, and pictographic emoji.
+ *
+ * Without this the rule has a silent hole exactly where it hurts most. Measured
+ * in this repo's Chromium at `--fs-meta`, against an ASCII advance of 8.981px:
+ * 日 and 한 and Ａ all measure 14.969px, あ 15.32px, and an emoji 19px. So a
+ * comment in Japanese counts barely more than half its true width, and a line
+ * that genuinely runs off the pane says nothing. Verified before fixing: a
+ * 39-"column" Japanese comment rendered 575px into a 516px pane — clipped, and
+ * the rule was silent.
+ *
+ * Two columns is the Unicode convention (UAX #11), and it is deliberately what
+ * this uses rather than the 1.667 ratio measured above. That ratio is an
+ * artifact of THIS box's CJK fallback — `--font-mono` is JetBrains Mono, which
+ * ships no CJK, so the glyphs come from whatever the system substitutes, and a
+ * machine with a true double-width CJK mono would measure 2.0. Pinning the
+ * font-independent convention is the portable choice; the cost is that a
+ * CJK-dense line is judged slightly early on this box (a landscape pane holds
+ * ~34 ideographs and the rule speaks past 28). That is the right direction for
+ * the error to run: the alternative failure is an export that silently ships a
+ * truncated line, which is the whole reason the rule exists.
+ */
+const WIDE_RANGES = [
+  [0x1100, 0x115f], [0x2e80, 0x303e], [0x3041, 0x33ff], [0x3400, 0x4dbf],
+  [0x4e00, 0x9fff], [0xa000, 0xa4cf], [0xac00, 0xd7a3], [0xf900, 0xfaff],
+  [0xfe10, 0xfe19], [0xfe30, 0xfe6f], [0xff00, 0xff60], [0xffe0, 0xffe6],
+  [0x1f300, 0x1f64f], [0x1f900, 0x1f9ff],
+  [0x20000, 0x2fffd], [0x30000, 0x3fffd],
+];
+
+function isWideChar(cp) {
+  for (const [lo, hi] of WIDE_RANGES) {
+    if (cp < lo) return false; // ranges are ascending, so we can stop early
+    if (cp <= hi) return true;
+  }
+  return false;
+}
+
+/**
+ * The rendered column width of one source line — the count that matters, which
+ * is not `line.length`.
+ *
+ * Three things `.length` gets wrong, all of which change the verdict:
+ *   · a TAB advances to the next multiple of `tab-size`, so a tab-indented line
+ *     occupies more columns than it has characters;
+ *   · a WIDE character (CJK, kana, Hangul, fullwidth, emoji) occupies two;
+ *   · an astral character is TWO UTF-16 units but one character, so `.length`
+ *     double-counts every emoji and every CJK extension-B ideograph.
+ * Iterating the string yields code points, which fixes the third by
+ * construction.
+ */
+function codeLineColumns(line, tabSize = CODE_TAB_SIZE, from = 0) {
+  // `from`: the column the line starts at. A gutter drawn inside the line box (numbers, a diff
+  // mark) moves the tab stops' origin, so a leading tab absorbs the gutter rather than adding to it.
+  let col = from;
+  for (const ch of String(line)) {
+    if (ch === '\t') col += tabSize - (col % tabSize);
+    else col += isWideChar(ch.codePointAt(0)) ? 2 : 1;
+  }
+  return col;
+}
+
+/**
+ * Every fenced block on the slide, as the render reads it: `{ opts, tab, drawn, lines }`, where
+ * `opts` is the deck's `code:` default merged with the block's own `@code{…}` record and `lines`
+ * is the block's text with the fence's indent and each line's trailing whitespace stripped. A fence
+ * inside an HTML comment (speaker notes) renders nothing and is skipped. `widestCodeLine` and the
+ * line-capacity rule (`codeBlockRows`) both read blocks through it.
+ *
+ * All blocks, not just the first: a `compare-code` slide is two blocks by
+ * definition, and the too-long line is as likely to be in the right pane as the
+ * left. (`countPrimaryCollection(slide, 'line')` deliberately reads only the
+ * FIRST block, because it answers a different question — how MANY lines the
+ * primary collection has, not how WIDE the widest one is.)
+ *
+ * This scans lines rather than reusing that function's fence regex, because
+ * measuring WIDTH needs three things counting does not, each of which was a real
+ * wrong answer before it was handled:
+ *
+ *   · `~~~` fences. markdown-it renders them identically to ``` — same `<pre>`,
+ *     same clipping — so a regex that knows only backticks reports nothing at
+ *     all for a 300-column line.
+ *   · The fence's own INDENT. markdown-it strips the opening fence's indentation
+ *     from every content line, so a block nested in a list item renders N columns
+ *     narrower than its source reads. Counting the source verbatim inflated a
+ *     4-space-indented block by 4 columns and warned about width that is not
+ *     there.
+ *   · An UNCLOSED fence. markdown-it closes it at end of input and renders the
+ *     rest as code, so bailing out on a missing terminator makes the widest lines
+ *     on a malformed slide invisible.
+ *
+ * Trailing whitespace and a CR are dropped before measuring. Neither paints, and
+ * counting the CR made every fenced line in a CRLF-saved deck report one column
+ * wider than it renders — a deterministic false alarm on every slide of that
+ * deck, which is exactly the noise that gets a rule switched off.
+ */
+function codeFences(slide, { defaults = {}, codeOnly = false } = {}) {
+  const out = [];
+  if (!slide) return out;
+  let fence = null; // the block being read: { marker, indent, opts, tab, drawn, lines }
+  let record = null; // the `@code{…}` record waiting above the next fence, if any
+  let prev = ''; // the line above, outside a fence
+  let comment = false; // inside an HTML comment (speaker notes): a fence there renders nothing
+  for (const raw of String(slide).split('\n')) {
+    const line = raw.replace(/\r$/, '');
+    const open = fenceOpener(line, 'blank');
+    if (!fence && (comment || /^\s{0,3}<!--/.test(line))) {
+      // Its opener starts the line, as an HTML block must; it ends on the line that closes it.
+      const at = comment ? 0 : line.indexOf('<!--') + 4;
+      comment = !/--!?>/.test(line.slice(at));
+      prev = '';
+      record = null;
+      continue;
+    }
+    if (!fence) {
+      // An opening fence's info string may not contain a backtick (CommonMark),
+      // which is what keeps an inline ``` in prose from opening a block.
+      if (open && !(open[2][0] === '`' && open[3].includes('`'))) {
+        // The block's options, as the render reads them: the deck's `code:` default, then the
+        // record above it. The engine attaches a record only to a fence at its own indentation
+        // (code.syntax.mjs).
+        const own = record && record.indent === open[1].length ? codeRecord.readBody(codeRecord.recordBody(record.text)).value || {} : {};
+        const opts = codeRecord.merge(defaults, own);
+        const lang = String(open[3]).trim().split(/\s+/)[0].toLowerCase();
+        fence = {
+          marker: open[2][0], length: open[2].length, indent: open[1].length, opts,
+          // `indent=` sets how wide a tab draws.
+          tab: opts.indent ? codeRecord.tabColumns(opts.indent) : CODE_TAB_SIZE,
+          // `codeOnly` (a plain slide): a fence another plugin draws (Mermaid, math) is a picture,
+          // not a panel of code. Every other fence, a tag no grammar knows included, is a panel.
+          drawn: codeOnly && PLUGIN_FENCES.includes(lang),
+          // Drawn by another plugin wherever it sits: the code render gives it no options, so no bar.
+          plugin: PLUGIN_FENCES.includes(lang),
+          lines: [],
+        };
+        out.push(fence);
+      }
+      // A record counts only where the render reads one: starting its own block (findCodeRecords).
+      const rec = CODE_RECORD_LINE.exec(line);
+      if (rec && (!prev.trim() || BLOCK_BOUNDARY_LINE.test(prev))) record = { text: rec[1], indent: /^ */.exec(line)[0].length };
+      else if (line.trim()) record = null;
+      prev = line;
+      continue;
+    }
+    // A closing fence is the same marker character, at least as long, and carries
+    // nothing after it.
+    // (CommonMark: a ```` fence does not close on ```.)
+    if (open && open[2][0] === fence.marker && open[2].length >= fence.length && !open[3].trim()) {
+      fence = null;
+      record = null;
+      prev = line;
+      continue;
+    }
+    // Strip the opening fence's indent (markdown-it does) and any trailing
+    // whitespace (it paints nothing, so it cannot be "clipped").
+    const content = line.slice(0, fence.indent).trim() === ''
+      ? line.slice(fence.indent)
+      : line.replace(/^[ \t]+/, '');
+    fence.lines.push(content.replace(/\s+$/, ''));
+  }
+  return out;
+}
+
+/**
+ * The columns a line of a block takes on its panel: its text, plus what the block draws beside it.
+ * `numbers` draws a column as wide as the widest number plus 1.5ch (code.styles.css); counted as
+ * the digits plus ONE, so a line is named only when it is cut whatever the half column rounds to.
+ * `diff` peels a leading `+`, `-` or space into a 2ch marker column, and pads an unmarked line with one.
+ */
+function codeLineCost(text, fence) {
+  const marked = fence.opts.diff && /^[+\- ]/.test(text);
+  // The gutter sits inside the line box, so the text's tabs expand from its far edge (measured: a
+  // leading tab under `numbers` lands where it would without the gutter).
+  const gutter = codeNumberGutter(fence) + (fence.opts.diff ? 2 : 0);
+  return codeLineColumns(marked ? text.slice(1) : text, fence.tab, gutter);
+}
+
+/** The `numbers` column, counted as above: 0 without numbers. */
+function codeNumberGutter(fence) {
+  if (!fence.opts.numbers) return 0;
+  const last = (fence.opts.start ?? 1) + Math.max(0, fence.lines.length - 1);
+  return Math.min(6, Math.max(2, String(last).length)) + 1;
+}
+
+/** The widest line across every block on the slide (codeFences), with its gutters, as `{ columns, text }`, or null. */
+function widestCodeLine(slide, { defaults = {}, codeOnly = false } = {}) {
+  let best = null;
+  for (const fence of codeFences(slide, { defaults, codeOnly })) {
+    // A `wrap` block wraps inside its panel, so it never clips; a drawn fence is not a panel.
+    if (fence.opts.wrap || fence.drawn) continue;
+    for (const text of fence.lines) {
+      const columns = codeLineCost(text, fence);
+      if (!best || columns > best.columns) best = { columns, text };
+    }
+  }
+  return best;
+}
+
+/**
+ * How many code lines of its panel a block takes: its lines, the rows a `wrap` block's long lines
+ * wrap to, and its bar (a `title=`, or a copy block's buttons). `cols` is the panel's width in
+ * columns (codePaneColumns), `bar` its row in the measured bar table (codeBarCells). Counted so a
+ * block is named only when it certainly does not fit: wrapped rows at the widest a row can hold, and
+ * the bar's WHOLE lines only (its cost is measured in fractions of a line).
+ */
+function codeBlockRows(fence, { cols = null, bar = null } = {}) {
+  let rows = fence.lines.length;
+  if (fence.opts.wrap && cols) {
+    const gutter = codeNumberGutter(fence);
+    // A wrapped line's continuation hangs under its own text with numbers, two columns in without.
+    const first = cols - gutter;
+    const next = gutter ? first : cols - 2;
+    if (first > 0 && next > 0) {
+      for (const text of fence.lines) {
+        const over = codeLineCost(text, fence) - gutter - first;
+        if (over > 0) rows += Math.ceil(over / next);
+      }
+    }
+  }
+  if (bar && !fence.plugin && (fence.opts.title || fence.opts.copy)) {
+    const [copy, title, titleCopy, row, rowCopy, perRow, perRowCopy] = bar;
+    const withCopy = Boolean(fence.opts.copy);
+    let cost = withCopy ? copy : 0;
+    if (fence.opts.title) {
+      const titleRows = Math.max(1, Math.ceil(codeLineColumns(fence.opts.title) / (withCopy ? perRowCopy : perRow)));
+      cost = (withCopy ? titleCopy : title) + (titleRows - 1) * (withCopy ? rowCopy : row);
+    }
+    rows += Math.floor(cost / 100);
+  }
+  return rows;
+}
+
+/**
+ * The bar table's cell for a slide: its panel group, its room size (a spot scale replaces a venue's
+ * size, so it reads first) and its canvas. An unregistered canvas reads its family's first.
+ */
+function codeBarCells(group, tokens, canvas, family) {
+  const barGroup = group === 'compare' ? 'compare' : 'pane';
+  const largest = (prefix) => tokens.filter((t) => t.startsWith(prefix) && FONT_SCALE_KEYS[t])
+    .sort((x, y) => FONT_SCALE_VALUE[FONT_SCALE_KEYS[x]] - FONT_SCALE_VALUE[FONT_SCALE_KEYS[y]]).pop() || '';
+  const rung = largest('scale-') || largest('venue-');
+  const row = PANE_COLUMNS.BAR[barGroup]?.[rung];
+  if (!row) return null;
+  let at = PANE_COLUMNS.CANVASES.indexOf(canvas);
+  if (at < 0) at = PANE_COLUMNS.CANVASES.findIndex((c) => PANE_COLUMNS.FAMILY[c] === family);
+  return at >= 0 ? row[at] : null;
+}
+
+// The human noun for an axis, pluralized — `col` reads as "column(s)", not
+// "col(s)". Used in capacity messages and the generated docs Capacity line.
+const AXIS_NOUN = Object.freeze({ item: 'item', row: 'row', col: 'column', cell: 'cell', line: 'line' });
+function axisNoun(axis, n) {
+  const base = AXIS_NOUN[axis] || String(axis);
+  return n === 1 ? base : `${base}s`;
+}
+
+/** The actionable fix string a capacity finding prints, from its `escalateTo`. */
+function capacityFix(cap) {
+  const all = Array.isArray(cap.escalateTo) ? cap.escalateTo.filter(Boolean) : [];
+  // Separate sibling-component targets from the generic "split across slides"
+  // phrase so the sentence reads cleanly regardless of how escalateTo mixes them.
+  const comps = all.filter((t) => !/split/i.test(t));
+  if (!comps.length) return 'Split the content across multiple slides.';
+  return `Switch to ${comps.join(' / ')}, or split across slides.`;
+}
+
+/** True if `token` is a recognized modifier (set membership or prefix family). */
+function isKnownModifier(token, vocab) {
+  if (vocab.modifiers.has(token)) return true;
+  // A mode CLASS TOKEN is a legal per-slide class — the register is the source of truth,
+  // so adding a mode never needs a second edit here.
+  if (MODE_TOKENS.includes(token)) return true;
+  // `backdrop-*` is a CLOSED vocabulary (the `backdrop:` register's steps and masks, which
+  // reach `vocab.modifiers` through MODIFIER_GROUPS, plus the `no-backdrop` alias). The
+  // prefix below stays for the reserved-class list, but here it would wave through a typo
+  // like `backdrop-50`, which renders at full strength with no signal.
+  if (token.startsWith('backdrop-')) return token === 'no-backdrop';
+  return MODIFIER_PREFIXES.some((p) => token.startsWith(p));
+}
+
+/**
+ * Convert the bold card-style inline shape `- **Title.** body` to the canonical
+ * nested form:
+ *   - Title
+ *     - body
+ * Returns the replacement (two lines), or null if the line is not this exact,
+ * deterministic shape. Bare titles (`- Title`) and ambiguous non-bold inline
+ * splits are intentionally NOT auto-fixed — there is no safe, unique split — so
+ * those findings keep their `fix` guidance instead. Pure; shared by the Node
+ * path and the Drawing Board's "Apply fix" quick action.
+ */
+function autofixNestedTitle(line) {
+  if (!line) return null;
+  const m = line.match(/^(\s*)([-*])\s+\*\*(.+?)\*\*\.?\s+(\S.*?)\s*$/);
+  if (!m) return null;
+  const [, indent, bullet, title, body] = m;
+  // Strip a trailing sentence punctuation from the title (`**Title.**` → Title).
+  const cleanTitle = title.trim().replace(/[.:!?]+$/, '');
+  return `${indent}${bullet} ${cleanTitle}\n${indent}  ${bullet} ${body.trim()}`;
+}
+
+/**
+ * Convert the unordered inline-bold shape on a LEDGER/numbered layout
+ * (`- **Title.** body`) to the ordered ledger form the layout wants:
+ *   1. Title
+ *      - body
+ * The literal ordinal is always `1.` — Markdown auto-numbers an ordered list, so
+ * a slide of `1.` items renders 1, 2, 3 — and the nested body indents three
+ * spaces to clear the `1. ` marker. Returns null if the line isn't the shape.
+ */
+function autofixOrderedNestedTitle(line) {
+  if (!line) return null;
+  const m = line.match(/^(\s*)[-*]\s+\*\*(.+?)\*\*\.?\s+(\S.*?)\s*$/);
+  if (!m) return null;
+  const [, indent, title, body] = m;
+  const cleanTitle = title.trim().replace(/[.:!?]+$/, '');
+  return `${indent}1. ${cleanTitle}\n${indent}   - ${body.trim()}`;
+}
+
+/**
+ * Swap a retired gantt span delimiter (`→` / `–` / `—` / `->`) for the canonical
+ * `..`, but ONLY inside the line's TRAILING inline-code pills (the span tokens) —
+ * inline code earlier in the label is prose the detector treats as such, so it is
+ * left untouched. Mirrors the detector's trailing-pill peel. Returns the rewritten
+ * line, or null if no retired delimiter in a trailing pill needs changing.
+ */
+function autofixGanttDelimiter(line) {
+  if (!line || !/(?:→|–|—|->)/.test(line)) return null;
+  // Peel the trailing run of `…` pills (the same tokens the detector reads),
+  // leaving the label head — which may itself contain inline code — alone.
+  let head = line;
+  const pills = [];
+  let m;
+  while ((m = head.match(/(\s*)`([^`]+)`(\s*)$/))) {
+    pills.unshift({ pre: m[1], inner: m[2], post: m[3] });
+    head = head.slice(0, m.index);
+  }
+  if (!pills.length) return null;
+  let changed = false;
+  const rebuilt = pills
+    .map((p) => {
+      const inner = p.inner.replace(/\s*(?:→|–|—|->)\s*/g, '..');
+      if (inner !== p.inner) changed = true;
+      return `${p.pre}\`${inner}\`${p.post}`;
+    })
+    .join('');
+  return changed ? head + rebuilt : null;
+}
+
+/**
+ * Rewrite a RETIRED quadrant axis eyebrow as the bracketed axis list.
+ *
+ *   `Effort 0–10 → Reach 0–100 · targets 5, 50`
+ *   → `[{Effort, 0..10, 5}, {Reach, 0..100, 50}]`
+ *
+ * The retired grammar packed names, domains and a detached `targets` blob into one
+ * string split on an arrow glyph (engineering/decisions/2026-09-22-chart-axis-grammar.md).
+ * Each threshold now sits inside the axis it constrains. The ASCII `->` spelling
+ * is accepted here although the old transform never honored it — markdown-it
+ * escaped it before the split — because what the author MEANT is not in doubt.
+ *
+ * Returns the span's new text, or null when `text` is not the retired shape or a
+ * side cannot be expressed (a domain with no name: the name is the list's first
+ * part, so a lone `0..10` would be read AS the name).
+ *
+ * Length-capped before any regex runs: this reads untrusted markdown in the
+ * browser linter (HARD RULE #22), and a retired eyebrow is a few dozen characters.
+ */
+function retiredQuadrantAxis(text) {
+  const src = String(text ?? '').trim();
+  if (!src || src.length > 240 || src.startsWith('[')) return null;
+  const arrow = /\s*(?:→|->|-&gt;)\s*/;
+  // `\.\d+` too: the old `pullRange` read `[\d.]+`, so `.5–1` was a domain.
+  const rangeTail = /(-?(?:\d+(?:\.\d+)?|\.\d+))[ \t]*(?:[–—-]|to)[ \t]*(-?(?:\d+(?:\.\d+)?|\.\d+))$/;
+  let core = src;
+  let targets = null;
+  const t = core.match(/(?:[·,;][ \t]*)?targets?[ \t]*[:·]?[ \t]*([-+]?\d+(?:\.\d+)?)[ \t]*,[ \t]*([-+]?\d+(?:\.\d+)?)$/i);
+  if (t) { targets = [t[1], t[2]]; core = core.slice(0, t.index).trim(); }
+  const sides = core.split(arrow);
+  if (sides.length > 2) return null;
+  // Not retired unless it carries the arrow or a domain — an ordinary eyebrow
+  // (`Impact vs effort`) is left to be an eyebrow.
+  if (sides.length < 2 && !rangeTail.test(core)) return null;
+  const members = [];
+  for (let i = 0; i < 2; i++) {
+    const side = (sides[i] || '').trim();
+    let m = side.match(rangeTail);
+    // A reversed or empty range was never a domain: the old parser kept it as
+    // part of the NAME (`Effort 10–0`), so the rewrite keeps it there too.
+    if (m && !(Number(m[2]) > Number(m[1]))) m = null;
+    const name = (m ? side.slice(0, m.index) : side).trim();
+    const parts = [];
+    if (m) parts.push(`${m[1]}..${m[2]}`);
+    if (targets) parts.push(targets[i]);
+    if (!name) {
+      if (parts.length) return null;
+      if (i === 1) break;
+      return null;
+    }
+    // Quote only when a character would otherwise be structure, and with the
+    // quote the name does NOT contain, so the author's own quotes survive.
+    // A name holding both kinds cannot be quoted faithfully: no rewrite.
+    let q = name;
+    if (/[,{}[\]]/.test(name) || /^["']/.test(name)) {
+      if (!name.includes('"')) q = `"${name}"`;
+      else if (!name.includes("'")) q = `'${name}'`;
+      else return null;
+    }
+    members.push(parts.length ? `{${[q, ...parts].join(', ')}}` : q);
+  }
+  return `[${members.join(', ')}]`;
+}
+
+/** The whole-line autofix behind `quadrant-retired-axis`: rewrite the one code span. */
+function autofixQuadrantAxis(line) {
+  const m = String(line ?? '').match(/^([ \t]*)`([^`\n]+)`([ \t]*)$/);
+  if (!m) return null;
+  const next = retiredQuadrantAxis(m[2]);
+  return next ? `${m[1]}\`${next}\`${m[3]}` : null;
+}
+
+/**
+ * Swap one whole TOKEN in a line — the machine fix behind a `replace` finding.
+ *
+ * Token-boundary matched, not substring: a register value or a `_class` token is a
+ * word, and a naive `line.replace(from, to)` would rewrite `text` inside `pretext`
+ * or `context`. Only the FIRST occurrence changes, which is the one the finding is
+ * about. Returns null when the token is not on the line, so `applyFix` reports "could
+ * not apply" rather than silently returning the line unchanged.
+ */
+function replaceToken(line, from, to) {
+  if (!line || !from || !to) return null;
+  const escaped = String(from).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // No nested quantifier: one escaped literal between two boundary assertions, so the
+  // match is linear and a static analyzer has nothing to flag (the ReDoS shape a
+  // quantified group whose body can contain its own separator produces).
+  const re = new RegExp(`(^|[^A-Za-z0-9_-])${escaped}(?![A-Za-z0-9_-])`);
+  if (!re.test(line)) return null;
+  return line.replace(re, (_m, pre) => `${pre}${to}`);
+}
+
+/**
+ * Attach a MACHINE-APPLIABLE fix to a "'x' is not a known y" finding, when exactly one
+ * candidate is close enough to be unambiguous.
+ *
+ * Every register validator below reports the same shape — a value, and the canonical
+ * list it should have come from — and every one of them could only ever offer PROSE
+ * ("set it to one of: …"), which is the half of #1658 that reads as the tool knowing
+ * the answer and making you type it anyway. `nearestRegion` already computes a bounded,
+ * deterministic "did you mean" for map names; this reuses it, so a typo'd register
+ * becomes a one-click fix with no model call and no second suggestion algorithm.
+ *
+ * `didYouMean` is carried separately from `message` deliberately: the message is what
+ * every existing surface prints and asserts, and the suggestion belongs on the BUTTON
+ * ("Fix: use 'sketch'"), where it says what pressing it will do.
+ *
+ * Conservative by construction — `nearestRegion` returns null past a length-scaled edit
+ * distance, so an unrelated word gets no button and keeps its prose guidance.
+ */
+function withTokenSuggestion(finding, candidates) {
+  const value = finding?.classToken;
+  if (!value || !candidates) return finding;
+  const list = [...candidates].map((c) => String(c));
+  const near = nearestRegion(String(value), list);
+  if (!near || near === String(value)) return finding;
+  return { ...finding, autofixable: true, didYouMean: near, replace: { from: String(value), to: near } };
+}
+
+// The autofix transform for a finding, computed from the ACTUAL source line (so
+// indentation is preserved). Returns the replacement text (which may be multiple lines)
+// or null when the finding has no machine fix / the line isn't the fixable shape. The
+// default covers the bold inline shape shared by the card-style and split rules.
+//
+// Takes the FINDING, not just its rule, because a structured `replace` is data the rule
+// alone cannot supply: seventeen register validators share one fix shape (swap this
+// token for that one) and differ only in which list the candidate came from.
+function fixReplacement(finding, line) {
+  // A finding that carries its own whole replacement line (`''` deletes the line).
+  if (typeof finding?.replaceLine === 'string') return finding.replaceLine && line.endsWith('\r') ? `${finding.replaceLine}\r` : finding.replaceLine;
+  if (finding?.replace) return replaceToken(line, finding.replace.from, finding.replace.to);
+  switch (finding?.rule) {
+    case 'ledger-inline-title':
+      return autofixOrderedNestedTitle(line);
+    case 'gantt-retired-delimiter':
+      return autofixGanttDelimiter(line);
+    case 'quadrant-retired-axis':
+      return autofixQuadrantAxis(line);
+    case 'paginate-comment-retired':
+      return '';
+    case 'chart-list-split-quote':
+      return Number.isInteger(finding.indent) ? `${' '.repeat(finding.indent)}${line.trimStart()}` : null;
+    default:
+      return autofixNestedTitle(line);
+  }
+}
+
+/**
+ * Apply an auto-fixable finding to `source`, returning the new source — or null
+ * if it can't be applied cleanly (not an auto-fixable shape, or the line can't
+ * be located in the finding's slide). Scoped to the finding's `---`-chunk so an
+ * identical line on another slide isn't touched. The replacement is computed
+ * from the located source line, so the line's indentation is preserved.
+ */
+function applyFix(source, finding) {
+  if (!finding || finding.line == null) return null;
+  const lines = source.split('\n');
+  let i = fixLineIndex(lines, separatorLines(lines), fmChunks(source), finding);
+  if (i < 0 && !finding.replace) return null;
+  let repl = i < 0 ? null : fixReplacement(finding, lines[i]);
+  // A Marp bundle's deck-wide `class:` is read FOLDED: the union of the top and the settings block
+  // lands on the block's line, so a token from the top `class:` is not on the line the locator found.
+  // Fix it on the real `class:` line (top or block) that carries it (the red team's finding).
+  const at = repl == null && finding.replace ? settingsBlockAt(source) : null;
+  for (let k = 1; at && k < at.end && repl == null; k++) {
+    if (/^class\s*:/.test(lines[k]) && lines[k].split(/[\s,[\]:"'#]+/).includes(finding.replace.from)) {
+      repl = fixReplacement(finding, lines[k]);
+      i = k;
+    }
+  }
+  if (repl == null) return null;
+  return dropEmptiedFrontMatter(source, lines.slice(0, i).concat(repl === '' ? [] : repl.split('\n'), lines.slice(i + 1)).join('\n'));
+}
+
+/**
+ * The index of the line a finding names, or -1: the first line in the finding's `---`-chunk, at or
+ * after its `chunkLine`, whose trimmed text is the finding's `line` and which is NOT inside a code
+ * fence. A fenced line is a quoted example, never the line a fix should edit: a rule that read past
+ * a fence would otherwise have its fix land on an identical fenced copy above the live line (every
+ * rule matched on line text did, measured 2026-10-29), and a finding only a fence matches has no
+ * fix at all. `applyFix` edits that line, and
+ * the Squadra bridge (lib/authoring/squadra/bridge.js) reports the finding's span on it, so the two
+ * can never point at different lines. `seps` is `separatorLines(lines)` and `fm` is
+ * `fmChunks(source)`, passed in so a caller locating many findings computes them once.
+ *
+ * finding.slide is the human 1-based number; the raw `---`-chunk that holds it is
+ * `slide + fm - 1` (fm = front-matter chunks). The chunk walk MUST count boundaries the same way
+ * `finding.slide` was numbered — fence-aware (a `---` inside a code fence is not a boundary) and
+ * CRLF-tolerant — or a fenced `---` before the target desyncs the scope and the fix silently
+ * drops. `separatorLines` is that shared predicate.
+ */
+function fixLineIndex(lines, seps, fm, finding, fenced = fencedLines(lines.join('\n'))) {
+  if (!finding || finding.line == null) return -1;
+  // A Marp bundle's deck: lint read its settings block AS front matter (`lintTextWith` folds it), so a
+  // finding on a block key names slide 0, while in the source the block sits after the closing fence.
+  // Locate on the folded text — it keeps every line on its number, so the index is the source's too,
+  // and so are the fence flags the caller passed.
+  const text = lines.join('\n');
+  const folded = foldSettingsBlock(text);
+  if (folded !== text) {
+    const fl = folded.split('\n');
+    return fixLineIndex(fl, separatorLines(fl), fmChunks(folded), finding, fenced);
+  }
+  const target = finding.line.trim();
+  const targetChunk = finding.slide + fm - 1;
+  let chunk = 0;
+  let inChunk = 0;
+  const from = finding.chunkLine || 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (seps.has(i)) { chunk++; inChunk = 0; continue; }
+    if (chunk === targetChunk && inChunk++ >= from && !fenced[i] && lines[i].trim() === target) return i;
+  }
+  return -1;
+}
+
+// A fix that deletes the LAST front-matter key (`retired-logo-key` on `logo-on: all`, say) leaves two delimiter lines
+// with nothing between them. Every front-matter reader (the engine's `directives.js` and `slides.js`, and
+// `slide-split.js`) matches lazily from the opening `---` to the next `\n---`, and in `---\n---\n` the second line's
+// newline belongs to the first, so the empty block reads on to the deck's first slide break and the title slide
+// becomes front matter: "Fix all" deleted it, and lint afterwards reported nothing. So when a fix empties the block,
+// the block goes too. A deck that already began with an empty block is the author's and is left alone.
+//
+// The opening line is exactly `---`, as the readers require; `--- ` with a trailing space is a slide break, not front
+// matter. And when the body itself starts with a `---` line, dropping the block would make THAT line open a new
+// front-matter block, which swallows the next slide the same way; a blank line in front of it keeps it a slide break.
+const EMPTY_FRONT_MATTER = /^---\r?\n---[ \t]*(\r?\n|$)/;
+const LEADING_RULE = /^---[ \t]*(?:\r?\n|$)/;
+function dropEmptiedFrontMatter(before, after) {
+  const empty = after.match(EMPTY_FRONT_MATTER);
+  if (!empty || EMPTY_FRONT_MATTER.test(before)) return after;
+  const rest = after.slice(empty[0].length);
+  return LEADING_RULE.test(rest) ? empty[1] + rest : rest;
+}
+
+/**
+ * Apply EVERY auto-fixable finding in `source`, returning the fixed source. Pure; the shared
+ * engine behind the Studio's "Fix all", the Playground's and the CLI's `--fix`. `vocab` is the
+ * same map `lintTextWith` takes.
+ *
+ * It runs through Squadra's fix driver (lib/authoring/squadra/bridge.js, decision
+ * 2026-10-26-squadra-lint-library.md M1a): this file's findings become Squadra findings with
+ * spans, and each fix is `applyFix`'s own rewrite of its line. The driver applies every fix that
+ * does not overlap another in one pass, refuses an edit inside a code fence, and reverts a fix that
+ * changes the number of slides, drops the front matter (unless the fix emptied it on purpose) or
+ * does not make its own finding go away. The loop it replaced applied one fix per pass, re-linted
+ * the whole deck after each, and stopped at the first fix that could not apply.
+ *
+ * In a browser, `await loadFixDriver()` first (see `fixDriver`).
+ */
+function applyAllFixes(source, vocab) {
+  return fixAllDetailed(source, vocab).text;
+}
+
+/** `applyAllFixes`, with what the driver applied and what it refused and why
+ *  (`{ text, applied, skipped, passes }`). `lint:deck --fix` prints the refusals. */
+function fixAllDetailed(source, vocab) {
+  return fixDriver()(String(source || ''), { vocab, lintTextWith, applyFix, fixLineIndex, fmChunks, separatorLines, splitTopLevel, fencedLines });
+}
+
+// THE FIX DRIVER LOADS ON DEMAND. The Studio's lint core (`esm/lint.js`) is on a gzip budget
+// (`lintCoreGz`, docs/route-budget.json) that the driver does not fit inside, and only a press of
+// "Fix all" needs it. So nothing here imports it statically: a browser host awaits
+// `loadFixDriver()`, whose `import()` becomes a chunk of its own, and Node loads it synchronously
+// through `module.require` with a path held in a variable. A bundler follows a `require` (and a
+// `module.require`) of a string literal, which put the driver back into `esm/lint.js`, measured; it
+// cannot follow a computed path, and in a bundle `module.require` does not exist, so that branch
+// never runs there.
+const FIX_DRIVER_PATH = ['..', '..', '..', 'lib', 'authoring', 'squadra', 'bridge.js'].join('/');
+let fixDeck = null;
+async function loadFixDriver() {
+  if (!fixDeck) {
+    const m = await import('../../../lib/authoring/squadra/bridge.js');
+    fixDeck = m.fixDeck || m.default.fixDeck;
+  }
+}
+function fixDriver() {
+  if (fixDeck) return fixDeck;
+  if (typeof module !== 'undefined' && typeof module.require === 'function') {
+    fixDeck = module.require(FIX_DRIVER_PATH).fixDeck;
+    return fixDeck;
+  }
+  throw new Error('lint-core: await loadFixDriver() first');
+}
+
+// Bounded Levenshtein edit distance — returns the distance, or `max + 1` as
+// soon as it provably exceeds `max` (so a far-off candidate bails cheap). Pure,
+// used only for the map "did you mean" suggestion.
+function editDistance(a, b, max) {
+  const m = a.length, n = b.length;
+  if (Math.abs(m - n) > max) return max + 1;
+  let prev = new Array(n + 1);
+  let curr = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    let rowMin = curr[0];
+    for (let j = 1; j <= n; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+      if (curr[j] < rowMin) rowMin = curr[j];
+    }
+    if (rowMin > max) return max + 1;
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
+// Nearest valid region/group name to an unresolved one, or null if nothing is
+// close enough. Threshold scales gently with length (a one-word typo, not a
+// different country). `candidates` is the list of canonical display names.
+function nearestRegion(name, candidates) {
+  const q = name.toLowerCase();
+  const max = q.length <= 4 ? 1 : q.length <= 8 ? 2 : 3;
+  let best = null, bestD = max + 1;
+  for (const c of candidates) {
+    const d = editDistance(q, c.toLowerCase(), max);
+    if (d < bestD) { bestD = d; best = c; if (d === 0) break; }
+  }
+  return bestD <= max ? best : null;
+}
+
+/**
+ * Find list items in `map` slides whose lead name the basemap can't resolve —
+ * the spelling-variance footgun world maps live with (`Cote dIvore`, `Brasil`).
+ * `mapVocab` is injected data: `{ us: {valid:Set<normalized>, names:[…]},
+ * world: {…} }`, where `valid` holds every normalized name/alias/group and
+ * `names` the canonical labels to suggest from. Returns findings with a
+ * deterministic "did you mean" — no model call, the whole point of doing it
+ * here. Pure; shared by the CLI and the Drawing Board.
+ */
+// Front matter occupies the first two `---`-split chunks (the empty pre-fence
+// text + the YAML body) when the deck opens with a complete `---…---` block. A
+// finding's `slide` is the HUMAN 1-based slide number with front matter
+// excluded — matching the preview's "Slide N", the [slide N] edit markers, and
+// the Reveal jump — so a raw chunk index maps to it via `idx - fmChunks + 1`.
+const FRONT_MATTER = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/;
+function fmChunks(source) {
+  return FRONT_MATTER.test(String(source || '')) ? 2 : 0;
+}
+
+/**
+ * Panes — the fit and the budget of each pane on a panes slide (lib/core/panes.js). One
+ * contract, lib/core/pane-spec.js, for the carve and this rule, so the lint and the render
+ * cannot disagree about which pane a line belongs to or what its ratio is. Advisory like
+ * `capacity`: it warns, it never blocks.
+ *
+ *   pane-layout   — a `panes:` ratio off the 25–75 grid (it falls back to 50/50), or a third
+ *                   marker (it folds into the second pane).
+ *   pane-arrange  — the two components do not read as written, so the engine re-orients the
+ *                   panes or splits the slide into one slide per pane (`arrangePanes`).
+ *   pane-overflow — the pane holds more than its component's `pane.budget` hard count.
+ *   pane-crowd    — past the budget's sweet count, within hard.
+ *
+ * The count is `countPrimaryCollection` on the PANE's own markdown, so a list pane beside a
+ * table pane is never counted as one collection. A pane the export measures as clipped is
+ * reported by the export itself (its overflow probe reads a pane's stage as a clipping cell);
+ * this is the authoring-time half, before any render.
+ */
+/**
+ * Where the engine splits a panes slide into two slides (lib/core/panes.js `installPaneSplit`):
+ * the 0-based line of `slide` that starts the second page — its second pane marker — or -1 when
+ * the slide renders as one. `source` is the whole deck, for its size. The Studio's slide index
+ * (docs/src/lib/deck-lint.ts) cuts its ranges here, so the caret, the rail and the
+ * preview count the slides the engine renders.
+ */
+function paneSplitLine(slide, source) {
+  if (!mayHavePanes(slide)) return -1;
+  const split = splitPaneMarkdown(slide, PANE_LINT.spec);
+  if (!split) return -1;
+  if (deckFamily(source) !== 'wide') return split.panes[1].line;
+  const arranged = arrangePanes(PANE_LINT.spec, split.panes.map((p) => p.cls), split.layout);
+  return arranged.as === 'split' ? split.panes[1].line : -1;
+}
+
+/** The 0-based lines of `slide` where its two panes start (a marker, or a `###` on a marker-less
+ *  `columns` / `rows` slide), or `[]` when it has no panes — for the Studio, which places a caret
+ *  against them (docs/src/components/studio/pane-pages.ts). */
+function paneStarts(slide) {
+  if (!mayHavePanes(slide)) return [];
+  const split = splitPaneMarkdown(slide, PANE_LINT.spec);
+  return split ? split.panes.map((p) => p.line) : [];
+}
+
+/** The `_class` / `_pane` spelling of a layout, for a fix to quote. */
+const layoutWords = (l) => `${l.direction === 'stack' ? 'rows' : 'columns'}${l.a === 50 ? '' : ` ratio-${l.a}-${l.b}`}${l.rule ? '' : ' no-spine'}`;
+/** A ratio as the `_class` word says it (`ratio-60-40`), for a message about a `_class` layout;
+ *  the experimental `panes:` comment keeps its own `60/40`. */
+const ratioWords = (text) => String(text).replace(/\b(\d+)\/(\d+)\b/g, 'ratio-$1-$2');
+
+/**
+ * The SLIDE chrome a pane slide carries, read from its text the way the carve reads it from tokens
+ * (lib/core/panes.js `chrome`): an eyebrow pill above the slide's `#`/`##`, a subtitle pill below
+ * it, and a Key Insight (`>`) or note (`— `) closing a pane, which the slide takes as its own. In
+ * the alias only the run after the last pane is the slide's. A pane that is nothing but such blocks
+ * keeps them as its content. `{ eyebrow, subtitle, insight, note }`, each a boolean.
+ */
+const CHROME_NAMES = [['eyebrow', 'eyebrow'], ['subtitle', 'subtitle'], ['insight', 'Key Insight'], ['note', 'note']];
+function paneSlideChrome(lines, split) {
+  const mast = lines.slice(0, split.panes[0].line);
+  const title = mast.findIndex((l) => /^ {0,3}#{1,2}(?:\s|$)/.test(l));
+  const chrome = {
+    eyebrow: mast.some((l, n) => (title < 0 || n < title) && isPillLine(l)),
+    subtitle: title >= 0 && mast.some((l, n) => n > title && isPillLine(l)),
+    insight: false,
+    note: false,
+  };
+  const panes = split.layout.heads ? split.panes : split.panes.slice(-1);
+  for (const p of panes) {
+    const body = (paneHeadText(p.markdown)?.body ?? p.markdown).split(/\r?\n/);
+    // The pane's blocks, last first: runs of non-blank lines, comments set aside.
+    const blocks = [];
+    let cur = [];
+    for (const raw of body) {
+      const l = raw.trim();
+      if (!l || (l.startsWith('<!--') && l.endsWith('-->'))) {
+        if (cur.length) blocks.push(cur);
+        cur = [];
+      } else cur.push(l);
+    }
+    if (cur.length) blocks.push(cur);
+    const coda = (b) => (/^>/.test(b[0]) ? 'insight' : /^—\s/.test(b[0]) ? 'note' : null);
+    if (blocks.every((b) => coda(b))) continue;
+    for (let n = blocks.length - 1; n >= 0 && coda(blocks[n]); n--) chrome[coda(blocks[n])] = true;
+  }
+  return chrome;
+}
+
+function findPaneIssues(source, vocab) {
+  // A vocab built from a manifest set (`buildVocab`) carries its own pane data; the Studio's
+  // does not, so the linter falls back to the table baked from the built-in manifests.
+  // An EMPTY table is as good as none (a vocab built from manifests without pane fields).
+  const has = (o) => o && Object.keys(o).length > 0;
+  const paneSpecs = has(vocab.paneSpec) ? vocab.paneSpec : PANE_LINT.spec;
+  const paneBudgets = has(vocab.paneBudget) ? vocab.paneBudget : PANE_LINT.budget;
+  const wide = deckFamily(source) === 'wide';
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const fm = fmChunks(source);
+  // Two panes are a per-slide decision: a deck-wide `class:` never lays a slide out in panes.
+  const deckClass = lastFrontMatterMatch((String(source).match(/^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '', /^class:[ \t]*(.+)$/m)?.[1] || ''; // last repeat wins (#3050, D1)
+  const deckLayout = deckClass.split(/\s+/).find((w) => Object.hasOwn(PANE_LAYOUTS, w));
+  if (deckLayout) {
+    findings.push({
+      slide: 0, rule: 'pane-layout', severity: 'warning', classToken: deckLayout, line: `class: ${deckClass.trim()}`,
+      message: `\`class: ${deckLayout}\` in the front matter does nothing; pane layouts are set per slide.`,
+      fix: `Write \`<!-- _class: ${deckLayout} -->\` on each slide that has two panes.`,
+    });
+  }
+  // So is a mid-deck `<!-- class: columns -->` run: it names a host for every slide after it, and
+  // lays none of them out (the engine reads the layout from a slide's own `_class`).
+  // The slide's first GLOBAL class directive, from the shared reader (a comment opening its line,
+  // outside a fence), as the engine reads it.
+  slides.forEach((_slide, idx) => {
+    const run = slideMetaComments(source, idx).find((c) => c.kind === 'directive' && !c.folded && c.key === 'class' && !c.spot);
+    const host = run?.value.split(/\s+/).find((w) => Object.hasOwn(PANE_LAYOUTS, w));
+    if (host) {
+      findings.push({
+        slide: idx - fm + 1, rule: 'pane-layout', severity: 'warning', classToken: host, line: run.raw,
+        message: `\`<!-- class: ${host} -->\` for a run of slides lays out none of them — a pane layout is written per slide`,
+        fix: `Write \`<!-- _class: ${host} -->\` on each slide that has two panes.`,
+      });
+    }
+  });
+  slides.forEach((slide, idx) => {
+    if (!mayHavePanes(slide)) return;
+    const lines = slide.split(/\r?\n/);
+    const at = { slide: idx - fm + 1 };
+    // The same scan the engine's rewrite mirrors: the slide's last top-level `_class` (never one
+    // quoted in a fence) names the layout, and its first line anchors a finding about it.
+    const scan = scanPanes(slide, paneSpecs);
+    const split = scan.split;
+    const classLine = scan.fromClass ? lines[scan.classLine] : null;
+    // A `columns` / `rows` slide with fewer than two panes renders as an ordinary slide.
+    if (!split) {
+      if (classLine) {
+        findings.push({
+          ...at, rule: 'pane-layout', severity: 'warning', classToken: 'panes', line: classLine.trim(),
+          message: 'This slide names a pane layout but has fewer than two panes, so it shows as a normal slide.',
+          fix: 'Start each pane with a `### title`, or with `<!-- _pane: component -->` when it holds a component.',
+        });
+      }
+      return;
+    }
+    // Each finding anchors on a line the author wrote: the pane's marker, or its `###`.
+    const paneLine = (p) => lines[p.line].trim();
+    // The experimental syntax still renders; say how to write it now. A WARNING, not a suggestion,
+    // for at least one release before the alias is retired or kept with a reason (the 2026-09-28
+    // pane-layouts note §9; followups.d/2473-p3-retire-the-experimental-pane-syntax.md).
+    if (split.legacyLayout || split.legacyMarkers) {
+      findings.push({
+        ...at, rule: 'pane-syntax', severity: 'warning', classToken: 'panes',
+        line: paneLine(split.panes[0]),
+        message: 'This slide uses the old pane syntax (`<!-- panes: -->`, `<!-- pane: -->`); it still works, but may be removed in a later release.',
+        fix: `Write \`<!-- _class: ${layoutWords(split.layout)} -->\` for the layout and \`<!-- _pane: … -->\` for each marker.`,
+      });
+    }
+    // The layout itself: a ratio off the 25–75 grid falls back to 50/50, and a third pane
+    // folds into the second — the carve does both, and says so only here.
+    const folded = split.folded || [];
+    const foldedMarker = folded.find((f) => !f.heading);
+    const foldedHead = [...split.panes, ...folded].find((p, i) => i > 0 && p.heading);
+    if (split.layout.error) {
+      findings.push({
+        ...at, rule: 'pane-layout', severity: 'warning', classToken: 'panes',
+        line: (classLine || paneLine(split.panes[0])).trim(),
+        message: scan.fromClass ? ratioWords(split.layout.error) : split.layout.error,
+        fix: scan.fromClass
+          ? 'Use a ratio from `ratio-25-75` to `ratio-75-25` in 5% steps.'
+          : 'Use a ratio from 25/75 to 75/25 in 5% steps.',
+      });
+    }
+    if (split.markers > 2) {
+      findings.push({
+        ...at, rule: 'pane-layout', severity: 'warning', classToken: 'panes',
+        line: (classLine || paneLine(split.panes[0])).trim(),
+        message: `This slide has ${split.markers} panes; a slide shows two, and the rest merge into the second pane as text${
+          foldedMarker ? ` (\`${lines[foldedMarker.line].trim()}\` shows as text, not as '${foldedMarker.cls}')` : ''}.`,
+        fix: `Move the extra pane to its own slide.${foldedHead ? ' Every `###` here starts a pane; for a heading inside a pane, use `####`.' : ''}`,
+      });
+    }
+    // A ratio in `_class` is a class word, so it is spelled as one: `ratio-60-40`. A `60/40` (or
+    // `60 / 40`) is not a valid CSS class name, and the engine does not read it as a ratio.
+    const classText = scan.fromClass ? scan.fromClass.rest : '';
+    const slash = classText.match(/\b(\d+)\s*\/\s*(\d+)\b/);
+    // Every ratio word the host's `_class` names, as `classLayout` read them (a multi-line `_class` too).
+    // Only a ratio on the grid is applied (pane-spec `parseLayout` skips the rest, so the last VALID
+    // one wins); an off-grid one has its own finding above.
+    const namedRatios = scan.fromClass
+      ? (scan.fromClass.spec.match(/\d+\/\d+/g) || []).filter((r) => !parseLayout(r).error).map((r) => `ratio-${r.replace('/', '-')}`)
+      : [];
+    if (slash) {
+      findings.push({
+        ...at, rule: 'pane-layout', severity: 'warning', classToken: 'panes', line: classLine.trim(),
+        message: `\`${slash[0]}\` is not a class name, so it does not set the ratio${namedRatios.length ? '' : '; the panes split 50/50'}.`,
+        fix: `Write \`ratio-${slash[1]}-${slash[2]}\`: a ratio in \`_class\` is a word, like every class.`,
+      });
+    }
+    if (namedRatios.length > 1) {
+      findings.push({
+        ...at, rule: 'pane-layout', severity: 'warning', classToken: 'panes', line: classLine.trim(),
+        message: `this slide names ${namedRatios.length} ratios (${namedRatios.map((w) => `\`${w}\``).join(', ')}); the last of them is used`,
+        fix: `Keep one: \`${namedRatios[namedRatios.length - 1]}\`.`,
+      });
+    }
+    // `columns rows` names two layouts; the last one wins, which is rarely what was meant.
+    // The whole `_class` value, a multi-line one included: its first line to the comment's close.
+    const classWords = scan.fromClass ? lines.slice(scan.classLine, scan.classLine + 12).join(' ').split('-->')[0] : '';
+    if (/\bcolumns\b/.test(classWords) && /\brows\b/.test(classWords)) {
+      findings.push({
+        ...at, rule: 'pane-layout', severity: 'warning', classToken: scan.fromClass.layout, line: classLine.trim(),
+        message: `this \`_class\` names both \`columns\` and \`rows\`; the slide lays out as \`${scan.fromClass.layout}\``,
+        fix: 'Keep one: `columns` side by side, or `rows` stacked.',
+      });
+    }
+    // A `###` written ABOVE the slide's `##` starts a pane before the title: a kicker is a pill.
+    const titleAt = lines.findIndex((l) => /^ {0,3}##(?:[ \t]|$)/.test(l));
+    if (titleAt > split.panes[0].line && split.panes[0].heading) {
+      findings.push({
+        ...at, rule: 'pane-layout', severity: 'warning', classToken: 'panes', line: lines[split.panes[0].line].trim(),
+        message: 'a `###` above the slide\'s `##` title starts the first pane',
+        fix: 'Write the slide\'s eyebrow as a backticked pill above the `##`, and start the panes after it.',
+      });
+    }
+    // A component named in the layout's `_class` names no pane: each pane names its own.
+    for (const t of (split.classRest || '').split(/\s+/).filter((c) => c && vocab.names.has(c))) {
+      findings.push({
+        ...at, rule: 'pane-layout', severity: 'warning', classToken: t, line: (classLine || paneLine(split.panes[0])).trim(),
+        message: `'${t}' in this slide's class is ignored; each pane names its own component.`,
+        fix: `Move it to a pane: \`<!-- _pane: ${t} -->\`.`,
+      });
+    }
+    for (const p of split.panes) {
+      if (p.host) {
+        findings.push({
+          ...at, rule: 'pane-layout', severity: 'warning', classToken: p.host, line: paneLine(p),
+          message: `'${p.host}' is a slide layout, not a component, so this pane shows as plain content.`,
+          fix: `Name a component in the marker, e.g. \`<!-- _pane: list -->\`, or give '${p.host}' its own slide.`,
+        });
+      }
+      // A marker's words after its component are that component's modifiers (`team-profile
+      // sides`), checked as a slide's `_class` words are.
+      const unknown = (p.modifiers || []).filter((t) => !isKnownModifier(t, vocab) && !vocab.names.has(t));
+      if (unknown.length) {
+        findings.push({
+          ...at, rule: 'pane-layout', severity: 'warning', classToken: p.cls, line: paneLine(p),
+          message: `'${unknown.join(' ')}' is not a known modifier.`,
+          fix: 'Fix the spelling, or remove it.',
+        });
+      }
+      // A pane shows ONE label, its `###` set in the eyebrow's voice (lib/forms/cell/pane/pane.css):
+      // a pill above it is folded into it (lib/core/panes.js `paneHeadHtml`). Say so, and give the one line.
+      const head = split.layout.heads && !ownsHeadings(paneSpecs, p.cls) ? paneHeadText(p.markdown) : null;
+      if (head?.eyebrow != null) {
+        // The one-line rewrite is only offered when it renders the same: a pill directive
+        // (`{LIVE, tag, c4}`) or Markdown punctuation would read differently as heading text.
+        const literal = !/^\{|[*_[\]\\<>`&]/.test(head.eyebrow);
+        const label = `${head.eyebrow}${LABEL_SEP}${head.title}`;
+        findings.push({
+          ...at, rule: 'pane-title', severity: 'suggestion', classToken: p.cls, line: paneLine(p),
+          message: literal
+            ? `a pane has one label, so \`${head.eyebrow}\` above its title renders as "${label}"`
+            : `This pill joins the pane title on one line, separated by "·".`,
+          fix: literal ? `Write it as one title: \`### ${label}\`.` : 'Fold what the pill says into the `###` title, or move the pill into the pane\'s body.',
+        });
+      }
+    }
+    // The Key Insight is the SLIDE's, wherever a pane writes it: two of them crowd the coda.
+    // (The alias keeps a pane's Key Insight in the pane, so only the syntax can double one up.)
+    const insights = split.layout.heads
+      // A pane whose component keeps its quotes (a redline's old and new) is not counted: the carve
+      // never lifts them to the slide.
+      ? split.panes.reduce((n, p) => n + (paneClaims(p.cls).has('blockquote') ? 0 : paneInsights(p.markdown)), 0) : 0;
+    if (insights > 1) {
+      findings.push({
+        ...at, rule: 'pane-insight', severity: 'warning', classToken: 'panes', line: paneLine(split.panes[0]),
+        message: `This slide has ${insights} Key Insights (\`>\` lines); they all show together below the panes.`,
+        fix: 'Keep one `>` line; move the rest into the pane text.',
+      });
+    }
+    // On a square, portrait, story or mobile deck the engine splits a panes slide into one
+    // ordinary slide per pane (lib/core/panes.js `installPaneSplit`), so there is no pane to fit
+    // or to budget: each page is linted as the slide it becomes.
+    if (!wide) return;
+    // How the engine will lay this slide out, from the same measured fits it uses
+    // (lib/core/pane-spec.js `arrangePanes`): as written, re-oriented, or split into slides.
+    const arranged = arrangePanes(paneSpecs, split.panes.map((p) => p.cls), split.layout);
+    if (arranged.as !== 'written') {
+      const l = arranged.layout;
+      findings.push({
+        ...at, rule: 'pane-arrange', severity: 'suggestion', classToken: split.panes[0].cls,
+        line: paneLine(split.panes[0]),
+        message: arranged.as === 'reoriented'
+          ? `These panes will show ${l.direction === 'stack' ? 'stacked' : 'side by side'}, not as written: ${arranged.why}.`
+          : `This slide will split into one slide per pane: ${arranged.why}.`,
+        // "at any share" means no share helps, so only then is a share change left out.
+        fix: arranged.as === 'reoriented'
+          ? `Write \`<!-- _class: ${layoutWords(l)} -->\` to match, or ${/at any share/.test(arranged.why) ? 'use a different component for that pane' : 'give that pane a bigger share'}.`
+          : /at any share/.test(arranged.why)
+            ? 'Use a different component for the pane that doesn\'t fit, or give it its own slide.'
+            : 'Give the pane that doesn\'t fit a bigger share, or use a different component.',
+      });
+    }
+    if (arranged.as === 'split') {
+      // Each pane becomes an ordinary slide of its component: hold it to that component's SLIDE
+      // capacity, as a slide the author had written would be.
+      for (const p of split.panes) {
+        const entry = vocab.capacity && Object.hasOwn(vocab.capacity, p.cls) ? vocab.capacity[p.cls] : null;
+        // The 16:9 budget: only a `wide` deck reaches here (every other size splits and then
+        // auto-splits each page itself).
+        const cap = entry?.axis && entry.families?.wide ? { axis: entry.axis, ...entry.families.wide } : null;
+        if (!cap?.hard) continue;
+        const n = countPrimaryCollection(p.markdown, cap.axis);
+        if (n > cap.hard) {
+          findings.push({
+            ...at, rule: 'pane-overflow', severity: 'warning', classToken: p.cls, line: paneLine(p),
+            message: `This pane becomes its own '${p.cls}' slide, which fits ${cap.hard} ${axisNoun(cap.axis, cap.hard)}; the pane has ${n}.`,
+            fix: `Cut to ${cap.sweet || cap.hard}, or split the content across slides.`,
+          });
+        }
+      }
+      return;
+    }
+    const chrome = paneSlideChrome(lines, split);
+    split.panes.forEach((p, i) => {
+      const paneSpec = specOf(paneSpecs, p.cls);
+      const line = paneLine(p);
+      const budget = Object.hasOwn(paneBudgets, p.cls) ? paneBudgets[p.cls] : null;
+      const base = paneBudgetLimit(budget, paneSpec, arranged.layout, i);
+      if (!base) return;
+      // A visible pane title takes its height out of the pane (the budgets were measured without
+      // one): the counts scale by the share it leaves, never below the component's own minimum.
+      // Only the pane syntax has heads; in the alias a pane's `###` is its component's.
+      const head = split.layout.heads ? paneHeadText(p.markdown) : null;
+      const titled = head && !p.mods?.includes('no-title');
+      const share = i === 0 ? arranged.layout.a : arranged.layout.b;
+      const headed = titled ? headedBudget(base, arranged.layout.direction, share, head, Math.max(1, budget.min || 1)) : base;
+      // The slide's eyebrow, subtitle, Key Insight and note take stage height too: a table under
+      // the slide's eyebrow and Key Insight clipped a row the title-only budget let through.
+      const limit = chromeBudget(base, headed, arranged.layout.direction, share, titled ? head : null, chrome, budget.axis);
+      const n = countPrimaryCollection(head ? head.body : p.markdown, budget.axis);
+      if (!n) return;
+      const squeezed = limit.hard < headed.hard ? CHROME_NAMES.filter(([k]) => chrome[k]).map(([, name]) => name) : [];
+      const under = squeezed.length ? ` under the slide's ${squeezed.length > 1 ? `${squeezed.slice(0, -1).join(', ')} and ${squeezed[squeezed.length - 1]}` : squeezed[0]}` : '';
+      const where = `${arranged.layout.direction === 'stack' ? `a ${share}% stacked pane` : `a ${share}% pane`}${titled ? ' with a title' : ''}${under}`;
+      if (n > limit.hard) {
+        findings.push({
+          ...at, rule: 'pane-overflow', severity: 'warning', classToken: p.cls, line,
+          message: `'${p.cls}' fits ${limit.hard} ${axisNoun(budget.axis, limit.hard)} in ${where}; this pane has ${n}, so the extra ones may be cut off.`,
+          fix: `Cut to ${limit.sweet}, ${under ? `drop the ${squeezed.join(' or ')}, ` : ''}widen the pane, or give '${p.cls}' its own slide.`,
+        });
+      } else if (n > limit.sweet) {
+        findings.push({
+          ...at, rule: 'pane-crowd', severity: 'suggestion', classToken: p.cls, line,
+          message: `'${p.cls}' reads best with ${limit.sweet} ${axisNoun(budget.axis, limit.sweet)} or fewer in ${where}; this pane has ${n}.`,
+          fix: `Cut to ${limit.sweet}, or widen the pane.`,
+        });
+      }
+    });
+  });
+  return findings;
+}
+
+function findUnknownMapRegions(source, mapVocab) {
+  if (!mapVocab) return [];
+  const findings = [];
+  const norm = (s) => String(s).toLowerCase().replace(/[.’']/g, '').replace(/\s+/g, ' ').trim();
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    const tokens = (directives[idx]?.payload || '').split(/\s+/).filter(Boolean);
+    if (!tokens.includes('map')) return;
+    // Mirror pickBasemap: `us` / `usa` select the US states; otherwise the
+    // world map is the default (bare `map` is a world map).
+    const which = tokens.includes('us') || tokens.includes('usa') ? 'us' : 'world';
+    const vocab = mapVocab[which];
+    if (!vocab) return;
+    // Only TOP-LEVEL bullets are region rows; a deeper-indented bullet is an
+    // authored per-region detail sublist (the mark-detail feature) and must not
+    // be checked as a region name. Mirror the kernel, which reads only top-level
+    // <li>s. The region level is the shallowest bullet indent on the slide.
+    // A fenced row is a quoted example: the map draws no region from it. Only a fence the renderer
+    // certainly draws as code (`stripCertainFences`): a guess toward fenced would hide a live row.
+    const bulletLines = stripCertainFences(slide).split('\n')
+      .map((raw) => ({ raw, m: raw.match(/^(\s*)[-*]\s+(.+)$/) }))
+      .filter((x) => x.m);
+    if (!bulletLines.length) return;
+    const baseIndent = Math.min(...bulletLines.map((x) => x.m[1].length));
+    // `highlight` is implied when any value is a label, or there are none (map.transform.js `pickVariant`): the
+    // data picks categories, so the class says nothing. It still works; this is a note, not a warning.
+    if (tokens.includes('highlight')) {
+      const values = bulletLines.filter((x) => x.m[1].length === baseIndent)
+        .map((x) => (x.m[2].match(/`([^`]*)`\s*$/) || [])[1]);
+      const numeric = (v) => /^[-+−]?[$€£¥]?\d[\d,]*(\.\d+)?\s*[%kKmMbBtT]?$/.test(String(v || '').trim());
+      if (!values.length || !values.every(numeric)) {
+        findings.push({
+          slide: idx - fm + 1, rule: 'map-highlight-implied', severity: 'info', classToken: 'highlight',
+          line: directives[idx]?.text || null,
+          message: 'This map\'s values are labels, so it already fills by category. `highlight` is no longer needed.',
+          fix: 'Remove `highlight` from the slide\'s class. Keep it only to force categories on values that are numbers.',
+        });
+      }
+    }
+    for (const { raw, m: li } of bulletLines) {
+      if (li[1].length > baseIndent) continue; // nested detail sublist — skip
+      // Drop the trailing inline-code value (`48.2`) — the rest is the name.
+      const name = li[2].replace(/`[^`]*`\s*$/, '').replace(/[*_]/g, '').trim();
+      if (!name) continue;
+      if (vocab.valid.has(norm(name))) continue;
+      const suggestion = nearestRegion(name, vocab.names);
+      findings.push({
+        slide: idx - fm + 1,
+        rule: 'unknown-map-region',
+        severity: 'warning',
+        classToken: 'map',
+        line: raw.trim(),
+        message: `'${name}' is not a ${which === 'world' ? 'country' : 'state'} the ${which} basemap recognizes` +
+          (suggestion ? ` — did you mean '${suggestion}'?` : ''),
+        fix: suggestion
+          ? `Use '${suggestion}'.`
+          : 'Check the spelling; full names, codes and common aliases work.',
+      });
+    }
+  });
+  return findings;
+}
+
+
+// Slides whose `<td>` cells decode a bracket marker into a drawn shape. TWO
+// lists, because the two decoders do NOT share a vocabulary and telling an
+// author otherwise hands them a broken slide.
+//
+//   STATUS cells — obligation-matrix and the universal `state-cells` opt-in.
+//   The six markers, one meaning each: [x] yes · [-] partly · [!] no ·
+//   [?] unknown · [ ] open · [/] does not apply. lib/core/checks-registry.js.
+//
+//   POSITIONAL cells — matrix-grid. THREE markers only, and they are not
+//   statuses: lib/core/matrix-grid-cells.js parses /^\[([x\- ])\]/ into
+//   cell-filled / cell-outlined ("reachable") / cell-empty ("not applicable").
+//   `[/]` does not parse there — it renders as the literal text "[/]" — and
+//   "partial" / "not met" are readings the component does not have. An earlier
+//   draft put matrix-grid in the status list, so the linter's own advice would
+//   have told an author to write a marker that shows up as square brackets.
+const STATE_CELL_TOKENS = Object.freeze(new Set(['obligation-matrix', 'state-cells']));
+const POSITIONAL_CELL_TOKENS = Object.freeze(new Set(['matrix-grid']));
+
+const TABLE_ROW = /^\s*\|/;
+
+/**
+ * Rule 15 — typed shape glyphs. WARNING, never an error, and that is the policy
+ * rather than a soft touch: an author may write whatever they like, and the
+ * linter's job is to say what the character will look like on somebody else's
+ * machine and name the thing that draws it properly. HARD RULE #29 gates OUR
+ * decks; everyone else gets this.
+ *
+ * ONE finding per slide per (context, glyph set) — not per glyph, and not even
+ * per line. A comparison table with four rows of `✓ ✗` is ONE decision to make,
+ * and repeating the same four-line fix beside each row is the noise that teaches
+ * people to pass `--quiet`. Rows carrying a DIFFERENT set of glyphs still get
+ * their own finding, because the advice differs; the set is sorted so `✓ ✗` and
+ * `✗ ✓` collapse together.
+ *
+ * The advice is context-aware where context genuinely changes the answer — a ✓
+ * in a table cell wants `[x]` plus the `state-cells` modifier — and falls back to
+ * the table's own per-glyph coaching otherwise. The table is the single source (HARD RULE #1);
+ * this function adds only what it can see and the table cannot: the slide.
+ */
+function findTypedShapeGlyphs(source) {
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    const tokens = new Set((directives[idx]?.payload || '').split(/\s+/).filter(Boolean));
+    const classToken = [...tokens][0] || null;
+    const decodesCells = [...tokens].some((t) => STATE_CELL_TOKENS.has(t));
+    const decodesPositional = [...tokens].some((t) => POSITIONAL_CELL_TOKENS.has(t));
+    const groups = new Map();
+    // Fenced blocks are quoted material — terminal output, source, a
+    // counter-example — and the deck is right to reproduce them verbatim.
+    stripFencedCode(slide).split('\n').forEach((line) => {
+      const hits = findShapeGlyphs(line);
+      if (!hits.length) return;
+      const roles = new Set(hits.map((h) => h.entry?.role));
+      const context = TABLE_ROW.test(line) && roles.has('status') ? 'cell' : 'prose';
+      const glyphs = [...new Set(hits.map((h) => h.glyph))].sort();
+      const key = `${context}|${glyphs.join('')}`;
+      const group = groups.get(key);
+      if (group) { group.lines++; return; }
+      groups.set(key, { context, glyphs, line, lines: 1 });
+    });
+
+    for (const { context, glyphs, line, lines } of groups.values()) {
+      const also = lines > 1 ? ` (and ${lines - 1} more ${lines === 2 ? 'line' : 'lines'} on this slide)` : '';
+      // One message for both contexts: what the reader may see instead of the shape.
+      const message = `\`${glyphs.join(' ')}\`${also} may show as a different font, an emoji, or an empty box on other computers.`;
+      let fix;
+      if (context === 'cell') {
+        fix = decodesPositional
+          ? 'Use `[x]` filled, `[-]` reachable, `[ ]` not applicable; this slide already reads those three.'
+          : decodesCells
+            ? 'Use `[x]` yes, `[-]` partly, `[!]` no; this slide already reads them in cells.'
+            : 'Use `[x]` yes, `[-]` partly, `[!]` no, and add `state-cells` to the slide\'s class.';
+      } else {
+        // The table's own one-sentence advice, one clause per glyph.
+        fix = glyphs.map((g) => shapeGlyphAdvice(g, 'author')).filter(Boolean).join(' ');
+      }
+      findings.push({
+        // Math.max(1, …), as the neighboring rules do: front matter is chunk 0,
+        // so a glyph in a deck-wide `header:` — which DOES reach every rendered
+        // slide — otherwise reported as "slide 0".
+        slide: Math.max(1, idx - fm + 1),
+        rule: 'typed-shape-glyph',
+        severity: 'warning',
+        classToken,
+        line: line.trim(),
+        message,
+        fix,
+      });
+    }
+  });
+  return findings;
+}
+
+
+/**
+ * A `circle` or `diamond` pill holding more than the shape can. WARNING, never an
+ * error (HARD RULE #29's deck posture: we coach, we do not refuse the deck).
+ *
+ * THE BUDGET IS ONE CHARACTER, OR A NUMBER UP TO TWO DIGITS, and it is set by what
+ * renders, not by a character count. Measured on the capsule-height shapes (Outfit, body
+ * size), label width against the box a shape draws around it:
+ *   - `3` `!` `%` `W` `12` `99` (0.3–1.2em): the circle stays round (aspect 1.00–1.09)
+ *     and the diamond stays at about 2:1 or flatter;
+ *   - `OK` `AB` `1/2` (1.4–1.6em): the circle is already an oval (1.2–1.3);
+ *   - `WM` `100` `NEW` (1.8–2.4em): the circle is a capsule (1.4–1.8) and the diamond a
+ *     sliver (2.4–2.8:1).
+ * Two DIGITS fit where two LETTERS do not because digits are narrow and even; a width
+ * estimate would need the deck's font metrics, which this browser-free core cannot know,
+ * so the rule is the one an author can hold in their head.
+ *
+ * `span` is the exact inline-code span and `col` its column, so the editor underlines the
+ * pill itself (the right copy, when the same pill appears twice on a line) rather than
+ * the whole line. A deck or slide that switches the grammar off draws no pills, so it
+ * gets no finding.
+ */
+const CROWDABLE_PILL_SHAPES = new Set(['circle', 'diamond']);
+const INLINE_CODE_LITERAL_CLASS = 'inline-code-literal';
+// GRAPHEME CLUSTERS, not code points: `é` typed as e + a combining accent, a
+// skin-toned or flag emoji, and a ZWJ family are each ONE glyph on the slide and
+// several code points in the string. `Intl.Segmenter` ships in Node and every browser
+// the Playground supports; the code-point count is only a fallback.
+const GRAPHEMES = typeof Intl !== 'undefined' && Intl.Segmenter
+  ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+  : null;
+function graphemeCount(text) {
+  return GRAPHEMES ? [...GRAPHEMES.segment(text)].length : [...text].length;
+}
+function pillFitsShape(label) {
+  // `\p{Nd}`, so a two-digit number in any script counts as a number, not two letters.
+  return graphemeCount(label) <= 1 || /^\p{Nd}{1,2}$/u.test(label);
+}
+/** Is this pill (`{value, shape}` as the engine reads it) a circle or diamond with a label too long to fit it? The linter's `pill-shape-crowded` and the pill editor's warning both ask this. */
+function pillIsCrowded(pill) {
+  return Boolean(pill && CROWDABLE_PILL_SHAPES.has(pill.shape) && !pillFitsShape(pill.value));
+}
+
+/**
+ * The inline code spans on one line, found the way CommonMark finds them: a run of N
+ * backticks opens a span that only a run of EXACTLY N closes, a backslash-escaped
+ * backtick opens nothing, and content that starts AND ends with a space (and is not
+ * all spaces) loses one space from each end. That is the content the pill decoder
+ * sees, so it is the content this rule has to judge. The engine decodes pills in
+ * double-backtick spans too (`lib/integrations/markdown-it/plugins.js`), so every run
+ * length counts. `start` is the column of the opening run in the line, which lets the
+ * editor underline the right copy when the same span appears twice.
+ * @returns {{text: string, raw: string, start: number}[]}
+ */
+function inlineCodeSpans(line) {
+  const out = [];
+  let i = 0;
+  while (i < line.length) {
+    const ch = line[i];
+    if (ch === '\\') { i += 2; continue; }
+    if (ch !== '`') { i++; continue; }
+    let n = 0;
+    while (line[i + n] === '`') n++;
+    // Find the next run of exactly n backticks.
+    let j = i + n;
+    let close = -1;
+    while (j < line.length) {
+      if (line[j] !== '`') { j++; continue; }
+      let m = 0;
+      while (line[j + m] === '`') m++;
+      if (m === n) { close = j; break; }
+      j += m;
+    }
+    if (close < 0) { i += n; continue; } // an unmatched run is literal backticks
+    let text = line.slice(i + n, close);
+    if (text.length > 1 && text[0] === ' ' && text[text.length - 1] === ' ' && text.trim()) {
+      text = text.slice(1, -1);
+    }
+    out.push({ text, raw: line.slice(i, close + n), start: i });
+    i = close + n;
+  }
+  return out;
+}
+
+/** Blank every HTML comment EXCEPT a header/footer directive, which renders. Lengths and
+ * newlines are kept, so the columns and line numbers stay the document's. */
+function blankHiddenComments(text) {
+  return replaceClosedComments(text, (c) =>
+    isChromeDirective(c.slice(4, -3)) ? c : c.replace(/[^\n]/g, ' '));
+}
+
+/**
+ * Does a comment BODY open with a `header:` / `footer:` directive (either form)? The key is read by
+ * the shared `directiveKey` (lib/core/meta-record.mjs), so it is the vocabulary's spelling of the
+ * key, never a regex of this file's.
+ */
+const CHROME_DIRECTIVE_KEYS = new Set(['header', 'footer']);
+const isChromeDirective = (body) => CHROME_DIRECTIVE_KEYS.has(directiveKey(body));
+
+/** markdown-it's own block tokens that render no inline Markdown; plugins add theirs. */
+const NO_INLINE_BLOCKS = new Set(['code_block', 'fence', 'html_block']);
+
+/**
+ * The line indices of `text` that render NO inline markdown, so no pill: code blocks
+ * (indented and fenced), raw HTML blocks and every plugin block declared `opaque` (math's `$$`
+ * display equations), read from the engine-configured block parser rather than re-modeled. A
+ * header/footer directive comment is an html_block too, and it DOES render, so it stays in.
+ */
+function linesWithoutInlineMarkdown(text) {
+  const tokens = [];
+  boundaryParser.block.parse(text, boundaryParser, {}, tokens);
+  const out = new Set();
+  for (const t of tokens) {
+    if (!t.map || !(NO_INLINE_BLOCKS.has(t.type) || OPAQUE_BLOCK_TOKENS.includes(t.type))) continue;
+    if (t.type === 'html_block' && /^\s*<!--/.test(t.content) && isChromeDirective(t.content.trimStart().slice(4))) continue;
+    for (let n = t.map[0]; n < t.map[1]; n++) out.add(n);
+  }
+  return out;
+}
+
+/**
+ * The chart row records of one slide, as the engine's decision claims them, keyed by source line: a Map from the
+ * 0-based line (within the slide chunk) to the `{ col, text }` records that end on it (`col` is -1 for a list
+ * row, the 0-based column in a table row). The slide is parsed with the engine-configured block parser and
+ * `ownedRecordSites` (core/chart-sites.js) does the counting, so lint measures a span's place the way the pill
+ * pass does and no longer walks lines to guess it. Parsed from the RAW text: a trailing `<!-- c -->` is markup
+ * after the span there, as in the engine.
+ */
+// Slides parsed so far, by their text: lint runs on every keystroke and only one slide changes, so the rest come back
+// from here. Dropped whenever the host changes which plugins' block rules the parser has (`setBoundaryPluginsOff`).
+const SITES_MEMO = new Map();
+const SITES_MEMO_MAX = 256;
+let sitesMemoGeneration = -1;
+
+function chartRecordSites(raw, classTokens) {
+  if (!raw.includes('`{')) return new Map();
+  if (sitesMemoGeneration !== boundaryRulesGeneration()) {
+    SITES_MEMO.clear();
+    sitesMemoGeneration = boundaryRulesGeneration();
+  }
+  const key = `${classTokens.join(' ')}\0${raw}`;
+  const hit = SITES_MEMO.get(key);
+  if (hit) {
+    SITES_MEMO.delete(key); // least recently used goes first: a deck with more record slides than the memo still hits on the ones in use
+    SITES_MEMO.set(key, hit);
+    return hit;
+  }
+  const byLine = new Map();
+  for (const site of ownedRecordSites(boundaryParser.parse(raw, {}), classTokens)) {
+    if (!byLine.has(site.line)) byLine.set(site.line, []);
+    byLine.get(site.line).push(site);
+  }
+  if (SITES_MEMO.size >= SITES_MEMO_MAX) SITES_MEMO.delete(SITES_MEMO.keys().next().value);
+  SITES_MEMO.set(key, byLine);
+  return byLine;
+}
+
+/**
+ * The 0-based table column of each code span of a table row, in one pass over the line. markdown-it splits a row on
+ * EVERY pipe that does not directly follow a backslash, code spans included (`| \`x|y\` | \`{done}\` |` has the record in
+ * column 2), so that is what is counted. `spans` are in source order.
+ */
+function cellColumns(line, spans) {
+  const lead = /^\s*\|/.test(line) ? 1 : 0;
+  const cols = [];
+  let pipes = 0;
+  let i = 0;
+  for (const span of spans) {
+    for (; i < span.start; i++) if (line[i] === '|' && line[i - 1] !== '\\') pipes++;
+    cols.push(pipes - lead);
+  }
+  return cols;
+}
+
+/**
+ * Is the code span `span` (index `at` of `spans` on `line`) one of the records the engine claims on that line?
+ * `cols` is `cellColumns(line, spans)`, computed once per line by the caller (a wide row asks once per cell).
+ */
+function isChartRecordSpan(sites, span, at, spans, cols) {
+  if (!sites?.length) return false;
+  // A list row's record is the LAST code span of its last line.
+  if (sites.some((s) => s.col < 0)) return at === spans.length - 1 && sites.some((s) => s.col < 0 && s.text === span.text);
+  return sites.some((s) => s.col === cols[at] && s.text === span.text);
+}
+
+/**
+ * Every inline code span that RENDERS the inline-code grammar, for the rules that judge a
+ * pill or a spark. It reads the same three signals the engine gates on — the
+ * `inline-code: literal` register, a deck-wide `class:` carrying the literal token, and a
+ * per-slide or running class directive carrying it — and skips lines in blocks that render
+ * no inline markdown. Front matter counts only in its `header:` / `footer:` values; those
+ * spans are slide 0, which the editor maps to the front matter.
+ *
+ * `pick(text)` returns a payload for a span the rule cares about, or null. Blocks are
+ * parsed only for a slide that has a pick, so a deck with nothing to report pays nothing
+ * for this on every keystroke in the editor.
+ * @returns {{slide:number, classToken:string|null, line:string, span:object, payload:*}[]}
+ */
+function renderedInlineSpans(source, pick) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  const fmText = fmBlock ? fmBlock[1] : '';
+  const inlineCode = fmBlock ? frontMatterValue(fmText, 'inline-code') : null;
+  const deckClass = fmBlock ? String(topLevelFrontMatterValue(fmText, 'class') || '') : '';
+  const deckLiteral = (inlineCode && inlineCode.trim().toLowerCase() === 'literal') ||
+    deckClass.split(/\s+/).includes(INLINE_CODE_LITERAL_CLASS);
+  if (deckLiteral) return [];
+  const out = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    const inFrontMatter = idx < fm;
+    const tokens = (directives[idx]?.payload || '').split(/\s+/).filter(Boolean);
+    if (tokens.includes(INLINE_CODE_LITERAL_CLASS)) return;
+    const classToken = tokens[0] || null;
+    // A component that owns its list rows' spans (flowchart) reads them itself, and the
+    // renderer never makes them pills (lib/core/resolve-inline-code.js `ownedRowDepth`), down to
+    // the depth it reads: hub-spoke's detail sublists are prose, linted as anywhere else.
+    const ownsRows = inFrontMatter ? 0 : ownedRowDepth(tokens);
+    const recordCls = CHART_ROWS.recordChart(tokens);
+    const firstListOnly = ownsFirstListOnly(tokens);
+    // The CONTENT columns of the open list items, outermost first: a marker indented to an
+    // item's content column or past it nests under that item (CommonMark), so a three-space
+    // indent under `- ` is still a sibling. A blank line keeps the stack (a loose list); a
+    // non-blank line at the left margin that is no marker ends the list.
+    const markers = [];
+    let lists = 0;
+    let listOpen = false;
+    let listKind = ''; // the open top-level list's bullet character, or its ordered delimiter: a change starts a new list (CommonMark)
+    const raw = normalizeSource(slide);
+    // The chart's row records, as the engine's decision claims them (one reading of place, shared with the pill pass).
+    const recordSites = recordCls && !inFrontMatter ? chartRecordSites(raw, tokens) : null;
+    const text = inFrontMatter ? raw : blankHiddenComments(raw);
+    const textLines = text.split('\n');
+    const rawLines = raw.split('\n'); // the comment-blanked line has no pipe inside a comment; markdown-it splits a row on it
+    const candidates = [];
+    let inRow = false; // inside a list item: its marker line, and the indented lines that continue it
+    textLines.forEach((line, lineIdx) => {
+      if (inFrontMatter && !/^\s*(?:header|footer)\s*:/.test(line)) return;
+      const marker = /^(\s*)((?:[-*+]|\d+[.)])\s+)/.exec(line);
+      inRow = !!marker || (inRow && /^\s+\S/.test(line)) || (markers.length > 0 && !line.trim());
+      if (marker) {
+        const col = marker[1].length;
+        while (markers.length && markers[markers.length - 1] > col) markers.pop();
+        // A new list starts only after the last one ended: sibling items at the margin pop the stack but are one list.
+        const kind = /^\d/.test(marker[2]) ? `#${marker[2].match(/^\d+([.)])/)[1]}` : marker[2][0];
+        if (!markers.length && (!listOpen || kind !== listKind)) lists++;
+        if (!markers.length) listKind = kind;
+        listOpen = true;
+        markers.push(col + marker[2].length);
+      } else if (line.trim() && !/^\s/.test(line)) { markers.length = 0; listOpen = false; }
+      const rowLine = inRow && markers.length > 0 && markers.length <= ownsRows && (!firstListOnly || lists === 1);
+      const spans = inlineCodeSpans(line);
+      const lineSites = recordSites ? recordSites.get(lineIdx) : null;
+      const cols = lineSites?.some((x) => x.col >= 0) ? cellColumns(rawLines[lineIdx], spans) : null;
+      spans.forEach((span, at) => {
+        if (rowLine) return;
+        // A chart's row record is the chart's to read, never a pill (chart-rows.js `ownsRecordSpan`).
+        if (lineSites && isChartRecordSpan(lineSites, span, at, spans, cols)) return;
+        const payload = pick(span.text);
+        if (payload != null) candidates.push({ line, lineIdx, span, payload });
+      });
+    });
+    if (!candidates.length) return;
+    const inert = inFrontMatter ? new Set() : linesWithoutInlineMarkdown(raw);
+    for (const { line, lineIdx, span, payload } of candidates) {
+      if (inert.has(lineIdx)) continue;
+      // `rawLine` and `lineIdx` (the line's index in its chunk) are what a machine fix needs: `line`
+      // has hidden comments blanked, so it never matches the source, and `applyFix` takes the FIRST
+      // matching line in the chunk unless told where to start (`chunkLine`).
+      out.push({ slide: inFrontMatter ? 0 : Math.max(1, idx - fm + 1), classToken, tokens, line, rawLine: raw.split('\n')[lineIdx], lineIdx, span, payload });
+    }
+  });
+  return out;
+}
+
+/**
+ * A pick for `renderedInlineSpans` that judges a NAMED span (`@pill{…}`, 2026-10-14-plugin-inline-door.md) as its
+ * alias, and gives its advice back in the author's spelling: every string in the payload that quotes the alias
+ * text quotes the author's text instead. A pick that names no span text is unaffected.
+ */
+const viaAlias = (pick) => (t) => {
+  const c = canonicalText(t);
+  const r = pick(c);
+  if (!r || c === t) return r;
+  const swap = (v) => (typeof v === 'string' ? v.split(c).join(t) : v);
+  return typeof r === 'object' ? Object.fromEntries(Object.entries(r).map(([k, v]) => [k, swap(v)])) : r;
+};
+
+function findCrowdedShapePills(source) {
+  const pick = (text) => {
+    const pill = resolveInlinePill(text);
+    return pillIsCrowded(pill) ? pill : null;
+  };
+  return renderedInlineSpans(source, (t) => pick(canonicalText(t))).map(({ slide, classToken, line, span, payload: pill }) => {
+    const becomes = pill.shape === 'circle' ? 'an oval or a capsule' : 'a long, flat sliver';
+    return {
+      slide,
+      rule: 'pill-shape-crowded',
+      severity: 'warning',
+      classToken,
+      line: line.trim(),
+      span: span.raw,
+      col: span.start,
+      message: `\`{${pill.value}}\` is too long for a ${pill.shape}; it stretches into ${becomes}.`,
+      fix: `Shorten it to one character or two digits, or use \`tag\`: \`${span.text.startsWith('@pill{') ? '@pill' : ''}{${pill.value}, tag}\`.`,
+    };
+  });
+}
+
+/**
+ * A bracketed list closed early by a stray `]` right after a quoted part —
+ * `["Cost, excluding tax"]], Value]` or `["Cost, excluding tax"]]`. The `]` after the quote
+ * ends the list, so the notation cannot read the span: the axis or key silently falls back
+ * to plain text. Only a double quote counts, because an apostrophe is never special in the
+ * notation (`docs/src/lib/segno/bracket-list.ts`). One left-to-right pass, so linear on any span the
+ * Studio lints (HARD RULE #22).
+ */
+function strayBracketAfterQuote(text) {
+  const t = text.trim();
+  if (t.length < 4 || t[0] !== '[' || t[t.length - 1] !== ']') return null;
+  if (parseBracketList(t)) return null; // it reads as a list, so nothing closed early
+  let i = 0;
+  while (i < t.length) {
+    if (t[i] === '\\') { i += 2; continue; }
+    if (t[i] !== '"') { i++; continue; }
+    // The notation honors `\"` inside a quoted part, so the closing quote is the first unescaped one.
+    let close = i + 1;
+    while (close < t.length && t[close] !== '"') close += t[close] === '\\' ? 2 : 1;
+    if (close >= t.length) return null;
+    let j = close + 1;
+    while (j < t.length && (t[j] === ' ' || t[j] === '\t')) j++;
+    // The `]` must not be the list's own closer: something has to follow it.
+    if (t[j] === ']' && t.slice(j + 1).trim()) {
+      // Drop the whole run of `]`: `"]], Value]` meant `", Value]`, and `"]]` at the end meant `"]`.
+      let k = j;
+      while (k < t.length && (t[k] === ']' || t[k] === ' ' || t[k] === '\t')) k++;
+      const repaired = t.slice(0, j) + (k < t.length ? t.slice(k) : ']');
+      return { quoted: t.slice(i, close + 1), repaired: parseBracketList(repaired) ? repaired : null };
+    }
+    i = close + 1;
+  }
+  return null;
+}
+
+function findStrayBracketAfterQuote(source, vocab) {
+  // Only a LONE span on a COMPONENT slide is a list position (the axis or the key, as
+  // `findLabelSetIssues` reads it). A span inside a sentence, or on a plain slide, may be code
+  // being quoted, such as a nested array `[["a"], ["b"]]`.
+  const lone = (line, span) => line.replace(/^\s*(?:>\s*)*/, '').trim() === span.raw;
+  const onComponent = (tokens) => tokens.some((t) => vocab?.names?.has(t));
+  return renderedInlineSpans(source, viaAlias(strayBracketAfterQuote))
+    .filter(({ line, span, tokens }) => lone(line, span) && onComponent(tokens))
+    .map(({ slide, classToken, line, span, payload }) => ({
+    slide,
+    rule: 'bracket-list-closed-early',
+    severity: 'warning',
+    classToken,
+    line: line.trim(),
+    span: span.raw,
+    col: span.start,
+    message: `An extra \`]\` after ${payload.quoted} closes this bracketed list early, so it is not read as a list and shows as plain text.`,
+    fix: payload.repaired
+      ? `Remove the extra \`]\`: \`${payload.repaired}\`.`
+      : `Remove the extra \`]\` after ${payload.quoted}; the list closes once, at its end.`,
+  }));
+}
+
+/**
+ * What may come NEXT in the inline-code span the author is typing — a spark (`~{…, …}`) or a
+ * pill (`{LABEL, …}`) — for the Studio's autocomplete. `span` is the record so far, closed.
+ * The kernels decide what is valid (HARD RULE #1): each candidate is kept only if the span
+ * still renders with it appended, so the menu never offers a ring on a series or a repeat.
+ * `next` is the first axis still open, in the order an author settles them.
+ * @returns {{ next: string, words: {label: string, axis: string, info: string}[] } | null}
+ */
+const INLINE_INFO = {
+  line: 'shape of change', area: 'shape, with weight', bar: 'size of each period', step: 'holds, then jumps',
+  winloss: 'hit or miss', ring: 'part of a whole', bullet: 'value against target', end: 'dot the latest',
+  minmax: 'dot low and high', zero: 'axis from 0', fill: 'span the line', md: 'default',
+  pigment: 'color fills the tile', etch: 'color is the line', tone: 'one hue by value',
+  circle: 'one character', diamond: 'one or two characters',
+};
+// What each named kind is, in the `@` menu: a word an author can choose by.
+const KIND_INFO = { pill: 'a labeled chip', spark: 'a word-sized chart', icon: 'a drawn icon', avatar: 'a drawn portrait', video: 'a video poster', check: 'one of six answers · or [x]' };
+
+/**
+ * What the editors complete on a `flowchart` slide (docs/src/playground/context-sources.js `flowchartSource`), from
+ * the grammar kernel's own tables, so a shape or status added there completes with no editor change. Here, beside
+ * `inlineCodeCompletions`, because the editors already load this core lazily: importing the grammar on its own would
+ * split its dependencies into a chunk every page loads (the route budget). Pure.
+ * @param {string} slideMarkdown the slide's list (the rows a name can come from), or '' for the span words alone
+ * @returns {{ names: string[], spanWords: {label: string, axis: string}[] }}
+ */
+function flowchartCompletions(slideMarkdown) {
+  const { items } = outlineFromMarkdown(String(slideMarkdown || ''));
+  const model = parseFlowchart(items);
+  const names = [...new Set([...(model.shapes || []), ...(model.groups || [])].map((s) => s.name).filter(Boolean))];
+  const word = (axis) => (label) => ({ label, axis });
+  const spanWords = [
+    ...FLOWCHART_SHAPES.map(word('outline')),
+    ...Array.from({ length: FLOWCHART_SLOT_COUNT }, (_, i) => `c${i + 1}`).map(word('color')),
+    ...FLOWCHART_STATUS_WORDS.map(word('status')),
+    ...[...FLOWCHART_PATTERNS, ...FLOWCHART_HEADS, 'loose'].map(word('line')),
+  ];
+  return { names, spanWords };
+}
+
+function inlineCodeCompletions(span, external = []) {
+  const raw = String(span || '');
+  // A kind NAME after `@` (`@`, `@ic`): every kind the deck can call, the host's and its plugins', each with its
+  // alias (the inline door, 2026-10-14-plugin-inline-door.md). `external` is the kinds a zip plugin declares
+  // (step 3 of the door passes them). The label is what is inserted, up to the open brace.
+  const kindName = /^@([a-z][a-z0-9-]*)?$/.exec(raw);
+  if (kindName) {
+    const typed = kindName[1] || '';
+    const words = [...NAMED_KINDS.map((k) => ({ name: k.name, info: `${KIND_INFO[k.name] || k.name}${k.alias === `@${k.name}{…}` ? '' : ` · or ${k.alias}`}` })),
+      ...external.filter((k) => k && /^[a-z][a-z0-9-]*$/.test(k.name)).map((k) => ({ name: k.name, info: k.info || `from ${k.plugin}` }))]
+      .filter((k) => k.name.startsWith(typed))
+      .map((k) => ({ label: `@${k.name}{`, axis: 'kind', info: k.info }));
+    return words.length ? { next: 'kind', words } : null;
+  }
+  // Inside a named record (`@icon{da`, `@spark{12 14, `): the alias's menu, so the two spellings offer the same words.
+  const text = raw.startsWith('@') ? canonicalText(raw) : raw;
+  // An icon NAME being typed: `^{da` on its own, or `icon=da` inside a pill or a chart record. The
+  // span is still open (no `}` yet), and what comes next is a name from the icon kind's own
+  // vocabulary (its `names`, the icons plugin's), so the menu never offers a name that will not draw.
+  // A name starts with a letter, so `^{2` (TeX's superscript) opens no menu.
+  const naming = /^\^\{((?:[A-Za-z][\w-]*)?)$/.exec(text) || /^\{(?:[^{}`]*,)?\s*icon\s*=\s*([\w-]*)$/.exec(text);
+  if (naming) {
+    const iconKind = INLINE_KINDS.find((k) => k.name === 'icon' && typeof k.names === 'function');
+    const words = iconKind ? iconKind.names(naming[1]) : [];
+    return words.length ? { next: 'icon', words } : null;
+  }
+  // `@check{…}` is named-only, so canonicalText leaves its own spelling: its kernel reads it as written.
+  const kernel = text.startsWith('@check{') ? checkKernel : text.startsWith('~{') ? sparkKernel : text.startsWith('{') ? pillKernel : null;
+  const got = kernel?.nextWords(text);
+  if (!got) return null;
+  const info = (w) => w.info || INLINE_INFO[w.label] || w.axis;
+  return { next: got.next, words: got.words.map((w) => ({ ...w, info: info(w) })) };
+}
+
+/**
+ * `~{…, a, lg, b}` with its size set to `to` (`md` is the default, so it is dropped). The items
+ * come from Segno's own reading of the span, so a quoted item or a `size=lg` is handled the way
+ * the renderer handles it.
+ */
+function withSparkSize(text, to) {
+  const p = segnoParse(text);
+  if (!p.ok || p.item.value.kind !== 'record') return text;
+  const items = p.item.value.items
+    .filter((it, k) => k === 0 || !(it.name === 'size' || (it.name === null && it.value.kind === 'scalar' && sparkKernel.SIZES.includes(it.value.text.toLowerCase()))))
+    .map((it) => text.slice(it.from, it.to).trim());
+  if (to && to !== 'md') items.push(to);
+  return `~{${items.join(', ')}}`;
+}
+
+/**
+ * A spark MEASURED too big for the space it sits in (`spark-too-big`). Lint cannot know a
+ * layout, so the Studio measures the rendered preview and hands the verdicts in: `reports` is
+ * `[{ src, why, to, over, stillOver }]` (`why`: 'wide' past its space, or 'tall' — more than 1.5
+ * lines of its text, so it spreads the row), keyed by the span text the kernel stamps as `data-src`.
+ * Each matching span becomes a warning whose one-click fix swaps in the size that fits.
+ */
+function sparkFitFindings(source, reports) {
+  const bySrc = new Map((reports || []).map((r) => [r.src, r]));
+  if (!bySrc.size) return [];
+  // Slide 0 is the front matter's running header/footer, which the measure skips too.
+  return renderedInlineSpans(source, (text) => bySrc.get(text) || null).filter((h) => h.slide > 0).map(({ slide, classToken, line, span, payload: r }) => {
+    // A named spark (`@spark{…}`) is resized in its own spelling: the fix rewrites what the author wrote.
+    const next = span.text.startsWith('@spark{') ? `@spark${withSparkSize(canonicalText(span.text), r.to).slice(1)}` : withSparkSize(span.text, r.to);
+    const word = r.to === 'md' ? 'md (the default)' : `\`${r.to}\``;
+    return {
+      slide,
+      rule: 'spark-too-big',
+      severity: 'warning',
+      classToken,
+      line: line.trim(),
+      span: span.raw,
+      col: span.start,
+      message: (r.why === 'tall'
+        ? `\`${span.text}\` stands ${Math.round(r.over * 10) / 10} lines tall, which pushes its row apart`
+        : `\`${span.text}\` is about ${Math.ceil(r.over)}px wider than the space it sits in`) +
+        (r.stillOver ? ', even at `sm` — try `bare` or a roomier layout' : ` — ${word} fits`),
+      fix: `Size it to ${word}.`,
+      autofixable: true,
+      // The button reads what pressing it does: at md the size word is REMOVED, not added.
+      didYouMean: r.to === 'md' ? 'default size' : r.to,
+      // A function replacer: `next` is the author's own text, and a string replacement would
+      // expand `$&` or `$'` in it.
+      replace: { from: span.raw, to: span.raw.replace(span.text, () => next) },
+    };
+  });
+}
+
+/**
+ * Why `text` is not a pill, but ONLY when quoting its first item would make it one: the author
+ * wrote a pill whose label holds a character the notation reserves (`{A|B, tag}`, `{x[1]}`,
+ * `{5" screen}`). Every
+ * other refusal is left alone, because a brace record is also how a chart point (`{3, 70}`), a
+ * journey step (`{who=team, mood=2}`) and every component slot is written, and the component
+ * reads those: a slide-wide "not a pill" warning flagged 556 such spans in the shipped decks.
+ */
+// Returns `{ why, icon }` (`icon`: quoting fixes the label but the icon is still unknown) or null.
+function pillWouldRenderQuoted(text) {
+  const why = diagnosePill(text);
+  if (!why || text[0] !== '{' || text[text.length - 1] !== '}') return null;
+  // One record, not two that happen to start and end the span (`{a} ∩ {b}`, `{A}{B}`): the
+  // opening brace must close at the last character.
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}' && --depth === 0 && i < text.length - 1) return null;
+  }
+  const body = text.slice(1, -1);
+  // The first item: up to the first comma outside brackets.
+  depth = 0;
+  let end = body.length;
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (c === '[' || c === '{') depth++;
+    else if ((c === ']' || c === '}') && depth > 0) depth--;
+    else if (c === ',' && depth === 0) { end = i; break; }
+  }
+  const label = body.slice(0, end).trim();
+  // Already quoted, or itself a list or record (`{{}}`, `{[a, b]}`): not a label that needs quotes.
+  if (!label || label[0] === '"' || label[0] === '[' || label[0] === '{') return null;
+  if (!/[|=[\]{}"]/.test(label)) return null;
+  const quoted = `{"${label.replace(/[\\"]/g, '\\$&')}"${body.slice(end)}}`;
+  if (resolveInlinePill(quoted)) return { why: `${why}. Quoted, \`${quoted}\` renders`, icon: false };
+  // Quoting fixes the label but the icon is still unknown (`{A|B, icon=nope}`): both problems,
+  // in one warning, so the author fixes them in one pass rather than meeting the second only
+  // after fixing the first.
+  const icon = pillKernel.iconProblem(quoted);
+  return icon ? { why: `${why}. Quote the label (\`${quoted}\`) and name an icon the set has: ${icon}`, icon: true } : null;
+}
+
+/**
+ * A span that opens like a pill (`{` then a non-space) but doesn't read as one, so it renders as
+ * literal code (`pill-literal`). The pill slot refuses a label holding a character the notation
+ * reserves (`|` `=` `[` `]` `{` `"`) unless it is quoted, and an unknown word; without this the
+ * author's only signal is the raw braces on the slide. The reason is the kernel's own
+ * `diagnose()` (HARD RULE #1). A warning, never an error: a span of code such as `{a=b}` may be
+ * meant literally, and `\{` says so.
+ */
+function findLiteralPills(source) {
+  // An unknown `icon=` comes first: the pill reads fine but names no icon, so the advice is the
+  // icons plugin's own coaching (a service name → its role icon), never "quote the label".
+  const why = (text) => {
+    // A state marker as the label of a pill with options (`{x, icon=code}`, `{x, c2}`): reserved,
+    // so it renders as code. One warning, whatever else is wrong with the span.
+    const reserved = pillKernel.reservedLabel(text);
+    if (reserved) {
+      const m = reserved.marker;
+      // The icon-only pill this would suggest, keeping the span's other words: offered only when
+      // it renders (`{icon=nope, x}` names an icon the set does not have, so it is not offered).
+      const iconOnly = reserved.icon !== null ? `{${[`icon=${reserved.icon}`, ...reserved.options].join(', ')}}` : null;
+      const iconWhy = iconOnly ? pillKernel.iconProblem(iconOnly) : null;
+      const alt = iconOnly && !iconWhy
+        ? `drop the label for an icon-only pill (\`${iconOnly}\`) or pick a label that is not a state marker`
+        : `pick a label that is not a state marker${iconWhy ? `, and an icon the set has (${iconWhy})` : ''}`;
+      return {
+        why: `\`${m}\` is reserved for a state mark, so the label cannot be \`${m}\``,
+        fix: `To draw a pill, ${alt}. For a mark, write \`[${m}]\`. Write \`\\${text}\` if you meant the literal text.`,
+      };
+    }
+    const icon = pillKernel.iconProblem(text);
+    if (icon) return { why: icon, fix: 'Use one of the icon names, or write ' + `\`\\${text}\` to show it as text.` };
+    const quoted = pillWouldRenderQuoted(text);
+    if (!quoted) return null;
+    // Both problems (`{A|B, icon=nope}`): the fix names both, not only the quoting.
+    return { why: quoted.why, fix: quoted.icon ? `Quote the label and use one of the icon names, or write \`\\${text}\` if you meant the literal text.` : QUOTE_FIX(text) };
+  };
+  // A span the slide's own component reads is its data, not a broken pill (`{who=sales}` on a journey).
+  // A named pill (`@pill{…}`) is judged as its alias, and its advice is given back in the author's spelling.
+  return renderedInlineSpans(source, viaAlias(why)).filter((h) => !(h.classToken && componentReads(h.classToken, h.span.text))).map(({ slide, classToken, line, span, payload }) => ({
+    slide,
+    rule: 'pill-literal',
+    severity: 'warning',
+    classToken,
+    line: line.trim(),
+    span: span.raw,
+    col: span.start,
+    message: `\`${span.text}\` renders as code, not a pill: ${payload.why}`,
+    fix: payload.fix,
+  }));
+}
+const QUOTE_FIX = (text) => 'Put a label with `|` `=` `[` `]` `{` `"` or a comma in quotes (`{"A|B", tag}`), or write ' +
+  `\`\\${text}\` to show it as text.`;
+
+/**
+ * A `@callout{…}` or `@legend{…}` span (`legend-span`): the callout or legend plugin's record, read by the component on its
+ * slide (engineering/decisions/2026-10-19-universal-legend.md). The reasons are the reader's own
+ * diagnostics (lib/core/legend.js, HARD RULE #1): a span that does not read and so shows as code, an
+ * anchored label with no `for=`, and the `{1, lg}` shape that reads as a styled label rather than a
+ * keyed pair. One more is the slide's: a legend where no component reads one yet, which renders as
+ * code. Warnings, never errors.
+ */
+/**
+ * The layout word an author wrote in a `@callout` span, or null when there is none. It reads the
+ * record's own items, so the reader's default (`key` for an entry with no target) never counts.
+ * @param {string} text the span's text
+ * @returns {string|null}
+ */
+function calloutLayoutWord(text) {
+  const p = segnoParse(legendBody(text) ?? '');
+  if (!p.ok || p.item.value?.kind !== 'record') return null;
+  for (const it of p.item.value.items) {
+    const v = it.value;
+    if (v.kind !== 'scalar') continue;
+    if (it.name === 'layout') return v.text === 'anchored' ? null : v.text;
+    if (it.name === null && !v.quoted && LEGEND_LAYOUTS.includes(v.text) && v.text !== 'anchored') return v.text;
+  }
+  return null;
+}
+
+function findLegendSpans(source) {
+  // The author's switch, read the way the render reads it (lib/core/legend.js `calloutsOff`): `callout: off`
+  // in the front matter, `no-callout` on a slide, and the slide's `with-callout` wins.
+  const fm = source.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const frontMatter = fm ? fm[1] : '';
+  // Callouts that name a cell, counted per slide across every span on it, in the order the render
+  // draws them: past MAX_ANCHORED the render stops drawing (lib/core/legend.js), and this says so.
+  const drawnOn = new Map();
+  return renderedInlineSpans(source, (t) => (spanKind(t) ? readLegend(t) : null))
+    .flatMap(({ slide, classToken, tokens, line, lineIdx, span, payload: read }) => {
+      const at = { slide, rule: 'legend-span', severity: 'warning', classToken, line: line.trim(), span: span.raw, col: span.start };
+      if (!read.ok) {
+        return [{ ...at, message: `\`${span.text}\` renders as code: ${read.diagnostics[0] ? legendMessage(read.diagnostics[0]) : 'it is not a callout or a legend'}`, fix: 'Write each callout in braces, `@callout{{Label, row=…, col=…}}`, or a key as a list, `@legend{[{A, c1}, {B, c2}], key}`.' }];
+      }
+      const out = read.diagnostics.map((d) => ({ ...at, message: legendMessage(d), fix: LEGEND_FIXES[d.code] || 'Add `row=` and `col=` naming the cell the label points at.' }));
+      // A layout word in a `@callout` span: the reader ignores it (a callout is always anchored), and
+      // says nothing, because the reader ships in the preview runtime. Only a word the author wrote
+      // counts: a record with no layout word must not be reported for the reader's default.
+      if (read.kind === 'callout') {
+        const word = calloutLayoutWord(span.text);
+        if (word) {
+          out.push({ ...at, message: legendMessage({ code: 'callout/layout', args: { word } }), fix: 'Delete the layout word: a callout is always anchored to the mark it names.' });
+        }
+      }
+      // The component is any of the slide's class words, not only the first: `compact heatmap` draws it.
+      const words = tokens || [classToken];
+      const reader = words.find((t) => CALLOUT_READERS.includes(t));
+      // `row=` and `col=` name a heatmap cell. On every other chart a mark is named by `for=`, so the reader's
+      // advice about cells is replaced with advice about marks (a callout that used them names nothing there).
+      if (reader && reader !== 'heatmap') {
+        for (const f of out) {
+          const d = read.diagnostics.find((x) => legendMessage(x) === f.message);
+          if (d?.code === 'legend/no-target') { f.message = `"${d.args?.text}" is a callout with nothing to point at: add \`for=\` naming its mark.`; f.fix = 'Add `for=` naming the mark, `for=Q2`.'; }
+          else if (d?.code === 'legend/half-target' || d?.code === 'legend/two-targets') { f.message = `"${d.args?.text}" names its mark with \`row=\`/\`col=\`, which a ${reader} chart does not read.`; f.fix = 'Use `for=` naming the mark, `for=Q2`.'; }
+        }
+      }
+      // Only where a component reads the legend: elsewhere the span shows as code whatever the switch
+      // says, and the warning below is the true one.
+      if (reader && calloutsOff({ tokens: words, frontMatter })) {
+        // Hidden by the author's own switch: one note, so a callout that vanished is never a mystery.
+        return [{ ...at, rule: 'legend-off', severity: 'info', message: 'Callouts are off on this slide, so this callout is not drawn or read aloud. A detail on a callout that names a cell still reaches its hover card and the speaker note.', fix: 'Remove `callout: off` from the front matter, or add `with-callout` to this slide, to show it.' }];
+      }
+      // The pre-split spelling: a `@legend{…}` span that pins a mark is a callout. It still draws, so
+      // this is a note, never a warning (engineering/decisions/2026-10-20-callout-placement.md § 2).
+      if (reader && read.kind === 'legend' && read.legend.layout === 'anchored') {
+        out.push({ ...at, rule: 'callout-spelling', severity: 'info', message: 'A `@legend{…}` span that pins a mark is a callout, written the way it was before callouts had a plugin of their own. It still draws.', fix: 'Write `@callout{…}` instead of `@legend{…}`.' });
+      }
+      if (reader) out.push(...legendOnGrid(read.legend, source, slide, at, reader));
+      if (reader && liftedAlone(source, slide, lineIdx, line)) out.push(...pastTheCap(read.legend, source, slide, at, drawnOn, reader));
+      if (!reader) {
+        const prefix = `@${read.kind || 'legend'}`;
+        out.push({ ...at, message: `\`${prefix}{…}\` renders as code here: no component on this slide reads one yet (today: ${CALLOUT_READERS.join(', ')})`, fix: `Move it onto a slide whose component reads one, or write \`\\${prefix}{…}\` to show it as text.` });
+      }
+      return out;
+    });
+}
+
+/**
+ * What a heatmap will not draw from a legend that reads: a `key` legend (Wave 0 draws anchored labels
+ * only) and a `for=` that names no cell of the slide's table. Both are listed in the chart's
+ * description and are otherwise invisible, so the author is told here. The table is read from the
+ * slide's source the way the narrator reads it: header cells name the columns, each body row's first
+ * cell names the row.
+ */
+/** The one-line fix for each reader diagnostic the linter passes through. */
+const LEGEND_FIXES = Object.freeze({
+  'legend/ambiguous-pair': 'Quote the second word to keep the pair.',
+  'legend/half-target': 'Name both: `row="Feb 2026", col=M2`.',
+  'legend/two-targets': 'Delete `for=`, or delete `row=` and `col=`.',
+  'legend/side': 'Write `side=under` or `side=beside` (or just the word).',
+  'legend/side-kind': 'Move the side word into a `@callout{…}` span.',
+  'legend/side-twice': 'Keep one side word.',
+});
+
+function legendOnGrid(legend, source, slide, at, reader = 'heatmap') {
+  if (reader !== 'heatmap') return legendOnMarks(legend, source, slide, at, reader);
+  if (legend.layout !== 'anchored') {
+    return [{ ...at, message: `A \`${legend.layout}\` legend is not drawn on this slide: a heatmap draws anchored labels, each with \`row=\` and \`col=\` naming a cell.`, fix: 'Give each label `row=` and `col=` and drop the layout word, or move the key to a slide that draws one.' }];
+  }
+  const table = slideTable(source, slide);
+  if (!table) return [];
+  return legend.entries
+    // A pair missing one half is reported by the reader (`legend/half-target`), not again here.
+    .filter((e) => e.for !== undefined && !(typeof e.for === 'object' && (e.for.row === undefined || e.for.col === undefined)))
+    .filter((e) => gridTarget(e.for, table.rows, table.cols) < 0)
+    .map((e) => ({ ...at, message: `"${e.text}" is not drawn: \`${targetText(e.for)}\` names no cell. The rows are ${table.rows.join(', ')}; the columns are ${table.cols.join(', ')}.`, fix: 'Name the cell by its labels, `row="Feb 2026", col=M2`, or by its index counted row by row from 0, `for=14`.' }));
+}
+
+/**
+ * Does the chart lift this legend line? Only a paragraph of its own (lib/core/lift-label-set.js
+ * `liftLegends`): the span alone on its line, with no text on the line above or below for markdown to
+ * merge it with. The narrator asks the same (`gridCalloutSentences`), so the count the cap warns on is
+ * the count the chart and the narrator draw and say.
+ */
+function liftedAlone(source, slide, lineIdx, line) {
+  if (!/^\s*`@(?:legend|callout)\{[^`]*\}`\s*$/.test(line)) return false;
+  const chunk = splitTopLevel(source)[slide - 1 + fmChunks(source)];
+  const lines = normalizeSource(chunk || '').split('\n');
+  return !lines[lineIdx - 1]?.trim() && !lines[lineIdx + 1]?.trim();
+}
+
+/**
+ * The callouts past the six a figure draws (lib/core/legend.js `MAX_ANCHORED`, design note § 18): one
+ * marker shape each, and about six shapes are told apart at a glance. `drawnOn` counts the slide's
+ * callouts that name a cell across all of its spans, in source order, as the render draws them.
+ */
+function pastTheCap(legend, source, slide, at, drawnOn, reader = 'heatmap') {
+  if (legend.layout !== 'anchored') return [];
+  const table = reader === 'heatmap' ? slideTable(source, slide) : null;
+  const names = reader === 'heatmap' ? null : slideMarkNames(source, slide, reader);
+  if (!table && !names) return [];
+  const out = [];
+  for (const e of legend.entries) {
+    if (e.for === undefined || (table ? gridTarget(e.for, table.rows, table.cols) < 0 : !namesMark(e.for, names))) continue;
+    const n = (drawnOn.get(slide) || 0) + 1;
+    drawnOn.set(slide, n);
+    if (n > MAX_ANCHORED) {
+      out.push({ ...at, message: `"${e.text}" is not drawn: a chart draws at most ${MAX_ANCHORED} callouts, one marker shape each, and this is callout ${n}.`, fix: `Keep the ${MAX_ANCHORED} that carry the point, or split the chart across two slides.` });
+    }
+  }
+  return out;
+}
+
+/**
+ * The names a slide's list chart gives its marks, from the source, with each item's backticked values and
+ * markdown emphasis taken off. Where the marks are the list's top-level items (a bar's categories, a pie's
+ * slices) those are the names; where they are nested (a quadrant's items under its groups, a gantt's tasks
+ * under its lanes, a radar's axes under its series) every item at every depth counts, which lets a `for=`
+ * through that names a group, and cannot warn wrongly. A chart whose marks are named by a pill (an
+ * ep-curve's return periods) is not checked. Null leaves a callout's target unchecked, and the chart's
+ * description still says what it did not draw.
+ */
+const NESTED_MARKS = new Set(['quadrant', 'radar', 'gantt', 'hub-spoke', 'journey']);
+/** Drop every tag in one linear pass (a regex over `<<<<` backtracks). A `<` opens a tag only when a letter, `/` or `!` follows and a `>` closes it; any other `<` or `>` is the author's own ("Age < 30"). */
+function dropTags(s) {
+  const lastClose = s.lastIndexOf('>'); // past it no `<` can close, so a run of `<a<a<a` is never rescanned
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '<' && i < lastClose && /[A-Za-z/!]/.test(s[i + 1] ?? '')) {
+      i = s.indexOf('>', i);
+      continue;
+    }
+    out += s[i];
+  }
+  return out;
+}
+
+function slideMarkNames(source, slide, reader) {
+  if (reader === 'ep-curve') return null;
+  const text = splitTopLevel(source)[slide - 1 + fmChunks(source)];
+  if (!text) return null;
+  // A flowchart's marks are its shapes and a state chart's are its states, named by the grammar the chart parses with
+  // (a row such as `A => B => C` is three marks, not one): the same names the chart's server half ties a note to.
+  if (reader === 'flowchart' || reader === 'state-chart') {
+    const body = text.replace(/^[\s\S]*?\n##[^\n]*\n/, '');
+    const outline = outlineFromMarkdown(body);
+    const names = parseFlowchart(outline.items, { key: outline.key, ...(reader === 'state-chart' ? { host: 'state-chart' } : {}) }).shapes.map((x) => x.name);
+    return names.length && names.every(Boolean) ? names : null;
+  }
+  const nested = NESTED_MARKS.has(reader);
+  const names = [];
+  let seen = false;
+  for (const line of text.split('\n')) {
+    const m = (nested ? /^\s*[-*+]\s+(.*\S)\s*$/ : /^[-*+]\s+(.*\S)\s*$/).exec(line);
+    if (m) {
+      seen = true;
+      names.push(dropTags(m[1].replace(/`[^`]*`/g, '').replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\\(.)/g, '$1')).replace(/[*_]/g, '').replace(/\s+/g, ' ').trim());
+    } else if (seen && line.trim() && !/^\s/.test(line)) break;
+  }
+  // A row named by a pill alone has no name to compare: leave the target unchecked.
+  return names.length && names.every(Boolean) ? names : null;
+}
+
+/** Does `for=` name one of the marks: by index, by name, or `Name/Series` for a mark with parts? */
+function namesMark(target, names) {
+  const norm = (s) => String(s).toLowerCase().replace(/\s+/g, ' ').trim();
+  const t = String(target ?? '').trim();
+  if (target && typeof target === 'object') return false;
+  if (/^\d+$/.test(t)) return Number(t) < names.length;
+  if (names.some((n) => norm(n) === norm(t))) return true;
+  const at = t.lastIndexOf('/');
+  return at > 0 && names.some((n) => norm(n) === norm(t.slice(0, at)));
+}
+
+/** What a chart that names its marks will not draw from a legend that reads: a `key` legend, and a
+ *  `for=` that names none of the slide's marks. */
+function legendOnMarks(legend, source, slide, at, reader) {
+  if (legend.layout !== 'anchored') {
+    return [{ ...at, message: `A \`${legend.layout}\` legend is not drawn on this slide: a ${reader} chart draws anchored labels, each with \`for=\` naming a mark.`, fix: 'Give each label `for=` naming its mark and drop the layout word.' }];
+  }
+  const names = slideMarkNames(source, slide, reader);
+  if (!names) return [];
+  return legend.entries
+    .filter((e) => e.for !== undefined && !(typeof e.for === 'object' && (e.for.row === undefined || e.for.col === undefined)))
+    .filter((e) => !namesMark(e.for, names))
+    .map((e) => ({ ...at, message: `"${e.text}" is not drawn: \`${targetText(e.for)}\` names no mark. The marks are ${names.join(', ')}.`, fix: 'Name the mark by its label, `for=Q2`, or by its index counted from 0, `for=1`.' }));
+}
+
+/** The first pipe table on slide `slide` (1-based, as findings count them): its column and row names. */
+function slideTable(source, slide) {
+  const fm = fmChunks(source);
+  const text = splitTopLevel(source)[slide - 1 + fm];
+  if (!text) return null;
+  const lines = text.split('\n');
+  const cells = (l) => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.replace(/`[^`]*`/g, '').trim());
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (!/\|/.test(lines[i]) || !/^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i + 1]) || !/-/.test(lines[i + 1])) continue;
+    const cols = cells(lines[i]).slice(1);
+    const rows = [];
+    for (let j = i + 2; j < lines.length && /\|/.test(lines[j]); j++) rows.push(cells(lines[j])[0]);
+    return { cols, rows };
+  }
+  return null;
+}
+
+/**
+ * A span that opens like a spark (`~{`) but doesn't parse, so it renders as literal code
+ * (`spark-literal`). The engine never guesses at a broken spark — that is the grammar's
+ * rule — so without this the author's only signal is a line of code on the slide where a
+ * chart should be. The reason comes from the kernel's own `diagnose()` (HARD RULE #1), so
+ * the message can never disagree with what the engine did. A warning, never an error: an
+ * author may mean the literal, and `\~{` says so.
+ */
+function findLiteralSparks(source) {
+  return renderedInlineSpans(source, (t) => diagnoseSpark(canonicalText(t))).map(({ slide, classToken, line, span, payload: why }) => ({
+    slide,
+    rule: 'spark-literal',
+    severity: 'warning',
+    classToken,
+    line: line.trim(),
+    span: span.raw,
+    col: span.start,
+    // The kernel's diagnosis splits at its first dash: the problem goes in the message, and
+    // the instruction after the dash ("no units, commas or currency signs") leads the fix.
+    message: `\`${span.text}\` shows as code, not a chart: ${String(why).split(' — ')[0]}.`,
+    fix: (() => {
+      const rest = String(why).split(' — ').slice(1).join(' — ');
+      const how = rest ? `${rest[0].toUpperCase()}${rest.slice(1)}` : 'Correct the value or option named above';
+      return `${how}. Or write \`\\${span.text}\` to show it as text.`;
+    })(),
+  }));
+}
+
+/**
+ * `@name{…}` where no kind is called `name` (`unknown-inline-kind`): the named form of the inline door
+ * (2026-10-14-plugin-inline-door.md) renders as code, and without this the raw span on the slide is the author's
+ * only signal. The kinds are the host's and its shipped plugins' (`NAMED_KINDS`), plus the kinds of the zip
+ * plugins THIS deck lists (`vocab.externalInlineKinds`: installed plugin name -> its kind names), so an unlisted
+ * plugin's kind is unknown here as it is to the render. A warning with a did-you-mean when one is near; `\@` keeps
+ * the literal. Only `@` + a lower-case name + `{` directly after it: `@ada`, `@laticent/segno` are not attempts.
+ */
+function findUnknownInlineKinds(source, vocab) {
+  const owned = vocab?.externalInlineKinds && typeof vocab.externalInlineKinds === 'object' ? vocab.externalInlineKinds : {};
+  const listed = deckPluginList(source).filter((n) => Object.hasOwn(owned, n)).flatMap((n) => [].concat(owned[n] || []));
+  // `@code{…}` is the code plugin's record, which configures the fence below it rather than drawing in place
+  // (findCodeRecords owns it): never an unknown kind, and never a did-you-mean target for one.
+  const known = new Set([...NAMED_KINDS.map((k) => k.name), ...listed]);
+  // A plugin the deck lists that this machine does not hold may be what brings the kind: then the span is not called
+  // unknown with a fix to the nearest built-in (`@stage` → `@state` would rewrite a working call on every machine that
+  // lacks the plugin; the inversion lens), only told which plugin is missing.
+  const external = new Set(Array.isArray(vocab?.externalPlugins) ? vocab.externalPlugins : []);
+  const missing = deckPluginList(source).filter((n) => !external.has(n) && !PLUGIN_NAMES.includes(n));
+  return renderedInlineSpans(source, (t) => {
+    const m = /^@([a-z][a-z0-9-]*)\{/.exec(t);
+    // `@callout{…}` and `@legend{…}` are the callout and legend plugins' records, read by the component
+    // they sit on rather than drawn in place (findLegendSpans owns them), as `@code{…}` is the code plugin's.
+    return m && !known.has(m[1]) && !['code', 'legend', 'callout'].includes(m[1]) ? m[1] : null;
+  }).map(({ slide, classToken, line, span, payload: name }) => {
+    if (missing.length) {
+      return {
+        slide,
+        rule: 'unknown-inline-kind',
+        severity: 'warning',
+        classToken,
+        line: line.trim(),
+        span: span.raw,
+        col: span.start,
+        message: `\`@${name}{…}\` renders as code here: no kind here is called ${name}, and this deck lists ${missing.join(', ')}, which ${missing.length > 1 ? 'are' : 'is'} not installed here and may bring it`,
+        fix: `Install ${missing.join(', ')} (lattice packages add), or write \`\\${span.text}\` to show it as text.`,
+      };
+    }
+    const near = nearestRegion(name, [...known]);
+    return {
+      slide,
+      rule: 'unknown-inline-kind',
+      severity: 'warning',
+      classToken,
+      line: line.trim(),
+      span: span.raw,
+      col: span.start,
+      message: `\`@${name}{…}\` renders as code: no inline kind is called ${name}${near ? ` (did you mean @${near}?)` : ''}`,
+      fix: `Use one of ${[...known].map((k) => `@${k}`).join(', ')}, list the plugin that brings ${name} in \`plugins:\`, or write \`\\${span.text}\` to show it as text.`,
+      ...(near ? { autofixable: true, didYouMean: `@${near}`, replace: { from: span.raw, to: span.raw.replace(`@${name}{`, () => `@${near}{`) } } : {}),
+    };
+  });
+}
+
+/**
+ * A span that opens like a PLUGIN's inline kind (`^{…}`, the icons plugin's) but renders as code
+ * (`<kind>-literal`, e.g. `icon-literal`). The plugin's own `diagnose` gives the reason — for an
+ * icon, a vendor service name is coached to its role icon — so the message never disagrees with
+ * the render (HARD RULE #1). Read off the dispatcher's table (lib/core/inline-code-directives.js),
+ * so a plugin's new kind is linted without an edit here. A warning: `\` before the sigil keeps the
+ * literal on purpose. A kind with a rule of its own (`OWN_LITERAL_RULE`) is skipped, so one broken
+ * span is one finding.
+ */
+// The spark's `spark-literal` (findLiteralSparks, above) predates the sparks plugin and words its
+// message for a chart ("shows as code, not a chart"); it kept that rule when sparks became a plugin.
+// `pill` is the embedded pills plugin's row now, and has its own, richer finding (`findLiteralPills`, rule `pill-literal`).
+const OWN_LITERAL_RULE = new Set(['spark', 'pill']);
+function findLiteralPluginKinds(source) {
+  const out = [];
+  for (const kind of [...INLINE_KINDS, ...NAMED_ONLY_KINDS]) {
+    if (!kind.plugin || OWN_LITERAL_RULE.has(kind.name)) continue;
+    out.push(...renderedInlineSpans(source, (t) => (kind.namedOnly && !t.startsWith(`@${kind.name}{`) ? null : kind.diagnose(canonicalText(t)))).map(({ slide, classToken, line, span, payload: why }) => ({
+      slide,
+      rule: `${kind.name}-literal`,
+      severity: 'warning',
+      classToken,
+      line: line.trim(),
+      span: span.raw,
+      col: span.start,
+      message: `\`${span.text}\` renders as code, not ${/^[aeiou]/.test(kind.name) ? 'an' : 'a'} ${kind.name}: ${why}`,
+      fix: `Fix the name or the option words, or write \`\\${span.text}\` to show it as text.`,
+    })));
+  }
+  return out;
+}
+
+/**
+ * One spelling per deck (`mixed-spelling`, Segno decision 7 —
+ * engineering/decisions/2026-09-28-segno-unified-inline-notation.md). An alias is a kindness per
+ * span and a mess per deck: `^{db}` on one slide and `^{database}` on the next, or a waterfall
+ * that closes on `total` and opens its next walk on `sum`. Every reader that binds a word with
+ * other spellings hands its spellings here — each plugin inline kind that exports `spellings`
+ * (the icons plugin's names), and the waterfall's markers (lib/core/waterfall-markers.js) — and
+ * Segno's own `consistency` picks the spelling the deck uses most (a tie goes to the first) and
+ * flags every other, with a one-click fix to the house form. A spelling only ever competes inside
+ * its own slot: an icon's `db` never against a marker's `sum`.
+ */
+function findMixedSpellings(source) {
+  const kinds = INLINE_KINDS.filter((k) => typeof k.spellings === 'function');
+  // A named span (`@icon{db}`) is read as its alias (`^{db}`); a fix's offsets are moved past the longer prefix.
+  const hits = renderedInlineSpans(source, (raw) => {
+    const text = canonicalText(raw);
+    const out = [];
+    for (const k of kinds) for (const sp of k.spellings(text) || []) out.push({ ...sp, slot: k.name });
+    // A pill's `icon=` names the same icons, so `{Orders, icon=db}` competes with `^{database}`.
+    const pillIcon = pillKernel.iconSpelling(text);
+    if (pillIcon) out.push({ ...pillIcon, slot: 'icon' });
+    const marker = waterfallMarkerSpelling(text);
+    if (marker) out.push({ ...marker, slot: 'waterfall' });
+    return out.length ? out : null;
+  });
+  const uses = [];
+  hits.forEach((h, i) => {
+    for (const sp of h.payload) {
+      // A marker is a marker only where the chart reads one: a TRAILING pill on a list row of a
+      // waterfall slide (waterfall.transform.js `parseWaterfall`). Anywhere else — prose above the
+      // chart, a heading, another slide — `step` and `delta` are the author's words.
+      if (sp.slot === 'waterfall' && !(h.tokens.includes('waterfall') && trailingRowPill(h.line, h.span))) continue;
+      uses.push({ ...sp, where: String(i) });
+    }
+  });
+  return segnoConsistency(uses).map(({ use, preferred, diagnostic }) => {
+    const { slide, classToken, rawLine, lineIdx, span } = hits[Number(use.where)];
+    const finding = {
+      slide,
+      rule: 'mixed-spelling',
+      severity: 'warning',
+      classToken,
+      line: rawLine.trim(),
+      span: span.raw,
+      col: span.start,
+      message: `\`${span.text}\`: ${diagnostic.message}`,
+      fix: `Write it \`${preferred}\`, the spelling this deck uses most.`,
+    };
+    const f = diagnostic.fix;
+    if (!f) return finding;
+    const shift = span.text.length - canonicalText(span.text).length;
+    const next = span.text.slice(0, f.from + shift) + f.insert + span.text.slice(f.to + shift);
+    // A function replacer: the span is the author's text (see sparkFitFindings). `chunkLine` starts
+    // the fix at this line, so an identical line earlier on the slide (a fenced example) is left.
+    return {
+      ...finding,
+      autofixable: true,
+      didYouMean: preferred,
+      ...(slide > 0 ? { chunkLine: lineIdx } : {}),
+      replace: { from: span.raw, to: span.raw.replace(span.text, () => next) },
+    };
+  });
+}
+
+/** Is `span` a trailing pill on a list row — the only place a waterfall reads a marker? */
+function trailingRowPill(line, span) {
+  if (!/^\s*(?:[-*+]|\d+[.)])\s/.test(line)) return false;
+  return /^(?:\s*`[^`]*`)*\s*$/.test(line.slice(span.start + span.raw.length));
+}
+
+/**
+ * A card tag's label is too long for its placement (`tag-budget`).
+ *
+ * Every boxed tag on a slide takes the widest tag's width and the tallest tag's height
+ * (lib/core/card-tag-equalize.js). That is what makes a row of tags read as one component —
+ * and it is also why one long label is expensive: it widens EVERY tag on the slide, and if it
+ * wraps, every tag grows a line and every card body moves down with it.
+ *
+ * So a label has a budget: the characters that fit on ONE line of the tag, on this slide.
+ * Measured at the laptop venue, an uppercase label in the tag voice runs about 10.2px a
+ * character, and the card width is set by how many cards share the row:
+ *
+ *   cards in the row      2    3    4    (5+: the 4-card figure, scaled down)
+ *   card width (px)     529  368  270    (compare-prose's 2-up is the narrower 2-up)
+ *   characters           49   33   24    divided by the tag's size: 1.2 at `tag-large`,
+ *                                        0.85 at `tag-small` (a small tag holds more)
+ *
+ * A corner tag gets one line of that. A band (`tag-band`, or `banner-tag`) gets two: it is a header strip
+ * across the card, so a second line reads as a heading rather than a broken chip. A flat 20
+ * was the first answer and failed 63 labels in 30 committed decks that fit on one line today;
+ * this table fails only the labels that really wrap.
+ * Owner decisions, engineering/decisions/2026-09-27-card-tag-register.md §7 (Q7, Q8).
+ *
+ * The labels in scope are the lifted slot labels: the title line of a top-level list item
+ * with a body, on `decision` and `compare-prose` (not `axis`, where the label is the card's
+ * title, not a tag). Numbers and the split-compare verdict are the engine's own words.
+ *
+ * WE WARN, WE COACH: the slide still renders, with every tag equalized to the long one.
+ */
+const TAG_LINE_CHARS = Object.freeze({ 2: 49, 3: 33, 4: 24 });
+const TAG_LABEL_LAYOUTS = ['decision', 'compare-prose'];
+
+/** Characters that fit on one line of a tag, for a row of `cards` at the tag's `scale`. */
+function tagLineBudget(cards, scale) {
+  const n = Math.max(2, cards);
+  const base = TAG_LINE_CHARS[n] || Math.floor((TAG_LINE_CHARS[4] * 4) / n);
+  return Math.floor(base / (scale || 1));
+}
+
+/**
+ * A word in an `authority-chain trail` column is wider than the column (`trail-budget`).
+ *
+ * The trail lays its tiers out as columns, so its limit is a LINE LENGTH, not a tier count:
+ * each column is the stage split by the tier count. A citation wraps at its spaces and a
+ * gloss wraps anywhere, but a single word cannot break. One word longer than its column
+ * widens that column and squeezes the others; the narrow columns give up their slack first,
+ * so the clip comes later (a 4-tier hall trail held one 26-character word and clipped at
+ * 28), but by then the row is lopsided. The budget is the EVEN column, so the warning lands
+ * before both.
+ *
+ * Measured 2026-10-05 on a wide 16:9 slide, every theme alike (they share one mono label
+ * face), as the longest unbroken word that fits each column. Laptop, huddle, conference,
+ * hall, for 2 to 6 tiers:
+ *
+ *   citation word    2: 58 51 39 30   3: 37 32 24 19   4: 26 23 17 13   5: 20 17 13 10   6: 15 13 10 8
+ *   tier label word  2: 50 43 33 25   3: 31 27 21 16   4: 22 19 15 11   5: 17 15 11  8   6: 13 11  9 7
+ *
+ * A label holds fewer: it is bold and tracked 0.10em. Past six tiers the 6-tier figure
+ * scales down. The hand face under `sketch` is proportional and wider, measured on its own
+ * with a run of X, a wide capital, so a real word of narrower letters holds a little more:
+ *
+ *   hand citation    2: 51 44 34 26   3: 32 28 21 16   4: 23 20 15 11   5: 17 15 11  9   6: 13 12  9 7
+ *   hand label       2: 44 38 29 22   3: 28 24 18 14   4: 20 17 13 10   5: 15 13 10  7   6: 12 10  8 6
+ *
+ * Only the wide stage is measured; on another size the rule says nothing rather than guess.
+ *
+ * WE WARN, WE COACH: the slide still renders, lopsided or, past the slack, clipped.
+ */
+const TRAIL_WORD_CHARS = Object.freeze({
+  cite: Object.freeze({
+    2: [58, 51, 39, 30], 3: [37, 32, 24, 19], 4: [26, 23, 17, 13], 5: [20, 17, 13, 10], 6: [15, 13, 10, 8],
+  }),
+  label: Object.freeze({
+    2: [50, 43, 33, 25], 3: [31, 27, 21, 16], 4: [22, 19, 15, 11], 5: [17, 15, 11, 8], 6: [13, 11, 9, 7],
+  }),
+  handCite: Object.freeze({
+    2: [51, 44, 34, 26], 3: [32, 28, 21, 16], 4: [23, 20, 15, 11], 5: [17, 15, 11, 9], 6: [13, 12, 9, 7],
+  }),
+  handLabel: Object.freeze({
+    2: [44, 38, 29, 22], 3: [28, 24, 18, 14], 4: [20, 17, 13, 10], 5: [15, 13, 10, 7], 6: [12, 10, 8, 6],
+  }),
+});
+
+/** The longest unbroken word a trail column holds: `kind` 'cite' or 'label', `tiers` columns,
+ * venue rung `rung` (0 laptop … 3 hall), `hand` for the sketch face. */
+function trailWordBudget(kind, tiers, rung, hand) {
+  const table = TRAIL_WORD_CHARS[hand ? `hand${kind[0].toUpperCase()}${kind.slice(1)}` : kind];
+  const n = Math.max(2, tiers);
+  return table[n] ? table[n][rung] : Math.floor((table[6][rung] * 6) / n);
+}
+
+function findTrailBudgetIssues(source) {
+  if (deckFamily(source) !== 'wide') return [];
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const deckTokens = [
+    ...modeClassesFromSource(source).split(/\s+/),
+    ...(fmBlock ? deckClassTokensFromFrontMatter(fmBlock[1]) : []),
+  ].filter(Boolean);
+  const venue = fmBlock ? venueClassFromFrontMatter(fmBlock[1]) : null;
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    if (idx < fm) return;
+    const own = (directives[idx]?.payload || '').split(/\s+/).filter(Boolean);
+    // The component is the slide's own word (a deck `class:` refuses component names); the
+    // variant may come from the deck, which the engine appends to every section.
+    const tokens = [...deckTokens, ...own, ...(venue ? [venue] : [])];
+    if (!own.includes('authority-chain') || !tokens.includes('trail')) return;
+    const rung = FONT_SCALE_ORDER.indexOf(fontScaleKey(tokens) || '1');
+    const hand = tokens.includes('sketch');
+    // The tiers: top-level list items. The label is the item's own text (the engine lifts it,
+    // lib/core/slot-label-lift.js); the citation is the first nested item when it is only code.
+    const lines = blankHiddenComments(normalizeSource(slide)).split('\n');
+    // The FIRST top-level list only: a marker of another kind (`-` after `1.`) starts a second
+    // list, and so does a paragraph at the margin between items.
+    const tiers = [];
+    let fence = null;
+    let marker = null;
+    let ended = false;
+    for (const line of lines) {
+      if (ended) break;
+      const f = line.match(/^\s*(```+|~~~+)/);
+      if (f) { fence = fence ? (f[1][0] === fence[0] && f[1].length >= fence.length ? null : fence) : f[1]; continue; }
+      if (fence || !line.trim()) continue;
+      const top = line.match(/^([-*+]|\d+[.)])\s+(.+?)\s*$/);
+      if (top) {
+        const kind = /\d/.test(top[1]) ? top[1].slice(-1) : top[1];
+        if (marker && kind !== marker) { ended = true; continue; }
+        marker = kind;
+        tiers.push({ line, label: top[2], cite: null, nested: false });
+        continue;
+      }
+      const tier = tiers[tiers.length - 1];
+      if (!tier) continue;
+      if (!/^(?:\t|\s)/.test(line)) { ended = true; continue; }   // back at the margin: prose
+      const sub = line.match(/^(?:\t|\s{2,})(?:[-*+]|\d+[.)])\s+(.+?)\s*$/);
+      if (!sub) {
+        // A lazy continuation line before the nested list joins the label, as the lift does.
+        if (!tier.nested) tier.label += ` ${line.trim()}`;
+        continue;
+      }
+      if (tier.nested) continue;
+      tier.nested = true;
+      const code = sub[1].match(/^(`+)\s?([^`](?:.*?[^`])?)\s?\1$/);
+      if (code) tier.cite = code[2];
+    }
+    if (tiers.length < 2) return;
+    // A WORD is what the browser will not break: Chromium breaks a citation at a space, after a
+    // hyphen (digits too: `2019-2022`) and on either side of an en or em dash, and nowhere else
+    // that a citation uses (`/`, `.`, `§`, `·` with no space around it all hold). Measured.
+    // Code points, not UTF-16 units, so `§` and the like count once.
+    const chars = (w) => Array.from(w).length;
+    const longest = (text) => {
+      let best = '';
+      for (const w of text.split(/\s+|(?<=-)|(?<=[\u2013\u2014])|(?=[\u2013\u2014])/)) if (chars(w) > chars(best)) best = w;
+      return best;
+    };
+    const slideNo = Math.max(1, idx - fm + 1);
+    for (const t of tiers) {
+      // Count what renders: a link by its text, emphasis marks dropped.
+      const label = t.label.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_`]/g, '');
+      const checks = [['label', longest(label)], ['cite', t.cite ? longest(t.cite) : '']];
+      for (const [kind, word] of checks) {
+        const budget = trailWordBudget(kind, tiers.length, rung, hand);
+        const count = chars(word);
+        if (count <= budget) continue;
+        const what = kind === 'cite' ? 'citation' : 'tier label';
+        findings.push({
+          slide: slideNo,
+          rule: 'trail-budget',
+          severity: 'warning',
+          classToken: 'authority-chain',
+          line: t.line.trim(),
+          message: `The ${what} word "${word}" is too long for its column (${count} characters, max ${budget}); ` +
+            'it squeezes the other columns.',
+          fix: kind === 'cite'
+            ? `Shorten that word to ${budget} characters or break it with a space, or drop \`trail\` to use the full-width chain.`
+            : `Shorten that word to ${budget} characters, or drop \`trail\` to use the default chain, which fits longer labels.`,
+        });
+      }
+    }
+  });
+  return findings;
+}
+
+/**
+ * The plugins' lint roles (`contributes.lint`, lib/plugins/lint.generated.js; HARD RULE #7, amended 2026-11-01). The host
+ * builds one DECK VIEW per call and hands it to each role: per content slide its human `number`, its own `classes`, its
+ * `lines` and `linesOutsideFences`, `inlineSpans(pick)`, where inline code is drawn, and `parse(text)`, the linter's own
+ * markdown-it token stream for a slide's text (its boundary parser, which the playground keeps apart from the engine's). A
+ * plugin never sees the linter's
+ * internals. A finding whose `rule` the plugin's manifest does not declare is refused: the build fails on it in the
+ * plugin's own tests, and here it is dropped rather than reported under a name nothing documents.
+ */
+function deckViewFor(source) {
+  let slides = null;
+  return Object.freeze({
+    get slides() {
+      if (!slides) {
+        const chunks = splitTopLevel(source);
+        const directives = slideClassDirectives(source);
+        const fm = fmChunks(source);
+        slides = Object.freeze(chunks.flatMap((chunk, idx) => {
+          if (idx < fm) return [];
+          const text = normalizeSource(chunk);
+          let outside = null;
+          return [Object.freeze({
+            number: Math.max(1, idx - fm + 1),
+            classes: Object.freeze((directives[idx]?.payload || '').split(/\s+/).filter(Boolean)),
+            lines: Object.freeze(text.split('\n')),
+            get linesOutsideFences() {
+              return (outside ??= Object.freeze(stripCertainFences(text).split('\n')));
+            },
+          })];
+        }));
+      }
+      return slides;
+    },
+    inlineSpans: (pick) => renderedInlineSpans(source, pick),
+    parse: (text) => boundaryParser.parse(String(text ?? ''), {}),
+  });
+}
+
+function findPluginLint(source) {
+  const deck = deckViewFor(source);
+  const findings = [];
+  for (const row of PLUGIN_LINT) {
+    const declared = new Set(row.rules);
+    for (const f of row.lint(pluginCtxFor(row.plugin))(deck)) if (declared.has(f.rule)) findings.push(f);
+  }
+  return findings;
+}
+
+function findTagBudgetIssues(source) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  // The deck's class as the ENGINE resolves it (a component name there is refused and
+  // dropped), and its `tag:` read the way the engine reads it (top level only).
+  const deckTokens = fmBlock ? deckClassTokensFromFrontMatter(fmBlock[1]) : [];
+  const deckTag = fmBlock ? cardTagClassesFromFrontMatter(fmBlock[1]) : [];
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    if (idx < fm) return;
+    const own = (directives[idx]?.payload || '').split(/\s+/).filter(Boolean);
+    const tokens = [...deckTokens, ...own];
+    if (!TAG_LABEL_LAYOUTS.some((l) => tokens.includes(l)) || tokens.includes('axis')) return;
+    // A band is `banner-tag` or the `band` placement; the slide's own placement word evicts
+    // the deck's, as the engine does (resolve-card-tag.js).
+    const placeRe = /^tag-(corner|foot|notch|band|inline)$/;
+    // A slide's own `banner-tag` is its own placement too, so a deck word cannot undo it.
+    const ownPlacement = own.find((t) => placeRe.test(t)) || (own.includes('banner-tag') ? 'banner-tag' : '');
+    const placement = ownPlacement || deckTag.find((t) => placeRe.test(t)) || '';
+    const band = placement === 'tag-band' || placement === 'banner-tag' || (tokens.includes('banner-tag') && !placement);
+    // The slide's own size word evicts the deck's, as the engine does (resolve-card-tag.js).
+    const sizeWord = own.find((t) => /^tag-(small|regular|large)$/.test(t))
+      || deckTag.find((t) => /^tag-(small|regular|large)$/.test(t)) || 'tag-regular';
+    const scale = { 'tag-small': 0.85, 'tag-regular': 1, 'tag-large': 1.2 }[sizeWord];
+    const lines = blankHiddenComments(normalizeSource(slide)).split('\n');
+    const labels = [];
+    let fence = null;
+    lines.forEach((line, i) => {
+      const f = line.match(/^\s*(```+|~~~+)/);
+      if (f) { fence = fence ? (f[1][0] === fence[0] && f[1].length >= fence.length ? null : fence) : f[1]; return; }
+      if (fence) return;
+      const item = line.match(/^(?:[-*+]|\d+[.)])\s+(.+?)\s*$/);
+      if (!item) return;
+      // A tag only when the item has a NESTED LIST: that is what lifts the label
+      // (lib/core/slot-label-lift.js), and the lift takes EVERYTHING before that list, so a
+      // lazy continuation line joins the label. Indented by two spaces or a tab.
+      const nested = /^(?:\t|\s{2,})(?:[-*+]|\d+[.)])\s/;
+      const parts = [item[1]];
+      let hasList = false;
+      for (let j = i + 1; j < lines.length; j++) {
+        const next = lines[j];
+        if (!next.trim()) continue;
+        if (nested.test(next)) { hasList = true; break; }
+        if (!/^(?:\t|\s{2,})\S/.test(next)) break;   // back at the margin: a sibling or prose
+        parts.push(next.trim());
+      }
+      if (!hasList) return;
+      // Count what renders: a link by its text, emphasis and code marks dropped.
+      const label = parts.join(' ').replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_`]/g, '').trim();
+      labels.push({ line, label });
+    });
+    const perLine = tagLineBudget(labels.length, scale);
+    const budget = band ? 2 * perLine : perLine;
+    for (const { line, label } of labels) {
+      const count = [...label].length;
+      if (count <= budget) continue;
+      findings.push({
+        slide: Math.max(1, idx - fm + 1),
+        rule: 'tag-budget',
+        severity: 'warning',
+        classToken: own[0] || null,
+        line: line.trim(),
+        message: band
+          ? `The band label "${label}" is ${count} characters; over ${budget} it runs past two lines ` +
+            'and every band on the slide grows to match.'
+          : `The tag "${label}" is ${count} characters; over ${budget} it wraps and pushes every card ` +
+            'on the slide down.',
+        fix: band
+          ? `Shorten it to ${budget} characters and move the detail into the card.`
+          : `Shorten it to ${budget} characters and move the detail into the card, or add \`tag-band\`.`,
+      });
+    }
+  });
+  return findings;
+}
+
+/**
+ * `banner-tag` is the `tag-band` placement under its older name (`tag-alias`).
+ *
+ * It still renders, so this is advice, never a block: `info`, the tier `--strict` routes to
+ * suggestions. A slide that already names a placement word gets nothing: the author has met
+ * the register. (A list-steps `capsule` hint lived here too; the owner reversed it on
+ * 2026-10-06 — `capsule` is a documented current modifier, not an old name.)
+ * engineering/decisions/2026-09-27-card-tag-register.md §3.3, §6 phase 4.
+ */
+function findCardTagAliases(source) {
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((_slide, idx) => {
+    if (idx < fm) return;
+    const own = (directives[idx]?.payload || '').split(/\s+/).filter(Boolean);
+    if (own.some((t) => /^tag-(corner|foot|notch|band|inline)$/.test(t))) return;
+    const at = { slide: Math.max(1, idx - fm + 1), rule: 'tag-alias', severity: 'info', line: directives[idx]?.text || null };
+    if (own.includes('banner-tag')) {
+      findings.push({
+        ...at,
+        classToken: 'banner-tag',
+        message: '`banner-tag` is an old name for `tag-band`.',
+        fix: 'Replace it with `tag-band`.',
+      });
+    }
+  });
+  return findings;
+}
+
+/**
+ * A label set whose keys do not bind to the component's declared members.
+ *
+ * WE WARN, WE COACH (HARD RULE #29's deck posture). The author has written a key
+ * that will silently do nothing — `resolveLabelSet` drops an unbound entry rather
+ * than rendering a row that binds to no member — and they cannot see that from the
+ * slide, because the key simply comes out one row short. This is the only channel
+ * that can tell them BEFORE they render: `unboundKeys` reports the same fact into
+ * the chart's `<desc>`, which a screen reader hears and the author never does.
+ *
+ * The vocabulary comes from the SAME generated catalog the transform renders from
+ * (`labelSetFor`), so this rule cannot drift from what the component actually
+ * accepts — the property that kept `coda.claims` honest.
+ *
+ * Three findings, and the third is why `unkeyed` exists as a manifest field:
+ *   - the component declares no set at all → the whole span does nothing here;
+ *   - the key is not in the vocabulary → name the keys that are;
+ *   - the key is DELIBERATELY unkeyed → quote the manifest's own reason, because
+ *     "unknown key" would be a lie: the grammar takes `[x]` in a matrix-grid cell,
+ *     it just has no general name to put in a key.
+ */
+/** The components that declare a key, read from the generated catalog so this
+ *  advice cannot drift from what actually renders one. */
+function labelSetKeyNote() {
+  const names = labelSetNames();
+  if (!names.length) return 'No component has a key.';
+  if (names.length === 1) return `Only ${names[0]} has a key.`;
+  return `Only ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]} have a key.`;
+}
+
+// The authored state markers — what a key names when a component declares no key.
+const STATE_MARKER_KEYS = new Set(['[x]', '[ ]', '[-]', '[/]']);
+
+// Components whose own grammar parses their bracketed key span (see findLabelSetIssues).
+const GRAMMAR_OWNED_KEYS = new Set(['flowchart', 'state-chart']);
+function findLabelSetIssues(source, vocab) {
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    const tokens = (directives[idx]?.payload || '').split(/\s+/).filter(Boolean);
+    const component = tokens.find((t) => vocab?.names?.has(t)) || null;
+    // A component whose OWN grammar reads the key span decides what it means and checks
+    // it (flowchart: `findFlowchartIssues`, rule `flowchart-key-unbound`), so these
+    // generic rules would report the same span twice, once wrongly as "draws no key".
+    if (GRAMMAR_OWNED_KEYS.has(component)) return;
+    if (!component) return;
+    const declared = labelSetFor(component);
+    // Only a LONE inline-code span is a label-set position (the same known
+    // position `liftLabelSet` reads). A backticked set inside a sentence is
+    // prose about the grammar — this very rule's own documentation, for one.
+    // WHERE THE COMPONENT'S BODY STARTS, in SOURCE terms. A label set below it
+    // is a key; the same span above it is read as the AXIS, because position is
+    // what tells the two apart. `axisSet.body` says which opener bounds this
+    // component — a grid's table row, an SVG chart's bullet — so the rule never
+    // carries its own list of component names.
+    const axis = axisSetFor(component);
+    // WHAT COUNTS AS THE BODY, in SOURCE terms, matched to what markdown-it
+    // will EMIT — the render decides from the rendered tag and this rule has to
+    // agree with it or it under-warns. A table need not lead with a pipe (GFM
+    // accepts `Col A | Col B` over a `--- | ---` rule), and a list may be
+    // ORDERED, which is in `scatter`'s own bodyTags. Missing either left the
+    // rule silent on decks the render eats.
+    //
+    // An INDENTED code block (four spaces) is not a list however much its first
+    // line looks like one; treating it as the body put the boundary too early
+    // and judged every later span "below".
+    //
+    // Three more shapes the render disagreed with, each found by a checker:
+    // a list line inside an `<!-- -->` note is not the body (comments are
+    // blanked below); a BLOCKQUOTED table or list IS, because markdown-it emits
+    // its `<table`/`<ul` and the render's boundary is the first such tag
+    // (`> ` markers are stripped). A tab is an indented code block too. (A
+    // thematic break needs no case: Marp splits slides on every one of them.)
+    const bodyOpens = (raw, i, all) => {
+      const unquote = (x) => (x || '').replace(/^(?:[ \t]{0,3}>[ \t]?)+/, '');
+      const l = unquote(raw);
+      if (/^(?: {4,}|\t)\S/.test(l)) return false;
+      if (axis.body === 'table') {
+        if (l.trimStart().startsWith('|')) return true;
+        // A pipeless header is a table only when the NEXT line is its rule.
+        const next = unquote(all[i + 1]);
+        return l.includes('|') && /^[\s:|-]*-[\s:|-]*$/.test(next) && next.includes('-');
+      }
+      return /^\s*([-*+]|\d+[.)])\s/.test(l);
+    };
+    const slideLines = blankCommentSpans(stripFencedCode(slide)).split('\n');
+    const bodyAt = axis ? slideLines.findIndex((l, i, all) => bodyOpens(l, i, all)) : -1;
+
+    slideLines.forEach((line, lineIdx) => {
+      const m = line.trim().match(/^`([^`]+)`$/);
+      if (!m) return;
+      const set = parseInlineSet(m[1]);
+      if (!set) return;
+      // A KEY ABOVE THE BODY IS EATEN AS AN AXIS, silently and degenerately:
+      // `[{[-], within reach}]` above a grid renders `data-col-axis="[-] ▶"`
+      // and no key at all. We coach rather than refuse (HARD RULE #29's
+      // posture), because the deck still renders — just not as intended.
+      if (axis && bodyAt >= 0 && lineIdx < bodyAt) {
+        // ABOVE THE BODY A BRACKETED LIST IS AN AXIS BY DEFINITION — that is the
+        // position rule. `parseInlineSet` accepts `[{Effort, 0..10}, {Reach,
+        // 0..100}]` as a set (`{key: Effort, label: 0..10}`), so without this the
+        // documented axis form drew two warnings on every slide that used it,
+        // one of them telling the author to DELETE a correct axis. It is a
+        // misplaced KEY only when it names a member of this component's key
+        // vocabulary (`[x]`, `[-]`); anything else is the axis, and silent.
+        // A component with no key (scatter, quadrant, gantt) has no vocabulary
+        // to ask, so the state MARKERS stand in: `[x]`, `[-]` are never an axis
+        // name, and `[{[x], Enacted}]` above a scatter is a key in the wrong
+        // place on the wrong component — which is what the fix below says.
+        const vocabKeys = declared
+          ? new Set([...declared.members, ...(declared.unkeyed || [])].map((x) => String(x.key).trim()))
+          : STATE_MARKER_KEYS;
+        if (!set.some((e) => vocabKeys.has(String(e.key).trim()))) return;
+        findings.push({
+          slide: Math.max(1, idx - fm + 1),
+          rule: 'label-set-above-body',
+          severity: 'warning',
+          classToken: component,
+          line: line.trim(),
+          // Over the component's axis count the render does NOT read it as the
+          // axis (`axisAcceptor`) — it stays on the slide as text — so saying
+          // it "will name axes" would be false there.
+          message: parseBracketList(m[1]).length > axis.members.length
+            ? `This bracketed list is above the ${axis.body} and has too many items for axes, so it shows as text.`
+            : axis.keyBelow === false
+              ? `\`${component}\` has no key, so this bracketed list above the ${axis.body} names the axes instead.`
+              : `This bracketed list is above the ${axis.body}, so it names the axes instead of relabeling the key.`,
+          // `keyBelow: false` means the component draws NO key, so "move it
+          // below" is not just useless there — it puts a bracketed paragraph
+          // exactly where that component's CODA lives. Telling a scatter author
+          // to do that while the very next finding tells them to delete the
+          // span is two instructions that contradict each other.
+          fix: axis.keyBelow === false
+            ? `Delete it, or write axis names (${axis.members.join(', ')}) instead of key entries.`
+            : `Move it below the ${axis.body} to relabel the key; above it, a list names the axes (${axis.members.join(', ')}).`,
+        });
+        return;
+      }
+      if (!declared) {
+        findings.push({
+          slide: Math.max(1, idx - fm + 1),
+          rule: 'label-set-unbound',
+          severity: 'warning',
+          classToken: component,
+          line: line.trim(),
+          message: `\`${component}\` has no key, so this bracketed list does nothing.`,
+          // The component list comes from the CATALOG, never a string here. A
+          // hand-maintained list is the drift the manifest field was bought to
+          // prevent, and writing one into this very function's advice would
+          // reintroduce it one layer down.
+          fix: `Delete it. ${labelSetKeyNote()}`,
+        });
+        return;
+      }
+      // A key written twice last-wins silently, so the author sees a key one row
+      // SHORTER than what they typed — the same invisibility this rule exists to
+      // end for an unbound key.
+      const seen = new Set();
+      for (const entry of set) {
+        const k = String(entry.key).trim();
+        if (seen.has(k)) {
+          findings.push({
+            slide: Math.max(1, idx - fm + 1),
+            rule: 'label-set-unbound',
+            severity: 'warning',
+            classToken: component,
+            line: line.trim(),
+            message: `\`${k}\` is named twice in this label set, so only the last "${entry.label}" is used`,
+            fix: `Delete the earlier \`${k}\` entry.`,
+          });
+        }
+        seen.add(k);
+      }
+      const keyed = new Set(declared.members.map((x) => String(x.key).trim()));
+      const unkeyed = new Map((declared.unkeyed || []).map((u) => [String(u.key).trim(), u.why]));
+      for (const entry of set) {
+        const key = String(entry.key).trim();
+        if (keyed.has(key)) continue;
+        const known = [...keyed].map((k) => `\`${k}\``).join(' · ');
+        findings.push({
+          slide: Math.max(1, idx - fm + 1),
+          rule: 'label-set-unbound',
+          severity: 'warning',
+          classToken: component,
+          line: line.trim(),
+          message: unkeyed.has(key)
+            ? `\`${key}\` is not keyed on a \`${component}\` — ${unkeyed.get(key)}`
+            : `\`${key}\` is not one of \`${component}\`'s key members, so "${entry.label}" is dropped`,
+          fix: `Name one of ${known}. Naming a subset is fine — the rest keep their default words.`,
+        });
+      }
+    });
+  });
+  return findings;
+}
+
+/**
+ * Lint deck source against an injected vocabulary. Returns an array of findings:
+ *   { slide, rule, severity, classToken, line, message, fix }
+ * `vocab` is `{ names: Set<string>, modifiers: Set<string> }`. `slide` is the
+ * HUMAN 1-based slide number (front matter excluded). This is the shared engine;
+ * lib/authoring/lint.js builds the vocab from manifests, the browser passes one
+ * precomputed at build time.
+ */
+function lintChunksWith(source, vocab) {
+  const findings = [];
+  // The capacity rules below fork on the deck's FAMILY, because the SPLIT move does: past
+  // `hard` at `wide` is `capacity-overflow` (no split move there — the ring is the terminal),
+  // and at square/tall/strip the engine splits the slide, so nothing is said. The milder capacity-crowd
+  // (soft < n <= hard) applies in every box: it is an editorial judgment about a crowded slide,
+  // not a prediction of overflow. See lib/core/auto-split.js +
+  // engineering/decisions/2026-07-29-autosplit-is-not-a-toggle.md.
+  const cardStyle = new Set(CARD_STYLE_LAYOUTS);
+  const ledgerOl = new Set(LEDGER_OL_LAYOUTS);
+  const statementOl = new Set(STATEMENT_OL_LAYOUTS);
+  const splitSlot = new Set(SPLIT_SLOT_LAYOUTS);
+  const numberSlot = new Set(NUMBER_SLOT_LAYOUTS);
+  // Split layouts whose left-panel anchor is an <h2> the transform extracts
+  // (headline, or the split-panel `metric` hero number). The split-panel
+  // `pullquote` variant is excluded — its anchor is a blockquote.
+  const isH2AnchoredSplit = (tokens) =>
+    (tokens.includes('split-panel') && !tokens.includes('pullquote')) ||
+    tokens.includes('split-compare');
+  // Split on slide separators (a line that is exactly `---`). The front-matter
+  // chunks carry no `_class`, so they're skipped; `fm` rebases the chunk index
+  // onto the human 1-based slide number authors and the preview see.
+  const slides = splitTopLevel(source);
+  const fm = fmChunks(source);
+  // The BOX the deck renders into, for the per-family capacity budgets below.
+  const family = deckFamily(source);
+  // The exact canvas, `WIDTHxHEIGHT`: the code column table is measured per canvas (code-pane-columns.js).
+  const codeCanvas = (() => {
+    const { width, height } = sizeFor(deckSizeName(source) || 'hd');
+    return `${parseFloat(width)}x${parseFloat(height)}`;
+  })();
+  // The venue rows are measured on a 16:9 stage. `wide` also takes 4:3 and 16:10, whose
+  // taller stage holds more, so a claim that a slide CLIPS at the designed size is made only
+  // on a 16:9 deck.
+  const sixteenNine = isSixteenNine(source);
+  const slack = lineSlack(source);
+  // Deck-wide `claim:` → its stamped token (framed/unknown → none), so the
+  // bleed safety cap below catches `claim: bleed` front-matter, not just a
+  // per-slide `claim-bleed` token. A per-slide claim-* overrides it.
+  const fmClaimBlock = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+  const deckClaimRaw = fmClaimBlock && (lastFrontMatterMatch(fmClaimBlock[1], /^\s*claim:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m) || [])[1];
+  const deckClaimName = deckClaimRaw ? deckClaimRaw.trim().toLowerCase() : '';
+  const deckClaimToken = ['quiet', 'hero', 'bleed'].includes(deckClaimName) ? `claim-${deckClaimName}` : null;
+  // The deck-wide `class:` tokens. The engine APPENDS these to every section, a slide's own
+  // `_class:` included (lib/core/deck-class-register.js), so a front-matter `class: scale-xl`
+  // scales every slide — the projection-scale rules below read it alongside the slide's own.
+  const deckVenueToken = fmClaimBlock ? venueClassFromFrontMatter(fmClaimBlock[1]) : null;
+  // The list and card line geometry is measured on a plain deck, so only front-matter keys known to
+  // leave a slide's geometry alone let `rowsAt` judge it. Any other key (`meta:` and `logo:` narrow
+  // the heading track, `preset:` can switch on `with-spectrum-card`, `inline-code:` redraws code spans…)
+  // keeps every slide on its count row (Amendment (7); the second checker round found `meta:`,
+  // `logo:` and `preset:` decks losing three clips the count rows caught).
+  const rowsDeck = !fmClaimBlock || fmClaimBlock[1].split(/\r?\n/).every((l) => !/^[A-Za-z]/.test(l)
+    || /^(marp|theme|paginate|header|footer|size|venue|class|acronyms|color-mode|profile|pace|motion|glossary|lexicon|player|lang|say|present|delivery|greeting|closing|debug|title|author|description|fit|plugins):/.test(l));
+  const deckClassTokens = [
+    ...(fmClaimBlock ? deckClassTokensFromFrontMatter(fmClaimBlock[1]) : []),
+    ...(deckVenueToken ? [deckVenueToken] : []),
+  ];
+  // The deck's `fit:` level token (`fit-report` / `fit-trim`, or none for the default heal),
+  // read through the same entry point the engine uses. A slide's own `fit-*` / `guards-*`
+  // token replaces it, as deckClassPropagate evicts it (lib/core/resolve-guards.js).
+  const deckFitToken = fmClaimBlock ? fitClassFromFrontMatter(fmClaimBlock[1]) : '';
+  const slideFitLevel = (tokens) => fitLevel(tokens.some((t) => isGuardsToken(t)) ? tokens : [deckFitToken]);
+  // A venue or a `scale-*` class is a FIXED size, like desktop zoom: the engine renders every
+  // slide at it and never shrinks one to fit (owner ruling 2026-09-27, retiring the automatic
+  // step of #2378/#2390). So a slide past its budget at that size may clip.
+  //
+  // SEVERITY follows what the author said. A deck that names its VENUE has said where it will
+  // be seen, so a slide past its budget there is a `warning` (the owner's ruling: warn, plus a
+  // one-click fix in the Studio). A bare `scale-*` keeps the `info` it had: the budget is a
+  // BUDGET, not a forecast (measured on the capacity basis, and scored against the engine it
+  // named about half its slides wrongly — followups.d/2361-p2-venue-lint-accuracy-on-real-decks.md),
+  // and a warning would red `lint:deck:all --strict` on committed decks that render whole —
+  // examples/font-scale.md slide 5 is one. The ring and the export's OVERFLOW line report the
+  // real clip either way. `fit:` plays no part: no fit level changes the type size.
+  // The tokens a slide's SCALE is read from: its own, plus the deck's — minus the deck's venue
+  // when the slide names its own, which the renderer evicts (plugins.js `slideHasOwnVenue`).
+  const scaleTokensFor = (tokens) => (tokens.some((t) => t.startsWith('venue-'))
+    ? [...tokens, ...deckClassTokens.filter((t) => !t.startsWith('venue-'))]
+    : [...tokens, ...deckClassTokens]);
+  // "of up to 12 words" — or, past the longest length measured, that length and a plus, so a
+  // 30-word element is never quoted as if the rig had measured 30 words.
+  // A CHAR_JUDGED length is fractional (`elementLength`); say it to the word.
+  const wordsOf = (sc) => (sc.words > sc.measuredTo ? `of ${sc.measuredTo}+ words` : `of up to ${Math.round(sc.words)} words`);
+  const venueSeverity = (tokens) => (tokens.some((t) => t.startsWith('venue-') && FONT_SCALE_KEYS[t]) ? 'warning' : 'info');
+  // The one-line way out that keeps the slide whole: a smaller room size — the LARGEST one whose
+  // budget holds this slide (`holds(rung)`), not merely the next one down, so the advice never
+  // names a size that still clips. A deck at `venue:` is told a venue; a bare `scale-*` a class;
+  // the designed size is what `venue: laptop` / dropping the class gives. Called only when the
+  // slide fits the designed size, so some rung always holds.
+  const VENUE_BY_KEY = { 1: 'laptop', l: 'huddle', xl: 'conference', '2xl': 'hall' };
+  // The size as the author wrote it: a `venue:` names a room, a bare `scale-*` class its own word.
+  const sizeWords = (tokens, key) => (tokens.some((t) => t.startsWith('venue-') && FONT_SCALE_KEYS[t])
+    ? `At ${VENUE_BY_KEY[key]} size` : `At \`scale-${key}\``);
+  const smallerSize = (tokens, key, holds) => {
+    const below = FONT_SCALE_ORDER.slice(0, FONT_SCALE_ORDER.indexOf(key)).reverse();
+    const rung = below.find((r) => holds(r)) || '1';
+    if (tokens.some((t) => t.startsWith('venue-') && FONT_SCALE_KEYS[t])) return `set \`venue: ${VENUE_BY_KEY[rung]}\``;
+    return rung === '1' ? 'drop the `scale-*` class' : `use \`scale-${rung}\``;
+  };
+  const hallHint = (tokens) => (tokens.includes('venue-hall')
+    ? ' At hall size, carry fewer words: a statement, big-number or divider slide reads best from the back row.'
+    : '');
+
+  const classDirectives = slideClassDirectives(source);
+  // A deck whose inline code is all literal (`inline-code: literal`, or the class on the deck)
+  // renders no pill or icon, so lint prices every span as code (`lineText`).
+  const fmInline = fmClaimBlock ? frontMatterValue(fmClaimBlock[1], 'inline-code') : null;
+  const deckLiteral = String(fmInline || '').trim().toLowerCase() === 'literal' || deckClassTokens.includes(INLINE_CODE_LITERAL_CLASS);
+  // Rules 11 and 12 read their own directives, not the class, so they run on EVERY slide —
+  // a class-less slide included. A bare deck-wide `track:` is most dangerous exactly there.
+  const focusAndTrackFindings = (_slide, idx, tokens) => {
+    // Rule 11 — focus directive grammar. A malformed `_focus` / `_focusStyle` /
+    // `_focusSteps` silently no-ops at render, so flag the typo here.
+    const fd = spotFocus(source, idx, 'focus');
+    if (fd) {
+      const err = focusSpecError(fd[1]);
+      if (err) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'focus-spec',
+          severity: 'warning',
+          line: fd[0],
+          message: `_focus ${err}`,
+          fix: '_focus: <axis> <ordinal> — e.g. row 4, item 3, col 5, cell 4,5, line 3-4, mark 2, series 1.',
+        });
+      }
+    }
+    const fs = spotFocus(source, idx, 'focusStyle');
+    if (fs && !FOCUS_STYLES.has(fs[1].trim())) {
+      findings.push({
+        slide: idx - fm + 1,
+        rule: 'focus-style',
+        severity: 'warning',
+        line: fs[0],
+        message: `_focusStyle '${fs[1].trim()}' is not ${[...FOCUS_STYLES].join(' | ')}`,
+        fix: `Use one of: ${[...FOCUS_STYLES].join(', ')}; or remove it for the default.`,
+      });
+    }
+    // `focusSteps` is a slide-only key (its manifest `scope: slide`): a bare comment sets its own slide as the spot
+    // form does, so both spellings are linted here, and both meet the one-stepping-directive rule below.
+    const fstepsEntry = slideMetaEntry(source, idx, 'focusSteps');
+    const fsteps = fstepsEntry?.value ? [fstepsEntry.text, fstepsEntry.value] : null;
+    if (fsteps) {
+      for (const step of fsteps[1].split('|').map((s) => s.trim()).filter(Boolean)) {
+        const err = focusSpecError(step);
+        if (err) {
+          findings.push({
+            slide: idx - fm + 1,
+            rule: 'focus-steps',
+            severity: 'warning',
+            line: fsteps[0],
+            message: `_focusSteps step '${step}': ${err}`,
+            fix: 'Each step is a _focus spec — e.g. row 1 | row 2 | row 3.',
+          });
+          break;
+        }
+      }
+    }
+    // A static `_focus` on a stepping slide is dropped: the walk owns the slide's focus, and at rest nothing is lit.
+    if (fsteps && fd) {
+      findings.push({
+        slide: idx - fm + 1,
+        rule: 'focus-with-steps',
+        severity: 'warning',
+        line: fd[0],
+        message: 'this slide walks a focus (`_focusSteps`), so its static `_focus` is ignored',
+        fix: 'Drop the `_focus`, or make it the first step of `_focusSteps`.',
+      });
+    }
+    // One stepping directive per slide (engineering/decisions/2026-11-09-steps-as-a-behavior.md §1): a
+    // `_build` walk and a `_focusSteps` walk on one slide would each claim the slide's step cursor, so the
+    // engine tags one and drops the other. A deck-wide `build:` counts, since it applies here too; `none` opts out.
+    // A front-matter `build:` builds every slide; the scanner reads only comments, so the deck's own key is read here.
+    const fmBuild = fmClaimBlock ? frontMatterValue(fmClaimBlock[1], 'build') : null;
+    const bd = slideMetaEntry(source, idx, 'build') || (fmBuild != null ? { value: fmBuild, spot: false } : null);
+    if (fsteps && bd && String(bd.value ?? '').trim().toLowerCase() !== 'none') {
+      findings.push({
+        slide: idx - fm + 1,
+        rule: 'one-stepping-directive',
+        severity: 'error',
+        line: fsteps[0],
+        message: 'this slide both builds (`_build`) and walks a focus (`_focusSteps`); a slide takes one stepping directive',
+        fix: bd.spot ? 'Keep `_build` or `_focusSteps`, not both.' : 'Add `<!-- _build: none -->` to this slide, or drop its `_focusSteps`.',
+      });
+    }
+
+    // Rule 12 — the `topic` anchor's `_track` override. Read off the text the
+    // RENDERER sees, so a slide that DOCUMENTS the syntax in a fenced block is not
+    // warned about its own example (the sibling rule below already did this).
+    const td = liveTrackDirective(source, idx);
+    if (td && !td.spot) {
+      // The BARE form is Marpit's DECK-WIDE directive: it applies here and to every
+      // slide after it, so one missing underscore silently overrides the rest of the
+      // deck. Measured: `<!-- track: Alpha | [Beta] -->` on a divider stamps
+      // `data-track` on that slide AND both following `topic` slides, which then
+      // draw `Alpha | Beta` instead of their own derived scale.
+      findings.push({
+        slide: idx - fm + 1,
+        rule: 'track-directive',
+        severity: 'warning',
+        line: td.line,
+        message: '`track:` without `_` applies to this slide and every slide after it.',
+        fix: 'Write `_track:`.',
+      });
+    } else if (td) {
+      const { labels, current } = parseTrackSpec(td.value);
+      if (!tokens.includes('topic')) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'track-directive',
+          severity: 'warning',
+          line: td.line,
+          message: '_track does nothing on a slide that is not `topic`',
+          fix: 'Remove `_track`, or make this a `topic` slide.',
+        });
+      } else if (tokens.includes('fact')) {
+        // `fact` is one flat canvas with no scale — its CSS drops the track. So a
+        // `_track` there renders NOTHING, and it still opts the slide out of
+        // derivation, which costs that topic its name in every SIBLING's track.
+        // Measured: a three-topic section whose `fact` slide carries `_track`
+        // leaves its two siblings showing a two-topic scale.
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'track-directive',
+          severity: 'warning',
+          line: td.line,
+          message: '`_track` shows nothing on `topic fact` and drops this topic from the other slides\' tracks.',
+          fix: 'Remove `_track`, or drop `fact`.',
+        });
+      } else if (labels.length < MIN_TRACK_LABELS) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'track-directive',
+          severity: 'warning',
+          message: `_track names ${labels.length === 1 ? 'one label' : 'no labels'} — a scale of one is not a scale, so NO track is drawn`,
+          line: td.line,
+          fix: '_track: Cost to win | Lifetime value | [Payback] — two labels or more, pipe-separated. Remove the directive to derive the track from the section\'s own headings.',
+        });
+      } else if (current === -1) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'track-directive',
+          severity: 'warning',
+          message: '_track marks no current topic, so the track draws with no column lit',
+          line: td.line,
+          fix: 'Put the topic this slide IS in square brackets — `… | [Payback] | …`.',
+        });
+      }
+    }
+  };
+  // The `code-line-clipped` rule (the long note above its call explains it), as a function so a
+  // slide with no `_class` — a plain slide, the default `content` layout — is judged too: every fence
+  // takes the code panel there, and the panel clips. `line` is the text a finding quotes; a plain
+  // slide has no class directive, so it quotes the long line itself.
+  const codeDefaults = codeRecord.deckDefaultsFromValue(topLevelFrontMatterValue(fmClaimBlock ? fmClaimBlock[1] : '', 'code'));
+  const deckClassTokensForCode = fmClaimBlock ? deckClassTokensFromFrontMatter(fmClaimBlock[1]) : [];
+  // The classes the deck's `image-card:` line stamps on an image slide, for `thin-card-no-ink`.
+  const deckImageCardClasses = fmClaimBlock ? imageCardClassesFromFrontMatter(fmClaimBlock[1]) : [];
+  const codeClipFindings = (slide, tokens, slideNo, line) => {
+    // A specimen sits at the limit on purpose, exactly as it does for capacity —
+    // the marker means "I know, that is the point".
+    if (hasMarker(slide, 'stress-slide')) return [];
+    // Every class that moves the pane is in the measured table (tools/measure-code-columns.js):
+    // the stage (`claim-*`, `compact`), the venue and spot scale, and an alignment class that
+    // shrink-wraps the panel. The deck's own classes count too: a `venue:` arrives as `venue-*`.
+    const all = scaleTokensFor(tokens);
+    // The TIGHTEST budget among the slide's layout tokens, not the first one
+    // found. `_class: code compare-code` is pathological authoring, but taking
+    // whichever token happened to be typed first made the verdict depend on word
+    // order — silent at 80 columns one way, warning the other. Whichever layout
+    // the engine paints, the tighter answer is the one that cannot under-report.
+    let t = null;
+    let budget = null;
+    let designed = null;
+    for (const layout of ['code', 'compare-code', 'content']) {
+      if (!tokens.includes(layout)) continue;
+      const group = codeGroupFor(layout, all);
+      // A `code` slide at wide under a scale: `capacity-scale` judges its scaled columns with its
+      // lines, and names the room size that holds both, so this rule judges the designed size there.
+      const scaled = !(layout === 'code' && family === 'wide');
+      const b = codePaneColumns(group, all, codeCanvas, family, { scaled });
+      if (b != null && (budget == null || b < budget)) {
+        t = layout;
+        budget = b;
+        designed = codePaneColumns(group, all, codeCanvas, family, { scaled: false });
+      }
+    }
+    if (budget == null) return []; // the panel wraps here: nothing can be cut
+    // ONE finding per slide, for the worst line. A block whose author blew the
+    // budget usually blew it on several lines, and one finding per line buries
+    // the slide that has a different problem.
+    const widest = widestCodeLine(slide, { defaults: codeDefaults, codeOnly: t === 'content' });
+    if (!widest || widest.columns <= budget) return [];
+    const over = widest.columns - budget;
+    // Inside the designed size and past this slide's scale: cut only because of the room size, so
+    // the message names the size. Still `info`: the note above the call says why this rule never blocks.
+    const scaledOnly = designed != null && widest.columns <= designed;
+    const atSize = scaledOnly ? `${sizeWords(all, fontScaleKey(all)).replace(/^At\b/, 'at')} this` : 'this';
+    return [{
+      slide: slideNo,
+      rule: 'code-line-clipped',
+      severity: 'info',
+      classToken: t,
+      line: line ?? widest.text.trim().slice(0, 60),
+      message: `A code line is ${widest.columns} characters; ${atSize} pane fits about ${budget}, so the last ${over} ${over === 1 ? 'is' : 'are'} cut off.`,
+      fix: t === 'compare-code'
+        // The escape hatch is real and worth naming: one full-width `code`
+        // block fits nearly twice what a half-pane does (102 vs 47), so a
+        // pair where only ONE side is wide is often better authored as two
+        // slides than trimmed.
+        ? `Shorten the line to ${budget} characters or wrap it, or use a full-width \`code\` slide, which fits about ${codePaneColumns('pane', all, codeCanvas, family)}.`
+        // The budget checked is the deck's OWN @size. A `code` block does not
+        // wrap unless its record says `wrap`, so the same source presented at a
+        // narrower @size clips far sooner — say so, rather than letting "fits
+        // about 102" read as a guarantee it is not. A `wrap` block is never
+        // measured (widestCodeLine), so naming it here is a real way out.
+        : `Shorten the line to ${budget} characters, break it across lines, or put \`@code{wrap}\` above the fence.`
+          + (family === 'wide' && !scaledOnly ? ` A portrait or square deck fits only about ${CODE_LINE_BUDGET.code.tall}–${CODE_LINE_BUDGET.code.square}.` : ''),
+    }];
+  };
+  slides.forEach((slide, idx) => {
+    // `m` keeps the two fields every finding below reads — the raw directive TEXT
+    // (`m[0]`, quoted back to the author) and the payload (`m[1]`). On a slide
+    // governed by a running global, the text is the GLOBAL's line, which is where
+    // the author has to go to change it.
+    const dir = classDirectives[idx];
+    if (!dir?.payload) {
+      focusAndTrackFindings(slide, idx, []);
+      // A plain slide renders in the `content` layout, so its fences take that pane's budget.
+      // A deck-wide `class:` (`class: compact`) still applies; it may resize the stage.
+      if (idx >= fm) findings.push(...codeClipFindings(slide, ['content', ...deckClassTokensForCode], idx - fm + 1, null));
+      return;
+    }
+    const m = [dir.text, dir.payload];
+    const tokens = dir.payload.split(/\s+/).filter(Boolean);
+
+    // A pane host's words (`columns ratio-60-40 no-spine`) are its layout: the engine takes them
+    // off the `_class` before it resolves one (lib/core/panes.js). A leftover slash ratio
+    // (`60/40`, `60 / 40`) is `findPaneIssues`' to name, once, with the rewrite.
+    // `spot`: the winning comment is the `_class` form, as the shared reader resolved it.
+    const paneLayout = dir.spot ? classLayout(dir.payload) : null;
+    const classTokens = paneLayout ? dir.payload.replace(/\b\d+\s*\/\s*\d+\b/g, ' ').split(/\s+/).filter(Boolean) : tokens;
+    findings.push(...treatmentFindings(classTokens, idx - fm + 1, m[0]));
+    findings.push(...thinCardFindings(classTokens, deckImageCardClasses, idx - fm + 1, m[0]));
+
+    // Rule 1 — unknown class/modifier tokens.
+    for (const t of classTokens) {
+      if (paneLayout && (Object.hasOwn(PANE_LAYOUTS, t) || t === 'no-spine' || RATIO_WORD_RE.test(t))) continue;
+      if (vocab.names.has(t)) continue;
+      // A renamed token can still match a modifier PREFIX (`no-paginate` reads as a `no-*`), so the rename asks first.
+      if (isKnownModifier(t, vocab) && !RENAMED_CLASSES.has(t)) continue;
+      if (DEPRECATED_CLASSES.has(t)) continue;
+      if (RETIRED_WITH_OWN_RULE.has(t)) continue; // `retired-form-token` owns these
+      // The candidate pool is the SAME vocabulary the check above rejected against —
+      // components and modifiers together — so the suggestion can never name a token
+      // this rule would immediately flag again.
+      const renamed = RENAMED_CLASSES.get(t);
+      if (renamed) {
+        // A rename has a known answer, so it does not go through the fuzzy
+        // suggester — naming the replacement outright beats a guess.
+        // An old spelling that still renders (`chart-finish-vivid`) is info under its own rule; a hard rename is a
+        // warning, because the slide is broken until the author edits it.
+        if (renamed.honored) {
+          findings.push({
+            slide: idx - fm + 1,
+            rule: 'marks-renamed',
+            severity: 'info',
+            classToken: t,
+            line: m[0],
+            message: renamed.message,
+            fix: `Replace '${t}' with '${renamed.to}'.`,
+          });
+          continue;
+        }
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'unknown-class',
+          severity: 'warning',
+          classToken: t,
+          line: m[0],
+          message: renamed.message || `'${t}' was renamed to '${renamed.to}'; the old name renders as a plain slide.`,
+          fix: `Replace '${t}' with '${renamed.to}'. ${renamed.loses}`,
+          ...(renamed.autofix ? { autofixable: true, replace: { from: t, to: renamed.to } } : {}),
+        });
+        continue;
+      }
+      const unknown = withTokenSuggestion({
+        slide: idx - fm + 1,
+        rule: 'unknown-class',
+        severity: 'warning',
+        classToken: t,
+        line: m[0],
+        message: `'${t}' is not a known component or modifier.`,
+        fix: 'Check the spelling.',
+      }, [...vocab.names, ...(vocab.modifiers || [])]);
+      if (unknown.didYouMean) unknown.fix = `Did you mean \`${unknown.didYouMean}\`?`;
+      findings.push(unknown);
+    }
+
+    // Rule — conflicting variants. At most ONE member of a mutually-exclusive axis
+    // may sit on a slide; two fight at render (two type scales, two tones, `with-period`
+    // AND `no-period`). Driven by the generated `exclusiveAxes` vocabulary so the rule
+    // can't drift from the tokens. The finish axis is dynamic (preset + saved names), so
+    // it's checked by prefix rather than a static member list. Warning severity — the
+    // engine still renders (last wins), it's just ambiguous. See
+    // engineering/decisions/2026-07-03-slide-context-editor.md §8.
+    const exclusiveAxes = { ...(vocab.exclusiveAxes || {}), ...accentAxes(vocab) };
+    for (const [axis, members] of Object.entries(exclusiveAxes)) {
+      const hits = tokens.filter((t) => members.includes(t));
+      if (hits.length > 1) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'conflicting-variants',
+          severity: 'warning',
+          classToken: hits[1],
+          line: m[0],
+          message: `'${hits.join("' and '")}' conflict — a slide takes one ${axis} at a time`,
+          fix: `Keep a single ${axis} token; remove the other${hits.length > 2 ? 's' : ''}.`,
+        });
+      }
+    }
+    // Finish axis — at most one finish selector (a `finish-<preset>` OR the
+    // `no-finish` opt-out); several presets, or a preset alongside `no-finish`,
+    // composite/contradict and only one wins.
+    const finishHits = tokens.filter((t) => (/^finish-.+/.test(t) && t !== 'finish-preview') || t === 'no-finish');
+    if (finishHits.length > 1) {
+      findings.push({
+        slide: idx - fm + 1,
+        rule: 'conflicting-variants',
+        severity: 'warning',
+        classToken: finishHits[1],
+        line: m[0],
+        message: `${finishHits.length} finish selectors on one slide — only one renders`,
+        fix: 'Keep a single finish-<name> (or no-finish); remove the others.',
+      });
+    }
+
+    // Rule — `claim-bleed` safety cap. A prose-dense/table component excludes
+    // `claim-bleed` (its manifest `excludes`) because content run to the true
+    // edge gets cropped by a projector/printer. Warn if used anyway; step down
+    // to `claim-hero` (keeps a hairline safe zone). 2026-07-03 claim decision §8.
+    if (vocab.claimExcludes) {
+      const comp = tokens.find((t) => vocab.names.has(t));
+      const excluded = comp && vocab.claimExcludes[comp];
+      if (excluded) {
+        // The claim in force on this slide: a per-slide claim-* wins; otherwise
+        // the deck-wide `claim:` applies (mirrors the propagator's override).
+        const ownClaim = tokens.find((t) => t.startsWith('claim-'));
+        const effective = ownClaim || deckClaimToken;
+        if (effective && excluded.includes(effective)) {
+          const via = ownClaim ? `'${effective}'` : `deck-wide \`claim: ${deckClaimName}\``;
+          findings.push({
+            slide: idx - fm + 1,
+            rule: 'claim-bleed-unsafe',
+            severity: 'warning',
+            classToken: effective,
+            line: m[0],
+            message: `${via} runs '${comp}' to the true edge, where its content is cropped`,
+            fix: `Use 'claim-hero' instead (keeps a hairline safe zone), or drop this slide to 'claim-framed'; only media/canvas layouts should bleed.`,
+          });
+        }
+      }
+    }
+
+    // Rule — `qr` variant payload guard. A qr-variant slide (closing/divider/
+    // split-panel + `qr`) must resolve exactly ONE scannable payload: a bare-URL
+    // bullet (auto), or a `- <value> `qr`` bullet. Missing / empty / duplicate
+    // payloads render a blank or wrong code SILENTLY, so they lint loud (error).
+    // See engineering/decisions/2026-07-01-qr-authoring-grammar.md § guards.
+    if (tokens.includes('qr')) {
+      // Payload-URL scheme — MUST match lib/components/connect/_qr-card/qr-payload.js
+      // (PAYLOAD_URL_RE) so the transform and the linter agree on what auto-resolves.
+      // Kept inline because lint-core requires nothing from lib/components (browser).
+      const URL = /^(https?:\/\/|mailto:|tel:|WIFI:|BEGIN:VCARD)/i;
+      let payloads = 0, empties = 0;
+      const bulletRe = /^-\s+(.+?)\s*$/gm; // top-level bullets only (no leading indent)
+      let b;
+      // A `video` slide's code encodes the clip's address, which comes only from its `@video{…}` record (the bullet form is
+      // gone); the record is its one payload.
+      const videoPayloads = tokens.includes('video') ? (slide.match(/`(?:@video|>)\{/g) || []).length : -1;
+      if (videoPayloads >= 0) payloads = videoPayloads;
+      while (videoPayloads < 0 && (b = bulletRe.exec(slide))) {
+        const item = b[1];
+        const codeM = item.match(/`([^`]+)`\s*$/); // trailing inline-code key
+        const key = codeM ? codeM[1].trim().toLowerCase() : '';
+        const value = codeM ? item.slice(0, item.length - codeM[0].length).trim() : item.trim();
+        if (key === 'qr') { payloads++; if (!value) empties++; }
+        else if (!key && URL.test(value)) payloads++;
+      }
+      const sn = idx - fm + 1;
+      if (empties) {
+        findings.push({ slide: sn, rule: 'qr-empty-payload', severity: 'error', classToken: 'qr', line: m[0],
+          message: 'the `qr` payload bullet has no value', fix: 'Give it a value: ``- https://… `qr` `` or ``- text `qr` ``.' });
+      } else if (payloads === 0) {
+        findings.push({ slide: sn, rule: 'qr-missing-payload', severity: 'error', classToken: 'qr', line: m[0],
+          message: 'a `qr` slide has no scannable payload', fix: 'Add a payload bullet: `- https://…` (auto-detected), or ``- text `qr` `` to force text.' });
+      } else if (payloads > 1) {
+        findings.push({ slide: sn, rule: 'qr-duplicate-payload', severity: 'error', classToken: 'qr', line: m[0],
+          message: `a \`qr\` slide has ${payloads} payloads; it renders only one`, fix: 'Keep one payload bullet; remove the extras.' });
+      }
+    }
+
+    // Rule — `collage` photo list. Four to six photos, each with alt text, no `![bg]` syntax, and
+    // a trailing code span that is a clean hint (`hero`, one focal word, a ratio like `3:2`).
+    // The hint grammar is kept inline because lint-core requires nothing from lib/components
+    // (browser); it MUST match `parseHints` in lib/components/imagery/collage/collage.transform.js,
+    // and test/unit/components/collage.test.js pins the two against each other.
+    if (tokens.includes('collage')) {
+      const sn = idx - fm + 1;
+      const FOCAL = ['top', 'bottom', 'left', 'right', 'center'];
+      const hintBad = (text) => {
+        const words = text.split(',').map((w) => w.trim().toLowerCase());
+        if (!words.length || words.some((w) => !w)) return [text];
+        const bad = [];
+        let hero = 0, focal = 0, ratio = 0;
+        for (const w of words) {
+          const r = /^(\d{1,4}):(\d{1,4})$/.exec(w);
+          if (w === 'hero') { if (hero++) bad.push(w); }
+          else if (FOCAL.includes(w)) { if (focal++) bad.push(w); }
+          else if (r && Number(r[1]) >= 1 && Number(r[2]) >= 1 && Number(r[1]) <= 1000 && Number(r[2]) <= 1000) { if (ratio++) bad.push(w); }
+          else bad.push(w);
+        }
+        return bad;
+      };
+      // `-`, `*` and `+` bullets all make a list; a loose list (blank lines between bullets) is the same list.
+      const photoRe = /^[-*+]\s+!\[([^\]]*)\]\([^)]*\)(.*)$/gm;
+      let photos = 0, noAlt = 0, bgSyntax = 0, heroes = 0;
+      const badHints = [];
+      const tails = [];
+      let pm;
+      while ((pm = photoRe.exec(slide))) {
+        photos++;
+        const alt = pm[1].trim();
+        if (!alt) noAlt++;
+        else if (alt.toLowerCase() === 'bg') bgSyntax++;
+        const tail = pm[2].trim();
+        const code = /^`([^`]+)`$/.exec(tail);
+        if (code) {
+          for (const w of hintBad(code[1])) badHints.push(w);
+          if (code[1].split(',').some((w) => w.trim().toLowerCase() === 'hero')) heroes++;
+        } else if (tail) {
+          tails.push(tail);
+        }
+      }
+      if (bgSyntax) {
+        findings.push({ slide: sn, rule: 'collage-bg', severity: 'warning', classToken: 'collage', line: m[0],
+          message: 'a `collage` lists inline photos, but this slide uses `![bg](…)` background syntax',
+          fix: 'Write one photo per bullet, as `- ![Alt text](photo.jpg)`. Marp\'s `![bg]` keyword is retired: it draws an ordinary picture.' });
+      }
+      if (noAlt) {
+        findings.push({ slide: sn, rule: 'collage-alt', severity: 'warning', classToken: 'collage', line: m[0],
+          message: `${noAlt} photo${noAlt === 1 ? ' has' : 's have'} no alt text`,
+          fix: 'Describe each photo in its alt text: `![Tan derby, apron toe](photo.jpg)`. It is the screen-reader label and the label in the enlarged view.' });
+      }
+      if (photos && (photos < 4 || photos > 6)) {
+        findings.push({ slide: sn, rule: 'collage-count', severity: 'warning', classToken: 'collage', line: m[0],
+          message: `a \`collage\` holds four to six photos; this one has ${photos}`,
+          fix: photos > 6 ? 'Past six the tiles are too small to read and the layout falls back to an even grid. Split the photos across two collage slides.'
+            : 'Under four, use `image` for one photo or add photos until there are four.' });
+      }
+      if (tails.length) {
+        findings.push({ slide: sn, rule: 'collage-tail', severity: 'warning', classToken: 'collage', line: m[0],
+          message: `${tails.length} photo${tails.length === 1 ? ' has' : 's have'} text after the image that is not a clean hint span; a collage draws no per-photo text, and any hint on that line is ignored`,
+          fix: 'Keep only a hint span after the photo (`- ![Alt](photo.jpg) `hero``). Say what the photos show once, in the description paragraph.' });
+      }
+      if (heroes > 1) {
+        findings.push({ slide: sn, rule: 'collage-hero-dup', severity: 'warning', classToken: 'collage', line: m[0],
+          message: `${heroes} photos are marked \`hero\`; only the first counts`,
+          fix: 'Keep `hero` on the one photo that should hold the largest tile.' });
+      }
+      if (badHints.length) {
+        findings.push({ slide: sn, rule: 'collage-hint', severity: 'warning', classToken: 'collage', line: m[0],
+          message: `unknown photo hint ${badHints.map((w) => `\`${w}\``).join(', ')}; the whole hint span is ignored and nothing is drawn for it`,
+          fix: 'Hints are `hero`, one of `top` `bottom` `left` `right` `center`, and a ratio like `3:2`, separated by commas.' });
+      }
+    }
+
+    // Rule — venue prose budget. A component that is ONE block of prose (a big-number's caption, a
+    // redline's clause, an image's paragraph) has no element count to budget, so its manifest states
+    // the words its primary slot holds at each venue (`venueCapacity.prose`). Past that number the
+    // slide clips at the venue's size, which the engine never shrinks to fit, so this is the early
+    // warning while writing. A canvas with no measured row (`venueCapacity.prose.families`) is not judged.
+    if (VENUE_CAPACITY.prose && !hasMarker(slide, 'stress-slide')) {
+      const sk = fontScaleKey(scaleTokensFor(tokens));
+      for (const t of sk ? tokens : []) {
+        const b = VENUE_CAPACITY.prose[t];
+        // [row, registers] for this canvas: the wide row, or the one measured for the deck's family.
+        const F = b && (family === 'wide' ? [b[1], b[2]] : b[3]?.[family]);
+        if (!F) continue;
+        const n = proseWords(t, slide);
+        // A register measured on its own (`image split`, `redline stacked`) is judged by its row; two
+        // registers on one slide take the tighter. A 0 is a register with no room at this venue.
+        const reg = Object.entries(F[1] || {}).filter(([tok]) => tokens.includes(tok)).map(([, r]) => r);
+        const rowAt = (r) => Math.min(F[0][FONT_SCALE_ORDER.indexOf(r)], ...reg.map((x) => x[FONT_SCALE_ORDER.indexOf(r)]));
+        const cap = rowAt(sk);
+        if (n == null || n <= cap) continue;
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'venue-prose',
+          severity: venueSeverity(scaleTokensFor(tokens)),
+          classToken: t,
+          line: m[0],
+          message: `${sizeWords(scaleTokensFor(tokens), sk)} '${t}'${family === 'wide' ? '' : ` on a ${family} canvas`} holds ${cap ? `about ${cap} words` : 'none'} of its ${b[0]}; this slide has ${n}, so the end is cut off.`,
+          fix: `${cap ? `Cut the ${b[0]} to ${cap} words` : 'Drop the register'}, split the slide, or ${smallerSize(scaleTokensFor(tokens), sk, (r) => n <= rowAt(r))}.`,
+        });
+      }
+    }
+
+    // Rule — content capacity. Each layout declares the comfortable element
+    // count for the axis it is built on (manifest `capacity`, injected via
+    // vocab); pouring more in crowds or overflows the slide. Approximate,
+    // markdown-stage count → advisory warning with an escalateTo fix. Gated on
+    // injected capacity data so a deck pays nothing when it's absent. See
+    // engineering/decisions/2026-06-17-content-capacity-contract.md.
+    if (vocab.capacity) {
+      // A generated gallery stress slide deliberately sits in the crowd band
+      // ((soft, hard] — the Specimen Book contract band, 2026-07-05 decision):
+      // it EXISTS to show the upper limit. The `<!-- stress-slide -->` marker
+      // (emitted only by tools/build-component-docs.js galleryPlan, gated on
+      // specimenVoice) suppresses capacity-crowd — and past `hard` it suppresses BOTH
+      // the overflow warning and the split advisory, because the marker also makes the
+      // splitter leave the slide whole (see the marker's other half in
+      // lib/core/auto-split.js): a specimen overflows on purpose and is never divided.
+      const isStressSlide = hasMarker(slide, 'stress-slide');
+      for (const t of tokens) {
+        // A component with a measured venue row but no `capacity` block (compare-prose,
+        // matrix-2x2, …) reaches the PROJECTION SCALE rule below and nothing else: it has no
+        // count budget for the crowd / overflow / split rules to read (#2361 P2 — the talk's
+        // compare-prose slides clipped at hall with no finding at all).
+        const declared = vocab.capacity[t] || (SCALE_CAPACITY[t] ? { axis: VENUE_CAPACITY.axis?.[t] || 'item', venueOnly: true } : null);
+        if (!declared) continue;
+        // Per-family counts win over the flat block: the same component holds a
+        // very different number in each box (cards-grid measures a ceiling of 6
+        // at wide and 3 at tall), so linting a portrait deck against a landscape
+        // budget either warns on a slide that fits or stays silent on one that
+        // clips. The flat block still supplies axis / min / escalateTo / note,
+        // which do not vary by box. See
+        // engineering/decisions/2026-07-27-family-stamp-replaces-container-queries.md.
+        // Per-family may only TIGHTEN, never loosen. The flat block is the budget
+        // that has actually shipped; the per-family numbers were hand-declared and
+        // never oracle-validated (2026-06-17 contract §5 step 8), so letting one
+        // RAISE a cap means enforcing an unverified number in the permissive
+        // direction — the linter would stop warning about slides that really clip.
+        // cards-grid is the worked case: flat hard 4, declared tall hard 6,
+        // MEASURED tall ceiling 3 (tools/calibrate-capacity.js). Taking the min
+        // keeps the finer model wherever it is stricter (which is the whole point
+        // for tall/strip) and can never regress a warning that fires today.
+        const perFamily = declared.families?.[family];
+        // `compact` tightens spacing, so a component can hold more with it (q-and-a: 4 pairs bare,
+        // 5 with it). A slide that carries it is judged by `withCompact`; a bare slide that only
+        // `compact` would hold is told so in the fix (#2361 P3).
+        const withCompact = declared.withCompact && tokens.includes('compact') ? declared.withCompact : null;
+        const base = { ...declared, ...(withCompact || {}) };
+        const cap = perFamily ? { ...base, ...perFamily } : base;
+        if (perFamily) {
+          for (const k of ['sweet', 'soft', 'hard']) {
+            if (base[k] != null && cap[k] != null) cap[k] = Math.min(cap[k], base[k]);
+          }
+        }
+        const n = countPrimaryCollection(slide, cap.axis);
+        if (!n) break; // nothing countable — don't guess
+        const comfort = cap.sweet != null ? cap.sweet : cap.soft;
+        // PROJECTION SCALE. Past the measured ceiling at the slide's scale — but not past
+        // `hard`, which `capacity-overflow` below already owns — the slide
+        // is over what the component holds at the size the author chose. The engine renders it
+        // at that size anyway (a venue is a fixed setting, never shrunk to fit), so it clips.
+        //
+        // A BUDGET rather than a forecast: the number is measured on the capacity basis (bare
+        // component, one-line heading, elements at a fixed length — 2026-07-28-capacity-basis.md),
+        // so it knows the slide is past what the component holds at that scale and does not know
+        // whether these glyphs fit. The export's OVERFLOW line and the Studio's ring are the
+        // measurement; this is the early warning while writing.
+        const scaleKey = family === 'wide' ? fontScaleKey(scaleTokensFor(tokens)) : null;
+        const words = scaleKey ? elementLength(slide, cap.axis, t) : 0;
+        // A register with measured LINE geometry is judged by its lines instead of its count row.
+        // The deck-wide `class:` counts: a `class: sketch` deck swaps the face on every slide.
+        const lined = scaleKey && rowsDeck ? rowsAt(t, scaleTokensFor(tokens), slide, slack) : null;
+        // A split-panel POINTS COLUMN with line geometry is judged by its lines too (Amendment (10)).
+        const pts = scaleKey && rowsDeck && !lined ? pointsAt(t, scaleTokensFor(tokens), slide, slack) : null;
+        const scaled = scaleKey && !lined && !pts ? scaleCapacityFor(t, scaleKey, words, tokens, endsWithCallout(slide), hasEyebrow(slide), slack === 0) : null;
+        if (scaled && n > scaled.ceiling && !(cap.hard != null && n > cap.hard) && !isStressSlide) {
+          const noun = axisNoun(cap.axis, scaled.ceiling);
+          // Past the DESIGNED-size row too, a smaller room does not save the slide, and the message
+          // says it clips at any size. Only where that row was checked against a laptop render
+          // (LAPTOP_JUDGED): elsewhere the row is the rig's shape, and a slide inside `hard` can fit
+          // at 1x where the rig's shape does not. `gallery.md`'s four-tile `kpi` slide renders whole
+          // at laptop, and its 3-tile row had it "clipped at any size" (#2361 P2's done-when).
+          const claimsDesigned = n > scaled.designed && LAPTOP_JUDGED.has(t) && !cap.venueOnly && !(withCompact && n <= cap.hard);
+          findings.push({
+            slide: idx - fm + 1,
+            rule: 'capacity-scale',
+            severity: venueSeverity(scaleTokensFor(tokens)),
+            classToken: t,
+            line: m[0],
+            // Past the DESIGNED-size budget too, a smaller room size does not save it either, so
+            // that case says to split rather than offering the smaller size.
+            // A component with no `capacity` block (venueOnly) has no designed-size count to stand
+            // behind that claim, and its rows are the rig's shape, not the author's: say what the
+            // venue does, never that it clips at 1x (#2361 P2 — the talk's compare-prose slides).
+            // Nor on a `compact` slide its compact budget holds at 1x: the venue rows are measured
+            // bare, and q-and-a's five compact pairs fit at 1x (rendered).
+            // A count is a budget, not a measured fit, so the venue case says "may"; past the
+            // laptop-size budget too, the slide is cut off at any size.
+            message: claimsDesigned
+              ? `'${scaled.label}' fits about ${scaled.designed} ${axisNoun(cap.axis, scaled.designed)} ${wordsOf(scaled)} even at laptop size; this slide has ${n}, so some are cut off.`
+              : `${sizeWords(scaleTokensFor(tokens), scaleKey)} '${scaled.label}' fits ${scaled.ceiling ? `about ${scaled.ceiling} ${noun}` : `not even one ${axisNoun(cap.axis, 1)}`} ${wordsOf(scaled)}; this slide has ${n}, so some may be cut off.`,
+            fix: claimsDesigned
+              ? `Split the slide, or cut to ${scaled.ceiling} ${noun}.${hallHint(scaleTokensFor(tokens))}`
+              : `${scaled.ceiling ? `Cut to ${scaled.ceiling} ${noun}` : 'Shorten each one'}, split the slide, or ${smallerSize(scaleTokensFor(tokens), scaleKey, (r) => n <= scaled.at(FONT_SCALE_ORDER.indexOf(r)))}.${hallHint(scaleTokensFor(tokens))}`,
+          });
+          // No `break`: the designed-size crowd rule below still applies to the same slide.
+        }
+        if (scaleKey && !isStressSlide) {
+          // A CLAIM PANEL (split-panel) clips in its fixed-width panel, whatever its list does:
+          // its text wrapped into the measured line geometry (2026-09-25-font-scale-fit.md,
+          // Amendments (5) and (6)). Reported beside a count finding, not instead of it. A LIST OR
+          // CARD register with line geometry (`lined`) is judged the same way, instead of by its
+          // count row (Amendment (7)); past `hard` it is the overflow rule's slide.
+          const at = (r) => (lined ? lined(r) : panelOver(t, tokens, slide, r, slack, deckLiteral || tokens.includes(INLINE_CODE_LITERAL_CLASS)));
+          const p = at(FONT_SCALE_ORDER.indexOf(scaleKey));
+          if (p?.over && !(lined && cap.hard != null && n > cap.hard)) {
+            findings.push({
+              slide: idx - fm + 1,
+              rule: 'capacity-scale',
+              severity: venueSeverity(scaleTokensFor(tokens)),
+              classToken: t,
+              line: m[0],
+              message: `${sizeWords(scaleTokensFor(tokens), scaleKey)} this ${p.n ? `'${p.label}' claim panel's text runs about ${p.pct}% too long for its column` : `'${p.label}' slide's text runs about ${p.pct}% too long`}, so the end may be cut off.`,
+              fix: `Shorten the heading or the ${p.n ? 'lede' : 'items'}${at(0).over ? '' : `, or ${smallerSize(scaleTokensFor(tokens), scaleKey, (r) => !at(FONT_SCALE_ORDER.indexOf(r)).over)}`}.${hallHint(scaleTokensFor(tokens))}`,
+            });
+          }
+          // A split-panel POINTS COLUMN is the slide's other clipping box: judged by its own lines and
+          // reported beside the claim panel's finding, not instead of it (Amendment (10)).
+          const q = pts?.(FONT_SCALE_ORDER.indexOf(scaleKey));
+          if (q?.over) {
+            findings.push({
+              slide: idx - fm + 1,
+              rule: 'capacity-scale',
+              severity: venueSeverity(scaleTokensFor(tokens)),
+              classToken: t,
+              line: m[0],
+              message: `${sizeWords(scaleTokensFor(tokens), scaleKey)} this '${q.label}' points column's text runs about ${q.pct}% too long, so the end may be cut off.`,
+              fix: `Shorten or cut the points${pts(0).over ? '' : `, or ${smallerSize(scaleTokensFor(tokens), scaleKey, (r) => !pts(FONT_SCALE_ORDER.indexOf(r)).over)}`}.${hallHint(scaleTokensFor(tokens))}`,
+            });
+          }
+        }
+        // THE DESIGNED SIZE. At laptop (no `venue:`, no `scale-*`) the rules below judge a count
+        // only against `capacity.hard`, and a component with no `capacity` block not at all: a
+        // 7-row list-tabular clipped at 16pt and linted clean, and a premise with 14-word rows
+        // clips at 7 though its `hard` is 8. The measured venue row's laptop rung is the budget,
+        // so judge it there — but only where the rig's row IS the author's row (LAPTOP_JUDGED),
+        // each checked against a render, and only on the 16:9 stage it was measured on. Past
+        // `hard`, `capacity-overflow` below already speaks. compare-prose is left out: its rows
+        // are the rig's shape, and a two-side slide its row counts as over renders whole.
+        if (LAPTOP_JUDGED.has(t) && !scaleKey && family === 'wide' && sixteenNine && !isStressSlide
+          && !(cap.hard != null && n > cap.hard)) {
+          const w = elementLength(slide, cap.axis, t);
+          const d = scaleCapacityFor(t, '1', w, tokens, endsWithCallout(slide), hasEyebrow(slide));
+          if (d && d.designed != null && n > d.designed) {
+            const noun = axisNoun(cap.axis, d.designed);
+            findings.push({
+              slide: idx - fm + 1,
+              rule: 'capacity-scale',
+              severity: 'warning',
+              classToken: t,
+              line: m[0],
+              message: `'${d.label}' fits about ${d.designed} ${noun} ${wordsOf(d)} at laptop size; this slide has ${n}, so some are cut off.`,
+              fix: `Split the slide, or keep ${Math.max(1, d.designed)} ${noun} or fewer.`,
+            });
+          }
+        }
+        if (cap.venueOnly) continue;
+        if (cap.hard != null && n > cap.hard) {
+          // A SPECIMEN says nothing at all. `<!-- stress-slide -->` makes the splitter leave
+          // the slide whole (lib/core/auto-split.js) and its author has already declared they
+          // know it is at the limit — both an overflow warning and a split promise would be
+          // noise, and the split promise would be false.
+          if (isStressSlide) continue;
+          // WHICH TERMINAL is past the budget depends on the BOX, because the SPLIT move is
+          // gated on it (lattice.js `AUTOSPLIT_APPLIES`): it runs at square · tall ·
+          // strip and not at `wide`, since 16:9 is the box a deck is authored in and the
+          // engine does not re-cut a slide its author composed. So:
+          //
+          //   wide            → no split move. Past the box is CLIPPED, and the ring says so.
+          //                     `capacity-overflow`, a real warning, because the author has to act.
+          //   square/tall/strip → the slide is divided into a run. The engine is working as
+          //                     designed, so nothing is reported.
+          //
+          // NEITHER claims more than it knows, and the `wide` one had to be walked back once
+          // already: it shipped saying "expect it to overflow" at `warning`, which is a FIT
+          // prediction from a COUNT in the very change that removed the count as a fit trigger.
+          // Ten one-word `checklist` items at `hd` are past `hard: 9` and render clean, so that
+          // sentence reddened `--strict` on a deck with nothing wrong with it. `capacity` is an
+          // editorial budget measured against a synthetic probe deck (2026-07-28-capacity-basis.md);
+          // it knows the slide is past what the component comfortably holds, and it does not know
+          // whether the glyphs fit. Say only the first.
+          //
+          // The severity stays `warning` rather than `info` for a reason that is about RECOURSE,
+          // not confidence: at every other @size an over-full slide is divided automatically, so
+          // the advisory is genuinely advisory. Here nothing will happen — so if it does not fit,
+          // the author is the only one who can act.
+          // `fit: report` switches the split off too, so past `hard` the slide is on its own
+          // exactly as it is at `wide`: the overflow warning, not the split advisory.
+          if (family === 'wide' || slideFitLevel(tokens) === 'report') {
+            findings.push({
+              slide: idx - fm + 1,
+              rule: 'capacity-overflow',
+              severity: 'warning',
+              classToken: t,
+              line: m[0],
+              // A COUNT is a budget, not a measured fit (ten one-word checklist items past `hard`
+              // render whole), so the consequence is "may": nothing splits the slide here, and
+              // whatever does not fit is clipped.
+              message: `'${t}' fits about ${cap.hard} ${axisNoun(cap.axis, cap.hard)}; this slide has ${n}. ${slideFitLevel(tokens) === 'report' && family !== 'wide' ? '`fit: report` turns splitting off' : 'Landscape slides don\'t split'}, so the extra ones may be cut off.`,
+              fix: family === 'wide'
+                ? `${capacityFix(cap)}${declared.withCompact?.hard >= n && !tokens.includes('compact') && !scaleKey ? ` Or add \`compact\`, which fits ${declared.withCompact.hard}.` : ''}`
+                : `${capacityFix(cap)} Or remove \`fit: report\` so the engine splits it.`,
+            });
+            continue;
+          }
+          // At square · tall · strip the engine divides the slide into a run, one element per
+          // page. That is the engine working as designed, so nothing is reported (the
+          // `capacity-autosplit` note that described it was deleted 2026-10-06).
+          continue;
+        } else if (cap.soft != null && n > cap.soft && !isStressSlide) {
+          findings.push({
+            slide: idx - fm + 1,
+            rule: 'capacity-crowd',
+            // A crowded slide still renders whole: advice, not a defect (2026-10-06).
+            severity: 'suggestion',
+            classToken: t,
+            line: m[0],
+            message: `'${t}' reads best with ${comfort} ${axisNoun(cap.axis, comfort)} or fewer; this slide has ${n}.`,
+            fix: capacityFix(cap),
+          });
+        }
+        break; // one capacity check per slide (the layout token)
+      }
+    }
+
+    // Rule — a fenced code line WIDER than the pane it renders into.
+    //
+    // This is the width half of capacity, and it is the half nothing else can
+    // see. The capacity rules count ELEMENTS and the overflow probe measures
+    // HEIGHT; a line past the pane's right edge costs neither. It is cut
+    // mid-token by the pane's `overflow: hidden`, with no scrollbar to recover
+    // it and no ellipsis to admit it, so the artifact ships a slide that says
+    // something other than the source does — quietly. The clip is the DELIBERATE
+    // behavior at landscape (compare-code.styles.css: a clipped line is a loud,
+    // local failure, where wrapping was a quiet one that broke pane-to-pane
+    // pairing, dropped trailing lines from the export, and baked hard breaks
+    // into the PDF text layer). This rule is that decision's other half — the
+    // thing that tells the author, at write time, which line to shorten.
+    //
+    // Budgets: lib/authoring/code-pane-columns.js, MEASURED by tools/measure-code-columns.js for
+    // every canvas, every stage class (`claim-*`, `compact`), every venue and spot scale, and the
+    // alignment classes that shrink-wrap the panel. A panel that WRAPS there (compare-code off the
+    // wide canvases) has no number and cannot clip; nothing is said about it.
+    //
+    // Severity `info` — advisory, and deliberately NOT `warning`, because in
+    // this repo `warning` is not advisory: `tools/lint-deck.js` fails on any
+    // warning under `--strict`, and CI runs `lint:deck:all --strict` over all
+    // 255 decks. A `warning` here would therefore be a merge gate on every
+    // future PR in the repo, enforced from a table of five numbers MEASURED IN A
+    // BROWSER — while the guard that keeps those numbers honest skips in CI,
+    // which has no Chromium by contract. A blocking rule whose calibration never
+    // runs where it blocks is a lever pointed at everyone else's work.
+    //
+    // The comparison to `capacity-overflow` (which IS a warning) does not carry,
+    // for two reasons beyond severity. That rule has an escape hatch that costs
+    // nothing — `<!-- stress-slide -->` — whereas here the same marker also tells
+    // the splitter to leave the slide whole, so silencing a width advisory would
+    // change how the deck PAGINATES. And this rule reads the deck's front-matter
+    // `@size` only: a deck authored at `wide` is judged against the LOOSEST
+    // budget in the table, so a line it passes at 102 columns is cut to a third
+    // when the same source is presented at `tall`. Advisory is the honest
+    // register for a measurement that narrow.
+    //
+    // A class that moves the pane is JUDGED, not skipped. This rule used to stay silent on
+    // `claim-hero`, `claim-bleed` and `compact` (a pane it had no number for: judging a 109-column
+    // claim-hero pane against 102 named columns that render) and to read every other class as the
+    // bare pane, which called `claim-quiet`'s 103–105-column lines cut off and missed every clip a
+    // venue causes (a 90-column line at `venue: conference`, where 68 fit). The table now has a
+    // measured number for each, so neither a silence nor a false alarm is left to choose between.
+    // A `code` slide at wide under a scale is the one place it judges the designed size only:
+    // `capacity-scale` below judges those columns with the lines, and names a room size that holds both.
+    // A class of modifiers only (`_class: dark`) names no layout, so the slide is a `content` slide.
+    const layoutless = tokens.every((tok) => !vocab.names.has(tok) && isKnownModifier(tok, vocab));
+    findings.push(...codeClipFindings(slide, layoutless ? ['content', ...tokens] : tokens, idx - fm + 1, m[0]));
+
+    // Rule — a `code` block past what its pane holds at the deck's PROJECTION SCALE.
+    // Code keeps scaling (CODE_LINES_AT_SCALE says why), so at scale-xl the pane holds
+    // fewer lines and fewer columns than at the designed size. Past either, the block is cut:
+    // the deck renders at the size the author chose and never shrinks a slide to fit (owner
+    // ruling 2026-09-27). The pane is measured under a one-, two- and
+    // three-line heading (`headed`), read by the lines lint wraps the slide's heading to. Only the part of the range the
+    // designed-size rules do not already own: a line past the designed-size budget is
+    // `code-line-clipped` above, and it clips at every scale.
+    // compare-code is judged the same way by its own rows: the taller of its two blocks against the
+    // pane (the talk's compare-code slides clipped at every venue with no finding, #2361 P2).
+    const codePane = tokens.includes('code') ? 'code' : tokens.includes('compare-code') ? 'compare-code' : null;
+    const paneRows = codePane === 'code' ? CODE_LINES_AT_SCALE : VENUE_CAPACITY.compareCode;
+    const codeScale = family === 'wide' && codePane && !tokens.some((tok) => STAGE_RESIZING_MODIFIERS.has(tok))
+      && !hasMarker(slide, 'stress-slide')
+      ? fontScaleKey(scaleTokensFor(tokens)) : null;
+    if (codeScale && paneRows) {
+      // The pane's rows the tallest block takes at a room size: its lines, the rows its `wrap` lines
+      // wrap to, and its title or copy bar (codeBlockRows), at that size's measured width and bar.
+      const allTokens = scaleTokensFor(tokens);
+      const rowGroup = codeGroupFor(codePane, allTokens);
+      const fencesHere = codeFences(slide, { defaults: codeDefaults });
+      // A `wrap` block wraps at the pane's own width: only a block that does not wrap grows past it
+      // under `align-*` or `stats` (codeGroupFor), so its rows are read on the plain pane's columns.
+      const wrapGroup = rowGroup === 'centered' || rowGroup === 'sided' ? 'pane' : rowGroup;
+      const rowParts = (tks) => ({
+        cols: codePaneColumns(wrapGroup, tks, codeCanvas, family),
+        bar: codeBarCells(rowGroup, tks, codeCanvas, family),
+      });
+      const rowsWith = (tks) => Math.max(0, ...fencesHere.map((f) => codeBlockRows(f, rowParts(tks))));
+      const designedTokens = allTokens.filter((tok) => !FONT_SCALE_KEYS[tok]);
+      const lines = rowsWith(allTokens);
+      // What the count adds to the tallest block's lines, named in the message so it reads true.
+      const tallest = fencesHere.find((f) => codeBlockRows(f, rowParts(allTokens)) === lines);
+      const added = tallest ? [
+        codeBlockRows(tallest, { bar: rowParts(allTokens).bar }) > tallest.lines.length ? (tallest.opts.title ? 'its title bar' : 'its copy bar') : null,
+        codeBlockRows(tallest, { cols: rowParts(allTokens).cols }) > tallest.lines.length ? 'its wrapped rows' : null,
+      ].filter(Boolean) : [];
+      const plainRow = paneRows[hasEyebrow(slide) ? 'eyebrow' : 'bare'];
+      // A slide ending in a `> …` callout gives the pane 3–4 lines fewer (measured, `--insight`;
+      // the talk's code slides with a callout clipped at conference unnamed, #2361 P2).
+      const shape = `${hasEyebrow(slide) ? 'eyebrow' : ''}${endsWithCallout(slide) ? 'insight' : ''}`.replace(/^(eyebrow)(insight)$/, '$1Insight') || 'bare';
+      const calloutRow = endsWithCallout(slide) ? paneRows[shape] : null;
+      // A heading that wraps takes one to two pane lines a line (`headed`, measured with
+      // `--heading-lines`): the talk's starter-kit code slides fit their one-line row at huddle and
+      // clipped under their two-line headings. Read per rung, because a heading wraps more as the
+      // room grows.
+      // On a literal deck a pill in the heading is code, and wraps as code (the third checker).
+      const headLines = codeHeadingLines(slide, deckLiteral || tokens.includes(INLINE_CODE_LITERAL_CLASS));
+      const lineAt = (r) => {
+        const i = FONT_SCALE_ORDER.indexOf(r);
+        const k = Math.min(3, headLines ? headLines(i) : 1);
+        return (k > 1 && paneRows.headed?.[k]?.[shape] || calloutRow || plainRow)[i];
+      };
+      const lineCap = lineAt(codeScale);
+      // Past the DESIGNED-size pane the block does not fit at 1x either, so a smaller room
+      // size would not save it; the message says so rather than offering one. Read on the row
+      // without the callout: the designed-size code rules do not count the callout, so this claim
+      // stays on the number they enforce.
+      const clipsAtOne = rowsWith(designedTokens) > plainRow[0];
+      // Inside the plain pane but past the callout row at 1x: no smaller venue holds it, so the
+      // fix is the callout or the block, never a venue (smallerSize assumes the designed size fits).
+      const calloutAtOne = !clipsAtOne && calloutRow != null && lines > calloutRow[0];
+      const scaleTokens = scaleTokensFor(tokens);
+      const inVenue = scaleTokens.some((t) => t.startsWith('venue-') && FONT_SCALE_KEYS[t]);
+      // Columns from the measured table (tools/measure-code-columns.js), for the designed size and
+      // this slide's scale. The division by the nominal factors it replaces was a column short at
+      // huddle (88 for 89) and at hall (59 for 60), so a line that renders whole was named.
+      const colGroup = codeGroupFor(codePane, scaleTokens);
+      const colBudget = codePaneColumns(colGroup, scaleTokens, codeCanvas, family, { scaled: false });
+      const colCap = codePaneColumns(colGroup, scaleTokens, codeCanvas, family);
+      const RUNG_CLASS = inVenue ? { l: 'venue-huddle', xl: 'venue-conference', '2xl': 'venue-hall' } : { l: 'scale-l', xl: 'scale-xl', '2xl': 'scale-2xl' };
+      const colsAt = (r) => codePaneColumns(colGroup, [...scaleTokens.filter((tok) => !FONT_SCALE_KEYS[tok]), ...(r === '1' ? [] : [RUNG_CLASS[r]])], codeCanvas, family);
+      const wide = widestCodeLine(slide, { defaults: codeDefaults });
+      // Columns only for `code`: compare-code's column budget does not scale this way at a venue
+      // (talk slide 36: a 43-column line renders whole at huddle, where the division says 40).
+      const cols = codePane === 'code' && wide && wide.columns <= colBudget ? wide.columns : 0;
+      const over = [
+        lines > lineCap ? `${lines} lines${added.length ? ` counting ${added.join(' and ')}` : ''} (the pane holds about ${lineCap}${calloutRow ? ' with the callout' : ''})` : null,
+        cols > colCap ? `a ${cols}-character line (the pane holds about ${colCap})` : null,
+      ].filter(Boolean);
+      if (over.length) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'capacity-scale',
+          // Exact, unlike the count rule above — a line is a line, and the pane was measured
+          // with and without an eyebrow — so it states the outcome rather than a budget. Past
+          // the designed-size pane it clips at every size, a warning under any scale.
+          severity: clipsAtOne ? 'warning' : venueSeverity(scaleTokensFor(tokens)),
+          classToken: codePane,
+          line: m[0],
+          message: clipsAtOne
+            ? `This code block is too long even at laptop size (about ${plainRow[0]} lines fit), so it is cut off at any size.`
+            : `${sizeWords(scaleTokens, codeScale)} this code block has ${over.join(' and ')}, so it is cut off.`,
+          fix: clipsAtOne
+            ? 'Split the block across two slides, or trim scaffolding with `// ...`.'
+            : calloutAtOne
+            ? `Move the \`>\` callout to the speaker notes, or split the block; with the callout the pane holds ${calloutRow[0]} lines even at laptop size.`
+            : `Cut it to ${lineCap} lines of ${colCap} characters, split it, or ${smallerSize(scaleTokensFor(tokens), codeScale, (r) => rowsWith([...designedTokens, ...(r === '1' ? [] : [RUNG_CLASS[r]])]) <= lineAt(r) && cols <= colsAt(r))}.`,
+        });
+      }
+    }
+
+    // Rule 2 — card-style inline title+body (unordered OR ordered). Card-style
+    // layouts want the unordered nested shape; an ordered `1. **Title.** body`
+    // is wrong twice over (wrong list type + the body inherits the title bold).
+    // Read outside code fences (`liveOffense`): a fenced sample is an example, not a card.
+    if (tokens.some((t) => cardStyle.has(t))) {
+      const hit = liveOffense(slide, findInlineTitleBodyLine, findOrderedInlineTitleBodyLine);
+      const offending = hit?.line;
+      if (offending) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'card-style-inline-title',
+          severity: 'error',
+          classToken: tokens.find((t) => cardStyle.has(t)),
+          line: offending.trim(),
+          chunkLine: hit.chunkLine,
+          autofixable: !!autofixNestedTitle(offending),
+          message: '`- **Title.** body` on one line makes the whole card bold.',
+          fix: 'Use the nested-list shape:\n    - Title\n      - body text',
+        });
+      }
+    }
+
+    // Rule 2b — ledger / numbered layouts authored as an UNORDERED inline-bold
+    // list. These want the numbered ledger shape (`1. Name` / `   - body`); the
+    // `- **Title.** body` shape is wrong list type AND inherits the title bold.
+    if (tokens.some((t) => ledgerOl.has(t))) {
+      const hit = liveOffense(slide, findInlineTitleBodyLine);
+      const offending = hit?.line;
+      if (offending) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'ledger-inline-title',
+          severity: 'error',
+          classToken: tokens.find((t) => ledgerOl.has(t)),
+          line: offending.trim(),
+          chunkLine: hit.chunkLine,
+          autofixable: !!autofixOrderedNestedTitle(offending),
+          message: 'This layout wants a numbered list with the body nested, not `- **Title.** body`.',
+          fix: 'Use the numbered ledger shape:\n    1. Name\n       - body text',
+        });
+      }
+    }
+
+    // Rule 3 — bold inside an ordered-list statement.
+    if (tokens.some((t) => statementOl.has(t))) {
+      // Outside fences, but only a fence the renderer certainly draws as code (`stripCertainFences`):
+      // this rule read every line before, so a fence guessed at must not hide a live item.
+      const live = stripCertainFences(slide);
+      const offending = findBoldOrderedStatement(live);
+      const hit = offending ? { chunkLine: live.split('\n').indexOf(offending) } : null;
+      if (offending) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'statement-ol-bold',
+          severity: 'error',
+          classToken: tokens.find((t) => statementOl.has(t)),
+          line: offending.trim(),
+          chunkLine: hit.chunkLine,
+          message: `Bold text inside a \`${tokens.find((t) => statementOl.has(t))}\` item breaks the line apart.`,
+          fix: 'Remove the `**`. The layout already sets the weight.',
+        });
+      }
+    }
+
+    // Rule 3b — inline code in a criterion a check leads, on the two layouts that compose one
+    // (lib/integrations/markdown-it/plugins.js `verdictGridBadges`). The label beside the check is
+    // the item's plain text, on both render paths, so a span there prints its SOURCE: a
+    // `` [x] `@check{fail}` text `` criterion reads "@check{fail} text" on the slide.
+    const composer = tokens.find((t) => t === 'verdict-grid' || t === 'pricing');
+    if (composer) {
+      const led = new RegExp(`^\\s{2,}[-*+]\\s+\\[${MARKER_CLASS}\\]\\s`);
+      // Outside fences: a fenced criterion is a quoted example, not one the slide draws. Only a fence
+      // the renderer certainly draws as code, so a misread fence never hides a live criterion.
+      const offending = stripCertainFences(slide).split('\n').find((l) => led.test(l) && /`[^`]+`/.test(l));
+      if (offending) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'check-label-code',
+          severity: 'warning',
+          classToken: composer,
+          line: offending.trim(),
+          message: `A \`${composer}\` criterion that starts with a check is drawn as plain text, so its inline code prints as typed.`,
+          fix: 'Take the span out of the criterion, or write the words it stands for. One check per criterion: the leading one is the answer.',
+        });
+      }
+    }
+
+    // Rule 4 — split right-panel item with no nested body. Skipped on the `qr`
+    // variant: its right zone is a single payload bullet the qr transform
+    // consumes into a QR figure, not a nested-body point.
+    if (tokens.some((t) => splitSlot.has(t)) && !tokens.includes('qr')) {
+      const hit = liveOffense(slide, findSplitBodylessItem);
+      const offending = hit?.line;
+      if (offending) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'split-bodyless-item',
+          severity: 'error',
+          classToken: tokens.find((t) => splitSlot.has(t)),
+          line: offending.trim(),
+          chunkLine: hit.chunkLine,
+          autofixable: !!autofixNestedTitle(offending),
+          message: 'This right-panel item has no nested body line, so its title won\'t be bold.',
+          fix: 'Use the nested-list shape:\n    - Title\n      - body text',
+        });
+      }
+    }
+
+    // Rule 5 — h2-anchored split slide with no `## ` headline.
+    if (isH2AnchoredSplit(tokens) && !/^##\s/m.test(slide)) {
+      const isMetric = tokens.includes('metric');
+      const cls = tokens.find((t) => t === 'split-panel' || t === 'split-compare');
+      findings.push({
+        slide: idx - fm + 1,
+        rule: 'split-missing-headline',
+        severity: 'warning',
+        classToken: cls,
+        line: m[0],
+        message: `'${cls}' has no \`## \` headline, so the left panel ${isMetric ? 'has no hero number' : 'is empty'}.`,
+        fix: isMetric
+          ? 'Add the hero number as a heading: `## 114<em>%</em>` (`<em>` sets the unit smaller).'
+          : 'Add a `## Headline` line for the left panel.',
+      });
+    }
+
+    // Rule 6 — split-panel `pullquote` variant with no blockquote pull-quote.
+    if (tokens.includes('split-panel') && tokens.includes('pullquote') && !/^>\s/m.test(slide)) {
+      findings.push({
+        slide: idx - fm + 1,
+        rule: 'split-statement-missing-quote',
+        severity: 'warning',
+        classToken: 'split-panel',
+        line: m[0],
+        message: '`pullquote` has no `> ` quote, so the left panel is empty.',
+        fix: 'Add the quotation as a blockquote: `> The quote worth half the slide.`',
+      });
+    }
+
+    // Rule 7 — split-compare option count must be exactly two.
+    if (tokens.includes('split-compare')) {
+      const opts = slide.split('\n').filter((l) => /^([-*]|\d+\.)\s+\S/.test(l)).length;
+      if (opts !== 2) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'split-compare-option-count',
+          severity: 'warning',
+          classToken: 'split-compare',
+          line: m[0],
+          message: `split-compare needs exactly two options; this slide has ${opts}.`,
+          fix: 'Use two top-level items. The second shows as the preferred option.',
+        });
+      }
+    }
+
+    // Rule 8 — kpi/stats number item with no nested label/detail.
+    if (tokens.some((t) => numberSlot.has(t))) {
+      const hit = liveOffense(slide, findSplitBodylessItem);
+      const offending = hit?.line;
+      if (offending) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'number-slot-bodyless-item',
+          chunkLine: hit.chunkLine,
+          severity: 'warning',
+          classToken: tokens.find((t) => numberSlot.has(t)),
+          line: offending.trim(),
+          message: 'This number has no nested label, so it won\'t show in large type.',
+          fix: 'Use the nested shape:\n    1. 73%\n       - faster close',
+        });
+      }
+    }
+
+    // Rule — big-number hero authored as a heading. big-number's REQUIRED
+    // `number` slot is the first top-level list item (ul > li:first-child); an
+    // author who writes the number as a `#`/`##` heading (the intuitive move)
+    // leaves that slot empty and the giant number renders blank — a silent
+    // mis-render only a rendered look reveals. Warn.
+    if (tokens.includes('big-number') && findBigNumberHeroInHeading(slide)) {
+      findings.push({
+        slide: idx - fm + 1,
+        rule: 'big-number-hero-heading',
+        severity: 'warning',
+        classToken: 'big-number',
+        line: m[0],
+        message: 'The big number is a heading, so the number slot is empty and nothing big shows.',
+        fix: 'Author the number as the first list item (optionally with a nested caption):\n    - 92%\n      - of the audience remembers one number.',
+      });
+    }
+
+    // Rule — an editorial modifier with no host on this layout (#1651).
+    //
+    // `insight-*` renames the Key Insight callout's eyebrow, and `no-note`
+    // suppresses the below-note promotion. Both are UNIVERSAL modifiers, so they
+    // are accepted on every slide and the manifest lists them among every
+    // component's `effectiveVariants` — but they only DO anything where the block
+    // they govern exists. The two blocks are opt-out, and a layout that claims the
+    // trailing element for something else renders neither: a `quote` takes its
+    // blockquote as the quotation and its trailing paragraph as the attribution.
+    //
+    // So `<!-- _class: quote insight-key -->` is silently inert. Nothing rendered,
+    // nothing warned, and the manifest had positively advertised the modifier. That
+    // silence is what #1651 asked us to close, and `authoring.blocks` in the
+    // generated manifest is the same contract this reads.
+    //
+    // Scoped to an EXPLICIT modifier, deliberately. Flagging the blockquote or the
+    // trailing paragraph itself would fire on every correctly-authored quote in the
+    // corpus — that prose is the component's own anatomy, not a misplaced block.
+    // A modifier the author typed is unambiguous intent that went nowhere.
+    const componentToken = tokens.find((t) => vocab.names.has(t));
+    if (componentToken) {
+      const inert = [];
+      // `insight-*` governs the `--insight-label` SEAM, not the block — and one
+      // layout paints that seam on a surface of its own while still claiming the
+      // blockquote (split-compare's verdict tag, declared `readsInsightLabel`).
+      // Asking only whether the layout renders the key-insight BLOCK reported a
+      // modifier inert on the very deck that documents it renaming a real surface.
+      if (tokens.some((t) => /^insight-/.test(t))
+        && !supportsBlock(componentToken, 'key-insight')
+        && !readsInsightLabel(componentToken)) {
+        inert.push({ token: tokens.find((t) => /^insight-/.test(t)), block: 'key-insight', what: 'the Key Insight callout' });
+      }
+      if (tokens.includes('no-note') && !supportsBlock(componentToken, 'below-note')) {
+        inert.push({ token: 'no-note', block: 'below-note', what: 'the below-note footnote' });
+      }
+      for (const { token, what } of inert) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'block-unsupported',
+          severity: 'warning',
+          classToken: token,
+          line: m[0],
+          message: `\`${token}\` does nothing here: ${componentToken} doesn't show ${what}.`,
+          fix: `Remove \`${token}\`. It has no effect on ${componentToken}.`,
+        });
+      }
+    }
+
+    // Rule — a `list` counter modifier that its register never reads.
+    //
+    // `list` carries three registers and two modifier sets, and they do not cross over:
+    // `numbered` belongs to `takeaway`; `lettered`/`roman`/`bullet` belong to `principles`;
+    // and `principles` numbers an ORDERED list only. Every mismatch rendered something
+    // plausible and silent — `principles` over `-` bullets drew the default pills, and
+    // `takeaway` over `1.` hid the numbers the author typed. The manifest's
+    // `commonMistakes` documented the first two; nothing surfaced them on the slide.
+    if (tokens.includes('list')) {
+      const kind = topLevelListKind(slide);
+      const inertList = [];
+      if (tokens.includes('numbered') && !tokens.includes('takeaway')) {
+        inertList.push({ token: 'numbered', why: '`numbered` only adds a counter to `takeaway` rows', fix: 'Use `list takeaway numbered`, or drop `numbered` (a plain `list` already numbers a `1.` list).' });
+      }
+      for (const t of ['lettered', 'roman', 'bullet']) {
+        if (tokens.includes(t) && !tokens.includes('principles')) {
+          inertList.push({ token: t, why: `\`${t}\` only switches the \`principles\` counter`, fix: `Use \`list principles ${t}\`, or drop \`${t}\`.` });
+        }
+      }
+      if (tokens.includes('principles') && kind === 'ul') {
+        inertList.push({ token: 'principles', why: '`principles` numbers an ordered list, so `-` bullets render as the default pills', fix: 'Write the principles as `1.` items (use `principles bullet` for dots instead of numbers).' });
+      }
+      if (tokens.includes('takeaway') && !tokens.includes('numbered') && kind === 'ol') {
+        inertList.push({ token: 'takeaway', why: '`takeaway` hides the numbers of a `1.` list unless `numbered` is set', fix: 'Add `numbered` to show the counters, or write `-` bullets if order does not matter.' });
+      }
+      for (const { token, why, fix } of inertList) {
+        findings.push({
+          slide: idx - fm + 1,
+          rule: 'list-modifier-inert',
+          severity: 'warning',
+          classToken: token,
+          line: m[0],
+          message: `${why}.`,
+          fix,
+        });
+      }
+    }
+
+    focusAndTrackFindings(slide, idx, tokens);
+
+    // Rule 13 — the retired authored-`<ul>` override on a `topic` slide.
+    if (tokens.includes('topic') && TOP_LEVEL_BULLET.test(renderedBody(slide))) {
+      findings.push({
+        slide: idx - fm + 1,
+        rule: 'track-list',
+        severity: 'warning',
+        line: (renderedBody(slide).match(TOP_LEVEL_BULLET) || [''])[0].trim(),
+        message: 'A list on a `topic` slide shows as plain content, not as the track; the track is built from the section\'s headings.',
+        fix: 'Delete the list. To set labels, use `<!-- _track: A | [B] | C -->`.',
+      });
+    }
+  });
+
+  // Rule 9 — map list items the basemap can't resolve (with a "did you mean").
+  // Gated on injected map vocab so non-map decks pay nothing.
+  if (vocab.mapRegions) findings.push(...findUnknownMapRegions(source, vocab.mapRegions));
+  findings.push(...findAgendaIssues(source));
+  findings.push(...findPaneIssues(source, vocab));
+
+  // Rule 10 — unrecognized deck-wide `finish:` (backdrop) register value. `finish:`
+  // is a Lattice front-matter extension (none / atrium / …); an unknown value
+  // resolves to no classes and silently renders no backdrop, so a typo
+  // (`finish: atriumm`) would ship a backdrop-less deck with no error. Flag it.
+  // Gated on injected finish vocab so it costs nothing when the names aren't
+  // supplied (e.g. an older browser-build handoff). The sibling `style:` axis
+  // (boardroom / sketch — the rendering mode) is validated the same way.
+  if (vocab.finishNames) findings.push(...findUnknownFinish(source, vocab.finishNames));
+  findings.push(...findUnknownPlugins(source, vocab));
+  findings.push(...findPluginFenceAttributes(source, vocab));
+  if (vocab.modeNames) findings.push(...findUnknownMode(source, vocab.modeNames));
+  if (vocab.colorModeNames) findings.push(...findUnknownColorMode(source, vocab.colorModeNames));
+  // An unterminated `<!--` — a privacy trap on export, not just a rendering one.
+  findings.push(...findUnterminatedComment(source));
+  findings.push(...findLabelSetIssues(source, vocab));
+  // A deck-wide `class:` token the engine refuses outright — a component name, or a
+  // color token superseded by `color-mode:`. Both are silent no-ops without this.
+  findings.push(...findRefusedDeckClass(source));
+  findings.push(...findRetiredDeckSwitch(source));
+  if (vocab.claimNames) findings.push(...findUnknownClaim(source, vocab.claimNames));
+  // The deck-wide `stamp:` / `tone:` SHAPE registers (state-marker / tone-marker style).
+  // Like finish/mode, an unknown value resolves to no style class and silently renders
+  // the uniform default shape, so a typo would ship unnoticed. Gated on injected vocab.
+  if (vocab.stampStyleNames) findings.push(...findUnknownStamp(source, vocab.stampStyleNames));
+  if (vocab.toneStyleNames) findings.push(...findUnknownToneStyle(source, vocab.toneStyleNames));
+  // The deck-wide `spectrum:` register (white-label brand bar). An unknown value resolves
+  // to no class → the rainbow default ships silently, so flag a typo. Gated on injected vocab.
+  if (vocab.spectrumNames) findings.push(...findUnknownSpectrum(source, vocab.spectrumNames));
+  // The sibling `spectrum-edge:` (bar placement) + the `rule:` (heading underline) /
+  // `eyebrow:` (kicker) accent finishes — each an unknown value silently renders the
+  // default, so flag a typo. Gated on injected vocab.
+  if (vocab.spectrumEdgeNames) findings.push(...findUnknownSpectrumEdge(source, vocab.spectrumEdgeNames));
+  if (vocab.spectrumCardNames) findings.push(...findUnknownSpectrumCard(source, vocab.spectrumCardNames));
+  if (vocab.spectrumCardEdgeNames) findings.push(...findUnknownSpectrumCardEdge(source, vocab.spectrumCardEdgeNames));
+  if (vocab.spectrumTrimNames) findings.push(...findUnknownSpectrumTrim(source, vocab.spectrumTrimNames));
+  if (vocab.ruleNames) findings.push(...findUnknownRule(source, vocab.ruleNames));
+  if (vocab.eyebrowNames) findings.push(...findUnknownEyebrow(source, vocab.eyebrowNames));
+  if (vocab.inlineCodeNames) findings.push(...findUnknownInlineCode(source, vocab.inlineCodeNames));
+  if (vocab.headlineNames) findings.push(...findUnknownHeadline(source, vocab.headlineNames));
+  if (vocab.liftNames) findings.push(...findUnknownLift(source, vocab.liftNames));
+  if (vocab.venueNames) findings.push(...findUnknownVenue(source, vocab.venueNames));
+  findings.push(...findTypographyStyleOverride(source));
+  if (vocab.marksNames) findings.push(...findUnknownMarks(source, vocab.marksNames, vocab.marksAxes));
+  findings.push(...findMarksRenamed(source));
+  findings.push(...findSpotScale(source));
+  // The `preset:` register — one word for the backdrop, alignment and accent family. An unknown name
+  // resolves to no preset, so every register silently falls back to its default.
+  if (vocab.presetNames) findings.push(...findUnknownPreset(source, vocab.presetNames));
+  if (vocab.cardsNames) findings.push(...findUnknownCards(source, vocab.cardsNames));
+  if (vocab.cornersNames) findings.push(...findUnknownCorners(source, vocab.cornersNames));
+  if (vocab.fitNames) findings.push(...findFitRegister(source, vocab.fitNames));
+  // The deck-wide `pace:` register (presentation rhythm). An unknown value falls through to
+  // the viewer's own preset, so the author's directorial choice silently does nothing — the
+  // one register whose typo is invisible on the AUTHOR's machine and only wrong on someone
+  // else's. Gated on injected vocab.
+  if (vocab.paceNames) findings.push(...findUnknownPace(source, vocab.paceNames));
+  if (vocab.deliveryNames) findings.push(...findUnknownDelivery(source, vocab.deliveryNames));
+  // The `greeting:` / `closing:` bookends (lib/core/resolve-bookends.mjs): a hard-coded time of
+  // day, a placeholder nobody expands, and an English salutation in a non-English deck — all three
+  // spoken wrong to the listener and invisible to the author. Self-contained (no vocab).
+  findings.push(...findBookendIssues(source));
+  // The three RENDER-TARGET keys (`fluid:` / `player:` / `present:`) carrying a value in
+  // neither the on nor the off vocabulary. The quietest failure in front matter: the value
+  // reads as off, the ordinary artifact is written, and the deck looks right on every
+  // surface the author can check. Self-contained (vocabulary from the kernel, no vocab).
+  findings.push(...findBadRenderTargetValues(source));
+  // The same three keys written INDENTED. The export reads a nested `fluid:` as the deck's
+  // own register — the union reader's one false-ON — so an on-value under some other key
+  // opts the deck in while YAML shows the author a nested value. Self-contained (no vocab).
+  findings.push(...findNestedRenderTargetKeys(source));
+
+  // A leftover top-level `backdrop:` block is retired (backdrop is a baked finish layer
+  // now) — flag it with the migration to `finish-override:`. Needs no vocab.
+  findings.push(...findRetiredBackdrop(source));
+  if (vocab.backdropNames) findings.push(...findUnknownBackdrop(source, vocab.backdropNames));
+  if (vocab.tagNames) findings.push(...findUnknownCardTag(source, vocab.tagNames, vocab.cardTagAxes));
+  for (const r of vocab.pluginRegisters || []) findings.push(...findUnknownAxisRegister(source, r.key, r.names, r.axes));
+  if (vocab.imageCardNames) findings.push(...findUnknownAxisRegister(source, 'image-card', vocab.imageCardNames, vocab.imageCardAxes));
+  if (vocab.logoFinishNames) findings.push(...findUnknownAxisRegister(source, 'logo-finish', vocab.logoFinishNames, vocab.logoFinishAxes));
+  if (vocab.logoFinishAxes) findings.push(...findRetiredLogoKeys(source, vocab.logoFinishAxes));
+  if (vocab.progressRailNames) findings.push(...findUnknownAxisRegister(source, 'progress-rail', vocab.progressRailNames, vocab.progressRailAxes));
+  if (vocab.agendaNames) findings.push(...findUnknownAxisRegister(source, 'agenda', vocab.agendaNames, vocab.agendaAxes));
+  // The deck-settings table (lib/core/deck-settings.js): a key no reader knows, and a value
+  // for a table-driven key (`theme:`, `size:`, `motion:` …) that no reader accepts.
+  findings.push(...findUnknownSettingKeys(source, vocab));
+  findings.push(...findUnknownSettingValues(source, vocab));
+  findings.push(...findUnknownImagesWords(source));
+  findings.push(...findUnknownFontsWords(source));
+  findings.push(...findFontsRenamed(source));
+  findings.push(...findDeckClassTreatments(source));
+
+  // A single-letter/digit `lexicon:` key mis-narrates the whole deck (it rewrites every
+  // embedded occurrence, not just the standalone token). Warn. Self-contained (no vocab).
+  findings.push(...findSingleLetterLexiconKeys(source));
+
+  // A leftover `form:` key or `form` / `no-form` slide token is retired — Form is
+  // the composition model and is not configurable. Coach the deletion. Needs no vocab.
+  // Two dividers in a row: an empty section, whose rail mark never lights. Needs no vocab.
+  findings.push(...findEmptySections(source));
+  findings.push(...findRetiredFormKey(source));
+  findings.push(...findRetiredFormTokens(source));
+  findings.push(...findStrayOverflowMarker(source));
+
+  // A deck-authored inline `<script>` that defers its work loses that work at export —
+  // the render warns at capture, this warns while the deck is being written. Universal,
+  // self-contained (no injected vocab). #1792.
+  findings.push(...findAuthorScriptDefers(source));
+
+  // Rule 11 — unrecognized deck-wide `split:` mode value. `split:` is a Lattice
+  // front-matter extension (rule / headings); an unknown value resolves to the
+  // `rule` baseline, so a typo (`split: heading`) would silently keep requiring
+  // `---` separators. Flag it. Gated on injected split vocab, like finish above.
+  if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
+
+  // Preview `debug:` levers — a typo in a facet list falls back to the default
+  // profile rather than erroring, so warn (fixed vocabulary; no injected vocab).
+  findings.push(...findBadDebugFacets(source));
+
+  // Rule 12 — gantt token + schedule validation. The gantt contract is a typed
+  // nested list (2026-06-21-gantt-component-redesign.md): every trailing
+  // inline-code token must be a `..` span, a status, `after=`, or `milestone`,
+  // and dependencies/dates must be coherent. Self-contained (no injected vocab).
+  findings.push(...findGanttIssues(source));
+  findings.push(...findJourneyActorShortcuts(source));
+  findings.push(...findQuadrantAxisIssues(source));
+  findings.push(...findHistogramIssues(source));
+  findings.push(...findEpCurveIssues(source));
+  findings.push(...findFlowchartIssues(source));
+  findings.push(...findChartListQuoteSplits(source));
+  findings.push(...findChartRowQuotes(source));
+  findings.push(...findChartMalformedValues(source));
+  findings.push(...findChartRowRecords(source));
+  findings.push(...findChartUnescapedPipes(source));
+  for (const f of findChartSeriesNameDrift(source)) findings.push(f); // no spread: a huge array overflows the call stack
+  findings.push(...findChartDescriptionPlace(source));
+  findings.push(...findHubSpokeIssues(source));
+
+  // Rule 12b — a shell SCRIPT tagged with a shell SESSION grammar. Universal: it
+  // depends on the fence tag and body, not on the slide's component.
+  findings.push(...findShellFenceTags(source));
+
+  // Rule 12d — a Markdown image from another site, which the render shows as a placeholder (security
+  // spine S1). Universal: any slide, any component.
+  findings.push(...findWebImages(source));
+  // Rules 12e-12h — raw HTML and CSS the renderer blocks or strips, read from the source (security spine S2).
+  findings.push(...findWebMarkup(source));
+
+  // Rule 12c — the code plugin's `@code{…}` record, and every line reference into a code block
+  // (`focus=`, `mark=`, a slide's `_focus: line`). Universal, as 12b.
+  findings.push(...findCodeRecords(source));
+
+  // Rule 13 — `autosplit:` is RETIRED. Flag it rather than ignore it: silence would read
+  // as "this still works", and a deck carrying `autosplit: off` would look opted-out while
+  // the engine paginated it anyway. Universal rule, deck-level (front-matter only).
+  findings.push(...findRetiredAutosplitDirective(source));
+
+  // Rule 14 — `paginate: skip` / `hold` are Marp values Lattice downgrades to `false` in
+  // silence. Same reasoning as rule 13: the deck renders, so nothing tells the author the
+  // renumbering they asked for is not happening.
+  findings.push(...findUnsupportedPaginateValues(source));
+  findings.push(...findRetiredPaginateComments(source));
+
+  // Rule 14f — record comments in a position no step reads, and (with `metaCut`) the old
+  // directive form (findMetaCommentIssues).
+  findings.push(...findMetaCommentIssues(source, vocab));
+
+  // Rule 14b — `caption:` / `captions:` are RETIRED for `say:`. An error for rule 13's reason:
+  // the engine ignores the old key, so the slide silently speaks something else.
+  findings.push(...findRetiredCaptionKeys(source));
+  // Rule 14c — a capitalized `Say:` stays a private note (the key is lowercase only, because the
+  // channel is public). A warning: the author may well mean a note.
+  findings.push(...findCapitalizedSayKey(source));
+
+  // Rule 15 — typed shape glyphs (HARD RULE #29). Universal, self-contained, and
+  // a WARNING by design: we coach the author, we do not refuse their deck.
+  findings.push(...findTypedShapeGlyphs(source));
+
+  // `circle` / `diamond` pills past their budget — one character, or a number up to two
+  // digits. A WARNING, because past it the shape visibly stops being the shape.
+  findings.push(...findCrowdedShapePills(source));
+  // A quoted part followed by a stray `]` — the list closes early and silently renders as text.
+  findings.push(...findStrayBracketAfterQuote(source, vocab));
+  findings.push(...findLiteralSparks(source));
+  findings.push(...findLiteralPills(source));
+  findings.push(...findLiteralPluginKinds(source));
+  findings.push(...findUnknownInlineKinds(source, vocab));
+  findings.push(...findPluginLint(source));
+  findings.push(...findLegendSpans(source));
+  findings.push(...findMixedSpellings(source));
+  findings.push(...findTagBudgetIssues(source));
+  findings.push(...findTrailBudgetIssues(source));
+  findings.push(...findCardTagAliases(source));
+
+  return findings;
+}
+
+// SLIDES, NOT CHUNKS. `split: headings` is the DEFAULT (lib/core/resolve-split.js: an
+// absent or unknown `split:` resolves to it), so a `---` chunk can hold several rendered
+// slides: the engine opens a new one before every h1/h2 after the first, pulling the
+// boundary back over that heading's lead-in (directive comments, an eyebrow). Every rule
+// reads the engine's slides: `lintTextWith` bakes the split into `---` lines with the
+// engine's own `headingSplitPoints` (`bakeHeadingChunks`) and maps each finding back to the
+// author's chunk. A line-level mirror of that rule lived here for one rule and was retired
+// with it: the parser settles shapes a mirror kept missing (a heading in an HTML block, a
+// setext heading, a CRLF eyebrow), and the parser is already in this bundle.
+const SPLIT_RULE = /^[ \t]*split:[ \t]*["']?rule["']?[ \t]*(?:#.*)?$/im;
+function splitsOnHeadings(source) {
+  const fm = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(source);
+  return !(fm && SPLIT_RULE.test(fm[1]));
+}
+
+/**
+ * Where the engine opens a new slide inside one `---` chunk under `split: headings`: the
+ * chunk-relative lines, from the engine's own `headingSplitPoints` over the engine's own
+ * parser (the SAME call lib/core/bake-splits.js and the `headingSplit` ruler make). Not the
+ * line mirror this replaced: a heading inside an HTML block, a setext heading, a comment opened
+ * mid-paragraph and a CRLF eyebrow each fooled it, and the parser is already in this bundle
+ * (lib/core/slide-boundaries.mjs). Only a chunk with two heading-shaped lines is parsed.
+ */
+const HEADING_SHAPED = /^ {0,3}(?:#{1,2}(?:[ \t]|\r?$)|=+[ \t]*\r?$|-+[ \t]*\r?$)/gm;
+function headingSplitLines(chunk) {
+  if ((chunk.match(HEADING_SHAPED) || []).length < 2) return [];
+  const tokens = boundaryParser.parse(chunk, {});
+  return [...new Set(headingSplitPoints(tokens).map((i) => tokens[i]?.map?.[0]).filter((n) => n > 0))].sort((x, y) => x - y);
+}
+
+/**
+ * `source` with every `split: headings` boundary written out as a `---`, so each chunk
+ * of the result is ONE rendered slide, and `map[k]` says where baked chunk k came from:
+ * `{ chunk, line, offset }` — the source chunk, the chunk line the rendered slide starts on,
+ * and the chunk line the baked chunk's line 0 sits on. `null` when nothing splits, so a
+ * caller pays nothing on the common deck.
+ *
+ * Front matter and every separator the author wrote stay where they are: only the body
+ * lines of a chunk that holds several rendered slides get a blank-bracketed `***` (a
+ * bare `---` under a paragraph line would read as a setext underline).
+ *
+ * `***`, not the `---` lib/core/bake-splits.js writes for Export-to-Marp: this text is only
+ * ever read by this file's own slide split, which breaks on every thematic break, and `***`
+ * can never be read as front matter. A `---` could. On a deck with NO front matter whose
+ * body opens with `---`, the first inserted `---` closed a "front matter block" that began
+ * at line 0, so the lint read the deck's first slide as YAML and lost its findings.
+ */
+function bakeHeadingChunks(source) {
+  const src = String(source || '');
+  if (!splitsOnHeadings(src)) return null;
+  const lines = src.split('\n');
+  const seps = separatorLines(lines);
+  const fm = fmChunks(src);
+  const chunks = [];
+  let start = 0;
+  for (let i = 0; i <= lines.length; i++) {
+    if (i === lines.length || seps.has(i)) { chunks.push([start, i]); start = i + 1; }
+  }
+  // `separatorLines` numbers chunks exactly as `splitTopLevel` does (`applyFix` walks the
+  // same set), so range n is chunk n. Should they ever disagree, lint the chunks as written
+  // rather than map a finding onto the wrong slide.
+  if (chunks.length !== splitTopLevel(src).length) return null;
+  const map = [];
+  const inserts = [];
+  chunks.forEach(([a, b], idx) => {
+    map.push({ chunk: idx, line: 0, offset: 0 });
+    if (idx < fm) return;
+    for (const s of headingSplitLines(lines.slice(a, b).join('\n'))) {
+      map.push({ chunk: idx, line: s, offset: s - 1 });
+      inserts.push(a + s);
+    }
+  });
+  if (!inserts.length) return null;
+  const out = lines.slice();
+  for (const at of inserts.sort((x, y) => y - x)) out.splice(at, 0, '', '***', '');
+  return { baked: out.join('\n'), map, fm };
+}
+
+/**
+ * Lint `source` the way the engine will cut it. Every rule reads one RENDERED slide (the
+ * heading-split chunks, baked), and every finding comes back in the coordinates the
+ * callers write through: `slide` is the author's `---` chunk (the Studio rail, `applyFix`,
+ * the per-finding AI edit all index that). Two findings from the two halves of one chunk both carry its
+ * number; the message says which, because it quotes the line.
+ */
+function lintTextWith(source, vocab) {
+  // THE ENGINE'S GEOMETRY FIRST: a leading BOM is dropped and a lone `\r` ends a line, as the render reads them
+  // (lib/core/boundary-parser.mjs `normalizeSource`). The comment scan the rules read (`scanMetaSource`) already
+  // normalizes, so without this the chunks here and the scan's slides were numbered apart on such a source and a rule
+  // read another slide's directives; the front matter after a BOM was not front matter at all. `\r\n` is left as it
+  // is: every reader here takes `\r?\n`, and a fix's offsets must keep indexing the author's text.
+  if (typeof source === 'string' && (source.charCodeAt(0) === 0xfeff || /\r(?!\n)/.test(source))) {
+    source = source.replace(/^\uFEFF/, '').replace(/\r(?!\n)/g, '\n');
+  }
+  // A Marp bundle's deck keeps its Lattice settings in a block under the front matter; the fold
+  // reads them as front matter and keeps every line on its number, so findings and line-addressed
+  // fixes land where the author sees them (lib/core/settings-block-fold.js `foldSettingsBlock`).
+  // A photo's base64 is not read by any rule and cost seconds a pass (lib/core/payload-elision.js).
+  // The engine's narrow rule, on the lint's own parser: only a photo on a line of its own is skipped, so no rule that
+  // measures text (a code line, a tag, a list's rows) ever counts a stand-in (lib/core/image-line-payloads.js).
+  const elided = elidePayloads(source, { rangesOf: (t) => imageLineRanges(t, boundaryParser, BOUNDARY_FRONT_MATTER) });
+  if (elided) return restoreFindings(elided, lintTextWith(elided.text, vocab));
+  const folded = foldSettingsBlock(source);
+  readStats.lintChars += folded.length;
+  return withoutFencedFixes(folded, lintChunksRemapped(folded, vocab));
+}
+
+// A finding whose `line` sits only inside a code fence has no fix: `fixLineIndex` never edits a
+// fenced example. So it must not claim one, or the Studio offers "Fix all" and a quick fix that do
+// nothing. Some rules still report a line in a fence they cannot read exactly (the nine of
+// test/unit/authoring/lint-fenced-lines.test.js skip only a fence `stripCertainFences` marks); for
+// those this demotes the fix: the finding keeps its report and loses its `autofixable` flag. Only the fenced case is demoted: a finding the fence-blind walk
+// could not locate either is left as it was.
+function withoutFencedFixes(source, findings) {
+  if (!findings.some((f) => f.autofixable && f.line != null)) return findings;
+  const lines = source.split('\n');
+  const fenced = fencedLines(source);
+  if (!fenced.some(Boolean)) return findings;
+  const seps = separatorLines(lines);
+  const fm = fmChunks(source);
+  const open = lines.map(() => false);
+  return findings.map((f) => {
+    if (!f.autofixable || f.line == null) return f;
+    if (fixLineIndex(lines, seps, fm, f, fenced) >= 0 || fixLineIndex(lines, seps, fm, f, open) < 0) return f;
+    return { ...f, autofixable: false };
+  });
+}
+
+function lintChunksRemapped(source, vocab) {
+  const bake = bakeHeadingChunks(source);
+  if (!bake) return lintChunksWith(source, vocab);
+  const { map, fm } = bake;
+  return lintChunksWith(bake.baked, vocab).map((f) => {
+    if (!Number.isInteger(f.slide) || f.slide < 1) return f;
+    const at = map[f.slide + fm - 1];
+    if (!at) return f;
+    // `chunkLine`: where in the chunk this slide starts, so a fix or a squiggle that looks
+    // its `line` up by text starts there and cannot land on the same text one slide up.
+    const out = { ...f, slide: Math.max(1, at.chunk - fm + 1), ...(at.line ? { chunkLine: at.line } : {}) };
+    return out;
+  });
+}
+
+const GANTT_MONTHS_LINT = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const GANTT_MONTHS_FULL_LINT = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+
+// Parse one gantt time point → { kind, year|null, idx } | { kind:'date', day }
+// | null. Compact mirror of chart-family.parseTimePoint, for validation only.
+function ganttTimePoint(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!s) return null;
+  const d = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (d) {
+    const y = +d[1], mo = +d[2] - 1, dd = +d[3];
+    const t = Date.UTC(y, mo, dd);
+    const dt = new Date(t);
+    // Reject a date that didn't round-trip (2026-13-01 / 2026-02-30) — Date.UTC
+    // rolls over rather than returning NaN. Mirrors chart-family.parseTimePoint.
+    if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo || dt.getUTCDate() !== dd) return null;
+    return { kind: 'date', day: Math.round(t / 86400000) };
+  }
+  const q = s.match(/^(?:(\d{4})\s*)?Q([1-4])$/i);
+  if (q) return { kind: 'q', year: q[1] ? +q[1] : null, idx: +q[2] - 1 };
+  // Month — exact 3-letter abbrev or full name only, never a prefix.
+  const m = s.match(/^(?:(\d{4})\s*)?([A-Za-z]+)$/);
+  if (m) {
+    const w = m[2].toLowerCase();
+    let mi = w.length === 3 ? GANTT_MONTHS_LINT.indexOf(w) : -1;
+    if (mi < 0) mi = GANTT_MONTHS_FULL_LINT.indexOf(w);
+    if (mi >= 0) return { kind: 'm', year: m[1] ? +m[1] : null, idx: mi };
+  }
+  return null;
+}
+
+// Resolve a point to [start, end] in the slide's unit (days in date mode,
+// month-index in ordinal). Mirror of chart-family.ganttPointSpan.
+function ganttSpanVals(pt, mode, baseYear) {
+  const dayOf = (y, mo, dd) => Math.round(Date.UTC(y, mo, dd) / 86400000);
+  if (mode === 'date') {
+    if (pt.kind === 'date') return [pt.day, pt.day];
+    const y = pt.year != null ? pt.year : baseYear;
+    if (pt.kind === 'q') return [dayOf(y, pt.idx * 3, 1), dayOf(y, pt.idx * 3 + 3, 1)];
+    return [dayOf(y, pt.idx, 1), dayOf(y, pt.idx + 1, 1)];
+  }
+  if (pt.kind === 'date') {
+    const dt = new Date(pt.day * 86400000);
+    const ym = dt.getUTCFullYear() * 12 + dt.getUTCMonth();
+    return [ym, ym + 1];
+  }
+  const y = pt.year != null ? pt.year : baseYear;
+  if (pt.kind === 'q') return [y * 12 + pt.idx * 3, y * 12 + pt.idx * 3 + 3];
+  return [y * 12 + pt.idx, y * 12 + pt.idx + 1];
+}
+
+/**
+ * Blank every `<!-- … -->` span markdown-it treats as a comment, keeping newlines
+ * so line indices still match the source.
+ *
+ * Only what markdown-it treats as one: an HTML-block comment opens at a line start
+ * (up to three spaces of indent) and may run unclosed to the end; an inline one
+ * needs its `-->` inside the same paragraph (no blank line between). Anywhere else
+ * — `<!--` quoted in a code span, or prose that mentions it — it is text, and
+ * blanking from it hid the rest of the slide from the rules.
+ *
+ * ONE FORWARD PASS, and that is a measured requirement rather than a style. This
+ * reads untrusted markdown on the browser's main thread (HARD RULE #22), and an
+ * earlier cut re-searched for `-->`, re-walked to the line start and re-counted the
+ * line's backticks at every skipped `<!--`: 280 KB of `a <!--` lines took 12 s. Here
+ * the line start and backtick parity advance with the scan, and the next `-->` and
+ * the next blank line are each found once and reused until the scan passes them,
+ * so every character is visited a bounded number of times.
+ */
+function blankCommentSpans(text) {
+  const src = String(text ?? '');
+  const n = src.length;
+  // `\r` too. Slides reach this LF-normalized (`splitTopLevel`), so a CRLF blank
+  // line (`\n\r\n`) only matters to a direct caller; it costs nothing to cover.
+  const blankRe = /\n[ \t\r]*\n/g;
+  let out = '';
+  let at = 0;
+  let lineStart = 0;
+  let ticks = 0;
+  let close = -2; // next `-->` at or after the scan; -2 unknown, -1 none left
+  let blank = -2; // next blank line at or after the scan; same encoding
+  let i = 0;
+  while (i < n) {
+    const c = src.charCodeAt(i);
+    if (c === 10) { lineStart = i + 1; ticks = 0; i++; continue; }
+    if (c === 96) { ticks++; i++; continue; }
+    if (c !== 60 || !src.startsWith('<!--', i)) { i++; continue; }
+    if (close !== -1 && close < i + 4) close = src.indexOf('-->', i + 4);
+    if (blank !== -1 && blank < i) {
+      blankRe.lastIndex = i;
+      const m = blankRe.exec(src);
+      blank = m ? m.index : -1;
+    }
+    const indent = i - lineStart;
+    let atLineStart = indent <= 3;
+    for (let k = lineStart; atLineStart && k < i; k++) if (src.charCodeAt(k) !== 32) atLineStart = false;
+    const closesInParagraph = close >= 0 && (blank < 0 || close < blank);
+    if (ticks % 2 === 1 || (!atLineStart && !closesInParagraph)) { i += 4; continue; }
+    const end = atLineStart ? (close < 0 ? n : close + 3) : close + 3;
+    out += src.slice(at, i) + src.slice(i, end).replace(/[^\n]/g, ' ');
+    // Search back only across the span just blanked. An unbounded lastIndexOf
+    // re-walked the whole line before it, so `<!-- x -->` repeated on one line
+    // was quadratic again (40k pairs: 2.7 s).
+    for (let k = end - 1; k >= i; k--) if (src.charCodeAt(k) === 10) { lineStart = k + 1; break; }
+    ticks = 0;
+    at = end;
+    i = end;
+  }
+  return out + src.slice(at);
+}
+
+/**
+ * Quadrant axis validation. The axis is ONE bracketed list above the chart's list
+ * (engineering/decisions/2026-09-22-chart-axis-grammar.md); two things read wrong
+ * without a word from the render, so this names them:
+ *
+ *  - `quadrant-retired-axis` (error) — the retired `Effort 0–10 → Reach 0–100 ·
+ *    targets 5, 50` eyebrow. The render now treats it as an ordinary eyebrow, so
+ *    the axes lose their names AND their authored domain: the points MOVE, to a
+ *    scale derived from the data. That is why this is an error, like gantt's
+ *    retired delimiter, and not coaching. Autofixable to the bracketed form.
+ *  - `quadrant-axis-part` (warning) — a member part that is neither a domain
+ *    (`0..10`, max above min) nor a threshold (a number). The render ignores it
+ *    and derives the number; saying so beats a silent fallback.
+ *
+ * Only a code-only line ABOVE the first list line is an axis position — the same
+ * slot the render reads. `radar quadrant` is radar's own grammar and is skipped.
+ */
+function findQuadrantAxisIssues(source) {
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    const tokens = (directives[idx]?.payload || '').split(/\s+/).filter(Boolean);
+    if (!tokens.includes('quadrant') || tokens.includes('radar')) return;
+    const slideNo = Math.max(1, idx - fm + 1);
+    // Comments blanked (line count kept): an axis line inside `<!-- -->` is not
+    // on the slide, so it is neither read by the render nor fixed here.
+    const lines = blankCommentSpans(stripFencedCode(slide)).split('\n');
+    let seenAxis = false;
+    for (const line of lines) {
+      if (/^ {0,3}([-*+]|\d+[.)])\s/.test(line)) break;
+      const m = line.match(/^[ \t]*`([^`\n]+)`[ \t]*$/);
+      if (!m) continue;
+      const text = m[1].trim();
+      if (text.startsWith('[')) {
+        const members = parseBracketList(text, { maxParts: 3 });
+        if (!members || seenAxis) continue;
+        if (members.length > 2) {
+          // The render refuses it (`axisAcceptor`) rather than read two members
+          // and drop the rest, so it prints on the slide as text. Say so.
+          findings.push({
+            slide: slideNo, rule: 'quadrant-axis-part', severity: 'warning',
+            classToken: 'quadrant', line: line.trim(),
+            message: `This list has ${members.length} items, but a quadrant has two axes, so it shows as text.`,
+            fix: 'Keep two items, x then y: `[{Effort, 0..10}, {Reach, 0..100}]`.',
+          });
+          continue;
+        }
+        seenAxis = true;
+        const bad = members.slice(0, 2).flatMap((mm) => readAxisMember(mm).ignored);
+        if (bad.length) {
+          findings.push({
+            slide: slideNo, rule: 'quadrant-axis-part', severity: 'warning',
+            classToken: 'quadrant', line: line.trim(),
+            message: `The chart ignores ${bad.map((b) => `\`${b}\``).join(', ')} and picks its own scale.`,
+            fix: 'Each member is `{name, min..max, threshold}` — the domain uses `..` and needs max above min; the threshold is one number. Both are optional.',
+          });
+        }
+        continue;
+      }
+      const hasArrow = /(?:→|->)/.test(text);
+      const retired = retiredQuadrantAxis(text);
+      if (!hasArrow && !retired) continue;
+      findings.push({
+        slide: slideNo, rule: 'quadrant-retired-axis', severity: 'error',
+        classToken: 'quadrant', line: line.trim(),
+        autofixable: !!retired,
+        message: `\`${text}\` is the old axis format: it no longer names the axes, and the points move to a different scale.`,
+        fix: retired
+          ? `Write it as \`${retired}\` — one bracketed list above the chart, x then y, each member \`{name, min..max, threshold}\`.`
+          : 'Write one bracketed list above the chart, x then y: `[{Effort, 0..10}, {Reach, 0..100}]`. Every axis needs a name before its domain.',
+      });
+    }
+  });
+  return findings;
+}
+
+/**
+ * The slides of one chart class, each as its slide number and its source lines with
+ * fenced code and comments blanked (line count kept), for a chart's own lint rules.
+ */
+function classSlides(source, cls) {
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  const out = [];
+  splitTopLevel(source).forEach((slide, idx) => {
+    if (!(directives[idx]?.payload || '').split(/\s+/).includes(cls)) return;
+    out.push({ slideNo: Math.max(1, idx - fm + 1), lines: blankCommentSpans(stripFencedCode(slide)).split('\n') });
+  });
+  return out;
+}
+
+/** A list item's indent and inline-code pills, or null for a line that is not one. */
+function listPills(line) {
+  const m = /^(\s*)[-*+]\s+(.*)$/.exec(line);
+  return m ? { indent: m[1].length, pills: [...m[2].matchAll(/`([^`\n]+)`/g)].map((x) => x[1].trim()) } : null;
+}
+
+/**
+ * Histogram band validation, through the row model the chart and its narrator
+ * read (lib/core/histogram-model.js). Each is a warning: the chart still draws,
+ * but not what the author meant.
+ *  - `histogram-dash-range` — a band written with a dash, which is no band, so the
+ *    row is left out (`..` is the only range delimiter).
+ *  - `histogram-bands-join` — neighboring bands that leave a gap or overlap.
+ *  - `histogram-log-zero` — `log` over a domain that reaches zero, which draws
+ *    linear (histogram-model.js § isLogDrawn, shared with the chart).
+ *  - `histogram-negative` — a value below zero, which draws with no height.
+ */
+function findHistogramIssues(source) {
+  const findings = [];
+  for (const { slideNo, lines } of classSlides(source, 'histogram')) {
+    const warn = (f) => findings.push({ slide: slideNo, severity: 'warning', classToken: 'histogram', ...f, line: f.line.trim() });
+    const bands = [];
+    let axis = null;
+    for (const line of lines) {
+      const item = listPills(line);
+      if (!item) {
+        // The axis line, read as the chart reads it: its first member, with its scale.
+        const t = line.trim();
+        if (!bands.length && !axis && t.startsWith('`[') && t.endsWith(']`')) {
+          const members = parseBracketList(t.slice(1, -1), { maxParts: 4 });
+          if (members) axis = readAxisMember(members[0], { scales: true });
+        }
+        continue;
+      }
+      if (item.indent) continue;
+      const row = HISTOGRAM.readRow(item.pills);
+      if (row) {
+        bands.push({ ...row, line });
+        if (row.value < 0) {
+          warn({ rule: 'histogram-negative', line, message: `\`${row.valueRaw}\` is below zero, so the band draws with no height.`, fix: 'Use zero or more, or `bar` for signed values.' });
+        }
+        continue;
+      }
+      const dash = item.pills.find((p) => !p.includes('..') && /\d[^\s–—-]*\s*[-–—]\s*[$€£¥]?\d/.test(p));
+      if (dash) {
+        warn({ rule: 'histogram-dash-range', line, message: `\`${dash}\` uses a dash, so it is not a band and the row is left out.`, fix: `Write \`${dash.replace(/\s*[-–—]\s*(?=[$€£¥]?\d)/, '..')}\`.` });
+      }
+    }
+    for (const j of HISTOGRAM.joins(bands)) {
+      const a = bands[j.at - 1];
+      const b = bands[j.at];
+      warn({
+        rule: 'histogram-bands-join',
+        line: b.line,
+        message: `${j.kind === 'gap' ? 'A gap' : 'An overlap'}: the band before ends at ${a.toRaw} and this one starts at ${b.fromRaw}.`,
+        fix: `Start it where the one before ends: \`${a.toRaw}..${b.toRaw}\`.`,
+      });
+    }
+    if (axis?.scale === 'log' && bands.length && !HISTOGRAM.isLogDrawn(bands, axis)) {
+      warn({ rule: 'histogram-log-zero', line: bands[0].line, message: 'A log axis cannot reach zero, so the chart draws a linear one.', fix: 'Keep the bands and any axis domain above zero, or drop `log`.' });
+    }
+  }
+  return findings;
+}
+
+/**
+ * EP curve point validation, through the point model the chart and its narrator
+ * read (lib/core/ep-curve-model.js). Each names a point or curve the chart leaves out:
+ *  - `ep-curve-point` — a record that is not `{return period, loss}` with a return
+ *    period of at least 1; most often a thousands separator, `{1,000, $900M}`,
+ *    since the comma separates the record's two numbers.
+ *  - `ep-curve-duplicate` — a return period already in its curve.
+ *  - `ep-curve-too-many` — a fifth curve that draws a point; the chart draws four.
+ */
+function findEpCurveIssues(source) {
+  const findings = [];
+  for (const { slideNo, lines } of classSlides(source, 'ep-curve')) {
+    const warn = (f) => findings.push({ slide: slideNo, severity: 'warning', classToken: 'ep-curve', ...f, line: f.line.trim() });
+    // The curves as the kernel groups them: a flat list is one curve, each named
+    // top-level item another, and a curve with no readable point is no curve.
+    const curves = [];
+    let flat = null;
+    let cur = null;
+    for (const line of lines) {
+      const item = listPills(line);
+      if (!item) continue;
+      const last = item.pills[item.pills.length - 1];
+      const isPoint = !!last && last.startsWith('{');
+      if (!item.indent && !isPoint) {
+        cur = { line, points: 0, seen: new Set() };
+        curves.push(cur);
+        continue;
+      }
+      if (!isPoint) continue;
+      let into = cur;
+      if (!item.indent) {
+        if (!flat) curves.unshift((flat = { line, points: 0, seen: new Set() }));
+        into = flat;
+      }
+      const pt = EP_MODEL.readEpPoint(last);
+      if (!pt) {
+        const grouped = /\d,\d{3}/.test(last);
+        warn({
+          rule: 'ep-curve-point',
+          line,
+          message: grouped ? `\`${last}\` has a thousands separator, and a comma splits the record, so the point is left out.` : `\`${last}\` is not \`{return period, loss}\` with a return period of 1 or more, so it is left out.`,
+          fix: grouped ? `Write \`${last.replace(/(\d),(?=\d{3})/g, '$1')}\`.` : 'Write the return period first: `{100, $410M}`.',
+        });
+        continue;
+      }
+      if (!into) continue;
+      if (into.seen.has(pt.rp)) {
+        warn({ rule: 'ep-curve-duplicate', line, message: `1-in-${pt.rpRaw} is already in this curve, so this point is left out.`, fix: 'Give each return period one loss per curve.' });
+      }
+      into.seen.add(pt.rp);
+      into.points++;
+    }
+    const drawn = curves.filter((c) => c.points > 0);
+    if (drawn.length > 4) {
+      warn({ rule: 'ep-curve-too-many', line: drawn[4].line, message: `The chart draws four curves, so this fifth one and any after it are left out.`, fix: 'Move the rest to another slide.' });
+    }
+  }
+  return findings;
+}
+
+/**
+ * Flowchart and state-chart validation. Every rule lives in the grammar kernel
+ * (`lib/core/flowchart-grammar.js`), which the chart's own transform and narrator will
+ * call too when they land (the note's slice 3), so the linter can never read a flowchart
+ * differently from the picture. This only
+ * finds the flowchart slides, builds each one's outline from its Markdown, and maps the
+ * kernel's diagnostics onto findings. The rules and their reasons:
+ * engineering/decisions/2026-09-25-flowchart-authoring.md §2.
+ */
+function findFlowchartIssues(source) {
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    const tokens = (directives[idx]?.payload || '').split(/\s+/).filter(Boolean);
+    // The state chart is on the same grammar (state chart v2), with its two lead words.
+    const chart = tokens.includes('flowchart') ? 'flowchart' : tokens.includes('state-chart') ? 'state-chart' : null;
+    if (!chart) return;
+    const slideNo = Math.max(1, idx - fm + 1);
+    const body = blankCommentSpans(slide);
+    if (chart === 'state-chart') {
+      // THE v1 SPELLINGS, named: state chart v2 dropped them without a deprecation, so a deck
+      // written before it draws a stray state named `submit => 2` and says nothing else.
+      for (const line of body.split('\n')) {
+        const v1 = /`\s*([^`]*?)\s*=>\s*(\d+|self)\s*`/.exec(line);
+        if (v1) {
+          findings.push({
+            slide: slideNo, rule: 'state-chart-v1-transition', severity: 'warning', classToken: chart, line: line.trim(), shapeChange: true,
+            message: v1[2] === 'self'
+              ? `\`${v1[0].slice(1, -1).trim()}\` is the retired v1 self-loop: a self-loop names its own state now`
+              : `\`${v1[0].slice(1, -1).trim()}\` is the retired v1 transition: a target is a state's NAME now, not its number`,
+            fix: `Write the transition as an arrow to the state's name: \`- ${v1[1] ? `-${v1[1]}->` : '->'} ${v1[2] === 'self' ? 'This state' : 'Target'}\`.`,
+          });
+        }
+        if (/`\s*:::|`:::[a-z]|:::[a-z][a-z0-9/-]*\s*$/.test(line)) {
+          findings.push({
+            slide: slideNo, rule: 'state-chart-v1-tint', severity: 'warning', classToken: chart, line: line.trim(), shapeChange: true,
+            message: '`:::token` is the retired v1 tint channel; it is read as part of the name',
+            fix: 'Paint with a status word (`done`, `fail`, …) or a palette slot (`c1`…`c8`) in the state\'s span, or a line word (`dashed`, `=>` for the main path) after a target.',
+          });
+        }
+      }
+    }
+    // A NUMBERED list past 9 splits where its sub-items are indented for `1.`: `10. ` starts
+    // its text a column later, so a 3-space `   - -> X` under it is no longer its child, and
+    // CommonMark ends the list there. Both readers follow CommonMark, so every item after the
+    // split is dropped from the chart, silently. Say so, with the two fixes.
+    const lines = body.split('\n');
+    for (let i = 0; i < lines.length - 1; i++) {
+      const m = /^( {0,3})(\d{2,9}[.)])( +)\S/.exec(lines[i]);
+      if (!m) continue;
+      const col = m[1].length + m[2].length + m[3].length;
+      let j = i + 1;
+      while (j < lines.length && !lines[j].trim()) j++;
+      const ind = j < lines.length ? lines[j].length - lines[j].trimStart().length : 0;
+      if (ind > m[1].length && ind < col) {
+        findings.push({
+          slide: slideNo, rule: 'flowchart-list-split', severity: 'warning', classToken: chart, line: lines[i].trim(),
+          message: `Items after \`${m[2]}\` are dropped from the chart: its sub-items aren't indented far enough (${ind} spaces; its text starts at column ${col}).`,
+          fix: 'Use `-` bullets (the numbering is not needed: the badge shows the order), or indent that item\'s sub-items to its text.',
+        });
+        break;
+      }
+    }
+    const outline = outlineFromMarkdown(body);
+    const model = parseFlowchart(outline.items, { key: outline.key, ...(chart === 'state-chart' ? { host: 'state-chart' } : {}) });
+    const v1Named = chart === 'state-chart' && findings.some((f) => f.slide === slideNo && /^state-chart-v1-/.test(f.rule));
+    for (const d of model.diagnostics) {
+      // A v1 pill or tint also reads as an unknown modifier; the v1 rule above already names
+      // it, with the right fix, so the generic line would only say the same thing worse.
+      if (v1Named && d.rule === 'flowchart-unknown-modifier' && /=>|:::/.test(`${d.line || ''} ${d.message || ''}`)) continue;
+      findings.push({
+        slide: slideNo, rule: d.rule, severity: d.severity, classToken: chart,
+        ...(d.line ? { line: d.line } : {}),
+        message: d.message,
+        ...(d.fix ? { fix: d.fix } : {}),
+      });
+    }
+  });
+  return findings;
+}
+
+/**
+ * The charts whose data is a LIST: their rows are list items, so a stray block between two
+ * items splits the data. Pinned against the chart bucket's manifests in
+ * test/unit/authoring/chart-list-quote-split.test.js (every chart but the three tables:
+ * heatmap, matrix-grid, roadmap), so a new list chart cannot be missed silently.
+ */
+const LIST_CHARTS = Object.freeze([
+  'bar', 'bullet', 'flowchart', 'funnel', 'gantt', 'hub-spoke', 'journey', 'kanban', 'line', 'map',
+  'piechart', 'progress', 'quadrant', 'radar', 'scatter', 'slope', 'stacked-bar', 'state-chart',
+  'risk-matrix', 'timeline-list', 'tower', 'waterfall', 'word-cloud', 'histogram', 'ep-curve',
+]);
+
+/** The list charts that read an indented `>` under a row, and the rows with no mark to describe. */
+const QUOTE_READERS = Object.freeze([...CHART_ROWS.QUOTE_CHARTS, ...CHART_ROWS.DETAIL_CHARTS]);
+
+/** The slide's tokens, the chart it carries (or null), and its top-level blocks in order. */
+function chartListScan(slide, directive) {
+  const chart = (directive?.payload || '').split(/\s+/).find((t) => LIST_CHARTS.includes(t));
+  if (!chart) return null;
+  const body = blankCommentSpans(slide);
+  const tokens = boundaryParser.parse(body, {});
+  // The slide's top-level blocks, in order: a list, a quote, or anything else.
+  const blocks = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.level !== 0 || t.nesting === -1 || !t.map) continue;
+    const kind = t.type === 'bullet_list_open' || t.type === 'ordered_list_open' ? 'list' : t.type === 'blockquote_open' ? 'quote' : 'other';
+    blocks.push({ kind, map: t.map, at: i });
+  }
+  return { chart, lines: body.split('\n'), tokens, blocks };
+}
+
+/** A quote's `>` lines, from its token map. */
+const quoteLinesOf = (lines, map) => lines.slice(map[0], map[1]).filter((l) => /^\s*>/.test(l));
+
+/**
+ * A `>` written at the left margin between two items of a chart's list. CommonMark reads a
+ * blockquote that is not indented under its item as a new top-level block, so it ENDS the list:
+ * every row after it is a second list that the chart does not read (a flowchart drops the node,
+ * a bar chart the bar) and the quote renders as a stray block below the chart. Nothing said so.
+ * On every chart that reads a row's `>` (QUOTE_READERS: the flowchart grammar's two charts and
+ * the detail charts their row schemas name, lib/core/chart-rows.js) the fix indents the quote under the item
+ * above, where it becomes that row's description. On a list chart that reads no detail under its
+ * rows (hub-spoke, gantt, kanban, journey, timeline-list, progress) the fix is to move it out of
+ * the list, with no machine fix. Machine-applicable only when the quote is one line.
+ */
+function findChartListQuoteSplits(source) {
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    const scan = chartListScan(slide, directives[idx]);
+    if (!scan) return;
+    const { chart, lines, tokens, blocks } = scan;
+    // The chart reads its FIRST list; only a quote that splits it costs rows.
+    const first = blocks.findIndex((b) => b.kind === 'list');
+    if (first < 0 || blocks[first + 1]?.kind !== 'quote' || blocks[first + 2]?.kind !== 'list') return;
+    const list = blocks[first];
+    const quote = blocks[first + 1];
+    // The item the author meant: the last item opened in the list above the quote.
+    let item = null;
+    for (let i = list.at; i < quote.at; i++) if (tokens[i].type === 'list_item_open' && tokens[i].map) item = tokens[i];
+    const marker = item ? /^(\s*)([-*+]|\d{1,9}[.)])(\s+)/.exec(lines[item.map[0]] || '') : null;
+    const indent = marker ? marker[0].length : 2;
+    const quoteLines = quoteLinesOf(lines, quote.map);
+    const line = quoteLines[0];
+    if (!line) return;
+    const after = (lines[blocks[first + 2].map[0]] || '').trim();
+    const one = quoteLines.length === 1;
+    const reads = QUOTE_READERS.includes(chart);
+    findings.push({
+      slide: Math.max(1, idx - fm + 1),
+      rule: 'chart-list-split-quote',
+      severity: 'warning',
+      classToken: chart,
+      line: line.trim(),
+      message: `This \`>\` starts at the left margin, so it ends the ${chart} list: \`${after}\` and every row after it are left out of the chart.`,
+      fix: !reads
+        ? `Move the quote above or below the list: a ${chart} chart reads no description under its rows.`
+        : one
+          ? `Indent the quote ${indent} spaces, under the item above: it becomes that row's description.`
+          : `Indent each of the quote's ${quoteLines.length} lines ${indent} spaces, under the item above: it becomes that row's description.`,
+      ...(reads && one ? { autofixable: true, didYouMean: 'indent under the item', indent } : {}),
+    });
+  });
+  return findings;
+}
+
+/**
+ * A `>` under a row that has no mark of its own (the chart's row schema, `rows.markless`, read
+ * through lib/core/chart-rows.js): a radar series, whose marks are its axes, or a quadrant group, whose marks
+ * are its points. The chart lifts the quote out so it never joins the row's name, which means it is
+ * shown nowhere; this says so, and where it belongs. No machine fix: which axis or point it
+ * describes is the author's call.
+ */
+function findChartRowQuotes(source) {
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    const scan = chartListScan(slide, directives[idx]);
+    if (!scan) return;
+    const { chart, lines, tokens, blocks } = scan;
+    const markless = CHART_ROWS.marklessDepths(chart, (directives[idx]?.payload || '').split(/\s+/));
+    if (!markless.size) return;
+    const list = blocks.find((b) => b.kind === 'list');
+    if (!list) return;
+    const next = blocks.find((b) => b.at > list.at);
+    const stop = next ? next.at : tokens.length;
+    let itemDepth = 0;
+    let quoteDepth = 0;
+    for (let i = list.at; i < stop; i++) {
+      const t = tokens[i];
+      if (t.type === 'list_item_open') itemDepth++;
+      if (t.type === 'list_item_close') itemDepth--;
+      if (t.type === 'blockquote_close') quoteDepth--;
+      if (t.type !== 'blockquote_open') continue;
+      quoteDepth++;
+      // Only a quote directly under a markless row: its parent token is that row's list item.
+      if (quoteDepth !== 1 || !markless.has(itemDepth) || tokens[i - 1]?.type === 'blockquote_open' || !t.map) continue;
+      const parentItem = [...tokens.slice(list.at, i)].reverse().find((x) => x.type === 'list_item_open' || x.type === 'list_item_close');
+      if (parentItem?.type !== 'list_item_open') continue;
+      const quoteLines = quoteLinesOf(lines, t.map);
+      if (!quoteLines.length) continue;
+      const where = chart === 'radar' ? 'an axis' : 'a point';
+      findings.push({
+        slide: Math.max(1, idx - fm + 1),
+        rule: 'chart-row-quote-unread',
+        severity: 'warning',
+        classToken: chart,
+        line: quoteLines[0].trim(),
+        message: `A ${chart} ${chart === 'radar' ? 'series' : 'group'} has no mark of its own, so this \`>\` describes nothing and is not shown.`,
+        fix: `Move it under ${where} of this ${chart === 'radar' ? 'series' : 'group'}: there it is that ${where.slice(where.indexOf(' ') + 1)}'s description.`,
+      });
+    }
+  });
+  return findings;
+}
+
+/**
+ * A pill in a chart's data that is shaped like a number but is not one: `--5`, `(5`, `5)`,
+ * `1,2,3`, `1.2.3.4x`. The number reader (Segno's `readNumber`, which lib/core/chart-values.js
+ * shares) refuses it, so the chart does not plot it; before the reader was strict it plotted a
+ * different number (-5, 5, 1.2, 1234) with no warning (followups.d/2609-p2). Only spans in a
+ * list item or a table cell, where a chart reads its values, and only on a chart that reads
+ * numbers (VALUE_CHARTS), so a kicker, prose code, a dotted date or a version is never flagged. `malformedNumber` says why, in the author's
+ * terms. No machine fix: which number was meant is the author's call.
+ */
+// The charts that read a pill as a NUMBER (each calls chart-values.js's parseValue, signedValue or
+// isValuePill). A timeline date `15.03.2026` or a kanban version `1.2.0` is text there, not a typo.
+const VALUE_CHARTS = Object.freeze([
+  'bar', 'bullet', 'funnel', 'heatmap', 'hub-spoke', 'line', 'map', 'piechart', 'progress', 'radar',
+  'scatter', 'slope', 'stacked-bar', 'waterfall', 'word-cloud',
+]);
+function findChartMalformedValues(source) {
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    const words = (directives[idx]?.payload || '').split(/\s+/);
+    const chart = words.find((t) => VALUE_CHARTS.includes(t));
+    if (!chart) return;
+    const tokens = boundaryParser.parse(blankCommentSpans(slide), {});
+    let inData = 0;
+    const seen = new Set();
+    for (const t of tokens) {
+      if (t.type === 'list_item_open' || t.type === 'td_open' || t.type === 'th_open') inData++;
+      if (t.type === 'list_item_close' || t.type === 'td_close' || t.type === 'th_close') inData--;
+      if (t.type !== 'inline' || !inData || !t.children) continue;
+      for (const c of t.children) {
+        if (c.type !== 'code_inline' || seen.has(c.content)) continue;
+        const why = malformedNumber(c.content);
+        if (!why) continue;
+        seen.add(c.content);
+        findings.push({
+          slide: Math.max(1, idx - fm + 1),
+          rule: 'chart-value-malformed',
+          severity: 'warning',
+          classToken: chart,
+          line: `\`${c.content}\``,
+          message: `\`${c.content}\` looks like a number but is not one: ${why}. The chart does not read it as a value.`,
+          fix: 'Write one number: one sign or an accounting `(…)`, grouped in threes (`1,234.5`, `1.234,5` or `1 234,5`), then an optional unit.',
+        });
+      }
+    }
+  });
+  return findings;
+}
+
+/** A table row's cells: split on every UNESCAPED pipe, code spans or not, as GFM does. */
+function tableCells(line) {
+  let s = line.trim();
+  if (s.startsWith('|')) s = s.slice(1);
+  if (s.endsWith('|') && !s.endsWith('\\|')) s = s.slice(0, -1);
+  const cells = [];
+  let cur = '';
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '\\') { cur += s[i] + (s[i + 1] ?? ''); i++; continue; }
+    if (s[i] === '|') { cells.push(cur); cur = ''; continue; }
+    cur += s[i];
+  }
+  cells.push(cur);
+  return cells;
+}
+
+const TABLE_DELIMITER = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/;
+
+/**
+ * A `|` inside a table cell's `{> …}` description that is not written `\|`. A table row splits on
+ * every unescaped pipe BEFORE Segno reads the cell (GFM does not spare a code span), so the bare pipe
+ * ends the description's span early and adds a cell: every value after it shifts one column, with no
+ * error. The owner decided (2026-10-16, model note §7) that a description may hold a `|` and the
+ * author escapes it, so this rule finds the row and names the fix. Segno decision 4 keeps `|`
+ * reserved inside a record, which is why the rule cannot be a Segno diagnostic: Segno never sees the
+ * second half.
+ *
+ * Found by shape, not by a cell count alone: the row has more cells than its header AND a cell opens
+ * a `{> …` span that never closes in that cell while a later cell closes it (`}` then the backtick).
+ * A list row's description is a `>` quote, where a pipe is just text, and is never looked at here.
+ * No machine fix: the author chooses between escaping the pipe and rewording the description.
+ */
+function findChartUnescapedPipes(rawSource) {
+  const source = String(rawSource).replace(/^\uFEFF/, ''); // a BOM hides the front matter, so the slide split and the class directives would misalign
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    const words = (directives[idx]?.payload || '').split(/\s+/);
+    const chart = CHART_ROWS.recordChart(words);
+    if (!chart || !slide.includes('{>')) return;
+    const lines = normalizeSource(blankCommentSpans(slide)).split('\n');
+    let fence = false;
+    for (let i = 1; i < lines.length; i++) {
+      if (/^\s*(?:```|~~~)/.test(lines[i])) fence = !fence;
+      // The cheap pipe test first, and the delimiter on the trimmed line: its adjacent `\s*` runs are quadratic on a long line of spaces.
+      if (fence || !lines[i - 1].includes('|') || !TABLE_DELIMITER.test(lines[i].trim())) continue;
+      const width = tableCells(lines[i - 1]).length;
+      let r = i + 1;
+      for (; r < lines.length && lines[r].trim() && lines[r].includes('|'); r++) {
+        if (!lines[r].includes('{>')) continue;
+        const cells = tableCells(lines[r]);
+        if (cells.length <= width) continue;
+        const open = cells.findIndex((c) => /`\{>[^`]*$/.test(c));
+        if (open < 0 || !cells.slice(open + 1).some((c) => /^[^`]*\}`/.test(c))) continue;
+        findings.push({
+          slide: Math.max(1, idx - fm + 1),
+          rule: 'chart-table-unescaped-pipe',
+          severity: 'warning',
+          classToken: chart,
+          line: lines[r].trim(),
+          message: `A \`|\` inside this cell's \`{> …}\` description splits the row: it has ${cells.length} cells under a ${width}-column header, so every value after the description shifts one column.`,
+          fix: 'Write the pipe as `\\|` inside the description (`{> up \\| down}`), or reword it without a pipe.',
+        });
+      }
+      i = r - 1; // a delimiter-like line inside this body is a body row, not a new table: scan each row once
+    }
+  });
+  return findings;
+}
+
+/**
+ * A `{> prose}` description in a place the chart does not read it. The model note (decision 5) gives a
+ * description ONE form per container: a `>` quote indented under a LIST row, and `{> …}` in a TABLE cell.
+ * A `{> …}` span in a list row is not read, and it does worse than nothing when it follows the row's
+ * record: the record is no longer the last thing in the row, so the row loses its value with no error
+ * (`- North `{40}` `{> grew fast}`` draws no bar). A `{> …}` in a table cell of a chart that does not
+ * read one (`rows.cellDescriptions`, heatmap today) stays a code span in the cell.
+ *
+ * A list row on a chart whose rows take a quote (`rows.quotes`) gets a machine fix that moves the prose to
+ * the quote under the row, so a bulk fix never leaves the row's value lost. The prose is the span's text,
+ * unescaped; two spans on one row join with a space.
+ */
+function findChartDescriptionPlace(rawSource) {
+  const source = String(rawSource).replace(/^﻿/, ''); // as findChartUnescapedPipes
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  const ITEM = /^(\s*)(?:[-*+]|\d+[.)])\s+/;
+  const SPAN = /`(\{>(?:\\[\s\S]|[^}\\`])*\})`/g;
+  slides.forEach((slide, idx) => {
+    if (!slide.includes('{>')) return;
+    const words = (directives[idx]?.payload || '').split(/\s+/);
+    const chart = CHART_ROWS.recordChart(words);
+    if (!chart) return;
+    const schema = CHART_ROWS.rowSchema(chart);
+    let fence = null;
+    const lines = normalizeSource(blankCommentSpans(slide)).split('\n');
+    let skipTable = 0; // a heatmap table is checked once, from its header row
+    for (const [li, line] of lines.entries()) {
+      const f = /^\s*(`{3,}|~{3,})/.exec(line);
+      if (fence) { if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null; continue; }
+      if (f) { fence = f[1]; continue; }
+      const finding = { slide: Math.max(1, idx - fm + 1), rule: 'chart-description-unread', severity: 'warning', classToken: chart, line: line.trim() };
+      if (li >= skipTable && CHART_ROWS.CELL_DESCRIPTION_CHARTS.includes(chart) && line.includes('|')) skipTable = heatmapDescriptionForms(lines, li, chart, finding, findings);
+      if (!line.includes('{>')) continue;
+      const spans = [...line.matchAll(SPAN)].map((m) => ({ text: m[1], prose: CELL_NOTE.readDescription(m[1]) })).filter((x) => x.prose !== null);
+      if (!spans.length) continue;
+      const item = ITEM.exec(line);
+      if (item) {
+        if (/^\s*>/.test(line)) continue; // a quote's own text
+        if (schema.rows.quotes === true) {
+          const rest = line.replace(SPAN, (all, t) => (CELL_NOTE.readDescription(t) !== null ? '' : all)).replace(/[ \t]+$/, '').replace(/(\S)[ \t]{2,}/g, '$1 ');
+          const prose = spans.map((x) => x.prose).filter(Boolean).join(' ');
+          const message = 'A `{> …}` description is not read in a list row, and written after the row\'s record it leaves the row with no value. A list row\'s description is a `>` quote indented under it.';
+          const fix = 'Move the prose to a quote under the row: `  > prose`.';
+          if (prose) findings.push({ ...finding, message, fix, autofixable: true, replaceLine: `${rest}\n${item[1]}  > ${prose}` });
+          else findings.push({ ...finding, message, fix });
+        } else {
+          findings.push({ ...finding, message: `A \`{> …}\` description is not read in a ${chart} list row: this chart has no row description.`, fix: 'Remove it, or say it in the slide\'s own text.' });
+        }
+      } else if (line.includes('|') && !CHART_ROWS.CELL_DESCRIPTION_CHARTS.includes(chart)) {
+        findings.push({ ...finding, message: `A \`{> …}\` description in a table cell is not read on a ${chart} slide, so it stays a code span in the cell.`, fix: `Only ${CHART_ROWS.CELL_DESCRIPTION_CHARTS.join(', ')} read${CHART_ROWS.CELL_DESCRIPTION_CHARTS.length === 1 ? 's' : ''} a table cell's description today; remove it, or say it in the slide's own text.` });
+      }
+    }
+  });
+  return findings;
+}
+
+/**
+ * A heatmap's table description forms, checked on its header row and the body rows under it. A description needs the column's name
+ * before it; `{>}` stands alone in a header cell, once, after the label column; the label column holds no description (a row's goes in
+ * the `{>}` column), and the `{>}` column holds plain text. The picture and the narrator read each of these the same way
+ * (heatmap.transform.js `readHead`, chart-narration.js `parseDataTable`), so the warning names what they do.
+ */
+function heatmapDescriptionForms(lines, at, chart, finding, findings) {
+  const SPAN = /`(\{>(?:\\[\s\S]|[^}\\`])*\})`/g;
+  const line = lines[at];
+  const delim = lines[at + 1];
+    if (delim !== undefined && line.includes('|') && TABLE_DELIMITER.test(delim.trim())) {
+      const warn = (message, fix) => findings.push({ ...finding, message, fix });
+      const BARE = /^\s*`\{>\s*\}`\s*$/;
+      const cells = tableCells(line);
+      const hasDesc = (c) => [...c.matchAll(SPAN)].some((m) => CELL_NOTE.readDescription(m[1]) !== null);
+      if (hasDesc(cells[0]) || BARE.test(cells[0])) warn(`The label column's header holds a \`{> …}\` description, which the ${chart} does not read there: it names the rows.`, 'Put a row\'s description in a `{>}` column after the label column.');
+      const heads = cells.slice(1);
+      const bareAt = heads.map((c, k) => (BARE.test(c) ? k : -1)).filter((k) => k >= 0);
+      for (const c of heads) {
+        if (BARE.test(c)) continue;
+        const name = c.replace(SPAN, '').trim();
+        if (/`\{>\s*\}`/.test(c)) warn('`{>}` heads the description column on its own, and here it shares its header cell with other text, so the cell is read as a column name.', 'Give the `{>}` column a header cell that holds only `{>}`.');
+        else if (!name && hasDesc(c)) warn(`A header cell holds only a \`{> …}\` description, with no column name before it, so the ${chart} reads the whole span as the column's name.`, 'Write the column name first, then the description: `M1 `{> the second month}``.');
+      }
+      if (bareAt.length > 1) warn(`The header row has ${bareAt.length} \`{>}\` columns; only the first is the description column, and the others are dropped with their cells.`, 'Keep one `{>}` column.');
+      let r = at + 2;
+      for (; r < lines.length && lines[r].trim() && lines[r].includes('|'); r++) {
+        const row = tableCells(lines[r]);
+        if (hasDesc(row[0] ?? '')) findings.push({ ...finding, line: lines[r].trim(), message: `A \`{> …}\` description in a row label is not read: the ${chart} takes the whole cell as the row's name.`, fix: 'Put the row\'s description in a `{>}` column after the label column.' });
+        if (bareAt.length && hasDesc(row[bareAt[0] + 1] ?? '')) findings.push({ ...finding, line: lines[r].trim(), message: 'The `{>}` column holds plain text, so a `{> …}` span there is read as its own braces.', fix: 'Write the description without the `{> }`.' });
+      }
+      return r; // the table's end: the caller does not scan its rows again
+    }
+  return at + 1;
+}
+
+// The charts whose nested list repeats each series name under every group (bar, line, stacked-bar, slope, radar).
+const SERIES_NAME_CHARTS = new Set(['bar', 'line', 'stacked-bar', 'slope', 'radar']);
+// Past this many distinct names the pair scan stops: the deck is not a typo case, and the scan is quadratic.
+const SERIES_NAME_MAX = 120;
+
+/**
+ * A series name spelled two ways across the groups of a nested chart list. A nested list repeats each
+ * series name under every group (`- FY23` / `  - Licenses `{18}``), and the chart matches series by
+ * that text, so `Licences` under the next group draws a second series with no error.
+ *
+ * What counts as a series row: a child of the slide's FIRST list (the only one the chart reads) whose
+ * last code span is a number, as the transforms decide (`parseSeries`); any other child is a note and
+ * its text is the author's. Two names are near-twins when they differ only in case or spacing, or by
+ * one edit (two past 7 letters) in a name of at least 4 letters. They are one series gone wrong, not
+ * two series, only when they never share a group (a typo replaces a name, it does not sit beside it).
+ * A difference only in digits (`Q1`, `Q2`), or in a last word of one or two letters (`Plan A`,
+ * `Plan B`, `UK`, `US`), is a different name: a chart draws a series missing from a group as a
+ * shorter bar or a gap, so two such names in separate groups are a supported shape.
+ *
+ * It is a typo only with evidence that the groups share a shape: every group holding the odd spelling also
+ * holds another series, and each of those appears under the intended spelling's groups too. A one-series group,
+ * or companions the other side lacks (`Cars` / `Vans` against `Card` / `Bans`), proves nothing, so it stays silent.
+ *
+ * The spelling under more groups is the intended one; on a tie the first group's wins. Each deviating
+ * row gets ONE finding, and its `replace` carries the text as written on the line (not the cleaned
+ * name), so `applyFix` finds it and "Fix all" cannot stall on it.
+ */
+function findChartSeriesNameDrift(rawSource) {
+  const source = String(rawSource).replace(/^﻿/, ''); // as findChartUnescapedPipes
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  const ITEM = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
+  const FENCE = /^\s*(`{3,}|~{3,})/;
+  slides.forEach((slide, idx) => {
+    const words = (directives[idx]?.payload || '').split(/\s+/);
+    const chart = CHART_ROWS.recordChart(words);
+    if (!SERIES_NAME_CHARTS.has(chart)) return;
+    const groups = []; // each top-level row of the first list: its series rows { key, raw, line }
+    let top = -1;
+    let childIndent = -1;
+    let fence = null;
+    for (const line of normalizeSource(blankCommentSpans(slide)).split('\n')) {
+      const f = FENCE.exec(line);
+      if (fence) { if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null; continue; }
+      if (f) { fence = f[1]; continue; }
+      if (!line.trim()) continue;
+      const m = ITEM.exec(line);
+      const indent = (m ? m[1] : /^\s*/.exec(line)[0]).replace(/\t/g, '    ').length;
+      if (!m) { if (groups.length && indent === 0) break; continue; } // a paragraph ends the first list
+      if (top < 0 || indent < top) top = indent;
+      if (indent === top) { groups.push([]); childIndent = -1; continue; }
+      if (childIndent < 0) childIndent = indent;
+      if (indent !== childIndent) continue; // detail below the series rows
+      const spans = [...m[2].matchAll(/`([^`]*)`/g)];
+      const last = spans[spans.length - 1]?.[1]?.trim().replace(/^\{\s*([^,}]*)[\s\S]*\}$/, '$1');
+      if (!last || !CHART_VALUES.isValuePill(last)) continue; // a note, not a series point
+      const raw = m[2].slice(0, m[2].indexOf('`')).trim();
+      const key = raw.replace(/\*/g, '').replace(/(^|\s)_+|_+(?=\s|$)/g, '$1').replace(/\s+/g, ' '); // emphasis markers are not the name; an underscore inside a word is
+      if (key) groups[groups.length - 1].push({ key, raw, line: line.trim() });
+    }
+    const byName = new Map(); // key -> the groups it appears in, and its rows
+    groups.forEach((rows, g) => {
+      for (const row of rows) {
+        const e = byName.get(row.key) || { groups: new Set(), rows: [] };
+        e.groups.add(g);
+        e.rows.push(row);
+        byName.set(row.key, e);
+      }
+    });
+    if (byName.size < 2 || byName.size > SERIES_NAME_MAX) return;
+    const flat = (n) => n.toLowerCase().replace(/\s+/g, '');
+    const lastWord = (n) => n.toLowerCase().split(/\s+/).pop();
+    const near = (a, b) => {
+      const x = flat(a);
+      const y = flat(b);
+      if (x === y) return true;
+      if (Math.min(x.length, y.length) < 4) return false;
+      if (x.replace(/\d/g, '') === y.replace(/\d/g, '')) return false; // digits only: a different name
+      const wa = lastWord(a);
+      const wb = lastWord(b);
+      if (wa !== wb && wa.length <= 2 && wb.length <= 2 && a.slice(0, a.length - wa.length) === b.slice(0, b.length - wb.length)) return false;
+      const max = Math.min(x.length, y.length) <= 7 ? 1 : 2;
+      return editDistance(x, y, max) <= max;
+    };
+    // Evidence that `drop` replaced `keep` rather than being a series of its own: every group that holds `drop` also
+    // holds at least one other series, and each of those appears under `keep`'s groups too (`Services` beside both
+    // spellings). A group with no companions, or with companions the other side lacks, proves nothing, so it stays silent.
+    const namesIn = (groupSet) => new Set([...groupSet].flatMap((g) => groups[g].map((r) => r.key)));
+    const sharesShape = (drop, keepEntry) => {
+      const seen = namesIn(keepEntry.groups);
+      return [...byName.get(drop).groups].every((g) => {
+        const others = groups[g].map((r) => r.key).filter((k) => k !== drop);
+        return others.length > 0 && others.every((k) => seen.has(k));
+      });
+    };
+    const first = (e) => Math.min(...e.groups);
+    const beats = (a, b) => a.groups.size > b.groups.size || (a.groups.size === b.groups.size && first(a) < first(b));
+    for (const [drop, ed] of byName) {
+      let keep = null; // the best spelling this one deviates from: most groups, then earliest
+      for (const [name, e] of byName) {
+        if (name === drop || !beats(e, ed) || [...ed.groups].some((g) => e.groups.has(g)) || !near(drop, name)) continue;
+        if (flat(drop) !== flat(name) && !sharesShape(drop, e)) continue; // case and spacing alone is one name
+        if (!keep || beats(e, byName.get(keep))) keep = name;
+      }
+      if (!keep) continue;
+      const ke = byName.get(keep);
+      for (const row of ed.rows) {
+        findings.push({
+          slide: Math.max(1, idx - fm + 1),
+          rule: 'chart-series-name-inconsistent',
+          severity: 'warning',
+          classToken: chart,
+          line: row.line,
+          message: `\`${row.key}\` is spelled \`${keep}\` under ${ke.groups.size === 1 ? 'another group' : 'the other groups'}, and the chart matches series by their text, so it draws \`${row.key}\` as a second series.`,
+          fix: `Spell the series the same under every group: \`${keep}\`.`,
+          autofixable: true,
+          replace: { from: row.raw, to: ke.rows[0].raw },
+        });
+      }
+    }
+  });
+  return findings;
+}
+
+// The names bullet's kernel reads as structure (bullet.transform.js): a row labeled one of these is a keyword row.
+const BULLET_KEYWORDS = new Set(['target', 'plan', 'goal', 'band', 'range', 'actual', 'measure', 'floor', 'base']);
+// The charts that read a plain number under a valued row as a series point: a record there is read as a note.
+const STACKED_NOTES = new Set(['bar', 'line', 'slope', 'stacked-bar']);
+
+/**
+ * A list row written as the chart authoring model's ONE `{…}` record (`- EMEA `{4.2M, target=5.0M}``)
+ * that the chart cannot draw. The chart family rewrites a data row's record to the spans each
+ * transform reads (`bridgeRecordsHtml`), so a row with an old form draws and is not reported. What is
+ * left: a record with a field the old spans cannot spell on a chart that is not native (`rows.native`;
+ * bullet and progress read every field themselves), and a record that follows another code span on the row (`1` `{2}`), which is not the
+ * row's record. The model note
+ * (engineering/decisions/2026-10-14-chart-authoring-uniform-model.md §2) teaches the record, and
+ * the chart's row schema reads it (lib/core/chart-rows.js `readRecord`), but until the chart's
+ * reader takes it (phase 2's ownership step) the span renders as a pill or as plain code and the
+ * row loses its value with no error: a bar draws no bar, a pie misreads the slice, progress prints
+ * the braces. The fix names the spans the chart reads today (`legacySpans`, from the schema's
+ * `rows.legacy`).
+ *
+ * Only a DATA row: a top-level row, or a row whose parent row holds no value of its own (a series
+ * point under its category, a radar axis under its series). A nested bullet under a row that has
+ * a value is that row's detail, where a pill is just a pill. Only the row's LAST span, where its
+ * value sits, and only on a chart whose old form is not itself a record (scatter and quadrant
+ * already read one).
+ *
+ * No machine fix, on purpose: the record is the form phase 4's codemod writes, so a bulk "Fix all"
+ * toward the old spans would push decks the wrong way, and the fix text is the author's to apply.
+ */
+function findChartRowRecords(rawSource) {
+  const source = String(rawSource).replace(/^\uFEFF/, ''); // as findChartUnescapedPipes
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    const words = (directives[idx]?.payload || '').split(/\s+/);
+    const chart = CHART_ROWS.recordChart(words);
+    if (!chart || !Array.isArray(CHART_ROWS.rowSchema(chart)?.rows.legacy)) return;
+    const tokens = boundaryParser.parse(blankCommentSpans(slide), {});
+    const rawLines = slide.split('\n');
+    const label = CHART_ROWS.rowSchema(chart).spec.label || `a ${chart} row`;
+    const open = []; // the open rows: the code spans of each one's lead, outermost first
+    let quote = 0;
+    let lists = 0;
+    const leadOf = (at) => {
+      const lead = (tokens[at + 1]?.type === 'paragraph_open' || tokens[at + 1]?.type === 'heading_open') ? tokens[at + 2] : null;
+      return (lead?.type === 'inline' ? lead.children || [] : [])
+        .filter((c) => !(c.type === 'text' && !c.content.trim()) && c.type !== 'softbreak');
+    };
+    // How many plain-number records each row has as children: records written as DATA come in groups
+    // (`Lic {18}`, `Svc {6}`), a delta note is one, so only a group is warned about.
+    const plainKids = new Map();
+    const parents = [];
+    tokens.forEach((tk, at) => {
+      if (tk.type === 'list_item_close') parents.pop();
+      if (tk.type !== 'list_item_open') return;
+      const kidsAt = leadOf(at);
+      const tail = kidsAt[kidsAt.length - 1];
+      if (parents.length && tail?.type === 'code_inline' && /^\{\s*\d[\d.,]*\s*[%A-Za-z]*\s*\}$/.test(tail.content.trim())) {
+        const parent = parents[parents.length - 1];
+        plainKids.set(parent, (plainKids.get(parent) || 0) + 1);
+      }
+      parents.push(at);
+    });
+    const rowAt = []; // the token index of each open row, to find its parent's group
+    const rowLevel = []; // the markdown-it level of each open row, to tell its own blocks from a nested row's
+    // Does another block (not a nested list; not a quote, where the chart lifts one off the row) follow the row's lead paragraph?
+    const followedByBlock = (at, level, quotesOk) => {
+      let seenLead = false;
+      for (let j = at + 1; j < tokens.length; j++) {
+        const k = tokens[j];
+        if (k.type === 'list_item_close' && k.level === level) return false;
+        if (k.level !== level + 1 || !/_open$|^(?:html_block|fence|code_block|hr)$/.test(k.type)) continue;
+        if (!seenLead) { seenLead = true; continue; } // the lead's own block
+        if (k.type === 'bullet_list_open' || k.type === 'ordered_list_open' || (quotesOk && k.type === 'blockquote_open')) continue;
+        return true;
+      }
+      return false;
+    };
+    const schemaQuotes = (c) => CHART_ROWS.rowSchema(c).rows.quotes === true;
+    const rawBudget = { left: CHART_ROWS.RAW_SCAN_BUDGET }; // characters of raw HTML this slide may have scanned tag by tag
+    let quoteTop = false; // the open quote began outside every row: it holds the chart list itself, not a row's description
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (t.type === 'blockquote_open') { quote++; if (quote === 1) quoteTop = !open.length; }
+      if (t.type === 'blockquote_close') quote--;
+      if ((t.type === 'bullet_list_open' || t.type === 'ordered_list_open') && !open.length) lists++;
+      if (t.type === 'html_block' && !open.length) lists += CHART_ROWS.rawBlockCounts(t.content, rawBudget).lists;
+      if (t.type === 'list_item_close') { open.pop(); rowAt.pop(); rowLevel.pop(); continue; }
+      if (t.type === 'paragraph_open' && open.length && !quote && lists === 1 && tokens[i - 1].type !== 'list_item_open' && t.level === rowLevel[rowLevel.length - 1] + 1) {
+        // A record in a LATER paragraph of a row is not its value: the old form reads a span there, a record is a pill.
+        const later = (tokens[i + 1]?.children || []).filter((c) => !(c.type === 'text' && !c.content.trim()) && c.type !== 'softbreak');
+        const tail = later[later.length - 1];
+        const lead = open[open.length - 1];
+        if (tail?.type === 'code_inline' && CHART_ROWS.drawsRecord(chart, tail.content)
+          && !CHART_ROWS.holdsValueIn(chart, lead) && !CHART_ROWS.marklessDepths(chart, words).has(open.length)
+          && !CHART_ROWS.isDetailRow(chart, words, open.slice(0, -1))) {
+          const line = (rawLines[t.map?.[0]] || '').trim();
+          if (line) {
+            findings.push({
+              slide: Math.max(1, idx - fm + 1), rule: 'chart-row-record-unread', severity: 'warning', classToken: chart, line,
+              message: `\`${tail.content}\` is in a later paragraph of its row, so the ${chart} chart does not read it as the row's value: the row loses it.`,
+              fix: `Write the record on the row's first line, after its label.`,
+            });
+          }
+        }
+        continue;
+      }
+      if (t.type !== 'list_item_open') continue;
+      rowLevel.push(t.level);
+      // The row's own lead is the inline right after its first block opens (a paragraph or a heading).
+      const kids = leadOf(i);
+      const parentAt = rowAt[rowAt.length - 1];
+      rowAt.push(i);
+      const last = kids[kids.length - 1];
+      const span = last?.type === 'code_inline' ? last.content : null;
+      const leadSpans = kids.filter((c) => c.type === 'code_inline').map((c) => c.content);
+      const ancestors = open.slice();
+      open.push(leadSpans);
+      if (span == null || lists !== 1) continue;
+      if (quote) {
+        // The old spans draw a chart list inside a `>` quote; a record there is not read, so the chart is lost.
+        const line = (rawLines[t.map?.[0]] || '').trim();
+        if (line && quoteTop && /^\{[\s\S]*\}$/.test(span.trim()) && CHART_ROWS.drawsRecord(chart, span)
+          && !CHART_ROWS.marklessDepths(chart, words).has(open.length) && !CHART_ROWS.isDetailRow(chart, words, ancestors)) {
+          findings.push({
+            slide: Math.max(1, idx - fm + 1), rule: 'chart-row-record-unread', severity: 'warning', classToken: chart, line,
+            message: `\`${span}\` is in a chart list inside a \`>\` quote, where the ${chart} chart does not read a record: the row loses its value.`,
+            fix: `Take the list out of the quote, or write the row's value as the chart reads it today (see the ${chart} docs).`,
+          });
+        }
+        continue;
+      }
+      if (CHART_ROWS.marklessDepths(chart, words).has(open.length)) continue;
+      const isRecord = /^\{[\s\S]*\}$/.test(span.trim());
+      const plain = /^\{\s*\d[\d.,]*\s*[%A-Za-z]*\s*\}$/.test(span.trim()); // a plain number: a segment or a point, not a note
+      if (CHART_ROWS.isDetailRow(chart, words, ancestors)) {
+        if (!isRecord || !CHART_ROWS.readRecord(chart, span)?.ok) continue;
+        const parent = ancestors[ancestors.length - 1] || [];
+        const line = (rawLines[t.map?.[0]] || '').trim();
+        if (!line) continue;
+        const keyword = kids.slice(0, -1).map((c) => c.content || '').join('').trim().toLowerCase();
+        let message = null;
+        let fix = null;
+        if (chart === 'bullet' && BULLET_KEYWORDS.has(keyword)) {
+          // Bullet's documented keyword rows are structure; a record there is read as the measure's note.
+          message = `\`${span}\` on a \`${keyword}\` row is read as a note, not as the bullet's ${keyword}: the bullet does not draw it.`;
+          fix = `Write the keyword row's value as the bullet reads it today (a plain \`${span.replace(/^\s*\{|\}\s*$/g, '').split(',')[0].trim()}\` span; see the bullet docs).`;
+        } else if (plain && ancestors.length === 1 && CHART_ROWS.holdsValueIn(chart, parent) && STACKED_NOTES.has(chart) && (plainKids.get(parentAt) || 0) >= 2) {
+          // A plain number under a category that has a total or value: the old form reads it as a point, a record as a note.
+          message = `\`${span}\` sits under a row that has a value, so it is read as that row's note, not as a ${chart === 'stacked-bar' ? 'segment' : 'series point'}: the ${chart} does not draw it.`;
+          fix = `Write the value as a plain span under a row that has a value, or leave the parent's value out (see the ${chart} docs).`;
+        }
+        if (message) findings.push({ slide: Math.max(1, idx - fm + 1), rule: 'chart-row-record-unread', severity: 'warning', classToken: chart, line, message, fix });
+        continue;
+      }
+      if (!isRecord) continue;
+      const read = CHART_ROWS.readRecord(chart, span);
+      const afterCode = kids.length > 1 && kids[kids.length - 2].type === 'code_inline';
+      // Another value in the lead means this span is a note beside the row's value, so it stays a pill.
+      // When every such value is itself a record (`{1}` North `{40}`), neither is read: the row loses its value.
+      const others = leadSpans.slice(0, -1).filter((x) => CHART_ROWS.holdsValue(chart, x));
+      // A badge is a code span before the label's first word (`1` North `{40}`): a record or a plain number there
+      // holds a value too, so neither is read and the row is lost. A value AFTER the label keeps a note beside it a pill.
+      let lead = 0;
+      while (lead < kids.length - 1 && kids[lead].type === 'code_inline') lead++;
+      const badges = kids.slice(0, lead).map((c) => c.content);
+      const lost = read?.ok && others.every((x) => /^\{[\s\S]*\}$/.test(x.trim()) || badges.includes(x));
+      if (others.length && !lost) continue;
+      let message;
+      let fix;
+      if (others.length) {
+        message = `\`${others[0]}\` and \`${span}\` both read as this row's value, so the ${chart} chart reads neither: the row loses its value.`;
+        fix = `Give the badge its shape (\`{${others[0].trim().replace(/^\{|\}$/g, '')}, circle}\`) so it reads as a badge, or write the value as a plain span (see the ${chart} docs).`;
+      } else if (!read?.ok) {
+        // A record Segno refuses is not a pill either, or the pill pass would have a use for it.
+        if (pillKernel.resolve(span)) continue;
+        const why = read?.diagnostics?.[0]?.message;
+        message = `\`${span}\` is not a record the ${chart} chart reads${why ? ` (${why})` : ''}: the row loses its value.`;
+        fix = `Fix the record, or write the row's value as the chart reads it today (see the ${chart} docs).`;
+      } else if (afterCode) {
+        message = `\`${span}\` is ${label} written as one record after another code span, a form the ${chart} chart does not read: the row loses its value.`;
+        fix = `Write the row's value as the chart reads it today (see the ${chart} docs), as the row's only spans.`;
+      } else if (CHART_ROWS.NATIVE_CHARTS.includes(chart) && !CHART_ROWS.legacySpans(chart, span) && followedByBlock(i, t.level, CHART_ROWS.rowSchema(chart).rows.quotes === true)) {
+        // The chart reads the record only when it ends its row's lead (as the old spans must): a quote the chart does not read, or
+        // another paragraph, after it sends the row to the old spans, which cannot spell this record's fields.
+        message = `\`${span}\` is followed by other content in its row, so the ${chart} chart reads it as the old spans would, and those cannot spell its fields: the row loses them.`;
+        fix = `Put the record last in the row's first line, and move the ${schemaQuotes(chart) ? 'quote' : 'other content'} into the row's nested bullets.`;
+      } else if (!CHART_ROWS.drawsRecord(chart, span)) {
+        message = `\`${span}\` is ${label} written as one record with a field the ${chart} chart cannot draw yet: the row loses it.`;
+        fix = `Leave the field out of the record and write it as the ${chart} chart reads it today (see its docs).`;
+      } else continue; // the chart draws it: the bridge rewrites it to the spans it reads
+      const line = (rawLines[t.map?.[0]] || '').trim();
+      if (!line) continue;
+      findings.push({ slide: Math.max(1, idx - fm + 1), rule: 'chart-row-record-unread', severity: 'warning', classToken: chart, line, message, fix });
+    }
+  });
+  return findings;
+}
+
+/**
+ * hub-spoke validation. Every rule lives in `lib/core/hub-spoke-model.js` (`lintModel`),
+ * which the kernel reads too, so a warning here describes exactly what the render does:
+ * a dropped second value, a group refused for carrying digits, a `sized` that switched
+ * itself off and why, a hub name that will not fit, a slide outside the layout's
+ * proven envelope. This function only finds the slides and the list.
+ */
+function findHubSpokeIssues(source) {
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  // The label face is the hand face whenever the section carries `sketch` — from its own
+  // `_class:`, from a deck-wide `mode: sketch` / `sketch-clean`, or from the legacy
+  // deck-wide `class: sketch`. The engine APPENDS the deck's tokens to every section
+  // (plugins.js `deckClassPropagate`), so the slide cannot opt out, and the width
+  // estimate has to bill the wider face whenever the deck asks for it.
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const deckTokens = [
+    ...modeClassesFromSource(source).split(/\s+/),
+    ...(fmBlock ? deckClassTokensFromFrontMatter(fmBlock[1]) : []),
+  ].filter(Boolean);
+  slides.forEach((slide, idx) => {
+    const tokens = (directives[idx]?.payload || '').split(/\s+/).filter(Boolean);
+    if (!tokens.includes('hub-spoke')) return;
+    const hand = tokens.includes('sketch') || deckTokens.includes('sketch');
+    const slideNo = Math.max(1, idx - fm + 1);
+    const tree = hubSpoke.markdownTree(blankCommentSpans(stripFencedCode(slide)));
+    const model = hubSpoke.buildModel(tree, tokens);
+    if (!model) return;
+    const family = deckFamily(source);
+    const stage = family === 'wide' ? 'landscape' : family === 'square' ? 'square' : 'portrait';
+    for (const f of hubSpoke.lintModel(model, { hand, stage })) {
+      findings.push({
+        slide: slideNo, rule: f.rule, severity: f.severity, classToken: 'hub-spoke',
+        line: f.line || directives[idx]?.text || '', message: f.message, fix: f.fix,
+      });
+    }
+  });
+  return findings;
+}
+
+/**
+ * A journey actor written with the retired `@` shortcut (`` `@sales` ``). Journey reads standard
+ * Segno only (lib/core/journey-step.js), so the shortcut now renders as literal code and the actor
+ * drops off the chart without a word. One warning per span, fixed by machine to `` `{who=sales}` ``.
+ * Only list rows on a `journey` slide, outside code fences: an `@` span anywhere else is
+ * somebody's npm scope or decorator.
+ */
+function findJourneyActorShortcuts(source) {
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    if (!(directives[idx]?.payload || '').split(/\s+/).filter(Boolean).includes('journey')) return;
+    let fence = null;
+    for (const raw of slide.split('\n')) {
+      const f = /^\s*(`{3,}|~{3,})/.exec(raw);
+      if (f) { fence = fence ? (raw.trim().startsWith(fence) ? null : fence) : f[1]; continue; }
+      if (fence || !/^\s*[-*+]\s/.test(raw)) continue;
+      for (const m of raw.matchAll(/`@([A-Za-z][A-Za-z0-9_-]*)`/g)) {
+        findings.push({
+          slide: idx - fm + 1, rule: 'journey-actor-shortcut', severity: 'warning',
+          classToken: 'journey', line: raw.trim(),
+          message: `\`@${m[1]}\` is the retired actor shortcut, so it renders as code and ${m[1]} is not on the chart`,
+          fix: `Write the actor as a step record: \`{who=${m[1]}}\`.`,
+          autofixable: true,
+          replace: { from: m[0], to: `\`{who=${m[1]}}\`` },
+        });
+      }
+    }
+  });
+  return findings;
+}
+
+/**
+ * Gantt validation across the deck. Per `gantt` slide, parse the nested list's
+ * tasks and their trailing inline-code tokens, then flag: a retired delimiter
+ * (`→ / – / ->` instead of `..`), an unrecognized token, a malformed/mixed time
+ * span, a dangling `after=` (names no task on the slide), and an impossible
+ * schedule (a task starting before something it depends on finishes).
+ * Operates on raw markdown — require-free, browser-safe.
+ */
+function findGanttIssues(source) {
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    const dir = directives[idx];
+    if (!(dir?.payload || '').split(/\s+/).filter(Boolean).includes('gantt')) return;
+    // The raw directive text, quoted back to the author in every finding below.
+    const cm = [dir.text];
+    const slideNo = idx - fm + 1;
+
+    // ── Parse lanes/tasks from the markdown list ──
+    const tasks = [];
+    let lastTaskIndent = -1;
+    // A fenced task is a quoted example: the chart draws no bar from it, so it is neither
+    // checked nor a task an `after=` can name. `live` keeps line numbers. Only a fence the renderer
+    // certainly draws as code (`stripCertainFences`): a fence guessed at would hide live tasks.
+    const live = stripCertainFences(slide);
+    for (const raw of live.split('\n')) {
+      const lm = raw.match(/^(\s*)[-*]\s+(.*\S)\s*$/);
+      if (!lm) continue;
+      const indent = lm[1].replace(/\t/g, '    ').length;
+      if (indent < 2) { lastTaskIndent = -1; continue; } // lane line — label only, nothing to validate
+      // A bullet nested UNDER a task (deeper than the task line) is that task's
+      // reveal detail (prose — the popover / speaker-note payload), not a task.
+      // Skip it even if the prose happens to end in inline code (`PR #481`), so
+      // detail is never mis-validated as a gantt token. Mirrors the kernel's
+      // splitDetail (first nested sublist = detail).
+      if (lastTaskIndent >= 0 && indent > lastTaskIndent) continue;
+      const content = lm[2];
+      // Strip the TRAILING run of inline-code pills the same way the renderer
+      // does (stripTrailingPills) — so inline code *inside* a label stays part
+      // of the label and isn't mis-read as a token.
+      let rest = content;
+      const codeTokens = [];
+      let mt;
+      while ((mt = rest.match(/\s*`([^`]+)`\s*$/))) {
+        codeTokens.unshift(mt[1].trim());
+        rest = rest.slice(0, mt.index);
+      }
+      if (!codeTokens.length) continue; // a plain nested bullet, not a task pill
+      const label = rest.trim();
+      const task = { label, line: raw.trim(), span: null, afters: [], hasMilestone: false };
+      for (const tok of codeTokens) {
+        // The chart's own reader (lib/core/gantt-pill.js) says what a pill is, so lint
+        // cannot pass a pill the chart ignores or flag one it draws.
+        const pill = readGanttPill(tok);
+        if (pill?.kind === 'after') { task.afters.push(...pill.deps); continue; }
+        if (pill?.kind === 'milestone') { task.hasMilestone = true; continue; }
+        if (pill?.kind === 'status') continue;
+        // A retired delimiter — the #1 migration tripwire.
+        if (/(?:→|–|—|->)/.test(tok) && !tok.includes('..')) {
+          findings.push({
+            slide: slideNo, rule: 'gantt-retired-delimiter', severity: 'error',
+            classToken: 'gantt', line: raw.trim(),
+            autofixable: !!autofixGanttDelimiter(raw),
+            message: `gantt span \`${tok}\` uses a retired delimiter — the only span delimiter is now \`..\``,
+            fix: `Write the span as \`${tok.replace(/\s*(?:→|–|—|->)\s*/, '..')}\` (e.g. \`Q1..Q2\` or \`2026-01-01..2026-03-15\`).`,
+          });
+          task.span = { bad: true };
+          continue;
+        }
+        // A span (range or single point)?
+        if (tok.includes('..')) {
+          const parts = tok.split('..').map((p) => p.trim());
+          const [a, b] = parts;
+          const pa = parts.length === 2 ? ganttTimePoint(a) : null;
+          const pb = parts.length === 2 ? ganttTimePoint(b) : null;
+          if (!pa || !pb) {
+            findings.push({
+              slide: slideNo, rule: 'gantt-bad-span', severity: 'error',
+              classToken: 'gantt', line: raw.trim(),
+              message: `gantt span \`${tok}\` is not a valid time range — each side must be a date (2026-03-15), a quarter (Q1 / 2026 Q1), or a month (Jan)`,
+              fix: 'Use two parseable time points around `..`, e.g. `Q1..Q3` or `Jan..Mar`.',
+            });
+            task.span = { bad: true };
+          } else {
+            task.span = { startPt: pa, endPt: pb };
+          }
+          continue;
+        }
+        const lone = ganttTimePoint(tok);
+        if (lone) { task.span = { startPt: lone, endPt: lone, point: true }; continue; }
+        // Anything else is an unrecognized token.
+        findings.push({
+          slide: slideNo, rule: 'gantt-unknown-token', severity: 'warning',
+          classToken: 'gantt', line: raw.trim(),
+          message: `The gantt chart doesn't recognize \`${tok}\`.`,
+          fix: `Use a span (\`Q1..Q2\`), a status (${CHART_STATUS.join(', ')}), \`after=…\`, or \`milestone\`.`,
+        });
+      }
+      lastTaskIndent = indent;   // record task depth so its detail bullets are skipped
+      tasks.push(task);
+    }
+    if (!tasks.length) return;
+
+    // ── Mode + base year for cross-task schedule checks ──
+    const pts = [];
+    for (const t of tasks) if (t.span?.startPt) { pts.push(t.span.startPt); if (t.span.endPt) pts.push(t.span.endPt); }
+    // Fold the axis window into mode detection too (the renderer does), so a
+    // date-only window over ordinal tasks is caught as mixed. The axis is a
+    // non-bullet line holding one bracketed span.
+    for (const raw of live.split('\n')) {
+      if (/^\s*[-*]\s/.test(raw)) continue;          // skip list items
+      for (const cm2 of raw.matchAll(/`([^`]+)`/g)) {
+        let tok = cm2[1].trim();
+        // The window comes from the bracketed axis (`[{Timeline, 2026 Q1..2026 Q4, today=Q3}]`),
+        // read through the same member reading the render uses — the only form the chart
+        // draws a window from since the eyebrow pills were retired (Segno phase 2, row 11).
+        if (!tok.startsWith('[')) continue;
+        tok = readTimeAxisMember(parseBracketList(tok, { maxParts: 3 })?.[0]).window;
+        if (!tok.includes('..')) continue;
+        const parts = tok.split('..').map((p) => p.trim());
+        if (parts.length !== 2) continue;
+        const wa = ganttTimePoint(parts[0]), wb = ganttTimePoint(parts[1]);
+        if (wa && wb) { pts.push(wa, wb); }
+      }
+    }
+    if (!pts.length) return;
+    const hasDate = pts.some((p) => p.kind === 'date');
+    const hasOrdinal = pts.some((p) => p.kind === 'q' || p.kind === 'm');
+    if (hasDate && hasOrdinal) {
+      findings.push({
+        slide: slideNo, rule: 'gantt-mixed-time', severity: 'warning',
+        classToken: 'gantt', line: cm[0],
+        message: 'This gantt mixes dates (2026-03-01) with quarters or months (Q1); one chart can\'t show both.',
+        fix: 'Use dates everywhere, or quarters and months everywhere.',
+      });
+    }
+    const mode = hasDate ? 'date' : 'ordinal';
+    const years = pts.map((p) => p.year).filter((y) => y != null);
+    const baseYear = years.length ? Math.min(...years) : (mode === 'date' ? 2000 : 0);
+    const byLabel = new Map();
+    for (const t of tasks) {
+      if (!t.span?.startPt) continue;
+      const [s] = ganttSpanVals(t.span.startPt, mode, baseYear);
+      const e = t.span.point ? s : ganttSpanVals(t.span.endPt, mode, baseYear)[1];
+      t._start = s; t._end = e;
+      byLabel.set(t.label.toLowerCase(), t);
+    }
+
+    // ── Dependency checks: dangling ref + impossible schedule ──
+    for (const t of tasks) {
+      for (const dep of t.afters) {
+        const pred = byLabel.get(dep.toLowerCase());
+        if (!pred) {
+          findings.push({
+            slide: slideNo, rule: 'gantt-dangling-after', severity: 'error',
+            classToken: 'gantt', line: t.line,
+            message: `gantt task "${t.label}" depends on "${dep}" via \`after=\`, but no task named "${dep}" is on this slide`,
+            fix: 'Reference a task by its exact visible label, or remove the `after=` token.',
+          });
+          continue;
+        }
+        // Flag an INVERTED dependency — a task that begins before its
+        // prerequisite even starts. (A one-period boundary overlap, e.g.
+        // `Q1..Q2` → `Q2..Q3`, is idiomatic phasing and deliberately allowed.)
+        if (t._start != null && pred._start != null && t._start < pred._start) {
+          findings.push({
+            slide: slideNo, rule: 'gantt-inverted-dependency', severity: 'warning',
+            classToken: 'gantt', line: t.line,
+            message: `Task "${t.label}" starts before "${pred.label}", which it depends on.`,
+            fix: `Move its start to or after "${pred.label}", or fix the \`after=\`.`,
+          });
+        }
+      }
+    }
+  });
+  return findings;
+}
+
+/**
+ * Rule 12d — security spine S1 (engineering/decisions/2026-11-03-security-findings-spine.md §3): a Markdown
+ * image, an `![bg]` background, or an image written through a reference definition (`![x][ref]` with
+ * `[ref]: https://…`), whose address loads from another site. The renderer swaps each for a drawn placeholder
+ * until the reader chooses to load that site, and the CLI export leaves it out unless `--allow-remote` is
+ * passed; this tells the AUTHOR so while they write, from the source alone.
+ *
+ * The linter and the renderer read nothing from each other. They agree because they ask the same question
+ * of the same facts: the images are read by the engine's own Markdown parser (`boundaryParser`, so a link, a
+ * code span, a fenced example and a comment are not images, and a reference resolves across slides exactly
+ * as the render resolves it), and the address question is the renderer's own `webOrigin` (media-sources.js), so a
+ * relative path, a `data:` or `blob:` image, a `sample:` asset and a local `file:` path are not web images to
+ * either. A WARNING (D2): the render already blocks. `--strict` (the repo's own deck gate) fails on any warning, so a
+ * deck whose subject is a web image goes on tools/lint-subject-decks.js.
+ */
+function findWebImages(source) {
+  // markdown-it folds a bare `\r` into a line break, so line numbers are counted on the same text it parses (the shared
+  // fold, which drops a BOM too): a deck with CR-only endings would otherwise map a token past the end of `lines`.
+  const text = normalizeSource(String(source || ''));
+  // Every Markdown image is written `![`; a deck without one has nothing to parse for (an entity cannot spell it:
+  // `&#33;[` renders as text).
+  if (!text.includes('![')) return [];
+  const lines = text.split('\n');
+  const seps = separatorLines(lines);
+  const fm = fmChunks(text);
+  // chunk index and first line of each `---`-chunk, by line
+  const chunkOf = new Int32Array(lines.length);
+  const chunkStart = [0];
+  for (let i = 0, c = 0; i < lines.length; i++) {
+    if (seps.has(i)) { c++; chunkStart[c] = i + 1; }
+    chunkOf[i] = c;
+  }
+  const findings = [];
+  const warn = (img, n, where) => {
+    const origin = webOrigin(img.attrGet('src') || '');
+    if (!origin) return;
+    findings.push({
+      // A front-matter line is slide 0, as every other deck-level finding (the editor places it on the line itself).
+      slide: chunkOf[n] < fm ? 0 : chunkOf[n] - fm + 1,
+      rule: 'web-image',
+      severity: 'warning',
+      line: (lines[n] ?? '').trim(),
+      ...(chunkOf[n] >= fm ? { chunkLine: n - chunkStart[chunkOf[n]] } : {}),
+      message: `This image${where} loads from another site (${origin}): the preview shows a placeholder until the reader loads it, the CLI export leaves it out without \`--allow-remote\`, and loading it tells that site who opened the deck.`,
+      fix: 'Save the picture beside the deck and link it by a relative path.',
+      // The exact address, as every security finding carries it (S2's differential compares addresses, not sites).
+      address: String(img.attrGet('src') || '').trim(),
+    });
+  };
+  // The engine reads a directive comment with its whole vocabulary (lib/engine/slides.js); for these two keys the
+  // answer is the same with only them known.
+  const CHROME_VOCAB = { known: CHROME_DIRECTIVE_KEYS };
+  /** The images in a `header:` / `footer:` value, read as the engine renders chrome: inline, with no references. */
+  const chromeImages = (value) => (String(value).includes('![') ? boundaryParser.parseInline(String(value), {}).flatMap((t) => t.children || []).filter((c) => c.type === 'image') : []);
+  /** The line in `[from, to)` that holds `needle`, else `from`. */
+  const lineWith = (from, to, needle) => {
+    for (let n = from; n < to; n++) if (lines[n].includes(needle)) return n;
+    return from;
+  };
+  // Front-matter chrome draws on every slide; its finding points at the front-matter line.
+  if (fm) {
+    const fmEnd = [...seps].sort((x, y) => x - y)[1] ?? 0;
+    for (const key of CHROME_DIRECTIVE_KEYS) {
+      // The LAST `header:` of the front matter, as the engine's YAML read keeps a repeated key (S2's review of S1).
+      const got = engineFrontMatterKey(text, lines, fmEnd, key);
+      if (!got) continue;
+      for (const img of chromeImages(got.value)) warn(img, got.n, ` in the deck's ${key}`);
+    }
+  }
+  // A table cell's inline token has no `map`; it takes the row's, the last map seen (the checker, 2026-11-04).
+  let lastMap = null;
+  for (const tok of boundaryParser.parse(text, {})) {
+    if (tok.map) lastMap = tok.map;
+    const map = tok.map || lastMap;
+    if (!map) continue;
+    // A `<!-- header: … -->` / `<!-- footer: … -->` comment block draws on its own slide, read by the engine's reader.
+    if (tok.type === 'html_block') {
+      const dir = readDirectiveComment(tok.content, CHROME_VOCAB);
+      if (dir) for (const img of chromeImages(dir.value)) warn(img, lineWith(map[0], map[1], '!['), ` in this slide's ${dir.key}`);
+      continue;
+    }
+    // (A directive comment INSIDE a paragraph is an `html_inline`, which the engine's directive pass never reads, so it
+    // draws no chrome and is not looked at here either.)
+    if (tok.type !== 'inline' || !tok.children) continue;
+    const images = tok.children.filter((c) => c.type === 'image');
+    if (!images.length) continue;
+    // Each image's own line: the k-th `![` in the token's lines is the k-th image. A count that does not match (an alt
+    // text or a code span holding `![`) falls back to the first line that holds a `![`.
+    const at = [];
+    for (let n = map[0]; n < map[1] && n < lines.length; n++) for (let i = lines[n].indexOf('!['); i >= 0; i = lines[n].indexOf('![', i + 2)) at.push(n);
+    images.forEach((img, k) => {
+      const end = Math.min(map[1], lines.length);
+      const n = at.length === images.length ? at[k] : lineWith(map[0], end, img.attrGet('src') || '![');
+      if (chunkOf[n] >= fm) warn(img, n, '');
+    });
+  }
+  // Every picture loads: a Marp `![bg]` is an ordinary `<img>` since the engine break (2026-11-13), where only a slide's last
+  // one used to be drawn, so each is reported.
+  return findings;
+}
+
+/**
+ * A front-matter directive as the ENGINE reads it (lib/engine/directives.js `parseFrontMatter`: a TOP-LEVEL key only,
+ * since #2050, and the last of a repeated key wins): `{ n, value }` with `n` the line of the key it kept, or
+ * null. `text` is the whole source; `lines` and `fmEnd` place the finding.
+ */
+function engineFrontMatterKey(text, lines, fmEnd, key) {
+  const value = parseFrontMatter(text).directives[key];
+  if (value == null || value === '') return null;
+  const head = new RegExp(`^${key}\\s*:`);
+  let at = -1;
+  for (let i = 1; i < fmEnd; i++) if (head.test(lines[i].trimEnd())) at = i;
+  return at < 0 ? null : { n: at, value };
+}
+
+/**
+ * Rules 12e-12h — security spine S2 (engineering/decisions/2026-11-03-security-findings-spine.md §3, "S2, as built"):
+ * what the author wrote as raw HTML or CSS that the renderer blocks or strips, read from the SOURCE with the shared
+ * readers (`scanHtml`, `cssRefSpans`, the entity decoder, the Mermaid reading; lib/core/web-ref-readers.js) and asked of
+ * the policy table (lib/core/content-policy.js). The renderer reads its OUTPUT through the same readers and the same
+ * table; neither reads the other. test/unit/authoring/security-spine-differential.test.js holds the two to the same
+ * ADDRESSES on a seeded deck, each run alone.
+ *
+ *   web-image        raw markup or CSS that FETCHES from another site when it renders: `<img src>`, `srcset`, `<video
+ *                    poster>`, SVG `<image href>`, `<link href>`, a `style` or `<style>` `url()`, a paint `url()`, an
+ *                    SMIL `href`, a refresh `<meta>`, a `<base href>`, a Mermaid label, a `backgroundImage` directive,
+ *                    the front matter's `style:` (S1's rule, its other sources)
+ *   web-request      an attribute that sends a request to another site when clicked or submitted (`ping`, `action`,
+ *                    `formaction`, `attributionsrc`)
+ *   stripped-markup  a tag the preview strips because it runs or embeds something (`<script>`, `<iframe>`, `<object>`,
+ *                    `<embed>`, `<form>`, `<input>`, `<base>`), an `on…=` handler, a `javascript:` address, `srcdoc`, a
+ *                    `style` holding script (`expression()`, `-moz-binding`)
+ *   style-ends-early a front-matter `style:` holding `</style`, which would end the export's stylesheet early
+ *   markup-unsure    markup the reader reports a browser may build differently (an unclosed comment, foreign content
+ *                    holding HTML, …): the preview asks the browser's own parser there, and the source should not need it
+ *
+ * All WARNINGS (D2): the renderer already blocks. One finding per construct and address, at the line that holds it.
+ */
+function findWebMarkup(source) {
+  const text = normalizeSource(String(source || ''));
+  // Every source this reads holds a tag (a `<` and a letter, `/`, `?` or a `<!` that is not a comment's `<!--`), a
+  // `backgroundImage` directive, a front-matter `style:`, or a Mermaid fence. Nearly every deck holds a `<!--` directive
+  // comment, so skipping on comments alone saves the second parse on most decks. (An unclosed comment matters only for a
+  // tag after it, which this still sees.)
+  if (!/<(?!!--)[A-Za-z!?/]|url\(|^style[ \t]*:|mermaid/im.test(text)) return [];
+  const { scanHtml, cssRefSpans, decodeEntities, mermaidRemoteRefs, refreshTarget } = WEB_READERS;
+  const lines = text.split('\n');
+  const seps = separatorLines(lines);
+  const fm = fmChunks(text);
+  const chunkOf = new Int32Array(lines.length);
+  const chunkStart = [0];
+  for (let i = 0, c = 0; i < lines.length; i++) {
+    if (seps.has(i)) { c++; chunkStart[c] = i + 1; }
+    chunkOf[i] = c;
+  }
+  const fmEnd = fm ? ([...seps].sort((x, y) => x - y)[1] ?? 0) : 0;
+  const findings = [];
+  const seen = new Set();
+  /** The line in `[from, to)` that holds `needle`, else `from`. */
+  const lineWith = (from, to, needle) => {
+    for (let n = from; n < Math.min(to, lines.length); n++) if (needle && lines[n].includes(needle)) return n;
+    return from;
+  };
+  /** `f` holds the finding's literal `rule`, `message`, `fix`, and its `address` or `construct`. */
+  const push = (n, f) => {
+    const key = `${n}|${f.rule}|${f.address ?? f.construct ?? f.message}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    const inFm = chunkOf[n] < fm;
+    findings.push({
+      slide: inFm ? 0 : chunkOf[n] - fm + 1,
+      severity: 'warning',
+      line: (lines[n] ?? '').trim(),
+      ...(inFm ? {} : { chunkLine: n - chunkStart[chunkOf[n]] }),
+      ...f,
+    });
+  };
+  const LOCAL_FIX = 'Save the file beside the deck and link it by a relative path.';
+  /** A render-time fetch: the `web-image` rule, as S1 words it. */
+  const fetches = (n, what, url, diagram = false) => {
+    const address = String(url).trim();
+    const origin = webOrigin(address);
+    if (!origin) return;
+    push(n, { rule: 'web-image', address, fix: diagram ? 'Draw the picture into the deck, or keep the address in the slide text instead of the diagram.' : LOCAL_FIX, message: diagram
+      // The renderer reads a diagram's whole text and counts every address in it, a `click` link included: the safe direction.
+      ? `${what} names an address on another site (${origin}): the preview's policy refuses anything the diagram would load from there, and the preview lists that site among the deck's web references.`
+      : `${what} loads from another site (${origin}): the preview leaves it out or shows a placeholder until the reader loads that site, the CLI export leaves it out without \`--allow-remote\`, and loading it tells that site who opened the deck.` });
+  };
+  /** Every web target in a piece of CSS (decoded), read as the renderer reads it (remote-ref.js `cssReplacements`). */
+  const cssTargets = (css) => {
+    const out = [];
+    for (const sp of cssRefSpans(css)) {
+      if (sp.selector) continue;
+      out.push(sp.value);
+      // Firefox's preloader fetches an `@import "…"` string as WRITTEN, before CSS decodes its escapes.
+      const raw = sp.kind === 'string' ? css.slice(sp.from + 1, sp.to - 1) : '';
+      if (raw.includes('\\')) out.push(raw);
+    }
+    return out;
+  };
+  const cssFetches = (n, what, css) => { for (const u of cssTargets(css)) fetches(n, what, u); };
+  /** The text of the `<style>` starting at `from`, to its end tag (or the end), as written. */
+  const svgStyleText = (html, from) => {
+    const open = html.indexOf('>', from);
+    if (open < 0) return '';
+    const close = WEB_READERS.rawTextEnd(html, 'style', open + 1);
+    return html.slice(open + 1, close < 0 ? html.length : close);
+  };
+  // `construct` names what is stripped (`<script>`, `onclick`, `href:javascript`, `style:script`), for the differential.
+  const strips = (n, what, why, construct) => push(n, { rule: 'stripped-markup', construct, message: `${what} is stripped by the preview and the HTML export: ${why}.`, fix: 'Remove it. A slide cannot run script; an interactive piece belongs in a plugin.' });
+
+  /** One piece of markup the browser will parse, whose text starts at line `from` and ends before `to`. */
+  const markup = (html, from, to) => {
+    const { tags, unsure } = scanHtml(html);
+    const at = (needle) => lineWith(from, to, needle);
+    // One finding per line, naming every reason the reader gave there.
+    const whys = new Map();
+    for (const u of unsure) {
+      // A `<style>` inside `<svg>` (every design tool's logo export) is foreign content, so the reader is unsure of it; but
+      // with no `<` in its text the tree builder reads it exactly as the reader does, and its CSS is read below.
+      if (u.why === 'foreign-content' && /^<style\b/i.test(html.slice(u.from, u.from + 7)) && !svgStyleText(html, u.from).includes('<')) continue;
+      const n = at(html.slice(u.from, Math.min(u.to, u.from + 12)).split('\n')[0]);
+      if (!whys.has(n)) whys.set(n, new Set());
+      whys.get(n).add(u.why);
+    }
+    for (const [n, why] of whys) push(n, { rule: 'markup-unsure', construct: 'unsure', message: `A browser may build this markup differently from how the preview reads it (${[...why].join(', ')}), so the preview asks the browser's own parser before it trusts it.`, fix: 'Close every comment and tag, and keep HTML out of `<svg>` and `<math>`.' });
+    for (const t of tags) {
+      const tagLine = at(`<${html.slice(t.from + 1, t.nameEnd)}`);
+      // A `<script src>` naming one of Lattice's own vendored builds (Mermaid, the runtime) is the documented way a deck
+      // draws its diagrams in a Marp preview outside Lattice; the preview strips it and draws them itself, so it is not
+      // the author's mistake. Only with no inline body: a script that runs its own text is.
+      const vendored = t.name === 'script' && !(t.body && html.slice(t.body[0], t.body[1]).trim()) && t.attrs.some((a) => a.name === 'src' && a.vFrom >= 0 && POLICY.isVendoredScript(urlAsParsed(decodeEntities(html.slice(a.vFrom, a.vTo), { attribute: true }))));
+      if (POLICY.ACTIVE_STRIPPED_TAGS.has(t.name) && !vendored) strips(tagLine, `This \`<${t.name}>\``, t.name === 'base' ? 'it would point every relative address on the slide somewhere else' : 'it runs or embeds something, and a slide only shows', `<${t.name}>`);
+      const attrs = t.attrs.map((a) => [a.name, a.vFrom < 0 ? '' : decodeEntities(html.slice(a.vFrom, a.vTo), { attribute: true }), a]);
+      const get = (k) => attrs.find(([x]) => x === k)?.[1];
+      for (const [name, value, a] of attrs) {
+        const n = a.vFrom < 0 ? tagLine : at(html.slice(a.vFrom, a.vTo).split('\n')[0] || `${name}=`);
+        if (POLICY.isEventHandlerAttr(name)) { strips(n, `This \`${name}=\` handler`, 'a slide runs no script', name); continue; }
+        if (POLICY.FORBID_ATTR.includes(name)) { strips(n, `This \`${name}=\``, 'it builds a nested document the preview cannot read', name); continue; }
+        if (a.vFrom < 0) continue;
+        if ((POLICY.FETCH_ATTRS.has(name) || name === 'href') && POLICY.isScriptUrl(urlAsParsed(value))) { strips(n, `This \`${name}=\` address`, 'it runs script when followed', `${name}:script`); continue; }
+        if (name === 'style' || POLICY.URL_PAINT_ATTRS.has(name)) {
+          if (name === 'style' && POLICY.STYLE_SCRIPT_RE.test(value)) strips(n, 'This `style`', 'it holds script (`expression()`, `-moz-binding`, `behavior:` or a script address)', 'style:script');
+          cssFetches(n, `This \`${name}\`'s address`, value);
+          continue;
+        }
+        if (POLICY.CLICK_FETCH_ATTRS.has(name)) {
+          const targets = name === 'ping' || name === 'attributionsrc' ? value.split(/[\t\n\f\r ]+/).filter(Boolean) : [value.trim()];
+          for (const u of targets) {
+            const origin = webOrigin(u);
+            if (origin) push(n, { rule: 'web-request', address: u.trim(), message: `This \`${name}=\` sends a request to another site (${origin}) when the reader clicks or submits: the preview removes it, and the export leaves it out.`, fix: 'Remove the attribute; link to the page instead.' });
+          }
+          continue;
+        }
+        // The media elements' own fetch attributes, then every other attribute that fetches on render.
+        const media = POLICY.WEB_MEDIA.has(t.name) && POLICY.MEDIA_FETCH_ATTRS.has(name);
+        if (media && (name === 'href' || name === 'xlink:href') && t.name !== 'image') continue;
+        if (!media && !POLICY.RENDER_FETCH_ATTRS.has(name)) {
+          // An SMIL animation that sets a link's address fetches what it sets.
+          if (POLICY.SMIL.has(t.name) && ['to', 'from', 'by', 'values'].includes(name) && /^(?:xlink:)?href$/i.test(String(get('attributename') ?? '').trim())) {
+            for (const u of value.split(';').map((v) => v.trim()).filter(Boolean)) fetches(n, `This \`<${t.name}>\`'s address`, u);
+          }
+          continue;
+        }
+        if (!media && (name === 'href' || name === 'xlink:href') && !POLICY.HREF_FETCH_TAGS.has(t.name) && t.name !== 'base') continue;
+        const targets = name.endsWith('srcset') ? value.split(',').map((c) => c.trim().split(/\s+/)[0]).filter(Boolean) : [value];
+        for (const u of targets) fetches(n, `This \`<${t.name} ${name}>\``, u);
+      }
+      // A refresh `<meta>` navigates to its address.
+      if (t.name === 'meta' && String(get('http-equiv') ?? '').trim().toLowerCase() === 'refresh' && get('content') != null) {
+        const target = refreshTarget(get('content'));
+        if (target) fetches(tagLine, 'This refresh `<meta>`', target);
+      }
+      if (t.name === 'style' && t.body) {
+        const body = html.slice(t.body[0], t.body[1]);
+        for (const u of cssTargets(body)) fetches(at(u), 'This `<style>` block\'s address', u);
+      } else if (t.name === 'style') {
+        // A `<style>` inside `<svg>` or `<math>` has no raw-text body: the tree builder decodes its references and drops
+        // its comments and tags, and the renderer reads that text (remote-ref.js `blockWebImages`, the no-parser branch).
+        const text = decodeEntities(svgStyleText(html, t.from).replace(/<!--[\s\S]*?(?:-->|$)|<!\[CDATA\[|\]\]>|<[^>]*>/g, ''));
+        for (const u of cssTargets(text)) fetches(at(u), 'This `<style>` block\'s address', u);
+      }
+    }
+  };
+
+  // The front matter's `style:` is pasted into the CLI export's stylesheet, read the export's way (`readGlobalStyle`: the
+  // LAST top-level `style:`, quoted or a `|` block, #3050 D1). Every other key is a directive, read the engine's way.
+  const fmKey = (key) => engineFrontMatterKey(text, lines, fmEnd, key);
+  const styleValue = fm ? readGlobalStyle(lines.slice(1, fmEnd).join('\n')) : '';
+  const styleLine = styleValue ? lines.findLastIndex((l, i) => i > 0 && i < fmEnd && /^style\s*:/.test(l)) : -1;
+  const style = styleLine > 0 ? { n: styleLine, value: styleValue } : null;
+  if (style) {
+    const end = style.n + 1 + style.value.split('\n').length;
+    for (const u of cssTargets(style.value)) {
+      const origin = webOrigin(String(u).trim());
+      if (origin) push(lineWith(style.n, end, u), { rule: 'web-image', address: String(u).trim(), message: `The deck's \`style:\` names an address on another site (${origin}): the CLI export pastes it into its stylesheet, where the page's content policy refuses the load, and the preview never applies a deck's \`style:\`.`, fix: LOCAL_FIX });
+    }
+    if (POLICY.endsStyleEarly(style.value)) push(lineWith(style.n, end, '</'), { rule: 'style-ends-early', message: 'This `style:` holds `</style`, which would end the export\'s stylesheet there: the export neutralizes it, so the CSS after it is lost.', fix: 'Remove the `</style`; the export writes the `<style>` element itself.' });
+  }
+  for (const key of STYLE_DIRECTIVE_KEYS) {
+    const got = fmKey(key);
+    if (got) cssFetches(got.n, `The deck's \`${key}\``, got.value);
+  }
+
+  // Every directive the engine writes into a slide's `style` as `--key: value` (lib/engine/slides.js; the keys are the
+  // meta plugin's, lib/core/meta-keys.js), whose value the renderer reads as CSS. The chrome keys are S1's.
+  const BG_VOCAB = { known: STYLE_DIRECTIVE_KEYS };
+  let lastMap = null;
+  for (const tok of boundaryParser.parse(text, {})) {
+    if (tok.map) lastMap = tok.map;
+    const map = tok.map || lastMap;
+    if (!map || chunkOf[map[0]] < fm) continue;
+    if (tok.type === 'html_block') {
+      const dir = readDirectiveComment(tok.content, BG_VOCAB);
+      if (dir) { cssFetches(lineWith(map[0], map[1], dir.key), `This slide's \`${dir.key}\``, String(dir.value ?? '').trim()); continue; }
+      markup(tok.content, map[0], map[1]);
+      continue;
+    }
+    if (tok.type === 'fence' && /^mermaid\b/i.test(String(tok.info || '').trim())) {
+      for (const u of new Set(mermaidRemoteRefs(tok.content))) if (!u.startsWith('policy:')) fetches(lineWith(map[0], map[1], u), 'This diagram', u, true);
+      continue;
+    }
+    if (tok.type !== 'inline' || !tok.children?.some((c) => c.type === 'html_inline')) continue;
+    // The inline markup as the browser receives it: the raw tags, and the text between them as the renderer escapes it.
+    const html = tok.children.map((c) => (c.type === 'html_inline' ? c.content : c.type === 'text' ? c.content.replace(/&/g, '&amp;').replace(/</g, '&lt;') : c.type === 'softbreak' || c.type === 'hardbreak' ? '\n' : '')).join('');
+    markup(html, map[0], map[1]);
+  }
+  return findings;
+}
+
+/**
+ * A fenced block tagged with a shell SESSION grammar whose body is plainly a
+ * SCRIPT — the one authoring mistake that makes syntax highlighting look broken
+ * while every render path is behaving correctly.
+ *
+ * In highlight.js, `bash` (aliases `sh`, `zsh`) parses shell scripts, while
+ * `shell` (aliases `console`, `shellsession`) is a terminal-session grammar whose
+ * whole job is marking the `$` prompt in pasted output. Tag a script ```shell and
+ * you get exactly what you asked for and almost no color. Measured on one
+ * eleven-line POSIX script, identical text, on every render path: 15 highlight
+ * spans as ```sh, 2 as ```shell.
+ *
+ * INFO, not a warning. The tag is legal, the render is correct, and an author who
+ * meant to show a transcript wants it left alone — the detector already stays
+ * silent on any body carrying a prompt-prefixed line. This is a suggestion that a
+ * one-word edit will light the block up, not a defect report.
+ */
+function findShellFenceTags(source) {
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    for (const fence of shellFenceFindings(slide)) {
+      findings.push({
+        slide: idx - fm + 1,
+        rule: 'shell-fence-is-script',
+        severity: 'info',
+        classToken: fence.lang,
+        line: '```' + fence.lang,
+        message: `This \`\`\`${fence.lang} block is a script, but \`${fence.lang}\` only colors terminal prompts, so it renders nearly plain.`,
+        fix: `Change the tag to \`\`\`bash (keep \`${fence.lang}\` only for pasted terminal output).`,
+      });
+    }
+  });
+  return findings;
+}
+
+/**
+ * Rule 12c — the code plugin's `@code{…}` record (lib/plugins/code/shared/record.js), read by the
+ * plugin's own reader so the lint and the render agree (HARD RULE #7):
+ *
+ *   code-record          a record that does not read (an unknown word, a bad line range, a width
+ *                        out of range): the render ignores what it cannot read
+ *   code-record-orphan   a record line with no fence after it: it configures nothing and renders
+ *                        as inline code
+ *   code-line-range      a line reference past the end of its block — `focus=` or `mark=` in a
+ *                        record, or a slide's `_focus: line` against the slide's first fence. It
+ *                        silently highlights nothing; a fence once hid one behind an empty line its
+ *                        last newline made (engineering/decisions/2026-10-15-code-plugin.md §3).
+ *                        Formatting rewrites the source itself (`lattice fmt`, the Studio's Format
+ *                        command), so the lines counted here are always the lines that render.
+ *   code-format-unsupported  a block whose own record asks for `format` in a language no formatter
+ *                        reads (lib/authoring/code-format/languages.js): `lattice fmt` leaves its
+ *                        text. A deck-wide `code: format` passes such blocks over silently, by design.
+ *
+ * A record must start its own block, as the engine's `code_record` rule reads it: written on the line
+ * right under a sentence, it continues that paragraph and renders as text, so it is an orphan here.
+ * A record and fence inside a blockquote get the same four rules: the render applies them there.
+ */
+const CODE_RECORD_LINE = /^\s{0,3}`(@code\{[^`\n]*\})`\s*$/;
+const FENCE_OPEN_LINE = /^\s{0,3}(`{3,}|~{3,})/;
+/** A line that ends a block rather than continuing a paragraph: a heading, a rule, a comment (which HTML
+ *  also closes with `--!>`), a fence. */
+const BLOCK_BOUNDARY_LINE = /^\s{0,3}(?:#{1,6}(?:\s|$)|(?:[-*_]\s*){3,}$|<!--|`{3,}|~{3,})|--!?>\s*$/;
+/** The blockquotes in a run of lines, each as its content: consecutive `>` lines with one `>` (and
+ *  the one space after it) taken off. A lazy continuation line, written without its `>`, ends the run
+ *  here; the record and fence that matter are written with theirs. */
+function quotedRuns(lines) {
+  const runs = [];
+  let cur = null;
+  for (const line of lines) {
+    const m = /^\s{0,3}> ?(.*)$/.exec(line);
+    if (m) (cur ??= []).push(m[1]);
+    else if (cur) { runs.push(cur.join('\n')); cur = null; }
+  }
+  if (cur) runs.push(cur.join('\n'));
+  return runs;
+}
+
+function findCodeRecords(source) {
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const fm = fmChunks(source);
+  const lineCount = (f) => f.body.split('\n').length;
+  slides.forEach((slide, idx) => {
+    const slideNo = idx - fm + 1;
+    const fences = scanFences(slide);
+    // One pass over a run of Markdown. A blockquote's lines are read again with their `>` taken
+    // off, as markdown-it reads the quote's content: the render applies a record written inside
+    // `>` (read-fences.js reads quoted fences), so the lint checks it the same way. Nested quotes
+    // recurse. A `>` line never matches CODE_RECORD_LINE or a fence opener as written, so no record
+    // is read twice.
+    const scan = (body) => {
+      const fences = scanFences(body);
+      const lines = body.split('\n');
+      for (const run of quotedRuns(lines)) scan(run);
+      const inFence = new Set();
+      for (const f of fences) for (let l = f.line; l <= f.line + lineCount(f) + 1; l++) inFence.add(l);
+      lines.forEach((text, i) => {
+        const lineNo = i + 1;
+        if (inFence.has(lineNo)) return;
+        const m = CODE_RECORD_LINE.exec(text);
+        if (!m) return;
+        // A line of paragraph text directly above makes the record that paragraph's last line.
+        const above = i > 0 ? lines[i - 1] : '';
+        if (above.trim() && !BLOCK_BOUNDARY_LINE.test(above)) {
+          findings.push({
+            slide: slideNo, rule: 'code-record-orphan', severity: 'warning', line: m[1],
+            message: `\`${m[1]}\` sits on the line right under a sentence, so it continues that paragraph and renders as text; it configures nothing.`,
+            fix: 'Leave a blank line above the record.',
+          });
+          return;
+        }
+        let next = i + 1;
+        while (next < lines.length && !lines[next].trim()) next += 1;
+        const fence = next < lines.length && FENCE_OPEN_LINE.test(lines[next]) ? fences.find((f) => f.line === next + 1) : null;
+        if (!fence) {
+          findings.push({
+            slide: slideNo, rule: 'code-record-orphan', severity: 'warning', line: m[1],
+            message: `\`${m[1]}\` configures the fence below it, and no fence follows, so it renders as inline code.`,
+            fix: 'Put it on the line directly above a fenced code block, or delete it.',
+          });
+          return;
+        }
+        const read = codeRecord.readBody(codeRecord.recordBody(m[1]));
+        if (!read.ok) {
+          findings.push({
+            slide: slideNo, rule: 'code-record', severity: 'warning', line: m[1],
+            message: `\`${m[1]}\` does not read: ${read.problems.join('; ')}. The render ignores what it cannot read.`,
+            fix: 'Fields: title=, numbers, start=, focus=3-5 9, mark=, diff, wrap, copy, format, width=, dialect=, indent=2|4|tab, quotes=single|double.',
+          });
+        }
+        const own = read.value || {};
+        if (own.format && !formatterFor(fence.lang)) {
+          findings.push({
+            slide: slideNo, rule: 'code-format-unsupported', severity: 'warning', line: m[1],
+            message: `\`${m[1]}\` asks to format a ${fence.lang || 'untagged'} block, and no formatter here reads ${fence.lang || 'a block with no language'}, so it keeps its text.`,
+            fix: 'Remove `format`, or see `lattice fmt --help` for the languages it reads.',
+          });
+        }
+        const count = lineCount(fence);
+        for (const key of ['focus', 'mark']) {
+          const past = [...(read.value?.[key] || [])].filter((n) => n > count);
+          if (past.length) {
+            findings.push({
+              slide: slideNo, rule: 'code-line-range', severity: 'warning', line: m[1],
+              message: `${key}= names line ${past.join(', ')}, and the block below has ${count} line${count === 1 ? '' : 's'}, so it marks nothing there.`,
+              fix: `Count the lines of the block as written, from 1 to ${count}.`,
+            });
+          }
+        }
+      });
+    };
+    scan(slide);
+    // A slide's `_focus: line …` targets the slide's first fence.
+    const spec = spotFocus(source, idx, 'focus')?.[1];
+    const lineSpec = spec && /(?:^|,)\s*line\s+([\d\s-]+)/i.exec(spec);
+    if (lineSpec && fences.length) {
+      const count = lineCount(fences[0]);
+      const past = [...readIndexList(lineSpec[1])].filter((n) => n > count);
+      if (past.length) {
+        findings.push({
+          slide: slideNo, rule: 'code-line-range', severity: 'warning', line: `_focus: line ${lineSpec[1].trim()}`,
+          message: `_focus names line ${past.join(', ')}, and the slide's code block has ${count} line${count === 1 ? '' : 's'}, so it focuses nothing there.`,
+          fix: `Count the lines of the block as written, from 1 to ${count}.`,
+        });
+      }
+    }
+  });
+  return findings;
+}
+
+/**
+ * Two agenda findings (engineering/decisions/2026-11-08-agenda-styles-and-autofill.md):
+ *
+ *   · `agenda-empty` — an agenda slide with no list fills itself from the deck's dividers
+ *     (lib/core/agenda-autofill.js), and a deck with fewer than two shown dividers has nothing to
+ *     fill it with, so the slide renders a heading over a blank stage. Same plan the renderer runs,
+ *     so the finding and the render cannot disagree about whether it fills.
+ *   · `agenda-retired-style` — `rail` and `cards` left the agenda on 2026-11-08. Both tokens are
+ *     still known words (other components own a `cards` and a `rail`), so `unknown-class` stays
+ *     quiet and this names the change. The slide renders as the default ledger.
+ */
+const AGENDA_RETIRED_STYLES = Object.freeze({
+  rail: { to: 'circles', why: 'circles draws the same numbered rings without the connecting line' },
+  cards: { to: '', why: 'the default ledger draws the same rows without the boxes' },
+});
+
+/** Fewer shown dividers than this and an empty agenda stays empty (lib/core/agenda-autofill.js MIN_SECTIONS). */
+const AGENDA_MIN_SECTIONS = 2;
+
+/**
+ * The lint's reading of what lib/core/agenda-autofill.js `autoAgendaPlan` computes: per EMPTY agenda,
+ * its slide and how many sections the deck can fill it from. The same facts through the lint's own
+ * readers (`splitTopLevel` chunks, `scanMetaSource` classes, `hideOfComment`), because the kernel
+ * reads the engine's parser and this core may not. Exported for the parity test.
+ */
+function agendaLintPlan(source) {
+  const src = String(source || '');
+  const chunks = splitTopLevel(src);
+  const fm = fmChunks(src);
+  const { slides } = scanMetaSource(src);
+  const out = [];
+  let sections = 0;
+  slides.forEach(({ comments, resolved }, idx) => {
+    if (idx < fm) return;
+    const tokens = String(resolved.get('class')?.value || '').split(/\s+/);
+    let hidden = false;
+    for (const c of comments) {
+      // Top-level only, as the engine reads `hide` (`> <!-- hide -->` hides nothing).
+      if (c.prefixed) continue;
+      const v = hideOfComment(c.raw);
+      if (v) hidden = v === 'on';
+    }
+    if (tokens.includes('divider') && !hidden) sections += 1;
+    if (!tokens.includes('agenda')) return;
+    // A list outside code and comments: the item lines a fence or a note would otherwise fake.
+    // An HTML block (`<div>` … to the next blank line) is markup, not a list, to the engine too.
+    const text = stripAgendaHtmlBlocks(replaceClosedComments(stripAgendaFences(String(chunks[idx] || '')), () => ''));
+    if (/^ {0,3}(?:\d{1,9}[.)]|[-*+])[ \t]+\S/m.test(text)) return;
+    out.push({ slide: idx - fm + 1 });
+  });
+  return out.map((p) => ({ ...p, sections }));
+}
+
+// The agenda lint's two strippers, read line by line (HARD RULE #32, the regex census). They answer as
+// `.replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1[^\n]*$/gm, '')` and
+// `.replace(/^ {0,3}<[A-Za-z][\s\S]*?(?=\n[ \t]*\n|$(?![\s\S]))/gm, '')` did; recheck cannot model either (a
+// back-reference, a look-ahead), and each searched to the end of the text from every opener with no closer.
+// test/unit/core/agenda-progress-readers.test.js holds both to the old patterns with a seeded differential fuzz.
+const isLineEnd = (c) => c === '\n' || c === '\r' || c === '\u2028' || c === '\u2029';
+function stripAgendaFences(s) {
+  const starts = [0];
+  for (let i = 0; i < s.length; i++) if (isLineEnd(s[i])) starts.push(i + 1);
+  const fenceAt = (ls) => {
+    let j = ls;
+    while (s[j] === ' ' || s[j] === '\t') j++;
+    const run = s.slice(j, j + 3);
+    return run === '```' || run === '~~~' ? { run, after: j + 3 } : null;
+  };
+  const lines = { '```': [], '~~~': [] }; // every fence line, by kind: each is also a closer
+  for (const ls of starts) {
+    const f = fenceAt(ls);
+    if (f) lines[f.run].push({ start: ls, after: f.after });
+  }
+  const next = { '```': 0, '~~~': 0 };
+  let out = '';
+  let from = 0;
+  for (const ls of starts) {
+    if (ls < from) continue;
+    const f = fenceAt(ls);
+    if (!f) continue;
+    const list = lines[f.run];
+    while (next[f.run] < list.length && list[next[f.run]].start < f.after) next[f.run]++;
+    const c = list[next[f.run]];
+    if (!c) continue;
+    const nl = s.indexOf('\n', c.after);
+    const end = nl === -1 ? s.length : nl;
+    out += s.slice(from, ls);
+    from = end;
+  }
+  return out + s.slice(from);
+}
+
+function stripAgendaHtmlBlocks(s) {
+  let out = '';
+  let from = 0;
+  let brk = -1; // the first blank-line break (`\n[ \t]*\n`) at or after the last point asked, or s.length
+  const breakFrom = (x) => {
+    if (brk >= x) return brk;
+    for (let k = s.indexOf('\n', x); k !== -1; k = s.indexOf('\n', k + 1)) {
+      let j = k + 1;
+      while (s[j] === ' ' || s[j] === '\t') j++;
+      if (s[j] === '\n') return (brk = k);
+    }
+    return (brk = s.length);
+  };
+  for (let ls = 0; ls <= s.length; ) {
+    if (ls >= from) {
+      let j = ls;
+      while (j < ls + 3 && s[j] === ' ') j++;
+      const c = s[j + 1];
+      if (s[j] === '<' && c !== undefined && /[A-Za-z]/.test(c)) {
+        const end = breakFrom(j + 2);
+        out += s.slice(from, ls);
+        from = end;
+      }
+    }
+    // the next line start
+    let k = ls;
+    while (k < s.length && !isLineEnd(s[k])) k++;
+    if (k >= s.length) break;
+    ls = k + 1;
+  }
+  return out + s.slice(from);
+}
+
+function findAgendaIssues(source) {
+  if (!/\bagenda\b/.test(source)) return [];
+  const findings = [];
+  for (const p of agendaLintPlan(source)) {
+    if (p.sections >= AGENDA_MIN_SECTIONS) continue;
+    findings.push({
+      slide: p.slide,
+      rule: 'agenda-empty',
+      severity: 'warning',
+      classToken: 'agenda',
+      line: '',
+      message: `this agenda has no list, and the deck has fewer than ${AGENDA_MIN_SECTIONS} \`divider\` slides to fill it from, so it renders as a heading over an empty slide.`,
+      fix: 'Mark each section with a `divider` slide (the agenda then lists their headings), or write the agenda as a numbered list.',
+    });
+  }
+  const { slides } = scanMetaSource(source);
+  const fmCount = fmChunks(source);
+  slides.forEach(({ resolved }, idx) => {
+    const cls = resolved.get('class');
+    if (!cls || idx < fmCount) return;
+    const tokens = String(cls.value || '').split(/\s+/).filter(Boolean);
+    if (!tokens.includes('agenda')) return;
+    for (const t of tokens) {
+      const retired = AGENDA_RETIRED_STYLES[t];
+      if (!retired) continue;
+      findings.push({
+        slide: idx - fmCount + 1,
+        rule: 'agenda-retired-style',
+        severity: 'warning',
+        classToken: t,
+        line: cls.text,
+        message: `the agenda's '${t}' style was retired on 2026-11-08; this slide now renders as the default ledger.`,
+        fix: retired.to
+          ? `Replace '${t}' with '${retired.to}': ${retired.why}.`
+          : `Remove '${t}': ${retired.why}. For a punchier look, use 'circles' or 'checks'.`,
+        // `replaceToken` swaps a token for another and refuses an empty one, so a plain removal rewrites the line.
+        // A record writes the style as a field (`variant=boxes`): its fix is step 3's record edit, not a line rewrite.
+        ...(cls.record ? {} : retired.to
+          ? { autofixable: true, replace: { from: t, to: retired.to } }
+          : /\n/.test(cls.text) ? {} : { autofixable: true, replaceLine: cls.text.replace(new RegExp(`\\s+${t}(?![A-Za-z0-9_-])`), '') }),
+      });
+    }
+  });
+  return findings;
+}
+
+/**
+ * Front-matter `finish:` register validation. Reads the value from the leading
+ * `---`-fenced front-matter block only (not body code spans), and returns a
+ * single warning finding when it isn't one of the known register names. The
+ * canonical name list is injected (lib/core/resolve-finish.js `FINISH_NAMES`),
+ * keeping this core free of any require.
+ */
+function findUnknownFinish(source, finishNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmFinish = lastFrontMatterMatch(fmBlock[1], /^\s*finish:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmFinish) return [];
+  const value = fmFinish[1].trim();
+  const known = new Set([...finishNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-finish',
+    severity: 'warning',
+    classToken: value,
+    line: fmFinish[0].trim(),
+    message: `'${value}' isn't a valid \`finish:\` value — the deck ignores it and draws no backdrop.`
+      + (/^(sketch|sketch-clean|boardroom)$/i.test(value) ? ` '${value}' moved to \`mode:\`.` : ''),
+    fix: /^(sketch|sketch-clean|boardroom)$/i.test(value)
+      ? `Write \`mode: ${value.toLowerCase()}\` instead.`
+      : `Use one of: ${[...finishNames].join(', ')}.`,
+  }, finishNames)];
+}
+
+/**
+ * A plugin's fence is handed its text and nothing else (plugin-system §9 decision 10): the words after the fence's
+ * name (```gantt title="Q3") are ignored today. The field stays free to define later, and a deck that carries
+ * attributes now will change meaning the day it is, so the author is told now. Only for the fences of plugins the
+ * host holds that arrived as data (`vocab.externalFences`); a shipped plugin reads its own info string.
+ */
+function findPluginFenceAttributes(source, vocab) {
+  // `vocab.externalFenceOf`: installed plugin name -> the one fence it owns. Only plugins THIS deck lists draw anything.
+  const owned = vocab?.externalFenceOf && typeof vocab.externalFenceOf === 'object' ? vocab.externalFenceOf : {};
+  const names = new Set(deckPluginList(source).filter((n) => Object.hasOwn(owned, n)).map((n) => owned[n]));
+  if (!names.size) return [];
+  const findings = [];
+  const slides = splitTopLevel(source);
+  const fm = fmChunks(source);
+  slides.forEach((slide, idx) => {
+    for (const fence of scanFences(slide)) {
+      if (!names.has(fence.lang)) continue;
+      const rest = fence.info.trim().slice(fence.info.trim().toLowerCase().indexOf(fence.lang) + fence.lang.length).trim();
+      if (!rest) continue;
+      findings.push({
+        slide: idx - fm + 1,
+        rule: 'plugin-fence-attributes',
+        severity: 'warning',
+        classToken: fence.lang,
+        line: '```' + fence.info.trim(),
+        message: `The words after \`${fence.lang}\` (${rest.slice(0, 40)}) are ignored: a plugin's fence is handed its text only.`,
+        fix: `Remove them, or keep the setting inside the block's text. They may take on a meaning in a later release.`,
+      });
+    }
+  });
+  return findings;
+}
+
+/**
+ * Front-matter `plugins:` import-list validation (engineering/decisions/2026-09-27-plugin-system.md
+ * §9 decision 6). The list only ever ADDS, so a name no plugin has changes nothing — which is
+ * exactly why it must be reported: `plugins: [mermiad]` reads as an instruction obeyed. The render
+ * reports the same name as `plugin/unknown-plugin` (lib/engine/index.js); this is the author's copy.
+ * One warning per unknown name, read by the plugin host's own reader.
+ */
+function findUnknownPlugins(source, vocab) {
+  // `vocab.externalPlugins`: plugins the host holds that arrived as data (the Studio's installed zip plugins, the
+  // CLI's `--plugins` folder). They are not in PLUGIN_NAMES, and a deck that lists one is not wrong.
+  const external = new Set(Array.isArray(vocab?.externalPlugins) ? vocab.externalPlugins : []);
+  const listed = deckPluginList(source).filter((n) => !external.has(n));
+  if (!listed.length) return [];
+  const known = [...PLUGIN_NAMES];
+  // The finding's `line` is the REAL source line that carries the name — `plugins: [a, b]`, or a
+  // block sequence's `- b` — because `applyFix` finds the line to edit by matching it, and one
+  // fixable finding whose line matches nothing stops `applyAllFixes` for every finding after it
+  // (HARD RULE #25 checker, E0). The did-you-mean replace then edits the name inside that line.
+  const fmLines = (source.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '').split(/\r?\n/);
+  const escapeRe = (n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // From the LAST `plugins:` line, the span the deck reads (#3050, D1); `chunkLine` points the fix there, past a dead copy.
+  const at = fmLines.findLastIndex((x) => /^plugins[ \t]*:/.test(x));
+  const lineOf = (name) => {
+    const word = new RegExp(`(^|[^A-Za-z0-9_-])${escapeRe(name)}(?![A-Za-z0-9_-])`);
+    const [head, ...rest] = fmLines.slice(at);
+    if (word.test(head.slice(head.indexOf(':') + 1))) return head.trim();
+    // The register's span, as lib/core/deck-plugins.mjs reads it: indented, `-`, comment and blank lines
+    // continue it; the next column-0 key ends it.
+    for (const l of rest) {
+      if (l !== '' && !/^[ \t#-]/.test(l)) break;
+      if (word.test(l)) return l.trim();
+    }
+    return null;
+  };
+  return listed.filter((name) => !known.includes(name)).map((name) => {
+    const line = lineOf(name);
+    const finding = {
+      slide: 0,
+      rule: 'unknown-plugin',
+      severity: 'warning',
+      classToken: name,
+      line: line ?? `plugins: ${name}`,
+      chunkLine: at,
+    message: isPluginName(name)
+      ? `no plugin is named '${name}' — the deck's \`plugins:\` list names it, and nothing loads`
+      : `'${name}' is not a plugin name — the deck's \`plugins:\` list names it, and nothing loads`,
+      fix: `Remove it from \`plugins:\`, or name one of: ${known.join(', ')}.`,
+    };
+    // No real line to edit (a spelling the scan cannot place) → prose only, never a button whose
+    // fix finds nothing and stops every fix after it.
+    return line ? withTokenSuggestion(finding, known) : finding;
+  });
+}
+
+/**
+ * Front-matter `style:` register validation — the sibling of findUnknownFinish for
+ * the rendering-mode axis (boardroom / sketch). Reads the value from the leading
+ * `---`-fenced front-matter block only and warns when it isn't a known register name.
+ * The canonical list is injected (lib/core/resolve-mode.js `MODE_NAMES`).
+ */
+function findUnknownMode(source, modeNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmMode = lastFrontMatterMatch(fmBlock[1], /^\s*mode:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmMode) return [];
+  const value = fmMode[1].trim();
+  const known = new Set([...modeNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-mode',
+    severity: 'warning',
+    classToken: value,
+    line: fmMode[0].trim(),
+    message: `'${value}' isn't a valid \`mode:\` value — the deck ignores it and uses the \`boardroom\` mode.`,
+    fix: `Use one of: ${[...modeNames].join(', ')}.`,
+  }, modeNames)];
+}
+
+// The `pace:` register's names, for the linter. A SECOND copy of the list in
+// `lib/core/resolve-pace.mjs`, and it has to be: that module is ESM (the docs production build
+// is Rollup, which will not resolve named exports off a CommonJS file outside its root), and
+// this one is CommonJS and browser-safe by contract. Neither can import the other synchronously.
+// `test/unit/core/pace-names.test.js` pins every copy against every other, which is the seam
+// that stops them drifting.
+const PACE_NAMES = ['brisk', 'natural', 'deliberate'];
+
+// The `delivery:` register's names — a sync-gated copy of `DELIVERY_NAMES` in
+// `lib/core/resolve-delivery.mjs`, for the ESM/CommonJS reason the PACE_NAMES copy above gives.
+// `test/unit/core/delivery-names.test.js` pins the two lists and the two parses.
+const DELIVERY_NAMES = ['restrained', 'expressive', 'somber'];
+
+/**
+ * Front-matter `delivery:` register validation — how much a narrated deck gestures
+ * (restrained / expressive / somber). Parses the value exactly as `deliveryLine` in
+ * lib/core/resolve-delivery.mjs does, so the rule reports on the deck that will play.
+ */
+function findUnknownDelivery(source, deliveryNames) {
+  const fmBlock = source.match(/^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+  if (!fmBlock) return [];
+  const fm = lastFrontMatterMatch(fmBlock[1], /^[ \t]*delivery:[ \t]*(.*)$/m);
+  if (!fm) return [];
+  const value = frontMatterScalar(fm[1]);
+  if (!value) return [];
+  const known = new Set([...deliveryNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-delivery',
+    severity: 'warning',
+    classToken: value,
+    line: fm[0].trim(),
+    message: `'${value}' isn't a valid \`delivery:\` value — the deck ignores it and uses \`restrained\`, the default.`,
+    fix: `Use one of: ${[...deliveryNames].join(', ')}.`,
+  }, deliveryNames)];
+}
+
+/**
+ * The deck's `greeting:` / `closing:` as the resolver reads them — `{ greeting: { template } | null,
+ * closing: { text } | null }`. A sync-gated COPY of `resolveBookends` (lib/core/resolve-bookends.mjs),
+ * for the ESM/CommonJS reason `PACE_NAMES` gives above; `lint-parse-parity` in
+ * test/unit/core/resolve-bookends.test.js drives both over the same shapes and pins them equal.
+ */
+function readBookendKeys(source) {
+  const fmBlock = String(source ?? '').match(/^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
+  const one = (key, fallback) => {
+    const m = fmBlock?.[1].match(new RegExp(`^${key}:(.*)$`, 'm'));
+    if (!m) return null;
+    const raw = m[1].trim();
+    const quoted = raw[0] === '"' || raw[0] === "'";
+    let text = frontMatterScalar(raw);
+    if (raw[0] === '"') text = text.replace(/\\(["\\])/g, '$1');
+    text = text.trim();
+    if (!text || (!quoted && text.startsWith('#'))) return null;
+    if (!quoted && ['false', 'off', 'no', 'none'].includes(text.toLowerCase())) return null;
+    if (!quoted && ['true', 'on', 'yes'].includes(text.toLowerCase())) return fallback;
+    return text;
+  };
+  const greeting = one('greeting', '{greeting}.');
+  const closing = one('closing', 'Thank you.');
+  return { greeting: greeting ? { template: greeting } : null, closing: closing ? { text: closing } : null };
+}
+
+/**
+ * The `greeting:` / `closing:` bookends — what a narrated deck says before slide 1 and after the
+ * last slide (lib/core/resolve-bookends.mjs; engineering/decisions/2026-09-27-narration-bookends.md).
+ * Reads each key at column 0 through `frontMatterScalar`, as the resolver does. Three warnings:
+ *
+ *   greeting-hardcoded-period   a custom greeting that says "good morning" itself — right for one
+ *                               part of the day and wrong for the rest. `{greeting}` is the fix.
+ *   unknown-bookend-placeholder a `{…}` the resolver does not expand, which the voice would read
+ *                               aloud as written. The greeting knows `{greeting}`; the closing none.
+ *   greeting-not-english        `{greeting}` in a deck whose `lang:` is not English: the salutation
+ *                               is always English, so the deck would open in the wrong language.
+ */
+function findBookendIssues(source) {
+  const fmBlock = source.match(/^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
+  if (!fmBlock) return [];
+  const fm = fmBlock[1];
+  const findings = [];
+  const ends = readBookendKeys(source);
+  const read = (key) => {
+    const text = key === 'greeting' ? ends.greeting?.template : ends.closing?.text;
+    return text ? { text, line: fm.match(new RegExp(`^${key}:.*$`, 'm'))[0].trim() } : null;
+  };
+  const greeting = read('greeting');
+  const closing = read('closing');
+  const period = /\bgood\s+(morning|afternoon|evening|night)\b/i;
+  if (greeting && period.test(greeting.text)) {
+    const said = greeting.text.match(period)[0];
+    findings.push({
+      slide: 0,
+      rule: 'greeting-hardcoded-period',
+      severity: 'warning',
+      line: greeting.line,
+      message: `The greeting always says '${said}', whatever time the deck plays.`,
+      fix: `Write \`{greeting}\` instead; it becomes "Good morning", "Good afternoon" or "Good evening" from the listener's clock.`,
+    });
+  }
+  for (const [b, allowed] of [[greeting, ['greeting']], [closing, []]]) {
+    if (!b) continue;
+    for (const [, name] of b.text.matchAll(/\{([^{}\s]*)\}/g)) {
+      if (allowed.includes(name)) continue;
+      findings.push({
+        slide: 0,
+        rule: 'unknown-bookend-placeholder',
+        severity: 'warning',
+        line: b.line,
+        message: `'{${name}}' is not a placeholder here — the voice would read it aloud as written`,
+        fix: allowed.length ? 'The greeting expands `{greeting}` only. Write the rest as plain words.' : 'The closing is spoken exactly as written. Write it as plain words.',
+      });
+    }
+  }
+  const lang = lastFrontMatterMatch(fm, /^lang:(.*)$/m); // the last repeat wins (#3050, D1), as frontMatterLang reads it
+  const langValue = lang ? frontMatterScalar(lang[1]).toLowerCase() : '';
+  if (greeting?.text.includes('{greeting}') && langValue && !/^en(\b|[-_])/.test(langValue)) {
+    findings.push({
+      slide: 0,
+      rule: 'greeting-not-english',
+      severity: 'warning',
+      line: greeting.line,
+      message: `\`{greeting}\` is always English ("Good morning"), but this deck's \`lang:\` is '${langValue}'`,
+      fix: 'Write the greeting in the deck\'s own language instead, e.g. `greeting: "Bonjour et bienvenue."`.',
+    });
+  }
+  return findings;
+}
+
+/**
+ * Front-matter `pace:` register validation — the sibling of findUnknownMode for the
+ * presentation-rhythm axis (brisk / natural / deliberate). Reads the value from the leading
+ * `---`-fenced block only. The canonical list is injected (lib/core/resolve-pace.mjs
+ * `PACE_NAMES`).
+ */
+function findUnknownPace(source, paceNames) {
+  // CHARACTER-FOR-CHARACTER the resolver's parse (`paceLine` in lib/core/resolve-pace.mjs),
+  // because a rule that reads the register differently from the code that CONSUMES it reports
+  // on a different deck than the one that will play. The first version of this rule matched
+  // only a clean bare word — so every value the resolver rejects for a trailing character
+  // (`pace: brisk.`, `pace: delibrate # weighty deck`, a BOM'd deck) simply failed to match and
+  // produced no finding at all: silence on exactly the typos it exists to catch. `pace-parse-parity`
+  // in test/unit/core/pace-names.test.js drives the same table through both and pins them equal.
+  const fmBlock = source.match(/^﻿?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+  if (!fmBlock) return [];
+  const fmPace = lastFrontMatterMatch(fmBlock[1], /^[ \t]*pace:[ \t]*(.*)$/m);
+  if (!fmPace) return [];
+  // The shared scalar rule. `pace:` stripped a trailing comment before any sibling
+  // register did (see resolve-pace.mjs); that behavior is now the repo-wide rule
+  // rather than this key's exception, so this reads through it like every other.
+  const value = frontMatterScalar(fmPace[1]);
+  // An EMPTY value is `pace:` with nothing after it — a different mistake (an unfinished key,
+  // or a YAML block the author meant to nest), and naming it "'' is not a known pace" reads as
+  // noise. The resolver falls through to the workspace default either way.
+  if (!value) return [];
+  const known = new Set([...paceNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-pace',
+    severity: 'warning',
+    classToken: value,
+    line: fmPace[0].trim(),
+    message: `'${value}' isn't a valid \`pace:\` value — the deck ignores it, and playback uses each viewer's own setting.`,
+    fix: `Use one of: ${[...paceNames].join(', ')}.`,
+  }, paceNames)];
+}
+
+/**
+ * The front-matter body the two render-target rules read, or `null` when the deck has none.
+ *
+ * `\uFEFF?` and `\r?\n` on both sides, matching findUnknownPace: a BOM'd or CRLF deck has
+ * front matter like any other, and a reader that silently sees none reports nothing for a
+ * deck that carries a key. One copy for the pair, so the two rules cannot come to disagree
+ * about which decks even have front matter.
+ */
+function renderTargetFrontMatter(source) {
+  const m = String(source || '').match(/^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+  return m ? m[1] : null;
+}
+
+/**
+ * The three RENDER-TARGET front-matter keys — `fluid:` / `player:` / `present:` — carry a
+ * value in NEITHER the on vocabulary nor the off one.
+ *
+ * These keys fail more quietly than any register. A register with a bad value still
+ * renders a deck, just the wrong-looking one, and the author sees it on their own screen.
+ * A render target decides which ARTIFACT gets written: `fluid: ture` reads as off, the
+ * export writes a fixed-deck `.html` without a word of complaint, and the deck looks
+ * perfect in every previewer the author has. The mistake is only visible to whoever opens
+ * the file on a phone — which is the audience the key existed to serve.
+ *
+ * Only an UNRECOGNIZED value is a finding. `fluid: false` is an author saying no on
+ * purpose and must stay silent, which is the whole reason lib/core/render-target-keys.js
+ * carries an OFF vocabulary the export itself never needed: to the export, "not on" is one
+ * state, and to an author it is two very different decks.
+ *
+ * An EMPTY value (`fluid:` with nothing after it) is skipped for findUnknownPace's stated
+ * reason — it is an unfinished key or a YAML block the author meant to nest, and reporting
+ * "'' is not a known value" reads as noise.
+ *
+ * Deck-level, so `slide: 0`. Self-contained: the vocabulary comes from the kernel, so no
+ * injected vocab and the rule runs for every caller including the browser.
+ */
+function findBadRenderTargetValues(source) {
+  const fm = renderTargetFrontMatter(source);
+  if (fm === null) return [];
+  const findings = [];
+  for (const key of RENDER_TARGET_KEY_NAMES) {
+    const { state, value } = renderTargetKeyState(fm, key);
+    if (state !== 'unrecognized') continue;
+    // The raw line, for the report — matched the same way the KERNEL matches it in the one
+    // dimension that has drifted: CASE. Not full parity, and the gap is named rather than
+    // asserted away — the kernel escapes its interpolated key and this does not. Identical
+    // behavior for the three frozen literal keys, and the kernel's own `escapeKey` docblock
+    // calls an unescaped key "the kind of asymmetry that survives a refactor", so a comment
+    // claiming parity here is what would stop the next reader noticing.
+    // The case drift was user-visible: the kernel started reading
+    // the key case-insensitively while this stayed case-sensitive, so a deck writing
+    // `FLUID: ture` got `fluid: ture` quoted back — a line not present in the source. The
+    // editor uses this string as a NEEDLE to place the squiggle
+    // (docs/src/lib/editor-diagnostics.js), so a fabricated line does not just read
+    // oddly, it moves the underline to the top of the deck.
+    const line = fm.match(new RegExp(`^[ \\t]*${key}:[ \\t]*.*$`, 'im'));
+    // DELIBERATELY NOT `withTokenSuggestion`, and this is the one decision in the rule
+    // worth stating. That helper attaches `autofixable: true` + a `replace`, which the
+    // editor's per-finding quick-fix and its "Fix all" (Alt-Shift-F) apply without asking.
+    // Fed the two vocabularies as one list it picks the nearest token regardless of
+    // POLARITY, and the nearest token to a mistyped OFF word is usually an ON word:
+    // measured, `player: n` → `player: on` and `fluid: of` → `fluid: on`. That silently
+    // enables a render target on a deck whose author explicitly opted out, changing which
+    // artifact ships — the exact failure this rule exists to prevent, caused by the rule.
+    //
+    // A typo's polarity is genuinely ambiguous (`of` is one edit from both `off` and
+    // `on`), so there is no correct guess to make, only a cheap one. The fix TEXT names
+    // all six values and the author picks; nothing here rewrites their deck for them.
+    findings.push({
+      slide: 0,
+      rule: 'bad-render-target-value',
+      severity: 'warning',
+      classToken: value,
+      // No synthesized fallback: every path that reaches here matched a line, and inventing
+      // `${key}: ${value}` is what made the drift above invisible for a commit.
+      line: line ? line[0].trim() : `${key}:`,
+      message: `'${value}' isn't on or off, so the export treats \`${key}:\` as off.`,
+      fix: `Set \`${key}:\` to ${ON_WORDS.join('/')} or ${OFF_WORDS.join('/')}.`,
+    });
+  }
+  return findings;
+}
+
+/**
+ * A render-target key written INDENTED — the one shape the reader believes and YAML reads
+ * as something else.
+ *
+ * The export reads it as the deck's own register. `lib/core/render-target-keys.js` opens
+ * both of its matchers on a leading whitespace run, so an indented line is read like a
+ * top-level one — and because the reader takes an ON word from ANY line for the key, an
+ * indented `fluid: true` opts the deck in even when a top-level `fluid: false` says no. The
+ * kernel records this as the union's one false-ON and names the remedy: a warning here, not
+ * a narrower reader. Narrowing the read to column 0 would re-break six measured parity rows
+ * and silently turn off decks in the field.
+ *
+ * WHAT THE WARNING CLAIMS, and what it deliberately does not. It claims the EXPORT reads
+ * the line as the register — `indentedKeyLines` reports only lines a reader arm actually
+ * reads, so that half is always true. It does NOT claim YAML disagrees, because sometimes
+ * YAML does not: a front matter whose every key is indented by the same amount is a legal
+ * document with those keys at the top level, and an earlier draft of this message told such
+ * an author that YAML reads their key "as a value under the key above it" when there is no
+ * key above it. The message states the export's reading flatly and the disagreement
+ * conditionally.
+ *
+ * THE FREE-FORM MAP IS THE CASE THAT MATTERS, and it is a warning rather than a
+ * false positive. `lexicon:` and `acronyms:` take arbitrary word keys, and `present` is the
+ * textbook English heteronym (PRES-ent / pre-SENT) — the first word an author would teach a
+ * deck to pronounce. `lexicon:` + an indented `present: on` really does flag the exported
+ * PDF to open full-screen, so staying silent there would hide a live surprise. What the
+ * author needs is an escape that keeps the lexicon entry, and there is one: QUOTING the key
+ * (`"present": pre ZENT`) is the same mapping to YAML and stops both reader arms dead, since
+ * each wants `present:` immediately after the whitespace run. The fix text names it.
+ *
+ * It fires on an off-value too. A nested `fluid: false` does not turn a deck on today, but
+ * it is the same line, read the same way, one edit from doing so — and "the export reads
+ * this as the deck's `fluid:`" is true of it either way.
+ *
+ * Deck-level (`slide: 0`), like its sibling, and no autofix: de-indenting the line, quoting
+ * the key and deleting it are all plausible, and which one the author meant is not knowable
+ * from the source. The line is quoted VERBATIM and WITH its indentation, because the editor
+ * places its underline by searching for that string
+ * (docs/src/lib/editor-diagnostics.js) and the indentation is what tells a nested
+ * `fluid: true` apart from a top-level one that trims to the same characters — without it
+ * the squiggle lands on the innocent line. Verified on the real Studio in
+ * docs/e2e/editor-lint.spec.ts.
+ */
+function findNestedRenderTargetKeys(source) {
+  const fm = renderTargetFrontMatter(source);
+  if (fm === null) return [];
+  const findings = [];
+  for (const key of RENDER_TARGET_KEY_NAMES) {
+    for (const raw of indentedKeyLines(fm, key)) {
+      findings.push({
+        slide: 0,
+        rule: 'nested-render-target-key',
+        severity: 'warning',
+        // The KEY, not a value — this finding has no token to rewrite, and `tools/lint-deck.js`
+        // prints this field in brackets on every finding it reports. Never feed it to
+        // `withTokenSuggestion`, which reads `classToken` as the token to REPLACE: offering to
+        // rewrite the key is the one repair that cannot be right here.
+        classToken: key,
+        line: raw,
+        message: `\`${key}:\` is indented, but the export still reads it as the deck setting.`,
+        fix: `Move it to the left margin, or quote the key (\`"${key}":\`) if it belongs to the block above.`,
+      });
+    }
+  }
+  return findings;
+}
+
+/**
+ * Front-matter `color-mode:` register validation — the sibling of findUnknownMode for
+ * the COLOR-mode axis. Warns when the value isn't a known register name
+ * (light / dark / system / inherited), so a typo (`color-mode: darrk`) surfaces
+ * instead of silently rendering the theme default. Names injected from
+ * lib/core/resolve-color-mode.js `COLOR_MODE_NAMES`, keeping this core require-free.
+ *
+ * CHARACTER-FOR-CHARACTER the resolver's parse (`deckColorModeToken` →
+ * `topLevelFrontMatterValue` → `colorModeClass`), for the same reason `findUnknownPace`
+ * is: a rule that reads the register differently from the code that CONSUMES it
+ * reports on a different deck than the one that will render. The first version
+ * captured only `[A-Za-z0-9_-]+` to end-of-line, so `color-mode: light  # migrated
+ * 2026-08` — which the resolver rejects, falling the deck through to the theme
+ * default — simply failed to match and produced no finding at all: silence on
+ * exactly the input #1416 was written around. The resolver does NOT strip a
+ * trailing comment, so neither does this; the value it names is the value the
+ * engine saw. COLUMN 0 for the same reason the resolver is: an indented
+ * `color-mode:` is a nested key or a `style: |` block-scalar line, not the deck
+ * register, and warning about one would report on a key nothing reads.
+ */
+function findUnknownColorMode(source, colorModeNames) {
+  const fmBlock = source.match(/^﻿?---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+  if (!fmBlock) return [];
+  const fm = lastFrontMatterMatch(fmBlock[1], /^color-mode:[ \t]*(.*)$/m); // the last repeat wins (#3050, D1)
+  if (!fm) return [];
+  // Through the SHARED scalar rule, which is what keeps this rule and
+  // `deckColorModeToken` answering identically — the contract
+  // `color-mode-parse-parity` pins. A trailing YAML comment is stripped here
+  // because it is stripped there; before the two agreed by both being wrong.
+  const value = frontMatterScalar(fm[1]);
+  // An EMPTY value is `color-mode:` with nothing after it — an unfinished key rather
+  // than a typo, and `'' is not a known color-mode` reads as noise. Same call as pace.
+  if (!value) return [];
+  const known = new Set([...colorModeNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-color-mode',
+    severity: 'warning',
+    classToken: value,
+    line: fm[0].trim(),
+    message: `'${value}' isn't a valid \`color-mode:\` value — the deck ignores it and uses the theme's default colors.`,
+    fix: `Use one of: ${[...colorModeNames].join(', ')}.`,
+  }, colorModeNames)];
+}
+
+/**
+ * A token in the deck-wide `class:` register that the engine REFUSES — it is not
+ * stamped on any section, so the author's instruction does nothing.
+ *
+ * Two reasons, and each is a silent no-op without this rule:
+ *
+ *   COMPONENT — `class: kpi` reads as "every slide in this deck is a KPI slide".
+ *     The register is appended over a slide's own `_class:`, so it collides rather
+ *     than composes: `_class: cards-grid` on a `class: kpi` deck used to put two
+ *     components on one section and let CSS source order pick. Refused at the
+ *     boundary now (lib/core/deck-class-register.js).
+ *   COLOR-MODE — a color-axis token superseded by the `color-mode:` key. Not merely
+ *     redundant: the token is DROPPED, so a half-migrated `color-mode: light` +
+ *     `class: print` deck renders a light canvas, not a paper one.
+ *
+ * The vocabulary is INJECTED (HARD RULE #7 — this core stays pure and fs-free), and
+ * the two sources cannot drift: `vocab.names` is built from the live component
+ * manifests, and the kernel's `isComponentToken` reads the generated stage catalog,
+ * which `resolve-component.test.js` pins 1:1 against those same manifests.
+ */
+/**
+ * A retired switch spelling in the deck-wide `class:` (`class: callout-off`): the same hard rename as
+ * on a slide (lib/core/switches.mjs), found where the per-slide `unknown-class` rule does not look.
+ */
+function findRetiredDeckSwitch(source) {
+  const cm = lastFrontMatterMatch(source.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] || '', /^class:.*$/m); // the last repeat wins (#3050, D1)
+  return !cm ? [] : cm[0].slice(6).replace(/#.*$/, '').split(/[\s,[\]"']+/).filter(retiredSwitch).map((t) => {
+    const r = RENAMED_CLASSES.get(t);
+    return { slide: 0, rule: 'unknown-class', severity: 'warning', classToken: t, line: cm[0].trim(), message: r.message,
+      fix: `Replace '${t}' with '${r.to}'. ${r.loses}`, autofixable: true, replace: { from: t, to: r.to } };
+  });
+}
+
+function findRefusedDeckClass(source) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const body = fmBlock[1];
+  // COLUMN 0, matching the kernel below — this match is only used to QUOTE the
+  // offending line back to the author, and quoting a nested key while the kernel
+  // refused a token off the top-level one points the fix at the wrong line.
+  //
+  // GREEDY TO END OF LINE, and no capture: the value is the kernel's business, not
+  // this line's. The `["']?([^"'\n]*)["']?[ \t]*$` it used to carry was ambiguous —
+  // `[^"'\n]*` matches spaces and tabs, so does the trailing `[ \t]*`, and the
+  // optional quotes let the engine split a run of trailing whitespace between them
+  // every possible way before failing. That is a quadratic on author-controlled
+  // deck source (`js/polynomial-redos`). `.*` cannot fail, so it never backtracks.
+  const cm = [...body.matchAll(/^class[ \t]*:.*$/gm)].pop(); // the line the reader takes: the last (#3050, D1)
+  if (!cm) return [];
+  // THE KERNEL DECIDES, not a copy of its rule. A first cut of this function
+  // re-spelled both halves — a `componentNames` set injected from the vocabulary
+  // AND its own `^\s*color-mode:` regex. The second of those was a FOURTH reader
+  // of the key, landed in the same change whose whole point was that there is one;
+  // where two readers disagree the author gets a dropped token and no warning, or
+  // a warning for a token that is not dropped. `deckClassRefusalsFromFrontMatter`
+  // is the same call `deckClassPropagate` makes, so the message and the render
+  // cannot come apart.
+  const mode = topLevelFrontMatterValue(body, 'color-mode');
+  // A host (`columns`, `rows`) in the deck-wide `class:` has its own, more specific finding
+  // (`pane-layout`, findPaneIssues): one line, one warning.
+  return deckClassRefusalsFromFrontMatter(body).filter(({ token }) => !Object.hasOwn(PANE_LAYOUTS, token)).map(({ token, reason }) => ({
+    slide: 0,
+    rule: 'deck-wide-component',
+    severity: 'warning',
+    classToken: token,
+    line: cm[0].trim(),
+    message: reason === 'component'
+      ? `\`class: ${token}\` names a COMPONENT deck-wide — every slide would be a ${token} slide. It is ignored.`
+      : `\`${token}\` is ignored because \`color-mode: ${String(mode || '').trim()}\` is set.`,
+    fix: reason === 'component'
+      ? `Name the layout per slide with \`<!-- _class: ${token} -->\`, or once for a run with \`<!-- class: ${token} -->\`.`
+      : `Remove \`${token}\` from \`class:\`.`,
+  }));
+}
+
+/**
+ * Front-matter `claim:` value validation. Mirrors findUnknownMode: reads the
+ * value from the leading `---` block and warns when it isn't a known claim
+ * register (framed / quiet / hero / bleed), so a typo (`claim: heo`) surfaces
+ * instead of silently mapping to the framed baseline. Names injected from
+ * lib/core/resolve-claim.js `CLAIM_NAMES`, keeping this core require-free.
+ */
+function findUnknownClaim(source, claimNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmClaim = lastFrontMatterMatch(fmBlock[1], /^\s*claim:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmClaim) return [];
+  const value = fmClaim[1].trim();
+  const known = new Set([...claimNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-claim',
+    severity: 'warning',
+    classToken: value,
+    line: fmClaim[0].trim(),
+    message: `'${value}' isn't a valid \`claim:\` value — the deck ignores it and uses \`framed\`, the default.`,
+    fix: `Use one of: ${[...claimNames].join(', ')}.`,
+  }, claimNames)];
+}
+
+/**
+ * Front-matter `stamp:` register validation — the sibling of findUnknownFinish for the
+ * STATE-MARKER SHAPE axis (tab / seal / notch / …). Reads the value from the leading
+ * `---`-fenced block only and warns when it isn't a known style name, so a typo
+ * (`stamp: sael`) surfaces instead of silently rendering the uniform default shape.
+ * The canonical list is injected (lib/core/resolve-stamp.js `STAMP_STYLE_NAMES`).
+ */
+function findUnknownStamp(source, stampStyleNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmStamp = lastFrontMatterMatch(fmBlock[1], /^\s*stamp:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmStamp) return [];
+  const value = fmStamp[1].trim();
+  const known = new Set([...stampStyleNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-stamp',
+    severity: 'warning',
+    classToken: value,
+    line: fmStamp[0].trim(),
+    message: `'${value}' isn't a valid \`stamp:\` value — the deck ignores it and uses the default \`tab\` shape.`,
+    fix: `Use one of: ${[...stampStyleNames].join(', ')}.`,
+  }, stampStyleNames)];
+}
+
+/**
+ * Front-matter `tone:` register validation — the sibling of findUnknownStamp for the
+ * TONE-MARKER SHAPE axis (rail / edge / glow). Warns when the value isn't a known tone
+ * style, so a typo silently falling back to the default rail surfaces. The canonical
+ * list is injected (lib/core/resolve-tone-style.js `TONE_STYLE_NAMES`).
+ */
+function findUnknownToneStyle(source, toneStyleNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmTone = lastFrontMatterMatch(fmBlock[1], /^\s*tone:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmTone) return [];
+  const value = fmTone[1].trim();
+  const known = new Set([...toneStyleNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-tone',
+    severity: 'warning',
+    classToken: value,
+    line: fmTone[0].trim(),
+    message: `'${value}' isn't a valid \`tone:\` value — the deck ignores it and uses the default \`rail\` shape.`,
+    fix: `Use one of: ${[...toneStyleNames].join(', ')}.`,
+  }, toneStyleNames)];
+}
+
+/**
+ * Front-matter `spectrum:` register validation — the white-label brand-bar control
+ * (on / off / solid). Warns when the value isn't recognized, so a typo silently shipping
+ * the rainbow default surfaces. The canonical list is injected
+ * (lib/core/resolve-spectrum.js `SPECTRUM_NAMES`), keeping this core require-free.
+ */
+function findUnknownSpectrum(source, spectrumNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmSpectrum = lastFrontMatterMatch(fmBlock[1], /^\s*spectrum:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmSpectrum) return [];
+  const value = fmSpectrum[1].trim();
+  const known = new Set([...spectrumNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-spectrum',
+    severity: 'warning',
+    classToken: value,
+    line: fmSpectrum[0].trim(),
+    message: `'${value}' isn't a valid \`spectrum:\` value — the deck ignores it and uses the default rainbow.`,
+    fix: `Use one of: ${[...spectrumNames].join(', ')}.`,
+  }, spectrumNames)];
+}
+
+/**
+ * Front-matter `spectrum-edge:` register validation — the section-edge bar PLACEMENT
+ * (top / left / right / bottom / off). Warns on an unrecognized value, which silently
+ * renders the top-bar default. Canonical list injected (lib/core/resolve-spectrum.js
+ * `SPECTRUM_EDGE_NAMES`), keeping this core require-free.
+ */
+function findUnknownSpectrumEdge(source, spectrumEdgeNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmEdge = lastFrontMatterMatch(fmBlock[1], /^\s*spectrum-edge:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmEdge) return [];
+  const value = fmEdge[1].trim();
+  const known = new Set([...spectrumEdgeNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-spectrum-edge',
+    severity: 'warning',
+    classToken: value,
+    line: fmEdge[0].trim(),
+    message: `'${value}' isn't a valid \`spectrum-edge:\` value — the deck ignores it and uses the default \`top\` bar.`,
+    fix: `Use one of: ${[...spectrumEdgeNames].join(', ')}.`,
+  }, spectrumEdgeNames)];
+}
+
+/**
+ * Front-matter `spectrum-card:` register validation — the card-rail STYLE
+ * (off / auto / solid / duo / mono / rainbow). Warns on an unrecognized value, which silently
+ * renders the OFF default. Canonical list injected (lib/core/resolve-spectrum.js
+ * `SPECTRUM_CARD_NAMES`), keeping this core require-free.
+ */
+function findUnknownSpectrumCard(source, spectrumCardNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmCard = lastFrontMatterMatch(fmBlock[1], /^\s*spectrum-card:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmCard) return [];
+  const value = fmCard[1].trim();
+  const known = new Set([...spectrumCardNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-spectrum-card',
+    severity: 'warning',
+    classToken: value,
+    line: fmCard[0].trim(),
+    message: `'${value}' isn't a valid \`spectrum-card:\` value — the deck ignores it and draws no card rail.`,
+    fix: `Use one of: ${[...spectrumCardNames].join(', ')}.`,
+  }, spectrumCardNames)];
+}
+
+/**
+ * Front-matter `spectrum-card-edge:` register validation — the card rail PLACEMENT
+ * (left / top / right / bottom). Warns on an unrecognized value, which silently renders the
+ * `left` default. Canonical list injected (lib/core/resolve-spectrum.js
+ * `SPECTRUM_CARD_EDGE_NAMES`), keeping this core require-free.
+ */
+function findUnknownSpectrumCardEdge(source, spectrumCardEdgeNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmEdge = lastFrontMatterMatch(fmBlock[1], /^\s*spectrum-card-edge:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmEdge) return [];
+  const value = fmEdge[1].trim();
+  const known = new Set([...spectrumCardEdgeNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-spectrum-card-edge',
+    severity: 'warning',
+    classToken: value,
+    line: fmEdge[0].trim(),
+    message: `'${value}' isn't a valid \`spectrum-card-edge:\` value — the deck ignores it and uses the default \`left\` rail.`,
+    fix: `Use one of: ${[...spectrumCardEdgeNames].join(', ')}.`,
+  }, spectrumCardEdgeNames)];
+}
+
+/**
+ * Front-matter `spectrum-trim:` register validation — the opt-in that flows the spectrum onto
+ * the structural accents (on / off). Warns on an unrecognized value, which silently renders the
+ * quiet OFF default. Canonical list injected (lib/core/resolve-spectrum.js `SPECTRUM_TRIM_NAMES`),
+ * keeping this core require-free.
+ */
+function findUnknownSpectrumTrim(source, spectrumTrimNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmTrim = lastFrontMatterMatch(fmBlock[1], /^\s*spectrum-trim:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmTrim) return [];
+  const value = fmTrim[1].trim();
+  const known = new Set([...spectrumTrimNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-spectrum-trim',
+    severity: 'warning',
+    classToken: value,
+    line: fmTrim[0].trim(),
+    message: `'${value}' isn't a valid \`spectrum-trim:\` value — the deck ignores it and leaves the structural accents plain.`,
+    fix: `Use one of: ${[...spectrumTrimNames].join(', ')}.`,
+  }, spectrumTrimNames)];
+}
+
+/**
+ * Front-matter `rule:` register validation — the HEADING RULE accent finish
+ * (auto / full / short / accent / none). Warns on an unrecognized value, which silently
+ * renders the `auto` default. Canonical list injected (lib/core/resolve-rule.js
+ * `RULE_NAMES`), keeping this core require-free.
+ */
+function findUnknownRule(source, ruleNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmRule = lastFrontMatterMatch(fmBlock[1], /^\s*rule:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmRule) return [];
+  const value = fmRule[1].trim();
+  const known = new Set([...ruleNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-rule',
+    severity: 'warning',
+    classToken: value,
+    line: fmRule[0].trim(),
+    message: `'${value}' isn't a valid \`rule:\` value — the deck ignores it and uses the default heading underline.`,
+    fix: `Use one of: ${[...ruleNames].join(', ')}.`,
+  }, ruleNames)];
+}
+
+/**
+ * Front-matter `inline-code:` register validation — whether the inline directive grammar
+ * runs (`rich` / `literal`). Warns on an unrecognized value.
+ *
+ * The failure this catches is SILENT AND BACKWARDS. `inlineCodeClass` maps anything that
+ * is not exactly `literal` to no token, so `inline-code: off` — the value an author is
+ * most likely to reach for, and the one this register was called `pills: off` in its first
+ * draft — leaves the grammar RUNNING. The author reads their front matter, sees the
+ * switch they set, and gets pills anyway. Canonical list injected
+ * (lib/core/resolve-inline-code.js `INLINE_CODE_NAMES`), keeping this core require-free.
+ */
+function findUnknownInlineCode(source, inlineCodeNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  // THE CANONICAL READER, not a fourth regex. The `$`-anchored pattern this replaces
+  // could not see a value carrying a trailing YAML comment — so
+  // `inline-code: off  # turn the pills off` linted CLEAN while the deck kept drawing
+  // pills, disarming the one rule whose whole purpose is catching that silent, backwards
+  // failure. `deckClassPropagate`'s own docblock already records this exact defect shape
+  // for `finish:`; the rule inherited the pattern from `findUnknownEyebrow` and inherited
+  // the hole with it.
+  //
+  // Reads the RAW SCALAR rather than `frontMatterName`, deliberately. `frontMatterName`
+  // returns null for anything that is not a bare name, which the engine then treats as
+  // UNSET — so `inline-code: littéral` renders pills, and a lint keyed on the same reader
+  // would see null and say nothing. The author needs to hear about exactly that.
+  const raw = frontMatterValue(fmBlock[1], 'inline-code');
+  if (raw === null || raw.trim() === '') return [];
+  const value = raw.trim();
+  const fm = lastFrontMatterMatch(fmBlock[1], /^[ \t]*inline-code:.*$/m) || [`inline-code: ${value}`];
+  const known = new Set([...inlineCodeNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-inline-code',
+    severity: 'warning',
+    classToken: value,
+    line: fm[0].trim(),
+    message: `'${value}' is not a known inline-code value — the deck would keep rendering pills and marks`,
+    fix: `Set front-matter \`inline-code:\` to one of: ${[...inlineCodeNames].join(', ')}.`,
+  }, inlineCodeNames)];
+}
+
+/**
+ * Front-matter `eyebrow:` register validation — the EYEBROW accent finish
+ * (plain / dot / bar / arrow / underline). Warns on an unrecognized value, which silently
+ * renders the bare `plain` default. Canonical list injected (lib/core/resolve-eyebrow.js
+ * `EYEBROW_NAMES`), keeping this core require-free.
+ */
+function findUnknownEyebrow(source, eyebrowNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmEyebrow = lastFrontMatterMatch(fmBlock[1], /^\s*eyebrow:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmEyebrow) return [];
+  const value = fmEyebrow[1].trim();
+  const known = new Set([...eyebrowNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-eyebrow',
+    severity: 'warning',
+    classToken: value,
+    line: fmEyebrow[0].trim(),
+    message: `'${value}' is not a known eyebrow value — the deck would silently render the bare label`,
+    fix: `Set front-matter \`eyebrow:\` to one of: ${[...eyebrowNames].join(', ')}.`,
+  }, eyebrowNames)];
+}
+
+/**
+ * Front-matter `headline:` register validation — the HEADLINE ALIGNMENT register
+ * (auto / left / center / right). Warns on an unrecognized value, which silently keeps the
+ * component's baked alignment (the `auto` default). Canonical list injected
+ * (lib/core/resolve-headline.js `HEADLINE_NAMES`), keeping this core require-free.
+ */
+function findUnknownHeadline(source, headlineNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmHeadline = lastFrontMatterMatch(fmBlock[1], /^\s*headline:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmHeadline) return [];
+  const value = fmHeadline[1].trim();
+  const known = new Set([...headlineNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-headline',
+    severity: 'warning',
+    classToken: value,
+    line: fmHeadline[0].trim(),
+    message: `'${value}' isn't a valid \`headline:\` value — the deck ignores it, and each layout keeps its own heading alignment.`,
+    fix: `Use one of: ${[...headlineNames].join(', ')}.`,
+  }, headlineNames)];
+}
+
+/**
+ * Front-matter `corners:` register validation — square / rounded. Warns when the value
+ * isn't recognized, so a typo silently shipping the square default surfaces.
+ *
+ * `corners: round` is the case this exists for. It is the more natural English word and so
+ * the likeliest thing an author writes, it resolves to nothing, and the deck then renders
+ * square with no signal anywhere — the register's own kernel maps every unknown value to
+ * the baseline by design. Canonical list injected (lib/core/resolve-corners.js
+ * `CORNERS_NAMES`), keeping this core require-free.
+ */
+/**
+ * The `fit:` register (engineering/decisions/2026-09-25-fit-policy.md): an unknown value,
+ * and the old `guards:` spelling. An unknown `fit:` resolves to the default `heal`, which
+ * fails SAFE for TRIM and silently for `report` — the author who typed `fit: reprot` to
+ * switch the engine off gets it on — so it is a warning. The old spelling still works,
+ * so naming the new one is `info`.
+ */
+function findFitRegister(source, fitNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const out = [];
+  const lineOf = (key) => (fmBlock[1].split(/\r?\n/).findLast((l) => new RegExp(`^${key}\\s*:`).test(l)) || '').trim();
+  const fit = frontMatterName(fmBlock[1], 'fit');
+  const known = new Set([...fitNames].map((n) => String(n).toLowerCase()));
+  if (fit && !known.has(fit.toLowerCase())) {
+    out.push({
+      slide: 0,
+      rule: 'unknown-fit',
+      severity: 'warning',
+      classToken: fit,
+      line: lineOf('fit') || `fit: ${fit}`,
+      message: `'${fit}' isn't a valid \`fit:\` value — the deck ignores it and uses the default, \`heal\`.`,
+      fix: `Use one of: ${[...fitNames].join(', ')}.`,
+    });
+  }
+  const guards = frontMatterName(fmBlock[1], 'guards');
+  if (guards) {
+    const to = guards.toLowerCase() === 'strict' ? 'trim' : guards.toLowerCase() === 'loose' ? 'heal' : null;
+    // An unknown old spelling with no `fit:` resolves silently to the default, `heal`, so
+    // that branch is a warning (it absorbed the deleted `unknown-guards` rule, 2026-10-06).
+    out.push({
+      slide: 0,
+      rule: 'guards-renamed',
+      severity: !fit && !to ? 'warning' : 'info',
+      classToken: guards,
+      line: lineOf('guards') || `guards: ${guards}`,
+      message: fit
+        ? `\`guards:\` is the old spelling of \`fit:\`, and this deck sets both — \`fit: ${fit}\` wins`
+        : to
+          ? '`guards:` has been renamed to `fit:`.'
+          : `\`guards:\` has been renamed to \`fit:\`, and '${guards}' isn't a valid value, so the deck uses the default, \`heal\`.`,
+      // With `fit:` present too, the only safe fix is deleting the old line: "write fit: trim"
+      // would CHANGE the level of a deck whose `fit: report` already wins.
+      fix: fit
+        ? 'Delete the `guards:` line — `fit:` already decides.'
+        : to ? `Write \`fit: ${to}\` instead${to === 'heal' ? ' — or drop the line; heal is the default' : ''}.` : `Write \`fit:\` with one of: ${[...fitNames].join(', ')}.`,
+    });
+  }
+  return out;
+}
+
+/**
+ * `logo-style:` (renamed) and `logo-on:` / `logo-x:` / `logo-y:` / `logo-scale:` (retired): the logo is styled on ONE line,
+ * `logo-finish:` (lib/core/resolve-logo-finish.js). Old decks keep them, and they no longer render, so
+ * each is reported with a machine fix that folds it into the line and deletes it:
+ *
+ *   logo-on: title        → the `title` word
+ *   logo-scale: 1.5       → `lg` (under 0.9 → `sm`; otherwise the default, no word)
+ *   logo-x + logo-y       → the nearest of the six berths (`50` / `82` → `bottom-center`) — lossy by
+ *                           design: a free position becomes a named one, and the message says so
+ *
+ * `logo-style: brand` becomes `logo-finish: brand plate`: its two old words were `auto` and `brand`, `auto` is the
+ * default and is dropped, and `brand` used to paint the plate, which is now its own word, so the look is kept.
+ *
+ * Order matters because `applyAllFixes` applies one fix per pass: the line that carries the merged
+ * words is rewritten first, and a retired line becomes deletable only once the merge is in place, so
+ * no pass can drop a word it has not yet written. Pure; `axes` is the register's `{axis: names}`.
+ */
+function findRetiredLogoKeys(source, axes) {
+  const fm = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fm) return [];
+  const lines = fm[1].split(/\r?\n/);
+  const retired = [];
+  let styleLine = null;
+  for (const line of lines) {
+    const m = line.match(/^(logo-style|logo-on|logo-x|logo-y|logo-scale):[ \t]*(.*)$/);
+    if (m) retired.push({ line, key: m[1], raw: m[2].replace(/\s+#.*$/, '').trim().replace(/^["']|["']$/g, '') });
+    else if (/^logo-finish:/.test(line)) styleLine = line;
+  }
+  if (!retired.length) return [];
+  const num = (key) => {
+    const r = retired.find((x) => x.key === key);
+    const n = r && /^-?(\d+\.?\d*|\.\d+)$/.test(r.raw) ? Number(r.raw) : null;
+    return Number.isFinite(n) ? n : null;
+  };
+  const migrated = {};
+  const oldStyle = retired.find((r) => r.key === 'logo-style');
+  if (oldStyle && oldStyle.raw.toLowerCase() === 'brand') {
+    migrated.color = 'brand';
+    migrated.plate = 'plate';
+  }
+  if (retired.some((r) => r.key === 'logo-on' && r.raw.toLowerCase() === 'title')) migrated.scope = 'title';
+  const scale = num('logo-scale');
+  if (scale != null && scale < 0.9) migrated.size = 'sm';
+  else if (scale != null && scale > 1.25) migrated.size = 'lg';
+  const x = num('logo-x');
+  const y = num('logo-y');
+  if (x != null && y != null) migrated.placement = `${y >= 50 ? 'bottom' : 'top'}-${x < 33.4 ? 'left' : x > 66.6 ? 'right' : 'center'}`;
+  // The existing `logo-finish:` words by axis; a word already there wins over a migrated one.
+  const have = {};
+  const current = styleLine ? styleLine.replace(/^logo-finish:[ \t]*/, '').replace(/\s+#.*$/, '').replace(/^["']|["']$/g, '') : '';
+  for (const w of current.toLowerCase().split(/[\s,[\]]+/).filter(Boolean)) {
+    const axis = Object.keys(axes).find((k) => axes[k].includes(w));
+    if (axis && !have[axis]) have[axis] = w;
+  }
+  const merged = Object.keys(axes).map((a) => have[a] || migrated[a]).filter(Boolean);
+  // The author's own trailing `# comment` on the existing line survives the rewrite.
+  const keptComment = styleLine ? (styleLine.match(/[ \t]+#.*$/) || [''])[0].trimEnd() : '';
+  const mergedLine = merged.length ? `logo-finish: ${merged.join(' ')}${keptComment ? ` ${keptComment.trim()}` : ''}` : '';
+  const mergeDone = (mergedLine || 'logo-finish:').trim() === (styleLine || '').replace(/\r$/, '').trim() || (!mergedLine);
+  const out = [];
+  const explain = (r) => {
+    if (r.key === 'logo-style') return r.raw.toLowerCase() === 'brand' ? 'the `brand` word on `logo-finish:`' : 'nothing (`auto` is the default)';
+    if (r.key === 'logo-on') return r.raw.toLowerCase() === 'title' ? 'the `title` word on `logo-finish:`' : 'nothing (the logo already shows on every slide)';
+    if (r.key === 'logo-scale') return 'a size word (`sm`, `md`, `lg`) on `logo-finish:`';
+    return 'a placement word on `logo-finish:` (`top-left`, `bottom-center`, …)';
+  };
+  // The merge: rewrite the existing `logo-finish:` line, or turn the first retired line into one.
+  if (!mergeDone) {
+    const anchor = styleLine || retired[0].line;
+    out.push({
+      slide: 0, rule: 'retired-logo-key', severity: 'warning', classToken: 'logo-finish', shapeChange: true,
+      line: anchor.trim(), autofixable: true, replaceLine: mergedLine,
+      message: '`logo-style:`, `logo-on:`, `logo-x:`, `logo-y:` and `logo-scale:` no longer work; the logo is styled on one `logo-finish:` line.',
+      fix: `Write \`${mergedLine}\` and delete the old keys.${migrated.placement ? ' A free position snaps to the nearest of the six berths, and a named berth hides the header, footer or page number in its band (the old keys left them showing).' : ''}`,
+    });
+  }
+  for (const r of retired) {
+    if (!mergeDone && !styleLine && r === retired[0]) continue; // that line is the merge above
+    out.push({
+      slide: 0, rule: 'retired-logo-key', severity: 'warning', classToken: r.key, shapeChange: true,
+      line: r.line.trim(), autofixable: mergeDone, replaceLine: '',
+      message: `\`${r.key}:\` no longer works; it is ${explain(r)} now.`,
+      fix: mergeDone ? 'Delete this line.' : `Write ${explain(r)}, then delete this line.`,
+    });
+  }
+  return out;
+}
+
+function findUnknownCorners(source, cornersNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmCorners = lastFrontMatterMatch(fmBlock[1], /^\s*corners:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmCorners) return [];
+  const value = fmCorners[1].trim();
+  const known = new Set([...cornersNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [{
+    slide: 0,
+    rule: 'unknown-corners',
+    severity: 'warning',
+    classToken: value,
+    line: fmCorners[0].trim(),
+    message: `'${value}' is not a known corners value — the deck would silently render square`,
+    fix: `Set front-matter \`corners:\` to one of: ${[...cornersNames].join(', ')}.`,
+  }];
+}
+
+/**
+ * Front-matter `lift:` register validation — the opt-in card-elevation control (on / off).
+ * Warns when the value isn't recognized, so a typo (`lift: onn`) silently shipping the flat
+ * default surfaces. Canonical list injected (lib/core/resolve-lift.js `LIFT_NAMES`), keeping
+ * this core require-free.
+ */
+function findUnknownLift(source, liftNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmLift = lastFrontMatterMatch(fmBlock[1], /^\s*lift:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmLift) return [];
+  const value = fmLift[1].trim();
+  const known = new Set([...liftNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-lift',
+    severity: 'warning',
+    classToken: value,
+    line: fmLift[0].trim(),
+    message: `'${value}' is not a known lift value — the deck would silently render flat`,
+    fix: `Set front-matter \`lift:\` to one of: ${[...liftNames].join(', ')}.`,
+  }, liftNames)];
+}
+
+/**
+ * `spot-scale` — a `_class: scale-*` or `venue-*` on SOME slides rather than the deck. The owner
+ * ruled on 2026-09-27 (PR #2399) that the directive keeps working, but it sets those slides apart
+ * in size, which one-size-per-deck exists to stop, so lint says so. A spot `venue-*` is a
+ * `warning`: it contradicts the room the deck names (no committed deck uses it). A spot `scale-*`
+ * is `info`, like every bare `scale-*` finding: the ladder's own specimen deck
+ * (examples/font-scale.md) sets its rungs side by side on purpose. A token the deck's front
+ * matter already carries (`class:` or `venue:`) is not spot — it changes nothing.
+ */
+function findSpotScale(source) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  const deck = new Set(fmBlock ? [...deckClassTokensFromFrontMatter(fmBlock[1]), venueClassFromFrontMatter(fmBlock[1])].filter(Boolean) : []);
+  const slides = splitTopLevel(source);
+  const directives = slideClassDirectives(source);
+  const fm = fmChunks(source);
+  const findings = [];
+  slides.forEach((_, idx) => {
+    const own = (directives[idx]?.payload || '').split(/\s+/).filter((t) => FONT_SCALE_KEYS[t] && !deck.has(t));
+    for (const t of own) {
+      const venue = t.startsWith('venue-');
+      findings.push({
+        slide: idx - fm + 1,
+        rule: 'spot-scale',
+        severity: venue ? 'warning' : 'info',
+        classToken: t,
+        line: `<!-- _class: ${directives[idx]?.payload || t} -->`,
+        message: `\`${t}\` changes this slide's type size only, so text jumps in size between slides.`,
+        fix: venue
+          ? `Set \`venue: ${t.slice(6)}\` for the whole deck, or remove this class.`
+          : `Set the size for the whole deck (\`venue:\` or \`class: ${t}\`), or remove this class.`,
+      });
+    }
+  });
+  return findings;
+}
+
+/**
+ * `typography-style-override` — the deck's own `style:` block re-points a face or a voice that the
+ * `typography:` set owns (`--font-display`, `--font-body`, `--eyebrow-*`,
+ * `--chart-text-face`, `--chart-figure-face`). Each set is audited as a whole against the type
+ * study's rules (lib/base/base.typography.css; the theme × set gate in
+ * test/integration/type-voices/typography-sets.test.js), so a hand-picked face can merge the
+ * eyebrow back into the chrome or hand a column of figures to a face without tabular digits,
+ * and nothing checks it. Warning, not error: a brand face is a legitimate reason
+ * (engineering/decisions/2026-11-09-type-voices.md § Decided, item 6). One finding per token.
+ */
+const TYPE_SET_TOKEN_RE = /(--(?:font-display|font-body|eyebrow-(?:face|style|weight|case|tracking|scale|anchor-scale)|chart-text-face|chart-figure-face))[ \t]*:/g;
+function findTypographyStyleOverride(source) {
+  const fmBlock = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  // The `style:` value: a block scalar (`style: |` and its indented body) or a one-line value.
+  // A line walk, not one regex: the block body ends at the first unindented, non-blank line.
+  const lines = fmBlock[1].split(/\r?\n/);
+  const at = lines.findIndex((l) => l.startsWith('style:'));
+  if (at < 0) return [];
+  const head = lines[at].slice('style:'.length).trim();
+  let css = head;
+  if (head.startsWith('|') || head.startsWith('>')) {
+    const body = [];
+    for (const l of lines.slice(at + 1)) {
+      if (l.trim() && !/^[ \t]/.test(l)) break;
+      body.push(l);
+    }
+    css = body.join('\n');
+  }
+  const seen = new Set();
+  const out = [];
+  // A commented-out declaration overrides nothing. An index walk, not a regex: a lazy
+  // `\/\*[\s\S]*?\*\/` is the shape the regex census refuses.
+  let bare = '';
+  for (let i = 0; i < css.length;) {
+    const open = css.indexOf('/*', i);
+    if (open < 0) { bare += css.slice(i); break; }
+    bare += css.slice(i, open);
+    const close = css.indexOf('*/', open + 2);
+    i = close < 0 ? css.length : close + 2;
+  }
+  for (const [, token] of bare.matchAll(TYPE_SET_TOKEN_RE)) {
+    if (seen.has(token)) continue;
+    seen.add(token);
+    out.push({
+      slide: 0,
+      rule: 'typography-style-override',
+      severity: 'warning',
+      classToken: token,
+      line: `style: … ${token}: …`,
+      message: `The deck's \`style:\` re-points \`${token}\`, which the \`typography:\` set owns — the set's audit (eyebrow apart from chrome, aligned figures in charts) no longer covers this deck.`,
+      fix: 'Pick a curated set with `typography:` (classic, ledger, poster, festival) instead, or keep the override and check the slides by eye.',
+    });
+  }
+  return out;
+}
+
+/**
+ * Front-matter `venue:` register validation — where the deck will be seen (laptop / huddle /
+ * conference / hall). Warns when the value isn't recognized, so a typo (`venue: auditorium`)
+ * silently shipping the designed size surfaces. Canonical list injected
+ * (lib/core/resolve-venue.js `VENUE_NAMES`), keeping this core require-free.
+ */
+function findUnknownVenue(source, venueNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  // Any value, not only a bare name: `venue: big hall` renders the designed size too.
+  const fmVenue = lastFrontMatterMatch(fmBlock[1], /^\s*venue:[ \t]*["']?([^"'#\n]*?)["']?[ \t]*(?:#.*)?$/m);
+  if (!fmVenue?.[1].trim()) return [];
+  const value = fmVenue[1].trim();
+  const known = new Set([...venueNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-venue',
+    severity: 'warning',
+    classToken: value,
+    line: fmVenue[0].trim(),
+    message: `'${value}' is not a known venue — the deck would silently render at the laptop (designed) size`,
+    fix: `Set front-matter \`venue:\` to one of: ${[...venueNames].join(', ')} (4–6 people is huddle, 10–30 is conference, 50 or more is hall).`,
+  }, venueNames)];
+}
+
+/**
+ * Front-matter `marks:` register validation — how every chart on the deck spends its
+ * color: a finish (pigment / etch / tone) and an intensity (muted / vivid), one word per axis in
+ * either order. An unrecognized word falls back to that axis's default, so the deck silently wears
+ * a look its author did not pick; this names the typo (`marks: tonal`, or the retired `off`)
+ * and a second word on an axis already filled. Canonical lists injected
+ * (lib/core/resolve-marks.js `MARKS_WORDS` / the two axes), keeping this core
+ * require-free.
+ */
+/**
+ * `chart-finish:` → `marks:` (#2887). The old key still renders (lib/core/resolve-marks.js `marksFromFrontMatter`),
+ * so this is info that names the new spelling; with both keys present `marks:` decides, and the old line can go.
+ */
+function findMarksRenamed(source) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const old = lastFrontMatterMatch(fmBlock[1], /^\s*chart-finish:[ \t]*(.*)$/m);
+  if (!old) return [];
+  const both = /^\s*marks:/m.test(fmBlock[1]);
+  const value = old[1].replace(/\s+#.*$/, '').trim();
+  return [{
+    slide: 0,
+    rule: 'marks-renamed',
+    severity: 'info',
+    classToken: 'chart-finish',
+    line: old[0].trim(),
+    message: both ? '`chart-finish:` is the old spelling of `marks:`, and this deck sets both: `marks:` wins.' : '`chart-finish:` has been renamed to `marks:`; it still works.',
+    fix: both ? 'Delete the `chart-finish:` line: `marks:` already decides.' : `Write \`marks: ${value}\` instead.`,
+  }];
+}
+
+function findUnknownMarks(source, marksNames, axes) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  // `marks:` wins; a deck on the old `chart-finish:` key still renders it, so its value is checked the same way.
+  const read = (key) => fmBlock[1].match(new RegExp(`^\\s*${key}:[ \\t]*["']?([^"'#\\n]*?)["']?[ \\t]*(?:#.*)?$`, 'm'));
+  const fm = read('marks') || read('chart-finish');
+  if (!fm?.[1].trim()) return [];
+  const known = new Set([...marksNames].map((n) => String(n).toLowerCase()));
+  const axisOf = (word) => Object.keys(axes || {}).find((k) => axes[k].includes(word)) || '';
+  const out = [];
+  const seen = new Set();
+  for (const word of fm[1].trim().toLowerCase().split(/[\s,[\]]+/).filter(Boolean)) {
+    if (!known.has(word)) {
+      out.push(withTokenSuggestion({
+        slide: 0,
+        rule: 'unknown-marks',
+        severity: 'warning',
+        classToken: word,
+        line: fm[0].trim(),
+        message: `'${word}' isn't a valid \`marks:\` value — the deck ignores it, and every chart wears the default for that word.`,
+        fix: axes ? `Use ${axisList(axes)}.` : `Use one of: ${[...marksNames].join(', ')}.`,
+      }, marksNames));
+      continue;
+    }
+    const axis = axisOf(word);
+    if (axis && seen.has(axis)) {
+      out.push({
+        slide: 0, rule: 'unknown-marks', severity: 'warning', classToken: word, line: fm[0].trim(),
+        message: `\`marks:\` has two ${axis} values; only the first is used, so '${word}' is ignored.`,
+        fix: `Keep one ${axis} word.`,
+      });
+    }
+    if (axis) seen.add(axis);
+  }
+  return out;
+}
+
+/**
+ * Front-matter `preset:` register validation — the named look (classic /
+ * editorial / brand / minimal). Warns on an unrecognized name, which resolves to NO preset, so
+ * every register it would have set silently renders its default. Canonical list injected
+ * (lib/core/resolve-preset.js `PRESET_NAMES`), keeping this core require-free.
+ */
+function findUnknownPreset(source, presetNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  // Through the shared reader, not a `$`-anchored pattern of its own: that shape missed
+  // `preset: editorail  # typo` — the exact case this rule exists for — and is quadratic
+  // on a long run of blank lines. Top-level, like the engine's read of `preset:`.
+  const value = topLevelFrontMatterValue(fmBlock[1], 'preset');
+  if (!value) return [];
+  const line = (lastFrontMatterMatch(fmBlock[1], /^preset:.*$/m) || [`preset: ${value}`])[0];
+  const known = new Set([...presetNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-preset',
+    severity: 'warning',
+    classToken: value,
+    line: line.trim(),
+    message: `'${value}' isn't a valid \`preset:\` value — the deck ignores it, and no preset is applied.`,
+    fix: `Use one of: ${[...presetNames].join(', ')}.`,
+  }, presetNames)];
+}
+
+/**
+ * Front-matter `cards:` register validation — where a card row puts the height it does not
+ * need (center / stretch / top / spread). Warns when the value isn't recognized, so a typo
+ * (`cards: centre`, `cards: flex-start`) silently shipping the centered default surfaces.
+ * Canonical list injected (lib/core/resolve-cards.js `CARDS_NAMES`), keeping this core
+ * require-free.
+ */
+function findUnknownCards(source, cardsNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmCards = lastFrontMatterMatch(fmBlock[1], /^\s*cards:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmCards) return [];
+  const value = fmCards[1].trim();
+  const known = new Set([...cardsNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-cards',
+    severity: 'warning',
+    classToken: value,
+    line: fmCards[0].trim(),
+    message: `'${value}' isn't a valid \`cards:\` value — the deck ignores it, and each layout keeps its own card spacing.`,
+    fix: `Use one of: ${[...cardsNames].join(', ')}.`,
+  }, cardsNames)];
+}
+
+/**
+ * Migration warning: the top-level `backdrop:` MAP form (a bare `backdrop:` header with
+ * indented children) is RETIRED and silently no-ops. The SCALAR form (`backdrop: 40 clear`)
+ * is the live register (lib/core/resolve-backdrop.js), so only an EMPTY value matches here.
+ * A `backdrop:` NESTED under `finish-override:` is indented, so `^backdrop:` (column 0)
+ * never matches it. One finding per deck.
+ */
+function findRetiredBackdrop(source) {
+  const fmBlock = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  if (!/^backdrop:\s*$/m.test(fmBlock[1])) return [];
+  return [{
+    slide: 0, rule: 'retired-backdrop-key', severity: 'warning', classToken: 'backdrop', line: 'backdrop:',
+    message: 'This multi-line `backdrop:` block is no longer read, so its settings do nothing.',
+    fix: 'Write it on one line, e.g. `backdrop: 40 clear`.',
+  }];
+}
+
+/**
+ * Front-matter `backdrop:` register validation — the restraint over any finish. Warns on a
+ * word that is neither a strength step nor a mask, and on a second word for an axis already
+ * set (only the first reaches the slide). Canonical list injected (lib/core/resolve-backdrop.js
+ * `BACKDROP_NAMES`), keeping this core require-free.
+ */
+function findUnknownBackdrop(source, backdropNames) {
+  const fmBlock = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const m = lastFrontMatterMatch(fmBlock[1], /^backdrop:[ \t]*(\S.*)$/m);
+  if (!m) return [];
+  // The engine's scalar rule (lib/core/front-matter-key.js `frontMatterScalar`): a quoted
+  // value is the quoted span, `#` inside it included; unquoted, a space-led `#` is a comment.
+  const raw = m[1].trim();
+  const quoted = /^(["'])(.*?)\1/.exec(raw);
+  const value = (quoted ? quoted[2] : raw.replace(/(^|[ \t])#.*$/, '')).trim();
+  const known = new Set([...backdropNames].map((n) => String(n).toLowerCase()));
+  const isStrength = (w) => /^(\d+|full)$/.test(w);
+  const out = [];
+  const seen = { strength: false, mask: false };
+  // Brackets too, as the engine reads a YAML flow list (`backdrop: [40, clear]`, register-factory.js).
+  for (const raw of value.toLowerCase().split(/[\s,[\]]+/).filter(Boolean)) {
+    const word = raw.endsWith('%') ? raw.slice(0, -1) : raw;
+    if (!known.has(word)) {
+      out.push(withTokenSuggestion({
+        slide: 0, rule: 'unknown-backdrop', severity: 'warning', classToken: word, line: m[0].trim(),
+        message: `'${raw}' isn't a valid \`backdrop:\` value, so the finish ignores it.`,
+        fix: `Use a strength (${[...backdropNames].filter(isStrength).join(', ')}) and/or a mask (${[...backdropNames].filter((n) => !isStrength(n)).join(', ')}).`,
+      }, backdropNames));
+      continue;
+    }
+    const axis = isStrength(word) ? 'strength' : 'mask';
+    if (seen[axis]) {
+      out.push({
+        slide: 0, rule: 'unknown-backdrop', severity: 'warning', classToken: word, line: m[0].trim(),
+        message: `\`backdrop:\` has two ${axis} values; only the first is used, so '${raw}' is ignored.`,
+        fix: `Keep one ${axis} value.`,
+      });
+    }
+    seen[axis] = true;
+  }
+  return out;
+}
+
+/**
+ * Front-matter `tag:` register validation — the look of every card tag. Warns on a word that
+ * is on no axis, and on a second word for an axis already set (only the first reaches the
+ * slide). Canonical lists injected (lib/core/resolve-card-tag.js), keeping this core
+ * require-free: `tagNames` is every word (the one list per register the Studio's vocab builder
+ * forwards), and `axes` — optional, `{ color, size, placement, align }` — adds the
+ * second-word-on-an-axis check where the caller supplies it.
+ */
+const CARD_TAG_AXIS_LABELS = Object.freeze({ color: 'color', size: 'size', placement: 'placement', align: 'text alignment' });
+function findUnknownCardTag(source, tagNames, axes) {
+  const fmBlock = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const m = lastFrontMatterMatch(fmBlock[1], /^tag:[ \t]*(\S.*)$/m);
+  if (!m) return [];
+  const raw = m[1].trim();
+  const quoted = /^(["'])(.*?)\1/.exec(raw);
+  const value = (quoted ? quoted[2] : raw.replace(/(^|[ \t])#.*$/, '')).trim();
+  const known = new Set([...tagNames].map(String));
+  const axisOf = new Map();
+  for (const [axis, words] of Object.entries(axes || {})) for (const w of words || []) axisOf.set(String(w), axis);
+  const out = [];
+  const seen = new Set();
+  // Brackets too, as the engine reads a YAML flow list (`tag: [plain, large]`, register-factory.js).
+  for (const word of value.toLowerCase().split(/[\s,[\]]+/).filter(Boolean)) {
+    if (word === 'none' && known.has('bare')) {
+      // Renamed 2026-11-04 (lib/core/switches.mjs): `none` never hid the tag, it drew it as bare text.
+      out.push({
+        slide: 0, rule: 'unknown-tag', severity: 'warning', classToken: word, line: m[0].trim(),
+        message: "`tag: none` is now `tag: bare`; 'none' does nothing.",
+        fix: "Replace 'none' with 'bare'.",
+        autofixable: true, replace: { from: 'none', to: 'bare' },
+      });
+      continue;
+    }
+    if (!known.has(word)) {
+      const byAxis = Object.entries(axes || {}).map(([a, ws]) => `a ${CARD_TAG_AXIS_LABELS[a] || a} (${[...ws].join(', ')})`);
+      out.push(withTokenSuggestion({
+        slide: 0, rule: 'unknown-tag', severity: 'warning', classToken: word, line: m[0].trim(),
+        message: `'${word}' isn't a valid \`tag:\` value, so the tags ignore it.`,
+        fix: byAxis.length ? `Use at most one word from each axis: ${byAxis.join('; ')}.` : `Use one of: ${[...known].join(', ')}.`,
+      }, [...known]));
+      continue;
+    }
+    const axis = axisOf.get(word);
+    if (!axis) continue;
+    if (seen.has(axis)) {
+      const label = CARD_TAG_AXIS_LABELS[axis] || axis;
+      out.push({
+        slide: 0, rule: 'unknown-tag', severity: 'warning', classToken: word, line: m[0].trim(),
+        message: `\`tag:\` has two ${label} values; only the first is used, so '${word}' is ignored.`,
+        fix: `Keep one ${label} value.`,
+      });
+    }
+    seen.add(axis);
+  }
+  return out;
+}
+
+/** An axis register's axes as a fix reads them: "a frame (framed, bare), a look (…) and/or
+ *  corners (square, rounded)". A plural axis name (`corners`) takes no article. */
+function axisList(axes) {
+  const parts = Object.entries(axes).map(([axis, words]) => `${axis.endsWith('s') ? '' : /^[aeiou]/.test(axis) ? 'an ' : 'a '}${axis} (${words.join(', ')})`);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and/or ${parts[parts.length - 1]}` : parts[0];
+}
+
+/**
+ * `unknown-key` and `duplicate-key` (one walk). `unknown-key` — a top-level front-matter key that is in no row of the deck-settings table
+ * (lib/core/deck-settings.js) and is no plugin's register. Every reader matches its key
+ * exactly, so `finsh: halo` or `themee: cuoio` is ignored whole and the deck renders without
+ * it. Top-level lines only: an indented line is an entry in a nested map (`lexicon:`) or the
+ * body of a block scalar (`style: |`), and neither is a key. Warning, by the owner's ruling
+ * (2026-10-15-conformance-harness.md §12.3): a host application may read keys of its own.
+ */
+function findUnknownSettingKeys(source, vocab) {
+  const block = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!block) return [];
+  // The shipped plugin registers as well as the vocab's: a surface that passes a reduced vocab
+  // (the Playground, a test) must not call `icon:` unknown.
+  const rows = withPluginRegisters([...(vocab?.pluginRegisters || []), ...SHIPPED_PLUGIN_REGISTERS]);
+  const known = new Set(rows.map((r) => r.key));
+  const offered = rows.filter((r) => r.offer !== false && r.kind !== 'retired').map((r) => r.key);
+  const out = [];
+  // `duplicate-key` rides the same walk: every top-level key, in order (see below).
+  // No prototype: a key named `constructor` or `toString` must not find an inherited function (it crashed the walk).
+  const seen = Object.create(null);
+  for (const line of withoutBlockScalarBodies(block[1]).split('\n')) {
+    const m = /^([A-Za-z_][\w-]*)[ \t]*:/.exec(line);
+    if (m) (seen[m[1]] ||= []).push(line.trim());
+    if (!m || known.has(m[1])) continue;
+    const f = withTokenSuggestion({
+      slide: 0,
+      rule: 'unknown-key',
+      severity: 'warning',
+      classToken: m[1],
+      line: line.trim(),
+      message: `\`${m[1]}:\` isn't a front-matter key Lattice reads, so the deck ignores the whole line.`,
+      fix: 'Check the spelling against the front-matter reference, or delete the line.',
+    }, offered);
+    // `type:` is the content-type key in Hugo and other site generators, so authors and agents
+    // reach for it to pick type; the key is `typography:` and there is no alias
+    // (engineering/decisions/2026-11-09-type-voices.md § Decided, item 5).
+    // No autofix: `type: pitch-deck` is a content type, not a set, so a rename would only trade
+    // one warning for another.
+    if (m[1] === 'type' && known.has('typography')) {
+      delete f.replace;
+      delete f.autofixable;
+      f.didYouMean = 'typography';
+    }
+    if (f.didYouMean) f.fix = `Did you mean \`${f.didYouMean}:\`?`;
+    out.push(f);
+  }
+  // `duplicate-key` — a top-level key written more than once. The LAST line wins everywhere, as the engine's
+  // `parseFrontMatter` and js-yaml (Marp's parser) read it; owner's ruling on #3050 (D1): least astonishing, and
+  // lint warns. Each EARLIER line is flagged, since the deck ignores it. `key :` is the same key. A render-target
+  // key (lib/core/render-target-keys.js) is the one exception, read as a UNION, and the message says so.
+  for (const [key, lines] of Object.entries(seen)) {
+    const kept = lines.pop();
+    const why = RENDER_TARGET_KEY_NAMES.includes(key) ? 'any `on` line turns it on' : `the last wins${/:\s*$/.test(kept) ? '' : `: \`${kept}\``}`;
+    for (const line of lines) out.push({ slide: 0, rule: 'duplicate-key', severity: 'warning', classToken: key, line, message: `\`${key}:\` repeats; ${why}.`, fix: `Keep one \`${key}:\`.` });
+  }
+  return out;
+}
+
+
+/**
+ * `unknown-<key>` for the keys whose value list lives in the deck-settings table rather than in
+ * a dedicated rule (`generic: true`): `theme:`, `size:`, `motion:`, `motion-style:`,
+ * `motion-speed:`, `player-motion:`, `glossary:`, `logo-on:` and `logo-finish:`. Each
+ * reader falls back to its default on a value it does not know, so `size: huge` renders at hd
+ * and `theme: nosuchtheme` in the default palette, silently. Read through `frontMatterValue`,
+ * the same scalar rule the readers use. Matched without regard to case, except where the row
+ * says `caseSensitive` because its reader compares exactly (`size:`, `theme:`, `player-motion:`).
+ */
+/**
+ * `unknown-images`: a word in the deck's `images:` line that is neither `optimized`, `original` nor a quality 1-100.
+ * The line is a small multi-word register (lib/core/image-policy.js `parseImagesSetting`), so the one-word table
+ * check above cannot read it.
+ */
+function findUnknownImagesWords(source) {
+  const block = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!block) return [];
+  const value = frontMatterValue(block[1], 'images');
+  if (!value) return [];
+  return parseImagesSetting(value).unknown.map((word) => ({
+    slide: 0,
+    rule: 'unknown-images',
+    severity: 'warning',
+    classToken: word,
+    line: `images: ${value}`,
+    message: `'${word}' isn't a valid \`images:\` word, so the deck ignores it.`,
+    fix: 'Use optimized or original, and/or a JPEG quality from 1 to 100: `images: optimized 90`.',
+  }));
+}
+
+/**
+ * `unknown-font-embedding`: a word in the deck's `font-embedding:` line that is not a tier (`exact`, `used`, `full`,
+ * `system`), alone or with an `-emoji` suffix. Same shape as `unknown-images` (lib/core/font-policy.js `parseFontsSetting`).
+ */
+function findUnknownFontsWords(source) {
+  const block = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!block) return [];
+  const value = frontMatterValue(block[1], 'font-embedding');
+  if (!value) return [];
+  return parseFontsSetting(value).unknown.map((word) => ({
+    slide: 0,
+    rule: 'unknown-font-embedding',
+    severity: 'warning',
+    classToken: word,
+    line: `font-embedding: ${value}`,
+    message: `'${word}' isn't a valid \`font-embedding:\` word, so the deck ignores it.`,
+    fix: 'Use exact, used, full or system, and add -emoji for the emoji font: `font-embedding: used exact-emoji`.',
+  }));
+}
+
+/**
+ * `fonts-renamed`: `fonts:` was renamed `font-embedding:` (owner, 2026-11-09) before any release shipped it, because
+ * `fonts:` read as choosing fonts. No alias: the exports no longer read `fonts:`, so the line is a warning, not info.
+ * The Studio's export panel wrote `fonts:` from 2026-11-05, so live decks carry it. The fix renames the key in place;
+ * when `font-embedding:` also names a tier, that line already decides, so the fix deletes the old one. When it names
+ * none, the fix stays off and says to move the words, because either one-line edit would lose them.
+ */
+function findFontsRenamed(source) {
+  const block = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!block) return [];
+  // Find the LAST real `fonts:` key line by index, skipping block-scalar bodies (a `style: |` line that happens to read
+  // `fonts: used` is CSS, not the key), and point the fix at that exact line with `chunkLine`: matching by text alone
+  // would edit the first look-alike, which may sit inside the block scalar.
+  const raw = block[1].split('\n');
+  const scan = withoutBlockScalarBodies(block[1]).split('\n');
+  let at = -1;
+  for (let i = 0; i < scan.length; i++) if (scan[i].startsWith('fonts') && scan[i].slice(5).trimStart().startsWith(':')) at = i;
+  if (at < 0) return [];
+  const oldLine = raw[at].replace(/\r$/, '');
+  const next = frontMatterValue(block[1], 'font-embedding');
+  // Three cases. No new key: rename the old line. A new key that names a tier: it decides, so delete the old line. A
+  // new key that names NONE (`font-embedding:` alone, only a `# comment`, or only unknown words): it decides nothing,
+  // so deleting the old line would lose the author's words, and renaming would make a duplicate key. The finding says
+  // what to do and does not fix it by itself.
+  // Drop a YAML comment: a `#` at the start or after a space or tab.
+  let words = null;
+  if (next !== null) {
+    const v = String(next);
+    let cut = v.length;
+    for (let i = 0; i < v.length; i++) if (v[i] === '#' && (i === 0 || v[i - 1] === ' ' || v[i - 1] === '\t')) { cut = i; break; }
+    words = v.slice(0, cut).trim();
+  }
+  const parsed = words ? parseFontsSetting(words) : null;
+  const decides = Boolean(parsed && (parsed.text || parsed.emoji));
+  const stuck = next !== null && !decides;
+  return [{
+    slide: 0,
+    rule: 'fonts-renamed',
+    severity: 'warning',
+    classToken: 'fonts',
+    line: oldLine.trim(),
+    chunkLine: at,
+    autofixable: !!(decides || next === null),
+    ...(stuck ? {} : { replaceLine: decides ? '' : `font-embedding${oldLine.slice(5)}` }),
+    message: decides
+      ? '`fonts:` was renamed to `font-embedding:`, and this deck sets both: `font-embedding:` decides.'
+      : '`fonts:` was renamed to `font-embedding:`; the deck ignores it until renamed.',
+    fix: decides
+      ? 'Delete the `fonts:` line.'
+      : stuck
+        ? 'Move the words onto the `font-embedding:` line, then delete the `fonts:` line.'
+        : 'Rename the key to `font-embedding:`; the words stay the same.',
+  }];
+}
+
+function findUnknownSettingValues(source, vocab) {
+  const block = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!block) return [];
+  const lists = { ...(vocab || {}), sizeNames: Object.keys(SIZES) };
+  const out = [];
+  for (const row of DECK_SETTINGS) {
+    if (!row.generic) continue;
+    const names = settingValues(row, lists);
+    if (!names?.length) continue;
+    const value = frontMatterValue(block[1], row.key);
+    if (value === null || value === '') continue;
+    const caseSensitive = row.caseSensitive === true;
+    const known = new Set(names.map((n) => (caseSensitive ? String(n) : String(n).toLowerCase())));
+    if (known.has(caseSensitive ? value : value.toLowerCase())) continue;
+    const line = (withoutBlockScalarBodies(block[1]).match(new RegExp(`^[ \\t]*${row.key}:.*$`, 'm')) || [`${row.key}: ${value}`])[0];
+    out.push(withTokenSuggestion({
+      slide: 0,
+      rule: `unknown-${row.key}`,
+      severity: 'warning',
+      classToken: value,
+      line: line.trim(),
+      message: `'${value}' isn't a valid \`${row.key}:\` value, so ${row.onUnknown || `the deck ignores it and uses ${row.default}`}.`,
+      fix: `Use one of: ${names.join(', ')}.`,
+    }, names));
+  }
+  return out;
+}
+
+/**
+ * `thin-card-no-ink`: a spotlight card under 60% opaque, with no `ink-light` or `ink-dark` on the
+ * slide or the deck's `image-card:` line. The photo shows through it, so the theme's own ink is
+ * judged against the photo, which no theme can promise anything about. The policy and its
+ * threshold live in lib/core/card-ink-policy.mjs; the Studio's Card backing slider uses the same kernel
+ * to pick the ink from the photo itself.
+ */
+function thinCardFindings(tokens, deckClasses, slide, line) {
+  // The engine's own reading of the class list: the FIRST composition word wins, so
+  // `image statement spotlight` renders a statement, whose ink is fixed, and needs none.
+  if (!needsInk(tokens, deckClasses, compositionOf(tokens))) return [];
+  const { backing } = effectiveCard(tokens, deckClasses);
+  const own = [...tokens].reverse().find((t) => cardBackingPercent([t]) !== null);
+  return [{
+    slide, rule: 'thin-card-no-ink', severity: 'warning', ...(own ? { classToken: own } : {}), line,
+    message: `A spotlight card at ${backing}% lets the photo show through, and the theme's ink is read against the photo.`,
+    fix: `Add \`ink-light\` over a dark photo or \`ink-dark\` over a light one, or raise the backing to ${THIN_BACKING}% or more. The Studio's Card backing slider picks one.`,
+  }];
+}
+
+/**
+ * The treatment SPELLING check on the deck-wide `class:` key, which every slide inherits. Not the
+ * placement check: a slide's own `_class` may supply the `at-*` a deck-wide `tint-corner` needs.
+ */
+function findDeckClassTreatments(source) {
+  const block = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!block) return [];
+  const value = topLevelFrontMatterValue(block[1], 'class');
+  if (!value) return [];
+  const line = (lastFrontMatterMatch(block[1], /^class:.*$/m) || [`class: ${value}`])[0].trim(); // the last repeat wins (#3050, D1)
+  return treatmentFindings(value.split(/\s+/).filter(Boolean), 0, line, { placement: false });
+}
+
+/**
+ * `unknown-treatment` and `treatment-placement` (lib/base/treatments.js). A `tint-*` or `mark-*`
+ * word base.treatments.css does not paint is ignored; `tint-corner` and `tint-edge` paint nothing
+ * without a placement they accept (`tint-corner at-tl`, `tint-edge at-top`). The generic
+ * `unknown-class` stays quiet about both prefixes (MODIFIER_PREFIXES), so these rules own them.
+ */
+const TREATMENT_WORDS = new Set([...TINTS, ...MARKS, ...TINT_PLACEMENTS]);
+function treatmentFindings(tokens, slide, line, { placement = true } = {}) {
+  const out = [];
+  const set = new Set(tokens);
+  for (const t of tokens) {
+    if (!/^(tint|mark)-/.test(t) || TREATMENT_WORDS.has(t)) continue;
+    if (/^mark-at-/.test(t)) {
+      // base.treatments.css names `mark-at-*` as the per-layer mark placement, but marks have no
+      // placement in v1 (engineering/treatments.md): the word does nothing, so say exactly that.
+      out.push({
+        slide, rule: 'unknown-treatment', severity: 'warning', classToken: t, line,
+        message: `\`${t}\` does nothing yet: marks have no placement in v1 and render at their own home.`,
+        fix: `Delete \`${t}\`.`,
+      });
+      continue;
+    }
+    const pool = t.startsWith('tint-') ? TINTS : MARKS;
+    out.push(withTokenSuggestion({
+      slide, rule: 'unknown-treatment', severity: 'warning', classToken: t, line,
+      message: `'${t}' isn't a treatment, so the slide paints no ${t.startsWith('tint-') ? 'tint' : 'mark'}.`,
+      fix: `Use one of: ${pool.join(', ')}.`,
+    }, pool));
+  }
+  for (const [tint, placements] of Object.entries(PLACEMENT_REQUIRED)) {
+    if (!placement || !set.has(tint) || placements.some((p) => p.some((w) => set.has(w)))) continue;
+    out.push({
+      slide, rule: 'treatment-placement', severity: 'warning', classToken: tint, line,
+      message: `\`${tint}\` paints nothing without a placement it accepts.`,
+      fix: `Add one of: ${placements.map((p) => p[0]).join(', ')}.`,
+    });
+  }
+  return out;
+}
+
+/**
+ * The same check for any axis register (lib/core/register-factory.js): `spark:`, and each register
+ * a plugin declares as data (`icon:`), whose rule is `unknown-<key>`. The fix names every axis.
+ */
+function findUnknownAxisRegister(source, key, sparkNames, axes) {
+  const fmBlock = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const m = fmBlock[1].match(new RegExp(`^${key}:[ \\t]*(\\S.*)$`, 'm'));
+  if (!m) return [];
+  const raw = m[1].trim();
+  const quoted = /^(["'])(.*?)\1/.exec(raw);
+  const value = (quoted ? quoted[2] : raw.replace(/(^|[ \t])#.*$/, '')).trim();
+  const known = new Set([...sparkNames].map(String));
+  const axisOf = (word) => Object.keys(axes || {}).find((k) => axes[k].includes(word)) || '';
+  const out = [];
+  const seen = new Set();
+  // A word written the record's way (`nimbus=40`) is the register's hyphen word, as the register factory reads it.
+  for (const word of value.toLowerCase().split(/[\s,[\]]+/).filter(Boolean).map((w) => w.split('=').join('-'))) {
+    if (!known.has(word)) {
+      out.push(withTokenSuggestion({
+        slide: 0, rule: `unknown-${key}`, severity: 'warning', classToken: word, line: m[0].trim(),
+        message: `'${word}' isn't a valid \`${key}:\` value, so ${key}s ignore it.`,
+        fix: axes
+          ? `Use ${axisList(axes)}.`
+          : `Use one of: ${[...known].join(', ')}.`,
+      }, [...known]));
+      continue;
+    }
+    const axis = axisOf(word);
+    if (!axis) continue;
+    if (seen.has(axis)) {
+      out.push({
+        slide: 0, rule: `unknown-${key}`, severity: 'warning', classToken: word, line: m[0].trim(),
+        message: `\`${key}:\` has two ${axis} values; only the first is used, so '${word}' is ignored.`,
+        fix: `Keep one ${axis} word.`,
+      });
+    }
+    seen.add(axis);
+  }
+  return out;
+}
+
+/**
+ * ── SHAPE-CHANGING FINDINGS (`shapeChange: true`) ───────────────────────────
+ *
+ * Most retired keys are INERT: deleting them changes nothing about the render,
+ * so the linter is the right and only place to mention them. Three of the
+ * retired Form shapes are different — they SUPPRESSED chrome, so a deck that
+ * still carries one renders differently than it used to the moment it is built
+ * against a current engine: the masthead band, the meta bay and the progress
+ * rail all come back.
+ *
+ *   · `form: off`                     (deck key)
+ *   · `class: no-form` in front matter (deck-wide, propagated to every slide)
+ *   · `no-form` in a slide directive   (that slide)
+ *
+ * They carry `shapeChange: true` so the RENDER path can repeat just those on
+ * stderr, exactly as it already does for a refused deck-wide `class:`
+ * (lattice.js): the person whose deck changed shape is rendering it,
+ * not linting it. A flag rather than a message match, because a message is
+ * prose and gets rewritten. The inert shapes (`form: standard`, a bare `form`
+ * token) are not reported at all — a warning on a deck that renders identically
+ * is the noise that teaches people to ignore warnings.
+ */
+
+/**
+ * Migration warning: the deck-wide `form:` key is RETIRED (2026-09-20). Form is the
+ * composition model, not a setting — there is no way to disable it or pick a mode,
+ * so ANY `form:` value is now inert. `form: off` is the one that changes behavior
+ * for an existing deck (the chrome it suppressed comes back); `form: standard` and
+ * the long-retired `form: minimal` were already no-ops against the default.
+ *
+ * Warn, never block (HARD RULE #29's posture — we coach, we do not refuse an
+ * author's deck). Only `off` is reported, because only `off` changes the render; the
+ * fix is a deletion and names what will change.
+ * One finding per deck; `^form:` (column 0) matches the flat deck key only, so a
+ * `form:` nested under another block is not flagged.
+ */
+function findRetiredFormKey(source) {
+  const fmBlock = String(source || '').match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const m = lastFrontMatterMatch(fmBlock[1], /^form:[ \t]*(.*)$/m);
+  if (!m) return [];
+  // STRIP A TRAILING YAML COMMENT FIRST. `form: off  # legacy deck` read as the literal
+  // value `off  # legacy deck`, which is not `off`, so the rule fell to its generic
+  // "this key does nothing" arm — on the one deck where the key HAD been doing
+  // something, and told that author nothing would change while their deck gained the
+  // masthead band, the bay and the rail. Naming that consequence is the rule's whole
+  // job. Only an UNQUOTED `#` opens a comment in YAML, so a quoted value is taken whole.
+  const raw = m[1].trim();
+  const value = (/^["']/.test(raw) ? raw : raw.replace(/\s+#.*$/, ''))
+    .trim().replace(/^["']|["']$/g, '').toLowerCase();
+  // Only `off` changed a deck's render. Any other value (`standard`, `minimal`) was
+  // already a no-op, so its line is inert and the linter says nothing (2026-10-06).
+  const wasOff = /^(off|false|no)$/.test(value);
+  if (!wasOff) return [];
+  return [{
+    slide: 0, rule: 'retired-form-key', severity: 'warning', classToken: 'form',
+    // `off` CHANGES an existing deck's render, so the CLI repeats it on stderr. See
+    // SHAPE-CHANGING FINDINGS below.
+    shapeChange: true,
+    line: `form: ${m[1].trim()}`,
+    message: '`form: off` no longer works, so slides now show the title band and progress bar.',
+    fix: 'Delete it. To hide the progress bar, add `class: no-progress`.',
+  }];
+}
+
+/**
+ * Migration warning: the per-slide `form` / `no-form` tokens are RETIRED
+ * (2026-09-20) along with the deck key. `no-form` no longer opts a slide out and
+ * `form` no longer opts one in — every slide composes as Form, and a slide that
+ * carries no chrome does so because its FRAME is sovereign (title, divider,
+ * closing, image, premise, scene, split-panel, split-compare, compare-code, topic), which
+ * is a property of the component, not something a token selects.
+ *
+ * One finding per occurrence, so an author sees every slide to edit. Both the spot
+ * (`<!-- _class: … -->`) and the running global (`<!-- class: … -->`) forms are
+ * scanned, via the shared directive reader the other class rules use.
+ */
+function findRetiredFormTokens(source) {
+  const findings = [];
+  const src = String(source || '');
+
+  // DECK-LEVEL `class:` / `_class:` in FRONT MATTER. This was a real deck-wide opt-out
+  // on main — `deckClassPropagate` copies the token onto every section, and
+  // `formToggleClass` then skipped each one — so a deck carrying it changes shape on
+  // upgrade exactly as `form: off` does. Neither rule saw it: the key rule matches only
+  // `^form:`, and the slide scan below reads only `<!-- _class: … -->` comments. A
+  // migration warning that misses a live migration shape is the one that matters.
+  const fmBlock = src.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (fmBlock) {
+    const dk = fmBlock[1].match(/^_?class:[ \t]*(.*)$/m);
+    const deckTokens = dk ? dk[1].trim().replace(/^["']|["']$/g, '').split(/\s+/) : [];
+    // Only `no-form` changed the render; a bare `form` token was always inert, so it is
+    // not reported (2026-10-06).
+    if (deckTokens.includes('no-form')) {
+      findings.push({
+        slide: 0, rule: 'retired-form-token', severity: 'warning', classToken: 'no-form',
+        shapeChange: true,
+        line: `class: ${dk[1].trim()}`,
+        message: '`no-form` no longer works; every slide now shows the title band and progress bar.',
+        fix: `Delete it from \`class:\`. To hide the progress bar, use \`class: no-progress\`; for a chrome-free slide, use ${SOVEREIGN_COMPONENTS.slice(0, 2).map((n) => `\`${n}\``).join(', ')} or another chrome-free layout.`,
+      });
+    }
+  }
+
+  // PER-SLIDE directives. Scanned over the whole slide TEXT, not line by line: Marpit
+  // accepts the directive across lines (`<!--\n_class: content no-form\n-->`), the engine
+  // honors it, and a line-wise scan saw none of them. The slide split also fixes what the
+  // first cut got wrong — it reported `slide: 0` on every finding, which is not cosmetic:
+  // the editor's `findingsToDiagnostics` confines its anchor search to that slide's chunk,
+  // so slide 0 is the FRONT MATTER and every warning fell back to a squiggle on the deck's
+  // opening `---`, four legacy slides giving four identical marks on line 1.
+  //
+  // SPLIT WITH THE SHARED KERNEL, not a local regex (HARD RULE #15). The second cut of
+  // this rule hand-rolled `src.split(/^---$/m)` while `splitTopLevel` sat imported at the
+  // top of this file and in use by all six sibling slide-scoped rules — and that regex is
+  // the exact bug `slide-split.js` was written to fix. It reads a `---` inside a fenced
+  // YAML sample as a slide break (desyncing every number after it, on precisely the deck
+  // most likely to carry one) and it misses `***`, `___`, `- - -`, `----`, a trailing
+  // space, an indented rule, a setext underline and U+2028 — all of which the engine
+  // honors as breaks. Measured on a `***`-separated deck: the token on slide 3 was
+  // reported as slide 1, which is the front matter, i.e. back to the very failure the
+  // paragraph above says was fixed. See 2026-08-05-slide-boundary-reconciliation.md.
+  const slides = splitTopLevel(src);
+  const fm = fmChunks(src);
+  slides.forEach((_slide, idx) => {
+    // A token inside a ``` fence is QUOTED material — a deck documenting this very
+    // migration quotes `<!-- _class: content no-form -->` to show what to delete, and
+    // warning on the example is the rule failing at the deck most likely to carry it.
+    // The shared reader (`slideMetaComments`) skips fences and reads both forms, every one.
+    for (const c of slideMetaComments(src, idx)) {
+      if (c.kind !== 'directive' || c.key !== 'class') continue;
+      const m = [c.raw, c.value];
+      // A bare `form` token is inert and not reported; only `no-form` changed the render.
+      if (!/(^|\s)no-form($|\s)/.test(m[1])) continue;
+      findings.push({
+        slide: Math.max(1, idx - fm + 1),
+        rule: 'retired-form-token',
+        severity: 'warning',
+        classToken: 'no-form',
+        shapeChange: true,
+        line: m[0].replace(/\s*\n\s*/g, ' ').trim(),
+        message: '`no-form` no longer works; this slide now shows the title band and progress bar.',
+        fix: `Delete it. For a slide with no chrome, use a layout like ${sovereignList()}.`,
+      });
+    }
+  });
+  return findings;
+}
+
+/**
+ * Two shapes of `overflow-marker` that a deck should not carry, and neither of
+ * which does what the author would expect.
+ *
+ * (a) A FRONT-MATTER key. It shipped as a deck register for one commit and moved to
+ *     an export setting: the level is a property of the render target, not an
+ *     authoring fact (engineering/decisions/2026-07-30-overflow-marker-register.md).
+ *     Nothing reads the key any more, so a lingering one is silently inert — and an
+ *     exported bundle briefly carried it, so a recipient or an author following an
+ *     older doc can reasonably have one.
+ *
+ * (b) A planted EXPORT-SETTINGS BLOCK in the body. This is the shape that used to
+ *     change behavior, which is why it is worth more than the key: the block is a
+ *     producer's record of ONE export, so a hand-copied one in a source deck asserts
+ *     a choice nobody made for this deck. Lattice's own render paths now strip it
+ *     (lib/engine/index.js), so it is inert here too — but it will survive into a
+ *     Marp bundle built from this source, where marp-cli's browser DOES read it.
+ *
+ * Both are warnings, not errors: neither breaks a render, and the fix is a deletion.
+ */
+function findStrayOverflowMarker(source) {
+  const src = String(source || '');
+  const findings = [];
+  const fmBlock = src.match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+  if (fmBlock && /^overflow-marker:/m.test(fmBlock[1])) {
+    findings.push({
+      slide: 0, rule: 'stray-overflow-marker', severity: 'warning', classToken: 'overflow-marker',
+      line: 'overflow-marker:',
+      message: '`overflow-marker:` is an export setting, not a deck setting, so this line does nothing.',
+      fix: 'Delete this line; choose the overflow marker when you export instead.',
+    });
+  }
+  if (src.includes(`<script type="${EXPORT_SETTINGS_TYPE}">`)) {
+    findings.push({
+      slide: 0, rule: 'stray-export-settings', severity: 'warning', classToken: 'overflow-marker',
+      line: `<script type="${EXPORT_SETTINGS_TYPE}">`,
+      message: 'This deck contains an export-settings block copied from another export.',
+      fix: 'Delete the block; it can change how a Marp export of this deck behaves.',
+    });
+  }
+  return findings;
+}
+
+/**
+ * Rule `author-script-defers` — an inline `<script>` in the deck that DEFERS its work.
+ *
+ * The export captures the page at the load event plus an explicit media settle
+ * (`settleDeferredMedia`); it does not wait on author timers, and that is a decision on
+ * the record rather than an oversight — there is no finite wait that is correct, since
+ * the next deck can always pick a longer one. #1792 /
+ * `engineering/decisions/2026-08-16-render-format-cost-assessment.md` §2a-ter.
+ *
+ * So a slide that paints itself from a `setTimeout` ships EMPTY into the PDF. The render
+ * now says so at capture (`lib/core/author-deferral-probe.js`), but the render is late:
+ * the author has already built the deck. This is the same fact stated at authoring time,
+ * and it is the ONLY net under several shapes the runtime probe cannot see — a
+ * `<script type="module">` (where `document.currentScript` is null, so the probe has
+ * nobody to attribute the work to), and every API the probe deliberately does not wrap:
+ * `Worker`, `MutationObserver`, `IntersectionObserver`, `WebSocket`, `EventSource`,
+ * `requestIdleCallback`, `queueMicrotask`, `element.animate` and dynamic `import()`.
+ *
+ * `requestAnimationFrame` is NOT in the list, and its absence is the finding rather than
+ * an oversight: a rAF scheduled at parse time runs at the next paint, long before the
+ * capture, and its output is measurably IN the PDF. Naming it would tell authors to
+ * rewrite code that works.
+ *
+ * SCOPE, and every edge is deliberate:
+ *   - INLINE scripts only. All three shipped decks that carry raw `<script>` carry
+ *     `<script src>` scaffolding for the live preview (mermaid, lattice-runtime) with no
+ *     deferral of their own; flagging `src` would fire on every one of them and teach
+ *     authors to ignore this rule. The body is not readable from here anyway.
+ *   - Only when the body NAMES a deferral API. A script that mutates the DOM
+ *     synchronously lands in the export and is not a defect.
+ *   - The inert-data skip reads the OPENING TAG, not the whole element. Testing the whole
+ *     match let a script whose BODY happened to contain the text `application/json`
+ *     disable the rule for itself — found by an independent checker.
+ * Code fences AND html comments are blanked first, so neither this rule's own
+ * documentation nor a deck's speaker notes can trip it.
+ *
+ * THE OPENING TAG IS MATCHED; THE BODY IS SEARCHED FOR. This used to be one
+ * `<script …>([\s\S]*?)</script>` span, and a span has to SPELL its end tag — which means
+ * picking one spelling out of the several the HTML parser accepts (`</script>`,
+ * `</script >`, `</script\n>`, `</script/>`). Every pick is wrong for the rest, which is
+ * the shape CodeQL's bad-tag-filter query flags, and fairly: widening the span to accept
+ * a space does not answer it, because the next spelling is still unhandled. Matching only
+ * the opening tag and then locating the end the way the parser does (`scriptElementEnd`)
+ * removes the span rather than re-spelling it.
+ *
+ * Nothing else in the tree finds a script BODY this way, so there is no precedent to
+ * follow here — `lib/export/player-core.mjs` scans for a `src=` on an opening tag and
+ * never looks for an end at all. (An earlier draft of this comment, and the commit that
+ * introduced it, both claimed it as the house idiom. It is not.)
+ */
+const AUTHOR_SCRIPT_OPEN_RE = /<script\b(?![^>]{0,1024}\bsrc=)([^>]{0,1024})>/gi;
+
+// HTML whitespace, WHICH IS NOT `\s`. The tokenizer's script-data-end-tag-name state
+// accepts TAB, LF, FF, SPACE (and CR, which input preprocessing has already folded to LF),
+// plus `/` and `>`; anything else sends it back to script data, meaning the run is NOT an
+// end tag. JavaScript's `\s` additionally matches NBSP, vertical tab, U+2028/29, the BOM
+// and the Unicode space separators — so `[\s/>]` ends a body on five spellings a browser
+// keeps INSIDE it. That is not a widening, it is the original false-negative class coming
+// back: `var t = "</script\u00a0>";` truncates the body before the real code, and an NBSP
+// is exactly what survives a copy-paste out of a document or a model reply.
+const SCRIPT_END_RE = /<\/script(?=[\t\n\f\r />])/gi;
+
+// The end tag that closes a `<script>`, as {body, after}: where the body stops, and where
+// the scan may resume. There is deliberately no EOF case — per spec a trailing `</script`
+// with nothing after it does NOT close the element — so an unclosed script returns null.
+//
+// `after` walks the end tag to its own `>` rather than stopping at the `<`, because an end
+// tag may legally carry attributes (the parser drops them) and an attribute value may
+// contain `<script>`. Resuming at the `<` re-read `</script x="<script>">` as a second,
+// phantom element and flagged the prose after it. The walk is quote-aware for the same
+// reason: a `>` inside a quoted value does not end the tag.
+function scriptElementEnd(text, from) {
+  SCRIPT_END_RE.lastIndex = from;
+  const end = SCRIPT_END_RE.exec(text);
+  if (!end) return null;
+  let i = end.index + '</script'.length;
+  let quote = '';
+  for (; i < text.length; i += 1) {
+    const c = text[i];
+    if (quote) { if (c === quote) quote = ''; continue; }
+    if (c === '"' || c === "'") { quote = c; continue; }
+    if (c === '>') { i += 1; break; }
+  }
+  return { body: end.index, after: Math.min(i, text.length) };
+}
+const INERT_SCRIPT_TYPE_RE = /\btype\s*=\s*["'][^"']*json/i;
+const DEFERRAL_API_RE =
+  /\b(setTimeout|setInterval|requestIdleCallback|queueMicrotask|XMLHttpRequest|Worker|MutationObserver|IntersectionObserver|WebSocket|EventSource)\b|\bfetch\s*\(|\bimport\s*\(|\.animate\s*\(|\.then\s*\(|\bawait\s/;
+
+function findAuthorScriptDefers(source) {
+  const text = String(source || '');
+  const findings = [];
+  const fm = fmChunks(text);
+  splitTopLevel(text).forEach((chunk, idx) => {
+    // An HTML comment is where a deck keeps speaker notes and where a doc keeps an
+    // example, and neither renders a live script.
+    const body = replaceClosedComments(withoutCodeBlocks(chunk), () => ' ');
+    AUTHOR_SCRIPT_OPEN_RE.lastIndex = 0;
+    for (let m = AUTHOR_SCRIPT_OPEN_RE.exec(body); m; m = AUTHOR_SCRIPT_OPEN_RE.exec(body)) {
+      const bodyStart = m.index + m[0].length;
+      const end = scriptElementEnd(body, bodyStart);
+      // UNCLOSED: stop, and say nothing about it. A browser does swallow the rest of the
+      // document into the body, so reading on would be faithful to the parser -- and the
+      // text being read is MARKDOWN, where `DEFERRAL_API_RE` matches bare English words.
+      // A missing `</script>` before a line like "Worker productivity rose 12%" produced a
+      // finding telling the author their `Worker` call would not survive the export, for a
+      // call that does not exist. This file already knows which way that trade goes: it
+      // does not flag `<script src>` either, because a rule that fires on legitimate
+      // content is a rule authors learn to ignore.
+      if (!end) break;
+      const bodyEnd = end.body;
+      // Resume AFTER this element, so neither a `<script>` quoted inside its body nor one
+      // sitting in the end tag's own attributes can be read as a second element. (The span
+      // form got this for free; the search form has to say it.)
+      AUTHOR_SCRIPT_OPEN_RE.lastIndex = end.after;
+      // The export-settings block is inert data (`type="application/lattice+json"`), never
+      // executed — `findStrayOverflowMarker` already has its own, better-worded finding.
+      if (INERT_SCRIPT_TYPE_RE.test(m[1])) continue;
+      const api = body.slice(bodyStart, bodyEnd).match(DEFERRAL_API_RE);
+      if (!api) continue;
+      const call = (api[1] || api[0]).replace(/[\s(.]+$/, '').replace(/^\./, '');
+      findings.push({
+        slide: Math.max(1, idx - fm + 1),
+        rule: 'author-script-defers',
+        severity: 'warning',
+        classToken: 'script',
+        line: `<script> … ${call} …`,
+        message:
+          `This \`<script>\` uses \`${call}\` to run later; PDF, PPTX and PNG exports capture before it runs, so its output will be missing.`,
+        fix:
+          'Make the script run immediately, or write the content in Markdown. Only the .html export runs scripts.',
+      });
+    }
+  });
+  return findings;
+}
+
+/**
+ * Front-matter `split:` mode validation. Mirrors findUnknownFinish: reads the
+ * value from the leading `---`-fenced block only and warns when it isn't a known
+ * mode, so a typo (`split: rules`) surfaces instead of silently falling back
+ * to the `headings` default. The canonical name list is injected
+ * (lib/core/resolve-split.js `SPLIT_NAMES`), keeping this core require-free.
+ */
+function findUnknownSplit(source, splitNames) {
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!fmBlock) return [];
+  const fmSplit = lastFrontMatterMatch(fmBlock[1], /^\s*split:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+  if (!fmSplit) return [];
+  const value = fmSplit[1].trim();
+  const known = new Set([...splitNames].map((n) => String(n).toLowerCase()));
+  if (known.has(value.toLowerCase())) return [];
+  return [withTokenSuggestion({
+    slide: 0,
+    rule: 'unknown-split',
+    severity: 'warning',
+    classToken: value,
+    line: fmSplit[0].trim(),
+    // The fallback is `headings` (lib/core/resolve-split.js DEFAULT_SPLIT), pinned by a test.
+    message: `'${value}' isn't a valid \`split:\` value — the deck ignores it and uses \`headings\`, which also starts a slide at each extra \`#\` or \`##\`.`,
+    fix: `Use one of: ${[...splitNames].join(', ')}.`,
+  }, splitNames)];
+}
+
+// Front-matter `debug:` (and per-slide `<!-- _debug: … -->`) facet validation. The
+// value is a profile keyword (on/off/all/…) OR a space/comma list of "levers"; an
+// unknown token still renders (the overlay falls back to the default profile), so a
+// typo like `debug: sixe` warns instead of silently doing the wrong thing. The
+// vocabulary mirrors docs/src/playground/debug-overlay.js (FACETS + the on/off set);
+// kept literal here so lint-core stays require-free
+// (engineering/decisions/2026-07-01-debug-bounding-boxes.md).
+// The `debug:` vocabulary (mirrors docs/src/playground/debug-overlay.js): ONE name per
+// concept, no aliases — `off`, the reveal modes `on-hover` / `on-always`, and the
+// optional `verbose` detail. There is deliberately NO bare `on` — a deck that still
+// says `debug: on` (or a typo) warns and falls back to on-hover.
+const DEBUG_VALID = new Set(['off', 'on-hover', 'on-always', 'verbose']);
+
+function findBadDebugFacets(source) {
+  const out = [];
+  const seen = new Map(); // value → the raw directive line, for the message
+  const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (fmBlock) {
+    const m = [...fmBlock[1].matchAll(/^debug[ \t]*:[ \t]*(.*)$/gm)].pop(); // the last repeat wins (#3050, D1)
+    if (m) seen.set(m[1], m[0].trim());
+  }
+  // The `debug` directive comments the engine reads, every slide, through the shared reader. A
+  // bare `<!-- _debug -->` reads as an empty value: on-hover, always valid, skipped below.
+  for (const slide of metaScan(source).scan.slides) {
+    for (const c of slide.comments) if (c.kind === 'directive' && !c.folded && c.key === 'debug') seen.set(c.value, c.raw);
+  }
+  for (const [rawValue, line] of seen) {
+    const value = rawValue.trim().replace(/^["']|["']$/g, '');
+    if (value === '') continue; // a bare flag → on-hover, always valid
+    const bad = value.toLowerCase().split(/[\s,]+/).filter(Boolean).filter((t) => !DEBUG_VALID.has(t));
+    for (const token of bad) {
+      out.push({
+        slide: 0,
+        rule: 'unknown-debug-facet',
+        severity: 'warning',
+        classToken: token,
+        line,
+        message: `'${token}' is not a known debug value — the overlay falls back to on-hover`,
+        fix: 'Use `debug: on-hover` or `debug: on-always` (optionally `+ verbose`), or `off`.',
+      });
+    }
+  }
+  return out;
+}
+
+// A single-CODE-POINT letter or digit — the read-aloud footgun. The Speech Symbol Commons
+// substitutes a lexicon override per code point in EVERY language (the per-glyph loop isn't
+// gated on English), so a one-character letter/digit key (`e`, `é`, a Greek/Cyrillic letter,
+// `2`, a full-width digit) rewrites every embedded occurrence, not just the standalone token.
+// A single GLYPH (`→`, `×`, `©`, `🎯`) is a symbol, not a letter/digit — the intended use — and
+// stays silent. `[...tok].length === 1` counts code points so a surrogate-pair emoji reads as one.
+function isSingleLetterOrDigitKey(tok) {
+  return !!tok && [...tok].length === 1 && /[\p{L}\p{Nd}]/u.test(tok);
+}
+
+/**
+ * Authoring warning: a single-letter-or-digit `lexicon:` key (`e:`, `é:`, `2:`). See
+ * isSingleLetterOrDigitKey for why it garbles narration — a key `e: EEK` turns "revenue"
+ * into "r EEK v EEK n u EEK", mis-narrating the whole deck. Warn, don't block — a lone
+ * letter may be deliberate (rare). Self-contained: it parses the nested `lexicon:` block
+ * itself (mirroring parseTokenMap in lib/core/resolve-narration.mjs — the SHALLOWEST child
+ * indent is the entry level, deeper lines are strays), so it needs no injected vocab, and
+ * warns on exactly the keys the parser reads. One finding per offending key.
+ */
+function findSingleLetterLexiconKeys(source) {
+  // Tolerate a BOM and trailing spaces after the opening fence, matching the parser this
+  // mirrors (resolve-narration.mjs frontMatterBody) — else a `--- ` / BOM deck the engine
+  // narrates would dodge the warning.
+  const fmBlock = String(source || '').match(/^﻿?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
+  if (!fmBlock) return [];
+  const lines = fmBlock[1].split(/\r?\n/);
+  // The root `lexicon:` header — column 0, nothing after the colon (a nested `lexicon:`
+  // under another key is indented and is not this block).
+  let i = lines.findLastIndex((l) => /^lexicon[ \t]*:[ \t]*$/.test(l)); // the last block is the one read (#3050, D1)
+  if (i < 0) return [];
+  // Collect the block's child lines (deeper than the root), stopping at the first root sibling.
+  const block = [];
+  for (i += 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() === '') continue; // blank lines don't end a block
+    const indent = line.match(/^(\s*)/)[1].length;
+    if (indent === 0) break; // a sibling root key ends the block
+    block.push({ indent, text: line.trim() });
+  }
+  if (!block.length) return [];
+  // Mirror parseTokenMap: the entry level is the shallowest child indent; a deeper line is a stray.
+  const entryIndent = Math.min(...block.map((l) => l.indent));
+  const out = [];
+  for (const { indent, text } of block) {
+    if (indent !== entryIndent) continue;
+    // key: value — a quoted token (may hold spaces) or a bare run up to the first colon.
+    const m = text.match(/^(?:"([^"]+)"|'([^']+)'|([^\s:]+))\s*:/u);
+    if (!m) continue;
+    const tok = m[1] ?? m[2] ?? m[3];
+    if (isSingleLetterOrDigitKey(tok)) {
+      out.push({
+        slide: 0,
+        rule: 'lexicon-single-letter-key',
+        severity: 'warning',
+        classToken: tok,
+        line: text,
+        message: `Lexicon key '${tok}' is one character, so narration replaces every '${tok}' inside other words too.`,
+        fix: 'Use a whole word or a symbol as the key.',
+      });
+    }
+  }
+  return out;
+}
+
+module.exports = {
+  agendaLintPlan,
+  // TEST-ONLY: the agenda lint's two strippers, held to the regexes they replaced (test/unit/core/agenda-progress-readers.test.js).
+  __stripAgendaFencesForTest: stripAgendaFences,
+  __stripAgendaHtmlBlocksForTest: stripAgendaHtmlBlocks,
+  renderedInlineSpans,
+  MODIFIER_PREFIXES,
+  paneSplitLine,
+  paneStarts,
+  FOCUS_AXES,
+  FOCUS_STYLES,
+  CARD_STYLE_LAYOUTS,
+  LEDGER_OL_LAYOUTS,
+  STATEMENT_OL_LAYOUTS,
+  SPLIT_SLOT_LAYOUTS,
+  NUMBER_SLOT_LAYOUTS,
+  findInlineTitleBodyLine,
+  findOrderedInlineTitleBodyLine,
+  findBoldOrderedStatement,
+  findSplitBodylessItem,
+  findBigNumberHeroInHeading,
+  countPrimaryCollection,
+  CODE_LINE_BUDGET,
+  CODE_LINES_AT_SCALE,
+  elementLength,
+  VENUE_CAPACITY,
+  codePaneColumns,
+  codeGroupFor,
+  SCALE_CAPACITY,
+  FONT_SCALE_VALUE,
+  fontScaleKey,
+  FONT_SCALE_KEYS,
+  venueClassFromFrontMatter,
+  scaleCapacityFor,
+  wrapLines,
+  rowsAt,
+  pointsAt,
+  panelOver,
+  lineText,
+  GLYPH_DISPLAY,
+  lineSlack,
+  wordMapAt,
+  endsWithCallout,
+  hasEyebrow,
+  codeLineColumns,
+  widestCodeLine,
+  axisNoun,
+  capacityFix,
+  findUnknownMapRegions,
+  findTypedShapeGlyphs,
+  findCrowdedShapePills,
+  findStrayBracketAfterQuote,
+  findLiteralSparks,
+  findLiteralPills,
+  fmChunks,
+  blankHiddenComments,
+  linesWithoutInlineMarkdown,
+  findLiteralPluginKinds,
+  findLegendSpans,
+  findMixedSpellings,
+  inlineCodeCompletions,
+  flowchartCompletions,
+  sparkFitFindings,
+  findTagBudgetIssues,
+  tagLineBudget,
+  trailWordBudget,
+  pillFitsShape,
+  pillIsCrowded,
+  inlineCodeSpans,
+  findRetiredAutosplitDirective,
+  findRetiredCaptionKeys,
+  findCapitalizedSayKey,
+  findRetiredFormKey,
+  findRetiredFormTokens,
+  findUnsupportedPaginateValues,
+  findEmptySections,
+  findMetaCommentIssues,
+  findUnknownFinish,
+  findUnknownPace,
+  PACE_NAMES,
+  DELIVERY_NAMES,
+  findUnknownDelivery,
+  findBookendIssues,
+  readBookendKeys,
+  findUnknownMode,
+  findUnknownColorMode,
+  findRefusedDeckClass,
+  findUnknownStamp,
+  findUnknownToneStyle,
+  findUnknownSpectrum,
+  findUnknownSpectrumEdge,
+  findUnknownSpectrumCard,
+  findUnknownSpectrumCardEdge,
+  findUnknownSpectrumTrim,
+  findUnknownRule,
+  findUnknownEyebrow,
+  findUnknownHeadline,
+  findSingleLetterLexiconKeys,
+  findAuthorScriptDefers,
+  nearestRegion,
+  withTokenSuggestion,
+  replaceToken,
+  editDistance,
+  isKnownModifier,
+  autofixNestedTitle,
+  autofixOrderedNestedTitle,
+  autofixGanttDelimiter,
+  autofixQuadrantAxis,
+  retiredQuadrantAxis,
+  findQuadrantAxisIssues,
+  findHistogramIssues,
+  findEpCurveIssues,
+  findFlowchartIssues,
+  findChartListQuoteSplits,
+  findChartRowQuotes,
+  findChartMalformedValues,
+  QUOTE_READERS,
+  LIST_CHARTS,
+  findHubSpokeIssues,
+  applyFix,
+  applyAllFixes,
+  fixAllDetailed,
+  loadFixDriver,
+  fixLineIndex,
+  withoutFencedFixes,
+  splitsOnHeadings,
+  bakeHeadingChunks,
+  lintTextWith,
+};

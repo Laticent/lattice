@@ -108,6 +108,9 @@ describe('a sixth hand-kept key list fails', () => {
   // directives. It is not the slide-comment list this guard exists to keep single.
   const SANCTIONED = {
     'lib/authoring/lint-core.js': 'front-matter keys that make no claim about rows, not the comment vocabulary',
+    // The lint-core rewrite's frozen reference (decision 2026-11-13-squadra-replaces-lint-core §6): lint-core.js copied
+    // verbatim, so it holds the same front-matter list. Test-only, and deleted with lint-core when the rewrite merges.
+    'tools/squadra/reference/lint-core.js': 'a verbatim copy of lint-core.js for the reference diff; the same front-matter list',
     // MARP_FRONT_MATTER_KEYS: the FRONT-MATTER keys Marp itself consumes, which stay on top of an exported
     // bundle while Lattice's move into the settings block. Several (`title`, `math`, `headingDivider`,
     // `transition`) are not slide-comment directives at all, and adding them to the registry would make

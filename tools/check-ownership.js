@@ -7222,6 +7222,13 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
        + 'compares like with like. It reads repo-committed decks (and seeded fuzz inputs) and writes nothing; an on-demand diagnostic.',
   },
   {
+    file: 'tools/squadra/corpus.js',
+    why: 'the corpora the Squadra diffs (tools/squadra-reference-diff.js, the lint-core rewrite\'s reference diff) '
+       + 'COMPARE, not author input it renders: the lint unit tests\' own inputs, recorded while they run, and the '
+       + 'tracked decks they are spliced into. It folds them as `lint:deck --fix` folds a deck at its read, so the frozen '
+       + 'lint-core and the new ruleset see the same text; an on-demand diagnostic that writes a report, never a deck.',
+  },
+  {
     file: 'tools/squadra-fix-diff.js',
     why: 'folds the sources it COMPARES, not author input it renders: the lint unit tests\' own '
        + 'inputs (recorded while they run) and the REPO-COMMITTED tracked decks, which `.gitattributes` '
