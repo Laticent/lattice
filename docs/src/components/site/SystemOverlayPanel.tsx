@@ -10,7 +10,7 @@ import * as React from 'react';
 import { DiagnosticPanel } from '@/components/diagnostics/diagnostic-overlay';
 import { Sep } from '@/components/diagnostics/Sep';
 import { browserEnv, classify, type DeviceSignals, pinnedTier, readSignals, runCpuProbe } from '@/lib/device-profile';
-import { readCachedCpu } from '@/lib/device-tier';
+import { deviceTierState, type GpuRankStatus, onDeviceTierChange, readCachedCpu } from '@/lib/device-tier';
 import { browserName, type ReportRow, type RowStatus, reportRows, reportText } from '@/lib/system-report';
 import { setSystemOverlayEnabled } from '@/playground/system-overlay-prefs';
 
@@ -26,6 +26,7 @@ type NavExtras = Navigator & {
 
 export default function SystemOverlayPanel() {
 	const [signals, setSignals] = React.useState<DeviceSignals | null>(null);
+	const [gpuRank, setGpuRank] = React.useState<GpuRankStatus>('pending');
 	const [storage, setStorage] = React.useState<{ usage: number; quota: number } | null>(null);
 	const [probing, setProbing] = React.useState(false);
 	const [copied, setCopied] = React.useState(false);
@@ -37,7 +38,15 @@ export default function SystemOverlayPanel() {
 		try {
 			read.cpuScore = readCachedCpu(window.localStorage, Date.now());
 		} catch {}
-		setSignals(read);
+		// The GPU rank and the boot probe are the app's own measurements (device-tier.ts); the panel shows what the app found.
+		const fromApp = (s: { signals: DeviceSignals } | null) => (s ? { gpuTier: s.signals.gpuTier, bootProbeSlow: s.signals.bootProbeSlow } : {});
+		const app = deviceTierState();
+		setSignals({ ...read, ...fromApp(app) });
+		if (app) setGpuRank(app.gpuRank);
+		const off = onDeviceTierChange((s) => {
+			setSignals((cur) => (cur ? { ...cur, ...fromApp(s) } : cur));
+			setGpuRank(s.gpuRank);
+		});
 		let alive = true;
 		// Read directly rather than through storage-metrics' estimateQuota: sharing that module with this
 		// lazy chunk split it out of the Storage overlay's eager chunk, and the split alone cost every page
@@ -50,6 +59,7 @@ export default function SystemOverlayPanel() {
 			.catch(() => {});
 		return () => {
 			alive = false;
+			off();
 		};
 	}, []);
 
@@ -78,6 +88,7 @@ export default function SystemOverlayPanel() {
 		network: nav.connection ? { effectiveType: nav.connection.effectiveType, saveData: nav.connection.saveData } : null,
 		reducedMotion: !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
 		reducedData: !!window.matchMedia?.('(prefers-reduced-data: reduce)').matches,
+		gpuRank,
 	});
 
 	const copy = async () => {

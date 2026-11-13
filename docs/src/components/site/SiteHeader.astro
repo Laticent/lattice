@@ -226,6 +226,11 @@ const paletteLabelCss = seedablePalettes
 		backdrop-filter: saturate(180%) blur(12px);
 		border-bottom: 1px solid var(--border);
 	}
+	/* LITE device tier: an opaque bar, no blur (device-capability-tiers §4). */
+	:global(:root[data-device-tier='lite']) .site-header.is-standalone {
+		background: var(--bg);
+		backdrop-filter: none;
+	}
 	.site-header-inner {
 		display: flex;
 		align-items: center;

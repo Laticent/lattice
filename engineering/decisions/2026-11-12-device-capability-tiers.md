@@ -181,6 +181,48 @@ ceiling is the owner's call, so the slice splits the work instead:
   visit paints the right tier from the first frame. If the owner raises the Studio's HTML ceiling, a pre-paint WebGL read
   can close the first-visit gap.
 
+### 3.4 The GPU rank and the boot probe, as built (2026-11-13)
+
+Both feed `classify()` through `startDeviceTier` (`lib/device-tier.ts`), which now takes three late measurements, the CPU
+probe, the GPU rank and the boot probe, and applies again as each lands. Each only adds evidence. A drop from FULL to
+LITE after the first paint shows a toast ("Lattice switched to Lite mode to stay smooth." plus the reason); a `?tier=` pin
+is never dropped or toasted.
+
+- **GPU rank** (`docs/src/lib/gpu-rank.ts`). detect-gpu 5.0.70 gets the renderer string we already read, so it makes no
+  second WebGL context. Safari's masked "Apple GPU" is the exception: on an iPhone or iPad detect-gpu reads it with its own
+  context to tell Apple chips apart; on a Mac it is not asked at all, because that path makes a high-performance context
+  (which may wake a discrete GPU) only to answer FALLBACK (found by the independent review).
+  BENCHMARK and BLOCKLISTED give the tier; FALLBACK (a GPU the 2025-02 tables do not know) and no WebGL give null, and
+  null never lowers the tier.
+- **Self-hosted tables** (`docs/src/lib/gpu-rank-tables.ts`). `import.meta.glob(…, { query: '?url' })` copies the 12
+  tables into the build as hashed assets; detect-gpu's `loadBenchmarks` fetches the one its vendor needs from our
+  origin. The library and its loader are a lazy chunk that loads only when there is a renderer and no Save-Data.
+  `e2e/gpu-rank.spec.ts` stubs the renderer (an NVIDIA chip on Chromium, "Apple GPU" on WebKit), waits for the table
+  request, checks its origin and the panel's "GPU rank" row, and checks that nothing goes to unpkg. With WebGL off, the
+  library does not load at all.
+- **Boot probe** (`docs/src/lib/boot-probe.ts`). It sums the blocking time of long tasks (each task's time past 50 ms)
+  that start in the first 10 s after navigation, buffered from navigation start, and calls the boot slow at 2 s or more.
+  It always waits at least one task before answering: a buffered observer delivers its backlog in a later task, so a probe
+  started after the window used to read every boot as fast (the review measured it in Chromium).
+  Measured on the Studio (Chromium 153, sandbox, 3 runs each): 461 to 606 ms at CPU x1, 3.3 to 3.6 s at x4, about 5.0 s
+  at x6. Driven on the built Studio, the System panel lists "Lattice fell behind while starting up." at x6 and not at
+  x1. Safari and Firefox have no long-task API, so the probe answers null there.
+- **System panel.** It merges the app's GPU rank and boot result into its own reading and follows later changes. The
+  "GPU rank" row (§5.1) always shows: `Tier N of 3`, or why there is no rank: "Not measured yet", "Unknown: detect-gpu couldn't rank
+  this chip", "Not ranked: software renderer" or "Not ranked: no WebGL" (`gpuRank` on the tier state). It used to
+  appear only once a rank existed. On the owner's iPhone (Safari 26.4, 2026-11-13) the panel showed Full, every required
+  feature supported and a 515-unit speed test, but no GPU rank row, and the screenshot could not say whether detect-gpu
+  had answered.
+- **Real device, after the row change** (the owner's iPhone, iOS Chrome and iOS Firefox, both WebKit, 2026-11-13): Tier
+  Full, **GPU rank Tier 3 of 3**, every required feature supported, speed tests of 522 and 526 units. So detect-gpu does
+  rank a real Apple GPU through its own-context path, from our self-hosted tables. The same screens read "Unknown
+  browser": iOS browsers carry `CriOS/`, `FxiOS/` or `EdgiOS/` and no `Version/`, so `browserName` now matches those
+  tokens first ("Chrome 141 (iOS)").
+- **Not verified here.** The toast needs a FULL device that boots slowly; the sandbox is LITE before the probe runs (a
+  software renderer). Unit tests drive it with injected results. A real GPU's rank from the real tables is
+  **UNVERIFIED** on a desktop GPU; a real Apple GPU ranked Tier 3 of 3 on the owner's iPhone (below).
+
+
 ## 4. What LITE changes
 
 Ordered by how much each saves on a weak machine.
@@ -200,6 +242,77 @@ LITE is a change to what the app shows and how fast it works, **never to what it
 LITE machine is byte-for-byte the one a FULL machine exports. Export work may run slower on LITE (one worker, one
 slide in flight), but capture resolution, fonts and encoders do not change, so no tier ever needs the QUALITY BAR's
 export sign-off.
+
+### 4.1 Slice 3, as built (2026-11-13): LITE visuals
+
+Everything keys on `html[data-device-tier="lite"]`, which the Studio's boot script sets before paint from the saved
+tier (or a `?tier=` pin) and `lib/device-tier.ts` sets again once it decides (§3.3). CSS alone does the swap, so the
+markup, the hand-off and the tests that drive them are the same in both tiers.
+
+- **Loader.** `nacre-loader.css` and the shell copy in `studio.astro` (`SHELL_NACRE_CSS`) both paint the loader box with
+  the landing skeleton's gradient (`landing.css`, `.live-host:not(.is-live)::after`) and pulse it with the same 1.4 s
+  keyframes, renamed `nacre-lite-pulse` so the island's chunk carries its own. The core, the three layers, the vignette
+  and the grain get `display: none`, so their compositor layers are never made. The pulse stops under
+  `prefers-reduced-motion`, and on `is-done` the box fades as before. `nacre-loader.test.ts` holds the two copies
+  together. The shell copy adds 773 bytes of raw Studio HTML.
+- **Underpainting.** The two Studio live builders (`single-slide-render.ts`, the Present stage window) write
+  `data-lattice-live-media="still"` on LITE, through `docs/src/lib/live-media-attr.ts`. The runtime
+  (`holdsStill` in `lib/core/image-painting.js`) then lays the canvas down at once (the `"again"` state, no sweep)
+  and adds no brush span, so nothing drifts. It is not the muted failed-picture "still" state, because the picture
+  is still coming, and it fades away on load as before. This lives in the runtime and not in `base.modifiers.css`,
+  because the engine's CSS packer scopes every selector to the slide, and a rule keyed on the frame's `<html>` packs
+  to a selector that never matches (`css-scope.test.js` caught the first attempt). Exports never set the attribute.
+- **Backdrop blur.** Two rules in `landing.css` turn `backdrop-filter` and `-webkit-backdrop-filter` off for every
+  element in the app under LITE (`!important`, because the Vetrina tour stage sets its blur inline). They are two rules
+  with different selectors on purpose: written together, the CSS minifier kept only the prefixed property, and written
+  alone it dropped the prefix Safari before 18 reads. The site header and the chart popover turn opaque
+  (`var(--bg)`) in their own stylesheets. The Tailwind `backdrop-blur` pills and overlays keep their fills, which
+  are 85% to 96% opaque and read cleanly without the blur.
+- **Not changed.** The docs and landing pages carry no tier, so they keep their blur on every device. The Playground
+  gets the tier from slice 5's gate (§6.1), and with it the LITE backdrop rule. The `logo-plate` base modifier's blur is slide
+  CSS inside the frame and reaches exports, so it stays (§4: no tier changes an exported file).
+- **Verified.** `e2e/lite-visuals.spec.ts` pins each tier on all six Playwright projects and reads the computed loader,
+  the probe element's backdrop filter and the slide frame's attribute. The screenshots at 1440, 820 and 390 px in both
+  tiers are in the PR.
+
+
+### 4.2 Slice 4, as built (2026-11-13): LITE resources
+
+`docs/src/lib/device-lite.js` reads `html[data-device-tier]` at the moment of use (`isLiteDevice`) and holds §4's
+numbers (`LITE`). It is plain JS because Node-run unit tests import the export pools directly. Each site takes the tier
+as an argument with that read as the default, so its tests pass the tier in and never read the runner's machine.
+
+| Site | FULL | LITE | Where |
+|---|---|---|---|
+| Picture encoders (every export) | cores − 1, at most 2 | 1 | `poolSize` in `picture-encoder-pool.js` |
+| Narration packers | cores − 1, at most 4 | 1 | `packPoolSize` in `narration-pack-pool.js` |
+| PDF and PowerPoint photo lanes | 2 slides queued on the worker | 1 | `exportInFlight` in `device-lite.js`, read by `deck-export.js` |
+| Preview iframe pool | floor 10, ceiling 28 | floor 6, ceiling 12 (a host's lower numbers win) | `tierSlotCaps` in `preview-pool.tsx` |
+| Idle prefetch | Compose, Present, reading view, KaTeX, diagrams, Fabricate, fonts | the clip notice and Hide/Show only | `startStudioWarmUp` in `studio-warm.ts` |
+| On-device voice (Kokoro) | offered on a desktop | unsupported, as on a phone; never filled as the default voice; hosted voices only | `kokoroSupported` in `voice-model.js`, `canRunKokoro` in `model-selection.js` |
+| On-device chat (WebLLM, Transformers.js) | offered | shown, disabled, with the reason | `OnDeviceTier.tsx` |
+
+- **Shown, not hidden.** §4 said "hidden" for the local models. The chat models stay listed and disabled with
+  "Off in Lite mode", so a person sees why and can switch the tier in the setting slice 5 adds. The browser's built-in
+  model downloads nothing and stays available.
+- **The preview ceiling of 12** still covers the biggest grid measured (12 tiles at 1920×1200), so tiles on screen keep
+  their frames there. A bigger grid on a LITE device starves its least-recently-seen tiles; that is the trade. A pool
+  watches the attribute, so a drop to LITE mid-session re-renders it and its next pass gives back the free frames above
+  12, from the end of its list (a slot's place is its React identity), as tiles leave.
+- **A voice picked before.** The independent review found that `canRunKokoro`, which fills an unset voice, still said
+  yes on a LITE desktop, so read-aloud got a Kokoro voice it could not run. It now says no, and a Kokoro voice picked on an
+  earlier FULL visit reads as unavailable with "On-device voice is off in Lite mode" in the voice settings, never a
+  silent fallback to another voice (the model spine's rule).
+- **A running pool keeps its size.** The shared export pools end 10 s after their last job, so the next export after a
+  mid-session drop to LITE starts at the LITE size.
+- **Same bytes.** Fewer workers and a shorter queue change when work runs, not what it writes: the PDF worker writes
+  slides in index order, and each picture's bytes come from the same writer. `e2e/export-tier-bytes.spec.ts` exports
+  one deck from `?tier=full` and `?tier=lite`, through the default writer and the photo lane, and compares the files
+  byte for byte with only the clock-stamped dates and file ID masked. The PowerPoint is compared too: every zip entry by
+  its uncompressed CRC and size, except `docProps/core.xml`, which holds the export dates.
+- **No speed claim.** On FULL nothing changes; on LITE the work is slower by design and uses less memory. So HARD RULE
+  #19's bench does not apply, and no path is claimed faster.
+
 
 ## 5. The System diagnostic panel
 
@@ -223,7 +336,7 @@ A sixth overlay on the existing `DiagnosticPanel` chassis, toggled under Workspa
 and the status rules (green / amber / red, gray for a value the browser does not report) live in that pure module
 under unit tests. The panel shows a short graphics name (`SwiftShader (software)`) and the copied report keeps the
 full renderer string. The speed test runs only on a click, because it pauses the page for about 140 ms (§3.2). The
-"GPU rank" row appears once `detect-gpu` is wired (slice 1b). Until slice 5, the panel shows the tier the device
+"GPU rank" row appears once `detect-gpu` has ranked the GPU (§3.4). Until slice 5, the panel shows the tier the device
 WOULD get; nothing in the app acts on it yet.
 
 **Bytes.** The first cut mounted the panel as its own eager island and CI's route budget failed it (home eager JS
@@ -257,6 +370,43 @@ The required-feature list (the decline set) is short and comes from what actuall
 one in a real browser before it joins the list: module workers, IndexedDB, CSS `:has()`, container queries,
 `structuredClone`, and the ES level the build emits. Anything with a working fallback today (OffscreenCanvas,
 CompressionStream, relative colors, `requestIdleCallback`) is **not** on it.
+
+### 6.1 Slice 5, as built (2026-11-13): the decline screen, "continue anyway" and the setting
+
+- **The gate** (`docs/src/lib/device-gate.ts`) is the eager half: it watches `html[data-device-tier]`, loads the screen
+  (`decline-screen.ts`, a lazy chunk) when the tier reads "unsupported", and removes it when the tier moves off. On the
+  Studio it starts from the island's module, so the Studio's HTML gains nothing; on the Playground it is a page script that
+  also applies a pin or the saved tier and starts the decision once the page is idle. Present runs inside the Studio.
+  `ensureDeviceTier()` starts the runtime once per page, whoever asks first (the Studio's warm-up, the Playground's gate,
+  the screen when a saved decline paints before either, or the Performance mode setting).
+- **Focus and `inert`.** The screen makes inert only what was not inert already, makes anything added to `<body>` while it
+  shows inert too (a toast, a portal), gives back only what it set, and returns focus to where it was.
+- **The screen** is plain DOM in the site's tokens and fonts, over everything (`z-index` at the top of the range), with
+  the app beneath made `inert` and focus on its heading. It names the failed checks ("It needs CSS :has(), which this
+  browser doesn't support."), or the hardware floors that agreed, and says what to do. "Copy system report" copies the
+  System panel's report.
+- **"Continue anyway"** writes `lattice-device-continue` to sessionStorage, so the rest of this tab's session runs as
+  LITE, a reload included, under a one-line banner that stays up (§7.2). sessionStorage is per tab, so a second tab
+  declines again. The saved tier stays "unsupported", so the next visit declines from its first paint. It also gets past
+  a pinned `?tier=unsupported`, which is how the screen is tested. The runtime clears the flag once the browser is no longer
+  declined, and the banner goes with it.
+- **When a decline is decided** (`apply` in `device-tier.ts`, reworked after the independent review of this slice):
+  - Until the CPU score and the GPU rank have both answered, the page shows the lower of the saved tier and the signal
+    tier, and saves nothing, except a missing feature, which is a fact and is saved at once.
+  - A probe that cannot run keeps a saved LITE but not a saved decline. A decline the signals alone do not support lifts;
+    before the fix it stayed up for good under Save-Data.
+  - A decline that is new when the measurements land (the page was already in use) holds this visit at LITE and is saved,
+    so the next visit declines from its first paint. A screen never appears over live work.
+- **The setting** (Workspace settings, General, "Performance mode": Auto, Full, Lite) writes
+  `lattice-device-tier-override`, and `setTierOverride` applies it at once with the signals already measured, with no
+  toast. It picks FULL or LITE; a missing feature still declines (classify's rule), and the notice says so.
+- **The required-feature list is the one from slice 1** (module workers, IndexedDB, `:has()`, container queries,
+  `structuredClone`). Verifying each by switching it off in a real browser to see what breaks (§6) is still open; the e2e
+  switches `:has()` off in the page's `CSS.supports` and checks the screen names it.
+- **Verified.** `e2e/decline-screen.spec.ts` on all six projects (the tablet width from the WebKit tablet profile): a
+  pinned decline, continue anyway, the banner across a reload, `:has()` switched off unpinned, no decline unpinned on a
+  supported browser, the Playground, and the setting. Screenshots at 1440, 820 and 390 px, dark and light, are in the PR.
+
 
 ## 7. Decisions (owner, 2026-11-12)
 

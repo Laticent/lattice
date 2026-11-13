@@ -56,3 +56,30 @@ describe('the loader grain', () => {
 		expect(shellCss).not.toMatch(IMAGE_LOADERS);
 	});
 });
+
+// The LITE tier swaps Nacre for the landing hero's skeleton (device-capability-tiers §4). Both copies must agree, or the
+// pre-paint shell would paint one placeholder and the island another the moment it mounts.
+const sheetLite = sheet.match(/:root\[data-device-tier='lite'\] \.nacre-loader \{([^}]*)\}/)?.[1] ?? '';
+const shellLite = page.match(/:root\[data-device-tier=lite\] #studio-ssr-shell \.nacre-loader\{([^}]*)\}/)?.[1] ?? '';
+const norm = (v: string | undefined) => v?.replace(/\s+/g, '').replace(/0\.6/g, '.6');
+
+describe('the LITE loader', () => {
+	it('both copies paint the same one-gradient skeleton', () => {
+		expect(sheetLite, 'nacre-loader.css has no LITE rule').not.toBe('');
+		expect(shellLite, "studio.astro's shell copy has no LITE rule").not.toBe('');
+		for (const prop of ['background', 'background-size']) expect(norm(decl(shellLite, prop)), `${prop} drifted`).toBe(norm(decl(sheetLite, prop)));
+		expect(decl(sheetLite, 'background')).toMatch(/^linear-gradient\(/);
+	});
+
+	it('both copies stop drawing the Nacre layers and grain', () => {
+		expect(sheet).toMatch(/:root\[data-device-tier='lite'\] \.nacre-loader > \*,\s*:root\[data-device-tier='lite'\] \.nacre-loader::after \{\s*display: none;/);
+		expect(shellCss).toContain(':root[data-device-tier=lite] #studio-ssr-shell .nacre-loader>*,:root[data-device-tier=lite] #studio-ssr-shell .nacre-loader::after{display:none;}');
+	});
+
+	it('both copies pulse only when motion is welcome, with the same keyframes', () => {
+		expect(sheet).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{\s*:root\[data-device-tier='lite'\] \.nacre-loader:not\(\.is-done\) \{\s*animation: nacre-lite-pulse 1\.4s ease-in-out infinite;/);
+		expect(shellCss).toContain('@media (prefers-reduced-motion: no-preference){:root[data-device-tier=lite] #studio-ssr-shell .nacre-loader{animation:nacre-lite-pulse 1.4s ease-in-out infinite;}}');
+		expect(sheet).toContain('@keyframes nacre-lite-pulse');
+		expect(shellCss).toContain('@keyframes nacre-lite-pulse{0%{background-position:100% 0;opacity:1;}50%{opacity:.6;}100%{background-position:0 0;opacity:1;}}');
+	});
+});

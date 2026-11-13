@@ -47,6 +47,7 @@ import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.m
 import { applyStepAt, stepsOfSection } from '../../../../../lib/core/step-state.mjs';
 import { drawnLibraryPreload } from '../../../../../lib/plugins/drawn-library.mjs';
 import { markupHasDrawnFence } from '../../../../../lib/plugins/drawn-probe.mjs';
+import { liveMediaAttr } from '../../../lib/live-media-attr';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { previewDiagramsAttr } from '../../../playground/deck-preview.js';
 import { slideBox } from '../../../playground/frame-css.js';
@@ -355,7 +356,7 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// (28 files, the emoji subsets among them), which held the reveal below to its full font
 		// backstop. Every slide here is laid out (hidden by `visibility`, never `display:none`),
 		// so the faces of the slides ahead are still in flight before the audience reaches them.
-		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(!!runtimeUrl && markupHasDrawnFence(html)) + ' data-lattice-live-media data-lattice-chromeless data-lattice-preview><head><meta charset="utf-8">' +
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(!!runtimeUrl && markupHasDrawnFence(html)) + liveMediaAttr() + ' data-lattice-chromeless data-lattice-preview><head><meta charset="utf-8">' +
 		// Remote-subresource containment, before any content (#1753). The Stage renders the
 		// same untrusted deck HTML the other preview frames do, so it takes the same policy.
 		previewCspMeta({ katexUrl, webOrigins, blocked: [...web.blocked, ...remoteRef.webRefsInCss(css)], scriptNonce: PAGE_SCRIPT_NONCE }) +

@@ -56,6 +56,21 @@ describe('model spine — voice', () => {
 		expect(v.kokoroVoice()).toBe('bf_emma');
 	});
 
+	it('on a LITE device a selected, loaded Kokoro is not offered: unavailable and silent (device-capability-tiers §4)', () => {
+		selectVoice({ provider: 'kokoro', voice: 'bf_emma' });
+		document.documentElement.setAttribute('data-device-tier', 'lite');
+		try {
+			const { v } = studioVoice();
+			loadKokoro(v);
+			expect(v.rung()).toBe('silent');
+			expect((v.availability() as unknown as { kokoroSupported: boolean }).kokoroSupported).toBe(false);
+			document.documentElement.setAttribute('data-device-tier', 'full');
+			expect(v.rung()).toBe('kokoro');
+		} finally {
+			document.documentElement.removeAttribute('data-device-tier');
+		}
+	});
+
 	it('a selected Kokoro that is not loaded reads unavailable and stays silent — never the cloud voice', () => {
 		selectVoice({ provider: 'kokoro' });
 		const { v } = studioVoice();

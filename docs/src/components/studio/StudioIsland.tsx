@@ -1,6 +1,7 @@
 import './studio-boot';
 import { type ComponentProps, StrictMode, useMemo } from 'react';
 import { noteError } from '@/lib/crash-sentinel';
+import { startDeviceGate } from '@/lib/device-gate';
 import { ErrorBoundary } from '../ErrorBoundary.tsx';
 import { withUnpackedNames } from './lint-vocab-names';
 import StudioShell from './StudioShell.tsx';
@@ -14,6 +15,11 @@ import StudioShell from './StudioShell.tsx';
 // "doesn't unmount cleanly" leak no lint rule catches. StrictMode renders
 // nothing and is a no-op in production builds, so shipping it on the island
 // costs nothing at runtime.
+// The device gate (device-capability-tiers §6): shows the decline screen over the Studio and Present when the tier reads
+// "unsupported". Started here, at the island's module load, so it adds no tag to the Studio's HTML; the Studio's warm-up
+// decides the tier.
+if (typeof document !== 'undefined') startDeviceGate();
+
 export default function StudioIsland(props: ComponentProps<typeof StudioShell>) {
 	// The page ships the lint vocab's value lists packed into one string (HTML budget —
 	// lint-vocab-names.ts); every consumer below reads arrays. Memoized so the shell sees

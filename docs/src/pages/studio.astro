@@ -488,7 +488,11 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 :root[data-mode="light"] #studio-ssr-shell .nacre-loader{background:var(--bg,#e9eef5);}
 :root[data-mode="light"] #studio-ssr-shell .nacre-loader__layer{mix-blend-mode:multiply;}
 @keyframes nacre-rot{to{transform:rotate(360deg);}}
-@media (prefers-reduced-motion: reduce){#studio-ssr-shell .nacre-loader__layer{animation:none;}}`;
+@media (prefers-reduced-motion: reduce){#studio-ssr-shell .nacre-loader__layer{animation:none;}}
+:root[data-device-tier=lite] #studio-ssr-shell .nacre-loader{background:linear-gradient(115deg,color-mix(in srgb,var(--bg-alt,#e7e7ea) 88%,var(--border,#c9c9cf)) 0%,color-mix(in srgb,var(--bg-alt,#e7e7ea) 70%,var(--border,#c9c9cf)) 45%,color-mix(in srgb,var(--bg-alt,#e7e7ea) 88%,var(--border,#c9c9cf)) 90%);background-size:220% 100%;}
+:root[data-device-tier=lite] #studio-ssr-shell .nacre-loader>*,:root[data-device-tier=lite] #studio-ssr-shell .nacre-loader::after{display:none;}
+@media (prefers-reduced-motion: no-preference){:root[data-device-tier=lite] #studio-ssr-shell .nacre-loader{animation:nacre-lite-pulse 1.4s ease-in-out infinite;}}
+@keyframes nacre-lite-pulse{0%{background-position:100% 0;opacity:1;}50%{opacity:.6;}100%{background-position:0 0;opacity:1;}}`;
 
 // (The old pre-paint REPLAY_JS — a per-visitor snapshot-replay / newcomer welcome-slide
 // selection — is retired with the Nacre-only shell: there is no per-visitor content to

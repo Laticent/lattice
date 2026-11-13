@@ -160,6 +160,20 @@ describe('the brush span', () => {
     assert.equal(e.querySelectorAll('.keep').length, 1, 'the element keeps its own children');
   });
 
+  it('a LITE frame ("still" opt-in) lays the canvas down at once with no brushwork, and still fades on load', async () => {
+    const e = panel();
+    const v = { ...view(), document: { documentElement: { getAttribute: (k) => (k === 'data-lattice-live-media' ? 'still' : null) } } };
+    const p = probe({ src: 'lite-1.jpg' });
+    assert.equal(paintUntilDecoded(e, p, v), true);
+    assert.equal(e.getAttribute(PAINTING), 'again', 'no sweep');
+    assert.equal(brushes(e), 0, 'no drifting brushwork');
+    paintUntilDecoded(e, probe({ src: 'lite-1.jpg' }), v);
+    assert.equal(brushes(e), 0, 'a second pass adds none either');
+    p.land();
+    await flush();
+    assert.equal(e.getAttribute(PAINTING), 'done', 'the painting still fades away over the picture');
+  });
+
   it('a still painting keeps its brushwork, and a pass puts back a span someone removed', () => {
     const still = panel();
     paintStill(still);
@@ -202,6 +216,15 @@ describe('who paints', () => {
   const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
   const { paintsLoading, LIVE_MEDIA } = require('../../../lib/core/image-painting');
 
+  it('holds still only on the "still" opt-in', () => {
+    const { holdsStill } = require('../../../lib/core/image-painting');
+    const at = (v) => ({ document: { documentElement: { getAttribute: () => v } } });
+    assert.equal(holdsStill(at('still')), true);
+    assert.equal(holdsStill(at('')), false);
+    assert.equal(holdsStill(at(null)), false);
+    assert.equal(holdsStill({}), false);
+  });
+
   it('reads the opt-in from the document root, and nothing else', () => {
     const withIt = { document: { documentElement: { hasAttribute: (k) => k === LIVE_MEDIA } } };
     const without = { __latticeFontsSettled: false, document: { documentElement: { hasAttribute: () => false } } };
@@ -212,9 +235,16 @@ describe('who paints', () => {
 
   for (const f of ['docs/src/playground/single-slide-render.ts', 'docs/src/playground/deck-render.js', 'docs/src/components/studio/present/stage-window.js']) {
     it(`${f} opts in as a live preview`, () => {
-      assert.match(read(f), /data-lattice-live-media[ >]/);
+      // Literally, or through liveMediaAttr() (docs/src/lib/live-media-attr.ts), which writes the same opt-in with the
+      // value "still" on a LITE device so the brushwork holds still.
+      assert.match(read(f), /data-lattice-live-media[ >]|liveMediaAttr\(\)/);
     });
   }
+  it('liveMediaAttr writes the opt-in in both tiers', () => {
+    const src = read('docs/src/lib/live-media-attr.ts');
+    assert.match(src, /' data-lattice-live-media="still"'/);
+    assert.match(src, /' data-lattice-live-media'/);
+  });
   for (const f of ['docs/src/playground/deck-preview.js', 'docs/src/components/studio/export/deck-export.js', 'docs/src/components/studio/PrintOptionsPanel.tsx']) {
     it(`${f} (the shared builder, the export capture, Print) never opts in`, () => {
       assert.doesNotMatch(read(f), /data-lattice-live-media/);
