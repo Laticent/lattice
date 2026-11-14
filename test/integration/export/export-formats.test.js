@@ -783,10 +783,11 @@ describe('export-formats', () => {
     assert.ok(!pdfImageRows(out).some((row) => /\bimage\s+4\s+4\b/.test(row)), 'no 4x4 image stream reaches the PDF');
   });
 
-  test('a JPEG stored rotated (EXIF Orientation 6) is drawn upright from its own bytes', { timeout: TIMEOUT }, () => {
+  test('a small JPEG stored rotated (EXIF Orientation 6) is embedded and drawn through its turn, not left in the photo', { timeout: TIMEOUT }, () => {
     const dir = tmpDir();
     // The same sample twice: once as shipped (Orientation 6), once with its Exif segment removed.
-    // Only the rotated copy may stay in the photo; the plain one is embedded at its own bytes. One image
+    // Both are embedded at their own bytes, and the rotated one is drawn through its turn (the eight-orientation test
+    // below checks the turn on the rasterized page). One image
     // per slide, so neither can be refused for sharing a line with the other.
     const rotated = fs.readFileSync(path.join(ROOT, 'lib/samples/photo-tall-rotated.jpg'));
     fs.writeFileSync(path.join(dir, 'rotated.jpg'), rotated);
@@ -816,9 +817,10 @@ describe('export-formats', () => {
     assert.equal(rep.refusedImages.rotated, undefined);
   });
 
-  test('a PNG turned by its eXIf chunk, and a JPEG whose Exif sits after its frame header, are drawn through their turn', { timeout: TIMEOUT }, () => {
-    // Chromium paints both turned (the engines' probe in docs/src/lib/lastra/read.test.ts); the PDF draws a file's stored
-    // pixels, so the writer draws each through its turn (write-pdf.mjs `turnMatrix`) instead of leaving it in the photo.
+  test('a JPEG whose Exif sits after its frame header is drawn through its turn; a PNG turned by eXIf stays in the photo', { timeout: TIMEOUT }, () => {
+    // Every engine turns the JPEG, so the writer draws it through its turn (write-pdf.mjs `turnMatrix`). Chromium and
+    // Firefox turn the PNG but WebKit does not (docs/src/lib/lastra/read.test.ts), and the Studio exports in WebKit too,
+    // so the PNG stays in the photo, which is what the browser painted (compose.mjs `drawableTurned`).
     const dir = tmpDir();
     const zlib = require('node:zlib');
     const chunk = (type, data) => {
@@ -857,21 +859,16 @@ describe('export-formats', () => {
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
-    assert.equal(rep.turnedImages, 2, `both turned pictures are drawn through their turn: ${JSON.stringify(rep)}`);
-    assert.equal(rep.images, 3, `all three are embedded at their own bytes: ${JSON.stringify(rep)}`);
+    assert.equal(rep.turnedImages, 1, `the late-Exif JPEG is drawn through its turn: ${JSON.stringify(rep)}`);
+    assert.equal(rep.refusedImages.rotated, 1, `the eXIf PNG stays in the photo: WebKit does not turn it: ${JSON.stringify(rep)}`);
+    assert.equal(rep.images, 2, `the late-Exif JPEG and the plain PNG are embedded at their own bytes: ${JSON.stringify(rep)}`);
   });
 
-  test('a picture in each of the eight EXIF orientations lands upright and unmirrored in the PDF, drawn from its own bytes', { timeout: TIMEOUT }, () => {
-    // Each PNG stores its pixels turned the inverse of its eXIf orientation, so all eight SHOW the same picture: red top
+  test('a JPEG in each of the eight EXIF orientations lands upright and unmirrored in the PDF, drawn from its own bytes', { timeout: TIMEOUT }, () => {
+    // Each JPEG stores its pixels turned the inverse of its EXIF orientation, so all eight SHOW the same picture: red top
     // left, green top right, blue bottom left, yellow bottom right. The PDF is rasterized and each color's center found.
     const dir = tmpDir();
-    const zlib = require('node:zlib');
-    const chunk = (type, data) => {
-      const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
-      const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
-      const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(body));
-      return Buffer.concat([len, body, crc]);
-    };
+    const { createJpegEncoder } = require('@laticent/lastra');
     const COLORS = { red: [230, 30, 30], green: [30, 200, 30], blue: [30, 30, 230], yellow: [230, 230, 30] };
     const shown = (dx, dy) => (dy < 0.5 ? (dx < 0.5 ? COLORS.red : COLORS.green) : dx < 0.5 ? COLORS.blue : COLORS.yellow);
     // Where a stored pixel (sx, sy in 0..1, y down) shows, for each EXIF orientation.
@@ -879,17 +876,25 @@ describe('export-formats', () => {
       1: (x, y) => [x, y], 2: (x, y) => [1 - x, y], 3: (x, y) => [1 - x, 1 - y], 4: (x, y) => [x, 1 - y],
       5: (x, y) => [y, x], 6: (x, y) => [1 - y, x], 7: (x, y) => [1 - y, 1 - x], 8: (x, y) => [y, 1 - x],
     };
-    const DW = 50; const DH = 30; // the shown size
+    // An Exif APP1 segment holding one IFD0 entry, Orientation (0x0112) = o, big-endian.
+    const exif = (o) => {
+      const tiff = Buffer.from([0x4d, 0x4d, 0, 42, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, o, 0, 0, 0, 0, 0, 0]);
+      const body = Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), tiff]);
+      const len = Buffer.alloc(2); len.writeUInt16BE(body.length + 2);
+      return Buffer.concat([Buffer.from([0xff, 0xe1]), len, body]);
+    };
+    const DW = 160; const DH = 96; // the shown size: big even blocks, so JPEG's ringing stays at the edges
     const slides = [];
     for (let o = 1; o <= 8; o++) {
       const [W, H] = o >= 5 ? [DH, DW] : [DW, DH];
-      const rows = Buffer.alloc((W * 3 + 1) * H);
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) rows.set(shown(...SHOW[o]((x + 0.5) / W, (y + 0.5) / H)), y * (W * 3 + 1) + 1 + x * 3);
-      const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(H, 4); ihdr[8] = 8; ihdr[9] = 2;
-      const tiff = Buffer.from([0x4d, 0x4d, 0, 42, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, o, 0, 0, 0, 0, 0, 0]);
-      const extra = o === 1 ? [] : [chunk('eXIf', tiff)];
-      fs.writeFileSync(path.join(dir, `t${o}.png`), Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 13, 10, 26, 10]), chunk('IHDR', ihdr), ...extra, chunk('IDAT', zlib.deflateSync(rows)), chunk('IEND', Buffer.alloc(0))]));
-      slides.push(`## O${o}`, '', `<img src="t${o}.png" style="width:500px;height:300px">`);
+      const px = new Uint8ClampedArray(W * H * 4);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) px.set([...shown(...SHOW[o]((x + 0.5) / W, (y + 0.5) / H)), 255], (y * W + x) * 4);
+      const enc = createJpegEncoder({ width: W, height: H, quality: 95 });
+      enc.addRows(px, H);
+      const jpeg = Buffer.from(enc.finish());
+      // The Exif block goes right after the start-of-image marker, where a camera writes it.
+      fs.writeFileSync(path.join(dir, `t${o}.jpg`), o === 1 ? jpeg : Buffer.concat([jpeg.subarray(0, 2), exif(o), jpeg.subarray(2)]));
+      slides.push(`## O${o}`, '', `<img src="t${o}.jpg" style="width:500px;height:300px">`);
       if (o < 8) slides.push('', '---', '');
     }
     const src = path.join(dir, 'turns.md');
@@ -903,9 +908,15 @@ describe('export-formats', () => {
     const rep = JSON.parse(fs.readFileSync(report, 'utf8'));
     assert.equal(rep.images, 8, `every picture is embedded at its own bytes: ${JSON.stringify(rep)}`);
     assert.equal(rep.turnedImages, 7, `seven are drawn through a turn: ${JSON.stringify(rep)}`);
-    execFileSync('pdftoppm', ['-r', '36', out, path.join(dir, 'p')]);
-    const pages = fs.readdirSync(dir).filter((f) => /^p-\d+\.ppm$/.test(f)).sort();
-    assert.equal(pages.length, 8);
+    // The same deck printed by Chrome itself (`--chrome-pdf`) is what the browser paints: both must pass the same check,
+    // so the writer's turn is held to Chromium's, not only to the EXIF table.
+    const chromeOut = path.join(dir, 'turns-chrome.pdf');
+    const rc = spawnSync(process.execPath, [EMULATOR, src, chromeOut, '--quiet', '--chrome-pdf'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
+    assert.equal(rc.status, 0, `emulator --chrome-pdf failed: ${rc.stderr}`);
+    for (const [pdf, prefix, who] of [[out, 'p', 'the writer'], [chromeOut, 'c', 'Chrome']]) {
+    execFileSync('pdftoppm', ['-r', '36', pdf, path.join(dir, prefix)]);
+    const pages = fs.readdirSync(dir).filter((f) => new RegExp(`^${prefix}-\\d+\\.ppm$`).test(f)).sort();
+    assert.equal(pages.length, 8, `${who}: eight pages`);
     pages.forEach((f, i) => {
       // A binary PPM: "P6", width, height, max value, then RGB triplets.
       const buf = fs.readFileSync(path.join(dir, f));
@@ -926,8 +937,55 @@ describe('export-formats', () => {
       assert.ok(c.red.y < c.blue.y && c.green.y < c.yellow.y, `orientation ${i + 1}: top is top, not flipped: ${where}`);
       // A quarter turn drawn into the wrong box would squash the picture: the four quadrants stay the same size.
       const ns = Object.values(c).map((v) => v.n);
-      assert.ok(Math.max(...ns) / Math.min(...ns) < 1.3, `orientation ${i + 1}: the quadrants are even: ${where}`);
+      assert.ok(Math.max(...ns) / Math.min(...ns) < 1.3, `${who}, orientation ${i + 1}: the quadrants are even: ${where}`);
     });
+    }
+  });
+
+  test('a turned picture the PDF cannot draw safely stays in the photo: a large one under the policy, a background, orientation none', { timeout: TIMEOUT }, () => {
+    // compose.mjs `drawableTurned`. Under `images: optimized` the policy never re-encodes a turned picture, so a phone
+    // photo larger than the policy's size would go in at full size; it stays in the photo, which is capped, unless the
+    // deck asks for originals. A CSS background's box and an `image-orientation: none` are not trusted to match the turn.
+    const dir = tmpDir();
+    const { createJpegEncoder } = require('@laticent/lastra');
+    // Seeded noise (a fixed linear congruential generator), so the file is large and the same on every run.
+    let seed = 12345;
+    const rand = () => { seed = (seed * 1103515245 + 12345) >>> 0; return seed >>> 24; };
+    const W = 900; const H = 600;
+    const px = new Uint8ClampedArray(W * H * 4);
+    for (let i = 0; i < px.length; i += 4) px.set([rand(), rand(), rand(), 255], i);
+    const enc = createJpegEncoder({ width: W, height: H, quality: 95 });
+    enc.addRows(px, H);
+    const big = Buffer.from(enc.finish());
+    const tiff6 = Buffer.from([0x4d, 0x4d, 0, 42, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, 6, 0, 0, 0, 0, 0, 0]);
+    const body = Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), tiff6]);
+    const len = Buffer.alloc(2); len.writeUInt16BE(body.length + 2);
+    const turnedBig = Buffer.concat([big.subarray(0, 2), Buffer.from([0xff, 0xe1]), len, body, big.subarray(2)]);
+    assert.ok(turnedBig.length > 150 * 1024 && turnedBig.length / (W * H) > 0.5, `fixture: a file the policy would re-encode were it upright (${turnedBig.length} bytes)`);
+    fs.writeFileSync(path.join(dir, 'big.jpg'), turnedBig);
+    fs.copyFileSync(path.join(ROOT, 'lib/samples/photo-tall-rotated.jpg'), path.join(dir, 'small.jpg'));
+    const render = (name, front, slides) => {
+      const src = path.join(dir, `${name}.md`);
+      fs.writeFileSync(src, ['---', 'html: true', 'paginate: false', ...front, '---', '', ...slides].join('\n'));
+      const report = path.join(dir, `${name}.json`);
+      const r = spawnSync(process.execPath, [EMULATOR, src, path.join(dir, `${name}.pdf`), '--quiet'], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env, LATTICE_PDF_REPORT: report }, timeout: TIMEOUT,
+      });
+      assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+      return JSON.parse(fs.readFileSync(report, 'utf8'));
+    };
+    const bigSlide = ['## Big', '', '<img src="big.jpg" style="width:200px;height:300px">'];
+    const optimized = render('optimized', [], bigSlide);
+    assert.equal(optimized.refusedImages.rotated, 1, `a large turned photo stays in the capped photo: ${JSON.stringify(optimized)}`);
+    assert.equal(optimized.turnedImages, undefined);
+    const original = render('original', ['images: original'], bigSlide);
+    assert.equal(original.turnedImages, 1, `asked for originals, it is drawn from its own bytes: ${JSON.stringify(original)}`);
+    const others = render('others', [], [
+      '## Background', '', '<div style="width:300px;height:200px;background:url(small.jpg) center/cover no-repeat"></div>', '', '---', '',
+      '## None', '', '<img src="small.jpg" style="width:300px;height:200px;image-orientation:none">',
+    ]);
+    assert.equal(others.refusedImages.rotated, 2, `a background and an orientation-none picture stay in the photo: ${JSON.stringify(others)}`);
+    assert.equal(others.turnedImages, undefined);
   });
 
   test('--chrome-pdf prints with Chrome: the finish stays vector drawing, nothing is photographed', { timeout: TIMEOUT }, () => {

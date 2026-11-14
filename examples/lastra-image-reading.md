@@ -60,7 +60,7 @@ The picture is stored a quarter turn round. Chromium and Firefox apply its rotat
 
 `@image{media/canoe-turned.png, title="A canoe on a still lake", sm}`
 
-The writer used to embed the PNG's stored pixels into the box the browser had turned. It now draws them through the turn.
+The writer used to embed the PNG's stored pixels into the box the browser had turned. It now stays in the slide's photo, as the browser painted it.
 
 ---
 
