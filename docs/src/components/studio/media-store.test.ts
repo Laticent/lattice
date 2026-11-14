@@ -253,6 +253,12 @@ describe('sniffImageMime', () => {
 		expect(sniffImageMime(b(...str('RIFF'), 1, 0, 0, 0, ...str('WEBP')))).toBe('image/webp');
 		expect(sniffImageMime(b(0, 0, 0, 24, ...str('ftypavif')))).toBe('image/avif');
 	});
+	it('knows an AVIF under the generic mif1 brand by its compatible brands, which the importer reads 64 bytes for', () => {
+		const head = b(0, 0, 0, 28, ...str('ftypmif1'), 0, 0, 0, 0, ...str('mif1miafavif'));
+		expect(sniffImageMime(head)).toBe('image/avif');
+		expect(sniffImageMime(head.subarray(0, 16)), 'sixteen bytes do not reach the brand list').toBeNull();
+		expect(sniffImageMime(b(0, 0, 0, 28, ...str('ftypmif1'), 0, 0, 0, 0, ...str('mif1miafheic')))).toBeNull();
+	});
 	it('answers null for HEIC, SVG, zeros and nothing', () => {
 		expect(sniffImageMime(b(0, 0, 0, 24, ...str('ftypheic')))).toBeNull();
 		expect(sniffImageMime(b(...str('<svg xmlns')))).toBeNull();

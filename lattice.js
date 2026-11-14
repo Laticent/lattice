@@ -487,6 +487,7 @@ USAGE
     deck.odp    LibreOffice Impress   (--editable for real text boxes)
     deck.png    one PNG per slide     (deck.001.png, deck.002.png, …)
     deck.html   the rendered deck     (--player for a self-contained player)
+    deck.lattice  a project file the Studio opens (the input can be a .lattice too)
 
 COMMON OPTIONS
   -p, --palette NAME   Color palette, e.g. indaco, cuoio, onyx (default: the deck's theme:)
@@ -690,6 +691,56 @@ const PLUGIN_HOST = Object.freeze({ disabled: PLUGINS_DISABLED, ...(PLUGINS_DEFA
 // Resolve mdFile + outFile + cssFile + paletteArg from positionals, with
 // named flags overriding. Positional shape:
 //   [source.md] [output.pdf | custom.css] [output.pdf | palette] [palette]
+//
+// A `.lattice` project file (the Studio's own format) is unpacked first, by the Studio's own reader, into a private
+// folder shaped like a deck this CLI renders: `deck.md`, its photos in `assets/` as their original bytes, and a
+// one-run package store (lib/export/lattice-input.js). The input is judged by its BYTES: a zip is a `.lattice`
+// whatever it is called, and other binary bytes are refused here, never parsed as Markdown (they used to run into
+// a 60 s navigation timeout).
+const LATTICE_INPUT = (() => {
+  const input = positional[0];
+  if (!input || input === '-') return null;
+  const { sniffInput, unpackSync } = require('./lib/export/lattice-input.js');
+  const kind = sniffInput(input);
+  if (kind === 'binary') {
+    console.error(`error: ${input} is not a Markdown deck or a .lattice project file`);
+    process.exit(1);
+  }
+  if (kind !== 'zip') return null;
+  let out;
+  try {
+    out = unpackSync(input);
+  } catch (e) {
+    console.error(`error: ${input}: ${e.message}`);
+    process.exit(1);
+  }
+  const home = require('./lib/packages/home.js');
+  const { printableLine } = require('./lib/cli/package-gate.js');
+  if (!flags.quiet) {
+    if (out.photos.length) console.log(`  photos: ${out.photos.length} from the .lattice, as the Library stored them`);
+    if (out.packages.length) console.log(printableLine(`  packages: ${out.packages.map((p) => `${p.type} ${p.name}`).join(', ')} (from the .lattice, used for this render only)`));
+  }
+  // The file's packages are searched BEFORE the user's store (PACKAGES_ROOTS below). Where one replaces an installed
+  // package of the same name, that is said where it is actually used (`noteFileWins`), never here.
+  for (const r of out.refused) console.error(printableLine(`warning: the .lattice photo ${r.name} is not used: ${r.why}`));
+  // `--trust`: the code packages THIS file carries run for this render, at the digests they have now. Nothing is
+  // written to the trust store, and an installed code package still needs `lattice packages trust`.
+  if (flags.trust) {
+    const { acceptedDigests } = require('./lib/packages/trust.js');
+    const { grantForThisRun } = require('./lib/cli/code-door.js');
+    for (const p of out.packages) {
+      const found = (p.type === 'component' || p.type === 'plugin') && home.findInstalled(out.store, p.type, p.name);
+      const digests = found ? acceptedDigests(found.pkg) : [];
+      if (!digests.length || !(found.pkg.code || found.pkg.roles?.['render.js'])) continue;
+      grantForThisRun(p.type, p.name, digests);
+      if (!flags.quiet) console.log(printableLine(`  --trust: the code in the ${p.type} ${p.name} runs for this render only`));
+    }
+  }
+  // The rest of the run reads the unpacked deck. Its packages are found through PACKAGES_ROOTS.
+  positional[0] = out.deck;
+  return { file: input, ...out };
+})();
+if (flags.trust && !LATTICE_INPUT) console.warn('note: --trust runs the code packages a .lattice input carries; this input is not a .lattice, so it is ignored');
 const mdFile = positional[0];
 // Where a render may read local files: the deck's folder and Lattice's own install, judged by REAL path, so a
 // symlink in the deck folder and a typed `file:///etc/x` are refused (lib/core/file-confine.js; media note §4.11).
@@ -942,6 +993,8 @@ const OUT_FORMATS = Object.freeze({
   '.png': 'png',
   '.zip': 'imageset',
   '.html': 'html',
+  // The deck as a project file the Studio opens (lib/core/reopenable.js), written with no render.
+  '.lattice': 'lattice',
 });
 // The lossy image formats the image-set encoder DOES speak — just not as a loose
 // per-slide output. A caller who typed one meant "one image per slide in this format",
@@ -1325,7 +1378,23 @@ const palettePath = path.join(THEMES_DIR, paletteName, `${paletteName}.css`);
 // name and the command that installs it (portable-packages §6).
 const packagesHome = require('./lib/packages/home.js');
 const PACKAGES_ROOT = packagesHome.packagesRoot({ flag: flags.packages });
-const installedTheme = fs.existsSync(palettePath) ? null : packagesHome.findInstalled(PACKAGES_ROOT, 'theme', paletteName);
+// Where packages are looked up, in order: a `.lattice` input's own packages first (used for this render only, never
+// installed; lib/export/lattice-input.js), then the user's store.
+const PACKAGES_ROOTS = [...(LATTICE_INPUT ? [LATTICE_INPUT.store] : []), PACKAGES_ROOT];
+const themeHit = fs.existsSync(palettePath) ? null : packagesHome.findInstalledIn(PACKAGES_ROOTS, 'theme', paletteName);
+// A `.lattice`'s own theme that does not read is refused WITH its reason. It never falls back to an installed theme of
+// the same name: the deck names the author's copy, and the user's different one would misrepresent it.
+if (themeHit && !themeHit.ok && themeHit.root === LATTICE_INPUT?.store) {
+  console.error(`error: the .lattice's theme ${paletteName} cannot be read: ${themeHit.errors.join('; ')}`);
+  process.exit(1);
+}
+const installedTheme = themeHit?.ok ? themeHit : null;
+const FROM_FILE = (p) => !!LATTICE_INPUT && p?.root === LATTICE_INPUT.store;
+/** Say that a `.lattice`'s own package is used instead of an installed one of that name: only when it IS used. */
+function noteFileWins(type, name) {
+  if (!LATTICE_INPUT || !fs.existsSync(path.join(PACKAGES_ROOT, type, name))) return;
+  console.error(require('./lib/cli/package-gate.js').printableLine(`note: the .lattice carries the ${type} ${name}, so its copy is used instead of the installed one`));
+}
 if (!fs.existsSync(palettePath) && !installedTheme) {
   console.error(`error: palette not found: ${paletteName}`);
   console.error(`       (looked in ${palettePath}`);
@@ -1341,8 +1410,8 @@ if (!fs.existsSync(palettePath) && !installedTheme) {
 // package the user installed under it before. That must not be silent: the deck would render
 // a different theme from the one it rendered yesterday (followups.d/2336 item 1).
 if (fs.existsSync(palettePath) && !flags.quiet) {
-  const hidden = packagesHome.findInstalled(PACKAGES_ROOT, 'theme', paletteName);
-  if (hidden) {
+  const hidden = packagesHome.findInstalledIn(PACKAGES_ROOTS, 'theme', paletteName);
+  if (hidden?.ok) {
     console.error(`warning: "${paletteName}" is a theme Lattice ships, so the installed package of that name is not used`);
     console.error(`         (${hidden.dir}). To use yours, re-add it: it installs as "${paletteName}-custom".`);
   }
@@ -1350,7 +1419,7 @@ if (fs.existsSync(palettePath) && !flags.quiet) {
 if (installedTheme) {
   const refused = require('./lib/cli/package-gate.js').refusePackage(installedTheme.pkg);
   if (refused) {
-    console.error(`error: the installed theme ${paletteName} is refused: ${refused}`);
+    console.error(`error: the ${FROM_FILE(installedTheme) ? ".lattice's" : 'installed'} theme ${paletteName} is refused: ${refused}`);
     console.error(`       (${installedTheme.dir})`);
     process.exit(1);
   }
@@ -1373,7 +1442,8 @@ const themeChainFor = (name) => themeChain(name, THEME_EDGES);
 const paletteChain = installedTheme ? [paletteName] : themeChainFor(paletteName);
 // Parallel to paletteChain (the engine registers them pairwise): shipped files, then the installed leaf.
 const paletteFiles = paletteChain.map((n) => (installedTheme && n === paletteName ? path.join(installedTheme.dir, `${n}.css`) : path.join(THEMES_DIR, n, `${n}.css`)));
-if (installedTheme && !flags.quiet) console.log(`  theme: ${paletteName} (installed package, ${installedTheme.dir})`);
+if (installedTheme && !flags.quiet) console.log(FROM_FILE(installedTheme) ? `  theme: ${paletteName} (from the .lattice)` : `  theme: ${paletteName} (installed package, ${installedTheme.dir})`);
+if (FROM_FILE(installedTheme)) noteFileWins('theme', paletteName);
 
 const paletteCSS = paletteFiles.map((f) => readFileOrDie(f, `palette '${path.basename(f, '.css')}'`)).join('\n');
 // Does this deck's palette carry its categories by PATTERN rather than hue?
@@ -1562,7 +1632,9 @@ const { SIZES, isRegisteredSize } = require('./lib/core/sizes');
 const _mdFmMatch  = md.match(FRONT_MATTER_RE);
 const _mdFm       = _mdFmMatch ? _mdFmMatch[0] : '';
 const explicitSize = (sizeDirective(_mdFm) || [])[1];
-if (explicitSize && !isRegisteredSize(explicitSize)) {
+// A `.lattice` output renders nothing: it carries the deck as written, so a size this CLI does not know (a deck from
+// a newer Studio, say) is the next reader's business, not a reason to refuse the copy.
+if (explicitSize && !isRegisteredSize(explicitSize) && OUT_FORMAT !== 'lattice') {
   console.error(`error: unknown size: ${explicitSize}`);
   console.error(`available sizes: ${Object.keys(SIZES).sort().join(', ')}`);
   process.exit(1);
@@ -1801,7 +1873,8 @@ const CHROME_EXEC = detectChromeExecutable();
 // Every browser this run starts is kept off the network unless the author passed
 // --allow-remote (lib/core/offline-chromium.js; 2026-09-01 export posture, revised 2026-09-24).
 const OFFLINE_ARGS = require('./lib/core/offline-chromium.js').offlineChromiumArgs(!!flags['allow-remote']);
-if (!CHROME_EXEC) {
+// A `.lattice` output starts no browser, so it needs none and says nothing about one.
+if (!CHROME_EXEC && OUT_FORMAT !== 'lattice') {
   console.warn('  ⚠ No Chrome binary detected. Set PUPPETEER_EXECUTABLE_PATH or CHROME_PATH, or install puppeteer to download one.');
 }
 
@@ -1858,14 +1931,20 @@ function refuseUnapprovedCode(pkgs) {
  * when the user has not given it. A plugin the deck does not list, whose fence the deck writes, is named once.
  */
 function withInstalledPlugins(source) {
-  const { refusePackage } = require('./lib/cli/package-gate.js');
+  const { refusePackage, printableLine } = require('./lib/cli/package-gate.js');
   const { activePluginNames } = require('./lib/packages/code-door-fence.mjs');
   const { acceptedDigests, readTrust, trustOf } = require('./lib/packages/trust.js');
   const PLUGIN_NAMES = require('./lib/plugins/registry.generated.js').PLUGINS.map((g) => g.name);
   const installed = [];
-  for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'plugin' && x.ok)) {
+  for (const p of packagesHome.listInstalledIn(PACKAGES_ROOTS).filter((x) => x.type === 'plugin')) {
+    // A `.lattice`'s own plugin that does not read hides an installed one of its name (the deck named the author's
+    // copy), so it is refused with its reason rather than skipped in silence.
+    if (!p.ok) {
+      if (FROM_FILE(p)) console.error(printableLine(`warning: the .lattice's plugin ${p.name} cannot be read and is not used: ${p.errors.join('; ')}`));
+      continue;
+    }
     const why = (PLUGIN_NAMES.includes(p.name) && `"${p.name}" is a plugin Lattice ships, so the installed one of that name is not used`) || refusePackage(p.pkg, { forRender: true });
-    if (why) console.error(`warning: the installed plugin ${p.name} is refused and not used: ${why}`);
+    if (why) console.error(printableLine(`warning: the ${FROM_FILE(p) ? ".lattice's" : 'installed'} plugin ${p.name} is refused and not used: ${why}`));
     else installed.push(p);
   }
   const approvals = readTrust();
@@ -1902,7 +1981,9 @@ function withNpmPlugins(source, installed, approvals, shippedNames) {
   if (!asked.length) return [];
   const { findPluginList, readPluginList, npmPluginEntries, npmPluginPkg } = require('./lib/packages/npm-plugin-loader.js');
   const { refusePackage, printableLine } = require('./lib/cli/package-gate.js');
-  const deckDir = path.dirname(path.resolve(mdFile));
+  // The list sits beside the deck the author has: for a `.lattice` input that is the file's own folder, never the
+  // private folder it was unpacked into (a lookup from there would walk the system's temp directory).
+  const deckDir = path.dirname(path.resolve(LATTICE_INPUT ? LATTICE_INPUT.file : mdFile));
   const file = findPluginList(deckDir);
   if (!file) return [];
   const list = readPluginList(file);
@@ -1931,9 +2012,16 @@ function withInstalledComponents(source) {
   // The store is a plain folder, so every package is gated again here (lib/cli/package-gate.js):
   // a refused component is left out and named, never embedded.
   const installed = [];
-  for (const p of packagesHome.listInstalled(PACKAGES_ROOT).filter((x) => x.type === 'component' && x.ok)) {
+  const { printableLine } = require('./lib/cli/package-gate.js');
+  for (const p of packagesHome.listInstalledIn(PACKAGES_ROOTS).filter((x) => x.type === 'component')) {
+    // A `.lattice`'s own component that does not read hides an installed one of its name (the deck named the
+    // author's copy, and the user's different one would misrepresent it), so it is refused with its reason.
+    if (!p.ok) {
+      if (FROM_FILE(p)) console.error(printableLine(`warning: the .lattice's component ${p.name} cannot be read and is not used: ${p.errors.join('; ')}`));
+      continue;
+    }
     const why = refusePackage(p.pkg, { forRender: true });
-    if (why) console.error(`warning: the installed component ${p.name} is refused and not used: ${why}`);
+    if (why) console.error(printableLine(`warning: the ${FROM_FILE(p) ? ".lattice's" : 'installed'} component ${p.name} is refused and not used: ${why}`));
     else installed.push(p);
   }
   const r = installed.length ? embedInstalledComponents(source, installed.map((p) => ({ name: p.name, css: p.pkg.files[p.pkg.roles['styles.css']] })), COMPONENT_NAMES) : { source, used: [] };
@@ -1945,7 +2033,15 @@ function withInstalledComponents(source) {
     console.error(`warning: "${p.name}" is a component Lattice ships, so the installed package of that name is not used`);
     console.error(`         (${p.dir}). To use yours, re-add it: it installs as "${p.name}-custom".`);
   }
-  if (r.used.length && !flags.quiet) console.log(`  components: ${r.used.join(', ')} (installed packages)`);
+  if (r.used.length && !flags.quiet) {
+    // Say where each came from: a `.lattice` input's own package is not installed anywhere.
+    const fromFile = new Set(installed.filter((p) => p.root === LATTICE_INPUT?.store).map((p) => p.name));
+    const own = r.used.filter((n) => fromFile.has(n));
+    const inst = r.used.filter((n) => !fromFile.has(n));
+    if (inst.length) console.log(`  components: ${inst.join(', ')} (installed packages)`);
+    if (own.length) console.log(`  components: ${own.join(', ')} (from the .lattice)`);
+  }
+  for (const p of installed.filter((x) => FROM_FILE(x) && (r.used.includes(x.name) || (x.pkg.code && classTokens(source).includes(x.name))))) noteFileWins('component', p.name);
 
   // CODE PACKAGES (contract note §9): an installed component with a `transform.js` runs only
   // with the user's consent at exactly these bytes (lib/packages/trust.js). One the deck names
@@ -2006,6 +2102,111 @@ function withInstalledComponents(source) {
 // (`BAKE_SERVICES`), which `bakeDeck` holds this object to. The palette readers and the scope key
 // stay HERE, where the palette is parsed; what a plugin builds from a palette (Mermaid's theme
 // variables) is the plugin's, in its bake.
+const notesCore = require('./lib/authoring/notes-core');
+// The engine render below reaches it (a media figure's box), so it is required before that can run.
+const imageDimensions    = require('./lib/core/image-dimensions');
+/**
+ * A `.lattice` output's deck under `--strip-notes` / `--strip-say`: the functions `--reopenable` scrubs its embedded
+ * copy with, fed by an engine render of this deck (its note bodies, and the cut that reproduces the deck).
+ * @param {string} src
+ */
+function latticeStrippedSource(src) {
+  // The engine as `engineSlides` builds it (same options, same theme chain), with no package code and none of the
+  // export's per-slide picture passes: the scrub reads notes and slide shapes, not pictures.
+  const latticeEngine = require('./lib/engine');
+  const { isHiddenSection } = require('./lib/core/hidden-slides.js');
+  const engine = latticeEngine.createEngine({ mathOutput: 'htmlAndMathml', plugins: { disabled: [...PLUGIN_HOST.disabled], ...(PLUGIN_HOST.defaults ? { defaults: [...PLUGIN_HOST.defaults] } : {}) } });
+  registerCliThemes(engine);
+  const sectionsOf = (deck) => {
+    const html = engine.render(deck, paletteName, { samplesUrl: pathToFileURL(path.join(PKG_ROOT, 'lib', 'samples') + path.sep).href, assetUrls: {} }).html;
+    const all = splitSections(html).filter((p) => p.type === 'section').map((p) => `${p.openTag}${p.inner}</section>`);
+    return Object.assign(all.filter((sec) => !isHiddenSection(sec)), { hiddenSections: all.filter(isHiddenSection) });
+  };
+  const rendered = STRIP_NOTES ? sectionsOf(src) : [];
+  const bodies = STRIP_NOTES ? new Set([...rendered, ...(rendered.hiddenSections || [])].flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
+  const cut = notesCore.measureScrubBoundary({
+    attached: src,
+    rendered: src,
+    inherited: 'preserve',
+    inheritedMeasured: false,
+    scrub: (s, boundary) => composeStrippedSource(s, bodies, boundary),
+    render: sectionsOf,
+    onRenderError: (e) => console.warn(`  ⚠ Could not measure the .lattice deck's cut (${e.message}); keeping a blank line where a note stood.`),
+  });
+  return stripSharedSource(src, bodies, cut.boundary);
+}
+
+// ── `.lattice` OUTPUT: the deck as a project file, written HERE and nowhere later ──────────────────────────────────
+// A `.lattice` is the deck, not a render of it, so nothing below runs for one: no export HTML, no browser, and no
+// package code (a code package rides in the file as its files, never executed, so it needs no approval to be
+// carried). The one render it may run is the engine's, for the note scrub (`latticeStrippedSource`). The writer is the Studio's (lib/core/reopenable.js), run in a child (lib/export/lattice-input.js
+// `writeSync`). It carries the deck as written (scrubbed under `--strip-notes` / `--strip-say`), the installed theme and
+// components the deck names (each through the render-time gate), every package a `.lattice` input held, the photos
+// `photosToCarry` allows, and, from a `.lattice` input, its title and (unless stripping) its review comments. It runs
+// here, before the code packages are filled and before any HTML or browser, so the only render it may need, the
+// engine's for the note scrub, runs no package code.
+if (OUT_FORMAT === 'lattice') {
+  const { refusePackage } = require('./lib/cli/package-gate.js');
+  const { classTokens } = require('./lib/cli/package-render.js');
+  const { assetRefs } = require('./lib/export/deck-assets.js');
+  const { photosToCarry, writeSync } = require('./lib/export/lattice-input.js');
+  const limits = require('./lib/packages/limits.js');
+  const named = new Set(classTokens(mdRaw));
+  // A copy keeps every package: from a `.lattice`, EVERY package the input held goes back out as its exact files
+  // (finishes, plugins, scenes, a component the deck does not name), whether or not this deck uses it. Then, as for a
+  // `.md`, the installed theme and components the deck uses that the file did not already carry. (Photos are carried
+  // only when the deck names them, as the Studio's own export does: `photosToCarry`.)
+  const packages = (LATTICE_INPUT?.packages ?? []).map((p) => ({ type: p.type, name: p.name, dir: path.join(LATTICE_INPUT.store, p.type, p.name) }));
+  const carried = new Set(packages.map((p) => `${p.type}/${p.name}`));
+  const add = (type, name, dir) => {
+    if (carried.has(`${type}/${name}`)) return;
+    carried.add(`${type}/${name}`);
+    packages.push({ type, name, dir });
+  };
+  if (installedTheme) add('theme', paletteName, installedTheme.dir);
+  for (const p of packagesHome.listInstalledIn(PACKAGES_ROOTS).filter((x) => x.type === 'component' && x.ok && named.has(x.name))) {
+    if (carried.has(`component/${p.name}`)) continue;
+    const why = refusePackage(p.pkg, { forRender: true });
+    if (why) console.error(`warning: the component ${p.name} is refused and not carried: ${why}`);
+    else add('component', p.name, p.dir);
+  }
+  const carry = photosToCarry({ fromLattice: LATTICE_INPUT, assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'), names: new Set(assetRefs(mdRaw).map((r) => r.name)), maxBytes: limits.MAX_LATTICE_MEDIA_BYTES, now: resolveEpoch() * 1000, confine: DECK_CONFINE });
+  const plural = (k) => `${k} photo${k === 1 ? '' : 's'}`;
+  reportPhotosLeftOut(carry, limits.MAX_LATTICE_MEDIA_BYTES, 'the .lattice');
+  const { directives: fm } = require('./lib/engine/directives').parseFrontMatter(mdRaw);
+  const heading = (mdRaw.replace(/```[\s\S]*?```/g, '').match(/^#{1,3}\s+(.+?)\s*#*\s*$/m) || [])[1];
+  const title = LATTICE_INPUT?.title || String(fm.title || heading || path.basename(outFile).replace(/\.[^.]+$/, '') || 'Lattice deck').replace(/\s+/g, ' ').trim().slice(0, 120);
+  warnThemeDoesNotTravel('.lattice');
+  // From a `.lattice`, the deck exactly as the file held it; otherwise as the CLI read it. Under `--strip-notes` /
+  // `--strip-say` it is scrubbed by the SAME functions `--reopenable` scrubs its copy with (`stripSharedSource`, the
+  // cut measured by `notesCore.measureScrubBoundary`), from the note bodies of a render. That render is the engine's,
+  // run here with no package code (the code packages are not filled yet), so nothing a package ships runs to write
+  // a zip; a note a code package would draw itself is not in the source, so it has nothing to scrub.
+  const STRIPPING = STRIP_NOTES || STRIP_SAY;
+  const asWritten = LATTICE_INPUT ? fs.readFileSync(LATTICE_INPUT.deck, 'utf8') : mdRaw;
+  const source = STRIPPING ? latticeStrippedSource(asWritten) : asWritten;
+  try {
+    // Create the output's folder, as the render path does further down (a batch loop writes `out/<name>.lattice`).
+    fs.mkdirSync(path.dirname(path.resolve(outFile)), { recursive: true });
+    const { bytes } = writeSync({
+      out: path.resolve(outFile),
+      source,
+      title,
+      // Review comments are review data, not the deck: under a privacy strip they stay out, as `--reopenable` leaves
+      // them out of the copy it embeds. Otherwise a `.lattice` input's comments go back out with it.
+      comments: STRIPPING ? [] : (LATTICE_INPUT?.comments ?? []),
+      now: resolveEpoch() * 1000,
+      packages,
+      ...(carry.rows.length ? { media: { index: JSON.stringify(carry.rows, null, 2), files: carry.paths } } : {}),
+    });
+    if (!QUIET) console.log(`Lattice project: ${outFile} (${plural(carry.included.length)}) · ${(bytes / 1_048_576).toFixed(1)} MB`);
+  } catch (e) {
+    console.error(`error: could not write ${outFile}: ${e.message}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
 const mdForBake = withInstalledComponents(md);
 const bakeServices = {
   pkgRoot: PKG_ROOT,
@@ -2079,7 +2280,7 @@ if (OUT_FORMAT === 'html') {
 // `--reopenable` has a home in exactly two formats. Named for every other one rather than
 // dropped silently: an author who asked for an editable file and got a plain one would only
 // find out from the person they sent it to.
-if (REOPENABLE && OUT_FORMAT !== 'pdf' && OUT_FORMAT !== 'pptx') {
+if (REOPENABLE && OUT_FORMAT !== 'pdf' && OUT_FORMAT !== 'pptx' && OUT_FORMAT !== 'lattice') {
   console.warn(`  ⚠ --reopenable embeds the deck in a .pdf or .pptx — ignoring for this output.${OUT_FORMAT === 'html' ? ' Use --player, which embeds the source for lossless re-import.' : ''}`);
 }
 // `-p` (or LATTICE_PALETTE) themes THIS render without editing the deck, and the `.lattice`
@@ -2087,13 +2288,23 @@ if (REOPENABLE && OUT_FORMAT !== 'pdf' && OUT_FORMAT !== 'pptx') {
 // PDF shows (reopenable-exports §8). Said once, naming both themes and the fix. Silent when
 // the deck re-opens in the theme it was rendered in (named, or the default), since then
 // nothing is lost.
-if (REOPENABLE && (OUT_FORMAT === 'pdf' || OUT_FORMAT === 'pptx') && (paletteSource === 'cli' || paletteSource === 'env')) {
+if (REOPENABLE && (OUT_FORMAT === 'pdf' || OUT_FORMAT === 'pptx')) warnThemeDoesNotTravel('--reopenable');
+/**
+ * A deck carried as a project file (`--reopenable`'s copy, or a `.lattice` output) re-opens in the theme ITS OWN front
+ * matter names, so a theme given by `-p` or LATTICE_PALETTE does not travel with it, even when that theme's package
+ * rides along. Said once, for each writer that carries the deck.
+ * @param {string} what  the writer, as the author asked for it
+ */
+function warnThemeDoesNotTravel(what) {
+  if (paletteSource !== 'cli' && paletteSource !== 'env') return;
   const declared = readFrontMatterTheme(md);
-  if ((declared ?? DEFAULT_PALETTE) !== paletteName) {
-    const how = paletteSource === 'cli' ? `-p ${paletteName}` : `LATTICE_PALETTE=${paletteName}`;
-    const reopensIn = declared ? `its own theme, ${declared}` : `the default theme, ${DEFAULT_PALETTE}, because the deck names none`;
-    console.warn(`  ⚠ --reopenable: this export is themed ${paletteName} by ${how}, but the embedded deck re-opens in ${reopensIn}. To make ${paletteName} travel, put \`theme: ${paletteName}\` in the deck's front matter.`);
-  }
+  if ((declared ?? DEFAULT_PALETTE) === paletteName) return;
+  const how = paletteSource === 'cli' ? `-p ${paletteName}` : `LATTICE_PALETTE=${paletteName}`;
+  const reopensIn = declared ? `its own theme, ${declared}` : `the default theme, ${DEFAULT_PALETTE}, because the deck names none`;
+  // A `.lattice` output is not themed at all (it renders nothing), and a shipped theme is never carried in one, so the
+  // warning says only what is true either way: the flag does not change the deck the file carries.
+  const themed = what === '.lattice' ? `${how} does not change the deck this .lattice carries, which` : `this export is themed ${paletteName} by ${how}, but the embedded deck`;
+  console.warn(`  ⚠ ${what}: ${themed} re-opens in ${reopensIn}. To make ${paletteName} travel, put \`theme: ${paletteName}\` in the deck's front matter.`);
 }
 // Self-contained HTML PLAYER (2026-07-07-html-lattice-player.md): rewrite the .html
 // sidecar into a portable, offline, three-view player (Present · Read·Slides ·
@@ -2264,7 +2475,6 @@ const AUTOSPLIT_APPLIES = AUTOSPLIT && require('./lib/engine/structural-split').
 // Markdown shortcut; Marp's `![bg]` is not read since 2026-11-13) + wrapImageText (HTML post-pass) to fold the prose into
 // `.image-text` beside it. See engineSlides().
 const bgImage            = require('./lib/core/bg-image');
-const imageDimensions    = require('./lib/core/image-dimensions');
 const collageStamp       = require('./lib/transformers/collage-stamp');
 const logoWallPack       = require('./lib/core/logo-wall-pack');
 
@@ -2306,6 +2516,19 @@ function topLevelSectionStrings(latticeHtml) {
 let webImagesReported = false;
 // Every web reference the render swapped for a placeholder, for --player-consent's report.
 const webBlockedAtRender = [];
+/**
+ * The layout sheet and the palette chain, registered on an engine the way every CLI render does (the comment above
+ * `engineSlides`' call says why the whole chain and both names). One place, so the export's render and the
+ * `.lattice` note scrub register the same themes.
+ */
+function registerCliThemes(engine) {
+  const layoutCss = readFileOrDie(cssFile, 'layout CSS');
+  engine.addThemes([
+    cssIsDefault ? { name: 'lattice', css: layoutCss } : layoutCss,
+    ...paletteChain.map((n, i) => ({ name: n, css: readFileOrDie(paletteFiles[i], `palette '${n}'`) })),
+  ]);
+}
+
 function engineSlides(deckSource = rawMd) {
   const latticeEngine = require('./lib/engine');
   // `htmlAndMathml` — KaTeX's default, and the ONLY setting under which math is
@@ -2343,11 +2566,7 @@ function engineSlides(deckSource = rawMd) {
   // `paletteCSS` — but any caller using the engine's composed output from a
   // CLI-shaped setup got an unstyled deck. The chain comes from the manifests
   // (lib/theme/chain.mjs); no stylesheet is parsed to find it.
-  const layoutCss = readFileOrDie(cssFile, 'layout CSS');
-  engine.addThemes([
-    cssIsDefault ? { name: 'lattice', css: layoutCss } : layoutCss,
-    ...paletteChain.map((n, i) => ({ name: n, css: readFileOrDie(paletteFiles[i], `palette '${n}'`) })),
-  ]);
+  registerCliThemes(engine);
   // The engine draws a slide's placed photo as the lattice-bg panel (CSS background) and resolves deck-relative URLs
   // against `baseUrl` below.
   // The deck's directory (as a file:// URL with a trailing slash) resolves
@@ -2365,7 +2584,8 @@ function engineSlides(deckSource = rawMd) {
   };
   // `asset:<name>` names a picture in `assets/` beside the deck (lib/export/deck-assets.js). The CLI owns every
   // `asset:` reference, so a name the folder lacks draws the missing-picture stand-in, not a dead address.
-  const deckAssets = require('./lib/export/deck-assets.js').buildAssetUrls(path.dirname(path.resolve(mdFile)), DECK_CONFINE);
+  // A `.lattice` input's photos sit once each in its private assets/; the names it still writes for them (aliases) answer through the map.
+  const deckAssets = require('./lib/export/deck-assets.js').buildAssetUrls(path.dirname(path.resolve(mdFile)), DECK_CONFINE, LATTICE_INPUT?.aliases);
   for (const dup of deckAssets.duplicates) console.error(`  ⚠ assets/${dup} shares a name with an earlier file in assets/, so asset:${dup.replace(/\.[^.]+$/, '').toLowerCase()} uses the other one`);
   const assetUrls = deckAssets.urls;
   const deckMd = deckSource;
@@ -2490,7 +2710,6 @@ const widenDeckCss = (css) => (DECK_HAS_PANES ? widenForPanes(css, DECK_PANE_CLA
 // Each note is lifted into a hidden presenter-notes channel and the raw comment
 // nodes are stripped — exactly what Marp does, so the rendered HTML/PDF carry
 // the note once, structurally, rather than as an invisible comment.
-const notesCore = require('./lib/authoring/notes-core');
 const escapeHtml = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 // For a double-quoted ATTRIBUTE value, where a `"` would end the attribute. escapeHtml is
@@ -3441,7 +3660,7 @@ fs.writeFileSync(outHtml, cleanDocHtml);
 // Skipped when the HTML *is* the deliverable: this fires BEFORE the auto-split pass
 // rewrites the file, so its count is the pre-split one. The `.html` branch logs the
 // final rendered-page count instead, and one line beats two disagreeing ones.
-if (!QUIET && OUT_FORMAT !== 'html') console.log(`HTML: ${slides.length} slides → ${outHtml}`);
+if (!QUIET && OUT_FORMAT !== 'html' && OUT_FORMAT !== 'lattice') console.log(`HTML: ${slides.length} slides → ${outHtml}`);
 
 // ── PDF via Puppeteer ─────────────────────────────────────────────────────────
 // Locate puppeteer in either: a local node_modules (preferred), the project
@@ -6210,6 +6429,18 @@ function attachableSource(src) {
 //     import gates them exactly as it gates a `.lattice` from the Studio.
 //   · CLOCK — pinned like every PDF date (SOURCE_DATE_EPOCH, else the epoch), so a re-render of
 //     an unchanged deck writes the same payload bytes.
+//   · PHOTOS — what `photosToCarry` (lib/export/lattice-input.js) allows, at MAX_EMBEDDED_MEDIA_BYTES: the photos a
+//     `.lattice` input carried, as their bytes; a photo from `assets/`, cleaned as the Studio's "Keep original" stores
+//     one (`cleanAssetPhoto`), or left out and named with the reason. A `.lattice` OUTPUT uses the same function.
+/** Name every photo a carried deck leaves out, and why: one the cleaner refused, and the ones past the cap. */
+function reportPhotosLeftOut(carry, maxBytes, where) {
+  const { printableLine } = require('./lib/cli/package-gate.js');
+  for (const r of carry.refused) console.warn(printableLine(`  ⚠ the photo ${r.name} is left out of ${where}: ${r.why}`));
+  if (carry.omitted.length) {
+    const n = carry.omitted.length;
+    console.warn(printableLine(`  ⚠ ${n} photo${n === 1 ? '' : 's'} left out of ${where} to stay under ${Math.floor(maxBytes / 1_048_576)} MB (or ${require('./lib/packages/limits.js').MAX_LATTICE_PHOTOS} photos): ${carry.omitted.join(', ')}`));
+  }
+}
 let reopenableMemo = null;
 function reopenableDate() {
   return new Date(resolveEpoch() * 1000);
@@ -6219,6 +6450,12 @@ function reopenableLattice() {
   const packages = [];
   if (installedTheme) packages.push({ type: 'theme', name: paletteName, files: packagesHome.readFolder(installedTheme.dir) });
   for (const p of REOPENABLE_COMPONENTS) packages.push({ type: 'component', name: p.name, files: packagesHome.readFolder(p.dir) });
+  const { photosToCarry, mediaOf } = require('./lib/export/lattice-input.js');
+  const { assetRefs } = require('./lib/export/deck-assets.js');
+  const maxBytes = require('./lib/packages/limits.js').MAX_EMBEDDED_MEDIA_BYTES;
+  const carry = photosToCarry({ fromLattice: LATTICE_INPUT, assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'), names: new Set(assetRefs(mdRaw).map((r) => r.name)), maxBytes, now: reopenableDate().getTime(), confine: DECK_CONFINE });
+  reportPhotosLeftOut(carry, maxBytes, 'the re-openable copy');
+  const media = mediaOf(carry);
   const { buildLatticeZip } = require('./lib/core/reopenable');
   return (reopenableMemo = buildLatticeZip(require('jszip'), {
     source: attachableSource(mdRaw),
@@ -6226,6 +6463,7 @@ function reopenableLattice() {
     comments: [],
     now: reopenableDate().getTime(),
     packages,
+    ...(media ? { media } : {}),
     date: reopenableDate(),
   }));
 }

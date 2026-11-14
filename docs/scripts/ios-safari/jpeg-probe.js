@@ -1,5 +1,5 @@
 /**
- * The shared JPEG encoder (lib/core/jpeg-encode.mjs) in real Mobile Safari, against Safari's own encoder. Run by run.mjs
+ * The shared JPEG encoder (`@laticent/lastra` `createJpegEncoder`, docs/src/lib/lastra/jpeg.ts) in real Mobile Safari, against Safari's own encoder. Run by run.mjs
  * (PROBE=jpeg) through WebDriver, as the body of an async script: `latticeJpegProbe(createJpegEncoder, images)`.
  *
  * Exports wrote every JPEG with `canvas.toBlob('image/jpeg')` until this encoder, and a picture PowerPoint came out

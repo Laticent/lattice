@@ -608,7 +608,7 @@ async function runFocusSyncProbe(id) {
 }
 
 async function runJpegProbe(id) {
-	const { createJpegEncoder } = await import(path.join(ROOT, 'lib', 'core', 'jpeg-encode.mjs'));
+	const { createJpegEncoder } = await import('@laticent/lastra');
 	const probe = fs.readFileSync(path.join(here, 'jpeg-probe.js'), 'utf8');
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
 	const images = JPEG_PICTURES.map((p) => ({ name: path.basename(p), b64: fs.readFileSync(path.join(ROOT, p)).toString('base64') }));

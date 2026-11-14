@@ -165,15 +165,40 @@ function localizeOne(url, deckDir, destDir, copied) {
   // `isFile` rather than `existsSync`: `logo: .` resolved to a DIRECTORY and
   // `copyFileSync` threw EISDIR, same half-written-bundle outcome.
   if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return null;
-  const existing = copied.get(abs);
-  if (existing) return existing;
+  if (copied.has(abs)) return copied.get(abs);
   const assetsDir = path.join(destDir, 'assets');
   fs.mkdirSync(assetsDir, { recursive: true });
   let base = path.basename(abs);
   while (fs.existsSync(path.join(assetsDir, base)) && [...copied.values()].indexOf(`assets/${base}`) < 0) {
     base = `_${base}`;
   }
-  fs.copyFileSync(abs, path.join(assetsDir, base));
+  // A picture leaves without its metadata (EXIF, a phone's location, XMP, text chunks, comments), cut by the image
+  // library's cleaner, the one the Studio's intake, the `.lattice` packer, the PDF writer and the player use
+  // (`@laticent/lastra` `cleanerFor`). The pixels are untouched; a picture already clean is copied byte for byte. One
+  // the cleaner cannot parse is not copied at all, and is named: never shipped as it is. Other files (an SVG, a font)
+  // are copied as they are.
+  const { cleanerFor, imageFormat, IMAGE_MIME } = require('@laticent/lastra');
+  const raw = fs.readFileSync(abs);
+  const format = imageFormat(new Uint8Array(raw));
+  const cleaner = format ? cleanerFor(IMAGE_MIME[format]) : undefined;
+  let bytes = raw;
+  if (cleaner) {
+    const cleaned = cleaner(new Uint8Array(raw));
+    if (!cleaned) {
+      console.warn(`  ⚠ asset: ${path.relative(process.cwd(), abs)} is not copied: it does not read as a whole ${format.toUpperCase()} file, so its metadata cannot be removed`);
+      copied.set(abs, null);
+      return null;
+    }
+    bytes = Buffer.from(cleaned);
+  } else if (format === 'svg') {
+    // An SVG can carry pictures of its own (`<image href="data:image/jpeg;base64,…">`): each is cleaned by the player's
+    // rule (lib/export/player-images.mjs `cleanSvgText`), and the SVG is otherwise copied byte for byte.
+    const { cleanSvgText } = require('../lib/export/player-images.mjs');
+    const svg = cleanSvgText(raw.toString('utf8'));
+    for (const why of svg.refused) console.warn(`  ⚠ asset: ${path.relative(process.cwd(), abs)}: ${why}`);
+    if (svg.cleaned || svg.refused.length) bytes = Buffer.from(svg.text, 'utf8');
+  }
+  fs.writeFileSync(path.join(assetsDir, base), bytes);
   const rel = `assets/${base}`;
   copied.set(abs, rel);
   // Name what was copied and WHERE IT CAME FROM. A deck's asset refs are paths,
@@ -196,7 +221,7 @@ function localizeOne(url, deckDir, destDir, copied) {
  */
 function localizeAssets(body, deckDir, destDir, copied = new Map()) {
   const out = mapImageRefs(body, (url) => localizeOne(url, deckDir, destDir, copied));
-  return { body: out, count: copied.size };
+  return { body: out, count: [...copied.values()].filter(Boolean).length };
 }
 
 /**

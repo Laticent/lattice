@@ -1,0 +1,63 @@
+{
+  "name": "@laticent/lastra",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One image library: read a picture's format, size, alpha hint and EXIF orientation from its header; strip its metadata by an allow-list of blocks; resize RGBA pixels with Lanczos-3; encode JPEG and PNG; decode PNG and JPEG to RGBA; and decide whether a re-encode is worth it from thresholds the caller passes. Bytes in, bytes out, the same in Node, a browser and a worker: no DOM, no dependencies.",
+  "license": "AGPL-3.0-only",
+  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laticent/lattice.git",
+    "directory": "docs/src/lib/lastra"
+  },
+  "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/lastra#readme",
+  "bugs": {
+    "url": "https://github.com/Laticent/lattice/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.ts",
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "exports": {
+    ".": {
+      "@laticent/source": "./index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./decode": {
+      "@laticent/source": "./decode/index.ts",
+      "import": {
+        "types": "./dist/decode/index.d.ts",
+        "default": "./dist/decode.mjs"
+      },
+      "require": {
+        "types": "./dist/decode/index.d.ts",
+        "default": "./dist/decode.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "*.ts",
+    "!*.test.ts",
+    "decode/*.ts",
+    "!decode/*.test.ts",
+    "!decode/test-support.ts",
+    "decode/README.md",
+    "decode/README.ijg.txt",
+    "decode/LICENSE.libjpeg-turbo.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepack": "node ../../../../tools/library-prepack.js"
+  }
+}

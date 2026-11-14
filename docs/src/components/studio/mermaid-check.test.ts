@@ -22,6 +22,17 @@ describe('extractDiagrams — finding the diagrams to check', () => {
 		expect(extractDiagrams(deck).map((d) => d.slide)).toEqual([1, 2]);
 	});
 
+	it('closes a diagram only on a bare run of the same marker, at least as long, indented at most three spaces', () => {
+		const body = 'graph TD\n  A';
+		const code = (closer: string, open = '````') => extractDiagrams(`# One\n\n${open}mermaid\n${body}\n${closer}\nafter\n${open}\n`)[0]?.code;
+		expect(code('`````')).toBe(body); // longer closes
+		expect(code('   ````')).toBe(body); // three spaces of indent close
+		expect(code('```')).toBe(`${body}\n\`\`\`\nafter`); // shorter does not
+		expect(code('~~~~')).toBe(`${body}\n~~~~\nafter`); // the other marker does not
+		expect(code('    ````')).toBe(`${body}\n    \`\`\`\`\nafter`); // four spaces of indent do not
+		expect(code('```` x')).toBe(`${body}\n\`\`\`\` x\nafter`); // a word after it does not
+	});
+
 	it('ignores a NON-mermaid fence', () => {
 		expect(extractDiagrams(`# One\n\n${T}chart\nbar\n10\n${T}\n`)).toHaveLength(0);
 	});

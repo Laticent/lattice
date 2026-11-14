@@ -34,6 +34,52 @@ byproduct is named `<out>.lattice-<pid>-<random>.html`, never `<out>.html`: a si
 to different formats (`d.pdf` and `d.pptx`) cannot race on one file. With `.html` the sidecar **is** the
 output file.
 
+**The input is a deck or a `.lattice`, judged by its bytes.** A zip is a `.lattice`
+project file from the Studio. `lib/export/lattice-input.js` opens it with the Studio's own
+reader (`lib/packages/lattice-read.mjs`) in a short child process, because JSZip reads
+asynchronously and the CLI is synchronous up to its render. The child is that file by its path in
+the package (`ENTRY`), never `__filename`: inside the bundle (dist/lattice.js) `__filename` is the
+CLI itself, and a `.lattice` input once started the CLI again, forever. The child exits if its
+parent dies, is bounded by a timeout, and hands its result back in a file in the private folder.
+It unpacks the file into that private temporary folder, shaped like a deck: `deck.md`,
+`assets/<name>.<ext>` holding each photo the deck names ONCE (an old name, an alias, answers
+through the `asset:` map, never as a copy, and the bytes written are counted against
+`MAX_LATTICE_MEDIA_BYTES`), and a package store holding the file's packages. The rest of the run
+takes the same path as a `.md` deck. Packages are looked up in the file's store first and the
+user's installed store after (`PACKAGES_ROOTS`, `home.js` `findInstalledIn` / `listInstalledIn`):
+a file package wins over an installed one with the same name, the installed ones still work, and
+nothing is linked, copied or written to `~/.lattice`. A code package in the file still needs
+consent: `lattice packages trust`, or `--trust` for that render (`lib/cli/code-door.js`
+`grantForThisRun`, never written to the trust store). The private folder is removed at exit,
+including after SIGINT, SIGTERM or SIGHUP. Any other binary input, such as a PDF or a picture, is
+refused at once. It used to be parsed as Markdown and fail after a 60 s navigation timeout.
+
+**A `.lattice` output** (`lattice deck.md deck.lattice`) is written before the code packages are
+filled and before any HTML or browser: a `.lattice` is the deck, not a render, so an unapproved
+code package rides in it as its files and is never run. The writer is the Studio's
+(`buildLatticeZip`), run in the same child (`writeSync`). From a `.lattice` input the deck, its
+title, its review comments and every package it carried (used or not: a finish, a plugin, a
+component the deck does not name) go back out as they came. From a `.md`, the installed theme and
+components the deck uses go. Which photos it carries is one function, `photosToCarry` in
+`lib/export/lattice-input.js`: photos from a `.lattice` input go through lastra's `cleanerFor` when the file is unpacked
+(`unpack`; a `.lattice` is a file from anyone, and one built by hand can carry a camera original),
+so a render, a copy and `--reopenable` all carry the cleaned bytes, and a photo the Studio wrote
+comes out byte for byte (only the ones the deck names, as in the Studio); photos
+from `assets/` are cleaned as the Studio's "Keep original" intake stores one
+(`cleanAssetPhoto`: `@laticent/lastra` `cleanerFor` cuts EXIF, XMP, text chunks and comments and
+keeps the pixels and an orientation-only EXIF block), with the Library's row (`original: true`,
+the DISPLAY width and height, lastra's `displaySize`, as the Studio records them). The packer
+reads only what the render may read: the render's own confiner (`DECK_CONFINE`, real paths), so
+a link in `assets/` that points outside the deck's folder is refused and named. Where the Studio would re-encode instead (HEIC, AVIF,
+SVG, or a file the cleaner cannot parse), the CLI, with no encoder for that, leaves the photo out
+and names it with the reason. Both kinds are held to the byte cap and MAX_LATTICE_PHOTOS, and the
+ones past it are named. `--reopenable` uses the same function at the embedded cap
+(`MAX_EMBEDDED_MEDIA_BYTES`). `--strip-notes` and `--strip-say` scrub the carried `deck.md` with
+the functions `--reopenable` uses (`stripSharedSource`, the cut from
+`notesCore.measureScrubBoundary`), fed by an engine render that runs no package code
+(`latticeStrippedSource`); under a strip the review comments stay out, as `--reopenable` leaves
+them out. `strip-notes-every-format.test.js` holds a `lattice` case.
+
 **That list is closed** — an extension not on it is a usage error. It used to fall
 through to the PDF path, which wrote PDF bytes under whatever name was asked for:
 `lattice deck.md out.webp` exited 0 and left a file `file(1)` reads as *"PDF
@@ -327,7 +373,17 @@ before, then runs **the same code as the Studio's Export to PDF** inside that pa
    (`lib/core/slide-camera.mjs`, § 4a2), and only the bytes of a picture come from the host.
 4. **Write** (`write-pdf.mjs`, pdf-lib): the photo, then images at their original bytes, then
    chart shapes as vectors, then every word as real text, tagged (Document › H1…/P/LI/Figure)
-   with the title and `/Lang`.
+   with the title and `/Lang`. A picture stored turned (EXIF orientation 2 to 8) is embedded at its
+   own bytes and drawn through the same turn (`turnMatrix`) only where the browser's turn and the
+   PDF's provably agree and the PDF does not grow (`compose.mjs` `drawableTurned`): an `<img>`, a
+   JPEG whose turn every engine applies (lastra `orientationAgreed`, read from the bytes the browser
+   painted, before cleaning; for a quarter turn the laid-out sides must also show the swap),
+   `image-orientation` not `none`, and a file an upright copy of the policy would also embed as it is. Every other turned picture stays in
+   the photo, which the browser painted upright: a CSS background (its box comes from a detached
+   image, which ignores the element's `image-orientation`), a PNG turned by `eXIf` (WebKit does not
+   turn it), an `image-orientation: none` (Chromium ignores it cross-origin), and a phone photo the
+   policy would shrink were it upright (the policy never re-encodes a turned picture, so it would go
+   in at full size; `followups.d/3183-p10`).
 
 Anything the writer cannot reproduce exactly stays in the photo, which is taken at 2x on a slide
 that keeps text or a raster image in it. That covers:
@@ -469,6 +525,50 @@ real PDF and counts ink inside each box. After editing `read-slide.mjs`, run
 
 ## 4a1. Pictures: one policy for PDF, player, Studio and CLI
 
+**No photo leaves with its metadata (2026-11-13).** Every export that carries a picture's own file
+runs it through the image library's cleaner first, `@laticent/lastra` `cleanerFor`, the function
+the Studio's Library intake and the `.lattice` writer use. It drops EXIF (a phone's location
+among it), XMP, IPTC, text chunks and comments and keeps the pixels, transparency, animation and an
+orientation-only EXIF block. The three paths that carry a source file:
+
+| Export | Where | A file the cleaner refuses |
+|---|---|---|
+| PDF (both hosts) | `lib/core/pdf-compose/compose.mjs`, once per distinct address, before the image policy | stays in the slide's photo (pixels only), counted as `refusedImages.uncleanable` |
+| Player (`--player`, the Studio's Webpage) | `lib/export/player-images.mjs` `cleanDocImages`, from `assemblePlayer`, whatever `images:` says: every `data:image/…` picture in `src`, `srcset`, `poster`, SVG `href`, `style` and `<style>`, once per distinct picture, and every picture inside a baked SVG | the drawn stand-in, named in the report |
+| `npm run export:marp` | `tools/export-marp.js` `localizeOne`; an SVG is copied with the pictures inside it cleaned (`cleanSvgText`) and is otherwise the same file | not copied, named on stderr |
+
+**Which `data:` pictures the player reads.** Any address a browser draws: any letter case
+(`DATA:IMAGE/JPEG`), any parameters (`;name=x.jpg`), a base64 body wrapped across lines, or a
+percent-encoded body. The decoded bytes decide what the picture is (lastra `imageFormat`), never the
+address's type, so `image/jpg` and a JPEG labelled `image/png` are cleaned as JPEGs. An escaped
+spelling is read the way the browser reads it: CSS (a `style` attribute, a `<style>` element, and
+the CSS places inside an SVG) through `cssRefSpans`, so `url('data\3a image/…')` and `u\72l(…)`
+are found, and an SVG's XML character references (`data&#58;image/…`) are decoded first. An SVG is
+read for the pictures inside it (four levels deep at most), each cleaned by the same rule; it is
+re-encoded only when one of them changed. Inline deck SVG goes through the slide sanitizer after
+cleaning; nothing sanitizes inside an SVG kept as a picture (`<img src="data:image/svg+xml…">`,
+a copied `.svg` file), and the image context is what keeps its script inert. A picture that does not
+decode, or whose type the cleaner does not read (AVIF), becomes the stand-in, percent-encoded so it
+cannot end the quote, attribute or `url(…)` it is pasted into.
+
+**Not cleaned yet, pending the owner's decision: the deck's own source.** A `data:` picture written in
+the Markdown rides verbatim wherever the source does (cleaning it means rewriting the deck as written,
+a contract change put to the owner on PR #3183; `followups.d/3183-p9-inline-data-pictures-in-carried-source.md`): the player's `lattice-doc` envelope, a
+`.lattice` file's `deck.md`, `--embed-source`, and the Marp bundle's `deck.md`. The same holds for an
+address the renderer declines to draw (markdown-it accepts only `data:image/(gif|png|jpeg|webp)`
+links, so `![a](data:image/jpg;…)` stays as text on the slide): the bytes are the author's text, not
+a picture. The plain `.html` export (no `--player`) inlines no picture, so it has no pass of its own.
+
+PNG, PPTX, ODP (picture and editable: Calco crops canvas pixels) and the image set carry rasters,
+never a source file, and are unchanged. Measured on the repo's own pictures (`lib/samples`,
+`examples`, `assets`, the fixtures, `docs/public`): 64 of 69 come out byte-identical, so their
+exports do too; the four that change (`examples/media/canoe.jpg` and `mug.jpg`, each losing a
+222-224 byte EXIF block, and two test fixtures) decode to the same pixels before and after (PIL,
+which decodes JPEG with libjpeg), and one damaged fixture is refused. Rendered before and after with
+the CLI, `gallery.md`, `data-viz-gallery.md` and a 50-slide photo deck are byte-identical as PDF and
+as player; `examples/image-plugin.md`, which shows canoe and mug, changes by -227 bytes (PDF) and
+-3600 (player), and its nine pages rasterize identically.
+
 Before 2026-10-25 the PDF and the HTML player embedded every picture at the bytes the author added
 (a 2.5 MB PNG screenshot stayed 2.5 MB, and the player held each `<img>` twice), while the PPTX and ODP
 wrote slide pictures and already chose JPEG for photographs. One 52-slide deck of 21 PNG screenshots
@@ -551,16 +651,16 @@ deck's world (`installPictureWriter`, editable office exports only): they encode
   viewer deficiency, not a design choice, and the PDF therefore lacks, for example, a topic slide's lighter shelf.
 - **Each picture at the pixels it covers.** Before the draw, the camera measures every `<img>` and CSS background on the
   live slide (`object-fit`, `background-size`) and shrinks a picture with twice or more the pixels it covers to that size itself
-  (a Lanczos-3 resize, `lib/core/lanczos.mjs`, as lossless PNG), so no engine scales it inside the SVG. WebKit's own shrink left
+  (a Lanczos-3 resize, `@laticent/lastra` `lanczosResize`, as lossless PNG), so no engine scales it inside the SVG. WebKit's own shrink left
   grain a JPEG cannot compress, and an iPhone's PowerPoint came out larger and further from the photo than Chromium's. Only the
   uses it measured get the shrunk copy, grouped by the picture's bytes so the largest use sets the size; any other use (a mask,
   a pseudo-element, a poster, the stylesheet) keeps the original (`decisions/2026-11-03-pictures-at-drawn-size.md`).
 - **The draw is done before the canvas leaves.** WebKit runs a canvas's drawing lazily; one pixel read back after the slide draw,
   and again at the top of `encodeCanvas`, makes it run before a worker or writer takes the canvas (it otherwise got a blank, or the
   previous slide).
-- **One PNG encoder** (`encodePng`): per-row adaptive filtering and the platform's deflate, 8-bit RGB for an opaque slide.
+- **One PNG encoder** (`@laticent/lastra` `encodePng`, fed a canvas's rows by `lib/core/canvas-encode.mjs`): per-row adaptive filtering and the platform's deflate, 8-bit RGB for an opaque slide.
   The browser's `toBlob('image/png')` wrote files about 40% larger.
-- **One JPEG encoder** (`lib/core/jpeg-encode.mjs`): baseline JFIF, 4:2:0 color, libjpeg's quality tables, Huffman tables built per picture, the AAN DCT with
+- **One JPEG encoder** (`@laticent/lastra` `createJpegEncoder`, `docs/src/lib/lastra/jpeg.ts`): baseline JFIF, 4:2:0 color, libjpeg's quality tables, Huffman tables built per picture, the AAN DCT with
   its constants written out, transparency composited onto white. The browser's `toBlob('image/jpeg')` writes different bytes
   in every engine: on the Yearn deck's 52 slide pictures Firefox's wrote 16.59 MB where ours writes 12.45 MB, and the same
   picture PowerPoint was 12.5 MB from Chromium and 43.3 MB from an iPhone. Apple's encoder is the cause: in an iOS 26.5

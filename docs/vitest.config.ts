@@ -50,6 +50,9 @@ export default defineConfig({
 			// its npm consumers resolve). The docs read every library as SOURCE, so the name maps to
 			// the source here as `@/lib/*` does — never to the package's built dist/.
 			{ find: '@laticent/ltt', replacement: fileURLToPath(new URL('./src/lib/ltt/index.ts', import.meta.url)) },
+			// Lastra's decoders import the package root by its name (its one error class); the exact name only, so
+			// `@laticent/lastra/decode` still resolves through the package's exports.
+			{ find: /^@laticent\/lastra$/, replacement: fileURLToPath(new URL('./src/lib/lastra/index.ts', import.meta.url)) },
 			// react-resizable-panels hijacks document pointerdown to hit-test dividers;
 			// in jsdom (all rects 0×0 at 0,0) that swallows every click and breaks Radix
 			// menus. Resize is verified in the Playwright e2e; unit tests use a plain-div

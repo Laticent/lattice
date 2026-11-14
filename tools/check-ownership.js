@@ -8538,11 +8538,11 @@ const SANCTIONED_SLIDE_TEXT_ADDRESS_READERS = [
   {
     file: 'lib/export/player-images.mjs',
     reads: ['regex'],
-    sinks: { 'set-attribute': 1 },
+    sinks: { 'css-url': 1, 'set-attribute': 1 },
     guards: 0,
     guard: 'none',
     why:
-      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text.',
+      'Applies the image policy to pictures the player already baked as `data:` URIs, re-encoding them; `setAttribute(\'src\', next)` writes the re-encoded data URI of the same picture. It reads no slide text. The `url(${next})` write (PR #3183) puts back a picture the metadata cleaner rewrote, found by `cssRefSpans` at a `data:image/` value: `next` is only ever that picture re-encoded as base64, an SVG re-encoded as base64, or the percent-encoded drawn stand-in, none of which can hold a quote, a space or a `)`, so it cannot end the `url(…)` or its container, and it is never a web address.',
   },
   {
     file: 'lib/integrations/markdown-it/plugins.js',
@@ -10248,11 +10248,15 @@ function unreadableModuleCalls(src, fileName = 'x.ts') {
  * Report every import in `dir` that leaves it, except a `node:` built-in when `allowNode` and a bare
  * specifier named exactly in `allowBare`. `describe(rel, spec)` writes the error for a boundary hit.
  */
-function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe }) {
+function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe, testHelpers = new Set(), allowBareUnder = new Map() }) {
   if (!fs.existsSync(dir)) return;
   const root = path.resolve(dir);
+  const relToRoot = (abs) => path.relative(root, abs).split(path.sep).join('/');
+  // A helper is named by its `.ts` path; an import may spell it `./x.js`, `./x.ts` or `./x` (extensionless).
+  const isHelper = (abs) => testHelpers.has(relToRoot(abs).replace(/\.[cm]?[jt]sx?$/, '') + '.ts');
   for (const file of listPackageSources(root)) {
     if (TEST_FILE.test(file)) continue; // tests use the dev runner (vitest), not host coupling
+    if (isHelper(file)) continue; // a test helper with a non-test name, listed by the package's gate
     const rel = relPosix(ROOT, file);
     const raw = fs.readFileSync(file, 'utf8');
     for (const problem of unreadableModuleCalls(raw, file)) errors.push(`${rel} ${problem}`);
@@ -10266,13 +10270,16 @@ function checkStrictPackageImports(errors, dir, { allowNode, allowBare, describe
         if (spec.startsWith('.')) {
           const target = path.resolve(path.dirname(file), spec);
           if (target !== root && !target.startsWith(root + path.sep)) errors.push(describe(rel, spec));
-          else if (/\.test(?:\.[cm]?[jt]sx?)?$/.test(spec)) {
+          else if (/\.test(?:\.[cm]?[jt]sx?)?$/.test(spec) || isHelper(target)) {
             errors.push(`${rel} imports '${spec}', a test module. Test files are not gated, so production code may not reach through one.`);
           }
           continue;
         }
         if (allowNode && spec.startsWith('node:')) continue;
         if (allowBare.has(spec)) continue;
+        // A bare name allowed only below one folder (a package's subpath importing its own root by name).
+        const under = allowBareUnder.get(spec);
+        if (under !== undefined && relToRoot(file).startsWith(under)) continue;
         errors.push(describe(rel, spec));
       }
     }
@@ -10344,6 +10351,30 @@ function checkMosaicoBoundary(errors, dir = MOSAICO_DIR) {
       `dependency-free so it runs the same on the CLI, in the browser and in a worker: every ` +
       `import must resolve inside docs/src/lib/mosaico/ ` +
       `(engineering/decisions/2026-10-16-mosaico-layout-library.md §5).`,
+  });
+}
+
+// ── Lastra (docs/src/lib/lastra) — the image library ─────────────────────────
+// Lastra is bytes in, bytes out: the same header reader, cleaners, resize and writers run on the CLI, in the
+// browser and in a worker, so it has NO dependencies, not even `node:`. Decoding with a canvas, reading a file
+// and the `images:` words belong to Lattice, which calls it (engineering/decisions/2026-11-13-image-library.md §3).
+const LASTRA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'lastra');
+function checkLastraBoundary(errors, dir = LASTRA_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    // The decoders (`@laticent/lastra/decode`) import the root by the package's own name, so the two entries
+    // share one LastraError; a self-reference resolves inside the folder. Only under decode/: a root-entry file
+    // that imported its own package by name would import itself.
+    allowBareUnder: new Map([['@laticent/lastra', 'decode/']]),
+    // decode/test-support.ts builds fixtures with node:fs and node:zlib for the decode tests. It is excluded
+    // from the package's files, its declarations and check:lastra by name, and production code may not
+    // import it.
+    testHelpers: new Set(['decode/test-support.ts']),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Lastra folder. @laticent/lastra is pure and dependency-free so ` +
+      `it runs the same on the CLI, in the browser and in a worker: every import must resolve inside ` +
+      `docs/src/lib/lastra/ (engineering/decisions/2026-11-13-image-library.md §3).`,
   });
 }
 
@@ -13178,6 +13209,14 @@ const NUL_BINARY_EXTENSIONS = [
   '.wav', '.woff', '.woff2', '.wasm', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
 ];
 
+// Binary extensions that hold only inside one folder: a corpus whose files take a name no other part of
+// the tree should use. Scoped, so a `.z` anywhere else is unclassified and fails the partition test
+// instead of being skipped. `nul-byte-gate.test.js` fails on an entry no tracked file matches.
+const NUL_BINARY_FOLDERS = [
+  // lastra's inflate oracle: raw zlib streams, some deliberately damaged (tools/lastra-corpus/generate.py).
+  { dir: 'docs/src/lib/lastra/decode/fixtures/zlib/', ext: '.z' },
+];
+
 /**
  * The verdict, as a PURE function of a file list and a reader — which is what
  * makes the FAILURE branch exercisable. `checkCommittedPdfs` above carries the
@@ -15441,6 +15480,7 @@ function run() {
   checkSegnoMarkdownBoundary(errors);
   checkFiloCommitPath(errors);
   checkMosaicoBoundary(errors);
+  checkLastraBoundary(errors);
   checkFluidoBoundary(errors);
   checkSquadraBoundary(errors);
   checkPaginationOwners(errors);
@@ -15520,6 +15560,7 @@ module.exports = {
   checkFiloCommitPath,
   SANCTIONED_UNDO_STACKS,
   checkMosaicoBoundary,
+  checkLastraBoundary,
   checkFluidoBoundary,
   checkSquadraBoundary,
   checkPaginationOwners,
@@ -15569,6 +15610,7 @@ module.exports = {
   findNulBytes,
   auditNulBytes,
   NUL_BINARY_EXTENSIONS,
+  NUL_BINARY_FOLDERS,
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,
