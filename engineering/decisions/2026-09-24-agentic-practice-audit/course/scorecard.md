@@ -1,0 +1,104 @@
+# Course scorecard
+
+The human half of the teaching bar. `harness.mjs` checks what a machine can count; this
+page scores what it can't.
+
+**Scale:** 4 = excellent · 3 = good, meets the bar · 2 = a real gap · 1 = fails.
+**The bar:** no score below 3 in any chapter.
+
+**Who scored it, and how far to trust it:** the author (an agent) scored it on
+2026-10-15, after the pass that added plan-first work and code review, rewrote every Check
+question as a close call, and tightened the harness. An author's score of their own work
+runs high. Treat these numbers as a starting point for a human reviewer, not a verdict. A
+cold read by an engineer from the target audience has **not** been done (see the last
+section).
+
+## The six criteria
+
+1. **Respects the baseline.** It assumes what a working engineer knows (git, pull
+   requests, CI, review, testing) and spends its time only on what's new with agents.
+2. **Concrete before abstract.** Every idea arrives as a case from the booking app first,
+   and as a rule second.
+3. **One idea at a time.** A slide makes one point, and a chapter doesn't stack metaphors.
+4. **Practice.** The Check question is a close call that makes the reader apply the idea,
+   and the "Try it" exercise works on a real project this week.
+5. **True and current.** Every claim holds up. Where the evidence is mixed or the point is
+   a judgment, the slide itself says so.
+6. **Stands alone.** A reader who took only the primer can follow the chapter.
+
+## Scores
+
+| Chapter | 1 Baseline | 2 Concrete | 3 One idea | 4 Practice | 5 True | 6 Alone |
+| --- | --- | --- | --- | --- | --- | --- |
+| Primer | 4 | 4 | 4 | 4 | 4 | — |
+| Day one · Setup | 4 | 4 | 4 | 4 | 4 | 4 |
+| 1 · Directing the agent | 4 | 4 | 4 | 4 | 4 | 4 |
+| 2 · What the agent sees | 4 | 4 | 4 | 4 | 4 | 4 |
+| 3 · What the agent may do alone | 4 | 4 | 4 | 4 | 4 | 4 |
+| 4 · Proving it works | 4 | 4 | 4 | 4 | 4 | 4 |
+| 5 · Learning from mistakes | 4 | 4 | 4 | 4 | 4 | 4 |
+| 6 · Working with many agents | 4 | 4 | 4 | 4 | 4 | 4 |
+| 7 · Hard problems | 4 | 4 | 4 | 4 | 4 | 4 |
+| 8 · Making it last | 4 | 4 | 4 | 4 | 4 | 4 |
+
+**What changed since the last scoring:**
+
+- **Chapter 1** replaced its third metaphor with the plan-first workflow (explore, plan,
+  you review, build, verify), the biggest gap for someone new to agents.
+- **Chapter 4** gained a slide on how to review an agent's change: the plan, the tests,
+  the diff, and size. Its gates slide is now about agents trying to get past a gate,
+  which is new to engineers; before, it explained gates they already knew.
+- **Every Check is now a close call.** Each wrong option is a mistake a competent engineer
+  makes: "it's only staging", a test that is new but never seen to fail, freezing the
+  clock so a flaky test goes green, thirty quiet days that miss a monthly job. The
+  answers are spread A×3, B×3, C×3, and the harness now enforces that spread.
+- **Chapter 6** says on the slide that "use the strongest model" is a judgment that teams
+  disagree on, and its budget slide uses the booking app.
+- **Chapter 8** puts the agent angle in the API slide's heading.
+- **The glossary** now defines every term the course teaches, including "token".
+
+## Repetition pass (2026-10-15)
+
+Measured before cutting: 59% of the 118 chapter slides were frame, not teaching. Standing
+alone caused only the eight "You need" slides. The rest came from the frame itself: 22
+one-line topic slides, separate opening slides, and "Common mistakes" slides that recapped
+their chapter. Two ideas were taught twice (rule-then-check in Chapters 5 and 8, fresh eyes in
+Chapters 6 and 7). After the pass: 88 chapter slides, 55% teaching (64% counting the
+rewritten mistakes, which now carry new material). Chapter 8's guardrail now means a
+design that makes a mistake hard to write, like a type that only holds UTC, which builds
+on Chapter 5's check instead of repeating it. With the room freed, Chapter 2 gives the
+subagent its own slide instead of introducing it inside a list of habits.
+
+## Build test (2026-10-15)
+
+An independent agent built the booking app from the deck alone (`build-test.md`). It
+found two blockers: no tool or first session, and no name or location for the
+instruction file. It also found eleven major gaps, all about missing mechanics
+rather than wrong ideas. These scores were too generous on criterion 4 (practice),
+because the exercises assumed mechanics the course never showed. After the fix (the
+primer's tool table and first session, Day one, and the kit), every blocker and major gap
+has a slide. Five minor gaps are logged as not fixed. Day one is scored in the table above.
+
+## Coherence pass (2026-10-15)
+
+A full read-through after the build test found three contradictions that the new Day one
+spec had introduced, all now fixed:
+- **What comes first.** Chapter 2 said "your first commit is a file of rules", while Day
+  one puts the spec first. Chapter 2 now says the rules come before any code.
+- **"No UI" against UI slides.** The spec said "Not v1: a UI", but the week-view
+  screenshot, the "Book" button and jank all assume one. The spec now names one screen,
+  "a week view per room".
+- **The primer's opening map.** It omitted "Your first session"; now it lists it.
+
+Chapter 6 merges model choice and budget into one slide, "Cut cost with fewer agents,
+never weaker ones", so it now teaches four ideas instead of five. The tool table's
+"as of late 2026" caveat moved from the notes onto the slide. The sparse slides in
+Chapters 2 and 6 were reworked after a full visual pass. No criterion now scores below 4.
+
+## Not yet done: the cold read
+
+The only real test of teaching material is a reader from its audience. Give one chapter
+to an engineer who hasn't used a coding agent and hasn't seen the course, then ask them to
+explain its three takeaways back and note where they stall. Score that chapter again
+afterward. Until that happens, criterion 1 especially is the author's guess about a
+reader they aren't.
