@@ -543,6 +543,27 @@ describe('a pick moves the caret', () => {
 		expect(r.hub.get().flat).not.toBe(1);
 	});
 
+	// The hub delivers on the next frame, and a frame runs its callbacks first: an earlier pick's settle, waiting
+	// for its scroll to stop, ran before the new tile reached the sync and named the slide the preview was still on.
+	// The new tile was lost, and the preview never moved.
+	it('a second tile tapped while the first pick settles is the focus, and the preview goes to it', async () => {
+		const r = rig();
+		await r.land();
+		r.hub.go('rail', { flat: 3 });
+		r.frame();
+		// The first pick's smooth scroll lands on its slide and stops there.
+		r.state.now += 20;
+		r.scrollPreview(centeredAt(r.pvLayout(SLIDES), 3));
+		expect(r.hub.get()).toMatchObject({ origin: 'rail', flat: 3 });
+		// The reader taps another tile once the scroll has been still long enough to settle.
+		r.state.now += 400;
+		r.log.length = 0;
+		r.hub.go('rail', { flat: 1 });
+		r.frame();
+		expect(r.hub.get()).toMatchObject({ origin: 'rail', flat: 1 });
+		expect(r.log).toContain('page 1 instant=false');
+	});
+
 	it('frames the slide itself when the panes cannot be aligned yet', async () => {
 		const r = rig();
 		r.state.previewOk = false;

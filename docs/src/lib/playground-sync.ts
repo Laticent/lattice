@@ -197,6 +197,8 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	let lastFollow = -Infinity;
 	let slow = false;
 	let lastFlat = -1;
+	/** The `seq` of the last focus delivered to this sync: a newer one is still on its way (see `pickPending`). */
+	let seenSeq = -1;
 	let previewRaf = 0;
 	let settleRaf = 0;
 	let editorRaf = 0;
@@ -267,8 +269,18 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		ports.markPages(f.unitIndex >= 0 ? (ix.byFlat[f.flat] ?? null) : null);
 	}
 
-	/** Say which slide a scrolled pane is on, unless that is already the focus. */
+	/** A pick (a tile, a click) the hub has taken and not yet delivered here. The hub delivers on the next frame, and
+	 *  a frame runs its callbacks first, so a scroll report in that gap describes where the preview WAS: naming that
+	 *  slide replaced the pick before it could scroll, and the preview never moved. The pick, once delivered, scrolls
+	 *  the preview and settles on its own. */
+	function pickPending(): boolean {
+		const f = hub.get();
+		return f.seq !== seenSeq && (f.cause === 'nav' || f.cause === 'pick') && f.origin !== 'preview' && f.origin !== 'editor-view' && f.origin !== 'editor';
+	}
+
+	/** Say which slide a scrolled pane is on, unless that is already the focus or a newer pick is on its way. */
 	function report(flat: number, origin: 'preview' | 'editor-view') {
+		if (pickPending()) return;
 		const ol = hub.outline();
 		const at = ol && flat >= 0 ? partOfFlat(ol, flat) : null;
 		if (at && flat !== hub.get().flat) hub.reportUnit(origin, { unitIndex: at.unit, part: at.part });
@@ -465,6 +477,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	const unsubscribe = hub.subscribe(
 		(f) => f,
 		(f) => {
+			seenSeq = f.seq;
 			const ol = hub.outline();
 			const before = lastFlat;
 			if (f.unitIndex >= 0) lastFlat = f.flat;

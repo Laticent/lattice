@@ -188,6 +188,13 @@ An independent checker reviewed the later commits and found five defects, all fi
 - The focus bar hid the section's own `box-shadow` (see above).
 - `SETTLE_MS` never ran, so for 1.5 s after a map tile pick the reader's own preview scroll could not change the
   focus. A settle loop now names the slide the preview stopped on.
+- **Amended 2026-11-13: the settle loop dropped a second tile.** The hub delivers a focus on the next frame, and a
+  frame runs its callbacks first. A tile tapped while the previous pick settled reached the hub, then the settle
+  callback named the slide the preview was still on, and that report replaced the tile before the sync heard of it:
+  the preview never moved. `pickPending` in `playground-sync.ts` now drops a scroll report while a pick newer than the
+  last delivered focus is on its way; the delivered pick scrolls and settles on its own. Found as a 1-in-40 failure of
+  `playground-map.spec.ts` under four workers; the unit test "a second tile tapped while the first pick settles"
+  reproduces it without a browser.
 
 Also: a failed load of the focus chunk is caught and logged, and the Playground works without the sync.
 Not changed: CodeMirror re-measuring line heights after `setScroll` could defeat the echo guard on long decks
