@@ -77,7 +77,9 @@ export function ChatCost({ source, grounding, docs, primed, explicitCache = true
 	// mislead about one of them. Memoized because building the prompt walks the catalog.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `agentReady` is the intentional re-price trigger once the lazy agent module lands.
 	const turnEst = React.useMemo(() => (cloud && status.price ? agentTurnUsd(status.price, grounding, !!primed, source, refDocsTokens(docs), libraryCount, explicitCache) : null), [cloud, grounding, primed, explicitCache, docs, source, status.price, agentReady, libraryCount]);
-	const usd = (n: number) => `$${n.toFixed(n < 0.1 ? 3 : 2)}`;
+	// Three decimals below a dollar: a typical turn costs about $0.11, and the Library's
+	// photos move it by tenths of a cent, which two decimals would round away.
+	const usd = (n: number) => `$${n.toFixed(n < 1 ? 3 : 2)}`;
 
 	const last = withCurrentWindow(lastUsage(messages), status.price?.contextLength);
 	// The chip is shown for EVERY selection — on-device and not-yet-ready included — because it
@@ -445,7 +447,7 @@ function ModelChip({ status, turnEst, usd, spend, onRefresh, onManageModels }: {
 					<div className="flex items-baseline justify-between gap-3">
 						<span className="text-muted-foreground">This session</span>
 						<span className={cn('font-semibold', over ? 'text-[var(--fail,#b3261e)]' : warn ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground')}>
-							${spend.session.toFixed(2)}
+							{usd(spend.session)}
 							{spend.cap > 0 ? ` of $${spend.cap.toFixed(2)}` : ''}
 						</span>
 					</div>
