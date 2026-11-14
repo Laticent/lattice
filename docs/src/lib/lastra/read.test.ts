@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'vitest';
 import { encodeJpeg } from './jpeg.js';
-import { displaySize, type ImageInfo, imageFormat, readImage, tiffOrientation } from './read.js';
+import { displaySize, type ImageInfo, imageFormat, orientationAgreed, readImage, tiffOrientation } from './read.js';
 
 const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
 const be16 = (n: number) => [(n >>> 8) & 255, n & 255];
@@ -400,6 +400,32 @@ describe('readImage: GIF, WebP, AVIF', () => {
 		const b = avif([ispe(64, 32)], { 1: [1] });
 		for (let n = 0; n < b.length; n++) assert.doesNotThrow(() => read(b.subarray(0, n)), `${n} bytes`);
 		assert.equal(read(b.subarray(0, b.length - 1)), null);
+	});
+});
+
+describe('orientationAgreed: whether every engine applies the turn readImage reports', () => {
+	test('a JPEG whose Exif block is its first APP1 agrees, before or after the frame header', () => {
+		assert.equal(orientationAgreed(jpeg(64, 32, [exif(6)])), true);
+		assert.equal(orientationAgreed(jpeg(64, 32, [], [exif(6)])), true);
+		assert.equal(orientationAgreed(jpeg(64, 32)), true, 'no turn at all');
+	});
+	test('an Exif turn after an XMP APP1 does not: Firefox reads only the first APP1', () => {
+		assert.equal(readImage(jpeg(64, 32, [xmp, exif(6)]))?.orientation, 6);
+		assert.equal(orientationAgreed(jpeg(64, 32, [xmp, exif(6)])), false);
+		assert.equal(orientationAgreed(jpeg(64, 32, [xmp, exif(1)])), true, 'no turn to disagree on');
+	});
+	test('a first Exif block with no turn and a later one with a turn does not: WebKit reads on', () => {
+		assert.equal(orientationAgreed(jpeg(64, 32, [exif(1, { tag: false }), exif(6)])), false);
+		assert.equal(orientationAgreed(jpeg(64, 32, [exif(6), exif(3)])), true, 'every engine stops at a first block with a turn');
+	});
+	test('a PNG turned by eXIf does not (WebKit does not turn it); an unturned PNG, GIF or WebP does', () => {
+		assert.equal(orientationAgreed(png(300, 200, 2, [pngChunk('eXIf', tiff(6))])), false);
+		assert.equal(orientationAgreed(png(300, 200)), true);
+		assert.equal(orientationAgreed(gif(64, 32)), true);
+		assert.equal(orientationAgreed(vp8(64, 32)), true);
+	});
+	test('bytes that are not a picture do not', () => {
+		assert.equal(orientationAgreed(new Uint8Array([1, 2, 3])), false);
 	});
 });
 

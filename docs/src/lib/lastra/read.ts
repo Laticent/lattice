@@ -246,6 +246,50 @@ function readJpeg(b: Uint8Array): ImageInfo | null {
 	return width ? headerInfo('jpeg', width, height, false, orientation || 1) : null;
 }
 
+/**
+ * Whether every engine (Chromium, Firefox, WebKit) turns this picture the way `readImage` reports, from the probes in
+ * read.test.ts. False where one is known to differ: a JPEG whose Exif block follows another APP1 (Firefox reads only the
+ * first APP1), a JPEG whose first Exif block has no turn and a later one does (WebKit reads on), a PNG turned by `eXIf`
+ * (WebKit does not turn it), and any other turned format (not probed). A caller that must match the browser that
+ * painted the picture, without knowing which browser that was, trusts the turn only when this is true.
+ * @param b  the file's bytes
+ */
+export function orientationAgreed(b: Uint8Array): boolean {
+	const info = readImage(b);
+	if (!info) return false;
+	if (info.format !== 'jpeg') return info.orientation === 1;
+	let firstExif = 0; // 0 = no Exif block yet; else the first block's turn
+	let otherBefore = false;
+	let o = 2;
+	while (o + 1 < b.length) {
+		if (b[o] !== 0xff || b[o + 1] === 0xff) {
+			o++;
+			continue;
+		}
+		const marker = b[o + 1];
+		if (marker === 0x00 || marker === 0x01 || marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd7)) {
+			o += 2;
+			continue;
+		}
+		if (marker === 0xd9 || marker === 0xda || o + 4 > b.length) break;
+		const len = readU16be(b, o + 2);
+		if (len < 2) return false;
+		const body = o + 4;
+		const end = o + 2 + len;
+		if (marker === 0xe1) {
+			const isExif = len >= 8 && asciiAt(b, body, 'Exif') && b[body + 4] === 0 && b[body + 5] === 0;
+			if (!isExif) {
+				if (!firstExif) otherBefore = true;
+			} else if (!firstExif) {
+				firstExif = tiffOrientation(tiffSlice(b, body + 6, end));
+				if (otherBefore && firstExif !== 1) return false;
+			} else if (firstExif === 1 && tiffOrientation(tiffSlice(b, body + 6, end)) !== 1) return false;
+		}
+		o = end;
+	}
+	return true;
+}
+
 // ── GIF ─────────────────────────────────────────────────────────────────────────────────────────
 
 /** The logical screen size. Transparency is set per frame, past the header, so a GIF may always have it. */

@@ -931,10 +931,10 @@ describe('export-formats', () => {
         }
       }
       const c = Object.fromEntries(Object.entries(sums).map(([k, v]) => [k, v.n ? { x: v.x / v.n, y: v.y / v.n, n: v.n } : null]));
-      for (const k of Object.keys(COLORS)) assert.ok(c[k]?.n > 20, `orientation ${i + 1}: ${k} is on the page (${JSON.stringify(c)})`);
+      for (const k of Object.keys(COLORS)) assert.ok(c[k]?.n > 20, `${who}, orientation ${i + 1}: ${k} is on the page (${JSON.stringify(c)})`);
       const where = JSON.stringify(c);
-      assert.ok(c.red.x < c.green.x && c.blue.x < c.yellow.x, `orientation ${i + 1}: left is left, not mirrored: ${where}`);
-      assert.ok(c.red.y < c.blue.y && c.green.y < c.yellow.y, `orientation ${i + 1}: top is top, not flipped: ${where}`);
+      assert.ok(c.red.x < c.green.x && c.blue.x < c.yellow.x, `${who}, orientation ${i + 1}: left is left, not mirrored: ${where}`);
+      assert.ok(c.red.y < c.blue.y && c.green.y < c.yellow.y, `${who}, orientation ${i + 1}: top is top, not flipped: ${where}`);
       // A quarter turn drawn into the wrong box would squash the picture: the four quadrants stay the same size.
       const ns = Object.values(c).map((v) => v.n);
       assert.ok(Math.max(...ns) / Math.min(...ns) < 1.3, `${who}, orientation ${i + 1}: the quadrants are even: ${where}`);
@@ -942,7 +942,7 @@ describe('export-formats', () => {
     }
   });
 
-  test('a turned picture the PDF cannot draw safely stays in the photo: a large one under the policy, a background, orientation none', { timeout: TIMEOUT }, () => {
+  test('a turned picture the PDF cannot draw safely stays in the photo: a large one under the policy, a background, orientation none, an Exif after XMP', { timeout: TIMEOUT }, () => {
     // compose.mjs `drawableTurned`. Under `images: optimized` the policy never re-encodes a turned picture, so a phone
     // photo larger than the policy's size would go in at full size; it stays in the photo, which is capped, unless the
     // deck asks for originals. A CSS background's box and an `image-orientation: none` are not trusted to match the turn.
@@ -964,6 +964,11 @@ describe('export-formats', () => {
     assert.ok(turnedBig.length > 150 * 1024 && turnedBig.length / (W * H) > 0.5, `fixture: a file the policy would re-encode were it upright (${turnedBig.length} bytes)`);
     fs.writeFileSync(path.join(dir, 'big.jpg'), turnedBig);
     fs.copyFileSync(path.join(ROOT, 'lib/samples/photo-tall-rotated.jpg'), path.join(dir, 'small.jpg'));
+    // The same small photo with an XMP APP1 ahead of its Exif block: Chromium and WebKit turn it, Firefox does not.
+    const small = fs.readFileSync(path.join(dir, 'small.jpg'));
+    const xmpBody = Buffer.from('http://ns.adobe.com/xap/1.0/\0<x/>', 'latin1');
+    const xmpLen = Buffer.alloc(2); xmpLen.writeUInt16BE(xmpBody.length + 2);
+    fs.writeFileSync(path.join(dir, 'xmp-first.jpg'), Buffer.concat([small.subarray(0, 2), Buffer.from([0xff, 0xe1]), xmpLen, xmpBody, small.subarray(2)]));
     const render = (name, front, slides) => {
       const src = path.join(dir, `${name}.md`);
       fs.writeFileSync(src, ['---', 'html: true', 'paginate: false', ...front, '---', '', ...slides].join('\n'));
@@ -982,9 +987,10 @@ describe('export-formats', () => {
     assert.equal(original.turnedImages, 1, `asked for originals, it is drawn from its own bytes: ${JSON.stringify(original)}`);
     const others = render('others', [], [
       '## Background', '', '<div style="width:300px;height:200px;background:url(small.jpg) center/cover no-repeat"></div>', '', '---', '',
-      '## None', '', '<img src="small.jpg" style="width:300px;height:200px;image-orientation:none">',
+      '## None', '', '<img src="small.jpg" style="width:300px;height:200px;image-orientation:none">', '', '---', '',
+      '## XMP first', '', '<img src="xmp-first.jpg" style="width:200px;height:300px">',
     ]);
-    assert.equal(others.refusedImages.rotated, 2, `a background and an orientation-none picture stay in the photo: ${JSON.stringify(others)}`);
+    assert.equal(others.refusedImages.rotated, 3, `a background, an orientation-none picture and an Exif after an XMP block stay in the photo: ${JSON.stringify(others)}`);
     assert.equal(others.turnedImages, undefined);
   });
 

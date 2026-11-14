@@ -24,5 +24,5 @@ export { acceptRecode, planRecode, type RecodePlan, type RecodeThresholds } from
 export { isLastraError, LastraError, type LastraErrorCode } from './errors.js';
 export { createJpegEncoder, encodeJpeg, type JpegEncoder, type JpegOptions } from './jpeg.js';
 export { crc32, encodePng, PNG_BAND, type PngRowReader, rgbPngIdat } from './png.js';
-export { displaySize, IMAGE_MIME, type ImageFormat, type ImageInfo, imageFormat, readImage, tiffOrientation } from './read.js';
+export { displaySize, IMAGE_MIME, type ImageFormat, type ImageInfo, imageFormat, orientationAgreed, readImage, tiffOrientation } from './read.js';
 export { type LanczosTap, lanczosResize, lanczosWeights, type Pixels, type RowReader } from './resize.js';

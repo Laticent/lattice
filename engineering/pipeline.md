@@ -376,8 +376,9 @@ before, then runs **the same code as the Studio's Export to PDF** inside that pa
    with the title and `/Lang`. A picture stored turned (EXIF orientation 2 to 8) is embedded at its
    own bytes and drawn through the same turn (`turnMatrix`) only where the browser's turn and the
    PDF's provably agree and the PDF does not grow (`compose.mjs` `drawableTurned`): an `<img>`, a
-   JPEG (every engine turns one, wherever its EXIF block sits), `image-orientation` not `none`, and a
-   file an upright copy of the policy would also embed as it is. Every other turned picture stays in
+   JPEG whose turn every engine applies (lastra `orientationAgreed`, read from the bytes the browser
+   painted, before cleaning; for a quarter turn the laid-out sides must also show the swap),
+   `image-orientation` not `none`, and a file an upright copy of the policy would also embed as it is. Every other turned picture stays in
    the photo, which the browser painted upright: a CSS background (its box comes from a detached
    image, which ignores the element's `image-orientation`), a PNG turned by `eXIf` (WebKit does not
    turn it), an `image-orientation: none` (Chromium ignores it cross-origin), and a phone photo the
