@@ -144,9 +144,11 @@ One branch, one PR, one commit per step. Sessions hand the branch over explicitl
 branch and says the previous session is finished).
 
 **Changed 2026-11-15 (owner).** Steps 1 and 2 merged on their own, in #3198 (`72bd2d9`), and step 3 is its own PR from
-`main`. Neither moves a rule or a consumer, so `main` still runs one linter: lint-core, unchanged. The one-PR rule now
-covers what is left, steps 4 to 6, where a rule leaves lint-core, so the guarantee of §1 (no second linter on `main` at
-any point) is unchanged. Step 3 is safe alone because it changes no deck's render or lint (§11).
+`main`. Neither moves a rule or a consumer, so `main` still runs one linter: lint-core, unchanged. What keeps §1's
+guarantee (no second linter on `main` at any point) is that no consumer reads Squadra until step 5: a family's rules
+(step 4) may land beside lint-core as long as nothing shows their findings, and steps 5 and 6, where the consumers
+switch and lint-core goes, land together. Step 3 is safe alone because it changes no tracked deck's render or lint
+(§11).
 
 1. This decision doc.
 2. Foundation: the `./runtime` entry and build-time stamps; `lattice-deck`'s full tree from the islands on `main`
