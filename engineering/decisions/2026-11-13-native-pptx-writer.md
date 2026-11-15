@@ -133,6 +133,14 @@ The proof is `test/unit/calco/pptx-structure.test.js` (§How it is proven 1),
 `test/integration/export/office-conformance.test.js` (2, LibreOffice), and `test/unit/calco/pptx-parity.test.js`
 (3), whose snapshot was read from the pptxgenjs path at `e5dfcb1d` and is frozen.
 
+**Real decks, before and after (2026-11-15).** The gallery and eight example decks (`accent-finishes`, `card-tags`,
+`sample-images`, `marks`, `calco-edge-cases`, `focus`, `focus-highlight-axes`, `inline-icons`) were exported by `main` at
+`e5dfcb1d` (pptxgenjs) and by this writer, editable and picture-per-slide, and read back with the parity reader: 18
+files, 388 slides (194 in each mode), 4,731 objects. The nine picture-per-slide files and six of the nine editable ones match. Five
+values differ: three drawn marks now keep the round corners the page asks for (pptxgenjs only rounded them when the
+line ends were round too), and two pill corners read 50000 (a half-round) where pptxgenjs's separate rounding of
+radius and size left 49840, under 0.05 px on a 30 px pill.
+
 **What did not happen before merge.** §How it is proven 4 named PowerPoint, Keynote and Google Slides. None of them
 can run in this sandbox or in a platform suite, so the bytes ship checked by the ISO 29500 schema, Microsoft's Open
 XML SDK, LibreOffice 24.2 (the round trip) and Apple's Office importer (`office-quicklook`), and NOT opened in
