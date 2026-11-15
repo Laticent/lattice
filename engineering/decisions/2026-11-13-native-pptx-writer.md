@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   Calco writes the PowerPoint package itself, with JSZip, as it already writes ODP, and Lattice drops pptxgenjs from
   the CLI and the Studio. The owner chose this on 2026-11-13 over vendoring a pptxgenjs fork or shipping an
@@ -115,6 +115,23 @@ and the small-caps hack retires with pptxgenjs.
 
 - The ODP writer, the slide camera, font subsetting, and what the deck looks like.
 - `jszip` stays; it is the only package dependency in the path.
+
+## What shipped (2026-11-15)
+
+`docs/src/lib/calco/pptx.ts` `buildPptx(JSZip, deck)` / `writePptx(JSZip, deck, outputType)`. The CLI's picture
+`.pptx` (`lib/export/pptx-export.js`), `--editable` (`lib/export/office-export.js`), and the Studio's two lanes
+(`deck-export.js`, `pptx-assemble-worker.js`) all call it. What differs from the design above, and why:
+
+- **Media are named by a 64-bit FNV-1a hash of their bytes** and stored once: a logo on every slide is one part.
+  PNG and JPEG are stored, not deflated; the XML, SVG and fonts are deflated.
+- **Notes pages exist only for slides with notes.** pptxgenjs wrote one per slide.
+- **The title placeholder is `type="title"` with no index**, and the page-number placeholder is
+  `type="sldNum" idx="12"`, the values PowerPoint itself writes; pptxgenjs used `idx="100"` and `idx="4294967295"`.
+- **A notes page splits the note into paragraphs** at its line breaks; pptxgenjs wrote one run with raw newlines.
+
+The proof is `test/unit/calco/pptx-structure.test.js` (§How it is proven 1),
+`test/integration/export/office-conformance.test.js` (2, LibreOffice), and `test/unit/calco/pptx-parity.test.js`
+(3), whose snapshot was read from the pptxgenjs path at `e5dfcb1d` and is frozen.
 
 ## Risks
 

@@ -28,6 +28,9 @@ schema    — (2026-10-07) the file is now schema-valid: PptxGenJS's repeated `<
             notes-master order and the phantom slide-master overrides are mended by `tidyPptx`
             (decision note §6). A repair prompt that remains is something the schema does
             not catch, most likely the EOT font parts.
+writer    — (2026-11-15) Calco now writes the package itself (no pptxgenjs, no mending pass;
+            engineering/decisions/2026-11-13-native-pptx-writer.md). The check above applies to
+            those bytes.
 type sets — (2026-11-11, #3130 P3) the same check now also covers #3117's type sets: open the editable
             .pptx of `examples/typography-sets.md`, light and dark (`node lattice.js <deck> out.pptx --editable`;
             dark needs `color-mode: dark` in the front matter), and confirm Newsreader, Inter, Barlow Condensed

@@ -11,7 +11,6 @@ picture per slide.
 ```ts
 import { readSlide, restoreSlide, prepareFonts, writeOdp, writePptx } from '@laticent/calco';
 import JSZip from 'jszip';
-import PptxGenJS from 'pptxgenjs';
 
 // 1. In the page (a browser, or puppeteer's elementHandle.evaluate):
 const read = readSlide(slideElement, { hide: true }); // text → frames; text now hidden
@@ -25,7 +24,7 @@ const deck = {
 };
 deck.fonts = await prepareFonts(deck, { load, pin }); // optional: embed the fonts
 const odp = await writeOdp(JSZip, deck);               // Uint8Array
-const pptx = await writePptx(PptxGenJS, deck, 'uint8array', JSZip); // fonts embedded
+const pptx = await writePptx(JSZip, deck);             // Uint8Array, fonts embedded
 ```
 
 ## Install
@@ -108,26 +107,39 @@ For the pictures Calco crops out of a slide itself (a photo, an icon), pass `cap
 share }`, the instructions it encodes by. Leave it out and every crop is a lossless PNG.
 
 Both formats embed the faces. The `.odp` carries them as TrueType. The `.pptx` carries them as
-Embedded OpenType in `ppt/fonts/` when you pass JSZip as `writePptx`'s fourth argument; a regular or
+Embedded OpenType in `ppt/fonts/`; a regular or
 bold face goes in its slot of the family's own name ("Playfair Display", flagged bold or italic by the run), and any
 other weight becomes a family of its own ("Outfit SemiBold"), because PowerPoint's font slots are only
 regular, bold, italic and bold italic. Only TrueType-outline faces are embedded in a `.pptx`; a
-CFF face, or a call without JSZip, is named instead, so a reader without it sees a substitute.
+CFF face is named instead, so a reader without it sees a substitute.
 
-Pass JSZip to `writePptx` even when the deck has no fonts to embed: Calco also uses it to mend
-three schema errors PptxGenJS 3.12 writes (a paragraph's properties repeated before every run,
-the notes master listed out of order, and a slide master declared per slide). Without JSZip the
-file is exactly what PptxGenJS wrote.
+## The PowerPoint package
 
-A `.pptx` you built with PptxGenJS yourself (pictures only, say) can take the same mending:
-`await tidyPptxPackage(JSZip, bytes)` returns the package with those errors fixed and nothing
-else changed. Pass its notes, alt text and document properties through `xmlSafe(text)` first:
-PptxGenJS escapes markup but writes control characters as they come, and one makes its XML
-part unreadable.
+`writePptx(JSZip, deck, outputType)` builds the whole OOXML package itself, as `writeOdp` builds
+the `.odp`: the content types and relationships, the document properties, one slide master with
+a layout for each look (`planMasters`), a notes master, the slides and their notes pages, the
+fonts, and the media, one part per distinct picture, named by a hash of its bytes. Each master
+has its own theme, the parts are in the order the ISO/IEC 29500 schema gives, and every shape id
+is unique on its slide. `outputType` is JSZip's (`uint8array`, the default, `nodebuffer`,
+`arraybuffer`, `blob`, `base64`); `buildPptx(JSZip, deck)` returns the zip unwritten.
+
+What the browser drew comes out as PowerPoint's own objects: a card is a `p:grpSp` (or, when it
+holds custom geometry, its members loose in paint order, because Apple's Office importer drops
+custom geometry inside a group), the slide title is the title placeholder, the page number is a
+`slidenum` field, small caps are `cap="small"`, and an icon that is an inline `<svg>` is an SVG
+picture with its PNG as the fallback.
+
+A picture-only deck is a deck whose slides have an `image` and no `frames`: Lattice's plain
+`.pptx` is written that way, by the same function. Every text value goes through `xmlSafe`
+(which strips the characters XML 1.0 forbids) and is then escaped.
+
+Calco 0.1 took PptxGenJS as `writePptx`'s first argument and JSZip as its fourth, and exported
+`tidyPptxPackage`, `embedPptxFonts`, `groupShapes`, `applyRoles` and `uniqueShapeIds` to mend
+what PptxGenJS wrote. Those are gone: pass JSZip first.
 
 ## No dependencies
 
-JSZip, PptxGenJS and the font pinner are passed in. `readSlide` and `restoreSlide` close over
+JSZip and the font pinner are passed in. `readSlide` and `restoreSlide` close over
 nothing, so a headless browser can receive them as source.
 
 ## Limits
