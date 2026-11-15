@@ -80,4 +80,21 @@ describe('createPosterStore', () => {
 		await expect(store.put('a', pic('one'))).resolves.toBeUndefined();
 		expect(await store.get('a')).toBeNull();
 	});
+	it('reads with a readonly transaction and writes nothing for a row stamped within the hour', async () => {
+		const store = createPosterStore(name());
+		await store.put('a', pic('one'));
+		const modes: string[] = [];
+		const real = IDBDatabase.prototype.transaction;
+		const spy = vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(function (this: IDBDatabase, ...args: Parameters<IDBDatabase['transaction']>) {
+			modes.push(String(args[1] ?? 'readonly'));
+			return real.apply(this, args);
+		});
+		try {
+			vi.advanceTimersByTime(30 * 60 * 1000); // half an hour: inside the stamp window
+			expect(await text(await store.get('a'))).toBe('one');
+			expect(modes).toEqual(['readonly']);
+		} finally {
+			spy.mockRestore();
+		}
+	});
 });

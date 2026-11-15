@@ -206,19 +206,28 @@ function strictRule(key, url, write) {
 	}
 	return faceRules.get(key);
 }
-/** The vendored face the browser would draw `face` with: its family, the same style if one is vendored, the nearest weight. */
+/**
+ * The weight CSS font matching draws for `want` out of `have` (CSS Fonts 4 §5.2, font-weight). Not "the nearest": from
+ * 400 to 500 the browser tries weights up to 500 first, then lighter ones, then heavier; below 400 it tries lighter then
+ * heavier; above 500, heavier then lighter. So 500 out of {400, 600} is 400, and 520 out of {400, 700} is 700.
+ * Exported for font-embed.family.test.ts.
+ */
+export function cssWeightFor(want, have) {
+	const up = have.filter((w) => w >= want).sort((a, b) => a - b);
+	const down = have.filter((w) => w < want).sort((a, b) => b - a);
+	if (want >= 400 && want <= 500) return up.find((w) => w <= 500) ?? down[0] ?? up[0];
+	return want < 400 ? (have.includes(want) ? want : (down[0] ?? up[0])) : (up[0] ?? down[0]);
+}
+
+/** The vendored face the browser would draw `face` with: its family, the same style if one is vendored, then the weight
+ *  CSS matching picks (`cssWeightFor`). */
 function vendoredFaceFor({ family, weight, style }) {
 	const same = EMBED_FACES.filter((f) => f.family.toLowerCase() === family);
 	const styled = same.filter((f) => f.style === style);
 	const pool = styled.length ? styled : same;
-	// Nearest weight; on a tie, the side CSS font matching tries first: heavier from 400 up, lighter below it.
-	let best = null;
-	for (const f of pool) {
-		const d = Math.abs(f.weight - weight);
-		const b = best ? Math.abs(best.weight - weight) : Number.POSITIVE_INFINITY;
-		if (d < b || (d === b && (weight >= 400 ? f.weight > best.weight : f.weight < best.weight))) best = f;
-	}
-	return best;
+	if (!pool.length) return null;
+	const w = cssWeightFor(weight, pool.map((f) => f.weight));
+	return pool.find((f) => f.weight === w) ?? null;
 }
 
 export async function buildFamilyFontCss(faces, text = '') {

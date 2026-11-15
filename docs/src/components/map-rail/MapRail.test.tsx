@@ -133,6 +133,11 @@ describe('MapRail', () => {
 		}
 	});
 
+	it('reports its ramp done at once on a rail with no live tiles, which never ramps', () => {
+		const { container } = render(<MapRail {...props({ count: 40, ramp: true })} />);
+		expect(container.querySelector('[data-ramp]')?.getAttribute('data-ramp')).toBe('done');
+	});
+
 	// A pool that reports its capacity, the way PreviewPool's `onSettle` does, from a layout effect.
 	function Pool({ capacity, report, children }: { capacity: number; report: (p: { capacity: number }) => void; children: React.ReactNode }) {
 		React.useLayoutEffect(() => report({ capacity }), [capacity, report]);

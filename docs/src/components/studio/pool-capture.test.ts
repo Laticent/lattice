@@ -108,4 +108,27 @@ describe('a poster carries the slide\'s own fonts, or is not taken', () => {
 			sec.remove();
 		}
 	});
+	it('skips a pseudo-element that draws nothing, and reads a list item\'s ::marker', () => {
+		const sec = document.createElement('section');
+		sec.style.fontFamily = 'Outfit';
+		sec.innerHTML = '<p class="quiet">Plan</p><ul><li>Item</li></ul>';
+		document.body.appendChild(sec);
+		const real = window.getComputedStyle.bind(window);
+		const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((el: Element, pseudo?: string | null) => {
+			if (pseudo === '::before' && (el as HTMLElement).classList.contains('quiet'))
+				return { content: 'none', fontFamily: '"Fraunces"', fontWeight: '700', fontStyle: 'normal' } as CSSStyleDeclaration;
+			if (pseudo === '::marker' && el.tagName === 'LI') return { content: 'normal', fontFamily: '"Caveat"', fontWeight: '400', fontStyle: 'normal' } as CSSStyleDeclaration;
+			const cs = real(el);
+			if (!pseudo && el.tagName === 'LI') return { ...cs, display: 'list-item', fontFamily: cs.fontFamily, fontWeight: cs.fontWeight, fontStyle: cs.fontStyle } as CSSStyleDeclaration;
+			return pseudo ? ({ ...cs, content: 'none' } as CSSStyleDeclaration) : cs;
+		});
+		try {
+			const faces = facesOf(sec);
+			expect(faces.map((f) => f.family)).not.toContain('fraunces');
+			expect(faces).toContainEqual({ family: 'caveat', weight: 400, style: 'normal' });
+		} finally {
+			spy.mockRestore();
+			sec.remove();
+		}
+	});
 });

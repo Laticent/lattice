@@ -111,14 +111,16 @@ export function createPosterStore(name: string, { max = 400 }: { max?: number } 
 				const row = (await settle(d.transaction(STORE, 'readonly').objectStore(STORE).get(key))) as Row | undefined;
 				// Tested by its tag, not `instanceof`: the bytes may come from another realm (a frame, a test's DOM).
 				if (!row || Object.prototype.toString.call(row.bytes) !== '[object ArrayBuffer]') return null;
-				// A read is a use: eviction drops the posters least recently SHOWN, so the deck a reader opens every day is not
-				// pushed out by a run of palette switches that each wrote a deck's worth of new keys. The stamp is its own
-				// write, best effort, and only for a row not stamped in the last hour: a returning load reads a whole window,
-				// and rewriting every row it shows, in serialized readwrite transactions, would tax the load this store
-				// speeds up. A stamp that fails costs nothing; the picture was read.
+				// A read is a use: eviction drops the posters least recently shown, to within an hour, so the deck a reader opens
+				// every day is not pushed out by a run of palette switches that each wrote a deck's worth of new keys. The
+				// stamp is its own write, best effort, and only for a row not stamped in the last hour, so a reload within the
+				// hour writes nothing; a next-day return still stamps each row it shows, once, off the read's path. A stamp that
+				// fails costs nothing: the picture was read, and its failure is swallowed rather than logged as an abort.
 				if (Date.now() - row.at > STAMP_EVERY_MS) {
 					try {
-						d.transaction(STORE, 'readwrite').objectStore(STORE).put({ ...row, at: Date.now() } satisfies Row);
+						const tx = d.transaction(STORE, 'readwrite');
+						tx.onerror = (e) => e.preventDefault();
+						tx.objectStore(STORE).put({ ...row, at: Date.now() } satisfies Row);
 					} catch {
 						// the connection closed under it (another tab); the next read stamps it
 					}

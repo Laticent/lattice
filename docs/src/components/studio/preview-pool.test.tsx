@@ -967,3 +967,15 @@ describe('the capture gate waits for the reader as well as the scroller', () => 
 		expect(readerQuietFor()).toBeLessThan(CAPTURE_INPUT_QUIET_MS);
 	});
 });
+
+// The reader-input gate listens from the pool's MOUNT, not its first capture: the first capture is the costliest, and a
+// reader typing before it must hold it back. A fresh module, so no earlier test has installed the listener already.
+describe('the pool hears the reader from the moment it mounts', () => {
+	it('notes a keystroke after mount, before any capture has run', async () => {
+		vi.resetModules();
+		const fresh = await import('./preview-pool');
+		render(<fresh.PreviewPool>{null}</fresh.PreviewPool>);
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+		expect(fresh.readerQuietFor()).toBeLessThan(fresh.CAPTURE_INPUT_QUIET_MS);
+	});
+});

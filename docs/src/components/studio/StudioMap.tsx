@@ -93,6 +93,9 @@ const STORE = createPosterStore('lattice-studio-posters');
  *  like, so stored posters are retired with it. */
 const POSTER_FORMAT = 2;
 
+/** A library photo reference anywhere in a slide's inputs, matched as the resolver matches it (case-insensitive). */
+const ASSET = /asset:/i;
+
 /** A plain (non-underscore) directive comment carries onto every later slide, Marp's rule, so it is part of what a
  *  slide looks like even though it is not in the slide's text. `header` and `footer` set their own slide
  *  only (audit §11r), so they are not carried. */
@@ -269,7 +272,8 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 	// biome-ignore lint/correctness/useExhaustiveDependencies: a new look is what empties the cache.
 	const liveCache = React.useMemo(() => new Map<number, React.ReactNode>(), [look]);
 	// A library photo named outside the slide's text (the front matter, the finish CSS) is in every slide's picture.
-	const usesAsset = React.useMemo(() => `${look.front}${look.extraCss ?? ''}`.includes('asset:'), [look]);
+	// Case-insensitive, as the resolver is (lib/core/media-sources.js ASSET_REF), and the custom theme's CSS too.
+	const usesAsset = React.useMemo(() => ASSET.test(`${look.front}${look.extraCss ?? ''}${look.extraTheme?.css ?? ''}`), [look]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `posterRev` is the trigger (a poster arrived); the body reads the cache.
 	const live = React.useCallback(
 		(i: number) => {
@@ -286,7 +290,7 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 			//
 			// A slide that shows a library photo (`asset:name`) is the exception: the photo can be replaced under the same name, so
 			// its slide text, and with it the poster's key, does not change when its picture does. Its frame keeps drawing.
-			if (!usesAsset && !text.includes('asset:') && cache.has(keyOf(i))) return null;
+			if (!usesAsset && !ASSET.test(text) && cache.has(keyOf(i))) return null;
 			const hit = liveCache.get(i);
 			if (hit) return hit;
 			const face = <PooledThumbFace options={look.options} sample={look.sample} slideIndex={i} slideCount={look.items.length} slideMarkdown={look.front + text} drawn={hasDrawnFence(text)} paletteOverride={look.paletteOverride} extraTheme={look.extraTheme} modeOverride={look.modeOverride} extraCss={look.extraCss} className="size-full" onPicture={(capture) => onPictureRef.current(i, capture)} />;

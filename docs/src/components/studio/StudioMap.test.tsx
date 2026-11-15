@@ -93,6 +93,21 @@ describe('StudioMap', () => {
 		expect(document.querySelector('[data-live-face="1"]')).not.toBeNull();
 	});
 
+	// The photo check reads the front matter too, and matches as the resolver does, case-insensitively.
+	it('keeps every slide live when the front matter names a library photo, in any case', async () => {
+		pool.capturing = true;
+		URL.createObjectURL ??= () => 'blob:poster';
+		URL.revokeObjectURL ??= () => {};
+		render(setup(undefined, '---\ntheme: indaco\nbackgroundImage: url(Asset:hero)\n---\n\n# One\n\n---\n\n# Two\n').ui);
+		const tile = (u: number) => document.querySelector<HTMLElement>(`button[data-unit="${u}"]`);
+		await waitFor(() => {
+			expect(tile(0)?.dataset.shows).toBe('live');
+			expect(tile(1)?.dataset.shows).toBe('live');
+		});
+		// Captured all the same: the pool offered each picture, and a poster exists under each frame.
+		expect(tile(0)?.querySelector('img')).not.toBeNull();
+	});
+
 	it('picks through the shell: a tile asks for its chunk and heading section', () => {
 		const { ui, onPick } = setup();
 		render(ui);

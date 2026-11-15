@@ -16,7 +16,7 @@ afterEach(() => {
 	net.status = 200;
 });
 
-import { buildFamilyFontCss, FACES } from './font-embed.js';
+import { buildFamilyFontCss, cssWeightFor, FACES } from './font-embed.js';
 
 const face = (family: string, weight = 400, style = 'normal') => ({ family, weight, style });
 
@@ -85,5 +85,18 @@ describe('buildFamilyFontCss', () => {
 		await expect(m.buildFamilyFontCss([], 'Party \u{1F389}')).rejects.toThrow();
 		net.status = 200;
 		expect(await m.buildFontEmbedCss('Party \u{1F389}')).toContain("font-family:'Noto Color Emoji'");
+	});
+	it('picks the weight CSS font matching draws, not the nearest one (CSS Fonts 4 §5.2)', () => {
+		expect(cssWeightFor(500, [400, 600])).toBe(400); // 400..500: up to 500 first, then lighter, then heavier
+		expect(cssWeightFor(450, [300, 400, 500, 600, 700])).toBe(500);
+		expect(cssWeightFor(520, [400, 700])).toBe(700); // above 500: heavier first
+		expect(cssWeightFor(300, [400, 700])).toBe(400); // below 400: lighter first, then heavier
+		expect(cssWeightFor(350, [300, 400])).toBe(300);
+		expect(cssWeightFor(700, [400, 600])).toBe(600);
+	});
+	it('embeds the Barlow Condensed face the browser draws at 500: the 400, not the nearer-looking 600', async () => {
+		const css = await buildFamilyFontCss([face('barlow condensed', 500)]);
+		expect(css).toContain('font-weight:400');
+		expect(css).not.toContain('font-weight:600');
 	});
 });

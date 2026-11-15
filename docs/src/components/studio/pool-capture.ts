@@ -47,6 +47,9 @@ export function facesOf(section: HTMLElement): Array<{ family: string; weight: n
 			const ps = win.getComputedStyle(el, pseudo);
 			if (ps.content && ps.content !== 'none' && ps.content !== 'normal') add(ps);
 		}
+		// A list item's marker draws in its own face too (a sketch deck sets `li::marker` in its display face), and its
+		// `content` is `normal` by default, so it is read whenever the element is a list item.
+		if (win.getComputedStyle(el).display === 'list-item') add(win.getComputedStyle(el, '::marker'));
 	}
 	return [...out.values()];
 }
