@@ -1,7 +1,6 @@
 import { render } from '@testing-library/react';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The live ProseMirror view the component builds (the same capture ComposeView.sync.test.tsx uses).
