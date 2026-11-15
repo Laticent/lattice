@@ -467,3 +467,59 @@ describe('DeckPreview — preview-sized photo copies', () => {
 		await waitFor(() => expect(renderInto.mock.calls.length).toBeGreaterThan(before));
 	});
 });
+
+// `onPaint` says the frame SHOWS the render; `onRender` fires at commit. A full write commits before the frame has
+// navigated to the new document, so a reader of the frame's DOM on `onRender` could still see the old slide (the photo
+// verdict, coach/photo-contrast-watch.ts). The frame's document is driven by hand here: the mocked renderer appends
+// `iframe.live` with a document the test swaps, the way a srcdoc navigation would.
+describe('DeckPreview — onPaint waits for the frame to show the render', () => {
+	function frameWithDocs() {
+		let doc = document.implementation.createHTMLDocument('a');
+		let frame: HTMLIFrameElement | null = null;
+		const mount = (host: HTMLElement) => {
+			if (frame) return;
+			frame = document.createElement('iframe');
+			frame.className = 'live';
+			Object.defineProperty(frame, 'contentDocument', { get: () => doc });
+			host.appendChild(frame);
+		};
+		const navigate = () => {
+			doc = document.implementation.createHTMLDocument('b');
+			frame?.dispatchEvent(new Event('load'));
+		};
+		return { mount, navigate };
+	}
+
+	it('fires at commit when the render patched the document already in the frame', async () => {
+		const f = frameWithDocs();
+		renderInto.mockImplementation((host: HTMLElement) => {
+			f.mount(host);
+			return Promise.resolve({ ok: true, slides: 1, error: null, writePath: 'patch' });
+		});
+		const onPaint = vi.fn();
+		const onRender = vi.fn();
+		render(<DeckPreview options={opts} sample="# A" drawn={false} onRender={onRender} onPaint={onPaint} aria-label="p" />);
+		await waitFor(() => expect(onRender).toHaveBeenCalled());
+		expect(onPaint).toHaveBeenCalledTimes(onRender.mock.calls.length);
+	});
+
+	it('waits for the load when a full write still holds the old document at commit', async () => {
+		const f = frameWithDocs();
+		// The first render mounts the frame; the second is a full write that has not navigated when it resolves.
+		renderInto.mockImplementationOnce((host: HTMLElement) => {
+			f.mount(host);
+			return Promise.resolve({ ok: true, slides: 1, error: null, writePath: 'patch' });
+		});
+		const onPaint = vi.fn();
+		const onRender = vi.fn();
+		const { rerender } = render(<DeckPreview options={opts} sample="# A" drawn={false} onRender={onRender} onPaint={onPaint} aria-label="p" />);
+		await waitFor(() => expect(onRender).toHaveBeenCalledTimes(1));
+		expect(onPaint).toHaveBeenCalledTimes(1);
+		renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null, writePath: 'write' }));
+		rerender(<DeckPreview options={opts} sample="# B" drawn={false} onRender={onRender} onPaint={onPaint} aria-label="p" />);
+		await waitFor(() => expect(onRender).toHaveBeenCalledTimes(2));
+		expect(onPaint).toHaveBeenCalledTimes(1);
+		act(() => f.navigate());
+		expect(onPaint).toHaveBeenCalledTimes(2);
+	});
+});
