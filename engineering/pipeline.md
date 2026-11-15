@@ -551,9 +551,9 @@ a copied `.svg` file), and the image context is what keeps its script inert. A p
 decode, or whose type the cleaner does not read (AVIF), becomes the stand-in, percent-encoded so it
 cannot end the quote, attribute or `url(…)` it is pasted into.
 
-**Not cleaned yet, pending the owner's decision: the deck's own source.** A `data:` picture written in
-the Markdown rides verbatim wherever the source does (cleaning it means rewriting the deck as written,
-a contract change put to the owner on PR #3183; `followups.d/3183-p9-inline-data-pictures-in-carried-source.md`): the player's `lattice-doc` envelope, a
+**Not cleaned yet: the deck's own source. The owner chose to clean it (2026-11-15); how the author is told is still open.** A `data:` picture written in
+the Markdown rides verbatim wherever the source does (cleaning it rewrites the deck as written,
+which the owner accepted; `followups.d/3183-p9-inline-data-pictures-in-carried-source.md`): the player's `lattice-doc` envelope, a
 `.lattice` file's `deck.md`, `--embed-source`, and the Marp bundle's `deck.md`. The same holds for an
 address the renderer declines to draw (markdown-it accepts only `data:image/(gif|png|jpeg|webp)`
 links, so `![a](data:image/jpg;…)` stays as text on the slide): the bytes are the author's text, not
