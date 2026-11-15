@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 /**
  * The reference diff of the lint-core rewrite (engineering/decisions/2026-11-13-squadra-replaces-lint-core.md §6):
- * run the FROZEN lint-core (tools/squadra/reference/lint-core.js, as it stood at the fork) and the new `deck` ruleset
- * (lib/authoring/squadra, `lintDeck`) over the same corpora and compare what each reports, finding by finding.
+ * run lint-core (lib/authoring/lint-core.js) and the new `deck` ruleset (lib/authoring/squadra, `lintDeck`) over the
+ * same corpora and compare what each reports, finding by finding.
+ *
+ * THE REFERENCE IS THE LIVE LINT-CORE, not a copy. The rewrite does not edit lint-core: rules join the new ruleset
+ * beside it (steps 4-5), and step 6 runs this diff a last time and then deletes it. Until then the file on the branch
+ * IS the reference, and it carries main's lint-core changes whenever the branch takes main, so a family is never held
+ * to behavior main has dropped. (A frozen copy was tried first; it only added 10,800 lines that had to equal this file.)
  *
  * The corpora (tools/squadra/corpus.js):
  *   1. every source the lint unit tests hand the linter, recorded by running them (`--corpus <file>` reuses one,
@@ -19,7 +24,7 @@
  *
  * A rule is MIGRATED when the new ruleset defines `deck/<rule>`. The diff is held only on migrated rules (and on
  * Squadra's own `squadra/*` findings, which always count). Every difference in one must be fixed, or explained in
- * tools/squadra/reference/explained.json, one entry per kind of difference:
+ * tools/squadra/explained.json, one entry per kind of difference:
  *
  *   { "<rule>": [ { "kind": "lint", "match": "<regex on the message>", "why": "<the reason it is intended>" },
  *                 { "kind": "fix",  "match": "<regex on the source name>", "why": "…" } ] }
@@ -55,9 +60,9 @@ const OUT = flag('--out', null);
 const ONLY = flag('--rules', null)?.split(',').filter(Boolean) ?? null;
 const FIX = argv.includes('--fix');
 const JSON_OUT = argv.includes('--json');
-const EXPLAINED_FILE = path.join(__dirname, 'squadra', 'reference', 'explained.json');
+const EXPLAINED_FILE = path.join(__dirname, 'squadra', 'explained.json');
 
-const ref = require('./squadra/reference/lint-core');
+const ref = require('../lib/authoring/lint-core');
 const { buildVocab } = require('../lib/authoring/lint');
 const { separatorLines } = require('../lib/authoring/slide-split');
 const { fencedLines } = require('../lib/core/shape-glyphs');

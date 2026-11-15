@@ -124,10 +124,10 @@ representative demo deck is rendered in dark and light and sent to the owner for
 
 ## 6. How the rewrite proves itself
 
-- **The reference diff.** lint-core as it stands at the fork point is frozen under `tools/squadra/reference/` (test-only;
-  deleted at merge). `npm run squadra:reference-diff` runs it and the new linter over the three corpora (the lint
-  tests' inputs, mutated decks, the tracked decks) and compares rule, severity, slide, message and the line the span
-  starts on. Every difference is fixed or listed in the PR as intended, with the reason. A family's commit lands only
+- **The reference diff.** lint-core itself is the reference: the rewrite does not edit it, and step 6 runs the diff a
+  last time before deleting it (§10 says why a frozen copy was dropped). `npm run squadra:reference-diff` runs it and
+  the new linter over the three corpora (the lint tests' inputs, mutated decks, the tracked decks) and compares rule,
+  severity, slide, message and the line the span starts on. Every difference is fixed or listed in the PR as intended, with the reason. A family's commit lands only
   with its diff at 0 or explained.
 - **The fix diff.** Fix all on the old and new paths over the same corpora; same rule.
 - **The tests.** The ~60 test files that assert on lint-core's record are rewritten to the finding contract, not
@@ -143,14 +143,14 @@ branch and says the previous session is finished).
 
 1. This decision doc.
 2. Foundation: the `./runtime` entry and build-time stamps; `lattice-deck`'s full tree from the islands on `main`
-   (directives, notes, containers); the Lattice entry (`lintDeck`, `fixDeck`); the frozen reference and its diff tool.
+   (directives, notes, containers); the Lattice entry (`lintDeck`, `fixDeck`); the reference diff tool, on lint-core itself.
 3. The front-matter island, and `fm-key` in `lattice-deck`.
 4. Rule families, one commit each, each with its reference diff at 0 or explained: front-matter registers; directives
    and notes; class tokens and components; cards and lists; inline spans (pills, sparks, legends, callouts); charts;
    capacity and fit; panes; glyphs; plugins (their `lint` role moves to Squadra rules); the rest.
 5. Consumers: the Studio (editor, Coach, Fix all, thin-card fix, photo verdict, architect), the Playground, `lint:deck`
    and the CLI, conformance kinds, the score tools.
-6. Delete lint-core, the bridge, `lattice-line`, the legacy fix path and the frozen reference; measure the bundle;
+6. Run the reference diff a last time, then delete lint-core, the bridge, `lattice-line`, the legacy fix path and the diff tool; measure the bundle;
    render the export sign-off decks; the adversarial trio; the merge ask.
 
 Estimated 6–10 sessions (an estimate from #3194's pace: one session built a language, an adapter, a diff and two rules).
@@ -212,17 +212,16 @@ empty until step 4) loaded through the runtime. The vocab bridge (`lib/authoring
 string-list vocabularies as sorted arrays; the structured ones (capacity, pane specs, exclusive axes) cross with the
 families that read them.
 
-**The frozen reference and its diff.** `tools/squadra/reference/lint-core.js` is lint-core at the fork (`8e68a196`),
-its requires pointed back at the live `lib/` modules. `npm run squadra:reference-diff` runs it and `lintDeck` over the
+**The reference and its diff.** The reference is `lib/authoring/lint-core.js` itself: nothing in the rewrite edits it,
+so until step 6 deletes it the branch's copy is the reference, and it carries main's changes whenever the branch takes
+main. `npm run squadra:reference-diff` runs it and `lintDeck` over the
 three corpora (`tools/squadra/corpus.js`, carried from #3194) and holds each migrated rule to it on rule, severity,
 slide, message and the TEXT of the line a finding starts on (lint-core names its line by text, so line numbers would
 make false differences on repeated lines; a lint-core finding it cannot place matches on the other four and is counted
-as unlocated). A difference passes only when fixed or explained in `tools/squadra/reference/explained.json`, one entry
+as unlocated). A difference passes only when fixed or explained in `tools/squadra/explained.json`, one entry
 per kind of difference (`lint` or `fix`, a pattern, the reason), and an entry that explains nothing fails the run.
 `--fix` adds the Fix-all diff, attributing each differing source to the rules whose findings changed under either fix.
-With no rule migrated it reports every lint-core rule as not yet migrated and passes. Only lint-core is frozen: its
-requires reach the live `lib/` modules, so step 3's island changes what the reference reports, and each family's commit
-says so where it matters.
+With no rule migrated it reports every lint-core rule as not yet migrated and passes.
 
 **Review.** The maker-checker pass found a red unit test (the new build step was unclassified), four holes in the diff
 tool (a fix difference no rule owned passed; per-rule explanations switched a rule off; line numbers mismatched on
@@ -241,13 +240,12 @@ loaded lint-core before `payload-elision-lint-oracle.test.js` could stub `elideP
 load. The preload now wraps the linter when a test first loads it, and a recording with any red test now stops the
 diff instead of being printed and ignored.
 
-**Re-freeze when the branch takes main's lint-core.** The fork's lint-core is the reference only while it is also the
-branch's. Main has already changed lint-core since the fork (#3174, #3181, which reworked `bg-ratio-unread`), and a
-behind-but-clean PR never rebases (#16), so those changes would reach this branch only at a rebase or merge of main. At
-that point the reference must move too, or a family is held to behavior main dropped and step 6 quietly undoes main's
-change. `tools/squadra/freeze-reference.js` re-freezes it, and test/unit/authoring/squadra-lattice-deck.test.js fails
-while the frozen copy differs from the branch's lint-core. Before a family's diff, take main (the plan's step 4 needs
-main's current rules, which is a reason #16 accepts) and re-freeze.
+**No frozen copy (2026-11-14).** The diff first ran a copy of lint-core frozen at the fork under `tools/squadra/reference/`.
+The second card grader found nothing kept it in step with the branch's lint-core, which main had already changed
+(#3174, #3181); a test then forced the copy to equal the live file, and CI's merge with main tripped it, which forced a
+rebase. A copy that must equal the live file is the live file plus 10,800 lines of diff. Since nothing in the rewrite
+edits lint-core before step 6 deletes it, the diff reads `lib/authoring/lint-core.js` directly; the copy, its re-freeze
+script and its test are gone. If a step ever has to change lint-core before step 6, the copy comes back for that step.
 
 **What the failing arm did not cover.** It changed a message, so it exercised that field and not severity, slide or
 line text (those are covered by the matcher's unit tests) and not the `--fix` path. And while most rules are still
