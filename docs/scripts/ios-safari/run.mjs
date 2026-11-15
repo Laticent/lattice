@@ -184,10 +184,35 @@ async function composeTouchTap(id) {
 			const p = ps[1] || ps[0];
 			if (!p) return null;
 			window.__touchIndex = ps.indexOf(p);
-			p.scrollIntoView({ block: 'center' });
+			p.scrollIntoView({ block: 'center', behavior: 'instant' });
 			return { text: p.textContent.slice(0, 40), vv: visualViewport ? visualViewport.height : innerHeight };`);
 		if (!target) return { ok: false, steps, error: 'no Compose paragraph to tap' };
-		const at = await run(`const r = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8)[window.__touchIndex].getBoundingClientRect(); return { x: Math.round(r.left + Math.min(r.width / 2, 40)), y: Math.round(r.top + r.height / 2) };`);
+		// WHERE TO TAP, once the paragraph holds still. A slow simulator (runs 43522383932, 18.5 s and 6.8 s gestures) was
+		// still scrolling or settling the page when the point was read, so the tap landed beside the paragraph: nothing was
+		// selected, the editor never took the focus, and the caret stayed where it was. The point is read after the box has
+		// stayed put for five frames (a signal, not a sleep), and only when the paragraph is the element under it.
+		const at = await wd('POST', `/session/${id}/execute/async`, {
+			args: [],
+			script: `const done = arguments[arguments.length - 1];
+				const t0 = performance.now();
+				let last = '';
+				let still = 0;
+				const look = () => {
+					const p = [...document.querySelectorAll('#studio-pane-editor .cs-host .ProseMirror > .cs-slide p')].filter((p) => p.textContent.trim().length > 8)[window.__touchIndex];
+					const r = p.getBoundingClientRect();
+					const x = Math.round(r.left + Math.min(r.width / 2, 40));
+					const y = Math.round(r.top + r.height / 2);
+					const key = x + ',' + y;
+					still = key === last ? still + 1 : 0;
+					last = key;
+					const under = document.elementFromPoint(x, y);
+					const hit = !!(under && p.contains(under));
+					if ((still >= 5 && hit) || performance.now() - t0 > 10000) done({ x, y, still, hit, under: under ? under.tagName + '.' + under.className : 'none' });
+					else requestAnimationFrame(look);
+				};
+				look();`,
+		});
+		if (!at.hit) return { ok: false, steps, error: `the paragraph never held still under its tap point: at ${at.x},${at.y} the page shows ${at.under} (still for ${at.still} frames)` };
 		await wd('DELETE', `/session/${id}/actions`).catch(() => {});
 		// NO HOLD between down and up. A tap has none, and the simulator can stretch a hold: with an 80 ms pause here, a slow
 		// iPad simulator (run 43266767594, the one whose session had already timed out once) read the tap as a long press and
@@ -210,12 +235,12 @@ async function composeTouchTap(id) {
 					const focused = !!(document.activeElement && document.activeElement.closest('.ProseMirror'));
 					const marked = !!(p && p.classList.contains('cs-active-line'));
 					const caret = !!(sel && sel.isCollapsed);
-					if ((inP && caret && focused && marked) || performance.now() - t0 > 4000) done({ inP, caret, picked: sel ? String(sel).slice(0, 40) : '', focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className });
+					if ((inP && caret && focused && marked) || performance.now() - t0 > 4000) done({ inP, caret, picked: sel ? String(sel).slice(0, 40) : '', focused, marked, vv: visualViewport ? visualViewport.height : innerHeight, active: document.activeElement && document.activeElement.className, where: node ? (node.nodeType === 3 ? node.parentElement : node)?.tagName + ' "' + String(node.textContent).slice(0, 30) + '"' : 'nothing' });
 					else requestAnimationFrame(read);
 				};
 				read();`,
 		});
-		step('a touch tap puts the caret in the tapped paragraph', seen.inP && seen.caret, `"${target.text}" at ${at.x},${at.y}, gesture ${tapMs} ms${seen.caret ? '' : `, but it SELECTED "${seen.picked}" (read as a long press)`}`);
+		step('a touch tap puts the caret in the tapped paragraph', seen.inP && seen.caret, `"${target.text}" at ${at.x},${at.y} (held still ${at.still} frames), gesture ${tapMs} ms${seen.caret ? '' : `, but it SELECTED "${seen.picked}" (read as a long press)`}${seen.inP ? '' : `; the selection sits in ${seen.where}`}`);
 		step('the editor has the focus after the tap', seen.focused, `active: ${seen.active}`);
 		step('the tapped paragraph carries the caret-line mark', seen.marked);
 		step('the software keyboard (detail only)', true, seen.vv < target.vv - 100 ? `up: viewport ${target.vv} to ${seen.vv}` : `not shown: viewport ${target.vv} to ${seen.vv}`);
