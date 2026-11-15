@@ -77,18 +77,26 @@ removing the path would be a second change in the same PR.
   drill-back swapped the slot (`setLibraryOpen(false)` no longer closes Chat).
 - **The types live with the rail** (`chrome-parts.tsx`: `StudioPaneId`, `isAssistantPane`,
   `isSettingsPane`, `PANE_NAME`, `PANE_RAIL_LABEL`), because the pre-paint shell draws the rail too.
-- **Last used and the chip are derived during render** (React's "adjust state when a value changes"
-  pattern), so the rail mark and the chip are right in the same commit as the swap.
+- **The chip is cleared during render** (React's "adjust state when a value changes" pattern), in the
+  same commit as the swap that ends it.
+- **Only the author's own swaps move the last-used mark**: the rail, Esc and a pane's own close call
+  `notePane`. A tour and Live's follow-along drive the slot through the group setters and leave the
+  mark alone, and the tour's snapshot restores it after pressing the rail itself (found by the checker:
+  a render-derived mark ended the Craft tour pointing at a pane the author never opened).
 - **The chip is part of the shared panel header**, not a per-pane widget (HARD RULE #15).
   `PanelDrillBack` in `ui/panel.tsx` wraps ONE pane; `PanelHeader` reads it. On a pointer surface it
   draws a "‹ Chat" chip before the panel's identity (44px tall on a coarse pointer). On a phone it takes
   over the existing leading back chevron: the chevron's label becomes the source pane and pressing it
-  returns there. The X keeps its one meaning.
+  returns there. On a pointer surface the X keeps its one meaning. A phone sheet has no X (its chevron
+  is the close), so after a drill-in the visible control goes back to the source, and closing straight
+  to the deck is the backdrop tap or a swipe down, as on every phone sheet. Accepted: the chevron
+  says where it goes, and the drill-in is one level deep.
 - **The drill-in that exists today:** Chat's "Manage docs" opens the Library on its Docs tab
   (`drillPane('chat', 'library')`). Coach applies its fixes in place and opens no other pane.
 - **Esc.** With focus inside a docked pane (`[data-studio-pane]` or `[data-settings-dock]`), not in a
   text field, and not already handled (`defaultPrevented`), Esc closes the pane and moves focus to the
-  rail button that opens it. Everywhere else Esc keeps its existing meaning (clearing a transient Craft
+  rail button that opens it. A tablet has no rail: there focus goes to the same control in the toolbar
+  if one exists, else to the overflow menu ("More controls"), never to `<body>` (found by the checker). Everywhere else Esc keeps its existing meaning (clearing a transient Craft
   reveal or the quiet state). A tooltip or menu left open is a Radix layer and takes the first press, so
   Esc closes the innermost layer first, as it does everywhere else in the app.
 

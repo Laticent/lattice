@@ -62,6 +62,31 @@ test.describe('desktop', () => {
 	});
 });
 
+test.describe('tablet', () => {
+	test.skip(({ viewport }) => (viewport?.width ?? 1440) < 1100, 'driven from the desktop project at 820');
+
+	test('Esc in the docked settings closes them and keeps focus on a control, not <body> (no rail at this width)', async ({ page }) => {
+		await page.setViewportSize({ width: 820, height: 1180 });
+		await gotoStudio(page);
+		await page.getByRole('button', { name: 'More controls' }).first().click();
+		await page.getByRole('menuitem', { name: /Settings — deck/ }).click();
+		const dock = page.locator('[data-settings-dock]');
+		await expect(dock).toBeVisible();
+		// The menu hands focus back to "More controls" as it closes; wait for that, THEN move into the dock,
+		// or the menu's late focus-return pulls focus out again and Esc never starts inside the pane.
+		await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe('More controls');
+		await dock.getByRole('button', { name: 'Slide scope' }).focus();
+		await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('[data-settings-dock]'))).toBe(true);
+		await page.keyboard.press('Escape');
+		await expect(dock).toBeHidden();
+		// Focus lands on a control outside the closed pane, never on <body>.
+		await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe('More controls');
+		// And a second Esc leaves it closed.
+		await page.keyboard.press('Escape');
+		await expect(dock).toBeHidden();
+	});
+});
+
 test.describe('phone @mobile @webkit-phone', () => {
 	test.skip(({ viewport }) => (viewport?.width ?? 1440) > 500, 'the phone sheets');
 

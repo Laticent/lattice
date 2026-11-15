@@ -902,6 +902,24 @@ describe('StudioShell — responsive layout', () => {
 		await user.click(await screen.findByRole('menuitem', { name: /Settings — deck/ }));
 		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
 	});
+
+	it('tablet: Esc in the docked settings closes them, and a second Esc does not bring them back', async () => {
+		setViewport('tablet');
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(await screen.findByRole('menuitem', { name: /Settings — deck/ }));
+		await waitFor(() => expect(scopeEcho()).toMatch(/Set it once — all \d+ slides follow/));
+		const seg = screen.getByRole('button', { name: 'Slide scope' });
+		seg.focus();
+		await user.keyboard('{Escape}');
+		await waitFor(() => expect(document.querySelector('[data-settings-dock]')?.hasAttribute('hidden')).toBe(true));
+		// No rail at this width: focus goes to the overflow menu that opens settings, never to <body>.
+		await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'More controls' })));
+		// user.keyboard resolves after React has applied the key press (it runs inside act), so the
+		// state is settled here: a reopen would already be in the DOM.
+		await user.keyboard('{Escape}');
+		expect(document.querySelector('[data-settings-dock]')?.hasAttribute('hidden')).toBe(true);
+	});
 });
 
 describe('StudioShell — desktop activity bar', () => {

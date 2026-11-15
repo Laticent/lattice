@@ -884,19 +884,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// panels start closed at every stop; Craft shows the activity-bar launcher, panels open on
 	// demand (T2 §4.5 orthogonality — posture never force-opens a panel). PM-4: preview is sacred.
 	const [activePane, setActivePane] = React.useState<StudioPaneId | null>(null);
-	// The pane that last held the slot — the rail marks it, so getting back is one click the
-	// author chooses rather than something X does to them.
+	// The pane the AUTHOR last had open — the rail marks it, so getting back is one click they
+	// choose rather than something X does to them. Moved only by the author's own swaps (`notePane`,
+	// called from the rail, Esc and a pane's own close), never by a tour or by following someone in
+	// Live, which drive the slot through the group setters.
 	const [lastPane, setLastPane] = React.useState<StudioPaneId | null>(null);
+	const notePane = () => {
+		if (activePane) setLastPane(activePane);
+	};
 	// A drill-in's way back: set only when one pane sends you to another (Chat's "Manage docs" →
 	// Library), shown as a "‹ Chat" chip in the destination's header, and dropped the moment the
 	// slot holds anything else.
 	const [paneBack, setPaneBack] = React.useState<{ from: StudioPaneId; to: StudioPaneId } | null>(null);
-	// Derived during render (React's "adjust state when a value changes" pattern), so the rail's
-	// mark and the chip are right in the same commit as the swap — no one-frame flash.
+	// Derived during render (React's "adjust state when a value changes" pattern), so the chip
+	// goes in the same commit as the swap that ends it — no one-frame flash.
 	const [prevPane, setPrevPane] = React.useState<StudioPaneId | null>(null);
 	if (prevPane !== activePane) {
 		setPrevPane(activePane);
-		if (prevPane) setLastPane(prevPane);
 		if (paneBack && paneBack.to !== activePane) setPaneBack(null);
 	}
 	// The two group views keep their old names: dozens of reads (aria-pressed, layout, effects,
@@ -927,8 +931,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const el = document.activeElement as HTMLElement | null;
 		if (!activePane || !el || isTypingTarget(el) || !el.closest('[data-studio-pane], [data-settings-dock]')) return false;
 		const label = PANE_RAIL_LABEL[activePane];
+		setLastPane(activePane);
 		setActivePane(null);
-		requestAnimationFrame(() => document.querySelector<HTMLElement>(`nav[aria-label="Studio panels"] button[aria-label="${label}"]`)?.focus());
+		// The rail is desktop-only. On a tablet the docked settings open from the toolbar's
+		// "Slide settings" button or the overflow menu, so focus goes to whichever of those exists
+		// — never to <body>, which is where it fell when the dock it sat in was hidden.
+		requestAnimationFrame(() => {
+			const visible = (b: HTMLElement | null) => (b && (b.checkVisibility?.() ?? true) ? b : null);
+			const target =
+				visible(document.querySelector<HTMLElement>(`nav[aria-label="Studio panels"] button[aria-label="${label}"]`)) ??
+				visible(document.querySelector<HTMLElement>(`button[aria-label="${label}"]:not([data-settings-dock] *)`)) ??
+				visible(document.querySelector<HTMLElement>('button[aria-label="More controls"]'));
+			target?.focus();
+		});
 		return true;
 	};
 	// A drill-in: open `to` from inside `from`, and leave the chip that leads back.
@@ -3779,7 +3794,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			setWelcomeMode('end');
 		},
 		layout: {
-			snapshot: () => ({ posture, assistant: activeAssistant, settings: activeSettings, view, editMode, slide: viewIndex, collapsed: splitApiRef.current.collapsed, quietened }),
+			snapshot: () => ({ posture, assistant: activeAssistant, settings: activeSettings, lastPane, view, editMode, slide: viewIndex, collapsed: splitApiRef.current.collapsed, quietened }),
 			reset: (want, { keepPresent }) => {
 				// The layout every tour is written against: this stop, no panel or sheet open, the Markdown
 				// editor and the preview both showing, the first slide. The editor's own mode (Markdown or Compose) is left
@@ -3799,10 +3814,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				setActiveSlide(0);
 			},
 			restore: (raw, { slide }) => {
-				const was = raw as { posture: Posture; assistant: typeof activeAssistant; settings: typeof activeSettings; view: typeof view; editMode: typeof editMode; slide: number; collapsed: SplitSide | null; quietened: boolean };
+				const was = raw as { posture: Posture; assistant: typeof activeAssistant; settings: typeof activeSettings; lastPane?: StudioPaneId | null; view: typeof view; editMode: typeof editMode; slide: number; collapsed: SplitSide | null; quietened: boolean };
 				changePosture(was.posture);
 				setActiveAssistant(was.assistant);
 				setActiveSettings(was.settings);
+				// The tour pressed the rail itself, so it moved the mark; put the visitor's back.
+				setLastPane(was.lastPane ?? null);
 				setView(was.view);
 				setEditMode(was.editMode);
 				setShareOpen(false);
@@ -7277,7 +7294,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    opened: clear the field, close the field, collapse the panel, all the same
 				    mark within 100px of a 296px panel. The first two are one button now; this
 				    one says what it actually does. */}
-				{!mobile && <Tip label="Collapse settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" style={{ color: panelScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}><PanelLeftClose className="size-4" /></button></Tip>}
+				{!mobile && <Tip label="Collapse settings"><button type="button" onClick={() => { notePane(); setInspectorOpen(false); }} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" style={{ color: panelScope === 'deck' ? 'var(--accent)' : 'var(--warn, #9a6a00)' }}><PanelLeftClose className="size-4" /></button></Tip>}
 			</div>
 			</React.Fragment>
 			{/* THE DECK BODY STAYS MOUNTED once shown, hidden (and frozen) under the Slide scope,
@@ -7770,8 +7787,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const activityBar = (
 		<ActivityRail
 			state={{ assistant: activeAssistant, settings: activeSettings, recent: lastPane }}
-			onAssistant={(id) => setActiveAssistant((p) => (p === id ? null : id))}
-			onSettings={(id) => setActiveSettings((p) => (p === id ? null : id))}
+			onAssistant={(id) => { notePane(); setActiveAssistant((p) => (p === id ? null : id)); }}
+			onSettings={(id) => { notePane(); setActiveSettings((p) => (p === id ? null : id)); }}
 			onWorkspace={() => setWorkspaceOpen(true)}
 		/>
 	);
