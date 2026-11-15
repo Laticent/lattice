@@ -52,24 +52,3 @@ test(`CONTROL: on ${process.platform}, a browser started without the sandbox rea
     await browser.close();
   }
 });
-
-// TEMPORARY PROBE (not for merge): three fresh launches, each measured as the product measures it, then read 40 more
-// times, every reading printed, so a Windows runner shows whether any read still disagrees. Never fails.
-test(`PROBE: 3 launches x 40 reads on ${process.platform}`, { timeout: 900000 }, async (t) => {
-  const tally = {};
-  for (let launch = 0; launch < 3; launch++) {
-    const sandbox = await launchCodeSandbox(puppeteer, { executablePath: CHROME });
-    try {
-      tally[`launch:${sandbox.layer.os}`] = (tally[`launch:${sandbox.layer.os}`] || 0) + 1;
-      for (let i = 0; i < 40; i++) {
-        const diag = {};
-        const on = await rendererSandboxed(sandbox.browser, sandbox.pid, process.platform, diag);
-        tally[String(on)] = (tally[String(on)] || 0) + 1;
-        if (on !== true || (diag.seen ?? []).some((r) => /^read 2/.test(r))) t.diagnostic(`launch ${launch} read ${i}: ${on} ${JSON.stringify(diag.seen ?? [])}`);
-      }
-    } finally {
-      await sandbox.close();
-    }
-  }
-  t.diagnostic(`tally ${JSON.stringify(tally)}`);
-});
