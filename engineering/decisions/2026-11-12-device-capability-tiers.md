@@ -454,6 +454,8 @@ versions and how to update, and it looks like the site, not like an error page.
   finds nothing on the notice in either mode, and `axe-site.spec.ts` stays clean on `/getting-started/` with the new
   table at 1440, 820 and 390 px.
 - **Built so the browsers it is for can run it.** The inline check in `index.astro` is a classic ES5 script (about 1 KB;
+  `old-browser-check.es5.js`, inlined by `old-browser-check.ts` with its data as JSON literals: Astro's `define:vars` would
+  declare the data with `const`, which the first build shipped while calling itself ES5, until the card's checker caught it;
   the home route's `htmlRaw` ends at 118.6 KB of its 119.1 KB ceiling). When a feature is missing it sets
   `data-old-browser` on `<html>` and loads `/old-browser.js`, which `src/pages/old-browser.js.ts` builds from
   `old-browser-notice.es5.js` with the floor table in front. The notice is ES5 (a unit test parses the served file with

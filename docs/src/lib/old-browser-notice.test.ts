@@ -4,6 +4,7 @@ import { parse } from 'acorn';
 import { afterEach, describe, expect, it } from 'vitest';
 import { GET } from '../pages/old-browser.js';
 import { BROWSER_FLOOR } from './browser-floor';
+import { OLD_BROWSER_CHECKS, oldBrowserCheckScript } from './old-browser-check';
 import notice from './old-browser-notice.es5.js?raw';
 
 // The landing page's old-browser notice (engineering/decisions/2026-11-12-device-capability-tiers.md §6.2), run exactly as
@@ -38,6 +39,55 @@ describe('the served notice', () => {
 	it('carries the floor table it is told to', () => {
 		expect(served).toContain('"min":"16.4"');
 		expect(served).not.toContain('</');
+	});
+});
+
+describe('the inline check in <head>', () => {
+	const inline = oldBrowserCheckScript('/old-browser.js');
+	const supports = (fails: RegExp) => (c: string) => !fails.test(c);
+
+	/** Run the inline check with a CSS.supports that answers no for what `fails` matches. */
+	function check(fails: RegExp): HTMLScriptElement | null {
+		const css = (window as unknown as { CSS?: unknown }).CSS;
+		(window as unknown as { CSS: unknown }).CSS = { supports: supports(fails), registerProperty: () => {} };
+		(globalThis as unknown as { structuredClone?: unknown }).structuredClone ??= () => null;
+		try {
+			new Function(inline)();
+		} finally {
+			(window as unknown as { CSS?: unknown }).CSS = css;
+		}
+		return document.head.querySelector<HTMLScriptElement>('script[src="/old-browser.js"]');
+	}
+
+	afterEach(() => {
+		document.documentElement.removeAttribute('data-old-browser');
+		delete (window as unknown as { __latticeOldBrowser?: unknown }).__latticeOldBrowser;
+	});
+
+	it('is ES5 as it is inlined, data included', () => {
+		expect(() => parse(inline, { ecmaVersion: 5 })).not.toThrow();
+		expect(inline).not.toMatch(/\bconst\b|\blet\b|=>/);
+	});
+
+	it('tests the same features as the Studio, with the same labels', () => {
+		expect(OLD_BROWSER_CHECKS.map((c) => c.label)).toEqual(['CSS :has()', 'CSS container queries', 'structuredClone()', 'CSS color-mix()', 'CSS @property']);
+	});
+
+	it('does nothing in a browser that has every feature', () => {
+		expect(check(/^$/)).toBeNull();
+		expect(document.documentElement.hasAttribute('data-old-browser')).toBe(false);
+	});
+
+	it('marks the page and loads the notice when a feature is missing, naming what is missing', () => {
+		expect(check(/:has\(|color-mix/)).not.toBeNull();
+		expect(document.documentElement.hasAttribute('data-old-browser')).toBe(true);
+		expect((window as unknown as { __latticeOldBrowser: string[] }).__latticeOldBrowser).toEqual(['CSS :has()', 'CSS color-mix()']);
+	});
+
+	it('marks the page but loads nothing once this tab chose Continue anyway', () => {
+		sessionStorage.setItem('lattice-old-browser-continue', '1');
+		expect(check(/:has\(/)).toBeNull();
+		expect(document.documentElement.hasAttribute('data-old-browser')).toBe(true);
 	});
 });
 
