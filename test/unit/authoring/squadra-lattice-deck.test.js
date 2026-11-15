@@ -256,3 +256,18 @@ describe('the reference diff: matching and explanations', () => {
     assert.equal(entries[0].hits, 1);
   });
 });
+
+describe('the reference diff: what the reference depends on', () => {
+  test('every REFERENCE_INPUTS entry is lint-core itself or a file lint-core requires', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const { REFERENCE_INPUTS } = require('../../../tools/squadra-reference-diff');
+    const root = path.join(__dirname, '../../..');
+    const src = fs.readFileSync(path.join(root, 'lib/authoring/lint-core.js'), 'utf8');
+    for (const f of REFERENCE_INPUTS) {
+      if (f === 'lib/authoring/lint-core.js') continue;
+      assert.ok(fs.existsSync(path.join(root, f)), `${f} does not exist`);
+      assert.ok(src.includes(`require('${path.relative(path.join(root, 'lib/authoring'), path.join(root, f)).replace(/^(?!\.)/, './')}`), `lint-core does not require ${f}`);
+    }
+  });
+});

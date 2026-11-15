@@ -31,10 +31,17 @@
  *
  * An entry that explains no difference is STALE and fails the run, so the file cannot quietly switch a rule off.
  *
- * `--fix` adds the fix diff: Fix all through the frozen lint-core (`applyAllFixes`) and through `fixDeck`, compared as
+ * `--fix` adds the fix diff: Fix all through lint-core (`applyAllFixes`) and through `fixDeck`, compared as
  * text. A source whose two results differ is attributed to the rules whose findings changed under either fix (each
  * path's findings before and after, compared as multisets). It is held when every one of those rules is migrated; a
  * difference no rule accounts for is unexplained and fails.
+ *
+ * THE REFERENCE MUST NOT MOVE ON THIS BRANCH. lint-core's answer depends on its own file and on the generated tables it
+ * reads (`REFERENCE_INPUTS`). Before it runs, the tool checks that none of them differs from where the branch left
+ * main (`git merge-base HEAD origin/main`): a step that regenerates one (step 4 moves plugins' `lint` role to Squadra,
+ * which rewrites lib/plugins/lint.generated.js) would otherwise change the reference with no edit to lint-core, and a
+ * family could explain the drift away. When one has moved, the run stops: freeze a copy of the reference at the
+ * merge-base for that step (decision note §10), or pass `--allow-moved-reference` to diff against it knowingly.
  *
  * The diff must RUN: it fails when the corpora gave the reference no finding at all, because a diff over sources with
  * nothing to compare proves nothing.
@@ -42,7 +49,8 @@
  * Usage:
  *   node tools/squadra-reference-diff.js [--corpus <inputs.jsonl>] [--save-corpus <file>] [--hosts N] [--fix]
  *     [--json] [--out <file.md>] [--rules a,b] (hold only these lint-core rule names) [--examples N]
- * Exits 1 on an unexplained difference in a migrated rule, a stale explanation, or a run with no reference finding.
+ * Exits 1 on an unexplained difference in a migrated rule, a stale explanation, or a run with no reference finding;
+ * exits 2 when the reference moved on this branch.
  */
 
 const fs = require('node:fs');
@@ -158,7 +166,30 @@ function explain(entries, rule, kind, subject) {
   return e ?? null;
 }
 
+/** lint-core and the generated tables whose content decides what it reports. */
+const REFERENCE_INPUTS = ['lib/authoring/lint-core.js', 'lib/plugins/lint.generated.js', 'lib/authoring/pane-lint.generated.js', 'lib/authoring/venue-capacity.generated.js'];
+
+/** The reference inputs that differ from the merge-base with main, or null when git cannot say (no history, no main). */
+function movedReferenceInputs() {
+  const { spawnSync } = require('node:child_process');
+  const git = (...a) => spawnSync('git', a, { cwd: ROOT, encoding: 'utf8' });
+  for (const main of ['origin/main', 'main']) {
+    const base = git('merge-base', 'HEAD', main);
+    if (base.status !== 0) continue;
+    const diff = git('diff', '--name-only', base.stdout.trim(), '--', ...REFERENCE_INPUTS);
+    if (diff.status !== 0) return null;
+    return diff.stdout.split('\n').filter(Boolean);
+  }
+  return null;
+}
+
 function main() {
+  const moved = movedReferenceInputs();
+  if (moved === null) console.error('[squadra-reference-diff] warning: no merge-base with main, so the reference could not be checked for drift on this branch');
+  else if (moved.length && !argv.includes('--allow-moved-reference')) {
+    console.error(`[squadra-reference-diff] the reference moved on this branch: ${moved.join(', ')} differ from the merge-base with main. Freeze lint-core at the merge-base for this step (decision note §10), or pass --allow-moved-reference.`);
+    return 2;
+  }
   const vocab = buildVocab();
   const migrated = new Set(deckRuleset(vocab).rules.map((r) => (r.id.startsWith(PREFIX) ? r.id.slice(PREFIX.length) : r.id)));
   const held = (rule) => (rule.startsWith('squadra/') || migrated.has(rule)) && (!ONLY || ONLY.includes(rule));
@@ -272,4 +303,4 @@ function main() {
 
 if (require.main === module) process.exitCode = main();
 
-module.exports = { oldRecords, newRecords, match, changedRules, loadExplained, explain, ROOT };
+module.exports = { oldRecords, newRecords, match, changedRules, loadExplained, explain, movedReferenceInputs, REFERENCE_INPUTS, ROOT };

@@ -158,7 +158,9 @@ Estimated 6–10 sessions (an estimate from #3194's pace: one session built a la
 ## 8. Done when
 
 - `lib/authoring/lint-core.js` does not exist, and nothing imports a lint-core function.
-- Every rule id lint-core emitted at the fork is either a `deck/` rule or listed as removed with its reason.
+- Every rule id lint-core emits at step 6, just before it is deleted (on the branch as rebased onto the main of that
+  day, so main's rule changes count), is either a `deck/` rule or listed as removed with its reason. The fork is not
+  the yardstick: main has already removed `bg-ratio-unread` and added `image-marp-keyword` since it (#3181).
 - The reference diff is 0 or every difference is in the PR as intended.
 - Every consumer reads Squadra findings; the Studio surfaces are verified on the real built Studio.
 - `lintCoreGz` measured; within budget or the raise approved by the owner.
@@ -246,6 +248,11 @@ The second card grader found nothing kept it in step with the branch's lint-core
 rebase. A copy that must equal the live file is the live file plus 10,800 lines of diff. Since nothing in the rewrite
 edits lint-core before step 6 deletes it, the diff reads `lib/authoring/lint-core.js` directly; the copy, its re-freeze
 script and its test are gone. If a step ever has to change lint-core before step 6, the copy comes back for that step.
+The rule is enforced, and wider than the one file: lint-core's answer also depends on the generated tables it reads
+(`lib/plugins/lint.generated.js`, which step 4's plugins family regenerates, the pane and venue tables). The diff tool
+refuses to run when any of them differs from the merge-base with main (`REFERENCE_INPUTS`, exit 2), so the reference
+cannot drift with no edit to lint-core.js; the step that moves one freezes a copy, or opts in with
+`--allow-moved-reference` and says why in its commit.
 
 **What the failing arm did not cover.** It changed a message, so it exercised that field and not severity, slide or
 line text (those are covered by the matcher's unit tests) and not the `--fix` path. And while most rules are still
