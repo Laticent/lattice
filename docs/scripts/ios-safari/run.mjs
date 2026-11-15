@@ -87,7 +87,7 @@ const NO_SESSION = 3;
  * SAFARI_RELAUNCH_MS sets that wait for test/unit/tools/ios-safari-session.test.js only; unset, it is the same 2 s and 18 s.
  */
 const ATTEMPTS = Number(process.env.SESSION_ATTEMPTS || 3);
-const SESSION_TIMEOUT_MS = Number(process.env.SESSION_TIMEOUT_MS || 150000);
+const SESSION_TIMEOUT_MS = Number(process.env.SESSION_TIMEOUT_MS || 5000); // TEMPORARY (forced run, reverted next commit): was 150000
 const RELAUNCH_MS = Number(process.env.SAFARI_RELAUNCH_MS || 20000);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** One simctl call, bounded: a hung simctl must not hold the job either. A failure is logged, not fatal: the session decides. */
