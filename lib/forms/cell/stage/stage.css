@@ -358,6 +358,22 @@ section.form.no-footer:not(.with-footer) > .cell-footer > footer,
 section.form.silent:not(.with-footer) > .cell-footer > footer {
   display: none;
 }
+/* HANDHELD CHROME (owner, 2026-11-15; engineering/decisions/2026-10-28-fit-everywhere-model.md §24).
+ * A square, tall or strip slide read in a hand (the phone default, or `venue: phone` / `tablet`)
+ * drops the deck's running header and its footer text, and its top margin closes to the side
+ * margin the header used to clear. The page number and the split rail keep their band at the
+ * bottom, so a reader still knows where they are. On a phone the header and footer cost the
+ * content a line each at x1.4 type; measured at a phone square, slides that clip only at phone
+ * fell from 103 to 92. Laptop and the room venues keep both, a chart keeps laptop (as its type
+ * does), and an author's `with-header` / `with-footer` brings either back.
+ * test/unit/parsing/resolve-venue.test.js holds the selector's venue list to the type table's. */
+section.form:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame):not(.with-header) {
+  --frame-y: var(--frame-x);
+}
+section.form:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame):not(.with-header) > header,
+section.form:where([data-family="square"], [data-family="tall"], [data-family="strip"]):not(.venue-laptop, .venue-huddle, .venue-conference, .venue-hall, .chart-frame):not(.with-footer) > .cell-footer > footer {
+  display: none;
+}
 /* The page number as a real element — mono, --fs-meta, vertically centered with the
  * footer text + rail, matching the retired pseudo's appearance. */
 section.form > .cell-footer > .lat-pagination {

@@ -1352,3 +1352,25 @@ cuts the paragraph with `splitHtmlAtText`, each page one paragraph; the page rea
 paragraph among others is not cut. `sentenceRanges` is now shared with the passage split and ends each
 Range in the node holding its last character, the code-lines measurement fix applied to sentences.
 
+## 24. A slide read in a hand drops its running header and footer (owner, 2026-11-15)
+
+After §23's step and seams, the export diff still found 103 square slides that clip at the phone default
+and fit at laptop. The owner asked whether the chrome should go. Measured at a phone square, with
+everything else held:
+
+| Chrome on a handheld slide | Square slides that clip only at phone |
+|---|---|
+| Header, footer text, page number (today) | 103 |
+| A: no header, no footer text, page number kept; top margin closes to the side margin | 92 |
+| B: no header, no footer band at all (page number and split rail gone too) | 79 |
+
+**The ruling: A.** A square, tall or strip slide at the phone default, `venue: phone` or `venue:
+tablet` drops the deck's running header and its footer text, and its top margin (`--frame-y`, which
+cleared the header) closes to the side margin. The page number and the split rail keep their band, so a
+reader still knows where they are in a run (lib/forms/cell/stage/stage.css). Laptop and the room venues
+keep both lines, a chart keeps laptop as its type does (§21), and `with-header` / `with-footer` bring
+either back. `test/unit/parsing/resolve-venue.test.js` holds the rule's venue list to the type table's.
+B bought 13 more slides for the reader's place in the deck; the adaptive form (chrome only where a slide
+fits with it) was not measured, and would make the chrome come and go within one deck. Neither alone
+clears the list: most remaining slides need their component fixed.
+

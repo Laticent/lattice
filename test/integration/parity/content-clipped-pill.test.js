@@ -512,7 +512,10 @@ describe('the reader SEES the content-clipped pill (real export, computed style)
   ];
   for (const [name, size, vw, vh] of FOOTER_PRESETS) {
     test(`PRESET ${name} — the delivered pill never crosses the running footer`, { timeout: 180000 }, async () => {
-      const fm = `---\nmarp: true\ntheme: indaco\n${size ? `size: ${size}\n` : ''}footer: "${FOOTER_TEXT}"\n---\n\n`;
+      // `venue: laptop` on the narrow presets: a slide read in a hand drops its footer text (handheld
+      // chrome, fit-everywhere-model.md §24), so the running footer this sweep guards prints on a narrow
+      // deck only at laptop or a room venue, which is where the pill could still cross it.
+      const fm = `---\nmarp: true\ntheme: indaco\n${size ? `size: ${size}\nvenue: laptop\n` : ''}footer: "${FOOTER_TEXT}"\n---\n\n`;
       const html = renderAt(fm + ELLIPSIS.trim() + '\n', `preset-${name}`);
       const page = await browser.newPage();
       const settled = await trackPageWork(page);

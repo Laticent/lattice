@@ -138,3 +138,16 @@ test('front matter → class, case-insensitive, unknown → none', () => {
   assert.equal(isVenueToken('venue-phone'), true);
   assert.equal(isVenueToken('scale-l'), false);
 });
+
+// HANDHELD CHROME (owner, 2026-11-15; fit-everywhere-model.md §24): a square, tall or strip slide at the phone
+// default, `venue: phone` or `venue: tablet` drops its running header and footer text (stage.css). Its
+// exclusions are the phone type rule's minus `.venue-tablet`, which keeps its own type step but is read in a
+// hand too; held equal so a venue added to one list cannot be forgotten in the other.
+test('the handheld chrome rule covers phone and tablet and excludes the rest of the type rule\'s venues', () => {
+  const stage = fs.readFileSync(path.join(__dirname, '../../../lib/forms/cell/stage/stage.css'), 'utf8');
+  const m = stage.match(/section\.form:where\(\[data-family="square"\], \[data-family="tall"\], \[data-family="strip"\]\):not\(([^)]*)\):not\(\.with-header\) \{/);
+  assert.ok(m, 'no handheld chrome rule in stage.css');
+  const chrome = m[1].split(',').map((t) => t.trim()).sort();
+  const type = css.match(/section:where\(\[data-family="square"\]\):not\(([^)]*)\)\s*\{/)[1].split(',').map((t) => t.trim()).filter((t) => t !== '.venue-tablet').sort();
+  assert.deepEqual(chrome, type);
+});
