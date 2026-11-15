@@ -58,8 +58,10 @@ function embedCssFor(families: string[]): Promise<string> {
 	const key = families.join('\u0000');
 	let p = embeds.get(key);
 	if (!p) {
+		// Only the slide's families are fetched and encoded (font-embed.js `buildFamilyFontCss`); `facesFor` keeps the
+		// sheet to those families whatever the builder returns.
 		p = import('../../playground/font-embed.js')
-			.then(({ buildFontEmbedCss }) => buildFontEmbedCss('', { emoji: 'system' }))
+			.then(({ buildFamilyFontCss }) => buildFamilyFontCss(families))
 			.then((css: string) => facesFor(css, families))
 			.catch(() => {
 				embeds.delete(key); // a later capture retries; this one goes without

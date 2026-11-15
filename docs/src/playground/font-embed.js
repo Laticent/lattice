@@ -174,6 +174,28 @@ function buildTextFontCss() {
 	return cssPromise;
 }
 
+// ONE FAMILY'S FACES, for a caller that draws a few families many times: the slide map's posters
+// (studio/pool-capture.ts). The rules are the CLI block's, written by the same writer, but only for `families`
+// (lowercased names), and each face is fetched and encoded once a page. The whole block encodes every vendored
+// face in one go, which on a first capture was a single main-thread task of over a second at 4x CPU
+// (`npm run perf:load`, MAP=1 CPU=4); a slide uses two or three of them.
+const faceRules = new Map();
+export async function buildFamilyFontCss(families) {
+	const want = new Set(families);
+	const rules = await Promise.all(
+		EMBED_FACES.filter((f) => want.has(f.family.toLowerCase())).map((f) => {
+			const key = `${f.family} ${f.weight} ${f.style}`;
+			if (!faceRules.has(key)) {
+				const rule = faceBase64(FACE_URL.get(key)).then((b64) => faceRuleCore.faceRuleCss(f, 'swap', b64));
+				rule.catch(() => faceRules.delete(key)); // a later capture retries
+				faceRules.set(key, rule);
+			}
+			return faceRules.get(key);
+		}),
+	);
+	return rules.join('');
+}
+
 // Noto Color Emoji ships as 11 unicode-range slices (lib/fonts/emoji-faces.js), the same files the CLI
 // reads from assets/fonts/. Vite bundles them as URLs; an export inlines only the slices its text needs.
 const EMOJI_URL = import.meta.glob('../../../assets/fonts/noto-color-emoji-*.woff2', { eager: true, query: '?url', import: 'default' });

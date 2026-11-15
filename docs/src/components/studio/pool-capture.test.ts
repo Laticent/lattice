@@ -9,7 +9,7 @@ const toCanvas = vi.fn(async () => {
 vi.mock('html-to-image', () => ({ toCanvas }));
 // Two vendored faces; a slide drawn in Inter must carry Inter's and not Fraunces'.
 const FACES = "@font-face{font-family:'Inter';font-weight:400;src:url(data:font/woff2;base64,AAA) format('woff2');}@font-face{font-family:'Fraunces';font-weight:700;src:url(data:font/woff2;base64,BBB) format('woff2');}";
-vi.mock('../../playground/font-embed.js', () => ({ buildFontEmbedCss: async () => FACES }));
+vi.mock('../../playground/font-embed.js', () => ({ buildFamilyFontCss: async () => FACES }));
 
 import { captureSlot, facesFor, SCROLLED } from './pool-capture';
 
