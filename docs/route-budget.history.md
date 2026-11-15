@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-11-15 — the owner raised one ceiling by hand, for PR 2988: studio htmlRaw to 247.5 KB
+
+Owner OK 2026-11-15 in the PR 2988 session: "Raise ceiling, own PR", chosen over moving part of the Studio's venue or Align picker markup into a lazily loaded chunk.
+
+Measured locally with the docs build, matching CI to the byte: `main` at 62e30fc builds the Studio page at 250,539 B (244.7 KB), and PR 2988 merged onto it at 252,218 B (246.3 KB, the figure CI's preview reported on 2285a74). PR 2988 adds 1,679 B (its phone and tablet venue rows and its two Align pickers); `main` grew into the headroom the 2026-11-13 raise left. The ceiling rises 251904 -> 253440 (247.5 KB), about 1.2 KB over the measurement. The soft target is unchanged. Set by hand, as the entries below are.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | htmlRaw | 226628 | 226628 | +0 | 253440 |
+
 ### 2026-11-13 — the owner raised one ceiling by hand, for PR 2988: home eagerJsGz to 314.5 KB
 
 Owner OK 2026-11-13 in the PR 2988 session: "Raise ceiling, own PR", chosen over dropping the warning the preview logs when the lazy measured-split module fails to load (about 45 B, leaving under 30 B of room) and over hunting unrelated bytes in the home page's start-up modules.
