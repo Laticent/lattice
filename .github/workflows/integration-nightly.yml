@@ -429,9 +429,14 @@ jobs:
             echo ''
             echo '--- narrated player (real Chromium: narration, forged chrome, forged collections) ---'
           } >> "$REPORT"
-          export PLAYWRIGHT_CHROMIUM_PATH="$(node -e "console.log(require('puppeteer').executablePath())")"
-          npm run --silent verify:narrated-player 2>&1 | tee -a "$REPORT"
-          code=${PIPESTATUS[0]}
+          # `executablePath()` returns a Promise from puppeteer 24 on (#3190 moved us to 25), so `console.log()` printed
+          # `Promise { ... }` and every nightly that resolves Chrome died here. Promise.resolve() awaits either shape.
+          export PLAYWRIGHT_CHROMIUM_PATH="$(node -e "Promise.resolve(require('puppeteer').executablePath()).then((p) => console.log(p), (e) => { console.error(e.message); console.log(''); })")"
+          # `|| code=…`, never a bare pipeline then `code=${PIPESTATUS[0]}`: GitHub runs this under `bash -e`, and with
+          # pipefail a red verifier killed the step before `code=` ran, so `failed=true` was never written and the
+          # steps after it were skipped (Nov 14 and 15, run 43705297932).
+          code=0
+          npm run --silent verify:narrated-player 2>&1 | tee -a "$REPORT" || code=${PIPESTATUS[0]}
           if [ "$code" -eq 0 ]; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
           else

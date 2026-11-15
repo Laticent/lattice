@@ -171,6 +171,13 @@ export type DeckPreviewProps = {
 	 */
 	onRender?: () => void;
 	/**
+	 * Fires once the frame SHOWS the render: at commit when the document is already the new one (a patch, or a write
+	 * that has navigated), and on the frame's `load` when a full write was still holding the old document at commit.
+	 * `onRender` fires at commit in both cases, so a reader of the frame's DOM that runs on it can still see the old
+	 * slide. The Studio's photo verdict re-reads an unmeasured slide on this (coach/photo-contrast-watch.ts).
+	 */
+	onPaint?: () => void;
+	/**
 	 * The step of a stepping slide (`_build`, `_focusSteps`) to show
 	 * (engineering/decisions/2026-11-09-steps-as-a-behavior.md). A number is that step; `null` or
 	 * absent is the slide AT REST, the way every still shows it; `{ enter }` is "the step a slide
@@ -259,6 +266,7 @@ export function DeckPreview({
 	role,
 	onFirstRender,
 	onRender,
+	onPaint,
 	step,
 	onSteps,
 	onOverflow,
@@ -351,6 +359,8 @@ export function DeckPreview({
 	// enters the render closure's dependency list.
 	const onRenderRef = React.useRef(onRender);
 	onRenderRef.current = onRender;
+	const onPaintRef = React.useRef(onPaint);
+	onPaintRef.current = onPaint;
 	const stepRef = React.useRef(step);
 	stepRef.current = step;
 	const slideIndexRef = React.useRef(slideIndex);
@@ -716,12 +726,20 @@ export function DeckPreview({
 		for (const sec of secs) applyStepAt(sec, at);
 		onStepsRef.current?.(info ? { slide: shown, kind: info.kind, count: info.count, at } : null);
 	}, []);
+	// The frame shows a render: the `onPaint` signal. Skipped while a write's old document is still in the frame; that
+	// render's `load` (bound in bindAnima) fires it once the new document is in.
+	const firePaint = React.useCallback(() => {
+		const doc = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument;
+		if (!doc || doc === staleDocRef.current) return;
+		onPaintRef.current?.();
+	}, []);
 	const bindAnima = React.useCallback(() => {
 		const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
 		if (!fr || animaBoundRef.current) return;
 		animaBoundRef.current = true;
 		fr.addEventListener('load', paintStep);
 		fr.addEventListener('load', syncAnima);
+		fr.addEventListener('load', firePaint);
 		// The runtime draws a Mermaid diagram AFTER the render this host syncs on, so a deck whose only
 		// animatable figure is a diagram reads as motion-free at sync time and never loads the host.
 		// Re-run the gate each time a diagram draws. Bound to the <iframe> ELEMENT, like `load`, because
@@ -729,7 +747,7 @@ export function DeckPreview({
 		// circuits to rebind(), which is a no-op diff for an already-mounted diagram.)
 		watchDiagramDrawn(fr, syncAnima);
 		if (fr.contentDocument?.readyState === 'complete') syncAnima();
-	}, [syncAnima, paintStep]);
+	}, [syncAnima, paintStep, firePaint]);
 	// A step move repaints the frame in place: no render, the slide is already there.
 	const stepKey = step == null ? 'rest' : typeof step === 'number' ? String(step) : `enter:${step.enter}`;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `stepKey` is the trigger; `paintStep` reads the step through its ref.
@@ -837,6 +855,7 @@ export function DeckPreview({
 		// here). Gated on a real `status` so a deferred inactive-host bail (status undefined) doesn't
 		// fire it — matches the prop contract and can't drive a phantom re-pin on a host that didn't paint.
 		if (status) onRenderRef.current?.();
+		if (status) firePaint();
 		if (status) watchOverflow();
 		return { heavy: status?.writePath === 'write' };
 	};

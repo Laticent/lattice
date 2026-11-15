@@ -24,6 +24,7 @@ export function usePhotoContrast(
 	slideIndex: number,
 	source: string,
 	context: object,
+	onPreviewRender?: (listener: () => void) => () => void,
 ): { verdict: PhotoVerdict | null; fresh: boolean; findings: PhotoFinding[]; settled: boolean } {
 	const [state, setState] = React.useState<{ key: object | null; slide: number; verdict: PhotoVerdict | null }>({ key: null, slide: -1, verdict: null });
 	// Any picture or record may be the slide's photo; the reader decides which one the engine places (card-ink-pick.ts
@@ -39,6 +40,13 @@ export function usePhotoContrast(
 	const key = React.useMemo(() => ({}), [slideIndex, context, chunk]);
 	const sourceRef = React.useRef(source);
 	sourceRef.current = source;
+	// READ AGAIN WHEN THE PREVIEW PAINTS, WHILE THE LAST READ COULD NOT MEASURE. The read runs once the inputs have been still
+	// for SETTLE_MS, on the guess that the preview has painted by then. When it has not, the read finds the preview still
+	// showing another slide (or no frame at all) and comes back empty, and nothing re-read it: none of the inputs changes
+	// when the preview catches up. On a phone that is an author who types in Source and taps Preview: the frame paints after
+	// the read, and the Coach never showed the finding (photo-contrast-coach.spec.ts:91, webkit-phone, 13 of 100 under load).
+	// So a paint re-reads, but only while the slide is unmeasured: a measured verdict costs no further reads. A paint that lands
+	// DURING a read that then comes back empty reads once more, so a read racing the paint cannot strand the slide either.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `context` is not read in the body; a new value is the signal to re-read the preview.
 	React.useEffect(() => {
 		let live = true;
@@ -46,17 +54,33 @@ export function usePhotoContrast(
 			setState((prev) => (prev.verdict ? { key: null, slide: -1, verdict: null } : prev));
 			return;
 		}
-		const id = setTimeout(async () => {
-			const { readVerdict } = await import('../photo-verdict');
-			const verdict = await readVerdict(chunk, sourceRef.current, slideIndex, true, true);
-			if (!live) return;
-			setState({ key, slide: slideIndex, verdict: verdict?.src === 'live' ? verdict : null });
-		}, SETTLE_MS);
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		let unmeasured = false;
+		let paints = 0;
+		const read = () => {
+			clearTimeout(timer);
+			timer = setTimeout(async () => {
+				const seen = paints;
+				const { readVerdict } = await import('../photo-verdict');
+				const verdict = await readVerdict(chunk, sourceRef.current, slideIndex, true, true);
+				if (!live) return;
+				const measured = verdict?.src === 'live' ? verdict : null;
+				unmeasured = !measured;
+				setState({ key, slide: slideIndex, verdict: measured });
+				if (unmeasured && paints !== seen) read();
+			}, SETTLE_MS);
+		};
+		read();
+		const off = onPreviewRender?.(() => {
+			paints++;
+			if (unmeasured) read();
+		});
 		return () => {
 			live = false;
-			clearTimeout(id);
+			clearTimeout(timer);
+			off?.();
 		};
-	}, [chunk, slideIndex, context, photo, key]);
+	}, [chunk, slideIndex, context, photo, key, onPreviewRender]);
 	// While the SAME slide is re-read after an edit, its last verdict stays on screen rather than flickering on every
 	// keystroke. A verdict for ANOTHER slide never does: on a slide change it is gone in the same render, so neither view
 	// shows the slide you left, with its button hidden, for the second the new read takes.

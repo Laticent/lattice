@@ -8,7 +8,7 @@
 // spans, the edit kernel, the fix driver with its shape check, the `edits` engine, the
 // registration refusals and waivers. The full design is that note's design.md.
 
-export { checkRuleset, compileRuleset, RulesetError, stampRuleset } from './compile.js';
+export { checkRuleset, compileRuleset, digestRuleset, RulesetError, ruleDigest, stampRuleset } from './compile.js';
 export { rulesetOf } from './driver.js';
 export { apply, diff, EditError, editsConflict, mapOffset, plan } from './edits.js';
 export { type EditOp, type EditsPayload, editsEngine, editsFix } from './engine.js';

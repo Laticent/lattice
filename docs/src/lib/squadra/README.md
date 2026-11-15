@@ -13,8 +13,10 @@ text, so the same rules run in Node, a browser and a worker.
 Lattice is the first user. The design is
 [`2026-10-26-squadra-lint-library.md`](../../../../engineering/decisions/2026-10-26-squadra-lint-library.md)
 and its [design.md](../../../../engineering/decisions/2026-10-26-squadra-lint-library/design.md).
-This package is milestone **M1a**: findings with spans, the edit kernel, the fix driver with its
-shape check, the `edits` fix engine, the registration refusals, waivers and ratchets.
+This package carries milestone **M1a** (findings with spans, the edit kernel, the fix driver with its
+shape check, the `edits` fix engine, the registration refusals, waivers and ratchets), the
+reference Markdown language from **M1b**, and the browser entry `./runtime`, which loads rules the
+build verified and carries no compiler.
 
 ## The model
 
@@ -164,6 +166,55 @@ findings from outside the ruleset, `{ id, produce(source) }`, and lower and fix 
 same driver, so every fix gets the driver's checks. The registration refusals do not apply to
 them, because nothing registers them; a migration gains those one rule at a time.
 
+## The browser entry: rules the build proved
+
+`compileRuleset` proves a rule by running its examples, so a host that compiles in the browser ships
+the fixtures parser, the example runner and every fixtures file. `@laticent/squadra/runtime` moves that
+work to the build:
+
+```ts
+// build (Node): compile strictly, then record a digest per rule.
+compileRuleset(input); // throws on any refused rule
+writeFile('verified.json', JSON.stringify(digestRuleset(input)));
+
+// browser: no compiler, no fixtures.
+import { lint, loadRuleset } from '@laticent/squadra/runtime';
+const rules = loadRuleset({ ...inputWithoutExamples, verified });
+```
+
+`loadRuleset` keeps a rule only when its digest matches; any other rule is dropped and reported as
+`squadra/rule-refused` with the code `not-verified`. The digest covers what a bundler leaves alone:
+the rule's declaration (id, severity, selectors, reads, budget, fixable, changes), the vocabulary it
+reads, its language's id and version, and the engines by id. A bundler rewrites function text, so an
+edit inside a rule's function keeps its digest; the build's stale-stamp check, which recompiles every
+rule against its examples (`stampRuleset`), is what catches that edit. The runtime entry is
+measured against the main entry in `runtime.test.ts`.
+
+## The reference Markdown language
+
+`@laticent/squadra/markdown` adapts a deck model, the document model the Segno deck pipeline builds,
+into Squadra's node shape. Squadra writes no Markdown parser and keeps no dependency: the host hands
+the model in as a function.
+
+```ts
+import { BlockParser, deckModel } from '@laticent/segno-markdown';
+import { markdownLanguage } from '@laticent/squadra/markdown';
+
+const parser = new BlockParser({});
+const markdown = markdownLanguage({ model: (text) => deckModel(text, { parser }) });
+```
+
+The tree is `deck` → `front-matter`, then a `slide` per chunk between top-level thematic breaks with
+the `break` between them. Inside a slide sit the blocks the model records: `paragraph`, `heading`,
+`cell`, `fence` (its info string in `attrs.info`), `code-block`, `comment`, `html-block` and
+`plugin-block`, each with `attrs.level` for its depth in the token stream. When the model lists its
+containers (`containers`, as `@laticent/segno-markdown`'s does), the blocks nest inside them: `list`
+(`attrs.ordered`) → `item`, `quote`, and `table` → `row`, so `item > paragraph` is a selector a rule
+can write. Spans are line-granular: a block runs from the start of its first line to the end of its
+last, so a paragraph in an item takes in its `- `, and a container stops at its last line of text. Fenced and indented code is inert. A span
+indexes the text the host handed over: when that text has a BOM or CRLF line ends, the language maps
+the model's offsets back onto it. Any model that answers `MarkdownModel` works.
+
 ## Budgets
 
 Every `ctx` call costs one op against the rule's `budget.ops`; a selector costs one per new answer.
@@ -223,8 +274,8 @@ input, and why the bench keeps the case.
 
 ## Not yet
 
-M1b brings the reference Markdown language and Lattice's deck language, on the Segno deck
-pipeline. M2 adds the reference JSON language and moves Lattice's allowlists onto waivers. M3 adds
+The rest of M1b: lists, items, quotes and tables as nodes, and the reference YAML language, whose
+first reader is `lattice-deck`'s front-matter island (Segno pipeline P3, not landed yet). M2 adds the reference JSON language and moves Lattice's allowlists onto waivers. M3 adds
 CSS, the JS/TS adapter, project rules (`collect` and `decide`), the cache and workers. M4 adds the
 declarative selector language and rule manifests, inline suppressions, and the SARIF, GitHub and LSP
-reporters. The Learn and demo pages, first planned for M4, are built: `/libraries/squadra/`. The reference YAML language moves to M1b, where `lattice-deck`'s front-matter island first needs it.
+reporters. The Learn and demo pages, first planned for M4, are built: `/libraries/squadra/`.

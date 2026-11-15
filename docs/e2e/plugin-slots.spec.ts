@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
+import { pictureStill } from './barriers';
 import { expect, gotoStudio, livePreview, setEditorContent, shareExport, test, toastText } from './studio-fixture';
 
 // ── Host slots and a plugin's own stylesheet, in the real Studio (owner, 2026-10-20; HARD RULE #23) ──
@@ -114,19 +115,8 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		]) {
 			await page.setViewportSize({ width, height });
 			await expect(root.locator('.lp-status-card-badge')).toBeVisible();
-			// The preview cross-fades while the layout changes: the picture is taken once two frames in a row are identical.
-			let previous = '';
-			await expect
-				.poll(
-					async () => {
-						const current = (await page.screenshot()).toString('base64');
-						const same = current === previous;
-						previous = current;
-						return same;
-					},
-					{ timeout: 15_000, intervals: [300] },
-				)
-				.toBe(true);
+			// The preview cross-fades while the layout changes: the picture is taken once two shots in a row are identical.
+			await pictureStill(page);
 			await shot(String(width));
 		}
 	});

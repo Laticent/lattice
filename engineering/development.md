@@ -624,7 +624,7 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   probe on Playwright WebKit against a local `preview:e2e`, to prove a probe change before spending a macOS job on it. A simulator
   runs on the Mac's hardware, so it is not a physical device.
   `ios-safari-jpeg` runs the same recipe with `PROBE=jpeg`: `jpeg-probe.js` encodes a slide-sized synthetic photograph and four
-  committed screenshots with the shared JPEG encoder (`lib/core/jpeg-encode.mjs`) and with Safari's own `toBlob`, on a blank page
+  committed screenshots with the shared JPEG encoder (`@laticent/lastra` `createJpegEncoder`) and with Safari's own `toBlob`, on a blank page
   (no docs build). It fails when Safari's bytes for the reference picture differ from Node's or our luma falls under
   38 dB; the step summary records both encoders' sizes and Safari's color sampling, which Linux cannot show.
   `ios-safari-photo-memory` runs it with `PROBE=photo-memory` (no docs build): `photo-memory.mjs` writes ten 12MP photos with

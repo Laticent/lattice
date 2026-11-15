@@ -322,6 +322,53 @@ npx lattice deck.md deck.pdf --reopenable --strip-notes
 npx lattice deck.md deck.pptx --reopenable
 ```
 
+### Render a Lattice project from the Studio
+
+A `.lattice` file renders like a deck. Pass it where the `.md` would go:
+
+```sh
+npx lattice deck.lattice deck.pdf
+npx lattice deck.lattice deck.pptx
+```
+
+The CLI reads the file with the same checks the Studio uses when you open one.
+The photos the deck names come from the file as the Library stored them, so
+`asset:` pictures draw without an `assets/` folder. The export then treats them
+like any other picture, so `--images original` keeps them exactly as stored.
+
+The saved themes, components and plugins the file carries are used for this
+render only. Nothing is installed into `~/.lattice`, and the packages you did
+install still work alongside them. A package the file carries wins over an
+installed one of the same name, and the CLI says so. A
+component that runs code still needs your approval: approve it at its exact
+code with `lattice packages trust`, or add `--trust` to run the code the file
+carries for this one render.
+
+```sh
+npx lattice deck.lattice deck.pdf --trust
+```
+
+The CLI also writes one. Name the output `.lattice` and you get the project file
+without a render: the deck, the installed theme and components it uses, and its
+photos.
+
+```sh
+npx lattice deck.md deck.lattice
+npx lattice deck.lattice copy.lattice
+```
+
+Photos that came in a `.lattice` go through the same cleaner on the way in, so a
+photo the Studio made comes back out exactly as it was, and a camera original
+someone packed by hand loses its location. Photos from an
+`assets/` folder go the way the Studio keeps an original when you add it to the
+Library: a photo straight from a camera can record where it was taken, so that and
+the rest of its metadata (camera, text, comments) are removed, and the pixels,
+transparency and rotation stay. A photo the CLI cannot clean, such as a HEIC, an
+AVIF, a damaged file, or a link that points outside the deck's folder, is left
+out and named with the reason; add it to the
+Studio's Library instead, which converts it. `--reopenable` follows the same rule
+for the copy it puts inside a PDF or PowerPoint, up to 32 MB of photos.
+
 ## Speaker notes and captions
 
 A plain HTML comment on a slide is that slide's speaker note:
