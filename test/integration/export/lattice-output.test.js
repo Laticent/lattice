@@ -208,6 +208,29 @@ for (const [label, bin] of CLIS) {
       assert.match(fs.readFileSync(html, 'utf8'), /--accent:\s*#2d4ed8/i);
     });
 
+    test('a photo the deck names only in an image plugin span (`@image{asset:…}`) is carried, written and read back', { timeout: TIMEOUT }, async () => {
+      // The writer used to read the deck's photo names with assetRefs, which skips inline code, and `@image{…}` is
+      // written in inline code: the photo was silently left out of the .lattice. The Studio counts any asset: name
+      // (media-urls.ts assetNamesIn), and so does the CLI now, writing and reading.
+      const dir = tmp('plugin-span');
+      const home = tmp('home');
+      fs.mkdirSync(path.join(dir, 'assets'));
+      fs.writeFileSync(path.join(dir, 'assets', 'pic.jpg'), PHOTO);
+      fs.writeFileSync(path.join(dir, 'deck.md'), '---\ntheme: indaco\n---\n\n## A photo\n\n`@image{asset:pic, title="A gradient", sm}`\n');
+      const out = path.join(dir, 'deck.lattice');
+      const r = cli([path.join(dir, 'deck.md'), out], home, NO_BROWSER);
+      assert.equal(r.status, 0, r.stderr);
+      assert.match(r.stdout, /\(1 photo/);
+      const zip = await JSZip.loadAsync(fs.readFileSync(out));
+      assert.ok(zip.file('media/pic.jpg'), 'the photo is in the file');
+      // Read back: a .lattice to .lattice copy unpacks the file and carries the photos its deck names.
+      const copy = path.join(dir, 'copy.lattice');
+      const c = cli([out, copy], home, NO_BROWSER);
+      assert.equal(c.status, 0, c.stderr);
+      const back = await JSZip.loadAsync(fs.readFileSync(copy));
+      assert.ok(back.file('media/pic.jpg'), 'the copy keeps the photo');
+    });
+
     test("a link in assets/ that points outside the deck's folder is not packed, and is named", { timeout: TIMEOUT }, async () => {
       const dir = tmp('link');
       const outside = tmp('outside');

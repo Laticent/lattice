@@ -2148,7 +2148,7 @@ function latticeStrippedSource(src) {
 if (OUT_FORMAT === 'lattice') {
   const { refusePackage } = require('./lib/cli/package-gate.js');
   const { classTokens } = require('./lib/cli/package-render.js');
-  const { assetRefs } = require('./lib/export/deck-assets.js');
+  const { assetNamesIn } = require('./lib/export/deck-assets.js');
   const { photosToCarry, writeSync } = require('./lib/export/lattice-input.js');
   const limits = require('./lib/packages/limits.js');
   const named = new Set(classTokens(mdRaw));
@@ -2170,7 +2170,7 @@ if (OUT_FORMAT === 'lattice') {
     if (why) console.error(`warning: the component ${p.name} is refused and not carried: ${why}`);
     else add('component', p.name, p.dir);
   }
-  const carry = photosToCarry({ fromLattice: LATTICE_INPUT, assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'), names: new Set(assetRefs(mdRaw).map((r) => r.name)), maxBytes: limits.MAX_LATTICE_MEDIA_BYTES, now: resolveEpoch() * 1000, confine: DECK_CONFINE });
+  const carry = photosToCarry({ fromLattice: LATTICE_INPUT, assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'), names: new Set(assetNamesIn(mdRaw)), maxBytes: limits.MAX_LATTICE_MEDIA_BYTES, now: resolveEpoch() * 1000, confine: DECK_CONFINE });
   const plural = (k) => `${k} photo${k === 1 ? '' : 's'}`;
   reportPhotosLeftOut(carry, limits.MAX_LATTICE_MEDIA_BYTES, 'the .lattice');
   const { directives: fm } = require('./lib/engine/directives').parseFrontMatter(mdRaw);
@@ -6449,9 +6449,9 @@ function reopenableLattice() {
   if (installedTheme) packages.push({ type: 'theme', name: paletteName, files: packagesHome.readFolder(installedTheme.dir) });
   for (const p of REOPENABLE_COMPONENTS) packages.push({ type: 'component', name: p.name, files: packagesHome.readFolder(p.dir) });
   const { photosToCarry, mediaOf } = require('./lib/export/lattice-input.js');
-  const { assetRefs } = require('./lib/export/deck-assets.js');
+  const { assetNamesIn } = require('./lib/export/deck-assets.js');
   const maxBytes = require('./lib/packages/limits.js').MAX_EMBEDDED_MEDIA_BYTES;
-  const carry = photosToCarry({ fromLattice: LATTICE_INPUT, assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'), names: new Set(assetRefs(mdRaw).map((r) => r.name)), maxBytes, now: reopenableDate().getTime(), confine: DECK_CONFINE });
+  const carry = photosToCarry({ fromLattice: LATTICE_INPUT, assetsDir: path.join(path.dirname(path.resolve(mdFile)), 'assets'), names: new Set(assetNamesIn(mdRaw)), maxBytes, now: reopenableDate().getTime(), confine: DECK_CONFINE });
   reportPhotosLeftOut(carry, maxBytes, 'the re-openable copy');
   const media = mediaOf(carry);
   const { buildLatticeZip } = require('./lib/core/reopenable');
