@@ -27,6 +27,7 @@ import { EyeOff } from 'lucide-react';
 import * as React from 'react';
 import { MapRail, type RailStep } from '@/components/map-rail/MapRail';
 import { createPosterCache, posterKey } from '@/components/map-rail/poster-cache';
+import { createPosterStore } from '@/components/map-rail/poster-store';
 import { useSettled } from '@/components/map-rail/use-settled';
 import { wireOf } from '@/components/map-rail/wireframe';
 import { SlideMenuButton, type StripActions, useStripMenuGestures } from '@/components/studio/strip-actions';
@@ -80,6 +81,13 @@ const STAGE = { cost: 1 };
  *  A poster is a JPEG at tile size, measured at about 6 to 15 KB, so 8 MB holds several hundred slides. */
 const POSTER_TILES = 24;
 const POSTER_BYTES = 8 * 1024 * 1024;
+
+/** The posters kept across visits (map-rail/poster-store.ts): a returning reader's map paints them before any live frame
+ *  mounts. One store for the module, opened on first use; its keys are complete addresses, so it is shared safely. */
+const STORE = createPosterStore('lattice-studio-posters');
+/** Whether a tile with a fresh poster keeps showing it and mounts no live frame. OFF: under measurement
+ *  (`npm run perf:load`, RETURN=1) and awaiting the owner's call, because a poster is drawn with fallback fonts. */
+const SKIP_LIVE = false;
 
 /** A plain (non-underscore) directive comment carries onto every later slide, Marp's rule, so it is part of what a
  *  slide looks like even though it is not in the slide's text. `header` and `footer` set their own slide
@@ -196,9 +204,31 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 				if (!blob || !mounted.current) return;
 				cache.set(key, URL.createObjectURL(blob), blob.size);
 				setPosterRev((r) => r + 1);
+				void STORE.put(key, blob);
 			});
 		},
 		[keyOf, cache],
+	);
+	// READ BACK what an earlier visit stored, for the tiles the rail has mounted. One re-render for the whole batch, and a key
+	// is asked for once per mount: a miss stays a miss until a capture fills it.
+	const asked = React.useRef(new Set<string>());
+	const restore = React.useCallback(
+		(keys: readonly string[]) => {
+			const want = keys.filter((k) => k && !cache.has(k) && !asked.current.has(k));
+			if (!want.length) return;
+			for (const k of want) asked.current.add(k);
+			Promise.all(want.map((k) => STORE.get(k).then((blob) => [k, blob] as const))).then((rows) => {
+				if (!mounted.current) return;
+				let got = 0;
+				for (const [k, blob] of rows) {
+					if (!blob || cache.has(k)) continue;
+					cache.set(k, URL.createObjectURL(blob), blob.size);
+					got++;
+				}
+				if (got) setPosterRev((r) => r + 1);
+			});
+		},
+		[cache],
 	);
 	const onPictureRef = React.useRef(onPicture);
 	onPictureRef.current = onPicture;
@@ -218,16 +248,23 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 	const onWindow = React.useCallback(
 		(units: readonly number[]) => {
 			windowUnits.current = units;
-			cache.pin('map', units.map(keyOf).filter(Boolean));
+			const keys = units.map(keyOf).filter(Boolean);
+			cache.pin('map', keys);
+			restore(keys);
 		},
-		[cache, keyOf],
+		[cache, keyOf, restore],
 	);
-	React.useEffect(() => cache.pin('map', windowUnits.current.map(keyOf).filter(Boolean)), [cache, keyOf]);
+	React.useEffect(() => {
+		const keys = windowUnits.current.map(keyOf).filter(Boolean);
+		cache.pin('map', keys);
+		restore(keys);
+	}, [cache, keyOf, restore]);
 
 	// One element per tile per look: React then skips a tile whose input did not change, so a keystroke does not
 	// re-point the pool's frames (the pool's props effect runs after every render of a tile).
 	// biome-ignore lint/correctness/useExhaustiveDependencies: a new look is what empties the cache.
 	const liveCache = React.useMemo(() => new Map<number, React.ReactNode>(), [look]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `posterRev` is the trigger (a poster arrived); the body reads the cache.
 	const live = React.useCallback(
 		(i: number) => {
 			const it = look.items[i];
@@ -235,13 +272,15 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 			// Until the pictures catch up with an edit, a tile whose slide changed keeps its sketch: a stale
 			// picture of another slide, or one past the settled deck's end, is worse than none.
 			if (!it || text !== textOf(i)) return null;
+			// A tile whose poster is fresh shows it and mounts no frame (SKIP_LIVE).
+			if (SKIP_LIVE && cache.has(keyOf(i))) return null;
 			const hit = liveCache.get(i);
 			if (hit) return hit;
 			const face = <PooledThumbFace options={look.options} sample={look.sample} slideIndex={i} slideCount={look.items.length} slideMarkdown={look.front + text} drawn={hasDrawnFence(text)} paletteOverride={look.paletteOverride} extraTheme={look.extraTheme} modeOverride={look.modeOverride} extraCss={look.extraCss} className="size-full" onPicture={(capture) => onPictureRef.current(i, capture)} />;
 			liveCache.set(i, face);
 			return face;
 		},
-		[look, liveCache, textOf],
+		[look, liveCache, textOf, cache, keyOf, posterRev],
 	);
 
 	// A hidden slide (`<!-- hide -->`) wears the eye-off mark on its tile, as its pill does (SlideRail.tsx): it stays in
@@ -361,7 +400,7 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 					</button>
 				</div>
 			) : (
-				<MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} poster={poster} posterBudget={POSTER_TILES} onWindow={onWindow} caption={classLabels ? caption : NO_CLASS} mark={mark} adorn={actions ? adorn : undefined} keyOf={tileKey} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} controls={orientation === 'vertical'} />
+				<MapRail count={items.length} focus={focus} onPick={(i) => go(i)} onStep={onStep} wire={wire} label={label} live={live} poster={poster} posterBudget={POSTER_TILES} onWindow={onWindow} caption={classLabels ? caption : NO_CLASS} mark={mark} adorn={actions ? adorn : undefined} keyOf={tileKey} wrap={(tiles, report) => <PreviewPool maxSlots={maxSlots} onSettle={report}>{tiles}</PreviewPool>} aspect={aspect} orientation={orientation} stage={STAGE} ramp controls={orientation === 'vertical'} />
 			)}
 		</div>
 	);

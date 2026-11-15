@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildDeckIndex, deckOutliner } from '@/lib/deck-outline';
 import { createFocusHub } from '@/lib/fuoco/hub';
@@ -38,9 +38,14 @@ describe('StudioMap', () => {
 		expect(tiles()).toEqual(['Slide 1, One', 'Slide 2, Two', 'Slide 3, Two B', 'Slide 4, Three', 'Slide 5, Four']);
 	});
 
-	it('draws live tiles from the shell look with the part alone as the fallback', () => {
+	it('draws live tiles from the shell look with the part alone as the fallback', async () => {
 		render(setup().ui);
-		const first = document.querySelector('[data-live-face="0"]');
+		// The map promotes its tiles after mount (MapRail `ramp`), so the face arrives a step later.
+		const first = await waitFor(() => {
+			const f = document.querySelector('[data-live-face="0"]');
+			expect(f).not.toBeNull();
+			return f;
+		});
 		expect(first?.getAttribute('data-md')).toContain('theme: indaco');
 		expect(first?.getAttribute('data-md')).toContain('# One');
 	});

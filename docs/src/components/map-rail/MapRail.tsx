@@ -56,6 +56,11 @@ export interface MapRailProps {
 	orientation: 'vertical' | 'horizontal';
 	/** The least number of tiles that may be live at once (default 8). The rail raises it to cover the tiles on screen, since the budget caps what a pool RETAINS, never what the reader sees. The pool's reported capacity caps it. */
 	liveBudget?: number;
+	/** STILLS FIRST: start the mount with no live tiles and promote them one at a time in idle time, nearest the focus
+	 *  first, once the page has loaded. Until a tile is promoted it shows its poster, or its sketch. Each live tile is a
+	 *  whole engine document, and mounting the window's worth at once was the bulk of the Studio's load-time blocking
+	 *  (`npm run perf:load`, MAP=1). Off by default: a host opts in. */
+	ramp?: boolean;
 	/** The host's stage (the big preview beside the rail) is a live view on the same page: name what one costs and
 	 *  Veduta charges it to the same live budget as the tiles, and ranks it first. The rail adds the same cost to
 	 *  the budget and the cap, so it never takes a tile from the map. The Studio's stage is one frame by ruling
@@ -85,6 +90,10 @@ export interface MapRailProps {
 
 /** Space round the tiles and between them, in px. */
 const PAD = 8;
+/** The ramp's pacing (MapRailProps `ramp`): the wait after a promotion before the next is asked for, and the longest an
+ *  idle callback may wait. */
+const RAMP_GAP_MS = 250;
+const RAMP_IDLE_MAX_MS = 3000;
 const GAP = 8;
 /** The caption row under a captioned tile's picture: a 22px pill and the 6px above it. */
 export const CAPTION_BAND = 28;
@@ -166,7 +175,7 @@ interface Plan {
 }
 const EMPTY: Plan = { units: [], tiers: new Map(), sig: '' };
 
-export function MapRail({ count, focus, onPick, onStep, wire, label, live, poster, posterBudget = 0, caption, mark, adorn, keyOf, onWindow, wrap, aspect, orientation, liveBudget = 8, stage, controls = true, className }: MapRailProps) {
+export function MapRail({ count, focus, onPick, onStep, wire, label, live, poster, posterBudget = 0, caption, mark, adorn, keyOf, onWindow, wrap, aspect, orientation, liveBudget = 8, ramp = false, stage, controls = true, className }: MapRailProps) {
 	const vertical = orientation === 'vertical';
 	const scrollerRef = React.useRef<HTMLDivElement>(null);
 	const veduta = React.useRef<ReturnType<typeof createVeduta>>(null as unknown as ReturnType<typeof createVeduta>);
@@ -192,6 +201,10 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 	const stageOn = !!stage;
 	const posterOn = !!poster;
 	const stageCost = stage && Number.isFinite(stage.cost) ? Math.max(0, stage.cost) : 0;
+	// How many map tiles the ramp lets go live so far (see `ramp`). Infinity once it has finished, or with no ramp.
+	const [rampLive, setRampLive] = React.useState(ramp ? 0 : Number.POSITIVE_INFINITY);
+	// What the window would ask for with no ramp: the ramp stops there.
+	const rampWant = React.useRef(0);
 	// The pool's capacity, as it reported it (undefined until a pool has, or with no pool at all).
 	const [poolCap, setPoolCap] = React.useState<number | undefined>(undefined);
 	const report = React.useCallback((pool: { capacity: number }) => {
@@ -221,7 +234,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 			// The budget covers the tiles on screen, plus the stage when the host prices it. It is not capped here: the
 			// pool's reported capacity reaches the core through `settle` (below) and caps it there.
 			budget: {
-				live: (liveOn ? Math.max(liveBudget, Math.ceil(len / geo.pitch) + 1) : 0) + stageCost,
+				live: (liveOn ? Math.min(rampLive, (rampWant.current = Math.max(liveBudget, Math.ceil(len / geo.pitch) + 1))) : 0) + stageCost,
 				poster: posterOn && Number.isFinite(posterBudget) ? Math.max(0, posterBudget) : 0,
 				wireframe: Infinity,
 				stageTier: stageOn ? 'live' : 'placeholder',
@@ -234,7 +247,42 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 		if (sig === askedSig.current && sig === shownSig.current) el.dataset.planAt = String(Math.round(pos));
 		askedSig.current = sig;
 		setPlan((p) => (p.sig === sig ? p : { units: intent.mapUnits, tiers: intent.tiers.map, sig }));
-	}, [count, focus, geo.pitch, liveBudget, liveOn, posterOn, posterBudget, stageOn, stageCost, vertical, viewCross]);
+	}, [count, focus, geo.pitch, liveBudget, liveOn, posterOn, posterBudget, stageOn, stageCost, vertical, viewCross, rampLive]);
+
+	// THE RAMP: one more live tile per step. The first step waits for the page's `load` and then for idle time, so the stage
+	// and the rest of the page are drawn and answering before any tile's document is built. Each later step waits
+	// RAMP_GAP_MS and then for idle time again: the gap lets the tile just promoted fetch and start its document, which
+	// is when it blocks, so the next promotion lands after that work instead of on top of it. An idle callback never
+	// waits past RAMP_IDLE_MAX_MS, so a page that is never idle still fills its map.
+	React.useEffect(() => {
+		if (!liveOn || !Number.isFinite(rampLive)) return;
+		if (rampWant.current > 0 && rampLive >= rampWant.current) {
+			setRampLive(Number.POSITIVE_INFINITY);
+			return;
+		}
+		let gap = 0;
+		let idle = 0;
+		let alive = true;
+		const step = () => {
+			if (alive) setRampLive((n) => n + 1);
+		};
+		const whenIdle = () => {
+			if (!alive) return;
+			if (typeof window.requestIdleCallback === 'function') idle = window.requestIdleCallback(step, { timeout: RAMP_IDLE_MAX_MS });
+			else gap = window.setTimeout(step, 0);
+		};
+		const onLoad = () => {
+			gap = window.setTimeout(whenIdle, rampLive === 0 ? 0 : RAMP_GAP_MS);
+		};
+		if (document.readyState === 'complete') onLoad();
+		else window.addEventListener('load', onLoad, { once: true });
+		return () => {
+			alive = false;
+			window.removeEventListener('load', onLoad);
+			window.clearTimeout(gap);
+			if (idle && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idle);
+		};
+	}, [liveOn, rampLive]);
 
 	// Measure the rail's thickness (the axis the tiles scale to) and re-ask when it changes.
 	// The scroller always carries its scrollbar track (`overflow-*-scroll`), so the thickness read here cannot
