@@ -54,4 +54,36 @@ describe('buildFamilyFontCss', () => {
 		expect(heavy).toContain('font-weight:700');
 		expect(heavy.match(/font-family:'Outfit'/g)).toHaveLength(1);
 	});
+	it('breaks a weight tie the way CSS matching does: heavier from 400 up', async () => {
+		// Outfit is vendored at 300-700 in steps of 100: 450 sits between 400 and 500, and the browser draws 500.
+		const css = await buildFamilyFontCss([face('outfit', 450)]);
+		expect(css).toContain('font-weight:500');
+		expect(css).not.toContain('font-weight:400');
+	});
+	// Each of these loads the module afresh: its caches live as long as the page, so a face an earlier test cached as a
+	// success would answer from the cache instead of the network under test.
+	const fresh = async () => {
+		vi.resetModules();
+		return import('./font-embed.js');
+	};
+	it('refuses an icon or emoji face that answers with an error, as it does a text face', async () => {
+		const m = await fresh();
+		net.status = 404;
+		await expect(m.buildFamilyFontCss([], 'An icon \uE000')).rejects.toThrow(/HTTP 404/);
+		await expect(m.buildFamilyFontCss([], 'A smile \u{1F600}')).rejects.toThrow(/HTTP 404/);
+	});
+	it('forgets a failed face, so the next capture asks again and gets it', async () => {
+		const m = await fresh();
+		net.status = 503;
+		await expect(m.buildFamilyFontCss([], 'A smile \u{1F92A}')).rejects.toThrow(/HTTP 503/);
+		net.status = 200;
+		expect(await m.buildFamilyFontCss([], 'A smile \u{1F92A}')).toContain("font-family:'Noto Color Emoji'");
+	});
+	it('leaves the export\'s own caches alone: a poster\'s failure does not fail an export', async () => {
+		const m = await fresh();
+		net.status = 503;
+		await expect(m.buildFamilyFontCss([], 'Party \u{1F389}')).rejects.toThrow();
+		net.status = 200;
+		expect(await m.buildFontEmbedCss('Party \u{1F389}')).toContain("font-family:'Noto Color Emoji'");
+	});
 });

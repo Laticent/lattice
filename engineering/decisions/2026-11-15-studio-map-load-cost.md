@@ -119,6 +119,13 @@ without the fix: a ramp step pulled a hand-scrolled rail back to the focused til
 forever; posters lacked icon and emoji faces; a failed font fetch kept a fallback-face poster for good; a replaced
 library photo left a stale poster; and the store evicted by write time and stayed dead after another tab deleted it.
 
+**A second independent review** read everything that landed after the first one and found nothing blocking, and
+seven smaller defects, all fixed with a failing-arm test: icon and emoji faces on the poster path still accepted an
+error page (posters now keep their own strict cache, which forgets a failure and shares nothing with the export's);
+counters drawn by `::before` were not read for their face; a weight tie went the wrong way for CSS matching; every store
+read rewrote its row (a use-stamp is now its own best-effort write, at most hourly); the first capture skipped the
+input gate; a photo named in the front matter or finish CSS was not seen; and the capped e2e could read mid-ramp.
+
 **Verified in WebKit, not on iOS.** In Playwright's WebKit build a returning load shows every tile as a still drawn in
 the slide's fonts, matching Chromium tile for tile. iOS Safari itself was not reachable from the sandbox.
 

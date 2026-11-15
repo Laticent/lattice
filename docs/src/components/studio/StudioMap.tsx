@@ -268,6 +268,8 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 	// re-point the pool's frames (the pool's props effect runs after every render of a tile).
 	// biome-ignore lint/correctness/useExhaustiveDependencies: a new look is what empties the cache.
 	const liveCache = React.useMemo(() => new Map<number, React.ReactNode>(), [look]);
+	// A library photo named outside the slide's text (the front matter, the finish CSS) is in every slide's picture.
+	const usesAsset = React.useMemo(() => `${look.front}${look.extraCss ?? ''}`.includes('asset:'), [look]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `posterRev` is the trigger (a poster arrived); the body reads the cache.
 	const live = React.useCallback(
 		(i: number) => {
@@ -284,14 +286,14 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 			//
 			// A slide that shows a library photo (`asset:name`) is the exception: the photo can be replaced under the same name, so
 			// its slide text, and with it the poster's key, does not change when its picture does. Its frame keeps drawing.
-			if (!text.includes('asset:') && cache.has(keyOf(i))) return null;
+			if (!usesAsset && !text.includes('asset:') && cache.has(keyOf(i))) return null;
 			const hit = liveCache.get(i);
 			if (hit) return hit;
 			const face = <PooledThumbFace options={look.options} sample={look.sample} slideIndex={i} slideCount={look.items.length} slideMarkdown={look.front + text} drawn={hasDrawnFence(text)} paletteOverride={look.paletteOverride} extraTheme={look.extraTheme} modeOverride={look.modeOverride} extraCss={look.extraCss} className="size-full" onPicture={(capture) => onPictureRef.current(i, capture)} />;
 			liveCache.set(i, face);
 			return face;
 		},
-		[look, liveCache, textOf, cache, keyOf, posterRev],
+		[look, liveCache, textOf, cache, keyOf, posterRev, usesAsset],
 	);
 
 	// A hidden slide (`<!-- hide -->`) wears the eye-off mark on its tile, as its pill does (SlideRail.tsx): it stays in

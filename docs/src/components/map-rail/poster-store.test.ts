@@ -51,7 +51,9 @@ describe('createPosterStore', () => {
 		vi.advanceTimersByTime(1000);
 		await store.put('b', pic('b'));
 		vi.advanceTimersByTime(1000);
+		vi.advanceTimersByTime(60 * 60 * 1000); // a use-stamp is refreshed only once it is an hour old
 		await store.get('a'); // shown again: now the most recently used
+		// The stamp is its own readwrite transaction, created before the put below, and IndexedDB runs them in that order.
 		vi.advanceTimersByTime(1000);
 		await store.put('c', pic('c'));
 		expect(await text(await store.get('a'))).toBe('a');

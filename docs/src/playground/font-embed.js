@@ -192,14 +192,32 @@ function buildTextFontCss() {
 // pseudo-element content and icon glyphs, as the export's `deckTextOf` reads it): the Lattice Icons faces come with it
 // when it draws an icon, and the Noto Color Emoji slices its emoji need, by the export's own rules (`drawsIcons`,
 // `slicesFor`). Rejects when a face cannot be had, so the caller can refuse to keep a picture drawn without it.
+//
+// ITS OWN CACHE, STRICT, FORGETTING FAILURES. Every face here, text, icon and emoji, is fetched strictly (an HTTP error
+// is a failure, not a face) into `faceRules`, and a failed fetch is dropped so the next capture asks again. It shares
+// nothing with the export's caches (`cssPromise`, `iconCssPromise`, `emojiRules`), so a poster can neither change what
+// an export embeds nor poison an export's cache with a failure (followups.d/3212-p3-export-font-http-error.md).
 const faceRules = new Map();
+function strictRule(key, url, write) {
+	if (!faceRules.has(key)) {
+		const rule = faceBase64(url, { strict: true }).then(write);
+		rule.catch(() => faceRules.delete(key)); // a later capture retries
+		faceRules.set(key, rule);
+	}
+	return faceRules.get(key);
+}
 /** The vendored face the browser would draw `face` with: its family, the same style if one is vendored, the nearest weight. */
 function vendoredFaceFor({ family, weight, style }) {
 	const same = EMBED_FACES.filter((f) => f.family.toLowerCase() === family);
 	const styled = same.filter((f) => f.style === style);
 	const pool = styled.length ? styled : same;
+	// Nearest weight; on a tie, the side CSS font matching tries first: heavier from 400 up, lighter below it.
 	let best = null;
-	for (const f of pool) if (!best || Math.abs(f.weight - weight) < Math.abs(best.weight - weight)) best = f;
+	for (const f of pool) {
+		const d = Math.abs(f.weight - weight);
+		const b = best ? Math.abs(best.weight - weight) : Number.POSITIVE_INFINITY;
+		if (d < b || (d === b && (weight >= 400 ? f.weight > best.weight : f.weight < best.weight))) best = f;
+	}
 	return best;
 }
 
@@ -209,22 +227,15 @@ export async function buildFamilyFontCss(faces, text = '') {
 		const f = vendoredFaceFor(face);
 		if (f) picked.add(f);
 	}
-	const extras = Promise.all([
-		drawsIcons(text) ? buildIconFontCss() : '',
-		...emojiCore.EMOJI_SLICES.filter((s) => emojiCore.slicesFor(text).includes(s.file)).map(emojiSliceRule),
-	]);
-	const rules = await Promise.all(
-		[...picked].map((f) => {
-			const key = `${f.family} ${f.weight} ${f.style}`;
-			if (!faceRules.has(key)) {
-				const rule = faceBase64(FACE_URL.get(key), { strict: true }).then((b64) => faceRuleCore.faceRuleCss(f, 'swap', b64));
-				rule.catch(() => faceRules.delete(key)); // a later capture retries
-				faceRules.set(key, rule);
-			}
-			return faceRules.get(key);
-		}),
-	);
-	return rules.join('') + (await extras).join('');
+	const textRules = [...picked].map((f) => {
+		const key = `${f.family} ${f.weight} ${f.style}`;
+		return strictRule(key, FACE_URL.get(key), (b64) => faceRuleCore.faceRuleCss(f, 'swap', b64));
+	});
+	const iconRules = drawsIcons(text) ? ICON_FACES.map((f) => strictRule(`icon ${f.family} ${f.weight} ${f.style}`, f.url, (b64) => faceRuleCore.faceRuleCss(f, 'block', b64))) : [];
+	const need = new Set(emojiCore.slicesFor(text));
+	const emoji = emojiCore.EMOJI_SLICES.filter((sl) => need.has(sl.file)).map((sl) => strictRule(`emoji ${sl.file}`, EMOJI_URL[`../../../assets/fonts/${sl.file}.woff2`], (b64) => emojiRuleCss(sl.range, b64)));
+	// One await over all of them: a text face and an extra that both fail reject once, with nothing left unhandled.
+	return (await Promise.all([...textRules, ...iconRules, ...emoji])).join('');
 }
 
 // Noto Color Emoji ships as 11 unicode-range slices (lib/fonts/emoji-faces.js), the same files the CLI
@@ -232,16 +243,19 @@ export async function buildFamilyFontCss(faces, text = '') {
 const EMOJI_URL = import.meta.glob('../../../assets/fonts/noto-color-emoji-*.woff2', { eager: true, query: '?url', import: 'default' });
 const emojiRules = new Map();
 
+function emojiRuleCss(range, b64) {
+	return (
+		`@font-face{font-family:'${emojiCore.EMOJI_FAMILY}';font-style:normal;font-weight:400;font-display:swap;` +
+		`src:url(data:font/woff2;base64,${b64}) ${emojiCore.EMOJI_SRC_FORMAT};unicode-range:${range};}`
+	);
+}
+
 async function emojiSliceRule({ file, range }) {
 	if (!emojiRules.has(file)) {
 		const url = EMOJI_URL[`../../../assets/fonts/${file}.woff2`];
 		emojiRules.set(
 			file,
-			faceBase64(url).then(
-				(b64) =>
-					`@font-face{font-family:'${emojiCore.EMOJI_FAMILY}';font-style:normal;font-weight:400;font-display:swap;` +
-					`src:url(data:font/woff2;base64,${b64}) ${emojiCore.EMOJI_SRC_FORMAT};unicode-range:${range};}`,
-			),
+			faceBase64(url).then((b64) => emojiRuleCss(range, b64)),
 		);
 	}
 	return emojiRules.get(file);

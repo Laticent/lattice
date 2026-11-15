@@ -26,6 +26,8 @@ export interface PosterStore {
 }
 
 const STORE = 'posters';
+/** How stale a row's use-stamp may get before a read refreshes it. */
+const STAMP_EVERY_MS = 60 * 60 * 1000;
 const AT = 'at';
 
 /** A picture is stored as its BYTES and type, not as a Blob: Blobs in IndexedDB have failed in WebKit before, and a
@@ -106,13 +108,21 @@ export function createPosterStore(name: string, { max = 400 }: { max?: number } 
 			try {
 				const d = await open();
 				if (!d) return null;
-				const os = d.transaction(STORE, 'readwrite').objectStore(STORE);
-				const row = (await settle(os.get(key))) as Row | undefined;
+				const row = (await settle(d.transaction(STORE, 'readonly').objectStore(STORE).get(key))) as Row | undefined;
 				// Tested by its tag, not `instanceof`: the bytes may come from another realm (a frame, a test's DOM).
 				if (!row || Object.prototype.toString.call(row.bytes) !== '[object ArrayBuffer]') return null;
-				// A read is a use: eviction drops the posters least recently SHOWN, so the deck a reader opens every day is
-				// not pushed out by a run of palette switches that each wrote a deck's worth of new keys.
-				os.put({ ...row, at: Date.now() } satisfies Row);
+				// A read is a use: eviction drops the posters least recently SHOWN, so the deck a reader opens every day is not
+				// pushed out by a run of palette switches that each wrote a deck's worth of new keys. The stamp is its own
+				// write, best effort, and only for a row not stamped in the last hour: a returning load reads a whole window,
+				// and rewriting every row it shows, in serialized readwrite transactions, would tax the load this store
+				// speeds up. A stamp that fails costs nothing; the picture was read.
+				if (Date.now() - row.at > STAMP_EVERY_MS) {
+					try {
+						d.transaction(STORE, 'readwrite').objectStore(STORE).put({ ...row, at: Date.now() } satisfies Row);
+					} catch {
+						// the connection closed under it (another tab); the next read stamps it
+					}
+				}
 				return new Blob([row.bytes], { type: row.type });
 			} catch {
 				return null;

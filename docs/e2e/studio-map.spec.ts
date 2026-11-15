@@ -349,6 +349,8 @@ test('a pool ceiling lowered to 3 caps the live tiles at 3 through settle, and t
 	await trackPeakFrames(page);
 	await openTen(page, '3');
 	await expect.poll(() => peakFrames(page), { message: 'the pool never mounted its frames' }).toBe(3);
+	// Read once the ramp is done: it promotes one tile at a time, so mid-ramp an uncapped map also reads 3.
+	await expect(page.locator(`${RAIL} [data-ramp="done"]`)).toHaveCount(1, { timeout: 30_000 });
 	await expect.poll(() => liveTiles(page), { message: 'the rail asked for more live tiles than the pool reported it holds' }).toBe(3);
 	// And never past it: the ceiling held for the whole fill, not only at the moment it was read.
 	expect(await peakFrames(page)).toBe(3);
@@ -358,6 +360,7 @@ test('a pool ceiling lowered to 3 caps the live tiles at 3 through settle, and t
 test('THE ARM: the same deck without the ceiling asks for more than 3 live tiles', async ({ page }) => {
 	await trackPeakFrames(page);
 	await openTen(page, null);
+	await expect(page.locator(`${RAIL} [data-ramp="done"]`)).toHaveCount(1, { timeout: 30_000 });
 	await expect.poll(() => liveTiles(page)).toBeGreaterThan(3);
 	await expect.poll(() => peakFrames(page)).toBeGreaterThan(3);
 	test.info().annotations.push({ type: 'uncapped', description: `live ${await liveTiles(page)}, peak frames ${await peakFrames(page)}` });

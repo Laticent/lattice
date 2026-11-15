@@ -18,13 +18,14 @@ source: https://github.com/Laticent/lattice/pull/3212
                    asks for the old hashed file) becomes an @font-face whose data is an HTML
                    page: the face never loads, and the PDF / PPTX / PNG / player export
                    completes in a fallback face with no notice. Found by the PR 3212
-                   maker-checker review; pre-existing, not worsened. #3212 made the slide map's
-                   posters strict (`faceBase64(url, { strict: true })`) and left the export as
-                   it was. The icon and emoji rules behind both paths share caches and stay
-                   non-strict, so a poster can still keep a broken icon face on that same 404.
+                   maker-checker review; pre-existing, not worsened. #3212 gave the slide map's
+                   posters their own strict cache, which forgets a failure, and left the export
+                   as it was. A second export defect sits beside it: `emojiRules` keeps a
+                   REJECTED slice for the page's life, so one network blip fails every later
+                   export that needs that slice until reload (posters no longer touch it).
        done when — the owner picks the export's answer (fail with a "reload the page" notice,
                    or retry once and then fail, or keep completing but tell the reader which
-                   face fell back), and the icon/emoji caches follow the same rule.
+                   face fell back), and `emojiRules` drops a rejected slice as the other caches do.
        verify    — tier 0 (font-embed.family.test.ts has the 404 arm to extend), plus one
                    real export against a served build with a face path removed.
 ```

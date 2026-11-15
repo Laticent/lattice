@@ -700,7 +700,6 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 	const quietTimer = React.useRef(0);
 	const drainCaptures = React.useCallback(() => {
 		if (!alive.current || capturing.current || captureQueue.current.length === 0 || quietTimer.current) return;
-		hearInput();
 		// Both gates: the pool's scroller still for CAPTURE_QUIET_MS, and the reader for CAPTURE_INPUT_QUIET_MS.
 		const wait = captureWait(Date.now() - lastScroll.current, readerQuietFor());
 		const go = () => {
@@ -740,6 +739,9 @@ export function PreviewPool({ children, className, baseSlots: hostBase = BASE_SL
 			lastScroll.current = Date.now();
 		};
 		target.addEventListener('scroll', onScroll, { passive: true });
+		// From the pool's mount, not its first capture: the first capture is the costliest (its fonts are fetched and
+		// encoded), and a reader typing before it must hold it back like any other.
+		hearInput();
 		return () => {
 			target.removeEventListener('scroll', onScroll);
 			window.clearTimeout(quietTimer.current);

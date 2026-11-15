@@ -24,7 +24,7 @@ vi.mock('../../playground/font-embed.js', () => ({
 }));
 vi.mock('../../../../lib/core/slide-camera.mjs', () => ({ pseudoContentText: () => '' }));
 
-import { captureSlot, SCROLLED, slideTextOf } from './pool-capture';
+import { captureSlot, facesOf, SCROLLED, slideTextOf } from './pool-capture';
 
 function slot() {
 	const s = document.createElement('div');
@@ -87,5 +87,25 @@ describe('a poster carries the slide\'s own fonts, or is not taken', () => {
 		expect(slideTextOf(sec, () => '')).toContain('\uE019');
 		sec.classList.add('icon-svg');
 		expect(slideTextOf(sec, () => '')).not.toContain('\uE019');
+	});
+	it('reads the face a ::before draws in, which no element on the slide may use', () => {
+		const sec = document.createElement('section');
+		sec.style.fontFamily = 'Outfit';
+		sec.innerHTML = '<p class="step">Plan</p>';
+		document.body.appendChild(sec);
+		// jsdom computes no pseudo-element styles, so the browser's answer for the step counter is stood in.
+		const real = window.getComputedStyle.bind(window);
+		const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((el: Element, pseudo?: string | null) => {
+			if (pseudo === '::before' && (el as HTMLElement).classList.contains('step'))
+				return { content: '"1"', fontFamily: '"JetBrains Mono", monospace', fontWeight: '700', fontStyle: 'normal' } as CSSStyleDeclaration;
+			const cs = real(el);
+			return pseudo ? ({ ...cs, content: 'none' } as CSSStyleDeclaration) : cs;
+		});
+		try {
+			expect(facesOf(sec)).toContainEqual({ family: 'jetbrains mono', weight: 700, style: 'normal' });
+		} finally {
+			spy.mockRestore();
+			sec.remove();
+		}
 	});
 });

@@ -30,14 +30,22 @@ export function slotShows(slot: HTMLElement | undefined, props: PooledPreviewPro
 export function facesOf(section: HTMLElement): Array<{ family: string; weight: number; style: string }> {
 	const win = section.ownerDocument.defaultView ?? window;
 	const out = new Map<string, { family: string; weight: number; style: string }>();
-	for (const el of [section, ...section.querySelectorAll<HTMLElement>('*')]) {
-		const cs = win.getComputedStyle(el);
+	const add = (cs: CSSStyleDeclaration) => {
 		const weight = Number.parseInt(cs.fontWeight, 10) || 400;
 		const style = cs.fontStyle === 'normal' ? 'normal' : 'italic';
 		// Every family in the stack: the builder keeps the vendored ones, and the first of those is the one drawn.
 		for (const f of cs.fontFamily.split(',')) {
 			const family = f.trim().replace(/^['"]|['"]$/g, '').toLowerCase();
 			if (family) out.set(`${family}\u0000${weight}\u0000${style}`, { family, weight, style });
+		}
+	};
+	for (const el of [section, ...section.querySelectorAll<HTMLElement>('*')]) {
+		add(win.getComputedStyle(el));
+		// What a pseudo-element draws, in its own face: a timeline's step counters are `::before` in the label face, which
+		// no element on the slide may use.
+		for (const pseudo of ['::before', '::after']) {
+			const ps = win.getComputedStyle(el, pseudo);
+			if (ps.content && ps.content !== 'none' && ps.content !== 'normal') add(ps);
 		}
 	}
 	return [...out.values()];

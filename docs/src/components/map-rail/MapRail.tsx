@@ -525,7 +525,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 			{/* `data-ramp`: "on" while the ramp is still promoting tiles, "done" once the window holds what it asks for (or with no
 			    ramp). A test that counts a full map's frames waits for "done" (docs/e2e/studio-map.spec.ts `poolFilled`). */}
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: the arrow keys are the roving-tabindex pattern over the tile buttons inside it; the buttons are the interactive elements */}
-			<div ref={scrollerRef} data-ramp={Number.isFinite(rampLive) ? 'on' : 'done'} onScroll={onScroll} onKeyDown={onKeyDown} className={cn('min-h-0 min-w-0 flex-1', vertical ? 'overflow-y-scroll overflow-x-hidden' : 'overflow-x-scroll overflow-y-hidden')}>
+			<div ref={scrollerRef} data-ramp={liveOn && Number.isFinite(rampLive) ? 'on' : 'done'} onScroll={onScroll} onKeyDown={onKeyDown} className={cn('min-h-0 min-w-0 flex-1', vertical ? 'overflow-y-scroll overflow-x-hidden' : 'overflow-x-scroll overflow-y-hidden')}>
 				{wrap ? wrap(tiles, report) : tiles}
 			</div>
 		</nav>
