@@ -622,6 +622,17 @@ test('zoom before load, with motion: a step before the first photo loads starts 
   assert.equal(h.index(), 1);
 });
 
+test('zoom before load: a pinch made before the photo loads is still a pinch, never a swipe', () => {
+  // Gating the kernel's `down` lost its "this gesture held two fingers" mark, so a wide pinch read as a
+  // swipe and stepped (the checker on #3197). Travel well past the 45 px swipe threshold.
+  const s = stepper({}, { loaded: false });
+  s.root.dispatchEvent(touch(s.win, 'touchstart', [[100, 200], [140, 200]]));
+  s.root.dispatchEvent(touch(s.win, 'touchmove', [[0, 200], [240, 200]]));
+  s.root.dispatchEvent(touch(s.win, 'touchend', [], [[0, 200], [240, 200]]));
+  assert.equal(s.h.index(), 0, 'a pinch never steps');
+  assert.equal(scaleOf(s.root), 1, 'and zooms nothing with no photo');
+});
+
 test('zoom before load: two fingers that land before the photo do not anchor a pinch on the empty frame', () => {
   const s = stepper({}, { loaded: false });
   s.root.dispatchEvent(touch(s.win, 'touchstart', [[0, 0], [10, 0]]));
