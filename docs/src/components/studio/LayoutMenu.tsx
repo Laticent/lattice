@@ -153,10 +153,8 @@ function LayoutMenuBody({ open, slideNumber, sample, current, looks, keeps, fres
 		// Left and right move only along the looks, as along a toolbar; elsewhere they are left alone.
 		if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !inLooks) return;
 		e.preventDefault();
-		let next = at;
-		if (e.key === 'Home') next = 0;
-		else if (e.key === 'End') next = items.length - 1;
-		else next = (at + (e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1) + items.length) % items.length;
+		const step = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1;
+		const next = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : (at + step + items.length) % items.length;
 		items[next]?.focus();
 	};
 	// The question takes focus when it appears, so Enter answers it and a screen reader reads it.
