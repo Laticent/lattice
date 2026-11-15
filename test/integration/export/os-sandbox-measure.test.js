@@ -52,3 +52,27 @@ test(`CONTROL: on ${process.platform}, a browser started without the sandbox rea
     await browser.close();
   }
 });
+
+// TEMPORARY PROBE (not for merge; removed before the merge ask): on Windows only, ten fresh launches of 40 reads, printing
+// every reading that needed a second read, so a real runner shows a starting renderer settle. Never fails; elsewhere it
+// returns at once.
+test(`PROBE: Windows settle, 10 launches x 40 reads`, { timeout: 1800000 }, async (t) => {
+  if (process.platform !== 'win32') return;
+  const tally = {};
+  for (let launch = 0; launch < 10; launch++) {
+    const sandbox = await launchCodeSandbox(puppeteer, { executablePath: CHROME });
+    try {
+      tally[`launch:${sandbox.layer.os}`] = (tally[`launch:${sandbox.layer.os}`] || 0) + 1;
+      for (let i = 0; i < 40; i++) {
+        const diag = {};
+        const on = await rendererSandboxed(sandbox.browser, sandbox.pid, process.platform, diag);
+        const reads = new Set((diag.seen ?? []).map((r) => /^read (\d+):/.exec(r)?.[1]).filter(Boolean)).size;
+        tally[`${on}/${reads || 1}reads`] = (tally[`${on}/${reads || 1}reads`] || 0) + 1;
+        if (on !== true || reads > 1) t.diagnostic(`launch ${launch} read ${i}: ${on} ${JSON.stringify(diag.seen ?? [])}`);
+      }
+    } finally {
+      await sandbox.close();
+    }
+  }
+  t.diagnostic(`tally ${JSON.stringify(tally)}`);
+});
