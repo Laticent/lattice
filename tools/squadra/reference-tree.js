@@ -23,6 +23,8 @@ const DIR = path.join(ROOT, '.scratch', 'squadra-reference');
 /** The workspace libraries lint-core loads (segno, markup, segno-markdown, squadra) and the ones its transforms need. */
 const LIBS = ['segno', 'markup', 'segno-markdown', 'mosaico', 'fluido', 'squadra'];
 const READY = '.squadra-reference-ready';
+/** Every module `loadReference` requires, so the isolation check loads exactly what the diff will. */
+const REFERENCE_MODULES = ['lib/authoring/lint-core.js', 'lib/authoring/lint.js', 'lib/authoring/slide-split.js', 'lib/core/shape-glyphs.js'];
 
 function git(args, cwd = ROOT) {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
@@ -30,8 +32,15 @@ function git(args, cwd = ROOT) {
   return r.stdout.trim();
 }
 
-/** The commit this branch left main at. Throws when there is none: the diff refuses to run without a reference. */
-function referenceBase() {
+/**
+ * The commit this branch left main at. Fetches main first: a stale `origin/main` gives an older merge-base, whose
+ * lint-core predates main changes the branch already holds, and those would show up as differences to explain away.
+ * When the fetch fails (offline), it warns and uses the ref it has. Throws when there is no merge-base at all: the diff
+ * refuses to run without a reference.
+ */
+function referenceBase(log = (s) => process.stderr.write(`${s}\n`)) {
+  const fetched = spawnSync('git', ['fetch', '--quiet', 'origin', 'main'], { cwd: ROOT, encoding: 'utf8' });
+  if (fetched.status !== 0) log(`[squadra-reference] could not fetch origin/main (${String(fetched.stderr).trim() || 'no output'}); the reference may be older than main`);
   for (const main of ['origin/main', 'main']) {
     const r = spawnSync('git', ['merge-base', 'HEAD', main], { cwd: ROOT, encoding: 'utf8' });
     if (r.status === 0 && r.stdout.trim()) return r.stdout.trim();
@@ -61,7 +70,10 @@ function ensureReferenceTree(sha = referenceBase(), log = (s) => process.stderr.
   const tree = path.join(DIR, sha);
   if (fs.existsSync(path.join(tree, READY))) return tree;
   if (fs.existsSync(tree)) {
-    spawnSync('git', ['worktree', 'remove', '--force', tree], { cwd: ROOT });
+    // A half-built tree from an earlier run. Unlock first: a locked worktree survives `remove --force` and `prune`,
+    // and the `worktree add` below would then fail with "missing but locked".
+    spawnSync('git', ['worktree', 'unlock', tree], { cwd: ROOT });
+    spawnSync('git', ['worktree', 'remove', '--force', '--force', tree], { cwd: ROOT });
     fs.rmSync(tree, { recursive: true, force: true });
   }
   git(['worktree', 'prune']);
@@ -80,32 +92,46 @@ function ensureReferenceTree(sha = referenceBase(), log = (s) => process.stderr.
 }
 
 /**
- * Load the reference in a fresh process, lint the gallery and run a Fix all (which loads the fix driver on demand), and
- * list every repo module it loaded from outside the tree. [] means the reference is isolated from the branch. Read
- * from the module cache and, for ESM imports, from a resolve hook, so neither kind of load slips past.
+ * Load the reference in a fresh process the way `loadReference` does (every module it requires), lint the gallery and
+ * run a Fix all (which loads the fix driver on demand), and list every repo module it resolved from outside the tree.
+ * [] means the reference is isolated from the branch. A synchronous resolve hook (`module.registerHooks`) sees every
+ * `require` and `import` as it happens, and the list is read on `beforeExit`, once nothing is left to load, so no
+ * load is missed for want of waiting long enough.
  */
 function isolationLeaks(tree) {
   const script = `
-const { register } = require('node:module');
-const seen = new Set();
-const { port1, port2 } = new MessageChannel();
-port1.on('message', (u) => seen.add(u));
-port1.unref();
-register('data:text/javascript,' + encodeURIComponent('let p; export function initialize(d){p=d.port} export async function resolve(s,c,n){const r=await n(s,c); if(r.url.startsWith("file:")) p.postMessage(r.url); return r}'), { data: { port: port2 }, transferList: [port2] });
-const path = require('node:path');
+const Module = require('node:module');
+if (typeof Module.registerHooks !== 'function') {
+  console.error('the reference diff needs Node 22.15 or later (module.registerHooks) to prove the reference is isolated; this is ' + process.version);
+  process.exit(3);
+}
 const { fileURLToPath } = require('node:url');
+const path = require('node:path');
+const seen = new Set();
+Module.registerHooks({
+  resolve(specifier, context, next) {
+    const r = next(specifier, context);
+    if (r.url && r.url.startsWith('file:')) seen.add(fileURLToPath(r.url));
+    return r;
+  },
+});
 const tree = ${JSON.stringify(tree)};
-const core = require(path.join(tree, 'lib/authoring/lint-core.js'));
-const vocab = require(path.join(tree, 'lib/authoring/lint.js')).buildVocab();
-const deck = require('node:fs').readFileSync(path.join(tree, 'test/integration/baseline-decks/gallery.md'), 'utf8');
-core.lintTextWith(deck, vocab);
-core.applyAllFixes('<!-- _paginate: true -->\\n# A\\n' + deck, vocab);
-setTimeout(() => {
-  const files = [...Object.keys(require.cache), ...[...seen].map((u) => fileURLToPath(u))];
-  const root = ${JSON.stringify(`${ROOT}${path.sep}`)};
-  const out = [...new Set(files.filter((f) => f.startsWith(root) && !f.startsWith(tree + path.sep) && !f.includes(path.sep + 'node_modules' + path.sep)))];
-  console.log(JSON.stringify(out));
-}, 50);
+const root = ${JSON.stringify(`${ROOT}${path.sep}`)};
+process.on('beforeExit', () => {
+  const out = [...seen].filter((f) => f.startsWith(root) && !f.startsWith(tree + path.sep) && !f.includes(path.sep + 'node_modules' + path.sep));
+  console.log(JSON.stringify([...new Set(out)]));
+});
+(async () => {
+  for (const p of ${JSON.stringify(REFERENCE_MODULES)}) require(path.join(tree, p));
+  const core = require(path.join(tree, 'lib/authoring/lint-core.js'));
+  const vocab = require(path.join(tree, 'lib/authoring/lint.js')).buildVocab();
+  const deck = require('node:fs').readFileSync(path.join(tree, 'test/integration/baseline-decks/gallery.md'), 'utf8');
+  core.lintTextWith(deck, vocab);
+  await core.applyAllFixes('<!-- _paginate: true -->\\n# A\\n' + deck, vocab);
+})().catch((e) => {
+  console.error(e && e.stack ? e.stack : String(e));
+  process.exit(1);
+});
 `;
   const r = spawnSync(process.execPath, ['-e', script], { cwd: tree, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
   if (r.status !== 0) throw new Error(`the isolation check could not load the reference: ${String(r.stderr).slice(-2000)}`);

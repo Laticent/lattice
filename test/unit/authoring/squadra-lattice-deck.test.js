@@ -276,4 +276,46 @@ describe('the reference diff: the reference tree', () => {
       fs.rmSync(tree, { recursive: true, force: true });
     }
   });
+
+  test('the isolation check names a module the reference loads from outside its tree, by require and by a late import', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const { isolationLeaks } = require('../../../tools/squadra/reference-tree');
+    const root = path.join(__dirname, '../../..');
+    // The check only counts repo files, so the fake tree sits inside the repo, in the ignored .scratch/.
+    fs.mkdirSync(path.join(root, '.scratch'), { recursive: true });
+    const outsideCjs = path.join(root, 'lib/core/front-matter-key.js');
+    const outsideEsm = path.join(root, 'lib/core/sanitize-style-text.mjs');
+    const fake = (leak) => {
+      const tree = fs.mkdtempSync(path.join(root, '.scratch', 'squadra-iso-'));
+      const put = (rel, text) => {
+        fs.mkdirSync(path.dirname(path.join(tree, rel)), { recursive: true });
+        fs.writeFileSync(path.join(tree, rel), text);
+      };
+      put('test/integration/baseline-decks/gallery.md', '# A\n');
+      put('lib/authoring/lint.js', 'module.exports = { buildVocab: () => ({}) };\n');
+      put('lib/core/shape-glyphs.js', 'module.exports = { fencedLines: () => new Set() };\n');
+      put('lib/authoring/slide-split.js', leak === 'require' ? `require(${JSON.stringify(outsideCjs)});\nmodule.exports = {};\n` : 'module.exports = {};\n');
+      // The late import resolves a few event-loop turns after Fix all starts, the shape a fixed wait could miss.
+      const fixAll =
+        leak === 'import'
+          ? `async (t) => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); await import(${JSON.stringify(`file://${outsideEsm}`)}); return t; }`
+          : '(t) => t';
+      put('lib/authoring/lint-core.js', `module.exports = { lintTextWith: () => [], applyAllFixes: ${fixAll} };\n`);
+      return tree;
+    };
+    const trees = [];
+    try {
+      const clean = fake(null);
+      const required = fake('require');
+      const imported = fake('import');
+      trees.push(clean, required, imported);
+      assert.deepEqual(isolationLeaks(clean), []);
+      // Each leak is named, with whatever it loads in turn.
+      assert.ok(isolationLeaks(required).includes(outsideCjs));
+      assert.ok(isolationLeaks(imported).includes(outsideEsm));
+    } finally {
+      for (const t of trees) fs.rmSync(t, { recursive: true, force: true });
+    }
+  });
 });

@@ -297,6 +297,21 @@ exit 0. Message changed: 24 only in lint-core and 24 only in Squadra, FAIL, exit
 differently, each attributed to the rule, FAIL, exit 1. The counts are below the earlier 36 and 14 because each input
 now meets one host, not eight. The rule was removed and the stamps restored byte for byte.
 
+**The code review of the reference tree (2026-11-15, the owner's eighth agent).** An independent checker read
+`reference-tree.js` and the streaming change. It loaded the reference in-process beside the branch's linter over 378
+tracked decks and saw no module resolve from the tree to the branch, and it found no lost failure path in the diff. It
+found four holes in the tree, all fixed here:
+- the merge-base was taken from whatever `origin/main` pointed at, so a stale ref gave an older lint-core and its
+  differences would be explained away. `referenceBase` now fetches main first and warns when it cannot;
+- the isolation check read its ESM resolve hook after a fixed 50 ms, so a later `import()` could be missed. It now
+  uses a synchronous hook (`module.registerHooks`, Node 22.15 or later; older Node stops with that message) and reads
+  the list on `beforeExit`, once nothing is left to load;
+- a locked half-built worktree survived `remove --force`. It is unlocked first;
+- the check loaded lint-core and lint.js but not the two helpers the diff loads beside them. It now loads all four.
+A unit test builds fake trees in `.scratch/`: a clean one reports nothing, and a `require` leak and a delayed
+`import()` leak are both named. Failing arm: with the hook recording nothing, the test went red; restored byte for
+byte. Green five times alone and 20 times across 4 parallel workers.
+
 **Carried into step 4, from the same review.**
 - Notes are inert, and `<!-- _clas: kpi -->` is a note. A rule that reports or fixes a misspelled directive reads with
   `inert: 'include'` and declares `changes: inert`.
