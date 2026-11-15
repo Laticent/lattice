@@ -116,7 +116,7 @@ async function createSession() {
 				'/session',
 				{
 					capabilities: {
-						alwaysMatch: MAC ? { browserName: 'Safari', platformName: 'mac' } : { browserName: 'Safari', platformName: 'iOS', 'safari:useSimulator': true, 'safari:deviceUDID': attempt === 1 && LABEL === 'iPad' ? `FORCED-WRONG-${UDID}` : UDID },
+						alwaysMatch: MAC ? { browserName: 'Safari', platformName: 'mac' } : { browserName: 'Safari', platformName: 'iOS', 'safari:useSimulator': true, 'safari:deviceUDID': UDID },
 					},
 				},
 				{ timeoutMs: SESSION_TIMEOUT_MS },
