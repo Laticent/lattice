@@ -13,8 +13,8 @@
  * The corpora (tools/squadra/corpus.js):
  *   1. every source the lint unit tests hand the linter, recorded by running them (`--corpus <file>` reuses one,
  *      `--save-corpus <file>` keeps the recording for the next run);
- *   2. mutated decks: each corpus-1 source with a finding, spliced into a spread of tracked decks after their first
- *      slide, so a rule meets real decks around the case its tests wrote;
+ *   2. mutated decks: each corpus-1 source with a finding, spliced after the first slide of one of a spread of
+ *      `--hosts` tracked decks (8 by default, taken in turn), so a rule meets real decks around the case its tests wrote;
  *   3. the tracked decks as they are (`lint:deck --all`'s set).
  *
  * HOW TWO FINDINGS MATCH. On rule (the new id without its `deck/` prefix), severity, slide, message, and the TEXT of
@@ -181,21 +181,28 @@ function main() {
   const save = flag('--save-corpus', null);
   if (save) fs.writeFileSync(save, `${recording.inputs.map((s) => JSON.stringify(s)).join('\n')}\n`);
   const decks = trackedDecks();
-  const sources = [];
-  for (const text of recording.inputs) sources.push({ corpus: 'tests', name: `test input ${sources.length + 1}`, text });
   const hosts = hostsOf(decks, HOSTS);
-  for (const text of recording.inputs) {
-    if (!R.core.lintTextWith(text, refVocab).length) continue;
-    for (const h of hosts) sources.push({ corpus: 'mutated', name: `${h.path} + test input`, text: splice(fold(h.text), text) });
+  // One source at a time: the mutated corpus alone is tens of thousands of whole decks, and holding them all ran the
+  // heap out (2026-11-15, 59,353 recorded inputs). Each input with a finding goes into ONE host, the hosts in turn, so
+  // every host is used and every input meets a host around it, at an eighth of the cost of every input in every host.
+  function* sources() {
+    let n = 0;
+    for (const text of recording.inputs) yield { corpus: 'tests', name: `test input ${++n}`, text };
+    let k = 0;
+    for (const text of recording.inputs) {
+      if (!hosts.length || !R.core.lintTextWith(text, refVocab).length) continue;
+      const h = hosts[k++ % hosts.length];
+      yield { corpus: 'mutated', name: `${h.path} + test input`, text: splice(fold(h.text), text) };
+    }
+    for (const d of decks) yield { corpus: 'decks', name: d.path, text: d.text };
   }
-  for (const d of decks) sources.push({ corpus: 'decks', name: d.path, text: d.text });
 
   const perRule = new Map();
-  const tally = (rule) => perRule.get(rule) ?? perRule.set(rule, { rule, old: 0, new: 0, same: 0, unlocated: 0, oldOnly: [], newOnly: [] }).get(rule);
+  const tally = (rule) => perRule.get(rule) ?? perRule.set(rule, { rule, old: 0, new: 0, same: 0, unlocated: 0, oldOnlyCount: 0, newOnlyCount: 0, oldOnly: [], newOnly: [] }).get(rule);
   const byCorpus = {};
   let oldTotal = 0;
   const fixStats = { compared: 0, same: 0, held: [], notMigrated: 0 };
-  for (const s of sources) {
+  for (const s of sources()) {
     byCorpus[s.corpus] = (byCorpus[s.corpus] ?? 0) + 1;
     const olds = oldRecords(s.text, refVocab, R);
     const news = newRecords(s.text, vocab);
@@ -208,8 +215,16 @@ function main() {
       tally(r.rule).same++;
       tally(r.rule).unlocated++;
     }
-    for (const r of m.oldOnly) tally(r.rule).oldOnly.push({ source: s.name, ...r });
-    for (const r of m.newOnly) tally(r.rule).newOnly.push({ source: s.name, ...r });
+    // The lists only feed the migrated rules' failures and examples; a rule not yet migrated needs its count alone,
+    // and keeping every one of its findings is what grew the heap without bound.
+    for (const r of m.oldOnly) {
+      tally(r.rule).oldOnlyCount++;
+      if (held(r.rule)) tally(r.rule).oldOnly.push({ source: s.name, ...r });
+    }
+    for (const r of m.newOnly) {
+      tally(r.rule).newOnlyCount++;
+      if (held(r.rule)) tally(r.rule).newOnly.push({ source: s.name, ...r });
+    }
 
     if (FIX) {
       const oldText = R.core.applyAllFixes(s.text, refVocab);
@@ -278,7 +293,7 @@ function main() {
   out.push(failures.length ? `## FAIL\n\n${failures.map((f) => `- ${f}`).join('\n')}\n` : '## PASS\n');
   const report = out.join('\n');
   if (OUT) fs.writeFileSync(OUT, report);
-  if (JSON_OUT) console.log(JSON.stringify({ oldTotal, migrated: [...migrated], rows: rows.map(({ oldOnly, newOnly, ...r }) => ({ ...r, oldOnly: oldOnly.length, newOnly: newOnly.length })), fix: FIX ? { ...fixStats, held: fixStats.held.length } : null, failures }, null, 2));
+  if (JSON_OUT) console.log(JSON.stringify({ oldTotal, migrated: [...migrated], rows: rows.map(({ oldOnly, newOnly, oldOnlyCount, newOnlyCount, ...r }) => ({ ...r, oldOnly: oldOnlyCount, newOnly: newOnlyCount })), fix: FIX ? { ...fixStats, held: fixStats.held.length } : null, failures }, null, 2));
   else console.log(report);
   return failures.length ? 1 : 0;
 }
