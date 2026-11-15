@@ -13,5 +13,7 @@
   focus stays inside the notice instead of wandering into the blurred page beneath.
 - The notice also reads correctly in the original Edge (EdgeHTML): readable selection colors, a narrow card where CSS
   grid is missing, and steps that install the current Edge, since the original one no longer updates.
-- The notice is self-contained: it lists the supported browsers itself instead of linking to another page of the site,
-  which an old browser could not show properly either. Its only link goes to the browser maker's own update page.
+- The notice is self-contained: it lists the supported browsers itself, in a collapsed "Supported browsers" section
+  beside "Technical details", instead of linking to another page of the site, which an old browser could not show
+  properly either. Both sections collapse in the original Edge too. Its only link goes to the browser maker's own update
+  page.

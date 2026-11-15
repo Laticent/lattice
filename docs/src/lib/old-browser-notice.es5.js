@@ -122,9 +122,9 @@
 		'#ID ol,#ID ul{margin:0;padding:16px 0 0 1.4em}' +
 		'#ID .lob-supported{font-size:15px}' +
 		'#ID details .lob-supported{padding-top:6px}' +
-		// With no button row after it, the inline list keeps the button row's gap above the footer rule.
-		'#ID .lob-body .lob-supported{padding-bottom:24px}' +
 		'#ID h2+.lob-note{padding-top:0}' +
+		// A browser we can't name gets no button row, so its note keeps that row's gap above the footer rule.
+		'#ID h2+.lob-note:last-child{padding-bottom:24px}' +
 		'#ID li{padding:0 0 6px 4px}' +
 		'#ID .lob-after{padding:4px 0 0;font-size:15px;color:var(--text-muted,GrayText)}' +
 		'#ID .lob-actions{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-box-align:center;-webkit-align-items:center;align-items:center;padding:18px 0 24px}' +
@@ -137,6 +137,10 @@
 		'#ID .lob-foot p,#ID .lob-foot summary{font-size:15px;color:var(--text-muted,GrayText)}' +
 		'#ID details{padding:12px 0 0}' +
 		'#ID summary{cursor:pointer}' +
+		// The fallback toggle looks like the summary it stands in for, with a drawn triangle (no typed glyph) that turns.
+		'#ID .lob-toggle{position:relative;font:inherit;color:inherit;background:none;border:0;padding:0 0 0 16px;cursor:pointer;text-align:left}' +
+		'#ID .lob-toggle:before{content:"";display:inline-block;width:0;height:0;border-style:solid;border-width:5px 0 5px 8px;border-color:transparent transparent transparent currentColor;padding:0;position:absolute;left:0;top:.45em;-webkit-transition:transform .15s;transition:transform .15s}' +
+		'#ID .lob-toggle[aria-expanded="true"]:before{-webkit-transform:rotate(90deg);transform:rotate(90deg)}' +
 		'#ID details p{padding:6px 0 0}' +
 		'#ID .lob-continue{padding:12px 0 0}' +
 		'#ID .lob-go{font:inherit;font-weight:600;padding:0;background:none;border:0;color:inherit;color:var(--text-body,CanvasText);text-decoration:underline;cursor:pointer}' +
@@ -183,6 +187,32 @@
 		a.rel = 'noopener';
 		a.appendChild(el('span', 'lob-sr', ' (opens in a new tab)'));
 		return a;
+	}
+
+	/**
+	 * A collapsed section: `<details>` where the browser knows it, and the same behavior by hand where it doesn't (the
+	 * original Edge, before version 79, shows `<details>` always open with its summary as plain text). The fallback keeps
+	 * the same markup, so every engine reads the same structure, and drives it with `aria-expanded` on a real button.
+	 */
+	function collapsible(label, content) {
+		var d = el('details');
+		var summary = el('summary', '', label);
+		d.appendChild(summary);
+		d.appendChild(content);
+		if ('open' in d) return d;
+		var b = el('button', 'lob-toggle', label);
+		b.type = 'button';
+		b.setAttribute('aria-expanded', 'false');
+		summary.removeChild(summary.firstChild);
+		summary.appendChild(b);
+		content.style.display = 'none';
+		// biome-ignore lint/complexity/useArrowFunction: ES5 on purpose.
+		b.onclick = function () {
+			var opening = b.getAttribute('aria-expanded') !== 'true';
+			b.setAttribute('aria-expanded', opening ? 'true' : 'false');
+			content.style.display = opening ? '' : 'none';
+		};
+		return d;
 	}
 
 	function show() {
@@ -267,9 +297,9 @@
 			}
 			if (said.after) body.appendChild(el('p', 'lob-after', said.after));
 		} else {
-			// A browser we can't name: the supported list itself, in full, with nothing to click away to.
-			body.appendChild(el('p', 'lob-note', 'Update to one of these browsers, then open this page again:'));
-			body.appendChild(supportedList());
+			// A browser we can't name: the advice points to the supported list, which sits collapsed in the footer like the
+			// technical details, one click away and never on another page.
+			body.appendChild(el('p', 'lob-note', 'Update to a current browser, then open this page again. "Supported browsers" below lists the versions that work.'));
 		}
 		var actions;
 		if (said) {
@@ -284,17 +314,9 @@
 		// 4. Why it matters, the technical detail for whoever wants it, and the way past.
 		var foot = el('footer', 'lob-foot');
 		foot.appendChild(el('p', '', 'Browsers this old also stop getting security fixes, which makes them unsafe to use on the web.'));
-		var supported;
-		if (said) {
-			supported = el('details');
-			supported.appendChild(el('summary', '', 'Supported browsers'));
-			supported.appendChild(supportedList());
-			foot.appendChild(supported);
-		}
-		var details = el('details');
-		details.appendChild(el('summary', '', 'Technical details'));
-		details.appendChild(el('p', '', 'This browser is missing ' + list + ', which Lattice needs. Lattice checks for features, not version numbers.'));
-		foot.appendChild(details);
+		// The supported list, collapsed like the technical details, for every reader.
+		foot.appendChild(collapsible('Supported browsers', supportedList()));
+		foot.appendChild(collapsible('Technical details', el('p', '', 'This browser is missing ' + list + ', which Lattice needs. Lattice checks for features, not version numbers.')));
 		var cont = el('p', 'lob-continue', 'You can still look around, but parts of the site may not work. ');
 		var go = el('button', 'lob-go', 'Continue anyway');
 		go.type = 'button';

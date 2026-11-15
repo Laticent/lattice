@@ -37,13 +37,16 @@ test('@crosswidth @webkit-phone @webkit-tablet @gecko an old browser gets an hon
 	const notice = page.locator(NOTICE);
 	await expect(notice).toBeVisible();
 	await expect(notice.getByRole('heading', { name: 'Lattice needs a newer browser.' })).toBeFocused();
-	await expect(notice.locator('details')).toContainText('This browser is missing CSS :has(), which Lattice needs.');
+	await expect(notice.locator('details').last()).toContainText('This browser is missing CSS :has(), which Lattice needs.');
 	await expect(notice).toContainText('stop getting security fixes');
 	// A current engine made to fail the probe: its user agent says it is new enough, so it gets the general advice and the
 	// supported list, never "you have Chrome 150; Lattice needs 111" (the per-browser wording is unit-tested).
-	await expect(notice).toContainText('Update to one of these browsers, then open this page again:');
-	// Self-contained: the supported list is in the notice, and no link leads to another page of this site.
-	await expect(notice.locator('.lob-supported li')).toContainText(['Chrome 111 or newer', 'Edge 111 or newer', 'Firefox 128 or newer']);
+	await expect(notice).toContainText('Update to a current browser, then open this page again.');
+	// Self-contained: the supported list is in the notice, collapsed until opened, and no link leads into the site.
+	const supported = notice.locator('details', { has: page.locator('summary', { hasText: 'Supported browsers' }) });
+	await expect(supported.locator('li').first()).toBeHidden();
+	await supported.locator('summary').click();
+	await expect(supported.locator('li')).toContainText(['Chrome 111 or newer', 'Edge 111 or newer', 'Firefox 128 or newer']);
 	await expect(notice.locator('a[href^="/"], a:not([href^="http"])')).toHaveCount(0);
 	// The slide the reader is missing has loaded, in the page's mode.
 	const slide = notice.locator('figure img');
@@ -71,7 +74,7 @@ test('@crosswidth @webkit-phone @gecko every missing feature is named', async ({
 	await withoutHas(page);
 	await withoutStructuredClone(page);
 	await page.goto('/', { waitUntil: 'domcontentloaded' });
-	await expect(page.locator(NOTICE).locator('details')).toContainText('This browser is missing CSS :has() and structuredClone(), which Lattice needs.');
+	await expect(page.locator(NOTICE).locator('details').last()).toContainText('This browser is missing CSS :has() and structuredClone(), which Lattice needs.');
 });
 
 test('@crosswidth @webkit-phone @gecko a current browser never sees the notice or downloads it', async ({ page }) => {

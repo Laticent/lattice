@@ -118,15 +118,14 @@ describe('what it says to each browser', () => {
 	it('a browser whose user agent claims a new enough version gets the general advice, never a contradiction', () => {
 		const screen = run('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36');
 		expect(screen.querySelector('.lob-spec')).toBeNull();
-		expect(text(screen, '.lob-note')).toEqual(['Update to one of these browsers, then open this page again:']);
-		expect(text(screen, '.lob-body .lob-supported li')).toEqual(supportedList());
+		expect(text(screen, '.lob-note')).toEqual(['Update to a current browser, then open this page again. "Supported browsers" below lists the versions that work.']);
 	});
 
-	it('an unknown browser gets the supported list in full, and nothing to click away to', () => {
+	it('an unknown browser gets nothing to click away to; the supported list waits in the footer', () => {
 		const screen = run('SomeBrowser/1.0');
 		expect(screen.querySelector('.lob-spec')).toBeNull();
 		expect(screen.querySelector('.lob-actions')).toBeNull();
-		expect(text(screen, '.lob-body .lob-supported li')).toContain('Safari 16.4 or newer on a Mac');
+		expect(screen.querySelector('.lob-body .lob-supported')).toBeNull();
 	});
 
 	it('links to no page of this site: the only link goes to the browser maker', () => {
@@ -139,9 +138,15 @@ describe('what it says to each browser', () => {
 		}
 	});
 
-	it('a named browser keeps the supported list one tap away, inside the notice', () => {
-		const screen = run('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Safari/605.1.15');
-		const supported = Array.from(screen.querySelectorAll('footer details')).find((d) => d.querySelector('summary')?.textContent === 'Supported browsers');
+	it.each([
+		['a named browser', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Safari/605.1.15'],
+		['a browser it cannot name', 'SomeBrowser/1.0'],
+	])('%s gets the supported list collapsed in the footer, like the technical details', (_name, ua) => {
+		const screen = run(ua);
+		const summaries = Array.from(screen.querySelectorAll('footer details summary')).map((s) => s.textContent);
+		expect(summaries).toEqual(['Supported browsers', 'Technical details']);
+		const supported = screen.querySelector('footer details');
+		expect(supported?.hasAttribute('open')).toBe(false);
 		expect(Array.from(supported?.querySelectorAll('li') ?? []).map((li) => li.textContent)).toEqual(supportedList());
 		expect(supportedList()).toEqual([
 			'Chrome 111 or newer',
@@ -244,6 +249,34 @@ describe('what an old engine gets wrong', () => {
 	it('the current Edge ("Edg/") is not taken for the original one', () => {
 		const screen = run('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0.1518.78');
 		expect(screen.querySelector('.lob-primary')?.textContent).toMatch(/^How to update Edge/);
+	});
+});
+
+describe('collapsed sections in an engine without <details> (the original Edge, before 79)', () => {
+	it('fall back to a button that opens and closes them, starting closed', () => {
+		const proto = HTMLDetailsElement.prototype as unknown as Record<string, unknown>;
+		const real = Object.getOwnPropertyDescriptor(proto, 'open');
+		delete proto.open;
+		try {
+			const screen = run('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36 Edge/15.15063');
+			const toggles = Array.from(screen.querySelectorAll<HTMLButtonElement>('footer summary .lob-toggle'));
+			expect(toggles.map((t) => t.textContent)).toEqual(['Supported browsers', 'Technical details']);
+			const list = screen.querySelector<HTMLElement>('footer .lob-supported');
+			expect(toggles[0].getAttribute('aria-expanded')).toBe('false');
+			expect(list?.style.display).toBe('none');
+			toggles[0].click();
+			expect(toggles[0].getAttribute('aria-expanded')).toBe('true');
+			expect(list?.style.display).toBe('');
+			toggles[0].click();
+			expect(list?.style.display).toBe('none');
+		} finally {
+			if (real) Object.defineProperty(proto, 'open', real);
+		}
+	});
+
+	it('an engine with <details> gets no fallback button', () => {
+		const screen = run('SomeBrowser/1.0');
+		expect(screen.querySelector('.lob-toggle')).toBeNull();
 	});
 });
 
