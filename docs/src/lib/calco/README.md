@@ -133,9 +133,10 @@ A picture-only deck is a deck whose slides have an `image` and no `frames`: Latt
 `.pptx` is written that way, by the same function. Every text value goes through `xmlSafe`
 (which strips the characters XML 1.0 forbids) and is then escaped.
 
-Calco 0.1 took PptxGenJS as `writePptx`'s first argument and JSZip as its fourth, and exported
-`tidyPptxPackage`, `embedPptxFonts`, `groupShapes`, `applyRoles` and `uniqueShapeIds` to mend
-what PptxGenJS wrote. Those are gone: pass JSZip first.
+Before 2026-11-15, Calco's `writePptx` took PptxGenJS as its first argument and JSZip as its fourth,
+and Calco exported `tidyPptxPackage`, `embedPptxFonts`, `groupShapes`, `applyRoles` and
+`uniqueShapeIds` to mend what PptxGenJS wrote. Those are gone: pass JSZip first. The package
+version moves at its first publish.
 
 ## No dependencies
 

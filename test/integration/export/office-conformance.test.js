@@ -27,6 +27,9 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 // focus + focus-highlight-axes: the focus treatments, whose column pictures, free text and inset-outline cards
 // are the editable export's hardest z-order and stroke cases (#2933).
 const DECKS = ['accent-finishes', 'card-tags', 'sample-images', 'marks', 'calco-edge-cases', 'focus', 'focus-highlight-axes'];
+const PICTURE_DECK = 'calco-edge-cases';
+/** Every .pptx the checks open: the editable decks, and the picture-per-slide one. */
+const pptxFiles = (out) => [...DECKS.map((d) => out[`${d}.pptx`]), out[`${PICTURE_DECK}.picture.pptx`]];
 
 describe('office export conformance', () => {
   const out = {};
@@ -40,6 +43,10 @@ describe('office export conformance', () => {
         out[`${deck}.${ext}`] = file;
       }
     }
+    // The plain picture-per-slide .pptx goes through the same Calco writer; one deck of it rides along to every check.
+    const picture = path.join(tmp, `${PICTURE_DECK}.picture.pptx`);
+    execFileSync('node', [path.join(ROOT, 'lattice.js'), path.join(ROOT, 'examples', `${PICTURE_DECK}.md`), picture, '-q'], { cwd: ROOT, stdio: 'ignore', timeout: 240_000 });
+    out[`${PICTURE_DECK}.picture.pptx`] = picture;
   });
 
   const openXml = (t) => {
@@ -62,10 +69,13 @@ describe('office export conformance', () => {
       assert.deepEqual(await checkOdp(fs.readFileSync(out[`${deck}.odp`])), []);
     });
   }
+  test(`${PICTURE_DECK}.picture.pptx: schema and unique shape ids`, async () => {
+    assert.deepEqual(await checkPptxSchema(fs.readFileSync(out[`${PICTURE_DECK}.picture.pptx`])), []);
+  });
 
   test('Open XML SDK validator: every exported .pptx is clean', (t) => {
     if (!openXml(t)) return;
-    const files = DECKS.map((d) => out[`${d}.pptx`]);
+    const files = pptxFiles(out);
     const bad = checkOpenXml(files).filter((r) => r.errors.length);
     assert.deepEqual(bad.map((r) => `${path.basename(r.file)}: ${r.errors[0].id} ${r.errors[0].description}`), []);
   });
@@ -112,8 +122,13 @@ describe('office export conformance', () => {
   describe('LibreOffice round trip', { skip: !(has('soffice') && has('pdftotext', ['-v'])) && 'soffice or pdftotext is not installed' }, () => {
     /** Letters and digits only, lower-cased: what survives any reader's spacing, small caps and line breaking. */
     const squash = (t) => t.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
-    /** The text one slide must show: every run in its own text boxes, as squashed strings of two characters or more. */
-    const expected = (slide) => slide.objects.flatMap((o) => o.text?.paras.flatMap((p) => p.runs.map((r) => squash(r.t))) || []).filter((t) => t.length >= 2);
+    /**
+     * The text one slide must show: every run in its own text boxes and in the text its layout draws on it (a header or
+     * footer two slides share; a layout's placeholder is a prompt, never drawn), as squashed strings of two characters
+     * or more. A one-character run (a page number) is left out: it would match almost any page.
+     */
+    const runsOf = (objects) => objects.flatMap((o) => o.text?.paras.flatMap((p) => p.runs.map((r) => squash(r.t))) || []);
+    const expected = (slide) => [...runsOf(slide.objects), ...runsOf(slide.layout.objects.filter((o) => !o.ph))].filter((t) => t.length >= 2);
     let pdfDir;
     const convert = (files) => {
       pdfDir = pdfDir || fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-office-rt-'));
@@ -139,7 +154,7 @@ describe('office export conformance', () => {
     };
 
     test('every exported .pptx opens, one page per slide, each page with its slide\'s text', async () => {
-      const files = DECKS.map((d) => out[`${d}.pptx`]);
+      const files = pptxFiles(out);
       convert(files);
       for (const f of files) {
         const pdf = path.join(pdfDir, `${path.basename(f, '.pptx')}.pdf`);

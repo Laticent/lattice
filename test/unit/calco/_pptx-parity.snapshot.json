@@ -1336,6 +1336,140 @@
    }
   ]
  },
+ "cards": {
+  "size": [
+   12192000,
+   6858000
+  ],
+  "title": "deck",
+  "subject": "PptxGenJS Presentation",
+  "creator": "Calco",
+  "fonts": [],
+  "slides": [
+   {
+    "layout": {
+     "objects": []
+    },
+    "objects": [
+     {
+      "kind": "pic",
+      "name": "Image 0",
+      "descr": "Slide 1",
+      "box": [
+       0,
+       0,
+       12192000,
+       6858000
+      ],
+      "image": "png:a7c3b756173296d4"
+     },
+     {
+      "kind": "sp",
+      "name": "Shape 1.1",
+      "group": "Group 1",
+      "box": [
+       952530,
+       952530,
+       2857500,
+       952530
+      ],
+      "geom": "rect",
+      "fill": {
+       "color": "EEEEEE",
+       "alpha": 100000
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Text 1.1",
+      "group": "Group 1",
+      "box": [
+       1143000,
+       1146018,
+       2419320,
+       228600
+      ],
+      "geom": "rect",
+      "text": {
+       "wrap": "none",
+       "inset": [
+        0,
+        0,
+        0,
+        0
+       ],
+       "anchor": "t",
+       "paras": [
+        {
+         "algn": "l",
+         "lnSpc": 100000,
+         "runs": [
+          {
+           "t": "Alone",
+           "sz": 1350,
+           "font": "Outfit",
+           "color": "112233",
+           "alpha": 100000
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Shape 1.2",
+      "group": "Group 2 / Group 2.2",
+      "box": [
+       5715000,
+       952530,
+       1143000,
+       285750
+      ],
+      "geom": "roundRect",
+      "adj": 50000,
+      "fill": {
+       "color": "FFEEDD",
+       "alpha": 100000
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Shape 1.3",
+      "group": "Group 2 / Group 2.2",
+      "box": [
+       5762640,
+       1047720,
+       95280,
+       95280
+      ],
+      "geom": "roundRect",
+      "adj": 50000,
+      "fill": {
+       "color": "FF0000",
+       "alpha": 100000
+      }
+     },
+     {
+      "kind": "sp",
+      "name": "Shape 1.4",
+      "box": [
+       952530,
+       3810030,
+       1904970,
+       761970
+      ],
+      "geom": "rect",
+      "fill": {
+       "color": "DDDDDD",
+       "alpha": 100000
+      }
+     }
+    ],
+    "notes": ""
+   }
+  ]
+ },
  "fonts": {
   "size": [
    12192000,

@@ -64,6 +64,14 @@ describe('calco pptx', () => {
     assert.equal(xml.match(/<p:pic>.*?<a:ext cx="(\d+)"/s)[1], slideCx, 'no 1px sliver at the right edge');
   });
 
+  test('a near-16:9 deck drawn on the wide slide: its picture covers the slide exactly, never past the edge', async () => {
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, { width: 1280, height: 722, slides: [{ image: ONE_PX_PNG, frames: [] }] }, 'nodebuffer'));
+    const pres = await zip.file('ppt/presentation.xml').async('string');
+    const [, cx, cy] = pres.match(/<p:sldSz cx="(\d+)" cy="(\d+)"/);
+    const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+    assert.match(xml, new RegExp(`<p:pic>.*?<a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/>`, 's'));
+  });
+
   test('pptxPageSize: 16:9 is LAYOUT_WIDE, other aspects keep a 13.333in longest edge', () => {
     assert.deepEqual(pptxPageSize(1280, 720), { w: 13.333, h: 7.5, wide: true });
     assert.deepEqual(pptxPageSize(1080, 1920), { w: 7.5, h: 13.333, wide: false });
@@ -178,6 +186,15 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     const xml = await zip.file('ppt/slides/slide3.xml').async('string');
     assert.match(xml, /<a:t>2\.2<\/a:t>/);
     assert.doesNotMatch(xml, /type="slidenum"/);
+  });
+
+  test('the layout\'s title placeholder sits where the slide\'s own title is, not a card\'s', async () => {
+    const carded = frame([[{ text: 'In a card', style: style({ size: 40 }) }]], { role: 'title', x: 900, y: 600, w: 300, h: 60, group: 0 });
+    const d = { width: 1280, height: 720, backgrounds: [{ color: '#003d66' }], slides: [{ image: ONE_PX_PNG, background: 0, frames: [carded, title('Real')], shapes: [{ kind: 'box', x: 880, y: 580, w: 340, h: 100, radii: [0, 0, 0, 0], fill: { color: '#ffffff', alpha: 1 }, group: 0 }] }] };
+    const zip = await JSZip.loadAsync(await writePptx(JSZip, d, 'nodebuffer'));
+    const layout = await zip.file('ppt/slideLayouts/slideLayout1.xml').async('string');
+    const x = Number(layout.match(/<p:ph type="title"[^>]*\/>[\s\S]*?<a:off x="(\d+)"/)[1]);
+    assert.ok(x < 100 * 9525, `the placeholder is at x=${x / 9525}px, near the real title at 64px`);
   });
 
   test('the slide content picture is locked against moving and resizing', async () => {

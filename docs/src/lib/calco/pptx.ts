@@ -42,7 +42,7 @@
  */
 
 import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts.js';
-import { applyTransform, bareHex, dominantStyle, metricsFor, type PlacedBox, placeFrame, spacingMultiple } from './layout.js';
+import { applyTransform, dominantStyle, metricsFor, type PlacedBox, placeFrame, spacingMultiple } from './layout.js';
 import { isPosition, type MasterPlan, planMasters, withoutHoisted } from './masters.js';
 import { imageExt } from './picture.js';
 import { canEmbedAsEot, type FaceSlot, renameFace, toEot } from './sfnt.js';
@@ -81,8 +81,13 @@ const ROLE_NAMES: Record<FrameRole, string> = { title: 'Title', eyebrow: 'Eyebro
 
 /** Text with the characters XML 1.0 forbids removed. Escape it (`xmlText`, `xmlAttr`) before it goes into a part. */
 export function xmlSafe(text: string | null | undefined): string {
-	// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point.
-	return (text == null ? '' : String(text)).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, '');
+	return (
+		(text == null ? '' : String(text))
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point.
+			.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '')
+			// A lone surrogate half is no character at all: a zip writer turns it into U+FFFD, which a reader draws as a box.
+			.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '')
+	);
 }
 
 /** Element text: safe, then `&`, `<` and `>` escaped. */
@@ -98,6 +103,18 @@ function xmlAttr(value: string | null | undefined): string {
 /** A font family as Calco names it in the file: no quotes or markup, so the name an embedded face carries inside its own tables is the name a run asks for. */
 export function safeFamily(family: string): string {
 	return xmlSafe(family).replace(/["'<>&]/g, '').trim() || 'sans-serif';
+}
+
+/**
+ * A color as OOXML spells it: six hex digits, upper case. Calco's reader always hands `#rrggbb`; anything else from a
+ * hand-built deck (`#abc` is expanded, `#rrggbbaa` loses its alpha, which travels separately) falls back to black
+ * rather than writing a value the schema rejects.
+ */
+function hexOf(color: string): string {
+	const h = String(color ?? '').trim().replace(/^#/, '');
+	if (/^[0-9a-f]{6}([0-9a-f]{2})?$/i.test(h)) return h.slice(0, 6).toUpperCase();
+	if (/^[0-9a-f]{3}$/i.test(h)) return [...h].map((c) => c + c).join('').toUpperCase();
+	return '000000';
 }
 
 /** The family name PowerPoint sees for an embedded face (`faceFamilyName`, with the PPTX-safe family). */
@@ -270,6 +287,9 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 	if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
 		throw new Error('calco: no slides to write');
 	}
+	deck.slides.forEach((sl, i) => {
+		if (!sl || !Array.isArray(sl.frames)) throw new Error(`calco: slide ${i + 1} is missing or has no frames list`);
+	});
 	const W = deck.width > 0 ? deck.width : 1280;
 	const H = deck.height > 0 ? deck.height : 720;
 	const page = pptxPageSize(W, H);
@@ -277,15 +297,20 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 	// The deck's px map onto the slide's EMU; points scale the same way (a 1280px deck: 1px = 0.75pt).
 	const emuPerPx = size.cx / W;
 	const ptPerPx = (size.cx / EMU_PER_IN / W) * PX_PER_IN * PT_PER_PX;
-	const emu = (px: number) => Math.round(px * emuPerPx);
-	const points = (px: number) => Math.round(px * ptPerPx * 100) / 100;
+	// Every number reaches the file through these, so one that is not finite (NaN from a hand-built deck) is 0, never
+	// the text "NaN", and each kind is held to the range the schema gives it (`clamp`).
+	const fin = (n: number) => (Number.isFinite(n) ? n : 0);
+	const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(fin(n))));
+	const emu = (px: number) => Math.round(fin(px) * emuPerPx);
+	const points = (px: number) => Math.round(fin(px) * ptPerPx * 100) / 100;
 	/** A length in points, written in EMU (line widths, shadows, label insets). */
-	const ptEmu = (px: number) => Math.round(points(px) * EMU_PER_PT);
+	const ptEmu = (px: number) => clamp(points(px) * EMU_PER_PT, 0, 20116800);
 	/** OOXML alpha in thousandths of a percent, from 0–1, whole percent as PowerPoint's UI keeps it. */
-	const alphaVal = (a: number) => (100 - Math.round((1 - a) * 100)) * 1000;
+	const alphaVal = (a: number) => (100 - clamp((1 - fin(a)) * 100, 0, 100)) * 1000;
 	const color = (hex: string, alpha = 1) => {
 		const a = alphaVal(alpha);
-		return a < 100000 ? `<a:srgbClr val="${xmlAttr(bareHex(hex))}"><a:alpha val="${a}"/></a:srgbClr>` : `<a:srgbClr val="${xmlAttr(bareHex(hex))}"/>`;
+		const rgb = hexOf(hex);
+		return a < 100000 ? `<a:srgbClr val="${rgb}"><a:alpha val="${a}"/></a:srgbClr>` : `<a:srgbClr val="${rgb}"/>`;
 	};
 	const solid = (p: Paint) => `<a:solidFill>${color(p.color, p.alpha)}</a:solidFill>`;
 
@@ -332,7 +357,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		const bold = hit ? hit.bold : s.weight >= 600;
 		const italic = hit ? hit.italic : s.italic;
 		// OOXML's smallest size is 1pt (a 2px spacer on a wide deck).
-		const sz = Math.round(Math.max(1, points(s.size)) * 100);
+		const sz = clamp(points(s.size) * 100, 100, 400000);
 		const fillColor = s.alpha < 1 && s.flatColor ? s.flatColor : s.color;
 		const fillAlpha = s.alpha < 1 && !s.flatColor ? s.alpha : 1;
 		let a = ` lang="en-US" sz="${sz}"`;
@@ -343,7 +368,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 			if (s.strike) a += ' strike="sngStrike"';
 			if (s.smallCaps) a += ' cap="small"';
 			// Spaced text is set without kerning, as the browser sets it.
-			if (s.letterSpacing) a += ` spc="${Math.round(points(s.letterSpacing) * 100)}" kern="0"`;
+			if (fin(s.letterSpacing)) a += ` spc="${clamp(points(s.letterSpacing) * 100, -400000, 400000)}" kern="0"`;
 		}
 		a += ' dirty="0"';
 		const highlight = !end && s.highlight ? `<a:highlight>${color(s.highlight)}</a:highlight>` : '';
@@ -360,7 +385,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		// Capped: PowerPoint never wraps a text box (`wrap="none"`), so a split piece's box can end at its text.
 		const box = placeFrame(frame, W, metrics, lead.size, 'proportional', true);
 		// Proportional, not exact (see the header). One line states 100%.
-		const spacing = Math.round(spacingMultiple(frame, metrics, lead.size) * 100000);
+		const spacing = clamp(spacingMultiple(frame, metrics, lead.size) * 100000, 0, 13200000);
 		const algn = { left: 'l', center: 'ctr', right: 'r' }[frame.align] || 'l';
 		const pPr = `<a:pPr marL="0" indent="0" algn="${algn}"><a:lnSpc><a:spcPct val="${spacing}"/></a:lnSpc><a:buNone/></a:pPr>`;
 		let fieldDone = !opts.field;
@@ -418,8 +443,9 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 			const ang = Math.round(((((shape.gradient.angle - 90) % 360) + 360) % 360) * 60000);
 			const stops = shape.gradient.stops
 				.map((st) => {
-					const a = Math.round(st.alpha * 100000);
-					return `<a:gs pos="${Math.round(st.pos * 100000)}"><a:srgbClr val="${xmlAttr(bareHex(st.color))}">${a < 100000 ? `<a:alpha val="${a}"/>` : ''}</a:srgbClr></a:gs>`;
+					// A stop keeps its exact opacity (a wash's fade), not the whole percent a fill rounds to.
+					const a = clamp(st.alpha * 100000, 0, 100000);
+					return `<a:gs pos="${clamp(st.pos * 100000, 0, 100000)}"><a:srgbClr val="${hexOf(st.color)}">${a < 100000 ? `<a:alpha val="${a}"/>` : ''}</a:srgbClr></a:gs>`;
 				})
 				.join('');
 			fill = `<a:gradFill rotWithShape="1"><a:gsLst>${stops}</a:gsLst><a:lin ang="${ang}" scaled="0"/></a:gradFill>`;
@@ -447,10 +473,13 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 
 	/** `p:cNvPr`: the shape's id, its name and, when it has one, its description (alt text). */
 	const cNvPr = (id: number, name: string, descr?: string) => `<p:cNvPr id="${id}" name="${xmlAttr(name)}"${descr ? ` descr="${xmlAttr(descr)}"` : ''}/>`;
-	const picture = (id: number, name: string, descr: string, rid: string, x: number, y: number, w: number, h: number, opts: { locked?: boolean; svgRid?: string } = {}) =>
+	// `full`: the slide's own picture covers the slide exactly. Its height is the slide's, not H scaled by the width:
+	// a near-16:9 deck (1280 × 722) is drawn on the wide slide, and its picture would otherwise run past the bottom edge.
+	const fullFrame = `<a:xfrm><a:off x="0" y="0"/><a:ext cx="${size.cx}" cy="${size.cy}"/></a:xfrm>`;
+	const picture = (id: number, name: string, descr: string, rid: string, x: number, y: number, w: number, h: number, opts: { locked?: boolean; svgRid?: string; full?: boolean } = {}) =>
 		`<p:pic><p:nvPicPr>${cNvPr(id, name, descr)}<p:cNvPicPr><a:picLocks noChangeAspect="1"${opts.locked ? ' noMove="1" noResize="1"' : ''}/></p:cNvPicPr><p:nvPr/></p:nvPicPr>` +
 		`<p:blipFill><a:blip r:embed="${rid}">${opts.svgRid ? `<a:extLst><a:ext uri="${SVG_EXT}"><asvg:svgBlip xmlns:asvg="${NS_ASVG}" r:embed="${opts.svgRid}"/></a:ext></a:extLst>` : ''}</a:blip><a:stretch><a:fillRect/></a:stretch></p:blipFill>` +
-		`<p:spPr>${xfrm(x, y, w, h)}${rectGeom}</p:spPr></p:pic>`;
+		`<p:spPr>${opts.full ? fullFrame : xfrm(x, y, w, h)}${rectGeom}</p:spPr></p:pic>`;
 
 	// LAYOUTS. Slides that share a background and running chrome share a layout (masters.ts): the layout holds the
 	// background, the title placeholder and the header, footer and page number that repeat, and the slide holds what
@@ -491,7 +520,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		if (useLayouts) {
 			// The title placeholder sits where the first slide on this layout put its title.
 			const first = deck.slides.findIndex((sl, i) => plan.layoutOf[i] === li && sl.frames.some((f) => f.role === 'title' && f.group === undefined));
-			const titleFrame = first < 0 ? null : (deck.slides[first].frames.find((f) => f.role === 'title') as TextFrame);
+			const titleFrame = first < 0 ? null : (deck.slides[first].frames.find((f) => f.role === 'title' && f.group === undefined) as TextFrame);
 			const tb = titleFrame ? textOf(titleFrame).box : { x: W * 0.05, y: H * 0.08, w: W * 0.9, h: H * 0.14 };
 			tree +=
 				`<p:sp><p:nvSpPr>${cNvPr(id++, 'Title Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="title" hasCustomPrompt="1"/></p:nvPr></p:nvSpPr>` +
@@ -544,7 +573,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		let nextId = 2;
 		let tree = '';
 		// The slide's content picture. ALWAYS described: a screen reader otherwise reads "Picture".
-		if (slide.image?.length) tree += picture(nextId++, `Slide ${n}`, xmlSafe(slide.description || '').trim() || `Slide ${n}`, picRel(rels, slide.image), 0, 0, W, H, { locked: lockPicture });
+		if (slide.image?.length) tree += picture(nextId++, `Slide ${n}`, xmlSafe(slide.description || '').trim() || `Slide ${n}`, picRel(rels, slide.image), 0, 0, W, H, { locked: lockPicture, full: true });
 		const insetsOf = (shape: Shape, frame: TextFrame) => labelInsets(shapeGeometry(shape), textOf(frame).box, frame.align);
 		let titled = false;
 		for (const { group, items } of drawOrder(slide, (shape, frame) => !!insetsOf(shape, frame))) {
@@ -738,7 +767,7 @@ function wrapCard(group: number, members: Member[], nextId: () => number): strin
 		const b = highest(list.map((m) => m.box[3]));
 		const frame = `<a:off x="${x}" y="${y}"/><a:ext cx="${r - x}" cy="${b - y}"/><a:chOff x="${x}" y="${y}"/><a:chExt cx="${r - x}" cy="${b - y}"/>`;
 		return {
-			xml: `<p:grpSp><p:nvGrpSpPr><p:cNvPr id="${nextId()}" name="${name}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm>${frame}</a:xfrm></p:grpSpPr>${list.map((m) => m.xml).join('')}</p:grpSp>`,
+			xml: `<p:grpSp><p:nvGrpSpPr><p:cNvPr id="${nextId()}" name="${xmlAttr(name)}"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm>${frame}</a:xfrm></p:grpSpPr>${list.map((m) => m.xml).join('')}</p:grpSp>`,
 			box: [x, y, r, b],
 			custom: list.some((m) => m.custom),
 		};
@@ -753,7 +782,9 @@ function wrapCard(group: number, members: Member[], nextId: () => number): strin
 		else parts.push(...run);
 		i = j;
 	}
-	if (members.some((m) => m.custom) || parts.length < 2) return parts.map((m) => m.xml).join('');
+	// Even a card of one member is a group, as the pptxgenjs path wrote it: a card is one object to move.
+	if (!members.length) return '';
+	if (members.some((m) => m.custom)) return parts.map((m) => m.xml).join('');
 	return wrap(`Group ${group + 1}`, parts).xml;
 }
 

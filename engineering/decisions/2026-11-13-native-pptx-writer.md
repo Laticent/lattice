@@ -133,9 +133,25 @@ The proof is `test/unit/calco/pptx-structure.test.js` (§How it is proven 1),
 `test/integration/export/office-conformance.test.js` (2, LibreOffice), and `test/unit/calco/pptx-parity.test.js`
 (3), whose snapshot was read from the pptxgenjs path at `e5dfcb1d` and is frozen.
 
+**What did not happen before merge.** §How it is proven 4 named PowerPoint, Keynote and Google Slides. None of them
+can run in this sandbox or in a platform suite, so the bytes ship checked by the ISO 29500 schema, Microsoft's Open
+XML SDK, LibreOffice 24.2 (the round trip) and Apple's Office importer (`office-quicklook`), and NOT opened in
+PowerPoint, Keynote or Google Slides. The owner's export sign-off asks for that open; until it happens,
+`followups.d/3220-p1-native-pptx-real-readers.md` tracks it. The LibreOffice round trip skips in CI, where no job
+installs LibreOffice.
+
+**What the parity test compares, and what it does not.** `test/helpers/pptx-readback.js` reads each object's kind,
+name, alt text, placeholder type, group path, frame, geometry (preset, adjust, custom path), fill (solid, gradient),
+outline (color, alpha, width, dash, cap, join), shadow, picture bytes (hash) and SVG, lock, and its text paragraph by
+paragraph and run by run (text, field, size, bold, italic, underline, strike, caps, spacing, font, color, alpha,
+highlight, alignment, line spacing, insets, wrap, anchor), the layout behind each slide with its background, the notes,
+the title, subject and creator, and the embedded fonts. It does not read autofit, `lang`, the `ea`/`cs` faces, the
+master's text styles, the theme, a picture's crop, or the document dates. A property outside that list can drift
+without a diff.
+
 ## Risks
 
 - **A reader rejects a part we write minimally.** PowerPoint is strict about content types and relationship ids.
-  Mitigation: the structure test, plus PowerPoint itself in the platform suites, before the merge ask.
+  Mitigation: the structure test, the Open XML SDK, and the open in PowerPoint on the owner's sign-off (above).
 - **A pptxgenjs default we relied on without knowing.** Mitigation: the parity test reads back every property the
   current output carries, so a property we forget to write shows up as a diff.

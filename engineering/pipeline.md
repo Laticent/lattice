@@ -232,13 +232,13 @@ transparency (`.png` output only) is never a JPEG. A 35-slide photo deck: 76.6 M
 
 **`.odp` and `--editable` go through Calco.** Calco (`@laticent/calco`,
 `docs/src/lib/calco/`) is the office-export library; `lib/export/office-export.js`
-is the Lattice host that hands it JSZip, PptxGenJS, the deck's fonts and the HarfBuzz
+is the Lattice host that hands it JSZip, the deck's fonts and the HarfBuzz
 pinner. Two modes:
 
 - **Picture** (every `.odp` without the flag): one full-bleed PNG per page, the
   speaker notes on each page's notes view, the `describe:` text as each picture's
-  alt text. The PPTX twin is the plain `.pptx`, which stays on
-  `lib/export/pptx-export.js`.
+  alt text. The PPTX twin is the plain `.pptx` (`lib/export/pptx-export.js`), written by
+  the same Calco `writePptx` from a deck of pictures with no text frames.
 - **Editable** (`--editable` on `.odp` or `.pptx`; the Studio's Editable text switch runs the same capture, `captureOfficeSlides`): Calco reads every paragraph off
   the rendered slide, hides that text, photographs the slide, and writes each
   paragraph back as a real text box in its own font, with the browser's line
@@ -252,7 +252,7 @@ pinner. Two modes:
   screen transform folded into slide px, computed colors as SVG 1.1 `#rrggbb` plus an opacity (no office
   reader reads `color(srgb …)`), the clips the browser drew it under, and a non-scaling stroke baked into slide
   px. `placePictures` cuts it to the crop's box. The `.pptx` stores it as PowerPoint does, an `asvg:svgBlip`
-  extension on the PNG's blip (`addSvgPictures`, after PptxGenJS, which writes a broken fallback under Node);
+  extension on the PNG's blip (Calco's `writePptx` writes both);
   the `.odp` puts the SVG before the PNG in one frame. The PNG stays the fallback for a reader without SVG.
   Text, images, masks, filters, gradients, `<use>` and a character XML forbids keep the PNG alone; the fade of the `<svg>` and its page ancestors wraps the drawing. `calco-svg-pictures.test.js` holds
   each SVG to its PNG (the same ink, in the same place).
@@ -643,7 +643,7 @@ table says what each format does with each, and names the test that holds it. "P
 |---|---|---|---|
 | Check (`.lat-state`, `.state`, `li.state`) | Vector: rings, disc and mark path (`checkOf`). Photo when it is under a transform, an effect, a cover or a see-through group. `pdf-check-vectors.test.js` | Native shapes: the disc a box, the mark a freeform path. In a `.pptx`, a card that holds the mark (custom geometry) is written loose, in paint order, since Apple's Office importer drops custom geometry inside a group; an `.odp` keeps the card in its group. `calco-pseudo.test.js`, `shapes.test.js` | The page itself: CSS mask, any size |
 | Emoji | Real text: a Type 3 glyph that paints the emoji's picture, with a ToUnicode map, so it selects and searches (`emojiArt`, `embedEmoji`). `pdf-emoji-text.test.js` | Real text in its run, drawn by the reader's own emoji font. No emoji font is embedded: LibreOffice draws nothing for a COLR v1 face. `emoji-font-cut.test.js` | Real text in the embedded emoji font, cut to the deck's own emoji. `emoji-font-cut.test.js` |
-| Icon (`^{…}`, a pill's `icon=`) | Text: a glyph of the embedded Lattice Icons font, copying as the icon's label (`icon: font`, the default). Under `icon: svg` or `font-embedding: system-emoji`, vector paths. `icon-font-exports.test.js` | A native outline shape, drawn from the icon's paths (`iconSvgMarkOf`), always, so every app draws it; its `label=` is the shape's description. A drawing a shape cannot reproduce (a translucent or dashed stroke) stays an SVG picture with a PNG fallback (`svgOf`, `addSvgPictures`). Only the editable file switches; a picture-per-slide file draws the page. The line an inline icon sits in is split into one box per piece (a heading never), so no app's handling of character spacing can slide a word under it. A card holding an icon is written loose in a `.pptx` (Apple's Office importer drops custom geometry inside a group). | The page itself: the glyph, or the inline SVG |
+| Icon (`^{…}`, a pill's `icon=`) | Text: a glyph of the embedded Lattice Icons font, copying as the icon's label (`icon: font`, the default). Under `icon: svg` or `font-embedding: system-emoji`, vector paths. `icon-font-exports.test.js` | A native outline shape, drawn from the icon's paths (`iconSvgMarkOf`), always, so every app draws it; its `label=` is the shape's description. A drawing a shape cannot reproduce (a translucent or dashed stroke) stays an SVG picture with a PNG fallback (`svgOf`, and `writePptx` stores both). Only the editable file switches; a picture-per-slide file draws the page. The line an inline icon sits in is split into one box per piece (a heading never), so no app's handling of character spacing can slide a word under it. A card holding an icon is written loose in a `.pptx` (Apple's Office importer drops custom geometry inside a group). | The page itself: the glyph, or the inline SVG |
 | Avatar | Vector: the tile, then the face, then the ring (`tileOf`). `pdf-small-drawings.test.js` | A group: the tile a native rounded shape, the face an SVG picture with a PNG fallback. `calco-svg-pictures.test.js` | The page itself |
 | Spark | Vector: the line or bars, and the end dot over them (`dotOf`). The dot stays in the photo, with its line, when something covers it. `pdf-small-drawings.test.js` | A group: its frame a native shape, the line and dot one SVG picture with a PNG fallback. `calco-svg-pictures.test.js` | The page itself |
 | Masked mark (an absolutely placed `::before`/`::after`, such as a recommended card's star) | Vector: the mask's path (`maskedMarkOf`). Photo when in flow, transformed, below its host, see-through or covered, named `mark-<reason>`. `pdf-small-drawings.test.js` | Native freeform path when the mask is one path centered in its box; picture otherwise. `calco-pseudo.test.js` | The page itself |

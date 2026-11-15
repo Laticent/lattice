@@ -113,6 +113,35 @@ describe('calco pptx — package structure', () => {
     for (const [name, bytes] of Object.entries(await get())) assert.deepEqual(await structure(bytes), [], name);
   });
 
+  test('a hand-built deck with out-of-range numbers, odd colors and markup in a group still passes', async () => {
+    // What Calco's reader never hands over, but a caller of the public API can: each value is coerced or clamped.
+    const { ONE_PX_PNG, style, frame } = require('./_fixtures');
+    const wild = style({ size: 8000, letterSpacing: 9000, color: '#abc', alpha: -0.5, highlight: 'rgb(1,2,3)' });
+    const deck = {
+      width: 1280,
+      height: 722,
+      title: 'lone \uD800 surrogate',
+      slides: [
+        {
+          image: ONE_PX_PNG,
+          notes: 'half \uDC00 pair',
+          frames: [frame([[{ text: 'Big', style: wild }]], { lineHeight: -5, group: '"><p:evil x="' }), frame([[{ text: 'NaN', style: style({ size: Number.NaN }) }]], { x: Number.NaN })],
+          shapes: [
+            { kind: 'box', x: 10, y: 10, w: 100, h: 50, radii: [0, 0, 0, 0], fill: { color: '#aabbcc80', alpha: 2 }, stroke: { color: 'red', alpha: 1, width: 3000 }, shadow: { color: '#000000', alpha: 1, x: 1, y: 1, blur: -5 }, group: '"><p:evil x="' },
+            { kind: 'box', x: 200, y: 10, w: 100, h: 50, radii: [0, 0, 0, 0], fill: { color: '#336699', alpha: 1 }, gradient: { angle: 90, stops: [{ pos: -1, color: '#000000', alpha: 1 }, { pos: 1.5, color: '#ffffff', alpha: 1 }] } },
+          ],
+        },
+      ],
+    };
+    const bytes = await writePptx(JSZip, deck, 'nodebuffer');
+    assert.deepEqual(await structure(bytes), []);
+    assert.deepEqual(await checkPptxSchema(bytes), []);
+    const xml = await (await JSZip.loadAsync(bytes)).file('ppt/slides/slide1.xml').async('string');
+    assert.doesNotMatch(xml, /<p:evil/, 'a group value is an attribute, never an element');
+    assert.doesNotMatch(xml, /="-?NaN"/, 'no attribute is NaN');
+    assert.doesNotMatch(xml, /\uFFFD/, 'no replacement character from a lone surrogate');
+  });
+
   test('every parity deck passes the ISO/IEC 29500 schema', async () => {
     for (const [name, bytes] of Object.entries(await get())) assert.deepEqual(await checkPptxSchema(bytes), [], name);
   });
@@ -137,6 +166,13 @@ describe('calco pptx — package structure', () => {
     test('an XML part typed only by the generic xml default', async () => {
       const found = await broken(async (z, t) => z.file('[Content_Types].xml', (await t('[Content_Types].xml')).replace(/<Override PartName="\/ppt\/notesSlides\/notesSlide1\.xml"[^>]*\/>/, '')));
       assert.match(found.join(), /no content type: ppt\/notesSlides\/notesSlide1\.xml/);
+    });
+    test('the schema check: a shape whose outline comes before its fill', async () => {
+      const zip = await JSZip.loadAsync((await get()).rich);
+      const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+      zip.file('ppt/slides/slide1.xml', xml.replace(/(<a:solidFill><a:srgbClr val="F2F5FA"\/><\/a:solidFill>)(<a:ln [^>]*>[\s\S]*?<\/a:ln>)/, '$2$1'));
+      const found = await checkPptxSchema(await zip.generateAsync({ type: 'nodebuffer' }));
+      assert.ok(found.some((f) => f.kind === 'schema' && f.part === 'ppt/slides/slide1.xml'), JSON.stringify(found));
     });
     test('an override for a part that is not there', async () => {
       assert.match((await broken(async (z, t) => z.file('[Content_Types].xml', (await t('[Content_Types].xml')).replace('</Types>', '<Override PartName="/ppt/gone.xml" ContentType="application/xml"/></Types>')))).join(), /override for a missing part: ppt\/gone\.xml/);

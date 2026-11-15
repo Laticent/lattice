@@ -21,6 +21,23 @@ async function parityDecks() {
         title: 'Portrait',
         slides: [{ image: ONE_PX_JPEG, frames: [frame([[{ text: 'Tall', style: style({ size: 60 }) }]], { x: 80, y: 300, w: 900, h: 80, firstLineHeight: 72, lineHeight: 80 })] }],
       },
+      // A card of one shape and its text, and a card that is only a pill: each is still a group.
+      cards: {
+        width: 1280,
+        height: 720,
+        slides: [
+          {
+            image: ONE_PX_PNG,
+            frames: [frame([[{ text: 'Alone', style: style({ size: 18 }) }]], { x: 120, y: 120, w: 200, h: 24, firstLineHeight: 22, lineHeight: 24, group: 0 })],
+            shapes: [
+              { kind: 'box', x: 100, y: 100, w: 300, h: 100, radii: [0, 0, 0, 0], fill: { color: '#eeeeee', alpha: 1 }, group: 0 },
+              { kind: 'box', x: 600, y: 100, w: 120, h: 30, radii: [15, 15, 15, 15], fill: { color: '#ffeedd', alpha: 1 }, group: 1, sub: 1 },
+              { kind: 'box', x: 605, y: 110, w: 10, h: 10, radii: [5, 5, 5, 5], fill: { color: '#ff0000', alpha: 1 }, group: 1, sub: 1, pseudo: true },
+              { kind: 'box', x: 100, y: 400, w: 200, h: 80, radii: [0, 0, 0, 0], fill: { color: '#dddddd', alpha: 1 }, group: 3 },
+            ],
+          },
+        ],
+      },
       fonts: {
         width: 1280,
         height: 720,

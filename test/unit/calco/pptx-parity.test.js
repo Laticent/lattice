@@ -11,6 +11,9 @@
  * picture decks), with this same reader. pptxgenjs left the tree in the same change, so it cannot be recorded
  * again; a deliberate change to what the writer says edits the snapshot by hand, and the diff is the review.
  *
+ * WHAT IS COMPARED is what the reader reads (its header lists it); autofit, `lang`, the `ea`/`cs` faces, the master's
+ * text styles, the theme and a picture's crop are not, so they can drift without a diff (the design note's §What shipped).
+ *
  * What may differ, and why (`normalize`): frames and path points by rounding (pptxgenjs rounded every length to
  * 1/10,000 in, Calco converts px to EMU once), within 0.05 px; a layout's page-number stand-in (pptxgenjs wrote "1002"); pptxgenjs's roundRect corner past a half-round
  * (50016), which every reader clamps to 50000; the layout's title placeholder, which pptxgenjs named "Text 0"
