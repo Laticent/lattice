@@ -100,6 +100,39 @@ describe('MapRail', () => {
 		}
 	});
 
+	// A step re-asks Veduta, and must not pull a hand-scrolled rail back to the focused tile: the scroll-to-focus effect
+	// keyed on `refresh`, which keyed on the ramp, so every promotion snapped the rail home (found by maker-checker).
+	it('with ramp, a promotion leaves a hand-scrolled rail where the reader put it', () => {
+		vi.useFakeTimers();
+		try {
+			const { container } = render(<MapRail {...props({ count: 40, focus: 0, live: (i) => <i data-live={i} />, ramp: true })} />);
+			const sc = container.querySelector<HTMLElement>('.overflow-y-scroll') as HTMLElement;
+			let top = 0;
+			Object.defineProperty(sc, 'scrollTop', { configurable: true, get: () => top, set: (v) => (top = v) });
+			act(() => {
+				top = 3000;
+				fireEvent.scroll(sc);
+			});
+			for (let k = 0; k < 6; k++) act(() => vi.advanceTimersToNextTimer());
+			expect(top).toBe(3000);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	// An empty rail, or one not measured yet (hidden), has nothing to promote: the ramp waits instead of counting up forever,
+	// which re-rendered the rail every step and then promoted every tile at once when it appeared.
+	it('with ramp, an empty rail schedules nothing', () => {
+		vi.useFakeTimers();
+		try {
+			render(<MapRail {...props({ count: 0, live: (i) => <i data-live={i} />, ramp: true })} />);
+			for (let k = 0; k < 20; k++) act(() => vi.advanceTimersToNextTimer());
+			expect(vi.getTimerCount()).toBe(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	// A pool that reports its capacity, the way PreviewPool's `onSettle` does, from a layout effect.
 	function Pool({ capacity, report, children }: { capacity: number; report: (p: { capacity: number }) => void; children: React.ReactNode }) {
 		React.useLayoutEffect(() => report({ capacity }), [capacity, report]);

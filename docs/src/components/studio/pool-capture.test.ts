@@ -9,9 +9,21 @@ const toCanvas = vi.fn(async () => {
 vi.mock('html-to-image', () => ({ toCanvas }));
 // Two vendored faces; a slide drawn in Inter must carry Inter's and not Fraunces'.
 const FACES = "@font-face{font-family:'Inter';font-weight:400;src:url(data:font/woff2;base64,AAA) format('woff2');}@font-face{font-family:'Fraunces';font-weight:700;src:url(data:font/woff2;base64,BBB) format('woff2');}";
-vi.mock('../../playground/font-embed.js', () => ({ buildFamilyFontCss: async () => FACES }));
+// The builder writes the rules of the families it is asked for; `fonts.fail` makes a face unobtainable.
+const fonts = vi.hoisted(() => ({ fail: false, asked: [] as string[][] }));
+vi.mock('../../playground/font-embed.js', () => ({
+	buildFamilyFontCss: async (families: string[]) => {
+		fonts.asked.push(families);
+		if (fonts.fail) throw new Error('font fetch failed');
+		return FACES.split('@font-face')
+			.filter((r) => families.some((f) => r.toLowerCase().includes(`'${f}'`)))
+			.map((r) => `@font-face${r}`)
+			.join('');
+	},
+}));
+vi.mock('../../../../lib/core/slide-camera.mjs', () => ({ pseudoContentText: () => '' }));
 
-import { captureSlot, facesFor, SCROLLED } from './pool-capture';
+import { captureSlot, SCROLLED, slideTextOf } from './pool-capture';
 
 function slot() {
 	const s = document.createElement('div');
@@ -29,6 +41,8 @@ function slot() {
 
 afterEach(() => {
 	toCanvas.mockClear();
+	fonts.fail = false;
+	fonts.asked.length = 0;
 	document.body.replaceChildren();
 });
 
@@ -51,18 +65,26 @@ describe('captureSlot asks once more whether the reader is scrolling, after its 
 });
 
 // A poster stays on screen once it exists (StudioMap.tsx), so it is drawn in the slide's own faces, never a fallback:
-// one drawn without them re-wrapped a title and overlapped a dense column. Only the slide's families travel.
-describe('a poster carries the slide\'s own fonts, and only those', () => {
-	it('keeps the rules of the families asked for, by name, in any case', () => {
-		expect(facesFor(FACES, ['inter'])).toContain("font-family:'Inter'");
-		expect(facesFor(FACES, ['inter'])).not.toContain('Fraunces');
-		expect(facesFor(FACES, ['georgia'])).toBe('');
-	});
-	it('hands the clone the slide\'s faces as fontEmbedCSS instead of skipping fonts', async () => {
+// one drawn without them re-wrapped a title and overlapped a dense column.
+describe('a poster carries the slide\'s own fonts, or is not taken', () => {
+	it('asks for the slide\'s families and hands their faces to the clone instead of skipping fonts', async () => {
 		await captureSlot(slot(), () => true, () => true);
+		expect(fonts.asked[0]).toContain('inter');
 		const opts = (toCanvas.mock.calls[0] as unknown as [unknown, { fontEmbedCSS?: string; skipFonts?: boolean }])[1];
 		expect(opts.skipFonts).toBeUndefined();
 		expect(opts.fontEmbedCSS).toContain("font-family:'Inter'");
 		expect(opts.fontEmbedCSS).not.toContain('Fraunces');
+	});
+	it('takes no picture when a face cannot be had: a fallback-face poster would be kept for good', async () => {
+		fonts.fail = true;
+		expect(await captureSlot(slot(), () => true, () => true)).toBeNull();
+		expect(toCanvas).not.toHaveBeenCalled();
+	});
+	it('reads an icon\'s glyph into the slide\'s text, except on a slide that draws its icons as <svg>', () => {
+		const sec = document.createElement('section');
+		sec.innerHTML = '<p>Hi</p><i data-glyph="\uE019"></i>';
+		expect(slideTextOf(sec, () => '')).toContain('\uE019');
+		sec.classList.add('icon-svg');
+		expect(slideTextOf(sec, () => '')).not.toContain('\uE019');
 	});
 });

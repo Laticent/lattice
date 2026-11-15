@@ -205,6 +205,10 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 	const [rampLive, setRampLive] = React.useState(ramp ? 0 : Number.POSITIVE_INFINITY);
 	// What the window would ask for with no ramp: the ramp stops there.
 	const rampWant = React.useRef(0);
+	// Read through a ref, not a dependency of `refresh`: a step must re-ask Veduta, but must not re-run the scroll-to-focus
+	// effect below, which keys on `refresh` and pulls a hand-scrolled rail back to the focused tile.
+	const rampRef = React.useRef(rampLive);
+	rampRef.current = rampLive;
 	// The pool's capacity, as it reported it (undefined until a pool has, or with no pool at all).
 	const [poolCap, setPoolCap] = React.useState<number | undefined>(undefined);
 	const report = React.useCallback((pool: { capacity: number }) => {
@@ -234,7 +238,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 			// The budget covers the tiles on screen, plus the stage when the host prices it. It is not capped here: the
 			// pool's reported capacity reaches the core through `settle` (below) and caps it there.
 			budget: {
-				live: (liveOn ? Math.min(rampLive, (rampWant.current = Math.max(liveBudget, Math.ceil(len / geo.pitch) + 1))) : 0) + stageCost,
+				live: (liveOn ? Math.min(rampRef.current, (rampWant.current = Math.max(liveBudget, Math.ceil(len / geo.pitch) + 1))) : 0) + stageCost,
 				poster: posterOn && Number.isFinite(posterBudget) ? Math.max(0, posterBudget) : 0,
 				wireframe: Infinity,
 				stageTier: stageOn ? 'live' : 'placeholder',
@@ -247,7 +251,16 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 		if (sig === askedSig.current && sig === shownSig.current) el.dataset.planAt = String(Math.round(pos));
 		askedSig.current = sig;
 		setPlan((p) => (p.sig === sig ? p : { units: intent.mapUnits, tiers: intent.tiers.map, sig }));
-	}, [count, focus, geo.pitch, liveBudget, liveOn, posterOn, posterBudget, stageOn, stageCost, vertical, viewCross, rampLive]);
+	}, [count, focus, geo.pitch, liveBudget, liveOn, posterOn, posterBudget, stageOn, stageCost, vertical, viewCross]);
+
+
+	// Measure the rail's thickness (the axis the tiles scale to) and re-ask when it changes.
+	// The scroller always carries its scrollbar track (`overflow-*-scroll`), so the thickness read here cannot
+	// change when the tiles start to overflow: a scrollbar that came and went with the content made the tiles
+	// shrink and grow in a loop (React #185 wherever scrollbars take space). `refresh` is read through a ref so
+	// this effect does not re-run, and so re-measure, every time it changes.
+	const refreshRef = React.useRef(refresh);
+	refreshRef.current = refresh;
 
 	// THE RAMP: one more live tile per step. The first step waits for the page's `load` and then for idle time, so the stage
 	// and the rest of the page are drawn and answering before any tile's document is built. Each later step waits
@@ -256,6 +269,11 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 	// waits past RAMP_IDLE_MAX_MS, so a page that is never idle still fills its map.
 	React.useEffect(() => {
 		if (!liveOn || !Number.isFinite(rampLive)) return;
+		// Each step re-asks the plan with the new budget (through the ref, see `rampRef`).
+		refreshRef.current();
+		// Nothing to promote on an empty or unmeasured rail: wait for it, or the ramp would count up forever and then
+		// promote every tile at once when the rail appears.
+		if (!count || viewCross <= 0) return;
 		if (rampWant.current > 0 && rampLive >= rampWant.current) {
 			setRampLive(Number.POSITIVE_INFINITY);
 			return;
@@ -282,15 +300,7 @@ export function MapRail({ count, focus, onPick, onStep, wire, label, live, poste
 			window.clearTimeout(gap);
 			if (idle && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idle);
 		};
-	}, [liveOn, rampLive]);
-
-	// Measure the rail's thickness (the axis the tiles scale to) and re-ask when it changes.
-	// The scroller always carries its scrollbar track (`overflow-*-scroll`), so the thickness read here cannot
-	// change when the tiles start to overflow: a scrollbar that came and went with the content made the tiles
-	// shrink and grow in a loop (React #185 wherever scrollbars take space). `refresh` is read through a ref so
-	// this effect does not re-run, and so re-measure, every time it changes.
-	const refreshRef = React.useRef(refresh);
-	refreshRef.current = refresh;
+	}, [liveOn, rampLive, count, viewCross]);
 	React.useLayoutEffect(() => {
 		const el = scrollerRef.current;
 		if (!el) return;

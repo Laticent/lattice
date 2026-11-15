@@ -158,7 +158,10 @@ const FACE_URL = new Map(FACES.map((f) => [`${f.family} ${f.weight} ${f.style}`,
 const EMBED_FACES = textFacesCore.TEXT_FACES.filter((f) => FACE_URL.has(`${f.family} ${f.weight} ${f.style}`));
 
 async function faceBase64(url) {
-	const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+	const res = await fetch(url);
+	// An error page is not a font: without this a 404's HTML was encoded and cached as the face.
+	if (!res.ok) throw new Error(`font ${url}: HTTP ${res.status}`);
+	const bytes = new Uint8Array(await res.arrayBuffer());
 	return bytesToBase64(bytes);
 }
 
@@ -174,14 +177,21 @@ function buildTextFontCss() {
 	return cssPromise;
 }
 
-// ONE FAMILY'S FACES, for a caller that draws a few families many times: the slide map's posters
-// (studio/pool-capture.ts). The rules are the CLI block's, written by the same writer, but only for `families`
+// ONE SLIDE'S FACES, for a caller that draws a few families many times: the slide map's posters
+// (studio/pool-capture.ts). The text rules are the CLI block's, written by the same writer, but only for `families`
 // (lowercased names), and each face is fetched and encoded once a page. The whole block encodes every vendored
 // face in one go, which on a first capture was a single main-thread task of over a second at 4x CPU
-// (`npm run perf:load`, MAP=1 CPU=4); a slide uses two or three of them.
+// (`npm run perf:load`, MAP=1 CPU=4); a slide uses two or three of them. `text` is what the slide draws (its text,
+// pseudo-element content and icon glyphs, as the export's `deckTextOf` reads it): the Lattice Icons faces come with it
+// when it draws an icon, and the Noto Color Emoji slices its emoji need, by the export's own rules (`drawsIcons`,
+// `slicesFor`). Rejects when a face cannot be had, so the caller can refuse to keep a picture drawn without it.
 const faceRules = new Map();
-export async function buildFamilyFontCss(families) {
+export async function buildFamilyFontCss(families, text = '') {
 	const want = new Set(families);
+	const extras = Promise.all([
+		drawsIcons(text) ? buildIconFontCss() : '',
+		...emojiCore.EMOJI_SLICES.filter((s) => emojiCore.slicesFor(text).includes(s.file)).map(emojiSliceRule),
+	]);
 	const rules = await Promise.all(
 		EMBED_FACES.filter((f) => want.has(f.family.toLowerCase())).map((f) => {
 			const key = `${f.family} ${f.weight} ${f.style}`;
@@ -193,7 +203,7 @@ export async function buildFamilyFontCss(families) {
 			return faceRules.get(key);
 		}),
 	);
-	return rules.join('');
+	return rules.join('') + (await extras).join('');
 }
 
 // Noto Color Emoji ships as 11 unicode-range slices (lib/fonts/emoji-faces.js), the same files the CLI

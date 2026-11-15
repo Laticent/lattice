@@ -35,13 +35,13 @@ afterEach(() => {
 // Four authored slides; the second heading-splits into two rendered slides: five parts.
 const DECK = '---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\n## Two B\n\n---\n\n# Three\n\n---\n\n# Four\n';
 
-function setup(view?: number[]) {
+function setup(view?: number[], deck = DECK) {
 	const hub = createFocusHub({ outliner: deckOutliner });
-	hub.update(DECK);
+	hub.update(deck);
 	hub.flush();
-	const index = buildDeckIndex(DECK);
+	const index = buildDeckIndex(deck);
 	const onPick = vi.fn();
-	const props = { hub, index, view: view ?? index.units.map((_, i) => i), onPick, options: { themeBase: '', runtimeUrl: '' }, sample: DECK, front: DECK.slice(0, index.bodyStart), aspect: 16 / 9, orientation: 'vertical' as const };
+	const props = { hub, index, view: view ?? index.units.map((_, i) => i), onPick, options: { themeBase: '', runtimeUrl: '' }, sample: deck, front: deck.slice(0, index.bodyStart), aspect: 16 / 9, orientation: 'vertical' as const };
 	return { hub, index, onPick, ui: <StudioMap {...props} /> };
 }
 const tiles = () => [...document.querySelectorAll<HTMLElement>('button[data-unit]')].map((b) => b.getAttribute('aria-label'));
@@ -76,6 +76,21 @@ describe('StudioMap', () => {
 		expect(tile()?.dataset.tier).toBe('live'); // still planned live: the host drew the poster instead
 		expect(document.querySelector('[data-live-face="0"]')).toBeNull();
 		expect(tile()?.querySelector('img')).not.toBeNull();
+	});
+
+	// A library photo can be replaced under its name, so its slide's text, and the poster key, stay the same while its
+	// picture changes: that slide keeps its frame even once its poster exists (found by maker-checker).
+	it('keeps a slide that shows a library photo live, poster or not', async () => {
+		pool.capturing = true;
+		URL.createObjectURL ??= () => 'blob:poster';
+		URL.revokeObjectURL ??= () => {};
+		render(setup(undefined, '---\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\n![](asset:hero)\n').ui);
+		const tile = (u: number) => document.querySelector<HTMLElement>(`button[data-unit="${u}"]`);
+		await waitFor(() => {
+			expect(tile(0)?.dataset.shows).toBe('poster');
+			expect(tile(1)?.dataset.shows).toBe('live');
+		});
+		expect(document.querySelector('[data-live-face="1"]')).not.toBeNull();
 	});
 
 	it('picks through the shell: a tile asks for its chunk and heading section', () => {

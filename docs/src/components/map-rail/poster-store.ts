@@ -7,14 +7,16 @@
 // screen for 4 s. With this store the map paints the pictures it had last time as soon as they are read back, and
 // the live frames take over later (MapRail's `ramp`).
 //
-// A KEY IS ALREADY A COMPLETE ADDRESS. The host's key (StudioMap.tsx `keyOf`) hashes the slide's text, the look and
-// the engine build (`options.themeBase` is the hashed `/playground/v/<hash>/themes/` URL), so an entry can never
-// answer for a different picture: a new build, palette or edit simply misses. Nothing here invalidates anything.
+// THE KEY IS THE HOST'S, AND IT CARRIES WHAT CHANGES A PICTURE. StudioMap.tsx `keyOf` hashes the slide's text, the look,
+// the engine build (`options.themeBase` is the hashed `/playground/v/<hash>/themes/` URL) and the capture's own version
+// (`POSTER_FORMAT`), so a new build, palette, edit or capture change simply misses. What it cannot see is a picture that
+// changes under the same text: a library photo replaced under its name. The host keeps those slides live instead.
+// Nothing here invalidates anything.
 //
 // A CACHE, NOT USER DATA. Every operation fails soft: no IndexedDB (private mode, a test), a blocked open, a quota
 // error, all read as a miss or a skipped write. Its own database, so its schema can never collide with a store that
 // holds the reader's work (library/asset-db.js, ONE DATABASE MEANS ONE UPGRADE HANDLER). Bounded: a write that
-// takes the store past `max` entries deletes the oldest writes first.
+// takes the store past `max` entries deletes the least recently used first (a read counts as a use).
 
 export interface PosterStore {
 	/** The stored picture for `key`, or null. Never rejects. */
@@ -62,6 +64,7 @@ export function createPosterStore(name: string, { max = 400 }: { max?: number } 
 		db ??= new Promise<IDBDatabase | null>((resolve) => {
 			try {
 				if (typeof indexedDB === 'undefined') return resolve(null);
+				let gaveUp = false;
 				const req = indexedDB.open(name, 1);
 				req.onupgradeneeded = () => {
 					const os = req.result.createObjectStore(STORE, { keyPath: 'key' });
@@ -69,12 +72,29 @@ export function createPosterStore(name: string, { max = 400 }: { max?: number } 
 				};
 				req.onsuccess = () => {
 					const d = req.result;
-					// Another tab deleting or upgrading the database closes this connection rather than waiting on it.
-					d.onversionchange = () => d.close();
+					// Answered already (blocked, then unblocked later): this connection is nobody's, so it goes.
+					if (gaveUp) return d.close();
+					// Another tab deleting or upgrading the database closes this connection rather than waiting on it, and the next
+					// call opens a fresh one: a closed connection kept here would fail every later transaction for the session.
+					d.onversionchange = () => {
+						d.close();
+						db = null;
+					};
+					d.onclose = () => {
+						db = null;
+					};
 					resolve(d);
 				};
-				req.onerror = () => resolve(null);
-				req.onblocked = () => resolve(null);
+				// A failed or blocked open answers this call as a miss and is asked again next time, never remembered.
+				req.onerror = () => {
+					db = null;
+					resolve(null);
+				};
+				req.onblocked = () => {
+					gaveUp = true;
+					db = null;
+					resolve(null);
+				};
 			} catch {
 				resolve(null);
 			}
@@ -86,9 +106,14 @@ export function createPosterStore(name: string, { max = 400 }: { max?: number } 
 			try {
 				const d = await open();
 				if (!d) return null;
-				const row = (await settle(d.transaction(STORE, 'readonly').objectStore(STORE).get(key))) as Row | undefined;
+				const os = d.transaction(STORE, 'readwrite').objectStore(STORE);
+				const row = (await settle(os.get(key))) as Row | undefined;
 				// Tested by its tag, not `instanceof`: the bytes may come from another realm (a frame, a test's DOM).
-				return row && Object.prototype.toString.call(row.bytes) === '[object ArrayBuffer]' ? new Blob([row.bytes], { type: row.type }) : null;
+				if (!row || Object.prototype.toString.call(row.bytes) !== '[object ArrayBuffer]') return null;
+				// A read is a use: eviction drops the posters least recently SHOWN, so the deck a reader opens every day is
+				// not pushed out by a run of palette switches that each wrote a deck's worth of new keys.
+				os.put({ ...row, at: Date.now() } satisfies Row);
+				return new Blob([row.bytes], { type: row.type });
 			} catch {
 				return null;
 			}
@@ -104,7 +129,7 @@ export function createPosterStore(name: string, { max = 400 }: { max?: number } 
 				os.put({ key, bytes, type: blob.type, at: Date.now() } satisfies Row);
 				const over = (await settle(os.count())) - max;
 				if (over > 0) {
-					// Oldest writes first, through the index, inside the same transaction as the write.
+					// Least recently used first (the `at` a write or a read stamps), through the index, inside the write's transaction.
 					const cur = os.index(AT).openCursor();
 					let left = over;
 					await new Promise<void>((resolve, reject) => {

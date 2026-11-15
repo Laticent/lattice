@@ -45,6 +45,32 @@ describe('createPosterStore', () => {
 		expect(await text(await store.get('c'))).toBe('c');
 	});
 
+	it('counts a read as a use: the picture shown last outlives one written later but never shown', async () => {
+		const store = createPosterStore(name(), { max: 2 });
+		await store.put('a', pic('a'));
+		vi.advanceTimersByTime(1000);
+		await store.put('b', pic('b'));
+		vi.advanceTimersByTime(1000);
+		await store.get('a'); // shown again: now the most recently used
+		vi.advanceTimersByTime(1000);
+		await store.put('c', pic('c'));
+		expect(await text(await store.get('a'))).toBe('a');
+		expect(await store.get('b')).toBeNull();
+	});
+
+	it('works again after another tab deletes the database out from under it', async () => {
+		const store = createPosterStore(name());
+		await store.put('a', pic('one'));
+		// Another tab clearing site data: this tab's connection gets `versionchange` and closes. Kept, it would fail every
+		// later transaction for the rest of the session.
+		const del = indexedDB.deleteDatabase(`posters-test-${n}`);
+		await new Promise((r) => {
+			del.onsuccess = r;
+		});
+		await store.put('b', pic('two'));
+		expect(await text(await store.get('b'))).toBe('two');
+	});
+
 	it('reads every key as a miss, and drops writes, where there is no IndexedDB', async () => {
 		// @ts-expect-error a browser without IndexedDB (a private window in some engines)
 		globalThis.indexedDB = undefined;

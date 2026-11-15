@@ -38,38 +38,30 @@ export function familiesOf(section: HTMLElement): string[] {
 	return [...out].sort();
 }
 
-/** The `@font-face` rules of `css` whose family is in `families`. `css` is the export's text-face block
- *  (playground/font-embed.js), one `@font-face{font-family:'X';…}` rule per face. Exported for pool-capture.test.ts. */
-export function facesFor(css: string, families: readonly string[]): string {
-	const want = new Set(families);
-	return css
-		.split('@font-face')
-		.filter((rule) => {
-			const m = /font-family:\s*['"]?([^'";]+)/.exec(rule);
-			return !!m && want.has(m[1].trim().toLowerCase());
-		})
-		.map((rule) => `@font-face${rule}`)
-		.join('');
+/**
+ * What one slide draws, for its font sheet: the export's `deckTextOf` (export/deck-export.js) scoped to a slide. Its
+ * text, what pseudo-elements draw through `content:`, and its icon glyphs (each a `::before` from `data-glyph`, in no
+ * text node), skipping an `icon-svg` slide, which draws its icons as <svg>. Exported for pool-capture.test.ts.
+ */
+export function slideTextOf(section: HTMLElement, pseudoText: (root: Element) => string): string {
+	const glyphs = section.classList.contains('icon-svg') ? '' : [...section.querySelectorAll('[data-glyph]')].map((el) => el.getAttribute('data-glyph') || '').join('');
+	return `${section.textContent || ''}\n${pseudoText(section)}\n${glyphs}`;
 }
 
-/** One embed sheet per set of families: a map's slides share a handful of sets, so each is filtered once a page. */
-const embeds = new Map<string, Promise<string>>();
-function embedCssFor(families: string[]): Promise<string> {
-	const key = families.join('\u0000');
-	let p = embeds.get(key);
-	if (!p) {
-		// Only the slide's families are fetched and encoded (font-embed.js `buildFamilyFontCss`); `facesFor` keeps the
-		// sheet to those families whatever the builder returns.
-		p = import('../../playground/font-embed.js')
-			.then(({ buildFamilyFontCss }) => buildFamilyFontCss(families))
-			.then((css: string) => facesFor(css, families))
-			.catch(() => {
-				embeds.delete(key); // a later capture retries; this one goes without
-				return '';
-			});
-		embeds.set(key, p);
+/**
+ * The font sheet for one slide: its text families, plus the icon faces and emoji slices it draws
+ * (font-embed.js `buildFamilyFontCss`, which encodes each face once a page). NULL WHEN A FACE CANNOT BE HAD: a poster
+ * stays on screen and in storage (StudioMap.tsx), so one drawn in a fallback face after a failed fetch would be the
+ * re-wrapped, overlapping picture this sheet exists to prevent, kept for good. No poster is the better answer: the
+ * tile's live frame keeps drawing it, and a later capture tries again.
+ */
+async function embedCssFor(section: HTMLElement): Promise<string | null> {
+	try {
+		const [{ buildFamilyFontCss }, { pseudoContentText }] = await Promise.all([import('../../playground/font-embed.js'), import('../../../../lib/core/slide-camera.mjs')]);
+		return await buildFamilyFontCss(familiesOf(section), slideTextOf(section, pseudoContentText));
+	} catch {
+		return null;
 	}
-	return p;
 }
 
 /** `captureSlot`'s answer when the reader scrolled while its code loaded: nothing was captured; queue it again. */
@@ -79,7 +71,8 @@ export const SCROLLED = 'scrolled' as const;
  * Rasterize the slide a slot's frame shows, at the slot's own size (times the device's pixel ratio), as a JPEG.
  * `still` is asked again once the picture is drawn: a slot re-pointed mid-capture yields null, never another slide's
  * picture. THE SLIDE'S OWN FONTS ARE EMBEDDED: the families it draws in, out of the export's vendored faces
- * (playground/font-embed.js), filtered per slide so a capture carries a few faces, not the whole block. A poster
+ * (playground/font-embed.js), plus its icon faces and emoji slices, so a capture carries a few faces, not the whole
+ * block; and a slide whose faces cannot be had gets no poster (`embedCssFor`). A poster
  * stays on screen once it exists (StudioMap.tsx), so it must match the live tile: drawn in a fallback face it
  * re-wrapped titles and overlapped dense columns.
  *
@@ -108,7 +101,8 @@ export async function captureSlot(slot: HTMLDivElement | undefined, still: () =>
 			import('./export/capture-ribbon.js'),
 			import('../../../../lib/core/capture-style-properties.mjs'),
 		]);
-		const fontEmbedCSS = await embedCssFor(familiesOf(section));
+		const fontEmbedCSS = await embedCssFor(section);
+		if (fontEmbedCSS === null) return null;
 		if (!quiet()) return SCROLLED;
 		// A `performance` entry per capture: its WALL time, from the clone to the JPEG, across awaits (image inlining and the
 		// encode may run off the main thread). It bounds the main-thread cost; a long-task reading is what pins it down.

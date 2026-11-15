@@ -3,14 +3,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const fetched: string[] = [];
+const net = vi.hoisted(() => ({ status: 200 }));
 vi.stubGlobal(
 	'fetch',
 	vi.fn(async (url: string) => {
 		fetched.push(String(url));
-		return { arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer };
+		return { ok: net.status < 400, status: net.status, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer };
 	}),
 );
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+	vi.clearAllMocks();
+	net.status = 200;
+});
 
 import { buildFamilyFontCss, FACES } from './font-embed.js';
 
@@ -28,5 +32,16 @@ describe('buildFamilyFontCss', () => {
 		const before = fetched.length;
 		expect(await buildFamilyFontCss(['outfit'])).toContain("font-family:'Outfit'");
 		expect(fetched.length).toBe(before);
+	});
+	it('adds the icon faces and the emoji slice only when the slide draws them', async () => {
+		const plain = await buildFamilyFontCss(['outfit'], 'Plain words');
+		expect(plain).not.toContain('Lattice Icons');
+		expect(plain).not.toContain('Noto Color Emoji');
+		expect(await buildFamilyFontCss(['outfit'], 'An icon \uE000')).toContain("font-family:'Lattice Icons'");
+		expect(await buildFamilyFontCss(['outfit'], 'A smile \u{1F600}')).toContain("font-family:'Noto Color Emoji'");
+	});
+	it('rejects when a face answers with an error, rather than encoding the error page as a font', async () => {
+		net.status = 404;
+		await expect(buildFamilyFontCss(['fraunces'])).rejects.toThrow(/HTTP 404/);
 	});
 });

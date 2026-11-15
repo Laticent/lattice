@@ -88,6 +88,11 @@ const POSTER_BYTES = 8 * 1024 * 1024;
  *  mounts. One store for the module, opened on first use; its keys are complete addresses, so it is shared safely. */
 const STORE = createPosterStore('lattice-studio-posters');
 
+/** The capture's own version, in every poster key. The engine build is already in the key (`options.themeBase`), but the
+ *  capture pipeline is not: bump this when pool-capture.ts, its font sheet or html-to-image change what a poster looks
+ *  like, so stored posters are retired with it. */
+const POSTER_FORMAT = 2;
+
 /** A plain (non-underscore) directive comment carries onto every later slide, Marp's rule, so it is part of what a
  *  slide looks like even though it is not in the slide's text. `header` and `footer` set their own slide
  *  only (audit §11r), so they are not carried. */
@@ -177,7 +182,7 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 	const keyOf = React.useCallback(
 		(i: number) => {
 			const it = look.items[i];
-			return it ? posterKey(partText(look.index, it.unit, it.section), `${lookHash}\u0000${i}\u0000${carriedAt[i]}`) : '';
+			return it ? posterKey(partText(look.index, it.unit, it.section), `${POSTER_FORMAT}\u0000${lookHash}\u0000${i}\u0000${carriedAt[i]}`) : '';
 		},
 		[look, lookHash, carriedAt],
 	);
@@ -276,7 +281,10 @@ export default function StudioMap({ hub, index, view, onPick, options, sample, f
 			// would draw the same picture at the cost of a whole engine document. A frame mounts only to make a poster: a
 			// first visit, an edited slide, a new look. Measured with `npm run perf:load` (RETURN=1 CPU=4): a returning
 			// reader's map went from 7 live frames to none, and the load's Speed Index from 3.4 s to 2.7 s.
-			if (cache.has(keyOf(i))) return null;
+			//
+			// A slide that shows a library photo (`asset:name`) is the exception: the photo can be replaced under the same name, so
+			// its slide text, and with it the poster's key, does not change when its picture does. Its frame keeps drawing.
+			if (!text.includes('asset:') && cache.has(keyOf(i))) return null;
 			const hit = liveCache.get(i);
 			if (hit) return hit;
 			const face = <PooledThumbFace options={look.options} sample={look.sample} slideIndex={i} slideCount={look.items.length} slideMarkdown={look.front + text} drawn={hasDrawnFence(text)} paletteOverride={look.paletteOverride} extraTheme={look.extraTheme} modeOverride={look.modeOverride} extraCss={look.extraCss} className="size-full" onPicture={(capture) => onPictureRef.current(i, capture)} />;
