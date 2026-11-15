@@ -6,7 +6,7 @@
 
 **Tags** `pitch` · `board-deck` · `showcase` · `kickoff`
 
-First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a "Confidential" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here.
+First slide of every deck. Sets the topic and the visual tone. Drops the running header and the page number, and keeps the deck's footer, its standing note (a "Confidential" or a copyright), by the anchor-chrome rule (engineering/decisions/2026-11-08-anchor-chrome.md). `silent` drops every band in one token. On a phone, a title whose lede runs past the page splits: the cover keeps the eyebrow, the title and the deck's footer, and the lede (with anything authored after it) takes one page of its own on the same canvas; a lede longer than that page still clips, and the export says so. A title that fits never splits (engineering/decisions/2026-10-28-fit-everywhere-model.md §25). Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here.
 
 ## Agent contract
 

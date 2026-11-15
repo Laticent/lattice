@@ -1068,6 +1068,11 @@ const [pcBase] = splitSections(pcFixture).filter((p) => p.type === 'section');
 // `§` swapped out: the replacement-pattern test stands `§` in for `$` and swaps it back.
 const pcSection = { openTag: pcBase.openTag, inner: pcBase.inner.replaceAll('§', 'Sec. ').replace(/(<blockquote\b[^>]*>)[\s\S]*?(<\/blockquote>)/, '$1\n<p>The first rule binds. The second rule widens it.</p>\n$2') };
 
+// title-lede: a title as the engine emits it, a flat section (eyebrow, title, two lede paragraphs). It acts
+// only on a MEASURED overflow (`atSeam`).
+const ttlTag = '<section data-lattice-slide="1" id="s1" class="title">';
+const ttlInner = '<header>H</header><p><code>Eyebrow</code></p>\n<h1>The title.</h1>\n<p>First lede.</p>\n<p>Second lede.</p><footer>F</footer>';
+
 const STRATEGY_CASES = [
   ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
   ['feature-cover',  spSection.openTag, spSection.inner, { strategy: 'feature-cover', perPage: 2 }],
@@ -1087,6 +1092,7 @@ const STRATEGY_CASES = [
   ['code-cards',     cdTag2,            cdInner,         { strategy: 'code-cards', axis: 'line', perPage: 12 }],
   // passage reads only a MEASURED plan: two sentences, then the gloss's two items, two a page.
   ['passage',        pcSection.openTag, pcSection.inner, { strategy: 'passage', plan: [2, 2] }],
+  ['title-lede',     ttlTag,            ttlInner,        { strategy: 'title-lede', atSeam: true }],
 ];
 
 // THE TABLE'S POPULATION COMES FROM THE ENGINE, not from whatever fixtures anyone happened to

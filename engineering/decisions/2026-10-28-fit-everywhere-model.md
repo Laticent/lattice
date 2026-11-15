@@ -1386,6 +1386,7 @@ component's own shape at x1.4, so each is fixed in its component, one commit api
 |---|---|---|---|
 | `decision` cover | 6 | Its title is `--fs-hero`; every other cover sets `--fs-h1` (split-panel's note: a cover title can be a full sentence, and hero overflows past ~10 words). A two-line verdict ran five lines at x1.4 and pushed past the top of the frame. | On a slide read in a hand (§24's selector), the cover title is `--fs-h1`. Laptop and the rooms keep hero. `resolve-venue.test.js` holds the venue list to the type table's. |
 | `authority-chain bracket` | 2 | At x1.4 a square slide has under 23em of text room, so the chain takes its narrow-room rules. There the citation chip stayed on one line, and beside a `bracket` tier label a long citation ("Charter of Fundamental Rights, Art. 8") ran past its card. The rows also left the min-content rail for flex rows, so each label sized to itself and the citations zig-zagged. | In narrow room the chip wraps at its spaces, and `bracket` keeps the grid rail, so a page's rows share one text x. Fixed at portrait and story too; no slide clips that did not before (gallery, legal gallery and two examples, at square, portrait and story, against HEAD). Each page of a split run takes its own widest label, so the text x can differ between pages. `authority-chain-bracket-phone.test.js`. |
+| `title` | 9 | A title is the deck's cover, and a lede of sixty to ninety words under it ran off a phone page at x1.4. `title` was an anchor that never splits. | **Owner ruling, 2026-11-15: the lede gets its own page**, the split-panel ruling of 2026-11-13 applied to the deck's cover. A new strategy, `title-lede` (lib/core/carousel.js), acts only on the measured plan's `atSeam`: the cover keeps the eyebrow and title (`title-cover`), and every lede paragraph moves, in order, to one page after it on the same canvas (`title-lede`). A title that fits never splits. `split-facts.js` moves title from anchor to read-across, as closing moved on 2026-11-13; the oracle's verified deck is `examples/title-lede-page.md`. Everything authored after the title moves in order (a list after the lede comes too), the eyebrow and notes stay, and the slide's beats close the run on the shared closing page. The cover keeps the deck footer, as every anchor does (2026-11-08-anchor-chrome.md); `stripDeckChrome` exempts `title-cover`. A lede longer than one page still clips on its page, with the export's OVERFLOW warning: the ruling gives the lede one page. Two lede paragraphs touched (0 px apart) on a whole title too; the second now keeps `--sp-md` above it. `title-lede.test.js`, and the shared gates in `carousel.test.js`. |
 
 `logo-wall` (6 captioned walls) is not fixed yet. At four columns a pill ("Enterprise") is wider than its
 cell at x1.4 and runs past the slide's edge. Three columns fixed those six, but the independent checker
@@ -1394,12 +1395,12 @@ three halved the marks and tripped the type floor. Scaling the packer's stage es
 moved walls at the room venues and tipped some into the fallback grid, where they lose whole rows. A
 character-count width estimate does not hold either: caption width measured 1.94 times larger at hall
 (x1.5) than at laptop. The column count has to come from caption widths measured in the page, which the
-CLI's string stamp cannot see, so the change was withdrawn and this group stays open.
+CLI's string stamp cannot see, so the change was withdrawn. **Owner ruling, 2026-11-15: measured
+columns.** The wall stays one page (it stays atomic), and the column count comes from caption widths
+measured in the page: three columns only when four cannot hold the captions, so a wall that fits keeps its
+layout. An eight-mark captioned wall then stands its marks smaller than its captions; that cost was put to
+the owner and accepted.
 
 `authority-chain branching` (3 slides) is not fixed yet: it authors one tier with four or five sub-items,
 so the item axis finds one member and the chain never splits. Its seam is the sub-items.
 
-`title` (9 slides) is not fixed here. Each is a title slide whose lede runs a paragraph long, and the fix
-the precedent points at (split-panel's lede page, §21) would make an anchor split. `lib/core/split-facts.js`
-records title, divider and topic as anchors that never split, and moving `closing` off that row took an
-owner ruling, so the title's is put to the owner.

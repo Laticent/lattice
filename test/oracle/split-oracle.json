@@ -75,6 +75,11 @@
       "deck": "examples/closing-index-split.md",
       "by": "PR 2988, 2026-11-13 (rendered at size: square and portrait, phone venue, indaco, read page by page)",
       "note": "Slide 4 is `closing silent index`, five two-line see-also rows: at square it splits into an accent cover (title, subtitle) and two pages of its own rows (3 + 2), every page fitting. At portrait it fits whole. Slide 2, a one-line `closing`, and slide 3, a three-row index that fits, stay whole at both sizes: only `index` splits (split.onlyVariant)."
+    },
+    "title": {
+      "deck": "examples/title-lede-page.md",
+      "by": "PR 2988, 2026-11-15 (rendered at size: square, phone venue and venue: laptop, indaco, read page by page)",
+      "note": "Slides 4 and 5 are titles whose ledes run past a phone page: each splits into a cover (eyebrow and title) and a lede page carrying every lede paragraph in order, on the same canvas, and every page fits. Slides 1 and 3, whose ledes fit, stay whole. At venue: laptop every title fits and none splits: the strategy acts only on the measured plan's atSeam."
     }
   },
   "components": {
@@ -871,13 +876,13 @@
       "relationship": null
     },
     "title": {
-      "treatment": "anchor",
+      "treatment": "read-across",
       "axis": null,
       "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
+      "enrolled": true,
+      "strategy": "title-lede",
+      "reshape": "paginator",
+      "coverClass": "title-cover",
       "perPage": null,
       "relationship": null
     },
