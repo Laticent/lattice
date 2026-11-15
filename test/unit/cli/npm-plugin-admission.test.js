@@ -7,7 +7,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { admitNpmBundle, externalRefusal } = require('../../../lib/packages/npm-plugin-admission.js');
-const { npmLayerRefusal, npmRefusals, judgeWindowsRows } = require('../../../lib/core/os-sandbox.js');
+const { npmLayerRefusal, npmRefusals, judgeWindowsRows, judgeWindowsReads } = require('../../../lib/core/os-sandbox.js');
 
 const sha = (c) => crypto.createHash('sha256').update(c).digest('hex');
 const GOOD = 'function render(f){ return "<p>" + f.body.length + "</p>"; }\nexport { render as default };';
@@ -116,3 +116,27 @@ describe('judgeWindowsRows (decision 13: Windows is read from chrome://sandbox)'
   });
 });
 
+
+describe('judgeWindowsReads: a renderer still starting is not a browser without the sandbox', () => {
+  // Rows as a windows-2025 runner printed them (platform suite run 43721370849, read 18 of 40): one renderer listed
+  // `Not Sandboxed` with its other columns empty while it started, beside renderers already locked down.
+  const locked = (pid) => `${pid}\tRenderer\t\tRenderer\tLockdown\tS-1-16-0 Untrusted\t\u279501111001110110000100000020011000\t00000001\t`;
+  const starting = (pid) => `${pid}\tRenderer\t\tNot Sandboxed\t\t\t\t\t`;
+  test('a starting renderer asks for another read, and the next read decides', () => {
+    assert.equal(judgeWindowsReads([[starting(9696), locked(7688)]]), 'pending');
+    assert.equal(judgeWindowsReads([[starting(9696), locked(7688)], [locked(9696), locked(7688)]]), true, 'it started locked down');
+    assert.equal(judgeWindowsReads([[starting(9696), locked(7688)], [locked(7688)]]), true, 'it is gone');
+  });
+  test('a renderer that stays unsandboxed across two reads reads off, as a browser started with --no-sandbox does', () => {
+    assert.equal(judgeWindowsReads([[starting(9696), locked(7688)], [starting(9696), locked(7688)]]), false);
+    assert.equal(judgeWindowsReads([[starting(1), starting(2)], [starting(1), starting(2)]]), false);
+  });
+  test('a different renderer starting on each read keeps asking; the caller fails closed when reads run out', () => {
+    assert.equal(judgeWindowsReads([[starting(1), locked(7)], [starting(2), locked(7)]]), 'pending');
+  });
+  test('one read locked down reads on at once; no reads, or rows with no state, read unmeasured', () => {
+    assert.equal(judgeWindowsReads([[locked(1), locked(2)]]), true);
+    assert.equal(judgeWindowsReads([]), null);
+    assert.equal(judgeWindowsReads([['    "tag": "renderer!kRenderer",']]), null);
+  });
+});

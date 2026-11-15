@@ -35,7 +35,7 @@ test(`MEASURED: the code sandbox's OS layer is read, not assumed, on ${process.p
     assert.notEqual(layer.os, 'unmeasured', `the layer could not be measured here: ${layer.summary}; the probe saw ${JSON.stringify(diag.seen ?? [])}`);
     if (process.platform === 'darwin' || process.platform === 'win32') {
       assert.equal(layer.os, 'on', `${process.platform} runs Chromium's sandbox, and the layer read ${layer.os}: ${layer.summary}; tried ${layer.tried.join('; ')}; the probe saw ${JSON.stringify(diag.seen ?? [])}`);
-      assert.equal(again, true);
+      assert.equal(again, true, `the second read did not agree: the probe saw ${JSON.stringify(diag.seen ?? [])}`);
     }
   } finally {
     await sandbox.close();
@@ -53,21 +53,23 @@ test(`CONTROL: on ${process.platform}, a browser started without the sandbox rea
   }
 });
 
-// TEMPORARY PROBE (not for merge): read the layer 40 times in a row and print every reading, so a Windows runner shows
-// what a disagreeing read sees. Never fails.
-test(`PROBE: 40 consecutive reads on ${process.platform}`, { timeout: 600000 }, async (t) => {
-  const sandbox = await launchCodeSandbox(puppeteer, { executablePath: CHROME });
-  try {
-    t.diagnostic(`first read: ${sandbox.layer.os}`);
-    const tally = {};
-    for (let i = 0; i < 40; i++) {
-      const diag = {};
-      const on = await rendererSandboxed(sandbox.browser, sandbox.pid, process.platform, diag);
-      tally[String(on)] = (tally[String(on)] || 0) + 1;
-      if (on !== true || i < 2) t.diagnostic(`read ${i}: ${on} ${JSON.stringify(diag.seen ?? [])}`);
+// TEMPORARY PROBE (not for merge): three fresh launches, each measured as the product measures it, then read 40 more
+// times, every reading printed, so a Windows runner shows whether any read still disagrees. Never fails.
+test(`PROBE: 3 launches x 40 reads on ${process.platform}`, { timeout: 900000 }, async (t) => {
+  const tally = {};
+  for (let launch = 0; launch < 3; launch++) {
+    const sandbox = await launchCodeSandbox(puppeteer, { executablePath: CHROME });
+    try {
+      tally[`launch:${sandbox.layer.os}`] = (tally[`launch:${sandbox.layer.os}`] || 0) + 1;
+      for (let i = 0; i < 40; i++) {
+        const diag = {};
+        const on = await rendererSandboxed(sandbox.browser, sandbox.pid, process.platform, diag);
+        tally[String(on)] = (tally[String(on)] || 0) + 1;
+        if (on !== true || (diag.seen ?? []).some((r) => /^read 2/.test(r))) t.diagnostic(`launch ${launch} read ${i}: ${on} ${JSON.stringify(diag.seen ?? [])}`);
+      }
+    } finally {
+      await sandbox.close();
     }
-    t.diagnostic(`tally ${JSON.stringify(tally)}`);
-  } finally {
-    await sandbox.close();
   }
+  t.diagnostic(`tally ${JSON.stringify(tally)}`);
 });
