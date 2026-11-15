@@ -25,11 +25,19 @@ What shipped:
    A frame mounts only to make a poster: a first visit, an edited slide, a new look, a new build.
 3. **Posters carry the slide's fonts** (`pool-capture.ts`, `playground/font-embed.js` `buildFamilyFontCss`). The capture
    used to skip fonts, which was fine while a live frame always replaced the poster. Once the poster stays on screen it
-   must match the slide, so the capture embeds the families the slide draws in, and only those.
-4. **The ramp** (`MapRail` `ramp`). A mount starts with no live tiles and promotes one per idle step, nearest the focus
+   must match the slide, so the capture embeds the faces the slide draws (family, weight and style, matched to the
+   vendored face the browser would pick), plus its icon faces and emoji slices, and nothing else. A capture whose faces
+   cannot be had takes no picture: the live frame keeps drawing the tile, and a later capture tries again.
+4. **Captures wait for the reader** (`preview-pool.tsx` `CAPTURE_INPUT_QUIET_MS`). A capture is one main-thread task
+   that cannot be interrupted, so it waits until there has been no key, pointer, wheel or input anywhere on the page for
+   1.5 s, as well as for the rail to be still.
+5. **Two kinds of slide stay live.** A slide that shows a library photo (`asset:name`) keeps its frame: the photo can be
+   replaced under the same name, so neither its text nor its key changes when its picture does. And the key carries a
+   capture version (`POSTER_FORMAT`), so a change to how posters are drawn retires the stored ones.
+6. **The ramp** (`MapRail` `ramp`). A mount starts with no live tiles and promotes one per idle step, nearest the focus
    first, after the page's `load`. This keeps first paint free of frames and gives IndexedDB time to answer before
    any tile would go live.
-5. **The benchmark** (`npm run perf:load`). This is Lighthouse's desktop preset (the nightly's settings), median of N
+7. **The benchmark** (`npm run perf:load`). This is Lighthouse's desktop preset (the nightly's settings), median of N
    cold-cache runs, plus how many frames the page holds once settled. `MAP=1` seeds the map-open key, `RETURN=1` runs
    one full visit first and clears only the HTTP cache, and `CPU=4` slows the CPU.
 
@@ -62,6 +70,10 @@ So the map is about half of the blocking time, and nearly all of it scales with 
 | Map closed | 2,024 → 2,156 ms | 2,616 → 2,638 ms | 7,456 → 7,990 ms | 0 → 0 |
 | First visit, map open (9 runs, alternated) | 4,185 → 4,165 ms (worst 5,424 → 5,205) | 3,952 → 3,992 ms | 9,479 → 9,363 ms | 8 → 4 at settle |
 
+Re-measured on the final build, after the review fixes and the capture changes in §4 (one 5-run sample each, so
+within the ±400 ms this arm varies by): returning, map open, TBT 2,589 ms, SI 2,431 ms, TTI 5,446 ms; first visit, map
+open, TBT 3,390 ms, SI 3,606 ms, TTI 8,540 ms. The table keeps the earlier, more conservative figures.
+
 With the map closed the numbers sit inside run-to-run noise: that path loads none of this code. A first visit has no posters to show, so it mounts the frames it always did and captures from them; it holds level, and the font-embedded capture costs it about 60 ms on the longest task (531 → 593 ms median). The 1x row and the map-closed row were measured on the build before the per-family font change, which neither path exercises; the other rows are the final build.
 
 ## 4. What did not work, and why it is recorded
@@ -84,6 +96,31 @@ real 1280 px width and then scales the picture.
 old one at the median on a first visit, but had a tail: one run blocked for 10.3 s, with a 1.39 s task. The export's
 `buildFontEmbedCss` base64-encodes every vendored face in one go, and the first capture paid for all of them.
 `buildFamilyFontCss` encodes only the families the slide draws in, once per face.
+
+**The first font-embedded capture also made keystrokes wait.** A typing probe (map open, 4x CPU, eight words with
+fixed pauses of 0.6 to 3 s between them, edits on slide 1 whose tile is on screen) measured the font-embedded capture's
+longest task at about 390 ms, against 235 ms before. Gating captures on the reader alone made it worse in a probe whose
+pauses all equaled the gate, because every capture then started as the next word began: moving the start of a task
+that cannot be interrupted only moves which pause it collides with. The fix was to make the task smaller, by embedding
+the faces a slide draws instead of every weight of its families, and then to gate it. Median of 5 alternated runs:
+
+| Typing with the map open, 4x CPU | Before | After |
+|---|---:|---:|
+| Keystroke delay, p95 | 144 ms | 112 ms |
+| Keystroke delay, worst | 256 ms | 176 ms |
+| Blocking time while typing | 2,854 ms | 1,349 ms |
+| Captures while typing | 6 | 4 |
+| Longest single task | 258 ms | 337 ms |
+
+The longest single task is still about 80 ms longer, and it now lands in a pause, which the keystroke rows show.
+
+**The maker-checker review found two bugs in the ramp and four in the poster path,** all fixed with a test that fails
+without the fix: a ramp step pulled a hand-scrolled rail back to the focused tile; an empty or hidden rail ramped
+forever; posters lacked icon and emoji faces; a failed font fetch kept a fallback-face poster for good; a replaced
+library photo left a stale poster; and the store evicted by write time and stayed dead after another tab deleted it.
+
+**Verified in WebKit, not on iOS.** In Playwright's WebKit build a returning load shows every tile as a still drawn in
+the slide's fonts, matching Chromium tile for tile. iOS Safari itself was not reachable from the sandbox.
 
 ## 5. Not done, and why
 
