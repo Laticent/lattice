@@ -157,10 +157,13 @@ let cssPromise = null;
 const FACE_URL = new Map(FACES.map((f) => [`${f.family} ${f.weight} ${f.style}`, f.url]));
 const EMBED_FACES = textFacesCore.TEXT_FACES.filter((f) => FACE_URL.has(`${f.family} ${f.weight} ${f.style}`));
 
-async function faceBase64(url) {
+async function faceBase64(url, { strict = false } = {}) {
 	const res = await fetch(url);
-	// An error page is not a font: without this a 404's HTML was encoded and cached as the face.
-	if (!res.ok) throw new Error(`font ${url}: HTTP ${res.status}`);
+	// STRICT for the slide map's posters (`buildFamilyFontCss`): an error page is not a font, and a poster drawn without
+	// its face is kept for good, so a failed face must fail the poster. The export path keeps its old behavior, where an
+	// HTTP error is encoded as a face that does not load and the export completes in a fallback face; changing that is
+	// an export-behavior call (followups.d/3212-p3-export-font-http-error.md).
+	if (strict && !res.ok) throw new Error(`font ${url}: HTTP ${res.status}`);
 	const bytes = new Uint8Array(await res.arrayBuffer());
 	return bytesToBase64(bytes);
 }
@@ -214,7 +217,7 @@ export async function buildFamilyFontCss(faces, text = '') {
 		[...picked].map((f) => {
 			const key = `${f.family} ${f.weight} ${f.style}`;
 			if (!faceRules.has(key)) {
-				const rule = faceBase64(FACE_URL.get(key)).then((b64) => faceRuleCore.faceRuleCss(f, 'swap', b64));
+				const rule = faceBase64(FACE_URL.get(key), { strict: true }).then((b64) => faceRuleCore.faceRuleCss(f, 'swap', b64));
 				rule.catch(() => faceRules.delete(key)); // a later capture retries
 				faceRules.set(key, rule);
 			}
