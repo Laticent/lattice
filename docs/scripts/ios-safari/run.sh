@@ -170,6 +170,17 @@ if [ -n "${families// /}" ]; then
 fi
 # Devices still to run, this one included: the second-start budget below has to leave them their time.
 left=$(echo $families | wc -w)
+# THE RETRIES INSIDE ONE run.mjs. A session that came on its second or third attempt spent the failed attempts and the
+# relaunch waits first (about 120-140 s each), and the next device will not pay them. run.mjs writes those seconds to
+# $OUT/.session-waste-<device> when it makes a session; this adds them to `wasted` and deletes the file. A run.mjs that made
+# no session writes none, and the callers below count that whole run instead (session_dt, start1_dt).
+add_session_waste() {
+  local f="$OUT/.session-waste-$family" w
+  [ -f "$f" ] || return 0
+  w=$(tr -dc '0-9' < "$f")
+  rm -f "$f"
+  wasted=$((wasted + ${w:-0}))
+}
 # What the last device cost, less the time its failed session starts wasted: the estimate for the next one. Empty before the
 # first device, which has nothing to go by and always starts.
 last_cost=
@@ -257,6 +268,7 @@ for family in $families; do
           if start_driver; then
             rc=0
             SESSION_ATTEMPTS=1 PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?
+            add_session_waste
           fi
         fi
         break
@@ -281,6 +293,7 @@ for family in $families; do
     run_t0=$SECONDS
     SESSION_ATTEMPTS=$attempts PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?
     session_dt=$((SECONDS - run_t0))
+    add_session_waste
     [ "$rc" = 3 ] || break
     why='no session'
   done
@@ -295,8 +308,10 @@ for family in $families; do
   fi
   xcrun simctl shutdown "$udid" || true
   left=$((left - 1))
-  last_cost=$((SECONDS - device_t0 - wasted))
-  echo "$family: took $((SECONDS - device_t0)) s, $wasted s of it on failed session starts"
+  # One read of the clock: `took` and the estimate must agree to the second (the unit tests check cost = took - wasted).
+  took=$((SECONDS - device_t0))
+  last_cost=$((took - wasted))
+  echo "$family: took $took s, $wasted s of it on failed session attempts and starts"
 done
 
 # The undo probe's desktop half: the runner's own Safari, through the same safaridriver.

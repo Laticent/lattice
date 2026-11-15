@@ -694,8 +694,13 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   retried. When every device that failed did so before any probe ran, `run.sh` exits 3 and writes
   `platform-suite-artifacts/no-session`, which hands the job to the supervisor above.
   **The next device's budget.** Before each device after the first, `run.sh` asks `suite-budget.mjs` whether it still ends by
-  `SUITE_DEADLINE`, costed at what the device before it took less the time its failed session starts wasted (a fresh device pays
-  a boot, a session and a probe, not the last one's retries). One that does not fit is not started: `run.sh` prints and writes
+  `SUITE_DEADLINE`, costed at what the device before it took less what its retries wasted (a fresh device pays a boot, a
+  session and a probe, not the last one's retries). `run.sh` counts three kinds: a whole first start that a second start
+  replaced, a `run.mjs` that made no session before an in-place attempt, and the failed attempts and relaunch waits inside a
+  `run.mjs` that did make one (it writes those seconds to `.session-waste-<device>` in the artifact folder, and `run.sh`
+  reads and deletes the file). **It is an estimate, not a guarantee:** the next device is costed at the last one's price,
+  so an iPhone slower than the iPad before it, or one with retries of its own, can still be admitted and hit the 30-minute
+  cancel. It stops a device that had no chance to finish from being started. One that does not fit is not started: `run.sh` prints and writes
   `not run: out of time: <device> (… s gone, needs about … s, budget … s)` to `platform-suite-artifacts/out-of-time` and exits
   **1**, never 0 and never 3. Before this, only a device's own second start was budgeted: main's nightly of 2026-11-15 (run
   43712612297) spent 1031 s on the iPad, started the iPhone at 1064 s, and was canceled at 30 minutes with no result for it.

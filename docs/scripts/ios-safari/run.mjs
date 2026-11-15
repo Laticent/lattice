@@ -98,10 +98,20 @@ const simctl = (...args) => {
 		console.log(`${LABEL}: xcrun simctl ${args.join(' ')} failed (${String(e.message).slice(0, 200)})`);
 	}
 };
+/**
+ * WHAT THE RETRIES COST, for run.sh's next-device budget (suite-budget.mjs). A session that came on attempt 2 or 3 spent the
+ * failed attempts and the relaunch waits before it (about 100-117 s and 20 s each); the next device will not pay those, so
+ * run.sh subtracts them from this device's cost. Written once a session is made, in whole seconds, to
+ * `$ARTIFACT_DIR/.session-waste-<label>`; run.sh reads it and deletes it. A run that makes no session writes none: run.sh
+ * counts that whole run as spent already.
+ */
+const WASTE_FILE = path.join(OUT, `.session-waste-${LABEL}`);
 async function createSession() {
+	const t0 = Date.now();
 	for (let attempt = 1; ; attempt++) {
+		const tryT0 = Date.now();
 		try {
-			return await wd(
+			const made = await wd(
 				'POST',
 				'/session',
 				{
@@ -111,6 +121,8 @@ async function createSession() {
 				},
 				{ timeoutMs: SESSION_TIMEOUT_MS },
 			);
+			fs.writeFileSync(WASTE_FILE, `${Math.round((tryT0 - t0) / 1000)}\n`);
+			return made;
 		} catch (e) {
 			const message = String(e.message);
 			const stuck = e.name === 'TimeoutError';

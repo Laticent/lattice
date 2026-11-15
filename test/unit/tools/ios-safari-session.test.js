@@ -94,7 +94,10 @@ async function runSession(answer, env) {
 		});
 		const status = await new Promise((r) => child.on('close', (code, signal) => r(code ?? signal)));
 		const xcrun = fs.existsSync(xcrunLog) ? fs.readFileSync(xcrunLog, 'utf8').trim().split('\n').filter(Boolean) : [];
-		return { status, output, posts: driver.posts, xcrun };
+		// What run.mjs tells run.sh its retries cost (whole seconds before the attempt that made the session), or null.
+		const wasteFile = path.join(dir, 'out', '.session-waste-iPad');
+		const waste = fs.existsSync(wasteFile) ? fs.readFileSync(wasteFile, 'utf8') : null;
+		return { status, output, posts: driver.posts, xcrun, waste };
 	} finally {
 		driver.close();
 		fs.rmSync(dir, { recursive: true, force: true });
@@ -106,6 +109,7 @@ test('(a) a POST /session that never answers is "no session" (exit 3) at SESSION
 	assert.equal(r.status, 3, r.output);
 	assert.match(r.output, /iPad: no session \(safaridriver did not answer POST \/session within 300 ms\)/);
 	assert.equal(r.posts.length, 1, 'a stuck driver is not asked again: run.sh restarts it');
+	assert.equal(r.waste, null, 'no session, no waste file: run.sh counts the whole run');
 });
 
 test('(b) after "session not created", Safari is terminated and launched BEFORE the next POST /session', async () => {
@@ -117,6 +121,8 @@ test('(b) after "session not created", Safari is terminated and launched BEFORE 
 	// The second POST made a session (a macOS one, which run.mjs then refuses before any probe): not "no session".
 	assert.equal(r.status, 1, r.output);
 	assert.match(r.output, /refusing a macOS fallback/);
+	// The session came on attempt 2, so run.mjs reports what came before it, in whole seconds, for run.sh's budget.
+	assert.match(r.waste ?? '', /^\d+\n$/, `the waste file is written when a session is made\n${r.output}`);
 });
 
 test('(c) "session not created" on every attempt: exit 3 after SESSION_ATTEMPTS, relaunching between attempts only', async () => {
@@ -124,5 +130,6 @@ test('(c) "session not created" on every attempt: exit 3 after SESSION_ATTEMPTS,
 	assert.equal(r.status, 3, r.output);
 	assert.equal(r.posts.length, 2, r.output);
 	assert.match(r.output, /iPad: no session \(attempt 2 of 2\)/);
+	assert.equal(r.waste, null);
 	assert.deepEqual(r.xcrun, ['simctl terminate udid-under-test com.apple.mobilesafari', 'simctl launch udid-under-test com.apple.mobilesafari']);
 });

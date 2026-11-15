@@ -3,12 +3,19 @@
  *
  * run.sh runs its simulators one after another inside one 30-minute job. Main's nightly on 2026-11-15 (run 43712612297)
  * spent 1031 s on the iPad (two session attempts that failed, then a probe), started the iPhone at 1064 s anyway, and the
- * job was cancelled at its timeout with the iPhone's session just made: no result for either device, and a cancel that
+ * job was canceled at its timeout with the iPhone's session just made: no result for either device, and a cancel that
  * read like a hung runner. So before each later device run.sh asks this file, with what the device before it cost.
  *
- * The estimate is that device's cost LESS the time its failed session starts wasted (run.sh measures both): a fresh device
- * pays a boot, a session and a probe, not the previous device's retries. Counted whole, the retries would have refused the
- * iPhone on 2026-11-10 (run 42819824102: 897 s gone plus a 773 s iPad), a run whose iPhone passed at 1315 s.
+ * The estimate is that device's cost LESS what its retries wasted: a fresh device pays a boot, a session and a probe, not
+ * the previous device's retries. run.sh counts three kinds of retry: a whole first start that a second start replaced, a
+ * run.mjs that made no session before an in-place attempt, and, inside a run.mjs that DID make a session, the failed
+ * attempts and relaunch waits before it (run.mjs writes those seconds to `.session-waste-<device>`). Counted whole, the
+ * retries would have refused the iPhone on 2026-11-10 (run 42819824102: 897 s gone plus a 773 s iPad), a run whose iPhone
+ * passed at 1315 s.
+ *
+ * IT IS AN ESTIMATE, NOT A GUARANTEE. The next device is costed at the last one's price: an iPhone slower than the iPad
+ * before it, or one that needs retries of its own, can still be admitted and run into the job's 30-minute cancel. The
+ * check stops the case the nightlies showed (a device started with no chance to finish), not every overrun.
  *
  * A device refused here is NOT a pass. This file writes `not run: out of time: …` to stdout and to
  * `platform-suite-artifacts/out-of-time`, and run.sh then exits 1: tools/platform-suites-triage.js reads that mark as the

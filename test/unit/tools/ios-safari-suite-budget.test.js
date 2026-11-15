@@ -63,9 +63,11 @@ test('the command line: exit 10 and the mark appended when out of time, exit 0 a
 /**
  * Run the real run.sh (PROBE=photo-memory, the iPad and the iPhone) in a temp folder, with macOS stubbed out. Each device's fake
  * run.mjs holds it one second and passes; with `failFirst`, the iPad's first one exits 3 (no session) instead, as the
- * 2026-11-15 iPad's first start did. Returns the exit code, the output and what landed in the artifacts.
+ * 2026-11-15 iPad's first start did; with `inRunWaste`, the iPad's run holds two seconds and reports one of them as
+ * spent on a failed attempt and a relaunch before its session (run.mjs's `.session-waste-<label>` file). Returns the exit
+ * code, the output and what landed in the artifacts.
  */
-function runSuite(deadline, { failFirst = false } = {}) {
+function runSuite(deadline, { failFirst = false, inRunWaste = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ios-run-sh-'));
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin);
@@ -78,7 +80,9 @@ function runSuite(deadline, { failFirst = false } = {}) {
   stub('xcode-select', `echo '${xcodeDev}'`);
   stub('sudo', 'exit 0');
   stub('curl', 'exit 0');
-  stub('python3', `exec '${realSleep}' 600`);
+  // The docs server: nothing to serve (curl is stubbed), so it exits at once and leaves no process behind. run.sh's
+  // `server=$!` is the pid of the subshell around it, which kill would not reach through to a long-lived child.
+  stub('python3', 'exit 0');
   stub('safaridriver', `exec '${realSleep}' 600`);
   stub('sleep', 'exit 0');
   stub(
@@ -95,6 +99,7 @@ exit 0`,
     'node',
     `if [ "$1" = docs/scripts/ios-safari/run.mjs ]; then
   '${realSleep}' 1
+  if [ -n "$IN_RUN_WASTE" ] && [ "$SIM_LABEL" = iPad ]; then '${realSleep}' 1; echo 1 > "$ARTIFACT_DIR/.session-waste-$SIM_LABEL"; fi
   if [ -n "$FAIL_FIRST" ] && [ "$SIM_LABEL" = iPad ] && [ ! -e "$RUNNER_TEMP/failed-once" ]; then
     : > "$RUNNER_TEMP/failed-once"; echo "$SIM_LABEL: fake no session"; exit 3
   fi
@@ -108,7 +113,7 @@ exec '${process.execPath}' "$@"`,
   const r = spawnSync('bash', [RUN_SH], {
     cwd: dir,
     encoding: 'utf8',
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, PROBE: 'photo-memory', SUITE_DEADLINE: String(deadline), RUNNER_TEMP: dir, GITHUB_STEP_SUMMARY: summary, FAIL_FIRST: failFirst ? '1' : '' },
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, PROBE: 'photo-memory', SUITE_DEADLINE: String(deadline), RUNNER_TEMP: dir, GITHUB_STEP_SUMMARY: summary, FAIL_FIRST: failFirst ? '1' : '', IN_RUN_WASTE: inRunWaste ? '1' : '' },
   });
   const art = path.join(dir, 'platform-suite-artifacts');
   const read = (f) => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null);
@@ -144,7 +149,7 @@ test('run.sh: with time for both, both devices run and the job passes with no ma
 
 /** The iPad's own time and its waste, as run.sh prints them, and the cost the next device's check was given. */
 function costs(output) {
-  const took = /iPad: took (\d+) s, (\d+) s of it on failed session starts/.exec(output);
+  const took = /iPad: took (\d+) s, (\d+) s of it on failed session attempts and starts/.exec(output);
   const asked = /iPhone(?: \(\d+ s gone, needs about (\d+) s|: starting at \d+ s; about (\d+) s)/.exec(output);
   assert.ok(took && asked, output);
   return { took: Number(took[1]), wasted: Number(took[2]), cost: Number(asked[1] ?? asked[2]) };
@@ -168,5 +173,18 @@ test('run.sh: the next device is costed WITHOUT a first start that a second star
   assert.ok(c.wasted >= 1, `the first start counts as waste\n${r.output}`);
   assert.equal(c.cost, c.took - c.wasted, r.output);
   assert.equal(r.status, 0, r.output);
+  assert.deepEqual(r.results, ['photo-memory-iPad.json', 'photo-memory-iPhone.json'], r.output);
+});
+
+test('run.sh: a session that came on a retry INSIDE run.mjs is costed without that retry (its .session-waste file)', () => {
+  // The PR's checker: attempt 1 refused (about 100-117 s), a 20 s relaunch, attempt 2 made the session, rc 0. Without this,
+  // that time stayed in the estimate, and on dispatch 43760667692's numbers plus one such retry the iPhone (580 s) would
+  // have been refused at 829 s + 758 s although it ended near 1409 s.
+  const r = runSuite(100000, { inRunWaste: true });
+  assert.equal(r.status, 0, r.output);
+  const c = costs(r.output);
+  assert.equal(c.wasted, 1, `the reported second is waste, and nothing else is\n${r.output}`);
+  assert.equal(c.cost, c.took - 1, r.output);
+  assert.ok(c.took >= 2, r.output);
   assert.deepEqual(r.results, ['photo-memory-iPad.json', 'photo-memory-iPhone.json'], r.output);
 });
