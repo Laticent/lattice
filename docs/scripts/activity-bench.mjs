@@ -89,7 +89,9 @@ const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, s
 await ctx.addInitScript(() => {
 	try {
 		// The Craft posture, as the e2e fixture seeds it: the editor and the activity bar are on screen.
-		localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft' }));
+		// Source, not the shipped Compose default (#3128): the typing and paste activities click the Markdown
+		// editor ("Deck source"), which a Compose-first Studio does not show, so each one timed out at 30 s.
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ posture: 'craft', editMode: 'source' }));
 		localStorage.setItem('lattice-studio-settings-tier', JSON.stringify('advanced'));
 	} catch {}
 	// No on-device voice: its worker would pull ~80 MB of weights (studio-fixture.ts explains why not a route()).
