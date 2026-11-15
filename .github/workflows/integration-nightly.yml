@@ -429,7 +429,9 @@ jobs:
             echo ''
             echo '--- narrated player (real Chromium: narration, forged chrome, forged collections) ---'
           } >> "$REPORT"
-          export PLAYWRIGHT_CHROMIUM_PATH="$(node -e "console.log(require('puppeteer').executablePath())")"
+          # `executablePath()` returns a Promise from puppeteer 24 on (#3190 moved us to 25), so `node -p` printed
+          # `Promise { ... }` and every nightly that resolves Chrome died here. Promise.resolve() awaits either shape.
+          export PLAYWRIGHT_CHROMIUM_PATH="$(node -e "Promise.resolve(require('puppeteer').executablePath()).then((p) => console.log(p), (e) => { console.error(e.message); console.log(''); })")"
           npm run --silent verify:narrated-player 2>&1 | tee -a "$REPORT"
           code=${PIPESTATUS[0]}
           if [ "$code" -eq 0 ]; then

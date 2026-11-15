@@ -959,3 +959,21 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   this job's later steps, which have shown no such hang; if one appears, the same stacks will say so.
 - **Removable when:** the fix in nodejs/node#66171 (or another for #64274) ships in the node 24 line CI uses; then the
   step goes back to plain `npm ci`.
+
+## A nightly dies at "Resolve the puppeteer Chromium" with `puppeteer resolved Promise {`
+
+- **Symptom:** `fit-nightly`, `overflow-nightly` or `webkit-baselines-nightly` fails in its "Resolve the puppeteer
+  Chromium" step with `::error::puppeteer resolved Promise {`, so the nightly reports "could not run" and scores
+  nothing. `integration-nightly`'s narrated-player step gets the same `Promise { … }` string as
+  `PLAYWRIGHT_CHROMIUM_PATH`, and Playwright then fails to launch it. First seen on 2026-11-14 (fit runs 43574441493 and
+  43694685222, overflow 43701526560, webkit-baselines 43716539955).
+- **Cause:** from puppeteer 24 on, `executablePath()` returns a Promise. #3190 moved the CLI from puppeteer 23 to 25, so
+  `node -p "require('puppeteer').executablePath()"` printed `Promise { '<path>' }`, and the step's `-x` test failed on
+  that string. The browser download, the cache directory and the cache key were all fine: postinstall still downloads
+  Chrome to `~/.cache/puppeteer`, and the Promise holds the right path.
+- **Fix:** await the result: `node -e "Promise.resolve(require('puppeteer').executablePath()).then((p) => console.log(p), …)"`.
+  `Promise.resolve()` works with either the old string or the new Promise. JavaScript callers already `await` it
+  (`lib/export/video-cli.mjs`, `lib/core/os-sandbox.js`, `tools/verify-code-sandbox.mjs`). `test/helpers/chrome.js`
+  has to stay synchronous, so it does not call puppeteer's resolver at all.
+- **How to check:** `grep -rn "executablePath()" .github/ tools/ lib/` and confirm that every call is awaited or wrapped
+  in `Promise.resolve`.
