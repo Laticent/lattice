@@ -1,0 +1,1 @@
+- **histogram:** a long last edge label (`$120k`, `$250M`) no longer runs out of the chart and gets cut at the slide edge. An edge label that would cross the chart's edge now anchors inward; one that fits stays centered under its tick.
