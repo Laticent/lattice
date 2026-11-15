@@ -491,7 +491,9 @@ test('zoom before load: + pressed while the photo loads is replayed about the ce
   s.key('+');
   assert.equal(scaleOf(s.root), 1, 'nothing zooms a photo that has no size yet');
   assert.equal(pillOf(s.root).style.display, 'none');
+  assert.equal(frameOf(s.root).getAttribute('aria-busy'), 'true', 'the photo frame says it is still loading');
   arrive(s);
+  assert.equal(frameOf(s.root).hasAttribute('aria-busy'), false, 'and stops saying so once it has');
   const k = 1.25 ** 3;
   assert.ok(Math.abs(scaleOf(s.root) - k) < 1e-6, `the three presses land: ${scaleOf(s.root)}`);
   const t = translateOf(s.root);
@@ -532,6 +534,7 @@ test('zoom before load: a photo that fails to load drops the queue and keeps zoo
   const s = stepper({}, { loaded: false });
   s.key('+');
   s.root.querySelector('img').dispatchEvent(new s.win.Event('error'));
+  assert.equal(frameOf(s.root).hasAttribute('aria-busy'), false, 'a failed load is no longer loading');
   assert.equal(scaleOf(s.root), 1);
   s.key('+');
   assert.equal(scaleOf(s.root), 1, 'a broken photo has no size to zoom against');
@@ -541,9 +544,11 @@ test('zoom before load: a step to a photo still loading queues the same way', ()
   const s = stepper();
   s.lay.loaded = false;
   s.key('ArrowRight');
+  assert.equal(frameOf(s.root).getAttribute('aria-busy'), 'true', 'a step to a photo still loading is busy again');
   s.key('+');
   assert.equal(scaleOf(s.root), 1, 'the new photo has no size yet');
   arrive(s);
+  assert.equal(frameOf(s.root).hasAttribute('aria-busy'), false);
   assert.ok(Math.abs(scaleOf(s.root) - 1.25) < 1e-6, `it lands on the new photo: ${scaleOf(s.root)}`);
   assert.equal(s.h.index(), 1);
 });

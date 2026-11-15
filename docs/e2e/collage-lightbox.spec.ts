@@ -427,6 +427,10 @@ for (const tag of ['', ' @gecko @webkit-tablet']) {
 			await page.mouse.wheel(0, -120);
 			await expect(counter(page)).toHaveText('1 / 4', { timeout: 300 });
 		}).toPass({ timeout: 10_000 });
+		// A zoom waits until the stepped-to photo has loaded (#3197), and the lightbox says so with
+		// `aria-busy` on the photo's frame: pinch only once it has, or under load the pinch lands while it
+		// loads and is dropped.
+		await expect(lightbox(page).locator('img').locator('xpath=..')).not.toHaveAttribute('aria-busy', 'true');
 		// A pinch is ctrl + wheel: it zooms (the signal) and never steps. The cooldown is over by now.
 		await page.keyboard.down('Control');
 		await page.mouse.wheel(0, -400);
@@ -581,9 +585,12 @@ test('@smoke a mouse drag pans a zoomed photo, and stays inside the photo\'s own
 // zoomed toward its top-left corner and the open glide ran under the zoomed photo. Hold the photo's
 // request until after the presses, so the window is certain instead of a race under load: the keys
 // must land once the photo has, about its center, after the glide.
-test('@smoke + pressed while the photo is still loading zooms it about its center once it lands', async ({ page }) => {
-	// The tile fetches this photo for the preview frame first. `no-store` keeps the lightbox's own
-	// document from reusing that copy, so its request comes through the route and can be held.
+/**
+ * Hold the wide photo's request once `start()` is called, until `release()`. The tile fetches the photo for
+ * the preview frame first; `no-store` keeps the lightbox's own document from reusing that copy, so its
+ * request comes through the route and can be held.
+ */
+async function holdWidePhoto(page: Page) {
 	let release: () => void = () => {};
 	const gate = new Promise<void>((r) => {
 		release = r;
@@ -597,19 +604,30 @@ test('@smoke + pressed while the photo is still loading zooms it about its cente
 		}
 		await route.fulfill({ path: SAMPLE_WIDE, contentType: 'image/jpeg', headers: { 'cache-control': 'no-store' } });
 	});
+	return {
+		start: () => {
+			hold = true;
+		},
+		held: () => held,
+		release: () => release(),
+	};
+}
+
+test('@smoke + pressed while the photo is still loading zooms it about its center once it lands', async ({ page }) => {
+	const photo = await holdWidePhoto(page);
 	await openStudioDeck(page);
-	hold = true;
+	photo.start();
 	const at = await photoAt(page, 1);
 	await page.mouse.click(at.x, at.y);
 	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
-	await expect.poll(() => held, { message: 'the lightbox photo request was never held' }).toBeGreaterThan(0);
+	await expect.poll(photo.held, { message: 'the lightbox photo request was never held' }).toBeGreaterThan(0);
 	const img = lightbox(page).locator('img');
 	expect(await img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(0);
 	await page.keyboard.press('+');
 	await page.keyboard.press('+');
 	await page.keyboard.press('+');
 	expect((await imgScale(page)).scale, 'nothing zooms a photo with no size').toBe(1);
-	release();
+	photo.release();
 	await glideDone(page);
 	await expect.poll(async () => (await imgScale(page)).scale).toBeGreaterThan(1.9);
 	const s = await imgScale(page);
@@ -619,6 +637,47 @@ test('@smoke + pressed while the photo is still loading zooms it about its cente
 	expect(s.x).toBeCloseTo((v.w / 2) * (1 - s.scale), 0);
 	expect(s.y).toBeCloseTo((v.h / 2) * (1 - s.scale), 0);
 	await expect(zoomPill(page)).toBeVisible();
+});
+
+// #3197, the touch half: a pinch made while the photo is still loading has no photo to aim at, so it zooms
+// nothing, and it is still a pinch, so it never turns to the next photo however far the fingers travel.
+// Once the photo lands, a pinch zooms as usual.
+test('@parity a pinch while the photo is still loading neither zooms nor steps; after it lands a pinch zooms', async ({ page }, info) => {
+	test.skip(!info.project.use.hasTouch, 'this project models a device with no touchscreen');
+	test.skip(info.project.name.startsWith('webkit'), 'WebKit exposes no CDP touch pipeline: the pinch there is UNVERIFIED');
+	const photo = await holdWidePhoto(page);
+	await openStudioDeck(page);
+	photo.start();
+	const at = await photoAt(page, 1);
+	await page.touchscreen.tap(at.x, at.y);
+	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+	await expect.poll(photo.held, { message: 'the lightbox photo request was never held' }).toBeGreaterThan(0);
+	expect(await lightbox(page).locator('img').evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(0);
+	const vp = page.viewportSize() ?? { width: 390, height: 844 };
+	const cx = vp.width / 2;
+	const cy = vp.height / 2;
+	const cdp = await page.context().newCDPSession(page);
+	const pt = (x: number, y: number) => ({ x, y, radiusX: 10, radiusY: 10, force: 1 });
+	const pinch = async (from: number, to: number) => {
+		await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [pt(cx - from, cy), pt(cx + from, cy)] });
+		for (let i = 1; i <= 8; i++) {
+			const half = from + ((to - from) * i) / 8;
+			await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [pt(cx - half, cy), pt(cx + half, cy)] });
+		}
+		await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+	};
+	// Each finger travels well past the 45 px swipe threshold.
+	const wide = Math.min(vp.width / 2 - 20, 160);
+	await pinch(20, wide);
+	expect((await imgScale(page)).scale, 'a pinch zooms nothing while the photo has no size').toBe(1);
+	await expect(caption(page), 'a pinch before load is not a swipe').toHaveText(ALTS[1]);
+	photo.release();
+	await glideDone(page);
+	expect((await imgScale(page)).scale, 'nothing was queued from the pinch').toBe(1);
+	await pinch(20, wide);
+	await expect.poll(async () => (await imgScale(page)).scale, { timeout: 5000 }).toBeGreaterThan(1.5);
+	await expect(caption(page), 'a pinch after load is not a swipe either').toHaveText(ALTS[1]);
+	await cdp.detach();
 });
 
 test('@parity a two-finger pinch zooms the open photo and does not step; one finger then pans, not swipes', async ({ page }, info) => {
