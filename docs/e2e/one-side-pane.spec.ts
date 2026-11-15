@@ -74,7 +74,7 @@ test.describe('desktop @crosswidth @webkit-tablet @gecko', () => {
 		await page.keyboard.press('Home');
 		const ghost = page.locator('#studio-pane-editor .lx-ghost-caret');
 		// Its offset from the start of the title's text, and whether it lies inside the editor's scroll box.
-		const fit = () =>
+		const caretFit = () =>
 			page.evaluate(() => {
 				const g = document.querySelector<HTMLElement>('#studio-pane-editor .lx-ghost-caret');
 				const h = document.querySelector<HTMLElement>('#studio-pane-editor .cs-host .ProseMirror h1');
@@ -100,8 +100,8 @@ test.describe('desktop @crosswidth @webkit-tablet @gecko', () => {
 			await expect(page.getByRole('button', { name: CHROME.coach, exact: true }).first()).toHaveAttribute('aria-pressed', step === 'open' ? 'true' : 'false');
 			await expect(ghost).toBeVisible();
 			// Within 3px of the title's first letter, on its line, inside the editor: the column re-flowed under it.
-			await expect.poll(fit, { message: `after Coach ${step}` }).toMatchObject({ inside: true });
-			const f = await fit();
+			await expect.poll(caretFit, { message: `after Coach ${step}` }).toMatchObject({ inside: true });
+			const f = await caretFit();
 			expect(Math.abs(f?.dx ?? 99), `drawn caret ${f?.dx}px from the title's first letter after Coach ${step}`).toBeLessThanOrEqual(3);
 			expect(Math.abs(f?.dy ?? 99), `drawn caret ${f?.dy}px off the title's line after Coach ${step}`).toBeLessThanOrEqual(4);
 		}
