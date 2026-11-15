@@ -21,6 +21,10 @@ why now   — `ios-safari-studio` is red on the iPad at the compose tap, and #32
             and Safari still selected text elsewhere. The iPhone passes the same step.
             Theory, NOT proven: on iPad Safari's desktop-mode page (it reports a Macintosh user agent, 1032 px wide), the
             coordinate WebDriver sends for a touch is not the CSS point the page reads, so the tap lands on another element.
+            It is INTERMITTENT, which weakens a fixed-offset theory: dispatch 43772671900 (at aabd6b0ec) passed the same
+            step on the iPad at the same point, `"First point" at 93,478 (held still 5 frames), gesture 939 ms`. The
+            failures selected text as a long press (739 ms gesture) and the pass did not (939 ms), so the gesture's length
+            does not decide it either. Log both coordinates on a failing run AND a passing run before naming a cause.
 where     — docs/scripts/ios-safari/run.mjs (`composeTouchTap`: the point it reads, and the WebDriver touch action it sends);
             docs/scripts/ios-safari/compose-probe.js.
 done when — the coordinate WebDriver sends and the point Safari actually lands on are both logged on one iPad run, the
