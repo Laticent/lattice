@@ -61,7 +61,7 @@ test('an eyebrow authored above the title stays on the cover too', () => {
   const [cover, lede] = carouselize(above.openTag, above.inner, { strategy: 'title-lede', atSeam: true });
   assert.match(cover, /Eyebrow first/);
   assert.doesNotMatch(lede, /Eyebrow first/);
-  assert.match(strip(lede), new RegExp(LEDE_A.replace(/[.]/g, '\\.')));
+  assert.ok(strip(lede).includes(LEDE_A), strip(lede));
 });
 
 test('a list after the lede moves with it, so the lede page keeps the authored order', () => {
