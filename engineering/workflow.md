@@ -917,8 +917,12 @@ thread — so each of these was a live defect found by an adversarial pass, not 
   branch's file against the branch's code. Without a guard, neutering a check on a throwaway branch
   and dispatching closes the live alarm and records `main@<sha>` for a sha never on `main`. The
   stand-downs require `github.ref == 'refs/heads/main'`, which is also what makes that `main@`
-  literal true. The guard is on the stand-down, not the job: a branch dispatch must still be able to
-  RUN the checks, and filing from a branch is loud and recoverable where closing is not.
+  literal true. The guard is on the steps that write to the issue, not on the job: a branch dispatch
+  must still be able to RUN the checks, and it reports in the job summary and the artifacts. The
+  FILING steps carry the same guard since 2026-11-15. Filing from a branch used to look loud and
+  recoverable, but it stamped `main@<branch sha>` on the live thread: two branch dispatches that
+  proved a nightly fix posted to the fit and overflow issues that way. The aggregate platform-suites
+  alert is the exception: it files on manual runs by design and names the ref it ran on.
 - **THAT it measured anything.** `uncovered=false` / `failed=false` is each check's evidence of
   health and equally what a run that examined NOTHING produces. Both absolute closers gate on a
   count (`islands`, `cases`) emitted by the script and parsed by the step, and the contract test

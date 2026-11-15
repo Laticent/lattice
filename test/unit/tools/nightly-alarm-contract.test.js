@@ -368,6 +368,19 @@ test('nightly alarm contract', async (t) => {
     }
   });
 
+  await t.test('a filing step writes to the rolling issue only from main, as its stand-down already does', () => {
+    // These issues track `main`. A `workflow_dispatch` on a branch, which is how a fix to a
+    // nightly gets proven, used to file through the unguarded steps, and the comment said
+    // `main@<branch sha>`. On 2026-11-15 two branch dispatches posted that way to the fit and
+    // overflow issues. A branch run still writes its report to the job summary and artifacts.
+    // The aggregate alerts (AGGREGATE_ALERTS) are out of scope on purpose: platform-suites
+    // alerts on manual runs by design and names the ref in what it files.
+    const MAIN = /github\.ref == 'refs\/heads\/main'/;
+    for (const { id, filing } of jobs) {
+      assert.match(norm(filing.if), MAIN, `${id}: filing step can write to the rolling issue from a branch dispatch`);
+    }
+  });
+
   await t.test('every step whose OUTPUT a stand-down reads has its OUTCOME guarded too', () => {
     // The pairing is the rule. An output is empty in every state where nothing
     // was measured — a cancellation, a step timeout, an earlier step that died
