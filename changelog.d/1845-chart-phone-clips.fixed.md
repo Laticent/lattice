@@ -1,0 +1,2 @@
+- A tiered `hub-spoke` on a phone page draws every leaf on the page again. The leaf ring now fits the width of the tall phone canvas instead of running off both sides.
+- On portrait, square and mobile pages, `slope` (as its dumbbell), `stacked-bar`, `bullet` and `piechart` keep their tick labels, column heads, totals and key inside the drawing. A dumbbell prints every value whole and clear of its row's name.
