@@ -312,6 +312,14 @@ A unit test builds fake trees in `.scratch/`: a clean one reports nothing, and a
 `import()` leak are both named. Failing arm: with the hook recording nothing, the test went red; restored byte for
 byte. Green five times alone and 20 times across 4 parallel workers.
 
+**The arms after the review fixes (2026-11-15, the fifth card grader's raise).** The grader held Evidence at `high`
+because no arm had run since the fixes. The cached tree was deleted so the run rebuilt it through the new fetch and
+isolation check (no warning, no leak), and the temporary rule ran its three arms at `25e5635`: faithful 24 of 24, PASS,
+exit 0; message changed 24 and 24, FAIL, exit 1; fix changed 9 sources, FAIL, exit 1. The same numbers as before the
+fixes. The rule was removed and the stamps restored byte for byte. CodeQL flagged the new test for building module
+source from a path with `JSON.stringify`; the fake modules now read their paths from a data file, and the test still
+goes red with the hook recording nothing.
+
 **Carried into step 4, from the same review.**
 - Notes are inert, and `<!-- _clas: kpi -->` is a note. A rule that reports or fixes a misspelled directive reads with
   `inert: 'include'` and declares `changes: inert`.

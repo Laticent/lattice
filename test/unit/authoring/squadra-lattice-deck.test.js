@@ -280,6 +280,7 @@ describe('the reference diff: the reference tree', () => {
   test('the isolation check names a module the reference loads from outside its tree, by require and by a late import', () => {
     const fs = require('node:fs');
     const path = require('node:path');
+    const { pathToFileURL } = require('node:url');
     const { isolationLeaks } = require('../../../tools/squadra/reference-tree');
     const root = path.join(__dirname, '../../..');
     // The check only counts repo files, so the fake tree sits inside the repo, in the ignored .scratch/.
@@ -295,11 +296,13 @@ describe('the reference diff: the reference tree', () => {
       put('test/integration/baseline-decks/gallery.md', '# A\n');
       put('lib/authoring/lint.js', 'module.exports = { buildVocab: () => ({}) };\n');
       put('lib/core/shape-glyphs.js', 'module.exports = { fencedLines: () => new Set() };\n');
-      put('lib/authoring/slide-split.js', leak === 'require' ? `require(${JSON.stringify(outsideCjs)});\nmodule.exports = {};\n` : 'module.exports = {};\n');
+      // The leaked paths go in a data file the fake modules read, so no module source is built from a value.
+      put('leak.json', JSON.stringify({ cjs: outsideCjs, esm: pathToFileURL(outsideEsm).href }));
+      put('lib/authoring/slide-split.js', leak === 'require' ? "require(require('../../leak.json').cjs);\nmodule.exports = {};\n" : 'module.exports = {};\n');
       // The late import resolves a few event-loop turns after Fix all starts, the shape a fixed wait could miss.
       const fixAll =
         leak === 'import'
-          ? `async (t) => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); await import(${JSON.stringify(`file://${outsideEsm}`)}); return t; }`
+          ? "async (t) => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); await import(require('../../leak.json').esm); return t; }"
           : '(t) => t';
       put('lib/authoring/lint-core.js', `module.exports = { lintTextWith: () => [], applyAllFixes: ${fixAll} };\n`);
       return tree;
