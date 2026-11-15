@@ -61,20 +61,27 @@ So the map is about half of the blocking time, and nearly all of it scales with 
 
 ## 3. Results
 
-4x CPU, median of 5 cold-cache runs, before → after:
+THE FINAL MEASUREMENT, on the build of `3390682f` (every fix but the third review's, which changes only how a capture
+picks its faces), against `main`'s build, served side by side and run one after the other, one pair at a time, at 4x
+CPU, with nothing else on the machine. Medians; the machine ran 10 to 20% slower than in the earlier runs, on both
+arms, which is why only alternated pairs are compared.
 
-| Load | TBT | Speed Index | TTI | Map frames |
-|---|---:|---:|---:|---:|
-| Returning, map open | 4,765 → **3,095 ms** | 4,066 → **2,865 ms** | 9,378 → **6,423 ms** | 7 → **0** (1 frame: the stage) |
-| Returning, map open, 1x CPU | 246 → 194 ms | 1,537 → 1,426 ms | 2,290 → 2,260 ms | 7 → 0 |
-| Map closed | 2,024 → 2,156 ms | 2,616 → 2,638 ms | 7,456 → 7,990 ms | 0 → 0 |
-| First visit, map open (9 runs, alternated) | 4,185 → 4,165 ms (worst 5,424 → 5,205) | 3,952 → 3,992 ms | 9,479 → 9,363 ms | 8 → 4 at settle |
+| Load | `main` | this PR | |
+|---|---:|---:|---|
+| Returning, map open (5 pairs): TBT | 5,202 ms | **3,194 ms** | −39%, better in all 5 pairs |
+| Returning, map open: Speed Index | 3,968 ms | **2,528 ms** | −36% |
+| Returning, map open: TTI | 9,695 ms | **5,889 ms** | −39% |
+| Returning, map open: frames at settle | 7 | **1** | the stage only |
+| First visit, map open (7 pairs): TBT | 5,164 ms | **4,600 ms** | −11% |
+| First visit, map open: Speed Index / TTI | 4,146 / 10,451 ms | **3,912 / 9,271 ms** | |
+| Typing, map open (5 pairs): keystroke p95 / worst | 120 / 192 ms | **88 / 120 ms** | |
+| Typing, map open: blocking while typing | 1,447 ms | **778 ms** | −46% |
+| Typing, map open: longest single task | 213 ms | 221 ms | level |
 
-Re-measured on the final build, after the review fixes and the capture changes in §4 (one 5-run sample each, so
-within the ±400 ms this arm varies by): returning, map open, TBT 2,589 ms, SI 2,431 ms, TTI 5,446 ms; first visit, map
-open, TBT 3,390 ms, SI 3,606 ms, TTI 8,540 ms. The table keeps the earlier, more conservative figures.
+Earlier runs of the same comparison, on earlier builds of this branch, agree in direction (returning TBT 4,765 → 3,095
+ms, SI 4,066 → 2,865 ms; 1x CPU returning TBT 246 → 194 ms; map closed level, 2,024 → 2,156 ms within noise).
 
-With the map closed the numbers sit inside run-to-run noise: that path loads none of this code. A first visit has no posters to show, so it mounts the frames it always did and captures from them; it holds level, and the font-embedded capture costs it about 60 ms on the longest task (531 → 593 ms median). The 1x row and the map-closed row were measured on the build before the per-family font change, which neither path exercises; the other rows are the final build.
+With the map closed the numbers sit inside run-to-run noise: that path loads none of this code. A first visit has no posters to show, so it still mounts frames to make them; it now comes out ahead too, because the captures that follow are smaller and wait for the reader.
 
 ## 4. What did not work, and why it is recorded
 
@@ -125,6 +132,13 @@ error page (posters now keep their own strict cache, which forgets a failure and
 counters drawn by `::before` were not read for their face; a weight tie went the wrong way for CSS matching; every store
 read rewrote its row (a use-stamp is now its own best-effort write, at most hourly); the first capture skipped the
 input gate; a photo named in the front matter or finish CSS was not seen; and the capped e2e could read mid-ramp.
+
+**A third independent review** read the fix commit for the second and found nothing blocking, one small regression it
+had introduced, and an overclaim. The regression: a weight tie-break that picked 600 for weight 500 out of {400, 600}
+(Barlow Condensed), where CSS draws 400; `cssWeightFor` now implements CSS Fonts 4's matching outright. The overclaim:
+that commit said each of its fixes had a failing-arm test, and four did not; `417aad39` added them and says so. It also
+found a library photo named in a custom theme's CSS, a case-sensitive `asset:` check, list markers' faces, and an
+unswallowed stamp failure, all fixed with a failing-arm test (9 arms red, 119 tests 5x alone and 4x in parallel).
 
 **Verified in WebKit, not on iOS.** In Playwright's WebKit build a returning load shows every tile as a still drawn in
 the slide's fonts, matching Chromium tile for tile. iOS Safari itself was not reachable from the sandbox.
