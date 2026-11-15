@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { routeHolds } from './route-hold';
 import { expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
 // ── The collage lightbox, on the REAL Studio preview ────────────────────────────────
@@ -609,4 +610,56 @@ test('@parity a two-finger pinch zooms the open photo and does not step; one fin
 	await zoomPill(page).tap();
 	await expect.poll(async () => (await imgScale(page)).scale).toBe(1);
 	await cdp.detach();
+});
+
+// A collage packs only once it has measured its photos (collage.transform.js `stampLive`), and that moves every tile under
+// a still mouse with no pointer move and no render the host commits. A hit-test run while the photos were loading kept
+// its miss, so the cursor never became `zoom-in` over the photo that then packed under it. A probe caught it on main 7 runs
+// in 52 under load; it is the likely cause of :254's flake (1 in 55), which never failed locally (PR #3218).
+// Here the photos are held until the mouse is in place, so the hit-test runs before the pack on every run.
+test('@smoke @gecko a photo that packs under a still mouse gets the zoom cursor', async ({ page }) => {
+	const photosDeck = ['---', 'marp: true', '---', '', '## Words first', '', 'Nothing to measure here.', '', '---', '', '<!-- _class: collage -->', '', '## Photos', '', grid].join('\n');
+	const holderCursor = () =>
+		page.evaluate(() => {
+			for (let e = document.querySelector('iframe.live')?.parentElement ?? null; e; e = e.parentElement) if (e.style.cursor) return e.style.cursor;
+			return '';
+		});
+	const toPhotos = async (p: Page) => {
+		await setEditorContent(p, photosDeck);
+		await p.keyboard.press('Control+Home');
+		await expect(slideTitle(p)).toHaveText('Words first', { timeout: 15_000 });
+		// Focus leaves the editor, or PageDown scrolls it instead of turning the slide.
+		await p.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+		await p.keyboard.press('PageDown');
+		await expect(slideTitle(p)).toHaveText('Photos', { timeout: 15_000 });
+	};
+	// Where photo 1 sits once packed, read on a second page with nothing held. The pack is the same on both: same deck,
+	// same viewport, same photos.
+	const scout = await page.context().newPage();
+	await scout.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(scout);
+	await toPhotos(scout);
+	await expect(livePreview(scout).locator('ul.collage-list[data-collage="packed"]')).toHaveCount(1, { timeout: 30_000 });
+	const at = await photoAt(scout, 1);
+	await scout.close();
+
+	const photos = routeHolds();
+	await page.route('**/samples/photo-*.jpg', async (route) => {
+		await photos.hold();
+		await route.continue();
+	});
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await toPhotos(page);
+	await expect(livePreview(page).locator('ul.collage-list[data-collage="measuring"]')).toHaveCount(1, { timeout: 15_000 });
+	await photos.held();
+	await page.mouse.move(at.x, at.y, { steps: 4 });
+	// The hover's hit-test runs in the frame after the last move. Two frames later it has run, and missed: the photos
+	// have not packed, so nothing is under the mouse yet. Without this the test could pass on a hit before the pack.
+	await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+	expect(await holderCursor()).toBe('');
+	photos.releaseAll();
+	await expect(livePreview(page).locator('ul.collage-list[data-collage="packed"]')).toHaveCount(1, { timeout: 15_000 });
+	await expect.poll(holderCursor, { timeout: 5_000 }).toBe('zoom-in');
+	await expect(livePreview(page).locator('.collage-tile[data-host-hover]')).toHaveCount(1);
 });
