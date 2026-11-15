@@ -71,13 +71,19 @@ function normalize(record) {
 }
 
 /**
- * The two things the native writer says DIFFERENTLY, on purpose, applied to the snapshot: pptxgenjs stamped
- * "PptxGenJS Presentation" as the subject of a deck that gave none (Calco writes no subject), and named the CLI's
- * slide picture "Image 0" on every slide (Calco names it "Slide N", as the editable export always has).
+ * What the native writer says DIFFERENTLY, on purpose, applied to the snapshot. The snapshot is pptxgenjs's output, a
+ * guard against accidental change and not a definition of right, so each departure is listed here with its reason:
+ * - pptxgenjs stamped "PptxGenJS Presentation" as the subject of a deck that gave none, and Calco's old defaults named a
+ *   deck with no title "deck" and its author "Calco" or "Lattice": Calco now writes only what the deck says.
+ * - pptxgenjs named the CLI's slide picture "Image 0" on every slide: Calco names it "Slide N".
+ * - pptxgenjs sized a non-16:9 slide from 13.333 in (12191695 EMU): Calco uses PowerPoint's exact 13⅓ in, 12192000.
  */
 function intended(record) {
   const out = JSON.parse(JSON.stringify(record));
   if (out.subject === 'PptxGenJS Presentation') delete out.subject;
+  if (out.title === 'deck') delete out.title;
+  if (out.creator === 'Calco' || out.creator === 'Lattice') delete out.creator;
+  out.size = out.size.map((v) => (v === 12191695 ? 12192000 : v));
   out.slides.forEach((slide, i) => {
     for (const o of slide.objects) if (o.kind === 'pic' && o.name === 'Image 0') o.name = `Slide ${i + 1}`;
   });

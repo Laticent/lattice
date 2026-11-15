@@ -409,8 +409,16 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		const family = usedFamily(cs.fontFamily);
 		const weight = Number(cs.fontWeight) || 400;
 		const italic = cs.fontStyle !== 'normal';
+		const generic = cs.fontFamily
+			.split(',')
+			.map((s) => s.trim().replace(/^["']|["']$/g, ''))
+			.reverse()
+			.find((f) => /^(serif|sans-serif|monospace|cursive|fantasy)$/.test(f)) as TextStyle['generic'];
+		const lang = el.closest('[lang]')?.getAttribute('lang') || '';
 		const style: TextStyle = {
 			family,
+			...(generic ? { generic } : {}),
+			...(lang ? { lang } : {}),
 			weight,
 			italic,
 			size: (Number.parseFloat(cs.fontSize) || 16) * faceSizeAdjust(family, weight, italic),

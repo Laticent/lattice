@@ -5177,9 +5177,9 @@ async function renderBody(browser, g, closeBrowser) {
       if (OFFICE_ICON_SHAPES) await g(() => page.$$eval('section[data-lattice-slide]', (els) => { for (const el of els) el.classList.add('icon-svg'); }), 'icons as shapes');
       const captured = await office.captureSlides(handles, pngShot, EDITABLE, g, { camera: await slideCameraFor(page) });
       await closeBrowser();
-      const ext = OUT_FORMAT === 'odp' ? /\.odp$/i : /\.pptx$/i;
       const res = await office.writeOffice(outFile, OUT_FORMAT, captured, {
-        title: path.basename(outFile).replace(ext, ''),
+        title: deckTitle,
+        lang: deckLang,
         company: `Lattice · ${paletteName}`,
         width: slideW,
         height: slideH,
@@ -5218,7 +5218,8 @@ async function renderBody(browser, g, closeBrowser) {
         // PPTX — image-per-slide via the shared writer (lib/export/pptx-export.js).
         const { writePptx } = require('./lib/export/pptx-export');
         const count = await writePptx(outFile, pngBuffers, {
-          title: path.basename(outFile).replace(/\.pptx$/i, ''),
+          title: deckTitle,
+          lang: deckLang,
           company: `Lattice · ${paletteName}`,
           width: slideW,
           height: slideH,

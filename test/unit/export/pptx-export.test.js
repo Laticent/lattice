@@ -164,12 +164,13 @@ describe('pptx-export', () => {
     assert.match(await zip.file('docProps/core.xml').async('string'), /Deck name/);
   });
 
-  test('an alt text or title made only of control characters falls back, never to the filename', async () => {
+  test('an alt text made only of control characters falls back, and such a title is left out, never the filename', async () => {
     const out = tmpFile();
     await writePptx(out, [ONE_PX_PNG], { title: '\u0001' }, [], ['\u0002']);
     const zip = await require('jszip').loadAsync(fs.readFileSync(out));
     assert.match(await zip.file('ppt/slides/slide1.xml').async('string'), /descr="Slide 1"/);
-    assert.match(await zip.file('docProps/core.xml').async('string'), /<dc:title>deck<\/dc:title>/);
+    // A title with nothing readable in it is no title: none is written, rather than a stand-in or the file's name.
+    assert.doesNotMatch(await zip.file('docProps/core.xml').async('string'), /<dc:title>/);
   });
 
   describe('slide aspect from @size geometry', () => {
@@ -187,10 +188,10 @@ describe('pptx-export', () => {
       assert.deepEqual(await slideSize(undefined, undefined), [13.333, 7.5]);
     });
 
-    test('portrait/square keep the deck aspect, longest edge 13.333in', async () => {
+    test('portrait/square keep the deck aspect, longest edge PowerPoint\'s 13⅓ in', async () => {
       assert.deepEqual(await slideSize(1080, 1920), [7.5, 13.333]); // 9:16
       assert.deepEqual(await slideSize(1080, 1080), [13.333, 13.333]); // 1:1
-      assert.deepEqual(await slideSize(1080, 1350), [10.666, 13.333]); // 4:5
+      assert.deepEqual(await slideSize(1080, 1350), [10.667, 13.333]); // 4:5: 9753600 EMU, 10⅔ in
     });
   });
 });

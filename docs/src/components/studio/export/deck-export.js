@@ -2594,7 +2594,8 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 		describeRecord.length = 0;
 	}
 	const { eng, summary } = provenance(meta, sections.length);
-	const props = { title: (name || 'deck').trim(), subject: summary, author: 'Lattice Drawing Board', company: `Lattice · ${eng}` };
+	// No author: the Studio does not know who wrote the deck, and the program is the file's Application, not its author.
+	const props = { title: (name || 'deck').trim(), subject: summary, company: `Lattice · ${eng}` };
 	// The deck's @size geometry, in px. Calco's writer sets the slide aspect from it (`pptxPageSize`): 16:9 is
 	// PowerPoint's wide slide, and a portrait or square deck keeps its aspect, so the picture full-bleeds.
 	const { w: width, h: height } = slideGeom(sections[0]);
@@ -2778,7 +2779,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		}
 		const { eng, summary } = provenance(meta, sections.length);
 		const { w, h } = slideGeom(sections[0]);
-		const deck = { width: w, height: h, slides, ...(backgrounds?.length ? { backgrounds } : {}), title: (name || 'deck').trim(), subject: summary, author: 'Lattice Studio', company: `Lattice · ${eng}` };
+		const deck = { width: w, height: h, slides, ...(backgrounds?.length ? { backgrounds } : {}), title: (name || 'deck').trim(), subject: summary, company: `Lattice · ${eng}` };
 		if (editable) {
 			if (onStatus) onStatus('Embedding fonts…', { current: sections.length, total: sections.length });
 			const { calcoFontHost } = await import('./calco-font-host.js');

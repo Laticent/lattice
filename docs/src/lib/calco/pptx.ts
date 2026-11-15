@@ -45,7 +45,7 @@ import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFa
 import { applyTransform, dominantStyle, metricsFor, type PlacedBox, placeFrame, spacingMultiple } from './layout.js';
 import { isPosition, type MasterPlan, planMasters, withoutHoisted } from './masters.js';
 import { imageExt } from './picture.js';
-import { canEmbedAsEot, type FaceSlot, renameFace, toEot } from './sfnt.js';
+import { canEmbedAsEot, type FaceSlot, fontClass, renameFace, toEot } from './sfnt.js';
 import { drawOrder, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
 import type { Background, Deck, EmbeddedFont, FrameRole, JSZipClass, Paint, Shape, Slide, TextFrame, TextRun, TextStyle } from './types.js';
 
@@ -58,8 +58,7 @@ const highest = (xs: number[]) => xs.reduce((m, v) => (v > m ? v : m), Number.NE
 const EMU_PER_IN = 914400;
 const PX_PER_IN = 96;
 const PT_PER_PX = 0.75;
-const EMU_PER_PT = 12700;
-/** PowerPoint's 16:9 slide, 13.333 × 7.5 in. */
+/** PowerPoint's 16:9 slide, 13⅓ × 7.5 in. */
 const WIDE = { cx: 12192000, cy: 6858000 };
 /** The notes page PowerPoint itself writes: 7.5 × 10 in. */
 const NOTES = { cx: 6858000, cy: 9144000 };
@@ -123,16 +122,20 @@ export function pptxFaceName(face: { family: string; weight: number; italic: boo
 }
 
 /**
- * The slide size in inches. A 16:9 deck is PowerPoint's own wide slide (13.333 × 7.5); any other aspect keeps
- * the longest edge at 13.333 in.
+ * The slide size: `cx` and `cy` in EMU, exact, and `w` and `h` in inches to three places for display. A 16:9 deck is
+ * PowerPoint's own wide slide, 12192000 × 6858000 EMU (13⅓ × 7.5 in). Any other aspect, a near-16:9 one included, keeps
+ * its own aspect with the longest edge at 12192000 EMU, so the deck's px map onto the slide by one factor on both axes
+ * and nothing runs past an edge.
  */
-export function pptxPageSize(width: number, height: number): { w: number; h: number; wide: boolean } {
+export function pptxPageSize(width: number, height: number): { w: number; h: number; cx: number; cy: number; wide: boolean } {
 	const w = Number(width);
 	const h = Number(height);
-	if (!(w > 0 && h > 0) || Math.abs(w / h - 16 / 9) < 0.01) return { w: 13.333, h: 7.5, wide: true };
+	const inches = (emu: number) => Math.round((emu / EMU_PER_IN) * 1000) / 1000;
+	if (!(w > 0 && h > 0) || Math.abs(w * 9 - h * 16) < 1e-6 * h) return { w: inches(WIDE.cx), h: inches(WIDE.cy), cx: WIDE.cx, cy: WIDE.cy, wide: true };
 	const longest = Math.max(w, h);
-	const round = (n: number) => Math.round(n * 1000) / 1000;
-	return { w: round((w / longest) * 13.333), h: round((h / longest) * 13.333), wide: false };
+	const cx = Math.round((WIDE.cx * w) / longest);
+	const cy = Math.round((WIDE.cx * h) / longest);
+	return { w: inches(cx), h: inches(cy), cx, cy, wide: false };
 }
 
 /** What a .pptx embeds: each face once, under a family name no other face uses, and the run styles it serves. */
@@ -293,7 +296,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 	const W = deck.width > 0 ? deck.width : 1280;
 	const H = deck.height > 0 ? deck.height : 720;
 	const page = pptxPageSize(W, H);
-	const size = page.wide ? WIDE : { cx: Math.round(page.w * EMU_PER_IN), cy: Math.round(page.h * EMU_PER_IN) };
+	const size = { cx: page.cx, cy: page.cy };
 	// The deck's px map onto the slide's EMU; points scale the same way (a 1280px deck: 1px = 0.75pt).
 	const emuPerPx = size.cx / W;
 	const ptPerPx = (size.cx / EMU_PER_IN / W) * PX_PER_IN * PT_PER_PX;
@@ -303,10 +306,10 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 	const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(fin(n))));
 	const emu = (px: number) => Math.round(fin(px) * emuPerPx);
 	const points = (px: number) => Math.round(fin(px) * ptPerPx * 100) / 100;
-	/** A length in points, written in EMU (line widths, shadows, label insets). */
-	const ptEmu = (px: number) => clamp(points(px) * EMU_PER_PT, 0, 20116800);
-	/** OOXML alpha in thousandths of a percent, from 0–1, whole percent as PowerPoint's UI keeps it. */
-	const alphaVal = (a: number) => (100 - clamp((1 - fin(a)) * 100, 0, 100)) * 1000;
+	/** A length that is not a position (line widths, shadows, label insets), in EMU straight from px: no detour through rounded points. */
+	const lenEmu = (px: number) => clamp(fin(px) * emuPerPx, 0, 20116800);
+	/** OOXML alpha in thousandths of a percent, from 0–1, exact: the file holds 1/1000 of a percent even where PowerPoint's UI shows whole ones. */
+	const alphaVal = (a: number) => clamp(fin(a) * 100000, 0, 100000);
 	const color = (hex: string, alpha = 1) => {
 		const a = alphaVal(alpha);
 		const rgb = hexOf(hex);
@@ -350,6 +353,29 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 	const fonts: EmbeddedFont[] = deck.fonts || [];
 	const metricsCache = new Map<EmbeddedFont, FontMetrics | null>();
 
+	// WHAT KIND OF FACE a run names, for a reader that does not have it: the face's PANOSE number and its pitch and family
+	// byte, read from the face when the deck carries one of that family, else the family from the CSS generic the author
+	// declared. Neither known: no claim (the attributes are optional; "34", swiss and variable, on a monospaced face sent
+	// PowerPoint to Arial).
+	const GENERIC_FAMILY: Record<string, number> = { serif: 0x12, 'sans-serif': 0x22, monospace: 0x31, cursive: 0x42, fantasy: 0x52 };
+	const classCache = new Map<string, ReturnType<typeof fontClass>>();
+	const latinAttrs = (s: TextStyle): string => {
+		const key = s.family.toLowerCase();
+		if (!classCache.has(key)) {
+			const face = fonts.find((f) => f.family.toLowerCase() === key);
+			classCache.set(key, face ? fontClass(face.bytes) : null);
+		}
+		const read = classCache.get(key);
+		const declared = s.generic ? GENERIC_FAMILY[s.generic] : 0;
+		// The face's own word wins; a face that leaves its family blank (most web fonts do) takes the declared one.
+		const pitchFamily = read ? (read.pitchFamily & 0xf0 ? read.pitchFamily : (declared & 0xf0) | (read.pitchFamily & 0x03)) : declared;
+		return `${read?.panose ? ` panose="${read.panose}"` : ''}${pitchFamily ? ` pitchFamily="${pitchFamily}" charset="0"` : ''}`;
+	};
+	/** A run's language: its own `lang`, else the deck's, else US English; a tag that is not well formed is skipped. */
+	const LANG = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/;
+	const deckLang = deck.lang && LANG.test(deck.lang) ? deck.lang : 'en-US';
+	const langOf = (s?: TextStyle) => (s?.lang && LANG.test(s.lang) ? s.lang : deckLang);
+
 	/** One run's properties: `a:rPr` (or `a:endParaRPr`, which takes no run-only attributes). */
 	const runProps = (s: TextStyle, tag = 'a:rPr', end = false): string => {
 		const hit = embedded.byKey.get(faceKey(s.family, s.weight, s.italic));
@@ -360,20 +386,24 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		const sz = clamp(points(s.size) * 100, 100, 400000);
 		const fillColor = s.alpha < 1 && s.flatColor ? s.flatColor : s.color;
 		const fillAlpha = s.alpha < 1 && !s.flatColor ? s.alpha : 1;
-		let a = ` lang="en-US" sz="${sz}"`;
+		let a = ` lang="${langOf(s)}" sz="${sz}"`;
 		if (bold) a += ' b="1"';
 		if (italic) a += ' i="1"';
 		if (!end) {
 			if (s.underline) a += ' u="sng"';
 			if (s.strike) a += ' strike="sngStrike"';
 			if (s.smallCaps) a += ' cap="small"';
-			// Spaced text is set without kerning, as the browser sets it.
-			if (fin(s.letterSpacing)) a += ` spc="${clamp(points(s.letterSpacing) * 100, -400000, 400000)}" kern="0"`;
+			if (fin(s.letterSpacing)) a += ` spc="${clamp(points(s.letterSpacing) * 100, -400000, 400000)}"`;
 		}
+		// Kerned at every size, as the browser kerns: letter-spaced text and 9pt labels too (measured in Chromium). `kern` is
+		// the smallest size kerning applies at, in hundredths of a point, so 1pt; not 0, which the spec reads as "every
+		// size" and PowerPoint writes for "off". The default styles' 12pt would leave every small label unkerned and wider
+		// than the slide drew it.
+		a += ' kern="100"';
 		a += ' dirty="0"';
 		const highlight = !end && s.highlight ? `<a:highlight>${color(s.highlight)}</a:highlight>` : '';
 		const fam = xmlAttr(face);
-		return `<${tag}${a}><a:solidFill>${color(fillColor, fillAlpha)}</a:solidFill>${highlight}<a:latin typeface="${fam}" pitchFamily="34" charset="0"/><a:ea typeface="${fam}"/><a:cs typeface="${fam}"/></${tag}>`;
+		return `<${tag}${a}><a:solidFill>${color(fillColor, fillAlpha)}</a:solidFill>${highlight}<a:latin typeface="${fam}"${latinAttrs(s)}/><a:ea typeface="${fam}"/><a:cs typeface="${fam}"/></${tag}>`;
 	};
 	const runXml = (run: TextRun) => `<a:r>${runProps(run.style)}<a:t>${xmlText(applyTransform(run.text, run.style.transform))}</a:t></a:r>`;
 
@@ -406,7 +436,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 	};
 	/** A text body. `ins` are a label's insets inside its shape, px; a free box has none. */
 	const txBody = (paras: string, ins?: { l: number; t: number; r: number }) =>
-		`<p:txBody><a:bodyPr wrap="none" lIns="${ins ? ptEmu(ins.l) : 0}" tIns="${ins ? ptEmu(ins.t) : 0}" rIns="${ins ? ptEmu(ins.r) : 0}" bIns="0" rtlCol="0" anchor="t"><a:noAutofit/></a:bodyPr><a:lstStyle/>${paras}</p:txBody>`;
+		`<p:txBody><a:bodyPr wrap="none" lIns="${ins ? lenEmu(ins.l) : 0}" tIns="${ins ? lenEmu(ins.t) : 0}" rIns="${ins ? lenEmu(ins.r) : 0}" bIns="0" rtlCol="0" anchor="t"><a:noAutofit/></a:bodyPr><a:lstStyle/>${paras}</p:txBody>`;
 	const xfrm = (x: number, y: number, w: number, h: number) => `<a:xfrm><a:off x="${emu(x)}" y="${emu(y)}"/><a:ext cx="${Math.max(0, emu(w))}" cy="${Math.max(0, emu(h))}"/></a:xfrm>`;
 	const boxOf = (x: number, y: number, w: number, h: number): Member['box'] => [emu(x), emu(y), emu(x) + Math.max(0, emu(w)), emu(y) + Math.max(0, emu(h))];
 	const rectGeom = '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>';
@@ -458,14 +488,14 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 			const path = shape.kind === 'path';
 			const cap = path && shape.cap === 'round' ? ' cap="rnd"' : path && shape.cap === 'square' ? ' cap="sq"' : '';
 			const join = path && (shape.join === 'round' || shape.cap === 'round') ? '<a:round/>' : path && shape.join === 'bevel' ? '<a:bevel/>' : '';
-			line = `<a:ln w="${ptEmu(stroke.width)}"${cap}>${solid(stroke)}<a:prstDash val="${dash}"/>${join}</a:ln>`;
+			line = `<a:ln w="${lenEmu(stroke.width)}"${cap}>${solid(stroke)}<a:prstDash val="${dash}"/>${join}</a:ln>`;
 		}
 		let effect = '';
 		if (shape.shadow) {
 			const { x, y, blur } = shape.shadow;
 			const dir = Math.round(((((Math.atan2(y, x) * 180) / Math.PI) % 360) + 360) % 360 * 60000) % 21600000;
 			effect =
-				`<a:effectLst><a:outerShdw blurRad="${ptEmu(blur)}" dist="${ptEmu(Math.hypot(x, y))}" dir="${dir}" sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0">` +
+				`<a:effectLst><a:outerShdw blurRad="${lenEmu(blur)}" dist="${lenEmu(Math.hypot(x, y))}" dir="${dir}" sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0">` +
 				`${color(shape.shadow.color, shape.shadow.alpha)}</a:outerShdw></a:effectLst>`;
 		}
 		return { xml: `${geometry}${fill}${line}${effect}`, custom };
@@ -497,11 +527,11 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		const lst = `<a:lstStyle><a:lvl1pPr algn="${algn}">${runProps(lead.style, 'a:defRPr', true)}</a:lvl1pPr></a:lstStyle>`;
 		// A layout's field shows PowerPoint's own stand-in for "this slide's number"; a slide's shows its digits. The
 		// look lives in the list style, so the field run carries none of its own and follows it.
-		const body = `<a:fld id="${SLIDENUM_FIELD}" type="slidenum"><a:rPr lang="en-US" b="0"/><a:t>${xmlText(digits ?? '‹#›')}</a:t></a:fld>`;
+		const body = `<a:fld id="${SLIDENUM_FIELD}" type="slidenum"><a:rPr lang="${deckLang}" b="0"/><a:t>${xmlText(digits ?? '‹#›')}</a:t></a:fld>`;
 		return (
 			`<p:sp><p:nvSpPr>${cNvPr(id, `Slide Number Placeholder ${id - 1}`)}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="12"/></p:nvPr></p:nvSpPr>` +
 			`<p:spPr>${xfrm(box.x, box.y, box.w, box.h)}${rectGeom}</p:spPr>` +
-			`<p:txBody><a:bodyPr lIns="0" tIns="0" rIns="0" bIns="0"/>${lst}<a:p><a:pPr algn="${algn}"/>${body}<a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp>`
+			`<p:txBody><a:bodyPr lIns="0" tIns="0" rIns="0" bIns="0"/>${lst}<a:p><a:pPr algn="${algn}"/>${body}<a:endParaRPr lang="${deckLang}"/></a:p></p:txBody></p:sp>`
 		);
 	};
 	const background = (rels: Rels, paint: Background | undefined): string => {
@@ -525,7 +555,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 			tree +=
 				`<p:sp><p:nvSpPr>${cNvPr(id++, 'Title Placeholder')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="title" hasCustomPrompt="1"/></p:nvPr></p:nvSpPr>` +
 				`<p:spPr>${xfrm(tb.x, tb.y, tb.w, tb.h)}${rectGeom}</p:spPr>` +
-				`<p:txBody><a:bodyPr wrap="square" rtlCol="0"/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" dirty="0"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:rPr><a:t>Title</a:t></a:r><a:endParaRPr lang="en-US" dirty="0"/></a:p></p:txBody></p:sp>`;
+				`<p:txBody><a:bodyPr wrap="square" rtlCol="0"/><a:lstStyle/><a:p><a:r><a:rPr lang="${deckLang}" dirty="0"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:rPr><a:t>Title</a:t></a:r><a:endParaRPr lang="${deckLang}" dirty="0"/></a:p></p:txBody></p:sp>`;
 			for (const role of ['header', 'footer'] as const) {
 				const frame = layout.chrome[role];
 				if (!frame) continue;
@@ -540,7 +570,8 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		const name = useLayouts ? `Layout ${li + 1}` : 'Blank';
 		const xml =
 			`${DECL}<p:sldLayout ${NS} preserve="1"${useLayouts ? '' : ' type="blank"'}><p:cSld name="${xmlAttr(name)}">${background(rels, layout.paint)}<p:spTree>${TREE_ROOT}${tree}</p:spTree></p:cSld>` +
-			'<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>';
+			// What PowerPoint's Header & Footer dialog and a new slide on this layout read: a page number when the layout has one.
+			`<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>${useLayouts ? `<p:hf sldNum="${layout.chrome.number ? 1 : 0}" hdr="0" ftr="0" dt="0"/>` : ''}</p:sldLayout>`;
 		part(`ppt/slideLayouts/slideLayout${li + 1}.xml`, xml, `${CT}.slideLayout+xml`);
 		part(`ppt/slideLayouts/_rels/slideLayout${li + 1}.xml.rels`, rels.xml());
 		layoutIds.push(masterRels.add(`${REL}/slideLayout`, `../slideLayouts/slideLayout${li + 1}.xml`));
@@ -554,7 +585,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		'ppt/slideMasters/slideMaster1.xml',
 		`${DECL}<p:sldMaster ${NS}><p:cSld><p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg><p:spTree>${TREE_ROOT}</p:spTree></p:cSld>` +
 			`<p:clrMap ${CLR_MAP}/><p:sldLayoutIdLst>${layoutIds.map((rid, i) => `<p:sldLayoutId id="${2147483649 + i}" r:id="${rid}"/>`).join('')}</p:sldLayoutIdLst>` +
-			`<p:hf sldNum="0" hdr="0" ftr="0" dt="0"/><p:txStyles><p:titleStyle>${titleStyle}</p:titleStyle><p:bodyStyle>${bodyStyle}</p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr lang="en-US"/></a:defPPr>${levels(levelAttrs)}</p:otherStyle></p:txStyles></p:sldMaster>`,
+			`<p:hf sldNum="0" hdr="0" ftr="0" dt="0"/><p:txStyles><p:titleStyle>${titleStyle}</p:titleStyle><p:bodyStyle>${bodyStyle}</p:bodyStyle><p:otherStyle><a:defPPr><a:defRPr lang="${deckLang}"/></a:defPPr>${levels(levelAttrs)}</p:otherStyle></p:txStyles></p:sldMaster>`,
 		`${CT}.slideMaster+xml`,
 	);
 	part('ppt/slideMasters/_rels/slideMaster1.xml.rels', masterRels.xml());
@@ -634,7 +665,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 			notesRels.add(`${REL}/slide`, `../slides/slide${n}.xml`);
 			const paras = notes
 				.split(/\r\n|\r|\n/)
-				.map((line) => (line ? `<a:p><a:r><a:rPr lang="en-US" dirty="0"/><a:t>${xmlText(line)}</a:t></a:r></a:p>` : '<a:p><a:endParaRPr lang="en-US" dirty="0"/></a:p>'))
+				.map((line) => (line ? `<a:p><a:r><a:rPr lang="${deckLang}" dirty="0"/><a:t>${xmlText(line)}</a:t></a:r></a:p>` : `<a:p><a:endParaRPr lang="${deckLang}" dirty="0"/></a:p>`))
 				.join('');
 			part(
 				`ppt/notesSlides/notesSlide${n}.xml`,
@@ -655,15 +686,20 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 		part(`ppt/slides/_rels/slide${n}.xml.rels`, rels.xml());
 	});
 
-	// THE NOTES MASTER, with a theme of its own.
+	// THE NOTES MASTER, with a theme of its own. Its slide image has the slide's aspect, centered in the 16:9 box
+	// PowerPoint gives it (5486400 × 3086100 EMU), so a portrait or square deck's notes page shows its slide undistorted.
+	const NOTE_IMG = { x: 685800, y: 1143000, cx: 5486400, cy: 3086100 };
+	const imgCy = Math.min(NOTE_IMG.cy, Math.round((NOTE_IMG.cx * size.cy) / size.cx));
+	const imgCx = Math.round((imgCy * size.cx) / size.cy);
+	const imgX = NOTE_IMG.x + Math.round((NOTE_IMG.cx - imgCx) / 2);
 	part(
 		'ppt/notesMasters/notesMaster1.xml',
 		`${DECL}<p:notesMaster ${NS}><p:cSld><p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg><p:spTree>${TREE_ROOT}` +
 			`<p:sp><p:nvSpPr>${cNvPr(2, 'Slide Image Placeholder 1')}<p:cNvSpPr><a:spLocks noGrp="1" noRot="1" noChangeAspect="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldImg" idx="2"/></p:nvPr></p:nvSpPr>` +
-			`<p:spPr><a:xfrm><a:off x="685800" y="1143000"/><a:ext cx="5486400" cy="3086100"/></a:xfrm>${rectGeom}<a:noFill/><a:ln w="12700"><a:solidFill><a:prstClr val="black"/></a:solidFill></a:ln></p:spPr></p:sp>` +
+			`<p:spPr><a:xfrm><a:off x="${imgX}" y="${NOTE_IMG.y}"/><a:ext cx="${imgCx}" cy="${imgCy}"/></a:xfrm>${rectGeom}<a:noFill/><a:ln w="12700"><a:solidFill><a:prstClr val="black"/></a:solidFill></a:ln></p:spPr></p:sp>` +
 			`<p:sp><p:nvSpPr>${cNvPr(3, 'Notes Placeholder 2')}<p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" sz="quarter" idx="3"/></p:nvPr></p:nvSpPr>` +
 			`<p:spPr><a:xfrm><a:off x="685800" y="4400550"/><a:ext cx="5486400" cy="3600450"/></a:xfrm>${rectGeom}</p:spPr>` +
-			'<p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0"/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>Notes</a:t></a:r></a:p></p:txBody></p:sp>' +
+			`<p:txBody><a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0"/><a:lstStyle/><a:p><a:r><a:rPr lang="${deckLang}"/><a:t>Notes</a:t></a:r></a:p></p:txBody></p:sp>` +
 			`</p:spTree></p:cSld><p:clrMap ${CLR_MAP}/><p:notesStyle>${levels(levelAttrs, '<a:defRPr sz="1200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr>')}</p:notesStyle></p:notesMaster>`,
 		`${CT}.notesMaster+xml`,
 	);
@@ -707,7 +743,7 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 			`<p:sldIdLst>${slideRids.map((rid, i) => `<p:sldId id="${256 + i}" r:id="${rid}"/>`).join('')}</p:sldIdLst>` +
 			`<p:sldSz cx="${size.cx}" cy="${size.cy}"/><p:notesSz cx="${NOTES.cx}" cy="${NOTES.cy}"/>` +
 			(fontList ? `<p:embeddedFontLst>${fontList}</p:embeddedFontLst>` : '') +
-			`<p:defaultTextStyle><a:defPPr><a:defRPr lang="en-US"/></a:defPPr>${levels(levelAttrs)}</p:defaultTextStyle></p:presentation>`,
+			`<p:defaultTextStyle><a:defPPr><a:defRPr lang="${deckLang}"/></a:defPPr>${levels(levelAttrs)}</p:defaultTextStyle></p:presentation>`,
 		`${CT}.presentation.main+xml`,
 	);
 	part('ppt/_rels/presentation.xml.rels', presRels.xml());
@@ -723,21 +759,25 @@ export function buildPptx(JSZip: JSZipClass, deck: Deck) {
 
 	// THE DOCUMENT PROPERTIES.
 	const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
-	const title = xmlSafe(deck.title || '').trim() || 'deck';
-	const author = xmlSafe(deck.author || 'Calco');
+	// Only what the deck says: no stand-in title, author or company (the program is `Application`, not the author).
+	const title = xmlSafe(deck.title || '').trim();
+	const author = xmlSafe(deck.author || '').trim();
+	const company = xmlSafe(deck.company || '').trim();
 	part(
 		'docProps/core.xml',
 		`${DECL}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">` +
-			`<dc:title>${xmlText(title)}</dc:title>${deck.subject ? `<dc:subject>${xmlText(deck.subject)}</dc:subject>` : ''}<dc:creator>${xmlText(author)}</dc:creator><cp:lastModifiedBy>${xmlText(author)}</cp:lastModifiedBy><cp:revision>1</cp:revision>` +
+			`${title ? `<dc:title>${xmlText(title)}</dc:title>` : ''}${deck.subject ? `<dc:subject>${xmlText(deck.subject)}</dc:subject>` : ''}${author ? `<dc:creator>${xmlText(author)}</dc:creator><cp:lastModifiedBy>${xmlText(author)}</cp:lastModifiedBy>` : ''}<cp:revision>1</cp:revision>` +
 			`<dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`,
 		'application/vnd.openxmlformats-package.core-properties+xml',
 	);
 	part(
 		'docProps/app.xml',
 		`${DECL}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">` +
-			`<TotalTime>0</TotalTime><Words>0</Words><Application>Calco</Application><PresentationFormat>${page.wide ? 'On-screen Show (16:9)' : 'Custom'}</PresentationFormat>` +
-			`<Paragraphs>0</Paragraphs><Slides>${deck.slides.length}</Slides><Notes>${notesCount}</Notes><HiddenSlides>0</HiddenSlides><MMClips>0</MMClips><ScaleCrop>false</ScaleCrop>` +
-			`<Company>${xmlText(xmlSafe(deck.company || 'Calco'))}</Company><LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc><HyperlinksChanged>false</HyperlinksChanged></Properties>`,
+			// "Widescreen" is PowerPoint's name for 13⅓ × 7.5 in; "On-screen Show (16:9)" is its 10 × 5.625 in slide. No word or
+			// paragraph count: a zero is a false count, and PowerPoint fills both in when it saves.
+			`<Application>Calco</Application><PresentationFormat>${page.wide ? 'Widescreen' : 'Custom'}</PresentationFormat>` +
+			`<Slides>${deck.slides.length}</Slides><Notes>${notesCount}</Notes><HiddenSlides>0</HiddenSlides><MMClips>0</MMClips><ScaleCrop>false</ScaleCrop>` +
+			`${company ? `<Company>${xmlText(company)}</Company>` : ''}<LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc><HyperlinksChanged>false</HyperlinksChanged></Properties>`,
 		'application/vnd.openxmlformats-officedocument.extended-properties+xml',
 	);
 	const pkgRels = new Rels();
@@ -782,7 +822,7 @@ function wrapCard(group: number, members: Member[], nextId: () => number): strin
 		else parts.push(...run);
 		i = j;
 	}
-	// Even a card of one member is a group, as the pptxgenjs path wrote it: a card is one object to move.
+	// A card is one object to move and select, so even a card of one member is a group.
 	if (!members.length) return '';
 	if (members.some((m) => m.custom)) return parts.map((m) => m.xml).join('');
 	return wrap(`Group ${group + 1}`, parts).xml;

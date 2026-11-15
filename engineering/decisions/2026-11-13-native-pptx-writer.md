@@ -157,6 +157,39 @@ the title, subject and creator, and the embedded fonts. It does not read autofit
 master's text styles, the theme, a picture's crop, or the document dates. A property outside that list can drift
 without a diff.
 
+## Right, not parity (2026-11-15)
+
+The owner's rule, set while the PR was open: **the writer does what the spec and the browser say, not what pptxgenjs
+did.** pptxgenjs is a library with its own defaults, and the first cut copied several of them to keep the parity test
+quiet. The parity snapshot stays, frozen, as a guard against ACCIDENTAL change. Every place the writer now says
+something different is listed in `intended()` in `test/unit/calco/pptx-parity.test.js` with its reason, so a departure
+is always a reviewed decision. The ones the parity reader cannot see are held by `test/unit/calco/pptx-correctness.test.js`,
+each with a failing arm.
+
+| What | pptxgenjs (and the first cut) | Now | Why |
+|---|---|---|---|
+| Kerning | the default styles' `kern="1200"` (none under 12pt); `kern="0"` on letter-spaced runs | `kern="100"` on every run | Chromium kerns at every size and kerns letter-spaced text (measured: 11px "AVAVAVTo" 53.3 vs 58.0 px unkerned; 2px-spaced 132.4 vs 142.5). PowerPoint writes `kern="0"` for "off" |
+| Language | `lang="en-US"` on every run | the run's nearest `lang`, else the deck's `lang:`, else `en-US` | spell-check and read-aloud follow it |
+| Font class | `pitchFamily="34"` (swiss, variable) for every face, JetBrains Mono included | `panose` and `pitchFamily` read from the face (OS/2, post), else the family from the CSS generic, else nothing | a reader without the face picks its stand-in from these; a monospaced face claimed as swiss falls back to Arial |
+| Slide size | 13.333 in (12191695 EMU) for a non-16:9 deck; a near-16:9 deck snapped to the wide slide, its content 2 px past the bottom | exact: 12192000 EMU on the longest edge, the deck's own aspect | PowerPoint's 13⅓ in; one scale on both axes |
+| Lengths | line widths, shadows and insets rounded to 0.01 pt first | EMU from px directly | one rounding, not two |
+| Opacity | whole percents | 1/1000 of a percent, as the file holds | |
+| Notes page | a 16:9 slide image on every deck | the slide's own aspect | a portrait deck's notes page showed a squashed slide |
+| Header and footer flags | the master's "no slide number" for every layout | each layout says whether it numbers its slides | PowerPoint's Header & Footer dialog and a new slide read it |
+| Properties | title "deck", author "Calco" / "Lattice" / "Lattice Drawing Board", company "Calco", `Words` and `Paragraphs` 0, format "On-screen Show (16:9)" | only what the deck says; no counts; "Widescreen" | the program is `Application`, not the author; a zero is a false count; "On-screen Show (16:9)" is PowerPoint's 10 in slide |
+
+What a reader sees: the 18 real-deck files (above) re-exported with these changes, opened in LibreOffice and compared by
+`tools/pixel-check.js` against the same files from `c2845d65`: the nine picture-per-slide files are pixel-identical, and
+9 of the 194 editable slides differ by 0.06–0.10% of their pixels, all of it the ring of a drawn check or cross icon,
+whose line width is now exact. Read back by the parity reader against pptxgenjs, the new values are the line widths
+(at most 63 EMU, 0.007 px), 12 opacities (7000 becomes 7100, the page's 7.1%), and the title and author: the CLI now
+names the file by the deck's own title, not its file name, and names no author. LibreOffice ignores `kern` (a 1pt, 12pt and 0 threshold render to the
+same widths), so the kerning change is visible only in PowerPoint and Keynote, which have not opened it.
+
+Left as they are, on purpose: line spacing stays proportional (`spcPct`, for Google Slides, §The design); `ea` and `cs`
+name the run's family; and the theme is still Office's colors and fonts, a question put to the owner (a theme built
+from the deck would give PowerPoint's color picker and new text boxes the deck's palette and faces).
+
 ## Risks
 
 - **A reader rejects a part we write minimally.** PowerPoint is strict about content types and relationship ids.

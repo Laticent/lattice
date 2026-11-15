@@ -64,17 +64,19 @@ describe('calco pptx', () => {
     assert.equal(xml.match(/<p:pic>.*?<a:ext cx="(\d+)"/s)[1], slideCx, 'no 1px sliver at the right edge');
   });
 
-  test('a near-16:9 deck drawn on the wide slide: its picture covers the slide exactly, never past the edge', async () => {
+  test('a near-16:9 deck keeps its own aspect, and its picture covers the slide exactly', async () => {
     const zip = await JSZip.loadAsync(await writePptx(JSZip, { width: 1280, height: 722, slides: [{ image: ONE_PX_PNG, frames: [] }] }, 'nodebuffer'));
     const pres = await zip.file('ppt/presentation.xml').async('string');
     const [, cx, cy] = pres.match(/<p:sldSz cx="(\d+)" cy="(\d+)"/);
+    assert.deepEqual([cx, cy], ['12192000', String(Math.round((12192000 * 722) / 1280))]);
     const xml = await zip.file('ppt/slides/slide1.xml').async('string');
     assert.match(xml, new RegExp(`<p:pic>.*?<a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/>`, 's'));
   });
 
-  test('pptxPageSize: 16:9 is LAYOUT_WIDE, other aspects keep a 13.333in longest edge', () => {
-    assert.deepEqual(pptxPageSize(1280, 720), { w: 13.333, h: 7.5, wide: true });
-    assert.deepEqual(pptxPageSize(1080, 1920), { w: 7.5, h: 13.333, wide: false });
+  test('pptxPageSize: exact 16:9 is PowerPoint\'s wide slide, any other aspect keeps a 12192000 EMU longest edge', () => {
+    assert.deepEqual(pptxPageSize(1280, 720), { w: 13.333, h: 7.5, cx: 12192000, cy: 6858000, wide: true });
+    assert.deepEqual(pptxPageSize(1080, 1920), { w: 7.5, h: 13.333, cx: 6858000, cy: 12192000, wide: false });
+    assert.equal(pptxPageSize(1280, 722).wide, false);
   });
 });
 
