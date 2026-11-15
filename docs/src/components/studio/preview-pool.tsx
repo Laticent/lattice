@@ -145,30 +145,30 @@ export type PictureHandler = (capture: CapturePicture) => void;
 /** How long the pool's scroller must be still before a capture runs. A capture clones and inlines a slide on the main
  *  thread, so it never competes with a scroll the reader is making. */
 export const CAPTURE_QUIET_MS = 300;
-/** How long the READER must be still (no key, pointer, wheel or input anywhere on the page) before a capture runs. A
+/** How long the READER must be still (no key, pointer or wheel anywhere on the page) before a capture runs. A
  *  capture is one main-thread task that cannot be interrupted, and with the slide's fonts embedded it measured up to
  *  ~390 ms at 4x CPU; one that starts mid-word makes the next keystroke wait for it. A poster is never urgent: the live
  *  frame shows the slide meanwhile. Measured with a typing probe (map open, 4x CPU, 2026-11-15-studio-map-load-cost.md). */
 export const CAPTURE_INPUT_QUIET_MS = 1500;
 
-/** The last time the reader touched the page, shared by every pool. Listened for once, in the capture phase, passively. */
+/** The last time the reader touched the page, shared by every pool. Listened for once, in the capture phase, passively.
+ *  `keydown` covers typing, IME composition included (it fires as key 229), so there is no `input` listener. Exported
+ *  for preview-pool.test.tsx. */
 let lastInput = 0;
 let inputHeard = false;
-function hearInput() {
+export function hearInput() {
 	if (inputHeard || typeof window === 'undefined') return;
 	inputHeard = true;
 	const mark = () => {
 		lastInput = Date.now();
 	};
-	for (const type of ['keydown', 'pointerdown', 'wheel', 'input', 'compositionupdate']) window.addEventListener(type, mark, { capture: true, passive: true });
+	for (const type of ['keydown', 'pointerdown', 'wheel']) window.addEventListener(type, mark, { capture: true, passive: true });
 }
 /** Exported for preview-pool.test.tsx: the clock the capture gate reads. */
 export const readerQuietFor = () => Date.now() - lastInput;
 /** How long a capture must still wait, given how long the scroller and the reader have each been still: 0 means go.
  *  Pure, for preview-pool.test.tsx. */
 export const captureWait = (scrollStill: number, readerStill: number) => Math.max(0, CAPTURE_QUIET_MS - scrollStill, CAPTURE_INPUT_QUIET_MS - readerStill);
-/** Exported for preview-pool.test.tsx: start listening for the reader's input, as the first capture does. */
-export const listenForReader = () => hearInput();
 /** How long a slot must go without another render before its picture is offered for capture. A re-point that lands while
  *  a render is in flight is deferred and runs after it, and the in-flight render's own report would otherwise offer a
  *  picture of the slide the slot is leaving. */

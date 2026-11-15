@@ -34,7 +34,7 @@ vi.mock('@/components/DeckPreview', async () => {
 });
 
 import { slotShows } from './pool-capture';
-import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, listenForReader, PARK_MS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE, readerQuietFor, tierSlotCaps } from './preview-pool';
+import { APPLY_MS, BASE_SLOTS, CAPTURE_INPUT_QUIET_MS, CAPTURE_QUIET_MS, captureWait, FRAME_BLEED, HARD_MAX_SLOTS, hearInput, PARK_MS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE, readerQuietFor, tierSlotCaps } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
 // every tile as in band, which would make every assertion here vacuous.
@@ -962,7 +962,7 @@ describe('the capture gate waits for the reader as well as the scroller', () => 
 		expect(captureWait(CAPTURE_QUIET_MS, CAPTURE_INPUT_QUIET_MS - 100)).toBe(100);
 	});
 	it('hears a keystroke anywhere on the page', () => {
-		listenForReader();
+		hearInput();
 		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
 		expect(readerQuietFor()).toBeLessThan(CAPTURE_INPUT_QUIET_MS);
 	});

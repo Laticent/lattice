@@ -29,7 +29,7 @@ What shipped:
    vendored face the browser would pick), plus its icon faces and emoji slices, and nothing else. A capture whose faces
    cannot be had takes no picture: the live frame keeps drawing the tile, and a later capture tries again.
 4. **Captures wait for the reader** (`preview-pool.tsx` `CAPTURE_INPUT_QUIET_MS`). A capture is one main-thread task
-   that cannot be interrupted, so it waits until there has been no key, pointer, wheel or input anywhere on the page for
+   that cannot be interrupted, so it waits until there has been no key, pointer or wheel anywhere on the page for
    1.5 s, as well as for the rail to be still.
 5. **Two kinds of slide stay live.** A slide that shows a library photo (`asset:name`) keeps its frame: the photo can be
    replaced under the same name, so neither its text nor its key changes when its picture does. And the key carries a
