@@ -39,12 +39,16 @@ skipped and nothing was filed), and from `f3ead5f` (run 43765111442). Quick Look
   clipped label and the wrapped title match, the only difference being the shift below. Parity on those shapes:
   boxes within 45 EMU, label insets within 62 EMU, `wrap="none"` on both, the same font, size, weight and letter
   spacing, and the same 18 embedded font parts, byte-identical (sha256 of all 18, `9947d1ce536c3532`).
-- **A 1 pt shift: pptxgenjs's error, not ours.** 16 of 35 renders differ. On 14 of them text or a card sits exactly
-  2 render px (1 pt) further right or lower in this branch's file. Every one is a position pptxgenjs wrote 0.0024 pt
-  under a whole point because it rounded through inches (x 304770 EMU, 23.9976 pt, where the deck says 32 px, 24 pt;
-  this branch writes 304800). Apple truncates positions to whole points, so pptxgenjs's text landed 1 pt short of where
-  the browser drew it, and this branch's lands on it. 100 of 6,182 positions in the gallery cross a whole point that way.
-  The other two (gallery 49 and 106, 97 and 272 px) are anti-aliasing at the size of the exact line widths.
+- **A 1 pt shift: pptxgenjs's error, not ours.** 16 of 35 renders differ (10 gallery, 6 inline-icons). On 14 of
+  them a shape on the slide has an edge that pptxgenjs wrote 0.0024 pt under a whole point, because it rounded through
+  inches (x 304770 EMU, 23.9976 pt, where the deck says 32 px, 24 pt; this branch writes 304800). Measured on gallery
+  slides 100, 104, 109, 58, 51 and 80: the difference is the text moved exactly 2 render px (1 pt) right in this
+  branch's file. On 114 it is a card 1 pt lower. Apple truncates positions to whole points, so pptxgenjs's shapes landed 1 pt
+  short of where the browser drew them, and this branch's land on them.
+- **The other two.** Gallery 49 (272 px): a drawn chevron, whose line is now its exact width (26797 to 26756 EMU).
+  Gallery 106 (97 px): the left accent edge of a card draws about 1 px narrower. The parity reader finds no box or
+  stroke change on that slide. The one difference in its XML is `fill="none"` on the open path, which the spec gives an
+  open stroke, so that is the likely cause, not measured.
 - **Still open, and the reason this note exists:** PowerPoint, Keynote and Google Slides. Apple's importer is not
   PowerPoint: it substitutes fonts and truncates to points, so a clean Quick Look render says the package parses, not
   that PowerPoint shows it as the browser did.
