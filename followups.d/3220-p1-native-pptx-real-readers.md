@@ -25,3 +25,26 @@ done when — the gallery deck, light and dark, as a plain and an --editable .pp
             of slide 1 and of one card slide.
 evidence  — the screenshots, the app versions, and for any failure the part it names.
 verify    — tier 1 checker on the screenshots against the LibreOffice renders on PR #3220.
+
+## Apple's importer, main (pptxgenjs) against this branch (2026-11-15)
+
+The office-quicklook suite rendered the same 35 slides (`--custgeom-only` gallery and inline-icons) from `main` at
+`0ac483a4`, which still writes with pptxgenjs (run 43768439879, dispatched with `simulate: no-session`, so the iPhone half
+skipped and nothing was filed), and from `f3ead5f` (run 43765111442). Quick Look had 0 failures on both.
+
+- **Overflow: pre-existing, measured.** Apple ignores embedded fonts and sets text in a wider stand-in serif, so a few
+  boxes sized to the browser's font overflow: "RECOMMENDATION" is clipped on gallery slide 100, the "AFTER —
+  VERSION-FLOOR RECALIBRATION" pill wraps on slide 52, and the inline-icons slide 8 title wraps into its rule. main's
+  pptxgenjs file does the same: slide 52 is pixel-identical (0 px), and on slide 100 and inline-icons slide 8 the
+  clipped label and the wrapped title match, the only difference being the shift below. Parity on those shapes:
+  boxes within 45 EMU, label insets within 62 EMU, `wrap="none"` on both, the same font, size, weight and letter
+  spacing, and the same 18 embedded font parts, byte-identical (sha256 of all 18, `9947d1ce536c3532`).
+- **A 1 pt shift: pptxgenjs's error, not ours.** 16 of 35 renders differ. On 14 of them text or a card sits exactly
+  2 render px (1 pt) further right or lower in this branch's file. Every one is a position pptxgenjs wrote 0.0024 pt
+  under a whole point because it rounded through inches (x 304770 EMU, 23.9976 pt, where the deck says 32 px, 24 pt;
+  this branch writes 304800). Apple truncates positions to whole points, so pptxgenjs's text landed 1 pt short of where
+  the browser drew it, and this branch's lands on it. 100 of 6,182 positions in the gallery cross a whole point that way.
+  The other two (gallery 49 and 106, 97 and 272 px) are anti-aliasing at the size of the exact line widths.
+- **Still open, and the reason this note exists:** PowerPoint, Keynote and Google Slides. Apple's importer is not
+  PowerPoint: it substitutes fonts and truncates to points, so a clean Quick Look render says the package parses, not
+  that PowerPoint shows it as the browser did.
