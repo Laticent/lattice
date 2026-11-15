@@ -466,9 +466,13 @@ versions and how to update, and it looks like the site, not like an error page.
 - **Verified.** `old-browser-notice.test.ts` runs the served file in jsdom for ten user agents (Safari, iOS, Chrome on iOS,
   Chrome on Android and Windows, Edge, Firefox, Samsung Internet, Opera, Windows 7), the contradiction and unknown cases,
   the restore, and the docs table. `docs/e2e/old-browser.spec.ts` runs on Chromium (1440 and 390 px), WebKit (phone and
-  tablet) and Firefox. Screenshots at 1440, 820 and 390 px, light and dark, are in the PR. A REAL old browser (Safari 15,
-  Chrome 100) is **UNVERIFIED** from here: the e2e makes a current engine answer no to the probe and spoofs its user agent;
-  it does not run an old engine.
+  tablet) and Firefox. Screenshots at 1440, 820 and 390 px, light and dark, are in the PR. **A real old engine**, not a
+  stand-in: Chromium 101 (installed by Playwright 1.21 into a scratch folder) on the built site, with no feature override
+  and no faked user agent, lacks `:has()`, container queries and `color-mix()`, shows the notice ("Chrome 101 / Chrome 111
+  or newer", three steps), keeps Tab inside it through the `focusin` fallback (Chromium 101 predates `inert`), and restores
+  the page on "Continue anyway", across a reload, with no page errors, at 1440 and 390 px in both modes. Firefox 115 ESR
+  was downloaded but could not be launched in the sandbox, and real Safari 15 / iOS 15 was not reachable: both
+  **UNVERIFIED**.
 
 ## 7. Decisions (owner, 2026-11-12)
 
