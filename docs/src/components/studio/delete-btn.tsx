@@ -35,7 +35,10 @@ export function DeleteBtn({ armed, onArm, onConfirm, onCancel, label, labelClass
 		};
 	}, [armed, onCancel]);
 	return armed ? (
-		<button ref={ref} type="button" onClick={onConfirm} aria-label={`Confirm delete ${label}`} className="flex items-center gap-1 rounded-lg border border-[color-mix(in_srgb,var(--fail,#c0392b)_40%,transparent)] bg-[color-mix(in_srgb,var(--fail,#c0392b)_12%,transparent)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--fail,#c0392b)]"><Trash2 className="size-3.5" /><span className={labelClass}>Sure?</span></button>
+		// Esc cancels an armed delete, and claims the key (preventDefault): a pane closes on Esc when focus is inside
+		// it (2026-11-15-one-side-pane.md), and the innermost thing must take Esc first, as a tooltip or menu does.
+		// Before that, Esc here did nothing and only the 3s timer disarmed it.
+		<button ref={ref} type="button" onClick={onConfirm} onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onCancel(); } }} aria-label={`Confirm delete ${label}`} className="flex items-center gap-1 rounded-lg border border-[color-mix(in_srgb,var(--fail,#c0392b)_40%,transparent)] bg-[color-mix(in_srgb,var(--fail,#c0392b)_12%,transparent)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--fail,#c0392b)]"><Trash2 className="size-3.5" /><span className={labelClass}>Sure?</span></button>
 	) : (
 		<button type="button" onClick={onArm} aria-label={`Delete ${label}`} className="grid place-items-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-muted-foreground hover:text-[var(--fail,#c0392b)]"><Trash2 className="size-3.5" /></button>
 	);
