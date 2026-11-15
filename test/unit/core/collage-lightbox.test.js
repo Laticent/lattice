@@ -167,8 +167,30 @@ test.before(async () => {
 });
 
 const SET = ['https://a.test/1.jpg', 'https://a.test/2.jpg', 'https://a.test/3.jpg', 'https://a.test/4.jpg'].map((src, i) => ({ src, alt: `Photo ${i + 1}` }));
-const stepper = (extra = {}) => {
+// JSDOM loads no image and lays nothing out, so every photo is a 0×0 box that never arrives. A real
+// browser gives the photo its size; `withLayout` stands in for that: every image reads as loaded at
+// 800×500 and every box measures 800×500. `loaded: false` keeps the photo pending until the test
+// fires its `load`, which is the window #3197 is about.
+const W = 800;
+const H = 500;
+function withLayout(win, { loaded = true } = {}) {
+  const state = { loaded };
+  const IMG = win.HTMLImageElement.prototype;
+  Object.defineProperty(IMG, 'complete', { configurable: true, get: () => state.loaded });
+  Object.defineProperty(IMG, 'naturalWidth', { configurable: true, get: () => (state.loaded ? W : 0) });
+  const EL = win.HTMLElement.prototype;
+  const sizeOf = () => (state.loaded ? { w: W, h: H } : { w: 0, h: 0 });
+  Object.defineProperty(EL, 'offsetWidth', { configurable: true, get: () => sizeOf().w });
+  Object.defineProperty(EL, 'offsetHeight', { configurable: true, get: () => sizeOf().h });
+  EL.getBoundingClientRect = () => {
+    const { w, h } = sizeOf();
+    return { left: 0, top: 0, right: w, bottom: h, width: w, height: h, x: 0, y: 0 };
+  };
+  return state;
+}
+const stepper = (extra = {}, layout = {}) => {
   const p = page();
+  const lay = withLayout(p.win, layout);
   const h = open(p.doc, { items: SET, index: 0, reducedMotion: true, kernel, ...extra });
   const root = p.doc.querySelector('.collage-lightbox');
   const key = (k, init = {}) => {
@@ -177,7 +199,7 @@ const stepper = (extra = {}) => {
     return e;
   };
   const shown = () => ({ src: root.querySelector('img').getAttribute('src'), caption: root.querySelector('p').textContent, count: root.querySelectorAll('p')[1].textContent });
-  return { ...p, h, root, key, shown };
+  return { ...p, h, root, key, shown, lay };
 };
 
 test('stepping: arrows, page keys, Home and End walk the photos in written order and wrap', () => {
@@ -447,6 +469,167 @@ test('zoom: a resize re-clamps the pan, and the pill is a corner control that ha
   key('+');
   win.dispatchEvent(new win.Event('resize'));
   assert.ok(scaleOf(root) > 1, 'a resize leaves the zoom in place');
+});
+
+// ── zoom before the photo has its size (#3197) ─────────────────────────────────────────────
+// Until the photo loads the frame is a 0×0 box: a zoom computed against it pins the top-left
+// corner, and the open glide then runs under a zoomed photo. A step key is queued and replayed about
+// the center once the photo lands; an anchored gesture has nothing to aim at and is dropped.
+const translateOf = (root) => {
+  const m = /translate\(([-\d.e]+)px,\s*([-\d.e]+)px\)/.exec(root.querySelector('img').style.transform);
+  return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 0, y: 0 };
+};
+const arrive = (s) => {
+  s.lay.loaded = true;
+  s.root.querySelector('img').dispatchEvent(new s.win.Event('load'));
+};
+
+test('zoom before load: + pressed while the photo loads is replayed about the center once it lands', () => {
+  const s = stepper({}, { loaded: false });
+  s.key('+');
+  s.key('+');
+  s.key('+');
+  assert.equal(scaleOf(s.root), 1, 'nothing zooms a photo that has no size yet');
+  assert.equal(pillOf(s.root).style.display, 'none');
+  arrive(s);
+  const k = 1.25 ** 3;
+  assert.ok(Math.abs(scaleOf(s.root) - k) < 1e-6, `the three presses land: ${scaleOf(s.root)}`);
+  const t = translateOf(s.root);
+  assert.ok(Math.abs(t.x - (W / 2) * (1 - k)) < 1e-6, `centered horizontally, not pinned to the left edge: ${t.x}`);
+  assert.ok(Math.abs(t.y - (H / 2) * (1 - k)) < 1e-6, `centered vertically, not pinned to the top edge: ${t.y}`);
+  assert.notEqual(pillOf(s.root).style.display, 'none', 'the pill says the scale');
+});
+
+test('zoom before load: the keys replay in order, and 0 clears what was queued', () => {
+  const a = stepper({}, { loaded: false });
+  a.key('-');
+  a.key('+');
+  arrive(a);
+  assert.ok(Math.abs(scaleOf(a.root) - 1.25) < 1e-6, `- then + is fit then 125%, as if pressed after load: ${scaleOf(a.root)}`);
+  const b = stepper({}, { loaded: false });
+  b.key('+');
+  b.key('+');
+  b.key('0');
+  arrive(b);
+  assert.equal(scaleOf(b.root), 1, '0 returns to fit, queued presses included');
+});
+
+test('zoom before load: a double click, ctrl + wheel or a pinch has nothing to aim at and is dropped', () => {
+  const s = stepper({}, { loaded: false });
+  const img = s.root.querySelector('img');
+  img.dispatchEvent(new s.win.MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }));
+  wheel(s.win, s.root, { deltaY: -400, ctrlKey: true });
+  s.root.dispatchEvent(touch(s.win, 'touchstart', [[100, 200], [140, 200]]));
+  s.root.dispatchEvent(touch(s.win, 'touchmove', [[60, 200], [180, 200]]));
+  s.root.dispatchEvent(touch(s.win, 'touchend', [], [[60, 200], [180, 200]]));
+  assert.equal(scaleOf(s.root), 1);
+  arrive(s);
+  assert.equal(scaleOf(s.root), 1, 'nothing was queued: the photo opens at fit');
+  assert.equal(s.h.index(), 0);
+});
+
+test('zoom before load: a photo that fails to load drops the queue and keeps zoom off', () => {
+  const s = stepper({}, { loaded: false });
+  s.key('+');
+  s.root.querySelector('img').dispatchEvent(new s.win.Event('error'));
+  assert.equal(scaleOf(s.root), 1);
+  s.key('+');
+  assert.equal(scaleOf(s.root), 1, 'a broken photo has no size to zoom against');
+});
+
+test('zoom before load: a step to a photo still loading queues the same way', () => {
+  const s = stepper();
+  s.lay.loaded = false;
+  s.key('ArrowRight');
+  s.key('+');
+  assert.equal(scaleOf(s.root), 1, 'the new photo has no size yet');
+  arrive(s);
+  assert.ok(Math.abs(scaleOf(s.root) - 1.25) < 1e-6, `it lands on the new photo: ${scaleOf(s.root)}`);
+  assert.equal(s.h.index(), 1);
+});
+
+// The arms above run with reduced motion, where the glide lands at once. These run the glide frame by
+// frame on a manual rAF and clock, so "the glide never runs under a zoomed photo" is read, not assumed.
+function motion(win) {
+  const frames = [];
+  const clock = { t: 1000 };
+  win.performance.now = () => clock.t;
+  win.requestAnimationFrame = (fn) => frames.push(fn);
+  win.cancelAnimationFrame = () => frames.splice(0);
+  const tick = (ms = 16) => {
+    clock.t += ms;
+    const run = frames.splice(0);
+    for (const fn of run) fn(clock.t);
+    return frames.length;
+  };
+  return { tick, land: () => { for (let i = 0; i < 200 && tick(); i++); } };
+}
+const TILED = SET.map((it, i) => ({ ...it, from: { left: 10 + i * 60, top: 10, width: 50, height: 30 } }));
+const frameOf = (root) => root.querySelector('img').parentElement;
+
+test('zoom before load, with motion: the queued keys wait for the open glide to land', () => {
+  const p = page();
+  const lay = withLayout(p.win, { loaded: false });
+  const m = motion(p.win);
+  const h = open(p.doc, { items: TILED, index: 0, reducedMotion: false, kernel });
+  const root = p.doc.querySelector('.collage-lightbox');
+  const key = (k) => p.doc.dispatchEvent(new p.win.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+  key('+');
+  lay.loaded = true;
+  root.querySelector('img').dispatchEvent(new p.win.Event('load'));
+  m.tick();
+  assert.notEqual(frameOf(root).style.transform, '', 'the open glide is running');
+  assert.equal(scaleOf(root), 1, 'and the photo under it is not zoomed');
+  m.land();
+  assert.equal(frameOf(root).style.transform, '', 'the glide has landed');
+  assert.ok(Math.abs(scaleOf(root) - 1.25) < 1e-6, `then the key lands, about the center: ${scaleOf(root)}`);
+  assert.ok(Math.abs(translateOf(root).x - (W / 2) * (1 - 1.25)) < 1e-6);
+  h.closeNow();
+});
+
+test('zoom before load, with motion: a key during the glide finishes it and replays the queue first, in order', () => {
+  const p = page();
+  const lay = withLayout(p.win, { loaded: false });
+  const m = motion(p.win);
+  open(p.doc, { items: TILED, index: 0, reducedMotion: false, kernel });
+  const root = p.doc.querySelector('.collage-lightbox');
+  const key = (k) => p.doc.dispatchEvent(new p.win.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+  key('+');
+  lay.loaded = true;
+  root.querySelector('img').dispatchEvent(new p.win.Event('load'));
+  m.tick();
+  key('+');
+  assert.equal(frameOf(root).style.transform, '', 'the zoom finished the glide first');
+  assert.ok(Math.abs(scaleOf(root) - 1.25 ** 2) < 1e-6, `both presses, queued one first: ${scaleOf(root)}`);
+});
+
+test('zoom before load, with motion: a step before the first photo loads starts no glide on the next photo', () => {
+  // The first photo's open-glide listener used to fire on the NEXT photo's load: it glided from the
+  // wrong tile while the queued key zoomed the photo under it (the checker on #3197).
+  const p = page();
+  const lay = withLayout(p.win, { loaded: false });
+  const m = motion(p.win);
+  const h = open(p.doc, { items: TILED, index: 0, reducedMotion: false, kernel });
+  const root = p.doc.querySelector('.collage-lightbox');
+  const key = (k) => p.doc.dispatchEvent(new p.win.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+  key('ArrowRight');
+  key('+');
+  lay.loaded = true;
+  root.querySelector('img').dispatchEvent(new p.win.Event('load'));
+  m.tick();
+  assert.equal(frameOf(root).style.transform, '', 'no glide runs on a stepped-to photo');
+  assert.ok(Math.abs(scaleOf(root) - 1.25) < 1e-6, `the key lands on the new photo: ${scaleOf(root)}`);
+  assert.equal(h.index(), 1);
+});
+
+test('zoom before load: two fingers that land before the photo do not anchor a pinch on the empty frame', () => {
+  const s = stepper({}, { loaded: false });
+  s.root.dispatchEvent(touch(s.win, 'touchstart', [[0, 0], [10, 0]]));
+  arrive(s);
+  s.root.dispatchEvent(touch(s.win, 'touchmove', [[300, 250], [500, 250]]));
+  assert.equal(scaleOf(s.root), 1, 'the first move after the load is the baseline, not a 20x pinch');
+  s.root.dispatchEvent(touch(s.win, 'touchmove', [[250, 250], [550, 250]]));
+  assert.ok(Math.abs(scaleOf(s.root) - 1.5) < 1e-6, `then it pinches from there: ${scaleOf(s.root)}`);
 });
 
 // ── wheel stepping (#2641 P2) and digit jumps (#2635 P3) ───────────────────────────────────────

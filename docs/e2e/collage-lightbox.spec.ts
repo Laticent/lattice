@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
 import { expect, gotoStudio, livePreview, setEditorContent, test } from './studio-fixture';
 
@@ -488,6 +489,7 @@ test('@parity a swipe on the open photo steps to the next or previous one', asyn
 // opener only feeds it points and paints what it returns. These arms drive the real inputs: a
 // trackpad pinch (ctrl + wheel), the keys, a mouse drag, and a two-finger pinch through the
 // browser's own touch pipeline.
+const SAMPLE_WIDE = fileURLToPath(new URL('../../lib/samples/photo-wide.jpg', import.meta.url));
 const imgScale = (page: Page) =>
 	page.evaluate(() => {
 		const el = document.querySelector('.collage-lightbox img') as HTMLElement;
@@ -573,6 +575,50 @@ test('@smoke a mouse drag pans a zoomed photo, and stays inside the photo\'s own
 	expect(edge.x).toBeLessThanOrEqual(0.0001);
 	expect(edge.y).toBeLessThanOrEqual(0.0001);
 	await expect(lightbox(page)).toBeVisible();
+});
+
+// #3197: + pressed before the photo has its size was computed against a 0×0 frame, so the photo
+// zoomed toward its top-left corner and the open glide ran under the zoomed photo. Hold the photo's
+// request until after the presses, so the window is certain instead of a race under load: the keys
+// must land once the photo has, about its center, after the glide.
+test('@smoke + pressed while the photo is still loading zooms it about its center once it lands', async ({ page }) => {
+	// The tile fetches this photo for the preview frame first. `no-store` keeps the lightbox's own
+	// document from reusing that copy, so its request comes through the route and can be held.
+	let release: () => void = () => {};
+	const gate = new Promise<void>((r) => {
+		release = r;
+	});
+	let hold = false;
+	let held = 0;
+	await page.route(/photo-wide\.jpg($|\?)/, async (route) => {
+		if (hold) {
+			held++;
+			await gate;
+		}
+		await route.fulfill({ path: SAMPLE_WIDE, contentType: 'image/jpeg', headers: { 'cache-control': 'no-store' } });
+	});
+	await openStudioDeck(page);
+	hold = true;
+	const at = await photoAt(page, 1);
+	await page.mouse.click(at.x, at.y);
+	await expect(lightbox(page)).toBeVisible({ timeout: 15_000 });
+	await expect.poll(() => held, { message: 'the lightbox photo request was never held' }).toBeGreaterThan(0);
+	const img = lightbox(page).locator('img');
+	expect(await img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(0);
+	await page.keyboard.press('+');
+	await page.keyboard.press('+');
+	await page.keyboard.press('+');
+	expect((await imgScale(page)).scale, 'nothing zooms a photo with no size').toBe(1);
+	release();
+	await glideDone(page);
+	await expect.poll(async () => (await imgScale(page)).scale).toBeGreaterThan(1.9);
+	const s = await imgScale(page);
+	const v = await img.evaluate((el) => ({ w: (el.parentElement as HTMLElement).offsetWidth, h: (el.parentElement as HTMLElement).offsetHeight }));
+	expect(v.w, 'the frame took the photo\'s size').toBeGreaterThan(50);
+	// About the center: translate = (1 - scale) × half the frame. Toward the corner it would be 0.
+	expect(s.x).toBeCloseTo((v.w / 2) * (1 - s.scale), 0);
+	expect(s.y).toBeCloseTo((v.h / 2) * (1 - s.scale), 0);
+	await expect(zoomPill(page)).toBeVisible();
 });
 
 test('@parity a two-finger pinch zooms the open photo and does not step; one finger then pans, not swipes', async ({ page }, info) => {
