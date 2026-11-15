@@ -96,8 +96,13 @@ describe('DeleteBtn — Esc cancels an armed delete and claims the key', () => {
 		render(<Harness />);
 		fireEvent.click(screen.getByRole('button', { name: 'Delete Test item' }));
 		const armed = screen.getByRole('button', { name: 'Confirm delete Test item' });
+		// A window listener stands in for the shell's Esc handler: the armed delete owns the key, so it never arrives.
+		const reached = vi.fn();
+		window.addEventListener('keydown', reached);
 		const handled = !fireEvent.keyDown(armed, { key: 'Escape' });
+		window.removeEventListener('keydown', reached);
 		expect(handled).toBe(true); // fireEvent returns false when preventDefault was called
+		expect(reached).not.toHaveBeenCalled();
 		expect(screen.getByRole('button', { name: 'Delete Test item' })).toBeInTheDocument();
 	});
 });
